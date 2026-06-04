@@ -32,6 +32,13 @@ class ReconciliationCheckResult:
     artifact_payload: dict[str, object]
 
 
+@dataclass(frozen=True)
+class _PositionReconciliationGapAnalysis:
+    overlapping_dates: list[str]
+    gap_details: list[dict[str, object]]
+    max_abs_gap_amount: Decimal
+
+
 def run_reconciliation_checks(
     *,
     performance_request: PerformanceRequest,
@@ -206,29 +213,13 @@ def analyze_portfolio_position_reconciliation(
             )
         )
 
-    overlapping_dates = sorted(set(portfolio_end_by_date) & set(position_end_by_date))
-    gap_details = []
-    max_abs_gap_amount = Decimal("0")
-    for valuation_date in overlapping_dates:
-        portfolio_end = portfolio_end_by_date[valuation_date]
-        position_end = position_end_by_date[valuation_date]
-        gap_amount = portfolio_end - position_end
-        tolerance = max(_ABSOLUTE_GAP_TOLERANCE, abs(portfolio_end) * _RELATIVE_GAP_TOLERANCE)
-        if abs(gap_amount) <= tolerance:
-            continue
-        max_abs_gap_amount = max(max_abs_gap_amount, abs(gap_amount))
-        gap_pct = None
-        if portfolio_end != 0:
-            gap_pct = _decimal_pct_to_float((gap_amount / portfolio_end) * Decimal("100"))
-        gap_details.append(
-            {
-                "valuation_date": valuation_date,
-                "portfolio_end_mv": _decimal_to_artifact(portfolio_end),
-                "latest_position_end_mv": _decimal_to_artifact(position_end),
-                "gap_amount": _decimal_to_artifact(gap_amount),
-                "gap_pct_of_portfolio_end": gap_pct,
-            }
-        )
+    gap_analysis = _analyze_position_reconciliation_gaps(
+        portfolio_end_by_date=portfolio_end_by_date,
+        position_end_by_date=position_end_by_date,
+    )
+    overlapping_dates = gap_analysis.overlapping_dates
+    gap_details = gap_analysis.gap_details
+    max_abs_gap_amount = gap_analysis.max_abs_gap_amount
 
     if gap_details:
         findings.append(
@@ -328,6 +319,41 @@ def analyze_portfolio_position_reconciliation(
             "position_continuity_gap_count": len(position_continuity_gap_samples),
             "position_continuity_gap_samples": position_continuity_gap_samples[:_RECONCILIATION_SAMPLE_LIMIT],
         },
+    )
+
+
+def _analyze_position_reconciliation_gaps(
+    *,
+    portfolio_end_by_date: dict[str, Decimal],
+    position_end_by_date: dict[str, Decimal],
+) -> _PositionReconciliationGapAnalysis:
+    overlapping_dates = sorted(set(portfolio_end_by_date) & set(position_end_by_date))
+    gap_details: list[dict[str, object]] = []
+    max_abs_gap_amount = Decimal("0")
+    for valuation_date in overlapping_dates:
+        portfolio_end = portfolio_end_by_date[valuation_date]
+        position_end = position_end_by_date[valuation_date]
+        gap_amount = portfolio_end - position_end
+        tolerance = max(_ABSOLUTE_GAP_TOLERANCE, abs(portfolio_end) * _RELATIVE_GAP_TOLERANCE)
+        if abs(gap_amount) <= tolerance:
+            continue
+        max_abs_gap_amount = max(max_abs_gap_amount, abs(gap_amount))
+        gap_pct = None
+        if portfolio_end != 0:
+            gap_pct = _decimal_pct_to_float((gap_amount / portfolio_end) * Decimal("100"))
+        gap_details.append(
+            {
+                "valuation_date": valuation_date,
+                "portfolio_end_mv": _decimal_to_artifact(portfolio_end),
+                "latest_position_end_mv": _decimal_to_artifact(position_end),
+                "gap_amount": _decimal_to_artifact(gap_amount),
+                "gap_pct_of_portfolio_end": gap_pct,
+            }
+        )
+    return _PositionReconciliationGapAnalysis(
+        overlapping_dates=overlapping_dates,
+        gap_details=gap_details,
+        max_abs_gap_amount=max_abs_gap_amount,
     )
 
 

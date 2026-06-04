@@ -7,6 +7,31 @@ from app.services.inspection import reconciliation
 from app.services.inspection.reconciliation import analyze_portfolio_position_reconciliation
 
 
+def test_analyze_position_reconciliation_gaps_applies_tolerance_and_preserves_gap_evidence():
+    gap_analysis = reconciliation._analyze_position_reconciliation_gaps(
+        portfolio_end_by_date={
+            "2026-01-01": Decimal("100.00"),
+            "2026-01-02": Decimal("100.00"),
+        },
+        position_end_by_date={
+            "2026-01-01": Decimal("99.995"),
+            "2026-01-02": Decimal("99.00"),
+        },
+    )
+
+    assert gap_analysis.overlapping_dates == ["2026-01-01", "2026-01-02"]
+    assert gap_analysis.max_abs_gap_amount == Decimal("1.00")
+    assert gap_analysis.gap_details == [
+        {
+            "valuation_date": "2026-01-02",
+            "portfolio_end_mv": "100.00",
+            "latest_position_end_mv": "99.00",
+            "gap_amount": "1.00",
+            "gap_pct_of_portfolio_end": 1.0,
+        }
+    ]
+
+
 def test_analyze_portfolio_position_reconciliation_flags_mixed_epochs_and_gap():
     performance_request = PerformanceRequest(
         portfolio_id="PB_SG_GLOBAL_BAL_001",

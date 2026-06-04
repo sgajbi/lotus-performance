@@ -23,7 +23,7 @@ python scripts/python_function_size_inventory.py --limit 15
 | 1 | `build_source_economics_findings` | `app/services/inspection/source_economics_findings.py:7` | 389 |
 | 2 | `build_integration_capabilities_report` | `app/services/integration_capabilities_service.py:92` | 354 |
 | 3 | `calculate_contribution` | `app/services/contribution_service.py:178` | 335 |
-| 4 | `analyze_portfolio_position_reconciliation` | `app/services/inspection/reconciliation.py:82` | 250 |
+| 4 | `analyze_portfolio_position_reconciliation` | `app/services/inspection/reconciliation.py:89` | 234 |
 | 5 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:64` | 197 |
 | 6 | `DurableQueueCollector.collect` | `app/services/queue_metrics_service.py:227` | 188 |
 | 7 | `build_attribution_supportability_evidence` | `engine/attribution_supportability.py:42` | 184 |
