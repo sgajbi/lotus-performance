@@ -6,7 +6,7 @@ import pytest
 from app.api.endpoints.contribution import _as_numeric
 from app.models.contribution_analytics_requests import ContributionAnalyticsRequest
 from app.models.contribution_requests import ContributionRequest
-from app.models.contribution_responses import DailyContribution
+from app.models.contribution_responses import DailyContribution, PositionContribution
 from app.services.contribution_audit import AverageWeightShadowAuditState
 from app.services.contribution_calculation_workflow_service import (
     accepted_contribution_response,
@@ -59,6 +59,7 @@ from app.services.contribution_series import (
 )
 from app.services.contribution_service import (
     _build_period_average_weight_methodology_status,
+    _build_period_contribution_series_outputs,
     _record_period_timeseries_total_delta,
     _select_period_average_weight_column,
 )
@@ -309,6 +310,83 @@ def test_select_period_average_weight_column_blocks_candidate_period_with_residu
 
     assert selected_column == "average_weight"
     assert is_promoted is False
+
+
+def test_build_period_contribution_series_outputs_omits_optional_series_when_not_requested():
+    period_slice_df = pd.DataFrame(
+        {
+            "position_id": ["A"],
+            PortfolioColumns.PERF_DATE.value: [pd.Timestamp("2025-01-01").date()],
+            "smoothed_contribution": [0.01],
+            "daily_weight": [1.0],
+        }
+    )
+
+    position_series, daily_series, emitted_position_series = _build_period_contribution_series_outputs(
+        period_slice_df=period_slice_df,
+        position_contributions=[],
+        emit_timeseries=False,
+        emit_by_position_timeseries=False,
+    )
+
+    assert position_series == []
+    assert daily_series is None
+    assert emitted_position_series is None
+
+
+def test_build_period_contribution_series_outputs_builds_daily_series_when_requested():
+    period_slice_df = pd.DataFrame(
+        {
+            "position_id": ["A", "A"],
+            PortfolioColumns.PERF_DATE.value: [
+                pd.Timestamp("2025-01-01").date(),
+                pd.Timestamp("2025-01-02").date(),
+            ],
+            "smoothed_contribution": [0.01, 0.02],
+            "daily_weight": [1.0, 1.0],
+        }
+    )
+    position_contributions = [
+        PositionContribution(position_id="A", total_contribution=3.0, average_weight=100.0, total_return=3.0)
+    ]
+
+    position_series, daily_series, emitted_position_series = _build_period_contribution_series_outputs(
+        period_slice_df=period_slice_df,
+        position_contributions=position_contributions,
+        emit_timeseries=True,
+        emit_by_position_timeseries=False,
+    )
+
+    assert len(position_series) == 1
+    assert daily_series is not None
+    assert [point.total_contribution for point in daily_series] == pytest.approx([1.0, 2.0])
+    assert emitted_position_series is None
+
+
+def test_build_period_contribution_series_outputs_forces_position_series_for_hierarchy():
+    period_slice_df = pd.DataFrame(
+        {
+            "position_id": ["A"],
+            PortfolioColumns.PERF_DATE.value: [pd.Timestamp("2025-01-01").date()],
+            "smoothed_contribution": [0.01],
+            "daily_weight": [1.0],
+        }
+    )
+    position_contributions = [
+        PositionContribution(position_id="A", total_contribution=1.0, average_weight=100.0, total_return=1.0)
+    ]
+
+    position_series, daily_series, emitted_position_series = _build_period_contribution_series_outputs(
+        period_slice_df=period_slice_df,
+        position_contributions=position_contributions,
+        emit_timeseries=False,
+        emit_by_position_timeseries=False,
+        force_position_series=True,
+    )
+
+    assert len(position_series) == 1
+    assert daily_series is None
+    assert emitted_position_series is None
 
 
 def test_contribution_period_helpers_slice_frames_and_extract_reset_dates():

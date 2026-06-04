@@ -9,6 +9,8 @@ from app.models.contribution_responses import (
     AverageWeightMethodologyStatus,
     ContributionResponse,
     DailyContribution,
+    PositionContribution,
+    PositionContributionSeries,
     SinglePeriodContributionResult,
 )
 from app.services.analytics_observation_dates import observation_date_series
@@ -155,6 +157,24 @@ def _select_period_average_weight_column(
     return selected_average_weight_column, use_reset_aware_average_weight
 
 
+def _build_period_contribution_series_outputs(
+    *,
+    period_slice_df,
+    position_contributions: list[PositionContribution],
+    emit_timeseries: bool,
+    emit_by_position_timeseries: bool,
+    force_position_series: bool = False,
+) -> tuple[list[PositionContributionSeries], list[DailyContribution] | None, list[PositionContributionSeries] | None]:
+    position_series = (
+        _build_residual_adjusted_position_timeseries(period_slice_df, position_contributions)
+        if emit_by_position_timeseries or emit_timeseries or force_position_series
+        else []
+    )
+    daily_series = _build_residual_adjusted_daily_contribution_series(position_series) if emit_timeseries else None
+    emitted_position_series = position_series if emit_by_position_timeseries else None
+    return position_series, daily_series, emitted_position_series
+
+
 def calculate_contribution(
     request: ContributionRequest,
     *,
@@ -244,17 +264,13 @@ def calculate_contribution(
                     period_end_date=period.end_date,
                     average_weight_column="average_weight",
                 )
-                position_series = (
-                    _build_residual_adjusted_position_timeseries(period_slice_df, position_contributions)
-                    if request.emit.by_position_timeseries or request.emit.timeseries or request.hierarchy
-                    else []
+                position_series, daily_series, emitted_position_series = _build_period_contribution_series_outputs(
+                    period_slice_df=period_slice_df,
+                    position_contributions=position_contributions,
+                    emit_timeseries=request.emit.timeseries,
+                    emit_by_position_timeseries=request.emit.by_position_timeseries,
+                    force_position_series=True,
                 )
-                daily_series = (
-                    _build_residual_adjusted_daily_contribution_series(position_series)
-                    if request.emit.timeseries
-                    else None
-                )
-                emitted_position_series = position_series if request.emit.by_position_timeseries else None
                 period_results = _build_hierarchy_from_adjusted_position_series(
                     period_slice_df=period_slice_df,
                     position_series=position_series,
@@ -360,17 +376,12 @@ def calculate_contribution(
                     _calculate_average_weight_sum_residual_bp(position_contributions),
                 )
 
-                position_series = (
-                    _build_residual_adjusted_position_timeseries(period_slice_df, position_contributions)
-                    if request.emit.by_position_timeseries or request.emit.timeseries
-                    else []
+                position_series, daily_series, emitted_position_series = _build_period_contribution_series_outputs(
+                    period_slice_df=period_slice_df,
+                    position_contributions=position_contributions,
+                    emit_timeseries=request.emit.timeseries,
+                    emit_by_position_timeseries=request.emit.by_position_timeseries,
                 )
-                daily_series = (
-                    _build_residual_adjusted_daily_contribution_series(position_series)
-                    if request.emit.timeseries
-                    else None
-                )
-                emitted_position_series = position_series if request.emit.by_position_timeseries else None
                 period_average_weight_sum_residual_bp = _calculate_average_weight_sum_residual_bp(
                     position_contributions
                 )

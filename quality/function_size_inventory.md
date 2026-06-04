@@ -22,7 +22,7 @@ python scripts/python_function_size_inventory.py --limit 15
 | ---: | --- | --- | ---: |
 | 1 | `build_source_economics_findings` | `app/services/inspection/source_economics_findings.py:7` | 509 |
 | 2 | `build_integration_capabilities_report` | `app/services/integration_capabilities_service.py:92` | 354 |
-| 3 | `calculate_contribution` | `app/services/contribution_service.py:158` | 344 |
+| 3 | `calculate_contribution` | `app/services/contribution_service.py:178` | 335 |
 | 4 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:54` | 251 |
 | 5 | `analyze_portfolio_position_reconciliation` | `app/services/inspection/reconciliation.py:82` | 250 |
 | 6 | `resolve_stateful_returns_series_request` | `app/services/returns_series_service.py:935` | 226 |
