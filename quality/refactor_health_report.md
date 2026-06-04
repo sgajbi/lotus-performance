@@ -77,8 +77,9 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Bandit high findings | unknown | unknown | not-yet-measured | `bandit` not installed |
-| Bandit medium findings | unknown | unknown | not-yet-measured | `bandit` not installed |
+| Bandit high findings | unknown | 0 | measured | `quality/python_security_inventory.md` via `scripts/python_security_inventory.py` |
+| Bandit medium findings | unknown | 0 | measured | `quality/python_security_inventory.md` via `scripts/python_security_inventory.py` |
+| Bandit low findings | unknown | 5 | measured | `quality/python_security_inventory.md` via `scripts/python_security_inventory.py` |
 | Dependency vulnerabilities | unknown | 0 | measured | `quality/dependency_security_report.md` via repo-native dependency-health audit |
 | Dependency hygiene findings | unknown | 0 | measured | `quality/dependency_hygiene_report.md` via `scripts/python_dependency_hygiene_inventory.py` |
 

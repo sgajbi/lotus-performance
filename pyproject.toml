@@ -42,6 +42,7 @@ mypy = "^1.11.2"
 radon = "^6.0.1"
 vulture = "^2.16"
 deptry = "^0.25.1"
+bandit = "^1.9.4"
 
 
 [build-system]
