@@ -7,6 +7,7 @@ from common.enums import AttributionModel
 from engine.attribution import (
     _align_and_prepare_data,
     _build_group_key_dict,
+    _build_instrument_attribution_panel,
     _calculate_currency_attribution_effects,
     _calculate_group_context_metrics,
     _calculate_single_period_effects,
@@ -18,6 +19,21 @@ from engine.attribution import (
     run_attribution_calculations,
 )
 from engine.attribution_supportability import classify_attribution_residual
+from engine.config import EngineConfig
+
+
+def _build_test_twr_config(request: AttributionRequest) -> EngineConfig:
+    return EngineConfig(
+        performance_start_date=request.report_start_date,
+        report_start_date=request.report_start_date,
+        report_end_date=request.report_end_date,
+        metric_basis=request.portfolio_data.metric_basis,
+        period_type=request.analyses[0].period,
+        currency_mode=request.currency_mode,
+        report_ccy=request.report_ccy,
+        fx=request.fx,
+        hedging=request.hedging,
+    )
 
 
 @pytest.fixture
@@ -419,6 +435,92 @@ def test_prepare_data_from_instruments_preserves_unclassified_weight():
     weights_by_sector = {group.key["sector"]: group.observations[0]["weight_bop"] for group in result_groups}
 
     assert weights_by_sector == pytest.approx({"Tech": 0.6, "unknown": 0.4})
+
+
+def test_build_instrument_attribution_panel_uses_base_weight_points():
+    request = AttributionRequest.model_validate(
+        {
+            "portfolio_id": "ATTR_BASE_WEIGHT",
+            "mode": "by_instrument",
+            "group_by": ["sector"],
+            "linking": "none",
+            "frequency": "daily",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-01",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "portfolio_data": {
+                "metric_basis": "NET",
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+            },
+            "instruments_data": [
+                {
+                    "instrument_id": "AAPL",
+                    "meta": {
+                        "sector": "Tech",
+                        "base_weight_points": [
+                            {"perf_date": "2025-01-01", "begin_mv": 250, "bod_cf": 50},
+                        ],
+                    },
+                    "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 900, "end_mv": 909}],
+                }
+            ],
+            "benchmark_groups_data": [],
+        }
+    )
+
+    panel = _build_instrument_attribution_panel(
+        inst=request.instruments_data[0],
+        request=request,
+        twr_config=_build_test_twr_config(request),
+        portfolio_bop_mv=pd.Series([1000.0], index=[pd.Timestamp("2025-01-01")]),
+    )
+
+    assert panel is not None
+    row = panel.iloc[0]
+    assert row["weight_bop"] == pytest.approx(0.3)
+    assert row["return_base"] == pytest.approx(0.01)
+    assert row["sector"] == "Tech"
+
+
+def test_build_instrument_attribution_panel_backfills_same_currency_returns():
+    request = AttributionRequest.model_validate(
+        {
+            "portfolio_id": "ATTR_SAME_CCY_PANEL",
+            "mode": "by_instrument",
+            "group_by": ["sector"],
+            "linking": "none",
+            "frequency": "daily",
+            "currency_mode": "BOTH",
+            "report_ccy": "USD",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-01",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "portfolio_data": {
+                "metric_basis": "NET",
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+            },
+            "instruments_data": [
+                {
+                    "instrument_id": "AAPL",
+                    "meta": {"sector": "Tech", "currency": "USD"},
+                    "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+                }
+            ],
+            "benchmark_groups_data": [],
+        }
+    )
+
+    panel = _build_instrument_attribution_panel(
+        inst=request.instruments_data[0],
+        request=request,
+        twr_config=_build_test_twr_config(request),
+        portfolio_bop_mv=pd.Series([1000.0], index=[pd.Timestamp("2025-01-01")]),
+    )
+
+    assert panel is not None
+    row = panel.iloc[0]
+    assert row["return_local"] == pytest.approx(row["return_base"])
+    assert row["return_fx"] == pytest.approx(0.0)
 
 
 def test_normalize_instrument_group_columns_adds_missing_group_keys():
