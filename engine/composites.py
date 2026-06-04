@@ -4,11 +4,29 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date as dt_date
 from decimal import Decimal, localcontext
+from typing import Protocol, Sequence
 
-from app.models.composites import CompositeMemberReturnFact, CompositeMemberReturnStatus
-
+COMPOSITE_MEMBER_READY_STATUS = "READY"
 COMPOSITE_RETURN_QUANTUM = Decimal("0.000000000001")
 COMPOSITE_ASSET_QUANTUM = Decimal("0.000001")
+
+
+class CompositeMemberReturnFactLike(Protocol):
+    composite_id: str
+    portfolio_id: str
+    period_start: dt_date
+    period_end: dt_date
+    return_value: Decimal
+    return_view: object
+    beginning_market_value: Decimal
+    ending_market_value: Decimal
+    reporting_currency: str
+    calculation_id: str
+    source_snapshot_id: str
+    source_fingerprint: str
+    restatement_version: str
+    status: object
+    reason_codes: list[str]
 
 
 @dataclass(frozen=True)
@@ -74,9 +92,9 @@ def _sample_standard_deviation(values: list[Decimal]) -> Decimal | None:
 def calculate_asset_weighted_composite_twr(
     *,
     composite_id: str,
-    member_return_facts: list[CompositeMemberReturnFact],
+    member_return_facts: Sequence[CompositeMemberReturnFactLike],
 ) -> CompositeCalculationResult:
-    grouped_facts: dict[tuple[dt_date, dt_date], list[CompositeMemberReturnFact]] = defaultdict(list)
+    grouped_facts: dict[tuple[dt_date, dt_date], list[CompositeMemberReturnFactLike]] = defaultdict(list)
     for fact in member_return_facts:
         if fact.composite_id != composite_id:
             continue
@@ -88,14 +106,14 @@ def calculate_asset_weighted_composite_twr(
 
     for period_start, period_end in sorted(grouped_facts):
         facts = grouped_facts[(period_start, period_end)]
-        ready_facts = [fact for fact in facts if fact.status == CompositeMemberReturnStatus.READY]
-        excluded_facts = [fact for fact in facts if fact.status != CompositeMemberReturnStatus.READY]
+        ready_facts = [fact for fact in facts if str(fact.status) == COMPOSITE_MEMBER_READY_STATUS]
+        excluded_facts = [fact for fact in facts if str(fact.status) != COMPOSITE_MEMBER_READY_STATUS]
         reason_codes = sorted({code for fact in excluded_facts for code in fact.reason_codes})
         aggregate_reason_codes.update(reason_codes)
 
         beginning_assets = sum((fact.beginning_market_value for fact in ready_facts), Decimal("0"))
         ending_assets = sum((fact.ending_market_value for fact in ready_facts), Decimal("0"))
-        ready_return_views = sorted({fact.return_view.value for fact in ready_facts})
+        ready_return_views = sorted({str(fact.return_view) for fact in ready_facts})
         ready_reporting_currencies = sorted({fact.reporting_currency for fact in ready_facts})
         ready_source_fingerprints = sorted({fact.source_fingerprint for fact in ready_facts})
         ready_restatement_versions = sorted({fact.restatement_version for fact in ready_facts})
