@@ -94,6 +94,20 @@ def test_returns_series_request_rejects_mixed_input_envelopes():
         ReturnsSeriesRequest.model_validate(stateful_payload)
 
 
+def test_returns_series_request_requires_stateful_input_when_stateful_mode():
+    from app.models.returns_series import ReturnsSeriesRequest
+
+    stateful_payload = {
+        "portfolio_id": "DEMO_DPM_EUR_001",
+        "as_of_date": "2026-02-27",
+        "window": {"mode": "EXPLICIT", "from_date": "2026-02-24", "to_date": "2026-02-27"},
+        "input_mode": "stateful",
+    }
+
+    with pytest.raises(ValidationError, match="stateful_input is required when input_mode=stateful"):
+        ReturnsSeriesRequest.model_validate(stateful_payload)
+
+
 def test_returns_series_request_generates_calculation_id_by_default():
     from app.models.returns_series import ReturnsSeriesRequest
 
@@ -130,3 +144,15 @@ def test_returns_series_rejects_stateful_only_benchmark_config_in_stateless_mode
         match="benchmark.return_source is only supported in stateful mode for returns-series",
     ):
         ReturnsSeriesRequest.model_validate(payload)
+
+
+def test_returns_series_allows_default_benchmark_override_in_stateless_mode():
+    from app.models.returns_series import ReturnsSeriesRequest
+
+    payload = _base_payload()
+    payload["benchmark"] = {}
+
+    request = ReturnsSeriesRequest.model_validate(payload)
+
+    assert request.benchmark is not None
+    assert request.benchmark.return_source.value == "calculated"
