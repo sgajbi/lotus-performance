@@ -21,33 +21,33 @@ python scripts/python_complexity_inventory.py --limit 20
 | Metric | Value |
 | --- | ---: |
 | Max cyclomatic complexity | 26 |
-| High-complexity functions (rank D-F) | 14 |
+| High-complexity functions (rank D-F) | 13 |
 | Average maintainability index | 55.85 |
 
 ## Highest Cyclomatic Complexity
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_build_schema_example` | function | `app/openapi_enrichment.py:230` | 26 | D |
-| 2 | `_prepare_data_from_instruments` | function | `engine/attribution.py:221` | 26 | D |
-| 3 | `_calculate_returns_series` | function | `app/services/returns_series_service.py:809` | 25 | D |
-| 4 | `resolve_twr_request` | function | `app/services/twr_mode_service.py:44` | 25 | D |
-| 5 | `calculate_money_weighted_return` | function | `engine/mwr.py:186` | 25 | D |
-| 6 | `build_source_economics_findings` | function | `app/services/inspection/source_economics_findings.py:7` | 24 | D |
-| 7 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:1012` | 24 | D |
-| 8 | `ReturnsSeriesRequest` | class | `app/models/returns_series.py:244` | 22 | D |
-| 9 | `analyze_portfolio_position_reconciliation` | function | `app/services/inspection/reconciliation.py:82` | 22 | D |
-| 10 | `calculate_benchmark_returns` | function | `engine/benchmarks.py:35` | 22 | D |
-| 11 | `validate_selection` | method | `app/models/returns_series.py:318` | 21 | D |
-| 12 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:64` | 21 | D |
-| 13 | `build_integration_capabilities_report` | function | `app/services/integration_capabilities_service.py:92` | 21 | D |
-| 14 | `build_stateful_mwr_input_for_window` | function | `app/services/stateful_mwr_input_service.py:100` | 21 | D |
-| 15 | `_validate_stateful_portfolio_position_alignment` | function | `app/services/stateful_attribution_input_service.py:283` | 20 | C |
-| 16 | `calculate_twr_response` | function | `app/services/twr_service.py:738` | 20 | C |
-| 17 | `build_attribution_supportability_evidence` | function | `engine/attribution_supportability.py:42` | 20 | C |
-| 18 | `calculate_daily_ror` | function | `engine/ror.py:18` | 20 | C |
-| 19 | `_ensure_schema_documentation` | function | `app/openapi_enrichment.py:458` | 19 | C |
-| 20 | `_expected_daily_evidence_semantics` | function | `app/services/inspection/calculation_consistency.py:416` | 19 | C |
+| 1 | `_prepare_data_from_instruments` | function | `engine/attribution.py:221` | 26 | D |
+| 2 | `_calculate_returns_series` | function | `app/services/returns_series_service.py:809` | 25 | D |
+| 3 | `resolve_twr_request` | function | `app/services/twr_mode_service.py:44` | 25 | D |
+| 4 | `calculate_money_weighted_return` | function | `engine/mwr.py:186` | 25 | D |
+| 5 | `build_source_economics_findings` | function | `app/services/inspection/source_economics_findings.py:7` | 24 | D |
+| 6 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:1012` | 24 | D |
+| 7 | `ReturnsSeriesRequest` | class | `app/models/returns_series.py:244` | 22 | D |
+| 8 | `analyze_portfolio_position_reconciliation` | function | `app/services/inspection/reconciliation.py:82` | 22 | D |
+| 9 | `calculate_benchmark_returns` | function | `engine/benchmarks.py:35` | 22 | D |
+| 10 | `validate_selection` | method | `app/models/returns_series.py:318` | 21 | D |
+| 11 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:64` | 21 | D |
+| 12 | `build_integration_capabilities_report` | function | `app/services/integration_capabilities_service.py:92` | 21 | D |
+| 13 | `build_stateful_mwr_input_for_window` | function | `app/services/stateful_mwr_input_service.py:100` | 21 | D |
+| 14 | `_validate_stateful_portfolio_position_alignment` | function | `app/services/stateful_attribution_input_service.py:283` | 20 | C |
+| 15 | `calculate_twr_response` | function | `app/services/twr_service.py:738` | 20 | C |
+| 16 | `build_attribution_supportability_evidence` | function | `engine/attribution_supportability.py:42` | 20 | C |
+| 17 | `calculate_daily_ror` | function | `engine/ror.py:18` | 20 | C |
+| 18 | `_ensure_schema_documentation` | function | `app/openapi_enrichment.py:510` | 19 | C |
+| 19 | `_expected_daily_evidence_semantics` | function | `app/services/inspection/calculation_consistency.py:416` | 19 | C |
+| 20 | `_prepare_hierarchical_data` | function | `engine/contribution.py:152` | 19 | C |
 
 ## Lowest Maintainability Index
 
@@ -58,7 +58,7 @@ python scripts/python_complexity_inventory.py --limit 20
 | 3 | `app/services/returns_series_service.py` | 0.00 | C |
 | 4 | `app/services/stateful_attribution_input_service.py` | 0.00 | C |
 | 5 | `app/services/stateful_input_service.py` | 0.00 | C |
-| 6 | `app/openapi_enrichment.py` | 6.89 | C |
+| 6 | `app/openapi_enrichment.py` | 6.77 | C |
 | 7 | `app/services/twr_service.py` | 8.18 | C |
 | 8 | `app/services/workspace_summary_service.py` | 9.62 | B |
 | 9 | `app/services/execution_registry.py` | 10.84 | B |
@@ -76,11 +76,11 @@ python scripts/python_complexity_inventory.py --limit 20
 
 ## Interpretation
 
-The highest complexity functions are concentrated in OpenAPI schema-example generation,
-attribution instrument preparation, returns-series resolution and calculation, TWR mode resolution,
-MWR calculation, source-economics inspection, benchmark returns, integration capability reporting,
-and stateful input assembly. These are real refactor-planning hotspots, not evidence that a single
-local extraction should change behavior.
+The highest complexity functions are concentrated in attribution instrument preparation,
+returns-series resolution and calculation, TWR mode resolution, MWR calculation, source-economics
+inspection, benchmark returns, integration capability reporting, and stateful input assembly. These
+are real refactor-planning hotspots, not evidence that a single local extraction should change
+behavior.
 
 Maintainability index values should be treated as directional hotspot evidence because generated
 schemas, persistence-style modules, and dense orchestration files can score poorly even when tests

@@ -1,11 +1,15 @@
 from app.openapi_enrichment import (
+    _array_schema_example,
     _build_schema_example,
     _canonical_term,
+    _composed_schema_example,
     _ensure_operation_response_documentation,
     _ensure_request_body_example,
+    _explicit_schema_example,
     _infer_description,
     _infer_example,
     _infer_schema_description,
+    _object_schema_example,
     _semantic_id,
     _to_snake_case,
     enrich_openapi_schema,
@@ -75,6 +79,43 @@ def test_build_schema_example_resolves_refs_and_nested_content():
     assert example["calculation_id"] == "2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e"
     assert example["result"]["status"] == "pending"
     assert example["result"]["values"] == [1]
+
+
+def test_schema_example_helpers_cover_explicit_composed_object_and_array_shapes():
+    components = {"schemas": {}}
+
+    assert _explicit_schema_example({"example": {"status": "ready"}}) == {"status": "ready"}
+    assert _explicit_schema_example({"examples": [{"status": "pending"}]}) == {"status": "pending"}
+    assert _explicit_schema_example({"examples": {"named": {"value": {"status": "complete"}}}}) == {
+        "status": "complete"
+    }
+    assert (
+        _composed_schema_example(
+            {"oneOf": [{"type": "string", "enum": ["NET", "GROSS"]}]},
+            components=components,
+            seen_refs=set(),
+            name_hint="metric_basis",
+        )
+        == "NET"
+    )
+    assert _object_schema_example(
+        {"type": "object", "properties": {"portfolio_id": {"type": "string"}}},
+        components=components,
+        seen_refs=set(),
+    ) == {"portfolio_id": "DEMO_DPM_EUR_001"}
+    assert _object_schema_example({"type": "object"}, components=components, seen_refs=set()) == {"key": "value"}
+    assert _array_schema_example(
+        {"type": "array", "items": {"type": "integer"}},
+        components=components,
+        seen_refs=set(),
+        name_hint="values",
+    ) == [1]
+    assert _array_schema_example(
+        {"type": "array", "items": "not-a-dict"},
+        components=components,
+        seen_refs=set(),
+        name_hint="values",
+    ) == ["VALUE"]
 
 
 def test_ensure_request_body_example_uses_operation_override():

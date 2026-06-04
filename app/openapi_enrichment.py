@@ -227,6 +227,71 @@ def _resolve_schema(schema: dict[str, Any], components: dict[str, Any]) -> dict[
     return components.get("schemas", {}).get(ref.rsplit("/", 1)[-1], {})
 
 
+def _explicit_schema_example(schema: dict[str, Any]) -> Any | None:
+    if schema.get("example") is not None:
+        return copy.deepcopy(schema["example"])
+    examples = schema.get("examples")
+    if isinstance(examples, list) and examples:
+        return copy.deepcopy(examples[0])
+    if isinstance(examples, dict) and examples:
+        first = next(iter(examples.values()))
+        if isinstance(first, dict) and first.get("value") is not None:
+            return copy.deepcopy(first["value"])
+    return None
+
+
+def _composed_schema_example(
+    schema: dict[str, Any],
+    *,
+    components: dict[str, Any],
+    seen_refs: set[str],
+    name_hint: str,
+) -> Any | None:
+    for composition_key in ("oneOf", "anyOf"):
+        variants = schema.get(composition_key)
+        if not isinstance(variants, list) or not variants:
+            continue
+        first = variants[0]
+        if isinstance(first, dict):
+            return _build_schema_example(first, components=components, seen_refs=seen_refs, name_hint=name_hint)
+    return None
+
+
+def _object_schema_example(
+    schema: dict[str, Any],
+    *,
+    components: dict[str, Any],
+    seen_refs: set[str],
+) -> dict[str, Any]:
+    output: dict[str, Any] = {}
+    for prop_name, prop_schema in schema.get("properties", {}).items():
+        if isinstance(prop_schema, dict):
+            output[prop_name] = _build_schema_example(
+                prop_schema,
+                components=components,
+                seen_refs=seen_refs,
+                name_hint=prop_name,
+            )
+    return output or {"key": "value"}
+
+
+def _array_schema_example(
+    schema: dict[str, Any],
+    *,
+    components: dict[str, Any],
+    seen_refs: set[str],
+    name_hint: str,
+) -> list[Any]:
+    item_schema = schema.get("items", {})
+    if isinstance(item_schema, dict):
+        return [
+            _build_schema_example(
+                item_schema, components=components, seen_refs=seen_refs, name_hint=f"{name_hint}_item"
+            )
+        ]
+    return ["VALUE"]
+
+
 def _build_schema_example(
     schema: dict[str, Any],
     *,
@@ -247,46 +312,33 @@ def _build_schema_example(
             name_hint=ref.rsplit("/", 1)[-1],
         )
 
-    if schema.get("example") is not None:
-        return copy.deepcopy(schema["example"])
-    examples = schema.get("examples")
-    if isinstance(examples, list) and examples:
-        return copy.deepcopy(examples[0])
-    if isinstance(examples, dict) and examples:
-        first = next(iter(examples.values()))
-        if isinstance(first, dict) and first.get("value") is not None:
-            return copy.deepcopy(first["value"])
+    explicit_example = _explicit_schema_example(schema)
+    if explicit_example is not None:
+        return explicit_example
 
-    if "oneOf" in schema and isinstance(schema["oneOf"], list) and schema["oneOf"]:
-        first = schema["oneOf"][0]
-        if isinstance(first, dict):
-            return _build_schema_example(first, components=components, seen_refs=seen, name_hint=name_hint)
-    if "anyOf" in schema and isinstance(schema["anyOf"], list) and schema["anyOf"]:
-        first = schema["anyOf"][0]
-        if isinstance(first, dict):
-            return _build_schema_example(first, components=components, seen_refs=seen, name_hint=name_hint)
+    composed_example = _composed_schema_example(
+        schema,
+        components=components,
+        seen_refs=seen,
+        name_hint=name_hint,
+    )
+    if composed_example is not None:
+        return composed_example
 
     schema_type = schema.get("type")
     if schema_type == "object" or isinstance(schema.get("properties"), dict):
-        output: dict[str, Any] = {}
-        for prop_name, prop_schema in schema.get("properties", {}).items():
-            if isinstance(prop_schema, dict):
-                output[prop_name] = _build_schema_example(
-                    prop_schema,
-                    components=components,
-                    seen_refs=seen,
-                    name_hint=prop_name,
-                )
-        if output:
-            return output
-        return {"key": "value"}
+        return _object_schema_example(
+            schema,
+            components=components,
+            seen_refs=seen,
+        )
     if schema_type == "array":
-        item_schema = schema.get("items", {})
-        if isinstance(item_schema, dict):
-            return [
-                _build_schema_example(item_schema, components=components, seen_refs=seen, name_hint=f"{name_hint}_item")
-            ]
-        return ["VALUE"]
+        return _array_schema_example(
+            schema,
+            components=components,
+            seen_refs=seen,
+            name_hint=name_hint,
+        )
     return _infer_example(name_hint, schema)
 
 
