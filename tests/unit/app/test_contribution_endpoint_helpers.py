@@ -24,6 +24,8 @@ from app.services.contribution_diagnostics import (
     _calculate_reset_relative_day_counts,
 )
 from app.services.contribution_methodology import (
+    RESET_AWARE_AVERAGE_WEIGHT_MODE_CANDIDATE_PERIODS,
+    RESET_AWARE_AVERAGE_WEIGHT_MODE_OFF,
     _assess_average_weight_shadow_cutover,
     _build_average_weight_methodology_status,
     _calculate_average_weight_sum_residual_bp,
@@ -58,6 +60,7 @@ from app.services.contribution_series import (
 from app.services.contribution_service import (
     _build_period_average_weight_methodology_status,
     _record_period_timeseries_total_delta,
+    _select_period_average_weight_column,
 )
 from app.services.contribution_smoothing import _count_carino_invalid_domain_days
 from core.envelope import Diagnostics
@@ -246,6 +249,66 @@ def test_record_period_timeseries_total_delta_records_material_drift():
 
     assert delta_periods == 1
     assert audit_state.timeseries_total_delta_periods == 1
+
+
+def test_select_period_average_weight_column_keeps_standard_weight_when_mode_off():
+    period_context = ContributionPeriodMethodologyContext(
+        average_weight_shadow_df=pd.DataFrame({"average_weight": [0.6, 0.4]}),
+        delta_positions=2,
+        max_shadow_delta_bp=600,
+        sum_shadow_delta_bp=700,
+        position_reset_dates={pd.Timestamp("2025-01-02").date()},
+        portfolio_reset_dates={pd.Timestamp("2025-01-02").date()},
+        position_flow_balance_counts={"position_flow_residual_days": 0},
+    )
+
+    selected_column, is_promoted = _select_period_average_weight_column(
+        period_methodology_context=period_context,
+        reset_aware_average_weight_mode=RESET_AWARE_AVERAGE_WEIGHT_MODE_OFF,
+    )
+
+    assert selected_column == "average_weight"
+    assert is_promoted is False
+
+
+def test_select_period_average_weight_column_promotes_candidate_period():
+    period_context = ContributionPeriodMethodologyContext(
+        average_weight_shadow_df=pd.DataFrame({"average_weight": [0.6, 0.4]}),
+        delta_positions=2,
+        max_shadow_delta_bp=600,
+        sum_shadow_delta_bp=700,
+        position_reset_dates={pd.Timestamp("2025-01-02").date()},
+        portfolio_reset_dates={pd.Timestamp("2025-01-02").date()},
+        position_flow_balance_counts={"position_flow_residual_days": 0},
+    )
+
+    selected_column, is_promoted = _select_period_average_weight_column(
+        period_methodology_context=period_context,
+        reset_aware_average_weight_mode=RESET_AWARE_AVERAGE_WEIGHT_MODE_CANDIDATE_PERIODS,
+    )
+
+    assert selected_column == "reset_aware_average_weight_shadow"
+    assert is_promoted is True
+
+
+def test_select_period_average_weight_column_blocks_candidate_period_with_residuals():
+    period_context = ContributionPeriodMethodologyContext(
+        average_weight_shadow_df=pd.DataFrame({"average_weight": [0.6, 0.3]}),
+        delta_positions=2,
+        max_shadow_delta_bp=600,
+        sum_shadow_delta_bp=700,
+        position_reset_dates={pd.Timestamp("2025-01-03").date()},
+        portfolio_reset_dates={pd.Timestamp("2025-01-02").date()},
+        position_flow_balance_counts={"position_flow_residual_days": 1},
+    )
+
+    selected_column, is_promoted = _select_period_average_weight_column(
+        period_methodology_context=period_context,
+        reset_aware_average_weight_mode=RESET_AWARE_AVERAGE_WEIGHT_MODE_CANDIDATE_PERIODS,
+    )
+
+    assert selected_column == "average_weight"
+    assert is_promoted is False
 
 
 def test_contribution_period_helpers_slice_frames_and_extract_reset_dates():

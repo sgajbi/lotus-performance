@@ -123,6 +123,38 @@ def _record_period_timeseries_total_delta(
     return 1
 
 
+def _select_period_average_weight_column(
+    *,
+    period_methodology_context: ContributionPeriodMethodologyContext,
+    reset_aware_average_weight_mode: str,
+) -> tuple[str, bool]:
+    active_average_weight_sum_residual_bp = _calculate_average_weight_sum_residual_bp_from_ratio_series(
+        period_methodology_context.average_weight_shadow_df["average_weight"]
+    )
+    active_average_weight_cutover_assessment = _assess_average_weight_shadow_cutover(
+        max_shadow_delta_bp=period_methodology_context.max_shadow_delta_bp,
+        average_weight_sum_residual_bp=active_average_weight_sum_residual_bp,
+        position_flow_residual_days=period_methodology_context.position_flow_balance_counts[
+            "position_flow_residual_days"
+        ],
+        portfolio_reset_without_position_reset_days=(
+            period_methodology_context.portfolio_reset_without_position_reset_days
+        ),
+        position_reset_without_portfolio_reset_days=(
+            period_methodology_context.position_reset_without_portfolio_reset_days
+        ),
+        timeseries_total_delta_periods=0,
+    )
+    use_reset_aware_average_weight = (
+        reset_aware_average_weight_mode == RESET_AWARE_AVERAGE_WEIGHT_MODE_CANDIDATE_PERIODS
+        and active_average_weight_cutover_assessment.is_cutover_candidate
+    )
+    selected_average_weight_column = (
+        "reset_aware_average_weight_shadow" if use_reset_aware_average_weight else "average_weight"
+    )
+    return selected_average_weight_column, use_reset_aware_average_weight
+
+
 def calculate_contribution(
     request: ContributionRequest,
     *,
@@ -295,29 +327,9 @@ def calculate_contribution(
                     sum_shadow_delta_bp=period_methodology_context.sum_shadow_delta_bp,
                 )
 
-                active_average_weight_sum_residual_bp = _calculate_average_weight_sum_residual_bp_from_ratio_series(
-                    period_methodology_context.average_weight_shadow_df["average_weight"]
-                )
-                active_average_weight_cutover_assessment = _assess_average_weight_shadow_cutover(
-                    max_shadow_delta_bp=period_methodology_context.max_shadow_delta_bp,
-                    average_weight_sum_residual_bp=active_average_weight_sum_residual_bp,
-                    position_flow_residual_days=period_methodology_context.position_flow_balance_counts[
-                        "position_flow_residual_days"
-                    ],
-                    portfolio_reset_without_position_reset_days=(
-                        period_methodology_context.portfolio_reset_without_position_reset_days
-                    ),
-                    position_reset_without_portfolio_reset_days=(
-                        period_methodology_context.position_reset_without_portfolio_reset_days
-                    ),
-                    timeseries_total_delta_periods=0,
-                )
-                use_reset_aware_average_weight = (
-                    reset_aware_average_weight_mode == RESET_AWARE_AVERAGE_WEIGHT_MODE_CANDIDATE_PERIODS
-                    and active_average_weight_cutover_assessment.is_cutover_candidate
-                )
-                selected_average_weight_column = (
-                    "reset_aware_average_weight_shadow" if use_reset_aware_average_weight else "average_weight"
+                selected_average_weight_column, use_reset_aware_average_weight = _select_period_average_weight_column(
+                    period_methodology_context=period_methodology_context,
+                    reset_aware_average_weight_mode=reset_aware_average_weight_mode,
                 )
 
                 total_portfolio_return = _calculate_reset_aware_period_portfolio_return(
