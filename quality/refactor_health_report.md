@@ -26,7 +26,7 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | Python files | 480 | 534 | measured | `rg --files -g '*.py'` |
 | Python package markers | 18 | 18 | measured | recursive `__init__.py` count |
-| Python LOC | 104,454 | 109,924 | measured | recursive `.py` line count |
+| Python LOC | 104,454 | 109,986 | measured | recursive `.py` line count |
 | Largest Python file LOC | 2,399 | 2,399 | measured | largest-file inventory in baseline report |
 | Largest production file LOC | 1,156 | 1,156 | measured | `app/services/lineage_metadata_store.py` |
 | Duplicate code hotspots | 0 | 0 | measured | `quality/duplicate_code_inventory.md` via `scripts/python_duplicate_code_inventory.py` with `--min-lines 12` |
@@ -37,7 +37,7 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Max cyclomatic complexity | unknown | 36 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
+| Max cyclomatic complexity | unknown | 35 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
 | High-complexity functions | unknown | 21 | measured | rank D-F functions in `quality/complexity_inventory.md` |
 | Average maintainability index | unknown | 55.87 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
 | Largest functions by LOC | unknown | 509 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py` |
@@ -69,7 +69,7 @@ link the commit, command, or CI artifact that proves the change.
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
 | Test modules | 228 | 251 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 2,128 | measured | `python -m pytest --collect-only -q` |
+| Collected tests | 2,035 | 2,131 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | unknown | not-yet-measured | coverage run not captured in baseline slice |
 | Branch coverage | unknown | unknown | not-yet-measured | branch coverage not configured as a scorecard input |
 | Integration/API/runtime test functions | unknown | 453 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |

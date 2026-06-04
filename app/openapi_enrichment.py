@@ -336,6 +336,30 @@ def _infer_enum_descriptions(prop_name: str, prop_schema: dict[str, Any]) -> lis
     return [f"Allowed {readable_name} value: {value}." for value in enum_values]
 
 
+def _ensure_request_body_example(
+    *,
+    path: str,
+    request_body: dict[str, Any],
+    components: dict[str, Any],
+) -> None:
+    content = request_body.get("content", {})
+    if not isinstance(content, dict):
+        return
+    json_content = content.get("application/json")
+    if not isinstance(json_content, dict):
+        return
+    request_schema = json_content.get("schema", {})
+    operation_example = OPERATION_JSON_EXAMPLES.get((path, "request"))
+    if operation_example is not None:
+        json_content["example"] = copy.deepcopy(operation_example)
+    elif isinstance(request_schema, dict) and "example" not in json_content and "examples" not in json_content:
+        json_content["example"] = _build_schema_example(
+            request_schema,
+            components=components,
+            name_hint="request_body",
+        )
+
+
 def _ensure_operation_documentation(schema: dict[str, Any]) -> None:
     paths = schema.get("paths", {})
     components = schema.get("components", {})
@@ -369,24 +393,11 @@ def _ensure_operation_documentation(schema: dict[str, Any]) -> None:
 
             request_body = operation.get("requestBody")
             if isinstance(request_body, dict):
-                content = request_body.get("content", {})
-                if isinstance(content, dict):
-                    json_content = content.get("application/json")
-                    if isinstance(json_content, dict):
-                        request_schema = json_content.get("schema", {})
-                        operation_example = OPERATION_JSON_EXAMPLES.get((path, "request"))
-                        if operation_example is not None:
-                            json_content["example"] = copy.deepcopy(operation_example)
-                        elif (
-                            isinstance(request_schema, dict)
-                            and "example" not in json_content
-                            and "examples" not in json_content
-                        ):
-                            json_content["example"] = _build_schema_example(
-                                request_schema,
-                                components=components,
-                                name_hint="request_body",
-                            )
+                _ensure_request_body_example(
+                    path=path,
+                    request_body=request_body,
+                    components=components,
+                )
 
             responses = operation.get("responses")
             if isinstance(responses, dict):

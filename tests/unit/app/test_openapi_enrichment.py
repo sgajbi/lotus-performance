@@ -1,6 +1,7 @@
 from app.openapi_enrichment import (
     _build_schema_example,
     _canonical_term,
+    _ensure_request_body_example,
     _infer_description,
     _infer_example,
     _infer_schema_description,
@@ -73,6 +74,70 @@ def test_build_schema_example_resolves_refs_and_nested_content():
     assert example["calculation_id"] == "2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e"
     assert example["result"]["status"] == "pending"
     assert example["result"]["values"] == [1]
+
+
+def test_ensure_request_body_example_uses_operation_override():
+    request_body = {
+        "content": {
+            "application/json": {
+                "schema": {
+                    "type": "object",
+                    "properties": {"portfolio_id": {"type": "string"}},
+                }
+            }
+        }
+    }
+
+    _ensure_request_body_example(
+        path="/performance/twr",
+        request_body=request_body,
+        components={"schemas": {}},
+    )
+
+    example = request_body["content"]["application/json"]["example"]
+    assert example["input_mode"] == "stateless"
+    assert example["portfolio_id"] == "DEMO_DPM_EUR_001"
+
+
+def test_ensure_request_body_example_builds_schema_example_when_missing():
+    request_body = {
+        "content": {
+            "application/json": {
+                "schema": {
+                    "type": "object",
+                    "properties": {"portfolio_id": {"type": "string"}},
+                }
+            }
+        }
+    }
+
+    _ensure_request_body_example(
+        path="/custom/workflow",
+        request_body=request_body,
+        components={"schemas": {}},
+    )
+
+    assert request_body["content"]["application/json"]["example"] == {"portfolio_id": "DEMO_DPM_EUR_001"}
+
+
+def test_ensure_request_body_example_preserves_existing_examples():
+    request_body = {
+        "content": {
+            "application/json": {
+                "schema": {"type": "object", "properties": {"portfolio_id": {"type": "string"}}},
+                "examples": {"documented": {"value": {"portfolio_id": "EXISTING"}}},
+            }
+        }
+    }
+
+    _ensure_request_body_example(
+        path="/custom/workflow",
+        request_body=request_body,
+        components={"schemas": {}},
+    )
+
+    assert "example" not in request_body["content"]["application/json"]
+    assert request_body["content"]["application/json"]["examples"]["documented"]["value"]["portfolio_id"] == "EXISTING"
 
 
 def test_enrich_openapi_schema_fills_operation_schema_and_examples():
