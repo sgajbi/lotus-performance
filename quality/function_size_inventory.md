@@ -26,15 +26,15 @@ python scripts/python_function_size_inventory.py --limit 15
 | 4 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:54` | 288 |
 | 5 | `_process_pending_jobs` | `app/workers/compute_executor_worker.py:59` | 256 |
 | 6 | `analyze_portfolio_position_reconciliation` | `app/services/inspection/reconciliation.py:82` | 250 |
-| 7 | `calculate_twr_response` | `app/services/twr_service.py:496` | 234 |
-| 8 | `resolve_stateful_returns_series_request` | `app/services/returns_series_service.py:935` | 226 |
-| 9 | `build_runtime_status_response` | `app/models/runtime_status.py:613` | 215 |
-| 10 | `_calculate_returns_series` | `app/services/returns_series_service.py:723` | 210 |
-| 11 | `DurableQueueCollector.collect` | `app/services/queue_metrics_service.py:227` | 188 |
-| 12 | `build_attribution_supportability_evidence` | `engine/attribution_supportability.py:42` | 184 |
-| 13 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:503` | 172 |
-| 14 | `resolve_twr_request` | `app/services/twr_mode_service.py:44` | 165 |
-| 15 | `DurableQueueCollector.describe` | `app/services/queue_metrics_service.py:67` | 159 |
+| 7 | `resolve_stateful_returns_series_request` | `app/services/returns_series_service.py:935` | 226 |
+| 8 | `build_runtime_status_response` | `app/models/runtime_status.py:613` | 215 |
+| 9 | `_calculate_returns_series` | `app/services/returns_series_service.py:723` | 210 |
+| 10 | `DurableQueueCollector.collect` | `app/services/queue_metrics_service.py:227` | 188 |
+| 11 | `build_attribution_supportability_evidence` | `engine/attribution_supportability.py:42` | 184 |
+| 12 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:503` | 172 |
+| 13 | `resolve_twr_request` | `app/services/twr_mode_service.py:44` | 165 |
+| 14 | `DurableQueueCollector.describe` | `app/services/queue_metrics_service.py:67` | 159 |
+| 15 | `calculate_twr_response` | `app/services/twr_service.py:612` | 151 |
 
 ## Interpretation
 

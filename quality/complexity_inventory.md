@@ -20,29 +20,29 @@ python scripts/python_complexity_inventory.py --limit 15
 
 | Metric | Value |
 | --- | ---: |
-| Max cyclomatic complexity | 33 |
-| High-complexity functions (rank D-F) | 21 |
+| Max cyclomatic complexity | 31 |
+| High-complexity functions (rank D-F) | 20 |
 | Average maintainability index | 55.87 |
 
 ## Highest Cyclomatic Complexity
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `calculate_twr_response` | function | `app/services/twr_service.py:496` | 33 | E |
-| 2 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:54` | 31 | E |
-| 3 | `build_runtime_status_response` | function | `app/models/runtime_status.py:613` | 30 | D |
-| 4 | `_ensure_operation_documentation` | function | `app/openapi_enrichment.py:363` | 30 | D |
-| 5 | `_process_pending_jobs` | function | `app/workers/compute_executor_worker.py:59` | 30 | D |
-| 6 | `calculate_contribution` | function | `app/services/contribution_service.py:126` | 29 | D |
-| 7 | `_prepare_data_from_instruments` | function | `engine/attribution.py:210` | 28 | D |
-| 8 | `_calculate_returns_series` | function | `app/services/returns_series_service.py:723` | 27 | D |
-| 9 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:935` | 27 | D |
-| 10 | `_build_daily_calculation_evidence` | function | `app/services/twr_service.py:164` | 27 | D |
-| 11 | `calculate_asset_weighted_composite_twr` | function | `engine/composites.py:240` | 27 | D |
-| 12 | `_build_schema_example` | function | `app/openapi_enrichment.py:230` | 26 | D |
-| 13 | `resolve_twr_request` | function | `app/services/twr_mode_service.py:44` | 25 | D |
-| 14 | `calculate_money_weighted_return` | function | `engine/mwr.py:186` | 25 | D |
-| 15 | `build_source_economics_findings` | function | `app/services/inspection/source_economics_findings.py:7` | 24 | D |
+| 1 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:54` | 31 | E |
+| 2 | `build_runtime_status_response` | function | `app/models/runtime_status.py:613` | 30 | D |
+| 3 | `_ensure_operation_documentation` | function | `app/openapi_enrichment.py:363` | 30 | D |
+| 4 | `_process_pending_jobs` | function | `app/workers/compute_executor_worker.py:59` | 30 | D |
+| 5 | `calculate_contribution` | function | `app/services/contribution_service.py:126` | 29 | D |
+| 6 | `_prepare_data_from_instruments` | function | `engine/attribution.py:210` | 28 | D |
+| 7 | `_calculate_returns_series` | function | `app/services/returns_series_service.py:723` | 27 | D |
+| 8 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:935` | 27 | D |
+| 9 | `_build_daily_calculation_evidence` | function | `app/services/twr_service.py:166` | 27 | D |
+| 10 | `calculate_asset_weighted_composite_twr` | function | `engine/composites.py:240` | 27 | D |
+| 11 | `_build_schema_example` | function | `app/openapi_enrichment.py:230` | 26 | D |
+| 12 | `resolve_twr_request` | function | `app/services/twr_mode_service.py:44` | 25 | D |
+| 13 | `calculate_money_weighted_return` | function | `engine/mwr.py:186` | 25 | D |
+| 14 | `build_source_economics_findings` | function | `app/services/inspection/source_economics_findings.py:7` | 24 | D |
+| 15 | `ReturnsSeriesRequest` | class | `app/models/returns_series.py:244` | 22 | D |
 
 ## Lowest Maintainability Index
 
@@ -54,7 +54,7 @@ python scripts/python_complexity_inventory.py --limit 15
 | 4 | `app/services/stateful_attribution_input_service.py` | 0.00 | C |
 | 5 | `app/services/stateful_input_service.py` | 0.00 | C |
 | 6 | `app/openapi_enrichment.py` | 6.97 | C |
-| 7 | `app/services/twr_service.py` | 8.51 | C |
+| 7 | `app/services/twr_service.py` | 8.29 | C |
 | 8 | `app/services/workspace_summary_service.py` | 9.62 | B |
 | 9 | `app/services/execution_registry.py` | 10.84 | B |
 | 10 | `app/services/stateful_benchmark_input_service.py` | 13.69 | B |
@@ -66,10 +66,10 @@ python scripts/python_complexity_inventory.py --limit 15
 
 ## Interpretation
 
-The highest complexity functions are concentrated in returns-series resolution and calculation,
-OpenAPI enrichment, contribution, composite TWR, TWR response construction, inspection, runtime
-status, worker dispatch, attribution, and MWR calculation. These are real refactor-planning
-hotspots, not evidence that a single local extraction should change behavior.
+The highest complexity functions are concentrated in TWR inspection, runtime status, OpenAPI
+enrichment, worker dispatch, contribution, returns-series resolution and calculation, composite
+TWR, attribution, and MWR calculation. These are real refactor-planning hotspots, not evidence that
+a single local extraction should change behavior.
 
 Maintainability index values should be treated as directional hotspot evidence because generated
 schemas, persistence-style modules, and dense orchestration files can score poorly even when tests

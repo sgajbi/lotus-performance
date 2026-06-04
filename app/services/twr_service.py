@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal
 
 import pandas as pd
@@ -29,7 +30,7 @@ from app.services.analytics_observation_dates import (
     observation_timestamp_series,
 )
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_TWR
-from app.services.benchmark_calculation_service import calculate_benchmark_artifacts
+from app.services.benchmark_calculation_service import BenchmarkCalculationArtifacts, calculate_benchmark_artifacts
 from app.services.calculation_supportability_service import (
     build_calculation_supportability,
     record_supportability_metric,
@@ -39,9 +40,10 @@ from app.services.execution_registry import execution_registry
 from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
 from common.enums import Frequency
 from core.envelope import Audit, Diagnostics, Meta
-from core.periods import resolve_periods
+from core.periods import ResolvedPeriod, resolve_periods
 from engine.breakdown import generate_performance_breakdowns
 from engine.compute import run_calculations
+from engine.diagnostics import EngineDiagnostics
 from engine.schema import PortfolioColumns
 
 
@@ -493,56 +495,20 @@ def _resolve_twr_supportability(
     )
 
 
-def calculate_twr_response(
-    performance_request: PerformanceRequest,
+def _build_twr_results_by_period(
     *,
-    portfolio_id: str,
-    input_mode: TWRInputMode,
-    input_fingerprint: str,
-    calculation_hash: str,
-    engine_version: str,
-    request_artifact_model,
-    benchmark_request: BenchmarkPerformanceRequest | None = None,
-    benchmark_input_mode: BenchmarkInputMode | None = None,
-    resolved_benchmark_id: str | None = None,
-    benchmark_return_source: BenchmarkReturnSource | str = BenchmarkReturnSource.CALCULATED,
-) -> PerformanceResponse:
-    normalized_benchmark_return_source = (
-        benchmark_return_source
-        if isinstance(benchmark_return_source, BenchmarkReturnSource)
-        else BenchmarkReturnSource(str(benchmark_return_source))
-    )
-    execution_registry.start_stage(performance_request.calculation_id, EXECUTION_STAGE_EXECUTION)
-
-    daily_results_df: pd.DataFrame | None = None
-    benchmark_artifacts = None
-    try:
-        periods_to_resolve = [analysis.period for analysis in performance_request.analyses]
-        freqs_by_period = {analysis.period.value: analysis.frequencies for analysis in performance_request.analyses}
-
-        as_of_date = performance_request.report_end_date
-        resolved_periods = resolve_periods(
-            periods_to_resolve,
-            as_of_date,
-            performance_request.performance_start_date,
-            explicit_start_date=performance_request.report_start_date,
-        )
-        if not resolved_periods:
-            raise HTTPException(status_code=400, detail="No valid periods could be resolved.")
-
-        master_start_date = min(p.start_date for p in resolved_periods)
-        master_end_date = max(p.end_date for p in resolved_periods)
-
-        engine_config = create_engine_config(performance_request, master_start_date, master_end_date)
-        engine_df = create_engine_dataframe([item.model_dump() for item in performance_request.valuation_points])
-        daily_results_df, engine_diagnostics = run_calculations(engine_df, engine_config)
-        benchmark_artifacts = (
-            calculate_benchmark_artifacts(benchmark_request) if benchmark_request is not None else None
-        )
-    except Exception as exc:
-        execution_registry.fail_stage(performance_request.calculation_id, EXECUTION_STAGE_EXECUTION, str(exc))
-        raise
-
+    performance_request: PerformanceRequest,
+    resolved_periods: list[ResolvedPeriod],
+    freqs_by_period: dict[str, list[Frequency]],
+    daily_results_df: pd.DataFrame,
+    engine_diagnostics: EngineDiagnostics,
+    benchmark_artifacts: BenchmarkCalculationArtifacts | None,
+    benchmark_request: BenchmarkPerformanceRequest | None,
+    benchmark_input_mode: BenchmarkInputMode | None,
+    resolved_benchmark_id: str | None,
+    benchmark_return_source: BenchmarkReturnSource,
+    master_start_date: date,
+) -> dict[str, SinglePeriodPerformanceResult]:
     results_by_period: dict[str, SinglePeriodPerformanceResult] = {}
     daily_results_df[PortfolioColumns.PERF_DATE.value] = observation_date_series(
         daily_results_df[PortfolioColumns.PERF_DATE.value]
@@ -611,7 +577,7 @@ def calculate_twr_response(
                     benchmark_id=resolved_benchmark_id or benchmark_request.benchmark_id,
                     benchmark_currency=benchmark_request.benchmark_currency,
                     input_mode=(benchmark_input_mode or BenchmarkInputMode.STATELESS).value,
-                    return_source=normalized_benchmark_return_source.value,
+                    return_source=benchmark_return_source.value,
                 )
                 period_result.relative_performance = ComparativeAnalyticsBlock(
                     summary=ComparativeSummary(
@@ -639,6 +605,73 @@ def calculate_twr_response(
             ]
 
         results_by_period[period.name] = period_result
+
+    return results_by_period
+
+
+def calculate_twr_response(
+    performance_request: PerformanceRequest,
+    *,
+    portfolio_id: str,
+    input_mode: TWRInputMode,
+    input_fingerprint: str,
+    calculation_hash: str,
+    engine_version: str,
+    request_artifact_model,
+    benchmark_request: BenchmarkPerformanceRequest | None = None,
+    benchmark_input_mode: BenchmarkInputMode | None = None,
+    resolved_benchmark_id: str | None = None,
+    benchmark_return_source: BenchmarkReturnSource | str = BenchmarkReturnSource.CALCULATED,
+) -> PerformanceResponse:
+    normalized_benchmark_return_source = (
+        benchmark_return_source
+        if isinstance(benchmark_return_source, BenchmarkReturnSource)
+        else BenchmarkReturnSource(str(benchmark_return_source))
+    )
+    execution_registry.start_stage(performance_request.calculation_id, EXECUTION_STAGE_EXECUTION)
+
+    daily_results_df: pd.DataFrame | None = None
+    benchmark_artifacts = None
+    try:
+        periods_to_resolve = [analysis.period for analysis in performance_request.analyses]
+        freqs_by_period = {analysis.period.value: analysis.frequencies for analysis in performance_request.analyses}
+
+        as_of_date = performance_request.report_end_date
+        resolved_periods = resolve_periods(
+            periods_to_resolve,
+            as_of_date,
+            performance_request.performance_start_date,
+            explicit_start_date=performance_request.report_start_date,
+        )
+        if not resolved_periods:
+            raise HTTPException(status_code=400, detail="No valid periods could be resolved.")
+
+        master_start_date = min(p.start_date for p in resolved_periods)
+        master_end_date = max(p.end_date for p in resolved_periods)
+
+        engine_config = create_engine_config(performance_request, master_start_date, master_end_date)
+        engine_df = create_engine_dataframe([item.model_dump() for item in performance_request.valuation_points])
+        daily_results_df, engine_diagnostics = run_calculations(engine_df, engine_config)
+        benchmark_artifacts = (
+            calculate_benchmark_artifacts(benchmark_request) if benchmark_request is not None else None
+        )
+    except Exception as exc:
+        execution_registry.fail_stage(performance_request.calculation_id, EXECUTION_STAGE_EXECUTION, str(exc))
+        raise
+
+    results_by_period = _build_twr_results_by_period(
+        performance_request=performance_request,
+        resolved_periods=resolved_periods,
+        freqs_by_period=freqs_by_period,
+        daily_results_df=daily_results_df,
+        engine_diagnostics=engine_diagnostics,
+        benchmark_artifacts=benchmark_artifacts,
+        benchmark_request=benchmark_request,
+        benchmark_input_mode=benchmark_input_mode,
+        resolved_benchmark_id=resolved_benchmark_id,
+        benchmark_return_source=normalized_benchmark_return_source,
+        master_start_date=master_start_date,
+    )
 
     benchmark_row_count = len(benchmark_artifacts.daily_returns_df) if benchmark_artifacts is not None else 0
     benchmark_supportability_evidence = (
