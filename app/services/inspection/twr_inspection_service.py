@@ -256,39 +256,10 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
                 ),
             )
         ),
-        artifacts={
-            "inspection_summary.json": (
-                f"/performance/inspections/{request.inspection_id}/artifacts/inspection_summary.json"
-            ),
-            "findings.json": f"/performance/inspections/{request.inspection_id}/artifacts/findings.json",
-            **(
-                {
-                    "source_quality_summary.json": (
-                        f"/performance/inspections/{request.inspection_id}/artifacts/source_quality_summary.json"
-                    )
-                }
-                if "source_quality_summary.json" in artifact_payloads
-                else {}
-            ),
-            **(
-                {
-                    "reconciliation_summary.json": (
-                        f"/performance/inspections/{request.inspection_id}/artifacts/reconciliation_summary.json"
-                    )
-                }
-                if "reconciliation_summary.json" in artifact_payloads
-                else {}
-            ),
-            **(
-                {
-                    "source_economics_summary.json": (
-                        f"/performance/inspections/{request.inspection_id}/artifacts/source_economics_summary.json"
-                    )
-                }
-                if "source_economics_summary.json" in artifact_payloads
-                else {}
-            ),
-        },
+        artifacts=_build_twr_inspection_artifact_links(
+            inspection_id=request.inspection_id,
+            artifact_payloads=artifact_payloads,
+        ),
         workflow_pack_run=None,
         generated_at_utc=format_timestamp(datetime.now(UTC)) or "",
     )
@@ -301,18 +272,10 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
     response = response.model_copy(
         update={
             "evidence_summary": evidence_summary,
-            "artifacts": {
-                **response.artifacts,
-                **(
-                    {
-                        "support_brief.md": (
-                            f"/performance/inspections/{request.inspection_id}/artifacts/support_brief.md"
-                        )
-                    }
-                    if "support_brief.md" in artifact_payloads
-                    else {}
-                ),
-            },
+            "artifacts": _build_twr_inspection_artifact_links(
+                inspection_id=request.inspection_id,
+                artifact_payloads=artifact_payloads,
+            ),
             "workflow_pack_run": support_brief_result.workflow_pack_run,
         }
     )
@@ -339,6 +302,26 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
         raise
     execution_registry.mark_complete(request.inspection_id)
     return response
+
+
+def _build_twr_inspection_artifact_links(
+    *,
+    inspection_id: UUID,
+    artifact_payloads: dict[str, str],
+) -> dict[str, str]:
+    artifact_links = {
+        "inspection_summary.json": f"/performance/inspections/{inspection_id}/artifacts/inspection_summary.json",
+        "findings.json": f"/performance/inspections/{inspection_id}/artifacts/findings.json",
+    }
+    for artifact_name in (
+        "source_quality_summary.json",
+        "reconciliation_summary.json",
+        "source_economics_summary.json",
+        "support_brief.md",
+    ):
+        if artifact_name in artifact_payloads:
+            artifact_links[artifact_name] = f"/performance/inspections/{inspection_id}/artifacts/{artifact_name}"
+    return artifact_links
 
 
 def _synthesize_verdict(

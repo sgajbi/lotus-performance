@@ -20,7 +20,7 @@ python scripts/python_complexity_inventory.py --limit 15
 
 | Metric | Value |
 | --- | ---: |
-| Max cyclomatic complexity | 31 |
+| Max cyclomatic complexity | 30 |
 | High-complexity functions (rank D-F) | 20 |
 | Average maintainability index | 55.87 |
 
@@ -28,12 +28,12 @@ python scripts/python_complexity_inventory.py --limit 15
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:54` | 31 | E |
-| 2 | `build_runtime_status_response` | function | `app/models/runtime_status.py:613` | 30 | D |
-| 3 | `_ensure_operation_documentation` | function | `app/openapi_enrichment.py:363` | 30 | D |
-| 4 | `_process_pending_jobs` | function | `app/workers/compute_executor_worker.py:59` | 30 | D |
-| 5 | `calculate_contribution` | function | `app/services/contribution_service.py:126` | 29 | D |
-| 6 | `_prepare_data_from_instruments` | function | `engine/attribution.py:210` | 28 | D |
+| 1 | `build_runtime_status_response` | function | `app/models/runtime_status.py:613` | 30 | D |
+| 2 | `_ensure_operation_documentation` | function | `app/openapi_enrichment.py:363` | 30 | D |
+| 3 | `_process_pending_jobs` | function | `app/workers/compute_executor_worker.py:59` | 30 | D |
+| 4 | `calculate_contribution` | function | `app/services/contribution_service.py:126` | 29 | D |
+| 5 | `_prepare_data_from_instruments` | function | `engine/attribution.py:210` | 28 | D |
+| 6 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:54` | 27 | D |
 | 7 | `_calculate_returns_series` | function | `app/services/returns_series_service.py:723` | 27 | D |
 | 8 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:935` | 27 | D |
 | 9 | `_build_daily_calculation_evidence` | function | `app/services/twr_service.py:166` | 27 | D |
@@ -66,10 +66,10 @@ python scripts/python_complexity_inventory.py --limit 15
 
 ## Interpretation
 
-The highest complexity functions are concentrated in TWR inspection, runtime status, OpenAPI
-enrichment, worker dispatch, contribution, returns-series resolution and calculation, composite
-TWR, attribution, and MWR calculation. These are real refactor-planning hotspots, not evidence that
-a single local extraction should change behavior.
+The highest complexity functions are concentrated in runtime status, OpenAPI enrichment, worker
+dispatch, contribution, TWR inspection, returns-series resolution and calculation, composite TWR,
+attribution, and MWR calculation. These are real refactor-planning hotspots, not evidence that a
+single local extraction should change behavior.
 
 Maintainability index values should be treated as directional hotspot evidence because generated
 schemas, persistence-style modules, and dense orchestration files can score poorly even when tests

@@ -23,8 +23,8 @@ python scripts/python_function_size_inventory.py --limit 15
 | 1 | `build_source_economics_findings` | `app/services/inspection/source_economics_findings.py:7` | 509 |
 | 2 | `calculate_contribution` | `app/services/contribution_service.py:126` | 364 |
 | 3 | `build_integration_capabilities_report` | `app/services/integration_capabilities_service.py:92` | 354 |
-| 4 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:54` | 288 |
-| 5 | `_process_pending_jobs` | `app/workers/compute_executor_worker.py:59` | 256 |
+| 4 | `_process_pending_jobs` | `app/workers/compute_executor_worker.py:59` | 256 |
+| 5 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:54` | 251 |
 | 6 | `analyze_portfolio_position_reconciliation` | `app/services/inspection/reconciliation.py:82` | 250 |
 | 7 | `resolve_stateful_returns_series_request` | `app/services/returns_series_service.py:935` | 226 |
 | 8 | `build_runtime_status_response` | `app/models/runtime_status.py:613` | 215 |

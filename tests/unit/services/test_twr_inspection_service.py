@@ -318,6 +318,41 @@ def test_twr_inspection_verdict_and_window_helpers_cover_clean_and_unscoped_path
     )
 
 
+def test_build_twr_inspection_artifact_links_keeps_required_and_available_artifacts():
+    inspection_id = uuid4()
+    links = service._build_twr_inspection_artifact_links(
+        inspection_id=inspection_id,
+        artifact_payloads={
+            "source_quality_summary.json": "{}",
+            "source_economics_summary.json": "{}",
+            "support_brief.md": "brief",
+        },
+    )
+
+    assert links == {
+        "inspection_summary.json": f"/performance/inspections/{inspection_id}/artifacts/inspection_summary.json",
+        "findings.json": f"/performance/inspections/{inspection_id}/artifacts/findings.json",
+        "source_quality_summary.json": (
+            f"/performance/inspections/{inspection_id}/artifacts/source_quality_summary.json"
+        ),
+        "source_economics_summary.json": (
+            f"/performance/inspections/{inspection_id}/artifacts/source_economics_summary.json"
+        ),
+        "support_brief.md": f"/performance/inspections/{inspection_id}/artifacts/support_brief.md",
+    }
+    assert "reconciliation_summary.json" not in links
+
+
+def test_build_twr_inspection_artifact_links_omits_unavailable_optional_artifacts():
+    inspection_id = uuid4()
+    links = service._build_twr_inspection_artifact_links(inspection_id=inspection_id, artifact_payloads={})
+
+    assert links == {
+        "inspection_summary.json": f"/performance/inspections/{inspection_id}/artifacts/inspection_summary.json",
+        "findings.json": f"/performance/inspections/{inspection_id}/artifacts/findings.json",
+    }
+
+
 def _build_twr_request() -> TWRAnalyticsRequest:
     return TWRAnalyticsRequest(
         portfolio_id="PB_SG_GLOBAL_BAL_001",
