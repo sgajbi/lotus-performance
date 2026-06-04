@@ -35,7 +35,7 @@ from app.services.attribution_mode_service import resolve_attribution_request
 from app.services.attribution_service import calculate_attribution
 from app.services.benchmark_mode_service import resolve_benchmark_request
 from app.services.benchmark_service import calculate_benchmark_response
-from app.services.compute_job_store import ComputeJobStore, compute_job_store
+from app.services.compute_job_store import ComputeJobStore, ReconciledJobRecord, compute_job_store
 from app.services.contribution_mode_service import resolve_contribution_request
 from app.services.contribution_service import calculate_contribution
 from app.services.durable_metadata_bootstrap import bootstrap_durable_metadata_stores
@@ -89,22 +89,11 @@ def _process_pending_jobs(
     active_inspection_calculator = inspection_calculator or run_twr_inspection
     reconciled = active_job_store.reconcile_stale_jobs()
     for reconciled_job in reconciled:
-        if reconciled_job.reconciled_status.value == "failed":
-            _record_terminal_failure(
-                calculation_id=reconciled_job.calculation_id,
-                analytics_type=reconciled_job.analytics_type,
-                error_message=reconciled_job.error_message,
-                error_type=reconciled_job.error_type,
-                missing_execution_log_message="Execution record missing for reconciled compute job %s",
-                result_store=active_result_store,
-                execution_store=active_execution_store,
-            )
-        else:
-            logger.warning(
-                "Requeued stale compute job %s after expired %s lease",
-                reconciled_job.calculation_id,
-                reconciled_job.previous_status.value,
-            )
+        _handle_reconciled_stale_job(
+            reconciled_job,
+            result_store=active_result_store,
+            execution_store=active_execution_store,
+        )
     pending = active_job_store.lease_pending_jobs(
         worker_id=current_worker_id,
         limit=batch_size,
@@ -312,6 +301,30 @@ def _process_pending_jobs(
                 )
         processed += 1
     return processed
+
+
+def _handle_reconciled_stale_job(
+    reconciled_job: ReconciledJobRecord,
+    *,
+    result_store: AsyncResultStore | RuntimeStoreProxy[AsyncResultStore],
+    execution_store: ExecutionRegistry | RuntimeStoreProxy[ExecutionRegistry],
+) -> None:
+    if reconciled_job.reconciled_status.value == "failed":
+        _record_terminal_failure(
+            calculation_id=reconciled_job.calculation_id,
+            analytics_type=reconciled_job.analytics_type,
+            error_message=reconciled_job.error_message,
+            error_type=reconciled_job.error_type,
+            missing_execution_log_message="Execution record missing for reconciled compute job %s",
+            result_store=result_store,
+            execution_store=execution_store,
+        )
+        return
+    logger.warning(
+        "Requeued stale compute job %s after expired %s lease",
+        reconciled_job.calculation_id,
+        reconciled_job.previous_status.value,
+    )
 
 
 def _is_retryable_exception(exc: Exception) -> bool:

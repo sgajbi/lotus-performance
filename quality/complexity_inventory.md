@@ -20,7 +20,7 @@ python scripts/python_complexity_inventory.py --limit 20
 
 | Metric | Value |
 | --- | ---: |
-| Max cyclomatic complexity | 30 |
+| Max cyclomatic complexity | 29 |
 | High-complexity functions (rank D-F) | 18 |
 | Average maintainability index | 55.87 |
 
@@ -28,8 +28,8 @@ python scripts/python_complexity_inventory.py --limit 20
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_process_pending_jobs` | function | `app/workers/compute_executor_worker.py:59` | 30 | D |
-| 2 | `calculate_contribution` | function | `app/services/contribution_service.py:126` | 29 | D |
+| 1 | `calculate_contribution` | function | `app/services/contribution_service.py:126` | 29 | D |
+| 2 | `_process_pending_jobs` | function | `app/workers/compute_executor_worker.py:59` | 29 | D |
 | 3 | `_prepare_data_from_instruments` | function | `engine/attribution.py:210` | 28 | D |
 | 4 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:54` | 27 | D |
 | 5 | `_calculate_returns_series` | function | `app/services/returns_series_service.py:723` | 27 | D |
@@ -71,7 +71,7 @@ python scripts/python_complexity_inventory.py --limit 20
 
 ## Interpretation
 
-The highest complexity functions are concentrated in worker dispatch, contribution, attribution,
+The highest complexity functions are concentrated in contribution, worker dispatch, attribution,
 TWR inspection, returns-series resolution and calculation, TWR evidence assembly, composite TWR,
 OpenAPI schema-example generation, MWR calculation, benchmark returns, integration capability
 reporting, and stateful input assembly. These are real refactor-planning hotspots, not evidence

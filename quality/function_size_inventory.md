@@ -23,9 +23,9 @@ python scripts/python_function_size_inventory.py --limit 15
 | 1 | `build_source_economics_findings` | `app/services/inspection/source_economics_findings.py:7` | 509 |
 | 2 | `calculate_contribution` | `app/services/contribution_service.py:126` | 364 |
 | 3 | `build_integration_capabilities_report` | `app/services/integration_capabilities_service.py:92` | 354 |
-| 4 | `_process_pending_jobs` | `app/workers/compute_executor_worker.py:59` | 256 |
-| 5 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:54` | 251 |
-| 6 | `analyze_portfolio_position_reconciliation` | `app/services/inspection/reconciliation.py:82` | 250 |
+| 4 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:54` | 251 |
+| 5 | `analyze_portfolio_position_reconciliation` | `app/services/inspection/reconciliation.py:82` | 250 |
+| 6 | `_process_pending_jobs` | `app/workers/compute_executor_worker.py:59` | 245 |
 | 7 | `resolve_stateful_returns_series_request` | `app/services/returns_series_service.py:935` | 226 |
 | 8 | `_calculate_returns_series` | `app/services/returns_series_service.py:723` | 210 |
 | 9 | `DurableQueueCollector.collect` | `app/services/queue_metrics_service.py:227` | 188 |
@@ -40,8 +40,8 @@ python scripts/python_function_size_inventory.py --limit 15
 
 This is not a cyclomatic-complexity score. It is a deterministic hotspot inventory for refactor
 planning. The largest functions are concentrated in source-economics inspection, contribution,
-integration capability reporting, TWR inspection, returns-series resolution, async worker dispatch,
-and runtime-status assembly.
+integration capability reporting, TWR inspection, reconciliation, async worker dispatch,
+returns-series resolution, and runtime-status assembly.
 
 Future refactor slices should use this report to choose bounded work where extraction, shared
 helpers, or narrower tests can reduce function size while preserving analytics truth and API

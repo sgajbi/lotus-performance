@@ -29,7 +29,7 @@ from app.services.analytics_workflow_types import (
     ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY,
 )
 from app.services.async_result_store import AsyncResultStatus, AsyncResultStore
-from app.services.compute_job_store import ComputeJobStatus, ComputeJobStore
+from app.services.compute_job_store import ComputeJobStatus, ComputeJobStore, ReconciledJobRecord
 from app.services.execution_registry import ExecutionRegistry
 from app.services.lineage_metadata_store import LineageMetadataStore
 from app.services.lineage_service import LineageService
@@ -1111,6 +1111,74 @@ def test_compute_executor_worker_logs_requeued_stale_job(monkeypatch):
 
     assert processed == 0
     assert warnings and "Requeued stale compute job %s after expired %s lease" in warnings[0][0]
+
+
+def test_compute_executor_worker_handles_reconciled_stale_requeue(monkeypatch):
+    warnings: list[tuple] = []
+    monkeypatch.setattr(compute_executor_worker.logger, "warning", lambda *args, **kwargs: warnings.append(args))
+    reconciled_job = ReconciledJobRecord(
+        calculation_id=uuid4(),
+        analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES,
+        previous_status=ComputeJobStatus.RUNNING,
+        reconciled_status=ComputeJobStatus.PENDING,
+        attempt_count=1,
+        max_attempts=2,
+        error_message="lease expired",
+        error_type="LeaseExpired",
+    )
+
+    compute_executor_worker._handle_reconciled_stale_job(
+        reconciled_job,
+        result_store=compute_executor_worker.async_result_store,
+        execution_store=compute_executor_worker.execution_registry,
+    )
+
+    assert warnings == [
+        (
+            "Requeued stale compute job %s after expired %s lease",
+            reconciled_job.calculation_id,
+            "running",
+        )
+    ]
+
+
+def test_compute_executor_worker_handles_reconciled_stale_terminal_failure(tmp_path):
+    result_store = AsyncResultStore(f"sqlite:///{tmp_path / 'results.db'}")
+    result_store.create_schema()
+    execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    execution_store.create_schema()
+    calculation_id = uuid4()
+    execution_store.create_execution(
+        calculation_id=calculation_id,
+        analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES,
+        portfolio_id="P1",
+        execution_mode="async",
+        requested_window={},
+    )
+    reconciled_job = ReconciledJobRecord(
+        calculation_id=calculation_id,
+        analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES,
+        previous_status=ComputeJobStatus.RUNNING,
+        reconciled_status=ComputeJobStatus.FAILED,
+        attempt_count=2,
+        max_attempts=2,
+        error_message="lease expired after retry budget",
+        error_type="LeaseExpired",
+    )
+
+    compute_executor_worker._handle_reconciled_stale_job(
+        reconciled_job,
+        result_store=result_store,
+        execution_store=execution_store,
+    )
+
+    result = result_store.get_result(calculation_id)
+    assert result is not None
+    assert result.result_status == AsyncResultStatus.FAILED
+    assert result.error_type == "LeaseExpired"
+    execution = execution_store.get_execution(calculation_id)
+    assert execution is not None
+    assert execution.status.value == "failed"
 
 
 def test_compute_executor_worker_rejects_unsupported_analytics_type(tmp_path, monkeypatch):
