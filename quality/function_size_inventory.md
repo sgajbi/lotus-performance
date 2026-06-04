@@ -25,8 +25,8 @@ python scripts/python_function_size_inventory.py --limit 15
 | 3 | `build_integration_capabilities_report` | `app/services/integration_capabilities_service.py:92` | 354 |
 | 4 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:54` | 251 |
 | 5 | `analyze_portfolio_position_reconciliation` | `app/services/inspection/reconciliation.py:82` | 250 |
-| 6 | `_process_pending_jobs` | `app/workers/compute_executor_worker.py:59` | 245 |
-| 7 | `resolve_stateful_returns_series_request` | `app/services/returns_series_service.py:935` | 226 |
+| 6 | `resolve_stateful_returns_series_request` | `app/services/returns_series_service.py:935` | 226 |
+| 7 | `_process_pending_jobs` | `app/workers/compute_executor_worker.py:59` | 219 |
 | 8 | `_calculate_returns_series` | `app/services/returns_series_service.py:723` | 210 |
 | 9 | `DurableQueueCollector.collect` | `app/services/queue_metrics_service.py:227` | 188 |
 | 10 | `build_attribution_supportability_evidence` | `engine/attribution_supportability.py:42` | 184 |

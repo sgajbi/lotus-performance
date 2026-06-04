@@ -35,7 +35,7 @@ from app.services.attribution_mode_service import resolve_attribution_request
 from app.services.attribution_service import calculate_attribution
 from app.services.benchmark_mode_service import resolve_benchmark_request
 from app.services.benchmark_service import calculate_benchmark_response
-from app.services.compute_job_store import ComputeJobStore, ReconciledJobRecord, compute_job_store
+from app.services.compute_job_store import ComputeJobRecord, ComputeJobStore, ReconciledJobRecord, compute_job_store
 from app.services.contribution_mode_service import resolve_contribution_request
 from app.services.contribution_service import calculate_contribution
 from app.services.durable_metadata_bootstrap import bootstrap_durable_metadata_stores
@@ -266,41 +266,60 @@ def _process_pending_jobs(
             )
             active_job_store.mark_complete(job.calculation_id, response_payload=response.model_dump(mode="json"))
         except Exception as exc:
-            if _is_retryable_exception(exc):
-                will_retry = active_job_store.mark_retryable_failure(
-                    job.calculation_id,
-                    error_message=str(exc),
-                    error_type=type(exc).__name__,
-                )
-                if will_retry:
-                    logger.warning("Retrying compute job %s after %s", job.calculation_id, type(exc).__name__)
-                else:
-                    _record_terminal_failure(
-                        calculation_id=job.calculation_id,
-                        analytics_type=job.analytics_type,
-                        error_message=str(exc),
-                        error_type=type(exc).__name__,
-                        missing_execution_log_message="Execution record missing for compute job %s",
-                        result_store=active_result_store,
-                        execution_store=active_execution_store,
-                    )
-            else:
-                active_job_store.mark_failed(
-                    job.calculation_id,
-                    error_message=str(exc),
-                    error_type=type(exc).__name__,
-                )
-                _record_terminal_failure(
-                    calculation_id=job.calculation_id,
-                    analytics_type=job.analytics_type,
-                    error_message=str(exc),
-                    error_type=type(exc).__name__,
-                    missing_execution_log_message="Execution record missing for compute job %s",
-                    result_store=active_result_store,
-                    execution_store=active_execution_store,
-                )
+            _handle_compute_job_failure(
+                job,
+                exc,
+                job_store=active_job_store,
+                result_store=active_result_store,
+                execution_store=active_execution_store,
+            )
         processed += 1
     return processed
+
+
+def _handle_compute_job_failure(
+    job: ComputeJobRecord,
+    exc: Exception,
+    *,
+    job_store: ComputeJobStore | RuntimeStoreProxy[ComputeJobStore],
+    result_store: AsyncResultStore | RuntimeStoreProxy[AsyncResultStore],
+    execution_store: ExecutionRegistry | RuntimeStoreProxy[ExecutionRegistry],
+) -> None:
+    error_message = str(exc)
+    error_type = type(exc).__name__
+    if _is_retryable_exception(exc):
+        will_retry = job_store.mark_retryable_failure(
+            job.calculation_id,
+            error_message=error_message,
+            error_type=error_type,
+        )
+        if will_retry:
+            logger.warning("Retrying compute job %s after %s", job.calculation_id, error_type)
+            return
+        _record_terminal_failure(
+            calculation_id=job.calculation_id,
+            analytics_type=job.analytics_type,
+            error_message=error_message,
+            error_type=error_type,
+            missing_execution_log_message="Execution record missing for compute job %s",
+            result_store=result_store,
+            execution_store=execution_store,
+        )
+        return
+    job_store.mark_failed(
+        job.calculation_id,
+        error_message=error_message,
+        error_type=error_type,
+    )
+    _record_terminal_failure(
+        calculation_id=job.calculation_id,
+        analytics_type=job.analytics_type,
+        error_message=error_message,
+        error_type=error_type,
+        missing_execution_log_message="Execution record missing for compute job %s",
+        result_store=result_store,
+        execution_store=execution_store,
+    )
 
 
 def _handle_reconciled_stale_job(

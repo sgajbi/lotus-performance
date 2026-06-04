@@ -29,12 +29,12 @@ python scripts/python_complexity_inventory.py --limit 20
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
 | 1 | `calculate_contribution` | function | `app/services/contribution_service.py:126` | 29 | D |
-| 2 | `_process_pending_jobs` | function | `app/workers/compute_executor_worker.py:59` | 29 | D |
-| 3 | `_prepare_data_from_instruments` | function | `engine/attribution.py:210` | 28 | D |
-| 4 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:54` | 27 | D |
-| 5 | `_calculate_returns_series` | function | `app/services/returns_series_service.py:723` | 27 | D |
-| 6 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:935` | 27 | D |
-| 7 | `_build_daily_calculation_evidence` | function | `app/services/twr_service.py:166` | 27 | D |
+| 2 | `_prepare_data_from_instruments` | function | `engine/attribution.py:210` | 28 | D |
+| 3 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:54` | 27 | D |
+| 4 | `_calculate_returns_series` | function | `app/services/returns_series_service.py:723` | 27 | D |
+| 5 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:935` | 27 | D |
+| 6 | `_build_daily_calculation_evidence` | function | `app/services/twr_service.py:166` | 27 | D |
+| 7 | `_process_pending_jobs` | function | `app/workers/compute_executor_worker.py:59` | 27 | D |
 | 8 | `calculate_asset_weighted_composite_twr` | function | `engine/composites.py:240` | 27 | D |
 | 9 | `_build_schema_example` | function | `app/openapi_enrichment.py:230` | 26 | D |
 | 10 | `resolve_twr_request` | function | `app/services/twr_mode_service.py:44` | 25 | D |
@@ -71,8 +71,8 @@ python scripts/python_complexity_inventory.py --limit 20
 
 ## Interpretation
 
-The highest complexity functions are concentrated in contribution, worker dispatch, attribution,
-TWR inspection, returns-series resolution and calculation, TWR evidence assembly, composite TWR,
+The highest complexity functions are concentrated in contribution, attribution, TWR inspection,
+returns-series resolution and calculation, TWR evidence assembly, worker dispatch, composite TWR,
 OpenAPI schema-example generation, MWR calculation, benchmark returns, integration capability
 reporting, and stateful input assembly. These are real refactor-planning hotspots, not evidence
 that a single local extraction should change behavior.
