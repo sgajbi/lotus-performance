@@ -43,7 +43,7 @@ metrics in each section are updated with each meaningful slice.
 | Routers with infrastructure imports | unknown | 0 | n/a | measured | `quality/architecture_boundary_inventory.md`; `quality/refactor_health_report.md` |
 | Domain/application with infra/framework imports | unknown | 0 | n/a | measured | `quality/architecture_boundary_inventory.md`; `quality/refactor_health_report.md` |
 | Large production service hotspots (LOC > 1000) | 3 | 3 | 0 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
-| Router/middleware oversized function findings (`--threshold 80`) | unknown | 8 | n/a | measured | `quality/router_middleware_thinness_inventory.md`; `quality/refactor_health_report.md` |
+| Router/middleware oversized function findings (`--threshold 80`) | unknown | 7 | n/a | measured | `quality/router_middleware_thinness_inventory.md`; `quality/refactor_health_report.md` |
 
 ### API Quality
 

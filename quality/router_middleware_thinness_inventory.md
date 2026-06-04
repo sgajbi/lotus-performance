@@ -2,8 +2,8 @@
 
 | Metric | Value |
 | --- | ---: |
-| Router and middleware oversized function findings | 8 |
-| Oversized router functions | 8 |
+| Router and middleware oversized function findings | 7 |
+| Oversized router functions | 7 |
 | Oversized middleware functions | 0 |
 
 ## Findings
@@ -17,4 +17,3 @@
 | 5 | router | `app/api/endpoints/returns_series.py:118` | `get_returns_series` | 92 |
 | 6 | router | `app/api/endpoints/runtime_retention_history.py:138` | `run_runtime_retention_cleanup` | 90 |
 | 7 | router | `app/api/endpoints/performance.py:544` | `calculate_mwr_endpoint` | 89 |
-| 8 | router | `app/api/endpoints/runtime_recoveries.py:27` | `get_runtime_recoveries` | 85 |
