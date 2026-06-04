@@ -21,33 +21,33 @@ python scripts/python_complexity_inventory.py --limit 20
 | Metric | Value |
 | --- | ---: |
 | Max cyclomatic complexity | 24 |
-| High-complexity functions (rank D-F) | 10 |
+| High-complexity functions (rank D-F) | 9 |
 | Average maintainability index | 55.84 |
 
 ## Highest Cyclomatic Complexity
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `build_source_economics_findings` | function | `app/services/inspection/source_economics_findings.py:7` | 24 | D |
-| 2 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:1046` | 24 | D |
-| 3 | `ReturnsSeriesRequest` | class | `app/models/returns_series.py:244` | 22 | D |
-| 4 | `analyze_portfolio_position_reconciliation` | function | `app/services/inspection/reconciliation.py:82` | 22 | D |
-| 5 | `calculate_benchmark_returns` | function | `engine/benchmarks.py:35` | 22 | D |
-| 6 | `calculate_money_weighted_return` | function | `engine/mwr.py:264` | 22 | D |
-| 7 | `validate_selection` | method | `app/models/returns_series.py:318` | 21 | D |
-| 8 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:64` | 21 | D |
-| 9 | `build_integration_capabilities_report` | function | `app/services/integration_capabilities_service.py:92` | 21 | D |
-| 10 | `build_stateful_mwr_input_for_window` | function | `app/services/stateful_mwr_input_service.py:100` | 21 | D |
-| 11 | `_validate_stateful_portfolio_position_alignment` | function | `app/services/stateful_attribution_input_service.py:283` | 20 | C |
-| 12 | `resolve_twr_request` | function | `app/services/twr_mode_service.py:52` | 20 | C |
-| 13 | `calculate_twr_response` | function | `app/services/twr_service.py:738` | 20 | C |
-| 14 | `build_attribution_supportability_evidence` | function | `engine/attribution_supportability.py:42` | 20 | C |
-| 15 | `calculate_daily_ror` | function | `engine/ror.py:18` | 20 | C |
-| 16 | `_ensure_schema_documentation` | function | `app/openapi_enrichment.py:510` | 19 | C |
-| 17 | `_expected_daily_evidence_semantics` | function | `app/services/inspection/calculation_consistency.py:416` | 19 | C |
-| 18 | `_calculate_returns_series` | function | `app/services/returns_series_service.py:886` | 19 | C |
-| 19 | `_prepare_hierarchical_data` | function | `engine/contribution.py:152` | 19 | C |
-| 20 | `_xirr` | function | `engine/mwr.py:53` | 19 | C |
+| 1 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:1046` | 24 | D |
+| 2 | `ReturnsSeriesRequest` | class | `app/models/returns_series.py:244` | 22 | D |
+| 3 | `analyze_portfolio_position_reconciliation` | function | `app/services/inspection/reconciliation.py:82` | 22 | D |
+| 4 | `calculate_benchmark_returns` | function | `engine/benchmarks.py:35` | 22 | D |
+| 5 | `calculate_money_weighted_return` | function | `engine/mwr.py:264` | 22 | D |
+| 6 | `validate_selection` | method | `app/models/returns_series.py:318` | 21 | D |
+| 7 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:64` | 21 | D |
+| 8 | `build_integration_capabilities_report` | function | `app/services/integration_capabilities_service.py:92` | 21 | D |
+| 9 | `build_stateful_mwr_input_for_window` | function | `app/services/stateful_mwr_input_service.py:100` | 21 | D |
+| 10 | `_validate_stateful_portfolio_position_alignment` | function | `app/services/stateful_attribution_input_service.py:283` | 20 | C |
+| 11 | `resolve_twr_request` | function | `app/services/twr_mode_service.py:52` | 20 | C |
+| 12 | `calculate_twr_response` | function | `app/services/twr_service.py:738` | 20 | C |
+| 13 | `build_attribution_supportability_evidence` | function | `engine/attribution_supportability.py:42` | 20 | C |
+| 14 | `calculate_daily_ror` | function | `engine/ror.py:18` | 20 | C |
+| 15 | `_ensure_schema_documentation` | function | `app/openapi_enrichment.py:510` | 19 | C |
+| 16 | `_expected_daily_evidence_semantics` | function | `app/services/inspection/calculation_consistency.py:416` | 19 | C |
+| 17 | `_calculate_returns_series` | function | `app/services/returns_series_service.py:886` | 19 | C |
+| 18 | `_prepare_hierarchical_data` | function | `engine/contribution.py:152` | 19 | C |
+| 19 | `_xirr` | function | `engine/mwr.py:53` | 19 | C |
+| 20 | `validate_mode_payloads` | method | `app/models/workspace_summary_requests.py:251` | 18 | C |
 
 ## Lowest Maintainability Index
 
@@ -77,9 +77,9 @@ python scripts/python_complexity_inventory.py --limit 20
 ## Interpretation
 
 The highest complexity functions are concentrated in returns-series resolution and calculation,
-TWR mode resolution, MWR calculation, source-economics inspection, benchmark returns, integration
-capability reporting, attribution supportability, and stateful input assembly. These are real
-refactor-planning hotspots, not evidence that a single local extraction should change behavior.
+TWR mode resolution, MWR calculation, benchmark returns, integration capability reporting,
+attribution supportability, and stateful input assembly. These are real refactor-planning hotspots,
+not evidence that a single local extraction should change behavior.
 
 Maintainability index values should be treated as directional hotspot evidence because generated
 schemas, persistence-style modules, and dense orchestration files can score poorly even when tests

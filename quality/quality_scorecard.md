@@ -18,22 +18,22 @@ metrics in each section are updated with each meaningful slice.
 
 | Metric | Baseline | Current | Delta | Status | Evidence |
 | --- | ---: | ---: | ---: | --- | --- |
-| Python files | 480 | 534 | 54 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python files | 480 | 535 | 55 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Python package markers | 18 | 18 | 0 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Python LOC | 104,454 | 112,104 | 7,650 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest Python file LOC | 2,399 | 2,399 | 0 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest production file LOC | 1,156 | 1,156 | 0 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
-| Python test modules | 228 | 251 | 23 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Collected tests | 2,035 | 2,192 | 157 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python test modules | 228 | 252 | 24 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Collected tests | 2,035 | 2,194 | 159 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 
 ### Complexity And Maintainability
 
 | Metric | Baseline | Current | Delta | Status | Evidence |
 | --- | ---: | ---: | ---: | --- | --- |
 | Max cyclomatic complexity | unknown | 24 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
-| High-complexity functions (D-F) | unknown | 10 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
+| High-complexity functions (D-F) | unknown | 9 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
 | Average maintainability index | unknown | 55.84 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
-| Largest functions by LOC | unknown | 509 | n/a | measured | `quality/function_size_inventory.md`; `quality/refactor_health_report.md` |
+| Largest functions by LOC | unknown | 389 | n/a | measured | `quality/function_size_inventory.md`; `quality/refactor_health_report.md` |
 
 ### Architecture
 

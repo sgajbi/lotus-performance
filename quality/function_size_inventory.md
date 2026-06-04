@@ -20,7 +20,7 @@ python scripts/python_function_size_inventory.py --limit 15
 
 | Rank | Function | File | Lines |
 | ---: | --- | --- | ---: |
-| 1 | `build_source_economics_findings` | `app/services/inspection/source_economics_findings.py:7` | 509 |
+| 1 | `build_source_economics_findings` | `app/services/inspection/source_economics_findings.py:7` | 389 |
 | 2 | `build_integration_capabilities_report` | `app/services/integration_capabilities_service.py:92` | 354 |
 | 3 | `calculate_contribution` | `app/services/contribution_service.py:178` | 335 |
 | 4 | `analyze_portfolio_position_reconciliation` | `app/services/inspection/reconciliation.py:82` | 250 |
@@ -46,4 +46,3 @@ runtime-status assembly, queue metrics, and TWR workflow assembly.
 Future refactor slices should use this report to choose bounded work where extraction, shared
 helpers, or narrower tests can reduce function size while preserving analytics truth and API
 contracts.
-
