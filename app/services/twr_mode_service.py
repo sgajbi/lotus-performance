@@ -49,6 +49,14 @@ class _ResolvedTWRPortfolioSourceInput:
     retrieval_details: dict[str, object]
 
 
+@dataclass(frozen=True)
+class _TWRRetrievalResolution:
+    portfolio_input: StatefulPortfolioInput | None
+    benchmark_resolution: _ResolvedTWRBenchmarkSourceInput | None
+    benchmark_start_date: date | None
+    retrieval_details: dict[str, object]
+
+
 async def resolve_twr_request(
     request: TWRAnalyticsRequest,
     *,
@@ -72,38 +80,18 @@ async def resolve_twr_request(
         )
 
     execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_RETRIEVAL)
-    retrieval_details: dict[str, object] = {}
-    portfolio_input = None
-    benchmark_resolution = None
     stateful_input_service = build_stateful_input_service(settings=settings)
-    benchmark_start_date = None
 
     try:
-        if request.input_mode == TWRInputMode.STATEFUL:
-            portfolio_resolution = await _resolve_twr_portfolio_source_input(
-                request=request,
-                settings=settings,
-                stateful_input_service=stateful_input_service,
-            )
-            portfolio_input = portfolio_resolution.portfolio_input
-            benchmark_start_date = portfolio_resolution.benchmark_start_date
-            retrieval_details.update(portfolio_resolution.retrieval_details)
-
-        if _benchmark_requested(request):
-            if benchmark_start_date is None:
-                benchmark_start_date = _resolve_benchmark_start_date_from_request(request)
-            benchmark_resolution = await _resolve_twr_benchmark_source_input(
-                request=request,
-                stateful_input_service=stateful_input_service,
-                benchmark_start_date=benchmark_start_date,
-            )
-            if benchmark_resolution is not None and benchmark_resolution.source_details:
-                retrieval_details.update(benchmark_resolution.source_details)
-
+        retrieval_resolution = await _resolve_twr_retrieval_inputs(
+            request=request,
+            settings=settings,
+            stateful_input_service=stateful_input_service,
+        )
         execution_registry.complete_stage(
             request.calculation_id,
             EXECUTION_STAGE_RETRIEVAL,
-            details=retrieval_details,
+            details=retrieval_resolution.retrieval_details,
         )
     except HTTPException as exc:
         execution_registry.fail_stage(request.calculation_id, EXECUTION_STAGE_RETRIEVAL, str(exc.detail))
@@ -111,6 +99,8 @@ async def resolve_twr_request(
 
     execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_NORMALIZATION)
     try:
+        portfolio_input = retrieval_resolution.portfolio_input
+        benchmark_resolution = retrieval_resolution.benchmark_resolution
         resolved_input = (
             build_stateful_portfolio_valuation_input(
                 source_input=portfolio_input,
@@ -119,7 +109,9 @@ async def resolve_twr_request(
             if portfolio_input is not None
             else None
         )
-        benchmark_start_date = benchmark_start_date or _resolve_benchmark_start_date_from_request(request)
+        benchmark_start_date = retrieval_resolution.benchmark_start_date or _resolve_benchmark_start_date_from_request(
+            request
+        )
         benchmark_request = (
             _build_resolved_twr_benchmark_request(
                 request=request,
@@ -184,6 +176,46 @@ async def resolve_twr_request(
             if _benchmark_requested(request)
             else None
         ),
+    )
+
+
+async def _resolve_twr_retrieval_inputs(
+    *,
+    request: TWRAnalyticsRequest,
+    settings: Settings,
+    stateful_input_service: StatefulInputService,
+) -> _TWRRetrievalResolution:
+    retrieval_details: dict[str, object] = {}
+    portfolio_input = None
+    benchmark_start_date = None
+    benchmark_resolution = None
+
+    if request.input_mode == TWRInputMode.STATEFUL:
+        portfolio_resolution = await _resolve_twr_portfolio_source_input(
+            request=request,
+            settings=settings,
+            stateful_input_service=stateful_input_service,
+        )
+        portfolio_input = portfolio_resolution.portfolio_input
+        benchmark_start_date = portfolio_resolution.benchmark_start_date
+        retrieval_details.update(portfolio_resolution.retrieval_details)
+
+    if _benchmark_requested(request):
+        if benchmark_start_date is None:
+            benchmark_start_date = _resolve_benchmark_start_date_from_request(request)
+        benchmark_resolution = await _resolve_twr_benchmark_source_input(
+            request=request,
+            stateful_input_service=stateful_input_service,
+            benchmark_start_date=benchmark_start_date,
+        )
+        if benchmark_resolution is not None and benchmark_resolution.source_details:
+            retrieval_details.update(benchmark_resolution.source_details)
+
+    return _TWRRetrievalResolution(
+        portfolio_input=portfolio_input,
+        benchmark_resolution=benchmark_resolution,
+        benchmark_start_date=benchmark_start_date,
+        retrieval_details=retrieval_details,
     )
 
 

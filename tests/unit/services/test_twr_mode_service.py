@@ -13,6 +13,7 @@ from app.services.twr_mode_service import (
     _build_resolved_twr_benchmark_request,
     _resolve_default_stateful_benchmark_input,
     _resolve_twr_portfolio_source_input,
+    _resolve_twr_retrieval_inputs,
     resolve_twr_request,
 )
 
@@ -335,6 +336,95 @@ async def test_resolve_twr_request_fails_normalization_stage_for_invalid_observa
     assert execution is not None
     stages = {stage.stage_name: stage for stage in execution.stages}
     assert stages[EXECUTION_STAGE_NORMALIZATION].status.value == "failed"
+
+
+@pytest.mark.asyncio
+async def test_resolve_twr_retrieval_inputs_carries_portfolio_details(monkeypatch):
+    portfolio_input = object()
+
+    async def _portfolio_resolution(**kwargs):  # noqa: ARG001
+        return SimpleNamespace(
+            portfolio_input=portfolio_input,
+            benchmark_start_date=None,
+            retrieval_details={"portfolio_observations": 2, "portfolio_chunk_count": 1},
+        )
+
+    monkeypatch.setattr(
+        "app.services.twr_mode_service._resolve_twr_portfolio_source_input",
+        _portfolio_resolution,
+    )
+
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_1",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "stateful_input": {},
+        }
+    )
+
+    resolution = await _resolve_twr_retrieval_inputs(
+        request=request,
+        settings=_settings(),
+        stateful_input_service=object(),
+    )
+
+    assert resolution.portfolio_input is portfolio_input
+    assert resolution.benchmark_resolution is None
+    assert resolution.retrieval_details == {"portfolio_observations": 2, "portfolio_chunk_count": 1}
+
+
+@pytest.mark.asyncio
+async def test_resolve_twr_retrieval_inputs_uses_request_benchmark_start_when_portfolio_not_retrieved(monkeypatch):
+    captured: dict[str, object] = {}
+
+    async def _benchmark_resolution(**kwargs):
+        captured.update(kwargs)
+        return SimpleNamespace(
+            benchmark_id="BMK_1",
+            benchmark_request=object(),
+            source_details={"benchmark_components": 1},
+        )
+
+    monkeypatch.setattr(
+        "app.services.twr_mode_service._resolve_twr_benchmark_source_input",
+        _benchmark_resolution,
+    )
+
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_1",
+            "performance_start_date": "2024-12-31",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+            "valuation_points": [
+                {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+                {"perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1020.1},
+            ],
+            "benchmark": {
+                "input_mode": "stateful",
+                "return_source": "calculated",
+                "stateful_input": {},
+            },
+        }
+    )
+
+    resolution = await _resolve_twr_retrieval_inputs(
+        request=request,
+        settings=_settings(),
+        stateful_input_service=object(),
+    )
+
+    assert resolution.portfolio_input is None
+    assert resolution.benchmark_resolution is not None
+    assert resolution.benchmark_start_date.isoformat() == "2025-01-01"
+    assert captured["benchmark_start_date"].isoformat() == "2025-01-01"
+    assert resolution.retrieval_details == {"benchmark_components": 1}
 
 
 @pytest.mark.asyncio
