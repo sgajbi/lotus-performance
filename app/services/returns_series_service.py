@@ -596,6 +596,49 @@ async def _resolve_stateful_returns_series_benchmark_id(
     return benchmark_id
 
 
+async def _retrieve_stateful_returns_series_risk_free(
+    *,
+    request: ReturnsSeriesRequest,
+    stateful_input_service: Any,
+    resolved_window: ResolvedWindow,
+) -> tuple[list[dict[str, Any]] | None, dict[str, Any] | None]:
+    if not request.series_selection.include_risk_free:
+        return None, None
+    if not request.reporting_currency:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=invalid_request_detail("reporting_currency is required for risk-free series in stateful mode."),
+        )
+
+    risk_free_status, risk_free_payload = await stateful_input_service.get_risk_free_series(
+        currency=request.reporting_currency,
+        as_of_date=request.as_of_date,
+        start_date=resolved_window.start_date,
+        end_date=resolved_window.end_date,
+        frequency=core_frequency_label(request.frequency),
+        series_mode="return_series",
+        calculation_id=request.calculation_id,
+    )
+    if risk_free_status == status.HTTP_404_NOT_FOUND:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=resource_not_found_detail(f"No risk-free series found for {request.reporting_currency}."),
+        )
+    if risk_free_status >= status.HTTP_400_BAD_REQUEST:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=source_unavailable_detail(f"Risk-free series source unavailable ({risk_free_status})."),
+        )
+
+    risk_free_points = risk_free_payload.get("points")
+    if not isinstance(risk_free_points, list):
+        raise HTTPException(
+            status_code=HTTP_422_UNPROCESSABLE,
+            detail=upstream_contract_violation_detail("Risk-free series payload missing points list."),
+        )
+    return risk_free_points, risk_free_payload
+
+
 async def calculate_returns_series(
     request: ReturnsSeriesRequest,
     *,
@@ -982,39 +1025,11 @@ async def resolve_stateful_returns_series_request(
                 len(benchmark_df),
             )
 
-    risk_free_points: list[dict[str, Any]] | None = None
-    risk_free_payload: dict[str, Any] | None = None
-    if request.series_selection.include_risk_free:
-        if not request.reporting_currency:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=invalid_request_detail("reporting_currency is required for risk-free series in stateful mode."),
-            )
-        risk_free_status, risk_free_payload = await stateful_input_service.get_risk_free_series(
-            currency=request.reporting_currency,
-            as_of_date=request.as_of_date,
-            start_date=resolved_window.start_date,
-            end_date=resolved_window.end_date,
-            frequency=core_frequency_label(request.frequency),
-            series_mode="return_series",
-            calculation_id=request.calculation_id,
-        )
-        if risk_free_status == status.HTTP_404_NOT_FOUND:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=resource_not_found_detail(f"No risk-free series found for {request.reporting_currency}."),
-            )
-        if risk_free_status >= status.HTTP_400_BAD_REQUEST:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=source_unavailable_detail(f"Risk-free series source unavailable ({risk_free_status})."),
-            )
-        risk_free_points = risk_free_payload.get("points")
-        if not isinstance(risk_free_points, list):
-            raise HTTPException(
-                status_code=HTTP_422_UNPROCESSABLE,
-                detail=upstream_contract_violation_detail("Risk-free series payload missing points list."),
-            )
+    risk_free_points, risk_free_payload = await _retrieve_stateful_returns_series_risk_free(
+        request=request,
+        stateful_input_service=stateful_input_service,
+        resolved_window=resolved_window,
+    )
 
     execution_registry.complete_stage(
         request.calculation_id,

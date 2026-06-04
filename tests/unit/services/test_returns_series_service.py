@@ -309,6 +309,67 @@ async def test_resolve_stateful_returns_series_benchmark_id_rejects_invalid_payl
     assert exc.value.status_code == 422
 
 
+@pytest.mark.asyncio
+async def test_retrieve_stateful_returns_series_risk_free_uses_core_series():
+    request = _build_stateful_request(
+        reporting_currency="USD",
+        series_selection={"include_portfolio": True, "include_benchmark": False, "include_risk_free": True},
+    )
+    resolved_window = returns_series_service.resolve_window(request)
+
+    class Service:
+        async def get_risk_free_series(self, **kwargs):  # noqa: ARG002
+            return 200, {"points": [{"series_date": "2026-02-25", "value": "0.0001"}]}
+
+    points, payload = await returns_series_service._retrieve_stateful_returns_series_risk_free(
+        request=request,
+        stateful_input_service=Service(),
+        resolved_window=resolved_window,
+    )
+
+    assert points == [{"series_date": "2026-02-25", "value": "0.0001"}]
+    assert payload == {"points": points}
+
+
+@pytest.mark.asyncio
+async def test_retrieve_stateful_returns_series_risk_free_requires_reporting_currency():
+    request = _build_stateful_request(
+        series_selection={"include_portfolio": True, "include_benchmark": False, "include_risk_free": True},
+    )
+    resolved_window = returns_series_service.resolve_window(request)
+
+    with pytest.raises(HTTPException) as exc:
+        await returns_series_service._retrieve_stateful_returns_series_risk_free(
+            request=request,
+            stateful_input_service=object(),
+            resolved_window=resolved_window,
+        )
+
+    assert exc.value.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_retrieve_stateful_returns_series_risk_free_rejects_invalid_payload():
+    request = _build_stateful_request(
+        reporting_currency="USD",
+        series_selection={"include_portfolio": True, "include_benchmark": False, "include_risk_free": True},
+    )
+    resolved_window = returns_series_service.resolve_window(request)
+
+    class Service:
+        async def get_risk_free_series(self, **kwargs):  # noqa: ARG002
+            return 200, {"points": None}
+
+    with pytest.raises(HTTPException) as exc:
+        await returns_series_service._retrieve_stateful_returns_series_risk_free(
+            request=request,
+            stateful_input_service=Service(),
+            resolved_window=resolved_window,
+        )
+
+    assert exc.value.status_code == 422
+
+
 def _build_stateful_request(**overrides):
     payload = {
         "calculation_id": str(uuid4()),

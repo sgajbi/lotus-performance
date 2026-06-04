@@ -25,10 +25,10 @@ python scripts/python_function_size_inventory.py --limit 15
 | 3 | `build_integration_capabilities_report` | `app/services/integration_capabilities_service.py:92` | 354 |
 | 4 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:54` | 288 |
 | 5 | `_process_pending_jobs` | `app/workers/compute_executor_worker.py:59` | 256 |
-| 6 | `resolve_stateful_returns_series_request` | `app/services/returns_series_service.py:866` | 254 |
-| 7 | `analyze_portfolio_position_reconciliation` | `app/services/inspection/reconciliation.py:82` | 250 |
-| 8 | `_calculate_returns_series` | `app/services/returns_series_service.py:614` | 250 |
-| 9 | `calculate_twr_response` | `app/services/twr_service.py:496` | 234 |
+| 6 | `analyze_portfolio_position_reconciliation` | `app/services/inspection/reconciliation.py:82` | 250 |
+| 7 | `_calculate_returns_series` | `app/services/returns_series_service.py:657` | 250 |
+| 8 | `calculate_twr_response` | `app/services/twr_service.py:496` | 234 |
+| 9 | `resolve_stateful_returns_series_request` | `app/services/returns_series_service.py:909` | 226 |
 | 10 | `build_runtime_status_response` | `app/models/runtime_status.py:613` | 215 |
 | 11 | `calculate_asset_weighted_composite_twr` | `engine/composites.py:92` | 197 |
 | 12 | `DurableQueueCollector.collect` | `app/services/queue_metrics_service.py:227` | 188 |
