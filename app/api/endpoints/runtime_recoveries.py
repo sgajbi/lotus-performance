@@ -77,6 +77,7 @@ async def get_runtime_recoveries(
         description="Optional substring filter applied to calculation identifiers in the selected queues.",
     ),
 ) -> RuntimeRecoveriesResponse:
+    """Return filtered durable recovery events for runtime queue remediation review."""
     if recovered_after is not None and recovered_before is not None and recovered_after > recovered_before:
         raise HTTPException(
             status_code=HTTP_422_UNPROCESSABLE,

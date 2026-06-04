@@ -10,8 +10,8 @@
 | API catalog files expected | 4 |
 | Docs regression test functions | 56 |
 | Public definitions scanned | 1123 |
-| Public definitions missing docstrings | 998 |
-| Public definition docstring coverage percent | 11.13 |
+| Public definitions missing docstrings | 991 |
+| Public definition docstring coverage percent | 11.75 |
 
 ## Markdown Files By Family
 
@@ -50,20 +50,20 @@
 | 21 | `app/api/endpoints/performance.py` | 305 | `AsyncFunctionDef` | `get_workspace_summary_result` |
 | 22 | `app/api/endpoints/performance.py` | 513 | `AsyncFunctionDef` | `get_twr_result` |
 | 23 | `app/api/endpoints/performance.py` | 922 | `AsyncFunctionDef` | `get_attribution_result` |
-| 24 | `app/api/endpoints/recovery_drill_history.py` | 43 | `AsyncFunctionDef` | `get_recovery_drill_history` |
-| 25 | `app/api/endpoints/recovery_drill_history.py` | 114 | `AsyncFunctionDef` | `run_recovery_drill` |
-| 26 | `app/api/endpoints/returns_series.py` | 118 | `AsyncFunctionDef` | `get_returns_series` |
-| 27 | `app/api/endpoints/returns_series.py` | 218 | `AsyncFunctionDef` | `get_returns_series_result` |
-| 28 | `app/api/endpoints/runtime_recoveries.py` | 27 | `AsyncFunctionDef` | `get_runtime_recoveries` |
-| 29 | `app/api/endpoints/runtime_retention_history.py` | 46 | `AsyncFunctionDef` | `get_runtime_retention_history` |
-| 30 | `app/api/endpoints/runtime_retention_history.py` | 137 | `AsyncFunctionDef` | `run_runtime_retention_cleanup` |
-| 31 | `app/api/endpoints/runtime_status.py` | 23 | `AsyncFunctionDef` | `get_runtime_status` |
-| 32 | `app/api/endpoints/runtime_work_items.py` | 25 | `AsyncFunctionDef` | `get_runtime_work_items` |
-| 33 | `app/api/operator_context.py` | 9 | `ClassDef` | `OperatorRequestContext` |
-| 34 | `app/api/operator_context.py` | 15 | `FunctionDef` | `resolve_operator_request_context` |
-| 35 | `app/api/time_query_validation.py` | 11 | `FunctionDef` | `validate_utc_query_timestamp_window` |
-| 36 | `app/core/config.py` | 10 | `ClassDef` | `Settings` |
-| 37 | `app/core/config.py` | 94 | `FunctionDef` | `resolved_core_control_plane_base_url` |
-| 38 | `app/enterprise_audit_emission.py` | 11 | `FunctionDef` | `emit_audit_event` |
-| 39 | `app/enterprise_audit_middleware.py` | 20 | `ClassDef` | `AuditEventEmitter` |
-| 40 | `app/enterprise_audit_middleware.py` | 64 | `FunctionDef` | `build_enterprise_audit_middleware` |
+| 24 | `app/api/endpoints/returns_series.py` | 118 | `AsyncFunctionDef` | `get_returns_series` |
+| 25 | `app/api/endpoints/returns_series.py` | 218 | `AsyncFunctionDef` | `get_returns_series_result` |
+| 26 | `app/api/operator_context.py` | 9 | `ClassDef` | `OperatorRequestContext` |
+| 27 | `app/api/operator_context.py` | 15 | `FunctionDef` | `resolve_operator_request_context` |
+| 28 | `app/api/time_query_validation.py` | 11 | `FunctionDef` | `validate_utc_query_timestamp_window` |
+| 29 | `app/core/config.py` | 10 | `ClassDef` | `Settings` |
+| 30 | `app/core/config.py` | 94 | `FunctionDef` | `resolved_core_control_plane_base_url` |
+| 31 | `app/enterprise_audit_emission.py` | 11 | `FunctionDef` | `emit_audit_event` |
+| 32 | `app/enterprise_audit_middleware.py` | 20 | `ClassDef` | `AuditEventEmitter` |
+| 33 | `app/enterprise_audit_middleware.py` | 64 | `FunctionDef` | `build_enterprise_audit_middleware` |
+| 34 | `app/enterprise_audit_middleware.py` | 69 | `AsyncFunctionDef` | `middleware` |
+| 35 | `app/enterprise_audit_redaction.py` | 38 | `FunctionDef` | `redact_sensitive` |
+| 36 | `app/enterprise_authorization.py` | 110 | `FunctionDef` | `authorize_write_request` |
+| 37 | `app/enterprise_authorization.py` | 122 | `FunctionDef` | `authorize_privileged_read_request` |
+| 38 | `app/enterprise_capability_rules.py` | 100 | `FunctionDef` | `load_capability_rules` |
+| 39 | `app/enterprise_capability_rules.py` | 107 | `FunctionDef` | `load_privileged_read_rules` |
+| 40 | `app/enterprise_feature_flags.py` | 6 | `FunctionDef` | `load_feature_flags` |

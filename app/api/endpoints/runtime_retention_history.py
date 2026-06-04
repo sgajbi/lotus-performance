@@ -104,6 +104,7 @@ async def get_runtime_retention_history(
         ),
     ] = None,
 ) -> RuntimeRetentionHistoryResponse:
+    """Return retained runtime-retention cleanup history for operator review."""
     generated_after, generated_before = validate_utc_query_timestamp_window(
         generated_after=generated_after,
         generated_before=generated_before,
@@ -138,6 +139,7 @@ async def run_runtime_retention_cleanup(
     request: Request,
     cleanup_request: RuntimeRetentionCleanupRunRequest,
 ) -> RuntimeRetentionCleanupRunResponse:
+    """Run or replay a governed runtime-retention cleanup action under lease controls."""
     settings = get_settings()
     operator_context = resolve_operator_request_context(request)
     resolved_retention_days = cleanup_request.retention_days or settings.RUNTIME_RETENTION_DAYS
