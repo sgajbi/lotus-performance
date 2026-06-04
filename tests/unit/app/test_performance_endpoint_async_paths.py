@@ -6,10 +6,10 @@ import pytest
 from fastapi import HTTPException
 
 from app.api.endpoints import performance as performance_endpoint
+from app.models.mwr_analytics_requests import MoneyWeightedReturnAnalyticsRequest
 from app.models.twr_requests import TWRAnalyticsRequest
 from app.models.workspace_summary_requests import WorkspaceSummaryRequest
 from app.services.analytics_workflow_types import (
-    ANALYTICS_WORKFLOW_MWR,
     ANALYTICS_WORKFLOW_TWR,
     ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY,
 )
@@ -192,8 +192,8 @@ async def test_workspace_summary_endpoint_records_http_exception_detail(mocker):
 
 
 @pytest.mark.asyncio
-async def test_mwr_endpoint_records_canonical_workflow_type_for_registration_and_lineage(mocker):
-    request = performance_endpoint.MoneyWeightedReturnAnalyticsRequest.model_validate(
+async def test_mwr_endpoint_delegates_to_mwr_service(mocker):
+    request = MoneyWeightedReturnAnalyticsRequest.model_validate(
         {
             "calculation_id": str(uuid4()),
             "portfolio_id": "MWR_UNIT",
@@ -208,20 +208,16 @@ async def test_mwr_endpoint_records_canonical_workflow_type_for_registration_and
             "annualization": {"enabled": True, "basis": "ACT/365"},
         }
     )
-    lineage_capture: dict[str, object] = {}
-    register_sync = mocker.patch("app.api.endpoints.performance.register_sync_execution_or_raise")
-    mocker.patch("app.api.endpoints.performance.execution_registry.mark_running")
-    mocker.patch("app.api.endpoints.performance.execution_registry.start_stage")
-    mocker.patch(
-        "app.api.endpoints.performance.complete_execution_with_lineage",
-        side_effect=lambda **kwargs: lineage_capture.update(kwargs),
+    expected_response = object()
+    calculate_mwr = mocker.patch(
+        "app.api.endpoints.performance.calculate_mwr_response",
+        return_value=expected_response,
     )
 
     response = await performance_endpoint.calculate_mwr_endpoint(request)
 
-    assert response.portfolio_id == "MWR_UNIT"
-    assert register_sync.call_args.kwargs["analytics_type"] == ANALYTICS_WORKFLOW_MWR
-    assert lineage_capture["calculation_type"] == ANALYTICS_WORKFLOW_MWR
+    calculate_mwr.assert_called_once_with(request)
+    assert response is expected_response
 
 
 @pytest.mark.asyncio
