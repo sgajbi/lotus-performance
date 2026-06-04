@@ -9,10 +9,8 @@ from app.api.endpoints import performance as performance_endpoint
 from app.models.mwr_analytics_requests import MoneyWeightedReturnAnalyticsRequest
 from app.models.twr_requests import TWRAnalyticsRequest
 from app.models.workspace_summary_requests import WorkspaceSummaryRequest
-from app.services.analytics_workflow_types import (
-    ANALYTICS_WORKFLOW_TWR,
-    ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY,
-)
+from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY
+from app.services.twr_calculation_service import twr_requested_benchmark_work_units
 
 
 def _stateful_twr_payload() -> dict[str, object]:
@@ -29,69 +27,18 @@ def _stateful_twr_payload() -> dict[str, object]:
 
 
 @pytest.mark.asyncio
-async def test_twr_endpoint_replays_promoted_stateful_async_execution(mocker):
+async def test_twr_endpoint_delegates_to_twr_workflow(mocker):
     request = TWRAnalyticsRequest.model_validate(_stateful_twr_payload())
-    replay_response = performance_endpoint._accepted_twr_response(request.calculation_id)
-    mocker.patch(
-        "app.api.endpoints.performance.get_settings",
-        return_value=type(
-            "Settings",
-            (),
-            {"APP_VERSION": "runtime-version", "TWR_EXECUTOR_WINDOW_DAYS": 30, "TWR_EXECUTOR_INPUT_COUNT": 50},
-        )(),
+    expected_response = object()
+    calculate_twr = mocker.patch(
+        "app.api.endpoints.performance.calculate_twr_workflow",
+        return_value=expected_response,
     )
-    mocker.patch(
-        "app.api.endpoints.performance.replay_promoted_stateful_async_execution",
-        return_value=replay_response,
-    )
-    replay_promoted = performance_endpoint.replay_promoted_stateful_async_execution
-    register_sync = mocker.patch("app.api.endpoints.performance.register_sync_execution_or_raise")
 
     response = await performance_endpoint.calculate_twr_endpoint(request)
 
-    assert response == replay_response
-    replay_promoted.assert_called_once()
-    assert replay_promoted.call_args.kwargs["analytics_type"] == ANALYTICS_WORKFLOW_TWR
-    register_sync.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_twr_endpoint_offloads_large_requests_before_resolution(mocker):
-    request = TWRAnalyticsRequest.model_validate(
-        {
-            "calculation_id": str(uuid4()),
-            "portfolio_id": "P1",
-            "performance_start_date": "2025-01-01",
-            "report_end_date": "2025-01-02",
-            "metric_basis": "NET",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
-            "valuation_points": [
-                {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1001.0},
-                {"perf_date": "2025-01-02", "begin_mv": 1001.0, "end_mv": 1002.0},
-            ],
-        }
-    )
-    accepted_response = performance_endpoint._accepted_twr_response(request.calculation_id)
-    mocker.patch(
-        "app.api.endpoints.performance.get_settings",
-        return_value=type(
-            "Settings",
-            (),
-            {"APP_VERSION": "runtime-version", "TWR_EXECUTOR_WINDOW_DAYS": 30, "TWR_EXECUTOR_INPUT_COUNT": 2},
-        )(),
-    )
-    register_async = mocker.patch(
-        "app.api.endpoints.performance.register_async_submission_or_raise",
-        return_value=accepted_response,
-    )
-    resolve_request = mocker.patch("app.api.endpoints.performance.resolve_twr_request")
-
-    response = await performance_endpoint.calculate_twr_endpoint(request)
-
-    assert response == accepted_response
-    register_async.assert_called_once()
-    assert register_async.call_args.kwargs["analytics_type"] == ANALYTICS_WORKFLOW_TWR
-    resolve_request.assert_not_called()
+    calculate_twr.assert_called_once_with(request)
+    assert response is expected_response
 
 
 def test_twr_workspace_helper_paths_cover_optional_benchmark_shapes():
@@ -139,7 +86,7 @@ def test_twr_workspace_helper_paths_cover_optional_benchmark_shapes():
     twr_request.benchmark.stateless_input = None
     workspace_request.benchmark.stateless_input.component_price_points = []
 
-    assert performance_endpoint._twr_requested_benchmark_work_units(twr_request) == 0
+    assert twr_requested_benchmark_work_units(twr_request) == 0
     assert performance_endpoint._workspace_requested_benchmark_work_units(workspace_request) == 0
     assert performance_endpoint._workspace_longest_requested_window_days(workspace_request) == 10_000
 

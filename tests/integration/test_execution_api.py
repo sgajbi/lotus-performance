@@ -963,7 +963,7 @@ def test_execution_api_tracks_async_twr_job_state(client, monkeypatch):
             resolved_benchmark_id="BMK_RESOLVED",
         )
 
-    monkeypatch.setattr("app.api.endpoints.performance.resolve_twr_request", _mock_resolve_twr_request)
+    monkeypatch.setattr("app.services.twr_calculation_service.resolve_twr_request", _mock_resolve_twr_request)
 
     payload = {
         "calculation_id": str(uuid4()),

@@ -6,7 +6,6 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from prometheus_client import REGISTRY, generate_latest
 
-from app.api.endpoints.performance import _generate_twr_request_hashes
 from app.core.config import get_settings
 from app.models.benchmark_analytics_requests import BenchmarkInputMode
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
@@ -16,6 +15,7 @@ from app.observability_contracts import (
     PERFORMANCE_ANALYTICS_FRESHNESS_METRIC_LABELS,
     PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS,
 )
+from app.services.twr_calculation_service import generate_twr_request_hashes
 from app.services.twr_mode_service import ResolvedTWRRequest
 from core.repro import generate_canonical_hash_from_value
 from engine.exceptions import EngineCalculationError, InvalidEngineInputError
@@ -1480,7 +1480,7 @@ def test_twr_endpoint_returns_async_paths_for_stateful_benchmark_request(client,
             resolved_benchmark_id="BMK_ASYNC_TWR",
         )
 
-    monkeypatch.setattr("app.api.endpoints.performance.resolve_twr_request", _mock_resolve_twr_request)
+    monkeypatch.setattr("app.services.twr_calculation_service.resolve_twr_request", _mock_resolve_twr_request)
 
     payload = {
         "calculation_id": str(uuid4()),
@@ -1562,7 +1562,7 @@ def test_twr_endpoint_generates_calculation_id_for_async_stateful_benchmark_requ
             resolved_benchmark_id="BMK_ASYNC_TWR",
         )
 
-    monkeypatch.setattr("app.api.endpoints.performance.resolve_twr_request", _mock_resolve_twr_request)
+    monkeypatch.setattr("app.services.twr_calculation_service.resolve_twr_request", _mock_resolve_twr_request)
 
     payload = {
         "portfolio_id": "TWR_GENERATED_ASYNC",
@@ -1644,7 +1644,7 @@ def test_twr_async_result_missing_and_failed_contracts(client, monkeypatch):
             resolved_benchmark_id="BMK_ASYNC_TWR_FAIL",
         )
 
-    monkeypatch.setattr("app.api.endpoints.performance.resolve_twr_request", _mock_resolve_twr_request)
+    monkeypatch.setattr("app.services.twr_calculation_service.resolve_twr_request", _mock_resolve_twr_request)
 
     payload = {
         "portfolio_id": "TWR_ASYNC_FAIL",
@@ -1831,8 +1831,8 @@ def test_twr_stateful_hashes_follow_resolved_inputs(client, monkeypatch):
 
     first_request = TWRAnalyticsRequest.model_validate(first_payload)
     second_request = TWRAnalyticsRequest.model_validate(second_payload)
-    first_pre_resolution_hashes = _generate_twr_request_hashes(first_request, engine_version=get_settings().APP_VERSION)
-    second_pre_resolution_hashes = _generate_twr_request_hashes(
+    first_pre_resolution_hashes = generate_twr_request_hashes(first_request, engine_version=get_settings().APP_VERSION)
+    second_pre_resolution_hashes = generate_twr_request_hashes(
         second_request,
         engine_version=get_settings().APP_VERSION,
     )
