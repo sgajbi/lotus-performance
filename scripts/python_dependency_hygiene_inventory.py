@@ -14,6 +14,9 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_PATHS = (".",)
 DEFAULT_FIRST_PARTY = ("app", "engine", "core", "adapters", "common", "scripts")
+DEFAULT_PER_RULE_IGNORES = {
+    "DEP002": ("psycopg", "uvicorn"),
+}
 
 
 @dataclass(frozen=True)
@@ -48,16 +51,42 @@ def parse_deptry_payload(payload: Sequence[Mapping[str, Any]]) -> list[Dependenc
     return sorted(issues, key=lambda item: (item.code, item.module, item.path, item.line or 0, item.column or 0))
 
 
+def _format_per_rule_ignores(per_rule_ignores: Mapping[str, Sequence[str]]) -> str:
+    return ",".join(
+        f"{rule}={'|'.join(sorted(modules))}" for rule, modules in sorted(per_rule_ignores.items()) if modules
+    )
+
+
+def build_deptry_command(
+    paths: Sequence[str],
+    *,
+    output_path: Path,
+    known_first_party: Sequence[str] = DEFAULT_FIRST_PARTY,
+    per_rule_ignores: Mapping[str, Sequence[str]] = DEFAULT_PER_RULE_IGNORES,
+) -> list[str]:
+    command = [sys.executable, "-m", "deptry", *paths, "--json-output", str(output_path), "--no-ansi"]
+    for module_name in known_first_party:
+        command.extend(["--known-first-party", module_name])
+    formatted_per_rule_ignores = _format_per_rule_ignores(per_rule_ignores)
+    if formatted_per_rule_ignores:
+        command.extend(["--per-rule-ignores", formatted_per_rule_ignores])
+    return command
+
+
 def collect_dependency_issues(
     paths: Sequence[str] = DEFAULT_PATHS,
     *,
     known_first_party: Sequence[str] = DEFAULT_FIRST_PARTY,
+    per_rule_ignores: Mapping[str, Sequence[str]] = DEFAULT_PER_RULE_IGNORES,
 ) -> list[DependencyIssue]:
     with tempfile.TemporaryDirectory(prefix="lotus-deptry-") as temp_dir_name:
         output_path = Path(temp_dir_name) / "deptry-report.json"
-        command = [sys.executable, "-m", "deptry", *paths, "--json-output", str(output_path), "--no-ansi"]
-        for module_name in known_first_party:
-            command.extend(["--known-first-party", module_name])
+        command = build_deptry_command(
+            paths,
+            output_path=output_path,
+            known_first_party=known_first_party,
+            per_rule_ignores=per_rule_ignores,
+        )
         completed = subprocess.run(
             command,
             cwd=ROOT,

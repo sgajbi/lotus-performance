@@ -1,4 +1,15 @@
-from scripts.python_dependency_hygiene_inventory import parse_deptry_payload, render_markdown
+from pathlib import Path
+
+from scripts.python_dependency_hygiene_inventory import build_deptry_command, parse_deptry_payload, render_markdown
+
+
+def test_build_deptry_command_includes_reviewed_runtime_only_dependency_ignores():
+    command = build_deptry_command((".",), output_path=Path("deptry-report.json"), known_first_party=("app",))
+
+    assert command[:4] == [command[0], "-m", "deptry", "."]
+    assert "--known-first-party" in command
+    assert "--per-rule-ignores" in command
+    assert "DEP002=psycopg|uvicorn" in command
 
 
 def test_parse_deptry_payload_normalizes_and_orders_issues():

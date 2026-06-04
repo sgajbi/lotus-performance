@@ -21,45 +21,40 @@ python scripts/python_dependency_hygiene_inventory.py --limit 30
 
 | Metric | Value |
 | --- | ---: |
-| Total dependency hygiene findings | 2 |
-| Distinct issue codes | 1 |
-| Distinct modules | 2 |
+| Total dependency hygiene findings | 0 |
+| Distinct issue codes | 0 |
+| Distinct modules | 0 |
 
 ## Findings By Code
 
 | Code | Count |
 | --- | ---: |
-| DEP002 | 2 |
 
 ## Findings By Module
 
 | Module | Count |
 | --- | ---: |
-| `psycopg` | 1 |
-| `uvicorn` | 1 |
 
 ## Findings By Area
 
 | Area | Count |
 | --- | ---: |
-| Dependency declarations | 2 |
 
 ## Findings
 
 | Rank | Code | Module | Location | Message |
 | ---: | --- | --- | --- | --- |
-| 1 | DEP002 | `psycopg` | `pyproject.toml` | 'psycopg' defined as a dependency but not used in the codebase |
-| 2 | DEP002 | `uvicorn` | `pyproject.toml` | 'uvicorn' defined as a dependency but not used in the codebase |
 
 ## Interpretation
 
 The earlier `DEP003` findings are closed: production imports of `numpy`, `httpx`,
-`prometheus_client`, and `orjson` now have direct runtime declarations. The remaining `DEP002`
-findings need separate review because `uvicorn` is a runtime entrypoint dependency and `psycopg`
-can be an optional database runtime dependency.
+`prometheus_client`, and `orjson` now have direct runtime declarations. The reviewed runtime-only
+`DEP002` declarations are explicitly allowlisted in `scripts/python_dependency_hygiene_inventory.py`:
+`uvicorn` is the service process entrypoint, and `psycopg` supports optional PostgreSQL
+runtime/benchmark proof.
 
-Future slices should review `DEP002` entries against runtime, Docker, migration, and optional
-analytics behavior before removing anything.
+Future slices should revisit these allowlisted declarations if the Docker entrypoint, PostgreSQL
+runtime posture, or benchmark proof changes.
 
 ## Gate Posture
 
