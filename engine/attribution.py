@@ -6,7 +6,12 @@ from typing import Any, Dict, Mapping, Protocol, Sequence, Tuple
 import numpy as np
 import pandas as pd
 
-from app.models.attribution_responses import (
+from common.enums import AttributionMode, AttributionModel, LinkingMethod
+from engine.attribution_supportability import (
+    build_attribution_supportability_evidence,
+    classify_attribution_residual,
+)
+from engine.attribution_types import (
     AttributionGroupResult,
     AttributionLevelResult,
     AttributionLevelTotals,
@@ -15,11 +20,6 @@ from app.models.attribution_responses import (
     CurrencyAttributionTotals,
     Reconciliation,
     SinglePeriodAttributionResult,
-)
-from common.enums import AttributionMode, AttributionModel, LinkingMethod
-from engine.attribution_supportability import (
-    build_attribution_supportability_evidence,
-    classify_attribution_residual,
 )
 from engine.config import EngineConfig
 from engine.dataframe import create_engine_dataframe_from_valuation_points

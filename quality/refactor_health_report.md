@@ -46,9 +46,9 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Import boundary violations | unknown | 3 | measured | `quality/architecture_boundary_inventory.md` via `scripts/python_architecture_boundary_inventory.py` |
+| Import boundary violations | unknown | 1 | measured | `quality/architecture_boundary_inventory.md` via `scripts/python_architecture_boundary_inventory.py` |
 | Routers importing infrastructure directly | unknown | 0 | measured | `ROUTER_DIRECT_BOUNDARY_IMPORT` in `quality/architecture_boundary_inventory.md` |
-| Domain/application importing framework or infra code | unknown | 3 | measured | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` in `quality/architecture_boundary_inventory.md` |
+| Domain/application importing framework or infra code | unknown | 1 | measured | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` in `quality/architecture_boundary_inventory.md` |
 | Large production service hotspots | 3 | 3 | measured | `lineage_metadata_store.py`, `compute_job_store.py`, `stateful_input_service.py` exceed 1,000 LOC |
 
 ## API Quality

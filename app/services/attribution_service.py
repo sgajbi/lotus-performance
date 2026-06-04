@@ -8,6 +8,7 @@ from app.models.attribution_analytics_requests import AttributionInputMode
 from app.models.attribution_requests import AttributionRequest
 from app.models.attribution_responses import AttributionResponse
 from app.services.analytics_observation_dates import latest_observation_date
+from app.services.attribution_response_service import build_single_period_attribution_response
 from app.services.calculation_supportability_service import (
     build_calculation_supportability,
     record_supportability_metric,
@@ -116,7 +117,7 @@ def calculate_attribution(
             period_result, aggregation_lineage = aggregate_attribution_results(period_slice_df, request)
             if aggregation_lineage:
                 lineage_data.update({f"{period.name}_{key}": value for key, value in aggregation_lineage.items()})
-            results_by_period[period.name] = period_result
+            results_by_period[period.name] = build_single_period_attribution_response(period_result)
 
         meta = Meta(
             calculation_id=request.calculation_id,

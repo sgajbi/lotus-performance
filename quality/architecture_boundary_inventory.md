@@ -20,30 +20,28 @@ python scripts/python_architecture_boundary_inventory.py --limit 40
 
 | Metric | Value |
 | --- | ---: |
-| Architecture boundary findings | 3 |
+| Architecture boundary findings | 1 |
 | Distinct rules | 1 |
-| Distinct files | 3 |
+| Distinct files | 1 |
 
 ## Findings By Rule
 
 | Rule | Count |
 | --- | ---: |
-| `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | 3 |
+| `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | 1 |
 
 ## Findings By Area
 
 | Area | Count |
 | --- | ---: |
 | Core | 1 |
-| Engine | 2 |
+| Engine | 0 |
 
 ## Findings
 
 | Rank | Rule | File | Import | Description |
 | ---: | --- | --- | --- | --- |
 | 1 | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | `core/errors.py:2` | `fastapi` | Engine/core modules should stay independent from application DTOs, adapters, and web framework imports. |
-| 2 | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | `engine/attribution.py:9` | `app.models.attribution_responses` | Engine/core modules should stay independent from application DTOs, adapters, and web framework imports. |
-| 3 | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | `engine/attribution_supportability.py:7` | `app.models.attribution_responses` | Engine/core modules should stay independent from application DTOs, adapters, and web framework imports. |
 
 ## Interpretation
 

@@ -4,7 +4,7 @@ from typing import Protocol, Sequence
 
 import pandas as pd
 
-from app.models.attribution_responses import (
+from engine.attribution_types import (
     AttributionReason,
     AttributionResidualMateriality,
     AttributionSupportabilityEvidence,
