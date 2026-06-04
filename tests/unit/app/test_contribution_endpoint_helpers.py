@@ -36,6 +36,7 @@ from app.services.contribution_methodology import (
     _normalize_reset_aware_average_weight_mode,
 )
 from app.services.contribution_periods import (
+    ContributionPeriodMethodologyContext,
     _build_contribution_period_methodology_context,
     _extract_reset_dates,
     _slice_contribution_period_frames,
@@ -53,6 +54,7 @@ from app.services.contribution_series import (
     _build_residual_adjusted_daily_contribution_series,
     _build_residual_adjusted_position_timeseries,
 )
+from app.services.contribution_service import _build_period_average_weight_methodology_status
 from app.services.contribution_smoothing import _count_carino_invalid_domain_days
 from core.envelope import Diagnostics
 from engine.schema import PortfolioColumns
@@ -106,6 +108,95 @@ def test_average_weight_shadow_audit_state_records_counts_and_diagnostic_notes()
     assert counts["timeseries_total_delta_periods"] == 1
     assert any("rollout readiness" in note for note in diagnostics.notes)
     assert any("daily contribution series" in note for note in diagnostics.notes)
+
+
+def test_build_period_average_weight_methodology_status_records_promotion_ready_period():
+    audit_state = AverageWeightShadowAuditState()
+    period_context = ContributionPeriodMethodologyContext(
+        average_weight_shadow_df=pd.DataFrame(),
+        delta_positions=2,
+        max_shadow_delta_bp=600,
+        sum_shadow_delta_bp=700,
+        position_reset_dates={pd.Timestamp("2025-01-02").date()},
+        portfolio_reset_dates={pd.Timestamp("2025-01-02").date()},
+        position_flow_balance_counts={"position_flow_residual_days": 0},
+    )
+
+    status = _build_period_average_weight_methodology_status(
+        period_methodology_context=period_context,
+        average_weight_sum_residual_bp=0,
+        timeseries_total_delta_periods=0,
+        average_weight_audit_state=audit_state,
+    )
+
+    assert status.status == "PROMOTION_READY"
+    assert status.is_cutover_candidate is True
+    assert status.is_promoted is False
+    assert status.blocker_reason_codes == []
+    assert audit_state.cutover_candidate_periods == 1
+    assert audit_state.blocked_periods == 0
+
+
+def test_build_period_average_weight_methodology_status_records_blockers():
+    audit_state = AverageWeightShadowAuditState()
+    period_context = ContributionPeriodMethodologyContext(
+        average_weight_shadow_df=pd.DataFrame(),
+        delta_positions=2,
+        max_shadow_delta_bp=600,
+        sum_shadow_delta_bp=700,
+        position_reset_dates={pd.Timestamp("2025-01-03").date()},
+        portfolio_reset_dates={pd.Timestamp("2025-01-02").date()},
+        position_flow_balance_counts={"position_flow_residual_days": 1},
+    )
+
+    blocked_status = _build_period_average_weight_methodology_status(
+        period_methodology_context=period_context,
+        average_weight_sum_residual_bp=50,
+        timeseries_total_delta_periods=1,
+        average_weight_audit_state=audit_state,
+    )
+
+    assert blocked_status.status == "BLOCKED"
+    assert blocked_status.blocker_reason_codes == [
+        "flow_balance",
+        "reset_alignment",
+        "timeseries_reconciliation",
+        "weight_residual",
+    ]
+    assert audit_state.blocked_periods == 1
+    assert audit_state.blocked_by_weight_residual_periods == 1
+    assert audit_state.blocked_by_flow_balance_periods == 1
+    assert audit_state.blocked_by_reset_alignment_periods == 1
+    assert audit_state.blocked_by_timeseries_delta_periods == 1
+
+
+def test_build_period_average_weight_methodology_status_records_promoted_clean_period():
+    audit_state = AverageWeightShadowAuditState()
+    period_context = ContributionPeriodMethodologyContext(
+        average_weight_shadow_df=pd.DataFrame(),
+        delta_positions=2,
+        max_shadow_delta_bp=600,
+        sum_shadow_delta_bp=700,
+        position_reset_dates={pd.Timestamp("2025-01-02").date()},
+        portfolio_reset_dates={pd.Timestamp("2025-01-02").date()},
+        position_flow_balance_counts={"position_flow_residual_days": 0},
+    )
+
+    status = _build_period_average_weight_methodology_status(
+        period_methodology_context=period_context,
+        average_weight_sum_residual_bp=0,
+        timeseries_total_delta_periods=0,
+        average_weight_audit_state=audit_state,
+        is_promoted=True,
+    )
+
+    assert status.status == "PROMOTED"
+    assert status.is_cutover_candidate is True
+    assert status.is_promoted is True
+    assert status.blocker_reason_codes == []
+    assert audit_state.cutover_candidate_periods == 1
+    assert audit_state.promoted_periods == 1
+    assert audit_state.blocked_periods == 0
 
 
 def test_contribution_period_helpers_slice_frames_and_extract_reset_dates():

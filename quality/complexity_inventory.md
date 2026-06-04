@@ -28,7 +28,7 @@ python scripts/python_complexity_inventory.py --limit 15
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `calculate_contribution` | function | `app/services/contribution_service.py:71` | 35 | E |
+| 1 | `calculate_contribution` | function | `app/services/contribution_service.py:108` | 35 | E |
 | 2 | `calculate_asset_weighted_composite_twr` | function | `engine/composites.py:126` | 35 | E |
 | 3 | `calculate_twr_response` | function | `app/services/twr_service.py:496` | 33 | E |
 | 4 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:54` | 31 | E |

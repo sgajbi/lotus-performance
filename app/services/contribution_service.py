@@ -6,6 +6,7 @@ from app.core.config import get_settings
 from app.models.contribution_analytics_requests import ContributionInputMode
 from app.models.contribution_requests import ContributionRequest
 from app.models.contribution_responses import (
+    AverageWeightMethodologyStatus,
     ContributionResponse,
     SinglePeriodContributionResult,
 )
@@ -35,6 +36,7 @@ from app.services.contribution_methodology import (
     _normalize_reset_aware_average_weight_mode,
 )
 from app.services.contribution_periods import (
+    ContributionPeriodMethodologyContext,
     _build_contribution_period_methodology_context,
     _slice_contribution_period_frames,
 )
@@ -66,6 +68,41 @@ from engine.contribution import (
     _prepare_hierarchical_data,
 )
 from engine.schema import PortfolioColumns
+
+
+def _build_period_average_weight_methodology_status(
+    *,
+    period_methodology_context: ContributionPeriodMethodologyContext,
+    average_weight_sum_residual_bp: int,
+    timeseries_total_delta_periods: int,
+    average_weight_audit_state: AverageWeightShadowAuditState,
+    is_promoted: bool = False,
+) -> AverageWeightMethodologyStatus:
+    cutover_assessment = _assess_average_weight_shadow_cutover(
+        max_shadow_delta_bp=period_methodology_context.max_shadow_delta_bp,
+        average_weight_sum_residual_bp=average_weight_sum_residual_bp,
+        position_flow_residual_days=period_methodology_context.position_flow_balance_counts[
+            "position_flow_residual_days"
+        ],
+        portfolio_reset_without_position_reset_days=(
+            period_methodology_context.portfolio_reset_without_position_reset_days
+        ),
+        position_reset_without_portfolio_reset_days=(
+            period_methodology_context.position_reset_without_portfolio_reset_days
+        ),
+        timeseries_total_delta_periods=timeseries_total_delta_periods,
+    )
+    period_cutover_blockers = average_weight_audit_state.record_cutover_assessment(
+        is_cutover_candidate=cutover_assessment.is_cutover_candidate,
+        blocker_reason_codes=cutover_assessment.blocker_reason_codes,
+        is_promoted=is_promoted,
+    )
+    return _build_average_weight_methodology_status(
+        max_shadow_delta_bp=period_methodology_context.max_shadow_delta_bp,
+        is_cutover_candidate=cutover_assessment.is_cutover_candidate,
+        is_promoted=is_promoted,
+        blocker_reason_codes=period_cutover_blockers,
+    )
 
 
 def calculate_contribution(
@@ -198,29 +235,11 @@ def calculate_contribution(
                     if abs(daily_timeseries_total - period_total_contribution) > 1e-9:
                         period_timeseries_total_delta_periods = 1
                         average_weight_audit_state.record_timeseries_total_delta()
-                cutover_assessment = _assess_average_weight_shadow_cutover(
-                    max_shadow_delta_bp=period_methodology_context.max_shadow_delta_bp,
+                period_methodology_status = _build_period_average_weight_methodology_status(
+                    period_methodology_context=period_methodology_context,
                     average_weight_sum_residual_bp=period_average_weight_sum_residual_bp,
-                    position_flow_residual_days=period_methodology_context.position_flow_balance_counts[
-                        "position_flow_residual_days"
-                    ],
-                    portfolio_reset_without_position_reset_days=(
-                        period_methodology_context.portfolio_reset_without_position_reset_days
-                    ),
-                    position_reset_without_portfolio_reset_days=(
-                        period_methodology_context.position_reset_without_portfolio_reset_days
-                    ),
                     timeseries_total_delta_periods=period_timeseries_total_delta_periods,
-                )
-                hierarchy_period_cutover_blockers = average_weight_audit_state.record_cutover_assessment(
-                    is_cutover_candidate=cutover_assessment.is_cutover_candidate,
-                    blocker_reason_codes=cutover_assessment.blocker_reason_codes,
-                )
-                period_methodology_status = _build_average_weight_methodology_status(
-                    max_shadow_delta_bp=period_methodology_context.max_shadow_delta_bp,
-                    is_cutover_candidate=cutover_assessment.is_cutover_candidate,
-                    is_promoted=False,
-                    blocker_reason_codes=hierarchy_period_cutover_blockers,
+                    average_weight_audit_state=average_weight_audit_state,
                 )
                 results_by_period[period.name] = SinglePeriodContributionResult(
                     total_portfolio_return=total_portfolio_return * 100,
@@ -342,30 +361,12 @@ def calculate_contribution(
                     if abs(daily_timeseries_total - period_total_contribution) > 1e-9:
                         period_timeseries_total_delta_periods = 1
                         average_weight_audit_state.record_timeseries_total_delta()
-                cutover_assessment = _assess_average_weight_shadow_cutover(
-                    max_shadow_delta_bp=period_methodology_context.max_shadow_delta_bp,
+                period_methodology_status = _build_period_average_weight_methodology_status(
+                    period_methodology_context=period_methodology_context,
                     average_weight_sum_residual_bp=period_average_weight_sum_residual_bp,
-                    position_flow_residual_days=period_methodology_context.position_flow_balance_counts[
-                        "position_flow_residual_days"
-                    ],
-                    portfolio_reset_without_position_reset_days=(
-                        period_methodology_context.portfolio_reset_without_position_reset_days
-                    ),
-                    position_reset_without_portfolio_reset_days=(
-                        period_methodology_context.position_reset_without_portfolio_reset_days
-                    ),
                     timeseries_total_delta_periods=period_timeseries_total_delta_periods,
-                )
-                period_cutover_blockers = average_weight_audit_state.record_cutover_assessment(
-                    is_cutover_candidate=cutover_assessment.is_cutover_candidate,
-                    blocker_reason_codes=cutover_assessment.blocker_reason_codes,
+                    average_weight_audit_state=average_weight_audit_state,
                     is_promoted=use_reset_aware_average_weight,
-                )
-                period_methodology_status = _build_average_weight_methodology_status(
-                    max_shadow_delta_bp=period_methodology_context.max_shadow_delta_bp,
-                    is_cutover_candidate=cutover_assessment.is_cutover_candidate,
-                    is_promoted=use_reset_aware_average_weight,
-                    blocker_reason_codes=period_cutover_blockers,
                 )
                 results_by_period[period.name] = SinglePeriodContributionResult(
                     total_portfolio_return=total_portfolio_return * 100,
