@@ -152,6 +152,91 @@ def _build_ready_member_contributions(
     return weighted_return, member_contributions
 
 
+def _blocked_composite_period_result_for_invalid_ready_facts(
+    *,
+    period_start: dt_date,
+    period_end: dt_date,
+    beginning_assets: Decimal,
+    ending_assets: Decimal,
+    ready_facts: Sequence[CompositeMemberReturnFactLike],
+    excluded_facts: Sequence[CompositeMemberReturnFactLike],
+    reason_codes: list[str],
+    ready_return_views: list[str],
+    ready_reporting_currencies: list[str],
+    ready_source_fingerprints: list[str],
+    ready_restatement_versions: list[str],
+) -> tuple[CompositePeriodResult, str] | None:
+    if not ready_facts:
+        return (
+            _blocked_composite_period_result(
+                period_start=period_start,
+                period_end=period_end,
+                beginning_assets=Decimal("0"),
+                ending_assets=Decimal("0"),
+                ready_facts=ready_facts,
+                excluded_facts=excluded_facts,
+                reason_codes=reason_codes or ["no_ready_member_return_facts"],
+            ),
+            "no_ready_member_return_facts",
+        )
+
+    if beginning_assets <= 0:
+        return (
+            _blocked_composite_period_result(
+                period_start=period_start,
+                period_end=period_end,
+                beginning_assets=beginning_assets,
+                ending_assets=ending_assets,
+                ready_facts=ready_facts,
+                excluded_facts=excluded_facts,
+                return_view=ready_return_views[0] if len(ready_return_views) == 1 else None,
+                reporting_currency=ready_reporting_currencies[0] if len(ready_reporting_currencies) == 1 else None,
+                source_fingerprints=ready_source_fingerprints,
+                restatement_versions=ready_restatement_versions,
+                reason_codes=reason_codes + ["nonpositive_composite_beginning_assets"],
+            ),
+            "nonpositive_composite_beginning_assets",
+        )
+
+    if len(ready_return_views) > 1:
+        return (
+            _blocked_composite_period_result(
+                period_start=period_start,
+                period_end=period_end,
+                beginning_assets=beginning_assets,
+                ending_assets=ending_assets,
+                ready_facts=ready_facts,
+                excluded_facts=excluded_facts,
+                return_view=None,
+                reporting_currency=ready_reporting_currencies[0] if len(ready_reporting_currencies) == 1 else None,
+                source_fingerprints=ready_source_fingerprints,
+                restatement_versions=ready_restatement_versions,
+                reason_codes=reason_codes + ["mixed_member_return_views"],
+            ),
+            "mixed_member_return_views",
+        )
+
+    if len(ready_reporting_currencies) > 1:
+        return (
+            _blocked_composite_period_result(
+                period_start=period_start,
+                period_end=period_end,
+                beginning_assets=beginning_assets,
+                ending_assets=ending_assets,
+                ready_facts=ready_facts,
+                excluded_facts=excluded_facts,
+                return_view=ready_return_views[0],
+                reporting_currency=None,
+                source_fingerprints=ready_source_fingerprints,
+                restatement_versions=ready_restatement_versions,
+                reason_codes=reason_codes + ["mixed_member_reporting_currencies"],
+            ),
+            "mixed_member_reporting_currencies",
+        )
+
+    return None
+
+
 def calculate_asset_weighted_composite_twr(
     *,
     composite_id: str,
@@ -180,76 +265,23 @@ def calculate_asset_weighted_composite_twr(
         ready_reporting_currencies = sorted({fact.reporting_currency for fact in ready_facts})
         ready_source_fingerprints = sorted({fact.source_fingerprint for fact in ready_facts})
         ready_restatement_versions = sorted({fact.restatement_version for fact in ready_facts})
-        if not ready_facts:
-            period_results.append(
-                _blocked_composite_period_result(
-                    period_start=period_start,
-                    period_end=period_end,
-                    beginning_assets=Decimal("0"),
-                    ending_assets=Decimal("0"),
-                    ready_facts=ready_facts,
-                    excluded_facts=excluded_facts,
-                    reason_codes=reason_codes or ["no_ready_member_return_facts"],
-                )
-            )
-            aggregate_reason_codes.add("no_ready_member_return_facts")
-            continue
-
-        if beginning_assets <= 0:
-            period_results.append(
-                _blocked_composite_period_result(
-                    period_start=period_start,
-                    period_end=period_end,
-                    beginning_assets=beginning_assets,
-                    ending_assets=ending_assets,
-                    ready_facts=ready_facts,
-                    excluded_facts=excluded_facts,
-                    return_view=ready_return_views[0] if len(ready_return_views) == 1 else None,
-                    reporting_currency=ready_reporting_currencies[0] if len(ready_reporting_currencies) == 1 else None,
-                    source_fingerprints=ready_source_fingerprints,
-                    restatement_versions=ready_restatement_versions,
-                    reason_codes=reason_codes + ["nonpositive_composite_beginning_assets"],
-                )
-            )
-            aggregate_reason_codes.add("nonpositive_composite_beginning_assets")
-            continue
-
-        if len(ready_return_views) > 1:
-            period_results.append(
-                _blocked_composite_period_result(
-                    period_start=period_start,
-                    period_end=period_end,
-                    beginning_assets=beginning_assets,
-                    ending_assets=ending_assets,
-                    ready_facts=ready_facts,
-                    excluded_facts=excluded_facts,
-                    return_view=None,
-                    reporting_currency=ready_reporting_currencies[0] if len(ready_reporting_currencies) == 1 else None,
-                    source_fingerprints=ready_source_fingerprints,
-                    restatement_versions=ready_restatement_versions,
-                    reason_codes=reason_codes + ["mixed_member_return_views"],
-                )
-            )
-            aggregate_reason_codes.add("mixed_member_return_views")
-            continue
-
-        if len(ready_reporting_currencies) > 1:
-            period_results.append(
-                _blocked_composite_period_result(
-                    period_start=period_start,
-                    period_end=period_end,
-                    beginning_assets=beginning_assets,
-                    ending_assets=ending_assets,
-                    ready_facts=ready_facts,
-                    excluded_facts=excluded_facts,
-                    return_view=ready_return_views[0],
-                    reporting_currency=None,
-                    source_fingerprints=ready_source_fingerprints,
-                    restatement_versions=ready_restatement_versions,
-                    reason_codes=reason_codes + ["mixed_member_reporting_currencies"],
-                )
-            )
-            aggregate_reason_codes.add("mixed_member_reporting_currencies")
+        blocked_period = _blocked_composite_period_result_for_invalid_ready_facts(
+            period_start=period_start,
+            period_end=period_end,
+            beginning_assets=beginning_assets,
+            ending_assets=ending_assets,
+            ready_facts=ready_facts,
+            excluded_facts=excluded_facts,
+            reason_codes=reason_codes,
+            ready_return_views=ready_return_views,
+            ready_reporting_currencies=ready_reporting_currencies,
+            ready_source_fingerprints=ready_source_fingerprints,
+            ready_restatement_versions=ready_restatement_versions,
+        )
+        if blocked_period is not None:
+            period_result, aggregate_reason_code = blocked_period
+            period_results.append(period_result)
+            aggregate_reason_codes.add(aggregate_reason_code)
             continue
 
         weighted_return, member_contributions = _build_ready_member_contributions(

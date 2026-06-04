@@ -20,7 +20,7 @@ python scripts/python_complexity_inventory.py --limit 15
 
 | Metric | Value |
 | --- | ---: |
-| Max cyclomatic complexity | 34 |
+| Max cyclomatic complexity | 33 |
 | High-complexity functions (rank D-F) | 21 |
 | Average maintainability index | 55.87 |
 
@@ -28,17 +28,17 @@ python scripts/python_complexity_inventory.py --limit 15
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `calculate_asset_weighted_composite_twr` | function | `engine/composites.py:155` | 34 | E |
-| 2 | `calculate_twr_response` | function | `app/services/twr_service.py:496` | 33 | E |
-| 3 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:54` | 31 | E |
-| 4 | `build_runtime_status_response` | function | `app/models/runtime_status.py:613` | 30 | D |
-| 5 | `_ensure_operation_documentation` | function | `app/openapi_enrichment.py:363` | 30 | D |
-| 6 | `_process_pending_jobs` | function | `app/workers/compute_executor_worker.py:59` | 30 | D |
-| 7 | `calculate_contribution` | function | `app/services/contribution_service.py:126` | 29 | D |
-| 8 | `_prepare_data_from_instruments` | function | `engine/attribution.py:210` | 28 | D |
-| 9 | `_calculate_returns_series` | function | `app/services/returns_series_service.py:723` | 27 | D |
-| 10 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:935` | 27 | D |
-| 11 | `_build_daily_calculation_evidence` | function | `app/services/twr_service.py:164` | 27 | D |
+| 1 | `calculate_twr_response` | function | `app/services/twr_service.py:496` | 33 | E |
+| 2 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:54` | 31 | E |
+| 3 | `build_runtime_status_response` | function | `app/models/runtime_status.py:613` | 30 | D |
+| 4 | `_ensure_operation_documentation` | function | `app/openapi_enrichment.py:363` | 30 | D |
+| 5 | `_process_pending_jobs` | function | `app/workers/compute_executor_worker.py:59` | 30 | D |
+| 6 | `calculate_contribution` | function | `app/services/contribution_service.py:126` | 29 | D |
+| 7 | `_prepare_data_from_instruments` | function | `engine/attribution.py:210` | 28 | D |
+| 8 | `_calculate_returns_series` | function | `app/services/returns_series_service.py:723` | 27 | D |
+| 9 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:935` | 27 | D |
+| 10 | `_build_daily_calculation_evidence` | function | `app/services/twr_service.py:164` | 27 | D |
+| 11 | `calculate_asset_weighted_composite_twr` | function | `engine/composites.py:240` | 27 | D |
 | 12 | `_build_schema_example` | function | `app/openapi_enrichment.py:230` | 26 | D |
 | 13 | `resolve_twr_request` | function | `app/services/twr_mode_service.py:44` | 25 | D |
 | 14 | `calculate_money_weighted_return` | function | `engine/mwr.py:186` | 25 | D |
