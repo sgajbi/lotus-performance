@@ -1,7 +1,7 @@
 # Lotus Performance Progressive CI Quality Gates
 
-Report date: 2026-06-02
-Branch: `feat/performance-hardening-wave-9`
+Report date: 2026-06-04
+Branch: `feat/performance-hardening-wave-10`
 Baseline sources: `quality/baseline_report.md`, `quality/refactor_health_report.md`
 Mode: report-only gate map; this artifact introduces no new blocking CI gate.
 
@@ -61,6 +61,7 @@ No gate should move from one phase to the next until it has:
 | Domain data product validation | Blocking locally through `make check` and repo-native command | Confirm whether GitHub workflows should include this explicitly before changing CI. |
 | Complexity and maintainability | Measured in `quality/complexity_inventory.md` through `scripts/python_complexity_inventory.py` and `radon` | Keep report-only until a stable baseline, false-positive policy, and remediation guidance exist. |
 | Function-size hotspots | Measured in `quality/function_size_inventory.md` through a repo-native standard-library scanner | Use as refactor-planning evidence; do not block CI until stable thresholds and exclusions are agreed. |
+| Duplicate code hotspots | Measured in `quality/duplicate_code_inventory.md` through `scripts/python_duplicate_code_inventory.py`; current report shows 0 duplicate hotspot groups at `--min-lines 12` | Keep report-only until duplicate-family policy and remediation thresholds are aligned with the enterprise refactor roadmap. |
 | Dead-code detection | Measured in `quality/dead_code_inventory.md` through `scripts/python_dead_code_inventory.py` and `vulture`; 60% findings are dominated by framework/model false positives, while 80% findings are zero | Add reviewed allowlist before considering any regression-blocking gate. |
 | Dependency hygiene | Measured in `quality/dependency_hygiene_report.md` through `scripts/python_dependency_hygiene_inventory.py` and `deptry`; direct imported transitive dependencies are closed, and reviewed runtime-only DEP002 declarations are explicitly allowlisted in the repo scanner | Keep report-only until the allowlist policy and CI placement are stable. |
 | Python security scanning | Measured in `quality/python_security_inventory.md` through `scripts/python_security_inventory.py` and `bandit`; current scan has zero high, medium, and low findings, with two targeted skipped tests for reviewed environment-name false positives | Keep report-only until the targeted environment-name exception policy and CI placement are stable. |
