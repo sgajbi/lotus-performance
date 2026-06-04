@@ -38,7 +38,7 @@ link the commit, command, or CI artifact that proves the change.
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
 | Max cyclomatic complexity | unknown | 22 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
-| High-complexity functions | unknown | 4 | measured | rank D-F functions in `quality/complexity_inventory.md` |
+| High-complexity functions | unknown | 3 | measured | rank D-F functions in `quality/complexity_inventory.md` |
 | Average maintainability index | unknown | 55.81 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
 | Largest functions by LOC | unknown | 389 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py` |
 
@@ -69,7 +69,7 @@ link the commit, command, or CI artifact that proves the change.
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
 | Test modules | 228 | 252 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 2,204 | measured | `python -m pytest --collect-only -q` |
+| Collected tests | 2,035 | 2,205 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | unknown | not-yet-measured | coverage run not captured in baseline slice |
 | Branch coverage | unknown | unknown | not-yet-measured | branch coverage not configured as a scorecard input |
 | Integration/API/runtime test functions | unknown | 453 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |

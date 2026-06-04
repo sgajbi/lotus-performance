@@ -261,6 +261,71 @@ def _calculate_xirr_mwr_attempt(
     return _MWRXirrAttempt(result=None, notes=notes, reason_code=reason_code)
 
 
+def _calculate_dietz_mwr_result(
+    *,
+    begin_mv: float,
+    end_mv: float,
+    cash_flows: Sequence[CashFlowLike],
+    calculation_method: Literal["XIRR", "MODIFIED_DIETZ", "DIETZ"],
+    annualization: Annualization,
+    start_date: date,
+    end_date: date,
+    period_days: int,
+    notes: list[str],
+    xirr_fallback_reason_code: str | None = None,
+) -> MWRResult:
+    net_cash_flow = sum(cf.amount for cf in cash_flows)
+    dietz_method: Literal["MODIFIED_DIETZ", "DIETZ"] = (
+        "MODIFIED_DIETZ" if calculation_method in {"XIRR", "MODIFIED_DIETZ"} else "DIETZ"
+    )
+    denominator = _dietz_denominator(
+        begin_mv=begin_mv,
+        cash_flows=cash_flows,
+        start_date=start_date,
+        end_date=end_date,
+        method=dietz_method,
+    )
+    if denominator == 0:
+        notes.append("Calculation resulted in a zero denominator.")
+        return MWRResult(
+            mwr=0.0,
+            method=dietz_method,
+            start_date=start_date,
+            end_date=end_date,
+            notes=notes,
+            status="NOT_CALCULABLE",
+            reason_codes=["ZERO_DENOMINATOR"],
+        )
+
+    numerator = end_mv - begin_mv - net_cash_flow
+    periodic_rate = numerator / denominator
+
+    mwr_annualized = None
+    if annualization.enabled and period_days > 0:
+        ppy = 365.25 if annualization.basis == "ACT/ACT" else 365.0
+        scale = ppy / period_days
+        mwr_annualized = ((1 + periodic_rate) ** scale - 1) * 100
+
+    fallback_used = calculation_method == "XIRR"
+    fallback_reason_code = xirr_fallback_reason_code or "SOLVER_DID_NOT_CONVERGE"
+    return MWRResult(
+        mwr=periodic_rate * 100,
+        mwr_annualized=mwr_annualized,
+        method=dietz_method,
+        start_date=start_date,
+        end_date=end_date,
+        notes=notes,
+        status="FALLBACK_USED" if fallback_used else "CALCULATED",
+        reason_codes=([fallback_reason_code, "DIETZ_FALLBACK_USED"] if fallback_used else []),
+        warnings=(["FALLBACK_METHOD_USED"] if fallback_used else []),
+        holding_period_return=periodic_rate * 100,
+        is_annualized_primary=False,
+        fallback_from="XIRR" if fallback_used else None,
+        fallback_reason=fallback_reason_code if fallback_used else None,
+        is_approximation=True,
+    )
+
+
 def calculate_money_weighted_return(
     begin_mv: float,
     end_mv: float,
@@ -314,54 +379,15 @@ def calculate_money_weighted_return(
         notes.extend(xirr_attempt.notes)
         reason_code = xirr_attempt.reason_code
 
-    net_cash_flow = sum(cf.amount for cf in cash_flows)
-    dietz_method: Literal["MODIFIED_DIETZ", "DIETZ"] = (
-        "MODIFIED_DIETZ" if calculation_method in {"XIRR", "MODIFIED_DIETZ"} else "DIETZ"
-    )
-    denominator = _dietz_denominator(
+    return _calculate_dietz_mwr_result(
         begin_mv=begin_mv,
+        end_mv=end_mv,
         cash_flows=cash_flows,
+        calculation_method=calculation_method,
+        annualization=annualization,
         start_date=start_date,
         end_date=end_date,
-        method=dietz_method,
-    )
-    if denominator == 0:
-        notes.append("Calculation resulted in a zero denominator.")
-        return MWRResult(
-            mwr=0.0,
-            method=dietz_method,
-            start_date=start_date,
-            end_date=end_date,
-            notes=notes,
-            status="NOT_CALCULABLE",
-            reason_codes=["ZERO_DENOMINATOR"],
-        )
-
-    numerator = end_mv - begin_mv - net_cash_flow
-    periodic_rate = numerator / denominator
-
-    mwr_annualized = None
-    if annualization.enabled:
-        if period_days > 0:
-            ppy = 365.25 if annualization.basis == "ACT/ACT" else 365.0
-            scale = ppy / period_days
-            mwr_annualized = ((1 + periodic_rate) ** scale - 1) * 100
-
-    fallback_used = calculation_method == "XIRR"
-    fallback_reason_code = reason_code or "SOLVER_DID_NOT_CONVERGE"
-    return MWRResult(
-        mwr=periodic_rate * 100,
-        mwr_annualized=mwr_annualized,
-        method=dietz_method,
-        start_date=start_date,
-        end_date=end_date,
+        period_days=period_days,
         notes=notes,
-        status="FALLBACK_USED" if fallback_used else "CALCULATED",
-        reason_codes=([fallback_reason_code, "DIETZ_FALLBACK_USED"] if fallback_used else []),
-        warnings=(["FALLBACK_METHOD_USED"] if fallback_used else []),
-        holding_period_return=periodic_rate * 100,
-        is_annualized_primary=False,
-        fallback_from="XIRR" if fallback_used else None,
-        fallback_reason=fallback_reason_code if fallback_used else None,
-        is_approximation=True,
+        xirr_fallback_reason_code=reason_code,
     )
