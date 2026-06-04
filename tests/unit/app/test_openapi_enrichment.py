@@ -1,6 +1,7 @@
 from app.openapi_enrichment import (
     _build_schema_example,
     _canonical_term,
+    _ensure_operation_response_documentation,
     _ensure_request_body_example,
     _infer_description,
     _infer_example,
@@ -138,6 +139,74 @@ def test_ensure_request_body_example_preserves_existing_examples():
 
     assert "example" not in request_body["content"]["application/json"]
     assert request_body["content"]["application/json"]["examples"]["documented"]["value"]["portfolio_id"] == "EXISTING"
+
+
+def test_ensure_operation_response_documentation_adds_default_and_schema_example():
+    responses = {
+        "200": {
+            "description": "ok",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {"portfolio_id": {"type": "string"}},
+                    }
+                }
+            },
+        }
+    }
+
+    _ensure_operation_response_documentation(
+        path="/custom/workflow",
+        responses=responses,
+        components={"schemas": {}},
+    )
+
+    assert responses["default"]["content"]["application/problem+json"]["example"]["status"] == 500
+    assert responses["200"]["content"]["application/json"]["example"] == {"portfolio_id": "DEMO_DPM_EUR_001"}
+
+
+def test_ensure_operation_response_documentation_uses_operation_override():
+    responses = {
+        "200": {
+            "description": "ok",
+            "content": {"application/json": {"schema": {"type": "object"}}},
+        },
+        "422": {
+            "description": "Validation Error",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/HTTPValidationError"}}},
+        },
+    }
+
+    _ensure_operation_response_documentation(
+        path="/health",
+        responses=responses,
+        components={"schemas": {"HTTPValidationError": {"type": "object"}}},
+    )
+
+    assert responses["200"]["content"]["application/json"]["example"] == {"status": "ok"}
+    validation_example = responses["422"]["content"]["application/json"]["example"]
+    assert validation_example["detail"][0]["loc"] == ["body", "portfolio_id"]
+
+
+def test_ensure_operation_response_documentation_rewrites_metrics_response():
+    responses = {
+        "200": {
+            "description": "ok",
+            "content": {"application/json": {"schema": {"type": "object"}}},
+        }
+    }
+
+    _ensure_operation_response_documentation(
+        path="/metrics",
+        responses=responses,
+        components={"schemas": {}},
+    )
+
+    content = responses["200"]["content"]
+    assert "application/json" not in content
+    assert content["text/plain"]["schema"]["description"] == "Prometheus exposition format payload."
+    assert "lotus_performance_durable_queue_store_availability" in content["text/plain"]["example"]
 
 
 def test_enrich_openapi_schema_fills_operation_schema_and_examples():
