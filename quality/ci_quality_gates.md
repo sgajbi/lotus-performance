@@ -1,8 +1,8 @@
 # Lotus Performance Progressive CI Quality Gates
 
-Report date: 2026-06-02
-Branch: `feat/performance-hardening-wave-9`
-Baseline sources: `quality/baseline_report.md`, `quality/refactor_health_report.md`
+Report date: 2026-06-04
+Branch: `feat/performance-hardening-wave-10`
+Baseline sources: `quality/baseline_report.md`, `quality/refactor_health_report.md`, `quality/quality_scorecard.md`
 Mode: report-only gate map; this artifact introduces no new blocking CI gate.
 
 ## Purpose
@@ -56,19 +56,21 @@ No gate should move from one phase to the next until it has:
 | Dependency vulnerabilities | `pip-audit` is available, security audit is already blocking through repo script, and report-only output is captured in `quality/dependency_security_report.md` | Keep the report current when dependency pins, audit tooling, or exception policy changes. |
 | OpenAPI quality | Blocking through `scripts/openapi_quality_gate.py`; measured further through `quality/api_completeness_inventory.md`; clean API completeness inventory is guarded by `tests/unit/scripts/test_openapi_completeness_inventory.py` | Keep the blocking gate and unit-level clean-inventory guard; only add a separate workflow gate if the report remains stable and adds value beyond existing OpenAPI checks. |
 | API vocabulary and no-alias governance | Blocking in feature, PR, and main lanes | Keep blocking and preserve RFC-0067 vocabulary discipline. |
+| Quality baseline snapshot workflow | Non-blocking report run in `.github/workflows/quality-baseline.yml`; generates and uploads all quality-family inventory artifacts | Keep as a reporting aid while quality targets and thresholds are stabilized. |
 | Migration smoke | Blocking in PR and main lanes | Keep blocking outside feature lane unless a migration-heavy slice needs earlier proof. |
 | Docker build | Blocking in PR and main lanes | Keep blocking; no new Docker gate is needed for report-only quality artifacts. |
 | Domain data product validation | Blocking locally through `make check` and repo-native command | Confirm whether GitHub workflows should include this explicitly before changing CI. |
 | Complexity and maintainability | Measured in `quality/complexity_inventory.md` through `scripts/python_complexity_inventory.py` and `radon` | Keep report-only until a stable baseline, false-positive policy, and remediation guidance exist. |
 | Function-size hotspots | Measured in `quality/function_size_inventory.md` through a repo-native standard-library scanner | Use as refactor-planning evidence; do not block CI until stable thresholds and exclusions are agreed. |
+| Duplicate code hotspots | Measured in `quality/duplicate_code_inventory.md` through `scripts/python_duplicate_code_inventory.py`; current report shows 0 duplicate hotspot groups at `--min-lines 12` | Keep report-only until duplicate-family policy and remediation thresholds are aligned with the enterprise refactor roadmap. |
 | Dead-code detection | Measured in `quality/dead_code_inventory.md` through `scripts/python_dead_code_inventory.py` and `vulture`; 60% findings are dominated by framework/model false positives, while 80% findings are zero | Add reviewed allowlist before considering any regression-blocking gate. |
 | Dependency hygiene | Measured in `quality/dependency_hygiene_report.md` through `scripts/python_dependency_hygiene_inventory.py` and `deptry`; direct imported transitive dependencies are closed, and reviewed runtime-only DEP002 declarations are explicitly allowlisted in the repo scanner | Keep report-only until the allowlist policy and CI placement are stable. |
 | Python security scanning | Measured in `quality/python_security_inventory.md` through `scripts/python_security_inventory.py` and `bandit`; current scan has zero high, medium, and low findings, with two targeted skipped tests for reviewed environment-name false positives | Keep report-only until the targeted environment-name exception policy and CI placement are stable. |
 | Documentation readiness | Measured in `quality/documentation_inventory.md` through `scripts/python_documentation_inventory.py`; current report shows 8/8 README markers, 20 wiki pages, 230 markdown files, 20 endpoint certification docs, 4/4 API catalog files, 56 docs regression test functions, and 12.02 percent public definition docstring coverage | Keep report-only until docstring scope, generated/model exclusions, and remediation thresholds are agreed. |
 | OpenAPI Spectral linting | Not configured; no `.spectral.yaml` present | Decide whether Spectral adds value beyond the existing OpenAPI gate before adding it. |
-| Architecture boundaries | Measured in `quality/architecture_boundary_inventory.md` through `scripts/python_architecture_boundary_inventory.py`; first report shows 25 import-boundary findings | Classify current findings and reduce router/domain boundary drift before adding import-linter or regression-blocking gates. |
+| Architecture boundaries | Measured in `quality/architecture_boundary_inventory.md` through `scripts/python_architecture_boundary_inventory.py`; latest report shows 0 import-boundary findings | Keep report-only while router/core and domain/application boundary policy is operationalized into reusable boundary contracts. |
 | Public docstring coverage | Not configured; `interrogate` not present | Measure before deciding whether public docstrings are a useful gate for this service. |
-| Router and middleware thinness | Custom checks not implemented | Add repo-native report-only scripts for direct-infra imports and oversized boundary modules. |
+| Router and middleware thinness | Measured report-only in `quality/router_middleware_thinness_inventory.md` through `scripts/python_router_middleware_thinness_inventory.py`; current snapshot shows 5 router findings and 0 middleware findings at `--threshold 80` | Keep report-only until false-positive policy and refactoring-remediation workflow are established, then move this family toward regression gating. |
 | RFC 7807 error consistency | Measured report-only through `scripts/openapi_completeness_inventory.py`; current inventory shows 0 error responses missing named problem/error schemas | Keep the report-only inventory clean while separately planning any runtime migration from legacy string-detail errors to full RFC 7807 payloads. |
 | Observability and operational contracts | Measured in `quality/observability_readiness_inventory.md` through `scripts/python_observability_readiness_inventory.py`; current report shows 28/28 expected implementation markers, 0 missing markers, and 287 family-mapped readiness test functions | Keep report-only until marker ownership, overlap-aware test counting, and CI placement are stable. |
 
@@ -98,7 +100,6 @@ This slice does not:
 
 1. change application behavior,
 2. change API or Swagger contracts,
-3. change workflow files,
-4. introduce new CI failures,
-5. promote complexity measurement to a blocking CI threshold,
-6. claim enterprise-readiness completion.
+3. introduce new CI failures,
+4. promote complexity measurement to a blocking CI threshold,
+5. claim enterprise-readiness completion.

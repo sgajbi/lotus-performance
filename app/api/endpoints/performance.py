@@ -1,7 +1,6 @@
 # app/api/endpoints/performance.py
 from uuid import UUID
 
-import pandas as pd
 from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import JSONResponse
 
@@ -10,7 +9,7 @@ from app.models.attribution_analytics_requests import AttributionAnalyticsReques
 from app.models.attribution_requests import AttributionRequest
 from app.models.attribution_responses import AttributionAcceptedResponse, AttributionResponse
 from app.models.benchmark_analytics_requests import BenchmarkInputMode, BenchmarkReturnSource
-from app.models.mwr_analytics_requests import MoneyWeightedReturnAnalyticsRequest, MWRInputMode
+from app.models.mwr_analytics_requests import MoneyWeightedReturnAnalyticsRequest
 from app.models.mwr_responses import MoneyWeightedReturnResponse
 from app.models.platform_surfaces import ErrorDetailResponse
 from app.models.responses import PerformanceResponse, TWRAcceptedResponse
@@ -18,7 +17,6 @@ from app.models.twr_requests import TWRAnalyticsRequest, TWRInputMode, TWRResolv
 from app.models.workspace_summary_requests import WorkspaceSummaryRequest
 from app.models.workspace_summary_responses import WorkspaceSummaryAcceptedResponse, WorkspaceSummaryResponse
 from app.services.analytics_workflow_types import (
-    ANALYTICS_WORKFLOW_MWR,
     ANALYTICS_WORKFLOW_TWR,
     ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY,
 )
@@ -27,13 +25,10 @@ from app.services.attribution_mode_service import resolve_attribution_request
 from app.services.attribution_service import calculate_attribution
 from app.services.engine_exception_mapping_service import map_engine_exception_to_http_error
 from app.services.execution_lifecycle_service import (
-    complete_execution_with_lineage,
     record_execution_failure,
 )
 from app.services.execution_registry import execution_registry
-from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
-from app.services.mwr_calculation_service import build_mwr_response, calculate_mwr_result
-from app.services.mwr_mode_service import resolve_mwr_request
+from app.services.mwr_calculation_service import calculate_mwr_response
 from app.services.reproducibility_service import generate_request_fingerprint, generate_value_fingerprint
 from app.services.stateful_execution_policy_service import (
     finalize_resolved_stateful_execution,
@@ -543,93 +538,7 @@ async def get_twr_result(calculation_id: UUID) -> PerformanceResponse | JSONResp
 )
 async def calculate_mwr_endpoint(request: MoneyWeightedReturnAnalyticsRequest):
     """Calculates the money-weighted return (MWR) for a portfolio over a given period."""
-    active_settings = get_settings()
-    input_fingerprint, calculation_hash = generate_request_fingerprint(request, active_settings.APP_VERSION)
-    register_sync_execution_or_raise(
-        calculation_id=request.calculation_id,
-        analytics_type=ANALYTICS_WORKFLOW_MWR,
-        portfolio_id=request.portfolio_id,
-        requested_window={
-            "as_of": str(request.as_of),
-            "start_date": (
-                str(request.stateful_input.window_start_date)
-                if request.input_mode == MWRInputMode.STATEFUL and request.stateful_input is not None
-                else str(request.start_date)
-                if request.start_date is not None
-                else None
-            ),
-        },
-        input_fingerprint=input_fingerprint,
-        calculation_hash=calculation_hash,
-    )
-    execution_registry.mark_running(request.calculation_id)
-    execution_stage_started = False
-    lineage_stage_started = False
-
-    try:
-        resolved_request = await resolve_mwr_request(request, settings=active_settings)
-        mwr_request = resolved_request.mwr_request
-        if resolved_request.input_mode == MWRInputMode.STATEFUL:
-            input_fingerprint, calculation_hash = generate_request_fingerprint(
-                mwr_request,
-                active_settings.APP_VERSION,
-            )
-            execution_registry.update_execution_identity(
-                request.calculation_id,
-                input_fingerprint=input_fingerprint,
-                calculation_hash=calculation_hash,
-            )
-        execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_EXECUTION)
-        execution_stage_started = True
-        mwr_result = calculate_mwr_result(mwr_request)
-    except HTTPException:
-        record_execution_failure(
-            calculation_id=request.calculation_id,
-            message="HTTPException raised during MWR execution.",
-            execution_stage_started=execution_stage_started,
-            lineage_stage_started=lineage_stage_started,
-        )
-        raise
-    except Exception as e:
-        record_execution_failure(
-            calculation_id=request.calculation_id,
-            message=f"An unexpected error occurred during MWR calculation: {str(e)}",
-            execution_stage_started=execution_stage_started,
-            lineage_stage_started=lineage_stage_started,
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"An unexpected error occurred during MWR calculation: {str(e)}",
-        )
-
-    response_model = build_mwr_response(
-        request=request,
-        resolved_request=resolved_request,
-        mwr_result=mwr_result,
-        input_fingerprint=input_fingerprint,
-        calculation_hash=calculation_hash,
-        engine_version=active_settings.APP_VERSION,
-    )
-
-    lineage_df_data = [
-        {"date": str(mwr_request.start_date or mwr_request.as_of), "type": "begin_mv", "amount": mwr_request.begin_mv}
-    ]
-    lineage_df_data.extend(
-        [{"date": str(cf.date), "type": "cash_flow", "amount": cf.amount} for cf in mwr_request.cash_flows]
-    )
-    lineage_df_data.append({"date": str(mwr_request.as_of), "type": "end_mv", "amount": mwr_request.end_mv})
-    lineage_df = pd.DataFrame(lineage_df_data)
-
-    complete_execution_with_lineage(
-        calculation_id=request.calculation_id,
-        calculation_type=ANALYTICS_WORKFLOW_MWR,
-        request_model=mwr_request if request.input_mode == MWRInputMode.STATEFUL else request,
-        response_model=response_model,
-        execution_details={"cashflows": len(mwr_request.cash_flows)},
-        calculation_details={"mwr_cashflow_schedule.csv": lineage_df},
-    )
-
-    return response_model
+    return await calculate_mwr_response(request)
 
 
 @router.post(

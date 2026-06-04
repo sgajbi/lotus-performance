@@ -495,7 +495,7 @@ def test_mwr_lineage_flow(client):
 
 def test_calculate_mwr_endpoint_unexpected_error_returns_500(client, mocker):
     """Tests that unexpected MWR calculation failures map to HTTP 500."""
-    mocker.patch("app.api.endpoints.performance.calculate_mwr_result", side_effect=Exception("boom"))
+    mocker.patch("app.services.mwr_calculation_service.calculate_mwr_result", side_effect=Exception("boom"))
     payload = {
         "portfolio_id": "MWR_ERROR_01",
         "begin_mv": 1000.0,

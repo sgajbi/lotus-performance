@@ -1,9 +1,13 @@
-import os
-from datetime import UTC, date, datetime
+from datetime import date, datetime
 from typing import Literal
 
 from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
+
+from app.services.integration_capabilities_service import (
+    CALCULATION_SUPPORTABILITY_DESCRIPTION,
+    build_integration_capabilities_report,
+)
 
 router = APIRouter(tags=["Integration"])
 
@@ -18,12 +22,6 @@ ConsumerSystem = Literal[
     "UI",
     "UNKNOWN",
 ]
-
-CALCULATION_SUPPORTABILITY_SURFACE_KEYS = ("twr", "mwr", "contribution", "attribution")
-CALCULATION_SUPPORTABILITY_DESCRIPTION = (
-    "Bounded TWR, MWR, contribution, and attribution calculation supportability response metadata "
-    "and Prometheus posture metrics."
-)
 
 INTEGRATION_CAPABILITIES_RESPONSE_EXAMPLES = [
     {
@@ -455,23 +453,6 @@ class IntegrationCapabilitiesResponse(BaseModel):
     }
 
 
-def _env_bool(name: str, default: bool) -> bool:
-    value = os.getenv(name)
-    if value is None:
-        return default
-    normalized = value.strip().lower()
-    if not normalized:
-        return default
-    return normalized in {"1", "true", "yes", "on"}
-
-
-def _env_nonblank(name: str, default: str) -> str:
-    value = os.getenv(name)
-    if value is None:
-        return default
-    return value.strip() or default
-
-
 @router.get(
     "/capabilities",
     response_model=IntegrationCapabilitiesResponse,
@@ -508,351 +489,18 @@ async def get_integration_capabilities(
         examples=[50],
     ),
 ) -> IntegrationCapabilitiesResponse:
-    twr_enabled = _env_bool("PA_CAP_TWR_ENABLED", True)
-    mwr_enabled = _env_bool("PA_CAP_MWR_ENABLED", True)
-    contribution_enabled = _env_bool("PA_CAP_CONTRIBUTION_ENABLED", True)
-    attribution_enabled = _env_bool("PA_CAP_ATTRIBUTION_ENABLED", True)
-    benchmark_enabled = _env_bool("PA_CAP_BENCHMARK_ENABLED", True)
-    workspace_summary_enabled = _env_bool("PA_CAP_WORKSPACE_SUMMARY_ENABLED", True)
-    stateful_mode_enabled = _env_bool("PLATFORM_INPUT_MODE_STATEFUL_ENABLED", True)
-    stateless_mode_enabled = _env_bool("PLATFORM_INPUT_MODE_STATELESS_ENABLED", True)
-    calculation_supportability_surface_enabled = {
-        "twr": twr_enabled,
-        "mwr": mwr_enabled,
-        "contribution": contribution_enabled,
-        "attribution": attribution_enabled,
-    }
-    calculation_supportability_enabled = any(
-        calculation_supportability_surface_enabled[key] for key in CALCULATION_SUPPORTABILITY_SURFACE_KEYS
-    )
-
-    features = [
-        FeatureCapability(
-            key="performance.analytics.twr",
-            enabled=twr_enabled,
-            owner_service="lotus-performance",
-            description="Portfolio-level time-weighted return analytics APIs.",
-        ),
-        FeatureCapability(
-            key="performance.analytics.mwr",
-            enabled=mwr_enabled,
-            owner_service="lotus-performance",
-            description="Money-weighted return analytics APIs.",
-        ),
-        FeatureCapability(
-            key="performance.analytics.contribution",
-            enabled=contribution_enabled,
-            owner_service="lotus-performance",
-            description="Contribution analytics APIs.",
-        ),
-        FeatureCapability(
-            key="performance.analytics.attribution",
-            enabled=attribution_enabled,
-            owner_service="lotus-performance",
-            description="Attribution analytics APIs.",
-        ),
-        FeatureCapability(
-            key="performance.analytics.benchmark",
-            enabled=benchmark_enabled,
-            owner_service="lotus-performance",
-            description="Benchmark performance analytics APIs.",
-        ),
-        FeatureCapability(
-            key="performance.integration.benchmark_exposure_context",
-            enabled=benchmark_enabled and stateful_mode_enabled,
-            owner_service="lotus-performance",
-            description="Performance-aligned benchmark exposure context derived from lotus-core benchmark lineage.",
-        ),
-        FeatureCapability(
-            key="performance.analytics.workspace_summary",
-            enabled=workspace_summary_enabled,
-            owner_service="lotus-performance",
-            description="Interaction-efficient workspace summary analytics API.",
-        ),
-        FeatureCapability(
-            key="performance.support.twr_inspection",
-            enabled=twr_enabled,
-            owner_service="lotus-performance",
-            description="Durable TWR supportability inspection and artifact-backed triage API.",
-        ),
-        FeatureCapability(
-            key="performance.observability.calculation_supportability",
-            enabled=calculation_supportability_enabled,
-            owner_service="lotus-performance",
-            description=CALCULATION_SUPPORTABILITY_DESCRIPTION,
-        ),
-        FeatureCapability(
-            key="performance.integration.mandate_performance_health_context",
-            enabled=twr_enabled,
-            owner_service="lotus-performance",
-            description="Bounded source-owned mandate performance health context for DPM supportability.",
-        ),
-        FeatureCapability(
-            key="performance.execution.stateful",
-            enabled=stateful_mode_enabled,
-            owner_service="lotus-performance",
-            description="lotus-performance executes using platform-managed stateful input retrieval.",
-        ),
-        FeatureCapability(
-            key="performance.execution.stateless",
-            enabled=stateless_mode_enabled,
-            owner_service="lotus-performance",
-            description="lotus-performance executes analytics from request-supplied stateless input data.",
-        ),
-    ]
-
-    workflows = [
-        WorkflowCapability(
-            workflow_key="performance_snapshot",
-            enabled=twr_enabled and mwr_enabled and benchmark_enabled,
-            required_features=[
-                "performance.analytics.twr",
-                "performance.analytics.mwr",
-                "performance.analytics.benchmark",
-            ],
-        ),
-        WorkflowCapability(
-            workflow_key="performance_explainability",
-            enabled=contribution_enabled and attribution_enabled,
-            required_features=["performance.analytics.contribution", "performance.analytics.attribution"],
-        ),
-        WorkflowCapability(
-            workflow_key="performance_workspace",
-            enabled=workspace_summary_enabled and twr_enabled and mwr_enabled,
-            required_features=[
-                "performance.analytics.workspace_summary",
-                "performance.analytics.twr",
-                "performance.analytics.mwr",
-            ],
-        ),
-        WorkflowCapability(
-            workflow_key="performance_support_triage",
-            enabled=twr_enabled,
-            required_features=["performance.analytics.twr", "performance.support.twr_inspection"],
-        ),
-        WorkflowCapability(
-            workflow_key="mandate_performance_health_context",
-            enabled=twr_enabled,
-            required_features=[
-                "performance.analytics.twr",
-                "performance.integration.mandate_performance_health_context",
-            ],
-        ),
-        WorkflowCapability(
-            workflow_key="execution_stateful",
-            enabled=stateful_mode_enabled,
-            required_features=["performance.execution.stateful"],
-        ),
-        WorkflowCapability(
-            workflow_key="execution_stateless",
-            enabled=stateless_mode_enabled,
-            required_features=["performance.execution.stateless"],
-        ),
-    ]
-
-    supported_input_modes: list[str] = []
-    if stateful_mode_enabled:
-        supported_input_modes.append("stateful")
-    if stateless_mode_enabled:
-        supported_input_modes.append("stateless")
-
-    analytics_surfaces = [
-        AnalyticsSurfaceCapability(
-            key="twr",
-            path="/performance/twr",
-            enabled=twr_enabled,
-            supported_input_modes=supported_input_modes,
-            supports_async=True,
-            poll_path_template="/performance/executions/{calculation_id}",
-            result_path_template="/performance/twr/results/{calculation_id}",
-            contract_notes=[
-                "supports portfolio-level TWR only",
-                "does not advertise composite, group, or sleeve TWR calculation support",
-            ],
-        ),
-        AnalyticsSurfaceCapability(
-            key="twr_inspection",
-            path="/performance/inspections/twr",
-            enabled=twr_enabled,
-            supported_input_modes=[],
-            supports_async=True,
-            poll_path_template="/performance/executions/{calculation_id}",
-            result_path_template="/performance/inspections/{inspection_id}",
-            contract_notes=(
-                [
-                    "supports inspection of an existing TWR calculation or a proposed TWR request payload",
-                    "inspection profiles expose bounded support_triage, canonical_validation, and deep_reconciliation behavior",
-                    "artifact retrieval includes inspection_summary.json, findings.json, and source_quality_summary.json, plus reconciliation_summary.json and source_economics_summary.json when stateful source-economics checks run",
-                    "stateful reconciliation inspection covers portfolio-position tie-out and unexplained position begin-value carry-forward breaks",
-                    'stateful portfolio and position valuation normalization share the source cash-flow taxonomy used by inspection; operational expenses must arrive as canonical cash_flow_type="fee" with source_classification="EXPENSE"',
-                    "source-economics inspection now covers fee and external cash-flow classification and normalization mismatches, duplicate source signals, positive fee sign anomalies, fee or external source-total mismatches, external timing-bucket contradictions, governed alias cash_flow_type labels, unsupported cash_flow_type labels, and non-canonical cash_flow_type labels",
-                ]
-                if twr_enabled
-                else []
-            ),
-            options=(
-                [
-                    AnalyticsSurfaceOptionCapability(
-                        key="subject_type",
-                        supported_values=["twr_calculation", "twr_request"],
-                        required_when="always",
-                        notes=[
-                            "twr_calculation inspects an existing durable TWR execution identity",
-                            "twr_request inspects a proposed TWR request payload without mutating the normal TWR contract",
-                        ],
-                    ),
-                    AnalyticsSurfaceOptionCapability(
-                        key="inspection_profile",
-                        supported_values=["support_triage", "canonical_validation", "deep_reconciliation"],
-                        required_when="always",
-                        notes=[
-                            "support_triage is the default bounded supportability workflow",
-                            "canonical_validation is the governed profile for canonical portfolio validation",
-                            "deep_reconciliation adds heavier stateful reconciliation evidence for upstream escalation",
-                        ],
-                    ),
-                ]
-                if twr_enabled
-                else []
-            ),
-        ),
-        AnalyticsSurfaceCapability(
-            key="mwr",
-            path="/performance/mwr",
-            enabled=mwr_enabled,
-            supported_input_modes=supported_input_modes,
-            supports_async=False,
-        ),
-        AnalyticsSurfaceCapability(
-            key="benchmark",
-            path="/performance/benchmark",
-            enabled=benchmark_enabled,
-            supported_input_modes=supported_input_modes,
-            supports_async=True,
-            poll_path_template="/performance/executions/{calculation_id}",
-            result_path_template="/performance/benchmark/results/{calculation_id}",
-        ),
-        AnalyticsSurfaceCapability(
-            key="workspace_summary",
-            path="/performance/workspace-summary",
-            enabled=workspace_summary_enabled,
-            supported_input_modes=supported_input_modes,
-            supports_async=True,
-            poll_path_template="/performance/executions/{calculation_id}",
-            result_path_template="/performance/workspace-summary/results/{calculation_id}",
-            stateful_restrictions=[],
-            contract_notes=(
-                [
-                    "supports multi-horizon workspace periods including 1D, 2D, 5D, 10D, 1M, 3M, 6M, YTD, 1Y, 2Y, 5Y, 10Y, SI, and EXPLICIT",
-                    "summary and breakdown rows emit period_return, cumulative_return, and annualized_return; for periods up to one year annualized_return equals cumulative_return",
-                    "resolves the longest requested window once and derives shorter requested periods from the same sourced data",
-                ]
-                if workspace_summary_enabled
-                else []
-            ),
-            options=(
-                [
-                    AnalyticsSurfaceOptionCapability(
-                        key="benchmark_mode",
-                        supported_values=["user_input_stateless", "linked_stateful"],
-                        required_when="benchmark or benchmark-aware blocks are requested",
-                        notes=[
-                            "stateless workspace summary requires an explicit benchmark payload when include_benchmark=true",
-                            "stateful workspace summary can resolve the linked benchmark from lotus-core assignment",
-                        ],
-                    ),
-                ]
-                if workspace_summary_enabled
-                else []
-            ),
-        ),
-        AnalyticsSurfaceCapability(
-            key="contribution",
-            path="/performance/contribution",
-            enabled=contribution_enabled,
-            supported_input_modes=supported_input_modes,
-            supports_async=True,
-            poll_path_template="/performance/executions/{calculation_id}",
-            result_path_template="/performance/contribution/results/{calculation_id}",
-        ),
-        AnalyticsSurfaceCapability(
-            key="attribution",
-            path="/performance/attribution",
-            enabled=attribution_enabled,
-            supported_input_modes=supported_input_modes,
-            supports_async=True,
-            poll_path_template="/performance/executions/{calculation_id}",
-            result_path_template="/performance/attribution/results/{calculation_id}",
-            stateful_restrictions=(
-                [
-                    "mode=by_instrument only",
-                    "group_by limited to asset_class, sector, country, currency",
-                    "currency_mode=BOTH requires report_ccy and fx.rates for mixed-currency positions",
-                ]
-                if stateful_mode_enabled and attribution_enabled
-                else []
-            ),
-        ),
-        AnalyticsSurfaceCapability(
-            key="mandate_performance_health_context",
-            path="/performance/mandate-health-context",
-            enabled=twr_enabled,
-            supported_input_modes=["stateless"],
-            supports_async=False,
-            contract_notes=(
-                [
-                    "emits bounded lotus-performance-owned active-return health posture for lotus-manage DPM supportability",
-                    "does not create mandate actions, rebalance waves, client communications, orders, OMS, or execution instructions",
-                ]
-                if twr_enabled
-                else []
-            ),
-        ),
-        AnalyticsSurfaceCapability(
-            key="returns_series",
-            path="/integration/returns/series",
-            enabled=stateful_mode_enabled or stateless_mode_enabled,
-            supported_input_modes=supported_input_modes,
-            supports_async=True,
-            poll_path_template="/performance/executions/{calculation_id}",
-            result_path_template="/integration/returns/series/results/{calculation_id}",
-        ),
-        AnalyticsSurfaceCapability(
-            key="benchmark_exposure_context",
-            path="/integration/benchmarks/exposure-context",
-            enabled=benchmark_enabled and stateful_mode_enabled,
-            supported_input_modes=["stateful"] if stateful_mode_enabled else [],
-            supports_async=False,
-            stateful_restrictions=(
-                [
-                    "lotus-core remains the benchmark composition system of record",
-                    "POSITION, SECTOR, ASSET_CLASS, and ISSUER grouping dimensions are supported",
-                    "ISSUER groups use lotus-core index-catalog issuer_id and issuer_name classification labels",
-                ]
-                if benchmark_enabled and stateful_mode_enabled
-                else []
-            ),
-            contract_notes=(
-                [
-                    "returns a lineage-backed benchmark exposure view aligned to benchmark performance context",
-                    "intended for lotus-risk stateful ACTIVE_RISK attribution integration",
-                ]
-                if benchmark_enabled and stateful_mode_enabled
-                else []
-            ),
-        ),
-    ]
+    report = build_integration_capabilities_report(feature_limit=feature_limit, workflow_limit=workflow_limit)
 
     return IntegrationCapabilitiesResponse(
         contract_version="v1",
         source_service="lotus-performance",
         consumer_system=consumer_system,
         tenant_id=tenant_id,
-        generated_at=datetime.now(UTC),
-        as_of_date=date.today(),
-        policy_version=_env_nonblank("PA_POLICY_VERSION", "tenant-default-v1"),
-        supported_input_modes=supported_input_modes,
-        analytics_surfaces=analytics_surfaces,
-        features=features[:feature_limit],
-        workflows=workflows[:workflow_limit],
+        generated_at=report.generated_at,
+        as_of_date=report.as_of_date,
+        policy_version=report.policy_version,
+        supported_input_modes=report.supported_input_modes,
+        analytics_surfaces=report.analytics_surfaces,
+        features=report.features,
+        workflows=report.workflows,
     )

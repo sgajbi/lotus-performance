@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -9,6 +10,60 @@ from app.services.compute_job_store import ComputeRecoveryEvent
 from app.services.lineage_metadata_store import LineageRecoveryEvent
 from app.services.operator_navigation_service import build_operator_navigation_links
 from app.services.runtime_recovery_service import RuntimeRecoverySnapshot
+
+
+class RuntimeRecoveriesQueryParams(BaseModel):
+    queue: Literal["both", "compute", "lineage"] = Field(
+        default="both",
+        description="Queue scope for runtime recovery inspection.",
+    )
+    limit: int = Field(
+        default=10,
+        ge=1,
+        le=100,
+        description="Maximum number of recovery events to return per queue.",
+    )
+    offset: int = Field(
+        default=0,
+        ge=0,
+        description="Zero-based page offset applied to each selected queue before limiting results.",
+    )
+    recovered_after: datetime | None = Field(
+        default=None,
+        description="Optional inclusive lower UTC timestamp bound applied to recovery-event timestamps.",
+    )
+    recovered_before: datetime | None = Field(
+        default=None,
+        description="Optional inclusive upper UTC timestamp bound applied to recovery-event timestamps.",
+    )
+    cursor_recovered_before: datetime | None = Field(
+        default=None,
+        description="Optional cursor recovery timestamp used for deterministic seek pagination of older matching events.",
+    )
+    cursor_calculation_id_before: str | None = Field(
+        default=None,
+        min_length=1,
+        pattern=r".*\S.*",
+        description="Optional cursor calculation handle paired with the cursor recovery timestamp for seek pagination.",
+    )
+    compute_analytics_type: str | None = Field(
+        default=None,
+        min_length=1,
+        pattern=r".*\S.*",
+        description="Optional compute analytics-type filter, such as ReturnsSeries or Attribution.",
+    )
+    lineage_calculation_type: str | None = Field(
+        default=None,
+        min_length=1,
+        pattern=r".*\S.*",
+        description="Optional lineage calculation-type filter, such as TWR or Attribution.",
+    )
+    calculation_id_contains: str | None = Field(
+        default=None,
+        min_length=1,
+        pattern=r".*\S.*",
+        description="Optional substring filter applied to calculation identifiers in the selected queues.",
+    )
 
 
 class ComputeRecoveryEventResponse(BaseModel):

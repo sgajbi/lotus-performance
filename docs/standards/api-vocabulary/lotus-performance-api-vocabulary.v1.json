@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-05-31T23:03:24.936327+00:00",
+  "generatedAt": "2026-06-04T10:16:40.360832+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.access_classification",
@@ -7759,7 +7759,7 @@
       "location": "query",
       "required": false,
       "type": "integer",
-      "description": "Zero-based offset into the filtered retained runtime-retention cleanup history.",
+      "description": "Zero-based offset into the filtered retained history.",
       "example": 1,
       "allowedValues": [],
       "semanticId": "lotus.offset",
@@ -7831,7 +7831,7 @@
       "location": "query",
       "required": false,
       "type": "string",
-      "description": "Filter retained runtime-retention cleanup history to entries generated at or after this ISO-8601 timestamp.",
+      "description": "Filter retained runtime-retention cleanup history to entries generated at or after this UTC timestamp.",
       "example": "STANDARD_VALUE",
       "allowedValues": [],
       "semanticId": "lotus.generated_after",
@@ -7843,7 +7843,7 @@
       "location": "query",
       "required": false,
       "type": "string",
-      "description": "Filter retained runtime-retention cleanup history to entries generated at or before this ISO-8601 timestamp.",
+      "description": "Filter retained runtime-retention cleanup history to entries generated at or before this UTC timestamp.",
       "example": "STANDARD_VALUE",
       "allowedValues": [],
       "semanticId": "lotus.generated_before",
