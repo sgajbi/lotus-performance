@@ -22,7 +22,7 @@ python scripts/python_complexity_inventory.py --limit 20
 | --- | ---: |
 | Max cyclomatic complexity | 27 |
 | High-complexity functions (rank D-F) | 17 |
-| Average maintainability index | 55.87 |
+| Average maintainability index | 55.86 |
 
 ## Highest Cyclomatic Complexity
 
@@ -38,11 +38,11 @@ python scripts/python_complexity_inventory.py --limit 20
 | 8 | `resolve_twr_request` | function | `app/services/twr_mode_service.py:44` | 25 | D |
 | 9 | `calculate_money_weighted_return` | function | `engine/mwr.py:186` | 25 | D |
 | 10 | `build_source_economics_findings` | function | `app/services/inspection/source_economics_findings.py:7` | 24 | D |
-| 11 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:64` | 23 | D |
-| 12 | `ReturnsSeriesRequest` | class | `app/models/returns_series.py:244` | 22 | D |
-| 13 | `analyze_portfolio_position_reconciliation` | function | `app/services/inspection/reconciliation.py:82` | 22 | D |
-| 14 | `calculate_benchmark_returns` | function | `engine/benchmarks.py:35` | 22 | D |
-| 15 | `validate_selection` | method | `app/models/returns_series.py:318` | 21 | D |
+| 11 | `ReturnsSeriesRequest` | class | `app/models/returns_series.py:244` | 22 | D |
+| 12 | `analyze_portfolio_position_reconciliation` | function | `app/services/inspection/reconciliation.py:82` | 22 | D |
+| 13 | `calculate_benchmark_returns` | function | `engine/benchmarks.py:35` | 22 | D |
+| 14 | `validate_selection` | method | `app/models/returns_series.py:318` | 21 | D |
+| 15 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:64` | 21 | D |
 | 16 | `build_integration_capabilities_report` | function | `app/services/integration_capabilities_service.py:92` | 21 | D |
 | 17 | `build_stateful_mwr_input_for_window` | function | `app/services/stateful_mwr_input_service.py:100` | 21 | D |
 | 18 | `_validate_stateful_portfolio_position_alignment` | function | `app/services/stateful_attribution_input_service.py:283` | 20 | C |

@@ -158,34 +158,16 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
 
     source_economics_findings: list[TWRInspectionFinding] = []
     if resolved_execution_request is not None and subject.portfolio_id is not None:
-        execution_registry.start_stage(request.inspection_id, EXECUTION_STAGE_SOURCE_ECONOMICS_ASSESSMENT)
-        try:
-            source_economics_result = run_source_economics_checks(
-                performance_request=resolved_execution_request.portfolio,
-                portfolio_id=subject.portfolio_id,
-            )
-        except Exception as exc:
-            _record_check_failure(
-                inspection_id=request.inspection_id,
-                findings=source_economics_findings,
-                failed_check_families=failed_check_families,
-                families=["cashflow_classification"],
-                stage=EXECUTION_STAGE_SOURCE_ECONOMICS_ASSESSMENT,
-                error=exc,
-            )
-        else:
-            execution_registry.complete_stage(
-                request.inspection_id,
-                EXECUTION_STAGE_SOURCE_ECONOMICS_ASSESSMENT,
-                details=source_economics_result.evidence_summary,
-            )
-            source_economics_findings = source_economics_result.findings
-            completed_check_families.append("cashflow_classification")
-            evidence_summary.update(source_economics_result.evidence_summary)
-            artifact_payloads["source_economics_summary.json"] = json.dumps(
-                source_economics_result.artifact_payload,
-                indent=2,
-            )
+        source_economics_outputs = _run_source_economics_assessment(
+            inspection_id=request.inspection_id,
+            performance_request=resolved_execution_request.portfolio,
+            portfolio_id=subject.portfolio_id,
+        )
+        source_economics_findings = source_economics_outputs.findings
+        completed_check_families.extend(source_economics_outputs.completed_check_families)
+        failed_check_families.extend(source_economics_outputs.failed_check_families)
+        evidence_summary.update(source_economics_outputs.evidence_summary)
+        artifact_payloads.update(source_economics_outputs.artifact_payloads)
 
     execution_registry.start_stage(request.inspection_id, EXECUTION_STAGE_FINDING_SYNTHESIS)
     findings = [
@@ -374,6 +356,56 @@ def _run_reconciliation_assessment(
         artifact_payloads={
             "reconciliation_summary.json": json.dumps(
                 reconciliation_result.artifact_payload,
+                indent=2,
+            )
+        },
+    )
+
+
+def _run_source_economics_assessment(
+    *,
+    inspection_id: UUID,
+    performance_request: PerformanceRequest,
+    portfolio_id: str,
+) -> _InspectionStageOutputs:
+    findings: list[TWRInspectionFinding] = []
+    failed_check_families: list[str] = []
+    execution_registry.start_stage(inspection_id, EXECUTION_STAGE_SOURCE_ECONOMICS_ASSESSMENT)
+    try:
+        source_economics_result = run_source_economics_checks(
+            performance_request=performance_request,
+            portfolio_id=portfolio_id,
+        )
+    except Exception as exc:
+        _record_check_failure(
+            inspection_id=inspection_id,
+            findings=findings,
+            failed_check_families=failed_check_families,
+            families=["cashflow_classification"],
+            stage=EXECUTION_STAGE_SOURCE_ECONOMICS_ASSESSMENT,
+            error=exc,
+        )
+        return _InspectionStageOutputs(
+            findings=findings,
+            completed_check_families=[],
+            failed_check_families=failed_check_families,
+            evidence_summary={},
+            artifact_payloads={},
+        )
+
+    execution_registry.complete_stage(
+        inspection_id,
+        EXECUTION_STAGE_SOURCE_ECONOMICS_ASSESSMENT,
+        details=source_economics_result.evidence_summary,
+    )
+    return _InspectionStageOutputs(
+        findings=source_economics_result.findings,
+        completed_check_families=["cashflow_classification"],
+        failed_check_families=[],
+        evidence_summary=source_economics_result.evidence_summary,
+        artifact_payloads={
+            "source_economics_summary.json": json.dumps(
+                source_economics_result.artifact_payload,
                 indent=2,
             )
         },
