@@ -9,6 +9,7 @@ from app.api.endpoints import performance as performance_endpoint
 from app.models.mwr_analytics_requests import MoneyWeightedReturnAnalyticsRequest
 from app.models.twr_requests import TWRAnalyticsRequest
 from app.models.workspace_summary_requests import WorkspaceSummaryRequest
+from app.services import attribution_calculation_workflow_service
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY
 from app.services.twr_calculation_service import twr_requested_benchmark_work_units
 
@@ -183,7 +184,7 @@ async def test_attribution_endpoint_maps_unexpected_resolution_errors_to_http_50
     )
     failure_capture: dict[str, object] = {}
     mocker.patch(
-        "app.api.endpoints.performance.get_settings",
+        "app.services.attribution_calculation_workflow_service.get_settings",
         return_value=type(
             "Settings",
             (),
@@ -194,18 +195,18 @@ async def test_attribution_endpoint_maps_unexpected_resolution_errors_to_http_50
             },
         )(),
     )
-    mocker.patch("app.api.endpoints.performance.register_sync_execution_or_raise")
+    mocker.patch("app.services.attribution_calculation_workflow_service.register_sync_execution_or_raise")
     mocker.patch(
-        "app.api.endpoints.performance.resolve_attribution_request",
+        "app.services.attribution_calculation_workflow_service.resolve_attribution_request",
         side_effect=RuntimeError("attribution blew up"),
     )
     mocker.patch(
-        "app.api.endpoints.performance.record_execution_failure",
+        "app.services.attribution_calculation_workflow_service.record_execution_failure",
         side_effect=lambda **kwargs: failure_capture.update(kwargs),
     )
 
     with pytest.raises(HTTPException) as exc_info:
-        await performance_endpoint.calculate_attribution_endpoint(request)
+        await attribution_calculation_workflow_service.calculate_attribution_workflow(request)
 
     assert exc_info.value.status_code == 500
     assert "attribution blew up" in str(exc_info.value.detail)
@@ -230,4 +231,4 @@ def test_attribution_input_count_prefers_nested_stateless_payload():
         }
     )
 
-    assert performance_endpoint._attribution_input_count(request) == 3
+    assert attribution_calculation_workflow_service.attribution_input_count(request) == 3
