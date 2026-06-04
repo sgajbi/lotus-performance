@@ -562,6 +562,40 @@ def _apply_selected_fill_method(
     return portfolio_df, benchmark_df, risk_free_df
 
 
+async def _resolve_stateful_returns_series_benchmark_id(
+    *,
+    request: ReturnsSeriesRequest,
+    stateful_input_service: Any,
+    resolved_benchmark_id: str | None,
+) -> str | None:
+    if not request.series_selection.include_benchmark or resolved_benchmark_id:
+        return resolved_benchmark_id
+
+    assignment_status, assignment_payload = await stateful_input_service.get_benchmark_assignment(
+        portfolio_id=request.portfolio_id,
+        as_of_date=request.as_of_date,
+        reporting_currency=request.reporting_currency,
+    )
+    if assignment_status == status.HTTP_404_NOT_FOUND:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=resource_not_found_detail("No benchmark assignment found for portfolio."),
+        )
+    if assignment_status >= status.HTTP_400_BAD_REQUEST:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=source_unavailable_detail(f"Benchmark assignment source unavailable ({assignment_status})."),
+        )
+    benchmark_id_raw = assignment_payload.get("benchmark_id")
+    benchmark_id = str(benchmark_id_raw) if benchmark_id_raw else None
+    if not benchmark_id:
+        raise HTTPException(
+            status_code=HTTP_422_UNPROCESSABLE,
+            detail=upstream_contract_violation_detail("Benchmark assignment payload missing benchmark_id."),
+        )
+    return benchmark_id
+
+
 async def calculate_returns_series(
     request: ReturnsSeriesRequest,
     *,
@@ -872,31 +906,12 @@ async def resolve_stateful_returns_series_request(
     observations = portfolio_source.observations
     resolved_benchmark_id: str | None = request.benchmark.benchmark_id if request.benchmark else None
     resolved_benchmark_return_source = _get_requested_benchmark_return_source(request)
-    benchmark_id = resolved_benchmark_id
-    if request.series_selection.include_benchmark and not benchmark_id:
-        assignment_status, assignment_payload = await stateful_input_service.get_benchmark_assignment(
-            portfolio_id=request.portfolio_id,
-            as_of_date=request.as_of_date,
-            reporting_currency=request.reporting_currency,
-        )
-        if assignment_status == status.HTTP_404_NOT_FOUND:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=resource_not_found_detail("No benchmark assignment found for portfolio."),
-            )
-        if assignment_status >= status.HTTP_400_BAD_REQUEST:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=source_unavailable_detail(f"Benchmark assignment source unavailable ({assignment_status})."),
-            )
-        benchmark_id_raw = assignment_payload.get("benchmark_id")
-        benchmark_id = str(benchmark_id_raw) if benchmark_id_raw else None
-        if not benchmark_id:
-            raise HTTPException(
-                status_code=HTTP_422_UNPROCESSABLE,
-                detail=upstream_contract_violation_detail("Benchmark assignment payload missing benchmark_id."),
-            )
-        resolved_benchmark_id = benchmark_id
+    benchmark_id = await _resolve_stateful_returns_series_benchmark_id(
+        request=request,
+        stateful_input_service=stateful_input_service,
+        resolved_benchmark_id=resolved_benchmark_id,
+    )
+    resolved_benchmark_id = benchmark_id
 
     benchmark_points: list[dict[str, Any]] | None = None
     benchmark_df: pd.DataFrame | None = None

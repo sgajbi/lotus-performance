@@ -20,7 +20,7 @@ python scripts/python_complexity_inventory.py --limit 15
 
 | Metric | Value |
 | --- | ---: |
-| Max cyclomatic complexity | 38 |
+| Max cyclomatic complexity | 36 |
 | High-complexity functions (rank D-F) | 21 |
 | Average maintainability index | 55.87 |
 
@@ -28,12 +28,12 @@ python scripts/python_complexity_inventory.py --limit 15
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:832` | 38 | E |
-| 2 | `_ensure_operation_documentation` | function | `app/openapi_enrichment.py:339` | 36 | E |
-| 3 | `calculate_contribution` | function | `app/services/contribution_service.py:71` | 35 | E |
-| 4 | `calculate_asset_weighted_composite_twr` | function | `engine/composites.py:92` | 35 | E |
-| 5 | `calculate_twr_response` | function | `app/services/twr_service.py:496` | 33 | E |
-| 6 | `_calculate_returns_series` | function | `app/services/returns_series_service.py:580` | 32 | E |
+| 1 | `_ensure_operation_documentation` | function | `app/openapi_enrichment.py:339` | 36 | E |
+| 2 | `calculate_contribution` | function | `app/services/contribution_service.py:71` | 35 | E |
+| 3 | `calculate_asset_weighted_composite_twr` | function | `engine/composites.py:92` | 35 | E |
+| 4 | `calculate_twr_response` | function | `app/services/twr_service.py:496` | 33 | E |
+| 5 | `_calculate_returns_series` | function | `app/services/returns_series_service.py:614` | 32 | E |
+| 6 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:866` | 32 | E |
 | 7 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:54` | 31 | E |
 | 8 | `build_runtime_status_response` | function | `app/models/runtime_status.py:613` | 30 | D |
 | 9 | `_process_pending_jobs` | function | `app/workers/compute_executor_worker.py:59` | 30 | D |

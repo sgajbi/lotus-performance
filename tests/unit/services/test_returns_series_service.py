@@ -256,6 +256,59 @@ def test_selected_fill_method_aligns_optional_series_to_portfolio_dates():
     assert list(filled_benchmark["return_value"]) == [Decimal("0.0010"), Decimal("0.0010"), Decimal("0.0030")]
 
 
+@pytest.mark.asyncio
+async def test_resolve_stateful_returns_series_benchmark_id_uses_assignment_when_missing():
+    request = _build_stateful_request()
+
+    class Service:
+        async def get_benchmark_assignment(self, **kwargs):  # noqa: ARG002
+            return 200, {"benchmark_id": "BMK_CORE"}
+
+    benchmark_id = await returns_series_service._resolve_stateful_returns_series_benchmark_id(
+        request=request,
+        stateful_input_service=Service(),
+        resolved_benchmark_id=None,
+    )
+
+    assert benchmark_id == "BMK_CORE"
+
+
+@pytest.mark.asyncio
+async def test_resolve_stateful_returns_series_benchmark_id_rejects_missing_assignment():
+    request = _build_stateful_request()
+
+    class Service:
+        async def get_benchmark_assignment(self, **kwargs):  # noqa: ARG002
+            return 404, {}
+
+    with pytest.raises(HTTPException) as exc:
+        await returns_series_service._resolve_stateful_returns_series_benchmark_id(
+            request=request,
+            stateful_input_service=Service(),
+            resolved_benchmark_id=None,
+        )
+
+    assert exc.value.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_resolve_stateful_returns_series_benchmark_id_rejects_invalid_payload():
+    request = _build_stateful_request()
+
+    class Service:
+        async def get_benchmark_assignment(self, **kwargs):  # noqa: ARG002
+            return 200, {"benchmark_id": None}
+
+    with pytest.raises(HTTPException) as exc:
+        await returns_series_service._resolve_stateful_returns_series_benchmark_id(
+            request=request,
+            stateful_input_service=Service(),
+            resolved_benchmark_id=None,
+        )
+
+    assert exc.value.status_code == 422
+
+
 def _build_stateful_request(**overrides):
     payload = {
         "calculation_id": str(uuid4()),
