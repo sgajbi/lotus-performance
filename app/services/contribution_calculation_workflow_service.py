@@ -36,10 +36,10 @@ def contribution_position_count(request: ContributionAnalyticsRequest | Contribu
     stateless_input = getattr(request, "stateless_input", None)
     input_mode = getattr(request, "input_mode", ContributionInputMode.STATELESS)
     if stateless_input is not None:
-        return len(request.stateless_input.positions_data)
+        return len(getattr(stateless_input, "positions_data", []) or [])
     if input_mode == ContributionInputMode.STATEFUL:
         return 0
-    return len(request.positions_data)
+    return len(getattr(request, "positions_data", []) or [])
 
 
 def should_preemptively_offload_stateful_contribution(request: ContributionAnalyticsRequest) -> bool:
