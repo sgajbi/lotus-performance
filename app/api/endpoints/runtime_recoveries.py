@@ -5,9 +5,9 @@ from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query
 
+from app.api.http_status import HTTP_422_UNPROCESSABLE
 from app.models.runtime_recoveries import RuntimeRecoveriesResponse, build_runtime_recoveries_response
 from app.services.runtime_recovery_service import build_runtime_recovery_snapshot
-from core.errors import HTTP_422_UNPROCESSABLE
 
 router = APIRouter(tags=["Integration"])
 
@@ -77,6 +77,7 @@ async def get_runtime_recoveries(
         description="Optional substring filter applied to calculation identifiers in the selected queues.",
     ),
 ) -> RuntimeRecoveriesResponse:
+    """Return filtered durable recovery events for runtime queue remediation review."""
     if recovered_after is not None and recovered_before is not None and recovered_after > recovered_before:
         raise HTTPException(
             status_code=HTTP_422_UNPROCESSABLE,

@@ -1,17 +1,17 @@
 # engine/attribution.py
-from typing import Dict, List, Tuple
+from dataclasses import dataclass
+from datetime import date as dt_date
+from typing import Any, Dict, Mapping, Protocol, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
 
-from adapters.api_adapter import create_engine_dataframe
-from app.models.attribution_requests import (
-    AttributionModel,
-    AttributionRequest,
-    BenchmarkGroup,
-    PortfolioGroup,
+from common.enums import AttributionMode, AttributionModel, LinkingMethod
+from engine.attribution_supportability import (
+    build_attribution_supportability_evidence,
+    classify_attribution_residual,
 )
-from app.models.attribution_responses import (
+from engine.attribution_types import (
     AttributionGroupResult,
     AttributionLevelResult,
     AttributionLevelTotals,
@@ -21,14 +21,104 @@ from app.models.attribution_responses import (
     Reconciliation,
     SinglePeriodAttributionResult,
 )
-from common.enums import AttributionMode, LinkingMethod
-from engine.attribution_supportability import (
-    build_attribution_supportability_evidence,
-    classify_attribution_residual,
-)
 from engine.config import EngineConfig
+from engine.dataframe import create_engine_dataframe_from_valuation_points
 from engine.runtime import run_engine_for_valuation_points
 from engine.schema import PortfolioColumns
+
+
+class ModelDumpLike(Protocol):
+    def model_dump(self) -> dict[str, Any]: ...
+
+
+class AttributionValuationPointLike(ModelDumpLike, Protocol):
+    @property
+    def perf_date(self) -> dt_date: ...
+
+
+class AttributionAnalysisLike(Protocol):
+    @property
+    def period(self) -> Any: ...
+
+
+class AttributionPortfolioDataLike(Protocol):
+    @property
+    def metric_basis(self) -> Any: ...
+
+    @property
+    def valuation_points(self) -> Sequence[AttributionValuationPointLike]: ...
+
+
+class AttributionInstrumentDataLike(Protocol):
+    @property
+    def meta(self) -> Mapping[str, Any]: ...
+
+    @property
+    def valuation_points(self) -> Sequence[ModelDumpLike]: ...
+
+
+class AttributionObservationGroupLike(Protocol):
+    @property
+    def key(self) -> Mapping[str, Any]: ...
+
+    @property
+    def observations(self) -> Sequence[Any]: ...
+
+
+class AttributionRequestLike(Protocol):
+    @property
+    def report_start_date(self) -> dt_date: ...
+
+    @property
+    def report_end_date(self) -> dt_date: ...
+
+    @property
+    def analyses(self) -> Sequence[AttributionAnalysisLike]: ...
+
+    @property
+    def mode(self) -> AttributionMode: ...
+
+    @property
+    def frequency(self) -> Any: ...
+
+    @property
+    def group_by(self) -> Sequence[str]: ...
+
+    @property
+    def model(self) -> AttributionModel: ...
+
+    @property
+    def linking(self) -> LinkingMethod: ...
+
+    @property
+    def portfolio_data(self) -> AttributionPortfolioDataLike | None: ...
+
+    @property
+    def instruments_data(self) -> Sequence[AttributionInstrumentDataLike] | None: ...
+
+    @property
+    def portfolio_groups_data(self) -> Sequence[AttributionObservationGroupLike] | None: ...
+
+    @property
+    def benchmark_groups_data(self) -> Sequence[AttributionObservationGroupLike]: ...
+
+    @property
+    def currency_mode(self) -> str | None: ...
+
+    @property
+    def report_ccy(self) -> str | None: ...
+
+    @property
+    def fx(self) -> Any: ...
+
+    @property
+    def hedging(self) -> Any: ...
+
+
+@dataclass(frozen=True)
+class AttributionObservationGroup:
+    key: dict[str, Any]
+    observations: list[dict[str, Any]]
 
 
 def _calculate_linked_return(return_series: pd.Series) -> float:
@@ -117,7 +207,7 @@ def _build_attribution_group_result(
     )
 
 
-def _prepare_data_from_instruments(request: AttributionRequest) -> List[PortfolioGroup]:
+def _prepare_data_from_instruments(request: AttributionRequestLike) -> list[AttributionObservationGroup]:
     """
     Runs TWR engine on instrument data and aggregates returns and weights
     up to the requested group levels.
@@ -137,7 +227,9 @@ def _prepare_data_from_instruments(request: AttributionRequest) -> List[Portfoli
         hedging=request.hedging,
     )
 
-    portfolio_df = create_engine_dataframe([item.model_dump() for item in request.portfolio_data.valuation_points])
+    portfolio_df = create_engine_dataframe_from_valuation_points(
+        [item.model_dump() for item in request.portfolio_data.valuation_points]
+    )
     portfolio_df[PortfolioColumns.PERF_DATE.value] = pd.to_datetime(portfolio_df[PortfolioColumns.PERF_DATE.value])
     portfolio_df = portfolio_df.set_index(PortfolioColumns.PERF_DATE.value)
     portfolio_bop_mv = portfolio_df[PortfolioColumns.BEGIN_MV.value] + portfolio_df[PortfolioColumns.BOD_CF.value]
@@ -190,7 +282,7 @@ def _prepare_data_from_instruments(request: AttributionRequest) -> List[Portfoli
         return []
 
     full_df = pd.concat(all_instruments)
-    group_cols = request.group_by
+    group_cols = list(request.group_by)
     for group_col in group_cols:
         if group_col not in full_df.columns:
             full_df[group_col] = "unknown"
@@ -225,7 +317,7 @@ def _prepare_data_from_instruments(request: AttributionRequest) -> List[Portfoli
         obs_cols = [PortfolioColumns.PERF_DATE.value, "weight_bop"] + return_cols
         obs_df = group_df[[c for c in obs_cols if c in group_df.columns]]
         output_groups.append(
-            PortfolioGroup(
+            AttributionObservationGroup(
                 key=key_dict,
                 observations=obs_df.rename(columns={PortfolioColumns.PERF_DATE.value: "date"}).to_dict(
                     orient="records"
@@ -235,7 +327,7 @@ def _prepare_data_from_instruments(request: AttributionRequest) -> List[Portfoli
     return output_groups
 
 
-def _build_base_weight_series(meta: dict) -> pd.Series | None:
+def _build_base_weight_series(meta: Mapping[str, Any]) -> pd.Series | None:
     weight_points_raw = meta.get("base_weight_points")
     if not isinstance(weight_points_raw, list):
         return None
@@ -263,7 +355,9 @@ def _build_base_weight_series(meta: dict) -> pd.Series | None:
     return weights_df["capital"]
 
 
-def _prepare_panel_from_groups(groups: List[PortfolioGroup | BenchmarkGroup], group_by: List[str]) -> pd.DataFrame:
+def _prepare_panel_from_groups(
+    groups: Sequence[AttributionObservationGroupLike], group_by: Sequence[str]
+) -> pd.DataFrame:
     """Helper to convert list of group data into a tidy DataFrame panel."""
     all_obs = []
     if not groups:
@@ -294,9 +388,12 @@ def _prepare_panel_from_groups(groups: List[PortfolioGroup | BenchmarkGroup], gr
     return df.set_index(["date"] + group_by)
 
 
-def _align_and_prepare_data(request: AttributionRequest, portfolio_groups_data: List[PortfolioGroup]) -> pd.DataFrame:
+def _align_and_prepare_data(
+    request: AttributionRequestLike,
+    portfolio_groups_data: Sequence[AttributionObservationGroupLike],
+) -> pd.DataFrame:
     """Pre-processes and aligns portfolio and benchmark group data for attribution."""
-    group_by = request.group_by
+    group_by = list(request.group_by)
     portfolio_panel = _prepare_panel_from_groups(portfolio_groups_data, group_by)
     benchmark_panel = _prepare_panel_from_groups(request.benchmark_groups_data, group_by)
 
@@ -426,7 +523,7 @@ def _build_currency_attribution_panel(effects_df: pd.DataFrame) -> pd.DataFrame:
     )
 
 
-def _currency_attribution_requirements_met(effects_df: pd.DataFrame, request: AttributionRequest) -> bool:
+def _currency_attribution_requirements_met(effects_df: pd.DataFrame, request: AttributionRequestLike) -> bool:
     required_cols = {"r_local_p", "r_local_b", "r_fx_b", "w_p", "w_b"}
     if request.currency_mode != "BOTH":
         return False
@@ -455,7 +552,7 @@ def _link_effects_top_down(
 
 
 def aggregate_attribution_results(
-    effects_df: pd.DataFrame, request: AttributionRequest
+    effects_df: pd.DataFrame, request: AttributionRequestLike
 ) -> Tuple[SinglePeriodAttributionResult, Dict[str, pd.DataFrame]]:
     """Aggregates a DataFrame of daily effects into the final response model for a single period."""
     aggregation_lineage = {}
@@ -604,7 +701,7 @@ def aggregate_attribution_results(
     return period_result, aggregation_lineage
 
 
-def run_attribution_calculations(request: AttributionRequest) -> Tuple[pd.DataFrame, Dict[str, pd.DataFrame]]:
+def run_attribution_calculations(request: AttributionRequestLike) -> Tuple[pd.DataFrame, Dict[str, pd.DataFrame]]:
     """
     Orchestrates the calculation of daily attribution effects over a master period.
     Returns a tuple of (daily_effects_df, lineage_data_dictionary).

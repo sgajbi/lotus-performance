@@ -29,3 +29,10 @@ class HealthStatusResponse(BaseModel):
             "example": "Confirm the durable metadata database URL and verify the database is reachable from lotus-performance."
         },
     )
+
+
+class ErrorDetailResponse(BaseModel):
+    detail: str = Field(
+        description="Human-readable error detail returned by legacy JSON error responses.",
+        json_schema_extra={"example": "Execution data not found for the given calculation_id."},
+    )

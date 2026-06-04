@@ -19,6 +19,7 @@ from app.services.execution_lifecycle_service import (
     record_execution_failure,
 )
 from app.services.execution_registry import execution_registry
+from app.services.reproducibility_service import generate_request_fingerprint
 from app.services.stateful_execution_policy_service import (
     finalize_resolved_stateful_execution,
     replay_promoted_stateful_async_execution,
@@ -27,7 +28,6 @@ from app.services.submission_fencing_service import (
     register_async_submission_or_raise,
     register_sync_execution_or_raise,
 )
-from core.repro import generate_canonical_hash
 
 router = APIRouter(tags=["Performance"])
 
@@ -63,8 +63,9 @@ completed benchmark payload.
 async def calculate_benchmark_endpoint(
     request: BenchmarkAnalyticsRequest,
 ) -> BenchmarkPerformanceResponse | JSONResponse:
+    """Calculate or enqueue benchmark performance using stateless or stateful inputs."""
     settings = get_settings()
-    source_request_fingerprint, source_request_hash = generate_canonical_hash(request, settings.APP_VERSION)
+    source_request_fingerprint, source_request_hash = generate_request_fingerprint(request, settings.APP_VERSION)
     input_fingerprint, calculation_hash = source_request_fingerprint, source_request_hash
     if request.input_mode == BenchmarkInputMode.STATEFUL and not _should_preemptively_offload_stateful_benchmark(
         request
@@ -96,7 +97,7 @@ async def calculate_benchmark_endpoint(
                 benchmark_request if _should_persist_resolved_benchmark_request(request) else request
             )
             if _should_persist_resolved_benchmark_request(request):
-                input_fingerprint, calculation_hash = generate_canonical_hash(
+                input_fingerprint, calculation_hash = generate_request_fingerprint(
                     benchmark_request,
                     settings.APP_VERSION,
                 )
@@ -176,7 +177,7 @@ async def calculate_benchmark_endpoint(
             benchmark_request if _should_persist_resolved_benchmark_request(request) else request
         )
         if _should_persist_resolved_benchmark_request(request):
-            input_fingerprint, calculation_hash = generate_canonical_hash(
+            input_fingerprint, calculation_hash = generate_request_fingerprint(
                 benchmark_request,
                 settings.APP_VERSION,
             )
@@ -217,6 +218,7 @@ async def calculate_benchmark_endpoint(
     description=BENCHMARK_RESULT_ENDPOINT_DESCRIPTION,
 )
 async def get_benchmark_result(calculation_id: UUID) -> BenchmarkPerformanceResponse | JSONResponse:
+    """Return a completed async benchmark calculation or its accepted/failed status."""
     return resolve_async_result(
         calculation_id=calculation_id,
         response_model=BenchmarkPerformanceResponse,

@@ -1,6 +1,4 @@
 # app/api/endpoints/performance.py
-from dataclasses import asdict
-from decimal import Decimal
 from uuid import UUID
 
 import pandas as pd
@@ -14,11 +12,11 @@ from app.models.attribution_responses import AttributionAcceptedResponse, Attrib
 from app.models.benchmark_analytics_requests import BenchmarkInputMode, BenchmarkReturnSource
 from app.models.mwr_analytics_requests import MoneyWeightedReturnAnalyticsRequest, MWRInputMode
 from app.models.mwr_responses import MoneyWeightedReturnResponse
+from app.models.platform_surfaces import ErrorDetailResponse
 from app.models.responses import PerformanceResponse, TWRAcceptedResponse
 from app.models.twr_requests import TWRAnalyticsRequest, TWRInputMode, TWRResolvedExecutionRequest
 from app.models.workspace_summary_requests import WorkspaceSummaryRequest
 from app.models.workspace_summary_responses import WorkspaceSummaryAcceptedResponse, WorkspaceSummaryResponse
-from app.observability import record_mwr_solver_outcome
 from app.services.analytics_workflow_types import (
     ANALYTICS_WORKFLOW_MWR,
     ANALYTICS_WORKFLOW_TWR,
@@ -27,17 +25,16 @@ from app.services.analytics_workflow_types import (
 from app.services.async_result_service import resolve_async_result
 from app.services.attribution_mode_service import resolve_attribution_request
 from app.services.attribution_service import calculate_attribution
-from app.services.calculation_supportability_service import (
-    build_calculation_supportability,
-    record_supportability_metric,
-)
+from app.services.engine_exception_mapping_service import map_engine_exception_to_http_error
 from app.services.execution_lifecycle_service import (
     complete_execution_with_lineage,
     record_execution_failure,
 )
 from app.services.execution_registry import execution_registry
 from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
+from app.services.mwr_calculation_service import build_mwr_response, calculate_mwr_result
 from app.services.mwr_mode_service import resolve_mwr_request
+from app.services.reproducibility_service import generate_request_fingerprint, generate_value_fingerprint
 from app.services.stateful_execution_policy_service import (
     finalize_resolved_stateful_execution,
     replay_promoted_stateful_async_execution,
@@ -48,11 +45,7 @@ from app.services.submission_fencing_service import (
 )
 from app.services.twr_mode_service import resolve_twr_request
 from app.services.twr_service import calculate_twr_response
-from app.services.workspace_summary_service import calculate_workspace_summary
-from core.envelope import Audit, Diagnostics, Meta
-from core.repro import generate_canonical_hash, generate_canonical_hash_from_value
-from engine.exceptions import EngineCalculationError, InvalidEngineInputError
-from engine.mwr import calculate_money_weighted_return
+from app.services.workspace_summary_service import calculate_workspace_summary, workspace_longest_requested_window_days
 
 router = APIRouter(tags=["Performance"])
 
@@ -63,8 +56,8 @@ def _generate_twr_request_hashes(request: TWRAnalyticsRequest, *, engine_version
             exclude={"performance_start_date"},
             mode="json",
         )
-        return generate_canonical_hash_from_value(canonical_payload, engine_version)
-    return generate_canonical_hash(request, engine_version)
+        return generate_value_fingerprint(canonical_payload, engine_version)
+    return generate_request_fingerprint(request, engine_version)
 
 
 def _build_resolved_twr_identity_payload(
@@ -219,20 +212,7 @@ def _workspace_requested_input_count(request: WorkspaceSummaryRequest) -> int:
 
 
 def _workspace_longest_requested_window_days(request: WorkspaceSummaryRequest) -> int:
-    if request.input_mode != TWRInputMode.STATEFUL:
-        return 0
-    if any(period.period.value == "SI" for period in request.periods) and request.performance_start_date is None:
-        return 10_000
-    from core.workspace_periods import resolve_workspace_periods
-
-    assumed_start = request.performance_start_date or request.report_start_date or request.report_end_date
-    resolved_periods = resolve_workspace_periods(
-        [item.period for item in request.periods],
-        as_of=request.report_end_date,
-        performance_start_date=assumed_start,
-        explicit_start_date=request.report_start_date,
-    )
-    return max((period.end_date - period.start_date).days for period in resolved_periods) if resolved_periods else 0
+    return workspace_longest_requested_window_days(request)
 
 
 def _should_offload_workspace_summary(request: WorkspaceSummaryRequest) -> bool:
@@ -263,7 +243,7 @@ def calculate_workspace_summary_endpoint(
 ) -> WorkspaceSummaryResponse | JSONResponse:
     """Calculates multi-horizon workspace summary analytics in one source-owned response."""
     settings = get_settings()
-    input_fingerprint, calculation_hash = generate_canonical_hash(request, settings.APP_VERSION)
+    input_fingerprint, calculation_hash = generate_request_fingerprint(request, settings.APP_VERSION)
     requested_window = {
         "report_end_date": str(request.report_end_date),
         "requested_periods": [item.period.value for item in request.periods],
@@ -423,7 +403,7 @@ async def calculate_twr_endpoint(request: TWRAnalyticsRequest) -> PerformanceRes
         )
         benchmark_work_units = _twr_resolved_benchmark_work_units(resolved_request.benchmark_request)
         if resolved_request.input_mode == TWRInputMode.STATEFUL or resolved_request.benchmark_request is not None:
-            input_fingerprint, calculation_hash = generate_canonical_hash_from_value(
+            input_fingerprint, calculation_hash = generate_value_fingerprint(
                 resolved_twr_identity_payload,
                 settings.APP_VERSION,
             )
@@ -483,18 +463,6 @@ async def calculate_twr_endpoint(request: TWRAnalyticsRequest) -> PerformanceRes
                 request.benchmark.return_source if request.benchmark is not None else BenchmarkReturnSource.CALCULATED
             ),
         )
-    except InvalidEngineInputError as e:
-        record_execution_failure(
-            calculation_id=request.calculation_id,
-            message=f"Invalid Input: {e.message}",
-        )
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid Input: {e.message}")
-    except EngineCalculationError as e:
-        record_execution_failure(
-            calculation_id=request.calculation_id,
-            message=f"Calculation Error: {e.message}",
-        )
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Calculation Error: {e.message}")
     except HTTPException as exc:
         record_execution_failure(
             calculation_id=request.calculation_id,
@@ -502,6 +470,13 @@ async def calculate_twr_endpoint(request: TWRAnalyticsRequest) -> PerformanceRes
         )
         raise
     except Exception as e:
+        mapped_engine_error = map_engine_exception_to_http_error(e)
+        if mapped_engine_error is not None:
+            record_execution_failure(
+                calculation_id=request.calculation_id,
+                message=mapped_engine_error.failure_message,
+            )
+            raise HTTPException(status_code=mapped_engine_error.status_code, detail=mapped_engine_error.detail)
         record_execution_failure(
             calculation_id=request.calculation_id,
             message=f"An unexpected server error occurred: {str(e)}",
@@ -527,7 +502,11 @@ async def calculate_twr_endpoint(request: TWRAnalyticsRequest) -> PerformanceRes
             "description": "The async TWR calculation is still pending.",
         },
         404: {
+            "model": ErrorDetailResponse,
             "description": "No async TWR result exists for the supplied calculation_id.",
+            "content": {
+                "application/json": {"example": {"detail": "Async TWR result not found for the given calculation_id."}}
+            },
         },
     },
 )
@@ -565,7 +544,7 @@ async def get_twr_result(calculation_id: UUID) -> PerformanceResponse | JSONResp
 async def calculate_mwr_endpoint(request: MoneyWeightedReturnAnalyticsRequest):
     """Calculates the money-weighted return (MWR) for a portfolio over a given period."""
     active_settings = get_settings()
-    input_fingerprint, calculation_hash = generate_canonical_hash(request, active_settings.APP_VERSION)
+    input_fingerprint, calculation_hash = generate_request_fingerprint(request, active_settings.APP_VERSION)
     register_sync_execution_or_raise(
         calculation_id=request.calculation_id,
         analytics_type=ANALYTICS_WORKFLOW_MWR,
@@ -591,7 +570,7 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnAnalyticsRequest):
         resolved_request = await resolve_mwr_request(request, settings=active_settings)
         mwr_request = resolved_request.mwr_request
         if resolved_request.input_mode == MWRInputMode.STATEFUL:
-            input_fingerprint, calculation_hash = generate_canonical_hash(
+            input_fingerprint, calculation_hash = generate_request_fingerprint(
                 mwr_request,
                 active_settings.APP_VERSION,
             )
@@ -602,16 +581,7 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnAnalyticsRequest):
             )
         execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_EXECUTION)
         execution_stage_started = True
-        mwr_result = calculate_money_weighted_return(
-            begin_mv=mwr_request.begin_mv,
-            end_mv=mwr_request.end_mv,
-            cash_flows=mwr_request.cash_flows,
-            calculation_method=mwr_request.mwr_method,
-            annualization=mwr_request.annualization,
-            as_of=mwr_request.as_of,
-            start_date=mwr_request.start_date,
-            solver=mwr_request.solver,
-        )
+        mwr_result = calculate_mwr_result(mwr_request)
     except HTTPException:
         record_execution_failure(
             calculation_id=request.calculation_id,
@@ -632,77 +602,14 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnAnalyticsRequest):
             detail=f"An unexpected error occurred during MWR calculation: {str(e)}",
         )
 
-    meta = Meta(
-        calculation_id=request.calculation_id,
-        engine_version=active_settings.APP_VERSION,
-        precision_mode=mwr_request.precision_mode,
-        annualization=mwr_request.annualization,
-        calendar=mwr_request.calendar,
-        periods={"type": "EXPLICIT", "start": str(mwr_result.start_date), "end": str(mwr_result.end_date)},
+    response_model = build_mwr_response(
+        request=request,
+        resolved_request=resolved_request,
+        mwr_result=mwr_result,
         input_fingerprint=input_fingerprint,
         calculation_hash=calculation_hash,
+        engine_version=active_settings.APP_VERSION,
     )
-    diagnostics = Diagnostics(
-        nip_days=0,
-        reset_days=0,
-        effective_period_start=mwr_result.start_date,
-        notes=mwr_result.notes,
-    )
-    audit = Audit(counts={"cashflows": len(mwr_request.cash_flows)})
-    calculation_supportability = build_calculation_supportability(
-        input_row_count=len(mwr_request.cash_flows) + 2,
-        resolved_period_count=1,
-        latest_observation_date=mwr_result.end_date,
-        report_end_date=mwr_request.as_of,
-        minimum_input_row_count=2,
-    )
-    record_supportability_metric(operation="mwr", supportability=calculation_supportability)
-    record_mwr_solver_outcome(
-        input_mode=request.input_mode.value,
-        method=mwr_result.method,
-        status=mwr_result.status,
-        reason_codes=mwr_result.reason_codes,
-        fallback_used=mwr_result.fallback_from is not None or mwr_result.is_approximation,
-    )
-    reporting_currency = (
-        resolved_request.currency_evidence.reporting_currency
-        if resolved_request.currency_evidence is not None
-        else mwr_request.report_ccy or mwr_request.currency
-    )
-
-    response_payload = {
-        "calculation_id": request.calculation_id,
-        "portfolio_id": request.portfolio_id,
-        "input_mode": request.input_mode,
-        "money_weighted_return": mwr_result.mwr,
-        "mwr_annualized": mwr_result.mwr_annualized,
-        "method": mwr_result.method,
-        "status": mwr_result.status,
-        "reason_codes": mwr_result.reason_codes,
-        "warnings": mwr_result.warnings,
-        "holding_period_return": mwr_result.holding_period_return,
-        "is_annualized_primary": mwr_result.is_annualized_primary,
-        "fallback_from": mwr_result.fallback_from,
-        "fallback_reason": mwr_result.fallback_reason,
-        "is_approximation": mwr_result.is_approximation,
-        "start_date": mwr_result.start_date,
-        "end_date": mwr_result.end_date,
-        "notes": mwr_result.notes,
-        "convergence": mwr_result.convergence,
-        "cashflows_used": mwr_request.cash_flows if mwr_request.emit_cashflows_used else None,
-        "reporting_currency": reporting_currency,
-        "currency_evidence": (
-            _decimal_safe_dataclass_payload(resolved_request.currency_evidence)
-            if resolved_request.currency_evidence is not None
-            else None
-        ),
-        "calculation_supportability": calculation_supportability,
-        "meta": meta,
-        "diagnostics": diagnostics,
-        "audit": audit,
-    }
-
-    response_model = MoneyWeightedReturnResponse.model_validate(response_payload)
 
     lineage_df_data = [
         {"date": str(mwr_request.start_date or mwr_request.as_of), "type": "begin_mv", "amount": mwr_request.begin_mv}
@@ -723,21 +630,6 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnAnalyticsRequest):
     )
 
     return response_model
-
-
-def _decimal_safe_dataclass_payload(value: object) -> object:
-    payload = asdict(value)
-    return _stringify_decimals(payload)
-
-
-def _stringify_decimals(value: object) -> object:
-    if isinstance(value, Decimal):
-        return str(value)
-    if isinstance(value, list):
-        return [_stringify_decimals(item) for item in value]
-    if isinstance(value, dict):
-        return {key: _stringify_decimals(item) for key, item in value.items()}
-    return value
 
 
 @router.post(
@@ -773,12 +665,14 @@ def _stringify_decimals(value: object) -> object:
             },
         },
         400: {
+            "model": ErrorDetailResponse,
             "description": (
                 "Invalid attribution request shape, unsupported resolved period window, or invalid engine input."
             ),
             "content": {"application/json": {"example": {"detail": "Invalid Input: analyses list cannot be empty"}}},
         },
         409: {
+            "model": ErrorDetailResponse,
             "description": "Duplicate attribution submission conflict or failed async execution state.",
             "content": {"application/json": {"example": {"detail": "Duplicate submission payload does not match."}}},
         },
@@ -790,16 +684,23 @@ def _stringify_decimals(value: object) -> object:
             ),
             "content": {
                 "application/json": {
+                    "schema": {
+                        "oneOf": [
+                            {"$ref": "#/components/schemas/ErrorDetailResponse"},
+                            {"$ref": "#/components/schemas/HTTPValidationError"},
+                        ]
+                    },
                     "example": {
                         "detail": (
                             "Stateful attribution input requires fx.rates when currency_mode=BOTH and sourced "
                             "positions include currencies different from report_ccy."
                         )
-                    }
+                    },
                 }
             },
         },
         500: {
+            "model": ErrorDetailResponse,
             "description": "Unexpected attribution request resolution or calculation failure.",
             "content": {
                 "application/json": {
@@ -817,7 +718,7 @@ async def calculate_attribution_endpoint(request: AttributionAnalyticsRequest) -
     active return into allocation, selection, and interaction effects.
     """
     active_settings = get_settings()
-    input_fingerprint, calculation_hash = generate_canonical_hash(request, active_settings.APP_VERSION)
+    input_fingerprint, calculation_hash = generate_request_fingerprint(request, active_settings.APP_VERSION)
     source_request_fingerprint = input_fingerprint
     requested_window = _build_attribution_execution_window(
         request,
@@ -867,7 +768,7 @@ async def calculate_attribution_endpoint(request: AttributionAnalyticsRequest) -
     try:
         resolved = await resolve_attribution_request(request, settings=active_settings)
         if resolved.input_mode == AttributionInputMode.STATEFUL:
-            input_fingerprint, calculation_hash = generate_canonical_hash(
+            input_fingerprint, calculation_hash = generate_request_fingerprint(
                 resolved.attribution_request,
                 active_settings.APP_VERSION,
             )
@@ -1003,6 +904,7 @@ def _accepted_attribution_response(calculation_id) -> AttributionAcceptedRespons
             "description": "Attribution execution is still pending or running.",
         },
         404: {
+            "model": ErrorDetailResponse,
             "description": "No async attribution execution exists for the supplied calculation id.",
             "content": {
                 "application/json": {
@@ -1011,6 +913,7 @@ def _accepted_attribution_response(calculation_id) -> AttributionAcceptedRespons
             },
         },
         409: {
+            "model": ErrorDetailResponse,
             "description": "The async attribution execution failed and no completed result is available.",
             "content": {"application/json": {"example": {"detail": "Async attribution execution failed."}}},
         },

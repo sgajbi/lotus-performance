@@ -69,6 +69,7 @@ async def get_runtime_work_items(
         description="Optional substring filter applied to calculation identifiers in the selected queues.",
     ),
 ) -> RuntimeWorkItemsResponse:
+    """Return filtered compute and lineage queue work items for operator drill-down."""
     snapshot = build_runtime_work_item_snapshot(
         queue_filter=queue,
         status_filter=status,

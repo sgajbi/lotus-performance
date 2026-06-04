@@ -5,9 +5,9 @@ from typing import Any
 
 import pandas as pd
 
-from adapters.api_adapter import create_engine_dataframe
 from engine.compute import run_calculations
 from engine.config import EngineConfig
+from engine.dataframe import create_engine_dataframe_from_valuation_points
 from engine.schema import PortfolioColumns
 
 
@@ -23,7 +23,7 @@ def run_engine_for_valuation_points(
     force_base_only: bool = False,
 ) -> pd.DataFrame:
     """Run the engine over valuation points and normalize perf_date to pandas timestamps."""
-    engine_df = create_engine_dataframe(valuation_points)
+    engine_df = create_engine_dataframe_from_valuation_points(valuation_points)
     effective_config = base_only_engine_config(config) if force_base_only else config
     results_df, _ = run_calculations(engine_df, effective_config)
     if PortfolioColumns.PERF_DATE.value in results_df.columns:

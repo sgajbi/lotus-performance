@@ -25,8 +25,40 @@ from app.services.workspace_summary_service import (
     _resolve_workspace_benchmark_input,
     _resolve_workspace_portfolio_input,
     calculate_workspace_summary,
+    workspace_longest_requested_window_days,
 )
 from core.envelope import Diagnostics
+
+
+def test_workspace_longest_requested_window_days_handles_stateful_since_inception_without_start_date():
+    request = WorkspaceSummaryRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT-1",
+            "report_end_date": "2026-06-30",
+            "input_mode": "stateful",
+            "stateful_input": {},
+            "periods": [{"period": "SI", "frequencies": ["daily"]}],
+        }
+    )
+
+    assert workspace_longest_requested_window_days(request) == 10_000
+
+
+def test_workspace_longest_requested_window_days_ignores_stateless_requests():
+    request = WorkspaceSummaryRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT-1",
+            "report_end_date": "2026-06-30",
+            "performance_start_date": "2026-01-01",
+            "input_mode": "stateless",
+            "stateless_input": {"valuation_points": [{"perf_date": "2026-06-30", "begin_mv": 100, "end_mv": 101}]},
+            "periods": [{"period": "1M", "frequencies": ["daily"]}],
+        }
+    )
+
+    assert workspace_longest_requested_window_days(request) == 0
 
 
 def test_workspace_summary_stateful_retrieval_uses_longest_requested_window(mocker):

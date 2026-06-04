@@ -15,6 +15,7 @@ from app.models.returns_series import (
 from app.services.async_result_service import resolve_async_result
 from app.services.core_integration_service import CoreIntegrationService  # noqa: F401
 from app.services.execution_registry import execution_registry
+from app.services.reproducibility_service import generate_request_fingerprint
 from app.services.returns_series_service import (
     calculate_returns_series,
     core_points_to_dataframe,
@@ -37,7 +38,6 @@ from app.services.submission_fencing_service import (
     register_async_submission_or_raise,
     register_sync_execution_or_raise,
 )
-from core.repro import generate_canonical_hash
 
 router = APIRouter(tags=["Integration"])
 
@@ -116,7 +116,7 @@ def _accepted_response(calculation_id) -> ReturnsSeriesAcceptedResponse:
     ),
 )
 async def get_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeriesResponse | JSONResponse:
-    input_fingerprint, calculation_hash = generate_canonical_hash(request, "returns-series-v1")
+    input_fingerprint, calculation_hash = generate_request_fingerprint(request, "returns-series-v1")
     if request.input_mode == InputMode.STATEFUL and not _should_offload_returns_series(request):
         replay_response = replay_promoted_stateful_async_execution(
             calculation_id=request.calculation_id,
@@ -139,7 +139,7 @@ async def get_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeriesResp
         )
         try:
             resolved = await resolve_stateful_returns_series_request(request)
-            resolved_input_fingerprint, resolved_calculation_hash = generate_canonical_hash(
+            resolved_input_fingerprint, resolved_calculation_hash = generate_request_fingerprint(
                 resolved.identity_payload,
                 "returns-series-v1",
             )

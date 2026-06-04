@@ -84,6 +84,7 @@ async def get_recovery_drill_history(
         ),
     ] = None,
 ) -> RecoveryDrillHistoryResponse:
+    """Return retained recovery-drill history for operator assurance review."""
     generated_after, generated_before = validate_utc_query_timestamp_window(
         generated_after=generated_after,
         generated_before=generated_before,
@@ -115,6 +116,7 @@ async def run_recovery_drill(
     request: Request,
     recovery_request: RecoveryDrillRunRequest,
 ) -> RecoveryDrillRunResponse:
+    """Run or replay a governed recovery drill under operator lease controls."""
     settings = get_settings()
     operator_context = resolve_operator_request_context(request)
     history_snapshot = build_recovery_drill_history_snapshot(limit=10)

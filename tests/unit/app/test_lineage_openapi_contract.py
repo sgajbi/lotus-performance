@@ -12,6 +12,10 @@ def test_lineage_openapi_documents_inventory_and_artifact_routes() -> None:
     assert "manifest that matches durable metadata" in lineage_get["description"]
     assert "404" in lineage_get["responses"]
     assert "503" in lineage_get["responses"]
+    lineage_404_schema = lineage_get["responses"]["404"]["content"]["application/json"]["schema"]
+    lineage_503_schema = lineage_get["responses"]["503"]["content"]["application/json"]["schema"]
+    assert lineage_404_schema["$ref"].endswith("/ErrorDetailResponse")
+    assert lineage_503_schema["$ref"].endswith("/ErrorDetailResponse")
     assert lineage_get["parameters"][0]["name"] == "calculation_id"
     assert "Durable calculation identifier" in lineage_get["parameters"][0]["description"]
 
@@ -20,6 +24,10 @@ def test_lineage_openapi_documents_inventory_and_artifact_routes() -> None:
     assert "200" in artifact_get["responses"]
     assert "404" in artifact_get["responses"]
     assert "503" in artifact_get["responses"]
+    artifact_404_schema = artifact_get["responses"]["404"]["content"]["application/json"]["schema"]
+    artifact_503_schema = artifact_get["responses"]["503"]["content"]["application/json"]["schema"]
+    assert artifact_404_schema["$ref"].endswith("/ErrorDetailResponse")
+    assert artifact_503_schema["$ref"].endswith("/ErrorDetailResponse")
     assert [parameter["name"] for parameter in artifact_get["parameters"]] == ["calculation_id", "artifact_name"]
 
 

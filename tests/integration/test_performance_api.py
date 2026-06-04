@@ -1984,7 +1984,7 @@ def test_twr_http_exception_passthrough_branch(client, mocker):
 
 def test_mwr_http_exception_passthrough_branch(client, mocker):
     mocker.patch(
-        "app.api.endpoints.performance.calculate_money_weighted_return",
+        "app.api.endpoints.performance.calculate_mwr_result",
         side_effect=HTTPException(status_code=409, detail="conflict"),
     )
     payload = {

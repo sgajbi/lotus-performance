@@ -3,10 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
+from typing import Any, Protocol, Sequence
 
 import pandas as pd
-
-from app.models.benchmark_requests import BenchmarkComponentObservation, BenchmarkReturnPoint
 
 
 @dataclass(frozen=True)
@@ -18,8 +17,23 @@ class BenchmarkEngineResult:
     notes: list[str]
 
 
+class BenchmarkComponentObservationLike(Protocol):
+    perf_date: date
+    component_id: str
+    component_currency: str
+    weight_bop: Any
+    component_return: Any
+    component_return_local: Any | None
+    component_return_fx: Any | None
+
+
+class BenchmarkReturnPointLike(Protocol):
+    perf_date: date
+    benchmark_return: Any
+
+
 def calculate_benchmark_returns(
-    component_observations: list[BenchmarkComponentObservation],
+    component_observations: Sequence[BenchmarkComponentObservationLike],
 ) -> BenchmarkEngineResult:
     if not component_observations:
         raise ValueError("component_observations must not be empty")
@@ -110,7 +124,7 @@ def calculate_benchmark_returns(
 
 
 def benchmark_return_points_to_dataframe(
-    benchmark_return_points: list[BenchmarkReturnPoint],
+    benchmark_return_points: Sequence[BenchmarkReturnPointLike],
 ) -> pd.DataFrame:
     if not benchmark_return_points:
         raise ValueError("benchmark_return_points must not be empty")

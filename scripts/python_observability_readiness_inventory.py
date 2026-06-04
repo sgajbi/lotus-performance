@@ -1,0 +1,220 @@
+from __future__ import annotations
+
+import argparse
+import ast
+import sys
+from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from main import app  # noqa: E402
+
+
+@dataclass(frozen=True)
+class RequiredMarker:
+    path: str
+    marker: str
+    description: str
+
+
+@dataclass(frozen=True)
+class ReadinessSurface:
+    family: str
+    expected_markers: int
+    present_markers: int
+    test_functions: int
+    missing_markers: tuple[str, ...]
+
+
+REQUIRED_ENDPOINTS = ("/health", "/health/live", "/health/ready", "/metrics")
+SURFACE_MARKERS: Mapping[str, tuple[RequiredMarker, ...]] = {
+    "correlation_propagation": (
+        RequiredMarker("app/observability.py", "correlation_id_var", "request context correlation store"),
+        RequiredMarker("app/observability.py", "resolve_correlation_id", "inbound correlation resolver"),
+        RequiredMarker("app/observability.py", "propagation_headers", "outbound propagation helper"),
+        RequiredMarker("app/observability.py", "X-Correlation-Id", "response propagation header"),
+        RequiredMarker("app/enterprise_request_context.py", "_CORRELATION_ID_HEADER", "audit identity header"),
+        RequiredMarker("app/services/core_integration_service.py", "propagation_headers", "upstream core propagation"),
+    ),
+    "structured_logging": (
+        RequiredMarker("app/observability.py", "JsonFormatter", "JSON log formatter"),
+        RequiredMarker("app/observability.py", "setup_logging", "runtime logging setup"),
+        RequiredMarker("app/observability.py", "build_access_log_fields", "bounded access-log field builder"),
+        RequiredMarker("app/observability.py", "request.completed", "access-log completion event"),
+        RequiredMarker("app/observability.py", "duration_ms", "duration field"),
+        RequiredMarker("app/observability.py", "trace_id", "trace field"),
+    ),
+    "metrics": (
+        RequiredMarker(
+            "app/observability.py", "Instrumentator().instrument(app).expose(app)", "Prometheus endpoint setup"
+        ),
+        RequiredMarker("app/observability.py", "Counter(", "bounded supportability counters"),
+        RequiredMarker("app/observability.py", "DurableQueueCollector", "durable queue collector registration"),
+        RequiredMarker(
+            "app/services/queue_metrics_service.py", "class DurableQueueCollector", "queue collector implementation"
+        ),
+        RequiredMarker("app/services/queue_metrics_service.py", "GaugeMetricFamily", "queue gauge metric families"),
+        RequiredMarker(
+            "app/services/calculation_supportability_service.py",
+            "record_analytics_freshness_bucket",
+            "analytics freshness metric emission",
+        ),
+    ),
+    "health_readiness": (
+        RequiredMarker("app/api/endpoints/health.py", '@router.get(\n    "/health"', "health route"),
+        RequiredMarker("app/api/endpoints/health.py", '@router.get(\n    "/health/live"', "liveness route"),
+        RequiredMarker("app/api/endpoints/health.py", '@router.get(\n    "/health/ready"', "readiness route"),
+        RequiredMarker(
+            "app/api/endpoints/health.py", "check_durable_metadata_store_ready", "durable metadata readiness check"
+        ),
+        RequiredMarker("app/api/endpoints/health.py", "get_remediation_hint", "readiness remediation hint"),
+        RequiredMarker("main.py", "application.state.is_draining", "lifespan draining state"),
+    ),
+}
+TEST_FAMILY_TOKENS: Mapping[str, tuple[str, ...]] = {
+    "correlation_propagation": ("correlation", "propagation_headers", "x-correlation-id"),
+    "structured_logging": ("jsonformatter", "logging", "access_log", "request.completed"),
+    "metrics": (
+        "/metrics",
+        "durablequeuecollector",
+        "gaugemetricfamily",
+        "prometheus",
+        "supportability_total",
+        "freshness_bucket_total",
+    ),
+    "health_readiness": ("/health", "health_ready", "readiness", "durable metadata", "draining"),
+}
+
+
+def _repository_text(path: str) -> str:
+    return (ROOT / path).read_text(encoding="utf-8")
+
+
+def _present_required_marker(marker: RequiredMarker) -> bool:
+    return marker.marker in _repository_text(marker.path)
+
+
+def _openapi_paths(schema: Mapping[str, Any]) -> set[str]:
+    paths = schema.get("paths")
+    if not isinstance(paths, Mapping):
+        return set()
+    return {str(path) for path in paths}
+
+
+def _count_test_functions_matching(tokens: Iterable[str], paths: Sequence[str]) -> int:
+    normalized_tokens = tuple(token.lower() for token in tokens)
+    count = 0
+    for path_name in paths:
+        root = (ROOT / path_name).resolve()
+        candidates = [root] if root.is_file() else sorted(root.rglob("test_*.py"))
+        for candidate in candidates:
+            if not candidate.is_file() or candidate.suffix != ".py":
+                continue
+            text = candidate.read_text(encoding="utf-8")
+            tree = ast.parse(text)
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) or not node.name.startswith("test_"):
+                    continue
+                source = ast.get_source_segment(text, node) or node.name
+                if any(token in source.lower() for token in normalized_tokens):
+                    count += 1
+    return count
+
+
+def collect_readiness_surfaces(
+    *,
+    schema: Mapping[str, Any],
+    test_paths: Sequence[str],
+) -> list[ReadinessSurface]:
+    surfaces: list[ReadinessSurface] = []
+    openapi_paths = _openapi_paths(schema)
+    endpoint_missing = tuple(path for path in REQUIRED_ENDPOINTS if path not in openapi_paths)
+    surfaces.append(
+        ReadinessSurface(
+            family="health_metrics_endpoints",
+            expected_markers=len(REQUIRED_ENDPOINTS),
+            present_markers=len(REQUIRED_ENDPOINTS) - len(endpoint_missing),
+            test_functions=_count_test_functions_matching(("/health", "/metrics"), test_paths),
+            missing_markers=endpoint_missing,
+        )
+    )
+
+    for family, markers in SURFACE_MARKERS.items():
+        missing = tuple(
+            f"{marker.path}: {marker.description}" for marker in markers if not _present_required_marker(marker)
+        )
+        surfaces.append(
+            ReadinessSurface(
+                family=family,
+                expected_markers=len(markers),
+                present_markers=len(markers) - len(missing),
+                test_functions=_count_test_functions_matching(TEST_FAMILY_TOKENS[family], test_paths),
+                missing_markers=missing,
+            )
+        )
+    return surfaces
+
+
+def render_markdown(surfaces: Sequence[ReadinessSurface], *, limit: int) -> str:
+    expected = sum(surface.expected_markers for surface in surfaces)
+    present = sum(surface.present_markers for surface in surfaces)
+    missing = expected - present
+    observed_tests = sum(surface.test_functions for surface in surfaces)
+
+    lines = [
+        "## Summary",
+        "",
+        "| Metric | Value |",
+        "| --- | ---: |",
+        f"| Operational readiness families | {len(surfaces)} |",
+        f"| Expected implementation markers | {expected} |",
+        f"| Present implementation markers | {present} |",
+        f"| Missing implementation markers | {missing} |",
+        f"| Mapped observability/readiness test functions | {observed_tests} |",
+        "",
+        "Mapped test functions are counted per readiness family and can overlap when one test proves multiple operational contracts.",
+        "",
+        "## Surface Coverage",
+        "",
+        "| Family | Present markers | Expected markers | Test functions | Missing markers |",
+        "| --- | ---: | ---: | ---: | ---: |",
+    ]
+    for surface in surfaces:
+        lines.append(
+            f"| `{surface.family}` | {surface.present_markers} | {surface.expected_markers} | "
+            f"{surface.test_functions} | {len(surface.missing_markers)} |"
+        )
+
+    lines.extend(["", "## Missing Markers", "", "| Family | Marker |", "| --- | --- |"])
+    rendered = 0
+    for surface in surfaces:
+        for missing_marker in surface.missing_markers[: max(limit - rendered, 0)]:
+            lines.append(f"| `{surface.family}` | `{missing_marker}` |")
+            rendered += 1
+            if rendered >= limit:
+                break
+        if rendered >= limit:
+            break
+    if rendered == 0:
+        lines.append("| none | none |")
+    return "\n".join(lines)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Inventory Lotus performance observability/readiness surfaces")
+    parser.add_argument("--test-path", action="append", dest="test_paths", help="Test path to scan")
+    parser.add_argument("--limit", type=int, default=30, help="Maximum missing-marker rows to render")
+    args = parser.parse_args()
+
+    test_paths = tuple(args.test_paths or ("tests",))
+    print(render_markdown(collect_readiness_surfaces(schema=app.openapi(), test_paths=test_paths), limit=args.limit))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

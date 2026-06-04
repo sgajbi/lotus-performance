@@ -1,7 +1,30 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+from datetime import date
+from decimal import Decimal
+
 from app.models.composites import CompositeMemberReturnFact
 from engine.composites import calculate_asset_weighted_composite_twr
+
+
+@dataclass(frozen=True)
+class StructuralCompositeMemberReturnFact:
+    composite_id: str
+    portfolio_id: str
+    period_start: date
+    period_end: date
+    return_value: Decimal
+    return_view: str
+    beginning_market_value: Decimal
+    ending_market_value: Decimal
+    reporting_currency: str
+    calculation_id: str
+    source_snapshot_id: str
+    source_fingerprint: str
+    restatement_version: str
+    status: str
+    reason_codes: list[str]
 
 
 def _fact(
@@ -227,3 +250,31 @@ def test_asset_weighted_composite_twr_blocks_inactive_gap_without_erasing_later_
     assert result.period_results[1].status == "READY"
     assert str(result.period_results[1].cumulative_return) == "0.012500000000"
     assert str(result.cumulative_return) == "0.012500000000"
+
+
+def test_asset_weighted_composite_twr_accepts_structural_member_facts():
+    result = calculate_asset_weighted_composite_twr(
+        composite_id="PB_GLOBAL_BALANCED_USD",
+        member_return_facts=[
+            StructuralCompositeMemberReturnFact(
+                composite_id="PB_GLOBAL_BALANCED_USD",
+                portfolio_id="P1",
+                period_start=date(2026, 1, 1),
+                period_end=date(2026, 1, 31),
+                return_value=Decimal("0.0100"),
+                return_view="NET_ACTUAL",
+                beginning_market_value=Decimal("100.00"),
+                ending_market_value=Decimal("101.00"),
+                reporting_currency="USD",
+                calculation_id="calc-P1-2026-01-31",
+                source_snapshot_id="snapshot-P1-2026-01-31",
+                source_fingerprint="sha256:P1-2026-01-31",
+                restatement_version="v1",
+                status="READY",
+                reason_codes=[],
+            )
+        ],
+    )
+
+    assert result.status == "READY"
+    assert str(result.cumulative_return) == "0.010000000000"

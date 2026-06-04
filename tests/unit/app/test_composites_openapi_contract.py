@@ -16,10 +16,17 @@ def test_composite_twr_openapi_documents_persisted_fact_contract() -> None:
         composite_post["responses"]["404"]["content"]["application/json"]["example"]["detail"]["code"]
         == "COMPOSITE_NOT_FOUND"
     )
+    composite_404_schema = composite_post["responses"]["404"]["content"]["application/json"]["schema"]
+    assert composite_404_schema["$ref"].endswith("/CompositeErrorResponse")
     no_facts_example = composite_post["responses"]["422"]["content"]["application/json"]["examples"][
         "no_persisted_member_return_facts"
     ]["value"]
     assert no_facts_example["detail"]["code"] == "NO_MEMBER_RETURN_FACTS"
+    composite_422_schema_refs = {
+        schema["$ref"].rsplit("/", maxsplit=1)[-1]
+        for schema in composite_post["responses"]["422"]["content"]["application/json"]["schema"]["oneOf"]
+    }
+    assert composite_422_schema_refs == {"CompositeErrorResponse", "HTTPValidationError"}
     invalid_window_example = composite_post["responses"]["422"]["content"]["application/json"]["examples"][
         "invalid_window"
     ]["value"]
@@ -47,3 +54,5 @@ def test_composite_twr_openapi_documents_persisted_fact_contract() -> None:
         inspection_post["responses"]["404"]["content"]["application/json"]["example"]["detail"]["code"]
         == "COMPOSITE_NOT_FOUND"
     )
+    inspection_404_schema = inspection_post["responses"]["404"]["content"]["application/json"]["schema"]
+    assert inspection_404_schema["$ref"].endswith("/CompositeErrorResponse")

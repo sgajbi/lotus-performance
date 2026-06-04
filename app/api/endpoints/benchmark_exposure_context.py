@@ -28,6 +28,7 @@ router = APIRouter(tags=["Integration"])
 async def get_benchmark_exposure_context(
     request: BenchmarkExposureContextRequest,
 ) -> BenchmarkExposureContextResponse:
+    """Build benchmark exposure context from governed stateful benchmark sourcing."""
     stateful_input_service = build_stateful_input_service(settings=get_settings())
     register_sync_execution_or_raise(
         calculation_id=request.calculation_id,

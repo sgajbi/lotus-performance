@@ -21,5 +21,6 @@ router = APIRouter(tags=["Integration"])
     ),
 )
 async def get_runtime_status(request: Request) -> RuntimeStatusResponse:
+    """Return the bounded operator snapshot for runtime readiness and degradation triage."""
     snapshot = build_runtime_status_snapshot(is_draining=bool(getattr(request.app.state, "is_draining", False)))
     return build_runtime_status_response(snapshot)

@@ -20,6 +20,9 @@ from app.services.stateful_retrieval_metadata import parse_zero_default_retrieva
 from app.services.stateful_upstream_errors import raise_for_stateful_source_unavailable
 from core.errors import HTTP_422_UNPROCESSABLE
 
+_INVALID_OFFSET_PAGE_DETAIL = "page.page_token must be a numeric offset token returned by lotus-performance."
+_NEGATIVE_OFFSET_PAGE_DETAIL = "page.page_token must be non-negative."
+
 
 def _as_decimal(value: Any, *, field_name: str) -> Decimal:
     try:
@@ -270,7 +273,7 @@ def _page_rows(
         rows,
         page_size=page_size,
         page_token=page_token,
-        invalid_token_detail="page.page_token must be a numeric offset token returned by lotus-performance.",
-        negative_token_detail="page.page_token must be non-negative.",
+        invalid_token_detail=_INVALID_OFFSET_PAGE_DETAIL,
+        negative_token_detail=_NEGATIVE_OFFSET_PAGE_DETAIL,
     )
     return page.items, page.next_page_token

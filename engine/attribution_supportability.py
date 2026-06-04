@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from typing import Protocol, Sequence
+
 import pandas as pd
 
-from app.models.attribution_requests import AttributionRequest
-from app.models.attribution_responses import (
+from engine.attribution_types import (
     AttributionReason,
     AttributionResidualMateriality,
     AttributionSupportabilityEvidence,
@@ -11,6 +12,11 @@ from app.models.attribution_responses import (
 
 ATTRIBUTION_RESIDUAL_WARNING_THRESHOLD_PCT = 0.001
 ATTRIBUTION_RESIDUAL_MATERIAL_THRESHOLD_PCT = 0.01
+
+
+class AttributionSupportabilityRequestLike(Protocol):
+    @property
+    def group_by(self) -> Sequence[str]: ...
 
 
 def classify_attribution_residual(residual: float) -> AttributionResidualMateriality:
@@ -35,7 +41,7 @@ def classify_attribution_residual(residual: float) -> AttributionResidualMateria
 
 def build_attribution_supportability_evidence(
     effects_df: pd.DataFrame,
-    request: AttributionRequest,
+    request: AttributionSupportabilityRequestLike,
     *,
     currency_attribution_status: str,
     linking_status: str,

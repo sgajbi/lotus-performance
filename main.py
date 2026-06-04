@@ -6,7 +6,7 @@ import orjson
 from fastapi import FastAPI
 from fastapi.encoders import jsonable_encoder
 from fastapi.openapi.utils import get_openapi
-from starlette.responses import JSONResponse
+from fastapi.responses import JSONResponse
 
 from app.api.endpoints import (
     benchmark,
@@ -29,7 +29,7 @@ from app.api.endpoints import (
 )
 from app.core.config import get_settings
 from app.core.exceptions import PerformanceCalculatorError
-from app.core.handlers import performance_calculator_exception_handler
+from app.core.handlers import core_api_error_exception_handler, performance_calculator_exception_handler
 from app.enterprise_readiness import build_enterprise_audit_middleware, validate_enterprise_runtime_config
 from app.models.platform_surfaces import RootResponse
 from app.observability import setup_observability
@@ -39,6 +39,7 @@ from app.services.compute_job_store import compute_job_store
 from app.services.durable_metadata_bootstrap import bootstrap_durable_metadata_stores
 from app.services.execution_registry import execution_registry
 from app.services.lineage_metadata_store import lineage_metadata_store
+from core.errors import APIError
 
 
 # --- FIX START: Create a robust custom JSON response class ---
@@ -149,6 +150,7 @@ validate_enterprise_runtime_config()
 app.middleware("http")(build_enterprise_audit_middleware())
 
 app.add_exception_handler(PerformanceCalculatorError, performance_calculator_exception_handler)
+app.add_exception_handler(APIError, core_api_error_exception_handler)
 
 # Add a prefix to group performance-related endpoints
 app.include_router(performance.router, prefix="/performance")

@@ -11,6 +11,7 @@ from app.api.endpoints.contribution import _should_offload_contribution
 from app.api.endpoints.performance import _should_offload_attribution, _should_offload_workspace_summary
 from app.models.attribution_analytics_requests import AttributionAnalyticsRequest
 from app.models.attribution_requests import AttributionRequest
+from app.models.attribution_responses import SinglePeriodAttributionResult
 from app.models.contribution_requests import ContributionRequest
 from app.models.contribution_responses import PositionContributionSeries, PositionDailyContribution
 from app.models.workspace_summary_requests import WorkspaceSummaryRequest
@@ -2178,6 +2179,36 @@ def test_attribution_service_uses_runtime_app_version(mocker):
                 },
             },
             {},
+        ),
+    )
+    mocker.patch(
+        "app.services.attribution_service.build_single_period_attribution_response",
+        return_value=SinglePeriodAttributionResult.model_validate(
+            {
+                "supportability_evidence": {
+                    "portfolio_only_group_count": 0,
+                    "benchmark_only_group_count": 0,
+                    "unclassified_group_count": 0,
+                    "missing_benchmark_return_count": 0,
+                    "negative_weight_count": 0,
+                    "zero_portfolio_exposure_count": 0,
+                    "currency_attribution_status": "not_requested",
+                    "linking_status": "not_requested",
+                },
+                "levels": [],
+                "reconciliation": {
+                    "total_active_return": 0.6,
+                    "sum_of_effects": 0.6,
+                    "residual": 0.0,
+                    "residual_materiality": {
+                        "classification": "immaterial",
+                        "treatment": "no_action",
+                        "absolute_residual": 0.0,
+                        "warning_threshold": 0.001,
+                        "material_threshold": 0.01,
+                    },
+                },
+            }
         ),
     )
     mocker.patch(

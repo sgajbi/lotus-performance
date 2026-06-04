@@ -9,12 +9,13 @@ from fastapi.responses import FileResponse, Response
 from app.core.config import get_settings
 from app.models.inspection_requests import TWRInspectionRequest
 from app.models.inspection_responses import TWRInspectionAcceptedResponse, TWRInspectionResponse
+from app.models.platform_surfaces import ErrorDetailResponse
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_TWR_INSPECTION
 from app.services.async_result_service import resolve_async_result
 from app.services.execution_registry import execution_registry
 from app.services.lineage_metadata_store import LineageStatus, lineage_metadata_store
+from app.services.reproducibility_service import generate_request_fingerprint
 from app.services.submission_fencing_service import register_async_submission_or_raise
-from core.repro import generate_canonical_hash
 
 router = APIRouter(tags=["Performance"])
 
@@ -48,7 +49,7 @@ def _inspection_storage_path(*, inspection_id: UUID, artifact_name: str | None =
     status_code=status.HTTP_202_ACCEPTED,
 )
 def submit_twr_inspection(request: TWRInspectionRequest):
-    input_fingerprint, calculation_hash = generate_canonical_hash(request, get_settings().APP_VERSION)
+    input_fingerprint, calculation_hash = generate_request_fingerprint(request, get_settings().APP_VERSION)
     portfolio_id = request.request.portfolio_id if request.request is not None else None
     if portfolio_id is None and request.subject_calculation_id is not None:
         existing = execution_registry.get_execution(request.subject_calculation_id)
@@ -87,7 +88,11 @@ def submit_twr_inspection(request: TWRInspectionRequest):
             "description": "The TWR supportability inspection is still pending.",
         },
         404: {
+            "model": ErrorDetailResponse,
             "description": "No durable TWR inspection result exists for the supplied inspection_id.",
+            "content": {
+                "application/json": {"example": {"detail": "Inspection result not found for the given inspection_id."}}
+            },
         },
     },
 )
@@ -128,10 +133,14 @@ def get_twr_inspection(inspection_id: UUID):
             },
         },
         404: {
+            "model": ErrorDetailResponse,
             "description": "Inspection record or artifact name was not found for the supplied inspection_id.",
+            "content": {"application/json": {"example": {"detail": "Inspection artifact not found."}}},
         },
         503: {
+            "model": ErrorDetailResponse,
             "description": "The artifact is declared in durable metadata but is missing from storage.",
+            "content": {"application/json": {"example": {"detail": "Inspection artifact is missing from storage."}}},
         },
     },
 )

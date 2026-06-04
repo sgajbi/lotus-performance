@@ -1,13 +1,14 @@
 # engine/contribution.py
-from typing import Dict, Tuple
+from datetime import date as dt_date
+from typing import Any, Dict, Mapping, Protocol, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
 
-from app.models.contribution_requests import ContributionRequest, Smoothing
 from common.enums import WeightingScheme
 from engine.config import EngineConfig
 from engine.contribution_smoothing import (
+    ContributionSmoothingLike,
     _calculate_carino_factor_for_return,
     _calculate_carino_factors,
     _carino_smoothing_domain_is_valid,
@@ -27,8 +28,88 @@ __all__ = [
 ]
 
 
+class ModelDumpLike(Protocol):
+    def model_dump(self) -> dict[str, Any]: ...
+
+
+class ContributionValuationPointLike(ModelDumpLike, Protocol):
+    @property
+    def perf_date(self) -> dt_date: ...
+
+
+class ContributionPortfolioDataLike(Protocol):
+    @property
+    def metric_basis(self) -> Any: ...
+
+    @property
+    def valuation_points(self) -> Sequence[ContributionValuationPointLike]: ...
+
+
+class ContributionPositionDataLike(Protocol):
+    @property
+    def position_id(self) -> str: ...
+
+    @property
+    def meta(self) -> Mapping[str, Any]: ...
+
+    @property
+    def valuation_points(self) -> Sequence[ModelDumpLike]: ...
+
+
+class ContributionAnalysisLike(Protocol):
+    @property
+    def period(self) -> Any: ...
+
+
+class ContributionRequestLike(Protocol):
+    @property
+    def portfolio_data(self) -> ContributionPortfolioDataLike: ...
+
+    @property
+    def positions_data(self) -> Sequence[ContributionPositionDataLike]: ...
+
+    @property
+    def report_start_date(self) -> dt_date: ...
+
+    @property
+    def report_end_date(self) -> dt_date: ...
+
+    @property
+    def analyses(self) -> Sequence[ContributionAnalysisLike]: ...
+
+    @property
+    def precision_mode(self) -> Any: ...
+
+    @property
+    def rounding_precision(self) -> int: ...
+
+    @property
+    def currency_mode(self) -> Any: ...
+
+    @property
+    def report_ccy(self) -> str | None: ...
+
+    @property
+    def fx(self) -> Any: ...
+
+    @property
+    def hedging(self) -> Any: ...
+
+    @property
+    def weighting_scheme(self) -> WeightingScheme: ...
+
+    @property
+    def smoothing(self) -> ContributionSmoothingLike: ...
+
+    @property
+    def hierarchy(self) -> Sequence[str] | None: ...
+
+
 def _calculate_daily_instrument_contributions(
-    instruments_df: pd.DataFrame, portfolio_df: pd.DataFrame, weighting_scheme: WeightingScheme, smoothing: Smoothing
+    instruments_df: pd.DataFrame,
+    portfolio_df: pd.DataFrame,
+    weighting_scheme: WeightingScheme,
+    smoothing: ContributionSmoothingLike,
 ) -> pd.DataFrame:
     """
     Calculates daily weights and smoothed contributions for each instrument.
@@ -68,7 +149,7 @@ def _calculate_daily_instrument_contributions(
     return df
 
 
-def _prepare_hierarchical_data(request: ContributionRequest) -> Tuple[pd.DataFrame, pd.DataFrame]:
+def _prepare_hierarchical_data(request: ContributionRequestLike) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     Runs TWR calculations and combines all position data and metadata into a single DataFrame.
     """
@@ -146,7 +227,7 @@ def _prepare_hierarchical_data(request: ContributionRequest) -> Tuple[pd.DataFra
     return instruments_df, portfolio_results_df
 
 
-def calculate_hierarchical_contribution(request: ContributionRequest) -> Tuple[Dict, Dict]:
+def calculate_hierarchical_contribution(request: ContributionRequestLike) -> Tuple[Dict, Dict]:
     instruments_df, portfolio_results_df = _prepare_hierarchical_data(request)
 
     daily_contributions_df = _calculate_daily_instrument_contributions(
@@ -168,7 +249,7 @@ def calculate_hierarchical_contribution(request: ContributionRequest) -> Tuple[D
 
 def build_hierarchical_contribution_result(
     daily_contributions_df: pd.DataFrame,
-    request: ContributionRequest,
+    request: ContributionRequestLike,
     *,
     total_portfolio_return,
 ) -> Dict:
@@ -212,14 +293,15 @@ def build_hierarchical_contribution_result(
         totals["local_contribution"] += residual_local * totals["weight_proportion"]
         totals["fx_contribution"] += residual_fx * totals["weight_proportion"]
 
-    temp_meta_cols = ["position_id"] + request.hierarchy
+    hierarchy = list(request.hierarchy or [])
+    temp_meta_cols = ["position_id"] + hierarchy
     metadata_cols = list(dict.fromkeys(temp_meta_cols))
     unique_meta = daily_contributions_df[metadata_cols].drop_duplicates()
     aggregated_df = pd.merge(totals, unique_meta, on="position_id")
 
     response_levels = []
-    for i, level_name in enumerate(request.hierarchy):
-        level_keys = request.hierarchy[: i + 1]
+    for i, level_name in enumerate(hierarchy):
+        level_keys = hierarchy[: i + 1]
         level_agg = (
             aggregated_df.groupby(level_keys)
             .agg(
@@ -245,7 +327,7 @@ def build_hierarchical_contribution_result(
             rows.append(row_data)
 
         response_levels.append(
-            {"level": i + 1, "name": level_name, "parent": request.hierarchy[i - 1] if i > 0 else None, "rows": rows}
+            {"level": i + 1, "name": level_name, "parent": hierarchy[i - 1] if i > 0 else None, "rows": rows}
         )
 
     portfolio_contribution = aggregated_df["contribution"].sum()

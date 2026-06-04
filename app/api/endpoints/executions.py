@@ -5,6 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException, Path, status
 
 from app.models.execution_polling import ExecutionResponse, build_execution_response
+from app.models.platform_surfaces import ErrorDetailResponse
 from app.services.async_result_store import async_result_store
 from app.services.compute_job_store import compute_job_store
 from app.services.execution_registry import execution_registry
@@ -24,6 +25,7 @@ router = APIRouter(tags=["Performance"])
     ),
     responses={
         404: {
+            "model": ErrorDetailResponse,
             "description": "No durable execution record exists for the supplied calculation_id.",
             "content": {
                 "application/json": {"example": {"detail": "Execution data not found for the given calculation_id."}}

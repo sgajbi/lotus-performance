@@ -1,7 +1,7 @@
 # Lotus Performance Progressive CI Quality Gates
 
 Report date: 2026-06-02
-Branch: `feat/performance-hardening-wave-8`
+Branch: `feat/performance-hardening-wave-9`
 Baseline sources: `quality/baseline_report.md`, `quality/refactor_health_report.md`
 Mode: report-only gate map; this artifact introduces no new blocking CI gate.
 
@@ -50,25 +50,27 @@ No gate should move from one phase to the next until it has:
 | mypy typecheck | Blocking in feature, PR, and main lanes | Keep blocking; expand typed boundary cleanup through normal refactor slices. |
 | Unit tests | Blocking in feature, PR, and main lanes | Keep blocking; add focused tests when refactoring hotspots. |
 | Integration and e2e tests | Blocking in PR and main lanes | Keep blocking at merge/release lanes; use targeted local subsets during slices. |
+| Test taxonomy | Measured in `quality/test_taxonomy_inventory.md` through `scripts/python_test_taxonomy_inventory.py`; current AST inventory shows 453 integration/API/runtime test functions and 107 contract/governance test functions | Keep report-only until taxonomy labels and uncategorized-test policy are stable. |
 | Combined line coverage | Blocking at 99 percent in PR and main lanes | Capture branch-coverage posture before adding a stricter branch gate. |
 | Dependency verification | Blocking through `python -m pip check` and dependency-health scripts | Keep blocking; preserve project-scoped dependency-health evidence. |
 | Dependency vulnerabilities | `pip-audit` is available, security audit is already blocking through repo script, and report-only output is captured in `quality/dependency_security_report.md` | Keep the report current when dependency pins, audit tooling, or exception policy changes. |
-| OpenAPI quality | Blocking through `scripts/openapi_quality_gate.py` | Add report-only endpoint completeness inventory before adding stricter examples/error-response gates. |
+| OpenAPI quality | Blocking through `scripts/openapi_quality_gate.py`; measured further through `quality/api_completeness_inventory.md`; clean API completeness inventory is guarded by `tests/unit/scripts/test_openapi_completeness_inventory.py` | Keep the blocking gate and unit-level clean-inventory guard; only add a separate workflow gate if the report remains stable and adds value beyond existing OpenAPI checks. |
 | API vocabulary and no-alias governance | Blocking in feature, PR, and main lanes | Keep blocking and preserve RFC-0067 vocabulary discipline. |
 | Migration smoke | Blocking in PR and main lanes | Keep blocking outside feature lane unless a migration-heavy slice needs earlier proof. |
 | Docker build | Blocking in PR and main lanes | Keep blocking; no new Docker gate is needed for report-only quality artifacts. |
 | Domain data product validation | Blocking locally through `make check` and repo-native command | Confirm whether GitHub workflows should include this explicitly before changing CI. |
-| Complexity and maintainability | Not yet measured; `radon`/`xenon` not configured | Add report-only complexity inventory before any max-complexity threshold. |
+| Complexity and maintainability | Measured in `quality/complexity_inventory.md` through `scripts/python_complexity_inventory.py` and `radon` | Keep report-only until a stable baseline, false-positive policy, and remediation guidance exist. |
 | Function-size hotspots | Measured in `quality/function_size_inventory.md` through a repo-native standard-library scanner | Use as refactor-planning evidence; do not block CI until stable thresholds and exclusions are agreed. |
-| Dead-code detection | Not yet measured; `vulture` not configured | Add report-only dead-code inventory with reviewed allowlist before blocking. |
-| Dependency hygiene | Not yet measured; `deptry` not configured | Add report-only unused/missing dependency inventory before blocking. |
-| Python security scanning | Not yet measured through `bandit` | Add report-only Bandit run and compare with existing dependency-health security audit. |
+| Dead-code detection | Measured in `quality/dead_code_inventory.md` through `scripts/python_dead_code_inventory.py` and `vulture`; 60% findings are dominated by framework/model false positives, while 80% findings are zero | Add reviewed allowlist before considering any regression-blocking gate. |
+| Dependency hygiene | Measured in `quality/dependency_hygiene_report.md` through `scripts/python_dependency_hygiene_inventory.py` and `deptry`; direct imported transitive dependencies are closed, and reviewed runtime-only DEP002 declarations are explicitly allowlisted in the repo scanner | Keep report-only until the allowlist policy and CI placement are stable. |
+| Python security scanning | Measured in `quality/python_security_inventory.md` through `scripts/python_security_inventory.py` and `bandit`; current scan has zero high, medium, and low findings, with two targeted skipped tests for reviewed environment-name false positives | Keep report-only until the targeted environment-name exception policy and CI placement are stable. |
+| Documentation readiness | Measured in `quality/documentation_inventory.md` through `scripts/python_documentation_inventory.py`; current report shows 8/8 README markers, 20 wiki pages, 230 markdown files, 20 endpoint certification docs, 4/4 API catalog files, 56 docs regression test functions, and 12.02 percent public definition docstring coverage | Keep report-only until docstring scope, generated/model exclusions, and remediation thresholds are agreed. |
 | OpenAPI Spectral linting | Not configured; no `.spectral.yaml` present | Decide whether Spectral adds value beyond the existing OpenAPI gate before adding it. |
-| Architecture boundaries | Not configured; no `.importlinter` contract present | Start with report-only import-boundary contracts for routers, services, domain, and adapters. |
+| Architecture boundaries | Measured in `quality/architecture_boundary_inventory.md` through `scripts/python_architecture_boundary_inventory.py`; first report shows 25 import-boundary findings | Classify current findings and reduce router/domain boundary drift before adding import-linter or regression-blocking gates. |
 | Public docstring coverage | Not configured; `interrogate` not present | Measure before deciding whether public docstrings are a useful gate for this service. |
 | Router and middleware thinness | Custom checks not implemented | Add repo-native report-only scripts for direct-infra imports and oversized boundary modules. |
-| RFC 7807 error consistency | Custom check not implemented | Add report-only inventory for error response coverage before blocking. |
-| Observability and operational contracts | Tests exist but no scorecard metric exists | Generate endpoint/service coverage score for correlation IDs, logs, metrics, and readiness. |
+| RFC 7807 error consistency | Measured report-only through `scripts/openapi_completeness_inventory.py`; current inventory shows 0 error responses missing named problem/error schemas | Keep the report-only inventory clean while separately planning any runtime migration from legacy string-detail errors to full RFC 7807 payloads. |
+| Observability and operational contracts | Measured in `quality/observability_readiness_inventory.md` through `scripts/python_observability_readiness_inventory.py`; current report shows 28/28 expected implementation markers, 0 missing markers, and 287 family-mapped readiness test functions | Keep report-only until marker ownership, overlap-aware test counting, and CI placement are stable. |
 
 ## Recommended Lane Placement For New Gates
 
@@ -84,12 +86,11 @@ No gate should move from one phase to the next until it has:
 
 The next hardening commits should stay small and add proof in this order:
 
-1. add report-only complexity inventory,
-2. add report-only dead-code and dependency-hygiene inventories,
-3. add architecture-boundary report-only checks for router, service, domain, and adapter imports,
-4. add API completeness inventory for descriptions, examples, and RFC 7807 responses,
-5. reduce measured function-size hotspots through bounded extraction slices,
-6. update `quality/refactor_health_report.md` as each dimension moves from `not-yet-measured` to `measured`.
+1. reduce measured API error-contract gaps for error examples, explicit schemas, and problem-detail consistency,
+2. reduce measured architecture-boundary findings through bounded router/domain extraction slices,
+3. reduce measured complexity, function-size, and reviewed dead-code hotspots through bounded slices,
+4. review runtime-only dependency declarations before removing or allowlisting them,
+5. update `quality/refactor_health_report.md` as each dimension moves from `not-yet-measured` to `measured`.
 
 ## Non-Goals For This Slice
 
@@ -98,6 +99,6 @@ This slice does not:
 1. change application behavior,
 2. change API or Swagger contracts,
 3. change workflow files,
-4. add dependencies,
-5. introduce new CI failures,
+4. introduce new CI failures,
+5. promote complexity measurement to a blocking CI threshold,
 6. claim enterprise-readiness completion.

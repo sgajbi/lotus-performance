@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, status
 
+from app.api.http_status import HTTP_422_UNPROCESSABLE
 from app.models.composites import (
+    CompositeErrorResponse,
     CompositeInspectionRequest,
     CompositeInspectionResponse,
     CompositeMemberContributionResponse,
@@ -15,12 +17,12 @@ from app.services.composite_calculation_service import (
     calculate_composite_twr_from_persisted_facts,
 )
 from app.services.composite_inspection_service import inspect_composite_twr_from_persisted_facts
-from core.errors import HTTP_422_UNPROCESSABLE
 
 router = APIRouter(tags=["Performance"])
 
 
 COMPOSITE_NOT_FOUND_RESPONSE = {
+    "model": CompositeErrorResponse,
     "description": "Composite definition was not found in the durable composite metadata store.",
     "content": {
         "application/json": {
@@ -37,6 +39,12 @@ NO_MEMBER_RETURN_FACTS_RESPONSE = {
     "description": "The request window is invalid or no persisted member-return facts can support it.",
     "content": {
         "application/json": {
+            "schema": {
+                "oneOf": [
+                    {"$ref": "#/components/schemas/CompositeErrorResponse"},
+                    {"$ref": "#/components/schemas/HTTPValidationError"},
+                ]
+            },
             "examples": {
                 "no_persisted_member_return_facts": {
                     "summary": "No persisted member-return facts exist for the requested window.",
@@ -64,7 +72,7 @@ NO_MEMBER_RETURN_FACTS_RESPONSE = {
                         ]
                     },
                 },
-            }
+            },
         }
     },
 }
