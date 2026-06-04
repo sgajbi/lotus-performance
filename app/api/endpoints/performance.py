@@ -25,6 +25,7 @@ from app.services.analytics_workflow_types import (
 from app.services.async_result_service import resolve_async_result
 from app.services.attribution_mode_service import resolve_attribution_request
 from app.services.attribution_service import calculate_attribution
+from app.services.engine_exception_mapping_service import map_engine_exception_to_http_error
 from app.services.execution_lifecycle_service import (
     complete_execution_with_lineage,
     record_execution_failure,
@@ -45,7 +46,6 @@ from app.services.submission_fencing_service import (
 from app.services.twr_mode_service import resolve_twr_request
 from app.services.twr_service import calculate_twr_response
 from app.services.workspace_summary_service import calculate_workspace_summary, workspace_longest_requested_window_days
-from engine.exceptions import EngineCalculationError, InvalidEngineInputError
 
 router = APIRouter(tags=["Performance"])
 
@@ -463,18 +463,6 @@ async def calculate_twr_endpoint(request: TWRAnalyticsRequest) -> PerformanceRes
                 request.benchmark.return_source if request.benchmark is not None else BenchmarkReturnSource.CALCULATED
             ),
         )
-    except InvalidEngineInputError as e:
-        record_execution_failure(
-            calculation_id=request.calculation_id,
-            message=f"Invalid Input: {e.message}",
-        )
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid Input: {e.message}")
-    except EngineCalculationError as e:
-        record_execution_failure(
-            calculation_id=request.calculation_id,
-            message=f"Calculation Error: {e.message}",
-        )
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Calculation Error: {e.message}")
     except HTTPException as exc:
         record_execution_failure(
             calculation_id=request.calculation_id,
@@ -482,6 +470,13 @@ async def calculate_twr_endpoint(request: TWRAnalyticsRequest) -> PerformanceRes
         )
         raise
     except Exception as e:
+        mapped_engine_error = map_engine_exception_to_http_error(e)
+        if mapped_engine_error is not None:
+            record_execution_failure(
+                calculation_id=request.calculation_id,
+                message=mapped_engine_error.failure_message,
+            )
+            raise HTTPException(status_code=mapped_engine_error.status_code, detail=mapped_engine_error.detail)
         record_execution_failure(
             calculation_id=request.calculation_id,
             message=f"An unexpected server error occurred: {str(e)}",

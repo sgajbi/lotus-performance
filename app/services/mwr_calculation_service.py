@@ -51,7 +51,7 @@ def build_mwr_response(
         method=mwr_result.method,
         status=mwr_result.status,
         reason_codes=mwr_result.reason_codes,
-        fallback_used=mwr_result.fallback_from is not None or mwr_result.is_approximation,
+        fallback_used=mwr_result.fallback_from is not None or bool(mwr_result.is_approximation),
     )
     reporting_currency = (
         resolved_request.currency_evidence.reporting_currency
