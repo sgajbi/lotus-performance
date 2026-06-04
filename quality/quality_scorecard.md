@@ -32,7 +32,7 @@ metrics in each section are updated with each meaningful slice.
 | --- | ---: | ---: | ---: | --- | --- |
 | Max cyclomatic complexity | unknown | 44 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
 | High-complexity functions (D-F) | unknown | 21 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
-| Average maintainability index | unknown | 53.87 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
+| Average maintainability index | unknown | 55.87 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
 | Largest functions by LOC | unknown | 509 | n/a | measured | `quality/function_size_inventory.md`; `quality/refactor_health_report.md` |
 
 ### Architecture

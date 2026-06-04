@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
-Report date: 2026-06-02
-Branch: `feat/performance-hardening-wave-9`
+Report date: 2026-06-04
+Branch: `feat/performance-hardening-wave-12`
 Mode: report-only complexity and maintainability inventory; no blocking CI gate is introduced by this artifact.
 
 ## Purpose
@@ -22,7 +22,7 @@ python scripts/python_complexity_inventory.py --limit 15
 | --- | ---: |
 | Max cyclomatic complexity | 44 |
 | High-complexity functions (rank D-F) | 21 |
-| Average maintainability index | 53.87 |
+| Average maintainability index | 55.87 |
 
 ## Highest Cyclomatic Complexity
 
@@ -30,19 +30,19 @@ python scripts/python_complexity_inventory.py --limit 15
 | ---: | --- | --- | --- | ---: | --- |
 | 1 | `_calculate_returns_series` | function | `app/services/returns_series_service.py:531` | 44 | F |
 | 2 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:798` | 38 | E |
-| 3 | `_ensure_operation_documentation` | function | `app/openapi_enrichment.py:256` | 36 | E |
+| 3 | `_ensure_operation_documentation` | function | `app/openapi_enrichment.py:339` | 36 | E |
 | 4 | `calculate_contribution` | function | `app/services/contribution_service.py:71` | 35 | E |
-| 5 | `calculate_asset_weighted_composite_twr` | function | `engine/composites.py:74` | 35 | E |
+| 5 | `calculate_asset_weighted_composite_twr` | function | `engine/composites.py:92` | 35 | E |
 | 6 | `calculate_twr_response` | function | `app/services/twr_service.py:496` | 33 | E |
 | 7 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:54` | 31 | E |
 | 8 | `build_runtime_status_response` | function | `app/models/runtime_status.py:613` | 30 | D |
 | 9 | `_process_pending_jobs` | function | `app/workers/compute_executor_worker.py:59` | 30 | D |
-| 10 | `_prepare_data_from_instruments` | function | `engine/attribution.py:120` | 28 | D |
+| 10 | `_prepare_data_from_instruments` | function | `engine/attribution.py:210` | 28 | D |
 | 11 | `_build_daily_calculation_evidence` | function | `app/services/twr_service.py:164` | 27 | D |
-| 12 | `_build_schema_example` | function | `app/openapi_enrichment.py:185` | 26 | D |
+| 12 | `_build_schema_example` | function | `app/openapi_enrichment.py:230` | 26 | D |
 | 13 | `resolve_twr_request` | function | `app/services/twr_mode_service.py:44` | 25 | D |
-| 14 | `calculate_money_weighted_return` | function | `engine/mwr.py:187` | 25 | D |
-| 15 | `get_integration_capabilities` | function | `app/api/endpoints/integration_capabilities.py:483` | 24 | D |
+| 14 | `calculate_money_weighted_return` | function | `engine/mwr.py:186` | 25 | D |
+| 15 | `build_source_economics_findings` | function | `app/services/inspection/source_economics_findings.py:7` | 24 | D |
 
 ## Lowest Maintainability Index
 
@@ -53,12 +53,12 @@ python scripts/python_complexity_inventory.py --limit 15
 | 3 | `app/services/returns_series_service.py` | 0.00 | C |
 | 4 | `app/services/stateful_attribution_input_service.py` | 0.00 | C |
 | 5 | `app/services/stateful_input_service.py` | 0.00 | C |
-| 6 | `app/services/twr_service.py` | 8.51 | C |
-| 7 | `app/openapi_enrichment.py` | 10.38 | B |
-| 8 | `app/services/execution_registry.py` | 10.84 | B |
-| 9 | `app/services/workspace_summary_service.py` | 11.37 | B |
-| 10 | `app/api/endpoints/performance.py` | 13.12 | B |
-| 11 | `app/services/stateful_benchmark_input_service.py` | 13.69 | B |
+| 6 | `app/openapi_enrichment.py` | 7.17 | C |
+| 7 | `app/services/twr_service.py` | 8.51 | C |
+| 8 | `app/services/workspace_summary_service.py` | 9.62 | B |
+| 9 | `app/services/execution_registry.py` | 10.84 | B |
+| 10 | `app/services/stateful_benchmark_input_service.py` | 13.69 | B |
+| 11 | `engine/attribution.py` | 15.19 | B |
 | 12 | `app/services/operator_action_lease_service.py` | 15.24 | B |
 | 13 | `app/services/inspection/reconciliation.py` | 17.36 | B |
 | 14 | `app/services/inspection/source_economics_collector.py` | 17.45 | B |

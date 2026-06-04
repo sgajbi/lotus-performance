@@ -39,7 +39,7 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | Max cyclomatic complexity | unknown | 44 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
 | High-complexity functions | unknown | 21 | measured | rank D-F functions in `quality/complexity_inventory.md` |
-| Average maintainability index | unknown | 53.87 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
+| Average maintainability index | unknown | 55.87 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
 | Largest functions by LOC | unknown | 509 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py` |
 
 ## Architecture
