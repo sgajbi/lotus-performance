@@ -5,9 +5,11 @@ from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query
 
-from app.api.http_status import HTTP_422_UNPROCESSABLE
-from app.models.runtime_recoveries import RuntimeRecoveriesResponse, build_runtime_recoveries_response
-from app.services.runtime_recovery_service import build_runtime_recovery_snapshot
+from app.models.runtime_recoveries import RuntimeRecoveriesResponse
+from app.services.runtime_recoveries_service import (
+    RuntimeRecoveriesValidationError,
+    build_runtime_recoveries_response_for_query,
+)
 
 router = APIRouter(tags=["Integration"])
 
@@ -78,34 +80,18 @@ async def get_runtime_recoveries(
     ),
 ) -> RuntimeRecoveriesResponse:
     """Return filtered durable recovery events for runtime queue remediation review."""
-    if recovered_after is not None and recovered_before is not None and recovered_after > recovered_before:
-        raise HTTPException(
-            status_code=HTTP_422_UNPROCESSABLE,
-            detail={
-                "code": "invalid_recovery_time_window",
-                "fields": ["recovered_after", "recovered_before"],
-                "message": "recovered_after must be less than or equal to recovered_before.",
-            },
+    try:
+        return build_runtime_recoveries_response_for_query(
+            queue=queue,
+            limit=limit,
+            offset=offset,
+            recovered_after=recovered_after,
+            recovered_before=recovered_before,
+            cursor_recovered_before=cursor_recovered_before,
+            cursor_calculation_id_before=cursor_calculation_id_before,
+            calculation_id_contains=calculation_id_contains,
+            compute_analytics_type=compute_analytics_type,
+            lineage_calculation_type=lineage_calculation_type,
         )
-    if cursor_calculation_id_before is not None and cursor_recovered_before is None:
-        raise HTTPException(
-            status_code=HTTP_422_UNPROCESSABLE,
-            detail={
-                "code": "incomplete_recovery_cursor",
-                "fields": ["cursor_recovered_before", "cursor_calculation_id_before"],
-                "message": "cursor_calculation_id_before requires cursor_recovered_before.",
-            },
-        )
-    snapshot = build_runtime_recovery_snapshot(
-        queue_filter=queue,
-        limit=limit,
-        offset=offset,
-        recovered_after=recovered_after,
-        recovered_before=recovered_before,
-        cursor_recovered_before=cursor_recovered_before,
-        cursor_calculation_id_before=cursor_calculation_id_before,
-        calculation_id_contains=calculation_id_contains,
-        compute_analytics_type=compute_analytics_type,
-        lineage_calculation_type=lineage_calculation_type,
-    )
-    return build_runtime_recoveries_response(snapshot)
+    except RuntimeRecoveriesValidationError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
