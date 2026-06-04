@@ -84,3 +84,34 @@ def test_build_integration_capabilities_report_supportability_stays_enabled_with
     assert features["performance.observability.calculation_supportability"]["enabled"] is True
     assert surfaces["twr_inspection"]["contract_notes"] == []
     assert surfaces["twr_inspection"]["options"] == []
+
+
+def test_build_integration_capabilities_report_hides_workspace_options_when_disabled(monkeypatch):
+    monkeypatch.setenv("PA_CAP_WORKSPACE_SUMMARY_ENABLED", "false")
+
+    report = build_integration_capabilities_report()
+    features = {item["key"]: item for item in report.features}
+    workflows = {item["workflow_key"]: item for item in report.workflows}
+    surfaces = {item["key"]: item for item in report.analytics_surfaces}
+
+    assert features["performance.analytics.workspace_summary"]["enabled"] is False
+    assert workflows["performance_workspace"]["enabled"] is False
+    assert surfaces["workspace_summary"]["enabled"] is False
+    assert surfaces["workspace_summary"]["contract_notes"] == []
+    assert surfaces["workspace_summary"]["options"] == []
+
+
+def test_build_integration_capabilities_report_hides_benchmark_exposure_details_without_stateful_mode(
+    monkeypatch,
+):
+    monkeypatch.setenv("PLATFORM_INPUT_MODE_STATEFUL_ENABLED", "false")
+
+    report = build_integration_capabilities_report()
+    features = {item["key"]: item for item in report.features}
+    surfaces = {item["key"]: item for item in report.analytics_surfaces}
+
+    assert features["performance.integration.benchmark_exposure_context"]["enabled"] is False
+    assert surfaces["benchmark_exposure_context"]["enabled"] is False
+    assert surfaces["benchmark_exposure_context"]["supported_input_modes"] == []
+    assert surfaces["benchmark_exposure_context"]["stateful_restrictions"] == []
+    assert surfaces["benchmark_exposure_context"]["contract_notes"] == []

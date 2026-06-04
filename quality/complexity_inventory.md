@@ -21,8 +21,8 @@ python scripts/python_complexity_inventory.py --limit 20
 | Metric | Value |
 | --- | ---: |
 | Max cyclomatic complexity | 22 |
-| High-complexity functions (rank D-F) | 6 |
-| Average maintainability index | 55.83 |
+| High-complexity functions (rank D-F) | 5 |
+| Average maintainability index | 55.81 |
 
 ## Highest Cyclomatic Complexity
 
@@ -33,21 +33,21 @@ python scripts/python_complexity_inventory.py --limit 20
 | 3 | `calculate_money_weighted_return` | function | `engine/mwr.py:264` | 22 | D |
 | 4 | `validate_selection` | method | `app/models/returns_series.py:318` | 21 | D |
 | 5 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:64` | 21 | D |
-| 6 | `build_integration_capabilities_report` | function | `app/services/integration_capabilities_service.py:92` | 21 | D |
-| 7 | `_validate_stateful_portfolio_position_alignment` | function | `app/services/stateful_attribution_input_service.py:283` | 20 | C |
-| 8 | `resolve_twr_request` | function | `app/services/twr_mode_service.py:52` | 20 | C |
-| 9 | `calculate_twr_response` | function | `app/services/twr_service.py:738` | 20 | C |
-| 10 | `build_attribution_supportability_evidence` | function | `engine/attribution_supportability.py:42` | 20 | C |
-| 11 | `calculate_daily_ror` | function | `engine/ror.py:18` | 20 | C |
-| 12 | `_ensure_schema_documentation` | function | `app/openapi_enrichment.py:510` | 19 | C |
-| 13 | `_expected_daily_evidence_semantics` | function | `app/services/inspection/calculation_consistency.py:416` | 19 | C |
-| 14 | `analyze_portfolio_position_reconciliation` | function | `app/services/inspection/reconciliation.py:89` | 19 | C |
-| 15 | `_calculate_returns_series` | function | `app/services/returns_series_service.py:943` | 19 | C |
-| 16 | `_prepare_hierarchical_data` | function | `engine/contribution.py:152` | 19 | C |
-| 17 | `_xirr` | function | `engine/mwr.py:53` | 19 | C |
-| 18 | `validate_mode_payloads` | method | `app/models/workspace_summary_requests.py:251` | 18 | C |
-| 19 | `append_diagnostic_notes` | method | `app/services/contribution_audit.py:88` | 18 | C |
-| 20 | `calculate_contribution` | function | `app/services/contribution_service.py:178` | 18 | C |
+| 6 | `_validate_stateful_portfolio_position_alignment` | function | `app/services/stateful_attribution_input_service.py:283` | 20 | C |
+| 7 | `resolve_twr_request` | function | `app/services/twr_mode_service.py:52` | 20 | C |
+| 8 | `calculate_twr_response` | function | `app/services/twr_service.py:738` | 20 | C |
+| 9 | `build_attribution_supportability_evidence` | function | `engine/attribution_supportability.py:42` | 20 | C |
+| 10 | `calculate_daily_ror` | function | `engine/ror.py:18` | 20 | C |
+| 11 | `_ensure_schema_documentation` | function | `app/openapi_enrichment.py:510` | 19 | C |
+| 12 | `_expected_daily_evidence_semantics` | function | `app/services/inspection/calculation_consistency.py:416` | 19 | C |
+| 13 | `analyze_portfolio_position_reconciliation` | function | `app/services/inspection/reconciliation.py:89` | 19 | C |
+| 14 | `_calculate_returns_series` | function | `app/services/returns_series_service.py:943` | 19 | C |
+| 15 | `_prepare_hierarchical_data` | function | `engine/contribution.py:152` | 19 | C |
+| 16 | `_xirr` | function | `engine/mwr.py:53` | 19 | C |
+| 17 | `validate_mode_payloads` | method | `app/models/workspace_summary_requests.py:251` | 18 | C |
+| 18 | `append_diagnostic_notes` | method | `app/services/contribution_audit.py:88` | 18 | C |
+| 19 | `calculate_contribution` | function | `app/services/contribution_service.py:178` | 18 | C |
+| 20 | `build_source_economics_findings` | function | `app/services/inspection/source_economics_findings.py:7` | 18 | C |
 
 ## Lowest Maintainability Index
 
@@ -77,7 +77,7 @@ python scripts/python_complexity_inventory.py --limit 20
 ## Interpretation
 
 The highest complexity functions are concentrated in returns-series modeling and resolution, MWR
-calculation, TWR inspection, and integration capability reporting. These are real
+calculation, and TWR inspection. These are real
 refactor-planning hotspots, not evidence that a single local extraction should change behavior.
 
 Maintainability index values should be treated as directional hotspot evidence because generated
