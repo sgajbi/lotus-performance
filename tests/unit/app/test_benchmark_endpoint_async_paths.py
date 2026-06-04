@@ -9,6 +9,7 @@ from fastapi import HTTPException
 from app.api.endpoints import benchmark as benchmark_endpoint
 from app.models.benchmark_analytics_requests import BenchmarkAnalyticsRequest, BenchmarkInputMode
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
+from app.services import benchmark_calculation_workflow_service
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_BENCHMARK
 from app.services.benchmark_mode_service import ResolvedBenchmarkRequest
 
@@ -50,9 +51,9 @@ def _resolved_benchmark_request() -> BenchmarkPerformanceRequest:
 @pytest.mark.asyncio
 async def test_benchmark_endpoint_replays_promoted_stateful_async_execution(mocker):
     request = BenchmarkAnalyticsRequest.model_validate(_stateful_benchmark_payload())
-    replay_response = benchmark_endpoint._accepted_response(request.calculation_id)
+    replay_response = benchmark_calculation_workflow_service.accepted_benchmark_response(request.calculation_id)
     mocker.patch(
-        "app.api.endpoints.benchmark.get_settings",
+        "app.services.benchmark_calculation_workflow_service.get_settings",
         return_value=type(
             "Settings",
             (),
@@ -64,13 +65,13 @@ async def test_benchmark_endpoint_replays_promoted_stateful_async_execution(mock
         )(),
     )
     mocker.patch(
-        "app.api.endpoints.benchmark.replay_promoted_stateful_async_execution",
+        "app.services.benchmark_calculation_workflow_service.replay_promoted_stateful_async_execution",
         return_value=replay_response,
     )
-    replay_promoted = benchmark_endpoint.replay_promoted_stateful_async_execution
-    register_sync = mocker.patch("app.api.endpoints.benchmark.register_sync_execution_or_raise")
+    replay_promoted = benchmark_calculation_workflow_service.replay_promoted_stateful_async_execution
+    register_sync = mocker.patch("app.services.benchmark_calculation_workflow_service.register_sync_execution_or_raise")
 
-    response = await benchmark_endpoint.calculate_benchmark_endpoint(request)
+    response = await benchmark_calculation_workflow_service.calculate_benchmark_workflow(request)
 
     assert response == replay_response
     replay_promoted.assert_called_once()
@@ -82,9 +83,9 @@ async def test_benchmark_endpoint_replays_promoted_stateful_async_execution(mock
 async def test_benchmark_endpoint_returns_accepted_response_when_resolved_stateful_request_is_offloaded(mocker):
     request = BenchmarkAnalyticsRequest.model_validate(_stateful_benchmark_payload())
     resolved_request = _resolved_benchmark_request()
-    accepted_response = benchmark_endpoint._accepted_response(request.calculation_id)
+    accepted_response = benchmark_calculation_workflow_service.accepted_benchmark_response(request.calculation_id)
     mocker.patch(
-        "app.api.endpoints.benchmark.get_settings",
+        "app.services.benchmark_calculation_workflow_service.get_settings",
         return_value=type(
             "Settings",
             (),
@@ -96,12 +97,12 @@ async def test_benchmark_endpoint_returns_accepted_response_when_resolved_statef
         )(),
     )
     mocker.patch(
-        "app.api.endpoints.benchmark.replay_promoted_stateful_async_execution",
+        "app.services.benchmark_calculation_workflow_service.replay_promoted_stateful_async_execution",
         return_value=None,
     )
-    mocker.patch("app.api.endpoints.benchmark.register_sync_execution_or_raise")
+    mocker.patch("app.services.benchmark_calculation_workflow_service.register_sync_execution_or_raise")
     mocker.patch(
-        "app.api.endpoints.benchmark.resolve_benchmark_request",
+        "app.services.benchmark_calculation_workflow_service.resolve_benchmark_request",
         return_value=ResolvedBenchmarkRequest(
             benchmark_request=resolved_request,
             input_mode=BenchmarkInputMode.STATEFUL,
@@ -110,12 +111,14 @@ async def test_benchmark_endpoint_returns_accepted_response_when_resolved_statef
         ),
     )
     finalize_resolved = mocker.patch(
-        "app.api.endpoints.benchmark.finalize_resolved_stateful_execution",
+        "app.services.benchmark_calculation_workflow_service.finalize_resolved_stateful_execution",
         return_value=accepted_response,
     )
-    calculate_benchmark = mocker.patch("app.api.endpoints.benchmark.calculate_benchmark_response")
+    calculate_benchmark = mocker.patch(
+        "app.services.benchmark_calculation_workflow_service.calculate_benchmark_response"
+    )
 
-    response = await benchmark_endpoint.calculate_benchmark_endpoint(request)
+    response = await benchmark_calculation_workflow_service.calculate_benchmark_workflow(request)
 
     assert response == accepted_response
     finalize_resolved.assert_called_once()
@@ -129,7 +132,7 @@ async def test_benchmark_endpoint_executes_resolved_stateful_request_when_finali
     resolved_request = _resolved_benchmark_request()
     expected_response = {"ok": True}
     mocker.patch(
-        "app.api.endpoints.benchmark.get_settings",
+        "app.services.benchmark_calculation_workflow_service.get_settings",
         return_value=type(
             "Settings",
             (),
@@ -141,12 +144,12 @@ async def test_benchmark_endpoint_executes_resolved_stateful_request_when_finali
         )(),
     )
     mocker.patch(
-        "app.api.endpoints.benchmark.replay_promoted_stateful_async_execution",
+        "app.services.benchmark_calculation_workflow_service.replay_promoted_stateful_async_execution",
         return_value=None,
     )
-    mocker.patch("app.api.endpoints.benchmark.register_sync_execution_or_raise")
+    mocker.patch("app.services.benchmark_calculation_workflow_service.register_sync_execution_or_raise")
     mocker.patch(
-        "app.api.endpoints.benchmark.resolve_benchmark_request",
+        "app.services.benchmark_calculation_workflow_service.resolve_benchmark_request",
         return_value=ResolvedBenchmarkRequest(
             benchmark_request=resolved_request,
             input_mode=BenchmarkInputMode.STATEFUL,
@@ -155,15 +158,15 @@ async def test_benchmark_endpoint_executes_resolved_stateful_request_when_finali
         ),
     )
     mocker.patch(
-        "app.api.endpoints.benchmark.finalize_resolved_stateful_execution",
+        "app.services.benchmark_calculation_workflow_service.finalize_resolved_stateful_execution",
         return_value=None,
     )
     calculate_benchmark = mocker.patch(
-        "app.api.endpoints.benchmark.calculate_benchmark_response",
+        "app.services.benchmark_calculation_workflow_service.calculate_benchmark_response",
         return_value=expected_response,
     )
 
-    response = await benchmark_endpoint.calculate_benchmark_endpoint(request)
+    response = await benchmark_calculation_workflow_service.calculate_benchmark_workflow(request)
 
     assert response == expected_response
     calculate_benchmark.assert_called_once()
@@ -174,7 +177,7 @@ async def test_benchmark_endpoint_reraises_stateful_http_exceptions(mocker):
     request = BenchmarkAnalyticsRequest.model_validate(_stateful_benchmark_payload())
     failure_capture: dict[str, object] = {}
     mocker.patch(
-        "app.api.endpoints.benchmark.get_settings",
+        "app.services.benchmark_calculation_workflow_service.get_settings",
         return_value=type(
             "Settings",
             (),
@@ -186,21 +189,21 @@ async def test_benchmark_endpoint_reraises_stateful_http_exceptions(mocker):
         )(),
     )
     mocker.patch(
-        "app.api.endpoints.benchmark.replay_promoted_stateful_async_execution",
+        "app.services.benchmark_calculation_workflow_service.replay_promoted_stateful_async_execution",
         return_value=None,
     )
-    mocker.patch("app.api.endpoints.benchmark.register_sync_execution_or_raise")
+    mocker.patch("app.services.benchmark_calculation_workflow_service.register_sync_execution_or_raise")
     mocker.patch(
-        "app.api.endpoints.benchmark.resolve_benchmark_request",
+        "app.services.benchmark_calculation_workflow_service.resolve_benchmark_request",
         side_effect=HTTPException(status_code=422, detail="bad benchmark request"),
     )
     mocker.patch(
-        "app.api.endpoints.benchmark.record_execution_failure",
+        "app.services.benchmark_calculation_workflow_service.record_execution_failure",
         side_effect=lambda **kwargs: failure_capture.update(kwargs),
     )
 
     with pytest.raises(HTTPException) as exc_info:
-        await benchmark_endpoint.calculate_benchmark_endpoint(request)
+        await benchmark_calculation_workflow_service.calculate_benchmark_workflow(request)
 
     assert exc_info.value.status_code == 422
     assert exc_info.value.detail == "bad benchmark request"
@@ -230,7 +233,7 @@ async def test_benchmark_endpoint_updates_execution_identity_for_persisted_sync_
     resolved_request = _resolved_benchmark_request()
     expected_response = {"ok": True}
     mocker.patch(
-        "app.api.endpoints.benchmark.get_settings",
+        "app.services.benchmark_calculation_workflow_service.get_settings",
         return_value=type(
             "Settings",
             (),
@@ -241,9 +244,9 @@ async def test_benchmark_endpoint_updates_execution_identity_for_persisted_sync_
             },
         )(),
     )
-    mocker.patch("app.api.endpoints.benchmark.register_sync_execution_or_raise")
+    mocker.patch("app.services.benchmark_calculation_workflow_service.register_sync_execution_or_raise")
     mocker.patch(
-        "app.api.endpoints.benchmark.resolve_benchmark_request",
+        "app.services.benchmark_calculation_workflow_service.resolve_benchmark_request",
         return_value=ResolvedBenchmarkRequest(
             benchmark_request=resolved_request,
             input_mode=BenchmarkInputMode.STATELESS,
@@ -251,13 +254,15 @@ async def test_benchmark_endpoint_updates_execution_identity_for_persisted_sync_
             input_count=1,
         ),
     )
-    update_execution_identity = mocker.patch("app.api.endpoints.benchmark.execution_registry.update_execution_identity")
+    update_execution_identity = mocker.patch(
+        "app.services.benchmark_calculation_workflow_service.execution_registry.update_execution_identity"
+    )
     mocker.patch(
-        "app.api.endpoints.benchmark.calculate_benchmark_response",
+        "app.services.benchmark_calculation_workflow_service.calculate_benchmark_response",
         return_value=expected_response,
     )
 
-    response = await benchmark_endpoint.calculate_benchmark_endpoint(request)
+    response = await benchmark_calculation_workflow_service.calculate_benchmark_workflow(request)
 
     assert response == expected_response
     update_execution_identity.assert_called_once()
@@ -283,9 +288,9 @@ async def test_benchmark_endpoint_offloads_large_requests(mocker):
             },
         }
     )
-    accepted_response = benchmark_endpoint._accepted_response(request.calculation_id)
+    accepted_response = benchmark_calculation_workflow_service.accepted_benchmark_response(request.calculation_id)
     mocker.patch(
-        "app.api.endpoints.benchmark.get_settings",
+        "app.services.benchmark_calculation_workflow_service.get_settings",
         return_value=type(
             "Settings",
             (),
@@ -297,11 +302,11 @@ async def test_benchmark_endpoint_offloads_large_requests(mocker):
         )(),
     )
     register_async = mocker.patch(
-        "app.api.endpoints.benchmark.register_async_submission_or_raise",
+        "app.services.benchmark_calculation_workflow_service.register_async_submission_or_raise",
         return_value=accepted_response,
     )
 
-    response = await benchmark_endpoint.calculate_benchmark_endpoint(request)
+    response = await benchmark_calculation_workflow_service.calculate_benchmark_workflow(request)
 
     assert response == accepted_response
     register_async.assert_called_once()
@@ -313,7 +318,7 @@ async def test_benchmark_endpoint_maps_stateful_resolution_errors_to_http_500(mo
     request = BenchmarkAnalyticsRequest.model_validate(_stateful_benchmark_payload())
     failure_capture: dict[str, object] = {}
     mocker.patch(
-        "app.api.endpoints.benchmark.get_settings",
+        "app.services.benchmark_calculation_workflow_service.get_settings",
         return_value=type(
             "Settings",
             (),
@@ -325,21 +330,21 @@ async def test_benchmark_endpoint_maps_stateful_resolution_errors_to_http_500(mo
         )(),
     )
     mocker.patch(
-        "app.api.endpoints.benchmark.replay_promoted_stateful_async_execution",
+        "app.services.benchmark_calculation_workflow_service.replay_promoted_stateful_async_execution",
         return_value=None,
     )
-    mocker.patch("app.api.endpoints.benchmark.register_sync_execution_or_raise")
+    mocker.patch("app.services.benchmark_calculation_workflow_service.register_sync_execution_or_raise")
     mocker.patch(
-        "app.api.endpoints.benchmark.resolve_benchmark_request",
+        "app.services.benchmark_calculation_workflow_service.resolve_benchmark_request",
         side_effect=RuntimeError("benchmark resolver blew up"),
     )
     mocker.patch(
-        "app.api.endpoints.benchmark.record_execution_failure",
+        "app.services.benchmark_calculation_workflow_service.record_execution_failure",
         side_effect=lambda **kwargs: failure_capture.update(kwargs),
     )
 
     with pytest.raises(HTTPException) as exc_info:
-        await benchmark_endpoint.calculate_benchmark_endpoint(request)
+        await benchmark_calculation_workflow_service.calculate_benchmark_workflow(request)
 
     assert exc_info.value.status_code == 500
     assert "benchmark resolver blew up" in str(exc_info.value.detail)
@@ -367,7 +372,7 @@ async def test_benchmark_endpoint_reraises_sync_http_exceptions(mocker):
     )
     failure_capture: dict[str, object] = {}
     mocker.patch(
-        "app.api.endpoints.benchmark.get_settings",
+        "app.services.benchmark_calculation_workflow_service.get_settings",
         return_value=type(
             "Settings",
             (),
@@ -378,18 +383,18 @@ async def test_benchmark_endpoint_reraises_sync_http_exceptions(mocker):
             },
         )(),
     )
-    mocker.patch("app.api.endpoints.benchmark.register_sync_execution_or_raise")
+    mocker.patch("app.services.benchmark_calculation_workflow_service.register_sync_execution_or_raise")
     mocker.patch(
-        "app.api.endpoints.benchmark.resolve_benchmark_request",
+        "app.services.benchmark_calculation_workflow_service.resolve_benchmark_request",
         side_effect=HTTPException(status_code=422, detail="bad sync benchmark request"),
     )
     mocker.patch(
-        "app.api.endpoints.benchmark.record_execution_failure",
+        "app.services.benchmark_calculation_workflow_service.record_execution_failure",
         side_effect=lambda **kwargs: failure_capture.update(kwargs),
     )
 
     with pytest.raises(HTTPException) as exc_info:
-        await benchmark_endpoint.calculate_benchmark_endpoint(request)
+        await benchmark_calculation_workflow_service.calculate_benchmark_workflow(request)
 
     assert exc_info.value.status_code == 422
     assert exc_info.value.detail == "bad sync benchmark request"
@@ -417,7 +422,7 @@ async def test_benchmark_endpoint_maps_sync_resolution_errors_to_http_500(mocker
     )
     failure_capture: dict[str, object] = {}
     mocker.patch(
-        "app.api.endpoints.benchmark.get_settings",
+        "app.services.benchmark_calculation_workflow_service.get_settings",
         return_value=type(
             "Settings",
             (),
@@ -428,18 +433,18 @@ async def test_benchmark_endpoint_maps_sync_resolution_errors_to_http_500(mocker
             },
         )(),
     )
-    mocker.patch("app.api.endpoints.benchmark.register_sync_execution_or_raise")
+    mocker.patch("app.services.benchmark_calculation_workflow_service.register_sync_execution_or_raise")
     mocker.patch(
-        "app.api.endpoints.benchmark.resolve_benchmark_request",
+        "app.services.benchmark_calculation_workflow_service.resolve_benchmark_request",
         side_effect=RuntimeError("sync benchmark resolver blew up"),
     )
     mocker.patch(
-        "app.api.endpoints.benchmark.record_execution_failure",
+        "app.services.benchmark_calculation_workflow_service.record_execution_failure",
         side_effect=lambda **kwargs: failure_capture.update(kwargs),
     )
 
     with pytest.raises(HTTPException) as exc_info:
-        await benchmark_endpoint.calculate_benchmark_endpoint(request)
+        await benchmark_calculation_workflow_service.calculate_benchmark_workflow(request)
 
     assert exc_info.value.status_code == 500
     assert "sync benchmark resolver blew up" in str(exc_info.value.detail)
@@ -464,7 +469,7 @@ async def test_get_benchmark_result_delegates_to_async_result_service(mocker):
 def test_benchmark_endpoint_helpers_cover_missing_stateless_input_and_sync_async_thresholds(mocker):
     request = BenchmarkAnalyticsRequest.model_validate(_stateful_benchmark_payload())
     mocker.patch(
-        "app.api.endpoints.benchmark.get_settings",
+        "app.services.benchmark_calculation_workflow_service.get_settings",
         return_value=type(
             "Settings",
             (),
@@ -472,10 +477,10 @@ def test_benchmark_endpoint_helpers_cover_missing_stateless_input_and_sync_async
         )(),
     )
 
-    assert benchmark_endpoint._should_preemptively_offload_stateful_benchmark(request) is True
-    assert benchmark_endpoint._should_offload_benchmark(request) is True
+    assert benchmark_calculation_workflow_service.should_preemptively_offload_stateful_benchmark(request) is True
+    assert benchmark_calculation_workflow_service.should_offload_benchmark(request) is True
     assert (
-        benchmark_endpoint._should_persist_resolved_benchmark_request(
+        benchmark_calculation_workflow_service.should_persist_resolved_benchmark_request(
             SimpleNamespace(input_mode=BenchmarkInputMode.STATELESS, stateless_input=None)
         )
         is False

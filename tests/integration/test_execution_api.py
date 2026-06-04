@@ -870,7 +870,9 @@ def test_execution_api_tracks_async_benchmark_job_state(client, monkeypatch):
             input_count=4,
         )
 
-    monkeypatch.setattr("app.api.endpoints.benchmark.resolve_benchmark_request", _mock_resolve_benchmark_request)
+    monkeypatch.setattr(
+        "app.services.benchmark_calculation_workflow_service.resolve_benchmark_request", _mock_resolve_benchmark_request
+    )
 
     payload = {
         "calculation_id": str(uuid4()),

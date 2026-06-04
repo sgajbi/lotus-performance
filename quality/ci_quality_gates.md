@@ -1,7 +1,7 @@
 # Lotus Performance Progressive CI Quality Gates
 
 Report date: 2026-06-04
-Branch: `feat/performance-hardening-wave-11`
+Branch: `feat/performance-hardening-wave-12`
 Baseline sources: `quality/baseline_report.md`, `quality/refactor_health_report.md`, `quality/quality_scorecard.md`
 Mode: report-only gate map; this artifact introduces no new blocking CI gate.
 
@@ -70,7 +70,7 @@ No gate should move from one phase to the next until it has:
 | OpenAPI Spectral linting | Not configured; no `.spectral.yaml` present | Decide whether Spectral adds value beyond the existing OpenAPI gate before adding it. |
 | Architecture boundaries | Measured in `quality/architecture_boundary_inventory.md` through `scripts/python_architecture_boundary_inventory.py`; latest report shows 0 import-boundary findings | Keep report-only while router/core and domain/application boundary policy is operationalized into reusable boundary contracts. |
 | Public docstring coverage | Not configured; `interrogate` not present | Measure before deciding whether public docstrings are a useful gate for this service. |
-| Router and middleware thinness | Measured report-only in `quality/router_middleware_thinness_inventory.md` through `scripts/python_router_middleware_thinness_inventory.py`; current snapshot shows 4 router findings and 0 middleware findings at `--threshold 80` | Keep report-only until false-positive policy and refactoring-remediation workflow are established, then move this family toward regression gating. |
+| Router and middleware thinness | Measured report-only in `quality/router_middleware_thinness_inventory.md` through `scripts/python_router_middleware_thinness_inventory.py`; current snapshot shows 3 router findings and 0 middleware findings at `--threshold 80` | Keep report-only until false-positive policy and refactoring-remediation workflow are established, then move this family toward regression gating. |
 | RFC 7807 error consistency | Measured report-only through `scripts/openapi_completeness_inventory.py`; current inventory shows 0 error responses missing named problem/error schemas | Keep the report-only inventory clean while separately planning any runtime migration from legacy string-detail errors to full RFC 7807 payloads. |
 | Observability and operational contracts | Measured in `quality/observability_readiness_inventory.md` through `scripts/python_observability_readiness_inventory.py`; current report shows 28/28 expected implementation markers, 0 missing markers, and 287 family-mapped readiness test functions | Keep report-only until marker ownership, overlap-aware test counting, and CI placement are stable. |
 
