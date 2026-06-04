@@ -59,7 +59,7 @@ branch:
 | OpenAPI linting through Spectral | no `.spectral.yaml` found |
 | Architecture boundary enforcement | no `.importlinter` contract found |
 | Public docstring coverage | `interrogate` not configured |
-| Before/after quality scorecard | not yet generated |
+| Before/after quality scorecard | `quality/quality_scorecard.md` added |
 | Branch coverage | not yet captured in this baseline slice |
 | Router thinness and middleware thinness checks | not yet implemented |
 | RFC 7807 error consistency checks | not yet implemented |

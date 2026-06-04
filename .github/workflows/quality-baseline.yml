@@ -1,0 +1,50 @@
+name: Quality Baseline Snapshot
+
+on:
+  push:
+    branches-ignore:
+      - "main"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  PYTHONUNBUFFERED: "1"
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  quality-snapshot:
+    name: Quality Baseline / Snapshot
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+      - name: Install
+        run: make install
+      - name: Generate quality inventories
+        run: |
+          python scripts/python_function_size_inventory.py --limit 15 > quality/function_size_inventory.md
+          python scripts/python_complexity_inventory.py --limit 15 > quality/complexity_inventory.md
+          python scripts/python_dead_code_inventory.py --limit 30 --min-confidence 60 > quality/dead_code_inventory.md
+          python scripts/python_dependency_hygiene_inventory.py --limit 30 > quality/dependency_hygiene_report.md
+          python scripts/python_duplicate_code_inventory.py --min-lines 12 --limit 40 > quality/duplicate_code_inventory.md
+          python scripts/python_architecture_boundary_inventory.py --limit 40 > quality/architecture_boundary_inventory.md
+          python scripts/python_security_inventory.py --limit 30 > quality/python_security_inventory.md
+          python scripts/openapi_completeness_inventory.py --limit 80 > quality/api_completeness_inventory.md
+          python scripts/python_test_taxonomy_inventory.py --limit 30 > quality/test_taxonomy_inventory.md
+          python scripts/python_observability_readiness_inventory.py --limit 30 > quality/observability_readiness_inventory.md
+          python scripts/python_documentation_inventory.py --limit 40 > quality/documentation_inventory.md
+      - name: Upload quality baseline artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-baseline-reports
+          path: quality/*.md
