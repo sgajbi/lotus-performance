@@ -8,6 +8,7 @@ from app.models.contribution_requests import ContributionRequest
 from app.models.contribution_responses import (
     AverageWeightMethodologyStatus,
     ContributionResponse,
+    DailyContribution,
     SinglePeriodContributionResult,
 )
 from app.services.analytics_observation_dates import observation_date_series
@@ -103,6 +104,23 @@ def _build_period_average_weight_methodology_status(
         is_promoted=is_promoted,
         blocker_reason_codes=period_cutover_blockers,
     )
+
+
+def _record_period_timeseries_total_delta(
+    *,
+    daily_series: list[DailyContribution] | None,
+    period_total_contribution: float,
+    average_weight_audit_state: AverageWeightShadowAuditState,
+) -> int:
+    if daily_series is None:
+        return 0
+
+    daily_timeseries_total = sum(point.total_contribution for point in daily_series)
+    if abs(daily_timeseries_total - period_total_contribution) <= 1e-9:
+        return 0
+
+    average_weight_audit_state.record_timeseries_total_delta()
+    return 1
 
 
 def calculate_contribution(
@@ -229,12 +247,11 @@ def calculate_contribution(
                     residual_allocation_applied=position_totals_result.residual_allocation_applied,
                     residual_allocation_basis="average_weight",
                 )
-                period_timeseries_total_delta_periods = 0
-                if daily_series is not None:
-                    daily_timeseries_total = sum(point.total_contribution for point in daily_series)
-                    if abs(daily_timeseries_total - period_total_contribution) > 1e-9:
-                        period_timeseries_total_delta_periods = 1
-                        average_weight_audit_state.record_timeseries_total_delta()
+                period_timeseries_total_delta_periods = _record_period_timeseries_total_delta(
+                    daily_series=daily_series,
+                    period_total_contribution=period_total_contribution,
+                    average_weight_audit_state=average_weight_audit_state,
+                )
                 period_methodology_status = _build_period_average_weight_methodology_status(
                     period_methodology_context=period_methodology_context,
                     average_weight_sum_residual_bp=period_average_weight_sum_residual_bp,
@@ -345,7 +362,6 @@ def calculate_contribution(
                 period_average_weight_sum_residual_bp = _calculate_average_weight_sum_residual_bp(
                     position_contributions
                 )
-                period_timeseries_total_delta_periods = 0
                 period_total_contribution = sum(pc.total_contribution for pc in position_contributions)
                 smoothing_evidence = _build_contribution_smoothing_evidence(
                     period_slice_df=period_slice_df,
@@ -356,11 +372,11 @@ def calculate_contribution(
                     residual_allocation_applied=position_totals_result.residual_allocation_applied,
                     residual_allocation_basis=selected_average_weight_column,
                 )
-                if daily_series is not None:
-                    daily_timeseries_total = sum(point.total_contribution for point in daily_series)
-                    if abs(daily_timeseries_total - period_total_contribution) > 1e-9:
-                        period_timeseries_total_delta_periods = 1
-                        average_weight_audit_state.record_timeseries_total_delta()
+                period_timeseries_total_delta_periods = _record_period_timeseries_total_delta(
+                    daily_series=daily_series,
+                    period_total_contribution=period_total_contribution,
+                    average_weight_audit_state=average_weight_audit_state,
+                )
                 period_methodology_status = _build_period_average_weight_methodology_status(
                     period_methodology_context=period_methodology_context,
                     average_weight_sum_residual_bp=period_average_weight_sum_residual_bp,

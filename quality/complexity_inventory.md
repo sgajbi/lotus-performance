@@ -28,13 +28,13 @@ python scripts/python_complexity_inventory.py --limit 15
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `calculate_contribution` | function | `app/services/contribution_service.py:108` | 35 | E |
-| 2 | `calculate_asset_weighted_composite_twr` | function | `engine/composites.py:126` | 35 | E |
-| 3 | `calculate_twr_response` | function | `app/services/twr_service.py:496` | 33 | E |
-| 4 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:54` | 31 | E |
-| 5 | `build_runtime_status_response` | function | `app/models/runtime_status.py:613` | 30 | D |
-| 6 | `_ensure_operation_documentation` | function | `app/openapi_enrichment.py:363` | 30 | D |
-| 7 | `_process_pending_jobs` | function | `app/workers/compute_executor_worker.py:59` | 30 | D |
+| 1 | `calculate_asset_weighted_composite_twr` | function | `engine/composites.py:126` | 35 | E |
+| 2 | `calculate_twr_response` | function | `app/services/twr_service.py:496` | 33 | E |
+| 3 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:54` | 31 | E |
+| 4 | `build_runtime_status_response` | function | `app/models/runtime_status.py:613` | 30 | D |
+| 5 | `_ensure_operation_documentation` | function | `app/openapi_enrichment.py:363` | 30 | D |
+| 6 | `_process_pending_jobs` | function | `app/workers/compute_executor_worker.py:59` | 30 | D |
+| 7 | `calculate_contribution` | function | `app/services/contribution_service.py:126` | 29 | D |
 | 8 | `_prepare_data_from_instruments` | function | `engine/attribution.py:210` | 28 | D |
 | 9 | `_calculate_returns_series` | function | `app/services/returns_series_service.py:723` | 27 | D |
 | 10 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:935` | 27 | D |

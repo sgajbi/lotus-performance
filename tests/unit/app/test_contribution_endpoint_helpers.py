@@ -6,6 +6,7 @@ import pytest
 from app.api.endpoints.contribution import _as_numeric
 from app.models.contribution_analytics_requests import ContributionAnalyticsRequest
 from app.models.contribution_requests import ContributionRequest
+from app.models.contribution_responses import DailyContribution
 from app.services.contribution_audit import AverageWeightShadowAuditState
 from app.services.contribution_calculation_workflow_service import (
     accepted_contribution_response,
@@ -54,7 +55,10 @@ from app.services.contribution_series import (
     _build_residual_adjusted_daily_contribution_series,
     _build_residual_adjusted_position_timeseries,
 )
-from app.services.contribution_service import _build_period_average_weight_methodology_status
+from app.services.contribution_service import (
+    _build_period_average_weight_methodology_status,
+    _record_period_timeseries_total_delta,
+)
 from app.services.contribution_smoothing import _count_carino_invalid_domain_days
 from core.envelope import Diagnostics
 from engine.schema import PortfolioColumns
@@ -197,6 +201,51 @@ def test_build_period_average_weight_methodology_status_records_promoted_clean_p
     assert audit_state.cutover_candidate_periods == 1
     assert audit_state.promoted_periods == 1
     assert audit_state.blocked_periods == 0
+
+
+def test_record_period_timeseries_total_delta_ignores_absent_series():
+    audit_state = AverageWeightShadowAuditState()
+
+    delta_periods = _record_period_timeseries_total_delta(
+        daily_series=None,
+        period_total_contribution=1.25,
+        average_weight_audit_state=audit_state,
+    )
+
+    assert delta_periods == 0
+    assert audit_state.timeseries_total_delta_periods == 0
+
+
+def test_record_period_timeseries_total_delta_ignores_reconciled_series():
+    audit_state = AverageWeightShadowAuditState()
+
+    delta_periods = _record_period_timeseries_total_delta(
+        daily_series=[
+            DailyContribution(date=pd.Timestamp("2025-01-01").date(), total_contribution=0.75),
+            DailyContribution(date=pd.Timestamp("2025-01-02").date(), total_contribution=0.50),
+        ],
+        period_total_contribution=1.25,
+        average_weight_audit_state=audit_state,
+    )
+
+    assert delta_periods == 0
+    assert audit_state.timeseries_total_delta_periods == 0
+
+
+def test_record_period_timeseries_total_delta_records_material_drift():
+    audit_state = AverageWeightShadowAuditState()
+
+    delta_periods = _record_period_timeseries_total_delta(
+        daily_series=[
+            DailyContribution(date=pd.Timestamp("2025-01-01").date(), total_contribution=0.75),
+            DailyContribution(date=pd.Timestamp("2025-01-02").date(), total_contribution=0.50),
+        ],
+        period_total_contribution=1.30,
+        average_weight_audit_state=audit_state,
+    )
+
+    assert delta_periods == 1
+    assert audit_state.timeseries_total_delta_periods == 1
 
 
 def test_contribution_period_helpers_slice_frames_and_extract_reset_dates():
