@@ -5,7 +5,7 @@ from datetime import date
 from decimal import Decimal
 
 from app.models.composites import CompositeMemberReturnFact
-from engine.composites import calculate_asset_weighted_composite_twr
+from engine.composites import _blocked_composite_period_result, calculate_asset_weighted_composite_twr
 
 
 @dataclass(frozen=True)
@@ -58,6 +58,62 @@ def _fact(
             "reason_codes": reason_codes or [],
         }
     )
+
+
+def test_blocked_composite_period_result_quantizes_assets_and_preserves_metadata():
+    ready_facts = [
+        _fact(
+            portfolio_id="P1",
+            beginning_market_value="0.0000004",
+            ending_market_value="10.1234567",
+        )
+    ]
+    excluded_facts = [_fact(portfolio_id="P2", status="BLOCKED", reason_codes=["missing_final_valuation"])]
+
+    result = _blocked_composite_period_result(
+        period_start=date(2026, 1, 1),
+        period_end=date(2026, 1, 31),
+        beginning_assets=Decimal("0.0000004"),
+        ending_assets=Decimal("10.1234567"),
+        ready_facts=ready_facts,
+        excluded_facts=excluded_facts,
+        return_view="NET_ACTUAL",
+        reporting_currency="USD",
+        source_fingerprints=["sha256:P1-2026-01-31"],
+        restatement_versions=["v1"],
+        reason_codes=["nonpositive_composite_beginning_assets"],
+    )
+
+    assert result.status == "BLOCKED"
+    assert result.return_value is None
+    assert str(result.beginning_market_value) == "0.000000"
+    assert str(result.ending_market_value) == "10.123457"
+    assert result.member_count == 1
+    assert result.excluded_member_count == 1
+    assert result.return_view == "NET_ACTUAL"
+    assert result.reporting_currency == "USD"
+    assert result.source_fingerprints == ["sha256:P1-2026-01-31"]
+    assert result.restatement_versions == ["v1"]
+    assert result.reason_codes == ["nonpositive_composite_beginning_assets"]
+    assert result.member_contributions == []
+
+
+def test_blocked_composite_period_result_defaults_empty_metadata_lists():
+    result = _blocked_composite_period_result(
+        period_start=date(2026, 1, 1),
+        period_end=date(2026, 1, 31),
+        beginning_assets=Decimal("0"),
+        ending_assets=Decimal("0"),
+        ready_facts=[],
+        excluded_facts=[_fact(portfolio_id="P1", status="BLOCKED", reason_codes=["upstream_twr_blocked"])],
+        reason_codes=["no_ready_member_return_facts"],
+    )
+
+    assert result.member_count == 0
+    assert result.excluded_member_count == 1
+    assert result.source_fingerprints == []
+    assert result.restatement_versions == []
+    assert result.reason_codes == ["no_ready_member_return_facts"]
 
 
 def test_asset_weighted_composite_twr_weights_member_returns_and_links_periods():

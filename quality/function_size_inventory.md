@@ -30,9 +30,9 @@ python scripts/python_function_size_inventory.py --limit 15
 | 8 | `resolve_stateful_returns_series_request` | `app/services/returns_series_service.py:935` | 226 |
 | 9 | `build_runtime_status_response` | `app/models/runtime_status.py:613` | 215 |
 | 10 | `_calculate_returns_series` | `app/services/returns_series_service.py:723` | 210 |
-| 11 | `calculate_asset_weighted_composite_twr` | `engine/composites.py:92` | 197 |
-| 12 | `DurableQueueCollector.collect` | `app/services/queue_metrics_service.py:227` | 188 |
-| 13 | `build_attribution_supportability_evidence` | `engine/attribution_supportability.py:42` | 184 |
+| 11 | `DurableQueueCollector.collect` | `app/services/queue_metrics_service.py:227` | 188 |
+| 12 | `build_attribution_supportability_evidence` | `engine/attribution_supportability.py:42` | 184 |
+| 13 | `calculate_asset_weighted_composite_twr` | `engine/composites.py:126` | 173 |
 | 14 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:503` | 172 |
 | 15 | `resolve_twr_request` | `app/services/twr_mode_service.py:44` | 165 |
 

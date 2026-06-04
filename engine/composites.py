@@ -89,6 +89,40 @@ def _sample_standard_deviation(values: list[Decimal]) -> Decimal | None:
     return _quantize_decimal(variance.sqrt(), COMPOSITE_RETURN_QUANTUM)
 
 
+def _blocked_composite_period_result(
+    *,
+    period_start: dt_date,
+    period_end: dt_date,
+    beginning_assets: Decimal,
+    ending_assets: Decimal,
+    ready_facts: Sequence[CompositeMemberReturnFactLike],
+    excluded_facts: Sequence[CompositeMemberReturnFactLike],
+    reason_codes: list[str],
+    return_view: str | None = None,
+    reporting_currency: str | None = None,
+    source_fingerprints: list[str] | None = None,
+    restatement_versions: list[str] | None = None,
+) -> CompositePeriodResult:
+    return CompositePeriodResult(
+        period_start=period_start,
+        period_end=period_end,
+        status="BLOCKED",
+        return_value=None,
+        cumulative_return=None,
+        beginning_market_value=_quantize_decimal(beginning_assets, COMPOSITE_ASSET_QUANTUM),
+        ending_market_value=_quantize_decimal(ending_assets, COMPOSITE_ASSET_QUANTUM),
+        member_count=len(ready_facts),
+        excluded_member_count=len(excluded_facts),
+        dispersion_equal_weight=None,
+        return_view=return_view,
+        reporting_currency=reporting_currency,
+        source_fingerprints=source_fingerprints or [],
+        restatement_versions=restatement_versions or [],
+        reason_codes=reason_codes,
+        member_contributions=[],
+    )
+
+
 def calculate_asset_weighted_composite_twr(
     *,
     composite_id: str,
@@ -119,23 +153,14 @@ def calculate_asset_weighted_composite_twr(
         ready_restatement_versions = sorted({fact.restatement_version for fact in ready_facts})
         if not ready_facts:
             period_results.append(
-                CompositePeriodResult(
+                _blocked_composite_period_result(
                     period_start=period_start,
                     period_end=period_end,
-                    status="BLOCKED",
-                    return_value=None,
-                    cumulative_return=None,
-                    beginning_market_value=Decimal("0").quantize(COMPOSITE_ASSET_QUANTUM),
-                    ending_market_value=Decimal("0").quantize(COMPOSITE_ASSET_QUANTUM),
-                    member_count=0,
-                    excluded_member_count=len(excluded_facts),
-                    dispersion_equal_weight=None,
-                    return_view=None,
-                    reporting_currency=None,
-                    source_fingerprints=[],
-                    restatement_versions=[],
+                    beginning_assets=Decimal("0"),
+                    ending_assets=Decimal("0"),
+                    ready_facts=ready_facts,
+                    excluded_facts=excluded_facts,
                     reason_codes=reason_codes or ["no_ready_member_return_facts"],
-                    member_contributions=[],
                 )
             )
             aggregate_reason_codes.add("no_ready_member_return_facts")
@@ -143,23 +168,18 @@ def calculate_asset_weighted_composite_twr(
 
         if beginning_assets <= 0:
             period_results.append(
-                CompositePeriodResult(
+                _blocked_composite_period_result(
                     period_start=period_start,
                     period_end=period_end,
-                    status="BLOCKED",
-                    return_value=None,
-                    cumulative_return=None,
-                    beginning_market_value=_quantize_decimal(beginning_assets, COMPOSITE_ASSET_QUANTUM),
-                    ending_market_value=_quantize_decimal(ending_assets, COMPOSITE_ASSET_QUANTUM),
-                    member_count=len(ready_facts),
-                    excluded_member_count=len(excluded_facts),
-                    dispersion_equal_weight=None,
+                    beginning_assets=beginning_assets,
+                    ending_assets=ending_assets,
+                    ready_facts=ready_facts,
+                    excluded_facts=excluded_facts,
                     return_view=ready_return_views[0] if len(ready_return_views) == 1 else None,
                     reporting_currency=ready_reporting_currencies[0] if len(ready_reporting_currencies) == 1 else None,
                     source_fingerprints=ready_source_fingerprints,
                     restatement_versions=ready_restatement_versions,
                     reason_codes=reason_codes + ["nonpositive_composite_beginning_assets"],
-                    member_contributions=[],
                 )
             )
             aggregate_reason_codes.add("nonpositive_composite_beginning_assets")
@@ -167,23 +187,18 @@ def calculate_asset_weighted_composite_twr(
 
         if len(ready_return_views) > 1:
             period_results.append(
-                CompositePeriodResult(
+                _blocked_composite_period_result(
                     period_start=period_start,
                     period_end=period_end,
-                    status="BLOCKED",
-                    return_value=None,
-                    cumulative_return=None,
-                    beginning_market_value=_quantize_decimal(beginning_assets, COMPOSITE_ASSET_QUANTUM),
-                    ending_market_value=_quantize_decimal(ending_assets, COMPOSITE_ASSET_QUANTUM),
-                    member_count=len(ready_facts),
-                    excluded_member_count=len(excluded_facts),
-                    dispersion_equal_weight=None,
+                    beginning_assets=beginning_assets,
+                    ending_assets=ending_assets,
+                    ready_facts=ready_facts,
+                    excluded_facts=excluded_facts,
                     return_view=None,
                     reporting_currency=ready_reporting_currencies[0] if len(ready_reporting_currencies) == 1 else None,
                     source_fingerprints=ready_source_fingerprints,
                     restatement_versions=ready_restatement_versions,
                     reason_codes=reason_codes + ["mixed_member_return_views"],
-                    member_contributions=[],
                 )
             )
             aggregate_reason_codes.add("mixed_member_return_views")
@@ -191,23 +206,18 @@ def calculate_asset_weighted_composite_twr(
 
         if len(ready_reporting_currencies) > 1:
             period_results.append(
-                CompositePeriodResult(
+                _blocked_composite_period_result(
                     period_start=period_start,
                     period_end=period_end,
-                    status="BLOCKED",
-                    return_value=None,
-                    cumulative_return=None,
-                    beginning_market_value=_quantize_decimal(beginning_assets, COMPOSITE_ASSET_QUANTUM),
-                    ending_market_value=_quantize_decimal(ending_assets, COMPOSITE_ASSET_QUANTUM),
-                    member_count=len(ready_facts),
-                    excluded_member_count=len(excluded_facts),
-                    dispersion_equal_weight=None,
+                    beginning_assets=beginning_assets,
+                    ending_assets=ending_assets,
+                    ready_facts=ready_facts,
+                    excluded_facts=excluded_facts,
                     return_view=ready_return_views[0],
                     reporting_currency=None,
                     source_fingerprints=ready_source_fingerprints,
                     restatement_versions=ready_restatement_versions,
                     reason_codes=reason_codes + ["mixed_member_reporting_currencies"],
-                    member_contributions=[],
                 )
             )
             aggregate_reason_codes.add("mixed_member_reporting_currencies")
