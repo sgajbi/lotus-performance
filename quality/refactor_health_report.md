@@ -24,9 +24,9 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Python files | 480 | 531 | measured | `rg --files -g '*.py'` |
+| Python files | 480 | 532 | measured | `rg --files -g '*.py'` |
 | Python package markers | 18 | 18 | measured | recursive `__init__.py` count |
-| Python LOC | 104,454 | 109,595 | measured | recursive `.py` line count |
+| Python LOC | 104,454 | 109,614 | measured | recursive `.py` line count |
 | Largest Python file LOC | 2,399 | 2,399 | measured | largest-file inventory in baseline report |
 | Largest production file LOC | 1,156 | 1,156 | measured | `app/services/lineage_metadata_store.py` |
 | Duplicate code hotspots | 0 | 0 | measured | `quality/duplicate_code_inventory.md` via `scripts/python_duplicate_code_inventory.py` with `--min-lines 12` |
@@ -50,7 +50,7 @@ link the commit, command, or CI artifact that proves the change.
 | Routers importing infrastructure directly | unknown | 0 | measured | `ROUTER_DIRECT_BOUNDARY_IMPORT` in `quality/architecture_boundary_inventory.md` |
 | Domain/application importing framework or infra code | unknown | 0 | measured | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` absent from `quality/architecture_boundary_inventory.md` |
 | Large production service hotspots | 3 | 3 | measured | `lineage_metadata_store.py`, `compute_job_store.py`, `stateful_input_service.py` exceed 1,000 LOC |
-| Router/middleware oversized function findings (`--threshold 80`) | unknown | 3 | measured | `quality/router_middleware_thinness_inventory.md` via `scripts/python_router_middleware_thinness_inventory.py` |
+| Router/middleware oversized function findings (`--threshold 80`) | unknown | 2 | measured | `quality/router_middleware_thinness_inventory.md` via `scripts/python_router_middleware_thinness_inventory.py` |
 
 ## API Quality
 

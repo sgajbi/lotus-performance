@@ -3,18 +3,18 @@ from uuid import uuid4
 import pandas as pd
 import pytest
 
-from app.api.endpoints.contribution import (
-    _accepted_response,
-    _as_numeric,
-    _build_execution_window,
-    _build_resolved_contribution_execution_window,
-    _should_offload_contribution,
-    _should_offload_resolved_contribution,
-    _should_preemptively_offload_stateful_contribution,
-)
+from app.api.endpoints.contribution import _as_numeric
 from app.models.contribution_analytics_requests import ContributionAnalyticsRequest
 from app.models.contribution_requests import ContributionRequest
 from app.services.contribution_audit import AverageWeightShadowAuditState
+from app.services.contribution_calculation_workflow_service import (
+    accepted_contribution_response,
+    build_contribution_execution_window,
+    build_resolved_contribution_execution_window,
+    should_offload_contribution,
+    should_offload_resolved_contribution,
+    should_preemptively_offload_stateful_contribution,
+)
 from app.services.contribution_diagnostics import (
     _build_portfolio_engine_diagnostics,
     _calculate_grouped_return_reset_alignment_counts,
@@ -779,7 +779,7 @@ def test_build_hierarchy_from_adjusted_position_series_handles_empty_and_unclass
     assert filtered_result["levels"] == []
 
 
-def test_contribution_endpoint_helpers_build_execution_windows_and_offload_flags(mocker):
+def test_contribution_endpoint_helpersbuild_contribution_execution_windows_and_offload_flags(mocker):
     stateless_request = ContributionRequest.model_validate(
         {
             "portfolio_id": "P1",
@@ -823,7 +823,7 @@ def test_contribution_endpoint_helpers_build_execution_windows_and_offload_flags
         }
     )
     mocker.patch(
-        "app.api.endpoints.contribution.get_settings",
+        "app.services.contribution_calculation_workflow_service.get_settings",
         return_value=type(
             "Settings",
             (),
@@ -831,18 +831,21 @@ def test_contribution_endpoint_helpers_build_execution_windows_and_offload_flags
         )(),
     )
 
-    assert _should_offload_contribution(stateless_request) is True
-    assert _should_offload_contribution(nested_stateless_request) is False
-    assert _should_preemptively_offload_stateful_contribution(stateful_request) is True
-    assert _should_offload_resolved_contribution(2) is True
-    assert _build_execution_window(stateless_request)["position_count"] == 2
-    assert _build_execution_window(nested_stateless_request)["position_count"] == 1
-    assert _build_execution_window(stateful_request)["position_count"] == 0
+    assert should_offload_contribution(stateless_request) is True
+    assert should_offload_contribution(nested_stateless_request) is False
+    assert should_preemptively_offload_stateful_contribution(stateful_request) is True
+    assert should_offload_resolved_contribution(2) is True
+    assert build_contribution_execution_window(stateless_request)["position_count"] == 2
+    assert build_contribution_execution_window(nested_stateless_request)["position_count"] == 1
+    assert build_contribution_execution_window(stateful_request)["position_count"] == 0
     assert (
-        _build_execution_window(stateful_request, source_request_fingerprint="fp")["source_request_fingerprint"] == "fp"
+        build_contribution_execution_window(stateful_request, source_request_fingerprint="fp")[
+            "source_request_fingerprint"
+        ]
+        == "fp"
     )
     assert (
-        _build_resolved_contribution_execution_window(
+        build_resolved_contribution_execution_window(
             stateful_request,
             position_count=5,
             source_request_fingerprint="fp",
@@ -851,9 +854,9 @@ def test_contribution_endpoint_helpers_build_execution_windows_and_offload_flags
     )
 
 
-def test_contribution_endpoint_helpers_build_accepted_response():
+def test_contribution_endpoint_helpers_buildaccepted_contribution_response():
     calculation_id = uuid4()
-    response = _accepted_response(calculation_id)
+    response = accepted_contribution_response(calculation_id)
 
     assert response.calculation_id == calculation_id
     assert response.poll_path == f"/performance/executions/{calculation_id}"

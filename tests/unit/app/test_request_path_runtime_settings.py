@@ -7,7 +7,6 @@ import pandas as pd
 import pytest
 from fastapi import HTTPException
 
-from app.api.endpoints.contribution import _should_offload_contribution
 from app.api.endpoints.performance import _should_offload_attribution, _should_offload_workspace_summary
 from app.models.attribution_analytics_requests import AttributionAnalyticsRequest
 from app.models.attribution_requests import AttributionRequest
@@ -17,6 +16,7 @@ from app.models.contribution_responses import PositionContributionSeries, Positi
 from app.models.workspace_summary_requests import WorkspaceSummaryRequest
 from app.services import attribution_service, contribution_service
 from app.services.attribution_service import _slice_attribution_effects_by_period
+from app.services.contribution_calculation_workflow_service import should_offload_contribution
 from common.enums import AttributionModel, LinkingMethod, PeriodType
 
 
@@ -37,11 +37,11 @@ def test_should_offload_contribution_uses_runtime_settings(mocker):
         }
     )
     mocker.patch(
-        "app.api.endpoints.contribution.get_settings",
+        "app.services.contribution_calculation_workflow_service.get_settings",
         return_value=type("Settings", (), {"CONTRIBUTION_EXECUTOR_POSITION_COUNT": 1})(),
     )
 
-    assert _should_offload_contribution(request) is True
+    assert should_offload_contribution(request) is True
 
 
 def test_should_offload_attribution_uses_runtime_settings(mocker):
