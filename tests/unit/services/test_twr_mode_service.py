@@ -12,6 +12,7 @@ from app.services.execution_stage_names import EXECUTION_STAGE_NORMALIZATION
 from app.services.twr_mode_service import (
     _build_resolved_twr_benchmark_request,
     _resolve_default_stateful_benchmark_input,
+    _resolve_twr_portfolio_source_input,
     resolve_twr_request,
 )
 
@@ -233,6 +234,64 @@ async def test_resolve_twr_request_allows_missing_stateful_start_date(monkeypatc
     resolved = await resolve_twr_request(request, settings=_settings())
 
     assert str(resolved.performance_request.performance_start_date) == "2024-01-15"
+
+
+@pytest.mark.asyncio
+async def test_resolve_twr_portfolio_source_input_reports_retrieval_details_from_derived_start():
+    class _StatefulPortfolioStub:
+        captured_start_date = None
+
+        async def get_portfolio_reference(self, **kwargs):  # noqa: ARG002
+            return 200, {"portfolio_open_date": "2024-01-15"}
+
+        async def get_portfolio_timeseries(self, **kwargs):
+            self.captured_start_date = kwargs["start_date"]
+            return (
+                200,
+                {
+                    "portfolio_open_date": "2024-01-15",
+                    "observations": [
+                        {
+                            "valuation_date": "2025-01-02",
+                            "beginning_market_value": "1010",
+                            "ending_market_value": "1020.1",
+                        },
+                        {
+                            "valuation_date": "2025-01-01",
+                            "beginning_market_value": "1000",
+                            "ending_market_value": "1010",
+                        },
+                    ],
+                    "retrieval_metadata": {"chunk_count": 3, "page_count": 2},
+                },
+            )
+
+    stateful_input_service = _StatefulPortfolioStub()
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_1",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "stateful_input": {},
+        }
+    )
+
+    resolved = await _resolve_twr_portfolio_source_input(
+        request=request,
+        settings=_settings(),
+        stateful_input_service=stateful_input_service,
+    )
+
+    assert stateful_input_service.captured_start_date.isoformat() == "2024-01-15"
+    assert resolved.benchmark_start_date.isoformat() == "2025-01-01"
+    assert resolved.retrieval_details == {
+        "portfolio_observations": 2,
+        "portfolio_chunk_count": 3,
+        "portfolio_page_count": 2,
+    }
 
 
 @pytest.mark.asyncio

@@ -1,6 +1,6 @@
 # Lotus Performance Function Size Inventory
 
-Report date: 2026-06-04
+Report date: 2026-06-05
 Branch: `feat/performance-hardening-wave-12`
 Mode: report-only function-size inventory; this artifact introduces no new blocking CI gate.
 
@@ -31,10 +31,10 @@ python scripts/python_function_size_inventory.py --limit 15
 | 9 | `build_attribution_supportability_evidence` | `engine/attribution_supportability.py:42` | 184 |
 | 10 | `build_runtime_status_response` | `app/models/runtime_status.py:660` | 173 |
 | 11 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:503` | 172 |
-| 12 | `resolve_twr_request` | `app/services/twr_mode_service.py:44` | 165 |
-| 13 | `DurableQueueCollector.describe` | `app/services/queue_metrics_service.py:67` | 159 |
-| 14 | `calculate_twr_response` | `app/services/twr_service.py:738` | 151 |
-| 15 | `calculate_twr_workflow` | `app/services/twr_calculation_service.py:159` | 148 |
+| 12 | `DurableQueueCollector.describe` | `app/services/queue_metrics_service.py:67` | 159 |
+| 13 | `calculate_twr_response` | `app/services/twr_service.py:738` | 151 |
+| 14 | `calculate_twr_workflow` | `app/services/twr_calculation_service.py:159` | 148 |
+| 15 | `aggregate_attribution_results` | `engine/attribution.py:586` | 148 |
 
 ## Interpretation
 

@@ -17,6 +17,7 @@ from app.services.service_identity import LOTUS_PERFORMANCE_CONSUMER_SYSTEM
 from app.services.stateful_benchmark_input_service import build_stateful_benchmark_input
 from app.services.stateful_input_service import StatefulInputService
 from app.services.stateful_performance_input_service import (
+    StatefulPortfolioInput,
     build_stateful_portfolio_valuation_input,
     retrieve_stateful_portfolio_input,
 )
@@ -39,6 +40,13 @@ class ResolvedTWRRequest:
 
 def _benchmark_requested(request: TWRAnalyticsRequest) -> bool:
     return request.include_benchmark or request.benchmark is not None
+
+
+@dataclass(frozen=True)
+class _ResolvedTWRPortfolioSourceInput:
+    portfolio_input: StatefulPortfolioInput
+    benchmark_start_date: date | None
+    retrieval_details: dict[str, object]
 
 
 async def resolve_twr_request(
@@ -72,43 +80,14 @@ async def resolve_twr_request(
 
     try:
         if request.input_mode == TWRInputMode.STATEFUL:
-            stateful_input = request.stateful_input
-            if stateful_input is None:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="stateful_input is required when input_mode=stateful",
-                )
-            derived_start_date = None
-            if request.performance_start_date is None:
-                derived_start_date = await _resolve_stateful_portfolio_start_date(
-                    request=request,
-                    stateful_input_service=stateful_input_service,
-                )
-            resolved_start_date = derived_start_date or request.performance_start_date
-            if resolved_start_date is None:
-                raise HTTPException(
-                    status_code=HTTP_422_UNPROCESSABLE,
-                    detail="Unable to derive a performance_start_date for the stateful TWR request.",
-                )
-            portfolio_input = await retrieve_stateful_portfolio_input(
+            portfolio_resolution = await _resolve_twr_portfolio_source_input(
+                request=request,
                 settings=settings,
-                stateful_input_service=(stateful_input_service if derived_start_date is not None else None),
-                calculation_id=request.calculation_id,
-                portfolio_id=request.portfolio_id,
-                as_of_date=request.report_end_date,
-                start_date=resolved_start_date,
-                end_date=request.report_end_date,
-                reporting_currency=request.report_ccy,
-                consumer_system=LOTUS_PERFORMANCE_CONSUMER_SYSTEM,
+                stateful_input_service=stateful_input_service,
             )
-            retrieval_details.update(
-                {
-                    "portfolio_observations": len(portfolio_input.observations),
-                    "portfolio_chunk_count": portfolio_input.retrieval_metadata.chunk_count,
-                    "portfolio_page_count": portfolio_input.retrieval_metadata.page_count,
-                }
-            )
-            benchmark_start_date = _resolve_benchmark_start_date_from_stateful_source(portfolio_input.observations)
+            portfolio_input = portfolio_resolution.portfolio_input
+            benchmark_start_date = portfolio_resolution.benchmark_start_date
+            retrieval_details.update(portfolio_resolution.retrieval_details)
 
         if _benchmark_requested(request):
             if benchmark_start_date is None:
@@ -205,6 +184,52 @@ async def resolve_twr_request(
             if _benchmark_requested(request)
             else None
         ),
+    )
+
+
+async def _resolve_twr_portfolio_source_input(
+    *,
+    request: TWRAnalyticsRequest,
+    settings: Settings,
+    stateful_input_service: StatefulInputService,
+) -> _ResolvedTWRPortfolioSourceInput:
+    stateful_input = request.stateful_input
+    if stateful_input is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="stateful_input is required when input_mode=stateful",
+        )
+    derived_start_date = None
+    if request.performance_start_date is None:
+        derived_start_date = await _resolve_stateful_portfolio_start_date(
+            request=request,
+            stateful_input_service=stateful_input_service,
+        )
+    resolved_start_date = derived_start_date or request.performance_start_date
+    if resolved_start_date is None:
+        raise HTTPException(
+            status_code=HTTP_422_UNPROCESSABLE,
+            detail="Unable to derive a performance_start_date for the stateful TWR request.",
+        )
+    portfolio_input = await retrieve_stateful_portfolio_input(
+        settings=settings,
+        stateful_input_service=(stateful_input_service if derived_start_date is not None else None),
+        calculation_id=request.calculation_id,
+        portfolio_id=request.portfolio_id,
+        as_of_date=request.report_end_date,
+        start_date=resolved_start_date,
+        end_date=request.report_end_date,
+        reporting_currency=request.report_ccy,
+        consumer_system=LOTUS_PERFORMANCE_CONSUMER_SYSTEM,
+    )
+    return _ResolvedTWRPortfolioSourceInput(
+        portfolio_input=portfolio_input,
+        benchmark_start_date=_resolve_benchmark_start_date_from_stateful_source(portfolio_input.observations),
+        retrieval_details={
+            "portfolio_observations": len(portfolio_input.observations),
+            "portfolio_chunk_count": portfolio_input.retrieval_metadata.chunk_count,
+            "portfolio_page_count": portfolio_input.retrieval_metadata.page_count,
+        },
     )
 
 

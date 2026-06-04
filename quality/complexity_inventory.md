@@ -21,7 +21,7 @@ python scripts/python_complexity_inventory.py --limit 20
 | Metric | Value |
 | --- | ---: |
 | Max cyclomatic complexity | 25 |
-| High-complexity functions (rank D-F) | 12 |
+| High-complexity functions (rank D-F) | 11 |
 | Average maintainability index | 55.85 |
 
 ## Highest Cyclomatic Complexity
@@ -29,18 +29,18 @@ python scripts/python_complexity_inventory.py --limit 20
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
 | 1 | `_calculate_returns_series` | function | `app/services/returns_series_service.py:809` | 25 | D |
-| 2 | `resolve_twr_request` | function | `app/services/twr_mode_service.py:44` | 25 | D |
-| 3 | `calculate_money_weighted_return` | function | `engine/mwr.py:186` | 25 | D |
-| 4 | `build_source_economics_findings` | function | `app/services/inspection/source_economics_findings.py:7` | 24 | D |
-| 5 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:1012` | 24 | D |
-| 6 | `ReturnsSeriesRequest` | class | `app/models/returns_series.py:244` | 22 | D |
-| 7 | `analyze_portfolio_position_reconciliation` | function | `app/services/inspection/reconciliation.py:82` | 22 | D |
-| 8 | `calculate_benchmark_returns` | function | `engine/benchmarks.py:35` | 22 | D |
-| 9 | `validate_selection` | method | `app/models/returns_series.py:318` | 21 | D |
-| 10 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:64` | 21 | D |
-| 11 | `build_integration_capabilities_report` | function | `app/services/integration_capabilities_service.py:92` | 21 | D |
-| 12 | `build_stateful_mwr_input_for_window` | function | `app/services/stateful_mwr_input_service.py:100` | 21 | D |
-| 13 | `_validate_stateful_portfolio_position_alignment` | function | `app/services/stateful_attribution_input_service.py:283` | 20 | C |
+| 2 | `calculate_money_weighted_return` | function | `engine/mwr.py:186` | 25 | D |
+| 3 | `build_source_economics_findings` | function | `app/services/inspection/source_economics_findings.py:7` | 24 | D |
+| 4 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:1012` | 24 | D |
+| 5 | `ReturnsSeriesRequest` | class | `app/models/returns_series.py:244` | 22 | D |
+| 6 | `analyze_portfolio_position_reconciliation` | function | `app/services/inspection/reconciliation.py:82` | 22 | D |
+| 7 | `calculate_benchmark_returns` | function | `engine/benchmarks.py:35` | 22 | D |
+| 8 | `validate_selection` | method | `app/models/returns_series.py:318` | 21 | D |
+| 9 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:64` | 21 | D |
+| 10 | `build_integration_capabilities_report` | function | `app/services/integration_capabilities_service.py:92` | 21 | D |
+| 11 | `build_stateful_mwr_input_for_window` | function | `app/services/stateful_mwr_input_service.py:100` | 21 | D |
+| 12 | `_validate_stateful_portfolio_position_alignment` | function | `app/services/stateful_attribution_input_service.py:283` | 20 | C |
+| 13 | `resolve_twr_request` | function | `app/services/twr_mode_service.py:52` | 20 | C |
 | 14 | `calculate_twr_response` | function | `app/services/twr_service.py:738` | 20 | C |
 | 15 | `build_attribution_supportability_evidence` | function | `engine/attribution_supportability.py:42` | 20 | C |
 | 16 | `calculate_daily_ror` | function | `engine/ror.py:18` | 20 | C |
@@ -72,7 +72,7 @@ python scripts/python_complexity_inventory.py --limit 20
 | 17 | `app/services/inspection/source_quality.py` | 18.55 | B |
 | 18 | `app/workers/compute_executor_worker.py` | 18.74 | B |
 | 19 | `app/services/inspection/source_economics.py` | 18.96 | B |
-| 20 | `app/models/returns_series.py` | 20.02 | A |
+| 20 | `app/services/twr_mode_service.py` | 19.71 | A |
 
 ## Interpretation
 
