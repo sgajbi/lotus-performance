@@ -131,6 +131,61 @@ class BenchmarkStatefulInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+def _validate_benchmark_analysis_selection(analyses: list[Analysis], report_start_date: dt_date | None) -> None:
+    if not analyses:
+        raise ValueError("analyses list cannot be empty")
+    if any(analysis.period == PeriodType.EXPLICIT for analysis in analyses) and report_start_date is None:
+        raise ValueError("report_start_date is required when analyses include EXPLICIT")
+
+
+def _validate_calculated_stateless_benchmark_payload(stateless_input: BenchmarkStatelessInput) -> None:
+    has_component_observations = bool(stateless_input.component_observations)
+    has_component_price_points = bool(stateless_input.component_price_points)
+    if has_component_observations == has_component_price_points:
+        raise ValueError(
+            "exactly one of stateless_input.component_observations or "
+            "stateless_input.component_price_points is required when return_source=calculated"
+        )
+    if stateless_input.benchmark_return_points:
+        raise ValueError("stateless_input.benchmark_return_points must be empty when return_source=calculated")
+
+
+def _validate_vendor_series_stateless_benchmark_payload(stateless_input: BenchmarkStatelessInput) -> None:
+    if not stateless_input.benchmark_return_points:
+        raise ValueError("stateless_input.benchmark_return_points are required when return_source=vendor_series")
+    if stateless_input.component_observations:
+        raise ValueError("stateless_input.component_observations must be empty when return_source=vendor_series")
+    if stateless_input.component_price_points:
+        raise ValueError("stateless_input.component_price_points must be empty when return_source=vendor_series")
+
+
+def _validate_stateless_benchmark_payloads(
+    *,
+    stateless_input: BenchmarkStatelessInput | None,
+    stateful_input: BenchmarkStatefulInput | None,
+    return_source: BenchmarkReturnSource,
+) -> None:
+    if stateless_input is None:
+        raise ValueError("stateless_input is required when input_mode=stateless")
+    if stateful_input is not None:
+        raise ValueError("stateful_input must be null when input_mode=stateless")
+    if return_source == BenchmarkReturnSource.CALCULATED:
+        _validate_calculated_stateless_benchmark_payload(stateless_input)
+    else:
+        _validate_vendor_series_stateless_benchmark_payload(stateless_input)
+
+
+def _validate_stateful_benchmark_payloads(
+    *,
+    stateless_input: BenchmarkStatelessInput | None,
+    stateful_input: BenchmarkStatefulInput | None,
+) -> None:
+    if stateful_input is None:
+        raise ValueError("stateful_input is required when input_mode=stateful")
+    if stateless_input is not None:
+        raise ValueError("stateless_input must be null when input_mode=stateful")
+
+
 class BenchmarkAnalyticsRequest(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -227,45 +282,18 @@ class BenchmarkAnalyticsRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_mode_payloads(self) -> "BenchmarkAnalyticsRequest":
-        if not self.analyses:
-            raise ValueError("analyses list cannot be empty")
-        if any(analysis.period == PeriodType.EXPLICIT for analysis in self.analyses) and self.report_start_date is None:
-            raise ValueError("report_start_date is required when analyses include EXPLICIT")
+        _validate_benchmark_analysis_selection(self.analyses, self.report_start_date)
         if self.input_mode == BenchmarkInputMode.STATELESS:
-            if self.stateless_input is None:
-                raise ValueError("stateless_input is required when input_mode=stateless")
-            if self.stateful_input is not None:
-                raise ValueError("stateful_input must be null when input_mode=stateless")
-            if self.return_source == BenchmarkReturnSource.CALCULATED:
-                has_component_observations = bool(self.stateless_input.component_observations)
-                has_component_price_points = bool(self.stateless_input.component_price_points)
-                if has_component_observations == has_component_price_points:
-                    raise ValueError(
-                        "exactly one of stateless_input.component_observations or "
-                        "stateless_input.component_price_points is required when return_source=calculated"
-                    )
-                if self.stateless_input.benchmark_return_points:
-                    raise ValueError(
-                        "stateless_input.benchmark_return_points must be empty when return_source=calculated"
-                    )
-            else:
-                if not self.stateless_input.benchmark_return_points:
-                    raise ValueError(
-                        "stateless_input.benchmark_return_points are required when return_source=vendor_series"
-                    )
-                if self.stateless_input.component_observations:
-                    raise ValueError(
-                        "stateless_input.component_observations must be empty when return_source=vendor_series"
-                    )
-                if self.stateless_input.component_price_points:
-                    raise ValueError(
-                        "stateless_input.component_price_points must be empty when return_source=vendor_series"
-                    )
+            _validate_stateless_benchmark_payloads(
+                stateless_input=self.stateless_input,
+                stateful_input=self.stateful_input,
+                return_source=self.return_source,
+            )
         else:
-            if self.stateful_input is None:
-                raise ValueError("stateful_input is required when input_mode=stateful")
-            if self.stateless_input is not None:
-                raise ValueError("stateless_input must be null when input_mode=stateful")
+            _validate_stateful_benchmark_payloads(
+                stateless_input=self.stateless_input,
+                stateful_input=self.stateful_input,
+            )
         return self
 
     def to_benchmark_performance_request(
