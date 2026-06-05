@@ -1,6 +1,11 @@
 import logging
+from pathlib import Path
 
-from app.services.queue_metrics_service import DurableQueueCollector, _load_metric_source
+from app.services.queue_metrics_service import (
+    DurableQueueCollector,
+    _load_durable_queue_metric_sources,
+    _load_metric_source,
+)
 
 
 def test_load_metric_source_returns_value_and_availability():
@@ -29,6 +34,53 @@ def test_load_metric_source_logs_source_failures(caplog):
     assert available is False
     assert "Queue metric source load failed for compute queue stats." in caplog.text
     assert "RuntimeError: source unavailable" in caplog.text
+
+
+def test_load_durable_queue_metric_sources_captures_availability_and_action_paths(monkeypatch):
+    lease_calls: list[dict[str, object]] = []
+    monkeypatch.setattr("app.services.queue_metrics_service.compute_job_store.get_queue_stats", lambda: "compute")
+    monkeypatch.setattr(
+        "app.services.queue_metrics_service.lineage_metadata_store.get_pending_payload_stats",
+        lambda: "lineage",
+    )
+    monkeypatch.setattr("app.services.queue_metrics_service.get_lineage_storage_capacity", lambda: "capacity")
+    monkeypatch.setattr(
+        "app.services.queue_metrics_service.build_recovery_drill_history_snapshot",
+        lambda limit=1: "recovery",
+    )
+    monkeypatch.setattr(
+        "app.services.queue_metrics_service.build_runtime_retention_history_snapshot",
+        lambda limit=1: "retention",
+    )
+    monkeypatch.setattr(
+        "app.services.queue_metrics_service.build_operator_action_lease_snapshot",
+        lambda **kwargs: lease_calls.append(kwargs) or {"status": "available", **kwargs},
+    )
+    monkeypatch.setattr(
+        "app.services.queue_metrics_service.run_runtime_retention_cleanup",
+        lambda dry_run=True: {"dry_run": dry_run},
+    )
+
+    sources = _load_durable_queue_metric_sources(
+        type(
+            "Settings",
+            (),
+            {
+                "RECOVERY_DRILL_ARTIFACT_PATH": Path("custom-recovery"),
+                "RUNTIME_RETENTION_ARTIFACT_PATH": Path("custom-retention"),
+            },
+        )()
+    )
+
+    assert sources.compute_stats == "compute"
+    assert sources.lineage_available is True
+    assert sources.lineage_storage_capacity == "capacity"
+    assert sources.recovery_drill_snapshot == "recovery"
+    assert sources.runtime_retention_preview == {"dry_run": True}
+    assert lease_calls == [
+        {"artifact_directory": Path("custom-recovery"), "action_name": "recovery_drill"},
+        {"artifact_directory": Path("custom-retention"), "action_name": "runtime_retention_cleanup"},
+    ]
 
 
 def test_queue_metrics_collector_emits_compute_and_lineage_metrics(monkeypatch):

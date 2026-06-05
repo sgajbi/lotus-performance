@@ -22,13 +22,13 @@ python scripts/python_complexity_inventory.py --limit 20
 | --- | ---: |
 | Max cyclomatic complexity | 15 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.70 |
+| Average maintainability index | 55.68 |
 
 ## Highest Cyclomatic Complexity
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `collect` | method | `app/services/queue_metrics_service.py:227` | 15 | C |
+| 1 | `collect` | method | `app/services/queue_metrics_service.py:311` | 15 | C |
 | 2 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:1265` | 15 | C |
 | 3 | `_position_meta_from_row` | function | `app/services/stateful_attribution_input_service.py:863` | 15 | C |
 | 4 | `_build_component_observations` | function | `app/services/stateful_benchmark_input_service.py:474` | 15 | C |
