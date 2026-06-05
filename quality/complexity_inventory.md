@@ -22,7 +22,7 @@ python scripts/python_complexity_inventory.py --limit 20
 | --- | ---: |
 | Max cyclomatic complexity | 15 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.66 |
+| Average maintainability index | 55.65 |
 
 ## Highest Cyclomatic Complexity
 
@@ -47,7 +47,7 @@ python scripts/python_complexity_inventory.py --limit 20
 | 17 | `build_hierarchical_contribution_result` | function | `engine/contribution.py:298` | 14 | C |
 | 18 | `_apply_overrides` | function | `engine/policies.py:38` | 14 | C |
 | 19 | `_build_artifacts` | function | `app/services/composite_inspection_service.py:114` | 13 | C |
-| 20 | `_record_fee_samples` | method | `app/services/inspection/source_economics_collector.py:175` | 13 | C |
+| 20 | `validate_history_manifest_header` | function | `app/services/operator_action_history_manifest.py:74` | 13 | C |
 
 ## Lowest Maintainability Index
 
@@ -67,9 +67,9 @@ python scripts/python_complexity_inventory.py --limit 20
 | 12 | `app/services/operator_action_lease_service.py` | 15.51 | B |
 | 13 | `app/services/inspection/reconciliation.py` | 16.40 | B |
 | 14 | `app/services/inspection/calculation_consistency.py` | 16.96 | B |
-| 15 | `app/services/inspection/source_economics.py` | 17.49 | B |
-| 16 | `app/workers/compute_executor_worker.py` | 17.85 | B |
-| 17 | `app/services/inspection/source_economics_collector.py` | 18.02 | B |
+| 15 | `app/services/inspection/source_economics_collector.py` | 17.35 | B |
+| 16 | `app/services/inspection/source_economics.py` | 17.49 | B |
+| 17 | `app/workers/compute_executor_worker.py` | 17.85 | B |
 | 18 | `app/services/inspection/source_quality.py` | 18.55 | B |
 | 19 | `app/models/runtime_status.py` | 18.75 | B |
 | 20 | `app/services/twr_mode_service.py` | 18.80 | B |
@@ -126,7 +126,9 @@ legacy payload-shape checks and stateless/stateful contribution payload checks w
 dedicated helpers. `TWRBenchmarkRequest` also dropped out after stateless/stateful benchmark payload
 checks and calculated/vendor-series stateless rules were split into dedicated helpers.
 `_build_contribution_smoothing_evidence` also dropped out after smoothing status/reason-code policy
-and Carino factor range extraction were split into dedicated helpers. Max
+and Carino factor range extraction were split into dedicated helpers. `_record_fee_samples` also
+dropped out after fee normalization, fee source-signal, and fee timing sample routing were split
+into dedicated helpers. Max
 cyclomatic complexity is now `15`. The remaining
 highest-complexity functions are C-grade service and engine hotspots that should be treated as
 future bounded refactor candidates, not as evidence of an immediate behavior defect.

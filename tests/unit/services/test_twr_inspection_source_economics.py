@@ -64,6 +64,90 @@ def test_collect_source_economics_samples_routes_taxonomy_samples():
     ]
 
 
+def test_collect_source_economics_samples_routes_fee_samples():
+    samples = collect_source_economics_samples(
+        source_points=[
+            ObservationSourceEconomics(
+                valuation_date="2026-03-12",
+                normalized_bod_cf=Decimal("0"),
+                normalized_eod_cf=Decimal("0"),
+                normalized_mgmt_fees=Decimal("0"),
+                detailed_external_bod=Decimal("0"),
+                detailed_external_eod=Decimal("0"),
+                detailed_fee_bod=Decimal("-5"),
+                detailed_fee_eod=Decimal("-10"),
+                explicit_bod_total=None,
+                explicit_eod_total=None,
+                explicit_fee_total=Decimal("-15"),
+                conflicting_explicit_amount_fields=(),
+                invalid_explicit_amount_fields=(),
+                invalid_cashflow_collection=None,
+                invalid_cashflow_rows=(),
+                invalid_amount_rows=(),
+                invalid_timing_rows=(),
+                missing_cashflow_type_rows=(),
+                noncanonical_cashflow_types=(),
+                unsupported_cashflow_type_rows=(),
+                governed_alias_cashflow_type_rows=(),
+                fee_bod_timing_rows=({"amount": "-5", "timing": "bod", "cash_flow_type": "fee"},),
+            ),
+            ObservationSourceEconomics(
+                valuation_date="2026-03-13",
+                normalized_bod_cf=Decimal("0"),
+                normalized_eod_cf=Decimal("0"),
+                normalized_mgmt_fees=Decimal("0"),
+                detailed_external_bod=Decimal("0"),
+                detailed_external_eod=Decimal("0"),
+                detailed_fee_bod=Decimal("-2"),
+                detailed_fee_eod=Decimal("0"),
+                explicit_bod_total=None,
+                explicit_eod_total=None,
+                explicit_fee_total=Decimal("3"),
+                conflicting_explicit_amount_fields=(),
+                invalid_explicit_amount_fields=(),
+                invalid_cashflow_collection=None,
+                invalid_cashflow_rows=(),
+                invalid_amount_rows=(),
+                invalid_timing_rows=(),
+                missing_cashflow_type_rows=(),
+                noncanonical_cashflow_types=(),
+                unsupported_cashflow_type_rows=(),
+                governed_alias_cashflow_type_rows=(),
+                fee_bod_timing_rows=(),
+            ),
+        ]
+    )
+
+    assert samples.fee_normalization_samples[0] == {
+        "valuation_date": "2026-03-12",
+        "raw_fee_bod": -5.0,
+        "raw_fee_eod": -10.0,
+        "expected_fee_amount": "-15",
+        "fee_source_kind": "detailed_fee_cash_flows",
+        "normalized_bod_cf": 0.0,
+        "normalized_eod_cf": 0.0,
+        "normalized_mgmt_fees": 0.0,
+    }
+    assert samples.duplicate_fee_signal_samples == [
+        {"valuation_date": "2026-03-12", "explicit_fee_amount": "-15", "fee_cashflow_amount": "-15"}
+    ]
+    assert samples.fee_source_mismatch_samples == [
+        {"valuation_date": "2026-03-13", "explicit_fee_amount": "3", "fee_cashflow_amount": "-2"}
+    ]
+    assert samples.positive_fee_signal_samples == [
+        {"valuation_date": "2026-03-13", "detailed_fee_amount": "-2", "explicit_fee_amount": "3"}
+    ]
+    assert samples.fee_timing_bucket_samples == [
+        {
+            "valuation_date": "2026-03-12",
+            "rows": [{"amount": "-5", "timing": "bod", "cash_flow_type": "fee"}],
+        }
+    ]
+    assert samples.fee_mixed_timing_samples == [
+        {"valuation_date": "2026-03-12", "detailed_fee_bod": -5.0, "detailed_fee_eod": -10.0}
+    ]
+
+
 def test_analyze_source_economics_flags_fee_normalization_gap_and_duplicate_signal():
     performance_request = PerformanceRequest(
         portfolio_id="PB_SG_GLOBAL_BAL_001",

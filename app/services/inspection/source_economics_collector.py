@@ -173,6 +173,11 @@ class _SourceEconomicsSampleCollector:
         )
 
     def _record_fee_samples(self, source_point: ObservationSourceEconomics) -> None:
+        self._record_fee_normalization_sample(source_point)
+        self._record_fee_source_signals(source_point)
+        self._record_fee_timing_samples(source_point)
+
+    def _record_fee_normalization_sample(self, source_point: ObservationSourceEconomics) -> None:
         expected_fee_total, fee_source_kind = _expected_fee_total(source_point)
         if expected_fee_total is not None and not _amounts_match(source_point.normalized_mgmt_fees, expected_fee_total):
             self.fee_normalization_samples.append(
@@ -188,6 +193,7 @@ class _SourceEconomicsSampleCollector:
                 }
             )
 
+    def _record_fee_source_signals(self, source_point: ObservationSourceEconomics) -> None:
         fee_total = source_point.detailed_fee_bod + source_point.detailed_fee_eod
         if source_point.explicit_fee_total is not None and _amounts_match(source_point.explicit_fee_total, fee_total):
             self.duplicate_fee_signal_samples.append(
@@ -213,6 +219,8 @@ class _SourceEconomicsSampleCollector:
                     "explicit_fee_amount": _optional_decimal_to_artifact(source_point.explicit_fee_total),
                 }
             )
+
+    def _record_fee_timing_samples(self, source_point: ObservationSourceEconomics) -> None:
         if source_point.fee_bod_timing_rows:
             self.fee_timing_bucket_samples.append(
                 {
