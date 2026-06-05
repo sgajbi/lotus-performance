@@ -26,15 +26,15 @@ python scripts/python_function_size_inventory.py --limit 15
 | 4 | `build_runtime_status_response` | `app/models/runtime_status.py:660` | 173 |
 | 5 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:503` | 172 |
 | 6 | `DurableQueueCollector.describe` | `app/services/queue_metrics_service.py:67` | 159 |
-| 7 | `_calculate_returns_series` | `app/services/returns_series_service.py:1026` | 158 |
-| 8 | `calculate_twr_workflow` | `app/services/twr_calculation_service.py:159` | 148 |
-| 9 | `aggregate_attribution_results` | `engine/attribution.py:586` | 148 |
-| 10 | `calculate_benchmark_workflow` | `app/services/benchmark_calculation_workflow_service.py:89` | 147 |
-| 11 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:71` | 147 |
-| 12 | `resolve_stateful_returns_series_request` | `app/services/returns_series_service.py:1186` | 143 |
-| 13 | `calculate_attribution` | `app/services/attribution_service.py:69` | 142 |
-| 14 | `_build_artifacts` | `app/services/composite_inspection_service.py:114` | 135 |
-| 15 | `_build_fee_source_economics_findings` | `app/services/inspection/source_economics_findings.py:398` | 130 |
+| 7 | `calculate_twr_workflow` | `app/services/twr_calculation_service.py:159` | 148 |
+| 8 | `aggregate_attribution_results` | `engine/attribution.py:586` | 148 |
+| 9 | `calculate_benchmark_workflow` | `app/services/benchmark_calculation_workflow_service.py:89` | 147 |
+| 10 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:71` | 147 |
+| 11 | `resolve_stateful_returns_series_request` | `app/services/returns_series_service.py:1238` | 143 |
+| 12 | `calculate_attribution` | `app/services/attribution_service.py:69` | 142 |
+| 13 | `_build_artifacts` | `app/services/composite_inspection_service.py:114` | 135 |
+| 14 | `_build_fee_source_economics_findings` | `app/services/inspection/source_economics_findings.py:398` | 130 |
+| 15 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:327` | 130 |
 
 ## Interpretation
 
