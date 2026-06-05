@@ -2,6 +2,7 @@ from dataclasses import fields
 
 from app.services.inspection.source_economics_collector import SourceEconomicsSamples
 from app.services.inspection.source_economics_findings import (
+    _build_external_cashflow_findings,
     _build_fee_source_economics_findings,
     build_source_economics_findings,
 )
@@ -43,6 +44,47 @@ def test_build_fee_source_economics_findings_emits_fee_findings_in_source_order(
     }
 
 
+def test_build_external_cashflow_findings_emits_external_findings_in_source_order():
+    samples = _samples(
+        external_normalization_samples=[{"valuation_date": "2026-03-12"}],
+        duplicate_external_signal_samples=[{"valuation_date": "2026-03-13"}],
+        external_source_mismatch_samples=[{"valuation_date": "2026-03-14"}],
+        external_timing_contradiction_samples=[{"valuation_date": "2026-03-15"}],
+        external_mixed_timing_samples=[{"valuation_date": "2026-03-16"}],
+        external_explicit_mixed_timing_samples=[{"valuation_date": "2026-03-17"}],
+    )
+
+    findings = _build_external_cashflow_findings(
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        samples=samples,
+    )
+
+    assert [finding.code for finding in findings] == [
+        "EXTERNAL_CASHFLOW_NORMALIZATION_MISMATCH",
+        "DUPLICATE_EXTERNAL_CASHFLOW_SOURCE_SIGNAL",
+        "EXTERNAL_CASHFLOW_SOURCE_TOTAL_MISMATCH",
+        "EXTERNAL_CASHFLOW_TIMING_BUCKET_CONTRADICTION",
+        "EXTERNAL_CASHFLOW_MIXED_TIMING_BUCKETS",
+        "EXTERNAL_CASHFLOW_EXPLICIT_MIXED_TIMING_BUCKETS",
+    ]
+    assert [finding.owner_repo for finding in findings] == [
+        "lotus-performance",
+        "lotus-core",
+        "lotus-core",
+        "lotus-core",
+        "lotus-core",
+        "lotus-core",
+    ]
+    assert [finding.severity for finding in findings] == [
+        "high",
+        "high",
+        "high",
+        "high",
+        "warning",
+        "warning",
+    ]
+
+
 def test_build_source_economics_findings_preserves_invalid_observation_before_fee_findings():
     samples = _samples(
         invalid_observation_date_samples=[{"valuation_date": None}],
@@ -57,4 +99,23 @@ def test_build_source_economics_findings_preserves_invalid_observation_before_fe
     assert [finding.code for finding in findings] == [
         "INVALID_PORTFOLIO_OBSERVATION_DATE_PRESENT",
         "FEE_CASHFLOW_CLASSIFICATION_NOT_PRESERVED",
+    ]
+
+
+def test_build_source_economics_findings_preserves_external_findings_after_fee_findings():
+    samples = _samples(
+        fee_normalization_samples=[{"valuation_date": "2026-03-12"}],
+        external_normalization_samples=[{"valuation_date": "2026-03-13"}],
+        conflicting_explicit_amount_samples=[{"valuation_date": "2026-03-14"}],
+    )
+
+    findings = build_source_economics_findings(
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        samples=samples,
+    )
+
+    assert [finding.code for finding in findings] == [
+        "FEE_CASHFLOW_CLASSIFICATION_NOT_PRESERVED",
+        "EXTERNAL_CASHFLOW_NORMALIZATION_MISMATCH",
+        "CONFLICTING_EXPLICIT_SOURCE_TOTAL_PRESENT",
     ]

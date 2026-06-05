@@ -20,8 +20,8 @@ python scripts/python_function_size_inventory.py --limit 15
 
 | Rank | Function | File | Lines |
 | ---: | --- | --- | ---: |
-| 1 | `build_source_economics_findings` | `app/services/inspection/source_economics_findings.py:7` | 389 |
-| 2 | `calculate_contribution` | `app/services/contribution_service.py:261` | 287 |
+| 1 | `calculate_contribution` | `app/services/contribution_service.py:261` | 287 |
+| 2 | `build_source_economics_findings` | `app/services/inspection/source_economics_findings.py:7` | 258 |
 | 3 | `DurableQueueCollector.collect` | `app/services/queue_metrics_service.py:227` | 188 |
 | 4 | `build_runtime_status_response` | `app/models/runtime_status.py:660` | 173 |
 | 5 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:503` | 172 |
@@ -32,9 +32,9 @@ python scripts/python_function_size_inventory.py --limit 15
 | 10 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:71` | 147 |
 | 11 | `resolve_stateful_returns_series_request` | `app/services/returns_series_service.py:1238` | 143 |
 | 12 | `calculate_attribution` | `app/services/attribution_service.py:69` | 142 |
-| 13 | `_build_artifacts` | `app/services/composite_inspection_service.py:114` | 135 |
-| 14 | `_build_fee_source_economics_findings` | `app/services/inspection/source_economics_findings.py:398` | 130 |
-| 15 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:327` | 130 |
+| 13 | `_build_external_cashflow_findings` | `app/services/inspection/source_economics_findings.py:267` | 140 |
+| 14 | `_build_artifacts` | `app/services/composite_inspection_service.py:114` | 135 |
+| 15 | `_build_fee_source_economics_findings` | `app/services/inspection/source_economics_findings.py:409` | 130 |
 
 ## Interpretation
 
