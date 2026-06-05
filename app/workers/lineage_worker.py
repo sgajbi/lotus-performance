@@ -9,7 +9,7 @@ from app.core.config import get_settings
 from app.services.durable_metadata_bootstrap import bootstrap_durable_metadata_stores
 from app.services.durable_store_runtime import RuntimeStoreProxy
 from app.services.execution_registry import ExecutionRegistry, execution_registry
-from app.services.lineage_metadata_store import LineageMetadataStore, lineage_metadata_store
+from app.services.lineage_metadata_store import LineageMetadataStore, LineagePayload, lineage_metadata_store
 from app.services.lineage_service import LineageService, lineage_service, resolve_artifact_stage_name
 
 logger = logging.getLogger(__name__)
@@ -41,31 +41,14 @@ def process_pending_jobs(
     )
     processed = 0
     for payload in pending:
-        success = active_lineage_service.materialize_payload(
-            calculation_id=payload.calculation_id,
-            calculation_type=payload.calculation_type,
-            request_json=payload.request_json,
-            response_json=payload.response_json,
-            calculation_details=payload.details,
-        )
-        if success:
-            active_lineage_store.delete_payload(payload.calculation_id)
+        if _materialize_leased_payload(
+            payload=payload,
+            lineage_store=active_lineage_store,
+            lineage_service_=active_lineage_service,
+            execution_store=active_execution_store,
+            max_attempts=current_max_attempts,
+        ):
             processed += 1
-            continue
-
-        current_payload = active_lineage_store.get_payload(payload.calculation_id)
-        if current_payload is None:
-            continue
-        if current_payload.attempt_count >= current_max_attempts:
-            _mark_lineage_materialization_failed(
-                calculation_id=payload.calculation_id,
-                calculation_type=payload.calculation_type,
-                lineage_store=active_lineage_store,
-                execution_store=active_execution_store,
-                error_message="Lineage materialization failed after exhausting retry budget.",
-            )
-        else:
-            active_lineage_store.mark_pending(payload.calculation_id)
     return processed
 
 
@@ -92,6 +75,56 @@ def _wait_for_next_poll(stop_event: Event | None, poll_seconds: float) -> bool:
         time.sleep(poll_seconds)
         return False
     return stop_event.wait(timeout=poll_seconds)
+
+
+def _materialize_leased_payload(
+    *,
+    payload: LineagePayload,
+    lineage_store: LineageMetadataStore | RuntimeStoreProxy[LineageMetadataStore],
+    lineage_service_: LineageService,
+    execution_store: ExecutionRegistry | RuntimeStoreProxy[ExecutionRegistry],
+    max_attempts: int,
+) -> bool:
+    success = lineage_service_.materialize_payload(
+        calculation_id=payload.calculation_id,
+        calculation_type=payload.calculation_type,
+        request_json=payload.request_json,
+        response_json=payload.response_json,
+        calculation_details=payload.details,
+    )
+    if success:
+        lineage_store.delete_payload(payload.calculation_id)
+        return True
+
+    _handle_lineage_materialization_retry(
+        payload=payload,
+        lineage_store=lineage_store,
+        execution_store=execution_store,
+        max_attempts=max_attempts,
+    )
+    return False
+
+
+def _handle_lineage_materialization_retry(
+    *,
+    payload: LineagePayload,
+    lineage_store: LineageMetadataStore | RuntimeStoreProxy[LineageMetadataStore],
+    execution_store: ExecutionRegistry | RuntimeStoreProxy[ExecutionRegistry],
+    max_attempts: int,
+) -> None:
+    current_payload = lineage_store.get_payload(payload.calculation_id)
+    if current_payload is None:
+        return
+    if current_payload.attempt_count >= max_attempts:
+        _mark_lineage_materialization_failed(
+            calculation_id=payload.calculation_id,
+            calculation_type=payload.calculation_type,
+            lineage_store=lineage_store,
+            execution_store=execution_store,
+            error_message="Lineage materialization failed after exhausting retry budget.",
+        )
+    else:
+        lineage_store.mark_pending(payload.calculation_id)
 
 
 def _mark_lineage_materialization_failed(

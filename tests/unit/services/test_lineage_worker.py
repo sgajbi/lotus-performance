@@ -5,7 +5,7 @@ import pandas as pd
 import pytest
 from pydantic import BaseModel
 
-from app.services.lineage_metadata_store import LineageMetadataStore, LineageStatus
+from app.services.lineage_metadata_store import LineageMetadataStore, LineagePayload, LineageStatus
 from app.services.lineage_service import LineageService
 from app.workers import lineage_worker
 
@@ -96,6 +96,56 @@ def test_process_pending_jobs_retries_failed_materialization_until_budget_exhaus
     assert second_record.error_message == "Lineage materialization failed after exhausting retry budget."
     assert second_payload is not None
     assert second_payload.attempt_count == 2
+
+
+def test_materialize_leased_payload_ignores_stale_missing_payload():
+    calculation_id = uuid4()
+    payload = LineagePayload(
+        calculation_id=calculation_id,
+        calculation_type="TWR",
+        request_json='{"key":"request"}',
+        response_json='{"key":"response"}',
+        details={},
+        attempt_count=1,
+    )
+    calls: list[str] = []
+
+    class _LineageService:
+        def materialize_payload(self, **kwargs):
+            calls.append(f"materialize:{kwargs['calculation_id']}")
+            return False
+
+    class _LineageStore:
+        def delete_payload(self, calculation_id):
+            calls.append(f"delete:{calculation_id}")
+
+        def get_payload(self, calculation_id):
+            calls.append(f"get:{calculation_id}")
+            return None
+
+        def mark_pending(self, calculation_id):
+            calls.append(f"pending:{calculation_id}")
+
+        def mark_failed(self, *, calculation_id, error_message):
+            calls.append(f"failed:{calculation_id}:{error_message}")
+
+    class _ExecutionStore:
+        def fail_stage(self, *args):
+            calls.append("fail_stage")
+
+    processed = lineage_worker._materialize_leased_payload(
+        payload=payload,
+        lineage_store=_LineageStore(),
+        lineage_service_=_LineageService(),
+        execution_store=_ExecutionStore(),
+        max_attempts=2,
+    )
+
+    assert processed is False
+    assert calls == [
+        f"materialize:{calculation_id}",
+        f"get:{calculation_id}",
+    ]
 
 
 def test_run_forever_initializes_schema_and_sleeps_when_idle(monkeypatch):
