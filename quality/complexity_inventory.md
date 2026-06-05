@@ -38,16 +38,16 @@ python scripts/python_complexity_inventory.py --limit 20
 | 8 | `_build_compute_job_runtime` | function | `app/workers/compute_executor_worker.py:156` | 15 | C |
 | 9 | `calculate_benchmark_returns` | function | `engine/benchmarks.py:35` | 15 | C |
 | 10 | `_lineage_queue_response` | function | `app/models/runtime_status.py:691` | 14 | C |
-| 11 | `TWRBenchmarkRequest` | class | `app/models/twr_requests.py:34` | 14 | C |
-| 12 | `_parse_reclaimed_event_payload` | function | `app/services/operator_action_lease_service.py:415` | 14 | C |
-| 13 | `collect_runtime_degradation_reasons` | function | `app/services/runtime_status_degradation.py:257` | 14 | C |
-| 14 | `build_portfolio_source_quality_evidence` | function | `app/services/source_quality_evidence.py:13` | 14 | C |
-| 15 | `_collect_stateful_mwr_cash_flows` | function | `app/services/stateful_mwr_input_service.py:184` | 14 | C |
-| 16 | `_build_twr_results_by_period` | function | `app/services/twr_service.py:673` | 14 | C |
-| 17 | `portfolio_timeseries_to_valuation_points` | function | `app/services/valuation_points_service.py:12` | 14 | C |
-| 18 | `build_hierarchical_contribution_result` | function | `engine/contribution.py:298` | 14 | C |
-| 19 | `_apply_overrides` | function | `engine/policies.py:38` | 14 | C |
-| 20 | `validate_mode_payloads` | method | `app/models/twr_requests.py:57` | 13 | C |
+| 11 | `_parse_reclaimed_event_payload` | function | `app/services/operator_action_lease_service.py:415` | 14 | C |
+| 12 | `collect_runtime_degradation_reasons` | function | `app/services/runtime_status_degradation.py:257` | 14 | C |
+| 13 | `build_portfolio_source_quality_evidence` | function | `app/services/source_quality_evidence.py:13` | 14 | C |
+| 14 | `_collect_stateful_mwr_cash_flows` | function | `app/services/stateful_mwr_input_service.py:184` | 14 | C |
+| 15 | `_build_twr_results_by_period` | function | `app/services/twr_service.py:673` | 14 | C |
+| 16 | `portfolio_timeseries_to_valuation_points` | function | `app/services/valuation_points_service.py:12` | 14 | C |
+| 17 | `build_hierarchical_contribution_result` | function | `engine/contribution.py:298` | 14 | C |
+| 18 | `_apply_overrides` | function | `engine/policies.py:38` | 14 | C |
+| 19 | `_build_artifacts` | function | `app/services/composite_inspection_service.py:114` | 13 | C |
+| 20 | `_build_contribution_smoothing_evidence` | function | `app/services/contribution_smoothing.py:26` | 13 | C |
 
 ## Lowest Maintainability Index
 
@@ -123,7 +123,8 @@ through reusable taxonomy sampling helpers. `DurableQueueCollector.collect` also
 availability and runtime-retention preview metric emission were separated from queue/storage/history
 metric collection. `ContributionAnalyticsRequest.validate_mode_payloads` also dropped out after
 legacy payload-shape checks and stateless/stateful contribution payload checks were split into
-dedicated helpers. Max
+dedicated helpers. `TWRBenchmarkRequest` also dropped out after stateless/stateful benchmark payload
+checks and calculated/vendor-series stateless rules were split into dedicated helpers. Max
 cyclomatic complexity is now `15`. The remaining
 highest-complexity functions are C-grade service and engine hotspots that should be treated as
 future bounded refactor candidates, not as evidence of an immediate behavior defect.

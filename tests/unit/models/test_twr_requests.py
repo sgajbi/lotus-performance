@@ -1,4 +1,5 @@
 from datetime import date
+from types import SimpleNamespace
 
 import pytest
 from pydantic import ValidationError
@@ -8,6 +9,7 @@ from app.models.twr_requests import (
     TWRAnalyticsRequest,
     TWRBenchmarkRequest,
     TWRInputMode,
+    _validate_calculated_stateless_twr_benchmark_payload,
     _validate_stateless_twr_payloads,
     _validate_twr_benchmark_inclusion,
 )
@@ -424,6 +426,19 @@ def test_twr_benchmark_request_enforces_vendor_series_payload_shape():
                 },
             }
         )
+
+
+def test_validate_calculated_stateless_twr_benchmark_payload_requires_one_component_source():
+    request = SimpleNamespace(
+        stateless_input=SimpleNamespace(
+            component_observations=[],
+            component_price_points=[],
+            benchmark_return_points=[],
+        )
+    )
+
+    with pytest.raises(ValueError, match="exactly one of benchmark.stateless_input.component_observations"):
+        _validate_calculated_stateless_twr_benchmark_payload(request)  # type: ignore[arg-type]
 
 
 def test_twr_request_auto_enables_benchmark_when_config_present(base_payload):
