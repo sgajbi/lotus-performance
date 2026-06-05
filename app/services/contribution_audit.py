@@ -94,104 +94,87 @@ class AverageWeightShadowAuditState:
         reset_alignment_counts: dict[str, int],
         position_flow_balance_counts: dict[str, int],
     ) -> None:
+        diagnostics.notes.extend(self._average_weight_shadow_notes())
+        diagnostics.notes.extend(self._rollout_posture_notes())
+        diagnostics.notes.extend(
+            _contribution_methodology_notes(
+                average_weight_sum_residual_bp=average_weight_sum_residual_bp,
+                carino_invalid_domain_days=carino_invalid_domain_days,
+                reset_alignment_counts=reset_alignment_counts,
+            )
+        )
+        diagnostics.notes.extend(_position_flow_balance_notes(position_flow_balance_counts))
+        diagnostics.notes.extend(self._timeseries_total_delta_notes())
+
+    def _average_weight_shadow_notes(self) -> list[str]:
         if self.delta_max_bp >= 500:
-            diagnostics.notes.append(
+            return [
                 "Reset-aware average-weight shadow differs from the active mean-weight output for "
-                f"{self.delta_positions} position-period rows."
-            )
-            diagnostics.notes.append(
+                f"{self.delta_positions} position-period rows.",
                 "Reset-aware average-weight shadow differs materially from the active average-weight "
-                f"output, with a maximum delta of {self.delta_max_bp} basis points."
-            )
-        elif self.delta_positions > 0:
-            diagnostics.notes.append(
+                f"output, with a maximum delta of {self.delta_max_bp} basis points.",
+            ]
+        if self.delta_positions > 0:
+            return [
                 "Reset-aware average-weight shadow differs from the active mean-weight output for "
                 f"{self.delta_positions} position-period rows. The maximum delta was "
-                f"{self.delta_max_bp} basis points, which is still under characterization."
-            )
+                f"{self.delta_max_bp} basis points, which is still under characterization.",
+            ]
+        return []
+
+    def _rollout_posture_notes(self) -> list[str]:
+        notes: list[str] = []
         if self.cutover_candidate_periods > 0:
-            diagnostics.notes.append(
+            notes.append(
                 "Some periods show material reset-aware average-weight pressure while the surrounding "
                 "bookkeeping remains clean. Those periods are strong candidates for a future denominator "
                 f"cutover study ({self.cutover_candidate_periods} periods)."
             )
         if self.material_periods > 0:
-            diagnostics.notes.append(
+            notes.append(
                 "Reset-aware average-weight rollout readiness is currently "
                 f"{self.promotion_ready_rate_bp} basis points of material-shadow periods "
                 f"({self.cutover_candidate_periods} of {self.material_periods})."
             )
         if self.promoted_periods > 0:
-            diagnostics.notes.append(
+            notes.append(
                 "Reset-aware average-weight promotion was applied for "
                 f"{self.promoted_periods} periods under the controlled rollout mode."
             )
         if self.blocked_periods > 0:
-            diagnostics.notes.append(
+            notes.append(
                 "Some material reset-aware average-weight periods remained shadow-only because one or "
                 f"more rollout guardrails were not yet clean ({self.blocked_periods} periods)."
             )
         if self.blocked_by_weight_residual_periods > 0:
-            diagnostics.notes.append(
+            notes.append(
                 "Some material reset-aware average-weight periods were kept shadow-only because emitted "
                 "position weights did not sum cleanly to 100%."
             )
         if self.blocked_by_flow_balance_periods > 0:
-            diagnostics.notes.append(
+            notes.append(
                 "Some material reset-aware average-weight periods were kept shadow-only because "
                 "position-level stock and cash legs did not cancel cleanly."
             )
         if self.blocked_by_reset_alignment_periods > 0:
-            diagnostics.notes.append(
+            notes.append(
                 "Some material reset-aware average-weight periods were kept shadow-only because "
                 "portfolio and position reset boundaries were not aligned."
             )
         if self.blocked_by_timeseries_delta_periods > 0:
-            diagnostics.notes.append(
+            notes.append(
                 "Some material reset-aware average-weight periods were kept shadow-only because emitted "
                 "daily contribution series still drifted from the residual-adjusted period total."
             )
-        if average_weight_sum_residual_bp > 1:
-            diagnostics.notes.append(
-                "Emitted position average weights do not sum to 100% exactly; the maximum residual was "
-                f"{average_weight_sum_residual_bp} basis points."
-            )
-        if carino_invalid_domain_days > 0:
-            diagnostics.notes.append(
-                "Carino smoothing fell back to raw daily contribution arithmetic on "
-                f"{carino_invalid_domain_days} portfolio days because the linked gross return factor "
-                "left the valid logarithmic domain."
-            )
-        if (
-            reset_alignment_counts["portfolio_reset_without_position_reset_days"] > 0
-            or reset_alignment_counts["position_reset_without_portfolio_reset_days"] > 0
-        ):
-            diagnostics.notes.append(
-                "Portfolio and position reset boundaries differ on some contribution dates; "
-                "grouped-return alignment remains under characterization."
-            )
-        if position_flow_balance_counts["position_flow_residual_max_bp"] > 10:
-            diagnostics.notes.append(
-                "Summed position-level cash flows show a materially non-flow-neutral scoped slice on "
-                f"{position_flow_balance_counts['position_flow_residual_days']} dates. This means the visible "
-                "position set is not carrying both offsetting legs inside the current scope, so contribution "
-                "is being explained on a partial flow story rather than a fully self-cancelling internal book. "
-                f"The maximum residual was {position_flow_balance_counts['position_flow_residual_max_bp']} basis "
-                "points of portfolio capital."
-            )
-        elif position_flow_balance_counts["position_flow_residual_days"] > 0:
-            diagnostics.notes.append(
-                "Summed position-level cash flows did not net to zero on "
-                f"{position_flow_balance_counts['position_flow_residual_days']} dates. This looks like a small "
-                "non-flow-neutral scoped slice rather than a material flow imbalance, but it should still be "
-                f"reviewed. The maximum residual was {position_flow_balance_counts['position_flow_residual_max_bp']} "
-                "basis points of portfolio capital."
-            )
+        return notes
+
+    def _timeseries_total_delta_notes(self) -> list[str]:
         if self.timeseries_total_delta_periods > 0:
-            diagnostics.notes.append(
+            return [
                 "Some emitted daily contribution series remain raw path outputs and do not sum to the "
-                "residual-adjusted period total for reset-heavy slices."
-            )
+                "residual-adjusted period total for reset-heavy slices.",
+            ]
+        return []
 
     def to_audit_counts(
         self,
@@ -218,3 +201,53 @@ class AverageWeightShadowAuditState:
             "carino_invalid_domain_days": carino_invalid_domain_days,
             "timeseries_total_delta_periods": self.timeseries_total_delta_periods,
         }
+
+
+def _contribution_methodology_notes(
+    *,
+    average_weight_sum_residual_bp: int,
+    carino_invalid_domain_days: int,
+    reset_alignment_counts: dict[str, int],
+) -> list[str]:
+    notes: list[str] = []
+    if average_weight_sum_residual_bp > 1:
+        notes.append(
+            "Emitted position average weights do not sum to 100% exactly; the maximum residual was "
+            f"{average_weight_sum_residual_bp} basis points."
+        )
+    if carino_invalid_domain_days > 0:
+        notes.append(
+            "Carino smoothing fell back to raw daily contribution arithmetic on "
+            f"{carino_invalid_domain_days} portfolio days because the linked gross return factor "
+            "left the valid logarithmic domain."
+        )
+    if (
+        reset_alignment_counts["portfolio_reset_without_position_reset_days"] > 0
+        or reset_alignment_counts["position_reset_without_portfolio_reset_days"] > 0
+    ):
+        notes.append(
+            "Portfolio and position reset boundaries differ on some contribution dates; "
+            "grouped-return alignment remains under characterization."
+        )
+    return notes
+
+
+def _position_flow_balance_notes(position_flow_balance_counts: dict[str, int]) -> list[str]:
+    if position_flow_balance_counts["position_flow_residual_max_bp"] > 10:
+        return [
+            "Summed position-level cash flows show a materially non-flow-neutral scoped slice on "
+            f"{position_flow_balance_counts['position_flow_residual_days']} dates. This means the visible "
+            "position set is not carrying both offsetting legs inside the current scope, so contribution "
+            "is being explained on a partial flow story rather than a fully self-cancelling internal book. "
+            f"The maximum residual was {position_flow_balance_counts['position_flow_residual_max_bp']} basis "
+            "points of portfolio capital.",
+        ]
+    if position_flow_balance_counts["position_flow_residual_days"] > 0:
+        return [
+            "Summed position-level cash flows did not net to zero on "
+            f"{position_flow_balance_counts['position_flow_residual_days']} dates. This looks like a small "
+            "non-flow-neutral scoped slice rather than a material flow imbalance, but it should still be "
+            f"reviewed. The maximum residual was {position_flow_balance_counts['position_flow_residual_max_bp']} "
+            "basis points of portfolio capital.",
+        ]
+    return []
