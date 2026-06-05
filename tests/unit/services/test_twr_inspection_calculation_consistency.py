@@ -525,6 +525,42 @@ def test_calculation_consistency_flags_effective_period_exclusion_warning():
     }
 
 
+def test_calculation_consistency_preserves_period_semantic_priority_order():
+    result = _inspect_daily_evidence(
+        TWRDailyCalculationEvidence(
+            begin_mv=1000.0,
+            end_mv=1000.0,
+            bod_cf=0.0,
+            eod_cf=0.0,
+            external_inflows=0.0,
+            external_outflows=0.0,
+            management_fees=0.0,
+            signed_adjusted_capital=1000.0,
+            adjusted_capital=1000.0,
+            performance_pnl=0.0,
+            daily_return=0.0,
+            status="not_calculated",
+            linkability_status="linkable",
+            episode_status="open",
+            reason_codes=[
+                "FLOW_NEUTRALIZED_DAILY_RETURN",
+                "BEFORE_EFFECTIVE_PERIOD_START",
+                "RESET_DAY",
+                "NO_INVESTMENT_PERIOD",
+            ],
+            warnings=[],
+        ),
+        period_return=0.0,
+    )
+
+    semantics = result.findings[0].evidence["mismatches"]["semantics"]
+    assert semantics == {
+        "linkability_status": {"expected": "not_calculated", "actual": "linkable"},
+        "episode_status": {"expected": "reset_boundary", "actual": "open"},
+        "missing_warnings": ["BEFORE_EFFECTIVE_PERIOD_START"],
+    }
+
+
 def test_calculation_consistency_flags_full_loss_and_refunding_semantics():
     result = _inspect_daily_evidence(
         TWRDailyCalculationEvidence(

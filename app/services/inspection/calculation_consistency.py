@@ -417,26 +417,71 @@ def _expected_daily_evidence_semantics(evidence: TWRDailyCalculationEvidence) ->
     reason_codes = set(evidence.reason_codes)
     required_reason_codes = {"FLOW_NEUTRALIZED_DAILY_RETURN"}
     required_warnings: set[str] = set()
-    linkability_status = "linkable"
-    episode_status = "open"
+    linkability_status = _expected_daily_capital_linkability_status(
+        evidence,
+        required_reason_codes=required_reason_codes,
+        required_warnings=required_warnings,
+    )
+    linkability_status, episode_status = _expected_daily_period_statuses(
+        reason_codes=reason_codes,
+        linkability_status=linkability_status,
+        required_warnings=required_warnings,
+    )
+    _add_daily_market_event_reason_codes(
+        evidence,
+        required_reason_codes=required_reason_codes,
+    )
+    linkability_status = _expected_daily_return_linkability_status(
+        evidence,
+        linkability_status=linkability_status,
+        required_reason_codes=required_reason_codes,
+        required_warnings=required_warnings,
+    )
 
+    return DailyEvidenceExpectedSemantics(
+        linkability_status=linkability_status,
+        episode_status=episode_status,
+        required_reason_codes=required_reason_codes,
+        required_warnings=required_warnings,
+    )
+
+
+def _expected_daily_capital_linkability_status(
+    evidence: TWRDailyCalculationEvidence,
+    *,
+    required_reason_codes: set[str],
+    required_warnings: set[str],
+) -> str:
     if evidence.status == "not_calculated":
         linkability_status = "not_calculated"
+    else:
+        linkability_status = "linkable"
+
     if evidence.adjusted_capital == 0:
         required_reason_codes.add("ZERO_ADJUSTED_CAPITAL")
         required_warnings.add("ZERO_ADJUSTED_CAPITAL")
-        linkability_status = "not_calculated"
-    elif evidence.signed_adjusted_capital < 0:
+        return "not_calculated"
+    if evidence.signed_adjusted_capital < 0:
         required_reason_codes.add("NEGATIVE_ADJUSTED_CAPITAL_INPUT")
         required_warnings.add("NEGATIVE_ADJUSTED_CAPITAL_INPUT")
     elif evidence.adjusted_capital < 1e-8:
         required_reason_codes.add("NEAR_ZERO_ADJUSTED_CAPITAL")
         required_warnings.add("NEAR_ZERO_ADJUSTED_CAPITAL")
+    return linkability_status
 
+
+def _expected_daily_period_statuses(
+    *,
+    reason_codes: set[str],
+    linkability_status: str,
+    required_warnings: set[str],
+) -> tuple[str, str]:
+    episode_status = "open"
     if "BEFORE_EFFECTIVE_PERIOD_START" in reason_codes:
+        required_warnings.add("BEFORE_EFFECTIVE_PERIOD_START")
         linkability_status = "not_calculated"
         episode_status = "not_in_period"
-        required_warnings.add("BEFORE_EFFECTIVE_PERIOD_START")
+
     if "RESET_DAY" in reason_codes:
         episode_status = "reset_boundary"
         if linkability_status == "linkable":
@@ -446,29 +491,38 @@ def _expected_daily_evidence_semantics(evidence: TWRDailyCalculationEvidence) ->
             episode_status = "no_investment"
         if linkability_status == "linkable":
             linkability_status = "not_calculated"
+    return linkability_status, episode_status
 
+
+def _add_daily_market_event_reason_codes(
+    evidence: TWRDailyCalculationEvidence,
+    *,
+    required_reason_codes: set[str],
+) -> None:
     if evidence.end_mv == 0 and evidence.eod_cf < 0:
         required_reason_codes.add("FULL_WITHDRAWAL_DAY")
     if evidence.begin_mv <= 0 and evidence.bod_cf > 0:
         required_reason_codes.add("REFUNDING_DAY")
 
+
+def _expected_daily_return_linkability_status(
+    evidence: TWRDailyCalculationEvidence,
+    *,
+    linkability_status: str,
+    required_reason_codes: set[str],
+    required_warnings: set[str],
+) -> str:
     if evidence.daily_return == -100:
         required_reason_codes.add("FULL_LOSS_RETURN")
         required_warnings.add("FULL_LOSS_RETURN")
         if linkability_status == "linkable":
-            linkability_status = "not_linkable"
+            return "not_linkable"
     elif evidence.daily_return < -100:
         required_reason_codes.add("BELOW_FULL_LOSS_RETURN")
         required_warnings.add("BELOW_FULL_LOSS_RETURN")
         if linkability_status == "linkable":
-            linkability_status = "not_linkable"
-
-    return DailyEvidenceExpectedSemantics(
-        linkability_status=linkability_status,
-        episode_status=episode_status,
-        required_reason_codes=required_reason_codes,
-        required_warnings=required_warnings,
-    )
+            return "not_linkable"
+    return linkability_status
 
 
 def _record_numeric_mismatch(
