@@ -1,6 +1,11 @@
 from datetime import UTC, datetime
 
-from app.models.runtime_status import _compute_queue_response, _lineage_queue_response, build_runtime_status_response
+from app.models.runtime_status import (
+    _compute_queue_response,
+    _compute_queue_stats_fields,
+    _lineage_queue_response,
+    build_runtime_status_response,
+)
 from app.services.compute_job_store import ComputeQueueInspectionAnchors, ComputeQueueStats, ComputeRecoveryEvent
 from app.services.durability_health_service import DurabilityHealthStatus, LineageStorageCapacitySnapshot
 from app.services.lineage_metadata_store import LineageQueueInspectionAnchors, LineageQueueStats, LineageRecoveryEvent
@@ -92,6 +97,39 @@ def test_compute_queue_response_omits_optional_fields_when_stats_are_unavailable
     assert response.pending_jobs is None
     assert response.inspection_anchors is None
     assert response.recent_recoveries == []
+
+
+def test_compute_queue_stats_fields_map_available_and_unavailable_stats():
+    stats = ComputeQueueStats(
+        pending_count=1,
+        leased_count=2,
+        running_count=3,
+        failed_count=4,
+        complete_count=5,
+        retry_backlog_count=6,
+        lease_expired_count=7,
+        terminal_failure_count=8,
+        oldest_pending_age_seconds=120.0,
+        oldest_leased_age_seconds=90.0,
+        oldest_running_age_seconds=60.0,
+        reclaimable_count=9,
+    )
+
+    assert _compute_queue_stats_fields(stats) == {
+        "pending_jobs": 1,
+        "leased_jobs": 2,
+        "running_jobs": 3,
+        "failed_jobs": 4,
+        "complete_jobs": 5,
+        "retry_backlog_jobs": 6,
+        "lease_expired_jobs": 7,
+        "reclaimable_jobs": 9,
+        "terminal_failure_jobs": 8,
+        "oldest_pending_age_seconds": 120.0,
+        "oldest_leased_age_seconds": 90.0,
+        "oldest_running_age_seconds": 60.0,
+    }
+    assert all(value is None for value in _compute_queue_stats_fields(None).values())
 
 
 def test_lineage_queue_response_maps_stats_storage_anchors_and_recoveries():

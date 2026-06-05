@@ -620,41 +620,72 @@ def _compute_queue_response(queue_status: RuntimeQueueStatus) -> ComputeQueueSta
         reason=queue_status.reason,
         degradation_reasons=list(queue_status.degradation_reasons),
         degradation_details=_degradation_details_response(queue_status.degradation_details),
-        pending_jobs=None if compute_stats is None else compute_stats.pending_count,
-        leased_jobs=None if compute_stats is None else compute_stats.leased_count,
-        running_jobs=None if compute_stats is None else compute_stats.running_count,
-        failed_jobs=None if compute_stats is None else compute_stats.failed_count,
-        complete_jobs=None if compute_stats is None else compute_stats.complete_count,
-        retry_backlog_jobs=None if compute_stats is None else compute_stats.retry_backlog_count,
-        lease_expired_jobs=None if compute_stats is None else compute_stats.lease_expired_count,
-        reclaimable_jobs=None if compute_stats is None else compute_stats.reclaimable_count,
-        terminal_failure_jobs=None if compute_stats is None else compute_stats.terminal_failure_count,
-        oldest_pending_age_seconds=None if compute_stats is None else compute_stats.oldest_pending_age_seconds,
-        oldest_leased_age_seconds=None if compute_stats is None else compute_stats.oldest_leased_age_seconds,
-        oldest_running_age_seconds=None if compute_stats is None else compute_stats.oldest_running_age_seconds,
-        inspection_anchors=(
-            None
-            if compute_anchors is None
-            else ComputeQueueInspectionAnchorsResponse(
-                oldest_pending_calculation_id=compute_anchors.oldest_pending_calculation_id,
-                oldest_leased_calculation_id=compute_anchors.oldest_leased_calculation_id,
-                oldest_running_calculation_id=compute_anchors.oldest_running_calculation_id,
-                latest_terminal_failure_calculation_id=compute_anchors.latest_terminal_failure_calculation_id,
-                latest_recovered_calculation_id=compute_anchors.latest_recovered_calculation_id,
-            )
-        ),
-        recent_recoveries=[
-            ComputeRecoveryEventResponse(
-                calculation_id=item.calculation_id,
-                analytics_type=item.analytics_type,
-                recovery_kind=item.recovery_kind,
-                recovered_at_utc=item.recovered_at_utc,
-                attempt_count=item.attempt_count,
-                error_type=item.error_type,
-            )
-            for item in compute_recoveries
-        ],
+        **_compute_queue_stats_fields(compute_stats),
+        inspection_anchors=_compute_queue_inspection_anchors_response(compute_anchors),
+        recent_recoveries=_compute_recovery_event_responses(compute_recoveries),
     )
+
+
+def _compute_queue_stats_fields(compute_stats: ComputeQueueStats | None) -> dict[str, object]:
+    if compute_stats is None:
+        return {
+            "pending_jobs": None,
+            "leased_jobs": None,
+            "running_jobs": None,
+            "failed_jobs": None,
+            "complete_jobs": None,
+            "retry_backlog_jobs": None,
+            "lease_expired_jobs": None,
+            "reclaimable_jobs": None,
+            "terminal_failure_jobs": None,
+            "oldest_pending_age_seconds": None,
+            "oldest_leased_age_seconds": None,
+            "oldest_running_age_seconds": None,
+        }
+    return {
+        "pending_jobs": compute_stats.pending_count,
+        "leased_jobs": compute_stats.leased_count,
+        "running_jobs": compute_stats.running_count,
+        "failed_jobs": compute_stats.failed_count,
+        "complete_jobs": compute_stats.complete_count,
+        "retry_backlog_jobs": compute_stats.retry_backlog_count,
+        "lease_expired_jobs": compute_stats.lease_expired_count,
+        "reclaimable_jobs": compute_stats.reclaimable_count,
+        "terminal_failure_jobs": compute_stats.terminal_failure_count,
+        "oldest_pending_age_seconds": compute_stats.oldest_pending_age_seconds,
+        "oldest_leased_age_seconds": compute_stats.oldest_leased_age_seconds,
+        "oldest_running_age_seconds": compute_stats.oldest_running_age_seconds,
+    }
+
+
+def _compute_queue_inspection_anchors_response(
+    compute_anchors: ComputeQueueInspectionAnchors | None,
+) -> ComputeQueueInspectionAnchorsResponse | None:
+    if compute_anchors is None:
+        return None
+    return ComputeQueueInspectionAnchorsResponse(
+        oldest_pending_calculation_id=compute_anchors.oldest_pending_calculation_id,
+        oldest_leased_calculation_id=compute_anchors.oldest_leased_calculation_id,
+        oldest_running_calculation_id=compute_anchors.oldest_running_calculation_id,
+        latest_terminal_failure_calculation_id=compute_anchors.latest_terminal_failure_calculation_id,
+        latest_recovered_calculation_id=compute_anchors.latest_recovered_calculation_id,
+    )
+
+
+def _compute_recovery_event_responses(
+    compute_recoveries: tuple[ComputeRecoveryEvent, ...],
+) -> list[ComputeRecoveryEventResponse]:
+    return [
+        ComputeRecoveryEventResponse(
+            calculation_id=item.calculation_id,
+            analytics_type=item.analytics_type,
+            recovery_kind=item.recovery_kind,
+            recovered_at_utc=item.recovered_at_utc,
+            attempt_count=item.attempt_count,
+            error_type=item.error_type,
+        )
+        for item in compute_recoveries
+    ]
 
 
 def _lineage_queue_response(queue_status: RuntimeQueueStatus) -> LineageQueueStatusDetailsResponse:
