@@ -100,6 +100,80 @@ def twr_resolved_input_count(performance_request, benchmark_request) -> int:
     return len(performance_request.valuation_points) + twr_resolved_benchmark_work_units(benchmark_request)
 
 
+def twr_resolved_identity_required(resolved_request) -> bool:
+    return resolved_request.input_mode == TWRInputMode.STATEFUL or resolved_request.benchmark_request is not None
+
+
+def twr_request_artifact_model(
+    *,
+    request: TWRAnalyticsRequest,
+    resolved_request,
+    resolved_twr_identity_payload: TWRResolvedExecutionRequest,
+):
+    if twr_resolved_identity_required(resolved_request):
+        return resolved_twr_identity_payload
+    return request
+
+
+def twr_resolved_benchmark_return_source(request: TWRAnalyticsRequest) -> BenchmarkReturnSource:
+    if request.benchmark is not None:
+        return request.benchmark.return_source
+    return BenchmarkReturnSource.CALCULATED
+
+
+def finalize_twr_resolved_execution_identity(
+    *,
+    request: TWRAnalyticsRequest,
+    resolved_request,
+    resolved_twr_identity_payload: TWRResolvedExecutionRequest,
+    source_request_fingerprint: str,
+    resolved_input_count: int,
+    benchmark_work_units: int,
+    engine_version: str,
+) -> tuple[str, str, TWRAcceptedResponse | None]:
+    input_fingerprint, calculation_hash = generate_value_fingerprint(
+        resolved_twr_identity_payload,
+        engine_version,
+    )
+    if request.input_mode == TWRInputMode.STATEFUL:
+        accepted_response = finalize_resolved_stateful_execution(
+            calculation_id=request.calculation_id,
+            analytics_type=ANALYTICS_WORKFLOW_TWR,
+            requested_window=build_twr_execution_window(
+                request,
+                input_count=resolved_input_count,
+                source_request_fingerprint=source_request_fingerprint,
+                benchmark_id=resolved_request.resolved_benchmark_id,
+                benchmark_work_units=benchmark_work_units,
+            ),
+            input_fingerprint=input_fingerprint,
+            calculation_hash=calculation_hash,
+            resolved_request_payload={
+                "resolved_request": resolved_twr_identity_payload.model_dump(mode="json"),
+                "source_input_mode": resolved_request.input_mode.value,
+                "benchmark_input_mode": (
+                    resolved_request.benchmark_input_mode.value
+                    if resolved_request.benchmark_input_mode is not None
+                    else None
+                ),
+                "resolved_benchmark_id": resolved_request.resolved_benchmark_id,
+                "benchmark_return_source": twr_resolved_benchmark_return_source(request).value,
+                "portfolio_id": request.portfolio_id,
+            },
+            should_offload=should_offload_resolved_twr(resolved_input_count),
+            offload_reason="large_resolved_stateful_twr",
+            accepted_response_factory=accepted_twr_response,
+        )
+        return input_fingerprint, calculation_hash, accepted_response
+
+    execution_registry.update_execution_identity(
+        request.calculation_id,
+        input_fingerprint=input_fingerprint,
+        calculation_hash=calculation_hash,
+    )
+    return input_fingerprint, calculation_hash, None
+
+
 def should_preemptively_offload_stateful_twr(request: TWRAnalyticsRequest) -> bool:
     active_settings = get_settings()
     return (
@@ -211,62 +285,28 @@ async def calculate_twr_workflow(request: TWRAnalyticsRequest) -> PerformanceRes
             performance_request=performance_request,
             benchmark_request=resolved_request.benchmark_request,
         )
-        request_artifact_model = (
-            resolved_twr_identity_payload
-            if resolved_request.input_mode == TWRInputMode.STATEFUL or resolved_request.benchmark_request is not None
-            else request
+        request_artifact_model = twr_request_artifact_model(
+            request=request,
+            resolved_request=resolved_request,
+            resolved_twr_identity_payload=resolved_twr_identity_payload,
         )
         resolved_input_count = twr_resolved_input_count(
             performance_request,
             resolved_request.benchmark_request,
         )
         benchmark_work_units = twr_resolved_benchmark_work_units(resolved_request.benchmark_request)
-        if resolved_request.input_mode == TWRInputMode.STATEFUL or resolved_request.benchmark_request is not None:
-            input_fingerprint, calculation_hash = generate_value_fingerprint(
-                resolved_twr_identity_payload,
-                settings.APP_VERSION,
+        if twr_resolved_identity_required(resolved_request):
+            input_fingerprint, calculation_hash, accepted_response = finalize_twr_resolved_execution_identity(
+                request=request,
+                resolved_request=resolved_request,
+                resolved_twr_identity_payload=resolved_twr_identity_payload,
+                source_request_fingerprint=source_request_fingerprint,
+                resolved_input_count=resolved_input_count,
+                benchmark_work_units=benchmark_work_units,
+                engine_version=settings.APP_VERSION,
             )
-            if request.input_mode == TWRInputMode.STATEFUL:
-                accepted_response = finalize_resolved_stateful_execution(
-                    calculation_id=request.calculation_id,
-                    analytics_type=ANALYTICS_WORKFLOW_TWR,
-                    requested_window=build_twr_execution_window(
-                        request,
-                        input_count=resolved_input_count,
-                        source_request_fingerprint=source_request_fingerprint,
-                        benchmark_id=resolved_request.resolved_benchmark_id,
-                        benchmark_work_units=benchmark_work_units,
-                    ),
-                    input_fingerprint=input_fingerprint,
-                    calculation_hash=calculation_hash,
-                    resolved_request_payload={
-                        "resolved_request": resolved_twr_identity_payload.model_dump(mode="json"),
-                        "source_input_mode": resolved_request.input_mode.value,
-                        "benchmark_input_mode": (
-                            resolved_request.benchmark_input_mode.value
-                            if resolved_request.benchmark_input_mode is not None
-                            else None
-                        ),
-                        "resolved_benchmark_id": resolved_request.resolved_benchmark_id,
-                        "benchmark_return_source": (
-                            request.benchmark.return_source.value
-                            if request.benchmark is not None
-                            else BenchmarkReturnSource.CALCULATED.value
-                        ),
-                        "portfolio_id": request.portfolio_id,
-                    },
-                    should_offload=should_offload_resolved_twr(resolved_input_count),
-                    offload_reason="large_resolved_stateful_twr",
-                    accepted_response_factory=accepted_twr_response,
-                )
-                if accepted_response is not None:
-                    return accepted_response
-            else:
-                execution_registry.update_execution_identity(
-                    request.calculation_id,
-                    input_fingerprint=input_fingerprint,
-                    calculation_hash=calculation_hash,
-                )
+            if accepted_response is not None:
+                return accepted_response
         return calculate_twr_response(
             performance_request,
             portfolio_id=request.portfolio_id,
@@ -278,9 +318,7 @@ async def calculate_twr_workflow(request: TWRAnalyticsRequest) -> PerformanceRes
             benchmark_request=resolved_request.benchmark_request,
             benchmark_input_mode=resolved_request.benchmark_input_mode,
             resolved_benchmark_id=resolved_request.resolved_benchmark_id,
-            benchmark_return_source=(
-                request.benchmark.return_source if request.benchmark is not None else BenchmarkReturnSource.CALCULATED
-            ),
+            benchmark_return_source=twr_resolved_benchmark_return_source(request),
         )
     except HTTPException as exc:
         record_execution_failure(
