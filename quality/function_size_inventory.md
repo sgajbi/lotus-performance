@@ -1,7 +1,7 @@
 # Lotus Performance Function Size Inventory
 
 Report date: 2026-06-05
-Branch: `feat/performance-hardening-wave-13`
+Branch: `feat/performance-hardening-wave-14`
 Mode: report-only function-size inventory; this artifact introduces no new blocking CI gate.
 
 ## Purpose

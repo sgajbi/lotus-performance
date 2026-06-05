@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-05
-Branch: `feat/performance-hardening-wave-13`
+Branch: `feat/performance-hardening-wave-14`
 Mode: report-only complexity and maintainability inventory; no blocking CI gate is introduced by this artifact.
 
 ## Purpose
@@ -22,7 +22,7 @@ python scripts/python_complexity_inventory.py --limit 20
 | --- | ---: |
 | Max cyclomatic complexity | 15 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.64 |
+| Average maintainability index | 55.63 |
 
 ## Highest Cyclomatic Complexity
 
@@ -47,7 +47,7 @@ python scripts/python_complexity_inventory.py --limit 20
 | 17 | `build_hierarchical_contribution_result` | function | `engine/contribution.py:298` | 14 | C |
 | 18 | `_apply_overrides` | function | `engine/policies.py:38` | 14 | C |
 | 19 | `_build_artifacts` | function | `app/services/composite_inspection_service.py:114` | 13 | C |
-| 20 | `resolve_period` | function | `core/periods.py:21` | 13 | C |
+| 20 | `_build_composite_period_fact_set` | function | `engine/composites.py:255` | 13 | C |
 
 ## Lowest Maintainability Index
 
@@ -132,7 +132,9 @@ into dedicated helpers. `validate_history_manifest_header` also dropped out afte
 and retention-field validation were split into dedicated helpers. `_summarize_benchmark_classification`
 also dropped out after benchmark classification label indexing and classified component counting
 were split into dedicated helpers. `process_pending_jobs` also dropped out after leased-payload
-materialization outcome handling and retry-budget policy were split into dedicated helpers. Max
+materialization outcome handling and retry-budget policy were split into dedicated helpers.
+`resolve_period` also dropped out after explicit, calendar, trailing-year, and rolling period
+resolution policy were split into dedicated helpers. Max
 cyclomatic complexity is now `15`. The remaining
 highest-complexity functions are C-grade service and engine hotspots that should be treated as
 future bounded refactor candidates, not as evidence of an immediate behavior defect.

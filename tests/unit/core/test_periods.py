@@ -1,13 +1,14 @@
 # tests/unit/core/test_periods.py
 from datetime import date
 
+import pandas as pd
 import pytest
 from pydantic import BaseModel
 
 from common.enums import PeriodType
 from core.envelope import Periods
 from core.errors import APIBadRequestError
-from core.periods import resolve_period, resolve_periods
+from core.periods import _resolve_calendar_period_start, resolve_period, resolve_periods
 
 
 class ResolvedPeriod(BaseModel):
@@ -47,6 +48,16 @@ def test_resolve_period(period_def, as_of, expected_start, expected_end):
     start_date, end_date = resolve_period(period_model, as_of_date)
     assert start_date == expected_start
     assert end_date == expected_end
+
+
+def test_resolve_calendar_period_start_handles_calendar_and_noncalendar_periods():
+    as_of = pd.Timestamp(date(2025, 8, 31))
+
+    assert _resolve_calendar_period_start("YTD", as_of) == date(2025, 1, 1)
+    assert _resolve_calendar_period_start("QTD", as_of) == date(2025, 7, 1)
+    assert _resolve_calendar_period_start("MTD", as_of) == date(2025, 8, 1)
+    assert _resolve_calendar_period_start("WTD", as_of) == date(2025, 8, 25)
+    assert _resolve_calendar_period_start("ROLLING", as_of) is None
 
 
 def test_resolve_periods_multi():
