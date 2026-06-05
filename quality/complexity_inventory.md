@@ -22,7 +22,7 @@ python scripts/python_complexity_inventory.py --limit 20
 | --- | ---: |
 | Max cyclomatic complexity | 15 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.68 |
+| Average maintainability index | 55.67 |
 
 ## Highest Cyclomatic Complexity
 
@@ -47,7 +47,7 @@ python scripts/python_complexity_inventory.py --limit 20
 | 17 | `portfolio_timeseries_to_valuation_points` | function | `app/services/valuation_points_service.py:12` | 14 | C |
 | 18 | `build_hierarchical_contribution_result` | function | `engine/contribution.py:298` | 14 | C |
 | 19 | `_apply_overrides` | function | `engine/policies.py:38` | 14 | C |
-| 20 | `validate_mode_payloads` | method | `app/models/contribution_analytics_requests.py:72` | 13 | C |
+| 20 | `validate_mode_payloads` | method | `app/models/twr_requests.py:57` | 13 | C |
 
 ## Lowest Maintainability Index
 
@@ -121,7 +121,9 @@ values and daily evidence mismatch assembly were separated from portfolio breakd
 `_record_taxonomy_samples` also dropped out after repeated dated sample append branches were routed
 through reusable taxonomy sampling helpers. `DurableQueueCollector.collect` also dropped out after
 availability and runtime-retention preview metric emission were separated from queue/storage/history
-metric collection. Max
+metric collection. `ContributionAnalyticsRequest.validate_mode_payloads` also dropped out after
+legacy payload-shape checks and stateless/stateful contribution payload checks were split into
+dedicated helpers. Max
 cyclomatic complexity is now `15`. The remaining
 highest-complexity functions are C-grade service and engine hotspots that should be treated as
 future bounded refactor candidates, not as evidence of an immediate behavior defect.

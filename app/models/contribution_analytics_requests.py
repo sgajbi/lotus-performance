@@ -45,6 +45,47 @@ class ContributionStatefulInput(BaseModel):
     )
 
 
+def _has_legacy_stateless_payload(request: "ContributionAnalyticsRequest") -> bool:
+    return request.portfolio_data is not None or request.positions_data is not None
+
+
+def _validate_legacy_stateless_payload_shape(request: "ContributionAnalyticsRequest") -> bool:
+    has_partial_legacy = (request.portfolio_data is None) != (request.positions_data is None)
+    if has_partial_legacy:
+        raise ValueError("portfolio_data and positions_data must be provided together for legacy stateless mode")
+    return _has_legacy_stateless_payload(request)
+
+
+def _validate_stateless_contribution_payloads(
+    request: "ContributionAnalyticsRequest",
+    *,
+    has_legacy_stateless: bool,
+) -> None:
+    if request.stateful_input is not None:
+        raise ValueError("stateful_input must be null when input_mode=stateless")
+    if request.stateless_input is not None and has_legacy_stateless:
+        raise ValueError(
+            "Provide either stateless_input or legacy portfolio_data/positions_data, not both, for stateless mode"
+        )
+    if request.stateless_input is None and not has_legacy_stateless:
+        raise ValueError(
+            "stateless_input or legacy portfolio_data/positions_data is required when input_mode=stateless"
+        )
+
+
+def _validate_stateful_contribution_payloads(
+    request: "ContributionAnalyticsRequest",
+    *,
+    has_legacy_stateless: bool,
+) -> None:
+    if request.stateful_input is None:
+        raise ValueError("stateful_input is required when input_mode=stateful")
+    if request.stateless_input is not None:
+        raise ValueError("stateless_input must be null when input_mode=stateful")
+    if has_legacy_stateless:
+        raise ValueError("portfolio_data and positions_data must be null when input_mode=stateful")
+
+
 class ContributionAnalyticsRequest(ContributionRequestBase):
     input_mode: ContributionInputMode = Field(
         default=ContributionInputMode.STATELESS,
@@ -70,30 +111,12 @@ class ContributionAnalyticsRequest(ContributionRequestBase):
 
     @model_validator(mode="after")
     def validate_mode_payloads(self) -> "ContributionAnalyticsRequest":
-        has_legacy_stateless = self.portfolio_data is not None or self.positions_data is not None
-        has_partial_legacy = (self.portfolio_data is None) != (self.positions_data is None)
-        if has_partial_legacy:
-            raise ValueError("portfolio_data and positions_data must be provided together for legacy stateless mode")
-
+        has_legacy_stateless = _validate_legacy_stateless_payload_shape(self)
         if self.input_mode == ContributionInputMode.STATELESS:
-            if self.stateful_input is not None:
-                raise ValueError("stateful_input must be null when input_mode=stateless")
-            if self.stateless_input is not None and has_legacy_stateless:
-                raise ValueError(
-                    "Provide either stateless_input or legacy portfolio_data/positions_data, not both, for stateless mode"
-                )
-            if self.stateless_input is None and not has_legacy_stateless:
-                raise ValueError(
-                    "stateless_input or legacy portfolio_data/positions_data is required when input_mode=stateless"
-                )
+            _validate_stateless_contribution_payloads(self, has_legacy_stateless=has_legacy_stateless)
 
         if self.input_mode == ContributionInputMode.STATEFUL:
-            if self.stateful_input is None:
-                raise ValueError("stateful_input is required when input_mode=stateful")
-            if self.stateless_input is not None:
-                raise ValueError("stateless_input must be null when input_mode=stateful")
-            if has_legacy_stateless:
-                raise ValueError("portfolio_data and positions_data must be null when input_mode=stateful")
+            _validate_stateful_contribution_payloads(self, has_legacy_stateless=has_legacy_stateless)
         return self
 
     def to_stateless_contribution_request(
