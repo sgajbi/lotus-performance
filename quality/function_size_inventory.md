@@ -20,17 +20,17 @@ python scripts/python_function_size_inventory.py --limit 15
 
 | Rank | Function | File | Lines |
 | ---: | --- | --- | ---: |
-| 1 | `build_source_economics_findings` | `app/services/inspection/source_economics_findings.py:7` | 258 |
-| 2 | `calculate_contribution` | `app/services/contribution_service.py:421` | 189 |
+| 1 | `calculate_contribution` | `app/services/contribution_service.py:421` | 189 |
+| 2 | `_build_detailed_cashflow_contract_findings` | `app/services/inspection/source_economics_findings.py:112` | 186 |
 | 3 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:503` | 172 |
 | 4 | `DurableQueueCollector.describe` | `app/services/queue_metrics_service.py:193` | 159 |
 | 5 | `aggregate_attribution_results` | `engine/attribution.py:586` | 148 |
 | 6 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:71` | 147 |
-| 7 | `_build_external_cashflow_findings` | `app/services/inspection/source_economics_findings.py:267` | 140 |
+| 7 | `_build_external_cashflow_findings` | `app/services/inspection/source_economics_findings.py:300` | 140 |
 | 8 | `_build_artifacts` | `app/services/composite_inspection_service.py:114` | 135 |
 | 9 | `resolve_stateful_returns_series_request` | `app/services/returns_series_service.py:1265` | 134 |
 | 10 | `build_runtime_status_response` | `app/models/runtime_status.py:737` | 131 |
-| 11 | `_build_fee_source_economics_findings` | `app/services/inspection/source_economics_findings.py:409` | 130 |
+| 11 | `_build_fee_source_economics_findings` | `app/services/inspection/source_economics_findings.py:442` | 130 |
 | 12 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:327` | 130 |
 | 13 | `calculate_contribution_workflow` | `app/services/contribution_calculation_workflow_service.py:98` | 127 |
 | 14 | `calculate_attribution` | `app/services/attribution_service.py:168` | 120 |
@@ -53,6 +53,11 @@ flat-period result assembly was isolated from the public contribution orchestrat
 dropped out of the top-15 table after resolved benchmark execution context and failure mapping were isolated.
 Durable queue metric collection dropped out of the top-15 table after source loading and
 availability/runtime-retention preview metric emission were isolated into dedicated helpers.
+Source-economics top-level finding assembly dropped from `258` lines out of the top-15 table after
+observation-contract, explicit-amount-contract, and detailed cash-flow contract finding groups were
+isolated. `_build_detailed_cashflow_contract_findings` remains a large follow-up hotspot at `186`
+lines because this slice preserved finding text and ordering rather than converting the source
+contract taxonomy to a data-driven table.
 
 Future refactor slices should use this report to choose bounded work where extraction, shared
 helpers, or narrower tests can reduce function size while preserving analytics truth and API
