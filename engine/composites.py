@@ -88,6 +88,17 @@ class _CompositePeriodFactSet:
     ready_restatement_versions: list[str]
 
 
+@dataclass(frozen=True)
+class _CompositePeriodFactMetadata:
+    reason_codes: list[str]
+    beginning_assets: Decimal
+    ending_assets: Decimal
+    ready_return_views: list[str]
+    ready_reporting_currencies: list[str]
+    ready_source_fingerprints: list[str]
+    ready_restatement_versions: list[str]
+
+
 def _quantize_decimal(value: Decimal, quantum: Decimal) -> Decimal:
     if value == 0:
         return Decimal("0").quantize(quantum)
@@ -258,13 +269,45 @@ def _build_composite_period_fact_set(
     period_end: dt_date,
     facts: Sequence[CompositeMemberReturnFactLike],
 ) -> _CompositePeriodFactSet:
-    ready_facts = [fact for fact in facts if str(fact.status) == COMPOSITE_MEMBER_READY_STATUS]
-    excluded_facts = [fact for fact in facts if str(fact.status) != COMPOSITE_MEMBER_READY_STATUS]
+    ready_facts, excluded_facts = _classify_composite_period_facts(facts)
+    metadata = _composite_period_fact_metadata(
+        ready_facts=ready_facts,
+        excluded_facts=excluded_facts,
+    )
     return _CompositePeriodFactSet(
         period_start=period_start,
         period_end=period_end,
         ready_facts=ready_facts,
         excluded_facts=excluded_facts,
+        reason_codes=metadata.reason_codes,
+        beginning_assets=metadata.beginning_assets,
+        ending_assets=metadata.ending_assets,
+        ready_return_views=metadata.ready_return_views,
+        ready_reporting_currencies=metadata.ready_reporting_currencies,
+        ready_source_fingerprints=metadata.ready_source_fingerprints,
+        ready_restatement_versions=metadata.ready_restatement_versions,
+    )
+
+
+def _classify_composite_period_facts(
+    facts: Sequence[CompositeMemberReturnFactLike],
+) -> tuple[list[CompositeMemberReturnFactLike], list[CompositeMemberReturnFactLike]]:
+    ready_facts: list[CompositeMemberReturnFactLike] = []
+    excluded_facts: list[CompositeMemberReturnFactLike] = []
+    for fact in facts:
+        if str(fact.status) == COMPOSITE_MEMBER_READY_STATUS:
+            ready_facts.append(fact)
+        else:
+            excluded_facts.append(fact)
+    return ready_facts, excluded_facts
+
+
+def _composite_period_fact_metadata(
+    *,
+    ready_facts: Sequence[CompositeMemberReturnFactLike],
+    excluded_facts: Sequence[CompositeMemberReturnFactLike],
+) -> _CompositePeriodFactMetadata:
+    return _CompositePeriodFactMetadata(
         reason_codes=sorted({code for fact in excluded_facts for code in fact.reason_codes}),
         beginning_assets=sum((fact.beginning_market_value for fact in ready_facts), Decimal("0")),
         ending_assets=sum((fact.ending_market_value for fact in ready_facts), Decimal("0")),

@@ -47,7 +47,7 @@ python scripts/python_complexity_inventory.py --limit 20
 | 17 | `build_hierarchical_contribution_result` | function | `engine/contribution.py:298` | 14 | C |
 | 18 | `_apply_overrides` | function | `engine/policies.py:38` | 14 | C |
 | 19 | `_build_artifacts` | function | `app/services/composite_inspection_service.py:114` | 13 | C |
-| 20 | `_build_composite_period_fact_set` | function | `engine/composites.py:255` | 13 | C |
+| 20 | `run_calculations` | function | `engine/compute.py:21` | 13 | C |
 
 ## Lowest Maintainability Index
 
@@ -118,6 +118,8 @@ smaller helpers. `calculate_benchmark_workflow` also dropped out after resolved 
 context construction and workflow failure mapping were separated from fencing and offload decisions.
 `_check_portfolio_daily_calculation_evidence` also dropped out after expected daily calculation
 values and daily evidence mismatch assembly were separated from portfolio breakdown traversal.
+`_build_composite_period_fact_set` also dropped out after ready/excluded member classification and
+aggregate fact metadata assembly were separated into independently testable helpers.
 `_record_taxonomy_samples` also dropped out after repeated dated sample append branches were routed
 through reusable taxonomy sampling helpers. `DurableQueueCollector.collect` also dropped out after
 availability and runtime-retention preview metric emission were separated from queue/storage/history

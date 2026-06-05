@@ -11,6 +11,8 @@ from engine.composites import (
     _build_composite_period_fact_set,
     _build_ready_composite_period_result,
     _build_ready_member_contributions,
+    _classify_composite_period_facts,
+    _composite_period_fact_metadata,
     calculate_asset_weighted_composite_twr,
 )
 
@@ -44,6 +46,7 @@ def _fact(
     ending_market_value: str = "101.00",
     reporting_currency: str = "USD",
     return_view: str = "NET_ACTUAL",
+    source_fingerprint: str | None = None,
     status: str = "READY",
     reason_codes: list[str] | None = None,
 ) -> CompositeMemberReturnFact:
@@ -60,7 +63,7 @@ def _fact(
             "reporting_currency": reporting_currency,
             "calculation_id": f"calc-{portfolio_id}-{period_end}",
             "source_snapshot_id": f"snapshot-{portfolio_id}-{period_end}",
-            "source_fingerprint": f"sha256:{portfolio_id}-{period_end}",
+            "source_fingerprint": source_fingerprint or f"sha256:{portfolio_id}-{period_end}",
             "status": status,
             "reason_codes": reason_codes or [],
         }
@@ -183,6 +186,39 @@ def test_build_composite_period_fact_set_classifies_ready_and_excluded_metadata(
         "sha256:P2-2026-01-31",
     ]
     assert period_fact_set.ready_restatement_versions == ["v1"]
+
+
+def test_composite_period_fact_helpers_classify_and_aggregate_metadata():
+    facts = [
+        _fact(portfolio_id="P2", return_value="0.0200", beginning_market_value="200.00"),
+        _fact(
+            portfolio_id="P1",
+            return_value="0.0100",
+            beginning_market_value="100.00",
+            source_fingerprint="sha256:P1-custom",
+        ),
+        _fact(
+            portfolio_id="P3",
+            status="BLOCKED",
+            reason_codes=["upstream_twr_blocked", "missing_final_valuation"],
+        ),
+    ]
+
+    ready_facts, excluded_facts = _classify_composite_period_facts(facts)
+    metadata = _composite_period_fact_metadata(
+        ready_facts=ready_facts,
+        excluded_facts=excluded_facts,
+    )
+
+    assert [fact.portfolio_id for fact in ready_facts] == ["P2", "P1"]
+    assert [fact.portfolio_id for fact in excluded_facts] == ["P3"]
+    assert metadata.reason_codes == ["missing_final_valuation", "upstream_twr_blocked"]
+    assert metadata.beginning_assets == Decimal("300.00")
+    assert metadata.ending_assets == Decimal("202.00")
+    assert metadata.ready_return_views == ["NET_ACTUAL"]
+    assert metadata.ready_reporting_currencies == ["USD"]
+    assert metadata.ready_source_fingerprints == ["sha256:P1-custom", "sha256:P2-2026-01-31"]
+    assert metadata.ready_restatement_versions == ["v1"]
 
 
 def test_build_ready_composite_period_result_quantizes_and_links_growth():
