@@ -331,6 +331,54 @@ def test_portfolio_chunk_helper_contracts_preserve_request_identity_and_payload_
     assert _portfolio_observations_from_payload({"observations": "bad"}) == []
 
 
+def test_build_portfolio_timeseries_payload_normalizes_chunk_responses():
+    service = StatefulInputService(core_service=_CoreServiceStub())
+
+    payload = service._build_portfolio_timeseries_payload(
+        responses=[
+            (
+                200,
+                {
+                    "portfolio_open_date": "2025-12-31",
+                    "portfolio_currency": "EUR",
+                    "reporting_currency": "USD",
+                    "observations": [
+                        {"valuation_date": "2026-01-02", "ending_market_value": "102"},
+                        {"valuation_date": "2026-01-01", "ending_market_value": "101"},
+                    ],
+                    "retrieval_metadata": {"page_count": "2"},
+                },
+            ),
+            (
+                200,
+                {
+                    "portfolio_open_date": "2024-01-01",
+                    "portfolio_currency": "GBP",
+                    "reporting_currency": "USD",
+                    "observations": [
+                        {"valuation_date": "2026-01-02", "ending_market_value": "replacement"},
+                        "bad-row",
+                    ],
+                    "retrieval_metadata": {"page_count": 1},
+                },
+            ),
+            (200, {"observations": "bad-shape", "retrieval_metadata": None}),
+        ],
+        chunk_count=3,
+    )
+
+    assert payload == {
+        "portfolio_open_date": "2024-01-01",
+        "portfolio_currency": None,
+        "reporting_currency": "USD",
+        "observations": [
+            {"valuation_date": "2026-01-01", "ending_market_value": "101"},
+            {"valuation_date": "2026-01-02", "ending_market_value": "replacement"},
+        ],
+        "retrieval_metadata": {"chunk_count": 3, "page_count": 3},
+    }
+
+
 @pytest.mark.asyncio
 async def test_get_portfolio_timeseries_merges_chunked_and_paginated_observations():
     core_service = _CoreServiceStub()

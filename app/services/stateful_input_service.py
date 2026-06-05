@@ -82,41 +82,10 @@ class StatefulInputService:
         if failure is not None:
             return failure
 
-        open_dates = [
-            payload["portfolio_open_date"]
-            for _, payload in responses
-            if isinstance(payload, dict) and isinstance(payload.get("portfolio_open_date"), str)
-        ]
-        portfolio_currencies = {
-            payload["portfolio_currency"]
-            for _, payload in responses
-            if isinstance(payload, dict) and isinstance(payload.get("portfolio_currency"), str)
-        }
-        reporting_currencies = {
-            payload["reporting_currency"]
-            for _, payload in responses
-            if isinstance(payload, dict) and isinstance(payload.get("reporting_currency"), str)
-        }
-        observations = self._merge_dedup_records(
-            records=[
-                obs
-                for _, payload in responses
-                for obs in (payload.get("observations", []) if isinstance(payload, dict) else [])
-                if isinstance(obs, dict)
-            ],
-            date_key="valuation_date",
+        return 200, self._build_portfolio_timeseries_payload(
+            responses=responses,
+            chunk_count=len(chunks),
         )
-        total_page_count = self._total_retrieval_page_count(responses)
-        return 200, {
-            "portfolio_open_date": min(open_dates) if open_dates else None,
-            "portfolio_currency": _single_value_or_none(portfolio_currencies),
-            "reporting_currency": _single_value_or_none(reporting_currencies),
-            "observations": observations,
-            "retrieval_metadata": {
-                "chunk_count": len(chunks),
-                "page_count": total_page_count,
-            },
-        }
 
     async def get_position_timeseries(
         self,
@@ -1030,6 +999,31 @@ class StatefulInputService:
     def _total_retrieval_page_count(self, responses: list[tuple[int, dict[str, Any]]]) -> int:
         return sum(_retrieval_page_count(payload) for _, payload in responses)
 
+    def _build_portfolio_timeseries_payload(
+        self,
+        *,
+        responses: list[tuple[int, dict[str, Any]]],
+        chunk_count: int,
+    ) -> dict[str, Any]:
+        open_dates = _string_payload_values(responses=responses, field_name="portfolio_open_date")
+        return {
+            "portfolio_open_date": min(open_dates) if open_dates else None,
+            "portfolio_currency": _single_value_or_none(
+                set(_string_payload_values(responses=responses, field_name="portfolio_currency"))
+            ),
+            "reporting_currency": _single_value_or_none(
+                set(_string_payload_values(responses=responses, field_name="reporting_currency"))
+            ),
+            "observations": self._merge_dedup_records(
+                records=_dict_list_payload_items(responses=responses, field_name="observations"),
+                date_key="valuation_date",
+            ),
+            "retrieval_metadata": {
+                "chunk_count": chunk_count,
+                "page_count": self._total_retrieval_page_count(responses),
+            },
+        }
+
     def _next_page_token(self, payload: dict[str, Any]) -> str | None:
         next_page_token = payload.get("next_page_token")
         if isinstance(next_page_token, str) and next_page_token:
@@ -1200,6 +1194,27 @@ def _portfolio_observations_from_payload(payload: dict[str, Any]) -> list[dict[s
     if not isinstance(observations, list):
         return []
     return [observation for observation in observations if isinstance(observation, dict)]
+
+
+def _string_payload_values(
+    *,
+    responses: list[tuple[int, dict[str, Any]]],
+    field_name: str,
+) -> list[str]:
+    return [value for _, payload in responses if isinstance((value := payload.get(field_name)), str)]
+
+
+def _dict_list_payload_items(
+    *,
+    responses: list[tuple[int, dict[str, Any]]],
+    field_name: str,
+) -> list[dict[str, Any]]:
+    return [
+        item
+        for _, payload in responses
+        for item in (payload.get(field_name, []) if isinstance(payload.get(field_name), list) else [])
+        if isinstance(item, dict)
+    ]
 
 
 def _retrieval_page_count(payload: dict[str, Any]) -> int:
