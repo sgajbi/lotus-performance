@@ -2,6 +2,10 @@ import logging
 
 from app.services.operator_action_replay_service import (
     _load_payload,
+    _runtime_retention_payload_counts_match,
+    _runtime_retention_payload_has_required_shape,
+    _runtime_retention_payload_identity_matches,
+    _runtime_retention_payload_matches_entry,
     resolve_recovery_drill_manual_replay,
     resolve_runtime_retention_manual_replay,
 )
@@ -10,6 +14,79 @@ from app.services.runtime_retention_history_service import (
     RuntimeRetentionHistoryEntry,
     RuntimeRetentionHistorySnapshot,
 )
+
+
+def _runtime_retention_entry() -> RuntimeRetentionHistoryEntry:
+    return RuntimeRetentionHistoryEntry(
+        evidence_file_name="2026-03-15t00-00-00z.json",
+        generated_at_utc="2026-03-15T00:00:00Z",
+        operator_id="ops-user",
+        tenant_id="tenant-a",
+        correlation_id="corr-1",
+        trigger_mode="manual",
+        job_id="ticket-7",
+        cleanup_mode="dry_run",
+        status="planned",
+        retention_days=30,
+        prunable_execution_count=1,
+        prunable_compute_job_count=2,
+        prunable_async_result_count=3,
+        prunable_lineage_record_count=4,
+        prunable_lineage_artifact_count=5,
+    )
+
+
+def _runtime_retention_payload(**overrides):
+    payload = {
+        "cleanup_name": "runtime_retention_cleanup",
+        "generated_at_utc": "2026-03-15T00:00:00Z",
+        "evidence_file_name": "2026-03-15t00-00-00z.json",
+        "operator_id": "ops-user",
+        "tenant_id": "tenant-a",
+        "correlation_id": "corr-1",
+        "trigger_mode": "manual",
+        "job_id": "ticket-7",
+        "cleanup_mode": "dry_run",
+        "status": "planned",
+        "retention_days": 30,
+        "cutoff_utc": "2026-02-13T00:00:00Z",
+        "prunable_execution_count": 1,
+        "prunable_compute_job_count": 2,
+        "prunable_async_result_count": 3,
+        "prunable_lineage_record_count": 4,
+        "prunable_lineage_artifact_count": 5,
+    }
+    payload.update(overrides)
+    return payload
+
+
+def test_runtime_retention_payload_match_helpers_accept_matching_payload():
+    payload = _runtime_retention_payload()
+    entry = _runtime_retention_entry()
+
+    assert _runtime_retention_payload_has_required_shape(payload) is True
+    assert _runtime_retention_payload_identity_matches(payload, entry) is True
+    assert _runtime_retention_payload_counts_match(payload, entry) is True
+    assert _runtime_retention_payload_matches_entry(payload, entry) is True
+
+
+def test_runtime_retention_payload_match_helpers_reject_shape_identity_and_count_drift():
+    entry = _runtime_retention_entry()
+
+    assert _runtime_retention_payload_has_required_shape(_runtime_retention_payload(cutoff_utc=" ")) is False
+    assert (
+        _runtime_retention_payload_identity_matches(
+            _runtime_retention_payload(evidence_file_name="different.json"), entry
+        )
+        is False
+    )
+    assert (
+        _runtime_retention_payload_counts_match(_runtime_retention_payload(prunable_execution_count=99), entry) is False
+    )
+    assert (
+        _runtime_retention_payload_matches_entry(_runtime_retention_payload(prunable_execution_count=99), entry)
+        is False
+    )
 
 
 def test_runtime_retention_manual_replay_returns_matching_evidence(tmp_path):

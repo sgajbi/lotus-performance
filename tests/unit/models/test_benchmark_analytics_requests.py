@@ -3,7 +3,14 @@ from datetime import date
 import pytest
 from pydantic import ValidationError
 
-from app.models.benchmark_analytics_requests import BenchmarkAnalyticsRequest
+from app.models.benchmark_analytics_requests import (
+    BenchmarkAnalyticsRequest,
+    BenchmarkReturnSource,
+    BenchmarkStatefulInput,
+    BenchmarkStatelessInput,
+    _validate_stateful_benchmark_payloads,
+    _validate_stateless_benchmark_payloads,
+)
 
 
 def test_benchmark_analytics_request_schema_documents_public_examples():
@@ -65,6 +72,57 @@ def test_benchmark_request_rejects_ambiguous_calculated_stateless_inputs(base_pa
                     ],
                 },
             }
+        )
+
+
+def test_benchmark_stateless_validation_helpers_preserve_return_source_contracts():
+    calculated_input = BenchmarkStatelessInput.model_validate(
+        {
+            "benchmark_currency": "USD",
+            "component_observations": [
+                {
+                    "component_id": "IDX_1",
+                    "perf_date": "2025-01-01",
+                    "weight_bop": 1.0,
+                    "component_return": 0.01,
+                }
+            ],
+        }
+    )
+    vendor_input = BenchmarkStatelessInput.model_validate(
+        {
+            "benchmark_currency": "USD",
+            "benchmark_return_points": [{"perf_date": "2025-01-01", "benchmark_return": 0.01}],
+        }
+    )
+
+    _validate_stateless_benchmark_payloads(
+        stateless_input=calculated_input,
+        stateful_input=None,
+        return_source=BenchmarkReturnSource.CALCULATED,
+    )
+    _validate_stateless_benchmark_payloads(
+        stateless_input=vendor_input,
+        stateful_input=None,
+        return_source=BenchmarkReturnSource.VENDOR_SERIES,
+    )
+    with pytest.raises(ValueError, match="stateful_input must be null"):
+        _validate_stateless_benchmark_payloads(
+            stateless_input=calculated_input,
+            stateful_input=BenchmarkStatefulInput(),
+            return_source=BenchmarkReturnSource.CALCULATED,
+        )
+
+
+def test_benchmark_stateful_validation_helper_rejects_stateless_payload_drift():
+    _validate_stateful_benchmark_payloads(
+        stateless_input=None,
+        stateful_input=BenchmarkStatefulInput(),
+    )
+    with pytest.raises(ValueError, match="stateless_input must be null"):
+        _validate_stateful_benchmark_payloads(
+            stateless_input=BenchmarkStatelessInput(benchmark_currency="USD"),
+            stateful_input=BenchmarkStatefulInput(),
         )
 
 

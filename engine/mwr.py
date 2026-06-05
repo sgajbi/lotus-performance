@@ -2,7 +2,7 @@
 from dataclasses import dataclass
 from datetime import date
 from math import exp, isfinite, log
-from typing import Literal, Sequence
+from typing import Callable, Literal, Sequence
 
 import numpy as np
 
@@ -50,6 +50,98 @@ def _bisect_root(
     return (left + right) / 2, max_iter
 
 
+def _build_xirr_base_convergence(
+    *,
+    annualization: Annualization,
+    lower_bound: float,
+    upper_bound: float,
+    anchor_date: date | None,
+    normalized_flow_count: int,
+    gross_cash_flow_scale: float,
+) -> dict:
+    return {
+        "algorithm": "log_rate_bracket_scan_bisection",
+        "rate_lower_bound": lower_bound,
+        "rate_upper_bound": upper_bound,
+        "day_count_basis": annualization.basis,
+        "anchor_date": anchor_date,
+        "normalized_flow_count": normalized_flow_count,
+        "gross_cash_flow_scale": gross_cash_flow_scale,
+    }
+
+
+def _xirr_failure(
+    *,
+    base_convergence: dict,
+    notes: str,
+    reason_code: str,
+    root_count_detected: int = 0,
+) -> dict:
+    return {
+        "rate": None,
+        "converged": False,
+        "notes": notes,
+        "reason_code": reason_code,
+        "convergence": {
+            **base_convergence,
+            "root_count_detected": root_count_detected,
+            "converged": False,
+        },
+    }
+
+
+def _xirr_time_diffs(*, dates: np.ndarray, anchor_date: date, annualization: Annualization) -> np.ndarray:
+    day_count = _day_count_denominator(annualization)
+    return np.array([(d - anchor_date).days / day_count for d in dates])
+
+
+def _scan_xirr_roots(
+    *,
+    values: np.ndarray,
+    time_diffs: np.ndarray,
+    lower_bound: float,
+    upper_bound: float,
+    root_scan_steps: int,
+    tolerance: float,
+    max_iter: int,
+    gross_cash_flow_scale: float,
+    log_npv: Callable[[float], float],
+) -> list[tuple[float, int, float]]:
+    x_min = log(1 + lower_bound)
+    x_max = log(1 + upper_bound)
+    grid = np.linspace(x_min, x_max, max(root_scan_steps, 32))
+    roots: list[tuple[float, int, float]] = []
+    previous_x = float(grid[0])
+    previous_y = log_npv(previous_x)
+    for current_x_raw in grid[1:]:
+        current_x = float(current_x_raw)
+        current_y = log_npv(current_x)
+        if not isfinite(previous_y) or not isfinite(current_y):
+            previous_x, previous_y = current_x, current_y
+            continue
+        if abs(previous_y) <= tolerance:
+            root_x = previous_x
+            iterations = 0
+        elif previous_y * current_y < 0:
+            root_x, iterations = _bisect_root(
+                log_npv,
+                previous_x,
+                current_x,
+                value_tolerance=max(tolerance * max(gross_cash_flow_scale, 1.0), 1e-8),
+                rate_tolerance=tolerance,
+                max_iter=max_iter,
+            )
+        else:
+            previous_x, previous_y = current_x, current_y
+            continue
+        root_rate = exp(root_x) - 1
+        if all(abs(root_rate - existing_rate) > 1e-8 for existing_rate, _, _ in roots):
+            residual = _npv_at_rate(values, time_diffs, root_rate)
+            roots.append((root_rate, iterations, residual))
+        previous_x, previous_y = current_x, current_y
+    return roots
+
+
 def _xirr(
     values: np.ndarray,
     dates: np.ndarray,
@@ -66,79 +158,51 @@ def _xirr(
     values, dates = _net_same_day_flows(list(values), list(dates))
     gross_cash_flow_scale = float(np.sum(np.abs(values)))
     anchor_date = dates.min() if len(dates) else None
-    base_convergence = {
-        "algorithm": "log_rate_bracket_scan_bisection",
-        "rate_lower_bound": rate_lower_bound,
-        "rate_upper_bound": rate_upper_bound,
-        "day_count_basis": annualization.basis,
-        "anchor_date": anchor_date,
-        "normalized_flow_count": int(len(values)),
-        "gross_cash_flow_scale": gross_cash_flow_scale,
-    }
+    base_convergence = _build_xirr_base_convergence(
+        annualization=annualization,
+        lower_bound=rate_lower_bound,
+        upper_bound=rate_upper_bound,
+        anchor_date=anchor_date,
+        normalized_flow_count=int(len(values)),
+        gross_cash_flow_scale=gross_cash_flow_scale,
+    )
     if len(values) == 0 or gross_cash_flow_scale == 0:
-        return {
-            "rate": None,
-            "converged": False,
-            "notes": "No economic content in cash-flow vector.",
-            "reason_code": "NO_ECONOMIC_CONTENT",
-            "convergence": {**base_convergence, "root_count_detected": 0, "converged": False},
-        }
+        return _xirr_failure(
+            base_convergence=base_convergence,
+            notes="No economic content in cash-flow vector.",
+            reason_code="NO_ECONOMIC_CONTENT",
+        )
     if np.all(values >= 0) or np.all(values <= 0):
-        return {
-            "rate": None,
-            "converged": False,
-            "notes": "No positive and negative cash flows in solver vector.",
-            "reason_code": "NO_POSITIVE_AND_NEGATIVE_CASH_FLOW",
-            "convergence": {**base_convergence, "root_count_detected": 0, "converged": False},
-        }
+        return _xirr_failure(
+            base_convergence=base_convergence,
+            notes="No positive and negative cash flows in solver vector.",
+            reason_code="NO_POSITIVE_AND_NEGATIVE_CASH_FLOW",
+        )
 
     if rate_lower_bound <= -1 or rate_upper_bound <= rate_lower_bound:
-        return {
-            "rate": None,
-            "converged": False,
-            "notes": "Invalid XIRR search bounds.",
-            "reason_code": "INVALID_SOLVER_BOUNDS",
-            "convergence": {**base_convergence, "root_count_detected": 0, "converged": False},
-        }
+        return _xirr_failure(
+            base_convergence=base_convergence,
+            notes="Invalid XIRR search bounds.",
+            reason_code="INVALID_SOLVER_BOUNDS",
+        )
 
-    day_count = _day_count_denominator(annualization)
-    time_diffs = np.array([(d - anchor_date).days / day_count for d in dates])
+    assert anchor_date is not None
+    time_diffs = _xirr_time_diffs(dates=dates, anchor_date=anchor_date, annualization=annualization)
 
     def f_log(log_rate: float) -> float:
         return float(np.sum(values * np.exp(-log_rate * time_diffs)))
 
-    x_min = log(1 + rate_lower_bound)
-    x_max = log(1 + rate_upper_bound)
-    grid = np.linspace(x_min, x_max, max(root_scan_steps, 32))
-    roots: list[tuple[float, int, float]] = []
-    previous_x = float(grid[0])
-    previous_y = f_log(previous_x)
-    for current_x_raw in grid[1:]:
-        current_x = float(current_x_raw)
-        current_y = f_log(current_x)
-        if not isfinite(previous_y) or not isfinite(current_y):
-            previous_x, previous_y = current_x, current_y
-            continue
-        if abs(previous_y) <= tolerance:
-            root_x = previous_x
-            iterations = 0
-        elif previous_y * current_y < 0:
-            root_x, iterations = _bisect_root(
-                f_log,
-                previous_x,
-                current_x,
-                value_tolerance=max(tolerance * max(gross_cash_flow_scale, 1.0), 1e-8),
-                rate_tolerance=tolerance,
-                max_iter=max_iter,
-            )
-        else:
-            previous_x, previous_y = current_x, current_y
-            continue
-        root_rate = exp(root_x) - 1
-        if all(abs(root_rate - existing_rate) > 1e-8 for existing_rate, _, _ in roots):
-            residual = _npv_at_rate(values, time_diffs, root_rate)
-            roots.append((root_rate, iterations, residual))
-        previous_x, previous_y = current_x, current_y
+    roots = _scan_xirr_roots(
+        values=values,
+        time_diffs=time_diffs,
+        lower_bound=rate_lower_bound,
+        upper_bound=rate_upper_bound,
+        root_scan_steps=root_scan_steps,
+        tolerance=tolerance,
+        max_iter=max_iter,
+        gross_cash_flow_scale=gross_cash_flow_scale,
+        log_npv=f_log,
+    )
 
     convergence = {**base_convergence, "root_count_detected": len(roots), "converged": False}
     if not roots:

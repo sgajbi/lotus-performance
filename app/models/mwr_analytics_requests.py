@@ -27,6 +27,50 @@ class MWRStatefulInput(BaseModel):
     )
 
 
+def _has_legacy_stateless_payload(request: "MoneyWeightedReturnAnalyticsRequest") -> bool:
+    return request.begin_mv is not None or request.end_mv is not None or request.cash_flows is not None
+
+
+def _validate_legacy_stateless_payload_complete(request: "MoneyWeightedReturnAnalyticsRequest") -> bool:
+    has_legacy_stateless = _has_legacy_stateless_payload(request)
+    has_partial_legacy = (
+        any(value is None for value in (request.begin_mv, request.end_mv, request.cash_flows)) and has_legacy_stateless
+    )
+    if has_partial_legacy:
+        raise ValueError("begin_mv, end_mv, and cash_flows must be provided together for legacy stateless mode")
+    return has_legacy_stateless
+
+
+def _validate_stateless_mwr_payloads(
+    request: "MoneyWeightedReturnAnalyticsRequest",
+    *,
+    has_legacy_stateless: bool,
+) -> None:
+    if request.stateful_input is not None:
+        raise ValueError("stateful_input must be null when input_mode=stateless")
+    if request.stateless_input is not None and has_legacy_stateless:
+        raise ValueError(
+            "Provide either stateless_input or legacy begin_mv/end_mv/cash_flows, not both, for stateless mode"
+        )
+    if request.stateless_input is None and not has_legacy_stateless:
+        raise ValueError("stateless_input or legacy begin_mv/end_mv/cash_flows is required when input_mode=stateless")
+
+
+def _validate_stateful_mwr_payloads(
+    request: "MoneyWeightedReturnAnalyticsRequest",
+    *,
+    has_legacy_stateless: bool,
+) -> None:
+    if request.stateful_input is None:
+        raise ValueError("stateful_input is required when input_mode=stateful")
+    if request.stateless_input is not None:
+        raise ValueError("stateless_input must be null when input_mode=stateful")
+    if has_legacy_stateless:
+        raise ValueError("begin_mv, end_mv, and cash_flows must be null when input_mode=stateful")
+    if request.source_preconverted_fx_evidence is not None:
+        raise ValueError("source_preconverted_fx_evidence must be null when input_mode=stateful")
+
+
 class MoneyWeightedReturnAnalyticsRequest(MoneyWeightedReturnRequestBase):
     input_mode: MWRInputMode = Field(
         default=MWRInputMode.STATELESS,
@@ -56,34 +100,13 @@ class MoneyWeightedReturnAnalyticsRequest(MoneyWeightedReturnRequestBase):
 
     @model_validator(mode="after")
     def validate_mode_payloads(self) -> "MoneyWeightedReturnAnalyticsRequest":
-        has_legacy_stateless = self.begin_mv is not None or self.end_mv is not None or self.cash_flows is not None
-        has_partial_legacy = (
-            any(value is None for value in (self.begin_mv, self.end_mv, self.cash_flows)) and has_legacy_stateless
-        )
-        if has_partial_legacy:
-            raise ValueError("begin_mv, end_mv, and cash_flows must be provided together for legacy stateless mode")
+        has_legacy_stateless = _validate_legacy_stateless_payload_complete(self)
 
         if self.input_mode == MWRInputMode.STATELESS:
-            if self.stateful_input is not None:
-                raise ValueError("stateful_input must be null when input_mode=stateless")
-            if self.stateless_input is not None and has_legacy_stateless:
-                raise ValueError(
-                    "Provide either stateless_input or legacy begin_mv/end_mv/cash_flows, not both, for stateless mode"
-                )
-            if self.stateless_input is None and not has_legacy_stateless:
-                raise ValueError(
-                    "stateless_input or legacy begin_mv/end_mv/cash_flows is required when input_mode=stateless"
-                )
+            _validate_stateless_mwr_payloads(self, has_legacy_stateless=has_legacy_stateless)
 
         if self.input_mode == MWRInputMode.STATEFUL:
-            if self.stateful_input is None:
-                raise ValueError("stateful_input is required when input_mode=stateful")
-            if self.stateless_input is not None:
-                raise ValueError("stateless_input must be null when input_mode=stateful")
-            if has_legacy_stateless:
-                raise ValueError("begin_mv, end_mv, and cash_flows must be null when input_mode=stateful")
-            if self.source_preconverted_fx_evidence is not None:
-                raise ValueError("source_preconverted_fx_evidence must be null when input_mode=stateful")
+            _validate_stateful_mwr_payloads(self, has_legacy_stateless=has_legacy_stateless)
         return self
 
     def to_stateless_mwr_request(

@@ -28,6 +28,26 @@ from app.services.runtime_retention_history_service import (
 
 logger = logging.getLogger(__name__)
 
+_RUNTIME_RETENTION_REQUIRED_STRING_FIELDS = (
+    "cleanup_name",
+    "generated_at_utc",
+    "evidence_file_name",
+    "operator_id",
+    "trigger_mode",
+    "cleanup_mode",
+    "status",
+    "cutoff_utc",
+)
+_RUNTIME_RETENTION_OPTIONAL_STRING_FIELDS = ("tenant_id", "correlation_id", "job_id")
+_RUNTIME_RETENTION_REQUIRED_INT_FIELDS = (
+    "retention_days",
+    "prunable_execution_count",
+    "prunable_compute_job_count",
+    "prunable_async_result_count",
+    "prunable_lineage_record_count",
+    "prunable_lineage_artifact_count",
+)
+
 
 @dataclass(frozen=True)
 class ActionReplayResult:
@@ -138,32 +158,26 @@ def _runtime_retention_payload_matches_entry(
     entry: RuntimeRetentionHistoryEntry,
 ) -> bool:
     return (
-        required_evidence_string_fields_present(
-            payload,
-            (
-                "cleanup_name",
-                "generated_at_utc",
-                "evidence_file_name",
-                "operator_id",
-                "trigger_mode",
-                "cleanup_mode",
-                "status",
-                "cutoff_utc",
-            ),
-        )
-        and optional_evidence_string_fields_valid(payload, ("tenant_id", "correlation_id", "job_id"))
-        and required_evidence_int_fields_present(
-            payload,
-            (
-                "retention_days",
-                "prunable_execution_count",
-                "prunable_compute_job_count",
-                "prunable_async_result_count",
-                "prunable_lineage_record_count",
-                "prunable_lineage_artifact_count",
-            ),
-        )
-        and payload["evidence_file_name"] == entry.evidence_file_name
+        _runtime_retention_payload_has_required_shape(payload)
+        and _runtime_retention_payload_identity_matches(payload, entry)
+        and _runtime_retention_payload_counts_match(payload, entry)
+    )
+
+
+def _runtime_retention_payload_has_required_shape(payload: dict[str, Any]) -> bool:
+    return (
+        required_evidence_string_fields_present(payload, _RUNTIME_RETENTION_REQUIRED_STRING_FIELDS)
+        and optional_evidence_string_fields_valid(payload, _RUNTIME_RETENTION_OPTIONAL_STRING_FIELDS)
+        and required_evidence_int_fields_present(payload, _RUNTIME_RETENTION_REQUIRED_INT_FIELDS)
+    )
+
+
+def _runtime_retention_payload_identity_matches(
+    payload: dict[str, Any],
+    entry: RuntimeRetentionHistoryEntry,
+) -> bool:
+    return (
+        payload["evidence_file_name"] == entry.evidence_file_name
         and payload["generated_at_utc"] == entry.generated_at_utc
         and payload["operator_id"] == entry.operator_id
         and payload.get("tenant_id") == entry.tenant_id
@@ -172,7 +186,15 @@ def _runtime_retention_payload_matches_entry(
         and payload.get("job_id") == entry.job_id
         and payload["cleanup_mode"] == entry.cleanup_mode
         and payload["status"] == entry.status
-        and payload["retention_days"] == entry.retention_days
+    )
+
+
+def _runtime_retention_payload_counts_match(
+    payload: dict[str, Any],
+    entry: RuntimeRetentionHistoryEntry,
+) -> bool:
+    return (
+        payload["retention_days"] == entry.retention_days
         and payload["prunable_execution_count"] == entry.prunable_execution_count
         and payload["prunable_compute_job_count"] == entry.prunable_compute_job_count
         and payload["prunable_async_result_count"] == entry.prunable_async_result_count

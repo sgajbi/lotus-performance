@@ -31,6 +31,62 @@ class TWRStatefulInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+def _validate_calculated_stateless_twr_benchmark_payload(request: "TWRBenchmarkRequest") -> None:
+    if request.stateless_input is None:
+        return
+
+    has_component_observations = bool(request.stateless_input.component_observations)
+    has_component_price_points = bool(request.stateless_input.component_price_points)
+    if has_component_observations == has_component_price_points:
+        raise ValueError(
+            "exactly one of benchmark.stateless_input.component_observations or "
+            "benchmark.stateless_input.component_price_points is required when "
+            "benchmark.return_source=calculated"
+        )
+    if request.stateless_input.benchmark_return_points:
+        raise ValueError(
+            "benchmark.stateless_input.benchmark_return_points must be empty when benchmark.return_source=calculated"
+        )
+
+
+def _validate_vendor_series_stateless_twr_benchmark_payload(request: "TWRBenchmarkRequest") -> None:
+    if request.stateless_input is None:
+        return
+
+    if not request.stateless_input.benchmark_return_points:
+        raise ValueError(
+            "benchmark.stateless_input.benchmark_return_points are required when benchmark.return_source=vendor_series"
+        )
+    if request.stateless_input.component_observations:
+        raise ValueError(
+            "benchmark.stateless_input.component_observations must be empty when benchmark.return_source=vendor_series"
+        )
+    if request.stateless_input.component_price_points:
+        raise ValueError(
+            "benchmark.stateless_input.component_price_points must be empty when benchmark.return_source=vendor_series"
+        )
+
+
+def _validate_stateless_twr_benchmark_payloads(request: "TWRBenchmarkRequest") -> None:
+    if request.stateless_input is None:
+        raise ValueError("benchmark.stateless_input is required when benchmark.input_mode=stateless")
+    if request.stateful_input is not None:
+        raise ValueError("benchmark.stateful_input must be null when benchmark.input_mode=stateless")
+    if not request.benchmark_id:
+        raise ValueError("benchmark.benchmark_id is required when benchmark.input_mode=stateless")
+    if request.return_source == BenchmarkReturnSource.CALCULATED:
+        _validate_calculated_stateless_twr_benchmark_payload(request)
+    else:
+        _validate_vendor_series_stateless_twr_benchmark_payload(request)
+
+
+def _validate_stateful_twr_benchmark_payloads(request: "TWRBenchmarkRequest") -> None:
+    if request.stateful_input is None:
+        raise ValueError("benchmark.stateful_input is required when benchmark.input_mode=stateful")
+    if request.stateless_input is not None:
+        raise ValueError("benchmark.stateless_input must be null when benchmark.input_mode=stateful")
+
+
 class TWRBenchmarkRequest(BaseModel):
     benchmark_id: str | None = Field(
         default=None,
@@ -56,43 +112,9 @@ class TWRBenchmarkRequest(BaseModel):
     @model_validator(mode="after")
     def validate_mode_payloads(self) -> "TWRBenchmarkRequest":
         if self.input_mode == BenchmarkInputMode.STATELESS:
-            if self.stateless_input is None:
-                raise ValueError("benchmark.stateless_input is required when benchmark.input_mode=stateless")
-            if self.stateful_input is not None:
-                raise ValueError("benchmark.stateful_input must be null when benchmark.input_mode=stateless")
-            if not self.benchmark_id:
-                raise ValueError("benchmark.benchmark_id is required when benchmark.input_mode=stateless")
-            if self.return_source == BenchmarkReturnSource.CALCULATED:
-                has_component_observations = bool(self.stateless_input.component_observations)
-                has_component_price_points = bool(self.stateless_input.component_price_points)
-                if has_component_observations == has_component_price_points:
-                    raise ValueError(
-                        "exactly one of benchmark.stateless_input.component_observations or "
-                        "benchmark.stateless_input.component_price_points is required when "
-                        "benchmark.return_source=calculated"
-                    )
-                if self.stateless_input.benchmark_return_points:
-                    raise ValueError(
-                        "benchmark.stateless_input.benchmark_return_points must be empty when benchmark.return_source=calculated"
-                    )
-            else:
-                if not self.stateless_input.benchmark_return_points:
-                    raise ValueError(
-                        "benchmark.stateless_input.benchmark_return_points are required when benchmark.return_source=vendor_series"
-                    )
-                if self.stateless_input.component_observations:
-                    raise ValueError(
-                        "benchmark.stateless_input.component_observations must be empty when benchmark.return_source=vendor_series"
-                    )
-                if self.stateless_input.component_price_points:
-                    raise ValueError(
-                        "benchmark.stateless_input.component_price_points must be empty when benchmark.return_source=vendor_series"
-                    )
+            _validate_stateless_twr_benchmark_payloads(self)
         else:
-            if self.stateful_input is None:
-                raise ValueError("benchmark.stateful_input is required when benchmark.input_mode=stateful")
-            if self.stateless_input is not None:
-                raise ValueError("benchmark.stateless_input must be null when benchmark.input_mode=stateful")
+            _validate_stateful_twr_benchmark_payloads(self)
         return self
 
 
@@ -106,6 +128,39 @@ class TWRResolvedExecutionRequest(BaseModel):
         default=None,
         description="Resolved benchmark request executed alongside portfolio TWR when benchmark inclusion is enabled.",
     )
+
+
+def _has_legacy_twr_valuation_points(request: "TWRAnalyticsRequest") -> bool:
+    return len(request.valuation_points) > 0
+
+
+def _validate_stateless_twr_payloads(request: "TWRAnalyticsRequest") -> None:
+    has_nested = request.stateless_input is not None
+    has_legacy = _has_legacy_twr_valuation_points(request)
+    if request.performance_start_date is None:
+        raise ValueError("performance_start_date is required when input_mode=stateless")
+    if has_nested and has_legacy:
+        raise ValueError("Provide either stateless_input or valuation_points, not both, for stateless mode")
+    if not has_nested and not has_legacy:
+        raise ValueError("stateless_input or valuation_points is required when input_mode=stateless")
+    if request.stateful_input is not None:
+        raise ValueError("stateful_input must be null when input_mode=stateless")
+
+
+def _validate_stateful_twr_payloads(request: "TWRAnalyticsRequest") -> None:
+    if request.stateful_input is None:
+        raise ValueError("stateful_input is required when input_mode=stateful")
+    if request.stateless_input is not None:
+        raise ValueError("stateless_input must be null when input_mode=stateful")
+    if request.valuation_points:
+        raise ValueError("valuation_points must be null when input_mode=stateful")
+
+
+def _validate_twr_benchmark_inclusion(request: "TWRAnalyticsRequest") -> None:
+    if request.benchmark is not None and not request.include_benchmark:
+        request.include_benchmark = True
+    if request.include_benchmark and request.input_mode == TWRInputMode.STATELESS and request.benchmark is None:
+        raise ValueError("benchmark configuration is required when include_benchmark=true in stateless mode")
 
 
 class TWRAnalyticsRequest(PerformanceRequestBase):
@@ -145,27 +200,10 @@ class TWRAnalyticsRequest(PerformanceRequestBase):
     @model_validator(mode="after")
     def validate_mode_payloads(self) -> "TWRAnalyticsRequest":
         if self.input_mode == TWRInputMode.STATELESS:
-            has_nested = self.stateless_input is not None
-            has_legacy = len(self.valuation_points) > 0
-            if self.performance_start_date is None:
-                raise ValueError("performance_start_date is required when input_mode=stateless")
-            if has_nested and has_legacy:
-                raise ValueError("Provide either stateless_input or valuation_points, not both, for stateless mode")
-            if not has_nested and not has_legacy:
-                raise ValueError("stateless_input or valuation_points is required when input_mode=stateless")
-            if self.stateful_input is not None:
-                raise ValueError("stateful_input must be null when input_mode=stateless")
+            _validate_stateless_twr_payloads(self)
         if self.input_mode == TWRInputMode.STATEFUL:
-            if self.stateful_input is None:
-                raise ValueError("stateful_input is required when input_mode=stateful")
-            if self.stateless_input is not None:
-                raise ValueError("stateless_input must be null when input_mode=stateful")
-            if self.valuation_points:
-                raise ValueError("valuation_points must be null when input_mode=stateful")
-        if self.benchmark is not None and not self.include_benchmark:
-            self.include_benchmark = True
-        if self.include_benchmark and self.input_mode == TWRInputMode.STATELESS and self.benchmark is None:
-            raise ValueError("benchmark configuration is required when include_benchmark=true in stateless mode")
+            _validate_stateful_twr_payloads(self)
+        _validate_twr_benchmark_inclusion(self)
         return self
 
     def to_stateless_performance_request(

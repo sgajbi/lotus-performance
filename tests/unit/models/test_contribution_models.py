@@ -1,10 +1,14 @@
 # tests/unit/models/test_contribution_models.py
+from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
 from pydantic import ValidationError
 
-from app.models.contribution_analytics_requests import ContributionAnalyticsRequest
+from app.models.contribution_analytics_requests import (
+    ContributionAnalyticsRequest,
+    _validate_stateless_contribution_payloads,
+)
 from app.models.contribution_requests import ContributionRequest, PortfolioData, PositionData
 from app.models.contribution_responses import ContributionResponse
 
@@ -239,6 +243,16 @@ def test_contribution_analytics_request_rejects_missing_stateless_payload():
 
     with pytest.raises(ValidationError, match="stateless_input or legacy portfolio_data/positions_data is required"):
         ContributionAnalyticsRequest.model_validate(payload)
+
+
+def test_validate_stateless_contribution_payloads_rejects_competing_stateful_payload():
+    request = SimpleNamespace(
+        stateful_input={},
+        stateless_input=object(),
+    )
+
+    with pytest.raises(ValueError, match="stateful_input must be null when input_mode=stateless"):
+        _validate_stateless_contribution_payloads(request, has_legacy_stateless=False)  # type: ignore[arg-type]
 
 
 def test_contribution_analytics_request_builds_legacy_stateless_request():

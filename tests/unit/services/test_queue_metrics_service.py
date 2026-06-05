@@ -1,6 +1,13 @@
 import logging
+from pathlib import Path
 
-from app.services.queue_metrics_service import DurableQueueCollector, _load_metric_source
+from app.services.queue_metrics_service import (
+    DurableQueueCollector,
+    _availability_and_preview_metrics,
+    _DurableQueueMetricSources,
+    _load_durable_queue_metric_sources,
+    _load_metric_source,
+)
 
 
 def test_load_metric_source_returns_value_and_availability():
@@ -29,6 +36,97 @@ def test_load_metric_source_logs_source_failures(caplog):
     assert available is False
     assert "Queue metric source load failed for compute queue stats." in caplog.text
     assert "RuntimeError: source unavailable" in caplog.text
+
+
+def test_load_durable_queue_metric_sources_captures_availability_and_action_paths(monkeypatch):
+    lease_calls: list[dict[str, object]] = []
+    monkeypatch.setattr("app.services.queue_metrics_service.compute_job_store.get_queue_stats", lambda: "compute")
+    monkeypatch.setattr(
+        "app.services.queue_metrics_service.lineage_metadata_store.get_pending_payload_stats",
+        lambda: "lineage",
+    )
+    monkeypatch.setattr("app.services.queue_metrics_service.get_lineage_storage_capacity", lambda: "capacity")
+    monkeypatch.setattr(
+        "app.services.queue_metrics_service.build_recovery_drill_history_snapshot",
+        lambda limit=1: "recovery",
+    )
+    monkeypatch.setattr(
+        "app.services.queue_metrics_service.build_runtime_retention_history_snapshot",
+        lambda limit=1: "retention",
+    )
+    monkeypatch.setattr(
+        "app.services.queue_metrics_service.build_operator_action_lease_snapshot",
+        lambda **kwargs: lease_calls.append(kwargs) or {"status": "available", **kwargs},
+    )
+    monkeypatch.setattr(
+        "app.services.queue_metrics_service.run_runtime_retention_cleanup",
+        lambda dry_run=True: {"dry_run": dry_run},
+    )
+
+    sources = _load_durable_queue_metric_sources(
+        type(
+            "Settings",
+            (),
+            {
+                "RECOVERY_DRILL_ARTIFACT_PATH": Path("custom-recovery"),
+                "RUNTIME_RETENTION_ARTIFACT_PATH": Path("custom-retention"),
+            },
+        )()
+    )
+
+    assert sources.compute_stats == "compute"
+    assert sources.lineage_available is True
+    assert sources.lineage_storage_capacity == "capacity"
+    assert sources.recovery_drill_snapshot == "recovery"
+    assert sources.runtime_retention_preview == {"dry_run": True}
+    assert lease_calls == [
+        {"artifact_directory": Path("custom-recovery"), "action_name": "recovery_drill"},
+        {"artifact_directory": Path("custom-retention"), "action_name": "runtime_retention_cleanup"},
+    ]
+
+
+def test_availability_and_preview_metrics_preserve_order_and_preview_samples():
+    metrics = _availability_and_preview_metrics(
+        _DurableQueueMetricSources(
+            compute_stats=None,
+            compute_available=True,
+            lineage_stats=None,
+            lineage_available=False,
+            lineage_storage_capacity=None,
+            lineage_storage_capacity_available=False,
+            recovery_drill_snapshot=type("RecoverySnapshot", (), {"status": "available"})(),
+            recovery_drill_available=True,
+            recovery_drill_action_snapshot=None,
+            runtime_retention_snapshot=type("RuntimeRetentionSnapshot", (), {"status": "available"})(),
+            runtime_retention_available=True,
+            runtime_retention_action_snapshot=None,
+            runtime_retention_preview=type(
+                "RuntimeRetentionPreview",
+                (),
+                {
+                    "prunable_execution_count": 4,
+                    "prunable_compute_job_count": 3,
+                    "prunable_async_result_count": 2,
+                    "prunable_lineage_record_count": 1,
+                    "prunable_lineage_artifact_count": 1,
+                },
+            )(),
+            runtime_retention_preview_available=True,
+        )
+    )
+
+    metric_names = [metric.name for metric in metrics]
+    assert metric_names[:3] == [
+        "lotus_performance_durable_queue_store_availability",
+        "lotus_performance_lineage_storage_capacity_availability",
+        "lotus_performance_recovery_drill_availability",
+    ]
+    assert metric_names[-1] == "lotus_performance_runtime_retention_prunable_items"
+    availability_samples = {(sample.labels["store"], sample.value) for sample in metrics[0].samples}
+    assert availability_samples == {("compute", 1), ("lineage", 0)}
+    prunable_samples = {sample.labels["category"]: sample.value for sample in metrics[-1].samples}
+    assert prunable_samples["execution"] == 4
+    assert prunable_samples["compute_job"] == 3
 
 
 def test_queue_metrics_collector_emits_compute_and_lineage_metrics(monkeypatch):

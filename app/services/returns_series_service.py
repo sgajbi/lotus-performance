@@ -52,7 +52,7 @@ from app.services.portfolio_source_service import (
 )
 from app.services.service_identity import LOTUS_PERFORMANCE_CONSUMER_SYSTEM
 from app.services.stateful_benchmark_input_service import build_stateful_benchmark_input
-from app.services.stateful_performance_input_service import retrieve_stateful_portfolio_input
+from app.services.stateful_performance_input_service import StatefulPortfolioInput, retrieve_stateful_portfolio_input
 from app.services.stateful_retrieval_metadata import parse_zero_default_retrieval_metadata
 from app.services.valuation_points_service import portfolio_timeseries_to_valuation_points
 from common.enums import Frequency, PeriodType
@@ -92,6 +92,12 @@ class _ReturnsSeriesDiagnosticsResult:
     diagnostics: ReturnsDiagnostics
     requested_points: int
     returned_points: int
+
+
+@dataclass(frozen=True)
+class _ReturnsSeriesIdentity:
+    input_fingerprint: str
+    calculation_hash: str
 
 
 @dataclass(frozen=True)
@@ -720,6 +726,33 @@ def _build_stateful_returns_series_frames(
     )
 
 
+def _stateful_returns_retrieval_stage_details(
+    *,
+    observations: list[dict[str, object]],
+    portfolio_source: StatefulPortfolioInput,
+    benchmark_resolution: _StatefulBenchmarkResolution,
+    risk_free_points: list[dict[str, Any]] | None,
+    risk_free_payload: dict[str, Any] | None,
+) -> dict[str, int]:
+    risk_free_retrieval = (
+        parse_zero_default_retrieval_metadata(risk_free_payload) if risk_free_points is not None else None
+    )
+    return {
+        "portfolio_observations": len(observations),
+        "benchmark_points": benchmark_resolution.benchmark_source_details.get(
+            "benchmark_points",
+            len(benchmark_resolution.benchmark_points or []),
+        ),
+        "benchmark_work_units": benchmark_resolution.benchmark_work_units,
+        "risk_free_points": len(risk_free_points or []),
+        "portfolio_chunk_count": portfolio_source.retrieval_metadata.chunk_count,
+        "portfolio_page_count": portfolio_source.retrieval_metadata.page_count,
+        "benchmark_chunk_count": benchmark_resolution.benchmark_source_details.get("benchmark_chunk_count", 0),
+        "benchmark_page_count": benchmark_resolution.benchmark_source_details.get("benchmark_page_count", 0),
+        "risk_free_chunk_count": risk_free_retrieval.chunk_count if risk_free_retrieval is not None else 0,
+    }
+
+
 async def _resolve_stateful_returns_series_benchmark_id(
     *,
     request: ReturnsSeriesRequest,
@@ -1008,6 +1041,90 @@ def _build_returns_series_diagnostics(
     )
 
 
+def _update_resolved_stateful_returns_identity(
+    *,
+    request: ReturnsSeriesRequest,
+    resolved_window: ResolvedWindow,
+    point_outputs: _ReturnsSeriesPointOutputs,
+    resolved_benchmark_id: str | None,
+    resolved_benchmark_return_source: BenchmarkReturnSource,
+) -> _ReturnsSeriesIdentity:
+    resolved_stateful_payload = _build_stateful_resolved_returns_payload(
+        request=request,
+        resolved_window=resolved_window,
+        portfolio_records=_records_from_points(point_outputs.portfolio_return_points) or [],
+        benchmark_records=_records_from_points(point_outputs.benchmark_return_points),
+        risk_free_records=_records_from_points(point_outputs.risk_free_return_points),
+        resolved_benchmark_id=resolved_benchmark_id,
+        resolved_benchmark_return_source=resolved_benchmark_return_source.value if resolved_benchmark_id else None,
+    )
+    input_fingerprint, calculation_hash = generate_canonical_hash(
+        resolved_stateful_payload,
+        "returns-series-v1",
+    )
+    execution_registry.update_execution_identity(
+        request.calculation_id,
+        input_fingerprint=input_fingerprint,
+        calculation_hash=calculation_hash,
+    )
+    return _ReturnsSeriesIdentity(
+        input_fingerprint=input_fingerprint,
+        calculation_hash=calculation_hash,
+    )
+
+
+def _build_returns_series_response(
+    *,
+    request: ReturnsSeriesRequest,
+    resolved_window: ResolvedWindow,
+    point_outputs: _ReturnsSeriesPointOutputs,
+    diagnostics_result: _ReturnsSeriesDiagnosticsResult,
+    effective_input_mode: InputMode,
+    input_fingerprint: str,
+    calculation_hash: str,
+    resolved_benchmark_id: str | None,
+    resolved_benchmark_return_source: BenchmarkReturnSource | None,
+) -> ReturnsSeriesResponse:
+    return ReturnsSeriesResponse(
+        calculation_id=request.calculation_id,
+        portfolio_id=request.portfolio_id,
+        as_of_date=request.as_of_date,
+        frequency=request.frequency,
+        metric_basis=request.metric_basis,
+        resolved_window=resolved_window,
+        benchmark_context=(
+            ReturnsSeriesBenchmarkContext(
+                benchmark_id=resolved_benchmark_id,
+                return_source=resolved_benchmark_return_source,
+            )
+            if resolved_benchmark_id is not None and resolved_benchmark_return_source is not None
+            else None
+        ),
+        series=ReturnsSeriesPayload(
+            portfolio_returns=point_outputs.portfolio_return_points,
+            cumulative_portfolio_returns=point_outputs.cumulative_portfolio_return_points,
+            benchmark_returns=point_outputs.benchmark_return_points,
+            cumulative_benchmark_returns=point_outputs.cumulative_benchmark_return_points,
+            risk_free_returns=point_outputs.risk_free_return_points,
+            cumulative_risk_free_returns=point_outputs.cumulative_risk_free_return_points,
+            active_returns=point_outputs.active_return_points,
+            cumulative_active_returns=point_outputs.cumulative_active_return_points,
+        ),
+        provenance=ReturnsProvenance(
+            input_mode=effective_input_mode,
+            input_fingerprint=input_fingerprint,
+            calculation_hash=calculation_hash,
+        ),
+        diagnostics=diagnostics_result.diagnostics,
+        metadata=ReturnsMetadata(
+            generated_at=datetime.now(UTC),
+            correlation_id=correlation_id_var.get() or None,
+            request_id=request_id_var.get() or None,
+            trace_id=trace_id_var.get() or None,
+        ),
+    )
+
+
 async def calculate_returns_series(
     request: ReturnsSeriesRequest,
     *,
@@ -1093,26 +1210,15 @@ async def _calculate_returns_series(
         )
 
         if effective_input_mode == InputMode.STATEFUL:
-            resolved_stateful_payload = _build_stateful_resolved_returns_payload(
+            resolved_identity = _update_resolved_stateful_returns_identity(
                 request=request,
                 resolved_window=resolved_window,
-                portfolio_records=_records_from_points(point_outputs.portfolio_return_points) or [],
-                benchmark_records=_records_from_points(point_outputs.benchmark_return_points),
-                risk_free_records=_records_from_points(point_outputs.risk_free_return_points),
+                point_outputs=point_outputs,
                 resolved_benchmark_id=resolved_benchmark_id,
-                resolved_benchmark_return_source=(
-                    resolved_benchmark_return_source.value if resolved_benchmark_id else None
-                ),
+                resolved_benchmark_return_source=resolved_benchmark_return_source,
             )
-            input_fingerprint, calculation_hash = generate_canonical_hash(
-                resolved_stateful_payload,
-                "returns-series-v1",
-            )
-            execution_registry.update_execution_identity(
-                request.calculation_id,
-                input_fingerprint=input_fingerprint,
-                calculation_hash=calculation_hash,
-            )
+            input_fingerprint = resolved_identity.input_fingerprint
+            calculation_hash = resolved_identity.calculation_hash
 
         diagnostics_result = _build_returns_series_diagnostics(
             request=request,
@@ -1122,43 +1228,16 @@ async def _calculate_returns_series(
             risk_free_df=risk_free_df,
         )
 
-        response = ReturnsSeriesResponse(
-            calculation_id=request.calculation_id,
-            portfolio_id=request.portfolio_id,
-            as_of_date=request.as_of_date,
-            frequency=request.frequency,
-            metric_basis=request.metric_basis,
+        response = _build_returns_series_response(
+            request=request,
             resolved_window=resolved_window,
-            benchmark_context=(
-                ReturnsSeriesBenchmarkContext(
-                    benchmark_id=resolved_benchmark_id,
-                    return_source=resolved_benchmark_return_source,
-                )
-                if resolved_benchmark_id is not None and resolved_benchmark_return_source is not None
-                else None
-            ),
-            series=ReturnsSeriesPayload(
-                portfolio_returns=point_outputs.portfolio_return_points,
-                cumulative_portfolio_returns=point_outputs.cumulative_portfolio_return_points,
-                benchmark_returns=point_outputs.benchmark_return_points,
-                cumulative_benchmark_returns=point_outputs.cumulative_benchmark_return_points,
-                risk_free_returns=point_outputs.risk_free_return_points,
-                cumulative_risk_free_returns=point_outputs.cumulative_risk_free_return_points,
-                active_returns=point_outputs.active_return_points,
-                cumulative_active_returns=point_outputs.cumulative_active_return_points,
-            ),
-            provenance=ReturnsProvenance(
-                input_mode=effective_input_mode,
-                input_fingerprint=input_fingerprint,
-                calculation_hash=calculation_hash,
-            ),
-            diagnostics=diagnostics_result.diagnostics,
-            metadata=ReturnsMetadata(
-                generated_at=datetime.now(UTC),
-                correlation_id=correlation_id_var.get() or None,
-                request_id=request_id_var.get() or None,
-                trace_id=trace_id_var.get() or None,
-            ),
+            point_outputs=point_outputs,
+            diagnostics_result=diagnostics_result,
+            effective_input_mode=effective_input_mode,
+            input_fingerprint=input_fingerprint,
+            calculation_hash=calculation_hash,
+            resolved_benchmark_id=resolved_benchmark_id,
+            resolved_benchmark_return_source=resolved_benchmark_return_source,
         )
         execution_registry.complete_stage(
             request.calculation_id,
@@ -1244,22 +1323,13 @@ async def resolve_stateful_returns_series_request(
     execution_registry.complete_stage(
         request.calculation_id,
         EXECUTION_STAGE_RETRIEVAL,
-        details={
-            "portfolio_observations": len(observations),
-            "benchmark_points": benchmark_resolution.benchmark_source_details.get(
-                "benchmark_points",
-                len(benchmark_resolution.benchmark_points or []),
-            ),
-            "benchmark_work_units": benchmark_resolution.benchmark_work_units,
-            "risk_free_points": len(risk_free_points or []),
-            "portfolio_chunk_count": portfolio_source.retrieval_metadata.chunk_count,
-            "portfolio_page_count": portfolio_source.retrieval_metadata.page_count,
-            "benchmark_chunk_count": benchmark_resolution.benchmark_source_details.get("benchmark_chunk_count", 0),
-            "benchmark_page_count": benchmark_resolution.benchmark_source_details.get("benchmark_page_count", 0),
-            "risk_free_chunk_count": parse_zero_default_retrieval_metadata(risk_free_payload).chunk_count
-            if risk_free_points is not None
-            else 0,
-        },
+        details=_stateful_returns_retrieval_stage_details(
+            observations=observations,
+            portfolio_source=portfolio_source,
+            benchmark_resolution=benchmark_resolution,
+            risk_free_points=risk_free_points,
+            risk_free_payload=risk_free_payload,
+        ),
     )
 
     execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_NORMALIZATION)

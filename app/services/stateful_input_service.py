@@ -82,41 +82,10 @@ class StatefulInputService:
         if failure is not None:
             return failure
 
-        open_dates = [
-            payload["portfolio_open_date"]
-            for _, payload in responses
-            if isinstance(payload, dict) and isinstance(payload.get("portfolio_open_date"), str)
-        ]
-        portfolio_currencies = {
-            payload["portfolio_currency"]
-            for _, payload in responses
-            if isinstance(payload, dict) and isinstance(payload.get("portfolio_currency"), str)
-        }
-        reporting_currencies = {
-            payload["reporting_currency"]
-            for _, payload in responses
-            if isinstance(payload, dict) and isinstance(payload.get("reporting_currency"), str)
-        }
-        observations = self._merge_dedup_records(
-            records=[
-                obs
-                for _, payload in responses
-                for obs in (payload.get("observations", []) if isinstance(payload, dict) else [])
-                if isinstance(obs, dict)
-            ],
-            date_key="valuation_date",
+        return 200, self._build_portfolio_timeseries_payload(
+            responses=responses,
+            chunk_count=len(chunks),
         )
-        total_page_count = self._total_retrieval_page_count(responses)
-        return 200, {
-            "portfolio_open_date": min(open_dates) if open_dates else None,
-            "portfolio_currency": _single_value_or_none(portfolio_currencies),
-            "reporting_currency": _single_value_or_none(reporting_currencies),
-            "observations": observations,
-            "retrieval_metadata": {
-                "chunk_count": len(chunks),
-                "page_count": total_page_count,
-            },
-        }
 
     async def get_position_timeseries(
         self,
@@ -823,35 +792,22 @@ class StatefulInputService:
                 consumer_system=consumer_system,
                 page_token=page_token,
             )
-            if calculation_id is not None:
-                request_payload = {
-                    "portfolio_id": portfolio_id,
-                    "start_date": str(chunk.start_date),
-                    "end_date": str(chunk.end_date),
-                    "reporting_currency": reporting_currency,
-                    "consumer_system": consumer_system,
-                    "page_token": page_token,
-                }
-                snapshot_id, request_fingerprint = self._build_snapshot_identity(
-                    calculation_id=calculation_id,
-                    upstream_endpoint="portfolio_timeseries",
-                    source_identifier=portfolio_id,
-                    request_payload=request_payload,
-                )
-                if snapshot_id not in existing_snapshot_ids:
-                    snapshot_batch.append(
-                        self._build_snapshot(
-                            calculation_id=calculation_id,
-                            upstream_endpoint="portfolio_timeseries",
-                            source_identifier=portfolio_id,
-                            as_of_date=as_of_date,
-                            request_payload=request_payload,
-                            response=(status_code, payload),
-                            snapshot_id=snapshot_id,
-                            request_fingerprint=request_fingerprint,
-                        )
-                    )
-                    existing_snapshot_ids.add(snapshot_id)
+            request_payload = _portfolio_timeseries_request_payload(
+                portfolio_id=portfolio_id,
+                chunk=chunk,
+                reporting_currency=reporting_currency,
+                consumer_system=consumer_system,
+                page_token=page_token,
+            )
+            self._append_portfolio_timeseries_snapshot_if_new(
+                calculation_id=calculation_id,
+                portfolio_id=portfolio_id,
+                as_of_date=as_of_date,
+                request_payload=request_payload,
+                response=(status_code, payload),
+                snapshot_batch=snapshot_batch,
+                existing_snapshot_ids=existing_snapshot_ids,
+            )
             if status_code >= 400:
                 if calculation_id is not None:
                     self._execution_store.record_upstream_snapshots(
@@ -861,16 +817,13 @@ class StatefulInputService:
                 return status_code, payload
             page_count += 1
 
-            if portfolio_open_date is None and isinstance(payload.get("portfolio_open_date"), str):
-                portfolio_open_date = payload["portfolio_open_date"]
-            if portfolio_currency is None and isinstance(payload.get("portfolio_currency"), str):
-                portfolio_currency = payload["portfolio_currency"]
-            if effective_reporting_currency is None and isinstance(payload.get("reporting_currency"), str):
-                effective_reporting_currency = payload["reporting_currency"]
-
-            observations = payload.get("observations", [])
-            if isinstance(observations, list):
-                merged_observations.extend(obs for obs in observations if isinstance(obs, dict))
+            portfolio_open_date, portfolio_currency, effective_reporting_currency = _portfolio_identity_from_payload(
+                payload=payload,
+                portfolio_open_date=portfolio_open_date,
+                portfolio_currency=portfolio_currency,
+                reporting_currency=effective_reporting_currency,
+            )
+            merged_observations.extend(_portfolio_observations_from_payload(payload))
 
             page_token = self._next_page_token(payload)
             if not page_token:
@@ -891,6 +844,40 @@ class StatefulInputService:
                 "page_count": page_count,
             },
         }
+
+    def _append_portfolio_timeseries_snapshot_if_new(
+        self,
+        *,
+        calculation_id: UUID | None,
+        portfolio_id: str,
+        as_of_date: date,
+        request_payload: dict[str, Any],
+        response: tuple[int, dict[str, Any]],
+        snapshot_batch: list[dict[str, Any]],
+        existing_snapshot_ids: set[str],
+    ) -> None:
+        if calculation_id is None:
+            return
+        snapshot_id, request_fingerprint = self._build_snapshot_identity(
+            calculation_id=calculation_id,
+            upstream_endpoint="portfolio_timeseries",
+            source_identifier=portfolio_id,
+            request_payload=request_payload,
+        )
+        if snapshot_id not in existing_snapshot_ids:
+            snapshot_batch.append(
+                self._build_snapshot(
+                    calculation_id=calculation_id,
+                    upstream_endpoint="portfolio_timeseries",
+                    source_identifier=portfolio_id,
+                    as_of_date=as_of_date,
+                    request_payload=request_payload,
+                    response=response,
+                    snapshot_id=snapshot_id,
+                    request_fingerprint=request_fingerprint,
+                )
+            )
+            existing_snapshot_ids.add(snapshot_id)
 
     async def _fetch_position_chunk(
         self,
@@ -1011,6 +998,31 @@ class StatefulInputService:
 
     def _total_retrieval_page_count(self, responses: list[tuple[int, dict[str, Any]]]) -> int:
         return sum(_retrieval_page_count(payload) for _, payload in responses)
+
+    def _build_portfolio_timeseries_payload(
+        self,
+        *,
+        responses: list[tuple[int, dict[str, Any]]],
+        chunk_count: int,
+    ) -> dict[str, Any]:
+        open_dates = _string_payload_values(responses=responses, field_name="portfolio_open_date")
+        return {
+            "portfolio_open_date": min(open_dates) if open_dates else None,
+            "portfolio_currency": _single_value_or_none(
+                set(_string_payload_values(responses=responses, field_name="portfolio_currency"))
+            ),
+            "reporting_currency": _single_value_or_none(
+                set(_string_payload_values(responses=responses, field_name="reporting_currency"))
+            ),
+            "observations": self._merge_dedup_records(
+                records=_dict_list_payload_items(responses=responses, field_name="observations"),
+                date_key="valuation_date",
+            ),
+            "retrieval_metadata": {
+                "chunk_count": chunk_count,
+                "page_count": self._total_retrieval_page_count(responses),
+            },
+        }
 
     def _next_page_token(self, payload: dict[str, Any]) -> str | None:
         next_page_token = payload.get("next_page_token")
@@ -1141,6 +1153,68 @@ class StatefulInputService:
 
 def _single_value_or_none(values: set[str]) -> str | None:
     return next(iter(values)) if len(values) == 1 else None
+
+
+def _portfolio_timeseries_request_payload(
+    *,
+    portfolio_id: str,
+    chunk: DateChunk,
+    reporting_currency: str | None,
+    consumer_system: str,
+    page_token: str | None,
+) -> dict[str, Any]:
+    return {
+        "portfolio_id": portfolio_id,
+        "start_date": str(chunk.start_date),
+        "end_date": str(chunk.end_date),
+        "reporting_currency": reporting_currency,
+        "consumer_system": consumer_system,
+        "page_token": page_token,
+    }
+
+
+def _portfolio_identity_from_payload(
+    *,
+    payload: dict[str, Any],
+    portfolio_open_date: str | None,
+    portfolio_currency: str | None,
+    reporting_currency: str | None,
+) -> tuple[str | None, str | None, str | None]:
+    if portfolio_open_date is None and isinstance(payload.get("portfolio_open_date"), str):
+        portfolio_open_date = payload["portfolio_open_date"]
+    if portfolio_currency is None and isinstance(payload.get("portfolio_currency"), str):
+        portfolio_currency = payload["portfolio_currency"]
+    if reporting_currency is None and isinstance(payload.get("reporting_currency"), str):
+        reporting_currency = payload["reporting_currency"]
+    return portfolio_open_date, portfolio_currency, reporting_currency
+
+
+def _portfolio_observations_from_payload(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    observations = payload.get("observations", [])
+    if not isinstance(observations, list):
+        return []
+    return [observation for observation in observations if isinstance(observation, dict)]
+
+
+def _string_payload_values(
+    *,
+    responses: list[tuple[int, dict[str, Any]]],
+    field_name: str,
+) -> list[str]:
+    return [value for _, payload in responses if isinstance((value := payload.get(field_name)), str)]
+
+
+def _dict_list_payload_items(
+    *,
+    responses: list[tuple[int, dict[str, Any]]],
+    field_name: str,
+) -> list[dict[str, Any]]:
+    return [
+        item
+        for _, payload in responses
+        for item in (payload.get(field_name, []) if isinstance(payload.get(field_name), list) else [])
+        if isinstance(item, dict)
+    ]
 
 
 def _retrieval_page_count(payload: dict[str, Any]) -> int:

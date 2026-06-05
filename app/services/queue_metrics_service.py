@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
-from typing import TypeVar
+from typing import Any, TypeVar
 
 from prometheus_client.core import GaugeMetricFamily
 
@@ -51,6 +52,24 @@ TMetricSource = TypeVar("TMetricSource")
 logger = logging.getLogger(__name__)
 
 
+@dataclass(frozen=True)
+class _DurableQueueMetricSources:
+    compute_stats: Any | None
+    compute_available: bool
+    lineage_stats: Any | None
+    lineage_available: bool
+    lineage_storage_capacity: Any | None
+    lineage_storage_capacity_available: bool
+    recovery_drill_snapshot: Any | None
+    recovery_drill_available: bool
+    recovery_drill_action_snapshot: Any | None
+    runtime_retention_snapshot: Any | None
+    runtime_retention_available: bool
+    runtime_retention_action_snapshot: Any | None
+    runtime_retention_preview: Any | None
+    runtime_retention_preview_available: bool
+
+
 def _load_metric_source(
     loader: Callable[[], TMetricSource],
     *,
@@ -61,6 +80,113 @@ def _load_metric_source(
     except Exception:
         logger.warning("Queue metric source load failed for %s.", source_name, exc_info=True)
         return None, False
+
+
+def _load_durable_queue_metric_sources(settings) -> _DurableQueueMetricSources:
+    compute_stats, compute_available = _load_metric_source(
+        compute_job_store.get_queue_stats,
+        source_name="compute queue stats",
+    )
+    lineage_stats, lineage_available = _load_metric_source(
+        lineage_metadata_store.get_pending_payload_stats,
+        source_name="lineage queue payload stats",
+    )
+    lineage_storage_capacity, lineage_storage_capacity_available = _load_metric_source(
+        get_lineage_storage_capacity,
+        source_name="lineage storage capacity",
+    )
+    recovery_drill_snapshot, recovery_drill_available = _load_metric_source(
+        lambda: build_recovery_drill_history_snapshot(limit=1),
+        source_name="recovery drill history snapshot",
+    )
+    recovery_drill_action_snapshot, _ = _load_metric_source(
+        lambda: build_operator_action_lease_snapshot(
+            artifact_directory=getattr(
+                settings,
+                "RECOVERY_DRILL_ARTIFACT_PATH",
+                Path("artifacts/durable-recovery-drill"),
+            ),
+            action_name="recovery_drill",
+        ),
+        source_name="recovery drill action lease snapshot",
+    )
+    runtime_retention_snapshot, runtime_retention_available = _load_metric_source(
+        lambda: build_runtime_retention_history_snapshot(limit=1),
+        source_name="runtime retention history snapshot",
+    )
+    runtime_retention_action_snapshot, _ = _load_metric_source(
+        lambda: build_operator_action_lease_snapshot(
+            artifact_directory=getattr(
+                settings,
+                "RUNTIME_RETENTION_ARTIFACT_PATH",
+                Path("artifacts/runtime-retention-cleanup"),
+            ),
+            action_name="runtime_retention_cleanup",
+        ),
+        source_name="runtime retention action lease snapshot",
+    )
+    runtime_retention_preview, runtime_retention_preview_available = _load_metric_source(
+        lambda: run_runtime_retention_cleanup(dry_run=True),
+        source_name="runtime retention cleanup preview",
+    )
+    return _DurableQueueMetricSources(
+        compute_stats=compute_stats,
+        compute_available=compute_available,
+        lineage_stats=lineage_stats,
+        lineage_available=lineage_available,
+        lineage_storage_capacity=lineage_storage_capacity,
+        lineage_storage_capacity_available=lineage_storage_capacity_available,
+        recovery_drill_snapshot=recovery_drill_snapshot,
+        recovery_drill_available=recovery_drill_available,
+        recovery_drill_action_snapshot=recovery_drill_action_snapshot,
+        runtime_retention_snapshot=runtime_retention_snapshot,
+        runtime_retention_available=runtime_retention_available,
+        runtime_retention_action_snapshot=runtime_retention_action_snapshot,
+        runtime_retention_preview=runtime_retention_preview,
+        runtime_retention_preview_available=runtime_retention_preview_available,
+    )
+
+
+def _availability_and_preview_metrics(sources: _DurableQueueMetricSources) -> tuple[GaugeMetricFamily, ...]:
+    metrics = [
+        durable_queue_store_availability_metric(
+            compute_available=sources.compute_available,
+            lineage_available=sources.lineage_available,
+        ),
+        availability_metric(
+            metric_name="lotus_performance_lineage_storage_capacity_availability",
+            description="Availability of lineage storage capacity metrics.",
+            is_available=sources.lineage_storage_capacity_available,
+        ),
+        availability_metric(
+            metric_name="lotus_performance_recovery_drill_availability",
+            description="Availability of retained durable recovery-drill history.",
+            is_available=sources.recovery_drill_available and snapshot_available(sources.recovery_drill_snapshot),
+        ),
+        availability_metric(
+            metric_name="lotus_performance_recovery_drill_action_availability",
+            description="Availability of governed in-flight recovery-drill action lease visibility.",
+            is_available=snapshot_available(sources.recovery_drill_action_snapshot),
+        ),
+        availability_metric(
+            metric_name="lotus_performance_runtime_retention_availability",
+            description="Availability of retained runtime-retention cleanup history.",
+            is_available=sources.runtime_retention_available and snapshot_available(sources.runtime_retention_snapshot),
+        ),
+        availability_metric(
+            metric_name="lotus_performance_runtime_retention_action_availability",
+            description="Availability of governed in-flight runtime-retention cleanup lease visibility.",
+            is_available=snapshot_available(sources.runtime_retention_action_snapshot),
+        ),
+        availability_metric(
+            metric_name="lotus_performance_runtime_retention_preview_availability",
+            description="Availability of the live runtime-retention preview under the current policy.",
+            is_available=sources.runtime_retention_preview_available,
+        ),
+    ]
+    if sources.runtime_retention_preview is not None:
+        metrics.append(runtime_retention_prunable_items_metric(preview=sources.runtime_retention_preview))
+    return tuple(metrics)
 
 
 class DurableQueueCollector:
@@ -230,124 +356,37 @@ class DurableQueueCollector:
         lineage_queue_policy = build_lineage_queue_policy(settings=settings)
         recovery_drill_policy = build_recovery_drill_policy(settings=settings)
         runtime_retention_policy = build_runtime_retention_policy(settings=settings)
-        compute_stats, compute_available = _load_metric_source(
-            compute_job_store.get_queue_stats,
-            source_name="compute queue stats",
-        )
-        lineage_stats, lineage_available = _load_metric_source(
-            lineage_metadata_store.get_pending_payload_stats,
-            source_name="lineage queue payload stats",
-        )
-        lineage_storage_capacity, lineage_storage_capacity_available = _load_metric_source(
-            get_lineage_storage_capacity,
-            source_name="lineage storage capacity",
-        )
-        recovery_drill_snapshot, recovery_drill_available = _load_metric_source(
-            lambda: build_recovery_drill_history_snapshot(limit=1),
-            source_name="recovery drill history snapshot",
-        )
-        recovery_drill_action_snapshot, _ = _load_metric_source(
-            lambda: build_operator_action_lease_snapshot(
-                artifact_directory=getattr(
-                    settings,
-                    "RECOVERY_DRILL_ARTIFACT_PATH",
-                    Path("artifacts/durable-recovery-drill"),
-                ),
-                action_name="recovery_drill",
-            ),
-            source_name="recovery drill action lease snapshot",
-        )
-        runtime_retention_snapshot, runtime_retention_available = _load_metric_source(
-            lambda: build_runtime_retention_history_snapshot(limit=1),
-            source_name="runtime retention history snapshot",
-        )
-        runtime_retention_action_snapshot, _ = _load_metric_source(
-            lambda: build_operator_action_lease_snapshot(
-                artifact_directory=getattr(
-                    settings,
-                    "RUNTIME_RETENTION_ARTIFACT_PATH",
-                    Path("artifacts/runtime-retention-cleanup"),
-                ),
-                action_name="runtime_retention_cleanup",
-            ),
-            source_name="runtime retention action lease snapshot",
-        )
-        runtime_retention_preview, runtime_retention_preview_available = _load_metric_source(
-            lambda: run_runtime_retention_cleanup(dry_run=True),
-            source_name="runtime retention cleanup preview",
-        )
+        sources = _load_durable_queue_metric_sources(settings)
 
-        yield durable_queue_store_availability_metric(
-            compute_available=compute_available,
-            lineage_available=lineage_available,
-        )
+        yield from _availability_and_preview_metrics(sources)
 
-        yield availability_metric(
-            metric_name="lotus_performance_lineage_storage_capacity_availability",
-            description="Availability of lineage storage capacity metrics.",
-            is_available=lineage_storage_capacity_available,
-        )
+        if sources.compute_stats is not None:
+            yield compute_queue_job_count_metric(stats=sources.compute_stats)
 
-        yield availability_metric(
-            metric_name="lotus_performance_recovery_drill_availability",
-            description="Availability of retained durable recovery-drill history.",
-            is_available=recovery_drill_available and snapshot_available(recovery_drill_snapshot),
-        )
+        if sources.compute_stats is not None:
+            yield compute_queue_failure_pressure_metric(stats=sources.compute_stats)
 
-        yield availability_metric(
-            metric_name="lotus_performance_recovery_drill_action_availability",
-            description="Availability of governed in-flight recovery-drill action lease visibility.",
-            is_available=snapshot_available(recovery_drill_action_snapshot),
-        )
-
-        yield availability_metric(
-            metric_name="lotus_performance_runtime_retention_availability",
-            description="Availability of retained runtime-retention cleanup history.",
-            is_available=runtime_retention_available and snapshot_available(runtime_retention_snapshot),
-        )
-
-        yield availability_metric(
-            metric_name="lotus_performance_runtime_retention_action_availability",
-            description="Availability of governed in-flight runtime-retention cleanup lease visibility.",
-            is_available=snapshot_available(runtime_retention_action_snapshot),
-        )
-
-        yield availability_metric(
-            metric_name="lotus_performance_runtime_retention_preview_availability",
-            description="Availability of the live runtime-retention preview under the current policy.",
-            is_available=runtime_retention_preview_available,
-        )
-
-        if runtime_retention_preview is not None:
-            yield runtime_retention_prunable_items_metric(preview=runtime_retention_preview)
-
-        if compute_stats is not None:
-            yield compute_queue_job_count_metric(stats=compute_stats)
-
-        if compute_stats is not None:
-            yield compute_queue_failure_pressure_metric(stats=compute_stats)
-
-        if compute_stats is not None:
-            yield from compute_queue_oldest_age_metrics(stats=compute_stats)
+        if sources.compute_stats is not None:
+            yield from compute_queue_oldest_age_metrics(stats=sources.compute_stats)
 
             yield compute_queue_degradation_breach_metric(
-                stats=compute_stats,
+                stats=sources.compute_stats,
                 policy=compute_queue_policy,
             )
 
-        if lineage_stats is not None:
-            yield from lineage_queue_payload_metrics(stats=lineage_stats)
+        if sources.lineage_stats is not None:
+            yield from lineage_queue_payload_metrics(stats=sources.lineage_stats)
 
             yield lineage_queue_degradation_breach_metric(
-                stats=lineage_stats,
+                stats=sources.lineage_stats,
                 policy=lineage_queue_policy,
             )
 
-        if lineage_storage_capacity is not None:
-            yield from lineage_storage_capacity_metrics(capacity=lineage_storage_capacity)
+        if sources.lineage_storage_capacity is not None:
+            yield from lineage_storage_capacity_metrics(capacity=sources.lineage_storage_capacity)
 
             yield lineage_storage_pressure_breach_metric(
-                capacity=lineage_storage_capacity,
+                capacity=sources.lineage_storage_capacity,
                 policy=lineage_queue_policy,
             )
 
@@ -362,7 +401,7 @@ class DurableQueueCollector:
         )
 
         yield from operator_action_lease_metrics(
-            snapshot=recovery_drill_action_snapshot,
+            snapshot=sources.recovery_drill_action_snapshot,
             spec=RECOVERY_DRILL_ACTION_METRICS,
         )
 
@@ -375,16 +414,16 @@ class DurableQueueCollector:
         )
 
         yield from operator_action_lease_metrics(
-            snapshot=runtime_retention_action_snapshot,
+            snapshot=sources.runtime_retention_action_snapshot,
             spec=RUNTIME_RETENTION_ACTION_METRICS,
         )
 
         if (
-            recovery_drill_snapshot is not None
-            and recovery_drill_snapshot.status == "available"
-            and recovery_drill_snapshot.entries
+            sources.recovery_drill_snapshot is not None
+            and sources.recovery_drill_snapshot.status == "available"
+            and sources.recovery_drill_snapshot.entries
         ):
-            latest = recovery_drill_snapshot.entries[0]
+            latest = sources.recovery_drill_snapshot.entries[0]
             latest_age_seconds = age_seconds_since(latest.generated_at_utc)
 
             yield recovery_drill_latest_age_metric(latest_age_seconds=latest_age_seconds)
@@ -392,16 +431,16 @@ class DurableQueueCollector:
             yield recovery_drill_degradation_breach_metric(
                 latest=latest,
                 latest_age_seconds=latest_age_seconds,
-                action_snapshot=recovery_drill_action_snapshot,
+                action_snapshot=sources.recovery_drill_action_snapshot,
                 policy=recovery_drill_policy,
             )
 
         if (
-            runtime_retention_snapshot is not None
-            and runtime_retention_snapshot.status == "available"
-            and runtime_retention_snapshot.entries
+            sources.runtime_retention_snapshot is not None
+            and sources.runtime_retention_snapshot.status == "available"
+            and sources.runtime_retention_snapshot.entries
         ):
-            latest = runtime_retention_snapshot.entries[0]
+            latest = sources.runtime_retention_snapshot.entries[0]
             latest_age_seconds = age_seconds_since(latest.generated_at_utc)
 
             yield runtime_retention_latest_age_metric(latest_age_seconds=latest_age_seconds)
@@ -409,6 +448,6 @@ class DurableQueueCollector:
             yield runtime_retention_degradation_breach_metric(
                 latest=latest,
                 latest_age_seconds=latest_age_seconds,
-                action_snapshot=runtime_retention_action_snapshot,
+                action_snapshot=sources.runtime_retention_action_snapshot,
                 policy=runtime_retention_policy,
             )

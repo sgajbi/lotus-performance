@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any, Sequence
+
 import pandas as pd
 from fastapi import HTTPException, status
 
@@ -66,6 +68,31 @@ def _slice_attribution_effects_by_period(
     return effects_df[(effect_dates >= start_timestamp) & (effect_dates <= end_timestamp)].copy()
 
 
+def _build_attribution_results_by_period(
+    *,
+    effects_df: pd.DataFrame,
+    request: AttributionRequest,
+    resolved_periods: Sequence[Any],
+    lineage_data: dict[str, Any],
+) -> dict[str, Any]:
+    results_by_period: dict[str, Any] = {}
+    for period in resolved_periods:
+        period_slice_df = _slice_attribution_effects_by_period(
+            effects_df,
+            start_date=period.start_date,
+            end_date=period.end_date,
+        )
+
+        if period_slice_df.empty:
+            continue
+
+        period_result, aggregation_lineage = aggregate_attribution_results(period_slice_df, request)
+        if aggregation_lineage:
+            lineage_data.update({f"{period.name}_{key}": value for key, value in aggregation_lineage.items()})
+        results_by_period[period.name] = build_single_period_attribution_response(period_result)
+    return results_by_period
+
+
 def calculate_attribution(
     request: AttributionRequest,
     *,
@@ -103,21 +130,12 @@ def calculate_attribution(
 
         effects_df, lineage_data = run_attribution_calculations(master_request)
 
-        results_by_period = {}
-        for period in resolved_periods:
-            period_slice_df = _slice_attribution_effects_by_period(
-                effects_df,
-                start_date=period.start_date,
-                end_date=period.end_date,
-            )
-
-            if period_slice_df.empty:
-                continue
-
-            period_result, aggregation_lineage = aggregate_attribution_results(period_slice_df, request)
-            if aggregation_lineage:
-                lineage_data.update({f"{period.name}_{key}": value for key, value in aggregation_lineage.items()})
-            results_by_period[period.name] = build_single_period_attribution_response(period_result)
+        results_by_period = _build_attribution_results_by_period(
+            effects_df=effects_df,
+            request=request,
+            resolved_periods=resolved_periods,
+            lineage_data=lineage_data,
+        )
 
         meta = Meta(
             calculation_id=request.calculation_id,

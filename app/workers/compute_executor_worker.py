@@ -66,6 +66,17 @@ class _ComputeJobExecutionContext:
     inspection_calculator: Callable[[TWRInspectionRequest], Any]
 
 
+@dataclass(frozen=True)
+class _ComputeJobRuntime:
+    job_store: ComputeJobStore | RuntimeStoreProxy[ComputeJobStore]
+    execution_store: ExecutionRegistry | RuntimeStoreProxy[ExecutionRegistry]
+    result_store: AsyncResultStore | RuntimeStoreProxy[AsyncResultStore]
+    worker_id: str
+    lease_seconds: int
+    batch_size: int
+    execution_context: _ComputeJobExecutionContext
+
+
 def process_pending_jobs(*, limit: int | None = None, settings=None) -> int:
     return _process_pending_jobs(limit=limit, settings=settings)
 
@@ -87,6 +98,78 @@ def _process_pending_jobs(
     inspection_calculator: Callable[[TWRInspectionRequest], Any] | None = None,
     settings=None,
 ) -> int:
+    runtime = _build_compute_job_runtime(
+        limit=limit,
+        job_store=job_store,
+        execution_store=execution_store,
+        result_store=result_store,
+        worker_id=worker_id,
+        lease_seconds=lease_seconds,
+        returns_series_calculator=returns_series_calculator,
+        contribution_calculator=contribution_calculator,
+        attribution_calculator=attribution_calculator,
+        benchmark_calculator=benchmark_calculator,
+        twr_calculator=twr_calculator,
+        workspace_summary_calculator=workspace_summary_calculator,
+        inspection_calculator=inspection_calculator,
+        settings=settings,
+    )
+    reconciled = runtime.job_store.reconcile_stale_jobs()
+    for reconciled_job in reconciled:
+        _handle_reconciled_stale_job(
+            reconciled_job,
+            result_store=runtime.result_store,
+            execution_store=runtime.execution_store,
+        )
+    pending = runtime.job_store.lease_pending_jobs(
+        worker_id=runtime.worker_id,
+        limit=runtime.batch_size,
+        lease_seconds=runtime.lease_seconds,
+    )
+    processed = 0
+    for job in pending:
+        runtime.job_store.mark_running(
+            job.calculation_id,
+            worker_id=runtime.worker_id,
+            lease_seconds=runtime.lease_seconds,
+        )
+        try:
+            response = _execute_compute_job(job, runtime.execution_context)
+            runtime.result_store.record_success(
+                calculation_id=job.calculation_id,
+                analytics_type=job.analytics_type,
+                response_payload=response.model_dump(mode="json"),
+            )
+            runtime.job_store.mark_complete(job.calculation_id, response_payload=response.model_dump(mode="json"))
+        except Exception as exc:
+            _handle_compute_job_failure(
+                job,
+                exc,
+                job_store=runtime.job_store,
+                result_store=runtime.result_store,
+                execution_store=runtime.execution_store,
+            )
+        processed += 1
+    return processed
+
+
+def _build_compute_job_runtime(
+    *,
+    limit: int | None,
+    job_store: ComputeJobStore | RuntimeStoreProxy[ComputeJobStore] | None,
+    execution_store: ExecutionRegistry | RuntimeStoreProxy[ExecutionRegistry] | None,
+    result_store: AsyncResultStore | RuntimeStoreProxy[AsyncResultStore] | None,
+    worker_id: str | None,
+    lease_seconds: int | None,
+    returns_series_calculator: Callable[..., Coroutine[Any, Any, Any]] | None,
+    contribution_calculator: Callable[..., Any] | None,
+    attribution_calculator: Callable[..., Any] | None,
+    benchmark_calculator: Callable[..., Any] | None,
+    twr_calculator: Callable[..., Any] | None,
+    workspace_summary_calculator: Callable[..., Any] | None,
+    inspection_calculator: Callable[[TWRInspectionRequest], Any] | None,
+    settings,
+) -> _ComputeJobRuntime:
     active_settings = settings or get_settings()
     batch_size = limit or active_settings.COMPUTE_EXECUTOR_BATCH_SIZE
     active_job_store = job_store or compute_job_store
@@ -101,54 +184,25 @@ def _process_pending_jobs(
     active_twr_calculator = twr_calculator or calculate_twr_response
     active_workspace_summary_calculator = workspace_summary_calculator or calculate_workspace_summary
     active_inspection_calculator = inspection_calculator or run_twr_inspection
-    execution_context = _ComputeJobExecutionContext(
-        settings=active_settings,
+    return _ComputeJobRuntime(
+        job_store=active_job_store,
         execution_store=active_execution_store,
-        returns_series_calculator=active_returns_series_calculator,
-        contribution_calculator=active_contribution_calculator,
-        attribution_calculator=active_attribution_calculator,
-        benchmark_calculator=active_benchmark_calculator,
-        twr_calculator=active_twr_calculator,
-        workspace_summary_calculator=active_workspace_summary_calculator,
-        inspection_calculator=active_inspection_calculator,
-    )
-    reconciled = active_job_store.reconcile_stale_jobs()
-    for reconciled_job in reconciled:
-        _handle_reconciled_stale_job(
-            reconciled_job,
-            result_store=active_result_store,
-            execution_store=active_execution_store,
-        )
-    pending = active_job_store.lease_pending_jobs(
+        result_store=active_result_store,
         worker_id=current_worker_id,
-        limit=batch_size,
         lease_seconds=current_lease_seconds,
+        batch_size=batch_size,
+        execution_context=_ComputeJobExecutionContext(
+            settings=active_settings,
+            execution_store=active_execution_store,
+            returns_series_calculator=active_returns_series_calculator,
+            contribution_calculator=active_contribution_calculator,
+            attribution_calculator=active_attribution_calculator,
+            benchmark_calculator=active_benchmark_calculator,
+            twr_calculator=active_twr_calculator,
+            workspace_summary_calculator=active_workspace_summary_calculator,
+            inspection_calculator=active_inspection_calculator,
+        ),
     )
-    processed = 0
-    for job in pending:
-        active_job_store.mark_running(
-            job.calculation_id,
-            worker_id=current_worker_id,
-            lease_seconds=current_lease_seconds,
-        )
-        try:
-            response = _execute_compute_job(job, execution_context)
-            active_result_store.record_success(
-                calculation_id=job.calculation_id,
-                analytics_type=job.analytics_type,
-                response_payload=response.model_dump(mode="json"),
-            )
-            active_job_store.mark_complete(job.calculation_id, response_payload=response.model_dump(mode="json"))
-        except Exception as exc:
-            _handle_compute_job_failure(
-                job,
-                exc,
-                job_store=active_job_store,
-                result_store=active_result_store,
-                execution_store=active_execution_store,
-            )
-        processed += 1
-    return processed
 
 
 def _execute_compute_job(job: ComputeJobRecord, context: _ComputeJobExecutionContext) -> Any:

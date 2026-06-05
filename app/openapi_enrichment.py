@@ -156,22 +156,24 @@ def _humanize(value: str) -> str:
     return _canonical_term(value).replace("_", " ").strip()
 
 
-def _infer_example(prop_name: str, prop_schema: dict[str, Any]) -> Any:
-    key = _canonical_term(prop_name)
-    if key in EXAMPLE_BY_KEY:
-        return EXAMPLE_BY_KEY[key]
-
+def _enum_schema_example(prop_schema: dict[str, Any]) -> Any | None:
     enum_values = prop_schema.get("enum")
     if isinstance(enum_values, list) and enum_values:
         return enum_values[0]
+    return None
 
+
+def _array_schema_fallback_example(prop_name: str, prop_schema: dict[str, Any]) -> list[Any]:
+    item_schema = prop_schema.get("items", {})
+    if isinstance(item_schema, dict):
+        return [_infer_example(f"{prop_name}_item", item_schema)]
+    return ["VALUE"]
+
+
+def _typed_schema_example(prop_name: str, prop_schema: dict[str, Any]) -> Any | None:
     schema_type = prop_schema.get("type")
-    schema_format = prop_schema.get("format")
     if schema_type == "array":
-        item_schema = prop_schema.get("items", {})
-        if isinstance(item_schema, dict):
-            return [_infer_example(f"{prop_name}_item", item_schema)]
-        return ["VALUE"]
+        return _array_schema_fallback_example(prop_name, prop_schema)
     if schema_type == "object":
         return {"key": "value"}
     if schema_type == "boolean":
@@ -180,10 +182,19 @@ def _infer_example(prop_name: str, prop_schema: dict[str, Any]) -> Any:
         return 1
     if schema_type == "number":
         return 0.1234
+    return None
+
+
+def _formatted_schema_example(prop_schema: dict[str, Any]) -> Any | None:
+    schema_format = prop_schema.get("format")
     if schema_format == "date":
         return "2026-02-27"
     if schema_format == "date-time":
         return "2026-02-27T10:30:00Z"
+    return None
+
+
+def _semantic_string_example(key: str) -> str:
     if key.endswith("_id"):
         return f"{key[:-3].upper()}_001"
     if "date" in key:
@@ -193,6 +204,26 @@ def _infer_example(prop_name: str, prop_schema: dict[str, Any]) -> Any:
     if "currency" in key:
         return "USD"
     return f"example_{key}"
+
+
+def _infer_example(prop_name: str, prop_schema: dict[str, Any]) -> Any:
+    key = _canonical_term(prop_name)
+    if key in EXAMPLE_BY_KEY:
+        return EXAMPLE_BY_KEY[key]
+
+    enum_example = _enum_schema_example(prop_schema)
+    if enum_example is not None:
+        return enum_example
+
+    typed_example = _typed_schema_example(prop_name, prop_schema)
+    if typed_example is not None:
+        return typed_example
+
+    formatted_example = _formatted_schema_example(prop_schema)
+    if formatted_example is not None:
+        return formatted_example
+
+    return _semantic_string_example(key)
 
 
 def _infer_description(model_name: str, prop_name: str, prop_schema: dict[str, Any]) -> str:
@@ -412,51 +443,105 @@ def _ensure_request_body_example(
         )
 
 
+def _has_documented_error_response(responses: dict[str, Any]) -> bool:
+    return any(str(code).startswith(("4", "5")) or str(code) == "default" for code in responses)
+
+
+def _metrics_response_content() -> dict[str, Any]:
+    metrics_example = (
+        "# HELP lotus_performance_durable_queue_store_availability Durable queue store availability.\n"
+        "# TYPE lotus_performance_durable_queue_store_availability gauge\n"
+        'lotus_performance_durable_queue_store_availability{store="compute"} 1.0\n'
+    )
+    return {
+        "text/plain": {
+            "schema": {"type": "string", "description": "Prometheus exposition format payload."},
+            "example": metrics_example,
+        }
+    }
+
+
+def _ensure_json_success_response_example(
+    *,
+    path: str,
+    json_content: dict[str, Any],
+    components: dict[str, Any],
+) -> None:
+    response_schema = json_content.get("schema", {})
+    operation_example = OPERATION_JSON_EXAMPLES.get((path, "response"))
+    if operation_example is not None:
+        json_content["example"] = copy.deepcopy(operation_example)
+        return
+    if isinstance(response_schema, dict) and "example" not in json_content and "examples" not in json_content:
+        json_content["example"] = _build_schema_example(
+            response_schema,
+            components=components,
+            name_hint="response_body",
+        )
+
+
+def _ensure_success_response_documentation(
+    *,
+    path: str,
+    response: dict[str, Any],
+    components: dict[str, Any],
+) -> None:
+    content = response.get("content", {})
+    if not isinstance(content, dict):
+        return
+    if path == "/metrics":
+        response["content"] = _metrics_response_content()
+        return
+    json_content = content.get("application/json")
+    if not isinstance(json_content, dict):
+        return
+    _ensure_json_success_response_example(
+        path=path,
+        json_content=json_content,
+        components=components,
+    )
+
+
 def _ensure_operation_response_documentation(
     *,
     path: str,
     responses: dict[str, Any],
     components: dict[str, Any],
 ) -> None:
-    has_error = any(
-        str(code).startswith("4") or str(code).startswith("5") or str(code) == "default" for code in responses
-    )
-    if not has_error:
+    if not _has_documented_error_response(responses):
         responses["default"] = _problem_detail_response()
     _ensure_error_response_examples(responses)
     for code, response in responses.items():
         if not str(code).startswith("2") or not isinstance(response, dict):
             continue
-        content = response.get("content", {})
-        if not isinstance(content, dict):
-            continue
-        if path == "/metrics":
-            metrics_example = (
-                "# HELP lotus_performance_durable_queue_store_availability Durable queue store availability.\n"
-                "# TYPE lotus_performance_durable_queue_store_availability gauge\n"
-                'lotus_performance_durable_queue_store_availability{store="compute"} 1.0\n'
-            )
-            response["content"] = {
-                "text/plain": {
-                    "schema": {"type": "string", "description": "Prometheus exposition format payload."},
-                    "example": metrics_example,
-                }
-            }
-            continue
-        json_content = content.get("application/json")
-        if not isinstance(json_content, dict):
-            continue
-        response_schema = json_content.get("schema", {})
-        operation_example = OPERATION_JSON_EXAMPLES.get((path, "response"))
-        if operation_example is not None:
-            json_content["example"] = copy.deepcopy(operation_example)
-            continue
-        if isinstance(response_schema, dict) and "example" not in json_content and "examples" not in json_content:
-            json_content["example"] = _build_schema_example(
-                response_schema,
-                components=components,
-                name_hint="response_body",
-            )
+        _ensure_success_response_documentation(
+            path=path,
+            response=response,
+            components=components,
+        )
+
+
+def _operation_tags_for_path(path: str) -> list[str]:
+    if path.startswith("/health"):
+        return ["Health"]
+    if path == "/metrics":
+        return ["Monitoring"]
+    segment = path.strip("/").split("/", 1)[0] or "default"
+    return [segment.replace("-", " ").title()]
+
+
+def _ensure_operation_metadata(*, path: str, method: str, operation: dict[str, Any]) -> None:
+    if not operation.get("summary"):
+        operation["summary"] = f"{method.upper()} {path}"
+    if not operation.get("description"):
+        operation["description"] = f"{method.upper()} operation for {path} in lotus-performance."
+    if path == "/metrics":
+        operation["description"] = (
+            "Returns the Prometheus metrics surface for lotus-performance, including durable queue availability, "
+            "queue pressure, lineage storage capacity, recovery-drill assurance, and runtime-retention assurance gauges."
+        )
+    if not operation.get("tags"):
+        operation["tags"] = _operation_tags_for_path(path)
 
 
 def _ensure_operation_documentation(schema: dict[str, Any]) -> None:
@@ -472,23 +557,7 @@ def _ensure_operation_documentation(schema: dict[str, Any]) -> None:
                 continue
             if not isinstance(operation, dict):
                 continue
-            if not operation.get("summary"):
-                operation["summary"] = f"{method.upper()} {path}"
-            if not operation.get("description"):
-                operation["description"] = f"{method.upper()} operation for {path} in lotus-performance."
-            if path == "/metrics":
-                operation["description"] = (
-                    "Returns the Prometheus metrics surface for lotus-performance, including durable queue availability, "
-                    "queue pressure, lineage storage capacity, recovery-drill assurance, and runtime-retention assurance gauges."
-                )
-            if not operation.get("tags"):
-                if path.startswith("/health"):
-                    operation["tags"] = ["Health"]
-                elif path == "/metrics":
-                    operation["tags"] = ["Monitoring"]
-                else:
-                    segment = path.strip("/").split("/", 1)[0] or "default"
-                    operation["tags"] = [segment.replace("-", " ").title()]
+            _ensure_operation_metadata(path=path, method=method, operation=operation)
 
             request_body = operation.get("requestBody")
             if isinstance(request_body, dict):
@@ -518,38 +587,60 @@ def _ensure_schema_documentation(schema: dict[str, Any]) -> None:
     for model_name, model_schema in schemas.items():
         if not isinstance(model_schema, dict):
             continue
-        if not model_schema.get("description"):
-            model_schema["description"] = _infer_schema_description(str(model_name), model_schema)
-        enum_descriptions = _infer_enum_descriptions(str(model_name), model_schema)
-        if enum_descriptions and "x-enum-descriptions" not in model_schema:
-            model_schema["x-enum-descriptions"] = enum_descriptions
+        _ensure_model_schema_documentation(str(model_name), model_schema, components)
 
-        properties = model_schema.get("properties", {})
-        if not isinstance(properties, dict):
-            continue
-        for prop_name, prop_schema in properties.items():
-            if not isinstance(prop_schema, dict):
-                continue
-            prop_resolved = _resolve_schema(prop_schema, components)
-            if not prop_schema.get("description"):
-                prop_schema["description"] = prop_resolved.get("description") or _infer_description(
-                    str(model_name),
-                    str(prop_name),
-                    prop_resolved,
-                )
-            if "example" not in prop_schema and "examples" not in prop_schema:
-                prop_schema["example"] = _build_schema_example(
-                    prop_schema,
-                    components=components,
-                    name_hint=str(prop_name),
-                )
-            if "x-lotus-semantic-id" not in prop_schema:
-                prop_schema["x-lotus-semantic-id"] = _semantic_id(str(prop_name))
-            if "x-lotus-canonical-term" not in prop_schema:
-                prop_schema["x-lotus-canonical-term"] = _canonical_term(str(prop_name))
-            prop_enum_descriptions = _infer_enum_descriptions(str(prop_name), prop_resolved)
-            if prop_enum_descriptions and "x-enum-descriptions" not in prop_schema:
-                prop_schema["x-enum-descriptions"] = prop_enum_descriptions
+
+def _ensure_model_schema_documentation(
+    model_name: str,
+    model_schema: dict[str, Any],
+    components: dict[str, Any],
+) -> None:
+    if not model_schema.get("description"):
+        model_schema["description"] = _infer_schema_description(model_name, model_schema)
+    enum_descriptions = _infer_enum_descriptions(model_name, model_schema)
+    if enum_descriptions and "x-enum-descriptions" not in model_schema:
+        model_schema["x-enum-descriptions"] = enum_descriptions
+
+    properties = model_schema.get("properties", {})
+    if not isinstance(properties, dict):
+        return
+    for prop_name, prop_schema in properties.items():
+        if isinstance(prop_schema, dict):
+            _ensure_property_schema_documentation(
+                model_name=model_name,
+                prop_name=str(prop_name),
+                prop_schema=prop_schema,
+                components=components,
+            )
+
+
+def _ensure_property_schema_documentation(
+    *,
+    model_name: str,
+    prop_name: str,
+    prop_schema: dict[str, Any],
+    components: dict[str, Any],
+) -> None:
+    prop_resolved = _resolve_schema(prop_schema, components)
+    if not prop_schema.get("description"):
+        prop_schema["description"] = prop_resolved.get("description") or _infer_description(
+            model_name,
+            prop_name,
+            prop_resolved,
+        )
+    if "example" not in prop_schema and "examples" not in prop_schema:
+        prop_schema["example"] = _build_schema_example(
+            prop_schema,
+            components=components,
+            name_hint=prop_name,
+        )
+    if "x-lotus-semantic-id" not in prop_schema:
+        prop_schema["x-lotus-semantic-id"] = _semantic_id(prop_name)
+    if "x-lotus-canonical-term" not in prop_schema:
+        prop_schema["x-lotus-canonical-term"] = _canonical_term(prop_name)
+    prop_enum_descriptions = _infer_enum_descriptions(prop_name, prop_resolved)
+    if prop_enum_descriptions and "x-enum-descriptions" not in prop_schema:
+        prop_schema["x-enum-descriptions"] = prop_enum_descriptions
 
 
 def enrich_openapi_schema(schema: dict[str, Any]) -> dict[str, Any]:

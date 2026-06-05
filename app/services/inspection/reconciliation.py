@@ -105,113 +105,6 @@ def analyze_portfolio_position_reconciliation(
     position_continuity_gap_samples = _collect_position_continuity_gap_samples(selected_position_rows)
 
     mixed_epoch_dates = sorted(_find_mixed_epoch_dates(position_rows))
-    findings: list[TWRInspectionFinding] = []
-
-    if mixed_epoch_dates:
-        findings.append(
-            TWRInspectionFinding(
-                code="MIXED_POSITION_EPOCH_SNAPSHOT",
-                severity="high",
-                category="epoch_coherence",
-                owner_repo="lotus-core",
-                summary="Position timeseries contains mixed snapshot epochs for the same valuation date.",
-                explanation=(
-                    "A coherent portfolio-state reconciliation requires one promoted snapshot state per valuation "
-                    "date. The served position rows include multiple epochs on the same date."
-                ),
-                recommended_action=(
-                    "Review lotus-core position snapshot promotion and ensure one coherent epoch is served per "
-                    "portfolio date."
-                ),
-                evidence={
-                    "portfolio_id": portfolio_id,
-                    "mixed_epoch_dates": mixed_epoch_dates[:10],
-                    "mixed_epoch_date_count": len(mixed_epoch_dates),
-                },
-            )
-        )
-
-    if duplicate_snapshot_samples:
-        findings.append(
-            TWRInspectionFinding(
-                code="DUPLICATE_POSITION_SNAPSHOT_ROW_PRESENT",
-                severity="warning",
-                category="epoch_coherence",
-                owner_repo="lotus-core",
-                summary="Position timeseries includes duplicate rows for the same position snapshot.",
-                explanation=(
-                    "The served position source includes multiple rows with the same valuation date, position id, "
-                    "and snapshot epoch. The inspector collapses those duplicates during latest-row selection, so "
-                    "upstream snapshot publication is not uniquely identifying a promoted position state."
-                ),
-                recommended_action=(
-                    "Review lotus-core position-timeseries publication and ensure each position/date/epoch snapshot "
-                    "is emitted once."
-                ),
-                evidence={
-                    "portfolio_id": portfolio_id,
-                    "duplicate_snapshot_dates": [
-                        sample["valuation_date"] for sample in duplicate_snapshot_samples[:10]
-                    ],
-                    "duplicate_snapshot_row_count": len(duplicate_snapshot_samples),
-                    "duplicate_snapshot_samples": duplicate_snapshot_samples[:10],
-                },
-            )
-        )
-
-    if invalid_epoch_samples:
-        findings.append(
-            TWRInspectionFinding(
-                code="INVALID_POSITION_EPOCH_PRESENT",
-                severity="warning",
-                category="epoch_coherence",
-                owner_repo="lotus-core",
-                summary="Position timeseries includes rows with unusable snapshot epoch values.",
-                explanation=(
-                    "One or more served position rows carry a non-numeric epoch label. The inspector falls back to "
-                    "epoch `0` for those rows, so upstream epoch serialization is not explicit enough to support a "
-                    "trustworthy latest-snapshot selection."
-                ),
-                recommended_action=(
-                    "Review lotus-core position snapshot serialization and emit numeric valuation epochs for every "
-                    "served position row."
-                ),
-                evidence={
-                    "portfolio_id": portfolio_id,
-                    "invalid_position_epoch_dates": [sample["valuation_date"] for sample in invalid_epoch_samples[:10]],
-                    "invalid_position_epoch_row_count": len(invalid_epoch_samples),
-                    "invalid_position_epoch_samples": invalid_epoch_samples[:10],
-                },
-            )
-        )
-
-    if invalid_position_value_samples:
-        findings.append(
-            TWRInspectionFinding(
-                code="INVALID_POSITION_END_VALUE_PRESENT",
-                severity="warning",
-                category="portfolio_position_reconciliation",
-                owner_repo="lotus-core",
-                summary="Latest position-state rows include unusable ending market values.",
-                explanation=(
-                    "After selecting the latest position row per valuation date and position, one or more rows still "
-                    "carry missing, blank, or non-numeric ending market values. The inspector excludes those rows "
-                    "from reconciliation totals, so upstream position-state serialization is incomplete."
-                ),
-                recommended_action=(
-                    "Review lotus-core position-timeseries serialization and emit numeric ending market values for "
-                    "every promoted position row."
-                ),
-                evidence={
-                    "portfolio_id": portfolio_id,
-                    "invalid_position_value_dates": [
-                        sample["valuation_date"] for sample in invalid_position_value_samples[:10]
-                    ],
-                    "invalid_position_value_row_count": len(invalid_position_value_samples),
-                    "invalid_position_value_samples": invalid_position_value_samples[:10],
-                },
-            )
-        )
 
     gap_analysis = _analyze_position_reconciliation_gaps(
         portfolio_end_by_date=portfolio_end_by_date,
@@ -220,62 +113,243 @@ def analyze_portfolio_position_reconciliation(
     overlapping_dates = gap_analysis.overlapping_dates
     gap_details = gap_analysis.gap_details
     max_abs_gap_amount = gap_analysis.max_abs_gap_amount
+    findings = _build_position_reconciliation_findings(
+        portfolio_id=portfolio_id,
+        mixed_epoch_dates=mixed_epoch_dates,
+        duplicate_snapshot_samples=duplicate_snapshot_samples,
+        invalid_epoch_samples=invalid_epoch_samples,
+        invalid_position_value_samples=invalid_position_value_samples,
+        gap_details=gap_details,
+        max_abs_gap_amount=max_abs_gap_amount,
+        position_continuity_gap_samples=position_continuity_gap_samples,
+    )
+    return _build_position_reconciliation_result(
+        portfolio_id=portfolio_id,
+        findings=findings,
+        overlapping_dates=overlapping_dates,
+        position_rows=position_rows,
+        selected_position_rows=selected_position_rows,
+        mixed_epoch_dates=mixed_epoch_dates,
+        duplicate_snapshot_samples=duplicate_snapshot_samples,
+        invalid_epoch_samples=invalid_epoch_samples,
+        invalid_position_value_samples=invalid_position_value_samples,
+        gap_details=gap_details,
+        max_abs_gap_amount=max_abs_gap_amount,
+        position_continuity_gap_samples=position_continuity_gap_samples,
+    )
 
+
+def _build_position_reconciliation_findings(
+    *,
+    portfolio_id: str,
+    mixed_epoch_dates: list[str],
+    duplicate_snapshot_samples: list[dict[str, object]],
+    invalid_epoch_samples: list[dict[str, object]],
+    invalid_position_value_samples: list[dict[str, object]],
+    gap_details: list[dict[str, object]],
+    max_abs_gap_amount: Decimal,
+    position_continuity_gap_samples: list[dict[str, object]],
+) -> list[TWRInspectionFinding]:
+    findings: list[TWRInspectionFinding] = []
+    if mixed_epoch_dates:
+        findings.append(_mixed_position_epoch_finding(portfolio_id, mixed_epoch_dates))
+    if duplicate_snapshot_samples:
+        findings.append(_duplicate_position_snapshot_finding(portfolio_id, duplicate_snapshot_samples))
+    if invalid_epoch_samples:
+        findings.append(_invalid_position_epoch_finding(portfolio_id, invalid_epoch_samples))
+    if invalid_position_value_samples:
+        findings.append(_invalid_position_value_finding(portfolio_id, invalid_position_value_samples))
     if gap_details:
-        findings.append(
-            TWRInspectionFinding(
-                code="PORTFOLIO_POSITION_RECONCILIATION_GAP",
-                severity="high",
-                category="portfolio_position_reconciliation",
-                owner_repo="lotus-core",
-                summary="Portfolio totals do not reconcile to the latest coherent position state.",
-                explanation=(
-                    "The served portfolio ending market value differs from the latest position-state total on one or "
-                    "more inspected dates beyond the governed reconciliation tolerance."
-                ),
-                recommended_action=(
-                    "Review lotus-core aggregate portfolio valuation assembly, position snapshot promotion, and "
-                    "source-state reconciliation controls."
-                ),
-                evidence={
-                    "portfolio_id": portfolio_id,
-                    "reconciliation_gap_dates": [detail["valuation_date"] for detail in gap_details[:10]],
-                    "gap_samples": gap_details[:10],
-                    "max_gap_amount": _decimal_to_artifact(max_abs_gap_amount),
-                },
-            )
-        )
-
+        findings.append(_position_reconciliation_gap_finding(portfolio_id, gap_details, max_abs_gap_amount))
     if position_continuity_gap_samples:
-        findings.append(
-            TWRInspectionFinding(
-                code="POSITION_BEGIN_VALUE_CARRY_FORWARD_BREAK",
-                severity="high",
-                category="portfolio_position_reconciliation",
-                owner_repo="lotus-core",
-                summary="Position timeseries has unexplained begin-value carry-forward breaks.",
-                explanation=(
-                    "For one or more positions, the current beginning market value does not carry forward from the "
-                    "prior selected ending market value, and the current source row does not include explanatory "
-                    "cash-flow or trade activity. This is the source-state pattern that can produce implausible "
-                    "daily TWR moves even when portfolio and position end totals reconcile."
-                ),
-                recommended_action=(
-                    "Review lotus-core position-timeseries assembly for the sampled positions and ensure beginning "
-                    "market values are derived from the prior promoted ending state unless a governed activity row "
-                    "explains the transition."
-                ),
-                evidence={
-                    "portfolio_id": portfolio_id,
-                    "continuity_gap_dates": [
-                        sample["valuation_date"] for sample in position_continuity_gap_samples[:10]
-                    ],
-                    "position_continuity_gap_count": len(position_continuity_gap_samples),
-                    "position_continuity_gap_samples": position_continuity_gap_samples[:10],
-                },
-            )
-        )
+        findings.append(_position_continuity_gap_finding(portfolio_id, position_continuity_gap_samples))
+    return findings
 
+
+def _mixed_position_epoch_finding(portfolio_id: str, mixed_epoch_dates: list[str]) -> TWRInspectionFinding:
+    return TWRInspectionFinding(
+        code="MIXED_POSITION_EPOCH_SNAPSHOT",
+        severity="high",
+        category="epoch_coherence",
+        owner_repo="lotus-core",
+        summary="Position timeseries contains mixed snapshot epochs for the same valuation date.",
+        explanation=(
+            "A coherent portfolio-state reconciliation requires one promoted snapshot state per valuation date. "
+            "The served position rows include multiple epochs on the same date."
+        ),
+        recommended_action=(
+            "Review lotus-core position snapshot promotion and ensure one coherent epoch is served per portfolio date."
+        ),
+        evidence={
+            "portfolio_id": portfolio_id,
+            "mixed_epoch_dates": mixed_epoch_dates[:10],
+            "mixed_epoch_date_count": len(mixed_epoch_dates),
+        },
+    )
+
+
+def _duplicate_position_snapshot_finding(
+    portfolio_id: str,
+    duplicate_snapshot_samples: list[dict[str, object]],
+) -> TWRInspectionFinding:
+    return TWRInspectionFinding(
+        code="DUPLICATE_POSITION_SNAPSHOT_ROW_PRESENT",
+        severity="warning",
+        category="epoch_coherence",
+        owner_repo="lotus-core",
+        summary="Position timeseries includes duplicate rows for the same position snapshot.",
+        explanation=(
+            "The served position source includes multiple rows with the same valuation date, position id, "
+            "and snapshot epoch. The inspector collapses those duplicates during latest-row selection, so "
+            "upstream snapshot publication is not uniquely identifying a promoted position state."
+        ),
+        recommended_action=(
+            "Review lotus-core position-timeseries publication and ensure each position/date/epoch snapshot "
+            "is emitted once."
+        ),
+        evidence={
+            "portfolio_id": portfolio_id,
+            "duplicate_snapshot_dates": [sample["valuation_date"] for sample in duplicate_snapshot_samples[:10]],
+            "duplicate_snapshot_row_count": len(duplicate_snapshot_samples),
+            "duplicate_snapshot_samples": duplicate_snapshot_samples[:10],
+        },
+    )
+
+
+def _invalid_position_epoch_finding(
+    portfolio_id: str,
+    invalid_epoch_samples: list[dict[str, object]],
+) -> TWRInspectionFinding:
+    return TWRInspectionFinding(
+        code="INVALID_POSITION_EPOCH_PRESENT",
+        severity="warning",
+        category="epoch_coherence",
+        owner_repo="lotus-core",
+        summary="Position timeseries includes rows with unusable snapshot epoch values.",
+        explanation=(
+            "One or more served position rows carry a non-numeric epoch label. The inspector falls back to epoch `0` "
+            "for those rows, so upstream epoch serialization is not explicit enough to support a trustworthy "
+            "latest-snapshot selection."
+        ),
+        recommended_action=(
+            "Review lotus-core position snapshot serialization and emit numeric valuation epochs for every served "
+            "position row."
+        ),
+        evidence={
+            "portfolio_id": portfolio_id,
+            "invalid_position_epoch_dates": [sample["valuation_date"] for sample in invalid_epoch_samples[:10]],
+            "invalid_position_epoch_row_count": len(invalid_epoch_samples),
+            "invalid_position_epoch_samples": invalid_epoch_samples[:10],
+        },
+    )
+
+
+def _invalid_position_value_finding(
+    portfolio_id: str,
+    invalid_position_value_samples: list[dict[str, object]],
+) -> TWRInspectionFinding:
+    return TWRInspectionFinding(
+        code="INVALID_POSITION_END_VALUE_PRESENT",
+        severity="warning",
+        category="portfolio_position_reconciliation",
+        owner_repo="lotus-core",
+        summary="Latest position-state rows include unusable ending market values.",
+        explanation=(
+            "After selecting the latest position row per valuation date and position, one or more rows still carry "
+            "missing, blank, or non-numeric ending market values. The inspector excludes those rows from "
+            "reconciliation totals, so upstream position-state serialization is incomplete."
+        ),
+        recommended_action=(
+            "Review lotus-core position-timeseries serialization and emit numeric ending market values for every "
+            "promoted position row."
+        ),
+        evidence={
+            "portfolio_id": portfolio_id,
+            "invalid_position_value_dates": [
+                sample["valuation_date"] for sample in invalid_position_value_samples[:10]
+            ],
+            "invalid_position_value_row_count": len(invalid_position_value_samples),
+            "invalid_position_value_samples": invalid_position_value_samples[:10],
+        },
+    )
+
+
+def _position_reconciliation_gap_finding(
+    portfolio_id: str,
+    gap_details: list[dict[str, object]],
+    max_abs_gap_amount: Decimal,
+) -> TWRInspectionFinding:
+    return TWRInspectionFinding(
+        code="PORTFOLIO_POSITION_RECONCILIATION_GAP",
+        severity="high",
+        category="portfolio_position_reconciliation",
+        owner_repo="lotus-core",
+        summary="Portfolio totals do not reconcile to the latest coherent position state.",
+        explanation=(
+            "The served portfolio ending market value differs from the latest position-state total on one or more "
+            "inspected dates beyond the governed reconciliation tolerance."
+        ),
+        recommended_action=(
+            "Review lotus-core aggregate portfolio valuation assembly, position snapshot promotion, and source-state "
+            "reconciliation controls."
+        ),
+        evidence={
+            "portfolio_id": portfolio_id,
+            "reconciliation_gap_dates": [detail["valuation_date"] for detail in gap_details[:10]],
+            "gap_samples": gap_details[:10],
+            "max_gap_amount": _decimal_to_artifact(max_abs_gap_amount),
+        },
+    )
+
+
+def _position_continuity_gap_finding(
+    portfolio_id: str,
+    position_continuity_gap_samples: list[dict[str, object]],
+) -> TWRInspectionFinding:
+    return TWRInspectionFinding(
+        code="POSITION_BEGIN_VALUE_CARRY_FORWARD_BREAK",
+        severity="high",
+        category="portfolio_position_reconciliation",
+        owner_repo="lotus-core",
+        summary="Position timeseries has unexplained begin-value carry-forward breaks.",
+        explanation=(
+            "For one or more positions, the current beginning market value does not carry forward from the prior "
+            "selected ending market value, and the current source row does not include explanatory cash-flow or "
+            "trade activity. This is the source-state pattern that can produce implausible daily TWR moves even "
+            "when portfolio and position end totals reconcile."
+        ),
+        recommended_action=(
+            "Review lotus-core position-timeseries assembly for the sampled positions and ensure beginning market "
+            "values are derived from the prior promoted ending state unless a governed activity row explains the "
+            "transition."
+        ),
+        evidence={
+            "portfolio_id": portfolio_id,
+            "continuity_gap_dates": [sample["valuation_date"] for sample in position_continuity_gap_samples[:10]],
+            "position_continuity_gap_count": len(position_continuity_gap_samples),
+            "position_continuity_gap_samples": position_continuity_gap_samples[:10],
+        },
+    )
+
+
+def _build_position_reconciliation_result(
+    *,
+    portfolio_id: str,
+    findings: list[TWRInspectionFinding],
+    overlapping_dates: list[str],
+    position_rows: list[dict[str, object]],
+    selected_position_rows: list[dict[str, object]],
+    mixed_epoch_dates: list[str],
+    duplicate_snapshot_samples: list[dict[str, object]],
+    invalid_epoch_samples: list[dict[str, object]],
+    invalid_position_value_samples: list[dict[str, object]],
+    gap_details: list[dict[str, object]],
+    max_abs_gap_amount: Decimal,
+    position_continuity_gap_samples: list[dict[str, object]],
+) -> ReconciliationCheckResult:
+    duplicate_snapshot_dates = {sample["valuation_date"] for sample in duplicate_snapshot_samples}
+    invalid_position_epoch_dates = {sample["valuation_date"] for sample in invalid_epoch_samples}
+    invalid_position_value_dates = {sample["valuation_date"] for sample in invalid_position_value_samples}
     return ReconciliationCheckResult(
         findings=findings,
         evidence_summary={
@@ -283,13 +357,11 @@ def analyze_portfolio_position_reconciliation(
             "position_row_count": len(position_rows),
             "selected_position_row_count": len(selected_position_rows),
             "mixed_epoch_date_count": len(mixed_epoch_dates),
-            "duplicate_snapshot_date_count": len({sample["valuation_date"] for sample in duplicate_snapshot_samples}),
+            "duplicate_snapshot_date_count": len(duplicate_snapshot_dates),
             "duplicate_snapshot_row_count": len(duplicate_snapshot_samples),
-            "invalid_position_epoch_date_count": len({sample["valuation_date"] for sample in invalid_epoch_samples}),
+            "invalid_position_epoch_date_count": len(invalid_position_epoch_dates),
             "invalid_position_epoch_row_count": len(invalid_epoch_samples),
-            "invalid_position_value_date_count": len(
-                {sample["valuation_date"] for sample in invalid_position_value_samples}
-            ),
+            "invalid_position_value_date_count": len(invalid_position_value_dates),
             "invalid_position_value_row_count": len(invalid_position_value_samples),
             "reconciliation_gap_date_count": len(gap_details),
             "reconciliation_max_gap_amount": _decimal_to_artifact(max_abs_gap_amount),
@@ -302,15 +374,13 @@ def analyze_portfolio_position_reconciliation(
             "selected_position_row_count": len(selected_position_rows),
             "mixed_epoch_dates": mixed_epoch_dates,
             "mixed_epoch_date_count": len(mixed_epoch_dates),
-            "duplicate_snapshot_date_count": len({sample["valuation_date"] for sample in duplicate_snapshot_samples}),
+            "duplicate_snapshot_date_count": len(duplicate_snapshot_dates),
             "duplicate_snapshot_row_count": len(duplicate_snapshot_samples),
             "duplicate_snapshot_samples": duplicate_snapshot_samples[:25],
-            "invalid_position_epoch_date_count": len({sample["valuation_date"] for sample in invalid_epoch_samples}),
+            "invalid_position_epoch_date_count": len(invalid_position_epoch_dates),
             "invalid_position_epoch_row_count": len(invalid_epoch_samples),
             "invalid_position_epoch_samples": invalid_epoch_samples[:25],
-            "invalid_position_value_date_count": len(
-                {sample["valuation_date"] for sample in invalid_position_value_samples}
-            ),
+            "invalid_position_value_date_count": len(invalid_position_value_dates),
             "invalid_position_value_row_count": len(invalid_position_value_samples),
             "invalid_position_value_samples": invalid_position_value_samples[:25],
             "reconciliation_gap_date_count": len(gap_details),

@@ -184,6 +184,76 @@ def test_build_returns_series_point_outputs_omits_unselected_optional_families()
     assert outputs.cumulative_active_return_points is None
 
 
+def test_build_returns_series_response_preserves_context_provenance_and_series_payload():
+    request = ReturnsSeriesRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "as_of_date": "2026-02-24",
+            "window": {"mode": "EXPLICIT", "from_date": "2026-02-23", "to_date": "2026-02-24"},
+            "frequency": "DAILY",
+            "series_selection": {"include_portfolio": True, "include_benchmark": True, "include_risk_free": False},
+            "input_mode": "stateless",
+            "stateless_input": {
+                "portfolio_returns": [
+                    {"date": "2026-02-23", "return_value": "0.0100"},
+                    {"date": "2026-02-24", "return_value": "0.0200"},
+                ],
+                "benchmark_returns": [
+                    {"date": "2026-02-23", "return_value": "0.0050"},
+                    {"date": "2026-02-24", "return_value": "0.0150"},
+                ],
+            },
+        }
+    )
+    resolved_window = returns_series_service.resolve_window(request)
+    portfolio_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-23", "2026-02-24"]),
+            "return_value": [Decimal("0.0100"), Decimal("0.0200")],
+        }
+    )
+    benchmark_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-23", "2026-02-24"]),
+            "return_value": [Decimal("0.0050"), Decimal("0.0150")],
+        }
+    )
+    point_outputs = returns_series_service._build_returns_series_point_outputs(
+        portfolio_df=portfolio_df,
+        benchmark_df=benchmark_df,
+        risk_free_df=None,
+    )
+    diagnostics_result = returns_series_service._build_returns_series_diagnostics(
+        request=request,
+        resolved_window=resolved_window,
+        portfolio_df=portfolio_df,
+        benchmark_df=benchmark_df,
+        risk_free_df=None,
+    )
+
+    response = returns_series_service._build_returns_series_response(
+        request=request,
+        resolved_window=resolved_window,
+        point_outputs=point_outputs,
+        diagnostics_result=diagnostics_result,
+        effective_input_mode=InputMode.STATELESS,
+        input_fingerprint="input-fingerprint",
+        calculation_hash="calculation-hash",
+        resolved_benchmark_id="BMK_1",
+        resolved_benchmark_return_source=BenchmarkReturnSource.VENDOR_SERIES,
+    )
+
+    assert response.benchmark_context is not None
+    assert response.benchmark_context.benchmark_id == "BMK_1"
+    assert response.benchmark_context.return_source == BenchmarkReturnSource.VENDOR_SERIES
+    assert response.provenance.input_fingerprint == "input-fingerprint"
+    assert response.provenance.calculation_hash == "calculation-hash"
+    assert response.provenance.input_mode == InputMode.STATELESS
+    assert response.series.portfolio_returns == point_outputs.portfolio_return_points
+    assert response.series.benchmark_returns == point_outputs.benchmark_return_points
+    assert response.diagnostics == diagnostics_result.diagnostics
+
+
 def test_build_returns_series_diagnostics_reports_coverage_gaps_and_market_warning():
     request = ReturnsSeriesRequest.model_validate(
         {
@@ -549,6 +619,41 @@ def test_build_stateful_returns_series_frames_preserves_calculated_benchmark_fra
 
     assert frames.benchmark_df is benchmark_df
     assert frames.risk_free_df is None
+
+
+def test_stateful_returns_retrieval_stage_details_preserve_count_policy():
+    portfolio_source = returns_series_service.StatefulPortfolioInput(
+        performance_start_date=pd.Timestamp("2026-02-23").date(),
+        observations=[{"valuation_date": "2026-02-23"}, {"valuation_date": "2026-02-24"}],
+        retrieval_metadata=stateful_input_service.RetrievalMetadata(chunk_count=2, page_count=3),
+    )
+    benchmark_resolution = returns_series_service._StatefulBenchmarkResolution(
+        benchmark_id="BMK1",
+        benchmark_points=[{"series_date": "2026-02-23"}, {"series_date": "2026-02-24"}],
+        benchmark_df=None,
+        benchmark_source_details={"benchmark_chunk_count": 4, "benchmark_page_count": 5},
+        benchmark_work_units=6,
+    )
+
+    details = returns_series_service._stateful_returns_retrieval_stage_details(
+        observations=portfolio_source.observations,
+        portfolio_source=portfolio_source,
+        benchmark_resolution=benchmark_resolution,
+        risk_free_points=[{"date": "2026-02-23"}],
+        risk_free_payload={"retrieval_metadata": {"chunk_count": "7", "page_count": 8}},
+    )
+
+    assert details == {
+        "portfolio_observations": 2,
+        "benchmark_points": 2,
+        "benchmark_work_units": 6,
+        "risk_free_points": 1,
+        "portfolio_chunk_count": 2,
+        "portfolio_page_count": 3,
+        "benchmark_chunk_count": 4,
+        "benchmark_page_count": 5,
+        "risk_free_chunk_count": 7,
+    }
 
 
 @pytest.mark.asyncio

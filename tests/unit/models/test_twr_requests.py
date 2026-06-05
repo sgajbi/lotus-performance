@@ -1,10 +1,18 @@
 from datetime import date
+from types import SimpleNamespace
 
 import pytest
 from pydantic import ValidationError
 
 from app.models.requests import DailyInputData
-from app.models.twr_requests import TWRAnalyticsRequest, TWRBenchmarkRequest, TWRInputMode
+from app.models.twr_requests import (
+    TWRAnalyticsRequest,
+    TWRBenchmarkRequest,
+    TWRInputMode,
+    _validate_calculated_stateless_twr_benchmark_payload,
+    _validate_stateless_twr_payloads,
+    _validate_twr_benchmark_inclusion,
+)
 
 
 @pytest.fixture
@@ -70,6 +78,18 @@ def test_twr_request_rejects_ambiguous_stateless_payload(base_payload):
                 },
             }
         )
+
+
+def test_twr_stateless_payload_helper_rejects_ambiguous_payloads():
+    request = TWRAnalyticsRequest.model_construct(
+        performance_start_date=date(2024, 12, 31),
+        stateless_input=object(),
+        stateful_input=None,
+        valuation_points=[DailyInputData.model_validate({"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010})],
+    )
+
+    with pytest.raises(ValueError, match="Provide either stateless_input or valuation_points"):
+        _validate_stateless_twr_payloads(request)
 
 
 def test_twr_request_rejects_stateful_payload_in_stateless_mode(base_payload):
@@ -170,6 +190,18 @@ def test_twr_request_accepts_nested_stateless_benchmark_request(base_payload):
     assert request.include_benchmark is True
     assert request.benchmark.input_mode.value == "stateless"
     assert request.to_stateless_performance_request().valuation_points[0].end_mv == 1010
+
+
+def test_twr_benchmark_inclusion_helper_promotes_nested_benchmark(base_payload):
+    request = TWRAnalyticsRequest.model_construct(
+        input_mode=TWRInputMode.STATEFUL,
+        include_benchmark=False,
+        benchmark=TWRBenchmarkRequest.model_construct(),
+    )
+
+    _validate_twr_benchmark_inclusion(request)
+
+    assert request.include_benchmark is True
 
 
 def test_twr_request_accepts_stateless_benchmark_price_points(base_payload):
@@ -394,6 +426,19 @@ def test_twr_benchmark_request_enforces_vendor_series_payload_shape():
                 },
             }
         )
+
+
+def test_validate_calculated_stateless_twr_benchmark_payload_requires_one_component_source():
+    request = SimpleNamespace(
+        stateless_input=SimpleNamespace(
+            component_observations=[],
+            component_price_points=[],
+            benchmark_return_points=[],
+        )
+    )
+
+    with pytest.raises(ValueError, match="exactly one of benchmark.stateless_input.component_observations"):
+        _validate_calculated_stateless_twr_benchmark_payload(request)  # type: ignore[arg-type]
 
 
 def test_twr_request_auto_enables_benchmark_when_config_present(base_payload):

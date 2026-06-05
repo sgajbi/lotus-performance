@@ -1,7 +1,7 @@
 # Lotus Performance Function Size Inventory
 
 Report date: 2026-06-05
-Branch: `feat/performance-hardening-wave-12`
+Branch: `feat/performance-hardening-wave-13`
 Mode: report-only function-size inventory; this artifact introduces no new blocking CI gate.
 
 ## Purpose
@@ -20,28 +20,37 @@ python scripts/python_function_size_inventory.py --limit 15
 
 | Rank | Function | File | Lines |
 | ---: | --- | --- | ---: |
-| 1 | `build_source_economics_findings` | `app/services/inspection/source_economics_findings.py:7` | 389 |
-| 2 | `calculate_contribution` | `app/services/contribution_service.py:178` | 335 |
-| 3 | `analyze_portfolio_position_reconciliation` | `app/services/inspection/reconciliation.py:89` | 234 |
-| 4 | `DurableQueueCollector.collect` | `app/services/queue_metrics_service.py:227` | 188 |
-| 5 | `build_attribution_supportability_evidence` | `engine/attribution_supportability.py:42` | 184 |
-| 6 | `build_runtime_status_response` | `app/models/runtime_status.py:660` | 173 |
-| 7 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:503` | 172 |
-| 8 | `DurableQueueCollector.describe` | `app/services/queue_metrics_service.py:67` | 159 |
-| 9 | `_calculate_returns_series` | `app/services/returns_series_service.py:1026` | 158 |
-| 10 | `calculate_twr_response` | `app/services/twr_service.py:738` | 151 |
-| 11 | `calculate_twr_workflow` | `app/services/twr_calculation_service.py:159` | 148 |
-| 12 | `aggregate_attribution_results` | `engine/attribution.py:586` | 148 |
-| 13 | `calculate_benchmark_workflow` | `app/services/benchmark_calculation_workflow_service.py:89` | 147 |
-| 14 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:71` | 147 |
-| 15 | `resolve_stateful_returns_series_request` | `app/services/returns_series_service.py:1186` | 143 |
+| 1 | `build_source_economics_findings` | `app/services/inspection/source_economics_findings.py:7` | 258 |
+| 2 | `calculate_contribution` | `app/services/contribution_service.py:421` | 189 |
+| 3 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:503` | 172 |
+| 4 | `DurableQueueCollector.describe` | `app/services/queue_metrics_service.py:193` | 159 |
+| 5 | `aggregate_attribution_results` | `engine/attribution.py:586` | 148 |
+| 6 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:71` | 147 |
+| 7 | `_build_external_cashflow_findings` | `app/services/inspection/source_economics_findings.py:267` | 140 |
+| 8 | `_build_artifacts` | `app/services/composite_inspection_service.py:114` | 135 |
+| 9 | `resolve_stateful_returns_series_request` | `app/services/returns_series_service.py:1265` | 134 |
+| 10 | `calculate_attribution` | `app/services/attribution_service.py:96` | 133 |
+| 11 | `build_runtime_status_response` | `app/models/runtime_status.py:737` | 131 |
+| 12 | `_build_fee_source_economics_findings` | `app/services/inspection/source_economics_findings.py:409` | 130 |
+| 13 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:327` | 130 |
+| 14 | `calculate_contribution_workflow` | `app/services/contribution_calculation_workflow_service.py:98` | 127 |
+| 15 | `_calculate_returns_series` | `app/services/returns_series_service.py:1143` | 120 |
 
 ## Interpretation
 
 This is not a cyclomatic-complexity score. It is a deterministic hotspot inventory for refactor
 planning. The largest functions are concentrated in source-economics inspection, contribution,
-reconciliation, runtime-status assembly, queue metrics, returns-series execution, and TWR workflow
-assembly.
+reconciliation, runtime-status assembly, queue metrics, and returns-series execution. TWR workflow
+assembly has dropped out of the top-15 table after resolved identity finalization was isolated.
+Runtime-status response assembly remains in the top-15 table but moved from `173` to `131` lines
+after lineage queue response mapping was isolated. Attribution orchestration remains in the top-15
+table but moved from `142` to `133` lines after per-period result assembly was isolated.
+Contribution orchestration moved from `287` to `270` lines after engine input preparation was
+isolated, then moved from `270` to `189` lines and is no longer the largest function after
+flat-period result assembly was isolated from the public contribution orchestration. Benchmark calculation workflow
+dropped out of the top-15 table after resolved benchmark execution context and failure mapping were isolated.
+Durable queue metric collection dropped out of the top-15 table after source loading and
+availability/runtime-retention preview metric emission were isolated into dedicated helpers.
 
 Future refactor slices should use this report to choose bounded work where extraction, shared
 helpers, or narrower tests can reduce function size while preserving analytics truth and API

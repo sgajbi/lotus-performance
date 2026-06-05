@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Protocol, Sequence
 
 import pandas as pd
@@ -17,6 +18,26 @@ ATTRIBUTION_RESIDUAL_MATERIAL_THRESHOLD_PCT = 0.01
 class AttributionSupportabilityRequestLike(Protocol):
     @property
     def group_by(self) -> Sequence[str]: ...
+
+
+@dataclass(frozen=True)
+class _AttributionSupportabilityMasks:
+    portfolio_only: pd.Series
+    benchmark_only: pd.Series
+    unclassified: pd.Series
+    missing_benchmark_return: pd.Series
+    negative_weight: pd.Series
+    zero_exposure: pd.Series
+
+
+@dataclass(frozen=True)
+class _AttributionSupportabilityCounts:
+    portfolio_only_group_count: int
+    benchmark_only_group_count: int
+    unclassified_group_count: int
+    missing_benchmark_return_count: int
+    negative_weight_count: int
+    zero_portfolio_exposure_count: int
 
 
 def classify_attribution_residual(residual: float) -> AttributionResidualMateriality:
@@ -67,111 +88,192 @@ def build_attribution_supportability_evidence(
         )
 
     group_by = request.group_by
-    portfolio_only_mask = (effects_reset["w_p"] != 0) & (effects_reset["w_b"] == 0)
-    benchmark_only_mask = (effects_reset["w_b"] != 0) & (effects_reset["w_p"] == 0)
-    negative_weight_mask = (effects_reset["w_p"] < 0) | (effects_reset["w_b"] < 0)
-    zero_exposure_mask = (effects_reset["w_p"] == 0) & (effects_reset["w_b"] == 0)
+    masks = _build_attribution_supportability_masks(effects_reset, group_by)
+    counts = _summarize_attribution_supportability_counts(
+        masks=masks,
+        effects_reset=effects_reset,
+        group_by=group_by,
+    )
+    reasons = _build_attribution_supportability_reasons(
+        counts=counts,
+        currency_attribution_status=currency_attribution_status,
+        linking_status=linking_status,
+        residual_materiality=residual_materiality,
+    )
+    reason_codes = [reason.code for reason in reasons]
+
+    evidence = AttributionSupportabilityEvidence(
+        portfolio_only_group_count=counts.portfolio_only_group_count,
+        benchmark_only_group_count=counts.benchmark_only_group_count,
+        unclassified_group_count=counts.unclassified_group_count,
+        missing_benchmark_return_count=counts.missing_benchmark_return_count,
+        negative_weight_count=counts.negative_weight_count,
+        zero_portfolio_exposure_count=counts.zero_portfolio_exposure_count,
+        currency_attribution_status=currency_attribution_status,
+        linking_status=linking_status,
+    )
+    return (
+        _determine_attribution_supportability_status(reasons),
+        reason_codes,
+        reasons,
+        evidence,
+        _append_attribution_supportability_lineage_flags(effects_reset, masks),
+    )
+
+
+def _build_attribution_supportability_masks(
+    effects_reset: pd.DataFrame,
+    group_by: Sequence[str],
+) -> _AttributionSupportabilityMasks:
+    portfolio_only = (effects_reset["w_p"] != 0) & (effects_reset["w_b"] == 0)
+    benchmark_only = (effects_reset["w_b"] != 0) & (effects_reset["w_p"] == 0)
+    negative_weight = (effects_reset["w_p"] < 0) | (effects_reset["w_b"] < 0)
+    zero_exposure = (effects_reset["w_p"] == 0) & (effects_reset["w_b"] == 0)
     if "has_base_return_b" in effects_reset.columns:
-        missing_benchmark_return_mask = (effects_reset["w_b"] != 0) & (~effects_reset["has_base_return_b"].astype(bool))
+        missing_benchmark_return = (effects_reset["w_b"] != 0) & (~effects_reset["has_base_return_b"].astype(bool))
     else:
-        missing_benchmark_return_mask = (effects_reset["w_b"] != 0) & (effects_reset["r_base_b"] == 0)
-    unclassified_mask = pd.Series(False, index=effects_reset.index)
+        missing_benchmark_return = (effects_reset["w_b"] != 0) & (effects_reset["r_base_b"] == 0)
+    unclassified = _build_unclassified_group_mask(effects_reset, group_by)
+    return _AttributionSupportabilityMasks(
+        portfolio_only=portfolio_only,
+        benchmark_only=benchmark_only,
+        unclassified=unclassified,
+        missing_benchmark_return=missing_benchmark_return,
+        negative_weight=negative_weight,
+        zero_exposure=zero_exposure,
+    )
+
+
+def _build_unclassified_group_mask(effects_reset: pd.DataFrame, group_by: Sequence[str]) -> pd.Series:
+    unclassified = pd.Series(False, index=effects_reset.index)
     for group_col in group_by:
-        unclassified_mask = (
-            unclassified_mask
+        unclassified = (
+            unclassified
             | effects_reset[group_col].isna()
             | (effects_reset[group_col].astype(str).str.lower().isin({"", "unknown", "unclassified"}))
         )
+    return unclassified
 
-    portfolio_only_count = _count_groups(portfolio_only_mask, effects_reset, group_by)
-    benchmark_only_count = _count_groups(benchmark_only_mask, effects_reset, group_by)
-    unclassified_count = _count_groups(unclassified_mask, effects_reset, group_by)
-    missing_benchmark_return_count = _count_groups(missing_benchmark_return_mask, effects_reset, group_by)
-    negative_weight_count = int(negative_weight_mask.sum())
-    zero_exposure_count = int(zero_exposure_mask.sum())
 
+def _summarize_attribution_supportability_counts(
+    *,
+    masks: _AttributionSupportabilityMasks,
+    effects_reset: pd.DataFrame,
+    group_by: Sequence[str],
+) -> _AttributionSupportabilityCounts:
+    return _AttributionSupportabilityCounts(
+        portfolio_only_group_count=_count_groups(masks.portfolio_only, effects_reset, group_by),
+        benchmark_only_group_count=_count_groups(masks.benchmark_only, effects_reset, group_by),
+        unclassified_group_count=_count_groups(masks.unclassified, effects_reset, group_by),
+        missing_benchmark_return_count=_count_groups(masks.missing_benchmark_return, effects_reset, group_by),
+        negative_weight_count=int(masks.negative_weight.sum()),
+        zero_portfolio_exposure_count=int(masks.zero_exposure.sum()),
+    )
+
+
+def _build_attribution_supportability_reasons(
+    *,
+    counts: _AttributionSupportabilityCounts,
+    currency_attribution_status: str,
+    linking_status: str,
+    residual_materiality: AttributionResidualMateriality,
+) -> list[AttributionReason]:
     reasons: list[AttributionReason] = []
-    if portfolio_only_count:
-        reasons.append(
-            _build_attribution_reason(
-                "off_benchmark_exposure",
-                "warning",
-                "Portfolio contains exposure that is absent from the benchmark.",
-                portfolio_only_count,
-            )
-        )
-    if benchmark_only_count:
-        reasons.append(
-            _build_attribution_reason(
-                "benchmark_only_exposure",
-                "warning",
-                "Benchmark contains exposure that is absent from the portfolio.",
-                benchmark_only_count,
-            )
-        )
-    if unclassified_count:
-        reasons.append(
-            _build_attribution_reason(
-                "unclassified_segment",
-                "warning",
-                "One or more attribution groups resolved to the governed unclassified bucket.",
-                unclassified_count,
-            )
-        )
-    if missing_benchmark_return_count:
-        reasons.append(
-            _build_attribution_reason(
-                "missing_benchmark_return",
-                "warning",
-                "Benchmark exposure was present but benchmark return evidence was missing.",
-                missing_benchmark_return_count,
-            )
-        )
-    if negative_weight_count:
-        reasons.append(
-            _build_attribution_reason(
-                "negative_weight",
-                "warning",
-                "Negative portfolio or benchmark weights are present and preserved in attribution.",
-                negative_weight_count,
-            )
-        )
-    if zero_exposure_count:
-        reasons.append(
-            _build_attribution_reason(
-                "zero_portfolio_exposure",
-                "info",
-                "Rows with no portfolio or benchmark exposure were retained as alignment evidence.",
-                zero_exposure_count,
-            )
-        )
-    if currency_attribution_status == "unavailable":
-        reasons.append(
-            _build_attribution_reason(
-                "currency_attribution_unavailable",
-                "warning",
-                "Currency attribution was requested but required currency grouping or local/FX return evidence was unavailable.",
-                0,
-            )
-        )
-    if linking_status == "scaling_skipped":
-        reasons.append(
-            _build_attribution_reason(
-                "linking_scaling_skipped",
-                "warning",
-                "Multi-period effect linking could not scale effects because arithmetic active return was zero.",
-                0,
-            )
-        )
-    if linking_status == "invalid_return_chain":
-        reasons.append(
-            _build_attribution_reason(
-                "linking_invalid_return_chain",
-                "warning",
-                "Multi-period linking was requested but one or more portfolio or benchmark period returns were less than or equal to -100%.",
-                0,
-            )
-        )
+    _append_count_reason(
+        reasons,
+        count=counts.portfolio_only_group_count,
+        code="off_benchmark_exposure",
+        severity="warning",
+        message="Portfolio contains exposure that is absent from the benchmark.",
+    )
+    _append_count_reason(
+        reasons,
+        count=counts.benchmark_only_group_count,
+        code="benchmark_only_exposure",
+        severity="warning",
+        message="Benchmark contains exposure that is absent from the portfolio.",
+    )
+    _append_count_reason(
+        reasons,
+        count=counts.unclassified_group_count,
+        code="unclassified_segment",
+        severity="warning",
+        message="One or more attribution groups resolved to the governed unclassified bucket.",
+    )
+    _append_count_reason(
+        reasons,
+        count=counts.missing_benchmark_return_count,
+        code="missing_benchmark_return",
+        severity="warning",
+        message="Benchmark exposure was present but benchmark return evidence was missing.",
+    )
+    _append_count_reason(
+        reasons,
+        count=counts.negative_weight_count,
+        code="negative_weight",
+        severity="warning",
+        message="Negative portfolio or benchmark weights are present and preserved in attribution.",
+    )
+    _append_count_reason(
+        reasons,
+        count=counts.zero_portfolio_exposure_count,
+        code="zero_portfolio_exposure",
+        severity="info",
+        message="Rows with no portfolio or benchmark exposure were retained as alignment evidence.",
+    )
+    _append_status_reason(
+        reasons,
+        actual_status=currency_attribution_status,
+        expected_status="unavailable",
+        code="currency_attribution_unavailable",
+        message="Currency attribution was requested but required currency grouping or local/FX return evidence was unavailable.",
+    )
+    _append_status_reason(
+        reasons,
+        actual_status=linking_status,
+        expected_status="scaling_skipped",
+        code="linking_scaling_skipped",
+        message="Multi-period effect linking could not scale effects because arithmetic active return was zero.",
+    )
+    _append_status_reason(
+        reasons,
+        actual_status=linking_status,
+        expected_status="invalid_return_chain",
+        code="linking_invalid_return_chain",
+        message="Multi-period linking was requested but one or more portfolio or benchmark period returns were less than or equal to -100%.",
+    )
+    _append_residual_materiality_reason(reasons, residual_materiality)
+    return reasons
+
+
+def _append_count_reason(
+    reasons: list[AttributionReason],
+    *,
+    count: int,
+    code: str,
+    severity: str,
+    message: str,
+) -> None:
+    if count:
+        reasons.append(_build_attribution_reason(code, severity, message, count))
+
+
+def _append_status_reason(
+    reasons: list[AttributionReason],
+    *,
+    actual_status: str,
+    expected_status: str,
+    code: str,
+    message: str,
+) -> None:
+    if actual_status == expected_status:
+        reasons.append(_build_attribution_reason(code, "warning", message, 0))
+
+
+def _append_residual_materiality_reason(
+    reasons: list[AttributionReason],
+    residual_materiality: AttributionResidualMateriality,
+) -> None:
     if residual_materiality.classification == "material":
         reasons.append(
             _build_attribution_reason(
@@ -191,6 +293,8 @@ def build_attribution_supportability_evidence(
             )
         )
 
+
+def _determine_attribution_supportability_status(reasons: Sequence[AttributionReason]) -> str:
     coverage_reason_codes = {
         "off_benchmark_exposure",
         "benchmark_only_exposure",
@@ -201,31 +305,25 @@ def build_attribution_supportability_evidence(
     }
     reason_codes = [reason.code for reason in reasons]
     if any(code in coverage_reason_codes for code in reason_codes):
-        status = "partial"
-    elif any(reason.severity == "warning" for reason in reasons):
-        status = "warning"
-    else:
-        status = "valid"
-
-    evidence = AttributionSupportabilityEvidence(
-        portfolio_only_group_count=portfolio_only_count,
-        benchmark_only_group_count=benchmark_only_count,
-        unclassified_group_count=unclassified_count,
-        missing_benchmark_return_count=missing_benchmark_return_count,
-        negative_weight_count=negative_weight_count,
-        zero_portfolio_exposure_count=zero_exposure_count,
-        currency_attribution_status=currency_attribution_status,
-        linking_status=linking_status,
-    )
-    effects_reset["portfolio_only"] = portfolio_only_mask
-    effects_reset["benchmark_only"] = benchmark_only_mask
-    effects_reset["unclassified"] = unclassified_mask
-    effects_reset["missing_benchmark_return"] = missing_benchmark_return_mask
-    effects_reset["negative_weight"] = negative_weight_mask
-    return status, reason_codes, reasons, evidence, effects_reset
+        return "partial"
+    if any(reason.severity == "warning" for reason in reasons):
+        return "warning"
+    return "valid"
 
 
-def _count_groups(mask: pd.Series, df: pd.DataFrame, group_by: list[str]) -> int:
+def _append_attribution_supportability_lineage_flags(
+    effects_reset: pd.DataFrame,
+    masks: _AttributionSupportabilityMasks,
+) -> pd.DataFrame:
+    effects_reset["portfolio_only"] = masks.portfolio_only
+    effects_reset["benchmark_only"] = masks.benchmark_only
+    effects_reset["unclassified"] = masks.unclassified
+    effects_reset["missing_benchmark_return"] = masks.missing_benchmark_return
+    effects_reset["negative_weight"] = masks.negative_weight
+    return effects_reset
+
+
+def _count_groups(mask: pd.Series, df: pd.DataFrame, group_by: Sequence[str]) -> int:
     if df.empty or not bool(mask.any()):
         return 0
     return int(df.loc[mask, group_by].drop_duplicates().shape[0])

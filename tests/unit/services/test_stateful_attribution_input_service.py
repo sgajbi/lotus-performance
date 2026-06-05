@@ -23,6 +23,7 @@ from app.services.stateful_attribution_input_service import (
     _position_row_to_daily_point,
     _split_position_cash_flows,
     _stateful_portfolio_position_alignment_mismatches,
+    _summarize_benchmark_classification,
     _validate_stateful_both_currency_support,
     _validate_stateful_group_by,
     _validate_stateful_portfolio_position_alignment,
@@ -412,6 +413,37 @@ def test_build_stateful_attribution_input_builds_instruments_and_benchmark_group
         "status": "complete",
         "classified_component_count": 2,
         "unclassified_component_count": 0,
+    }
+
+
+def test_summarize_benchmark_classification_reports_partial_classification():
+    summary = _summarize_benchmark_classification(
+        component_observations=[
+            BenchmarkComponentObservation(
+                component_id="IDX_A",
+                perf_date=date(2026, 3, 31),
+                weight_bop=0.6,
+                component_return=0.01,
+            ),
+            BenchmarkComponentObservation(
+                component_id="IDX_B",
+                perf_date=date(2026, 3, 31),
+                weight_bop=0.4,
+                component_return=0.02,
+            ),
+        ],
+        index_records=[
+            {"index_id": "IDX_A", "classification_labels": {"sector": "technology"}},
+            {"index_id": "IDX_B", "classification_labels": {"sector": ""}},
+            {"index_id": "IGNORED", "classification_labels": {"sector": "cash"}},
+        ],
+        dimensions=["sector"],
+    )
+
+    assert summary == {
+        "status": "partial",
+        "classified_component_count": 1,
+        "unclassified_component_count": 1,
     }
 
 
@@ -1001,6 +1033,44 @@ def test_stateful_attribution_builds_unknown_bucket_for_missing_benchmark_labels
     )
 
     assert groups[0].key == {"sector": "unknown"}
+
+
+def test_stateful_attribution_aggregates_benchmark_components_by_group_and_date():
+    groups = _build_benchmark_groups(
+        group_by=["sector"],
+        component_observations=[
+            BenchmarkComponentObservation(
+                component_id="IDX_TECH_A",
+                component_currency="USD",
+                perf_date=date(2025, 1, 1),
+                weight_bop=0.25,
+                component_return=0.04,
+                component_return_local=0.03,
+                component_return_fx=0.01,
+            ),
+            BenchmarkComponentObservation(
+                component_id="IDX_TECH_B",
+                component_currency="USD",
+                perf_date=date(2025, 1, 1),
+                weight_bop=0.75,
+                component_return=0.02,
+                component_return_local=0.015,
+                component_return_fx=0.005,
+            ),
+        ],
+        index_records=[
+            {"index_id": "IDX_TECH_A", "classification_labels": {"sector": "Technology"}},
+            {"index_id": "IDX_TECH_B", "classification_labels": {"sector": "Technology"}},
+        ],
+    )
+
+    assert len(groups) == 1
+    assert groups[0].key == {"sector": "technology"}
+    observation = groups[0].observations[0]
+    assert observation.weight_bop == pytest.approx(1.0)
+    assert observation.return_base == pytest.approx(0.025)
+    assert observation.return_local == pytest.approx(0.01875)
+    assert observation.return_fx == pytest.approx(0.00625)
 
 
 def test_stateful_attribution_parsers_filter_invalid_rows():

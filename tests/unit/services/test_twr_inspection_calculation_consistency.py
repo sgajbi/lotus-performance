@@ -9,7 +9,10 @@ from app.models.responses import (
     SinglePeriodPerformanceResult,
     TWRDailyCalculationEvidence,
 )
-from app.services.inspection.calculation_consistency import run_twr_calculation_consistency_checks
+from app.services.inspection.calculation_consistency import (
+    _daily_calculation_evidence_mismatches,
+    run_twr_calculation_consistency_checks,
+)
 from common.enums import Frequency
 
 
@@ -308,6 +311,43 @@ def test_calculation_consistency_flags_daily_calculation_evidence_mismatch():
     assert finding.evidence["mismatches"]["period_return.base"]["actual"] == 1.3
 
 
+def test_daily_calculation_evidence_mismatches_capture_numeric_status_and_semantics():
+    block = _daily_evidence_block(
+        evidence=TWRDailyCalculationEvidence(
+            begin_mv=0.0,
+            end_mv=0.0,
+            bod_cf=0.0,
+            eod_cf=0.0,
+            external_inflows=1.0,
+            external_outflows=1.0,
+            management_fees=0.0,
+            signed_adjusted_capital=1.0,
+            adjusted_capital=0.0,
+            performance_pnl=0.0,
+            daily_return=0.0,
+            status="calculated",
+            reason_codes=[],
+            warnings=[],
+        )
+    )
+    item = block.breakdowns[Frequency.DAILY][0]
+
+    mismatches = _daily_calculation_evidence_mismatches(evidence=item.calculation_evidence, item=item)
+
+    assert mismatches["signed_adjusted_capital"] == {"expected": 0.0, "actual": 1.0}
+    assert mismatches["external_inflows"] == {"expected": 0, "actual": 1.0}
+    assert mismatches["external_outflows"] == {"expected": 0, "actual": 1.0}
+    assert mismatches["status"] == {
+        "expected": "not_calculated",
+        "actual": "calculated",
+        "reason": "zero_adjusted_capital",
+    }
+    assert mismatches["semantics"]["missing_reason_codes"] == [
+        "FLOW_NEUTRALIZED_DAILY_RETURN",
+        "ZERO_ADJUSTED_CAPITAL",
+    ]
+
+
 def test_calculation_consistency_flags_calculated_status_with_zero_adjusted_capital():
     response = SimpleNamespace(
         results_by_period={
@@ -521,6 +561,42 @@ def test_calculation_consistency_flags_effective_period_exclusion_warning():
     assert semantics == {
         "linkability_status": {"expected": "not_calculated", "actual": "linkable"},
         "episode_status": {"expected": "not_in_period", "actual": "open"},
+        "missing_warnings": ["BEFORE_EFFECTIVE_PERIOD_START"],
+    }
+
+
+def test_calculation_consistency_preserves_period_semantic_priority_order():
+    result = _inspect_daily_evidence(
+        TWRDailyCalculationEvidence(
+            begin_mv=1000.0,
+            end_mv=1000.0,
+            bod_cf=0.0,
+            eod_cf=0.0,
+            external_inflows=0.0,
+            external_outflows=0.0,
+            management_fees=0.0,
+            signed_adjusted_capital=1000.0,
+            adjusted_capital=1000.0,
+            performance_pnl=0.0,
+            daily_return=0.0,
+            status="not_calculated",
+            linkability_status="linkable",
+            episode_status="open",
+            reason_codes=[
+                "FLOW_NEUTRALIZED_DAILY_RETURN",
+                "BEFORE_EFFECTIVE_PERIOD_START",
+                "RESET_DAY",
+                "NO_INVESTMENT_PERIOD",
+            ],
+            warnings=[],
+        ),
+        period_return=0.0,
+    )
+
+    semantics = result.findings[0].evidence["mismatches"]["semantics"]
+    assert semantics == {
+        "linkability_status": {"expected": "not_calculated", "actual": "linkable"},
+        "episode_status": {"expected": "reset_boundary", "actual": "open"},
         "missing_warnings": ["BEFORE_EFFECTIVE_PERIOD_START"],
     }
 

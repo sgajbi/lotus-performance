@@ -620,49 +620,121 @@ def _compute_queue_response(queue_status: RuntimeQueueStatus) -> ComputeQueueSta
         reason=queue_status.reason,
         degradation_reasons=list(queue_status.degradation_reasons),
         degradation_details=_degradation_details_response(queue_status.degradation_details),
-        pending_jobs=None if compute_stats is None else compute_stats.pending_count,
-        leased_jobs=None if compute_stats is None else compute_stats.leased_count,
-        running_jobs=None if compute_stats is None else compute_stats.running_count,
-        failed_jobs=None if compute_stats is None else compute_stats.failed_count,
-        complete_jobs=None if compute_stats is None else compute_stats.complete_count,
-        retry_backlog_jobs=None if compute_stats is None else compute_stats.retry_backlog_count,
-        lease_expired_jobs=None if compute_stats is None else compute_stats.lease_expired_count,
-        reclaimable_jobs=None if compute_stats is None else compute_stats.reclaimable_count,
-        terminal_failure_jobs=None if compute_stats is None else compute_stats.terminal_failure_count,
-        oldest_pending_age_seconds=None if compute_stats is None else compute_stats.oldest_pending_age_seconds,
-        oldest_leased_age_seconds=None if compute_stats is None else compute_stats.oldest_leased_age_seconds,
-        oldest_running_age_seconds=None if compute_stats is None else compute_stats.oldest_running_age_seconds,
+        **_compute_queue_stats_fields(compute_stats),
+        inspection_anchors=_compute_queue_inspection_anchors_response(compute_anchors),
+        recent_recoveries=_compute_recovery_event_responses(compute_recoveries),
+    )
+
+
+def _compute_queue_stats_fields(compute_stats: ComputeQueueStats | None) -> dict[str, object]:
+    if compute_stats is None:
+        return {
+            "pending_jobs": None,
+            "leased_jobs": None,
+            "running_jobs": None,
+            "failed_jobs": None,
+            "complete_jobs": None,
+            "retry_backlog_jobs": None,
+            "lease_expired_jobs": None,
+            "reclaimable_jobs": None,
+            "terminal_failure_jobs": None,
+            "oldest_pending_age_seconds": None,
+            "oldest_leased_age_seconds": None,
+            "oldest_running_age_seconds": None,
+        }
+    return {
+        "pending_jobs": compute_stats.pending_count,
+        "leased_jobs": compute_stats.leased_count,
+        "running_jobs": compute_stats.running_count,
+        "failed_jobs": compute_stats.failed_count,
+        "complete_jobs": compute_stats.complete_count,
+        "retry_backlog_jobs": compute_stats.retry_backlog_count,
+        "lease_expired_jobs": compute_stats.lease_expired_count,
+        "reclaimable_jobs": compute_stats.reclaimable_count,
+        "terminal_failure_jobs": compute_stats.terminal_failure_count,
+        "oldest_pending_age_seconds": compute_stats.oldest_pending_age_seconds,
+        "oldest_leased_age_seconds": compute_stats.oldest_leased_age_seconds,
+        "oldest_running_age_seconds": compute_stats.oldest_running_age_seconds,
+    }
+
+
+def _compute_queue_inspection_anchors_response(
+    compute_anchors: ComputeQueueInspectionAnchors | None,
+) -> ComputeQueueInspectionAnchorsResponse | None:
+    if compute_anchors is None:
+        return None
+    return ComputeQueueInspectionAnchorsResponse(
+        oldest_pending_calculation_id=compute_anchors.oldest_pending_calculation_id,
+        oldest_leased_calculation_id=compute_anchors.oldest_leased_calculation_id,
+        oldest_running_calculation_id=compute_anchors.oldest_running_calculation_id,
+        latest_terminal_failure_calculation_id=compute_anchors.latest_terminal_failure_calculation_id,
+        latest_recovered_calculation_id=compute_anchors.latest_recovered_calculation_id,
+    )
+
+
+def _compute_recovery_event_responses(
+    compute_recoveries: tuple[ComputeRecoveryEvent, ...],
+) -> list[ComputeRecoveryEventResponse]:
+    return [
+        ComputeRecoveryEventResponse(
+            calculation_id=item.calculation_id,
+            analytics_type=item.analytics_type,
+            recovery_kind=item.recovery_kind,
+            recovered_at_utc=item.recovered_at_utc,
+            attempt_count=item.attempt_count,
+            error_type=item.error_type,
+        )
+        for item in compute_recoveries
+    ]
+
+
+def _lineage_queue_response(queue_status: RuntimeQueueStatus) -> LineageQueueStatusDetailsResponse:
+    lineage_stats = cast(LineageQueueStats | None, queue_status.stats)
+    lineage_anchors = cast(LineageQueueInspectionAnchors | None, queue_status.inspection_anchors)
+    lineage_recoveries = cast(tuple[LineageRecoveryEvent, ...], queue_status.recent_recoveries)
+    lineage_storage_capacity = queue_status.storage_capacity
+
+    return LineageQueueStatusDetailsResponse(
+        status=queue_status.status,
+        reason=queue_status.reason,
+        remediation_hint=get_remediation_hint(queue_status.reason),
+        degradation_reasons=list(queue_status.degradation_reasons),
+        degradation_details=_degradation_details_response(queue_status.degradation_details),
+        pending_payloads=None if lineage_stats is None else lineage_stats.pending_payload_count,
+        leased_payloads=None if lineage_stats is None else lineage_stats.leased_payload_count,
+        retry_backlog_payloads=None if lineage_stats is None else lineage_stats.retry_backlog_count,
+        reclaimable_payloads=None if lineage_stats is None else lineage_stats.reclaimable_count,
+        terminal_failure_payloads=None if lineage_stats is None else lineage_stats.terminal_failure_count,
+        oldest_pending_age_seconds=None if lineage_stats is None else lineage_stats.oldest_pending_age_seconds,
+        oldest_leased_age_seconds=None if lineage_stats is None else lineage_stats.oldest_leased_age_seconds,
+        storage_total_bytes=None if lineage_storage_capacity is None else lineage_storage_capacity.total_bytes,
+        storage_used_bytes=None if lineage_storage_capacity is None else lineage_storage_capacity.used_bytes,
+        storage_free_bytes=None if lineage_storage_capacity is None else lineage_storage_capacity.free_bytes,
+        storage_free_ratio=None if lineage_storage_capacity is None else lineage_storage_capacity.free_ratio,
         inspection_anchors=(
             None
-            if compute_anchors is None
-            else ComputeQueueInspectionAnchorsResponse(
-                oldest_pending_calculation_id=compute_anchors.oldest_pending_calculation_id,
-                oldest_leased_calculation_id=compute_anchors.oldest_leased_calculation_id,
-                oldest_running_calculation_id=compute_anchors.oldest_running_calculation_id,
-                latest_terminal_failure_calculation_id=compute_anchors.latest_terminal_failure_calculation_id,
-                latest_recovered_calculation_id=compute_anchors.latest_recovered_calculation_id,
+            if lineage_anchors is None
+            else LineageQueueInspectionAnchorsResponse(
+                oldest_pending_calculation_id=lineage_anchors.oldest_pending_calculation_id,
+                oldest_leased_calculation_id=lineage_anchors.oldest_leased_calculation_id,
+                latest_terminal_failure_calculation_id=lineage_anchors.latest_terminal_failure_calculation_id,
+                latest_recovered_calculation_id=lineage_anchors.latest_recovered_calculation_id,
             )
         ),
         recent_recoveries=[
-            ComputeRecoveryEventResponse(
+            LineageRecoveryEventResponse(
                 calculation_id=item.calculation_id,
-                analytics_type=item.analytics_type,
+                calculation_type=item.calculation_type,
                 recovery_kind=item.recovery_kind,
                 recovered_at_utc=item.recovered_at_utc,
                 attempt_count=item.attempt_count,
-                error_type=item.error_type,
             )
-            for item in compute_recoveries
+            for item in lineage_recoveries
         ],
     )
 
 
 def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeStatusResponse:
-    lineage_stats = cast(LineageQueueStats | None, snapshot.lineage_queue.stats)
-    lineage_anchors = cast(LineageQueueInspectionAnchors | None, snapshot.lineage_queue.inspection_anchors)
-    lineage_recoveries = cast(tuple[LineageRecoveryEvent, ...], snapshot.lineage_queue.recent_recoveries)
-    lineage_storage_capacity = snapshot.lineage_queue.storage_capacity
-
     return RuntimeStatusResponse(
         contract_version="v1",
         source_service="lotus-performance",
@@ -677,44 +749,7 @@ def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeSta
             remediation_hint=get_remediation_hint(snapshot.durable_metadata_store.reason),
         ),
         compute_queue=_compute_queue_response(snapshot.compute_queue),
-        lineage_queue=LineageQueueStatusDetailsResponse(
-            status=snapshot.lineage_queue.status,
-            reason=snapshot.lineage_queue.reason,
-            remediation_hint=get_remediation_hint(snapshot.lineage_queue.reason),
-            degradation_reasons=list(snapshot.lineage_queue.degradation_reasons),
-            degradation_details=_degradation_details_response(snapshot.lineage_queue.degradation_details),
-            pending_payloads=None if lineage_stats is None else lineage_stats.pending_payload_count,
-            leased_payloads=None if lineage_stats is None else lineage_stats.leased_payload_count,
-            retry_backlog_payloads=None if lineage_stats is None else lineage_stats.retry_backlog_count,
-            reclaimable_payloads=None if lineage_stats is None else lineage_stats.reclaimable_count,
-            terminal_failure_payloads=None if lineage_stats is None else lineage_stats.terminal_failure_count,
-            oldest_pending_age_seconds=None if lineage_stats is None else lineage_stats.oldest_pending_age_seconds,
-            oldest_leased_age_seconds=None if lineage_stats is None else lineage_stats.oldest_leased_age_seconds,
-            storage_total_bytes=None if lineage_storage_capacity is None else lineage_storage_capacity.total_bytes,
-            storage_used_bytes=None if lineage_storage_capacity is None else lineage_storage_capacity.used_bytes,
-            storage_free_bytes=None if lineage_storage_capacity is None else lineage_storage_capacity.free_bytes,
-            storage_free_ratio=None if lineage_storage_capacity is None else lineage_storage_capacity.free_ratio,
-            inspection_anchors=(
-                None
-                if lineage_anchors is None
-                else LineageQueueInspectionAnchorsResponse(
-                    oldest_pending_calculation_id=lineage_anchors.oldest_pending_calculation_id,
-                    oldest_leased_calculation_id=lineage_anchors.oldest_leased_calculation_id,
-                    latest_terminal_failure_calculation_id=lineage_anchors.latest_terminal_failure_calculation_id,
-                    latest_recovered_calculation_id=lineage_anchors.latest_recovered_calculation_id,
-                )
-            ),
-            recent_recoveries=[
-                LineageRecoveryEventResponse(
-                    calculation_id=item.calculation_id,
-                    calculation_type=item.calculation_type,
-                    recovery_kind=item.recovery_kind,
-                    recovered_at_utc=item.recovered_at_utc,
-                    attempt_count=item.attempt_count,
-                )
-                for item in lineage_recoveries
-            ],
-        ),
+        lineage_queue=_lineage_queue_response(snapshot.lineage_queue),
         recovery_drill=RecoveryDrillStatusResponse(
             status=snapshot.recovery_drill.status,
             reason=snapshot.recovery_drill.reason,

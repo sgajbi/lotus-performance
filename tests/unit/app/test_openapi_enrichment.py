@@ -3,15 +3,22 @@ from app.openapi_enrichment import (
     _build_schema_example,
     _canonical_term,
     _composed_schema_example,
+    _ensure_model_schema_documentation,
+    _ensure_operation_metadata,
     _ensure_operation_response_documentation,
     _ensure_request_body_example,
+    _ensure_success_response_documentation,
+    _enum_schema_example,
     _explicit_schema_example,
+    _formatted_schema_example,
     _infer_description,
     _infer_example,
     _infer_schema_description,
     _object_schema_example,
     _semantic_id,
+    _semantic_string_example,
     _to_snake_case,
+    _typed_schema_example,
     enrich_openapi_schema,
 )
 
@@ -39,6 +46,24 @@ def test_infer_example_prefers_named_examples_and_schema_hints():
     assert _infer_example("items", {"type": "array", "items": {"type": "string"}}) == ["example_items_item"]
     assert _infer_example("meta", {"type": "object"}) == {"key": "value"}
     assert _infer_example("custom_id", {"type": "string"}) == "CUSTOM_001"
+
+
+def test_infer_example_helpers_preserve_schema_precedence():
+    assert _enum_schema_example({"type": "string", "enum": ["NET", "GROSS"]}) == "NET"
+    assert _enum_schema_example({"type": "string"}) is None
+    assert _typed_schema_example("portfolio_ids", {"type": "array", "items": {"type": "string"}}) == [
+        "example_portfolio_ids_item"
+    ]
+    assert _typed_schema_example("metadata", {"type": "object"}) == {"key": "value"}
+    assert _typed_schema_example("enabled", {"type": "boolean"}) is True
+    assert _typed_schema_example("count", {"type": "integer"}) == 1
+    assert _typed_schema_example("weight", {"type": "number"}) == 0.1234
+    assert _typed_schema_example("as_of_date", {"type": "string"}) is None
+    assert _formatted_schema_example({"type": "string", "format": "date"}) == "2026-02-27"
+    assert _formatted_schema_example({"type": "string", "format": "date-time"}) == "2026-02-27T10:30:00Z"
+    assert _formatted_schema_example({"type": "string"}) is None
+    assert _semantic_string_example("base_currency") == "USD"
+    assert _semantic_string_example("custom_value") == "example_custom_value"
 
 
 def test_infer_description_uses_semantic_branches():
@@ -250,6 +275,54 @@ def test_ensure_operation_response_documentation_rewrites_metrics_response():
     assert "lotus_performance_durable_queue_store_availability" in content["text/plain"]["example"]
 
 
+def test_ensure_success_response_documentation_preserves_existing_json_examples():
+    response = {
+        "description": "ok",
+        "content": {
+            "application/json": {
+                "schema": {
+                    "type": "object",
+                    "properties": {"portfolio_id": {"type": "string"}},
+                },
+                "examples": {"documented": {"value": {"portfolio_id": "EXISTING"}}},
+            }
+        },
+    }
+
+    _ensure_success_response_documentation(
+        path="/custom/workflow",
+        response=response,
+        components={"schemas": {}},
+    )
+
+    json_content = response["content"]["application/json"]
+    assert "example" not in json_content
+    assert json_content["examples"]["documented"]["value"] == {"portfolio_id": "EXISTING"}
+
+
+def test_ensure_operation_metadata_assigns_governed_defaults_and_tags():
+    health_operation = {}
+    _ensure_operation_metadata(path="/health/ready", method="get", operation=health_operation)
+    assert health_operation["summary"] == "GET /health/ready"
+    assert health_operation["description"] == "GET operation for /health/ready in lotus-performance."
+    assert health_operation["tags"] == ["Health"]
+
+    metrics_operation = {"description": "Existing description"}
+    _ensure_operation_metadata(path="/metrics", method="get", operation=metrics_operation)
+    assert metrics_operation["tags"] == ["Monitoring"]
+    assert "Prometheus metrics surface" in metrics_operation["description"]
+
+    returns_series_operation = {}
+    _ensure_operation_metadata(path="/returns-series/results", method="post", operation=returns_series_operation)
+    assert returns_series_operation["tags"] == ["Returns Series"]
+
+    workflow_operation = {"summary": "Existing summary", "tags": ["Existing"]}
+    _ensure_operation_metadata(path="/returns-series/results", method="post", operation=workflow_operation)
+    assert workflow_operation["summary"] == "Existing summary"
+    assert workflow_operation["description"] == "POST operation for /returns-series/results in lotus-performance."
+    assert workflow_operation["tags"] == ["Existing"]
+
+
 def test_enrich_openapi_schema_fills_operation_schema_and_examples():
     schema = {
         "paths": {
@@ -358,6 +431,36 @@ def test_enrich_openapi_schema_fills_operation_schema_and_examples():
     problem_schema = enriched["components"]["schemas"]["ProblemDetail"]
     assert problem_schema["description"].startswith("RFC 7807")
     assert problem_schema["properties"]["status"]["example"] == 500
+
+
+def test_ensure_model_schema_documentation_preserves_existing_metadata_and_resolves_refs():
+    components = {
+        "schemas": {
+            "Referenced": {
+                "type": "object",
+                "description": "Referenced schema description.",
+                "properties": {"count": {"type": "integer"}},
+            }
+        }
+    }
+    model_schema = {
+        "type": "object",
+        "properties": {
+            "request_id": {"type": "string", "description": "Already documented.", "example": "REQ_1"},
+            "nested_ref": {"$ref": "#/components/schemas/Referenced"},
+        },
+    }
+
+    _ensure_model_schema_documentation("Envelope", model_schema, components)
+
+    assert model_schema["description"] == "envelope object."
+    request_id = model_schema["properties"]["request_id"]
+    assert request_id["description"] == "Already documented."
+    assert request_id["example"] == "REQ_1"
+    nested_ref = model_schema["properties"]["nested_ref"]
+    assert nested_ref["description"] == "Referenced schema description."
+    assert nested_ref["example"] == {"count": 1}
+    assert nested_ref["x-lotus-semantic-id"] == "lotus.nested_ref"
 
 
 def test_enrich_openapi_schema_adds_fastapi_validation_error_examples():

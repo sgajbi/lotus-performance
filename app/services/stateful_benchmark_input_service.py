@@ -213,48 +213,16 @@ def _parse_composition_window(
     start_date: date,
     end_date: date,
 ) -> tuple[str, list[BenchmarkCompositionSegment]]:
-    benchmark_currency_raw = composition_window.get("benchmark_currency")
-    if not isinstance(benchmark_currency_raw, str) or not benchmark_currency_raw:
-        raise HTTPException(
-            status_code=HTTP_422_UNPROCESSABLE,
-            detail="benchmark composition-window payload missing benchmark_currency.",
-        )
-
-    segments_raw = composition_window.get("segments")
-    if not isinstance(segments_raw, list) or not segments_raw:
-        raise HTTPException(
-            status_code=HTTP_422_UNPROCESSABLE,
-            detail=f"Benchmark composition window missing segments for benchmark_id={benchmark_id}.",
-        )
-
-    segments: list[BenchmarkCompositionSegment] = []
-    for segment in segments_raw:
-        if not isinstance(segment, dict):
-            continue
-        index_id = segment.get("index_id")
-        composition_weight = segment.get("composition_weight")
-        effective_from_raw = segment.get("composition_effective_from")
-        effective_to_raw = segment.get("composition_effective_to")
-        if not isinstance(index_id, str) or composition_weight is None or not isinstance(effective_from_raw, str):
-            raise HTTPException(
-                status_code=HTTP_422_UNPROCESSABLE,
-                detail=(
-                    "benchmark composition-window payload missing index_id, "
-                    "composition_weight, or composition_effective_from."
-                ),
-            )
-        effective_from = date.fromisoformat(effective_from_raw)
-        effective_to = date.fromisoformat(effective_to_raw) if isinstance(effective_to_raw, str) else None
-        if effective_from > end_date or (effective_to is not None and effective_to < start_date):
-            continue
-        segments.append(
-            BenchmarkCompositionSegment(
-                index_id=index_id,
-                composition_weight=Decimal(str(composition_weight)),
-                composition_effective_from=effective_from,
-                composition_effective_to=effective_to,
-            )
-        )
+    benchmark_currency = _composition_window_currency(composition_window)
+    segments_raw = _composition_window_segments_raw(
+        benchmark_id=benchmark_id,
+        composition_window=composition_window,
+    )
+    segments = _parse_usable_composition_segments(
+        segments_raw=segments_raw,
+        start_date=start_date,
+        end_date=end_date,
+    )
 
     if not segments:
         raise HTTPException(
@@ -262,6 +230,99 @@ def _parse_composition_window(
             detail=f"Benchmark composition window missing usable segments for benchmark_id={benchmark_id}.",
         )
 
+    _validate_composition_window_coverage(
+        benchmark_id=benchmark_id,
+        segments=segments,
+        start_date=start_date,
+        end_date=end_date,
+    )
+    return benchmark_currency, sorted(
+        segments,
+        key=lambda item: (item.composition_effective_from, item.index_id),
+    )
+
+
+def _composition_window_currency(composition_window: dict[str, Any]) -> str:
+    benchmark_currency = composition_window.get("benchmark_currency")
+    if not isinstance(benchmark_currency, str) or not benchmark_currency:
+        raise HTTPException(
+            status_code=HTTP_422_UNPROCESSABLE,
+            detail="benchmark composition-window payload missing benchmark_currency.",
+        )
+    return benchmark_currency
+
+
+def _composition_window_segments_raw(
+    *,
+    benchmark_id: str,
+    composition_window: dict[str, Any],
+) -> list[Any]:
+    segments_raw = composition_window.get("segments")
+    if not isinstance(segments_raw, list) or not segments_raw:
+        raise HTTPException(
+            status_code=HTTP_422_UNPROCESSABLE,
+            detail=f"Benchmark composition window missing segments for benchmark_id={benchmark_id}.",
+        )
+    return segments_raw
+
+
+def _parse_usable_composition_segments(
+    *,
+    segments_raw: list[Any],
+    start_date: date,
+    end_date: date,
+) -> list[BenchmarkCompositionSegment]:
+    segments: list[BenchmarkCompositionSegment] = []
+    for segment in segments_raw:
+        if not isinstance(segment, dict):
+            continue
+        parsed_segment = _parse_composition_segment(
+            segment=segment,
+            start_date=start_date,
+            end_date=end_date,
+        )
+        if parsed_segment is not None:
+            segments.append(parsed_segment)
+    return segments
+
+
+def _parse_composition_segment(
+    *,
+    segment: dict[str, Any],
+    start_date: date,
+    end_date: date,
+) -> BenchmarkCompositionSegment | None:
+    index_id = segment.get("index_id")
+    composition_weight = segment.get("composition_weight")
+    effective_from_raw = segment.get("composition_effective_from")
+    effective_to_raw = segment.get("composition_effective_to")
+    if not isinstance(index_id, str) or composition_weight is None or not isinstance(effective_from_raw, str):
+        raise HTTPException(
+            status_code=HTTP_422_UNPROCESSABLE,
+            detail=(
+                "benchmark composition-window payload missing index_id, "
+                "composition_weight, or composition_effective_from."
+            ),
+        )
+    effective_from = date.fromisoformat(effective_from_raw)
+    effective_to = date.fromisoformat(effective_to_raw) if isinstance(effective_to_raw, str) else None
+    if effective_from > end_date or (effective_to is not None and effective_to < start_date):
+        return None
+    return BenchmarkCompositionSegment(
+        index_id=index_id,
+        composition_weight=Decimal(str(composition_weight)),
+        composition_effective_from=effective_from,
+        composition_effective_to=effective_to,
+    )
+
+
+def _validate_composition_window_coverage(
+    *,
+    benchmark_id: str,
+    segments: list[BenchmarkCompositionSegment],
+    start_date: date,
+    end_date: date,
+) -> None:
     for point_date in _iter_requested_dates(start_date=start_date, end_date=end_date):
         if not any(_segment_is_active(segment, point_date) for segment in segments):
             raise HTTPException(
@@ -271,10 +332,6 @@ def _parse_composition_window(
                     f"for benchmark_id={benchmark_id}."
                 ),
             )
-    return benchmark_currency_raw, sorted(
-        segments,
-        key=lambda item: (item.composition_effective_from, item.index_id),
-    )
 
 
 def _iter_requested_dates(*, start_date: date, end_date: date) -> list[date]:

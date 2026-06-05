@@ -1,10 +1,18 @@
 import json
+from datetime import date
 from pathlib import Path
 
 import pytest
 
 from app.models.benchmark_analytics_requests import BenchmarkInputMode
-from app.models.workspace_summary_requests import WorkspaceSummaryRequest
+from app.models.twr_requests import TWRInputMode
+from app.models.workspace_summary_requests import (
+    WorkspaceSummaryRequest,
+    _requested_workspace_periods,
+    _resolve_workspace_summary_include_benchmark,
+    _validate_workspace_summary_benchmark_request,
+    _validate_workspace_summary_stateless_inputs,
+)
 from app.models.workspace_summary_responses import WorkspaceSummaryAcceptedResponse, WorkspaceSummaryResponse
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -109,12 +117,31 @@ def test_workspace_summary_request_rejects_empty_periods():
         WorkspaceSummaryRequest.model_validate(payload)
 
 
+def test_requested_workspace_periods_returns_distinct_period_codes():
+    request = WorkspaceSummaryRequest.model_validate(_base_stateless_payload())
+
+    assert _requested_workspace_periods(request) == {request.periods[0].period}
+
+
 def test_workspace_summary_request_rejects_explicit_period_without_report_start_date():
     payload = _base_stateless_payload()
     payload["periods"] = [{"period": "EXPLICIT", "frequencies": ["daily"]}]
 
     with pytest.raises(ValueError, match="report_start_date is required when periods include EXPLICIT"):
         WorkspaceSummaryRequest.model_validate(payload)
+
+
+def test_validate_workspace_summary_stateless_inputs_rejects_dual_payloads():
+    request = WorkspaceSummaryRequest.model_construct(
+        input_mode=TWRInputMode.STATELESS,
+        performance_start_date=date(2026, 1, 1),
+        stateless_input=object(),
+        valuation_points=[object()],
+        stateful_input=None,
+    )
+
+    with pytest.raises(ValueError, match="Provide either stateless_input or valuation_points"):
+        _validate_workspace_summary_stateless_inputs(request)
 
 
 def test_workspace_summary_request_rejects_stateless_request_without_performance_start_date():
@@ -189,6 +216,23 @@ def test_workspace_summary_request_forces_include_benchmark_when_benchmark_or_at
     request = WorkspaceSummaryRequest.model_validate(payload)
 
     assert request.include_benchmark is True
+
+
+def test_resolve_workspace_summary_include_benchmark_promotes_present_benchmark():
+    request = WorkspaceSummaryRequest.model_construct(include_benchmark=False, benchmark=object())
+
+    assert _resolve_workspace_summary_include_benchmark(request) is True
+
+
+def test_validate_workspace_summary_benchmark_request_rejects_stateless_missing_benchmark():
+    request = WorkspaceSummaryRequest.model_construct(
+        include_benchmark=True,
+        input_mode=TWRInputMode.STATELESS,
+        benchmark=None,
+    )
+
+    with pytest.raises(ValueError, match="benchmark configuration is required"):
+        _validate_workspace_summary_benchmark_request(request)
 
 
 def test_workspace_summary_request_resolves_legacy_stateless_valuation_points():

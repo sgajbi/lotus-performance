@@ -577,6 +577,42 @@ def test_parse_composition_window_requires_currency_and_usable_segments():
         )
 
 
+def test_parse_composition_window_filters_and_sorts_usable_segments():
+    benchmark_currency, segments = _parse_composition_window(
+        benchmark_id="BMK_1",
+        composition_window={
+            "benchmark_currency": "USD",
+            "segments": [
+                {
+                    "index_id": "IDX_OLD",
+                    "composition_weight": "1.0",
+                    "composition_effective_from": "2025-01-01",
+                    "composition_effective_to": "2025-12-31",
+                },
+                {
+                    "index_id": "IDX_B",
+                    "composition_weight": "0.4",
+                    "composition_effective_from": "2026-01-02",
+                    "composition_effective_to": "2026-01-03",
+                },
+                {
+                    "index_id": "IDX_A",
+                    "composition_weight": "0.6",
+                    "composition_effective_from": "2026-01-01",
+                    "composition_effective_to": None,
+                },
+            ],
+        },
+        start_date=date(2026, 1, 2),
+        end_date=date(2026, 1, 3),
+    )
+
+    assert benchmark_currency == "USD"
+    assert [segment.index_id for segment in segments] == ["IDX_A", "IDX_B"]
+    assert segments[0].composition_weight == Decimal("0.6")
+    assert segments[1].composition_effective_to == date(2026, 1, 3)
+
+
 @pytest.mark.asyncio
 async def test_load_component_price_series_surfaces_404_503_and_empty_payloads():
     class _MissingSeriesStub(_StatefulInputServiceStub):
