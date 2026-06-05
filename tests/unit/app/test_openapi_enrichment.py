@@ -6,13 +6,17 @@ from app.openapi_enrichment import (
     _ensure_model_schema_documentation,
     _ensure_operation_response_documentation,
     _ensure_request_body_example,
+    _enum_schema_example,
     _explicit_schema_example,
+    _formatted_schema_example,
     _infer_description,
     _infer_example,
     _infer_schema_description,
     _object_schema_example,
     _semantic_id,
+    _semantic_string_example,
     _to_snake_case,
+    _typed_schema_example,
     enrich_openapi_schema,
 )
 
@@ -40,6 +44,24 @@ def test_infer_example_prefers_named_examples_and_schema_hints():
     assert _infer_example("items", {"type": "array", "items": {"type": "string"}}) == ["example_items_item"]
     assert _infer_example("meta", {"type": "object"}) == {"key": "value"}
     assert _infer_example("custom_id", {"type": "string"}) == "CUSTOM_001"
+
+
+def test_infer_example_helpers_preserve_schema_precedence():
+    assert _enum_schema_example({"type": "string", "enum": ["NET", "GROSS"]}) == "NET"
+    assert _enum_schema_example({"type": "string"}) is None
+    assert _typed_schema_example("portfolio_ids", {"type": "array", "items": {"type": "string"}}) == [
+        "example_portfolio_ids_item"
+    ]
+    assert _typed_schema_example("metadata", {"type": "object"}) == {"key": "value"}
+    assert _typed_schema_example("enabled", {"type": "boolean"}) is True
+    assert _typed_schema_example("count", {"type": "integer"}) == 1
+    assert _typed_schema_example("weight", {"type": "number"}) == 0.1234
+    assert _typed_schema_example("as_of_date", {"type": "string"}) is None
+    assert _formatted_schema_example({"type": "string", "format": "date"}) == "2026-02-27"
+    assert _formatted_schema_example({"type": "string", "format": "date-time"}) == "2026-02-27T10:30:00Z"
+    assert _formatted_schema_example({"type": "string"}) is None
+    assert _semantic_string_example("base_currency") == "USD"
+    assert _semantic_string_example("custom_value") == "example_custom_value"
 
 
 def test_infer_description_uses_semantic_branches():

@@ -156,22 +156,24 @@ def _humanize(value: str) -> str:
     return _canonical_term(value).replace("_", " ").strip()
 
 
-def _infer_example(prop_name: str, prop_schema: dict[str, Any]) -> Any:
-    key = _canonical_term(prop_name)
-    if key in EXAMPLE_BY_KEY:
-        return EXAMPLE_BY_KEY[key]
-
+def _enum_schema_example(prop_schema: dict[str, Any]) -> Any | None:
     enum_values = prop_schema.get("enum")
     if isinstance(enum_values, list) and enum_values:
         return enum_values[0]
+    return None
 
+
+def _array_schema_fallback_example(prop_name: str, prop_schema: dict[str, Any]) -> list[Any]:
+    item_schema = prop_schema.get("items", {})
+    if isinstance(item_schema, dict):
+        return [_infer_example(f"{prop_name}_item", item_schema)]
+    return ["VALUE"]
+
+
+def _typed_schema_example(prop_name: str, prop_schema: dict[str, Any]) -> Any | None:
     schema_type = prop_schema.get("type")
-    schema_format = prop_schema.get("format")
     if schema_type == "array":
-        item_schema = prop_schema.get("items", {})
-        if isinstance(item_schema, dict):
-            return [_infer_example(f"{prop_name}_item", item_schema)]
-        return ["VALUE"]
+        return _array_schema_fallback_example(prop_name, prop_schema)
     if schema_type == "object":
         return {"key": "value"}
     if schema_type == "boolean":
@@ -180,10 +182,19 @@ def _infer_example(prop_name: str, prop_schema: dict[str, Any]) -> Any:
         return 1
     if schema_type == "number":
         return 0.1234
+    return None
+
+
+def _formatted_schema_example(prop_schema: dict[str, Any]) -> Any | None:
+    schema_format = prop_schema.get("format")
     if schema_format == "date":
         return "2026-02-27"
     if schema_format == "date-time":
         return "2026-02-27T10:30:00Z"
+    return None
+
+
+def _semantic_string_example(key: str) -> str:
     if key.endswith("_id"):
         return f"{key[:-3].upper()}_001"
     if "date" in key:
@@ -193,6 +204,26 @@ def _infer_example(prop_name: str, prop_schema: dict[str, Any]) -> Any:
     if "currency" in key:
         return "USD"
     return f"example_{key}"
+
+
+def _infer_example(prop_name: str, prop_schema: dict[str, Any]) -> Any:
+    key = _canonical_term(prop_name)
+    if key in EXAMPLE_BY_KEY:
+        return EXAMPLE_BY_KEY[key]
+
+    enum_example = _enum_schema_example(prop_schema)
+    if enum_example is not None:
+        return enum_example
+
+    typed_example = _typed_schema_example(prop_name, prop_schema)
+    if typed_example is not None:
+        return typed_example
+
+    formatted_example = _formatted_schema_example(prop_schema)
+    if formatted_example is not None:
+        return formatted_example
+
+    return _semantic_string_example(key)
 
 
 def _infer_description(model_name: str, prop_name: str, prop_schema: dict[str, Any]) -> str:
