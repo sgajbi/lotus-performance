@@ -22,7 +22,7 @@ python scripts/python_complexity_inventory.py --limit 20
 | --- | ---: |
 | Max cyclomatic complexity | 15 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.61 |
+| Average maintainability index | 55.62 |
 
 ## Highest Cyclomatic Complexity
 
@@ -47,7 +47,7 @@ python scripts/python_complexity_inventory.py --limit 20
 | 17 | `build_hierarchical_contribution_result` | function | `engine/contribution.py:298` | 14 | C |
 | 18 | `_apply_overrides` | function | `engine/policies.py:38` | 14 | C |
 | 19 | `_build_artifacts` | function | `app/services/composite_inspection_service.py:114` | 13 | C |
-| 20 | `_build_benchmark_breakdowns` | function | `app/services/benchmark_calculation_service.py:148` | 12 | C |
+| 20 | `_check_relative_block` | function | `app/services/inspection/calculation_consistency.py:145` | 12 | C |
 
 ## Lowest Maintainability Index
 
@@ -148,8 +148,9 @@ also dropped out after benchmark classification label indexing and classified co
 were split into dedicated helpers. `process_pending_jobs` also dropped out after leased-payload
 materialization outcome handling and retry-budget policy were split into dedicated helpers.
 `resolve_period` also dropped out after explicit, calendar, trailing-year, and rolling period
-resolution policy were split into dedicated helpers. Max
-cyclomatic complexity is now `15`. The remaining
+resolution policy were split into dedicated helpers. `_build_benchmark_breakdowns` also dropped out
+after daily/non-daily grouping, breakdown item construction, and period-label policy were split into
+dedicated helpers. Max cyclomatic complexity is now `15`. The remaining
 highest-complexity functions are C-grade service and engine hotspots that should be treated as
 future bounded refactor candidates, not as evidence of an immediate behavior defect.
 
