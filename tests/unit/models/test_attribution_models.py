@@ -2,7 +2,7 @@
 import pytest
 from pydantic import ValidationError
 
-from app.models.attribution_analytics_requests import AttributionAnalyticsRequest
+from app.models.attribution_analytics_requests import AttributionAnalyticsRequest, _attribution_input_shape
 from app.models.attribution_requests import AttributionRequest, BenchmarkGroup, PortfolioGroup
 from app.models.attribution_responses import AttributionLevelResult, SinglePeriodAttributionResult
 from common.enums import PeriodType
@@ -170,6 +170,32 @@ def test_attribution_analytics_request_rejects_partial_legacy_by_instrument(base
                 },
             }
         )
+
+
+def test_attribution_input_shape_classifies_legacy_payloads(base_attribution_payload):
+    by_instrument_request = AttributionAnalyticsRequest.model_validate(
+        {
+            **base_attribution_payload,
+            "analyses": [{"period": "ITD", "frequencies": ["monthly"]}],
+            "mode": "by_instrument",
+            "portfolio_groups_data": None,
+            "portfolio_data": {"metric_basis": "NET", "valuation_points": []},
+            "instruments_data": [
+                {
+                    "instrument_id": "SEC_1",
+                    "meta": {"assetClass": "Equity"},
+                    "valuation_points": [],
+                }
+            ],
+        }
+    )
+    shape = _attribution_input_shape(by_instrument_request)
+
+    assert shape.has_legacy_by_instrument is True
+    assert shape.has_partial_legacy_by_instrument is False
+    assert shape.has_legacy_by_group is False
+    assert shape.has_legacy_benchmark is True
+    assert shape.has_legacy_stateless is True
 
 
 def test_attribution_analytics_request_rejects_stateful_input_in_stateless_mode(base_attribution_payload):

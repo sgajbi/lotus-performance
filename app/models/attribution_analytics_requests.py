@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -63,6 +64,18 @@ class AttributionStatefulInput(BaseModel):
         default_factory=StatefulPositionFilters,
         description="Optional inclusion filters for stateful position sourcing.",
     )
+
+
+@dataclass(frozen=True)
+class _AttributionInputShape:
+    has_legacy_by_instrument: bool
+    has_partial_legacy_by_instrument: bool
+    has_legacy_by_group: bool
+    has_legacy_benchmark: bool
+
+    @property
+    def has_legacy_stateless(self) -> bool:
+        return self.has_legacy_by_instrument or self.has_legacy_by_group or self.has_legacy_benchmark
 
 
 class AttributionAnalyticsRequest(AttributionRequest):
@@ -145,36 +158,17 @@ class AttributionAnalyticsRequest(AttributionRequest):
 
     @model_validator(mode="after")
     def validate_mode_payloads(self) -> "AttributionAnalyticsRequest":
-        has_legacy_by_instrument = self.portfolio_data is not None or self.instruments_data is not None
-        has_partial_legacy_by_instrument = (self.portfolio_data is None) != (self.instruments_data is None)
-        has_legacy_by_group = self.portfolio_groups_data is not None
-        has_legacy_benchmark = len(self.benchmark_groups_data) > 0
-        has_legacy_stateless = has_legacy_by_instrument or has_legacy_by_group or has_legacy_benchmark
-
-        if has_partial_legacy_by_instrument:
+        input_shape = _attribution_input_shape(self)
+        if input_shape.has_partial_legacy_by_instrument:
             raise ValueError(
                 "portfolio_data and instruments_data must be provided together for legacy by_instrument mode"
             )
 
         if self.input_mode == AttributionInputMode.STATELESS:
-            if self.stateful_input is not None:
-                raise ValueError("stateful_input must be null when input_mode=stateless")
-            if self.stateless_input is not None and has_legacy_stateless:
-                raise ValueError(
-                    "Provide either stateless_input or legacy attribution input fields, not both, for stateless mode"
-                )
-            if self.stateless_input is None and not has_legacy_stateless:
-                raise ValueError(
-                    "stateless_input or legacy attribution input fields are required when input_mode=stateless"
-                )
+            _validate_stateless_input_shape(self, input_shape)
 
         if self.input_mode == AttributionInputMode.STATEFUL:
-            if self.stateful_input is None:
-                raise ValueError("stateful_input is required when input_mode=stateful")
-            if self.stateless_input is not None:
-                raise ValueError("stateless_input must be null when input_mode=stateful")
-            if has_legacy_stateless:
-                raise ValueError("legacy attribution input fields must be null when input_mode=stateful")
+            _validate_stateful_input_shape(self, input_shape)
         return self
 
     def to_stateless_attribution_request(
@@ -234,3 +228,39 @@ class AttributionAnalyticsRequest(AttributionRequest):
         )
         payload["benchmark_groups_data"] = [group.model_dump(mode="python") for group in resolved_benchmark_groups]
         return AttributionRequest.model_validate(payload)
+
+
+def _attribution_input_shape(request: AttributionAnalyticsRequest) -> _AttributionInputShape:
+    has_legacy_by_instrument = request.portfolio_data is not None or request.instruments_data is not None
+    return _AttributionInputShape(
+        has_legacy_by_instrument=has_legacy_by_instrument,
+        has_partial_legacy_by_instrument=(request.portfolio_data is None) != (request.instruments_data is None),
+        has_legacy_by_group=request.portfolio_groups_data is not None,
+        has_legacy_benchmark=len(request.benchmark_groups_data) > 0,
+    )
+
+
+def _validate_stateless_input_shape(
+    request: AttributionAnalyticsRequest,
+    input_shape: _AttributionInputShape,
+) -> None:
+    if request.stateful_input is not None:
+        raise ValueError("stateful_input must be null when input_mode=stateless")
+    if request.stateless_input is not None and input_shape.has_legacy_stateless:
+        raise ValueError(
+            "Provide either stateless_input or legacy attribution input fields, not both, for stateless mode"
+        )
+    if request.stateless_input is None and not input_shape.has_legacy_stateless:
+        raise ValueError("stateless_input or legacy attribution input fields are required when input_mode=stateless")
+
+
+def _validate_stateful_input_shape(
+    request: AttributionAnalyticsRequest,
+    input_shape: _AttributionInputShape,
+) -> None:
+    if request.stateful_input is None:
+        raise ValueError("stateful_input is required when input_mode=stateful")
+    if request.stateless_input is not None:
+        raise ValueError("stateless_input must be null when input_mode=stateful")
+    if input_shape.has_legacy_stateless:
+        raise ValueError("legacy attribution input fields must be null when input_mode=stateful")
