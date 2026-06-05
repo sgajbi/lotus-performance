@@ -6,7 +6,16 @@ import pytest
 
 from app.models.mwr_requests import CashFlow
 from core.envelope import Annualization
-from engine.mwr import _calculate_dietz_mwr_result, _calculate_xirr_mwr_attempt, _xirr, calculate_money_weighted_return
+from engine.mwr import (
+    _build_xirr_base_convergence,
+    _calculate_dietz_mwr_result,
+    _calculate_xirr_mwr_attempt,
+    _scan_xirr_roots,
+    _xirr,
+    _xirr_failure,
+    _xirr_time_diffs,
+    calculate_money_weighted_return,
+)
 
 
 @pytest.mark.parametrize(
@@ -49,6 +58,61 @@ def test_calculate_mwr_xirr():
     )
     assert result.method == "XIRR"
     assert result.mwr == pytest.approx(36.86313651, abs=1e-6)
+
+
+def test_xirr_failure_preserves_convergence_context():
+    base_convergence = _build_xirr_base_convergence(
+        annualization=Annualization(enabled=False, basis="ACT/365"),
+        lower_bound=-0.5,
+        upper_bound=2.0,
+        anchor_date=date(2026, 1, 1),
+        normalized_flow_count=2,
+        gross_cash_flow_scale=200.0,
+    )
+
+    result = _xirr_failure(
+        base_convergence=base_convergence,
+        notes="Invalid XIRR search bounds.",
+        reason_code="INVALID_SOLVER_BOUNDS",
+    )
+
+    assert result["converged"] is False
+    assert result["rate"] is None
+    assert result["reason_code"] == "INVALID_SOLVER_BOUNDS"
+    assert result["convergence"]["algorithm"] == "log_rate_bracket_scan_bisection"
+    assert result["convergence"]["root_count_detected"] == 0
+    assert result["convergence"]["gross_cash_flow_scale"] == 200.0
+
+
+def test_scan_xirr_roots_returns_single_residual_for_bracketed_schedule():
+    values = np.array([-100.0, 110.0])
+    dates = np.array([date(2026, 1, 1), date(2027, 1, 1)])
+    time_diffs = _xirr_time_diffs(
+        dates=dates,
+        anchor_date=date(2026, 1, 1),
+        annualization=Annualization(enabled=False, basis="ACT/365"),
+    )
+
+    def log_npv(log_rate: float) -> float:
+        return float(np.sum(values * np.exp(-log_rate * time_diffs)))
+
+    roots = _scan_xirr_roots(
+        values=values,
+        time_diffs=time_diffs,
+        lower_bound=-0.999999999,
+        upper_bound=1000.0,
+        root_scan_steps=512,
+        tolerance=1e-10,
+        max_iter=200,
+        gross_cash_flow_scale=float(np.sum(np.abs(values))),
+        log_npv=log_npv,
+    )
+
+    assert len(roots) == 1
+    root_rate, iterations, residual = roots[0]
+    assert root_rate == pytest.approx(0.1, abs=1e-8)
+    assert iterations > 0
+    assert residual == pytest.approx(0.0, abs=1e-6)
 
 
 def test_calculate_xirr_mwr_attempt_returns_successful_xirr_result():
