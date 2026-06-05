@@ -111,6 +111,46 @@ def _compute_job_record(
     )
 
 
+def test_compute_executor_worker_runtime_builder_preserves_explicit_overrides(tmp_path):
+    job_store = ComputeJobStore(f"sqlite:///{tmp_path / 'jobs.db'}")
+    execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    result_store = AsyncResultStore(f"sqlite:///{tmp_path / 'results.db'}")
+    settings = _worker_settings(COMPUTE_EXECUTOR_BATCH_SIZE=99, COMPUTE_EXECUTOR_WORKER_ID="settings-worker")
+
+    async def _returns_series_calculator(*args, **kwargs):  # noqa: ANN202, ARG001
+        return None
+
+    def _calculator(*args, **kwargs):  # noqa: ANN202, ARG001
+        return None
+
+    runtime = compute_executor_worker._build_compute_job_runtime(
+        limit=3,
+        job_store=job_store,
+        execution_store=execution_store,
+        result_store=result_store,
+        worker_id="explicit-worker",
+        lease_seconds=12,
+        returns_series_calculator=_returns_series_calculator,
+        contribution_calculator=_calculator,
+        attribution_calculator=_calculator,
+        benchmark_calculator=_calculator,
+        twr_calculator=_calculator,
+        workspace_summary_calculator=_calculator,
+        inspection_calculator=_calculator,
+        settings=settings,
+    )
+
+    assert runtime.job_store is job_store
+    assert runtime.execution_store is execution_store
+    assert runtime.result_store is result_store
+    assert runtime.worker_id == "explicit-worker"
+    assert runtime.lease_seconds == 12
+    assert runtime.batch_size == 3
+    assert runtime.execution_context.settings is settings
+    assert runtime.execution_context.returns_series_calculator is _returns_series_calculator
+    assert runtime.execution_context.contribution_calculator is _calculator
+
+
 def test_compute_executor_worker_processes_pending_returns_series_job(tmp_path, monkeypatch):
     execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
     execution_store.create_schema()
