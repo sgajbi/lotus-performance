@@ -9,7 +9,10 @@ from app.models.responses import (
     SinglePeriodPerformanceResult,
     TWRDailyCalculationEvidence,
 )
-from app.services.inspection.calculation_consistency import run_twr_calculation_consistency_checks
+from app.services.inspection.calculation_consistency import (
+    _daily_calculation_evidence_mismatches,
+    run_twr_calculation_consistency_checks,
+)
 from common.enums import Frequency
 
 
@@ -306,6 +309,43 @@ def test_calculation_consistency_flags_daily_calculation_evidence_mismatch():
     assert finding.evidence["mismatches"]["external_outflows"] == {"expected": 50.0, "actual": 0.0}
     assert finding.evidence["mismatches"]["daily_return"]["actual"] == 99.0
     assert finding.evidence["mismatches"]["period_return.base"]["actual"] == 1.3
+
+
+def test_daily_calculation_evidence_mismatches_capture_numeric_status_and_semantics():
+    block = _daily_evidence_block(
+        evidence=TWRDailyCalculationEvidence(
+            begin_mv=0.0,
+            end_mv=0.0,
+            bod_cf=0.0,
+            eod_cf=0.0,
+            external_inflows=1.0,
+            external_outflows=1.0,
+            management_fees=0.0,
+            signed_adjusted_capital=1.0,
+            adjusted_capital=0.0,
+            performance_pnl=0.0,
+            daily_return=0.0,
+            status="calculated",
+            reason_codes=[],
+            warnings=[],
+        )
+    )
+    item = block.breakdowns[Frequency.DAILY][0]
+
+    mismatches = _daily_calculation_evidence_mismatches(evidence=item.calculation_evidence, item=item)
+
+    assert mismatches["signed_adjusted_capital"] == {"expected": 0.0, "actual": 1.0}
+    assert mismatches["external_inflows"] == {"expected": 0, "actual": 1.0}
+    assert mismatches["external_outflows"] == {"expected": 0, "actual": 1.0}
+    assert mismatches["status"] == {
+        "expected": "not_calculated",
+        "actual": "calculated",
+        "reason": "zero_adjusted_capital",
+    }
+    assert mismatches["semantics"]["missing_reason_codes"] == [
+        "FLOW_NEUTRALIZED_DAILY_RETURN",
+        "ZERO_ADJUSTED_CAPITAL",
+    ]
 
 
 def test_calculation_consistency_flags_calculated_status_with_zero_adjusted_capital():
