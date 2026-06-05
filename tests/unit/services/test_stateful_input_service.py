@@ -6,7 +6,13 @@ from uuid import UUID, uuid4
 import pytest
 
 from app.services.execution_registry import ExecutionRegistry
-from app.services.stateful_input_service import StatefulInputService
+from app.services.stateful_input_service import (
+    DateChunk,
+    StatefulInputService,
+    _portfolio_identity_from_payload,
+    _portfolio_observations_from_payload,
+    _portfolio_timeseries_request_payload,
+)
 
 
 class _CoreServiceStub:
@@ -278,6 +284,51 @@ def test_total_retrieval_page_count_defaults_missing_metadata_and_coerces_numeri
         )
         == 5
     )
+
+
+def test_portfolio_chunk_helper_contracts_preserve_request_identity_and_payload_filtering():
+    request_payload = _portfolio_timeseries_request_payload(
+        portfolio_id="PORT_1",
+        chunk=DateChunk(start_date=date(2026, 1, 1), end_date=date(2026, 1, 3)),
+        reporting_currency="USD",
+        consumer_system="lotus-performance",
+        page_token="page-2",
+    )
+    portfolio_open_date, portfolio_currency, reporting_currency = _portfolio_identity_from_payload(
+        payload={
+            "portfolio_open_date": "2025-12-31",
+            "portfolio_currency": "EUR",
+            "reporting_currency": "USD",
+        },
+        portfolio_open_date=None,
+        portfolio_currency=None,
+        reporting_currency=None,
+    )
+    preserved_identity = _portfolio_identity_from_payload(
+        payload={
+            "portfolio_open_date": "2024-01-01",
+            "portfolio_currency": "GBP",
+            "reporting_currency": "CHF",
+        },
+        portfolio_open_date=portfolio_open_date,
+        portfolio_currency=portfolio_currency,
+        reporting_currency=reporting_currency,
+    )
+
+    assert request_payload == {
+        "portfolio_id": "PORT_1",
+        "start_date": "2026-01-01",
+        "end_date": "2026-01-03",
+        "reporting_currency": "USD",
+        "consumer_system": "lotus-performance",
+        "page_token": "page-2",
+    }
+    assert (portfolio_open_date, portfolio_currency, reporting_currency) == ("2025-12-31", "EUR", "USD")
+    assert preserved_identity == ("2025-12-31", "EUR", "USD")
+    assert _portfolio_observations_from_payload({"observations": [{"valuation_date": "2026-01-01"}, "bad"]}) == [
+        {"valuation_date": "2026-01-01"}
+    ]
+    assert _portfolio_observations_from_payload({"observations": "bad"}) == []
 
 
 @pytest.mark.asyncio
