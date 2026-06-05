@@ -20,11 +20,11 @@ metrics in each section are updated with each meaningful slice.
 | --- | ---: | ---: | ---: | --- | --- |
 | Python files | 480 | 538 | 58 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Python package markers | 18 | 18 | 0 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Python LOC | 104,454 | 115,801 | 11,347 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python LOC | 104,454 | 115,939 | 11,485 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest Python file LOC | 2,399 | 2,399 | 0 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest production file LOC | 1,156 | 1,156 | 0 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
 | Python test modules | 228 | 255 | 27 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Collected tests | 2,035 | 2,272 | 237 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Collected tests | 2,035 | 2,273 | 238 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 
 ### Complexity And Maintainability
 
@@ -33,7 +33,7 @@ metrics in each section are updated with each meaningful slice.
 | Max cyclomatic complexity | unknown | 15 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
 | High-complexity functions (D-F) | unknown | 0 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
 | Average maintainability index | unknown | 55.68 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
-| Largest functions by LOC | unknown | 270 | n/a | measured | `quality/function_size_inventory.md`; `quality/refactor_health_report.md` |
+| Largest functions by LOC | unknown | 258 | n/a | measured | `quality/function_size_inventory.md`; `quality/refactor_health_report.md` |
 
 ### Architecture
 

@@ -20,8 +20,8 @@ python scripts/python_function_size_inventory.py --limit 15
 
 | Rank | Function | File | Lines |
 | ---: | --- | --- | ---: |
-| 1 | `calculate_contribution` | `app/services/contribution_service.py:310` | 270 |
-| 2 | `build_source_economics_findings` | `app/services/inspection/source_economics_findings.py:7` | 258 |
+| 1 | `build_source_economics_findings` | `app/services/inspection/source_economics_findings.py:7` | 258 |
+| 2 | `calculate_contribution` | `app/services/contribution_service.py:421` | 189 |
 | 3 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:503` | 172 |
 | 4 | `DurableQueueCollector.describe` | `app/services/queue_metrics_service.py:193` | 159 |
 | 5 | `aggregate_attribution_results` | `engine/attribution.py:586` | 148 |
@@ -45,9 +45,10 @@ assembly has dropped out of the top-15 table after resolved identity finalizatio
 Runtime-status response assembly remains in the top-15 table but moved from `173` to `131` lines
 after lineage queue response mapping was isolated. Attribution orchestration remains in the top-15
 table but moved from `142` to `133` lines after per-period result assembly was isolated.
-Contribution orchestration remains the largest function but moved from `287` to `270` lines after
-engine input preparation was isolated. Benchmark calculation workflow dropped out of the top-15
-table after resolved benchmark execution context and failure mapping were isolated.
+Contribution orchestration moved from `287` to `270` lines after engine input preparation was
+isolated, then moved from `270` to `189` lines and is no longer the largest function after
+flat-period result assembly was isolated from the public contribution orchestration. Benchmark calculation workflow
+dropped out of the top-15 table after resolved benchmark execution context and failure mapping were isolated.
 Durable queue metric collection dropped out of the top-15 table after source loading and
 availability/runtime-retention preview metric emission were isolated into dedicated helpers.
 
