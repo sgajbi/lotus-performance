@@ -22,7 +22,7 @@ python scripts/python_complexity_inventory.py --limit 20
 | --- | ---: |
 | Max cyclomatic complexity | 15 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.62 |
+| Average maintainability index | 55.61 |
 
 ## Highest Cyclomatic Complexity
 
@@ -47,7 +47,7 @@ python scripts/python_complexity_inventory.py --limit 20
 | 17 | `build_hierarchical_contribution_result` | function | `engine/contribution.py:298` | 14 | C |
 | 18 | `_apply_overrides` | function | `engine/policies.py:38` | 14 | C |
 | 19 | `_build_artifacts` | function | `app/services/composite_inspection_service.py:114` | 13 | C |
-| 20 | `_check_relative_block` | function | `app/services/inspection/calculation_consistency.py:145` | 12 | C |
+| 20 | `build_source_economics_findings` | function | `app/services/inspection/source_economics_findings.py:7` | 12 | C |
 
 ## Lowest Maintainability Index
 
@@ -65,8 +65,8 @@ python scripts/python_complexity_inventory.py --limit 20
 | 10 | `app/services/stateful_benchmark_input_service.py` | 12.95 | B |
 | 11 | `engine/attribution.py` | 14.54 | B |
 | 12 | `app/services/operator_action_lease_service.py` | 15.51 | B |
-| 13 | `app/services/inspection/reconciliation.py` | 16.40 | B |
-| 14 | `app/services/inspection/calculation_consistency.py` | 16.96 | B |
+| 13 | `app/services/inspection/calculation_consistency.py` | 16.28 | B |
+| 14 | `app/services/inspection/reconciliation.py` | 16.40 | B |
 | 15 | `app/services/inspection/source_economics_collector.py` | 17.35 | B |
 | 16 | `app/services/inspection/source_economics.py` | 17.49 | B |
 | 17 | `app/workers/compute_executor_worker.py` | 17.85 | B |
@@ -150,7 +150,9 @@ materialization outcome handling and retry-budget policy were split into dedicat
 `resolve_period` also dropped out after explicit, calendar, trailing-year, and rolling period
 resolution policy were split into dedicated helpers. `_build_benchmark_breakdowns` also dropped out
 after daily/non-daily grouping, breakdown item construction, and period-label policy were split into
-dedicated helpers. Max cyclomatic complexity is now `15`. The remaining
+dedicated helpers. `_check_relative_block` also dropped out after relative summary checks,
+per-frequency cardinality checks, and row-level relative arithmetic were split into dedicated
+helpers. Max cyclomatic complexity is now `15`. The remaining
 highest-complexity functions are C-grade service and engine hotspots that should be treated as
 future bounded refactor candidates, not as evidence of an immediate behavior defect.
 

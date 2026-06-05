@@ -10,6 +10,7 @@ from app.models.responses import (
     TWRDailyCalculationEvidence,
 )
 from app.services.inspection.calculation_consistency import (
+    _check_relative_breakdown_frequency,
     _daily_calculation_evidence_mismatches,
     run_twr_calculation_consistency_checks,
 )
@@ -199,6 +200,47 @@ def test_calculation_consistency_flags_benchmark_block_without_relative_block():
         "benchmark_present": True,
         "relative_performance_present": False,
     }
+
+
+def test_relative_breakdown_frequency_helper_checks_aligned_row_arithmetic():
+    portfolio_item = _breakdown_item(
+        period="2026-03",
+        period_start=date(2026, 3, 1),
+        period_end=date(2026, 3, 31),
+        period_return=3.0,
+        cumulative_return=5.0,
+    )
+    benchmark_item = _breakdown_item(
+        period="2026-03",
+        period_start=date(2026, 3, 1),
+        period_end=date(2026, 3, 31),
+        period_return=1.0,
+        cumulative_return=2.0,
+    )
+    relative_item = _breakdown_item(
+        period="2026-03",
+        period_start=date(2026, 3, 1),
+        period_end=date(2026, 3, 31),
+        period_return=99.0,
+        cumulative_return=99.0,
+    )
+
+    findings = _check_relative_breakdown_frequency(
+        period_name="YTD",
+        frequency=Frequency.MONTHLY,
+        portfolio_items=[portfolio_item],
+        benchmark_items=[benchmark_item],
+        relative_items=[relative_item],
+    )
+
+    assert [finding.code for finding in findings] == [
+        "RELATIVE_BREAKDOWN_PERIOD_MISMATCH",
+        "RELATIVE_BREAKDOWN_CUMULATIVE_MISMATCH",
+    ]
+    assert findings[0].evidence["scope"] == "breakdowns.monthly.2026-03.period_return"
+    assert findings[0].evidence["mismatches"]["base"] == {"expected": 2.0, "actual": 99.0}
+    assert findings[1].evidence["scope"] == "breakdowns.monthly.2026-03.cumulative_return"
+    assert findings[1].evidence["mismatches"]["base"] == {"expected": 3.0, "actual": 99.0}
 
 
 def test_calculation_consistency_flags_portfolio_breakdown_link_mismatch():
@@ -661,6 +703,23 @@ def test_calculation_consistency_flags_below_full_loss_semantics():
         "missing_reason_codes": ["BELOW_FULL_LOSS_RETURN"],
         "missing_warnings": ["BELOW_FULL_LOSS_RETURN"],
     }
+
+
+def _breakdown_item(
+    *,
+    period: str,
+    period_start: date,
+    period_end: date,
+    period_return: float,
+    cumulative_return: float,
+) -> ComparativeBreakdownItem:
+    return ComparativeBreakdownItem(
+        period=period,
+        period_start=period_start,
+        period_end=period_end,
+        period_return=ComparativeReturnValue(base=period_return),
+        cumulative_return=ComparativeReturnValue(base=cumulative_return),
+    )
 
 
 def _analytics_block(
