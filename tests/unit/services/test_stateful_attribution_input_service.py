@@ -23,6 +23,7 @@ from app.services.stateful_attribution_input_service import (
     _position_row_to_daily_point,
     _split_position_cash_flows,
     _stateful_portfolio_position_alignment_mismatches,
+    _summarize_benchmark_classification,
     _validate_stateful_both_currency_support,
     _validate_stateful_group_by,
     _validate_stateful_portfolio_position_alignment,
@@ -412,6 +413,37 @@ def test_build_stateful_attribution_input_builds_instruments_and_benchmark_group
         "status": "complete",
         "classified_component_count": 2,
         "unclassified_component_count": 0,
+    }
+
+
+def test_summarize_benchmark_classification_reports_partial_classification():
+    summary = _summarize_benchmark_classification(
+        component_observations=[
+            BenchmarkComponentObservation(
+                component_id="IDX_A",
+                perf_date=date(2026, 3, 31),
+                weight_bop=0.6,
+                component_return=0.01,
+            ),
+            BenchmarkComponentObservation(
+                component_id="IDX_B",
+                perf_date=date(2026, 3, 31),
+                weight_bop=0.4,
+                component_return=0.02,
+            ),
+        ],
+        index_records=[
+            {"index_id": "IDX_A", "classification_labels": {"sector": "technology"}},
+            {"index_id": "IDX_B", "classification_labels": {"sector": ""}},
+            {"index_id": "IGNORED", "classification_labels": {"sector": "cash"}},
+        ],
+        dimensions=["sector"],
+    )
+
+    assert summary == {
+        "status": "partial",
+        "classified_component_count": 1,
+        "unclassified_component_count": 1,
     }
 
 

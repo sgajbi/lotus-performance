@@ -29,7 +29,7 @@ python scripts/python_complexity_inventory.py --limit 20
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
 | 1 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:1265` | 15 | C |
-| 2 | `_position_meta_from_row` | function | `app/services/stateful_attribution_input_service.py:863` | 15 | C |
+| 2 | `_position_meta_from_row` | function | `app/services/stateful_attribution_input_service.py:880` | 15 | C |
 | 3 | `_build_component_observations` | function | `app/services/stateful_benchmark_input_service.py:474` | 15 | C |
 | 4 | `_build_component_observations_from_price_points` | function | `app/services/stateless_benchmark_input_service.py:39` | 15 | C |
 | 5 | `resolve_twr_request` | function | `app/services/twr_mode_service.py:60` | 15 | C |
@@ -47,7 +47,7 @@ python scripts/python_complexity_inventory.py --limit 20
 | 17 | `build_hierarchical_contribution_result` | function | `engine/contribution.py:298` | 14 | C |
 | 18 | `_apply_overrides` | function | `engine/policies.py:38` | 14 | C |
 | 19 | `_build_artifacts` | function | `app/services/composite_inspection_service.py:114` | 13 | C |
-| 20 | `_summarize_benchmark_classification` | function | `app/services/stateful_attribution_input_service.py:451` | 13 | C |
+| 20 | `process_pending_jobs` | function | `app/workers/lineage_worker.py:18` | 13 | C |
 
 ## Lowest Maintainability Index
 
@@ -129,7 +129,9 @@ checks and calculated/vendor-series stateless rules were split into dedicated he
 and Carino factor range extraction were split into dedicated helpers. `_record_fee_samples` also
 dropped out after fee normalization, fee source-signal, and fee timing sample routing were split
 into dedicated helpers. `validate_history_manifest_header` also dropped out after manifest filename
-and retention-field validation were split into dedicated helpers. Max
+and retention-field validation were split into dedicated helpers. `_summarize_benchmark_classification`
+also dropped out after benchmark classification label indexing and classified component counting
+were split into dedicated helpers. Max
 cyclomatic complexity is now `15`. The remaining
 highest-complexity functions are C-grade service and engine hotspots that should be treated as
 future bounded refactor candidates, not as evidence of an immediate behavior defect.

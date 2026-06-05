@@ -448,6 +448,34 @@ def _summarize_position_classification(
     }
 
 
+def _classification_labels_by_index(index_records: list[dict[str, object]]) -> dict[str, dict[str, object]]:
+    labels_by_index: dict[str, dict[str, object]] = {}
+    for record in index_records:
+        index_id = record.get("index_id")
+        labels = record.get("classification_labels")
+        if isinstance(index_id, str) and isinstance(labels, dict):
+            labels_by_index[index_id] = labels
+    return labels_by_index
+
+
+def _classified_component_count(
+    *,
+    component_ids: list[str],
+    labels_by_index: dict[str, dict[str, object]],
+    dimensions: list[str],
+) -> int:
+    classified_count = 0
+    for component_id in component_ids:
+        labels = labels_by_index.get(component_id)
+        if labels is None:
+            continue
+        if all(
+            isinstance(labels.get(dimension), str) and str(labels.get(dimension)).strip() for dimension in dimensions
+        ):
+            classified_count += 1
+    return classified_count
+
+
 def _summarize_benchmark_classification(
     *,
     component_observations: list[BenchmarkComponentObservation],
@@ -464,23 +492,12 @@ def _summarize_benchmark_classification(
             "unclassified_component_count": 0,
         }
 
-    labels_by_index: dict[str, dict[str, object]] = {}
-    for record in index_records:
-        index_id = record.get("index_id")
-        labels = record.get("classification_labels")
-        if isinstance(index_id, str) and isinstance(labels, dict):
-            labels_by_index[index_id] = labels
-
-    classified_count = 0
-    for component_id in component_ids:
-        labels = labels_by_index.get(component_id)
-        if labels is None:
-            continue
-        if all(
-            isinstance(labels.get(dimension), str) and str(labels.get(dimension)).strip() for dimension in dimensions
-        ):
-            classified_count += 1
-
+    labels_by_index = _classification_labels_by_index(index_records)
+    classified_count = _classified_component_count(
+        component_ids=component_ids,
+        labels_by_index=labels_by_index,
+        dimensions=dimensions,
+    )
     unclassified_count = len(component_ids) - classified_count
     return {
         "status": "complete" if unclassified_count == 0 else "partial",
