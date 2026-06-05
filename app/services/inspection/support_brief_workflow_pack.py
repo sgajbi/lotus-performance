@@ -141,39 +141,73 @@ def _build_source_refs(*, inspection: TWRInspectionResponse) -> list[str]:
 def _map_workflow_pack_run(value: Any) -> TWRInspectionWorkflowPackRun | None:
     if not isinstance(value, dict):
         return None
-    run_id = value.get("run_id")
-    if not isinstance(run_id, str) or not run_id.strip():
+    run_id = _workflow_pack_run_id(value)
+    if run_id is None:
         return None
-    findings: list[TWRInspectionWorkflowPackRunFinding] = []
-    for item in value.get("findings", []):
-        if not isinstance(item, dict):
-            continue
-        finding_id = item.get("finding_id")
-        severity = item.get("severity")
-        summary = item.get("summary")
-        if all(isinstance(part, str) and part.strip() for part in (finding_id, severity, summary)):
-            findings.append(
-                TWRInspectionWorkflowPackRunFinding(
-                    finding_id=finding_id,
-                    severity=severity,
-                    summary=summary,
-                )
-            )
     return TWRInspectionWorkflowPackRun(
         run_id=run_id,
         runtime_state=str(value.get("runtime_state", "")),
         review_state=str(value.get("review_state", "")),
-        allowed_review_actions=[item for item in value.get("allowed_review_actions", []) if isinstance(item, str)],
+        allowed_review_actions=_string_items(value.get("allowed_review_actions")),
         supportability_status=str(value.get("supportability_status", "")),
-        review_pending=bool(value.get("review_state") == "AWAITING_REVIEW"),
-        superseded=bool(value.get("supportability_status") == "HISTORICAL"),
+        review_pending=_is_review_pending(value),
+        superseded=_is_superseded(value),
         workflow_authority_owner=str(value.get("workflow_authority_owner", "")),
         current_summary_note=_build_summary_note(value),
-        replacement_run_id=(
-            str(value.get("replacement_run_id")) if isinstance(value.get("replacement_run_id"), str) else None
-        ),
-        findings=findings,
+        replacement_run_id=_optional_string(value.get("replacement_run_id")),
+        findings=_map_workflow_pack_run_findings(value.get("findings")),
     )
+
+
+def _workflow_pack_run_id(value: dict[str, Any]) -> str | None:
+    run_id = value.get("run_id")
+    if not isinstance(run_id, str) or not run_id.strip():
+        return None
+    return run_id
+
+
+def _map_workflow_pack_run_findings(value: Any) -> list[TWRInspectionWorkflowPackRunFinding]:
+    if not isinstance(value, list):
+        return []
+    findings: list[TWRInspectionWorkflowPackRunFinding] = []
+    for item in value:
+        mapped_finding = _map_workflow_pack_run_finding(item)
+        if mapped_finding is not None:
+            findings.append(mapped_finding)
+    return findings
+
+
+def _map_workflow_pack_run_finding(value: Any) -> TWRInspectionWorkflowPackRunFinding | None:
+    if not isinstance(value, dict):
+        return None
+    finding_id = value.get("finding_id")
+    severity = value.get("severity")
+    summary = value.get("summary")
+    if not all(isinstance(part, str) and part.strip() for part in (finding_id, severity, summary)):
+        return None
+    return TWRInspectionWorkflowPackRunFinding(
+        finding_id=finding_id,
+        severity=severity,
+        summary=summary,
+    )
+
+
+def _string_items(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, str)]
+
+
+def _optional_string(value: Any) -> str | None:
+    return str(value) if isinstance(value, str) else None
+
+
+def _is_review_pending(value: dict[str, Any]) -> bool:
+    return bool(value.get("review_state") == "AWAITING_REVIEW")
+
+
+def _is_superseded(value: dict[str, Any]) -> bool:
+    return bool(value.get("supportability_status") == "HISTORICAL")
 
 
 def _build_summary_note(payload: dict[str, Any]) -> str:

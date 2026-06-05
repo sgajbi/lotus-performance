@@ -22,7 +22,7 @@ python scripts/python_complexity_inventory.py --limit 20
 | --- | ---: |
 | Max cyclomatic complexity | 15 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.61 |
+| Average maintainability index | 55.60 |
 
 ## Highest Cyclomatic Complexity
 
@@ -47,7 +47,7 @@ python scripts/python_complexity_inventory.py --limit 20
 | 17 | `build_hierarchical_contribution_result` | function | `engine/contribution.py:298` | 14 | C |
 | 18 | `_apply_overrides` | function | `engine/policies.py:38` | 14 | C |
 | 19 | `_build_artifacts` | function | `app/services/composite_inspection_service.py:114` | 13 | C |
-| 20 | `_map_workflow_pack_run` | function | `app/services/inspection/support_brief_workflow_pack.py:141` | 12 | C |
+| 20 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:71` | 12 | C |
 
 ## Lowest Maintainability Index
 
@@ -154,7 +154,9 @@ dedicated helpers. `_check_relative_block` also dropped out after relative summa
 per-frequency cardinality checks, and row-level relative arithmetic were split into dedicated
 helpers. `build_source_economics_findings` also dropped out after observation-contract,
 explicit-amount-contract, and detailed cash-flow contract finding groups were split into dedicated
-helpers. Max cyclomatic complexity is now `15`. The remaining
+helpers. `_map_workflow_pack_run` also dropped out after run-id validation, finding projection,
+string-list filtering, replacement-run-id projection, and posture boolean policy were split into
+dedicated helpers. Max cyclomatic complexity is now `15`. The remaining
 highest-complexity functions are C-grade service and engine hotspots that should be treated as
 future bounded refactor candidates, not as evidence of an immediate behavior defect.
 

@@ -125,6 +125,37 @@ def test_generate_twr_inspection_support_brief_preserves_failed_run_posture(monk
     assert result.workflow_pack_run.runtime_state == "FAILED"
 
 
+def test_map_workflow_pack_run_filters_invalid_projection_fields() -> None:
+    run = service._map_workflow_pack_run(
+        {
+            "run_id": "packrun_twr_inspection_support_brief_req_historical_001",
+            "runtime_state": "COMPLETED",
+            "review_state": "CLOSED",
+            "allowed_review_actions": ["VIEW", 3, None],
+            "supportability_status": "HISTORICAL",
+            "workflow_authority_owner": "lotus-performance",
+            "replacement_run_id": "packrun_twr_inspection_support_brief_req_002",
+            "findings": [
+                {
+                    "finding_id": "historical",
+                    "severity": "INFO",
+                    "summary": "Run was superseded.",
+                },
+                {"finding_id": "missing-summary", "severity": "INFO"},
+                "not-a-finding",
+            ],
+        }
+    )
+
+    assert run is not None
+    assert run.allowed_review_actions == ["VIEW"]
+    assert run.replacement_run_id == "packrun_twr_inspection_support_brief_req_002"
+    assert run.superseded is True
+    assert run.review_pending is False
+    assert run.current_summary_note == "Run is historical due to replacement lineage."
+    assert [finding.finding_id for finding in run.findings] == ["historical"]
+
+
 def _inspection_response() -> TWRInspectionResponse:
     return TWRInspectionResponse(
         inspection_id=uuid4(),
