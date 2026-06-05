@@ -47,6 +47,22 @@ _RUNTIME_RETENTION_REQUIRED_INT_FIELDS = (
     "prunable_lineage_record_count",
     "prunable_lineage_artifact_count",
 )
+_RECOVERY_DRILL_REQUIRED_STRING_FIELDS = (
+    "drill_name",
+    "generated_at_utc",
+    "evidence_file_name",
+    "operator_id",
+    "backup_identifier",
+    "status",
+    "database_path",
+    "restored_schema_mode",
+    "compute_async_result_status",
+    "compute_execution_status",
+    "materialized_artifact_path",
+)
+_RECOVERY_DRILL_OPTIONAL_STRING_FIELDS = ("tenant_id", "correlation_id")
+_RECOVERY_DRILL_REQUIRED_INT_FIELDS = ("compute_job_processed_count", "processed_payload_count")
+_RECOVERY_DRILL_REQUIRED_BOOL_FIELDS = ("materialized_artifact_exists",)
 
 
 @dataclass(frozen=True)
@@ -207,28 +223,27 @@ def _recovery_drill_payload_matches_entry(
     payload: dict[str, Any],
     entry: RecoveryDrillHistoryEntry,
 ) -> bool:
+    return _recovery_drill_payload_has_required_shape(payload) and _recovery_drill_payload_identity_matches(
+        payload, entry
+    )
+
+
+def _recovery_drill_payload_has_required_shape(payload: dict[str, Any]) -> bool:
     return (
-        required_evidence_string_fields_present(
-            payload,
-            (
-                "drill_name",
-                "generated_at_utc",
-                "evidence_file_name",
-                "operator_id",
-                "backup_identifier",
-                "status",
-                "database_path",
-                "restored_schema_mode",
-                "compute_async_result_status",
-                "compute_execution_status",
-                "materialized_artifact_path",
-            ),
-        )
-        and optional_evidence_string_fields_valid(payload, ("tenant_id", "correlation_id"))
-        and required_evidence_int_fields_present(payload, ("compute_job_processed_count", "processed_payload_count"))
+        required_evidence_string_fields_present(payload, _RECOVERY_DRILL_REQUIRED_STRING_FIELDS)
+        and optional_evidence_string_fields_valid(payload, _RECOVERY_DRILL_OPTIONAL_STRING_FIELDS)
+        and required_evidence_int_fields_present(payload, _RECOVERY_DRILL_REQUIRED_INT_FIELDS)
         and is_required_evidence_string_list(payload.get("owned_tables_present"))
-        and required_evidence_bool_fields_present(payload, ("materialized_artifact_exists",))
-        and payload["evidence_file_name"] == entry.evidence_file_name
+        and required_evidence_bool_fields_present(payload, _RECOVERY_DRILL_REQUIRED_BOOL_FIELDS)
+    )
+
+
+def _recovery_drill_payload_identity_matches(
+    payload: dict[str, Any],
+    entry: RecoveryDrillHistoryEntry,
+) -> bool:
+    return (
+        payload["evidence_file_name"] == entry.evidence_file_name
         and payload["generated_at_utc"] == entry.generated_at_utc
         and payload["operator_id"] == entry.operator_id
         and payload.get("tenant_id") == entry.tenant_id

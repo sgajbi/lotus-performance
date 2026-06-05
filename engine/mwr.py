@@ -255,6 +255,15 @@ class _MWRXirrAttempt:
     reason_code: str | None = None
 
 
+@dataclass(frozen=True)
+class _DietzFallbackMetadata:
+    status: str
+    reason_codes: list[str]
+    warnings: list[str]
+    fallback_from: str | None
+    fallback_reason: str | None
+
+
 def _calculate_xirr_mwr_attempt(
     *,
     begin_mv: float,
@@ -339,9 +348,7 @@ def _calculate_dietz_mwr_result(
     xirr_fallback_reason_code: str | None = None,
 ) -> MWRResult:
     net_cash_flow = sum(cf.amount for cf in cash_flows)
-    dietz_method: Literal["MODIFIED_DIETZ", "DIETZ"] = (
-        "MODIFIED_DIETZ" if calculation_method in {"XIRR", "MODIFIED_DIETZ"} else "DIETZ"
-    )
+    dietz_method = _dietz_method_for_calculation(calculation_method)
     denominator = _dietz_denominator(
         begin_mv=begin_mv,
         cash_flows=cash_flows,
@@ -364,29 +371,74 @@ def _calculate_dietz_mwr_result(
     numerator = end_mv - begin_mv - net_cash_flow
     periodic_rate = numerator / denominator
 
-    mwr_annualized = None
-    if annualization.enabled and period_days > 0:
-        ppy = 365.25 if annualization.basis == "ACT/ACT" else 365.0
-        scale = ppy / period_days
-        mwr_annualized = ((1 + periodic_rate) ** scale - 1) * 100
-
-    fallback_used = calculation_method == "XIRR"
-    fallback_reason_code = xirr_fallback_reason_code or "SOLVER_DID_NOT_CONVERGE"
+    fallback_metadata = _dietz_fallback_metadata(
+        calculation_method=calculation_method,
+        xirr_fallback_reason_code=xirr_fallback_reason_code,
+    )
     return MWRResult(
         mwr=periodic_rate * 100,
-        mwr_annualized=mwr_annualized,
+        mwr_annualized=_annualized_dietz_rate(
+            periodic_rate=periodic_rate,
+            annualization=annualization,
+            period_days=period_days,
+        ),
         method=dietz_method,
         start_date=start_date,
         end_date=end_date,
         notes=notes,
-        status="FALLBACK_USED" if fallback_used else "CALCULATED",
-        reason_codes=([fallback_reason_code, "DIETZ_FALLBACK_USED"] if fallback_used else []),
-        warnings=(["FALLBACK_METHOD_USED"] if fallback_used else []),
+        status=fallback_metadata.status,
+        reason_codes=fallback_metadata.reason_codes,
+        warnings=fallback_metadata.warnings,
         holding_period_return=periodic_rate * 100,
         is_annualized_primary=False,
-        fallback_from="XIRR" if fallback_used else None,
-        fallback_reason=fallback_reason_code if fallback_used else None,
+        fallback_from=fallback_metadata.fallback_from,
+        fallback_reason=fallback_metadata.fallback_reason,
         is_approximation=True,
+    )
+
+
+def _dietz_method_for_calculation(
+    calculation_method: Literal["XIRR", "MODIFIED_DIETZ", "DIETZ"],
+) -> Literal["MODIFIED_DIETZ", "DIETZ"]:
+    if calculation_method in {"XIRR", "MODIFIED_DIETZ"}:
+        return "MODIFIED_DIETZ"
+    return "DIETZ"
+
+
+def _annualized_dietz_rate(
+    *,
+    periodic_rate,
+    annualization: Annualization,
+    period_days: int,
+) -> float | None:
+    if not annualization.enabled or period_days <= 0:
+        return None
+    ppy = 365.25 if annualization.basis == "ACT/ACT" else 365.0
+    scale = ppy / period_days
+    return ((1 + periodic_rate) ** scale - 1) * 100
+
+
+def _dietz_fallback_metadata(
+    *,
+    calculation_method: Literal["XIRR", "MODIFIED_DIETZ", "DIETZ"],
+    xirr_fallback_reason_code: str | None = None,
+) -> _DietzFallbackMetadata:
+    if calculation_method != "XIRR":
+        return _DietzFallbackMetadata(
+            status="CALCULATED",
+            reason_codes=[],
+            warnings=[],
+            fallback_from=None,
+            fallback_reason=None,
+        )
+
+    fallback_reason_code = xirr_fallback_reason_code or "SOLVER_DID_NOT_CONVERGE"
+    return _DietzFallbackMetadata(
+        status="FALLBACK_USED",
+        reason_codes=[fallback_reason_code, "DIETZ_FALLBACK_USED"],
+        warnings=["FALLBACK_METHOD_USED"],
+        fallback_from="XIRR",
+        fallback_reason=fallback_reason_code,
     )
 
 

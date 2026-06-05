@@ -44,16 +44,37 @@ def _count_attribution_input_rows(request: AttributionRequest) -> int:
 
 
 def _latest_attribution_observation_date(request: AttributionRequest):
-    dates: list[object] = []
-    if request.portfolio_data is not None:
-        dates.extend(point.perf_date for point in request.portfolio_data.valuation_points)
-    for instrument in request.instruments_data or []:
-        dates.extend(point.perf_date for point in instrument.valuation_points)
-    for group in request.portfolio_groups_data or []:
-        dates.extend(observation.get("date") for observation in group.observations if observation.get("date"))
-    for group in request.benchmark_groups_data:
-        dates.extend(observation.date for observation in group.observations)
-    return latest_observation_date(dates)
+    return latest_observation_date(
+        [
+            *_portfolio_observation_dates(request),
+            *_instrument_observation_dates(request),
+            *_portfolio_group_observation_dates(request),
+            *_benchmark_group_observation_dates(request),
+        ]
+    )
+
+
+def _portfolio_observation_dates(request: AttributionRequest) -> list[object]:
+    if request.portfolio_data is None:
+        return []
+    return [point.perf_date for point in request.portfolio_data.valuation_points]
+
+
+def _instrument_observation_dates(request: AttributionRequest) -> list[object]:
+    return [point.perf_date for instrument in request.instruments_data or [] for point in instrument.valuation_points]
+
+
+def _portfolio_group_observation_dates(request: AttributionRequest) -> list[object]:
+    return [
+        observation["date"]
+        for group in request.portfolio_groups_data or []
+        for observation in group.observations
+        if observation.get("date")
+    ]
+
+
+def _benchmark_group_observation_dates(request: AttributionRequest) -> list[object]:
+    return [observation.date for group in request.benchmark_groups_data for observation in group.observations]
 
 
 def _slice_attribution_effects_by_period(
@@ -91,6 +112,57 @@ def _build_attribution_results_by_period(
             lineage_data.update({f"{period.name}_{key}": value for key, value in aggregation_lineage.items()})
         results_by_period[period.name] = build_single_period_attribution_response(period_result)
     return results_by_period
+
+
+def _build_attribution_meta(
+    *,
+    request: AttributionRequest,
+    app_version: str,
+    periods_to_resolve: Sequence[Any],
+    master_start_date,
+    master_end_date,
+    input_fingerprint: str,
+    calculation_hash: str,
+) -> Meta:
+    return Meta(
+        calculation_id=request.calculation_id,
+        engine_version=app_version,
+        precision_mode=request.precision_mode,
+        annualization=request.annualization,
+        calendar=request.calendar,
+        periods={
+            "requested": [p.value for p in periods_to_resolve],
+            "master_start": str(master_start_date),
+            "master_end": str(master_end_date),
+        },
+        input_fingerprint=input_fingerprint,
+        calculation_hash=calculation_hash,
+    )
+
+
+def _build_attribution_supportability(request: AttributionRequest, *, resolved_period_count: int):
+    calculation_supportability = build_calculation_supportability(
+        input_row_count=_count_attribution_input_rows(request),
+        resolved_period_count=resolved_period_count,
+        latest_observation_date=_latest_attribution_observation_date(request),
+        report_end_date=request.report_end_date,
+        benchmark_row_count=_count_attribution_benchmark_rows(request),
+    )
+    record_supportability_metric(operation="attribution", supportability=calculation_supportability)
+    return calculation_supportability
+
+
+def _attribution_benchmark_context(
+    *,
+    resolved_benchmark_id: str | None,
+    resolved_benchmark_return_source: str | None,
+) -> dict[str, str] | None:
+    if resolved_benchmark_id is None or resolved_benchmark_return_source is None:
+        return None
+    return {
+        "benchmark_id": resolved_benchmark_id,
+        "return_source": resolved_benchmark_return_source,
+    }
 
 
 def calculate_attribution(
@@ -137,28 +209,19 @@ def calculate_attribution(
             lineage_data=lineage_data,
         )
 
-        meta = Meta(
-            calculation_id=request.calculation_id,
-            engine_version=active_settings.APP_VERSION,
-            precision_mode=request.precision_mode,
-            annualization=request.annualization,
-            calendar=request.calendar,
-            periods={
-                "requested": [p.value for p in periods_to_resolve],
-                "master_start": str(master_start_date),
-                "master_end": str(master_end_date),
-            },
+        meta = _build_attribution_meta(
+            request=request,
+            app_version=active_settings.APP_VERSION,
+            periods_to_resolve=periods_to_resolve,
+            master_start_date=master_start_date,
+            master_end_date=master_end_date,
             input_fingerprint=input_fingerprint,
             calculation_hash=calculation_hash,
         )
-        calculation_supportability = build_calculation_supportability(
-            input_row_count=_count_attribution_input_rows(request),
+        calculation_supportability = _build_attribution_supportability(
+            request,
             resolved_period_count=len(results_by_period),
-            latest_observation_date=_latest_attribution_observation_date(request),
-            report_end_date=request.report_end_date,
-            benchmark_row_count=_count_attribution_benchmark_rows(request),
         )
-        record_supportability_metric(operation="attribution", supportability=calculation_supportability)
 
         response_model = AttributionResponse(
             calculation_id=request.calculation_id,
@@ -167,13 +230,9 @@ def calculate_attribution(
             model=request.model,
             linking=request.linking,
             results_by_period=results_by_period,
-            benchmark_context=(
-                {
-                    "benchmark_id": resolved_benchmark_id,
-                    "return_source": resolved_benchmark_return_source,
-                }
-                if resolved_benchmark_id is not None and resolved_benchmark_return_source is not None
-                else None
+            benchmark_context=_attribution_benchmark_context(
+                resolved_benchmark_id=resolved_benchmark_id,
+                resolved_benchmark_return_source=resolved_benchmark_return_source,
             ),
             calculation_supportability=calculation_supportability,
             meta=meta,

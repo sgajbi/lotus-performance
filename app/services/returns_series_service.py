@@ -101,6 +101,17 @@ class _ReturnsSeriesIdentity:
 
 
 @dataclass(frozen=True)
+class _ReturnsSeriesExecutionContext:
+    request: ReturnsSeriesRequest
+    resolved_window: ResolvedWindow
+    effective_input_mode: InputMode
+    input_fingerprint: str
+    calculation_hash: str
+    resolved_benchmark_id: str | None
+    resolved_benchmark_return_source: BenchmarkReturnSource
+
+
+@dataclass(frozen=True)
 class _StatefulBenchmarkSeriesSource:
     benchmark_points: list[dict[str, Any]]
     benchmark_source_details: dict[str, int]
@@ -121,6 +132,12 @@ class _StatefulReturnsSeriesFrames:
     portfolio_df: pd.DataFrame
     benchmark_df: pd.DataFrame | None
     risk_free_df: pd.DataFrame | None
+
+
+@dataclass(frozen=True)
+class _StatefulReturnsSeriesResolvedRequest:
+    request: ReturnsSeriesRequest
+    identity_payload: dict[str, Any]
 
 
 def period_start(as_of_date: date, period: ReturnsRelativePeriod, year: int | None) -> date:
@@ -753,6 +770,77 @@ def _stateful_returns_retrieval_stage_details(
     }
 
 
+def _build_resolved_stateful_returns_series_request(
+    *,
+    request: ReturnsSeriesRequest,
+    resolved_window: ResolvedWindow,
+    observations: list[dict[str, object]],
+    portfolio_performance_start_date: date,
+    benchmark_resolution: _StatefulBenchmarkResolution,
+    risk_free_points: list[dict[str, Any]] | None,
+    resolved_benchmark_id: str | None,
+    resolved_benchmark_return_source: BenchmarkReturnSource,
+) -> _StatefulReturnsSeriesResolvedRequest:
+    normalized_frames = _build_stateful_returns_series_frames(
+        request=request,
+        resolved_window=resolved_window,
+        observations=observations,
+        portfolio_performance_start_date=portfolio_performance_start_date,
+        benchmark_points=benchmark_resolution.benchmark_points,
+        benchmark_df=benchmark_resolution.benchmark_df,
+        risk_free_points=risk_free_points,
+    )
+    portfolio_df = normalized_frames.portfolio_df
+    benchmark_df = normalized_frames.benchmark_df
+    risk_free_df = normalized_frames.risk_free_df
+    execution_registry.complete_stage(
+        request.calculation_id,
+        EXECUTION_STAGE_NORMALIZATION,
+        details={
+            "portfolio_points": len(portfolio_df),
+            "benchmark_points": len(benchmark_df) if benchmark_df is not None else 0,
+            "risk_free_points": len(risk_free_df) if risk_free_df is not None else 0,
+        },
+    )
+
+    portfolio_return_points = points_from_df(portfolio_df)
+    benchmark_return_points = points_from_df(benchmark_df) if benchmark_df is not None else None
+    risk_free_return_points = points_from_df(risk_free_df) if risk_free_df is not None else None
+    identity_payload = _build_stateful_resolved_returns_payload(
+        request=request,
+        resolved_window=resolved_window,
+        portfolio_records=_records_from_points(portfolio_return_points) or [],
+        benchmark_records=_records_from_points(benchmark_return_points),
+        risk_free_records=_records_from_points(risk_free_return_points),
+        resolved_benchmark_id=resolved_benchmark_id,
+        resolved_benchmark_return_source=(resolved_benchmark_return_source.value if resolved_benchmark_id else None),
+    )
+    resolved_request = ReturnsSeriesRequest.model_validate(
+        {
+            "calculation_id": str(request.calculation_id),
+            "portfolio_id": request.portfolio_id,
+            "as_of_date": request.as_of_date.isoformat(),
+            "window": request.window.model_dump(mode="json"),
+            "frequency": request.frequency.value,
+            "metric_basis": request.metric_basis.value,
+            "reporting_currency": request.reporting_currency,
+            "series_selection": request.series_selection.model_dump(mode="json"),
+            "risk_free": request.risk_free.model_dump(mode="json") if request.risk_free is not None else None,
+            "data_policy": request.data_policy.model_dump(mode="json"),
+            "input_mode": InputMode.STATELESS.value,
+            "stateless_input": {
+                "portfolio_returns": identity_payload["stateless_input"]["portfolio_returns"],
+                "benchmark_returns": identity_payload["stateless_input"]["benchmark_returns"],
+                "risk_free_returns": identity_payload["stateless_input"]["risk_free_returns"],
+            },
+        }
+    )
+    return _StatefulReturnsSeriesResolvedRequest(
+        request=resolved_request,
+        identity_payload=identity_payload,
+    )
+
+
 async def _resolve_stateful_returns_series_benchmark_id(
     *,
     request: ReturnsSeriesRequest,
@@ -1140,6 +1228,55 @@ async def calculate_returns_series(
     )
 
 
+async def _resolve_returns_series_execution_context(
+    *,
+    request: ReturnsSeriesRequest,
+    source_input_mode: InputMode | None,
+    resolved_benchmark_id_override: str | None,
+    resolved_benchmark_return_source_override: str | None,
+) -> _ReturnsSeriesExecutionContext:
+    input_fingerprint, calculation_hash = generate_canonical_hash(request, "returns-series-v1")
+    effective_input_mode = source_input_mode or request.input_mode
+    resolved_window = resolve_window(request)
+    resolved_benchmark_id: str | None = resolved_benchmark_id_override or (
+        request.benchmark.benchmark_id if request.benchmark else None
+    )
+    resolved_benchmark_return_source = (
+        BenchmarkReturnSource(resolved_benchmark_return_source_override)
+        if resolved_benchmark_return_source_override is not None
+        else _get_requested_benchmark_return_source(request)
+    )
+
+    if request.input_mode == InputMode.STATEFUL:
+        resolved_stateful_request = await resolve_stateful_returns_series_request(request)
+        request = resolved_stateful_request.request
+        resolved_benchmark_id = resolved_stateful_request.resolved_benchmark_id
+        if resolved_stateful_request.resolved_benchmark_return_source is not None:
+            resolved_benchmark_return_source = BenchmarkReturnSource(
+                resolved_stateful_request.resolved_benchmark_return_source
+            )
+        input_fingerprint, calculation_hash = generate_canonical_hash(
+            resolved_stateful_request.identity_payload,
+            "returns-series-v1",
+        )
+        execution_registry.update_execution_identity(
+            request.calculation_id,
+            input_fingerprint=input_fingerprint,
+            calculation_hash=calculation_hash,
+        )
+        resolved_window = resolve_window(request)
+
+    return _ReturnsSeriesExecutionContext(
+        request=request,
+        resolved_window=resolved_window,
+        effective_input_mode=effective_input_mode,
+        input_fingerprint=input_fingerprint,
+        calculation_hash=calculation_hash,
+        resolved_benchmark_id=resolved_benchmark_id,
+        resolved_benchmark_return_source=resolved_benchmark_return_source,
+    )
+
+
 async def _calculate_returns_series(
     request: ReturnsSeriesRequest,
     *,
@@ -1147,45 +1284,20 @@ async def _calculate_returns_series(
     resolved_benchmark_id_override: str | None = None,
     resolved_benchmark_return_source_override: str | None = None,
 ) -> ReturnsSeriesResponse:
-    input_fingerprint, calculation_hash = generate_canonical_hash(request, "returns-series-v1")
-    effective_input_mode = source_input_mode or request.input_mode
     execution_registry.mark_running(request.calculation_id)
     active_stage: str | None = None
     try:
-        resolved_window = resolve_window(request)
-        benchmark_df = None
-        risk_free_df = None
-        resolved_benchmark_id: str | None = resolved_benchmark_id_override or (
-            request.benchmark.benchmark_id if request.benchmark else None
+        context = await _resolve_returns_series_execution_context(
+            request=request,
+            source_input_mode=source_input_mode,
+            resolved_benchmark_id_override=resolved_benchmark_id_override,
+            resolved_benchmark_return_source_override=resolved_benchmark_return_source_override,
         )
-        resolved_benchmark_return_source = (
-            BenchmarkReturnSource(resolved_benchmark_return_source_override)
-            if resolved_benchmark_return_source_override is not None
-            else _get_requested_benchmark_return_source(request)
-        )
-
-        if request.input_mode == InputMode.STATEFUL:
-            resolved_stateful_request = await resolve_stateful_returns_series_request(request)
-            request = resolved_stateful_request.request
-            resolved_benchmark_id = resolved_stateful_request.resolved_benchmark_id
-            if resolved_stateful_request.resolved_benchmark_return_source is not None:
-                resolved_benchmark_return_source = BenchmarkReturnSource(
-                    resolved_stateful_request.resolved_benchmark_return_source
-                )
-            input_fingerprint, calculation_hash = generate_canonical_hash(
-                resolved_stateful_request.identity_payload,
-                "returns-series-v1",
-            )
-            execution_registry.update_execution_identity(
-                request.calculation_id,
-                input_fingerprint=input_fingerprint,
-                calculation_hash=calculation_hash,
-            )
-            resolved_window = resolve_window(request)
+        request = context.request
 
         portfolio_df, benchmark_df, risk_free_df = _prepare_stateless_returns_series_dataframes(
             request=request,
-            resolved_window=resolved_window,
+            resolved_window=context.resolved_window,
         )
 
         active_stage = EXECUTION_STAGE_EXECUTION
@@ -1209,20 +1321,22 @@ async def _calculate_returns_series(
             risk_free_df=risk_free_df,
         )
 
-        if effective_input_mode == InputMode.STATEFUL:
+        input_fingerprint = context.input_fingerprint
+        calculation_hash = context.calculation_hash
+        if context.effective_input_mode == InputMode.STATEFUL:
             resolved_identity = _update_resolved_stateful_returns_identity(
                 request=request,
-                resolved_window=resolved_window,
+                resolved_window=context.resolved_window,
                 point_outputs=point_outputs,
-                resolved_benchmark_id=resolved_benchmark_id,
-                resolved_benchmark_return_source=resolved_benchmark_return_source,
+                resolved_benchmark_id=context.resolved_benchmark_id,
+                resolved_benchmark_return_source=context.resolved_benchmark_return_source,
             )
             input_fingerprint = resolved_identity.input_fingerprint
             calculation_hash = resolved_identity.calculation_hash
 
         diagnostics_result = _build_returns_series_diagnostics(
             request=request,
-            resolved_window=resolved_window,
+            resolved_window=context.resolved_window,
             portfolio_df=portfolio_df,
             benchmark_df=benchmark_df,
             risk_free_df=risk_free_df,
@@ -1230,14 +1344,14 @@ async def _calculate_returns_series(
 
         response = _build_returns_series_response(
             request=request,
-            resolved_window=resolved_window,
+            resolved_window=context.resolved_window,
             point_outputs=point_outputs,
             diagnostics_result=diagnostics_result,
-            effective_input_mode=effective_input_mode,
+            effective_input_mode=context.effective_input_mode,
             input_fingerprint=input_fingerprint,
             calculation_hash=calculation_hash,
-            resolved_benchmark_id=resolved_benchmark_id,
-            resolved_benchmark_return_source=resolved_benchmark_return_source,
+            resolved_benchmark_id=context.resolved_benchmark_id,
+            resolved_benchmark_return_source=context.resolved_benchmark_return_source,
         )
         execution_registry.complete_stage(
             request.calculation_id,
@@ -1333,64 +1447,20 @@ async def resolve_stateful_returns_series_request(
     )
 
     execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_NORMALIZATION)
-    normalized_frames = _build_stateful_returns_series_frames(
+    resolved_stateful_request = _build_resolved_stateful_returns_series_request(
         request=request,
         resolved_window=resolved_window,
         observations=observations,
         portfolio_performance_start_date=portfolio_source.performance_start_date,
-        benchmark_points=benchmark_resolution.benchmark_points,
-        benchmark_df=benchmark_resolution.benchmark_df,
+        benchmark_resolution=benchmark_resolution,
         risk_free_points=risk_free_points,
-    )
-    portfolio_df = normalized_frames.portfolio_df
-    benchmark_df = normalized_frames.benchmark_df
-    risk_free_df = normalized_frames.risk_free_df
-    execution_registry.complete_stage(
-        request.calculation_id,
-        EXECUTION_STAGE_NORMALIZATION,
-        details={
-            "portfolio_points": len(portfolio_df),
-            "benchmark_points": len(benchmark_df) if benchmark_df is not None else 0,
-            "risk_free_points": len(risk_free_df) if risk_free_df is not None else 0,
-        },
-    )
-
-    portfolio_return_points = points_from_df(portfolio_df)
-    benchmark_return_points = points_from_df(benchmark_df) if benchmark_df is not None else None
-    risk_free_return_points = points_from_df(risk_free_df) if risk_free_df is not None else None
-    identity_payload = _build_stateful_resolved_returns_payload(
-        request=request,
-        resolved_window=resolved_window,
-        portfolio_records=_records_from_points(portfolio_return_points) or [],
-        benchmark_records=_records_from_points(benchmark_return_points),
-        risk_free_records=_records_from_points(risk_free_return_points),
         resolved_benchmark_id=resolved_benchmark_id,
-        resolved_benchmark_return_source=(resolved_benchmark_return_source.value if resolved_benchmark_id else None),
-    )
-    resolved_request = ReturnsSeriesRequest.model_validate(
-        {
-            "calculation_id": str(request.calculation_id),
-            "portfolio_id": request.portfolio_id,
-            "as_of_date": request.as_of_date.isoformat(),
-            "window": request.window.model_dump(mode="json"),
-            "frequency": request.frequency.value,
-            "metric_basis": request.metric_basis.value,
-            "reporting_currency": request.reporting_currency,
-            "series_selection": request.series_selection.model_dump(mode="json"),
-            "risk_free": request.risk_free.model_dump(mode="json") if request.risk_free is not None else None,
-            "data_policy": request.data_policy.model_dump(mode="json"),
-            "input_mode": InputMode.STATELESS.value,
-            "stateless_input": {
-                "portfolio_returns": identity_payload["stateless_input"]["portfolio_returns"],
-                "benchmark_returns": identity_payload["stateless_input"]["benchmark_returns"],
-                "risk_free_returns": identity_payload["stateless_input"]["risk_free_returns"],
-            },
-        }
+        resolved_benchmark_return_source=resolved_benchmark_return_source,
     )
     input_count = len(observations) + benchmark_resolution.benchmark_work_units + len(risk_free_points or [])
     return ResolvedStatefulReturnsSeriesRequest(
-        request=resolved_request,
-        identity_payload=identity_payload,
+        request=resolved_stateful_request.request,
+        identity_payload=resolved_stateful_request.identity_payload,
         input_count=input_count,
         resolved_benchmark_id=resolved_benchmark_id,
         resolved_benchmark_return_source=(resolved_benchmark_return_source.value if resolved_benchmark_id else None),

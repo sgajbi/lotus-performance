@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Literal
+from typing import Any, Literal
 
 from fastapi import HTTPException, status
 
@@ -33,24 +33,11 @@ def build_source_preconverted_mwr_currency_evidence(
         return None
 
     reporting_currency = request.report_ccy or request.currency
-    market_values_by_role = {item.value_role: item for item in evidence.market_values}
-    if set(market_values_by_role) != {"beginning_market_value", "ending_market_value"}:
-        _raise_fx_evidence_error(
-            "source_preconverted_fx_evidence.market_values must contain exactly one beginning_market_value "
-            "and one ending_market_value record"
-        )
-    if len(evidence.market_values) != 2:
-        _raise_fx_evidence_error("source_preconverted_fx_evidence.market_values must contain exactly two records")
-
-    cash_flows_by_index = {item.cash_flow_index: item for item in evidence.cash_flows}
-    expected_indexes = set(range(len(request.cash_flows)))
-    if set(cash_flows_by_index) != expected_indexes or len(evidence.cash_flows) != len(request.cash_flows):
-        _raise_fx_evidence_error(
-            "source_preconverted_fx_evidence.cash_flows must contain exactly one record for each cash flow index"
-        )
-
-    beginning_evidence = market_values_by_role["beginning_market_value"]
-    ending_evidence = market_values_by_role["ending_market_value"]
+    beginning_evidence, ending_evidence = _validated_market_value_evidence(evidence.market_values)
+    cash_flows_by_index = _validated_cash_flow_evidence_by_index(
+        request_cash_flow_count=len(request.cash_flows),
+        evidence_cash_flows=evidence.cash_flows,
+    )
     _validate_component(
         beginning_evidence,
         reporting_amount=_decimal(request.begin_mv),
@@ -63,40 +50,6 @@ def build_source_preconverted_mwr_currency_evidence(
         reporting_currency=reporting_currency,
         location="source_preconverted_fx_evidence.market_values[ending_market_value]",
     )
-
-    cashflow_evidence: list[MWRCashFlowEvidence] = []
-    for index, cash_flow in enumerate(request.cash_flows):
-        item = cash_flows_by_index[index]
-        if item.cash_flow_date != cash_flow.date:
-            _raise_fx_evidence_error(
-                f"source_preconverted_fx_evidence.cash_flows[{index}].cash_flow_date must match cash_flows[{index}].date"
-            )
-        _validate_component(
-            item,
-            reporting_amount=_decimal(cash_flow.amount),
-            reporting_currency=reporting_currency,
-            location=f"source_preconverted_fx_evidence.cash_flows[{index}]",
-        )
-        cashflow_evidence.append(
-            MWRCashFlowEvidence(
-                date=cash_flow.date,
-                amount=_decimal(cash_flow.amount),
-                currency=reporting_currency,
-                source_components=[],
-                source_amount=_decimal(item.source_amount),
-                source_currency=item.source_currency,
-                reporting_amount=_decimal(item.reporting_amount),
-                reporting_currency=item.reporting_currency,
-                fx_rate=_decimal(item.fx_rate),
-                fx_pair=item.fx_pair,
-                fx_rate_date=item.fx_rate_date,
-                fx_rate_source=item.fx_rate_source,
-                fx_rate_version=item.fx_rate_version,
-                conversion_policy=item.conversion_policy,
-                conversion_timestamp=item.conversion_timestamp,
-                conversion_fingerprint=item.conversion_fingerprint,
-            )
-        )
 
     return MWRCurrencyEvidence(
         reporting_currency=reporting_currency,
@@ -120,7 +73,93 @@ def build_source_preconverted_mwr_currency_evidence(
                 valuation_date=request.as_of,
             ),
         ],
-        cashflow_evidence=cashflow_evidence,
+        cashflow_evidence=_build_cashflow_response_evidence(
+            request_cash_flows=request.cash_flows,
+            cash_flows_by_index=cash_flows_by_index,
+            reporting_currency=reporting_currency,
+        ),
+    )
+
+
+def _validated_market_value_evidence(
+    market_values: list[MWRMarketValueFXEvidence],
+) -> tuple[MWRMarketValueFXEvidence, MWRMarketValueFXEvidence]:
+    market_values_by_role = {item.value_role: item for item in market_values}
+    if set(market_values_by_role) != {"beginning_market_value", "ending_market_value"}:
+        _raise_fx_evidence_error(
+            "source_preconverted_fx_evidence.market_values must contain exactly one beginning_market_value "
+            "and one ending_market_value record"
+        )
+    if len(market_values) != 2:
+        _raise_fx_evidence_error("source_preconverted_fx_evidence.market_values must contain exactly two records")
+    return market_values_by_role["beginning_market_value"], market_values_by_role["ending_market_value"]
+
+
+def _validated_cash_flow_evidence_by_index(
+    *,
+    request_cash_flow_count: int,
+    evidence_cash_flows: list[MWRSourcePreconvertedFXComponent],
+) -> dict[int, MWRSourcePreconvertedFXComponent]:
+    cash_flows_by_index = {item.cash_flow_index: item for item in evidence_cash_flows}
+    expected_indexes = set(range(request_cash_flow_count))
+    if set(cash_flows_by_index) != expected_indexes or len(evidence_cash_flows) != request_cash_flow_count:
+        _raise_fx_evidence_error(
+            "source_preconverted_fx_evidence.cash_flows must contain exactly one record for each cash flow index"
+        )
+    return cash_flows_by_index
+
+
+def _build_cashflow_response_evidence(
+    *,
+    request_cash_flows: list[Any],
+    cash_flows_by_index: dict[int, MWRSourcePreconvertedFXComponent],
+    reporting_currency: str,
+) -> list[MWRCashFlowEvidence]:
+    return [
+        _cashflow_response_evidence(
+            cash_flow=cash_flow,
+            item=cash_flows_by_index[index],
+            index=index,
+            reporting_currency=reporting_currency,
+        )
+        for index, cash_flow in enumerate(request_cash_flows)
+    ]
+
+
+def _cashflow_response_evidence(
+    *,
+    cash_flow: Any,
+    item: MWRSourcePreconvertedFXComponent,
+    index: int,
+    reporting_currency: str,
+) -> MWRCashFlowEvidence:
+    if item.cash_flow_date != cash_flow.date:
+        _raise_fx_evidence_error(
+            f"source_preconverted_fx_evidence.cash_flows[{index}].cash_flow_date must match cash_flows[{index}].date"
+        )
+    _validate_component(
+        item,
+        reporting_amount=_decimal(cash_flow.amount),
+        reporting_currency=reporting_currency,
+        location=f"source_preconverted_fx_evidence.cash_flows[{index}]",
+    )
+    return MWRCashFlowEvidence(
+        date=cash_flow.date,
+        amount=_decimal(cash_flow.amount),
+        currency=reporting_currency,
+        source_components=[],
+        source_amount=_decimal(item.source_amount),
+        source_currency=item.source_currency,
+        reporting_amount=_decimal(item.reporting_amount),
+        reporting_currency=item.reporting_currency,
+        fx_rate=_decimal(item.fx_rate),
+        fx_pair=item.fx_pair,
+        fx_rate_date=item.fx_rate_date,
+        fx_rate_source=item.fx_rate_source,
+        fx_rate_version=item.fx_rate_version,
+        conversion_policy=item.conversion_policy,
+        conversion_timestamp=item.conversion_timestamp,
+        conversion_fingerprint=item.conversion_fingerprint,
     )
 
 

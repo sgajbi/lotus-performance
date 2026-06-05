@@ -38,7 +38,7 @@ from app.services.inspection.subject_materialization import (
     extract_resolved_execution_request_from_payload,
     load_existing_twr_calculation_artifacts,
 )
-from app.services.inspection.subject_resolution import resolve_twr_inspection_subject
+from app.services.inspection.subject_resolution import ResolvedTWRInspectionSubject, resolve_twr_inspection_subject
 from app.services.inspection.support_brief_workflow_pack import (
     generate_twr_inspection_support_brief,
 )
@@ -70,23 +70,7 @@ class _InspectionResponseSynthesis:
 
 def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
     execution_registry.mark_running(request.inspection_id)
-    execution_registry.start_stage(request.inspection_id, EXECUTION_STAGE_SUBJECT_RESOLUTION)
-    try:
-        subject = resolve_twr_inspection_subject(request)
-    except Exception as exc:
-        execution_registry.fail_stage(request.inspection_id, EXECUTION_STAGE_SUBJECT_RESOLUTION, str(exc))
-        raise
-    execution_registry.complete_stage(
-        request.inspection_id,
-        EXECUTION_STAGE_SUBJECT_RESOLUTION,
-        details={
-            "subject_type": request.subject_type.value,
-            "portfolio_id": subject.portfolio_id,
-            "subject_calculation_id": (
-                str(subject.subject_calculation_id) if subject.subject_calculation_id is not None else None
-            ),
-        },
-    )
+    subject = _resolve_inspection_subject(request)
 
     consistency_findings: list[TWRInspectionFinding] = []
     completed_check_families: list[str] = []
@@ -215,6 +199,27 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
         raise
     execution_registry.mark_complete(request.inspection_id)
     return response
+
+
+def _resolve_inspection_subject(request: TWRInspectionRequest) -> ResolvedTWRInspectionSubject:
+    execution_registry.start_stage(request.inspection_id, EXECUTION_STAGE_SUBJECT_RESOLUTION)
+    try:
+        subject = resolve_twr_inspection_subject(request)
+    except Exception as exc:
+        execution_registry.fail_stage(request.inspection_id, EXECUTION_STAGE_SUBJECT_RESOLUTION, str(exc))
+        raise
+    execution_registry.complete_stage(
+        request.inspection_id,
+        EXECUTION_STAGE_SUBJECT_RESOLUTION,
+        details={
+            "subject_type": request.subject_type.value,
+            "portfolio_id": subject.portfolio_id,
+            "subject_calculation_id": (
+                str(subject.subject_calculation_id) if subject.subject_calculation_id is not None else None
+            ),
+        },
+    )
+    return subject
 
 
 def _build_twr_inspection_response(

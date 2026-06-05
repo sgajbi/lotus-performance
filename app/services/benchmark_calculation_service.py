@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
-from typing import cast
 
 import pandas as pd
 
@@ -156,51 +155,64 @@ def _build_benchmark_breakdowns(
     sorted_period_df = sorted_period_df.sort_values("date").reset_index(drop=True)
     for frequency in frequencies:
         items: list[ComparativeBreakdownItem] = []
-        if frequency == Frequency.DAILY:
-            grouped_rows = [(row["date"], pd.DataFrame([row])) for _, row in sorted_period_df.iterrows()]
-        else:
-            local_df = sorted_period_df.copy()
-            local_df["date"] = observation_timestamp_series(local_df["date"])
-            indexed = local_df.set_index(local_df["date"])
-            freq_map = {
-                Frequency.WEEKLY: "W-FRI",
-                Frequency.MONTHLY: "ME",
-                Frequency.QUARTERLY: "QE",
-                Frequency.YEARLY: "YE",
-            }
-            grouped_rows = [
-                (cast(pd.Timestamp, group_start).date(), group_df.copy())
-                for group_start, group_df in indexed.resample(freq_map[frequency])
-                if not group_df.empty
-            ]
-        for _, frequency_df in grouped_rows:
-            if frequency != Frequency.DAILY:
-                frequency_df = frequency_df.reset_index(drop=True)
-                frequency_df["date"] = observation_date_series(frequency_df["date"])
-            frequency_df = frequency_df.sort_values("date").reset_index(drop=True)
-            period_end = frequency_df["date"].iloc[-1]
-            cumulative_df = sorted_period_df[sorted_period_df["date"] <= period_end].copy()
-            if frequency == Frequency.DAILY:
-                label = period_end.isoformat()
-            elif frequency == Frequency.MONTHLY:
-                label = f"{period_end.year:04d}-{period_end.month:02d}"
-            elif frequency == Frequency.QUARTERLY:
-                label = f"{period_end.year:04d}-Q{((period_end.month - 1) // 3) + 1}"
-            elif frequency == Frequency.YEARLY:
-                label = f"{period_end.year:04d}"
-            else:
-                label = period_end.isoformat()
+        for frequency_df in _group_benchmark_breakdown_rows(sorted_period_df=sorted_period_df, frequency=frequency):
             items.append(
-                ComparativeBreakdownItem(
-                    period=label,
-                    period_start=frequency_df["date"].iloc[0],
-                    period_end=period_end,
-                    period_return=_calculate_benchmark_return_from_slice(frequency_df),
-                    cumulative_return=_calculate_benchmark_return_from_slice(cumulative_df),
+                _build_benchmark_breakdown_item(
+                    sorted_period_df=sorted_period_df,
+                    frequency_df=frequency_df,
+                    frequency=frequency,
                 )
             )
         breakdowns[frequency] = items
     return breakdowns
+
+
+def _group_benchmark_breakdown_rows(*, sorted_period_df: pd.DataFrame, frequency: Frequency) -> list[pd.DataFrame]:
+    if frequency == Frequency.DAILY:
+        return [pd.DataFrame([row]).reset_index(drop=True) for _, row in sorted_period_df.iterrows()]
+
+    local_df = sorted_period_df.copy()
+    local_df["date"] = observation_timestamp_series(local_df["date"])
+    indexed = local_df.set_index(local_df["date"])
+    freq_map = {
+        Frequency.WEEKLY: "W-FRI",
+        Frequency.MONTHLY: "ME",
+        Frequency.QUARTERLY: "QE",
+        Frequency.YEARLY: "YE",
+    }
+    return [
+        group_df.copy().reset_index(drop=True).assign(date=lambda frame: observation_date_series(frame["date"]))
+        for _, group_df in indexed.resample(freq_map[frequency])
+        if not group_df.empty
+    ]
+
+
+def _build_benchmark_breakdown_item(
+    *,
+    sorted_period_df: pd.DataFrame,
+    frequency_df: pd.DataFrame,
+    frequency: Frequency,
+) -> ComparativeBreakdownItem:
+    frequency_df = frequency_df.sort_values("date").reset_index(drop=True)
+    period_end = frequency_df["date"].iloc[-1]
+    cumulative_df = sorted_period_df[sorted_period_df["date"] <= period_end].copy()
+    return ComparativeBreakdownItem(
+        period=_benchmark_breakdown_label(frequency=frequency, period_end=period_end),
+        period_start=frequency_df["date"].iloc[0],
+        period_end=period_end,
+        period_return=_calculate_benchmark_return_from_slice(frequency_df),
+        cumulative_return=_calculate_benchmark_return_from_slice(cumulative_df),
+    )
+
+
+def _benchmark_breakdown_label(*, frequency: Frequency, period_end: date) -> str:
+    if frequency == Frequency.MONTHLY:
+        return f"{period_end.year:04d}-{period_end.month:02d}"
+    if frequency == Frequency.QUARTERLY:
+        return f"{period_end.year:04d}-Q{((period_end.month - 1) // 3) + 1}"
+    if frequency == Frequency.YEARLY:
+        return f"{period_end.year:04d}"
+    return period_end.isoformat()
 
 
 def _series_return(return_series: pd.Series) -> float:

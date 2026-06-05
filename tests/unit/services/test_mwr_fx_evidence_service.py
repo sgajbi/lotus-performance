@@ -4,7 +4,11 @@ import pytest
 from fastapi import HTTPException
 
 from app.models.mwr_requests import MoneyWeightedReturnRequest
-from app.services.mwr_fx_evidence_service import build_source_preconverted_mwr_currency_evidence
+from app.services.mwr_fx_evidence_service import (
+    _build_cashflow_response_evidence,
+    _validated_cash_flow_evidence_by_index,
+    build_source_preconverted_mwr_currency_evidence,
+)
 
 
 def _request_with_evidence(**overrides) -> MoneyWeightedReturnRequest:
@@ -90,6 +94,28 @@ def test_source_preconverted_mwr_currency_evidence_maps_valid_payload():
     assert evidence.currency_mode == "SOURCE_PRECONVERTED_WITH_FX_EVIDENCE"
     assert evidence.market_values_used[0].conversion_status == "source_preconverted_with_fx_evidence"
     assert evidence.cashflow_evidence[0].conversion_fingerprint == "fx-cashflow"
+
+
+def test_cashflow_response_evidence_helpers_preserve_source_conversion_metadata():
+    request = _request_with_evidence()
+    source_evidence = request.source_preconverted_fx_evidence
+    assert source_evidence is not None
+
+    cash_flows_by_index = _validated_cash_flow_evidence_by_index(
+        request_cash_flow_count=len(request.cash_flows),
+        evidence_cash_flows=source_evidence.cash_flows,
+    )
+    cashflow_evidence = _build_cashflow_response_evidence(
+        request_cash_flows=request.cash_flows,
+        cash_flows_by_index=cash_flows_by_index,
+        reporting_currency="USD",
+    )
+
+    assert len(cashflow_evidence) == 1
+    assert cashflow_evidence[0].currency == "USD"
+    assert cashflow_evidence[0].source_amount == 5000
+    assert cashflow_evidence[0].source_currency == "EUR"
+    assert cashflow_evidence[0].conversion_fingerprint == "fx-cashflow"
 
 
 @pytest.mark.parametrize(

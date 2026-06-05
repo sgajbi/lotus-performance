@@ -2,6 +2,7 @@ from dataclasses import fields
 
 from app.services.inspection.source_economics_collector import SourceEconomicsSamples
 from app.services.inspection.source_economics_findings import (
+    _build_detailed_cashflow_contract_findings,
     _build_external_cashflow_findings,
     _build_fee_source_economics_findings,
     build_source_economics_findings,
@@ -83,6 +84,37 @@ def test_build_external_cashflow_findings_emits_external_findings_in_source_orde
         "warning",
         "warning",
     ]
+
+
+def test_build_detailed_cashflow_contract_findings_emits_source_contract_findings_in_order():
+    samples = _samples(
+        invalid_cashflow_collection_samples=[{"valuation_date": "2026-03-12"}],
+        invalid_cashflow_row_samples=[{"valuation_date": "2026-03-13"}],
+        invalid_amount_samples=[{"valuation_date": "2026-03-14"}],
+        invalid_timing_samples=[{"valuation_date": "2026-03-15"}],
+        missing_cashflow_type_samples=[{"valuation_date": "2026-03-16"}],
+        noncanonical_cashflow_type_samples=[{"valuation_date": "2026-03-17"}],
+        governed_alias_cashflow_type_samples=[{"valuation_date": "2026-03-18"}],
+        unsupported_cashflow_type_samples=[{"valuation_date": "2026-03-19"}],
+    )
+
+    findings = _build_detailed_cashflow_contract_findings(
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        samples=samples,
+    )
+
+    assert [finding.code for finding in findings] == [
+        "INVALID_CASHFLOW_COLLECTION_PRESENT",
+        "INVALID_CASHFLOW_ROW_PRESENT",
+        "INVALID_CASHFLOW_AMOUNT_PRESENT",
+        "INVALID_CASHFLOW_TIMING_PRESENT",
+        "MISSING_CASHFLOW_TYPE_PRESENT",
+        "NONCANONICAL_CASHFLOW_TYPE_PRESENT",
+        "GOVERNED_ALIAS_CASHFLOW_TYPE_PRESENT",
+        "UNSUPPORTED_CASHFLOW_TYPE_PRESENT",
+    ]
+    assert {finding.owner_repo for finding in findings} == {"lotus-core"}
+    assert {finding.severity for finding in findings} == {"warning"}
 
 
 def test_build_source_economics_findings_preserves_invalid_observation_before_fee_findings():

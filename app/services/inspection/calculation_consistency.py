@@ -12,6 +12,7 @@ from app.models.responses import (
     PerformanceResponse,
     TWRDailyCalculationEvidence,
 )
+from common.enums import Frequency
 
 _ABS_TOLERANCE = 1e-6
 
@@ -151,96 +152,169 @@ def _check_relative_block(
 ) -> list[TWRInspectionFinding]:
     findings: list[TWRInspectionFinding] = []
     findings.extend(
-        _compare_return_values(
-            code="RELATIVE_PERFORMANCE_SUMMARY_MISMATCH",
+        _check_relative_summary(
             period_name=period_name,
-            scope="summary.period_return",
-            expected=_subtract_return_values(
-                portfolio_block.summary.period_return,
-                benchmark_block.summary.period_return,
-            ),
-            actual=relative_block.summary.period_return,
+            portfolio_block=portfolio_block,
+            benchmark_block=benchmark_block,
+            relative_block=relative_block,
         )
     )
-    if (
-        portfolio_block.summary.cumulative_return is not None
-        and benchmark_block.summary.cumulative_return is not None
-        and relative_block.summary.cumulative_return is not None
-    ):
+    for frequency, relative_items in relative_block.breakdowns.items():
         findings.extend(
-            _compare_return_values(
-                code="RELATIVE_PERFORMANCE_CUMULATIVE_MISMATCH",
+            _check_relative_breakdown_frequency(
                 period_name=period_name,
-                scope="summary.cumulative_return",
-                expected=_subtract_return_values(
-                    portfolio_block.summary.cumulative_return,
-                    benchmark_block.summary.cumulative_return,
-                ),
-                actual=relative_block.summary.cumulative_return,
+                frequency=frequency,
+                portfolio_items=portfolio_block.breakdowns.get(frequency, []),
+                benchmark_items=benchmark_block.breakdowns.get(frequency, []),
+                relative_items=relative_items,
             )
         )
-    for frequency, relative_items in relative_block.breakdowns.items():
-        portfolio_items = portfolio_block.breakdowns.get(frequency, [])
-        benchmark_items = benchmark_block.breakdowns.get(frequency, [])
-        if len(relative_items) != len(portfolio_items) or len(relative_items) != len(benchmark_items):
-            findings.append(
-                _build_finding(
-                    code="RELATIVE_BREAKDOWN_CARDINALITY_MISMATCH",
-                    period_name=period_name,
-                    scope=f"breakdowns.{frequency.value}",
-                    summary="Relative-performance breakdown cardinality does not match portfolio and benchmark blocks.",
-                    evidence={
-                        "relative_count": len(relative_items),
-                        "portfolio_count": len(portfolio_items),
-                        "benchmark_count": len(benchmark_items),
-                    },
-                )
-            )
-            continue
-        for relative_item, portfolio_item, benchmark_item in zip(relative_items, portfolio_items, benchmark_items):
-            row_scope = f"breakdowns.{frequency.value}.{relative_item.period}"
-            alignment_mismatch = _find_breakdown_alignment_mismatch(
+    return findings
+
+
+def _check_relative_summary(
+    *,
+    period_name: str,
+    portfolio_block: ComparativeAnalyticsBlock,
+    benchmark_block: ComparativeAnalyticsBlock,
+    relative_block: ComparativeAnalyticsBlock,
+) -> list[TWRInspectionFinding]:
+    findings = _compare_return_values(
+        code="RELATIVE_PERFORMANCE_SUMMARY_MISMATCH",
+        period_name=period_name,
+        scope="summary.period_return",
+        expected=_subtract_return_values(
+            portfolio_block.summary.period_return,
+            benchmark_block.summary.period_return,
+        ),
+        actual=relative_block.summary.period_return,
+    )
+    if (
+        portfolio_block.summary.cumulative_return is None
+        or benchmark_block.summary.cumulative_return is None
+        or relative_block.summary.cumulative_return is None
+    ):
+        return findings
+    findings.extend(
+        _compare_return_values(
+            code="RELATIVE_PERFORMANCE_CUMULATIVE_MISMATCH",
+            period_name=period_name,
+            scope="summary.cumulative_return",
+            expected=_subtract_return_values(
+                portfolio_block.summary.cumulative_return,
+                benchmark_block.summary.cumulative_return,
+            ),
+            actual=relative_block.summary.cumulative_return,
+        )
+    )
+    return findings
+
+
+def _check_relative_breakdown_frequency(
+    *,
+    period_name: str,
+    frequency: Frequency,
+    portfolio_items: list[ComparativeBreakdownItem],
+    benchmark_items: list[ComparativeBreakdownItem],
+    relative_items: list[ComparativeBreakdownItem],
+) -> list[TWRInspectionFinding]:
+    cardinality_finding = _relative_breakdown_cardinality_finding(
+        period_name=period_name,
+        frequency=frequency,
+        portfolio_items=portfolio_items,
+        benchmark_items=benchmark_items,
+        relative_items=relative_items,
+    )
+    if cardinality_finding is not None:
+        return [cardinality_finding]
+
+    findings: list[TWRInspectionFinding] = []
+    for relative_item, portfolio_item, benchmark_item in zip(relative_items, portfolio_items, benchmark_items):
+        findings.extend(
+            _check_relative_breakdown_item(
+                period_name=period_name,
+                frequency=frequency,
                 relative_item=relative_item,
                 portfolio_item=portfolio_item,
                 benchmark_item=benchmark_item,
             )
-            if alignment_mismatch is not None:
-                findings.append(
-                    _build_finding(
-                        code="RELATIVE_BREAKDOWN_BUCKET_ALIGNMENT_MISMATCH",
-                        period_name=period_name,
-                        scope=row_scope,
-                        summary="Relative-performance breakdown rows do not align to portfolio and benchmark buckets.",
-                        evidence=alignment_mismatch,
-                    )
-                )
-                continue
-            findings.extend(
-                _compare_return_values(
-                    code="RELATIVE_BREAKDOWN_PERIOD_MISMATCH",
-                    period_name=period_name,
-                    scope=f"{row_scope}.period_return",
-                    expected=_subtract_return_values(portfolio_item.period_return, benchmark_item.period_return),
-                    actual=relative_item.period_return,
-                )
+        )
+    return findings
+
+
+def _relative_breakdown_cardinality_finding(
+    *,
+    period_name: str,
+    frequency: Frequency,
+    portfolio_items: list[ComparativeBreakdownItem],
+    benchmark_items: list[ComparativeBreakdownItem],
+    relative_items: list[ComparativeBreakdownItem],
+) -> TWRInspectionFinding | None:
+    if len(relative_items) == len(portfolio_items) == len(benchmark_items):
+        return None
+    return _build_finding(
+        code="RELATIVE_BREAKDOWN_CARDINALITY_MISMATCH",
+        period_name=period_name,
+        scope=f"breakdowns.{frequency.value}",
+        summary="Relative-performance breakdown cardinality does not match portfolio and benchmark blocks.",
+        evidence={
+            "relative_count": len(relative_items),
+            "portfolio_count": len(portfolio_items),
+            "benchmark_count": len(benchmark_items),
+        },
+    )
+
+
+def _check_relative_breakdown_item(
+    *,
+    period_name: str,
+    frequency: Frequency,
+    relative_item: ComparativeBreakdownItem,
+    portfolio_item: ComparativeBreakdownItem,
+    benchmark_item: ComparativeBreakdownItem,
+) -> list[TWRInspectionFinding]:
+    row_scope = f"breakdowns.{frequency.value}.{relative_item.period}"
+    alignment_mismatch = _find_breakdown_alignment_mismatch(
+        relative_item=relative_item,
+        portfolio_item=portfolio_item,
+        benchmark_item=benchmark_item,
+    )
+    if alignment_mismatch is not None:
+        return [
+            _build_finding(
+                code="RELATIVE_BREAKDOWN_BUCKET_ALIGNMENT_MISMATCH",
+                period_name=period_name,
+                scope=row_scope,
+                summary="Relative-performance breakdown rows do not align to portfolio and benchmark buckets.",
+                evidence=alignment_mismatch,
             )
-            if (
-                relative_item.cumulative_return is not None
-                and portfolio_item.cumulative_return is not None
-                and benchmark_item.cumulative_return is not None
-            ):
-                findings.extend(
-                    _compare_return_values(
-                        code="RELATIVE_BREAKDOWN_CUMULATIVE_MISMATCH",
-                        period_name=period_name,
-                        scope=f"{row_scope}.cumulative_return",
-                        expected=_subtract_return_values(
-                            portfolio_item.cumulative_return,
-                            benchmark_item.cumulative_return,
-                        ),
-                        actual=relative_item.cumulative_return,
-                    )
-                )
+        ]
+
+    findings = _compare_return_values(
+        code="RELATIVE_BREAKDOWN_PERIOD_MISMATCH",
+        period_name=period_name,
+        scope=f"{row_scope}.period_return",
+        expected=_subtract_return_values(portfolio_item.period_return, benchmark_item.period_return),
+        actual=relative_item.period_return,
+    )
+    if (
+        relative_item.cumulative_return is None
+        or portfolio_item.cumulative_return is None
+        or benchmark_item.cumulative_return is None
+    ):
+        return findings
+    findings.extend(
+        _compare_return_values(
+            code="RELATIVE_BREAKDOWN_CUMULATIVE_MISMATCH",
+            period_name=period_name,
+            scope=f"{row_scope}.cumulative_return",
+            expected=_subtract_return_values(
+                portfolio_item.cumulative_return,
+                benchmark_item.cumulative_return,
+            ),
+            actual=relative_item.cumulative_return,
+        )
+    )
     return findings
 
 

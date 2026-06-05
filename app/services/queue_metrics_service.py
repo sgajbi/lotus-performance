@@ -359,38 +359,11 @@ class DurableQueueCollector:
         sources = _load_durable_queue_metric_sources(settings)
 
         yield from _availability_and_preview_metrics(sources)
-
-        if sources.compute_stats is not None:
-            yield compute_queue_job_count_metric(stats=sources.compute_stats)
-
-        if sources.compute_stats is not None:
-            yield compute_queue_failure_pressure_metric(stats=sources.compute_stats)
-
-        if sources.compute_stats is not None:
-            yield from compute_queue_oldest_age_metrics(stats=sources.compute_stats)
-
-            yield compute_queue_degradation_breach_metric(
-                stats=sources.compute_stats,
-                policy=compute_queue_policy,
-            )
-
-        if sources.lineage_stats is not None:
-            yield from lineage_queue_payload_metrics(stats=sources.lineage_stats)
-
-            yield lineage_queue_degradation_breach_metric(
-                stats=sources.lineage_stats,
-                policy=lineage_queue_policy,
-            )
-
-        if sources.lineage_storage_capacity is not None:
-            yield from lineage_storage_capacity_metrics(capacity=sources.lineage_storage_capacity)
-
-            yield lineage_storage_pressure_breach_metric(
-                capacity=sources.lineage_storage_capacity,
-                policy=lineage_queue_policy,
-            )
-
-        yield lineage_storage_pressure_threshold_metric(policy=lineage_queue_policy)
+        yield from _core_queue_and_storage_metrics(
+            sources=sources,
+            compute_queue_policy=compute_queue_policy,
+            lineage_queue_policy=lineage_queue_policy,
+        )
 
         yield policy_threshold_metric(
             metric_name="lotus_performance_recovery_drill_policy_threshold",
@@ -451,3 +424,43 @@ class DurableQueueCollector:
                 action_snapshot=sources.runtime_retention_action_snapshot,
                 policy=runtime_retention_policy,
             )
+
+
+def _core_queue_and_storage_metrics(
+    *,
+    sources: _DurableQueueMetricSources,
+    compute_queue_policy: Any,
+    lineage_queue_policy: Any,
+) -> tuple[GaugeMetricFamily, ...]:
+    metrics: list[GaugeMetricFamily] = []
+    if sources.compute_stats is not None:
+        metrics.append(compute_queue_job_count_metric(stats=sources.compute_stats))
+        metrics.append(compute_queue_failure_pressure_metric(stats=sources.compute_stats))
+        metrics.extend(compute_queue_oldest_age_metrics(stats=sources.compute_stats))
+        metrics.append(
+            compute_queue_degradation_breach_metric(
+                stats=sources.compute_stats,
+                policy=compute_queue_policy,
+            )
+        )
+
+    if sources.lineage_stats is not None:
+        metrics.extend(lineage_queue_payload_metrics(stats=sources.lineage_stats))
+        metrics.append(
+            lineage_queue_degradation_breach_metric(
+                stats=sources.lineage_stats,
+                policy=lineage_queue_policy,
+            )
+        )
+
+    if sources.lineage_storage_capacity is not None:
+        metrics.extend(lineage_storage_capacity_metrics(capacity=sources.lineage_storage_capacity))
+        metrics.append(
+            lineage_storage_pressure_breach_metric(
+                capacity=sources.lineage_storage_capacity,
+                policy=lineage_queue_policy,
+            )
+        )
+
+    metrics.append(lineage_storage_pressure_threshold_metric(policy=lineage_queue_policy))
+    return tuple(metrics)

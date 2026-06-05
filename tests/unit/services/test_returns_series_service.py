@@ -254,6 +254,47 @@ def test_build_returns_series_response_preserves_context_provenance_and_series_p
     assert response.diagnostics == diagnostics_result.diagnostics
 
 
+@pytest.mark.asyncio
+async def test_resolve_returns_series_execution_context_preserves_stateless_overrides():
+    request = ReturnsSeriesRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "as_of_date": "2026-02-24",
+            "window": {"mode": "EXPLICIT", "from_date": "2026-02-23", "to_date": "2026-02-24"},
+            "frequency": "DAILY",
+            "series_selection": {"include_portfolio": True, "include_benchmark": True, "include_risk_free": False},
+            "input_mode": "stateless",
+            "stateless_input": {
+                "portfolio_returns": [
+                    {"date": "2026-02-23", "return_value": "0.0100"},
+                    {"date": "2026-02-24", "return_value": "0.0200"},
+                ],
+                "benchmark_returns": [
+                    {"date": "2026-02-23", "return_value": "0.0050"},
+                    {"date": "2026-02-24", "return_value": "0.0150"},
+                ],
+            },
+        }
+    )
+    expected_fingerprint, expected_hash = generate_canonical_hash(request, "returns-series-v1")
+
+    context = await returns_series_service._resolve_returns_series_execution_context(
+        request=request,
+        source_input_mode=InputMode.STATEFUL,
+        resolved_benchmark_id_override="BMK_RESOLVED",
+        resolved_benchmark_return_source_override="vendor_series",
+    )
+
+    assert context.request is request
+    assert context.resolved_window.start_date.isoformat() == "2026-02-23"
+    assert context.resolved_window.end_date.isoformat() == "2026-02-24"
+    assert context.effective_input_mode == InputMode.STATEFUL
+    assert context.input_fingerprint == expected_fingerprint
+    assert context.calculation_hash == expected_hash
+    assert context.resolved_benchmark_id == "BMK_RESOLVED"
+    assert context.resolved_benchmark_return_source == BenchmarkReturnSource.VENDOR_SERIES
+
+
 def test_build_returns_series_diagnostics_reports_coverage_gaps_and_market_warning():
     request = ReturnsSeriesRequest.model_validate(
         {
@@ -653,6 +694,52 @@ def test_stateful_returns_retrieval_stage_details_preserve_count_policy():
         "benchmark_chunk_count": 4,
         "benchmark_page_count": 5,
         "risk_free_chunk_count": 7,
+    }
+
+
+def test_build_resolved_stateful_returns_series_request_completes_normalization_stage(monkeypatch, tmp_path):
+    request = _build_stateful_request(
+        series_selection={"include_portfolio": True, "include_benchmark": False, "include_risk_free": False}
+    )
+    store = _seed_execution(monkeypatch, tmp_path, request)
+    store.start_stage(request.calculation_id, returns_series_service.EXECUTION_STAGE_NORMALIZATION)
+    resolved_window = returns_series_service.resolve_window(request)
+    observations = [
+        {"valuation_date": "2026-02-23", "beginning_market_value": "100", "ending_market_value": "101"},
+        {"valuation_date": "2026-02-24", "beginning_market_value": "101", "ending_market_value": "102"},
+        {"valuation_date": "2026-02-25", "beginning_market_value": "102", "ending_market_value": "103"},
+    ]
+
+    result = returns_series_service._build_resolved_stateful_returns_series_request(
+        request=request,
+        resolved_window=resolved_window,
+        observations=observations,
+        portfolio_performance_start_date=pd.Timestamp("2026-02-23").date(),
+        benchmark_resolution=returns_series_service._StatefulBenchmarkResolution(
+            benchmark_id=None,
+            benchmark_points=None,
+            benchmark_df=None,
+            benchmark_source_details={},
+            benchmark_work_units=0,
+        ),
+        risk_free_points=None,
+        resolved_benchmark_id=None,
+        resolved_benchmark_return_source=BenchmarkReturnSource.CALCULATED,
+    )
+
+    assert result.request.input_mode == InputMode.STATELESS
+    assert result.request.stateless_input is not None
+    assert len(result.request.stateless_input.portfolio_returns) == 3
+    assert result.identity_payload["input_mode"] == InputMode.STATELESS.value
+    assert result.identity_payload["stateless_input"]["benchmark_returns"] is None
+    execution = store.get_execution(request.calculation_id)
+    assert execution is not None
+    stages = {stage.stage_name: stage for stage in execution.stages}
+    assert stages[returns_series_service.EXECUTION_STAGE_NORMALIZATION].status.value == "complete"
+    assert stages[returns_series_service.EXECUTION_STAGE_NORMALIZATION].details == {
+        "portfolio_points": 3,
+        "benchmark_points": 0,
+        "risk_free_points": 0,
     }
 
 

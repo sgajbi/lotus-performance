@@ -22,6 +22,7 @@ from app.services.execution_stage_names import (
     EXECUTION_STAGE_SOURCE_ECONOMICS_ASSESSMENT,
     EXECUTION_STAGE_SOURCE_QUALITY_ASSESSMENT,
     EXECUTION_STAGE_SOURCE_STATE_RECONCILIATION,
+    EXECUTION_STAGE_SUBJECT_RESOLUTION,
 )
 from app.services.inspection.calculation_consistency import CalculationConsistencyCheckResult
 from app.services.inspection.subject_resolution import ResolvedTWRInspectionSubject
@@ -80,6 +81,31 @@ def test_run_source_quality_assessment_records_success_outputs(fake_registry, mo
     assert outputs.evidence_summary == {"invalid_capital_base_count": 0}
     assert outputs.artifact_payloads == {"source_quality_summary.json": '{\n  "invalid_capital_base_count": 0\n}'}
     assert EXECUTION_STAGE_SOURCE_QUALITY_ASSESSMENT in fake_registry.completed_stages
+
+
+def test_resolve_inspection_subject_records_subject_resolution_stage(fake_registry, monkeypatch):
+    calculation_id = uuid4()
+    request = TWRInspectionRequest(
+        subject_type=TWRInspectionSubjectType.TWR_CALCULATION,
+        subject_calculation_id=calculation_id,
+    )
+    monkeypatch.setattr(
+        service,
+        "resolve_twr_inspection_subject",
+        lambda _request: ResolvedTWRInspectionSubject(
+            subject_type=TWRInspectionSubjectType.TWR_CALCULATION,
+            subject_calculation_id=calculation_id,
+            portfolio_id="PB_SG_GLOBAL_BAL_001",
+            related_execution=None,
+            request_payload=None,
+        ),
+    )
+
+    subject = service._resolve_inspection_subject(request)
+
+    assert subject.subject_calculation_id == calculation_id
+    assert subject.portfolio_id == "PB_SG_GLOBAL_BAL_001"
+    assert EXECUTION_STAGE_SUBJECT_RESOLUTION in fake_registry.completed_stages
 
 
 def test_run_source_quality_assessment_preserves_failure_outputs(fake_registry, monkeypatch):

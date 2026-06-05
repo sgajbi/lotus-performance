@@ -220,6 +220,52 @@ def test_benchmark_breakdowns_label_weekly_quarterly_and_yearly_periods():
     assert breakdowns[Frequency.YEARLY][0].period == "2025"
 
 
+def test_benchmark_breakdown_helpers_group_rows_and_format_labels():
+    df = pd.DataFrame(
+        {
+            "date": [date(2025, 1, 1), date(2025, 1, 2), date(2025, 2, 3)],
+            "benchmark_return": [0.01, 0.02, 0.03],
+        }
+    )
+    sorted_df = df.sort_values("date").reset_index(drop=True)
+
+    daily_groups = benchmark_calculation_service._group_benchmark_breakdown_rows(
+        sorted_period_df=sorted_df,
+        frequency=Frequency.DAILY,
+    )
+    monthly_groups = benchmark_calculation_service._group_benchmark_breakdown_rows(
+        sorted_period_df=sorted_df,
+        frequency=Frequency.MONTHLY,
+    )
+    item = benchmark_calculation_service._build_benchmark_breakdown_item(
+        sorted_period_df=sorted_df,
+        frequency_df=monthly_groups[0],
+        frequency=Frequency.MONTHLY,
+    )
+
+    assert [len(group) for group in daily_groups] == [1, 1, 1]
+    assert [group["date"].iloc[-1] for group in monthly_groups] == [date(2025, 1, 2), date(2025, 2, 3)]
+    assert item.period == "2025-01"
+    assert item.period_start == date(2025, 1, 1)
+    assert item.period_end == date(2025, 1, 2)
+    assert item.period_return.base == pytest.approx(3.02)
+    assert item.cumulative_return.base == pytest.approx(3.02)
+    assert (
+        benchmark_calculation_service._benchmark_breakdown_label(
+            frequency=Frequency.QUARTERLY,
+            period_end=date(2025, 6, 30),
+        )
+        == "2025-Q2"
+    )
+    assert (
+        benchmark_calculation_service._benchmark_breakdown_label(
+            frequency=Frequency.YEARLY,
+            period_end=date(2025, 12, 31),
+        )
+        == "2025"
+    )
+
+
 def test_calculate_benchmark_artifacts_supports_explicit_period_window():
     request = BenchmarkPerformanceRequest.model_validate(
         {

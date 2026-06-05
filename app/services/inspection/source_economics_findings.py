@@ -11,6 +11,22 @@ def build_source_economics_findings(
 ) -> list[TWRInspectionFinding]:
     findings: list[TWRInspectionFinding] = []
 
+    findings.extend(_build_observation_contract_findings(portfolio_id=portfolio_id, samples=samples))
+    findings.extend(_build_fee_source_economics_findings(portfolio_id=portfolio_id, samples=samples))
+    findings.extend(_build_external_cashflow_findings(portfolio_id=portfolio_id, samples=samples))
+    findings.extend(_build_explicit_amount_contract_findings(portfolio_id=portfolio_id, samples=samples))
+    findings.extend(_build_detailed_cashflow_contract_findings(portfolio_id=portfolio_id, samples=samples))
+
+    return findings
+
+
+def _build_observation_contract_findings(
+    *,
+    portfolio_id: str,
+    samples: SourceEconomicsSamples,
+) -> list[TWRInspectionFinding]:
+    findings: list[TWRInspectionFinding] = []
+
     if samples.invalid_observation_date_samples:
         findings.append(
             TWRInspectionFinding(
@@ -35,8 +51,15 @@ def build_source_economics_findings(
             )
         )
 
-    findings.extend(_build_fee_source_economics_findings(portfolio_id=portfolio_id, samples=samples))
-    findings.extend(_build_external_cashflow_findings(portfolio_id=portfolio_id, samples=samples))
+    return findings
+
+
+def _build_explicit_amount_contract_findings(
+    *,
+    portfolio_id: str,
+    samples: SourceEconomicsSamples,
+) -> list[TWRInspectionFinding]:
+    findings: list[TWRInspectionFinding] = []
 
     if samples.conflicting_explicit_amount_samples:
         findings.append(
@@ -82,6 +105,16 @@ def build_source_economics_findings(
                 evidence=_sample_evidence(portfolio_id=portfolio_id, samples=samples.invalid_explicit_amount_samples),
             )
         )
+
+    return findings
+
+
+def _build_detailed_cashflow_contract_findings(
+    *,
+    portfolio_id: str,
+    samples: SourceEconomicsSamples,
+) -> list[TWRInspectionFinding]:
+    findings: list[TWRInspectionFinding] = []
 
     if samples.invalid_cashflow_collection_samples:
         findings.append(

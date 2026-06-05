@@ -1,6 +1,5 @@
 # core/periods.py
 from datetime import date
-from typing import List, Tuple
 
 import pandas as pd
 from pydantic import BaseModel
@@ -18,7 +17,7 @@ class ResolvedPeriod(BaseModel):
     end_date: date
 
 
-def resolve_period(period_model: Periods, as_of: date) -> Tuple[date, date]:
+def resolve_period(period_model: Periods, as_of: date) -> tuple[date, date]:
     """
     Resolves a Periods model into a concrete (start_date, end_date) tuple.
     This is now an internal helper for the new `resolve_periods` function.
@@ -27,9 +26,7 @@ def resolve_period(period_model: Periods, as_of: date) -> Tuple[date, date]:
     as_of_ts = pd.Timestamp(as_of)
 
     if period_type == "EXPLICIT":
-        if not period_model.explicit:
-            raise APIBadRequestError("Explicit period definition is missing.")
-        return period_model.explicit.start, period_model.explicit.end
+        return _resolve_explicit_period(period_model)
 
     if period_type == "ITD":
         # Cannot be resolved without a true inception date, signal this.
@@ -37,39 +34,63 @@ def resolve_period(period_model: Periods, as_of: date) -> Tuple[date, date]:
         return date.min, as_of
 
     end_date = as_of
-    if period_type == "YTD":
-        start_date = as_of_ts.to_period("Y").start_time.date()
-    elif period_type == "QTD":
-        start_date = as_of_ts.to_period("Q").start_time.date()
-    elif period_type == "MTD":
-        start_date = as_of_ts.to_period("M").start_time.date()
-    elif period_type == "WTD":
-        start_date = (as_of_ts - pd.to_timedelta(as_of_ts.dayofweek, unit="d")).date()
-    elif period_type in ["1Y", "3Y", "5Y"]:
-        years = int(period_type[:-1])  # Parse "1Y" into 1, etc.
-        start_date = (as_of_ts - pd.DateOffset(years=years) + pd.Timedelta(days=1)).date()
-    elif period_type == "ROLLING":
-        if not period_model.rolling:
-            raise APIBadRequestError("Rolling period definition is missing.")
-        if period_model.rolling.months:
-            start_date = (as_of_ts - pd.DateOffset(months=period_model.rolling.months) + pd.Timedelta(days=1)).date()
-        elif period_model.rolling.days:
-            start_date = (as_of_ts - pd.Timedelta(days=period_model.rolling.days - 1)).date()
-        else:
-            raise APIBadRequestError("Invalid rolling period definition.")
-    else:
-        raise NotImplementedError(f"Period type '{period_type}' is not implemented.")
+    start_date = _resolve_calendar_period_start(period_type, as_of_ts)
+    if start_date is None:
+        start_date = _resolve_trailing_or_rolling_period_start(period_model, as_of_ts)
 
     return start_date, end_date
 
 
+def _resolve_explicit_period(period_model: Periods) -> tuple[date, date]:
+    if not period_model.explicit:
+        raise APIBadRequestError("Explicit period definition is missing.")
+    return period_model.explicit.start, period_model.explicit.end
+
+
+def _resolve_calendar_period_start(period_type: str, as_of_ts: pd.Timestamp) -> date | None:
+    calendar_period_codes = {
+        "YTD": "Y",
+        "QTD": "Q",
+        "MTD": "M",
+    }
+    if period_type in calendar_period_codes:
+        return as_of_ts.to_period(calendar_period_codes[period_type]).start_time.date()
+    if period_type == "WTD":
+        return (as_of_ts - pd.to_timedelta(as_of_ts.dayofweek, unit="d")).date()
+    return None
+
+
+def _resolve_trailing_or_rolling_period_start(period_model: Periods, as_of_ts: pd.Timestamp) -> date:
+    period_type = period_model.type
+    if period_type in {"1Y", "3Y", "5Y"}:
+        return _trailing_year_period_start(period_type, as_of_ts)
+    if period_type == "ROLLING":
+        return _resolve_rolling_period_start(period_model, as_of_ts)
+    raise NotImplementedError(f"Period type '{period_type}' is not implemented.")
+
+
+def _trailing_year_period_start(period_type: str, as_of_ts: pd.Timestamp) -> date:
+    years = int(period_type[:-1])
+    return (as_of_ts - pd.DateOffset(years=years) + pd.Timedelta(days=1)).date()
+
+
+def _resolve_rolling_period_start(period_model: Periods, as_of_ts: pd.Timestamp) -> date:
+    if not period_model.rolling:
+        raise APIBadRequestError("Rolling period definition is missing.")
+    if period_model.rolling.months:
+        return (as_of_ts - pd.DateOffset(months=period_model.rolling.months) + pd.Timedelta(days=1)).date()
+    if period_model.rolling.days:
+        return (as_of_ts - pd.Timedelta(days=period_model.rolling.days - 1)).date()
+    raise APIBadRequestError("Invalid rolling period definition.")
+
+
 def resolve_periods(
-    periods: List[PeriodType],
+    periods: list[PeriodType],
     as_of: date,
     performance_start_date: date,
     *,
     explicit_start_date: date | None = None,
-) -> List[ResolvedPeriod]:
+) -> list[ResolvedPeriod]:
     """
     Resolves a list of PeriodType enums into a list of concrete period objects.
     """
