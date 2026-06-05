@@ -44,16 +44,37 @@ def _count_attribution_input_rows(request: AttributionRequest) -> int:
 
 
 def _latest_attribution_observation_date(request: AttributionRequest):
-    dates: list[object] = []
-    if request.portfolio_data is not None:
-        dates.extend(point.perf_date for point in request.portfolio_data.valuation_points)
-    for instrument in request.instruments_data or []:
-        dates.extend(point.perf_date for point in instrument.valuation_points)
-    for group in request.portfolio_groups_data or []:
-        dates.extend(observation.get("date") for observation in group.observations if observation.get("date"))
-    for group in request.benchmark_groups_data:
-        dates.extend(observation.date for observation in group.observations)
-    return latest_observation_date(dates)
+    return latest_observation_date(
+        [
+            *_portfolio_observation_dates(request),
+            *_instrument_observation_dates(request),
+            *_portfolio_group_observation_dates(request),
+            *_benchmark_group_observation_dates(request),
+        ]
+    )
+
+
+def _portfolio_observation_dates(request: AttributionRequest) -> list[object]:
+    if request.portfolio_data is None:
+        return []
+    return [point.perf_date for point in request.portfolio_data.valuation_points]
+
+
+def _instrument_observation_dates(request: AttributionRequest) -> list[object]:
+    return [point.perf_date for instrument in request.instruments_data or [] for point in instrument.valuation_points]
+
+
+def _portfolio_group_observation_dates(request: AttributionRequest) -> list[object]:
+    return [
+        observation["date"]
+        for group in request.portfolio_groups_data or []
+        for observation in group.observations
+        if observation.get("date")
+    ]
+
+
+def _benchmark_group_observation_dates(request: AttributionRequest) -> list[object]:
+    return [observation.date for group in request.benchmark_groups_data for observation in group.observations]
 
 
 def _slice_attribution_effects_by_period(

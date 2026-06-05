@@ -2,6 +2,7 @@ from types import SimpleNamespace
 
 import pandas as pd
 
+from app.models.attribution_requests import AttributionRequest
 from app.services import attribution_service
 
 
@@ -49,3 +50,45 @@ def test_build_attribution_results_by_period_slices_non_empty_periods_and_prefix
     assert results["JAN"] == {"wrapped": {"period_rows": 1, "portfolio_id": "DEMO_DPM_EUR_001"}}
     assert captured_slices[0].index.get_level_values("date").tolist() == [pd.Timestamp("2026-01-02")]
     assert lineage_data == {"engine": "complete", "JAN_row_count": 1}
+
+
+def test_latest_attribution_observation_date_uses_all_stateless_input_sources():
+    request = AttributionRequest.model_validate(
+        {
+            "portfolio_id": "ATTRIB_001",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-04-30",
+            "analyses": [{"period": "EXPLICIT", "frequencies": ["monthly"]}],
+            "mode": "by_instrument",
+            "group_by": ["assetClass"],
+            "portfolio_data": {
+                "metric_basis": "NET",
+                "valuation_points": [{"perf_date": "2025-01-31", "begin_mv": 1000.0, "end_mv": 1010.0}],
+            },
+            "instruments_data": [
+                {
+                    "instrument_id": "BOND_1",
+                    "meta": {"assetClass": "Bond"},
+                    "valuation_points": [{"perf_date": "2025-02-28", "begin_mv": 500.0, "end_mv": 505.0}],
+                }
+            ],
+            "portfolio_groups_data": [
+                {
+                    "key": {"assetClass": "Equity"},
+                    "observations": [{"date": "2025-03-31", "weight_bop": 1.0, "return_base": 0.01}],
+                }
+            ],
+            "benchmark_groups_data": [
+                {
+                    "key": {"assetClass": "Equity"},
+                    "observations": [{"date": "2025-04-30", "return_base": 0.02, "weight_bop": 1.0}],
+                }
+            ],
+        }
+    )
+
+    assert attribution_service._portfolio_observation_dates(request) == [pd.Timestamp("2025-01-31").date()]
+    assert attribution_service._instrument_observation_dates(request) == [pd.Timestamp("2025-02-28").date()]
+    assert attribution_service._portfolio_group_observation_dates(request) == ["2025-03-31"]
+    assert attribution_service._benchmark_group_observation_dates(request) == [pd.Timestamp("2025-04-30").date()]
+    assert attribution_service._latest_attribution_observation_date(request) == pd.Timestamp("2025-04-30").date()

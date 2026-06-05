@@ -47,7 +47,7 @@ python scripts/python_complexity_inventory.py --limit 20
 | 17 | `build_hierarchical_contribution_result` | function | `engine/contribution.py:298` | 14 | C |
 | 18 | `_apply_overrides` | function | `engine/policies.py:38` | 14 | C |
 | 19 | `_build_artifacts` | function | `app/services/composite_inspection_service.py:114` | 13 | C |
-| 20 | `_latest_attribution_observation_date` | function | `app/services/attribution_service.py:46` | 12 | C |
+| 20 | `calculate_attribution` | function | `app/services/attribution_service.py:121` | 12 | C |
 
 ## Lowest Maintainability Index
 
@@ -126,6 +126,9 @@ orchestrator.
 `_calculate_dietz_mwr_result` also dropped out after Dietz method selection, annualized rate
 calculation, and XIRR fallback metadata construction were separated into independently testable
 helpers.
+`_latest_attribution_observation_date` also dropped out after portfolio, instrument,
+portfolio-group, and benchmark-group observation date extraction were split into dedicated
+supportability helpers.
 `_record_taxonomy_samples` also dropped out after repeated dated sample append branches were routed
 through reusable taxonomy sampling helpers. `DurableQueueCollector.collect` also dropped out after
 availability and runtime-retention preview metric emission were separated from queue/storage/history
