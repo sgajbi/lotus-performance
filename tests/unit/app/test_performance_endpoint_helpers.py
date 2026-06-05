@@ -1,15 +1,23 @@
 from datetime import date
+from typing import cast
 
 import pandas as pd
 import pytest
 
 from app.models.benchmark_analytics_requests import BenchmarkReturnSource
 from app.models.requests import PerformanceRequest
+from app.models.responses import SinglePeriodPerformanceResult
+from app.models.twr_requests import TWRInputMode
+from app.services.benchmark_calculation_service import BenchmarkCalculationArtifacts
 from app.services.twr_service import (
     _as_numeric,
+    _build_twr_lineage_details,
+    _build_twr_response_model,
     _build_twr_results_by_period,
     _calculate_total_return_from_slice,
     _get_total_cum_ror,
+    _resolve_twr_supportability,
+    _TWRExecutionCalculation,
 )
 from common.enums import Frequency
 from core.periods import ResolvedPeriod
@@ -113,6 +121,111 @@ def test_build_twr_results_by_period_filters_reset_events_to_period_window():
     reset_events = results["ITD"].reset_events
     assert reset_events is not None
     assert [event.reason for event in reset_events] == ["in_period"]
+
+
+def test_build_twr_response_model_preserves_envelope_metadata_and_supportability():
+    request = _twr_request()
+    resolved_period = ResolvedPeriod(name="ITD", start_date=date(2025, 1, 1), end_date=date(2025, 1, 2))
+    daily_results_df = _daily_twr_results_df()
+    calculation = _TWRExecutionCalculation(
+        resolved_periods=[resolved_period],
+        freqs_by_period={"ITD": [Frequency.DAILY]},
+        master_start_date=resolved_period.start_date,
+        master_end_date=resolved_period.end_date,
+        daily_results_df=daily_results_df,
+        engine_diagnostics=EngineDiagnostics(effective_period_start=date(2025, 1, 1)),
+        benchmark_artifacts=None,
+    )
+    results_by_period = _build_twr_results_by_period(
+        performance_request=request,
+        resolved_periods=calculation.resolved_periods,
+        freqs_by_period=calculation.freqs_by_period,
+        daily_results_df=daily_results_df,
+        engine_diagnostics=calculation.engine_diagnostics,
+        benchmark_artifacts=None,
+        benchmark_request=None,
+        benchmark_input_mode=None,
+        resolved_benchmark_id=None,
+        benchmark_return_source=BenchmarkReturnSource.CALCULATED,
+        master_start_date=calculation.master_start_date,
+    )
+    supportability = _resolve_twr_supportability(
+        performance_request=request,
+        results_by_period=results_by_period,
+        daily_results_df=daily_results_df,
+        benchmark_row_count=0,
+    )
+
+    response = _build_twr_response_model(
+        performance_request=request,
+        portfolio_id="P1",
+        input_mode=TWRInputMode.STATELESS,
+        input_fingerprint="fingerprint-1",
+        calculation_hash="hash-1",
+        engine_version="test-engine",
+        calculation=calculation,
+        results_by_period=results_by_period,
+        benchmark_context=None,
+        calculation_supportability=supportability,
+    )
+
+    assert response.calculation_id == request.calculation_id
+    assert response.portfolio_id == "P1"
+    assert response.calculation_supportability is supportability
+    assert response.results_by_period == results_by_period
+    assert response.meta.periods == {
+        "requested": ["ITD"],
+        "master_start": "2025-01-01",
+        "master_end": "2025-01-02",
+    }
+    assert response.meta.input_fingerprint == "fingerprint-1"
+    assert response.meta.calculation_hash == "hash-1"
+    assert response.audit.counts == {"input_rows": 2}
+
+
+def test_build_twr_lineage_details_includes_benchmark_artifacts():
+    daily_results_df = _daily_twr_results_df()
+    benchmark_daily_returns_df = pd.DataFrame(
+        [
+            {"date": date(2025, 1, 1), "benchmark_return": 0.01},
+            {"date": date(2025, 1, 2), "benchmark_return": 0.02},
+        ]
+    )
+    component_contributions_df = pd.DataFrame(
+        [
+            {
+                "date": date(2025, 1, 1),
+                "component_id": "EQ",
+                "weight_bop": 1.0,
+                "component_return": 0.01,
+                "contribution": 0.01,
+            }
+        ]
+    )
+    benchmark_artifacts = BenchmarkCalculationArtifacts(
+        results_by_period={},
+        daily_returns_df=benchmark_daily_returns_df,
+        component_contributions_df=component_contributions_df,
+        effective_period_start=date(2025, 1, 1),
+        max_weight_sum_deviation=0.0,
+        notes=[],
+    )
+
+    execution_details, calculation_details = _build_twr_lineage_details(
+        daily_results_df=daily_results_df,
+        results_by_period=cast(dict[str, SinglePeriodPerformanceResult], {"ITD": object()}),
+        benchmark_artifacts=benchmark_artifacts,
+    )
+
+    assert execution_details == {
+        "periods_resolved": 1,
+        "daily_rows": 2,
+        "benchmark_daily_returns": 2,
+        "benchmark_component_contributions": 1,
+    }
+    assert calculation_details["daily_results.csv"] is daily_results_df
+    assert calculation_details["benchmark_daily_returns.csv"] is benchmark_daily_returns_df
+    assert calculation_details["benchmark_component_contributions.csv"] is component_contributions_df
 
 
 def test_as_numeric_returns_default_for_non_numeric_values():
