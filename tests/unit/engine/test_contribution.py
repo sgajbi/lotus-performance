@@ -8,10 +8,13 @@ from app.models.contribution_requests import ContributionRequest, Smoothing
 from common.enums import WeightingScheme
 from engine.config import EngineConfig, PeriodType, PrecisionMode
 from engine.contribution import (
+    _build_contribution_fx_rates_frame,
+    _build_contribution_twr_config,
     _calculate_carino_factor_for_return,
     _calculate_carino_factors,
     _calculate_daily_instrument_contributions,
     _carino_smoothing_domain_is_valid,
+    _ensure_same_currency_local_fx_columns,
     _prepare_hierarchical_data,
     build_hierarchical_contribution_result,
     calculate_hierarchical_contribution,
@@ -64,6 +67,49 @@ def test_prepare_hierarchical_data(hierarchical_request_fixture):
     assert expected_cols.issubset(instruments_df.columns)
     assert instruments_df[instruments_df["position_id"] == "Stock_A"]["sector"].iloc[0] == "Technology"
     assert instruments_df[instruments_df["position_id"] == "Stock_B"]["sector"].iloc[0] == "Healthcare"
+
+
+def test_build_contribution_twr_config_uses_request_window_and_portfolio_start(hierarchical_request_fixture):
+    config = _build_contribution_twr_config(hierarchical_request_fixture)
+
+    assert config.performance_start_date == hierarchical_request_fixture.portfolio_data.valuation_points[0].perf_date
+    assert config.report_start_date == hierarchical_request_fixture.report_start_date
+    assert config.report_end_date == hierarchical_request_fixture.report_end_date
+    assert config.metric_basis == hierarchical_request_fixture.portfolio_data.metric_basis
+
+
+def test_build_contribution_fx_rates_frame_normalizes_dates_and_keeps_latest_duplicate(happy_path_payload):
+    payload = happy_path_payload.copy()
+    payload["currency_mode"] = "BOTH"
+    payload["report_ccy"] = "USD"
+    payload["fx"] = {
+        "rates": [
+            {"date": "2025-01-01", "ccy": "EUR", "rate": 1.1},
+            {"date": "2025-01-01", "ccy": "EUR", "rate": 1.2},
+            {"date": "2025-01-02", "ccy": "EUR", "rate": 1.3},
+        ]
+    }
+    request = ContributionRequest.model_validate(payload)
+
+    fx_rates_df = _build_contribution_fx_rates_frame(request)
+
+    assert len(fx_rates_df) == 2
+    assert fx_rates_df["date"].dt.strftime("%Y-%m-%d").tolist() == ["2025-01-01", "2025-01-02"]
+    assert fx_rates_df["rate"].tolist() == [1.2, 1.3]
+
+
+def test_ensure_same_currency_local_fx_columns_fills_base_only_position_results(hierarchical_request_fixture):
+    request = hierarchical_request_fixture.model_copy(update={"currency_mode": "BOTH", "report_ccy": "USD"})
+    position_results_df = pd.DataFrame({"daily_ror": [1.25]})
+
+    _ensure_same_currency_local_fx_columns(
+        position_results_df=position_results_df,
+        request=request,
+        position_ccy="USD",
+    )
+
+    assert position_results_df["local_ror"].tolist() == [1.25]
+    assert position_results_df["fx_ror"].tolist() == [0.0]
 
 
 def test_calculate_daily_contributions_bod_weighting(prepared_data_fixture):

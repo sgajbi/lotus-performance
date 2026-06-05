@@ -153,8 +153,38 @@ def _prepare_hierarchical_data(request: ContributionRequestLike) -> Tuple[pd.Dat
     """
     Runs TWR calculations and combines all position data and metadata into a single DataFrame.
     """
+    twr_config = _build_contribution_twr_config(request)
+    portfolio_results_df = run_engine_for_valuation_points(
+        [item.model_dump() for item in request.portfolio_data.valuation_points],
+        twr_config,
+        force_base_only=twr_config.currency_mode == "BOTH",
+    )
+
+    fx_rates_df = _build_contribution_fx_rates_frame(request)
+    all_positions_data = []
+    for position in request.positions_data:
+        if not position.valuation_points:
+            continue
+
+        all_positions_data.append(
+            _build_position_contribution_results_frame(
+                position=position,
+                request=request,
+                twr_config=twr_config,
+                fx_rates_df=fx_rates_df,
+            )
+        )
+
+    if not all_positions_data:
+        return pd.DataFrame(), portfolio_results_df
+
+    instruments_df = pd.concat(all_positions_data, ignore_index=True)
+    return instruments_df, portfolio_results_df
+
+
+def _build_contribution_twr_config(request: ContributionRequestLike) -> EngineConfig:
     perf_start_date = request.portfolio_data.valuation_points[0].perf_date
-    twr_config = EngineConfig(
+    return EngineConfig(
         performance_start_date=perf_start_date,
         report_start_date=request.report_start_date,
         report_end_date=request.report_end_date,
@@ -168,63 +198,81 @@ def _prepare_hierarchical_data(request: ContributionRequestLike) -> Tuple[pd.Dat
         hedging=request.hedging,
     )
 
-    portfolio_results_df = run_engine_for_valuation_points(
-        [item.model_dump() for item in request.portfolio_data.valuation_points],
+
+def _build_contribution_fx_rates_frame(request: ContributionRequestLike) -> pd.DataFrame:
+    if request.currency_mode != "BOTH" or not request.fx:
+        return pd.DataFrame()
+    fx_rates_df = pd.DataFrame([rate.model_dump() for rate in request.fx.rates])
+    fx_rates_df["date"] = pd.to_datetime(fx_rates_df["date"])
+    fx_rates_df.drop_duplicates(subset=["date", "ccy"], keep="last", inplace=True)
+    return fx_rates_df
+
+
+def _build_position_contribution_results_frame(
+    *,
+    position: ContributionPositionDataLike,
+    request: ContributionRequestLike,
+    twr_config: EngineConfig,
+    fx_rates_df: pd.DataFrame,
+) -> pd.DataFrame:
+    position_ccy = position.meta.get("currency")
+    position_results_df = run_engine_for_valuation_points(
+        [item.model_dump() for item in position.valuation_points],
         twr_config,
-        force_base_only=twr_config.currency_mode == "BOTH",
+        force_base_only=not (request.currency_mode == "BOTH" and position_ccy != request.report_ccy),
+    )
+    _ensure_same_currency_local_fx_columns(
+        position_results_df=position_results_df,
+        request=request,
+        position_ccy=position_ccy,
+    )
+    position_results_df["position_id"] = position.position_id
+    for key, value in position.meta.items():
+        position_results_df[key] = value
+    return _apply_position_fx_capital_conversion(
+        position_results_df=position_results_df,
+        request=request,
+        position_ccy=position_ccy,
+        fx_rates_df=fx_rates_df,
     )
 
-    fx_rates_df = pd.DataFrame()
-    if request.currency_mode == "BOTH" and request.fx:
-        fx_rates_df = pd.DataFrame([rate.model_dump() for rate in request.fx.rates])
-        fx_rates_df["date"] = pd.to_datetime(fx_rates_df["date"])
-        fx_rates_df.drop_duplicates(subset=["date", "ccy"], keep="last", inplace=True)
 
-    all_positions_data = []
-    for position in request.positions_data:
-        if not position.valuation_points:
-            continue
+def _ensure_same_currency_local_fx_columns(
+    *,
+    position_results_df: pd.DataFrame,
+    request: ContributionRequestLike,
+    position_ccy: Any,
+) -> None:
+    if (
+        request.currency_mode != "BOTH"
+        or position_ccy != request.report_ccy
+        or "local_ror" in position_results_df.columns
+    ):
+        return
+    position_results_df["local_ror"] = position_results_df[PortfolioColumns.DAILY_ROR.value]
+    position_results_df["fx_ror"] = 0.0
 
-        position_ccy = position.meta.get("currency")
-        position_results_df = run_engine_for_valuation_points(
-            [item.model_dump() for item in position.valuation_points],
-            twr_config,
-            force_base_only=not (request.currency_mode == "BOTH" and position_ccy != request.report_ccy),
-        )
-        if (
-            request.currency_mode == "BOTH"
-            and position_ccy == request.report_ccy
-            and "local_ror" not in position_results_df.columns
-        ):
-            position_results_df["local_ror"] = position_results_df[PortfolioColumns.DAILY_ROR.value]
-            position_results_df["fx_ror"] = 0.0
-        position_results_df["position_id"] = position.position_id
-        for key, value in position.meta.items():
-            position_results_df[key] = value
 
-        if request.currency_mode == "BOTH" and position_ccy != request.report_ccy and not fx_rates_df.empty:
-            pos_fx_lookup = fx_rates_df[fx_rates_df["ccy"] == position_ccy][["date", "rate"]].rename(
-                columns={"rate": "fx_rate"}
-            )
-            position_results_df["prior_date"] = position_results_df[PortfolioColumns.PERF_DATE.value] - pd.Timedelta(
-                days=1
-            )
-
-            position_results_df = pd.merge(
-                position_results_df, pos_fx_lookup, left_on="prior_date", right_on="date", how="left"
-            ).ffill()
-
-            if "fx_rate" in position_results_df.columns:
-                for col in [PortfolioColumns.BEGIN_MV.value, PortfolioColumns.BOD_CF.value]:
-                    position_results_df[col] *= position_results_df["fx_rate"]
-
-        all_positions_data.append(position_results_df)
-
-    if not all_positions_data:
-        return pd.DataFrame(), portfolio_results_df
-
-    instruments_df = pd.concat(all_positions_data, ignore_index=True)
-    return instruments_df, portfolio_results_df
+def _apply_position_fx_capital_conversion(
+    *,
+    position_results_df: pd.DataFrame,
+    request: ContributionRequestLike,
+    position_ccy: Any,
+    fx_rates_df: pd.DataFrame,
+) -> pd.DataFrame:
+    if request.currency_mode != "BOTH" or position_ccy == request.report_ccy or fx_rates_df.empty:
+        return position_results_df
+    pos_fx_lookup = fx_rates_df[fx_rates_df["ccy"] == position_ccy][["date", "rate"]].rename(
+        columns={"rate": "fx_rate"}
+    )
+    position_results_df["prior_date"] = position_results_df[PortfolioColumns.PERF_DATE.value] - pd.Timedelta(days=1)
+    converted_df = pd.merge(
+        position_results_df, pos_fx_lookup, left_on="prior_date", right_on="date", how="left"
+    ).ffill()
+    if "fx_rate" in converted_df.columns:
+        for col in [PortfolioColumns.BEGIN_MV.value, PortfolioColumns.BOD_CF.value]:
+            converted_df[col] *= converted_df["fx_rate"]
+    return converted_df
 
 
 def calculate_hierarchical_contribution(request: ContributionRequestLike) -> Tuple[Dict, Dict]:
