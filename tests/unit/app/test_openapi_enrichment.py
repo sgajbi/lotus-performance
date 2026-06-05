@@ -3,6 +3,7 @@ from app.openapi_enrichment import (
     _build_schema_example,
     _canonical_term,
     _composed_schema_example,
+    _ensure_model_schema_documentation,
     _ensure_operation_response_documentation,
     _ensure_request_body_example,
     _explicit_schema_example,
@@ -358,6 +359,36 @@ def test_enrich_openapi_schema_fills_operation_schema_and_examples():
     problem_schema = enriched["components"]["schemas"]["ProblemDetail"]
     assert problem_schema["description"].startswith("RFC 7807")
     assert problem_schema["properties"]["status"]["example"] == 500
+
+
+def test_ensure_model_schema_documentation_preserves_existing_metadata_and_resolves_refs():
+    components = {
+        "schemas": {
+            "Referenced": {
+                "type": "object",
+                "description": "Referenced schema description.",
+                "properties": {"count": {"type": "integer"}},
+            }
+        }
+    }
+    model_schema = {
+        "type": "object",
+        "properties": {
+            "request_id": {"type": "string", "description": "Already documented.", "example": "REQ_1"},
+            "nested_ref": {"$ref": "#/components/schemas/Referenced"},
+        },
+    }
+
+    _ensure_model_schema_documentation("Envelope", model_schema, components)
+
+    assert model_schema["description"] == "envelope object."
+    request_id = model_schema["properties"]["request_id"]
+    assert request_id["description"] == "Already documented."
+    assert request_id["example"] == "REQ_1"
+    nested_ref = model_schema["properties"]["nested_ref"]
+    assert nested_ref["description"] == "Referenced schema description."
+    assert nested_ref["example"] == {"count": 1}
+    assert nested_ref["x-lotus-semantic-id"] == "lotus.nested_ref"
 
 
 def test_enrich_openapi_schema_adds_fastapi_validation_error_examples():

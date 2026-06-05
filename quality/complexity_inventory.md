@@ -22,32 +22,32 @@ python scripts/python_complexity_inventory.py --limit 20
 | --- | ---: |
 | Max cyclomatic complexity | 19 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.79 |
+| Average maintainability index | 55.78 |
 
 ## Highest Cyclomatic Complexity
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_ensure_schema_documentation` | function | `app/openapi_enrichment.py:510` | 19 | C |
-| 2 | `_expected_daily_evidence_semantics` | function | `app/services/inspection/calculation_consistency.py:416` | 19 | C |
-| 3 | `analyze_portfolio_position_reconciliation` | function | `app/services/inspection/reconciliation.py:89` | 19 | C |
-| 4 | `_calculate_returns_series` | function | `app/services/returns_series_service.py:1026` | 19 | C |
-| 5 | `_prepare_hierarchical_data` | function | `engine/contribution.py:152` | 19 | C |
-| 6 | `_xirr` | function | `engine/mwr.py:53` | 19 | C |
-| 7 | `validate_mode_payloads` | method | `app/models/workspace_summary_requests.py:251` | 18 | C |
-| 8 | `append_diagnostic_notes` | method | `app/services/contribution_audit.py:88` | 18 | C |
-| 9 | `calculate_contribution` | function | `app/services/contribution_service.py:178` | 18 | C |
-| 10 | `build_source_economics_findings` | function | `app/services/inspection/source_economics_findings.py:7` | 18 | C |
-| 11 | `_runtime_retention_payload_matches_entry` | function | `app/services/operator_action_replay_service.py:136` | 18 | C |
-| 12 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:1186` | 18 | C |
-| 13 | `_build_benchmark_groups` | function | `app/services/stateful_attribution_input_service.py:614` | 18 | C |
-| 14 | `_parse_composition_window` | function | `app/services/stateful_benchmark_input_service.py:209` | 18 | C |
-| 15 | `_process_pending_jobs` | function | `app/workers/compute_executor_worker.py:73` | 18 | C |
-| 16 | `validate_mode_payloads` | method | `app/models/mwr_analytics_requests.py:58` | 17 | C |
-| 17 | `validate_mode_payloads` | method | `app/models/twr_requests.py:146` | 17 | C |
-| 18 | `_infer_example` | function | `app/openapi_enrichment.py:159` | 17 | C |
-| 19 | `_build_hierarchy_from_adjusted_position_series` | function | `app/services/contribution_series.py:146` | 17 | C |
-| 20 | `_record_external_samples` | method | `app/services/inspection/source_economics_collector.py:246` | 17 | C |
+| 1 | `_expected_daily_evidence_semantics` | function | `app/services/inspection/calculation_consistency.py:416` | 19 | C |
+| 2 | `analyze_portfolio_position_reconciliation` | function | `app/services/inspection/reconciliation.py:89` | 19 | C |
+| 3 | `_calculate_returns_series` | function | `app/services/returns_series_service.py:1026` | 19 | C |
+| 4 | `_prepare_hierarchical_data` | function | `engine/contribution.py:152` | 19 | C |
+| 5 | `_xirr` | function | `engine/mwr.py:53` | 19 | C |
+| 6 | `validate_mode_payloads` | method | `app/models/workspace_summary_requests.py:251` | 18 | C |
+| 7 | `append_diagnostic_notes` | method | `app/services/contribution_audit.py:88` | 18 | C |
+| 8 | `calculate_contribution` | function | `app/services/contribution_service.py:178` | 18 | C |
+| 9 | `build_source_economics_findings` | function | `app/services/inspection/source_economics_findings.py:7` | 18 | C |
+| 10 | `_runtime_retention_payload_matches_entry` | function | `app/services/operator_action_replay_service.py:136` | 18 | C |
+| 11 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:1186` | 18 | C |
+| 12 | `_build_benchmark_groups` | function | `app/services/stateful_attribution_input_service.py:614` | 18 | C |
+| 13 | `_parse_composition_window` | function | `app/services/stateful_benchmark_input_service.py:209` | 18 | C |
+| 14 | `_process_pending_jobs` | function | `app/workers/compute_executor_worker.py:73` | 18 | C |
+| 15 | `validate_mode_payloads` | method | `app/models/mwr_analytics_requests.py:58` | 17 | C |
+| 16 | `validate_mode_payloads` | method | `app/models/twr_requests.py:146` | 17 | C |
+| 17 | `_infer_example` | function | `app/openapi_enrichment.py:159` | 17 | C |
+| 18 | `_build_hierarchy_from_adjusted_position_series` | function | `app/services/contribution_series.py:146` | 17 | C |
+| 19 | `_record_external_samples` | method | `app/services/inspection/source_economics_collector.py:246` | 17 | C |
+| 20 | `_fetch_portfolio_chunk` | method | `app/services/stateful_input_service.py:797` | 17 | C |
 
 ## Lowest Maintainability Index
 
@@ -58,7 +58,7 @@ python scripts/python_complexity_inventory.py --limit 20
 | 3 | `app/services/returns_series_service.py` | 0.00 | C |
 | 4 | `app/services/stateful_attribution_input_service.py` | 0.00 | C |
 | 5 | `app/services/stateful_input_service.py` | 0.00 | C |
-| 6 | `app/openapi_enrichment.py` | 6.77 | C |
+| 6 | `app/openapi_enrichment.py` | 6.70 | C |
 | 7 | `app/services/twr_service.py` | 7.72 | C |
 | 8 | `app/services/workspace_summary_service.py` | 9.62 | B |
 | 9 | `app/services/execution_registry.py` | 10.84 | B |

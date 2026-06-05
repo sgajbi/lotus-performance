@@ -518,38 +518,60 @@ def _ensure_schema_documentation(schema: dict[str, Any]) -> None:
     for model_name, model_schema in schemas.items():
         if not isinstance(model_schema, dict):
             continue
-        if not model_schema.get("description"):
-            model_schema["description"] = _infer_schema_description(str(model_name), model_schema)
-        enum_descriptions = _infer_enum_descriptions(str(model_name), model_schema)
-        if enum_descriptions and "x-enum-descriptions" not in model_schema:
-            model_schema["x-enum-descriptions"] = enum_descriptions
+        _ensure_model_schema_documentation(str(model_name), model_schema, components)
 
-        properties = model_schema.get("properties", {})
-        if not isinstance(properties, dict):
-            continue
-        for prop_name, prop_schema in properties.items():
-            if not isinstance(prop_schema, dict):
-                continue
-            prop_resolved = _resolve_schema(prop_schema, components)
-            if not prop_schema.get("description"):
-                prop_schema["description"] = prop_resolved.get("description") or _infer_description(
-                    str(model_name),
-                    str(prop_name),
-                    prop_resolved,
-                )
-            if "example" not in prop_schema and "examples" not in prop_schema:
-                prop_schema["example"] = _build_schema_example(
-                    prop_schema,
-                    components=components,
-                    name_hint=str(prop_name),
-                )
-            if "x-lotus-semantic-id" not in prop_schema:
-                prop_schema["x-lotus-semantic-id"] = _semantic_id(str(prop_name))
-            if "x-lotus-canonical-term" not in prop_schema:
-                prop_schema["x-lotus-canonical-term"] = _canonical_term(str(prop_name))
-            prop_enum_descriptions = _infer_enum_descriptions(str(prop_name), prop_resolved)
-            if prop_enum_descriptions and "x-enum-descriptions" not in prop_schema:
-                prop_schema["x-enum-descriptions"] = prop_enum_descriptions
+
+def _ensure_model_schema_documentation(
+    model_name: str,
+    model_schema: dict[str, Any],
+    components: dict[str, Any],
+) -> None:
+    if not model_schema.get("description"):
+        model_schema["description"] = _infer_schema_description(model_name, model_schema)
+    enum_descriptions = _infer_enum_descriptions(model_name, model_schema)
+    if enum_descriptions and "x-enum-descriptions" not in model_schema:
+        model_schema["x-enum-descriptions"] = enum_descriptions
+
+    properties = model_schema.get("properties", {})
+    if not isinstance(properties, dict):
+        return
+    for prop_name, prop_schema in properties.items():
+        if isinstance(prop_schema, dict):
+            _ensure_property_schema_documentation(
+                model_name=model_name,
+                prop_name=str(prop_name),
+                prop_schema=prop_schema,
+                components=components,
+            )
+
+
+def _ensure_property_schema_documentation(
+    *,
+    model_name: str,
+    prop_name: str,
+    prop_schema: dict[str, Any],
+    components: dict[str, Any],
+) -> None:
+    prop_resolved = _resolve_schema(prop_schema, components)
+    if not prop_schema.get("description"):
+        prop_schema["description"] = prop_resolved.get("description") or _infer_description(
+            model_name,
+            prop_name,
+            prop_resolved,
+        )
+    if "example" not in prop_schema and "examples" not in prop_schema:
+        prop_schema["example"] = _build_schema_example(
+            prop_schema,
+            components=components,
+            name_hint=prop_name,
+        )
+    if "x-lotus-semantic-id" not in prop_schema:
+        prop_schema["x-lotus-semantic-id"] = _semantic_id(prop_name)
+    if "x-lotus-canonical-term" not in prop_schema:
+        prop_schema["x-lotus-canonical-term"] = _canonical_term(prop_name)
+    prop_enum_descriptions = _infer_enum_descriptions(prop_name, prop_resolved)
+    if prop_enum_descriptions and "x-enum-descriptions" not in prop_schema:
+        prop_schema["x-enum-descriptions"] = prop_enum_descriptions
 
 
 def enrich_openapi_schema(schema: dict[str, Any]) -> dict[str, Any]:
