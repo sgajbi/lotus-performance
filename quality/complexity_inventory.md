@@ -22,7 +22,7 @@ python scripts/python_complexity_inventory.py --limit 20
 | --- | ---: |
 | Max cyclomatic complexity | 15 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.62 |
+| Average maintainability index | 55.61 |
 
 ## Highest Cyclomatic Complexity
 
@@ -47,7 +47,7 @@ python scripts/python_complexity_inventory.py --limit 20
 | 17 | `build_hierarchical_contribution_result` | function | `engine/contribution.py:298` | 14 | C |
 | 18 | `_apply_overrides` | function | `engine/policies.py:38` | 14 | C |
 | 19 | `_build_artifacts` | function | `app/services/composite_inspection_service.py:114` | 13 | C |
-| 20 | `calculate_attribution` | function | `app/services/attribution_service.py:121` | 12 | C |
+| 20 | `_build_benchmark_breakdowns` | function | `app/services/benchmark_calculation_service.py:148` | 12 | C |
 
 ## Lowest Maintainability Index
 
@@ -129,6 +129,9 @@ helpers.
 `_latest_attribution_observation_date` also dropped out after portfolio, instrument,
 portfolio-group, and benchmark-group observation date extraction were split into dedicated
 supportability helpers.
+`calculate_attribution` also dropped out again after response meta construction, calculation
+supportability construction/metric recording, and benchmark-context projection were split into
+dedicated helpers.
 `_record_taxonomy_samples` also dropped out after repeated dated sample append branches were routed
 through reusable taxonomy sampling helpers. `DurableQueueCollector.collect` also dropped out after
 availability and runtime-retention preview metric emission were separated from queue/storage/history

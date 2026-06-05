@@ -29,11 +29,11 @@ python scripts/python_function_size_inventory.py --limit 15
 | 7 | `_build_external_cashflow_findings` | `app/services/inspection/source_economics_findings.py:267` | 140 |
 | 8 | `_build_artifacts` | `app/services/composite_inspection_service.py:114` | 135 |
 | 9 | `resolve_stateful_returns_series_request` | `app/services/returns_series_service.py:1265` | 134 |
-| 10 | `calculate_attribution` | `app/services/attribution_service.py:96` | 133 |
-| 11 | `build_runtime_status_response` | `app/models/runtime_status.py:737` | 131 |
-| 12 | `_build_fee_source_economics_findings` | `app/services/inspection/source_economics_findings.py:409` | 130 |
-| 13 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:327` | 130 |
-| 14 | `calculate_contribution_workflow` | `app/services/contribution_calculation_workflow_service.py:98` | 127 |
+| 10 | `build_runtime_status_response` | `app/models/runtime_status.py:737` | 131 |
+| 11 | `_build_fee_source_economics_findings` | `app/services/inspection/source_economics_findings.py:409` | 130 |
+| 12 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:327` | 130 |
+| 13 | `calculate_contribution_workflow` | `app/services/contribution_calculation_workflow_service.py:98` | 127 |
+| 14 | `calculate_attribution` | `app/services/attribution_service.py:168` | 120 |
 | 15 | `_calculate_returns_series` | `app/services/returns_series_service.py:1143` | 120 |
 
 ## Interpretation
@@ -44,7 +44,9 @@ reconciliation, runtime-status assembly, queue metrics, and returns-series execu
 assembly has dropped out of the top-15 table after resolved identity finalization was isolated.
 Runtime-status response assembly remains in the top-15 table but moved from `173` to `131` lines
 after lineage queue response mapping was isolated. Attribution orchestration remains in the top-15
-table but moved from `142` to `133` lines after per-period result assembly was isolated.
+table but moved from `142` to `133` lines after per-period result assembly was isolated, then moved
+from `133` to `120` lines after response meta, supportability, and benchmark-context assembly were
+isolated.
 Contribution orchestration moved from `287` to `270` lines after engine input preparation was
 isolated, then moved from `270` to `189` lines and is no longer the largest function after
 flat-period result assembly was isolated from the public contribution orchestration. Benchmark calculation workflow

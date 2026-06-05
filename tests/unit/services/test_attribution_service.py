@@ -4,6 +4,7 @@ import pandas as pd
 
 from app.models.attribution_requests import AttributionRequest
 from app.services import attribution_service
+from common.enums import PeriodType
 
 
 def test_build_attribution_results_by_period_slices_non_empty_periods_and_prefixes_lineage(monkeypatch):
@@ -92,3 +93,69 @@ def test_latest_attribution_observation_date_uses_all_stateless_input_sources():
     assert attribution_service._portfolio_group_observation_dates(request) == ["2025-03-31"]
     assert attribution_service._benchmark_group_observation_dates(request) == [pd.Timestamp("2025-04-30").date()]
     assert attribution_service._latest_attribution_observation_date(request) == pd.Timestamp("2025-04-30").date()
+
+
+def test_attribution_response_support_helpers_preserve_meta_supportability_and_benchmark_context(monkeypatch):
+    request = AttributionRequest.model_validate(
+        {
+            "portfolio_id": "ATTRIB_001",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-31",
+            "analyses": [{"period": "EXPLICIT", "frequencies": ["monthly"]}],
+            "mode": "by_group",
+            "group_by": ["assetClass"],
+            "portfolio_groups_data": [
+                {
+                    "key": {"assetClass": "Equity"},
+                    "observations": [{"date": "2025-01-31", "weight_bop": 1.0, "return_base": 0.01}],
+                }
+            ],
+            "benchmark_groups_data": [
+                {
+                    "key": {"assetClass": "Equity"},
+                    "observations": [{"date": "2025-01-31", "return_base": 0.02, "weight_bop": 1.0}],
+                }
+            ],
+        }
+    )
+    recorded_metrics = []
+    monkeypatch.setattr(
+        attribution_service,
+        "record_supportability_metric",
+        lambda *, operation, supportability: recorded_metrics.append((operation, supportability)),
+    )
+
+    meta = attribution_service._build_attribution_meta(
+        request=request,
+        app_version="9.9.9-test",
+        periods_to_resolve=[PeriodType.EXPLICIT],
+        master_start_date=pd.Timestamp("2025-01-01").date(),
+        master_end_date=pd.Timestamp("2025-01-31").date(),
+        input_fingerprint="fingerprint-1",
+        calculation_hash="hash-1",
+    )
+    supportability = attribution_service._build_attribution_supportability(request, resolved_period_count=1)
+
+    assert meta.engine_version == "9.9.9-test"
+    assert meta.periods == {
+        "requested": ["EXPLICIT"],
+        "master_start": "2025-01-01",
+        "master_end": "2025-01-31",
+    }
+    assert meta.input_fingerprint == "fingerprint-1"
+    assert meta.calculation_hash == "hash-1"
+    assert supportability.input_row_count == 2
+    assert supportability.resolved_period_count == 1
+    assert supportability.freshness_bucket == "current"
+    assert recorded_metrics == [("attribution", supportability)]
+    assert attribution_service._attribution_benchmark_context(
+        resolved_benchmark_id="BMK_1",
+        resolved_benchmark_return_source="stateful_benchmark",
+    ) == {"benchmark_id": "BMK_1", "return_source": "stateful_benchmark"}
+    assert (
+        attribution_service._attribution_benchmark_context(
+            resolved_benchmark_id="BMK_1",
+            resolved_benchmark_return_source=None,
+        )
+        is None
+    )
