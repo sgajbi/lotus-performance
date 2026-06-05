@@ -24,17 +24,17 @@ python scripts/python_function_size_inventory.py --limit 15
 | 2 | `calculate_contribution` | `app/services/contribution_service.py:178` | 335 |
 | 3 | `analyze_portfolio_position_reconciliation` | `app/services/inspection/reconciliation.py:89` | 234 |
 | 4 | `DurableQueueCollector.collect` | `app/services/queue_metrics_service.py:227` | 188 |
-| 5 | `build_attribution_supportability_evidence` | `engine/attribution_supportability.py:42` | 184 |
-| 6 | `build_runtime_status_response` | `app/models/runtime_status.py:660` | 173 |
-| 7 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:503` | 172 |
-| 8 | `DurableQueueCollector.describe` | `app/services/queue_metrics_service.py:67` | 159 |
-| 9 | `_calculate_returns_series` | `app/services/returns_series_service.py:1026` | 158 |
-| 10 | `calculate_twr_workflow` | `app/services/twr_calculation_service.py:159` | 148 |
-| 11 | `aggregate_attribution_results` | `engine/attribution.py:586` | 148 |
-| 12 | `calculate_benchmark_workflow` | `app/services/benchmark_calculation_workflow_service.py:89` | 147 |
-| 13 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:71` | 147 |
-| 14 | `resolve_stateful_returns_series_request` | `app/services/returns_series_service.py:1186` | 143 |
-| 15 | `calculate_attribution` | `app/services/attribution_service.py:69` | 142 |
+| 5 | `build_runtime_status_response` | `app/models/runtime_status.py:660` | 173 |
+| 6 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:503` | 172 |
+| 7 | `DurableQueueCollector.describe` | `app/services/queue_metrics_service.py:67` | 159 |
+| 8 | `_calculate_returns_series` | `app/services/returns_series_service.py:1026` | 158 |
+| 9 | `calculate_twr_workflow` | `app/services/twr_calculation_service.py:159` | 148 |
+| 10 | `aggregate_attribution_results` | `engine/attribution.py:586` | 148 |
+| 11 | `calculate_benchmark_workflow` | `app/services/benchmark_calculation_workflow_service.py:89` | 147 |
+| 12 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:71` | 147 |
+| 13 | `resolve_stateful_returns_series_request` | `app/services/returns_series_service.py:1186` | 143 |
+| 14 | `calculate_attribution` | `app/services/attribution_service.py:69` | 142 |
+| 15 | `_build_artifacts` | `app/services/composite_inspection_service.py:114` | 135 |
 
 ## Interpretation
 
