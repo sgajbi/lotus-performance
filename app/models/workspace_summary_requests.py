@@ -249,33 +249,14 @@ class WorkspaceSummaryRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_mode_payloads(self) -> "WorkspaceSummaryRequest":
-        requested_periods = {item.period for item in self.periods}
-        if WorkspacePeriodType.EXPLICIT in requested_periods and self.report_start_date is None:
-            raise ValueError("report_start_date is required when periods include EXPLICIT")
-
         if self.input_mode == TWRInputMode.STATELESS:
-            has_nested = self.stateless_input is not None
-            has_legacy = bool(self.valuation_points)
-            if self.performance_start_date is None:
-                raise ValueError("performance_start_date is required when input_mode=stateless")
-            if has_nested and has_legacy:
-                raise ValueError("Provide either stateless_input or valuation_points, not both, for stateless mode")
-            if not has_nested and not has_legacy:
-                raise ValueError("stateless_input or valuation_points is required when input_mode=stateless")
-            if self.stateful_input is not None:
-                raise ValueError("stateful_input must be null when input_mode=stateless")
+            _validate_workspace_summary_stateless_inputs(self)
         else:
-            if self.stateful_input is None:
-                raise ValueError("stateful_input is required when input_mode=stateful")
-            if self.stateless_input is not None:
-                raise ValueError("stateless_input must be null when input_mode=stateful")
-            if self.valuation_points:
-                raise ValueError("valuation_points must be null when input_mode=stateful")
+            _validate_workspace_summary_stateful_inputs(self)
 
-        if self.benchmark is not None:
-            self.include_benchmark = True
-        if self.include_benchmark and self.input_mode == TWRInputMode.STATELESS and self.benchmark is None:
-            raise ValueError("benchmark configuration is required when include_benchmark=true in stateless mode")
+        _validate_workspace_summary_explicit_window(self)
+        self.include_benchmark = _resolve_workspace_summary_include_benchmark(self)
+        _validate_workspace_summary_benchmark_request(self)
 
         return self
 
@@ -283,3 +264,43 @@ class WorkspaceSummaryRequest(BaseModel):
         if self.stateless_input is not None:
             return self.stateless_input.valuation_points
         return self.valuation_points
+
+
+def _requested_workspace_periods(request: WorkspaceSummaryRequest) -> set[WorkspacePeriodType]:
+    return {item.period for item in request.periods}
+
+
+def _validate_workspace_summary_explicit_window(request: WorkspaceSummaryRequest) -> None:
+    if WorkspacePeriodType.EXPLICIT in _requested_workspace_periods(request) and request.report_start_date is None:
+        raise ValueError("report_start_date is required when periods include EXPLICIT")
+
+
+def _validate_workspace_summary_stateless_inputs(request: WorkspaceSummaryRequest) -> None:
+    has_nested = request.stateless_input is not None
+    has_legacy = bool(request.valuation_points)
+    if request.performance_start_date is None:
+        raise ValueError("performance_start_date is required when input_mode=stateless")
+    if has_nested and has_legacy:
+        raise ValueError("Provide either stateless_input or valuation_points, not both, for stateless mode")
+    if not has_nested and not has_legacy:
+        raise ValueError("stateless_input or valuation_points is required when input_mode=stateless")
+    if request.stateful_input is not None:
+        raise ValueError("stateful_input must be null when input_mode=stateless")
+
+
+def _validate_workspace_summary_stateful_inputs(request: WorkspaceSummaryRequest) -> None:
+    if request.stateful_input is None:
+        raise ValueError("stateful_input is required when input_mode=stateful")
+    if request.stateless_input is not None:
+        raise ValueError("stateless_input must be null when input_mode=stateful")
+    if request.valuation_points:
+        raise ValueError("valuation_points must be null when input_mode=stateful")
+
+
+def _resolve_workspace_summary_include_benchmark(request: WorkspaceSummaryRequest) -> bool:
+    return request.include_benchmark or request.benchmark is not None
+
+
+def _validate_workspace_summary_benchmark_request(request: WorkspaceSummaryRequest) -> None:
+    if request.include_benchmark and request.input_mode == TWRInputMode.STATELESS and request.benchmark is None:
+        raise ValueError("benchmark configuration is required when include_benchmark=true in stateless mode")
