@@ -109,82 +109,68 @@ class _SourceEconomicsSampleCollector:
         )
 
     def _record_taxonomy_samples(self, source_point: ObservationSourceEconomics) -> None:
-        if source_point.detailed_fee_bod != 0 or source_point.detailed_fee_eod != 0:
-            self.fee_flow_dates.append(source_point.valuation_date)
-        if source_point.detailed_external_bod != 0 or source_point.detailed_external_eod != 0:
-            self.external_flow_dates.append(source_point.valuation_date)
-        if source_point.conflicting_explicit_amount_fields:
-            self.conflicting_explicit_amount_samples.append(
-                {
-                    "valuation_date": source_point.valuation_date,
-                    "rows": list(source_point.conflicting_explicit_amount_fields),
-                }
-            )
-        if source_point.invalid_explicit_amount_fields:
-            self.invalid_explicit_amount_samples.append(
-                {
-                    "valuation_date": source_point.valuation_date,
-                    "rows": list(source_point.invalid_explicit_amount_fields),
-                }
-            )
-        if source_point.invalid_cashflow_collection is not None:
-            self.invalid_cashflow_collection_samples.append(
-                {
-                    "valuation_date": source_point.valuation_date,
-                    **source_point.invalid_cashflow_collection,
-                }
-            )
-        if source_point.invalid_cashflow_rows:
-            self.invalid_cashflow_row_samples.append(
-                {
-                    "valuation_date": source_point.valuation_date,
-                    "rows": list(source_point.invalid_cashflow_rows),
-                }
-            )
-        if source_point.invalid_amount_rows:
-            self.invalid_amount_samples.append(
-                {
-                    "valuation_date": source_point.valuation_date,
-                    "rows": list(source_point.invalid_amount_rows),
-                }
-            )
-        if source_point.invalid_timing_rows:
-            self.invalid_timing_samples.append(
-                {
-                    "valuation_date": source_point.valuation_date,
-                    "rows": list(source_point.invalid_timing_rows),
-                }
-            )
-        if source_point.missing_cashflow_type_rows:
-            self.missing_cashflow_type_samples.append(
-                {
-                    "valuation_date": source_point.valuation_date,
-                    "rows": list(source_point.missing_cashflow_type_rows),
-                }
-            )
-        if source_point.noncanonical_cashflow_types:
-            self.noncanonical_cashflow_type_samples.append(
-                {
-                    "valuation_date": source_point.valuation_date,
-                    "cash_flow_types": list(source_point.noncanonical_cashflow_types),
-                }
-            )
-        if source_point.unsupported_cashflow_type_rows:
-            self.unsupported_cashflow_type_samples.append(
-                {
-                    "valuation_date": source_point.valuation_date,
-                    "cash_flow_types": _cashflow_types_from_rows(source_point.unsupported_cashflow_type_rows),
-                    "rows": list(source_point.unsupported_cashflow_type_rows),
-                }
-            )
-        if source_point.governed_alias_cashflow_type_rows:
-            self.governed_alias_cashflow_type_samples.append(
-                {
-                    "valuation_date": source_point.valuation_date,
-                    "cash_flow_types": _cashflow_types_from_rows(source_point.governed_alias_cashflow_type_rows),
-                    "rows": list(source_point.governed_alias_cashflow_type_rows),
-                }
-            )
+        _append_nonzero_flow_date(
+            self.fee_flow_dates,
+            valuation_date=source_point.valuation_date,
+            bod_amount=source_point.detailed_fee_bod,
+            eod_amount=source_point.detailed_fee_eod,
+        )
+        _append_nonzero_flow_date(
+            self.external_flow_dates,
+            valuation_date=source_point.valuation_date,
+            bod_amount=source_point.detailed_external_bod,
+            eod_amount=source_point.detailed_external_eod,
+        )
+        _append_rows_sample(
+            self.conflicting_explicit_amount_samples,
+            valuation_date=source_point.valuation_date,
+            rows=source_point.conflicting_explicit_amount_fields,
+        )
+        _append_rows_sample(
+            self.invalid_explicit_amount_samples,
+            valuation_date=source_point.valuation_date,
+            rows=source_point.invalid_explicit_amount_fields,
+        )
+        _append_mapping_sample(
+            self.invalid_cashflow_collection_samples,
+            valuation_date=source_point.valuation_date,
+            details=source_point.invalid_cashflow_collection,
+        )
+        _append_rows_sample(
+            self.invalid_cashflow_row_samples,
+            valuation_date=source_point.valuation_date,
+            rows=source_point.invalid_cashflow_rows,
+        )
+        _append_rows_sample(
+            self.invalid_amount_samples,
+            valuation_date=source_point.valuation_date,
+            rows=source_point.invalid_amount_rows,
+        )
+        _append_rows_sample(
+            self.invalid_timing_samples,
+            valuation_date=source_point.valuation_date,
+            rows=source_point.invalid_timing_rows,
+        )
+        _append_rows_sample(
+            self.missing_cashflow_type_samples,
+            valuation_date=source_point.valuation_date,
+            rows=source_point.missing_cashflow_type_rows,
+        )
+        _append_cashflow_types_sample(
+            self.noncanonical_cashflow_type_samples,
+            valuation_date=source_point.valuation_date,
+            cash_flow_types=source_point.noncanonical_cashflow_types,
+        )
+        _append_cashflow_type_rows_sample(
+            self.unsupported_cashflow_type_samples,
+            valuation_date=source_point.valuation_date,
+            rows=source_point.unsupported_cashflow_type_rows,
+        )
+        _append_cashflow_type_rows_sample(
+            self.governed_alias_cashflow_type_samples,
+            valuation_date=source_point.valuation_date,
+            rows=source_point.governed_alias_cashflow_type_rows,
+        )
 
     def _record_fee_samples(self, source_point: ObservationSourceEconomics) -> None:
         expected_fee_total, fee_source_kind = _expected_fee_total(source_point)
@@ -329,6 +315,63 @@ def collect_source_economics_samples(
     for source_point in source_points:
         collector.observe(source_point)
     return collector.freeze()
+
+
+def _append_nonzero_flow_date(
+    target: list[str],
+    *,
+    valuation_date: str,
+    bod_amount: Decimal,
+    eod_amount: Decimal,
+) -> None:
+    if bod_amount != 0 or eod_amount != 0:
+        target.append(valuation_date)
+
+
+def _append_rows_sample(
+    target: list[dict[str, object]],
+    *,
+    valuation_date: str,
+    rows: tuple[dict[str, object], ...],
+) -> None:
+    if rows:
+        target.append({"valuation_date": valuation_date, "rows": list(rows)})
+
+
+def _append_mapping_sample(
+    target: list[dict[str, object]],
+    *,
+    valuation_date: str,
+    details: dict[str, object] | None,
+) -> None:
+    if details is not None:
+        target.append({"valuation_date": valuation_date, **details})
+
+
+def _append_cashflow_types_sample(
+    target: list[dict[str, object]],
+    *,
+    valuation_date: str,
+    cash_flow_types: tuple[str, ...],
+) -> None:
+    if cash_flow_types:
+        target.append({"valuation_date": valuation_date, "cash_flow_types": list(cash_flow_types)})
+
+
+def _append_cashflow_type_rows_sample(
+    target: list[dict[str, object]],
+    *,
+    valuation_date: str,
+    rows: tuple[dict[str, object], ...],
+) -> None:
+    if rows:
+        target.append(
+            {
+                "valuation_date": valuation_date,
+                "cash_flow_types": _cashflow_types_from_rows(rows),
+                "rows": list(rows),
+            }
+        )
 
 
 def _cashflow_types_from_rows(rows: tuple[dict[str, object], ...]) -> list[str]:

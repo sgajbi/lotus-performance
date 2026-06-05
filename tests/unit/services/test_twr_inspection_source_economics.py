@@ -3,7 +3,65 @@ from decimal import Decimal
 
 from app.models.requests import Analysis, DailyInputData, PerformanceRequest
 from app.services.inspection import source_economics
-from app.services.inspection.source_economics import analyze_source_economics
+from app.services.inspection.source_economics import ObservationSourceEconomics, analyze_source_economics
+from app.services.inspection.source_economics_collector import collect_source_economics_samples
+
+
+def test_collect_source_economics_samples_routes_taxonomy_samples():
+    samples = collect_source_economics_samples(
+        source_points=[
+            ObservationSourceEconomics(
+                valuation_date="2026-03-12",
+                normalized_bod_cf=Decimal("0"),
+                normalized_eod_cf=Decimal("0"),
+                normalized_mgmt_fees=Decimal("0"),
+                detailed_external_bod=Decimal("10"),
+                detailed_external_eod=Decimal("0"),
+                detailed_fee_bod=Decimal("0"),
+                detailed_fee_eod=Decimal("-2"),
+                explicit_bod_total=None,
+                explicit_eod_total=None,
+                explicit_fee_total=None,
+                conflicting_explicit_amount_fields=({"field": "bod_cashflow", "amount": "10"},),
+                invalid_explicit_amount_fields=({"field": "fees", "amount": "bad"},),
+                invalid_cashflow_collection={"raw_type": "str", "sample": "bad"},
+                invalid_cashflow_rows=({"raw_type": "int", "raw_value": 1},),
+                invalid_amount_rows=({"amount": "bad"},),
+                invalid_timing_rows=({"timing": "intraday"},),
+                missing_cashflow_type_rows=({"amount": "1"},),
+                noncanonical_cashflow_types=("dividend",),
+                unsupported_cashflow_type_rows=({"cash_flow_type": "dividend", "amount": "1"},),
+                governed_alias_cashflow_type_rows=({"cash_flow_type": "deposit", "amount": "10"},),
+                fee_bod_timing_rows=(),
+            )
+        ]
+    )
+
+    assert samples.fee_flow_dates == ["2026-03-12"]
+    assert samples.external_flow_dates == ["2026-03-12"]
+    assert samples.conflicting_explicit_amount_samples == [
+        {"valuation_date": "2026-03-12", "rows": [{"field": "bod_cashflow", "amount": "10"}]}
+    ]
+    assert samples.invalid_cashflow_collection_samples == [
+        {"valuation_date": "2026-03-12", "raw_type": "str", "sample": "bad"}
+    ]
+    assert samples.noncanonical_cashflow_type_samples == [
+        {"valuation_date": "2026-03-12", "cash_flow_types": ["dividend"]}
+    ]
+    assert samples.unsupported_cashflow_type_samples == [
+        {
+            "valuation_date": "2026-03-12",
+            "cash_flow_types": ["dividend"],
+            "rows": [{"cash_flow_type": "dividend", "amount": "1"}],
+        }
+    ]
+    assert samples.governed_alias_cashflow_type_samples == [
+        {
+            "valuation_date": "2026-03-12",
+            "cash_flow_types": ["deposit"],
+            "rows": [{"cash_flow_type": "deposit", "amount": "10"}],
+        }
+    ]
 
 
 def test_analyze_source_economics_flags_fee_normalization_gap_and_duplicate_signal():
