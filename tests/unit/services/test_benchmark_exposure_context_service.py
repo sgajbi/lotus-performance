@@ -13,8 +13,11 @@ from app.models.benchmark_exposure_context import (
 )
 from app.services.benchmark_exposure_context_service import (
     _build_exposure_rows,
+    _classification_map_from_catalog_records,
     _group_identity,
+    _index_ids_for_component_series,
     _page_rows,
+    _requires_index_catalog,
     build_benchmark_exposure_context,
 )
 
@@ -199,6 +202,45 @@ def test_benchmark_exposure_context_accepts_issuer_grouping() -> None:
     request = _request(grouping_dimensions=[BenchmarkExposureGroupingDimension.ISSUER])
 
     assert request.grouping_dimensions == [BenchmarkExposureGroupingDimension.ISSUER]
+
+
+def test_benchmark_exposure_context_classification_helpers_normalize_inputs() -> None:
+    assert _requires_index_catalog([BenchmarkExposureGroupingDimension.POSITION]) is False
+    assert (
+        _requires_index_catalog(
+            [
+                BenchmarkExposureGroupingDimension.POSITION,
+                BenchmarkExposureGroupingDimension.SECTOR,
+            ]
+        )
+        is True
+    )
+
+    assert _index_ids_for_component_series(
+        [
+            {"index_id": "IDX_B"},
+            {"index_id": ""},
+            {"index_id": None},
+            {"index_id": "IDX_A"},
+            {"index_id": "IDX_B"},
+        ]
+    ) == ["IDX_A", "IDX_B"]
+
+    assert _classification_map_from_catalog_records(
+        [
+            None,
+            {"index_id": "", "classification_labels": {"sector": "Preserved"}},
+            {"index_id": "IDX_A", "classification_labels": "bad"},
+            {
+                "index_id": "IDX_B",
+                "classification_labels": {
+                    "sector": "Technology",
+                    "asset_class": None,
+                    "issuer_id": 123,
+                },
+            },
+        ]
+    ) == {"": {"sector": "Preserved"}, "IDX_B": {"sector": "Technology", "issuer_id": "123"}}
 
 
 @pytest.mark.asyncio

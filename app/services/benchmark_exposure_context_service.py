@@ -141,16 +141,9 @@ async def _classification_map_for_request(
     stateful_input_service: StatefulInputService,
     component_series: list[dict[str, Any]],
 ) -> dict[str, dict[str, str]]:
-    if not any(dimension != BenchmarkExposureGroupingDimension.POSITION for dimension in request.grouping_dimensions):
+    if not _requires_index_catalog(request.grouping_dimensions):
         return {}
-    index_ids = sorted(
-        {
-            index_id
-            for component in component_series
-            for index_id in [component.get("index_id")]
-            if isinstance(index_id, str) and index_id
-        }
-    )
+    index_ids = _index_ids_for_component_series(component_series)
     if not index_ids:
         return {}
     catalog_status, catalog_payload = await stateful_input_service.get_index_catalog(
@@ -166,6 +159,25 @@ async def _classification_map_for_request(
             status_code=HTTP_422_UNPROCESSABLE,
             detail="index catalog payload missing records list.",
         )
+    return _classification_map_from_catalog_records(records)
+
+
+def _requires_index_catalog(grouping_dimensions: list[BenchmarkExposureGroupingDimension]) -> bool:
+    return any(dimension != BenchmarkExposureGroupingDimension.POSITION for dimension in grouping_dimensions)
+
+
+def _index_ids_for_component_series(component_series: list[dict[str, Any]]) -> list[str]:
+    return sorted(
+        {
+            index_id
+            for component in component_series
+            for index_id in [component.get("index_id")]
+            if isinstance(index_id, str) and index_id
+        }
+    )
+
+
+def _classification_map_from_catalog_records(records: list[Any]) -> dict[str, dict[str, str]]:
     classification_map: dict[str, dict[str, str]] = {}
     for record in records:
         if not isinstance(record, dict):
