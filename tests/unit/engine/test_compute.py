@@ -5,7 +5,7 @@ from decimal import Decimal
 import pandas as pd
 import pytest
 
-from engine.compute import run_calculations
+from engine.compute import _build_engine_diagnostics, _build_reset_events, run_calculations
 from engine.config import EngineConfig, PeriodType, PrecisionMode
 from engine.diagnostics import EngineDiagnostics
 from engine.exceptions import EngineCalculationError, InvalidEngineInputError
@@ -202,6 +202,71 @@ def test_run_calculations_emits_all_reset_reason_codes(mocker):
     assert "NCTRL_2" in diagnostics.resets[0].reason
     assert "NCTRL_3" in diagnostics.resets[0].reason
     assert "NCTRL_4" in diagnostics.resets[0].reason
+
+
+def test_engine_reset_events_preserve_active_reason_codes():
+    working_df = pd.DataFrame(
+        {
+            PortfolioColumns.PERF_DATE.value: [pd.Timestamp("2025-01-02"), pd.Timestamp("2025-01-03")],
+            PortfolioColumns.PERF_RESET.value: [1, 1],
+            PortfolioColumns.NCTRL_1.value: [0, 0],
+            PortfolioColumns.NCTRL_2.value: [1, 0],
+            PortfolioColumns.NCTRL_3.value: [0, 1],
+            PortfolioColumns.NCTRL_4.value: [0, 1],
+        }
+    )
+
+    reset_events = _build_reset_events(working_df)
+
+    assert [event.date.isoformat() for event in reset_events] == ["2025-01-02", "2025-01-03"]
+    assert [event.reason for event in reset_events] == ["NCTRL_2", "NCTRL_3,NCTRL_4"]
+    assert [event.impacted_rows for event in reset_events] == [1, 1]
+
+
+def test_engine_diagnostics_helper_preserves_policy_and_methodology_samples():
+    working_df = pd.DataFrame(
+        {
+            PortfolioColumns.EFFECTIVE_PERIOD_START_DATE.value: [
+                pd.Timestamp("2025-01-01"),
+                pd.Timestamp("2025-01-01"),
+            ]
+        }
+    )
+    final_df = pd.DataFrame(
+        {
+            PortfolioColumns.PERF_DATE.value: [date(2025, 1, 1), date(2025, 1, 2)],
+            PortfolioColumns.NIP.value: [0, 1],
+            PortfolioColumns.PERF_RESET.value: [0, 1],
+            PortfolioColumns.NCTRL_4.value: [0, 1],
+            PortfolioColumns.ACCOUNT_RESET.value: [0, 0],
+            PortfolioColumns.SOD_RESET.value: [0, 1],
+            PortfolioColumns.SIGN.value: [1, 1],
+            "initial_sign_shadow": [1, 1],
+            "nip_rule_v1_shadow": [0, 1],
+            "nip_rule_v2_shadow": [0, 0],
+        }
+    )
+    policy_diagnostics = EngineDiagnostics(notes=["Applied overrides from the data_policy request."])
+    reset_events = _build_reset_events(
+        final_df[[PortfolioColumns.PERF_DATE.value, PortfolioColumns.PERF_RESET.value, PortfolioColumns.NCTRL_4.value]]
+        .assign(**{PortfolioColumns.PERF_DATE.value: [pd.Timestamp("2025-01-01"), pd.Timestamp("2025-01-02")]})
+        .copy()
+    )
+
+    diagnostics = _build_engine_diagnostics(
+        working_df=working_df,
+        final_df=final_df,
+        policy_diagnostics=policy_diagnostics,
+        reset_events=reset_events,
+    )
+
+    assert diagnostics.nip_days == 1
+    assert diagnostics.nip_rule_delta_days == 1
+    assert diagnostics.reset_days == 1
+    assert diagnostics.effective_period_start == date(2025, 1, 1)
+    assert diagnostics.notes == ["Applied overrides from the data_policy request."]
+    assert diagnostics.resets == reset_events
+    assert diagnostics.samples.methodology_shadows
 
 
 def test_run_calculations_emits_methodology_shadow_diagnostics():
