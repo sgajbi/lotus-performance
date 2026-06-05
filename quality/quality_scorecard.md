@@ -24,13 +24,13 @@ metrics in each section are updated with each meaningful slice.
 | Largest Python file LOC | 2,399 | 2,399 | 0 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest production file LOC | 1,156 | 1,156 | 0 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
 | Python test modules | 228 | 252 | 24 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Collected tests | 2,035 | 2,218 | 183 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Collected tests | 2,035 | 2,219 | 184 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 
 ### Complexity And Maintainability
 
 | Metric | Baseline | Current | Delta | Status | Evidence |
 | --- | ---: | ---: | ---: | --- | --- |
-| Max cyclomatic complexity | unknown | 20 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
+| Max cyclomatic complexity | unknown | 19 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
 | High-complexity functions (D-F) | unknown | 0 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
 | Average maintainability index | unknown | 55.79 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
 | Largest functions by LOC | unknown | 389 | n/a | measured | `quality/function_size_inventory.md`; `quality/refactor_health_report.md` |

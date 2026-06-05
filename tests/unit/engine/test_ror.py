@@ -204,3 +204,40 @@ def test_daily_ror_fx_decomposition_with_hedging():
 
     # Day 2 was not hedged. fx_ror should be the original unhedged value.
     assert ror_df["fx_ror"].iloc[1] == pytest.approx(-0.92592, abs=1e-5)
+
+
+def test_daily_ror_fx_decomposition_keeps_last_duplicate_fx_rate():
+    df = pd.DataFrame(
+        {
+            PortfolioColumns.PERF_DATE: pd.to_datetime(["2025-01-01"]),
+            PortfolioColumns.BEGIN_MV: [100.0],
+            PortfolioColumns.BOD_CF: [0.0],
+            PortfolioColumns.EOD_CF: [0.0],
+            PortfolioColumns.MGMT_FEES: [0.0],
+            PortfolioColumns.END_MV: [100.0],
+            PortfolioColumns.EFFECTIVE_PERIOD_START_DATE: pd.to_datetime(["2025-01-01"]),
+        }
+    )
+    config = EngineConfig(
+        performance_start_date=date(2025, 1, 1),
+        report_end_date=date(2025, 1, 1),
+        metric_basis="GROSS",
+        period_type="YTD",
+        currency_mode="BOTH",
+        report_ccy="USD",
+        fx=FXRequestBlock.model_validate(
+            {
+                "rates": [
+                    {"date": date(2024, 12, 31), "ccy": "EUR", "rate": 1.0},
+                    {"date": date(2025, 1, 1), "ccy": "EUR", "rate": 1.1},
+                    {"date": date(2025, 1, 1), "ccy": "EUR", "rate": 1.2},
+                ]
+            }
+        ),
+    )
+
+    ror_df = calculate_daily_ror(df, config.metric_basis, config)
+
+    assert ror_df["local_ror"].iloc[0] == 0.0
+    assert ror_df["fx_ror"].iloc[0] == pytest.approx(20.0)
+    assert ror_df[PortfolioColumns.DAILY_ROR.value].iloc[0] == pytest.approx(20.0)

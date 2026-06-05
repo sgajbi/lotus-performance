@@ -1,5 +1,6 @@
 # engine/ror.py
 import warnings
+from dataclasses import dataclass
 from decimal import Decimal
 
 import numpy as np
@@ -15,11 +16,34 @@ from engine.rules import (
 from engine.schema import PortfolioColumns
 
 
+@dataclass(frozen=True)
+class _LocalDailyReturn:
+    local_ror: pd.Series
+    hundred: Decimal | float
+
+
 def calculate_daily_ror(df: pd.DataFrame, metric_basis: str, config: EngineConfig = None) -> pd.DataFrame:
     """
     Calculates the daily rate of return, supporting both float and Decimal.
     If FX config is provided, it returns a DataFrame with local, fx, and base returns.
     """
+    local_return = _calculate_local_daily_return(df, metric_basis)
+    result_df = pd.DataFrame(index=df.index)
+    if _should_decompose_currency(config):
+        assert config is not None
+        fx_ror = _calculate_fx_daily_return(df, config)
+        result_df["local_ror"] = local_return.local_ror * local_return.hundred
+        result_df["fx_ror"] = fx_ror * local_return.hundred
+        result_df[PortfolioColumns.DAILY_ROR.value] = (
+            (1 + local_return.local_ror) * (1 + fx_ror) - 1
+        ) * local_return.hundred
+    else:
+        result_df[PortfolioColumns.DAILY_ROR.value] = local_return.local_ror * local_return.hundred
+
+    return result_df
+
+
+def _calculate_local_daily_return(df: pd.DataFrame, metric_basis: str) -> _LocalDailyReturn:
     is_decimal_mode = df[PortfolioColumns.BEGIN_MV.value].dtype == "object"
     zero = Decimal(0) if is_decimal_mode else 0.0
     hundred = Decimal(100) if is_decimal_mode else 100.0
@@ -60,42 +84,51 @@ def calculate_daily_ror(df: pd.DataFrame, metric_basis: str, config: EngineConfi
             np.divide(numerator, denominator, out=local_ror_np, where=safe_division_mask)
             local_ror = pd.Series(local_ror_np, index=df.index)
 
-    result_df = pd.DataFrame(index=df.index)
-    if config and config.currency_mode and config.currency_mode != "BASE_ONLY" and config.fx:
-        fx_rates_df = pd.DataFrame([rate.model_dump() for rate in config.fx.rates])
+    return _LocalDailyReturn(local_ror=local_ror, hundred=hundred)
 
-        if "date" in fx_rates_df.columns and "ccy" in fx_rates_df.columns:
-            fx_rates_df.drop_duplicates(subset=["date", "ccy"], keep="last", inplace=True)
 
-        fx_rates_df["date"] = pd.to_datetime(fx_rates_df["date"])
-        fx_rates_df = fx_rates_df.set_index("date")["rate"].sort_index()
+def _should_decompose_currency(config: EngineConfig | None) -> bool:
+    return bool(config and config.currency_mode and config.currency_mode != "BASE_ONLY" and config.fx)
 
-        start_dt = pd.to_datetime(config.performance_start_date) - pd.Timedelta(days=1)
-        end_dt = df[PortfolioColumns.PERF_DATE.value].max()
-        full_date_range = pd.date_range(start=start_dt, end=end_dt, freq="D")
-        all_rates = fx_rates_df.reindex(full_date_range).ffill()
 
-        df["start_rate"] = df[PortfolioColumns.PERF_DATE.value].apply(lambda x: all_rates.get(x - pd.Timedelta(days=1)))
-        df["end_rate"] = df[PortfolioColumns.PERF_DATE.value].map(all_rates)
+def _calculate_fx_daily_return(df: pd.DataFrame, config: EngineConfig) -> pd.Series:
+    assert config.fx is not None
+    fx_rates_df = pd.DataFrame([rate.model_dump() for rate in config.fx.rates])
 
-        fx_ror = (df["end_rate"] / df["start_rate"]) - 1
-        fx_ror = fx_ror.fillna(0.0)
+    if "date" in fx_rates_df.columns and "ccy" in fx_rates_df.columns:
+        fx_rates_df.drop_duplicates(subset=["date", "ccy"], keep="last", inplace=True)
 
-        if config.hedging and config.hedging.mode == "RATIO" and config.hedging.series:
-            hedge_series_df = pd.DataFrame([s.model_dump() for s in config.hedging.series])
-            if not hedge_series_df.empty:
-                hedge_series_df["date"] = pd.to_datetime(hedge_series_df["date"])
-                hedge_map = hedge_series_df.set_index("date")["hedge_ratio"]
-                hedge_ratios = df[PortfolioColumns.PERF_DATE.value].map(hedge_map).fillna(0.0)
-                fx_ror = fx_ror * (1.0 - hedge_ratios)
+    fx_rates_df["date"] = pd.to_datetime(fx_rates_df["date"])
+    fx_rates = fx_rates_df.set_index("date")["rate"].sort_index()
 
-        result_df["local_ror"] = local_ror * hundred
-        result_df["fx_ror"] = fx_ror * hundred
-        result_df[PortfolioColumns.DAILY_ROR.value] = ((1 + local_ror) * (1 + fx_ror) - 1) * hundred
-    else:
-        result_df[PortfolioColumns.DAILY_ROR.value] = local_ror * hundred
+    start_dt = pd.to_datetime(config.performance_start_date) - pd.Timedelta(days=1)
+    end_dt = df[PortfolioColumns.PERF_DATE.value].max()
+    full_date_range = pd.date_range(start=start_dt, end=end_dt, freq="D")
+    all_rates = fx_rates.reindex(full_date_range).ffill()
 
-    return result_df
+    df["start_rate"] = df[PortfolioColumns.PERF_DATE.value].apply(lambda x: all_rates.get(x - pd.Timedelta(days=1)))
+    df["end_rate"] = df[PortfolioColumns.PERF_DATE.value].map(all_rates)
+
+    fx_ror = ((df["end_rate"] / df["start_rate"]) - 1).fillna(0.0)
+    return _apply_hedging_to_fx_return(df, config, fx_ror)
+
+
+def _apply_hedging_to_fx_return(
+    df: pd.DataFrame,
+    config: EngineConfig,
+    fx_ror: pd.Series,
+) -> pd.Series:
+    if not (config.hedging and config.hedging.mode == "RATIO" and config.hedging.series):
+        return fx_ror
+
+    hedge_series_df = pd.DataFrame([series.model_dump() for series in config.hedging.series])
+    if hedge_series_df.empty:
+        return fx_ror
+
+    hedge_series_df["date"] = pd.to_datetime(hedge_series_df["date"])
+    hedge_map = hedge_series_df.set_index("date")["hedge_ratio"]
+    hedge_ratios = df[PortfolioColumns.PERF_DATE.value].map(hedge_map).fillna(0.0)
+    return fx_ror * (1.0 - hedge_ratios)
 
 
 def calculate_cumulative_ror(df: pd.DataFrame, config):
