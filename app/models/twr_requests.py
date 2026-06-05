@@ -108,6 +108,39 @@ class TWRResolvedExecutionRequest(BaseModel):
     )
 
 
+def _has_legacy_twr_valuation_points(request: "TWRAnalyticsRequest") -> bool:
+    return len(request.valuation_points) > 0
+
+
+def _validate_stateless_twr_payloads(request: "TWRAnalyticsRequest") -> None:
+    has_nested = request.stateless_input is not None
+    has_legacy = _has_legacy_twr_valuation_points(request)
+    if request.performance_start_date is None:
+        raise ValueError("performance_start_date is required when input_mode=stateless")
+    if has_nested and has_legacy:
+        raise ValueError("Provide either stateless_input or valuation_points, not both, for stateless mode")
+    if not has_nested and not has_legacy:
+        raise ValueError("stateless_input or valuation_points is required when input_mode=stateless")
+    if request.stateful_input is not None:
+        raise ValueError("stateful_input must be null when input_mode=stateless")
+
+
+def _validate_stateful_twr_payloads(request: "TWRAnalyticsRequest") -> None:
+    if request.stateful_input is None:
+        raise ValueError("stateful_input is required when input_mode=stateful")
+    if request.stateless_input is not None:
+        raise ValueError("stateless_input must be null when input_mode=stateful")
+    if request.valuation_points:
+        raise ValueError("valuation_points must be null when input_mode=stateful")
+
+
+def _validate_twr_benchmark_inclusion(request: "TWRAnalyticsRequest") -> None:
+    if request.benchmark is not None and not request.include_benchmark:
+        request.include_benchmark = True
+    if request.include_benchmark and request.input_mode == TWRInputMode.STATELESS and request.benchmark is None:
+        raise ValueError("benchmark configuration is required when include_benchmark=true in stateless mode")
+
+
 class TWRAnalyticsRequest(PerformanceRequestBase):
     performance_start_date: date | None = Field(
         default=None,
@@ -145,27 +178,10 @@ class TWRAnalyticsRequest(PerformanceRequestBase):
     @model_validator(mode="after")
     def validate_mode_payloads(self) -> "TWRAnalyticsRequest":
         if self.input_mode == TWRInputMode.STATELESS:
-            has_nested = self.stateless_input is not None
-            has_legacy = len(self.valuation_points) > 0
-            if self.performance_start_date is None:
-                raise ValueError("performance_start_date is required when input_mode=stateless")
-            if has_nested and has_legacy:
-                raise ValueError("Provide either stateless_input or valuation_points, not both, for stateless mode")
-            if not has_nested and not has_legacy:
-                raise ValueError("stateless_input or valuation_points is required when input_mode=stateless")
-            if self.stateful_input is not None:
-                raise ValueError("stateful_input must be null when input_mode=stateless")
+            _validate_stateless_twr_payloads(self)
         if self.input_mode == TWRInputMode.STATEFUL:
-            if self.stateful_input is None:
-                raise ValueError("stateful_input is required when input_mode=stateful")
-            if self.stateless_input is not None:
-                raise ValueError("stateless_input must be null when input_mode=stateful")
-            if self.valuation_points:
-                raise ValueError("valuation_points must be null when input_mode=stateful")
-        if self.benchmark is not None and not self.include_benchmark:
-            self.include_benchmark = True
-        if self.include_benchmark and self.input_mode == TWRInputMode.STATELESS and self.benchmark is None:
-            raise ValueError("benchmark configuration is required when include_benchmark=true in stateless mode")
+            _validate_stateful_twr_payloads(self)
+        _validate_twr_benchmark_inclusion(self)
         return self
 
     def to_stateless_performance_request(
