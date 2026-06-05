@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+from typing import NoReturn
+
 from fastapi import HTTPException, status
 
 from app.core.config import get_settings
 from app.models.benchmark_analytics_requests import BenchmarkAnalyticsRequest, BenchmarkInputMode
+from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.models.benchmark_responses import BenchmarkAcceptedResponse, BenchmarkPerformanceResponse
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_BENCHMARK
-from app.services.benchmark_mode_service import resolve_benchmark_request
+from app.services.benchmark_mode_service import ResolvedBenchmarkRequest, resolve_benchmark_request
 from app.services.benchmark_service import calculate_benchmark_response
 from app.services.execution_lifecycle_service import record_execution_failure
 from app.services.execution_registry import execution_registry
@@ -19,6 +23,16 @@ from app.services.submission_fencing_service import (
     register_async_submission_or_raise,
     register_sync_execution_or_raise,
 )
+
+
+@dataclass(frozen=True)
+class _ResolvedBenchmarkExecutionContext:
+    resolved_request: ResolvedBenchmarkRequest
+    benchmark_request: BenchmarkPerformanceRequest
+    request_model_for_lineage: BenchmarkAnalyticsRequest | BenchmarkPerformanceRequest
+    input_fingerprint: str
+    calculation_hash: str
+    should_persist_request: bool
 
 
 def accepted_benchmark_response(calculation_id) -> BenchmarkAcceptedResponse:
@@ -86,6 +100,49 @@ def build_benchmark_execution_window(
     return requested_window
 
 
+async def _resolve_benchmark_execution_context(
+    *,
+    request: BenchmarkAnalyticsRequest,
+    settings,
+    input_fingerprint: str,
+    calculation_hash: str,
+) -> _ResolvedBenchmarkExecutionContext:
+    resolved_request = await resolve_benchmark_request(request, settings=settings)
+    benchmark_request = resolved_request.benchmark_request
+    should_persist_request = should_persist_resolved_benchmark_request(request)
+    request_model_for_lineage = benchmark_request if should_persist_request else request
+    if should_persist_request:
+        input_fingerprint, calculation_hash = generate_request_fingerprint(
+            benchmark_request,
+            settings.APP_VERSION,
+        )
+    return _ResolvedBenchmarkExecutionContext(
+        resolved_request=resolved_request,
+        benchmark_request=benchmark_request,
+        request_model_for_lineage=request_model_for_lineage,
+        input_fingerprint=input_fingerprint,
+        calculation_hash=calculation_hash,
+        should_persist_request=should_persist_request,
+    )
+
+
+def _raise_benchmark_workflow_failure(request: BenchmarkAnalyticsRequest, exc: Exception) -> NoReturn:
+    if isinstance(exc, HTTPException):
+        record_execution_failure(
+            calculation_id=request.calculation_id,
+            message=str(exc.detail),
+        )
+        raise exc
+    record_execution_failure(
+        calculation_id=request.calculation_id,
+        message=f"An unexpected server error occurred: {exc}",
+    )
+    raise HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail=f"An unexpected server error occurred: {exc}",
+    ) from exc
+
+
 async def calculate_benchmark_workflow(
     request: BenchmarkAnalyticsRequest,
 ) -> BenchmarkPerformanceResponse | BenchmarkAcceptedResponse:
@@ -117,59 +174,42 @@ async def calculate_benchmark_workflow(
             calculation_hash=calculation_hash,
         )
         try:
-            resolved_request = await resolve_benchmark_request(request, settings=settings)
-            benchmark_request = resolved_request.benchmark_request
-            request_model_for_lineage = (
-                benchmark_request if should_persist_resolved_benchmark_request(request) else request
+            resolved_context = await _resolve_benchmark_execution_context(
+                request=request,
+                settings=settings,
+                input_fingerprint=input_fingerprint,
+                calculation_hash=calculation_hash,
             )
-            if should_persist_resolved_benchmark_request(request):
-                input_fingerprint, calculation_hash = generate_request_fingerprint(
-                    benchmark_request,
-                    settings.APP_VERSION,
-                )
             accepted_response = finalize_resolved_stateful_execution(
                 calculation_id=request.calculation_id,
                 analytics_type=ANALYTICS_WORKFLOW_BENCHMARK,
                 requested_window=build_benchmark_execution_window(
                     request,
                     source_request_fingerprint=source_request_fingerprint,
-                    input_count=resolved_request.input_count,
+                    input_count=resolved_context.resolved_request.input_count,
                 ),
-                input_fingerprint=input_fingerprint,
-                calculation_hash=calculation_hash,
+                input_fingerprint=resolved_context.input_fingerprint,
+                calculation_hash=resolved_context.calculation_hash,
                 resolved_request_payload={
-                    "resolved_request": benchmark_request.model_dump(mode="json"),
+                    "resolved_request": resolved_context.benchmark_request.model_dump(mode="json"),
                     "source_input_mode": BenchmarkInputMode.STATEFUL.value,
                 },
-                should_offload=should_offload_resolved_benchmark(resolved_request.input_count),
+                should_offload=should_offload_resolved_benchmark(resolved_context.resolved_request.input_count),
                 offload_reason="large_resolved_stateful_benchmark",
                 accepted_response_factory=accepted_benchmark_response,
             )
             if accepted_response is not None:
                 return accepted_response
             return calculate_benchmark_response(
-                benchmark_request,
-                input_fingerprint=input_fingerprint,
-                calculation_hash=calculation_hash,
-                input_mode=resolved_request.input_mode,
+                resolved_context.benchmark_request,
+                input_fingerprint=resolved_context.input_fingerprint,
+                calculation_hash=resolved_context.calculation_hash,
+                input_mode=resolved_context.resolved_request.input_mode,
                 engine_version=settings.APP_VERSION,
-                request_artifact_model=request_model_for_lineage,
+                request_artifact_model=resolved_context.request_model_for_lineage,
             )
-        except HTTPException as exc:
-            record_execution_failure(
-                calculation_id=request.calculation_id,
-                message=str(exc.detail),
-            )
-            raise
         except Exception as exc:
-            record_execution_failure(
-                calculation_id=request.calculation_id,
-                message=f"An unexpected server error occurred: {exc}",
-            )
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"An unexpected server error occurred: {exc}",
-            ) from exc
+            _raise_benchmark_workflow_failure(request, exc)
 
     if should_offload_benchmark(request):
         return register_async_submission_or_raise(
@@ -197,39 +237,25 @@ async def calculate_benchmark_workflow(
         calculation_hash=source_request_hash,
     )
     try:
-        resolved_request = await resolve_benchmark_request(request, settings=settings)
-        benchmark_request = resolved_request.benchmark_request
-        request_model_for_lineage = benchmark_request if should_persist_resolved_benchmark_request(request) else request
-        if should_persist_resolved_benchmark_request(request):
-            input_fingerprint, calculation_hash = generate_request_fingerprint(
-                benchmark_request,
-                settings.APP_VERSION,
-            )
-            execution_registry.update_execution_identity(
-                request.calculation_id,
-                input_fingerprint=input_fingerprint,
-                calculation_hash=calculation_hash,
-            )
-        return calculate_benchmark_response(
-            benchmark_request,
+        resolved_context = await _resolve_benchmark_execution_context(
+            request=request,
+            settings=settings,
             input_fingerprint=input_fingerprint,
             calculation_hash=calculation_hash,
-            input_mode=resolved_request.input_mode,
+        )
+        if resolved_context.should_persist_request:
+            execution_registry.update_execution_identity(
+                request.calculation_id,
+                input_fingerprint=resolved_context.input_fingerprint,
+                calculation_hash=resolved_context.calculation_hash,
+            )
+        return calculate_benchmark_response(
+            resolved_context.benchmark_request,
+            input_fingerprint=resolved_context.input_fingerprint,
+            calculation_hash=resolved_context.calculation_hash,
+            input_mode=resolved_context.resolved_request.input_mode,
             engine_version=settings.APP_VERSION,
-            request_artifact_model=request_model_for_lineage,
+            request_artifact_model=resolved_context.request_model_for_lineage,
         )
-    except HTTPException as exc:
-        record_execution_failure(
-            calculation_id=request.calculation_id,
-            message=str(exc.detail),
-        )
-        raise
     except Exception as exc:
-        record_execution_failure(
-            calculation_id=request.calculation_id,
-            message=f"An unexpected server error occurred: {exc}",
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"An unexpected server error occurred: {exc}",
-        ) from exc
+        _raise_benchmark_workflow_failure(request, exc)

@@ -49,6 +49,56 @@ def _resolved_benchmark_request() -> BenchmarkPerformanceRequest:
 
 
 @pytest.mark.asyncio
+async def test_resolve_benchmark_execution_context_replaces_identity_for_persisted_request(mocker):
+    request = BenchmarkAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "benchmark_id": "BMK_PRICE",
+            "benchmark_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "input_mode": "stateless",
+            "return_source": "calculated",
+            "stateless_input": {
+                "benchmark_currency": "USD",
+                "component_price_points": [
+                    {"component_id": "IDX_1", "perf_date": "2024-12-31", "weight_bop": 1.0, "index_price": 100.0},
+                    {"component_id": "IDX_1", "perf_date": "2025-01-01", "weight_bop": 1.0, "index_price": 101.0},
+                ],
+            },
+        }
+    )
+    resolved_request = _resolved_benchmark_request()
+    mocker.patch(
+        "app.services.benchmark_calculation_workflow_service.resolve_benchmark_request",
+        return_value=ResolvedBenchmarkRequest(
+            benchmark_request=resolved_request,
+            input_mode=BenchmarkInputMode.STATELESS,
+            source_details={"component_price_points": 2},
+            input_count=2,
+        ),
+    )
+    generate_fingerprint = mocker.patch(
+        "app.services.benchmark_calculation_workflow_service.generate_request_fingerprint",
+        return_value=("resolved-fingerprint", "resolved-hash"),
+    )
+
+    context = await benchmark_calculation_workflow_service._resolve_benchmark_execution_context(
+        request=request,
+        settings=SimpleNamespace(APP_VERSION="runtime-version"),
+        input_fingerprint="source-fingerprint",
+        calculation_hash="source-hash",
+    )
+
+    assert context.benchmark_request == resolved_request
+    assert context.request_model_for_lineage == resolved_request
+    assert context.input_fingerprint == "resolved-fingerprint"
+    assert context.calculation_hash == "resolved-hash"
+    assert context.should_persist_request is True
+    generate_fingerprint.assert_called_once_with(resolved_request, "runtime-version")
+
+
+@pytest.mark.asyncio
 async def test_benchmark_endpoint_replays_promoted_stateful_async_execution(mocker):
     request = BenchmarkAnalyticsRequest.model_validate(_stateful_benchmark_payload())
     replay_response = benchmark_calculation_workflow_service.accepted_benchmark_response(request.calculation_id)
