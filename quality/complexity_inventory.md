@@ -47,7 +47,7 @@ python scripts/python_complexity_inventory.py --limit 20
 | 17 | `build_hierarchical_contribution_result` | function | `engine/contribution.py:298` | 14 | C |
 | 18 | `_apply_overrides` | function | `engine/policies.py:38` | 14 | C |
 | 19 | `_build_artifacts` | function | `app/services/composite_inspection_service.py:114` | 13 | C |
-| 20 | `collect` | method | `app/services/queue_metrics_service.py:353` | 12 | C |
+| 20 | `_calculate_returns_series` | function | `app/services/returns_series_service.py:1143` | 12 | C |
 
 ## Lowest Maintainability Index
 
@@ -162,9 +162,11 @@ complexity is now `15`. `build_source_preconverted_mwr_currency_evidence` also d
 market-value collection validation, cash-flow index validation, and cash-flow response evidence
 projection were split into dedicated helpers. `_recovery_drill_payload_matches_entry` also dropped
 out after recovery-drill evidence shape checks and entry-identity checks were split into dedicated
-helpers. The remaining
-highest-complexity functions are C-grade service and engine hotspots that should be treated as
-future bounded refactor candidates, not as evidence of an immediate behavior defect.
+helpers. `DurableQueueCollector.collect` also dropped out after compute queue, lineage queue,
+lineage storage, and storage-threshold metric emission were routed through a dedicated core metrics
+helper. The remaining highest-complexity functions are C-grade service and engine hotspots that
+should be treated as future bounded refactor candidates, not as evidence of an immediate behavior
+defect.
 
 Maintainability index values should be treated as directional hotspot evidence because generated
 schemas, persistence-style modules, and dense orchestration files can score poorly even when tests

@@ -1,13 +1,16 @@
 import logging
 from pathlib import Path
+from types import SimpleNamespace
 
 from app.services.queue_metrics_service import (
     DurableQueueCollector,
     _availability_and_preview_metrics,
+    _core_queue_and_storage_metrics,
     _DurableQueueMetricSources,
     _load_durable_queue_metric_sources,
     _load_metric_source,
 )
+from app.services.runtime_status_domain import ComputeQueueDegradationPolicy, LineageQueueDegradationPolicy
 
 
 def test_load_metric_source_returns_value_and_availability():
@@ -83,6 +86,76 @@ def test_load_durable_queue_metric_sources_captures_availability_and_action_path
         {"artifact_directory": Path("custom-recovery"), "action_name": "recovery_drill"},
         {"artifact_directory": Path("custom-retention"), "action_name": "runtime_retention_cleanup"},
     ]
+
+
+def test_core_queue_and_storage_metrics_emit_compute_lineage_and_storage_families():
+    sources = _DurableQueueMetricSources(
+        compute_stats=SimpleNamespace(
+            pending_count=1,
+            leased_count=2,
+            running_count=3,
+            failed_count=4,
+            complete_count=5,
+            retry_backlog_count=0,
+            lease_expired_count=0,
+            reclaimable_count=0,
+            terminal_failure_count=0,
+            oldest_pending_age_seconds=0.0,
+            oldest_leased_age_seconds=0.0,
+            oldest_running_age_seconds=0.0,
+        ),
+        compute_available=True,
+        lineage_stats=SimpleNamespace(
+            pending_payload_count=1,
+            retry_backlog_count=0,
+            reclaimable_count=0,
+            terminal_failure_count=0,
+            oldest_pending_age_seconds=0.0,
+            oldest_leased_age_seconds=0.0,
+        ),
+        lineage_available=True,
+        lineage_storage_capacity=SimpleNamespace(
+            total_bytes=100,
+            used_bytes=50,
+            free_bytes=50,
+            free_ratio=0.5,
+        ),
+        lineage_storage_capacity_available=True,
+        recovery_drill_snapshot=None,
+        recovery_drill_available=False,
+        recovery_drill_action_snapshot=None,
+        runtime_retention_snapshot=None,
+        runtime_retention_available=False,
+        runtime_retention_action_snapshot=None,
+        runtime_retention_preview=None,
+        runtime_retention_preview_available=False,
+    )
+
+    metrics = _core_queue_and_storage_metrics(
+        sources=sources,
+        compute_queue_policy=ComputeQueueDegradationPolicy(
+            pending_age_seconds=10.0,
+            leased_age_seconds=10.0,
+            running_age_seconds=10.0,
+            retry_backlog_count=1,
+            lease_expiry_count=1,
+            terminal_failure_count=1,
+        ),
+        lineage_queue_policy=LineageQueueDegradationPolicy(
+            pending_age_seconds=10.0,
+            leased_age_seconds=10.0,
+            retry_backlog_count=1,
+            terminal_failure_count=1,
+            storage_min_free_bytes=1,
+            storage_min_free_ratio=0.1,
+        ),
+    )
+
+    metric_names = {metric.name for metric in metrics}
+    assert "lotus_performance_compute_queue_jobs" in metric_names
+    assert "lotus_performance_lineage_queue_pending_payloads" in metric_names
+    assert "lotus_performance_lineage_storage_capacity_bytes" in metric_names
+    assert "lotus_performance_lineage_storage_pressure_threshold" in metric_names
 
 
 def test_availability_and_preview_metrics_preserve_order_and_preview_samples():
