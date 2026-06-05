@@ -22,7 +22,7 @@ python scripts/python_complexity_inventory.py --limit 20
 | --- | ---: |
 | Max cyclomatic complexity | 15 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.65 |
+| Average maintainability index | 55.64 |
 
 ## Highest Cyclomatic Complexity
 
@@ -47,7 +47,7 @@ python scripts/python_complexity_inventory.py --limit 20
 | 17 | `build_hierarchical_contribution_result` | function | `engine/contribution.py:298` | 14 | C |
 | 18 | `_apply_overrides` | function | `engine/policies.py:38` | 14 | C |
 | 19 | `_build_artifacts` | function | `app/services/composite_inspection_service.py:114` | 13 | C |
-| 20 | `validate_history_manifest_header` | function | `app/services/operator_action_history_manifest.py:74` | 13 | C |
+| 20 | `_summarize_benchmark_classification` | function | `app/services/stateful_attribution_input_service.py:451` | 13 | C |
 
 ## Lowest Maintainability Index
 
@@ -128,7 +128,8 @@ checks and calculated/vendor-series stateless rules were split into dedicated he
 `_build_contribution_smoothing_evidence` also dropped out after smoothing status/reason-code policy
 and Carino factor range extraction were split into dedicated helpers. `_record_fee_samples` also
 dropped out after fee normalization, fee source-signal, and fee timing sample routing were split
-into dedicated helpers. Max
+into dedicated helpers. `validate_history_manifest_header` also dropped out after manifest filename
+and retention-field validation were split into dedicated helpers. Max
 cyclomatic complexity is now `15`. The remaining
 highest-complexity functions are C-grade service and engine hotspots that should be treated as
 future bounded refactor candidates, not as evidence of an immediate behavior defect.

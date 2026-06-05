@@ -3,6 +3,8 @@ import logging
 from app.services.operator_action_history_manifest import (
     HistoryManifestHeader,
     HistoryManifestReadReasons,
+    _safe_manifest_file_name,
+    _safe_retained_manifest_file_names,
     build_history_manifest_payload,
     read_history_manifest_payload,
     validate_history_entry_generated_at_utc,
@@ -95,6 +97,18 @@ def test_validate_history_manifest_header_accepts_safe_payload():
     assert header.retention_limit == 30
     assert header.retention_max_age_days == 90
     assert header.entries == [{"evidence_file_name": "latest.json"}]
+
+
+def test_safe_manifest_file_name_helpers_reject_unsafe_values():
+    assert _safe_manifest_file_name("latest.json") == "latest.json"
+    assert _safe_manifest_file_name(None, allow_none=True) is None
+    assert _safe_manifest_file_name("../outside.json") is None
+    assert _safe_retained_manifest_file_names(["latest.json", "previous.json"]) == [
+        "latest.json",
+        "previous.json",
+    ]
+    assert _safe_retained_manifest_file_names(["nested/evidence.json"]) is None
+    assert _safe_retained_manifest_file_names("latest.json") is None
 
 
 def test_validate_history_manifest_header_rejects_unsafe_file_names():
