@@ -22,7 +22,7 @@ python scripts/python_complexity_inventory.py --limit 20
 | --- | ---: |
 | Max cyclomatic complexity | 15 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.67 |
+| Average maintainability index | 55.66 |
 
 ## Highest Cyclomatic Complexity
 
@@ -47,7 +47,7 @@ python scripts/python_complexity_inventory.py --limit 20
 | 17 | `build_hierarchical_contribution_result` | function | `engine/contribution.py:298` | 14 | C |
 | 18 | `_apply_overrides` | function | `engine/policies.py:38` | 14 | C |
 | 19 | `_build_artifacts` | function | `app/services/composite_inspection_service.py:114` | 13 | C |
-| 20 | `_build_contribution_smoothing_evidence` | function | `app/services/contribution_smoothing.py:26` | 13 | C |
+| 20 | `_record_fee_samples` | method | `app/services/inspection/source_economics_collector.py:175` | 13 | C |
 
 ## Lowest Maintainability Index
 
@@ -124,7 +124,9 @@ availability and runtime-retention preview metric emission were separated from q
 metric collection. `ContributionAnalyticsRequest.validate_mode_payloads` also dropped out after
 legacy payload-shape checks and stateless/stateful contribution payload checks were split into
 dedicated helpers. `TWRBenchmarkRequest` also dropped out after stateless/stateful benchmark payload
-checks and calculated/vendor-series stateless rules were split into dedicated helpers. Max
+checks and calculated/vendor-series stateless rules were split into dedicated helpers.
+`_build_contribution_smoothing_evidence` also dropped out after smoothing status/reason-code policy
+and Carino factor range extraction were split into dedicated helpers. Max
 cyclomatic complexity is now `15`. The remaining
 highest-complexity functions are C-grade service and engine hotspots that should be treated as
 future bounded refactor candidates, not as evidence of an immediate behavior defect.

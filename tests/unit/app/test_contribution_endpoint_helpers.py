@@ -64,7 +64,10 @@ from app.services.contribution_service import (
     _record_period_timeseries_total_delta,
     _select_period_average_weight_column,
 )
-from app.services.contribution_smoothing import _count_carino_invalid_domain_days
+from app.services.contribution_smoothing import (
+    _contribution_smoothing_status_and_reasons,
+    _count_carino_invalid_domain_days,
+)
 from common.enums import PeriodType
 from core.envelope import Diagnostics
 from engine.schema import PortfolioColumns
@@ -72,6 +75,24 @@ from engine.schema import PortfolioColumns
 
 def test_contribution_as_numeric_returns_default_for_non_numeric():
     assert _as_numeric("not-a-number", default=3) == 3
+
+
+def test_contribution_smoothing_status_and_reasons_reports_applied_reconciliation():
+    status_text, reason_codes = _contribution_smoothing_status_and_reasons(
+        smoothing_method="CARINO",
+        invalid_domain_days=0,
+        raw_residual=0.01,
+        smoothing_residual=0.0,
+        residual_allocation_applied=True,
+    )
+
+    assert status_text == "APPLIED"
+    assert reason_codes == [
+        "CARINO_FACTOR_APPLIED",
+        "RAW_CONTRIBUTION_DIFFERS_FROM_LINKED_RETURN",
+        "RESIDUAL_ALLOCATED_TO_RECONCILE_PERIOD",
+        "SMOOTHED_CONTRIBUTION_RECONCILES",
+    ]
 
 
 def test_average_weight_shadow_audit_state_records_counts_and_diagnostic_notes():

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 import pandas as pd
 
 from app.models.contribution_responses import ContributionSmoothingEvidence
@@ -21,6 +23,44 @@ def _count_carino_invalid_domain_days(portfolio_period_slice_df: pd.DataFrame) -
 
     daily_returns = valid_numeric_series(portfolio_period_slice_df[PortfolioColumns.DAILY_ROR.value])
     return int((1 + (daily_returns / 100) <= 0).sum())
+
+
+def _contribution_smoothing_status_and_reasons(
+    *,
+    smoothing_method: str,
+    invalid_domain_days: int,
+    raw_residual,
+    smoothing_residual,
+    residual_allocation_applied: bool,
+) -> tuple[str, list[str]]:
+    reason_codes: list[str] = []
+    if smoothing_method != "CARINO":
+        status_text = "NOT_REQUESTED"
+        reason_codes.append("SMOOTHING_NOT_REQUESTED")
+    elif invalid_domain_days > 0:
+        status_text = "INVALID_DOMAIN_FALLBACK"
+        reason_codes.append("CARINO_INVALID_DAILY_LOG_DOMAIN")
+    else:
+        status_text = "APPLIED"
+        reason_codes.append("CARINO_FACTOR_APPLIED")
+
+    if residual_allocation_applied:
+        reason_codes.append("RESIDUAL_ALLOCATED_TO_RECONCILE_PERIOD")
+    if abs(raw_residual) > 1e-12:
+        reason_codes.append("RAW_CONTRIBUTION_DIFFERS_FROM_LINKED_RETURN")
+    if abs(smoothing_residual) <= 1e-9 and smoothing_method == "CARINO" and invalid_domain_days == 0:
+        reason_codes.append("SMOOTHED_CONTRIBUTION_RECONCILES")
+    return status_text, sorted(set(reason_codes))
+
+
+def _carino_factor_range(period_slice_df: pd.DataFrame) -> tuple[Any, Any]:
+    if "carino_factor" not in period_slice_df.columns:
+        return None, None
+
+    factors = valid_numeric_series(period_slice_df["carino_factor"])
+    if factors.empty:
+        return None, None
+    return _as_numeric(factors.min(), default=None), _as_numeric(factors.max(), default=None)
 
 
 def _build_contribution_smoothing_evidence(
@@ -56,39 +96,22 @@ def _build_contribution_smoothing_evidence(
     invalid_domain_days = (
         _count_carino_invalid_domain_days(portfolio_period_slice_df) if smoothing_method == "CARINO" else 0
     )
-    reason_codes: list[str] = []
-    if smoothing_method != "CARINO":
-        status_text = "NOT_REQUESTED"
-        reason_codes.append("SMOOTHING_NOT_REQUESTED")
-    elif invalid_domain_days > 0:
-        status_text = "INVALID_DOMAIN_FALLBACK"
-        reason_codes.append("CARINO_INVALID_DAILY_LOG_DOMAIN")
-    else:
-        status_text = "APPLIED"
-        reason_codes.append("CARINO_FACTOR_APPLIED")
-
     raw_residual = linked_return - raw_contribution
     smoothing_residual = linked_return - smoothed_contribution
     post_allocation_residual = linked_return - final_contribution
-    if residual_allocation_applied:
-        reason_codes.append("RESIDUAL_ALLOCATED_TO_RECONCILE_PERIOD")
-    if abs(raw_residual) > 1e-12:
-        reason_codes.append("RAW_CONTRIBUTION_DIFFERS_FROM_LINKED_RETURN")
-    if abs(smoothing_residual) <= 1e-9 and smoothing_method == "CARINO" and invalid_domain_days == 0:
-        reason_codes.append("SMOOTHED_CONTRIBUTION_RECONCILES")
-
-    carino_factor_min = None
-    carino_factor_max = None
-    if "carino_factor" in period_slice_df.columns:
-        factors = valid_numeric_series(period_slice_df["carino_factor"])
-        if not factors.empty:
-            carino_factor_min = _as_numeric(factors.min(), default=None)
-            carino_factor_max = _as_numeric(factors.max(), default=None)
+    status_text, reason_codes = _contribution_smoothing_status_and_reasons(
+        smoothing_method=smoothing_method,
+        invalid_domain_days=invalid_domain_days,
+        raw_residual=raw_residual,
+        smoothing_residual=smoothing_residual,
+        residual_allocation_applied=residual_allocation_applied,
+    )
+    carino_factor_min, carino_factor_max = _carino_factor_range(period_slice_df)
 
     return ContributionSmoothingEvidence(
         smoothing_method=smoothing_method,
         status=status_text,
-        reason_codes=sorted(set(reason_codes)),
+        reason_codes=reason_codes,
         linked_return=linked_return * 100,
         raw_contribution=raw_contribution * 100,
         smoothed_contribution=smoothed_contribution * 100,
