@@ -1,4 +1,9 @@
-from app.models.mwr_analytics_requests import MoneyWeightedReturnAnalyticsRequest
+import pytest
+
+from app.models.mwr_analytics_requests import (
+    MoneyWeightedReturnAnalyticsRequest,
+    _validate_legacy_stateless_payload_complete,
+)
 from app.models.mwr_requests import CashFlow
 
 
@@ -90,6 +95,27 @@ def test_mwr_analytics_request_rejects_partial_legacy_stateless_payload():
         assert "begin_mv, end_mv, and cash_flows must be provided together" in str(exc)
     else:
         raise AssertionError("Expected request validation to fail for partial legacy payload.")
+
+
+def test_mwr_analytics_legacy_payload_helper_detects_complete_legacy_inputs():
+    request = MoneyWeightedReturnAnalyticsRequest.model_construct(
+        begin_mv=1000,
+        end_mv=1050,
+        cash_flows=[CashFlow.model_validate({"amount": 25, "date": "2025-06-30"})],
+    )
+
+    assert _validate_legacy_stateless_payload_complete(request) is True
+
+
+def test_mwr_analytics_legacy_payload_helper_rejects_partial_legacy_inputs():
+    request = MoneyWeightedReturnAnalyticsRequest.model_construct(
+        begin_mv=1000,
+        end_mv=1050,
+        cash_flows=None,
+    )
+
+    with pytest.raises(ValueError, match="begin_mv, end_mv, and cash_flows must be provided together"):
+        _validate_legacy_stateless_payload_complete(request)
 
 
 def test_mwr_analytics_request_rejects_ambiguous_stateless_payload():

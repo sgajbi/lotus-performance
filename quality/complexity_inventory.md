@@ -22,32 +22,32 @@ python scripts/python_complexity_inventory.py --limit 20
 | --- | ---: |
 | Max cyclomatic complexity | 17 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.75 |
+| Average maintainability index | 55.74 |
 
 ## Highest Cyclomatic Complexity
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `validate_mode_payloads` | method | `app/models/mwr_analytics_requests.py:58` | 17 | C |
-| 2 | `validate_mode_payloads` | method | `app/models/twr_requests.py:146` | 17 | C |
-| 3 | `_infer_example` | function | `app/openapi_enrichment.py:159` | 17 | C |
-| 4 | `_build_hierarchy_from_adjusted_position_series` | function | `app/services/contribution_series.py:146` | 17 | C |
-| 5 | `_record_external_samples` | method | `app/services/inspection/source_economics_collector.py:246` | 17 | C |
-| 6 | `_fetch_portfolio_chunk` | method | `app/services/stateful_input_service.py:797` | 17 | C |
-| 7 | `calculate_twr_workflow` | function | `app/services/twr_calculation_service.py:159` | 17 | C |
-| 8 | `validate_mode_payloads` | method | `app/models/benchmark_analytics_requests.py:229` | 16 | C |
-| 9 | `build_runtime_status_response` | function | `app/models/runtime_status.py:660` | 16 | C |
-| 10 | `_ensure_operation_documentation` | function | `app/openapi_enrichment.py:462` | 16 | C |
-| 11 | `calculate_attribution` | function | `app/services/attribution_service.py:69` | 16 | C |
-| 12 | `_classification_map_for_request` | function | `app/services/benchmark_exposure_context_service.py:138` | 16 | C |
-| 13 | `calculate_contribution` | function | `app/services/contribution_service.py:261` | 16 | C |
-| 14 | `_sum_detailed_cash_flows` | function | `app/services/inspection/source_economics.py:424` | 16 | C |
-| 15 | `build_operator_action_lease_snapshot` | function | `app/services/operator_action_lease_service.py:171` | 16 | C |
-| 16 | `get_portfolio_timeseries` | method | `app/services/stateful_input_service.py:54` | 16 | C |
-| 17 | `validate_mode_payloads` | method | `app/models/attribution_analytics_requests.py:147` | 15 | C |
-| 18 | `MoneyWeightedReturnAnalyticsRequest` | class | `app/models/mwr_analytics_requests.py:30` | 15 | C |
-| 19 | `_compute_queue_response` | function | `app/models/runtime_status.py:613` | 15 | C |
-| 20 | `_ensure_operation_response_documentation` | function | `app/openapi_enrichment.py:415` | 15 | C |
+| 1 | `validate_mode_payloads` | method | `app/models/twr_requests.py:146` | 17 | C |
+| 2 | `_infer_example` | function | `app/openapi_enrichment.py:159` | 17 | C |
+| 3 | `_build_hierarchy_from_adjusted_position_series` | function | `app/services/contribution_series.py:146` | 17 | C |
+| 4 | `_record_external_samples` | method | `app/services/inspection/source_economics_collector.py:246` | 17 | C |
+| 5 | `_fetch_portfolio_chunk` | method | `app/services/stateful_input_service.py:797` | 17 | C |
+| 6 | `calculate_twr_workflow` | function | `app/services/twr_calculation_service.py:159` | 17 | C |
+| 7 | `validate_mode_payloads` | method | `app/models/benchmark_analytics_requests.py:229` | 16 | C |
+| 8 | `build_runtime_status_response` | function | `app/models/runtime_status.py:660` | 16 | C |
+| 9 | `_ensure_operation_documentation` | function | `app/openapi_enrichment.py:462` | 16 | C |
+| 10 | `calculate_attribution` | function | `app/services/attribution_service.py:69` | 16 | C |
+| 11 | `_classification_map_for_request` | function | `app/services/benchmark_exposure_context_service.py:138` | 16 | C |
+| 12 | `calculate_contribution` | function | `app/services/contribution_service.py:261` | 16 | C |
+| 13 | `_sum_detailed_cash_flows` | function | `app/services/inspection/source_economics.py:424` | 16 | C |
+| 14 | `build_operator_action_lease_snapshot` | function | `app/services/operator_action_lease_service.py:171` | 16 | C |
+| 15 | `get_portfolio_timeseries` | method | `app/services/stateful_input_service.py:54` | 16 | C |
+| 16 | `validate_mode_payloads` | method | `app/models/attribution_analytics_requests.py:147` | 15 | C |
+| 17 | `_compute_queue_response` | function | `app/models/runtime_status.py:613` | 15 | C |
+| 18 | `_ensure_operation_response_documentation` | function | `app/openapi_enrichment.py:415` | 15 | C |
+| 19 | `calculate_benchmark_workflow` | function | `app/services/benchmark_calculation_workflow_service.py:89` | 15 | C |
+| 20 | `_check_portfolio_daily_calculation_evidence` | function | `app/services/inspection/calculation_consistency.py:302` | 15 | C |
 
 ## Lowest Maintainability Index
 
@@ -77,9 +77,10 @@ python scripts/python_complexity_inventory.py --limit 20
 ## Interpretation
 
 The D/F high-complexity function inventory is now clear. `_build_benchmark_groups`,
-`_parse_composition_window`, and `_process_pending_jobs` dropped out of the top-20 table after
-benchmark grouping aggregation, composition-window parsing, and compute-worker runtime setup were
-split into smaller helpers. Max cyclomatic complexity is now `17`. The remaining
+`_parse_composition_window`, `_process_pending_jobs`, and
+`MoneyWeightedReturnAnalyticsRequest.validate_mode_payloads` dropped out of the top-20 table after
+benchmark grouping aggregation, composition-window parsing, compute-worker runtime setup, and MWR
+request validation were split into smaller helpers. Max cyclomatic complexity is now `17`. The remaining
 highest-complexity functions are C-grade service and engine hotspots that should be treated as
 future bounded refactor candidates, not as evidence of an immediate behavior defect.
 
