@@ -697,6 +697,52 @@ def test_stateful_returns_retrieval_stage_details_preserve_count_policy():
     }
 
 
+def test_build_resolved_stateful_returns_series_request_completes_normalization_stage(monkeypatch, tmp_path):
+    request = _build_stateful_request(
+        series_selection={"include_portfolio": True, "include_benchmark": False, "include_risk_free": False}
+    )
+    store = _seed_execution(monkeypatch, tmp_path, request)
+    store.start_stage(request.calculation_id, returns_series_service.EXECUTION_STAGE_NORMALIZATION)
+    resolved_window = returns_series_service.resolve_window(request)
+    observations = [
+        {"valuation_date": "2026-02-23", "beginning_market_value": "100", "ending_market_value": "101"},
+        {"valuation_date": "2026-02-24", "beginning_market_value": "101", "ending_market_value": "102"},
+        {"valuation_date": "2026-02-25", "beginning_market_value": "102", "ending_market_value": "103"},
+    ]
+
+    result = returns_series_service._build_resolved_stateful_returns_series_request(
+        request=request,
+        resolved_window=resolved_window,
+        observations=observations,
+        portfolio_performance_start_date=pd.Timestamp("2026-02-23").date(),
+        benchmark_resolution=returns_series_service._StatefulBenchmarkResolution(
+            benchmark_id=None,
+            benchmark_points=None,
+            benchmark_df=None,
+            benchmark_source_details={},
+            benchmark_work_units=0,
+        ),
+        risk_free_points=None,
+        resolved_benchmark_id=None,
+        resolved_benchmark_return_source=BenchmarkReturnSource.CALCULATED,
+    )
+
+    assert result.request.input_mode == InputMode.STATELESS
+    assert result.request.stateless_input is not None
+    assert len(result.request.stateless_input.portfolio_returns) == 3
+    assert result.identity_payload["input_mode"] == InputMode.STATELESS.value
+    assert result.identity_payload["stateless_input"]["benchmark_returns"] is None
+    execution = store.get_execution(request.calculation_id)
+    assert execution is not None
+    stages = {stage.stage_name: stage for stage in execution.stages}
+    assert stages[returns_series_service.EXECUTION_STAGE_NORMALIZATION].status.value == "complete"
+    assert stages[returns_series_service.EXECUTION_STAGE_NORMALIZATION].details == {
+        "portfolio_points": 3,
+        "benchmark_points": 0,
+        "risk_free_points": 0,
+    }
+
+
 @pytest.mark.asyncio
 async def test_resolve_stateful_returns_series_benchmark_id_uses_assignment_when_missing():
     request = _build_stateful_request()
