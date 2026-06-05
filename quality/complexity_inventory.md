@@ -22,7 +22,7 @@ python scripts/python_complexity_inventory.py --limit 20
 | --- | ---: |
 | Max cyclomatic complexity | 15 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.60 |
+| Average maintainability index | 55.59 |
 
 ## Highest Cyclomatic Complexity
 
@@ -47,7 +47,7 @@ python scripts/python_complexity_inventory.py --limit 20
 | 17 | `build_hierarchical_contribution_result` | function | `engine/contribution.py:298` | 14 | C |
 | 18 | `_apply_overrides` | function | `engine/policies.py:38` | 14 | C |
 | 19 | `_build_artifacts` | function | `app/services/composite_inspection_service.py:114` | 13 | C |
-| 20 | `_recovery_drill_payload_matches_entry` | function | `app/services/operator_action_replay_service.py:206` | 12 | C |
+| 20 | `collect` | method | `app/services/queue_metrics_service.py:353` | 12 | C |
 
 ## Lowest Maintainability Index
 
@@ -160,7 +160,9 @@ dedicated helpers. `run_twr_inspection` also dropped out after subject-resolutio
 handling and subject identity evidence were split into a dedicated helper. Max cyclomatic
 complexity is now `15`. `build_source_preconverted_mwr_currency_evidence` also dropped out after
 market-value collection validation, cash-flow index validation, and cash-flow response evidence
-projection were split into dedicated helpers. The remaining
+projection were split into dedicated helpers. `_recovery_drill_payload_matches_entry` also dropped
+out after recovery-drill evidence shape checks and entry-identity checks were split into dedicated
+helpers. The remaining
 highest-complexity functions are C-grade service and engine hotspots that should be treated as
 future bounded refactor candidates, not as evidence of an immediate behavior defect.
 
