@@ -621,6 +621,41 @@ def test_build_stateful_returns_series_frames_preserves_calculated_benchmark_fra
     assert frames.risk_free_df is None
 
 
+def test_stateful_returns_retrieval_stage_details_preserve_count_policy():
+    portfolio_source = returns_series_service.StatefulPortfolioInput(
+        performance_start_date=pd.Timestamp("2026-02-23").date(),
+        observations=[{"valuation_date": "2026-02-23"}, {"valuation_date": "2026-02-24"}],
+        retrieval_metadata=stateful_input_service.RetrievalMetadata(chunk_count=2, page_count=3),
+    )
+    benchmark_resolution = returns_series_service._StatefulBenchmarkResolution(
+        benchmark_id="BMK1",
+        benchmark_points=[{"series_date": "2026-02-23"}, {"series_date": "2026-02-24"}],
+        benchmark_df=None,
+        benchmark_source_details={"benchmark_chunk_count": 4, "benchmark_page_count": 5},
+        benchmark_work_units=6,
+    )
+
+    details = returns_series_service._stateful_returns_retrieval_stage_details(
+        observations=portfolio_source.observations,
+        portfolio_source=portfolio_source,
+        benchmark_resolution=benchmark_resolution,
+        risk_free_points=[{"date": "2026-02-23"}],
+        risk_free_payload={"retrieval_metadata": {"chunk_count": "7", "page_count": 8}},
+    )
+
+    assert details == {
+        "portfolio_observations": 2,
+        "benchmark_points": 2,
+        "benchmark_work_units": 6,
+        "risk_free_points": 1,
+        "portfolio_chunk_count": 2,
+        "portfolio_page_count": 3,
+        "benchmark_chunk_count": 4,
+        "benchmark_page_count": 5,
+        "risk_free_chunk_count": 7,
+    }
+
+
 @pytest.mark.asyncio
 async def test_resolve_stateful_returns_series_benchmark_id_uses_assignment_when_missing():
     request = _build_stateful_request()

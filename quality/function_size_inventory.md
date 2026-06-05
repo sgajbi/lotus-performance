@@ -30,10 +30,10 @@ python scripts/python_function_size_inventory.py --limit 15
 | 8 | `aggregate_attribution_results` | `engine/attribution.py:586` | 148 |
 | 9 | `calculate_benchmark_workflow` | `app/services/benchmark_calculation_workflow_service.py:89` | 147 |
 | 10 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:71` | 147 |
-| 11 | `resolve_stateful_returns_series_request` | `app/services/returns_series_service.py:1238` | 143 |
-| 12 | `calculate_attribution` | `app/services/attribution_service.py:69` | 142 |
-| 13 | `_build_external_cashflow_findings` | `app/services/inspection/source_economics_findings.py:267` | 140 |
-| 14 | `_build_artifacts` | `app/services/composite_inspection_service.py:114` | 135 |
+| 11 | `calculate_attribution` | `app/services/attribution_service.py:69` | 142 |
+| 12 | `_build_external_cashflow_findings` | `app/services/inspection/source_economics_findings.py:267` | 140 |
+| 13 | `_build_artifacts` | `app/services/composite_inspection_service.py:114` | 135 |
+| 14 | `resolve_stateful_returns_series_request` | `app/services/returns_series_service.py:1263` | 134 |
 | 15 | `_build_fee_source_economics_findings` | `app/services/inspection/source_economics_findings.py:409` | 130 |
 
 ## Interpretation
