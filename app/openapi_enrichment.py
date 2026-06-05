@@ -490,6 +490,29 @@ def _ensure_operation_response_documentation(
             )
 
 
+def _operation_tags_for_path(path: str) -> list[str]:
+    if path.startswith("/health"):
+        return ["Health"]
+    if path == "/metrics":
+        return ["Monitoring"]
+    segment = path.strip("/").split("/", 1)[0] or "default"
+    return [segment.replace("-", " ").title()]
+
+
+def _ensure_operation_metadata(*, path: str, method: str, operation: dict[str, Any]) -> None:
+    if not operation.get("summary"):
+        operation["summary"] = f"{method.upper()} {path}"
+    if not operation.get("description"):
+        operation["description"] = f"{method.upper()} operation for {path} in lotus-performance."
+    if path == "/metrics":
+        operation["description"] = (
+            "Returns the Prometheus metrics surface for lotus-performance, including durable queue availability, "
+            "queue pressure, lineage storage capacity, recovery-drill assurance, and runtime-retention assurance gauges."
+        )
+    if not operation.get("tags"):
+        operation["tags"] = _operation_tags_for_path(path)
+
+
 def _ensure_operation_documentation(schema: dict[str, Any]) -> None:
     paths = schema.get("paths", {})
     components = schema.get("components", {})
@@ -503,23 +526,7 @@ def _ensure_operation_documentation(schema: dict[str, Any]) -> None:
                 continue
             if not isinstance(operation, dict):
                 continue
-            if not operation.get("summary"):
-                operation["summary"] = f"{method.upper()} {path}"
-            if not operation.get("description"):
-                operation["description"] = f"{method.upper()} operation for {path} in lotus-performance."
-            if path == "/metrics":
-                operation["description"] = (
-                    "Returns the Prometheus metrics surface for lotus-performance, including durable queue availability, "
-                    "queue pressure, lineage storage capacity, recovery-drill assurance, and runtime-retention assurance gauges."
-                )
-            if not operation.get("tags"):
-                if path.startswith("/health"):
-                    operation["tags"] = ["Health"]
-                elif path == "/metrics":
-                    operation["tags"] = ["Monitoring"]
-                else:
-                    segment = path.strip("/").split("/", 1)[0] or "default"
-                    operation["tags"] = [segment.replace("-", " ").title()]
+            _ensure_operation_metadata(path=path, method=method, operation=operation)
 
             request_body = operation.get("requestBody")
             if isinstance(request_body, dict):

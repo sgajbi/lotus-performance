@@ -4,6 +4,7 @@ from app.openapi_enrichment import (
     _canonical_term,
     _composed_schema_example,
     _ensure_model_schema_documentation,
+    _ensure_operation_metadata,
     _ensure_operation_response_documentation,
     _ensure_request_body_example,
     _enum_schema_example,
@@ -271,6 +272,29 @@ def test_ensure_operation_response_documentation_rewrites_metrics_response():
     assert "application/json" not in content
     assert content["text/plain"]["schema"]["description"] == "Prometheus exposition format payload."
     assert "lotus_performance_durable_queue_store_availability" in content["text/plain"]["example"]
+
+
+def test_ensure_operation_metadata_assigns_governed_defaults_and_tags():
+    health_operation = {}
+    _ensure_operation_metadata(path="/health/ready", method="get", operation=health_operation)
+    assert health_operation["summary"] == "GET /health/ready"
+    assert health_operation["description"] == "GET operation for /health/ready in lotus-performance."
+    assert health_operation["tags"] == ["Health"]
+
+    metrics_operation = {"description": "Existing description"}
+    _ensure_operation_metadata(path="/metrics", method="get", operation=metrics_operation)
+    assert metrics_operation["tags"] == ["Monitoring"]
+    assert "Prometheus metrics surface" in metrics_operation["description"]
+
+    returns_series_operation = {}
+    _ensure_operation_metadata(path="/returns-series/results", method="post", operation=returns_series_operation)
+    assert returns_series_operation["tags"] == ["Returns Series"]
+
+    workflow_operation = {"summary": "Existing summary", "tags": ["Existing"]}
+    _ensure_operation_metadata(path="/returns-series/results", method="post", operation=workflow_operation)
+    assert workflow_operation["summary"] == "Existing summary"
+    assert workflow_operation["description"] == "POST operation for /returns-series/results in lotus-performance."
+    assert workflow_operation["tags"] == ["Existing"]
 
 
 def test_enrich_openapi_schema_fills_operation_schema_and_examples():
