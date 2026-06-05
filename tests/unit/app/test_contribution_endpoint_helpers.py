@@ -4,9 +4,9 @@ import pandas as pd
 import pytest
 
 from app.api.endpoints.contribution import _as_numeric
-from app.models.contribution_analytics_requests import ContributionAnalyticsRequest
+from app.models.contribution_analytics_requests import ContributionAnalyticsRequest, ContributionInputMode
 from app.models.contribution_requests import ContributionRequest
-from app.models.contribution_responses import DailyContribution, PositionContribution
+from app.models.contribution_responses import DailyContribution, PositionContribution, SinglePeriodContributionResult
 from app.services.contribution_audit import AverageWeightShadowAuditState
 from app.services.contribution_calculation_workflow_service import (
     accepted_contribution_response,
@@ -58,12 +58,14 @@ from app.services.contribution_series import (
     _build_residual_adjusted_position_timeseries,
 )
 from app.services.contribution_service import (
+    _build_contribution_response,
     _build_period_average_weight_methodology_status,
     _build_period_contribution_series_outputs,
     _record_period_timeseries_total_delta,
     _select_period_average_weight_column,
 )
 from app.services.contribution_smoothing import _count_carino_invalid_domain_days
+from common.enums import PeriodType
 from core.envelope import Diagnostics
 from engine.schema import PortfolioColumns
 
@@ -218,6 +220,83 @@ def test_record_period_timeseries_total_delta_ignores_absent_series():
 
     assert delta_periods == 0
     assert audit_state.timeseries_total_delta_periods == 0
+
+
+def test_build_contribution_response_preserves_envelope_and_audit_evidence(mocker):
+    request = ContributionRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "P1",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "portfolio_data": {
+                "metric_basis": "NET",
+                "valuation_points": [
+                    {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+                    {"perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1020},
+                ],
+            },
+            "positions_data": [
+                {
+                    "position_id": "A",
+                    "meta": {"asset_class": "Equity"},
+                    "valuation_points": [
+                        {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+                    ],
+                }
+            ],
+        }
+    )
+    portfolio_results_df = pd.DataFrame(
+        {
+            PortfolioColumns.PERF_DATE.value: [pd.Timestamp("2025-01-01").date()],
+            PortfolioColumns.BEGIN_MV.value: [1000.0],
+            PortfolioColumns.BOD_CF.value: [0.0],
+            PortfolioColumns.EOD_CF.value: [0.0],
+            PortfolioColumns.NIP.value: [0],
+            PortfolioColumns.PERF_RESET.value: [0],
+        }
+    )
+    instruments_df = pd.DataFrame(
+        {
+            PortfolioColumns.PERF_DATE.value: [pd.Timestamp("2025-01-01").date()],
+            PortfolioColumns.BOD_CF.value: [0.0],
+            PortfolioColumns.EOD_CF.value: [0.0],
+            PortfolioColumns.PERF_RESET.value: [0],
+        }
+    )
+    supportability_calls: list[object] = []
+    mocker.patch(
+        "app.services.contribution_service.record_supportability_metric",
+        side_effect=lambda **kwargs: supportability_calls.append(kwargs["supportability"]),
+    )
+    mocker.patch("app.services.contribution_service._list_upstream_snapshots_for_contribution", return_value=[])
+
+    response = _build_contribution_response(
+        request=request,
+        input_mode=ContributionInputMode.STATELESS,
+        input_fingerprint="fingerprint",
+        calculation_hash="hash",
+        engine_version="runtime-version",
+        periods_to_resolve=[PeriodType.ITD],
+        master_start_date=pd.Timestamp("2025-01-01").date(),
+        master_end_date=pd.Timestamp("2025-01-02").date(),
+        instruments_df=instruments_df,
+        portfolio_results_df=portfolio_results_df,
+        results_by_period={"ITD": SinglePeriodContributionResult(total_contribution=1.0)},
+        average_weight_audit_state=AverageWeightShadowAuditState(),
+        average_weight_sum_residual_bp=0,
+    )
+
+    assert response.meta.engine_version == "runtime-version"
+    assert response.meta.input_fingerprint == "fingerprint"
+    assert response.meta.periods["requested"] == ["ITD"]
+    assert response.calculation_supportability.resolved_period_count == 1
+    assert response.source_economics_evidence.status == "CALLER_SUPPLIED"
+    assert response.audit.counts["input_positions"] == 1
+    assert response.audit.counts["portfolio_reset_days"] == 0
+    assert supportability_calls == [response.calculation_supportability]
 
 
 def test_record_period_timeseries_total_delta_ignores_reconciled_series():

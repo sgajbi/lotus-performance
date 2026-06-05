@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date
+
 from fastapi import HTTPException, status
 
 from app.core.config import get_settings
@@ -173,6 +175,87 @@ def _build_period_contribution_series_outputs(
     daily_series = _build_residual_adjusted_daily_contribution_series(position_series) if emit_timeseries else None
     emitted_position_series = position_series if emit_by_position_timeseries else None
     return position_series, daily_series, emitted_position_series
+
+
+def _build_contribution_response(
+    *,
+    request: ContributionRequest,
+    input_mode: ContributionInputMode,
+    input_fingerprint: str,
+    calculation_hash: str,
+    engine_version: str,
+    periods_to_resolve,
+    master_start_date: date,
+    master_end_date: date,
+    instruments_df,
+    portfolio_results_df,
+    results_by_period: dict[str, SinglePeriodContributionResult],
+    average_weight_audit_state: AverageWeightShadowAuditState,
+    average_weight_sum_residual_bp: int,
+) -> ContributionResponse:
+    meta = Meta(
+        calculation_id=request.calculation_id,
+        engine_version=engine_version,
+        precision_mode=request.precision_mode,
+        calendar=request.calendar,
+        annualization=request.annualization,
+        periods={
+            "requested": [p.value for p in periods_to_resolve],
+            "master_start": str(master_start_date),
+            "master_end": str(master_end_date),
+        },
+        input_fingerprint=input_fingerprint,
+        calculation_hash=calculation_hash,
+        report_ccy=request.report_ccy,
+    )
+    diagnostics = _build_portfolio_engine_diagnostics(portfolio_results_df, master_start_date)
+    carino_invalid_domain_days = (
+        _count_carino_invalid_domain_days(portfolio_results_df) if request.smoothing.method == "CARINO" else 0
+    )
+    reset_alignment_counts = _calculate_grouped_return_reset_alignment_counts(instruments_df, portfolio_results_df)
+    position_flow_balance_counts = _calculate_position_flow_balance_counts(instruments_df, portfolio_results_df)
+    average_weight_audit_state.append_diagnostic_notes(
+        diagnostics,
+        average_weight_sum_residual_bp=average_weight_sum_residual_bp,
+        carino_invalid_domain_days=carino_invalid_domain_days,
+        reset_alignment_counts=reset_alignment_counts,
+        position_flow_balance_counts=position_flow_balance_counts,
+    )
+    audit = Audit(
+        counts={
+            "input_positions": len(request.positions_data),
+            **average_weight_audit_state.to_audit_counts(
+                average_weight_sum_residual_bp=average_weight_sum_residual_bp,
+                carino_invalid_domain_days=carino_invalid_domain_days,
+            ),
+            **reset_alignment_counts,
+            **position_flow_balance_counts,
+        }
+    )
+    calculation_supportability = build_calculation_supportability(
+        input_row_count=_count_contribution_input_rows(request),
+        resolved_period_count=len(results_by_period),
+        latest_observation_date=_latest_contribution_observation_date(request),
+        report_end_date=request.report_end_date,
+    )
+    source_economics_evidence = build_contribution_source_economics_evidence(
+        request=request,
+        input_mode=input_mode,
+        upstream_snapshots=_list_upstream_snapshots_for_contribution(request.calculation_id),
+    )
+    record_supportability_metric(operation="contribution", supportability=calculation_supportability)
+
+    return ContributionResponse(
+        calculation_id=request.calculation_id,
+        portfolio_id=request.portfolio_id,
+        input_mode=input_mode,
+        results_by_period=results_by_period,
+        calculation_supportability=calculation_supportability,
+        source_economics_evidence=source_economics_evidence,
+        meta=meta,
+        diagnostics=diagnostics,
+        audit=audit,
+    )
 
 
 def calculate_contribution(
@@ -434,68 +517,20 @@ def calculate_contribution(
             detail=f"An unexpected error occurred during contribution calculation: {str(exc)}",
         ) from exc
 
-    meta = Meta(
-        calculation_id=request.calculation_id,
-        engine_version=active_settings.APP_VERSION,
-        precision_mode=request.precision_mode,
-        calendar=request.calendar,
-        annualization=request.annualization,
-        periods={
-            "requested": [p.value for p in periods_to_resolve],
-            "master_start": str(master_start_date),
-            "master_end": str(master_end_date),
-        },
-        input_fingerprint=input_fingerprint,
-        calculation_hash=calculation_hash,
-        report_ccy=request.report_ccy,
-    )
-    diagnostics = _build_portfolio_engine_diagnostics(portfolio_results_df, master_start_date)
-    carino_invalid_domain_days = (
-        _count_carino_invalid_domain_days(portfolio_results_df) if request.smoothing.method == "CARINO" else 0
-    )
-    reset_alignment_counts = _calculate_grouped_return_reset_alignment_counts(instruments_df, portfolio_results_df)
-    position_flow_balance_counts = _calculate_position_flow_balance_counts(instruments_df, portfolio_results_df)
-    average_weight_audit_state.append_diagnostic_notes(
-        diagnostics,
-        average_weight_sum_residual_bp=average_weight_sum_residual_bp,
-        carino_invalid_domain_days=carino_invalid_domain_days,
-        reset_alignment_counts=reset_alignment_counts,
-        position_flow_balance_counts=position_flow_balance_counts,
-    )
-    audit = Audit(
-        counts={
-            "input_positions": len(request.positions_data),
-            **average_weight_audit_state.to_audit_counts(
-                average_weight_sum_residual_bp=average_weight_sum_residual_bp,
-                carino_invalid_domain_days=carino_invalid_domain_days,
-            ),
-            **reset_alignment_counts,
-            **position_flow_balance_counts,
-        }
-    )
-    calculation_supportability = build_calculation_supportability(
-        input_row_count=_count_contribution_input_rows(request),
-        resolved_period_count=len(results_by_period),
-        latest_observation_date=_latest_contribution_observation_date(request),
-        report_end_date=request.report_end_date,
-    )
-    source_economics_evidence = build_contribution_source_economics_evidence(
+    response_model = _build_contribution_response(
         request=request,
         input_mode=input_mode,
-        upstream_snapshots=_list_upstream_snapshots_for_contribution(request.calculation_id),
-    )
-    record_supportability_metric(operation="contribution", supportability=calculation_supportability)
-
-    response_model = ContributionResponse(
-        calculation_id=request.calculation_id,
-        portfolio_id=request.portfolio_id,
-        input_mode=input_mode,
+        input_fingerprint=input_fingerprint,
+        calculation_hash=calculation_hash,
+        engine_version=active_settings.APP_VERSION,
+        periods_to_resolve=periods_to_resolve,
+        master_start_date=master_start_date,
+        master_end_date=master_end_date,
+        instruments_df=instruments_df,
+        portfolio_results_df=portfolio_results_df,
         results_by_period=results_by_period,
-        calculation_supportability=calculation_supportability,
-        source_economics_evidence=source_economics_evidence,
-        meta=meta,
-        diagnostics=diagnostics,
-        audit=audit,
+        average_weight_audit_state=average_weight_audit_state,
+        average_weight_sum_residual_bp=average_weight_sum_residual_bp,
     )
 
     complete_execution_with_lineage(

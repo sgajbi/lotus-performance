@@ -24,7 +24,7 @@ metrics in each section are updated with each meaningful slice.
 | Largest Python file LOC | 2,399 | 2,399 | 0 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest production file LOC | 1,156 | 1,156 | 0 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
 | Python test modules | 228 | 253 | 25 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Collected tests | 2,035 | 2,235 | 200 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Collected tests | 2,035 | 2,236 | 201 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 
 ### Complexity And Maintainability
 

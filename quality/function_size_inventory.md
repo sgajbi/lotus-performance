@@ -21,7 +21,7 @@ python scripts/python_function_size_inventory.py --limit 15
 | Rank | Function | File | Lines |
 | ---: | --- | --- | ---: |
 | 1 | `build_source_economics_findings` | `app/services/inspection/source_economics_findings.py:7` | 389 |
-| 2 | `calculate_contribution` | `app/services/contribution_service.py:178` | 335 |
+| 2 | `calculate_contribution` | `app/services/contribution_service.py:261` | 287 |
 | 3 | `DurableQueueCollector.collect` | `app/services/queue_metrics_service.py:227` | 188 |
 | 4 | `build_runtime_status_response` | `app/models/runtime_status.py:660` | 173 |
 | 5 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:503` | 172 |
