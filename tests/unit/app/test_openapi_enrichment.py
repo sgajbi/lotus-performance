@@ -7,6 +7,7 @@ from app.openapi_enrichment import (
     _ensure_operation_metadata,
     _ensure_operation_response_documentation,
     _ensure_request_body_example,
+    _ensure_success_response_documentation,
     _enum_schema_example,
     _explicit_schema_example,
     _formatted_schema_example,
@@ -272,6 +273,31 @@ def test_ensure_operation_response_documentation_rewrites_metrics_response():
     assert "application/json" not in content
     assert content["text/plain"]["schema"]["description"] == "Prometheus exposition format payload."
     assert "lotus_performance_durable_queue_store_availability" in content["text/plain"]["example"]
+
+
+def test_ensure_success_response_documentation_preserves_existing_json_examples():
+    response = {
+        "description": "ok",
+        "content": {
+            "application/json": {
+                "schema": {
+                    "type": "object",
+                    "properties": {"portfolio_id": {"type": "string"}},
+                },
+                "examples": {"documented": {"value": {"portfolio_id": "EXISTING"}}},
+            }
+        },
+    }
+
+    _ensure_success_response_documentation(
+        path="/custom/workflow",
+        response=response,
+        components={"schemas": {}},
+    )
+
+    json_content = response["content"]["application/json"]
+    assert "example" not in json_content
+    assert json_content["examples"]["documented"]["value"] == {"portfolio_id": "EXISTING"}
 
 
 def test_ensure_operation_metadata_assigns_governed_defaults_and_tags():

@@ -32,7 +32,7 @@ python scripts/python_function_size_inventory.py --limit 15
 | 10 | `_build_artifacts` | `app/services/composite_inspection_service.py:114` | 135 |
 | 11 | `resolve_stateful_returns_series_request` | `app/services/returns_series_service.py:1265` | 134 |
 | 12 | `calculate_attribution` | `app/services/attribution_service.py:96` | 133 |
-| 13 | `build_runtime_status_response` | `app/models/runtime_status.py:706` | 131 |
+| 13 | `build_runtime_status_response` | `app/models/runtime_status.py:737` | 131 |
 | 14 | `_build_fee_source_economics_findings` | `app/services/inspection/source_economics_findings.py:409` | 130 |
 | 15 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:327` | 130 |
 

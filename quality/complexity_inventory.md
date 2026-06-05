@@ -28,26 +28,26 @@ python scripts/python_complexity_inventory.py --limit 20
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_ensure_operation_response_documentation` | function | `app/openapi_enrichment.py:446` | 15 | C |
-| 2 | `calculate_benchmark_workflow` | function | `app/services/benchmark_calculation_workflow_service.py:89` | 15 | C |
-| 3 | `_check_portfolio_daily_calculation_evidence` | function | `app/services/inspection/calculation_consistency.py:302` | 15 | C |
-| 4 | `_record_taxonomy_samples` | method | `app/services/inspection/source_economics_collector.py:111` | 15 | C |
-| 5 | `collect` | method | `app/services/queue_metrics_service.py:227` | 15 | C |
-| 6 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:1265` | 15 | C |
-| 7 | `_position_meta_from_row` | function | `app/services/stateful_attribution_input_service.py:863` | 15 | C |
-| 8 | `_build_component_observations` | function | `app/services/stateful_benchmark_input_service.py:474` | 15 | C |
-| 9 | `_build_component_observations_from_price_points` | function | `app/services/stateless_benchmark_input_service.py:39` | 15 | C |
-| 10 | `resolve_twr_request` | function | `app/services/twr_mode_service.py:60` | 15 | C |
-| 11 | `_resolve_twr_benchmark_source_input` | function | `app/services/twr_mode_service.py:353` | 15 | C |
-| 12 | `_resolve_workspace_benchmark_input` | function | `app/services/workspace_summary_service.py:314` | 15 | C |
-| 13 | `_build_compute_job_runtime` | function | `app/workers/compute_executor_worker.py:156` | 15 | C |
-| 14 | `calculate_benchmark_returns` | function | `engine/benchmarks.py:35` | 15 | C |
-| 15 | `_lineage_queue_response` | function | `app/models/runtime_status.py:691` | 14 | C |
-| 16 | `TWRBenchmarkRequest` | class | `app/models/twr_requests.py:34` | 14 | C |
-| 17 | `_parse_reclaimed_event_payload` | function | `app/services/operator_action_lease_service.py:415` | 14 | C |
-| 18 | `collect_runtime_degradation_reasons` | function | `app/services/runtime_status_degradation.py:257` | 14 | C |
-| 19 | `build_portfolio_source_quality_evidence` | function | `app/services/source_quality_evidence.py:13` | 14 | C |
-| 20 | `_collect_stateful_mwr_cash_flows` | function | `app/services/stateful_mwr_input_service.py:184` | 14 | C |
+| 1 | `calculate_benchmark_workflow` | function | `app/services/benchmark_calculation_workflow_service.py:89` | 15 | C |
+| 2 | `_check_portfolio_daily_calculation_evidence` | function | `app/services/inspection/calculation_consistency.py:302` | 15 | C |
+| 3 | `_record_taxonomy_samples` | method | `app/services/inspection/source_economics_collector.py:111` | 15 | C |
+| 4 | `collect` | method | `app/services/queue_metrics_service.py:227` | 15 | C |
+| 5 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:1265` | 15 | C |
+| 6 | `_position_meta_from_row` | function | `app/services/stateful_attribution_input_service.py:863` | 15 | C |
+| 7 | `_build_component_observations` | function | `app/services/stateful_benchmark_input_service.py:474` | 15 | C |
+| 8 | `_build_component_observations_from_price_points` | function | `app/services/stateless_benchmark_input_service.py:39` | 15 | C |
+| 9 | `resolve_twr_request` | function | `app/services/twr_mode_service.py:60` | 15 | C |
+| 10 | `_resolve_twr_benchmark_source_input` | function | `app/services/twr_mode_service.py:353` | 15 | C |
+| 11 | `_resolve_workspace_benchmark_input` | function | `app/services/workspace_summary_service.py:314` | 15 | C |
+| 12 | `_build_compute_job_runtime` | function | `app/workers/compute_executor_worker.py:156` | 15 | C |
+| 13 | `calculate_benchmark_returns` | function | `engine/benchmarks.py:35` | 15 | C |
+| 14 | `_lineage_queue_response` | function | `app/models/runtime_status.py:691` | 14 | C |
+| 15 | `TWRBenchmarkRequest` | class | `app/models/twr_requests.py:34` | 14 | C |
+| 16 | `_parse_reclaimed_event_payload` | function | `app/services/operator_action_lease_service.py:415` | 14 | C |
+| 17 | `collect_runtime_degradation_reasons` | function | `app/services/runtime_status_degradation.py:257` | 14 | C |
+| 18 | `build_portfolio_source_quality_evidence` | function | `app/services/source_quality_evidence.py:13` | 14 | C |
+| 19 | `_collect_stateful_mwr_cash_flows` | function | `app/services/stateful_mwr_input_service.py:184` | 14 | C |
+| 20 | `_build_twr_results_by_period` | function | `app/services/twr_service.py:673` | 14 | C |
 
 ## Lowest Maintainability Index
 
@@ -58,7 +58,7 @@ python scripts/python_complexity_inventory.py --limit 20
 | 3 | `app/services/returns_series_service.py` | 0.00 | C |
 | 4 | `app/services/stateful_attribution_input_service.py` | 0.00 | C |
 | 5 | `app/services/stateful_input_service.py` | 0.00 | C |
-| 6 | `app/openapi_enrichment.py` | 5.49 | C |
+| 6 | `app/openapi_enrichment.py` | 5.43 | C |
 | 7 | `app/services/twr_service.py` | 7.72 | C |
 | 8 | `app/services/workspace_summary_service.py` | 9.62 | B |
 | 9 | `app/services/execution_registry.py` | 10.84 | B |
@@ -111,7 +111,10 @@ was separated from chunk planning, parallel fetch, and failure handling.
 `AttributionAnalyticsRequest.validate_mode_payloads` also dropped out after legacy input-shape
 detection and stateless/stateful exclusivity checks were separated into helpers.
 `_compute_queue_response` also dropped out after compute queue stats, inspection anchors, and
-recovery-event response projection were separated into helpers. Max
+recovery-event response projection were separated into helpers.
+`_ensure_operation_response_documentation` also dropped out after error-response detection, metrics
+response content, JSON success examples, and success-response enrichment were separated into
+smaller helpers. Max
 cyclomatic complexity is now `15`. The remaining
 highest-complexity functions are C-grade service and engine hotspots that should be treated as
 future bounded refactor candidates, not as evidence of an immediate behavior defect.

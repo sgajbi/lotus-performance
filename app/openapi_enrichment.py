@@ -443,51 +443,82 @@ def _ensure_request_body_example(
         )
 
 
+def _has_documented_error_response(responses: dict[str, Any]) -> bool:
+    return any(str(code).startswith(("4", "5")) or str(code) == "default" for code in responses)
+
+
+def _metrics_response_content() -> dict[str, Any]:
+    metrics_example = (
+        "# HELP lotus_performance_durable_queue_store_availability Durable queue store availability.\n"
+        "# TYPE lotus_performance_durable_queue_store_availability gauge\n"
+        'lotus_performance_durable_queue_store_availability{store="compute"} 1.0\n'
+    )
+    return {
+        "text/plain": {
+            "schema": {"type": "string", "description": "Prometheus exposition format payload."},
+            "example": metrics_example,
+        }
+    }
+
+
+def _ensure_json_success_response_example(
+    *,
+    path: str,
+    json_content: dict[str, Any],
+    components: dict[str, Any],
+) -> None:
+    response_schema = json_content.get("schema", {})
+    operation_example = OPERATION_JSON_EXAMPLES.get((path, "response"))
+    if operation_example is not None:
+        json_content["example"] = copy.deepcopy(operation_example)
+        return
+    if isinstance(response_schema, dict) and "example" not in json_content and "examples" not in json_content:
+        json_content["example"] = _build_schema_example(
+            response_schema,
+            components=components,
+            name_hint="response_body",
+        )
+
+
+def _ensure_success_response_documentation(
+    *,
+    path: str,
+    response: dict[str, Any],
+    components: dict[str, Any],
+) -> None:
+    content = response.get("content", {})
+    if not isinstance(content, dict):
+        return
+    if path == "/metrics":
+        response["content"] = _metrics_response_content()
+        return
+    json_content = content.get("application/json")
+    if not isinstance(json_content, dict):
+        return
+    _ensure_json_success_response_example(
+        path=path,
+        json_content=json_content,
+        components=components,
+    )
+
+
 def _ensure_operation_response_documentation(
     *,
     path: str,
     responses: dict[str, Any],
     components: dict[str, Any],
 ) -> None:
-    has_error = any(
-        str(code).startswith("4") or str(code).startswith("5") or str(code) == "default" for code in responses
-    )
-    if not has_error:
+    if not _has_documented_error_response(responses):
         responses["default"] = _problem_detail_response()
     _ensure_error_response_examples(responses)
     for code, response in responses.items():
         if not str(code).startswith("2") or not isinstance(response, dict):
             continue
-        content = response.get("content", {})
-        if not isinstance(content, dict):
-            continue
-        if path == "/metrics":
-            metrics_example = (
-                "# HELP lotus_performance_durable_queue_store_availability Durable queue store availability.\n"
-                "# TYPE lotus_performance_durable_queue_store_availability gauge\n"
-                'lotus_performance_durable_queue_store_availability{store="compute"} 1.0\n'
-            )
-            response["content"] = {
-                "text/plain": {
-                    "schema": {"type": "string", "description": "Prometheus exposition format payload."},
-                    "example": metrics_example,
-                }
-            }
-            continue
-        json_content = content.get("application/json")
-        if not isinstance(json_content, dict):
-            continue
-        response_schema = json_content.get("schema", {})
-        operation_example = OPERATION_JSON_EXAMPLES.get((path, "response"))
-        if operation_example is not None:
-            json_content["example"] = copy.deepcopy(operation_example)
-            continue
-        if isinstance(response_schema, dict) and "example" not in json_content and "examples" not in json_content:
-            json_content["example"] = _build_schema_example(
-                response_schema,
-                components=components,
-                name_hint="response_body",
-            )
+        _ensure_success_response_documentation(
+            path=path,
+            response=response,
+            components=components,
+        )
 
 
 def _operation_tags_for_path(path: str) -> list[str]:
