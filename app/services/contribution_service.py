@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import date
+from typing import Any
 
 from fastapi import HTTPException, status
 
@@ -73,6 +75,17 @@ from engine.contribution import (
     _prepare_hierarchical_data,
 )
 from engine.schema import PortfolioColumns
+
+
+@dataclass(frozen=True)
+class _ContributionEngineInputs:
+    periods_to_resolve: list[Any]
+    resolved_periods: list[Any]
+    master_start_date: date
+    master_end_date: date
+    instruments_df: Any
+    portfolio_results_df: Any
+    daily_contributions_df: Any
 
 
 def _build_period_average_weight_methodology_status(
@@ -177,6 +190,42 @@ def _build_period_contribution_series_outputs(
     return position_series, daily_series, emitted_position_series
 
 
+def _prepare_contribution_engine_inputs(request: ContributionRequest) -> _ContributionEngineInputs:
+    periods_to_resolve = [analysis.period for analysis in request.analyses]
+    inception_date = (
+        request.portfolio_data.valuation_points[0].perf_date
+        if request.portfolio_data.valuation_points
+        else request.report_end_date
+    )
+    resolved_periods = resolve_periods(
+        periods_to_resolve,
+        request.report_end_date,
+        inception_date,
+        explicit_start_date=request.report_start_date,
+    )
+    if not resolved_periods:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No valid periods could be resolved.")
+
+    master_start_date = min(p.start_date for p in resolved_periods)
+    master_end_date = max(p.end_date for p in resolved_periods)
+    instruments_df, portfolio_results_df = _prepare_hierarchical_data(request)
+    daily_contributions_df = _calculate_daily_instrument_contributions(
+        instruments_df, portfolio_results_df, request.weighting_scheme, request.smoothing
+    )
+    daily_contributions_df[PortfolioColumns.PERF_DATE.value] = observation_date_series(
+        daily_contributions_df[PortfolioColumns.PERF_DATE.value]
+    )
+    return _ContributionEngineInputs(
+        periods_to_resolve=periods_to_resolve,
+        resolved_periods=resolved_periods,
+        master_start_date=master_start_date,
+        master_end_date=master_end_date,
+        instruments_df=instruments_df,
+        portfolio_results_df=portfolio_results_df,
+        daily_contributions_df=daily_contributions_df,
+    )
+
+
 def _build_contribution_response(
     *,
     request: ContributionRequest,
@@ -272,32 +321,15 @@ def calculate_contribution(
     execution_registry.mark_running(request.calculation_id)
     execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_EXECUTION)
 
-    periods_to_resolve = [analysis.period for analysis in request.analyses]
-    inception_date = (
-        request.portfolio_data.valuation_points[0].perf_date
-        if request.portfolio_data.valuation_points
-        else request.report_end_date
-    )
-    resolved_periods = resolve_periods(
-        periods_to_resolve,
-        request.report_end_date,
-        inception_date,
-        explicit_start_date=request.report_start_date,
-    )
-
     try:
-        if not resolved_periods:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No valid periods could be resolved.")
-
-        master_start_date = min(p.start_date for p in resolved_periods)
-        master_end_date = max(p.end_date for p in resolved_periods)
-        instruments_df, portfolio_results_df = _prepare_hierarchical_data(request)
-        daily_contributions_df = _calculate_daily_instrument_contributions(
-            instruments_df, portfolio_results_df, request.weighting_scheme, request.smoothing
-        )
-        daily_contributions_df[PortfolioColumns.PERF_DATE.value] = observation_date_series(
-            daily_contributions_df[PortfolioColumns.PERF_DATE.value]
-        )
+        engine_inputs = _prepare_contribution_engine_inputs(request)
+        periods_to_resolve = engine_inputs.periods_to_resolve
+        resolved_periods = engine_inputs.resolved_periods
+        master_start_date = engine_inputs.master_start_date
+        master_end_date = engine_inputs.master_end_date
+        instruments_df = engine_inputs.instruments_df
+        portfolio_results_df = engine_inputs.portfolio_results_df
+        daily_contributions_df = engine_inputs.daily_contributions_df
         average_weight_sum_residual_bp = 0
         average_weight_audit_state = AverageWeightShadowAuditState()
 

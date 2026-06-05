@@ -20,7 +20,7 @@ python scripts/python_function_size_inventory.py --limit 15
 
 | Rank | Function | File | Lines |
 | ---: | --- | --- | ---: |
-| 1 | `calculate_contribution` | `app/services/contribution_service.py:261` | 287 |
+| 1 | `calculate_contribution` | `app/services/contribution_service.py:310` | 270 |
 | 2 | `build_source_economics_findings` | `app/services/inspection/source_economics_findings.py:7` | 258 |
 | 3 | `DurableQueueCollector.collect` | `app/services/queue_metrics_service.py:227` | 188 |
 | 4 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:503` | 172 |
@@ -45,6 +45,8 @@ assembly has dropped out of the top-15 table after resolved identity finalizatio
 Runtime-status response assembly remains in the top-15 table but moved from `173` to `131` lines
 after lineage queue response mapping was isolated. Attribution orchestration remains in the top-15
 table but moved from `142` to `133` lines after per-period result assembly was isolated.
+Contribution orchestration remains the largest function but moved from `287` to `270` lines after
+engine input preparation was isolated.
 
 Future refactor slices should use this report to choose bounded work where extraction, shared
 helpers, or narrower tests can reduce function size while preserving analytics truth and API
