@@ -33,6 +33,8 @@ from engine.benchmarks import calculate_benchmark_returns
 
 _SUPPORTED_ATTRIBUTION_GROUPS: set[str] = {"asset_class", "sector", "country", "currency"}
 _UPSTREAM_DIMENSION_GROUPS: set[str] = {"asset_class", "sector", "country"}
+_BenchmarkGroupDateBucket = dict[str, Decimal]
+_BenchmarkGroupBuckets = dict[tuple[tuple[str, str], ...], dict[str, _BenchmarkGroupDateBucket]]
 
 
 @dataclass(frozen=True)
@@ -623,75 +625,26 @@ def _build_benchmark_groups(
             detail="No normalized benchmark component observations are available for stateful attribution.",
         )
 
-    labels_by_index: dict[str, dict[str, object]] = {}
-    for record in index_records:
-        index_id = record.get("index_id")
-        labels = record.get("classification_labels")
-        if isinstance(index_id, str) and isinstance(labels, dict):
-            labels_by_index[index_id] = labels
-
+    labels_by_index = _benchmark_labels_by_index(index_records)
     engine_result = calculate_benchmark_returns(component_observations)
-    grouped: dict[tuple[tuple[str, str], ...], dict[str, dict[str, Decimal]]] = {}
+    grouped: _BenchmarkGroupBuckets = {}
     for _, row in engine_result.component_contributions_df.iterrows():
-        index_id = row["component_id"]
-        labels = labels_by_index.get(index_id)
-        component_currency = row.get("component_currency")
-        if labels is None and "currency" not in group_by:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail=f"Index catalog missing classification labels for benchmark component {index_id}.",
-            )
-        group_key = _build_group_key(
-            labels=labels or {},
+        _add_benchmark_group_row(
+            grouped=grouped,
+            labels_by_index=labels_by_index,
             group_by=group_by,
-            index_id=index_id,
-            component_currency=str(component_currency) if component_currency is not None else None,
+            row=row,
         )
-        group_bucket = grouped.setdefault(group_key, {})
-        series_date = row["date"].isoformat()
-        date_bucket = group_bucket.setdefault(
-            series_date,
-            {
-                "weight_sum": Decimal("0"),
-                "weighted_return_sum": Decimal("0"),
-                "weighted_local_return_sum": Decimal("0"),
-                "weighted_fx_return_sum": Decimal("0"),
-            },
-        )
-        weight = Decimal(str(row["weight_bop"]))
-        contribution = Decimal(str(row["contribution"]))
-        date_bucket["weight_sum"] += weight
-        date_bucket["weighted_return_sum"] += contribution
-        component_return_local = row.get("component_return_local")
-        component_return_fx = row.get("component_return_fx")
-        if pd.notna(component_return_local):
-            date_bucket["weighted_local_return_sum"] += weight * Decimal(str(component_return_local))
-        if pd.notna(component_return_fx):
-            date_bucket["weighted_fx_return_sum"] += weight * Decimal(str(component_return_fx))
 
     benchmark_groups: list[BenchmarkGroup] = []
     for key_tuple in sorted(grouped):
         observations = []
         for series_date in sorted(grouped[key_tuple]):
-            weight_sum = grouped[key_tuple][series_date]["weight_sum"]
-            weighted_return_sum = grouped[key_tuple][series_date]["weighted_return_sum"]
-            group_return = Decimal("0") if weight_sum == 0 else (weighted_return_sum / weight_sum)
             observations.append(
-                {
-                    "date": series_date,
-                    "weight_bop": weight_sum,
-                    "return_base": group_return,
-                    "return_local": (
-                        Decimal("0")
-                        if weight_sum == 0
-                        else grouped[key_tuple][series_date]["weighted_local_return_sum"] / weight_sum
-                    ),
-                    "return_fx": (
-                        Decimal("0")
-                        if weight_sum == 0
-                        else grouped[key_tuple][series_date]["weighted_fx_return_sum"] / weight_sum
-                    ),
-                }
+                _benchmark_group_observation(
+                    series_date=series_date,
+                    date_bucket=grouped[key_tuple][series_date],
+                )
             )
         benchmark_groups.append(
             BenchmarkGroup.model_validate(
@@ -702,6 +655,84 @@ def _build_benchmark_groups(
             )
         )
     return benchmark_groups
+
+
+def _benchmark_labels_by_index(index_records: list[dict[str, object]]) -> dict[str, dict[str, object]]:
+    labels_by_index: dict[str, dict[str, object]] = {}
+    for record in index_records:
+        index_id = record.get("index_id")
+        labels = record.get("classification_labels")
+        if isinstance(index_id, str) and isinstance(labels, dict):
+            labels_by_index[index_id] = labels
+    return labels_by_index
+
+
+def _empty_benchmark_group_date_bucket() -> _BenchmarkGroupDateBucket:
+    return {
+        "weight_sum": Decimal("0"),
+        "weighted_return_sum": Decimal("0"),
+        "weighted_local_return_sum": Decimal("0"),
+        "weighted_fx_return_sum": Decimal("0"),
+    }
+
+
+def _add_benchmark_group_row(
+    *,
+    grouped: _BenchmarkGroupBuckets,
+    labels_by_index: dict[str, dict[str, object]],
+    group_by: list[str],
+    row: pd.Series,
+) -> None:
+    index_id = row["component_id"]
+    labels = labels_by_index.get(index_id)
+    component_currency = row.get("component_currency")
+    if labels is None and "currency" not in group_by:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"Index catalog missing classification labels for benchmark component {index_id}.",
+        )
+
+    group_key = _build_group_key(
+        labels=labels or {},
+        group_by=group_by,
+        index_id=index_id,
+        component_currency=str(component_currency) if component_currency is not None else None,
+    )
+    series_date = row["date"].isoformat()
+    date_bucket = grouped.setdefault(group_key, {}).setdefault(series_date, _empty_benchmark_group_date_bucket())
+    weight = Decimal(str(row["weight_bop"]))
+    date_bucket["weight_sum"] += weight
+    date_bucket["weighted_return_sum"] += Decimal(str(row["contribution"]))
+
+    component_return_local = row.get("component_return_local")
+    component_return_fx = row.get("component_return_fx")
+    if pd.notna(component_return_local):
+        date_bucket["weighted_local_return_sum"] += weight * Decimal(str(component_return_local))
+    if pd.notna(component_return_fx):
+        date_bucket["weighted_fx_return_sum"] += weight * Decimal(str(component_return_fx))
+
+
+def _benchmark_group_observation(
+    *,
+    series_date: str,
+    date_bucket: _BenchmarkGroupDateBucket,
+) -> dict[str, object]:
+    weight_sum = date_bucket["weight_sum"]
+    if weight_sum == 0:
+        return {
+            "date": series_date,
+            "weight_bop": weight_sum,
+            "return_base": Decimal("0"),
+            "return_local": Decimal("0"),
+            "return_fx": Decimal("0"),
+        }
+    return {
+        "date": series_date,
+        "weight_bop": weight_sum,
+        "return_base": date_bucket["weighted_return_sum"] / weight_sum,
+        "return_local": date_bucket["weighted_local_return_sum"] / weight_sum,
+        "return_fx": date_bucket["weighted_fx_return_sum"] / weight_sum,
+    }
 
 
 def _build_group_key(

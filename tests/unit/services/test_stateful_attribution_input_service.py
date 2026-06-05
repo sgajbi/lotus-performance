@@ -1003,6 +1003,44 @@ def test_stateful_attribution_builds_unknown_bucket_for_missing_benchmark_labels
     assert groups[0].key == {"sector": "unknown"}
 
 
+def test_stateful_attribution_aggregates_benchmark_components_by_group_and_date():
+    groups = _build_benchmark_groups(
+        group_by=["sector"],
+        component_observations=[
+            BenchmarkComponentObservation(
+                component_id="IDX_TECH_A",
+                component_currency="USD",
+                perf_date=date(2025, 1, 1),
+                weight_bop=0.25,
+                component_return=0.04,
+                component_return_local=0.03,
+                component_return_fx=0.01,
+            ),
+            BenchmarkComponentObservation(
+                component_id="IDX_TECH_B",
+                component_currency="USD",
+                perf_date=date(2025, 1, 1),
+                weight_bop=0.75,
+                component_return=0.02,
+                component_return_local=0.015,
+                component_return_fx=0.005,
+            ),
+        ],
+        index_records=[
+            {"index_id": "IDX_TECH_A", "classification_labels": {"sector": "Technology"}},
+            {"index_id": "IDX_TECH_B", "classification_labels": {"sector": "Technology"}},
+        ],
+    )
+
+    assert len(groups) == 1
+    assert groups[0].key == {"sector": "technology"}
+    observation = groups[0].observations[0]
+    assert observation.weight_bop == pytest.approx(1.0)
+    assert observation.return_base == pytest.approx(0.025)
+    assert observation.return_local == pytest.approx(0.01875)
+    assert observation.return_fx == pytest.approx(0.00625)
+
+
 def test_stateful_attribution_parsers_filter_invalid_rows():
     assert _split_position_cash_flows(None) == (0, 0)
     assert _split_position_cash_flows(["bad", {"amount": None, "timing": "bod"}]) == (0, 0)
