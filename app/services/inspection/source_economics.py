@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal, InvalidOperation
 from numbers import Real
@@ -96,6 +96,124 @@ class DetailedCashFlowEconomics:
     unsupported_cashflow_type_rows: tuple[dict[str, object], ...]
     governed_alias_cashflow_type_rows: tuple[dict[str, object], ...]
     fee_bod_timing_rows: tuple[dict[str, object], ...]
+
+
+@dataclass
+class _DetailedCashFlowAccumulator:
+    external_bod: Decimal = Decimal("0")
+    external_eod: Decimal = Decimal("0")
+    fee_bod: Decimal = Decimal("0")
+    fee_eod: Decimal = Decimal("0")
+    invalid_cashflow_rows: list[dict[str, object]] = field(default_factory=list)
+    invalid_amount_rows: list[dict[str, object]] = field(default_factory=list)
+    invalid_timing_rows: list[dict[str, object]] = field(default_factory=list)
+    missing_cashflow_type_rows: list[dict[str, object]] = field(default_factory=list)
+    noncanonical_cashflow_types: set[str] = field(default_factory=set)
+    unsupported_cashflow_type_rows: list[dict[str, object]] = field(default_factory=list)
+    governed_alias_cashflow_type_rows: list[dict[str, object]] = field(default_factory=list)
+    fee_bod_timing_rows: list[dict[str, object]] = field(default_factory=list)
+
+    def record_invalid_row(self, flow: object) -> None:
+        self.invalid_cashflow_rows.append(
+            {
+                "raw_type": type(flow).__name__,
+                "raw_value": _sample_raw_collection_value(flow),
+            }
+        )
+
+    def record_invalid_amount(self, *, timing: object, amount: object, cash_flow_type: object) -> None:
+        self.invalid_amount_rows.append(
+            {
+                "timing": timing,
+                "amount": amount,
+                "cash_flow_type": cash_flow_type,
+            }
+        )
+
+    def record_invalid_timing(
+        self,
+        *,
+        timing: object,
+        amount: Decimal,
+        cash_flow_type: object,
+    ) -> None:
+        self.invalid_timing_rows.append(
+            {
+                "timing": timing,
+                "amount": _decimal_to_artifact(amount),
+                "cash_flow_type": cash_flow_type,
+            }
+        )
+
+    def record_taxonomy_signal(
+        self,
+        *,
+        timing: str,
+        amount: Decimal,
+        classification: object,
+    ) -> None:
+        normalized_cash_flow_type = getattr(classification, "normalized_value")
+        economics_role = getattr(classification, "economics_role")
+        if economics_role == "missing":
+            self.missing_cashflow_type_rows.append({"timing": timing, "amount": _decimal_to_artifact(amount)})
+            return
+        if getattr(classification, "canonical") or normalized_cash_flow_type is None:
+            return
+        self.noncanonical_cashflow_types.add(normalized_cash_flow_type)
+        sample_row = {
+            "timing": timing,
+            "amount": _decimal_to_artifact(amount),
+            "cash_flow_type": normalized_cash_flow_type,
+        }
+        if getattr(classification, "governed_alias"):
+            self.governed_alias_cashflow_type_rows.append(sample_row)
+        else:
+            self.unsupported_cashflow_type_rows.append(sample_row)
+
+    def add_amount(
+        self,
+        *,
+        timing: str,
+        amount: Decimal,
+        economics_role: str,
+        cash_flow_type: object,
+    ) -> None:
+        if economics_role == "fee":
+            if timing == "bod":
+                self.fee_bod += amount
+                self.fee_bod_timing_rows.append(
+                    {
+                        "timing": timing,
+                        "amount": _decimal_to_artifact(amount),
+                        "cash_flow_type": cash_flow_type,
+                    }
+                )
+            else:
+                self.fee_eod += amount
+            return
+        if economics_role == "unsupported":
+            return
+        if timing == "bod":
+            self.external_bod += amount
+        else:
+            self.external_eod += amount
+
+    def to_result(self) -> DetailedCashFlowEconomics:
+        return DetailedCashFlowEconomics(
+            external_bod=self.external_bod,
+            external_eod=self.external_eod,
+            fee_bod=self.fee_bod,
+            fee_eod=self.fee_eod,
+            invalid_cashflow_collection=None,
+            invalid_cashflow_rows=tuple(self.invalid_cashflow_rows),
+            invalid_amount_rows=tuple(self.invalid_amount_rows),
+            invalid_timing_rows=tuple(self.invalid_timing_rows),
+            missing_cashflow_type_rows=tuple(self.missing_cashflow_type_rows),
+            noncanonical_cashflow_types=tuple(sorted(self.noncanonical_cashflow_types)),
+            unsupported_cashflow_type_rows=tuple(self.unsupported_cashflow_type_rows),
+            governed_alias_cashflow_type_rows=tuple(self.governed_alias_cashflow_type_rows),
+            fee_bod_timing_rows=tuple(self.fee_bod_timing_rows),
+        )
 
 
 @dataclass(frozen=True)
@@ -422,19 +540,7 @@ def _collect_observation_economics(observation: dict[str, object]) -> RawObserva
 
 
 def _sum_detailed_cash_flows(cash_flows_raw: object) -> DetailedCashFlowEconomics:
-    external_bod = Decimal("0")
-    external_eod = Decimal("0")
-    fee_bod = Decimal("0")
-    fee_eod = Decimal("0")
     invalid_cashflow_collection = None
-    invalid_cashflow_rows: list[dict[str, object]] = []
-    invalid_amount_rows: list[dict[str, object]] = []
-    invalid_timing_rows: list[dict[str, object]] = []
-    missing_cashflow_type_rows: list[dict[str, object]] = []
-    noncanonical_cashflow_types: set[str] = set()
-    unsupported_cashflow_type_rows: list[dict[str, object]] = []
-    governed_alias_cashflow_type_rows: list[dict[str, object]] = []
-    fee_bod_timing_rows: list[dict[str, object]] = []
     if not isinstance(cash_flows_raw, list):
         if cash_flows_raw is not None:
             invalid_cashflow_collection = {
@@ -442,10 +548,10 @@ def _sum_detailed_cash_flows(cash_flows_raw: object) -> DetailedCashFlowEconomic
                 "raw_value": _sample_raw_collection_value(cash_flows_raw),
             }
         return DetailedCashFlowEconomics(
-            external_bod=external_bod,
-            external_eod=external_eod,
-            fee_bod=fee_bod,
-            fee_eod=fee_eod,
+            external_bod=Decimal("0"),
+            external_eod=Decimal("0"),
+            fee_bod=Decimal("0"),
+            fee_eod=Decimal("0"),
             invalid_cashflow_collection=invalid_cashflow_collection,
             invalid_cashflow_rows=(),
             invalid_amount_rows=(),
@@ -457,14 +563,10 @@ def _sum_detailed_cash_flows(cash_flows_raw: object) -> DetailedCashFlowEconomic
             fee_bod_timing_rows=(),
         )
 
+    accumulator = _DetailedCashFlowAccumulator()
     for flow in cash_flows_raw:
         if not isinstance(flow, dict):
-            invalid_cashflow_rows.append(
-                {
-                    "raw_type": type(flow).__name__,
-                    "raw_value": _sample_raw_collection_value(flow),
-                }
-            )
+            accumulator.record_invalid_row(flow)
             continue
         timing = flow.get("timing")
         cash_flow_type = flow.get("cash_flow_type")
@@ -472,74 +574,33 @@ def _sum_detailed_cash_flows(cash_flows_raw: object) -> DetailedCashFlowEconomic
         amount = _parse_decimal(raw_amount)
         normalized_timing = timing.strip() if isinstance(timing, str) else timing
         if amount is None:
-            invalid_amount_rows.append(
-                {
-                    "timing": normalized_timing,
-                    "amount": raw_amount,
-                    "cash_flow_type": cash_flow_type,
-                }
+            accumulator.record_invalid_amount(
+                timing=normalized_timing,
+                amount=raw_amount,
+                cash_flow_type=cash_flow_type,
             )
             continue
         if normalized_timing not in {"bod", "eod"}:
-            invalid_timing_rows.append(
-                {
-                    "timing": normalized_timing,
-                    "amount": _decimal_to_artifact(amount),
-                    "cash_flow_type": cash_flow_type,
-                }
+            accumulator.record_invalid_timing(
+                timing=normalized_timing,
+                amount=amount,
+                cash_flow_type=cash_flow_type,
             )
             continue
         cashflow_type_classification = classify_cashflow_type(cash_flow_type)
         normalized_cash_flow_type = cashflow_type_classification.normalized_value
-        if cashflow_type_classification.economics_role == "missing":
-            missing_cashflow_type_rows.append({"timing": normalized_timing, "amount": _decimal_to_artifact(amount)})
-        elif not cashflow_type_classification.canonical:
-            if normalized_cash_flow_type is None:
-                continue
-            noncanonical_cashflow_types.add(normalized_cash_flow_type)
-            sample_row = {
-                "timing": normalized_timing,
-                "amount": _decimal_to_artifact(amount),
-                "cash_flow_type": normalized_cash_flow_type,
-            }
-            if cashflow_type_classification.governed_alias:
-                governed_alias_cashflow_type_rows.append(sample_row)
-            else:
-                unsupported_cashflow_type_rows.append(sample_row)
-        if cashflow_type_classification.economics_role == "fee":
-            if normalized_timing == "bod":
-                fee_bod += amount
-                fee_bod_timing_rows.append(
-                    {
-                        "timing": normalized_timing,
-                        "amount": _decimal_to_artifact(amount),
-                        "cash_flow_type": normalized_cash_flow_type,
-                    }
-                )
-            else:
-                fee_eod += amount
-            continue
-        if cashflow_type_classification.economics_role == "unsupported":
-            continue
-        if normalized_timing == "bod":
-            external_bod += amount
-        else:
-            external_eod += amount
-    return DetailedCashFlowEconomics(
-        external_bod=external_bod,
-        external_eod=external_eod,
-        fee_bod=fee_bod,
-        fee_eod=fee_eod,
-        invalid_cashflow_collection=None,
-        invalid_cashflow_rows=tuple(invalid_cashflow_rows),
-        invalid_amount_rows=tuple(invalid_amount_rows),
-        invalid_timing_rows=tuple(invalid_timing_rows),
-        missing_cashflow_type_rows=tuple(missing_cashflow_type_rows),
-        noncanonical_cashflow_types=tuple(sorted(noncanonical_cashflow_types)),
-        unsupported_cashflow_type_rows=tuple(unsupported_cashflow_type_rows),
-        governed_alias_cashflow_type_rows=tuple(governed_alias_cashflow_type_rows),
-        fee_bod_timing_rows=tuple(fee_bod_timing_rows),
-    )
+        accumulator.record_taxonomy_signal(
+            timing=normalized_timing,
+            amount=amount,
+            classification=cashflow_type_classification,
+        )
+        accumulator.add_amount(
+            timing=normalized_timing,
+            amount=amount,
+            economics_role=cashflow_type_classification.economics_role,
+            cash_flow_type=normalized_cash_flow_type,
+        )
+    return accumulator.to_result()
 
 
 def _read_explicit_decimal_fields(

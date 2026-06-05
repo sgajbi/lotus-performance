@@ -1,4 +1,5 @@
 from datetime import date
+from decimal import Decimal
 
 from app.models.requests import Analysis, DailyInputData, PerformanceRequest
 from app.services.inspection import source_economics
@@ -1303,3 +1304,27 @@ def test_analyze_source_economics_captures_governed_alias_and_raw_collection_sam
     ]
     assert source_economics._sample_raw_collection_value(["not", "scalar"]) == "['not', 'scalar']"
     assert source_economics._parse_decimal(object()) is None
+
+
+def test_sum_detailed_cash_flows_accumulates_totals_and_row_quality_samples():
+    result = source_economics._sum_detailed_cash_flows(
+        [
+            {"amount": "100.0", "timing": " bod ", "cash_flow_type": "external_flow"},
+            {"amount": "-7.5", "timing": "eod", "cash_flow_type": "fee"},
+            {"amount": "-2.5", "timing": "bod", "cash_flow_type": "fee"},
+            {"amount": "3.0", "timing": "eod"},
+            {"amount": "4.0", "timing": "intraday", "cash_flow_type": "external_flow"},
+            {"amount": "bad", "timing": "bod", "cash_flow_type": "external_flow"},
+            "not-a-row",
+        ]
+    )
+
+    assert result.external_bod == Decimal("100.0")
+    assert result.external_eod == Decimal("3.0")
+    assert result.fee_bod == Decimal("-2.5")
+    assert result.fee_eod == Decimal("-7.5")
+    assert result.missing_cashflow_type_rows == ({"timing": "eod", "amount": "3.0"},)
+    assert result.invalid_timing_rows == ({"timing": "intraday", "amount": "4.0", "cash_flow_type": "external_flow"},)
+    assert result.invalid_amount_rows == ({"timing": "bod", "amount": "bad", "cash_flow_type": "external_flow"},)
+    assert result.invalid_cashflow_rows == ({"raw_type": "str", "raw_value": "not-a-row"},)
+    assert result.fee_bod_timing_rows == ({"timing": "bod", "amount": "-2.5", "cash_flow_type": "fee"},)
