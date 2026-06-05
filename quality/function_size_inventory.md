@@ -27,14 +27,14 @@ python scripts/python_function_size_inventory.py --limit 15
 | 5 | `aggregate_attribution_results` | `engine/attribution.py:586` | 148 |
 | 6 | `_build_external_cashflow_findings` | `app/services/inspection/source_economics_findings.py:300` | 140 |
 | 7 | `_build_artifacts` | `app/services/composite_inspection_service.py:114` | 135 |
-| 8 | `resolve_stateful_returns_series_request` | `app/services/returns_series_service.py:1265` | 134 |
+| 8 | `resolve_stateful_returns_series_request` | `app/services/returns_series_service.py:1302` | 134 |
 | 9 | `build_runtime_status_response` | `app/models/runtime_status.py:737` | 131 |
 | 10 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:71` | 131 |
 | 11 | `_build_fee_source_economics_findings` | `app/services/inspection/source_economics_findings.py:442` | 130 |
 | 12 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:327` | 130 |
 | 13 | `calculate_contribution_workflow` | `app/services/contribution_calculation_workflow_service.py:98` | 127 |
 | 14 | `calculate_attribution` | `app/services/attribution_service.py:168` | 120 |
-| 15 | `_calculate_returns_series` | `app/services/returns_series_service.py:1143` | 120 |
+| 15 | `resolve_twr_request` | `app/services/twr_mode_service.py:60` | 120 |
 
 ## Interpretation
 
@@ -60,6 +60,8 @@ lines because this slice preserved finding text and ordering rather than convert
 contract taxonomy to a data-driven table.
 TWR inspection orchestration remains in the top-15 table but moved from `147` to `131` lines after
 subject-resolution stage lifecycle handling was isolated from the public inspection orchestrator.
+Returns-series calculation orchestration dropped out of the top-15 table after execution-context
+resolution was isolated from dataframe preparation, execution, diagnostics, and response assembly.
 
 Future refactor slices should use this report to choose bounded work where extraction, shared
 helpers, or narrower tests can reduce function size while preserving analytics truth and API

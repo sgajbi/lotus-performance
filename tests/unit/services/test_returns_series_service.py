@@ -254,6 +254,47 @@ def test_build_returns_series_response_preserves_context_provenance_and_series_p
     assert response.diagnostics == diagnostics_result.diagnostics
 
 
+@pytest.mark.asyncio
+async def test_resolve_returns_series_execution_context_preserves_stateless_overrides():
+    request = ReturnsSeriesRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "as_of_date": "2026-02-24",
+            "window": {"mode": "EXPLICIT", "from_date": "2026-02-23", "to_date": "2026-02-24"},
+            "frequency": "DAILY",
+            "series_selection": {"include_portfolio": True, "include_benchmark": True, "include_risk_free": False},
+            "input_mode": "stateless",
+            "stateless_input": {
+                "portfolio_returns": [
+                    {"date": "2026-02-23", "return_value": "0.0100"},
+                    {"date": "2026-02-24", "return_value": "0.0200"},
+                ],
+                "benchmark_returns": [
+                    {"date": "2026-02-23", "return_value": "0.0050"},
+                    {"date": "2026-02-24", "return_value": "0.0150"},
+                ],
+            },
+        }
+    )
+    expected_fingerprint, expected_hash = generate_canonical_hash(request, "returns-series-v1")
+
+    context = await returns_series_service._resolve_returns_series_execution_context(
+        request=request,
+        source_input_mode=InputMode.STATEFUL,
+        resolved_benchmark_id_override="BMK_RESOLVED",
+        resolved_benchmark_return_source_override="vendor_series",
+    )
+
+    assert context.request is request
+    assert context.resolved_window.start_date.isoformat() == "2026-02-23"
+    assert context.resolved_window.end_date.isoformat() == "2026-02-24"
+    assert context.effective_input_mode == InputMode.STATEFUL
+    assert context.input_fingerprint == expected_fingerprint
+    assert context.calculation_hash == expected_hash
+    assert context.resolved_benchmark_id == "BMK_RESOLVED"
+    assert context.resolved_benchmark_return_source == BenchmarkReturnSource.VENDOR_SERIES
+
+
 def test_build_returns_series_diagnostics_reports_coverage_gaps_and_market_warning():
     request = ReturnsSeriesRequest.model_validate(
         {

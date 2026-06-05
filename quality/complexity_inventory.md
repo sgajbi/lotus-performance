@@ -28,7 +28,7 @@ python scripts/python_complexity_inventory.py --limit 20
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:1265` | 15 | C |
+| 1 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:1302` | 15 | C |
 | 2 | `_position_meta_from_row` | function | `app/services/stateful_attribution_input_service.py:880` | 15 | C |
 | 3 | `_build_component_observations` | function | `app/services/stateful_benchmark_input_service.py:474` | 15 | C |
 | 4 | `_build_component_observations_from_price_points` | function | `app/services/stateless_benchmark_input_service.py:39` | 15 | C |
@@ -47,7 +47,7 @@ python scripts/python_complexity_inventory.py --limit 20
 | 17 | `build_hierarchical_contribution_result` | function | `engine/contribution.py:298` | 14 | C |
 | 18 | `_apply_overrides` | function | `engine/policies.py:38` | 14 | C |
 | 19 | `_build_artifacts` | function | `app/services/composite_inspection_service.py:114` | 13 | C |
-| 20 | `_calculate_returns_series` | function | `app/services/returns_series_service.py:1143` | 12 | C |
+| 20 | `_summarize_currency_source` | function | `app/services/stateful_attribution_input_service.py:509` | 12 | C |
 
 ## Lowest Maintainability Index
 
@@ -164,6 +164,8 @@ projection were split into dedicated helpers. `_recovery_drill_payload_matches_e
 out after recovery-drill evidence shape checks and entry-identity checks were split into dedicated
 helpers. `DurableQueueCollector.collect` also dropped out after compute queue, lineage queue,
 lineage storage, and storage-threshold metric emission were routed through a dedicated core metrics
+helper. `_calculate_returns_series` also dropped out after initial hash/window, benchmark context,
+stateful resolution, and execution-identity setup were moved into a dedicated execution-context
 helper. The remaining highest-complexity functions are C-grade service and engine hotspots that
 should be treated as future bounded refactor candidates, not as evidence of an immediate behavior
 defect.
