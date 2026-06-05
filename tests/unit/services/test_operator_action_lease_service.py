@@ -226,6 +226,19 @@ def test_operator_action_lease_reclaims_stale_lock(tmp_path):
     assert latest_reclaim["reclaim_count"] == 1
 
 
+def test_operator_action_lease_snapshot_reports_available_when_lock_directory_is_missing(tmp_path):
+    snapshot = build_operator_action_lease_snapshot(
+        artifact_directory=tmp_path / "artifacts",
+        action_name="recovery_drill",
+    )
+
+    assert snapshot.status == "available"
+    assert snapshot.reason is None
+    assert snapshot.active_leases == ()
+    assert snapshot.latest_reclaimed_lease is None
+    assert snapshot.recent_reclaimed_leases == ()
+
+
 def test_operator_action_lease_snapshot_lists_oldest_active_leases(tmp_path):
     artifact_dir = tmp_path / "artifacts"
     locks_dir = artifact_dir / ".action-locks"

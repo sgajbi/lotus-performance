@@ -73,6 +73,11 @@ class ReclaimedOperatorActionLeaseEvent:
     reclaim_count: int
 
 
+@dataclass(frozen=True)
+class _LeaseSnapshotFailure:
+    reason: str
+
+
 def build_runtime_retention_action_key(
     *,
     operator_id: str,
@@ -175,79 +180,78 @@ def build_operator_action_lease_snapshot(
 ) -> OperatorActionLeaseSnapshot:
     locks_dir = artifact_directory / ".action-locks"
     if not locks_dir.exists():
-        return OperatorActionLeaseSnapshot(
-            status="available",
-            reason=None,
-            active_leases=(),
-            latest_reclaimed_lease=None,
-            recent_reclaimed_leases=(),
-        )
-    try:
-        leases: list[ActiveOperatorActionLease | _InvalidLease] = []
-        for lock_path in sorted(locks_dir.glob("*.lock")):
-            lease = _read_active_operator_action_lease(lock_path=lock_path)
-            if lease is None:
-                continue
-            if not isinstance(lease, ActiveOperatorActionLease):
-                leases.append(lease)
-                continue
-            if action_name is None or lease.action_name == action_name:
-                leases.append(lease)
-    except OSError:
-        return OperatorActionLeaseSnapshot(
-            status="unavailable",
-            reason=OPERATOR_ACTION_LEASE_DIRECTORY_UNREADABLE_REASON,
-            active_leases=(),
-            latest_reclaimed_lease=None,
-            recent_reclaimed_leases=(),
-        )
-    if any(lease is _INVALID_LEASE for lease in leases):
-        return OperatorActionLeaseSnapshot(
-            status="unavailable",
-            reason=OPERATOR_ACTION_LEASE_INVALID_REASON,
-            active_leases=(),
-            latest_reclaimed_lease=None,
-            recent_reclaimed_leases=(),
-        )
+        return _available_operator_action_lease_snapshot()
+
+    leases = _read_matching_active_operator_action_leases(locks_dir=locks_dir, action_name=action_name)
+    if isinstance(leases, _LeaseSnapshotFailure):
+        return _unavailable_operator_action_lease_snapshot(reason=leases.reason)
+
     latest_reclaimed_lease_candidate = _read_latest_reclaimed_lease(locks_dir=locks_dir, action_name=action_name)
     if latest_reclaimed_lease_candidate is _INVALID_LEASE:
-        return OperatorActionLeaseSnapshot(
-            status="unavailable",
-            reason=OPERATOR_ACTION_RECLAIM_EVENT_INVALID_REASON,
-            active_leases=(),
-            latest_reclaimed_lease=None,
-            recent_reclaimed_leases=(),
-        )
+        return _unavailable_operator_action_lease_snapshot(reason=OPERATOR_ACTION_RECLAIM_EVENT_INVALID_REASON)
+
     recent_reclaimed_leases_candidate = _read_recent_reclaimed_leases(locks_dir=locks_dir, action_name=action_name)
     if recent_reclaimed_leases_candidate is _INVALID_LEASE:
-        return OperatorActionLeaseSnapshot(
-            status="unavailable",
-            reason=OPERATOR_ACTION_RECLAIM_HISTORY_INVALID_REASON,
-            active_leases=(),
-            latest_reclaimed_lease=None,
-            recent_reclaimed_leases=(),
-        )
-    recent_reclaimed_leases = (
-        recent_reclaimed_leases_candidate if isinstance(recent_reclaimed_leases_candidate, tuple) else ()
-    )
+        return _unavailable_operator_action_lease_snapshot(reason=OPERATOR_ACTION_RECLAIM_HISTORY_INVALID_REASON)
+
     latest_reclaimed_lease = (
         latest_reclaimed_lease_candidate
         if isinstance(latest_reclaimed_lease_candidate, ReclaimedOperatorActionLeaseEvent)
         else None
     )
-    typed_leases = tuple(
-        sorted(
-            (lease for lease in leases if isinstance(lease, ActiveOperatorActionLease)),
-            key=lambda item: parse_utc_datetime(item.acquired_at_utc),
-        )
+    recent_reclaimed_leases = (
+        recent_reclaimed_leases_candidate if isinstance(recent_reclaimed_leases_candidate, tuple) else ()
     )
-    return OperatorActionLeaseSnapshot(
-        status="available",
-        reason=None,
-        active_leases=typed_leases,
+    return _available_operator_action_lease_snapshot(
+        active_leases=tuple(sorted(leases, key=lambda item: parse_utc_datetime(item.acquired_at_utc))),
         latest_reclaimed_lease=latest_reclaimed_lease,
         recent_reclaimed_leases=recent_reclaimed_leases,
     )
+
+
+def _available_operator_action_lease_snapshot(
+    *,
+    active_leases: tuple[ActiveOperatorActionLease, ...] = (),
+    latest_reclaimed_lease: ReclaimedOperatorActionLeaseEvent | None = None,
+    recent_reclaimed_leases: tuple[ReclaimedOperatorActionLeaseEvent, ...] = (),
+) -> OperatorActionLeaseSnapshot:
+    return OperatorActionLeaseSnapshot(
+        status="available",
+        reason=None,
+        active_leases=active_leases,
+        latest_reclaimed_lease=latest_reclaimed_lease,
+        recent_reclaimed_leases=recent_reclaimed_leases,
+    )
+
+
+def _unavailable_operator_action_lease_snapshot(*, reason: str) -> OperatorActionLeaseSnapshot:
+    return OperatorActionLeaseSnapshot(
+        status="unavailable",
+        reason=reason,
+        active_leases=(),
+        latest_reclaimed_lease=None,
+        recent_reclaimed_leases=(),
+    )
+
+
+def _read_matching_active_operator_action_leases(
+    *,
+    locks_dir: Path,
+    action_name: str | None,
+) -> tuple[ActiveOperatorActionLease, ...] | _LeaseSnapshotFailure:
+    leases: list[ActiveOperatorActionLease] = []
+    try:
+        for lock_path in sorted(locks_dir.glob("*.lock")):
+            lease = _read_active_operator_action_lease(lock_path=lock_path)
+            if lease is None:
+                continue
+            if not isinstance(lease, ActiveOperatorActionLease):
+                return _LeaseSnapshotFailure(reason=OPERATOR_ACTION_LEASE_INVALID_REASON)
+            if action_name is None or lease.action_name == action_name:
+                leases.append(lease)
+    except OSError:
+        return _LeaseSnapshotFailure(reason=OPERATOR_ACTION_LEASE_DIRECTORY_UNREADABLE_REASON)
+    return tuple(leases)
 
 
 def _sanitize_key(*parts: str) -> str:
