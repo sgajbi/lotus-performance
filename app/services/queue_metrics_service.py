@@ -147,6 +147,48 @@ def _load_durable_queue_metric_sources(settings) -> _DurableQueueMetricSources:
     )
 
 
+def _availability_and_preview_metrics(sources: _DurableQueueMetricSources) -> tuple[GaugeMetricFamily, ...]:
+    metrics = [
+        durable_queue_store_availability_metric(
+            compute_available=sources.compute_available,
+            lineage_available=sources.lineage_available,
+        ),
+        availability_metric(
+            metric_name="lotus_performance_lineage_storage_capacity_availability",
+            description="Availability of lineage storage capacity metrics.",
+            is_available=sources.lineage_storage_capacity_available,
+        ),
+        availability_metric(
+            metric_name="lotus_performance_recovery_drill_availability",
+            description="Availability of retained durable recovery-drill history.",
+            is_available=sources.recovery_drill_available and snapshot_available(sources.recovery_drill_snapshot),
+        ),
+        availability_metric(
+            metric_name="lotus_performance_recovery_drill_action_availability",
+            description="Availability of governed in-flight recovery-drill action lease visibility.",
+            is_available=snapshot_available(sources.recovery_drill_action_snapshot),
+        ),
+        availability_metric(
+            metric_name="lotus_performance_runtime_retention_availability",
+            description="Availability of retained runtime-retention cleanup history.",
+            is_available=sources.runtime_retention_available and snapshot_available(sources.runtime_retention_snapshot),
+        ),
+        availability_metric(
+            metric_name="lotus_performance_runtime_retention_action_availability",
+            description="Availability of governed in-flight runtime-retention cleanup lease visibility.",
+            is_available=snapshot_available(sources.runtime_retention_action_snapshot),
+        ),
+        availability_metric(
+            metric_name="lotus_performance_runtime_retention_preview_availability",
+            description="Availability of the live runtime-retention preview under the current policy.",
+            is_available=sources.runtime_retention_preview_available,
+        ),
+    ]
+    if sources.runtime_retention_preview is not None:
+        metrics.append(runtime_retention_prunable_items_metric(preview=sources.runtime_retention_preview))
+    return tuple(metrics)
+
+
 class DurableQueueCollector:
     def describe(self):
         yield GaugeMetricFamily(
@@ -316,49 +358,7 @@ class DurableQueueCollector:
         runtime_retention_policy = build_runtime_retention_policy(settings=settings)
         sources = _load_durable_queue_metric_sources(settings)
 
-        yield durable_queue_store_availability_metric(
-            compute_available=sources.compute_available,
-            lineage_available=sources.lineage_available,
-        )
-
-        yield availability_metric(
-            metric_name="lotus_performance_lineage_storage_capacity_availability",
-            description="Availability of lineage storage capacity metrics.",
-            is_available=sources.lineage_storage_capacity_available,
-        )
-
-        yield availability_metric(
-            metric_name="lotus_performance_recovery_drill_availability",
-            description="Availability of retained durable recovery-drill history.",
-            is_available=sources.recovery_drill_available and snapshot_available(sources.recovery_drill_snapshot),
-        )
-
-        yield availability_metric(
-            metric_name="lotus_performance_recovery_drill_action_availability",
-            description="Availability of governed in-flight recovery-drill action lease visibility.",
-            is_available=snapshot_available(sources.recovery_drill_action_snapshot),
-        )
-
-        yield availability_metric(
-            metric_name="lotus_performance_runtime_retention_availability",
-            description="Availability of retained runtime-retention cleanup history.",
-            is_available=sources.runtime_retention_available and snapshot_available(sources.runtime_retention_snapshot),
-        )
-
-        yield availability_metric(
-            metric_name="lotus_performance_runtime_retention_action_availability",
-            description="Availability of governed in-flight runtime-retention cleanup lease visibility.",
-            is_available=snapshot_available(sources.runtime_retention_action_snapshot),
-        )
-
-        yield availability_metric(
-            metric_name="lotus_performance_runtime_retention_preview_availability",
-            description="Availability of the live runtime-retention preview under the current policy.",
-            is_available=sources.runtime_retention_preview_available,
-        )
-
-        if sources.runtime_retention_preview is not None:
-            yield runtime_retention_prunable_items_metric(preview=sources.runtime_retention_preview)
+        yield from _availability_and_preview_metrics(sources)
 
         if sources.compute_stats is not None:
             yield compute_queue_job_count_metric(stats=sources.compute_stats)

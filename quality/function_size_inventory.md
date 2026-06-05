@@ -23,18 +23,18 @@ python scripts/python_function_size_inventory.py --limit 15
 | 1 | `calculate_contribution` | `app/services/contribution_service.py:310` | 270 |
 | 2 | `build_source_economics_findings` | `app/services/inspection/source_economics_findings.py:7` | 258 |
 | 3 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:503` | 172 |
-| 4 | `DurableQueueCollector.describe` | `app/services/queue_metrics_service.py:151` | 159 |
+| 4 | `DurableQueueCollector.describe` | `app/services/queue_metrics_service.py:193` | 159 |
 | 5 | `aggregate_attribution_results` | `engine/attribution.py:586` | 148 |
 | 6 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:71` | 147 |
-| 7 | `DurableQueueCollector.collect` | `app/services/queue_metrics_service.py:311` | 143 |
-| 8 | `_build_external_cashflow_findings` | `app/services/inspection/source_economics_findings.py:267` | 140 |
-| 9 | `_build_artifacts` | `app/services/composite_inspection_service.py:114` | 135 |
-| 10 | `resolve_stateful_returns_series_request` | `app/services/returns_series_service.py:1265` | 134 |
-| 11 | `calculate_attribution` | `app/services/attribution_service.py:96` | 133 |
-| 12 | `build_runtime_status_response` | `app/models/runtime_status.py:737` | 131 |
-| 13 | `_build_fee_source_economics_findings` | `app/services/inspection/source_economics_findings.py:409` | 130 |
-| 14 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:327` | 130 |
-| 15 | `calculate_contribution_workflow` | `app/services/contribution_calculation_workflow_service.py:98` | 127 |
+| 7 | `_build_external_cashflow_findings` | `app/services/inspection/source_economics_findings.py:267` | 140 |
+| 8 | `_build_artifacts` | `app/services/composite_inspection_service.py:114` | 135 |
+| 9 | `resolve_stateful_returns_series_request` | `app/services/returns_series_service.py:1265` | 134 |
+| 10 | `calculate_attribution` | `app/services/attribution_service.py:96` | 133 |
+| 11 | `build_runtime_status_response` | `app/models/runtime_status.py:737` | 131 |
+| 12 | `_build_fee_source_economics_findings` | `app/services/inspection/source_economics_findings.py:409` | 130 |
+| 13 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:327` | 130 |
+| 14 | `calculate_contribution_workflow` | `app/services/contribution_calculation_workflow_service.py:98` | 127 |
+| 15 | `_calculate_returns_series` | `app/services/returns_series_service.py:1143` | 120 |
 
 ## Interpretation
 
@@ -48,8 +48,8 @@ table but moved from `142` to `133` lines after per-period result assembly was i
 Contribution orchestration remains the largest function but moved from `287` to `270` lines after
 engine input preparation was isolated. Benchmark calculation workflow dropped out of the top-15
 table after resolved benchmark execution context and failure mapping were isolated.
-Durable queue metric collection remains in the top-15 table but moved from `188` to `143` lines
-after source loading and availability capture were isolated into a dedicated metric-source bundle.
+Durable queue metric collection dropped out of the top-15 table after source loading and
+availability/runtime-retention preview metric emission were isolated into dedicated helpers.
 
 Future refactor slices should use this report to choose bounded work where extraction, shared
 helpers, or narrower tests can reduce function size while preserving analytics truth and API
