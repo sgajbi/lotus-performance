@@ -7,9 +7,12 @@ import pytest
 from app.models.mwr_requests import CashFlow
 from core.envelope import Annualization
 from engine.mwr import (
+    _annualized_dietz_rate,
     _build_xirr_base_convergence,
     _calculate_dietz_mwr_result,
     _calculate_xirr_mwr_attempt,
+    _dietz_fallback_metadata,
+    _dietz_method_for_calculation,
     _scan_xirr_roots,
     _xirr,
     _xirr_failure,
@@ -173,6 +176,61 @@ def test_calculate_dietz_mwr_result_preserves_xirr_fallback_metadata():
     assert result.warnings == ["FALLBACK_METHOD_USED"]
     assert result.fallback_from == "XIRR"
     assert result.fallback_reason == "NO_POSITIVE_AND_NEGATIVE_CASH_FLOW"
+
+
+def test_dietz_policy_helpers_preserve_method_and_fallback_metadata():
+    assert _dietz_method_for_calculation("XIRR") == "MODIFIED_DIETZ"
+    assert _dietz_method_for_calculation("MODIFIED_DIETZ") == "MODIFIED_DIETZ"
+    assert _dietz_method_for_calculation("DIETZ") == "DIETZ"
+
+    calculated_metadata = _dietz_fallback_metadata(calculation_method="DIETZ")
+    fallback_metadata = _dietz_fallback_metadata(
+        calculation_method="XIRR",
+        xirr_fallback_reason_code="MULTIPLE_IRR_ROOTS_DETECTED",
+    )
+
+    assert calculated_metadata.status == "CALCULATED"
+    assert calculated_metadata.reason_codes == []
+    assert calculated_metadata.warnings == []
+    assert calculated_metadata.fallback_from is None
+    assert calculated_metadata.fallback_reason is None
+    assert fallback_metadata.status == "FALLBACK_USED"
+    assert fallback_metadata.reason_codes == ["MULTIPLE_IRR_ROOTS_DETECTED", "DIETZ_FALLBACK_USED"]
+    assert fallback_metadata.warnings == ["FALLBACK_METHOD_USED"]
+    assert fallback_metadata.fallback_from == "XIRR"
+    assert fallback_metadata.fallback_reason == "MULTIPLE_IRR_ROOTS_DETECTED"
+
+
+def test_annualized_dietz_rate_uses_governed_day_count_basis():
+    act_365_rate = _annualized_dietz_rate(
+        periodic_rate=0.01,
+        annualization=Annualization(enabled=True, basis="ACT/365"),
+        period_days=182,
+    )
+    act_act_rate = _annualized_dietz_rate(
+        periodic_rate=0.01,
+        annualization=Annualization(enabled=True, basis="ACT/ACT"),
+        period_days=182,
+    )
+
+    assert (
+        _annualized_dietz_rate(
+            periodic_rate=0.01,
+            annualization=Annualization(enabled=False, basis="ACT/365"),
+            period_days=182,
+        )
+        is None
+    )
+    assert (
+        _annualized_dietz_rate(
+            periodic_rate=0.01,
+            annualization=Annualization(enabled=True, basis="ACT/365"),
+            period_days=0,
+        )
+        is None
+    )
+    assert act_365_rate == pytest.approx(((1.01) ** (365.0 / 182) - 1) * 100)
+    assert act_act_rate == pytest.approx(((1.01) ** (365.25 / 182) - 1) * 100)
 
 
 def test_calculate_mwr_xirr_fallback_to_dietz():
