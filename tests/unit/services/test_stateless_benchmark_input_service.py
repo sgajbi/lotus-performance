@@ -3,8 +3,11 @@ from datetime import date
 import pytest
 from fastapi import HTTPException
 
-from app.models.benchmark_analytics_requests import BenchmarkStatelessInput
-from app.services.stateless_benchmark_input_service import normalize_stateless_component_observations
+from app.models.benchmark_analytics_requests import BenchmarkComponentPricePointInput, BenchmarkStatelessInput
+from app.services.stateless_benchmark_input_service import (
+    _build_price_point_observation,
+    normalize_stateless_component_observations,
+)
 
 
 def test_normalize_stateless_component_observations_accepts_existing_component_observations():
@@ -82,6 +85,37 @@ def test_normalize_stateless_component_observations_builds_returns_from_price_po
     assert eur_observation["component_return_local"] == pytest.approx(0.01)
     assert eur_observation["component_return_fx"] == pytest.approx(0.01)
     assert eur_observation["component_return"] == pytest.approx(0.0201)
+
+
+def test_build_price_point_observation_projects_cross_currency_returns():
+    observation = _build_price_point_observation(
+        component_id="IDX_EUR",
+        benchmark_currency="USD",
+        previous_point=BenchmarkComponentPricePointInput(
+            component_id="IDX_EUR",
+            perf_date=date(2026, 1, 1),
+            weight_bop=0.4,
+            index_price=100.0,
+            component_currency="EUR",
+            fx_rate_to_benchmark=1.2,
+        ),
+        current_point=BenchmarkComponentPricePointInput(
+            component_id="IDX_EUR",
+            perf_date=date(2026, 1, 2),
+            weight_bop=0.4,
+            index_price=101.0,
+            component_currency="EUR",
+            fx_rate_to_benchmark=1.212,
+        ),
+    )
+
+    assert observation.component_id == "IDX_EUR"
+    assert observation.perf_date == date(2026, 1, 2)
+    assert observation.component_currency == "EUR"
+    assert observation.weight_bop == pytest.approx(0.4)
+    assert observation.component_return_local == pytest.approx(0.01)
+    assert observation.component_return_fx == pytest.approx(0.01)
+    assert observation.component_return == pytest.approx(0.0201)
 
 
 def test_normalize_stateless_component_observations_rejects_cross_currency_price_points_without_fx():

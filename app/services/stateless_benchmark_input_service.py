@@ -53,66 +53,14 @@ def _build_component_observations_from_price_points(
         for index in range(1, len(component_points)):
             previous_point = component_points[index - 1]
             current_point = component_points[index]
-            previous_date = previous_point.perf_date
-            current_date = current_point.perf_date
-            if current_date <= previous_date:
-                raise HTTPException(
-                    status_code=HTTP_422_UNPROCESSABLE,
-                    detail=(
-                        "stateless benchmark component_price_points require strictly increasing unique dates "
-                        f"per component; component_id={component_id} contains duplicate or non-monotonic "
-                        f"date {current_date}."
-                    ),
-                )
-            previous_price = float(previous_point.index_price)
-            current_price = float(current_point.index_price)
-            if previous_price == 0:
-                raise HTTPException(
-                    status_code=HTTP_422_UNPROCESSABLE,
-                    detail=(
-                        f"stateless benchmark component_price_points require non-zero prior price "
-                        f"for component_id={component_id} on {previous_date}."
-                    ),
-                )
-            component_currency = current_point.component_currency or previous_point.component_currency
-            current_fx = current_point.fx_rate_to_benchmark
-            previous_fx = previous_point.fx_rate_to_benchmark
-            component_return_local = (current_price / previous_price) - 1.0
-
-            if component_currency is None or component_currency == benchmark_currency:
-                component_return_fx = 0.0
-                normalized_previous_price = previous_price
-                normalized_current_price = current_price
-                resolved_currency = benchmark_currency if component_currency is None else component_currency
-            else:
-                if current_fx is None or previous_fx is None:
-                    raise HTTPException(
-                        status_code=HTTP_422_UNPROCESSABLE,
-                        detail=(
-                            f"stateless benchmark component_price_points require fx_rate_to_benchmark "
-                            f"for cross-currency component_id={component_id} on {current_date}."
-                        ),
-                    )
-                previous_fx_value = float(previous_fx)
-                current_fx_value = float(current_fx)
-                normalized_previous_price = previous_price * previous_fx_value
-                normalized_current_price = current_price * current_fx_value
-                component_return_fx = (current_fx_value / previous_fx_value) - 1.0
-                resolved_currency = str(component_currency)
-
-            component_return = (normalized_current_price / normalized_previous_price) - 1.0
-            observations.append(
-                BenchmarkComponentObservation(
-                    component_id=component_id,
-                    perf_date=current_date,
-                    weight_bop=float(current_point.weight_bop),
-                    component_currency=resolved_currency,
-                    component_return=component_return,
-                    component_return_local=component_return_local,
-                    component_return_fx=component_return_fx,
-                )
+            observation = _build_price_point_observation(
+                component_id=component_id,
+                benchmark_currency=benchmark_currency,
+                previous_point=previous_point,
+                current_point=current_point,
             )
-            component_dates.add(current_date)
+            observations.append(observation)
+            component_dates.add(observation.perf_date)
 
         if expected_component_dates is None:
             expected_component_dates = component_dates
@@ -134,3 +82,69 @@ def _build_component_observations_from_price_points(
             ),
         )
     return observations
+
+
+def _build_price_point_observation(
+    *,
+    component_id: str,
+    benchmark_currency: str,
+    previous_point: BenchmarkComponentPricePointInput,
+    current_point: BenchmarkComponentPricePointInput,
+) -> BenchmarkComponentObservation:
+    previous_date = previous_point.perf_date
+    current_date = current_point.perf_date
+    if current_date <= previous_date:
+        raise HTTPException(
+            status_code=HTTP_422_UNPROCESSABLE,
+            detail=(
+                "stateless benchmark component_price_points require strictly increasing unique dates "
+                f"per component; component_id={component_id} contains duplicate or non-monotonic "
+                f"date {current_date}."
+            ),
+        )
+    previous_price = float(previous_point.index_price)
+    current_price = float(current_point.index_price)
+    if previous_price == 0:
+        raise HTTPException(
+            status_code=HTTP_422_UNPROCESSABLE,
+            detail=(
+                f"stateless benchmark component_price_points require non-zero prior price "
+                f"for component_id={component_id} on {previous_date}."
+            ),
+        )
+    component_currency = current_point.component_currency or previous_point.component_currency
+    current_fx = current_point.fx_rate_to_benchmark
+    previous_fx = previous_point.fx_rate_to_benchmark
+    component_return_local = (current_price / previous_price) - 1.0
+
+    if component_currency is None or component_currency == benchmark_currency:
+        component_return_fx = 0.0
+        normalized_previous_price = previous_price
+        normalized_current_price = current_price
+        resolved_currency = benchmark_currency if component_currency is None else component_currency
+    else:
+        if current_fx is None or previous_fx is None:
+            raise HTTPException(
+                status_code=HTTP_422_UNPROCESSABLE,
+                detail=(
+                    f"stateless benchmark component_price_points require fx_rate_to_benchmark "
+                    f"for cross-currency component_id={component_id} on {current_date}."
+                ),
+            )
+        previous_fx_value = float(previous_fx)
+        current_fx_value = float(current_fx)
+        normalized_previous_price = previous_price * previous_fx_value
+        normalized_current_price = current_price * current_fx_value
+        component_return_fx = (current_fx_value / previous_fx_value) - 1.0
+        resolved_currency = str(component_currency)
+
+    component_return = (normalized_current_price / normalized_previous_price) - 1.0
+    return BenchmarkComponentObservation(
+        component_id=component_id,
+        perf_date=current_date,
+        weight_bop=float(current_point.weight_bop),
+        component_currency=resolved_currency,
+        component_return=component_return,
+        component_return_local=component_return_local,
+        component_return_fx=component_return_fx,
+    )
