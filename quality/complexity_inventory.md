@@ -28,26 +28,26 @@ python scripts/python_complexity_inventory.py --limit 20
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_prepare_dataframe` | function | `engine/compute.py:163` | 12 | C |
-| 2 | `_xirr` | function | `engine/mwr.py:145` | 12 | C |
-| 3 | `BenchmarkPerformanceRequest` | class | `app/models/benchmark_requests.py:48` | 11 | C |
-| 4 | `_ensure_error_response_examples` | function | `app/openapi_enrichment.py:384` | 11 | C |
-| 5 | `calculate_benchmark_artifacts` | function | `app/services/benchmark_calculation_service.py:40` | 11 | C |
-| 6 | `_build_exposure_rows` | function | `app/services/benchmark_exposure_context_service.py:202` | 11 | C |
-| 7 | `get_queue_stats` | method | `app/services/compute_job_store.py:535` | 11 | C |
-| 8 | `calculate_contribution_workflow` | function | `app/services/contribution_calculation_workflow_service.py:98` | 11 | C |
-| 9 | `_build_residual_adjusted_position_timeseries` | function | `app/services/contribution_series.py:57` | 11 | C |
-| 10 | `calculate_returns_series_workflow` | function | `app/services/returns_series_calculation_workflow_service.py:85` | 11 | C |
-| 11 | `retrieve_stateful_attribution_source_input` | function | `app/services/stateful_attribution_input_service.py:62` | 11 | C |
-| 12 | `_position_market_value_totals_by_date` | function | `app/services/stateful_attribution_input_service.py:324` | 11 | C |
-| 13 | `_validate_stateful_position_inception_support` | function | `app/services/stateful_attribution_input_service.py:542` | 11 | C |
-| 14 | `_load_fx_maps_for_components` | function | `app/services/stateful_benchmark_input_service.py:426` | 11 | C |
-| 15 | `_build_normalized_component_series` | function | `app/services/stateful_benchmark_input_service.py:584` | 11 | C |
-| 16 | `_fetch_position_chunk` | method | `app/services/stateful_input_service.py:882` | 11 | C |
-| 17 | `register_async_submission_or_raise` | function | `app/services/submission_fencing_service.py:53` | 11 | C |
-| 18 | `build_twr_execution_window` | function | `app/services/twr_calculation_service.py:198` | 11 | C |
-| 19 | `process_pending_jobs` | function | `app/workers/lineage_worker.py:18` | 11 | C |
-| 20 | `generate_performance_breakdowns` | function | `engine/breakdown.py:51` | 11 | C |
+| 1 | `_xirr` | function | `engine/mwr.py:145` | 12 | C |
+| 2 | `BenchmarkPerformanceRequest` | class | `app/models/benchmark_requests.py:48` | 11 | C |
+| 3 | `_ensure_error_response_examples` | function | `app/openapi_enrichment.py:384` | 11 | C |
+| 4 | `calculate_benchmark_artifacts` | function | `app/services/benchmark_calculation_service.py:40` | 11 | C |
+| 5 | `_build_exposure_rows` | function | `app/services/benchmark_exposure_context_service.py:202` | 11 | C |
+| 6 | `get_queue_stats` | method | `app/services/compute_job_store.py:535` | 11 | C |
+| 7 | `calculate_contribution_workflow` | function | `app/services/contribution_calculation_workflow_service.py:98` | 11 | C |
+| 8 | `_build_residual_adjusted_position_timeseries` | function | `app/services/contribution_series.py:57` | 11 | C |
+| 9 | `calculate_returns_series_workflow` | function | `app/services/returns_series_calculation_workflow_service.py:85` | 11 | C |
+| 10 | `retrieve_stateful_attribution_source_input` | function | `app/services/stateful_attribution_input_service.py:62` | 11 | C |
+| 11 | `_position_market_value_totals_by_date` | function | `app/services/stateful_attribution_input_service.py:324` | 11 | C |
+| 12 | `_validate_stateful_position_inception_support` | function | `app/services/stateful_attribution_input_service.py:542` | 11 | C |
+| 13 | `_load_fx_maps_for_components` | function | `app/services/stateful_benchmark_input_service.py:426` | 11 | C |
+| 14 | `_build_normalized_component_series` | function | `app/services/stateful_benchmark_input_service.py:584` | 11 | C |
+| 15 | `_fetch_position_chunk` | method | `app/services/stateful_input_service.py:882` | 11 | C |
+| 16 | `register_async_submission_or_raise` | function | `app/services/submission_fencing_service.py:53` | 11 | C |
+| 17 | `build_twr_execution_window` | function | `app/services/twr_calculation_service.py:198` | 11 | C |
+| 18 | `process_pending_jobs` | function | `app/workers/lineage_worker.py:18` | 11 | C |
+| 19 | `generate_performance_breakdowns` | function | `engine/breakdown.py:51` | 11 | C |
+| 20 | `_flag_outliers` | function | `engine/policies.py:118` | 11 | C |
 
 ## Lowest Maintainability Index
 
@@ -216,7 +216,9 @@ summary assembly, and active net/gross return projection were moved into a dedic
 local/FX backfill, and percentage scaling were moved into a dedicated helper.
 `aggregate_attribution_results` also dropped out after per-period active return calculation,
 linking status policy, invalid-chain fallback, geometric scaling, and granular effect totals were
-moved into a dedicated aggregation-base helper. The remaining C-grade
+moved into a dedicated aggregation-base helper.
+`_prepare_dataframe` also dropped out after precision-mode numeric coercion was moved into a
+dedicated engine-input preparation helper. The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.
 

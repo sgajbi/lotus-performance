@@ -162,6 +162,22 @@ def _build_engine_diagnostics(
 
 def _prepare_dataframe(df: pd.DataFrame, config: EngineConfig):
     """Initializes and prepares the DataFrame for calculation, handling precision mode."""
+    _coerce_engine_numeric_columns(df, config)
+    df[PortfolioColumns.PERF_DATE.value] = pd.to_datetime(df[PortfolioColumns.PERF_DATE.value], errors="coerce")
+    if df[PortfolioColumns.PERF_DATE.value].isnull().any():
+        raise InvalidEngineInputError("One or more 'perf_date' values are invalid or missing.")
+
+    for col in PortfolioColumns:
+        if col.value not in df.columns and col.value not in [
+            PortfolioColumns.LONG_SHORT.value,
+            PortfolioColumns.EFFECTIVE_PERIOD_START_DATE.value,
+        ]:
+            df[col.value] = Decimal(0) if config.precision_mode == PrecisionMode.DECIMAL_STRICT else 0.0
+    df[PortfolioColumns.PERF_RESET.value] = 0
+    df[PortfolioColumns.LONG_SHORT.value] = ""
+
+
+def _coerce_engine_numeric_columns(df: pd.DataFrame, config: EngineConfig) -> None:
     numeric_cols = [
         PortfolioColumns.DAY.value,
         PortfolioColumns.BEGIN_MV.value,
@@ -176,23 +192,11 @@ def _prepare_dataframe(df: pd.DataFrame, config: EngineConfig):
         for col in numeric_cols:
             if col in df.columns:
                 df[col] = df[col].apply(lambda x: Decimal(str(x)) if pd.notna(x) else Decimal(0))
-    else:
-        for col in numeric_cols:
-            if col in df.columns:
-                df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0.0)
+        return
 
-    df[PortfolioColumns.PERF_DATE.value] = pd.to_datetime(df[PortfolioColumns.PERF_DATE.value], errors="coerce")
-    if df[PortfolioColumns.PERF_DATE.value].isnull().any():
-        raise InvalidEngineInputError("One or more 'perf_date' values are invalid or missing.")
-
-    for col in PortfolioColumns:
-        if col.value not in df.columns and col.value not in [
-            PortfolioColumns.LONG_SHORT.value,
-            PortfolioColumns.EFFECTIVE_PERIOD_START_DATE.value,
-        ]:
-            df[col.value] = Decimal(0) if config.precision_mode == PrecisionMode.DECIMAL_STRICT else 0.0
-    df[PortfolioColumns.PERF_RESET.value] = 0
-    df[PortfolioColumns.LONG_SHORT.value] = ""
+    for col in numeric_cols:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0.0)
 
 
 def _reset_reason_codes(row: pd.Series) -> list[str]:
