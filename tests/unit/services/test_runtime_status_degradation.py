@@ -124,6 +124,26 @@ def test_runtime_status_collect_reasons_covers_runtime_retention_unavailable():
     assert reasons == ("runtime_retention:runtime_retention_manifest_missing",)
 
 
+def test_prefixed_component_degradation_reasons_preserves_status_semantics():
+    degraded = cast(
+        RuntimeQueueStatus,
+        type("Queue", (), {"status": "degraded", "reason": None, "degradation_reasons": ("age", "backlog")})(),
+    )
+    unavailable = cast(
+        RuntimeQueueStatus,
+        type("Queue", (), {"status": "unavailable", "reason": "RuntimeError", "degradation_reasons": ()})(),
+    )
+
+    assert runtime_status_degradation._prefixed_component_degradation_reasons(
+        prefix="compute_queue",
+        component_status=degraded,
+    ) == ("compute_queue:age", "compute_queue:backlog")
+    assert runtime_status_degradation._prefixed_component_degradation_reasons(
+        prefix="lineage_queue",
+        component_status=unavailable,
+    ) == ("lineage_queue:RuntimeError",)
+
+
 def test_runtime_status_degradation_detail_helper_uses_governed_threshold_semantics():
     details: list[RuntimeDegradationDetail] = []
 
