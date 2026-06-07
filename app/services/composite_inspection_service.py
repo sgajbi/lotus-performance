@@ -14,7 +14,7 @@ from app.models.composites import (
 from app.services.composite_calculation_service import CompositeDefinitionNotFoundError
 from app.services.composite_metadata_store import CompositeMetadataStore, composite_metadata_store
 from app.services.durable_store_runtime import RuntimeStoreProxy
-from engine.composites import calculate_asset_weighted_composite_twr
+from engine.composites import CompositePeriodResult, calculate_asset_weighted_composite_twr
 
 
 def _csv_text(fieldnames: list[str], rows: list[dict[str, object]]) -> str:
@@ -143,24 +143,7 @@ def _build_artifacts(*, composite_id: str, facts, result) -> list[CompositeInspe
         for period in result.period_results
         for contribution in period.member_contributions
     ]
-    composite_rows = [
-        {
-            "period_start": period.period_start.isoformat(),
-            "period_end": period.period_end.isoformat(),
-            "status": period.status,
-            "return_view": period.return_view or "",
-            "reporting_currency": period.reporting_currency or "",
-            "return_value": "" if period.return_value is None else str(period.return_value),
-            "cumulative_return": "" if period.cumulative_return is None else str(period.cumulative_return),
-            "member_count": period.member_count,
-            "excluded_member_count": period.excluded_member_count,
-            "dispersion_equal_weight": ""
-            if period.dispersion_equal_weight is None
-            else str(period.dispersion_equal_weight),
-            "reason_codes": "|".join(period.reason_codes),
-        }
-        for period in result.period_results
-    ]
+    composite_rows = _composite_return_rows(result.period_results)
     lineage_manifest = {
         "composite_id": composite_id,
         "calculation_status": result.status,
@@ -245,4 +228,25 @@ def _build_artifacts(*, composite_id: str, facts, result) -> list[CompositeInspe
             json.dumps(lineage_manifest, sort_keys=True),
         ),
         _artifact("support_brief.md", "text/markdown", "operator_only", support_brief),
+    ]
+
+
+def _composite_return_rows(period_results: list[CompositePeriodResult]) -> list[dict[str, object]]:
+    return [
+        {
+            "period_start": period.period_start.isoformat(),
+            "period_end": period.period_end.isoformat(),
+            "status": period.status,
+            "return_view": period.return_view or "",
+            "reporting_currency": period.reporting_currency or "",
+            "return_value": "" if period.return_value is None else str(period.return_value),
+            "cumulative_return": "" if period.cumulative_return is None else str(period.cumulative_return),
+            "member_count": period.member_count,
+            "excluded_member_count": period.excluded_member_count,
+            "dispersion_equal_weight": ""
+            if period.dispersion_equal_weight is None
+            else str(period.dispersion_equal_weight),
+            "reason_codes": "|".join(period.reason_codes),
+        }
+        for period in period_results
     ]

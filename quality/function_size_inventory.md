@@ -26,13 +26,13 @@ python scripts/python_function_size_inventory.py --limit 15
 | 4 | `DurableQueueCollector.describe` | `app/services/queue_metrics_service.py:193` | 159 |
 | 5 | `aggregate_attribution_results` | `engine/attribution.py:586` | 148 |
 | 6 | `_build_external_cashflow_findings` | `app/services/inspection/source_economics_findings.py:300` | 140 |
-| 7 | `_build_artifacts` | `app/services/composite_inspection_service.py:114` | 135 |
-| 8 | `build_runtime_status_response` | `app/models/runtime_status.py:737` | 131 |
-| 9 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:71` | 131 |
-| 10 | `_build_fee_source_economics_findings` | `app/services/inspection/source_economics_findings.py:442` | 130 |
-| 11 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:327` | 130 |
-| 12 | `calculate_contribution_workflow` | `app/services/contribution_calculation_workflow_service.py:98` | 127 |
-| 13 | `calculate_attribution` | `app/services/attribution_service.py:168` | 120 |
+| 7 | `build_runtime_status_response` | `app/models/runtime_status.py:767` | 131 |
+| 8 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:71` | 131 |
+| 9 | `_build_fee_source_economics_findings` | `app/services/inspection/source_economics_findings.py:442` | 130 |
+| 10 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:327` | 130 |
+| 11 | `calculate_contribution_workflow` | `app/services/contribution_calculation_workflow_service.py:98` | 127 |
+| 12 | `calculate_attribution` | `app/services/attribution_service.py:168` | 120 |
+| 13 | `_build_artifacts` | `app/services/composite_inspection_service.py:114` | 118 |
 | 14 | `calculate_benchmark_workflow` | `app/services/benchmark_calculation_workflow_service.py:146` | 116 |
 | 15 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:61` | 114 |
 
@@ -63,6 +63,8 @@ subject-resolution stage lifecycle handling was isolated from the public inspect
 Returns-series calculation orchestration dropped out of the top-15 table after execution-context
 resolution was isolated from dataframe preparation, execution, diagnostics, and response assembly.
 Stateful returns-series request resolution dropped out of the top-15 table after normalization-stage
+Composite inspection artifact assembly moved from `135` to `118` lines after customer-consumable
+composite-period return row projection was isolated.
 completion, identity payload construction, and resolved stateless request assembly were isolated.
 
 Future refactor slices should use this report to choose bounded work where extraction, shared
