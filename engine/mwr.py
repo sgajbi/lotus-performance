@@ -142,6 +142,39 @@ def _scan_xirr_roots(
     return roots
 
 
+def _xirr_result_from_roots(*, roots: list[tuple[float, int, float]], base_convergence: dict) -> dict:
+    convergence = {**base_convergence, "root_count_detected": len(roots), "converged": False}
+    if not roots:
+        return {
+            "rate": None,
+            "converged": False,
+            "notes": "No XIRR root found in configured bounds.",
+            "reason_code": "NO_ROOT_FOUND",
+            "convergence": convergence,
+        }
+    if len(roots) > 1:
+        return {
+            "rate": None,
+            "converged": False,
+            "notes": "Multiple XIRR roots detected.",
+            "reason_code": "MULTIPLE_IRR_ROOTS_DETECTED",
+            "convergence": convergence,
+        }
+    rate, iterations, residual = roots[0]
+    return {
+        "rate": rate,
+        "converged": True,
+        "notes": "XIRR calculation successful.",
+        "convergence": {
+            **convergence,
+            "iterations": iterations,
+            "residual": residual,
+            "residual_npv": residual,
+            "converged": True,
+        },
+    }
+
+
 def _xirr(
     values: np.ndarray,
     dates: np.ndarray,
@@ -204,36 +237,7 @@ def _xirr(
         log_npv=f_log,
     )
 
-    convergence = {**base_convergence, "root_count_detected": len(roots), "converged": False}
-    if not roots:
-        return {
-            "rate": None,
-            "converged": False,
-            "notes": "No XIRR root found in configured bounds.",
-            "reason_code": "NO_ROOT_FOUND",
-            "convergence": convergence,
-        }
-    if len(roots) > 1:
-        return {
-            "rate": None,
-            "converged": False,
-            "notes": "Multiple XIRR roots detected.",
-            "reason_code": "MULTIPLE_IRR_ROOTS_DETECTED",
-            "convergence": convergence,
-        }
-    rate, iterations, residual = roots[0]
-    return {
-        "rate": rate,
-        "converged": True,
-        "notes": "XIRR calculation successful.",
-        "convergence": {
-            **convergence,
-            "iterations": iterations,
-            "residual": residual,
-            "residual_npv": residual,
-            "converged": True,
-        },
-    }
+    return _xirr_result_from_roots(roots=roots, base_convergence=base_convergence)
 
 
 def _dietz_denominator(*, begin_mv, cash_flows, start_date, end_date, method):
