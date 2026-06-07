@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import cast
@@ -514,20 +515,9 @@ def _summarize_currency_source(
     fx: object,
     reporting_currency: str | None,
 ) -> dict[str, int | bool | str | None]:
-    position_currencies = sorted(
-        {
-            position_currency
-            for row in rows
-            for position_currency in [row.get("position_currency")]
-            if isinstance(position_currency, str) and position_currency
-        }
-    )
-    benchmark_component_currencies = sorted(
-        {
-            observation.component_currency
-            for observation in component_observations
-            if isinstance(observation.component_currency, str) and observation.component_currency
-        }
+    position_currencies = _distinct_source_currencies(row.get("position_currency") for row in rows)
+    benchmark_component_currencies = _distinct_source_currencies(
+        observation.component_currency for observation in component_observations
     )
     fx_required = (
         currency_mode == "BOTH"
@@ -543,6 +533,10 @@ def _summarize_currency_source(
         "fx_required": fx_required,
         "fx_supplied": fx is not None,
     }
+
+
+def _distinct_source_currencies(values: Iterable[object]) -> list[str]:
+    return sorted({value for value in values if isinstance(value, str) and value})
 
 
 def _validate_stateful_position_inception_support(*, rows: list[dict[str, object]]) -> None:

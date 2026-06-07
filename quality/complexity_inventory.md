@@ -28,26 +28,26 @@ python scripts/python_complexity_inventory.py --limit 20
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_summarize_currency_source` | function | `app/services/stateful_attribution_input_service.py:509` | 12 | C |
-| 2 | `_position_meta_from_row` | function | `app/services/stateful_contribution_input_service.py:221` | 12 | C |
-| 3 | `_build_workspace_summary_response` | function | `app/services/workspace_summary_service.py:482` | 12 | C |
-| 4 | `_build_instrument_attribution_panel` | function | `engine/attribution.py:270` | 12 | C |
-| 5 | `aggregate_attribution_results` | function | `engine/attribution.py:586` | 12 | C |
-| 6 | `_prepare_dataframe` | function | `engine/compute.py:163` | 12 | C |
-| 7 | `_xirr` | function | `engine/mwr.py:145` | 12 | C |
-| 8 | `BenchmarkPerformanceRequest` | class | `app/models/benchmark_requests.py:48` | 11 | C |
-| 9 | `_ensure_error_response_examples` | function | `app/openapi_enrichment.py:384` | 11 | C |
-| 10 | `calculate_benchmark_artifacts` | function | `app/services/benchmark_calculation_service.py:40` | 11 | C |
-| 11 | `_build_exposure_rows` | function | `app/services/benchmark_exposure_context_service.py:202` | 11 | C |
-| 12 | `get_queue_stats` | method | `app/services/compute_job_store.py:535` | 11 | C |
-| 13 | `calculate_contribution_workflow` | function | `app/services/contribution_calculation_workflow_service.py:98` | 11 | C |
-| 14 | `_build_residual_adjusted_position_timeseries` | function | `app/services/contribution_series.py:57` | 11 | C |
-| 15 | `calculate_returns_series_workflow` | function | `app/services/returns_series_calculation_workflow_service.py:85` | 11 | C |
-| 16 | `retrieve_stateful_attribution_source_input` | function | `app/services/stateful_attribution_input_service.py:61` | 11 | C |
-| 17 | `_position_market_value_totals_by_date` | function | `app/services/stateful_attribution_input_service.py:323` | 11 | C |
-| 18 | `_validate_stateful_position_inception_support` | function | `app/services/stateful_attribution_input_service.py:548` | 11 | C |
-| 19 | `_load_fx_maps_for_components` | function | `app/services/stateful_benchmark_input_service.py:426` | 11 | C |
-| 20 | `_build_normalized_component_series` | function | `app/services/stateful_benchmark_input_service.py:584` | 11 | C |
+| 1 | `_position_meta_from_row` | function | `app/services/stateful_contribution_input_service.py:221` | 12 | C |
+| 2 | `_build_workspace_summary_response` | function | `app/services/workspace_summary_service.py:482` | 12 | C |
+| 3 | `_build_instrument_attribution_panel` | function | `engine/attribution.py:270` | 12 | C |
+| 4 | `aggregate_attribution_results` | function | `engine/attribution.py:586` | 12 | C |
+| 5 | `_prepare_dataframe` | function | `engine/compute.py:163` | 12 | C |
+| 6 | `_xirr` | function | `engine/mwr.py:145` | 12 | C |
+| 7 | `BenchmarkPerformanceRequest` | class | `app/models/benchmark_requests.py:48` | 11 | C |
+| 8 | `_ensure_error_response_examples` | function | `app/openapi_enrichment.py:384` | 11 | C |
+| 9 | `calculate_benchmark_artifacts` | function | `app/services/benchmark_calculation_service.py:40` | 11 | C |
+| 10 | `_build_exposure_rows` | function | `app/services/benchmark_exposure_context_service.py:202` | 11 | C |
+| 11 | `get_queue_stats` | method | `app/services/compute_job_store.py:535` | 11 | C |
+| 12 | `calculate_contribution_workflow` | function | `app/services/contribution_calculation_workflow_service.py:98` | 11 | C |
+| 13 | `_build_residual_adjusted_position_timeseries` | function | `app/services/contribution_series.py:57` | 11 | C |
+| 14 | `calculate_returns_series_workflow` | function | `app/services/returns_series_calculation_workflow_service.py:85` | 11 | C |
+| 15 | `retrieve_stateful_attribution_source_input` | function | `app/services/stateful_attribution_input_service.py:62` | 11 | C |
+| 16 | `_position_market_value_totals_by_date` | function | `app/services/stateful_attribution_input_service.py:324` | 11 | C |
+| 17 | `_validate_stateful_position_inception_support` | function | `app/services/stateful_attribution_input_service.py:542` | 11 | C |
+| 18 | `_load_fx_maps_for_components` | function | `app/services/stateful_benchmark_input_service.py:426` | 11 | C |
+| 19 | `_build_normalized_component_series` | function | `app/services/stateful_benchmark_input_service.py:584` | 11 | C |
+| 20 | `_fetch_position_chunk` | method | `app/services/stateful_input_service.py:882` | 11 | C |
 
 ## Lowest Maintainability Index
 
@@ -100,6 +100,8 @@ cyclomatic complexity from `14` to `13`.
 `_build_artifacts` also dropped out after customer-consumable composite-period return row
 projection and optional-value formatting were split into a dedicated helper, reducing the measured
 maximum cyclomatic complexity from `13` to `12`.
+`_summarize_currency_source` also dropped out after position and benchmark component currency
+filtering, de-duplication, and ordering were routed through a shared source-currency normalizer.
 `_build_benchmark_groups`,
 `_parse_composition_window`, `_process_pending_jobs`, and
 `MoneyWeightedReturnAnalyticsRequest.validate_mode_payloads` dropped out of the top-20 table after

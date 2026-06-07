@@ -13,6 +13,7 @@ from app.services.stateful_attribution_input_service import (
     _build_benchmark_groups,
     _build_group_key,
     _build_instruments_data,
+    _distinct_source_currencies,
     _normalize_group_value,
     _normalized_position_dimensions,
     _parse_index_catalog,
@@ -545,6 +546,10 @@ def test_stateful_attribution_source_alignment_evidence_captures_source_limitati
         "derivative_or_short_flags": "not_available_from_current_lotus_core_contract",
         "fee_tax_income_breakout": "not_available_from_current_lotus_core_contract",
     }
+
+
+def test_distinct_source_currencies_filters_deduplicates_and_sorts_values():
+    assert _distinct_source_currencies(["USD", None, "", "EUR", "USD", 1]) == ["EUR", "USD"]
 
 
 def test_build_stateful_attribution_input_rejects_missing_benchmark_observations():

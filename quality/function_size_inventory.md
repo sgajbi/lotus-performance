@@ -34,7 +34,7 @@ python scripts/python_function_size_inventory.py --limit 15
 | 12 | `calculate_attribution` | `app/services/attribution_service.py:168` | 120 |
 | 13 | `_build_artifacts` | `app/services/composite_inspection_service.py:114` | 118 |
 | 14 | `calculate_benchmark_workflow` | `app/services/benchmark_calculation_workflow_service.py:146` | 116 |
-| 15 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:61` | 114 |
+| 15 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:62` | 114 |
 
 ## Interpretation
 
