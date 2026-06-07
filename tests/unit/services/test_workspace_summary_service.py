@@ -11,6 +11,7 @@ from app.models.benchmark_analytics_requests import BenchmarkInputMode
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.models.requests import DailyInputData
 from app.models.workspace_summary_requests import WorkspaceSummaryRequest
+from app.models.workspace_summary_responses import WorkspaceReturnSummary, WorkspaceReturnValue
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY
 from app.services.workspace_summary_service import (
     ResolvedWorkspaceBenchmarkInput,
@@ -18,6 +19,7 @@ from app.services.workspace_summary_service import (
     _annualize_percentage,
     _build_economic_context,
     _build_mwr_cash_flows,
+    _build_workspace_benchmark_and_active_blocks,
     _build_workspace_benchmark_daily_df,
     _date_from_boundary,
     _decimal_or_zero,
@@ -28,6 +30,7 @@ from app.services.workspace_summary_service import (
     workspace_longest_requested_window_days,
 )
 from core.envelope import Diagnostics
+from core.workspace_periods import ResolvedWorkspacePeriod
 
 
 def test_workspace_longest_requested_window_days_handles_stateful_since_inception_without_start_date():
@@ -549,6 +552,47 @@ def test_date_from_boundary_rejects_unsupported_boundary_values():
 
 def test_date_from_boundary_accepts_pandas_timestamp():
     assert _date_from_boundary(pd.Timestamp("2026-01-02")) == date(2026, 1, 2)
+
+
+def test_build_workspace_benchmark_and_active_blocks_projects_relative_returns(mocker):
+    benchmark_return = WorkspaceReturnValue(base=2.0)
+    benchmark_block = SimpleNamespace(
+        summary=WorkspaceReturnSummary(
+            period_return=benchmark_return,
+            cumulative_return=benchmark_return,
+            annualized_return=benchmark_return,
+        )
+    )
+    mocker.patch(
+        "app.services.workspace_summary_service._build_workspace_benchmark_block",
+        return_value=benchmark_block,
+    )
+    portfolio_return = WorkspaceReturnValue(base=10.0)
+    portfolio_summary = SimpleNamespace(
+        summary=WorkspaceReturnSummary(
+            period_return=portfolio_return,
+            cumulative_return=portfolio_return,
+            annualized_return=portfolio_return,
+        )
+    )
+
+    resolved_benchmark, active = _build_workspace_benchmark_and_active_blocks(
+        benchmark_input=SimpleNamespace(),
+        benchmark_daily_df=pd.DataFrame({"date": [date(2026, 1, 2)]}),
+        resolved_period=ResolvedWorkspacePeriod(
+            name="1D",
+            start_date=date(2026, 1, 2),
+            end_date=date(2026, 1, 2),
+        ),
+        frequencies=[],
+        annualization=SimpleNamespace(),
+        net_summary=portfolio_summary,
+        gross_summary=portfolio_summary,
+    )
+
+    assert resolved_benchmark is benchmark_block
+    assert active.net.period_return.base == 8.0
+    assert active.gross.annualized_return.base == 8.0
 
 
 def test_build_workspace_benchmark_daily_df_uses_observation_date_series():
