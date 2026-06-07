@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Quality Scorecard
 
-Report date: 2026-06-05
-Branch: `feat/performance-hardening-wave-14`
+Report date: 2026-06-07
+Branch: `refactor/lp-cr-796-position-meta-helper`
 Baseline source: `quality/baseline_report.md`
 Current source: `quality/refactor_health_report.md`
 Mode: phase-zero scorecard; no blocking gate is introduced by this artifact.
@@ -20,11 +20,11 @@ metrics in each section are updated with each meaningful slice.
 | --- | ---: | ---: | ---: | --- | --- |
 | Python files | 480 | 538 | 58 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Python package markers | 18 | 18 | 0 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Python LOC | 104,454 | 117,301 | 12,847 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python LOC | 104,454 | 117,319 | 12,865 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest Python file LOC | 2,399 | 2,399 | 0 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest production file LOC | 1,156 | 1,156 | 0 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
 | Python test modules | 228 | 255 | 27 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Collected tests | 2,035 | 2,299 | 264 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Collected tests | 2,035 | 2,301 | 266 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 
 ### Complexity And Maintainability
 

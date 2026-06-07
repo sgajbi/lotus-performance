@@ -14,6 +14,7 @@ from app.services.stateful_attribution_input_service import (
     _build_group_key,
     _build_instruments_data,
     _normalize_group_value,
+    _normalized_position_dimensions,
     _parse_index_catalog,
     _parse_position_rows,
     _portfolio_market_values_by_date,
@@ -1102,6 +1103,24 @@ def test_stateful_attribution_parsers_filter_invalid_rows():
 
 def test_stateful_attribution_normalizes_group_values():
     assert _normalize_group_value("Fixed Income") == "fixed_income"
+
+
+def test_stateful_attribution_normalizes_position_dimensions():
+    assert _normalized_position_dimensions(
+        {
+            "asset_class": "Fixed Income",
+            "rank": 3,
+            "nullable": None,
+            7: "ignored",
+        }
+    ) == {
+        "asset_class": "fixed_income",
+        "rank": 3,
+    }
+    assert _normalized_position_dimensions(None) == {}
+
+
+def test_stateful_attribution_builds_normalized_group_key():
     assert _build_group_key(
         labels={"asset_class": "Equity"},
         group_by=["asset_class"],

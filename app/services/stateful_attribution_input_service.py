@@ -895,14 +895,19 @@ def _position_meta_from_row(row: dict[str, object]) -> dict[str, object]:
     if portfolio_to_reporting_fx_rate is not None:
         meta["portfolio_to_reporting_fx_rate"] = Decimal(str(portfolio_to_reporting_fx_rate))
 
-    dimensions_raw = row.get("dimensions")
+    meta.update(_normalized_position_dimensions(row.get("dimensions")))
+    return meta
+
+
+def _normalized_position_dimensions(dimensions_raw: object) -> dict[str, object]:
+    dimensions: dict[str, object] = {}
     if isinstance(dimensions_raw, dict):
         for key, value in dimensions_raw.items():
             if isinstance(key, str) and isinstance(value, str) and value:
-                meta[key] = _normalize_group_value(value)
+                dimensions[key] = _normalize_group_value(value)
             elif isinstance(key, str) and value is not None:
-                meta[key] = value
-    return meta
+                dimensions[key] = value
+    return dimensions
 
 
 def _normalize_group_value(value: str) -> str:
