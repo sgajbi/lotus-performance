@@ -324,22 +324,11 @@ def build_hierarchical_contribution_result(
         .reset_index()
     )
 
-    sum_of_contributions = totals["contribution"].sum()
-    residual = total_portfolio_return - sum_of_contributions
-    total_avg_weight = totals["weight_avg"].sum()
-
-    if total_avg_weight != 0 and request.smoothing.method == "CARINO":
-        totals["weight_proportion"] = totals["weight_avg"] / total_avg_weight
-        sum_of_contribs_unalloc = totals["contribution"].sum()
-        local_prop = totals["local_contribution"].sum() / sum_of_contribs_unalloc if sum_of_contribs_unalloc != 0 else 0
-        fx_prop = totals["fx_contribution"].sum() / sum_of_contribs_unalloc if sum_of_contribs_unalloc != 0 else 0
-
-        residual_local = residual * local_prop
-        residual_fx = residual * fx_prop
-
-        totals["contribution"] += residual * totals["weight_proportion"]
-        totals["local_contribution"] += residual_local * totals["weight_proportion"]
-        totals["fx_contribution"] += residual_fx * totals["weight_proportion"]
+    _apply_carino_residual_allocation(
+        totals,
+        total_portfolio_return=total_portfolio_return,
+        smoothing_method=request.smoothing.method,
+    )
 
     hierarchy = list(request.hierarchy or [])
     temp_meta_cols = ["position_id"] + hierarchy
@@ -389,3 +378,24 @@ def build_hierarchical_contribution_result(
         summary["fx_contribution"] = aggregated_df["fx_contribution"].sum() * 100
 
     return {"summary": summary, "levels": response_levels}
+
+
+def _apply_carino_residual_allocation(
+    totals: pd.DataFrame,
+    *,
+    total_portfolio_return,
+    smoothing_method: str,
+) -> None:
+    total_avg_weight = totals["weight_avg"].sum()
+    if total_avg_weight == 0 or smoothing_method != "CARINO":
+        return
+
+    totals["weight_proportion"] = totals["weight_avg"] / total_avg_weight
+    sum_of_contributions = totals["contribution"].sum()
+    residual = total_portfolio_return - sum_of_contributions
+    local_prop = totals["local_contribution"].sum() / sum_of_contributions if sum_of_contributions != 0 else 0
+    fx_prop = totals["fx_contribution"].sum() / sum_of_contributions if sum_of_contributions != 0 else 0
+
+    totals["contribution"] += residual * totals["weight_proportion"]
+    totals["local_contribution"] += residual * local_prop * totals["weight_proportion"]
+    totals["fx_contribution"] += residual * fx_prop * totals["weight_proportion"]
