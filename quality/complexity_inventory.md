@@ -22,32 +22,32 @@ python scripts/python_complexity_inventory.py --limit 20
 | --- | ---: |
 | Max cyclomatic complexity | 14 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.61 |
+| Average maintainability index | 55.60 |
 
 ## Highest Cyclomatic Complexity
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
 | 1 | `_build_twr_results_by_period` | function | `app/services/twr_service.py:673` | 14 | C |
-| 2 | `portfolio_timeseries_to_valuation_points` | function | `app/services/valuation_points_service.py:12` | 14 | C |
-| 3 | `build_hierarchical_contribution_result` | function | `engine/contribution.py:298` | 14 | C |
-| 4 | `_apply_overrides` | function | `engine/policies.py:38` | 14 | C |
-| 5 | `_build_artifacts` | function | `app/services/composite_inspection_service.py:114` | 13 | C |
-| 6 | `_summarize_currency_source` | function | `app/services/stateful_attribution_input_service.py:509` | 12 | C |
-| 7 | `_position_meta_from_row` | function | `app/services/stateful_contribution_input_service.py:221` | 12 | C |
-| 8 | `_build_workspace_summary_response` | function | `app/services/workspace_summary_service.py:482` | 12 | C |
-| 9 | `_build_instrument_attribution_panel` | function | `engine/attribution.py:270` | 12 | C |
-| 10 | `aggregate_attribution_results` | function | `engine/attribution.py:586` | 12 | C |
-| 11 | `_prepare_dataframe` | function | `engine/compute.py:163` | 12 | C |
-| 12 | `_xirr` | function | `engine/mwr.py:145` | 12 | C |
-| 13 | `BenchmarkPerformanceRequest` | class | `app/models/benchmark_requests.py:48` | 11 | C |
-| 14 | `_ensure_error_response_examples` | function | `app/openapi_enrichment.py:384` | 11 | C |
-| 15 | `calculate_benchmark_artifacts` | function | `app/services/benchmark_calculation_service.py:40` | 11 | C |
-| 16 | `_build_exposure_rows` | function | `app/services/benchmark_exposure_context_service.py:202` | 11 | C |
-| 17 | `get_queue_stats` | method | `app/services/compute_job_store.py:535` | 11 | C |
-| 18 | `calculate_contribution_workflow` | function | `app/services/contribution_calculation_workflow_service.py:98` | 11 | C |
-| 19 | `_build_residual_adjusted_position_timeseries` | function | `app/services/contribution_series.py:57` | 11 | C |
-| 20 | `calculate_returns_series_workflow` | function | `app/services/returns_series_calculation_workflow_service.py:85` | 11 | C |
+| 2 | `build_hierarchical_contribution_result` | function | `engine/contribution.py:298` | 14 | C |
+| 3 | `_apply_overrides` | function | `engine/policies.py:38` | 14 | C |
+| 4 | `_build_artifacts` | function | `app/services/composite_inspection_service.py:114` | 13 | C |
+| 5 | `_summarize_currency_source` | function | `app/services/stateful_attribution_input_service.py:509` | 12 | C |
+| 6 | `_position_meta_from_row` | function | `app/services/stateful_contribution_input_service.py:221` | 12 | C |
+| 7 | `_build_workspace_summary_response` | function | `app/services/workspace_summary_service.py:482` | 12 | C |
+| 8 | `_build_instrument_attribution_panel` | function | `engine/attribution.py:270` | 12 | C |
+| 9 | `aggregate_attribution_results` | function | `engine/attribution.py:586` | 12 | C |
+| 10 | `_prepare_dataframe` | function | `engine/compute.py:163` | 12 | C |
+| 11 | `_xirr` | function | `engine/mwr.py:145` | 12 | C |
+| 12 | `BenchmarkPerformanceRequest` | class | `app/models/benchmark_requests.py:48` | 11 | C |
+| 13 | `_ensure_error_response_examples` | function | `app/openapi_enrichment.py:384` | 11 | C |
+| 14 | `calculate_benchmark_artifacts` | function | `app/services/benchmark_calculation_service.py:40` | 11 | C |
+| 15 | `_build_exposure_rows` | function | `app/services/benchmark_exposure_context_service.py:202` | 11 | C |
+| 16 | `get_queue_stats` | method | `app/services/compute_job_store.py:535` | 11 | C |
+| 17 | `calculate_contribution_workflow` | function | `app/services/contribution_calculation_workflow_service.py:98` | 11 | C |
+| 18 | `_build_residual_adjusted_position_timeseries` | function | `app/services/contribution_series.py:57` | 11 | C |
+| 19 | `calculate_returns_series_workflow` | function | `app/services/returns_series_calculation_workflow_service.py:85` | 11 | C |
+| 20 | `retrieve_stateful_attribution_source_input` | function | `app/services/stateful_attribution_input_service.py:61` | 11 | C |
 
 ## Lowest Maintainability Index
 
@@ -88,6 +88,8 @@ component-status helper. `build_portfolio_source_quality_evidence` also dropped 
 unsupported cashflow taxonomy traversal was split into a dedicated count helper.
 `_collect_stateful_mwr_cash_flows` also dropped out after source-flow eligibility and evidence
 component projection were split into a dedicated helper.
+`portfolio_timeseries_to_valuation_points` also dropped out after fee/external/unsupported cashflow
+classification and timing aggregation were split into a dedicated totals helper.
 `_build_benchmark_groups`,
 `_parse_composition_window`, `_process_pending_jobs`, and
 `MoneyWeightedReturnAnalyticsRequest.validate_mode_payloads` dropped out of the top-20 table after

@@ -18,28 +18,7 @@ def portfolio_timeseries_to_valuation_points(*, observations: list[dict[str, obj
         cash_flows_raw = point.get("cash_flows", [])
         if not isinstance(valuation_date, str) or begin_mv is None or end_mv is None:
             continue
-        bod_cf = Decimal("0")
-        eod_cf = Decimal("0")
-        mgmt_fees = Decimal("0")
-        if isinstance(cash_flows_raw, list):
-            for flow in cash_flows_raw:
-                if not isinstance(flow, dict):
-                    continue
-                amount = flow.get("amount")
-                timing = flow.get("timing")
-                if amount is None or timing not in {"bod", "eod"}:
-                    continue
-                decimal_amount = Decimal(str(amount))
-                cashflow_type = classify_cashflow_type(flow.get("cash_flow_type"))
-                if cashflow_type.economics_role == "fee":
-                    mgmt_fees += decimal_amount
-                    continue
-                if cashflow_type.economics_role == "unsupported":
-                    continue
-                if timing == "bod":
-                    bod_cf += decimal_amount
-                else:
-                    eod_cf += decimal_amount
+        bod_cf, eod_cf, mgmt_fees = _valuation_cashflow_totals(cash_flows_raw)
         valuation_points.append(
             {
                 "perf_date": valuation_date,
@@ -56,3 +35,27 @@ def portfolio_timeseries_to_valuation_points(*, observations: list[dict[str, obj
             detail=insufficient_data_detail("No valid valuation observations after canonical normalization."),
         )
     return valuation_points
+
+
+def _valuation_cashflow_totals(cash_flows: object) -> tuple[Decimal, Decimal, Decimal]:
+    bod_cf = Decimal("0")
+    eod_cf = Decimal("0")
+    mgmt_fees = Decimal("0")
+    if not isinstance(cash_flows, list):
+        return bod_cf, eod_cf, mgmt_fees
+    for flow in cash_flows:
+        if not isinstance(flow, dict):
+            continue
+        amount = flow.get("amount")
+        timing = flow.get("timing")
+        if amount is None or timing not in {"bod", "eod"}:
+            continue
+        decimal_amount = Decimal(str(amount))
+        economics_role = classify_cashflow_type(flow.get("cash_flow_type")).economics_role
+        if economics_role == "fee":
+            mgmt_fees += decimal_amount
+        elif economics_role != "unsupported" and timing == "bod":
+            bod_cf += decimal_amount
+        elif economics_role != "unsupported":
+            eod_cf += decimal_amount
+    return bod_cf, eod_cf, mgmt_fees
