@@ -10,6 +10,7 @@ from app.models.benchmark_analytics_requests import BenchmarkInputMode, Benchmar
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.models.requests import PerformanceRequest
 from app.models.twr_requests import TWRAnalyticsRequest, TWRInputMode
+from app.services.benchmark_assignment_service import resolve_benchmark_identity
 from app.services.execution_registry import execution_registry
 from app.services.execution_stage_names import EXECUTION_STAGE_NORMALIZATION, EXECUTION_STAGE_RETRIEVAL
 from app.services.portfolio_source_service import build_stateful_input_service
@@ -22,10 +23,7 @@ from app.services.stateful_performance_input_service import (
     build_stateful_portfolio_valuation_input,
     retrieve_stateful_portfolio_input,
 )
-from app.services.stateful_upstream_errors import (
-    raise_for_stateful_control_plane_unavailable,
-    raise_for_stateful_source_unavailable,
-)
+from app.services.stateful_upstream_errors import raise_for_stateful_control_plane_unavailable
 from app.services.stateless_benchmark_input_service import normalize_stateless_component_observations
 from core.errors import HTTP_422_UNPROCESSABLE
 
@@ -376,12 +374,6 @@ class _ResolvedTWRBenchmarkSourceInput:
     source_details: dict[str, int]
 
 
-@dataclass(frozen=True)
-class _ResolvedTWRBenchmarkIdentity:
-    benchmark_id: str
-    source_details: dict[str, int]
-
-
 async def _resolve_twr_benchmark_source_input(
     *,
     request: TWRAnalyticsRequest,
@@ -394,9 +386,12 @@ async def _resolve_twr_benchmark_source_input(
     stateful_input = benchmark.stateful_input if benchmark is not None else None
     if stateful_input is None:
         stateful_input = _resolve_default_stateful_benchmark_input(request)
-    identity = await _resolve_twr_benchmark_identity(
-        request=request,
+    identity = await resolve_benchmark_identity(
         stateful_input_service=stateful_input_service,
+        portfolio_id=request.portfolio_id,
+        as_of_date=request.report_end_date,
+        reporting_currency=request.report_ccy,
+        calculation_id=request.calculation_id,
         benchmark_id=benchmark.benchmark_id if benchmark is not None else None,
     )
 
@@ -437,43 +432,6 @@ async def _resolve_twr_benchmark_source_input(
         benchmark_id=identity.benchmark_id,
         benchmark_request=benchmark_request,
         source_details={key: int(value) for key, value in source_details.items()},
-    )
-
-
-async def _resolve_twr_benchmark_identity(
-    *,
-    request: TWRAnalyticsRequest,
-    stateful_input_service: StatefulInputService,
-    benchmark_id: str | None,
-) -> _ResolvedTWRBenchmarkIdentity:
-    if benchmark_id is not None:
-        return _ResolvedTWRBenchmarkIdentity(benchmark_id=benchmark_id, source_details={})
-
-    assignment_status, assignment_payload = await stateful_input_service.get_benchmark_assignment(
-        portfolio_id=request.portfolio_id,
-        as_of_date=request.report_end_date,
-        reporting_currency=request.report_ccy,
-        calculation_id=request.calculation_id,
-    )
-    if assignment_status == status.HTTP_404_NOT_FOUND:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No benchmark assignment found for portfolio_id={request.portfolio_id}.",
-        )
-    if assignment_status >= status.HTTP_400_BAD_REQUEST:
-        raise_for_stateful_source_unavailable(
-            source_label="benchmark assignment",
-            upstream_status=assignment_status,
-        )
-    benchmark_id_raw = assignment_payload.get("benchmark_id")
-    if not isinstance(benchmark_id_raw, str) or not benchmark_id_raw:
-        raise HTTPException(
-            status_code=HTTP_422_UNPROCESSABLE,
-            detail="benchmark assignment payload missing benchmark_id.",
-        )
-    return _ResolvedTWRBenchmarkIdentity(
-        benchmark_id=benchmark_id_raw,
-        source_details={"resolved_benchmark_assignment": 1},
     )
 
 

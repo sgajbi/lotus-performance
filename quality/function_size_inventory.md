@@ -22,7 +22,7 @@ python scripts/python_function_size_inventory.py --limit 15
 | ---: | --- | --- | ---: |
 | 1 | `calculate_contribution` | `app/services/contribution_service.py:421` | 189 |
 | 2 | `_build_detailed_cashflow_contract_findings` | `app/services/inspection/source_economics_findings.py:112` | 186 |
-| 3 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:503` | 172 |
+| 3 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:482` | 172 |
 | 4 | `DurableQueueCollector.describe` | `app/services/queue_metrics_service.py:193` | 159 |
 | 5 | `aggregate_attribution_results` | `engine/attribution.py:586` | 148 |
 | 6 | `_build_external_cashflow_findings` | `app/services/inspection/source_economics_findings.py:300` | 140 |
@@ -33,8 +33,8 @@ python scripts/python_function_size_inventory.py --limit 15
 | 11 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:327` | 130 |
 | 12 | `calculate_contribution_workflow` | `app/services/contribution_calculation_workflow_service.py:98` | 127 |
 | 13 | `calculate_attribution` | `app/services/attribution_service.py:168` | 120 |
-| 14 | `_resolve_workspace_benchmark_input` | `app/services/workspace_summary_service.py:314` | 118 |
-| 15 | `calculate_benchmark_workflow` | `app/services/benchmark_calculation_workflow_service.py:146` | 116 |
+| 14 | `calculate_benchmark_workflow` | `app/services/benchmark_calculation_workflow_service.py:146` | 116 |
+| 15 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:61` | 114 |
 
 ## Interpretation
 
