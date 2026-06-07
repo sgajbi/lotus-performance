@@ -13,6 +13,7 @@ from engine.attribution import (
     _calculate_single_period_effects,
     _link_effects_top_down,
     _normalize_instrument_group_columns,
+    _normalize_instrument_return_columns,
     _prepare_data_from_instruments,
     _prepare_panel_from_groups,
     aggregate_attribution_results,
@@ -521,6 +522,25 @@ def test_build_instrument_attribution_panel_backfills_same_currency_returns():
     row = panel.iloc[0]
     assert row["return_local"] == pytest.approx(row["return_base"])
     assert row["return_fx"] == pytest.approx(0.0)
+
+
+def test_normalize_instrument_return_columns_backfills_and_scales_same_currency_returns():
+    instrument_results = pd.DataFrame({"daily_ror": [2.5]})
+
+    _normalize_instrument_return_columns(
+        instrument_results,
+        currency_mode="BOTH",
+        instrument_currency="USD",
+        report_ccy="USD",
+    )
+
+    assert instrument_results.to_dict(orient="records") == [
+        {
+            "return_base": 0.025,
+            "return_local": 0.025,
+            "return_fx": 0.0,
+        }
+    ]
 
 
 def test_normalize_instrument_group_columns_adds_missing_group_keys():

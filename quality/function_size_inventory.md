@@ -23,7 +23,7 @@ python scripts/python_function_size_inventory.py --limit 15
 | 1 | `calculate_contribution` | `app/services/contribution_service.py:421` | 189 |
 | 2 | `_build_detailed_cashflow_contract_findings` | `app/services/inspection/source_economics_findings.py:112` | 186 |
 | 3 | `DurableQueueCollector.describe` | `app/services/queue_metrics_service.py:193` | 159 |
-| 4 | `aggregate_attribution_results` | `engine/attribution.py:586` | 148 |
+| 4 | `aggregate_attribution_results` | `engine/attribution.py:600` | 148 |
 | 5 | `_build_external_cashflow_findings` | `app/services/inspection/source_economics_findings.py:300` | 140 |
 | 6 | `build_runtime_status_response` | `app/models/runtime_status.py:767` | 131 |
 | 7 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:71` | 131 |

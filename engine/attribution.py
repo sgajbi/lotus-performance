@@ -293,6 +293,25 @@ def _build_instrument_attribution_panel(
         weight_bop = inst_bop_mv / portfolio_bop_mv
     inst_results["weight_bop"] = weight_bop.replace([np.inf, -np.inf], np.nan).fillna(0.0)
 
+    _normalize_instrument_return_columns(
+        inst_results,
+        currency_mode=request.currency_mode,
+        instrument_currency=inst.meta.get("currency"),
+        report_ccy=request.report_ccy,
+    )
+
+    for key, value in inst.meta.items():
+        inst_results[key] = value
+    return inst_results.reset_index()
+
+
+def _normalize_instrument_return_columns(
+    inst_results: pd.DataFrame,
+    *,
+    currency_mode: object,
+    instrument_currency: object,
+    report_ccy: object,
+) -> None:
     inst_results.rename(
         columns={
             PortfolioColumns.DAILY_ROR.value: "return_base",
@@ -301,8 +320,7 @@ def _build_instrument_attribution_panel(
         },
         inplace=True,
     )
-
-    if request.currency_mode == "BOTH" and inst.meta.get("currency") == request.report_ccy:
+    if currency_mode == "BOTH" and instrument_currency == report_ccy:
         if "return_local" not in inst_results.columns:
             inst_results["return_local"] = inst_results["return_base"]
         if "return_fx" not in inst_results.columns:
@@ -311,10 +329,6 @@ def _build_instrument_attribution_panel(
     for col in ["return_base", "return_local", "return_fx"]:
         if col in inst_results.columns:
             inst_results[col] /= 100
-
-    for key, value in inst.meta.items():
-        inst_results[key] = value
-    return inst_results.reset_index()
 
 
 def _build_instrument_group_aggregation(full_df: pd.DataFrame, group_cols: list[str]) -> pd.DataFrame:
