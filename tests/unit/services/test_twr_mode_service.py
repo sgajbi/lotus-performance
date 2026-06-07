@@ -9,11 +9,14 @@ from app.models.benchmark_analytics_requests import BenchmarkInputMode
 from app.models.twr_requests import TWRAnalyticsRequest
 from app.services.execution_registry import execution_registry
 from app.services.execution_stage_names import EXECUTION_STAGE_NORMALIZATION
+from app.services.stateful_performance_input_service import StatefulPortfolioInput
 from app.services.twr_mode_service import (
     _build_resolved_twr_benchmark_request,
+    _build_twr_normalization_resolution,
     _resolve_default_stateful_benchmark_input,
     _resolve_twr_portfolio_source_input,
     _resolve_twr_retrieval_inputs,
+    _TWRRetrievalResolution,
     resolve_twr_request,
 )
 
@@ -114,6 +117,44 @@ async def test_resolve_twr_request_sources_stateful_payload(monkeypatch):
     ]
     assert resolved.performance_request.valuation_points[1].end_mv == 1020.1
     assert str(resolved.performance_request.performance_start_date) == "2024-12-31"
+
+
+def test_build_twr_normalization_resolution_projects_stateful_valuation_details():
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_1",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "stateful_input": {},
+        }
+    )
+
+    resolution = _build_twr_normalization_resolution(
+        request=request,
+        retrieval_resolution=_TWRRetrievalResolution(
+            portfolio_input=StatefulPortfolioInput(
+                performance_start_date=request.report_end_date,
+                observations=[
+                    {
+                        "valuation_date": "2025-01-02",
+                        "beginning_market_value": "1000",
+                        "ending_market_value": "1010",
+                    }
+                ],
+            ),
+            benchmark_resolution=None,
+            benchmark_start_date=request.report_end_date,
+            retrieval_details={},
+        ),
+    )
+
+    assert resolution.resolved_input is not None
+    assert len(resolution.resolved_input.valuation_points) == 1
+    assert resolution.benchmark_request is None
+    assert resolution.normalization_details == {"valuation_points": 1}
 
 
 @pytest.mark.asyncio

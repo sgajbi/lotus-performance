@@ -33,8 +33,8 @@ python scripts/python_function_size_inventory.py --limit 15
 | 11 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:327` | 130 |
 | 12 | `calculate_contribution_workflow` | `app/services/contribution_calculation_workflow_service.py:98` | 127 |
 | 13 | `calculate_attribution` | `app/services/attribution_service.py:168` | 120 |
-| 14 | `resolve_twr_request` | `app/services/twr_mode_service.py:60` | 120 |
-| 15 | `_resolve_workspace_benchmark_input` | `app/services/workspace_summary_service.py:314` | 118 |
+| 14 | `_resolve_workspace_benchmark_input` | `app/services/workspace_summary_service.py:314` | 118 |
+| 15 | `calculate_benchmark_workflow` | `app/services/benchmark_calculation_workflow_service.py:146` | 116 |
 
 ## Interpretation
 

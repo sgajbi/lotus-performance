@@ -18,6 +18,7 @@ from app.services.stateful_benchmark_input_service import build_stateful_benchma
 from app.services.stateful_input_service import StatefulInputService
 from app.services.stateful_performance_input_service import (
     StatefulPortfolioInput,
+    StatefulPortfolioValuationInput,
     build_stateful_portfolio_valuation_input,
     retrieve_stateful_portfolio_input,
 )
@@ -55,6 +56,13 @@ class _TWRRetrievalResolution:
     benchmark_resolution: _ResolvedTWRBenchmarkSourceInput | None
     benchmark_start_date: date | None
     retrieval_details: dict[str, object]
+
+
+@dataclass(frozen=True)
+class _TWRNormalizationResolution:
+    resolved_input: StatefulPortfolioValuationInput | None
+    benchmark_request: BenchmarkPerformanceRequest | None
+    normalization_details: dict[str, object]
 
 
 async def resolve_twr_request(
@@ -99,38 +107,15 @@ async def resolve_twr_request(
 
     execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_NORMALIZATION)
     try:
-        portfolio_input = retrieval_resolution.portfolio_input
         benchmark_resolution = retrieval_resolution.benchmark_resolution
-        resolved_input = (
-            build_stateful_portfolio_valuation_input(
-                source_input=portfolio_input,
-                report_end_date=request.report_end_date,
-            )
-            if portfolio_input is not None
-            else None
+        normalization_resolution = _build_twr_normalization_resolution(
+            request=request,
+            retrieval_resolution=retrieval_resolution,
         )
-        benchmark_start_date = retrieval_resolution.benchmark_start_date or _resolve_benchmark_start_date_from_request(
-            request
-        )
-        benchmark_request = (
-            _build_resolved_twr_benchmark_request(
-                request=request,
-                benchmark_resolution=benchmark_resolution,
-                benchmark_start_date=benchmark_start_date,
-            )
-            if _benchmark_requested(request)
-            else None
-        )
-        normalization_details: dict[str, object] = {}
-        if resolved_input is not None:
-            normalization_details["valuation_points"] = len(resolved_input.valuation_points)
-        if benchmark_request is not None:
-            normalization_details["benchmark_component_observations"] = len(benchmark_request.component_observations)
-            normalization_details["benchmark_return_points"] = len(benchmark_request.benchmark_return_points)
         execution_registry.complete_stage(
             request.calculation_id,
             EXECUTION_STAGE_NORMALIZATION,
-            details=normalization_details,
+            details=normalization_resolution.normalization_details,
         )
     except Exception as exc:
         execution_registry.fail_stage(
@@ -140,6 +125,8 @@ async def resolve_twr_request(
         )
         raise
 
+    resolved_input = normalization_resolution.resolved_input
+    benchmark_request = normalization_resolution.benchmark_request
     if resolved_input is None:
         performance_request = request.to_stateless_performance_request()
         input_mode = TWRInputMode.STATELESS
@@ -176,6 +163,45 @@ async def resolve_twr_request(
             if _benchmark_requested(request)
             else None
         ),
+    )
+
+
+def _build_twr_normalization_resolution(
+    *,
+    request: TWRAnalyticsRequest,
+    retrieval_resolution: _TWRRetrievalResolution,
+) -> _TWRNormalizationResolution:
+    portfolio_input = retrieval_resolution.portfolio_input
+    resolved_input = (
+        build_stateful_portfolio_valuation_input(
+            source_input=portfolio_input,
+            report_end_date=request.report_end_date,
+        )
+        if portfolio_input is not None
+        else None
+    )
+    benchmark_start_date = retrieval_resolution.benchmark_start_date or _resolve_benchmark_start_date_from_request(
+        request
+    )
+    benchmark_request = (
+        _build_resolved_twr_benchmark_request(
+            request=request,
+            benchmark_resolution=retrieval_resolution.benchmark_resolution,
+            benchmark_start_date=benchmark_start_date,
+        )
+        if _benchmark_requested(request)
+        else None
+    )
+    normalization_details: dict[str, object] = {}
+    if resolved_input is not None:
+        normalization_details["valuation_points"] = len(resolved_input.valuation_points)
+    if benchmark_request is not None:
+        normalization_details["benchmark_component_observations"] = len(benchmark_request.component_observations)
+        normalization_details["benchmark_return_points"] = len(benchmark_request.benchmark_return_points)
+    return _TWRNormalizationResolution(
+        resolved_input=resolved_input,
+        benchmark_request=benchmark_request,
+        normalization_details=normalization_details,
     )
 
 
