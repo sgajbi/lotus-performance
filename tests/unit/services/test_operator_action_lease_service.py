@@ -11,6 +11,7 @@ from app.services.operator_action_lease_service import (
     OPERATOR_ACTION_RECLAIM_EVENT_INVALID_REASON,
     OPERATOR_ACTION_RECLAIM_HISTORY_INVALID_REASON,
     OperatorActionLeaseMetadata,
+    _has_valid_reclaimed_event_fields,
     _parse_reclaimed_event_payload,
     _read_active_operator_action_lease,
     _read_latest_reclaimed_lease,
@@ -559,6 +560,22 @@ def test_parse_reclaimed_event_payload_rejects_invalid_fields_and_filters_other_
         _parse_reclaimed_event_payload(payload=blank_operator, action_name="recovery_drill").__class__.__name__
         == "_InvalidLease"
     )
+
+
+def test_has_valid_reclaimed_event_fields_checks_complete_post_filter_shape():
+    payload = {
+        "action_key": "key",
+        "operator_id": "ops-user",
+        "tenant_id": None,
+        "governed_target": "backup-1",
+        "acquired_at_utc": "2026-03-15T00:00:00Z",
+        "reclaimed_at_utc": "2026-03-15T01:00:00Z",
+        "stale_after_seconds": 30.0,
+        "reclaim_count": 1,
+    }
+
+    assert _has_valid_reclaimed_event_fields(payload)
+    assert not _has_valid_reclaimed_event_fields({**payload, "reclaim_count": "1"})
 
 
 def test_write_latest_reclaimed_lease_increments_prior_count_and_history(tmp_path):

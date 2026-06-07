@@ -28,26 +28,26 @@ python scripts/python_complexity_inventory.py --limit 20
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_parse_reclaimed_event_payload` | function | `app/services/operator_action_lease_service.py:415` | 14 | C |
-| 2 | `collect_runtime_degradation_reasons` | function | `app/services/runtime_status_degradation.py:257` | 14 | C |
-| 3 | `build_portfolio_source_quality_evidence` | function | `app/services/source_quality_evidence.py:13` | 14 | C |
-| 4 | `_collect_stateful_mwr_cash_flows` | function | `app/services/stateful_mwr_input_service.py:184` | 14 | C |
-| 5 | `_build_twr_results_by_period` | function | `app/services/twr_service.py:673` | 14 | C |
-| 6 | `portfolio_timeseries_to_valuation_points` | function | `app/services/valuation_points_service.py:12` | 14 | C |
-| 7 | `build_hierarchical_contribution_result` | function | `engine/contribution.py:298` | 14 | C |
-| 8 | `_apply_overrides` | function | `engine/policies.py:38` | 14 | C |
-| 9 | `_build_artifacts` | function | `app/services/composite_inspection_service.py:114` | 13 | C |
-| 10 | `_summarize_currency_source` | function | `app/services/stateful_attribution_input_service.py:509` | 12 | C |
-| 11 | `_position_meta_from_row` | function | `app/services/stateful_contribution_input_service.py:221` | 12 | C |
-| 12 | `_build_workspace_summary_response` | function | `app/services/workspace_summary_service.py:482` | 12 | C |
-| 13 | `_build_instrument_attribution_panel` | function | `engine/attribution.py:270` | 12 | C |
-| 14 | `aggregate_attribution_results` | function | `engine/attribution.py:586` | 12 | C |
-| 15 | `_prepare_dataframe` | function | `engine/compute.py:163` | 12 | C |
-| 16 | `_xirr` | function | `engine/mwr.py:145` | 12 | C |
-| 17 | `BenchmarkPerformanceRequest` | class | `app/models/benchmark_requests.py:48` | 11 | C |
-| 18 | `_ensure_error_response_examples` | function | `app/openapi_enrichment.py:384` | 11 | C |
-| 19 | `calculate_benchmark_artifacts` | function | `app/services/benchmark_calculation_service.py:40` | 11 | C |
-| 20 | `_build_exposure_rows` | function | `app/services/benchmark_exposure_context_service.py:202` | 11 | C |
+| 1 | `collect_runtime_degradation_reasons` | function | `app/services/runtime_status_degradation.py:257` | 14 | C |
+| 2 | `build_portfolio_source_quality_evidence` | function | `app/services/source_quality_evidence.py:13` | 14 | C |
+| 3 | `_collect_stateful_mwr_cash_flows` | function | `app/services/stateful_mwr_input_service.py:184` | 14 | C |
+| 4 | `_build_twr_results_by_period` | function | `app/services/twr_service.py:673` | 14 | C |
+| 5 | `portfolio_timeseries_to_valuation_points` | function | `app/services/valuation_points_service.py:12` | 14 | C |
+| 6 | `build_hierarchical_contribution_result` | function | `engine/contribution.py:298` | 14 | C |
+| 7 | `_apply_overrides` | function | `engine/policies.py:38` | 14 | C |
+| 8 | `_build_artifacts` | function | `app/services/composite_inspection_service.py:114` | 13 | C |
+| 9 | `_summarize_currency_source` | function | `app/services/stateful_attribution_input_service.py:509` | 12 | C |
+| 10 | `_position_meta_from_row` | function | `app/services/stateful_contribution_input_service.py:221` | 12 | C |
+| 11 | `_build_workspace_summary_response` | function | `app/services/workspace_summary_service.py:482` | 12 | C |
+| 12 | `_build_instrument_attribution_panel` | function | `engine/attribution.py:270` | 12 | C |
+| 13 | `aggregate_attribution_results` | function | `engine/attribution.py:586` | 12 | C |
+| 14 | `_prepare_dataframe` | function | `engine/compute.py:163` | 12 | C |
+| 15 | `_xirr` | function | `engine/mwr.py:145` | 12 | C |
+| 16 | `BenchmarkPerformanceRequest` | class | `app/models/benchmark_requests.py:48` | 11 | C |
+| 17 | `_ensure_error_response_examples` | function | `app/openapi_enrichment.py:384` | 11 | C |
+| 18 | `calculate_benchmark_artifacts` | function | `app/services/benchmark_calculation_service.py:40` | 11 | C |
+| 19 | `_build_exposure_rows` | function | `app/services/benchmark_exposure_context_service.py:202` | 11 | C |
+| 20 | `get_queue_stats` | method | `app/services/compute_job_store.py:535` | 11 | C |
 
 ## Lowest Maintainability Index
 
@@ -64,7 +64,7 @@ python scripts/python_complexity_inventory.py --limit 20
 | 9 | `app/services/workspace_summary_service.py` | 10.88 | B |
 | 10 | `app/services/stateful_benchmark_input_service.py` | 12.88 | B |
 | 11 | `engine/attribution.py` | 14.54 | B |
-| 12 | `app/services/operator_action_lease_service.py` | 15.51 | B |
+| 12 | `app/services/operator_action_lease_service.py` | 15.95 | B |
 | 13 | `app/services/inspection/calculation_consistency.py` | 16.28 | B |
 | 14 | `app/services/inspection/reconciliation.py` | 16.40 | B |
 | 15 | `app/services/inspection/source_economics_collector.py` | 17.35 | B |
@@ -81,7 +81,8 @@ of the top-20 table after component contribution projection, daily aggregation, 
 and weight diagnostics were split into named stages, reducing the measured maximum cyclomatic
 complexity from `15` to `14`. `_lineage_queue_response` also dropped out after optional lineage
 queue stats and storage-capacity projection were split into a dedicated measurement helper.
-`_build_benchmark_groups`,
+`_parse_reclaimed_event_payload` also dropped out after post-filter reclaimed-event field-shape
+validation was split into a dedicated predicate. `_build_benchmark_groups`,
 `_parse_composition_window`, `_process_pending_jobs`, and
 `MoneyWeightedReturnAnalyticsRequest.validate_mode_payloads` dropped out of the top-20 table after
 benchmark grouping aggregation, composition-window parsing, compute-worker runtime setup, and MWR

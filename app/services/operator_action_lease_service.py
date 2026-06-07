@@ -424,6 +424,8 @@ def _parse_reclaimed_event_payload(
         return _INVALID_LEASE
     if action_name is not None and candidate_action_name != action_name:
         return None
+    if not _has_valid_reclaimed_event_fields(payload):
+        return _INVALID_LEASE
     operator_id = payload.get("operator_id")
     tenant_id = payload.get("tenant_id")
     governed_target = payload.get("governed_target")
@@ -432,22 +434,6 @@ def _parse_reclaimed_event_payload(
     stale_after_seconds = payload.get("stale_after_seconds")
     reclaim_count = payload.get("reclaim_count", 1)
     action_key = payload.get("action_key")
-    if not is_required_evidence_string(operator_id):
-        return _INVALID_LEASE
-    if not is_optional_evidence_string(tenant_id):
-        return _INVALID_LEASE
-    if not is_required_evidence_string(governed_target):
-        return _INVALID_LEASE
-    if not is_required_evidence_string(acquired_at_utc):
-        return _INVALID_LEASE
-    if not is_required_evidence_string(reclaimed_at_utc):
-        return _INVALID_LEASE
-    if not is_required_evidence_number(stale_after_seconds):
-        return _INVALID_LEASE
-    if not is_required_evidence_int(reclaim_count):
-        return _INVALID_LEASE
-    if not is_required_evidence_string(action_key):
-        return _INVALID_LEASE
     candidate_action_name_value = cast(str, candidate_action_name)
     operator_id_value = cast(str, operator_id)
     tenant_id_value = cast(str | None, tenant_id)
@@ -471,6 +457,19 @@ def _parse_reclaimed_event_payload(
         reclaimed_at_utc=reclaimed_at_utc_value,
         stale_after_seconds=float(stale_after_seconds),
         reclaim_count=reclaim_count,
+    )
+
+
+def _has_valid_reclaimed_event_fields(payload: dict[str, object]) -> bool:
+    return (
+        is_required_evidence_string(payload.get("operator_id"))
+        and is_optional_evidence_string(payload.get("tenant_id"))
+        and is_required_evidence_string(payload.get("governed_target"))
+        and is_required_evidence_string(payload.get("acquired_at_utc"))
+        and is_required_evidence_string(payload.get("reclaimed_at_utc"))
+        and is_required_evidence_number(payload.get("stale_after_seconds"))
+        and is_required_evidence_int(payload.get("reclaim_count", 1))
+        and is_required_evidence_string(payload.get("action_key"))
     )
 
 
