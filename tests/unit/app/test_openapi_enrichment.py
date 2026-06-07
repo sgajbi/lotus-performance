@@ -19,6 +19,7 @@ from app.openapi_enrichment import (
     _semantic_string_example,
     _to_snake_case,
     _typed_schema_example,
+    _validation_error_json_content,
     enrich_openapi_schema,
 )
 
@@ -253,6 +254,28 @@ def test_ensure_operation_response_documentation_uses_operation_override():
     assert responses["200"]["content"]["application/json"]["example"] == {"status": "ok"}
     validation_example = responses["422"]["content"]["application/json"]["example"]
     assert validation_example["detail"][0]["loc"] == ["body", "portfolio_id"]
+
+
+def test_validation_error_json_content_selects_undocumented_http_validation_schema():
+    response = {
+        "description": "Validation Error",
+        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/HTTPValidationError"}}},
+    }
+    documented_response = {
+        "description": "Validation Error",
+        "content": {
+            "application/json": {
+                "schema": {"$ref": "#/components/schemas/HTTPValidationError"},
+                "example": {"detail": "already documented"},
+            }
+        },
+    }
+
+    json_content = _validation_error_json_content(response)
+
+    assert json_content is response["content"]["application/json"]
+    assert _validation_error_json_content(documented_response) is None
+    assert _validation_error_json_content({"content": {"text/plain": {"schema": {"type": "string"}}}}) is None
 
 
 def test_ensure_operation_response_documentation_rewrites_metrics_response():

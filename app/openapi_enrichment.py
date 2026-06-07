@@ -381,21 +381,33 @@ def _is_http_validation_error_schema(json_content: dict[str, Any]) -> bool:
     return isinstance(ref, str) and ref.endswith("/HTTPValidationError")
 
 
+def _is_error_response_code(code: Any) -> bool:
+    response_code = str(code)
+    return response_code.startswith(("4", "5")) or response_code == "default"
+
+
+def _validation_error_json_content(response: Any) -> dict[str, Any] | None:
+    if not isinstance(response, dict):
+        return None
+    content = response.get("content", {})
+    if not isinstance(content, dict):
+        return None
+    json_content = content.get("application/json")
+    if not isinstance(json_content, dict):
+        return None
+    if "example" in json_content or "examples" in json_content:
+        return None
+    if not _is_http_validation_error_schema(json_content):
+        return None
+    return json_content
+
+
 def _ensure_error_response_examples(responses: dict[str, Any]) -> None:
     for code, response in responses.items():
-        if not (str(code).startswith("4") or str(code).startswith("5") or str(code) == "default"):
+        if not _is_error_response_code(code):
             continue
-        if not isinstance(response, dict):
-            continue
-        content = response.get("content", {})
-        if not isinstance(content, dict):
-            continue
-        json_content = content.get("application/json")
-        if not isinstance(json_content, dict):
-            continue
-        if "example" in json_content or "examples" in json_content:
-            continue
-        if _is_http_validation_error_schema(json_content):
+        json_content = _validation_error_json_content(response)
+        if json_content is not None:
             json_content["example"] = copy.deepcopy(HTTP_VALIDATION_ERROR_EXAMPLE)
 
 
