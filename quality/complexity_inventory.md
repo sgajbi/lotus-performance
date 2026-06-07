@@ -28,26 +28,26 @@ python scripts/python_complexity_inventory.py --limit 20
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_resolve_twr_benchmark_source_input` | function | `app/services/twr_mode_service.py:379` | 15 | C |
-| 2 | `_resolve_workspace_benchmark_input` | function | `app/services/workspace_summary_service.py:314` | 15 | C |
-| 3 | `_build_compute_job_runtime` | function | `app/workers/compute_executor_worker.py:156` | 15 | C |
-| 4 | `calculate_benchmark_returns` | function | `engine/benchmarks.py:35` | 15 | C |
-| 5 | `_lineage_queue_response` | function | `app/models/runtime_status.py:691` | 14 | C |
-| 6 | `_parse_reclaimed_event_payload` | function | `app/services/operator_action_lease_service.py:415` | 14 | C |
-| 7 | `collect_runtime_degradation_reasons` | function | `app/services/runtime_status_degradation.py:257` | 14 | C |
-| 8 | `build_portfolio_source_quality_evidence` | function | `app/services/source_quality_evidence.py:13` | 14 | C |
-| 9 | `_collect_stateful_mwr_cash_flows` | function | `app/services/stateful_mwr_input_service.py:184` | 14 | C |
-| 10 | `_build_twr_results_by_period` | function | `app/services/twr_service.py:673` | 14 | C |
-| 11 | `portfolio_timeseries_to_valuation_points` | function | `app/services/valuation_points_service.py:12` | 14 | C |
-| 12 | `build_hierarchical_contribution_result` | function | `engine/contribution.py:298` | 14 | C |
-| 13 | `_apply_overrides` | function | `engine/policies.py:38` | 14 | C |
-| 14 | `_build_artifacts` | function | `app/services/composite_inspection_service.py:114` | 13 | C |
-| 15 | `_summarize_currency_source` | function | `app/services/stateful_attribution_input_service.py:509` | 12 | C |
-| 16 | `_position_meta_from_row` | function | `app/services/stateful_contribution_input_service.py:221` | 12 | C |
-| 17 | `_build_workspace_summary_response` | function | `app/services/workspace_summary_service.py:503` | 12 | C |
-| 18 | `_build_instrument_attribution_panel` | function | `engine/attribution.py:270` | 12 | C |
-| 19 | `aggregate_attribution_results` | function | `engine/attribution.py:586` | 12 | C |
-| 20 | `_prepare_dataframe` | function | `engine/compute.py:163` | 12 | C |
+| 1 | `_resolve_workspace_benchmark_input` | function | `app/services/workspace_summary_service.py:314` | 15 | C |
+| 2 | `_build_compute_job_runtime` | function | `app/workers/compute_executor_worker.py:156` | 15 | C |
+| 3 | `calculate_benchmark_returns` | function | `engine/benchmarks.py:35` | 15 | C |
+| 4 | `_lineage_queue_response` | function | `app/models/runtime_status.py:691` | 14 | C |
+| 5 | `_parse_reclaimed_event_payload` | function | `app/services/operator_action_lease_service.py:415` | 14 | C |
+| 6 | `collect_runtime_degradation_reasons` | function | `app/services/runtime_status_degradation.py:257` | 14 | C |
+| 7 | `build_portfolio_source_quality_evidence` | function | `app/services/source_quality_evidence.py:13` | 14 | C |
+| 8 | `_collect_stateful_mwr_cash_flows` | function | `app/services/stateful_mwr_input_service.py:184` | 14 | C |
+| 9 | `_build_twr_results_by_period` | function | `app/services/twr_service.py:673` | 14 | C |
+| 10 | `portfolio_timeseries_to_valuation_points` | function | `app/services/valuation_points_service.py:12` | 14 | C |
+| 11 | `build_hierarchical_contribution_result` | function | `engine/contribution.py:298` | 14 | C |
+| 12 | `_apply_overrides` | function | `engine/policies.py:38` | 14 | C |
+| 13 | `_build_artifacts` | function | `app/services/composite_inspection_service.py:114` | 13 | C |
+| 14 | `_summarize_currency_source` | function | `app/services/stateful_attribution_input_service.py:509` | 12 | C |
+| 15 | `_position_meta_from_row` | function | `app/services/stateful_contribution_input_service.py:221` | 12 | C |
+| 16 | `_build_workspace_summary_response` | function | `app/services/workspace_summary_service.py:503` | 12 | C |
+| 17 | `_build_instrument_attribution_panel` | function | `engine/attribution.py:270` | 12 | C |
+| 18 | `aggregate_attribution_results` | function | `engine/attribution.py:586` | 12 | C |
+| 19 | `_prepare_dataframe` | function | `engine/compute.py:163` | 12 | C |
+| 20 | `_xirr` | function | `engine/mwr.py:145` | 12 | C |
 
 ## Lowest Maintainability Index
 
@@ -69,8 +69,8 @@ python scripts/python_complexity_inventory.py --limit 20
 | 14 | `app/services/inspection/reconciliation.py` | 16.40 | B |
 | 15 | `app/services/inspection/source_economics_collector.py` | 17.35 | B |
 | 16 | `app/services/inspection/source_economics.py` | 17.49 | B |
-| 17 | `app/workers/compute_executor_worker.py` | 17.85 | B |
-| 18 | `app/services/twr_mode_service.py` | 18.11 | B |
+| 17 | `app/services/twr_mode_service.py` | 17.85 | B |
+| 18 | `app/workers/compute_executor_worker.py` | 17.85 | B |
 | 19 | `app/services/inspection/source_quality.py` | 18.55 | B |
 | 20 | `app/models/runtime_status.py` | 18.75 | B |
 
@@ -176,8 +176,10 @@ and engine hotspot `_build_component_observations_from_price_points` also droppe
 price-pair validation and stateless return projection were moved into a dedicated helper. The
 remaining C-grade hotspot `resolve_twr_request` also dropped out after retrieval-to-normalization
 conversion and normalization-stage detail assembly were moved into a typed dedicated helper. The
-remaining C-grade hotspots should be treated as future bounded refactor candidates, not as evidence
-of an immediate behavior defect.
+remaining C-grade hotspot `_resolve_twr_benchmark_source_input` also dropped out after benchmark
+assignment identity resolution and evidence were moved into a typed dedicated helper. The remaining
+C-grade hotspots should be treated as future bounded refactor candidates, not as evidence of an
+immediate behavior defect.
 
 Maintainability index values should be treated as directional hotspot evidence because generated
 schemas, persistence-style modules, and dense orchestration files can score poorly even when tests

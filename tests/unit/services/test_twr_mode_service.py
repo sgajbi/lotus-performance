@@ -14,6 +14,7 @@ from app.services.twr_mode_service import (
     _build_resolved_twr_benchmark_request,
     _build_twr_normalization_resolution,
     _resolve_default_stateful_benchmark_input,
+    _resolve_twr_benchmark_identity,
     _resolve_twr_portfolio_source_input,
     _resolve_twr_retrieval_inputs,
     _TWRRetrievalResolution,
@@ -692,6 +693,37 @@ async def test_resolve_twr_request_sources_default_stateful_benchmark_assignment
     assert resolved.resolved_benchmark_id == "BMK_ASSIGNED"
     assert resolved.benchmark_request is not None
     assert resolved.benchmark_input_mode == BenchmarkInputMode.STATEFUL
+
+
+@pytest.mark.asyncio
+async def test_resolve_twr_benchmark_identity_records_assignment_evidence():
+    class _BenchmarkAssignmentStub:
+        async def get_benchmark_assignment(self, **kwargs):
+            assert kwargs["portfolio_id"] == "PORT_1"
+            return 200, {"benchmark_id": "BMK_ASSIGNED"}
+
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_1",
+            "performance_start_date": "2024-12-31",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+            "valuation_points": [
+                {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+            ],
+        }
+    )
+
+    identity = await _resolve_twr_benchmark_identity(
+        request=request,
+        stateful_input_service=_BenchmarkAssignmentStub(),
+        benchmark_id=None,
+    )
+
+    assert identity.benchmark_id == "BMK_ASSIGNED"
+    assert identity.source_details == {"resolved_benchmark_assignment": 1}
 
 
 @pytest.mark.asyncio
