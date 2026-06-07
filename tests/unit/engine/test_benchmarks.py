@@ -4,6 +4,7 @@ import pytest
 
 from app.models.benchmark_requests import BenchmarkComponentObservation, BenchmarkReturnPoint
 from engine.benchmarks import (
+    _component_contributions_dataframe,
     _uses_local_fx_component_returns,
     benchmark_return_points_to_dataframe,
     calculate_benchmark_returns,
@@ -75,6 +76,39 @@ def test_calculate_benchmark_returns_preserves_local_and_fx_components():
     assert contribution_row["component_currency"] == "EUR"
     assert float(contribution_row["local_contribution"]) == pytest.approx(0.02)
     assert float(contribution_row["fx_contribution"]) == pytest.approx(0.01)
+
+
+def test_component_contributions_dataframe_preserves_decimal_values_and_sort_order():
+    contributions_df = _component_contributions_dataframe(
+        [
+            BenchmarkComponentObservation(
+                component_id="IDX_B",
+                component_currency="EUR",
+                perf_date=date(2026, 1, 2),
+                weight_bop=0.4,
+                component_return=0.0201,
+                component_return_local=0.01,
+                component_return_fx=0.01,
+            ),
+            BenchmarkComponentObservation(
+                component_id="IDX_A",
+                component_currency="USD",
+                perf_date=date(2026, 1, 2),
+                weight_bop=0.6,
+                component_return=0.02,
+                component_return_local=0.02,
+                component_return_fx=0.0,
+            ),
+        ],
+        has_any_local=True,
+    )
+
+    rows = contributions_df.to_dict(orient="records")
+    assert [row["component_id"] for row in rows] == ["IDX_A", "IDX_B"]
+    assert str(rows[0]["weight_bop"]) == "0.6"
+    assert str(rows[0]["contribution"]) == "0.012"
+    assert str(rows[1]["local_contribution"]) == "0.004"
+    assert str(rows[1]["fx_contribution"]) == "0.004"
 
 
 def test_uses_local_fx_component_returns_detects_complete_and_absent_modes():

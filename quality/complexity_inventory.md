@@ -20,7 +20,7 @@ python scripts/python_complexity_inventory.py --limit 20
 
 | Metric | Value |
 | --- | ---: |
-| Max cyclomatic complexity | 15 |
+| Max cyclomatic complexity | 14 |
 | High-complexity functions (rank D-F) | 0 |
 | Average maintainability index | 55.60 |
 
@@ -28,26 +28,26 @@ python scripts/python_complexity_inventory.py --limit 20
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `calculate_benchmark_returns` | function | `engine/benchmarks.py:35` | 15 | C |
-| 2 | `_lineage_queue_response` | function | `app/models/runtime_status.py:691` | 14 | C |
-| 3 | `_parse_reclaimed_event_payload` | function | `app/services/operator_action_lease_service.py:415` | 14 | C |
-| 4 | `collect_runtime_degradation_reasons` | function | `app/services/runtime_status_degradation.py:257` | 14 | C |
-| 5 | `build_portfolio_source_quality_evidence` | function | `app/services/source_quality_evidence.py:13` | 14 | C |
-| 6 | `_collect_stateful_mwr_cash_flows` | function | `app/services/stateful_mwr_input_service.py:184` | 14 | C |
-| 7 | `_build_twr_results_by_period` | function | `app/services/twr_service.py:673` | 14 | C |
-| 8 | `portfolio_timeseries_to_valuation_points` | function | `app/services/valuation_points_service.py:12` | 14 | C |
-| 9 | `build_hierarchical_contribution_result` | function | `engine/contribution.py:298` | 14 | C |
-| 10 | `_apply_overrides` | function | `engine/policies.py:38` | 14 | C |
-| 11 | `_build_artifacts` | function | `app/services/composite_inspection_service.py:114` | 13 | C |
-| 12 | `_summarize_currency_source` | function | `app/services/stateful_attribution_input_service.py:509` | 12 | C |
-| 13 | `_position_meta_from_row` | function | `app/services/stateful_contribution_input_service.py:221` | 12 | C |
-| 14 | `_build_workspace_summary_response` | function | `app/services/workspace_summary_service.py:482` | 12 | C |
-| 15 | `_build_instrument_attribution_panel` | function | `engine/attribution.py:270` | 12 | C |
-| 16 | `aggregate_attribution_results` | function | `engine/attribution.py:586` | 12 | C |
-| 17 | `_prepare_dataframe` | function | `engine/compute.py:163` | 12 | C |
-| 18 | `_xirr` | function | `engine/mwr.py:145` | 12 | C |
-| 19 | `BenchmarkPerformanceRequest` | class | `app/models/benchmark_requests.py:48` | 11 | C |
-| 20 | `_ensure_error_response_examples` | function | `app/openapi_enrichment.py:384` | 11 | C |
+| 1 | `_lineage_queue_response` | function | `app/models/runtime_status.py:691` | 14 | C |
+| 2 | `_parse_reclaimed_event_payload` | function | `app/services/operator_action_lease_service.py:415` | 14 | C |
+| 3 | `collect_runtime_degradation_reasons` | function | `app/services/runtime_status_degradation.py:257` | 14 | C |
+| 4 | `build_portfolio_source_quality_evidence` | function | `app/services/source_quality_evidence.py:13` | 14 | C |
+| 5 | `_collect_stateful_mwr_cash_flows` | function | `app/services/stateful_mwr_input_service.py:184` | 14 | C |
+| 6 | `_build_twr_results_by_period` | function | `app/services/twr_service.py:673` | 14 | C |
+| 7 | `portfolio_timeseries_to_valuation_points` | function | `app/services/valuation_points_service.py:12` | 14 | C |
+| 8 | `build_hierarchical_contribution_result` | function | `engine/contribution.py:298` | 14 | C |
+| 9 | `_apply_overrides` | function | `engine/policies.py:38` | 14 | C |
+| 10 | `_build_artifacts` | function | `app/services/composite_inspection_service.py:114` | 13 | C |
+| 11 | `_summarize_currency_source` | function | `app/services/stateful_attribution_input_service.py:509` | 12 | C |
+| 12 | `_position_meta_from_row` | function | `app/services/stateful_contribution_input_service.py:221` | 12 | C |
+| 13 | `_build_workspace_summary_response` | function | `app/services/workspace_summary_service.py:482` | 12 | C |
+| 14 | `_build_instrument_attribution_panel` | function | `engine/attribution.py:270` | 12 | C |
+| 15 | `aggregate_attribution_results` | function | `engine/attribution.py:586` | 12 | C |
+| 16 | `_prepare_dataframe` | function | `engine/compute.py:163` | 12 | C |
+| 17 | `_xirr` | function | `engine/mwr.py:145` | 12 | C |
+| 18 | `BenchmarkPerformanceRequest` | class | `app/models/benchmark_requests.py:48` | 11 | C |
+| 19 | `_ensure_error_response_examples` | function | `app/openapi_enrichment.py:384` | 11 | C |
+| 20 | `calculate_benchmark_artifacts` | function | `app/services/benchmark_calculation_service.py:40` | 11 | C |
 
 ## Lowest Maintainability Index
 
@@ -76,7 +76,10 @@ python scripts/python_complexity_inventory.py --limit 20
 
 ## Interpretation
 
-The D/F high-complexity function inventory is now clear. `_build_benchmark_groups`,
+The D/F high-complexity function inventory is now clear. `calculate_benchmark_returns` dropped out
+of the top-20 table after component contribution projection, daily aggregation, cumulative linking,
+and weight diagnostics were split into named stages, reducing the measured maximum cyclomatic
+complexity from `15` to `14`. `_build_benchmark_groups`,
 `_parse_composition_window`, `_process_pending_jobs`, and
 `MoneyWeightedReturnAnalyticsRequest.validate_mode_payloads` dropped out of the top-20 table after
 benchmark grouping aggregation, composition-window parsing, compute-worker runtime setup, and MWR
@@ -158,7 +161,7 @@ helpers. `_map_workflow_pack_run` also dropped out after run-id validation, find
 string-list filtering, replacement-run-id projection, and posture boolean policy were split into
 dedicated helpers. `run_twr_inspection` also dropped out after subject-resolution stage lifecycle
 handling and subject identity evidence were split into a dedicated helper. Max cyclomatic
-complexity is now `15`. `build_source_preconverted_mwr_currency_evidence` also dropped out after
+complexity is now `14`. `build_source_preconverted_mwr_currency_evidence` also dropped out after
 market-value collection validation, cash-flow index validation, and cash-flow response evidence
 projection were split into dedicated helpers. `_recovery_drill_payload_matches_entry` also dropped
 out after recovery-drill evidence shape checks and entry-identity checks were split into dedicated
