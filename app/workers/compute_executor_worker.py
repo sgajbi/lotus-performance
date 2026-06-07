@@ -177,13 +177,6 @@ def _build_compute_job_runtime(
     active_result_store = result_store or async_result_store
     current_worker_id = worker_id or active_settings.COMPUTE_EXECUTOR_WORKER_ID
     current_lease_seconds = lease_seconds or active_settings.COMPUTE_EXECUTOR_LEASE_SECONDS
-    active_returns_series_calculator = returns_series_calculator or calculate_returns_series
-    active_contribution_calculator = contribution_calculator or calculate_contribution
-    active_attribution_calculator = attribution_calculator or calculate_attribution
-    active_benchmark_calculator = benchmark_calculator or calculate_benchmark_response
-    active_twr_calculator = twr_calculator or calculate_twr_response
-    active_workspace_summary_calculator = workspace_summary_calculator or calculate_workspace_summary
-    active_inspection_calculator = inspection_calculator or run_twr_inspection
     return _ComputeJobRuntime(
         job_store=active_job_store,
         execution_store=active_execution_store,
@@ -191,17 +184,42 @@ def _build_compute_job_runtime(
         worker_id=current_worker_id,
         lease_seconds=current_lease_seconds,
         batch_size=batch_size,
-        execution_context=_ComputeJobExecutionContext(
+        execution_context=_build_compute_job_execution_context(
             settings=active_settings,
             execution_store=active_execution_store,
-            returns_series_calculator=active_returns_series_calculator,
-            contribution_calculator=active_contribution_calculator,
-            attribution_calculator=active_attribution_calculator,
-            benchmark_calculator=active_benchmark_calculator,
-            twr_calculator=active_twr_calculator,
-            workspace_summary_calculator=active_workspace_summary_calculator,
-            inspection_calculator=active_inspection_calculator,
+            returns_series_calculator=returns_series_calculator,
+            contribution_calculator=contribution_calculator,
+            attribution_calculator=attribution_calculator,
+            benchmark_calculator=benchmark_calculator,
+            twr_calculator=twr_calculator,
+            workspace_summary_calculator=workspace_summary_calculator,
+            inspection_calculator=inspection_calculator,
         ),
+    )
+
+
+def _build_compute_job_execution_context(
+    *,
+    settings,
+    execution_store: ExecutionRegistry | RuntimeStoreProxy[ExecutionRegistry],
+    returns_series_calculator: Callable[..., Coroutine[Any, Any, Any]] | None,
+    contribution_calculator: Callable[..., Any] | None,
+    attribution_calculator: Callable[..., Any] | None,
+    benchmark_calculator: Callable[..., Any] | None,
+    twr_calculator: Callable[..., Any] | None,
+    workspace_summary_calculator: Callable[..., Any] | None,
+    inspection_calculator: Callable[[TWRInspectionRequest], Any] | None,
+) -> _ComputeJobExecutionContext:
+    return _ComputeJobExecutionContext(
+        settings=settings,
+        execution_store=execution_store,
+        returns_series_calculator=returns_series_calculator or calculate_returns_series,
+        contribution_calculator=contribution_calculator or calculate_contribution,
+        attribution_calculator=attribution_calculator or calculate_attribution,
+        benchmark_calculator=benchmark_calculator or calculate_benchmark_response,
+        twr_calculator=twr_calculator or calculate_twr_response,
+        workspace_summary_calculator=workspace_summary_calculator or calculate_workspace_summary,
+        inspection_calculator=inspection_calculator or run_twr_inspection,
     )
 
 
