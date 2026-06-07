@@ -23,13 +23,13 @@ python scripts/python_function_size_inventory.py --limit 15
 | 1 | `calculate_contribution` | `app/services/contribution_service.py:421` | 189 |
 | 2 | `_build_detailed_cashflow_contract_findings` | `app/services/inspection/source_economics_findings.py:112` | 186 |
 | 3 | `DurableQueueCollector.describe` | `app/services/queue_metrics_service.py:193` | 159 |
-| 4 | `aggregate_attribution_results` | `engine/attribution.py:600` | 148 |
-| 5 | `_build_external_cashflow_findings` | `app/services/inspection/source_economics_findings.py:300` | 140 |
-| 6 | `build_runtime_status_response` | `app/models/runtime_status.py:767` | 131 |
-| 7 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:71` | 131 |
-| 8 | `_build_fee_source_economics_findings` | `app/services/inspection/source_economics_findings.py:442` | 130 |
-| 9 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:327` | 130 |
-| 10 | `calculate_contribution_workflow` | `app/services/contribution_calculation_workflow_service.py:98` | 127 |
+| 4 | `_build_external_cashflow_findings` | `app/services/inspection/source_economics_findings.py:300` | 140 |
+| 5 | `build_runtime_status_response` | `app/models/runtime_status.py:767` | 131 |
+| 6 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:71` | 131 |
+| 7 | `_build_fee_source_economics_findings` | `app/services/inspection/source_economics_findings.py:442` | 130 |
+| 8 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:327` | 130 |
+| 9 | `calculate_contribution_workflow` | `app/services/contribution_calculation_workflow_service.py:98` | 127 |
+| 10 | `aggregate_attribution_results` | `engine/attribution.py:607` | 126 |
 | 11 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:482` | 122 |
 | 12 | `calculate_attribution` | `app/services/attribution_service.py:168` | 120 |
 | 13 | `_build_artifacts` | `app/services/composite_inspection_service.py:114` | 118 |
@@ -53,6 +53,8 @@ flat-period result assembly was isolated from the public contribution orchestrat
 dropped out of the top-15 table after resolved benchmark execution context and failure mapping were isolated.
 Workspace summary response assembly moved from `172` to `122` lines after benchmark and active-return
 period assembly were isolated.
+Attribution result aggregation moved from `148` to `126` lines after active-return/linking policy
+and granular effect totals were isolated.
 Durable queue metric collection dropped out of the top-15 table after source loading and
 availability/runtime-retention preview metric emission were isolated into dedicated helpers.
 Source-economics top-level finding assembly dropped from `258` lines out of the top-15 table after

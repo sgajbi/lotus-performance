@@ -1,11 +1,14 @@
 # tests/unit/engine/test_attribution.py
+from types import SimpleNamespace
+
 import pandas as pd
 import pytest
 
 from app.models.attribution_requests import AttributionRequest
-from common.enums import AttributionModel
+from common.enums import AttributionModel, LinkingMethod
 from engine.attribution import (
     _align_and_prepare_data,
+    _build_attribution_aggregation_base,
     _build_group_key_dict,
     _build_instrument_attribution_panel,
     _calculate_currency_attribution_effects,
@@ -293,6 +296,30 @@ def test_run_attribution_calculations_geometric_linking(by_group_request_data):
 
     assert abs(final_result.reconciliation.residual) < 1e-9
     assert final_result.reconciliation.sum_of_effects == pytest.approx(final_result.reconciliation.total_active_return)
+
+
+def test_build_attribution_aggregation_base_flags_invalid_linking_chain():
+    effects_df = pd.DataFrame(
+        {
+            "sector": ["Equity", "Equity"],
+            "w_p": [1.0, 1.0],
+            "r_base_p": [-1.0, 0.02],
+            "r_b_total": [-0.9, 0.01],
+            "allocation": [0.0, 0.0],
+            "selection": [-0.1, 0.01],
+            "interaction": [0.0, 0.0],
+        },
+        index=pd.Index(pd.to_datetime(["2025-01-01", "2025-01-02"]), name="date"),
+    )
+
+    result = _build_attribution_aggregation_base(
+        effects_df,
+        SimpleNamespace(group_by=["sector"], linking=LinkingMethod.CARINO),
+    )
+
+    assert result.linking_status == "invalid_return_chain"
+    assert result.active_return == pytest.approx(-0.09)
+    assert result.granular_totals.loc["Equity", "selection"] == pytest.approx(-0.09)
 
 
 def test_prepare_data_from_instruments():
