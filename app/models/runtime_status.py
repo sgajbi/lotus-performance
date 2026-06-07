@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Annotated, cast
 from pydantic import BaseModel, Field, PlainSerializer
 
 from app.services.compute_job_store import ComputeQueueInspectionAnchors, ComputeQueueStats, ComputeRecoveryEvent
+from app.services.durability_health_service import LineageStorageCapacitySnapshot
 from app.services.lineage_metadata_store import LineageQueueInspectionAnchors, LineageQueueStats, LineageRecoveryEvent
 from app.services.remediation_hint_service import get_remediation_hint
 
@@ -692,7 +693,6 @@ def _lineage_queue_response(queue_status: RuntimeQueueStatus) -> LineageQueueSta
     lineage_stats = cast(LineageQueueStats | None, queue_status.stats)
     lineage_anchors = cast(LineageQueueInspectionAnchors | None, queue_status.inspection_anchors)
     lineage_recoveries = cast(tuple[LineageRecoveryEvent, ...], queue_status.recent_recoveries)
-    lineage_storage_capacity = queue_status.storage_capacity
 
     return LineageQueueStatusDetailsResponse(
         status=queue_status.status,
@@ -700,17 +700,7 @@ def _lineage_queue_response(queue_status: RuntimeQueueStatus) -> LineageQueueSta
         remediation_hint=get_remediation_hint(queue_status.reason),
         degradation_reasons=list(queue_status.degradation_reasons),
         degradation_details=_degradation_details_response(queue_status.degradation_details),
-        pending_payloads=None if lineage_stats is None else lineage_stats.pending_payload_count,
-        leased_payloads=None if lineage_stats is None else lineage_stats.leased_payload_count,
-        retry_backlog_payloads=None if lineage_stats is None else lineage_stats.retry_backlog_count,
-        reclaimable_payloads=None if lineage_stats is None else lineage_stats.reclaimable_count,
-        terminal_failure_payloads=None if lineage_stats is None else lineage_stats.terminal_failure_count,
-        oldest_pending_age_seconds=None if lineage_stats is None else lineage_stats.oldest_pending_age_seconds,
-        oldest_leased_age_seconds=None if lineage_stats is None else lineage_stats.oldest_leased_age_seconds,
-        storage_total_bytes=None if lineage_storage_capacity is None else lineage_storage_capacity.total_bytes,
-        storage_used_bytes=None if lineage_storage_capacity is None else lineage_storage_capacity.used_bytes,
-        storage_free_bytes=None if lineage_storage_capacity is None else lineage_storage_capacity.free_bytes,
-        storage_free_ratio=None if lineage_storage_capacity is None else lineage_storage_capacity.free_ratio,
+        **_lineage_queue_measurement_fields(lineage_stats, queue_status.storage_capacity),
         inspection_anchors=(
             None
             if lineage_anchors is None
@@ -732,6 +722,46 @@ def _lineage_queue_response(queue_status: RuntimeQueueStatus) -> LineageQueueSta
             for item in lineage_recoveries
         ],
     )
+
+
+def _lineage_queue_measurement_fields(
+    lineage_stats: LineageQueueStats | None,
+    storage_capacity: LineageStorageCapacitySnapshot | None,
+) -> dict[str, object]:
+    stats_fields: dict[str, object] = {
+        "pending_payloads": None,
+        "leased_payloads": None,
+        "retry_backlog_payloads": None,
+        "reclaimable_payloads": None,
+        "terminal_failure_payloads": None,
+        "oldest_pending_age_seconds": None,
+        "oldest_leased_age_seconds": None,
+    }
+    if lineage_stats is not None:
+        stats_fields = {
+            "pending_payloads": lineage_stats.pending_payload_count,
+            "leased_payloads": lineage_stats.leased_payload_count,
+            "retry_backlog_payloads": lineage_stats.retry_backlog_count,
+            "reclaimable_payloads": lineage_stats.reclaimable_count,
+            "terminal_failure_payloads": lineage_stats.terminal_failure_count,
+            "oldest_pending_age_seconds": lineage_stats.oldest_pending_age_seconds,
+            "oldest_leased_age_seconds": lineage_stats.oldest_leased_age_seconds,
+        }
+
+    storage_fields: dict[str, object] = {
+        "storage_total_bytes": None,
+        "storage_used_bytes": None,
+        "storage_free_bytes": None,
+        "storage_free_ratio": None,
+    }
+    if storage_capacity is not None:
+        storage_fields = {
+            "storage_total_bytes": storage_capacity.total_bytes,
+            "storage_used_bytes": storage_capacity.used_bytes,
+            "storage_free_bytes": storage_capacity.free_bytes,
+            "storage_free_ratio": storage_capacity.free_ratio,
+        }
+    return {**stats_fields, **storage_fields}
 
 
 def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeStatusResponse:
