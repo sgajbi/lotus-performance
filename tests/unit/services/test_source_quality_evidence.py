@@ -1,6 +1,6 @@
 from datetime import date
 
-from app.services.source_quality_evidence import build_portfolio_source_quality_evidence
+from app.services.source_quality_evidence import _unsupported_cashflow_count, build_portfolio_source_quality_evidence
 
 
 def test_source_quality_evidence_captures_stateful_quality_warnings():
@@ -101,3 +101,17 @@ def test_source_quality_evidence_marks_degraded_malformed_source_without_stalene
     assert evidence.skipped_observation_count == 1
     assert evidence.latest_observation_date == date(2026, 3, 31)
     assert evidence.warnings == ["MISSING_VALUATION_POINTS"]
+
+
+def test_unsupported_cashflow_count_ignores_non_flow_values_and_counts_unsupported_taxonomy():
+    assert (
+        _unsupported_cashflow_count(
+            [
+                {"cash_flow_type": "external_flow"},
+                {"cash_flow_type": "dividend"},
+                "not-a-flow",
+            ]
+        )
+        == 1
+    )
+    assert _unsupported_cashflow_count("not-a-list") == 0

@@ -39,15 +39,7 @@ def build_portfolio_source_quality_evidence(
                 values_by_date[valuation_date].add((Decimal(str(begin_mv)), Decimal(str(end_mv))))
             except (InvalidOperation, TypeError, ValueError):
                 skipped_observation_count += 1
-
-        cash_flows = observation.get("cash_flows", [])
-        if isinstance(cash_flows, list):
-            for flow in cash_flows:
-                if not isinstance(flow, dict):
-                    continue
-                classification = classify_cashflow_type(flow.get("cash_flow_type"))
-                if classification.economics_role == "unsupported":
-                    unsupported_cashflow_count += 1
+        unsupported_cashflow_count += _unsupported_cashflow_count(observation.get("cash_flows", []))
 
     source_conflict_count = sum(max(len(values) - 1, 0) for values in values_by_date.values())
     latest_source_observation_date = latest_observation_date(normalized_dates)
@@ -78,6 +70,16 @@ def build_portfolio_source_quality_evidence(
         report_end_date=report_end_date,
         warnings=warnings,
         source_classification_counts=dict(sorted(source_classifications.items())),
+    )
+
+
+def _unsupported_cashflow_count(cash_flows: object) -> int:
+    if not isinstance(cash_flows, list):
+        return 0
+    return sum(
+        1
+        for flow in cash_flows
+        if isinstance(flow, dict) and classify_cashflow_type(flow.get("cash_flow_type")).economics_role == "unsupported"
     )
 
 
