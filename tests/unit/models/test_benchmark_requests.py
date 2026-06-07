@@ -3,7 +3,12 @@ from datetime import date
 import pytest
 from pydantic import ValidationError
 
-from app.models.benchmark_requests import BenchmarkPerformanceRequest
+from app.models.benchmark_requests import (
+    BenchmarkComponentObservation,
+    BenchmarkPerformanceRequest,
+    BenchmarkReturnPoint,
+    _validate_benchmark_source_payloads,
+)
 
 
 @pytest.fixture
@@ -82,6 +87,41 @@ def test_benchmark_performance_request_requires_vendor_series_without_component_
                     }
                 ],
             }
+        )
+
+
+def test_validate_benchmark_source_payloads_enforces_source_exclusivity():
+    component_observation = BenchmarkComponentObservation.model_validate(
+        {
+            "component_id": "IDX_1",
+            "perf_date": date(2025, 1, 2),
+            "weight_bop": 1.0,
+            "component_return": 0.01,
+        }
+    )
+    return_point = BenchmarkReturnPoint.model_validate(
+        {
+            "perf_date": date(2025, 1, 2),
+            "benchmark_return": 0.01,
+        }
+    )
+
+    _validate_benchmark_source_payloads(
+        return_source="calculated",
+        component_observations=[component_observation],
+        benchmark_return_points=[],
+    )
+    _validate_benchmark_source_payloads(
+        return_source="vendor_series",
+        component_observations=[],
+        benchmark_return_points=[return_point],
+    )
+
+    with pytest.raises(ValueError, match="benchmark_return_points must be empty"):
+        _validate_benchmark_source_payloads(
+            return_source="calculated",
+            component_observations=[component_observation],
+            benchmark_return_points=[return_point],
         )
 
 
