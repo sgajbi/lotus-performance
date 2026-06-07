@@ -44,28 +44,47 @@ def _apply_overrides(df: pd.DataFrame, overrides: Dict, diagnostics: EngineDiagn
     cf_overrides = overrides.get("cash_flows", [])
 
     for override in mv_overrides:
-        mask = df[PortfolioColumns.PERF_DATE.value] == pd.to_datetime(override["perf_date"])
-        # In a multi-position context, we would also filter by position_id
-        if "position_id" in override:
-            if "position_id" in df.columns:
-                mask &= df["position_id"] == override["position_id"]
-
-        if not df.loc[mask].empty:
-            for key in ["begin_mv", "end_mv"]:
-                if key in override:
-                    df.loc[mask, key] = override[key]
-                    diagnostics.policy.overrides.applied_mv_count += 1
+        diagnostics.policy.overrides.applied_mv_count += _apply_override_values(
+            df,
+            override,
+            keys=("begin_mv", "end_mv"),
+            mask=_override_mask(df, override),
+        )
 
     for override in cf_overrides:
-        mask = df[PortfolioColumns.PERF_DATE.value] == pd.to_datetime(override["perf_date"])
-        if not df.loc[mask].empty:
-            for key in ["bod_cf", "eod_cf"]:
-                if key in override:
-                    df.loc[mask, key] = override[key]
-                    diagnostics.policy.overrides.applied_cf_count += 1
+        diagnostics.policy.overrides.applied_cf_count += _apply_override_values(
+            df,
+            override,
+            keys=("bod_cf", "eod_cf"),
+            mask=_override_mask(df, override),
+        )
 
     if diagnostics.policy.overrides.applied_mv_count > 0 or diagnostics.policy.overrides.applied_cf_count > 0:
         diagnostics.notes.append("Applied overrides from the data_policy request.")
+
+
+def _override_mask(df: pd.DataFrame, override: Dict) -> pd.Series:
+    mask = df[PortfolioColumns.PERF_DATE.value] == pd.to_datetime(override["perf_date"])
+    if "position_id" in override and "position_id" in df.columns:
+        mask &= df["position_id"] == override["position_id"]
+    return mask
+
+
+def _apply_override_values(
+    df: pd.DataFrame,
+    override: Dict,
+    *,
+    keys: tuple[str, ...],
+    mask: pd.Series,
+) -> int:
+    if df.loc[mask].empty:
+        return 0
+    applied_count = 0
+    for key in keys:
+        if key in override:
+            df.loc[mask, key] = override[key]
+            applied_count += 1
+    return applied_count
 
 
 def _apply_ignore_days(df: pd.DataFrame, ignore_days: list, diagnostics: EngineDiagnostics) -> None:
