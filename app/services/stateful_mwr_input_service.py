@@ -213,33 +213,38 @@ def _collect_stateful_mwr_cash_flows(
             previous_ending_market_value = _parse_decimal(observation.get("ending_market_value"))
             continue
         for flow in flows_raw:
-            if not isinstance(flow, dict) or flow.get("amount") is None:
+            component = _source_mwr_cash_flow_component(flow, reporting_currency=reporting_currency)
+            if component is None:
                 continue
-            cashflow_type = classify_cashflow_type(flow.get("cash_flow_type"))
-            if cashflow_type.economics_role not in {"external", "missing"}:
-                continue
-            amount = Decimal(str(flow["amount"]))
             cash_flows_by_date.setdefault(valuation_date, Decimal("0"))
-            cash_flows_by_date[valuation_date] += amount
-            cash_flow_components_by_date.setdefault(valuation_date, []).append(
-                MWRCashFlowEvidenceComponent(
-                    component_type="source_cash_flow",
-                    amount=amount,
-                    currency=reporting_currency,
-                    cash_flow_type=str(flow.get("cash_flow_type")) if flow.get("cash_flow_type") is not None else None,
-                    flow_scope=str(flow.get("flow_scope")) if flow.get("flow_scope") is not None else None,
-                    source_classification=(
-                        str(flow.get("source_classification"))
-                        if flow.get("source_classification") is not None
-                        else None
-                    ),
-                )
-            )
+            cash_flows_by_date[valuation_date] += component.amount
+            cash_flow_components_by_date.setdefault(valuation_date, []).append(component)
         previous_ending_market_value = _parse_decimal(observation.get("ending_market_value"))
 
     return _StatefulMWRCashFlowCollection(
         cash_flows_by_date=cash_flows_by_date,
         cash_flow_components_by_date=cash_flow_components_by_date,
+    )
+
+
+def _source_mwr_cash_flow_component(
+    flow: object,
+    *,
+    reporting_currency: str | None,
+) -> MWRCashFlowEvidenceComponent | None:
+    if not isinstance(flow, dict) or flow.get("amount") is None:
+        return None
+    if classify_cashflow_type(flow.get("cash_flow_type")).economics_role not in {"external", "missing"}:
+        return None
+    return MWRCashFlowEvidenceComponent(
+        component_type="source_cash_flow",
+        amount=Decimal(str(flow["amount"])),
+        currency=reporting_currency,
+        cash_flow_type=str(flow.get("cash_flow_type")) if flow.get("cash_flow_type") is not None else None,
+        flow_scope=str(flow.get("flow_scope")) if flow.get("flow_scope") is not None else None,
+        source_classification=(
+            str(flow.get("source_classification")) if flow.get("source_classification") is not None else None
+        ),
     )
 
 
