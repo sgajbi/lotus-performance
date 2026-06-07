@@ -8,6 +8,7 @@ from fastapi import HTTPException
 from app.models.benchmark_analytics_requests import BenchmarkReturnSource
 from app.services.stateful_benchmark_input_service import (
     BenchmarkCompositionSegment,
+    _build_component_observation,
     _build_component_observations,
     _build_normalized_component_series,
     _load_component_price_series,
@@ -805,6 +806,47 @@ def test_build_component_observations_detects_incomplete_market_coverage_and_emp
             requested_start_date=date(2026, 1, 4),
             requested_end_date=date(2026, 1, 3),
         )
+
+
+def test_build_component_observation_projects_local_fx_and_total_returns():
+    observation = _build_component_observation(
+        benchmark_id="BMK_1",
+        segment=BenchmarkCompositionSegment(
+            index_id="IDX_EUR",
+            composition_weight=Decimal("0.4"),
+            composition_effective_from=date(2026, 1, 1),
+            composition_effective_to=None,
+        ),
+        point_date=date(2026, 1, 2),
+        normalized_component_series={
+            "IDX_EUR": {
+                "normalized_prices": {
+                    date(2026, 1, 1): Decimal("110"),
+                    date(2026, 1, 2): Decimal("113.322"),
+                },
+                "local_prices": {
+                    date(2026, 1, 1): Decimal("100"),
+                    date(2026, 1, 2): Decimal("101"),
+                },
+                "series_currency": "EUR",
+            }
+        },
+        benchmark_currency="USD",
+        fx_map_by_pair={
+            ("EUR", "USD"): {
+                date(2026, 1, 1): Decimal("1.10"),
+                date(2026, 1, 2): Decimal("1.122"),
+            }
+        },
+    )
+
+    assert observation.component_id == "IDX_EUR"
+    assert observation.perf_date == date(2026, 1, 2)
+    assert observation.component_currency == "EUR"
+    assert observation.weight_bop == pytest.approx(0.4)
+    assert observation.component_return == pytest.approx(0.0302)
+    assert observation.component_return_local == pytest.approx(0.01)
+    assert observation.component_return_fx == pytest.approx(0.02)
 
 
 def test_build_normalized_component_series_skips_invalid_points_and_rejects_missing_prices():

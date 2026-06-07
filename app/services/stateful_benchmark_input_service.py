@@ -499,58 +499,14 @@ def _build_component_observations(
                 detail=f"Benchmark composition window missing active segments for {point_date}.",
             )
         for segment in sorted(active_segments, key=lambda item: item.index_id):
-            series_payload = normalized_component_series.get(segment.index_id)
-            if series_payload is None:
-                raise HTTPException(
-                    status_code=HTTP_422_UNPROCESSABLE,
-                    detail=f"Missing index price-series payload for benchmark component {segment.index_id}.",
-                )
-            normalized_prices = series_payload["normalized_prices"]
-            local_prices = series_payload["local_prices"]
-            component_currency = series_payload["series_currency"]
-            if point_date not in normalized_prices or point_date not in local_prices:
-                raise HTTPException(
-                    status_code=HTTP_422_UNPROCESSABLE,
-                    detail=(
-                        f"Benchmark market-series coverage is incomplete for benchmark_id={benchmark_id}; "
-                        f"component {segment.index_id} is missing {point_date}."
-                    ),
-                )
-            previous_dates = [candidate for candidate in normalized_prices if candidate < point_date]
-            if not previous_dates:
-                raise HTTPException(
-                    status_code=HTTP_422_UNPROCESSABLE,
-                    detail=(
-                        f"Benchmark calculated mode requires a prior normalized price before {point_date} "
-                        f"for component {segment.index_id}."
-                    ),
-                )
-            previous_date = max(previous_dates)
-            previous_price = normalized_prices[previous_date]
-            current_price = normalized_prices[point_date]
-            if previous_price == 0:
-                raise HTTPException(
-                    status_code=HTTP_422_UNPROCESSABLE,
-                    detail=(f"Normalized benchmark price is zero for component {segment.index_id} on {previous_date}."),
-                )
-            local_previous_price = local_prices[previous_date]
-            local_current_price = local_prices[point_date]
-            component_return_local = (local_current_price / local_previous_price) - Decimal("1")
-            if component_currency == benchmark_currency:
-                component_return_fx = Decimal("0")
-            else:
-                fx_map = fx_map_by_pair[(component_currency, benchmark_currency)]
-                component_return_fx = (fx_map[point_date] / fx_map[previous_date]) - Decimal("1")
-            component_return = (current_price / previous_price) - Decimal("1")
             observations.append(
-                BenchmarkComponentObservation(
-                    component_id=segment.index_id,
-                    perf_date=point_date,
-                    component_currency=component_currency,
-                    weight_bop=float(segment.composition_weight),
-                    component_return=float(component_return),
-                    component_return_local=float(component_return_local),
-                    component_return_fx=float(component_return_fx),
+                _build_component_observation(
+                    benchmark_id=benchmark_id,
+                    segment=segment,
+                    point_date=point_date,
+                    normalized_component_series=normalized_component_series,
+                    benchmark_currency=benchmark_currency,
+                    fx_map_by_pair=fx_map_by_pair,
                 )
             )
 
@@ -560,6 +516,69 @@ def _build_component_observations(
             detail=f"No normalized benchmark observations available for benchmark_id={benchmark_id}.",
         )
     return sorted(observations, key=lambda item: (item.perf_date, item.component_id))
+
+
+def _build_component_observation(
+    *,
+    benchmark_id: str,
+    segment: BenchmarkCompositionSegment,
+    point_date: date,
+    normalized_component_series: dict[str, dict[str, Any]],
+    benchmark_currency: str,
+    fx_map_by_pair: dict[tuple[str, str], dict[date, Decimal]],
+) -> BenchmarkComponentObservation:
+    series_payload = normalized_component_series.get(segment.index_id)
+    if series_payload is None:
+        raise HTTPException(
+            status_code=HTTP_422_UNPROCESSABLE,
+            detail=f"Missing index price-series payload for benchmark component {segment.index_id}.",
+        )
+    normalized_prices = series_payload["normalized_prices"]
+    local_prices = series_payload["local_prices"]
+    component_currency = series_payload["series_currency"]
+    if point_date not in normalized_prices or point_date not in local_prices:
+        raise HTTPException(
+            status_code=HTTP_422_UNPROCESSABLE,
+            detail=(
+                f"Benchmark market-series coverage is incomplete for benchmark_id={benchmark_id}; "
+                f"component {segment.index_id} is missing {point_date}."
+            ),
+        )
+    previous_dates = [candidate for candidate in normalized_prices if candidate < point_date]
+    if not previous_dates:
+        raise HTTPException(
+            status_code=HTTP_422_UNPROCESSABLE,
+            detail=(
+                f"Benchmark calculated mode requires a prior normalized price before {point_date} "
+                f"for component {segment.index_id}."
+            ),
+        )
+    previous_date = max(previous_dates)
+    previous_price = normalized_prices[previous_date]
+    current_price = normalized_prices[point_date]
+    if previous_price == 0:
+        raise HTTPException(
+            status_code=HTTP_422_UNPROCESSABLE,
+            detail=(f"Normalized benchmark price is zero for component {segment.index_id} on {previous_date}."),
+        )
+    local_previous_price = local_prices[previous_date]
+    local_current_price = local_prices[point_date]
+    component_return_local = (local_current_price / local_previous_price) - Decimal("1")
+    if component_currency == benchmark_currency:
+        component_return_fx = Decimal("0")
+    else:
+        fx_map = fx_map_by_pair[(component_currency, benchmark_currency)]
+        component_return_fx = (fx_map[point_date] / fx_map[previous_date]) - Decimal("1")
+    component_return = (current_price / previous_price) - Decimal("1")
+    return BenchmarkComponentObservation(
+        component_id=segment.index_id,
+        perf_date=point_date,
+        component_currency=component_currency,
+        weight_bop=float(segment.composition_weight),
+        component_return=float(component_return),
+        component_return_local=float(component_return_local),
+        component_return_fx=float(component_return_fx),
+    )
 
 
 def _build_normalized_component_series(
