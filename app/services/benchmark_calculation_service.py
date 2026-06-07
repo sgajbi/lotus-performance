@@ -37,6 +37,37 @@ class BenchmarkCalculationArtifacts:
     notes: list[str]
 
 
+@dataclass(frozen=True)
+class _BenchmarkSourceArtifacts:
+    daily_returns_df: pd.DataFrame
+    component_contributions_df: pd.DataFrame
+    effective_period_start: date
+    max_weight_sum_deviation: float
+    notes: list[str]
+
+
+def _build_benchmark_source_artifacts(benchmark_request: BenchmarkPerformanceRequest) -> _BenchmarkSourceArtifacts:
+    if benchmark_request.return_source == "calculated":
+        engine_result = calculate_benchmark_returns(benchmark_request.component_observations)
+        return _BenchmarkSourceArtifacts(
+            daily_returns_df=engine_result.daily_returns_df.copy(),
+            component_contributions_df=engine_result.component_contributions_df.copy(),
+            effective_period_start=engine_result.effective_period_start,
+            max_weight_sum_deviation=engine_result.max_weight_sum_deviation,
+            notes=list(engine_result.notes),
+        )
+
+    return _BenchmarkSourceArtifacts(
+        daily_returns_df=benchmark_return_points_to_dataframe(benchmark_request.benchmark_return_points).copy(),
+        component_contributions_df=pd.DataFrame(
+            columns=["date", "component_id", "weight_bop", "component_return", "contribution"]
+        ),
+        effective_period_start=benchmark_request.benchmark_start_date,
+        max_weight_sum_deviation=0.0,
+        notes=["Benchmark returns were sourced from vendor series because return_source=vendor_series was requested."],
+    )
+
+
 def calculate_benchmark_artifacts(
     benchmark_request: BenchmarkPerformanceRequest,
     *,
@@ -53,21 +84,9 @@ def calculate_benchmark_artifacts(
         explicit_start_date=benchmark_request.report_start_date,
     )
 
-    if benchmark_request.return_source == "calculated":
-        engine_result = calculate_benchmark_returns(benchmark_request.component_observations)
-        daily_returns_df = engine_result.daily_returns_df.copy()
-        component_contributions_df = engine_result.component_contributions_df.copy()
-        notes = list(engine_result.notes)
-        effective_period_start = engine_result.effective_period_start
-        max_weight_sum_deviation = engine_result.max_weight_sum_deviation
-    else:
-        daily_returns_df = benchmark_return_points_to_dataframe(benchmark_request.benchmark_return_points).copy()
-        component_contributions_df = pd.DataFrame(
-            columns=["date", "component_id", "weight_bop", "component_return", "contribution"]
-        )
-        notes = ["Benchmark returns were sourced from vendor series because return_source=vendor_series was requested."]
-        effective_period_start = benchmark_request.benchmark_start_date
-        max_weight_sum_deviation = 0.0
+    source_artifacts = _build_benchmark_source_artifacts(benchmark_request)
+    daily_returns_df = source_artifacts.daily_returns_df
+    component_contributions_df = source_artifacts.component_contributions_df
 
     daily_returns_df["date"] = observation_date_series(daily_returns_df["date"])
     if not component_contributions_df.empty:
@@ -124,9 +143,9 @@ def calculate_benchmark_artifacts(
         results_by_period=results_by_period,
         daily_returns_df=daily_returns_df,
         component_contributions_df=component_contributions_df,
-        effective_period_start=effective_period_start,
-        max_weight_sum_deviation=max_weight_sum_deviation,
-        notes=notes,
+        effective_period_start=source_artifacts.effective_period_start,
+        max_weight_sum_deviation=source_artifacts.max_weight_sum_deviation,
+        notes=source_artifacts.notes,
     )
 
 

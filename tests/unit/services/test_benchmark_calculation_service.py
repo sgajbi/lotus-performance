@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
+from decimal import Decimal
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -149,6 +150,20 @@ def test_calculate_benchmark_artifacts_builds_vendor_series_results_and_skips_co
     assert period_result.component_contributions is None
     assert period_result.daily_returns is not None
     assert len(period_result.daily_returns) == 2
+
+
+def test_build_benchmark_source_artifacts_projects_vendor_series_inputs():
+    request = _vendor_request()
+
+    source_artifacts = benchmark_calculation_service._build_benchmark_source_artifacts(request)
+
+    assert source_artifacts.effective_period_start == date(2025, 1, 1)
+    assert source_artifacts.max_weight_sum_deviation == 0.0
+    assert source_artifacts.component_contributions_df.empty
+    assert source_artifacts.notes == [
+        "Benchmark returns were sourced from vendor series because return_source=vendor_series was requested."
+    ]
+    assert list(source_artifacts.daily_returns_df["benchmark_return"]) == [Decimal("0.01"), Decimal("0.02")]
 
 
 def test_calculate_benchmark_artifacts_skips_empty_period_slices(monkeypatch):
