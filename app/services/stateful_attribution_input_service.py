@@ -572,15 +572,8 @@ def _distinct_source_currencies(values: Iterable[object]) -> list[str]:
 
 
 def _validate_stateful_position_inception_support(*, rows: list[dict[str, object]]) -> None:
-    first_rows_by_position: dict[str, dict[str, object]] = {}
-    for row in sorted(rows, key=lambda item: (str(item.get("position_id", "")), str(item.get("valuation_date", "")))):
-        position_id = row.get("position_id")
-        if not isinstance(position_id, str) or position_id in first_rows_by_position:
-            continue
-        first_rows_by_position[position_id] = row
-
     unsupported_positions: list[str] = []
-    for position_id, row in first_rows_by_position.items():
+    for position_id, row in _first_rows_by_position(rows).items():
         begin_value_raw = row.get("beginning_market_value_portfolio_currency")
         end_value_raw = row.get("ending_market_value_portfolio_currency")
         begin_value = Decimal(str(begin_value_raw)) if begin_value_raw is not None else Decimal("0")
@@ -600,6 +593,16 @@ def _validate_stateful_position_inception_support(*, rows: list[dict[str, object
                 f"Affected positions: {sample_positions}."
             ),
         )
+
+
+def _first_rows_by_position(rows: list[dict[str, object]]) -> dict[str, dict[str, object]]:
+    first_rows_by_position: dict[str, dict[str, object]] = {}
+    for row in sorted(rows, key=lambda item: (str(item.get("position_id", "")), str(item.get("valuation_date", "")))):
+        position_id = row.get("position_id")
+        if not isinstance(position_id, str) or position_id in first_rows_by_position:
+            continue
+        first_rows_by_position[position_id] = row
+    return first_rows_by_position
 
 
 def _validate_stateful_group_by(group_by: list[str]) -> None:

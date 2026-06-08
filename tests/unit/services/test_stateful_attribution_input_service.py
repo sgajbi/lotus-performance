@@ -14,6 +14,7 @@ from app.services.stateful_attribution_input_service import (
     _build_group_key,
     _build_instruments_data,
     _distinct_source_currencies,
+    _first_rows_by_position,
     _normalize_group_value,
     _normalized_position_dimensions,
     _parse_index_catalog,
@@ -934,6 +935,22 @@ def test_position_market_value_pair_prefers_reporting_currency_and_skips_incompl
         )
         is None
     )
+
+
+def test_first_rows_by_position_orders_by_position_and_valuation_date():
+    rows = [
+        {"position_id": "POS_B", "valuation_date": "2025-01-02", "marker": "b-late"},
+        {"position_id": "POS_A", "valuation_date": "2025-01-02", "marker": "a-late"},
+        {"position_id": "POS_A", "valuation_date": "2025-01-01", "marker": "a-first"},
+        {"position_id": None, "valuation_date": "2025-01-01", "marker": "invalid"},
+        {"position_id": "POS_B", "valuation_date": "2025-01-01", "marker": "b-first"},
+    ]
+
+    first_rows = _first_rows_by_position(rows)
+
+    assert list(first_rows) == ["POS_A", "POS_B"]
+    assert first_rows["POS_A"]["marker"] == "a-first"
+    assert first_rows["POS_B"]["marker"] == "b-first"
 
 
 def test_stateful_portfolio_position_alignment_mismatches_allows_internal_transfer_timing_noise():
