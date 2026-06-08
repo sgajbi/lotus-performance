@@ -19,6 +19,7 @@ from app.services.stateful_attribution_input_service import (
     _parse_index_catalog,
     _parse_position_rows,
     _portfolio_market_values_by_date,
+    _position_market_value_pair,
     _position_market_value_totals_by_date,
     _position_meta_from_row,
     _position_row_to_base_weight_point,
@@ -907,6 +908,32 @@ def test_position_market_value_totals_prefer_reporting_currency_and_fallback_to_
     assert totals_by_date["2025-01-01"]["begin"] == Decimal("120")
     assert totals_by_date["2025-01-01"]["end"] == Decimal("135")
     assert totals_by_date["2025-01-01"]["internal_flow_abs"] == Decimal("5")
+
+
+def test_position_market_value_pair_prefers_reporting_currency_and_skips_incomplete_rows():
+    assert _position_market_value_pair(
+        row={
+            "beginning_market_value_reporting_currency": "100",
+            "ending_market_value_reporting_currency": "110",
+            "beginning_market_value_portfolio_currency": "999",
+            "ending_market_value_portfolio_currency": "999",
+        },
+        reporting_currency="USD",
+    ) == ("100", "110")
+    assert _position_market_value_pair(
+        row={
+            "beginning_market_value_portfolio_currency": "200",
+            "ending_market_value_portfolio_currency": "210",
+        },
+        reporting_currency="USD",
+    ) == ("200", "210")
+    assert (
+        _position_market_value_pair(
+            row={"beginning_market_value_portfolio_currency": "200"},
+            reporting_currency=None,
+        )
+        is None
+    )
 
 
 def test_stateful_portfolio_position_alignment_mismatches_allows_internal_transfer_timing_noise():

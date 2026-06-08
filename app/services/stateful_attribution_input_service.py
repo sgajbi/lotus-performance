@@ -351,15 +351,10 @@ def _position_market_value_totals_by_date(
         valuation_date = row.get("valuation_date")
         if not isinstance(valuation_date, str):
             continue
-        begin_key = "beginning_market_value_reporting_currency" if reporting_currency is not None else None
-        end_key = "ending_market_value_reporting_currency" if reporting_currency is not None else None
-        begin_value = row.get(begin_key) if begin_key is not None else None
-        end_value = row.get(end_key) if end_key is not None else None
-        if begin_value is None or end_value is None:
-            begin_value = row.get("beginning_market_value_portfolio_currency")
-            end_value = row.get("ending_market_value_portfolio_currency")
-        if begin_value is None or end_value is None:
+        market_values = _position_market_value_pair(row=row, reporting_currency=reporting_currency)
+        if market_values is None:
             continue
+        begin_value, end_value = market_values
         totals = position_totals_by_date.setdefault(
             valuation_date,
             {"begin": Decimal("0"), "end": Decimal("0"), "internal_flow_abs": Decimal("0")},
@@ -371,6 +366,23 @@ def _position_market_value_totals_by_date(
             reporting_currency=reporting_currency,
         )
     return position_totals_by_date
+
+
+def _position_market_value_pair(
+    *,
+    row: dict[str, object],
+    reporting_currency: str | None,
+) -> tuple[object, object] | None:
+    begin_key = "beginning_market_value_reporting_currency" if reporting_currency is not None else None
+    end_key = "ending_market_value_reporting_currency" if reporting_currency is not None else None
+    begin_value = row.get(begin_key) if begin_key is not None else None
+    end_value = row.get(end_key) if end_key is not None else None
+    if begin_value is None or end_value is None:
+        begin_value = row.get("beginning_market_value_portfolio_currency")
+        end_value = row.get("ending_market_value_portfolio_currency")
+    if begin_value is None or end_value is None:
+        return None
+    return begin_value, end_value
 
 
 def _stateful_portfolio_position_alignment_mismatches(
