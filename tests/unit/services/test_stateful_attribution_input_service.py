@@ -23,6 +23,7 @@ from app.services.stateful_attribution_input_service import (
     _position_meta_from_row,
     _position_row_to_base_weight_point,
     _position_row_to_daily_point,
+    _resolve_stateful_attribution_benchmark_id,
     _split_position_cash_flows,
     _stateful_portfolio_position_alignment_mismatches,
     _summarize_benchmark_classification,
@@ -44,17 +45,53 @@ class _AttributionInputServiceStub:
         self.position_response = (200, {"rows": []})
         self.assignment_response = (200, {"benchmark_id": "BMK_1"})
         self.index_response = (200, {"records": []})
+        self.assignment_calls: list[dict[str, object]] = []
         self.index_catalog_calls: list[dict[str, object]] = []
 
     async def get_position_timeseries(self, **kwargs):
         return self.position_response
 
     async def get_benchmark_assignment(self, **kwargs):
+        self.assignment_calls.append(kwargs)
         return self.assignment_response
 
     async def get_index_catalog(self, **kwargs):
         self.index_catalog_calls.append(kwargs)
         return self.index_response
+
+
+@pytest.mark.asyncio
+async def test_resolve_stateful_attribution_benchmark_id_prefers_override_and_reads_assignment():
+    service = _AttributionInputServiceStub()
+    calculation_id = uuid4()
+
+    override_id = await _resolve_stateful_attribution_benchmark_id(
+        stateful_input_service=service,
+        portfolio_id="P1",
+        as_of_date=date(2025, 1, 1),
+        reporting_currency="USD",
+        calculation_id=calculation_id,
+        benchmark_id_override="BMK_OVERRIDE",
+    )
+    assigned_id = await _resolve_stateful_attribution_benchmark_id(
+        stateful_input_service=service,
+        portfolio_id="P1",
+        as_of_date=date(2025, 1, 1),
+        reporting_currency="USD",
+        calculation_id=calculation_id,
+        benchmark_id_override=None,
+    )
+
+    assert override_id == "BMK_OVERRIDE"
+    assert assigned_id == "BMK_1"
+    assert service.assignment_calls == [
+        {
+            "portfolio_id": "P1",
+            "as_of_date": date(2025, 1, 1),
+            "reporting_currency": "USD",
+            "calculation_id": calculation_id,
+        }
+    ]
 
 
 @pytest.mark.asyncio

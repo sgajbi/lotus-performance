@@ -111,31 +111,14 @@ async def retrieve_stateful_attribution_source_input(
     )
     position_rows = _parse_position_rows(upstream_payload)
 
-    benchmark_id = benchmark_id_override
-    if benchmark_id is None:
-        assignment_status, assignment_payload = await stateful_input_service.get_benchmark_assignment(
-            portfolio_id=portfolio_id,
-            as_of_date=as_of_date,
-            reporting_currency=reporting_currency,
-            calculation_id=calculation_id,
-        )
-        if assignment_status == status.HTTP_404_NOT_FOUND:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail="Stateful attribution input requires a benchmark assignment or explicit stateful_input.benchmark_id.",
-            )
-        if assignment_status >= status.HTTP_400_BAD_REQUEST:
-            raise_for_stateful_source_unavailable(
-                source_label="benchmark assignment",
-                upstream_status=assignment_status,
-            )
-        benchmark_id_raw = assignment_payload.get("benchmark_id")
-        if not isinstance(benchmark_id_raw, str) or not benchmark_id_raw:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="benchmark assignment payload missing benchmark_id.",
-            )
-        benchmark_id = benchmark_id_raw
+    benchmark_id = await _resolve_stateful_attribution_benchmark_id(
+        stateful_input_service=stateful_input_service,
+        portfolio_id=portfolio_id,
+        as_of_date=as_of_date,
+        reporting_currency=reporting_currency,
+        calculation_id=calculation_id,
+        benchmark_id_override=benchmark_id_override,
+    )
 
     benchmark_input = await build_stateful_benchmark_input(
         stateful_input_service=stateful_input_service,
@@ -173,6 +156,43 @@ async def retrieve_stateful_attribution_source_input(
         index_records=index_records,
         index_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
     )
+
+
+async def _resolve_stateful_attribution_benchmark_id(
+    *,
+    stateful_input_service: StatefulInputService,
+    portfolio_id: str,
+    as_of_date,
+    reporting_currency: str | None,
+    calculation_id,
+    benchmark_id_override: str | None,
+) -> str:
+    if benchmark_id_override is not None:
+        return benchmark_id_override
+
+    assignment_status, assignment_payload = await stateful_input_service.get_benchmark_assignment(
+        portfolio_id=portfolio_id,
+        as_of_date=as_of_date,
+        reporting_currency=reporting_currency,
+        calculation_id=calculation_id,
+    )
+    if assignment_status == status.HTTP_404_NOT_FOUND:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Stateful attribution input requires a benchmark assignment or explicit stateful_input.benchmark_id.",
+        )
+    if assignment_status >= status.HTTP_400_BAD_REQUEST:
+        raise_for_stateful_source_unavailable(
+            source_label="benchmark assignment",
+            upstream_status=assignment_status,
+        )
+    benchmark_id_raw = assignment_payload.get("benchmark_id")
+    if not isinstance(benchmark_id_raw, str) or not benchmark_id_raw:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="benchmark assignment payload missing benchmark_id.",
+        )
+    return benchmark_id_raw
 
 
 def build_stateful_attribution_input(
