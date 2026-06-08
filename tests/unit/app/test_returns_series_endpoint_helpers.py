@@ -23,6 +23,7 @@ from app.models.returns_series import (
     StatefulInput,
     StatelessInput,
 )
+from app.services import returns_series_calculation_workflow_service
 from app.services.execution_registry import execution_registry
 from app.services.returns_series_calculation_workflow_service import (
     calculate_returns_series_workflow,
@@ -317,3 +318,36 @@ def test_should_offload_resolved_returns_series_uses_runtime_settings(mocker):
 
     assert should_offload_resolved_returns_series(3) is True
     assert should_offload_resolved_returns_series(2) is False
+
+
+@pytest.mark.asyncio
+async def test_promoted_stateful_returns_series_helper_returns_replay_without_registering(mocker):
+    request = ReturnsSeriesRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "as_of_date": "2026-02-27",
+            "window": {"mode": "EXPLICIT", "from_date": "2026-02-24", "to_date": "2026-02-27"},
+            "input_mode": "stateful",
+            "stateful_input": {},
+        }
+    )
+    replay_response = returns_series_calculation_workflow_service.accepted_returns_series_response(
+        request.calculation_id
+    )
+    replay_promoted = mocker.patch(
+        "app.services.returns_series_calculation_workflow_service.replay_promoted_stateful_async_execution",
+        return_value=replay_response,
+    )
+    register_sync = mocker.patch(
+        "app.services.returns_series_calculation_workflow_service.register_sync_execution_or_raise"
+    )
+
+    response = await returns_series_calculation_workflow_service._calculate_promoted_stateful_returns_series(
+        request=request,
+        input_fingerprint="source-fingerprint",
+        calculation_hash="source-hash",
+    )
+
+    assert response == replay_response
+    replay_promoted.assert_called_once()
+    register_sync.assert_not_called()

@@ -82,77 +82,90 @@ def build_returns_series_execution_window(
     return requested_window
 
 
-async def calculate_returns_series_workflow(
+async def _calculate_promoted_stateful_returns_series(
+    *,
     request: ReturnsSeriesRequest,
-) -> ReturnsSeriesResponse | JSONResponse:
-    """Resolve, fence, execute, and enqueue one returns-series request."""
-    input_fingerprint, calculation_hash = generate_request_fingerprint(request, "returns-series-v1")
-    if request.input_mode == InputMode.STATEFUL and not should_offload_returns_series(request):
-        replay_response = replay_promoted_stateful_async_execution(
-            calculation_id=request.calculation_id,
-            analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES,
+    input_fingerprint: str,
+    calculation_hash: str,
+) -> ReturnsSeriesResponse | ReturnsSeriesAcceptedResponse | JSONResponse:
+    replay_response = replay_promoted_stateful_async_execution(
+        calculation_id=request.calculation_id,
+        analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES,
+        source_request_fingerprint=input_fingerprint,
+        accepted_response_factory=accepted_returns_series_response,
+    )
+    if replay_response is not None:
+        return replay_response
+    register_sync_execution_or_raise(
+        calculation_id=request.calculation_id,
+        analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES,
+        portfolio_id=request.portfolio_id,
+        requested_window=build_returns_series_execution_window(
+            request,
             source_request_fingerprint=input_fingerprint,
-            accepted_response_factory=accepted_returns_series_response,
+        ),
+        input_fingerprint=input_fingerprint,
+        calculation_hash=calculation_hash,
+    )
+    try:
+        resolved = await resolve_stateful_returns_series_request(request)
+        resolved_input_fingerprint, resolved_calculation_hash = generate_request_fingerprint(
+            resolved.identity_payload,
+            "returns-series-v1",
         )
-        if replay_response is not None:
-            return replay_response
-        register_sync_execution_or_raise(
+        accepted_response = finalize_resolved_stateful_execution(
             calculation_id=request.calculation_id,
             analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES,
-            portfolio_id=request.portfolio_id,
             requested_window=build_returns_series_execution_window(
                 request,
                 source_request_fingerprint=input_fingerprint,
+                input_count=resolved.input_count,
+                benchmark_id=resolved.resolved_benchmark_id,
+                benchmark_return_source=resolved.resolved_benchmark_return_source,
+                benchmark_work_units=resolved.benchmark_work_units,
             ),
+            input_fingerprint=resolved_input_fingerprint,
+            calculation_hash=resolved_calculation_hash,
+            resolved_request_payload={
+                "resolved_request": resolved.request.model_dump(mode="json"),
+                "source_input_mode": InputMode.STATEFUL.value,
+                "resolved_benchmark_id": resolved.resolved_benchmark_id,
+                "resolved_benchmark_return_source": resolved.resolved_benchmark_return_source,
+            },
+            should_offload=should_offload_resolved_returns_series(resolved.input_count),
+            offload_reason="large_resolved_stateful_returns_series",
+            accepted_response_factory=accepted_returns_series_response,
+        )
+        if accepted_response is not None:
+            return accepted_response
+        return await calculate_returns_series(
+            resolved.request,
+            source_input_mode=InputMode.STATEFUL,
+            resolved_benchmark_id_override=resolved.resolved_benchmark_id,
+            resolved_benchmark_return_source_override=resolved.resolved_benchmark_return_source,
+        )
+    except Exception as exc:
+        message = (
+            exc.detail["message"]
+            if hasattr(exc, "detail") and isinstance(exc.detail, dict) and "message" in exc.detail
+            else str(getattr(exc, "detail", exc))
+        )
+        execution_registry.fail_in_progress_stages(request.calculation_id, message)
+        execution_registry.mark_failed(request.calculation_id, message)
+        raise
+
+
+async def calculate_returns_series_workflow(
+    request: ReturnsSeriesRequest,
+) -> ReturnsSeriesResponse | ReturnsSeriesAcceptedResponse | JSONResponse:
+    """Resolve, fence, execute, and enqueue one returns-series request."""
+    input_fingerprint, calculation_hash = generate_request_fingerprint(request, "returns-series-v1")
+    if request.input_mode == InputMode.STATEFUL and not should_offload_returns_series(request):
+        return await _calculate_promoted_stateful_returns_series(
+            request=request,
             input_fingerprint=input_fingerprint,
             calculation_hash=calculation_hash,
         )
-        try:
-            resolved = await resolve_stateful_returns_series_request(request)
-            resolved_input_fingerprint, resolved_calculation_hash = generate_request_fingerprint(
-                resolved.identity_payload,
-                "returns-series-v1",
-            )
-            accepted_response = finalize_resolved_stateful_execution(
-                calculation_id=request.calculation_id,
-                analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES,
-                requested_window=build_returns_series_execution_window(
-                    request,
-                    source_request_fingerprint=input_fingerprint,
-                    input_count=resolved.input_count,
-                    benchmark_id=resolved.resolved_benchmark_id,
-                    benchmark_return_source=resolved.resolved_benchmark_return_source,
-                    benchmark_work_units=resolved.benchmark_work_units,
-                ),
-                input_fingerprint=resolved_input_fingerprint,
-                calculation_hash=resolved_calculation_hash,
-                resolved_request_payload={
-                    "resolved_request": resolved.request.model_dump(mode="json"),
-                    "source_input_mode": InputMode.STATEFUL.value,
-                    "resolved_benchmark_id": resolved.resolved_benchmark_id,
-                    "resolved_benchmark_return_source": resolved.resolved_benchmark_return_source,
-                },
-                should_offload=should_offload_resolved_returns_series(resolved.input_count),
-                offload_reason="large_resolved_stateful_returns_series",
-                accepted_response_factory=accepted_returns_series_response,
-            )
-            if accepted_response is not None:
-                return accepted_response
-            return await calculate_returns_series(
-                resolved.request,
-                source_input_mode=InputMode.STATEFUL,
-                resolved_benchmark_id_override=resolved.resolved_benchmark_id,
-                resolved_benchmark_return_source_override=resolved.resolved_benchmark_return_source,
-            )
-        except Exception as exc:
-            message = (
-                exc.detail["message"]
-                if hasattr(exc, "detail") and isinstance(exc.detail, dict) and "message" in exc.detail
-                else str(getattr(exc, "detail", exc))
-            )
-            execution_registry.fail_in_progress_stages(request.calculation_id, message)
-            execution_registry.mark_failed(request.calculation_id, message)
-            raise
     execution_mode = "async" if should_offload_returns_series(request) else "sync"
     if execution_mode == "async":
         return register_async_submission_or_raise(
