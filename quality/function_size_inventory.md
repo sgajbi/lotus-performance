@@ -1,6 +1,6 @@
 # Lotus Performance Function Size Inventory
 
-Report date: 2026-06-07
+Report date: 2026-06-08
 Branch: `refactor/lp-cr-796-position-meta-helper`
 Mode: report-only function-size inventory; this artifact introduces no new blocking CI gate.
 
@@ -28,13 +28,13 @@ python scripts/python_function_size_inventory.py --limit 15
 | 6 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:71` | 131 |
 | 7 | `_build_fee_source_economics_findings` | `app/services/inspection/source_economics_findings.py:442` | 130 |
 | 8 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:327` | 130 |
-| 9 | `calculate_contribution_workflow` | `app/services/contribution_calculation_workflow_service.py:98` | 127 |
-| 10 | `aggregate_attribution_results` | `engine/attribution.py:607` | 126 |
-| 11 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:482` | 122 |
-| 12 | `calculate_attribution` | `app/services/attribution_service.py:168` | 120 |
-| 13 | `_build_artifacts` | `app/services/composite_inspection_service.py:114` | 118 |
-| 14 | `calculate_benchmark_workflow` | `app/services/benchmark_calculation_workflow_service.py:146` | 116 |
-| 15 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:62` | 114 |
+| 9 | `aggregate_attribution_results` | `engine/attribution.py:607` | 126 |
+| 10 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:482` | 122 |
+| 11 | `calculate_attribution` | `app/services/attribution_service.py:168` | 120 |
+| 12 | `_build_artifacts` | `app/services/composite_inspection_service.py:114` | 118 |
+| 13 | `calculate_benchmark_workflow` | `app/services/benchmark_calculation_workflow_service.py:146` | 116 |
+| 14 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:62` | 114 |
+| 15 | `calculate_twr_workflow` | `app/services/twr_calculation_service.py:233` | 112 |
 
 ## Interpretation
 
@@ -55,6 +55,8 @@ Workspace summary response assembly moved from `172` to `122` lines after benchm
 period assembly were isolated.
 Attribution result aggregation moved from `148` to `126` lines after active-return/linking policy
 and granular effect totals were isolated.
+Contribution calculation workflow dropped out of the top-15 table after promoted stateful
+execution handling was isolated from the public workflow router.
 Durable queue metric collection dropped out of the top-15 table after source loading and
 availability/runtime-retention preview metric emission were isolated into dedicated helpers.
 Source-economics top-level finding assembly dropped from `258` lines out of the top-15 table after

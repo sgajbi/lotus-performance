@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import HTTPException, status
 
 from app.core.config import get_settings
@@ -95,6 +97,81 @@ def build_resolved_contribution_execution_window(
     return requested_window
 
 
+async def _calculate_promoted_stateful_contribution(
+    *,
+    request: ContributionAnalyticsRequest,
+    active_settings: Any,
+    input_fingerprint: str,
+    calculation_hash: str,
+) -> ContributionResponse | ContributionAcceptedResponse:
+    replay_response = replay_promoted_stateful_async_execution(
+        calculation_id=request.calculation_id,
+        analytics_type=ANALYTICS_WORKFLOW_CONTRIBUTION,
+        source_request_fingerprint=input_fingerprint,
+        accepted_response_factory=accepted_contribution_response,
+    )
+    if replay_response is not None:
+        return replay_response
+    register_sync_execution_or_raise(
+        calculation_id=request.calculation_id,
+        analytics_type=ANALYTICS_WORKFLOW_CONTRIBUTION,
+        portfolio_id=request.portfolio_id,
+        requested_window=build_contribution_execution_window(
+            request,
+            source_request_fingerprint=input_fingerprint,
+        ),
+        input_fingerprint=input_fingerprint,
+        calculation_hash=calculation_hash,
+    )
+    try:
+        resolved = await resolve_contribution_request(request, settings=active_settings)
+        resolved_request = resolved.contribution_request
+        resolved_input_fingerprint, resolved_calculation_hash = generate_request_fingerprint(
+            resolved_request,
+            active_settings.APP_VERSION,
+        )
+        resolved_window = build_resolved_contribution_execution_window(
+            request,
+            position_count=resolved.position_count,
+            source_request_fingerprint=input_fingerprint,
+        )
+        accepted_response = finalize_resolved_stateful_execution(
+            calculation_id=request.calculation_id,
+            analytics_type=ANALYTICS_WORKFLOW_CONTRIBUTION,
+            requested_window=resolved_window,
+            input_fingerprint=resolved_input_fingerprint,
+            calculation_hash=resolved_calculation_hash,
+            resolved_request_payload=resolved_request.model_dump(mode="json"),
+            should_offload=should_offload_resolved_contribution(resolved.position_count),
+            offload_reason="large_resolved_stateful_contribution",
+            accepted_response_factory=accepted_contribution_response,
+        )
+        if accepted_response is not None:
+            return accepted_response
+
+        return calculate_contribution(
+            resolved_request,
+            input_fingerprint=resolved_input_fingerprint,
+            calculation_hash=resolved_calculation_hash,
+            input_mode=resolved.input_mode,
+        )
+    except HTTPException as exc:
+        record_execution_failure(
+            calculation_id=request.calculation_id,
+            message=str(exc.detail),
+        )
+        raise
+    except Exception as exc:
+        record_execution_failure(
+            calculation_id=request.calculation_id,
+            message=f"An unexpected error occurred during contribution request resolution: {exc}",
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An unexpected error occurred during contribution request resolution: {exc}",
+        ) from exc
+
+
 async def calculate_contribution_workflow(
     request: ContributionAnalyticsRequest,
 ) -> ContributionResponse | ContributionAcceptedResponse:
@@ -104,72 +181,12 @@ async def calculate_contribution_workflow(
     if request.input_mode == ContributionInputMode.STATEFUL and not should_preemptively_offload_stateful_contribution(
         request
     ):
-        replay_response = replay_promoted_stateful_async_execution(
-            calculation_id=request.calculation_id,
-            analytics_type=ANALYTICS_WORKFLOW_CONTRIBUTION,
-            source_request_fingerprint=input_fingerprint,
-            accepted_response_factory=accepted_contribution_response,
-        )
-        if replay_response is not None:
-            return replay_response
-        register_sync_execution_or_raise(
-            calculation_id=request.calculation_id,
-            analytics_type=ANALYTICS_WORKFLOW_CONTRIBUTION,
-            portfolio_id=request.portfolio_id,
-            requested_window=build_contribution_execution_window(
-                request,
-                source_request_fingerprint=input_fingerprint,
-            ),
+        return await _calculate_promoted_stateful_contribution(
+            request=request,
+            active_settings=active_settings,
             input_fingerprint=input_fingerprint,
             calculation_hash=calculation_hash,
         )
-        try:
-            resolved = await resolve_contribution_request(request, settings=active_settings)
-            resolved_request = resolved.contribution_request
-            resolved_input_fingerprint, resolved_calculation_hash = generate_request_fingerprint(
-                resolved_request,
-                active_settings.APP_VERSION,
-            )
-            resolved_window = build_resolved_contribution_execution_window(
-                request,
-                position_count=resolved.position_count,
-                source_request_fingerprint=input_fingerprint,
-            )
-            accepted_response = finalize_resolved_stateful_execution(
-                calculation_id=request.calculation_id,
-                analytics_type=ANALYTICS_WORKFLOW_CONTRIBUTION,
-                requested_window=resolved_window,
-                input_fingerprint=resolved_input_fingerprint,
-                calculation_hash=resolved_calculation_hash,
-                resolved_request_payload=resolved_request.model_dump(mode="json"),
-                should_offload=should_offload_resolved_contribution(resolved.position_count),
-                offload_reason="large_resolved_stateful_contribution",
-                accepted_response_factory=accepted_contribution_response,
-            )
-            if accepted_response is not None:
-                return accepted_response
-
-            return calculate_contribution(
-                resolved_request,
-                input_fingerprint=resolved_input_fingerprint,
-                calculation_hash=resolved_calculation_hash,
-                input_mode=resolved.input_mode,
-            )
-        except HTTPException as exc:
-            record_execution_failure(
-                calculation_id=request.calculation_id,
-                message=str(exc.detail),
-            )
-            raise
-        except Exception as exc:
-            record_execution_failure(
-                calculation_id=request.calculation_id,
-                message=f"An unexpected error occurred during contribution request resolution: {exc}",
-            )
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"An unexpected error occurred during contribution request resolution: {exc}",
-            ) from exc
 
     if should_offload_contribution(request):
         offload_reason = (
