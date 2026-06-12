@@ -28,31 +28,31 @@ python scripts/python_complexity_inventory.py --limit 25
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `validate_mode_fields` | method | `app/models/returns_series.py:131` | 9 | B |
-| 2 | `_validate_returns_series_input_envelopes` | function | `app/models/returns_series.py:244` | 9 | B |
-| 3 | `JsonFormatter` | class | `app/observability.py:68` | 9 | B |
-| 4 | `_build_schema_example` | function | `app/openapi_enrichment.py:380` | 9 | B |
-| 5 | `_ensure_operation_documentation` | function | `app/openapi_enrichment.py:613` | 9 | B |
-| 6 | `_ensure_property_schema_documentation` | function | `app/openapi_enrichment.py:683` | 9 | B |
-| 7 | `calculate_attribution_workflow` | function | `app/services/attribution_calculation_workflow_service.py:91` | 9 | B |
-| 8 | `calculate_attribution` | function | `app/services/attribution_service.py:168` | 9 | B |
-| 9 | `_group_identity` | function | `app/services/benchmark_exposure_context_service.py:274` | 9 | B |
-| 10 | `reconcile_stale_jobs` | method | `app/services/compute_job_store.py:481` | 9 | B |
-| 11 | `_to_record` | method | `app/services/compute_job_store.py:1113` | 9 | B |
-| 12 | `_rollout_posture_notes` | method | `app/services/contribution_audit.py:125` | 9 | B |
-| 13 | `_compare_return_values` | function | `app/services/inspection/calculation_consistency.py:643` | 9 | B |
-| 14 | `_build_detailed_cashflow_contract_findings` | function | `app/services/inspection/source_economics_findings.py:112` | 9 | B |
-| 15 | `filter_history_entries` | function | `app/services/operator_action_history_filters.py:79` | 9 | B |
-| 16 | `validate_history_manifest_header` | function | `app/services/operator_action_history_manifest.py:101` | 9 | B |
-| 17 | `_read_active_operator_action_lease` | function | `app/services/operator_action_lease_service.py:285` | 9 | B |
-| 18 | `_runtime_retention_payload_identity_matches` | function | `app/services/operator_action_replay_service.py:191` | 9 | B |
-| 19 | `parse_stateful_portfolio_timeseries_payload` | function | `app/services/portfolio_source_service.py:59` | 9 | B |
-| 20 | `build_returns_series_execution_window` | function | `app/services/returns_series_calculation_workflow_service.py:55` | 9 | B |
-| 21 | `detect_gaps` | function | `app/services/returns_series_service.py:277` | 9 | B |
-| 22 | `_validate_manifest_entry` | function | `app/services/runtime_retention_history_service.py:197` | 9 | B |
-| 23 | `_position_market_value_pair` | function | `app/services/stateful_attribution_input_service.py:371` | 9 | B |
-| 24 | `build_stateful_benchmark_input` | function | `app/services/stateful_benchmark_input_service.py:39` | 9 | B |
-| 25 | `_load_component_price_series` | function | `app/services/stateful_benchmark_input_service.py:354` | 9 | B |
+| 1 | `_validate_returns_series_input_envelopes` | function | `app/models/returns_series.py:252` | 9 | B |
+| 2 | `JsonFormatter` | class | `app/observability.py:68` | 9 | B |
+| 3 | `_build_schema_example` | function | `app/openapi_enrichment.py:380` | 9 | B |
+| 4 | `_ensure_operation_documentation` | function | `app/openapi_enrichment.py:613` | 9 | B |
+| 5 | `_ensure_property_schema_documentation` | function | `app/openapi_enrichment.py:683` | 9 | B |
+| 6 | `calculate_attribution_workflow` | function | `app/services/attribution_calculation_workflow_service.py:91` | 9 | B |
+| 7 | `calculate_attribution` | function | `app/services/attribution_service.py:168` | 9 | B |
+| 8 | `_group_identity` | function | `app/services/benchmark_exposure_context_service.py:274` | 9 | B |
+| 9 | `reconcile_stale_jobs` | method | `app/services/compute_job_store.py:481` | 9 | B |
+| 10 | `_to_record` | method | `app/services/compute_job_store.py:1113` | 9 | B |
+| 11 | `_rollout_posture_notes` | method | `app/services/contribution_audit.py:125` | 9 | B |
+| 12 | `_compare_return_values` | function | `app/services/inspection/calculation_consistency.py:643` | 9 | B |
+| 13 | `_build_detailed_cashflow_contract_findings` | function | `app/services/inspection/source_economics_findings.py:112` | 9 | B |
+| 14 | `filter_history_entries` | function | `app/services/operator_action_history_filters.py:79` | 9 | B |
+| 15 | `validate_history_manifest_header` | function | `app/services/operator_action_history_manifest.py:101` | 9 | B |
+| 16 | `_read_active_operator_action_lease` | function | `app/services/operator_action_lease_service.py:285` | 9 | B |
+| 17 | `_runtime_retention_payload_identity_matches` | function | `app/services/operator_action_replay_service.py:191` | 9 | B |
+| 18 | `parse_stateful_portfolio_timeseries_payload` | function | `app/services/portfolio_source_service.py:59` | 9 | B |
+| 19 | `build_returns_series_execution_window` | function | `app/services/returns_series_calculation_workflow_service.py:55` | 9 | B |
+| 20 | `detect_gaps` | function | `app/services/returns_series_service.py:277` | 9 | B |
+| 21 | `_validate_manifest_entry` | function | `app/services/runtime_retention_history_service.py:197` | 9 | B |
+| 22 | `_position_market_value_pair` | function | `app/services/stateful_attribution_input_service.py:371` | 9 | B |
+| 23 | `build_stateful_benchmark_input` | function | `app/services/stateful_benchmark_input_service.py:39` | 9 | B |
+| 24 | `_load_component_price_series` | function | `app/services/stateful_benchmark_input_service.py:354` | 9 | B |
+| 25 | `_build_component_observation` | function | `app/services/stateful_benchmark_input_service.py:532` | 9 | B |
 
 ## Lowest Maintainability Index
 
@@ -314,6 +314,8 @@ consistency loading were moved into a dedicated subject-input resolver.
 `_build_twr_inspection_response` also dropped out after finding concatenation, failed-family
 evidence projection, no-check finding insertion, and pending-family calculation were moved into a
 dedicated finding-context helper.
+`validate_mode_fields` also dropped out after explicit and relative returns-window validation
+policy were moved into dedicated helpers.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.

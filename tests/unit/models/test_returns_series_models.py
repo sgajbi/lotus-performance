@@ -1,9 +1,17 @@
 from __future__ import annotations
 
+from datetime import date
+
 import pytest
 from pydantic import ValidationError
 
-from app.models.returns_series import ReturnsWindow, ReturnsWindowMode
+from app.models.returns_series import (
+    ReturnsRelativePeriod,
+    ReturnsWindow,
+    ReturnsWindowMode,
+    _validate_explicit_returns_window,
+    _validate_relative_returns_window,
+)
 
 
 def _base_payload() -> dict:
@@ -37,6 +45,16 @@ def test_returns_window_validation_error_paths():
     window = ReturnsWindow.model_validate({"mode": "RELATIVE", "period": "YEAR", "year": 2025})
     assert window.mode == ReturnsWindowMode.RELATIVE
     assert window.year == 2025
+
+
+def test_returns_window_validation_helpers_preserve_explicit_and_relative_policy():
+    _validate_explicit_returns_window(from_date=date(2026, 2, 24), to_date=date(2026, 2, 27))
+    _validate_relative_returns_window(period=ReturnsRelativePeriod.YEAR, year=2026)
+
+    with pytest.raises(ValueError, match="from_date cannot be after to_date"):
+        _validate_explicit_returns_window(from_date=date(2026, 2, 27), to_date=date(2026, 2, 24))
+    with pytest.raises(ValueError, match="year is required when period=YEAR"):
+        _validate_relative_returns_window(period=ReturnsRelativePeriod.YEAR, year=None)
 
 
 def test_returns_series_request_requires_stateless_input_when_stateless_mode():

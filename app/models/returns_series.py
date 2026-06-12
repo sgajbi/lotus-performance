@@ -130,16 +130,24 @@ class ReturnsWindow(BaseModel):
     @model_validator(mode="after")
     def validate_mode_fields(self) -> "ReturnsWindow":
         if self.mode == ReturnsWindowMode.EXPLICIT:
-            if self.from_date is None or self.to_date is None:
-                raise ValueError("from_date and to_date are required when mode=EXPLICIT")
-            if self.from_date > self.to_date:
-                raise ValueError("from_date cannot be after to_date")
+            _validate_explicit_returns_window(from_date=self.from_date, to_date=self.to_date)
         if self.mode == ReturnsWindowMode.RELATIVE:
-            if self.period is None:
-                raise ValueError("period is required when mode=RELATIVE")
-            if self.period == ReturnsRelativePeriod.YEAR and self.year is None:
-                raise ValueError("year is required when period=YEAR")
+            _validate_relative_returns_window(period=self.period, year=self.year)
         return self
+
+
+def _validate_explicit_returns_window(*, from_date: dt_date | None, to_date: dt_date | None) -> None:
+    if from_date is None or to_date is None:
+        raise ValueError("from_date and to_date are required when mode=EXPLICIT")
+    if from_date > to_date:
+        raise ValueError("from_date cannot be after to_date")
+
+
+def _validate_relative_returns_window(*, period: ReturnsRelativePeriod | None, year: int | None) -> None:
+    if period is None:
+        raise ValueError("period is required when mode=RELATIVE")
+    if period == ReturnsRelativePeriod.YEAR and year is None:
+        raise ValueError("year is required when period=YEAR")
 
 
 class SeriesSelection(BaseModel):
