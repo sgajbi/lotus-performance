@@ -13,7 +13,7 @@ from app.models.platform_surfaces import ErrorDetailResponse
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_TWR_INSPECTION
 from app.services.async_result_service import resolve_async_result
 from app.services.execution_registry import execution_registry
-from app.services.lineage_metadata_store import LineageStatus, lineage_metadata_store
+from app.services.lineage_metadata_store import LineagePayload, LineageRecord, LineageStatus, lineage_metadata_store
 from app.services.reproducibility_service import generate_request_fingerprint
 from app.services.submission_fencing_service import register_async_submission_or_raise
 
@@ -33,6 +33,25 @@ def _inspection_storage_path(*, inspection_id: UUID, artifact_name: str | None =
     if artifact_name is None:
         return base_path
     return os.path.join(base_path, artifact_name)
+
+
+def _is_completed_twr_inspection_record(record: LineageRecord | None) -> bool:
+    return (
+        record is not None
+        and record.calculation_type == ANALYTICS_WORKFLOW_TWR_INSPECTION
+        and record.status == LineageStatus.COMPLETE
+    )
+
+
+def _retained_inspection_artifact_response(*, payload: LineagePayload | None, artifact_name: str) -> Response | None:
+    if payload is None or artifact_name not in payload.details:
+        return None
+    media_type = "text/markdown" if artifact_name.endswith(".md") else "application/json"
+    return Response(
+        content=payload.details[artifact_name],
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{artifact_name}"'},
+    )
 
 
 @router.post(
@@ -159,27 +178,19 @@ def get_twr_inspection_artifact(
     ),
 ):
     record = lineage_metadata_store.get_record(inspection_id)
-    if (
-        record is None
-        or record.calculation_type != ANALYTICS_WORKFLOW_TWR_INSPECTION
-        or record.status != LineageStatus.COMPLETE
-    ):
+    if not _is_completed_twr_inspection_record(record):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Inspection artifact not found.")
     if artifact_name not in record.artifact_names:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Inspection artifact not found.")
 
     artifact_path = _inspection_storage_path(inspection_id=inspection_id, artifact_name=artifact_name)
     if not os.path.exists(artifact_path):
-        payload = lineage_metadata_store.get_payload(inspection_id)
-        if payload is not None and artifact_name in payload.details:
-            media_type = "application/json"
-            if artifact_name.endswith(".md"):
-                media_type = "text/markdown"
-            return Response(
-                content=payload.details[artifact_name],
-                media_type=media_type,
-                headers={"Content-Disposition": f'attachment; filename="{artifact_name}"'},
-            )
+        retained_response = _retained_inspection_artifact_response(
+            payload=lineage_metadata_store.get_payload(inspection_id),
+            artifact_name=artifact_name,
+        )
+        if retained_response is not None:
+            return retained_response
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Inspection artifact is missing from storage.",
