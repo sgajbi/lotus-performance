@@ -28,31 +28,31 @@ python scripts/python_complexity_inventory.py --limit 25
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `to_stateless_attribution_request` | method | `app/models/attribution_analytics_requests.py:182` | 8 | B |
-| 2 | `_resolve_mwr_stateless_input` | function | `app/models/mwr_analytics_requests.py:152` | 8 | B |
-| 3 | `_validate_returns_series_stateless_selection_inputs` | function | `app/models/returns_series.py:292` | 8 | B |
-| 4 | `WorkspaceBenchmarkRequest` | class | `app/models/workspace_summary_requests.py:103` | 8 | B |
-| 5 | `_explicit_schema_example` | function | `app/openapi_enrichment.py:316` | 8 | B |
-| 6 | `_build_schema_example` | function | `app/openapi_enrichment.py:402` | 8 | B |
-| 7 | `resolve_async_result` | function | `app/services/async_result_service.py:18` | 8 | B |
-| 8 | `get_result` | method | `app/services/async_result_store.py:137` | 8 | B |
-| 9 | `attribution_input_count` | function | `app/services/attribution_calculation_workflow_service.py:38` | 8 | B |
-| 10 | `calculate_attribution_workflow` | function | `app/services/attribution_calculation_workflow_service.py:161` | 8 | B |
-| 11 | `_inspection_active_since` | method | `app/services/compute_job_store.py:1168` | 8 | B |
-| 12 | `_compute_job_record_payload_state` | function | `app/services/compute_job_store.py:1202` | 8 | B |
-| 13 | `record_cutover_assessment` | method | `app/services/contribution_audit.py:60` | 8 | B |
-| 14 | `_calculate_reset_aware_average_weight_shadow` | function | `app/services/contribution_methodology.py:43` | 8 | B |
-| 15 | `_build_residual_adjusted_position_timeseries` | function | `app/services/contribution_series.py:57` | 8 | B |
-| 16 | `calculate_contribution` | function | `app/services/contribution_service.py:525` | 8 | B |
-| 17 | `_contribution_smoothing_status_and_reasons` | function | `app/services/contribution_smoothing.py:28` | 8 | B |
-| 18 | `_available_stateful_economics` | function | `app/services/contribution_source_economics.py:99` | 8 | B |
-| 19 | `_cash_flow_type_counts` | function | `app/services/contribution_source_economics.py:168` | 8 | B |
-| 20 | `_collect_position_continuity_gap_samples` | function | `app/services/inspection/reconciliation.py:500` | 8 | B |
-| 21 | `_row_has_transition_activity` | function | `app/services/inspection/reconciliation.py:563` | 8 | B |
-| 22 | `_sum_detailed_cash_flows` | function | `app/services/inspection/source_economics.py:542` | 8 | B |
-| 23 | `_record_fee_source_signals` | method | `app/services/inspection/source_economics_collector.py:196` | 8 | B |
-| 24 | `run_source_quality_checks` | function | `app/services/inspection/source_quality.py:91` | 8 | B |
-| 25 | `_inspection_timing` | method | `app/services/lineage_metadata_store.py:1163` | 8 | B |
+| 1 | `_resolve_mwr_stateless_input` | function | `app/models/mwr_analytics_requests.py:152` | 8 | B |
+| 2 | `_validate_returns_series_stateless_selection_inputs` | function | `app/models/returns_series.py:292` | 8 | B |
+| 3 | `WorkspaceBenchmarkRequest` | class | `app/models/workspace_summary_requests.py:103` | 8 | B |
+| 4 | `_explicit_schema_example` | function | `app/openapi_enrichment.py:316` | 8 | B |
+| 5 | `_build_schema_example` | function | `app/openapi_enrichment.py:402` | 8 | B |
+| 6 | `resolve_async_result` | function | `app/services/async_result_service.py:18` | 8 | B |
+| 7 | `get_result` | method | `app/services/async_result_store.py:137` | 8 | B |
+| 8 | `attribution_input_count` | function | `app/services/attribution_calculation_workflow_service.py:38` | 8 | B |
+| 9 | `calculate_attribution_workflow` | function | `app/services/attribution_calculation_workflow_service.py:161` | 8 | B |
+| 10 | `_inspection_active_since` | method | `app/services/compute_job_store.py:1168` | 8 | B |
+| 11 | `_compute_job_record_payload_state` | function | `app/services/compute_job_store.py:1202` | 8 | B |
+| 12 | `record_cutover_assessment` | method | `app/services/contribution_audit.py:60` | 8 | B |
+| 13 | `_calculate_reset_aware_average_weight_shadow` | function | `app/services/contribution_methodology.py:43` | 8 | B |
+| 14 | `_build_residual_adjusted_position_timeseries` | function | `app/services/contribution_series.py:57` | 8 | B |
+| 15 | `calculate_contribution` | function | `app/services/contribution_service.py:525` | 8 | B |
+| 16 | `_contribution_smoothing_status_and_reasons` | function | `app/services/contribution_smoothing.py:28` | 8 | B |
+| 17 | `_available_stateful_economics` | function | `app/services/contribution_source_economics.py:99` | 8 | B |
+| 18 | `_cash_flow_type_counts` | function | `app/services/contribution_source_economics.py:168` | 8 | B |
+| 19 | `_collect_position_continuity_gap_samples` | function | `app/services/inspection/reconciliation.py:500` | 8 | B |
+| 20 | `_row_has_transition_activity` | function | `app/services/inspection/reconciliation.py:563` | 8 | B |
+| 21 | `_sum_detailed_cash_flows` | function | `app/services/inspection/source_economics.py:542` | 8 | B |
+| 22 | `_record_fee_source_signals` | method | `app/services/inspection/source_economics_collector.py:196` | 8 | B |
+| 23 | `run_source_quality_checks` | function | `app/services/inspection/source_quality.py:91` | 8 | B |
+| 24 | `_inspection_timing` | method | `app/services/lineage_metadata_store.py:1163` | 8 | B |
+| 25 | `calculate_mwr_response` | function | `app/services/mwr_calculation_service.py:152` | 8 | B |
 
 ## Lowest Maintainability Index
 
@@ -391,6 +391,9 @@ was isolated from growth-factor and cumulative-return arithmetic, reducing the m
 cyclomatic complexity from `9` to `8`.
 `_load_and_validate_manifest` also dropped out after durable-record manifest consistency checks
 were isolated from manifest file read and schema-validation error mapping.
+`to_stateless_attribution_request` also dropped out after final attribution request payload
+assembly and reusable optional model/list serialization were isolated from source resolution and
+request validation.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.
