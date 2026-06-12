@@ -15,6 +15,7 @@ from app.services.twr_mode_service import (
     _build_resolved_twr_performance_input,
     _build_twr_normalization_resolution,
     _resolve_default_stateful_benchmark_input,
+    _resolve_stateless_twr_benchmark_request,
     _resolve_twr_portfolio_source_input,
     _resolve_twr_retrieval_inputs,
     _TWRRetrievalResolution,
@@ -200,6 +201,43 @@ def test_build_resolved_twr_performance_input_projects_stateful_request_fields()
     assert performance_input.performance_request.performance_start_date == request.report_end_date
     assert len(performance_input.performance_request.valuation_points) == 1
     assert not hasattr(performance_input.performance_request, "include_benchmark")
+
+
+def test_resolve_stateless_twr_benchmark_request_projects_vendor_return_points():
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_1",
+            "performance_start_date": "2024-12-31",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+            "valuation_points": [
+                {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+                {"perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1020.1},
+            ],
+            "benchmark": {
+                "benchmark_id": "BMK_1",
+                "input_mode": "stateless",
+                "return_source": "vendor_series",
+                "stateless_input": {
+                    "benchmark_currency": "USD",
+                    "benchmark_return_points": [
+                        {"perf_date": "2025-01-01", "benchmark_return": 0.01},
+                        {"perf_date": "2025-01-02", "benchmark_return": 0.02},
+                    ],
+                },
+            },
+        }
+    )
+
+    benchmark_request = _resolve_stateless_twr_benchmark_request(request)
+
+    assert benchmark_request is not None
+    assert benchmark_request.benchmark_id == "BMK_1"
+    assert benchmark_request.return_source == "vendor_series"
+    assert benchmark_request.component_observations == []
+    assert [point.benchmark_return for point in benchmark_request.benchmark_return_points] == [0.01, 0.02]
 
 
 @pytest.mark.asyncio
