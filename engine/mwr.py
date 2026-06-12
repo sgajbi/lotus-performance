@@ -90,6 +90,35 @@ def _xirr_failure(
     }
 
 
+def _xirr_initial_failure(
+    *,
+    values: np.ndarray,
+    gross_cash_flow_scale,
+    rate_lower_bound,
+    rate_upper_bound,
+    base_convergence: dict,
+) -> dict | None:
+    if len(values) == 0 or gross_cash_flow_scale == 0:
+        return _xirr_failure(
+            base_convergence=base_convergence,
+            notes="No economic content in cash-flow vector.",
+            reason_code="NO_ECONOMIC_CONTENT",
+        )
+    if np.all(values >= 0) or np.all(values <= 0):
+        return _xirr_failure(
+            base_convergence=base_convergence,
+            notes="No positive and negative cash flows in solver vector.",
+            reason_code="NO_POSITIVE_AND_NEGATIVE_CASH_FLOW",
+        )
+    if rate_lower_bound <= -1 or rate_upper_bound <= rate_lower_bound:
+        return _xirr_failure(
+            base_convergence=base_convergence,
+            notes="Invalid XIRR search bounds.",
+            reason_code="INVALID_SOLVER_BOUNDS",
+        )
+    return None
+
+
 def _xirr_time_diffs(*, dates: np.ndarray, anchor_date: date, annualization: Annualization) -> np.ndarray:
     day_count = _day_count_denominator(annualization)
     return np.array([(d - anchor_date).days / day_count for d in dates])
@@ -199,25 +228,15 @@ def _xirr(
         normalized_flow_count=int(len(values)),
         gross_cash_flow_scale=gross_cash_flow_scale,
     )
-    if len(values) == 0 or gross_cash_flow_scale == 0:
-        return _xirr_failure(
-            base_convergence=base_convergence,
-            notes="No economic content in cash-flow vector.",
-            reason_code="NO_ECONOMIC_CONTENT",
-        )
-    if np.all(values >= 0) or np.all(values <= 0):
-        return _xirr_failure(
-            base_convergence=base_convergence,
-            notes="No positive and negative cash flows in solver vector.",
-            reason_code="NO_POSITIVE_AND_NEGATIVE_CASH_FLOW",
-        )
-
-    if rate_lower_bound <= -1 or rate_upper_bound <= rate_lower_bound:
-        return _xirr_failure(
-            base_convergence=base_convergence,
-            notes="Invalid XIRR search bounds.",
-            reason_code="INVALID_SOLVER_BOUNDS",
-        )
+    initial_failure = _xirr_initial_failure(
+        values=values,
+        gross_cash_flow_scale=gross_cash_flow_scale,
+        rate_lower_bound=rate_lower_bound,
+        rate_upper_bound=rate_upper_bound,
+        base_convergence=base_convergence,
+    )
+    if initial_failure is not None:
+        return initial_failure
 
     assert anchor_date is not None
     time_diffs = _xirr_time_diffs(dates=dates, anchor_date=anchor_date, annualization=annualization)
