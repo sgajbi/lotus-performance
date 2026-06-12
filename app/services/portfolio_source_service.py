@@ -61,18 +61,10 @@ def parse_stateful_portfolio_timeseries_payload(
     *,
     require_open_date: bool,
 ) -> StatefulPortfolioTimeseries:
-    observations_raw = payload.get("observations")
-    observations = (
-        [observation for observation in observations_raw if isinstance(observation, dict)]
-        if isinstance(observations_raw, list)
-        else []
-    )
-    portfolio_open_date_raw = payload.get("portfolio_open_date")
-    portfolio_open_date = portfolio_open_date_raw if isinstance(portfolio_open_date_raw, str) else None
-    portfolio_currency_raw = payload.get("portfolio_currency")
-    portfolio_currency = portfolio_currency_raw if isinstance(portfolio_currency_raw, str) else None
-    reporting_currency_raw = payload.get("reporting_currency")
-    reporting_currency = reporting_currency_raw if isinstance(reporting_currency_raw, str) else None
+    observations = _portfolio_timeseries_observations(payload.get("observations"))
+    portfolio_open_date = _optional_payload_string(payload, "portfolio_open_date")
+    portfolio_currency = _optional_payload_string(payload, "portfolio_currency")
+    reporting_currency = _optional_payload_string(payload, "reporting_currency")
     if require_open_date and portfolio_open_date is None:
         raise ValueError("Stateful source missing portfolio_open_date.")
     return StatefulPortfolioTimeseries(
@@ -81,3 +73,14 @@ def parse_stateful_portfolio_timeseries_payload(
         reporting_currency=reporting_currency,
         observations=observations,
     )
+
+
+def _portfolio_timeseries_observations(value: Any) -> list[dict[str, object]]:
+    if not isinstance(value, list):
+        return []
+    return [observation for observation in value if isinstance(observation, dict)]
+
+
+def _optional_payload_string(payload: dict[str, Any], key: str) -> str | None:
+    value = payload.get(key)
+    return value if isinstance(value, str) else None

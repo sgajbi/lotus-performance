@@ -52,3 +52,14 @@ def test_parse_stateful_portfolio_timeseries_payload_allows_optional_open_date_a
     assert source.portfolio_currency is None
     assert source.reporting_currency is None
     assert source.observations == []
+
+
+def test_parse_stateful_portfolio_timeseries_payload_defaults_missing_observations_to_empty():
+    source = parse_stateful_portfolio_timeseries_payload(
+        {
+            "portfolio_open_date": "2026-01-15",
+        },
+        require_open_date=True,
+    )
+
+    assert source.observations == []
