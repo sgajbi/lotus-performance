@@ -63,6 +63,75 @@ async def test_resolve_benchmark_request_passthroughs_stateless_vendor_series_mo
     assert len(resolved.benchmark_request.benchmark_return_points) == 2
 
 
+def test_resolve_stateless_benchmark_request_projects_calculated_observation_details():
+    request = BenchmarkAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "benchmark_id": "BMK_1",
+            "benchmark_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "input_mode": "stateless",
+            "return_source": "calculated",
+            "stateless_input": {
+                "benchmark_currency": "USD",
+                "component_observations": [
+                    {
+                        "component_id": "IDX_1",
+                        "perf_date": "2025-01-01",
+                        "weight_bop": 1.0,
+                        "component_return": 0.01,
+                    }
+                ],
+            },
+        }
+    )
+
+    resolved = benchmark_mode_service._resolve_stateless_benchmark_request(request)
+
+    assert resolved.input_mode == BenchmarkInputMode.STATELESS
+    assert resolved.input_count == 1
+    assert resolved.source_details == {
+        "component_observations": 1,
+        "component_price_points": 0,
+        "benchmark_return_points": 0,
+    }
+    assert resolved.benchmark_request.benchmark_currency == "USD"
+    assert len(resolved.benchmark_request.component_observations) == 1
+
+
+def test_resolve_stateless_benchmark_request_projects_vendor_series_details():
+    request = BenchmarkAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "benchmark_id": "BMK_VENDOR",
+            "benchmark_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "input_mode": "stateless",
+            "return_source": "vendor_series",
+            "stateless_input": {
+                "benchmark_currency": "USD",
+                "benchmark_return_points": [
+                    {"perf_date": "2025-01-01", "benchmark_return": 0.01},
+                    {"perf_date": "2025-01-02", "benchmark_return": 0.02},
+                ],
+            },
+        }
+    )
+
+    resolved = benchmark_mode_service._resolve_stateless_benchmark_request(request)
+
+    assert resolved.input_count == 2
+    assert resolved.source_details == {
+        "component_observations": 0,
+        "component_price_points": 0,
+        "benchmark_return_points": 2,
+    }
+    assert not resolved.benchmark_request.component_observations
+    assert len(resolved.benchmark_request.benchmark_return_points) == 2
+
+
 @pytest.mark.asyncio
 async def test_resolve_benchmark_request_fails_retrieval_stage_for_stateful_errors(monkeypatch):
     request = BenchmarkAnalyticsRequest.model_validate(

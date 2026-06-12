@@ -1,7 +1,7 @@
 # Lotus Performance Function Size Inventory
 
-Report date: 2026-06-08
-Branch: `refactor/lp-cr-796-position-meta-helper`
+Report date: 2026-06-12
+Branch: `refactor/lp-cr-845-benchmark-request-resolution`
 Mode: report-only function-size inventory; this artifact introduces no new blocking CI gate.
 
 ## Purpose
