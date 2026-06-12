@@ -965,12 +965,7 @@ def _validate_stateful_both_currency_support(
             detail="Stateful attribution input requires report_ccy when currency_mode=BOTH.",
         )
 
-    position_currencies = {
-        str(position_currency)
-        for row in rows
-        for position_currency in [row.get("position_currency")]
-        if isinstance(position_currency, str) and position_currency
-    }
+    position_currencies = _stateful_position_currencies(rows)
     if not position_currencies:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -988,3 +983,12 @@ def _validate_stateful_both_currency_support(
                 "include currencies different from report_ccy."
             ),
         )
+
+
+def _stateful_position_currencies(rows: list[dict[str, object]]) -> set[str]:
+    return {
+        position_currency
+        for row in rows
+        for position_currency in [row.get("position_currency")]
+        if isinstance(position_currency, str) and position_currency
+    }
