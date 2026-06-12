@@ -49,6 +49,10 @@ def generate_twr_inspection_support_brief(
     if status_code != 200:
         return SupportBriefWorkflowPackResult(generation_status="UNAVAILABLE")
 
+    return _support_brief_result_from_payload(payload)
+
+
+def _support_brief_result_from_payload(payload: dict[str, Any]) -> SupportBriefWorkflowPackResult:
     workflow_pack_run = _map_workflow_pack_run(payload.get("workflow_pack_run"))
     execution = payload.get("execution")
     if not isinstance(execution, dict):

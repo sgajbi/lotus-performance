@@ -125,6 +125,31 @@ def test_generate_twr_inspection_support_brief_preserves_failed_run_posture(monk
     assert result.workflow_pack_run.runtime_state == "FAILED"
 
 
+def test_support_brief_result_from_payload_maps_action_required_run_without_markdown() -> None:
+    result = service._support_brief_result_from_payload(
+        {
+            "execution": {
+                "status": "COMPLETED",
+                "result": {"message": "   "},
+            },
+            "workflow_pack_run": {
+                "run_id": "packrun_twr_inspection_support_brief_req_review_001",
+                "runtime_state": "COMPLETED",
+                "review_state": "AWAITING_REVIEW",
+                "allowed_review_actions": ["ACCEPT"],
+                "supportability_status": "ACTION_REQUIRED",
+                "workflow_authority_owner": "lotus-performance",
+            },
+        }
+    )
+
+    assert result.generation_status == "ACTION_REQUIRED"
+    assert result.artifact_markdown is None
+    assert result.workflow_pack_run is not None
+    assert result.workflow_pack_run.run_id == "packrun_twr_inspection_support_brief_req_review_001"
+    assert result.workflow_pack_run.review_pending is True
+
+
 def test_map_workflow_pack_run_filters_invalid_projection_fields() -> None:
     run = service._map_workflow_pack_run(
         {
