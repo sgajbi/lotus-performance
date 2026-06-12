@@ -15,6 +15,7 @@ from app.services.compute_job_store import (
     ComputeJobRegistrationStatus,
     ComputeJobStatus,
     ComputeJobStore,
+    _aggregate_row_count,
     _queue_stats_from_aggregate_row,
 )
 
@@ -445,6 +446,13 @@ def test_queue_stats_from_aggregate_row_defaults_counts_and_projects_ages():
     assert stats.oldest_leased_age_seconds == 0.0
     assert stats.oldest_running_age_seconds == 45.0
     assert stats.reclaimable_count == 5
+
+
+def test_aggregate_row_count_defaults_nulls_and_preserves_numeric_values():
+    aggregate_row = SimpleNamespace(pending_count=None, leased_count=2)
+
+    assert _aggregate_row_count(aggregate_row, "pending_count") == 0
+    assert _aggregate_row_count(aggregate_row, "leased_count") == 2
 
 
 def test_compute_job_store_queue_inspection_anchors(tmp_path):

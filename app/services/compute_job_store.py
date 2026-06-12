@@ -147,23 +147,27 @@ class ComputeQueueStats:
     reclaimable_count: int = 0
 
 
+def _aggregate_row_count(aggregate_row: Any, field_name: str) -> int:
+    return int(getattr(aggregate_row, field_name) or 0)
+
+
 def _queue_stats_from_aggregate_row(*, aggregate_row: Any, stats_now: datetime) -> ComputeQueueStats:
     return ComputeQueueStats(
-        pending_count=int(aggregate_row.pending_count or 0),
-        leased_count=int(aggregate_row.leased_count or 0),
-        running_count=int(aggregate_row.running_count or 0),
-        failed_count=int(aggregate_row.failed_count or 0),
-        complete_count=int(aggregate_row.complete_count or 0),
-        retry_backlog_count=int(aggregate_row.retry_backlog_count or 0),
-        lease_expired_count=int(aggregate_row.lease_expired_count or 0),
-        terminal_failure_count=int(aggregate_row.terminal_failure_count or 0),
+        pending_count=_aggregate_row_count(aggregate_row, "pending_count"),
+        leased_count=_aggregate_row_count(aggregate_row, "leased_count"),
+        running_count=_aggregate_row_count(aggregate_row, "running_count"),
+        failed_count=_aggregate_row_count(aggregate_row, "failed_count"),
+        complete_count=_aggregate_row_count(aggregate_row, "complete_count"),
+        retry_backlog_count=_aggregate_row_count(aggregate_row, "retry_backlog_count"),
+        lease_expired_count=_aggregate_row_count(aggregate_row, "lease_expired_count"),
+        terminal_failure_count=_aggregate_row_count(aggregate_row, "terminal_failure_count"),
         oldest_pending_age_seconds=elapsed_seconds_since_or_zero(
             stats_now,
             aggregate_row.oldest_pending_created_at,
         ),
         oldest_leased_age_seconds=elapsed_seconds_since_or_zero(stats_now, aggregate_row.oldest_leased_at),
         oldest_running_age_seconds=elapsed_seconds_since_or_zero(stats_now, aggregate_row.oldest_running_at),
-        reclaimable_count=int(aggregate_row.reclaimable_count or 0),
+        reclaimable_count=_aggregate_row_count(aggregate_row, "reclaimable_count"),
     )
 
 
