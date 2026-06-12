@@ -596,6 +596,24 @@ def test_prepare_panel_from_groups_handles_empty_cases():
     assert _prepare_panel_from_groups([_EmptyGroup()], ["sector"]).empty
 
 
+def test_prepare_panel_from_groups_normalizes_model_observation_records():
+    class _Observation:
+        def model_dump(self):
+            return {"date": "2025-01-31", "return": 0.015}
+
+    group = SimpleNamespace(key={"sector": "Tech"}, observations=[_Observation()])
+
+    panel = _prepare_panel_from_groups([group], ["sector"])
+
+    assert panel.index.names == ["date", "sector"]
+    row = panel.loc[(pd.Timestamp("2025-01-31"), "Tech")]
+    assert row["weight_bop"] == pytest.approx(0.0)
+    assert row["return_base"] == pytest.approx(0.015)
+    assert row["return_local"] is None
+    assert row["return_fx"] is None
+    assert bool(row["has_return_base"]) is True
+
+
 def test_attribution_group_context_helpers_cover_empty_and_scalar_group_keys():
     assert _build_group_key_dict("Tech", ["sector"]) == {"sector": "Tech"}
     empty_context = _calculate_group_context_metrics(pd.DataFrame(), ["sector"])

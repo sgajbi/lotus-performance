@@ -408,6 +408,28 @@ def _build_base_weight_series(meta: Mapping[str, Any]) -> pd.Series | None:
     return weights_df["capital"]
 
 
+def _attribution_group_observation_record(
+    obs: Any,
+    group_key_tuple: tuple[Any, ...],
+    group_by: Sequence[str],
+) -> dict[str, Any]:
+    obs_data = obs if isinstance(obs, dict) else obs.model_dump()
+    return_base = obs_data.get("return_base")
+    if return_base is None:
+        return_base = obs_data.get("return")
+    record = {
+        "date": pd.to_datetime(obs_data["date"]),
+        "weight_bop": obs_data.get("weight_bop", 0.0),
+        "return_base": return_base,
+        "return_local": obs_data.get("return_local"),
+        "return_fx": obs_data.get("return_fx"),
+        "has_return_base": return_base is not None,
+    }
+    for index, key in enumerate(group_by):
+        record[key] = group_key_tuple[index]
+    return record
+
+
 def _prepare_panel_from_groups(
     groups: Sequence[AttributionObservationGroupLike], group_by: Sequence[str]
 ) -> pd.DataFrame:
@@ -419,21 +441,7 @@ def _prepare_panel_from_groups(
     for group in groups:
         group_key_tuple = tuple(group.key.get(k) for k in group_by)
         for obs in group.observations:
-            obs_data = obs if isinstance(obs, dict) else obs.model_dump()
-            return_base = obs_data.get("return_base")
-            if return_base is None:
-                return_base = obs_data.get("return")
-            record = {
-                "date": pd.to_datetime(obs_data["date"]),
-                "weight_bop": obs_data.get("weight_bop", 0.0),
-                "return_base": return_base,
-                "return_local": obs_data.get("return_local"),
-                "return_fx": obs_data.get("return_fx"),
-                "has_return_base": return_base is not None,
-            }
-            for i, key in enumerate(group_by):
-                record[key] = group_key_tuple[i]
-            all_obs.append(record)
+            all_obs.append(_attribution_group_observation_record(obs, group_key_tuple, group_by))
 
     if not all_obs:
         return pd.DataFrame()

@@ -28,31 +28,31 @@ python scripts/python_complexity_inventory.py --limit 25
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_prepare_panel_from_groups` | function | `engine/attribution.py:411` | 9 | B |
-| 2 | `aggregate_attribution_results` | function | `engine/attribution.py:607` | 9 | B |
-| 3 | `_blocked_composite_period_result_for_invalid_ready_facts` | function | `engine/composites.py:181` | 9 | B |
-| 4 | `_composite_period_fact_metadata` | function | `engine/composites.py:305` | 9 | B |
-| 5 | `_flag_outliers` | function | `engine/policies.py:118` | 9 | B |
-| 6 | `_compound_ror` | function | `engine/ror.py:237` | 9 | B |
-| 7 | `_load_and_validate_manifest` | function | `app/api/endpoints/lineage.py:27` | 8 | B |
-| 8 | `to_stateless_attribution_request` | method | `app/models/attribution_analytics_requests.py:182` | 8 | B |
-| 9 | `_resolve_mwr_stateless_input` | function | `app/models/mwr_analytics_requests.py:152` | 8 | B |
-| 10 | `_validate_returns_series_stateless_selection_inputs` | function | `app/models/returns_series.py:292` | 8 | B |
-| 11 | `WorkspaceBenchmarkRequest` | class | `app/models/workspace_summary_requests.py:103` | 8 | B |
-| 12 | `_explicit_schema_example` | function | `app/openapi_enrichment.py:316` | 8 | B |
-| 13 | `_build_schema_example` | function | `app/openapi_enrichment.py:402` | 8 | B |
-| 14 | `resolve_async_result` | function | `app/services/async_result_service.py:18` | 8 | B |
-| 15 | `get_result` | method | `app/services/async_result_store.py:137` | 8 | B |
-| 16 | `attribution_input_count` | function | `app/services/attribution_calculation_workflow_service.py:38` | 8 | B |
-| 17 | `calculate_attribution_workflow` | function | `app/services/attribution_calculation_workflow_service.py:161` | 8 | B |
-| 18 | `_inspection_active_since` | method | `app/services/compute_job_store.py:1168` | 8 | B |
-| 19 | `_compute_job_record_payload_state` | function | `app/services/compute_job_store.py:1202` | 8 | B |
-| 20 | `record_cutover_assessment` | method | `app/services/contribution_audit.py:60` | 8 | B |
-| 21 | `_calculate_reset_aware_average_weight_shadow` | function | `app/services/contribution_methodology.py:43` | 8 | B |
-| 22 | `_build_residual_adjusted_position_timeseries` | function | `app/services/contribution_series.py:57` | 8 | B |
-| 23 | `calculate_contribution` | function | `app/services/contribution_service.py:525` | 8 | B |
-| 24 | `_contribution_smoothing_status_and_reasons` | function | `app/services/contribution_smoothing.py:28` | 8 | B |
-| 25 | `_available_stateful_economics` | function | `app/services/contribution_source_economics.py:99` | 8 | B |
+| 1 | `aggregate_attribution_results` | function | `engine/attribution.py:615` | 9 | B |
+| 2 | `_blocked_composite_period_result_for_invalid_ready_facts` | function | `engine/composites.py:181` | 9 | B |
+| 3 | `_composite_period_fact_metadata` | function | `engine/composites.py:305` | 9 | B |
+| 4 | `_flag_outliers` | function | `engine/policies.py:118` | 9 | B |
+| 5 | `_compound_ror` | function | `engine/ror.py:237` | 9 | B |
+| 6 | `_load_and_validate_manifest` | function | `app/api/endpoints/lineage.py:27` | 8 | B |
+| 7 | `to_stateless_attribution_request` | method | `app/models/attribution_analytics_requests.py:182` | 8 | B |
+| 8 | `_resolve_mwr_stateless_input` | function | `app/models/mwr_analytics_requests.py:152` | 8 | B |
+| 9 | `_validate_returns_series_stateless_selection_inputs` | function | `app/models/returns_series.py:292` | 8 | B |
+| 10 | `WorkspaceBenchmarkRequest` | class | `app/models/workspace_summary_requests.py:103` | 8 | B |
+| 11 | `_explicit_schema_example` | function | `app/openapi_enrichment.py:316` | 8 | B |
+| 12 | `_build_schema_example` | function | `app/openapi_enrichment.py:402` | 8 | B |
+| 13 | `resolve_async_result` | function | `app/services/async_result_service.py:18` | 8 | B |
+| 14 | `get_result` | method | `app/services/async_result_store.py:137` | 8 | B |
+| 15 | `attribution_input_count` | function | `app/services/attribution_calculation_workflow_service.py:38` | 8 | B |
+| 16 | `calculate_attribution_workflow` | function | `app/services/attribution_calculation_workflow_service.py:161` | 8 | B |
+| 17 | `_inspection_active_since` | method | `app/services/compute_job_store.py:1168` | 8 | B |
+| 18 | `_compute_job_record_payload_state` | function | `app/services/compute_job_store.py:1202` | 8 | B |
+| 19 | `record_cutover_assessment` | method | `app/services/contribution_audit.py:60` | 8 | B |
+| 20 | `_calculate_reset_aware_average_weight_shadow` | function | `app/services/contribution_methodology.py:43` | 8 | B |
+| 21 | `_build_residual_adjusted_position_timeseries` | function | `app/services/contribution_series.py:57` | 8 | B |
+| 22 | `calculate_contribution` | function | `app/services/contribution_service.py:525` | 8 | B |
+| 23 | `_contribution_smoothing_status_and_reasons` | function | `app/services/contribution_smoothing.py:28` | 8 | B |
+| 24 | `_available_stateful_economics` | function | `app/services/contribution_source_economics.py:99` | 8 | B |
+| 25 | `_cash_flow_type_counts` | function | `app/services/contribution_source_economics.py:168` | 8 | B |
 
 ## Lowest Maintainability Index
 
@@ -68,7 +68,7 @@ python scripts/python_complexity_inventory.py --limit 25
 | 8 | `app/services/workspace_summary_service.py` | 10.65 | B |
 | 9 | `app/services/execution_registry.py` | 10.84 | B |
 | 10 | `app/services/stateful_benchmark_input_service.py` | 12.26 | B |
-| 11 | `engine/attribution.py` | 14.14 | B |
+| 11 | `engine/attribution.py` | 14.05 | B |
 | 12 | `app/services/operator_action_lease_service.py` | 15.27 | B |
 | 13 | `app/services/inspection/calculation_consistency.py` | 16.16 | B |
 | 14 | `app/services/inspection/reconciliation.py` | 16.40 | B |
@@ -373,6 +373,9 @@ assembly was moved into a dedicated helper.
 selection was routed through a shared helper while preserving existing fallback semantics.
 `resolve_workspace_periods` also dropped out after explicit, since-inception, YTD, business-day,
 month, and year start-date policy was isolated from resolved-period response assembly.
+`_prepare_panel_from_groups` also dropped out after per-observation dict/model normalization,
+legacy return fallback, group-key projection, and return-presence tagging were isolated from panel
+assembly.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.
