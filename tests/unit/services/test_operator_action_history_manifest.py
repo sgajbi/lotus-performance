@@ -99,6 +99,22 @@ def test_validate_history_manifest_header_accepts_safe_payload():
     assert header.entries == [{"evidence_file_name": "latest.json"}]
 
 
+def test_validate_history_manifest_header_accepts_absent_latest_file():
+    header = validate_history_manifest_header(
+        {
+            "latest_file_name": None,
+            "retained_file_names": ["previous.json"],
+            "entries": [],
+        }
+    )
+
+    assert header is not None
+    assert header.latest_file_name is None
+    assert header.retained_file_names == ["previous.json"]
+    assert header.retention_limit is None
+    assert header.retention_max_age_days is None
+
+
 def test_safe_manifest_file_name_helpers_reject_unsafe_values():
     assert _safe_manifest_file_name("latest.json") == "latest.json"
     assert _safe_manifest_file_name(None, allow_none=True) is None
