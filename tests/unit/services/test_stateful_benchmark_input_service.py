@@ -664,6 +664,10 @@ async def test_load_component_price_series_surfaces_404_503_and_empty_payloads()
         async def get_index_price_series(self, **kwargs):  # noqa: ARG002
             return 200, {"points": [], "retrieval_metadata": {"chunk_count": 1, "page_count": 1}}
 
+    class _MissingPointsSeriesStub(_StatefulInputServiceStub):
+        async def get_index_price_series(self, **kwargs):  # noqa: ARG002
+            return 200, {"retrieval_metadata": {"chunk_count": 1, "page_count": 1}}
+
     with pytest.raises(HTTPException, match="No index price series found"):
         await _load_component_price_series(
             stateful_input_service=_MissingSeriesStub(),
@@ -689,6 +693,17 @@ async def test_load_component_price_series_surfaces_404_503_and_empty_payloads()
     with pytest.raises(HTTPException, match="payload empty"):
         await _load_component_price_series(
             stateful_input_service=_EmptySeriesStub(),
+            calculation_id=uuid4(),
+            benchmark_id="BMK_1",
+            component_ids=["IDX_USD"],
+            as_of_date=date(2026, 1, 3),
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 3),
+        )
+
+    with pytest.raises(HTTPException, match="payload missing points"):
+        await _load_component_price_series(
+            stateful_input_service=_MissingPointsSeriesStub(),
             calculation_id=uuid4(),
             benchmark_id="BMK_1",
             component_ids=["IDX_USD"],

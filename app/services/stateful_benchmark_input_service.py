@@ -392,36 +392,49 @@ async def _load_component_price_series(
     component_price_series: dict[str, dict[str, Any]] = {}
     retrieval_metadata_total = RetrievalMetadata(chunk_count=0, page_count=0)
     for index_id, (series_status, series_payload) in zip(component_ids, responses):
-        if series_status == status.HTTP_404_NOT_FOUND:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"No index price series found for benchmark component {index_id}.",
-            )
-        if series_status >= status.HTTP_400_BAD_REQUEST:
-            raise_for_stateful_source_unavailable(
-                source_label="index price-series",
-                upstream_status=series_status,
-                context=f"for benchmark component {index_id}",
-            )
-        points_raw = series_payload.get("points")
-        if not isinstance(points_raw, list):
-            raise HTTPException(
-                status_code=HTTP_422_UNPROCESSABLE,
-                detail=f"index price-series payload missing points for benchmark component {index_id}.",
-            )
-        series_points = [point for point in points_raw if isinstance(point, dict)]
-        if not series_points:
-            raise HTTPException(
-                status_code=HTTP_422_UNPROCESSABLE,
-                detail=f"index price-series payload empty for benchmark component {index_id}.",
-            )
-        component_price_series[index_id] = {
-            "points": series_points,
-            "series_currency": _infer_series_currency(index_id=index_id, points=series_points),
-        }
+        component_price_series[index_id] = _component_price_series_from_response(
+            index_id=index_id,
+            series_status=series_status,
+            series_payload=series_payload,
+        )
         retrieval_metadata_total = add_zero_default_retrieval_metadata(retrieval_metadata_total, series_payload)
 
     return component_price_series, retrieval_metadata_total
+
+
+def _component_price_series_from_response(
+    *,
+    index_id: str,
+    series_status: int,
+    series_payload: dict[str, Any],
+) -> dict[str, Any]:
+    if series_status == status.HTTP_404_NOT_FOUND:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No index price series found for benchmark component {index_id}.",
+        )
+    if series_status >= status.HTTP_400_BAD_REQUEST:
+        raise_for_stateful_source_unavailable(
+            source_label="index price-series",
+            upstream_status=series_status,
+            context=f"for benchmark component {index_id}",
+        )
+    points_raw = series_payload.get("points")
+    if not isinstance(points_raw, list):
+        raise HTTPException(
+            status_code=HTTP_422_UNPROCESSABLE,
+            detail=f"index price-series payload missing points for benchmark component {index_id}.",
+        )
+    series_points = [point for point in points_raw if isinstance(point, dict)]
+    if not series_points:
+        raise HTTPException(
+            status_code=HTTP_422_UNPROCESSABLE,
+            detail=f"index price-series payload empty for benchmark component {index_id}.",
+        )
+    return {
+        "points": series_points,
+        "series_currency": _infer_series_currency(index_id=index_id, points=series_points),
+    }
 
 
 def _infer_series_currency(*, index_id: str, points: list[dict[str, Any]]) -> str:
