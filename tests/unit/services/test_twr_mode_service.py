@@ -22,6 +22,8 @@ from app.services.twr_mode_service import (
     _resolve_stateless_twr_benchmark_request,
     _resolve_twr_portfolio_source_input,
     _resolve_twr_retrieval_inputs,
+    _resolved_twr_benchmark_id,
+    _ResolvedTWRBenchmarkSourceInput,
     _TWRRetrievalResolution,
     resolve_twr_request,
 )
@@ -205,6 +207,53 @@ def test_build_resolved_twr_performance_input_projects_stateful_request_fields()
     assert performance_input.performance_request.performance_start_date == request.report_end_date
     assert len(performance_input.performance_request.valuation_points) == 1
     assert not hasattr(performance_input.performance_request, "include_benchmark")
+
+
+def test_resolved_twr_benchmark_id_prefers_resolved_assignment_over_requested_id():
+    no_benchmark_request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_1",
+            "performance_start_date": "2024-12-31",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+            "valuation_points": [
+                {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+            ],
+        }
+    )
+    explicit_benchmark_request = TWRAnalyticsRequest.model_validate(
+        {
+            **no_benchmark_request.model_dump(mode="python"),
+            "benchmark": {
+                "benchmark_id": "BMK_REQUESTED",
+                "input_mode": "stateless",
+                "return_source": "vendor_series",
+                "stateless_input": {
+                    "benchmark_currency": "USD",
+                    "benchmark_return_points": [{"perf_date": "2025-01-01", "benchmark_return": 0.01}],
+                },
+            },
+        }
+    )
+    benchmark_request = _resolve_stateless_twr_benchmark_request(explicit_benchmark_request)
+    assert benchmark_request is not None
+    resolved_assignment = _ResolvedTWRBenchmarkSourceInput(
+        benchmark_id="BMK_RESOLVED",
+        benchmark_request=benchmark_request,
+        source_details={},
+    )
+
+    assert _resolved_twr_benchmark_id(request=no_benchmark_request, benchmark_resolution=None) is None
+    assert _resolved_twr_benchmark_id(request=explicit_benchmark_request, benchmark_resolution=None) == "BMK_REQUESTED"
+    assert (
+        _resolved_twr_benchmark_id(
+            request=explicit_benchmark_request,
+            benchmark_resolution=resolved_assignment,
+        )
+        == "BMK_RESOLVED"
+    )
 
 
 def test_resolve_stateless_twr_benchmark_request_projects_vendor_return_points():

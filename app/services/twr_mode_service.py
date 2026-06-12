@@ -119,7 +119,6 @@ async def resolve_twr_request(
 
     execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_NORMALIZATION)
     try:
-        benchmark_resolution = retrieval_resolution.benchmark_resolution
         normalization_resolution = _build_twr_normalization_resolution(
             request=request,
             retrieval_resolution=retrieval_resolution,
@@ -137,25 +136,45 @@ async def resolve_twr_request(
         )
         raise
 
+    return _build_resolved_twr_request(
+        request=request,
+        retrieval_resolution=retrieval_resolution,
+        normalization_resolution=normalization_resolution,
+    )
+
+
+def _build_resolved_twr_request(
+    *,
+    request: TWRAnalyticsRequest,
+    retrieval_resolution: _TWRRetrievalResolution,
+    normalization_resolution: _TWRNormalizationResolution,
+) -> ResolvedTWRRequest:
     performance_input = _build_resolved_twr_performance_input(
         request=request,
         resolved_input=normalization_resolution.resolved_input,
     )
-    benchmark_request = normalization_resolution.benchmark_request
-
     return ResolvedTWRRequest(
         performance_request=performance_input.performance_request,
         input_mode=performance_input.input_mode,
-        benchmark_request=benchmark_request if _benchmark_requested(request) else None,
+        benchmark_request=normalization_resolution.benchmark_request if _benchmark_requested(request) else None,
         benchmark_input_mode=_get_requested_benchmark_mode(request),
-        resolved_benchmark_id=(
-            benchmark_resolution.benchmark_id
-            if benchmark_resolution is not None
-            else _get_requested_benchmark_id(request)
-            if _benchmark_requested(request)
-            else None
+        resolved_benchmark_id=_resolved_twr_benchmark_id(
+            request=request,
+            benchmark_resolution=retrieval_resolution.benchmark_resolution,
         ),
     )
+
+
+def _resolved_twr_benchmark_id(
+    *,
+    request: TWRAnalyticsRequest,
+    benchmark_resolution: _ResolvedTWRBenchmarkSourceInput | None,
+) -> str | None:
+    if not _benchmark_requested(request):
+        return None
+    if benchmark_resolution is not None:
+        return benchmark_resolution.benchmark_id
+    return _get_requested_benchmark_id(request)
 
 
 def _build_resolved_twr_performance_input(

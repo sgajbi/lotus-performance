@@ -28,31 +28,31 @@ python scripts/python_complexity_inventory.py --limit 25
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `resolve_twr_request` | function | `app/services/twr_mode_service.py:80` | 9 | B |
-| 2 | `_build_workspace_summary_response` | function | `app/services/workspace_summary_service.py:502` | 9 | B |
-| 3 | `_lineage_worker_runtime` | function | `app/workers/lineage_worker.py:69` | 9 | B |
-| 4 | `resolve_workspace_periods` | function | `core/workspace_periods.py:56` | 9 | B |
-| 5 | `_prepare_panel_from_groups` | function | `engine/attribution.py:411` | 9 | B |
-| 6 | `aggregate_attribution_results` | function | `engine/attribution.py:607` | 9 | B |
-| 7 | `_blocked_composite_period_result_for_invalid_ready_facts` | function | `engine/composites.py:181` | 9 | B |
-| 8 | `_composite_period_fact_metadata` | function | `engine/composites.py:305` | 9 | B |
-| 9 | `_flag_outliers` | function | `engine/policies.py:118` | 9 | B |
-| 10 | `_compound_ror` | function | `engine/ror.py:237` | 9 | B |
-| 11 | `_load_and_validate_manifest` | function | `app/api/endpoints/lineage.py:27` | 8 | B |
-| 12 | `to_stateless_attribution_request` | method | `app/models/attribution_analytics_requests.py:182` | 8 | B |
-| 13 | `_resolve_mwr_stateless_input` | function | `app/models/mwr_analytics_requests.py:152` | 8 | B |
-| 14 | `_validate_returns_series_stateless_selection_inputs` | function | `app/models/returns_series.py:292` | 8 | B |
-| 15 | `WorkspaceBenchmarkRequest` | class | `app/models/workspace_summary_requests.py:103` | 8 | B |
-| 16 | `_explicit_schema_example` | function | `app/openapi_enrichment.py:316` | 8 | B |
-| 17 | `_build_schema_example` | function | `app/openapi_enrichment.py:402` | 8 | B |
-| 18 | `resolve_async_result` | function | `app/services/async_result_service.py:18` | 8 | B |
-| 19 | `get_result` | method | `app/services/async_result_store.py:137` | 8 | B |
-| 20 | `attribution_input_count` | function | `app/services/attribution_calculation_workflow_service.py:38` | 8 | B |
-| 21 | `calculate_attribution_workflow` | function | `app/services/attribution_calculation_workflow_service.py:161` | 8 | B |
-| 22 | `_inspection_active_since` | method | `app/services/compute_job_store.py:1168` | 8 | B |
-| 23 | `_compute_job_record_payload_state` | function | `app/services/compute_job_store.py:1202` | 8 | B |
-| 24 | `record_cutover_assessment` | method | `app/services/contribution_audit.py:60` | 8 | B |
-| 25 | `_calculate_reset_aware_average_weight_shadow` | function | `app/services/contribution_methodology.py:43` | 8 | B |
+| 1 | `_build_workspace_summary_response` | function | `app/services/workspace_summary_service.py:502` | 9 | B |
+| 2 | `_lineage_worker_runtime` | function | `app/workers/lineage_worker.py:69` | 9 | B |
+| 3 | `resolve_workspace_periods` | function | `core/workspace_periods.py:56` | 9 | B |
+| 4 | `_prepare_panel_from_groups` | function | `engine/attribution.py:411` | 9 | B |
+| 5 | `aggregate_attribution_results` | function | `engine/attribution.py:607` | 9 | B |
+| 6 | `_blocked_composite_period_result_for_invalid_ready_facts` | function | `engine/composites.py:181` | 9 | B |
+| 7 | `_composite_period_fact_metadata` | function | `engine/composites.py:305` | 9 | B |
+| 8 | `_flag_outliers` | function | `engine/policies.py:118` | 9 | B |
+| 9 | `_compound_ror` | function | `engine/ror.py:237` | 9 | B |
+| 10 | `_load_and_validate_manifest` | function | `app/api/endpoints/lineage.py:27` | 8 | B |
+| 11 | `to_stateless_attribution_request` | method | `app/models/attribution_analytics_requests.py:182` | 8 | B |
+| 12 | `_resolve_mwr_stateless_input` | function | `app/models/mwr_analytics_requests.py:152` | 8 | B |
+| 13 | `_validate_returns_series_stateless_selection_inputs` | function | `app/models/returns_series.py:292` | 8 | B |
+| 14 | `WorkspaceBenchmarkRequest` | class | `app/models/workspace_summary_requests.py:103` | 8 | B |
+| 15 | `_explicit_schema_example` | function | `app/openapi_enrichment.py:316` | 8 | B |
+| 16 | `_build_schema_example` | function | `app/openapi_enrichment.py:402` | 8 | B |
+| 17 | `resolve_async_result` | function | `app/services/async_result_service.py:18` | 8 | B |
+| 18 | `get_result` | method | `app/services/async_result_store.py:137` | 8 | B |
+| 19 | `attribution_input_count` | function | `app/services/attribution_calculation_workflow_service.py:38` | 8 | B |
+| 20 | `calculate_attribution_workflow` | function | `app/services/attribution_calculation_workflow_service.py:161` | 8 | B |
+| 21 | `_inspection_active_since` | method | `app/services/compute_job_store.py:1168` | 8 | B |
+| 22 | `_compute_job_record_payload_state` | function | `app/services/compute_job_store.py:1202` | 8 | B |
+| 23 | `record_cutover_assessment` | method | `app/services/contribution_audit.py:60` | 8 | B |
+| 24 | `_calculate_reset_aware_average_weight_shadow` | function | `app/services/contribution_methodology.py:43` | 8 | B |
+| 25 | `_build_residual_adjusted_position_timeseries` | function | `app/services/contribution_series.py:57` | 8 | B |
 
 ## Lowest Maintainability Index
 
@@ -75,7 +75,7 @@ python scripts/python_complexity_inventory.py --limit 25
 | 15 | `app/services/inspection/source_economics_collector.py` | 17.35 | B |
 | 16 | `app/services/inspection/source_economics.py` | 17.49 | B |
 | 17 | `app/workers/compute_executor_worker.py` | 18.03 | B |
-| 18 | `app/services/twr_mode_service.py` | 18.52 | B |
+| 18 | `app/services/twr_mode_service.py` | 18.24 | B |
 | 19 | `app/services/inspection/source_quality.py` | 18.55 | B |
 | 20 | `app/models/runtime_status.py` | 19.85 | A |
 | 21 | `app/models/returns_series.py` | 20.22 | A |
@@ -365,6 +365,8 @@ price-point return projection was isolated from observation construction.
 date deltas, and calendar warning-code projection were isolated from final evidence construction.
 `calculate_twr_workflow` also dropped out after resolved response finalization and final TWR
 response calculation were moved into a dedicated helper.
+`resolve_twr_request` also dropped out after final resolved request assembly and benchmark-id
+precedence were moved into dedicated helpers.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.
