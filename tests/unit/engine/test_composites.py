@@ -295,6 +295,32 @@ def test_blocked_composite_period_result_for_invalid_ready_facts_blocks_nonposit
     assert period_result.reason_codes == ["nonpositive_composite_beginning_assets"]
 
 
+def test_blocked_composite_period_result_for_invalid_ready_facts_preserves_prior_reason_codes():
+    ready_facts = [_fact(portfolio_id="P1", beginning_market_value="0.00", ending_market_value="10.00")]
+
+    result = _blocked_composite_period_result_for_invalid_ready_facts(
+        period_start=date(2026, 1, 1),
+        period_end=date(2026, 1, 31),
+        beginning_assets=Decimal("0"),
+        ending_assets=Decimal("10.00"),
+        ready_facts=ready_facts,
+        excluded_facts=[],
+        reason_codes=["upstream_member_fact_warning"],
+        ready_return_views=["NET_ACTUAL"],
+        ready_reporting_currencies=["USD"],
+        ready_source_fingerprints=["sha256:P1-2026-01-31"],
+        ready_restatement_versions=["v1"],
+    )
+
+    assert result is not None
+    period_result, aggregate_reason_code = result
+    assert aggregate_reason_code == "nonpositive_composite_beginning_assets"
+    assert period_result.reason_codes == [
+        "upstream_member_fact_warning",
+        "nonpositive_composite_beginning_assets",
+    ]
+
+
 def test_blocked_composite_period_result_for_invalid_ready_facts_blocks_mixed_return_views():
     ready_facts = [
         _fact(portfolio_id="P1", return_view="GROSS"),

@@ -99,6 +99,14 @@ class _CompositePeriodFactMetadata:
     ready_restatement_versions: list[str]
 
 
+@dataclass(frozen=True)
+class _InvalidReadyCompositePeriodContext:
+    period_start: dt_date
+    period_end: dt_date
+    ready_facts: Sequence[CompositeMemberReturnFactLike]
+    excluded_facts: Sequence[CompositeMemberReturnFactLike]
+
+
 def _quantize_decimal(value: Decimal, quantum: Decimal) -> Decimal:
     if value == 0:
         return Decimal("0").quantize(quantum)
@@ -178,6 +186,40 @@ def _build_ready_member_contributions(
     return weighted_return, member_contributions
 
 
+def _single_composite_metadata_value(values: Sequence[str]) -> str | None:
+    return values[0] if len(values) == 1 else None
+
+
+def _blocked_invalid_ready_composite_period_result(
+    context: _InvalidReadyCompositePeriodContext,
+    *,
+    beginning_assets: Decimal,
+    ending_assets: Decimal,
+    aggregate_reason_code: str,
+    reason_codes: list[str],
+    return_view: str | None = None,
+    reporting_currency: str | None = None,
+    source_fingerprints: list[str] | None = None,
+    restatement_versions: list[str] | None = None,
+) -> tuple[CompositePeriodResult, str]:
+    return (
+        _blocked_composite_period_result(
+            period_start=context.period_start,
+            period_end=context.period_end,
+            beginning_assets=beginning_assets,
+            ending_assets=ending_assets,
+            ready_facts=context.ready_facts,
+            excluded_facts=context.excluded_facts,
+            return_view=return_view,
+            reporting_currency=reporting_currency,
+            source_fingerprints=source_fingerprints,
+            restatement_versions=restatement_versions,
+            reason_codes=reason_codes,
+        ),
+        aggregate_reason_code,
+    )
+
+
 def _blocked_composite_period_result_for_invalid_ready_facts(
     *,
     period_start: dt_date,
@@ -192,72 +234,56 @@ def _blocked_composite_period_result_for_invalid_ready_facts(
     ready_source_fingerprints: list[str],
     ready_restatement_versions: list[str],
 ) -> tuple[CompositePeriodResult, str] | None:
+    context = _InvalidReadyCompositePeriodContext(
+        period_start=period_start,
+        period_end=period_end,
+        ready_facts=ready_facts,
+        excluded_facts=excluded_facts,
+    )
     if not ready_facts:
-        return (
-            _blocked_composite_period_result(
-                period_start=period_start,
-                period_end=period_end,
-                beginning_assets=Decimal("0"),
-                ending_assets=Decimal("0"),
-                ready_facts=ready_facts,
-                excluded_facts=excluded_facts,
-                reason_codes=reason_codes or ["no_ready_member_return_facts"],
-            ),
-            "no_ready_member_return_facts",
+        return _blocked_invalid_ready_composite_period_result(
+            context,
+            beginning_assets=Decimal("0"),
+            ending_assets=Decimal("0"),
+            aggregate_reason_code="no_ready_member_return_facts",
+            reason_codes=reason_codes or ["no_ready_member_return_facts"],
         )
 
     if beginning_assets <= 0:
-        return (
-            _blocked_composite_period_result(
-                period_start=period_start,
-                period_end=period_end,
-                beginning_assets=beginning_assets,
-                ending_assets=ending_assets,
-                ready_facts=ready_facts,
-                excluded_facts=excluded_facts,
-                return_view=ready_return_views[0] if len(ready_return_views) == 1 else None,
-                reporting_currency=ready_reporting_currencies[0] if len(ready_reporting_currencies) == 1 else None,
-                source_fingerprints=ready_source_fingerprints,
-                restatement_versions=ready_restatement_versions,
-                reason_codes=reason_codes + ["nonpositive_composite_beginning_assets"],
-            ),
-            "nonpositive_composite_beginning_assets",
+        return _blocked_invalid_ready_composite_period_result(
+            context,
+            beginning_assets=beginning_assets,
+            ending_assets=ending_assets,
+            aggregate_reason_code="nonpositive_composite_beginning_assets",
+            reason_codes=reason_codes + ["nonpositive_composite_beginning_assets"],
+            return_view=_single_composite_metadata_value(ready_return_views),
+            reporting_currency=_single_composite_metadata_value(ready_reporting_currencies),
+            source_fingerprints=ready_source_fingerprints,
+            restatement_versions=ready_restatement_versions,
         )
 
     if len(ready_return_views) > 1:
-        return (
-            _blocked_composite_period_result(
-                period_start=period_start,
-                period_end=period_end,
-                beginning_assets=beginning_assets,
-                ending_assets=ending_assets,
-                ready_facts=ready_facts,
-                excluded_facts=excluded_facts,
-                return_view=None,
-                reporting_currency=ready_reporting_currencies[0] if len(ready_reporting_currencies) == 1 else None,
-                source_fingerprints=ready_source_fingerprints,
-                restatement_versions=ready_restatement_versions,
-                reason_codes=reason_codes + ["mixed_member_return_views"],
-            ),
-            "mixed_member_return_views",
+        return _blocked_invalid_ready_composite_period_result(
+            context,
+            beginning_assets=beginning_assets,
+            ending_assets=ending_assets,
+            aggregate_reason_code="mixed_member_return_views",
+            reason_codes=reason_codes + ["mixed_member_return_views"],
+            reporting_currency=_single_composite_metadata_value(ready_reporting_currencies),
+            source_fingerprints=ready_source_fingerprints,
+            restatement_versions=ready_restatement_versions,
         )
 
     if len(ready_reporting_currencies) > 1:
-        return (
-            _blocked_composite_period_result(
-                period_start=period_start,
-                period_end=period_end,
-                beginning_assets=beginning_assets,
-                ending_assets=ending_assets,
-                ready_facts=ready_facts,
-                excluded_facts=excluded_facts,
-                return_view=ready_return_views[0],
-                reporting_currency=None,
-                source_fingerprints=ready_source_fingerprints,
-                restatement_versions=ready_restatement_versions,
-                reason_codes=reason_codes + ["mixed_member_reporting_currencies"],
-            ),
-            "mixed_member_reporting_currencies",
+        return _blocked_invalid_ready_composite_period_result(
+            context,
+            beginning_assets=beginning_assets,
+            ending_assets=ending_assets,
+            aggregate_reason_code="mixed_member_reporting_currencies",
+            reason_codes=reason_codes + ["mixed_member_reporting_currencies"],
+            return_view=ready_return_views[0],
+            source_fingerprints=ready_source_fingerprints,
+            restatement_versions=ready_restatement_versions,
         )
 
     return None
