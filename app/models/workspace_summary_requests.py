@@ -128,18 +128,26 @@ class WorkspaceBenchmarkRequest(BaseModel):
     @model_validator(mode="after")
     def validate_mode_payloads(self) -> "WorkspaceBenchmarkRequest":
         if self.input_mode == BenchmarkInputMode.STATELESS:
-            if self.stateless_input is None:
-                raise ValueError("benchmark.stateless_input is required when benchmark.input_mode=stateless")
-            if self.stateful_input is not None:
-                raise ValueError("benchmark.stateful_input must be null when benchmark.input_mode=stateless")
-            if not self.benchmark_id:
-                raise ValueError("benchmark.benchmark_id is required when benchmark.input_mode=stateless")
+            _validate_workspace_stateless_benchmark_payload(self)
         else:
-            if self.stateful_input is None:
-                self.stateful_input = BenchmarkStatefulInput()
-            if self.stateless_input is not None:
-                raise ValueError("benchmark.stateless_input must be null when benchmark.input_mode=stateful")
+            _validate_workspace_stateful_benchmark_payload(self)
         return self
+
+
+def _validate_workspace_stateless_benchmark_payload(request: WorkspaceBenchmarkRequest) -> None:
+    if request.stateless_input is None:
+        raise ValueError("benchmark.stateless_input is required when benchmark.input_mode=stateless")
+    if request.stateful_input is not None:
+        raise ValueError("benchmark.stateful_input must be null when benchmark.input_mode=stateless")
+    if not request.benchmark_id:
+        raise ValueError("benchmark.benchmark_id is required when benchmark.input_mode=stateless")
+
+
+def _validate_workspace_stateful_benchmark_payload(request: WorkspaceBenchmarkRequest) -> None:
+    if request.stateful_input is None:
+        request.stateful_input = BenchmarkStatefulInput()
+    if request.stateless_input is not None:
+        raise ValueError("benchmark.stateless_input must be null when benchmark.input_mode=stateful")
 
 
 class WorkspaceSummaryRequest(BaseModel):

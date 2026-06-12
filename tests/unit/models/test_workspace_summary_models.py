@@ -7,9 +7,12 @@ import pytest
 from app.models.benchmark_analytics_requests import BenchmarkInputMode
 from app.models.twr_requests import TWRInputMode
 from app.models.workspace_summary_requests import (
+    WorkspaceBenchmarkRequest,
     WorkspaceSummaryRequest,
     _requested_workspace_periods,
     _resolve_workspace_summary_include_benchmark,
+    _validate_workspace_stateful_benchmark_payload,
+    _validate_workspace_stateless_benchmark_payload,
     _validate_workspace_summary_benchmark_request,
     _validate_workspace_summary_stateless_inputs,
 )
@@ -307,3 +310,42 @@ def test_workspace_benchmark_request_defaults_stateful_payload_when_omitted():
 
     assert request.benchmark is not None
     assert request.benchmark.stateful_input is not None
+
+
+def test_workspace_benchmark_payload_helpers_preserve_mode_policy():
+    stateless_request = WorkspaceBenchmarkRequest.model_construct(
+        input_mode=BenchmarkInputMode.STATELESS,
+        benchmark_id="BMK_1",
+        stateless_input=object(),
+        stateful_input=None,
+    )
+    stateful_request = WorkspaceBenchmarkRequest.model_construct(
+        input_mode=BenchmarkInputMode.STATEFUL,
+        stateless_input=None,
+        stateful_input=None,
+    )
+
+    _validate_workspace_stateless_benchmark_payload(stateless_request)
+    _validate_workspace_stateful_benchmark_payload(stateful_request)
+
+    assert stateful_request.stateful_input is not None
+
+
+def test_workspace_benchmark_payload_helpers_reject_cross_mode_payloads():
+    with pytest.raises(ValueError, match="benchmark.benchmark_id is required"):
+        _validate_workspace_stateless_benchmark_payload(
+            WorkspaceBenchmarkRequest.model_construct(
+                input_mode=BenchmarkInputMode.STATELESS,
+                benchmark_id=None,
+                stateless_input=object(),
+                stateful_input=None,
+            )
+        )
+    with pytest.raises(ValueError, match="benchmark.stateless_input must be null"):
+        _validate_workspace_stateful_benchmark_payload(
+            WorkspaceBenchmarkRequest.model_construct(
+                input_mode=BenchmarkInputMode.STATEFUL,
+                stateless_input=object(),
+                stateful_input=None,
+            )
+        )
