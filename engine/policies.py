@@ -144,19 +144,37 @@ def _flag_outliers(
     )
 
     diagnostics.policy.outliers.flagged_rows = int(outliers.sum())
+    _record_outlier_samples(
+        df=df,
+        outliers=outliers,
+        upper_bound=upper_bound,
+        lower_bound=lower_bound,
+        diagnostics=diagnostics,
+    )
 
-    if int(outliers.sum()) > 0:
-        outlier_indices = df.index[outliers]
-        for index in outlier_indices:
-            sample = df.loc[index]
-            raw_return = sample[PortfolioColumns.DAILY_ROR.value]
-            diagnostics.samples.outliers.append(
-                OutlierSample(
-                    date=sample[PortfolioColumns.PERF_DATE.value].strftime("%Y-%m-%d"),
-                    raw_return=raw_return,
-                    threshold=upper_bound[index] if raw_return > 0 else lower_bound[index],
-                )
+
+def _record_outlier_samples(
+    *,
+    df: pd.DataFrame,
+    outliers: pd.Series,
+    upper_bound: pd.Series,
+    lower_bound: pd.Series,
+    diagnostics: EngineDiagnostics,
+) -> None:
+    if int(outliers.sum()) == 0:
+        return
+
+    outlier_indices = df.index[outliers]
+    for index in outlier_indices:
+        sample = df.loc[index]
+        raw_return = sample[PortfolioColumns.DAILY_ROR.value]
+        diagnostics.samples.outliers.append(
+            OutlierSample(
+                date=sample[PortfolioColumns.PERF_DATE.value].strftime("%Y-%m-%d"),
+                raw_return=raw_return,
+                threshold=upper_bound[index] if raw_return > 0 else lower_bound[index],
             )
+        )
 
 
 def _outlier_mask_and_bounds(

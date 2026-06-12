@@ -9,6 +9,7 @@ from engine.policies import (
     _flag_outliers,
     _outlier_mask_and_bounds,
     _override_mask,
+    _record_outlier_samples,
     apply_robustness_policies,
 )
 from engine.schema import PortfolioColumns
@@ -104,6 +105,29 @@ def test_flag_outliers():
     assert diagnostics.policy.outliers.flagged_rows == 1
     assert diagnostics.samples.outliers[0].raw_return == 99.0
     assert df.loc[5, PortfolioColumns.DAILY_ROR.value] == 99.0
+
+
+def test_record_outlier_samples_uses_lower_bound_for_negative_returns():
+    df = pd.DataFrame(
+        {
+            PortfolioColumns.PERF_DATE.value: pd.to_datetime(["2025-01-01", "2025-01-02"]),
+            PortfolioColumns.DAILY_ROR.value: [0.01, -0.25],
+        }
+    )
+    diagnostics = EngineDiagnostics()
+
+    _record_outlier_samples(
+        df=df,
+        outliers=pd.Series([False, True], index=df.index),
+        upper_bound=pd.Series([0.10, 0.10], index=df.index),
+        lower_bound=pd.Series([-0.05, -0.08], index=df.index),
+        diagnostics=diagnostics,
+    )
+
+    assert len(diagnostics.samples.outliers) == 1
+    assert diagnostics.samples.outliers[0].date == "2025-01-02"
+    assert diagnostics.samples.outliers[0].raw_return == -0.25
+    assert diagnostics.samples.outliers[0].threshold == -0.08
 
 
 def test_outlier_mask_and_bounds_excludes_ignored_dates():
