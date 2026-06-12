@@ -26,6 +26,7 @@ from app.models.returns_series import (
 from app.services import returns_series_calculation_workflow_service
 from app.services.execution_registry import execution_registry
 from app.services.returns_series_calculation_workflow_service import (
+    build_returns_series_execution_window,
     calculate_returns_series_workflow,
     should_offload_resolved_returns_series,
     should_offload_returns_series,
@@ -318,6 +319,41 @@ def test_should_offload_resolved_returns_series_uses_runtime_settings(mocker):
 
     assert should_offload_resolved_returns_series(3) is True
     assert should_offload_resolved_returns_series(2) is False
+
+
+def test_build_returns_series_execution_window_projects_optional_metadata():
+    request = ReturnsSeriesRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "as_of_date": "2026-02-27",
+            "window": {"mode": "EXPLICIT", "from_date": "2026-02-24", "to_date": "2026-02-27"},
+            "input_mode": "stateful",
+            "stateful_input": {},
+        }
+    )
+
+    requested_window = build_returns_series_execution_window(
+        request,
+        source_request_fingerprint="source-fingerprint",
+        input_count=0,
+        benchmark_id=None,
+        benchmark_return_source="sourced_benchmark_returns",
+        benchmark_work_units=0,
+    )
+
+    assert requested_window == {
+        "mode": "EXPLICIT",
+        "from_date": "2026-02-24",
+        "to_date": "2026-02-27",
+        "period": None,
+        "year": None,
+        "input_mode": "stateful",
+        "source_request_fingerprint": "source-fingerprint",
+        "input_count": 0,
+        "benchmark_return_source": "sourced_benchmark_returns",
+        "benchmark_work_units": 0,
+    }
+    assert "benchmark_id" not in requested_window
 
 
 @pytest.mark.asyncio

@@ -52,6 +52,24 @@ def should_offload_resolved_returns_series(input_count: int) -> bool:
     return input_count >= active_settings.RETURNS_SERIES_EXECUTOR_INPUT_COUNT
 
 
+def _returns_series_execution_metadata(
+    *,
+    source_request_fingerprint: str | None,
+    input_count: int | None,
+    benchmark_id: str | None,
+    benchmark_return_source: str | None,
+    benchmark_work_units: int | None,
+) -> dict[str, object]:
+    metadata: dict[str, object | None] = {
+        "source_request_fingerprint": source_request_fingerprint,
+        "input_count": input_count,
+        "benchmark_id": benchmark_id,
+        "benchmark_return_source": benchmark_return_source,
+        "benchmark_work_units": benchmark_work_units,
+    }
+    return {field: value for field, value in metadata.items() if value is not None}
+
+
 def build_returns_series_execution_window(
     request: ReturnsSeriesRequest,
     *,
@@ -69,16 +87,15 @@ def build_returns_series_execution_window(
         "year": request.window.year,
         "input_mode": request.input_mode.value,
     }
-    if source_request_fingerprint is not None:
-        requested_window["source_request_fingerprint"] = source_request_fingerprint
-    if input_count is not None:
-        requested_window["input_count"] = input_count
-    if benchmark_id is not None:
-        requested_window["benchmark_id"] = benchmark_id
-    if benchmark_return_source is not None:
-        requested_window["benchmark_return_source"] = benchmark_return_source
-    if benchmark_work_units is not None:
-        requested_window["benchmark_work_units"] = benchmark_work_units
+    requested_window.update(
+        _returns_series_execution_metadata(
+            source_request_fingerprint=source_request_fingerprint,
+            input_count=input_count,
+            benchmark_id=benchmark_id,
+            benchmark_return_source=benchmark_return_source,
+            benchmark_work_units=benchmark_work_units,
+        )
+    )
     return requested_window
 
 
