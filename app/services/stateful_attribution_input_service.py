@@ -373,13 +373,29 @@ def _position_market_value_pair(
     row: dict[str, object],
     reporting_currency: str | None,
 ) -> tuple[object, object] | None:
-    begin_key = "beginning_market_value_reporting_currency" if reporting_currency is not None else None
-    end_key = "ending_market_value_reporting_currency" if reporting_currency is not None else None
-    begin_value = row.get(begin_key) if begin_key is not None else None
-    end_value = row.get(end_key) if end_key is not None else None
-    if begin_value is None or end_value is None:
-        begin_value = row.get("beginning_market_value_portfolio_currency")
-        end_value = row.get("ending_market_value_portfolio_currency")
+    if reporting_currency is not None:
+        reporting_values = _row_value_pair(
+            row,
+            begin_key="beginning_market_value_reporting_currency",
+            end_key="ending_market_value_reporting_currency",
+        )
+        if reporting_values is not None:
+            return reporting_values
+    return _row_value_pair(
+        row,
+        begin_key="beginning_market_value_portfolio_currency",
+        end_key="ending_market_value_portfolio_currency",
+    )
+
+
+def _row_value_pair(
+    row: dict[str, object],
+    *,
+    begin_key: str,
+    end_key: str,
+) -> tuple[object, object] | None:
+    begin_value = row.get(begin_key)
+    end_value = row.get(end_key)
     if begin_value is None or end_value is None:
         return None
     return begin_value, end_value

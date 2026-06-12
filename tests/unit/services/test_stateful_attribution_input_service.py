@@ -929,6 +929,14 @@ def test_position_market_value_pair_prefers_reporting_currency_and_skips_incompl
         },
         reporting_currency="USD",
     ) == ("200", "210")
+    assert _position_market_value_pair(
+        row={
+            "beginning_market_value_reporting_currency": "100",
+            "beginning_market_value_portfolio_currency": "200",
+            "ending_market_value_portfolio_currency": "210",
+        },
+        reporting_currency="USD",
+    ) == ("200", "210")
     assert (
         _position_market_value_pair(
             row={"beginning_market_value_portfolio_currency": "200"},
