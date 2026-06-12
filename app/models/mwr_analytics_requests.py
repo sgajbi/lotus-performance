@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import date
 from enum import Enum
 
@@ -25,6 +26,13 @@ class MWRStatefulInput(BaseModel):
         description="Inclusive start date for the sourced MWR measurement window.",
         examples=["2025-01-01"],
     )
+
+
+@dataclass(frozen=True)
+class _ResolvedMWRStatelessInput:
+    begin_mv: float
+    end_mv: float
+    cash_flows: list[CashFlow]
 
 
 def _has_legacy_stateless_payload(request: "MoneyWeightedReturnAnalyticsRequest") -> bool:
@@ -117,21 +125,12 @@ class MoneyWeightedReturnAnalyticsRequest(MoneyWeightedReturnRequestBase):
         cash_flows: list[CashFlow] | None = None,
         start_date: date | None = None,
     ) -> MoneyWeightedReturnRequest:
-        if begin_mv is not None and end_mv is not None and cash_flows is not None:
-            resolved_begin_mv = begin_mv
-            resolved_end_mv = end_mv
-            resolved_cash_flows = cash_flows
-        elif self.stateless_input is not None:
-            resolved_begin_mv = self.stateless_input.begin_mv
-            resolved_end_mv = self.stateless_input.end_mv
-            resolved_cash_flows = self.stateless_input.cash_flows
-        elif self.begin_mv is not None and self.end_mv is not None and self.cash_flows is not None:
-            resolved_begin_mv = self.begin_mv
-            resolved_end_mv = self.end_mv
-            resolved_cash_flows = self.cash_flows
-        else:
-            raise ValueError("No stateless MWR inputs are available to build a MoneyWeightedReturnRequest")
-
+        resolved_input = _resolve_mwr_stateless_input(
+            request=self,
+            begin_mv=begin_mv,
+            end_mv=end_mv,
+            cash_flows=cash_flows,
+        )
         payload = self.model_dump(
             exclude={
                 "input_mode",
@@ -143,8 +142,32 @@ class MoneyWeightedReturnAnalyticsRequest(MoneyWeightedReturnRequestBase):
             },
             mode="python",
         )
-        payload["begin_mv"] = resolved_begin_mv
-        payload["end_mv"] = resolved_end_mv
-        payload["cash_flows"] = [cash_flow.model_dump(mode="python") for cash_flow in resolved_cash_flows]
+        payload["begin_mv"] = resolved_input.begin_mv
+        payload["end_mv"] = resolved_input.end_mv
+        payload["cash_flows"] = [cash_flow.model_dump(mode="python") for cash_flow in resolved_input.cash_flows]
         payload["start_date"] = start_date if start_date is not None else self.start_date
         return MoneyWeightedReturnRequest.model_validate(payload)
+
+
+def _resolve_mwr_stateless_input(
+    *,
+    request: MoneyWeightedReturnAnalyticsRequest,
+    begin_mv: float | None = None,
+    end_mv: float | None = None,
+    cash_flows: list[CashFlow] | None = None,
+) -> _ResolvedMWRStatelessInput:
+    if begin_mv is not None and end_mv is not None and cash_flows is not None:
+        return _ResolvedMWRStatelessInput(begin_mv=begin_mv, end_mv=end_mv, cash_flows=cash_flows)
+    if request.stateless_input is not None:
+        return _ResolvedMWRStatelessInput(
+            begin_mv=request.stateless_input.begin_mv,
+            end_mv=request.stateless_input.end_mv,
+            cash_flows=request.stateless_input.cash_flows,
+        )
+    if request.begin_mv is not None and request.end_mv is not None and request.cash_flows is not None:
+        return _ResolvedMWRStatelessInput(
+            begin_mv=request.begin_mv,
+            end_mv=request.end_mv,
+            cash_flows=request.cash_flows,
+        )
+    raise ValueError("No stateless MWR inputs are available to build a MoneyWeightedReturnRequest")
