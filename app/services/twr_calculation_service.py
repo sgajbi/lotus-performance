@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 from fastapi import HTTPException, status
 
 from app.core.config import get_settings
@@ -19,6 +21,12 @@ from app.services.submission_fencing_service import (
 )
 from app.services.twr_mode_service import resolve_twr_request
 from app.services.twr_service import calculate_twr_response
+
+
+@dataclass(frozen=True)
+class _TWRSyncExecutionStart:
+    requested_window: dict[str, object]
+    replay_response: TWRAcceptedResponse | None
 
 
 def accepted_twr_response(calculation_id) -> TWRAcceptedResponse:
@@ -271,20 +279,14 @@ async def calculate_twr_workflow(request: TWRAnalyticsRequest) -> PerformanceRes
             accepted_response_factory=accepted_twr_response,
         )
 
-    if request.input_mode == TWRInputMode.STATEFUL:
-        replay_response = replay_promoted_stateful_async_execution(
-            calculation_id=request.calculation_id,
-            analytics_type=ANALYTICS_WORKFLOW_TWR,
-            source_request_fingerprint=source_request_fingerprint,
-            accepted_response_factory=accepted_twr_response,
-        )
-        if replay_response is not None:
-            return replay_response
-        requested_window = build_twr_execution_window(
-            request,
-            input_count=twr_requested_input_count(request),
-            source_request_fingerprint=source_request_fingerprint,
-        )
+    sync_start = _prepare_twr_sync_execution_start(
+        request=request,
+        requested_window=requested_window,
+        source_request_fingerprint=source_request_fingerprint,
+    )
+    if sync_start.replay_response is not None:
+        return sync_start.replay_response
+    requested_window = sync_start.requested_window
 
     register_sync_execution_or_raise(
         calculation_id=request.calculation_id,
@@ -359,3 +361,31 @@ async def calculate_twr_workflow(request: TWRAnalyticsRequest) -> PerformanceRes
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An unexpected server error occurred: {str(exc)}",
         ) from exc
+
+
+def _prepare_twr_sync_execution_start(
+    *,
+    request: TWRAnalyticsRequest,
+    requested_window: dict[str, object],
+    source_request_fingerprint: str,
+) -> _TWRSyncExecutionStart:
+    if request.input_mode != TWRInputMode.STATEFUL:
+        return _TWRSyncExecutionStart(requested_window=requested_window, replay_response=None)
+
+    replay_response = replay_promoted_stateful_async_execution(
+        calculation_id=request.calculation_id,
+        analytics_type=ANALYTICS_WORKFLOW_TWR,
+        source_request_fingerprint=source_request_fingerprint,
+        accepted_response_factory=accepted_twr_response,
+    )
+    if replay_response is not None:
+        return _TWRSyncExecutionStart(requested_window=requested_window, replay_response=replay_response)
+
+    return _TWRSyncExecutionStart(
+        requested_window=build_twr_execution_window(
+            request,
+            input_count=twr_requested_input_count(request),
+            source_request_fingerprint=source_request_fingerprint,
+        ),
+        replay_response=None,
+    )

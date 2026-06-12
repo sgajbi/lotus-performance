@@ -159,6 +159,45 @@ def test_finalize_twr_resolved_execution_identity_preserves_stateful_payload(moc
     assert finalize_resolved.call_args.kwargs["resolved_request_payload"]["benchmark_return_source"] == "calculated"
 
 
+def test_prepare_twr_sync_execution_start_replays_promoted_stateful_execution(mocker):
+    request = TWRAnalyticsRequest.model_validate(_stateful_twr_payload())
+    requested_window = {"start_date": "2025-01-01", "end_date": "2025-01-02"}
+    replay_response = twr_calculation_service.accepted_twr_response(request.calculation_id)
+    replay_promoted = mocker.patch(
+        "app.services.twr_calculation_service.replay_promoted_stateful_async_execution",
+        return_value=replay_response,
+    )
+
+    sync_start = twr_calculation_service._prepare_twr_sync_execution_start(
+        request=request,
+        requested_window=requested_window,
+        source_request_fingerprint="source-fingerprint",
+    )
+
+    assert sync_start.replay_response == replay_response
+    assert sync_start.requested_window is requested_window
+    replay_promoted.assert_called_once()
+    assert replay_promoted.call_args.kwargs["analytics_type"] == ANALYTICS_WORKFLOW_TWR
+
+
+def test_prepare_twr_sync_execution_start_enriches_stateful_window_when_no_replay(mocker):
+    request = TWRAnalyticsRequest.model_validate(_stateful_twr_payload())
+    replay_promoted = mocker.patch(
+        "app.services.twr_calculation_service.replay_promoted_stateful_async_execution",
+        return_value=None,
+    )
+
+    sync_start = twr_calculation_service._prepare_twr_sync_execution_start(
+        request=request,
+        requested_window={"start_date": "2025-01-01", "end_date": "2025-01-02"},
+        source_request_fingerprint="source-fingerprint",
+    )
+
+    assert sync_start.replay_response is None
+    assert sync_start.requested_window["source_request_fingerprint"] == "source-fingerprint"
+    replay_promoted.assert_called_once()
+
+
 @pytest.mark.asyncio
 async def test_calculate_twr_workflow_replays_promoted_stateful_async_execution(mocker):
     request = TWRAnalyticsRequest.model_validate(_stateful_twr_payload())
