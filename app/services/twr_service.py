@@ -21,6 +21,7 @@ from app.models.responses import (
     PerformanceCalculationSupportability,
     PerformanceResponse,
     PortfolioReturnDecomposition,
+    ResetEvent,
     SinglePeriodPerformanceResult,
     TWRBenchmarkContext,
 )
@@ -765,28 +766,16 @@ def _build_twr_results_by_period(
             performance_request.output.include_cumulative,
             performance_request.rounding_precision,
         )
-        portfolio_period_return = _calculate_total_return_from_slice(period_slice_df, daily_results_df)
-        portfolio_breakdowns = _build_portfolio_breakdowns(
+        portfolio = _build_twr_portfolio_period_block(
+            performance_request=performance_request,
+            period=period,
             period_slice_df=period_slice_df,
             daily_results_df=daily_results_df,
             requested_frequencies=requested_frequencies_for_period,
             breakdowns_data=breakdowns_data,
-            include_timeseries=performance_request.output.include_timeseries,
-            metric_basis=performance_request.metric_basis,
         )
 
-        period_result = SinglePeriodPerformanceResult(
-            portfolio=ComparativeAnalyticsBlock(
-                summary=ComparativeSummary(
-                    period_return=_build_return_value_from_decomposition(portfolio_period_return),
-                    cumulative_return=_get_portfolio_cumulative_return_to_date(
-                        period_end_date=period.end_date,
-                        daily_results_df=daily_results_df,
-                    ),
-                ),
-                breakdowns=portfolio_breakdowns,
-            ),
-        )
+        period_result = SinglePeriodPerformanceResult(portfolio=portfolio)
 
         if benchmark_context is not None:
             period_result.benchmark, period_result.relative_performance = _build_twr_benchmark_period_blocks(
@@ -796,16 +785,60 @@ def _build_twr_results_by_period(
                 context=benchmark_context,
             )
 
-        if performance_request.reset_policy.emit and engine_diagnostics.resets:
-            period_result.reset_events = [
-                event
-                for event in build_reset_events(engine_diagnostics)
-                if period.start_date <= event.date <= period.end_date
-            ]
+        reset_events = _twr_period_reset_events(
+            performance_request=performance_request,
+            engine_diagnostics=engine_diagnostics,
+            period=period,
+        )
+        if reset_events is not None:
+            period_result.reset_events = reset_events
 
         results_by_period[period.name] = period_result
 
     return results_by_period
+
+
+def _twr_period_reset_events(
+    *,
+    performance_request: PerformanceRequest,
+    engine_diagnostics: EngineDiagnostics,
+    period: ResolvedPeriod,
+) -> list[ResetEvent] | None:
+    if not performance_request.reset_policy.emit or not engine_diagnostics.resets:
+        return None
+    return [
+        event for event in build_reset_events(engine_diagnostics) if period.start_date <= event.date <= period.end_date
+    ]
+
+
+def _build_twr_portfolio_period_block(
+    *,
+    performance_request: PerformanceRequest,
+    period: ResolvedPeriod,
+    period_slice_df: pd.DataFrame,
+    daily_results_df: pd.DataFrame,
+    requested_frequencies: list[Frequency],
+    breakdowns_data: dict[Frequency, list[dict]],
+) -> ComparativeAnalyticsBlock:
+    portfolio_period_return = _calculate_total_return_from_slice(period_slice_df, daily_results_df)
+    portfolio_breakdowns = _build_portfolio_breakdowns(
+        period_slice_df=period_slice_df,
+        daily_results_df=daily_results_df,
+        requested_frequencies=requested_frequencies,
+        breakdowns_data=breakdowns_data,
+        include_timeseries=performance_request.output.include_timeseries,
+        metric_basis=performance_request.metric_basis,
+    )
+    return ComparativeAnalyticsBlock(
+        summary=ComparativeSummary(
+            period_return=_build_return_value_from_decomposition(portfolio_period_return),
+            cumulative_return=_get_portfolio_cumulative_return_to_date(
+                period_end_date=period.end_date,
+                daily_results_df=daily_results_df,
+            ),
+        ),
+        breakdowns=portfolio_breakdowns,
+    )
 
 
 def _build_twr_benchmark_period_blocks(

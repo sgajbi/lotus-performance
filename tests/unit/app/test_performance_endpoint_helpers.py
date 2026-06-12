@@ -14,11 +14,13 @@ from app.services.twr_service import (
     _as_numeric,
     _build_twr_benchmark_period_blocks,
     _build_twr_lineage_details,
+    _build_twr_portfolio_period_block,
     _build_twr_response_model,
     _build_twr_results_by_period,
     _calculate_total_return_from_slice,
     _get_total_cum_ror,
     _resolve_twr_supportability,
+    _twr_period_reset_events,
     _TWRBenchmarkPeriodContext,
     _TWRExecutionCalculation,
 )
@@ -124,6 +126,51 @@ def test_build_twr_results_by_period_filters_reset_events_to_period_window():
     reset_events = results["ITD"].reset_events
     assert reset_events is not None
     assert [event.reason for event in reset_events] == ["in_period"]
+
+
+def test_twr_period_reset_events_respects_policy_and_period_window():
+    diagnostics = EngineDiagnostics(
+        resets=[
+            EngineResetEvent(date=date(2025, 1, 2), reason="in_period", impacted_rows=1),
+            EngineResetEvent(date=date(2025, 1, 3), reason="outside_period", impacted_rows=1),
+        ]
+    )
+    period = ResolvedPeriod(name="ITD", start_date=date(2025, 1, 1), end_date=date(2025, 1, 2))
+
+    disabled = _twr_period_reset_events(
+        performance_request=_twr_request(emit_resets=False),
+        engine_diagnostics=diagnostics,
+        period=period,
+    )
+    enabled = _twr_period_reset_events(
+        performance_request=_twr_request(emit_resets=True),
+        engine_diagnostics=diagnostics,
+        period=period,
+    )
+
+    assert disabled is None
+    assert enabled is not None
+    assert [event.reason for event in enabled] == ["in_period"]
+
+
+def test_build_twr_portfolio_period_block_preserves_summary_and_breakdowns():
+    request = _twr_request()
+    daily_results_df = _daily_twr_results_df()
+    period = ResolvedPeriod(name="ITD", start_date=date(2025, 1, 1), end_date=date(2025, 1, 2))
+
+    portfolio = _build_twr_portfolio_period_block(
+        performance_request=request,
+        period=period,
+        period_slice_df=daily_results_df.copy(),
+        daily_results_df=daily_results_df,
+        requested_frequencies=[Frequency.DAILY],
+        breakdowns_data={Frequency.DAILY: []},
+    )
+
+    assert portfolio.summary.period_return.base == pytest.approx(3.02)
+    assert portfolio.summary.cumulative_return is not None
+    assert portfolio.summary.cumulative_return.base == pytest.approx(3.02)
+    assert len(portfolio.breakdowns[Frequency.DAILY]) == 2
 
 
 def test_build_twr_benchmark_period_blocks_projects_benchmark_identity_and_relative_return():
