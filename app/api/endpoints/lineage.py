@@ -12,7 +12,7 @@ from app.core.config import get_settings
 from app.models.lineage_responses import ArtifactLink, LineageManifest, LineageResponse
 from app.models.platform_surfaces import ErrorDetailResponse
 from app.services.durable_store_json import read_json_file
-from app.services.lineage_metadata_store import LineageStatus, lineage_metadata_store
+from app.services.lineage_metadata_store import LineageRecord, LineageStatus, lineage_metadata_store
 from app.services.lineage_service import LineageService
 
 router = APIRouter(tags=["Performance"])
@@ -73,6 +73,56 @@ def _ensure_declared_artifacts_exist(*, calculation_id: UUID, artifact_names: li
             )
 
 
+def _lineage_terminal_response(*, calculation_id: UUID, record: LineageRecord) -> LineageResponse | None:
+    if record.status not in {LineageStatus.PENDING, LineageStatus.FAILED}:
+        return None
+    return LineageResponse(
+        calculation_id=calculation_id,
+        calculation_type=record.calculation_type,
+        timestamp_utc=record.timestamp_utc,
+        status=record.status,
+        artifacts={},
+        error_message=record.error_message if record.status == LineageStatus.FAILED else None,
+    )
+
+
+def _lineage_artifact_links(
+    *, request: Request, calculation_id: UUID, artifact_names: list[str]
+) -> dict[str, ArtifactLink]:
+    artifacts: dict[str, ArtifactLink] = {}
+    for filename in artifact_names:
+        if filename == "manifest.json":
+            continue
+        file_url = request.url_for(
+            "lineage_artifact_file",
+            calculation_id=str(calculation_id),
+            artifact_name=filename,
+        )
+        artifacts[filename] = ArtifactLink(url=str(file_url))
+    return artifacts
+
+
+def _completed_lineage_response(
+    *,
+    request: Request,
+    calculation_id: UUID,
+    record: LineageRecord,
+    manifest: LineageManifest,
+) -> LineageResponse:
+    return LineageResponse(
+        calculation_id=calculation_id,
+        calculation_type=manifest.calculation_type,
+        timestamp_utc=manifest.timestamp_utc,
+        status=record.status,
+        artifacts=_lineage_artifact_links(
+            request=request,
+            calculation_id=calculation_id,
+            artifact_names=record.artifact_names,
+        ),
+        error_message=record.error_message,
+    )
+
+
 @router.get(
     "/lineage/{calculation_id}",
     response_model=LineageResponse,
@@ -112,28 +162,11 @@ async def get_lineage_data(
             status_code=status.HTTP_404_NOT_FOUND, detail="Lineage data not found for the given calculation_id."
         )
 
-    artifacts = {}
     try:
         lineage_dir = os.path.join(get_settings().LINEAGE_STORAGE_PATH, str(calculation_id))
-        if record.status == LineageStatus.PENDING:
-            return LineageResponse(
-                calculation_id=calculation_id,
-                calculation_type=record.calculation_type,
-                timestamp_utc=record.timestamp_utc,
-                status=record.status,
-                artifacts={},
-                error_message=None,
-            )
-
-        if record.status == LineageStatus.FAILED:
-            return LineageResponse(
-                calculation_id=calculation_id,
-                calculation_type=record.calculation_type,
-                timestamp_utc=record.timestamp_utc,
-                status=record.status,
-                artifacts={},
-                error_message=record.error_message,
-            )
+        terminal_response = _lineage_terminal_response(calculation_id=calculation_id, record=record)
+        if terminal_response is not None:
+            return terminal_response
 
         manifest_path = os.path.join(lineage_dir, "manifest.json")
         if not os.path.exists(manifest_path):
@@ -142,22 +175,11 @@ async def get_lineage_data(
         manifest = _load_and_validate_manifest(manifest_path=manifest_path, record=record)
         _ensure_declared_artifacts_exist(calculation_id=calculation_id, artifact_names=record.artifact_names)
 
-        for filename in record.artifact_names:
-            if filename != "manifest.json":
-                file_url = request.url_for(
-                    "lineage_artifact_file",
-                    calculation_id=str(calculation_id),
-                    artifact_name=filename,
-                )
-                artifacts[filename] = ArtifactLink(url=str(file_url))
-
-        return LineageResponse(
+        return _completed_lineage_response(
+            request=request,
             calculation_id=calculation_id,
-            calculation_type=manifest.calculation_type,
-            timestamp_utc=manifest.timestamp_utc,
-            status=record.status,
-            artifacts=artifacts,
-            error_message=record.error_message,
+            record=record,
+            manifest=manifest,
         )
     except Exception as e:
         if isinstance(e, HTTPException):
