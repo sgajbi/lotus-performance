@@ -15,6 +15,7 @@ from app.openapi_enrichment import (
     _infer_example,
     _infer_schema_description,
     _object_schema_example,
+    _ref_schema_example,
     _semantic_id,
     _semantic_property_description,
     _semantic_string_example,
@@ -126,6 +127,27 @@ def test_build_schema_example_resolves_refs_and_nested_content():
     assert example["calculation_id"] == "2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e"
     assert example["result"]["status"] == "pending"
     assert example["result"]["values"] == [1]
+
+
+def test_ref_schema_example_resolves_refs_and_recursive_refs():
+    components = {
+        "schemas": {
+            "Inner": {"type": "object", "properties": {"status": {"type": "string", "enum": ["complete"]}}},
+            "Loop": {"type": "object", "properties": {"self": {"$ref": "#/components/schemas/Loop"}}},
+        }
+    }
+
+    assert _ref_schema_example(
+        {"$ref": "#/components/schemas/Inner"},
+        components=components,
+        seen_refs=set(),
+    ) == {"status": "pending"}
+    assert _ref_schema_example(
+        {"$ref": "#/components/schemas/Loop"},
+        components=components,
+        seen_refs={"#/components/schemas/Loop"},
+    ) == {"id": "recursive_ref"}
+    assert _ref_schema_example({"type": "string"}, components=components, seen_refs=set()) is None
 
 
 def test_schema_example_helpers_cover_explicit_composed_object_and_array_shapes():

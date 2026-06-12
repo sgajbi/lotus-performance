@@ -377,6 +377,27 @@ def _array_schema_example(
     return ["VALUE"]
 
 
+def _ref_schema_example(
+    schema: dict[str, Any],
+    *,
+    components: dict[str, Any],
+    seen_refs: set[str],
+) -> Any | None:
+    ref = schema.get("$ref")
+    if not isinstance(ref, str):
+        return None
+    if ref in seen_refs:
+        return {"id": "recursive_ref"}
+    ref_name = ref.rsplit("/", 1)[-1]
+    target = components.get("schemas", {}).get(ref_name, {})
+    return _build_schema_example(
+        target,
+        components=components,
+        seen_refs={*seen_refs, ref},
+        name_hint=ref_name,
+    )
+
+
 def _build_schema_example(
     schema: dict[str, Any],
     *,
@@ -385,17 +406,9 @@ def _build_schema_example(
     name_hint: str = "value",
 ) -> Any:
     seen = seen_refs or set()
-    ref = schema.get("$ref")
-    if isinstance(ref, str):
-        if ref in seen:
-            return {"id": "recursive_ref"}
-        target = components.get("schemas", {}).get(ref.rsplit("/", 1)[-1], {})
-        return _build_schema_example(
-            target,
-            components=components,
-            seen_refs={*seen, ref},
-            name_hint=ref.rsplit("/", 1)[-1],
-        )
+    ref_example = _ref_schema_example(schema, components=components, seen_refs=seen)
+    if ref_example is not None:
+        return ref_example
 
     explicit_example = _explicit_schema_example(schema)
     if explicit_example is not None:
