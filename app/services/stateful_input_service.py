@@ -1084,6 +1084,21 @@ class StatefulInputService:
         return [deduped[key] for key in sorted(deduped)]
 
     def _merge_component_series(self, *, payloads: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        merged_by_index = self._component_points_by_index(payloads)
+        merged_components: list[dict[str, Any]] = []
+        for index_id in sorted(merged_by_index):
+            merged_components.append(
+                {
+                    "index_id": index_id,
+                    "points": self._merge_dedup_records(
+                        records=merged_by_index[index_id],
+                        date_key="series_date",
+                    ),
+                }
+            )
+        return merged_components
+
+    def _component_points_by_index(self, payloads: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
         merged_by_index: dict[str, list[dict[str, Any]]] = {}
         for payload in payloads:
             component_series_raw = payload.get("component_series")
@@ -1100,19 +1115,7 @@ class StatefulInputService:
                     [point for point in points_raw if isinstance(point, dict)] if isinstance(points_raw, list) else []
                 )
                 merged_by_index.setdefault(index_id, []).extend(points)
-
-        merged_components: list[dict[str, Any]] = []
-        for index_id in sorted(merged_by_index):
-            merged_components.append(
-                {
-                    "index_id": index_id,
-                    "points": self._merge_dedup_records(
-                        records=merged_by_index[index_id],
-                        date_key="series_date",
-                    ),
-                }
-            )
-        return merged_components
+        return merged_by_index
 
     def _build_snapshot(
         self,

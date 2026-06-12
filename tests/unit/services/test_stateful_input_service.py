@@ -1009,9 +1009,17 @@ def test_stateful_input_service_deduplicates_records_and_component_series():
             {"component_series": [{"index_id": None}, "bad", {"index_id": "IDX_1", "points": "bad"}]},
         ]
     )
+    component_points = service._component_points_by_index(
+        [
+            {"component_series": [{"index_id": "IDX_2", "points": [{"series_date": "2026-01-02"}, None]}]},
+            {"component_series": "bad"},
+            {"component_series": [{"index_id": None, "points": [{"series_date": "ignored"}]}, "bad"]},
+        ]
+    )
 
     assert deduped == [{"valuation_date": "2026-01-01", "position_id": "POS_1", "value": 2}]
     assert merged_series == [{"index_id": "IDX_1", "points": [{"series_date": "2026-01-01"}]}]
+    assert component_points == {"IDX_2": [{"series_date": "2026-01-02"}]}
 
 
 def test_stateful_input_service_helper_contracts_cover_page_tokens_failures_and_snapshot_identity():
