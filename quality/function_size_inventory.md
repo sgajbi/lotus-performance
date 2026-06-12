@@ -20,26 +20,26 @@ python scripts/python_function_size_inventory.py --limit 20
 
 | Rank | Function | File | Lines |
 | ---: | --- | --- | ---: |
-| 1 | `_build_detailed_cashflow_contract_findings` | `app/services/inspection/source_economics_findings.py:112` | 186 |
-| 2 | `DurableQueueCollector.describe` | `app/services/queue_metrics_service.py:193` | 159 |
-| 3 | `_build_external_cashflow_findings` | `app/services/inspection/source_economics_findings.py:300` | 140 |
-| 4 | `build_runtime_status_response` | `app/models/runtime_status.py:767` | 131 |
-| 5 | `_build_fee_source_economics_findings` | `app/services/inspection/source_economics_findings.py:442` | 130 |
-| 6 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:327` | 130 |
-| 7 | `aggregate_attribution_results` | `engine/attribution.py:607` | 126 |
-| 8 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:502` | 122 |
-| 9 | `_build_artifacts` | `app/services/composite_inspection_service.py:114` | 118 |
-| 10 | `run_runtime_retention_cleanup` | `app/services/runtime_retention_run_service.py:32` | 111 |
-| 11 | `build_stateful_benchmark_input` | `app/services/stateful_benchmark_input_service.py:39` | 110 |
-| 12 | `calculate_contribution` | `app/services/contribution_service.py:525` | 107 |
-| 13 | `run_source_quality_checks` | `app/services/inspection/source_quality.py:91` | 106 |
-| 14 | `calculate_twr_workflow` | `app/services/twr_calculation_service.py:258` | 106 |
-| 15 | `calculate_attribution` | `app/services/attribution_service.py:206` | 104 |
-| 16 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:200` | 102 |
-| 17 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:304` | 102 |
-| 18 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:71` | 101 |
-| 19 | `_calculate_position_flow_balance_counts` | `app/services/contribution_diagnostics.py:183` | 99 |
-| 20 | `_calculate_returns_series` | `app/services/returns_series_service.py:1296` | 97 |
+| 1 | `DurableQueueCollector.describe` | `app/services/queue_metrics_service.py:193` | 159 |
+| 2 | `_build_external_cashflow_findings` | `app/services/inspection/source_economics_findings.py:281` | 140 |
+| 3 | `build_runtime_status_response` | `app/models/runtime_status.py:767` | 131 |
+| 4 | `_build_fee_source_economics_findings` | `app/services/inspection/source_economics_findings.py:423` | 130 |
+| 5 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:327` | 130 |
+| 6 | `aggregate_attribution_results` | `engine/attribution.py:607` | 126 |
+| 7 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:502` | 122 |
+| 8 | `_build_artifacts` | `app/services/composite_inspection_service.py:114` | 118 |
+| 9 | `run_runtime_retention_cleanup` | `app/services/runtime_retention_run_service.py:32` | 111 |
+| 10 | `build_stateful_benchmark_input` | `app/services/stateful_benchmark_input_service.py:39` | 110 |
+| 11 | `calculate_contribution` | `app/services/contribution_service.py:525` | 107 |
+| 12 | `run_source_quality_checks` | `app/services/inspection/source_quality.py:91` | 106 |
+| 13 | `calculate_twr_workflow` | `app/services/twr_calculation_service.py:258` | 106 |
+| 14 | `calculate_attribution` | `app/services/attribution_service.py:206` | 104 |
+| 15 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:200` | 102 |
+| 16 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:304` | 102 |
+| 17 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:71` | 101 |
+| 18 | `_calculate_position_flow_balance_counts` | `app/services/contribution_diagnostics.py:183` | 99 |
+| 19 | `_calculate_returns_series` | `app/services/returns_series_service.py:1296` | 97 |
+| 20 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:62` | 97 |
 
 ## Interpretation
 
@@ -73,9 +73,8 @@ Durable queue metric collection dropped out of the top-15 table after source loa
 availability/runtime-retention preview metric emission were isolated into dedicated helpers.
 Source-economics top-level finding assembly dropped from `258` lines out of the top-15 table after
 observation-contract, explicit-amount-contract, and detailed cash-flow contract finding groups were
-isolated. `_build_detailed_cashflow_contract_findings` remains a large follow-up hotspot at `186`
-lines because this slice preserved finding text and ordering rather than converting the source
-contract taxonomy to a data-driven table.
+isolated. `_build_detailed_cashflow_contract_findings` dropped out of the top-20 table after the
+detailed cash-flow source contract taxonomy was converted to an explicit ordered catalog.
 TWR inspection orchestration remains in the top-15 table but moved from `147` to `131` lines after
 subject-resolution stage lifecycle handling was isolated from the public inspection orchestrator.
 TWR inspection orchestration dropped out of the top-15 table after subject request materialization

@@ -1,7 +1,136 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+from typing import Any
+
 from app.models.inspection_responses import TWRInspectionFinding
 from app.services.inspection.source_economics_collector import SourceEconomicsSamples
+
+
+@dataclass(frozen=True)
+class _SourceEconomicsFindingDefinition:
+    sample_attr: str
+    code: str
+    summary: str
+    explanation: str
+    recommended_action: str
+
+
+_DETAILED_CASHFLOW_CONTRACT_FINDINGS = (
+    _SourceEconomicsFindingDefinition(
+        sample_attr="invalid_cashflow_collection_samples",
+        code="INVALID_CASHFLOW_COLLECTION_PRESENT",
+        summary="The stateful portfolio source serves a malformed cash_flows collection.",
+        explanation=(
+            "The raw portfolio observation includes a cash_flows field, but the field is not a list of "
+            "detailed cash-flow rows. The inspector treats the malformed collection as unusable and "
+            "preserves it as source-contract evidence because detailed economics may have been lost."
+        ),
+        recommended_action=(
+            "Review lotus-core portfolio-timeseries serialization and emit cash_flows as a list of "
+            "detailed cash-flow row objects when detailed cash-flow lineage is present."
+        ),
+    ),
+    _SourceEconomicsFindingDefinition(
+        sample_attr="invalid_cashflow_row_samples",
+        code="INVALID_CASHFLOW_ROW_PRESENT",
+        summary="The stateful portfolio source serves malformed detailed cash-flow rows.",
+        explanation=(
+            "The raw portfolio observation includes a cash_flows list, but one or more entries are not "
+            "cash-flow row objects. The inspector skips those malformed entries for normalization and "
+            "preserves them as source-contract evidence."
+        ),
+        recommended_action=(
+            "Review lotus-core portfolio-timeseries serialization and emit each cash_flows entry as a row "
+            "object with amount, timing, and cash_flow_type fields."
+        ),
+    ),
+    _SourceEconomicsFindingDefinition(
+        sample_attr="invalid_amount_samples",
+        code="INVALID_CASHFLOW_AMOUNT_PRESENT",
+        summary="The stateful portfolio source serves detailed cash-flow rows with unusable amounts.",
+        explanation=(
+            "The raw portfolio observation includes detailed cash-flow rows whose amount cannot be parsed as "
+            "a numeric value. The inspector cannot classify or reconcile those rows, so they represent lost "
+            "economic lineage until upstream serialization is corrected."
+        ),
+        recommended_action=(
+            "Review lotus-core detailed cash-flow serialization and emit a numeric amount for every "
+            "nonzero detailed cash-flow row."
+        ),
+    ),
+    _SourceEconomicsFindingDefinition(
+        sample_attr="invalid_timing_samples",
+        code="INVALID_CASHFLOW_TIMING_PRESENT",
+        summary="The stateful portfolio source serves detailed cash-flow rows with unusable timing labels.",
+        explanation=(
+            "The raw portfolio observation includes detailed cash-flow rows with missing, blank, or "
+            "unsupported timing values. The inspector only interprets canonical `bod` and `eod` timing "
+            "labels, so these rows need explicit upstream semantics."
+        ),
+        recommended_action=(
+            "Review lotus-core detailed cash-flow serialization and emit canonical `bod` or `eod` timing "
+            "labels for every nonzero detailed cash-flow row."
+        ),
+    ),
+    _SourceEconomicsFindingDefinition(
+        sample_attr="missing_cashflow_type_samples",
+        code="MISSING_CASHFLOW_TYPE_PRESENT",
+        summary="The stateful portfolio source serves detailed cash-flow rows without a usable cash_flow_type label.",
+        explanation=(
+            "The raw portfolio observation includes detailed cash-flow rows with no cash_flow_type label or "
+            "with a blank label. The inspector currently treats non-fee detailed rows as external economics, "
+            "so unlabeled rows need explicit upstream semantics or a governed mapping."
+        ),
+        recommended_action=(
+            "Review lotus-core detailed cash-flow serialization and emit canonical fee/external_flow "
+            "labels for every nonzero detailed cash-flow row."
+        ),
+    ),
+    _SourceEconomicsFindingDefinition(
+        sample_attr="noncanonical_cashflow_type_samples",
+        code="NONCANONICAL_CASHFLOW_TYPE_PRESENT",
+        summary="The stateful portfolio source serves non-canonical cash_flow_type values.",
+        explanation=(
+            "The raw portfolio observation includes cash_flow_type labels outside the currently governed "
+            "inspection vocabulary. The inspector currently treats any non-fee detailed cash flow as external "
+            "economics, so unsupported labels need explicit source semantics or documented mapping."
+        ),
+        recommended_action=(
+            "Review lotus-core cash_flow_type vocabulary and either emit canonical fee/external_flow labels "
+            "or agree and document an explicit mapping for additional labels."
+        ),
+    ),
+    _SourceEconomicsFindingDefinition(
+        sample_attr="governed_alias_cashflow_type_samples",
+        code="GOVERNED_ALIAS_CASHFLOW_TYPE_PRESENT",
+        summary="The stateful portfolio source uses cash_flow_type aliases that need explicit governance.",
+        explanation=(
+            "The raw portfolio observation includes cash_flow_type labels that the inspector can map to "
+            "fee-like or external-flow economics, but those labels are not the canonical analytics-input "
+            "vocabulary. The inspector uses the mapped economic role for supportability checks while still "
+            "preserving the alias as contract evidence."
+        ),
+        recommended_action=(
+            "Review lotus-core cash_flow_type vocabulary and either emit canonical labels or publish the "
+            "alias mapping as a governed analytics-input contract."
+        ),
+    ),
+    _SourceEconomicsFindingDefinition(
+        sample_attr="unsupported_cashflow_type_samples",
+        code="UNSUPPORTED_CASHFLOW_TYPE_PRESENT",
+        summary="The stateful portfolio source uses cash_flow_type labels without supported TWR economics.",
+        explanation=(
+            "The raw portfolio observation includes cash_flow_type labels that are not currently mapped to "
+            "fee or external-flow economics. The inspector preserves those rows as source-taxonomy evidence "
+            "and excludes them from fee/external normalization checks until the semantics are governed."
+        ),
+        recommended_action=(
+            "Review lotus-core cash_flow_type vocabulary and define whether each label should be modeled as "
+            "a fee, external flow, income/accrual item, tax item, or another explicit analytics-input role."
+        ),
+    ),
+)
 
 
 def build_source_economics_findings(
@@ -115,186 +244,38 @@ def _build_detailed_cashflow_contract_findings(
     samples: SourceEconomicsSamples,
 ) -> list[TWRInspectionFinding]:
     findings: list[TWRInspectionFinding] = []
-
-    if samples.invalid_cashflow_collection_samples:
-        findings.append(
-            TWRInspectionFinding(
-                code="INVALID_CASHFLOW_COLLECTION_PRESENT",
-                severity="warning",
-                category="documentation_drift",
-                owner_repo="lotus-core",
-                summary="The stateful portfolio source serves a malformed cash_flows collection.",
-                explanation=(
-                    "The raw portfolio observation includes a cash_flows field, but the field is not a list of "
-                    "detailed cash-flow rows. The inspector treats the malformed collection as unusable and "
-                    "preserves it as source-contract evidence because detailed economics may have been lost."
-                ),
-                recommended_action=(
-                    "Review lotus-core portfolio-timeseries serialization and emit cash_flows as a list of "
-                    "detailed cash-flow row objects when detailed cash-flow lineage is present."
-                ),
-                evidence=_sample_evidence(
-                    portfolio_id=portfolio_id,
-                    samples=samples.invalid_cashflow_collection_samples,
-                ),
-            )
-        )
-
-    if samples.invalid_cashflow_row_samples:
-        findings.append(
-            TWRInspectionFinding(
-                code="INVALID_CASHFLOW_ROW_PRESENT",
-                severity="warning",
-                category="documentation_drift",
-                owner_repo="lotus-core",
-                summary="The stateful portfolio source serves malformed detailed cash-flow rows.",
-                explanation=(
-                    "The raw portfolio observation includes a cash_flows list, but one or more entries are not "
-                    "cash-flow row objects. The inspector skips those malformed entries for normalization and "
-                    "preserves them as source-contract evidence."
-                ),
-                recommended_action=(
-                    "Review lotus-core portfolio-timeseries serialization and emit each cash_flows entry as a row "
-                    "object with amount, timing, and cash_flow_type fields."
-                ),
-                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=samples.invalid_cashflow_row_samples),
-            )
-        )
-
-    if samples.invalid_amount_samples:
-        findings.append(
-            TWRInspectionFinding(
-                code="INVALID_CASHFLOW_AMOUNT_PRESENT",
-                severity="warning",
-                category="documentation_drift",
-                owner_repo="lotus-core",
-                summary="The stateful portfolio source serves detailed cash-flow rows with unusable amounts.",
-                explanation=(
-                    "The raw portfolio observation includes detailed cash-flow rows whose amount cannot be parsed as "
-                    "a numeric value. The inspector cannot classify or reconcile those rows, so they represent lost "
-                    "economic lineage until upstream serialization is corrected."
-                ),
-                recommended_action=(
-                    "Review lotus-core detailed cash-flow serialization and emit a numeric amount for every "
-                    "nonzero detailed cash-flow row."
-                ),
-                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=samples.invalid_amount_samples),
-            )
-        )
-
-    if samples.invalid_timing_samples:
-        findings.append(
-            TWRInspectionFinding(
-                code="INVALID_CASHFLOW_TIMING_PRESENT",
-                severity="warning",
-                category="documentation_drift",
-                owner_repo="lotus-core",
-                summary="The stateful portfolio source serves detailed cash-flow rows with unusable timing labels.",
-                explanation=(
-                    "The raw portfolio observation includes detailed cash-flow rows with missing, blank, or "
-                    "unsupported timing values. The inspector only interprets canonical `bod` and `eod` timing "
-                    "labels, so these rows need explicit upstream semantics."
-                ),
-                recommended_action=(
-                    "Review lotus-core detailed cash-flow serialization and emit canonical `bod` or `eod` timing "
-                    "labels for every nonzero detailed cash-flow row."
-                ),
-                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=samples.invalid_timing_samples),
-            )
-        )
-
-    if samples.missing_cashflow_type_samples:
-        findings.append(
-            TWRInspectionFinding(
-                code="MISSING_CASHFLOW_TYPE_PRESENT",
-                severity="warning",
-                category="documentation_drift",
-                owner_repo="lotus-core",
-                summary="The stateful portfolio source serves detailed cash-flow rows without a usable cash_flow_type label.",
-                explanation=(
-                    "The raw portfolio observation includes detailed cash-flow rows with no cash_flow_type label or "
-                    "with a blank label. The inspector currently treats non-fee detailed rows as external economics, "
-                    "so unlabeled rows need explicit upstream semantics or a governed mapping."
-                ),
-                recommended_action=(
-                    "Review lotus-core detailed cash-flow serialization and emit canonical fee/external_flow "
-                    "labels for every nonzero detailed cash-flow row."
-                ),
-                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=samples.missing_cashflow_type_samples),
-            )
-        )
-
-    if samples.noncanonical_cashflow_type_samples:
-        findings.append(
-            TWRInspectionFinding(
-                code="NONCANONICAL_CASHFLOW_TYPE_PRESENT",
-                severity="warning",
-                category="documentation_drift",
-                owner_repo="lotus-core",
-                summary="The stateful portfolio source serves non-canonical cash_flow_type values.",
-                explanation=(
-                    "The raw portfolio observation includes cash_flow_type labels outside the currently governed "
-                    "inspection vocabulary. The inspector currently treats any non-fee detailed cash flow as external "
-                    "economics, so unsupported labels need explicit source semantics or documented mapping."
-                ),
-                recommended_action=(
-                    "Review lotus-core cash_flow_type vocabulary and either emit canonical fee/external_flow labels "
-                    "or agree and document an explicit mapping for additional labels."
-                ),
-                evidence=_sample_evidence(
-                    portfolio_id=portfolio_id,
-                    samples=samples.noncanonical_cashflow_type_samples,
-                ),
-            )
-        )
-
-    if samples.governed_alias_cashflow_type_samples:
-        findings.append(
-            TWRInspectionFinding(
-                code="GOVERNED_ALIAS_CASHFLOW_TYPE_PRESENT",
-                severity="warning",
-                category="documentation_drift",
-                owner_repo="lotus-core",
-                summary="The stateful portfolio source uses cash_flow_type aliases that need explicit governance.",
-                explanation=(
-                    "The raw portfolio observation includes cash_flow_type labels that the inspector can map to "
-                    "fee-like or external-flow economics, but those labels are not the canonical analytics-input "
-                    "vocabulary. The inspector uses the mapped economic role for supportability checks while still "
-                    "preserving the alias as contract evidence."
-                ),
-                recommended_action=(
-                    "Review lotus-core cash_flow_type vocabulary and either emit canonical labels or publish the "
-                    "alias mapping as a governed analytics-input contract."
-                ),
-                evidence=_sample_evidence(
-                    portfolio_id=portfolio_id,
-                    samples=samples.governed_alias_cashflow_type_samples,
-                ),
-            )
-        )
-
-    if samples.unsupported_cashflow_type_samples:
-        findings.append(
-            TWRInspectionFinding(
-                code="UNSUPPORTED_CASHFLOW_TYPE_PRESENT",
-                severity="warning",
-                category="documentation_drift",
-                owner_repo="lotus-core",
-                summary="The stateful portfolio source uses cash_flow_type labels without supported TWR economics.",
-                explanation=(
-                    "The raw portfolio observation includes cash_flow_type labels that are not currently mapped to "
-                    "fee or external-flow economics. The inspector preserves those rows as source-taxonomy evidence "
-                    "and excludes them from fee/external normalization checks until the semantics are governed."
-                ),
-                recommended_action=(
-                    "Review lotus-core cash_flow_type vocabulary and define whether each label should be modeled as "
-                    "a fee, external flow, income/accrual item, tax item, or another explicit analytics-input role."
-                ),
-                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=samples.unsupported_cashflow_type_samples),
-            )
+    for definition in _DETAILED_CASHFLOW_CONTRACT_FINDINGS:
+        _append_source_economics_finding(
+            findings,
+            portfolio_id=portfolio_id,
+            samples=getattr(samples, definition.sample_attr),
+            definition=definition,
         )
 
     return findings
+
+
+def _append_source_economics_finding(
+    findings: list[TWRInspectionFinding],
+    *,
+    portfolio_id: str,
+    samples: list[dict[str, Any]],
+    definition: _SourceEconomicsFindingDefinition,
+) -> None:
+    if not samples:
+        return
+    findings.append(
+        TWRInspectionFinding(
+            code=definition.code,
+            severity="warning",
+            category="documentation_drift",
+            owner_repo="lotus-core",
+            summary=definition.summary,
+            explanation=definition.explanation,
+            recommended_action=definition.recommended_action,
+            evidence=_sample_evidence(portfolio_id=portfolio_id, samples=samples),
+        )
+    )
 
 
 def _build_external_cashflow_findings(
