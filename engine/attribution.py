@@ -612,6 +612,39 @@ def _link_effects_top_down(
     return linked_effects
 
 
+def _build_attribution_levels(
+    granular_totals: pd.DataFrame,
+    effects_reset: pd.DataFrame,
+    group_by: Sequence[str],
+) -> list[AttributionLevelResult]:
+    levels: list[AttributionLevelResult] = []
+    granular_totals_df = granular_totals.reset_index()
+    effect_columns = ["allocation", "selection", "interaction"]
+
+    for index in range(len(group_by), 0, -1):
+        level_group_by = list(group_by[:index])
+        level_totals = granular_totals_df.groupby(level_group_by).sum(numeric_only=True)
+        level_context = _calculate_group_context_metrics(effects_reset, level_group_by)
+        level_totals = level_totals.join(level_context, how="left").fillna(0.0)
+        level_totals["total_effect"] = level_totals[effect_columns].sum(axis=1)
+
+        group_results = [
+            _build_attribution_group_result(group_key, level_group_by, row)
+            for group_key, row in level_totals.iterrows()
+        ]
+        overall_level_totals = level_totals[effect_columns + ["total_effect"]].sum()
+        levels.append(
+            AttributionLevelResult(
+                dimension=" -> ".join(level_group_by),
+                groups=sorted(group_results, key=lambda item: str(item.key)),
+                totals=AttributionLevelTotals(**(overall_level_totals * 100).to_dict()),
+            )
+        )
+
+    levels.reverse()
+    return levels
+
+
 def aggregate_attribution_results(
     effects_df: pd.DataFrame, request: AttributionRequestLike
 ) -> Tuple[SinglePeriodAttributionResult, Dict[str, pd.DataFrame]]:
@@ -620,31 +653,7 @@ def aggregate_attribution_results(
     aggregation_base = _build_attribution_aggregation_base(effects_df, request)
 
     effects_reset = effects_df.reset_index()
-    levels = []
-    granular_totals_df = aggregation_base.granular_totals.reset_index()
-
-    for i in range(len(request.group_by), 0, -1):
-        level_group_by = request.group_by[:i]
-        level_totals = granular_totals_df.groupby(level_group_by).sum(numeric_only=True)
-        level_context = _calculate_group_context_metrics(effects_reset, level_group_by)
-        level_totals = level_totals.join(level_context, how="left").fillna(0.0)
-        effect_columns = ["allocation", "selection", "interaction"]
-        level_totals["total_effect"] = level_totals[effect_columns].sum(axis=1)
-
-        group_results = []
-        for group_key, row in level_totals.iterrows():
-            group_results.append(_build_attribution_group_result(group_key, level_group_by, row))
-
-        overall_level_totals = level_totals[effect_columns + ["total_effect"]].sum()
-        levels.append(
-            AttributionLevelResult(
-                dimension=" -> ".join(level_group_by),
-                groups=sorted(group_results, key=lambda x: str(x.key)),
-                totals=AttributionLevelTotals(**(overall_level_totals * 100).to_dict()),
-            )
-        )
-
-    levels.reverse()
+    levels = _build_attribution_levels(aggregation_base.granular_totals, effects_reset, request.group_by)
     final_totals = (
         levels[0].totals if levels else AttributionLevelTotals(allocation=0, selection=0, interaction=0, total_effect=0)
     )
