@@ -27,6 +27,7 @@ from app.services.workspace_summary_service import (
     _resolve_stateful_portfolio_start_date,
     _resolve_workspace_benchmark_input,
     _resolve_workspace_portfolio_input,
+    _workspace_summary_diagnostics_notes,
     calculate_workspace_summary,
     workspace_longest_requested_window_days,
 )
@@ -682,3 +683,39 @@ def test_build_workspace_benchmark_daily_df_uses_observation_date_series():
 
     assert daily_df is not None
     assert daily_df["date"].tolist() == [date(2026, 3, 30), date(2026, 3, 31)]
+
+
+def test_workspace_summary_diagnostics_notes_preserve_base_notes_and_benchmark_context():
+    diagnostics = Diagnostics(
+        notes=["source note"],
+        nip_days=0,
+        reset_days=0,
+        effective_period_start=date(2026, 3, 30),
+    )
+    benchmark_request = BenchmarkPerformanceRequest.model_validate(
+        {
+            "benchmark_id": "BMK_VENDOR",
+            "benchmark_start_date": "2026-03-30",
+            "report_end_date": "2026-03-31",
+            "benchmark_currency": "USD",
+            "return_source": "vendor_series",
+            "benchmark_return_points": [{"perf_date": "2026-03-31", "benchmark_return": 0.02}],
+            "analyses": [{"period": "EXPLICIT", "frequencies": ["daily"]}],
+            "report_start_date": "2026-03-30",
+        }
+    )
+    benchmark_input = ResolvedWorkspaceBenchmarkInput(
+        benchmark_request=benchmark_request,
+        input_mode=BenchmarkInputMode.STATELESS,
+        benchmark_id="BMK_VENDOR",
+        source_details={},
+    )
+
+    assert _workspace_summary_diagnostics_notes(diagnostics=diagnostics, benchmark_input=None) == ["source note"]
+    assert _workspace_summary_diagnostics_notes(
+        diagnostics=diagnostics,
+        benchmark_input=benchmark_input,
+    ) == [
+        "source note",
+        "Benchmark summary uses stateless benchmark input with vendor_series returns.",
+    ]

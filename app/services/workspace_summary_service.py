@@ -580,15 +580,12 @@ def _build_workspace_summary_response(
             ),
         )
 
-    diagnostics_notes = list(net_artifacts.diagnostics.notes)
-    if benchmark_input is not None:
-        diagnostics_notes.append(
-            f"Benchmark summary uses {benchmark_input.input_mode.value} benchmark input with {benchmark_input.benchmark_request.return_source} returns."
-        )
-
     diagnostics = Diagnostics(
         **net_artifacts.diagnostics.model_dump(mode="python", exclude={"notes"}),
-        notes=diagnostics_notes,
+        notes=_workspace_summary_diagnostics_notes(
+            diagnostics=net_artifacts.diagnostics,
+            benchmark_input=benchmark_input,
+        ),
     )
     return WorkspaceSummaryResponse(
         calculation_id=request.calculation_id,
@@ -621,6 +618,19 @@ def _build_workspace_summary_response(
             }
         ),
     )
+
+
+def _workspace_summary_diagnostics_notes(
+    *,
+    diagnostics: Diagnostics,
+    benchmark_input: ResolvedWorkspaceBenchmarkInput | None,
+) -> list[str]:
+    notes = list(diagnostics.notes)
+    if benchmark_input is not None:
+        notes.append(
+            f"Benchmark summary uses {benchmark_input.input_mode.value} benchmark input with {benchmark_input.benchmark_request.return_source} returns."
+        )
+    return notes
 
 
 def _build_workspace_benchmark_and_active_blocks(
