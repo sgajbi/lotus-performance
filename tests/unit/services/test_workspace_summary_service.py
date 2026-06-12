@@ -64,6 +64,22 @@ def test_workspace_longest_requested_window_days_ignores_stateless_requests():
     assert workspace_longest_requested_window_days(request) == 0
 
 
+def test_workspace_longest_requested_window_days_uses_report_start_fallback():
+    request = WorkspaceSummaryRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT-1",
+            "report_start_date": "2026-06-01",
+            "report_end_date": "2026-06-30",
+            "input_mode": "stateful",
+            "stateful_input": {},
+            "periods": [{"period": "EXPLICIT", "frequencies": ["daily"]}],
+        }
+    )
+
+    assert workspace_longest_requested_window_days(request) == 29
+
+
 def test_workspace_summary_stateful_retrieval_uses_longest_requested_window(mocker):
     captured: dict[str, object] = {}
     lineage_capture: dict[str, object] = {}

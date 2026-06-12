@@ -93,16 +93,23 @@ class WorkspaceTWRArtifacts:
 def workspace_longest_requested_window_days(request: WorkspaceSummaryRequest) -> int:
     if request.input_mode != TWRInputMode.STATEFUL:
         return 0
-    if any(period.period.value == "SI" for period in request.periods) and request.performance_start_date is None:
+    if _workspace_summary_requires_default_since_inception_window(request):
         return 10_000
-    assumed_start = request.performance_start_date or request.report_start_date or request.report_end_date
     resolved_periods = resolve_workspace_periods(
         [item.period for item in request.periods],
         as_of=request.report_end_date,
-        performance_start_date=assumed_start,
+        performance_start_date=_workspace_summary_assumed_start_date(request),
         explicit_start_date=request.report_start_date,
     )
     return max((period.end_date - period.start_date).days for period in resolved_periods) if resolved_periods else 0
+
+
+def _workspace_summary_requires_default_since_inception_window(request: WorkspaceSummaryRequest) -> bool:
+    return request.performance_start_date is None and any(period.period.value == "SI" for period in request.periods)
+
+
+def _workspace_summary_assumed_start_date(request: WorkspaceSummaryRequest) -> date:
+    return request.performance_start_date or request.report_start_date or request.report_end_date
 
 
 def calculate_workspace_summary(
