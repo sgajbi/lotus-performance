@@ -24,17 +24,17 @@ python scripts/python_function_size_inventory.py --limit 15
 | 2 | `DurableQueueCollector.describe` | `app/services/queue_metrics_service.py:193` | 159 |
 | 3 | `_build_external_cashflow_findings` | `app/services/inspection/source_economics_findings.py:300` | 140 |
 | 4 | `build_runtime_status_response` | `app/models/runtime_status.py:767` | 131 |
-| 5 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:71` | 131 |
-| 6 | `_build_fee_source_economics_findings` | `app/services/inspection/source_economics_findings.py:442` | 130 |
-| 7 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:327` | 130 |
-| 8 | `aggregate_attribution_results` | `engine/attribution.py:607` | 126 |
-| 9 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:482` | 122 |
-| 10 | `calculate_attribution` | `app/services/attribution_service.py:168` | 120 |
-| 11 | `_build_artifacts` | `app/services/composite_inspection_service.py:114` | 118 |
-| 12 | `calculate_twr_workflow` | `app/services/twr_calculation_service.py:250` | 112 |
-| 13 | `run_runtime_retention_cleanup` | `app/services/runtime_retention_run_service.py:32` | 111 |
-| 14 | `build_stateful_benchmark_input` | `app/services/stateful_benchmark_input_service.py:39` | 110 |
-| 15 | `calculate_attribution_workflow` | `app/services/attribution_calculation_workflow_service.py:91` | 107 |
+| 5 | `_build_fee_source_economics_findings` | `app/services/inspection/source_economics_findings.py:442` | 130 |
+| 6 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:327` | 130 |
+| 7 | `aggregate_attribution_results` | `engine/attribution.py:607` | 126 |
+| 8 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:482` | 122 |
+| 9 | `calculate_attribution` | `app/services/attribution_service.py:168` | 120 |
+| 10 | `_build_artifacts` | `app/services/composite_inspection_service.py:114` | 118 |
+| 11 | `calculate_twr_workflow` | `app/services/twr_calculation_service.py:250` | 112 |
+| 12 | `run_runtime_retention_cleanup` | `app/services/runtime_retention_run_service.py:32` | 111 |
+| 13 | `build_stateful_benchmark_input` | `app/services/stateful_benchmark_input_service.py:39` | 110 |
+| 14 | `calculate_attribution_workflow` | `app/services/attribution_calculation_workflow_service.py:91` | 107 |
+| 15 | `calculate_contribution` | `app/services/contribution_service.py:525` | 107 |
 
 ## Interpretation
 
@@ -71,6 +71,8 @@ lines because this slice preserved finding text and ordering rather than convert
 contract taxonomy to a data-driven table.
 TWR inspection orchestration remains in the top-15 table but moved from `147` to `131` lines after
 subject-resolution stage lifecycle handling was isolated from the public inspection orchestrator.
+TWR inspection orchestration dropped out of the top-15 table after subject request materialization
+and calculation-consistency loading were isolated from the public inspection orchestrator.
 Returns-series calculation orchestration dropped out of the top-15 table after execution-context
 resolution was isolated from dataframe preparation, execution, diagnostics, and response assembly.
 Stateful returns-series request resolution dropped out of the top-15 table after normalization-stage

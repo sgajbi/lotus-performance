@@ -108,6 +108,32 @@ def test_resolve_inspection_subject_records_subject_resolution_stage(fake_regist
     assert EXECUTION_STAGE_SUBJECT_RESOLUTION in fake_registry.completed_stages
 
 
+def test_resolve_subject_inspection_inputs_uses_direct_request_payload_without_math_stage(fake_registry, monkeypatch):
+    performance_request = _build_performance_request()
+    request = TWRInspectionRequest(
+        subject_type=TWRInspectionSubjectType.TWR_REQUEST,
+        request=_build_twr_request(),
+    )
+    subject = ResolvedTWRInspectionSubject(
+        subject_type=TWRInspectionSubjectType.TWR_REQUEST,
+        subject_calculation_id=None,
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        related_execution=None,
+        request_payload={"request": "payload"},
+    )
+    monkeypatch.setattr(service, "extract_performance_request_from_payload", lambda _payload: performance_request)
+
+    inputs = service._resolve_subject_inspection_inputs(request=request, subject=subject)
+
+    assert inputs.performance_request is performance_request
+    assert inputs.resolved_execution_request is None
+    assert inputs.consistency_findings == []
+    assert inputs.completed_check_families == []
+    assert inputs.failed_check_families == []
+    assert EXECUTION_STAGE_MATH_RECONCILIATION not in fake_registry.completed_stages
+    assert not fake_registry.failed_stages
+
+
 def test_run_source_quality_assessment_preserves_failure_outputs(fake_registry, monkeypatch):
     def raise_source_quality_failure(**_kwargs):
         raise RuntimeError("source quality dependency unavailable")
