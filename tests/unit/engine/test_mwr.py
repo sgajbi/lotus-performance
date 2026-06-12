@@ -13,6 +13,8 @@ from engine.mwr import (
     _calculate_xirr_mwr_attempt,
     _dietz_fallback_metadata,
     _dietz_method_for_calculation,
+    _mwr_no_economic_content_result,
+    _resolve_mwr_period_bounds,
     _scan_xirr_roots,
     _xirr,
     _xirr_failure,
@@ -246,6 +248,31 @@ def test_dietz_policy_helpers_preserve_method_and_fallback_metadata():
     assert fallback_metadata.warnings == ["FALLBACK_METHOD_USED"]
     assert fallback_metadata.fallback_from == "XIRR"
     assert fallback_metadata.fallback_reason == "MULTIPLE_IRR_ROOTS_DETECTED"
+
+
+def test_mwr_preflight_resolves_bounds_and_no_economic_content_result():
+    bounds = _resolve_mwr_period_bounds(
+        cash_flows=[CashFlow(amount=100.0, date=date(2026, 2, 1))],
+        as_of=date(2026, 3, 1),
+        start_date=None,
+    )
+
+    assert bounds.start_date == date(2026, 2, 1)
+    assert bounds.end_date == date(2026, 3, 1)
+    assert bounds.period_days == 28
+
+    empty_bounds = _resolve_mwr_period_bounds(cash_flows=[], as_of=date(2026, 3, 1), start_date=None)
+    result = _mwr_no_economic_content_result(
+        begin_mv=0.0,
+        end_mv=0.0,
+        cash_flows=[],
+        bounds=empty_bounds,
+    )
+
+    assert result is not None
+    assert result.status == "NOT_APPLICABLE"
+    assert result.reason_codes == ["NO_ECONOMIC_CONTENT"]
+    assert result.start_date == date(2026, 3, 1)
 
 
 def test_annualized_dietz_rate_uses_governed_day_count_basis():
