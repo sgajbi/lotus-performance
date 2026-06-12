@@ -7,6 +7,7 @@ from app.services.twr_service import (
     _classify_daily_calculation_evidence,
     _daily_calculation_evidence_inputs,
     _iter_frequency_windows,
+    _resampled_frequency_window_label,
 )
 from common.enums import Frequency
 from engine.schema import PortfolioColumns
@@ -280,3 +281,12 @@ def test_frequency_windows_normalize_mixed_date_like_values_for_resampling():
         ("2025-01", "2025-01-03", "2025-01-31"),
         ("2025-02", "2025-02-28", "2025-02-28"),
     ]
+
+
+def test_resampled_frequency_window_label_formats_supported_frequencies():
+    timestamp = pd.Timestamp("2025-06-30")
+
+    assert _resampled_frequency_window_label(Frequency.MONTHLY, timestamp) == "2025-06"
+    assert _resampled_frequency_window_label(Frequency.QUARTERLY, timestamp) == "2025-Q2"
+    assert _resampled_frequency_window_label(Frequency.YEARLY, timestamp) == "2025"
+    assert _resampled_frequency_window_label(Frequency.WEEKLY, timestamp) == "2025-06-30"

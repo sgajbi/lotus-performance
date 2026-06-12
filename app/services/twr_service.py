@@ -449,11 +449,7 @@ def _iter_frequency_windows(
     if period_df.empty:
         return []
     if frequency == Frequency.DAILY:
-        daily_windows: list[tuple[str, object, object, pd.DataFrame]] = []
-        for point_date, group_df in period_df.groupby(date_column, sort=True):
-            label = point_date.isoformat() if hasattr(point_date, "isoformat") else str(point_date)
-            daily_windows.append((label, point_date, point_date, group_df.copy()))
-        return daily_windows
+        return _daily_frequency_windows(period_df, date_column=date_column)
 
     local_df = period_df.copy()
     local_df[date_column] = observation_timestamp_series(local_df[date_column])
@@ -474,16 +470,31 @@ def _iter_frequency_windows(
         group_df[date_column] = observation_date_series(group_df[date_column])
         start_date = group_df[date_column].min()
         end_date = group_df[date_column].max()
-        if frequency == Frequency.MONTHLY:
-            label = period_timestamp.strftime("%Y-%m")
-        elif frequency == Frequency.QUARTERLY:
-            label = f"{period_timestamp.year}-Q{period_timestamp.quarter}"
-        elif frequency == Frequency.YEARLY:
-            label = period_timestamp.strftime("%Y")
-        else:
-            label = period_timestamp.strftime("%Y-%m-%d")
+        label = _resampled_frequency_window_label(frequency, period_timestamp)
         windows.append((label, start_date, end_date, group_df))
     return windows
+
+
+def _daily_frequency_windows(
+    period_df: pd.DataFrame,
+    *,
+    date_column: str,
+) -> list[tuple[str, object, object, pd.DataFrame]]:
+    daily_windows: list[tuple[str, object, object, pd.DataFrame]] = []
+    for point_date, group_df in period_df.groupby(date_column, sort=True):
+        label = point_date.isoformat() if hasattr(point_date, "isoformat") else str(point_date)
+        daily_windows.append((label, point_date, point_date, group_df.copy()))
+    return daily_windows
+
+
+def _resampled_frequency_window_label(frequency: Frequency, period_timestamp: pd.Timestamp) -> str:
+    if frequency == Frequency.MONTHLY:
+        return period_timestamp.strftime("%Y-%m")
+    if frequency == Frequency.QUARTERLY:
+        return f"{period_timestamp.year}-Q{period_timestamp.quarter}"
+    if frequency == Frequency.YEARLY:
+        return period_timestamp.strftime("%Y")
+    return period_timestamp.strftime("%Y-%m-%d")
 
 
 def _build_portfolio_breakdowns(
