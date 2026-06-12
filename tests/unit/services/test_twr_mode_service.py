@@ -12,6 +12,7 @@ from app.services.execution_stage_names import EXECUTION_STAGE_NORMALIZATION
 from app.services.stateful_performance_input_service import StatefulPortfolioInput
 from app.services.twr_mode_service import (
     _build_resolved_twr_benchmark_request,
+    _build_resolved_twr_performance_input,
     _build_twr_normalization_resolution,
     _resolve_default_stateful_benchmark_input,
     _resolve_twr_portfolio_source_input,
@@ -155,6 +156,50 @@ def test_build_twr_normalization_resolution_projects_stateful_valuation_details(
     assert len(resolution.resolved_input.valuation_points) == 1
     assert resolution.benchmark_request is None
     assert resolution.normalization_details == {"valuation_points": 1}
+
+
+def test_build_resolved_twr_performance_input_projects_stateful_request_fields():
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_1",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "stateful_input": {},
+            "include_benchmark": True,
+        }
+    )
+    normalization_resolution = _build_twr_normalization_resolution(
+        request=request,
+        retrieval_resolution=_TWRRetrievalResolution(
+            portfolio_input=StatefulPortfolioInput(
+                performance_start_date=request.report_end_date,
+                observations=[
+                    {
+                        "valuation_date": "2025-01-02",
+                        "beginning_market_value": "1000",
+                        "ending_market_value": "1010",
+                    }
+                ],
+            ),
+            benchmark_resolution=None,
+            benchmark_start_date=request.report_end_date,
+            retrieval_details={},
+        ),
+    )
+
+    performance_input = _build_resolved_twr_performance_input(
+        request=request,
+        resolved_input=normalization_resolution.resolved_input,
+    )
+
+    assert performance_input.input_mode.value == "stateful"
+    assert performance_input.performance_request.portfolio_id == "PORT_1"
+    assert performance_input.performance_request.performance_start_date == request.report_end_date
+    assert len(performance_input.performance_request.valuation_points) == 1
+    assert not hasattr(performance_input.performance_request, "include_benchmark")
 
 
 @pytest.mark.asyncio

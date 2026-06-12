@@ -63,6 +63,12 @@ class _TWRNormalizationResolution:
     normalization_details: dict[str, object]
 
 
+@dataclass(frozen=True)
+class _ResolvedTWRPerformanceInput:
+    performance_request: PerformanceRequest
+    input_mode: TWRInputMode
+
+
 async def resolve_twr_request(
     request: TWRAnalyticsRequest,
     *,
@@ -123,13 +129,40 @@ async def resolve_twr_request(
         )
         raise
 
-    resolved_input = normalization_resolution.resolved_input
+    performance_input = _build_resolved_twr_performance_input(
+        request=request,
+        resolved_input=normalization_resolution.resolved_input,
+    )
     benchmark_request = normalization_resolution.benchmark_request
+
+    return ResolvedTWRRequest(
+        performance_request=performance_input.performance_request,
+        input_mode=performance_input.input_mode,
+        benchmark_request=benchmark_request if _benchmark_requested(request) else None,
+        benchmark_input_mode=_get_requested_benchmark_mode(request),
+        resolved_benchmark_id=(
+            benchmark_resolution.benchmark_id
+            if benchmark_resolution is not None
+            else _get_requested_benchmark_id(request)
+            if _benchmark_requested(request)
+            else None
+        ),
+    )
+
+
+def _build_resolved_twr_performance_input(
+    *,
+    request: TWRAnalyticsRequest,
+    resolved_input: StatefulPortfolioValuationInput | None,
+) -> _ResolvedTWRPerformanceInput:
     if resolved_input is None:
-        performance_request = request.to_stateless_performance_request()
-        input_mode = TWRInputMode.STATELESS
-    else:
-        performance_request = PerformanceRequest.model_validate(
+        return _ResolvedTWRPerformanceInput(
+            performance_request=request.to_stateless_performance_request(),
+            input_mode=TWRInputMode.STATELESS,
+        )
+
+    return _ResolvedTWRPerformanceInput(
+        performance_request=PerformanceRequest.model_validate(
             {
                 **request.model_dump(
                     exclude={
@@ -146,21 +179,8 @@ async def resolve_twr_request(
                 "valuation_points": resolved_input.valuation_points,
                 "source_quality_evidence": resolved_input.source_quality_evidence,
             }
-        )
-        input_mode = TWRInputMode.STATEFUL
-
-    return ResolvedTWRRequest(
-        performance_request=performance_request,
-        input_mode=input_mode,
-        benchmark_request=benchmark_request if _benchmark_requested(request) else None,
-        benchmark_input_mode=_get_requested_benchmark_mode(request),
-        resolved_benchmark_id=(
-            benchmark_resolution.benchmark_id
-            if benchmark_resolution is not None
-            else _get_requested_benchmark_id(request)
-            if _benchmark_requested(request)
-            else None
         ),
+        input_mode=TWRInputMode.STATEFUL,
     )
 
 
