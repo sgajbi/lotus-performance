@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import time
+from dataclasses import dataclass
 from threading import Event
 from uuid import UUID
 
@@ -15,6 +16,17 @@ from app.services.lineage_service import LineageService, lineage_service, resolv
 logger = logging.getLogger(__name__)
 
 
+@dataclass(frozen=True)
+class _LineageWorkerRuntime:
+    batch_size: int
+    lineage_store: LineageMetadataStore | RuntimeStoreProxy[LineageMetadataStore]
+    lineage_service: LineageService
+    execution_store: ExecutionRegistry | RuntimeStoreProxy[ExecutionRegistry]
+    worker_id: str
+    lease_seconds: int
+    max_attempts: int
+
+
 def process_pending_jobs(
     *,
     limit: int | None = None,
@@ -26,30 +38,55 @@ def process_pending_jobs(
     max_attempts: int | None = None,
     settings=None,
 ) -> int:
-    active_settings = settings or get_settings()
-    batch_size = limit or active_settings.LINEAGE_WORKER_BATCH_SIZE
-    active_lineage_store = lineage_store or lineage_metadata_store
-    active_lineage_service = lineage_service_ or lineage_service
-    active_execution_store = execution_store or execution_registry
-    current_worker_id = worker_id or active_settings.LINEAGE_WORKER_ID
-    current_lease_seconds = lease_seconds or active_settings.LINEAGE_WORKER_LEASE_SECONDS
-    current_max_attempts = max_attempts or active_settings.LINEAGE_WORKER_MAX_ATTEMPTS
-    pending = active_lineage_store.lease_pending_payloads(
-        worker_id=current_worker_id,
-        limit=batch_size,
-        lease_seconds=current_lease_seconds,
+    runtime = _lineage_worker_runtime(
+        limit=limit,
+        lineage_store=lineage_store,
+        lineage_service_=lineage_service_,
+        execution_store=execution_store,
+        worker_id=worker_id,
+        lease_seconds=lease_seconds,
+        max_attempts=max_attempts,
+        settings=settings,
+    )
+    pending = runtime.lineage_store.lease_pending_payloads(
+        worker_id=runtime.worker_id,
+        limit=runtime.batch_size,
+        lease_seconds=runtime.lease_seconds,
     )
     processed = 0
     for payload in pending:
         if _materialize_leased_payload(
             payload=payload,
-            lineage_store=active_lineage_store,
-            lineage_service_=active_lineage_service,
-            execution_store=active_execution_store,
-            max_attempts=current_max_attempts,
+            lineage_store=runtime.lineage_store,
+            lineage_service_=runtime.lineage_service,
+            execution_store=runtime.execution_store,
+            max_attempts=runtime.max_attempts,
         ):
             processed += 1
     return processed
+
+
+def _lineage_worker_runtime(
+    *,
+    limit: int | None,
+    lineage_store: LineageMetadataStore | RuntimeStoreProxy[LineageMetadataStore] | None,
+    lineage_service_: LineageService | None,
+    execution_store: ExecutionRegistry | RuntimeStoreProxy[ExecutionRegistry] | None,
+    worker_id: str | None,
+    lease_seconds: int | None,
+    max_attempts: int | None,
+    settings,
+) -> _LineageWorkerRuntime:
+    active_settings = settings or get_settings()
+    return _LineageWorkerRuntime(
+        batch_size=limit or active_settings.LINEAGE_WORKER_BATCH_SIZE,
+        lineage_store=lineage_store or lineage_metadata_store,
+        lineage_service=lineage_service_ or lineage_service,
+        execution_store=execution_store or execution_registry,
+        worker_id=worker_id or active_settings.LINEAGE_WORKER_ID,
+        lease_seconds=lease_seconds or active_settings.LINEAGE_WORKER_LEASE_SECONDS,
+        max_attempts=max_attempts or active_settings.LINEAGE_WORKER_MAX_ATTEMPTS,
+    )
 
 
 def run_forever(*, stop_event: Event | None = None, settings=None) -> None:

@@ -148,6 +148,87 @@ def test_materialize_leased_payload_ignores_stale_missing_payload():
     ]
 
 
+def test_lineage_worker_runtime_prefers_explicit_overrides():
+    class _LineageStore:
+        pass
+
+    class _LineageService:
+        pass
+
+    class _ExecutionStore:
+        pass
+
+    lineage_store = _LineageStore()
+    lineage_service = _LineageService()
+    execution_store = _ExecutionStore()
+
+    runtime = lineage_worker._lineage_worker_runtime(
+        limit=7,
+        lineage_store=lineage_store,
+        lineage_service_=lineage_service,
+        execution_store=execution_store,
+        worker_id="worker-explicit",
+        lease_seconds=45,
+        max_attempts=5,
+        settings=_worker_settings(
+            LINEAGE_WORKER_BATCH_SIZE=10,
+            LINEAGE_WORKER_ID="worker-settings",
+            LINEAGE_WORKER_LEASE_SECONDS=30,
+            LINEAGE_WORKER_MAX_ATTEMPTS=3,
+        ),
+    )
+
+    assert runtime.batch_size == 7
+    assert runtime.lineage_store is lineage_store
+    assert runtime.lineage_service is lineage_service
+    assert runtime.execution_store is execution_store
+    assert runtime.worker_id == "worker-explicit"
+    assert runtime.lease_seconds == 45
+    assert runtime.max_attempts == 5
+
+
+def test_lineage_worker_runtime_uses_settings_for_omitted_values(monkeypatch):
+    class _LineageStore:
+        pass
+
+    class _LineageService:
+        pass
+
+    class _ExecutionStore:
+        pass
+
+    lineage_store = _LineageStore()
+    lineage_service = _LineageService()
+    execution_store = _ExecutionStore()
+    monkeypatch.setattr(lineage_worker, "lineage_metadata_store", lineage_store)
+    monkeypatch.setattr(lineage_worker, "lineage_service", lineage_service)
+    monkeypatch.setattr(lineage_worker, "execution_registry", execution_store)
+
+    runtime = lineage_worker._lineage_worker_runtime(
+        limit=None,
+        lineage_store=None,
+        lineage_service_=None,
+        execution_store=None,
+        worker_id=None,
+        lease_seconds=None,
+        max_attempts=None,
+        settings=_worker_settings(
+            LINEAGE_WORKER_BATCH_SIZE=11,
+            LINEAGE_WORKER_ID="worker-settings",
+            LINEAGE_WORKER_LEASE_SECONDS=31,
+            LINEAGE_WORKER_MAX_ATTEMPTS=4,
+        ),
+    )
+
+    assert runtime.batch_size == 11
+    assert runtime.lineage_store is lineage_store
+    assert runtime.lineage_service is lineage_service
+    assert runtime.execution_store is execution_store
+    assert runtime.worker_id == "worker-settings"
+    assert runtime.lease_seconds == 31
+    assert runtime.max_attempts == 4
+
+
 def test_run_forever_initializes_schema_and_sleeps_when_idle(monkeypatch):
     calls: list[str] = []
     settings = _worker_settings(LINEAGE_WORKER_POLL_SECONDS=11.0)
