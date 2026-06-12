@@ -2,6 +2,7 @@ import pytest
 
 from app.models.mwr_analytics_requests import (
     MoneyWeightedReturnAnalyticsRequest,
+    _resolve_mwr_stateless_input,
     _validate_legacy_stateless_payload_complete,
 )
 from app.models.mwr_requests import CashFlow
@@ -207,6 +208,51 @@ def test_mwr_analytics_request_to_stateless_prefers_explicit_override():
     assert stateless.end_mv == 2100
     assert stateless.cash_flows[0].amount == 50
     assert str(stateless.start_date) == "2025-01-01"
+
+
+def test_resolve_mwr_stateless_input_prefers_explicit_override():
+    request = MoneyWeightedReturnAnalyticsRequest.model_validate(
+        {
+            "portfolio_id": "MWR_STATELESS",
+            "as_of": "2025-12-31",
+            "input_mode": "stateless",
+            "stateless_input": {
+                "begin_mv": 1000,
+                "end_mv": 1050,
+                "cash_flows": [{"amount": 25, "date": "2025-06-30"}],
+            },
+        }
+    )
+    override_cash_flows = [CashFlow.model_validate({"amount": 50, "date": "2025-07-31"})]
+
+    resolved = _resolve_mwr_stateless_input(
+        request=request,
+        begin_mv=2000,
+        end_mv=2100,
+        cash_flows=override_cash_flows,
+    )
+
+    assert resolved.begin_mv == 2000
+    assert resolved.end_mv == 2100
+    assert resolved.cash_flows is override_cash_flows
+
+
+def test_resolve_mwr_stateless_input_uses_legacy_payload():
+    request = MoneyWeightedReturnAnalyticsRequest.model_validate(
+        {
+            "portfolio_id": "MWR_LEGACY",
+            "as_of": "2025-12-31",
+            "begin_mv": 1000,
+            "end_mv": 1050,
+            "cash_flows": [{"amount": 25, "date": "2025-06-30"}],
+        }
+    )
+
+    resolved = _resolve_mwr_stateless_input(request=request)
+
+    assert resolved.begin_mv == 1000
+    assert resolved.end_mv == 1050
+    assert len(resolved.cash_flows) == 1
 
 
 def test_mwr_analytics_request_to_stateless_fails_without_stateless_payload():

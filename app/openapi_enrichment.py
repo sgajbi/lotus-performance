@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import copy
 import re
-from typing import Any
+from typing import Any, Callable
 
 ALLOWED_METHODS = {"get", "post", "put", "patch", "delete"}
 _LEGACY_CLIENT_TERM = "cif" + "_id"
@@ -226,22 +226,76 @@ def _infer_example(prop_name: str, prop_schema: dict[str, Any]) -> Any:
     return _semantic_string_example(key)
 
 
-def _infer_description(model_name: str, prop_name: str, prop_schema: dict[str, Any]) -> str:
-    key = _canonical_term(prop_name)
-    text = _humanize(prop_name)
+PropertyDescriptionRule = Callable[[str, str, dict[str, Any]], str | None]
+
+
+def _identifier_property_description(key: str, text: str, prop_schema: dict[str, Any]) -> str | None:
+    del text, prop_schema
     if key.endswith("_id"):
         entity = key[: -len("_id")].replace("_", " ")
         return f"Unique {entity} identifier."
+    return None
+
+
+def _date_property_description(key: str, text: str, prop_schema: dict[str, Any]) -> str | None:
+    del key
     if prop_schema.get("format") == "date":
         return f"Business date for {text}."
+    return None
+
+
+def _timestamp_property_description(key: str, text: str, prop_schema: dict[str, Any]) -> str | None:
+    del key
     if prop_schema.get("format") == "date-time":
         return f"Timestamp for {text}."
+    return None
+
+
+def _currency_property_description(key: str, text: str, prop_schema: dict[str, Any]) -> str | None:
+    del prop_schema
     if "currency" in key:
         return f"ISO currency code for {text}."
-    if "return" in key or "rate" in key or "performance" in key:
+    return None
+
+
+def _performance_property_description(key: str, text: str, prop_schema: dict[str, Any]) -> str | None:
+    del prop_schema
+    if any(term in key for term in ("return", "rate", "performance")):
         return f"Performance metric value for {text}."
-    if "amount" in key or "value" in key:
+    return None
+
+
+def _monetary_property_description(key: str, text: str, prop_schema: dict[str, Any]) -> str | None:
+    del prop_schema
+    if any(term in key for term in ("amount", "value")):
         return f"Monetary value for {text}."
+    return None
+
+
+PROPERTY_DESCRIPTION_RULES: tuple[PropertyDescriptionRule, ...] = (
+    _identifier_property_description,
+    _date_property_description,
+    _timestamp_property_description,
+    _currency_property_description,
+    _performance_property_description,
+    _monetary_property_description,
+)
+
+
+def _semantic_property_description(key: str, text: str, prop_schema: dict[str, Any]) -> str | None:
+    for rule in PROPERTY_DESCRIPTION_RULES:
+        description = rule(key, text, prop_schema)
+        if description is not None:
+            return description
+    return None
+
+
+def _infer_description(model_name: str, prop_name: str, prop_schema: dict[str, Any]) -> str:
+    key = _canonical_term(prop_name)
+    text = _humanize(prop_name)
+    semantic_description = _semantic_property_description(key, text, prop_schema)
+    if semantic_description is not None:
+        return semantic_description
     return f"{_humanize(model_name)} field: {text}."
 
 
@@ -381,21 +435,33 @@ def _is_http_validation_error_schema(json_content: dict[str, Any]) -> bool:
     return isinstance(ref, str) and ref.endswith("/HTTPValidationError")
 
 
+def _is_error_response_code(code: Any) -> bool:
+    response_code = str(code)
+    return response_code.startswith(("4", "5")) or response_code == "default"
+
+
+def _validation_error_json_content(response: Any) -> dict[str, Any] | None:
+    if not isinstance(response, dict):
+        return None
+    content = response.get("content", {})
+    if not isinstance(content, dict):
+        return None
+    json_content = content.get("application/json")
+    if not isinstance(json_content, dict):
+        return None
+    if "example" in json_content or "examples" in json_content:
+        return None
+    if not _is_http_validation_error_schema(json_content):
+        return None
+    return json_content
+
+
 def _ensure_error_response_examples(responses: dict[str, Any]) -> None:
     for code, response in responses.items():
-        if not (str(code).startswith("4") or str(code).startswith("5") or str(code) == "default"):
+        if not _is_error_response_code(code):
             continue
-        if not isinstance(response, dict):
-            continue
-        content = response.get("content", {})
-        if not isinstance(content, dict):
-            continue
-        json_content = content.get("application/json")
-        if not isinstance(json_content, dict):
-            continue
-        if "example" in json_content or "examples" in json_content:
-            continue
-        if _is_http_validation_error_schema(json_content):
+        json_content = _validation_error_json_content(response)
+        if json_content is not None:
             json_content["example"] = copy.deepcopy(HTTP_VALIDATION_ERROR_EXAMPLE)
 
 

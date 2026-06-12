@@ -9,6 +9,7 @@ from app.services.contribution_series import (
     _apply_hierarchy_unclassified_policy,
     _build_hierarchy_from_adjusted_position_series,
     _daily_hierarchy_metadata,
+    _residual_adjusted_position_rows,
 )
 from engine.schema import PortfolioColumns
 
@@ -141,3 +142,31 @@ def test_hierarchy_metadata_helpers_align_dates_and_unclassified_policy():
         update={"emit": request.emit.model_copy(update={"include_unclassified": False})}
     )
     assert _apply_hierarchy_unclassified_policy(merged_df, request=exclude_request).empty
+
+
+def test_residual_adjusted_position_rows_allocate_by_weight_and_equal_fallback():
+    weighted_rows = _residual_adjusted_position_rows(
+        position_id="SEC_A",
+        position_slice=pd.DataFrame(
+            {
+                PortfolioColumns.PERF_DATE.value: [date(2026, 3, 30), date(2026, 3, 31)],
+                "smoothed_contribution": [0.01, 0.01],
+                "daily_weight": [-0.25, 0.75],
+            }
+        ),
+        target_total=0.04,
+    )
+    equal_fallback_rows = _residual_adjusted_position_rows(
+        position_id="SEC_B",
+        position_slice=pd.DataFrame(
+            {
+                PortfolioColumns.PERF_DATE.value: [date(2026, 3, 30), date(2026, 3, 31)],
+                "smoothed_contribution": [0.02, 0.00],
+                "daily_weight": [0.0, 0.0],
+            }
+        ),
+        target_total=0.00,
+    )
+
+    assert [row["adjusted_contribution"] for row in weighted_rows] == [0.015, 0.025]
+    assert [row["adjusted_contribution"] for row in equal_fallback_rows] == [0.01, -0.01]

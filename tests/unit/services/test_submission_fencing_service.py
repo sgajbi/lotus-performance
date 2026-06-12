@@ -9,6 +9,7 @@ from app.services.compute_job_store import ComputeJobRegistrationResult, Compute
 from app.services.execution_registry import ExecutionRegistrationResult, ExecutionRegistrationStatus
 from app.services.execution_stage_names import EXECUTION_STAGE_SUBMISSION
 from app.services.submission_fencing_service import (
+    _complete_async_submission_stage_if_needed,
     promote_existing_execution_to_async_submission_or_raise,
     register_async_submission_or_raise,
 )
@@ -264,6 +265,42 @@ def test_register_async_submission_preserves_job_error_when_cleanup_fails(mocker
     assert f"Async execution registration cleanup failed for calculation_id={calculation_id}" in caplog.text
     assert "RuntimeError: queue unavailable" in caplog.text
     assert "RuntimeError: cleanup unavailable" in caplog.text
+
+
+def test_complete_async_submission_stage_helper_self_heals_recreated_replay_job(mocker):
+    calculation_id = uuid4()
+    start_stage = mocker.patch("app.services.submission_fencing_service.execution_registry.start_stage")
+    complete_stage = mocker.patch("app.services.submission_fencing_service.execution_registry.complete_stage")
+
+    _complete_async_submission_stage_if_needed(
+        calculation_id=calculation_id,
+        execution_registration_status=ExecutionRegistrationStatus.REPLAY,
+        compute_job_registration_status=ComputeJobRegistrationStatus.CREATED,
+        created_execution=False,
+        offload_reason="large_input",
+    )
+
+    start_stage.assert_called_once_with(calculation_id, EXECUTION_STAGE_SUBMISSION)
+    complete_stage.assert_called_once_with(
+        calculation_id, EXECUTION_STAGE_SUBMISSION, details={"offload_reason": "large_input"}
+    )
+
+
+def test_complete_async_submission_stage_helper_leaves_replayed_job_stage_closed(mocker):
+    calculation_id = uuid4()
+    start_stage = mocker.patch("app.services.submission_fencing_service.execution_registry.start_stage")
+    complete_stage = mocker.patch("app.services.submission_fencing_service.execution_registry.complete_stage")
+
+    _complete_async_submission_stage_if_needed(
+        calculation_id=calculation_id,
+        execution_registration_status=ExecutionRegistrationStatus.REPLAY,
+        compute_job_registration_status=ComputeJobRegistrationStatus.REPLAY,
+        created_execution=False,
+        offload_reason="large_input",
+    )
+
+    start_stage.assert_not_called()
+    complete_stage.assert_not_called()
 
 
 def test_promote_existing_execution_defers_execution_mutation_until_job_registration_succeeds(mocker):

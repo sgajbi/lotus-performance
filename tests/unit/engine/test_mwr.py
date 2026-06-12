@@ -16,6 +16,7 @@ from engine.mwr import (
     _scan_xirr_roots,
     _xirr,
     _xirr_failure,
+    _xirr_result_from_roots,
     _xirr_time_diffs,
     calculate_money_weighted_return,
 )
@@ -116,6 +117,27 @@ def test_scan_xirr_roots_returns_single_residual_for_bracketed_schedule():
     assert root_rate == pytest.approx(0.1, abs=1e-8)
     assert iterations > 0
     assert residual == pytest.approx(0.0, abs=1e-6)
+
+
+def test_xirr_result_from_roots_preserves_success_convergence_payload():
+    base_convergence = _build_xirr_base_convergence(
+        annualization=Annualization(enabled=False, basis="ACT/365"),
+        lower_bound=-0.999999999,
+        upper_bound=1000.0,
+        anchor_date=date(2026, 1, 1),
+        normalized_flow_count=2,
+        gross_cash_flow_scale=210.0,
+    )
+
+    result = _xirr_result_from_roots(roots=[(0.1, 17, 0.000001)], base_convergence=base_convergence)
+
+    assert result["converged"] is True
+    assert result["rate"] == pytest.approx(0.1)
+    assert result["notes"] == "XIRR calculation successful."
+    assert result["convergence"]["root_count_detected"] == 1
+    assert result["convergence"]["iterations"] == 17
+    assert result["convergence"]["residual"] == pytest.approx(0.000001)
+    assert result["convergence"]["residual_npv"] == pytest.approx(0.000001)
 
 
 def test_calculate_xirr_mwr_attempt_returns_successful_xirr_result():

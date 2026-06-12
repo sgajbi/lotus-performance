@@ -3,7 +3,7 @@ from decimal import Decimal
 import pytest
 from fastapi import HTTPException
 
-from app.services.valuation_points_service import portfolio_timeseries_to_valuation_points
+from app.services.valuation_points_service import _valuation_cashflow_totals, portfolio_timeseries_to_valuation_points
 
 
 def test_portfolio_timeseries_to_valuation_points_preserves_fee_cashflows_as_mgmt_fees():
@@ -90,3 +90,15 @@ def test_portfolio_timeseries_to_valuation_points_rejects_empty_valid_observatio
         "code": "INSUFFICIENT_DATA",
         "message": "No valid valuation observations after canonical normalization.",
     }
+
+
+def test_valuation_cashflow_totals_classifies_fee_external_and_unsupported_flows():
+    assert _valuation_cashflow_totals(
+        [
+            {"amount": "100", "timing": "bod", "cash_flow_type": "external_flow"},
+            {"amount": "-25", "timing": "eod", "cash_flow_type": "withdrawal"},
+            {"amount": "-3", "timing": "eod", "cash_flow_type": "fee"},
+            {"amount": "2", "timing": "eod", "cash_flow_type": "dividend"},
+        ]
+    ) == (Decimal("100"), Decimal("-25"), Decimal("-3"))
+    assert _valuation_cashflow_totals("not-a-list") == (Decimal("0"), Decimal("0"), Decimal("0"))

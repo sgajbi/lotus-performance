@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import cast
@@ -110,31 +111,14 @@ async def retrieve_stateful_attribution_source_input(
     )
     position_rows = _parse_position_rows(upstream_payload)
 
-    benchmark_id = benchmark_id_override
-    if benchmark_id is None:
-        assignment_status, assignment_payload = await stateful_input_service.get_benchmark_assignment(
-            portfolio_id=portfolio_id,
-            as_of_date=as_of_date,
-            reporting_currency=reporting_currency,
-            calculation_id=calculation_id,
-        )
-        if assignment_status == status.HTTP_404_NOT_FOUND:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail="Stateful attribution input requires a benchmark assignment or explicit stateful_input.benchmark_id.",
-            )
-        if assignment_status >= status.HTTP_400_BAD_REQUEST:
-            raise_for_stateful_source_unavailable(
-                source_label="benchmark assignment",
-                upstream_status=assignment_status,
-            )
-        benchmark_id_raw = assignment_payload.get("benchmark_id")
-        if not isinstance(benchmark_id_raw, str) or not benchmark_id_raw:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="benchmark assignment payload missing benchmark_id.",
-            )
-        benchmark_id = benchmark_id_raw
+    benchmark_id = await _resolve_stateful_attribution_benchmark_id(
+        stateful_input_service=stateful_input_service,
+        portfolio_id=portfolio_id,
+        as_of_date=as_of_date,
+        reporting_currency=reporting_currency,
+        calculation_id=calculation_id,
+        benchmark_id_override=benchmark_id_override,
+    )
 
     benchmark_input = await build_stateful_benchmark_input(
         stateful_input_service=stateful_input_service,
@@ -172,6 +156,43 @@ async def retrieve_stateful_attribution_source_input(
         index_records=index_records,
         index_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
     )
+
+
+async def _resolve_stateful_attribution_benchmark_id(
+    *,
+    stateful_input_service: StatefulInputService,
+    portfolio_id: str,
+    as_of_date,
+    reporting_currency: str | None,
+    calculation_id,
+    benchmark_id_override: str | None,
+) -> str:
+    if benchmark_id_override is not None:
+        return benchmark_id_override
+
+    assignment_status, assignment_payload = await stateful_input_service.get_benchmark_assignment(
+        portfolio_id=portfolio_id,
+        as_of_date=as_of_date,
+        reporting_currency=reporting_currency,
+        calculation_id=calculation_id,
+    )
+    if assignment_status == status.HTTP_404_NOT_FOUND:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Stateful attribution input requires a benchmark assignment or explicit stateful_input.benchmark_id.",
+        )
+    if assignment_status >= status.HTTP_400_BAD_REQUEST:
+        raise_for_stateful_source_unavailable(
+            source_label="benchmark assignment",
+            upstream_status=assignment_status,
+        )
+    benchmark_id_raw = assignment_payload.get("benchmark_id")
+    if not isinstance(benchmark_id_raw, str) or not benchmark_id_raw:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="benchmark assignment payload missing benchmark_id.",
+        )
+    return benchmark_id_raw
 
 
 def build_stateful_attribution_input(
@@ -330,15 +351,10 @@ def _position_market_value_totals_by_date(
         valuation_date = row.get("valuation_date")
         if not isinstance(valuation_date, str):
             continue
-        begin_key = "beginning_market_value_reporting_currency" if reporting_currency is not None else None
-        end_key = "ending_market_value_reporting_currency" if reporting_currency is not None else None
-        begin_value = row.get(begin_key) if begin_key is not None else None
-        end_value = row.get(end_key) if end_key is not None else None
-        if begin_value is None or end_value is None:
-            begin_value = row.get("beginning_market_value_portfolio_currency")
-            end_value = row.get("ending_market_value_portfolio_currency")
-        if begin_value is None or end_value is None:
+        market_values = _position_market_value_pair(row=row, reporting_currency=reporting_currency)
+        if market_values is None:
             continue
+        begin_value, end_value = market_values
         totals = position_totals_by_date.setdefault(
             valuation_date,
             {"begin": Decimal("0"), "end": Decimal("0"), "internal_flow_abs": Decimal("0")},
@@ -350,6 +366,23 @@ def _position_market_value_totals_by_date(
             reporting_currency=reporting_currency,
         )
     return position_totals_by_date
+
+
+def _position_market_value_pair(
+    *,
+    row: dict[str, object],
+    reporting_currency: str | None,
+) -> tuple[object, object] | None:
+    begin_key = "beginning_market_value_reporting_currency" if reporting_currency is not None else None
+    end_key = "ending_market_value_reporting_currency" if reporting_currency is not None else None
+    begin_value = row.get(begin_key) if begin_key is not None else None
+    end_value = row.get(end_key) if end_key is not None else None
+    if begin_value is None or end_value is None:
+        begin_value = row.get("beginning_market_value_portfolio_currency")
+        end_value = row.get("ending_market_value_portfolio_currency")
+    if begin_value is None or end_value is None:
+        return None
+    return begin_value, end_value
 
 
 def _stateful_portfolio_position_alignment_mismatches(
@@ -514,20 +547,9 @@ def _summarize_currency_source(
     fx: object,
     reporting_currency: str | None,
 ) -> dict[str, int | bool | str | None]:
-    position_currencies = sorted(
-        {
-            position_currency
-            for row in rows
-            for position_currency in [row.get("position_currency")]
-            if isinstance(position_currency, str) and position_currency
-        }
-    )
-    benchmark_component_currencies = sorted(
-        {
-            observation.component_currency
-            for observation in component_observations
-            if isinstance(observation.component_currency, str) and observation.component_currency
-        }
+    position_currencies = _distinct_source_currencies(row.get("position_currency") for row in rows)
+    benchmark_component_currencies = _distinct_source_currencies(
+        observation.component_currency for observation in component_observations
     )
     fx_required = (
         currency_mode == "BOTH"
@@ -545,16 +567,13 @@ def _summarize_currency_source(
     }
 
 
-def _validate_stateful_position_inception_support(*, rows: list[dict[str, object]]) -> None:
-    first_rows_by_position: dict[str, dict[str, object]] = {}
-    for row in sorted(rows, key=lambda item: (str(item.get("position_id", "")), str(item.get("valuation_date", "")))):
-        position_id = row.get("position_id")
-        if not isinstance(position_id, str) or position_id in first_rows_by_position:
-            continue
-        first_rows_by_position[position_id] = row
+def _distinct_source_currencies(values: Iterable[object]) -> list[str]:
+    return sorted({value for value in values if isinstance(value, str) and value})
 
+
+def _validate_stateful_position_inception_support(*, rows: list[dict[str, object]]) -> None:
     unsupported_positions: list[str] = []
-    for position_id, row in first_rows_by_position.items():
+    for position_id, row in _first_rows_by_position(rows).items():
         begin_value_raw = row.get("beginning_market_value_portfolio_currency")
         end_value_raw = row.get("ending_market_value_portfolio_currency")
         begin_value = Decimal(str(begin_value_raw)) if begin_value_raw is not None else Decimal("0")
@@ -574,6 +593,16 @@ def _validate_stateful_position_inception_support(*, rows: list[dict[str, object
                 f"Affected positions: {sample_positions}."
             ),
         )
+
+
+def _first_rows_by_position(rows: list[dict[str, object]]) -> dict[str, dict[str, object]]:
+    first_rows_by_position: dict[str, dict[str, object]] = {}
+    for row in sorted(rows, key=lambda item: (str(item.get("position_id", "")), str(item.get("valuation_date", "")))):
+        position_id = row.get("position_id")
+        if not isinstance(position_id, str) or position_id in first_rows_by_position:
+            continue
+        first_rows_by_position[position_id] = row
+    return first_rows_by_position
 
 
 def _validate_stateful_group_by(group_by: list[str]) -> None:
@@ -895,14 +924,19 @@ def _position_meta_from_row(row: dict[str, object]) -> dict[str, object]:
     if portfolio_to_reporting_fx_rate is not None:
         meta["portfolio_to_reporting_fx_rate"] = Decimal(str(portfolio_to_reporting_fx_rate))
 
-    dimensions_raw = row.get("dimensions")
+    meta.update(_normalized_position_dimensions(row.get("dimensions")))
+    return meta
+
+
+def _normalized_position_dimensions(dimensions_raw: object) -> dict[str, object]:
+    dimensions: dict[str, object] = {}
     if isinstance(dimensions_raw, dict):
         for key, value in dimensions_raw.items():
             if isinstance(key, str) and isinstance(value, str) and value:
-                meta[key] = _normalize_group_value(value)
+                dimensions[key] = _normalize_group_value(value)
             elif isinstance(key, str) and value is not None:
-                meta[key] = value
-    return meta
+                dimensions[key] = value
+    return dimensions
 
 
 def _normalize_group_value(value: str) -> str:

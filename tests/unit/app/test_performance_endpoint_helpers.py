@@ -4,19 +4,22 @@ from typing import cast
 import pandas as pd
 import pytest
 
-from app.models.benchmark_analytics_requests import BenchmarkReturnSource
+from app.models.benchmark_analytics_requests import BenchmarkInputMode, BenchmarkReturnSource
+from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.models.requests import PerformanceRequest
-from app.models.responses import SinglePeriodPerformanceResult
+from app.models.responses import ComparativeAnalyticsBlock, ComparativeSummary, SinglePeriodPerformanceResult
 from app.models.twr_requests import TWRInputMode
 from app.services.benchmark_calculation_service import BenchmarkCalculationArtifacts
 from app.services.twr_service import (
     _as_numeric,
+    _build_twr_benchmark_period_blocks,
     _build_twr_lineage_details,
     _build_twr_response_model,
     _build_twr_results_by_period,
     _calculate_total_return_from_slice,
     _get_total_cum_ror,
     _resolve_twr_supportability,
+    _TWRBenchmarkPeriodContext,
     _TWRExecutionCalculation,
 )
 from common.enums import Frequency
@@ -121,6 +124,63 @@ def test_build_twr_results_by_period_filters_reset_events_to_period_window():
     reset_events = results["ITD"].reset_events
     assert reset_events is not None
     assert [event.reason for event in reset_events] == ["in_period"]
+
+
+def test_build_twr_benchmark_period_blocks_projects_benchmark_identity_and_relative_return():
+    benchmark_request = BenchmarkPerformanceRequest.model_validate(
+        {
+            "benchmark_id": "BMK-REQUESTED",
+            "benchmark_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "benchmark_currency": "USD",
+            "return_source": "vendor_series",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "benchmark_return_points": [
+                {"perf_date": "2025-01-01", "benchmark_return": 0.01},
+                {"perf_date": "2025-01-02", "benchmark_return": 0.02},
+            ],
+        }
+    )
+    benchmark_daily_returns_df = pd.DataFrame(
+        [
+            {"date": date(2025, 1, 1), "benchmark_return": 0.01},
+            {"date": date(2025, 1, 2), "benchmark_return": 0.02},
+        ]
+    )
+    context = _TWRBenchmarkPeriodContext(
+        artifacts=BenchmarkCalculationArtifacts(
+            results_by_period={},
+            daily_returns_df=benchmark_daily_returns_df,
+            component_contributions_df=pd.DataFrame(),
+            effective_period_start=date(2025, 1, 1),
+            max_weight_sum_deviation=0.0,
+            notes=[],
+        ),
+        request=benchmark_request,
+        input_mode=BenchmarkInputMode.STATEFUL,
+        resolved_benchmark_id="BMK-RESOLVED",
+        return_source=BenchmarkReturnSource.VENDOR_SERIES,
+        master_start_date=date(2025, 1, 1),
+    )
+    portfolio = ComparativeAnalyticsBlock(
+        summary=ComparativeSummary(period_return={"base": 3.02}, cumulative_return={"base": 3.02}),
+        breakdowns={},
+    )
+
+    benchmark, relative = _build_twr_benchmark_period_blocks(
+        period=ResolvedPeriod(name="ITD", start_date=date(2025, 1, 1), end_date=date(2025, 1, 2)),
+        requested_frequencies=[],
+        portfolio=portfolio,
+        context=context,
+    )
+
+    assert benchmark is not None
+    assert benchmark.benchmark_id == "BMK-RESOLVED"
+    assert benchmark.input_mode == "stateful"
+    assert benchmark.return_source == "vendor_series"
+    assert benchmark.summary.period_return.base == pytest.approx(3.02)
+    assert relative is not None
+    assert relative.summary.period_return.base == pytest.approx(0.0)
 
 
 def test_build_twr_response_model_preserves_envelope_metadata_and_supportability():

@@ -4,17 +4,29 @@ from datetime import UTC, datetime, timedelta
 
 from scripts.runtime_retention_cleanup import (
     RuntimeRetentionCleanupEvidence,
+    _build_evidence_file_name,
     _persist_evidence_history,
     main,
 )
 
 
+def _generated_at_utc(days_ago: int) -> str:
+    generated_at = datetime.now(UTC) - timedelta(days=days_ago)
+    return generated_at.replace(microsecond=0).isoformat()
+
+
+def _evidence_file_name(generated_at_utc: str) -> str:
+    return _build_evidence_file_name(generated_at_utc)
+
+
 def test_runtime_retention_cleanup_persists_history_and_manifest(tmp_path):
     output_dir = tmp_path / "artifacts" / "runtime-retention-cleanup"
+    generated_at_utc = _generated_at_utc(days_ago=10)
+    evidence_file_name = _evidence_file_name(generated_at_utc)
     evidence = RuntimeRetentionCleanupEvidence(
         cleanup_name="runtime_retention_cleanup",
-        generated_at_utc="2026-03-14T00:00:00Z",
-        evidence_file_name="2026-03-14t00-00-00z.json",
+        generated_at_utc=generated_at_utc,
+        evidence_file_name=evidence_file_name,
         operator_id="ops-user",
         tenant_id="tenant-a",
         correlation_id="corr-1",
@@ -46,16 +58,16 @@ def test_runtime_retention_cleanup_persists_history_and_manifest(tmp_path):
     assert latest["correlation_id"] == "corr-1"
     assert latest["trigger_mode"] == "manual"
     assert latest["cleanup_mode"] == "apply"
-    assert manifest["latest_file_name"] == "2026-03-14t00-00-00z.json"
-    assert manifest["retained_file_names"] == ["2026-03-14t00-00-00z.json"]
+    assert manifest["latest_file_name"] == evidence_file_name
+    assert manifest["retained_file_names"] == [evidence_file_name]
     assert manifest["entries"][0]["prunable_lineage_artifact_count"] == 6
 
 
 def test_runtime_retention_cleanup_prunes_by_limit_and_age(tmp_path):
     output_dir = tmp_path / "artifacts" / "runtime-retention-cleanup"
     output_dir.mkdir(parents=True)
-    old_generated_at = (datetime.now(UTC) - timedelta(days=120)).isoformat()
-    old_file_name = "2025-11-14t00-00-00z.json"
+    old_generated_at = _generated_at_utc(days_ago=120)
+    old_file_name = _evidence_file_name(old_generated_at)
     (output_dir / old_file_name).write_text(
         json.dumps(
             {
@@ -81,10 +93,12 @@ def test_runtime_retention_cleanup_prunes_by_limit_and_age(tmp_path):
         encoding="utf-8",
     )
 
+    first_generated_at = _generated_at_utc(days_ago=10)
+    first_file_name = _evidence_file_name(first_generated_at)
     first = RuntimeRetentionCleanupEvidence(
         cleanup_name="runtime_retention_cleanup",
-        generated_at_utc="2026-03-14T00:00:00Z",
-        evidence_file_name="2026-03-14t00-00-00z.json",
+        generated_at_utc=first_generated_at,
+        evidence_file_name=first_file_name,
         operator_id="ops-user",
         tenant_id=None,
         correlation_id=None,
@@ -100,10 +114,12 @@ def test_runtime_retention_cleanup_prunes_by_limit_and_age(tmp_path):
         prunable_lineage_record_count=2,
         prunable_lineage_artifact_count=2,
     )
+    second_generated_at = _generated_at_utc(days_ago=9)
+    second_file_name = _evidence_file_name(second_generated_at)
     second = RuntimeRetentionCleanupEvidence(
         cleanup_name="runtime_retention_cleanup",
-        generated_at_utc="2026-03-15T00:00:00Z",
-        evidence_file_name="2026-03-15t00-00-00z.json",
+        generated_at_utc=second_generated_at,
+        evidence_file_name=second_file_name,
         operator_id="ops-user",
         tenant_id=None,
         correlation_id=None,
@@ -129,9 +145,9 @@ def test_runtime_retention_cleanup_prunes_by_limit_and_age(tmp_path):
     manifest = json.loads((output_dir / "manifest.json").read_text(encoding="utf-8"))
 
     assert old_file_name not in retained_names
-    assert retained_names == {"2026-03-14t00-00-00z.json", "2026-03-15t00-00-00z.json"}
-    assert manifest["latest_file_name"] == "2026-03-15t00-00-00z.json"
-    assert manifest["retained_file_names"] == ["2026-03-15t00-00-00z.json", "2026-03-14t00-00-00z.json"]
+    assert retained_names == {first_file_name, second_file_name}
+    assert manifest["latest_file_name"] == second_file_name
+    assert manifest["retained_file_names"] == [second_file_name, first_file_name]
 
 
 def test_runtime_retention_cleanup_scheduled_mode_records_automation_identity(tmp_path, monkeypatch, capsys):

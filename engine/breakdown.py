@@ -48,6 +48,19 @@ def _calculate_period_summary_dict(
     return summary
 
 
+def _daily_breakdown_item(row: pd.Series, include_cumulative: bool) -> Dict:
+    summary = {
+        PortfolioColumns.BEGIN_MV.value: row[PortfolioColumns.BEGIN_MV.value],
+        PortfolioColumns.END_MV.value: row[PortfolioColumns.END_MV.value],
+        "net_cash_flow": row[PortfolioColumns.BOD_CF.value] + row[PortfolioColumns.EOD_CF.value],
+        "period_return_pct": row[PortfolioColumns.DAILY_ROR.value],
+    }
+    if include_cumulative:
+        summary["cumulative_return_pct_to_date"] = row[PortfolioColumns.FINAL_CUM_ROR.value]
+
+    return {"period": row[PortfolioColumns.PERF_DATE.value].strftime("%Y-%m-%d"), "summary": summary}
+
+
 def generate_performance_breakdowns(
     daily_df: pd.DataFrame,
     frequencies: List[Frequency],
@@ -71,18 +84,7 @@ def generate_performance_breakdowns(
         results = []
         if freq == Frequency.DAILY:
             for _, row in daily_df.iterrows():
-                summary = {
-                    PortfolioColumns.BEGIN_MV.value: row[PortfolioColumns.BEGIN_MV.value],
-                    PortfolioColumns.END_MV.value: row[PortfolioColumns.END_MV.value],
-                    "net_cash_flow": row[PortfolioColumns.BOD_CF.value] + row[PortfolioColumns.EOD_CF.value],
-                    "period_return_pct": row[PortfolioColumns.DAILY_ROR.value],
-                }
-                if include_cumulative:
-                    summary["cumulative_return_pct_to_date"] = row[PortfolioColumns.FINAL_CUM_ROR.value]
-
-                results.append(
-                    {"period": row[PortfolioColumns.PERF_DATE.value].strftime("%Y-%m-%d"), "summary": summary}
-                )
+                results.append(_daily_breakdown_item(row, include_cumulative))
         else:
             freq_map = {
                 Frequency.MONTHLY: "ME",

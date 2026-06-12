@@ -217,25 +217,15 @@ def _build_exposure_rows(
         if not isinstance(points, list):
             continue
         for point in points:
-            if not isinstance(point, dict):
-                continue
-            series_date = point.get("series_date")
-            if not isinstance(series_date, str):
-                continue
-            component_weight = point.get("component_weight")
-            if component_weight is None:
-                continue
-            weight = _as_decimal(component_weight, field_name="component_weight")
-            for dimension in grouping_dimensions:
-                group_key, group_label, component_id = _group_identity(
-                    index_id=index_id_raw,
-                    grouping_dimension=dimension,
-                    classification_map=classification_map,
-                )
-                grouped_key = (series_date, dimension, group_key)
-                grouped_weights[grouped_key] = grouped_weights.get(grouped_key, Decimal("0")) + weight
-                labels[(dimension, group_key)] = group_label
-                component_ids[(dimension, group_key)] = component_id
+            _accumulate_exposure_point(
+                index_id=index_id_raw,
+                point=point,
+                grouping_dimensions=grouping_dimensions,
+                classification_map=classification_map,
+                grouped_weights=grouped_weights,
+                labels=labels,
+                component_ids=component_ids,
+            )
 
     return [
         BenchmarkExposureRow(
@@ -248,6 +238,37 @@ def _build_exposure_rows(
         )
         for (series_date, dimension, group_key), weight in sorted(grouped_weights.items())
     ]
+
+
+def _accumulate_exposure_point(
+    *,
+    index_id: str,
+    point: Any,
+    grouping_dimensions: list[BenchmarkExposureGroupingDimension],
+    classification_map: dict[str, dict[str, str]],
+    grouped_weights: dict[tuple[str, BenchmarkExposureGroupingDimension, str], Decimal],
+    labels: dict[tuple[BenchmarkExposureGroupingDimension, str], str],
+    component_ids: dict[tuple[BenchmarkExposureGroupingDimension, str], str | None],
+) -> None:
+    if not isinstance(point, dict):
+        return
+    series_date = point.get("series_date")
+    if not isinstance(series_date, str):
+        return
+    component_weight = point.get("component_weight")
+    if component_weight is None:
+        return
+    weight = _as_decimal(component_weight, field_name="component_weight")
+    for dimension in grouping_dimensions:
+        group_key, group_label, component_id = _group_identity(
+            index_id=index_id,
+            grouping_dimension=dimension,
+            classification_map=classification_map,
+        )
+        grouped_key = (series_date, dimension, group_key)
+        grouped_weights[grouped_key] = grouped_weights.get(grouped_key, Decimal("0")) + weight
+        labels[(dimension, group_key)] = group_label
+        component_ids[(dimension, group_key)] = component_id
 
 
 def _group_identity(

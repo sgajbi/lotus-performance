@@ -37,6 +37,7 @@ from app.models.workspace_summary_responses import (
 from app.precision_policy import to_decimal
 from app.services.analytics_observation_dates import observation_date_series
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY
+from app.services.benchmark_assignment_service import resolve_benchmark_identity
 from app.services.execution_lifecycle_service import complete_execution_with_lineage
 from app.services.execution_registry import execution_registry
 from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
@@ -47,10 +48,7 @@ from app.services.stateful_performance_input_service import (
     build_stateful_portfolio_valuation_input,
     retrieve_stateful_portfolio_input,
 )
-from app.services.stateful_upstream_errors import (
-    raise_for_stateful_control_plane_unavailable,
-    raise_for_stateful_source_unavailable,
-)
+from app.services.stateful_upstream_errors import raise_for_stateful_control_plane_unavailable
 from app.services.stateless_benchmark_input_service import normalize_stateless_component_observations
 from app.services.twr_service import (
     _build_relative_return_value,
@@ -363,52 +361,33 @@ def _resolve_workspace_benchmark_input(
         )
 
     stateful_input_service = build_stateful_input_service(settings=settings)
-    benchmark_id = benchmark.benchmark_id
-    source_details: dict[str, int] = {}
-    if benchmark_id is None:
-        assignment_status, assignment_payload = _run_async(
-            stateful_input_service.get_benchmark_assignment(
-                portfolio_id=request.portfolio_id,
-                as_of_date=request.report_end_date,
-                reporting_currency=request.report_ccy,
-                calculation_id=request.calculation_id,
-            )
+    identity = _run_async(
+        resolve_benchmark_identity(
+            stateful_input_service=stateful_input_service,
+            portfolio_id=request.portfolio_id,
+            as_of_date=request.report_end_date,
+            reporting_currency=request.report_ccy,
+            calculation_id=request.calculation_id,
+            benchmark_id=benchmark.benchmark_id,
         )
-        if assignment_status == status.HTTP_404_NOT_FOUND:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"No benchmark assignment found for portfolio_id={request.portfolio_id}.",
-            )
-        if assignment_status >= status.HTTP_400_BAD_REQUEST:
-            raise_for_stateful_source_unavailable(
-                source_label="benchmark assignment",
-                upstream_status=assignment_status,
-            )
-        benchmark_id_raw = assignment_payload.get("benchmark_id")
-        if not isinstance(benchmark_id_raw, str) or not benchmark_id_raw:
-            raise HTTPException(
-                status_code=HTTP_422_UNPROCESSABLE,
-                detail="benchmark assignment payload missing benchmark_id.",
-            )
-        benchmark_id = benchmark_id_raw
-        source_details["resolved_benchmark_assignment"] = 1
+    )
 
     normalized_input = _run_async(
         build_stateful_benchmark_input(
             stateful_input_service=stateful_input_service,
             calculation_id=request.calculation_id,
-            benchmark_id=benchmark_id,
+            benchmark_id=identity.benchmark_id,
             as_of_date=request.report_end_date,
             start_date=master_start_date,
             end_date=request.report_end_date,
             return_source=benchmark.return_source,
         )
     )
-    source_details.update(normalized_input.source_details)
+    source_details = {**identity.source_details, **normalized_input.source_details}
     resolved_request = BenchmarkPerformanceRequest.model_validate(
         {
             "calculation_id": request.calculation_id,
-            "benchmark_id": benchmark_id,
+            "benchmark_id": identity.benchmark_id,
             "benchmark_start_date": master_start_date,
             "report_end_date": request.report_end_date,
             "return_source": benchmark.return_source.value,
@@ -426,7 +405,7 @@ def _resolve_workspace_benchmark_input(
     return ResolvedWorkspaceBenchmarkInput(
         benchmark_request=resolved_request,
         input_mode=BenchmarkInputMode.STATEFUL,
-        benchmark_id=benchmark_id,
+        benchmark_id=identity.benchmark_id,
         source_details=source_details,
     )
 
@@ -559,65 +538,15 @@ def _build_workspace_summary_response(
             annualization=request.annualization,
         )
 
-        benchmark_block = None
-        active_block = None
-        if benchmark_input is not None and benchmark_daily_df is not None:
-            benchmark_slice = _slice_by_date(
-                benchmark_daily_df,
-                date_column="date",
-                start_date=resolved_period.start_date,
-                end_date=resolved_period.end_date,
-            )
-            if not benchmark_slice.empty:
-                benchmark_block = _build_workspace_benchmark_block(
-                    benchmark_slice=benchmark_slice,
-                    full_benchmark_df=benchmark_daily_df,
-                    frequencies=frequencies,
-                    annualization=request.annualization,
-                    benchmark_input=benchmark_input,
-                )
-                active_block = WorkspaceActiveBlock(
-                    net=WorkspaceReturnSummary(
-                        period_return=_to_workspace_return_value(
-                            _build_relative_return_value(
-                                net_summary.summary.period_return,
-                                benchmark_block.summary.period_return,
-                            )
-                        ),
-                        cumulative_return=_to_workspace_return_value(
-                            _build_relative_return_value(
-                                net_summary.summary.cumulative_return,
-                                benchmark_block.summary.cumulative_return,
-                            )
-                        ),
-                        annualized_return=_to_workspace_return_value(
-                            _build_relative_return_value(
-                                net_summary.summary.annualized_return,
-                                benchmark_block.summary.annualized_return,
-                            )
-                        ),
-                    ),
-                    gross=WorkspaceReturnSummary(
-                        period_return=_to_workspace_return_value(
-                            _build_relative_return_value(
-                                gross_summary.summary.period_return,
-                                benchmark_block.summary.period_return,
-                            )
-                        ),
-                        cumulative_return=_to_workspace_return_value(
-                            _build_relative_return_value(
-                                gross_summary.summary.cumulative_return,
-                                benchmark_block.summary.cumulative_return,
-                            )
-                        ),
-                        annualized_return=_to_workspace_return_value(
-                            _build_relative_return_value(
-                                gross_summary.summary.annualized_return,
-                                benchmark_block.summary.annualized_return,
-                            )
-                        ),
-                    ),
-                )
+        benchmark_block, active_block = _build_workspace_benchmark_and_active_blocks(
+            benchmark_input=benchmark_input,
+            benchmark_daily_df=benchmark_daily_df,
+            resolved_period=resolved_period,
+            frequencies=frequencies,
+            annualization=request.annualization,
+            net_summary=net_summary,
+            gross_summary=gross_summary,
+        )
 
         results_by_period[resolved_period.name] = WorkspacePeriodSummaryResult(
             portfolio_twr=WorkspaceBasisPair(net=net_summary, gross=gross_summary),
@@ -670,6 +599,82 @@ def _build_workspace_summary_response(
                 "portfolio_page_count": portfolio_input.source_details.get("portfolio_page_count", 0),
                 "benchmark_chunk_count": benchmark_input.source_details.get("chunk_count", 0) if benchmark_input else 0,
             }
+        ),
+    )
+
+
+def _build_workspace_benchmark_and_active_blocks(
+    *,
+    benchmark_input: ResolvedWorkspaceBenchmarkInput | None,
+    benchmark_daily_df: pd.DataFrame | None,
+    resolved_period: ResolvedWorkspacePeriod,
+    frequencies: list[Frequency],
+    annualization: Any,
+    net_summary: WorkspacePerformanceBlock,
+    gross_summary: WorkspacePerformanceBlock,
+) -> tuple[WorkspaceBenchmarkBlock | None, WorkspaceActiveBlock | None]:
+    if benchmark_input is None or benchmark_daily_df is None:
+        return None, None
+
+    benchmark_slice = _slice_by_date(
+        benchmark_daily_df,
+        date_column="date",
+        start_date=resolved_period.start_date,
+        end_date=resolved_period.end_date,
+    )
+    if benchmark_slice.empty:
+        return None, None
+
+    benchmark_block = _build_workspace_benchmark_block(
+        benchmark_slice=benchmark_slice,
+        full_benchmark_df=benchmark_daily_df,
+        frequencies=frequencies,
+        annualization=annualization,
+        benchmark_input=benchmark_input,
+    )
+    return (
+        benchmark_block,
+        WorkspaceActiveBlock(
+            net=WorkspaceReturnSummary(
+                period_return=_to_workspace_return_value(
+                    _build_relative_return_value(
+                        net_summary.summary.period_return,
+                        benchmark_block.summary.period_return,
+                    )
+                ),
+                cumulative_return=_to_workspace_return_value(
+                    _build_relative_return_value(
+                        net_summary.summary.cumulative_return,
+                        benchmark_block.summary.cumulative_return,
+                    )
+                ),
+                annualized_return=_to_workspace_return_value(
+                    _build_relative_return_value(
+                        net_summary.summary.annualized_return,
+                        benchmark_block.summary.annualized_return,
+                    )
+                ),
+            ),
+            gross=WorkspaceReturnSummary(
+                period_return=_to_workspace_return_value(
+                    _build_relative_return_value(
+                        gross_summary.summary.period_return,
+                        benchmark_block.summary.period_return,
+                    )
+                ),
+                cumulative_return=_to_workspace_return_value(
+                    _build_relative_return_value(
+                        gross_summary.summary.cumulative_return,
+                        benchmark_block.summary.cumulative_return,
+                    )
+                ),
+                annualized_return=_to_workspace_return_value(
+                    _build_relative_return_value(
+                        gross_summary.summary.annualized_return,
+                        benchmark_block.summary.annualized_return,
+                    )
+                ),
+            ),
         ),
     )
 

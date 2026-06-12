@@ -32,14 +32,11 @@ class BenchmarkReturnPointLike(Protocol):
     benchmark_return: Any
 
 
-def calculate_benchmark_returns(
+def _component_contributions_dataframe(
     component_observations: Sequence[BenchmarkComponentObservationLike],
-) -> BenchmarkEngineResult:
-    if not component_observations:
-        raise ValueError("component_observations must not be empty")
-
-    has_any_local = _uses_local_fx_component_returns(component_observations)
-
+    *,
+    has_any_local: bool,
+) -> pd.DataFrame:
     records = [
         {
             "date": observation.perf_date,
@@ -69,7 +66,14 @@ def calculate_benchmark_returns(
             contributions_df["weight_bop"] * contributions_df["component_return_local"]
         )
         contributions_df["fx_contribution"] = contributions_df["weight_bop"] * contributions_df["component_return_fx"]
+    return contributions_df
 
+
+def _aggregate_benchmark_returns(
+    contributions_df: pd.DataFrame,
+    *,
+    has_any_local: bool,
+) -> pd.DataFrame:
     grouped = contributions_df.groupby("date", sort=True).agg(
         benchmark_return=("contribution", "sum"),
         weight_sum=("weight_bop", "sum"),
@@ -90,14 +94,19 @@ def calculate_benchmark_returns(
             lambda row: Decimal("0") if row["weight_sum"] == 0 else row["weighted_fx_return_sum"] / row["weight_sum"],
             axis=1,
         )
+    return grouped
 
+
+def _cumulative_benchmark_returns(grouped: pd.DataFrame) -> list[Decimal]:
     cumulative_returns: list[Decimal] = []
     running = Decimal("1")
     for benchmark_return in grouped["benchmark_return"]:
         running *= Decimal("1") + benchmark_return
         cumulative_returns.append(running - Decimal("1"))
-    grouped["cumulative_return"] = cumulative_returns
+    return cumulative_returns
 
+
+def _benchmark_weight_diagnostics(grouped: pd.DataFrame) -> tuple[Decimal, list[str]]:
     max_weight_sum_deviation_decimal = max(
         (abs(Decimal("1") - weight_sum) for weight_sum in grouped["weight_sum"]),
         default=Decimal("0"),
@@ -105,6 +114,23 @@ def calculate_benchmark_returns(
     notes: list[str] = []
     if max_weight_sum_deviation_decimal != Decimal("0"):
         notes.append("Benchmark component weights do not sum exactly to 1.0 on every date.")
+    return max_weight_sum_deviation_decimal, notes
+
+
+def calculate_benchmark_returns(
+    component_observations: Sequence[BenchmarkComponentObservationLike],
+) -> BenchmarkEngineResult:
+    if not component_observations:
+        raise ValueError("component_observations must not be empty")
+
+    has_any_local = _uses_local_fx_component_returns(component_observations)
+    contributions_df = _component_contributions_dataframe(
+        component_observations,
+        has_any_local=has_any_local,
+    )
+    grouped = _aggregate_benchmark_returns(contributions_df, has_any_local=has_any_local)
+    grouped["cumulative_return"] = _cumulative_benchmark_returns(grouped)
+    max_weight_sum_deviation_decimal, notes = _benchmark_weight_diagnostics(grouped)
 
     return BenchmarkEngineResult(
         daily_returns_df=grouped,

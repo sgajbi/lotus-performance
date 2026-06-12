@@ -10,6 +10,7 @@ from app.services.mwr_mode_service import resolve_mwr_request
 from app.services.stateful_mwr_input_service import (
     _collect_stateful_mwr_cash_flows,
     _parse_decimal,
+    _source_mwr_cash_flow_component,
     build_stateful_mwr_input,
     build_stateful_mwr_input_for_window,
 )
@@ -282,6 +283,26 @@ def test_collect_stateful_mwr_cash_flows_excludes_fee_and_unsupported_economics(
 
     assert collection.cash_flows_by_date == {date(2025, 1, 1): Decimal("100")}
     assert len(collection.cash_flow_components_by_date[date(2025, 1, 1)]) == 1
+
+
+def test_source_mwr_cash_flow_component_projects_eligible_source_flow():
+    component = _source_mwr_cash_flow_component(
+        {
+            "amount": "100",
+            "cash_flow_type": "external_flow",
+            "flow_scope": "external",
+            "source_classification": "official",
+        },
+        reporting_currency="USD",
+    )
+
+    assert component is not None
+    assert component.amount == Decimal("100")
+    assert component.currency == "USD"
+    assert component.cash_flow_type == "external_flow"
+    assert component.flow_scope == "external"
+    assert component.source_classification == "official"
+    assert _source_mwr_cash_flow_component({"amount": "-3", "cash_flow_type": "fee"}, reporting_currency="USD") is None
 
 
 def test_build_stateful_mwr_input_skips_invalid_cash_flow_rows():

@@ -12,6 +12,7 @@ from app.models.benchmark_exposure_context import (
     BenchmarkExposureWindow,
 )
 from app.services.benchmark_exposure_context_service import (
+    _accumulate_exposure_point,
     _build_exposure_rows,
     _classification_map_from_catalog_records,
     _group_identity,
@@ -370,6 +371,41 @@ def test_build_exposure_rows_skips_invalid_component_shapes_and_rejects_invalid_
             grouping_dimensions=[BenchmarkExposureGroupingDimension.POSITION],
             classification_map={},
         )
+
+
+def test_accumulate_exposure_point_groups_valid_points_and_skips_invalid_shapes() -> None:
+    grouped_weights: dict[tuple[str, BenchmarkExposureGroupingDimension, str], Decimal] = {}
+    labels: dict[tuple[BenchmarkExposureGroupingDimension, str], str] = {}
+    component_ids: dict[tuple[BenchmarkExposureGroupingDimension, str], str | None] = {}
+
+    _accumulate_exposure_point(
+        index_id="IDX",
+        point=None,
+        grouping_dimensions=[BenchmarkExposureGroupingDimension.POSITION],
+        classification_map={},
+        grouped_weights=grouped_weights,
+        labels=labels,
+        component_ids=component_ids,
+    )
+    _accumulate_exposure_point(
+        index_id="IDX",
+        point={"series_date": "2026-01-02", "component_weight": "0.25"},
+        grouping_dimensions=[
+            BenchmarkExposureGroupingDimension.POSITION,
+            BenchmarkExposureGroupingDimension.SECTOR,
+        ],
+        classification_map={"IDX": {"sector": "Technology"}},
+        grouped_weights=grouped_weights,
+        labels=labels,
+        component_ids=component_ids,
+    )
+
+    assert grouped_weights[("2026-01-02", BenchmarkExposureGroupingDimension.POSITION, "IDX")] == Decimal("0.25")
+    assert grouped_weights[("2026-01-02", BenchmarkExposureGroupingDimension.SECTOR, "SECTOR_Technology")] == Decimal(
+        "0.25"
+    )
+    assert labels[(BenchmarkExposureGroupingDimension.SECTOR, "SECTOR_Technology")] == "Technology"
+    assert component_ids[(BenchmarkExposureGroupingDimension.POSITION, "IDX")] == "IDX"
 
 
 def test_group_identity_uses_unknown_defaults_for_classification_groups() -> None:

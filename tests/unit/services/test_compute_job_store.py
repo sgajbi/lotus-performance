@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
@@ -14,6 +15,7 @@ from app.services.compute_job_store import (
     ComputeJobRegistrationStatus,
     ComputeJobStatus,
     ComputeJobStore,
+    _queue_stats_from_aggregate_row,
 )
 
 
@@ -410,6 +412,39 @@ def test_compute_job_store_queue_stats(tmp_path):
     assert stats.oldest_pending_age_seconds == 120.0
     assert stats.oldest_leased_age_seconds == 10.0
     assert stats.oldest_running_age_seconds == 15.0
+
+
+def test_queue_stats_from_aggregate_row_defaults_counts_and_projects_ages():
+    now = datetime(2026, 3, 13, 12, 0, tzinfo=timezone.utc)
+    aggregate_row = SimpleNamespace(
+        pending_count=None,
+        leased_count=2,
+        running_count=3,
+        failed_count=None,
+        complete_count=4,
+        retry_backlog_count=None,
+        lease_expired_count=1,
+        terminal_failure_count=None,
+        oldest_pending_created_at=now - timedelta(seconds=30),
+        oldest_leased_at=None,
+        oldest_running_at=now - timedelta(seconds=45),
+        reclaimable_count=5,
+    )
+
+    stats = _queue_stats_from_aggregate_row(aggregate_row=aggregate_row, stats_now=now)
+
+    assert stats.pending_count == 0
+    assert stats.leased_count == 2
+    assert stats.running_count == 3
+    assert stats.failed_count == 0
+    assert stats.complete_count == 4
+    assert stats.retry_backlog_count == 0
+    assert stats.lease_expired_count == 1
+    assert stats.terminal_failure_count == 0
+    assert stats.oldest_pending_age_seconds == 30.0
+    assert stats.oldest_leased_age_seconds == 0.0
+    assert stats.oldest_running_age_seconds == 45.0
+    assert stats.reclaimable_count == 5
 
 
 def test_compute_job_store_queue_inspection_anchors(tmp_path):

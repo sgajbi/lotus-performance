@@ -2,7 +2,11 @@
 import pytest
 from pydantic import ValidationError
 
-from app.models.attribution_analytics_requests import AttributionAnalyticsRequest, _attribution_input_shape
+from app.models.attribution_analytics_requests import (
+    AttributionAnalyticsRequest,
+    _attribution_input_shape,
+    _resolve_attribution_stateless_input,
+)
 from app.models.attribution_requests import AttributionRequest, BenchmarkGroup, PortfolioGroup
 from app.models.attribution_responses import AttributionLevelResult, SinglePeriodAttributionResult
 from common.enums import PeriodType
@@ -266,6 +270,63 @@ def test_attribution_analytics_request_to_stateless_prefers_explicit_override(ba
     assert stateless.portfolio_groups_data is not None
     assert stateless.portfolio_groups_data[0].key["assetClass"] == "Bond"
     assert stateless.benchmark_groups_data[0].key["assetClass"] == "Bond"
+
+
+def test_resolve_attribution_stateless_input_prefers_explicit_override(base_attribution_payload):
+    request = AttributionAnalyticsRequest.model_validate(
+        {
+            **base_attribution_payload,
+            "analyses": [{"period": "ITD", "frequencies": ["monthly"]}],
+        }
+    )
+    override_benchmark_groups = [
+        BenchmarkGroup.model_validate(
+            {
+                "key": {"assetClass": "Cash"},
+                "observations": [{"date": "2025-01-31", "return_base": 0.01, "weight_bop": 1.0}],
+            }
+        )
+    ]
+
+    resolved = _resolve_attribution_stateless_input(
+        request=request,
+        benchmark_groups_data=override_benchmark_groups,
+    )
+
+    assert resolved.benchmark_groups_data is override_benchmark_groups
+    assert resolved.portfolio_data is None
+    assert resolved.instruments_data is None
+    assert resolved.portfolio_groups_data is None
+
+
+def test_resolve_attribution_stateless_input_uses_nested_payload():
+    request = AttributionAnalyticsRequest.model_validate(
+        {
+            "portfolio_id": "ATTRIB_NESTED",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-31",
+            "mode": "by_group",
+            "group_by": ["assetClass"],
+            "analyses": [{"period": "ITD", "frequencies": ["monthly"]}],
+            "input_mode": "stateless",
+            "stateless_input": {
+                "portfolio_groups_data": [{"key": {"assetClass": "Equity"}, "observations": []}],
+                "benchmark_groups_data": [
+                    {
+                        "key": {"assetClass": "Equity"},
+                        "observations": [{"date": "2025-01-31", "return_base": 0.05, "weight_bop": 1.0}],
+                    }
+                ],
+            },
+        }
+    )
+
+    resolved = _resolve_attribution_stateless_input(request=request)
+
+    assert resolved.portfolio_groups_data is not None
+    assert resolved.portfolio_groups_data[0].key["assetClass"] == "Equity"
+    assert resolved.benchmark_groups_data is not None
+    assert resolved.benchmark_groups_data[0].key["assetClass"] == "Equity"
 
 
 def test_attribution_analytics_request_builds_nested_stateless_request():

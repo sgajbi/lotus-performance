@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from datetime import date
+from decimal import Decimal
 from uuid import UUID
 
 from app.models.composites import CompositeDefinition, CompositeMemberReturnFact
 from app.services.composite_calculation_service import CompositeDefinitionNotFoundError
-from app.services.composite_inspection_service import inspect_composite_twr_from_persisted_facts
+from app.services.composite_inspection_service import _composite_return_rows, inspect_composite_twr_from_persisted_facts
 from app.services.composite_metadata_store import CompositeMetadataStore
+from engine.composites import CompositePeriodResult
 
 
 def _store(tmp_path) -> CompositeMetadataStore:
@@ -162,3 +164,44 @@ def test_composite_inspection_reports_degraded_verdict(tmp_path):
     assert response.findings[0].code == "MISSING_FINAL_VALUATION"
     assert response.findings[0].severity == "warning"
     store.close()
+
+
+def test_composite_return_rows_formats_optional_customer_consumable_values():
+    rows = _composite_return_rows(
+        [
+            CompositePeriodResult(
+                period_start=date(2026, 1, 1),
+                period_end=date(2026, 1, 31),
+                status="DEGRADED",
+                return_value=None,
+                cumulative_return=Decimal("0.0125"),
+                beginning_market_value=Decimal("100"),
+                ending_market_value=Decimal("101"),
+                member_count=2,
+                excluded_member_count=1,
+                dispersion_equal_weight=None,
+                return_view=None,
+                reporting_currency=None,
+                source_fingerprints=[],
+                restatement_versions=[],
+                reason_codes=["missing_member"],
+                member_contributions=[],
+            )
+        ]
+    )
+
+    assert rows == [
+        {
+            "period_start": "2026-01-01",
+            "period_end": "2026-01-31",
+            "status": "DEGRADED",
+            "return_view": "",
+            "reporting_currency": "",
+            "return_value": "",
+            "cumulative_return": "0.0125",
+            "member_count": 2,
+            "excluded_member_count": 1,
+            "dispersion_equal_weight": "",
+            "reason_codes": "missing_member",
+        }
+    ]

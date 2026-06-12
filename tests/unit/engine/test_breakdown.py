@@ -6,7 +6,7 @@ import pytest
 
 from common.enums import Frequency
 from core.envelope import Annualization
-from engine.breakdown import _calculate_period_summary_dict, generate_performance_breakdowns
+from engine.breakdown import _calculate_period_summary_dict, _daily_breakdown_item, generate_performance_breakdowns
 from engine.schema import PortfolioColumns
 
 
@@ -126,6 +126,20 @@ def test_generate_breakdowns_daily_includes_cumulative_when_requested(sample_dai
         sample_daily_results, [Frequency.DAILY], default_annualization, True, rounding_precision=6
     )
     assert "cumulative_return_pct_to_date" in breakdowns[Frequency.DAILY][0]["summary"]
+
+
+def test_daily_breakdown_item_projects_summary_and_cumulative_flag(sample_daily_results):
+    item = _daily_breakdown_item(sample_daily_results.iloc[0], include_cumulative=False)
+
+    assert item == {
+        "period": "2025-01-30",
+        "summary": {
+            "begin_mv": 100.0,
+            "end_mv": 110.0,
+            "net_cash_flow": 0.0,
+            "period_return_pct": 10.0,
+        },
+    }
 
 
 def test_generate_breakdowns_weekly_period_label(sample_daily_results, default_annualization):

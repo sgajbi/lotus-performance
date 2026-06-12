@@ -151,6 +151,39 @@ def test_compute_executor_worker_runtime_builder_preserves_explicit_overrides(tm
     assert runtime.execution_context.contribution_calculator is _calculator
 
 
+def test_compute_executor_worker_execution_context_preserves_all_calculator_overrides(tmp_path):
+    execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    settings = _worker_settings()
+
+    async def _returns_series_calculator(*args, **kwargs):  # noqa: ANN202, ARG001
+        return None
+
+    def _calculator(*args, **kwargs):  # noqa: ANN202, ARG001
+        return None
+
+    context = compute_executor_worker._build_compute_job_execution_context(
+        settings=settings,
+        execution_store=execution_store,
+        returns_series_calculator=_returns_series_calculator,
+        contribution_calculator=_calculator,
+        attribution_calculator=_calculator,
+        benchmark_calculator=_calculator,
+        twr_calculator=_calculator,
+        workspace_summary_calculator=_calculator,
+        inspection_calculator=_calculator,
+    )
+
+    assert context.settings is settings
+    assert context.execution_store is execution_store
+    assert context.returns_series_calculator is _returns_series_calculator
+    assert context.contribution_calculator is _calculator
+    assert context.attribution_calculator is _calculator
+    assert context.benchmark_calculator is _calculator
+    assert context.twr_calculator is _calculator
+    assert context.workspace_summary_calculator is _calculator
+    assert context.inspection_calculator is _calculator
+
+
 def test_compute_executor_worker_processes_pending_returns_series_job(tmp_path, monkeypatch):
     execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
     execution_store.create_schema()

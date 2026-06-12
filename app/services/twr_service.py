@@ -198,6 +198,16 @@ class _TWRExecutionCalculation:
     benchmark_artifacts: BenchmarkCalculationArtifacts | None
 
 
+@dataclass(frozen=True)
+class _TWRBenchmarkPeriodContext:
+    artifacts: BenchmarkCalculationArtifacts
+    request: BenchmarkPerformanceRequest
+    input_mode: BenchmarkInputMode | None
+    resolved_benchmark_id: str | None
+    return_source: BenchmarkReturnSource
+    master_start_date: date
+
+
 def _daily_calculation_evidence_inputs(
     row: pd.Series,
     *,
@@ -685,6 +695,18 @@ def _build_twr_results_by_period(
     master_start_date: date,
 ) -> dict[str, SinglePeriodPerformanceResult]:
     results_by_period: dict[str, SinglePeriodPerformanceResult] = {}
+    benchmark_context = (
+        _TWRBenchmarkPeriodContext(
+            artifacts=benchmark_artifacts,
+            request=benchmark_request,
+            input_mode=benchmark_input_mode,
+            resolved_benchmark_id=resolved_benchmark_id,
+            return_source=benchmark_return_source,
+            master_start_date=master_start_date,
+        )
+        if benchmark_artifacts is not None and benchmark_request is not None
+        else None
+    )
     daily_results_df[PortfolioColumns.PERF_DATE.value] = observation_date_series(
         daily_results_df[PortfolioColumns.PERF_DATE.value]
     )
@@ -728,49 +750,13 @@ def _build_twr_results_by_period(
             ),
         )
 
-        if benchmark_artifacts is not None and benchmark_request is not None:
-            benchmark_period_df = benchmark_artifacts.daily_returns_df[
-                (benchmark_artifacts.daily_returns_df["date"] >= period.start_date)
-                & (benchmark_artifacts.daily_returns_df["date"] <= period.end_date)
-            ].copy()
-            if not benchmark_period_df.empty:
-                benchmark_period_return = _calculate_benchmark_return_from_slice(benchmark_period_df)
-                benchmark_breakdowns = _build_benchmark_breakdowns(
-                    period_daily_df=benchmark_period_df,
-                    requested_frequencies=requested_frequencies_for_period,
-                )
-                period_result.benchmark = ComparativeAnalyticsBlock(
-                    summary=ComparativeSummary(
-                        period_return=benchmark_period_return,
-                        cumulative_return=_get_benchmark_cumulative_return_to_date(
-                            master_start_date=master_start_date,
-                            period_end_date=period.end_date,
-                            benchmark_daily_returns_df=benchmark_artifacts.daily_returns_df,
-                        ),
-                    ),
-                    breakdowns=benchmark_breakdowns,
-                    benchmark_id=resolved_benchmark_id or benchmark_request.benchmark_id,
-                    benchmark_currency=benchmark_request.benchmark_currency,
-                    input_mode=(benchmark_input_mode or BenchmarkInputMode.STATELESS).value,
-                    return_source=benchmark_return_source.value,
-                )
-                period_result.relative_performance = ComparativeAnalyticsBlock(
-                    summary=ComparativeSummary(
-                        period_return=_build_relative_return_value(
-                            period_result.portfolio.summary.period_return,
-                            benchmark_period_return,
-                        ),
-                        cumulative_return=_build_relative_return_value(
-                            period_result.portfolio.summary.cumulative_return
-                            or period_result.portfolio.summary.period_return,
-                            period_result.benchmark.summary.cumulative_return or benchmark_period_return,
-                        ),
-                    ),
-                    breakdowns=_build_relative_breakdowns(
-                        portfolio_breakdowns=portfolio_breakdowns,
-                        benchmark_breakdowns=benchmark_breakdowns,
-                    ),
-                )
+        if benchmark_context is not None:
+            period_result.benchmark, period_result.relative_performance = _build_twr_benchmark_period_blocks(
+                period=period,
+                requested_frequencies=requested_frequencies_for_period,
+                portfolio=period_result.portfolio,
+                context=benchmark_context,
+            )
 
         if performance_request.reset_policy.emit and engine_diagnostics.resets:
             period_result.reset_events = [
@@ -782,6 +768,56 @@ def _build_twr_results_by_period(
         results_by_period[period.name] = period_result
 
     return results_by_period
+
+
+def _build_twr_benchmark_period_blocks(
+    *,
+    period: ResolvedPeriod,
+    requested_frequencies: list[Frequency],
+    portfolio: ComparativeAnalyticsBlock,
+    context: _TWRBenchmarkPeriodContext,
+) -> tuple[ComparativeAnalyticsBlock | None, ComparativeAnalyticsBlock | None]:
+    benchmark_period_df = context.artifacts.daily_returns_df[
+        (context.artifacts.daily_returns_df["date"] >= period.start_date)
+        & (context.artifacts.daily_returns_df["date"] <= period.end_date)
+    ].copy()
+    if benchmark_period_df.empty:
+        return None, None
+
+    benchmark_period_return = _calculate_benchmark_return_from_slice(benchmark_period_df)
+    benchmark_breakdowns = _build_benchmark_breakdowns(
+        period_daily_df=benchmark_period_df,
+        requested_frequencies=requested_frequencies,
+    )
+    benchmark = ComparativeAnalyticsBlock(
+        summary=ComparativeSummary(
+            period_return=benchmark_period_return,
+            cumulative_return=_get_benchmark_cumulative_return_to_date(
+                master_start_date=context.master_start_date,
+                period_end_date=period.end_date,
+                benchmark_daily_returns_df=context.artifacts.daily_returns_df,
+            ),
+        ),
+        breakdowns=benchmark_breakdowns,
+        benchmark_id=context.resolved_benchmark_id or context.request.benchmark_id,
+        benchmark_currency=context.request.benchmark_currency,
+        input_mode=(context.input_mode or BenchmarkInputMode.STATELESS).value,
+        return_source=context.return_source.value,
+    )
+    relative = ComparativeAnalyticsBlock(
+        summary=ComparativeSummary(
+            period_return=_build_relative_return_value(portfolio.summary.period_return, benchmark_period_return),
+            cumulative_return=_build_relative_return_value(
+                portfolio.summary.cumulative_return or portfolio.summary.period_return,
+                benchmark.summary.cumulative_return or benchmark_period_return,
+            ),
+        ),
+        breakdowns=_build_relative_breakdowns(
+            portfolio_breakdowns=portfolio.breakdowns,
+            benchmark_breakdowns=benchmark_breakdowns,
+        ),
+    )
+    return benchmark, relative
 
 
 def _build_twr_benchmark_context(

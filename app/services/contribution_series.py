@@ -80,30 +80,13 @@ def _build_residual_adjusted_position_timeseries(
     for position_id, position_slice in period_slice_df.sort_values(
         ["position_id", PortfolioColumns.PERF_DATE.value]
     ).groupby("position_id", sort=True):
-        target_total = target_total_by_position.get(str(position_id), 0.0)
-        raw_total = _as_numeric(position_slice["smoothed_contribution"].sum())
-        residual_delta = target_total - raw_total
-
-        if "daily_weight" in position_slice.columns:
-            allocation_weights = numeric_series(position_slice["daily_weight"], default=0.0).abs()
-        else:
-            allocation_weights = pd.Series(0.0, index=position_slice.index)
-        if allocation_weights.sum() <= 0:
-            allocation_weights = pd.Series(1.0, index=position_slice.index)
-
-        normalized_weights = allocation_weights / allocation_weights.sum()
-        adjusted_contributions = numeric_series(position_slice["smoothed_contribution"], default=0.0) + (
-            normalized_weights * residual_delta
-        )
-
-        for row_index, (_, row) in enumerate(position_slice.iterrows()):
-            adjusted_rows.append(
-                {
-                    "position_id": str(position_id),
-                    PortfolioColumns.PERF_DATE.value: row[PortfolioColumns.PERF_DATE.value],
-                    "adjusted_contribution": _as_numeric(adjusted_contributions.iloc[row_index]),
-                }
+        adjusted_rows.extend(
+            _residual_adjusted_position_rows(
+                position_id=str(position_id),
+                position_slice=position_slice,
+                target_total=target_total_by_position.get(str(position_id), 0.0),
             )
+        )
 
     adjusted_df = pd.DataFrame(adjusted_rows)
     adjusted_series_by_position: list[PositionContributionSeries] = []
@@ -121,6 +104,36 @@ def _build_residual_adjusted_position_timeseries(
             )
         )
     return adjusted_series_by_position
+
+
+def _residual_adjusted_position_rows(
+    *,
+    position_id: str,
+    position_slice: pd.DataFrame,
+    target_total: float,
+) -> list[dict[str, Any]]:
+    raw_total = _as_numeric(position_slice["smoothed_contribution"].sum())
+    residual_delta = target_total - raw_total
+
+    if "daily_weight" in position_slice.columns:
+        allocation_weights = numeric_series(position_slice["daily_weight"], default=0.0).abs()
+    else:
+        allocation_weights = pd.Series(0.0, index=position_slice.index)
+    if allocation_weights.sum() <= 0:
+        allocation_weights = pd.Series(1.0, index=position_slice.index)
+
+    normalized_weights = allocation_weights / allocation_weights.sum()
+    adjusted_contributions = numeric_series(position_slice["smoothed_contribution"], default=0.0) + (
+        normalized_weights * residual_delta
+    )
+    return [
+        {
+            "position_id": position_id,
+            PortfolioColumns.PERF_DATE.value: row[PortfolioColumns.PERF_DATE.value],
+            "adjusted_contribution": _as_numeric(adjusted_contributions.iloc[row_index]),
+        }
+        for row_index, (_, row) in enumerate(position_slice.iterrows())
+    ]
 
 
 def _build_residual_adjusted_daily_contribution_series(

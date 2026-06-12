@@ -219,29 +219,37 @@ def _split_position_cash_flows(cash_flows_raw: object) -> tuple[Decimal, Decimal
 
 
 def _position_meta_from_row(row: dict[str, object]) -> dict[str, object]:
-    meta: dict[str, object] = {}
-    security_id = row.get("security_id")
-    if isinstance(security_id, str):
-        meta["security_id"] = security_id
-    position_currency = row.get("position_currency")
-    if isinstance(position_currency, str) and position_currency:
-        meta["currency"] = position_currency
-    cash_flow_currency = row.get("cash_flow_currency")
-    if isinstance(cash_flow_currency, str) and cash_flow_currency:
-        meta["cash_flow_currency"] = cash_flow_currency
-    position_to_portfolio_fx_rate = row.get("position_to_portfolio_fx_rate")
-    if position_to_portfolio_fx_rate is not None:
-        meta["position_to_portfolio_fx_rate"] = Decimal(str(position_to_portfolio_fx_rate))
-    portfolio_to_reporting_fx_rate = row.get("portfolio_to_reporting_fx_rate")
-    if portfolio_to_reporting_fx_rate is not None:
-        meta["portfolio_to_reporting_fx_rate"] = Decimal(str(portfolio_to_reporting_fx_rate))
-
+    meta = _position_contract_meta_from_row(row)
     dimensions_raw = row.get("dimensions")
     if isinstance(dimensions_raw, dict):
         for key, value in dimensions_raw.items():
             if isinstance(key, str) and value is not None:
                 meta[key] = value
     meta["_source_economics"] = _position_source_economics_from_row(row)
+    return meta
+
+
+def _position_contract_meta_from_row(row: dict[str, object]) -> dict[str, object]:
+    meta: dict[str, object] = {}
+    security_id = row.get("security_id")
+    if isinstance(security_id, str):
+        meta["security_id"] = security_id
+
+    for source_field, target_field in (
+        ("position_currency", "currency"),
+        ("cash_flow_currency", "cash_flow_currency"),
+    ):
+        value = row.get(source_field)
+        if isinstance(value, str) and value:
+            meta[target_field] = value
+
+    for fx_rate_field in (
+        "position_to_portfolio_fx_rate",
+        "portfolio_to_reporting_fx_rate",
+    ):
+        value = row.get(fx_rate_field)
+        if value is not None:
+            meta[fx_rate_field] = Decimal(str(value))
     return meta
 
 

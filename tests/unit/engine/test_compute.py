@@ -5,7 +5,12 @@ from decimal import Decimal
 import pandas as pd
 import pytest
 
-from engine.compute import _build_engine_diagnostics, _build_reset_events, run_calculations
+from engine.compute import (
+    _build_engine_diagnostics,
+    _build_reset_events,
+    _coerce_engine_numeric_columns,
+    run_calculations,
+)
 from engine.config import EngineConfig, PeriodType, PrecisionMode
 from engine.diagnostics import EngineDiagnostics
 from engine.exceptions import EngineCalculationError, InvalidEngineInputError
@@ -81,6 +86,27 @@ def test_run_calculations_float_mode_rounding():
     df = pd.DataFrame(data)
     result_df, _ = run_calculations(df, config)
     assert result_df[PortfolioColumns.DAILY_ROR.value].iloc[0] == 1.1235
+
+
+def test_coerce_engine_numeric_columns_uses_decimal_strict_zero_for_missing_values():
+    config = EngineConfig(
+        performance_start_date=date(2025, 1, 1),
+        report_end_date=date(2025, 1, 1),
+        metric_basis="NET",
+        period_type=PeriodType.YTD,
+        precision_mode=PrecisionMode.DECIMAL_STRICT,
+    )
+    df = pd.DataFrame(
+        {
+            PortfolioColumns.BEGIN_MV.value: ["100.25", None],
+            PortfolioColumns.END_MV.value: ["101.50", pd.NA],
+        }
+    )
+
+    _coerce_engine_numeric_columns(df, config)
+
+    assert df[PortfolioColumns.BEGIN_MV.value].tolist() == [Decimal("100.25"), Decimal("0")]
+    assert df[PortfolioColumns.END_MV.value].tolist() == [Decimal("101.50"), Decimal("0")]
 
 
 def test_run_calculations_does_not_mutate_caller_dataframe():

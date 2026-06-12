@@ -3,7 +3,14 @@ import pytest
 
 from app.models.requests import DataPolicy
 from engine.diagnostics import EngineDiagnostics
-from engine.policies import _extract_policy_inputs, _flag_outliers, apply_robustness_policies
+from engine.policies import (
+    _apply_override_values,
+    _extract_policy_inputs,
+    _flag_outliers,
+    _outlier_mask_and_bounds,
+    _override_mask,
+    apply_robustness_policies,
+)
 from engine.schema import PortfolioColumns
 
 
@@ -39,6 +46,16 @@ def test_apply_overrides_cash_flow(sample_policy_df):
     result_df, diags = apply_robustness_policies(sample_policy_df, policy)
     assert result_df.loc[1, PortfolioColumns.BOD_CF.value] == -50.0
     assert diags.policy.overrides.applied_cf_count == 1
+
+
+def test_override_helpers_filter_positions_and_count_applied_fields(sample_policy_df):
+    override = {"perf_date": "2025-03-15", "position_id": "P1", "begin_mv": 500.0, "end_mv": 600.0}
+    mask = _override_mask(sample_policy_df, override)
+
+    assert mask.tolist() == [False, True, False]
+    assert _apply_override_values(sample_policy_df, override, keys=("begin_mv", "end_mv"), mask=mask) == 2
+    assert sample_policy_df.loc[1, PortfolioColumns.BEGIN_MV.value] == 500.0
+    assert sample_policy_df.loc[1, PortfolioColumns.END_MV.value] == 600.0
 
 
 def test_apply_ignore_days(sample_policy_df):
@@ -87,6 +104,26 @@ def test_flag_outliers():
     assert diagnostics.policy.outliers.flagged_rows == 1
     assert diagnostics.samples.outliers[0].raw_return == 99.0
     assert df.loc[5, PortfolioColumns.DAILY_ROR.value] == 99.0
+
+
+def test_outlier_mask_and_bounds_excludes_ignored_dates():
+    df = pd.DataFrame(
+        {
+            PortfolioColumns.PERF_DATE.value: pd.to_datetime(pd.date_range(start="2025-01-01", periods=10)),
+            PortfolioColumns.DAILY_ROR.value: [1.0, 1.1, 0.9, 1.2, 0.8, 99.0, 1.0, 1.1, 0.9, 1.0],
+        }
+    )
+
+    outliers, upper_bound, lower_bound = _outlier_mask_and_bounds(
+        df=df,
+        ignored_dates={pd.Timestamp("2025-01-06").date()},
+        window=5,
+        mad_k=3.0,
+    )
+
+    assert int(outliers.sum()) == 0
+    assert upper_bound.index.equals(df.index)
+    assert lower_bound.index.equals(df.index)
 
 
 def test_no_policy_does_nothing(sample_policy_df):

@@ -119,15 +119,36 @@ def register_async_submission_or_raise(
             ),
         )
 
+    _complete_async_submission_stage_if_needed(
+        calculation_id=calculation_id,
+        execution_registration_status=registration.status,
+        compute_job_registration_status=job_registration.status,
+        created_execution=created_execution,
+        offload_reason=offload_reason,
+    )
+
+    accepted = accepted_response_factory(calculation_id)
+    return JSONResponse(status_code=status.HTTP_202_ACCEPTED, content=accepted.model_dump(mode="json"))
+
+
+def _complete_async_submission_stage_if_needed(
+    *,
+    calculation_id: UUID,
+    execution_registration_status: ExecutionRegistrationStatus,
+    compute_job_registration_status: ComputeJobRegistrationStatus,
+    created_execution: bool,
+    offload_reason: str,
+) -> None:
     if created_execution:
         execution_registry.complete_stage(
             calculation_id,
             EXECUTION_STAGE_SUBMISSION,
             details={"offload_reason": offload_reason},
         )
-    elif (
-        registration.status == ExecutionRegistrationStatus.REPLAY
-        and job_registration.status == ComputeJobRegistrationStatus.CREATED
+        return
+    if (
+        execution_registration_status == ExecutionRegistrationStatus.REPLAY
+        and compute_job_registration_status == ComputeJobRegistrationStatus.CREATED
     ):
         execution_registry.start_stage(calculation_id, EXECUTION_STAGE_SUBMISSION)
         execution_registry.complete_stage(
@@ -135,9 +156,6 @@ def register_async_submission_or_raise(
             EXECUTION_STAGE_SUBMISSION,
             details={"offload_reason": offload_reason},
         )
-
-    accepted = accepted_response_factory(calculation_id)
-    return JSONResponse(status_code=status.HTTP_202_ACCEPTED, content=accepted.model_dump(mode="json"))
 
 
 def promote_existing_execution_to_async_submission_or_raise(

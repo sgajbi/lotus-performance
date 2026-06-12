@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
-Report date: 2026-06-05
-Branch: `feat/performance-hardening-wave-14`
+Report date: 2026-06-08
+Branch: `refactor/lp-cr-796-position-meta-helper`
 Mode: report-only complexity and maintainability inventory; no blocking CI gate is introduced by this artifact.
 
 ## Purpose
@@ -20,34 +20,34 @@ python scripts/python_complexity_inventory.py --limit 20
 
 | Metric | Value |
 | --- | ---: |
-| Max cyclomatic complexity | 15 |
+| Max cyclomatic complexity | 10 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.59 |
+| Average maintainability index | 55.54 |
 
 ## Highest Cyclomatic Complexity
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_position_meta_from_row` | function | `app/services/stateful_attribution_input_service.py:880` | 15 | C |
-| 2 | `_build_component_observations` | function | `app/services/stateful_benchmark_input_service.py:474` | 15 | C |
-| 3 | `_build_component_observations_from_price_points` | function | `app/services/stateless_benchmark_input_service.py:39` | 15 | C |
-| 4 | `resolve_twr_request` | function | `app/services/twr_mode_service.py:60` | 15 | C |
-| 5 | `_resolve_twr_benchmark_source_input` | function | `app/services/twr_mode_service.py:353` | 15 | C |
-| 6 | `_resolve_workspace_benchmark_input` | function | `app/services/workspace_summary_service.py:314` | 15 | C |
-| 7 | `_build_compute_job_runtime` | function | `app/workers/compute_executor_worker.py:156` | 15 | C |
-| 8 | `calculate_benchmark_returns` | function | `engine/benchmarks.py:35` | 15 | C |
-| 9 | `_lineage_queue_response` | function | `app/models/runtime_status.py:691` | 14 | C |
-| 10 | `_parse_reclaimed_event_payload` | function | `app/services/operator_action_lease_service.py:415` | 14 | C |
-| 11 | `collect_runtime_degradation_reasons` | function | `app/services/runtime_status_degradation.py:257` | 14 | C |
-| 12 | `build_portfolio_source_quality_evidence` | function | `app/services/source_quality_evidence.py:13` | 14 | C |
-| 13 | `_collect_stateful_mwr_cash_flows` | function | `app/services/stateful_mwr_input_service.py:184` | 14 | C |
-| 14 | `_build_twr_results_by_period` | function | `app/services/twr_service.py:673` | 14 | C |
-| 15 | `portfolio_timeseries_to_valuation_points` | function | `app/services/valuation_points_service.py:12` | 14 | C |
-| 16 | `build_hierarchical_contribution_result` | function | `engine/contribution.py:298` | 14 | C |
-| 17 | `_apply_overrides` | function | `engine/policies.py:38` | 14 | C |
-| 18 | `_build_artifacts` | function | `app/services/composite_inspection_service.py:114` | 13 | C |
-| 19 | `_summarize_currency_source` | function | `app/services/stateful_attribution_input_service.py:509` | 12 | C |
-| 20 | `_position_meta_from_row` | function | `app/services/stateful_contribution_input_service.py:221` | 12 | C |
+| 1 | `resolve_benchmark_request` | function | `app/services/benchmark_mode_service.py:29` | 10 | B |
+| 2 | `_queue_stats_from_aggregate_row` | function | `app/services/compute_job_store.py:150` | 10 | B |
+| 3 | `calculate_contribution` | function | `app/services/contribution_service.py:421` | 10 | B |
+| 4 | `generate_twr_inspection_support_brief` | function | `app/services/inspection/support_brief_workflow_pack.py:27` | 10 | B |
+| 5 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:71` | 10 | B |
+| 6 | `_build_twr_inspection_response` | function | `app/services/inspection/twr_inspection_service.py:225` | 10 | B |
+| 7 | `period_start` | function | `app/services/returns_series_service.py:143` | 10 | B |
+| 8 | `_persist_evidence_history` | function | `app/services/runtime_retention_execution_service.py:139` | 10 | B |
+| 9 | `build_portfolio_source_quality_evidence` | function | `app/services/source_quality_evidence.py:13` | 10 | B |
+| 10 | `_validate_stateful_both_currency_support` | function | `app/services/stateful_attribution_input_service.py:956` | 10 | B |
+| 11 | `_validate_stateful_both_currency_support` | function | `app/services/stateful_contribution_input_service.py:274` | 10 | B |
+| 12 | `_merge_component_series` | method | `app/services/stateful_input_service.py:1086` | 10 | B |
+| 13 | `_benchmark_currency_state` | function | `app/services/twr_benchmark_supportability.py:79` | 10 | B |
+| 14 | `calculate_twr_workflow` | function | `app/services/twr_calculation_service.py:250` | 10 | B |
+| 15 | `resolve_twr_request` | function | `app/services/twr_mode_service.py:66` | 10 | B |
+| 16 | `_resolve_stateless_twr_benchmark_request` | function | `app/services/twr_mode_service.py:292` | 10 | B |
+| 17 | `_resolve_twr_benchmark_source_input` | function | `app/services/twr_mode_service.py:377` | 10 | B |
+| 18 | `_iter_frequency_windows` | function | `app/services/twr_service.py:443` | 10 | B |
+| 19 | `_build_portfolio_breakdowns` | function | `app/services/twr_service.py:489` | 10 | B |
+| 20 | `_build_twr_results_by_period` | function | `app/services/twr_service.py:683` | 10 | B |
 
 ## Lowest Maintainability Index
 
@@ -58,25 +58,51 @@ python scripts/python_complexity_inventory.py --limit 20
 | 3 | `app/services/returns_series_service.py` | 0.00 | C |
 | 4 | `app/services/stateful_attribution_input_service.py` | 0.00 | C |
 | 5 | `app/services/stateful_input_service.py` | 0.00 | C |
-| 6 | `app/openapi_enrichment.py` | 5.43 | C |
-| 7 | `app/services/twr_service.py` | 7.72 | C |
-| 8 | `app/services/workspace_summary_service.py` | 9.62 | B |
-| 9 | `app/services/execution_registry.py` | 10.84 | B |
-| 10 | `app/services/stateful_benchmark_input_service.py` | 12.95 | B |
-| 11 | `engine/attribution.py` | 14.54 | B |
-| 12 | `app/services/operator_action_lease_service.py` | 15.51 | B |
+| 6 | `app/openapi_enrichment.py` | 4.13 | C |
+| 7 | `app/services/twr_service.py` | 7.03 | C |
+| 8 | `app/services/execution_registry.py` | 10.84 | B |
+| 9 | `app/services/workspace_summary_service.py` | 10.84 | B |
+| 10 | `app/services/stateful_benchmark_input_service.py` | 12.90 | B |
+| 11 | `engine/attribution.py` | 14.14 | B |
+| 12 | `app/services/operator_action_lease_service.py` | 15.95 | B |
 | 13 | `app/services/inspection/calculation_consistency.py` | 16.28 | B |
 | 14 | `app/services/inspection/reconciliation.py` | 16.40 | B |
 | 15 | `app/services/inspection/source_economics_collector.py` | 17.35 | B |
 | 16 | `app/services/inspection/source_economics.py` | 17.49 | B |
-| 17 | `app/workers/compute_executor_worker.py` | 17.85 | B |
+| 17 | `app/workers/compute_executor_worker.py` | 18.03 | B |
 | 18 | `app/services/inspection/source_quality.py` | 18.55 | B |
-| 19 | `app/models/runtime_status.py` | 18.75 | B |
-| 20 | `app/services/twr_mode_service.py` | 18.80 | B |
+| 19 | `app/services/twr_mode_service.py` | 19.64 | A |
+| 20 | `app/models/runtime_status.py` | 19.85 | A |
 
 ## Interpretation
 
-The D/F high-complexity function inventory is now clear. `_build_benchmark_groups`,
+The D/F high-complexity function inventory is now clear. `calculate_benchmark_returns` dropped out
+of the top-20 table after component contribution projection, daily aggregation, cumulative linking,
+and weight diagnostics were split into named stages, reducing the measured maximum cyclomatic
+complexity from `15` to `14`. `_lineage_queue_response` also dropped out after optional lineage
+queue stats and storage-capacity projection were split into a dedicated measurement helper.
+`_parse_reclaimed_event_payload` also dropped out after post-filter reclaimed-event field-shape
+validation was split into a dedicated predicate. `collect_runtime_degradation_reasons` also dropped
+out after queue, recovery-drill, and retention reason prefixing were routed through one structural
+component-status helper. `build_portfolio_source_quality_evidence` also dropped out after
+unsupported cashflow taxonomy traversal was split into a dedicated count helper.
+`_collect_stateful_mwr_cash_flows` also dropped out after source-flow eligibility and evidence
+component projection were split into a dedicated helper.
+`portfolio_timeseries_to_valuation_points` also dropped out after fee/external/unsupported cashflow
+classification and timing aggregation were split into a dedicated totals helper.
+`_apply_overrides` also dropped out after override targeting and field application/counting were
+split into reusable policy helpers.
+`build_hierarchical_contribution_result` also dropped out after Carino residual eligibility,
+proportion calculation, and weighted allocation were split into a dedicated calculation helper.
+`_build_twr_results_by_period` also dropped out after benchmark-period and relative-performance
+assembly were split behind a typed benchmark-period context, reducing the measured maximum
+cyclomatic complexity from `14` to `13`.
+`_build_artifacts` also dropped out after customer-consumable composite-period return row
+projection and optional-value formatting were split into a dedicated helper, reducing the measured
+maximum cyclomatic complexity from `13` to `12`.
+`_summarize_currency_source` also dropped out after position and benchmark component currency
+filtering, de-duplication, and ordering were routed through a shared source-currency normalizer.
+`_build_benchmark_groups`,
 `_parse_composition_window`, `_process_pending_jobs`, and
 `MoneyWeightedReturnAnalyticsRequest.validate_mode_payloads` dropped out of the top-20 table after
 benchmark grouping aggregation, composition-window parsing, compute-worker runtime setup, and MWR
@@ -158,7 +184,7 @@ helpers. `_map_workflow_pack_run` also dropped out after run-id validation, find
 string-list filtering, replacement-run-id projection, and posture boolean policy were split into
 dedicated helpers. `run_twr_inspection` also dropped out after subject-resolution stage lifecycle
 handling and subject identity evidence were split into a dedicated helper. Max cyclomatic
-complexity is now `15`. `build_source_preconverted_mwr_currency_evidence` also dropped out after
+complexity is now `14`. `build_source_preconverted_mwr_currency_evidence` also dropped out after
 market-value collection validation, cash-flow index validation, and cash-flow response evidence
 projection were split into dedicated helpers. `_recovery_drill_payload_matches_entry` also dropped
 out after recovery-drill evidence shape checks and entry-identity checks were split into dedicated
@@ -168,9 +194,94 @@ helper. `_calculate_returns_series` also dropped out after initial hash/window, 
 stateful resolution, and execution-identity setup were moved into a dedicated execution-context
 helper. `resolve_stateful_returns_series_request` also dropped out after stateful normalization,
 normalization-stage details, identity payload construction, and resolved stateless request assembly
-were moved into a dedicated helper. The remaining highest-complexity functions are C-grade service
-and engine hotspots that should be treated as future bounded refactor candidates, not as evidence
-of an immediate behavior defect.
+were moved into a dedicated helper. Attribution `_position_meta_from_row` also dropped out after
+dynamic position-dimension normalization was moved into a dedicated helper. The remaining
+highest-complexity function `_build_component_observations` also dropped out after per-component
+validation and return projection were moved into a dedicated helper. The remaining C-grade service
+and engine hotspot `_build_component_observations_from_price_points` also dropped out after
+price-pair validation and stateless return projection were moved into a dedicated helper. The
+remaining C-grade hotspot `resolve_twr_request` also dropped out after retrieval-to-normalization
+conversion and normalization-stage detail assembly were moved into a typed dedicated helper. The
+remaining C-grade hotspot `_resolve_twr_benchmark_source_input` also dropped out after benchmark
+assignment identity resolution and evidence were moved into a typed dedicated helper. The remaining
+C-grade hotspot `_resolve_workspace_benchmark_input` also dropped out after TWR and workspace
+benchmark-assignment policy was promoted into one shared source-boundary service. The remaining
+C-grade hotspot `_build_compute_job_runtime` also dropped out after calculator and execution-store
+dependency wiring were moved into a dedicated execution-context builder. The remaining C-grade
+contribution `_position_meta_from_row` hotspot also dropped out after source-contract identity,
+currency, and FX metadata normalization were moved into a dedicated helper.
+`_build_workspace_summary_response` also dropped out after benchmark-window gating, benchmark
+summary assembly, and active net/gross return projection were moved into a dedicated helper.
+`_build_instrument_attribution_panel` also dropped out after return-column naming, same-currency
+local/FX backfill, and percentage scaling were moved into a dedicated helper.
+`aggregate_attribution_results` also dropped out after per-period active return calculation,
+linking status policy, invalid-chain fallback, geometric scaling, and granular effect totals were
+moved into a dedicated aggregation-base helper.
+`_prepare_dataframe` also dropped out after precision-mode numeric coercion was moved into a
+dedicated engine-input preparation helper.
+`_xirr` also dropped out after no-root, multiple-root, and successful-root result projection was
+moved into a dedicated solver-outcome helper, reducing the measured maximum cyclomatic complexity
+from `12` to `11`.
+`BenchmarkPerformanceRequest` also dropped out after analysis-window validation and return-source
+payload exclusivity were moved into dedicated request-policy helpers.
+`_ensure_error_response_examples` also dropped out after error-code detection and eligible
+validation-error JSON content selection were split into dedicated helpers.
+`calculate_benchmark_artifacts` also moved from C-grade CC `11` to B-grade CC `10` after calculated
+and vendor-series source artifact assembly were moved into a typed helper.
+`_build_exposure_rows` also dropped out after per-point validation, grouping, weight accumulation,
+and label/component-id capture were moved into a dedicated helper.
+`get_queue_stats` also dropped out after aggregate-row count defaulting, age projection, and
+reclaimable-count projection were moved into a dedicated queue-stats mapper.
+`calculate_contribution_workflow` also dropped out after promoted stateful replay, sync
+registration, resolved-request finalization, and stateful error mapping were moved into a dedicated
+workflow helper.
+`_build_residual_adjusted_position_timeseries` also dropped out after per-position residual
+allocation, weight fallback, and adjusted daily row projection were moved into a dedicated helper.
+`calculate_returns_series_workflow` also dropped out after promoted stateful replay, sync
+registration, resolved-request finalization, async offload decisioning, and failure mapping were
+moved into a dedicated workflow helper.
+`retrieve_stateful_attribution_source_input` also dropped out after benchmark assignment override,
+upstream assignment retrieval, 404 mapping, source failure mapping, and payload validation were
+moved into a dedicated benchmark-id resolver.
+`_position_market_value_totals_by_date` also dropped out after per-row market-value pair selection,
+reporting-currency preference, portfolio-currency fallback, and incomplete-row handling were moved
+into a dedicated helper.
+`_validate_stateful_position_inception_support` also dropped out after ordered first-row selection
+and per-position deduplication were moved into a dedicated helper.
+`_load_fx_maps_for_components` also dropped out after benchmark-currency comparison,
+non-benchmark component currency detection, and FX pair deduplication were moved into a dedicated
+helper.
+`_build_normalized_component_series` also dropped out after per-component point filtering,
+requested-window date handling, local-price capture, FX normalization, and requested-date coverage
+collection were moved into a dedicated helper.
+`_fetch_position_chunk` also dropped out after position request-payload assembly and upstream
+snapshot append/de-duplication were moved into dedicated helpers.
+`register_async_submission_or_raise` also dropped out after async submission stage completion and
+replay self-healing policy were moved into a dedicated lifecycle helper.
+`build_twr_execution_window` also dropped out after optional benchmark identity, input-mode,
+return-source, and work-unit projection were moved into a dedicated benchmark-field helper.
+`process_pending_jobs` also dropped out after lineage worker dependency/default resolution was
+moved into a typed runtime assembly helper.
+`generate_performance_breakdowns` also dropped out after daily breakdown row period-label and
+summary projection were moved into a dedicated helper.
+`_flag_outliers` also dropped out after rolling median/MAD bounds, ignored-date filtering, and
+outlier mask construction were moved into a dedicated helper, reducing the measured maximum
+cyclomatic complexity from `11` to `10`.
+`to_stateless_attribution_request` also dropped out after stateless input source selection,
+explicit override precedence, and nested/legacy fallback were moved into a typed resolver helper.
+`to_stateless_mwr_request` also dropped out after explicit override precedence, nested stateless
+payload fallback, and legacy payload fallback were moved into a typed resolver helper.
+`_infer_description` also dropped out after schema-property description inference was split into
+named semantic rules and a small rule resolver.
+`calculate_benchmark_artifacts` also dropped out after benchmark period slicing, cumulative
+linking, summary construction, breakdown construction, and optional timeseries projection were
+moved into a dedicated period-result helper.
+`calculate_benchmark_workflow` also dropped out after promoted stateful replay, sync registration,
+resolved stateful finalization, optional offload, and response calculation were moved into a
+dedicated workflow branch helper.
+The remaining C-grade
+hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
+behavior defect.
 
 Maintainability index values should be treated as directional hotspot evidence because generated
 schemas, persistence-style modules, and dense orchestration files can score poorly even when tests

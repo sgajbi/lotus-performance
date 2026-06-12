@@ -73,6 +73,30 @@ async def test_contribution_endpoint_replays_promoted_stateful_async_execution(m
 
 
 @pytest.mark.asyncio
+async def test_promoted_stateful_contribution_helper_returns_replay_without_registering(mocker):
+    request = ContributionAnalyticsRequest.model_validate(_stateful_contribution_payload())
+    replay_response = contribution_calculation_workflow_service.accepted_contribution_response(request.calculation_id)
+    replay_promoted = mocker.patch(
+        "app.services.contribution_calculation_workflow_service.replay_promoted_stateful_async_execution",
+        return_value=replay_response,
+    )
+    register_sync = mocker.patch(
+        "app.services.contribution_calculation_workflow_service.register_sync_execution_or_raise"
+    )
+
+    response = await contribution_calculation_workflow_service._calculate_promoted_stateful_contribution(
+        request=request,
+        active_settings=SimpleNamespace(APP_VERSION="runtime-version"),
+        input_fingerprint="source-fingerprint",
+        calculation_hash="source-hash",
+    )
+
+    assert response == replay_response
+    replay_promoted.assert_called_once()
+    register_sync.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_contribution_endpoint_returns_accepted_response_when_resolved_stateful_request_is_offloaded(mocker):
     request = ContributionAnalyticsRequest.model_validate(_stateful_contribution_payload())
     resolved_request = _stateless_contribution_request()

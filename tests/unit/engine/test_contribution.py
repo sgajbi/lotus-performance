@@ -8,6 +8,7 @@ from app.models.contribution_requests import ContributionRequest, Smoothing
 from common.enums import WeightingScheme
 from engine.config import EngineConfig, PeriodType, PrecisionMode
 from engine.contribution import (
+    _apply_carino_residual_allocation,
     _build_contribution_fx_rates_frame,
     _build_contribution_twr_config,
     _calculate_carino_factor_for_return,
@@ -471,6 +472,22 @@ def test_build_hierarchical_contribution_result_empty_daily_data_preserves_curre
         },
         "levels": [],
     }
+
+
+def test_apply_carino_residual_allocation_distributes_total_local_and_fx_residuals():
+    totals = pd.DataFrame(
+        [
+            {"contribution": 0.06, "local_contribution": 0.04, "fx_contribution": 0.02, "weight_avg": 0.75},
+            {"contribution": 0.02, "local_contribution": 0.01, "fx_contribution": 0.01, "weight_avg": 0.25},
+        ]
+    )
+
+    _apply_carino_residual_allocation(totals, total_portfolio_return=0.1, smoothing_method="CARINO")
+
+    assert totals["contribution"].sum() == pytest.approx(0.1)
+    assert totals["local_contribution"].sum() == pytest.approx(0.0625)
+    assert totals["fx_contribution"].sum() == pytest.approx(0.0375)
+    assert totals["weight_proportion"].tolist() == pytest.approx([0.75, 0.25])
 
 
 def test_base_only_engine_config_preserves_non_currency_settings():

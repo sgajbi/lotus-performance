@@ -143,6 +143,73 @@ def _raise_benchmark_workflow_failure(request: BenchmarkAnalyticsRequest, exc: E
     ) from exc
 
 
+async def _calculate_promoted_stateful_benchmark_workflow(
+    *,
+    request: BenchmarkAnalyticsRequest,
+    settings,
+    source_request_fingerprint: str,
+    input_fingerprint: str,
+    calculation_hash: str,
+) -> BenchmarkPerformanceResponse | BenchmarkAcceptedResponse:
+    replay_response = replay_promoted_stateful_async_execution(
+        calculation_id=request.calculation_id,
+        analytics_type=ANALYTICS_WORKFLOW_BENCHMARK,
+        source_request_fingerprint=input_fingerprint,
+        accepted_response_factory=accepted_benchmark_response,
+    )
+    if replay_response is not None:
+        return replay_response
+
+    register_sync_execution_or_raise(
+        calculation_id=request.calculation_id,
+        analytics_type=ANALYTICS_WORKFLOW_BENCHMARK,
+        portfolio_id=request.benchmark_id,
+        requested_window=build_benchmark_execution_window(
+            request,
+            source_request_fingerprint=source_request_fingerprint,
+        ),
+        input_fingerprint=input_fingerprint,
+        calculation_hash=calculation_hash,
+    )
+    try:
+        resolved_context = await _resolve_benchmark_execution_context(
+            request=request,
+            settings=settings,
+            input_fingerprint=input_fingerprint,
+            calculation_hash=calculation_hash,
+        )
+        accepted_response = finalize_resolved_stateful_execution(
+            calculation_id=request.calculation_id,
+            analytics_type=ANALYTICS_WORKFLOW_BENCHMARK,
+            requested_window=build_benchmark_execution_window(
+                request,
+                source_request_fingerprint=source_request_fingerprint,
+                input_count=resolved_context.resolved_request.input_count,
+            ),
+            input_fingerprint=resolved_context.input_fingerprint,
+            calculation_hash=resolved_context.calculation_hash,
+            resolved_request_payload={
+                "resolved_request": resolved_context.benchmark_request.model_dump(mode="json"),
+                "source_input_mode": BenchmarkInputMode.STATEFUL.value,
+            },
+            should_offload=should_offload_resolved_benchmark(resolved_context.resolved_request.input_count),
+            offload_reason="large_resolved_stateful_benchmark",
+            accepted_response_factory=accepted_benchmark_response,
+        )
+        if accepted_response is not None:
+            return accepted_response
+        return calculate_benchmark_response(
+            resolved_context.benchmark_request,
+            input_fingerprint=resolved_context.input_fingerprint,
+            calculation_hash=resolved_context.calculation_hash,
+            input_mode=resolved_context.resolved_request.input_mode,
+            engine_version=settings.APP_VERSION,
+            request_artifact_model=resolved_context.request_model_for_lineage,
+        )
+    except Exception as exc:
+        _raise_benchmark_workflow_failure(request, exc)
+
+
 async def calculate_benchmark_workflow(
     request: BenchmarkAnalyticsRequest,
 ) -> BenchmarkPerformanceResponse | BenchmarkAcceptedResponse:
@@ -153,63 +220,13 @@ async def calculate_benchmark_workflow(
     if request.input_mode == BenchmarkInputMode.STATEFUL and not should_preemptively_offload_stateful_benchmark(
         request
     ):
-        replay_response = replay_promoted_stateful_async_execution(
-            calculation_id=request.calculation_id,
-            analytics_type=ANALYTICS_WORKFLOW_BENCHMARK,
-            source_request_fingerprint=input_fingerprint,
-            accepted_response_factory=accepted_benchmark_response,
-        )
-        if replay_response is not None:
-            return replay_response
-
-        register_sync_execution_or_raise(
-            calculation_id=request.calculation_id,
-            analytics_type=ANALYTICS_WORKFLOW_BENCHMARK,
-            portfolio_id=request.benchmark_id,
-            requested_window=build_benchmark_execution_window(
-                request,
-                source_request_fingerprint=source_request_fingerprint,
-            ),
+        return await _calculate_promoted_stateful_benchmark_workflow(
+            request=request,
+            settings=settings,
+            source_request_fingerprint=source_request_fingerprint,
             input_fingerprint=input_fingerprint,
             calculation_hash=calculation_hash,
         )
-        try:
-            resolved_context = await _resolve_benchmark_execution_context(
-                request=request,
-                settings=settings,
-                input_fingerprint=input_fingerprint,
-                calculation_hash=calculation_hash,
-            )
-            accepted_response = finalize_resolved_stateful_execution(
-                calculation_id=request.calculation_id,
-                analytics_type=ANALYTICS_WORKFLOW_BENCHMARK,
-                requested_window=build_benchmark_execution_window(
-                    request,
-                    source_request_fingerprint=source_request_fingerprint,
-                    input_count=resolved_context.resolved_request.input_count,
-                ),
-                input_fingerprint=resolved_context.input_fingerprint,
-                calculation_hash=resolved_context.calculation_hash,
-                resolved_request_payload={
-                    "resolved_request": resolved_context.benchmark_request.model_dump(mode="json"),
-                    "source_input_mode": BenchmarkInputMode.STATEFUL.value,
-                },
-                should_offload=should_offload_resolved_benchmark(resolved_context.resolved_request.input_count),
-                offload_reason="large_resolved_stateful_benchmark",
-                accepted_response_factory=accepted_benchmark_response,
-            )
-            if accepted_response is not None:
-                return accepted_response
-            return calculate_benchmark_response(
-                resolved_context.benchmark_request,
-                input_fingerprint=resolved_context.input_fingerprint,
-                calculation_hash=resolved_context.calculation_hash,
-                input_mode=resolved_context.resolved_request.input_mode,
-                engine_version=settings.APP_VERSION,
-                request_artifact_model=resolved_context.request_model_for_lineage,
-            )
-        except Exception as exc:
-            _raise_benchmark_workflow_failure(request, exc)
 
     if should_offload_benchmark(request):
         return register_async_submission_or_raise(

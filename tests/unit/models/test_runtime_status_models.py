@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from app.models.runtime_status import (
     _compute_queue_response,
     _compute_queue_stats_fields,
+    _lineage_queue_measurement_fields,
     _lineage_queue_response,
     build_runtime_status_response,
 )
@@ -189,6 +190,40 @@ def test_lineage_queue_response_maps_stats_storage_anchors_and_recoveries():
     assert response.inspection_anchors.latest_recovered_calculation_id == "lineage-recovered"
     assert response.recent_recoveries[0].calculation_id == "lineage-recovered"
     assert response.recent_recoveries[0].calculation_type == "TWR"
+
+
+def test_lineage_queue_measurement_fields_map_available_and_unavailable_sources():
+    stats = LineageQueueStats(
+        pending_payload_count=3,
+        leased_payload_count=4,
+        retry_backlog_count=5,
+        terminal_failure_count=6,
+        oldest_pending_age_seconds=70.0,
+        oldest_leased_age_seconds=80.0,
+        reclaimable_count=7,
+    )
+    storage_capacity = LineageStorageCapacitySnapshot(
+        total_bytes=1000,
+        used_bytes=900,
+        free_bytes=100,
+        free_ratio=0.1,
+        used_ratio=0.9,
+    )
+
+    assert _lineage_queue_measurement_fields(stats, storage_capacity) == {
+        "pending_payloads": 3,
+        "leased_payloads": 4,
+        "retry_backlog_payloads": 5,
+        "reclaimable_payloads": 7,
+        "terminal_failure_payloads": 6,
+        "oldest_pending_age_seconds": 70.0,
+        "oldest_leased_age_seconds": 80.0,
+        "storage_total_bytes": 1000,
+        "storage_used_bytes": 900,
+        "storage_free_bytes": 100,
+        "storage_free_ratio": 0.1,
+    }
+    assert all(value is None for value in _lineage_queue_measurement_fields(None, None).values())
 
 
 def test_build_runtime_status_response_serializes_snapshot_details():

@@ -13,14 +13,19 @@ from app.services.stateful_attribution_input_service import (
     _build_benchmark_groups,
     _build_group_key,
     _build_instruments_data,
+    _distinct_source_currencies,
+    _first_rows_by_position,
     _normalize_group_value,
+    _normalized_position_dimensions,
     _parse_index_catalog,
     _parse_position_rows,
     _portfolio_market_values_by_date,
+    _position_market_value_pair,
     _position_market_value_totals_by_date,
     _position_meta_from_row,
     _position_row_to_base_weight_point,
     _position_row_to_daily_point,
+    _resolve_stateful_attribution_benchmark_id,
     _split_position_cash_flows,
     _stateful_portfolio_position_alignment_mismatches,
     _summarize_benchmark_classification,
@@ -42,17 +47,53 @@ class _AttributionInputServiceStub:
         self.position_response = (200, {"rows": []})
         self.assignment_response = (200, {"benchmark_id": "BMK_1"})
         self.index_response = (200, {"records": []})
+        self.assignment_calls: list[dict[str, object]] = []
         self.index_catalog_calls: list[dict[str, object]] = []
 
     async def get_position_timeseries(self, **kwargs):
         return self.position_response
 
     async def get_benchmark_assignment(self, **kwargs):
+        self.assignment_calls.append(kwargs)
         return self.assignment_response
 
     async def get_index_catalog(self, **kwargs):
         self.index_catalog_calls.append(kwargs)
         return self.index_response
+
+
+@pytest.mark.asyncio
+async def test_resolve_stateful_attribution_benchmark_id_prefers_override_and_reads_assignment():
+    service = _AttributionInputServiceStub()
+    calculation_id = uuid4()
+
+    override_id = await _resolve_stateful_attribution_benchmark_id(
+        stateful_input_service=service,
+        portfolio_id="P1",
+        as_of_date=date(2025, 1, 1),
+        reporting_currency="USD",
+        calculation_id=calculation_id,
+        benchmark_id_override="BMK_OVERRIDE",
+    )
+    assigned_id = await _resolve_stateful_attribution_benchmark_id(
+        stateful_input_service=service,
+        portfolio_id="P1",
+        as_of_date=date(2025, 1, 1),
+        reporting_currency="USD",
+        calculation_id=calculation_id,
+        benchmark_id_override=None,
+    )
+
+    assert override_id == "BMK_OVERRIDE"
+    assert assigned_id == "BMK_1"
+    assert service.assignment_calls == [
+        {
+            "portfolio_id": "P1",
+            "as_of_date": date(2025, 1, 1),
+            "reporting_currency": "USD",
+            "calculation_id": calculation_id,
+        }
+    ]
 
 
 @pytest.mark.asyncio
@@ -546,6 +587,10 @@ def test_stateful_attribution_source_alignment_evidence_captures_source_limitati
     }
 
 
+def test_distinct_source_currencies_filters_deduplicates_and_sorts_values():
+    assert _distinct_source_currencies(["USD", None, "", "EUR", "USD", 1]) == ["EUR", "USD"]
+
+
 def test_build_stateful_attribution_input_rejects_missing_benchmark_observations():
     source_input = StatefulAttributionSourceInput(
         portfolio_input=StatefulPortfolioInput(
@@ -866,6 +911,48 @@ def test_position_market_value_totals_prefer_reporting_currency_and_fallback_to_
     assert totals_by_date["2025-01-01"]["internal_flow_abs"] == Decimal("5")
 
 
+def test_position_market_value_pair_prefers_reporting_currency_and_skips_incomplete_rows():
+    assert _position_market_value_pair(
+        row={
+            "beginning_market_value_reporting_currency": "100",
+            "ending_market_value_reporting_currency": "110",
+            "beginning_market_value_portfolio_currency": "999",
+            "ending_market_value_portfolio_currency": "999",
+        },
+        reporting_currency="USD",
+    ) == ("100", "110")
+    assert _position_market_value_pair(
+        row={
+            "beginning_market_value_portfolio_currency": "200",
+            "ending_market_value_portfolio_currency": "210",
+        },
+        reporting_currency="USD",
+    ) == ("200", "210")
+    assert (
+        _position_market_value_pair(
+            row={"beginning_market_value_portfolio_currency": "200"},
+            reporting_currency=None,
+        )
+        is None
+    )
+
+
+def test_first_rows_by_position_orders_by_position_and_valuation_date():
+    rows = [
+        {"position_id": "POS_B", "valuation_date": "2025-01-02", "marker": "b-late"},
+        {"position_id": "POS_A", "valuation_date": "2025-01-02", "marker": "a-late"},
+        {"position_id": "POS_A", "valuation_date": "2025-01-01", "marker": "a-first"},
+        {"position_id": None, "valuation_date": "2025-01-01", "marker": "invalid"},
+        {"position_id": "POS_B", "valuation_date": "2025-01-01", "marker": "b-first"},
+    ]
+
+    first_rows = _first_rows_by_position(rows)
+
+    assert list(first_rows) == ["POS_A", "POS_B"]
+    assert first_rows["POS_A"]["marker"] == "a-first"
+    assert first_rows["POS_B"]["marker"] == "b-first"
+
+
 def test_stateful_portfolio_position_alignment_mismatches_allows_internal_transfer_timing_noise():
     mismatches = _stateful_portfolio_position_alignment_mismatches(
         portfolio_by_date={"2025-01-01": (Decimal("100"), Decimal("100"))},
@@ -1102,6 +1189,24 @@ def test_stateful_attribution_parsers_filter_invalid_rows():
 
 def test_stateful_attribution_normalizes_group_values():
     assert _normalize_group_value("Fixed Income") == "fixed_income"
+
+
+def test_stateful_attribution_normalizes_position_dimensions():
+    assert _normalized_position_dimensions(
+        {
+            "asset_class": "Fixed Income",
+            "rank": 3,
+            "nullable": None,
+            7: "ignored",
+        }
+    ) == {
+        "asset_class": "fixed_income",
+        "rank": 3,
+    }
+    assert _normalized_position_dimensions(None) == {}
+
+
+def test_stateful_attribution_builds_normalized_group_key():
     assert _build_group_key(
         labels={"asset_class": "Equity"},
         group_by=["asset_class"],

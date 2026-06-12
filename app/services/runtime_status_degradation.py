@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from typing import Protocol
 
 from app.services.compute_job_store import ComputeQueueStats
 from app.services.durability_health_service import LineageStorageCapacitySnapshot
@@ -17,6 +18,17 @@ from app.services.runtime_status_domain import (
     RuntimeQueueStatus,
     RuntimeRetentionStatus,
 )
+
+
+class RuntimeDegradationReasonSource(Protocol):
+    @property
+    def status(self) -> str: ...
+
+    @property
+    def reason(self) -> str | None: ...
+
+    @property
+    def degradation_reasons(self) -> tuple[str, ...]: ...
 
 
 def compute_queue_degradation_details(stats: ComputeQueueStats, *, settings) -> tuple[RuntimeDegradationDetail, ...]:
@@ -262,27 +274,26 @@ def collect_runtime_degradation_reasons(
     runtime_retention: RuntimeRetentionStatus,
 ) -> tuple[str, ...]:
     reasons: list[str] = []
-
-    for prefix, queue_status in (
+    for prefix, component_status in (
         ("compute_queue", compute_queue),
         ("lineage_queue", lineage_queue),
+        ("recovery_drill", recovery_drill),
+        ("runtime_retention", runtime_retention),
     ):
-        if queue_status.status == "degraded":
-            reasons.extend(f"{prefix}:{reason}" for reason in queue_status.degradation_reasons)
-        elif queue_status.status == "unavailable" and queue_status.reason is not None:
-            reasons.append(f"{prefix}:{queue_status.reason}")
-
-    if recovery_drill.status == "degraded":
-        reasons.extend(f"recovery_drill:{reason}" for reason in recovery_drill.degradation_reasons)
-    elif recovery_drill.status == "unavailable" and recovery_drill.reason is not None:
-        reasons.append(f"recovery_drill:{recovery_drill.reason}")
-
-    if runtime_retention.status == "degraded":
-        reasons.extend(f"runtime_retention:{reason}" for reason in runtime_retention.degradation_reasons)
-    elif runtime_retention.status == "unavailable" and runtime_retention.reason is not None:
-        reasons.append(f"runtime_retention:{runtime_retention.reason}")
-
+        reasons.extend(_prefixed_component_degradation_reasons(prefix=prefix, component_status=component_status))
     return tuple(reasons)
+
+
+def _prefixed_component_degradation_reasons(
+    *,
+    prefix: str,
+    component_status: RuntimeDegradationReasonSource,
+) -> tuple[str, ...]:
+    if component_status.status == "degraded":
+        return tuple(f"{prefix}:{reason}" for reason in component_status.degradation_reasons)
+    if component_status.status == "unavailable" and component_status.reason is not None:
+        return (f"{prefix}:{component_status.reason}",)
+    return ()
 
 
 def collect_runtime_degradation_details(

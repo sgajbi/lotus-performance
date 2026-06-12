@@ -121,6 +121,13 @@ class AttributionObservationGroup:
     observations: list[dict[str, Any]]
 
 
+@dataclass(frozen=True)
+class _AttributionAggregationBase:
+    active_return: Any
+    granular_totals: pd.DataFrame
+    linking_status: str
+
+
 def _calculate_linked_return(return_series: pd.Series) -> float:
     """Calculates a linked period return from per-date group returns expressed as decimal ratios."""
     numeric_returns = pd.to_numeric(return_series, errors="coerce").dropna()
@@ -293,6 +300,25 @@ def _build_instrument_attribution_panel(
         weight_bop = inst_bop_mv / portfolio_bop_mv
     inst_results["weight_bop"] = weight_bop.replace([np.inf, -np.inf], np.nan).fillna(0.0)
 
+    _normalize_instrument_return_columns(
+        inst_results,
+        currency_mode=request.currency_mode,
+        instrument_currency=inst.meta.get("currency"),
+        report_ccy=request.report_ccy,
+    )
+
+    for key, value in inst.meta.items():
+        inst_results[key] = value
+    return inst_results.reset_index()
+
+
+def _normalize_instrument_return_columns(
+    inst_results: pd.DataFrame,
+    *,
+    currency_mode: object,
+    instrument_currency: object,
+    report_ccy: object,
+) -> None:
     inst_results.rename(
         columns={
             PortfolioColumns.DAILY_ROR.value: "return_base",
@@ -301,8 +327,7 @@ def _build_instrument_attribution_panel(
         },
         inplace=True,
     )
-
-    if request.currency_mode == "BOTH" and inst.meta.get("currency") == request.report_ccy:
+    if currency_mode == "BOTH" and instrument_currency == report_ccy:
         if "return_local" not in inst_results.columns:
             inst_results["return_local"] = inst_results["return_base"]
         if "return_fx" not in inst_results.columns:
@@ -311,10 +336,6 @@ def _build_instrument_attribution_panel(
     for col in ["return_base", "return_local", "return_fx"]:
         if col in inst_results.columns:
             inst_results[col] /= 100
-
-    for key, value in inst.meta.items():
-        inst_results[key] = value
-    return inst_results.reset_index()
 
 
 def _build_instrument_group_aggregation(full_df: pd.DataFrame, group_cols: list[str]) -> pd.DataFrame:
@@ -588,33 +609,11 @@ def aggregate_attribution_results(
 ) -> Tuple[SinglePeriodAttributionResult, Dict[str, pd.DataFrame]]:
     """Aggregates a DataFrame of daily effects into the final response model for a single period."""
     aggregation_lineage = {}
-    per_period_p_return = (effects_df["w_p"] * effects_df["r_base_p"]).groupby(level="date").sum()
-    per_period_b_return = effects_df.groupby(level="date")["r_b_total"].first()
-    per_period_active_return = per_period_p_return - per_period_b_return
-
-    linking_status = "not_requested"
-    if request.linking != LinkingMethod.NONE:
-        arithmetic_active_return = per_period_active_return.sum()
-        invalid_return_chain = bool(((per_period_p_return <= -1) | (per_period_b_return <= -1)).any())
-        if invalid_return_chain:
-            linking_status = "invalid_return_chain"
-            geometric_active_return = arithmetic_active_return
-            scaled_effects = effects_df.reset_index()
-        else:
-            geometric_active_return = (1 + per_period_p_return).prod() - 1 - ((1 + per_period_b_return).prod() - 1)
-            linking_status = "scaling_skipped" if arithmetic_active_return == 0 else "linked"
-            scaled_effects = _link_effects_top_down(
-                effects_df.reset_index(), geometric_active_return, arithmetic_active_return
-            )
-        granular_totals = scaled_effects.groupby(request.group_by)[["allocation", "selection", "interaction"]].sum()
-        active_return = geometric_active_return
-    else:
-        granular_totals = effects_df.groupby(request.group_by)[["allocation", "selection", "interaction"]].sum()
-        active_return = per_period_active_return.sum()
+    aggregation_base = _build_attribution_aggregation_base(effects_df, request)
 
     effects_reset = effects_df.reset_index()
     levels = []
-    granular_totals_df = granular_totals.reset_index()
+    granular_totals_df = aggregation_base.granular_totals.reset_index()
 
     for i in range(len(request.group_by), 0, -1):
         level_group_by = request.group_by[:i]
@@ -641,7 +640,7 @@ def aggregate_attribution_results(
     final_totals = (
         levels[0].totals if levels else AttributionLevelTotals(allocation=0, selection=0, interaction=0, total_effect=0)
     )
-    residual = (active_return * 100) - final_totals.total_effect
+    residual = (aggregation_base.active_return * 100) - final_totals.total_effect
     residual_materiality = classify_attribution_residual(residual)
 
     currency_attribution_status = "not_requested"
@@ -655,7 +654,7 @@ def aggregate_attribution_results(
             effects_df,
             request,
             currency_attribution_status=currency_attribution_status,
-            linking_status=linking_status,
+            linking_status=aggregation_base.linking_status,
             residual_materiality=residual_materiality,
         )
     )
@@ -668,7 +667,7 @@ def aggregate_attribution_results(
         supportability_evidence=supportability_evidence,
         levels=levels,
         reconciliation=Reconciliation(
-            total_active_return=active_return * 100,
+            total_active_return=aggregation_base.active_return * 100,
             sum_of_effects=final_totals.total_effect,
             residual=residual,
             residual_materiality=residual_materiality,
@@ -731,6 +730,39 @@ def aggregate_attribution_results(
             )
 
     return period_result, aggregation_lineage
+
+
+def _build_attribution_aggregation_base(
+    effects_df: pd.DataFrame, request: AttributionRequestLike
+) -> _AttributionAggregationBase:
+    per_period_p_return = (effects_df["w_p"] * effects_df["r_base_p"]).groupby(level="date").sum()
+    per_period_b_return = effects_df.groupby(level="date")["r_b_total"].first()
+    per_period_active_return = per_period_p_return - per_period_b_return
+
+    if request.linking == LinkingMethod.NONE:
+        return _AttributionAggregationBase(
+            active_return=per_period_active_return.sum(),
+            granular_totals=effects_df.groupby(request.group_by)[["allocation", "selection", "interaction"]].sum(),
+            linking_status="not_requested",
+        )
+
+    arithmetic_active_return = per_period_active_return.sum()
+    invalid_return_chain = bool(((per_period_p_return <= -1) | (per_period_b_return <= -1)).any())
+    if invalid_return_chain:
+        linking_status = "invalid_return_chain"
+        geometric_active_return = arithmetic_active_return
+        scaled_effects = effects_df.reset_index()
+    else:
+        geometric_active_return = (1 + per_period_p_return).prod() - 1 - ((1 + per_period_b_return).prod() - 1)
+        linking_status = "scaling_skipped" if arithmetic_active_return == 0 else "linked"
+        scaled_effects = _link_effects_top_down(
+            effects_df.reset_index(), geometric_active_return, arithmetic_active_return
+        )
+    return _AttributionAggregationBase(
+        active_return=geometric_active_return,
+        granular_totals=scaled_effects.groupby(request.group_by)[["allocation", "selection", "interaction"]].sum(),
+        linking_status=linking_status,
+    )
 
 
 def run_attribution_calculations(request: AttributionRequestLike) -> Tuple[pd.DataFrame, Dict[str, pd.DataFrame]]:

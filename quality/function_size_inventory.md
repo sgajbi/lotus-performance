@@ -1,7 +1,7 @@
 # Lotus Performance Function Size Inventory
 
-Report date: 2026-06-05
-Branch: `feat/performance-hardening-wave-14`
+Report date: 2026-06-08
+Branch: `refactor/lp-cr-796-position-meta-helper`
 Mode: report-only function-size inventory; this artifact introduces no new blocking CI gate.
 
 ## Purpose
@@ -22,19 +22,19 @@ python scripts/python_function_size_inventory.py --limit 15
 | ---: | --- | --- | ---: |
 | 1 | `calculate_contribution` | `app/services/contribution_service.py:421` | 189 |
 | 2 | `_build_detailed_cashflow_contract_findings` | `app/services/inspection/source_economics_findings.py:112` | 186 |
-| 3 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:503` | 172 |
-| 4 | `DurableQueueCollector.describe` | `app/services/queue_metrics_service.py:193` | 159 |
-| 5 | `aggregate_attribution_results` | `engine/attribution.py:586` | 148 |
-| 6 | `_build_external_cashflow_findings` | `app/services/inspection/source_economics_findings.py:300` | 140 |
-| 7 | `_build_artifacts` | `app/services/composite_inspection_service.py:114` | 135 |
-| 8 | `build_runtime_status_response` | `app/models/runtime_status.py:737` | 131 |
-| 9 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:71` | 131 |
-| 10 | `_build_fee_source_economics_findings` | `app/services/inspection/source_economics_findings.py:442` | 130 |
-| 11 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:327` | 130 |
-| 12 | `calculate_contribution_workflow` | `app/services/contribution_calculation_workflow_service.py:98` | 127 |
-| 13 | `calculate_attribution` | `app/services/attribution_service.py:168` | 120 |
-| 14 | `resolve_twr_request` | `app/services/twr_mode_service.py:60` | 120 |
-| 15 | `_resolve_workspace_benchmark_input` | `app/services/workspace_summary_service.py:314` | 118 |
+| 3 | `DurableQueueCollector.describe` | `app/services/queue_metrics_service.py:193` | 159 |
+| 4 | `_build_external_cashflow_findings` | `app/services/inspection/source_economics_findings.py:300` | 140 |
+| 5 | `build_runtime_status_response` | `app/models/runtime_status.py:767` | 131 |
+| 6 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:71` | 131 |
+| 7 | `_build_fee_source_economics_findings` | `app/services/inspection/source_economics_findings.py:442` | 130 |
+| 8 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:327` | 130 |
+| 9 | `aggregate_attribution_results` | `engine/attribution.py:607` | 126 |
+| 10 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:482` | 122 |
+| 11 | `calculate_attribution` | `app/services/attribution_service.py:168` | 120 |
+| 12 | `_build_artifacts` | `app/services/composite_inspection_service.py:114` | 118 |
+| 13 | `calculate_twr_workflow` | `app/services/twr_calculation_service.py:250` | 112 |
+| 14 | `run_runtime_retention_cleanup` | `app/services/runtime_retention_run_service.py:32` | 111 |
+| 15 | `build_stateful_benchmark_input` | `app/services/stateful_benchmark_input_service.py:39` | 110 |
 
 ## Interpretation
 
@@ -50,7 +50,16 @@ isolated.
 Contribution orchestration moved from `287` to `270` lines after engine input preparation was
 isolated, then moved from `270` to `189` lines and is no longer the largest function after
 flat-period result assembly was isolated from the public contribution orchestration. Benchmark calculation workflow
-dropped out of the top-15 table after resolved benchmark execution context and failure mapping were isolated.
+dropped out of the top-15 table after resolved benchmark execution context and failure mapping were isolated, and
+then stayed out after promoted stateful workflow handling was isolated from the public workflow router.
+Workspace summary response assembly moved from `172` to `122` lines after benchmark and active-return
+period assembly were isolated.
+Attribution result aggregation moved from `148` to `126` lines after active-return/linking policy
+and granular effect totals were isolated.
+Contribution calculation workflow dropped out of the top-15 table after promoted stateful
+execution handling was isolated from the public workflow router.
+Stateful attribution source input retrieval dropped out of the top-15 table after benchmark
+assignment resolution was isolated from the source-input orchestration path.
 Durable queue metric collection dropped out of the top-15 table after source loading and
 availability/runtime-retention preview metric emission were isolated into dedicated helpers.
 Source-economics top-level finding assembly dropped from `258` lines out of the top-15 table after
@@ -63,6 +72,8 @@ subject-resolution stage lifecycle handling was isolated from the public inspect
 Returns-series calculation orchestration dropped out of the top-15 table after execution-context
 resolution was isolated from dataframe preparation, execution, diagnostics, and response assembly.
 Stateful returns-series request resolution dropped out of the top-15 table after normalization-stage
+Composite inspection artifact assembly moved from `135` to `118` lines after customer-consumable
+composite-period return row projection was isolated.
 completion, identity payload construction, and resolved stateless request assembly were isolated.
 
 Future refactor slices should use this report to choose bounded work where extraction, shared

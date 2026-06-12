@@ -21,7 +21,7 @@ from app.models.responses import (
 )
 from app.services.analytics_observation_dates import observation_date_series, observation_timestamp_series
 from common.enums import Frequency
-from core.periods import resolve_periods
+from core.periods import ResolvedPeriod, resolve_periods
 from engine.benchmarks import benchmark_return_points_to_dataframe, calculate_benchmark_returns
 
 PERCENT_SCALE = 100.0
@@ -35,6 +35,37 @@ class BenchmarkCalculationArtifacts:
     effective_period_start: date
     max_weight_sum_deviation: float
     notes: list[str]
+
+
+@dataclass(frozen=True)
+class _BenchmarkSourceArtifacts:
+    daily_returns_df: pd.DataFrame
+    component_contributions_df: pd.DataFrame
+    effective_period_start: date
+    max_weight_sum_deviation: float
+    notes: list[str]
+
+
+def _build_benchmark_source_artifacts(benchmark_request: BenchmarkPerformanceRequest) -> _BenchmarkSourceArtifacts:
+    if benchmark_request.return_source == "calculated":
+        engine_result = calculate_benchmark_returns(benchmark_request.component_observations)
+        return _BenchmarkSourceArtifacts(
+            daily_returns_df=engine_result.daily_returns_df.copy(),
+            component_contributions_df=engine_result.component_contributions_df.copy(),
+            effective_period_start=engine_result.effective_period_start,
+            max_weight_sum_deviation=engine_result.max_weight_sum_deviation,
+            notes=list(engine_result.notes),
+        )
+
+    return _BenchmarkSourceArtifacts(
+        daily_returns_df=benchmark_return_points_to_dataframe(benchmark_request.benchmark_return_points).copy(),
+        component_contributions_df=pd.DataFrame(
+            columns=["date", "component_id", "weight_bop", "component_return", "contribution"]
+        ),
+        effective_period_start=benchmark_request.benchmark_start_date,
+        max_weight_sum_deviation=0.0,
+        notes=["Benchmark returns were sourced from vendor series because return_source=vendor_series was requested."],
+    )
 
 
 def calculate_benchmark_artifacts(
@@ -53,21 +84,9 @@ def calculate_benchmark_artifacts(
         explicit_start_date=benchmark_request.report_start_date,
     )
 
-    if benchmark_request.return_source == "calculated":
-        engine_result = calculate_benchmark_returns(benchmark_request.component_observations)
-        daily_returns_df = engine_result.daily_returns_df.copy()
-        component_contributions_df = engine_result.component_contributions_df.copy()
-        notes = list(engine_result.notes)
-        effective_period_start = engine_result.effective_period_start
-        max_weight_sum_deviation = engine_result.max_weight_sum_deviation
-    else:
-        daily_returns_df = benchmark_return_points_to_dataframe(benchmark_request.benchmark_return_points).copy()
-        component_contributions_df = pd.DataFrame(
-            columns=["date", "component_id", "weight_bop", "component_return", "contribution"]
-        )
-        notes = ["Benchmark returns were sourced from vendor series because return_source=vendor_series was requested."]
-        effective_period_start = benchmark_request.benchmark_start_date
-        max_weight_sum_deviation = 0.0
+    source_artifacts = _build_benchmark_source_artifacts(benchmark_request)
+    daily_returns_df = source_artifacts.daily_returns_df
+    component_contributions_df = source_artifacts.component_contributions_df
 
     daily_returns_df["date"] = observation_date_series(daily_returns_df["date"])
     if not component_contributions_df.empty:
@@ -75,58 +94,74 @@ def calculate_benchmark_artifacts(
 
     results_by_period: dict[str, SinglePeriodBenchmarkResult] = {}
     for period in resolved_periods:
-        period_daily_df = daily_returns_df[
-            (daily_returns_df["date"] >= period.start_date) & (daily_returns_df["date"] <= period.end_date)
-        ].copy()
-        if period_daily_df.empty:
-            continue
-        period_daily_df = period_daily_df.sort_values("date").reset_index(drop=True)
-        running = Decimal("1")
-        period_cumulative: list[Decimal] = []
-        for benchmark_return in period_daily_df["benchmark_return"]:
-            running *= Decimal("1") + Decimal(str(benchmark_return))
-            period_cumulative.append(running - Decimal("1"))
-        period_daily_df["cumulative_return"] = period_cumulative
-
-        period_component_df = component_contributions_df[
-            (component_contributions_df["date"] >= period.start_date)
-            & (component_contributions_df["date"] <= period.end_date)
-        ].copy()
-        benchmark_period_return = _calculate_benchmark_return_from_slice(period_daily_df)
-        benchmark_breakdowns = _build_benchmark_breakdowns(
-            period_daily_df=period_daily_df,
+        period_result = _benchmark_period_result(
+            period=period,
+            daily_returns_df=daily_returns_df,
+            component_contributions_df=component_contributions_df,
+            benchmark_request=benchmark_request,
             frequencies=requested_frequencies_by_period.get(period.name, []),
+            input_mode=input_mode,
         )
-
-        results_by_period[period.name] = SinglePeriodBenchmarkResult(
-            benchmark=ComparativeAnalyticsBlock(
-                summary=ComparativeSummary(
-                    period_return=benchmark_period_return,
-                    cumulative_return=_calculate_benchmark_return_from_slice(
-                        daily_returns_df[daily_returns_df["date"] <= period.end_date].copy()
-                    ),
-                ),
-                breakdowns=benchmark_breakdowns,
-                benchmark_id=benchmark_request.benchmark_id,
-                benchmark_currency=benchmark_request.benchmark_currency,
-                input_mode=input_mode,
-                return_source=benchmark_request.return_source,
-            ),
-            daily_returns=_daily_return_records(period_daily_df)
-            if benchmark_request.output.include_timeseries
-            else None,
-            component_contributions=_component_contribution_records(period_component_df)
-            if benchmark_request.output.include_timeseries and not period_component_df.empty
-            else None,
-        )
+        if period_result is not None:
+            results_by_period[period.name] = period_result
 
     return BenchmarkCalculationArtifacts(
         results_by_period=results_by_period,
         daily_returns_df=daily_returns_df,
         component_contributions_df=component_contributions_df,
-        effective_period_start=effective_period_start,
-        max_weight_sum_deviation=max_weight_sum_deviation,
-        notes=notes,
+        effective_period_start=source_artifacts.effective_period_start,
+        max_weight_sum_deviation=source_artifacts.max_weight_sum_deviation,
+        notes=source_artifacts.notes,
+    )
+
+
+def _benchmark_period_result(
+    *,
+    period: ResolvedPeriod,
+    daily_returns_df: pd.DataFrame,
+    component_contributions_df: pd.DataFrame,
+    benchmark_request: BenchmarkPerformanceRequest,
+    frequencies: list[Frequency],
+    input_mode: str | None,
+) -> SinglePeriodBenchmarkResult | None:
+    period_daily_df = daily_returns_df[
+        (daily_returns_df["date"] >= period.start_date) & (daily_returns_df["date"] <= period.end_date)
+    ].copy()
+    if period_daily_df.empty:
+        return None
+    period_daily_df = period_daily_df.sort_values("date").reset_index(drop=True)
+    running = Decimal("1")
+    period_cumulative: list[Decimal] = []
+    for benchmark_return in period_daily_df["benchmark_return"]:
+        running *= Decimal("1") + Decimal(str(benchmark_return))
+        period_cumulative.append(running - Decimal("1"))
+    period_daily_df["cumulative_return"] = period_cumulative
+
+    period_component_df = component_contributions_df[
+        (component_contributions_df["date"] >= period.start_date)
+        & (component_contributions_df["date"] <= period.end_date)
+    ].copy()
+    return SinglePeriodBenchmarkResult(
+        benchmark=ComparativeAnalyticsBlock(
+            summary=ComparativeSummary(
+                period_return=_calculate_benchmark_return_from_slice(period_daily_df),
+                cumulative_return=_calculate_benchmark_return_from_slice(
+                    daily_returns_df[daily_returns_df["date"] <= period.end_date].copy()
+                ),
+            ),
+            breakdowns=_build_benchmark_breakdowns(
+                period_daily_df=period_daily_df,
+                frequencies=frequencies,
+            ),
+            benchmark_id=benchmark_request.benchmark_id,
+            benchmark_currency=benchmark_request.benchmark_currency,
+            input_mode=input_mode,
+            return_source=benchmark_request.return_source,
+        ),
+        daily_returns=_daily_return_records(period_daily_df) if benchmark_request.output.include_timeseries else None,
+        component_contributions=_component_contribution_records(period_component_df)
+        if benchmark_request.output.include_timeseries and not period_component_df.empty
+        else None,
     )
 
 
