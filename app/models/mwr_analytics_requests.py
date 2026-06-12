@@ -156,18 +156,37 @@ def _resolve_mwr_stateless_input(
     end_mv: float | None = None,
     cash_flows: list[CashFlow] | None = None,
 ) -> _ResolvedMWRStatelessInput:
-    if begin_mv is not None and end_mv is not None and cash_flows is not None:
-        return _ResolvedMWRStatelessInput(begin_mv=begin_mv, end_mv=end_mv, cash_flows=cash_flows)
+    explicit_input = _resolved_mwr_explicit_input(begin_mv=begin_mv, end_mv=end_mv, cash_flows=cash_flows)
+    if explicit_input is not None:
+        return explicit_input
     if request.stateless_input is not None:
         return _ResolvedMWRStatelessInput(
             begin_mv=request.stateless_input.begin_mv,
             end_mv=request.stateless_input.end_mv,
             cash_flows=request.stateless_input.cash_flows,
         )
-    if request.begin_mv is not None and request.end_mv is not None and request.cash_flows is not None:
-        return _ResolvedMWRStatelessInput(
-            begin_mv=request.begin_mv,
-            end_mv=request.end_mv,
-            cash_flows=request.cash_flows,
-        )
+    legacy_input = _resolved_mwr_legacy_input(request)
+    if legacy_input is not None:
+        return legacy_input
     raise ValueError("No stateless MWR inputs are available to build a MoneyWeightedReturnRequest")
+
+
+def _resolved_mwr_explicit_input(
+    *,
+    begin_mv: float | None,
+    end_mv: float | None,
+    cash_flows: list[CashFlow] | None,
+) -> _ResolvedMWRStatelessInput | None:
+    if begin_mv is None or end_mv is None or cash_flows is None:
+        return None
+    return _ResolvedMWRStatelessInput(begin_mv=begin_mv, end_mv=end_mv, cash_flows=cash_flows)
+
+
+def _resolved_mwr_legacy_input(request: MoneyWeightedReturnAnalyticsRequest) -> _ResolvedMWRStatelessInput | None:
+    if request.begin_mv is None or request.end_mv is None or request.cash_flows is None:
+        return None
+    return _ResolvedMWRStatelessInput(
+        begin_mv=request.begin_mv,
+        end_mv=request.end_mv,
+        cash_flows=request.cash_flows,
+    )
