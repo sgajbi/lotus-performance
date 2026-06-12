@@ -14,6 +14,7 @@ from app.openapi_enrichment import (
     _infer_description,
     _infer_example,
     _infer_schema_description,
+    _iter_documentable_operations,
     _object_schema_example,
     _ref_schema_example,
     _semantic_id,
@@ -387,6 +388,17 @@ def test_ensure_operation_metadata_assigns_governed_defaults_and_tags():
     assert workflow_operation["summary"] == "Existing summary"
     assert workflow_operation["description"] == "POST operation for /returns-series/results in lotus-performance."
     assert workflow_operation["tags"] == ["Existing"]
+
+
+def test_iter_documentable_operations_filters_malformed_paths_and_methods():
+    operation = {"responses": {}}
+    paths = {
+        "/health": {"get": operation, "parameters": []},
+        "/metrics": ["not-methods"],
+        "/custom": {"trace": {}, "post": "not-operation"},
+    }
+
+    assert list(_iter_documentable_operations(paths)) == [("/health", "get", operation)]
 
 
 def test_enrich_openapi_schema_fills_operation_schema_and_examples():

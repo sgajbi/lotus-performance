@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import re
+from collections.abc import Iterator
 from typing import Any, Callable
 
 ALLOWED_METHODS = {"get", "post", "put", "patch", "delete"}
@@ -623,36 +624,41 @@ def _ensure_operation_metadata(*, path: str, method: str, operation: dict[str, A
         operation["tags"] = _operation_tags_for_path(path)
 
 
+def _iter_documentable_operations(paths: dict[str, Any]) -> Iterator[tuple[str, str, dict[str, Any]]]:
+    for path, methods in paths.items():
+        if not isinstance(methods, dict):
+            continue
+        for method, operation in methods.items():
+            method_name = str(method)
+            if method_name.lower() not in ALLOWED_METHODS:
+                continue
+            if isinstance(operation, dict):
+                yield str(path), method_name, operation
+
+
 def _ensure_operation_documentation(schema: dict[str, Any]) -> None:
     paths = schema.get("paths", {})
     components = schema.get("components", {})
     if not isinstance(paths, dict):
         return
-    for path, methods in paths.items():
-        if not isinstance(methods, dict):
-            continue
-        for method, operation in methods.items():
-            if method.lower() not in ALLOWED_METHODS:
-                continue
-            if not isinstance(operation, dict):
-                continue
-            _ensure_operation_metadata(path=path, method=method, operation=operation)
+    for path, method, operation in _iter_documentable_operations(paths):
+        _ensure_operation_metadata(path=path, method=method, operation=operation)
 
-            request_body = operation.get("requestBody")
-            if isinstance(request_body, dict):
-                _ensure_request_body_example(
-                    path=path,
-                    request_body=request_body,
-                    components=components,
-                )
+        request_body = operation.get("requestBody")
+        if isinstance(request_body, dict):
+            _ensure_request_body_example(
+                path=path,
+                request_body=request_body,
+                components=components,
+            )
 
-            responses = operation.get("responses")
-            if isinstance(responses, dict):
-                _ensure_operation_response_documentation(
-                    path=path,
-                    responses=responses,
-                    components=components,
-                )
+        responses = operation.get("responses")
+        if isinstance(responses, dict):
+            _ensure_operation_response_documentation(
+                path=path,
+                responses=responses,
+                components=components,
+            )
 
 
 def _ensure_schema_documentation(schema: dict[str, Any]) -> None:
