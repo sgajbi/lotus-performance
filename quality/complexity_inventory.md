@@ -28,31 +28,31 @@ python scripts/python_complexity_inventory.py --limit 25
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_collect_stateful_mwr_cash_flows` | function | `app/services/stateful_mwr_input_service.py:184` | 9 | B |
-| 2 | `split_position_cash_flows_in_value_basis` | function | `app/services/stateful_position_row_service.py:14` | 9 | B |
-| 3 | `_build_price_point_observation` | function | `app/services/stateless_benchmark_input_service.py:87` | 9 | B |
-| 4 | `build_twr_benchmark_supportability_evidence` | function | `app/services/twr_benchmark_supportability.py:18` | 9 | B |
-| 5 | `calculate_twr_workflow` | function | `app/services/twr_calculation_service.py:258` | 9 | B |
-| 6 | `resolve_twr_request` | function | `app/services/twr_mode_service.py:80` | 9 | B |
-| 7 | `_build_workspace_summary_response` | function | `app/services/workspace_summary_service.py:502` | 9 | B |
-| 8 | `_lineage_worker_runtime` | function | `app/workers/lineage_worker.py:69` | 9 | B |
-| 9 | `resolve_workspace_periods` | function | `core/workspace_periods.py:56` | 9 | B |
-| 10 | `_prepare_panel_from_groups` | function | `engine/attribution.py:411` | 9 | B |
-| 11 | `aggregate_attribution_results` | function | `engine/attribution.py:607` | 9 | B |
-| 12 | `_blocked_composite_period_result_for_invalid_ready_facts` | function | `engine/composites.py:181` | 9 | B |
-| 13 | `_composite_period_fact_metadata` | function | `engine/composites.py:305` | 9 | B |
-| 14 | `_flag_outliers` | function | `engine/policies.py:118` | 9 | B |
-| 15 | `_compound_ror` | function | `engine/ror.py:237` | 9 | B |
-| 16 | `_load_and_validate_manifest` | function | `app/api/endpoints/lineage.py:27` | 8 | B |
-| 17 | `to_stateless_attribution_request` | method | `app/models/attribution_analytics_requests.py:182` | 8 | B |
-| 18 | `_resolve_mwr_stateless_input` | function | `app/models/mwr_analytics_requests.py:152` | 8 | B |
-| 19 | `_validate_returns_series_stateless_selection_inputs` | function | `app/models/returns_series.py:292` | 8 | B |
-| 20 | `WorkspaceBenchmarkRequest` | class | `app/models/workspace_summary_requests.py:103` | 8 | B |
-| 21 | `_explicit_schema_example` | function | `app/openapi_enrichment.py:316` | 8 | B |
-| 22 | `_build_schema_example` | function | `app/openapi_enrichment.py:402` | 8 | B |
-| 23 | `resolve_async_result` | function | `app/services/async_result_service.py:18` | 8 | B |
-| 24 | `get_result` | method | `app/services/async_result_store.py:137` | 8 | B |
-| 25 | `attribution_input_count` | function | `app/services/attribution_calculation_workflow_service.py:38` | 8 | B |
+| 1 | `split_position_cash_flows_in_value_basis` | function | `app/services/stateful_position_row_service.py:14` | 9 | B |
+| 2 | `_build_price_point_observation` | function | `app/services/stateless_benchmark_input_service.py:87` | 9 | B |
+| 3 | `build_twr_benchmark_supportability_evidence` | function | `app/services/twr_benchmark_supportability.py:18` | 9 | B |
+| 4 | `calculate_twr_workflow` | function | `app/services/twr_calculation_service.py:258` | 9 | B |
+| 5 | `resolve_twr_request` | function | `app/services/twr_mode_service.py:80` | 9 | B |
+| 6 | `_build_workspace_summary_response` | function | `app/services/workspace_summary_service.py:502` | 9 | B |
+| 7 | `_lineage_worker_runtime` | function | `app/workers/lineage_worker.py:69` | 9 | B |
+| 8 | `resolve_workspace_periods` | function | `core/workspace_periods.py:56` | 9 | B |
+| 9 | `_prepare_panel_from_groups` | function | `engine/attribution.py:411` | 9 | B |
+| 10 | `aggregate_attribution_results` | function | `engine/attribution.py:607` | 9 | B |
+| 11 | `_blocked_composite_period_result_for_invalid_ready_facts` | function | `engine/composites.py:181` | 9 | B |
+| 12 | `_composite_period_fact_metadata` | function | `engine/composites.py:305` | 9 | B |
+| 13 | `_flag_outliers` | function | `engine/policies.py:118` | 9 | B |
+| 14 | `_compound_ror` | function | `engine/ror.py:237` | 9 | B |
+| 15 | `_load_and_validate_manifest` | function | `app/api/endpoints/lineage.py:27` | 8 | B |
+| 16 | `to_stateless_attribution_request` | method | `app/models/attribution_analytics_requests.py:182` | 8 | B |
+| 17 | `_resolve_mwr_stateless_input` | function | `app/models/mwr_analytics_requests.py:152` | 8 | B |
+| 18 | `_validate_returns_series_stateless_selection_inputs` | function | `app/models/returns_series.py:292` | 8 | B |
+| 19 | `WorkspaceBenchmarkRequest` | class | `app/models/workspace_summary_requests.py:103` | 8 | B |
+| 20 | `_explicit_schema_example` | function | `app/openapi_enrichment.py:316` | 8 | B |
+| 21 | `_build_schema_example` | function | `app/openapi_enrichment.py:402` | 8 | B |
+| 22 | `resolve_async_result` | function | `app/services/async_result_service.py:18` | 8 | B |
+| 23 | `get_result` | method | `app/services/async_result_store.py:137` | 8 | B |
+| 24 | `attribution_input_count` | function | `app/services/attribution_calculation_workflow_service.py:38` | 8 | B |
+| 25 | `calculate_attribution_workflow` | function | `app/services/attribution_calculation_workflow_service.py:161` | 8 | B |
 
 ## Lowest Maintainability Index
 

@@ -8,6 +8,8 @@ from fastapi import HTTPException
 from app.models.mwr_analytics_requests import MoneyWeightedReturnAnalyticsRequest, MWRInputMode
 from app.services.mwr_mode_service import resolve_mwr_request
 from app.services.stateful_mwr_input_service import (
+    MWRCashFlowEvidenceComponent,
+    _add_stateful_mwr_cash_flow_component,
     _collect_stateful_mwr_cash_flows,
     _parse_decimal,
     _source_mwr_cash_flow_component,
@@ -230,6 +232,39 @@ def test_collect_stateful_mwr_cash_flows_combines_external_flows_and_carry_forwa
     assert [component.component_type for component in collection.cash_flow_components_by_date[date(2025, 1, 2)]] == [
         "carry_forward_adjustment",
         "source_cash_flow",
+    ]
+
+
+def test_add_stateful_mwr_cash_flow_component_accumulates_amount_and_evidence():
+    cash_flows_by_date: dict[date, Decimal] = {}
+    cash_flow_components_by_date: dict[date, list[MWRCashFlowEvidenceComponent]] = {}
+    valuation_date = date(2025, 1, 2)
+
+    _add_stateful_mwr_cash_flow_component(
+        cash_flows_by_date=cash_flows_by_date,
+        cash_flow_components_by_date=cash_flow_components_by_date,
+        valuation_date=valuation_date,
+        component=MWRCashFlowEvidenceComponent(
+            component_type="source_cash_flow",
+            amount=Decimal("100"),
+            currency="USD",
+        ),
+    )
+    _add_stateful_mwr_cash_flow_component(
+        cash_flows_by_date=cash_flows_by_date,
+        cash_flow_components_by_date=cash_flow_components_by_date,
+        valuation_date=valuation_date,
+        component=MWRCashFlowEvidenceComponent(
+            component_type="carry_forward_adjustment",
+            amount=Decimal("-25"),
+            currency="USD",
+        ),
+    )
+
+    assert cash_flows_by_date == {valuation_date: Decimal("75")}
+    assert [component.component_type for component in cash_flow_components_by_date[valuation_date]] == [
+        "source_cash_flow",
+        "carry_forward_adjustment",
     ]
 
 
