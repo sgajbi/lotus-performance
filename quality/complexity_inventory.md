@@ -1,6 +1,6 @@
 # Lotus Performance Complexity Inventory
 
-Report date: 2026-06-12
+Report date: 2026-06-13
 Branch: `refactor/lp-cr-845-benchmark-request-resolution`
 Mode: report-only complexity and maintainability inventory; no blocking CI gate is introduced by this artifact.
 
@@ -22,37 +22,37 @@ python scripts/python_complexity_inventory.py --limit 25
 | --- | ---: |
 | Max cyclomatic complexity | 9 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.26 |
+| Average maintainability index | 55.25 |
 
 ## Highest Cyclomatic Complexity
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_build_price_point_observation` | function | `app/services/stateless_benchmark_input_service.py:87` | 9 | B |
-| 2 | `build_twr_benchmark_supportability_evidence` | function | `app/services/twr_benchmark_supportability.py:18` | 9 | B |
-| 3 | `calculate_twr_workflow` | function | `app/services/twr_calculation_service.py:258` | 9 | B |
-| 4 | `resolve_twr_request` | function | `app/services/twr_mode_service.py:80` | 9 | B |
-| 5 | `_build_workspace_summary_response` | function | `app/services/workspace_summary_service.py:502` | 9 | B |
-| 6 | `_lineage_worker_runtime` | function | `app/workers/lineage_worker.py:69` | 9 | B |
-| 7 | `resolve_workspace_periods` | function | `core/workspace_periods.py:56` | 9 | B |
-| 8 | `_prepare_panel_from_groups` | function | `engine/attribution.py:411` | 9 | B |
-| 9 | `aggregate_attribution_results` | function | `engine/attribution.py:607` | 9 | B |
-| 10 | `_blocked_composite_period_result_for_invalid_ready_facts` | function | `engine/composites.py:181` | 9 | B |
-| 11 | `_composite_period_fact_metadata` | function | `engine/composites.py:305` | 9 | B |
-| 12 | `_flag_outliers` | function | `engine/policies.py:118` | 9 | B |
-| 13 | `_compound_ror` | function | `engine/ror.py:237` | 9 | B |
-| 14 | `_load_and_validate_manifest` | function | `app/api/endpoints/lineage.py:27` | 8 | B |
-| 15 | `to_stateless_attribution_request` | method | `app/models/attribution_analytics_requests.py:182` | 8 | B |
-| 16 | `_resolve_mwr_stateless_input` | function | `app/models/mwr_analytics_requests.py:152` | 8 | B |
-| 17 | `_validate_returns_series_stateless_selection_inputs` | function | `app/models/returns_series.py:292` | 8 | B |
-| 18 | `WorkspaceBenchmarkRequest` | class | `app/models/workspace_summary_requests.py:103` | 8 | B |
-| 19 | `_explicit_schema_example` | function | `app/openapi_enrichment.py:316` | 8 | B |
-| 20 | `_build_schema_example` | function | `app/openapi_enrichment.py:402` | 8 | B |
-| 21 | `resolve_async_result` | function | `app/services/async_result_service.py:18` | 8 | B |
-| 22 | `get_result` | method | `app/services/async_result_store.py:137` | 8 | B |
-| 23 | `attribution_input_count` | function | `app/services/attribution_calculation_workflow_service.py:38` | 8 | B |
-| 24 | `calculate_attribution_workflow` | function | `app/services/attribution_calculation_workflow_service.py:161` | 8 | B |
-| 25 | `_inspection_active_since` | method | `app/services/compute_job_store.py:1168` | 8 | B |
+| 1 | `build_twr_benchmark_supportability_evidence` | function | `app/services/twr_benchmark_supportability.py:18` | 9 | B |
+| 2 | `calculate_twr_workflow` | function | `app/services/twr_calculation_service.py:258` | 9 | B |
+| 3 | `resolve_twr_request` | function | `app/services/twr_mode_service.py:80` | 9 | B |
+| 4 | `_build_workspace_summary_response` | function | `app/services/workspace_summary_service.py:502` | 9 | B |
+| 5 | `_lineage_worker_runtime` | function | `app/workers/lineage_worker.py:69` | 9 | B |
+| 6 | `resolve_workspace_periods` | function | `core/workspace_periods.py:56` | 9 | B |
+| 7 | `_prepare_panel_from_groups` | function | `engine/attribution.py:411` | 9 | B |
+| 8 | `aggregate_attribution_results` | function | `engine/attribution.py:607` | 9 | B |
+| 9 | `_blocked_composite_period_result_for_invalid_ready_facts` | function | `engine/composites.py:181` | 9 | B |
+| 10 | `_composite_period_fact_metadata` | function | `engine/composites.py:305` | 9 | B |
+| 11 | `_flag_outliers` | function | `engine/policies.py:118` | 9 | B |
+| 12 | `_compound_ror` | function | `engine/ror.py:237` | 9 | B |
+| 13 | `_load_and_validate_manifest` | function | `app/api/endpoints/lineage.py:27` | 8 | B |
+| 14 | `to_stateless_attribution_request` | method | `app/models/attribution_analytics_requests.py:182` | 8 | B |
+| 15 | `_resolve_mwr_stateless_input` | function | `app/models/mwr_analytics_requests.py:152` | 8 | B |
+| 16 | `_validate_returns_series_stateless_selection_inputs` | function | `app/models/returns_series.py:292` | 8 | B |
+| 17 | `WorkspaceBenchmarkRequest` | class | `app/models/workspace_summary_requests.py:103` | 8 | B |
+| 18 | `_explicit_schema_example` | function | `app/openapi_enrichment.py:316` | 8 | B |
+| 19 | `_build_schema_example` | function | `app/openapi_enrichment.py:402` | 8 | B |
+| 20 | `resolve_async_result` | function | `app/services/async_result_service.py:18` | 8 | B |
+| 21 | `get_result` | method | `app/services/async_result_store.py:137` | 8 | B |
+| 22 | `attribution_input_count` | function | `app/services/attribution_calculation_workflow_service.py:38` | 8 | B |
+| 23 | `calculate_attribution_workflow` | function | `app/services/attribution_calculation_workflow_service.py:161` | 8 | B |
+| 24 | `_inspection_active_since` | method | `app/services/compute_job_store.py:1168` | 8 | B |
+| 25 | `_compute_job_record_payload_state` | function | `app/services/compute_job_store.py:1202` | 8 | B |
 
 ## Lowest Maintainability Index
 
@@ -359,6 +359,8 @@ was isolated from lock-file identity projection.
 runtime-retention replay identity comparisons were moved into explicit field catalogs.
 `parse_stateful_portfolio_timeseries_payload` also dropped out after observation normalization and
 optional string extraction were isolated from required open-date enforcement.
+`_build_price_point_observation` also dropped out after same-currency and cross-currency
+price-point return projection was isolated from observation construction.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.

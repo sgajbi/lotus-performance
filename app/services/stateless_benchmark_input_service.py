@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from dataclasses import dataclass
 from datetime import date
 
 from fastapi import HTTPException
@@ -11,6 +12,14 @@ from app.models.benchmark_analytics_requests import (
 )
 from app.models.benchmark_requests import BenchmarkComponentObservation
 from core.errors import HTTP_422_UNPROCESSABLE
+
+
+@dataclass(frozen=True)
+class _PricePointReturnComponents:
+    currency: str
+    total: float
+    local: float
+    fx: float
 
 
 def normalize_stateless_component_observations(
@@ -112,39 +121,61 @@ def _build_price_point_observation(
                 f"for component_id={component_id} on {previous_date}."
             ),
         )
-    component_currency = current_point.component_currency or previous_point.component_currency
-    current_fx = current_point.fx_rate_to_benchmark
-    previous_fx = previous_point.fx_rate_to_benchmark
-    component_return_local = (current_price / previous_price) - 1.0
-
-    if component_currency is None or component_currency == benchmark_currency:
-        component_return_fx = 0.0
-        normalized_previous_price = previous_price
-        normalized_current_price = current_price
-        resolved_currency = benchmark_currency if component_currency is None else component_currency
-    else:
-        if current_fx is None or previous_fx is None:
-            raise HTTPException(
-                status_code=HTTP_422_UNPROCESSABLE,
-                detail=(
-                    f"stateless benchmark component_price_points require fx_rate_to_benchmark "
-                    f"for cross-currency component_id={component_id} on {current_date}."
-                ),
-            )
-        previous_fx_value = float(previous_fx)
-        current_fx_value = float(current_fx)
-        normalized_previous_price = previous_price * previous_fx_value
-        normalized_current_price = current_price * current_fx_value
-        component_return_fx = (current_fx_value / previous_fx_value) - 1.0
-        resolved_currency = str(component_currency)
-
-    component_return = (normalized_current_price / normalized_previous_price) - 1.0
+    return_components = _price_point_return_components(
+        component_id=component_id,
+        benchmark_currency=benchmark_currency,
+        previous_level=previous_price,
+        current_level=current_price,
+        previous_point=previous_point,
+        current_point=current_point,
+    )
     return BenchmarkComponentObservation(
         component_id=component_id,
         perf_date=current_date,
         weight_bop=float(current_point.weight_bop),
-        component_currency=resolved_currency,
-        component_return=component_return,
-        component_return_local=component_return_local,
-        component_return_fx=component_return_fx,
+        component_currency=return_components.currency,
+        component_return=return_components.total,
+        component_return_local=return_components.local,
+        component_return_fx=return_components.fx,
+    )
+
+
+def _price_point_return_components(
+    *,
+    component_id: str,
+    benchmark_currency: str,
+    previous_level: float,
+    current_level: float,
+    previous_point: BenchmarkComponentPricePointInput,
+    current_point: BenchmarkComponentPricePointInput,
+) -> _PricePointReturnComponents:
+    component_currency = current_point.component_currency or previous_point.component_currency
+    component_return_local = (current_level / previous_level) - 1.0
+    if component_currency is None or component_currency == benchmark_currency:
+        return _PricePointReturnComponents(
+            currency=benchmark_currency if component_currency is None else component_currency,
+            total=component_return_local,
+            local=component_return_local,
+            fx=0.0,
+        )
+
+    current_fx = current_point.fx_rate_to_benchmark
+    previous_fx = previous_point.fx_rate_to_benchmark
+    if current_fx is None or previous_fx is None:
+        raise HTTPException(
+            status_code=HTTP_422_UNPROCESSABLE,
+            detail=(
+                f"stateless benchmark component_price_points require fx_rate_to_benchmark "
+                f"for cross-currency component_id={component_id} on {current_point.perf_date}."
+            ),
+        )
+    previous_fx_value = float(previous_fx)
+    current_fx_value = float(current_fx)
+    normalized_previous_price = previous_level * previous_fx_value
+    normalized_current_price = current_level * current_fx_value
+    return _PricePointReturnComponents(
+        currency=str(component_currency),
+        total=(normalized_current_price / normalized_previous_price) - 1.0,
+        local=component_return_local,
+        fx=(current_fx_value / previous_fx_value) - 1.0,
     )
