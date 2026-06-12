@@ -9,6 +9,7 @@ from app.services.execution_registry import ExecutionRegistry
 from app.services.stateful_input_service import (
     DateChunk,
     StatefulInputService,
+    _component_index_points,
     _portfolio_identity_from_payload,
     _portfolio_observations_from_payload,
     _portfolio_timeseries_request_payload,
@@ -1091,6 +1092,13 @@ def test_stateful_input_service_deduplicates_records_and_component_series():
     assert deduped == [{"valuation_date": "2026-01-01", "position_id": "POS_1", "value": 2}]
     assert merged_series == [{"index_id": "IDX_1", "points": [{"series_date": "2026-01-01"}]}]
     assert component_points == {"IDX_2": [{"series_date": "2026-01-02"}]}
+    assert _component_index_points({"index_id": "IDX_3", "points": [{"series_date": "2026-01-03"}, None]}) == (
+        "IDX_3",
+        [{"series_date": "2026-01-03"}],
+    )
+    assert _component_index_points({"index_id": "IDX_4", "points": "bad-shape"}) == ("IDX_4", [])
+    assert _component_index_points({"index_id": None}) is None
+    assert _component_index_points("bad-component") is None
 
 
 def test_stateful_input_service_helper_contracts_cover_page_tokens_failures_and_snapshot_identity():

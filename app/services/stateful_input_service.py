@@ -1238,15 +1238,10 @@ class StatefulInputService:
             if not isinstance(component_series_raw, list):
                 continue
             for component in component_series_raw:
-                if not isinstance(component, dict):
+                component_points = _component_index_points(component)
+                if component_points is None:
                     continue
-                index_id = component.get("index_id")
-                if not isinstance(index_id, str):
-                    continue
-                points_raw = component.get("points")
-                points = (
-                    [point for point in points_raw if isinstance(point, dict)] if isinstance(points_raw, list) else []
-                )
+                index_id, points = component_points
                 merged_by_index.setdefault(index_id, []).extend(points)
         return merged_by_index
 
@@ -1359,6 +1354,18 @@ def _position_rows_from_payload(payload: dict[str, Any]) -> list[dict[str, Any]]
     if not isinstance(rows, list):
         return []
     return [row for row in rows if isinstance(row, dict)]
+
+
+def _component_index_points(component: Any) -> tuple[str, list[dict[str, Any]]] | None:
+    if not isinstance(component, dict):
+        return None
+    index_id = component.get("index_id")
+    if not isinstance(index_id, str):
+        return None
+    points_raw = component.get("points")
+    if not isinstance(points_raw, list):
+        return index_id, []
+    return index_id, [point for point in points_raw if isinstance(point, dict)]
 
 
 def _portfolio_identity_from_payload(
