@@ -11,6 +11,7 @@ from engine.contribution import (
     _apply_carino_residual_allocation,
     _build_contribution_fx_rates_frame,
     _build_contribution_twr_config,
+    _build_hierarchical_response_levels,
     _calculate_carino_factor_for_return,
     _calculate_carino_factors,
     _calculate_daily_instrument_contributions,
@@ -472,6 +473,51 @@ def test_build_hierarchical_contribution_result_empty_daily_data_preserves_curre
         },
         "levels": [],
     }
+
+
+def test_build_hierarchical_response_levels_projects_parent_and_currency_rows():
+    aggregated_df = pd.DataFrame(
+        [
+            {
+                "sector": "Tech",
+                "region": "US",
+                "contribution": 0.01,
+                "local_contribution": 0.006,
+                "fx_contribution": 0.004,
+                "weight_avg": 0.6,
+            },
+            {
+                "sector": "Tech",
+                "region": "EU",
+                "contribution": 0.02,
+                "local_contribution": 0.015,
+                "fx_contribution": 0.005,
+                "weight_avg": 0.4,
+            },
+        ]
+    )
+
+    levels = _build_hierarchical_response_levels(
+        aggregated_df=aggregated_df,
+        hierarchy=["sector", "region"],
+        currency_mode="BOTH",
+    )
+
+    assert levels[0]["parent"] is None
+    assert levels[0]["rows"] == [
+        {
+            "key": {"sector": "Tech"},
+            "contribution": pytest.approx(3.0),
+            "weight_avg": pytest.approx(100.0),
+            "local_contribution": pytest.approx(2.1),
+            "fx_contribution": pytest.approx(0.9),
+        }
+    ]
+    assert levels[1]["parent"] == "sector"
+    assert [row["key"] for row in levels[1]["rows"]] == [
+        {"sector": "Tech", "region": "EU"},
+        {"sector": "Tech", "region": "US"},
+    ]
 
 
 def test_apply_carino_residual_allocation_distributes_total_local_and_fx_residuals():
