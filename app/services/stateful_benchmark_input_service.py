@@ -47,29 +47,12 @@ async def build_stateful_benchmark_input(
     return_source: BenchmarkReturnSource,
 ) -> StatefulBenchmarkNormalizedInput:
     if return_source == BenchmarkReturnSource.VENDOR_SERIES:
-        definition_status, definition_payload = await stateful_input_service.get_benchmark_definition(
+        benchmark_currency = await _load_benchmark_definition_currency(
+            stateful_input_service=stateful_input_service,
+            calculation_id=calculation_id,
             benchmark_id=benchmark_id,
             as_of_date=as_of_date,
-            calculation_id=calculation_id,
         )
-        if definition_status == status.HTTP_404_NOT_FOUND:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"No benchmark definition found for benchmark_id={benchmark_id}.",
-            )
-        if definition_status >= status.HTTP_400_BAD_REQUEST:
-            raise_for_stateful_source_unavailable(
-                source_label="benchmark definition",
-                upstream_status=definition_status,
-            )
-
-        benchmark_currency_raw = definition_payload.get("benchmark_currency")
-        if not isinstance(benchmark_currency_raw, str) or not benchmark_currency_raw:
-            raise HTTPException(
-                status_code=HTTP_422_UNPROCESSABLE,
-                detail="benchmark definition payload missing benchmark_currency.",
-            )
-        benchmark_currency = benchmark_currency_raw
         return await _build_stateful_vendor_series_input(
             stateful_input_service=stateful_input_service,
             calculation_id=calculation_id,
@@ -146,6 +129,38 @@ async def build_stateful_benchmark_input(
             "fx_page_count": fx_retrieval_metadata.page_count,
         },
     )
+
+
+async def _load_benchmark_definition_currency(
+    *,
+    stateful_input_service: StatefulInputService,
+    calculation_id: UUID,
+    benchmark_id: str,
+    as_of_date: date,
+) -> str:
+    definition_status, definition_payload = await stateful_input_service.get_benchmark_definition(
+        benchmark_id=benchmark_id,
+        as_of_date=as_of_date,
+        calculation_id=calculation_id,
+    )
+    if definition_status == status.HTTP_404_NOT_FOUND:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No benchmark definition found for benchmark_id={benchmark_id}.",
+        )
+    if definition_status >= status.HTTP_400_BAD_REQUEST:
+        raise_for_stateful_source_unavailable(
+            source_label="benchmark definition",
+            upstream_status=definition_status,
+        )
+
+    benchmark_currency_raw = definition_payload.get("benchmark_currency")
+    if not isinstance(benchmark_currency_raw, str) or not benchmark_currency_raw:
+        raise HTTPException(
+            status_code=HTTP_422_UNPROCESSABLE,
+            detail="benchmark definition payload missing benchmark_currency.",
+        )
+    return benchmark_currency_raw
 
 
 async def _build_stateful_vendor_series_input(

@@ -11,6 +11,7 @@ from app.services.stateful_benchmark_input_service import (
     _build_component_observation,
     _build_component_observations,
     _build_normalized_component_series,
+    _load_benchmark_definition_currency,
     _load_component_price_series,
     _load_fx_maps_for_components,
     _normalize_price_to_benchmark_currency,
@@ -281,6 +282,24 @@ async def test_build_stateful_benchmark_input_requires_benchmark_currency_for_ve
             end_date=date(2026, 1, 3),
             return_source=BenchmarkReturnSource.VENDOR_SERIES,
         )
+
+
+@pytest.mark.asyncio
+async def test_load_benchmark_definition_currency_maps_upstream_failure_to_source_unavailable():
+    class _UnavailableDefinitionStub(_StatefulInputServiceStub):
+        async def get_benchmark_definition(self, **kwargs):  # noqa: ARG002
+            return 503, {"detail": "unavailable"}
+
+    with pytest.raises(HTTPException) as exc:
+        await _load_benchmark_definition_currency(
+            stateful_input_service=_UnavailableDefinitionStub(),
+            calculation_id=uuid4(),
+            benchmark_id="BMK_1",
+            as_of_date=date(2026, 1, 3),
+        )
+
+    assert exc.value.status_code == 503
+    assert exc.value.detail == "benchmark definition source unavailable (503)."
 
 
 @pytest.mark.asyncio
