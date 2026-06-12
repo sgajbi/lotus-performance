@@ -5,7 +5,7 @@ from typing import Literal
 
 from fastapi import HTTPException
 
-from app.services.source_cashflow_taxonomy import classify_cashflow_type
+from app.services.source_cashflow_taxonomy import CashflowTypeClassification, classify_cashflow_type
 from core.errors import HTTP_422_UNPROCESSABLE
 
 PositionValueBasis = Literal["position", "portfolio", "reporting"]
@@ -25,15 +25,10 @@ def split_position_cash_flows_in_value_basis(
 
     conversion_factor = _cash_flow_conversion_factor(row=row, value_basis=value_basis)
     for flow in cash_flows_raw:
-        if not isinstance(flow, dict):
+        projected_flow = _position_cash_flow_projection(flow, conversion_factor=conversion_factor)
+        if projected_flow is None:
             continue
-        amount = flow.get("amount")
-        timing = flow.get("timing")
-        cash_flow_type = flow.get("cash_flow_type")
-        if amount is None or timing not in {"bod", "eod"}:
-            continue
-        decimal_amount = Decimal(str(amount)) * conversion_factor
-        cashflow_type = classify_cashflow_type(cash_flow_type)
+        timing, decimal_amount, cashflow_type = projected_flow
         if cashflow_type.economics_role == "fee":
             mgmt_fees += decimal_amount
             continue
@@ -44,6 +39,21 @@ def split_position_cash_flows_in_value_basis(
         else:
             eod_cf += decimal_amount
     return bod_cf, eod_cf, mgmt_fees
+
+
+def _position_cash_flow_projection(
+    flow: object,
+    *,
+    conversion_factor: Decimal,
+) -> tuple[Literal["bod", "eod"], Decimal, CashflowTypeClassification] | None:
+    if not isinstance(flow, dict):
+        return None
+    amount = flow.get("amount")
+    timing = flow.get("timing")
+    if amount is None or timing not in {"bod", "eod"}:
+        return None
+    decimal_amount = Decimal(str(amount)) * conversion_factor
+    return timing, decimal_amount, classify_cashflow_type(flow.get("cash_flow_type"))
 
 
 def _cash_flow_conversion_factor(

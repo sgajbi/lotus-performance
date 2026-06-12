@@ -6,6 +6,7 @@ from fastapi import HTTPException
 from app.services.stateful_position_row_service import (
     _cash_flow_conversion_factor,
     _decimal_or_one,
+    _position_cash_flow_projection,
     split_position_cash_flows_in_value_basis,
 )
 
@@ -85,6 +86,34 @@ def test_split_position_cash_flows_in_value_basis_includes_internal_trade_flows(
         row={},
         value_basis="position",
     ) == (Decimal("10"), Decimal("-4"), Decimal("0"))
+
+
+def test_position_cash_flow_projection_normalizes_valid_flows_and_rejects_invalid_rows():
+    fee_projection = _position_cash_flow_projection(
+        {"amount": "-2", "timing": "eod", "cash_flow_type": "management_fee"},
+        conversion_factor=Decimal("1.5"),
+    )
+
+    assert fee_projection is not None
+    timing, amount, classification = fee_projection
+    assert timing == "eod"
+    assert amount == Decimal("-3.0")
+    assert classification.economics_role == "fee"
+    assert _position_cash_flow_projection("bad-row", conversion_factor=Decimal("1")) is None
+    assert (
+        _position_cash_flow_projection(
+            {"amount": None, "timing": "bod"},
+            conversion_factor=Decimal("1"),
+        )
+        is None
+    )
+    assert (
+        _position_cash_flow_projection(
+            {"amount": "1", "timing": "mid"},
+            conversion_factor=Decimal("1"),
+        )
+        is None
+    )
 
 
 def test_cash_flow_conversion_factor_and_decimal_default_helpers_cover_missing_rates():
