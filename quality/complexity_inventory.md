@@ -28,31 +28,31 @@ python scripts/python_complexity_inventory.py --limit 25
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_validate_stateful_both_currency_support` | function | `app/services/stateful_contribution_input_service.py:274` | 10 | B |
-| 2 | `_merge_component_series` | method | `app/services/stateful_input_service.py:1086` | 10 | B |
-| 3 | `_benchmark_currency_state` | function | `app/services/twr_benchmark_supportability.py:79` | 10 | B |
-| 4 | `calculate_twr_workflow` | function | `app/services/twr_calculation_service.py:250` | 10 | B |
-| 5 | `resolve_twr_request` | function | `app/services/twr_mode_service.py:66` | 10 | B |
-| 6 | `_resolve_stateless_twr_benchmark_request` | function | `app/services/twr_mode_service.py:292` | 10 | B |
-| 7 | `_resolve_twr_benchmark_source_input` | function | `app/services/twr_mode_service.py:377` | 10 | B |
-| 8 | `_iter_frequency_windows` | function | `app/services/twr_service.py:443` | 10 | B |
-| 9 | `_build_portfolio_breakdowns` | function | `app/services/twr_service.py:489` | 10 | B |
-| 10 | `_build_twr_results_by_period` | function | `app/services/twr_service.py:683` | 10 | B |
-| 11 | `_valuation_cashflow_totals` | function | `app/services/valuation_points_service.py:40` | 10 | B |
-| 12 | `workspace_longest_requested_window_days` | function | `app/services/workspace_summary_service.py:93` | 10 | B |
-| 13 | `_resolve_workspace_benchmark_input` | function | `app/services/workspace_summary_service.py:312` | 10 | B |
-| 14 | `generate_performance_breakdowns` | function | `engine/breakdown.py:64` | 10 | B |
-| 15 | `build_hierarchical_contribution_result` | function | `engine/contribution.py:298` | 10 | B |
-| 16 | `_xirr` | function | `engine/mwr.py:178` | 10 | B |
-| 17 | `calculate_money_weighted_return` | function | `engine/mwr.py:449` | 10 | B |
-| 18 | `get_twr_inspection_artifact` | function | `app/api/endpoints/inspections.py:147` | 9 | B |
-| 19 | `get_lineage_data` | function | `app/api/endpoints/lineage.py:102` | 9 | B |
-| 20 | `validate_mode_fields` | method | `app/models/returns_series.py:131` | 9 | B |
-| 21 | `_validate_returns_series_input_envelopes` | function | `app/models/returns_series.py:244` | 9 | B |
-| 22 | `JsonFormatter` | class | `app/observability.py:68` | 9 | B |
-| 23 | `_build_schema_example` | function | `app/openapi_enrichment.py:380` | 9 | B |
-| 24 | `_ensure_operation_documentation` | function | `app/openapi_enrichment.py:613` | 9 | B |
-| 25 | `_ensure_property_schema_documentation` | function | `app/openapi_enrichment.py:683` | 9 | B |
+| 1 | `_merge_component_series` | method | `app/services/stateful_input_service.py:1086` | 10 | B |
+| 2 | `_benchmark_currency_state` | function | `app/services/twr_benchmark_supportability.py:79` | 10 | B |
+| 3 | `calculate_twr_workflow` | function | `app/services/twr_calculation_service.py:250` | 10 | B |
+| 4 | `resolve_twr_request` | function | `app/services/twr_mode_service.py:66` | 10 | B |
+| 5 | `_resolve_stateless_twr_benchmark_request` | function | `app/services/twr_mode_service.py:292` | 10 | B |
+| 6 | `_resolve_twr_benchmark_source_input` | function | `app/services/twr_mode_service.py:377` | 10 | B |
+| 7 | `_iter_frequency_windows` | function | `app/services/twr_service.py:443` | 10 | B |
+| 8 | `_build_portfolio_breakdowns` | function | `app/services/twr_service.py:489` | 10 | B |
+| 9 | `_build_twr_results_by_period` | function | `app/services/twr_service.py:683` | 10 | B |
+| 10 | `_valuation_cashflow_totals` | function | `app/services/valuation_points_service.py:40` | 10 | B |
+| 11 | `workspace_longest_requested_window_days` | function | `app/services/workspace_summary_service.py:93` | 10 | B |
+| 12 | `_resolve_workspace_benchmark_input` | function | `app/services/workspace_summary_service.py:312` | 10 | B |
+| 13 | `generate_performance_breakdowns` | function | `engine/breakdown.py:64` | 10 | B |
+| 14 | `build_hierarchical_contribution_result` | function | `engine/contribution.py:298` | 10 | B |
+| 15 | `_xirr` | function | `engine/mwr.py:178` | 10 | B |
+| 16 | `calculate_money_weighted_return` | function | `engine/mwr.py:449` | 10 | B |
+| 17 | `get_twr_inspection_artifact` | function | `app/api/endpoints/inspections.py:147` | 9 | B |
+| 18 | `get_lineage_data` | function | `app/api/endpoints/lineage.py:102` | 9 | B |
+| 19 | `validate_mode_fields` | method | `app/models/returns_series.py:131` | 9 | B |
+| 20 | `_validate_returns_series_input_envelopes` | function | `app/models/returns_series.py:244` | 9 | B |
+| 21 | `JsonFormatter` | class | `app/observability.py:68` | 9 | B |
+| 22 | `_build_schema_example` | function | `app/openapi_enrichment.py:380` | 9 | B |
+| 23 | `_ensure_operation_documentation` | function | `app/openapi_enrichment.py:613` | 9 | B |
+| 24 | `_ensure_property_schema_documentation` | function | `app/openapi_enrichment.py:683` | 9 | B |
+| 25 | `calculate_attribution_workflow` | function | `app/services/attribution_calculation_workflow_service.py:91` | 9 | B |
 
 ## Lowest Maintainability Index
 
