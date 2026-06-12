@@ -7,6 +7,7 @@ from engine.policies import (
     _apply_override_values,
     _extract_policy_inputs,
     _flag_outliers,
+    _outlier_mask_and_bounds,
     _override_mask,
     apply_robustness_policies,
 )
@@ -103,6 +104,26 @@ def test_flag_outliers():
     assert diagnostics.policy.outliers.flagged_rows == 1
     assert diagnostics.samples.outliers[0].raw_return == 99.0
     assert df.loc[5, PortfolioColumns.DAILY_ROR.value] == 99.0
+
+
+def test_outlier_mask_and_bounds_excludes_ignored_dates():
+    df = pd.DataFrame(
+        {
+            PortfolioColumns.PERF_DATE.value: pd.to_datetime(pd.date_range(start="2025-01-01", periods=10)),
+            PortfolioColumns.DAILY_ROR.value: [1.0, 1.1, 0.9, 1.2, 0.8, 99.0, 1.0, 1.1, 0.9, 1.0],
+        }
+    )
+
+    outliers, upper_bound, lower_bound = _outlier_mask_and_bounds(
+        df=df,
+        ignored_dates={pd.Timestamp("2025-01-06").date()},
+        window=5,
+        mad_k=3.0,
+    )
+
+    assert int(outliers.sum()) == 0
+    assert upper_bound.index.equals(df.index)
+    assert lower_bound.index.equals(df.index)
 
 
 def test_no_policy_does_nothing(sample_policy_df):

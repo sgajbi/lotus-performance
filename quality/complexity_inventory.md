@@ -20,34 +20,34 @@ python scripts/python_complexity_inventory.py --limit 20
 
 | Metric | Value |
 | --- | ---: |
-| Max cyclomatic complexity | 11 |
+| Max cyclomatic complexity | 10 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.57 |
+| Average maintainability index | 55.55 |
 
 ## Highest Cyclomatic Complexity
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_flag_outliers` | function | `engine/policies.py:118` | 11 | C |
-| 2 | `to_stateless_attribution_request` | method | `app/models/attribution_analytics_requests.py:174` | 10 | B |
-| 3 | `to_stateless_mwr_request` | method | `app/models/mwr_analytics_requests.py:112` | 10 | B |
-| 4 | `_infer_description` | function | `app/openapi_enrichment.py:229` | 10 | B |
-| 5 | `calculate_benchmark_artifacts` | function | `app/services/benchmark_calculation_service.py:71` | 10 | B |
-| 6 | `calculate_benchmark_workflow` | function | `app/services/benchmark_calculation_workflow_service.py:146` | 10 | B |
-| 7 | `resolve_benchmark_request` | function | `app/services/benchmark_mode_service.py:29` | 10 | B |
-| 8 | `_queue_stats_from_aggregate_row` | function | `app/services/compute_job_store.py:150` | 10 | B |
-| 9 | `calculate_contribution` | function | `app/services/contribution_service.py:421` | 10 | B |
-| 10 | `generate_twr_inspection_support_brief` | function | `app/services/inspection/support_brief_workflow_pack.py:27` | 10 | B |
-| 11 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:71` | 10 | B |
-| 12 | `_build_twr_inspection_response` | function | `app/services/inspection/twr_inspection_service.py:225` | 10 | B |
-| 13 | `period_start` | function | `app/services/returns_series_service.py:143` | 10 | B |
-| 14 | `_persist_evidence_history` | function | `app/services/runtime_retention_execution_service.py:139` | 10 | B |
-| 15 | `build_portfolio_source_quality_evidence` | function | `app/services/source_quality_evidence.py:13` | 10 | B |
-| 16 | `_validate_stateful_both_currency_support` | function | `app/services/stateful_attribution_input_service.py:956` | 10 | B |
-| 17 | `_validate_stateful_both_currency_support` | function | `app/services/stateful_contribution_input_service.py:274` | 10 | B |
-| 18 | `_merge_component_series` | method | `app/services/stateful_input_service.py:1086` | 10 | B |
-| 19 | `_benchmark_currency_state` | function | `app/services/twr_benchmark_supportability.py:79` | 10 | B |
-| 20 | `calculate_twr_workflow` | function | `app/services/twr_calculation_service.py:250` | 10 | B |
+| 1 | `to_stateless_attribution_request` | method | `app/models/attribution_analytics_requests.py:174` | 10 | B |
+| 2 | `to_stateless_mwr_request` | method | `app/models/mwr_analytics_requests.py:112` | 10 | B |
+| 3 | `_infer_description` | function | `app/openapi_enrichment.py:229` | 10 | B |
+| 4 | `calculate_benchmark_artifacts` | function | `app/services/benchmark_calculation_service.py:71` | 10 | B |
+| 5 | `calculate_benchmark_workflow` | function | `app/services/benchmark_calculation_workflow_service.py:146` | 10 | B |
+| 6 | `resolve_benchmark_request` | function | `app/services/benchmark_mode_service.py:29` | 10 | B |
+| 7 | `_queue_stats_from_aggregate_row` | function | `app/services/compute_job_store.py:150` | 10 | B |
+| 8 | `calculate_contribution` | function | `app/services/contribution_service.py:421` | 10 | B |
+| 9 | `generate_twr_inspection_support_brief` | function | `app/services/inspection/support_brief_workflow_pack.py:27` | 10 | B |
+| 10 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:71` | 10 | B |
+| 11 | `_build_twr_inspection_response` | function | `app/services/inspection/twr_inspection_service.py:225` | 10 | B |
+| 12 | `period_start` | function | `app/services/returns_series_service.py:143` | 10 | B |
+| 13 | `_persist_evidence_history` | function | `app/services/runtime_retention_execution_service.py:139` | 10 | B |
+| 14 | `build_portfolio_source_quality_evidence` | function | `app/services/source_quality_evidence.py:13` | 10 | B |
+| 15 | `_validate_stateful_both_currency_support` | function | `app/services/stateful_attribution_input_service.py:956` | 10 | B |
+| 16 | `_validate_stateful_both_currency_support` | function | `app/services/stateful_contribution_input_service.py:274` | 10 | B |
+| 17 | `_merge_component_series` | method | `app/services/stateful_input_service.py:1086` | 10 | B |
+| 18 | `_benchmark_currency_state` | function | `app/services/twr_benchmark_supportability.py:79` | 10 | B |
+| 19 | `calculate_twr_workflow` | function | `app/services/twr_calculation_service.py:250` | 10 | B |
+| 20 | `resolve_twr_request` | function | `app/services/twr_mode_service.py:66` | 10 | B |
 
 ## Lowest Maintainability Index
 
@@ -264,6 +264,9 @@ return-source, and work-unit projection were moved into a dedicated benchmark-fi
 moved into a typed runtime assembly helper.
 `generate_performance_breakdowns` also dropped out after daily breakdown row period-label and
 summary projection were moved into a dedicated helper.
+`_flag_outliers` also dropped out after rolling median/MAD bounds, ignored-date filtering, and
+outlier mask construction were moved into a dedicated helper, reducing the measured maximum
+cyclomatic complexity from `11` to `10`.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.

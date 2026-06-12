@@ -136,9 +136,39 @@ def _flag_outliers(
     if PortfolioColumns.DAILY_ROR.value not in df.columns:
         return
 
-    # Exclude ignored days from the statistical calculation
+    outliers, upper_bound, lower_bound = _outlier_mask_and_bounds(
+        df=df,
+        ignored_dates=ignored_dates,
+        window=window,
+        mad_k=mad_k,
+    )
+
+    diagnostics.policy.outliers.flagged_rows = int(outliers.sum())
+
+    if int(outliers.sum()) > 0:
+        outlier_indices = df.index[outliers]
+        for index in outlier_indices:
+            sample = df.loc[index]
+            raw_return = sample[PortfolioColumns.DAILY_ROR.value]
+            diagnostics.samples.outliers.append(
+                OutlierSample(
+                    date=sample[PortfolioColumns.PERF_DATE.value].strftime("%Y-%m-%d"),
+                    raw_return=raw_return,
+                    threshold=upper_bound[index] if raw_return > 0 else lower_bound[index],
+                )
+            )
+
+
+def _outlier_mask_and_bounds(
+    *,
+    df: pd.DataFrame,
+    ignored_dates: set[date] | None,
+    window: int,
+    mad_k: float,
+) -> Tuple[pd.Series, pd.Series, pd.Series]:
     ror_series = df[PortfolioColumns.DAILY_ROR.value]
     ror_for_stats = ror_series.copy()
+    valid_mask = None
     if ignored_dates:
         valid_mask = ~df[PortfolioColumns.PERF_DATE.value].dt.date.isin(ignored_dates)
         ror_for_stats = ror_for_stats.where(valid_mask)  # Use .where to keep index alignment
@@ -153,25 +183,10 @@ def _flag_outliers(
     upper_bound = median + mad_k * mad
     lower_bound = median - mad_k * mad
 
-    # Flag outliers based on the original full series
     outliers = (ror_series > upper_bound) | (ror_series < lower_bound)
-    # But only flag if the day was not ignored
-    if ignored_dates:
+    if valid_mask is not None:
         outliers &= valid_mask
-
-    diagnostics.policy.outliers.flagged_rows = int(outliers.sum())
-
-    if int(outliers.sum()) > 0:
-        outlier_indices = df.index[outliers]
-        for index in outlier_indices:
-            sample = df.loc[index]
-            diagnostics.samples.outliers.append(
-                OutlierSample(
-                    date=sample[PortfolioColumns.PERF_DATE.value].strftime("%Y-%m-%d"),
-                    raw_return=sample[PortfolioColumns.DAILY_ROR.value],
-                    threshold=upper_bound[index] if ror_series[index] > 0 else lower_bound[index],
-                )
-            )
+    return outliers, upper_bound, lower_bound
 
 
 def apply_robustness_policies(
