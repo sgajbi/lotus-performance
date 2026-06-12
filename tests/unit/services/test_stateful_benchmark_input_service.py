@@ -14,6 +14,7 @@ from app.services.stateful_benchmark_input_service import (
     _load_component_price_series,
     _load_fx_maps_for_components,
     _normalize_price_to_benchmark_currency,
+    _normalized_price_maps_for_component,
     _parse_composition_window,
     _required_fx_pairs_for_components,
     build_stateful_benchmark_input,
@@ -885,6 +886,39 @@ def test_build_normalized_component_series_skips_invalid_points_and_rejects_miss
             requested_start_date=date(2026, 1, 2),
             requested_end_date=date(2026, 1, 3),
         )
+
+
+def test_normalized_price_maps_for_component_filters_and_normalizes_requested_dates():
+    normalized_prices, local_prices, component_dates = _normalized_price_maps_for_component(
+        index_id="IDX_EUR",
+        points_raw=[
+            "skip-me",
+            {"series_date": 123, "index_price": "100"},
+            {"series_date": "2026-01-01", "index_price": "100"},
+            {"series_date": "2026-01-02", "index_price": "101"},
+            {"series_date": "2026-01-04", "index_price": "104"},
+        ],
+        component_currency="EUR",
+        benchmark_currency="USD",
+        fx_map_by_pair={
+            ("EUR", "USD"): {
+                date(2026, 1, 1): Decimal("1.10"),
+                date(2026, 1, 2): Decimal("1.12"),
+            }
+        },
+        requested_start_date=date(2026, 1, 2),
+        requested_end_date=date(2026, 1, 3),
+    )
+
+    assert local_prices == {
+        date(2026, 1, 1): Decimal("100"),
+        date(2026, 1, 2): Decimal("101"),
+    }
+    assert normalized_prices == {
+        date(2026, 1, 1): Decimal("110.00"),
+        date(2026, 1, 2): Decimal("113.12"),
+    }
+    assert component_dates == {date(2026, 1, 2)}
 
 
 def test_normalization_and_metadata_helpers_cover_direct_contracts():

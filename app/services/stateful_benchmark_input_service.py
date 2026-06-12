@@ -606,38 +606,15 @@ def _build_normalized_component_series(
     for index_id, component_payload in component_price_series.items():
         points_raw = component_payload["points"]
         component_currency = component_payload["series_currency"]
-        normalized_prices: dict[date, Decimal] = {}
-        local_prices: dict[date, Decimal] = {}
-        component_dates: set[date] = set()
-        for point in points_raw:
-            if not isinstance(point, dict):
-                continue
-            date_raw = point.get("series_date")
-            index_price_raw = point.get("index_price")
-            if not isinstance(date_raw, str):
-                continue
-            point_date = date.fromisoformat(date_raw)
-            if point_date < requested_start_date - timedelta(days=1) or point_date > requested_end_date:
-                continue
-            if index_price_raw is None:
-                raise HTTPException(
-                    status_code=HTTP_422_UNPROCESSABLE,
-                    detail=(
-                        f"Index price-series payload missing index_price for benchmark component "
-                        f"{index_id} on {point_date}."
-                    ),
-                )
-            local_price = Decimal(str(index_price_raw))
-            local_prices[point_date] = local_price
-            normalized_prices[point_date] = _normalize_price_to_benchmark_currency(
-                component_currency=component_currency,
-                benchmark_currency=benchmark_currency,
-                price=local_price,
-                price_date=point_date,
-                fx_map_by_pair=fx_map_by_pair,
-            )
-            if requested_start_date <= point_date <= requested_end_date:
-                component_dates.add(point_date)
+        normalized_prices, local_prices, component_dates = _normalized_price_maps_for_component(
+            index_id=index_id,
+            points_raw=points_raw,
+            component_currency=component_currency,
+            benchmark_currency=benchmark_currency,
+            fx_map_by_pair=fx_map_by_pair,
+            requested_start_date=requested_start_date,
+            requested_end_date=requested_end_date,
+        )
         if expected_dates is None:
             expected_dates = component_dates
         elif component_dates != expected_dates:
@@ -654,6 +631,51 @@ def _build_normalized_component_series(
             "series_currency": component_currency,
         }
     return normalized_by_component
+
+
+def _normalized_price_maps_for_component(
+    *,
+    index_id: str,
+    points_raw: list[Any],
+    component_currency: str,
+    benchmark_currency: str,
+    fx_map_by_pair: dict[tuple[str, str], dict[date, Decimal]],
+    requested_start_date: date,
+    requested_end_date: date,
+) -> tuple[dict[date, Decimal], dict[date, Decimal], set[date]]:
+    normalized_prices: dict[date, Decimal] = {}
+    local_prices: dict[date, Decimal] = {}
+    component_dates: set[date] = set()
+    for point in points_raw:
+        if not isinstance(point, dict):
+            continue
+        date_raw = point.get("series_date")
+        index_price_raw = point.get("index_price")
+        if not isinstance(date_raw, str):
+            continue
+        point_date = date.fromisoformat(date_raw)
+        if point_date < requested_start_date - timedelta(days=1) or point_date > requested_end_date:
+            continue
+        if index_price_raw is None:
+            raise HTTPException(
+                status_code=HTTP_422_UNPROCESSABLE,
+                detail=(
+                    f"Index price-series payload missing index_price for benchmark component "
+                    f"{index_id} on {point_date}."
+                ),
+            )
+        local_price = Decimal(str(index_price_raw))
+        local_prices[point_date] = local_price
+        normalized_prices[point_date] = _normalize_price_to_benchmark_currency(
+            component_currency=component_currency,
+            benchmark_currency=benchmark_currency,
+            price=local_price,
+            price_date=point_date,
+            fx_map_by_pair=fx_map_by_pair,
+        )
+        if requested_start_date <= point_date <= requested_end_date:
+            component_dates.add(point_date)
+    return normalized_prices, local_prices, component_dates
 
 
 def _normalize_price_to_benchmark_currency(
