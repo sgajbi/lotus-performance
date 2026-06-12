@@ -761,10 +761,21 @@ async def test_stateful_input_service_records_upstream_snapshots(tmp_path):
         end_date=date(2026, 1, 4),
         calculation_id=calculation_id,
     )
+    await service.get_benchmark_return_series(
+        benchmark_id="BMK_1",
+        as_of_date=date(2026, 1, 4),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 4),
+        calculation_id=calculation_id,
+    )
 
     snapshots = execution_store.list_upstream_snapshots(calculation_id)
+    benchmark_snapshots = [
+        snapshot for snapshot in snapshots if snapshot.upstream_endpoint == "benchmark_return_series"
+    ]
 
     assert len(snapshots) >= 5
+    assert len(benchmark_snapshots) == 2
     assert {snapshot.upstream_endpoint for snapshot in snapshots} >= {
         "portfolio_timeseries",
         "benchmark_return_series",
