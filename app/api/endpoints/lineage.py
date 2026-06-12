@@ -24,7 +24,7 @@ def _resolve_lineage_artifact_path(*, calculation_id: UUID, artifact_name: str) 
     return os.path.join(lineage_dir, safe_artifact_name)
 
 
-def _load_and_validate_manifest(*, manifest_path: str, record) -> LineageManifest:
+def _load_and_validate_manifest(*, manifest_path: str, record: LineageRecord) -> LineageManifest:
     try:
         manifest_payload = read_json_file(FilePath(manifest_path))
     except OSError:
@@ -46,19 +46,22 @@ def _load_and_validate_manifest(*, manifest_path: str, record) -> LineageManifes
             detail="Lineage manifest is invalid.",
         ) from None
 
-    expected_artifact_names = sorted(record.artifact_names)
-    if (
-        manifest.calculation_type != record.calculation_type
-        or manifest.timestamp_utc != record.timestamp_utc
-        or manifest.status != record.status.value
-        or sorted(manifest.artifact_names) != expected_artifact_names
-    ):
+    if not _manifest_matches_record(manifest=manifest, record=record):
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Lineage manifest is inconsistent with durable metadata.",
         )
 
     return manifest
+
+
+def _manifest_matches_record(*, manifest: LineageManifest, record: LineageRecord) -> bool:
+    return (
+        manifest.calculation_type == record.calculation_type
+        and manifest.timestamp_utc == record.timestamp_utc
+        and manifest.status == record.status.value
+        and sorted(manifest.artifact_names) == sorted(record.artifact_names)
+    )
 
 
 def _ensure_declared_artifacts_exist(*, calculation_id: UUID, artifact_names: list[str]) -> None:
