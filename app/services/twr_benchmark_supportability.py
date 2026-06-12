@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import date
 from itertools import islice
 from typing import Literal
@@ -15,6 +16,17 @@ from engine.schema import PortfolioColumns
 _DATE_SAMPLE_LIMIT = 5
 
 
+@dataclass(frozen=True)
+class _BenchmarkCalendarAlignment:
+    state: Literal["aligned", "partial_overlap", "no_overlap"]
+    portfolio_dates: set[date]
+    benchmark_dates: set[date]
+    overlapping_dates: set[date]
+    missing_benchmark_dates: list[date]
+    extra_benchmark_dates: list[date]
+    warning_codes: list[str]
+
+
 def build_twr_benchmark_supportability_evidence(
     *,
     performance_request: PerformanceRequest,
@@ -26,18 +38,11 @@ def build_twr_benchmark_supportability_evidence(
 ) -> TWRBenchmarkSupportabilityEvidence:
     portfolio_dates = _date_set(portfolio_daily_results_df, PortfolioColumns.PERF_DATE.value)
     benchmark_dates = _date_set(benchmark_daily_returns_df, "date")
-    missing_benchmark_dates = sorted(portfolio_dates - benchmark_dates)
-    extra_benchmark_dates = sorted(benchmark_dates - portfolio_dates)
-    overlapping_dates = portfolio_dates & benchmark_dates
-
-    warning_codes: list[str] = []
-    calendar_alignment_state: Literal["aligned", "partial_overlap", "no_overlap"] = "aligned"
-    if not overlapping_dates and (portfolio_dates or benchmark_dates):
-        calendar_alignment_state = "no_overlap"
-        warning_codes.append("BENCHMARK_CALENDAR_NO_OVERLAP")
-    elif missing_benchmark_dates or extra_benchmark_dates:
-        calendar_alignment_state = "partial_overlap"
-        warning_codes.append("BENCHMARK_CALENDAR_GAP")
+    calendar_alignment = _benchmark_calendar_alignment(
+        portfolio_dates=portfolio_dates,
+        benchmark_dates=benchmark_dates,
+    )
+    warning_codes = list(calendar_alignment.warning_codes)
 
     currency_state = _benchmark_currency_state(
         benchmark_request=benchmark_request,
@@ -58,14 +63,14 @@ def build_twr_benchmark_supportability_evidence(
         reporting_currency=performance_request.report_ccy,
         benchmark_currency=benchmark_request.benchmark_currency,
         currency_state=currency_state,
-        calendar_alignment_state=calendar_alignment_state,
-        portfolio_observation_count=len(portfolio_dates),
-        benchmark_observation_count=len(benchmark_dates),
-        overlapping_observation_count=len(overlapping_dates),
-        missing_benchmark_date_count=len(missing_benchmark_dates),
-        missing_benchmark_dates_sample=list(islice(missing_benchmark_dates, _DATE_SAMPLE_LIMIT)),
-        extra_benchmark_date_count=len(extra_benchmark_dates),
-        extra_benchmark_dates_sample=list(islice(extra_benchmark_dates, _DATE_SAMPLE_LIMIT)),
+        calendar_alignment_state=calendar_alignment.state,
+        portfolio_observation_count=len(calendar_alignment.portfolio_dates),
+        benchmark_observation_count=len(calendar_alignment.benchmark_dates),
+        overlapping_observation_count=len(calendar_alignment.overlapping_dates),
+        missing_benchmark_date_count=len(calendar_alignment.missing_benchmark_dates),
+        missing_benchmark_dates_sample=list(islice(calendar_alignment.missing_benchmark_dates, _DATE_SAMPLE_LIMIT)),
+        extra_benchmark_date_count=len(calendar_alignment.extra_benchmark_dates),
+        extra_benchmark_dates_sample=list(islice(calendar_alignment.extra_benchmark_dates, _DATE_SAMPLE_LIMIT)),
         warning_codes=warning_codes,
     )
 
@@ -74,6 +79,46 @@ def _date_set(df: pd.DataFrame, column: str) -> set[date]:
     if column not in df.columns or df.empty:
         return set()
     return observation_date_set(df[column])
+
+
+def _benchmark_calendar_alignment(
+    *,
+    portfolio_dates: set[date],
+    benchmark_dates: set[date],
+) -> _BenchmarkCalendarAlignment:
+    missing_benchmark_dates = sorted(portfolio_dates - benchmark_dates)
+    extra_benchmark_dates = sorted(benchmark_dates - portfolio_dates)
+    overlapping_dates = portfolio_dates & benchmark_dates
+
+    if not overlapping_dates and (portfolio_dates or benchmark_dates):
+        return _BenchmarkCalendarAlignment(
+            state="no_overlap",
+            portfolio_dates=portfolio_dates,
+            benchmark_dates=benchmark_dates,
+            overlapping_dates=overlapping_dates,
+            missing_benchmark_dates=missing_benchmark_dates,
+            extra_benchmark_dates=extra_benchmark_dates,
+            warning_codes=["BENCHMARK_CALENDAR_NO_OVERLAP"],
+        )
+    if missing_benchmark_dates or extra_benchmark_dates:
+        return _BenchmarkCalendarAlignment(
+            state="partial_overlap",
+            portfolio_dates=portfolio_dates,
+            benchmark_dates=benchmark_dates,
+            overlapping_dates=overlapping_dates,
+            missing_benchmark_dates=missing_benchmark_dates,
+            extra_benchmark_dates=extra_benchmark_dates,
+            warning_codes=["BENCHMARK_CALENDAR_GAP"],
+        )
+    return _BenchmarkCalendarAlignment(
+        state="aligned",
+        portfolio_dates=portfolio_dates,
+        benchmark_dates=benchmark_dates,
+        overlapping_dates=overlapping_dates,
+        missing_benchmark_dates=missing_benchmark_dates,
+        extra_benchmark_dates=extra_benchmark_dates,
+        warning_codes=[],
+    )
 
 
 def _benchmark_currency_state(

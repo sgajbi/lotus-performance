@@ -5,6 +5,7 @@ import pandas as pd
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.models.requests import PerformanceRequest
 from app.services.twr_benchmark_supportability import (
+    _benchmark_calendar_alignment,
     _has_benchmark_fx_decomposition,
     build_twr_benchmark_supportability_evidence,
 )
@@ -86,6 +87,35 @@ def test_has_benchmark_fx_decomposition_requires_local_and_fx_columns_with_value
     assert not _has_benchmark_fx_decomposition(
         pd.DataFrame({"benchmark_return_local": [None], "benchmark_return_fx": [None]})
     )
+
+
+def test_benchmark_calendar_alignment_projects_counts_and_warning_codes():
+    aligned = _benchmark_calendar_alignment(
+        portfolio_dates={date(2025, 1, 1), date(2025, 1, 2)},
+        benchmark_dates={date(2025, 1, 1), date(2025, 1, 2)},
+    )
+    assert aligned.state == "aligned"
+    assert aligned.warning_codes == []
+    assert aligned.missing_benchmark_dates == []
+    assert aligned.extra_benchmark_dates == []
+
+    partial = _benchmark_calendar_alignment(
+        portfolio_dates={date(2025, 1, 1), date(2025, 1, 2)},
+        benchmark_dates={date(2025, 1, 2), date(2025, 1, 3)},
+    )
+    assert partial.state == "partial_overlap"
+    assert partial.warning_codes == ["BENCHMARK_CALENDAR_GAP"]
+    assert partial.missing_benchmark_dates == [date(2025, 1, 1)]
+    assert partial.extra_benchmark_dates == [date(2025, 1, 3)]
+    assert partial.overlapping_dates == {date(2025, 1, 2)}
+
+    no_overlap = _benchmark_calendar_alignment(
+        portfolio_dates={date(2025, 1, 1)},
+        benchmark_dates={date(2025, 1, 2)},
+    )
+    assert no_overlap.state == "no_overlap"
+    assert no_overlap.warning_codes == ["BENCHMARK_CALENDAR_NO_OVERLAP"]
+    assert no_overlap.overlapping_dates == set()
 
 
 def test_twr_benchmark_supportability_reports_calendar_and_vendor_series_warnings():
