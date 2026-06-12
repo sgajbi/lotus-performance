@@ -433,6 +433,26 @@ def test_group_identity_uses_unknown_defaults_for_classification_groups() -> Non
     ) == ("ISSUER_ISSUER_A", "Issuer A", None)
 
 
+def test_group_identity_projects_position_and_classification_labels() -> None:
+    classification_map = {"IDX": {"sector": "Technology", "asset_class": "Equity"}}
+
+    assert _group_identity(
+        index_id="IDX",
+        grouping_dimension=BenchmarkExposureGroupingDimension.POSITION,
+        classification_map=classification_map,
+    ) == ("IDX", "IDX", "IDX")
+    assert _group_identity(
+        index_id="IDX",
+        grouping_dimension=BenchmarkExposureGroupingDimension.SECTOR,
+        classification_map=classification_map,
+    ) == ("SECTOR_Technology", "Technology", None)
+    assert _group_identity(
+        index_id="IDX",
+        grouping_dimension=BenchmarkExposureGroupingDimension.ASSET_CLASS,
+        classification_map=classification_map,
+    ) == ("ASSET_CLASS_Equity", "Equity", None)
+
+
 def test_page_rows_rejects_invalid_page_token_inputs() -> None:
     rows = [
         BenchmarkExposureRow(

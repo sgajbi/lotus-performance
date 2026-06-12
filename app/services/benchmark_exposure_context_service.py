@@ -280,20 +280,47 @@ def _group_identity(
     if grouping_dimension == BenchmarkExposureGroupingDimension.POSITION:
         return index_id, index_id, index_id
     if grouping_dimension == BenchmarkExposureGroupingDimension.SECTOR:
-        label = classification_map.get(index_id, {}).get("sector") or "UNKNOWN"
-        return f"SECTOR_{label}", label, None
+        return _classification_group_identity(
+            index_id=index_id,
+            classification_map=classification_map,
+            label_key="sector",
+            group_prefix="SECTOR",
+        )
     if grouping_dimension == BenchmarkExposureGroupingDimension.ASSET_CLASS:
-        label = classification_map.get(index_id, {}).get("asset_class") or "UNKNOWN"
-        return f"ASSET_CLASS_{label}", label, None
+        return _classification_group_identity(
+            index_id=index_id,
+            classification_map=classification_map,
+            label_key="asset_class",
+            group_prefix="ASSET_CLASS",
+        )
     if grouping_dimension == BenchmarkExposureGroupingDimension.ISSUER:
-        labels = classification_map.get(index_id, {})
-        issuer_id = labels.get("issuer_id") or "UNKNOWN"
-        issuer_name = labels.get("issuer_name") or issuer_id
-        return f"ISSUER_{issuer_id}", issuer_name, None
+        return _issuer_group_identity(index_id=index_id, classification_map=classification_map)
     raise HTTPException(
         status_code=HTTP_422_UNPROCESSABLE,
         detail=f"benchmark exposure context does not yet support grouping_dimension={grouping_dimension.value}",
     )
+
+
+def _classification_group_identity(
+    *,
+    index_id: str,
+    classification_map: dict[str, dict[str, str]],
+    label_key: str,
+    group_prefix: str,
+) -> tuple[str, str, None]:
+    label = classification_map.get(index_id, {}).get(label_key) or "UNKNOWN"
+    return f"{group_prefix}_{label}", label, None
+
+
+def _issuer_group_identity(
+    *,
+    index_id: str,
+    classification_map: dict[str, dict[str, str]],
+) -> tuple[str, str, None]:
+    labels = classification_map.get(index_id, {})
+    issuer_id = labels.get("issuer_id") or "UNKNOWN"
+    issuer_name = labels.get("issuer_name") or issuer_id
+    return f"ISSUER_{issuer_id}", issuer_name, None
 
 
 def _page_rows(
