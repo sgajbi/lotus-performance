@@ -6,6 +6,7 @@ from app.openapi_enrichment import (
     _ensure_model_schema_documentation,
     _ensure_operation_metadata,
     _ensure_operation_response_documentation,
+    _ensure_property_vocabulary_metadata,
     _ensure_request_body_example,
     _ensure_success_response_documentation,
     _enum_schema_example,
@@ -490,6 +491,19 @@ def test_enrich_openapi_schema_fills_operation_schema_and_examples():
     request_id_prop = enriched["components"]["schemas"]["HealthResponse"]["properties"]["request_id"]
     assert request_id_prop["description"] == "Already set"
     assert request_id_prop["example"] == "REQ_1"
+
+    preserved_schema = {
+        "x-lotus-semantic-id": "lotus.custom",
+        "x-lotus-canonical-term": "custom_term",
+    }
+    _ensure_property_vocabulary_metadata(prop_name="portfolio_id", prop_schema=preserved_schema)
+    assert preserved_schema["x-lotus-semantic-id"] == "lotus.custom"
+    assert preserved_schema["x-lotus-canonical-term"] == "custom_term"
+
+    generated_schema: dict[str, object] = {}
+    _ensure_property_vocabulary_metadata(prop_name="portfolio_id", prop_schema=generated_schema)
+    assert generated_schema["x-lotus-semantic-id"] == "lotus.portfolio_id"
+    assert generated_schema["x-lotus-canonical-term"] == "portfolio_id"
 
     other_count = enriched["components"]["schemas"]["Other"]["properties"]["count"]
     assert other_count["description"]

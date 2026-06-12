@@ -719,13 +719,17 @@ def _ensure_property_schema_documentation(
             components=components,
             name_hint=prop_name,
         )
+    _ensure_property_vocabulary_metadata(prop_name=prop_name, prop_schema=prop_schema)
+    prop_enum_descriptions = _infer_enum_descriptions(prop_name, prop_resolved)
+    if prop_enum_descriptions and "x-enum-descriptions" not in prop_schema:
+        prop_schema["x-enum-descriptions"] = prop_enum_descriptions
+
+
+def _ensure_property_vocabulary_metadata(*, prop_name: str, prop_schema: dict[str, Any]) -> None:
     if "x-lotus-semantic-id" not in prop_schema:
         prop_schema["x-lotus-semantic-id"] = _semantic_id(prop_name)
     if "x-lotus-canonical-term" not in prop_schema:
         prop_schema["x-lotus-canonical-term"] = _canonical_term(prop_name)
-    prop_enum_descriptions = _infer_enum_descriptions(prop_name, prop_resolved)
-    if prop_enum_descriptions and "x-enum-descriptions" not in prop_schema:
-        prop_schema["x-enum-descriptions"] = prop_enum_descriptions
 
 
 def enrich_openapi_schema(schema: dict[str, Any]) -> dict[str, Any]:
