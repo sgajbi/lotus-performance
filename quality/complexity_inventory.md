@@ -22,37 +22,37 @@ python scripts/python_complexity_inventory.py --limit 25
 | --- | ---: |
 | Max cyclomatic complexity | 9 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.27 |
+| Average maintainability index | 55.26 |
 
 ## Highest Cyclomatic Complexity
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_validate_manifest_entry` | function | `app/services/runtime_retention_history_service.py:197` | 9 | B |
-| 2 | `_position_market_value_pair` | function | `app/services/stateful_attribution_input_service.py:371` | 9 | B |
-| 3 | `build_stateful_benchmark_input` | function | `app/services/stateful_benchmark_input_service.py:39` | 9 | B |
-| 4 | `_load_component_price_series` | function | `app/services/stateful_benchmark_input_service.py:354` | 9 | B |
-| 5 | `_build_component_observation` | function | `app/services/stateful_benchmark_input_service.py:532` | 9 | B |
-| 6 | `get_benchmark_return_series` | method | `app/services/stateful_input_service.py:231` | 9 | B |
-| 7 | `get_benchmark_market_series` | method | `app/services/stateful_input_service.py:398` | 9 | B |
-| 8 | `get_fx_rates` | method | `app/services/stateful_input_service.py:478` | 9 | B |
-| 9 | `get_index_price_series` | method | `app/services/stateful_input_service.py:599` | 9 | B |
-| 10 | `get_risk_free_series` | method | `app/services/stateful_input_service.py:683` | 9 | B |
-| 11 | `_fetch_position_chunk` | method | `app/services/stateful_input_service.py:882` | 9 | B |
-| 12 | `_component_points_by_index` | method | `app/services/stateful_input_service.py:1101` | 9 | B |
-| 13 | `_collect_stateful_mwr_cash_flows` | function | `app/services/stateful_mwr_input_service.py:184` | 9 | B |
-| 14 | `split_position_cash_flows_in_value_basis` | function | `app/services/stateful_position_row_service.py:14` | 9 | B |
-| 15 | `_build_price_point_observation` | function | `app/services/stateless_benchmark_input_service.py:87` | 9 | B |
-| 16 | `build_twr_benchmark_supportability_evidence` | function | `app/services/twr_benchmark_supportability.py:18` | 9 | B |
-| 17 | `calculate_twr_workflow` | function | `app/services/twr_calculation_service.py:258` | 9 | B |
-| 18 | `resolve_twr_request` | function | `app/services/twr_mode_service.py:80` | 9 | B |
-| 19 | `_build_workspace_summary_response` | function | `app/services/workspace_summary_service.py:502` | 9 | B |
-| 20 | `_lineage_worker_runtime` | function | `app/workers/lineage_worker.py:69` | 9 | B |
-| 21 | `resolve_workspace_periods` | function | `core/workspace_periods.py:56` | 9 | B |
-| 22 | `_prepare_panel_from_groups` | function | `engine/attribution.py:411` | 9 | B |
-| 23 | `aggregate_attribution_results` | function | `engine/attribution.py:607` | 9 | B |
-| 24 | `_blocked_composite_period_result_for_invalid_ready_facts` | function | `engine/composites.py:181` | 9 | B |
-| 25 | `_composite_period_fact_metadata` | function | `engine/composites.py:305` | 9 | B |
+| 1 | `_position_market_value_pair` | function | `app/services/stateful_attribution_input_service.py:371` | 9 | B |
+| 2 | `build_stateful_benchmark_input` | function | `app/services/stateful_benchmark_input_service.py:39` | 9 | B |
+| 3 | `_load_component_price_series` | function | `app/services/stateful_benchmark_input_service.py:354` | 9 | B |
+| 4 | `_build_component_observation` | function | `app/services/stateful_benchmark_input_service.py:532` | 9 | B |
+| 5 | `get_benchmark_return_series` | method | `app/services/stateful_input_service.py:231` | 9 | B |
+| 6 | `get_benchmark_market_series` | method | `app/services/stateful_input_service.py:398` | 9 | B |
+| 7 | `get_fx_rates` | method | `app/services/stateful_input_service.py:478` | 9 | B |
+| 8 | `get_index_price_series` | method | `app/services/stateful_input_service.py:599` | 9 | B |
+| 9 | `get_risk_free_series` | method | `app/services/stateful_input_service.py:683` | 9 | B |
+| 10 | `_fetch_position_chunk` | method | `app/services/stateful_input_service.py:882` | 9 | B |
+| 11 | `_component_points_by_index` | method | `app/services/stateful_input_service.py:1101` | 9 | B |
+| 12 | `_collect_stateful_mwr_cash_flows` | function | `app/services/stateful_mwr_input_service.py:184` | 9 | B |
+| 13 | `split_position_cash_flows_in_value_basis` | function | `app/services/stateful_position_row_service.py:14` | 9 | B |
+| 14 | `_build_price_point_observation` | function | `app/services/stateless_benchmark_input_service.py:87` | 9 | B |
+| 15 | `build_twr_benchmark_supportability_evidence` | function | `app/services/twr_benchmark_supportability.py:18` | 9 | B |
+| 16 | `calculate_twr_workflow` | function | `app/services/twr_calculation_service.py:258` | 9 | B |
+| 17 | `resolve_twr_request` | function | `app/services/twr_mode_service.py:80` | 9 | B |
+| 18 | `_build_workspace_summary_response` | function | `app/services/workspace_summary_service.py:502` | 9 | B |
+| 19 | `_lineage_worker_runtime` | function | `app/workers/lineage_worker.py:69` | 9 | B |
+| 20 | `resolve_workspace_periods` | function | `core/workspace_periods.py:56` | 9 | B |
+| 21 | `_prepare_panel_from_groups` | function | `engine/attribution.py:411` | 9 | B |
+| 22 | `aggregate_attribution_results` | function | `engine/attribution.py:607` | 9 | B |
+| 23 | `_blocked_composite_period_result_for_invalid_ready_facts` | function | `engine/composites.py:181` | 9 | B |
+| 24 | `_composite_period_fact_metadata` | function | `engine/composites.py:305` | 9 | B |
+| 25 | `_flag_outliers` | function | `engine/policies.py:118` | 9 | B |
 
 ## Lowest Maintainability Index
 

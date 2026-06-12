@@ -36,7 +36,7 @@ python scripts/python_function_size_inventory.py --limit 20
 | 14 | `calculate_attribution` | `app/services/attribution_service.py:206` | 104 |
 | 15 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:200` | 102 |
 | 16 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:304` | 102 |
-| 17 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:71` | 101 |
+| 17 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:87` | 101 |
 | 18 | `_calculate_position_flow_balance_counts` | `app/services/contribution_diagnostics.py:183` | 99 |
 | 19 | `_calculate_returns_series` | `app/services/returns_series_service.py:1296` | 97 |
 | 20 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:62` | 97 |
