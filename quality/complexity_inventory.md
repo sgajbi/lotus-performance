@@ -22,37 +22,37 @@ python scripts/python_complexity_inventory.py --limit 25
 | --- | ---: |
 | Max cyclomatic complexity | 9 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.47 |
+| Average maintainability index | 55.48 |
 
 ## Highest Cyclomatic Complexity
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_validate_returns_series_input_envelopes` | function | `app/models/returns_series.py:252` | 9 | B |
-| 2 | `JsonFormatter` | class | `app/observability.py:68` | 9 | B |
-| 3 | `_build_schema_example` | function | `app/openapi_enrichment.py:380` | 9 | B |
-| 4 | `_ensure_operation_documentation` | function | `app/openapi_enrichment.py:613` | 9 | B |
-| 5 | `_ensure_property_schema_documentation` | function | `app/openapi_enrichment.py:683` | 9 | B |
-| 6 | `calculate_attribution_workflow` | function | `app/services/attribution_calculation_workflow_service.py:91` | 9 | B |
-| 7 | `calculate_attribution` | function | `app/services/attribution_service.py:168` | 9 | B |
-| 8 | `_group_identity` | function | `app/services/benchmark_exposure_context_service.py:274` | 9 | B |
-| 9 | `reconcile_stale_jobs` | method | `app/services/compute_job_store.py:481` | 9 | B |
-| 10 | `_to_record` | method | `app/services/compute_job_store.py:1113` | 9 | B |
-| 11 | `_rollout_posture_notes` | method | `app/services/contribution_audit.py:125` | 9 | B |
-| 12 | `_compare_return_values` | function | `app/services/inspection/calculation_consistency.py:643` | 9 | B |
-| 13 | `_build_detailed_cashflow_contract_findings` | function | `app/services/inspection/source_economics_findings.py:112` | 9 | B |
-| 14 | `filter_history_entries` | function | `app/services/operator_action_history_filters.py:79` | 9 | B |
-| 15 | `validate_history_manifest_header` | function | `app/services/operator_action_history_manifest.py:101` | 9 | B |
-| 16 | `_read_active_operator_action_lease` | function | `app/services/operator_action_lease_service.py:285` | 9 | B |
-| 17 | `_runtime_retention_payload_identity_matches` | function | `app/services/operator_action_replay_service.py:191` | 9 | B |
-| 18 | `parse_stateful_portfolio_timeseries_payload` | function | `app/services/portfolio_source_service.py:59` | 9 | B |
-| 19 | `build_returns_series_execution_window` | function | `app/services/returns_series_calculation_workflow_service.py:55` | 9 | B |
-| 20 | `detect_gaps` | function | `app/services/returns_series_service.py:277` | 9 | B |
-| 21 | `_validate_manifest_entry` | function | `app/services/runtime_retention_history_service.py:197` | 9 | B |
-| 22 | `_position_market_value_pair` | function | `app/services/stateful_attribution_input_service.py:371` | 9 | B |
-| 23 | `build_stateful_benchmark_input` | function | `app/services/stateful_benchmark_input_service.py:39` | 9 | B |
-| 24 | `_load_component_price_series` | function | `app/services/stateful_benchmark_input_service.py:354` | 9 | B |
-| 25 | `_build_component_observation` | function | `app/services/stateful_benchmark_input_service.py:532` | 9 | B |
+| 1 | `JsonFormatter` | class | `app/observability.py:68` | 9 | B |
+| 2 | `_build_schema_example` | function | `app/openapi_enrichment.py:380` | 9 | B |
+| 3 | `_ensure_operation_documentation` | function | `app/openapi_enrichment.py:613` | 9 | B |
+| 4 | `_ensure_property_schema_documentation` | function | `app/openapi_enrichment.py:683` | 9 | B |
+| 5 | `calculate_attribution_workflow` | function | `app/services/attribution_calculation_workflow_service.py:91` | 9 | B |
+| 6 | `calculate_attribution` | function | `app/services/attribution_service.py:168` | 9 | B |
+| 7 | `_group_identity` | function | `app/services/benchmark_exposure_context_service.py:274` | 9 | B |
+| 8 | `reconcile_stale_jobs` | method | `app/services/compute_job_store.py:481` | 9 | B |
+| 9 | `_to_record` | method | `app/services/compute_job_store.py:1113` | 9 | B |
+| 10 | `_rollout_posture_notes` | method | `app/services/contribution_audit.py:125` | 9 | B |
+| 11 | `_compare_return_values` | function | `app/services/inspection/calculation_consistency.py:643` | 9 | B |
+| 12 | `_build_detailed_cashflow_contract_findings` | function | `app/services/inspection/source_economics_findings.py:112` | 9 | B |
+| 13 | `filter_history_entries` | function | `app/services/operator_action_history_filters.py:79` | 9 | B |
+| 14 | `validate_history_manifest_header` | function | `app/services/operator_action_history_manifest.py:101` | 9 | B |
+| 15 | `_read_active_operator_action_lease` | function | `app/services/operator_action_lease_service.py:285` | 9 | B |
+| 16 | `_runtime_retention_payload_identity_matches` | function | `app/services/operator_action_replay_service.py:191` | 9 | B |
+| 17 | `parse_stateful_portfolio_timeseries_payload` | function | `app/services/portfolio_source_service.py:59` | 9 | B |
+| 18 | `build_returns_series_execution_window` | function | `app/services/returns_series_calculation_workflow_service.py:55` | 9 | B |
+| 19 | `detect_gaps` | function | `app/services/returns_series_service.py:277` | 9 | B |
+| 20 | `_validate_manifest_entry` | function | `app/services/runtime_retention_history_service.py:197` | 9 | B |
+| 21 | `_position_market_value_pair` | function | `app/services/stateful_attribution_input_service.py:371` | 9 | B |
+| 22 | `build_stateful_benchmark_input` | function | `app/services/stateful_benchmark_input_service.py:39` | 9 | B |
+| 23 | `_load_component_price_series` | function | `app/services/stateful_benchmark_input_service.py:354` | 9 | B |
+| 24 | `_build_component_observation` | function | `app/services/stateful_benchmark_input_service.py:532` | 9 | B |
+| 25 | `get_benchmark_return_series` | method | `app/services/stateful_input_service.py:231` | 9 | B |
 
 ## Lowest Maintainability Index
 
@@ -78,6 +78,11 @@ python scripts/python_complexity_inventory.py --limit 25
 | 18 | `app/services/twr_mode_service.py` | 18.52 | B |
 | 19 | `app/services/inspection/source_quality.py` | 18.55 | B |
 | 20 | `app/models/runtime_status.py` | 19.85 | A |
+| 21 | `app/models/returns_series.py` | 20.22 | A |
+| 22 | `app/services/inspection/twr_inspection_service.py` | 20.47 | A |
+| 23 | `engine/composites.py` | 22.41 | A |
+| 24 | `app/services/stateful_mwr_input_service.py` | 22.67 | A |
+| 25 | `engine/mwr.py` | 23.41 | A |
 
 ## Interpretation
 
@@ -316,6 +321,8 @@ evidence projection, no-check finding insertion, and pending-family calculation 
 dedicated finding-context helper.
 `validate_mode_fields` also dropped out after explicit and relative returns-window validation
 policy were moved into dedicated helpers.
+`_validate_returns_series_input_envelopes` also dropped out after stateless and stateful request
+envelope policy were moved into dedicated helpers.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.

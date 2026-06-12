@@ -255,13 +255,37 @@ def _validate_returns_series_input_envelopes(
     stateless_input: StatelessInput | None,
     stateful_input: StatefulInput | None,
 ) -> None:
-    if input_mode == InputMode.STATELESS and stateless_input is None:
+    if input_mode == InputMode.STATELESS:
+        _validate_stateless_returns_series_input_envelope(
+            stateless_input=stateless_input,
+            stateful_input=stateful_input,
+        )
+    if input_mode == InputMode.STATEFUL:
+        _validate_stateful_returns_series_input_envelope(
+            stateless_input=stateless_input,
+            stateful_input=stateful_input,
+        )
+
+
+def _validate_stateless_returns_series_input_envelope(
+    *,
+    stateless_input: StatelessInput | None,
+    stateful_input: StatefulInput | None,
+) -> None:
+    if stateless_input is None:
         raise ValueError("stateless_input is required when input_mode=stateless")
-    if input_mode == InputMode.STATEFUL and stateful_input is None:
-        raise ValueError("stateful_input is required when input_mode=stateful")
-    if input_mode == InputMode.STATELESS and stateful_input is not None:
+    if stateful_input is not None:
         raise ValueError("stateful_input must be null when input_mode=stateless")
-    if input_mode == InputMode.STATEFUL and stateless_input is not None:
+
+
+def _validate_stateful_returns_series_input_envelope(
+    *,
+    stateless_input: StatelessInput | None,
+    stateful_input: StatefulInput | None,
+) -> None:
+    if stateful_input is None:
+        raise ValueError("stateful_input is required when input_mode=stateful")
+    if stateless_input is not None:
         raise ValueError("stateless_input must be null when input_mode=stateful")
 
 

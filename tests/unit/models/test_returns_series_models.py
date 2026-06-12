@@ -9,8 +9,12 @@ from app.models.returns_series import (
     ReturnsRelativePeriod,
     ReturnsWindow,
     ReturnsWindowMode,
+    StatefulInput,
+    StatelessInput,
     _validate_explicit_returns_window,
     _validate_relative_returns_window,
+    _validate_stateful_returns_series_input_envelope,
+    _validate_stateless_returns_series_input_envelope,
 )
 
 
@@ -110,6 +114,31 @@ def test_returns_series_request_rejects_mixed_input_envelopes():
     }
     with pytest.raises(ValidationError, match="stateless_input must be null when input_mode=stateful"):
         ReturnsSeriesRequest.model_validate(stateful_payload)
+
+
+def test_returns_series_input_envelope_helpers_preserve_mode_policy():
+    stateless_input = StatelessInput.model_validate(
+        {"portfolio_returns": [{"date": "2026-02-24", "return_value": "0.0010"}]}
+    )
+    stateful_input = StatefulInput()
+
+    _validate_stateless_returns_series_input_envelope(stateless_input=stateless_input, stateful_input=None)
+    _validate_stateful_returns_series_input_envelope(stateless_input=None, stateful_input=stateful_input)
+
+    with pytest.raises(ValueError, match="stateless_input is required when input_mode=stateless"):
+        _validate_stateless_returns_series_input_envelope(stateless_input=None, stateful_input=None)
+    with pytest.raises(ValueError, match="stateful_input must be null when input_mode=stateless"):
+        _validate_stateless_returns_series_input_envelope(
+            stateless_input=stateless_input,
+            stateful_input=stateful_input,
+        )
+    with pytest.raises(ValueError, match="stateful_input is required when input_mode=stateful"):
+        _validate_stateful_returns_series_input_envelope(stateless_input=None, stateful_input=None)
+    with pytest.raises(ValueError, match="stateless_input must be null when input_mode=stateful"):
+        _validate_stateful_returns_series_input_envelope(
+            stateless_input=stateless_input,
+            stateful_input=stateful_input,
+        )
 
 
 def test_returns_series_request_requires_stateful_input_when_stateful_mode():
