@@ -132,6 +132,15 @@ class ReconciledJobRecord:
 
 
 @dataclass(frozen=True)
+class _ComputeJobRecordPayloadState:
+    job_status: ComputeJobStatus
+    request_payload: dict[str, Any]
+    response_payload: dict[str, Any] | None
+    error_message: str | None
+    error_type: str | None
+
+
+@dataclass(frozen=True)
 class ComputeQueueStats:
     pending_count: int
     leased_count: int
@@ -1112,26 +1121,19 @@ class ComputeJobStore:
     def _to_record(self, row: ComputeJobModel) -> ComputeJobRecord:
         request_payload = _load_request_payload(row)
         response_payload = _load_response_payload(row)
-        job_status = ComputeJobStatus(row.job_status)
-        error_message = row.error_message
-        error_type = row.error_type
-        if request_payload is None:
-            job_status = ComputeJobStatus.FAILED
-            error_message = error_message or INVALID_COMPUTE_JOB_REQUEST_PAYLOAD_MESSAGE
-            error_type = error_type or INVALID_COMPUTE_JOB_REQUEST_PAYLOAD_ERROR_TYPE
-            request_payload = {}
-        if row.response_json and response_payload is None:
-            job_status = ComputeJobStatus.FAILED
-            error_message = error_message or INVALID_COMPUTE_JOB_RESPONSE_PAYLOAD_MESSAGE
-            error_type = error_type or INVALID_COMPUTE_JOB_RESPONSE_PAYLOAD_ERROR_TYPE
+        payload_state = _compute_job_record_payload_state(
+            row,
+            request_payload=request_payload,
+            response_payload=response_payload,
+        )
         return ComputeJobRecord(
             calculation_id=UUID(row.calculation_id),
             analytics_type=row.analytics_type,
-            job_status=job_status,
-            request_payload=request_payload,
-            response_payload=response_payload,
-            error_message=error_message,
-            error_type=error_type,
+            job_status=payload_state.job_status,
+            request_payload=payload_state.request_payload,
+            response_payload=payload_state.response_payload,
+            error_message=payload_state.error_message,
+            error_type=payload_state.error_type,
             attempt_count=row.attempt_count,
             max_attempts=row.max_attempts,
             worker_id=row.worker_id,
@@ -1195,6 +1197,33 @@ def get_compute_job_store(*, database_url: str | None = None) -> ComputeJobStore
 
 
 compute_job_store = RuntimeStoreProxy(get_compute_job_store)
+
+
+def _compute_job_record_payload_state(
+    row: ComputeJobModel,
+    *,
+    request_payload: dict[str, Any] | None,
+    response_payload: dict[str, Any] | None,
+) -> _ComputeJobRecordPayloadState:
+    job_status = ComputeJobStatus(row.job_status)
+    error_message = row.error_message
+    error_type = row.error_type
+    if request_payload is None:
+        job_status = ComputeJobStatus.FAILED
+        error_message = error_message or INVALID_COMPUTE_JOB_REQUEST_PAYLOAD_MESSAGE
+        error_type = error_type or INVALID_COMPUTE_JOB_REQUEST_PAYLOAD_ERROR_TYPE
+        request_payload = {}
+    if row.response_json and response_payload is None:
+        job_status = ComputeJobStatus.FAILED
+        error_message = error_message or INVALID_COMPUTE_JOB_RESPONSE_PAYLOAD_MESSAGE
+        error_type = error_type or INVALID_COMPUTE_JOB_RESPONSE_PAYLOAD_ERROR_TYPE
+    return _ComputeJobRecordPayloadState(
+        job_status=job_status,
+        request_payload=request_payload,
+        response_payload=response_payload,
+        error_message=error_message,
+        error_type=error_type,
+    )
 
 
 def _load_request_payload(row: ComputeJobModel) -> dict[str, Any] | None:

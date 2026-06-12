@@ -81,6 +81,37 @@ def test_compute_job_store_fails_closed_on_invalid_response_json(tmp_path, caplo
     assert f"calculation_id={calculation_id}" in caplog.text
 
 
+def test_compute_job_store_preserves_existing_error_details_on_invalid_response_json(tmp_path, caplog):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
+    store.create_schema()
+    calculation_id = uuid4()
+    now = datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc)
+
+    store.enqueue_job(
+        calculation_id=calculation_id,
+        analytics_type="ReturnsSeries",
+        request_payload={"portfolio_id": "P1"},
+    )
+    with store._session() as session:
+        row = session.get(ComputeJobModel, str(calculation_id))
+        assert row is not None
+        row.job_status = ComputeJobStatus.COMPLETE.value
+        row.response_json = "{not-json"
+        row.error_message = "upstream stored error"
+        row.error_type = "UpstreamStoredError"
+        row.completed_at_utc = now
+
+    with caplog.at_level("WARNING", logger="app.services.compute_job_store"):
+        record = store.get_job(calculation_id)
+
+    assert record is not None
+    assert record.job_status == ComputeJobStatus.FAILED
+    assert record.response_payload is None
+    assert record.error_message == "upstream stored error"
+    assert record.error_type == "UpstreamStoredError"
+    assert f"calculation_id={calculation_id}" in caplog.text
+
+
 def test_compute_job_store_fails_closed_on_invalid_request_json(tmp_path, caplog):
     store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
     store.create_schema()
