@@ -488,35 +488,34 @@ class ComputeJobStore:
             )
             rows = session.execute(statement).scalars().all()
             for row in rows:
-                previous_status = ComputeJobStatus(row.job_status)
-                exhausted_retries = (
-                    previous_status == ComputeJobStatus.RUNNING and row.attempt_count >= row.max_attempts
-                )
-                row.worker_id = None
-                row.leased_at_utc = None
-                row.lease_expires_at_utc = None
-                row.last_error_at_utc = reconcile_now
-                row.error_message = (
-                    "Compute job reconciliation detected an expired worker lease."
-                    if not exhausted_retries
-                    else "Compute job execution lease expired after exhausting retry budget."
-                )
-                row.error_type = "LeaseExpired"
-                row.completed_at_utc = reconcile_now if exhausted_retries else None
-                row.job_status = ComputeJobStatus.FAILED.value if exhausted_retries else ComputeJobStatus.PENDING.value
-                reconciled.append(
-                    ReconciledJobRecord(
-                        calculation_id=UUID(row.calculation_id),
-                        analytics_type=row.analytics_type,
-                        previous_status=previous_status,
-                        reconciled_status=ComputeJobStatus(row.job_status),
-                        attempt_count=row.attempt_count,
-                        max_attempts=row.max_attempts,
-                        error_message=row.error_message,
-                        error_type=row.error_type or "LeaseExpired",
-                    )
-                )
+                reconciled.append(self._reconcile_stale_job_row(row, now=reconcile_now))
         return reconciled
+
+    def _reconcile_stale_job_row(self, row: ComputeJobModel, *, now: datetime) -> ReconciledJobRecord:
+        previous_status = ComputeJobStatus(row.job_status)
+        exhausted_retries = previous_status == ComputeJobStatus.RUNNING and row.attempt_count >= row.max_attempts
+        row.worker_id = None
+        row.leased_at_utc = None
+        row.lease_expires_at_utc = None
+        row.last_error_at_utc = now
+        row.error_message = (
+            "Compute job execution lease expired after exhausting retry budget."
+            if exhausted_retries
+            else "Compute job reconciliation detected an expired worker lease."
+        )
+        row.error_type = "LeaseExpired"
+        row.completed_at_utc = now if exhausted_retries else None
+        row.job_status = ComputeJobStatus.FAILED.value if exhausted_retries else ComputeJobStatus.PENDING.value
+        return ReconciledJobRecord(
+            calculation_id=UUID(row.calculation_id),
+            analytics_type=row.analytics_type,
+            previous_status=previous_status,
+            reconciled_status=ComputeJobStatus(row.job_status),
+            attempt_count=row.attempt_count,
+            max_attempts=row.max_attempts,
+            error_message=row.error_message,
+            error_type=row.error_type or "LeaseExpired",
+        )
 
     def _build_lease_pending_jobs_statement(
         self,

@@ -319,6 +319,39 @@ def test_compute_job_store_reconciles_stale_running_job(tmp_path):
     assert failed.error_message == "Compute job execution lease expired after exhausting retry budget."
 
 
+def test_compute_job_store_reconciles_stale_leased_job_without_exhausting_retries(tmp_path):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
+    store.create_schema()
+    calculation_id = uuid4()
+    reconcile_now = datetime(2026, 6, 12, 12, 0, tzinfo=timezone.utc)
+
+    store.enqueue_job(
+        calculation_id=calculation_id,
+        analytics_type="Attribution",
+        request_payload={"portfolio_id": "P1"},
+        max_attempts=3,
+    )
+    store.lease_pending_jobs(worker_id="worker-a", limit=10, lease_seconds=30)
+    with store._session() as session:
+        row = store._get_model(session, calculation_id)
+        row.lease_expires_at_utc = reconcile_now - timedelta(seconds=1)
+
+    reconciled = store.reconcile_stale_jobs(now=reconcile_now)
+
+    assert len(reconciled) == 1
+    assert reconciled[0].previous_status == ComputeJobStatus.LEASED
+    assert reconciled[0].reconciled_status == ComputeJobStatus.PENDING
+    assert reconciled[0].error_message == "Compute job reconciliation detected an expired worker lease."
+    assert reconciled[0].error_type == "LeaseExpired"
+    pending = store.get_job(calculation_id)
+    assert pending is not None
+    assert pending.job_status == ComputeJobStatus.PENDING
+    assert pending.worker_id is None
+    assert pending.leased_at_utc is None
+    assert pending.lease_expires_at_utc is None
+    assert pending.completed_at_utc is None
+
+
 def test_compute_job_store_pending_lease_statement_uses_skip_locked_on_postgresql(tmp_path):
     store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
 
