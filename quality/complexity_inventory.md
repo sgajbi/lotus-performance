@@ -28,31 +28,31 @@ python scripts/python_complexity_inventory.py --limit 25
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_validate_returns_series_stateless_selection_inputs` | function | `app/models/returns_series.py:292` | 8 | B |
-| 2 | `WorkspaceBenchmarkRequest` | class | `app/models/workspace_summary_requests.py:103` | 8 | B |
-| 3 | `_explicit_schema_example` | function | `app/openapi_enrichment.py:316` | 8 | B |
-| 4 | `_build_schema_example` | function | `app/openapi_enrichment.py:402` | 8 | B |
-| 5 | `resolve_async_result` | function | `app/services/async_result_service.py:18` | 8 | B |
-| 6 | `get_result` | method | `app/services/async_result_store.py:137` | 8 | B |
-| 7 | `attribution_input_count` | function | `app/services/attribution_calculation_workflow_service.py:38` | 8 | B |
-| 8 | `calculate_attribution_workflow` | function | `app/services/attribution_calculation_workflow_service.py:161` | 8 | B |
-| 9 | `_inspection_active_since` | method | `app/services/compute_job_store.py:1168` | 8 | B |
-| 10 | `_compute_job_record_payload_state` | function | `app/services/compute_job_store.py:1202` | 8 | B |
-| 11 | `record_cutover_assessment` | method | `app/services/contribution_audit.py:60` | 8 | B |
-| 12 | `_calculate_reset_aware_average_weight_shadow` | function | `app/services/contribution_methodology.py:43` | 8 | B |
-| 13 | `_build_residual_adjusted_position_timeseries` | function | `app/services/contribution_series.py:57` | 8 | B |
-| 14 | `calculate_contribution` | function | `app/services/contribution_service.py:525` | 8 | B |
-| 15 | `_contribution_smoothing_status_and_reasons` | function | `app/services/contribution_smoothing.py:28` | 8 | B |
-| 16 | `_available_stateful_economics` | function | `app/services/contribution_source_economics.py:99` | 8 | B |
-| 17 | `_cash_flow_type_counts` | function | `app/services/contribution_source_economics.py:168` | 8 | B |
-| 18 | `_collect_position_continuity_gap_samples` | function | `app/services/inspection/reconciliation.py:500` | 8 | B |
-| 19 | `_row_has_transition_activity` | function | `app/services/inspection/reconciliation.py:563` | 8 | B |
-| 20 | `_sum_detailed_cash_flows` | function | `app/services/inspection/source_economics.py:542` | 8 | B |
-| 21 | `_record_fee_source_signals` | method | `app/services/inspection/source_economics_collector.py:196` | 8 | B |
-| 22 | `run_source_quality_checks` | function | `app/services/inspection/source_quality.py:91` | 8 | B |
-| 23 | `_inspection_timing` | method | `app/services/lineage_metadata_store.py:1163` | 8 | B |
-| 24 | `calculate_mwr_response` | function | `app/services/mwr_calculation_service.py:152` | 8 | B |
-| 25 | `_validate_component` | function | `app/services/mwr_fx_evidence_service.py:195` | 8 | B |
+| 1 | `WorkspaceBenchmarkRequest` | class | `app/models/workspace_summary_requests.py:103` | 8 | B |
+| 2 | `_explicit_schema_example` | function | `app/openapi_enrichment.py:316` | 8 | B |
+| 3 | `_build_schema_example` | function | `app/openapi_enrichment.py:402` | 8 | B |
+| 4 | `resolve_async_result` | function | `app/services/async_result_service.py:18` | 8 | B |
+| 5 | `get_result` | method | `app/services/async_result_store.py:137` | 8 | B |
+| 6 | `attribution_input_count` | function | `app/services/attribution_calculation_workflow_service.py:38` | 8 | B |
+| 7 | `calculate_attribution_workflow` | function | `app/services/attribution_calculation_workflow_service.py:161` | 8 | B |
+| 8 | `_inspection_active_since` | method | `app/services/compute_job_store.py:1168` | 8 | B |
+| 9 | `_compute_job_record_payload_state` | function | `app/services/compute_job_store.py:1202` | 8 | B |
+| 10 | `record_cutover_assessment` | method | `app/services/contribution_audit.py:60` | 8 | B |
+| 11 | `_calculate_reset_aware_average_weight_shadow` | function | `app/services/contribution_methodology.py:43` | 8 | B |
+| 12 | `_build_residual_adjusted_position_timeseries` | function | `app/services/contribution_series.py:57` | 8 | B |
+| 13 | `calculate_contribution` | function | `app/services/contribution_service.py:525` | 8 | B |
+| 14 | `_contribution_smoothing_status_and_reasons` | function | `app/services/contribution_smoothing.py:28` | 8 | B |
+| 15 | `_available_stateful_economics` | function | `app/services/contribution_source_economics.py:99` | 8 | B |
+| 16 | `_cash_flow_type_counts` | function | `app/services/contribution_source_economics.py:168` | 8 | B |
+| 17 | `_collect_position_continuity_gap_samples` | function | `app/services/inspection/reconciliation.py:500` | 8 | B |
+| 18 | `_row_has_transition_activity` | function | `app/services/inspection/reconciliation.py:563` | 8 | B |
+| 19 | `_sum_detailed_cash_flows` | function | `app/services/inspection/source_economics.py:542` | 8 | B |
+| 20 | `_record_fee_source_signals` | method | `app/services/inspection/source_economics_collector.py:196` | 8 | B |
+| 21 | `run_source_quality_checks` | function | `app/services/inspection/source_quality.py:91` | 8 | B |
+| 22 | `_inspection_timing` | method | `app/services/lineage_metadata_store.py:1163` | 8 | B |
+| 23 | `calculate_mwr_response` | function | `app/services/mwr_calculation_service.py:152` | 8 | B |
+| 24 | `_validate_component` | function | `app/services/mwr_fx_evidence_service.py:195` | 8 | B |
+| 25 | `build_applied_history_filters` | function | `app/services/operator_action_history_filters.py:55` | 8 | B |
 
 ## Lowest Maintainability Index
 
@@ -397,6 +397,8 @@ request validation.
 `_resolve_mwr_stateless_input` also dropped out after complete explicit override detection and
 legacy payload resolution were isolated from nested stateless payload precedence and missing-input
 failure handling.
+`_validate_returns_series_stateless_selection_inputs` also dropped out after selected benchmark and
+risk-free stateless series requirements were routed through one reusable required-series helper.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.

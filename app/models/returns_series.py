@@ -297,10 +297,31 @@ def _validate_returns_series_stateless_selection_inputs(
 ) -> None:
     if input_mode != InputMode.STATELESS:
         return
-    if series_selection.include_benchmark and (not stateless_input or not stateless_input.benchmark_returns):
-        raise ValueError("benchmark_returns are required when include_benchmark=true in stateless mode")
-    if series_selection.include_risk_free and (not stateless_input or not stateless_input.risk_free_returns):
-        raise ValueError("risk_free_returns are required when include_risk_free=true in stateless mode")
+    _require_selected_stateless_series(
+        selected=series_selection.include_benchmark,
+        stateless_input=stateless_input,
+        values=stateless_input.benchmark_returns if stateless_input is not None else None,
+        message="benchmark_returns are required when include_benchmark=true in stateless mode",
+    )
+    _require_selected_stateless_series(
+        selected=series_selection.include_risk_free,
+        stateless_input=stateless_input,
+        values=stateless_input.risk_free_returns if stateless_input is not None else None,
+        message="risk_free_returns are required when include_risk_free=true in stateless mode",
+    )
+
+
+def _require_selected_stateless_series(
+    *,
+    selected: bool,
+    stateless_input: StatelessInput | None,
+    values: list[ReturnPoint] | None,
+    message: str,
+) -> None:
+    if not selected:
+        return
+    if stateless_input is None or not values:
+        raise ValueError(message)
 
 
 def _validate_returns_series_stateless_benchmark_override(

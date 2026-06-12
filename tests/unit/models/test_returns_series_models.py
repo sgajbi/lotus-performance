@@ -11,6 +11,7 @@ from app.models.returns_series import (
     ReturnsWindowMode,
     StatefulInput,
     StatelessInput,
+    _require_selected_stateless_series,
     _validate_explicit_returns_window,
     _validate_relative_returns_window,
     _validate_stateful_returns_series_input_envelope,
@@ -138,6 +139,34 @@ def test_returns_series_input_envelope_helpers_preserve_mode_policy():
         _validate_stateful_returns_series_input_envelope(
             stateless_input=stateless_input,
             stateful_input=stateful_input,
+        )
+
+
+def test_require_selected_stateless_series_preserves_selected_series_policy():
+    stateless_input = StatelessInput.model_validate(
+        {"portfolio_returns": [{"date": "2026-02-24", "return_value": "0.0010"}]}
+    )
+
+    _require_selected_stateless_series(
+        selected=False,
+        stateless_input=None,
+        values=None,
+        message="not used",
+    )
+
+    with pytest.raises(ValueError, match="benchmark_returns are required"):
+        _require_selected_stateless_series(
+            selected=True,
+            stateless_input=stateless_input,
+            values=stateless_input.benchmark_returns,
+            message="benchmark_returns are required when include_benchmark=true in stateless mode",
+        )
+    with pytest.raises(ValueError, match="risk_free_returns are required"):
+        _require_selected_stateless_series(
+            selected=True,
+            stateless_input=None,
+            values=None,
+            message="risk_free_returns are required when include_risk_free=true in stateless mode",
         )
 
 
