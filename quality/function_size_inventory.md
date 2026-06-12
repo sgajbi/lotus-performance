@@ -27,7 +27,7 @@ python scripts/python_function_size_inventory.py --limit 20
 | 5 | `_build_fee_source_economics_findings` | `app/services/inspection/source_economics_findings.py:442` | 130 |
 | 6 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:327` | 130 |
 | 7 | `aggregate_attribution_results` | `engine/attribution.py:607` | 126 |
-| 8 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:482` | 122 |
+| 8 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:502` | 122 |
 | 9 | `calculate_attribution` | `app/services/attribution_service.py:168` | 120 |
 | 10 | `_build_artifacts` | `app/services/composite_inspection_service.py:114` | 118 |
 | 11 | `run_runtime_retention_cleanup` | `app/services/runtime_retention_run_service.py:32` | 111 |

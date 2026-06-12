@@ -19,6 +19,7 @@ from app.services.workspace_summary_service import (
     _annualize_percentage,
     _build_economic_context,
     _build_mwr_cash_flows,
+    _build_stateless_workspace_benchmark_input,
     _build_workspace_benchmark_and_active_blocks,
     _build_workspace_benchmark_daily_df,
     _date_from_boundary,
@@ -443,6 +444,49 @@ def test_resolve_workspace_benchmark_input_rejects_stateless_payload_missing_req
             settings=SimpleNamespace(),
             master_start_date=date(2026, 1, 2),
         )
+
+
+def test_build_stateless_workspace_benchmark_input_projects_vendor_return_points():
+    request = WorkspaceSummaryRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT-1",
+            "report_end_date": "2026-01-02",
+            "input_mode": "stateful",
+            "stateful_input": {},
+            "periods": [{"period": "1D", "frequencies": ["daily"]}],
+            "include_benchmark": True,
+            "benchmark": {
+                "benchmark_id": "BMK-1",
+                "input_mode": "stateless",
+                "return_source": "vendor_series",
+                "stateless_input": {
+                    "benchmark_currency": "USD",
+                    "benchmark_return_points": [
+                        {"perf_date": "2026-01-01", "benchmark_return": 0.01},
+                        {"perf_date": "2026-01-02", "benchmark_return": 0.02},
+                    ],
+                },
+            },
+        }
+    )
+
+    assert request.benchmark is not None
+    result = _build_stateless_workspace_benchmark_input(
+        request=request,
+        benchmark=request.benchmark,
+        master_start_date=date(2026, 1, 1),
+    )
+
+    assert result.input_mode == BenchmarkInputMode.STATELESS
+    assert result.benchmark_id == "BMK-1"
+    assert result.source_details == {}
+    assert result.benchmark_request.benchmark_id == "BMK-1"
+    assert result.benchmark_request.return_source == "vendor_series"
+    assert result.benchmark_request.benchmark_start_date == date(2026, 1, 1)
+    assert result.benchmark_request.report_start_date == date(2026, 1, 1)
+    assert result.benchmark_request.component_observations == []
+    assert [point.benchmark_return for point in result.benchmark_request.benchmark_return_points] == [0.01, 0.02]
 
 
 def test_resolve_workspace_portfolio_input_rejects_stateless_request_without_performance_start_date():

@@ -332,39 +332,10 @@ def _resolve_workspace_benchmark_input(
         }
     )
     if benchmark.input_mode == BenchmarkInputMode.STATELESS:
-        if benchmark.stateless_input is None or benchmark.benchmark_id is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Stateless workspace benchmark requests require benchmark_id and stateless_input.",
-            )
-        resolved_request = BenchmarkPerformanceRequest.model_validate(
-            {
-                "calculation_id": request.calculation_id,
-                "benchmark_id": benchmark.benchmark_id,
-                "benchmark_start_date": master_start_date,
-                "report_end_date": request.report_end_date,
-                "return_source": benchmark.return_source.value,
-                "benchmark_currency": benchmark.stateless_input.benchmark_currency,
-                "component_observations": (
-                    normalize_stateless_component_observations(
-                        benchmark_currency=benchmark.stateless_input.benchmark_currency,
-                        stateless_input=benchmark.stateless_input,
-                    )
-                    if benchmark.return_source == BenchmarkReturnSource.CALCULATED
-                    else []
-                ),
-                "benchmark_return_points": [
-                    point.model_dump(mode="python") for point in benchmark.stateless_input.benchmark_return_points
-                ],
-                "analyses": [{"period": "EXPLICIT", "frequencies": ["daily"]}],
-                "report_start_date": master_start_date,
-            }
-        )
-        return ResolvedWorkspaceBenchmarkInput(
-            benchmark_request=resolved_request,
-            input_mode=BenchmarkInputMode.STATELESS,
-            benchmark_id=benchmark.benchmark_id,
-            source_details={},
+        return _build_stateless_workspace_benchmark_input(
+            request=request,
+            benchmark=benchmark,
+            master_start_date=master_start_date,
         )
 
     stateful_input_service = build_stateful_input_service(settings=settings)
@@ -414,6 +385,48 @@ def _resolve_workspace_benchmark_input(
         input_mode=BenchmarkInputMode.STATEFUL,
         benchmark_id=identity.benchmark_id,
         source_details=source_details,
+    )
+
+
+def _build_stateless_workspace_benchmark_input(
+    *,
+    request: WorkspaceSummaryRequest,
+    benchmark: WorkspaceBenchmarkRequest,
+    master_start_date: date,
+) -> ResolvedWorkspaceBenchmarkInput:
+    if benchmark.stateless_input is None or benchmark.benchmark_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Stateless workspace benchmark requests require benchmark_id and stateless_input.",
+        )
+    resolved_request = BenchmarkPerformanceRequest.model_validate(
+        {
+            "calculation_id": request.calculation_id,
+            "benchmark_id": benchmark.benchmark_id,
+            "benchmark_start_date": master_start_date,
+            "report_end_date": request.report_end_date,
+            "return_source": benchmark.return_source.value,
+            "benchmark_currency": benchmark.stateless_input.benchmark_currency,
+            "component_observations": (
+                normalize_stateless_component_observations(
+                    benchmark_currency=benchmark.stateless_input.benchmark_currency,
+                    stateless_input=benchmark.stateless_input,
+                )
+                if benchmark.return_source == BenchmarkReturnSource.CALCULATED
+                else []
+            ),
+            "benchmark_return_points": [
+                point.model_dump(mode="python") for point in benchmark.stateless_input.benchmark_return_points
+            ],
+            "analyses": [{"period": "EXPLICIT", "frequencies": ["daily"]}],
+            "report_start_date": master_start_date,
+        }
+    )
+    return ResolvedWorkspaceBenchmarkInput(
+        benchmark_request=resolved_request,
+        input_mode=BenchmarkInputMode.STATELESS,
+        benchmark_id=benchmark.benchmark_id,
+        source_details={},
     )
 
 
