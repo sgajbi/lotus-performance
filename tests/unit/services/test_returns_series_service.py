@@ -493,6 +493,23 @@ def test_detect_gaps_does_not_flag_weekends_under_business_calendar():
     assert [gap.gap_days for gap in calendar_gaps] == [2]
 
 
+def test_detect_gaps_applies_weekly_interval_threshold():
+    df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-04-03", "2026-04-11", "2026-04-20"]),
+            "return_value": [Decimal("0.001"), Decimal("0.002"), Decimal("0.003")],
+        }
+    )
+
+    gaps = returns_series_service.detect_gaps(
+        df,
+        frequency=ReturnsFrequency.WEEKLY,
+        series_type="benchmark",
+    )
+
+    assert [(gap.from_date, gap.to_date, gap.gap_days) for gap in gaps] == [(date(2026, 4, 11), date(2026, 4, 20), 8)]
+
+
 def test_strict_intersection_policy_aligns_selected_series():
     portfolio_df = pd.DataFrame(
         {

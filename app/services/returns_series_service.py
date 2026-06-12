@@ -63,6 +63,11 @@ from engine.compute import run_calculations
 from engine.schema import PortfolioColumns
 
 RETURN_POINT_QUANTUM = Decimal("0.000000000001")
+_EXPECTED_RETURN_GAP_DAYS = {
+    ReturnsFrequency.DAILY: 1,
+    ReturnsFrequency.WEEKLY: 7,
+    ReturnsFrequency.MONTHLY: 31,
+}
 
 
 @dataclass(frozen=True)
@@ -274,6 +279,21 @@ def date_range_count(
     return len(pd.date_range(start, end, freq="ME"))
 
 
+def _missing_return_gap_days(
+    prev: date,
+    curr: date,
+    *,
+    frequency: ReturnsFrequency,
+    calendar_policy: CalendarPolicy,
+) -> int:
+    if frequency == ReturnsFrequency.DAILY and calendar_policy != CalendarPolicy.CALENDAR:
+        return max(len(pd.bdate_range(pd.Timestamp(prev), pd.Timestamp(curr))) - 2, 0)
+    delta = (curr - prev).days
+    if delta <= _EXPECTED_RETURN_GAP_DAYS[frequency] + 1:
+        return 0
+    return delta - 1
+
+
 def detect_gaps(
     df: pd.DataFrame,
     *,
@@ -283,25 +303,17 @@ def detect_gaps(
 ) -> list[SeriesGap]:
     if len(df) < 2:
         return []
-    expected_days = 1 if frequency == ReturnsFrequency.DAILY else (7 if frequency == ReturnsFrequency.WEEKLY else 31)
     gaps: list[SeriesGap] = []
     dates = list(df["date"].dt.date)
     for prev, curr in zip(dates, dates[1:]):
-        if frequency == ReturnsFrequency.DAILY and calendar_policy != CalendarPolicy.CALENDAR:
-            missing_business_days = len(pd.bdate_range(pd.Timestamp(prev), pd.Timestamp(curr))) - 2
-            if missing_business_days > 0:
-                gaps.append(
-                    SeriesGap(
-                        series_type=series_type,
-                        from_date=prev,
-                        to_date=curr,
-                        gap_days=missing_business_days,
-                    )
-                )
-            continue
-        delta = (curr - prev).days
-        if delta > expected_days + 1:
-            gaps.append(SeriesGap(series_type=series_type, from_date=prev, to_date=curr, gap_days=delta - 1))
+        gap_days = _missing_return_gap_days(
+            prev,
+            curr,
+            frequency=frequency,
+            calendar_policy=calendar_policy,
+        )
+        if gap_days > 0:
+            gaps.append(SeriesGap(series_type=series_type, from_date=prev, to_date=curr, gap_days=gap_days))
     return gaps
 
 
