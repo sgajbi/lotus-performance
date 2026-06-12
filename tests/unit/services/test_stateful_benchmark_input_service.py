@@ -15,6 +15,7 @@ from app.services.stateful_benchmark_input_service import (
     _load_fx_maps_for_components,
     _normalize_price_to_benchmark_currency,
     _parse_composition_window,
+    _required_fx_pairs_for_components,
     build_stateful_benchmark_input,
 )
 from app.services.stateful_input_service import RetrievalMetadata
@@ -612,6 +613,21 @@ def test_parse_composition_window_filters_and_sorts_usable_segments():
     assert [segment.index_id for segment in segments] == ["IDX_A", "IDX_B"]
     assert segments[0].composition_weight == Decimal("0.6")
     assert segments[1].composition_effective_to == date(2026, 1, 3)
+
+
+def test_required_fx_pairs_for_components_dedupes_non_benchmark_currencies():
+    pairs = _required_fx_pairs_for_components(
+        component_price_series={
+            "IDX_USD": {"series_currency": "USD"},
+            "IDX_EUR": {"series_currency": "EUR"},
+            "IDX_EUR_2": {"series_currency": "EUR"},
+            "IDX_GBP": {"series_currency": "GBP"},
+            "IDX_MISSING": {},
+        },
+        benchmark_currency="USD",
+    )
+
+    assert pairs == {("EUR", "USD"), ("GBP", "USD")}
 
 
 @pytest.mark.asyncio

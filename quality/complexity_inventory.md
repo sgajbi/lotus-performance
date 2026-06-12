@@ -28,26 +28,26 @@ python scripts/python_complexity_inventory.py --limit 20
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_load_fx_maps_for_components` | function | `app/services/stateful_benchmark_input_service.py:426` | 11 | C |
-| 2 | `_build_normalized_component_series` | function | `app/services/stateful_benchmark_input_service.py:584` | 11 | C |
-| 3 | `_fetch_position_chunk` | method | `app/services/stateful_input_service.py:882` | 11 | C |
-| 4 | `register_async_submission_or_raise` | function | `app/services/submission_fencing_service.py:53` | 11 | C |
-| 5 | `build_twr_execution_window` | function | `app/services/twr_calculation_service.py:198` | 11 | C |
-| 6 | `process_pending_jobs` | function | `app/workers/lineage_worker.py:18` | 11 | C |
-| 7 | `generate_performance_breakdowns` | function | `engine/breakdown.py:51` | 11 | C |
-| 8 | `_flag_outliers` | function | `engine/policies.py:118` | 11 | C |
-| 9 | `to_stateless_attribution_request` | method | `app/models/attribution_analytics_requests.py:174` | 10 | B |
-| 10 | `to_stateless_mwr_request` | method | `app/models/mwr_analytics_requests.py:112` | 10 | B |
-| 11 | `_infer_description` | function | `app/openapi_enrichment.py:229` | 10 | B |
-| 12 | `calculate_benchmark_artifacts` | function | `app/services/benchmark_calculation_service.py:71` | 10 | B |
-| 13 | `calculate_benchmark_workflow` | function | `app/services/benchmark_calculation_workflow_service.py:146` | 10 | B |
-| 14 | `resolve_benchmark_request` | function | `app/services/benchmark_mode_service.py:29` | 10 | B |
-| 15 | `_queue_stats_from_aggregate_row` | function | `app/services/compute_job_store.py:150` | 10 | B |
-| 16 | `calculate_contribution` | function | `app/services/contribution_service.py:421` | 10 | B |
-| 17 | `generate_twr_inspection_support_brief` | function | `app/services/inspection/support_brief_workflow_pack.py:27` | 10 | B |
-| 18 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:71` | 10 | B |
-| 19 | `_build_twr_inspection_response` | function | `app/services/inspection/twr_inspection_service.py:225` | 10 | B |
-| 20 | `period_start` | function | `app/services/returns_series_service.py:143` | 10 | B |
+| 1 | `_build_normalized_component_series` | function | `app/services/stateful_benchmark_input_service.py:595` | 11 | C |
+| 2 | `_fetch_position_chunk` | method | `app/services/stateful_input_service.py:882` | 11 | C |
+| 3 | `register_async_submission_or_raise` | function | `app/services/submission_fencing_service.py:53` | 11 | C |
+| 4 | `build_twr_execution_window` | function | `app/services/twr_calculation_service.py:198` | 11 | C |
+| 5 | `process_pending_jobs` | function | `app/workers/lineage_worker.py:18` | 11 | C |
+| 6 | `generate_performance_breakdowns` | function | `engine/breakdown.py:51` | 11 | C |
+| 7 | `_flag_outliers` | function | `engine/policies.py:118` | 11 | C |
+| 8 | `to_stateless_attribution_request` | method | `app/models/attribution_analytics_requests.py:174` | 10 | B |
+| 9 | `to_stateless_mwr_request` | method | `app/models/mwr_analytics_requests.py:112` | 10 | B |
+| 10 | `_infer_description` | function | `app/openapi_enrichment.py:229` | 10 | B |
+| 11 | `calculate_benchmark_artifacts` | function | `app/services/benchmark_calculation_service.py:71` | 10 | B |
+| 12 | `calculate_benchmark_workflow` | function | `app/services/benchmark_calculation_workflow_service.py:146` | 10 | B |
+| 13 | `resolve_benchmark_request` | function | `app/services/benchmark_mode_service.py:29` | 10 | B |
+| 14 | `_queue_stats_from_aggregate_row` | function | `app/services/compute_job_store.py:150` | 10 | B |
+| 15 | `calculate_contribution` | function | `app/services/contribution_service.py:421` | 10 | B |
+| 16 | `generate_twr_inspection_support_brief` | function | `app/services/inspection/support_brief_workflow_pack.py:27` | 10 | B |
+| 17 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:71` | 10 | B |
+| 18 | `_build_twr_inspection_response` | function | `app/services/inspection/twr_inspection_service.py:225` | 10 | B |
+| 19 | `period_start` | function | `app/services/returns_series_service.py:143` | 10 | B |
+| 20 | `_persist_evidence_history` | function | `app/services/runtime_retention_execution_service.py:139` | 10 | B |
 
 ## Lowest Maintainability Index
 
@@ -62,7 +62,7 @@ python scripts/python_complexity_inventory.py --limit 20
 | 7 | `app/services/twr_service.py` | 7.03 | C |
 | 8 | `app/services/execution_registry.py` | 10.84 | B |
 | 9 | `app/services/workspace_summary_service.py` | 10.84 | B |
-| 10 | `app/services/stateful_benchmark_input_service.py` | 12.88 | B |
+| 10 | `app/services/stateful_benchmark_input_service.py` | 13.02 | B |
 | 11 | `engine/attribution.py` | 14.14 | B |
 | 12 | `app/services/operator_action_lease_service.py` | 15.95 | B |
 | 13 | `app/services/inspection/calculation_consistency.py` | 16.28 | B |
@@ -248,6 +248,9 @@ reporting-currency preference, portfolio-currency fallback, and incomplete-row h
 into a dedicated helper.
 `_validate_stateful_position_inception_support` also dropped out after ordered first-row selection
 and per-position deduplication were moved into a dedicated helper.
+`_load_fx_maps_for_components` also dropped out after benchmark-currency comparison,
+non-benchmark component currency detection, and FX pair deduplication were moved into a dedicated
+helper.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.

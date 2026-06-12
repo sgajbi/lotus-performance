@@ -432,15 +432,14 @@ async def _load_fx_maps_for_components(
     stateful_input_service: StatefulInputService,
     calculation_id: UUID,
 ) -> tuple[dict[tuple[str, str], dict[date, Decimal]], RetrievalMetadata]:
-    pairs: set[tuple[str, str]] = set()
-    for component_payload in component_price_series.values():
-        component_currency = component_payload.get("series_currency")
-        if component_currency and component_currency != benchmark_currency:
-            pairs.add((component_currency, benchmark_currency))
-
     fx_maps: dict[tuple[str, str], dict[date, Decimal]] = {}
     retrieval_metadata_total = RetrievalMetadata(chunk_count=0, page_count=0)
-    for from_currency, to_currency in sorted(pairs):
+    for from_currency, to_currency in sorted(
+        _required_fx_pairs_for_components(
+            component_price_series=component_price_series,
+            benchmark_currency=benchmark_currency,
+        )
+    ):
         fx_status, fx_payload = await stateful_input_service.get_fx_rates(
             from_currency=from_currency,
             to_currency=to_currency,
@@ -469,6 +468,18 @@ async def _load_fx_maps_for_components(
         }
         retrieval_metadata_total = add_zero_default_retrieval_metadata(retrieval_metadata_total, fx_payload)
     return fx_maps, retrieval_metadata_total
+
+
+def _required_fx_pairs_for_components(
+    *,
+    component_price_series: dict[str, dict[str, Any]],
+    benchmark_currency: str,
+) -> set[tuple[str, str]]:
+    return {
+        (component_currency, benchmark_currency)
+        for component_payload in component_price_series.values()
+        if (component_currency := component_payload.get("series_currency")) and component_currency != benchmark_currency
+    }
 
 
 def _build_component_observations(
