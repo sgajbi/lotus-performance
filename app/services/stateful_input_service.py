@@ -911,38 +911,25 @@ class StatefulInputService:
                 filters=filters,
                 page_token=page_token,
             )
-            if calculation_id is not None:
-                request_payload = {
-                    "portfolio_id": portfolio_id,
-                    "start_date": str(chunk.start_date),
-                    "end_date": str(chunk.end_date),
-                    "reporting_currency": reporting_currency,
-                    "consumer_system": consumer_system,
-                    "dimensions": dimensions,
-                    "include_cash_flows": include_cash_flows,
-                    "filters": filters,
-                    "page_token": page_token,
-                }
-                snapshot_id, request_fingerprint = self._build_snapshot_identity(
-                    calculation_id=calculation_id,
-                    upstream_endpoint="position_timeseries",
-                    source_identifier=portfolio_id,
-                    request_payload=request_payload,
-                )
-                if snapshot_id not in existing_snapshot_ids:
-                    snapshot_batch.append(
-                        self._build_snapshot(
-                            calculation_id=calculation_id,
-                            upstream_endpoint="position_timeseries",
-                            source_identifier=portfolio_id,
-                            as_of_date=as_of_date,
-                            request_payload=request_payload,
-                            response=(status_code, payload),
-                            snapshot_id=snapshot_id,
-                            request_fingerprint=request_fingerprint,
-                        )
-                    )
-                    existing_snapshot_ids.add(snapshot_id)
+            request_payload = _position_timeseries_request_payload(
+                portfolio_id=portfolio_id,
+                chunk=chunk,
+                reporting_currency=reporting_currency,
+                consumer_system=consumer_system,
+                dimensions=dimensions,
+                include_cash_flows=include_cash_flows,
+                filters=filters,
+                page_token=page_token,
+            )
+            self._append_position_timeseries_snapshot_if_new(
+                calculation_id=calculation_id,
+                portfolio_id=portfolio_id,
+                as_of_date=as_of_date,
+                request_payload=request_payload,
+                response=(status_code, payload),
+                snapshot_batch=snapshot_batch,
+                existing_snapshot_ids=existing_snapshot_ids,
+            )
             if status_code >= 400:
                 if calculation_id is not None:
                     self._execution_store.record_upstream_snapshots(
@@ -975,6 +962,40 @@ class StatefulInputService:
                 "page_count": page_count,
             },
         }
+
+    def _append_position_timeseries_snapshot_if_new(
+        self,
+        *,
+        calculation_id: UUID | None,
+        portfolio_id: str,
+        as_of_date: date,
+        request_payload: dict[str, Any],
+        response: tuple[int, dict[str, Any]],
+        snapshot_batch: list[dict[str, Any]],
+        existing_snapshot_ids: set[str],
+    ) -> None:
+        if calculation_id is None:
+            return
+        snapshot_id, request_fingerprint = self._build_snapshot_identity(
+            calculation_id=calculation_id,
+            upstream_endpoint="position_timeseries",
+            source_identifier=portfolio_id,
+            request_payload=request_payload,
+        )
+        if snapshot_id not in existing_snapshot_ids:
+            snapshot_batch.append(
+                self._build_snapshot(
+                    calculation_id=calculation_id,
+                    upstream_endpoint="position_timeseries",
+                    source_identifier=portfolio_id,
+                    as_of_date=as_of_date,
+                    request_payload=request_payload,
+                    response=response,
+                    snapshot_id=snapshot_id,
+                    request_fingerprint=request_fingerprint,
+                )
+            )
+            existing_snapshot_ids.add(snapshot_id)
 
     async def _gather_chunked(
         self,
@@ -1169,6 +1190,30 @@ def _portfolio_timeseries_request_payload(
         "end_date": str(chunk.end_date),
         "reporting_currency": reporting_currency,
         "consumer_system": consumer_system,
+        "page_token": page_token,
+    }
+
+
+def _position_timeseries_request_payload(
+    *,
+    portfolio_id: str,
+    chunk: DateChunk,
+    reporting_currency: str | None,
+    consumer_system: str,
+    dimensions: list[str],
+    include_cash_flows: bool,
+    filters: dict[str, Any],
+    page_token: str | None,
+) -> dict[str, Any]:
+    return {
+        "portfolio_id": portfolio_id,
+        "start_date": str(chunk.start_date),
+        "end_date": str(chunk.end_date),
+        "reporting_currency": reporting_currency,
+        "consumer_system": consumer_system,
+        "dimensions": dimensions,
+        "include_cash_flows": include_cash_flows,
+        "filters": filters,
         "page_token": page_token,
     }
 

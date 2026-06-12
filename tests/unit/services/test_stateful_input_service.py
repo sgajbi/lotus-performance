@@ -12,6 +12,7 @@ from app.services.stateful_input_service import (
     _portfolio_identity_from_payload,
     _portfolio_observations_from_payload,
     _portfolio_timeseries_request_payload,
+    _position_timeseries_request_payload,
 )
 
 
@@ -1016,6 +1017,7 @@ def test_stateful_input_service_deduplicates_records_and_component_series():
 def test_stateful_input_service_helper_contracts_cover_page_tokens_failures_and_snapshot_identity():
     service = StatefulInputService(core_service=_CoreServiceStub())
     calculation_id = UUID("00000000-0000-0000-0000-000000000001")
+    chunk = DateChunk(start_date=date(2026, 1, 1), end_date=date(2026, 1, 3))
 
     assert service._first_failure([(200, {}), (201, {"ok": True})]) is None
     assert service._next_page_token({"next_page_token": "top-level-token"}) == "top-level-token"
@@ -1032,6 +1034,26 @@ def test_stateful_input_service_helper_contracts_cover_page_tokens_failures_and_
         {"series_date": "2026-01-01", "value": 1},
         {"series_date": "2026-01-02", "value": 2},
     ]
+    assert _position_timeseries_request_payload(
+        portfolio_id="PORT_1",
+        chunk=chunk,
+        reporting_currency="USD",
+        consumer_system="lotus-performance",
+        dimensions=["asset_class", "region"],
+        include_cash_flows=True,
+        filters={"asset_class": "Equity"},
+        page_token="page-2",
+    ) == {
+        "portfolio_id": "PORT_1",
+        "start_date": "2026-01-01",
+        "end_date": "2026-01-03",
+        "reporting_currency": "USD",
+        "consumer_system": "lotus-performance",
+        "dimensions": ["asset_class", "region"],
+        "include_cash_flows": True,
+        "filters": {"asset_class": "Equity"},
+        "page_token": "page-2",
+    }
 
     snapshot_id, request_fingerprint = service._build_snapshot_identity(
         calculation_id=calculation_id,
@@ -1065,3 +1087,47 @@ def test_stateful_input_service_helper_contracts_cover_page_tokens_failures_and_
     )
     assert auto_snapshot["snapshot_id"]
     assert auto_snapshot["request_fingerprint"]
+
+    request_payload = _position_timeseries_request_payload(
+        portfolio_id="PORT_1",
+        chunk=chunk,
+        reporting_currency="USD",
+        consumer_system="lotus-performance",
+        dimensions=[],
+        include_cash_flows=False,
+        filters={},
+        page_token=None,
+    )
+    snapshot_batch: list[dict] = []
+    existing_snapshot_ids: set[str] = set()
+    service._append_position_timeseries_snapshot_if_new(
+        calculation_id=calculation_id,
+        portfolio_id="PORT_1",
+        as_of_date=date(2026, 1, 3),
+        request_payload=request_payload,
+        response=(200, {"rows": []}),
+        snapshot_batch=snapshot_batch,
+        existing_snapshot_ids=existing_snapshot_ids,
+    )
+    service._append_position_timeseries_snapshot_if_new(
+        calculation_id=calculation_id,
+        portfolio_id="PORT_1",
+        as_of_date=date(2026, 1, 3),
+        request_payload=request_payload,
+        response=(200, {"rows": []}),
+        snapshot_batch=snapshot_batch,
+        existing_snapshot_ids=existing_snapshot_ids,
+    )
+    service._append_position_timeseries_snapshot_if_new(
+        calculation_id=None,
+        portfolio_id="PORT_1",
+        as_of_date=date(2026, 1, 3),
+        request_payload=request_payload,
+        response=(200, {"rows": []}),
+        snapshot_batch=snapshot_batch,
+        existing_snapshot_ids=existing_snapshot_ids,
+    )
+    assert len(snapshot_batch) == 1
+    assert snapshot_batch[0]["upstream_endpoint"] == "position_timeseries"
+    assert snapshot_batch[0]["source_identifier"] == "PORT_1"
+    assert snapshot_batch[0]["paging_metadata"] == request_payload
