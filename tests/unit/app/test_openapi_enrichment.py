@@ -16,6 +16,7 @@ from app.openapi_enrichment import (
     _infer_schema_description,
     _object_schema_example,
     _semantic_id,
+    _semantic_property_description,
     _semantic_string_example,
     _to_snake_case,
     _typed_schema_example,
@@ -78,6 +79,26 @@ def test_infer_description_uses_semantic_branches():
     )
     assert _infer_description("Response", "net_value", {"type": "number"}) == "Monetary value for net value."
     assert _infer_description("ResponseModel", "note", {"type": "string"}) == "response model field: note."
+
+
+def test_semantic_property_description_preserves_branch_outputs():
+    assert _semantic_property_description("client_id", "client id", {"type": "string"}) == "Unique client identifier."
+    assert _semantic_property_description("as_of_date", "as of date", {"format": "date"}) == (
+        "Business date for as of date."
+    )
+    assert _semantic_property_description("generated_at", "generated at", {"format": "date-time"}) == (
+        "Timestamp for generated at."
+    )
+    assert _semantic_property_description("base_currency", "base currency", {"type": "string"}) == (
+        "ISO currency code for base currency."
+    )
+    assert _semantic_property_description("performance_return", "performance return", {"type": "number"}) == (
+        "Performance metric value for performance return."
+    )
+    assert _semantic_property_description("net_value", "net value", {"type": "number"}) == (
+        "Monetary value for net value."
+    )
+    assert _semantic_property_description("note", "note", {"type": "string"}) is None
 
 
 def test_build_schema_example_resolves_refs_and_nested_content():
