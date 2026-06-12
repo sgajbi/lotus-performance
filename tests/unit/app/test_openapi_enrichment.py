@@ -16,6 +16,7 @@ from app.openapi_enrichment import (
     _infer_example,
     _infer_schema_description,
     _iter_documentable_operations,
+    _named_schema_example,
     _object_schema_example,
     _ref_schema_example,
     _semantic_id,
@@ -187,6 +188,12 @@ def test_schema_example_helpers_cover_explicit_composed_object_and_array_shapes(
         seen_refs=set(),
         name_hint="values",
     ) == ["VALUE"]
+
+
+def test_named_schema_example_extracts_first_named_value():
+    assert _named_schema_example({"documented": {"value": {"status": "complete"}}}) == {"status": "complete"}
+    assert _named_schema_example({"documented": {"summary": "missing value"}}) is None
+    assert _named_schema_example([{"value": "not named"}]) is None
 
 
 def test_ensure_request_body_example_uses_operation_override():
