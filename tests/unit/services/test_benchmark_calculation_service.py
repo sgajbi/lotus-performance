@@ -11,6 +11,7 @@ import pytest
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.services import benchmark_calculation_service
 from common.enums import Frequency
+from core.periods import ResolvedPeriod
 
 
 def _calculated_request(*, include_timeseries: bool = True) -> BenchmarkPerformanceRequest:
@@ -181,6 +182,65 @@ def test_calculate_benchmark_artifacts_skips_empty_period_slices(monkeypatch):
     artifacts = benchmark_calculation_service.calculate_benchmark_artifacts(request)
 
     assert set(artifacts.results_by_period) == {"ITD"}
+
+
+def test_benchmark_period_result_projects_timeseries_and_summary():
+    request = _vendor_request()
+    daily_returns_df = pd.DataFrame(
+        {
+            "date": [date(2025, 1, 1), date(2025, 1, 2)],
+            "benchmark_return": [0.01, 0.02],
+        }
+    )
+    component_contributions_df = pd.DataFrame(
+        {
+            "date": [date(2025, 1, 1)],
+            "component_id": ["IDX_1"],
+            "weight_bop": [1.0],
+            "component_return": [0.01],
+            "contribution": [0.01],
+        }
+    )
+
+    result = benchmark_calculation_service._benchmark_period_result(
+        period=ResolvedPeriod(name="ITD", start_date=date(2025, 1, 1), end_date=date(2025, 1, 2)),
+        daily_returns_df=daily_returns_df,
+        component_contributions_df=component_contributions_df,
+        benchmark_request=request,
+        frequencies=[Frequency.DAILY],
+        input_mode="stateless",
+    )
+
+    assert result is not None
+    assert result.benchmark.summary.period_return.base == pytest.approx(3.02)
+    assert result.benchmark.summary.cumulative_return.base == pytest.approx(3.02)
+    assert result.benchmark.input_mode == "stateless"
+    assert result.daily_returns is not None
+    assert len(result.daily_returns) == 2
+    assert result.component_contributions is not None
+    assert len(result.component_contributions) == 1
+    assert Frequency.DAILY in result.benchmark.breakdowns
+
+
+def test_benchmark_period_result_returns_none_for_empty_window():
+    request = _vendor_request()
+    daily_returns_df = pd.DataFrame(
+        {
+            "date": [date(2025, 1, 1)],
+            "benchmark_return": [0.01],
+        }
+    )
+
+    result = benchmark_calculation_service._benchmark_period_result(
+        period=ResolvedPeriod(name="EMPTY", start_date=date(2024, 1, 1), end_date=date(2024, 1, 2)),
+        daily_returns_df=daily_returns_df,
+        component_contributions_df=pd.DataFrame(),
+        benchmark_request=request,
+        frequencies=[Frequency.DAILY],
+        input_mode=None,
+    )
+
+    assert result is None
 
 
 def test_benchmark_calculation_helpers_cover_breakdown_and_scaling_edges():
