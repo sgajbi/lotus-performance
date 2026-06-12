@@ -516,38 +516,65 @@ def _build_portfolio_breakdowns(
         )
         summary_items = breakdowns_data.get(frequency, [])
         for index, (label, start_date, end_date, frequency_df) in enumerate(window_items):
-            cumulative_df = period_slice_df[period_slice_df[PortfolioColumns.PERF_DATE.value] <= end_date].copy()
             summary_data = summary_items[index]["summary"] if index < len(summary_items) else {}
             items.append(
-                ComparativeBreakdownItem(
-                    period=label,
-                    period_start=start_date,
-                    period_end=end_date,
-                    period_return=_build_return_value_from_decomposition(
-                        _calculate_total_return_from_slice(frequency_df, daily_results_df)
-                    ),
-                    cumulative_return=_build_return_value_from_decomposition(
-                        _calculate_total_return_from_slice(cumulative_df, daily_results_df)
-                    ),
-                    annualized_return=(
-                        _build_return_value(summary_data["annualized_return_pct"])
-                        if summary_data.get("annualized_return_pct") is not None
-                        else None
-                    ),
-                    daily_data=(
-                        [frequency_df.iloc[0].to_dict()]
-                        if include_timeseries and frequency == Frequency.DAILY and not frequency_df.empty
-                        else None
-                    ),
-                    calculation_evidence=(
-                        _build_daily_calculation_evidence(frequency_df.iloc[0], metric_basis=metric_basis)
-                        if frequency == Frequency.DAILY and not frequency_df.empty
-                        else None
-                    ),
+                _build_portfolio_breakdown_item(
+                    period_slice_df=period_slice_df,
+                    daily_results_df=daily_results_df,
+                    label=label,
+                    start_date=start_date,
+                    end_date=end_date,
+                    frequency=frequency,
+                    frequency_df=frequency_df,
+                    summary_data=summary_data,
+                    include_timeseries=include_timeseries,
+                    metric_basis=metric_basis,
                 )
             )
         breakdowns[frequency] = items
     return breakdowns
+
+
+def _build_portfolio_breakdown_item(
+    *,
+    period_slice_df: pd.DataFrame,
+    daily_results_df: pd.DataFrame,
+    label: str,
+    start_date,
+    end_date,
+    frequency: Frequency,
+    frequency_df: pd.DataFrame,
+    summary_data: dict,
+    include_timeseries: bool,
+    metric_basis: str,
+) -> ComparativeBreakdownItem:
+    cumulative_df = period_slice_df[period_slice_df[PortfolioColumns.PERF_DATE.value] <= end_date].copy()
+    return ComparativeBreakdownItem(
+        period=label,
+        period_start=start_date,
+        period_end=end_date,
+        period_return=_build_return_value_from_decomposition(
+            _calculate_total_return_from_slice(frequency_df, daily_results_df)
+        ),
+        cumulative_return=_build_return_value_from_decomposition(
+            _calculate_total_return_from_slice(cumulative_df, daily_results_df)
+        ),
+        annualized_return=(
+            _build_return_value(summary_data["annualized_return_pct"])
+            if summary_data.get("annualized_return_pct") is not None
+            else None
+        ),
+        daily_data=(
+            [frequency_df.iloc[0].to_dict()]
+            if include_timeseries and frequency == Frequency.DAILY and not frequency_df.empty
+            else None
+        ),
+        calculation_evidence=(
+            _build_daily_calculation_evidence(frequency_df.iloc[0], metric_basis=metric_basis)
+            if frequency == Frequency.DAILY and not frequency_df.empty
+            else None
+        ),
+    )
 
 
 def _build_benchmark_breakdowns(
