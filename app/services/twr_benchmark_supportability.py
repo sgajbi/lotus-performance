@@ -87,13 +87,7 @@ def _benchmark_currency_state(
         warning_codes.append("BENCHMARK_VENDOR_SERIES_BASE_ONLY")
         return "vendor_series_base_only"
 
-    has_fx_decomposition = (
-        "benchmark_return_local" in benchmark_daily_returns_df.columns
-        and "benchmark_return_fx" in benchmark_daily_returns_df.columns
-        and benchmark_daily_returns_df["benchmark_return_local"].notna().any()
-        and benchmark_daily_returns_df["benchmark_return_fx"].notna().any()
-    )
-    if has_fx_decomposition:
+    if _has_benchmark_fx_decomposition(benchmark_daily_returns_df):
         return "fx_decomposed"
 
     component_currencies = {
@@ -105,3 +99,12 @@ def _benchmark_currency_state(
         warning_codes.append("BENCHMARK_FX_DECOMPOSITION_UNAVAILABLE")
         return "base_only"
     return "single_currency"
+
+
+def _has_benchmark_fx_decomposition(benchmark_daily_returns_df: pd.DataFrame) -> bool:
+    return bool(
+        "benchmark_return_local" in benchmark_daily_returns_df.columns
+        and "benchmark_return_fx" in benchmark_daily_returns_df.columns
+        and benchmark_daily_returns_df["benchmark_return_local"].notna().any()
+        and benchmark_daily_returns_df["benchmark_return_fx"].notna().any()
+    )

@@ -4,7 +4,10 @@ import pandas as pd
 
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.models.requests import PerformanceRequest
-from app.services.twr_benchmark_supportability import build_twr_benchmark_supportability_evidence
+from app.services.twr_benchmark_supportability import (
+    _has_benchmark_fx_decomposition,
+    build_twr_benchmark_supportability_evidence,
+)
 
 
 def _performance_request() -> PerformanceRequest:
@@ -68,6 +71,21 @@ def test_twr_benchmark_supportability_reports_aligned_fx_decomposed_evidence():
     assert evidence.calendar_alignment_state == "aligned"
     assert evidence.overlapping_observation_count == 2
     assert evidence.warning_codes == []
+
+
+def test_has_benchmark_fx_decomposition_requires_local_and_fx_columns_with_values():
+    assert _has_benchmark_fx_decomposition(
+        pd.DataFrame(
+            {
+                "benchmark_return_local": [None, 0.01],
+                "benchmark_return_fx": [0.001, None],
+            }
+        )
+    )
+    assert not _has_benchmark_fx_decomposition(pd.DataFrame({"benchmark_return_local": [0.01]}))
+    assert not _has_benchmark_fx_decomposition(
+        pd.DataFrame({"benchmark_return_local": [None], "benchmark_return_fx": [None]})
+    )
 
 
 def test_twr_benchmark_supportability_reports_calendar_and_vendor_series_warnings():
