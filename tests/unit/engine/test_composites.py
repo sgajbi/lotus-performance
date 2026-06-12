@@ -221,6 +221,25 @@ def test_composite_period_fact_helpers_classify_and_aggregate_metadata():
     assert metadata.ready_restatement_versions == ["v1"]
 
 
+def test_composite_period_fact_metadata_deduplicates_sorted_values():
+    metadata = _composite_period_fact_metadata(
+        ready_facts=[
+            _fact(portfolio_id="P2", reporting_currency="SGD", return_view="NET_ACTUAL", source_fingerprint="sha256:z"),
+            _fact(portfolio_id="P1", reporting_currency="USD", return_view="GROSS", source_fingerprint="sha256:a"),
+            _fact(portfolio_id="P3", reporting_currency="USD", return_view="GROSS", source_fingerprint="sha256:a"),
+        ],
+        excluded_facts=[
+            _fact(portfolio_id="P4", status="BLOCKED", reason_codes=["z_reason", "a_reason"]),
+            _fact(portfolio_id="P5", status="BLOCKED", reason_codes=["a_reason"]),
+        ],
+    )
+
+    assert metadata.reason_codes == ["a_reason", "z_reason"]
+    assert metadata.ready_return_views == ["GROSS", "NET_ACTUAL"]
+    assert metadata.ready_reporting_currencies == ["SGD", "USD"]
+    assert metadata.ready_source_fingerprints == ["sha256:a", "sha256:z"]
+
+
 def test_build_ready_composite_period_result_quantizes_and_links_growth():
     period_fact_set = _build_composite_period_fact_set(
         period_start=date(2026, 1, 1),

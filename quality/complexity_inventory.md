@@ -28,31 +28,31 @@ python scripts/python_complexity_inventory.py --limit 25
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_composite_period_fact_metadata` | function | `engine/composites.py:331` | 9 | B |
-| 2 | `_flag_outliers` | function | `engine/policies.py:118` | 9 | B |
-| 3 | `_compound_ror` | function | `engine/ror.py:237` | 9 | B |
-| 4 | `_load_and_validate_manifest` | function | `app/api/endpoints/lineage.py:27` | 8 | B |
-| 5 | `to_stateless_attribution_request` | method | `app/models/attribution_analytics_requests.py:182` | 8 | B |
-| 6 | `_resolve_mwr_stateless_input` | function | `app/models/mwr_analytics_requests.py:152` | 8 | B |
-| 7 | `_validate_returns_series_stateless_selection_inputs` | function | `app/models/returns_series.py:292` | 8 | B |
-| 8 | `WorkspaceBenchmarkRequest` | class | `app/models/workspace_summary_requests.py:103` | 8 | B |
-| 9 | `_explicit_schema_example` | function | `app/openapi_enrichment.py:316` | 8 | B |
-| 10 | `_build_schema_example` | function | `app/openapi_enrichment.py:402` | 8 | B |
-| 11 | `resolve_async_result` | function | `app/services/async_result_service.py:18` | 8 | B |
-| 12 | `get_result` | method | `app/services/async_result_store.py:137` | 8 | B |
-| 13 | `attribution_input_count` | function | `app/services/attribution_calculation_workflow_service.py:38` | 8 | B |
-| 14 | `calculate_attribution_workflow` | function | `app/services/attribution_calculation_workflow_service.py:161` | 8 | B |
-| 15 | `_inspection_active_since` | method | `app/services/compute_job_store.py:1168` | 8 | B |
-| 16 | `_compute_job_record_payload_state` | function | `app/services/compute_job_store.py:1202` | 8 | B |
-| 17 | `record_cutover_assessment` | method | `app/services/contribution_audit.py:60` | 8 | B |
-| 18 | `_calculate_reset_aware_average_weight_shadow` | function | `app/services/contribution_methodology.py:43` | 8 | B |
-| 19 | `_build_residual_adjusted_position_timeseries` | function | `app/services/contribution_series.py:57` | 8 | B |
-| 20 | `calculate_contribution` | function | `app/services/contribution_service.py:525` | 8 | B |
-| 21 | `_contribution_smoothing_status_and_reasons` | function | `app/services/contribution_smoothing.py:28` | 8 | B |
-| 22 | `_available_stateful_economics` | function | `app/services/contribution_source_economics.py:99` | 8 | B |
-| 23 | `_cash_flow_type_counts` | function | `app/services/contribution_source_economics.py:168` | 8 | B |
-| 24 | `_collect_position_continuity_gap_samples` | function | `app/services/inspection/reconciliation.py:500` | 8 | B |
-| 25 | `_row_has_transition_activity` | function | `app/services/inspection/reconciliation.py:563` | 8 | B |
+| 1 | `_flag_outliers` | function | `engine/policies.py:118` | 9 | B |
+| 2 | `_compound_ror` | function | `engine/ror.py:237` | 9 | B |
+| 3 | `_load_and_validate_manifest` | function | `app/api/endpoints/lineage.py:27` | 8 | B |
+| 4 | `to_stateless_attribution_request` | method | `app/models/attribution_analytics_requests.py:182` | 8 | B |
+| 5 | `_resolve_mwr_stateless_input` | function | `app/models/mwr_analytics_requests.py:152` | 8 | B |
+| 6 | `_validate_returns_series_stateless_selection_inputs` | function | `app/models/returns_series.py:292` | 8 | B |
+| 7 | `WorkspaceBenchmarkRequest` | class | `app/models/workspace_summary_requests.py:103` | 8 | B |
+| 8 | `_explicit_schema_example` | function | `app/openapi_enrichment.py:316` | 8 | B |
+| 9 | `_build_schema_example` | function | `app/openapi_enrichment.py:402` | 8 | B |
+| 10 | `resolve_async_result` | function | `app/services/async_result_service.py:18` | 8 | B |
+| 11 | `get_result` | method | `app/services/async_result_store.py:137` | 8 | B |
+| 12 | `attribution_input_count` | function | `app/services/attribution_calculation_workflow_service.py:38` | 8 | B |
+| 13 | `calculate_attribution_workflow` | function | `app/services/attribution_calculation_workflow_service.py:161` | 8 | B |
+| 14 | `_inspection_active_since` | method | `app/services/compute_job_store.py:1168` | 8 | B |
+| 15 | `_compute_job_record_payload_state` | function | `app/services/compute_job_store.py:1202` | 8 | B |
+| 16 | `record_cutover_assessment` | method | `app/services/contribution_audit.py:60` | 8 | B |
+| 17 | `_calculate_reset_aware_average_weight_shadow` | function | `app/services/contribution_methodology.py:43` | 8 | B |
+| 18 | `_build_residual_adjusted_position_timeseries` | function | `app/services/contribution_series.py:57` | 8 | B |
+| 19 | `calculate_contribution` | function | `app/services/contribution_service.py:525` | 8 | B |
+| 20 | `_contribution_smoothing_status_and_reasons` | function | `app/services/contribution_smoothing.py:28` | 8 | B |
+| 21 | `_available_stateful_economics` | function | `app/services/contribution_source_economics.py:99` | 8 | B |
+| 22 | `_cash_flow_type_counts` | function | `app/services/contribution_source_economics.py:168` | 8 | B |
+| 23 | `_collect_position_continuity_gap_samples` | function | `app/services/inspection/reconciliation.py:500` | 8 | B |
+| 24 | `_row_has_transition_activity` | function | `app/services/inspection/reconciliation.py:563` | 8 | B |
+| 25 | `_sum_detailed_cash_flows` | function | `app/services/inspection/source_economics.py:542` | 8 | B |
 
 ## Lowest Maintainability Index
 
@@ -80,7 +80,7 @@ python scripts/python_complexity_inventory.py --limit 25
 | 20 | `app/models/runtime_status.py` | 19.85 | A |
 | 21 | `app/models/returns_series.py` | 20.22 | A |
 | 22 | `app/services/inspection/twr_inspection_service.py` | 20.47 | A |
-| 23 | `engine/composites.py` | 22.27 | A |
+| 23 | `engine/composites.py` | 22.52 | A |
 | 24 | `app/services/stateful_mwr_input_service.py` | 22.63 | A |
 | 25 | `engine/mwr.py` | 23.41 | A |
 
@@ -382,6 +382,8 @@ attribution assembly.
 `_blocked_composite_period_result_for_invalid_ready_facts` also dropped out after invalid-ready
 blocked-result construction, single metadata selection, and aggregate reason-code projection were
 isolated from validation branch ordering.
+`_composite_period_fact_metadata` also dropped out after ready-member asset summation, sorted unique
+metadata collection, and excluded reason-code collection were routed through named helpers.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.

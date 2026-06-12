@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date as dt_date
 from decimal import Decimal, localcontext
@@ -328,19 +329,37 @@ def _classify_composite_period_facts(
     return ready_facts, excluded_facts
 
 
+def _sum_composite_member_assets(
+    ready_facts: Sequence[CompositeMemberReturnFactLike],
+    asset_value: Callable[[CompositeMemberReturnFactLike], Decimal],
+) -> Decimal:
+    return sum((asset_value(fact) for fact in ready_facts), Decimal("0"))
+
+
+def _sorted_unique_composite_values(
+    facts: Sequence[CompositeMemberReturnFactLike],
+    value: Callable[[CompositeMemberReturnFactLike], str],
+) -> list[str]:
+    return sorted({value(fact) for fact in facts})
+
+
+def _sorted_excluded_composite_reason_codes(excluded_facts: Sequence[CompositeMemberReturnFactLike]) -> list[str]:
+    return sorted({code for fact in excluded_facts for code in fact.reason_codes})
+
+
 def _composite_period_fact_metadata(
     *,
     ready_facts: Sequence[CompositeMemberReturnFactLike],
     excluded_facts: Sequence[CompositeMemberReturnFactLike],
 ) -> _CompositePeriodFactMetadata:
     return _CompositePeriodFactMetadata(
-        reason_codes=sorted({code for fact in excluded_facts for code in fact.reason_codes}),
-        beginning_assets=sum((fact.beginning_market_value for fact in ready_facts), Decimal("0")),
-        ending_assets=sum((fact.ending_market_value for fact in ready_facts), Decimal("0")),
-        ready_return_views=sorted({str(fact.return_view) for fact in ready_facts}),
-        ready_reporting_currencies=sorted({fact.reporting_currency for fact in ready_facts}),
-        ready_source_fingerprints=sorted({fact.source_fingerprint for fact in ready_facts}),
-        ready_restatement_versions=sorted({fact.restatement_version for fact in ready_facts}),
+        reason_codes=_sorted_excluded_composite_reason_codes(excluded_facts),
+        beginning_assets=_sum_composite_member_assets(ready_facts, lambda fact: fact.beginning_market_value),
+        ending_assets=_sum_composite_member_assets(ready_facts, lambda fact: fact.ending_market_value),
+        ready_return_views=_sorted_unique_composite_values(ready_facts, lambda fact: str(fact.return_view)),
+        ready_reporting_currencies=_sorted_unique_composite_values(ready_facts, lambda fact: fact.reporting_currency),
+        ready_source_fingerprints=_sorted_unique_composite_values(ready_facts, lambda fact: fact.source_fingerprint),
+        ready_restatement_versions=_sorted_unique_composite_values(ready_facts, lambda fact: fact.restatement_version),
     )
 
 
