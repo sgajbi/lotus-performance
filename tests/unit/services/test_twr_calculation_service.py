@@ -159,6 +159,36 @@ def test_finalize_twr_resolved_execution_identity_preserves_stateful_payload(moc
     assert finalize_resolved.call_args.kwargs["resolved_request_payload"]["benchmark_return_source"] == "calculated"
 
 
+def test_calculate_twr_resolved_response_returns_accepted_stateful_finalization(mocker):
+    request = TWRAnalyticsRequest.model_validate(_stateful_twr_payload())
+    performance_request = _performance_request(request.calculation_id)
+    resolved_request = ResolvedTWRRequest(
+        performance_request=performance_request,
+        input_mode=request.input_mode,
+        resolved_benchmark_id=None,
+    )
+    accepted_response = twr_calculation_service.accepted_twr_response(request.calculation_id)
+    finalize_identity = mocker.patch(
+        "app.services.twr_calculation_service.finalize_twr_resolved_execution_identity",
+        return_value=("resolved-fingerprint", "resolved-hash", accepted_response),
+    )
+    calculate_response = mocker.patch("app.services.twr_calculation_service.calculate_twr_response")
+
+    response = twr_calculation_service._calculate_twr_resolved_response(
+        request=request,
+        resolved_request=resolved_request,
+        source_request_fingerprint="source-fingerprint",
+        input_fingerprint="source-fingerprint",
+        calculation_hash="source-hash",
+        engine_version="runtime-version",
+    )
+
+    assert response == accepted_response
+    finalize_identity.assert_called_once()
+    assert finalize_identity.call_args.kwargs["resolved_input_count"] == 2
+    calculate_response.assert_not_called()
+
+
 def test_prepare_twr_sync_execution_start_replays_promoted_stateful_execution(mocker):
     request = TWRAnalyticsRequest.model_validate(_stateful_twr_payload())
     requested_window = {"start_date": "2025-01-01", "end_date": "2025-01-02"}
