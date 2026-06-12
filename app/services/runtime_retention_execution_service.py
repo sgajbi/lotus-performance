@@ -162,6 +162,22 @@ def _persist_evidence_history(
             stale_path.unlink(missing_ok=True)
         retained_paths = retained_paths[:retention_limit]
 
+    manifest = _build_retention_manifest(
+        evidence=evidence,
+        retained_paths=retained_paths,
+        retention_limit=retention_limit,
+        retention_max_age_days=retention_max_age_days,
+    )
+    _write_text_atomic(output_dir / "manifest.json", json.dumps(asdict(manifest), indent=2))
+
+
+def _build_retention_manifest(
+    *,
+    evidence: RuntimeRetentionCleanupEvidence,
+    retained_paths: list[Path],
+    retention_limit: int,
+    retention_max_age_days: int,
+) -> RuntimeRetentionManifest:
     entries: list[RuntimeRetentionManifestEntry] = []
     retained_file_names: list[str] = []
     for path in retained_paths:
@@ -170,19 +186,18 @@ def _persist_evidence_history(
             continue
         entries.append(entry)
         retained_file_names.append(path.name)
-    latest_file_name = (
-        evidence.evidence_file_name
-        if evidence.evidence_file_name in retained_file_names
-        else (retained_file_names[0] if retained_file_names else evidence.evidence_file_name)
-    )
-    manifest = RuntimeRetentionManifest(
+
+    latest_file_name = evidence.evidence_file_name
+    if evidence.evidence_file_name not in retained_file_names and retained_file_names:
+        latest_file_name = retained_file_names[0]
+
+    return RuntimeRetentionManifest(
         latest_file_name=latest_file_name,
         retained_file_names=retained_file_names,
         retention_limit=retention_limit,
         retention_max_age_days=retention_max_age_days,
         entries=entries,
     )
-    _write_text_atomic(output_dir / "manifest.json", json.dumps(asdict(manifest), indent=2))
 
 
 def _prune_old_evidence(*, output_dir: Path, retention_max_age_days: int) -> None:

@@ -6,6 +6,7 @@ import pytest
 
 from app.services.runtime_retention_execution_service import (
     RuntimeRetentionCleanupEvidence,
+    _build_retention_manifest,
     _persist_evidence_history,
     _prune_old_evidence,
     _write_text_atomic,
@@ -410,6 +411,69 @@ def test_runtime_retention_manifest_rebuild_normalizes_required_entry_identities
     assert legacy_entry["trigger_mode"] == "manual"
     assert legacy_entry["cleanup_mode"] == "dry_run"
     assert legacy_entry["status"] == "planned"
+
+
+def test_runtime_retention_manifest_builder_skips_invalid_entries_and_selects_retained_latest(tmp_path, caplog):
+    output_dir = tmp_path / "artifacts" / "runtime-retention-cleanup"
+    output_dir.mkdir(parents=True)
+    retained = output_dir / "2026-03-17t00-00-00z.json"
+    retained.write_text(
+        json.dumps(
+            {
+                "evidence_file_name": "2026-03-17t00-00-00z.json",
+                "generated_at_utc": "2026-03-17T00:00:00Z",
+                "operator_id": "ops",
+                "tenant_id": None,
+                "correlation_id": None,
+                "trigger_mode": "manual",
+                "job_id": None,
+                "cleanup_mode": "dry_run",
+                "status": "planned",
+                "retention_days": 30,
+                "prunable_execution_count": 1,
+                "prunable_compute_job_count": 1,
+                "prunable_async_result_count": 1,
+                "prunable_lineage_record_count": 1,
+                "prunable_lineage_artifact_count": 1,
+            }
+        ),
+        encoding="utf-8",
+    )
+    malformed = output_dir / "2026-03-16t00-00-00z.json"
+    malformed.write_text("{not-json", encoding="utf-8")
+    evidence = RuntimeRetentionCleanupEvidence(
+        cleanup_name="runtime_retention_cleanup",
+        generated_at_utc="2026-03-15T00:00:00Z",
+        evidence_file_name="2026-03-15t00-00-00z.json",
+        operator_id="ops",
+        tenant_id=None,
+        correlation_id=None,
+        trigger_mode="manual",
+        job_id=None,
+        cleanup_mode="dry_run",
+        status="planned",
+        retention_days=30,
+        cutoff_utc="2026-02-15T00:00:00Z",
+        prunable_execution_count=1,
+        prunable_compute_job_count=1,
+        prunable_async_result_count=1,
+        prunable_lineage_record_count=1,
+        prunable_lineage_artifact_count=1,
+    )
+
+    with caplog.at_level(logging.WARNING, logger="app.services.runtime_retention_execution_service"):
+        manifest = _build_retention_manifest(
+            evidence=evidence,
+            retained_paths=[retained, malformed],
+            retention_limit=2,
+            retention_max_age_days=90,
+        )
+
+    assert manifest.latest_file_name == "2026-03-17t00-00-00z.json"
+    assert manifest.retained_file_names == ["2026-03-17t00-00-00z.json"]
+    assert [entry.evidence_file_name for entry in manifest.entries] == ["2026-03-17t00-00-00z.json"]
+    assert "Runtime retention evidence ignored during manifest rebuild" in caplog.text
+    assert "2026-03-16t00-00-00z.json" in caplog.text
 
 
 def test_runtime_retention_execution_atomic_write_cleans_up_temp_file_on_replace_failure(tmp_path, monkeypatch):
