@@ -130,6 +130,31 @@ async def test_benchmark_endpoint_replays_promoted_stateful_async_execution(mock
 
 
 @pytest.mark.asyncio
+async def test_promoted_stateful_benchmark_workflow_replays_without_registering(mocker):
+    request = BenchmarkAnalyticsRequest.model_validate(_stateful_benchmark_payload())
+    replay_response = benchmark_calculation_workflow_service.accepted_benchmark_response(request.calculation_id)
+    mocker.patch(
+        "app.services.benchmark_calculation_workflow_service.replay_promoted_stateful_async_execution",
+        return_value=replay_response,
+    )
+    replay_promoted = benchmark_calculation_workflow_service.replay_promoted_stateful_async_execution
+    register_sync = mocker.patch("app.services.benchmark_calculation_workflow_service.register_sync_execution_or_raise")
+
+    response = await benchmark_calculation_workflow_service._calculate_promoted_stateful_benchmark_workflow(
+        request=request,
+        settings=type("Settings", (), {"APP_VERSION": "runtime-version"})(),
+        source_request_fingerprint="source-fingerprint",
+        input_fingerprint="input-fingerprint",
+        calculation_hash="calculation-hash",
+    )
+
+    assert response == replay_response
+    replay_promoted.assert_called_once()
+    assert replay_promoted.call_args.kwargs["source_request_fingerprint"] == "input-fingerprint"
+    register_sync.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_benchmark_endpoint_returns_accepted_response_when_resolved_stateful_request_is_offloaded(mocker):
     request = BenchmarkAnalyticsRequest.model_validate(_stateful_benchmark_payload())
     resolved_request = _resolved_benchmark_request()

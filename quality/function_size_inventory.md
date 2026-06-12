@@ -32,9 +32,9 @@ python scripts/python_function_size_inventory.py --limit 15
 | 10 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:482` | 122 |
 | 11 | `calculate_attribution` | `app/services/attribution_service.py:168` | 120 |
 | 12 | `_build_artifacts` | `app/services/composite_inspection_service.py:114` | 118 |
-| 13 | `calculate_benchmark_workflow` | `app/services/benchmark_calculation_workflow_service.py:146` | 116 |
-| 14 | `calculate_twr_workflow` | `app/services/twr_calculation_service.py:250` | 112 |
-| 15 | `run_runtime_retention_cleanup` | `app/services/runtime_retention_run_service.py:32` | 111 |
+| 13 | `calculate_twr_workflow` | `app/services/twr_calculation_service.py:250` | 112 |
+| 14 | `run_runtime_retention_cleanup` | `app/services/runtime_retention_run_service.py:32` | 111 |
+| 15 | `build_stateful_benchmark_input` | `app/services/stateful_benchmark_input_service.py:39` | 110 |
 
 ## Interpretation
 
@@ -50,7 +50,8 @@ isolated.
 Contribution orchestration moved from `287` to `270` lines after engine input preparation was
 isolated, then moved from `270` to `189` lines and is no longer the largest function after
 flat-period result assembly was isolated from the public contribution orchestration. Benchmark calculation workflow
-dropped out of the top-15 table after resolved benchmark execution context and failure mapping were isolated.
+dropped out of the top-15 table after resolved benchmark execution context and failure mapping were isolated, and
+then stayed out after promoted stateful workflow handling was isolated from the public workflow router.
 Workspace summary response assembly moved from `172` to `122` lines after benchmark and active-return
 period assembly were isolated.
 Attribution result aggregation moved from `148` to `126` lines after active-return/linking policy
