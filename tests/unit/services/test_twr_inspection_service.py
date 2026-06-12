@@ -525,6 +525,31 @@ def test_build_twr_inspection_response_adds_no_check_finding_and_support_brief(m
     assert "support_brief.md" in synthesis.response.artifacts
 
 
+def test_build_inspection_findings_context_adds_no_check_finding_and_failed_family_evidence():
+    evidence_summary = {"artifact_queue_enabled": True}
+
+    context = service._build_inspection_findings_context(
+        consistency_findings=[],
+        source_quality_findings=[],
+        reconciliation_findings=[],
+        source_economics_findings=[],
+        completed_check_families=[],
+        failed_check_families=["source_quality"],
+        evidence_summary=evidence_summary,
+    )
+
+    assert context.findings[0].code == "INSPECTION_NO_CHECK_FAMILY_EXECUTED"
+    assert context.pending_check_families == [
+        "calculation_consistency",
+        "source_quality",
+        "economic_plausibility",
+        "reconciliation",
+        "cashflow_classification",
+    ]
+    assert context.evidence_summary["failed_check_families"] == ["source_quality"]
+    assert "failed_check_families" not in evidence_summary
+
+
 def test_twr_inspection_verdict_and_window_helpers_cover_clean_and_unscoped_paths():
     assert (
         service._synthesize_verdict(

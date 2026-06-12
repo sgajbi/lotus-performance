@@ -28,26 +28,26 @@ python scripts/python_complexity_inventory.py --limit 20
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_build_twr_inspection_response` | function | `app/services/inspection/twr_inspection_service.py:263` | 10 | B |
-| 2 | `period_start` | function | `app/services/returns_series_service.py:143` | 10 | B |
-| 3 | `_persist_evidence_history` | function | `app/services/runtime_retention_execution_service.py:139` | 10 | B |
-| 4 | `build_portfolio_source_quality_evidence` | function | `app/services/source_quality_evidence.py:13` | 10 | B |
-| 5 | `_validate_stateful_both_currency_support` | function | `app/services/stateful_attribution_input_service.py:956` | 10 | B |
-| 6 | `_validate_stateful_both_currency_support` | function | `app/services/stateful_contribution_input_service.py:274` | 10 | B |
-| 7 | `_merge_component_series` | method | `app/services/stateful_input_service.py:1086` | 10 | B |
-| 8 | `_benchmark_currency_state` | function | `app/services/twr_benchmark_supportability.py:79` | 10 | B |
-| 9 | `calculate_twr_workflow` | function | `app/services/twr_calculation_service.py:250` | 10 | B |
-| 10 | `resolve_twr_request` | function | `app/services/twr_mode_service.py:66` | 10 | B |
-| 11 | `_resolve_stateless_twr_benchmark_request` | function | `app/services/twr_mode_service.py:292` | 10 | B |
-| 12 | `_resolve_twr_benchmark_source_input` | function | `app/services/twr_mode_service.py:377` | 10 | B |
-| 13 | `_iter_frequency_windows` | function | `app/services/twr_service.py:443` | 10 | B |
-| 14 | `_build_portfolio_breakdowns` | function | `app/services/twr_service.py:489` | 10 | B |
-| 15 | `_build_twr_results_by_period` | function | `app/services/twr_service.py:683` | 10 | B |
-| 16 | `_valuation_cashflow_totals` | function | `app/services/valuation_points_service.py:40` | 10 | B |
-| 17 | `workspace_longest_requested_window_days` | function | `app/services/workspace_summary_service.py:93` | 10 | B |
-| 18 | `_resolve_workspace_benchmark_input` | function | `app/services/workspace_summary_service.py:312` | 10 | B |
-| 19 | `generate_performance_breakdowns` | function | `engine/breakdown.py:64` | 10 | B |
-| 20 | `build_hierarchical_contribution_result` | function | `engine/contribution.py:298` | 10 | B |
+| 1 | `period_start` | function | `app/services/returns_series_service.py:143` | 10 | B |
+| 2 | `_persist_evidence_history` | function | `app/services/runtime_retention_execution_service.py:139` | 10 | B |
+| 3 | `build_portfolio_source_quality_evidence` | function | `app/services/source_quality_evidence.py:13` | 10 | B |
+| 4 | `_validate_stateful_both_currency_support` | function | `app/services/stateful_attribution_input_service.py:956` | 10 | B |
+| 5 | `_validate_stateful_both_currency_support` | function | `app/services/stateful_contribution_input_service.py:274` | 10 | B |
+| 6 | `_merge_component_series` | method | `app/services/stateful_input_service.py:1086` | 10 | B |
+| 7 | `_benchmark_currency_state` | function | `app/services/twr_benchmark_supportability.py:79` | 10 | B |
+| 8 | `calculate_twr_workflow` | function | `app/services/twr_calculation_service.py:250` | 10 | B |
+| 9 | `resolve_twr_request` | function | `app/services/twr_mode_service.py:66` | 10 | B |
+| 10 | `_resolve_stateless_twr_benchmark_request` | function | `app/services/twr_mode_service.py:292` | 10 | B |
+| 11 | `_resolve_twr_benchmark_source_input` | function | `app/services/twr_mode_service.py:377` | 10 | B |
+| 12 | `_iter_frequency_windows` | function | `app/services/twr_service.py:443` | 10 | B |
+| 13 | `_build_portfolio_breakdowns` | function | `app/services/twr_service.py:489` | 10 | B |
+| 14 | `_build_twr_results_by_period` | function | `app/services/twr_service.py:683` | 10 | B |
+| 15 | `_valuation_cashflow_totals` | function | `app/services/valuation_points_service.py:40` | 10 | B |
+| 16 | `workspace_longest_requested_window_days` | function | `app/services/workspace_summary_service.py:93` | 10 | B |
+| 17 | `_resolve_workspace_benchmark_input` | function | `app/services/workspace_summary_service.py:312` | 10 | B |
+| 18 | `generate_performance_breakdowns` | function | `engine/breakdown.py:64` | 10 | B |
+| 19 | `build_hierarchical_contribution_result` | function | `engine/contribution.py:298` | 10 | B |
+| 20 | `_xirr` | function | `engine/mwr.py:178` | 10 | B |
 
 ## Lowest Maintainability Index
 
@@ -291,6 +291,9 @@ status assembly were moved into a dedicated hierarchy-period result helper.
 interpretation and workflow-pack run posture mapping were moved into a dedicated result mapper.
 `run_twr_inspection` also dropped out after subject request materialization and calculation
 consistency loading were moved into a dedicated subject-input resolver.
+`_build_twr_inspection_response` also dropped out after finding concatenation, failed-family
+evidence projection, no-check finding insertion, and pending-family calculation were moved into a
+dedicated finding-context helper.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.

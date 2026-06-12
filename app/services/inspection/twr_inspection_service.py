@@ -69,6 +69,13 @@ class _InspectionResponseSynthesis:
 
 
 @dataclass(frozen=True)
+class _InspectionFindingsContext:
+    findings: list[TWRInspectionFinding]
+    pending_check_families: list[str]
+    evidence_summary: dict[str, object]
+
+
+@dataclass(frozen=True)
 class _SubjectInspectionInputs:
     consistency_findings: list[TWRInspectionFinding]
     completed_check_families: list[str]
@@ -274,23 +281,20 @@ def _build_twr_inspection_response(
     evidence_summary: dict[str, object],
     artifact_payloads: dict[str, str],
 ) -> _InspectionResponseSynthesis:
-    findings = [
-        *consistency_findings,
-        *source_quality_findings,
-        *reconciliation_findings,
-        *source_economics_findings,
-    ]
-    if failed_check_families:
-        evidence_summary["failed_check_families"] = failed_check_families
-    if not completed_check_families and not findings:
-        findings.append(_build_no_check_family_executed_finding())
-
-    pending_check_families = [family for family in _ALL_CHECK_FAMILIES if family not in completed_check_families]
-    verdict = _synthesize_verdict(
-        findings=findings,
+    findings_context = _build_inspection_findings_context(
+        consistency_findings=consistency_findings,
+        source_quality_findings=source_quality_findings,
+        reconciliation_findings=reconciliation_findings,
+        source_economics_findings=source_economics_findings,
         completed_check_families=completed_check_families,
         failed_check_families=failed_check_families,
-        pending_check_families=pending_check_families,
+        evidence_summary=evidence_summary,
+    )
+    verdict = _synthesize_verdict(
+        findings=findings_context.findings,
+        completed_check_families=completed_check_families,
+        failed_check_families=failed_check_families,
+        pending_check_families=findings_context.pending_check_families,
     )
     response = TWRInspectionResponse(
         inspection_id=request.inspection_id,
@@ -300,12 +304,12 @@ def _build_twr_inspection_response(
         portfolio_id=portfolio_id,
         status="complete",
         verdict=verdict,
-        findings=findings,
-        owner_summary=_build_owner_summary(findings),
-        evidence_summary=evidence_summary,
+        findings=findings_context.findings,
+        owner_summary=_build_owner_summary(findings_context.findings),
+        evidence_summary=findings_context.evidence_summary,
         check_coverage=TWRInspectionCheckCoverage(
             completed_check_families=completed_check_families,
-            pending_check_families=pending_check_families,
+            pending_check_families=findings_context.pending_check_families,
         ),
         related_lineage=TWRInspectionRelatedLineage(
             calculation_id=subject_calculation_id,
@@ -321,6 +325,7 @@ def _build_twr_inspection_response(
         generated_at_utc=format_timestamp(datetime.now(UTC)) or "",
     )
     support_brief_result = generate_twr_inspection_support_brief(inspection=response)
+    evidence_summary = findings_context.evidence_summary
     evidence_summary["support_brief_generation_status"] = support_brief_result.generation_status
     if support_brief_result.workflow_pack_run is not None:
         evidence_summary["support_brief_workflow_pack_run_id"] = support_brief_result.workflow_pack_run.run_id
@@ -340,6 +345,34 @@ def _build_twr_inspection_response(
         response=response,
         artifact_payloads=artifact_payloads,
         support_brief_generation_status=support_brief_result.generation_status,
+    )
+
+
+def _build_inspection_findings_context(
+    *,
+    consistency_findings: list[TWRInspectionFinding],
+    source_quality_findings: list[TWRInspectionFinding],
+    reconciliation_findings: list[TWRInspectionFinding],
+    source_economics_findings: list[TWRInspectionFinding],
+    completed_check_families: list[str],
+    failed_check_families: list[str],
+    evidence_summary: dict[str, object],
+) -> _InspectionFindingsContext:
+    findings = [
+        *consistency_findings,
+        *source_quality_findings,
+        *reconciliation_findings,
+        *source_economics_findings,
+    ]
+    evidence = dict(evidence_summary)
+    if failed_check_families:
+        evidence["failed_check_families"] = failed_check_families
+    if not completed_check_families and not findings:
+        findings.append(_build_no_check_family_executed_finding())
+    return _InspectionFindingsContext(
+        findings=findings,
+        pending_check_families=[family for family in _ALL_CHECK_FAMILIES if family not in completed_check_families],
+        evidence_summary=evidence,
     )
 
 
