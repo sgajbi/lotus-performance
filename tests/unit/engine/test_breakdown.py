@@ -6,7 +6,12 @@ import pytest
 
 from common.enums import Frequency
 from core.envelope import Annualization
-from engine.breakdown import _calculate_period_summary_dict, _daily_breakdown_item, generate_performance_breakdowns
+from engine.breakdown import (
+    _calculate_period_summary_dict,
+    _daily_breakdown_item,
+    _resampled_breakdown_items,
+    generate_performance_breakdowns,
+)
 from engine.schema import PortfolioColumns
 
 
@@ -166,3 +171,28 @@ def test_generate_breakdowns_skips_empty_resample_buckets(default_annualization)
         sparse, [Frequency.MONTHLY], default_annualization, False, rounding_precision=6
     )
     assert len(breakdowns[Frequency.MONTHLY]) == 2
+
+
+def test_resampled_breakdown_items_labels_quarters_and_skips_empty_buckets(default_annualization):
+    sparse = pd.DataFrame(
+        {
+            PortfolioColumns.PERF_DATE: pd.to_datetime(["2025-01-31", "2025-04-30"]).date,
+            PortfolioColumns.BEGIN_MV: [100.0, 101.0],
+            PortfolioColumns.BOD_CF: [0.0, 0.0],
+            PortfolioColumns.EOD_CF: [0.0, 0.0],
+            PortfolioColumns.END_MV: [101.0, 102.0],
+            PortfolioColumns.DAILY_ROR: [1.0, 0.99],
+            PortfolioColumns.FINAL_CUM_ROR: [1.0, 2.0],
+        }
+    )
+    sparse[PortfolioColumns.PERF_DATE.value] = pd.to_datetime(sparse[PortfolioColumns.PERF_DATE.value])
+    indexed = sparse.set_index(pd.to_datetime(sparse[PortfolioColumns.PERF_DATE.value]))
+
+    items = _resampled_breakdown_items(
+        daily_df_indexed=indexed,
+        frequency=Frequency.QUARTERLY,
+        annualization=default_annualization,
+        include_cumulative=False,
+    )
+
+    assert [item["period"] for item in items] == ["2025-Q1", "2025-Q2"]

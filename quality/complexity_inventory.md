@@ -22,37 +22,37 @@ python scripts/python_complexity_inventory.py --limit 25
 | --- | ---: |
 | Max cyclomatic complexity | 10 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.50 |
+| Average maintainability index | 55.49 |
 
 ## Highest Cyclomatic Complexity
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `generate_performance_breakdowns` | function | `engine/breakdown.py:64` | 10 | B |
-| 2 | `build_hierarchical_contribution_result` | function | `engine/contribution.py:298` | 10 | B |
-| 3 | `_xirr` | function | `engine/mwr.py:178` | 10 | B |
-| 4 | `calculate_money_weighted_return` | function | `engine/mwr.py:449` | 10 | B |
-| 5 | `get_twr_inspection_artifact` | function | `app/api/endpoints/inspections.py:147` | 9 | B |
-| 6 | `get_lineage_data` | function | `app/api/endpoints/lineage.py:102` | 9 | B |
-| 7 | `validate_mode_fields` | method | `app/models/returns_series.py:131` | 9 | B |
-| 8 | `_validate_returns_series_input_envelopes` | function | `app/models/returns_series.py:244` | 9 | B |
-| 9 | `JsonFormatter` | class | `app/observability.py:68` | 9 | B |
-| 10 | `_build_schema_example` | function | `app/openapi_enrichment.py:380` | 9 | B |
-| 11 | `_ensure_operation_documentation` | function | `app/openapi_enrichment.py:613` | 9 | B |
-| 12 | `_ensure_property_schema_documentation` | function | `app/openapi_enrichment.py:683` | 9 | B |
-| 13 | `calculate_attribution_workflow` | function | `app/services/attribution_calculation_workflow_service.py:91` | 9 | B |
-| 14 | `calculate_attribution` | function | `app/services/attribution_service.py:168` | 9 | B |
-| 15 | `_group_identity` | function | `app/services/benchmark_exposure_context_service.py:274` | 9 | B |
-| 16 | `reconcile_stale_jobs` | method | `app/services/compute_job_store.py:481` | 9 | B |
-| 17 | `_to_record` | method | `app/services/compute_job_store.py:1113` | 9 | B |
-| 18 | `_rollout_posture_notes` | method | `app/services/contribution_audit.py:125` | 9 | B |
-| 19 | `_compare_return_values` | function | `app/services/inspection/calculation_consistency.py:643` | 9 | B |
-| 20 | `_build_detailed_cashflow_contract_findings` | function | `app/services/inspection/source_economics_findings.py:112` | 9 | B |
-| 21 | `filter_history_entries` | function | `app/services/operator_action_history_filters.py:79` | 9 | B |
-| 22 | `validate_history_manifest_header` | function | `app/services/operator_action_history_manifest.py:101` | 9 | B |
-| 23 | `_read_active_operator_action_lease` | function | `app/services/operator_action_lease_service.py:285` | 9 | B |
-| 24 | `_runtime_retention_payload_identity_matches` | function | `app/services/operator_action_replay_service.py:191` | 9 | B |
-| 25 | `parse_stateful_portfolio_timeseries_payload` | function | `app/services/portfolio_source_service.py:59` | 9 | B |
+| 1 | `build_hierarchical_contribution_result` | function | `engine/contribution.py:298` | 10 | B |
+| 2 | `_xirr` | function | `engine/mwr.py:178` | 10 | B |
+| 3 | `calculate_money_weighted_return` | function | `engine/mwr.py:449` | 10 | B |
+| 4 | `get_twr_inspection_artifact` | function | `app/api/endpoints/inspections.py:147` | 9 | B |
+| 5 | `get_lineage_data` | function | `app/api/endpoints/lineage.py:102` | 9 | B |
+| 6 | `validate_mode_fields` | method | `app/models/returns_series.py:131` | 9 | B |
+| 7 | `_validate_returns_series_input_envelopes` | function | `app/models/returns_series.py:244` | 9 | B |
+| 8 | `JsonFormatter` | class | `app/observability.py:68` | 9 | B |
+| 9 | `_build_schema_example` | function | `app/openapi_enrichment.py:380` | 9 | B |
+| 10 | `_ensure_operation_documentation` | function | `app/openapi_enrichment.py:613` | 9 | B |
+| 11 | `_ensure_property_schema_documentation` | function | `app/openapi_enrichment.py:683` | 9 | B |
+| 12 | `calculate_attribution_workflow` | function | `app/services/attribution_calculation_workflow_service.py:91` | 9 | B |
+| 13 | `calculate_attribution` | function | `app/services/attribution_service.py:168` | 9 | B |
+| 14 | `_group_identity` | function | `app/services/benchmark_exposure_context_service.py:274` | 9 | B |
+| 15 | `reconcile_stale_jobs` | method | `app/services/compute_job_store.py:481` | 9 | B |
+| 16 | `_to_record` | method | `app/services/compute_job_store.py:1113` | 9 | B |
+| 17 | `_rollout_posture_notes` | method | `app/services/contribution_audit.py:125` | 9 | B |
+| 18 | `_compare_return_values` | function | `app/services/inspection/calculation_consistency.py:643` | 9 | B |
+| 19 | `_build_detailed_cashflow_contract_findings` | function | `app/services/inspection/source_economics_findings.py:112` | 9 | B |
+| 20 | `filter_history_entries` | function | `app/services/operator_action_history_filters.py:79` | 9 | B |
+| 21 | `validate_history_manifest_header` | function | `app/services/operator_action_history_manifest.py:101` | 9 | B |
+| 22 | `_read_active_operator_action_lease` | function | `app/services/operator_action_lease_service.py:285` | 9 | B |
+| 23 | `_runtime_retention_payload_identity_matches` | function | `app/services/operator_action_replay_service.py:191` | 9 | B |
+| 24 | `parse_stateful_portfolio_timeseries_payload` | function | `app/services/portfolio_source_service.py:59` | 9 | B |
+| 25 | `build_returns_series_execution_window` | function | `app/services/returns_series_calculation_workflow_service.py:55` | 9 | B |
 
 ## Lowest Maintainability Index
 
