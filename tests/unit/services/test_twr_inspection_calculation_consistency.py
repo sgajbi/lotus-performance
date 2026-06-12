@@ -11,6 +11,7 @@ from app.models.responses import (
 )
 from app.services.inspection.calculation_consistency import (
     _check_relative_breakdown_frequency,
+    _comparative_return_mismatches,
     _daily_calculation_evidence_mismatches,
     run_twr_calculation_consistency_checks,
 )
@@ -59,6 +60,18 @@ def test_calculation_consistency_flags_relative_breakdown_bucket_alignment_misma
         "period": "2026-04",
         "period_start": "2026-04-01",
         "period_end": "2026-04-30",
+    }
+
+
+def test_comparative_return_mismatches_distinguish_absent_equal_and_different_components():
+    mismatches = _comparative_return_mismatches(
+        expected=ComparativeReturnValue(base=1.0, local=None, fx=0.1),
+        actual=ComparativeReturnValue(base=1.0, local=0.2, fx=0.3),
+    )
+
+    assert mismatches == {
+        "local": (None, 0.2),
+        "fx": (0.1, 0.3),
     }
 
 
