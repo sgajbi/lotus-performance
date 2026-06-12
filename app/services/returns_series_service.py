@@ -140,22 +140,38 @@ class _StatefulReturnsSeriesResolvedRequest:
     identity_payload: dict[str, Any]
 
 
-def period_start(as_of_date: date, period: ReturnsRelativePeriod, year: int | None) -> date:
-    as_of = pd.Timestamp(as_of_date)
-    if period == ReturnsRelativePeriod.MTD:
-        return as_of.to_period("M").start_time.date()
-    if period == ReturnsRelativePeriod.QTD:
-        return as_of.to_period("Q").start_time.date()
-    if period == ReturnsRelativePeriod.YTD:
-        return as_of.to_period("Y").start_time.date()
-    if period == ReturnsRelativePeriod.ONE_YEAR:
-        return (as_of - pd.DateOffset(years=1) + pd.Timedelta(days=1)).date()
-    if period == ReturnsRelativePeriod.THREE_YEAR:
-        return (as_of - pd.DateOffset(years=3) + pd.Timedelta(days=1)).date()
-    if period == ReturnsRelativePeriod.FIVE_YEAR:
-        return (as_of - pd.DateOffset(years=5) + pd.Timedelta(days=1)).date()
+_CALENDAR_PERIOD_START_FREQUENCIES: dict[ReturnsRelativePeriod, str] = {
+    ReturnsRelativePeriod.MTD: "M",
+    ReturnsRelativePeriod.QTD: "Q",
+    ReturnsRelativePeriod.YTD: "Y",
+}
+_TRAILING_PERIOD_YEARS: dict[ReturnsRelativePeriod, int] = {
+    ReturnsRelativePeriod.ONE_YEAR: 1,
+    ReturnsRelativePeriod.THREE_YEAR: 3,
+    ReturnsRelativePeriod.FIVE_YEAR: 5,
+}
+
+
+def _resolved_relative_period_start(as_of: pd.Timestamp, period: ReturnsRelativePeriod) -> date | None:
+    calendar_frequency = _CALENDAR_PERIOD_START_FREQUENCIES.get(period)
+    if calendar_frequency is not None:
+        return as_of.to_period(calendar_frequency).start_time.date()
+
+    trailing_years = _TRAILING_PERIOD_YEARS.get(period)
+    if trailing_years is not None:
+        return (as_of - pd.DateOffset(years=trailing_years) + pd.Timedelta(days=1)).date()
+
     if period == ReturnsRelativePeriod.SI:
         return date(1900, 1, 1)
+
+    return None
+
+
+def period_start(as_of_date: date, period: ReturnsRelativePeriod, year: int | None) -> date:
+    as_of = pd.Timestamp(as_of_date)
+    relative_start = _resolved_relative_period_start(as_of, period)
+    if relative_start is not None:
+        return relative_start
     if period == ReturnsRelativePeriod.YEAR:
         if year is None:
             raise ValueError("year is required when period=YEAR")

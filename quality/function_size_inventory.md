@@ -13,7 +13,7 @@ hotspot dimension without waiting for external complexity tooling such as `radon
 ## Command
 
 ```powershell
-python scripts/python_function_size_inventory.py --limit 15
+python scripts/python_function_size_inventory.py --limit 20
 ```
 
 ## Largest Production Functions
@@ -35,6 +35,11 @@ python scripts/python_function_size_inventory.py --limit 15
 | 13 | `build_stateful_benchmark_input` | `app/services/stateful_benchmark_input_service.py:39` | 110 |
 | 14 | `calculate_attribution_workflow` | `app/services/attribution_calculation_workflow_service.py:91` | 107 |
 | 15 | `calculate_contribution` | `app/services/contribution_service.py:525` | 107 |
+| 16 | `run_source_quality_checks` | `app/services/inspection/source_quality.py:91` | 106 |
+| 17 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:200` | 102 |
+| 18 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:304` | 102 |
+| 19 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:71` | 101 |
+| 20 | `_calculate_position_flow_balance_counts` | `app/services/contribution_diagnostics.py:183` | 99 |
 
 ## Interpretation
 

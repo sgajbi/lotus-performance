@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal
+from typing import cast
 from uuid import uuid4
 
 import pandas as pd
@@ -18,6 +20,7 @@ from app.models.returns_series import (
     MissingDataPolicy,
     ReturnPoint,
     ReturnsFrequency,
+    ReturnsRelativePeriod,
     ReturnsSeriesRequest,
     ReturnsWindow,
     ReturnsWindowMode,
@@ -83,6 +86,31 @@ def test_benchmark_daily_returns_to_dataframe_preserves_index_during_timestamp_n
 
     assert [value.date().isoformat() for value in benchmark_df["date"]] == ["2026-02-23", "2026-02-24"]
     assert benchmark_df["return_value"].tolist() == [Decimal("0.001"), Decimal("0.002")]
+
+
+def test_period_start_resolves_calendar_trailing_inception_and_year_policies():
+    as_of_date = date(2026, 6, 12)
+
+    assert returns_series_service.period_start(as_of_date, ReturnsRelativePeriod.MTD, None) == date(2026, 6, 1)
+    assert returns_series_service.period_start(as_of_date, ReturnsRelativePeriod.QTD, None) == date(2026, 4, 1)
+    assert returns_series_service.period_start(as_of_date, ReturnsRelativePeriod.YTD, None) == date(2026, 1, 1)
+    assert returns_series_service.period_start(as_of_date, ReturnsRelativePeriod.ONE_YEAR, None) == date(2025, 6, 13)
+    assert returns_series_service.period_start(as_of_date, ReturnsRelativePeriod.THREE_YEAR, None) == date(2023, 6, 13)
+    assert returns_series_service.period_start(as_of_date, ReturnsRelativePeriod.FIVE_YEAR, None) == date(2021, 6, 13)
+    assert returns_series_service.period_start(as_of_date, ReturnsRelativePeriod.SI, None) == date(1900, 1, 1)
+    assert returns_series_service.period_start(as_of_date, ReturnsRelativePeriod.YEAR, 2024) == date(2024, 1, 1)
+
+
+def test_period_start_rejects_missing_year_and_unknown_period():
+    with pytest.raises(ValueError, match="year is required when period=YEAR"):
+        returns_series_service.period_start(date(2026, 6, 12), ReturnsRelativePeriod.YEAR, None)
+
+    with pytest.raises(ValueError, match="Unsupported period: CUSTOM"):
+        returns_series_service.period_start(
+            date(2026, 6, 12),
+            cast(ReturnsRelativePeriod, "CUSTOM"),
+            None,
+        )
 
 
 def test_build_cumulative_active_return_points_uses_cumulative_excess_not_linked_active():
