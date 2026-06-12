@@ -28,26 +28,26 @@ python scripts/python_complexity_inventory.py --limit 20
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `register_async_submission_or_raise` | function | `app/services/submission_fencing_service.py:53` | 11 | C |
-| 2 | `build_twr_execution_window` | function | `app/services/twr_calculation_service.py:198` | 11 | C |
-| 3 | `process_pending_jobs` | function | `app/workers/lineage_worker.py:18` | 11 | C |
-| 4 | `generate_performance_breakdowns` | function | `engine/breakdown.py:51` | 11 | C |
-| 5 | `_flag_outliers` | function | `engine/policies.py:118` | 11 | C |
-| 6 | `to_stateless_attribution_request` | method | `app/models/attribution_analytics_requests.py:174` | 10 | B |
-| 7 | `to_stateless_mwr_request` | method | `app/models/mwr_analytics_requests.py:112` | 10 | B |
-| 8 | `_infer_description` | function | `app/openapi_enrichment.py:229` | 10 | B |
-| 9 | `calculate_benchmark_artifacts` | function | `app/services/benchmark_calculation_service.py:71` | 10 | B |
-| 10 | `calculate_benchmark_workflow` | function | `app/services/benchmark_calculation_workflow_service.py:146` | 10 | B |
-| 11 | `resolve_benchmark_request` | function | `app/services/benchmark_mode_service.py:29` | 10 | B |
-| 12 | `_queue_stats_from_aggregate_row` | function | `app/services/compute_job_store.py:150` | 10 | B |
-| 13 | `calculate_contribution` | function | `app/services/contribution_service.py:421` | 10 | B |
-| 14 | `generate_twr_inspection_support_brief` | function | `app/services/inspection/support_brief_workflow_pack.py:27` | 10 | B |
-| 15 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:71` | 10 | B |
-| 16 | `_build_twr_inspection_response` | function | `app/services/inspection/twr_inspection_service.py:225` | 10 | B |
-| 17 | `period_start` | function | `app/services/returns_series_service.py:143` | 10 | B |
-| 18 | `_persist_evidence_history` | function | `app/services/runtime_retention_execution_service.py:139` | 10 | B |
-| 19 | `build_portfolio_source_quality_evidence` | function | `app/services/source_quality_evidence.py:13` | 10 | B |
-| 20 | `_validate_stateful_both_currency_support` | function | `app/services/stateful_attribution_input_service.py:956` | 10 | B |
+| 1 | `build_twr_execution_window` | function | `app/services/twr_calculation_service.py:198` | 11 | C |
+| 2 | `process_pending_jobs` | function | `app/workers/lineage_worker.py:18` | 11 | C |
+| 3 | `generate_performance_breakdowns` | function | `engine/breakdown.py:51` | 11 | C |
+| 4 | `_flag_outliers` | function | `engine/policies.py:118` | 11 | C |
+| 5 | `to_stateless_attribution_request` | method | `app/models/attribution_analytics_requests.py:174` | 10 | B |
+| 6 | `to_stateless_mwr_request` | method | `app/models/mwr_analytics_requests.py:112` | 10 | B |
+| 7 | `_infer_description` | function | `app/openapi_enrichment.py:229` | 10 | B |
+| 8 | `calculate_benchmark_artifacts` | function | `app/services/benchmark_calculation_service.py:71` | 10 | B |
+| 9 | `calculate_benchmark_workflow` | function | `app/services/benchmark_calculation_workflow_service.py:146` | 10 | B |
+| 10 | `resolve_benchmark_request` | function | `app/services/benchmark_mode_service.py:29` | 10 | B |
+| 11 | `_queue_stats_from_aggregate_row` | function | `app/services/compute_job_store.py:150` | 10 | B |
+| 12 | `calculate_contribution` | function | `app/services/contribution_service.py:421` | 10 | B |
+| 13 | `generate_twr_inspection_support_brief` | function | `app/services/inspection/support_brief_workflow_pack.py:27` | 10 | B |
+| 14 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:71` | 10 | B |
+| 15 | `_build_twr_inspection_response` | function | `app/services/inspection/twr_inspection_service.py:225` | 10 | B |
+| 16 | `period_start` | function | `app/services/returns_series_service.py:143` | 10 | B |
+| 17 | `_persist_evidence_history` | function | `app/services/runtime_retention_execution_service.py:139` | 10 | B |
+| 18 | `build_portfolio_source_quality_evidence` | function | `app/services/source_quality_evidence.py:13` | 10 | B |
+| 19 | `_validate_stateful_both_currency_support` | function | `app/services/stateful_attribution_input_service.py:956` | 10 | B |
+| 20 | `_validate_stateful_both_currency_support` | function | `app/services/stateful_contribution_input_service.py:274` | 10 | B |
 
 ## Lowest Maintainability Index
 
@@ -256,6 +256,8 @@ requested-window date handling, local-price capture, FX normalization, and reque
 collection were moved into a dedicated helper.
 `_fetch_position_chunk` also dropped out after position request-payload assembly and upstream
 snapshot append/de-duplication were moved into dedicated helpers.
+`register_async_submission_or_raise` also dropped out after async submission stage completion and
+replay self-healing policy were moved into a dedicated lifecycle helper.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.
