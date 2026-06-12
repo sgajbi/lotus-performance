@@ -250,16 +250,7 @@ def _compound_ror(df: pd.DataFrame, daily_ror: pd.Series, leg: str, use_resets=F
         growth_factor = one - (daily_ror / hundred)
     growth_factor = growth_factor.where(is_leg_day, one)
 
-    prev_eff_start = df[PortfolioColumns.EFFECTIVE_PERIOD_START_DATE.value].shift(1)
-    is_period_start = df[PortfolioColumns.EFFECTIVE_PERIOD_START_DATE.value] != prev_eff_start
-    if not df.empty:
-        is_period_start.iloc[0] = True
-
-    block_starts = is_period_start
-    if use_resets:
-        prev_day_was_reset = df[PortfolioColumns.PERF_RESET.value].shift(1, fill_value=0) == 1
-        block_starts |= prev_day_was_reset
-    block_ids = block_starts.cumsum()
+    block_ids = _compounding_block_ids(df, use_resets=use_resets)
 
     if is_decimal_mode:
 
@@ -283,3 +274,16 @@ def _compound_ror(df: pd.DataFrame, daily_ror: pd.Series, leg: str, use_resets=F
         filled_ror = leg_ror.ffill().fillna(zero)
 
     return filled_ror
+
+
+def _compounding_block_ids(df: pd.DataFrame, *, use_resets: bool) -> pd.Series:
+    prev_eff_start = df[PortfolioColumns.EFFECTIVE_PERIOD_START_DATE.value].shift(1)
+    is_period_start = df[PortfolioColumns.EFFECTIVE_PERIOD_START_DATE.value] != prev_eff_start
+    if not df.empty:
+        is_period_start.iloc[0] = True
+
+    block_starts = is_period_start
+    if use_resets:
+        prev_day_was_reset = df[PortfolioColumns.PERF_RESET.value].shift(1, fill_value=0) == 1
+        block_starts |= prev_day_was_reset
+    return block_starts.cumsum()

@@ -20,17 +20,17 @@ metrics in each section are updated with each meaningful slice.
 | --- | ---: | ---: | ---: | --- | --- |
 | Python files | 480 | 542 | 62 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Python package markers | 18 | 18 | 0 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Python LOC | 104,454 | 122,349 | 17,895 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python LOC | 104,454 | 122,362 | 17,908 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest Python file LOC | 2,399 | 2,399 | 0 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest production file LOC | 1,156 | 1,156 | 0 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
 | Python test modules | 228 | 258 | 30 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Collected tests | 2,035 | 2,428 | 393 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Collected tests | 2,035 | 2,429 | 394 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 
 ### Complexity And Maintainability
 
 | Metric | Baseline | Current | Delta | Status | Evidence |
 | --- | ---: | ---: | ---: | --- | --- |
-| Max cyclomatic complexity | unknown | 9 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
+| Max cyclomatic complexity | unknown | 8 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
 | High-complexity functions (D-F) | unknown | 0 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
 | Average maintainability index | unknown | 55.24 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
 | Largest functions by LOC | unknown | 159 | n/a | measured | `quality/function_size_inventory.md`; `quality/refactor_health_report.md` |
