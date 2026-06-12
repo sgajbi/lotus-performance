@@ -615,7 +615,9 @@ async def test_stateful_input_service_merges_chunked_index_price_series_and_skip
         {"series_date": "2026-01-04", "index_price": "101", "series_currency": "USD"},
     ]
     snapshots = execution_store.list_upstream_snapshots(calculation_id)
-    assert len([snapshot for snapshot in snapshots if snapshot.upstream_endpoint == "index_price_series"]) == 2
+    index_snapshots = [snapshot for snapshot in snapshots if snapshot.upstream_endpoint == "index_price_series"]
+    assert len(index_snapshots) == 2
+    assert {snapshot.source_identifier for snapshot in index_snapshots} == {"IDX_1"}
     assert len(core_service.index_price_calls) == 4
 
 

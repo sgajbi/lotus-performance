@@ -699,41 +699,16 @@ class StatefulInputService:
                 target_currency=target_currency,
             ),
         )
-        if calculation_id is not None:
-            snapshot_batch: list[dict[str, Any]] = []
-            for chunk, response in zip(chunks, responses):
-                request_payload = {
-                    "index_id": index_id,
-                    "start_date": str(chunk.start_date),
-                    "end_date": str(chunk.end_date),
-                    "frequency": frequency,
-                    "target_currency": target_currency,
-                }
-                snapshot_id, request_fingerprint = self._build_snapshot_identity(
-                    calculation_id=calculation_id,
-                    upstream_endpoint="index_price_series",
-                    source_identifier=index_id,
-                    request_payload=request_payload,
-                )
-                if snapshot_id in existing_snapshot_ids:
-                    continue
-                snapshot_batch.append(
-                    self._build_snapshot(
-                        calculation_id=calculation_id,
-                        upstream_endpoint="index_price_series",
-                        source_identifier=index_id,
-                        as_of_date=as_of_date,
-                        request_payload=request_payload,
-                        response=response,
-                        snapshot_id=snapshot_id,
-                        request_fingerprint=request_fingerprint,
-                    )
-                )
-                existing_snapshot_ids.add(snapshot_id)
-            self._execution_store.record_upstream_snapshots(
-                calculation_id=calculation_id,
-                snapshots=snapshot_batch,
-            )
+        self._record_index_price_series_snapshots(
+            calculation_id=calculation_id,
+            index_id=index_id,
+            as_of_date=as_of_date,
+            frequency=frequency,
+            target_currency=target_currency,
+            chunks=chunks,
+            responses=responses,
+            existing_snapshot_ids=existing_snapshot_ids,
+        )
         failure = self._first_failure(responses)
         if failure is not None:
             return failure
@@ -754,6 +729,55 @@ class StatefulInputService:
                 "page_count": len(chunks),
             },
         }
+
+    def _record_index_price_series_snapshots(
+        self,
+        *,
+        calculation_id: UUID | None,
+        index_id: str,
+        as_of_date: date,
+        frequency: str,
+        target_currency: str | None,
+        chunks: list[DateChunk],
+        responses: list[tuple[int, dict[str, Any]]],
+        existing_snapshot_ids: set[str],
+    ) -> None:
+        if calculation_id is None:
+            return
+        snapshot_batch: list[dict[str, Any]] = []
+        for chunk, response in zip(chunks, responses):
+            request_payload = {
+                "index_id": index_id,
+                "start_date": str(chunk.start_date),
+                "end_date": str(chunk.end_date),
+                "frequency": frequency,
+                "target_currency": target_currency,
+            }
+            snapshot_id, request_fingerprint = self._build_snapshot_identity(
+                calculation_id=calculation_id,
+                upstream_endpoint="index_price_series",
+                source_identifier=index_id,
+                request_payload=request_payload,
+            )
+            if snapshot_id in existing_snapshot_ids:
+                continue
+            snapshot_batch.append(
+                self._build_snapshot(
+                    calculation_id=calculation_id,
+                    upstream_endpoint="index_price_series",
+                    source_identifier=index_id,
+                    as_of_date=as_of_date,
+                    request_payload=request_payload,
+                    response=response,
+                    snapshot_id=snapshot_id,
+                    request_fingerprint=request_fingerprint,
+                )
+            )
+            existing_snapshot_ids.add(snapshot_id)
+        self._execution_store.record_upstream_snapshots(
+            calculation_id=calculation_id,
+            snapshots=snapshot_batch,
+        )
 
     async def get_risk_free_series(
         self,
