@@ -407,6 +407,30 @@ def _ref_schema_example(
     )
 
 
+def _structural_schema_example(
+    schema: dict[str, Any],
+    *,
+    components: dict[str, Any],
+    seen_refs: set[str],
+    name_hint: str,
+) -> Any | None:
+    schema_type = schema.get("type")
+    if schema_type == "object" or isinstance(schema.get("properties"), dict):
+        return _object_schema_example(
+            schema,
+            components=components,
+            seen_refs=seen_refs,
+        )
+    if schema_type == "array":
+        return _array_schema_example(
+            schema,
+            components=components,
+            seen_refs=seen_refs,
+            name_hint=name_hint,
+        )
+    return None
+
+
 def _build_schema_example(
     schema: dict[str, Any],
     *,
@@ -432,20 +456,15 @@ def _build_schema_example(
     if composed_example is not None:
         return composed_example
 
-    schema_type = schema.get("type")
-    if schema_type == "object" or isinstance(schema.get("properties"), dict):
-        return _object_schema_example(
-            schema,
-            components=components,
-            seen_refs=seen,
-        )
-    if schema_type == "array":
-        return _array_schema_example(
-            schema,
-            components=components,
-            seen_refs=seen,
-            name_hint=name_hint,
-        )
+    structural_example = _structural_schema_example(
+        schema,
+        components=components,
+        seen_refs=seen,
+        name_hint=name_hint,
+    )
+    if structural_example is not None:
+        return structural_example
+
     return _infer_example(name_hint, schema)
 
 

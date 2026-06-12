@@ -22,6 +22,7 @@ from app.openapi_enrichment import (
     _semantic_id,
     _semantic_property_description,
     _semantic_string_example,
+    _structural_schema_example,
     _to_snake_case,
     _typed_schema_example,
     _validation_error_json_content,
@@ -194,6 +195,32 @@ def test_named_schema_example_extracts_first_named_value():
     assert _named_schema_example({"documented": {"value": {"status": "complete"}}}) == {"status": "complete"}
     assert _named_schema_example({"documented": {"summary": "missing value"}}) is None
     assert _named_schema_example([{"value": "not named"}]) is None
+
+
+def test_structural_schema_example_routes_object_array_and_scalar_fallback():
+    components = {"schemas": {}}
+
+    assert _structural_schema_example(
+        {"properties": {"portfolio_id": {"type": "string"}}},
+        components=components,
+        seen_refs=set(),
+        name_hint="payload",
+    ) == {"portfolio_id": "DEMO_DPM_EUR_001"}
+    assert _structural_schema_example(
+        {"type": "array", "items": {"type": "integer"}},
+        components=components,
+        seen_refs=set(),
+        name_hint="values",
+    ) == [1]
+    assert (
+        _structural_schema_example(
+            {"type": "string"},
+            components=components,
+            seen_refs=set(),
+            name_hint="status",
+        )
+        is None
+    )
 
 
 def test_ensure_request_body_example_uses_operation_override():
