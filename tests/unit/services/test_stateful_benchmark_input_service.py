@@ -900,6 +900,38 @@ def test_build_component_observation_projects_local_fx_and_total_returns():
     assert observation.component_return_fx == pytest.approx(0.02)
 
 
+def test_build_component_observation_projects_zero_fx_for_benchmark_currency_component():
+    observation = _build_component_observation(
+        benchmark_id="BMK_1",
+        segment=BenchmarkCompositionSegment(
+            index_id="IDX_USD",
+            composition_weight=Decimal("1"),
+            composition_effective_from=date(2026, 1, 1),
+            composition_effective_to=None,
+        ),
+        point_date=date(2026, 1, 2),
+        normalized_component_series={
+            "IDX_USD": {
+                "normalized_prices": {
+                    date(2026, 1, 1): Decimal("100"),
+                    date(2026, 1, 2): Decimal("101"),
+                },
+                "local_prices": {
+                    date(2026, 1, 1): Decimal("100"),
+                    date(2026, 1, 2): Decimal("101"),
+                },
+                "series_currency": "USD",
+            }
+        },
+        benchmark_currency="USD",
+        fx_map_by_pair={},
+    )
+
+    assert observation.component_return == pytest.approx(0.01)
+    assert observation.component_return_local == pytest.approx(0.01)
+    assert observation.component_return_fx == 0
+
+
 def test_build_normalized_component_series_skips_invalid_points_and_rejects_missing_prices():
     with pytest.raises(HTTPException, match="missing index_price"):
         _build_normalized_component_series(
