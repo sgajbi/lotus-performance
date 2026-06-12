@@ -807,40 +807,16 @@ class StatefulInputService:
                 series_mode=series_mode,
             ),
         )
-        if calculation_id is not None:
-            snapshot_batch: list[dict[str, Any]] = []
-            for chunk, response in zip(chunks, responses):
-                request_payload = {
-                    "currency": currency,
-                    "start_date": str(chunk.start_date),
-                    "end_date": str(chunk.end_date),
-                    "frequency": frequency,
-                    "series_mode": series_mode,
-                }
-                snapshot_id, request_fingerprint = self._build_snapshot_identity(
-                    calculation_id=calculation_id,
-                    upstream_endpoint="risk_free_series",
-                    source_identifier=currency,
-                    request_payload=request_payload,
-                )
-                if snapshot_id in existing_snapshot_ids:
-                    continue
-                snapshot_batch.append(
-                    self._build_snapshot(
-                        calculation_id=calculation_id,
-                        upstream_endpoint="risk_free_series",
-                        source_identifier=currency,
-                        as_of_date=as_of_date,
-                        request_payload=request_payload,
-                        response=response,
-                        snapshot_id=snapshot_id,
-                        request_fingerprint=request_fingerprint,
-                    )
-                )
-            self._execution_store.record_upstream_snapshots(
-                calculation_id=calculation_id,
-                snapshots=snapshot_batch,
-            )
+        self._record_risk_free_series_snapshots(
+            calculation_id=calculation_id,
+            currency=currency,
+            as_of_date=as_of_date,
+            frequency=frequency,
+            series_mode=series_mode,
+            chunks=chunks,
+            responses=responses,
+            existing_snapshot_ids=existing_snapshot_ids,
+        )
         failure = self._first_failure(responses)
         if failure is not None:
             return failure
@@ -861,6 +837,55 @@ class StatefulInputService:
                 "page_count": len(chunks),
             },
         }
+
+    def _record_risk_free_series_snapshots(
+        self,
+        *,
+        calculation_id: UUID | None,
+        currency: str,
+        as_of_date: date,
+        frequency: str,
+        series_mode: str,
+        chunks: list[DateChunk],
+        responses: list[tuple[int, dict[str, Any]]],
+        existing_snapshot_ids: set[str],
+    ) -> None:
+        if calculation_id is None:
+            return
+        snapshot_batch: list[dict[str, Any]] = []
+        for chunk, response in zip(chunks, responses):
+            request_payload = {
+                "currency": currency,
+                "start_date": str(chunk.start_date),
+                "end_date": str(chunk.end_date),
+                "frequency": frequency,
+                "series_mode": series_mode,
+            }
+            snapshot_id, request_fingerprint = self._build_snapshot_identity(
+                calculation_id=calculation_id,
+                upstream_endpoint="risk_free_series",
+                source_identifier=currency,
+                request_payload=request_payload,
+            )
+            if snapshot_id in existing_snapshot_ids:
+                continue
+            snapshot_batch.append(
+                self._build_snapshot(
+                    calculation_id=calculation_id,
+                    upstream_endpoint="risk_free_series",
+                    source_identifier=currency,
+                    as_of_date=as_of_date,
+                    request_payload=request_payload,
+                    response=response,
+                    snapshot_id=snapshot_id,
+                    request_fingerprint=request_fingerprint,
+                )
+            )
+            existing_snapshot_ids.add(snapshot_id)
+        self._execution_store.record_upstream_snapshots(
+            calculation_id=calculation_id,
+            snapshots=snapshot_batch,
+        )
 
     async def _fetch_portfolio_chunk(
         self,

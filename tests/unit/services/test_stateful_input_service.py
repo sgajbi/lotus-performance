@@ -454,6 +454,47 @@ async def test_reference_series_merge_chunked_points():
 
 
 @pytest.mark.asyncio
+async def test_stateful_input_service_records_risk_free_snapshots_once_per_chunk(tmp_path):
+    core_service = _CoreServiceStub()
+    execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    execution_store.create_schema()
+    calculation_id = uuid4()
+    execution_store.create_execution(
+        calculation_id=calculation_id,
+        analytics_type="BenchmarkAnalytics",
+        portfolio_id="PORT_1",
+    )
+    service = StatefulInputService(
+        core_service=core_service,
+        execution_store=execution_store,
+        reference_chunk_days=2,
+    )
+
+    status_code, payload = await service.get_risk_free_series(
+        currency="USD",
+        as_of_date=date(2026, 1, 4),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 4),
+        calculation_id=calculation_id,
+    )
+    await service.get_risk_free_series(
+        currency="USD",
+        as_of_date=date(2026, 1, 4),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 4),
+        calculation_id=calculation_id,
+    )
+
+    assert status_code == 200
+    assert payload["retrieval_metadata"] == {"chunk_count": 2, "page_count": 2}
+    snapshots = execution_store.list_upstream_snapshots(calculation_id)
+    risk_free_snapshots = [snapshot for snapshot in snapshots if snapshot.upstream_endpoint == "risk_free_series"]
+    assert len(risk_free_snapshots) == 2
+    assert {snapshot.source_identifier for snapshot in risk_free_snapshots} == {"USD"}
+    assert len(core_service.risk_free_calls) == 4
+
+
+@pytest.mark.asyncio
 async def test_stateful_input_service_fetches_reference_payloads_and_records_snapshots(tmp_path):
     core_service = _CoreServiceStub()
     execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
