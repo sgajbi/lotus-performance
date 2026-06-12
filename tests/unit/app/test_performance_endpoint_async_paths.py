@@ -6,11 +6,14 @@ import pytest
 from fastapi import HTTPException
 
 from app.api.endpoints import performance as performance_endpoint
+from app.models.attribution_analytics_requests import AttributionInputMode
+from app.models.attribution_requests import AttributionRequest
 from app.models.mwr_analytics_requests import MoneyWeightedReturnAnalyticsRequest
 from app.models.twr_requests import TWRAnalyticsRequest
 from app.models.workspace_summary_requests import WorkspaceSummaryRequest
 from app.services import attribution_calculation_workflow_service
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY
+from app.services.attribution_mode_service import ResolvedAttributionRequest
 from app.services.twr_calculation_service import twr_requested_benchmark_work_units
 
 
@@ -232,3 +235,121 @@ def test_attribution_input_count_prefers_nested_stateless_payload():
     )
 
     assert attribution_calculation_workflow_service.attribution_input_count(request) == 3
+
+
+def test_finalize_resolved_stateful_attribution_execution_preserves_resolved_identity(mocker):
+    request = performance_endpoint.AttributionAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "P1",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "mode": "by_group",
+            "group_by": ["sector"],
+            "input_mode": "stateful",
+            "stateful_input": {},
+        }
+    )
+    attribution_request = AttributionRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "mode": "by_group",
+            "group_by": ["sector"],
+            "benchmark_groups_data": [{"key": {"sector": "Tech"}, "observations": []}],
+        }
+    )
+    resolved = ResolvedAttributionRequest(
+        attribution_request=attribution_request,
+        input_mode=AttributionInputMode.STATEFUL,
+        input_count=7,
+        resolved_benchmark_id="BMK_1",
+        resolved_benchmark_return_source="calculated",
+    )
+    settings = type("Settings", (), {"APP_VERSION": "runtime-version"})()
+    accepted = attribution_calculation_workflow_service.accepted_attribution_response(request.calculation_id)
+    finalize_capture: dict[str, object] = {}
+    mocker.patch(
+        "app.services.attribution_calculation_workflow_service.generate_request_fingerprint",
+        return_value=("resolved-fingerprint", "resolved-hash"),
+    )
+    mocker.patch(
+        "app.services.attribution_calculation_workflow_service.should_offload_resolved_attribution",
+        return_value=True,
+    )
+    mocker.patch(
+        "app.services.attribution_calculation_workflow_service.finalize_resolved_stateful_execution",
+        side_effect=lambda **kwargs: finalize_capture.update(kwargs) or accepted,
+    )
+
+    input_fingerprint, calculation_hash, accepted_response = (
+        attribution_calculation_workflow_service._finalize_resolved_stateful_attribution_execution(
+            request,
+            resolved,
+            active_settings=settings,
+            source_request_fingerprint="source-fingerprint",
+        )
+    )
+
+    assert input_fingerprint == "resolved-fingerprint"
+    assert calculation_hash == "resolved-hash"
+    assert accepted_response is accepted
+    assert finalize_capture["calculation_id"] == request.calculation_id
+    assert finalize_capture["input_fingerprint"] == "resolved-fingerprint"
+    assert finalize_capture["calculation_hash"] == "resolved-hash"
+    assert finalize_capture["should_offload"] is True
+    assert finalize_capture["offload_reason"] == "large_resolved_stateful_attribution"
+    requested_window = finalize_capture["requested_window"]
+    assert isinstance(requested_window, dict)
+    assert requested_window["source_request_fingerprint"] == "source-fingerprint"
+    assert requested_window["benchmark_id"] == "BMK_1"
+    assert requested_window["benchmark_return_source"] == "calculated"
+    resolved_payload = finalize_capture["resolved_request_payload"]
+    assert isinstance(resolved_payload, dict)
+    assert resolved_payload["source_input_mode"] == "stateful"
+    assert resolved_payload["resolved_benchmark_id"] == "BMK_1"
+
+
+def test_initial_attribution_async_submission_projects_stateful_offload_reason(mocker):
+    request = performance_endpoint.AttributionAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "P1",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-07-31",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "mode": "by_group",
+            "group_by": ["sector"],
+            "input_mode": "stateful",
+            "stateful_input": {},
+        }
+    )
+    accepted = attribution_calculation_workflow_service.accepted_attribution_response(request.calculation_id)
+    submission_capture: dict[str, object] = {}
+    mocker.patch(
+        "app.services.attribution_calculation_workflow_service.should_offload_attribution",
+        return_value=True,
+    )
+    mocker.patch(
+        "app.services.attribution_calculation_workflow_service.register_async_submission_or_raise",
+        side_effect=lambda **kwargs: submission_capture.update(kwargs) or accepted,
+    )
+
+    response = attribution_calculation_workflow_service._initial_attribution_async_submission(
+        request,
+        requested_window={"input_count": 0},
+        input_fingerprint="input-fingerprint",
+        calculation_hash="calculation-hash",
+    )
+
+    assert response is accepted
+    assert submission_capture["calculation_id"] == request.calculation_id
+    assert submission_capture["analytics_type"] == "Attribution"
+    assert submission_capture["portfolio_id"] == "P1"
+    assert submission_capture["requested_window"] == {"input_count": 0}
+    assert submission_capture["input_fingerprint"] == "input-fingerprint"
+    assert submission_capture["calculation_hash"] == "calculation-hash"
+    assert submission_capture["offload_reason"] == "long_window_stateful_attribution"

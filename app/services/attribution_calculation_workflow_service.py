@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Protocol
+
 from fastapi import HTTPException, status
 
 from app.core.config import get_settings
@@ -7,7 +9,7 @@ from app.models.attribution_analytics_requests import AttributionAnalyticsReques
 from app.models.attribution_requests import AttributionRequest
 from app.models.attribution_responses import AttributionAcceptedResponse, AttributionResponse
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_ATTRIBUTION
-from app.services.attribution_mode_service import resolve_attribution_request
+from app.services.attribution_mode_service import ResolvedAttributionRequest, resolve_attribution_request
 from app.services.attribution_service import calculate_attribution
 from app.services.execution_lifecycle_service import record_execution_failure
 from app.services.reproducibility_service import generate_request_fingerprint
@@ -19,6 +21,10 @@ from app.services.submission_fencing_service import (
     register_async_submission_or_raise,
     register_sync_execution_or_raise,
 )
+
+
+class _AttributionWorkflowSettings(Protocol):
+    APP_VERSION: str
 
 
 def accepted_attribution_response(calculation_id) -> AttributionAcceptedResponse:
@@ -88,6 +94,70 @@ def build_attribution_execution_window(
     return requested_window
 
 
+def _finalize_resolved_stateful_attribution_execution(
+    request: AttributionAnalyticsRequest,
+    resolved: ResolvedAttributionRequest,
+    *,
+    active_settings: _AttributionWorkflowSettings,
+    source_request_fingerprint: str,
+) -> tuple[str, str, AttributionAcceptedResponse | None]:
+    input_fingerprint, calculation_hash = generate_request_fingerprint(
+        resolved.attribution_request,
+        active_settings.APP_VERSION,
+    )
+    requested_window = build_attribution_execution_window(
+        request,
+        input_count=resolved.input_count,
+        source_request_fingerprint=source_request_fingerprint,
+        benchmark_id=resolved.resolved_benchmark_id,
+        benchmark_return_source=resolved.resolved_benchmark_return_source,
+    )
+    accepted_response = finalize_resolved_stateful_execution(
+        calculation_id=request.calculation_id,
+        analytics_type=ANALYTICS_WORKFLOW_ATTRIBUTION,
+        requested_window=requested_window,
+        input_fingerprint=input_fingerprint,
+        calculation_hash=calculation_hash,
+        resolved_request_payload={
+            "resolved_request": resolved.attribution_request.model_dump(mode="json"),
+            "source_input_mode": resolved.input_mode.value,
+            "resolved_benchmark_id": resolved.resolved_benchmark_id,
+            "resolved_benchmark_return_source": resolved.resolved_benchmark_return_source,
+        },
+        should_offload=should_offload_resolved_attribution(resolved.input_count),
+        offload_reason="large_resolved_stateful_attribution",
+        accepted_response_factory=accepted_attribution_response,
+    )
+    return input_fingerprint, calculation_hash, accepted_response
+
+
+def _initial_attribution_async_submission(
+    request: AttributionAnalyticsRequest,
+    *,
+    requested_window: dict[str, object],
+    input_fingerprint: str,
+    calculation_hash: str,
+) -> AttributionAcceptedResponse | None:
+    if not should_offload_attribution(request):
+        return None
+    offload_reason = (
+        "long_window_stateful_attribution"
+        if request.input_mode == AttributionInputMode.STATEFUL
+        else "large_attribution_input_set"
+    )
+    return register_async_submission_or_raise(
+        calculation_id=request.calculation_id,
+        analytics_type=ANALYTICS_WORKFLOW_ATTRIBUTION,
+        portfolio_id=request.portfolio_id,
+        requested_window=requested_window,
+        input_fingerprint=input_fingerprint,
+        calculation_hash=calculation_hash,
+        request_payload=request.model_dump(mode="json"),
+        offload_reason=offload_reason,
+        accepted_response_factory=accepted_attribution_response,
+    )
+
+
 async def calculate_attribution_workflow(
     request: AttributionAnalyticsRequest,
 ) -> AttributionResponse | AttributionAcceptedResponse:
@@ -99,22 +169,14 @@ async def calculate_attribution_workflow(
         request,
         input_count=attribution_input_count(request),
     )
-    if should_offload_attribution(request):
-        return register_async_submission_or_raise(
-            calculation_id=request.calculation_id,
-            analytics_type=ANALYTICS_WORKFLOW_ATTRIBUTION,
-            portfolio_id=request.portfolio_id,
-            requested_window=requested_window,
-            input_fingerprint=input_fingerprint,
-            calculation_hash=calculation_hash,
-            request_payload=request.model_dump(mode="json"),
-            offload_reason=(
-                "long_window_stateful_attribution"
-                if request.input_mode == AttributionInputMode.STATEFUL
-                else "large_attribution_input_set"
-            ),
-            accepted_response_factory=accepted_attribution_response,
-        )
+    accepted_response = _initial_attribution_async_submission(
+        request,
+        requested_window=requested_window,
+        input_fingerprint=input_fingerprint,
+        calculation_hash=calculation_hash,
+    )
+    if accepted_response is not None:
+        return accepted_response
 
     if request.input_mode == AttributionInputMode.STATEFUL:
         replay_response = replay_promoted_stateful_async_execution(
@@ -143,32 +205,11 @@ async def calculate_attribution_workflow(
     try:
         resolved = await resolve_attribution_request(request, settings=active_settings)
         if resolved.input_mode == AttributionInputMode.STATEFUL:
-            input_fingerprint, calculation_hash = generate_request_fingerprint(
-                resolved.attribution_request,
-                active_settings.APP_VERSION,
-            )
-            requested_window = build_attribution_execution_window(
+            input_fingerprint, calculation_hash, accepted_response = _finalize_resolved_stateful_attribution_execution(
                 request,
-                input_count=resolved.input_count,
+                resolved,
+                active_settings=active_settings,
                 source_request_fingerprint=source_request_fingerprint,
-                benchmark_id=resolved.resolved_benchmark_id,
-                benchmark_return_source=resolved.resolved_benchmark_return_source,
-            )
-            accepted_response = finalize_resolved_stateful_execution(
-                calculation_id=request.calculation_id,
-                analytics_type=ANALYTICS_WORKFLOW_ATTRIBUTION,
-                requested_window=requested_window,
-                input_fingerprint=input_fingerprint,
-                calculation_hash=calculation_hash,
-                resolved_request_payload={
-                    "resolved_request": resolved.attribution_request.model_dump(mode="json"),
-                    "source_input_mode": resolved.input_mode.value,
-                    "resolved_benchmark_id": resolved.resolved_benchmark_id,
-                    "resolved_benchmark_return_source": resolved.resolved_benchmark_return_source,
-                },
-                should_offload=should_offload_resolved_attribution(resolved.input_count),
-                offload_reason="large_resolved_stateful_attribution",
-                accepted_response_factory=accepted_attribution_response,
             )
             if accepted_response is not None:
                 return accepted_response

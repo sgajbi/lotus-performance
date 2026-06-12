@@ -32,14 +32,14 @@ python scripts/python_function_size_inventory.py --limit 20
 | 10 | `_build_artifacts` | `app/services/composite_inspection_service.py:114` | 118 |
 | 11 | `run_runtime_retention_cleanup` | `app/services/runtime_retention_run_service.py:32` | 111 |
 | 12 | `build_stateful_benchmark_input` | `app/services/stateful_benchmark_input_service.py:39` | 110 |
-| 13 | `calculate_attribution_workflow` | `app/services/attribution_calculation_workflow_service.py:91` | 107 |
-| 14 | `calculate_contribution` | `app/services/contribution_service.py:525` | 107 |
-| 15 | `run_source_quality_checks` | `app/services/inspection/source_quality.py:91` | 106 |
-| 16 | `calculate_twr_workflow` | `app/services/twr_calculation_service.py:258` | 106 |
-| 17 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:200` | 102 |
-| 18 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:304` | 102 |
-| 19 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:71` | 101 |
-| 20 | `_calculate_position_flow_balance_counts` | `app/services/contribution_diagnostics.py:183` | 99 |
+| 13 | `calculate_contribution` | `app/services/contribution_service.py:525` | 107 |
+| 14 | `run_source_quality_checks` | `app/services/inspection/source_quality.py:91` | 106 |
+| 15 | `calculate_twr_workflow` | `app/services/twr_calculation_service.py:258` | 106 |
+| 16 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:200` | 102 |
+| 17 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:304` | 102 |
+| 18 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:71` | 101 |
+| 19 | `_calculate_position_flow_balance_counts` | `app/services/contribution_diagnostics.py:183` | 99 |
+| 20 | `_calculate_returns_series` | `app/services/returns_series_service.py:1296` | 97 |
 
 ## Interpretation
 
@@ -78,6 +78,8 @@ TWR inspection orchestration remains in the top-15 table but moved from `147` to
 subject-resolution stage lifecycle handling was isolated from the public inspection orchestrator.
 TWR inspection orchestration dropped out of the top-15 table after subject request materialization
 and calculation-consistency loading were isolated from the public inspection orchestrator.
+Attribution calculation workflow dropped out of the top-20 table after resolved stateful
+finalization and initial async submission were isolated from the public workflow orchestrator.
 Returns-series calculation orchestration dropped out of the top-15 table after execution-context
 resolution was isolated from dataframe preparation, execution, diagnostics, and response assembly.
 Stateful returns-series request resolution dropped out of the top-15 table after normalization-stage

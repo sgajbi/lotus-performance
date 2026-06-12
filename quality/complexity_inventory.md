@@ -22,37 +22,37 @@ python scripts/python_complexity_inventory.py --limit 25
 | --- | ---: |
 | Max cyclomatic complexity | 9 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.47 |
+| Average maintainability index | 55.46 |
 
 ## Highest Cyclomatic Complexity
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `calculate_attribution_workflow` | function | `app/services/attribution_calculation_workflow_service.py:91` | 9 | B |
-| 2 | `calculate_attribution` | function | `app/services/attribution_service.py:168` | 9 | B |
-| 3 | `_group_identity` | function | `app/services/benchmark_exposure_context_service.py:274` | 9 | B |
-| 4 | `reconcile_stale_jobs` | method | `app/services/compute_job_store.py:481` | 9 | B |
-| 5 | `_to_record` | method | `app/services/compute_job_store.py:1113` | 9 | B |
-| 6 | `_rollout_posture_notes` | method | `app/services/contribution_audit.py:125` | 9 | B |
-| 7 | `_compare_return_values` | function | `app/services/inspection/calculation_consistency.py:643` | 9 | B |
-| 8 | `_build_detailed_cashflow_contract_findings` | function | `app/services/inspection/source_economics_findings.py:112` | 9 | B |
-| 9 | `filter_history_entries` | function | `app/services/operator_action_history_filters.py:79` | 9 | B |
-| 10 | `validate_history_manifest_header` | function | `app/services/operator_action_history_manifest.py:101` | 9 | B |
-| 11 | `_read_active_operator_action_lease` | function | `app/services/operator_action_lease_service.py:285` | 9 | B |
-| 12 | `_runtime_retention_payload_identity_matches` | function | `app/services/operator_action_replay_service.py:191` | 9 | B |
-| 13 | `parse_stateful_portfolio_timeseries_payload` | function | `app/services/portfolio_source_service.py:59` | 9 | B |
-| 14 | `build_returns_series_execution_window` | function | `app/services/returns_series_calculation_workflow_service.py:55` | 9 | B |
-| 15 | `detect_gaps` | function | `app/services/returns_series_service.py:277` | 9 | B |
-| 16 | `_validate_manifest_entry` | function | `app/services/runtime_retention_history_service.py:197` | 9 | B |
-| 17 | `_position_market_value_pair` | function | `app/services/stateful_attribution_input_service.py:371` | 9 | B |
-| 18 | `build_stateful_benchmark_input` | function | `app/services/stateful_benchmark_input_service.py:39` | 9 | B |
-| 19 | `_load_component_price_series` | function | `app/services/stateful_benchmark_input_service.py:354` | 9 | B |
-| 20 | `_build_component_observation` | function | `app/services/stateful_benchmark_input_service.py:532` | 9 | B |
-| 21 | `get_benchmark_return_series` | method | `app/services/stateful_input_service.py:231` | 9 | B |
-| 22 | `get_benchmark_market_series` | method | `app/services/stateful_input_service.py:398` | 9 | B |
-| 23 | `get_fx_rates` | method | `app/services/stateful_input_service.py:478` | 9 | B |
-| 24 | `get_index_price_series` | method | `app/services/stateful_input_service.py:599` | 9 | B |
-| 25 | `get_risk_free_series` | method | `app/services/stateful_input_service.py:683` | 9 | B |
+| 1 | `calculate_attribution` | function | `app/services/attribution_service.py:168` | 9 | B |
+| 2 | `_group_identity` | function | `app/services/benchmark_exposure_context_service.py:274` | 9 | B |
+| 3 | `reconcile_stale_jobs` | method | `app/services/compute_job_store.py:481` | 9 | B |
+| 4 | `_to_record` | method | `app/services/compute_job_store.py:1113` | 9 | B |
+| 5 | `_rollout_posture_notes` | method | `app/services/contribution_audit.py:125` | 9 | B |
+| 6 | `_compare_return_values` | function | `app/services/inspection/calculation_consistency.py:643` | 9 | B |
+| 7 | `_build_detailed_cashflow_contract_findings` | function | `app/services/inspection/source_economics_findings.py:112` | 9 | B |
+| 8 | `filter_history_entries` | function | `app/services/operator_action_history_filters.py:79` | 9 | B |
+| 9 | `validate_history_manifest_header` | function | `app/services/operator_action_history_manifest.py:101` | 9 | B |
+| 10 | `_read_active_operator_action_lease` | function | `app/services/operator_action_lease_service.py:285` | 9 | B |
+| 11 | `_runtime_retention_payload_identity_matches` | function | `app/services/operator_action_replay_service.py:191` | 9 | B |
+| 12 | `parse_stateful_portfolio_timeseries_payload` | function | `app/services/portfolio_source_service.py:59` | 9 | B |
+| 13 | `build_returns_series_execution_window` | function | `app/services/returns_series_calculation_workflow_service.py:55` | 9 | B |
+| 14 | `detect_gaps` | function | `app/services/returns_series_service.py:277` | 9 | B |
+| 15 | `_validate_manifest_entry` | function | `app/services/runtime_retention_history_service.py:197` | 9 | B |
+| 16 | `_position_market_value_pair` | function | `app/services/stateful_attribution_input_service.py:371` | 9 | B |
+| 17 | `build_stateful_benchmark_input` | function | `app/services/stateful_benchmark_input_service.py:39` | 9 | B |
+| 18 | `_load_component_price_series` | function | `app/services/stateful_benchmark_input_service.py:354` | 9 | B |
+| 19 | `_build_component_observation` | function | `app/services/stateful_benchmark_input_service.py:532` | 9 | B |
+| 20 | `get_benchmark_return_series` | method | `app/services/stateful_input_service.py:231` | 9 | B |
+| 21 | `get_benchmark_market_series` | method | `app/services/stateful_input_service.py:398` | 9 | B |
+| 22 | `get_fx_rates` | method | `app/services/stateful_input_service.py:478` | 9 | B |
+| 23 | `get_index_price_series` | method | `app/services/stateful_input_service.py:599` | 9 | B |
+| 24 | `get_risk_free_series` | method | `app/services/stateful_input_service.py:683` | 9 | B |
+| 25 | `_fetch_position_chunk` | method | `app/services/stateful_input_service.py:882` | 9 | B |
 
 ## Lowest Maintainability Index
 
@@ -331,6 +331,8 @@ into a dedicated schema-example helper.
 into a dedicated documentable-operation iterator.
 `_ensure_property_schema_documentation` also dropped out after Lotus semantic-id and canonical-term
 property metadata were moved into a dedicated vocabulary helper.
+`calculate_attribution_workflow` also dropped out after resolved stateful finalization and initial
+async submission policy were moved into dedicated workflow helpers.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.
