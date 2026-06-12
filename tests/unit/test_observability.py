@@ -6,6 +6,7 @@ from prometheus_client import REGISTRY, generate_latest
 
 from app.observability import (
     JsonFormatter,
+    _json_log_payload,
     build_access_log_fields,
     correlation_id_var,
     propagation_headers,
@@ -99,6 +100,33 @@ def test_json_formatter_includes_standard_and_extra_fields(monkeypatch):
     assert payload["message"] == "log-message"
     assert payload["endpoint"] == "/health"
     assert payload["duration_ms"] == 12.3
+
+
+def test_json_log_payload_filters_empty_context_and_ignores_non_dict_extra_fields():
+    correlation_id_var.set("")
+    request_id_var.set("")
+    trace_id_var.set("")
+
+    record = logging.LogRecord(
+        name="unit.test",
+        level=logging.INFO,
+        pathname=__file__,
+        lineno=1,
+        msg="log-message",
+        args=(),
+        exc_info=None,
+    )
+    record.extra_fields = ["ignored"]
+
+    payload = _json_log_payload(record)
+
+    assert payload["service"] == "lotus-performance"
+    assert payload["environment"] == "local"
+    assert payload["message"] == "log-message"
+    assert "correlation_id" not in payload
+    assert "request_id" not in payload
+    assert "trace_id" not in payload
+    assert "extra_fields" not in payload
 
 
 def test_build_access_log_fields_contains_platform_duration_and_legacy_latency():

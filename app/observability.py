@@ -67,20 +67,30 @@ def _nonblank_header(request: Request, name: str) -> str | None:
 
 class JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
-        payload = {
-            "timestamp": datetime.now(UTC).isoformat(),
-            "level": record.levelname,
-            "service": os.getenv("SERVICE_NAME", "lotus-performance"),
-            "environment": os.getenv("ENVIRONMENT", "local"),
-            "logger": record.name,
-            "message": record.getMessage(),
-            "correlation_id": correlation_id_var.get() or None,
-            "request_id": request_id_var.get() or None,
-            "trace_id": trace_id_var.get() or None,
-        }
-        if hasattr(record, "extra_fields") and isinstance(record.extra_fields, dict):
-            payload.update(record.extra_fields)
-        return json.dumps({k: v for k, v in payload.items() if v is not None})
+        return json.dumps(_json_log_payload(record))
+
+
+def _record_extra_fields(record: logging.LogRecord) -> dict[str, object]:
+    extra_fields = getattr(record, "extra_fields", None)
+    if isinstance(extra_fields, dict):
+        return extra_fields
+    return {}
+
+
+def _json_log_payload(record: logging.LogRecord) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "timestamp": datetime.now(UTC).isoformat(),
+        "level": record.levelname,
+        "service": os.getenv("SERVICE_NAME", "lotus-performance"),
+        "environment": os.getenv("ENVIRONMENT", "local"),
+        "logger": record.name,
+        "message": record.getMessage(),
+        "correlation_id": correlation_id_var.get() or None,
+        "request_id": request_id_var.get() or None,
+        "trace_id": trace_id_var.get() or None,
+    }
+    payload.update(_record_extra_fields(record))
+    return {key: value for key, value in payload.items() if value is not None}
 
 
 def setup_logging(log_level: str = "INFO") -> None:
