@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any, Sequence
 
 import pandas as pd
@@ -25,6 +26,15 @@ from core.envelope import Meta
 from core.periods import resolve_periods
 from engine.attribution import aggregate_attribution_results, run_attribution_calculations
 from engine.exceptions import EngineCalculationError, InvalidEngineInputError
+
+
+@dataclass(frozen=True)
+class _AttributionExecutionWindow:
+    periods_to_resolve: Sequence[Any]
+    resolved_periods: Sequence[Any]
+    master_start_date: Any
+    master_end_date: Any
+    master_request: AttributionRequest
 
 
 def _count_attribution_benchmark_rows(request: AttributionRequest) -> int:
@@ -165,6 +175,34 @@ def _attribution_benchmark_context(
     }
 
 
+def _resolve_attribution_execution_window(request: AttributionRequest) -> _AttributionExecutionWindow:
+    periods_to_resolve = [analysis.period for analysis in request.analyses]
+    resolved_periods = resolve_periods(
+        periods_to_resolve,
+        request.report_end_date,
+        request.report_start_date,
+        explicit_start_date=request.report_start_date,
+    )
+
+    if not resolved_periods:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No valid periods could be resolved.")
+
+    master_start_date = min(p.start_date for p in resolved_periods)
+    master_end_date = max(p.end_date for p in resolved_periods)
+
+    master_request = request.model_copy(deep=True)
+    master_request.report_start_date = master_start_date
+    master_request.report_end_date = master_end_date
+
+    return _AttributionExecutionWindow(
+        periods_to_resolve=periods_to_resolve,
+        resolved_periods=resolved_periods,
+        master_start_date=master_start_date,
+        master_end_date=master_end_date,
+        master_request=master_request,
+    )
+
+
 def calculate_attribution(
     request: AttributionRequest,
     *,
@@ -182,39 +220,23 @@ def calculate_attribution(
     try:
         execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_EXECUTION)
         execution_stage_started = True
-        periods_to_resolve = [analysis.period for analysis in request.analyses]
-        resolved_periods = resolve_periods(
-            periods_to_resolve,
-            request.report_end_date,
-            request.report_start_date,
-            explicit_start_date=request.report_start_date,
-        )
+        execution_window = _resolve_attribution_execution_window(request)
 
-        if not resolved_periods:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No valid periods could be resolved.")
-
-        master_start_date = min(p.start_date for p in resolved_periods)
-        master_end_date = max(p.end_date for p in resolved_periods)
-
-        master_request = request.model_copy(deep=True)
-        master_request.report_start_date = master_start_date
-        master_request.report_end_date = master_end_date
-
-        effects_df, lineage_data = run_attribution_calculations(master_request)
+        effects_df, lineage_data = run_attribution_calculations(execution_window.master_request)
 
         results_by_period = _build_attribution_results_by_period(
             effects_df=effects_df,
             request=request,
-            resolved_periods=resolved_periods,
+            resolved_periods=execution_window.resolved_periods,
             lineage_data=lineage_data,
         )
 
         meta = _build_attribution_meta(
             request=request,
             app_version=active_settings.APP_VERSION,
-            periods_to_resolve=periods_to_resolve,
-            master_start_date=master_start_date,
-            master_end_date=master_end_date,
+            periods_to_resolve=execution_window.periods_to_resolve,
+            master_start_date=execution_window.master_start_date,
+            master_end_date=execution_window.master_end_date,
             input_fingerprint=input_fingerprint,
             calculation_hash=calculation_hash,
         )

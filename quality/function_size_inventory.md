@@ -28,13 +28,13 @@ python scripts/python_function_size_inventory.py --limit 20
 | 6 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:327` | 130 |
 | 7 | `aggregate_attribution_results` | `engine/attribution.py:607` | 126 |
 | 8 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:502` | 122 |
-| 9 | `calculate_attribution` | `app/services/attribution_service.py:168` | 120 |
-| 10 | `_build_artifacts` | `app/services/composite_inspection_service.py:114` | 118 |
-| 11 | `run_runtime_retention_cleanup` | `app/services/runtime_retention_run_service.py:32` | 111 |
-| 12 | `build_stateful_benchmark_input` | `app/services/stateful_benchmark_input_service.py:39` | 110 |
-| 13 | `calculate_contribution` | `app/services/contribution_service.py:525` | 107 |
-| 14 | `run_source_quality_checks` | `app/services/inspection/source_quality.py:91` | 106 |
-| 15 | `calculate_twr_workflow` | `app/services/twr_calculation_service.py:258` | 106 |
+| 9 | `_build_artifacts` | `app/services/composite_inspection_service.py:114` | 118 |
+| 10 | `run_runtime_retention_cleanup` | `app/services/runtime_retention_run_service.py:32` | 111 |
+| 11 | `build_stateful_benchmark_input` | `app/services/stateful_benchmark_input_service.py:39` | 110 |
+| 12 | `calculate_contribution` | `app/services/contribution_service.py:525` | 107 |
+| 13 | `run_source_quality_checks` | `app/services/inspection/source_quality.py:91` | 106 |
+| 14 | `calculate_twr_workflow` | `app/services/twr_calculation_service.py:258` | 106 |
+| 15 | `calculate_attribution` | `app/services/attribution_service.py:206` | 104 |
 | 16 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:200` | 102 |
 | 17 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:304` | 102 |
 | 18 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:71` | 101 |
@@ -52,6 +52,8 @@ after lineage queue response mapping was isolated. Attribution orchestration rem
 table but moved from `142` to `133` lines after per-period result assembly was isolated, then moved
 from `133` to `120` lines after response meta, supportability, and benchmark-context assembly were
 isolated.
+Attribution orchestration moved from `120` to `104` lines after execution-window resolution and
+master request projection were isolated.
 Contribution orchestration moved from `287` to `270` lines after engine input preparation was
 isolated, then moved from `270` to `189` lines and is no longer the largest function after
 flat-period result assembly was isolated from the public contribution orchestration. Benchmark calculation workflow

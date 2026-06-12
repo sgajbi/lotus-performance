@@ -1,6 +1,8 @@
 from types import SimpleNamespace
 
 import pandas as pd
+import pytest
+from fastapi import HTTPException
 
 from app.models.attribution_requests import AttributionRequest
 from app.services import attribution_service
@@ -93,6 +95,90 @@ def test_latest_attribution_observation_date_uses_all_stateless_input_sources():
     assert attribution_service._portfolio_group_observation_dates(request) == ["2025-03-31"]
     assert attribution_service._benchmark_group_observation_dates(request) == [pd.Timestamp("2025-04-30").date()]
     assert attribution_service._latest_attribution_observation_date(request) == pd.Timestamp("2025-04-30").date()
+
+
+def test_resolve_attribution_execution_window_projects_master_request(monkeypatch):
+    request = AttributionRequest.model_validate(
+        {
+            "portfolio_id": "ATTRIB_001",
+            "report_start_date": "2025-01-15",
+            "report_end_date": "2025-03-31",
+            "analyses": [
+                {"period": "MTD", "frequencies": ["monthly"]},
+                {"period": "QTD", "frequencies": ["monthly"]},
+            ],
+            "mode": "by_group",
+            "group_by": ["assetClass"],
+            "portfolio_groups_data": [
+                {
+                    "key": {"assetClass": "Equity"},
+                    "observations": [{"date": "2025-03-31", "weight_bop": 1.0, "return_base": 0.01}],
+                }
+            ],
+            "benchmark_groups_data": [
+                {
+                    "key": {"assetClass": "Equity"},
+                    "observations": [{"date": "2025-03-31", "return_base": 0.02, "weight_bop": 1.0}],
+                }
+            ],
+        }
+    )
+    resolved_periods = [
+        SimpleNamespace(
+            name="MTD", start_date=pd.Timestamp("2025-03-01").date(), end_date=pd.Timestamp("2025-03-31").date()
+        ),
+        SimpleNamespace(
+            name="QTD", start_date=pd.Timestamp("2025-01-01").date(), end_date=pd.Timestamp("2025-03-31").date()
+        ),
+    ]
+    captured: dict[str, object] = {}
+
+    def resolve(periods_to_resolve, report_end_date, report_start_date, *, explicit_start_date):
+        captured.update(
+            {
+                "periods_to_resolve": periods_to_resolve,
+                "report_end_date": report_end_date,
+                "report_start_date": report_start_date,
+                "explicit_start_date": explicit_start_date,
+            }
+        )
+        return resolved_periods
+
+    monkeypatch.setattr(attribution_service, "resolve_periods", resolve)
+
+    window = attribution_service._resolve_attribution_execution_window(request)
+
+    assert window.periods_to_resolve == [PeriodType.MTD, PeriodType.QTD]
+    assert window.resolved_periods is resolved_periods
+    assert window.master_start_date == pd.Timestamp("2025-01-01").date()
+    assert window.master_end_date == pd.Timestamp("2025-03-31").date()
+    assert window.master_request is not request
+    assert window.master_request.report_start_date == pd.Timestamp("2025-01-01").date()
+    assert window.master_request.report_end_date == pd.Timestamp("2025-03-31").date()
+    assert captured["periods_to_resolve"] == [PeriodType.MTD, PeriodType.QTD]
+    assert captured["explicit_start_date"] == request.report_start_date
+
+
+def test_resolve_attribution_execution_window_rejects_empty_resolved_periods(monkeypatch):
+    request = AttributionRequest.model_validate(
+        {
+            "portfolio_id": "ATTRIB_001",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-31",
+            "analyses": [{"period": "EXPLICIT", "frequencies": ["monthly"]}],
+            "mode": "by_group",
+            "group_by": ["assetClass"],
+            "portfolio_groups_data": [],
+            "benchmark_groups_data": [],
+        }
+    )
+    monkeypatch.setattr(attribution_service, "resolve_periods", lambda *args, **kwargs: [])
+
+    with pytest.raises(HTTPException) as exc_info:
+        attribution_service._resolve_attribution_execution_window(request)
+
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "No valid periods could be resolved."
 
 
 def test_attribution_response_support_helpers_preserve_meta_supportability_and_benchmark_context(monkeypatch):
