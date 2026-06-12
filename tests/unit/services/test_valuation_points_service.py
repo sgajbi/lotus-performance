@@ -3,7 +3,11 @@ from decimal import Decimal
 import pytest
 from fastapi import HTTPException
 
-from app.services.valuation_points_service import _valuation_cashflow_totals, portfolio_timeseries_to_valuation_points
+from app.services.valuation_points_service import (
+    _valuation_cashflow_total_component,
+    _valuation_cashflow_totals,
+    portfolio_timeseries_to_valuation_points,
+)
 
 
 def test_portfolio_timeseries_to_valuation_points_preserves_fee_cashflows_as_mgmt_fees():
@@ -102,3 +106,32 @@ def test_valuation_cashflow_totals_classifies_fee_external_and_unsupported_flows
         ]
     ) == (Decimal("100"), Decimal("-25"), Decimal("-3"))
     assert _valuation_cashflow_totals("not-a-list") == (Decimal("0"), Decimal("0"), Decimal("0"))
+
+
+def test_valuation_cashflow_total_component_projects_supported_roles():
+    assert _valuation_cashflow_total_component({"amount": "5", "timing": "bod"}) == (
+        Decimal("5"),
+        Decimal("0"),
+        Decimal("0"),
+    )
+    assert _valuation_cashflow_total_component({"amount": "-4", "timing": "eod", "cash_flow_type": "withdrawal"}) == (
+        Decimal("0"),
+        Decimal("-4"),
+        Decimal("0"),
+    )
+    assert _valuation_cashflow_total_component({"amount": "-2", "timing": "eod", "cash_flow_type": "fee"}) == (
+        Decimal("0"),
+        Decimal("0"),
+        Decimal("-2"),
+    )
+    assert _valuation_cashflow_total_component({"amount": "3", "timing": "eod", "cash_flow_type": "dividend"}) == (
+        Decimal("0"),
+        Decimal("0"),
+        Decimal("0"),
+    )
+    assert _valuation_cashflow_total_component({"amount": "3", "timing": "intraday"}) == (
+        Decimal("0"),
+        Decimal("0"),
+        Decimal("0"),
+    )
+    assert _valuation_cashflow_total_component("not-a-flow") == (Decimal("0"), Decimal("0"), Decimal("0"))
