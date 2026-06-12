@@ -933,11 +933,10 @@ class StatefulInputService:
                 existing_snapshot_ids=existing_snapshot_ids,
             )
             if status_code >= 400:
-                if calculation_id is not None:
-                    self._execution_store.record_upstream_snapshots(
-                        calculation_id=calculation_id,
-                        snapshots=snapshot_batch,
-                    )
+                self._record_upstream_snapshot_batch(
+                    calculation_id=calculation_id,
+                    snapshots=snapshot_batch,
+                )
                 return status_code, payload
             page_count += 1
 
@@ -953,11 +952,10 @@ class StatefulInputService:
             if not page_token:
                 break
 
-        if calculation_id is not None:
-            self._execution_store.record_upstream_snapshots(
-                calculation_id=calculation_id,
-                snapshots=snapshot_batch,
-            )
+        self._record_upstream_snapshot_batch(
+            calculation_id=calculation_id,
+            snapshots=snapshot_batch,
+        )
 
         return 200, {
             "portfolio_open_date": portfolio_open_date,
@@ -1063,9 +1061,7 @@ class StatefulInputService:
                 return status_code, payload
             page_count += 1
 
-            rows = payload.get("rows", [])
-            if isinstance(rows, list):
-                merged_rows.extend(row for row in rows if isinstance(row, dict))
+            merged_rows.extend(_position_rows_from_payload(payload))
 
             page_token = self._next_page_token(payload)
             if not page_token:
@@ -1086,6 +1082,19 @@ class StatefulInputService:
                 "page_count": page_count,
             },
         }
+
+    def _record_upstream_snapshot_batch(
+        self,
+        *,
+        calculation_id: UUID | None,
+        snapshots: list[dict[str, Any]],
+    ) -> None:
+        if calculation_id is None:
+            return
+        self._execution_store.record_upstream_snapshots(
+            calculation_id=calculation_id,
+            snapshots=snapshots,
+        )
 
     def _append_position_timeseries_snapshot_if_new(
         self,
@@ -1343,6 +1352,13 @@ def _position_timeseries_request_payload(
         "filters": filters,
         "page_token": page_token,
     }
+
+
+def _position_rows_from_payload(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    rows = payload.get("rows", [])
+    if not isinstance(rows, list):
+        return []
+    return [row for row in rows if isinstance(row, dict)]
 
 
 def _portfolio_identity_from_payload(

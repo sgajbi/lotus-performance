@@ -12,6 +12,7 @@ from app.services.stateful_input_service import (
     _portfolio_identity_from_payload,
     _portfolio_observations_from_payload,
     _portfolio_timeseries_request_payload,
+    _position_rows_from_payload,
     _position_timeseries_request_payload,
 )
 
@@ -1036,7 +1037,9 @@ async def test_stateful_input_service_records_position_snapshots_before_chunk_fa
     assert status_code == 503
     assert payload == {"detail": "position unavailable"}
     snapshots = execution_store.list_upstream_snapshots(calculation_id)
-    assert len([snapshot for snapshot in snapshots if snapshot.upstream_endpoint == "position_timeseries"]) == 3
+    position_snapshots = [snapshot for snapshot in snapshots if snapshot.upstream_endpoint == "position_timeseries"]
+    assert len(position_snapshots) == 3
+    assert {snapshot.source_identifier for snapshot in position_snapshots} == {"PORT_1"}
 
 
 @pytest.mark.asyncio
@@ -1130,6 +1133,10 @@ def test_stateful_input_service_helper_contracts_cover_page_tokens_failures_and_
         "filters": {"asset_class": "Equity"},
         "page_token": "page-2",
     }
+    assert _position_rows_from_payload(
+        {"rows": [{"valuation_date": "2026-01-01", "position_id": "POS_1"}, "bad-row"]}
+    ) == [{"valuation_date": "2026-01-01", "position_id": "POS_1"}]
+    assert _position_rows_from_payload({"rows": "bad-shape"}) == []
 
     snapshot_id, request_fingerprint = service._build_snapshot_identity(
         calculation_id=calculation_id,
