@@ -683,6 +683,13 @@ async def test_stateful_input_service_records_reference_snapshots_even_when_chun
         end_date=date(2026, 1, 4),
         calculation_id=calculation_id,
     )
+    await service.get_benchmark_market_series(
+        benchmark_id="BMK_1",
+        as_of_date=date(2026, 1, 4),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 4),
+        calculation_id=calculation_id,
+    )
 
     assert status_code == 503
     assert payload == {"detail": "reference unavailable"}
