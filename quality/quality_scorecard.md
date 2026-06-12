@@ -20,7 +20,7 @@ metrics in each section are updated with each meaningful slice.
 | --- | ---: | ---: | ---: | --- | --- |
 | Python files | 480 | 542 | 62 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Python package markers | 18 | 18 | 0 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Python LOC | 104,454 | 121,603 | 17,149 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python LOC | 104,454 | 121,633 | 17,179 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest Python file LOC | 2,399 | 2,399 | 0 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest production file LOC | 1,156 | 1,156 | 0 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
 | Python test modules | 228 | 258 | 30 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |

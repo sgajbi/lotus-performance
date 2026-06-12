@@ -726,6 +726,13 @@ async def test_stateful_input_service_records_fx_snapshots_even_when_chunked_req
         end_date=date(2026, 1, 4),
         calculation_id=calculation_id,
     )
+    await service.get_fx_rates(
+        from_currency="EUR",
+        to_currency="USD",
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 4),
+        calculation_id=calculation_id,
+    )
 
     assert status_code == 503
     assert payload == {"detail": "fx unavailable"}
