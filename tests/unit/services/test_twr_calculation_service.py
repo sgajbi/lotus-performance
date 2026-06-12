@@ -100,6 +100,26 @@ def test_twr_resolved_identity_helpers_select_artifact_and_benchmark_return_sour
     assert twr_calculation_service.twr_resolved_benchmark_return_source(request) == BenchmarkReturnSource.CALCULATED
 
 
+def test_twr_execution_window_benchmark_fields_project_stateful_assignment_metadata():
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            **_stateful_twr_payload(),
+            "include_benchmark": True,
+        }
+    )
+
+    assert twr_calculation_service._twr_execution_window_benchmark_fields(
+        request,
+        benchmark_id="BMK_RESOLVED",
+        benchmark_work_units=0,
+    ) == {
+        "benchmark_id": "BMK_RESOLVED",
+        "benchmark_input_mode": "stateful",
+        "benchmark_return_source": "calculated",
+        "benchmark_work_units": 0,
+    }
+
+
 def test_finalize_twr_resolved_execution_identity_preserves_stateful_payload(mocker):
     request = TWRAnalyticsRequest.model_validate(_stateful_twr_payload())
     performance_request = _performance_request(request.calculation_id)

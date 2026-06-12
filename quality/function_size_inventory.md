@@ -33,7 +33,7 @@ python scripts/python_function_size_inventory.py --limit 15
 | 11 | `calculate_attribution` | `app/services/attribution_service.py:168` | 120 |
 | 12 | `_build_artifacts` | `app/services/composite_inspection_service.py:114` | 118 |
 | 13 | `calculate_benchmark_workflow` | `app/services/benchmark_calculation_workflow_service.py:146` | 116 |
-| 14 | `calculate_twr_workflow` | `app/services/twr_calculation_service.py:233` | 112 |
+| 14 | `calculate_twr_workflow` | `app/services/twr_calculation_service.py:250` | 112 |
 | 15 | `run_runtime_retention_cleanup` | `app/services/runtime_retention_run_service.py:32` | 111 |
 
 ## Interpretation

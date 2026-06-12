@@ -216,18 +216,35 @@ def build_twr_execution_window(
     }
     if source_request_fingerprint is not None:
         requested_window["source_request_fingerprint"] = source_request_fingerprint
+    requested_window.update(
+        _twr_execution_window_benchmark_fields(
+            request,
+            benchmark_id=benchmark_id,
+            benchmark_work_units=benchmark_work_units,
+        )
+    )
+    return requested_window
+
+
+def _twr_execution_window_benchmark_fields(
+    request: TWRAnalyticsRequest,
+    *,
+    benchmark_id: str | None = None,
+    benchmark_work_units: int | None = None,
+) -> dict[str, object]:
+    benchmark_fields: dict[str, object] = {}
     requested_benchmark_id = benchmark_id or (request.benchmark.benchmark_id if request.benchmark is not None else None)
     if requested_benchmark_id is not None:
-        requested_window["benchmark_id"] = requested_benchmark_id
+        benchmark_fields["benchmark_id"] = requested_benchmark_id
     benchmark_input_mode = twr_requested_benchmark_input_mode(request)
     if benchmark_input_mode is not None:
-        requested_window["benchmark_input_mode"] = benchmark_input_mode
+        benchmark_fields["benchmark_input_mode"] = benchmark_input_mode
     benchmark_return_source = twr_requested_benchmark_return_source(request)
     if benchmark_return_source is not None:
-        requested_window["benchmark_return_source"] = benchmark_return_source
+        benchmark_fields["benchmark_return_source"] = benchmark_return_source
     if benchmark_work_units is not None:
-        requested_window["benchmark_work_units"] = benchmark_work_units
-    return requested_window
+        benchmark_fields["benchmark_work_units"] = benchmark_work_units
+    return benchmark_fields
 
 
 async def calculate_twr_workflow(request: TWRAnalyticsRequest) -> PerformanceResponse | TWRAcceptedResponse:
