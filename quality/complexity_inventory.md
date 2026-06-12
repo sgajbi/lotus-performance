@@ -28,31 +28,31 @@ python scripts/python_complexity_inventory.py --limit 25
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_resolve_twr_benchmark_source_input` | function | `app/services/twr_mode_service.py:442` | 10 | B |
-| 2 | `_iter_frequency_windows` | function | `app/services/twr_service.py:443` | 10 | B |
-| 3 | `_build_portfolio_breakdowns` | function | `app/services/twr_service.py:489` | 10 | B |
-| 4 | `_build_twr_results_by_period` | function | `app/services/twr_service.py:683` | 10 | B |
-| 5 | `_valuation_cashflow_totals` | function | `app/services/valuation_points_service.py:40` | 10 | B |
-| 6 | `workspace_longest_requested_window_days` | function | `app/services/workspace_summary_service.py:93` | 10 | B |
-| 7 | `_resolve_workspace_benchmark_input` | function | `app/services/workspace_summary_service.py:312` | 10 | B |
-| 8 | `generate_performance_breakdowns` | function | `engine/breakdown.py:64` | 10 | B |
-| 9 | `build_hierarchical_contribution_result` | function | `engine/contribution.py:298` | 10 | B |
-| 10 | `_xirr` | function | `engine/mwr.py:178` | 10 | B |
-| 11 | `calculate_money_weighted_return` | function | `engine/mwr.py:449` | 10 | B |
-| 12 | `get_twr_inspection_artifact` | function | `app/api/endpoints/inspections.py:147` | 9 | B |
-| 13 | `get_lineage_data` | function | `app/api/endpoints/lineage.py:102` | 9 | B |
-| 14 | `validate_mode_fields` | method | `app/models/returns_series.py:131` | 9 | B |
-| 15 | `_validate_returns_series_input_envelopes` | function | `app/models/returns_series.py:244` | 9 | B |
-| 16 | `JsonFormatter` | class | `app/observability.py:68` | 9 | B |
-| 17 | `_build_schema_example` | function | `app/openapi_enrichment.py:380` | 9 | B |
-| 18 | `_ensure_operation_documentation` | function | `app/openapi_enrichment.py:613` | 9 | B |
-| 19 | `_ensure_property_schema_documentation` | function | `app/openapi_enrichment.py:683` | 9 | B |
-| 20 | `calculate_attribution_workflow` | function | `app/services/attribution_calculation_workflow_service.py:91` | 9 | B |
-| 21 | `calculate_attribution` | function | `app/services/attribution_service.py:168` | 9 | B |
-| 22 | `_group_identity` | function | `app/services/benchmark_exposure_context_service.py:274` | 9 | B |
-| 23 | `reconcile_stale_jobs` | method | `app/services/compute_job_store.py:481` | 9 | B |
-| 24 | `_to_record` | method | `app/services/compute_job_store.py:1113` | 9 | B |
-| 25 | `_rollout_posture_notes` | method | `app/services/contribution_audit.py:125` | 9 | B |
+| 1 | `_iter_frequency_windows` | function | `app/services/twr_service.py:443` | 10 | B |
+| 2 | `_build_portfolio_breakdowns` | function | `app/services/twr_service.py:489` | 10 | B |
+| 3 | `_build_twr_results_by_period` | function | `app/services/twr_service.py:683` | 10 | B |
+| 4 | `_valuation_cashflow_totals` | function | `app/services/valuation_points_service.py:40` | 10 | B |
+| 5 | `workspace_longest_requested_window_days` | function | `app/services/workspace_summary_service.py:93` | 10 | B |
+| 6 | `_resolve_workspace_benchmark_input` | function | `app/services/workspace_summary_service.py:312` | 10 | B |
+| 7 | `generate_performance_breakdowns` | function | `engine/breakdown.py:64` | 10 | B |
+| 8 | `build_hierarchical_contribution_result` | function | `engine/contribution.py:298` | 10 | B |
+| 9 | `_xirr` | function | `engine/mwr.py:178` | 10 | B |
+| 10 | `calculate_money_weighted_return` | function | `engine/mwr.py:449` | 10 | B |
+| 11 | `get_twr_inspection_artifact` | function | `app/api/endpoints/inspections.py:147` | 9 | B |
+| 12 | `get_lineage_data` | function | `app/api/endpoints/lineage.py:102` | 9 | B |
+| 13 | `validate_mode_fields` | method | `app/models/returns_series.py:131` | 9 | B |
+| 14 | `_validate_returns_series_input_envelopes` | function | `app/models/returns_series.py:244` | 9 | B |
+| 15 | `JsonFormatter` | class | `app/observability.py:68` | 9 | B |
+| 16 | `_build_schema_example` | function | `app/openapi_enrichment.py:380` | 9 | B |
+| 17 | `_ensure_operation_documentation` | function | `app/openapi_enrichment.py:613` | 9 | B |
+| 18 | `_ensure_property_schema_documentation` | function | `app/openapi_enrichment.py:683` | 9 | B |
+| 19 | `calculate_attribution_workflow` | function | `app/services/attribution_calculation_workflow_service.py:91` | 9 | B |
+| 20 | `calculate_attribution` | function | `app/services/attribution_service.py:168` | 9 | B |
+| 21 | `_group_identity` | function | `app/services/benchmark_exposure_context_service.py:274` | 9 | B |
+| 22 | `reconcile_stale_jobs` | method | `app/services/compute_job_store.py:481` | 9 | B |
+| 23 | `_to_record` | method | `app/services/compute_job_store.py:1113` | 9 | B |
+| 24 | `_rollout_posture_notes` | method | `app/services/contribution_audit.py:125` | 9 | B |
+| 25 | `_compare_return_values` | function | `app/services/inspection/calculation_consistency.py:643` | 9 | B |
 
 ## Lowest Maintainability Index
 
@@ -75,8 +75,8 @@ python scripts/python_complexity_inventory.py --limit 25
 | 15 | `app/services/inspection/source_economics_collector.py` | 17.35 | B |
 | 16 | `app/services/inspection/source_economics.py` | 17.49 | B |
 | 17 | `app/workers/compute_executor_worker.py` | 18.03 | B |
-| 18 | `app/services/inspection/source_quality.py` | 18.55 | B |
-| 19 | `app/services/twr_mode_service.py` | 18.60 | B |
+| 18 | `app/services/twr_mode_service.py` | 18.52 | B |
+| 19 | `app/services/inspection/source_quality.py` | 18.55 | B |
 | 20 | `app/models/runtime_status.py` | 19.85 | A |
 
 ## Interpretation
@@ -290,6 +290,8 @@ into a dedicated stateless resolver.
 `_resolve_stateless_twr_benchmark_request` also dropped out after stateless benchmark request
 eligibility, required stateless benchmark input selection, and vendor/calculated payload projection
 were moved into dedicated helpers.
+`_resolve_twr_benchmark_source_input` also dropped out after stateful benchmark engine-request
+projection was moved into a dedicated helper.
 `_queue_stats_from_aggregate_row` also dropped out after aggregate-row count defaulting and numeric
 conversion were moved into a dedicated mapper helper.
 `calculate_contribution` also dropped out after hierarchy-period slicing, position total

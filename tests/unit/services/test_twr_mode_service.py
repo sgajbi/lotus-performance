@@ -1,3 +1,4 @@
+from datetime import date
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -6,13 +7,16 @@ from fastapi import HTTPException
 from pydantic import ValidationError
 
 from app.models.benchmark_analytics_requests import BenchmarkInputMode
+from app.models.benchmark_requests import BenchmarkReturnPoint
 from app.models.twr_requests import TWRAnalyticsRequest
 from app.services.execution_registry import execution_registry
 from app.services.execution_stage_names import EXECUTION_STAGE_NORMALIZATION
+from app.services.stateful_benchmark_input_service import StatefulBenchmarkNormalizedInput
 from app.services.stateful_performance_input_service import StatefulPortfolioInput
 from app.services.twr_mode_service import (
     _build_resolved_twr_benchmark_request,
     _build_resolved_twr_performance_input,
+    _build_stateful_twr_benchmark_request,
     _build_twr_normalization_resolution,
     _resolve_default_stateful_benchmark_input,
     _resolve_stateless_twr_benchmark_request,
@@ -236,6 +240,50 @@ def test_resolve_stateless_twr_benchmark_request_projects_vendor_return_points()
     assert benchmark_request is not None
     assert benchmark_request.benchmark_id == "BMK_1"
     assert benchmark_request.return_source == "vendor_series"
+    assert benchmark_request.component_observations == []
+    assert [point.benchmark_return for point in benchmark_request.benchmark_return_points] == [0.01, 0.02]
+
+
+def test_build_stateful_twr_benchmark_request_projects_normalized_vendor_points():
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_1",
+            "performance_start_date": "2024-12-31",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+            "valuation_points": [
+                {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+                {"perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1020.1},
+            ],
+            "benchmark": {
+                "input_mode": "stateful",
+                "return_source": "vendor_series",
+                "stateful_input": {},
+            },
+        }
+    )
+    normalized_input = StatefulBenchmarkNormalizedInput(
+        benchmark_currency="USD",
+        component_observations=[],
+        benchmark_return_points=[
+            BenchmarkReturnPoint(perf_date=date(2025, 1, 1), benchmark_return=0.01),
+            BenchmarkReturnPoint(perf_date=date(2025, 1, 2), benchmark_return=0.02),
+        ],
+        source_details={"benchmark_return_points": 2},
+    )
+
+    benchmark_request = _build_stateful_twr_benchmark_request(
+        request=request,
+        benchmark_id="BMK_ASSIGNED",
+        benchmark_start_date=date(2024, 12, 31),
+        normalized_input=normalized_input,
+    )
+
+    assert benchmark_request.benchmark_id == "BMK_ASSIGNED"
+    assert benchmark_request.return_source == "vendor_series"
+    assert benchmark_request.benchmark_currency == "USD"
     assert benchmark_request.component_observations == []
     assert [point.benchmark_return for point in benchmark_request.benchmark_return_points] == [0.01, 0.02]
 

@@ -20,7 +20,10 @@ from app.services.execution_registry import execution_registry
 from app.services.execution_stage_names import EXECUTION_STAGE_NORMALIZATION, EXECUTION_STAGE_RETRIEVAL
 from app.services.portfolio_source_service import build_stateful_input_service
 from app.services.service_identity import LOTUS_PERFORMANCE_CONSUMER_SYSTEM
-from app.services.stateful_benchmark_input_service import build_stateful_benchmark_input
+from app.services.stateful_benchmark_input_service import (
+    StatefulBenchmarkNormalizedInput,
+    build_stateful_benchmark_input,
+)
 from app.services.stateful_input_service import StatefulInputService
 from app.services.stateful_performance_input_service import (
     StatefulPortfolioInput,
@@ -470,10 +473,30 @@ async def _resolve_twr_benchmark_source_input(
         return_source=_get_requested_benchmark_return_source(request),
     )
     source_details = {**identity.source_details, **normalized_input.source_details}
-    benchmark_request = BenchmarkPerformanceRequest.model_validate(
+    benchmark_request = _build_stateful_twr_benchmark_request(
+        request=request,
+        benchmark_id=identity.benchmark_id,
+        benchmark_start_date=benchmark_start_date,
+        normalized_input=normalized_input,
+    )
+    return _ResolvedTWRBenchmarkSourceInput(
+        benchmark_id=identity.benchmark_id,
+        benchmark_request=benchmark_request,
+        source_details={key: int(value) for key, value in source_details.items()},
+    )
+
+
+def _build_stateful_twr_benchmark_request(
+    *,
+    request: TWRAnalyticsRequest,
+    benchmark_id: str,
+    benchmark_start_date,
+    normalized_input: StatefulBenchmarkNormalizedInput,
+) -> BenchmarkPerformanceRequest:
+    return BenchmarkPerformanceRequest.model_validate(
         {
             "calculation_id": request.calculation_id,
-            "benchmark_id": identity.benchmark_id,
+            "benchmark_id": benchmark_id,
             "benchmark_start_date": benchmark_start_date,
             "report_start_date": request.report_start_date,
             "report_end_date": request.report_end_date,
@@ -492,11 +515,6 @@ async def _resolve_twr_benchmark_source_input(
             "annualization": request.annualization.model_dump(mode="python"),
             "output": request.output.model_dump(mode="python"),
         }
-    )
-    return _ResolvedTWRBenchmarkSourceInput(
-        benchmark_id=identity.benchmark_id,
-        benchmark_request=benchmark_request,
-        source_details={key: int(value) for key, value in source_details.items()},
     )
 
 
