@@ -301,6 +301,110 @@ def _build_flat_period_contribution_result(
     )
 
 
+def _build_hierarchy_period_contribution_result(
+    *,
+    request: ContributionRequest,
+    period: Any,
+    daily_contributions_df: Any,
+    portfolio_results_df: Any,
+    average_weight_audit_state: AverageWeightShadowAuditState,
+) -> _ContributionPeriodResult | None:
+    period_frames = _slice_contribution_period_frames(
+        daily_contributions_df=daily_contributions_df,
+        portfolio_results_df=portfolio_results_df,
+        start_date=period.start_date,
+        end_date=period.end_date,
+    )
+    period_slice_df = period_frames.period_slice_df
+    portfolio_period_slice_df = period_frames.portfolio_period_slice_df
+
+    if period_slice_df.empty or portfolio_period_slice_df.empty:
+        return None
+
+    total_portfolio_return = _calculate_reset_aware_period_portfolio_return(
+        request,
+        period.start_date,
+        period.end_date,
+        period.name,
+    )
+    period_methodology_context = _build_contribution_period_methodology_context(
+        period_slice_df=period_slice_df,
+        portfolio_period_slice_df=portfolio_period_slice_df,
+    )
+    average_weight_audit_state.record_shadow_observation(
+        delta_positions=period_methodology_context.delta_positions,
+        max_shadow_delta_bp=period_methodology_context.max_shadow_delta_bp,
+        sum_shadow_delta_bp=period_methodology_context.sum_shadow_delta_bp,
+    )
+
+    position_totals_result = build_residual_adjusted_position_totals(
+        period_slice_df=period_slice_df,
+        average_weight_df=period_methodology_context.average_weight_shadow_df,
+        total_portfolio_return=total_portfolio_return,
+        smoothing_method=request.smoothing.method,
+        average_weight_columns=["average_weight"],
+        residual_allocation_weight_column="average_weight",
+    )
+    position_contributions = build_position_contributions(
+        totals_df=position_totals_result.totals_df,
+        request=request,
+        period_start_date=period.start_date,
+        period_end_date=period.end_date,
+        average_weight_column="average_weight",
+    )
+    position_series, daily_series, emitted_position_series = _build_period_contribution_series_outputs(
+        period_slice_df=period_slice_df,
+        position_contributions=position_contributions,
+        emit_timeseries=request.emit.timeseries,
+        emit_by_position_timeseries=request.emit.by_position_timeseries,
+        force_position_series=True,
+    )
+    period_results = _build_hierarchy_from_adjusted_position_series(
+        period_slice_df=period_slice_df,
+        position_series=position_series,
+        request=request,
+    )
+    period_average_weight_sum_residual_bp = _calculate_average_weight_sum_residual_bp(position_contributions)
+    period_total_contribution = sum(
+        position_contribution.total_contribution for position_contribution in position_contributions
+    )
+    smoothing_evidence = _build_contribution_smoothing_evidence(
+        period_slice_df=period_slice_df,
+        portfolio_period_slice_df=portfolio_period_slice_df,
+        smoothing_method=request.smoothing.method,
+        linked_return=total_portfolio_return,
+        final_contribution=period_total_contribution / 100,
+        residual_allocation_applied=position_totals_result.residual_allocation_applied,
+        residual_allocation_basis="average_weight",
+    )
+    period_timeseries_total_delta_periods = _record_period_timeseries_total_delta(
+        daily_series=daily_series,
+        period_total_contribution=period_total_contribution,
+        average_weight_audit_state=average_weight_audit_state,
+    )
+    period_methodology_status = _build_period_average_weight_methodology_status(
+        period_methodology_context=period_methodology_context,
+        average_weight_sum_residual_bp=period_average_weight_sum_residual_bp,
+        timeseries_total_delta_periods=period_timeseries_total_delta_periods,
+        average_weight_audit_state=average_weight_audit_state,
+    )
+    return _ContributionPeriodResult(
+        period_name=period.name,
+        average_weight_sum_residual_bp=period_average_weight_sum_residual_bp,
+        result=SinglePeriodContributionResult(
+            total_portfolio_return=total_portfolio_return * 100,
+            total_contribution=period_total_contribution,
+            position_contributions=position_contributions,
+            timeseries=daily_series,
+            by_position_timeseries=emitted_position_series,
+            average_weight_methodology_status=period_methodology_status,
+            smoothing_evidence=smoothing_evidence,
+            summary=period_results.get("summary"),
+            levels=period_results.get("levels"),
+        ),
+    )
+
+
 def _prepare_contribution_engine_inputs(request: ContributionRequest) -> _ContributionEngineInputs:
     periods_to_resolve = [analysis.period for analysis in request.analyses]
     inception_date = (
@@ -447,102 +551,20 @@ def calculate_contribution(
         if request.hierarchy:
             results_by_period = {}
             for period in resolved_periods:
-                period_frames = _slice_contribution_period_frames(
+                period_result = _build_hierarchy_period_contribution_result(
+                    request=request,
+                    period=period,
                     daily_contributions_df=daily_contributions_df,
                     portfolio_results_df=portfolio_results_df,
-                    start_date=period.start_date,
-                    end_date=period.end_date,
+                    average_weight_audit_state=average_weight_audit_state,
                 )
-                period_slice_df = period_frames.period_slice_df
-                portfolio_period_slice_df = period_frames.portfolio_period_slice_df
-
-                if period_slice_df.empty or portfolio_period_slice_df.empty:
+                if period_result is None:
                     continue
-
-                total_portfolio_return = _calculate_reset_aware_period_portfolio_return(
-                    request,
-                    period.start_date,
-                    period.end_date,
-                    period.name,
-                )
-                period_methodology_context = _build_contribution_period_methodology_context(
-                    period_slice_df=period_slice_df,
-                    portfolio_period_slice_df=portfolio_period_slice_df,
-                )
-                average_weight_audit_state.record_shadow_observation(
-                    delta_positions=period_methodology_context.delta_positions,
-                    max_shadow_delta_bp=period_methodology_context.max_shadow_delta_bp,
-                    sum_shadow_delta_bp=period_methodology_context.sum_shadow_delta_bp,
-                )
-
-                position_totals_result = build_residual_adjusted_position_totals(
-                    period_slice_df=period_slice_df,
-                    average_weight_df=period_methodology_context.average_weight_shadow_df,
-                    total_portfolio_return=total_portfolio_return,
-                    smoothing_method=request.smoothing.method,
-                    average_weight_columns=["average_weight"],
-                    residual_allocation_weight_column="average_weight",
-                )
-                position_contributions = build_position_contributions(
-                    totals_df=position_totals_result.totals_df,
-                    request=request,
-                    period_start_date=period.start_date,
-                    period_end_date=period.end_date,
-                    average_weight_column="average_weight",
-                )
-                position_series, daily_series, emitted_position_series = _build_period_contribution_series_outputs(
-                    period_slice_df=period_slice_df,
-                    position_contributions=position_contributions,
-                    emit_timeseries=request.emit.timeseries,
-                    emit_by_position_timeseries=request.emit.by_position_timeseries,
-                    force_position_series=True,
-                )
-                period_results = _build_hierarchy_from_adjusted_position_series(
-                    period_slice_df=period_slice_df,
-                    position_series=position_series,
-                    request=request,
-                )
-                period_average_weight_sum_residual_bp = _calculate_average_weight_sum_residual_bp(
-                    position_contributions
-                )
                 average_weight_sum_residual_bp = max(
                     average_weight_sum_residual_bp,
-                    period_average_weight_sum_residual_bp,
+                    period_result.average_weight_sum_residual_bp,
                 )
-                period_total_contribution = sum(
-                    position_contribution.total_contribution for position_contribution in position_contributions
-                )
-                smoothing_evidence = _build_contribution_smoothing_evidence(
-                    period_slice_df=period_slice_df,
-                    portfolio_period_slice_df=portfolio_period_slice_df,
-                    smoothing_method=request.smoothing.method,
-                    linked_return=total_portfolio_return,
-                    final_contribution=period_total_contribution / 100,
-                    residual_allocation_applied=position_totals_result.residual_allocation_applied,
-                    residual_allocation_basis="average_weight",
-                )
-                period_timeseries_total_delta_periods = _record_period_timeseries_total_delta(
-                    daily_series=daily_series,
-                    period_total_contribution=period_total_contribution,
-                    average_weight_audit_state=average_weight_audit_state,
-                )
-                period_methodology_status = _build_period_average_weight_methodology_status(
-                    period_methodology_context=period_methodology_context,
-                    average_weight_sum_residual_bp=period_average_weight_sum_residual_bp,
-                    timeseries_total_delta_periods=period_timeseries_total_delta_periods,
-                    average_weight_audit_state=average_weight_audit_state,
-                )
-                results_by_period[period.name] = SinglePeriodContributionResult(
-                    total_portfolio_return=total_portfolio_return * 100,
-                    total_contribution=period_total_contribution,
-                    position_contributions=position_contributions,
-                    timeseries=daily_series,
-                    by_position_timeseries=emitted_position_series,
-                    average_weight_methodology_status=period_methodology_status,
-                    smoothing_evidence=smoothing_evidence,
-                    summary=period_results.get("summary"),
-                    levels=period_results.get("levels"),
-                )
+                results_by_period[period_result.period_name] = period_result.result
         else:
             results_by_period = {}
             for period in resolved_periods:

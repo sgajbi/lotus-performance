@@ -20,21 +20,21 @@ python scripts/python_function_size_inventory.py --limit 15
 
 | Rank | Function | File | Lines |
 | ---: | --- | --- | ---: |
-| 1 | `calculate_contribution` | `app/services/contribution_service.py:421` | 189 |
-| 2 | `_build_detailed_cashflow_contract_findings` | `app/services/inspection/source_economics_findings.py:112` | 186 |
-| 3 | `DurableQueueCollector.describe` | `app/services/queue_metrics_service.py:193` | 159 |
-| 4 | `_build_external_cashflow_findings` | `app/services/inspection/source_economics_findings.py:300` | 140 |
-| 5 | `build_runtime_status_response` | `app/models/runtime_status.py:767` | 131 |
-| 6 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:71` | 131 |
-| 7 | `_build_fee_source_economics_findings` | `app/services/inspection/source_economics_findings.py:442` | 130 |
-| 8 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:327` | 130 |
-| 9 | `aggregate_attribution_results` | `engine/attribution.py:607` | 126 |
-| 10 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:482` | 122 |
-| 11 | `calculate_attribution` | `app/services/attribution_service.py:168` | 120 |
-| 12 | `_build_artifacts` | `app/services/composite_inspection_service.py:114` | 118 |
-| 13 | `calculate_twr_workflow` | `app/services/twr_calculation_service.py:250` | 112 |
-| 14 | `run_runtime_retention_cleanup` | `app/services/runtime_retention_run_service.py:32` | 111 |
-| 15 | `build_stateful_benchmark_input` | `app/services/stateful_benchmark_input_service.py:39` | 110 |
+| 1 | `_build_detailed_cashflow_contract_findings` | `app/services/inspection/source_economics_findings.py:112` | 186 |
+| 2 | `DurableQueueCollector.describe` | `app/services/queue_metrics_service.py:193` | 159 |
+| 3 | `_build_external_cashflow_findings` | `app/services/inspection/source_economics_findings.py:300` | 140 |
+| 4 | `build_runtime_status_response` | `app/models/runtime_status.py:767` | 131 |
+| 5 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:71` | 131 |
+| 6 | `_build_fee_source_economics_findings` | `app/services/inspection/source_economics_findings.py:442` | 130 |
+| 7 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:327` | 130 |
+| 8 | `aggregate_attribution_results` | `engine/attribution.py:607` | 126 |
+| 9 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:482` | 122 |
+| 10 | `calculate_attribution` | `app/services/attribution_service.py:168` | 120 |
+| 11 | `_build_artifacts` | `app/services/composite_inspection_service.py:114` | 118 |
+| 12 | `calculate_twr_workflow` | `app/services/twr_calculation_service.py:250` | 112 |
+| 13 | `run_runtime_retention_cleanup` | `app/services/runtime_retention_run_service.py:32` | 111 |
+| 14 | `build_stateful_benchmark_input` | `app/services/stateful_benchmark_input_service.py:39` | 110 |
+| 15 | `calculate_attribution_workflow` | `app/services/attribution_calculation_workflow_service.py:91` | 107 |
 
 ## Interpretation
 
@@ -58,6 +58,8 @@ Attribution result aggregation moved from `148` to `126` lines after active-retu
 and granular effect totals were isolated.
 Contribution calculation workflow dropped out of the top-15 table after promoted stateful
 execution handling was isolated from the public workflow router.
+Contribution orchestration dropped out of the top-15 table again after hierarchy-period result
+assembly was isolated from the public contribution calculation function.
 Stateful attribution source input retrieval dropped out of the top-15 table after benchmark
 assignment resolution was isolated from the source-input orchestration path.
 Durable queue metric collection dropped out of the top-15 table after source loading and
