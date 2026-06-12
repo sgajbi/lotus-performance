@@ -39,6 +39,15 @@ _RUNTIME_RETENTION_REQUIRED_STRING_FIELDS = (
     "cutoff_utc",
 )
 _RUNTIME_RETENTION_OPTIONAL_STRING_FIELDS = ("tenant_id", "correlation_id", "job_id")
+_RUNTIME_RETENTION_REQUIRED_IDENTITY_FIELDS = (
+    "evidence_file_name",
+    "generated_at_utc",
+    "operator_id",
+    "trigger_mode",
+    "cleanup_mode",
+    "status",
+)
+_RUNTIME_RETENTION_OPTIONAL_IDENTITY_FIELDS = ("tenant_id", "correlation_id", "job_id")
 _RUNTIME_RETENTION_REQUIRED_INT_FIELDS = (
     "retention_days",
     "prunable_execution_count",
@@ -192,17 +201,33 @@ def _runtime_retention_payload_identity_matches(
     payload: dict[str, Any],
     entry: RuntimeRetentionHistoryEntry,
 ) -> bool:
-    return (
-        payload["evidence_file_name"] == entry.evidence_file_name
-        and payload["generated_at_utc"] == entry.generated_at_utc
-        and payload["operator_id"] == entry.operator_id
-        and payload.get("tenant_id") == entry.tenant_id
-        and payload.get("correlation_id") == entry.correlation_id
-        and payload["trigger_mode"] == entry.trigger_mode
-        and payload.get("job_id") == entry.job_id
-        and payload["cleanup_mode"] == entry.cleanup_mode
-        and payload["status"] == entry.status
+    return _payload_entry_required_fields_match(
+        payload,
+        entry,
+        field_names=_RUNTIME_RETENTION_REQUIRED_IDENTITY_FIELDS,
+    ) and _payload_entry_optional_fields_match(
+        payload,
+        entry,
+        field_names=_RUNTIME_RETENTION_OPTIONAL_IDENTITY_FIELDS,
     )
+
+
+def _payload_entry_required_fields_match(
+    payload: dict[str, Any],
+    entry: object,
+    *,
+    field_names: tuple[str, ...],
+) -> bool:
+    return all(payload[field_name] == getattr(entry, field_name) for field_name in field_names)
+
+
+def _payload_entry_optional_fields_match(
+    payload: dict[str, Any],
+    entry: object,
+    *,
+    field_names: tuple[str, ...],
+) -> bool:
+    return all(payload.get(field_name) == getattr(entry, field_name) for field_name in field_names)
 
 
 def _runtime_retention_payload_counts_match(
