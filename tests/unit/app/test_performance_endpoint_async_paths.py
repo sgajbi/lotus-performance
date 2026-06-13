@@ -237,6 +237,37 @@ def test_attribution_input_count_prefers_nested_stateless_payload():
     assert attribution_calculation_workflow_service.attribution_input_count(request) == 3
 
 
+def test_attribution_input_count_supports_legacy_stateless_fields_and_stateful_zero():
+    legacy_request = AttributionRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "mode": "by_group",
+            "group_by": ["sector"],
+            "instruments_data": [{"instrument_id": "A", "meta": {}, "valuation_points": []}],
+            "portfolio_groups_data": [{"key": {"sector": "Tech"}, "observations": []}],
+            "benchmark_groups_data": [{"key": {"sector": "Tech"}, "observations": []}],
+        }
+    )
+    stateful_request = performance_endpoint.AttributionAnalyticsRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "mode": "by_group",
+            "group_by": ["sector"],
+            "input_mode": "stateful",
+            "stateful_input": {},
+        }
+    )
+
+    assert attribution_calculation_workflow_service.attribution_input_count(legacy_request) == 3
+    assert attribution_calculation_workflow_service.attribution_input_count(stateful_request) == 0
+
+
 def test_finalize_resolved_stateful_attribution_execution_preserves_resolved_identity(mocker):
     request = performance_endpoint.AttributionAnalyticsRequest.model_validate(
         {

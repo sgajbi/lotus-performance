@@ -35,22 +35,22 @@ def accepted_attribution_response(calculation_id) -> AttributionAcceptedResponse
     )
 
 
+def _stateless_attribution_input_count(request: AttributionAnalyticsRequest | AttributionRequest) -> int:
+    return (
+        len(request.instruments_data or [])
+        + len(request.portfolio_groups_data or [])
+        + len(request.benchmark_groups_data or [])
+    )
+
+
 def attribution_input_count(request: AttributionAnalyticsRequest | AttributionRequest) -> int:
     input_mode = getattr(request, "input_mode", AttributionInputMode.STATELESS)
     if input_mode == AttributionInputMode.STATEFUL:
         return 0
     stateless_input = getattr(request, "stateless_input", None)
     if stateless_input is not None:
-        return (
-            len(stateless_input.instruments_data or [])
-            + len(stateless_input.portfolio_groups_data or [])
-            + len(stateless_input.benchmark_groups_data)
-        )
-    return (
-        len(request.instruments_data or [])
-        + len(request.portfolio_groups_data or [])
-        + len(request.benchmark_groups_data or [])
-    )
+        return _stateless_attribution_input_count(stateless_input)
+    return _stateless_attribution_input_count(request)
 
 
 def should_offload_attribution(request: AttributionAnalyticsRequest | AttributionRequest) -> bool:
