@@ -111,8 +111,8 @@ def _build_findings(
     return findings
 
 
-def _build_artifacts(*, composite_id: str, facts, result) -> list[CompositeInspectionArtifact]:
-    member_rows = [
+def _member_input_rows(facts) -> list[dict[str, object]]:
+    return [
         {
             "composite_id": fact.composite_id,
             "portfolio_id": fact.portfolio_id,
@@ -130,7 +130,10 @@ def _build_artifacts(*, composite_id: str, facts, result) -> list[CompositeInspe
         }
         for fact in facts
     ]
-    weight_rows = [
+
+
+def _period_weight_rows(period_results: list[CompositePeriodResult]) -> list[dict[str, object]]:
+    return [
         {
             "portfolio_id": contribution.portfolio_id,
             "period_start": contribution.period_start.isoformat(),
@@ -140,9 +143,14 @@ def _build_artifacts(*, composite_id: str, facts, result) -> list[CompositeInspe
             "source_fingerprint": contribution.source_fingerprint,
             "restatement_version": contribution.restatement_version,
         }
-        for period in result.period_results
+        for period in period_results
         for contribution in period.member_contributions
     ]
+
+
+def _build_artifacts(*, composite_id: str, facts, result) -> list[CompositeInspectionArtifact]:
+    member_rows = _member_input_rows(facts)
+    weight_rows = _period_weight_rows(result.period_results)
     composite_rows = _composite_return_rows(result.period_results)
     lineage_manifest = {
         "composite_id": composite_id,

@@ -6,9 +6,14 @@ from uuid import UUID
 
 from app.models.composites import CompositeDefinition, CompositeMemberReturnFact
 from app.services.composite_calculation_service import CompositeDefinitionNotFoundError
-from app.services.composite_inspection_service import _composite_return_rows, inspect_composite_twr_from_persisted_facts
+from app.services.composite_inspection_service import (
+    _composite_return_rows,
+    _member_input_rows,
+    _period_weight_rows,
+    inspect_composite_twr_from_persisted_facts,
+)
 from app.services.composite_metadata_store import CompositeMetadataStore
-from engine.composites import CompositePeriodResult
+from engine.composites import CompositeMemberContribution, CompositePeriodResult
 
 
 def _store(tmp_path) -> CompositeMetadataStore:
@@ -164,6 +169,79 @@ def test_composite_inspection_reports_degraded_verdict(tmp_path):
     assert response.findings[0].code == "MISSING_FINAL_VALUATION"
     assert response.findings[0].severity == "warning"
     store.close()
+
+
+def test_member_input_rows_preserve_operator_lineage_values():
+    rows = _member_input_rows([_fact("P1", status="DEGRADED", reason_codes=["missing_final_valuation"])])
+
+    assert rows == [
+        {
+            "composite_id": "PB_GLOBAL_BALANCED_USD",
+            "portfolio_id": "P1",
+            "period_start": "2026-01-01",
+            "period_end": "2026-01-31",
+            "return_view": "NET_ACTUAL",
+            "return_value": "0.0100",
+            "beginning_market_value": "100.00",
+            "ending_market_value": "101.00",
+            "reporting_currency": "USD",
+            "status": "DEGRADED",
+            "reason_codes": "missing_final_valuation",
+            "source_fingerprint": "sha256:P1",
+            "restatement_version": "v1",
+        }
+    ]
+
+
+def test_period_weight_rows_preserve_contribution_lineage_order():
+    rows = _period_weight_rows(
+        [
+            CompositePeriodResult(
+                period_start=date(2026, 1, 1),
+                period_end=date(2026, 1, 31),
+                status="READY",
+                return_value=Decimal("0.0100"),
+                cumulative_return=Decimal("0.0100"),
+                beginning_market_value=Decimal("100"),
+                ending_market_value=Decimal("101"),
+                member_count=1,
+                excluded_member_count=0,
+                dispersion_equal_weight=Decimal("0"),
+                return_view="NET_ACTUAL",
+                reporting_currency="USD",
+                source_fingerprints=["sha256:P1"],
+                restatement_versions=["v1"],
+                reason_codes=[],
+                member_contributions=[
+                    CompositeMemberContribution(
+                        portfolio_id="P1",
+                        period_start=date(2026, 1, 1),
+                        period_end=date(2026, 1, 31),
+                        return_value=Decimal("0.0100"),
+                        beginning_market_value=Decimal("100"),
+                        weight=Decimal("1.000000000000"),
+                        contribution=Decimal("0.010000000000"),
+                        source_snapshot_id="snapshot-P1",
+                        source_fingerprint="sha256:P1",
+                        restatement_version="v1",
+                        calculation_id="calc-P1",
+                    )
+                ],
+            )
+        ]
+    )
+
+    assert rows == [
+        {
+            "portfolio_id": "P1",
+            "period_start": "2026-01-01",
+            "period_end": "2026-01-31",
+            "beginning_asset_weight": "1.000000000000",
+            "contribution": "0.010000000000",
+            "source_fingerprint": "sha256:P1",
+            "restatement_version": "v1",
+        }
+    ]
 
 
 def test_composite_return_rows_formats_optional_customer_consumable_values():
