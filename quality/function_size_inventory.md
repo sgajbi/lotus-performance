@@ -31,12 +31,12 @@ python scripts/python_function_size_inventory.py --limit 20
 | 9 | `_calculate_returns_series` | `app/services/returns_series_service.py:1397` | 97 |
 | 10 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:62` | 97 |
 | 11 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:31` | 94 |
-| 12 | `run_runtime_retention_cleanup` | `app/services/runtime_retention_run_service.py:59` | 93 |
-| 13 | `build_stateful_benchmark_input` | `app/services/stateful_benchmark_input_service.py:57` | 93 |
-| 14 | `calculate_twr_response` | `app/services/twr_service.py:1007` | 93 |
-| 15 | `_build_artifacts` | `app/services/composite_inspection_service.py:151` | 89 |
-| 16 | `build_recovery_drill_history_snapshot` | `app/services/recovery_drill_history_service.py:62` | 85 |
-| 17 | `build_runtime_recovery_snapshot` | `app/services/runtime_recovery_service.py:46` | 84 |
+| 12 | `build_stateful_benchmark_input` | `app/services/stateful_benchmark_input_service.py:57` | 93 |
+| 13 | `calculate_twr_response` | `app/services/twr_service.py:1007` | 93 |
+| 14 | `_build_artifacts` | `app/services/composite_inspection_service.py:151` | 89 |
+| 15 | `build_recovery_drill_history_snapshot` | `app/services/recovery_drill_history_service.py:62` | 85 |
+| 16 | `build_runtime_recovery_snapshot` | `app/services/runtime_recovery_service.py:46` | 84 |
+| 17 | `run_runtime_retention_cleanup` | `app/services/runtime_retention_run_service.py:93` | 83 |
 | 18 | `_align_and_prepare_data` | `engine/attribution.py:452` | 83 |
 | 19 | `StatefulInputService._fetch_position_chunk` | `app/services/stateful_input_service.py:991` | 81 |
 | 20 | `calculate_contribution` | `app/services/contribution_service.py:576` | 80 |
@@ -108,3 +108,5 @@ Runtime-retention manual cleanup orchestration moved from `111` to `93` lines af
 evidence response projection was isolated. It remains a CC `7` hotspot, so future work should
 target replay, guard, or lease-context assembly separately rather than claiming the function is
 fully remediated.
+It then moved from `93` to `83` lines and left the top-25 complexity table after apply-preview and
+manual cooldown guard policy were isolated.

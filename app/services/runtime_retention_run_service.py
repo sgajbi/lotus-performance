@@ -23,7 +23,10 @@ from app.services.runtime_retention_execution_service import (
     RuntimeRetentionCleanupEvidence,
     execute_runtime_retention_cleanup,
 )
-from app.services.runtime_retention_history_service import build_runtime_retention_history_snapshot
+from app.services.runtime_retention_history_service import (
+    RuntimeRetentionHistorySnapshot,
+    build_runtime_retention_history_snapshot,
+)
 
 
 @dataclass(frozen=True)
@@ -53,6 +56,37 @@ def _runtime_retention_cleanup_response_from_evidence(
         prunable_async_result_count=evidence.prunable_async_result_count,
         prunable_lineage_record_count=evidence.prunable_lineage_record_count,
         prunable_lineage_artifact_count=evidence.prunable_lineage_artifact_count,
+    )
+
+
+def _enforce_runtime_retention_manual_run_guards(
+    *,
+    cleanup_request: RuntimeRetentionCleanupRunRequest,
+    history_snapshot: RuntimeRetentionHistorySnapshot,
+    operator_id: str,
+    tenant_id: str | None,
+    resolved_retention_days: int,
+    apply_preview_max_age_seconds: float,
+    cooldown_seconds: float,
+) -> None:
+    if cleanup_request.apply:
+        enforce_runtime_retention_apply_preview(
+            history_snapshot,
+            operator_id=operator_id,
+            tenant_id=tenant_id,
+            retention_days=resolved_retention_days,
+            job_id=cleanup_request.job_id,
+            preview_max_age_seconds=apply_preview_max_age_seconds,
+        )
+
+    enforce_runtime_retention_manual_run_cooldown(
+        history_snapshot,
+        apply=cleanup_request.apply,
+        operator_id=operator_id,
+        tenant_id=tenant_id,
+        retention_days=resolved_retention_days,
+        job_id=cleanup_request.job_id,
+        cooldown_seconds=cooldown_seconds,
     )
 
 
@@ -92,23 +126,13 @@ def run_runtime_retention_cleanup(
             is_replay=True,
         )
 
-    if cleanup_request.apply:
-        enforce_runtime_retention_apply_preview(
-            history_snapshot,
-            operator_id=operator_id,
-            tenant_id=tenant_id,
-            retention_days=resolved_retention_days,
-            job_id=cleanup_request.job_id,
-            preview_max_age_seconds=apply_preview_max_age_seconds,
-        )
-
-    enforce_runtime_retention_manual_run_cooldown(
-        history_snapshot,
-        apply=cleanup_request.apply,
+    _enforce_runtime_retention_manual_run_guards(
+        cleanup_request=cleanup_request,
+        history_snapshot=history_snapshot,
         operator_id=operator_id,
         tenant_id=tenant_id,
-        retention_days=resolved_retention_days,
-        job_id=cleanup_request.job_id,
+        resolved_retention_days=resolved_retention_days,
+        apply_preview_max_age_seconds=apply_preview_max_age_seconds,
         cooldown_seconds=cooldown_seconds,
     )
 
