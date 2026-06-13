@@ -98,25 +98,48 @@ def _xirr_initial_failure(
     rate_upper_bound,
     base_convergence: dict,
 ) -> dict | None:
-    if len(values) == 0 or gross_cash_flow_scale == 0:
-        return _xirr_failure(
-            base_convergence=base_convergence,
-            notes="No economic content in cash-flow vector.",
-            reason_code="NO_ECONOMIC_CONTENT",
-        )
-    if np.all(values >= 0) or np.all(values <= 0):
-        return _xirr_failure(
-            base_convergence=base_convergence,
-            notes="No positive and negative cash flows in solver vector.",
-            reason_code="NO_POSITIVE_AND_NEGATIVE_CASH_FLOW",
-        )
-    if rate_lower_bound <= -1 or rate_upper_bound <= rate_lower_bound:
-        return _xirr_failure(
-            base_convergence=base_convergence,
-            notes="Invalid XIRR search bounds.",
-            reason_code="INVALID_SOLVER_BOUNDS",
-        )
+    failure_reason = _xirr_initial_failure_reason(
+        values=values,
+        gross_cash_flow_scale=gross_cash_flow_scale,
+        rate_lower_bound=rate_lower_bound,
+        rate_upper_bound=rate_upper_bound,
+    )
+    if failure_reason is None:
+        return None
+    notes, reason_code = failure_reason
+    return _xirr_failure(
+        base_convergence=base_convergence,
+        notes=notes,
+        reason_code=reason_code,
+    )
+
+
+def _xirr_initial_failure_reason(
+    *,
+    values: np.ndarray,
+    gross_cash_flow_scale,
+    rate_lower_bound,
+    rate_upper_bound,
+) -> tuple[str, str] | None:
+    if _xirr_has_no_economic_content(values=values, gross_cash_flow_scale=gross_cash_flow_scale):
+        return "No economic content in cash-flow vector.", "NO_ECONOMIC_CONTENT"
+    if _xirr_has_one_sided_cash_flows(values):
+        return "No positive and negative cash flows in solver vector.", "NO_POSITIVE_AND_NEGATIVE_CASH_FLOW"
+    if _xirr_has_invalid_solver_bounds(rate_lower_bound=rate_lower_bound, rate_upper_bound=rate_upper_bound):
+        return "Invalid XIRR search bounds.", "INVALID_SOLVER_BOUNDS"
     return None
+
+
+def _xirr_has_no_economic_content(*, values: np.ndarray, gross_cash_flow_scale) -> bool:
+    return len(values) == 0 or gross_cash_flow_scale == 0
+
+
+def _xirr_has_one_sided_cash_flows(values: np.ndarray) -> bool:
+    return bool(np.all(values >= 0) or np.all(values <= 0))
+
+
+def _xirr_has_invalid_solver_bounds(*, rate_lower_bound, rate_upper_bound) -> bool:
+    return rate_lower_bound <= -1 or rate_upper_bound <= rate_lower_bound
 
 
 def _xirr_time_diffs(*, dates: np.ndarray, anchor_date: date, annualization: Annualization) -> np.ndarray:

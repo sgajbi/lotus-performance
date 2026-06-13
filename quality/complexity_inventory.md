@@ -38,31 +38,31 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_xirr_initial_failure` | function | `engine/mwr.py:93` | 7 | B |
-| 2 | `_apply_ignore_days` | function | `engine/policies.py:90` | 7 | B |
-| 3 | `_compound_ror` | function | `engine/ror.py:271` | 7 | B |
-| 4 | `format_breakdowns_for_response` | function | `adapters/api_adapter.py:51` | 6 | B |
-| 5 | `submit_twr_inspection` | function | `app/api/endpoints/inspections.py:70` | 6 | B |
-| 6 | `get_lineage_data` | function | `app/api/endpoints/lineage.py:155` | 6 | B |
-| 7 | `get_lineage_artifact` | function | `app/api/endpoints/lineage.py:221` | 6 | B |
-| 8 | `_workspace_requested_benchmark_work_units` | function | `app/api/endpoints/performance.py:60` | 6 | B |
-| 9 | `calculate_workspace_summary_endpoint` | function | `app/api/endpoints/performance.py:105` | 6 | B |
-| 10 | `_normalized_capability_rule_overrides` | function | `app/enterprise_capability_rules.py:69` | 6 | B |
-| 11 | `_enterprise_runtime_config_issues` | function | `app/enterprise_runtime_config.py:94` | 6 | B |
-| 12 | `_validate_stateless_input_shape` | function | `app/models/attribution_analytics_requests.py:280` | 6 | B |
-| 13 | `AttributionLevelResult` | class | `app/models/attribution_responses.py:52` | 6 | B |
-| 14 | `CompositeMembership` | class | `app/models/composites.py:113` | 6 | B |
-| 15 | `_validate_stateless_contribution_payloads` | function | `app/models/contribution_analytics_requests.py:59` | 6 | B |
-| 16 | `_resolved_stateless_contribution_inputs` | function | `app/models/contribution_analytics_requests.py:89` | 6 | B |
-| 17 | `_validate_stateless_mwr_payloads` | function | `app/models/mwr_analytics_requests.py:52` | 6 | B |
-| 18 | `_validate_stateless_twr_payloads` | function | `app/models/twr_requests.py:145` | 6 | B |
-| 19 | `_validate_twr_benchmark_inclusion` | function | `app/models/twr_requests.py:167` | 6 | B |
-| 20 | `TWRAnalyticsRequest` | class | `app/models/twr_requests.py:174` | 6 | B |
-| 21 | `to_stateless_performance_request` | method | `app/models/twr_requests.py:217` | 6 | B |
-| 22 | `_validate_workspace_summary_stateless_inputs` | function | `app/models/workspace_summary_requests.py:300` | 6 | B |
-| 23 | `_json_log_payload` | function | `app/observability.py:104` | 6 | B |
-| 24 | `_typed_schema_example` | function | `app/openapi_enrichment.py:174` | 6 | B |
-| 25 | `_semantic_string_example` | function | `app/openapi_enrichment.py:198` | 6 | B |
+| 1 | `_apply_ignore_days` | function | `engine/policies.py:90` | 7 | B |
+| 2 | `_compound_ror` | function | `engine/ror.py:271` | 7 | B |
+| 3 | `format_breakdowns_for_response` | function | `adapters/api_adapter.py:51` | 6 | B |
+| 4 | `submit_twr_inspection` | function | `app/api/endpoints/inspections.py:70` | 6 | B |
+| 5 | `get_lineage_data` | function | `app/api/endpoints/lineage.py:155` | 6 | B |
+| 6 | `get_lineage_artifact` | function | `app/api/endpoints/lineage.py:221` | 6 | B |
+| 7 | `_workspace_requested_benchmark_work_units` | function | `app/api/endpoints/performance.py:60` | 6 | B |
+| 8 | `calculate_workspace_summary_endpoint` | function | `app/api/endpoints/performance.py:105` | 6 | B |
+| 9 | `_normalized_capability_rule_overrides` | function | `app/enterprise_capability_rules.py:69` | 6 | B |
+| 10 | `_enterprise_runtime_config_issues` | function | `app/enterprise_runtime_config.py:94` | 6 | B |
+| 11 | `_validate_stateless_input_shape` | function | `app/models/attribution_analytics_requests.py:280` | 6 | B |
+| 12 | `AttributionLevelResult` | class | `app/models/attribution_responses.py:52` | 6 | B |
+| 13 | `CompositeMembership` | class | `app/models/composites.py:113` | 6 | B |
+| 14 | `_validate_stateless_contribution_payloads` | function | `app/models/contribution_analytics_requests.py:59` | 6 | B |
+| 15 | `_resolved_stateless_contribution_inputs` | function | `app/models/contribution_analytics_requests.py:89` | 6 | B |
+| 16 | `_validate_stateless_mwr_payloads` | function | `app/models/mwr_analytics_requests.py:52` | 6 | B |
+| 17 | `_validate_stateless_twr_payloads` | function | `app/models/twr_requests.py:145` | 6 | B |
+| 18 | `_validate_twr_benchmark_inclusion` | function | `app/models/twr_requests.py:167` | 6 | B |
+| 19 | `TWRAnalyticsRequest` | class | `app/models/twr_requests.py:174` | 6 | B |
+| 20 | `to_stateless_performance_request` | method | `app/models/twr_requests.py:217` | 6 | B |
+| 21 | `_validate_workspace_summary_stateless_inputs` | function | `app/models/workspace_summary_requests.py:300` | 6 | B |
+| 22 | `_json_log_payload` | function | `app/observability.py:104` | 6 | B |
+| 23 | `_typed_schema_example` | function | `app/openapi_enrichment.py:174` | 6 | B |
+| 24 | `_semantic_string_example` | function | `app/openapi_enrichment.py:198` | 6 | B |
+| 25 | `_build_schema_example` | function | `app/openapi_enrichment.py:434` | 6 | B |
 
 ## Lowest Maintainability Index
 
@@ -91,8 +91,8 @@ must stay at `0`.
 | 21 | `app/models/returns_series.py` | 20.36 | A |
 | 22 | `app/workers/compute_executor_worker.py` | 20.96 | A |
 | 23 | `app/services/stateful_mwr_input_service.py` | 22.00 | A |
-| 24 | `engine/composites.py` | 22.52 | A |
-| 25 | `engine/mwr.py` | 23.00 | A |
+| 24 | `engine/mwr.py` | 22.24 | A |
+| 25 | `engine/composites.py` | 22.52 | A |
 
 ## Interpretation
 
@@ -666,6 +666,9 @@ positive-day guard behavior.
 `_coerce_engine_numeric_columns` also dropped out after numeric column ownership, Decimal-strict
 coercion, and standard Pandas coercion moved into dedicated helpers while preserving missing and
 invalid numeric value zeroing behavior.
+`_xirr_initial_failure` and the extracted `_xirr_initial_failure_reason` also dropped out after
+initial XIRR failure reason selection was split from failure payload construction and its economic
+content, sign-change, and solver-bound predicates were isolated.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.

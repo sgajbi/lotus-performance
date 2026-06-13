@@ -19,6 +19,7 @@ from engine.mwr import (
     _xirr,
     _xirr_failure,
     _xirr_initial_failure,
+    _xirr_initial_failure_reason,
     _xirr_result_from_roots,
     _xirr_root_candidate,
     _xirr_time_diffs,
@@ -114,6 +115,22 @@ def test_xirr_initial_failure_maps_invalid_solver_bounds():
     assert result["reason_code"] == "INVALID_SOLVER_BOUNDS"
     assert result["notes"] == "Invalid XIRR search bounds."
     assert result["convergence"]["converged"] is False
+
+
+def test_xirr_initial_failure_reason_maps_empty_and_one_sided_vectors():
+    assert _xirr_initial_failure_reason(
+        values=np.array([]),
+        gross_cash_flow_scale=0.0,
+        rate_lower_bound=-0.999999999,
+        rate_upper_bound=1000.0,
+    ) == ("No economic content in cash-flow vector.", "NO_ECONOMIC_CONTENT")
+
+    assert _xirr_initial_failure_reason(
+        values=np.array([100.0, 50.0]),
+        gross_cash_flow_scale=150.0,
+        rate_lower_bound=-0.999999999,
+        rate_upper_bound=1000.0,
+    ) == ("No positive and negative cash flows in solver vector.", "NO_POSITIVE_AND_NEGATIVE_CASH_FLOW")
 
 
 def test_scan_xirr_roots_returns_single_residual_for_bracketed_schedule():
