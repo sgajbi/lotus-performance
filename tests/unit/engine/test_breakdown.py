@@ -9,6 +9,7 @@ from core.envelope import Annualization
 from engine.breakdown import (
     _calculate_period_summary_dict,
     _daily_breakdown_item,
+    _period_annualized_return_pct,
     _resampled_breakdown_items,
     generate_performance_breakdowns,
 )
@@ -124,6 +125,21 @@ def test_annualization_correctly_handles_sparse_long_period():
 
     assert "annualized_return_pct" in summary
     assert summary["annualized_return_pct"] == pytest.approx(4.986004, abs=1e-6)
+
+
+def test_period_annualized_return_pct_preserves_positive_day_guard():
+    first_day = pd.Series({PortfolioColumns.PERF_DATE.value: date(2025, 1, 2)})
+    last_day = pd.Series({PortfolioColumns.PERF_DATE.value: date(2025, 1, 1)})
+
+    assert (
+        _period_annualized_return_pct(
+            period_ror=0.01,
+            first_day=first_day,
+            last_day=last_day,
+            annualization=Annualization(enabled=True, basis="ACT/365"),
+        )
+        is None
+    )
 
 
 def test_generate_breakdowns_daily_includes_cumulative_when_requested(sample_daily_results, default_annualization):
