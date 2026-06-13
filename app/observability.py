@@ -54,6 +54,30 @@ _MWR_ALLOWED_REASON_CODES = frozenset(
 )
 
 
+def _bounded_mwr_solver_reason_codes(reason_codes: list[str] | tuple[str, ...]) -> tuple[str, ...]:
+    emitted_reason_codes = tuple(reason_codes) if reason_codes else ("NONE",)
+    return tuple(
+        reason_code if reason_code in _MWR_ALLOWED_REASON_CODES else "OTHER" for reason_code in emitted_reason_codes
+    )
+
+
+def _bounded_mwr_solver_outcome_labels(
+    *,
+    input_mode: str,
+    method: str,
+    status: str,
+    reason_code: str,
+    fallback_used: bool,
+) -> dict[str, str]:
+    return {
+        "input_mode": input_mode if input_mode in _MWR_ALLOWED_INPUT_MODES else "other",
+        "method": method if method in _MWR_ALLOWED_METHODS else "OTHER",
+        "status": status if status in _MWR_ALLOWED_STATUSES else "OTHER",
+        "reason_code": reason_code if reason_code in _MWR_ALLOWED_REASON_CODES else "OTHER",
+        "fallback_used": str(fallback_used).lower(),
+    }
+
+
 def _nonblank_value(value: str | None) -> str | None:
     if value is None:
         return None
@@ -172,19 +196,15 @@ def record_mwr_solver_outcome(
     reason_codes: list[str] | tuple[str, ...],
     fallback_used: bool,
 ) -> None:
-    bounded_input_mode = input_mode if input_mode in _MWR_ALLOWED_INPUT_MODES else "other"
-    bounded_method = method if method in _MWR_ALLOWED_METHODS else "OTHER"
-    bounded_status = status if status in _MWR_ALLOWED_STATUSES else "OTHER"
-    emitted_reason_codes = tuple(reason_codes) if reason_codes else ("NONE",)
-
-    for reason_code in emitted_reason_codes:
-        bounded_reason_code = reason_code if reason_code in _MWR_ALLOWED_REASON_CODES else "OTHER"
+    for reason_code in _bounded_mwr_solver_reason_codes(reason_codes):
         MWR_SOLVER_OUTCOME_TOTAL.labels(
-            input_mode=bounded_input_mode,
-            method=bounded_method,
-            status=bounded_status,
-            reason_code=bounded_reason_code,
-            fallback_used=str(fallback_used).lower(),
+            **_bounded_mwr_solver_outcome_labels(
+                input_mode=input_mode,
+                method=method,
+                status=status,
+                reason_code=reason_code,
+                fallback_used=fallback_used,
+            )
         ).inc()
 
 

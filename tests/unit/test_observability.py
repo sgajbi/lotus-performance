@@ -6,6 +6,8 @@ from prometheus_client import REGISTRY, generate_latest
 
 from app.observability import (
     JsonFormatter,
+    _bounded_mwr_solver_outcome_labels,
+    _bounded_mwr_solver_reason_codes,
     _json_log_payload,
     build_access_log_fields,
     correlation_id_var,
@@ -140,6 +142,29 @@ def test_build_access_log_fields_contains_platform_duration_and_legacy_latency()
     assert fields["endpoint"] == "/health"
     assert fields["duration_ms"] == 10.5
     assert fields["latency_ms"] == 10.5
+
+
+def test_bounded_mwr_solver_reason_codes_defaults_and_filters_unsafe_values():
+    assert _bounded_mwr_solver_reason_codes([]) == ("NONE",)
+    assert _bounded_mwr_solver_reason_codes(["NO_ROOT_FOUND", "portfolio-123"]) == ("NO_ROOT_FOUND", "OTHER")
+
+
+def test_bounded_mwr_solver_outcome_labels_filter_unsafe_values():
+    labels = _bounded_mwr_solver_outcome_labels(
+        input_mode="portfolio-123",
+        method="CUSTOM",
+        status="SURPRISE",
+        reason_code="account-456",
+        fallback_used=True,
+    )
+
+    assert labels == {
+        "input_mode": "other",
+        "method": "OTHER",
+        "status": "OTHER",
+        "reason_code": "OTHER",
+        "fallback_used": "true",
+    }
 
 
 def test_record_mwr_solver_outcome_uses_bounded_support_safe_labels():
