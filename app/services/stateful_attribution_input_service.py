@@ -1013,18 +1013,25 @@ def _split_position_cash_flows(cash_flows_raw: object) -> tuple[Decimal, Decimal
         return bod_cf, eod_cf
 
     for flow in cash_flows_raw:
-        if not isinstance(flow, dict):
+        parsed_flow = _position_cash_flow_amount(flow)
+        if parsed_flow is None:
             continue
-        amount = flow.get("amount")
-        timing = flow.get("timing")
-        if amount is None or timing not in {"bod", "eod"}:
-            continue
-        decimal_amount = Decimal(str(amount))
+        timing, decimal_amount = parsed_flow
         if timing == "bod":
             bod_cf += decimal_amount
         else:
             eod_cf += decimal_amount
     return bod_cf, eod_cf
+
+
+def _position_cash_flow_amount(flow: object) -> tuple[str, Decimal] | None:
+    if not isinstance(flow, dict):
+        return None
+    amount = flow.get("amount")
+    timing = flow.get("timing")
+    if amount is None or timing not in {"bod", "eod"}:
+        return None
+    return cast(str, timing), Decimal(str(amount))
 
 
 def _position_meta_from_row(row: dict[str, object]) -> dict[str, object]:

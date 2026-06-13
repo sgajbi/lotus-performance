@@ -38,31 +38,31 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_split_position_cash_flows` | function | `app/services/stateful_attribution_input_service.py:1009` | 7 | B |
-| 2 | `_component_price_series_from_response` | function | `app/services/stateful_benchmark_input_service.py:452` | 7 | B |
-| 3 | `_build_component_observations` | function | `app/services/stateful_benchmark_input_service.py:571` | 7 | B |
-| 4 | `_position_value_inputs` | function | `app/services/stateful_contribution_input_service.py:213` | 7 | B |
-| 5 | `_position_contract_meta_from_row` | function | `app/services/stateful_contribution_input_service.py:255` | 7 | B |
-| 6 | `_portfolio_identity_from_payload` | function | `app/services/stateful_input_service.py:1375` | 7 | B |
-| 7 | `_collect_stateful_mwr_cash_flows` | function | `app/services/stateful_mwr_input_service.py:200` | 7 | B |
-| 8 | `_source_mwr_cash_flow_component` | function | `app/services/stateful_mwr_input_service.py:279` | 7 | B |
-| 9 | `_has_single_currency_inputs` | function | `app/services/stateful_mwr_input_service.py:332` | 7 | B |
-| 10 | `split_position_cash_flows_in_value_basis` | function | `app/services/stateful_position_row_service.py:14` | 7 | B |
-| 11 | `_build_component_observations_from_price_points` | function | `app/services/stateless_benchmark_input_service.py:48` | 7 | B |
-| 12 | `_price_point_return_components` | function | `app/services/stateless_benchmark_input_service.py:143` | 7 | B |
-| 13 | `_benchmark_currency_state` | function | `app/services/twr_benchmark_supportability.py:124` | 7 | B |
-| 14 | `_twr_execution_window_benchmark_fields` | function | `app/services/twr_calculation_service.py:237` | 7 | B |
-| 15 | `calculate_twr_workflow` | function | `app/services/twr_calculation_service.py:258` | 7 | B |
-| 16 | `_resolve_twr_benchmark_source_input` | function | `app/services/twr_mode_service.py:464` | 7 | B |
-| 17 | `_calculate_total_return_from_reset_slice` | function | `app/services/twr_service.py:65` | 7 | B |
-| 18 | `_build_portfolio_breakdown_item` | function | `app/services/twr_service.py:547` | 7 | B |
-| 19 | `_build_twr_results_by_period` | function | `app/services/twr_service.py:740` | 7 | B |
-| 20 | `_valuation_cashflow_total_component` | function | `app/services/valuation_points_service.py:54` | 7 | B |
-| 21 | `_prepare_data_from_instruments` | function | `engine/attribution.py:228` | 7 | B |
-| 22 | `_normalize_instrument_return_columns` | function | `engine/attribution.py:315` | 7 | B |
-| 23 | `_build_base_weight_series` | function | `engine/attribution.py:383` | 7 | B |
-| 24 | `_align_and_prepare_data` | function | `engine/attribution.py:452` | 7 | B |
-| 25 | `aggregate_attribution_results` | function | `engine/attribution.py:648` | 7 | B |
+| 1 | `_component_price_series_from_response` | function | `app/services/stateful_benchmark_input_service.py:452` | 7 | B |
+| 2 | `_build_component_observations` | function | `app/services/stateful_benchmark_input_service.py:571` | 7 | B |
+| 3 | `_position_value_inputs` | function | `app/services/stateful_contribution_input_service.py:213` | 7 | B |
+| 4 | `_position_contract_meta_from_row` | function | `app/services/stateful_contribution_input_service.py:255` | 7 | B |
+| 5 | `_portfolio_identity_from_payload` | function | `app/services/stateful_input_service.py:1375` | 7 | B |
+| 6 | `_collect_stateful_mwr_cash_flows` | function | `app/services/stateful_mwr_input_service.py:200` | 7 | B |
+| 7 | `_source_mwr_cash_flow_component` | function | `app/services/stateful_mwr_input_service.py:279` | 7 | B |
+| 8 | `_has_single_currency_inputs` | function | `app/services/stateful_mwr_input_service.py:332` | 7 | B |
+| 9 | `split_position_cash_flows_in_value_basis` | function | `app/services/stateful_position_row_service.py:14` | 7 | B |
+| 10 | `_build_component_observations_from_price_points` | function | `app/services/stateless_benchmark_input_service.py:48` | 7 | B |
+| 11 | `_price_point_return_components` | function | `app/services/stateless_benchmark_input_service.py:143` | 7 | B |
+| 12 | `_benchmark_currency_state` | function | `app/services/twr_benchmark_supportability.py:124` | 7 | B |
+| 13 | `_twr_execution_window_benchmark_fields` | function | `app/services/twr_calculation_service.py:237` | 7 | B |
+| 14 | `calculate_twr_workflow` | function | `app/services/twr_calculation_service.py:258` | 7 | B |
+| 15 | `_resolve_twr_benchmark_source_input` | function | `app/services/twr_mode_service.py:464` | 7 | B |
+| 16 | `_calculate_total_return_from_reset_slice` | function | `app/services/twr_service.py:65` | 7 | B |
+| 17 | `_build_portfolio_breakdown_item` | function | `app/services/twr_service.py:547` | 7 | B |
+| 18 | `_build_twr_results_by_period` | function | `app/services/twr_service.py:740` | 7 | B |
+| 19 | `_valuation_cashflow_total_component` | function | `app/services/valuation_points_service.py:54` | 7 | B |
+| 20 | `_prepare_data_from_instruments` | function | `engine/attribution.py:228` | 7 | B |
+| 21 | `_normalize_instrument_return_columns` | function | `engine/attribution.py:315` | 7 | B |
+| 22 | `_build_base_weight_series` | function | `engine/attribution.py:383` | 7 | B |
+| 23 | `_align_and_prepare_data` | function | `engine/attribution.py:452` | 7 | B |
+| 24 | `aggregate_attribution_results` | function | `engine/attribution.py:648` | 7 | B |
+| 25 | `_calculate_period_summary_dict` | function | `engine/breakdown.py:13` | 7 | B |
 
 ## Lowest Maintainability Index
 
@@ -629,6 +629,8 @@ non-currency unknown fallback behavior.
 `_position_daily_point_market_values` also dropped out after reporting-currency market-value
 fallback selection was moved into a dedicated helper while preserving reporting value-basis
 semantics.
+`_split_position_cash_flows` also dropped out after supported BOD/EOD cash-flow amount parsing was
+moved into a dedicated helper while preserving invalid-flow suppression and Decimal conversion.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.

@@ -26,6 +26,7 @@ from app.services.stateful_attribution_input_service import (
     _parse_index_catalog,
     _parse_position_rows,
     _portfolio_market_values_by_date,
+    _position_cash_flow_amount,
     _position_daily_point_market_values,
     _position_market_value_pair,
     _position_market_value_totals_by_date,
@@ -1291,6 +1292,14 @@ def test_stateful_attribution_parsers_filter_invalid_rows():
     }
     assert _parse_position_rows({"rows": [{"position_id": "POS_1"}, "bad"]}) == [{"position_id": "POS_1"}]
     assert _parse_index_catalog({"records": [{"index_id": "IDX_1"}, "bad"]}) == [{"index_id": "IDX_1"}]
+
+
+def test_position_cash_flow_amount_parses_supported_bod_eod_flows():
+    assert _position_cash_flow_amount({"amount": "4.5", "timing": "bod"}) == ("bod", Decimal("4.5"))
+    assert _position_cash_flow_amount({"amount": "-1", "timing": "eod"}) == ("eod", Decimal("-1"))
+    assert _position_cash_flow_amount("bad") is None
+    assert _position_cash_flow_amount({"amount": None, "timing": "bod"}) is None
+    assert _position_cash_flow_amount({"amount": "2", "timing": "midday"}) is None
 
 
 def test_stateful_attribution_normalizes_group_values():
