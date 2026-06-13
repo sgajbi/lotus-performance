@@ -4,6 +4,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.services.valuation_points_service import (
+    _valuation_cashflow_component_for_role,
     _valuation_cashflow_total_component,
     _valuation_cashflow_totals,
     portfolio_timeseries_to_valuation_points,
@@ -135,3 +136,26 @@ def test_valuation_cashflow_total_component_projects_supported_roles():
         Decimal("0"),
     )
     assert _valuation_cashflow_total_component("not-a-flow") == (Decimal("0"), Decimal("0"), Decimal("0"))
+
+
+def test_valuation_cashflow_component_for_role_routes_amounts_by_economics_role_and_timing():
+    assert _valuation_cashflow_component_for_role(
+        amount=Decimal("5"),
+        timing="bod",
+        economics_role="external",
+    ) == (Decimal("5"), Decimal("0"), Decimal("0"))
+    assert _valuation_cashflow_component_for_role(
+        amount=Decimal("-4"),
+        timing="eod",
+        economics_role="external",
+    ) == (Decimal("0"), Decimal("-4"), Decimal("0"))
+    assert _valuation_cashflow_component_for_role(
+        amount=Decimal("-2"),
+        timing="eod",
+        economics_role="fee",
+    ) == (Decimal("0"), Decimal("0"), Decimal("-2"))
+    assert _valuation_cashflow_component_for_role(
+        amount=Decimal("3"),
+        timing="eod",
+        economics_role="unsupported",
+    ) == (Decimal("0"), Decimal("0"), Decimal("0"))

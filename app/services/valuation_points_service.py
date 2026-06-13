@@ -61,10 +61,24 @@ def _valuation_cashflow_total_component(flow: object) -> tuple[Decimal, Decimal,
         return zero, zero, zero
     decimal_amount = Decimal(str(amount))
     economics_role = classify_cashflow_type(flow.get("cash_flow_type")).economics_role
+    return _valuation_cashflow_component_for_role(
+        amount=decimal_amount,
+        timing=timing,
+        economics_role=economics_role,
+    )
+
+
+def _valuation_cashflow_component_for_role(
+    *,
+    amount: Decimal,
+    timing: object,
+    economics_role: str,
+) -> tuple[Decimal, Decimal, Decimal]:
+    zero = Decimal("0")
     if economics_role == "fee":
-        return zero, zero, decimal_amount
+        return zero, zero, amount
     if economics_role == "unsupported":
         return zero, zero, zero
     if timing == "bod":
-        return decimal_amount, zero, zero
-    return zero, decimal_amount, zero
+        return amount, zero, zero
+    return zero, amount, zero
