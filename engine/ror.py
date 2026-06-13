@@ -275,28 +275,13 @@ def _compound_ror(df: pd.DataFrame, daily_ror: pd.Series, leg: str, use_resets=F
     hundred = Decimal(100) if is_decimal_mode else 100.0
     zero = Decimal(0) if is_decimal_mode else 0.0
 
-    sign = df[PortfolioColumns.SIGN.value]
-    if leg == "long":
-        is_leg_day = sign == 1
-        growth_factor = one + (daily_ror / hundred)
-    else:
-        is_leg_day = sign == -1
-        growth_factor = one - (daily_ror / hundred)
-    growth_factor = growth_factor.where(is_leg_day, one)
-
+    is_leg_day, growth_factor = _leg_growth_factor(df=df, daily_ror=daily_ror, leg=leg, one=one, hundred=hundred)
     block_ids = _compounding_block_ids(df, use_resets=use_resets)
-
-    if is_decimal_mode:
-
-        def decimal_cumprod(series):
-            result = series.copy()
-            for i in range(1, len(series)):
-                result.iloc[i] = result.iloc[i - 1] * result.iloc[i]
-            return result
-
-        cumulative_growth = growth_factor.groupby(block_ids, group_keys=False).apply(decimal_cumprod)
-    else:
-        cumulative_growth = growth_factor.groupby(block_ids).cumprod()
+    cumulative_growth = _cumulative_growth_by_block(
+        growth_factor,
+        block_ids=block_ids,
+        is_decimal_mode=is_decimal_mode,
+    )
 
     cumulative_ror = (cumulative_growth - one) * hundred
     if leg == "short":
@@ -308,6 +293,42 @@ def _compound_ror(df: pd.DataFrame, daily_ror: pd.Series, leg: str, use_resets=F
         filled_ror = leg_ror.ffill().fillna(zero)
 
     return filled_ror
+
+
+def _leg_growth_factor(
+    *,
+    df: pd.DataFrame,
+    daily_ror: pd.Series,
+    leg: str,
+    one,
+    hundred,
+) -> tuple[pd.Series, pd.Series]:
+    sign = df[PortfolioColumns.SIGN.value]
+    if leg == "long":
+        is_leg_day = sign == 1
+        growth_factor = one + (daily_ror / hundred)
+    else:
+        is_leg_day = sign == -1
+        growth_factor = one - (daily_ror / hundred)
+    return is_leg_day, growth_factor.where(is_leg_day, one)
+
+
+def _cumulative_growth_by_block(
+    growth_factor: pd.Series,
+    *,
+    block_ids: pd.Series,
+    is_decimal_mode: bool,
+) -> pd.Series:
+    if is_decimal_mode:
+        return growth_factor.groupby(block_ids, group_keys=False).apply(_decimal_cumprod)
+    return growth_factor.groupby(block_ids).cumprod()
+
+
+def _decimal_cumprod(series: pd.Series) -> pd.Series:
+    result = series.copy()
+    for i in range(1, len(series)):
+        result.iloc[i] = result.iloc[i - 1] * result.iloc[i]
+    return result
 
 
 def _compounding_block_ids(df: pd.DataFrame, *, use_resets: bool) -> pd.Series:

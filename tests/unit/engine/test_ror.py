@@ -8,7 +8,7 @@ import pytest
 from core.envelope import HedgingRequestBlock
 from engine.config import EngineConfig, FXRequestBlock
 from engine.periods import get_effective_period_start_dates
-from engine.ror import _compound_ror, _compounding_block_ids, calculate_daily_ror
+from engine.ror import _compound_ror, _compounding_block_ids, _leg_growth_factor, calculate_daily_ror
 from engine.schema import PortfolioColumns
 
 
@@ -142,6 +142,22 @@ def test_compound_ror_decimal_strict_multi_period():
     result = _compound_ror(df, df[PortfolioColumns.DAILY_ROR], "long", use_resets=False)
     assert isinstance(result.iloc[1], Decimal)
     assert result.iloc[1] == pytest.approx(Decimal("21.0"))
+
+
+def test_leg_growth_factor_projects_short_leg_days_only():
+    df = pd.DataFrame({PortfolioColumns.SIGN: [1, -1]})
+    daily_ror = pd.Series([10.0, 5.0])
+
+    is_leg_day, growth_factor = _leg_growth_factor(
+        df=df,
+        daily_ror=daily_ror,
+        leg="short",
+        one=1.0,
+        hundred=100.0,
+    )
+
+    assert is_leg_day.tolist() == [False, True]
+    assert growth_factor.tolist() == [1.0, 0.95]
 
 
 def test_compounding_block_ids_start_after_reset_and_period_change():

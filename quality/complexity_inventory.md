@@ -30,7 +30,7 @@ must stay at `0`.
 
 | Metric | Value |
 | --- | ---: |
-| Max cyclomatic complexity | 7 |
+| Max cyclomatic complexity | 6 |
 | High-complexity functions (rank D-F) | 0 |
 | Average maintainability index | 55.12 |
 
@@ -38,31 +38,31 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_compound_ror` | function | `engine/ror.py:271` | 7 | B |
-| 2 | `format_breakdowns_for_response` | function | `adapters/api_adapter.py:51` | 6 | B |
-| 3 | `submit_twr_inspection` | function | `app/api/endpoints/inspections.py:70` | 6 | B |
-| 4 | `get_lineage_data` | function | `app/api/endpoints/lineage.py:155` | 6 | B |
-| 5 | `get_lineage_artifact` | function | `app/api/endpoints/lineage.py:221` | 6 | B |
-| 6 | `_workspace_requested_benchmark_work_units` | function | `app/api/endpoints/performance.py:60` | 6 | B |
-| 7 | `calculate_workspace_summary_endpoint` | function | `app/api/endpoints/performance.py:105` | 6 | B |
-| 8 | `_normalized_capability_rule_overrides` | function | `app/enterprise_capability_rules.py:69` | 6 | B |
-| 9 | `_enterprise_runtime_config_issues` | function | `app/enterprise_runtime_config.py:94` | 6 | B |
-| 10 | `_validate_stateless_input_shape` | function | `app/models/attribution_analytics_requests.py:280` | 6 | B |
-| 11 | `AttributionLevelResult` | class | `app/models/attribution_responses.py:52` | 6 | B |
-| 12 | `CompositeMembership` | class | `app/models/composites.py:113` | 6 | B |
-| 13 | `_validate_stateless_contribution_payloads` | function | `app/models/contribution_analytics_requests.py:59` | 6 | B |
-| 14 | `_resolved_stateless_contribution_inputs` | function | `app/models/contribution_analytics_requests.py:89` | 6 | B |
-| 15 | `_validate_stateless_mwr_payloads` | function | `app/models/mwr_analytics_requests.py:52` | 6 | B |
-| 16 | `_validate_stateless_twr_payloads` | function | `app/models/twr_requests.py:145` | 6 | B |
-| 17 | `_validate_twr_benchmark_inclusion` | function | `app/models/twr_requests.py:167` | 6 | B |
-| 18 | `TWRAnalyticsRequest` | class | `app/models/twr_requests.py:174` | 6 | B |
-| 19 | `to_stateless_performance_request` | method | `app/models/twr_requests.py:217` | 6 | B |
-| 20 | `_validate_workspace_summary_stateless_inputs` | function | `app/models/workspace_summary_requests.py:300` | 6 | B |
-| 21 | `_json_log_payload` | function | `app/observability.py:104` | 6 | B |
-| 22 | `_typed_schema_example` | function | `app/openapi_enrichment.py:174` | 6 | B |
-| 23 | `_semantic_string_example` | function | `app/openapi_enrichment.py:198` | 6 | B |
-| 24 | `_build_schema_example` | function | `app/openapi_enrichment.py:434` | 6 | B |
-| 25 | `_ensure_request_body_example` | function | `app/openapi_enrichment.py:536` | 6 | B |
+| 1 | `format_breakdowns_for_response` | function | `adapters/api_adapter.py:51` | 6 | B |
+| 2 | `submit_twr_inspection` | function | `app/api/endpoints/inspections.py:70` | 6 | B |
+| 3 | `get_lineage_data` | function | `app/api/endpoints/lineage.py:155` | 6 | B |
+| 4 | `get_lineage_artifact` | function | `app/api/endpoints/lineage.py:221` | 6 | B |
+| 5 | `_workspace_requested_benchmark_work_units` | function | `app/api/endpoints/performance.py:60` | 6 | B |
+| 6 | `calculate_workspace_summary_endpoint` | function | `app/api/endpoints/performance.py:105` | 6 | B |
+| 7 | `_normalized_capability_rule_overrides` | function | `app/enterprise_capability_rules.py:69` | 6 | B |
+| 8 | `_enterprise_runtime_config_issues` | function | `app/enterprise_runtime_config.py:94` | 6 | B |
+| 9 | `_validate_stateless_input_shape` | function | `app/models/attribution_analytics_requests.py:280` | 6 | B |
+| 10 | `AttributionLevelResult` | class | `app/models/attribution_responses.py:52` | 6 | B |
+| 11 | `CompositeMembership` | class | `app/models/composites.py:113` | 6 | B |
+| 12 | `_validate_stateless_contribution_payloads` | function | `app/models/contribution_analytics_requests.py:59` | 6 | B |
+| 13 | `_resolved_stateless_contribution_inputs` | function | `app/models/contribution_analytics_requests.py:89` | 6 | B |
+| 14 | `_validate_stateless_mwr_payloads` | function | `app/models/mwr_analytics_requests.py:52` | 6 | B |
+| 15 | `_validate_stateless_twr_payloads` | function | `app/models/twr_requests.py:145` | 6 | B |
+| 16 | `_validate_twr_benchmark_inclusion` | function | `app/models/twr_requests.py:167` | 6 | B |
+| 17 | `TWRAnalyticsRequest` | class | `app/models/twr_requests.py:174` | 6 | B |
+| 18 | `to_stateless_performance_request` | method | `app/models/twr_requests.py:217` | 6 | B |
+| 19 | `_validate_workspace_summary_stateless_inputs` | function | `app/models/workspace_summary_requests.py:300` | 6 | B |
+| 20 | `_json_log_payload` | function | `app/observability.py:104` | 6 | B |
+| 21 | `_typed_schema_example` | function | `app/openapi_enrichment.py:174` | 6 | B |
+| 22 | `_semantic_string_example` | function | `app/openapi_enrichment.py:198` | 6 | B |
+| 23 | `_build_schema_example` | function | `app/openapi_enrichment.py:434` | 6 | B |
+| 24 | `_ensure_request_body_example` | function | `app/openapi_enrichment.py:536` | 6 | B |
+| 25 | `_iter_documentable_operations` | function | `app/openapi_enrichment.py:658` | 6 | B |
 
 ## Lowest Maintainability Index
 
@@ -672,6 +672,9 @@ content, sign-change, and solver-bound predicates were isolated.
 `_apply_ignore_days` also dropped out after single-day ignore carry-forward mutation was split into
 a dedicated helper while preserving sorted-date processing, previous-day market-value carry-forward,
 cash-flow/fee zeroing, diagnostics counts, and notes.
+`_compound_ror` also dropped out after leg growth-factor construction, block-level cumulative
+growth selection, and Decimal cumulative product behavior were split into dedicated helpers while
+preserving long/short leg behavior, reset block usage, Decimal support, and forward-fill semantics.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.
@@ -684,6 +687,7 @@ tests, and module-boundary cleanup.
 ## Gate Posture
 
 The max cyclomatic complexity and rank D-F function-count posture is now a blocking CI gate through
-`make quality-complexity-gate`. The gate currently enforces max CC `8` and D-F count `0`.
+`make quality-complexity-gate`. The gate currently enforces max CC `8` and D-F count `0`; the
+measured repository maximum is now `6`.
 Maintainability index remains report-only until a stable threshold, exception policy, and
 remediation workflow exist.
