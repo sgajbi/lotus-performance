@@ -124,23 +124,10 @@ class StatefulInputService:
         if failure is not None:
             return failure
 
-        rows = self._merge_dedup_records_by_fields(
-            records=[
-                row
-                for _, payload in responses
-                for row in (payload.get("rows", []) if isinstance(payload, dict) else [])
-                if isinstance(row, dict)
-            ],
-            key_fields=("valuation_date", "position_id"),
+        return 200, self._build_position_timeseries_payload(
+            responses=responses,
+            chunk_count=len(chunks),
         )
-        total_page_count = self._total_retrieval_page_count(responses)
-        return 200, {
-            "rows": rows,
-            "retrieval_metadata": {
-                "chunk_count": len(chunks),
-                "page_count": total_page_count,
-            },
-        }
 
     async def get_benchmark_assignment(
         self,
@@ -1171,6 +1158,23 @@ class StatefulInputService:
             "observations": self._merge_dedup_records(
                 records=_dict_list_payload_items(responses=responses, field_name="observations"),
                 date_key="valuation_date",
+            ),
+            "retrieval_metadata": {
+                "chunk_count": chunk_count,
+                "page_count": self._total_retrieval_page_count(responses),
+            },
+        }
+
+    def _build_position_timeseries_payload(
+        self,
+        *,
+        responses: list[tuple[int, dict[str, Any]]],
+        chunk_count: int,
+    ) -> dict[str, Any]:
+        return {
+            "rows": self._merge_dedup_records_by_fields(
+                records=_dict_list_payload_items(responses=responses, field_name="rows"),
+                key_fields=("valuation_date", "position_id"),
             ),
             "retrieval_metadata": {
                 "chunk_count": chunk_count,

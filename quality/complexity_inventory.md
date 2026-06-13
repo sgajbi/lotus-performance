@@ -38,31 +38,31 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `get_position_timeseries` | method | `app/services/stateful_input_service.py:90` | 8 | B |
-| 2 | `build_stateful_mwr_input_for_window` | function | `app/services/stateful_mwr_input_service.py:106` | 8 | B |
-| 3 | `_cash_flow_conversion_factor` | function | `app/services/stateful_position_row_service.py:59` | 8 | B |
-| 4 | `_metadata_count` | function | `app/services/stateful_retrieval_metadata.py:58` | 8 | B |
-| 5 | `register_async_submission_or_raise` | function | `app/services/submission_fencing_service.py:53` | 8 | B |
-| 6 | `_run_twr_execution_calculation` | function | `app/services/twr_service.py:685` | 8 | B |
-| 7 | `_resolve_workspace_portfolio_input` | function | `app/services/workspace_summary_service.py:210` | 8 | B |
-| 8 | `_build_workspace_summary_response` | function | `app/services/workspace_summary_service.py:502` | 8 | B |
-| 9 | `_build_compute_job_runtime` | function | `app/workers/compute_executor_worker.py:156` | 8 | B |
-| 10 | `_build_compute_job_execution_context` | function | `app/workers/compute_executor_worker.py:201` | 8 | B |
-| 11 | `_execute_compute_job` | function | `app/workers/compute_executor_worker.py:226` | 8 | B |
-| 12 | `_resolve_async_twr_job_request` | function | `app/workers/compute_executor_worker.py:553` | 8 | B |
-| 13 | `_workspace_period_start_date` | function | `core/workspace_periods.py:56` | 8 | B |
-| 14 | `_uses_local_fx_component_returns` | function | `engine/benchmarks.py:144` | 8 | B |
-| 15 | `_scan_xirr_roots` | function | `engine/mwr.py:127` | 8 | B |
-| 16 | `get_effective_period_start_dates` | function | `engine/periods.py:8` | 8 | B |
-| 17 | `_calculate_local_daily_return` | function | `engine/ror.py:46` | 8 | B |
-| 18 | `_allowed_audit_metadata` | function | `app/enterprise_authorization.py:39` | 7 | B |
-| 19 | `to_benchmark_performance_request` | method | `app/models/benchmark_analytics_requests.py:299` | 7 | B |
-| 20 | `to_stateless_contribution_request` | method | `app/models/contribution_analytics_requests.py:122` | 7 | B |
-| 21 | `TWRInspectionRequest` | class | `app/models/inspection_requests.py:56` | 7 | B |
-| 22 | `_validate_stateless_twr_payloads` | function | `app/models/twr_requests.py:137` | 7 | B |
-| 23 | `_validate_workspace_summary_stateless_inputs` | function | `app/models/workspace_summary_requests.py:286` | 7 | B |
-| 24 | `record_mwr_solver_outcome` | function | `app/observability.py:167` | 7 | B |
-| 25 | `_validation_error_json_content` | function | `app/openapi_enrichment.py:484` | 7 | B |
+| 1 | `build_stateful_mwr_input_for_window` | function | `app/services/stateful_mwr_input_service.py:106` | 8 | B |
+| 2 | `_cash_flow_conversion_factor` | function | `app/services/stateful_position_row_service.py:59` | 8 | B |
+| 3 | `_metadata_count` | function | `app/services/stateful_retrieval_metadata.py:58` | 8 | B |
+| 4 | `register_async_submission_or_raise` | function | `app/services/submission_fencing_service.py:53` | 8 | B |
+| 5 | `_run_twr_execution_calculation` | function | `app/services/twr_service.py:685` | 8 | B |
+| 6 | `_resolve_workspace_portfolio_input` | function | `app/services/workspace_summary_service.py:210` | 8 | B |
+| 7 | `_build_workspace_summary_response` | function | `app/services/workspace_summary_service.py:502` | 8 | B |
+| 8 | `_build_compute_job_runtime` | function | `app/workers/compute_executor_worker.py:156` | 8 | B |
+| 9 | `_build_compute_job_execution_context` | function | `app/workers/compute_executor_worker.py:201` | 8 | B |
+| 10 | `_execute_compute_job` | function | `app/workers/compute_executor_worker.py:226` | 8 | B |
+| 11 | `_resolve_async_twr_job_request` | function | `app/workers/compute_executor_worker.py:553` | 8 | B |
+| 12 | `_workspace_period_start_date` | function | `core/workspace_periods.py:56` | 8 | B |
+| 13 | `_uses_local_fx_component_returns` | function | `engine/benchmarks.py:144` | 8 | B |
+| 14 | `_scan_xirr_roots` | function | `engine/mwr.py:127` | 8 | B |
+| 15 | `get_effective_period_start_dates` | function | `engine/periods.py:8` | 8 | B |
+| 16 | `_calculate_local_daily_return` | function | `engine/ror.py:46` | 8 | B |
+| 17 | `_allowed_audit_metadata` | function | `app/enterprise_authorization.py:39` | 7 | B |
+| 18 | `to_benchmark_performance_request` | method | `app/models/benchmark_analytics_requests.py:299` | 7 | B |
+| 19 | `to_stateless_contribution_request` | method | `app/models/contribution_analytics_requests.py:122` | 7 | B |
+| 20 | `TWRInspectionRequest` | class | `app/models/inspection_requests.py:56` | 7 | B |
+| 21 | `_validate_stateless_twr_payloads` | function | `app/models/twr_requests.py:137` | 7 | B |
+| 22 | `_validate_workspace_summary_stateless_inputs` | function | `app/models/workspace_summary_requests.py:286` | 7 | B |
+| 23 | `record_mwr_solver_outcome` | function | `app/observability.py:167` | 7 | B |
+| 24 | `_validation_error_json_content` | function | `app/openapi_enrichment.py:484` | 7 | B |
+| 25 | `_ensure_request_body_example` | function | `app/openapi_enrichment.py:529` | 7 | B |
 
 ## Lowest Maintainability Index
 
@@ -489,6 +489,8 @@ selection and missing-value rejection were moved into a dedicated helper.
 The stale contribution `_split_position_cash_flows` helper also dropped out after it was removed;
 the runtime path already used `split_position_cash_flows_in_value_basis`, so its test-only coverage
 was deleted with the dead helper.
+`get_position_timeseries` also dropped out after successful response row merging, de-duplication,
+and retrieval metadata projection were moved into a dedicated payload assembly helper.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.
