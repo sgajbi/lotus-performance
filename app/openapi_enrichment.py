@@ -743,12 +743,12 @@ def _ensure_property_schema_documentation(
     components: dict[str, Any],
 ) -> None:
     prop_resolved = _resolve_schema(prop_schema, components)
-    if not prop_schema.get("description"):
-        prop_schema["description"] = prop_resolved.get("description") or _infer_description(
-            model_name,
-            prop_name,
-            prop_resolved,
-        )
+    _ensure_property_description(
+        model_name=model_name,
+        prop_name=prop_name,
+        prop_schema=prop_schema,
+        prop_resolved=prop_resolved,
+    )
     if "example" not in prop_schema and "examples" not in prop_schema:
         prop_schema["example"] = _build_schema_example(
             prop_schema,
@@ -759,6 +759,21 @@ def _ensure_property_schema_documentation(
     prop_enum_descriptions = _infer_enum_descriptions(prop_name, prop_resolved)
     if prop_enum_descriptions and "x-enum-descriptions" not in prop_schema:
         prop_schema["x-enum-descriptions"] = prop_enum_descriptions
+
+
+def _ensure_property_description(
+    *,
+    model_name: str,
+    prop_name: str,
+    prop_schema: dict[str, Any],
+    prop_resolved: dict[str, Any],
+) -> None:
+    if not prop_schema.get("description"):
+        prop_schema["description"] = prop_resolved.get("description") or _infer_description(
+            model_name,
+            prop_name,
+            prop_resolved,
+        )
 
 
 def _ensure_property_vocabulary_metadata(*, prop_name: str, prop_schema: dict[str, Any]) -> None:

@@ -7,6 +7,7 @@ from app.openapi_enrichment import (
     _ensure_model_schema_documentation,
     _ensure_operation_metadata,
     _ensure_operation_response_documentation,
+    _ensure_property_description,
     _ensure_property_vocabulary_metadata,
     _ensure_request_body_example,
     _ensure_success_response_documentation,
@@ -627,6 +628,26 @@ def test_iter_schema_properties_yields_only_dict_properties():
         )
     ) == [("portfolio_id", string_property), ("7", {"type": "integer"})]
     assert list(_iter_schema_properties({"properties": "not-a-dict"})) == []
+
+
+def test_ensure_property_description_preserves_existing_and_uses_resolved_schema_description():
+    documented_schema = {"description": "Already documented."}
+    _ensure_property_description(
+        model_name="Envelope",
+        prop_name="request_id",
+        prop_schema=documented_schema,
+        prop_resolved={"description": "Resolved description."},
+    )
+    assert documented_schema["description"] == "Already documented."
+
+    ref_schema: dict[str, object] = {}
+    _ensure_property_description(
+        model_name="Envelope",
+        prop_name="nested_ref",
+        prop_schema=ref_schema,
+        prop_resolved={"description": "Referenced schema description."},
+    )
+    assert ref_schema["description"] == "Referenced schema description."
 
 
 def test_enrich_openapi_schema_adds_fastapi_validation_error_examples():
