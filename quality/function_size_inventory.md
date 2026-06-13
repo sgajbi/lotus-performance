@@ -1,7 +1,7 @@
 # Lotus Performance Function Size Inventory
 
 Report date: 2026-06-13
-Branch: `refactor/lp-cr-845-benchmark-request-resolution`
+Branch: `refactor/lp-cr-942-source-economics-counts`
 Mode: report-only function-size inventory; this artifact introduces no new blocking CI gate.
 
 ## Purpose

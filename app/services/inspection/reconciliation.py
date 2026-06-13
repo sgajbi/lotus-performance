@@ -498,14 +498,7 @@ def _select_position_begin_value_field(row: dict[str, object]) -> tuple[str, obj
 
 
 def _collect_position_continuity_gap_samples(position_rows: list[dict[str, object]]) -> list[dict[str, object]]:
-    rows_by_position: dict[str, list[dict[str, object]]] = {}
-    for row in position_rows:
-        position_id = row.get("position_id")
-        valuation_date = row.get("valuation_date")
-        if not isinstance(position_id, str) or not isinstance(valuation_date, str):
-            continue
-        rows_by_position.setdefault(position_id, []).append(row)
-
+    rows_by_position = _position_rows_by_position_id(position_rows)
     samples: list[dict[str, object]] = []
     for position_id, rows in rows_by_position.items():
         sorted_rows = sorted(rows, key=lambda row: str(row.get("valuation_date")))
@@ -523,6 +516,17 @@ def _collect_position_continuity_gap_samples(position_rows: list[dict[str, objec
                 samples.append(sample)
             previous_row = row
     return samples
+
+
+def _position_rows_by_position_id(position_rows: list[dict[str, object]]) -> dict[str, list[dict[str, object]]]:
+    rows_by_position: dict[str, list[dict[str, object]]] = {}
+    for row in position_rows:
+        position_id = row.get("position_id")
+        valuation_date = row.get("valuation_date")
+        if not isinstance(position_id, str) or not isinstance(valuation_date, str):
+            continue
+        rows_by_position.setdefault(position_id, []).append(row)
+    return rows_by_position
 
 
 def _build_position_continuity_gap_sample(
