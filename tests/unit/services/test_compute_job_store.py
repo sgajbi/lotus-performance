@@ -18,6 +18,7 @@ from app.services.compute_job_store import (
     _aggregate_row_count,
     _compute_job_inspection_active_since,
     _compute_job_payload_failure,
+    _ensure_compute_job_can_mark_running,
     _matches_existing_compute_job_registration,
     _queue_stats_from_aggregate_row,
 )
@@ -1086,6 +1087,36 @@ def test_matches_existing_compute_job_registration_requires_same_request_and_att
         request_json='{"portfolio_id": "P1"}',
         max_attempts=2,
     )
+
+
+@pytest.mark.parametrize(
+    ("job_status", "expected_message"),
+    [
+        (ComputeJobStatus.FAILED, "Cannot mark failed job as running"),
+        (ComputeJobStatus.COMPLETE, "Cannot mark complete job as running"),
+    ],
+)
+def test_ensure_compute_job_can_mark_running_rejects_terminal_jobs(job_status, expected_message):
+    calculation_id = uuid4()
+    row = _compute_job_model_for_inspection(
+        job_status=job_status,
+        created_at_utc=datetime.now(timezone.utc),
+    )
+
+    with pytest.raises(ValueError, match=expected_message):
+        _ensure_compute_job_can_mark_running(row, calculation_id=calculation_id, worker_id=None)
+
+
+def test_ensure_compute_job_can_mark_running_rejects_other_worker_lease():
+    calculation_id = uuid4()
+    row = _compute_job_model_for_inspection(
+        job_status=ComputeJobStatus.LEASED,
+        created_at_utc=datetime.now(timezone.utc),
+    )
+    row.worker_id = "worker-a"
+
+    with pytest.raises(ValueError, match="Compute job leased by another worker"):
+        _ensure_compute_job_can_mark_running(row, calculation_id=calculation_id, worker_id="worker-b")
 
 
 def test_compute_job_store_get_queue_stats_uses_single_aggregate_query(tmp_path):

@@ -260,6 +260,20 @@ def _matches_existing_compute_job_registration(
     )
 
 
+def _ensure_compute_job_can_mark_running(
+    row: ComputeJobModel,
+    *,
+    calculation_id: UUID,
+    worker_id: str | None,
+) -> None:
+    if row.job_status == ComputeJobStatus.FAILED.value:
+        raise ValueError(f"Cannot mark failed job as running: {calculation_id}")
+    if row.job_status == ComputeJobStatus.COMPLETE.value:
+        raise ValueError(f"Cannot mark complete job as running: {calculation_id}")
+    if worker_id is not None and row.worker_id not in {None, worker_id}:
+        raise ValueError(f"Compute job leased by another worker: {calculation_id}")
+
+
 class ComputeJobStore:
     def __init__(self, database_url: str):
         connect_args = {"check_same_thread": False} if database_url.startswith("sqlite") else {}
@@ -441,12 +455,7 @@ class ComputeJobStore:
     ) -> None:
         with self._session() as session:
             row = self._get_model(session, calculation_id)
-            if row.job_status == ComputeJobStatus.FAILED.value:
-                raise ValueError(f"Cannot mark failed job as running: {calculation_id}")
-            if row.job_status == ComputeJobStatus.COMPLETE.value:
-                raise ValueError(f"Cannot mark complete job as running: {calculation_id}")
-            if worker_id is not None and row.worker_id not in {None, worker_id}:
-                raise ValueError(f"Compute job leased by another worker: {calculation_id}")
+            _ensure_compute_job_can_mark_running(row, calculation_id=calculation_id, worker_id=worker_id)
             row.job_status = ComputeJobStatus.RUNNING.value
             row.attempt_count += 1
             row.error_message = None
