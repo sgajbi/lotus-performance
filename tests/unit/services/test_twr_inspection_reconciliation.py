@@ -216,6 +216,14 @@ def test_position_rows_by_position_id_keeps_only_rows_with_position_and_date():
     }
 
 
+def test_is_transition_activity_field_matches_cashflow_trade_and_quantity_delta_fields():
+    assert reconciliation._is_transition_activity_field("external_cashflow_amount")
+    assert reconciliation._is_transition_activity_field("trade_notional")
+    assert reconciliation._is_transition_activity_field("quantity_delta")
+    assert not reconciliation._is_transition_activity_field("cash_flows")
+    assert not reconciliation._is_transition_activity_field("ending_market_value_portfolio_currency")
+
+
 def test_analyze_portfolio_position_reconciliation_does_not_flag_activity_explained_begin_change():
     performance_request = PerformanceRequest(
         portfolio_id="PB_SG_GLOBAL_BAL_001",
