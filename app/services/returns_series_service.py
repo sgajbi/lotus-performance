@@ -654,6 +654,21 @@ def _apply_strict_intersection_policy(
     return portfolio_df, benchmark_df, risk_free_df
 
 
+def _fill_optional_series_to_portfolio_dates(
+    *,
+    selected_df: pd.DataFrame | None,
+    portfolio_dates: pd.Series,
+    fill_method: FillMethod,
+) -> pd.DataFrame | None:
+    if selected_df is None:
+        return None
+    if fill_method == FillMethod.FORWARD_FILL:
+        return selected_df.set_index("date").reindex(portfolio_dates).ffill().reset_index()
+    if fill_method == FillMethod.ZERO_FILL:
+        return selected_df.set_index("date").reindex(portfolio_dates).fillna(0.0).reset_index()
+    return selected_df
+
+
 def _apply_selected_fill_method(
     *,
     portfolio_df: pd.DataFrame,
@@ -661,16 +676,17 @@ def _apply_selected_fill_method(
     risk_free_df: pd.DataFrame | None,
     fill_method: FillMethod,
 ) -> tuple[pd.DataFrame, pd.DataFrame | None, pd.DataFrame | None]:
-    if fill_method == FillMethod.FORWARD_FILL:
-        if benchmark_df is not None:
-            benchmark_df = benchmark_df.set_index("date").reindex(portfolio_df["date"]).ffill().reset_index()
-        if risk_free_df is not None:
-            risk_free_df = risk_free_df.set_index("date").reindex(portfolio_df["date"]).ffill().reset_index()
-    elif fill_method == FillMethod.ZERO_FILL:
-        if benchmark_df is not None:
-            benchmark_df = benchmark_df.set_index("date").reindex(portfolio_df["date"]).fillna(0.0).reset_index()
-        if risk_free_df is not None:
-            risk_free_df = risk_free_df.set_index("date").reindex(portfolio_df["date"]).fillna(0.0).reset_index()
+    portfolio_dates = portfolio_df["date"]
+    benchmark_df = _fill_optional_series_to_portfolio_dates(
+        selected_df=benchmark_df,
+        portfolio_dates=portfolio_dates,
+        fill_method=fill_method,
+    )
+    risk_free_df = _fill_optional_series_to_portfolio_dates(
+        selected_df=risk_free_df,
+        portfolio_dates=portfolio_dates,
+        fill_method=fill_method,
+    )
     return portfolio_df, benchmark_df, risk_free_df
 
 

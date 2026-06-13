@@ -626,6 +626,32 @@ def test_selected_fill_method_aligns_optional_series_to_portfolio_dates():
     assert list(filled_benchmark["return_value"]) == [Decimal("0.0010"), Decimal("0.0010"), Decimal("0.0030")]
 
 
+def test_selected_fill_method_zero_fills_risk_free_to_portfolio_dates():
+    portfolio_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-24", "2026-02-25", "2026-02-26"]),
+            "return_value": [Decimal("0.0100"), Decimal("0.0200"), Decimal("0.0300")],
+        }
+    )
+    risk_free_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-24", "2026-02-26"]),
+            "return_value": [Decimal("0.0001"), Decimal("0.0003")],
+        }
+    )
+
+    _, filled_benchmark, filled_risk_free = returns_series_service._apply_selected_fill_method(
+        portfolio_df=portfolio_df,
+        benchmark_df=None,
+        risk_free_df=risk_free_df,
+        fill_method=FillMethod.ZERO_FILL,
+    )
+
+    assert filled_benchmark is None
+    assert filled_risk_free is not None
+    assert list(filled_risk_free["return_value"]) == [Decimal("0.0001"), 0.0, Decimal("0.0003")]
+
+
 def test_prepare_stateless_returns_series_dataframes_respects_selected_series():
     request = ReturnsSeriesRequest.model_validate(
         {
