@@ -20,6 +20,7 @@ from app.services.workspace_summary_service import (
     _build_economic_context,
     _build_mwr_cash_flows,
     _build_stateless_workspace_benchmark_input,
+    _build_stateless_workspace_portfolio_input,
     _build_workspace_benchmark_and_active_blocks,
     _build_workspace_benchmark_daily_df,
     _date_from_boundary,
@@ -526,6 +527,36 @@ def test_resolve_workspace_portfolio_input_rejects_stateless_request_without_per
 
     with pytest.raises(HTTPException, match="performance_start_date is required for stateless workspace summary"):
         _resolve_workspace_portfolio_input(request=request, settings=SimpleNamespace())
+
+
+def test_build_stateless_workspace_portfolio_input_projects_values_and_source_details():
+    request = WorkspaceSummaryRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT-1",
+            "report_end_date": "2026-01-02",
+            "performance_start_date": "2026-01-01",
+            "input_mode": "stateless",
+            "stateless_input": {
+                "valuation_points": [
+                    {"perf_date": "2026-01-01", "begin_mv": 100.0, "end_mv": 101.0},
+                    {"perf_date": "2026-01-02", "begin_mv": 101.0, "end_mv": 102.0},
+                ]
+            },
+            "periods": [{"period": "1D", "frequencies": ["daily"]}],
+        }
+    )
+
+    result = _build_stateless_workspace_portfolio_input(request)
+
+    assert result.input_mode == "stateless"
+    assert result.performance_start_date == date(2026, 1, 1)
+    assert [point.perf_date for point in result.valuation_points] == [date(2026, 1, 1), date(2026, 1, 2)]
+    assert [observation["perf_date"] for observation in result.observations] == [
+        date(2026, 1, 1),
+        date(2026, 1, 2),
+    ]
+    assert result.source_details == {"portfolio_chunk_count": 0, "portfolio_page_count": 0}
 
 
 def test_resolve_stateful_portfolio_start_date_rejects_missing_open_date(mocker):

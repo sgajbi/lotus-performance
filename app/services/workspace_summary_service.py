@@ -213,19 +213,7 @@ def _resolve_workspace_portfolio_input(
     settings: Settings,
 ) -> ResolvedWorkspacePortfolioInput:
     if request.input_mode == TWRInputMode.STATELESS:
-        valuation_points = request.resolved_stateless_valuation_points()
-        if request.performance_start_date is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="performance_start_date is required for stateless workspace summary requests.",
-            )
-        return ResolvedWorkspacePortfolioInput(
-            input_mode=MWRInputMode.STATELESS,
-            performance_start_date=request.performance_start_date,
-            valuation_points=valuation_points,
-            observations=[point.model_dump(mode="python") for point in valuation_points],
-            source_details={"portfolio_chunk_count": 0, "portfolio_page_count": 0},
-        )
+        return _build_stateless_workspace_portfolio_input(request)
 
     performance_start_date = request.performance_start_date or _resolve_stateful_portfolio_start_date(
         request=request,
@@ -263,6 +251,22 @@ def _resolve_workspace_portfolio_input(
             "portfolio_chunk_count": source_input.retrieval_metadata.chunk_count,
             "portfolio_page_count": source_input.retrieval_metadata.page_count,
         },
+    )
+
+
+def _build_stateless_workspace_portfolio_input(request: WorkspaceSummaryRequest) -> ResolvedWorkspacePortfolioInput:
+    valuation_points = request.resolved_stateless_valuation_points()
+    if request.performance_start_date is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="performance_start_date is required for stateless workspace summary requests.",
+        )
+    return ResolvedWorkspacePortfolioInput(
+        input_mode=MWRInputMode.STATELESS,
+        performance_start_date=request.performance_start_date,
+        valuation_points=valuation_points,
+        observations=[point.model_dump(mode="python") for point in valuation_points],
+        source_details={"portfolio_chunk_count": 0, "portfolio_page_count": 0},
     )
 
 
