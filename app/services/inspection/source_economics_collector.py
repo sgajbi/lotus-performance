@@ -298,27 +298,12 @@ class _SourceEconomicsSampleCollector:
             )
 
     def _record_external_mixed_timing_samples(self, source_point: ObservationSourceEconomics) -> None:
-        if source_point.detailed_external_bod != 0 and source_point.detailed_external_eod != 0:
-            self.external_mixed_timing_samples.append(
-                {
-                    "valuation_date": source_point.valuation_date,
-                    "detailed_external_bod": float(source_point.detailed_external_bod),
-                    "detailed_external_eod": float(source_point.detailed_external_eod),
-                }
-            )
-        if (
-            source_point.explicit_bod_total is not None
-            and source_point.explicit_eod_total is not None
-            and source_point.explicit_bod_total != 0
-            and source_point.explicit_eod_total != 0
-        ):
-            self.external_explicit_mixed_timing_samples.append(
-                {
-                    "valuation_date": source_point.valuation_date,
-                    "explicit_external_bod": float(source_point.explicit_bod_total),
-                    "explicit_external_eod": float(source_point.explicit_eod_total),
-                }
-            )
+        detailed_sample = _external_mixed_timing_sample(source_point)
+        if detailed_sample is not None:
+            self.external_mixed_timing_samples.append(detailed_sample)
+        explicit_sample = _external_explicit_mixed_timing_sample(source_point)
+        if explicit_sample is not None:
+            self.external_explicit_mixed_timing_samples.append(explicit_sample)
 
 
 def collect_source_economics_samples(
@@ -361,6 +346,28 @@ def _append_mapping_sample(
 ) -> None:
     if details is not None:
         target.append({"valuation_date": valuation_date, **details})
+
+
+def _external_mixed_timing_sample(source_point: ObservationSourceEconomics) -> dict[str, object] | None:
+    if source_point.detailed_external_bod == 0 or source_point.detailed_external_eod == 0:
+        return None
+    return {
+        "valuation_date": source_point.valuation_date,
+        "detailed_external_bod": float(source_point.detailed_external_bod),
+        "detailed_external_eod": float(source_point.detailed_external_eod),
+    }
+
+
+def _external_explicit_mixed_timing_sample(source_point: ObservationSourceEconomics) -> dict[str, object] | None:
+    if source_point.explicit_bod_total is None or source_point.explicit_eod_total is None:
+        return None
+    if source_point.explicit_bod_total == 0 or source_point.explicit_eod_total == 0:
+        return None
+    return {
+        "valuation_date": source_point.valuation_date,
+        "explicit_external_bod": float(source_point.explicit_bod_total),
+        "explicit_external_eod": float(source_point.explicit_eod_total),
+    }
 
 
 def _append_cashflow_types_sample(
