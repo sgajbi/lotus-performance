@@ -608,10 +608,18 @@ def _expected_daily_period_statuses(
         if linkability_status == "linkable":
             linkability_status = "reset_boundary"
     if "NO_INVESTMENT_PERIOD" in reason_codes:
-        if episode_status == "open":
-            episode_status = "no_investment"
-        if linkability_status == "linkable":
-            linkability_status = "not_calculated"
+        linkability_status, episode_status = _apply_daily_no_investment_period_status(
+            linkability_status=linkability_status,
+            episode_status=episode_status,
+        )
+    return linkability_status, episode_status
+
+
+def _apply_daily_no_investment_period_status(*, linkability_status: str, episode_status: str) -> tuple[str, str]:
+    if episode_status == "open":
+        episode_status = "no_investment"
+    if linkability_status == "linkable":
+        linkability_status = "not_calculated"
     return linkability_status, episode_status
 
 

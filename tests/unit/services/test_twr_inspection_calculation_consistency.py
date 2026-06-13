@@ -10,6 +10,7 @@ from app.models.responses import (
     TWRDailyCalculationEvidence,
 )
 from app.services.inspection.calculation_consistency import (
+    _apply_daily_no_investment_period_status,
     _check_relative_breakdown_frequency,
     _comparative_return_mismatches,
     _daily_calculation_evidence_mismatches,
@@ -635,6 +636,17 @@ def test_calculation_consistency_flags_episode_status_mismatch_for_reset_and_nip
         "linkability_status": {"expected": "reset_boundary", "actual": "linkable"},
         "episode_status": {"expected": "reset_boundary", "actual": "open"},
     }
+
+
+def test_no_investment_period_status_policy_only_overrides_open_linkable_days():
+    assert _apply_daily_no_investment_period_status(
+        linkability_status="linkable",
+        episode_status="open",
+    ) == ("not_calculated", "no_investment")
+    assert _apply_daily_no_investment_period_status(
+        linkability_status="reset_boundary",
+        episode_status="reset_boundary",
+    ) == ("reset_boundary", "reset_boundary")
 
 
 def test_calculation_consistency_flags_effective_period_exclusion_warning():
