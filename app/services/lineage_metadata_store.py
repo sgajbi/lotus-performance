@@ -418,18 +418,7 @@ class LineageMetadataStore:
         with self._session() as session:
             aggregate_row = session.execute(self._build_pending_payload_stats_statement(now=stats_now)).one()
 
-            return LineageQueueStats(
-                pending_payload_count=int(aggregate_row.pending_payload_count or 0),
-                leased_payload_count=int(aggregate_row.leased_payload_count or 0),
-                retry_backlog_count=int(aggregate_row.retry_backlog_count or 0),
-                terminal_failure_count=int(aggregate_row.terminal_failure_count or 0),
-                oldest_pending_age_seconds=elapsed_seconds_since_or_zero(
-                    stats_now,
-                    aggregate_row.oldest_pending_created_at,
-                ),
-                oldest_leased_age_seconds=elapsed_seconds_since_or_zero(stats_now, aggregate_row.oldest_leased_at),
-                reclaimable_count=int(aggregate_row.reclaimable_count or 0),
-            )
+            return _lineage_queue_stats_from_aggregate_row(aggregate_row=aggregate_row, stats_now=stats_now)
 
     def get_queue_inspection_anchors(self, *, now: datetime | None = None) -> LineageQueueInspectionAnchors:
         with self._session() as session:
@@ -1226,6 +1215,25 @@ def _payload_has_active_lease(payload: LineagePayloadModel, *, now: datetime) ->
     lease_expires_at = payload.lease_expires_at_utc
     normalized_lease_expires_at = None if lease_expires_at is None else coerce_utc_datetime(lease_expires_at)
     return normalized_lease_expires_at is None or normalized_lease_expires_at >= now
+
+
+def _lineage_queue_stats_from_aggregate_row(*, aggregate_row: object, stats_now: datetime) -> LineageQueueStats:
+    return LineageQueueStats(
+        pending_payload_count=_aggregate_int(aggregate_row, "pending_payload_count"),
+        leased_payload_count=_aggregate_int(aggregate_row, "leased_payload_count"),
+        retry_backlog_count=_aggregate_int(aggregate_row, "retry_backlog_count"),
+        terminal_failure_count=_aggregate_int(aggregate_row, "terminal_failure_count"),
+        oldest_pending_age_seconds=elapsed_seconds_since_or_zero(
+            stats_now,
+            getattr(aggregate_row, "oldest_pending_created_at"),
+        ),
+        oldest_leased_age_seconds=elapsed_seconds_since_or_zero(stats_now, getattr(aggregate_row, "oldest_leased_at")),
+        reclaimable_count=_aggregate_int(aggregate_row, "reclaimable_count"),
+    )
+
+
+def _aggregate_int(aggregate_row: object, field_name: str) -> int:
+    return int(getattr(aggregate_row, field_name) or 0)
 
 
 def _load_payload_details(details_json: str, *, calculation_id: str) -> dict[str, str] | None:

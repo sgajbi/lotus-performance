@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 from uuid import uuid4
 
 from sqlalchemy import event, inspect
@@ -10,6 +11,7 @@ from app.services.lineage_metadata_store import (
     LineagePayloadModel,
     LineageRecordModel,
     LineageStatus,
+    _lineage_queue_stats_from_aggregate_row,
     _payload_has_active_lease,
 )
 
@@ -367,6 +369,29 @@ def test_lineage_metadata_store_pending_payload_stats_include_active_leases(tmp_
     assert stats.pending_payload_count == 1
     assert stats.leased_payload_count == 1
     assert stats.oldest_leased_age_seconds == 15.0
+
+
+def test_lineage_queue_stats_from_aggregate_row_defaults_null_values_to_zero():
+    now = datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc)
+    aggregate_row = SimpleNamespace(
+        pending_payload_count=None,
+        leased_payload_count=None,
+        retry_backlog_count=None,
+        terminal_failure_count=None,
+        oldest_pending_created_at=None,
+        oldest_leased_at=None,
+        reclaimable_count=None,
+    )
+
+    stats = _lineage_queue_stats_from_aggregate_row(aggregate_row=aggregate_row, stats_now=now)
+
+    assert stats.pending_payload_count == 0
+    assert stats.leased_payload_count == 0
+    assert stats.retry_backlog_count == 0
+    assert stats.terminal_failure_count == 0
+    assert stats.oldest_pending_age_seconds == 0.0
+    assert stats.oldest_leased_age_seconds == 0.0
+    assert stats.reclaimable_count == 0
 
 
 def test_payload_has_active_lease_requires_lease_and_non_expired_window():
