@@ -239,21 +239,23 @@ def _build_artifacts(*, composite_id: str, facts, result) -> list[CompositeInspe
     ]
 
 
+def _optional_artifact_text(value: object | None) -> str:
+    return "" if value is None else str(value)
+
+
 def _composite_return_rows(period_results: list[CompositePeriodResult]) -> list[dict[str, object]]:
     return [
         {
             "period_start": period.period_start.isoformat(),
             "period_end": period.period_end.isoformat(),
             "status": period.status,
-            "return_view": period.return_view or "",
-            "reporting_currency": period.reporting_currency or "",
-            "return_value": "" if period.return_value is None else str(period.return_value),
-            "cumulative_return": "" if period.cumulative_return is None else str(period.cumulative_return),
+            "return_view": _optional_artifact_text(period.return_view),
+            "reporting_currency": _optional_artifact_text(period.reporting_currency),
+            "return_value": _optional_artifact_text(period.return_value),
+            "cumulative_return": _optional_artifact_text(period.cumulative_return),
             "member_count": period.member_count,
             "excluded_member_count": period.excluded_member_count,
-            "dispersion_equal_weight": ""
-            if period.dispersion_equal_weight is None
-            else str(period.dispersion_equal_weight),
+            "dispersion_equal_weight": _optional_artifact_text(period.dispersion_equal_weight),
             "reason_codes": "|".join(period.reason_codes),
         }
         for period in period_results

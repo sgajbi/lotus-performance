@@ -9,6 +9,7 @@ from app.services.composite_calculation_service import CompositeDefinitionNotFou
 from app.services.composite_inspection_service import (
     _composite_return_rows,
     _member_input_rows,
+    _optional_artifact_text,
     _period_weight_rows,
     inspect_composite_twr_from_persisted_facts,
 )
@@ -242,6 +243,11 @@ def test_period_weight_rows_preserve_contribution_lineage_order():
             "restatement_version": "v1",
         }
     ]
+
+
+def test_optional_artifact_text_formats_missing_and_decimal_values():
+    assert _optional_artifact_text(None) == ""
+    assert _optional_artifact_text(Decimal("0.0000")) == "0.0000"
 
 
 def test_composite_return_rows_formats_optional_customer_consumable_values():
