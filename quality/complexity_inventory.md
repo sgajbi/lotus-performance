@@ -38,31 +38,31 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_collect_stateful_mwr_cash_flows` | function | `app/services/stateful_mwr_input_service.py:200` | 7 | B |
-| 2 | `_source_mwr_cash_flow_component` | function | `app/services/stateful_mwr_input_service.py:279` | 7 | B |
-| 3 | `_has_single_currency_inputs` | function | `app/services/stateful_mwr_input_service.py:332` | 7 | B |
-| 4 | `split_position_cash_flows_in_value_basis` | function | `app/services/stateful_position_row_service.py:14` | 7 | B |
-| 5 | `_build_component_observations_from_price_points` | function | `app/services/stateless_benchmark_input_service.py:48` | 7 | B |
-| 6 | `_price_point_return_components` | function | `app/services/stateless_benchmark_input_service.py:143` | 7 | B |
-| 7 | `_benchmark_currency_state` | function | `app/services/twr_benchmark_supportability.py:124` | 7 | B |
-| 8 | `_twr_execution_window_benchmark_fields` | function | `app/services/twr_calculation_service.py:237` | 7 | B |
-| 9 | `calculate_twr_workflow` | function | `app/services/twr_calculation_service.py:258` | 7 | B |
-| 10 | `_resolve_twr_benchmark_source_input` | function | `app/services/twr_mode_service.py:464` | 7 | B |
-| 11 | `_calculate_total_return_from_reset_slice` | function | `app/services/twr_service.py:65` | 7 | B |
-| 12 | `_build_portfolio_breakdown_item` | function | `app/services/twr_service.py:547` | 7 | B |
-| 13 | `_build_twr_results_by_period` | function | `app/services/twr_service.py:740` | 7 | B |
-| 14 | `_valuation_cashflow_total_component` | function | `app/services/valuation_points_service.py:54` | 7 | B |
-| 15 | `_prepare_data_from_instruments` | function | `engine/attribution.py:228` | 7 | B |
-| 16 | `_normalize_instrument_return_columns` | function | `engine/attribution.py:315` | 7 | B |
-| 17 | `_build_base_weight_series` | function | `engine/attribution.py:383` | 7 | B |
-| 18 | `_align_and_prepare_data` | function | `engine/attribution.py:452` | 7 | B |
-| 19 | `aggregate_attribution_results` | function | `engine/attribution.py:648` | 7 | B |
-| 20 | `_calculate_period_summary_dict` | function | `engine/breakdown.py:13` | 7 | B |
-| 21 | `_coerce_engine_numeric_columns` | function | `engine/compute.py:180` | 7 | B |
-| 22 | `_xirr_initial_failure` | function | `engine/mwr.py:93` | 7 | B |
-| 23 | `_apply_ignore_days` | function | `engine/policies.py:90` | 7 | B |
-| 24 | `_compound_ror` | function | `engine/ror.py:271` | 7 | B |
-| 25 | `format_breakdowns_for_response` | function | `adapters/api_adapter.py:51` | 6 | B |
+| 1 | `_source_mwr_cash_flow_component` | function | `app/services/stateful_mwr_input_service.py:296` | 7 | B |
+| 2 | `_has_single_currency_inputs` | function | `app/services/stateful_mwr_input_service.py:349` | 7 | B |
+| 3 | `split_position_cash_flows_in_value_basis` | function | `app/services/stateful_position_row_service.py:14` | 7 | B |
+| 4 | `_build_component_observations_from_price_points` | function | `app/services/stateless_benchmark_input_service.py:48` | 7 | B |
+| 5 | `_price_point_return_components` | function | `app/services/stateless_benchmark_input_service.py:143` | 7 | B |
+| 6 | `_benchmark_currency_state` | function | `app/services/twr_benchmark_supportability.py:124` | 7 | B |
+| 7 | `_twr_execution_window_benchmark_fields` | function | `app/services/twr_calculation_service.py:237` | 7 | B |
+| 8 | `calculate_twr_workflow` | function | `app/services/twr_calculation_service.py:258` | 7 | B |
+| 9 | `_resolve_twr_benchmark_source_input` | function | `app/services/twr_mode_service.py:464` | 7 | B |
+| 10 | `_calculate_total_return_from_reset_slice` | function | `app/services/twr_service.py:65` | 7 | B |
+| 11 | `_build_portfolio_breakdown_item` | function | `app/services/twr_service.py:547` | 7 | B |
+| 12 | `_build_twr_results_by_period` | function | `app/services/twr_service.py:740` | 7 | B |
+| 13 | `_valuation_cashflow_total_component` | function | `app/services/valuation_points_service.py:54` | 7 | B |
+| 14 | `_prepare_data_from_instruments` | function | `engine/attribution.py:228` | 7 | B |
+| 15 | `_normalize_instrument_return_columns` | function | `engine/attribution.py:315` | 7 | B |
+| 16 | `_build_base_weight_series` | function | `engine/attribution.py:383` | 7 | B |
+| 17 | `_align_and_prepare_data` | function | `engine/attribution.py:452` | 7 | B |
+| 18 | `aggregate_attribution_results` | function | `engine/attribution.py:648` | 7 | B |
+| 19 | `_calculate_period_summary_dict` | function | `engine/breakdown.py:13` | 7 | B |
+| 20 | `_coerce_engine_numeric_columns` | function | `engine/compute.py:180` | 7 | B |
+| 21 | `_xirr_initial_failure` | function | `engine/mwr.py:93` | 7 | B |
+| 22 | `_apply_ignore_days` | function | `engine/policies.py:90` | 7 | B |
+| 23 | `_compound_ror` | function | `engine/ror.py:271` | 7 | B |
+| 24 | `format_breakdowns_for_response` | function | `adapters/api_adapter.py:51` | 6 | B |
+| 25 | `submit_twr_inspection` | function | `app/api/endpoints/inspections.py:70` | 6 | B |
 
 ## Lowest Maintainability Index
 
@@ -90,7 +90,7 @@ must stay at `0`.
 | 20 | `app/services/inspection/twr_inspection_service.py` | 20.27 | A |
 | 21 | `app/models/returns_series.py` | 20.36 | A |
 | 22 | `app/workers/compute_executor_worker.py` | 20.96 | A |
-| 23 | `app/services/stateful_mwr_input_service.py` | 22.43 | A |
+| 23 | `app/services/stateful_mwr_input_service.py` | 21.98 | A |
 | 24 | `engine/composites.py` | 22.52 | A |
 | 25 | `engine/mwr.py` | 23.00 | A |
 

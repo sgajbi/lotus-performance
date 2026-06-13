@@ -212,19 +212,18 @@ def _collect_stateful_mwr_cash_flows(
             continue
         valuation_date = Date.fromisoformat(valuation_date_raw)
         beginning_market_value = _parse_decimal(observation.get("beginning_market_value"))
-        if beginning_market_value is not None and previous_ending_market_value is not None:
-            carry_forward_adjustment = beginning_market_value - previous_ending_market_value
-            if carry_forward_adjustment != 0:
-                _add_stateful_mwr_cash_flow_component(
-                    cash_flows_by_date=cash_flows_by_date,
-                    cash_flow_components_by_date=cash_flow_components_by_date,
-                    valuation_date=valuation_date,
-                    component=MWRCashFlowEvidenceComponent(
-                        component_type="carry_forward_adjustment",
-                        amount=carry_forward_adjustment,
-                        currency=reporting_currency,
-                    ),
-                )
+        carry_forward_component = _carry_forward_mwr_cash_flow_component(
+            beginning_market_value=beginning_market_value,
+            previous_ending_market_value=previous_ending_market_value,
+            reporting_currency=reporting_currency,
+        )
+        if carry_forward_component is not None:
+            _add_stateful_mwr_cash_flow_component(
+                cash_flows_by_date=cash_flows_by_date,
+                cash_flow_components_by_date=cash_flow_components_by_date,
+                valuation_date=valuation_date,
+                component=carry_forward_component,
+            )
         flows_raw = observation.get("cash_flows", [])
         if not isinstance(flows_raw, list):
             previous_ending_market_value = _parse_decimal(observation.get("ending_market_value"))
@@ -241,6 +240,24 @@ def _collect_stateful_mwr_cash_flows(
     return _StatefulMWRCashFlowCollection(
         cash_flows_by_date=cash_flows_by_date,
         cash_flow_components_by_date=cash_flow_components_by_date,
+    )
+
+
+def _carry_forward_mwr_cash_flow_component(
+    *,
+    beginning_market_value: Decimal | None,
+    previous_ending_market_value: Decimal | None,
+    reporting_currency: str | None,
+) -> MWRCashFlowEvidenceComponent | None:
+    if beginning_market_value is None or previous_ending_market_value is None:
+        return None
+    carry_forward_adjustment = beginning_market_value - previous_ending_market_value
+    if carry_forward_adjustment == 0:
+        return None
+    return MWRCashFlowEvidenceComponent(
+        component_type="carry_forward_adjustment",
+        amount=carry_forward_adjustment,
+        currency=reporting_currency,
     )
 
 

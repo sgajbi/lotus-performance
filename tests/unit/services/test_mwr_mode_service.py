@@ -10,6 +10,7 @@ from app.services.mwr_mode_service import resolve_mwr_request
 from app.services.stateful_mwr_input_service import (
     MWRCashFlowEvidenceComponent,
     _add_stateful_mwr_cash_flow_component,
+    _carry_forward_mwr_cash_flow_component,
     _collect_stateful_mwr_cash_flows,
     _parse_decimal,
     _source_mwr_cash_flow_component,
@@ -235,6 +236,36 @@ def test_collect_stateful_mwr_cash_flows_combines_external_flows_and_carry_forwa
         "carry_forward_adjustment",
         "source_cash_flow",
     ]
+
+
+def test_carry_forward_mwr_cash_flow_component_projects_only_non_zero_capital_breaks():
+    component = _carry_forward_mwr_cash_flow_component(
+        beginning_market_value=Decimal("1250"),
+        previous_ending_market_value=Decimal("1010"),
+        reporting_currency="USD",
+    )
+
+    assert component == MWRCashFlowEvidenceComponent(
+        component_type="carry_forward_adjustment",
+        amount=Decimal("240"),
+        currency="USD",
+    )
+    assert (
+        _carry_forward_mwr_cash_flow_component(
+            beginning_market_value=Decimal("1010"),
+            previous_ending_market_value=Decimal("1010"),
+            reporting_currency="USD",
+        )
+        is None
+    )
+    assert (
+        _carry_forward_mwr_cash_flow_component(
+            beginning_market_value=None,
+            previous_ending_market_value=Decimal("1010"),
+            reporting_currency="USD",
+        )
+        is None
+    )
 
 
 def test_stateful_mwr_cash_flow_projection_keeps_sorted_non_zero_flows_and_evidence():
