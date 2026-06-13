@@ -10,6 +10,7 @@ from fastapi import HTTPException
 from app.models.benchmark_requests import BenchmarkComponentObservation
 from app.services.stateful_attribution_input_service import (
     StatefulAttributionSourceInput,
+    _benchmark_group_dimension_value,
     _build_benchmark_groups,
     _build_group_key,
     _build_instruments_data,
@@ -1268,6 +1269,29 @@ def test_stateful_attribution_builds_normalized_group_key():
         group_by=["asset_class"],
         index_id="IDX_1",
     ) == (("asset_class", "equity"),)
+
+
+def test_benchmark_group_dimension_value_normalizes_currency_component_source():
+    assert (
+        _benchmark_group_dimension_value(
+            dimension="currency",
+            labels={},
+            index_id="IDX_1",
+            component_currency="US Dollar",
+        )
+        == "us_dollar"
+    )
+
+
+def test_benchmark_group_dimension_value_preserves_unknown_non_currency_fallback():
+    assert (
+        _benchmark_group_dimension_value(
+            dimension="sector",
+            labels={"sector": ""},
+            index_id="IDX_1",
+        )
+        == "unknown"
+    )
 
 
 def test_stateful_attribution_position_row_to_daily_point_requires_market_values():

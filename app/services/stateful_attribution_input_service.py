@@ -818,20 +818,36 @@ def _build_group_key(
 ) -> tuple[tuple[str, str], ...]:
     key_parts: list[tuple[str, str]] = []
     for dimension in group_by:
-        raw_value = component_currency if dimension == "currency" else labels.get(dimension)
-        if dimension == "currency":
-            if not isinstance(raw_value, str) or not raw_value:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                    detail=f"Benchmark component {index_id} missing classification label for {dimension}.",
-                )
-            normalized_value = _normalize_group_value(raw_value)
-        else:
-            normalized_value = (
-                _normalize_group_value(raw_value) if isinstance(raw_value, str) and raw_value else "unknown"
+        key_parts.append(
+            (
+                dimension,
+                _benchmark_group_dimension_value(
+                    dimension=dimension,
+                    labels=labels,
+                    index_id=index_id,
+                    component_currency=component_currency,
+                ),
             )
-        key_parts.append((dimension, normalized_value))
+        )
     return tuple(key_parts)
+
+
+def _benchmark_group_dimension_value(
+    *,
+    dimension: str,
+    labels: dict[str, object],
+    index_id: str,
+    component_currency: str | None = None,
+) -> str:
+    raw_value = component_currency if dimension == "currency" else labels.get(dimension)
+    if dimension == "currency":
+        if not isinstance(raw_value, str) or not raw_value:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=f"Benchmark component {index_id} missing classification label for {dimension}.",
+            )
+        return _normalize_group_value(raw_value)
+    return _normalize_group_value(raw_value) if isinstance(raw_value, str) and raw_value else "unknown"
 
 
 def _position_row_to_daily_point(
