@@ -575,10 +575,10 @@ def _summarize_currency_source(
     benchmark_component_currencies = _distinct_source_currencies(
         observation.component_currency for observation in component_observations
     )
-    fx_required = (
-        currency_mode == "BOTH"
-        and reporting_currency is not None
-        and any(position_currency != reporting_currency for position_currency in position_currencies)
+    fx_required = _stateful_attribution_fx_required(
+        currency_mode=currency_mode,
+        reporting_currency=reporting_currency,
+        position_currencies=position_currencies,
     )
 
     return {
@@ -589,6 +589,19 @@ def _summarize_currency_source(
         "fx_required": fx_required,
         "fx_supplied": fx is not None,
     }
+
+
+def _stateful_attribution_fx_required(
+    *,
+    currency_mode: str,
+    reporting_currency: str | None,
+    position_currencies: list[str],
+) -> bool:
+    return (
+        currency_mode == "BOTH"
+        and reporting_currency is not None
+        and any(position_currency != reporting_currency for position_currency in position_currencies)
+    )
 
 
 def _distinct_source_currencies(values: Iterable[object]) -> list[str]:

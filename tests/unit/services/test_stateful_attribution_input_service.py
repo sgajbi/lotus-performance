@@ -32,6 +32,7 @@ from app.services.stateful_attribution_input_service import (
     _position_row_to_daily_point,
     _resolve_stateful_attribution_benchmark_id,
     _split_position_cash_flows,
+    _stateful_attribution_fx_required,
     _stateful_portfolio_position_alignment_mismatches,
     _stateful_position_currencies,
     _summarize_benchmark_classification,
@@ -619,6 +620,29 @@ def test_stateful_attribution_source_alignment_evidence_captures_source_limitati
 
 def test_distinct_source_currencies_filters_deduplicates_and_sorts_values():
     assert _distinct_source_currencies(["USD", None, "", "EUR", "USD", 1]) == ["EUR", "USD"]
+
+
+def test_stateful_attribution_fx_required_uses_both_mode_reporting_currency_and_position_mismatch():
+    assert not _stateful_attribution_fx_required(
+        currency_mode="LOCAL",
+        reporting_currency="USD",
+        position_currencies=["EUR"],
+    )
+    assert not _stateful_attribution_fx_required(
+        currency_mode="BOTH",
+        reporting_currency=None,
+        position_currencies=["EUR"],
+    )
+    assert not _stateful_attribution_fx_required(
+        currency_mode="BOTH",
+        reporting_currency="USD",
+        position_currencies=["USD"],
+    )
+    assert _stateful_attribution_fx_required(
+        currency_mode="BOTH",
+        reporting_currency="USD",
+        position_currencies=["EUR", "USD"],
+    )
 
 
 def test_build_stateful_attribution_input_rejects_missing_benchmark_observations():
