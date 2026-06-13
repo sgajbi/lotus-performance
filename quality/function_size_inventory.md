@@ -25,21 +25,21 @@ python scripts/python_function_size_inventory.py --limit 20
 | 3 | `build_runtime_status_response` | `app/models/runtime_status.py:767` | 131 |
 | 4 | `_build_fee_source_economics_findings` | `app/services/inspection/source_economics_findings.py:423` | 130 |
 | 5 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:327` | 130 |
-| 6 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:506` | 119 |
-| 7 | `_build_artifacts` | `app/services/composite_inspection_service.py:114` | 118 |
-| 8 | `run_runtime_retention_cleanup` | `app/services/runtime_retention_run_service.py:32` | 111 |
-| 9 | `calculate_attribution` | `app/services/attribution_service.py:206` | 104 |
-| 10 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:206` | 102 |
-| 11 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:310` | 102 |
-| 12 | `aggregate_attribution_results` | `engine/attribution.py:648` | 102 |
-| 13 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:87` | 101 |
-| 14 | `_calculate_position_flow_balance_counts` | `app/services/contribution_diagnostics.py:183` | 99 |
-| 15 | `_calculate_returns_series` | `app/services/returns_series_service.py:1317` | 97 |
-| 16 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:62` | 97 |
-| 17 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:88` | 95 |
-| 18 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:31` | 94 |
-| 19 | `build_stateful_benchmark_input` | `app/services/stateful_benchmark_input_service.py:57` | 93 |
-| 20 | `calculate_twr_response` | `app/services/twr_service.py:1007` | 93 |
+| 6 | `_build_artifacts` | `app/services/composite_inspection_service.py:114` | 118 |
+| 7 | `run_runtime_retention_cleanup` | `app/services/runtime_retention_run_service.py:32` | 111 |
+| 8 | `calculate_attribution` | `app/services/attribution_service.py:206` | 104 |
+| 9 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:206` | 102 |
+| 10 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:310` | 102 |
+| 11 | `aggregate_attribution_results` | `engine/attribution.py:648` | 102 |
+| 12 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:87` | 101 |
+| 13 | `_calculate_position_flow_balance_counts` | `app/services/contribution_diagnostics.py:183` | 99 |
+| 14 | `_calculate_returns_series` | `app/services/returns_series_service.py:1317` | 97 |
+| 15 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:62` | 97 |
+| 16 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:88` | 95 |
+| 17 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:31` | 94 |
+| 18 | `build_stateful_benchmark_input` | `app/services/stateful_benchmark_input_service.py:57` | 93 |
+| 19 | `calculate_twr_response` | `app/services/twr_service.py:1007` | 93 |
+| 20 | `LineageMetadataStore.list_inspection_items` | `app/services/lineage_metadata_store.py:507` | 85 |
 
 ## Interpretation
 

@@ -38,31 +38,31 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_build_workspace_summary_response` | function | `app/services/workspace_summary_service.py:506` | 8 | B |
-| 2 | `_build_compute_job_runtime` | function | `app/workers/compute_executor_worker.py:156` | 8 | B |
-| 3 | `_build_compute_job_execution_context` | function | `app/workers/compute_executor_worker.py:201` | 8 | B |
-| 4 | `_execute_compute_job` | function | `app/workers/compute_executor_worker.py:226` | 8 | B |
-| 5 | `_resolve_async_twr_job_request` | function | `app/workers/compute_executor_worker.py:553` | 8 | B |
-| 6 | `_workspace_period_start_date` | function | `core/workspace_periods.py:56` | 8 | B |
-| 7 | `_uses_local_fx_component_returns` | function | `engine/benchmarks.py:144` | 8 | B |
-| 8 | `_scan_xirr_roots` | function | `engine/mwr.py:127` | 8 | B |
-| 9 | `get_effective_period_start_dates` | function | `engine/periods.py:8` | 8 | B |
-| 10 | `_calculate_local_daily_return` | function | `engine/ror.py:46` | 8 | B |
-| 11 | `_allowed_audit_metadata` | function | `app/enterprise_authorization.py:39` | 7 | B |
-| 12 | `to_benchmark_performance_request` | method | `app/models/benchmark_analytics_requests.py:299` | 7 | B |
-| 13 | `to_stateless_contribution_request` | method | `app/models/contribution_analytics_requests.py:122` | 7 | B |
-| 14 | `TWRInspectionRequest` | class | `app/models/inspection_requests.py:56` | 7 | B |
-| 15 | `_validate_stateless_twr_payloads` | function | `app/models/twr_requests.py:137` | 7 | B |
-| 16 | `_validate_workspace_summary_stateless_inputs` | function | `app/models/workspace_summary_requests.py:286` | 7 | B |
-| 17 | `record_mwr_solver_outcome` | function | `app/observability.py:167` | 7 | B |
-| 18 | `_validation_error_json_content` | function | `app/openapi_enrichment.py:484` | 7 | B |
-| 19 | `_ensure_request_body_example` | function | `app/openapi_enrichment.py:529` | 7 | B |
-| 20 | `_ensure_model_schema_documentation` | function | `app/openapi_enrichment.py:705` | 7 | B |
-| 21 | `_ensure_property_schema_documentation` | function | `app/openapi_enrichment.py:729` | 7 | B |
-| 22 | `calculate_attribution_workflow` | function | `app/services/attribution_calculation_workflow_service.py:186` | 7 | B |
-| 23 | `calculate_benchmark_workflow` | function | `app/services/benchmark_calculation_workflow_service.py:213` | 7 | B |
-| 24 | `_classification_map_from_catalog_records` | function | `app/services/benchmark_exposure_context_service.py:180` | 7 | B |
-| 25 | `_build_exposure_rows` | function | `app/services/benchmark_exposure_context_service.py:202` | 7 | B |
+| 1 | `_build_compute_job_runtime` | function | `app/workers/compute_executor_worker.py:156` | 8 | B |
+| 2 | `_build_compute_job_execution_context` | function | `app/workers/compute_executor_worker.py:201` | 8 | B |
+| 3 | `_execute_compute_job` | function | `app/workers/compute_executor_worker.py:226` | 8 | B |
+| 4 | `_resolve_async_twr_job_request` | function | `app/workers/compute_executor_worker.py:553` | 8 | B |
+| 5 | `_workspace_period_start_date` | function | `core/workspace_periods.py:56` | 8 | B |
+| 6 | `_uses_local_fx_component_returns` | function | `engine/benchmarks.py:144` | 8 | B |
+| 7 | `_scan_xirr_roots` | function | `engine/mwr.py:127` | 8 | B |
+| 8 | `get_effective_period_start_dates` | function | `engine/periods.py:8` | 8 | B |
+| 9 | `_calculate_local_daily_return` | function | `engine/ror.py:46` | 8 | B |
+| 10 | `_allowed_audit_metadata` | function | `app/enterprise_authorization.py:39` | 7 | B |
+| 11 | `to_benchmark_performance_request` | method | `app/models/benchmark_analytics_requests.py:299` | 7 | B |
+| 12 | `to_stateless_contribution_request` | method | `app/models/contribution_analytics_requests.py:122` | 7 | B |
+| 13 | `TWRInspectionRequest` | class | `app/models/inspection_requests.py:56` | 7 | B |
+| 14 | `_validate_stateless_twr_payloads` | function | `app/models/twr_requests.py:137` | 7 | B |
+| 15 | `_validate_workspace_summary_stateless_inputs` | function | `app/models/workspace_summary_requests.py:286` | 7 | B |
+| 16 | `record_mwr_solver_outcome` | function | `app/observability.py:167` | 7 | B |
+| 17 | `_validation_error_json_content` | function | `app/openapi_enrichment.py:484` | 7 | B |
+| 18 | `_ensure_request_body_example` | function | `app/openapi_enrichment.py:529` | 7 | B |
+| 19 | `_ensure_model_schema_documentation` | function | `app/openapi_enrichment.py:705` | 7 | B |
+| 20 | `_ensure_property_schema_documentation` | function | `app/openapi_enrichment.py:729` | 7 | B |
+| 21 | `calculate_attribution_workflow` | function | `app/services/attribution_calculation_workflow_service.py:186` | 7 | B |
+| 22 | `calculate_benchmark_workflow` | function | `app/services/benchmark_calculation_workflow_service.py:213` | 7 | B |
+| 23 | `_classification_map_from_catalog_records` | function | `app/services/benchmark_exposure_context_service.py:180` | 7 | B |
+| 24 | `_build_exposure_rows` | function | `app/services/benchmark_exposure_context_service.py:202` | 7 | B |
+| 25 | `resolve_benchmark_request` | function | `app/services/benchmark_mode_service.py:63` | 7 | B |
 
 ## Lowest Maintainability Index
 
@@ -75,7 +75,7 @@ must stay at `0`.
 | 5 | `app/services/stateful_input_service.py` | 0.00 | C |
 | 6 | `app/openapi_enrichment.py` | 2.88 | C |
 | 7 | `app/services/twr_service.py` | 6.19 | C |
-| 8 | `app/services/workspace_summary_service.py` | 10.59 | B |
+| 8 | `app/services/workspace_summary_service.py` | 10.56 | B |
 | 9 | `app/services/stateful_benchmark_input_service.py` | 10.70 | B |
 | 10 | `app/services/execution_registry.py` | 10.84 | B |
 | 11 | `engine/attribution.py` | 13.95 | B |
