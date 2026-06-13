@@ -12,6 +12,7 @@ from app.services.stateful_benchmark_input_service import (
     _build_component_observation,
     _build_component_observations,
     _build_normalized_component_series,
+    _composition_segment_overlaps_window,
     _load_benchmark_definition_currency,
     _load_component_price_series,
     _load_fx_maps_for_components,
@@ -658,6 +659,33 @@ def test_parse_composition_window_filters_and_sorts_usable_segments():
     assert [segment.index_id for segment in segments] == ["IDX_A", "IDX_B"]
     assert segments[0].composition_weight == Decimal("0.6")
     assert segments[1].composition_effective_to == date(2026, 1, 3)
+
+
+def test_composition_segment_overlaps_window_policy():
+    assert _composition_segment_overlaps_window(
+        effective_from=date(2026, 1, 1),
+        effective_to=None,
+        start_date=date(2026, 1, 2),
+        end_date=date(2026, 1, 3),
+    )
+    assert _composition_segment_overlaps_window(
+        effective_from=date(2026, 1, 3),
+        effective_to=date(2026, 1, 3),
+        start_date=date(2026, 1, 2),
+        end_date=date(2026, 1, 3),
+    )
+    assert not _composition_segment_overlaps_window(
+        effective_from=date(2026, 1, 4),
+        effective_to=None,
+        start_date=date(2026, 1, 2),
+        end_date=date(2026, 1, 3),
+    )
+    assert not _composition_segment_overlaps_window(
+        effective_from=date(2026, 1, 1),
+        effective_to=date(2026, 1, 1),
+        start_date=date(2026, 1, 2),
+        end_date=date(2026, 1, 3),
+    )
 
 
 def test_required_fx_pairs_for_components_dedupes_non_benchmark_currencies():

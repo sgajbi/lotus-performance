@@ -38,31 +38,31 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_parse_composition_segment` | function | `app/services/stateful_benchmark_input_service.py:324` | 8 | B |
-| 2 | `_load_fx_maps_for_components` | function | `app/services/stateful_benchmark_input_service.py:474` | 8 | B |
-| 3 | `_component_observation_prices` | function | `app/services/stateful_benchmark_input_service.py:613` | 8 | B |
-| 4 | `_normalized_price_maps_for_component` | function | `app/services/stateful_benchmark_input_service.py:704` | 8 | B |
-| 5 | `build_stateful_contribution_input` | function | `app/services/stateful_contribution_input_service.py:91` | 8 | B |
-| 6 | `_position_row_to_daily_point` | function | `app/services/stateful_contribution_input_service.py:151` | 8 | B |
-| 7 | `_split_position_cash_flows` | function | `app/services/stateful_contribution_input_service.py:196` | 8 | B |
-| 8 | `get_position_timeseries` | method | `app/services/stateful_input_service.py:90` | 8 | B |
-| 9 | `build_stateful_mwr_input_for_window` | function | `app/services/stateful_mwr_input_service.py:106` | 8 | B |
-| 10 | `_cash_flow_conversion_factor` | function | `app/services/stateful_position_row_service.py:59` | 8 | B |
-| 11 | `_metadata_count` | function | `app/services/stateful_retrieval_metadata.py:58` | 8 | B |
-| 12 | `register_async_submission_or_raise` | function | `app/services/submission_fencing_service.py:53` | 8 | B |
-| 13 | `_run_twr_execution_calculation` | function | `app/services/twr_service.py:685` | 8 | B |
-| 14 | `_resolve_workspace_portfolio_input` | function | `app/services/workspace_summary_service.py:210` | 8 | B |
-| 15 | `_build_workspace_summary_response` | function | `app/services/workspace_summary_service.py:502` | 8 | B |
-| 16 | `_build_compute_job_runtime` | function | `app/workers/compute_executor_worker.py:156` | 8 | B |
-| 17 | `_build_compute_job_execution_context` | function | `app/workers/compute_executor_worker.py:201` | 8 | B |
-| 18 | `_execute_compute_job` | function | `app/workers/compute_executor_worker.py:226` | 8 | B |
-| 19 | `_resolve_async_twr_job_request` | function | `app/workers/compute_executor_worker.py:553` | 8 | B |
-| 20 | `_workspace_period_start_date` | function | `core/workspace_periods.py:56` | 8 | B |
-| 21 | `_uses_local_fx_component_returns` | function | `engine/benchmarks.py:144` | 8 | B |
-| 22 | `_scan_xirr_roots` | function | `engine/mwr.py:127` | 8 | B |
-| 23 | `get_effective_period_start_dates` | function | `engine/periods.py:8` | 8 | B |
-| 24 | `_calculate_local_daily_return` | function | `engine/ror.py:46` | 8 | B |
-| 25 | `_allowed_audit_metadata` | function | `app/enterprise_authorization.py:39` | 7 | B |
+| 1 | `_load_fx_maps_for_components` | function | `app/services/stateful_benchmark_input_service.py:493` | 8 | B |
+| 2 | `_component_observation_prices` | function | `app/services/stateful_benchmark_input_service.py:632` | 8 | B |
+| 3 | `_normalized_price_maps_for_component` | function | `app/services/stateful_benchmark_input_service.py:723` | 8 | B |
+| 4 | `build_stateful_contribution_input` | function | `app/services/stateful_contribution_input_service.py:91` | 8 | B |
+| 5 | `_position_row_to_daily_point` | function | `app/services/stateful_contribution_input_service.py:151` | 8 | B |
+| 6 | `_split_position_cash_flows` | function | `app/services/stateful_contribution_input_service.py:196` | 8 | B |
+| 7 | `get_position_timeseries` | method | `app/services/stateful_input_service.py:90` | 8 | B |
+| 8 | `build_stateful_mwr_input_for_window` | function | `app/services/stateful_mwr_input_service.py:106` | 8 | B |
+| 9 | `_cash_flow_conversion_factor` | function | `app/services/stateful_position_row_service.py:59` | 8 | B |
+| 10 | `_metadata_count` | function | `app/services/stateful_retrieval_metadata.py:58` | 8 | B |
+| 11 | `register_async_submission_or_raise` | function | `app/services/submission_fencing_service.py:53` | 8 | B |
+| 12 | `_run_twr_execution_calculation` | function | `app/services/twr_service.py:685` | 8 | B |
+| 13 | `_resolve_workspace_portfolio_input` | function | `app/services/workspace_summary_service.py:210` | 8 | B |
+| 14 | `_build_workspace_summary_response` | function | `app/services/workspace_summary_service.py:502` | 8 | B |
+| 15 | `_build_compute_job_runtime` | function | `app/workers/compute_executor_worker.py:156` | 8 | B |
+| 16 | `_build_compute_job_execution_context` | function | `app/workers/compute_executor_worker.py:201` | 8 | B |
+| 17 | `_execute_compute_job` | function | `app/workers/compute_executor_worker.py:226` | 8 | B |
+| 18 | `_resolve_async_twr_job_request` | function | `app/workers/compute_executor_worker.py:553` | 8 | B |
+| 19 | `_workspace_period_start_date` | function | `core/workspace_periods.py:56` | 8 | B |
+| 20 | `_uses_local_fx_component_returns` | function | `engine/benchmarks.py:144` | 8 | B |
+| 21 | `_scan_xirr_roots` | function | `engine/mwr.py:127` | 8 | B |
+| 22 | `get_effective_period_start_dates` | function | `engine/periods.py:8` | 8 | B |
+| 23 | `_calculate_local_daily_return` | function | `engine/ror.py:46` | 8 | B |
+| 24 | `_allowed_audit_metadata` | function | `app/enterprise_authorization.py:39` | 7 | B |
+| 25 | `to_benchmark_performance_request` | method | `app/models/benchmark_analytics_requests.py:299` | 7 | B |
 
 ## Lowest Maintainability Index
 
@@ -77,7 +77,7 @@ must stay at `0`.
 | 7 | `app/services/twr_service.py` | 6.43 | C |
 | 8 | `app/services/workspace_summary_service.py` | 10.65 | B |
 | 9 | `app/services/execution_registry.py` | 10.84 | B |
-| 10 | `app/services/stateful_benchmark_input_service.py` | 11.82 | B |
+| 10 | `app/services/stateful_benchmark_input_service.py` | 11.50 | B |
 | 11 | `engine/attribution.py` | 13.95 | B |
 | 12 | `app/services/operator_action_lease_service.py` | 15.16 | B |
 | 13 | `app/services/inspection/calculation_consistency.py` | 16.16 | B |

@@ -341,7 +341,12 @@ def _parse_composition_segment(
         )
     effective_from = date.fromisoformat(effective_from_raw)
     effective_to = date.fromisoformat(effective_to_raw) if isinstance(effective_to_raw, str) else None
-    if effective_from > end_date or (effective_to is not None and effective_to < start_date):
+    if not _composition_segment_overlaps_window(
+        effective_from=effective_from,
+        effective_to=effective_to,
+        start_date=start_date,
+        end_date=end_date,
+    ):
         return None
     return BenchmarkCompositionSegment(
         index_id=index_id,
@@ -349,6 +354,20 @@ def _parse_composition_segment(
         composition_effective_from=effective_from,
         composition_effective_to=effective_to,
     )
+
+
+def _composition_segment_overlaps_window(
+    *,
+    effective_from: date,
+    effective_to: date | None,
+    start_date: date,
+    end_date: date,
+) -> bool:
+    if effective_from > end_date:
+        return False
+    if effective_to is not None and effective_to < start_date:
+        return False
+    return True
 
 
 def _validate_composition_window_coverage(
