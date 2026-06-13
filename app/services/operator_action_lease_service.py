@@ -79,6 +79,12 @@ class _LeaseSnapshotFailure:
 
 
 @dataclass(frozen=True)
+class _ReclaimedLeaseSnapshotEvents:
+    latest_reclaimed_lease: ReclaimedOperatorActionLeaseEvent | None
+    recent_reclaimed_leases: tuple[ReclaimedOperatorActionLeaseEvent, ...]
+
+
+@dataclass(frozen=True)
 class _ActiveLeasePayloadFields:
     action_name: str
     operator_id: str
@@ -195,13 +201,29 @@ def build_operator_action_lease_snapshot(
     if isinstance(leases, _LeaseSnapshotFailure):
         return _unavailable_operator_action_lease_snapshot(reason=leases.reason)
 
+    reclaimed_events = _read_reclaimed_lease_snapshot_events(locks_dir=locks_dir, action_name=action_name)
+    if isinstance(reclaimed_events, _LeaseSnapshotFailure):
+        return _unavailable_operator_action_lease_snapshot(reason=reclaimed_events.reason)
+
+    return _available_operator_action_lease_snapshot(
+        active_leases=tuple(sorted(leases, key=lambda item: parse_utc_datetime(item.acquired_at_utc))),
+        latest_reclaimed_lease=reclaimed_events.latest_reclaimed_lease,
+        recent_reclaimed_leases=reclaimed_events.recent_reclaimed_leases,
+    )
+
+
+def _read_reclaimed_lease_snapshot_events(
+    *,
+    locks_dir: Path,
+    action_name: str | None,
+) -> _ReclaimedLeaseSnapshotEvents | _LeaseSnapshotFailure:
     latest_reclaimed_lease_candidate = _read_latest_reclaimed_lease(locks_dir=locks_dir, action_name=action_name)
     if latest_reclaimed_lease_candidate is _INVALID_LEASE:
-        return _unavailable_operator_action_lease_snapshot(reason=OPERATOR_ACTION_RECLAIM_EVENT_INVALID_REASON)
+        return _LeaseSnapshotFailure(reason=OPERATOR_ACTION_RECLAIM_EVENT_INVALID_REASON)
 
     recent_reclaimed_leases_candidate = _read_recent_reclaimed_leases(locks_dir=locks_dir, action_name=action_name)
     if recent_reclaimed_leases_candidate is _INVALID_LEASE:
-        return _unavailable_operator_action_lease_snapshot(reason=OPERATOR_ACTION_RECLAIM_HISTORY_INVALID_REASON)
+        return _LeaseSnapshotFailure(reason=OPERATOR_ACTION_RECLAIM_HISTORY_INVALID_REASON)
 
     latest_reclaimed_lease = (
         latest_reclaimed_lease_candidate
@@ -211,8 +233,7 @@ def build_operator_action_lease_snapshot(
     recent_reclaimed_leases = (
         recent_reclaimed_leases_candidate if isinstance(recent_reclaimed_leases_candidate, tuple) else ()
     )
-    return _available_operator_action_lease_snapshot(
-        active_leases=tuple(sorted(leases, key=lambda item: parse_utc_datetime(item.acquired_at_utc))),
+    return _ReclaimedLeaseSnapshotEvents(
         latest_reclaimed_lease=latest_reclaimed_lease,
         recent_reclaimed_leases=recent_reclaimed_leases,
     )

@@ -391,6 +391,49 @@ def test_operator_action_lease_snapshot_exposes_recent_reclaim_history(tmp_path)
     assert snapshot.recent_reclaimed_leases[0].reclaim_count == 2
 
 
+def test_operator_action_lease_snapshot_combines_active_latest_and_recent_reclaim_events(tmp_path):
+    artifact_dir = tmp_path / "artifacts"
+    locks_dir = artifact_dir / ".action-locks"
+    locks_dir.mkdir(parents=True, exist_ok=True)
+    (locks_dir / "recovery-drill.lock").write_text(
+        json.dumps(
+            {
+                "action_name": "recovery_drill",
+                "operator_id": "ops-active",
+                "tenant_id": "tenant-a",
+                "governed_target": "backup-active",
+                "acquired_at_utc": "2026-03-15T00:00:00Z",
+            }
+        ),
+        encoding="utf-8",
+    )
+    reclaim_payload = {
+        "action_key": "recovery-drill-ops-user-tenant-a-backup-123",
+        "action_name": "recovery_drill",
+        "operator_id": "ops-user",
+        "tenant_id": "tenant-a",
+        "governed_target": "backup-123",
+        "acquired_at_utc": "2026-03-15T01:00:00Z",
+        "reclaimed_at_utc": "2026-03-15T02:00:00Z",
+        "stale_after_seconds": 300.0,
+        "reclaim_count": 2,
+    }
+    (locks_dir / "latest-reclaim.json").write_text(json.dumps(reclaim_payload), encoding="utf-8")
+    (locks_dir / "reclaim-history.json").write_text(json.dumps([reclaim_payload]), encoding="utf-8")
+
+    snapshot = build_operator_action_lease_snapshot(
+        artifact_directory=artifact_dir,
+        action_name="recovery_drill",
+    )
+
+    assert snapshot.status == "available"
+    assert [lease.operator_id for lease in snapshot.active_leases] == ["ops-active"]
+    assert snapshot.latest_reclaimed_lease is not None
+    assert snapshot.latest_reclaimed_lease.governed_target == "backup-123"
+    assert len(snapshot.recent_reclaimed_leases) == 1
+    assert snapshot.recent_reclaimed_leases[0].reclaimed_at_utc == "2026-03-15T02:00:00Z"
+
+
 def test_operator_action_lease_snapshot_reports_invalid_reclaim_payload(tmp_path):
     artifact_dir = tmp_path / "artifacts"
     locks_dir = artifact_dir / ".action-locks"
