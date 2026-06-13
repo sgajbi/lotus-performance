@@ -77,6 +77,17 @@ class _ComputeJobRuntime:
     execution_context: _ComputeJobExecutionContext
 
 
+@dataclass(frozen=True)
+class _ComputeJobRuntimeOptions:
+    settings: Any
+    job_store: ComputeJobStore | RuntimeStoreProxy[ComputeJobStore]
+    execution_store: ExecutionRegistry | RuntimeStoreProxy[ExecutionRegistry]
+    result_store: AsyncResultStore | RuntimeStoreProxy[AsyncResultStore]
+    worker_id: str
+    lease_seconds: int
+    batch_size: int
+
+
 def process_pending_jobs(*, limit: int | None = None, settings=None) -> int:
     return _process_pending_jobs(limit=limit, settings=settings)
 
@@ -170,23 +181,25 @@ def _build_compute_job_runtime(
     inspection_calculator: Callable[[TWRInspectionRequest], Any] | None,
     settings,
 ) -> _ComputeJobRuntime:
-    active_settings = settings or get_settings()
-    batch_size = limit or active_settings.COMPUTE_EXECUTOR_BATCH_SIZE
-    active_job_store = job_store or compute_job_store
-    active_execution_store = execution_store or execution_registry
-    active_result_store = result_store or async_result_store
-    current_worker_id = worker_id or active_settings.COMPUTE_EXECUTOR_WORKER_ID
-    current_lease_seconds = lease_seconds or active_settings.COMPUTE_EXECUTOR_LEASE_SECONDS
+    runtime_options = _resolve_compute_job_runtime_options(
+        limit=limit,
+        job_store=job_store,
+        execution_store=execution_store,
+        result_store=result_store,
+        worker_id=worker_id,
+        lease_seconds=lease_seconds,
+        settings=settings,
+    )
     return _ComputeJobRuntime(
-        job_store=active_job_store,
-        execution_store=active_execution_store,
-        result_store=active_result_store,
-        worker_id=current_worker_id,
-        lease_seconds=current_lease_seconds,
-        batch_size=batch_size,
+        job_store=runtime_options.job_store,
+        execution_store=runtime_options.execution_store,
+        result_store=runtime_options.result_store,
+        worker_id=runtime_options.worker_id,
+        lease_seconds=runtime_options.lease_seconds,
+        batch_size=runtime_options.batch_size,
         execution_context=_build_compute_job_execution_context(
-            settings=active_settings,
-            execution_store=active_execution_store,
+            settings=runtime_options.settings,
+            execution_store=runtime_options.execution_store,
             returns_series_calculator=returns_series_calculator,
             contribution_calculator=contribution_calculator,
             attribution_calculator=attribution_calculator,
@@ -196,6 +209,32 @@ def _build_compute_job_runtime(
             inspection_calculator=inspection_calculator,
         ),
     )
+
+
+def _resolve_compute_job_runtime_options(
+    *,
+    limit: int | None,
+    job_store: ComputeJobStore | RuntimeStoreProxy[ComputeJobStore] | None,
+    execution_store: ExecutionRegistry | RuntimeStoreProxy[ExecutionRegistry] | None,
+    result_store: AsyncResultStore | RuntimeStoreProxy[AsyncResultStore] | None,
+    worker_id: str | None,
+    lease_seconds: int | None,
+    settings,
+) -> _ComputeJobRuntimeOptions:
+    active_settings = settings or get_settings()
+    return _ComputeJobRuntimeOptions(
+        settings=active_settings,
+        job_store=_truthy_or_default(job_store, compute_job_store),
+        execution_store=_truthy_or_default(execution_store, execution_registry),
+        result_store=_truthy_or_default(result_store, async_result_store),
+        worker_id=_truthy_or_default(worker_id, active_settings.COMPUTE_EXECUTOR_WORKER_ID),
+        lease_seconds=_truthy_or_default(lease_seconds, active_settings.COMPUTE_EXECUTOR_LEASE_SECONDS),
+        batch_size=_truthy_or_default(limit, active_settings.COMPUTE_EXECUTOR_BATCH_SIZE),
+    )
+
+
+def _truthy_or_default(value: Any, default: Any) -> Any:
+    return value or default
 
 
 def _build_compute_job_execution_context(

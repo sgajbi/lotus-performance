@@ -151,6 +151,57 @@ def test_compute_executor_worker_runtime_builder_preserves_explicit_overrides(tm
     assert runtime.execution_context.contribution_calculator is _calculator
 
 
+def test_compute_executor_worker_runtime_options_use_settings_defaults(tmp_path):
+    job_store = ComputeJobStore(f"sqlite:///{tmp_path / 'jobs.db'}")
+    execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    result_store = AsyncResultStore(f"sqlite:///{tmp_path / 'results.db'}")
+    settings = _worker_settings(
+        COMPUTE_EXECUTOR_BATCH_SIZE=7,
+        COMPUTE_EXECUTOR_WORKER_ID="settings-worker",
+        COMPUTE_EXECUTOR_LEASE_SECONDS=45,
+    )
+
+    options = compute_executor_worker._resolve_compute_job_runtime_options(
+        limit=None,
+        job_store=job_store,
+        execution_store=execution_store,
+        result_store=result_store,
+        worker_id=None,
+        lease_seconds=None,
+        settings=settings,
+    )
+
+    assert options.settings is settings
+    assert options.job_store is job_store
+    assert options.execution_store is execution_store
+    assert options.result_store is result_store
+    assert options.worker_id == "settings-worker"
+    assert options.lease_seconds == 45
+    assert options.batch_size == 7
+
+
+def test_compute_executor_worker_runtime_options_preserve_truthy_default_policy(tmp_path):
+    settings = _worker_settings(
+        COMPUTE_EXECUTOR_BATCH_SIZE=7,
+        COMPUTE_EXECUTOR_WORKER_ID="settings-worker",
+        COMPUTE_EXECUTOR_LEASE_SECONDS=45,
+    )
+
+    options = compute_executor_worker._resolve_compute_job_runtime_options(
+        limit=0,
+        job_store=None,
+        execution_store=None,
+        result_store=None,
+        worker_id="",
+        lease_seconds=0,
+        settings=settings,
+    )
+
+    assert options.worker_id == "settings-worker"
+    assert options.lease_seconds == 45
+    assert options.batch_size == 7
+
+
 def test_compute_executor_worker_execution_context_preserves_all_calculator_overrides(tmp_path):
     execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
     settings = _worker_settings()
