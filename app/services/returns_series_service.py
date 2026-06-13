@@ -1430,28 +1430,12 @@ async def resolve_stateful_returns_series_request(
 
     execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_RETRIEVAL)
     stateful_input_service = build_stateful_input_service(settings=active_settings)
-    try:
-        portfolio_source = await retrieve_stateful_portfolio_input(
-            settings=active_settings,
-            stateful_input_service=stateful_input_service,
-            calculation_id=request.calculation_id,
-            portfolio_id=request.portfolio_id,
-            as_of_date=request.as_of_date,
-            start_date=resolved_window.start_date,
-            end_date=resolved_window.end_date,
-            reporting_currency=request.reporting_currency,
-            consumer_system=LOTUS_PERFORMANCE_CONSUMER_SYSTEM,
-        )
-    except HTTPException as exc:
-        if exc.status_code == status.HTTP_503_SERVICE_UNAVAILABLE:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=source_unavailable_detail(str(exc.detail)),
-            ) from exc
-        raise HTTPException(
-            status_code=HTTP_422_UNPROCESSABLE,
-            detail=insufficient_data_detail(str(exc.detail)),
-        ) from exc
+    portfolio_source = await _retrieve_stateful_returns_series_portfolio_source(
+        active_settings=active_settings,
+        stateful_input_service=stateful_input_service,
+        request=request,
+        resolved_window=resolved_window,
+    )
 
     observations = portfolio_source.observations
     resolved_benchmark_id: str | None = request.benchmark.benchmark_id if request.benchmark else None
@@ -1503,3 +1487,34 @@ async def resolve_stateful_returns_series_request(
         resolved_benchmark_return_source=(resolved_benchmark_return_source.value if resolved_benchmark_id else None),
         benchmark_work_units=benchmark_resolution.benchmark_work_units,
     )
+
+
+async def _retrieve_stateful_returns_series_portfolio_source(
+    *,
+    active_settings: Any,
+    stateful_input_service: Any,
+    request: ReturnsSeriesRequest,
+    resolved_window: ResolvedWindow,
+) -> StatefulPortfolioInput:
+    try:
+        return await retrieve_stateful_portfolio_input(
+            settings=active_settings,
+            stateful_input_service=stateful_input_service,
+            calculation_id=request.calculation_id,
+            portfolio_id=request.portfolio_id,
+            as_of_date=request.as_of_date,
+            start_date=resolved_window.start_date,
+            end_date=resolved_window.end_date,
+            reporting_currency=request.reporting_currency,
+            consumer_system=LOTUS_PERFORMANCE_CONSUMER_SYSTEM,
+        )
+    except HTTPException as exc:
+        if exc.status_code == status.HTTP_503_SERVICE_UNAVAILABLE:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=source_unavailable_detail(str(exc.detail)),
+            ) from exc
+        raise HTTPException(
+            status_code=HTTP_422_UNPROCESSABLE,
+            detail=insufficient_data_detail(str(exc.detail)),
+        ) from exc

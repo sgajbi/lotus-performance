@@ -813,6 +813,42 @@ def test_resolved_stateful_returns_series_request_payload_promotes_stateless_inp
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("upstream_status", "mapped_status", "mapped_code"),
+    [(503, 503, "SOURCE_UNAVAILABLE"), (404, 422, "INSUFFICIENT_DATA")],
+)
+async def test_retrieve_stateful_returns_series_portfolio_source_maps_upstream_errors(
+    monkeypatch,
+    upstream_status,
+    mapped_status,
+    mapped_code,
+):
+    request = _build_stateful_request()
+    resolved_window = returns_series_service.resolve_window(request)
+
+    async def _retrieve_stateful_portfolio_input(**kwargs):  # noqa: ARG001
+        raise HTTPException(status_code=upstream_status, detail={"message": "portfolio source unavailable"})
+
+    monkeypatch.setattr(
+        returns_series_service,
+        "retrieve_stateful_portfolio_input",
+        _retrieve_stateful_portfolio_input,
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        await returns_series_service._retrieve_stateful_returns_series_portfolio_source(
+            active_settings=object(),
+            stateful_input_service=object(),
+            request=request,
+            resolved_window=resolved_window,
+        )
+
+    assert exc.value.status_code == mapped_status
+    assert exc.value.detail["code"] == mapped_code
+    assert "portfolio source unavailable" in exc.value.detail["message"]
+
+
+@pytest.mark.asyncio
 async def test_resolve_stateful_returns_series_benchmark_id_uses_assignment_when_missing():
     request = _build_stateful_request()
 
