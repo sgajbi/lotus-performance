@@ -129,14 +129,13 @@ def resolve_recovery_drill_manual_replay(
     if not correlation_id:
         return None
     for entry in snapshot.entries:
-        if not operator_action_correlation_matches(
+        if not _recovery_drill_entry_matches(
             entry,
             operator_id=operator_id,
             tenant_id=tenant_id,
             correlation_id=correlation_id,
+            backup_identifier=backup_identifier,
         ):
-            continue
-        if not operator_action_required_identity_matches(entry.backup_identifier, backup_identifier):
             continue
         payload = _load_payload(artifact_directory=artifact_directory, evidence_file_name=entry.evidence_file_name)
         if payload is None:
@@ -149,6 +148,22 @@ def resolve_recovery_drill_manual_replay(
             return None
         return ActionReplayResult(payload=payload, evidence_file_name=entry.evidence_file_name)
     return None
+
+
+def _recovery_drill_entry_matches(
+    entry: RecoveryDrillHistoryEntry,
+    *,
+    operator_id: str,
+    tenant_id: str | None,
+    correlation_id: str,
+    backup_identifier: str,
+) -> bool:
+    return operator_action_correlation_matches(
+        entry,
+        operator_id=operator_id,
+        tenant_id=tenant_id,
+        correlation_id=correlation_id,
+    ) and operator_action_required_identity_matches(entry.backup_identifier, backup_identifier)
 
 
 def _runtime_retention_entry_matches(

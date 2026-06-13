@@ -2,6 +2,7 @@ import logging
 
 from app.services.operator_action_replay_service import (
     _load_payload,
+    _recovery_drill_entry_matches,
     _recovery_drill_payload_has_required_shape,
     _recovery_drill_payload_identity_matches,
     _recovery_drill_payload_matches_entry,
@@ -148,6 +149,64 @@ def test_recovery_drill_payload_match_helpers_reject_shape_and_identity_drift():
     )
     assert (
         _recovery_drill_payload_matches_entry(_recovery_drill_payload(evidence_file_name="different.json"), entry)
+        is False
+    )
+
+
+def test_recovery_drill_entry_matches_accepts_matching_identity():
+    assert (
+        _recovery_drill_entry_matches(
+            _recovery_drill_entry(),
+            operator_id="ops-user",
+            tenant_id="tenant-a",
+            correlation_id="corr-1",
+            backup_identifier=" backup-123 ",
+        )
+        is True
+    )
+
+
+def test_recovery_drill_entry_matches_rejects_identity_drift():
+    entry = _recovery_drill_entry()
+
+    assert (
+        _recovery_drill_entry_matches(
+            entry,
+            operator_id="other-ops-user",
+            tenant_id="tenant-a",
+            correlation_id="corr-1",
+            backup_identifier="backup-123",
+        )
+        is False
+    )
+    assert (
+        _recovery_drill_entry_matches(
+            entry,
+            operator_id="ops-user",
+            tenant_id="tenant-b",
+            correlation_id="corr-1",
+            backup_identifier="backup-123",
+        )
+        is False
+    )
+    assert (
+        _recovery_drill_entry_matches(
+            entry,
+            operator_id="ops-user",
+            tenant_id="tenant-a",
+            correlation_id="corr-2",
+            backup_identifier="backup-123",
+        )
+        is False
+    )
+    assert (
+        _recovery_drill_entry_matches(
+            entry,
+            operator_id="ops-user",
+            tenant_id="tenant-a",
+            correlation_id="corr-1",
+            backup_identifier="backup-456",
+        )
         is False
     )
 
