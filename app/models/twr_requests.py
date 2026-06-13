@@ -134,15 +134,23 @@ def _has_legacy_twr_valuation_points(request: "TWRAnalyticsRequest") -> bool:
     return len(request.valuation_points) > 0
 
 
+def _has_nested_twr_stateless_input(request: "TWRAnalyticsRequest") -> bool:
+    return request.stateless_input is not None
+
+
+def _has_exactly_one_stateless_twr_payload(request: "TWRAnalyticsRequest") -> bool:
+    return _has_nested_twr_stateless_input(request) != _has_legacy_twr_valuation_points(request)
+
+
 def _validate_stateless_twr_payloads(request: "TWRAnalyticsRequest") -> None:
-    has_nested = request.stateless_input is not None
-    has_legacy = _has_legacy_twr_valuation_points(request)
     if request.performance_start_date is None:
         raise ValueError("performance_start_date is required when input_mode=stateless")
-    if has_nested and has_legacy:
+    if not _has_exactly_one_stateless_twr_payload(request):
+        has_nested = _has_nested_twr_stateless_input(request)
+        has_legacy = _has_legacy_twr_valuation_points(request)
+        if not has_nested and not has_legacy:
+            raise ValueError("stateless_input or valuation_points is required when input_mode=stateless")
         raise ValueError("Provide either stateless_input or valuation_points, not both, for stateless mode")
-    if not has_nested and not has_legacy:
-        raise ValueError("stateless_input or valuation_points is required when input_mode=stateless")
     if request.stateful_input is not None:
         raise ValueError("stateful_input must be null when input_mode=stateless")
 

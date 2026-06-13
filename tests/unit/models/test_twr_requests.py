@@ -9,6 +9,9 @@ from app.models.twr_requests import (
     TWRAnalyticsRequest,
     TWRBenchmarkRequest,
     TWRInputMode,
+    _has_exactly_one_stateless_twr_payload,
+    _has_legacy_twr_valuation_points,
+    _has_nested_twr_stateless_input,
     _validate_calculated_stateless_twr_benchmark_payload,
     _validate_stateless_twr_payloads,
     _validate_twr_benchmark_inclusion,
@@ -90,6 +93,46 @@ def test_twr_stateless_payload_helper_rejects_ambiguous_payloads():
 
     with pytest.raises(ValueError, match="Provide either stateless_input or valuation_points"):
         _validate_stateless_twr_payloads(request)
+
+
+@pytest.mark.parametrize(
+    ("stateless_input", "valuation_points", "has_nested", "has_legacy", "has_exactly_one"),
+    [
+        (object(), [], True, False, True),
+        (
+            None,
+            [DailyInputData.model_validate({"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010})],
+            False,
+            True,
+            True,
+        ),
+        (None, [], False, False, False),
+        (
+            object(),
+            [DailyInputData.model_validate({"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010})],
+            True,
+            True,
+            False,
+        ),
+    ],
+)
+def test_twr_stateless_payload_shape_predicates(
+    stateless_input,
+    valuation_points,
+    has_nested,
+    has_legacy,
+    has_exactly_one,
+):
+    request = TWRAnalyticsRequest.model_construct(
+        performance_start_date=date(2024, 12, 31),
+        stateless_input=stateless_input,
+        stateful_input=None,
+        valuation_points=valuation_points,
+    )
+
+    assert _has_nested_twr_stateless_input(request) is has_nested
+    assert _has_legacy_twr_valuation_points(request) is has_legacy
+    assert _has_exactly_one_stateless_twr_payload(request) is has_exactly_one
 
 
 def test_twr_request_rejects_stateful_payload_in_stateless_mode(base_payload):
