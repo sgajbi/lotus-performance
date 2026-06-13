@@ -88,6 +88,17 @@ class _ComputeJobRuntimeOptions:
     batch_size: int
 
 
+@dataclass(frozen=True)
+class _ComputeJobCalculators:
+    returns_series_calculator: Callable[..., Coroutine[Any, Any, Any]]
+    contribution_calculator: Callable[..., Any]
+    attribution_calculator: Callable[..., Any]
+    benchmark_calculator: Callable[..., Any]
+    twr_calculator: Callable[..., Any]
+    workspace_summary_calculator: Callable[..., Any]
+    inspection_calculator: Callable[[TWRInspectionRequest], Any]
+
+
 def process_pending_jobs(*, limit: int | None = None, settings=None) -> int:
     return _process_pending_jobs(limit=limit, settings=settings)
 
@@ -249,16 +260,49 @@ def _build_compute_job_execution_context(
     workspace_summary_calculator: Callable[..., Any] | None,
     inspection_calculator: Callable[[TWRInspectionRequest], Any] | None,
 ) -> _ComputeJobExecutionContext:
+    calculators = _resolve_compute_job_calculators(
+        returns_series_calculator=returns_series_calculator,
+        contribution_calculator=contribution_calculator,
+        attribution_calculator=attribution_calculator,
+        benchmark_calculator=benchmark_calculator,
+        twr_calculator=twr_calculator,
+        workspace_summary_calculator=workspace_summary_calculator,
+        inspection_calculator=inspection_calculator,
+    )
     return _ComputeJobExecutionContext(
         settings=settings,
         execution_store=execution_store,
-        returns_series_calculator=returns_series_calculator or calculate_returns_series,
-        contribution_calculator=contribution_calculator or calculate_contribution,
-        attribution_calculator=attribution_calculator or calculate_attribution,
-        benchmark_calculator=benchmark_calculator or calculate_benchmark_response,
-        twr_calculator=twr_calculator or calculate_twr_response,
-        workspace_summary_calculator=workspace_summary_calculator or calculate_workspace_summary,
-        inspection_calculator=inspection_calculator or run_twr_inspection,
+        returns_series_calculator=calculators.returns_series_calculator,
+        contribution_calculator=calculators.contribution_calculator,
+        attribution_calculator=calculators.attribution_calculator,
+        benchmark_calculator=calculators.benchmark_calculator,
+        twr_calculator=calculators.twr_calculator,
+        workspace_summary_calculator=calculators.workspace_summary_calculator,
+        inspection_calculator=calculators.inspection_calculator,
+    )
+
+
+def _resolve_compute_job_calculators(
+    *,
+    returns_series_calculator: Callable[..., Coroutine[Any, Any, Any]] | None,
+    contribution_calculator: Callable[..., Any] | None,
+    attribution_calculator: Callable[..., Any] | None,
+    benchmark_calculator: Callable[..., Any] | None,
+    twr_calculator: Callable[..., Any] | None,
+    workspace_summary_calculator: Callable[..., Any] | None,
+    inspection_calculator: Callable[[TWRInspectionRequest], Any] | None,
+) -> _ComputeJobCalculators:
+    return _ComputeJobCalculators(
+        returns_series_calculator=_truthy_or_default(returns_series_calculator, calculate_returns_series),
+        contribution_calculator=_truthy_or_default(contribution_calculator, calculate_contribution),
+        attribution_calculator=_truthy_or_default(attribution_calculator, calculate_attribution),
+        benchmark_calculator=_truthy_or_default(benchmark_calculator, calculate_benchmark_response),
+        twr_calculator=_truthy_or_default(twr_calculator, calculate_twr_response),
+        workspace_summary_calculator=_truthy_or_default(
+            workspace_summary_calculator,
+            calculate_workspace_summary,
+        ),
+        inspection_calculator=_truthy_or_default(inspection_calculator, run_twr_inspection),
     )
 
 

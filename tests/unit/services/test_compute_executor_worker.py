@@ -235,6 +235,55 @@ def test_compute_executor_worker_execution_context_preserves_all_calculator_over
     assert context.inspection_calculator is _calculator
 
 
+def test_compute_executor_worker_calculator_options_use_default_calculators():
+    calculators = compute_executor_worker._resolve_compute_job_calculators(
+        returns_series_calculator=None,
+        contribution_calculator=None,
+        attribution_calculator=None,
+        benchmark_calculator=None,
+        twr_calculator=None,
+        workspace_summary_calculator=None,
+        inspection_calculator=None,
+    )
+
+    assert calculators.returns_series_calculator is compute_executor_worker.calculate_returns_series
+    assert calculators.contribution_calculator is compute_executor_worker.calculate_contribution
+    assert calculators.attribution_calculator is compute_executor_worker.calculate_attribution
+    assert calculators.benchmark_calculator is compute_executor_worker.calculate_benchmark_response
+    assert calculators.twr_calculator is compute_executor_worker.calculate_twr_response
+    assert calculators.workspace_summary_calculator is compute_executor_worker.calculate_workspace_summary
+    assert calculators.inspection_calculator is compute_executor_worker.run_twr_inspection
+
+
+def test_compute_executor_worker_calculator_options_preserve_truthy_default_policy():
+    class FalsyCalculator:
+        def __call__(self, *args, **kwargs):  # noqa: ANN202, ANN002, ANN003, ARG002
+            return None
+
+        def __bool__(self):
+            return False
+
+    falsy_calculator = FalsyCalculator()
+
+    calculators = compute_executor_worker._resolve_compute_job_calculators(
+        returns_series_calculator=falsy_calculator,
+        contribution_calculator=falsy_calculator,
+        attribution_calculator=falsy_calculator,
+        benchmark_calculator=falsy_calculator,
+        twr_calculator=falsy_calculator,
+        workspace_summary_calculator=falsy_calculator,
+        inspection_calculator=falsy_calculator,
+    )
+
+    assert calculators.returns_series_calculator is compute_executor_worker.calculate_returns_series
+    assert calculators.contribution_calculator is compute_executor_worker.calculate_contribution
+    assert calculators.attribution_calculator is compute_executor_worker.calculate_attribution
+    assert calculators.benchmark_calculator is compute_executor_worker.calculate_benchmark_response
+    assert calculators.twr_calculator is compute_executor_worker.calculate_twr_response
+    assert calculators.workspace_summary_calculator is compute_executor_worker.calculate_workspace_summary
+    assert calculators.inspection_calculator is compute_executor_worker.run_twr_inspection
+
+
 def test_compute_executor_worker_processes_pending_returns_series_job(tmp_path, monkeypatch):
     execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
     execution_store.create_schema()
