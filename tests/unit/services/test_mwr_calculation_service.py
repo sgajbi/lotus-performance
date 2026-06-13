@@ -9,6 +9,7 @@ from app.models.mwr_analytics_requests import MoneyWeightedReturnAnalyticsReques
 from app.models.mwr_requests import CashFlow, MoneyWeightedReturnRequest
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_MWR
 from app.services.mwr_calculation_service import (
+    _mwr_requested_window,
     build_mwr_response,
     calculate_mwr_response,
     calculate_mwr_result,
@@ -66,6 +67,36 @@ def test_calculate_mwr_result_passes_request_cashflows():
 
     assert request.cash_flows == [CashFlow(amount=10.0, date=date(2025, 6, 30))]
     assert result.method == "MODIFIED_DIETZ"
+
+
+def test_mwr_requested_window_uses_stateless_start_date_when_present():
+    request = MoneyWeightedReturnAnalyticsRequest.model_validate(
+        {
+            "portfolio_id": "MWR-SERVICE-WINDOW",
+            "begin_mv": 100.0,
+            "end_mv": 130.0,
+            "as_of": "2025-12-31",
+            "start_date": "2025-01-01",
+            "cash_flows": [{"amount": 10.0, "date": "2025-06-30"}],
+            "mwr_method": "DIETZ",
+        }
+    )
+
+    assert _mwr_requested_window(request) == {"as_of": "2025-12-31", "start_date": "2025-01-01"}
+
+
+def test_mwr_requested_window_uses_stateful_window_start_date():
+    request = MoneyWeightedReturnAnalyticsRequest.model_validate(
+        {
+            "portfolio_id": "MWR-SERVICE-STATEFUL-WINDOW",
+            "as_of": "2025-12-31",
+            "stateful_input": {"window_start_date": "2025-02-01"},
+            "mwr_method": "DIETZ",
+            "input_mode": "stateful",
+        }
+    )
+
+    assert _mwr_requested_window(request) == {"as_of": "2025-12-31", "start_date": "2025-02-01"}
 
 
 def test_build_mwr_response_preserves_endpoint_payload_contract(mocker):
