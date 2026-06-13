@@ -288,9 +288,7 @@ async def calculate_twr_workflow(request: TWRAnalyticsRequest) -> PerformanceRes
             input_fingerprint=input_fingerprint,
             calculation_hash=calculation_hash,
             request_payload=request.model_dump(mode="json"),
-            offload_reason=(
-                "long_window_stateful_twr" if request.input_mode == TWRInputMode.STATEFUL else "large_twr_input_set"
-            ),
+            offload_reason=_twr_pre_resolution_offload_reason(request),
             accepted_response_factory=accepted_twr_response,
         )
 
@@ -344,6 +342,12 @@ async def calculate_twr_workflow(request: TWRAnalyticsRequest) -> PerformanceRes
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An unexpected server error occurred: {str(exc)}",
         ) from exc
+
+
+def _twr_pre_resolution_offload_reason(request: TWRAnalyticsRequest) -> str:
+    if request.input_mode == TWRInputMode.STATEFUL:
+        return "long_window_stateful_twr"
+    return "large_twr_input_set"
 
 
 def _calculate_twr_resolved_response(

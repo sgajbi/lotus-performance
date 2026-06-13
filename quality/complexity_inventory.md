@@ -38,31 +38,31 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `calculate_twr_workflow` | function | `app/services/twr_calculation_service.py:273` | 7 | B |
-| 2 | `_resolve_twr_benchmark_source_input` | function | `app/services/twr_mode_service.py:464` | 7 | B |
-| 3 | `_calculate_total_return_from_reset_slice` | function | `app/services/twr_service.py:65` | 7 | B |
-| 4 | `_build_portfolio_breakdown_item` | function | `app/services/twr_service.py:547` | 7 | B |
-| 5 | `_build_twr_results_by_period` | function | `app/services/twr_service.py:740` | 7 | B |
-| 6 | `_valuation_cashflow_total_component` | function | `app/services/valuation_points_service.py:54` | 7 | B |
-| 7 | `_prepare_data_from_instruments` | function | `engine/attribution.py:228` | 7 | B |
-| 8 | `_normalize_instrument_return_columns` | function | `engine/attribution.py:315` | 7 | B |
-| 9 | `_build_base_weight_series` | function | `engine/attribution.py:383` | 7 | B |
-| 10 | `_align_and_prepare_data` | function | `engine/attribution.py:452` | 7 | B |
-| 11 | `aggregate_attribution_results` | function | `engine/attribution.py:648` | 7 | B |
-| 12 | `_calculate_period_summary_dict` | function | `engine/breakdown.py:13` | 7 | B |
-| 13 | `_coerce_engine_numeric_columns` | function | `engine/compute.py:180` | 7 | B |
-| 14 | `_xirr_initial_failure` | function | `engine/mwr.py:93` | 7 | B |
-| 15 | `_apply_ignore_days` | function | `engine/policies.py:90` | 7 | B |
-| 16 | `_compound_ror` | function | `engine/ror.py:271` | 7 | B |
-| 17 | `format_breakdowns_for_response` | function | `adapters/api_adapter.py:51` | 6 | B |
-| 18 | `submit_twr_inspection` | function | `app/api/endpoints/inspections.py:70` | 6 | B |
-| 19 | `get_lineage_data` | function | `app/api/endpoints/lineage.py:155` | 6 | B |
-| 20 | `get_lineage_artifact` | function | `app/api/endpoints/lineage.py:221` | 6 | B |
-| 21 | `_workspace_requested_benchmark_work_units` | function | `app/api/endpoints/performance.py:60` | 6 | B |
-| 22 | `calculate_workspace_summary_endpoint` | function | `app/api/endpoints/performance.py:105` | 6 | B |
-| 23 | `_normalized_capability_rule_overrides` | function | `app/enterprise_capability_rules.py:69` | 6 | B |
-| 24 | `_enterprise_runtime_config_issues` | function | `app/enterprise_runtime_config.py:94` | 6 | B |
-| 25 | `_validate_stateless_input_shape` | function | `app/models/attribution_analytics_requests.py:280` | 6 | B |
+| 1 | `_resolve_twr_benchmark_source_input` | function | `app/services/twr_mode_service.py:464` | 7 | B |
+| 2 | `_calculate_total_return_from_reset_slice` | function | `app/services/twr_service.py:65` | 7 | B |
+| 3 | `_build_portfolio_breakdown_item` | function | `app/services/twr_service.py:547` | 7 | B |
+| 4 | `_build_twr_results_by_period` | function | `app/services/twr_service.py:740` | 7 | B |
+| 5 | `_valuation_cashflow_total_component` | function | `app/services/valuation_points_service.py:54` | 7 | B |
+| 6 | `_prepare_data_from_instruments` | function | `engine/attribution.py:228` | 7 | B |
+| 7 | `_normalize_instrument_return_columns` | function | `engine/attribution.py:315` | 7 | B |
+| 8 | `_build_base_weight_series` | function | `engine/attribution.py:383` | 7 | B |
+| 9 | `_align_and_prepare_data` | function | `engine/attribution.py:452` | 7 | B |
+| 10 | `aggregate_attribution_results` | function | `engine/attribution.py:648` | 7 | B |
+| 11 | `_calculate_period_summary_dict` | function | `engine/breakdown.py:13` | 7 | B |
+| 12 | `_coerce_engine_numeric_columns` | function | `engine/compute.py:180` | 7 | B |
+| 13 | `_xirr_initial_failure` | function | `engine/mwr.py:93` | 7 | B |
+| 14 | `_apply_ignore_days` | function | `engine/policies.py:90` | 7 | B |
+| 15 | `_compound_ror` | function | `engine/ror.py:271` | 7 | B |
+| 16 | `format_breakdowns_for_response` | function | `adapters/api_adapter.py:51` | 6 | B |
+| 17 | `submit_twr_inspection` | function | `app/api/endpoints/inspections.py:70` | 6 | B |
+| 18 | `get_lineage_data` | function | `app/api/endpoints/lineage.py:155` | 6 | B |
+| 19 | `get_lineage_artifact` | function | `app/api/endpoints/lineage.py:221` | 6 | B |
+| 20 | `_workspace_requested_benchmark_work_units` | function | `app/api/endpoints/performance.py:60` | 6 | B |
+| 21 | `calculate_workspace_summary_endpoint` | function | `app/api/endpoints/performance.py:105` | 6 | B |
+| 22 | `_normalized_capability_rule_overrides` | function | `app/enterprise_capability_rules.py:69` | 6 | B |
+| 23 | `_enterprise_runtime_config_issues` | function | `app/enterprise_runtime_config.py:94` | 6 | B |
+| 24 | `_validate_stateless_input_shape` | function | `app/models/attribution_analytics_requests.py:280` | 6 | B |
+| 25 | `AttributionLevelResult` | class | `app/models/attribution_responses.py:52` | 6 | B |
 
 ## Lowest Maintainability Index
 
