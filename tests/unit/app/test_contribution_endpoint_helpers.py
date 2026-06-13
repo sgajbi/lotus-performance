@@ -60,6 +60,7 @@ from app.services.contribution_series import (
     _build_position_contribution_series,
     _build_residual_adjusted_daily_contribution_series,
     _build_residual_adjusted_position_timeseries,
+    _partition_hierarchy_rows_for_emission,
     _position_contribution_series_from_adjusted_rows,
 )
 from app.services.contribution_service import (
@@ -1117,6 +1118,25 @@ def test_position_contribution_series_from_adjusted_rows_sorts_and_scales_points
 def test_residual_adjusted_series_helpers_handle_empty_inputs():
     assert _build_residual_adjusted_position_timeseries(pd.DataFrame(), []) == []
     assert _build_residual_adjusted_daily_contribution_series([]) == []
+
+
+def test_partition_hierarchy_rows_for_emission_moves_threshold_and_top_n_overflow():
+    ordered = pd.DataFrame(
+        {
+            "sector": ["Technology", "Healthcare", "Energy", "Cash"],
+            "contribution": [0.04, 0.03, 0.02, 0.01],
+            "weight_avg": [0.50, 0.30, 0.20, 0.01],
+        }
+    )
+
+    explicit_rows, overflow_rows = _partition_hierarchy_rows_for_emission(
+        ordered,
+        threshold=0.10,
+        top_n=2,
+    )
+
+    assert explicit_rows["sector"].tolist() == ["Technology", "Healthcare"]
+    assert overflow_rows["sector"].tolist() == ["Cash", "Energy"]
 
 
 def test_average_weight_shadow_helper_classifies_materiality_and_cutover_readiness():

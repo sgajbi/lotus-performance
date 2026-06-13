@@ -38,31 +38,31 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_build_hierarchy_rows` | function | `app/services/contribution_series.py:298` | 7 | B |
-| 2 | `_degraded_stateful_economics` | function | `app/services/contribution_source_economics.py:139` | 7 | B |
-| 3 | `_source_cash_flow_type_counts` | function | `app/services/contribution_source_economics.py:187` | 7 | B |
-| 4 | `check_lineage_storage_ready` | function | `app/services/durability_health_service.py:64` | 7 | B |
-| 5 | `record_upstream_snapshots` | method | `app/services/execution_registry.py:513` | 7 | B |
-| 6 | `_expected_daily_calculation_values` | function | `app/services/inspection/calculation_consistency.py:421` | 7 | B |
-| 7 | `_expected_daily_period_statuses` | function | `app/services/inspection/calculation_consistency.py:576` | 7 | B |
-| 8 | `_comparative_return_mismatches` | function | `app/services/inspection/calculation_consistency.py:669` | 7 | B |
-| 9 | `_build_position_reconciliation_findings` | function | `app/services/inspection/reconciliation.py:143` | 7 | B |
-| 10 | `_select_latest_position_rows` | function | `app/services/inspection/reconciliation.py:431` | 7 | B |
-| 11 | `_record_external_mixed_timing_samples` | method | `app/services/inspection/source_economics_collector.py:300` | 7 | B |
-| 12 | `_record_external_timing_contradictions` | function | `app/services/inspection/source_economics_collector.py:462` | 7 | B |
-| 13 | `_build_external_cashflow_findings` | function | `app/services/inspection/source_economics_findings.py:281` | 7 | B |
-| 14 | `_build_fee_source_economics_findings` | function | `app/services/inspection/source_economics_findings.py:423` | 7 | B |
-| 15 | `_find_monthly_day_dominance` | function | `app/services/inspection/source_quality.py:576` | 7 | B |
-| 16 | `load_existing_twr_calculation_artifacts` | function | `app/services/inspection/subject_materialization.py:34` | 7 | B |
-| 17 | `_load_request_payload` | function | `app/services/inspection/subject_materialization.py:109` | 7 | B |
-| 18 | `_support_brief_result_from_payload` | function | `app/services/inspection/support_brief_workflow_pack.py:55` | 7 | B |
-| 19 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:88` | 7 | B |
-| 20 | `_synthesize_verdict` | function | `app/services/inspection/twr_inspection_service.py:551` | 7 | B |
-| 21 | `_scope_request_to_response_master_window` | function | `app/services/inspection/twr_inspection_service.py:652` | 7 | B |
-| 22 | `get_pending_payload_stats` | method | `app/services/lineage_metadata_store.py:416` | 7 | B |
-| 23 | `list_inspection_items` | method | `app/services/lineage_metadata_store.py:507` | 7 | B |
-| 24 | `materialize_payload` | method | `app/services/lineage_service.py:72` | 7 | B |
-| 25 | `_validate_artifact_filename` | method | `app/services/lineage_service.py:171` | 7 | B |
+| 1 | `_degraded_stateful_economics` | function | `app/services/contribution_source_economics.py:139` | 7 | B |
+| 2 | `_source_cash_flow_type_counts` | function | `app/services/contribution_source_economics.py:187` | 7 | B |
+| 3 | `check_lineage_storage_ready` | function | `app/services/durability_health_service.py:64` | 7 | B |
+| 4 | `record_upstream_snapshots` | method | `app/services/execution_registry.py:513` | 7 | B |
+| 5 | `_expected_daily_calculation_values` | function | `app/services/inspection/calculation_consistency.py:421` | 7 | B |
+| 6 | `_expected_daily_period_statuses` | function | `app/services/inspection/calculation_consistency.py:576` | 7 | B |
+| 7 | `_comparative_return_mismatches` | function | `app/services/inspection/calculation_consistency.py:669` | 7 | B |
+| 8 | `_build_position_reconciliation_findings` | function | `app/services/inspection/reconciliation.py:143` | 7 | B |
+| 9 | `_select_latest_position_rows` | function | `app/services/inspection/reconciliation.py:431` | 7 | B |
+| 10 | `_record_external_mixed_timing_samples` | method | `app/services/inspection/source_economics_collector.py:300` | 7 | B |
+| 11 | `_record_external_timing_contradictions` | function | `app/services/inspection/source_economics_collector.py:462` | 7 | B |
+| 12 | `_build_external_cashflow_findings` | function | `app/services/inspection/source_economics_findings.py:281` | 7 | B |
+| 13 | `_build_fee_source_economics_findings` | function | `app/services/inspection/source_economics_findings.py:423` | 7 | B |
+| 14 | `_find_monthly_day_dominance` | function | `app/services/inspection/source_quality.py:576` | 7 | B |
+| 15 | `load_existing_twr_calculation_artifacts` | function | `app/services/inspection/subject_materialization.py:34` | 7 | B |
+| 16 | `_load_request_payload` | function | `app/services/inspection/subject_materialization.py:109` | 7 | B |
+| 17 | `_support_brief_result_from_payload` | function | `app/services/inspection/support_brief_workflow_pack.py:55` | 7 | B |
+| 18 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:88` | 7 | B |
+| 19 | `_synthesize_verdict` | function | `app/services/inspection/twr_inspection_service.py:551` | 7 | B |
+| 20 | `_scope_request_to_response_master_window` | function | `app/services/inspection/twr_inspection_service.py:652` | 7 | B |
+| 21 | `get_pending_payload_stats` | method | `app/services/lineage_metadata_store.py:416` | 7 | B |
+| 22 | `list_inspection_items` | method | `app/services/lineage_metadata_store.py:507` | 7 | B |
+| 23 | `materialize_payload` | method | `app/services/lineage_service.py:72` | 7 | B |
+| 24 | `_validate_artifact_filename` | method | `app/services/lineage_service.py:171` | 7 | B |
+| 25 | `build_mwr_response` | function | `app/services/mwr_calculation_service.py:42` | 7 | B |
 
 ## Lowest Maintainability Index
 
@@ -550,6 +550,8 @@ portfolio capital-base projection, and residual basis-point sizing were moved in
 helpers.
 `_classify_average_weight_shadow_cutover_blockers` also dropped out after structural blocker
 condition assembly was moved into a dedicated helper.
+`_build_hierarchy_rows` also dropped out after threshold and top-N hierarchy emission partitioning
+was moved into a dedicated helper.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.
