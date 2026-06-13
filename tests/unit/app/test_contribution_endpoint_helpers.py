@@ -28,6 +28,7 @@ from app.services.contribution_methodology import (
     RESET_AWARE_AVERAGE_WEIGHT_MODE_CANDIDATE_PERIODS,
     RESET_AWARE_AVERAGE_WEIGHT_MODE_OFF,
     _assess_average_weight_shadow_cutover,
+    _average_weight_shadow_cutover_blocker_conditions,
     _average_weight_shadow_delta_metrics,
     _build_average_weight_methodology_status,
     _calculate_average_weight_sum_residual_bp,
@@ -1147,6 +1148,18 @@ def test_average_weight_shadow_helper_classifies_materiality_and_cutover_readine
         position_reset_without_portfolio_reset_days=0,
         timeseries_total_delta_periods=1,
     ) == {"weight_residual", "flow_balance", "reset_alignment", "timeseries_reconciliation"}
+    assert _average_weight_shadow_cutover_blocker_conditions(
+        average_weight_sum_residual_bp=50,
+        position_flow_residual_days=1,
+        portfolio_reset_without_position_reset_days=1,
+        position_reset_without_portfolio_reset_days=0,
+        timeseries_total_delta_periods=1,
+    ) == {
+        "weight_residual": True,
+        "flow_balance": True,
+        "reset_alignment": True,
+        "timeseries_reconciliation": True,
+    }
     ready_assessment = _assess_average_weight_shadow_cutover(
         max_shadow_delta_bp=600,
         average_weight_sum_residual_bp=0,

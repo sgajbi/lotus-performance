@@ -286,6 +286,23 @@ def _is_average_weight_shadow_cutover_candidate(
     )
 
 
+def _average_weight_shadow_cutover_blocker_conditions(
+    *,
+    average_weight_sum_residual_bp: int,
+    position_flow_residual_days: int,
+    portfolio_reset_without_position_reset_days: int,
+    position_reset_without_portfolio_reset_days: int,
+    timeseries_total_delta_periods: int,
+) -> dict[str, bool]:
+    return {
+        "weight_residual": average_weight_sum_residual_bp > 1,
+        "flow_balance": position_flow_residual_days > 0,
+        "reset_alignment": portfolio_reset_without_position_reset_days > 0
+        or position_reset_without_portfolio_reset_days > 0,
+        "timeseries_reconciliation": timeseries_total_delta_periods > 0,
+    }
+
+
 def _classify_average_weight_shadow_cutover_blockers(
     *,
     max_shadow_delta_bp: int,
@@ -303,18 +320,20 @@ def _classify_average_weight_shadow_cutover_blockers(
     weight coverage drift, broken internal flow cancellation, reset-boundary misalignment, or
     timeseries reconciliation drift.
     """
-    blockers: set[str] = set()
     if max_shadow_delta_bp < 500:
-        return blockers
-    if average_weight_sum_residual_bp > 1:
-        blockers.add("weight_residual")
-    if position_flow_residual_days > 0:
-        blockers.add("flow_balance")
-    if portfolio_reset_without_position_reset_days > 0 or position_reset_without_portfolio_reset_days > 0:
-        blockers.add("reset_alignment")
-    if timeseries_total_delta_periods > 0:
-        blockers.add("timeseries_reconciliation")
-    return blockers
+        return set()
+
+    return {
+        reason
+        for reason, is_blocked in _average_weight_shadow_cutover_blocker_conditions(
+            average_weight_sum_residual_bp=average_weight_sum_residual_bp,
+            position_flow_residual_days=position_flow_residual_days,
+            portfolio_reset_without_position_reset_days=portfolio_reset_without_position_reset_days,
+            position_reset_without_portfolio_reset_days=position_reset_without_portfolio_reset_days,
+            timeseries_total_delta_periods=timeseries_total_delta_periods,
+        ).items()
+        if is_blocked
+    }
 
 
 def _assess_average_weight_shadow_cutover(
