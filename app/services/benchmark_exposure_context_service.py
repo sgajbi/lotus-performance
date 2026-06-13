@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
@@ -218,16 +219,10 @@ def _build_exposure_rows(
     labels: dict[tuple[BenchmarkExposureGroupingDimension, str], str] = {}
     component_ids: dict[tuple[BenchmarkExposureGroupingDimension, str], str | None] = {}
 
-    for component in component_series:
-        index_id_raw = component.get("index_id")
-        if not isinstance(index_id_raw, str) or not index_id_raw:
-            continue
-        points = component.get("points")
-        if not isinstance(points, list):
-            continue
+    for index_id, points in _iter_component_exposure_points(component_series):
         for point in points:
             _accumulate_exposure_point(
-                index_id=index_id_raw,
+                index_id=index_id,
                 point=point,
                 grouping_dimensions=grouping_dimensions,
                 classification_map=classification_map,
@@ -247,6 +242,16 @@ def _build_exposure_rows(
         )
         for (series_date, dimension, group_key), weight in sorted(grouped_weights.items())
     ]
+
+
+def _iter_component_exposure_points(component_series: list[dict[str, Any]]) -> Iterator[tuple[str, list[Any]]]:
+    for component in component_series:
+        index_id = component.get("index_id")
+        if not isinstance(index_id, str) or not index_id:
+            continue
+        points = component.get("points")
+        if isinstance(points, list):
+            yield index_id, points
 
 
 def _accumulate_exposure_point(

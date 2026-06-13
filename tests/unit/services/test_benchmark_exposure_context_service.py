@@ -18,6 +18,7 @@ from app.services.benchmark_exposure_context_service import (
     _classification_map_from_catalog_records,
     _group_identity,
     _index_ids_for_component_series,
+    _iter_component_exposure_points,
     _page_rows,
     _requires_index_catalog,
     build_benchmark_exposure_context,
@@ -378,6 +379,21 @@ def test_build_exposure_rows_skips_invalid_component_shapes_and_rejects_invalid_
             grouping_dimensions=[BenchmarkExposureGroupingDimension.POSITION],
             classification_map={},
         )
+
+
+def test_iter_component_exposure_points_yields_only_valid_component_point_lists() -> None:
+    valid_points = [{"series_date": "2026-01-02", "component_weight": "0.10"}]
+
+    assert list(
+        _iter_component_exposure_points(
+            [
+                {"index_id": "", "points": valid_points},
+                {"index_id": None, "points": valid_points},
+                {"index_id": "IDX_BAD", "points": "not-a-list"},
+                {"index_id": "IDX_OK", "points": valid_points},
+            ]
+        )
+    ) == [("IDX_OK", valid_points)]
 
 
 def test_accumulate_exposure_point_groups_valid_points_and_skips_invalid_shapes() -> None:
