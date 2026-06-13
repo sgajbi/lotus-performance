@@ -598,12 +598,7 @@ def _distinct_source_currencies(values: Iterable[object]) -> list[str]:
 def _validate_stateful_position_inception_support(*, rows: list[dict[str, object]]) -> None:
     unsupported_positions: list[str] = []
     for position_id, row in _first_rows_by_position(rows).items():
-        begin_value_raw = row.get("beginning_market_value_portfolio_currency")
-        end_value_raw = row.get("ending_market_value_portfolio_currency")
-        begin_value = Decimal(str(begin_value_raw)) if begin_value_raw is not None else Decimal("0")
-        end_value = Decimal(str(end_value_raw)) if end_value_raw is not None else Decimal("0")
-        bod_cf, _ = _split_position_cash_flows(row.get("cash_flows"))
-        if begin_value == 0 and end_value > 0 and (begin_value + bod_cf) <= 0:
+        if _has_unsupported_position_inception_row(row):
             unsupported_positions.append(position_id)
 
     if unsupported_positions:
@@ -617,6 +612,15 @@ def _validate_stateful_position_inception_support(*, rows: list[dict[str, object
                 f"Affected positions: {sample_positions}."
             ),
         )
+
+
+def _has_unsupported_position_inception_row(row: dict[str, object]) -> bool:
+    begin_value_raw = row.get("beginning_market_value_portfolio_currency")
+    end_value_raw = row.get("ending_market_value_portfolio_currency")
+    begin_value = Decimal(str(begin_value_raw)) if begin_value_raw is not None else Decimal("0")
+    end_value = Decimal(str(end_value_raw)) if end_value_raw is not None else Decimal("0")
+    bod_cf, _ = _split_position_cash_flows(row.get("cash_flows"))
+    return begin_value == 0 and end_value > 0 and (begin_value + bod_cf) <= 0
 
 
 def _first_rows_by_position(rows: list[dict[str, object]]) -> dict[str, dict[str, object]]:

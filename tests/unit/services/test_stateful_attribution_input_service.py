@@ -15,6 +15,7 @@ from app.services.stateful_attribution_input_service import (
     _build_instruments_data,
     _distinct_source_currencies,
     _first_rows_by_position,
+    _has_unsupported_position_inception_row,
     _normalize_group_value,
     _normalized_position_dimensions,
     _parse_index_catalog,
@@ -1099,6 +1100,28 @@ def test_stateful_attribution_rejects_unsupported_position_inception_window():
                 },
             ]
         )
+
+
+def test_has_unsupported_position_inception_row_honors_bod_cash_flow_support():
+    unsupported_row = {
+        "beginning_market_value_portfolio_currency": "0",
+        "ending_market_value_portfolio_currency": "5",
+        "cash_flows": [],
+    }
+    supported_by_bod_cash_flow = {
+        "beginning_market_value_portfolio_currency": "0",
+        "ending_market_value_portfolio_currency": "5",
+        "cash_flows": [{"timing": "bod", "amount": "5"}],
+    }
+    no_position_opening_value = {
+        "beginning_market_value_portfolio_currency": "0",
+        "ending_market_value_portfolio_currency": "0",
+        "cash_flows": [],
+    }
+
+    assert _has_unsupported_position_inception_row(unsupported_row) is True
+    assert _has_unsupported_position_inception_row(supported_by_bod_cash_flow) is False
+    assert _has_unsupported_position_inception_row(no_position_opening_value) is False
 
 
 def test_stateful_attribution_group_by_and_benchmark_validation_errors():
