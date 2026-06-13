@@ -10,6 +10,7 @@ from app.services.operator_action_replay_service import (
     _runtime_retention_payload_has_required_shape,
     _runtime_retention_payload_identity_matches,
     _runtime_retention_payload_matches_entry,
+    _runtime_retention_request_filters_match,
     resolve_recovery_drill_manual_replay,
     resolve_runtime_retention_manual_replay,
 )
@@ -126,6 +127,62 @@ def test_runtime_retention_payload_match_helpers_reject_shape_identity_and_count
     )
     assert (
         _runtime_retention_payload_matches_entry(_runtime_retention_payload(prunable_execution_count=99), entry)
+        is False
+    )
+
+
+def test_runtime_retention_request_filters_accept_matching_request():
+    assert (
+        _runtime_retention_request_filters_match(
+            _runtime_retention_entry(),
+            apply=False,
+            retention_days=30,
+            job_id=" ticket-7 ",
+        )
+        is True
+    )
+
+
+def test_runtime_retention_request_filters_accept_absent_optional_retention_days():
+    assert (
+        _runtime_retention_request_filters_match(
+            _runtime_retention_entry(),
+            apply=False,
+            retention_days=None,
+            job_id="ticket-7",
+        )
+        is True
+    )
+
+
+def test_runtime_retention_request_filters_reject_drift():
+    entry = _runtime_retention_entry()
+
+    assert (
+        _runtime_retention_request_filters_match(
+            entry,
+            apply=True,
+            retention_days=30,
+            job_id="ticket-7",
+        )
+        is False
+    )
+    assert (
+        _runtime_retention_request_filters_match(
+            entry,
+            apply=False,
+            retention_days=60,
+            job_id="ticket-7",
+        )
+        is False
+    )
+    assert (
+        _runtime_retention_request_filters_match(
+            entry,
+            apply=False,
+            retention_days=30,
+            job_id="ticket-8",
+        )
         is False
     )
 

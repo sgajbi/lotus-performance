@@ -176,7 +176,6 @@ def _runtime_retention_entry_matches(
     retention_days: int | None,
     job_id: str | None,
 ) -> bool:
-    expected_cleanup_mode = "apply" if apply else "dry_run"
     if not operator_action_correlation_matches(
         entry,
         operator_id=operator_id,
@@ -184,13 +183,27 @@ def _runtime_retention_entry_matches(
         correlation_id=correlation_id,
     ):
         return False
+    return _runtime_retention_request_filters_match(
+        entry,
+        apply=apply,
+        retention_days=retention_days,
+        job_id=job_id,
+    )
+
+
+def _runtime_retention_request_filters_match(
+    entry: RuntimeRetentionHistoryEntry,
+    *,
+    apply: bool,
+    retention_days: int | None,
+    job_id: str | None,
+) -> bool:
+    expected_cleanup_mode = "apply" if apply else "dry_run"
     if entry.cleanup_mode != expected_cleanup_mode:
         return False
     if retention_days is not None and entry.retention_days != retention_days:
         return False
-    if not operator_action_optional_identity_matches(entry.job_id, job_id):
-        return False
-    return True
+    return operator_action_optional_identity_matches(entry.job_id, job_id)
 
 
 def _runtime_retention_payload_matches_entry(
