@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from app.services.compute_job_store import (
+    ComputeJobRegistrationResult,
     ComputeJobRegistrationStatus,
     compute_job_store,
 )
@@ -84,6 +85,32 @@ def register_async_submission_or_raise(
     if created_execution:
         execution_registry.start_stage(calculation_id, EXECUTION_STAGE_SUBMISSION)
 
+    job_registration = _register_async_compute_job_or_rollback_execution(
+        calculation_id=calculation_id,
+        analytics_type=analytics_type,
+        request_payload=request_payload,
+        created_execution=created_execution,
+    )
+
+    _complete_async_submission_stage_if_needed(
+        calculation_id=calculation_id,
+        execution_registration_status=registration.status,
+        compute_job_registration_status=job_registration.status,
+        created_execution=created_execution,
+        offload_reason=offload_reason,
+    )
+
+    accepted = accepted_response_factory(calculation_id)
+    return JSONResponse(status_code=status.HTTP_202_ACCEPTED, content=accepted.model_dump(mode="json"))
+
+
+def _register_async_compute_job_or_rollback_execution(
+    *,
+    calculation_id: UUID,
+    analytics_type: str,
+    request_payload: dict[str, Any],
+    created_execution: bool,
+) -> ComputeJobRegistrationResult:
     try:
         job_registration = compute_job_store.register_job(
             calculation_id=calculation_id,
@@ -108,6 +135,7 @@ def register_async_submission_or_raise(
                     exc_info=True,
                 )
         raise
+
     if job_registration.status == ComputeJobRegistrationStatus.CONFLICT:
         if created_execution:
             execution_registry.delete_execution(calculation_id)
@@ -118,17 +146,7 @@ def register_async_submission_or_raise(
                 "Reuse the original request exactly or submit with a new calculation_id."
             ),
         )
-
-    _complete_async_submission_stage_if_needed(
-        calculation_id=calculation_id,
-        execution_registration_status=registration.status,
-        compute_job_registration_status=job_registration.status,
-        created_execution=created_execution,
-        offload_reason=offload_reason,
-    )
-
-    accepted = accepted_response_factory(calculation_id)
-    return JSONResponse(status_code=status.HTTP_202_ACCEPTED, content=accepted.model_dump(mode="json"))
+    return job_registration
 
 
 def _complete_async_submission_stage_if_needed(
