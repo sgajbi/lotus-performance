@@ -98,6 +98,34 @@ def test_daily_ror_before_effective_start(sample_df):
     assert ror_df[PortfolioColumns.DAILY_ROR.value].iloc[3] == 0.0
 
 
+def test_daily_ror_decimal_net_basis_preserves_decimal_result():
+    df = pd.DataFrame(
+        {
+            PortfolioColumns.PERF_DATE: pd.to_datetime(["2025-01-01"]),
+            PortfolioColumns.BEGIN_MV: [Decimal("1000")],
+            PortfolioColumns.BOD_CF: [Decimal("0")],
+            PortfolioColumns.EOD_CF: [Decimal("0")],
+            PortfolioColumns.MGMT_FEES: [Decimal("-10")],
+            PortfolioColumns.END_MV: [Decimal("1090")],
+            PortfolioColumns.EFFECTIVE_PERIOD_START_DATE: pd.to_datetime(["2025-01-01"]),
+        }
+    )
+    for column in [
+        PortfolioColumns.BEGIN_MV,
+        PortfolioColumns.BOD_CF,
+        PortfolioColumns.EOD_CF,
+        PortfolioColumns.MGMT_FEES,
+        PortfolioColumns.END_MV,
+    ]:
+        df[column] = df[column].astype("object")
+
+    ror_df = calculate_daily_ror(df, metric_basis="NET")
+
+    daily_ror = ror_df[PortfolioColumns.DAILY_ROR.value].iloc[0]
+    assert isinstance(daily_ror, Decimal)
+    assert daily_ror == Decimal("8.00")
+
+
 def test_compound_ror_decimal_strict_multi_period():
     """Tests that the decimal-strict compounding works over multiple rows."""
     df = pd.DataFrame(

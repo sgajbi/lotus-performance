@@ -45,9 +45,27 @@ def calculate_daily_ror(df: pd.DataFrame, metric_basis: str, config: EngineConfi
 
 def _calculate_local_daily_return(df: pd.DataFrame, metric_basis: str) -> _LocalDailyReturn:
     is_decimal_mode = df[PortfolioColumns.BEGIN_MV.value].dtype == "object"
-    zero = Decimal(0) if is_decimal_mode else 0.0
     hundred = Decimal(100) if is_decimal_mode else 100.0
+    zero = Decimal(0) if is_decimal_mode else 0.0
 
+    numerator = _local_daily_return_numerator(df, metric_basis, is_decimal_mode=is_decimal_mode)
+    denominator = _local_daily_return_denominator(df, is_decimal_mode=is_decimal_mode)
+    local_ror = _zero_local_daily_return(df, denominator, is_decimal_mode=is_decimal_mode, zero=zero)
+    safe_division_mask = _safe_local_daily_return_mask(df, denominator, zero=zero)
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        _apply_local_daily_return_division(
+            numerator,
+            denominator,
+            local_ror,
+            safe_division_mask,
+            is_decimal_mode=is_decimal_mode,
+        )
+
+    return _LocalDailyReturn(local_ror=local_ror, hundred=hundred)
+
+
+def _local_daily_return_numerator(df: pd.DataFrame, metric_basis: str, *, is_decimal_mode: bool):
     if is_decimal_mode:
         numerator = (
             df[PortfolioColumns.END_MV.value]
@@ -57,34 +75,50 @@ def _calculate_local_daily_return(df: pd.DataFrame, metric_basis: str) -> _Local
         )
         if metric_basis == "NET":
             numerator += df[PortfolioColumns.MGMT_FEES.value]
-        denominator = (df[PortfolioColumns.BEGIN_MV.value] + df[PortfolioColumns.BOD_CF.value]).abs()
-        local_ror = pd.Series([zero] * len(df), index=df.index, dtype=object)
-    else:
-        numerator = (
-            df[PortfolioColumns.END_MV.value]
-            - df[PortfolioColumns.BOD_CF.value]
-            - df[PortfolioColumns.BEGIN_MV.value]
-            - df[PortfolioColumns.EOD_CF.value]
-        ).to_numpy(copy=True)
-        if metric_basis == "NET":
-            numerator += df[PortfolioColumns.MGMT_FEES.value].to_numpy(copy=False)
-        denominator = np.abs(df[PortfolioColumns.BEGIN_MV.value] + df[PortfolioColumns.BOD_CF.value]).to_numpy(
-            copy=False
-        )
-        local_ror_np = np.full(denominator.shape, 0.0, dtype=np.float64)
+        return numerator
 
+    numerator = (
+        df[PortfolioColumns.END_MV.value]
+        - df[PortfolioColumns.BOD_CF.value]
+        - df[PortfolioColumns.BEGIN_MV.value]
+        - df[PortfolioColumns.EOD_CF.value]
+    ).to_numpy(copy=True)
+    if metric_basis == "NET":
+        numerator += df[PortfolioColumns.MGMT_FEES.value].to_numpy(copy=False)
+    return numerator
+
+
+def _local_daily_return_denominator(df: pd.DataFrame, *, is_decimal_mode: bool):
+    denominator = df[PortfolioColumns.BEGIN_MV.value] + df[PortfolioColumns.BOD_CF.value]
+    if is_decimal_mode:
+        return denominator.abs()
+    return np.abs(denominator).to_numpy(copy=False)
+
+
+def _zero_local_daily_return(df: pd.DataFrame, denominator, *, is_decimal_mode: bool, zero):
+    if is_decimal_mode:
+        return pd.Series([zero] * len(df), index=df.index, dtype=object)
+    return pd.Series(np.full(denominator.shape, 0.0, dtype=np.float64), index=df.index)
+
+
+def _safe_local_daily_return_mask(df: pd.DataFrame, denominator, *, zero):
     is_after_start = df[PortfolioColumns.PERF_DATE.value] >= df[PortfolioColumns.EFFECTIVE_PERIOD_START_DATE.value]
-    safe_division_mask = (denominator != zero) & is_after_start
+    return (denominator != zero) & is_after_start
 
-    with np.errstate(divide="ignore", invalid="ignore"):
-        if is_decimal_mode:
-            if safe_division_mask.any():
-                local_ror.loc[safe_division_mask] = numerator[safe_division_mask] / denominator[safe_division_mask]
-        else:
-            np.divide(numerator, denominator, out=local_ror_np, where=safe_division_mask)
-            local_ror = pd.Series(local_ror_np, index=df.index)
 
-    return _LocalDailyReturn(local_ror=local_ror, hundred=hundred)
+def _apply_local_daily_return_division(
+    numerator,
+    denominator,
+    local_ror: pd.Series,
+    safe_division_mask,
+    *,
+    is_decimal_mode: bool,
+) -> None:
+    if is_decimal_mode:
+        if safe_division_mask.any():
+            local_ror.loc[safe_division_mask] = numerator[safe_division_mask] / denominator[safe_division_mask]
+        return
+    np.divide(numerator, denominator, out=local_ror.to_numpy(copy=False), where=safe_division_mask)
 
 
 def _should_decompose_currency(config: EngineConfig | None) -> bool:
