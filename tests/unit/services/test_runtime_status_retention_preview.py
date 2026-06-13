@@ -31,6 +31,24 @@ def test_runtime_status_runtime_retention_preview_fields_map_summary_counts():
     assert fields.prunable_lineage_artifact_count == 6
 
 
+def test_runtime_status_runtime_retention_preview_fields_map_missing_summary_to_empty_counts():
+    fields = runtime_status_retention_preview.runtime_retention_preview_fields(
+        preview_status="unavailable",
+        preview_reason="RuntimeError",
+        preview_summary=None,
+    )
+
+    assert fields.status == "unavailable"
+    assert fields.reason == "RuntimeError"
+    assert fields.cutoff_utc is None
+    assert fields.retention_days is None
+    assert fields.prunable_execution_count is None
+    assert fields.prunable_compute_job_count is None
+    assert fields.prunable_async_result_count is None
+    assert fields.prunable_lineage_record_count is None
+    assert fields.prunable_lineage_artifact_count is None
+
+
 def test_runtime_status_runtime_retention_preview_reports_unavailable_dependency(mocker, caplog):
     mocker.patch(
         "app.services.runtime_status_retention_preview.run_runtime_retention_cleanup",
