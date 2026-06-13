@@ -459,16 +459,22 @@ def _analyze_position_reconciliation_gaps(
 def _select_latest_position_rows(position_rows: list[dict[str, object]]) -> list[dict[str, object]]:
     selected: dict[tuple[str, str], tuple[int, dict[str, object]]] = {}
     for row in position_rows:
-        valuation_date = row.get("valuation_date")
-        position_id = row.get("position_id")
-        if not isinstance(valuation_date, str) or not isinstance(position_id, str):
+        key = _position_row_selection_key(row)
+        if key is None:
             continue
         epoch = _parse_epoch_value(row)
-        key = (valuation_date, position_id)
         current = selected.get(key)
         if current is None or epoch >= current[0]:
             selected[key] = (epoch, row)
     return [row for _, row in selected.values()]
+
+
+def _position_row_selection_key(row: dict[str, object]) -> tuple[str, str] | None:
+    valuation_date = row.get("valuation_date")
+    position_id = row.get("position_id")
+    if not isinstance(valuation_date, str) or not isinstance(position_id, str):
+        return None
+    return valuation_date, position_id
 
 
 def _position_rows_from_payload(position_payload: dict[str, object]) -> list[dict[str, object]]:
