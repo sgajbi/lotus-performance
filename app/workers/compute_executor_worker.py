@@ -657,22 +657,59 @@ def _resolve_async_twr_job_request(
 ]:
     resolved_request_payload = payload.get("resolved_request")
     source_input_mode = payload.get("source_input_mode")
+    if isinstance(resolved_request_payload, dict) and isinstance(source_input_mode, str):
+        return _resolve_persisted_twr_job_request(
+            payload,
+            resolved_request_payload=resolved_request_payload,
+            source_input_mode=source_input_mode,
+        )
+    return _resolve_raw_twr_job_request(payload, settings=settings)
+
+
+def _resolve_persisted_twr_job_request(
+    payload: dict[str, Any],
+    *,
+    resolved_request_payload: dict[str, Any],
+    source_input_mode: str,
+) -> tuple[
+    TWRResolvedExecutionRequest,
+    TWRInputMode,
+    TWRResolvedExecutionRequest,
+    str,
+    str | None,
+    BenchmarkInputMode | None,
+    str,
+    bool,
+]:
+    resolved_request = TWRResolvedExecutionRequest.model_validate(resolved_request_payload)
     benchmark_input_mode = payload.get("benchmark_input_mode")
     resolved_benchmark_id = payload.get("resolved_benchmark_id")
-    benchmark_return_source = payload.get("benchmark_return_source", "calculated")
-    if isinstance(resolved_request_payload, dict) and isinstance(source_input_mode, str):
-        resolved_request = TWRResolvedExecutionRequest.model_validate(resolved_request_payload)
-        return (
-            resolved_request,
-            TWRInputMode(source_input_mode),
-            resolved_request,
-            payload.get("portfolio_id", resolved_request.portfolio.portfolio_id),
-            resolved_benchmark_id if isinstance(resolved_benchmark_id, str) else None,
-            BenchmarkInputMode(benchmark_input_mode) if isinstance(benchmark_input_mode, str) else None,
-            benchmark_return_source,
-            True,
-        )
+    return (
+        resolved_request,
+        TWRInputMode(source_input_mode),
+        resolved_request,
+        payload.get("portfolio_id", resolved_request.portfolio.portfolio_id),
+        resolved_benchmark_id if isinstance(resolved_benchmark_id, str) else None,
+        BenchmarkInputMode(benchmark_input_mode) if isinstance(benchmark_input_mode, str) else None,
+        payload.get("benchmark_return_source", "calculated"),
+        True,
+    )
 
+
+def _resolve_raw_twr_job_request(
+    payload: dict[str, Any],
+    *,
+    settings,
+) -> tuple[
+    TWRResolvedExecutionRequest,
+    TWRInputMode,
+    TWRResolvedExecutionRequest | TWRAnalyticsRequest,
+    str,
+    str | None,
+    BenchmarkInputMode | None,
+    str,
+    bool,
+]:
     analytics_request = TWRAnalyticsRequest.model_validate(payload)
     resolved_request = asyncio.run(resolve_twr_request(analytics_request, settings=settings))
     resolved_identity_payload = TWRResolvedExecutionRequest(

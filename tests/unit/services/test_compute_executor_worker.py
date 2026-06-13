@@ -1688,6 +1688,35 @@ def test_compute_executor_worker_resolves_twr_jobs_from_resolved_payload_and_raw
     assert source == "calculated"
     assert should_update is True
 
+    persisted_without_optional_identity = {
+        "resolved_request": resolved_request_payload,
+        "source_input_mode": "stateful",
+        "benchmark_input_mode": None,
+        "resolved_benchmark_id": 123,
+    }
+
+    (
+        resolved_request,
+        input_mode,
+        request_artifact_model,
+        portfolio_id,
+        benchmark_id,
+        benchmark_input_mode,
+        source,
+        should_update,
+    ) = compute_executor_worker._resolve_async_twr_job_request(
+        persisted_without_optional_identity,
+        settings=_worker_settings(),
+    )
+
+    assert input_mode == compute_executor_worker.TWRInputMode.STATEFUL
+    assert request_artifact_model == resolved_request
+    assert portfolio_id == "P1"
+    assert benchmark_id is None
+    assert benchmark_input_mode is None
+    assert source == "calculated"
+    assert should_update is True
+
     analytics_request = compute_executor_worker.TWRAnalyticsRequest.model_validate(
         {
             "calculation_id": str(uuid4()),
