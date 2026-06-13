@@ -16,7 +16,10 @@ from app.services.execution_registry import execution_registry
 from app.services.execution_stage_names import EXECUTION_STAGE_NORMALIZATION, EXECUTION_STAGE_RETRIEVAL
 from app.services.input_mode_validation import require_stateful_input, require_stateless_input
 from app.services.portfolio_source_service import build_stateful_input_service
-from app.services.stateful_benchmark_input_service import build_stateful_benchmark_input
+from app.services.stateful_benchmark_input_service import (
+    StatefulBenchmarkNormalizedInput,
+    build_stateful_benchmark_input,
+)
 from app.services.stateless_benchmark_input_service import normalize_stateless_component_observations
 
 
@@ -60,6 +63,28 @@ def _resolve_stateless_benchmark_request(request: BenchmarkAnalyticsRequest) -> 
     )
 
 
+def _stateful_benchmark_performance_request(
+    request: BenchmarkAnalyticsRequest,
+    normalized_input: StatefulBenchmarkNormalizedInput,
+) -> BenchmarkPerformanceRequest:
+    return request.to_benchmark_performance_request(
+        benchmark_currency=normalized_input.benchmark_currency,
+        component_observations=[
+            observation.model_dump(mode="python") for observation in normalized_input.component_observations
+        ],
+        benchmark_return_points=[point.model_dump(mode="python") for point in normalized_input.benchmark_return_points],
+    )
+
+
+def _stateful_benchmark_input_count(
+    request: BenchmarkAnalyticsRequest,
+    normalized_input: StatefulBenchmarkNormalizedInput,
+) -> int:
+    if request.return_source.value == "calculated":
+        return len(normalized_input.component_observations)
+    return len(normalized_input.benchmark_return_points)
+
+
 async def resolve_benchmark_request(
     request: BenchmarkAnalyticsRequest,
     *,
@@ -93,15 +118,7 @@ async def resolve_benchmark_request(
 
     execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_NORMALIZATION)
     try:
-        benchmark_request = request.to_benchmark_performance_request(
-            benchmark_currency=normalized_input.benchmark_currency,
-            component_observations=[
-                observation.model_dump(mode="python") for observation in normalized_input.component_observations
-            ],
-            benchmark_return_points=[
-                point.model_dump(mode="python") for point in normalized_input.benchmark_return_points
-            ],
-        )
+        benchmark_request = _stateful_benchmark_performance_request(request, normalized_input)
         execution_registry.complete_stage(
             request.calculation_id,
             EXECUTION_STAGE_NORMALIZATION,
@@ -118,9 +135,5 @@ async def resolve_benchmark_request(
         benchmark_request=benchmark_request,
         input_mode=BenchmarkInputMode.STATEFUL,
         source_details=normalized_input.source_details,
-        input_count=(
-            len(normalized_input.component_observations)
-            if request.return_source.value == "calculated"
-            else len(normalized_input.benchmark_return_points)
-        ),
+        input_count=_stateful_benchmark_input_count(request, normalized_input),
     )
