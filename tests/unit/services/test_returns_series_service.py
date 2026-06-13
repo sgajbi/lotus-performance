@@ -788,6 +788,30 @@ def test_build_resolved_stateful_returns_series_request_completes_normalization_
     }
 
 
+def test_resolved_stateful_returns_series_request_payload_promotes_stateless_input():
+    request = _build_stateful_request(
+        series_selection={"include_portfolio": True, "include_benchmark": True, "include_risk_free": True},
+        risk_free={"source": "SOFR"},
+    )
+    identity_payload = {
+        "stateless_input": {
+            "portfolio_returns": [{"date": "2026-02-23", "return": 0.01}],
+            "benchmark_returns": [{"date": "2026-02-23", "return": 0.008}],
+            "risk_free_returns": [{"date": "2026-02-23", "return": 0.001}],
+        }
+    }
+
+    payload = returns_series_service._resolved_stateful_returns_series_request_payload(
+        request=request,
+        identity_payload=identity_payload,
+    )
+
+    assert payload["input_mode"] == InputMode.STATELESS.value
+    assert payload["portfolio_id"] == request.portfolio_id
+    assert payload["risk_free"] == request.risk_free.model_dump(mode="json")
+    assert payload["stateless_input"] == identity_payload["stateless_input"]
+
+
 @pytest.mark.asyncio
 async def test_resolve_stateful_returns_series_benchmark_id_uses_assignment_when_missing():
     request = _build_stateful_request()

@@ -844,29 +844,38 @@ def _build_resolved_stateful_returns_series_request(
         resolved_benchmark_return_source=(resolved_benchmark_return_source.value if resolved_benchmark_id else None),
     )
     resolved_request = ReturnsSeriesRequest.model_validate(
-        {
-            "calculation_id": str(request.calculation_id),
-            "portfolio_id": request.portfolio_id,
-            "as_of_date": request.as_of_date.isoformat(),
-            "window": request.window.model_dump(mode="json"),
-            "frequency": request.frequency.value,
-            "metric_basis": request.metric_basis.value,
-            "reporting_currency": request.reporting_currency,
-            "series_selection": request.series_selection.model_dump(mode="json"),
-            "risk_free": request.risk_free.model_dump(mode="json") if request.risk_free is not None else None,
-            "data_policy": request.data_policy.model_dump(mode="json"),
-            "input_mode": InputMode.STATELESS.value,
-            "stateless_input": {
-                "portfolio_returns": identity_payload["stateless_input"]["portfolio_returns"],
-                "benchmark_returns": identity_payload["stateless_input"]["benchmark_returns"],
-                "risk_free_returns": identity_payload["stateless_input"]["risk_free_returns"],
-            },
-        }
+        _resolved_stateful_returns_series_request_payload(request=request, identity_payload=identity_payload)
     )
     return _StatefulReturnsSeriesResolvedRequest(
         request=resolved_request,
         identity_payload=identity_payload,
     )
+
+
+def _resolved_stateful_returns_series_request_payload(
+    *,
+    request: ReturnsSeriesRequest,
+    identity_payload: dict[str, Any],
+) -> dict[str, Any]:
+    stateless_input = identity_payload["stateless_input"]
+    return {
+        "calculation_id": str(request.calculation_id),
+        "portfolio_id": request.portfolio_id,
+        "as_of_date": request.as_of_date.isoformat(),
+        "window": request.window.model_dump(mode="json"),
+        "frequency": request.frequency.value,
+        "metric_basis": request.metric_basis.value,
+        "reporting_currency": request.reporting_currency,
+        "series_selection": request.series_selection.model_dump(mode="json"),
+        "risk_free": request.risk_free.model_dump(mode="json") if request.risk_free is not None else None,
+        "data_policy": request.data_policy.model_dump(mode="json"),
+        "input_mode": InputMode.STATELESS.value,
+        "stateless_input": {
+            "portfolio_returns": stateless_input["portfolio_returns"],
+            "benchmark_returns": stateless_input["benchmark_returns"],
+            "risk_free_returns": stateless_input["risk_free_returns"],
+        },
+    }
 
 
 async def _resolve_stateful_returns_series_benchmark_id(
