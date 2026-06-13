@@ -21,25 +21,25 @@ python scripts/python_function_size_inventory.py --limit 20
 | Rank | Function | File | Lines |
 | ---: | --- | --- | ---: |
 | 1 | `DurableQueueCollector.describe` | `app/services/queue_metrics_service.py:193` | 159 |
-| 2 | `_build_external_cashflow_findings` | `app/services/inspection/source_economics_findings.py:281` | 140 |
-| 3 | `build_runtime_status_response` | `app/models/runtime_status.py:767` | 131 |
-| 4 | `_build_fee_source_economics_findings` | `app/services/inspection/source_economics_findings.py:423` | 130 |
-| 5 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:327` | 130 |
-| 6 | `run_runtime_retention_cleanup` | `app/services/runtime_retention_run_service.py:32` | 111 |
-| 7 | `calculate_attribution` | `app/services/attribution_service.py:206` | 104 |
-| 8 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:206` | 102 |
-| 9 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:310` | 102 |
-| 10 | `aggregate_attribution_results` | `engine/attribution.py:648` | 102 |
-| 11 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:87` | 101 |
-| 12 | `_calculate_returns_series` | `app/services/returns_series_service.py:1317` | 97 |
-| 13 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:62` | 97 |
-| 14 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:88` | 95 |
-| 15 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:31` | 94 |
-| 16 | `build_stateful_benchmark_input` | `app/services/stateful_benchmark_input_service.py:57` | 93 |
-| 17 | `calculate_twr_response` | `app/services/twr_service.py:1007` | 93 |
-| 18 | `_build_artifacts` | `app/services/composite_inspection_service.py:151` | 89 |
-| 19 | `LineageMetadataStore.list_inspection_items` | `app/services/lineage_metadata_store.py:507` | 85 |
-| 20 | `build_recovery_drill_history_snapshot` | `app/services/recovery_drill_history_service.py:62` | 85 |
+| 2 | `build_runtime_status_response` | `app/models/runtime_status.py:767` | 131 |
+| 3 | `_build_fee_source_economics_findings` | `app/services/inspection/source_economics_findings.py:398` | 130 |
+| 4 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:327` | 130 |
+| 5 | `run_runtime_retention_cleanup` | `app/services/runtime_retention_run_service.py:32` | 111 |
+| 6 | `calculate_attribution` | `app/services/attribution_service.py:206` | 104 |
+| 7 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:206` | 102 |
+| 8 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:310` | 102 |
+| 9 | `aggregate_attribution_results` | `engine/attribution.py:648` | 102 |
+| 10 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:87` | 101 |
+| 11 | `_calculate_returns_series` | `app/services/returns_series_service.py:1317` | 97 |
+| 12 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:62` | 97 |
+| 13 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:88` | 95 |
+| 14 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:31` | 94 |
+| 15 | `build_stateful_benchmark_input` | `app/services/stateful_benchmark_input_service.py:57` | 93 |
+| 16 | `calculate_twr_response` | `app/services/twr_service.py:1007` | 93 |
+| 17 | `_build_artifacts` | `app/services/composite_inspection_service.py:151` | 89 |
+| 18 | `LineageMetadataStore.list_inspection_items` | `app/services/lineage_metadata_store.py:507` | 85 |
+| 19 | `build_recovery_drill_history_snapshot` | `app/services/recovery_drill_history_service.py:62` | 85 |
+| 20 | `build_runtime_recovery_snapshot` | `app/services/runtime_recovery_service.py:46` | 84 |
 
 ## Interpretation
 
@@ -78,6 +78,8 @@ Source-economics top-level finding assembly dropped from `258` lines out of the 
 observation-contract, explicit-amount-contract, and detailed cash-flow contract finding groups were
 isolated. `_build_detailed_cashflow_contract_findings` dropped out of the top-20 table after the
 detailed cash-flow source contract taxonomy was converted to an explicit ordered catalog.
+`_build_external_cashflow_findings` dropped out of the top-20 table after external cash-flow finding
+construction was converted to the same explicit ordered catalog pattern.
 TWR inspection orchestration remains in the top-15 table but moved from `147` to `131` lines after
 subject-resolution stage lifecycle handling was isolated from the public inspection orchestrator.
 TWR inspection orchestration dropped out of the top-15 table after subject request materialization

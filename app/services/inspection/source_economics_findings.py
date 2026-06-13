@@ -14,6 +14,9 @@ class _SourceEconomicsFindingDefinition:
     summary: str
     explanation: str
     recommended_action: str
+    severity: str = "warning"
+    category: str = "documentation_drift"
+    owner_repo: str = "lotus-core"
 
 
 _DETAILED_CASHFLOW_CONTRACT_FINDINGS = (
@@ -128,6 +131,102 @@ _DETAILED_CASHFLOW_CONTRACT_FINDINGS = (
         recommended_action=(
             "Review lotus-core cash_flow_type vocabulary and define whether each label should be modeled as "
             "a fee, external flow, income/accrual item, tax item, or another explicit analytics-input role."
+        ),
+    ),
+)
+
+
+_EXTERNAL_CASHFLOW_FINDINGS = (
+    _SourceEconomicsFindingDefinition(
+        sample_attr="external_normalization_samples",
+        code="EXTERNAL_CASHFLOW_NORMALIZATION_MISMATCH",
+        severity="high",
+        category="cashflow_classification",
+        owner_repo="lotus-performance",
+        summary="External source cash flows were not normalized into the served TWR valuation points accurately.",
+        explanation=(
+            "The raw portfolio observation includes external-flow cash movements, but the normalized TWR "
+            "valuation points do not preserve those bod_cf or eod_cf amounts faithfully."
+        ),
+        recommended_action=(
+            "Review stateful portfolio normalization in lotus-performance so external cash flows tie exactly "
+            "from the raw portfolio source into the served valuation points."
+        ),
+    ),
+    _SourceEconomicsFindingDefinition(
+        sample_attr="duplicate_external_signal_samples",
+        code="DUPLICATE_EXTERNAL_CASHFLOW_SOURCE_SIGNAL",
+        severity="high",
+        category="cashflow_classification",
+        summary="The stateful portfolio source exposes duplicate external cash-flow signals for the same timing bucket.",
+        explanation=(
+            "The raw portfolio observation carries both detailed external cash-flow rows and a separate "
+            "explicit bod/eod aggregate with the same magnitude, creating a duplication risk in downstream economics."
+        ),
+        recommended_action=(
+            "Review lotus-core portfolio-timeseries cash-flow semantics and emit one authoritative external "
+            "cash-flow signal per timing bucket."
+        ),
+    ),
+    _SourceEconomicsFindingDefinition(
+        sample_attr="external_source_mismatch_samples",
+        code="EXTERNAL_CASHFLOW_SOURCE_TOTAL_MISMATCH",
+        severity="high",
+        category="cashflow_classification",
+        summary="The stateful portfolio source serves conflicting external cash-flow totals for the same timing bucket.",
+        explanation=(
+            "The raw portfolio observation includes a bod/eod external cash-flow aggregate that does not tie "
+            "to the detailed external cash-flow rows for the same valuation date."
+        ),
+        recommended_action=(
+            "Review lotus-core portfolio-timeseries cash-flow aggregation so explicit bod/eod totals and "
+            "detailed external cash-flow rows reconcile."
+        ),
+    ),
+    _SourceEconomicsFindingDefinition(
+        sample_attr="external_timing_contradiction_samples",
+        code="EXTERNAL_CASHFLOW_TIMING_BUCKET_CONTRADICTION",
+        severity="high",
+        category="cashflow_classification",
+        summary="The stateful portfolio source serves external cash-flow totals in one timing bucket and detailed rows in the opposite bucket.",
+        explanation=(
+            "The raw portfolio observation includes a bod or eod external cash-flow aggregate, but the "
+            "detailed external cash-flow rows for the same valuation date exist only in the opposite timing bucket."
+        ),
+        recommended_action=(
+            "Review lotus-core portfolio-timeseries cash-flow timing semantics so explicit bod/eod totals "
+            "and detailed external cash-flow rows classify the movement in the same timing bucket."
+        ),
+    ),
+    _SourceEconomicsFindingDefinition(
+        sample_attr="external_mixed_timing_samples",
+        code="EXTERNAL_CASHFLOW_MIXED_TIMING_BUCKETS",
+        category="cashflow_classification",
+        summary="The stateful portfolio source serves detailed external cash flows in both timing buckets for the same valuation date.",
+        explanation=(
+            "The raw portfolio observation includes detailed external-flow rows in both beginning-of-day and "
+            "end-of-day buckets on the same valuation date. That can be legitimate, but it is timing-sensitive "
+            "for TWR support and should be visible as source-economics evidence."
+        ),
+        recommended_action=(
+            "Review the lotus-core transaction story for the sampled dates and confirm both external timing "
+            "buckets are intentional and reconcile to the normalized TWR valuation points."
+        ),
+    ),
+    _SourceEconomicsFindingDefinition(
+        sample_attr="external_explicit_mixed_timing_samples",
+        code="EXTERNAL_CASHFLOW_EXPLICIT_MIXED_TIMING_BUCKETS",
+        category="cashflow_classification",
+        summary="The stateful portfolio source serves explicit external cash-flow totals in both timing buckets for the same valuation date.",
+        explanation=(
+            "The raw portfolio observation includes explicit beginning-of-day and end-of-day external "
+            "cash-flow totals on the same valuation date. That can be legitimate, but it is timing-sensitive "
+            "for TWR support even when no detailed rows are present, so the inspector preserves it as "
+            "source-economics evidence."
+        ),
+        recommended_action=(
+            "Review the lotus-core transaction story for the sampled dates and confirm both explicit external "
+            "timing buckets are intentional and reconcile to the normalized TWR valuation points."
         ),
     ),
 )
@@ -267,9 +366,9 @@ def _append_source_economics_finding(
     findings.append(
         TWRInspectionFinding(
             code=definition.code,
-            severity="warning",
-            category="documentation_drift",
-            owner_repo="lotus-core",
+            severity=definition.severity,
+            category=definition.category,
+            owner_repo=definition.owner_repo,
             summary=definition.summary,
             explanation=definition.explanation,
             recommended_action=definition.recommended_action,
@@ -285,136 +384,12 @@ def _build_external_cashflow_findings(
 ) -> list[TWRInspectionFinding]:
     findings: list[TWRInspectionFinding] = []
 
-    if samples.external_normalization_samples:
-        findings.append(
-            TWRInspectionFinding(
-                code="EXTERNAL_CASHFLOW_NORMALIZATION_MISMATCH",
-                severity="high",
-                category="cashflow_classification",
-                owner_repo="lotus-performance",
-                summary="External source cash flows were not normalized into the served TWR valuation points accurately.",
-                explanation=(
-                    "The raw portfolio observation includes external-flow cash movements, but the normalized TWR "
-                    "valuation points do not preserve those bod_cf or eod_cf amounts faithfully."
-                ),
-                recommended_action=(
-                    "Review stateful portfolio normalization in lotus-performance so external cash flows tie exactly "
-                    "from the raw portfolio source into the served valuation points."
-                ),
-                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=samples.external_normalization_samples),
-            )
-        )
-
-    if samples.duplicate_external_signal_samples:
-        findings.append(
-            TWRInspectionFinding(
-                code="DUPLICATE_EXTERNAL_CASHFLOW_SOURCE_SIGNAL",
-                severity="high",
-                category="cashflow_classification",
-                owner_repo="lotus-core",
-                summary="The stateful portfolio source exposes duplicate external cash-flow signals for the same timing bucket.",
-                explanation=(
-                    "The raw portfolio observation carries both detailed external cash-flow rows and a separate "
-                    "explicit bod/eod aggregate with the same magnitude, creating a duplication risk in downstream economics."
-                ),
-                recommended_action=(
-                    "Review lotus-core portfolio-timeseries cash-flow semantics and emit one authoritative external "
-                    "cash-flow signal per timing bucket."
-                ),
-                evidence=_sample_evidence(
-                    portfolio_id=portfolio_id,
-                    samples=samples.duplicate_external_signal_samples,
-                ),
-            )
-        )
-
-    if samples.external_source_mismatch_samples:
-        findings.append(
-            TWRInspectionFinding(
-                code="EXTERNAL_CASHFLOW_SOURCE_TOTAL_MISMATCH",
-                severity="high",
-                category="cashflow_classification",
-                owner_repo="lotus-core",
-                summary="The stateful portfolio source serves conflicting external cash-flow totals for the same timing bucket.",
-                explanation=(
-                    "The raw portfolio observation includes a bod/eod external cash-flow aggregate that does not tie "
-                    "to the detailed external cash-flow rows for the same valuation date."
-                ),
-                recommended_action=(
-                    "Review lotus-core portfolio-timeseries cash-flow aggregation so explicit bod/eod totals and "
-                    "detailed external cash-flow rows reconcile."
-                ),
-                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=samples.external_source_mismatch_samples),
-            )
-        )
-
-    if samples.external_timing_contradiction_samples:
-        findings.append(
-            TWRInspectionFinding(
-                code="EXTERNAL_CASHFLOW_TIMING_BUCKET_CONTRADICTION",
-                severity="high",
-                category="cashflow_classification",
-                owner_repo="lotus-core",
-                summary="The stateful portfolio source serves external cash-flow totals in one timing bucket and detailed rows in the opposite bucket.",
-                explanation=(
-                    "The raw portfolio observation includes a bod or eod external cash-flow aggregate, but the "
-                    "detailed external cash-flow rows for the same valuation date exist only in the opposite timing bucket."
-                ),
-                recommended_action=(
-                    "Review lotus-core portfolio-timeseries cash-flow timing semantics so explicit bod/eod totals "
-                    "and detailed external cash-flow rows classify the movement in the same timing bucket."
-                ),
-                evidence=_sample_evidence(
-                    portfolio_id=portfolio_id,
-                    samples=samples.external_timing_contradiction_samples,
-                ),
-            )
-        )
-
-    if samples.external_mixed_timing_samples:
-        findings.append(
-            TWRInspectionFinding(
-                code="EXTERNAL_CASHFLOW_MIXED_TIMING_BUCKETS",
-                severity="warning",
-                category="cashflow_classification",
-                owner_repo="lotus-core",
-                summary="The stateful portfolio source serves detailed external cash flows in both timing buckets for the same valuation date.",
-                explanation=(
-                    "The raw portfolio observation includes detailed external-flow rows in both beginning-of-day and "
-                    "end-of-day buckets on the same valuation date. That can be legitimate, but it is timing-sensitive "
-                    "for TWR support and should be visible as source-economics evidence."
-                ),
-                recommended_action=(
-                    "Review the lotus-core transaction story for the sampled dates and confirm both external timing "
-                    "buckets are intentional and reconcile to the normalized TWR valuation points."
-                ),
-                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=samples.external_mixed_timing_samples),
-            )
-        )
-
-    if samples.external_explicit_mixed_timing_samples:
-        findings.append(
-            TWRInspectionFinding(
-                code="EXTERNAL_CASHFLOW_EXPLICIT_MIXED_TIMING_BUCKETS",
-                severity="warning",
-                category="cashflow_classification",
-                owner_repo="lotus-core",
-                summary="The stateful portfolio source serves explicit external cash-flow totals in both timing buckets for the same valuation date.",
-                explanation=(
-                    "The raw portfolio observation includes explicit beginning-of-day and end-of-day external "
-                    "cash-flow totals on the same valuation date. That can be legitimate, but it is timing-sensitive "
-                    "for TWR support even when no detailed rows are present, so the inspector preserves it as "
-                    "source-economics evidence."
-                ),
-                recommended_action=(
-                    "Review the lotus-core transaction story for the sampled dates and confirm both explicit external "
-                    "timing buckets are intentional and reconcile to the normalized TWR valuation points."
-                ),
-                evidence=_sample_evidence(
-                    portfolio_id=portfolio_id,
-                    samples=samples.external_explicit_mixed_timing_samples,
-                ),
-            )
+    for definition in _EXTERNAL_CASHFLOW_FINDINGS:
+        _append_source_economics_finding(
+            findings,
+            portfolio_id=portfolio_id,
+            samples=getattr(samples, definition.sample_attr),
+            definition=definition,
         )
 
     return findings

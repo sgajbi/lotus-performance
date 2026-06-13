@@ -84,6 +84,21 @@ def test_build_external_cashflow_findings_emits_external_findings_in_source_orde
         "warning",
         "warning",
     ]
+    assert {finding.category for finding in findings} == {"cashflow_classification"}
+    assert findings[-1].evidence == {
+        "portfolio_id": "PB_SG_GLOBAL_BAL_001",
+        "sample_dates": ["2026-03-17"],
+        "samples": [{"valuation_date": "2026-03-17"}],
+    }
+
+
+def test_build_external_cashflow_findings_suppresses_empty_external_samples():
+    findings = _build_external_cashflow_findings(
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        samples=_samples(),
+    )
+
+    assert findings == []
 
 
 def test_build_detailed_cashflow_contract_findings_emits_source_contract_findings_in_order():
