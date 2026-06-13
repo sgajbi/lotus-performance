@@ -241,31 +241,6 @@ def _position_value_inputs(
     )
 
 
-def _split_position_cash_flows(cash_flows_raw: object) -> tuple[Decimal, Decimal, Decimal]:
-    bod_cf = Decimal("0")
-    eod_cf = Decimal("0")
-    mgmt_fees = Decimal("0")
-    if not isinstance(cash_flows_raw, list):
-        return bod_cf, eod_cf, mgmt_fees
-
-    for flow in cash_flows_raw:
-        if not isinstance(flow, dict):
-            continue
-        amount = flow.get("amount")
-        timing = flow.get("timing")
-        cash_flow_type = flow.get("cash_flow_type")
-        if amount is None or timing not in {"bod", "eod"}:
-            continue
-        decimal_amount = Decimal(str(amount))
-        if cash_flow_type == "fee":
-            mgmt_fees += decimal_amount
-        if timing == "bod":
-            bod_cf += decimal_amount
-        else:
-            eod_cf += decimal_amount
-    return bod_cf, eod_cf, mgmt_fees
-
-
 def _position_meta_from_row(row: dict[str, object]) -> dict[str, object]:
     meta = _position_contract_meta_from_row(row)
     dimensions_raw = row.get("dimensions")

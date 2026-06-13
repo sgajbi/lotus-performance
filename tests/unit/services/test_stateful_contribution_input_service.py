@@ -13,7 +13,6 @@ from app.services.stateful_contribution_input_service import (
     _position_meta_from_row,
     _position_row_to_daily_point,
     _position_value_inputs,
-    _split_position_cash_flows,
     _stateful_contribution_position_series,
     _stateful_position_currencies,
     build_stateful_contribution_input,
@@ -363,28 +362,6 @@ def test_position_row_to_daily_point_converts_cash_flows_to_reporting_currency()
     assert point["bod_cf"] == Decimal("6.60")
     assert point["eod_cf"] == Decimal("-2.6400")
     assert point["mgmt_fees"] == Decimal("-1.32")
-
-
-def test_split_position_cash_flows_ignores_invalid_rows():
-    bod_cf, eod_cf, fees = _split_position_cash_flows(["bad", {"amount": None, "timing": "bod"}])
-
-    assert (bod_cf, eod_cf, fees) == (Decimal("0"), Decimal("0"), Decimal("0"))
-
-
-def test_split_position_cash_flows_handles_non_list_and_fee_accumulation():
-    assert _split_position_cash_flows(None) == (Decimal("0"), Decimal("0"), Decimal("0"))
-
-    bod_cf, eod_cf, fees = _split_position_cash_flows(
-        [
-            {"amount": "4.5", "timing": "bod"},
-            {"amount": "-2.0", "timing": "eod"},
-            {"amount": "-0.5", "timing": "eod", "cash_flow_type": "fee"},
-        ]
-    )
-
-    assert bod_cf == Decimal("4.5")
-    assert eod_cf == Decimal("-2.5")
-    assert fees == Decimal("-0.5")
 
 
 def test_position_meta_from_row_preserves_source_metadata():
