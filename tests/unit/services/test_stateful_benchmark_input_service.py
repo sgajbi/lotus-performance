@@ -12,6 +12,7 @@ from app.services.stateful_benchmark_input_service import (
     _build_component_observation,
     _build_component_observations,
     _build_normalized_component_series,
+    _component_price_series_points,
     _composition_segment_overlaps_window,
     _fx_rate_map_from_payload,
     _load_benchmark_definition_currency,
@@ -704,6 +705,19 @@ def test_required_fx_pairs_for_components_dedupes_non_benchmark_currencies():
     )
 
     assert pairs == {("EUR", "USD"), ("GBP", "USD")}
+
+
+def test_component_price_series_points_filters_dict_points_and_rejects_missing_or_empty_payloads():
+    assert _component_price_series_points(
+        index_id="IDX_USD",
+        series_payload={"points": [{"series_date": "2026-01-01"}, "bad"]},
+    ) == [{"series_date": "2026-01-01"}]
+
+    with pytest.raises(HTTPException, match="payload missing points"):
+        _component_price_series_points(index_id="IDX_USD", series_payload={})
+
+    with pytest.raises(HTTPException, match="payload empty"):
+        _component_price_series_points(index_id="IDX_USD", series_payload={"points": ["bad"]})
 
 
 @pytest.mark.asyncio

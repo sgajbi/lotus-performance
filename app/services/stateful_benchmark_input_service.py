@@ -466,6 +466,14 @@ def _component_price_series_from_response(
             upstream_status=series_status,
             context=f"for benchmark component {index_id}",
         )
+    series_points = _component_price_series_points(index_id=index_id, series_payload=series_payload)
+    return {
+        "points": series_points,
+        "series_currency": _infer_series_currency(index_id=index_id, points=series_points),
+    }
+
+
+def _component_price_series_points(*, index_id: str, series_payload: dict[str, Any]) -> list[dict[str, Any]]:
     points_raw = series_payload.get("points")
     if not isinstance(points_raw, list):
         raise HTTPException(
@@ -478,10 +486,7 @@ def _component_price_series_from_response(
             status_code=HTTP_422_UNPROCESSABLE,
             detail=f"index price-series payload empty for benchmark component {index_id}.",
         )
-    return {
-        "points": series_points,
-        "series_currency": _infer_series_currency(index_id=index_id, points=series_points),
-    }
+    return series_points
 
 
 def _infer_series_currency(*, index_id: str, points: list[dict[str, Any]]) -> str:
