@@ -7,6 +7,8 @@ from app.models.contribution_analytics_requests import ContributionInputMode
 from app.models.contribution_requests import ContributionRequest
 from app.services import contribution_evidence
 from app.services.contribution_source_economics import (
+    _has_unclassified_position_metadata,
+    _has_unsupported_cash_flow_types,
     _source_cash_flow_type_counts,
     _stateful_cash_flow_economics,
     _stateful_metadata_economics,
@@ -140,6 +142,14 @@ def test_source_cash_flow_type_counts_ignores_missing_or_invalid_source_economic
     assert _source_cash_flow_type_counts({}) == {}
     assert _source_cash_flow_type_counts({"_source_economics": []}) == {}
     assert _source_cash_flow_type_counts({"_source_economics": {"cash_flow_type_counts": []}}) == {}
+
+
+def test_source_economics_predicates_identify_unsupported_flows_and_unclassified_metadata():
+    request = _request_with_position_meta({"asset_class": "Unclassified"})
+
+    assert _has_unsupported_cash_flow_types({"external_flow": 1, "dividend": 1})
+    assert not _has_unsupported_cash_flow_types({"external_flow": 1, "fee": 1, "missing": 1})
+    assert _has_unclassified_position_metadata(request)
 
 
 def test_source_economics_evidence_ignores_boolean_cash_flow_type_counts():

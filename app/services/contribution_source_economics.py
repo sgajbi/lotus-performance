@@ -143,18 +143,24 @@ def _degraded_stateful_economics(
     upstream_snapshots: list[UpstreamSnapshotRecord],
 ) -> list[str]:
     degraded: set[str] = set()
-    unsupported_flow_count = sum(
-        count
-        for flow_type, count in cash_flow_type_counts.items()
-        if flow_type not in {"external_flow", "internal_trade_flow", "transfer", "fee", "missing"}
-    )
-    if unsupported_flow_count > 0:
+    if _has_unsupported_cash_flow_types(cash_flow_type_counts):
         degraded.add("unsupported_cash_flow_types")
-    if any("Unclassified" in position.meta.values() for position in request.positions_data):
+    if _has_unclassified_position_metadata(request):
         degraded.add("missing_classification")
     if not upstream_snapshots:
         degraded.add("upstream_snapshot_lineage_not_embedded")
     return sorted(degraded)
+
+
+def _has_unsupported_cash_flow_types(cash_flow_type_counts: Counter[str]) -> bool:
+    return any(
+        count > 0 and flow_type not in {"external_flow", "internal_trade_flow", "transfer", "fee", "missing"}
+        for flow_type, count in cash_flow_type_counts.items()
+    )
+
+
+def _has_unclassified_position_metadata(request: ContributionRequest) -> bool:
+    return any("Unclassified" in position.meta.values() for position in request.positions_data)
 
 
 def _stateful_reason_codes(
