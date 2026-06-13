@@ -123,15 +123,12 @@ def _resolved_request_payload_from_lineage_payload(request_payload: dict) -> dic
 def _load_request_payload(calculation_id: UUID, *, wait_seconds: float = 0.0) -> dict | None:
     deadline = time.monotonic() + wait_seconds
     while True:
-        payload = lineage_metadata_store.get_payload(calculation_id)
-        if payload is not None:
-            request_payload = _load_json_object(
-                payload.request_json,
-                calculation_id=calculation_id,
-                payload_name="lineage request",
-            )
-            if request_payload is not None:
-                return request_payload
+        request_payload = _request_payload_from_lineage_payload(
+            calculation_id=calculation_id,
+            payload=lineage_metadata_store.get_payload(calculation_id),
+        )
+        if request_payload is not None:
+            return request_payload
 
         request_path = Path(get_settings().LINEAGE_STORAGE_PATH) / str(calculation_id) / "request.json"
         if request_path.exists():
@@ -143,6 +140,20 @@ def _load_request_payload(calculation_id: UUID, *, wait_seconds: float = 0.0) ->
             break
         time.sleep(_REQUEST_PAYLOAD_POLL_INTERVAL_SECONDS)
     return None
+
+
+def _request_payload_from_lineage_payload(
+    *,
+    calculation_id: UUID,
+    payload: Any | None,
+) -> dict[str, Any] | None:
+    if payload is None:
+        return None
+    return _load_json_object(
+        payload.request_json,
+        calculation_id=calculation_id,
+        payload_name="lineage request",
+    )
 
 
 def _load_json_object(raw_payload: str, *, calculation_id: UUID, payload_name: str) -> dict[str, Any] | None:
