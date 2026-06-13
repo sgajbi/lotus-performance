@@ -859,12 +859,40 @@ def _position_row_to_daily_point(
     valuation_date = row.get("valuation_date")
     if not isinstance(valuation_date, str):
         return None
-    value_basis: PositionValueBasis
 
+    market_values = _position_daily_point_market_values(
+        row=row,
+        currency_mode=currency_mode,
+        reporting_currency=reporting_currency,
+    )
+    if market_values is None:
+        return None
+    begin_value, end_value, value_basis = market_values
+
+    bod_cf, eod_cf, _ = split_position_cash_flows_in_value_basis(
+        cash_flows_raw=row.get("cash_flows"),
+        row=row,
+        value_basis=value_basis,
+    )
+    return {
+        "perf_date": valuation_date,
+        "begin_mv": Decimal(str(begin_value)),
+        "end_mv": Decimal(str(end_value)),
+        "bod_cf": bod_cf,
+        "eod_cf": eod_cf,
+    }
+
+
+def _position_daily_point_market_values(
+    *,
+    row: dict[str, object],
+    currency_mode: str,
+    reporting_currency: str | None,
+) -> tuple[object, object, PositionValueBasis] | None:
     if currency_mode in {"LOCAL_ONLY", "BOTH"}:
         begin_value = row.get("beginning_market_value_position_currency")
         end_value = row.get("ending_market_value_position_currency")
-        value_basis = "position"
+        value_basis: PositionValueBasis = "position"
     elif reporting_currency is not None:
         begin_value = row.get("beginning_market_value_reporting_currency")
         end_value = row.get("ending_market_value_reporting_currency")
@@ -879,19 +907,7 @@ def _position_row_to_daily_point(
 
     if begin_value is None or end_value is None:
         return None
-
-    bod_cf, eod_cf, _ = split_position_cash_flows_in_value_basis(
-        cash_flows_raw=row.get("cash_flows"),
-        row=row,
-        value_basis=value_basis,
-    )
-    return {
-        "perf_date": valuation_date,
-        "begin_mv": Decimal(str(begin_value)),
-        "end_mv": Decimal(str(end_value)),
-        "bod_cf": bod_cf,
-        "eod_cf": eod_cf,
-    }
+    return begin_value, end_value, value_basis
 
 
 def _position_row_to_base_weight_point(

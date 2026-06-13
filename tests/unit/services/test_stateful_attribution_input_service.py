@@ -22,6 +22,7 @@ from app.services.stateful_attribution_input_service import (
     _parse_index_catalog,
     _parse_position_rows,
     _portfolio_market_values_by_date,
+    _position_daily_point_market_values,
     _position_market_value_pair,
     _position_market_value_totals_by_date,
     _position_meta_from_row,
@@ -1307,6 +1308,30 @@ def test_stateful_attribution_position_row_to_daily_point_requires_market_values
         )
         is None
     )
+
+
+def test_position_daily_point_market_values_preserve_reporting_basis_on_portfolio_value_fallback():
+    assert _position_daily_point_market_values(
+        row={
+            "beginning_market_value_reporting_currency": None,
+            "ending_market_value_reporting_currency": None,
+            "beginning_market_value_portfolio_currency": "100",
+            "ending_market_value_portfolio_currency": "101",
+        },
+        currency_mode="BASE_ONLY",
+        reporting_currency="USD",
+    ) == ("100", "101", "reporting")
+
+
+def test_position_daily_point_market_values_uses_position_values_for_local_currency_mode():
+    assert _position_daily_point_market_values(
+        row={
+            "beginning_market_value_position_currency": "90",
+            "ending_market_value_position_currency": "95",
+        },
+        currency_mode="LOCAL_ONLY",
+        reporting_currency="USD",
+    ) == ("90", "95", "position")
 
 
 def test_stateful_attribution_position_row_to_daily_point_falls_back_from_null_reporting_currency_values():
