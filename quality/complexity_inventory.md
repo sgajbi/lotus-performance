@@ -32,37 +32,37 @@ must stay at `0`.
 | --- | ---: |
 | Max cyclomatic complexity | 8 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.19 |
+| Average maintainability index | 55.18 |
 
 ## Highest Cyclomatic Complexity
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `get_effective_period_start_dates` | function | `engine/periods.py:8` | 8 | B |
-| 2 | `_calculate_local_daily_return` | function | `engine/ror.py:46` | 8 | B |
-| 3 | `_allowed_audit_metadata` | function | `app/enterprise_authorization.py:39` | 7 | B |
-| 4 | `to_benchmark_performance_request` | method | `app/models/benchmark_analytics_requests.py:299` | 7 | B |
-| 5 | `to_stateless_contribution_request` | method | `app/models/contribution_analytics_requests.py:122` | 7 | B |
-| 6 | `TWRInspectionRequest` | class | `app/models/inspection_requests.py:56` | 7 | B |
-| 7 | `_validate_stateless_twr_payloads` | function | `app/models/twr_requests.py:137` | 7 | B |
-| 8 | `_validate_workspace_summary_stateless_inputs` | function | `app/models/workspace_summary_requests.py:286` | 7 | B |
-| 9 | `record_mwr_solver_outcome` | function | `app/observability.py:167` | 7 | B |
-| 10 | `_validation_error_json_content` | function | `app/openapi_enrichment.py:484` | 7 | B |
-| 11 | `_ensure_request_body_example` | function | `app/openapi_enrichment.py:529` | 7 | B |
-| 12 | `_ensure_model_schema_documentation` | function | `app/openapi_enrichment.py:705` | 7 | B |
-| 13 | `_ensure_property_schema_documentation` | function | `app/openapi_enrichment.py:729` | 7 | B |
-| 14 | `calculate_attribution_workflow` | function | `app/services/attribution_calculation_workflow_service.py:186` | 7 | B |
-| 15 | `calculate_benchmark_workflow` | function | `app/services/benchmark_calculation_workflow_service.py:213` | 7 | B |
-| 16 | `_classification_map_from_catalog_records` | function | `app/services/benchmark_exposure_context_service.py:180` | 7 | B |
-| 17 | `_build_exposure_rows` | function | `app/services/benchmark_exposure_context_service.py:202` | 7 | B |
-| 18 | `resolve_benchmark_request` | function | `app/services/benchmark_mode_service.py:63` | 7 | B |
-| 19 | `_build_artifacts` | function | `app/services/composite_inspection_service.py:114` | 7 | B |
-| 20 | `_composite_return_rows` | function | `app/services/composite_inspection_service.py:234` | 7 | B |
-| 21 | `register_job` | method | `app/services/compute_job_store.py:328` | 7 | B |
-| 22 | `mark_running` | method | `app/services/compute_job_store.py:424` | 7 | B |
-| 23 | `list_inspection_items` | method | `app/services/compute_job_store.py:661` | 7 | B |
-| 24 | `calculate_contribution_workflow` | function | `app/services/contribution_calculation_workflow_service.py:175` | 7 | B |
-| 25 | `_calculate_position_flow_balance_counts` | function | `app/services/contribution_diagnostics.py:183` | 7 | B |
+| 1 | `_calculate_local_daily_return` | function | `engine/ror.py:46` | 8 | B |
+| 2 | `_allowed_audit_metadata` | function | `app/enterprise_authorization.py:39` | 7 | B |
+| 3 | `to_benchmark_performance_request` | method | `app/models/benchmark_analytics_requests.py:299` | 7 | B |
+| 4 | `to_stateless_contribution_request` | method | `app/models/contribution_analytics_requests.py:122` | 7 | B |
+| 5 | `TWRInspectionRequest` | class | `app/models/inspection_requests.py:56` | 7 | B |
+| 6 | `_validate_stateless_twr_payloads` | function | `app/models/twr_requests.py:137` | 7 | B |
+| 7 | `_validate_workspace_summary_stateless_inputs` | function | `app/models/workspace_summary_requests.py:286` | 7 | B |
+| 8 | `record_mwr_solver_outcome` | function | `app/observability.py:167` | 7 | B |
+| 9 | `_validation_error_json_content` | function | `app/openapi_enrichment.py:484` | 7 | B |
+| 10 | `_ensure_request_body_example` | function | `app/openapi_enrichment.py:529` | 7 | B |
+| 11 | `_ensure_model_schema_documentation` | function | `app/openapi_enrichment.py:705` | 7 | B |
+| 12 | `_ensure_property_schema_documentation` | function | `app/openapi_enrichment.py:729` | 7 | B |
+| 13 | `calculate_attribution_workflow` | function | `app/services/attribution_calculation_workflow_service.py:186` | 7 | B |
+| 14 | `calculate_benchmark_workflow` | function | `app/services/benchmark_calculation_workflow_service.py:213` | 7 | B |
+| 15 | `_classification_map_from_catalog_records` | function | `app/services/benchmark_exposure_context_service.py:180` | 7 | B |
+| 16 | `_build_exposure_rows` | function | `app/services/benchmark_exposure_context_service.py:202` | 7 | B |
+| 17 | `resolve_benchmark_request` | function | `app/services/benchmark_mode_service.py:63` | 7 | B |
+| 18 | `_build_artifacts` | function | `app/services/composite_inspection_service.py:114` | 7 | B |
+| 19 | `_composite_return_rows` | function | `app/services/composite_inspection_service.py:234` | 7 | B |
+| 20 | `register_job` | method | `app/services/compute_job_store.py:328` | 7 | B |
+| 21 | `mark_running` | method | `app/services/compute_job_store.py:424` | 7 | B |
+| 22 | `list_inspection_items` | method | `app/services/compute_job_store.py:661` | 7 | B |
+| 23 | `calculate_contribution_workflow` | function | `app/services/contribution_calculation_workflow_service.py:175` | 7 | B |
+| 24 | `_calculate_position_flow_balance_counts` | function | `app/services/contribution_diagnostics.py:183` | 7 | B |
+| 25 | `_classify_average_weight_shadow_cutover_blockers` | function | `app/services/contribution_methodology.py:289` | 7 | B |
 
 ## Lowest Maintainability Index
 
@@ -108,6 +108,8 @@ component-status helper. `build_portfolio_source_quality_evidence` also dropped 
 unsupported cashflow taxonomy traversal was split into a dedicated count helper.
 `_collect_stateful_mwr_cash_flows` also dropped out after source-flow eligibility and evidence
 component projection were split into a dedicated helper.
+`get_effective_period_start_dates` also dropped out after calendar-period, explicit-period,
+fixed-year, and constant-start policies were split into named helpers.
 `portfolio_timeseries_to_valuation_points` also dropped out after fee/external/unsupported cashflow
 classification and timing aggregation were split into a dedicated totals helper.
 `_apply_overrides` also dropped out after override targeting and field application/counting were
