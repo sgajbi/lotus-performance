@@ -146,6 +146,13 @@ class _ComputeJobRecordPayloadState:
 
 
 @dataclass(frozen=True)
+class _ComputeJobPayloadFailure:
+    request_payload: dict[str, Any] | None
+    error_message: str
+    error_type: str
+
+
+@dataclass(frozen=True)
 class ComputeQueueStats:
     pending_count: int
     leased_count: int
@@ -1220,15 +1227,17 @@ def _compute_job_record_payload_state(
     job_status = ComputeJobStatus(row.job_status)
     error_message = row.error_message
     error_type = row.error_type
-    if request_payload is None:
+    payload_failure = _compute_job_payload_failure(
+        row,
+        request_payload=request_payload,
+        response_payload=response_payload,
+    )
+    if payload_failure is not None:
         job_status = ComputeJobStatus.FAILED
-        error_message = error_message or INVALID_COMPUTE_JOB_REQUEST_PAYLOAD_MESSAGE
-        error_type = error_type or INVALID_COMPUTE_JOB_REQUEST_PAYLOAD_ERROR_TYPE
-        request_payload = {}
-    if row.response_json and response_payload is None:
-        job_status = ComputeJobStatus.FAILED
-        error_message = error_message or INVALID_COMPUTE_JOB_RESPONSE_PAYLOAD_MESSAGE
-        error_type = error_type or INVALID_COMPUTE_JOB_RESPONSE_PAYLOAD_ERROR_TYPE
+        error_message = payload_failure.error_message
+        error_type = payload_failure.error_type
+        request_payload = payload_failure.request_payload
+    assert request_payload is not None
     return _ComputeJobRecordPayloadState(
         job_status=job_status,
         request_payload=request_payload,
@@ -1236,6 +1245,55 @@ def _compute_job_record_payload_state(
         error_message=error_message,
         error_type=error_type,
     )
+
+
+def _compute_job_payload_failure(
+    row: ComputeJobModel,
+    *,
+    request_payload: dict[str, Any] | None,
+    response_payload: dict[str, Any] | None,
+) -> _ComputeJobPayloadFailure | None:
+    if request_payload is None:
+        return _invalid_compute_job_request_payload_failure(row)
+    if _has_invalid_compute_job_response_payload(row, response_payload=response_payload):
+        return _invalid_compute_job_response_payload_failure(row, request_payload=request_payload)
+    return None
+
+
+def _invalid_compute_job_request_payload_failure(row: ComputeJobModel) -> _ComputeJobPayloadFailure:
+    return _ComputeJobPayloadFailure(
+        request_payload={},
+        error_message=_stored_or_default(row.error_message, INVALID_COMPUTE_JOB_REQUEST_PAYLOAD_MESSAGE),
+        error_type=_stored_or_default(row.error_type, INVALID_COMPUTE_JOB_REQUEST_PAYLOAD_ERROR_TYPE),
+    )
+
+
+def _invalid_compute_job_response_payload_failure(
+    row: ComputeJobModel,
+    *,
+    request_payload: dict[str, Any],
+) -> _ComputeJobPayloadFailure:
+    return _ComputeJobPayloadFailure(
+        request_payload=request_payload,
+        error_message=_stored_or_default(row.error_message, INVALID_COMPUTE_JOB_RESPONSE_PAYLOAD_MESSAGE),
+        error_type=_stored_or_default(row.error_type, INVALID_COMPUTE_JOB_RESPONSE_PAYLOAD_ERROR_TYPE),
+    )
+
+
+def _has_invalid_compute_job_response_payload(
+    row: ComputeJobModel,
+    *,
+    response_payload: dict[str, Any] | None,
+) -> bool:
+    if not row.response_json:
+        return False
+    return response_payload is None
+
+
+def _stored_or_default(value: str | None, default: str) -> str:
+    if value:
+        return value
+    return default
 
 
 def _load_request_payload(row: ComputeJobModel) -> dict[str, Any] | None:

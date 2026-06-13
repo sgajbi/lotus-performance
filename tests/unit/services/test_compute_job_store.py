@@ -17,6 +17,7 @@ from app.services.compute_job_store import (
     ComputeJobStore,
     _aggregate_row_count,
     _compute_job_inspection_active_since,
+    _compute_job_payload_failure,
     _queue_stats_from_aggregate_row,
 )
 
@@ -90,6 +91,38 @@ def test_compute_job_inspection_active_since_defaults_to_created_timestamp():
     )
 
     assert _compute_job_inspection_active_since(row) == created_at
+
+
+def test_compute_job_payload_failure_fails_closed_on_missing_request_payload():
+    row = _compute_job_model_for_inspection(
+        job_status=ComputeJobStatus.COMPLETE,
+        created_at_utc=datetime(2026, 3, 14, 9, 0, tzinfo=timezone.utc),
+    )
+
+    failure = _compute_job_payload_failure(row, request_payload=None, response_payload={"ok": True})
+
+    assert failure is not None
+    assert failure.request_payload == {}
+    assert failure.error_message == INVALID_COMPUTE_JOB_REQUEST_PAYLOAD_MESSAGE
+    assert failure.error_type == INVALID_COMPUTE_JOB_REQUEST_PAYLOAD_ERROR_TYPE
+
+
+def test_compute_job_payload_failure_preserves_existing_response_error_details():
+    row = _compute_job_model_for_inspection(
+        job_status=ComputeJobStatus.COMPLETE,
+        created_at_utc=datetime(2026, 3, 14, 9, 0, tzinfo=timezone.utc),
+    )
+    row.response_json = "{not-json"
+    row.error_message = "stored error"
+    row.error_type = "StoredError"
+    request_payload = {"portfolio_id": "P1"}
+
+    failure = _compute_job_payload_failure(row, request_payload=request_payload, response_payload=None)
+
+    assert failure is not None
+    assert failure.request_payload is request_payload
+    assert failure.error_message == "stored error"
+    assert failure.error_type == "StoredError"
 
 
 def test_compute_job_store_lifecycle(tmp_path):
