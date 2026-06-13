@@ -341,15 +341,31 @@ def _normalize_instrument_return_columns(
         },
         inplace=True,
     )
-    if currency_mode == "BOTH" and instrument_currency == report_ccy:
-        if "return_local" not in inst_results.columns:
-            inst_results["return_local"] = inst_results["return_base"]
-        if "return_fx" not in inst_results.columns:
-            inst_results["return_fx"] = 0.0
+    _backfill_same_currency_return_columns(
+        inst_results,
+        currency_mode=currency_mode,
+        instrument_currency=instrument_currency,
+        report_ccy=report_ccy,
+    )
 
     for col in ["return_base", "return_local", "return_fx"]:
         if col in inst_results.columns:
             inst_results[col] /= 100
+
+
+def _backfill_same_currency_return_columns(
+    inst_results: pd.DataFrame,
+    *,
+    currency_mode: object,
+    instrument_currency: object,
+    report_ccy: object,
+) -> None:
+    if currency_mode != "BOTH" or instrument_currency != report_ccy:
+        return
+    if "return_local" not in inst_results.columns:
+        inst_results["return_local"] = inst_results["return_base"]
+    if "return_fx" not in inst_results.columns:
+        inst_results["return_fx"] = 0.0
 
 
 def _build_instrument_group_aggregation(full_df: pd.DataFrame, group_cols: list[str]) -> pd.DataFrame:

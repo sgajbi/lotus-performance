@@ -8,6 +8,7 @@ from app.models.attribution_requests import AttributionRequest
 from common.enums import AttributionModel, LinkingMethod
 from engine.attribution import (
     _align_and_prepare_data,
+    _backfill_same_currency_return_columns,
     _build_attribution_aggregation_base,
     _build_attribution_levels,
     _build_group_key_dict,
@@ -643,6 +644,25 @@ def test_normalize_instrument_return_columns_backfills_and_scales_same_currency_
         {
             "return_base": 0.025,
             "return_local": 0.025,
+            "return_fx": 0.0,
+        }
+    ]
+
+
+def test_backfill_same_currency_return_columns_projects_local_and_zero_fx_returns():
+    instrument_results = pd.DataFrame({"return_base": [2.5]})
+
+    _backfill_same_currency_return_columns(
+        instrument_results,
+        currency_mode="BOTH",
+        instrument_currency="USD",
+        report_ccy="USD",
+    )
+
+    assert instrument_results.to_dict(orient="records") == [
+        {
+            "return_base": 2.5,
+            "return_local": 2.5,
             "return_fx": 0.0,
         }
     ]
