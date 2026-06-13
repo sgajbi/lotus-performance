@@ -688,6 +688,12 @@ def test_allowed_audit_metadata_requires_privileged_read_enforcement(monkeypatch
     }
 
 
+def test_allowed_audit_metadata_ignores_unmatched_privileged_read_path(monkeypatch):
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ, "true")
+
+    assert _allowed_audit_metadata(method="GET", path="/integration/capabilities", status_code=200) is None
+
+
 def test_authorization_denied_response_emits_audit_and_structured_reason(mocker):
     emit = mocker.patch("app.enterprise_readiness.emit_audit_event")
 

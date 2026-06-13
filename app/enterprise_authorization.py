@@ -40,22 +40,61 @@ def _allowed_audit_metadata(*, method: str, path: str, status_code: int) -> dict
     write_capability = _required_capability(method, path)
     privileged_read_capability = _required_privileged_read_capability(method, path)
     is_privileged_read = _is_privileged_read_method(method)
-    required_capability = privileged_read_capability if is_privileged_read else write_capability
-    if not _is_write_method(method) and not (
-        is_privileged_read and _privileged_read_authz_enabled() and privileged_read_capability is not None
+    if not _should_emit_allowed_audit_metadata(
+        method=method,
+        is_privileged_read=is_privileged_read,
+        privileged_read_capability=privileged_read_capability,
     ):
         return None
+    required_capability = _allowed_audit_required_capability(
+        is_privileged_read=is_privileged_read,
+        write_capability=write_capability,
+        privileged_read_capability=privileged_read_capability,
+    )
     return {
         _AUDIT_METADATA_STATUS_CODE_KEY: status_code,
-        _AUDIT_METADATA_ACCESS_MODE_KEY: (
-            _AUDIT_ACCESS_MODE_PRIVILEGED_READ if is_privileged_read else _AUDIT_ACCESS_MODE_WRITE
-        ),
+        _AUDIT_METADATA_ACCESS_MODE_KEY: _allowed_audit_access_mode(is_privileged_read=is_privileged_read),
         _AUDIT_METADATA_REQUIRED_CAPABILITY_KEY: required_capability,
         _AUDIT_METADATA_GOVERNED_SURFACE_KEY: _governed_surface_for_capability(
             path=path,
             required_capability=required_capability,
         ),
     }
+
+
+def _should_emit_allowed_audit_metadata(
+    *,
+    method: str,
+    is_privileged_read: bool,
+    privileged_read_capability: str | None,
+) -> bool:
+    if _is_write_method(method):
+        return True
+    return _should_emit_privileged_read_audit_metadata(
+        is_privileged_read=is_privileged_read,
+        privileged_read_capability=privileged_read_capability,
+    )
+
+
+def _should_emit_privileged_read_audit_metadata(
+    *,
+    is_privileged_read: bool,
+    privileged_read_capability: str | None,
+) -> bool:
+    return is_privileged_read and _privileged_read_authz_enabled() and privileged_read_capability is not None
+
+
+def _allowed_audit_required_capability(
+    *,
+    is_privileged_read: bool,
+    write_capability: str | None,
+    privileged_read_capability: str | None,
+) -> str | None:
+    return privileged_read_capability if is_privileged_read else write_capability
+
+
+def _allowed_audit_access_mode(*, is_privileged_read: bool) -> str:
+    return _AUDIT_ACCESS_MODE_PRIVILEGED_READ if is_privileged_read else _AUDIT_ACCESS_MODE_WRITE
 
 
 def _authorization_denial_metadata(reason: str | None) -> dict[str, str | None]:
