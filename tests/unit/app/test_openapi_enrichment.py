@@ -1,4 +1,5 @@
 from app.openapi_enrichment import (
+    _application_json_content,
     _array_schema_example,
     _build_schema_example,
     _canonical_term,
@@ -355,6 +356,15 @@ def test_validation_error_json_content_selects_undocumented_http_validation_sche
     assert json_content is response["content"]["application/json"]
     assert _validation_error_json_content(documented_response) is None
     assert _validation_error_json_content({"content": {"text/plain": {"schema": {"type": "string"}}}}) is None
+
+
+def test_application_json_content_selects_only_json_content_dicts():
+    json_content = {"schema": {"type": "object"}}
+
+    assert _application_json_content({"content": {"application/json": json_content}}) is json_content
+    assert _application_json_content({"content": {"application/json": "not-a-dict"}}) is None
+    assert _application_json_content({"content": "not-a-dict"}) is None
+    assert _application_json_content("not-a-response") is None
 
 
 def test_ensure_operation_response_documentation_rewrites_metrics_response():

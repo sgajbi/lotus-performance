@@ -481,7 +481,7 @@ def _is_error_response_code(code: Any) -> bool:
     return response_code.startswith(("4", "5")) or response_code == "default"
 
 
-def _validation_error_json_content(response: Any) -> dict[str, Any] | None:
+def _application_json_content(response: Any) -> dict[str, Any] | None:
     if not isinstance(response, dict):
         return None
     content = response.get("content", {})
@@ -489,6 +489,13 @@ def _validation_error_json_content(response: Any) -> dict[str, Any] | None:
         return None
     json_content = content.get("application/json")
     if not isinstance(json_content, dict):
+        return None
+    return json_content
+
+
+def _validation_error_json_content(response: Any) -> dict[str, Any] | None:
+    json_content = _application_json_content(response)
+    if json_content is None:
         return None
     if "example" in json_content or "examples" in json_content:
         return None
