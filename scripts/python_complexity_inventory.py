@@ -12,6 +12,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_PATHS = ("app", "engine", "core", "adapters")
+HIGH_COMPLEXITY_RANKS = {"D", "E", "F"}
 
 
 @dataclass(frozen=True)
@@ -95,6 +96,26 @@ def _rank_count(findings: Sequence[ComplexityFinding], ranks: set[str]) -> int:
     return sum(1 for finding in findings if finding.rank in ranks)
 
 
+def complexity_gate_failures(
+    findings: Sequence[ComplexityFinding],
+    *,
+    max_cc: int | None,
+    max_high_complexity: int | None,
+) -> list[str]:
+    failures: list[str] = []
+    observed_max_cc = findings[0].complexity if findings else 0
+    if max_cc is not None and observed_max_cc > max_cc:
+        failures.append(f"max cyclomatic complexity {observed_max_cc} exceeds allowed {max_cc}")
+
+    observed_high_complexity = _rank_count(findings, HIGH_COMPLEXITY_RANKS)
+    if max_high_complexity is not None and observed_high_complexity > max_high_complexity:
+        failures.append(
+            f"high-complexity function count {observed_high_complexity} exceeds allowed {max_high_complexity}"
+        )
+
+    return failures
+
+
 def render_markdown(
     complexity_findings: Sequence[ComplexityFinding],
     maintainability_findings: Sequence[MaintainabilityFinding],
@@ -106,7 +127,6 @@ def render_markdown(
     average_mi = (
         mean(finding.maintainability_index for finding in maintainability_findings) if maintainability_findings else 0.0
     )
-    high_complexity_ranks = {"D", "E", "F"}
 
     lines = [
         "## Summary",
@@ -114,7 +134,7 @@ def render_markdown(
         "| Metric | Value |",
         "| --- | ---: |",
         f"| Max cyclomatic complexity | {top_complexity[0].complexity if top_complexity else 0} |",
-        f"| High-complexity functions (rank D-F) | {_rank_count(complexity_findings, high_complexity_ranks)} |",
+        f"| High-complexity functions (rank D-F) | {_rank_count(complexity_findings, HIGH_COMPLEXITY_RANKS)} |",
         f"| Average maintainability index | {average_mi:.2f} |",
         "",
         "## Highest Cyclomatic Complexity",
@@ -150,10 +170,29 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Inventory Python cyclomatic complexity and maintainability")
     parser.add_argument("--path", action="append", dest="paths", help="Path to scan relative to the repository root")
     parser.add_argument("--limit", type=int, default=15, help="Maximum rows per inventory table")
+    parser.add_argument("--max-cc", type=int, help="Fail when observed max cyclomatic complexity exceeds this value")
+    parser.add_argument(
+        "--max-high-complexity",
+        type=int,
+        help="Fail when rank D-F function count exceeds this value",
+    )
     args = parser.parse_args()
 
     paths = tuple(args.paths or DEFAULT_PATHS)
-    print(render_markdown(collect_complexity(paths), collect_maintainability(paths), limit=args.limit))
+    complexity_findings = collect_complexity(paths)
+    maintainability_findings = collect_maintainability(paths)
+    print(render_markdown(complexity_findings, maintainability_findings, limit=args.limit))
+
+    failures = complexity_gate_failures(
+        complexity_findings,
+        max_cc=args.max_cc,
+        max_high_complexity=args.max_high_complexity,
+    )
+    if failures:
+        print("\nComplexity gate failed:", file=sys.stderr)
+        for failure in failures:
+            print(f"- {failure}", file=sys.stderr)
+        return 1
     return 0
 
 

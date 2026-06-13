@@ -2,19 +2,29 @@
 
 Report date: 2026-06-13
 Branch: `refactor/lp-cr-950-mwr-fx-component`
-Mode: report-only complexity and maintainability inventory; no blocking CI gate is introduced by this artifact.
+Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
 
 This report captures the current cyclomatic complexity and maintainability posture for production
-Python paths. It gives the hardening stream repeatable evidence for hotspot selection without
-turning the first measurement into a premature merge blocker.
+Python paths. It gives the hardening stream repeatable evidence for hotspot selection and backs the
+current complexity regression gate. Maintainability index remains report-only until a stable
+threshold and exception policy exist.
 
 ## Command
 
 ```powershell
 python scripts/python_complexity_inventory.py --limit 25
 ```
+
+Blocking CI command:
+
+```powershell
+make quality-complexity-gate
+```
+
+Gate threshold: max cyclomatic complexity must stay at or below `8`, and rank D-F function count
+must stay at `0`.
 
 ## Summary
 

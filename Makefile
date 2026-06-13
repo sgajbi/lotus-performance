@@ -1,4 +1,4 @@
-.PHONY: install install-ci verify-dependencies check check-all test test-unit test-integration test-e2e test-all test-coverage coverage-gate ci ci-local ci-local-docker ci-local-docker-down typecheck lint monetary-float-guard format clean run check-deps security-audit openapi-gate api-vocabulary-gate no-alias-gate domain-product-validate migration-smoke migration-apply recovery-drill-smoke runtime-retention-smoke performance-characterization performance-characterization-postgres pre-commit docker-up docker-down docker-build
+.PHONY: install install-ci verify-dependencies check check-all test test-unit test-integration test-e2e test-all test-coverage coverage-gate ci ci-local ci-local-docker ci-local-docker-down typecheck lint quality-complexity-gate monetary-float-guard format clean run check-deps security-audit openapi-gate api-vocabulary-gate no-alias-gate domain-product-validate migration-smoke migration-apply recovery-drill-smoke runtime-retention-smoke performance-characterization performance-characterization-postgres pre-commit docker-up docker-down docker-build
 
 install:
 	pip install -r requirements.txt
@@ -16,7 +16,7 @@ verify-dependencies:
 pre-commit:
 	pre-commit run --all-files
 
-check: lint no-alias-gate typecheck openapi-gate api-vocabulary-gate domain-product-validate test
+check: lint quality-complexity-gate no-alias-gate typecheck openapi-gate api-vocabulary-gate domain-product-validate test
 
 test-coverage:
 	COVERAGE_FILE=.coverage.unit python -m pytest tests/unit --cov=app --cov=engine --cov=core --cov=adapters --cov-report=
@@ -27,7 +27,7 @@ test-coverage:
 
 coverage-gate: test-coverage
 
-ci: lint no-alias-gate typecheck openapi-gate api-vocabulary-gate domain-product-validate migration-smoke security-audit test-unit test-integration test-e2e coverage-gate docker-build
+ci: lint quality-complexity-gate no-alias-gate typecheck openapi-gate api-vocabulary-gate domain-product-validate migration-smoke security-audit test-unit test-integration test-e2e coverage-gate docker-build
 
 test:
 	$(MAKE) test-unit
@@ -102,6 +102,9 @@ lint:
 	python -m ruff check .
 	python -m ruff format --check .
 	$(MAKE) monetary-float-guard
+
+quality-complexity-gate:
+	python scripts/python_complexity_inventory.py --limit 25 --max-cc 8 --max-high-complexity 0
 
 monetary-float-guard:
 	python scripts/check_monetary_float_usage.py
