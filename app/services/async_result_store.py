@@ -56,6 +56,14 @@ class AsyncResultRecord:
     updated_at_utc: str
 
 
+@dataclass(frozen=True)
+class _AsyncResultRecordPayloadState:
+    result_status: AsyncResultStatus
+    response_payload: dict[str, Any] | None
+    error_message: str | None
+    error_type: str | None
+
+
 class AsyncResultStore:
     def __init__(self, database_url: str):
         connect_args = {"check_same_thread": False} if database_url.startswith("sqlite") else {}
@@ -139,24 +147,7 @@ class AsyncResultStore:
             row = session.get(AsyncResultModel, str(calculation_id))
             if row is None:
                 return None
-            response_payload = _load_response_payload(row)
-            result_status = AsyncResultStatus(row.result_status)
-            error_message = row.error_message
-            error_type = row.error_type
-            if row.response_json and response_payload is None:
-                result_status = AsyncResultStatus.FAILED
-                error_message = error_message or INVALID_ASYNC_RESULT_PAYLOAD_MESSAGE
-                error_type = error_type or INVALID_ASYNC_RESULT_PAYLOAD_ERROR_TYPE
-            return AsyncResultRecord(
-                calculation_id=UUID(row.calculation_id),
-                analytics_type=row.analytics_type,
-                result_status=result_status,
-                response_payload=response_payload,
-                error_message=error_message,
-                error_type=error_type,
-                created_at_utc=format_timestamp(row.created_at_utc) or "",
-                updated_at_utc=format_timestamp(row.updated_at_utc) or "",
-            )
+            return _async_result_record_from_row(row)
 
 
 def _load_response_payload(row: AsyncResultModel) -> dict[str, Any] | None:
@@ -166,6 +157,40 @@ def _load_response_payload(row: AsyncResultModel) -> dict[str, Any] | None:
         payload_name="Async result response payload",
         identity_name="calculation_id",
         identity_value=row.calculation_id,
+    )
+
+
+def _async_result_record_payload_state(
+    row: AsyncResultModel,
+    *,
+    response_payload: dict[str, Any] | None,
+) -> _AsyncResultRecordPayloadState:
+    result_status = AsyncResultStatus(row.result_status)
+    error_message = row.error_message
+    error_type = row.error_type
+    if row.response_json and response_payload is None:
+        result_status = AsyncResultStatus.FAILED
+        error_message = error_message or INVALID_ASYNC_RESULT_PAYLOAD_MESSAGE
+        error_type = error_type or INVALID_ASYNC_RESULT_PAYLOAD_ERROR_TYPE
+    return _AsyncResultRecordPayloadState(
+        result_status=result_status,
+        response_payload=response_payload,
+        error_message=error_message,
+        error_type=error_type,
+    )
+
+
+def _async_result_record_from_row(row: AsyncResultModel) -> AsyncResultRecord:
+    payload_state = _async_result_record_payload_state(row, response_payload=_load_response_payload(row))
+    return AsyncResultRecord(
+        calculation_id=UUID(row.calculation_id),
+        analytics_type=row.analytics_type,
+        result_status=payload_state.result_status,
+        response_payload=payload_state.response_payload,
+        error_message=payload_state.error_message,
+        error_type=payload_state.error_type,
+        created_at_utc=format_timestamp(row.created_at_utc) or "",
+        updated_at_utc=format_timestamp(row.updated_at_utc) or "",
     )
 
 
