@@ -9,8 +9,10 @@ from common.enums import AttributionModel, LinkingMethod
 from engine.attribution import (
     _align_and_prepare_data,
     _backfill_same_currency_return_columns,
+    _base_weight_record_from_point,
     _build_attribution_aggregation_base,
     _build_attribution_levels,
+    _build_base_weight_series,
     _build_group_key_dict,
     _build_instrument_attribution_panel,
     _calculate_currency_attribution_effects,
@@ -587,6 +589,28 @@ def test_build_instrument_attribution_panel_uses_base_weight_points():
     assert row["weight_bop"] == pytest.approx(0.3)
     assert row["return_base"] == pytest.approx(0.01)
     assert row["sector"] == "Tech"
+
+
+def test_base_weight_record_from_point_projects_date_and_capital():
+    record = _base_weight_record_from_point({"perf_date": "2025-01-01", "begin_mv": "250", "bod_cf": "50"})
+
+    assert record == {"date": pd.Timestamp("2025-01-01"), "capital": 300.0}
+    assert _base_weight_record_from_point("bad") is None
+    assert _base_weight_record_from_point({"perf_date": "2025-01-01"}) is None
+
+
+def test_build_base_weight_series_keeps_latest_duplicate_date_record():
+    series = _build_base_weight_series(
+        {
+            "base_weight_points": [
+                {"perf_date": "2025-01-01", "begin_mv": 200, "bod_cf": 0},
+                {"perf_date": "2025-01-01", "begin_mv": 250, "bod_cf": 50},
+            ]
+        }
+    )
+
+    assert series is not None
+    assert series.to_dict() == {pd.Timestamp("2025-01-01"): 300.0}
 
 
 def test_build_instrument_attribution_panel_backfills_same_currency_returns():

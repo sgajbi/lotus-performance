@@ -1,7 +1,7 @@
 # engine/attribution.py
 from dataclasses import dataclass
 from datetime import date as dt_date
-from typing import Any, Dict, Mapping, Protocol, Sequence, Tuple
+from typing import Any, Dict, Mapping, Protocol, Sequence, Tuple, TypedDict
 
 import numpy as np
 import pandas as pd
@@ -126,6 +126,11 @@ class _AttributionAggregationBase:
     active_return: Any
     granular_totals: pd.DataFrame
     linking_status: str
+
+
+class _BaseWeightRecord(TypedDict):
+    date: pd.Timestamp
+    capital: float
 
 
 def _calculate_linked_return(return_series: pd.Series) -> float:
@@ -415,27 +420,31 @@ def _build_base_weight_series(meta: Mapping[str, Any]) -> pd.Series | None:
     if not isinstance(weight_points_raw, list):
         return None
 
-    records: list[dict[str, float | pd.Timestamp]] = []
+    records: list[_BaseWeightRecord] = []
     for item in weight_points_raw:
-        if not isinstance(item, dict):
-            continue
-        perf_date = item.get("perf_date")
-        begin_mv = item.get("begin_mv")
-        bod_cf = item.get("bod_cf", 0.0)
-        if perf_date is None or begin_mv is None:
-            continue
-        records.append(
-            {
-                "date": pd.to_datetime(perf_date),
-                "capital": float(begin_mv) + float(bod_cf),
-            }
-        )
+        record = _base_weight_record_from_point(item)
+        if record is not None:
+            records.append(record)
 
     if not records:
         return None
 
     weights_df = pd.DataFrame(records).drop_duplicates(subset=["date"], keep="last").set_index("date")
     return weights_df["capital"]
+
+
+def _base_weight_record_from_point(item: object) -> _BaseWeightRecord | None:
+    if not isinstance(item, dict):
+        return None
+    perf_date = item.get("perf_date")
+    begin_mv = item.get("begin_mv")
+    bod_cf = item.get("bod_cf", 0.0)
+    if perf_date is None or begin_mv is None:
+        return None
+    return {
+        "date": pd.to_datetime(perf_date),
+        "capital": float(begin_mv) + float(bod_cf),
+    }
 
 
 def _attribution_group_observation_record(
