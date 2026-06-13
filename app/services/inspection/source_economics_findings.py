@@ -232,6 +232,101 @@ _EXTERNAL_CASHFLOW_FINDINGS = (
 )
 
 
+_FEE_SOURCE_ECONOMICS_FINDINGS = (
+    _SourceEconomicsFindingDefinition(
+        sample_attr="fee_normalization_samples",
+        code="FEE_CASHFLOW_CLASSIFICATION_NOT_PRESERVED",
+        severity="high",
+        category="cashflow_classification",
+        owner_repo="lotus-performance",
+        summary="Fee source economics were not normalized faithfully into served mgmt_fees.",
+        explanation=(
+            "The stateful portfolio source includes fee economics, but the normalized TWR valuation points "
+            "do not preserve those amounts accurately in mgmt_fees."
+        ),
+        recommended_action=(
+            "Preserve fee source economics during stateful portfolio normalization so served mgmt_fees tie "
+            "to the authoritative upstream fee signal."
+        ),
+    ),
+    _SourceEconomicsFindingDefinition(
+        sample_attr="duplicate_fee_signal_samples",
+        code="DUPLICATE_FEE_SOURCE_SIGNAL",
+        severity="high",
+        category="cashflow_classification",
+        summary="The stateful portfolio source exposes duplicate fee signals for the same valuation date.",
+        explanation=(
+            "The raw portfolio observation carries both fee-classified cash flows and a separate explicit fee "
+            "field with the same magnitude, creating a duplication risk in downstream economics."
+        ),
+        recommended_action=(
+            "Review lotus-core portfolio-timeseries fee semantics and emit one authoritative fee signal per "
+            "valuation date."
+        ),
+    ),
+    _SourceEconomicsFindingDefinition(
+        sample_attr="fee_source_mismatch_samples",
+        code="FEE_SOURCE_TOTAL_MISMATCH",
+        severity="high",
+        category="cashflow_classification",
+        summary="The stateful portfolio source serves conflicting fee totals for the same valuation date.",
+        explanation=(
+            "The raw portfolio observation includes both fee-classified cash flows and an explicit fee total, "
+            "but those two source signals do not tie for the same valuation date."
+        ),
+        recommended_action=(
+            "Review lotus-core portfolio-timeseries fee aggregation so explicit fee totals and detailed "
+            "fee-classified cash flows reconcile."
+        ),
+    ),
+    _SourceEconomicsFindingDefinition(
+        sample_attr="positive_fee_signal_samples",
+        code="POSITIVE_FEE_SOURCE_SIGNAL",
+        severity="high",
+        category="cashflow_classification",
+        summary="The stateful portfolio source serves a positive fee amount.",
+        explanation=(
+            "Fee-classified source economics should reduce portfolio value. A positive fee amount is a strong "
+            "supportability signal that fee sign semantics are incorrect upstream."
+        ),
+        recommended_action=(
+            "Review lotus-core fee sign semantics and ensure fee-classified source amounts are emitted as "
+            "negative economics."
+        ),
+    ),
+    _SourceEconomicsFindingDefinition(
+        sample_attr="fee_timing_bucket_samples",
+        code="FEE_CASHFLOW_TIMING_BUCKET_UNSUPPORTED",
+        category="cashflow_classification",
+        summary="The stateful portfolio source serves fee-classified cash flows in the beginning-of-day bucket.",
+        explanation=(
+            "Fee-classified source economics should be operational fee drag, not beginning-of-day capital "
+            "movement. The inspector still treats the amount as a fee for normalization checks, but preserves "
+            "the timing bucket as upstream contract evidence."
+        ),
+        recommended_action=(
+            "Review lotus-core portfolio-timeseries fee timing semantics and emit operational fee rows in "
+            "the canonical end-of-day timing bucket unless a separate governed fee timing model is approved."
+        ),
+    ),
+    _SourceEconomicsFindingDefinition(
+        sample_attr="fee_mixed_timing_samples",
+        code="FEE_CASHFLOW_MIXED_TIMING_BUCKETS",
+        category="cashflow_classification",
+        summary="The stateful portfolio source serves fee-classified cash flows in both timing buckets for the same valuation date.",
+        explanation=(
+            "The raw portfolio observation includes operational fee rows in both beginning-of-day and "
+            "end-of-day buckets on the same valuation date. Fees are normally fee drag rather than capital "
+            "movement, so mixed fee timing should be visible as upstream source-economics evidence."
+        ),
+        recommended_action=(
+            "Review the lotus-core fee transaction story for the sampled dates and emit one governed fee "
+            "timing model before relying on the result for production support triage."
+        ),
+    ),
+)
+
+
 def build_source_economics_findings(
     *,
     portfolio_id: str,
@@ -402,126 +497,12 @@ def _build_fee_source_economics_findings(
 ) -> list[TWRInspectionFinding]:
     findings: list[TWRInspectionFinding] = []
 
-    if samples.fee_normalization_samples:
-        findings.append(
-            TWRInspectionFinding(
-                code="FEE_CASHFLOW_CLASSIFICATION_NOT_PRESERVED",
-                severity="high",
-                category="cashflow_classification",
-                owner_repo="lotus-performance",
-                summary="Fee source economics were not normalized faithfully into served mgmt_fees.",
-                explanation=(
-                    "The stateful portfolio source includes fee economics, but the normalized TWR valuation points "
-                    "do not preserve those amounts accurately in mgmt_fees."
-                ),
-                recommended_action=(
-                    "Preserve fee source economics during stateful portfolio normalization so served mgmt_fees tie "
-                    "to the authoritative upstream fee signal."
-                ),
-                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=samples.fee_normalization_samples),
-            )
-        )
-
-    if samples.duplicate_fee_signal_samples:
-        findings.append(
-            TWRInspectionFinding(
-                code="DUPLICATE_FEE_SOURCE_SIGNAL",
-                severity="high",
-                category="cashflow_classification",
-                owner_repo="lotus-core",
-                summary="The stateful portfolio source exposes duplicate fee signals for the same valuation date.",
-                explanation=(
-                    "The raw portfolio observation carries both fee-classified cash flows and a separate explicit fee "
-                    "field with the same magnitude, creating a duplication risk in downstream economics."
-                ),
-                recommended_action=(
-                    "Review lotus-core portfolio-timeseries fee semantics and emit one authoritative fee signal per "
-                    "valuation date."
-                ),
-                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=samples.duplicate_fee_signal_samples),
-            )
-        )
-
-    if samples.fee_source_mismatch_samples:
-        findings.append(
-            TWRInspectionFinding(
-                code="FEE_SOURCE_TOTAL_MISMATCH",
-                severity="high",
-                category="cashflow_classification",
-                owner_repo="lotus-core",
-                summary="The stateful portfolio source serves conflicting fee totals for the same valuation date.",
-                explanation=(
-                    "The raw portfolio observation includes both fee-classified cash flows and an explicit fee total, "
-                    "but those two source signals do not tie for the same valuation date."
-                ),
-                recommended_action=(
-                    "Review lotus-core portfolio-timeseries fee aggregation so explicit fee totals and detailed "
-                    "fee-classified cash flows reconcile."
-                ),
-                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=samples.fee_source_mismatch_samples),
-            )
-        )
-
-    if samples.positive_fee_signal_samples:
-        findings.append(
-            TWRInspectionFinding(
-                code="POSITIVE_FEE_SOURCE_SIGNAL",
-                severity="high",
-                category="cashflow_classification",
-                owner_repo="lotus-core",
-                summary="The stateful portfolio source serves a positive fee amount.",
-                explanation=(
-                    "Fee-classified source economics should reduce portfolio value. A positive fee amount is a strong "
-                    "supportability signal that fee sign semantics are incorrect upstream."
-                ),
-                recommended_action=(
-                    "Review lotus-core fee sign semantics and ensure fee-classified source amounts are emitted as "
-                    "negative economics."
-                ),
-                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=samples.positive_fee_signal_samples),
-            )
-        )
-
-    if samples.fee_timing_bucket_samples:
-        findings.append(
-            TWRInspectionFinding(
-                code="FEE_CASHFLOW_TIMING_BUCKET_UNSUPPORTED",
-                severity="warning",
-                category="cashflow_classification",
-                owner_repo="lotus-core",
-                summary="The stateful portfolio source serves fee-classified cash flows in the beginning-of-day bucket.",
-                explanation=(
-                    "Fee-classified source economics should be operational fee drag, not beginning-of-day capital "
-                    "movement. The inspector still treats the amount as a fee for normalization checks, but preserves "
-                    "the timing bucket as upstream contract evidence."
-                ),
-                recommended_action=(
-                    "Review lotus-core portfolio-timeseries fee timing semantics and emit operational fee rows in "
-                    "the canonical end-of-day timing bucket unless a separate governed fee timing model is approved."
-                ),
-                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=samples.fee_timing_bucket_samples),
-            )
-        )
-
-    if samples.fee_mixed_timing_samples:
-        findings.append(
-            TWRInspectionFinding(
-                code="FEE_CASHFLOW_MIXED_TIMING_BUCKETS",
-                severity="warning",
-                category="cashflow_classification",
-                owner_repo="lotus-core",
-                summary="The stateful portfolio source serves fee-classified cash flows in both timing buckets for the same valuation date.",
-                explanation=(
-                    "The raw portfolio observation includes operational fee rows in both beginning-of-day and "
-                    "end-of-day buckets on the same valuation date. Fees are normally fee drag rather than capital "
-                    "movement, so mixed fee timing should be visible as upstream source-economics evidence."
-                ),
-                recommended_action=(
-                    "Review the lotus-core fee transaction story for the sampled dates and emit one governed fee "
-                    "timing model before relying on the result for production support triage."
-                ),
-                evidence=_sample_evidence(portfolio_id=portfolio_id, samples=samples.fee_mixed_timing_samples),
-            )
+    for definition in _FEE_SOURCE_ECONOMICS_FINDINGS:
+        _append_source_economics_finding(
+            findings,
+            portfolio_id=portfolio_id,
+            samples=getattr(samples, definition.sample_attr),
+            definition=definition,
         )
 
     return findings
