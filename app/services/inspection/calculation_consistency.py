@@ -701,19 +701,27 @@ def _comparative_return_mismatches(
     for component in ("base", "local", "fx"):
         expected_value = getattr(expected, component)
         actual_value = getattr(actual, component)
-        if expected_value is None and actual_value is None:
-            continue
-        if (
-            expected_value is None
-            or actual_value is None
-            or not isclose(
-                expected_value,
-                actual_value,
-                abs_tol=_ABS_TOLERANCE,
-            )
-        ):
-            mismatches[component] = (expected_value, actual_value)
+        mismatch = _comparative_return_component_mismatch(
+            expected_value=expected_value,
+            actual_value=actual_value,
+        )
+        if mismatch is not None:
+            mismatches[component] = mismatch
     return mismatches
+
+
+def _comparative_return_component_mismatch(
+    *,
+    expected_value: float | None,  # monetary-float-allow
+    actual_value: float | None,  # monetary-float-allow
+) -> tuple[float | None, float | None] | None:
+    if expected_value is None and actual_value is None:
+        return None
+    if expected_value is None or actual_value is None:
+        return expected_value, actual_value
+    if isclose(expected_value, actual_value, abs_tol=_ABS_TOLERANCE):
+        return None
+    return expected_value, actual_value
 
 
 def _subtract_return_values(

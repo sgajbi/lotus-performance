@@ -12,6 +12,7 @@ from app.models.responses import (
 from app.services.inspection.calculation_consistency import (
     _apply_daily_no_investment_period_status,
     _check_relative_breakdown_frequency,
+    _comparative_return_component_mismatch,
     _comparative_return_mismatches,
     _daily_calculation_evidence_mismatches,
     _expected_daily_external_flows,
@@ -76,6 +77,13 @@ def test_comparative_return_mismatches_distinguish_absent_equal_and_different_co
         "local": (None, 0.2),
         "fx": (0.1, 0.3),
     }
+
+
+def test_comparative_return_component_mismatch_policy_handles_absent_equal_and_different_values():
+    assert _comparative_return_component_mismatch(expected_value=None, actual_value=None) is None
+    assert _comparative_return_component_mismatch(expected_value=1.0, actual_value=1.0 + 1e-7) is None
+    assert _comparative_return_component_mismatch(expected_value=None, actual_value=0.2) == (None, 0.2)
+    assert _comparative_return_component_mismatch(expected_value=0.1, actual_value=0.3) == (0.1, 0.3)
 
 
 def test_calculation_consistency_does_not_compare_misaligned_relative_breakdown_arithmetic():
