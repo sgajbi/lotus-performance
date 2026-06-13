@@ -9,6 +9,7 @@ from fastapi import HTTPException
 
 from app.services.stateful_contribution_input_service import (
     StatefulContributionSourceInput,
+    _position_contract_fx_rate_meta,
     _position_contract_meta_from_row,
     _position_meta_from_row,
     _position_row_to_daily_point,
@@ -404,6 +405,19 @@ def test_position_contract_meta_from_row_normalizes_supported_source_fields():
         "position_to_portfolio_fx_rate": Decimal("1.2"),
         "portfolio_to_reporting_fx_rate": Decimal("1"),
     }
+
+
+def test_position_contract_fx_rate_meta_converts_available_rates_to_decimals():
+    assert _position_contract_fx_rate_meta(
+        {
+            "position_to_portfolio_fx_rate": "1.2",
+            "portfolio_to_reporting_fx_rate": 1,
+        }
+    ) == {
+        "position_to_portfolio_fx_rate": Decimal("1.2"),
+        "portfolio_to_reporting_fx_rate": Decimal("1"),
+    }
+    assert _position_contract_fx_rate_meta({"position_to_portfolio_fx_rate": None}) == {}
 
 
 def test_build_stateful_contribution_input_skips_rows_without_usable_values():

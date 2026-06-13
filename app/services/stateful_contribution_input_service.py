@@ -273,6 +273,12 @@ def _position_contract_meta_from_row(row: dict[str, object]) -> dict[str, object
         if isinstance(value, str) and value:
             meta[target_field] = value
 
+    meta.update(_position_contract_fx_rate_meta(row))
+    return meta
+
+
+def _position_contract_fx_rate_meta(row: dict[str, object]) -> dict[str, object]:
+    meta: dict[str, object] = {}
     for fx_rate_field in (
         "position_to_portfolio_fx_rate",
         "portfolio_to_reporting_fx_rate",
