@@ -22,6 +22,7 @@ from app.services.compute_job_store import (
     _matches_existing_compute_job_registration,
     _queue_stats_from_aggregate_row,
 )
+from app.services.durable_store_inspection import build_inspection_query_context
 
 
 def _compute_job_model_for_inspection(
@@ -767,6 +768,61 @@ def test_compute_job_store_lists_reclaimable_items_with_expired_leases(tmp_path)
     assert page.total_count == 1
     assert [item.calculation_id for item in page.items] == [str(reclaimable_id)]
     assert page.items[0].status == ComputeJobStatus.RUNNING.value
+
+
+def test_compute_job_store_builds_reclaimable_inspection_statements_with_context(tmp_path, monkeypatch):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
+    inspection_now = datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc)
+    context = build_inspection_query_context(
+        status_filter="reclaimable",
+        min_age_seconds=30.0,
+        now=inspection_now,
+    )
+    calls = []
+
+    def count_builder(**kwargs):
+        calls.append(("count", kwargs))
+        return "count-statement"
+
+    def items_builder(**kwargs):
+        calls.append(("items", kwargs))
+        return "items-statement"
+
+    monkeypatch.setattr(store, "_build_reclaimable_inspection_count_statement", count_builder)
+    monkeypatch.setattr(store, "_build_reclaimable_inspection_items_statement", items_builder)
+
+    statements = store._build_inspection_statements(
+        inspection_context=context,
+        limit=25,
+        offset=50,
+        analytics_type="ReturnsSeries",
+        calculation_id_contains="abc",
+    )
+
+    assert statements.count_statement == "count-statement"
+    assert statements.items_statement == "items-statement"
+    assert calls == [
+        (
+            "count",
+            {
+                "analytics_type": "ReturnsSeries",
+                "calculation_id_contains": "abc",
+                "min_age_threshold": inspection_now - timedelta(seconds=30),
+                "now": inspection_now,
+            },
+        ),
+        (
+            "items",
+            {
+                "limit": 25,
+                "offset": 50,
+                "analytics_type": "ReturnsSeries",
+                "calculation_id_contains": "abc",
+                "min_age_threshold": inspection_now - timedelta(seconds=30),
+                "now": inspection_now,
+            },
+        ),
+    ]
 
 
 def test_compute_job_store_queue_stats_include_reclaimable_count(tmp_path):
