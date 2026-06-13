@@ -36,6 +36,12 @@ class StatefulContributionNormalizedInput:
     positions_data: list[PositionData]
 
 
+@dataclass(frozen=True)
+class _StatefulContributionPositionSeries:
+    valuation_points_by_position_id: dict[str, list[dict[str, object]]]
+    meta_by_position_id: dict[str, dict[str, object]]
+
+
 async def retrieve_stateful_contribution_source_input(
     *,
     settings: Settings,
@@ -114,37 +120,54 @@ def build_stateful_contribution_input(
         }
     )
 
+    position_series = _stateful_contribution_position_series(
+        rows=source_input.position_rows,
+        currency_mode=normalized_currency_mode,
+        reporting_currency=reporting_currency,
+    )
+
+    positions_data = [
+        PositionData.model_validate(
+            {
+                "position_id": position_id,
+                "meta": position_series.meta_by_position_id.get(position_id, {}),
+                "valuation_points": valuation_points,
+            }
+        )
+        for position_id, valuation_points in sorted(position_series.valuation_points_by_position_id.items())
+    ]
+
+    return StatefulContributionNormalizedInput(
+        portfolio_data=portfolio_data,
+        positions_data=positions_data,
+    )
+
+
+def _stateful_contribution_position_series(
+    *,
+    rows: list[dict[str, object]],
+    currency_mode: str,
+    reporting_currency: str | None,
+) -> _StatefulContributionPositionSeries:
     positions_by_id: dict[str, list[dict[str, object]]] = {}
     position_meta: dict[str, dict[str, object]] = {}
-    for row in source_input.position_rows:
+    for row in rows:
         position_id_raw = row.get("position_id")
         valuation_date = row.get("valuation_date")
         if not isinstance(position_id_raw, str) or not isinstance(valuation_date, str):
             continue
         point = _position_row_to_daily_point(
             row=row,
-            currency_mode=normalized_currency_mode,
+            currency_mode=currency_mode,
             reporting_currency=reporting_currency,
         )
         if point is None:
             continue
         positions_by_id.setdefault(position_id_raw, []).append(point)
         position_meta[position_id_raw] = _position_meta_from_row(row)
-
-    positions_data = [
-        PositionData.model_validate(
-            {
-                "position_id": position_id,
-                "meta": position_meta.get(position_id, {}),
-                "valuation_points": valuation_points,
-            }
-        )
-        for position_id, valuation_points in sorted(positions_by_id.items())
-    ]
-
-    return StatefulContributionNormalizedInput(
-        portfolio_data=portfolio_data,
-        positions_data=positions_data,
+    return _StatefulContributionPositionSeries(
+        valuation_points_by_position_id=positions_by_id,
+        meta_by_position_id=position_meta,
     )
 
 

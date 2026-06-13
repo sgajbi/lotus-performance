@@ -13,6 +13,7 @@ from app.services.stateful_contribution_input_service import (
     _position_meta_from_row,
     _position_row_to_daily_point,
     _split_position_cash_flows,
+    _stateful_contribution_position_series,
     _stateful_position_currencies,
     build_stateful_contribution_input,
     retrieve_stateful_contribution_source_input,
@@ -464,6 +465,76 @@ def test_build_stateful_contribution_input_skips_rows_without_usable_values():
     )
 
     assert normalized.positions_data == []
+
+
+def test_stateful_contribution_position_series_groups_points_and_preserves_latest_meta():
+    position_series = _stateful_contribution_position_series(
+        rows=[
+            {
+                "position_id": "POS_2",
+                "security_id": "SEC_2",
+                "valuation_date": "2025-01-02",
+                "beginning_market_value_portfolio_currency": "20",
+                "ending_market_value_portfolio_currency": "21",
+                "dimensions": {"sector": "Healthcare"},
+            },
+            {
+                "position_id": "POS_1",
+                "security_id": "SEC_1",
+                "valuation_date": "2025-01-01",
+                "beginning_market_value_portfolio_currency": "10",
+                "ending_market_value_portfolio_currency": "11",
+                "cash_flows": [{"amount": "1", "timing": "bod"}],
+                "dimensions": {"sector": "Tech"},
+            },
+            {
+                "position_id": "POS_1",
+                "security_id": "SEC_1_UPDATED",
+                "valuation_date": "2025-01-02",
+                "beginning_market_value_portfolio_currency": "11",
+                "ending_market_value_portfolio_currency": "12",
+                "dimensions": {"sector": "Software"},
+            },
+        ],
+        currency_mode="BASE_ONLY",
+        reporting_currency=None,
+    )
+
+    assert list(position_series.valuation_points_by_position_id) == ["POS_2", "POS_1"]
+    assert len(position_series.valuation_points_by_position_id["POS_1"]) == 2
+    assert position_series.valuation_points_by_position_id["POS_1"][0]["bod_cf"] == Decimal("1")
+    assert position_series.meta_by_position_id["POS_1"]["security_id"] == "SEC_1_UPDATED"
+    assert position_series.meta_by_position_id["POS_1"]["sector"] == "Software"
+
+
+def test_stateful_contribution_position_series_skips_invalid_or_unusable_rows():
+    position_series = _stateful_contribution_position_series(
+        rows=[
+            {
+                "position_id": None,
+                "valuation_date": "2025-01-01",
+                "beginning_market_value_portfolio_currency": "10",
+                "ending_market_value_portfolio_currency": "11",
+            },
+            {
+                "position_id": "POS_1",
+                "valuation_date": None,
+                "beginning_market_value_portfolio_currency": "10",
+                "ending_market_value_portfolio_currency": "11",
+            },
+            {
+                "position_id": "POS_2",
+                "valuation_date": "2025-01-02",
+                "beginning_market_value_portfolio_currency": None,
+                "ending_market_value_portfolio_currency": "12",
+            },
+        ],
+        currency_mode="BASE_ONLY",
+        reporting_currency=None,
+    )
+
+    assert position_series.valuation_points_by_position_id == {}
+    assert position_series.meta_by_position_id == {}
 
 
 def test_position_row_to_daily_point_returns_none_when_date_or_values_are_missing():
