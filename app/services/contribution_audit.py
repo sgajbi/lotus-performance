@@ -8,6 +8,13 @@ from app.services.contribution_methodology import (
 )
 from core.envelope import Diagnostics
 
+AVERAGE_WEIGHT_BLOCKER_COUNTER_FIELDS = {
+    "weight_residual": "blocked_by_weight_residual_periods",
+    "flow_balance": "blocked_by_flow_balance_periods",
+    "reset_alignment": "blocked_by_reset_alignment_periods",
+    "timeseries_reconciliation": "blocked_by_timeseries_delta_periods",
+}
+
 
 @dataclass
 class AverageWeightShadowAuditState:
@@ -75,14 +82,7 @@ class AverageWeightShadowAuditState:
         effective_blockers = set(blocker_reason_codes)
         if effective_blockers:
             self.blocked_periods += 1
-        if "weight_residual" in effective_blockers:
-            self.blocked_by_weight_residual_periods += 1
-        if "flow_balance" in effective_blockers:
-            self.blocked_by_flow_balance_periods += 1
-        if "reset_alignment" in effective_blockers:
-            self.blocked_by_reset_alignment_periods += 1
-        if "timeseries_reconciliation" in effective_blockers:
-            self.blocked_by_timeseries_delta_periods += 1
+            _record_average_weight_blocker_counts(self, effective_blockers)
         return effective_blockers
 
     def append_diagnostic_notes(
@@ -230,6 +230,15 @@ class AverageWeightShadowAuditState:
 def _append_rollout_note_when_present(notes: list[str], *, count: int, note: str) -> None:
     if count > 0:
         notes.append(note)
+
+
+def _record_average_weight_blocker_counts(
+    audit_state: AverageWeightShadowAuditState,
+    blocker_reason_codes: set[str],
+) -> None:
+    for reason_code, counter_field in AVERAGE_WEIGHT_BLOCKER_COUNTER_FIELDS.items():
+        if reason_code in blocker_reason_codes:
+            setattr(audit_state, counter_field, getattr(audit_state, counter_field) + 1)
 
 
 def _contribution_methodology_notes(

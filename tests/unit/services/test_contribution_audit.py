@@ -40,6 +40,50 @@ def test_rollout_posture_notes_report_guardrail_blockers_and_promotion():
     assert any("portfolio and position reset boundaries were not aligned" in note for note in notes)
 
 
+def test_cutover_assessment_records_known_blocker_counts_and_returns_all_blockers():
+    audit_state = AverageWeightShadowAuditState()
+
+    emitted_blockers = audit_state.record_cutover_assessment(
+        is_cutover_candidate=False,
+        blocker_reason_codes={
+            "weight_residual",
+            "flow_balance",
+            "reset_alignment",
+            "timeseries_reconciliation",
+            "future_guardrail",
+        },
+    )
+
+    assert emitted_blockers == {
+        "weight_residual",
+        "flow_balance",
+        "reset_alignment",
+        "timeseries_reconciliation",
+        "future_guardrail",
+    }
+    assert audit_state.blocked_periods == 1
+    assert audit_state.blocked_by_weight_residual_periods == 1
+    assert audit_state.blocked_by_flow_balance_periods == 1
+    assert audit_state.blocked_by_reset_alignment_periods == 1
+    assert audit_state.blocked_by_timeseries_delta_periods == 1
+
+
+def test_cutover_assessment_candidate_short_circuits_blocker_counts():
+    audit_state = AverageWeightShadowAuditState()
+
+    emitted_blockers = audit_state.record_cutover_assessment(
+        is_cutover_candidate=True,
+        blocker_reason_codes={"weight_residual"},
+        is_promoted=True,
+    )
+
+    assert emitted_blockers == set()
+    assert audit_state.cutover_candidate_periods == 1
+    assert audit_state.promoted_periods == 1
+    assert audit_state.blocked_periods == 0
+    assert audit_state.blocked_by_weight_residual_periods == 0
+
+
 def test_rollout_posture_notes_preserve_order_and_wording():
     audit_state = AverageWeightShadowAuditState(
         material_periods=4,
