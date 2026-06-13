@@ -9,6 +9,7 @@ from app.services import contribution_evidence
 from app.services.contribution_source_economics import (
     _has_unclassified_position_metadata,
     _has_unsupported_cash_flow_types,
+    _is_valid_source_cash_flow_type_count,
     _source_cash_flow_type_counts,
     _stateful_cash_flow_economics,
     _stateful_metadata_economics,
@@ -136,6 +137,13 @@ def test_source_cash_flow_type_counts_accepts_positive_integer_counts_only():
     )
 
     assert counts == {"external_flow": 2}
+
+
+def test_source_cash_flow_type_count_entry_validation_rejects_non_source_counts():
+    assert _is_valid_source_cash_flow_type_count("external_flow", 2)
+    assert not _is_valid_source_cash_flow_type_count("fee", True)
+    assert not _is_valid_source_cash_flow_type_count("zero", 0)
+    assert not _is_valid_source_cash_flow_type_count(1, 3)
 
 
 def test_source_cash_flow_type_counts_ignores_missing_or_invalid_source_economics():

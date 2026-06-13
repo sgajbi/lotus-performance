@@ -200,9 +200,13 @@ def _source_cash_flow_type_counts(meta: dict[str, Any]) -> Counter[str]:
 
     counts: Counter[str] = Counter()
     for key, value in raw_counts.items():
-        if isinstance(key, str) and type(value) is int and value > 0:
+        if _is_valid_source_cash_flow_type_count(key, value):
             counts[key] += value
     return counts
+
+
+def _is_valid_source_cash_flow_type_count(key: Any, value: Any) -> bool:
+    return isinstance(key, str) and type(value) is int and value > 0
 
 
 def _classification_dimensions(request: ContributionRequest) -> list[str]:
