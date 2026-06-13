@@ -31,15 +31,15 @@ python scripts/python_function_size_inventory.py --limit 20
 | 9 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:310` | 102 |
 | 10 | `aggregate_attribution_results` | `engine/attribution.py:648` | 102 |
 | 11 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:87` | 101 |
-| 12 | `_calculate_position_flow_balance_counts` | `app/services/contribution_diagnostics.py:183` | 99 |
-| 13 | `_calculate_returns_series` | `app/services/returns_series_service.py:1317` | 97 |
-| 14 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:62` | 97 |
-| 15 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:88` | 95 |
-| 16 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:31` | 94 |
-| 17 | `build_stateful_benchmark_input` | `app/services/stateful_benchmark_input_service.py:57` | 93 |
-| 18 | `calculate_twr_response` | `app/services/twr_service.py:1007` | 93 |
-| 19 | `_build_artifacts` | `app/services/composite_inspection_service.py:151` | 89 |
-| 20 | `LineageMetadataStore.list_inspection_items` | `app/services/lineage_metadata_store.py:507` | 85 |
+| 12 | `_calculate_returns_series` | `app/services/returns_series_service.py:1317` | 97 |
+| 13 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:62` | 97 |
+| 14 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:88` | 95 |
+| 15 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:31` | 94 |
+| 16 | `build_stateful_benchmark_input` | `app/services/stateful_benchmark_input_service.py:57` | 93 |
+| 17 | `calculate_twr_response` | `app/services/twr_service.py:1007` | 93 |
+| 18 | `_build_artifacts` | `app/services/composite_inspection_service.py:151` | 89 |
+| 19 | `LineageMetadataStore.list_inspection_items` | `app/services/lineage_metadata_store.py:507` | 85 |
+| 20 | `build_recovery_drill_history_snapshot` | `app/services/recovery_drill_history_service.py:62` | 85 |
 
 ## Interpretation
 

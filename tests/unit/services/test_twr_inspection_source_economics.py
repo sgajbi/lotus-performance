@@ -74,6 +74,72 @@ def test_external_explicit_mixed_timing_sample_requires_explicit_bod_and_eod_flo
     )
 
 
+def test_external_timing_contradiction_sample_projects_artifact_fields():
+    assert source_economics_collector._external_timing_contradiction_sample(
+        valuation_date="2026-03-12",
+        explicit_timing="bod",
+        opposite_detailed_timing="eod",
+        explicit_total=Decimal("100"),
+        opposite_detailed_total=Decimal("-25"),
+    ) == {
+        "valuation_date": "2026-03-12",
+        "explicit_timing": "bod",
+        "opposite_detailed_timing": "eod",
+        "explicit_cashflow_amount": "100",
+        "opposite_detailed_cashflow_amount": "-25",
+    }
+
+
+def test_record_external_timing_contradictions_routes_bod_and_eod_conflicts():
+    samples: list[dict[str, object]] = []
+
+    source_economics_collector._record_external_timing_contradictions(
+        source_point=_source_economics_point(
+            explicit_bod_total=Decimal("100"),
+            explicit_eod_total=Decimal("-25"),
+            detailed_external_bod=Decimal("10"),
+            detailed_external_eod=Decimal("-20"),
+        ),
+        sample_target=samples,
+    )
+
+    assert samples == []
+
+    source_economics_collector._record_external_timing_contradictions(
+        source_point=_source_economics_point(
+            explicit_bod_total=Decimal("100"),
+            detailed_external_bod=Decimal("0"),
+            detailed_external_eod=Decimal("-20"),
+        ),
+        sample_target=samples,
+    )
+    source_economics_collector._record_external_timing_contradictions(
+        source_point=_source_economics_point(
+            explicit_eod_total=Decimal("-25"),
+            detailed_external_bod=Decimal("10"),
+            detailed_external_eod=Decimal("0"),
+        ),
+        sample_target=samples,
+    )
+
+    assert samples == [
+        {
+            "valuation_date": "2026-03-12",
+            "explicit_timing": "bod",
+            "opposite_detailed_timing": "eod",
+            "explicit_cashflow_amount": "100",
+            "opposite_detailed_cashflow_amount": "-20",
+        },
+        {
+            "valuation_date": "2026-03-12",
+            "explicit_timing": "eod",
+            "opposite_detailed_timing": "bod",
+            "explicit_cashflow_amount": "-25",
+            "opposite_detailed_cashflow_amount": "10",
+        },
+    ]
+
+
 def test_collect_source_economics_samples_routes_taxonomy_samples():
     samples = collect_source_economics_samples(
         source_points=[
