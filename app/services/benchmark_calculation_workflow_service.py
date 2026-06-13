@@ -210,6 +210,31 @@ async def _calculate_promoted_stateful_benchmark_workflow(
         _raise_benchmark_workflow_failure(request, exc)
 
 
+def _initial_benchmark_async_submission(
+    request: BenchmarkAnalyticsRequest,
+    *,
+    source_request_fingerprint: str,
+    source_request_hash: str,
+) -> BenchmarkAcceptedResponse | None:
+    if not should_offload_benchmark(request):
+        return None
+    return register_async_submission_or_raise(
+        calculation_id=request.calculation_id,
+        analytics_type=ANALYTICS_WORKFLOW_BENCHMARK,
+        portfolio_id=request.benchmark_id,
+        requested_window=build_benchmark_execution_window(request),
+        input_fingerprint=source_request_fingerprint,
+        calculation_hash=source_request_hash,
+        request_payload=request.model_dump(mode="json"),
+        offload_reason=(
+            "long_window_stateful_benchmark"
+            if request.input_mode == BenchmarkInputMode.STATEFUL
+            else "large_benchmark_input_set"
+        ),
+        accepted_response_factory=accepted_benchmark_response,
+    )
+
+
 async def calculate_benchmark_workflow(
     request: BenchmarkAnalyticsRequest,
 ) -> BenchmarkPerformanceResponse | BenchmarkAcceptedResponse:
@@ -228,22 +253,13 @@ async def calculate_benchmark_workflow(
             calculation_hash=calculation_hash,
         )
 
-    if should_offload_benchmark(request):
-        return register_async_submission_or_raise(
-            calculation_id=request.calculation_id,
-            analytics_type=ANALYTICS_WORKFLOW_BENCHMARK,
-            portfolio_id=request.benchmark_id,
-            requested_window=build_benchmark_execution_window(request),
-            input_fingerprint=source_request_fingerprint,
-            calculation_hash=source_request_hash,
-            request_payload=request.model_dump(mode="json"),
-            offload_reason=(
-                "long_window_stateful_benchmark"
-                if request.input_mode == BenchmarkInputMode.STATEFUL
-                else "large_benchmark_input_set"
-            ),
-            accepted_response_factory=accepted_benchmark_response,
-        )
+    accepted_response = _initial_benchmark_async_submission(
+        request,
+        source_request_fingerprint=source_request_fingerprint,
+        source_request_hash=source_request_hash,
+    )
+    if accepted_response is not None:
+        return accepted_response
 
     register_sync_execution_or_raise(
         calculation_id=request.calculation_id,

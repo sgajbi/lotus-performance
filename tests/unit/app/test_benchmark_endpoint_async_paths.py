@@ -388,6 +388,51 @@ async def test_benchmark_endpoint_offloads_large_requests(mocker):
     assert register_async.call_args.kwargs["analytics_type"] == ANALYTICS_WORKFLOW_BENCHMARK
 
 
+def test_initial_benchmark_async_submission_projects_large_input_payload(mocker):
+    request = BenchmarkAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "benchmark_id": "BMK_VENDOR",
+            "benchmark_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "input_mode": "stateless",
+            "return_source": "vendor_series",
+            "stateless_input": {
+                "benchmark_currency": "USD",
+                "benchmark_return_points": [
+                    {"perf_date": "2025-01-01", "benchmark_return": 0.01},
+                    {"perf_date": "2025-01-02", "benchmark_return": 0.01},
+                ],
+            },
+        }
+    )
+    accepted_response = benchmark_calculation_workflow_service.accepted_benchmark_response(request.calculation_id)
+    mocker.patch(
+        "app.services.benchmark_calculation_workflow_service.should_offload_benchmark",
+        return_value=True,
+    )
+    register_async = mocker.patch(
+        "app.services.benchmark_calculation_workflow_service.register_async_submission_or_raise",
+        return_value=accepted_response,
+    )
+
+    response = benchmark_calculation_workflow_service._initial_benchmark_async_submission(
+        request,
+        source_request_fingerprint="source-fingerprint",
+        source_request_hash="source-hash",
+    )
+
+    assert response == accepted_response
+    assert register_async.call_args.kwargs["calculation_id"] == request.calculation_id
+    assert register_async.call_args.kwargs["analytics_type"] == ANALYTICS_WORKFLOW_BENCHMARK
+    assert register_async.call_args.kwargs["portfolio_id"] == "BMK_VENDOR"
+    assert register_async.call_args.kwargs["input_fingerprint"] == "source-fingerprint"
+    assert register_async.call_args.kwargs["calculation_hash"] == "source-hash"
+    assert register_async.call_args.kwargs["requested_window"]["input_count"] == 2
+    assert register_async.call_args.kwargs["offload_reason"] == "large_benchmark_input_set"
+
+
 @pytest.mark.asyncio
 async def test_benchmark_endpoint_maps_stateful_resolution_errors_to_http_500(mocker):
     request = BenchmarkAnalyticsRequest.model_validate(_stateful_benchmark_payload())
