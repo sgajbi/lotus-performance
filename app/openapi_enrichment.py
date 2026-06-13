@@ -717,17 +717,22 @@ def _ensure_model_schema_documentation(
     if enum_descriptions and "x-enum-descriptions" not in model_schema:
         model_schema["x-enum-descriptions"] = enum_descriptions
 
+    for prop_name, prop_schema in _iter_schema_properties(model_schema):
+        _ensure_property_schema_documentation(
+            model_name=model_name,
+            prop_name=prop_name,
+            prop_schema=prop_schema,
+            components=components,
+        )
+
+
+def _iter_schema_properties(model_schema: dict[str, Any]) -> Iterator[tuple[str, dict[str, Any]]]:
     properties = model_schema.get("properties", {})
     if not isinstance(properties, dict):
         return
     for prop_name, prop_schema in properties.items():
         if isinstance(prop_schema, dict):
-            _ensure_property_schema_documentation(
-                model_name=model_name,
-                prop_name=str(prop_name),
-                prop_schema=prop_schema,
-                components=components,
-            )
+            yield str(prop_name), prop_schema
 
 
 def _ensure_property_schema_documentation(

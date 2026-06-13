@@ -17,6 +17,7 @@ from app.openapi_enrichment import (
     _infer_example,
     _infer_schema_description,
     _iter_documentable_operations,
+    _iter_schema_properties,
     _named_schema_example,
     _object_schema_example,
     _ref_schema_example,
@@ -609,6 +610,23 @@ def test_ensure_model_schema_documentation_preserves_existing_metadata_and_resol
     assert nested_ref["description"] == "Referenced schema description."
     assert nested_ref["example"] == {"count": 1}
     assert nested_ref["x-lotus-semantic-id"] == "lotus.nested_ref"
+
+
+def test_iter_schema_properties_yields_only_dict_properties():
+    string_property = {"type": "string"}
+
+    assert list(
+        _iter_schema_properties(
+            {
+                "properties": {
+                    "portfolio_id": string_property,
+                    "ignored": "not-a-schema",
+                    7: {"type": "integer"},
+                }
+            }
+        )
+    ) == [("portfolio_id", string_property), ("7", {"type": "integer"})]
+    assert list(_iter_schema_properties({"properties": "not-a-dict"})) == []
 
 
 def test_enrich_openapi_schema_adds_fastapi_validation_error_examples():
