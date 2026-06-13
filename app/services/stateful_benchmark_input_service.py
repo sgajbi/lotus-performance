@@ -202,22 +202,7 @@ async def _build_stateful_vendor_series_input(
             upstream_status=return_status,
         )
 
-    points_raw = return_payload.get("points")
-    if not isinstance(points_raw, list):
-        raise HTTPException(
-            status_code=HTTP_422_UNPROCESSABLE,
-            detail="benchmark return-series payload missing points list.",
-        )
-    benchmark_return_points = [
-        BenchmarkReturnPoint(
-            perf_date=date.fromisoformat(point["series_date"]),
-            benchmark_return=float(point["benchmark_return"]),
-        )
-        for point in points_raw
-        if isinstance(point, dict)
-        and isinstance(point.get("series_date"), str)
-        and point.get("benchmark_return") is not None
-    ]
+    benchmark_return_points = _benchmark_return_points_from_payload(return_payload)
     retrieval_metadata = parse_zero_default_retrieval_metadata(return_payload)
     return StatefulBenchmarkNormalizedInput(
         benchmark_currency=benchmark_currency,
@@ -229,6 +214,31 @@ async def _build_stateful_vendor_series_input(
             "benchmark_page_count": retrieval_metadata.page_count,
         },
     )
+
+
+def _benchmark_return_points_from_payload(return_payload: dict[str, Any]) -> list[BenchmarkReturnPoint]:
+    points_raw = return_payload.get("points")
+    if not isinstance(points_raw, list):
+        raise HTTPException(
+            status_code=HTTP_422_UNPROCESSABLE,
+            detail="benchmark return-series payload missing points list.",
+        )
+
+    benchmark_return_points: list[BenchmarkReturnPoint] = []
+    for point in points_raw:
+        if not isinstance(point, dict):
+            continue
+        series_date = point.get("series_date")
+        benchmark_return = point.get("benchmark_return")
+        if not isinstance(series_date, str) or benchmark_return is None:
+            continue
+        benchmark_return_points.append(
+            BenchmarkReturnPoint(
+                perf_date=date.fromisoformat(series_date),
+                benchmark_return=float(point["benchmark_return"]),
+            )
+        )
+    return benchmark_return_points
 
 
 def _parse_composition_window(

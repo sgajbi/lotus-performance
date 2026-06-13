@@ -8,6 +8,7 @@ from fastapi import HTTPException
 from app.models.benchmark_analytics_requests import BenchmarkReturnSource
 from app.services.stateful_benchmark_input_service import (
     BenchmarkCompositionSegment,
+    _benchmark_return_points_from_payload,
     _build_component_observation,
     _build_component_observations,
     _build_normalized_component_series,
@@ -211,6 +212,30 @@ async def test_build_stateful_benchmark_input_supports_explicit_vendor_series_mo
 
     assert result.component_observations == []
     assert [point.benchmark_return for point in result.benchmark_return_points] == [0.01, 0.011]
+
+
+def test_benchmark_return_points_from_payload_projects_valid_points_only():
+    points = _benchmark_return_points_from_payload(
+        {
+            "points": [
+                {"series_date": "2026-01-02", "benchmark_return": "0.0100"},
+                {"series_date": "2026-01-03", "benchmark_return": Decimal("0.0110")},
+                {"series_date": "2026-01-04"},
+                {"benchmark_return": "0.0120"},
+                "ignored",
+            ]
+        }
+    )
+
+    assert [(point.perf_date, point.benchmark_return) for point in points] == [
+        (date(2026, 1, 2), 0.01),
+        (date(2026, 1, 3), 0.011),
+    ]
+
+
+def test_benchmark_return_points_from_payload_requires_points_list():
+    with pytest.raises(HTTPException, match="missing points list"):
+        _benchmark_return_points_from_payload({"points": None})
 
 
 @pytest.mark.asyncio
