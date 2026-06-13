@@ -86,6 +86,21 @@ def _validate_stateful_contribution_payloads(
         raise ValueError("portfolio_data and positions_data must be null when input_mode=stateful")
 
 
+def _resolved_stateless_contribution_inputs(
+    request: "ContributionAnalyticsRequest",
+    *,
+    portfolio_data: PortfolioData | None,
+    positions_data: list[PositionData] | None,
+) -> tuple[PortfolioData, list[PositionData]]:
+    if portfolio_data is not None and positions_data is not None:
+        return portfolio_data, positions_data
+    if request.stateless_input is not None:
+        return request.stateless_input.portfolio_data, request.stateless_input.positions_data
+    if request.portfolio_data is not None and request.positions_data is not None:
+        return request.portfolio_data, request.positions_data
+    raise ValueError("No stateless contribution inputs are available to build a ContributionRequest")
+
+
 class ContributionAnalyticsRequest(ContributionRequestBase):
     input_mode: ContributionInputMode = Field(
         default=ContributionInputMode.STATELESS,
@@ -125,17 +140,11 @@ class ContributionAnalyticsRequest(ContributionRequestBase):
         portfolio_data: PortfolioData | None = None,
         positions_data: list[PositionData] | None = None,
     ) -> ContributionRequest:
-        if portfolio_data is not None and positions_data is not None:
-            resolved_portfolio_data = portfolio_data
-            resolved_positions_data = positions_data
-        elif self.stateless_input is not None:
-            resolved_portfolio_data = self.stateless_input.portfolio_data
-            resolved_positions_data = self.stateless_input.positions_data
-        elif self.portfolio_data is not None and self.positions_data is not None:
-            resolved_portfolio_data = self.portfolio_data
-            resolved_positions_data = self.positions_data
-        else:
-            raise ValueError("No stateless contribution inputs are available to build a ContributionRequest")
+        resolved_portfolio_data, resolved_positions_data = _resolved_stateless_contribution_inputs(
+            self,
+            portfolio_data=portfolio_data,
+            positions_data=positions_data,
+        )
 
         payload = self.model_dump(
             exclude={

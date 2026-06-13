@@ -7,6 +7,7 @@ from pydantic import ValidationError
 
 from app.models.contribution_analytics_requests import (
     ContributionAnalyticsRequest,
+    _resolved_stateless_contribution_inputs,
     _validate_stateless_contribution_payloads,
 )
 from app.models.contribution_requests import ContributionRequest, PortfolioData, PositionData
@@ -378,6 +379,59 @@ def test_contribution_analytics_request_to_stateless_prefers_override_payload():
 
     assert stateless.portfolio_data.metric_basis == "GROSS"
     assert stateless.positions_data[0].position_id == "OVERRIDE"
+
+
+def test_resolved_stateless_contribution_inputs_prefers_override_payload():
+    request = ContributionAnalyticsRequest.model_validate(
+        {
+            "portfolio_id": "CONTRIB_STATELESS",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-31",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "input_mode": "stateless",
+            "stateless_input": {
+                "portfolio_data": {
+                    "metric_basis": "NET",
+                    "valuation_points": [],
+                },
+                "positions_data": [],
+            },
+        }
+    )
+
+    portfolio_data, positions_data = _resolved_stateless_contribution_inputs(
+        request,
+        portfolio_data=PortfolioData.model_validate({"metric_basis": "GROSS", "valuation_points": []}),
+        positions_data=[PositionData.model_validate({"position_id": "OVERRIDE", "valuation_points": []})],
+    )
+
+    assert portfolio_data.metric_basis == "GROSS"
+    assert positions_data[0].position_id == "OVERRIDE"
+
+
+def test_resolved_stateless_contribution_inputs_uses_legacy_payload():
+    request = ContributionAnalyticsRequest.model_validate(
+        {
+            "portfolio_id": "CONTRIB_LEGACY",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-31",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "portfolio_data": {
+                "metric_basis": "NET",
+                "valuation_points": [],
+            },
+            "positions_data": [{"position_id": "POS_LEGACY", "valuation_points": []}],
+        }
+    )
+
+    portfolio_data, positions_data = _resolved_stateless_contribution_inputs(
+        request,
+        portfolio_data=None,
+        positions_data=None,
+    )
+
+    assert portfolio_data.metric_basis == "NET"
+    assert positions_data[0].position_id == "POS_LEGACY"
 
 
 def test_contribution_analytics_request_to_stateless_fails_without_stateless_payload():
