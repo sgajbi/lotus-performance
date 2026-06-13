@@ -40,6 +40,12 @@ class DailyEvidenceExpectedValues:
     daily_return: float | None  # monetary-float-allow
 
 
+@dataclass(frozen=True)
+class DailyEvidenceExpectedFlows:
+    external_inflows: float
+    external_outflows: float
+
+
 def run_twr_calculation_consistency_checks(response: PerformanceResponse) -> CalculationConsistencyCheckResult:
     findings: list[TWRInspectionFinding] = []
     linked_blocks_checked = 0
@@ -420,16 +426,28 @@ def _check_portfolio_daily_calculation_evidence(
 
 def _expected_daily_calculation_values(evidence: TWRDailyCalculationEvidence) -> DailyEvidenceExpectedValues:
     adjusted_capital = evidence.begin_mv + evidence.bod_cf
-    daily_return = None
-    if evidence.status == "calculated" and evidence.adjusted_capital != 0:
-        daily_return = evidence.performance_pnl / evidence.adjusted_capital * 100
+    expected_flows = _expected_daily_external_flows(evidence)
     return DailyEvidenceExpectedValues(
         signed_adjusted_capital=adjusted_capital,
         adjusted_capital=abs(adjusted_capital),
-        external_inflows=sum(value for value in (evidence.bod_cf, evidence.eod_cf) if value > 0),
-        external_outflows=abs(sum(value for value in (evidence.bod_cf, evidence.eod_cf) if value < 0)),
-        daily_return=daily_return,
+        external_inflows=expected_flows.external_inflows,
+        external_outflows=expected_flows.external_outflows,
+        daily_return=_expected_daily_return(evidence),
     )
+
+
+def _expected_daily_external_flows(evidence: TWRDailyCalculationEvidence) -> DailyEvidenceExpectedFlows:
+    flows = (evidence.bod_cf, evidence.eod_cf)
+    return DailyEvidenceExpectedFlows(
+        external_inflows=sum(value for value in flows if value > 0),
+        external_outflows=abs(sum(value for value in flows if value < 0)),
+    )
+
+
+def _expected_daily_return(evidence: TWRDailyCalculationEvidence) -> float | None:  # monetary-float-allow
+    if evidence.status != "calculated" or evidence.adjusted_capital == 0:
+        return None
+    return evidence.performance_pnl / evidence.adjusted_capital * 100
 
 
 def _daily_calculation_evidence_mismatches(

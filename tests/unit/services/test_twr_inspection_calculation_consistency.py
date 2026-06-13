@@ -13,6 +13,8 @@ from app.services.inspection.calculation_consistency import (
     _check_relative_breakdown_frequency,
     _comparative_return_mismatches,
     _daily_calculation_evidence_mismatches,
+    _expected_daily_external_flows,
+    _expected_daily_return,
     run_twr_calculation_consistency_checks,
 )
 from common.enums import Frequency
@@ -401,6 +403,52 @@ def test_daily_calculation_evidence_mismatches_capture_numeric_status_and_semant
         "FLOW_NEUTRALIZED_DAILY_RETURN",
         "ZERO_ADJUSTED_CAPITAL",
     ]
+
+
+def test_expected_daily_flow_and_return_helpers_project_evidence_policy():
+    evidence = TWRDailyCalculationEvidence(
+        begin_mv=1000.0,
+        end_mv=1013.0,
+        bod_cf=100.0,
+        eod_cf=-50.0,
+        external_inflows=100.0,
+        external_outflows=50.0,
+        management_fees=3.0,
+        signed_adjusted_capital=1100.0,
+        adjusted_capital=1100.0,
+        performance_pnl=13.0,
+        daily_return=1.1818181818,
+        status="calculated",
+        reason_codes=["FLOW_NEUTRALIZED_DAILY_RETURN"],
+        warnings=[],
+    )
+
+    flows = _expected_daily_external_flows(evidence)
+
+    assert flows.external_inflows == 100.0
+    assert flows.external_outflows == 50.0
+    assert _expected_daily_return(evidence) == 13.0 / 1100.0 * 100
+
+
+def test_expected_daily_return_is_absent_when_daily_evidence_is_not_calculable():
+    evidence = TWRDailyCalculationEvidence(
+        begin_mv=0.0,
+        end_mv=0.0,
+        bod_cf=0.0,
+        eod_cf=0.0,
+        external_inflows=0.0,
+        external_outflows=0.0,
+        management_fees=0.0,
+        signed_adjusted_capital=0.0,
+        adjusted_capital=0.0,
+        performance_pnl=0.0,
+        daily_return=0.0,
+        status="calculated",
+        reason_codes=["ZERO_ADJUSTED_CAPITAL"],
+        warnings=[],
+    )
+
+    assert _expected_daily_return(evidence) is None
 
 
 def test_calculation_consistency_flags_calculated_status_with_zero_adjusted_capital():
