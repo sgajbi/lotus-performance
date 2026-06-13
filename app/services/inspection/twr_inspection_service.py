@@ -14,7 +14,7 @@ from app.models.inspection_responses import (
     TWRInspectionResponse,
     TWRInspectionVerdict,
 )
-from app.models.requests import PerformanceRequest
+from app.models.requests import DailyInputData, PerformanceRequest
 from app.models.responses import PerformanceResponse
 from app.models.twr_requests import TWRResolvedExecutionRequest
 from app.services.durable_store_time import format_timestamp
@@ -697,9 +697,11 @@ def _scope_request_to_response_master_window(
     master_start, master_end = _response_master_window(response_model)
     if master_start is None or master_end is None:
         return performance_request
-    scoped_points = [
-        point for point in performance_request.valuation_points if master_start <= point.perf_date <= master_end
-    ]
+    scoped_points = _valuation_points_in_window(
+        performance_request.valuation_points,
+        start_date=master_start,
+        end_date=master_end,
+    )
     if not scoped_points:
         return performance_request
     return performance_request.model_copy(
@@ -709,6 +711,15 @@ def _scope_request_to_response_master_window(
             "valuation_points": scoped_points,
         }
     )
+
+
+def _valuation_points_in_window(
+    valuation_points: list[DailyInputData],
+    *,
+    start_date: date,
+    end_date: date,
+) -> list[DailyInputData]:
+    return [point for point in valuation_points if start_date <= point.perf_date <= end_date]
 
 
 def _response_master_window(response_model: PerformanceResponse) -> tuple[date | None, date | None]:
