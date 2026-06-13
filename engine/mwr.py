@@ -145,30 +145,55 @@ def _scan_xirr_roots(
     for current_x_raw in grid[1:]:
         current_x = float(current_x_raw)
         current_y = log_npv(current_x)
-        if not isfinite(previous_y) or not isfinite(current_y):
-            previous_x, previous_y = current_x, current_y
-            continue
-        if abs(previous_y) <= tolerance:
-            root_x = previous_x
-            iterations = 0
-        elif previous_y * current_y < 0:
-            root_x, iterations = _bisect_root(
-                log_npv,
-                previous_x,
-                current_x,
-                value_tolerance=max(tolerance * max(gross_cash_flow_scale, 1.0), 1e-8),
-                rate_tolerance=tolerance,
-                max_iter=max_iter,
-            )
-        else:
-            previous_x, previous_y = current_x, current_y
-            continue
-        root_rate = exp(root_x) - 1
-        if all(abs(root_rate - existing_rate) > 1e-8 for existing_rate, _, _ in roots):
-            residual = _npv_at_rate(values, time_diffs, root_rate)
-            roots.append((root_rate, iterations, residual))
+        candidate = _xirr_root_candidate(
+            previous_x=previous_x,
+            previous_y=previous_y,
+            current_x=current_x,
+            current_y=current_y,
+            tolerance=tolerance,
+            max_iter=max_iter,
+            gross_cash_flow_scale=gross_cash_flow_scale,
+            log_npv=log_npv,
+        )
+        if candidate is not None:
+            candidate_value, iterations = candidate
+            if _is_distinct_xirr_candidate(candidate_value, roots):
+                residual = _npv_at_rate(values, time_diffs, candidate_value)
+                roots.append((candidate_value, iterations, residual))
         previous_x, previous_y = current_x, current_y
     return roots
+
+
+def _xirr_root_candidate(
+    *,
+    previous_x,
+    previous_y,
+    current_x,
+    current_y,
+    tolerance,
+    max_iter,
+    gross_cash_flow_scale,
+    log_npv,
+):
+    if not isfinite(previous_y) or not isfinite(current_y):
+        return None
+    if abs(previous_y) <= tolerance:
+        return exp(previous_x) - 1, 0
+    if previous_y * current_y >= 0:
+        return None
+    root_x, iterations = _bisect_root(
+        log_npv,
+        previous_x,
+        current_x,
+        value_tolerance=max(tolerance * max(gross_cash_flow_scale, 1.0), 1e-8),
+        rate_tolerance=tolerance,
+        max_iter=max_iter,
+    )
+    return exp(root_x) - 1, iterations
+
+
+def _is_distinct_xirr_candidate(solver_value, roots):
+    return all(abs(solver_value - existing_rate) > 1e-8 for existing_rate, _, _ in roots)
 
 
 def _xirr_result_from_roots(*, roots: list[tuple[float, int, float]], base_convergence: dict) -> dict:

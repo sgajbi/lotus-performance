@@ -20,6 +20,7 @@ from engine.mwr import (
     _xirr_failure,
     _xirr_initial_failure,
     _xirr_result_from_roots,
+    _xirr_root_candidate,
     _xirr_time_diffs,
     calculate_money_weighted_return,
 )
@@ -144,6 +145,39 @@ def test_scan_xirr_roots_returns_single_residual_for_bracketed_schedule():
     assert root_rate == pytest.approx(0.1, abs=1e-8)
     assert iterations > 0
     assert residual == pytest.approx(0.0, abs=1e-6)
+
+
+def test_xirr_root_candidate_ignores_non_finite_intervals():
+    candidate = _xirr_root_candidate(
+        previous_x=0.0,
+        previous_y=float("nan"),
+        current_x=1.0,
+        current_y=-1.0,
+        tolerance=1e-10,
+        max_iter=100,
+        gross_cash_flow_scale=1.0,
+        log_npv=lambda _rate: 0.0,
+    )
+
+    assert candidate is None
+
+
+def test_xirr_root_candidate_projects_exact_grid_root_without_bisection():
+    candidate = _xirr_root_candidate(
+        previous_x=0.0,
+        previous_y=0.0,
+        current_x=1.0,
+        current_y=-1.0,
+        tolerance=1e-10,
+        max_iter=100,
+        gross_cash_flow_scale=1.0,
+        log_npv=lambda _rate: 0.0,
+    )
+
+    assert candidate is not None
+    solver_value, iterations = candidate
+    assert solver_value == pytest.approx(0.0)
+    assert iterations == 0
 
 
 def test_xirr_result_from_roots_preserves_success_convergence_payload():
