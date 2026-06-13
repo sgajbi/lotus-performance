@@ -612,6 +612,19 @@ def risk_free_points_to_dataframe(*, points: list[dict[str, Any]]) -> pd.DataFra
     return to_dataframe(normalized_points, series_type="risk_free")
 
 
+def _selected_series_common_dates(
+    *,
+    portfolio_df: pd.DataFrame,
+    benchmark_df: pd.DataFrame | None,
+    risk_free_df: pd.DataFrame | None,
+) -> set[Any]:
+    common_dates = set(portfolio_df["date"])
+    for selected_df in (benchmark_df, risk_free_df):
+        if selected_df is not None:
+            common_dates &= set(selected_df["date"])
+    return common_dates
+
+
 def _apply_strict_intersection_policy(
     *,
     portfolio_df: pd.DataFrame,
@@ -622,11 +635,11 @@ def _apply_strict_intersection_policy(
     if missing_data_policy != MissingDataPolicy.STRICT_INTERSECTION:
         return portfolio_df, benchmark_df, risk_free_df
 
-    common_dates = set(portfolio_df["date"])
-    if benchmark_df is not None:
-        common_dates &= set(benchmark_df["date"])
-    if risk_free_df is not None:
-        common_dates &= set(risk_free_df["date"])
+    common_dates = _selected_series_common_dates(
+        portfolio_df=portfolio_df,
+        benchmark_df=benchmark_df,
+        risk_free_df=risk_free_df,
+    )
     if not common_dates:
         raise HTTPException(
             status_code=HTTP_422_UNPROCESSABLE,

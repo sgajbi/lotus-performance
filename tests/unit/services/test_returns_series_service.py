@@ -552,6 +552,40 @@ def test_strict_intersection_policy_aligns_selected_series():
     assert aligned_risk_free is None
 
 
+def test_strict_intersection_policy_includes_risk_free_dates():
+    portfolio_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-24", "2026-02-25", "2026-02-26"]),
+            "return_value": [Decimal("0.0100"), Decimal("0.0200"), Decimal("0.0300")],
+        }
+    )
+    benchmark_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-24", "2026-02-25"]),
+            "return_value": [Decimal("0.0010"), Decimal("0.0020")],
+        }
+    )
+    risk_free_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-25", "2026-02-26"]),
+            "return_value": [Decimal("0.0001"), Decimal("0.0002")],
+        }
+    )
+
+    aligned_portfolio, aligned_benchmark, aligned_risk_free = returns_series_service._apply_strict_intersection_policy(
+        portfolio_df=portfolio_df,
+        benchmark_df=benchmark_df,
+        risk_free_df=risk_free_df,
+        missing_data_policy=MissingDataPolicy.STRICT_INTERSECTION,
+    )
+
+    assert list(aligned_portfolio["date"].dt.date) == [pd.Timestamp("2026-02-25").date()]
+    assert aligned_benchmark is not None
+    assert list(aligned_benchmark["date"].dt.date) == [pd.Timestamp("2026-02-25").date()]
+    assert aligned_risk_free is not None
+    assert list(aligned_risk_free["date"].dt.date) == [pd.Timestamp("2026-02-25").date()]
+
+
 def test_strict_intersection_policy_rejects_no_overlap():
     portfolio_df = pd.DataFrame({"date": pd.to_datetime(["2026-02-24"]), "return_value": [Decimal("0.0100")]})
     benchmark_df = pd.DataFrame({"date": pd.to_datetime(["2026-02-25"]), "return_value": [Decimal("0.0010")]})
