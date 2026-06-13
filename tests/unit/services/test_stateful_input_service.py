@@ -317,6 +317,16 @@ def test_portfolio_chunk_helper_contracts_preserve_request_identity_and_payload_
         portfolio_currency=portfolio_currency,
         reporting_currency=reporting_currency,
     )
+    ignored_non_string_identity = _portfolio_identity_from_payload(
+        payload={
+            "portfolio_open_date": date(2025, 12, 31),
+            "portfolio_currency": 123,
+            "reporting_currency": None,
+        },
+        portfolio_open_date=None,
+        portfolio_currency=None,
+        reporting_currency=None,
+    )
 
     assert request_payload == {
         "portfolio_id": "PORT_1",
@@ -328,6 +338,7 @@ def test_portfolio_chunk_helper_contracts_preserve_request_identity_and_payload_
     }
     assert (portfolio_open_date, portfolio_currency, reporting_currency) == ("2025-12-31", "EUR", "USD")
     assert preserved_identity == ("2025-12-31", "EUR", "USD")
+    assert ignored_non_string_identity == (None, None, None)
     assert _portfolio_observations_from_payload({"observations": [{"valuation_date": "2026-01-01"}, "bad"]}) == [
         {"valuation_date": "2026-01-01"}
     ]

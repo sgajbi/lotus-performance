@@ -1379,13 +1379,37 @@ def _portfolio_identity_from_payload(
     portfolio_currency: str | None,
     reporting_currency: str | None,
 ) -> tuple[str | None, str | None, str | None]:
-    if portfolio_open_date is None and isinstance(payload.get("portfolio_open_date"), str):
-        portfolio_open_date = payload["portfolio_open_date"]
-    if portfolio_currency is None and isinstance(payload.get("portfolio_currency"), str):
-        portfolio_currency = payload["portfolio_currency"]
-    if reporting_currency is None and isinstance(payload.get("reporting_currency"), str):
-        reporting_currency = payload["reporting_currency"]
-    return portfolio_open_date, portfolio_currency, reporting_currency
+    return (
+        _payload_string_identity_value(
+            payload=payload,
+            field_name="portfolio_open_date",
+            current_value=portfolio_open_date,
+        ),
+        _payload_string_identity_value(
+            payload=payload,
+            field_name="portfolio_currency",
+            current_value=portfolio_currency,
+        ),
+        _payload_string_identity_value(
+            payload=payload,
+            field_name="reporting_currency",
+            current_value=reporting_currency,
+        ),
+    )
+
+
+def _payload_string_identity_value(
+    *,
+    payload: dict[str, Any],
+    field_name: str,
+    current_value: str | None,
+) -> str | None:
+    if current_value is not None:
+        return current_value
+    payload_value = payload.get(field_name)
+    if isinstance(payload_value, str):
+        return payload_value
+    return None
 
 
 def _portfolio_observations_from_payload(payload: dict[str, Any]) -> list[dict[str, Any]]:
