@@ -1,7 +1,7 @@
 # Lotus Performance Function Size Inventory
 
 Report date: 2026-06-13
-Branch: `refactor/lp-cr-942-source-economics-counts`
+Branch: `refactor/lp-cr-950-mwr-fx-component`
 Mode: report-only function-size inventory; this artifact introduces no new blocking CI gate.
 
 ## Purpose
@@ -34,7 +34,7 @@ python scripts/python_function_size_inventory.py --limit 20
 | 12 | `aggregate_attribution_results` | `engine/attribution.py:648` | 102 |
 | 13 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:87` | 101 |
 | 14 | `_calculate_position_flow_balance_counts` | `app/services/contribution_diagnostics.py:183` | 99 |
-| 15 | `_calculate_returns_series` | `app/services/returns_series_service.py:1308` | 97 |
+| 15 | `_calculate_returns_series` | `app/services/returns_series_service.py:1317` | 97 |
 | 16 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:62` | 97 |
 | 17 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:88` | 95 |
 | 18 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:31` | 94 |

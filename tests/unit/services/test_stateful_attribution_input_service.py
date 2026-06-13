@@ -18,6 +18,7 @@ from app.services.stateful_attribution_input_service import (
     _first_rows_by_position,
     _has_unsupported_position_inception_row,
     _normalize_group_value,
+    _normalized_position_dimension_value,
     _normalized_position_dimensions,
     _parse_index_catalog,
     _parse_position_rows,
@@ -1271,14 +1272,23 @@ def test_stateful_attribution_normalizes_position_dimensions():
         {
             "asset_class": "Fixed Income",
             "rank": 3,
+            "empty": "",
             "nullable": None,
             7: "ignored",
         }
     ) == {
         "asset_class": "fixed_income",
         "rank": 3,
+        "empty": "",
     }
     assert _normalized_position_dimensions(None) == {}
+
+
+def test_stateful_attribution_normalizes_position_dimension_value_policy():
+    assert _normalized_position_dimension_value("Fixed Income") == "fixed_income"
+    assert _normalized_position_dimension_value("") == ""
+    assert _normalized_position_dimension_value(None) is None
+    assert _normalized_position_dimension_value(3) == 3
 
 
 def test_stateful_attribution_builds_normalized_group_key():

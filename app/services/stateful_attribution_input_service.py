@@ -996,13 +996,23 @@ def _position_meta_fx_rate_fields(row: dict[str, object]) -> dict[str, object]:
 
 def _normalized_position_dimensions(dimensions_raw: object) -> dict[str, object]:
     dimensions: dict[str, object] = {}
-    if isinstance(dimensions_raw, dict):
-        for key, value in dimensions_raw.items():
-            if isinstance(key, str) and isinstance(value, str) and value:
-                dimensions[key] = _normalize_group_value(value)
-            elif isinstance(key, str) and value is not None:
-                dimensions[key] = value
+    if not isinstance(dimensions_raw, dict):
+        return dimensions
+    for key, value in dimensions_raw.items():
+        if not isinstance(key, str):
+            continue
+        dimension_value = _normalized_position_dimension_value(value)
+        if dimension_value is not None:
+            dimensions[key] = dimension_value
     return dimensions
+
+
+def _normalized_position_dimension_value(value: object) -> object | None:
+    if isinstance(value, str) and value:
+        return _normalize_group_value(value)
+    if value is not None:
+        return value
+    return None
 
 
 def _normalize_group_value(value: str) -> str:
