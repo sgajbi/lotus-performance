@@ -35,11 +35,11 @@ python scripts/python_function_size_inventory.py --limit 20
 | 13 | `build_stateful_benchmark_input` | `app/services/stateful_benchmark_input_service.py:57` | 93 |
 | 14 | `calculate_twr_response` | `app/services/twr_service.py:1007` | 93 |
 | 15 | `_build_artifacts` | `app/services/composite_inspection_service.py:151` | 89 |
-| 16 | `LineageMetadataStore.list_inspection_items` | `app/services/lineage_metadata_store.py:507` | 85 |
-| 17 | `build_recovery_drill_history_snapshot` | `app/services/recovery_drill_history_service.py:62` | 85 |
-| 18 | `build_runtime_recovery_snapshot` | `app/services/runtime_recovery_service.py:46` | 84 |
-| 19 | `_align_and_prepare_data` | `engine/attribution.py:452` | 83 |
-| 20 | `StatefulInputService._fetch_position_chunk` | `app/services/stateful_input_service.py:991` | 81 |
+| 16 | `build_recovery_drill_history_snapshot` | `app/services/recovery_drill_history_service.py:62` | 85 |
+| 17 | `build_runtime_recovery_snapshot` | `app/services/runtime_recovery_service.py:46` | 84 |
+| 18 | `_align_and_prepare_data` | `engine/attribution.py:452` | 83 |
+| 19 | `StatefulInputService._fetch_position_chunk` | `app/services/stateful_input_service.py:991` | 81 |
+| 20 | `calculate_contribution` | `app/services/contribution_service.py:576` | 80 |
 
 ## Interpretation
 

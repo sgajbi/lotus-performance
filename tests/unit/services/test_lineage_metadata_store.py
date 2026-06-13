@@ -684,6 +684,25 @@ def test_lineage_metadata_store_filters_inspection_items_by_type_and_calculation
     assert [item.calculation_id for item in filtered.items] == [str(ids[2])]
 
 
+def test_lineage_metadata_store_list_inspection_items_normalizes_status_filter(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    store.create_schema()
+    calculation_id = uuid4()
+
+    store.enqueue_lineage_payload(
+        calculation_id=calculation_id,
+        calculation_type="TWR",
+        request_json="{}",
+        response_json="{}",
+        details={"details.json": "{}"},
+    )
+
+    page = store.list_inspection_items(status_filter="ALL", limit=10)
+
+    assert page.total_count == 1
+    assert [item.calculation_id for item in page.items] == [str(calculation_id)]
+
+
 def test_lineage_metadata_store_mark_pending_clears_error(tmp_path):
     store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
     store.create_schema()

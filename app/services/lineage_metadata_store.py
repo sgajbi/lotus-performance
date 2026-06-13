@@ -511,73 +511,101 @@ class LineageMetadataStore:
         )
 
         with self._session() as session:
-            if inspection_context.status_filter == INSPECTION_STATUS_ACTIVE:
-                count_statement = self._build_active_inspection_count_statement(
-                    now=inspection_context.now,
-                    calculation_type=calculation_type,
-                    calculation_id_contains=calculation_id_contains,
-                    min_age_threshold=inspection_context.min_age_threshold,
-                )
-                statement = self._build_active_inspection_items_statement(
-                    now=inspection_context.now,
-                    limit=limit,
-                    offset=offset,
-                    calculation_type=calculation_type,
-                    calculation_id_contains=calculation_id_contains,
-                    min_age_threshold=inspection_context.min_age_threshold,
-                )
-            elif inspection_context.status_filter == INSPECTION_STATUS_FAILED:
-                count_statement = self._build_failed_inspection_count_statement(
-                    now=inspection_context.now,
-                    calculation_type=calculation_type,
-                    calculation_id_contains=calculation_id_contains,
-                    min_age_threshold=inspection_context.min_age_threshold,
-                )
-                statement = self._build_failed_inspection_items_statement(
-                    now=inspection_context.now,
-                    limit=limit,
-                    offset=offset,
-                    calculation_type=calculation_type,
-                    calculation_id_contains=calculation_id_contains,
-                    min_age_threshold=inspection_context.min_age_threshold,
-                )
-            elif inspection_context.status_filter == INSPECTION_STATUS_ALL:
-                count_statement = self._build_all_inspection_count_statement(
-                    now=inspection_context.now,
-                    calculation_type=calculation_type,
-                    calculation_id_contains=calculation_id_contains,
-                    min_age_threshold=inspection_context.min_age_threshold,
-                )
-                statement = self._build_all_inspection_items_statement(
-                    now=inspection_context.now,
-                    limit=limit,
-                    offset=offset,
-                    calculation_type=calculation_type,
-                    calculation_id_contains=calculation_id_contains,
-                    min_age_threshold=inspection_context.min_age_threshold,
-                )
-            elif inspection_context.status_filter == INSPECTION_STATUS_RECLAIMABLE:
-                count_statement = self._build_reclaimable_inspection_count_statement(
-                    now=inspection_context.now,
-                    calculation_type=calculation_type,
-                    calculation_id_contains=calculation_id_contains,
-                    min_age_threshold=inspection_context.min_age_threshold,
-                )
-                statement = self._build_reclaimable_inspection_items_statement(
-                    now=inspection_context.now,
-                    limit=limit,
-                    offset=offset,
-                    calculation_type=calculation_type,
-                    calculation_id_contains=calculation_id_contains,
-                    min_age_threshold=inspection_context.min_age_threshold,
-                )
-            else:
-                raise ValueError(f"Unsupported status filter: {status_filter}")
+            count_statement, statement = self._build_inspection_query_statements(
+                status_filter=inspection_context.status_filter,
+                now=inspection_context.now,
+                limit=limit,
+                offset=offset,
+                calculation_type=calculation_type,
+                calculation_id_contains=calculation_id_contains,
+                min_age_threshold=inspection_context.min_age_threshold,
+            )
             rows = session.execute(statement).all()
             items = [self._to_inspection_item(record, payload, now=inspection_context.now) for record, payload in rows]
             total_count = int(session.execute(count_statement).scalar_one() or 0)
             next_offset = next_offset_or_none(offset=offset, item_count=len(items), total_count=total_count)
             return LineageQueueInspectionPage(total_count=total_count, next_offset=next_offset, items=items)
+
+    def _build_inspection_query_statements(
+        self,
+        *,
+        status_filter: str,
+        now: datetime,
+        limit: int,
+        offset: int,
+        calculation_type: str | None,
+        calculation_id_contains: str | None,
+        min_age_threshold: datetime | None,
+    ):
+        if status_filter == INSPECTION_STATUS_ACTIVE:
+            return (
+                self._build_active_inspection_count_statement(
+                    now=now,
+                    calculation_type=calculation_type,
+                    calculation_id_contains=calculation_id_contains,
+                    min_age_threshold=min_age_threshold,
+                ),
+                self._build_active_inspection_items_statement(
+                    now=now,
+                    limit=limit,
+                    offset=offset,
+                    calculation_type=calculation_type,
+                    calculation_id_contains=calculation_id_contains,
+                    min_age_threshold=min_age_threshold,
+                ),
+            )
+        if status_filter == INSPECTION_STATUS_FAILED:
+            return (
+                self._build_failed_inspection_count_statement(
+                    now=now,
+                    calculation_type=calculation_type,
+                    calculation_id_contains=calculation_id_contains,
+                    min_age_threshold=min_age_threshold,
+                ),
+                self._build_failed_inspection_items_statement(
+                    now=now,
+                    limit=limit,
+                    offset=offset,
+                    calculation_type=calculation_type,
+                    calculation_id_contains=calculation_id_contains,
+                    min_age_threshold=min_age_threshold,
+                ),
+            )
+        if status_filter == INSPECTION_STATUS_ALL:
+            return (
+                self._build_all_inspection_count_statement(
+                    now=now,
+                    calculation_type=calculation_type,
+                    calculation_id_contains=calculation_id_contains,
+                    min_age_threshold=min_age_threshold,
+                ),
+                self._build_all_inspection_items_statement(
+                    now=now,
+                    limit=limit,
+                    offset=offset,
+                    calculation_type=calculation_type,
+                    calculation_id_contains=calculation_id_contains,
+                    min_age_threshold=min_age_threshold,
+                ),
+            )
+        if status_filter == INSPECTION_STATUS_RECLAIMABLE:
+            return (
+                self._build_reclaimable_inspection_count_statement(
+                    now=now,
+                    calculation_type=calculation_type,
+                    calculation_id_contains=calculation_id_contains,
+                    min_age_threshold=min_age_threshold,
+                ),
+                self._build_reclaimable_inspection_items_statement(
+                    now=now,
+                    limit=limit,
+                    offset=offset,
+                    calculation_type=calculation_type,
+                    calculation_id_contains=calculation_id_contains,
+                    min_age_threshold=min_age_threshold,
+                ),
+            )
+        raise ValueError(f"Unsupported status filter: {status_filter}")
 
     def _build_pending_payload_stats_statement(self, *, now: datetime):
         return (
