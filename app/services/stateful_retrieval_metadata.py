@@ -63,8 +63,18 @@ def _metadata_count(
 ) -> int:
     if type(value) is int and value > 0:
         return value
-    if coerce_numeric_counts and isinstance(value, str):
-        return int(value)
-    if coerce_numeric_counts and isinstance(value, Real) and not isinstance(value, bool):
-        return int(Decimal(str(value)))
+    if coerce_numeric_counts:
+        coerced_count = _coerced_metadata_count(value)
+        if coerced_count is not None:
+            return coerced_count
     return default_value
+
+
+def _coerced_metadata_count(value: object) -> int | None:
+    if isinstance(value, str):
+        return int(value)
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, Real):
+        return int(Decimal(str(value)))
+    return None

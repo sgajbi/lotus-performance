@@ -1,3 +1,5 @@
+import pytest
+
 from app.services.stateful_input_service import RetrievalMetadata
 from app.services.stateful_retrieval_metadata import (
     add_zero_default_retrieval_metadata,
@@ -49,6 +51,20 @@ def test_parse_retrieval_metadata_can_preserve_legacy_numeric_coercion():
         default_page_count=0,
         coerce_numeric_counts=True,
     ) == RetrievalMetadata(chunk_count=2, page_count=3)
+
+
+def test_parse_retrieval_metadata_preserves_legacy_integer_zero_and_negative_coercion():
+    assert parse_retrieval_metadata(
+        {"retrieval_metadata": {"chunk_count": 0, "page_count": -1}},
+        default_chunk_count=0,
+        default_page_count=0,
+        coerce_numeric_counts=True,
+    ) == RetrievalMetadata(chunk_count=0, page_count=-1)
+
+
+def test_parse_retrieval_metadata_raises_for_invalid_legacy_numeric_strings():
+    with pytest.raises(ValueError):
+        parse_zero_default_retrieval_metadata({"retrieval_metadata": {"chunk_count": "two", "page_count": 1}})
 
 
 def test_parse_zero_default_retrieval_metadata_defaults_missing_payload_to_zero():
