@@ -95,6 +95,12 @@ class _ContributionPeriodResult:
     average_weight_sum_residual_bp: int
 
 
+@dataclass(frozen=True)
+class _ContributionPeriodResults:
+    results_by_period: dict[str, SinglePeriodContributionResult]
+    average_weight_sum_residual_bp: int
+
+
 def _build_period_average_weight_methodology_status(
     *,
     period_methodology_context: ContributionPeriodMethodologyContext,
@@ -441,6 +447,51 @@ def _prepare_contribution_engine_inputs(request: ContributionRequest) -> _Contri
     )
 
 
+def _build_contribution_results_by_period(
+    *,
+    request: ContributionRequest,
+    resolved_periods: list[Any],
+    daily_contributions_df: Any,
+    portfolio_results_df: Any,
+    reset_aware_average_weight_mode: str,
+    average_weight_audit_state: AverageWeightShadowAuditState,
+) -> _ContributionPeriodResults:
+    results_by_period: dict[str, SinglePeriodContributionResult] = {}
+    average_weight_sum_residual_bp = 0
+
+    for period in resolved_periods:
+        period_result = (
+            _build_hierarchy_period_contribution_result(
+                request=request,
+                period=period,
+                daily_contributions_df=daily_contributions_df,
+                portfolio_results_df=portfolio_results_df,
+                average_weight_audit_state=average_weight_audit_state,
+            )
+            if request.hierarchy
+            else _build_flat_period_contribution_result(
+                request=request,
+                period=period,
+                daily_contributions_df=daily_contributions_df,
+                portfolio_results_df=portfolio_results_df,
+                reset_aware_average_weight_mode=reset_aware_average_weight_mode,
+                average_weight_audit_state=average_weight_audit_state,
+            )
+        )
+        if period_result is None:
+            continue
+        average_weight_sum_residual_bp = max(
+            average_weight_sum_residual_bp,
+            period_result.average_weight_sum_residual_bp,
+        )
+        results_by_period[period_result.period_name] = period_result.result
+
+    return _ContributionPeriodResults(
+        results_by_period=results_by_period,
+        average_weight_sum_residual_bp=average_weight_sum_residual_bp,
+    )
+
+
 def _build_contribution_response(
     *,
     request: ContributionRequest,
@@ -545,44 +596,17 @@ def calculate_contribution(
         instruments_df = engine_inputs.instruments_df
         portfolio_results_df = engine_inputs.portfolio_results_df
         daily_contributions_df = engine_inputs.daily_contributions_df
-        average_weight_sum_residual_bp = 0
         average_weight_audit_state = AverageWeightShadowAuditState()
-
-        if request.hierarchy:
-            results_by_period = {}
-            for period in resolved_periods:
-                period_result = _build_hierarchy_period_contribution_result(
-                    request=request,
-                    period=period,
-                    daily_contributions_df=daily_contributions_df,
-                    portfolio_results_df=portfolio_results_df,
-                    average_weight_audit_state=average_weight_audit_state,
-                )
-                if period_result is None:
-                    continue
-                average_weight_sum_residual_bp = max(
-                    average_weight_sum_residual_bp,
-                    period_result.average_weight_sum_residual_bp,
-                )
-                results_by_period[period_result.period_name] = period_result.result
-        else:
-            results_by_period = {}
-            for period in resolved_periods:
-                period_result = _build_flat_period_contribution_result(
-                    request=request,
-                    period=period,
-                    daily_contributions_df=daily_contributions_df,
-                    portfolio_results_df=portfolio_results_df,
-                    reset_aware_average_weight_mode=reset_aware_average_weight_mode,
-                    average_weight_audit_state=average_weight_audit_state,
-                )
-                if period_result is None:
-                    continue
-                average_weight_sum_residual_bp = max(
-                    average_weight_sum_residual_bp,
-                    period_result.average_weight_sum_residual_bp,
-                )
-                results_by_period[period_result.period_name] = period_result.result
+        period_results = _build_contribution_results_by_period(
+            request=request,
+            resolved_periods=resolved_periods,
+            daily_contributions_df=daily_contributions_df,
+            portfolio_results_df=portfolio_results_df,
+            reset_aware_average_weight_mode=reset_aware_average_weight_mode,
+            average_weight_audit_state=average_weight_audit_state,
+        )
+        results_by_period = period_results.results_by_period
+        average_weight_sum_residual_bp = period_results.average_weight_sum_residual_bp
     except HTTPException as exc:
         record_execution_failure(
             calculation_id=request.calculation_id,

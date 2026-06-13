@@ -5,7 +5,11 @@ import pandas as pd
 import pytest
 from fastapi import HTTPException
 
-from app.models.contribution_responses import AverageWeightMethodologyStatus, PositionContribution
+from app.models.contribution_responses import (
+    AverageWeightMethodologyStatus,
+    PositionContribution,
+    SinglePeriodContributionResult,
+)
 from app.services import contribution_service
 from app.services.contribution_audit import AverageWeightShadowAuditState
 from engine.schema import PortfolioColumns
@@ -73,6 +77,81 @@ def test_prepare_contribution_engine_inputs_rejects_unresolved_periods(monkeypat
         assert exc.detail == "No valid periods could be resolved."
     else:
         raise AssertionError("Expected HTTPException for unresolved contribution periods.")
+
+
+def test_build_contribution_results_by_period_routes_flat_periods_and_tracks_max_residual(monkeypatch):
+    periods = [
+        SimpleNamespace(name="JAN"),
+        SimpleNamespace(name="FEB"),
+        SimpleNamespace(name="MAR"),
+    ]
+    request = SimpleNamespace(hierarchy=[])
+    audit_state = AverageWeightShadowAuditState()
+    result_jan = SinglePeriodContributionResult(total_portfolio_return=1.0, total_contribution=1.0)
+    result_mar = SinglePeriodContributionResult(total_portfolio_return=3.0, total_contribution=3.0)
+    flat_calls: list[str] = []
+
+    def build_flat_period_result(**kwargs):
+        flat_calls.append(kwargs["period"].name)
+        if kwargs["period"].name == "FEB":
+            return None
+        return contribution_service._ContributionPeriodResult(
+            period_name=kwargs["period"].name,
+            result=result_jan if kwargs["period"].name == "JAN" else result_mar,
+            average_weight_sum_residual_bp=7 if kwargs["period"].name == "JAN" else 3,
+        )
+
+    monkeypatch.setattr(contribution_service, "_build_flat_period_contribution_result", build_flat_period_result)
+
+    result = contribution_service._build_contribution_results_by_period(
+        request=request,
+        resolved_periods=periods,
+        daily_contributions_df=pd.DataFrame(),
+        portfolio_results_df=pd.DataFrame(),
+        reset_aware_average_weight_mode="candidate_periods",
+        average_weight_audit_state=audit_state,
+    )
+
+    assert flat_calls == ["JAN", "FEB", "MAR"]
+    assert list(result.results_by_period) == ["JAN", "MAR"]
+    assert result.results_by_period["JAN"] is result_jan
+    assert result.results_by_period["MAR"] is result_mar
+    assert result.average_weight_sum_residual_bp == 7
+
+
+def test_build_contribution_results_by_period_routes_hierarchy_periods(monkeypatch):
+    periods = [SimpleNamespace(name="QTD")]
+    request = SimpleNamespace(hierarchy=["sector"])
+    audit_state = AverageWeightShadowAuditState()
+    period_result = SinglePeriodContributionResult(total_portfolio_return=2.0, total_contribution=2.0)
+    hierarchy_calls: list[str] = []
+
+    def build_hierarchy_period_result(**kwargs):
+        hierarchy_calls.append(kwargs["period"].name)
+        return contribution_service._ContributionPeriodResult(
+            period_name="QTD",
+            result=period_result,
+            average_weight_sum_residual_bp=11,
+        )
+
+    monkeypatch.setattr(
+        contribution_service,
+        "_build_hierarchy_period_contribution_result",
+        build_hierarchy_period_result,
+    )
+
+    result = contribution_service._build_contribution_results_by_period(
+        request=request,
+        resolved_periods=periods,
+        daily_contributions_df=pd.DataFrame(),
+        portfolio_results_df=pd.DataFrame(),
+        reset_aware_average_weight_mode="off",
+        average_weight_audit_state=audit_state,
+    )
+
+    assert hierarchy_calls == ["QTD"]
+    assert result.results_by_period == {"QTD": period_result}
+    assert result.average_weight_sum_residual_bp == 11
 
 
 def test_build_flat_period_contribution_result_preserves_average_weight_basis(monkeypatch):

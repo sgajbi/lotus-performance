@@ -28,18 +28,18 @@ python scripts/python_function_size_inventory.py --limit 20
 | 6 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:502` | 119 |
 | 7 | `_build_artifacts` | `app/services/composite_inspection_service.py:114` | 118 |
 | 8 | `run_runtime_retention_cleanup` | `app/services/runtime_retention_run_service.py:32` | 111 |
-| 9 | `calculate_contribution` | `app/services/contribution_service.py:525` | 107 |
-| 10 | `run_source_quality_checks` | `app/services/inspection/source_quality.py:91` | 106 |
-| 11 | `calculate_attribution` | `app/services/attribution_service.py:206` | 104 |
-| 12 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:200` | 102 |
-| 13 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:304` | 102 |
-| 14 | `aggregate_attribution_results` | `engine/attribution.py:648` | 102 |
-| 15 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:87` | 101 |
-| 16 | `_calculate_position_flow_balance_counts` | `app/services/contribution_diagnostics.py:183` | 99 |
-| 17 | `_calculate_returns_series` | `app/services/returns_series_service.py:1308` | 97 |
-| 18 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:62` | 97 |
-| 19 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:88` | 95 |
-| 20 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:31` | 94 |
+| 9 | `run_source_quality_checks` | `app/services/inspection/source_quality.py:91` | 106 |
+| 10 | `calculate_attribution` | `app/services/attribution_service.py:206` | 104 |
+| 11 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:206` | 102 |
+| 12 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:310` | 102 |
+| 13 | `aggregate_attribution_results` | `engine/attribution.py:648` | 102 |
+| 14 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:87` | 101 |
+| 15 | `_calculate_position_flow_balance_counts` | `app/services/contribution_diagnostics.py:183` | 99 |
+| 16 | `_calculate_returns_series` | `app/services/returns_series_service.py:1308` | 97 |
+| 17 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:62` | 97 |
+| 18 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:88` | 95 |
+| 19 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:31` | 94 |
+| 20 | `build_stateful_benchmark_input` | `app/services/stateful_benchmark_input_service.py:49` | 93 |
 
 ## Interpretation
 
@@ -67,6 +67,9 @@ Contribution calculation workflow dropped out of the top-15 table after promoted
 execution handling was isolated from the public workflow router.
 Contribution orchestration dropped out of the top-15 table again after hierarchy-period result
 assembly was isolated from the public contribution calculation function.
+Contribution orchestration dropped out of the top-20 table after flat-vs-hierarchy period-result
+collection and average-weight residual max tracking were isolated from the public contribution
+calculation function.
 Stateful attribution source input retrieval dropped out of the top-15 table after benchmark
 assignment resolution was isolated from the source-input orchestration path.
 Durable queue metric collection dropped out of the top-15 table after source loading and
