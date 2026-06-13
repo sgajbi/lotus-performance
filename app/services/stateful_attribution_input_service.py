@@ -667,26 +667,13 @@ def _build_instruments_data(
     positions_by_id: dict[str, list[dict[str, object]]] = {}
     instrument_meta: dict[str, dict[str, object]] = {}
     for row in rows:
-        position_id = row.get("position_id")
-        valuation_date = row.get("valuation_date")
-        if not isinstance(position_id, str) or not isinstance(valuation_date, str):
-            continue
-        point = _position_row_to_daily_point(
+        _record_instrument_position_row(
             row=row,
+            positions_by_id=positions_by_id,
+            instrument_meta=instrument_meta,
             currency_mode=currency_mode,
             reporting_currency=reporting_currency,
         )
-        if point is None:
-            continue
-        positions_by_id.setdefault(position_id, []).append(point)
-        meta = instrument_meta.setdefault(position_id, _position_meta_from_row(row))
-        base_weight_point = _position_row_to_base_weight_point(
-            row=row,
-            reporting_currency=reporting_currency,
-        )
-        if base_weight_point is not None:
-            base_weight_points = cast(list[dict[str, object]], meta.setdefault("base_weight_points", []))
-            base_weight_points.append(base_weight_point)
 
     return [
         InstrumentData.model_validate(
@@ -698,6 +685,37 @@ def _build_instruments_data(
         )
         for position_id in sorted(positions_by_id)
     ]
+
+
+def _record_instrument_position_row(
+    *,
+    row: dict[str, object],
+    positions_by_id: dict[str, list[dict[str, object]]],
+    instrument_meta: dict[str, dict[str, object]],
+    currency_mode: str,
+    reporting_currency: str | None,
+) -> bool:
+    position_id = row.get("position_id")
+    valuation_date = row.get("valuation_date")
+    if not isinstance(position_id, str) or not isinstance(valuation_date, str):
+        return False
+    point = _position_row_to_daily_point(
+        row=row,
+        currency_mode=currency_mode,
+        reporting_currency=reporting_currency,
+    )
+    if point is None:
+        return False
+    positions_by_id.setdefault(position_id, []).append(point)
+    meta = instrument_meta.setdefault(position_id, _position_meta_from_row(row))
+    base_weight_point = _position_row_to_base_weight_point(
+        row=row,
+        reporting_currency=reporting_currency,
+    )
+    if base_weight_point is not None:
+        base_weight_points = cast(list[dict[str, object]], meta.setdefault("base_weight_points", []))
+        base_weight_points.append(base_weight_point)
+    return True
 
 
 def _build_benchmark_groups(

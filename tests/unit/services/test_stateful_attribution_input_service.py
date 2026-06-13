@@ -30,6 +30,7 @@ from app.services.stateful_attribution_input_service import (
     _position_meta_fx_rate_fields,
     _position_row_to_base_weight_point,
     _position_row_to_daily_point,
+    _record_instrument_position_row,
     _resolve_stateful_attribution_benchmark_id,
     _split_position_cash_flows,
     _stateful_attribution_fx_required,
@@ -1505,6 +1506,37 @@ def test_stateful_attribution_build_instruments_data_skips_invalid_rows_and_none
     assert len(instruments) == 1
     assert instruments[0].instrument_id == "POS_OK"
     assert instruments[0].valuation_points[0].begin_mv == Decimal("100")
+
+
+def test_stateful_attribution_record_instrument_position_row_projects_point_and_base_weight_meta():
+    positions_by_id: dict[str, list[dict[str, object]]] = {}
+    instrument_meta: dict[str, dict[str, object]] = {}
+
+    recorded = _record_instrument_position_row(
+        row={
+            "position_id": "POS_OK",
+            "valuation_date": "2025-01-01",
+            "security_id": "SEC_1",
+            "beginning_market_value_portfolio_currency": "100",
+            "ending_market_value_portfolio_currency": "102",
+            "beginning_market_value_reporting_currency": "110",
+            "cash_flows": [{"amount": "5", "timing": "bod"}],
+        },
+        positions_by_id=positions_by_id,
+        instrument_meta=instrument_meta,
+        currency_mode="BASE_ONLY",
+        reporting_currency="USD",
+    )
+
+    assert recorded is True
+    assert positions_by_id["POS_OK"][0]["begin_mv"] == Decimal("100")
+    assert instrument_meta["POS_OK"]["base_weight_points"] == [
+        {
+            "perf_date": "2025-01-01",
+            "begin_mv": Decimal("110"),
+            "bod_cf": Decimal("5"),
+        }
+    ]
 
 
 def test_stateful_attribution_both_currency_validation_errors_are_explicit():
