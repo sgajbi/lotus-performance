@@ -520,21 +520,32 @@ async def _load_fx_maps_for_components(
                 upstream_status=fx_status,
                 context=f"for {from_currency}/{to_currency}",
             )
-        points_raw = fx_payload.get("points")
-        if not isinstance(points_raw, list):
-            raise HTTPException(
-                status_code=HTTP_422_UNPROCESSABLE,
-                detail=f"fx rate payload missing points for {from_currency}/{to_currency}.",
-            )
-        fx_maps[(from_currency, to_currency)] = {
-            date.fromisoformat(point["series_date"]): Decimal(str(point["fx_rate"]))
-            for point in points_raw
-            if isinstance(point, dict)
-            and isinstance(point.get("series_date"), str)
-            and point.get("fx_rate") is not None
-        }
+        fx_maps[(from_currency, to_currency)] = _fx_rate_map_from_payload(
+            fx_payload=fx_payload,
+            from_currency=from_currency,
+            to_currency=to_currency,
+        )
         retrieval_metadata_total = add_zero_default_retrieval_metadata(retrieval_metadata_total, fx_payload)
     return fx_maps, retrieval_metadata_total
+
+
+def _fx_rate_map_from_payload(
+    *,
+    fx_payload: dict[str, Any],
+    from_currency: str,
+    to_currency: str,
+) -> dict[date, Decimal]:
+    points_raw = fx_payload.get("points")
+    if not isinstance(points_raw, list):
+        raise HTTPException(
+            status_code=HTTP_422_UNPROCESSABLE,
+            detail=f"fx rate payload missing points for {from_currency}/{to_currency}.",
+        )
+    return {
+        date.fromisoformat(point["series_date"]): Decimal(str(point["fx_rate"]))
+        for point in points_raw
+        if isinstance(point, dict) and isinstance(point.get("series_date"), str) and point.get("fx_rate") is not None
+    }
 
 
 def _required_fx_pairs_for_components(

@@ -13,6 +13,7 @@ from app.services.stateful_benchmark_input_service import (
     _build_component_observations,
     _build_normalized_component_series,
     _composition_segment_overlaps_window,
+    _fx_rate_map_from_payload,
     _load_benchmark_definition_currency,
     _load_component_price_series,
     _load_fx_maps_for_components,
@@ -820,6 +821,34 @@ async def test_load_fx_maps_for_components_handles_empty_pairs_and_payload_error
             benchmark_currency="USD",
             start_date=date(2026, 1, 1),
             end_date=date(2026, 1, 3),
+        )
+
+
+def test_fx_rate_map_from_payload_projects_valid_rates_only():
+    assert _fx_rate_map_from_payload(
+        fx_payload={
+            "points": [
+                {"series_date": "2026-01-02", "fx_rate": "1.20"},
+                {"series_date": "2026-01-03", "fx_rate": Decimal("1.21")},
+                {"series_date": "2026-01-04"},
+                {"fx_rate": "1.22"},
+                "ignored",
+            ]
+        },
+        from_currency="EUR",
+        to_currency="USD",
+    ) == {
+        date(2026, 1, 2): Decimal("1.20"),
+        date(2026, 1, 3): Decimal("1.21"),
+    }
+
+
+def test_fx_rate_map_from_payload_requires_points_list():
+    with pytest.raises(HTTPException, match="fx rate payload missing points for EUR/USD"):
+        _fx_rate_map_from_payload(
+            fx_payload={"points": None},
+            from_currency="EUR",
+            to_currency="USD",
         )
 
 
