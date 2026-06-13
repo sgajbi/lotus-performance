@@ -442,6 +442,14 @@ def _read_recent_reclaimed_leases(
     payload = _read_json_payload(reclaim_history_path)
     if payload is _INVALID_LEASE:
         return _INVALID_LEASE
+    return _recent_reclaimed_lease_events_from_payload(payload=payload, action_name=action_name)
+
+
+def _recent_reclaimed_lease_events_from_payload(
+    *,
+    payload: object,
+    action_name: str | None,
+) -> tuple[ReclaimedOperatorActionLeaseEvent, ...] | _InvalidLease:
     if not isinstance(payload, list):
         return _INVALID_LEASE
     events: list[ReclaimedOperatorActionLeaseEvent] = []

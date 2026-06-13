@@ -21,6 +21,7 @@ from app.services.operator_action_lease_service import (
     _read_active_operator_action_lease,
     _read_latest_reclaimed_lease,
     _read_recent_reclaimed_leases,
+    _recent_reclaimed_lease_events_from_payload,
     _reclaim_stale_lock,
     _write_latest_reclaimed_lease,
     build_operator_action_lease_snapshot,
@@ -886,6 +887,54 @@ def test_read_recent_reclaimed_leases_rejects_non_list_payload(tmp_path):
 
     assert (
         _read_recent_reclaimed_leases(locks_dir=locks_dir, action_name="recovery_drill").__class__.__name__
+        == "_InvalidLease"
+    )
+
+
+def test_recent_reclaimed_lease_events_from_payload_filters_by_action_name():
+    payload = [
+        {
+            "action_key": "recovery-drill-ops-user-backup-1",
+            "action_name": "recovery_drill",
+            "operator_id": "ops-user",
+            "tenant_id": None,
+            "governed_target": "backup-1",
+            "acquired_at_utc": "2026-03-15T00:00:00Z",
+            "reclaimed_at_utc": "2026-03-15T01:00:00Z",
+            "stale_after_seconds": 300.0,
+            "reclaim_count": 1,
+        },
+        {
+            "action_key": "runtime-retention-ops-user-apply-30",
+            "action_name": "runtime_retention_cleanup",
+            "operator_id": "ops-user",
+            "tenant_id": None,
+            "governed_target": "apply:30:no-job",
+            "acquired_at_utc": "2026-03-15T00:00:00Z",
+            "reclaimed_at_utc": "2026-03-15T01:00:00Z",
+            "stale_after_seconds": 300.0,
+            "reclaim_count": 1,
+        },
+    ]
+
+    events = _recent_reclaimed_lease_events_from_payload(payload=payload, action_name="recovery_drill")
+
+    assert isinstance(events, tuple)
+    assert len(events) == 1
+    assert events[0].action_name == "recovery_drill"
+    assert events[0].governed_target == "backup-1"
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {},
+        [{"action_name": "recovery_drill"}],
+    ],
+)
+def test_recent_reclaimed_lease_events_from_payload_rejects_invalid_history_payload(payload):
+    assert (
+        _recent_reclaimed_lease_events_from_payload(payload=payload, action_name="recovery_drill").__class__.__name__
         == "_InvalidLease"
     )
 
