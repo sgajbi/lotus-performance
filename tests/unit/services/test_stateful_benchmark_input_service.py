@@ -8,6 +8,7 @@ from fastapi import HTTPException
 from app.models.benchmark_analytics_requests import BenchmarkReturnSource
 from app.services.stateful_benchmark_input_service import (
     BenchmarkCompositionSegment,
+    _active_component_segments_for_date,
     _benchmark_return_points_from_payload,
     _build_component_observation,
     _build_component_observations,
@@ -865,6 +866,37 @@ def test_fx_rate_map_from_payload_requires_points_list():
             fx_payload={"points": None},
             from_currency="EUR",
             to_currency="USD",
+        )
+
+
+def test_active_component_segments_for_date_sorts_active_segments_and_rejects_gaps():
+    segments = [
+        BenchmarkCompositionSegment(
+            index_id="IDX_B",
+            composition_weight=Decimal("0.4"),
+            composition_effective_from=date(2026, 1, 1),
+            composition_effective_to=None,
+        ),
+        BenchmarkCompositionSegment(
+            index_id="IDX_A",
+            composition_weight=Decimal("0.6"),
+            composition_effective_from=date(2026, 1, 2),
+            composition_effective_to=date(2026, 1, 5),
+        ),
+    ]
+
+    assert [
+        segment.index_id
+        for segment in _active_component_segments_for_date(
+            component_segments=segments,
+            point_date=date(2026, 1, 3),
+        )
+    ] == ["IDX_A", "IDX_B"]
+
+    with pytest.raises(HTTPException, match="missing active segments for 2025-12-31"):
+        _active_component_segments_for_date(
+            component_segments=segments,
+            point_date=date(2025, 12, 31),
         )
 
 

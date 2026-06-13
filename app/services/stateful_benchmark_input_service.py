@@ -594,13 +594,10 @@ def _build_component_observations(
     )
 
     for point_date in _iter_requested_dates(start_date=requested_start_date, end_date=requested_end_date):
-        active_segments = [segment for segment in component_segments if _segment_is_active(segment, point_date)]
-        if not active_segments:
-            raise HTTPException(
-                status_code=HTTP_422_UNPROCESSABLE,
-                detail=f"Benchmark composition window missing active segments for {point_date}.",
-            )
-        for segment in sorted(active_segments, key=lambda item: item.index_id):
+        for segment in _active_component_segments_for_date(
+            component_segments=component_segments,
+            point_date=point_date,
+        ):
             observations.append(
                 _build_component_observation(
                     benchmark_id=benchmark_id,
@@ -618,6 +615,20 @@ def _build_component_observations(
             detail=f"No normalized benchmark observations available for benchmark_id={benchmark_id}.",
         )
     return sorted(observations, key=lambda item: (item.perf_date, item.component_id))
+
+
+def _active_component_segments_for_date(
+    *,
+    component_segments: list[BenchmarkCompositionSegment],
+    point_date: date,
+) -> list[BenchmarkCompositionSegment]:
+    active_segments = [segment for segment in component_segments if _segment_is_active(segment, point_date)]
+    if not active_segments:
+        raise HTTPException(
+            status_code=HTTP_422_UNPROCESSABLE,
+            detail=f"Benchmark composition window missing active segments for {point_date}.",
+        )
+    return sorted(active_segments, key=lambda item: item.index_id)
 
 
 def _build_component_observation(
