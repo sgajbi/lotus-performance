@@ -288,6 +288,18 @@ def test_ensure_request_body_example_preserves_existing_examples():
     assert request_body["content"]["application/json"]["examples"]["documented"]["value"]["portfolio_id"] == "EXISTING"
 
 
+def test_ensure_request_body_example_ignores_malformed_content():
+    request_body = {"content": {"application/json": "not-a-dict"}}
+
+    _ensure_request_body_example(
+        path="/custom/workflow",
+        request_body=request_body,
+        components={"schemas": {}},
+    )
+
+    assert request_body == {"content": {"application/json": "not-a-dict"}}
+
+
 def test_ensure_operation_response_documentation_adds_default_and_schema_example():
     responses = {
         "200": {

@@ -539,11 +539,8 @@ def _ensure_request_body_example(
     request_body: dict[str, Any],
     components: dict[str, Any],
 ) -> None:
-    content = request_body.get("content", {})
-    if not isinstance(content, dict):
-        return
-    json_content = content.get("application/json")
-    if not isinstance(json_content, dict):
+    json_content = _application_json_content(request_body)
+    if json_content is None:
         return
     request_schema = json_content.get("schema", {})
     operation_example = OPERATION_JSON_EXAMPLES.get((path, "request"))
