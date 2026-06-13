@@ -18,6 +18,7 @@ from app.services.compute_job_store import (
     _aggregate_row_count,
     _compute_job_inspection_active_since,
     _compute_job_payload_failure,
+    _matches_existing_compute_job_registration,
     _queue_stats_from_aggregate_row,
 )
 
@@ -1047,6 +1048,44 @@ def test_compute_job_store_register_job_distinguishes_create_replay_and_conflict
     assert replay.status == ComputeJobRegistrationStatus.REPLAY
     assert replay.existing_status == ComputeJobStatus.PENDING
     assert conflict.status == ComputeJobRegistrationStatus.CONFLICT
+
+
+def test_matches_existing_compute_job_registration_requires_same_request_and_attempt_policy():
+    existing = ComputeJobModel(
+        calculation_id=str(uuid4()),
+        analytics_type="Contribution",
+        job_status=ComputeJobStatus.PENDING.value,
+        request_json='{"portfolio_id": "P1"}',
+        response_json=None,
+        attempt_count=0,
+        max_attempts=2,
+        created_at_utc=datetime.now(timezone.utc),
+    )
+
+    assert _matches_existing_compute_job_registration(
+        existing,
+        analytics_type="Contribution",
+        request_json='{"portfolio_id": "P1"}',
+        max_attempts=2,
+    )
+    assert not _matches_existing_compute_job_registration(
+        existing,
+        analytics_type="Contribution",
+        request_json='{"portfolio_id": "P2"}',
+        max_attempts=2,
+    )
+    assert not _matches_existing_compute_job_registration(
+        existing,
+        analytics_type="Contribution",
+        request_json='{"portfolio_id": "P1"}',
+        max_attempts=3,
+    )
+    assert not _matches_existing_compute_job_registration(
+        existing,
+        analytics_type="Attribution",
+        request_json='{"portfolio_id": "P1"}',
+        max_attempts=2,
+    )
 
 
 def test_compute_job_store_get_queue_stats_uses_single_aggregate_query(tmp_path):

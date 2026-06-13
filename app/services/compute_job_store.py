@@ -246,6 +246,20 @@ class ComputeJobRegistrationResult:
     existing_status: ComputeJobStatus | None = None
 
 
+def _matches_existing_compute_job_registration(
+    existing: ComputeJobModel,
+    *,
+    analytics_type: str,
+    request_json: str,
+    max_attempts: int,
+) -> bool:
+    return (
+        existing.analytics_type == analytics_type
+        and existing.request_json == request_json
+        and existing.max_attempts == max_attempts
+    )
+
+
 class ComputeJobStore:
     def __init__(self, database_url: str):
         connect_args = {"check_same_thread": False} if database_url.startswith("sqlite") else {}
@@ -365,10 +379,11 @@ class ComputeJobStore:
             existing = session.get(ComputeJobModel, str(calculation_id))
             if existing is None:
                 raise
-            if (
-                existing.analytics_type == analytics_type
-                and existing.request_json == request_json
-                and existing.max_attempts == configured_max_attempts
+            if _matches_existing_compute_job_registration(
+                existing,
+                analytics_type=analytics_type,
+                request_json=request_json,
+                max_attempts=configured_max_attempts,
             ):
                 return ComputeJobRegistrationResult(
                     status=ComputeJobRegistrationStatus.REPLAY,

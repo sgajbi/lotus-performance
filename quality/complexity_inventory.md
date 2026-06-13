@@ -38,31 +38,31 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `register_job` | method | `app/services/compute_job_store.py:328` | 7 | B |
-| 2 | `mark_running` | method | `app/services/compute_job_store.py:424` | 7 | B |
-| 3 | `list_inspection_items` | method | `app/services/compute_job_store.py:661` | 7 | B |
-| 4 | `calculate_contribution_workflow` | function | `app/services/contribution_calculation_workflow_service.py:175` | 7 | B |
-| 5 | `_calculate_position_flow_balance_counts` | function | `app/services/contribution_diagnostics.py:183` | 7 | B |
-| 6 | `_classify_average_weight_shadow_cutover_blockers` | function | `app/services/contribution_methodology.py:289` | 7 | B |
-| 7 | `_build_hierarchy_rows` | function | `app/services/contribution_series.py:298` | 7 | B |
-| 8 | `_degraded_stateful_economics` | function | `app/services/contribution_source_economics.py:139` | 7 | B |
-| 9 | `_source_cash_flow_type_counts` | function | `app/services/contribution_source_economics.py:187` | 7 | B |
-| 10 | `check_lineage_storage_ready` | function | `app/services/durability_health_service.py:64` | 7 | B |
-| 11 | `record_upstream_snapshots` | method | `app/services/execution_registry.py:513` | 7 | B |
-| 12 | `_expected_daily_calculation_values` | function | `app/services/inspection/calculation_consistency.py:421` | 7 | B |
-| 13 | `_expected_daily_period_statuses` | function | `app/services/inspection/calculation_consistency.py:576` | 7 | B |
-| 14 | `_comparative_return_mismatches` | function | `app/services/inspection/calculation_consistency.py:669` | 7 | B |
-| 15 | `_build_position_reconciliation_findings` | function | `app/services/inspection/reconciliation.py:143` | 7 | B |
-| 16 | `_select_latest_position_rows` | function | `app/services/inspection/reconciliation.py:431` | 7 | B |
-| 17 | `_record_external_mixed_timing_samples` | method | `app/services/inspection/source_economics_collector.py:300` | 7 | B |
-| 18 | `_record_external_timing_contradictions` | function | `app/services/inspection/source_economics_collector.py:462` | 7 | B |
-| 19 | `_build_external_cashflow_findings` | function | `app/services/inspection/source_economics_findings.py:281` | 7 | B |
-| 20 | `_build_fee_source_economics_findings` | function | `app/services/inspection/source_economics_findings.py:423` | 7 | B |
-| 21 | `_find_monthly_day_dominance` | function | `app/services/inspection/source_quality.py:576` | 7 | B |
-| 22 | `load_existing_twr_calculation_artifacts` | function | `app/services/inspection/subject_materialization.py:34` | 7 | B |
-| 23 | `_load_request_payload` | function | `app/services/inspection/subject_materialization.py:109` | 7 | B |
-| 24 | `_support_brief_result_from_payload` | function | `app/services/inspection/support_brief_workflow_pack.py:55` | 7 | B |
-| 25 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:88` | 7 | B |
+| 1 | `mark_running` | method | `app/services/compute_job_store.py:439` | 7 | B |
+| 2 | `list_inspection_items` | method | `app/services/compute_job_store.py:676` | 7 | B |
+| 3 | `calculate_contribution_workflow` | function | `app/services/contribution_calculation_workflow_service.py:175` | 7 | B |
+| 4 | `_calculate_position_flow_balance_counts` | function | `app/services/contribution_diagnostics.py:183` | 7 | B |
+| 5 | `_classify_average_weight_shadow_cutover_blockers` | function | `app/services/contribution_methodology.py:289` | 7 | B |
+| 6 | `_build_hierarchy_rows` | function | `app/services/contribution_series.py:298` | 7 | B |
+| 7 | `_degraded_stateful_economics` | function | `app/services/contribution_source_economics.py:139` | 7 | B |
+| 8 | `_source_cash_flow_type_counts` | function | `app/services/contribution_source_economics.py:187` | 7 | B |
+| 9 | `check_lineage_storage_ready` | function | `app/services/durability_health_service.py:64` | 7 | B |
+| 10 | `record_upstream_snapshots` | method | `app/services/execution_registry.py:513` | 7 | B |
+| 11 | `_expected_daily_calculation_values` | function | `app/services/inspection/calculation_consistency.py:421` | 7 | B |
+| 12 | `_expected_daily_period_statuses` | function | `app/services/inspection/calculation_consistency.py:576` | 7 | B |
+| 13 | `_comparative_return_mismatches` | function | `app/services/inspection/calculation_consistency.py:669` | 7 | B |
+| 14 | `_build_position_reconciliation_findings` | function | `app/services/inspection/reconciliation.py:143` | 7 | B |
+| 15 | `_select_latest_position_rows` | function | `app/services/inspection/reconciliation.py:431` | 7 | B |
+| 16 | `_record_external_mixed_timing_samples` | method | `app/services/inspection/source_economics_collector.py:300` | 7 | B |
+| 17 | `_record_external_timing_contradictions` | function | `app/services/inspection/source_economics_collector.py:462` | 7 | B |
+| 18 | `_build_external_cashflow_findings` | function | `app/services/inspection/source_economics_findings.py:281` | 7 | B |
+| 19 | `_build_fee_source_economics_findings` | function | `app/services/inspection/source_economics_findings.py:423` | 7 | B |
+| 20 | `_find_monthly_day_dominance` | function | `app/services/inspection/source_quality.py:576` | 7 | B |
+| 21 | `load_existing_twr_calculation_artifacts` | function | `app/services/inspection/subject_materialization.py:34` | 7 | B |
+| 22 | `_load_request_payload` | function | `app/services/inspection/subject_materialization.py:109` | 7 | B |
+| 23 | `_support_brief_result_from_payload` | function | `app/services/inspection/support_brief_workflow_pack.py:55` | 7 | B |
+| 24 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:88` | 7 | B |
+| 25 | `_synthesize_verdict` | function | `app/services/inspection/twr_inspection_service.py:551` | 7 | B |
 
 ## Lowest Maintainability Index
 
@@ -152,6 +152,8 @@ classification and timing aggregation were split into a dedicated totals helper.
 projection were split into dedicated helpers.
 `_composite_return_rows` also dropped out after optional customer-consumable artifact field
 formatting was split into a dedicated helper.
+`register_job` also dropped out after existing compute-job registration replay matching was split
+into a dedicated idempotency predicate.
 `_apply_overrides` also dropped out after override targeting and field application/counting were
 split into reusable policy helpers.
 `build_hierarchical_contribution_result` also dropped out after Carino residual eligibility,
