@@ -32,37 +32,37 @@ must stay at `0`.
 | --- | ---: |
 | Max cyclomatic complexity | 7 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.14 |
+| Average maintainability index | 55.15 |
 
 ## Highest Cyclomatic Complexity
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_build_position_reconciliation_findings` | function | `app/services/inspection/reconciliation.py:143` | 7 | B |
-| 2 | `_select_latest_position_rows` | function | `app/services/inspection/reconciliation.py:431` | 7 | B |
-| 3 | `_record_external_mixed_timing_samples` | method | `app/services/inspection/source_economics_collector.py:300` | 7 | B |
-| 4 | `_record_external_timing_contradictions` | function | `app/services/inspection/source_economics_collector.py:462` | 7 | B |
-| 5 | `_build_external_cashflow_findings` | function | `app/services/inspection/source_economics_findings.py:281` | 7 | B |
-| 6 | `_build_fee_source_economics_findings` | function | `app/services/inspection/source_economics_findings.py:423` | 7 | B |
-| 7 | `_find_monthly_day_dominance` | function | `app/services/inspection/source_quality.py:576` | 7 | B |
-| 8 | `load_existing_twr_calculation_artifacts` | function | `app/services/inspection/subject_materialization.py:34` | 7 | B |
-| 9 | `_load_request_payload` | function | `app/services/inspection/subject_materialization.py:109` | 7 | B |
-| 10 | `_support_brief_result_from_payload` | function | `app/services/inspection/support_brief_workflow_pack.py:55` | 7 | B |
-| 11 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:88` | 7 | B |
-| 12 | `_synthesize_verdict` | function | `app/services/inspection/twr_inspection_service.py:551` | 7 | B |
-| 13 | `_scope_request_to_response_master_window` | function | `app/services/inspection/twr_inspection_service.py:652` | 7 | B |
-| 14 | `get_pending_payload_stats` | method | `app/services/lineage_metadata_store.py:416` | 7 | B |
-| 15 | `list_inspection_items` | method | `app/services/lineage_metadata_store.py:507` | 7 | B |
-| 16 | `materialize_payload` | method | `app/services/lineage_service.py:72` | 7 | B |
-| 17 | `_validate_artifact_filename` | method | `app/services/lineage_service.py:171` | 7 | B |
-| 18 | `build_mwr_response` | function | `app/services/mwr_calculation_service.py:42` | 7 | B |
-| 19 | `_find_latest_runtime_retention_entry` | function | `app/services/operator_action_guard_service.py:128` | 7 | B |
-| 20 | `validate_history_entry_strings` | function | `app/services/operator_action_history_manifest.py:173` | 7 | B |
-| 21 | `build_operator_action_lease_snapshot` | function | `app/services/operator_action_lease_service.py:185` | 7 | B |
-| 22 | `_read_matching_active_operator_action_leases` | function | `app/services/operator_action_lease_service.py:246` | 7 | B |
-| 23 | `_active_lease_payload_fields` | function | `app/services/operator_action_lease_service.py:314` | 7 | B |
-| 24 | `_read_recent_reclaimed_leases` | function | `app/services/operator_action_lease_service.py:389` | 7 | B |
-| 25 | `_parse_reclaimed_event_payload` | function | `app/services/operator_action_lease_service.py:438` | 7 | B |
+| 1 | `_select_latest_position_rows` | function | `app/services/inspection/reconciliation.py:459` | 7 | B |
+| 2 | `_record_external_mixed_timing_samples` | method | `app/services/inspection/source_economics_collector.py:300` | 7 | B |
+| 3 | `_record_external_timing_contradictions` | function | `app/services/inspection/source_economics_collector.py:462` | 7 | B |
+| 4 | `_build_external_cashflow_findings` | function | `app/services/inspection/source_economics_findings.py:281` | 7 | B |
+| 5 | `_build_fee_source_economics_findings` | function | `app/services/inspection/source_economics_findings.py:423` | 7 | B |
+| 6 | `_find_monthly_day_dominance` | function | `app/services/inspection/source_quality.py:576` | 7 | B |
+| 7 | `load_existing_twr_calculation_artifacts` | function | `app/services/inspection/subject_materialization.py:34` | 7 | B |
+| 8 | `_load_request_payload` | function | `app/services/inspection/subject_materialization.py:109` | 7 | B |
+| 9 | `_support_brief_result_from_payload` | function | `app/services/inspection/support_brief_workflow_pack.py:55` | 7 | B |
+| 10 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:88` | 7 | B |
+| 11 | `_synthesize_verdict` | function | `app/services/inspection/twr_inspection_service.py:551` | 7 | B |
+| 12 | `_scope_request_to_response_master_window` | function | `app/services/inspection/twr_inspection_service.py:652` | 7 | B |
+| 13 | `get_pending_payload_stats` | method | `app/services/lineage_metadata_store.py:416` | 7 | B |
+| 14 | `list_inspection_items` | method | `app/services/lineage_metadata_store.py:507` | 7 | B |
+| 15 | `materialize_payload` | method | `app/services/lineage_service.py:72` | 7 | B |
+| 16 | `_validate_artifact_filename` | method | `app/services/lineage_service.py:171` | 7 | B |
+| 17 | `build_mwr_response` | function | `app/services/mwr_calculation_service.py:42` | 7 | B |
+| 18 | `_find_latest_runtime_retention_entry` | function | `app/services/operator_action_guard_service.py:128` | 7 | B |
+| 19 | `validate_history_entry_strings` | function | `app/services/operator_action_history_manifest.py:173` | 7 | B |
+| 20 | `build_operator_action_lease_snapshot` | function | `app/services/operator_action_lease_service.py:185` | 7 | B |
+| 21 | `_read_matching_active_operator_action_leases` | function | `app/services/operator_action_lease_service.py:246` | 7 | B |
+| 22 | `_active_lease_payload_fields` | function | `app/services/operator_action_lease_service.py:314` | 7 | B |
+| 23 | `_read_recent_reclaimed_leases` | function | `app/services/operator_action_lease_service.py:389` | 7 | B |
+| 24 | `_parse_reclaimed_event_payload` | function | `app/services/operator_action_lease_service.py:438` | 7 | B |
+| 25 | `_reclaim_stale_lock` | function | `app/services/operator_action_lease_service.py:505` | 7 | B |
 
 ## Lowest Maintainability Index
 
@@ -80,9 +80,9 @@ must stay at `0`.
 | 10 | `app/services/execution_registry.py` | 10.72 | B |
 | 11 | `engine/attribution.py` | 13.95 | B |
 | 12 | `app/services/operator_action_lease_service.py` | 15.16 | B |
-| 13 | `app/services/inspection/calculation_consistency.py` | 16.02 | B |
-| 14 | `app/services/inspection/reconciliation.py` | 16.20 | B |
-| 15 | `app/services/inspection/source_economics_collector.py` | 17.04 | B |
+| 13 | `app/services/inspection/reconciliation.py` | 16.69 | B |
+| 14 | `app/services/inspection/source_economics_collector.py` | 17.04 | B |
+| 15 | `app/services/inspection/calculation_consistency.py` | 17.17 | B |
 | 16 | `app/services/inspection/source_quality.py` | 17.21 | B |
 | 17 | `app/services/inspection/source_economics.py` | 17.37 | B |
 | 18 | `app/services/twr_mode_service.py` | 18.24 | B |
@@ -566,6 +566,8 @@ daily return eligibility were moved into dedicated helpers.
 policy was moved into a dedicated helper.
 `_comparative_return_mismatches` also dropped out after component-level absent/equal/different
 return mismatch policy was moved into a dedicated helper.
+`_build_position_reconciliation_findings` also dropped out after evidence-present finding append
+policy was moved into a dedicated lazy helper.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.
