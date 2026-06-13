@@ -470,9 +470,7 @@ async def _resolve_twr_benchmark_source_input(
     benchmark = request.benchmark
     if not _benchmark_requested(request) or _get_requested_benchmark_mode(request) != BenchmarkInputMode.STATEFUL:
         return None
-    stateful_input = benchmark.stateful_input if benchmark is not None else None
-    if stateful_input is None:
-        stateful_input = _resolve_default_stateful_benchmark_input(request)
+    _requested_stateful_twr_benchmark_input(request)
     identity = await resolve_benchmark_identity(
         stateful_input_service=stateful_input_service,
         portfolio_id=request.portfolio_id,
@@ -503,6 +501,14 @@ async def _resolve_twr_benchmark_source_input(
         benchmark_request=benchmark_request,
         source_details={key: int(value) for key, value in source_details.items()},
     )
+
+
+def _requested_stateful_twr_benchmark_input(request: TWRAnalyticsRequest) -> BenchmarkStatefulInput:
+    benchmark = request.benchmark
+    stateful_input = benchmark.stateful_input if benchmark is not None else None
+    if stateful_input is not None:
+        return stateful_input
+    return _resolve_default_stateful_benchmark_input(request)
 
 
 def _build_stateful_twr_benchmark_request(

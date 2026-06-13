@@ -6,7 +6,7 @@ import pytest
 from fastapi import HTTPException
 from pydantic import ValidationError
 
-from app.models.benchmark_analytics_requests import BenchmarkInputMode
+from app.models.benchmark_analytics_requests import BenchmarkInputMode, BenchmarkStatefulInput
 from app.models.benchmark_requests import BenchmarkReturnPoint
 from app.models.twr_requests import TWRAnalyticsRequest
 from app.services.execution_registry import execution_registry
@@ -18,6 +18,7 @@ from app.services.twr_mode_service import (
     _build_resolved_twr_performance_input,
     _build_stateful_twr_benchmark_request,
     _build_twr_normalization_resolution,
+    _requested_stateful_twr_benchmark_input,
     _resolve_default_stateful_benchmark_input,
     _resolve_stateless_twr_benchmark_request,
     _resolve_twr_portfolio_source_input,
@@ -1080,6 +1081,48 @@ def test_twr_benchmark_helpers_reject_missing_stateless_and_stateful_benchmark_i
     )
     with pytest.raises(HTTPException, match="stateful_input is required when include_benchmark=true in stateful mode"):
         _resolve_default_stateful_benchmark_input(request)
+
+
+def test_requested_stateful_twr_benchmark_input_prefers_explicit_benchmark_input():
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_1",
+            "performance_start_date": "2024-12-31",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+            "valuation_points": [
+                {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+            ],
+            "benchmark": {
+                "benchmark_id": "BMK_1",
+                "input_mode": "stateful",
+                "return_source": "calculated",
+                "stateful_input": {},
+            },
+        }
+    )
+
+    assert _requested_stateful_twr_benchmark_input(request) is request.benchmark.stateful_input
+
+
+def test_requested_stateful_twr_benchmark_input_uses_default_stateful_input():
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_1",
+            "performance_start_date": "2024-12-31",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "include_benchmark": True,
+            "stateful_input": {},
+        }
+    )
+
+    assert _requested_stateful_twr_benchmark_input(request) == BenchmarkStatefulInput()
 
 
 def test_twr_benchmark_helpers_reject_stateless_benchmark_without_required_payload():
