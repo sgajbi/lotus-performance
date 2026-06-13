@@ -96,6 +96,12 @@ class _StatefulMWRCashFlowCollection:
     cash_flow_components_by_date: dict[Date, list[MWRCashFlowEvidenceComponent]]
 
 
+@dataclass(frozen=True)
+class _StatefulMWRCashFlowProjection:
+    cash_flows: list[CashFlow]
+    cashflow_evidence: list[MWRCashFlowEvidence]
+
+
 def build_stateful_mwr_input(*, source_input: StatefulPortfolioInput) -> StatefulMWRInput:
     return build_stateful_mwr_input_for_window(
         source_input=source_input,
@@ -123,30 +129,16 @@ def build_stateful_mwr_input_for_window(
         observations=source_input.observations,
         reporting_currency=reporting_currency,
     )
-    cash_flows_by_date = cash_flow_collection.cash_flows_by_date
-    cash_flow_components_by_date = cash_flow_collection.cash_flow_components_by_date
-
-    cash_flows = [
-        CashFlow(amount=amount, date=cash_flow_date)
-        for cash_flow_date, amount in sorted(cash_flows_by_date.items())
-        if amount != 0
-    ]
-    cashflow_evidence = [
-        MWRCashFlowEvidence(
-            date=cash_flow_date,
-            amount=amount,
-            currency=reporting_currency,
-            source_components=cash_flow_components_by_date.get(cash_flow_date, []),
-        )
-        for cash_flow_date, amount in sorted(cash_flows_by_date.items())
-        if amount != 0
-    ]
+    cash_flow_projection = _stateful_mwr_cash_flow_projection(
+        cash_flow_collection=cash_flow_collection,
+        reporting_currency=reporting_currency,
+    )
 
     return StatefulMWRInput(
         start_date=window_start_date,
         begin_mv=begin_mv,
         end_mv=end_mv,
-        cash_flows=cash_flows,
+        cash_flows=cash_flow_projection.cash_flows,
         observations=source_input.observations,
         currency_evidence=MWRCurrencyEvidence(
             reporting_currency=reporting_currency,
@@ -176,8 +168,32 @@ def build_stateful_mwr_input_for_window(
                     conversion_status=("no_conversion_required" if single_currency_inputs else "upstream_preconverted"),
                 ),
             ],
-            cashflow_evidence=cashflow_evidence,
+            cashflow_evidence=cash_flow_projection.cashflow_evidence,
         ),
+    )
+
+
+def _stateful_mwr_cash_flow_projection(
+    *,
+    cash_flow_collection: _StatefulMWRCashFlowCollection,
+    reporting_currency: str | None,
+) -> _StatefulMWRCashFlowProjection:
+    non_zero_cash_flows = [
+        (cash_flow_date, amount)
+        for cash_flow_date, amount in sorted(cash_flow_collection.cash_flows_by_date.items())
+        if amount != 0
+    ]
+    return _StatefulMWRCashFlowProjection(
+        cash_flows=[CashFlow(amount=amount, date=cash_flow_date) for cash_flow_date, amount in non_zero_cash_flows],
+        cashflow_evidence=[
+            MWRCashFlowEvidence(
+                date=cash_flow_date,
+                amount=amount,
+                currency=reporting_currency,
+                source_components=cash_flow_collection.cash_flow_components_by_date.get(cash_flow_date, []),
+            )
+            for cash_flow_date, amount in non_zero_cash_flows
+        ],
     )
 
 

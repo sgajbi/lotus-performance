@@ -13,6 +13,8 @@ from app.services.stateful_mwr_input_service import (
     _collect_stateful_mwr_cash_flows,
     _parse_decimal,
     _source_mwr_cash_flow_component,
+    _stateful_mwr_cash_flow_projection,
+    _StatefulMWRCashFlowCollection,
     build_stateful_mwr_input,
     build_stateful_mwr_input_for_window,
 )
@@ -233,6 +235,37 @@ def test_collect_stateful_mwr_cash_flows_combines_external_flows_and_carry_forwa
         "carry_forward_adjustment",
         "source_cash_flow",
     ]
+
+
+def test_stateful_mwr_cash_flow_projection_keeps_sorted_non_zero_flows_and_evidence():
+    component = MWRCashFlowEvidenceComponent(
+        component_type="source_cash_flow",
+        amount=Decimal("25"),
+        currency="USD",
+    )
+
+    projection = _stateful_mwr_cash_flow_projection(
+        cash_flow_collection=_StatefulMWRCashFlowCollection(
+            cash_flows_by_date={
+                date(2025, 1, 3): Decimal("0"),
+                date(2025, 1, 2): Decimal("-5"),
+                date(2025, 1, 1): Decimal("25"),
+            },
+            cash_flow_components_by_date={date(2025, 1, 1): [component]},
+        ),
+        reporting_currency="USD",
+    )
+
+    assert [(cash_flow.date, cash_flow.amount) for cash_flow in projection.cash_flows] == [
+        (date(2025, 1, 1), 25.0),
+        (date(2025, 1, 2), -5.0),
+    ]
+    assert [evidence.date for evidence in projection.cashflow_evidence] == [
+        date(2025, 1, 1),
+        date(2025, 1, 2),
+    ]
+    assert projection.cashflow_evidence[0].source_components == [component]
+    assert projection.cashflow_evidence[1].source_components == []
 
 
 def test_add_stateful_mwr_cash_flow_component_accumulates_amount_and_evidence():
