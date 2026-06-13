@@ -18,6 +18,7 @@ from engine.attribution import (
     _calculate_currency_attribution_effects,
     _calculate_group_context_metrics,
     _calculate_single_period_effects,
+    _finalize_aligned_attribution_frame,
     _instrument_attribution_panels,
     _link_effects_top_down,
     _normalize_instrument_group_columns,
@@ -790,6 +791,32 @@ def test_align_and_prepare_data_returns_empty_when_benchmark_missing(by_group_re
     request = AttributionRequest.model_validate(request_payload)
     aligned_df = _align_and_prepare_data(request, request.portfolio_groups_data)
     assert aligned_df.empty
+
+
+def test_finalize_aligned_attribution_frame_flags_observations_and_computes_benchmark_total_return():
+    aligned_df = pd.DataFrame(
+        {
+            "w_p": [0.6, None],
+            "r_base_p": [0.02, None],
+            "w_b": [0.5, 0.5],
+            "r_base_b": [0.01, 0.03],
+        },
+        index=pd.MultiIndex.from_tuples(
+            [
+                (pd.Timestamp("2025-01-31"), "Tech"),
+                (pd.Timestamp("2025-01-31"), "Cash"),
+            ],
+            names=["date", "sector"],
+        ),
+    )
+
+    result = _finalize_aligned_attribution_frame(aligned_df, ["sector"])
+
+    assert result.index.names == ["date", "sector"]
+    assert bool(result.loc[(pd.Timestamp("2025-01-31"), "Tech"), "portfolio_observation_present"]) is True
+    assert bool(result.loc[(pd.Timestamp("2025-01-31"), "Cash"), "portfolio_observation_present"]) is False
+    assert result.loc[(pd.Timestamp("2025-01-31"), "Cash"), "w_p"] == 0.0
+    assert result.loc[(pd.Timestamp("2025-01-31"), "Tech"), "r_b_total"] == pytest.approx(0.02)
 
 
 def test_align_and_prepare_data_uses_period_start_weights_for_sparse_groups():

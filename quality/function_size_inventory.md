@@ -26,7 +26,7 @@ python scripts/python_function_size_inventory.py --limit 20
 | 4 | `calculate_attribution` | `app/services/attribution_service.py:206` | 104 |
 | 5 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:206` | 102 |
 | 6 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:310` | 102 |
-| 7 | `aggregate_attribution_results` | `engine/attribution.py:687` | 102 |
+| 7 | `aggregate_attribution_results` | `engine/attribution.py:691` | 102 |
 | 8 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:87` | 101 |
 | 9 | `_calculate_returns_series` | `app/services/returns_series_service.py:1397` | 97 |
 | 10 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:62` | 97 |
@@ -37,9 +37,9 @@ python scripts/python_function_size_inventory.py --limit 20
 | 15 | `build_recovery_drill_history_snapshot` | `app/services/recovery_drill_history_service.py:62` | 85 |
 | 16 | `build_runtime_recovery_snapshot` | `app/services/runtime_recovery_service.py:46` | 84 |
 | 17 | `run_runtime_retention_cleanup` | `app/services/runtime_retention_run_service.py:93` | 83 |
-| 18 | `_align_and_prepare_data` | `engine/attribution.py:491` | 83 |
-| 19 | `StatefulInputService._fetch_position_chunk` | `app/services/stateful_input_service.py:991` | 81 |
-| 20 | `calculate_contribution` | `app/services/contribution_service.py:576` | 80 |
+| 18 | `StatefulInputService._fetch_position_chunk` | `app/services/stateful_input_service.py:991` | 81 |
+| 19 | `calculate_contribution` | `app/services/contribution_service.py:576` | 80 |
+| 20 | `LineageMetadataStore._build_inspection_query_statements` | `app/services/lineage_metadata_store.py:529` | 80 |
 
 ## Interpretation
 

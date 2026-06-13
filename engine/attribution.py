@@ -550,6 +550,10 @@ def _align_and_prepare_data(
     df_b = resample_panel(benchmark_panel)
 
     aligned_df = pd.merge(df_p, df_b, left_index=True, right_index=True, how="outer", suffixes=("_p", "_b"))
+    return _finalize_aligned_attribution_frame(aligned_df, group_by)
+
+
+def _finalize_aligned_attribution_frame(aligned_df: pd.DataFrame, group_by: Sequence[str]) -> pd.DataFrame:
     aligned_df["portfolio_observation_present"] = aligned_df["w_p"].notna() | aligned_df["r_base_p"].notna()
     aligned_df["benchmark_observation_present"] = aligned_df["w_b"].notna() | aligned_df["r_base_b"].notna()
     if "has_base_return_b" not in aligned_df.columns:
