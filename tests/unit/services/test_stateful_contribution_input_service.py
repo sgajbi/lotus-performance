@@ -12,6 +12,7 @@ from app.services.stateful_contribution_input_service import (
     _position_contract_meta_from_row,
     _position_meta_from_row,
     _position_row_to_daily_point,
+    _position_value_inputs,
     _split_position_cash_flows,
     _stateful_contribution_position_series,
     _stateful_position_currencies,
@@ -535,6 +536,81 @@ def test_stateful_contribution_position_series_skips_invalid_or_unusable_rows():
 
     assert position_series.valuation_points_by_position_id == {}
     assert position_series.meta_by_position_id == {}
+
+
+def test_position_value_inputs_selects_local_position_values():
+    value_inputs = _position_value_inputs(
+        row={
+            "beginning_market_value_position_currency": "10",
+            "ending_market_value_position_currency": "11",
+            "beginning_market_value_portfolio_currency": "100",
+            "ending_market_value_portfolio_currency": "110",
+        },
+        currency_mode="LOCAL_ONLY",
+        reporting_currency="USD",
+    )
+
+    assert value_inputs is not None
+    assert value_inputs.begin_value == "10"
+    assert value_inputs.end_value == "11"
+    assert value_inputs.value_basis == "position"
+
+
+def test_position_value_inputs_uses_reporting_values_with_portfolio_fallback():
+    reporting_inputs = _position_value_inputs(
+        row={
+            "beginning_market_value_reporting_currency": "90",
+            "ending_market_value_reporting_currency": "91",
+            "beginning_market_value_portfolio_currency": "100",
+            "ending_market_value_portfolio_currency": "101",
+        },
+        currency_mode="BASE_ONLY",
+        reporting_currency="USD",
+    )
+    fallback_inputs = _position_value_inputs(
+        row={
+            "beginning_market_value_reporting_currency": None,
+            "ending_market_value_reporting_currency": "91",
+            "beginning_market_value_portfolio_currency": "100",
+            "ending_market_value_portfolio_currency": "101",
+        },
+        currency_mode="BASE_ONLY",
+        reporting_currency="USD",
+    )
+
+    assert reporting_inputs is not None
+    assert reporting_inputs.begin_value == "90"
+    assert reporting_inputs.end_value == "91"
+    assert reporting_inputs.value_basis == "reporting"
+    assert fallback_inputs is not None
+    assert fallback_inputs.begin_value == "100"
+    assert fallback_inputs.end_value == "101"
+    assert fallback_inputs.value_basis == "reporting"
+
+
+def test_position_value_inputs_uses_portfolio_values_and_rejects_missing_values():
+    portfolio_inputs = _position_value_inputs(
+        row={
+            "beginning_market_value_portfolio_currency": "100",
+            "ending_market_value_portfolio_currency": "101",
+        },
+        currency_mode="BASE_ONLY",
+        reporting_currency=None,
+    )
+    missing_inputs = _position_value_inputs(
+        row={
+            "beginning_market_value_portfolio_currency": "100",
+            "ending_market_value_portfolio_currency": None,
+        },
+        currency_mode="BASE_ONLY",
+        reporting_currency=None,
+    )
+
+    assert portfolio_inputs is not None
+    assert portfolio_inputs.begin_value == "100"
+    assert portfolio_inputs.end_value == "101"
+    assert portfolio_inputs.value_basis == "portfolio"
+    assert missing_inputs is None
 
 
 def test_position_row_to_daily_point_returns_none_when_date_or_values_are_missing():
