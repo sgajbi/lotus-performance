@@ -1322,7 +1322,7 @@ async def calculate_returns_series(
     )
 
 
-async def _resolve_returns_series_execution_context(
+def _requested_returns_series_execution_context(
     *,
     request: ReturnsSeriesRequest,
     source_input_mode: InputMode | None,
@@ -1330,40 +1330,63 @@ async def _resolve_returns_series_execution_context(
     resolved_benchmark_return_source_override: str | None,
 ) -> _ReturnsSeriesExecutionContext:
     input_fingerprint, calculation_hash = generate_canonical_hash(request, "returns-series-v1")
-    effective_input_mode = source_input_mode or request.input_mode
-    resolved_window = resolve_window(request)
-    resolved_benchmark_id: str | None = resolved_benchmark_id_override or (
-        request.benchmark.benchmark_id if request.benchmark else None
-    )
     resolved_benchmark_return_source = (
         BenchmarkReturnSource(resolved_benchmark_return_source_override)
         if resolved_benchmark_return_source_override is not None
         else _get_requested_benchmark_return_source(request)
     )
+    return _ReturnsSeriesExecutionContext(
+        request=request,
+        resolved_window=resolve_window(request),
+        effective_input_mode=source_input_mode or request.input_mode,
+        input_fingerprint=input_fingerprint,
+        calculation_hash=calculation_hash,
+        resolved_benchmark_id=resolved_benchmark_id_override
+        or (request.benchmark.benchmark_id if request.benchmark else None),
+        resolved_benchmark_return_source=resolved_benchmark_return_source,
+    )
 
-    if request.input_mode == InputMode.STATEFUL:
-        resolved_stateful_request = await resolve_stateful_returns_series_request(request)
-        request = resolved_stateful_request.request
-        resolved_benchmark_id = resolved_stateful_request.resolved_benchmark_id
-        if resolved_stateful_request.resolved_benchmark_return_source is not None:
-            resolved_benchmark_return_source = BenchmarkReturnSource(
-                resolved_stateful_request.resolved_benchmark_return_source
-            )
-        input_fingerprint, calculation_hash = generate_canonical_hash(
-            resolved_stateful_request.identity_payload,
-            "returns-series-v1",
+
+async def _resolve_returns_series_execution_context(
+    *,
+    request: ReturnsSeriesRequest,
+    source_input_mode: InputMode | None,
+    resolved_benchmark_id_override: str | None,
+    resolved_benchmark_return_source_override: str | None,
+) -> _ReturnsSeriesExecutionContext:
+    context = _requested_returns_series_execution_context(
+        request=request,
+        source_input_mode=source_input_mode,
+        resolved_benchmark_id_override=resolved_benchmark_id_override,
+        resolved_benchmark_return_source_override=resolved_benchmark_return_source_override,
+    )
+    resolved_benchmark_id = context.resolved_benchmark_id
+    resolved_benchmark_return_source = context.resolved_benchmark_return_source
+
+    if request.input_mode != InputMode.STATEFUL:
+        return context
+
+    resolved_stateful_request = await resolve_stateful_returns_series_request(request)
+    request = resolved_stateful_request.request
+    resolved_benchmark_id = resolved_stateful_request.resolved_benchmark_id
+    if resolved_stateful_request.resolved_benchmark_return_source is not None:
+        resolved_benchmark_return_source = BenchmarkReturnSource(
+            resolved_stateful_request.resolved_benchmark_return_source
         )
-        execution_registry.update_execution_identity(
-            request.calculation_id,
-            input_fingerprint=input_fingerprint,
-            calculation_hash=calculation_hash,
-        )
-        resolved_window = resolve_window(request)
+    input_fingerprint, calculation_hash = generate_canonical_hash(
+        resolved_stateful_request.identity_payload,
+        "returns-series-v1",
+    )
+    execution_registry.update_execution_identity(
+        request.calculation_id,
+        input_fingerprint=input_fingerprint,
+        calculation_hash=calculation_hash,
+    )
 
     return _ReturnsSeriesExecutionContext(
         request=request,
-        resolved_window=resolved_window,
-        effective_input_mode=effective_input_mode,
+        resolved_window=resolve_window(request),
+        effective_input_mode=context.effective_input_mode,
         input_fingerprint=input_fingerprint,
         calculation_hash=calculation_hash,
         resolved_benchmark_id=resolved_benchmark_id,
