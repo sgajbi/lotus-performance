@@ -24,6 +24,7 @@ from app.services.operator_action_lease_service import (
     _read_recent_reclaimed_leases,
     _recent_reclaimed_lease_events_from_payload,
     _reclaim_stale_lock,
+    _stale_lock_reclaim_candidate,
     _write_latest_reclaimed_lease,
     build_operator_action_lease_snapshot,
     build_recovery_drill_action_key,
@@ -816,6 +817,62 @@ def test_reclaim_stale_lock_invalid_paths(tmp_path):
             now_utc=datetime(2026, 3, 15, 1, 0, tzinfo=UTC),
         )
         is False
+    )
+
+
+def test_stale_lock_reclaim_candidate_resolves_only_reclaimable_locks(tmp_path):
+    lock_path = tmp_path / "stale.lock"
+    lock_path.write_text(
+        json.dumps(
+            {
+                "action_name": "recovery_drill",
+                "operator_id": "ops-user",
+                "tenant_id": None,
+                "governed_target": "backup-1",
+                "acquired_at_utc": "2026-03-15T00:00:00Z",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    reclaim_candidate = _stale_lock_reclaim_candidate(
+        lock_path=lock_path,
+        stale_after_seconds=30.0,
+        now_utc=datetime(2026, 3, 15, 1, 0, tzinfo=UTC),
+    )
+
+    assert reclaim_candidate is not None
+    assert reclaim_candidate.active_lease.operator_id == "ops-user"
+    assert reclaim_candidate.current_time == datetime(2026, 3, 15, 1, 0, tzinfo=UTC)
+    assert (
+        _stale_lock_reclaim_candidate(
+            lock_path=lock_path,
+            stale_after_seconds=3600.0,
+            now_utc=datetime(2026, 3, 15, 1, 0, tzinfo=UTC),
+        )
+        is None
+    )
+    assert (
+        _stale_lock_reclaim_candidate(
+            lock_path=lock_path,
+            stale_after_seconds=0.0,
+            now_utc=datetime(2026, 3, 15, 1, 0, tzinfo=UTC),
+        )
+        is None
+    )
+
+
+def test_stale_lock_reclaim_candidate_rejects_invalid_lock_payload(tmp_path):
+    lock_path = tmp_path / "bad.lock"
+    lock_path.write_text("{bad", encoding="utf-8")
+
+    assert (
+        _stale_lock_reclaim_candidate(
+            lock_path=lock_path,
+            stale_after_seconds=30.0,
+            now_utc=datetime(2026, 3, 15, 1, 0, tzinfo=UTC),
+        )
+        is None
     )
 
 

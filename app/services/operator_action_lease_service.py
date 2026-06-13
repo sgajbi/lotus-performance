@@ -85,6 +85,12 @@ class _ReclaimedLeaseSnapshotEvents:
 
 
 @dataclass(frozen=True)
+class _StaleLockReclaimCandidate:
+    active_lease: ActiveOperatorActionLease
+    current_time: datetime
+
+
+@dataclass(frozen=True)
 class _ActiveLeasePayloadFields:
     action_name: str
     operator_id: str
@@ -576,15 +582,16 @@ def _reclaim_stale_lock(
     action_key: str,
     now_utc: datetime | None,
 ) -> bool:
-    if stale_after_seconds <= 0:
+    reclaim_candidate = _stale_lock_reclaim_candidate(
+        lock_path=lock_path,
+        stale_after_seconds=stale_after_seconds,
+        now_utc=now_utc,
+    )
+    if reclaim_candidate is None:
         return False
-    active_lease = _read_active_operator_action_lease(lock_path=lock_path)
-    if not isinstance(active_lease, ActiveOperatorActionLease):
-        return False
-    current_time = now_utc or datetime.now(UTC)
-    acquired_at = parse_utc_datetime(active_lease.acquired_at_utc)
-    if elapsed_seconds_since(current_time, acquired_at) <= stale_after_seconds:
-        return False
+
+    active_lease = reclaim_candidate.active_lease
+    current_time = reclaim_candidate.current_time
     lock_path.unlink(missing_ok=True)
     try:
         _write_latest_reclaimed_lease(
@@ -608,3 +615,21 @@ def _reclaim_stale_lock(
             exc_info=True,
         )
     return True
+
+
+def _stale_lock_reclaim_candidate(
+    *,
+    lock_path: Path,
+    stale_after_seconds: float,
+    now_utc: datetime | None,
+) -> _StaleLockReclaimCandidate | None:
+    if stale_after_seconds <= 0:
+        return None
+    active_lease = _read_active_operator_action_lease(lock_path=lock_path)
+    if not isinstance(active_lease, ActiveOperatorActionLease):
+        return None
+    current_time = now_utc or datetime.now(UTC)
+    acquired_at = parse_utc_datetime(active_lease.acquired_at_utc)
+    if elapsed_seconds_since(current_time, acquired_at) <= stale_after_seconds:
+        return None
+    return _StaleLockReclaimCandidate(active_lease=active_lease, current_time=current_time)

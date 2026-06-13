@@ -38,31 +38,31 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_reclaim_stale_lock` | function | `app/services/operator_action_lease_service.py:572` | 7 | B |
-| 2 | `resolve_recovery_drill_manual_replay` | function | `app/services/operator_action_replay_service.py:120` | 7 | B |
-| 3 | `_runtime_retention_entry_matches` | function | `app/services/operator_action_replay_service.py:154` | 7 | B |
-| 4 | `_recovery_drill_payload_identity_matches` | function | `app/services/operator_action_replay_service.py:266` | 7 | B |
-| 5 | `_build_result_path` | function | `app/services/operator_navigation_service.py:24` | 7 | B |
-| 6 | `collect` | method | `app/services/queue_metrics_service.py:353` | 7 | B |
-| 7 | `_calculate_promoted_stateful_returns_series` | function | `app/services/returns_series_calculation_workflow_service.py:102` | 7 | B |
-| 8 | `risk_free_points_to_dataframe` | function | `app/services/returns_series_service.py:592` | 7 | B |
-| 9 | `_apply_strict_intersection_policy` | function | `app/services/returns_series_service.py:609` | 7 | B |
-| 10 | `_apply_selected_fill_method` | function | `app/services/returns_series_service.py:638` | 7 | B |
-| 11 | `_build_resolved_stateful_returns_series_request` | function | `app/services/returns_series_service.py:801` | 7 | B |
-| 12 | `_resolve_stateful_returns_series_benchmark_id` | function | `app/services/returns_series_service.py:881` | 7 | B |
-| 13 | `_build_returns_series_diagnostics` | function | `app/services/returns_series_service.py:1099` | 7 | B |
-| 14 | `_resolve_returns_series_execution_context` | function | `app/services/returns_series_service.py:1268` | 7 | B |
-| 15 | `run_runtime_retention_cleanup` | function | `app/services/runtime_retention_run_service.py:32` | 7 | B |
-| 16 | `runtime_status_from_component_statuses` | function | `app/services/runtime_status_degradation.py:246` | 7 | B |
-| 17 | `_summarize_source_quality_observations` | function | `app/services/source_quality_evidence.py:65` | 7 | B |
-| 18 | `_source_quality_warnings` | function | `app/services/source_quality_evidence.py:109` | 7 | B |
-| 19 | `_summarize_currency_source` | function | `app/services/stateful_attribution_input_service.py:566` | 7 | B |
-| 20 | `_build_instruments_data` | function | `app/services/stateful_attribution_input_service.py:648` | 7 | B |
-| 21 | `_add_benchmark_group_row` | function | `app/services/stateful_attribution_input_service.py:753` | 7 | B |
-| 22 | `_benchmark_group_dimension_value` | function | `app/services/stateful_attribution_input_service.py:835` | 7 | B |
-| 23 | `_position_daily_point_market_values` | function | `app/services/stateful_attribution_input_service.py:886` | 7 | B |
-| 24 | `_split_position_cash_flows` | function | `app/services/stateful_attribution_input_service.py:948` | 7 | B |
-| 25 | `_component_price_series_from_response` | function | `app/services/stateful_benchmark_input_service.py:452` | 7 | B |
+| 1 | `resolve_recovery_drill_manual_replay` | function | `app/services/operator_action_replay_service.py:120` | 7 | B |
+| 2 | `_runtime_retention_entry_matches` | function | `app/services/operator_action_replay_service.py:154` | 7 | B |
+| 3 | `_recovery_drill_payload_identity_matches` | function | `app/services/operator_action_replay_service.py:266` | 7 | B |
+| 4 | `_build_result_path` | function | `app/services/operator_navigation_service.py:24` | 7 | B |
+| 5 | `collect` | method | `app/services/queue_metrics_service.py:353` | 7 | B |
+| 6 | `_calculate_promoted_stateful_returns_series` | function | `app/services/returns_series_calculation_workflow_service.py:102` | 7 | B |
+| 7 | `risk_free_points_to_dataframe` | function | `app/services/returns_series_service.py:592` | 7 | B |
+| 8 | `_apply_strict_intersection_policy` | function | `app/services/returns_series_service.py:609` | 7 | B |
+| 9 | `_apply_selected_fill_method` | function | `app/services/returns_series_service.py:638` | 7 | B |
+| 10 | `_build_resolved_stateful_returns_series_request` | function | `app/services/returns_series_service.py:801` | 7 | B |
+| 11 | `_resolve_stateful_returns_series_benchmark_id` | function | `app/services/returns_series_service.py:881` | 7 | B |
+| 12 | `_build_returns_series_diagnostics` | function | `app/services/returns_series_service.py:1099` | 7 | B |
+| 13 | `_resolve_returns_series_execution_context` | function | `app/services/returns_series_service.py:1268` | 7 | B |
+| 14 | `run_runtime_retention_cleanup` | function | `app/services/runtime_retention_run_service.py:32` | 7 | B |
+| 15 | `runtime_status_from_component_statuses` | function | `app/services/runtime_status_degradation.py:246` | 7 | B |
+| 16 | `_summarize_source_quality_observations` | function | `app/services/source_quality_evidence.py:65` | 7 | B |
+| 17 | `_source_quality_warnings` | function | `app/services/source_quality_evidence.py:109` | 7 | B |
+| 18 | `_summarize_currency_source` | function | `app/services/stateful_attribution_input_service.py:566` | 7 | B |
+| 19 | `_build_instruments_data` | function | `app/services/stateful_attribution_input_service.py:648` | 7 | B |
+| 20 | `_add_benchmark_group_row` | function | `app/services/stateful_attribution_input_service.py:753` | 7 | B |
+| 21 | `_benchmark_group_dimension_value` | function | `app/services/stateful_attribution_input_service.py:835` | 7 | B |
+| 22 | `_position_daily_point_market_values` | function | `app/services/stateful_attribution_input_service.py:886` | 7 | B |
+| 23 | `_split_position_cash_flows` | function | `app/services/stateful_attribution_input_service.py:948` | 7 | B |
+| 24 | `_component_price_series_from_response` | function | `app/services/stateful_benchmark_input_service.py:452` | 7 | B |
+| 25 | `_build_component_observations` | function | `app/services/stateful_benchmark_input_service.py:571` | 7 | B |
 
 ## Lowest Maintainability Index
 
@@ -609,6 +609,8 @@ collection was moved into a dedicated helper while preserving optional tenant an
 per-event parsing were moved into a dedicated helper while preserving action-name filtering.
 `_parse_reclaimed_event_payload` also dropped out after reclaimed-event action-name validation and
 filtering were moved into a dedicated helper while preserving field and timestamp validation.
+`_reclaim_stale_lock` also dropped out after stale-lock eligibility resolution was moved into a
+dedicated helper while preserving lock deletion and reclaim-evidence write behavior.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.
