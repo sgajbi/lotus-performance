@@ -16,8 +16,80 @@ from app.services.compute_job_store import (
     ComputeJobStatus,
     ComputeJobStore,
     _aggregate_row_count,
+    _compute_job_inspection_active_since,
     _queue_stats_from_aggregate_row,
 )
+
+
+def _compute_job_model_for_inspection(
+    *,
+    job_status: ComputeJobStatus,
+    created_at_utc: datetime,
+    leased_at_utc: datetime | None = None,
+    started_at_utc: datetime | None = None,
+    completed_at_utc: datetime | None = None,
+) -> ComputeJobModel:
+    return ComputeJobModel(
+        calculation_id=str(uuid4()),
+        analytics_type="ReturnsSeries",
+        job_status=job_status.value,
+        request_json="{}",
+        response_json=None,
+        attempt_count=0,
+        max_attempts=1,
+        created_at_utc=created_at_utc,
+        leased_at_utc=leased_at_utc,
+        started_at_utc=started_at_utc,
+        completed_at_utc=completed_at_utc,
+    )
+
+
+def test_compute_job_inspection_active_since_uses_leased_timestamp_before_created():
+    created_at = datetime(2026, 3, 14, 9, 0, tzinfo=timezone.utc)
+    leased_at = datetime(2026, 3, 14, 9, 5, tzinfo=timezone.utc)
+    row = _compute_job_model_for_inspection(
+        job_status=ComputeJobStatus.LEASED,
+        created_at_utc=created_at,
+        leased_at_utc=leased_at,
+    )
+
+    assert _compute_job_inspection_active_since(row) == leased_at
+
+
+def test_compute_job_inspection_active_since_uses_running_timestamp_precedence():
+    created_at = datetime(2026, 3, 14, 9, 0, tzinfo=timezone.utc)
+    leased_at = datetime(2026, 3, 14, 9, 5, tzinfo=timezone.utc)
+    started_at = datetime(2026, 3, 14, 9, 7, tzinfo=timezone.utc)
+    row = _compute_job_model_for_inspection(
+        job_status=ComputeJobStatus.RUNNING,
+        created_at_utc=created_at,
+        leased_at_utc=leased_at,
+        started_at_utc=started_at,
+    )
+
+    assert _compute_job_inspection_active_since(row) == started_at
+
+
+def test_compute_job_inspection_active_since_uses_failed_completion_before_created():
+    created_at = datetime(2026, 3, 14, 9, 0, tzinfo=timezone.utc)
+    completed_at = datetime(2026, 3, 14, 9, 30, tzinfo=timezone.utc)
+    row = _compute_job_model_for_inspection(
+        job_status=ComputeJobStatus.FAILED,
+        created_at_utc=created_at,
+        completed_at_utc=completed_at,
+    )
+
+    assert _compute_job_inspection_active_since(row) == completed_at
+
+
+def test_compute_job_inspection_active_since_defaults_to_created_timestamp():
+    created_at = datetime(2026, 3, 14, 9, 0, tzinfo=timezone.utc)
+    row = _compute_job_model_for_inspection(
+        job_status=ComputeJobStatus.COMPLETE,
+        created_at_utc=created_at,
+    )
+
+    assert _compute_job_inspection_active_since(row) == created_at
 
 
 def test_compute_job_store_lifecycle(tmp_path):

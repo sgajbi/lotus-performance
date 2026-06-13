@@ -67,6 +67,11 @@ COMPUTE_TERMINAL_JOB_STATUSES = (
     ComputeJobStatus.COMPLETE.value,
     ComputeJobStatus.FAILED.value,
 )
+COMPUTE_INSPECTION_ACTIVE_SINCE_FIELDS: dict[str, tuple[str, ...]] = {
+    ComputeJobStatus.LEASED.value: ("leased_at_utc", "created_at_utc"),
+    ComputeJobStatus.RUNNING.value: ("started_at_utc", "leased_at_utc", "created_at_utc"),
+    ComputeJobStatus.FAILED.value: ("completed_at_utc", "created_at_utc"),
+}
 
 
 class Base(DeclarativeBase):
@@ -1166,13 +1171,7 @@ class ComputeJobStore:
 
     @staticmethod
     def _inspection_active_since(row: ComputeJobModel) -> datetime | None:
-        if row.job_status == ComputeJobStatus.LEASED.value:
-            return row.leased_at_utc or row.created_at_utc
-        if row.job_status == ComputeJobStatus.RUNNING.value:
-            return row.started_at_utc or row.leased_at_utc or row.created_at_utc
-        if row.job_status == ComputeJobStatus.FAILED.value:
-            return row.completed_at_utc or row.created_at_utc
-        return row.created_at_utc
+        return _compute_job_inspection_active_since(row)
 
     def _to_recovery_event(self, row: ComputeJobModel) -> ComputeRecoveryEvent | None:
         recovered_at_utc = format_timestamp(row.last_error_at_utc)
@@ -1197,6 +1196,19 @@ def get_compute_job_store(*, database_url: str | None = None) -> ComputeJobStore
 
 
 compute_job_store = RuntimeStoreProxy(get_compute_job_store)
+
+
+def _compute_job_inspection_active_since(row: ComputeJobModel) -> datetime | None:
+    field_names = COMPUTE_INSPECTION_ACTIVE_SINCE_FIELDS.get(row.job_status, ("created_at_utc",))
+    return _first_datetime_field(row, field_names)
+
+
+def _first_datetime_field(row: ComputeJobModel, field_names: tuple[str, ...]) -> datetime | None:
+    for field_name in field_names:
+        value = getattr(row, field_name)
+        if value is not None:
+            return value
+    return None
 
 
 def _compute_job_record_payload_state(
