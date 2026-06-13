@@ -30,6 +30,7 @@ from app.services.stateful_attribution_input_service import (
     _stateful_portfolio_position_alignment_mismatches,
     _stateful_position_currencies,
     _summarize_benchmark_classification,
+    _summarize_position_classification,
     _validate_stateful_both_currency_support,
     _validate_stateful_group_by,
     _validate_stateful_portfolio_position_alignment,
@@ -61,6 +62,29 @@ class _AttributionInputServiceStub:
     async def get_index_catalog(self, **kwargs):
         self.index_catalog_calls.append(kwargs)
         return self.index_response
+
+
+def test_summarize_position_classification_counts_required_dimensions():
+    rows = [
+        {"dimensions": {"sector": "Technology", "region": "North America"}},
+        {"dimensions": {"sector": "Healthcare", "region": "  "}},
+        {"dimensions": {"sector": "Financials"}},
+        {"dimensions": "invalid"},
+    ]
+
+    summary = _summarize_position_classification(rows=rows, dimensions=["sector", "region"])
+    not_required_summary = _summarize_position_classification(rows=rows, dimensions=[])
+
+    assert summary == {
+        "status": "partial",
+        "classified_row_count": 1,
+        "unclassified_row_count": 3,
+    }
+    assert not_required_summary == {
+        "status": "not_required",
+        "classified_row_count": 4,
+        "unclassified_row_count": 0,
+    }
 
 
 @pytest.mark.asyncio

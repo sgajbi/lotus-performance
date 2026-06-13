@@ -481,12 +481,7 @@ def _summarize_position_classification(
 
     classified_count = 0
     for row in rows:
-        labels = row.get("dimensions")
-        if not isinstance(labels, dict):
-            continue
-        if all(
-            isinstance(labels.get(dimension), str) and str(labels.get(dimension)).strip() for dimension in dimensions
-        ):
+        if _row_has_required_position_dimensions(row=row, dimensions=dimensions):
             classified_count += 1
 
     unclassified_count = len(rows) - classified_count
@@ -495,6 +490,19 @@ def _summarize_position_classification(
         "classified_row_count": classified_count,
         "unclassified_row_count": unclassified_count,
     }
+
+
+def _row_has_required_position_dimensions(
+    *,
+    row: dict[str, object],
+    dimensions: list[str],
+) -> bool:
+    labels = row.get("dimensions")
+    if not isinstance(labels, dict):
+        return False
+    return all(
+        isinstance(labels.get(dimension), str) and str(labels.get(dimension)).strip() for dimension in dimensions
+    )
 
 
 def _classification_labels_by_index(index_records: list[dict[str, object]]) -> dict[str, dict[str, object]]:
