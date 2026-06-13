@@ -10,6 +10,16 @@ class OperatorNavigationLinks:
     result_path: str | None
 
 
+_RESULT_PATH_TEMPLATES = {
+    "TWR": "/performance/twr/results/{calculation_id}",
+    "BENCHMARK": "/performance/benchmark/results/{calculation_id}",
+    "ReturnsSeries": "/integration/returns/series/results/{calculation_id}",
+    "Contribution": "/performance/contribution/results/{calculation_id}",
+    "Attribution": "/performance/attribution/results/{calculation_id}",
+    "TWR_INSPECTION": "/performance/inspections/{calculation_id}",
+}
+
+
 def build_operator_navigation_links(calculation_id: str, workflow_type: str | None = None) -> OperatorNavigationLinks:
     lineage_path = f"/performance/lineage/{calculation_id}"
     if workflow_type == "TWR_INSPECTION":
@@ -22,16 +32,9 @@ def build_operator_navigation_links(calculation_id: str, workflow_type: str | No
 
 
 def _build_result_path(*, calculation_id: str, workflow_type: str | None) -> str | None:
-    if workflow_type == "TWR":
-        return f"/performance/twr/results/{calculation_id}"
-    if workflow_type == "BENCHMARK":
-        return f"/performance/benchmark/results/{calculation_id}"
-    if workflow_type == "ReturnsSeries":
-        return f"/integration/returns/series/results/{calculation_id}"
-    if workflow_type == "Contribution":
-        return f"/performance/contribution/results/{calculation_id}"
-    if workflow_type == "Attribution":
-        return f"/performance/attribution/results/{calculation_id}"
-    if workflow_type == "TWR_INSPECTION":
-        return f"/performance/inspections/{calculation_id}"
-    return None
+    if workflow_type is None:
+        return None
+    result_path_template = _RESULT_PATH_TEMPLATES.get(workflow_type)
+    if result_path_template is None:
+        return None
+    return result_path_template.format(calculation_id=calculation_id)

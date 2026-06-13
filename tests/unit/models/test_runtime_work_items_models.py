@@ -69,12 +69,26 @@ def test_build_runtime_work_items_response_serializes_operator_navigation_links(
     assert response.lineage_items[0].result_path == "/performance/twr/results/lineage-1"
 
 
-def test_operator_navigation_links_support_twr_and_benchmark_async_results():
-    twr_links = build_operator_navigation_links("calc-twr", workflow_type="TWR")
-    benchmark_links = build_operator_navigation_links("calc-bmk", workflow_type="BENCHMARK")
-    inspection_links = build_operator_navigation_links("inspect-1", workflow_type="TWR_INSPECTION")
+def test_operator_navigation_links_support_async_result_paths():
+    expected_paths = {
+        "TWR": "/performance/twr/results/calc-1",
+        "BENCHMARK": "/performance/benchmark/results/calc-1",
+        "ReturnsSeries": "/integration/returns/series/results/calc-1",
+        "Contribution": "/performance/contribution/results/calc-1",
+        "Attribution": "/performance/attribution/results/calc-1",
+        "TWR_INSPECTION": "/performance/inspections/calc-1",
+    }
 
-    assert twr_links.result_path == "/performance/twr/results/calc-twr"
-    assert benchmark_links.result_path == "/performance/benchmark/results/calc-bmk"
+    for workflow_type, expected_path in expected_paths.items():
+        links = build_operator_navigation_links("calc-1", workflow_type=workflow_type)
+
+        assert links.result_path == expected_path
+
+
+def test_operator_navigation_links_use_inspection_lineage_path_and_omit_unknown_result_path():
+    inspection_links = build_operator_navigation_links("inspect-1", workflow_type="TWR_INSPECTION")
+    unsupported_links = build_operator_navigation_links("calc-unknown", workflow_type="UnknownWorkflow")
+
     assert inspection_links.lineage_path == "/performance/inspections/inspect-1"
-    assert inspection_links.result_path == "/performance/inspections/inspect-1"
+    assert unsupported_links.lineage_path == "/performance/lineage/calc-unknown"
+    assert unsupported_links.result_path is None
