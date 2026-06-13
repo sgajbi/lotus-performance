@@ -13,6 +13,8 @@ from app.models.benchmark_analytics_requests import (
 from app.models.benchmark_requests import BenchmarkComponentObservation
 from core.errors import HTTP_422_UNPROCESSABLE
 
+_RatioNumber = float
+
 
 @dataclass(frozen=True)
 class _PricePointReturnComponents:
@@ -173,6 +175,27 @@ def _price_point_return_components(
             fx=0.0,
         )
 
+    return _cross_currency_price_point_return_components(
+        component_id=component_id,
+        component_currency=str(component_currency),
+        local_return=component_return_local,
+        previous_level=previous_level,
+        current_level=current_level,
+        previous_point=previous_point,
+        current_point=current_point,
+    )
+
+
+def _cross_currency_price_point_return_components(
+    *,
+    component_id: str,
+    component_currency: str,
+    local_return: _RatioNumber,
+    previous_level: float,
+    current_level: float,
+    previous_point: BenchmarkComponentPricePointInput,
+    current_point: BenchmarkComponentPricePointInput,
+) -> _PricePointReturnComponents:
     current_fx = current_point.fx_rate_to_benchmark
     previous_fx = previous_point.fx_rate_to_benchmark
     if current_fx is None or previous_fx is None:
@@ -188,8 +211,8 @@ def _price_point_return_components(
     normalized_previous_price = previous_level * previous_fx_value
     normalized_current_price = current_level * current_fx_value
     return _PricePointReturnComponents(
-        currency=str(component_currency),
+        currency=component_currency,
         total=(normalized_current_price / normalized_previous_price) - 1.0,
-        local=component_return_local,
+        local=local_return,
         fx=(current_fx_value / previous_fx_value) - 1.0,
     )
