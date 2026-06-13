@@ -882,15 +882,26 @@ def _benchmark_group_dimension_value(
     index_id: str,
     component_currency: str | None = None,
 ) -> str:
-    raw_value = component_currency if dimension == "currency" else labels.get(dimension)
     if dimension == "currency":
-        if not isinstance(raw_value, str) or not raw_value:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail=f"Benchmark component {index_id} missing classification label for {dimension}.",
-            )
-        return _normalize_group_value(raw_value)
+        return _benchmark_currency_group_value(
+            index_id=index_id,
+            component_currency=component_currency,
+        )
+    raw_value = labels.get(dimension)
     return _normalize_group_value(raw_value) if isinstance(raw_value, str) and raw_value else "unknown"
+
+
+def _benchmark_currency_group_value(
+    *,
+    index_id: str,
+    component_currency: str | None,
+) -> str:
+    if not isinstance(component_currency, str) or not component_currency:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"Benchmark component {index_id} missing classification label for currency.",
+        )
+    return _normalize_group_value(component_currency)
 
 
 def _position_row_to_daily_point(

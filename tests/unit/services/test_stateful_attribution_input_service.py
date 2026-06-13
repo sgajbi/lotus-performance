@@ -11,6 +11,7 @@ from fastapi import HTTPException
 from app.models.benchmark_requests import BenchmarkComponentObservation
 from app.services.stateful_attribution_input_service import (
     StatefulAttributionSourceInput,
+    _benchmark_currency_group_value,
     _benchmark_group_dimension_value,
     _benchmark_group_key_from_row,
     _build_benchmark_groups,
@@ -1353,6 +1354,13 @@ def test_benchmark_group_dimension_value_normalizes_currency_component_source():
         )
         == "us_dollar"
     )
+
+
+def test_benchmark_currency_group_value_requires_component_currency():
+    assert _benchmark_currency_group_value(index_id="IDX_1", component_currency="US Dollar") == "us_dollar"
+
+    with pytest.raises(HTTPException, match="Benchmark component IDX_1 missing classification label for currency"):
+        _benchmark_currency_group_value(index_id="IDX_1", component_currency=None)
 
 
 def test_benchmark_group_dimension_value_preserves_unknown_non_currency_fallback():
