@@ -926,6 +926,17 @@ def _resolved_stateful_returns_series_request_payload(
     }
 
 
+def _benchmark_id_from_assignment_payload(assignment_payload: dict[str, Any]) -> str:
+    benchmark_id_raw = assignment_payload.get("benchmark_id")
+    benchmark_id = str(benchmark_id_raw) if benchmark_id_raw else None
+    if not benchmark_id:
+        raise HTTPException(
+            status_code=HTTP_422_UNPROCESSABLE,
+            detail=upstream_contract_violation_detail("Benchmark assignment payload missing benchmark_id."),
+        )
+    return benchmark_id
+
+
 async def _resolve_stateful_returns_series_benchmark_id(
     *,
     request: ReturnsSeriesRequest,
@@ -950,14 +961,7 @@ async def _resolve_stateful_returns_series_benchmark_id(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=source_unavailable_detail(f"Benchmark assignment source unavailable ({assignment_status})."),
         )
-    benchmark_id_raw = assignment_payload.get("benchmark_id")
-    benchmark_id = str(benchmark_id_raw) if benchmark_id_raw else None
-    if not benchmark_id:
-        raise HTTPException(
-            status_code=HTTP_422_UNPROCESSABLE,
-            detail=upstream_contract_violation_detail("Benchmark assignment payload missing benchmark_id."),
-        )
-    return benchmark_id
+    return _benchmark_id_from_assignment_payload(assignment_payload)
 
 
 async def _retrieve_stateful_returns_series_risk_free(

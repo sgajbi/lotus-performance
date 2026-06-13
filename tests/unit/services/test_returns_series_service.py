@@ -994,6 +994,14 @@ async def test_resolve_stateful_returns_series_benchmark_id_rejects_invalid_payl
     assert exc.value.status_code == 422
 
 
+def test_benchmark_id_from_assignment_payload_rejects_blank_benchmark_id():
+    with pytest.raises(HTTPException) as exc:
+        returns_series_service._benchmark_id_from_assignment_payload({"benchmark_id": ""})
+
+    assert exc.value.status_code == 422
+    assert exc.value.detail["code"] == "CONTRACT_VIOLATION_UPSTREAM"
+
+
 @pytest.mark.asyncio
 async def test_retrieve_stateful_returns_series_risk_free_uses_core_series():
     request = _build_stateful_request(
