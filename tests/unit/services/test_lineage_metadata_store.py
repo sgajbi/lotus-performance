@@ -10,6 +10,7 @@ from app.services.lineage_metadata_store import (
     LineagePayloadModel,
     LineageRecordModel,
     LineageStatus,
+    _payload_has_active_lease,
 )
 
 
@@ -366,6 +367,31 @@ def test_lineage_metadata_store_pending_payload_stats_include_active_leases(tmp_
     assert stats.pending_payload_count == 1
     assert stats.leased_payload_count == 1
     assert stats.oldest_leased_age_seconds == 15.0
+
+
+def test_payload_has_active_lease_requires_lease_and_non_expired_window():
+    now = datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc)
+    payload = LineagePayloadModel(
+        calculation_id=str(uuid4()),
+        calculation_type="TWR",
+        request_json="{}",
+        response_json="{}",
+        details_json="{}",
+        created_at_utc=now - timedelta(minutes=5),
+        attempt_count=1,
+        worker_id="lineage-worker-1",
+        leased_at_utc=None,
+        lease_expires_at_utc=now + timedelta(seconds=30),
+    )
+
+    assert not _payload_has_active_lease(payload, now=now)
+
+    payload.leased_at_utc = now - timedelta(seconds=30)
+    payload.lease_expires_at_utc = now
+    assert _payload_has_active_lease(payload, now=now)
+
+    payload.lease_expires_at_utc = now - timedelta(seconds=1)
+    assert not _payload_has_active_lease(payload, now=now)
 
 
 def test_lineage_metadata_store_queue_inspection_anchors(tmp_path):

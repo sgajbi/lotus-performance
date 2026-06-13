@@ -1178,12 +1178,7 @@ class LineageMetadataStore:
                 active_since=record.timestamp_utc,
             )
 
-        lease_expires_at = payload.lease_expires_at_utc
-        normalized_lease_expires_at = None if lease_expires_at is None else coerce_utc_datetime(lease_expires_at)
-        is_active_lease = payload.leased_at_utc is not None and (
-            normalized_lease_expires_at is None or normalized_lease_expires_at >= now
-        )
-        if record.status == LineageStatus.PENDING.value and is_active_lease:
+        if record.status == LineageStatus.PENDING.value and _payload_has_active_lease(payload, now=now):
             return LineageQueueInspectionTiming(status="leased", active_since=payload.leased_at_utc)
 
         return LineageQueueInspectionTiming(
@@ -1223,6 +1218,14 @@ def get_lineage_metadata_store(*, database_url: str | None = None) -> LineageMet
 
 
 lineage_metadata_store = RuntimeStoreProxy(get_lineage_metadata_store)
+
+
+def _payload_has_active_lease(payload: LineagePayloadModel, *, now: datetime) -> bool:
+    if payload.leased_at_utc is None:
+        return False
+    lease_expires_at = payload.lease_expires_at_utc
+    normalized_lease_expires_at = None if lease_expires_at is None else coerce_utc_datetime(lease_expires_at)
+    return normalized_lease_expires_at is None or normalized_lease_expires_at >= now
 
 
 def _load_payload_details(details_json: str, *, calculation_id: str) -> dict[str, str] | None:

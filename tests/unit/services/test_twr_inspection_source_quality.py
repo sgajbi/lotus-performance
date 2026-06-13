@@ -4,7 +4,59 @@ import pytest
 
 from app.models.inspection_requests import TWRInspectionProfile
 from app.models.requests import Analysis, DailyInputData, PerformanceRequest
+from app.services.inspection import source_quality
 from app.services.inspection.source_quality import run_source_quality_checks
+
+
+def test_source_quality_evidence_builders_project_summary_and_artifacts():
+    context = source_quality._SourceQualityEvidenceContext(
+        valuation_point_count=3,
+        weekend_dates=["2026-04-04"],
+        missing_business_dates=["2026-04-06"],
+        stale_runs=[
+            source_quality.StaleSeriesRun(
+                start_date="2026-04-01",
+                end_date="2026-04-03",
+                observation_count=3,
+                begin_mv=1000.0,
+                end_mv=1000.0,
+            )
+        ],
+        invalid_capital_bases=[{"perf_date": "2026-04-02", "capital_base": 0.0}],
+        largest_abs_daily_move_pct=12.0,
+        extreme_move_threshold_pct=10.0,
+        extreme_moves=[source_quality.DailyMove(perf_date="2026-04-03", return_pct=12.0)],
+        mandate_profile=source_quality.MandateDailyMoveProfile(
+            name="canonical_balanced_private_banking",
+            threshold_pct=2.0,
+        ),
+        mandate_outliers=[source_quality.DailyMove(perf_date="2026-04-03", return_pct=12.0)],
+        return_concentration=source_quality.ReturnConcentrationAssessment(
+            observation_count=20,
+            concentration_ratio=0.81,
+            top_moves=[source_quality.DailyMove(perf_date="2026-04-03", return_pct=12.0)],
+            triggered=True,
+        ),
+        repeated_move_runs=[],
+        monthly_day_dominance=[],
+    )
+
+    summary = source_quality._build_source_quality_evidence_summary(context)
+    artifact = source_quality._build_source_quality_artifact_payload(context)
+
+    assert summary["stale_series_observation_count"] == 3
+    assert summary["mandate_daily_move_outlier_count"] == 1
+    assert artifact["stale_series_runs"] == [
+        {
+            "start_date": "2026-04-01",
+            "end_date": "2026-04-03",
+            "observation_count": 3,
+            "begin_mv": 1000.0,
+            "end_mv": 1000.0,
+        }
+    ]
+    assert artifact["mandate_daily_move_profile"] == "canonical_balanced_private_banking"
+    assert artifact["extreme_daily_moves"] == [{"perf_date": "2026-04-03", "return_pct": 12.0}]
 
 
 def test_run_source_quality_checks_flags_stale_valuation_series():

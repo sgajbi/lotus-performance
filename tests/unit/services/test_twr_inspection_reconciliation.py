@@ -195,6 +195,35 @@ def test_analyze_portfolio_position_reconciliation_flags_unexplained_position_be
     ]
 
 
+def test_position_rows_by_position_id_keeps_only_rows_with_position_and_date():
+    first_position_row = {"position_id": "FO_EQ_SAP_DE", "valuation_date": "2025-04-25"}
+    second_position_row = {"position_id": "FO_BOND_US_TSY", "valuation_date": "2025-04-26"}
+
+    grouped_rows = reconciliation._position_rows_by_position_id(
+        [
+            first_position_row,
+            {"position_id": "FO_EQ_SAP_DE"},
+            {"valuation_date": "2025-04-25"},
+            {"position_id": 123, "valuation_date": "2025-04-25"},
+            {"position_id": "FO_EQ_SAP_DE", "valuation_date": date(2025, 4, 25)},
+            second_position_row,
+        ]
+    )
+
+    assert grouped_rows == {
+        "FO_EQ_SAP_DE": [first_position_row],
+        "FO_BOND_US_TSY": [second_position_row],
+    }
+
+
+def test_is_transition_activity_field_matches_cashflow_trade_and_quantity_delta_fields():
+    assert reconciliation._is_transition_activity_field("external_cashflow_amount")
+    assert reconciliation._is_transition_activity_field("trade_notional")
+    assert reconciliation._is_transition_activity_field("quantity_delta")
+    assert not reconciliation._is_transition_activity_field("cash_flows")
+    assert not reconciliation._is_transition_activity_field("ending_market_value_portfolio_currency")
+
+
 def test_analyze_portfolio_position_reconciliation_does_not_flag_activity_explained_begin_change():
     performance_request = PerformanceRequest(
         portfolio_id="PB_SG_GLOBAL_BAL_001",

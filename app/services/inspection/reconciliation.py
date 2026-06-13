@@ -13,6 +13,7 @@ from app.services.portfolio_source_service import build_stateful_input_service
 
 _ABSOLUTE_GAP_TOLERANCE = Decimal("0.01")
 _RELATIVE_GAP_TOLERANCE = Decimal("0.0001")
+_TRANSITION_ACTIVITY_FIELD_TOKENS = ("cashflow", "cash_flow", "trade", "quantity_delta")
 _INSPECTOR_CONSUMER_SYSTEM = "lotus-performance-inspector"
 _RECONCILIATION_SAMPLE_LIMIT = 25
 
@@ -498,14 +499,7 @@ def _select_position_begin_value_field(row: dict[str, object]) -> tuple[str, obj
 
 
 def _collect_position_continuity_gap_samples(position_rows: list[dict[str, object]]) -> list[dict[str, object]]:
-    rows_by_position: dict[str, list[dict[str, object]]] = {}
-    for row in position_rows:
-        position_id = row.get("position_id")
-        valuation_date = row.get("valuation_date")
-        if not isinstance(position_id, str) or not isinstance(valuation_date, str):
-            continue
-        rows_by_position.setdefault(position_id, []).append(row)
-
+    rows_by_position = _position_rows_by_position_id(position_rows)
     samples: list[dict[str, object]] = []
     for position_id, rows in rows_by_position.items():
         sorted_rows = sorted(rows, key=lambda row: str(row.get("valuation_date")))
@@ -523,6 +517,17 @@ def _collect_position_continuity_gap_samples(position_rows: list[dict[str, objec
                 samples.append(sample)
             previous_row = row
     return samples
+
+
+def _position_rows_by_position_id(position_rows: list[dict[str, object]]) -> dict[str, list[dict[str, object]]]:
+    rows_by_position: dict[str, list[dict[str, object]]] = {}
+    for row in position_rows:
+        position_id = row.get("position_id")
+        valuation_date = row.get("valuation_date")
+        if not isinstance(position_id, str) or not isinstance(valuation_date, str):
+            continue
+        rows_by_position.setdefault(position_id, []).append(row)
+    return rows_by_position
 
 
 def _build_position_continuity_gap_sample(
@@ -564,15 +569,19 @@ def _row_has_transition_activity(row: dict[str, object]) -> bool:
     if _cash_flows_have_nonzero_amount(row.get("cash_flows")):
         return True
     for key, value in row.items():
-        normalized_key = key.lower()
-        if not any(token in normalized_key for token in ("cashflow", "cash_flow", "trade", "quantity_delta")):
-            continue
-        if normalized_key == "cash_flows":
+        if not _is_transition_activity_field(key):
             continue
         decimal_value = _parse_decimal(value)
         if decimal_value is not None and decimal_value != 0:
             return True
     return False
+
+
+def _is_transition_activity_field(key: str) -> bool:
+    normalized_key = key.lower()
+    return normalized_key != "cash_flows" and any(
+        token in normalized_key for token in _TRANSITION_ACTIVITY_FIELD_TOKENS
+    )
 
 
 def _select_position_continuity_end_value_field(row: dict[str, object]) -> tuple[str, object]:

@@ -159,16 +159,7 @@ async def calculate_mwr_response(
         calculation_id=request.calculation_id,
         analytics_type=ANALYTICS_WORKFLOW_MWR,
         portfolio_id=request.portfolio_id,
-        requested_window={
-            "as_of": str(request.as_of),
-            "start_date": (
-                str(request.stateful_input.window_start_date)
-                if request.input_mode == MWRInputMode.STATEFUL and request.stateful_input is not None
-                else str(request.start_date)
-                if request.start_date is not None
-                else None
-            ),
-        },
+        requested_window=_mwr_requested_window(request),
         input_fingerprint=input_fingerprint,
         calculation_hash=calculation_hash,
     )
@@ -230,3 +221,12 @@ async def calculate_mwr_response(
     )
 
     return response_model
+
+
+def _mwr_requested_window(request: MoneyWeightedReturnAnalyticsRequest) -> dict[str, str | None]:
+    start_date = None
+    if request.input_mode == MWRInputMode.STATEFUL and request.stateful_input is not None:
+        start_date = str(request.stateful_input.window_start_date)
+    elif request.start_date is not None:
+        start_date = str(request.start_date)
+    return {"as_of": str(request.as_of), "start_date": start_date}

@@ -195,6 +195,21 @@ class _SourceEconomicsSampleCollector:
 
     def _record_fee_source_signals(self, source_point: ObservationSourceEconomics) -> None:
         fee_total = source_point.detailed_fee_bod + source_point.detailed_fee_eod
+        self._record_fee_source_consistency_sample(source_point, fee_total)
+        if _has_positive_fee_signal(explicit_fee_total=source_point.explicit_fee_total, detailed_fee_total=fee_total):
+            self.positive_fee_signal_samples.append(
+                {
+                    "valuation_date": source_point.valuation_date,
+                    "detailed_fee_amount": _decimal_to_artifact(fee_total),
+                    "explicit_fee_amount": _optional_decimal_to_artifact(source_point.explicit_fee_total),
+                }
+            )
+
+    def _record_fee_source_consistency_sample(
+        self,
+        source_point: ObservationSourceEconomics,
+        fee_total: Decimal,
+    ) -> None:
         if source_point.explicit_fee_total is not None and _amounts_match(source_point.explicit_fee_total, fee_total):
             self.duplicate_fee_signal_samples.append(
                 {
@@ -209,14 +224,6 @@ class _SourceEconomicsSampleCollector:
                     "valuation_date": source_point.valuation_date,
                     "explicit_fee_amount": _decimal_to_artifact(source_point.explicit_fee_total),
                     "fee_cashflow_amount": _decimal_to_artifact(fee_total),
-                }
-            )
-        if fee_total > 0 or (source_point.explicit_fee_total is not None and source_point.explicit_fee_total > 0):
-            self.positive_fee_signal_samples.append(
-                {
-                    "valuation_date": source_point.valuation_date,
-                    "detailed_fee_amount": _decimal_to_artifact(fee_total),
-                    "explicit_fee_amount": _optional_decimal_to_artifact(source_point.explicit_fee_total),
                 }
             )
 
@@ -400,6 +407,10 @@ def _expected_fee_total(source_point: ObservationSourceEconomics) -> tuple[Decim
     if source_point.explicit_fee_total is not None:
         return source_point.explicit_fee_total, "explicit_fee_total"
     return None, None
+
+
+def _has_positive_fee_signal(*, explicit_fee_total: Decimal | None, detailed_fee_total: Decimal) -> bool:
+    return detailed_fee_total > 0 or (explicit_fee_total is not None and explicit_fee_total > 0)
 
 
 def _expected_external_total(
