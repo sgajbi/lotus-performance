@@ -72,19 +72,12 @@ def _summarize_source_quality_observations(
     normalized_dates: list[date] = []
 
     for observation in observations:
-        valuation_date = observation.get("valuation_date")
-        begin_mv = observation.get("beginning_market_value")
-        end_mv = observation.get("ending_market_value")
-        if isinstance(observation.get("source_classification"), str):
-            source_classifications[str(observation["source_classification"])] += 1
-        if not isinstance(valuation_date, str) or begin_mv is None or end_mv is None:
-            skipped_observation_count += 1
-        else:
-            try:
-                normalized_dates.append(normalize_observation_date(valuation_date))
-                values_by_date[valuation_date].add((Decimal(str(begin_mv)), Decimal(str(end_mv))))
-            except (InvalidOperation, TypeError, ValueError):
-                skipped_observation_count += 1
+        skipped_observation_count += _record_source_quality_observation(
+            observation,
+            source_classifications=source_classifications,
+            values_by_date=values_by_date,
+            normalized_dates=normalized_dates,
+        )
         unsupported_cashflow_count += _unsupported_cashflow_count(observation.get("cash_flows", []))
 
     return _SourceQualityObservationSummary(
@@ -94,6 +87,28 @@ def _summarize_source_quality_observations(
         values_by_date=values_by_date,
         normalized_dates=normalized_dates,
     )
+
+
+def _record_source_quality_observation(
+    observation: dict[str, object],
+    *,
+    source_classifications: Counter[str],
+    values_by_date: dict[str, set[tuple[Decimal, Decimal]]],
+    normalized_dates: list[date],
+) -> int:
+    valuation_date = observation.get("valuation_date")
+    begin_mv = observation.get("beginning_market_value")
+    end_mv = observation.get("ending_market_value")
+    if isinstance(observation.get("source_classification"), str):
+        source_classifications[str(observation["source_classification"])] += 1
+    if not isinstance(valuation_date, str) or begin_mv is None or end_mv is None:
+        return 1
+    try:
+        normalized_dates.append(normalize_observation_date(valuation_date))
+        values_by_date[valuation_date].add((Decimal(str(begin_mv)), Decimal(str(end_mv))))
+    except (InvalidOperation, TypeError, ValueError):
+        return 1
+    return 0
 
 
 def _unsupported_cashflow_count(cash_flows: object) -> int:
