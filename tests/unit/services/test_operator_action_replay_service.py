@@ -204,6 +204,13 @@ def test_recovery_drill_payload_match_helpers_reject_shape_and_identity_drift():
         _recovery_drill_payload_identity_matches(_recovery_drill_payload(evidence_file_name="different.json"), entry)
         is False
     )
+    assert _recovery_drill_payload_identity_matches(_recovery_drill_payload(tenant_id=None), entry) is False
+    assert _recovery_drill_payload_identity_matches(_recovery_drill_payload(correlation_id=None), entry) is False
+    assert (
+        _recovery_drill_payload_identity_matches(_recovery_drill_payload(backup_identifier="backup-456"), entry)
+        is False
+    )
+    assert _recovery_drill_payload_identity_matches(_recovery_drill_payload(status="failed"), entry) is False
     assert (
         _recovery_drill_payload_matches_entry(_recovery_drill_payload(evidence_file_name="different.json"), entry)
         is False

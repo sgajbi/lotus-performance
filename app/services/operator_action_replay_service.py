@@ -72,6 +72,14 @@ _RECOVERY_DRILL_REQUIRED_STRING_FIELDS = (
 _RECOVERY_DRILL_OPTIONAL_STRING_FIELDS = ("tenant_id", "correlation_id")
 _RECOVERY_DRILL_REQUIRED_INT_FIELDS = ("compute_job_processed_count", "processed_payload_count")
 _RECOVERY_DRILL_REQUIRED_BOOL_FIELDS = ("materialized_artifact_exists",)
+_RECOVERY_DRILL_REQUIRED_IDENTITY_FIELDS = (
+    "evidence_file_name",
+    "generated_at_utc",
+    "operator_id",
+    "backup_identifier",
+    "status",
+)
+_RECOVERY_DRILL_OPTIONAL_IDENTITY_FIELDS = ("tenant_id", "correlation_id")
 
 
 @dataclass(frozen=True)
@@ -295,14 +303,14 @@ def _recovery_drill_payload_identity_matches(
     payload: dict[str, Any],
     entry: RecoveryDrillHistoryEntry,
 ) -> bool:
-    return (
-        payload["evidence_file_name"] == entry.evidence_file_name
-        and payload["generated_at_utc"] == entry.generated_at_utc
-        and payload["operator_id"] == entry.operator_id
-        and payload.get("tenant_id") == entry.tenant_id
-        and payload.get("correlation_id") == entry.correlation_id
-        and payload["backup_identifier"] == entry.backup_identifier
-        and payload["status"] == entry.status
+    return _payload_entry_required_fields_match(
+        payload,
+        entry,
+        field_names=_RECOVERY_DRILL_REQUIRED_IDENTITY_FIELDS,
+    ) and _payload_entry_optional_fields_match(
+        payload,
+        entry,
+        field_names=_RECOVERY_DRILL_OPTIONAL_IDENTITY_FIELDS,
     )
 
 
