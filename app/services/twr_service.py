@@ -801,51 +801,73 @@ def _build_twr_results_by_period(
     )
 
     for period in resolved_periods:
-        period_slice_df = daily_results_df[
-            (daily_results_df[PortfolioColumns.PERF_DATE.value] >= period.start_date)
-            & (daily_results_df[PortfolioColumns.PERF_DATE.value] <= period.end_date)
-        ].copy()
-        if period_slice_df.empty:
-            continue
-
-        requested_frequencies_for_period = freqs_by_period.get(period.name, [])
-        breakdowns_data = generate_performance_breakdowns(
-            period_slice_df.copy(),
-            requested_frequencies_for_period,
-            performance_request.annualization,
-            performance_request.output.include_cumulative,
-            performance_request.rounding_precision,
-        )
-        portfolio = _build_twr_portfolio_period_block(
+        period_result = _build_twr_period_result(
             performance_request=performance_request,
             period=period,
-            period_slice_df=period_slice_df,
+            requested_frequencies=freqs_by_period.get(period.name, []),
             daily_results_df=daily_results_df,
-            requested_frequencies=requested_frequencies_for_period,
-            breakdowns_data=breakdowns_data,
-        )
-
-        period_result = SinglePeriodPerformanceResult(portfolio=portfolio)
-
-        if benchmark_context is not None:
-            period_result.benchmark, period_result.relative_performance = _build_twr_benchmark_period_blocks(
-                period=period,
-                requested_frequencies=requested_frequencies_for_period,
-                portfolio=period_result.portfolio,
-                context=benchmark_context,
-            )
-
-        reset_events = _twr_period_reset_events(
-            performance_request=performance_request,
             engine_diagnostics=engine_diagnostics,
-            period=period,
+            benchmark_context=benchmark_context,
         )
-        if reset_events is not None:
-            period_result.reset_events = reset_events
+        if period_result is None:
+            continue
 
         results_by_period[period.name] = period_result
 
     return results_by_period
+
+
+def _build_twr_period_result(
+    *,
+    performance_request: PerformanceRequest,
+    period: ResolvedPeriod,
+    requested_frequencies: list[Frequency],
+    daily_results_df: pd.DataFrame,
+    engine_diagnostics: EngineDiagnostics,
+    benchmark_context: _TWRBenchmarkPeriodContext | None,
+) -> SinglePeriodPerformanceResult | None:
+    period_slice_df = daily_results_df[
+        (daily_results_df[PortfolioColumns.PERF_DATE.value] >= period.start_date)
+        & (daily_results_df[PortfolioColumns.PERF_DATE.value] <= period.end_date)
+    ].copy()
+    if period_slice_df.empty:
+        return None
+
+    breakdowns_data = generate_performance_breakdowns(
+        period_slice_df.copy(),
+        requested_frequencies,
+        performance_request.annualization,
+        performance_request.output.include_cumulative,
+        performance_request.rounding_precision,
+    )
+    portfolio = _build_twr_portfolio_period_block(
+        performance_request=performance_request,
+        period=period,
+        period_slice_df=period_slice_df,
+        daily_results_df=daily_results_df,
+        requested_frequencies=requested_frequencies,
+        breakdowns_data=breakdowns_data,
+    )
+
+    period_result = SinglePeriodPerformanceResult(portfolio=portfolio)
+
+    if benchmark_context is not None:
+        period_result.benchmark, period_result.relative_performance = _build_twr_benchmark_period_blocks(
+            period=period,
+            requested_frequencies=requested_frequencies,
+            portfolio=period_result.portfolio,
+            context=benchmark_context,
+        )
+
+    reset_events = _twr_period_reset_events(
+        performance_request=performance_request,
+        engine_diagnostics=engine_diagnostics,
+        period=period,
+    )
+    if reset_events is not None:
+        period_result.reset_events = reset_events
+
+    return period_result
 
 
 def _twr_period_reset_events(

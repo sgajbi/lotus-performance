@@ -15,6 +15,7 @@ from app.services.twr_service import (
     _as_numeric,
     _build_twr_benchmark_period_blocks,
     _build_twr_lineage_details,
+    _build_twr_period_result,
     _build_twr_portfolio_period_block,
     _build_twr_response_model,
     _build_twr_results_by_period,
@@ -173,6 +174,40 @@ def test_twr_period_reset_events_respects_policy_and_period_window():
     assert disabled is None
     assert enabled is not None
     assert [event.reason for event in enabled] == ["in_period"]
+
+
+def test_build_twr_period_result_skips_empty_period():
+    result = _build_twr_period_result(
+        performance_request=_twr_request(),
+        period=ResolvedPeriod(name="YTD", start_date=date(2026, 1, 1), end_date=date(2026, 1, 2)),
+        requested_frequencies=[Frequency.DAILY],
+        daily_results_df=_daily_twr_results_df(),
+        engine_diagnostics=EngineDiagnostics(),
+        benchmark_context=None,
+    )
+
+    assert result is None
+
+
+def test_build_twr_period_result_preserves_reset_event_projection():
+    result = _build_twr_period_result(
+        performance_request=_twr_request(emit_resets=True),
+        period=ResolvedPeriod(name="ITD", start_date=date(2025, 1, 1), end_date=date(2025, 1, 2)),
+        requested_frequencies=[Frequency.DAILY],
+        daily_results_df=_daily_twr_results_df(),
+        engine_diagnostics=EngineDiagnostics(
+            resets=[
+                EngineResetEvent(date=date(2025, 1, 2), reason="in_period", impacted_rows=1),
+                EngineResetEvent(date=date(2025, 1, 3), reason="outside_period", impacted_rows=1),
+            ]
+        ),
+        benchmark_context=None,
+    )
+
+    assert result is not None
+    assert result.portfolio.summary.period_return.base == pytest.approx(3.02)
+    assert result.reset_events is not None
+    assert [event.reason for event in result.reset_events] == ["in_period"]
 
 
 def test_build_twr_portfolio_period_block_preserves_summary_and_breakdowns():
