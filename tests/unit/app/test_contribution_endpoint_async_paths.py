@@ -307,6 +307,37 @@ async def test_contribution_endpoint_offloads_large_sync_requests(mocker):
     register_async.assert_called_once()
 
 
+def test_initial_contribution_async_submission_preserves_stateful_submission_context(mocker):
+    request = ContributionAnalyticsRequest.model_validate(_stateful_contribution_payload())
+    accepted_response = contribution_calculation_workflow_service.accepted_contribution_response(request.calculation_id)
+    register_async = mocker.patch(
+        "app.services.contribution_calculation_workflow_service.register_async_submission_or_raise",
+        return_value=accepted_response,
+    )
+
+    response = contribution_calculation_workflow_service._initial_contribution_async_submission(
+        request=request,
+        input_fingerprint="input-fingerprint",
+        calculation_hash="calculation-hash",
+    )
+
+    assert response == accepted_response
+    register_async.assert_called_once()
+    call_kwargs = register_async.call_args.kwargs
+    assert call_kwargs["calculation_id"] == request.calculation_id
+    assert call_kwargs["analytics_type"] == "Contribution"
+    assert call_kwargs["portfolio_id"] == "P1"
+    assert call_kwargs["input_fingerprint"] == "input-fingerprint"
+    assert call_kwargs["calculation_hash"] == "calculation-hash"
+    assert call_kwargs["offload_reason"] == "long_window_stateful_contribution"
+    assert call_kwargs["requested_window"]["input_mode"] == "stateful"
+    assert call_kwargs["request_payload"]["input_mode"] == "stateful"
+    assert (
+        call_kwargs["accepted_response_factory"]
+        is contribution_calculation_workflow_service.accepted_contribution_response
+    )
+
+
 @pytest.mark.asyncio
 async def test_contribution_endpoint_maps_sync_resolution_errors_to_http_500(mocker):
     request = ContributionAnalyticsRequest.model_validate(

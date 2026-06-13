@@ -172,6 +172,30 @@ async def _calculate_promoted_stateful_contribution(
         ) from exc
 
 
+def _initial_contribution_async_submission(
+    *,
+    request: ContributionAnalyticsRequest,
+    input_fingerprint: str,
+    calculation_hash: str,
+) -> ContributionAcceptedResponse:
+    offload_reason = (
+        "long_window_stateful_contribution"
+        if request.input_mode == ContributionInputMode.STATEFUL
+        else "large_position_count_contribution"
+    )
+    return register_async_submission_or_raise(
+        calculation_id=request.calculation_id,
+        analytics_type=ANALYTICS_WORKFLOW_CONTRIBUTION,
+        portfolio_id=request.portfolio_id,
+        requested_window=build_contribution_execution_window(request),
+        input_fingerprint=input_fingerprint,
+        calculation_hash=calculation_hash,
+        request_payload=request.model_dump(mode="json"),
+        offload_reason=offload_reason,
+        accepted_response_factory=accepted_contribution_response,
+    )
+
+
 async def calculate_contribution_workflow(
     request: ContributionAnalyticsRequest,
 ) -> ContributionResponse | ContributionAcceptedResponse:
@@ -189,21 +213,10 @@ async def calculate_contribution_workflow(
         )
 
     if should_offload_contribution(request):
-        offload_reason = (
-            "long_window_stateful_contribution"
-            if request.input_mode == ContributionInputMode.STATEFUL
-            else "large_position_count_contribution"
-        )
-        return register_async_submission_or_raise(
-            calculation_id=request.calculation_id,
-            analytics_type=ANALYTICS_WORKFLOW_CONTRIBUTION,
-            portfolio_id=request.portfolio_id,
-            requested_window=build_contribution_execution_window(request),
+        return _initial_contribution_async_submission(
+            request=request,
             input_fingerprint=input_fingerprint,
             calculation_hash=calculation_hash,
-            request_payload=request.model_dump(mode="json"),
-            offload_reason=offload_reason,
-            accepted_response_factory=accepted_contribution_response,
         )
 
     register_sync_execution_or_raise(

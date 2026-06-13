@@ -38,31 +38,31 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `calculate_contribution_workflow` | function | `app/services/contribution_calculation_workflow_service.py:175` | 7 | B |
-| 2 | `_calculate_position_flow_balance_counts` | function | `app/services/contribution_diagnostics.py:183` | 7 | B |
-| 3 | `_classify_average_weight_shadow_cutover_blockers` | function | `app/services/contribution_methodology.py:289` | 7 | B |
-| 4 | `_build_hierarchy_rows` | function | `app/services/contribution_series.py:298` | 7 | B |
-| 5 | `_degraded_stateful_economics` | function | `app/services/contribution_source_economics.py:139` | 7 | B |
-| 6 | `_source_cash_flow_type_counts` | function | `app/services/contribution_source_economics.py:187` | 7 | B |
-| 7 | `check_lineage_storage_ready` | function | `app/services/durability_health_service.py:64` | 7 | B |
-| 8 | `record_upstream_snapshots` | method | `app/services/execution_registry.py:513` | 7 | B |
-| 9 | `_expected_daily_calculation_values` | function | `app/services/inspection/calculation_consistency.py:421` | 7 | B |
-| 10 | `_expected_daily_period_statuses` | function | `app/services/inspection/calculation_consistency.py:576` | 7 | B |
-| 11 | `_comparative_return_mismatches` | function | `app/services/inspection/calculation_consistency.py:669` | 7 | B |
-| 12 | `_build_position_reconciliation_findings` | function | `app/services/inspection/reconciliation.py:143` | 7 | B |
-| 13 | `_select_latest_position_rows` | function | `app/services/inspection/reconciliation.py:431` | 7 | B |
-| 14 | `_record_external_mixed_timing_samples` | method | `app/services/inspection/source_economics_collector.py:300` | 7 | B |
-| 15 | `_record_external_timing_contradictions` | function | `app/services/inspection/source_economics_collector.py:462` | 7 | B |
-| 16 | `_build_external_cashflow_findings` | function | `app/services/inspection/source_economics_findings.py:281` | 7 | B |
-| 17 | `_build_fee_source_economics_findings` | function | `app/services/inspection/source_economics_findings.py:423` | 7 | B |
-| 18 | `_find_monthly_day_dominance` | function | `app/services/inspection/source_quality.py:576` | 7 | B |
-| 19 | `load_existing_twr_calculation_artifacts` | function | `app/services/inspection/subject_materialization.py:34` | 7 | B |
-| 20 | `_load_request_payload` | function | `app/services/inspection/subject_materialization.py:109` | 7 | B |
-| 21 | `_support_brief_result_from_payload` | function | `app/services/inspection/support_brief_workflow_pack.py:55` | 7 | B |
-| 22 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:88` | 7 | B |
-| 23 | `_synthesize_verdict` | function | `app/services/inspection/twr_inspection_service.py:551` | 7 | B |
-| 24 | `_scope_request_to_response_master_window` | function | `app/services/inspection/twr_inspection_service.py:652` | 7 | B |
-| 25 | `get_pending_payload_stats` | method | `app/services/lineage_metadata_store.py:416` | 7 | B |
+| 1 | `_calculate_position_flow_balance_counts` | function | `app/services/contribution_diagnostics.py:183` | 7 | B |
+| 2 | `_classify_average_weight_shadow_cutover_blockers` | function | `app/services/contribution_methodology.py:289` | 7 | B |
+| 3 | `_build_hierarchy_rows` | function | `app/services/contribution_series.py:298` | 7 | B |
+| 4 | `_degraded_stateful_economics` | function | `app/services/contribution_source_economics.py:139` | 7 | B |
+| 5 | `_source_cash_flow_type_counts` | function | `app/services/contribution_source_economics.py:187` | 7 | B |
+| 6 | `check_lineage_storage_ready` | function | `app/services/durability_health_service.py:64` | 7 | B |
+| 7 | `record_upstream_snapshots` | method | `app/services/execution_registry.py:513` | 7 | B |
+| 8 | `_expected_daily_calculation_values` | function | `app/services/inspection/calculation_consistency.py:421` | 7 | B |
+| 9 | `_expected_daily_period_statuses` | function | `app/services/inspection/calculation_consistency.py:576` | 7 | B |
+| 10 | `_comparative_return_mismatches` | function | `app/services/inspection/calculation_consistency.py:669` | 7 | B |
+| 11 | `_build_position_reconciliation_findings` | function | `app/services/inspection/reconciliation.py:143` | 7 | B |
+| 12 | `_select_latest_position_rows` | function | `app/services/inspection/reconciliation.py:431` | 7 | B |
+| 13 | `_record_external_mixed_timing_samples` | method | `app/services/inspection/source_economics_collector.py:300` | 7 | B |
+| 14 | `_record_external_timing_contradictions` | function | `app/services/inspection/source_economics_collector.py:462` | 7 | B |
+| 15 | `_build_external_cashflow_findings` | function | `app/services/inspection/source_economics_findings.py:281` | 7 | B |
+| 16 | `_build_fee_source_economics_findings` | function | `app/services/inspection/source_economics_findings.py:423` | 7 | B |
+| 17 | `_find_monthly_day_dominance` | function | `app/services/inspection/source_quality.py:576` | 7 | B |
+| 18 | `load_existing_twr_calculation_artifacts` | function | `app/services/inspection/subject_materialization.py:34` | 7 | B |
+| 19 | `_load_request_payload` | function | `app/services/inspection/subject_materialization.py:109` | 7 | B |
+| 20 | `_support_brief_result_from_payload` | function | `app/services/inspection/support_brief_workflow_pack.py:55` | 7 | B |
+| 21 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:88` | 7 | B |
+| 22 | `_synthesize_verdict` | function | `app/services/inspection/twr_inspection_service.py:551` | 7 | B |
+| 23 | `_scope_request_to_response_master_window` | function | `app/services/inspection/twr_inspection_service.py:652` | 7 | B |
+| 24 | `get_pending_payload_stats` | method | `app/services/lineage_metadata_store.py:416` | 7 | B |
+| 25 | `list_inspection_items` | method | `app/services/lineage_metadata_store.py:507` | 7 | B |
 
 ## Lowest Maintainability Index
 
@@ -542,6 +542,8 @@ validation was moved into a dedicated predicate.
 `mark_running` also dropped out after terminal-status and worker-lease transition guards were moved
 into a dedicated helper.
 `list_inspection_items` also dropped out after inspection status count/item statement selection was
+moved into a dedicated helper.
+`calculate_contribution_workflow` also dropped out after initial async submission projection was
 moved into a dedicated helper.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
