@@ -28,17 +28,30 @@ def split_position_cash_flows_in_value_basis(
         projected_flow = _position_cash_flow_projection(flow, conversion_factor=conversion_factor)
         if projected_flow is None:
             continue
-        timing, decimal_amount, cashflow_type = projected_flow
-        if cashflow_type.economics_role == "fee":
-            mgmt_fees += decimal_amount
-            continue
-        if cashflow_type.economics_role == "unsupported":
-            continue
-        if timing == "bod":
-            bod_cf += decimal_amount
-        else:
-            eod_cf += decimal_amount
+        bod_cf, eod_cf, mgmt_fees = _accumulate_position_cash_flow_projection(
+            bod_cf=bod_cf,
+            eod_cf=eod_cf,
+            mgmt_fees=mgmt_fees,
+            projected_flow=projected_flow,
+        )
     return bod_cf, eod_cf, mgmt_fees
+
+
+def _accumulate_position_cash_flow_projection(
+    *,
+    bod_cf: Decimal,
+    eod_cf: Decimal,
+    mgmt_fees: Decimal,
+    projected_flow: tuple[Literal["bod", "eod"], Decimal, CashflowTypeClassification],
+) -> tuple[Decimal, Decimal, Decimal]:
+    timing, decimal_amount, cashflow_type = projected_flow
+    if cashflow_type.economics_role == "fee":
+        return bod_cf, eod_cf, mgmt_fees + decimal_amount
+    if cashflow_type.economics_role == "unsupported":
+        return bod_cf, eod_cf, mgmt_fees
+    if timing == "bod":
+        return bod_cf + decimal_amount, eod_cf, mgmt_fees
+    return bod_cf, eod_cf + decimal_amount, mgmt_fees
 
 
 def _position_cash_flow_projection(

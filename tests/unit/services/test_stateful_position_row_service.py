@@ -3,7 +3,9 @@ from decimal import Decimal
 import pytest
 from fastapi import HTTPException
 
+from app.services.source_cashflow_taxonomy import classify_cashflow_type
 from app.services.stateful_position_row_service import (
+    _accumulate_position_cash_flow_projection,
     _cash_flow_conversion_factor,
     _decimal_or_one,
     _has_cash_flow_position_currency_mismatch,
@@ -115,6 +117,33 @@ def test_position_cash_flow_projection_normalizes_valid_flows_and_rejects_invali
         )
         is None
     )
+
+
+def test_accumulate_position_cash_flow_projection_routes_supported_roles():
+    assert _accumulate_position_cash_flow_projection(
+        bod_cf=Decimal("1"),
+        eod_cf=Decimal("2"),
+        mgmt_fees=Decimal("3"),
+        projected_flow=("bod", Decimal("4"), classify_cashflow_type("external_flow")),
+    ) == (Decimal("5"), Decimal("2"), Decimal("3"))
+    assert _accumulate_position_cash_flow_projection(
+        bod_cf=Decimal("1"),
+        eod_cf=Decimal("2"),
+        mgmt_fees=Decimal("3"),
+        projected_flow=("eod", Decimal("-4"), classify_cashflow_type("transfer")),
+    ) == (Decimal("1"), Decimal("-2"), Decimal("3"))
+    assert _accumulate_position_cash_flow_projection(
+        bod_cf=Decimal("1"),
+        eod_cf=Decimal("2"),
+        mgmt_fees=Decimal("3"),
+        projected_flow=("eod", Decimal("-0.5"), classify_cashflow_type("management_fee")),
+    ) == (Decimal("1"), Decimal("2"), Decimal("2.5"))
+    assert _accumulate_position_cash_flow_projection(
+        bod_cf=Decimal("1"),
+        eod_cf=Decimal("2"),
+        mgmt_fees=Decimal("3"),
+        projected_flow=("eod", Decimal("7"), classify_cashflow_type("dividend")),
+    ) == (Decimal("1"), Decimal("2"), Decimal("3"))
 
 
 def test_cash_flow_conversion_factor_and_decimal_default_helpers_cover_missing_rates():
