@@ -28,31 +28,31 @@ python scripts/python_complexity_inventory.py --limit 25
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_record_fee_source_signals` | method | `app/services/inspection/source_economics_collector.py:196` | 8 | B |
-| 2 | `run_source_quality_checks` | function | `app/services/inspection/source_quality.py:91` | 8 | B |
-| 3 | `_inspection_timing` | method | `app/services/lineage_metadata_store.py:1163` | 8 | B |
-| 4 | `calculate_mwr_response` | function | `app/services/mwr_calculation_service.py:152` | 8 | B |
-| 5 | `_validate_component` | function | `app/services/mwr_fx_evidence_service.py:195` | 8 | B |
-| 6 | `build_applied_history_filters` | function | `app/services/operator_action_history_filters.py:55` | 8 | B |
-| 7 | `_has_valid_reclaimed_event_fields` | function | `app/services/operator_action_lease_service.py:486` | 8 | B |
-| 8 | `_build_resolved_stateful_returns_series_request` | function | `app/services/returns_series_service.py:801` | 8 | B |
-| 9 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:1407` | 8 | B |
-| 10 | `runtime_retention_preview_fields` | function | `app/services/runtime_status_retention_preview.py:13` | 8 | B |
-| 11 | `classify_cashflow_type` | function | `app/services/source_cashflow_taxonomy.py:45` | 8 | B |
-| 12 | `_summarize_position_classification` | function | `app/services/stateful_attribution_input_service.py:474` | 8 | B |
-| 13 | `_validate_stateful_position_inception_support` | function | `app/services/stateful_attribution_input_service.py:590` | 8 | B |
-| 14 | `_build_group_key` | function | `app/services/stateful_attribution_input_service.py:800` | 8 | B |
-| 15 | `_position_row_to_daily_point` | function | `app/services/stateful_attribution_input_service.py:825` | 8 | B |
-| 16 | `_position_meta_from_row` | function | `app/services/stateful_attribution_input_service.py:925` | 8 | B |
-| 17 | `_normalized_position_dimensions` | function | `app/services/stateful_attribution_input_service.py:947` | 8 | B |
-| 18 | `_build_stateful_vendor_series_input` | function | `app/services/stateful_benchmark_input_service.py:176` | 8 | B |
-| 19 | `_parse_composition_segment` | function | `app/services/stateful_benchmark_input_service.py:314` | 8 | B |
-| 20 | `_load_fx_maps_for_components` | function | `app/services/stateful_benchmark_input_service.py:464` | 8 | B |
-| 21 | `_component_observation_prices` | function | `app/services/stateful_benchmark_input_service.py:603` | 8 | B |
-| 22 | `_normalized_price_maps_for_component` | function | `app/services/stateful_benchmark_input_service.py:694` | 8 | B |
-| 23 | `build_stateful_contribution_input` | function | `app/services/stateful_contribution_input_service.py:91` | 8 | B |
-| 24 | `_position_row_to_daily_point` | function | `app/services/stateful_contribution_input_service.py:151` | 8 | B |
-| 25 | `_split_position_cash_flows` | function | `app/services/stateful_contribution_input_service.py:196` | 8 | B |
+| 1 | `run_source_quality_checks` | function | `app/services/inspection/source_quality.py:91` | 8 | B |
+| 2 | `_inspection_timing` | method | `app/services/lineage_metadata_store.py:1163` | 8 | B |
+| 3 | `calculate_mwr_response` | function | `app/services/mwr_calculation_service.py:152` | 8 | B |
+| 4 | `_validate_component` | function | `app/services/mwr_fx_evidence_service.py:195` | 8 | B |
+| 5 | `build_applied_history_filters` | function | `app/services/operator_action_history_filters.py:55` | 8 | B |
+| 6 | `_has_valid_reclaimed_event_fields` | function | `app/services/operator_action_lease_service.py:486` | 8 | B |
+| 7 | `_build_resolved_stateful_returns_series_request` | function | `app/services/returns_series_service.py:801` | 8 | B |
+| 8 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:1407` | 8 | B |
+| 9 | `runtime_retention_preview_fields` | function | `app/services/runtime_status_retention_preview.py:13` | 8 | B |
+| 10 | `classify_cashflow_type` | function | `app/services/source_cashflow_taxonomy.py:45` | 8 | B |
+| 11 | `_summarize_position_classification` | function | `app/services/stateful_attribution_input_service.py:474` | 8 | B |
+| 12 | `_validate_stateful_position_inception_support` | function | `app/services/stateful_attribution_input_service.py:590` | 8 | B |
+| 13 | `_build_group_key` | function | `app/services/stateful_attribution_input_service.py:800` | 8 | B |
+| 14 | `_position_row_to_daily_point` | function | `app/services/stateful_attribution_input_service.py:825` | 8 | B |
+| 15 | `_position_meta_from_row` | function | `app/services/stateful_attribution_input_service.py:925` | 8 | B |
+| 16 | `_normalized_position_dimensions` | function | `app/services/stateful_attribution_input_service.py:947` | 8 | B |
+| 17 | `_build_stateful_vendor_series_input` | function | `app/services/stateful_benchmark_input_service.py:176` | 8 | B |
+| 18 | `_parse_composition_segment` | function | `app/services/stateful_benchmark_input_service.py:314` | 8 | B |
+| 19 | `_load_fx_maps_for_components` | function | `app/services/stateful_benchmark_input_service.py:464` | 8 | B |
+| 20 | `_component_observation_prices` | function | `app/services/stateful_benchmark_input_service.py:603` | 8 | B |
+| 21 | `_normalized_price_maps_for_component` | function | `app/services/stateful_benchmark_input_service.py:694` | 8 | B |
+| 22 | `build_stateful_contribution_input` | function | `app/services/stateful_contribution_input_service.py:91` | 8 | B |
+| 23 | `_position_row_to_daily_point` | function | `app/services/stateful_contribution_input_service.py:151` | 8 | B |
+| 24 | `_split_position_cash_flows` | function | `app/services/stateful_contribution_input_service.py:196` | 8 | B |
+| 25 | `get_position_timeseries` | method | `app/services/stateful_input_service.py:90` | 8 | B |
 
 ## Lowest Maintainability Index
 
@@ -72,7 +72,7 @@ python scripts/python_complexity_inventory.py --limit 25
 | 12 | `app/services/operator_action_lease_service.py` | 15.27 | B |
 | 13 | `app/services/inspection/calculation_consistency.py` | 16.16 | B |
 | 14 | `app/services/inspection/reconciliation.py` | 16.20 | B |
-| 15 | `app/services/inspection/source_economics_collector.py` | 17.35 | B |
+| 15 | `app/services/inspection/source_economics_collector.py` | 17.04 | B |
 | 16 | `app/services/inspection/source_economics.py` | 17.37 | B |
 | 17 | `app/workers/compute_executor_worker.py` | 18.03 | B |
 | 18 | `app/services/twr_mode_service.py` | 18.24 | B |
@@ -437,6 +437,8 @@ was moved into a dedicated helper.
 isolated from row amount parsing.
 `_sum_detailed_cash_flows` also dropped out after detailed cash-flow row recording was isolated
 from collection-shape handling and aggregate result projection.
+`_record_fee_source_signals` also dropped out after fee-source consistency sampling and positive
+fee signal policy were separated.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.

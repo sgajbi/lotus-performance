@@ -2,7 +2,7 @@ from datetime import date
 from decimal import Decimal
 
 from app.models.requests import Analysis, DailyInputData, PerformanceRequest
-from app.services.inspection import source_economics
+from app.services.inspection import source_economics, source_economics_collector
 from app.services.inspection.source_economics import ObservationSourceEconomics, analyze_source_economics
 from app.services.inspection.source_economics_collector import collect_source_economics_samples
 
@@ -146,6 +146,21 @@ def test_collect_source_economics_samples_routes_fee_samples():
     assert samples.fee_mixed_timing_samples == [
         {"valuation_date": "2026-03-12", "detailed_fee_bod": -5.0, "detailed_fee_eod": -10.0}
     ]
+
+
+def test_has_positive_fee_signal_detects_explicit_or_detailed_positive_amounts():
+    assert source_economics_collector._has_positive_fee_signal(
+        explicit_fee_total=Decimal("1"),
+        detailed_fee_total=Decimal("-2"),
+    )
+    assert source_economics_collector._has_positive_fee_signal(
+        explicit_fee_total=None,
+        detailed_fee_total=Decimal("1"),
+    )
+    assert not source_economics_collector._has_positive_fee_signal(
+        explicit_fee_total=Decimal("-1"),
+        detailed_fee_total=Decimal("0"),
+    )
 
 
 def test_analyze_source_economics_flags_fee_normalization_gap_and_duplicate_signal():
