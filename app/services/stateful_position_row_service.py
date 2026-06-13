@@ -64,15 +64,7 @@ def _cash_flow_conversion_factor(
     if value_basis == "position":
         return Decimal("1")
 
-    cash_flow_currency = row.get("cash_flow_currency")
-    position_currency = row.get("position_currency")
-    if (
-        isinstance(cash_flow_currency, str)
-        and cash_flow_currency
-        and isinstance(position_currency, str)
-        and position_currency
-        and cash_flow_currency != position_currency
-    ):
+    if _has_cash_flow_position_currency_mismatch(row):
         raise HTTPException(
             status_code=HTTP_422_UNPROCESSABLE,
             detail=(
@@ -87,6 +79,18 @@ def _cash_flow_conversion_factor(
 
     portfolio_to_reporting_rate = _decimal_or_one(row.get("portfolio_to_reporting_fx_rate"))
     return position_to_portfolio_rate * portfolio_to_reporting_rate
+
+
+def _has_cash_flow_position_currency_mismatch(row: dict[str, object]) -> bool:
+    cash_flow_currency = row.get("cash_flow_currency")
+    position_currency = row.get("position_currency")
+    return (
+        isinstance(cash_flow_currency, str)
+        and bool(cash_flow_currency)
+        and isinstance(position_currency, str)
+        and bool(position_currency)
+        and cash_flow_currency != position_currency
+    )
 
 
 def _decimal_or_one(value: object) -> Decimal:
