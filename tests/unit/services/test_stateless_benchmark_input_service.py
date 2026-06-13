@@ -6,6 +6,7 @@ from fastapi import HTTPException
 from app.models.benchmark_analytics_requests import BenchmarkComponentPricePointInput, BenchmarkStatelessInput
 from app.services.stateless_benchmark_input_service import (
     _build_price_point_observation,
+    _component_observations_from_price_points,
     _price_point_return_components,
     normalize_stateless_component_observations,
 )
@@ -117,6 +118,43 @@ def test_build_price_point_observation_projects_cross_currency_returns():
     assert observation.component_return_local == pytest.approx(0.01)
     assert observation.component_return_fx == pytest.approx(0.01)
     assert observation.component_return == pytest.approx(0.0201)
+
+
+def test_component_observations_from_price_points_sorts_and_tracks_return_dates():
+    observations, component_dates = _component_observations_from_price_points(
+        component_id="IDX_A",
+        benchmark_currency="USD",
+        price_points=[
+            BenchmarkComponentPricePointInput(
+                component_id="IDX_A",
+                perf_date=date(2026, 1, 3),
+                weight_bop=0.6,
+                index_price=103.0,
+            ),
+            BenchmarkComponentPricePointInput(
+                component_id="IDX_A",
+                perf_date=date(2026, 1, 1),
+                weight_bop=0.6,
+                index_price=100.0,
+            ),
+            BenchmarkComponentPricePointInput(
+                component_id="IDX_A",
+                perf_date=date(2026, 1, 2),
+                weight_bop=0.6,
+                index_price=102.0,
+            ),
+        ],
+    )
+
+    assert [observation.perf_date for observation in observations] == [
+        date(2026, 1, 2),
+        date(2026, 1, 3),
+    ]
+    assert component_dates == {date(2026, 1, 2), date(2026, 1, 3)}
+    assert [observation.component_return for observation in observations] == [
+        pytest.approx(0.02),
+        pytest.approx(103.0 / 102.0 - 1.0),
+    ]
 
 
 def test_price_point_return_components_resolve_same_and_cross_currency_returns():
