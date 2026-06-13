@@ -53,6 +53,14 @@ class TWRInspectionProfile(StrEnum):
     DEEP_RECONCILIATION = "deep_reconciliation"
 
 
+def _is_valid_twr_calculation_inspection_subject(request: "TWRInspectionRequest") -> bool:
+    return request.subject_calculation_id is not None and request.request is None
+
+
+def _is_valid_twr_request_inspection_subject(request: "TWRInspectionRequest") -> bool:
+    return request.subject_calculation_id is None and request.request is not None
+
+
 class TWRInspectionRequest(BaseModel):
     inspection_id: UUID = Field(
         default_factory=uuid4,
@@ -91,11 +99,11 @@ class TWRInspectionRequest(BaseModel):
     @model_validator(mode="after")
     def validate_subject_mode(self) -> "TWRInspectionRequest":
         if self.subject_type == TWRInspectionSubjectType.TWR_CALCULATION:
-            if self.subject_calculation_id is None or self.request is not None:
+            if not _is_valid_twr_calculation_inspection_subject(self):
                 raise ValueError(
                     "twr_calculation inspection requires subject_calculation_id and does not accept request payload."
                 )
-        elif self.subject_calculation_id is not None or self.request is None:
+        elif not _is_valid_twr_request_inspection_subject(self):
             raise ValueError(
                 "twr_request inspection requires request payload and does not accept subject_calculation_id."
             )
