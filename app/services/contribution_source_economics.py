@@ -180,15 +180,22 @@ def _stateful_reason_codes(
 def _cash_flow_type_counts(request: ContributionRequest) -> Counter[str]:
     counts: Counter[str] = Counter()
     for position in request.positions_data:
-        source_economics = position.meta.get("_source_economics")
-        if not isinstance(source_economics, dict):
-            continue
-        raw_counts = source_economics.get("cash_flow_type_counts")
-        if not isinstance(raw_counts, dict):
-            continue
-        for key, value in raw_counts.items():
-            if isinstance(key, str) and type(value) is int and value > 0:
-                counts[key] += value
+        counts.update(_source_cash_flow_type_counts(position.meta))
+    return counts
+
+
+def _source_cash_flow_type_counts(meta: dict[str, Any]) -> Counter[str]:
+    source_economics = meta.get("_source_economics")
+    if not isinstance(source_economics, dict):
+        return Counter()
+    raw_counts = source_economics.get("cash_flow_type_counts")
+    if not isinstance(raw_counts, dict):
+        return Counter()
+
+    counts: Counter[str] = Counter()
+    for key, value in raw_counts.items():
+        if isinstance(key, str) and type(value) is int and value > 0:
+            counts[key] += value
     return counts
 
 

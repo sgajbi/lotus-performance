@@ -7,6 +7,7 @@ from app.models.contribution_analytics_requests import ContributionInputMode
 from app.models.contribution_requests import ContributionRequest
 from app.services import contribution_evidence
 from app.services.contribution_source_economics import (
+    _source_cash_flow_type_counts,
     _stateful_cash_flow_economics,
     _stateful_metadata_economics,
     build_contribution_source_economics_evidence,
@@ -115,6 +116,30 @@ def test_stateful_metadata_economics_projects_fx_and_classification_dimensions()
     )
 
     assert _stateful_metadata_economics(request) == ["fx_rates", "classification_dimensions"]
+
+
+def test_source_cash_flow_type_counts_accepts_positive_integer_counts_only():
+    counts = _source_cash_flow_type_counts(
+        {
+            "_source_economics": {
+                "cash_flow_type_counts": {
+                    "external_flow": 2,
+                    "fee": True,
+                    "zero": 0,
+                    "negative": -1,
+                    1: 3,
+                }
+            }
+        }
+    )
+
+    assert counts == {"external_flow": 2}
+
+
+def test_source_cash_flow_type_counts_ignores_missing_or_invalid_source_economics():
+    assert _source_cash_flow_type_counts({}) == {}
+    assert _source_cash_flow_type_counts({"_source_economics": []}) == {}
+    assert _source_cash_flow_type_counts({"_source_economics": {"cash_flow_type_counts": []}}) == {}
 
 
 def test_source_economics_evidence_ignores_boolean_cash_flow_type_counts():
