@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import Any
 from uuid import UUID
 
 from fastapi.responses import JSONResponse
@@ -68,6 +69,13 @@ def _returns_series_execution_metadata(
         "benchmark_work_units": benchmark_work_units,
     }
     return {field: value for field, value in metadata.items() if value is not None}
+
+
+def _execution_failure_message(exc: Exception) -> str:
+    detail: Any = getattr(exc, "detail", exc)
+    if isinstance(detail, dict) and "message" in detail:
+        return str(detail["message"])
+    return str(detail)
 
 
 def build_returns_series_execution_window(
@@ -162,11 +170,7 @@ async def _calculate_promoted_stateful_returns_series(
             resolved_benchmark_return_source_override=resolved.resolved_benchmark_return_source,
         )
     except Exception as exc:
-        message = (
-            exc.detail["message"]
-            if hasattr(exc, "detail") and isinstance(exc.detail, dict) and "message" in exc.detail
-            else str(getattr(exc, "detail", exc))
-        )
+        message = _execution_failure_message(exc)
         execution_registry.fail_in_progress_stages(request.calculation_id, message)
         execution_registry.mark_failed(request.calculation_id, message)
         raise

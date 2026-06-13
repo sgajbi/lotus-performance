@@ -26,6 +26,7 @@ from app.models.returns_series import (
 from app.services import returns_series_calculation_workflow_service
 from app.services.execution_registry import execution_registry
 from app.services.returns_series_calculation_workflow_service import (
+    _execution_failure_message,
     build_returns_series_execution_window,
     calculate_returns_series_workflow,
     should_offload_resolved_returns_series,
@@ -354,6 +355,20 @@ def test_build_returns_series_execution_window_projects_optional_metadata():
         "benchmark_work_units": 0,
     }
     assert "benchmark_id" not in requested_window
+
+
+def test_execution_failure_message_prefers_coded_detail_message():
+    exc = HTTPException(status_code=422, detail={"code": "invalid_request", "message": "usable message"})
+
+    assert _execution_failure_message(exc) == "usable message"
+
+
+def test_execution_failure_message_uses_detail_or_exception_string():
+    string_detail = HTTPException(status_code=422, detail="plain detail")
+    plain_exception = RuntimeError("plain failure")
+
+    assert _execution_failure_message(string_detail) == "plain detail"
+    assert _execution_failure_message(plain_exception) == "plain failure"
 
 
 @pytest.mark.asyncio
