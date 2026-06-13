@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 from fastapi import HTTPException
@@ -24,6 +24,7 @@ from app.models.responses import (
     ResetEvent,
     SinglePeriodPerformanceResult,
     TWRBenchmarkContext,
+    TWRDailyCalculationEvidence,
 )
 from app.models.twr_requests import TWRInputMode
 from app.services.analytics_numeric import numeric_value
@@ -401,9 +402,7 @@ def _build_daily_calculation_evidence(
     row: pd.Series,
     *,
     metric_basis: str,
-) -> object:
-    from app.models.responses import TWRDailyCalculationEvidence
-
+) -> TWRDailyCalculationEvidence:
     inputs = _daily_calculation_evidence_inputs(row, metric_basis=metric_basis)
     classification = _classify_daily_calculation_evidence(row, inputs=inputs)
 
@@ -584,17 +583,39 @@ def _build_portfolio_breakdown_item(
             if summary_data.get("annualized_return_pct") is not None
             else None
         ),
-        daily_data=(
-            [frequency_df.iloc[0].to_dict()]
-            if include_timeseries and frequency == Frequency.DAILY and not frequency_df.empty
-            else None
+        daily_data=_portfolio_breakdown_daily_data(
+            frequency=frequency,
+            frequency_df=frequency_df,
+            include_timeseries=include_timeseries,
         ),
-        calculation_evidence=(
-            _build_daily_calculation_evidence(frequency_df.iloc[0], metric_basis=metric_basis)
-            if frequency == Frequency.DAILY and not frequency_df.empty
-            else None
+        calculation_evidence=_portfolio_breakdown_calculation_evidence(
+            frequency=frequency,
+            frequency_df=frequency_df,
+            metric_basis=metric_basis,
         ),
     )
+
+
+def _portfolio_breakdown_daily_data(
+    *,
+    frequency: Frequency,
+    frequency_df: pd.DataFrame,
+    include_timeseries: bool,
+) -> list[dict[str, Any]] | None:
+    if not include_timeseries or frequency != Frequency.DAILY or frequency_df.empty:
+        return None
+    return [cast("dict[str, Any]", frequency_df.iloc[0].to_dict())]
+
+
+def _portfolio_breakdown_calculation_evidence(
+    *,
+    frequency: Frequency,
+    frequency_df: pd.DataFrame,
+    metric_basis: str,
+) -> TWRDailyCalculationEvidence | None:
+    if frequency != Frequency.DAILY or frequency_df.empty:
+        return None
+    return _build_daily_calculation_evidence(frequency_df.iloc[0], metric_basis=metric_basis)
 
 
 def _build_benchmark_breakdowns(
