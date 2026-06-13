@@ -34,6 +34,15 @@ def test_classify_cashflow_type_maps_governed_fee_alias():
     assert classification.governed_alias is True
 
 
+def test_classify_cashflow_type_maps_governed_external_alias():
+    classification = classify_cashflow_type(" TRANSFER_OUT ")
+
+    assert classification.normalized_value == "transfer_out"
+    assert classification.economics_role == "external"
+    assert classification.canonical is False
+    assert classification.governed_alias is True
+
+
 def test_classify_cashflow_type_does_not_whitelist_expense_as_analytics_input_label():
     classification = classify_cashflow_type(" EXPENSE ")
 
@@ -53,8 +62,13 @@ def test_classify_cashflow_type_preserves_unsupported_income_taxonomy():
 
 def test_classify_cashflow_type_distinguishes_missing_labels():
     classification = classify_cashflow_type("   ")
+    non_string_classification = classify_cashflow_type(123)
 
     assert classification.normalized_value is None
     assert classification.economics_role == "missing"
     assert classification.canonical is False
     assert classification.governed_alias is False
+    assert non_string_classification.normalized_value is None
+    assert non_string_classification.economics_role == "missing"
+    assert non_string_classification.canonical is False
+    assert non_string_classification.governed_alias is False
