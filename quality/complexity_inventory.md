@@ -32,13 +32,13 @@ must stay at `0`.
 | --- | ---: |
 | Max cyclomatic complexity | 7 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.16 |
+| Average maintainability index | 55.15 |
 
 ## Highest Cyclomatic Complexity
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `run_runtime_retention_cleanup` | function | `app/services/runtime_retention_run_service.py:32` | 7 | B |
+| 1 | `run_runtime_retention_cleanup` | function | `app/services/runtime_retention_run_service.py:59` | 7 | B |
 | 2 | `runtime_status_from_component_statuses` | function | `app/services/runtime_status_degradation.py:246` | 7 | B |
 | 3 | `_summarize_source_quality_observations` | function | `app/services/source_quality_evidence.py:65` | 7 | B |
 | 4 | `_source_quality_warnings` | function | `app/services/source_quality_evidence.py:109` | 7 | B |

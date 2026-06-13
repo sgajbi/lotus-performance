@@ -10,6 +10,7 @@ from app.services.runtime_retention_execution_service import RuntimeRetentionCle
 from app.services.runtime_retention_history_service import RuntimeRetentionHistorySnapshot
 from app.services.runtime_retention_run_service import (
     RuntimeRetentionCleanupRunResult,
+    _runtime_retention_cleanup_response_from_evidence,
     run_runtime_retention_cleanup,
 )
 
@@ -51,6 +52,18 @@ def _build_evidence() -> RuntimeRetentionCleanupEvidence:
         prunable_lineage_record_count=1,
         prunable_lineage_artifact_count=1,
     )
+
+
+def test_runtime_retention_cleanup_response_from_evidence_projects_counts_and_identity():
+    response = _runtime_retention_cleanup_response_from_evidence(_build_evidence())
+
+    assert response.cleanup_name == "runtime_retention_cleanup"
+    assert response.operator_id == "ops-user"
+    assert response.job_id == "ticket-7"
+    assert response.cleanup_mode == "dry_run"
+    assert response.status == "planned"
+    assert response.prunable_execution_count == 1
+    assert response.prunable_lineage_artifact_count == 1
 
 
 def test_runtime_retention_cleanup_run_replays_existing_evidence_payload(tmp_path, monkeypatch):

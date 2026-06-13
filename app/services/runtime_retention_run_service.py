@@ -19,7 +19,10 @@ from app.services.operator_action_lease_service import (
     operator_action_lease,
 )
 from app.services.operator_action_replay_service import resolve_runtime_retention_manual_replay
-from app.services.runtime_retention_execution_service import execute_runtime_retention_cleanup
+from app.services.runtime_retention_execution_service import (
+    RuntimeRetentionCleanupEvidence,
+    execute_runtime_retention_cleanup,
+)
 from app.services.runtime_retention_history_service import build_runtime_retention_history_snapshot
 
 
@@ -27,6 +30,30 @@ from app.services.runtime_retention_history_service import build_runtime_retenti
 class RuntimeRetentionCleanupRunResult:
     response: RuntimeRetentionCleanupRunResponse
     is_replay: bool
+
+
+def _runtime_retention_cleanup_response_from_evidence(
+    evidence: RuntimeRetentionCleanupEvidence,
+) -> RuntimeRetentionCleanupRunResponse:
+    return build_runtime_retention_cleanup_run_response(
+        cleanup_name=evidence.cleanup_name,
+        generated_at_utc=evidence.generated_at_utc,
+        evidence_file_name=evidence.evidence_file_name,
+        operator_id=evidence.operator_id,
+        tenant_id=evidence.tenant_id,
+        correlation_id=evidence.correlation_id,
+        trigger_mode=evidence.trigger_mode,
+        job_id=evidence.job_id,
+        cleanup_mode=evidence.cleanup_mode,
+        status=evidence.status,
+        retention_days=evidence.retention_days,
+        cutoff_utc=evidence.cutoff_utc,
+        prunable_execution_count=evidence.prunable_execution_count,
+        prunable_compute_job_count=evidence.prunable_compute_job_count,
+        prunable_async_result_count=evidence.prunable_async_result_count,
+        prunable_lineage_record_count=evidence.prunable_lineage_record_count,
+        prunable_lineage_artifact_count=evidence.prunable_lineage_artifact_count,
+    )
 
 
 def run_runtime_retention_cleanup(
@@ -119,24 +146,6 @@ def run_runtime_retention_cleanup(
         )
 
     return RuntimeRetentionCleanupRunResult(
-        response=build_runtime_retention_cleanup_run_response(
-            cleanup_name=evidence.cleanup_name,
-            generated_at_utc=evidence.generated_at_utc,
-            evidence_file_name=evidence.evidence_file_name,
-            operator_id=evidence.operator_id,
-            tenant_id=evidence.tenant_id,
-            correlation_id=evidence.correlation_id,
-            trigger_mode=evidence.trigger_mode,
-            job_id=evidence.job_id,
-            cleanup_mode=evidence.cleanup_mode,
-            status=evidence.status,
-            retention_days=evidence.retention_days,
-            cutoff_utc=evidence.cutoff_utc,
-            prunable_execution_count=evidence.prunable_execution_count,
-            prunable_compute_job_count=evidence.prunable_compute_job_count,
-            prunable_async_result_count=evidence.prunable_async_result_count,
-            prunable_lineage_record_count=evidence.prunable_lineage_record_count,
-            prunable_lineage_artifact_count=evidence.prunable_lineage_artifact_count,
-        ),
+        response=_runtime_retention_cleanup_response_from_evidence(evidence),
         is_replay=False,
     )

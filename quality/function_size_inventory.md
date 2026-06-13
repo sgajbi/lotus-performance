@@ -23,15 +23,15 @@ python scripts/python_function_size_inventory.py --limit 20
 | 1 | `DurableQueueCollector.describe` | `app/services/queue_metrics_service.py:193` | 159 |
 | 2 | `build_runtime_status_response` | `app/models/runtime_status.py:767` | 131 |
 | 3 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:327` | 130 |
-| 4 | `run_runtime_retention_cleanup` | `app/services/runtime_retention_run_service.py:32` | 111 |
-| 5 | `calculate_attribution` | `app/services/attribution_service.py:206` | 104 |
-| 6 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:206` | 102 |
-| 7 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:310` | 102 |
-| 8 | `aggregate_attribution_results` | `engine/attribution.py:648` | 102 |
-| 9 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:87` | 101 |
-| 10 | `_calculate_returns_series` | `app/services/returns_series_service.py:1397` | 97 |
-| 11 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:62` | 97 |
-| 12 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:31` | 94 |
+| 4 | `calculate_attribution` | `app/services/attribution_service.py:206` | 104 |
+| 5 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:206` | 102 |
+| 6 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:310` | 102 |
+| 7 | `aggregate_attribution_results` | `engine/attribution.py:648` | 102 |
+| 8 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:87` | 101 |
+| 9 | `_calculate_returns_series` | `app/services/returns_series_service.py:1397` | 97 |
+| 10 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:62` | 97 |
+| 11 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:31` | 94 |
+| 12 | `run_runtime_retention_cleanup` | `app/services/runtime_retention_run_service.py:59` | 93 |
 | 13 | `build_stateful_benchmark_input` | `app/services/stateful_benchmark_input_service.py:57` | 93 |
 | 14 | `calculate_twr_response` | `app/services/twr_service.py:1007` | 93 |
 | 15 | `_build_artifacts` | `app/services/composite_inspection_service.py:151` | 89 |
@@ -104,3 +104,7 @@ member-input and period-weight support artifact row projection were isolated.
 Future refactor slices should use this report to choose bounded work where extraction, shared
 helpers, or narrower tests can reduce function size while preserving analytics truth and API
 contracts.
+Runtime-retention manual cleanup orchestration moved from `111` to `93` lines after cleanup
+evidence response projection was isolated. It remains a CC `7` hotspot, so future work should
+target replay, guard, or lease-context assembly separately rather than claiming the function is
+fully remediated.
