@@ -348,26 +348,15 @@ def _read_active_operator_action_lease(*, lock_path: Path) -> ActiveOperatorActi
 
 
 def _active_lease_payload_fields(payload: dict[str, Any]) -> _ActiveLeasePayloadFields | _InvalidLease:
-    action_name = payload.get("action_name")
-    operator_id = payload.get("operator_id")
+    required_fields = _active_lease_required_string_fields(payload)
+    if isinstance(required_fields, _InvalidLease):
+        return _INVALID_LEASE
+
+    action_name_value, operator_id_value, governed_target_value, acquired_at_utc_value = required_fields
     tenant_id = payload.get("tenant_id")
-    governed_target = payload.get("governed_target")
-    acquired_at_utc = payload.get("acquired_at_utc")
-    if not is_required_evidence_string(action_name):
-        return _INVALID_LEASE
-    if not is_required_evidence_string(operator_id):
-        return _INVALID_LEASE
     if not is_optional_evidence_string(tenant_id):
         return _INVALID_LEASE
-    if not is_required_evidence_string(governed_target):
-        return _INVALID_LEASE
-    if not is_required_evidence_string(acquired_at_utc):
-        return _INVALID_LEASE
-    action_name_value = cast(str, action_name)
-    operator_id_value = cast(str, operator_id)
     tenant_id_value = cast(str | None, tenant_id)
-    governed_target_value = cast(str, governed_target)
-    acquired_at_utc_value = cast(str, acquired_at_utc)
     try:
         parse_utc_datetime(acquired_at_utc_value)
     except ValueError:
@@ -379,6 +368,26 @@ def _active_lease_payload_fields(payload: dict[str, Any]) -> _ActiveLeasePayload
         governed_target=governed_target_value,
         acquired_at_utc=acquired_at_utc_value,
     )
+
+
+def _active_lease_required_string_fields(payload: dict[str, Any]) -> tuple[str, str, str, str] | _InvalidLease:
+    action_name = payload.get("action_name")
+    operator_id = payload.get("operator_id")
+    governed_target = payload.get("governed_target")
+    acquired_at_utc = payload.get("acquired_at_utc")
+    if not is_required_evidence_string(action_name):
+        return _INVALID_LEASE
+    if not is_required_evidence_string(operator_id):
+        return _INVALID_LEASE
+    if not is_required_evidence_string(governed_target):
+        return _INVALID_LEASE
+    if not is_required_evidence_string(acquired_at_utc):
+        return _INVALID_LEASE
+    action_name_value = cast(str, action_name)
+    operator_id_value = cast(str, operator_id)
+    governed_target_value = cast(str, governed_target)
+    acquired_at_utc_value = cast(str, acquired_at_utc)
+    return action_name_value, operator_id_value, governed_target_value, acquired_at_utc_value
 
 
 def _read_latest_reclaimed_lease(

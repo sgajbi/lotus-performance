@@ -13,6 +13,7 @@ from app.services.operator_action_lease_service import (
     OPERATOR_ACTION_RECLAIM_HISTORY_INVALID_REASON,
     ActiveOperatorActionLease,
     OperatorActionLeaseMetadata,
+    _active_lease_required_string_fields,
     _has_valid_reclaimed_event_fields,
     _has_valid_reclaimed_event_string_fields,
     _matching_active_operator_action_lease,
@@ -548,6 +549,55 @@ def test_read_active_operator_action_lease_accepts_absent_optional_tenant(tmp_pa
     assert isinstance(lease, ActiveOperatorActionLease)
     assert lease.tenant_id is None
     assert lease.action_key == "recovery"
+
+
+def test_active_lease_required_string_fields_projects_required_values():
+    assert _active_lease_required_string_fields(
+        {
+            "action_name": " recovery_drill ",
+            "operator_id": " ops-user ",
+            "governed_target": " backup-123 ",
+            "acquired_at_utc": " 2026-03-15T00:00:00Z ",
+            "tenant_id": 123,
+        }
+    ) == (
+        " recovery_drill ",
+        " ops-user ",
+        " backup-123 ",
+        " 2026-03-15T00:00:00Z ",
+    )
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {
+            "operator_id": "ops-user",
+            "governed_target": "backup-123",
+            "acquired_at_utc": "2026-03-15T00:00:00Z",
+        },
+        {
+            "action_name": "recovery_drill",
+            "operator_id": " ",
+            "governed_target": "backup-123",
+            "acquired_at_utc": "2026-03-15T00:00:00Z",
+        },
+        {
+            "action_name": "recovery_drill",
+            "operator_id": "ops-user",
+            "governed_target": 123,
+            "acquired_at_utc": "2026-03-15T00:00:00Z",
+        },
+        {
+            "action_name": "recovery_drill",
+            "operator_id": "ops-user",
+            "governed_target": "backup-123",
+            "acquired_at_utc": None,
+        },
+    ],
+)
+def test_active_lease_required_string_fields_rejects_missing_blank_or_non_string_values(payload):
+    assert _active_lease_required_string_fields(payload).__class__.__name__ == "_InvalidLease"
 
 
 def test_build_operator_action_lease_snapshot_reports_unreadable_directory(monkeypatch, tmp_path):
