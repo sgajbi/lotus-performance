@@ -4,6 +4,7 @@ from datetime import date
 from decimal import Decimal
 from uuid import uuid4
 
+import pandas as pd
 import pytest
 from fastapi import HTTPException
 
@@ -11,6 +12,7 @@ from app.models.benchmark_requests import BenchmarkComponentObservation
 from app.services.stateful_attribution_input_service import (
     StatefulAttributionSourceInput,
     _benchmark_group_dimension_value,
+    _benchmark_group_key_from_row,
     _build_benchmark_groups,
     _build_group_key,
     _build_instruments_data,
@@ -1205,6 +1207,23 @@ def test_stateful_attribution_builds_unknown_bucket_for_missing_benchmark_labels
     )
 
     assert groups[0].key == {"sector": "unknown"}
+
+
+def test_stateful_attribution_benchmark_group_key_from_row_applies_label_guard_and_currency_key():
+    row = pd.Series({"component_id": "IDX_1", "component_currency": "USD"})
+
+    assert _benchmark_group_key_from_row(
+        row=row,
+        labels_by_index={},
+        group_by=["currency"],
+    ) == (("currency", "usd"),)
+
+    with pytest.raises(HTTPException, match="missing classification labels"):
+        _benchmark_group_key_from_row(
+            row=row,
+            labels_by_index={},
+            group_by=["sector"],
+        )
 
 
 def test_stateful_attribution_aggregates_benchmark_components_by_group_and_date():

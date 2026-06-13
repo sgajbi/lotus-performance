@@ -788,20 +788,10 @@ def _add_benchmark_group_row(
     group_by: list[str],
     row: pd.Series,
 ) -> None:
-    index_id = row["component_id"]
-    labels = labels_by_index.get(index_id)
-    component_currency = row.get("component_currency")
-    if labels is None and "currency" not in group_by:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=f"Index catalog missing classification labels for benchmark component {index_id}.",
-        )
-
-    group_key = _build_group_key(
-        labels=labels or {},
+    group_key = _benchmark_group_key_from_row(
+        row=row,
+        labels_by_index=labels_by_index,
         group_by=group_by,
-        index_id=index_id,
-        component_currency=str(component_currency) if component_currency is not None else None,
     )
     series_date = row["date"].isoformat()
     date_bucket = grouped.setdefault(group_key, {}).setdefault(series_date, _empty_benchmark_group_date_bucket())
@@ -815,6 +805,28 @@ def _add_benchmark_group_row(
         date_bucket["weighted_local_return_sum"] += weight * Decimal(str(component_return_local))
     if pd.notna(component_return_fx):
         date_bucket["weighted_fx_return_sum"] += weight * Decimal(str(component_return_fx))
+
+
+def _benchmark_group_key_from_row(
+    *,
+    row: pd.Series,
+    labels_by_index: dict[str, dict[str, object]],
+    group_by: list[str],
+) -> tuple[tuple[str, str], ...]:
+    index_id = row["component_id"]
+    labels = labels_by_index.get(index_id)
+    component_currency = row.get("component_currency")
+    if labels is None and "currency" not in group_by:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"Index catalog missing classification labels for benchmark component {index_id}.",
+        )
+    return _build_group_key(
+        labels=labels or {},
+        group_by=group_by,
+        index_id=index_id,
+        component_currency=str(component_currency) if component_currency is not None else None,
+    )
 
 
 def _benchmark_group_observation(
