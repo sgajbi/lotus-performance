@@ -287,6 +287,33 @@ def test_validate_history_entry_strings_rejects_bad_required_or_optional_values(
     )
 
 
+def test_validate_history_entry_strings_requires_safe_evidence_file_name():
+    for entry in (
+        {
+            "generated_at_utc": "2026-03-15T00:00:00Z",
+            "operator_id": "ops-user",
+        },
+        {
+            "evidence_file_name": " ",
+            "generated_at_utc": "2026-03-15T00:00:00Z",
+            "operator_id": "ops-user",
+        },
+        {
+            "evidence_file_name": "../outside.json",
+            "generated_at_utc": "2026-03-15T00:00:00Z",
+            "operator_id": "ops-user",
+        },
+    ):
+        assert (
+            validate_history_entry_strings(
+                entry,
+                required_keys=("evidence_file_name", "generated_at_utc", "operator_id"),
+                optional_keys=(),
+            )
+            is None
+        )
+
+
 def test_validate_history_entry_generated_at_utc_accepts_parseable_timestamp():
     assert (
         validate_history_entry_generated_at_utc({"generated_at_utc": "2026-03-15T00:00:00Z"}) == "2026-03-15T00:00:00Z"

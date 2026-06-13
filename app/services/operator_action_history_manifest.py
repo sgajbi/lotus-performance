@@ -170,29 +170,49 @@ def log_invalid_history_manifest_payload(*, manifest_path: Path, history_name: s
     logger.warning("%s history manifest payload invalid at %s.", history_name, manifest_path)
 
 
-def validate_history_entry_strings(
+def _history_entry_required_strings(
     entry: dict[str, Any],
-    *,
     required_keys: tuple[str, ...],
-    optional_keys: tuple[str, ...],
-) -> HistoryEntryStrings | None:
+) -> dict[str, str] | None:
     required_strings: dict[str, str] = {}
     for key in required_keys:
         try:
             required_strings[key] = required_evidence_string(entry, key)
         except (KeyError, ValueError):
             return None
+    return required_strings
 
-    evidence_file_name = required_strings.get("evidence_file_name")
-    if evidence_file_name is None or not is_safe_evidence_file_name(evidence_file_name):
-        return None
 
+def _history_entry_optional_strings(
+    entry: dict[str, Any],
+    optional_keys: tuple[str, ...],
+) -> dict[str, str | None] | None:
     optional_strings: dict[str, str | None] = {}
     for key in optional_keys:
         try:
             optional_strings[key] = optional_evidence_string(entry, key)
         except ValueError:
             return None
+    return optional_strings
+
+
+def validate_history_entry_strings(
+    entry: dict[str, Any],
+    *,
+    required_keys: tuple[str, ...],
+    optional_keys: tuple[str, ...],
+) -> HistoryEntryStrings | None:
+    required_strings = _history_entry_required_strings(entry, required_keys)
+    if required_strings is None:
+        return None
+
+    evidence_file_name = required_strings.get("evidence_file_name")
+    if evidence_file_name is None or not is_safe_evidence_file_name(evidence_file_name):
+        return None
+
+    optional_strings = _history_entry_optional_strings(entry, optional_keys)
+    if optional_strings is None:
+        return None
 
     return {
         **required_strings,
