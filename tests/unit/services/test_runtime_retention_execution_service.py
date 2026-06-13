@@ -275,7 +275,7 @@ def test_runtime_retention_execution_skips_invalid_manifest_entry_payloads(tmp_p
             output_dir=output_dir,
             evidence=evidence,
             retention_limit=5,
-            retention_max_age_days=90,
+            retention_max_age_days=365,
         )
 
     manifest = json.loads((output_dir / "manifest.json").read_text(encoding="utf-8"))
@@ -339,7 +339,7 @@ def test_runtime_retention_execution_skips_invalid_manifest_entry_shapes(tmp_pat
             output_dir=output_dir,
             evidence=evidence,
             retention_limit=5,
-            retention_max_age_days=90,
+            retention_max_age_days=365,
         )
 
     manifest = json.loads((output_dir / "manifest.json").read_text(encoding="utf-8"))
@@ -400,7 +400,7 @@ def test_runtime_retention_manifest_rebuild_normalizes_required_entry_identities
         output_dir=output_dir,
         evidence=evidence,
         retention_limit=5,
-        retention_max_age_days=90,
+        retention_max_age_days=365,
     )
 
     manifest = json.loads((output_dir / "manifest.json").read_text(encoding="utf-8"))
