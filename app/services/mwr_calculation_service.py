@@ -64,11 +64,7 @@ def build_mwr_response(
         reason_codes=mwr_result.reason_codes,
         fallback_used=mwr_result.fallback_from is not None or bool(mwr_result.is_approximation),
     )
-    reporting_currency = (
-        resolved_request.currency_evidence.reporting_currency
-        if resolved_request.currency_evidence is not None
-        else mwr_request.report_ccy or mwr_request.currency
-    )
+    reporting_currency = _mwr_reporting_currency(resolved_request=resolved_request)
 
     return MoneyWeightedReturnResponse.model_validate(
         {
@@ -92,11 +88,7 @@ def build_mwr_response(
             "convergence": asdict(mwr_result.convergence) if mwr_result.convergence is not None else None,
             "cashflows_used": mwr_request.cash_flows if mwr_request.emit_cashflows_used else None,
             "reporting_currency": reporting_currency,
-            "currency_evidence": (
-                _decimal_safe_dataclass_payload(resolved_request.currency_evidence)
-                if resolved_request.currency_evidence is not None
-                else None
-            ),
+            "currency_evidence": _mwr_currency_evidence_payload(resolved_request=resolved_request),
             "calculation_supportability": calculation_supportability,
             "meta": Meta(
                 calculation_id=request.calculation_id,
@@ -117,6 +109,19 @@ def build_mwr_response(
             "audit": Audit(counts={"cashflows": len(mwr_request.cash_flows)}),
         }
     )
+
+
+def _mwr_reporting_currency(*, resolved_request: ResolvedMWRRequest) -> str | None:
+    if resolved_request.currency_evidence is not None:
+        return resolved_request.currency_evidence.reporting_currency
+    mwr_request = resolved_request.mwr_request
+    return mwr_request.report_ccy or mwr_request.currency
+
+
+def _mwr_currency_evidence_payload(*, resolved_request: ResolvedMWRRequest) -> object:
+    if resolved_request.currency_evidence is None:
+        return None
+    return _decimal_safe_dataclass_payload(resolved_request.currency_evidence)
 
 
 def _decimal_safe_dataclass_payload(value: object) -> object:
