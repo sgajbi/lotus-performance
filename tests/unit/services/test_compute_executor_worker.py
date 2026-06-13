@@ -284,6 +284,31 @@ def test_compute_executor_worker_calculator_options_preserve_truthy_default_poli
     assert calculators.inspection_calculator is compute_executor_worker.run_twr_inspection
 
 
+def test_compute_executor_worker_dispatches_known_workflow_through_executor_registry(monkeypatch):
+    job = SimpleNamespace(analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES)
+    context = SimpleNamespace()
+    captured = {}
+
+    def _executor(job_arg, context_arg):  # noqa: ANN202, ANN001
+        captured["job"] = job_arg
+        captured["context"] = context_arg
+        return "handled"
+
+    monkeypatch.setitem(
+        compute_executor_worker._COMPUTE_JOB_EXECUTORS,
+        ANALYTICS_WORKFLOW_RETURNS_SERIES,
+        _executor,
+    )
+
+    assert compute_executor_worker._execute_compute_job(job, context) == "handled"
+    assert captured == {"job": job, "context": context}
+
+
+def test_compute_executor_worker_executor_lookup_rejects_unsupported_workflow():
+    with pytest.raises(ValueError, match="Unsupported compute job analytics_type: unsupported"):
+        compute_executor_worker._compute_job_executor_for("unsupported")
+
+
 def test_compute_executor_worker_processes_pending_returns_series_job(tmp_path, monkeypatch):
     execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
     execution_store.create_schema()

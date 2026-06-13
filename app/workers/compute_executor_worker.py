@@ -66,6 +66,9 @@ class _ComputeJobExecutionContext:
     inspection_calculator: Callable[[TWRInspectionRequest], Any]
 
 
+_ComputeJobExecutor = Callable[[ComputeJobRecord, _ComputeJobExecutionContext], Any]
+
+
 @dataclass(frozen=True)
 class _ComputeJobRuntime:
     job_store: ComputeJobStore | RuntimeStoreProxy[ComputeJobStore]
@@ -307,21 +310,15 @@ def _resolve_compute_job_calculators(
 
 
 def _execute_compute_job(job: ComputeJobRecord, context: _ComputeJobExecutionContext) -> Any:
-    if job.analytics_type == ANALYTICS_WORKFLOW_RETURNS_SERIES:
-        return _execute_returns_series_job(job, context)
-    if job.analytics_type == ANALYTICS_WORKFLOW_ATTRIBUTION:
-        return _execute_attribution_job(job, context)
-    if job.analytics_type == ANALYTICS_WORKFLOW_CONTRIBUTION:
-        return _execute_contribution_job(job, context)
-    if job.analytics_type == ANALYTICS_WORKFLOW_BENCHMARK:
-        return _execute_benchmark_job(job, context)
-    if job.analytics_type == ANALYTICS_WORKFLOW_TWR:
-        return _execute_twr_job(job, context)
-    if job.analytics_type == ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY:
-        return _execute_workspace_summary_job(job, context)
-    if job.analytics_type == ANALYTICS_WORKFLOW_TWR_INSPECTION:
-        return _execute_twr_inspection_job(job, context)
-    raise ValueError(f"Unsupported compute job analytics_type: {job.analytics_type}")
+    executor = _compute_job_executor_for(job.analytics_type)
+    return executor(job, context)
+
+
+def _compute_job_executor_for(analytics_type: str) -> _ComputeJobExecutor:
+    try:
+        return _COMPUTE_JOB_EXECUTORS[analytics_type]
+    except KeyError as exc:
+        raise ValueError(f"Unsupported compute job analytics_type: {analytics_type}") from exc
 
 
 def _execute_returns_series_job(job: ComputeJobRecord, context: _ComputeJobExecutionContext) -> Any:
@@ -462,6 +459,17 @@ def _execute_twr_inspection_job(job: ComputeJobRecord, context: _ComputeJobExecu
     inspection_request = TWRInspectionRequest.model_validate(job.request_payload)
     _update_execution_identity(job, context, inspection_request)
     return context.inspection_calculator(inspection_request)
+
+
+_COMPUTE_JOB_EXECUTORS: dict[str, _ComputeJobExecutor] = {
+    ANALYTICS_WORKFLOW_RETURNS_SERIES: _execute_returns_series_job,
+    ANALYTICS_WORKFLOW_ATTRIBUTION: _execute_attribution_job,
+    ANALYTICS_WORKFLOW_CONTRIBUTION: _execute_contribution_job,
+    ANALYTICS_WORKFLOW_BENCHMARK: _execute_benchmark_job,
+    ANALYTICS_WORKFLOW_TWR: _execute_twr_job,
+    ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY: _execute_workspace_summary_job,
+    ANALYTICS_WORKFLOW_TWR_INSPECTION: _execute_twr_inspection_job,
+}
 
 
 def _handle_compute_job_failure(
