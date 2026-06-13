@@ -158,6 +158,31 @@ def _initial_attribution_async_submission(
     )
 
 
+def _stateful_attribution_replay_or_sync_window(
+    request: AttributionAnalyticsRequest,
+    *,
+    source_request_fingerprint: str,
+    requested_window: dict[str, object],
+) -> tuple[AttributionAcceptedResponse | None, dict[str, object]]:
+    if request.input_mode != AttributionInputMode.STATEFUL:
+        return None, requested_window
+
+    replay_response = replay_promoted_stateful_async_execution(
+        calculation_id=request.calculation_id,
+        analytics_type=ANALYTICS_WORKFLOW_ATTRIBUTION,
+        source_request_fingerprint=source_request_fingerprint,
+        accepted_response_factory=accepted_attribution_response,
+    )
+    if replay_response is not None:
+        return replay_response, requested_window
+
+    return None, build_attribution_execution_window(
+        request,
+        input_count=attribution_input_count(request),
+        source_request_fingerprint=source_request_fingerprint,
+    )
+
+
 async def calculate_attribution_workflow(
     request: AttributionAnalyticsRequest,
 ) -> AttributionResponse | AttributionAcceptedResponse:
@@ -178,20 +203,13 @@ async def calculate_attribution_workflow(
     if accepted_response is not None:
         return accepted_response
 
-    if request.input_mode == AttributionInputMode.STATEFUL:
-        replay_response = replay_promoted_stateful_async_execution(
-            calculation_id=request.calculation_id,
-            analytics_type=ANALYTICS_WORKFLOW_ATTRIBUTION,
-            source_request_fingerprint=source_request_fingerprint,
-            accepted_response_factory=accepted_attribution_response,
-        )
-        if replay_response is not None:
-            return replay_response
-        requested_window = build_attribution_execution_window(
-            request,
-            input_count=attribution_input_count(request),
-            source_request_fingerprint=source_request_fingerprint,
-        )
+    replay_response, requested_window = _stateful_attribution_replay_or_sync_window(
+        request,
+        source_request_fingerprint=source_request_fingerprint,
+        requested_window=requested_window,
+    )
+    if replay_response is not None:
+        return replay_response
 
     register_sync_execution_or_raise(
         calculation_id=request.calculation_id,

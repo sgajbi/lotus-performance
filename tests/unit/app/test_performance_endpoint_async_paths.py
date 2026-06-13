@@ -384,3 +384,65 @@ def test_initial_attribution_async_submission_projects_stateful_offload_reason(m
     assert submission_capture["input_fingerprint"] == "input-fingerprint"
     assert submission_capture["calculation_hash"] == "calculation-hash"
     assert submission_capture["offload_reason"] == "long_window_stateful_attribution"
+
+
+def test_stateful_attribution_replay_or_sync_window_returns_promoted_replay(mocker):
+    request = performance_endpoint.AttributionAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "P1",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "mode": "by_group",
+            "group_by": ["sector"],
+            "input_mode": "stateful",
+            "stateful_input": {},
+        }
+    )
+    accepted = attribution_calculation_workflow_service.accepted_attribution_response(request.calculation_id)
+    replay = mocker.patch(
+        "app.services.attribution_calculation_workflow_service.replay_promoted_stateful_async_execution",
+        return_value=accepted,
+    )
+    requested_window = {"input_count": 0}
+
+    replay_response, sync_window = attribution_calculation_workflow_service._stateful_attribution_replay_or_sync_window(
+        request,
+        source_request_fingerprint="source-fingerprint",
+        requested_window=requested_window,
+    )
+
+    assert replay_response is accepted
+    assert sync_window is requested_window
+    assert replay.call_args.kwargs["source_request_fingerprint"] == "source-fingerprint"
+
+
+def test_stateful_attribution_replay_or_sync_window_adds_source_fingerprint_without_replay(mocker):
+    request = performance_endpoint.AttributionAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "P1",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "mode": "by_group",
+            "group_by": ["sector"],
+            "input_mode": "stateful",
+            "stateful_input": {},
+        }
+    )
+    mocker.patch(
+        "app.services.attribution_calculation_workflow_service.replay_promoted_stateful_async_execution",
+        return_value=None,
+    )
+
+    replay_response, sync_window = attribution_calculation_workflow_service._stateful_attribution_replay_or_sync_window(
+        request,
+        source_request_fingerprint="source-fingerprint",
+        requested_window={"input_count": 0},
+    )
+
+    assert replay_response is None
+    assert sync_window["input_count"] == 0
+    assert sync_window["source_request_fingerprint"] == "source-fingerprint"
