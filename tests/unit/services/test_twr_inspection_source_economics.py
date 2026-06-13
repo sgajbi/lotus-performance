@@ -1470,3 +1470,18 @@ def test_sum_detailed_cash_flows_accumulates_totals_and_row_quality_samples():
     assert result.invalid_amount_rows == ({"timing": "bod", "amount": "bad", "cash_flow_type": "external_flow"},)
     assert result.invalid_cashflow_rows == ({"raw_type": "str", "raw_value": "not-a-row"},)
     assert result.fee_bod_timing_rows == ({"timing": "bod", "amount": "-2.5", "cash_flow_type": "fee"},)
+
+
+def test_record_detailed_cash_flow_routes_governed_alias_amount_and_sample():
+    accumulator = source_economics._DetailedCashFlowAccumulator()
+
+    source_economics._record_detailed_cash_flow(
+        accumulator,
+        {"amount": "12.5", "timing": " eod ", "cash_flow_type": "deposit"},
+    )
+
+    result = accumulator.to_result()
+    assert result.external_eod == Decimal("12.5")
+    assert result.governed_alias_cashflow_type_rows == (
+        {"timing": "eod", "amount": "12.5", "cash_flow_type": "deposit"},
+    )

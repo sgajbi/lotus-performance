@@ -547,60 +547,70 @@ def _sum_detailed_cash_flows(cash_flows_raw: object) -> DetailedCashFlowEconomic
                 "raw_type": type(cash_flows_raw).__name__,
                 "raw_value": _sample_raw_collection_value(cash_flows_raw),
             }
-        return DetailedCashFlowEconomics(
-            external_bod=Decimal("0"),
-            external_eod=Decimal("0"),
-            fee_bod=Decimal("0"),
-            fee_eod=Decimal("0"),
-            invalid_cashflow_collection=invalid_cashflow_collection,
-            invalid_cashflow_rows=(),
-            invalid_amount_rows=(),
-            invalid_timing_rows=(),
-            missing_cashflow_type_rows=(),
-            noncanonical_cashflow_types=(),
-            unsupported_cashflow_type_rows=(),
-            governed_alias_cashflow_type_rows=(),
-            fee_bod_timing_rows=(),
-        )
+        return _empty_detailed_cash_flow_economics(invalid_cashflow_collection)
 
     accumulator = _DetailedCashFlowAccumulator()
     for flow in cash_flows_raw:
-        if not isinstance(flow, dict):
-            accumulator.record_invalid_row(flow)
-            continue
-        timing = flow.get("timing")
-        cash_flow_type = flow.get("cash_flow_type")
-        raw_amount = flow.get("amount")
-        amount = _parse_decimal(raw_amount)
-        normalized_timing = timing.strip() if isinstance(timing, str) else timing
-        if amount is None:
-            accumulator.record_invalid_amount(
-                timing=normalized_timing,
-                amount=raw_amount,
-                cash_flow_type=cash_flow_type,
-            )
-            continue
-        if normalized_timing not in {"bod", "eod"}:
-            accumulator.record_invalid_timing(
-                timing=normalized_timing,
-                amount=amount,
-                cash_flow_type=cash_flow_type,
-            )
-            continue
-        cashflow_type_classification = classify_cashflow_type(cash_flow_type)
-        normalized_cash_flow_type = cashflow_type_classification.normalized_value
-        accumulator.record_taxonomy_signal(
-            timing=normalized_timing,
-            amount=amount,
-            classification=cashflow_type_classification,
-        )
-        accumulator.add_amount(
-            timing=normalized_timing,
-            amount=amount,
-            economics_role=cashflow_type_classification.economics_role,
-            cash_flow_type=normalized_cash_flow_type,
-        )
+        _record_detailed_cash_flow(accumulator, flow)
     return accumulator.to_result()
+
+
+def _empty_detailed_cash_flow_economics(
+    invalid_cashflow_collection: dict[str, object] | None,
+) -> DetailedCashFlowEconomics:
+    return DetailedCashFlowEconomics(
+        external_bod=Decimal("0"),
+        external_eod=Decimal("0"),
+        fee_bod=Decimal("0"),
+        fee_eod=Decimal("0"),
+        invalid_cashflow_collection=invalid_cashflow_collection,
+        invalid_cashflow_rows=(),
+        invalid_amount_rows=(),
+        invalid_timing_rows=(),
+        missing_cashflow_type_rows=(),
+        noncanonical_cashflow_types=(),
+        unsupported_cashflow_type_rows=(),
+        governed_alias_cashflow_type_rows=(),
+        fee_bod_timing_rows=(),
+    )
+
+
+def _record_detailed_cash_flow(accumulator: _DetailedCashFlowAccumulator, flow: object) -> None:
+    if not isinstance(flow, dict):
+        accumulator.record_invalid_row(flow)
+        return
+    timing = flow.get("timing")
+    cash_flow_type = flow.get("cash_flow_type")
+    raw_amount = flow.get("amount")
+    amount = _parse_decimal(raw_amount)
+    normalized_timing = timing.strip() if isinstance(timing, str) else timing
+    if amount is None:
+        accumulator.record_invalid_amount(
+            timing=normalized_timing,
+            amount=raw_amount,
+            cash_flow_type=cash_flow_type,
+        )
+        return
+    if normalized_timing not in {"bod", "eod"}:
+        accumulator.record_invalid_timing(
+            timing=normalized_timing,
+            amount=amount,
+            cash_flow_type=cash_flow_type,
+        )
+        return
+    cashflow_type_classification = classify_cashflow_type(cash_flow_type)
+    normalized_cash_flow_type = cashflow_type_classification.normalized_value
+    accumulator.record_taxonomy_signal(
+        timing=normalized_timing,
+        amount=amount,
+        classification=cashflow_type_classification,
+    )
+    accumulator.add_amount(
+        timing=normalized_timing,
+        amount=amount,
+        economics_role=cashflow_type_classification.economics_role,
+        cash_flow_type=normalized_cash_flow_type,
+    )
 
 
 def _read_explicit_decimal_fields(
