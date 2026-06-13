@@ -39,7 +39,7 @@ python scripts/python_function_size_inventory.py --limit 20
 | 17 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:88` | 95 |
 | 18 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:31` | 94 |
 | 19 | `build_stateful_benchmark_input` | `app/services/stateful_benchmark_input_service.py:57` | 93 |
-| 20 | `calculate_twr_response` | `app/services/twr_service.py:989` | 93 |
+| 20 | `calculate_twr_response` | `app/services/twr_service.py:1007` | 93 |
 
 ## Interpretation
 

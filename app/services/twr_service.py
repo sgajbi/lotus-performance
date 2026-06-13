@@ -189,6 +189,14 @@ class _DailyCalculationEvidenceClassification:
 
 
 @dataclass(frozen=True)
+class _TWRExecutionPeriodScope:
+    resolved_periods: list[ResolvedPeriod]
+    freqs_by_period: dict[str, list[Frequency]]
+    master_start_date: date
+    master_end_date: date
+
+
+@dataclass(frozen=True)
 class _TWRExecutionCalculation:
     resolved_periods: list[ResolvedPeriod]
     freqs_by_period: dict[str, list[Frequency]]
@@ -687,35 +695,45 @@ def _run_twr_execution_calculation(
     performance_request: PerformanceRequest,
     benchmark_request: BenchmarkPerformanceRequest | None,
 ) -> _TWRExecutionCalculation:
+    period_scope = _resolve_twr_execution_period_scope(performance_request)
+    engine_config = create_engine_config(
+        performance_request,
+        period_scope.master_start_date,
+        period_scope.master_end_date,
+    )
+    engine_df = create_engine_dataframe([item.model_dump() for item in performance_request.valuation_points])
+    daily_results_df, engine_diagnostics = run_calculations(engine_df, engine_config)
+    benchmark_artifacts = calculate_benchmark_artifacts(benchmark_request) if benchmark_request is not None else None
+
+    return _TWRExecutionCalculation(
+        resolved_periods=period_scope.resolved_periods,
+        freqs_by_period=period_scope.freqs_by_period,
+        master_start_date=period_scope.master_start_date,
+        master_end_date=period_scope.master_end_date,
+        daily_results_df=daily_results_df,
+        engine_diagnostics=engine_diagnostics,
+        benchmark_artifacts=benchmark_artifacts,
+    )
+
+
+def _resolve_twr_execution_period_scope(performance_request: PerformanceRequest) -> _TWRExecutionPeriodScope:
     periods_to_resolve = [analysis.period for analysis in performance_request.analyses]
     freqs_by_period = {analysis.period.value: analysis.frequencies for analysis in performance_request.analyses}
 
-    as_of_date = performance_request.report_end_date
     resolved_periods = resolve_periods(
         periods_to_resolve,
-        as_of_date,
+        performance_request.report_end_date,
         performance_request.performance_start_date,
         explicit_start_date=performance_request.report_start_date,
     )
     if not resolved_periods:
         raise HTTPException(status_code=400, detail="No valid periods could be resolved.")
 
-    master_start_date = min(p.start_date for p in resolved_periods)
-    master_end_date = max(p.end_date for p in resolved_periods)
-
-    engine_config = create_engine_config(performance_request, master_start_date, master_end_date)
-    engine_df = create_engine_dataframe([item.model_dump() for item in performance_request.valuation_points])
-    daily_results_df, engine_diagnostics = run_calculations(engine_df, engine_config)
-    benchmark_artifacts = calculate_benchmark_artifacts(benchmark_request) if benchmark_request is not None else None
-
-    return _TWRExecutionCalculation(
+    return _TWRExecutionPeriodScope(
         resolved_periods=resolved_periods,
         freqs_by_period=freqs_by_period,
-        master_start_date=master_start_date,
-        master_end_date=master_end_date,
-        daily_results_df=daily_results_df,
-        engine_diagnostics=engine_diagnostics,
-        benchmark_artifacts=benchmark_artifacts,
+        master_start_date=min(p.start_date for p in resolved_periods),
+        master_end_date=max(p.end_date for p in resolved_periods),
     )
 
 

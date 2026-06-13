@@ -3,6 +3,7 @@ from typing import cast
 
 import pandas as pd
 import pytest
+from fastapi import HTTPException
 
 from app.models.benchmark_analytics_requests import BenchmarkInputMode, BenchmarkReturnSource
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
@@ -19,6 +20,7 @@ from app.services.twr_service import (
     _build_twr_results_by_period,
     _calculate_total_return_from_slice,
     _get_total_cum_ror,
+    _resolve_twr_execution_period_scope,
     _resolve_twr_supportability,
     _twr_period_reset_events,
     _TWRBenchmarkPeriodContext,
@@ -76,6 +78,25 @@ def _daily_twr_results_df() -> pd.DataFrame:
             },
         ]
     )
+
+
+def test_resolve_twr_execution_period_scope_projects_periods_frequencies_and_master_window():
+    scope = _resolve_twr_execution_period_scope(_twr_request())
+
+    assert [period.name for period in scope.resolved_periods] == ["ITD"]
+    assert scope.freqs_by_period == {"ITD": [Frequency.DAILY]}
+    assert scope.master_start_date == date(2025, 1, 1)
+    assert scope.master_end_date == date(2025, 1, 3)
+
+
+def test_resolve_twr_execution_period_scope_rejects_unresolved_periods(mocker):
+    mocker.patch("app.services.twr_service.resolve_periods", return_value=[])
+
+    with pytest.raises(HTTPException) as exc_info:
+        _resolve_twr_execution_period_scope(_twr_request())
+
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "No valid periods could be resolved."
 
 
 def test_build_twr_results_by_period_builds_portfolio_summary_and_skips_empty_periods():
