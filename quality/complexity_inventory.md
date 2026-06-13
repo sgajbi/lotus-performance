@@ -32,37 +32,37 @@ must stay at `0`.
 | --- | ---: |
 | Max cyclomatic complexity | 7 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.16 |
+| Average maintainability index | 55.15 |
 
 ## Highest Cyclomatic Complexity
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_find_monthly_day_dominance` | function | `app/services/inspection/source_quality.py:576` | 7 | B |
-| 2 | `load_existing_twr_calculation_artifacts` | function | `app/services/inspection/subject_materialization.py:34` | 7 | B |
-| 3 | `_load_request_payload` | function | `app/services/inspection/subject_materialization.py:109` | 7 | B |
-| 4 | `_support_brief_result_from_payload` | function | `app/services/inspection/support_brief_workflow_pack.py:55` | 7 | B |
-| 5 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:88` | 7 | B |
-| 6 | `_synthesize_verdict` | function | `app/services/inspection/twr_inspection_service.py:551` | 7 | B |
-| 7 | `_scope_request_to_response_master_window` | function | `app/services/inspection/twr_inspection_service.py:652` | 7 | B |
-| 8 | `get_pending_payload_stats` | method | `app/services/lineage_metadata_store.py:416` | 7 | B |
-| 9 | `list_inspection_items` | method | `app/services/lineage_metadata_store.py:507` | 7 | B |
-| 10 | `materialize_payload` | method | `app/services/lineage_service.py:72` | 7 | B |
-| 11 | `_validate_artifact_filename` | method | `app/services/lineage_service.py:171` | 7 | B |
-| 12 | `build_mwr_response` | function | `app/services/mwr_calculation_service.py:42` | 7 | B |
-| 13 | `_find_latest_runtime_retention_entry` | function | `app/services/operator_action_guard_service.py:128` | 7 | B |
-| 14 | `validate_history_entry_strings` | function | `app/services/operator_action_history_manifest.py:173` | 7 | B |
-| 15 | `build_operator_action_lease_snapshot` | function | `app/services/operator_action_lease_service.py:185` | 7 | B |
-| 16 | `_read_matching_active_operator_action_leases` | function | `app/services/operator_action_lease_service.py:246` | 7 | B |
-| 17 | `_active_lease_payload_fields` | function | `app/services/operator_action_lease_service.py:314` | 7 | B |
-| 18 | `_read_recent_reclaimed_leases` | function | `app/services/operator_action_lease_service.py:389` | 7 | B |
-| 19 | `_parse_reclaimed_event_payload` | function | `app/services/operator_action_lease_service.py:438` | 7 | B |
-| 20 | `_reclaim_stale_lock` | function | `app/services/operator_action_lease_service.py:505` | 7 | B |
-| 21 | `resolve_recovery_drill_manual_replay` | function | `app/services/operator_action_replay_service.py:120` | 7 | B |
-| 22 | `_runtime_retention_entry_matches` | function | `app/services/operator_action_replay_service.py:154` | 7 | B |
-| 23 | `_recovery_drill_payload_identity_matches` | function | `app/services/operator_action_replay_service.py:266` | 7 | B |
-| 24 | `_build_result_path` | function | `app/services/operator_navigation_service.py:24` | 7 | B |
-| 25 | `collect` | method | `app/services/queue_metrics_service.py:353` | 7 | B |
+| 1 | `load_existing_twr_calculation_artifacts` | function | `app/services/inspection/subject_materialization.py:34` | 7 | B |
+| 2 | `_load_request_payload` | function | `app/services/inspection/subject_materialization.py:109` | 7 | B |
+| 3 | `_support_brief_result_from_payload` | function | `app/services/inspection/support_brief_workflow_pack.py:55` | 7 | B |
+| 4 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:88` | 7 | B |
+| 5 | `_synthesize_verdict` | function | `app/services/inspection/twr_inspection_service.py:551` | 7 | B |
+| 6 | `_scope_request_to_response_master_window` | function | `app/services/inspection/twr_inspection_service.py:652` | 7 | B |
+| 7 | `get_pending_payload_stats` | method | `app/services/lineage_metadata_store.py:416` | 7 | B |
+| 8 | `list_inspection_items` | method | `app/services/lineage_metadata_store.py:507` | 7 | B |
+| 9 | `materialize_payload` | method | `app/services/lineage_service.py:72` | 7 | B |
+| 10 | `_validate_artifact_filename` | method | `app/services/lineage_service.py:171` | 7 | B |
+| 11 | `build_mwr_response` | function | `app/services/mwr_calculation_service.py:42` | 7 | B |
+| 12 | `_find_latest_runtime_retention_entry` | function | `app/services/operator_action_guard_service.py:128` | 7 | B |
+| 13 | `validate_history_entry_strings` | function | `app/services/operator_action_history_manifest.py:173` | 7 | B |
+| 14 | `build_operator_action_lease_snapshot` | function | `app/services/operator_action_lease_service.py:185` | 7 | B |
+| 15 | `_read_matching_active_operator_action_leases` | function | `app/services/operator_action_lease_service.py:246` | 7 | B |
+| 16 | `_active_lease_payload_fields` | function | `app/services/operator_action_lease_service.py:314` | 7 | B |
+| 17 | `_read_recent_reclaimed_leases` | function | `app/services/operator_action_lease_service.py:389` | 7 | B |
+| 18 | `_parse_reclaimed_event_payload` | function | `app/services/operator_action_lease_service.py:438` | 7 | B |
+| 19 | `_reclaim_stale_lock` | function | `app/services/operator_action_lease_service.py:505` | 7 | B |
+| 20 | `resolve_recovery_drill_manual_replay` | function | `app/services/operator_action_replay_service.py:120` | 7 | B |
+| 21 | `_runtime_retention_entry_matches` | function | `app/services/operator_action_replay_service.py:154` | 7 | B |
+| 22 | `_recovery_drill_payload_identity_matches` | function | `app/services/operator_action_replay_service.py:266` | 7 | B |
+| 23 | `_build_result_path` | function | `app/services/operator_navigation_service.py:24` | 7 | B |
+| 24 | `collect` | method | `app/services/queue_metrics_service.py:353` | 7 | B |
+| 25 | `_calculate_promoted_stateful_returns_series` | function | `app/services/returns_series_calculation_workflow_service.py:102` | 7 | B |
 
 ## Lowest Maintainability Index
 
@@ -82,8 +82,8 @@ must stay at `0`.
 | 12 | `app/services/operator_action_lease_service.py` | 15.16 | B |
 | 13 | `app/services/inspection/source_economics_collector.py` | 16.34 | B |
 | 14 | `app/services/inspection/reconciliation.py` | 16.37 | B |
-| 15 | `app/services/inspection/calculation_consistency.py` | 17.17 | B |
-| 16 | `app/services/inspection/source_quality.py` | 17.21 | B |
+| 15 | `app/services/inspection/source_quality.py` | 16.86 | B |
+| 16 | `app/services/inspection/calculation_consistency.py` | 17.17 | B |
 | 17 | `app/services/inspection/source_economics.py` | 17.37 | B |
 | 18 | `app/services/twr_mode_service.py` | 18.24 | B |
 | 19 | `app/models/runtime_status.py` | 19.85 | A |
@@ -124,6 +124,8 @@ eligibility and artifact sample projection were split into named helpers.
 construction branches were converted to an explicit ordered finding-definition catalog.
 `_build_fee_source_economics_findings` also dropped out after the repeated fee finding construction
 branches were converted to the same explicit ordered finding-definition catalog.
+`_find_monthly_day_dominance` also dropped out after per-month eligibility, total movement,
+dominant-day selection, and threshold projection were split into a dedicated helper.
 `to_stateless_contribution_request` also dropped out after stateless contribution source selection
 was split into a named helper.
 `TWRInspectionRequest` also dropped out after TWR calculation-subject and request-subject validation

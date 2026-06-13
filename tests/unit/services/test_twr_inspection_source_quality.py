@@ -455,3 +455,39 @@ def test_run_source_quality_checks_requires_enough_monthly_observations_for_day_
     assert "MONTHLY_RETURN_DAY_DOMINANCE_DETECTED" not in {finding.code for finding in result.findings}
     assert result.evidence_summary["monthly_day_dominance_count"] == 0
     assert result.artifact_payload["monthly_day_dominance_samples"] == []
+
+
+def test_monthly_day_dominance_detects_single_dominant_move():
+    month_moves = [source_quality.DailyMove(perf_date=f"2026-03-{day:02d}", return_pct=1.0) for day in range(1, 10)]
+    dominant_move = source_quality.DailyMove(perf_date="2026-03-10", return_pct=40.0)
+    month_moves.append(dominant_move)
+
+    dominance = source_quality._monthly_day_dominance(month="2026-03", month_moves=month_moves)
+
+    assert dominance == source_quality.MonthlyDayDominance(
+        month="2026-03",
+        observation_count=10,
+        dominance_ratio=40.0 / 49.0,
+        dominant_move=dominant_move,
+    )
+
+
+def test_monthly_day_dominance_requires_enough_observations_and_movement():
+    assert (
+        source_quality._monthly_day_dominance(
+            month="2026-03",
+            month_moves=[
+                source_quality.DailyMove(perf_date=f"2026-03-{day:02d}", return_pct=10.0) for day in range(1, 10)
+            ],
+        )
+        is None
+    )
+    assert (
+        source_quality._monthly_day_dominance(
+            month="2026-03",
+            month_moves=[
+                source_quality.DailyMove(perf_date=f"2026-03-{day:02d}", return_pct=0.0) for day in range(1, 11)
+            ],
+        )
+        is None
+    )
