@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-13
-Branch: `refactor/lp-cr-942-source-economics-counts`
+Branch: `refactor/lp-cr-950-mwr-fx-component`
 Mode: report-only complexity and maintainability inventory; no blocking CI gate is introduced by this artifact.
 
 ## Purpose
@@ -28,31 +28,31 @@ python scripts/python_complexity_inventory.py --limit 25
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_validate_component` | function | `app/services/mwr_fx_evidence_service.py:195` | 8 | B |
-| 2 | `build_applied_history_filters` | function | `app/services/operator_action_history_filters.py:55` | 8 | B |
-| 3 | `_has_valid_reclaimed_event_fields` | function | `app/services/operator_action_lease_service.py:486` | 8 | B |
-| 4 | `_build_resolved_stateful_returns_series_request` | function | `app/services/returns_series_service.py:801` | 8 | B |
-| 5 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:1407` | 8 | B |
-| 6 | `runtime_retention_preview_fields` | function | `app/services/runtime_status_retention_preview.py:13` | 8 | B |
-| 7 | `classify_cashflow_type` | function | `app/services/source_cashflow_taxonomy.py:45` | 8 | B |
-| 8 | `_summarize_position_classification` | function | `app/services/stateful_attribution_input_service.py:474` | 8 | B |
-| 9 | `_validate_stateful_position_inception_support` | function | `app/services/stateful_attribution_input_service.py:590` | 8 | B |
-| 10 | `_build_group_key` | function | `app/services/stateful_attribution_input_service.py:800` | 8 | B |
-| 11 | `_position_row_to_daily_point` | function | `app/services/stateful_attribution_input_service.py:825` | 8 | B |
-| 12 | `_position_meta_from_row` | function | `app/services/stateful_attribution_input_service.py:925` | 8 | B |
-| 13 | `_normalized_position_dimensions` | function | `app/services/stateful_attribution_input_service.py:947` | 8 | B |
-| 14 | `_build_stateful_vendor_series_input` | function | `app/services/stateful_benchmark_input_service.py:176` | 8 | B |
-| 15 | `_parse_composition_segment` | function | `app/services/stateful_benchmark_input_service.py:314` | 8 | B |
-| 16 | `_load_fx_maps_for_components` | function | `app/services/stateful_benchmark_input_service.py:464` | 8 | B |
-| 17 | `_component_observation_prices` | function | `app/services/stateful_benchmark_input_service.py:603` | 8 | B |
-| 18 | `_normalized_price_maps_for_component` | function | `app/services/stateful_benchmark_input_service.py:694` | 8 | B |
-| 19 | `build_stateful_contribution_input` | function | `app/services/stateful_contribution_input_service.py:91` | 8 | B |
-| 20 | `_position_row_to_daily_point` | function | `app/services/stateful_contribution_input_service.py:151` | 8 | B |
-| 21 | `_split_position_cash_flows` | function | `app/services/stateful_contribution_input_service.py:196` | 8 | B |
-| 22 | `get_position_timeseries` | method | `app/services/stateful_input_service.py:90` | 8 | B |
-| 23 | `build_stateful_mwr_input_for_window` | function | `app/services/stateful_mwr_input_service.py:106` | 8 | B |
-| 24 | `_cash_flow_conversion_factor` | function | `app/services/stateful_position_row_service.py:59` | 8 | B |
-| 25 | `_metadata_count` | function | `app/services/stateful_retrieval_metadata.py:58` | 8 | B |
+| 1 | `build_applied_history_filters` | function | `app/services/operator_action_history_filters.py:55` | 8 | B |
+| 2 | `_has_valid_reclaimed_event_fields` | function | `app/services/operator_action_lease_service.py:486` | 8 | B |
+| 3 | `_build_resolved_stateful_returns_series_request` | function | `app/services/returns_series_service.py:801` | 8 | B |
+| 4 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:1407` | 8 | B |
+| 5 | `runtime_retention_preview_fields` | function | `app/services/runtime_status_retention_preview.py:13` | 8 | B |
+| 6 | `classify_cashflow_type` | function | `app/services/source_cashflow_taxonomy.py:45` | 8 | B |
+| 7 | `_summarize_position_classification` | function | `app/services/stateful_attribution_input_service.py:474` | 8 | B |
+| 8 | `_validate_stateful_position_inception_support` | function | `app/services/stateful_attribution_input_service.py:590` | 8 | B |
+| 9 | `_build_group_key` | function | `app/services/stateful_attribution_input_service.py:800` | 8 | B |
+| 10 | `_position_row_to_daily_point` | function | `app/services/stateful_attribution_input_service.py:825` | 8 | B |
+| 11 | `_position_meta_from_row` | function | `app/services/stateful_attribution_input_service.py:925` | 8 | B |
+| 12 | `_normalized_position_dimensions` | function | `app/services/stateful_attribution_input_service.py:947` | 8 | B |
+| 13 | `_build_stateful_vendor_series_input` | function | `app/services/stateful_benchmark_input_service.py:176` | 8 | B |
+| 14 | `_parse_composition_segment` | function | `app/services/stateful_benchmark_input_service.py:314` | 8 | B |
+| 15 | `_load_fx_maps_for_components` | function | `app/services/stateful_benchmark_input_service.py:464` | 8 | B |
+| 16 | `_component_observation_prices` | function | `app/services/stateful_benchmark_input_service.py:603` | 8 | B |
+| 17 | `_normalized_price_maps_for_component` | function | `app/services/stateful_benchmark_input_service.py:694` | 8 | B |
+| 18 | `build_stateful_contribution_input` | function | `app/services/stateful_contribution_input_service.py:91` | 8 | B |
+| 19 | `_position_row_to_daily_point` | function | `app/services/stateful_contribution_input_service.py:151` | 8 | B |
+| 20 | `_split_position_cash_flows` | function | `app/services/stateful_contribution_input_service.py:196` | 8 | B |
+| 21 | `get_position_timeseries` | method | `app/services/stateful_input_service.py:90` | 8 | B |
+| 22 | `build_stateful_mwr_input_for_window` | function | `app/services/stateful_mwr_input_service.py:106` | 8 | B |
+| 23 | `_cash_flow_conversion_factor` | function | `app/services/stateful_position_row_service.py:59` | 8 | B |
+| 24 | `_metadata_count` | function | `app/services/stateful_retrieval_metadata.py:58` | 8 | B |
+| 25 | `register_async_submission_or_raise` | function | `app/services/submission_fencing_service.py:53` | 8 | B |
 
 ## Lowest Maintainability Index
 
@@ -445,6 +445,8 @@ payload assembly were moved behind dedicated builders.
 dedicated helper.
 `calculate_mwr_response` also dropped out after MWR requested-window projection was moved into a
 dedicated helper.
+`_validate_component` also dropped out after required source-preconverted FX evidence text-field
+validation was moved into a dedicated helper.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.
