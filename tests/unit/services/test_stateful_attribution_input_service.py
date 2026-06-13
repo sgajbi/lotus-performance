@@ -26,6 +26,7 @@ from app.services.stateful_attribution_input_service import (
     _position_market_value_pair,
     _position_market_value_totals_by_date,
     _position_meta_from_row,
+    _position_meta_fx_rate_fields,
     _position_row_to_base_weight_point,
     _position_row_to_daily_point,
     _resolve_stateful_attribution_benchmark_id,
@@ -1247,6 +1248,22 @@ def test_stateful_attribution_parsers_filter_invalid_rows():
 
 def test_stateful_attribution_normalizes_group_values():
     assert _normalize_group_value("Fixed Income") == "fixed_income"
+
+
+def test_position_meta_fx_rate_fields_convert_available_rates_to_decimals():
+    assert _position_meta_fx_rate_fields(
+        {
+            "position_to_portfolio_fx_rate": "1.2",
+            "portfolio_to_reporting_fx_rate": "1.1",
+        }
+    ) == {
+        "position_to_portfolio_fx_rate": Decimal("1.2"),
+        "portfolio_to_reporting_fx_rate": Decimal("1.1"),
+    }
+
+
+def test_position_meta_fx_rate_fields_omit_missing_rates():
+    assert _position_meta_fx_rate_fields({"position_to_portfolio_fx_rate": None}) == {}
 
 
 def test_stateful_attribution_normalizes_position_dimensions():

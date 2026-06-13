@@ -977,15 +977,21 @@ def _position_meta_from_row(row: dict[str, object]) -> dict[str, object]:
     cash_flow_currency = row.get("cash_flow_currency")
     if isinstance(cash_flow_currency, str) and cash_flow_currency:
         meta["cash_flow_currency"] = _normalize_group_value(cash_flow_currency)
-    position_to_portfolio_fx_rate = row.get("position_to_portfolio_fx_rate")
-    if position_to_portfolio_fx_rate is not None:
-        meta["position_to_portfolio_fx_rate"] = Decimal(str(position_to_portfolio_fx_rate))
-    portfolio_to_reporting_fx_rate = row.get("portfolio_to_reporting_fx_rate")
-    if portfolio_to_reporting_fx_rate is not None:
-        meta["portfolio_to_reporting_fx_rate"] = Decimal(str(portfolio_to_reporting_fx_rate))
 
+    meta.update(_position_meta_fx_rate_fields(row))
     meta.update(_normalized_position_dimensions(row.get("dimensions")))
     return meta
+
+
+def _position_meta_fx_rate_fields(row: dict[str, object]) -> dict[str, object]:
+    fx_rates: dict[str, object] = {}
+    position_to_portfolio_fx_rate = row.get("position_to_portfolio_fx_rate")
+    if position_to_portfolio_fx_rate is not None:
+        fx_rates["position_to_portfolio_fx_rate"] = Decimal(str(position_to_portfolio_fx_rate))
+    portfolio_to_reporting_fx_rate = row.get("portfolio_to_reporting_fx_rate")
+    if portfolio_to_reporting_fx_rate is not None:
+        fx_rates["portfolio_to_reporting_fx_rate"] = Decimal(str(portfolio_to_reporting_fx_rate))
+    return fx_rates
 
 
 def _normalized_position_dimensions(dimensions_raw: object) -> dict[str, object]:
