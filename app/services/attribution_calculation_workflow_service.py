@@ -183,6 +183,34 @@ def _stateful_attribution_replay_or_sync_window(
     )
 
 
+def _calculate_resolved_attribution_response(
+    request: AttributionAnalyticsRequest,
+    resolved: ResolvedAttributionRequest,
+    *,
+    active_settings: _AttributionWorkflowSettings,
+    source_request_fingerprint: str,
+    input_fingerprint: str,
+    calculation_hash: str,
+) -> AttributionResponse | AttributionAcceptedResponse:
+    if resolved.input_mode == AttributionInputMode.STATEFUL:
+        input_fingerprint, calculation_hash, accepted_response = _finalize_resolved_stateful_attribution_execution(
+            request,
+            resolved,
+            active_settings=active_settings,
+            source_request_fingerprint=source_request_fingerprint,
+        )
+        if accepted_response is not None:
+            return accepted_response
+    return calculate_attribution(
+        resolved.attribution_request,
+        input_fingerprint=input_fingerprint,
+        calculation_hash=calculation_hash,
+        input_mode=resolved.input_mode,
+        resolved_benchmark_id=resolved.resolved_benchmark_id,
+        resolved_benchmark_return_source=resolved.resolved_benchmark_return_source,
+    )
+
+
 async def calculate_attribution_workflow(
     request: AttributionAnalyticsRequest,
 ) -> AttributionResponse | AttributionAcceptedResponse:
@@ -222,22 +250,13 @@ async def calculate_attribution_workflow(
 
     try:
         resolved = await resolve_attribution_request(request, settings=active_settings)
-        if resolved.input_mode == AttributionInputMode.STATEFUL:
-            input_fingerprint, calculation_hash, accepted_response = _finalize_resolved_stateful_attribution_execution(
-                request,
-                resolved,
-                active_settings=active_settings,
-                source_request_fingerprint=source_request_fingerprint,
-            )
-            if accepted_response is not None:
-                return accepted_response
-        return calculate_attribution(
-            resolved.attribution_request,
+        return _calculate_resolved_attribution_response(
+            request,
+            resolved,
+            active_settings=active_settings,
+            source_request_fingerprint=source_request_fingerprint,
             input_fingerprint=input_fingerprint,
             calculation_hash=calculation_hash,
-            input_mode=resolved.input_mode,
-            resolved_benchmark_id=resolved.resolved_benchmark_id,
-            resolved_benchmark_return_source=resolved.resolved_benchmark_return_source,
         )
     except HTTPException as exc:
         record_execution_failure(
