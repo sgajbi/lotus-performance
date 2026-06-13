@@ -252,16 +252,11 @@ def _prepare_data_from_instruments(request: AttributionRequestLike) -> list[Attr
     portfolio_df = portfolio_df.set_index(PortfolioColumns.PERF_DATE.value)
     portfolio_bop_mv = portfolio_df[PortfolioColumns.BEGIN_MV.value] + portfolio_df[PortfolioColumns.BOD_CF.value]
 
-    all_instruments = []
-    for inst in request.instruments_data:
-        instrument_panel = _build_instrument_attribution_panel(
-            inst=inst,
-            request=request,
-            twr_config=twr_config,
-            portfolio_bop_mv=portfolio_bop_mv,
-        )
-        if instrument_panel is not None:
-            all_instruments.append(instrument_panel)
+    all_instruments = _instrument_attribution_panels(
+        request=request,
+        twr_config=twr_config,
+        portfolio_bop_mv=portfolio_bop_mv,
+    )
 
     if not all_instruments:
         return []
@@ -272,6 +267,25 @@ def _prepare_data_from_instruments(request: AttributionRequestLike) -> list[Attr
 
     aggregated_panel = _build_instrument_group_aggregation(full_df, group_cols)
     return _build_instrument_attribution_groups(aggregated_panel, group_cols)
+
+
+def _instrument_attribution_panels(
+    *,
+    request: AttributionRequestLike,
+    twr_config: EngineConfig,
+    portfolio_bop_mv: pd.Series,
+) -> list[pd.DataFrame]:
+    panels: list[pd.DataFrame] = []
+    for inst in request.instruments_data:
+        instrument_panel = _build_instrument_attribution_panel(
+            inst=inst,
+            request=request,
+            twr_config=twr_config,
+            portfolio_bop_mv=portfolio_bop_mv,
+        )
+        if instrument_panel is not None:
+            panels.append(instrument_panel)
+    return panels
 
 
 def _build_instrument_attribution_panel(

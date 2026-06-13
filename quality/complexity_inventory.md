@@ -38,31 +38,31 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_prepare_data_from_instruments` | function | `engine/attribution.py:228` | 7 | B |
-| 2 | `_normalize_instrument_return_columns` | function | `engine/attribution.py:315` | 7 | B |
-| 3 | `_build_base_weight_series` | function | `engine/attribution.py:383` | 7 | B |
-| 4 | `_align_and_prepare_data` | function | `engine/attribution.py:452` | 7 | B |
-| 5 | `aggregate_attribution_results` | function | `engine/attribution.py:648` | 7 | B |
-| 6 | `_calculate_period_summary_dict` | function | `engine/breakdown.py:13` | 7 | B |
-| 7 | `_coerce_engine_numeric_columns` | function | `engine/compute.py:180` | 7 | B |
-| 8 | `_xirr_initial_failure` | function | `engine/mwr.py:93` | 7 | B |
-| 9 | `_apply_ignore_days` | function | `engine/policies.py:90` | 7 | B |
-| 10 | `_compound_ror` | function | `engine/ror.py:271` | 7 | B |
-| 11 | `format_breakdowns_for_response` | function | `adapters/api_adapter.py:51` | 6 | B |
-| 12 | `submit_twr_inspection` | function | `app/api/endpoints/inspections.py:70` | 6 | B |
-| 13 | `get_lineage_data` | function | `app/api/endpoints/lineage.py:155` | 6 | B |
-| 14 | `get_lineage_artifact` | function | `app/api/endpoints/lineage.py:221` | 6 | B |
-| 15 | `_workspace_requested_benchmark_work_units` | function | `app/api/endpoints/performance.py:60` | 6 | B |
-| 16 | `calculate_workspace_summary_endpoint` | function | `app/api/endpoints/performance.py:105` | 6 | B |
-| 17 | `_normalized_capability_rule_overrides` | function | `app/enterprise_capability_rules.py:69` | 6 | B |
-| 18 | `_enterprise_runtime_config_issues` | function | `app/enterprise_runtime_config.py:94` | 6 | B |
-| 19 | `_validate_stateless_input_shape` | function | `app/models/attribution_analytics_requests.py:280` | 6 | B |
-| 20 | `AttributionLevelResult` | class | `app/models/attribution_responses.py:52` | 6 | B |
-| 21 | `CompositeMembership` | class | `app/models/composites.py:113` | 6 | B |
-| 22 | `_validate_stateless_contribution_payloads` | function | `app/models/contribution_analytics_requests.py:59` | 6 | B |
-| 23 | `_resolved_stateless_contribution_inputs` | function | `app/models/contribution_analytics_requests.py:89` | 6 | B |
-| 24 | `_validate_stateless_mwr_payloads` | function | `app/models/mwr_analytics_requests.py:52` | 6 | B |
-| 25 | `_validate_stateless_twr_payloads` | function | `app/models/twr_requests.py:145` | 6 | B |
+| 1 | `_normalize_instrument_return_columns` | function | `engine/attribution.py:329` | 7 | B |
+| 2 | `_build_base_weight_series` | function | `engine/attribution.py:397` | 7 | B |
+| 3 | `_align_and_prepare_data` | function | `engine/attribution.py:466` | 7 | B |
+| 4 | `aggregate_attribution_results` | function | `engine/attribution.py:662` | 7 | B |
+| 5 | `_calculate_period_summary_dict` | function | `engine/breakdown.py:13` | 7 | B |
+| 6 | `_coerce_engine_numeric_columns` | function | `engine/compute.py:180` | 7 | B |
+| 7 | `_xirr_initial_failure` | function | `engine/mwr.py:93` | 7 | B |
+| 8 | `_apply_ignore_days` | function | `engine/policies.py:90` | 7 | B |
+| 9 | `_compound_ror` | function | `engine/ror.py:271` | 7 | B |
+| 10 | `format_breakdowns_for_response` | function | `adapters/api_adapter.py:51` | 6 | B |
+| 11 | `submit_twr_inspection` | function | `app/api/endpoints/inspections.py:70` | 6 | B |
+| 12 | `get_lineage_data` | function | `app/api/endpoints/lineage.py:155` | 6 | B |
+| 13 | `get_lineage_artifact` | function | `app/api/endpoints/lineage.py:221` | 6 | B |
+| 14 | `_workspace_requested_benchmark_work_units` | function | `app/api/endpoints/performance.py:60` | 6 | B |
+| 15 | `calculate_workspace_summary_endpoint` | function | `app/api/endpoints/performance.py:105` | 6 | B |
+| 16 | `_normalized_capability_rule_overrides` | function | `app/enterprise_capability_rules.py:69` | 6 | B |
+| 17 | `_enterprise_runtime_config_issues` | function | `app/enterprise_runtime_config.py:94` | 6 | B |
+| 18 | `_validate_stateless_input_shape` | function | `app/models/attribution_analytics_requests.py:280` | 6 | B |
+| 19 | `AttributionLevelResult` | class | `app/models/attribution_responses.py:52` | 6 | B |
+| 20 | `CompositeMembership` | class | `app/models/composites.py:113` | 6 | B |
+| 21 | `_validate_stateless_contribution_payloads` | function | `app/models/contribution_analytics_requests.py:59` | 6 | B |
+| 22 | `_resolved_stateless_contribution_inputs` | function | `app/models/contribution_analytics_requests.py:89` | 6 | B |
+| 23 | `_validate_stateless_mwr_payloads` | function | `app/models/mwr_analytics_requests.py:52` | 6 | B |
+| 24 | `_validate_stateless_twr_payloads` | function | `app/models/twr_requests.py:145` | 6 | B |
+| 25 | `_validate_twr_benchmark_inclusion` | function | `app/models/twr_requests.py:167` | 6 | B |
 
 ## Lowest Maintainability Index
 
@@ -79,7 +79,7 @@ must stay at `0`.
 | 9 | `app/services/workspace_summary_service.py` | 10.56 | B |
 | 10 | `app/services/execution_registry.py` | 10.72 | B |
 | 11 | `app/services/operator_action_lease_service.py` | 12.70 | B |
-| 12 | `engine/attribution.py` | 13.95 | B |
+| 12 | `engine/attribution.py` | 13.77 | B |
 | 13 | `app/services/inspection/source_economics_collector.py` | 16.34 | B |
 | 14 | `app/services/inspection/reconciliation.py` | 16.37 | B |
 | 15 | `app/services/inspection/source_quality.py` | 16.86 | B |
@@ -124,6 +124,8 @@ calculation-evidence projection were split into named helpers.
 benchmark projection, and reset-event attachment were split into a dedicated period-result helper.
 `_valuation_cashflow_total_component` also dropped out after cash-flow amount destination routing
 was split into a dedicated role-and-timing helper.
+`_prepare_data_from_instruments` also dropped out after instrument panel collection and empty-panel
+suppression were split into a dedicated helper.
 `_record_external_timing_contradictions` also dropped out after explicit timing contradiction
 eligibility and artifact sample projection were split into named helpers.
 `_build_external_cashflow_findings` also dropped out after the repeated external cash-flow finding

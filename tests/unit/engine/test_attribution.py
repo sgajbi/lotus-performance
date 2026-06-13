@@ -15,6 +15,7 @@ from engine.attribution import (
     _calculate_currency_attribution_effects,
     _calculate_group_context_metrics,
     _calculate_single_period_effects,
+    _instrument_attribution_panels,
     _link_effects_top_down,
     _normalize_instrument_group_columns,
     _normalize_instrument_return_columns,
@@ -502,6 +503,44 @@ def test_prepare_data_from_instruments_preserves_unclassified_weight():
     weights_by_sector = {group.key["sector"]: group.observations[0]["weight_bop"] for group in result_groups}
 
     assert weights_by_sector == pytest.approx({"Tech": 0.6, "unknown": 0.4})
+
+
+def test_instrument_attribution_panels_skips_empty_instruments_and_keeps_valid_panels():
+    request = AttributionRequest.model_validate(
+        {
+            "portfolio_id": "ATTR_PANEL_COLLECTION",
+            "mode": "by_instrument",
+            "group_by": ["sector"],
+            "linking": "none",
+            "frequency": "daily",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-01",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "portfolio_data": {
+                "metric_basis": "NET",
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+            },
+            "instruments_data": [
+                {"instrument_id": "EMPTY", "meta": {"sector": "Cash"}, "valuation_points": []},
+                {
+                    "instrument_id": "AAPL",
+                    "meta": {"sector": "Tech"},
+                    "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 600, "end_mv": 612}],
+                },
+            ],
+            "benchmark_groups_data": [],
+        }
+    )
+
+    panels = _instrument_attribution_panels(
+        request=request,
+        twr_config=_build_test_twr_config(request),
+        portfolio_bop_mv=pd.Series([1000.0], index=[pd.Timestamp("2025-01-01")]),
+    )
+
+    assert len(panels) == 1
+    assert panels[0].iloc[0]["sector"] == "Tech"
+    assert panels[0].iloc[0]["return_base"] == pytest.approx(0.02)
 
 
 def test_build_instrument_attribution_panel_uses_base_weight_points():
