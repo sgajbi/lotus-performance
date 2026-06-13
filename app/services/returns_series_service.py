@@ -589,20 +589,26 @@ def _risk_free_day_count_denominator(day_count_convention: object) -> Decimal:
     return Decimal("360")
 
 
+def _risk_free_return_point_from_source(point: dict[str, Any]) -> ReturnPoint | None:
+    date_raw = point.get("series_date")
+    value_raw = point.get("value")
+    if not isinstance(date_raw, str) or value_raw is None:
+        return None
+    try:
+        return_value = Decimal(str(value_raw))
+        if str(point.get("value_convention") or "").lower() == "annualized_rate":
+            return_value = return_value / _risk_free_day_count_denominator(point.get("day_count_convention"))
+        return ReturnPoint(date=date.fromisoformat(date_raw), return_value=return_value)
+    except (ValueError, ArithmeticError):
+        return None
+
+
 def risk_free_points_to_dataframe(*, points: list[dict[str, Any]]) -> pd.DataFrame:
-    normalized_points: list[ReturnPoint] = []
-    for point in points:
-        date_raw = point.get("series_date")
-        value_raw = point.get("value")
-        if not isinstance(date_raw, str) or value_raw is None:
-            continue
-        try:
-            return_value = Decimal(str(value_raw))
-            if str(point.get("value_convention") or "").lower() == "annualized_rate":
-                return_value = return_value / _risk_free_day_count_denominator(point.get("day_count_convention"))
-            normalized_points.append(ReturnPoint(date=date.fromisoformat(date_raw), return_value=return_value))
-        except (ValueError, ArithmeticError):
-            continue
+    normalized_points = [
+        normalized_point
+        for point in points
+        if (normalized_point := _risk_free_return_point_from_source(point)) is not None
+    ]
     return to_dataframe(normalized_points, series_type="risk_free")
 
 

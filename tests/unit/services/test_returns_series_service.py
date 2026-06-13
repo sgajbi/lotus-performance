@@ -439,6 +439,21 @@ def test_risk_free_points_to_dataframe_converts_annualized_rates_to_daily_return
     ]
 
 
+def test_risk_free_points_to_dataframe_skips_malformed_points():
+    risk_free_df = returns_series_service.risk_free_points_to_dataframe(
+        points=[
+            {"series_date": "2026-04-10", "value": "0.0001"},
+            {"series_date": "not-a-date", "value": "0.0002"},
+            {"series_date": "2026-04-11"},
+            {"value": "0.0003"},
+            {"series_date": "2026-04-12", "value": "not-a-decimal"},
+        ]
+    )
+
+    assert [value.date().isoformat() for value in risk_free_df["date"]] == ["2026-04-10"]
+    assert [str(value) for value in risk_free_df["return_value"]] == ["0.0001"]
+
+
 def test_apply_calendar_policy_filters_daily_business_and_market_dates():
     df = pd.DataFrame(
         {
