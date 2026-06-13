@@ -28,18 +28,18 @@ python scripts/python_function_size_inventory.py --limit 20
 | 6 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:502` | 119 |
 | 7 | `_build_artifacts` | `app/services/composite_inspection_service.py:114` | 118 |
 | 8 | `run_runtime_retention_cleanup` | `app/services/runtime_retention_run_service.py:32` | 111 |
-| 9 | `run_source_quality_checks` | `app/services/inspection/source_quality.py:91` | 106 |
-| 10 | `calculate_attribution` | `app/services/attribution_service.py:206` | 104 |
-| 11 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:206` | 102 |
-| 12 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:310` | 102 |
-| 13 | `aggregate_attribution_results` | `engine/attribution.py:648` | 102 |
-| 14 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:87` | 101 |
-| 15 | `_calculate_position_flow_balance_counts` | `app/services/contribution_diagnostics.py:183` | 99 |
-| 16 | `_calculate_returns_series` | `app/services/returns_series_service.py:1308` | 97 |
-| 17 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:62` | 97 |
-| 18 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:88` | 95 |
-| 19 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:31` | 94 |
-| 20 | `build_stateful_benchmark_input` | `app/services/stateful_benchmark_input_service.py:49` | 93 |
+| 9 | `calculate_attribution` | `app/services/attribution_service.py:206` | 104 |
+| 10 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:206` | 102 |
+| 11 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:310` | 102 |
+| 12 | `aggregate_attribution_results` | `engine/attribution.py:648` | 102 |
+| 13 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:87` | 101 |
+| 14 | `_calculate_position_flow_balance_counts` | `app/services/contribution_diagnostics.py:183` | 99 |
+| 15 | `_calculate_returns_series` | `app/services/returns_series_service.py:1308` | 97 |
+| 16 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:62` | 97 |
+| 17 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:88` | 95 |
+| 18 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:31` | 94 |
+| 19 | `build_stateful_benchmark_input` | `app/services/stateful_benchmark_input_service.py:49` | 93 |
+| 20 | `calculate_twr_response` | `app/services/twr_service.py:989` | 93 |
 
 ## Interpretation
 

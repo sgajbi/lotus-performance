@@ -88,6 +88,27 @@ class MonthlyDayDominance:
     dominant_move: DailyMove
 
 
+@dataclass(frozen=True)
+class _SourceQualityEvidenceContext:
+    valuation_point_count: int
+    weekend_dates: list[str]
+    missing_business_dates: list[str]
+    stale_runs: list[StaleSeriesRun]
+    invalid_capital_bases: list[dict[str, float | str]]
+    largest_abs_daily_move_pct: float
+    extreme_move_threshold_pct: float
+    extreme_moves: list[DailyMove]
+    mandate_profile: MandateDailyMoveProfile | None
+    mandate_outliers: list[DailyMove]
+    return_concentration: ReturnConcentrationAssessment
+    repeated_move_runs: list[RepeatedMoveRun]
+    monthly_day_dominance: list[MonthlyDayDominance]
+
+    @property
+    def stale_observation_count(self) -> int:
+        return sum(run.observation_count for run in self.stale_runs)
+
+
 def run_source_quality_checks(
     *,
     performance_request: PerformanceRequest,
@@ -133,15 +154,53 @@ def run_source_quality_checks(
         ),
     ]
 
-    stale_observation_count = sum(run.observation_count for run in stale_runs)
-    artifact_payload = {
-        "valuation_point_count": len(valuation_points),
-        "weekend_observation_count": len(weekend_dates),
-        "weekend_dates": weekend_dates[:_STALE_SAMPLE_LIMIT],
-        "missing_business_date_count": len(missing_business_dates),
-        "missing_business_dates": missing_business_dates[:_STALE_SAMPLE_LIMIT],
-        "stale_series_run_count": len(stale_runs),
-        "stale_series_observation_count": stale_observation_count,
+    evidence_context = _SourceQualityEvidenceContext(
+        valuation_point_count=len(valuation_points),
+        weekend_dates=weekend_dates,
+        missing_business_dates=missing_business_dates,
+        stale_runs=stale_runs,
+        invalid_capital_bases=invalid_capital_bases,
+        largest_abs_daily_move_pct=largest_abs_daily_move_pct,
+        extreme_move_threshold_pct=threshold,
+        extreme_moves=extreme_moves,
+        mandate_profile=mandate_profile,
+        mandate_outliers=mandate_outliers,
+        return_concentration=return_concentration,
+        repeated_move_runs=repeated_move_runs,
+        monthly_day_dominance=monthly_day_dominance,
+    )
+    return SourceQualityCheckResult(
+        findings=findings,
+        evidence_summary=_build_source_quality_evidence_summary(evidence_context),
+        artifact_payload=_build_source_quality_artifact_payload(evidence_context),
+    )
+
+
+def _build_source_quality_evidence_summary(context: _SourceQualityEvidenceContext) -> dict[str, object]:
+    return {
+        "valuation_point_count": context.valuation_point_count,
+        "weekend_observation_count": len(context.weekend_dates),
+        "missing_business_date_count": len(context.missing_business_dates),
+        "stale_series_run_count": len(context.stale_runs),
+        "stale_series_observation_count": context.stale_observation_count,
+        "nonpositive_capital_base_count": len(context.invalid_capital_bases),
+        "largest_abs_daily_move_pct": context.largest_abs_daily_move_pct,
+        "mandate_daily_move_outlier_count": len(context.mandate_outliers),
+        "return_concentration_ratio": context.return_concentration.concentration_ratio,
+        "repeated_move_run_count": len(context.repeated_move_runs),
+        "monthly_day_dominance_count": len(context.monthly_day_dominance),
+    }
+
+
+def _build_source_quality_artifact_payload(context: _SourceQualityEvidenceContext) -> dict[str, object]:
+    return {
+        "valuation_point_count": context.valuation_point_count,
+        "weekend_observation_count": len(context.weekend_dates),
+        "weekend_dates": context.weekend_dates[:_STALE_SAMPLE_LIMIT],
+        "missing_business_date_count": len(context.missing_business_dates),
+        "missing_business_dates": context.missing_business_dates[:_STALE_SAMPLE_LIMIT],
+        "stale_series_run_count": len(context.stale_runs),
+        "stale_series_observation_count": context.stale_observation_count,
         "stale_series_min_observations": _STALE_SERIES_MIN_OBSERVATIONS,
         "stale_series_runs": [
             {
@@ -151,49 +210,32 @@ def run_source_quality_checks(
                 "begin_mv": run.begin_mv,
                 "end_mv": run.end_mv,
             }
-            for run in stale_runs[:_STALE_SAMPLE_LIMIT]
+            for run in context.stale_runs[:_STALE_SAMPLE_LIMIT]
         ],
-        "nonpositive_capital_base_count": len(invalid_capital_bases),
-        "nonpositive_capital_base_samples": invalid_capital_bases[:_STALE_SAMPLE_LIMIT],
-        "largest_abs_daily_move_pct": largest_abs_daily_move_pct,
-        "extreme_daily_move_threshold_pct": threshold,
-        "extreme_daily_moves": _daily_moves_to_artifacts(extreme_moves),
-        "mandate_daily_move_profile": mandate_profile.name if mandate_profile else None,
-        "mandate_daily_move_threshold_pct": mandate_profile.threshold_pct if mandate_profile else None,
-        "mandate_daily_move_outlier_count": len(mandate_outliers),
-        "mandate_daily_move_outliers": _daily_moves_to_artifacts(mandate_outliers),
+        "nonpositive_capital_base_count": len(context.invalid_capital_bases),
+        "nonpositive_capital_base_samples": context.invalid_capital_bases[:_STALE_SAMPLE_LIMIT],
+        "largest_abs_daily_move_pct": context.largest_abs_daily_move_pct,
+        "extreme_daily_move_threshold_pct": context.extreme_move_threshold_pct,
+        "extreme_daily_moves": _daily_moves_to_artifacts(context.extreme_moves),
+        "mandate_daily_move_profile": context.mandate_profile.name if context.mandate_profile else None,
+        "mandate_daily_move_threshold_pct": context.mandate_profile.threshold_pct if context.mandate_profile else None,
+        "mandate_daily_move_outlier_count": len(context.mandate_outliers),
+        "mandate_daily_move_outliers": _daily_moves_to_artifacts(context.mandate_outliers),
         "return_concentration_min_observations": _RETURN_CONCENTRATION_MIN_OBSERVATIONS,
         "return_concentration_top_n": _RETURN_CONCENTRATION_TOP_N,
         "return_concentration_threshold": _RETURN_CONCENTRATION_THRESHOLD,
-        "return_concentration_ratio": return_concentration.concentration_ratio,
-        "return_concentration_observation_count": return_concentration.observation_count,
-        "return_concentration_top_moves": _daily_moves_to_artifacts(return_concentration.top_moves),
+        "return_concentration_ratio": context.return_concentration.concentration_ratio,
+        "return_concentration_observation_count": context.return_concentration.observation_count,
+        "return_concentration_top_moves": _daily_moves_to_artifacts(context.return_concentration.top_moves),
         "repeated_move_min_abs_pct": _REPEATED_MOVE_MIN_ABS_PCT,
         "repeated_move_min_run_length": _REPEATED_MOVE_MIN_RUN_LENGTH,
-        "repeated_move_run_count": len(repeated_move_runs),
-        "repeated_move_runs": _repeated_move_runs_to_artifacts(repeated_move_runs),
+        "repeated_move_run_count": len(context.repeated_move_runs),
+        "repeated_move_runs": _repeated_move_runs_to_artifacts(context.repeated_move_runs),
         "monthly_day_dominance_min_observations": _MONTHLY_DAY_DOMINANCE_MIN_OBSERVATIONS,
         "monthly_day_dominance_threshold": _MONTHLY_DAY_DOMINANCE_THRESHOLD,
-        "monthly_day_dominance_count": len(monthly_day_dominance),
-        "monthly_day_dominance_samples": _monthly_day_dominance_to_artifacts(monthly_day_dominance),
+        "monthly_day_dominance_count": len(context.monthly_day_dominance),
+        "monthly_day_dominance_samples": _monthly_day_dominance_to_artifacts(context.monthly_day_dominance),
     }
-    return SourceQualityCheckResult(
-        findings=findings,
-        evidence_summary={
-            "valuation_point_count": len(valuation_points),
-            "weekend_observation_count": len(weekend_dates),
-            "missing_business_date_count": len(missing_business_dates),
-            "stale_series_run_count": len(stale_runs),
-            "stale_series_observation_count": stale_observation_count,
-            "nonpositive_capital_base_count": len(invalid_capital_bases),
-            "largest_abs_daily_move_pct": largest_abs_daily_move_pct,
-            "mandate_daily_move_outlier_count": len(mandate_outliers),
-            "return_concentration_ratio": return_concentration.concentration_ratio,
-            "repeated_move_run_count": len(repeated_move_runs),
-            "monthly_day_dominance_count": len(monthly_day_dominance),
-        },
-        artifact_payload=artifact_payload,
-    )
 
 
 def _find_weekend_dates(valuation_points: list[DailyInputData]) -> list[str]:
