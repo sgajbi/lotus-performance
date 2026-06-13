@@ -18,6 +18,7 @@ from app.services.stateful_benchmark_input_service import (
     _load_component_price_series,
     _load_fx_maps_for_components,
     _normalize_price_to_benchmark_currency,
+    _normalized_component_price_point_from_payload,
     _normalized_price_maps_for_component,
     _parse_composition_window,
     _previous_normalized_component_price,
@@ -1099,6 +1100,76 @@ def test_normalized_price_maps_for_component_filters_and_normalizes_requested_da
         date(2026, 1, 2): Decimal("113.12"),
     }
     assert component_dates == {date(2026, 1, 2)}
+
+
+def test_normalized_component_price_point_from_payload_projects_normalized_point_scope():
+    prior_point = _normalized_component_price_point_from_payload(
+        index_id="IDX_EUR",
+        point={"series_date": "2026-01-01", "index_price": "100"},
+        component_currency="EUR",
+        benchmark_currency="USD",
+        fx_map_by_pair={("EUR", "USD"): {date(2026, 1, 1): Decimal("1.10")}},
+        requested_start_date=date(2026, 1, 2),
+        requested_end_date=date(2026, 1, 3),
+    )
+    requested_point = _normalized_component_price_point_from_payload(
+        index_id="IDX_EUR",
+        point={"series_date": "2026-01-02", "index_price": Decimal("101")},
+        component_currency="EUR",
+        benchmark_currency="USD",
+        fx_map_by_pair={("EUR", "USD"): {date(2026, 1, 2): Decimal("1.12")}},
+        requested_start_date=date(2026, 1, 2),
+        requested_end_date=date(2026, 1, 3),
+    )
+
+    assert prior_point is not None
+    assert prior_point.point_date == date(2026, 1, 1)
+    assert prior_point.local_price == Decimal("100")
+    assert prior_point.normalized_price == Decimal("110.00")
+    assert not prior_point.is_requested_date
+    assert requested_point is not None
+    assert requested_point.normalized_price == Decimal("113.12")
+    assert requested_point.is_requested_date
+
+
+def test_normalized_component_price_point_from_payload_skips_invalid_or_out_of_window_points():
+    assert (
+        _normalized_component_price_point_from_payload(
+            index_id="IDX_EUR",
+            point="ignored",
+            component_currency="EUR",
+            benchmark_currency="USD",
+            fx_map_by_pair={},
+            requested_start_date=date(2026, 1, 2),
+            requested_end_date=date(2026, 1, 3),
+        )
+        is None
+    )
+    assert (
+        _normalized_component_price_point_from_payload(
+            index_id="IDX_EUR",
+            point={"series_date": "2026-01-04", "index_price": "104"},
+            component_currency="EUR",
+            benchmark_currency="USD",
+            fx_map_by_pair={},
+            requested_start_date=date(2026, 1, 2),
+            requested_end_date=date(2026, 1, 3),
+        )
+        is None
+    )
+
+
+def test_normalized_component_price_point_from_payload_rejects_missing_index_price():
+    with pytest.raises(HTTPException, match="missing index_price"):
+        _normalized_component_price_point_from_payload(
+            index_id="IDX_EUR",
+            point={"series_date": "2026-01-02", "index_price": None},
+            component_currency="EUR",
+            benchmark_currency="USD",
+            fx_map_by_pair={},
+            requested_start_date=date(2026, 1, 2),
+            requested_end_date=date(2026, 1, 3),
+        )
 
 
 def test_normalization_and_metadata_helpers_cover_direct_contracts():

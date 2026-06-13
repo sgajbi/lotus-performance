@@ -32,37 +32,37 @@ must stay at `0`.
 | --- | ---: |
 | Max cyclomatic complexity | 8 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.20 |
+| Average maintainability index | 55.19 |
 
 ## Highest Cyclomatic Complexity
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_normalized_price_maps_for_component` | function | `app/services/stateful_benchmark_input_service.py:748` | 8 | B |
-| 2 | `build_stateful_contribution_input` | function | `app/services/stateful_contribution_input_service.py:91` | 8 | B |
-| 3 | `_position_row_to_daily_point` | function | `app/services/stateful_contribution_input_service.py:151` | 8 | B |
-| 4 | `_split_position_cash_flows` | function | `app/services/stateful_contribution_input_service.py:196` | 8 | B |
-| 5 | `get_position_timeseries` | method | `app/services/stateful_input_service.py:90` | 8 | B |
-| 6 | `build_stateful_mwr_input_for_window` | function | `app/services/stateful_mwr_input_service.py:106` | 8 | B |
-| 7 | `_cash_flow_conversion_factor` | function | `app/services/stateful_position_row_service.py:59` | 8 | B |
-| 8 | `_metadata_count` | function | `app/services/stateful_retrieval_metadata.py:58` | 8 | B |
-| 9 | `register_async_submission_or_raise` | function | `app/services/submission_fencing_service.py:53` | 8 | B |
-| 10 | `_run_twr_execution_calculation` | function | `app/services/twr_service.py:685` | 8 | B |
-| 11 | `_resolve_workspace_portfolio_input` | function | `app/services/workspace_summary_service.py:210` | 8 | B |
-| 12 | `_build_workspace_summary_response` | function | `app/services/workspace_summary_service.py:502` | 8 | B |
-| 13 | `_build_compute_job_runtime` | function | `app/workers/compute_executor_worker.py:156` | 8 | B |
-| 14 | `_build_compute_job_execution_context` | function | `app/workers/compute_executor_worker.py:201` | 8 | B |
-| 15 | `_execute_compute_job` | function | `app/workers/compute_executor_worker.py:226` | 8 | B |
-| 16 | `_resolve_async_twr_job_request` | function | `app/workers/compute_executor_worker.py:553` | 8 | B |
-| 17 | `_workspace_period_start_date` | function | `core/workspace_periods.py:56` | 8 | B |
-| 18 | `_uses_local_fx_component_returns` | function | `engine/benchmarks.py:144` | 8 | B |
-| 19 | `_scan_xirr_roots` | function | `engine/mwr.py:127` | 8 | B |
-| 20 | `get_effective_period_start_dates` | function | `engine/periods.py:8` | 8 | B |
-| 21 | `_calculate_local_daily_return` | function | `engine/ror.py:46` | 8 | B |
-| 22 | `_allowed_audit_metadata` | function | `app/enterprise_authorization.py:39` | 7 | B |
-| 23 | `to_benchmark_performance_request` | method | `app/models/benchmark_analytics_requests.py:299` | 7 | B |
-| 24 | `to_stateless_contribution_request` | method | `app/models/contribution_analytics_requests.py:122` | 7 | B |
-| 25 | `TWRInspectionRequest` | class | `app/models/inspection_requests.py:56` | 7 | B |
+| 1 | `build_stateful_contribution_input` | function | `app/services/stateful_contribution_input_service.py:91` | 8 | B |
+| 2 | `_position_row_to_daily_point` | function | `app/services/stateful_contribution_input_service.py:151` | 8 | B |
+| 3 | `_split_position_cash_flows` | function | `app/services/stateful_contribution_input_service.py:196` | 8 | B |
+| 4 | `get_position_timeseries` | method | `app/services/stateful_input_service.py:90` | 8 | B |
+| 5 | `build_stateful_mwr_input_for_window` | function | `app/services/stateful_mwr_input_service.py:106` | 8 | B |
+| 6 | `_cash_flow_conversion_factor` | function | `app/services/stateful_position_row_service.py:59` | 8 | B |
+| 7 | `_metadata_count` | function | `app/services/stateful_retrieval_metadata.py:58` | 8 | B |
+| 8 | `register_async_submission_or_raise` | function | `app/services/submission_fencing_service.py:53` | 8 | B |
+| 9 | `_run_twr_execution_calculation` | function | `app/services/twr_service.py:685` | 8 | B |
+| 10 | `_resolve_workspace_portfolio_input` | function | `app/services/workspace_summary_service.py:210` | 8 | B |
+| 11 | `_build_workspace_summary_response` | function | `app/services/workspace_summary_service.py:502` | 8 | B |
+| 12 | `_build_compute_job_runtime` | function | `app/workers/compute_executor_worker.py:156` | 8 | B |
+| 13 | `_build_compute_job_execution_context` | function | `app/workers/compute_executor_worker.py:201` | 8 | B |
+| 14 | `_execute_compute_job` | function | `app/workers/compute_executor_worker.py:226` | 8 | B |
+| 15 | `_resolve_async_twr_job_request` | function | `app/workers/compute_executor_worker.py:553` | 8 | B |
+| 16 | `_workspace_period_start_date` | function | `core/workspace_periods.py:56` | 8 | B |
+| 17 | `_uses_local_fx_component_returns` | function | `engine/benchmarks.py:144` | 8 | B |
+| 18 | `_scan_xirr_roots` | function | `engine/mwr.py:127` | 8 | B |
+| 19 | `get_effective_period_start_dates` | function | `engine/periods.py:8` | 8 | B |
+| 20 | `_calculate_local_daily_return` | function | `engine/ror.py:46` | 8 | B |
+| 21 | `_allowed_audit_metadata` | function | `app/enterprise_authorization.py:39` | 7 | B |
+| 22 | `to_benchmark_performance_request` | method | `app/models/benchmark_analytics_requests.py:299` | 7 | B |
+| 23 | `to_stateless_contribution_request` | method | `app/models/contribution_analytics_requests.py:122` | 7 | B |
+| 24 | `TWRInspectionRequest` | class | `app/models/inspection_requests.py:56` | 7 | B |
+| 25 | `_validate_stateless_twr_payloads` | function | `app/models/twr_requests.py:137` | 7 | B |
 
 ## Lowest Maintainability Index
 
@@ -76,8 +76,8 @@ must stay at `0`.
 | 6 | `app/openapi_enrichment.py` | 2.88 | C |
 | 7 | `app/services/twr_service.py` | 6.43 | C |
 | 8 | `app/services/workspace_summary_service.py` | 10.65 | B |
-| 9 | `app/services/execution_registry.py` | 10.84 | B |
-| 10 | `app/services/stateful_benchmark_input_service.py` | 11.34 | B |
+| 9 | `app/services/stateful_benchmark_input_service.py` | 10.70 | B |
+| 10 | `app/services/execution_registry.py` | 10.84 | B |
 | 11 | `engine/attribution.py` | 13.95 | B |
 | 12 | `app/services/operator_action_lease_service.py` | 15.16 | B |
 | 13 | `app/services/inspection/calculation_consistency.py` | 16.16 | B |
@@ -479,6 +479,9 @@ required-label validation, and non-currency unknown fallback were moved into a d
 fallback, and value-basis policy were moved into a dedicated helper.
 `_position_meta_from_row` also dropped out after position FX-rate metadata projection and Decimal
 conversion were moved into a dedicated helper.
+`_normalized_price_maps_for_component` also dropped out after per-point date filtering,
+index-price validation, local-price parsing, FX normalization, and requested-window membership were
+moved into a dedicated helper.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.
