@@ -22,6 +22,7 @@ from app.services.contribution_diagnostics import (
     _calculate_position_flow_balance_counts,
     _calculate_reset_characterization_counts,
     _calculate_reset_relative_day_counts,
+    _position_flow_residual_counts,
 )
 from app.services.contribution_methodology import (
     RESET_AWARE_AVERAGE_WEIGHT_MODE_CANDIDATE_PERIODS,
@@ -886,6 +887,31 @@ def test_calculate_position_flow_balance_counts_sizes_non_flow_neutral_days():
     )
 
     counts = _calculate_position_flow_balance_counts(instruments_df, portfolio_results_df)
+
+    assert counts == {
+        "position_flow_residual_days": 2,
+        "position_flow_residual_max_bp": 100,
+        "position_flow_residual_sum_bp": 200,
+    }
+
+
+def test_position_flow_residual_counts_size_residuals_against_capital_base():
+    residual_flow_by_day = pd.Series(
+        [10.0, 5.0, 0.0],
+        index=pd.Index(
+            [
+                pd.Timestamp("2025-01-01").date(),
+                pd.Timestamp("2025-01-02").date(),
+                pd.Timestamp("2025-01-03").date(),
+            ]
+        ),
+    )
+    portfolio_capital_by_day = pd.Series(
+        [1000.0, 500.0, 100.0],
+        index=residual_flow_by_day.index,
+    )
+
+    counts = _position_flow_residual_counts(residual_flow_by_day, portfolio_capital_by_day)
 
     assert counts == {
         "position_flow_residual_days": 2,
