@@ -27,6 +27,7 @@ from app.services.contribution_methodology import (
     RESET_AWARE_AVERAGE_WEIGHT_MODE_CANDIDATE_PERIODS,
     RESET_AWARE_AVERAGE_WEIGHT_MODE_OFF,
     _assess_average_weight_shadow_cutover,
+    _average_weight_shadow_delta_metrics,
     _build_average_weight_methodology_status,
     _calculate_average_weight_sum_residual_bp,
     _calculate_average_weight_sum_residual_bp_from_ratio_series,
@@ -37,6 +38,7 @@ from app.services.contribution_methodology import (
     _classify_average_weight_shadow_period,
     _is_average_weight_shadow_cutover_candidate,
     _normalize_reset_aware_average_weight_mode,
+    _reset_aware_valid_portfolio_days,
 )
 from app.services.contribution_periods import (
     ContributionPeriodMethodologyContext,
@@ -736,6 +738,36 @@ def test_calculate_reset_aware_average_weight_shadow_covers_empty_missing_column
         ),
     )
     assert zero_valid_shadow_df.loc[0, "reset_aware_average_weight_shadow"] == 0.0
+
+
+def test_reset_aware_valid_portfolio_days_uses_latest_reset_and_excludes_nip_days():
+    portfolio_period_slice_df = pd.DataFrame(
+        {
+            "perf_date": ["2025-01-01", "2025-01-02", "2025-01-03", "2025-01-04"],
+            "perf_reset": [0, 1, 0, 0],
+            "nip": [0, 0, 1, 0],
+        }
+    )
+
+    valid_days = _reset_aware_valid_portfolio_days(portfolio_period_slice_df)
+
+    assert valid_days is not None
+    assert list(valid_days) == [
+        pd.Timestamp("2025-01-02").date(),
+        pd.Timestamp("2025-01-04").date(),
+    ]
+
+
+def test_average_weight_shadow_delta_metrics_reports_position_count_max_and_sum_bp():
+    average_weight_shadow_df = pd.DataFrame(
+        {
+            "position_id": ["A", "B"],
+            "average_weight": [0.50, 0.25],
+            "reset_aware_average_weight_shadow": [0.40, 0.20],
+        }
+    )
+
+    assert _average_weight_shadow_delta_metrics(average_weight_shadow_df) == (2, 1000, 1500)
 
 
 def test_build_portfolio_engine_diagnostics_maps_reset_and_nip_characterization_from_engine_frame():
