@@ -8,6 +8,8 @@ from app.models.benchmark_analytics_requests import (
     BenchmarkReturnSource,
     BenchmarkStatefulInput,
     BenchmarkStatelessInput,
+    _benchmark_component_observations_payload,
+    _benchmark_return_points_payload,
     _validate_stateful_benchmark_payloads,
     _validate_stateless_benchmark_payloads,
 )
@@ -262,6 +264,47 @@ def test_benchmark_request_uses_stateless_payload_when_no_resolved_overrides_are
 
     assert benchmark_request.component_observations == []
     assert benchmark_request.benchmark_return_points[0].benchmark_return == 0.01
+
+
+def test_benchmark_payload_helpers_prefer_resolved_overrides():
+    stateless_input = BenchmarkStatelessInput.model_validate(
+        {
+            "benchmark_currency": "USD",
+            "component_observations": [
+                {
+                    "component_id": "IDX_1",
+                    "perf_date": "2025-01-01",
+                    "weight_bop": 1.0,
+                    "component_return": 0.01,
+                }
+            ],
+            "benchmark_return_points": [{"perf_date": "2025-01-01", "benchmark_return": 0.01}],
+        }
+    )
+
+    component_payload = _benchmark_component_observations_payload(
+        stateless_input=stateless_input,
+        component_observations=[
+            {
+                "component_id": "IDX_2",
+                "perf_date": date(2025, 1, 1),
+                "weight_bop": 1.0,
+                "component_return": 0.02,
+            }
+        ],
+    )
+    return_payload = _benchmark_return_points_payload(
+        stateless_input=stateless_input,
+        benchmark_return_points=[{"perf_date": date(2025, 1, 1), "benchmark_return": 0.03}],
+    )
+
+    assert component_payload[0]["component_id"] == "IDX_2"
+    assert return_payload[0]["benchmark_return"] == 0.03
+
+
+def test_benchmark_payload_helpers_default_to_empty_without_stateless_input():
+    assert _benchmark_component_observations_payload(stateless_input=None, component_observations=None) == []
+    assert _benchmark_return_points_payload(stateless_input=None, benchmark_return_points=None) == []
 
 
 def test_benchmark_request_builds_empty_lists_from_stateful_mode(base_payload):

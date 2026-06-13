@@ -186,6 +186,30 @@ def _validate_stateful_benchmark_payloads(
         raise ValueError("stateless_input must be null when input_mode=stateful")
 
 
+def _benchmark_component_observations_payload(
+    *,
+    stateless_input: BenchmarkStatelessInput | None,
+    component_observations: list[dict[str, object]] | None,
+) -> list[dict[str, object]]:
+    if component_observations is not None:
+        return component_observations
+    if stateless_input is None:
+        return []
+    return [point.model_dump(mode="python") for point in stateless_input.component_observations]
+
+
+def _benchmark_return_points_payload(
+    *,
+    stateless_input: BenchmarkStatelessInput | None,
+    benchmark_return_points: list[dict[str, object]] | None,
+) -> list[dict[str, object]]:
+    if benchmark_return_points is not None:
+        return benchmark_return_points
+    if stateless_input is None:
+        return []
+    return [point.model_dump(mode="python") for point in stateless_input.benchmark_return_points]
+
+
 class BenchmarkAnalyticsRequest(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -308,21 +332,12 @@ class BenchmarkAnalyticsRequest(BaseModel):
             mode="python",
         )
         payload["benchmark_currency"] = benchmark_currency
-        if component_observations is not None:
-            payload["component_observations"] = component_observations
-        elif self.stateless_input is not None:
-            payload["component_observations"] = [
-                point.model_dump(mode="python") for point in self.stateless_input.component_observations
-            ]
-        else:
-            payload["component_observations"] = []
-
-        if benchmark_return_points is not None:
-            payload["benchmark_return_points"] = benchmark_return_points
-        elif self.stateless_input is not None:
-            payload["benchmark_return_points"] = [
-                point.model_dump(mode="python") for point in self.stateless_input.benchmark_return_points
-            ]
-        else:
-            payload["benchmark_return_points"] = []
+        payload["component_observations"] = _benchmark_component_observations_payload(
+            stateless_input=self.stateless_input,
+            component_observations=component_observations,
+        )
+        payload["benchmark_return_points"] = _benchmark_return_points_payload(
+            stateless_input=self.stateless_input,
+            benchmark_return_points=benchmark_return_points,
+        )
         return BenchmarkPerformanceRequest.model_validate(payload)
