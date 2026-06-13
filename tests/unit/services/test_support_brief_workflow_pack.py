@@ -150,6 +150,32 @@ def test_support_brief_result_from_payload_maps_action_required_run_without_mark
     assert result.workflow_pack_run.review_pending is True
 
 
+def test_completed_support_brief_markdown_trims_completed_message() -> None:
+    assert (
+        service._completed_support_brief_markdown(
+            {
+                "status": "COMPLETED",
+                "result": {"message": "  # Support brief\n\nReview evidence.  "},
+            }
+        )
+        == "# Support brief\n\nReview evidence."
+    )
+
+
+def test_completed_support_brief_markdown_suppresses_failed_or_blank_message() -> None:
+    assert (
+        service._completed_support_brief_markdown(
+            {
+                "status": "FAILED",
+                "result": {"message": "# Failed support brief"},
+            }
+        )
+        is None
+    )
+    assert service._completed_support_brief_markdown({"status": "COMPLETED", "result": {"message": "   "}}) is None
+    assert service._completed_support_brief_markdown({"status": "COMPLETED", "result": "not-a-result"}) is None
+
+
 def test_map_workflow_pack_run_filters_invalid_projection_fields() -> None:
     run = service._map_workflow_pack_run(
         {

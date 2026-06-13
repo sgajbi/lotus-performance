@@ -60,13 +60,11 @@ def _support_brief_result_from_payload(payload: dict[str, Any]) -> SupportBriefW
             generation_status="UNAVAILABLE",
             workflow_pack_run=workflow_pack_run,
         )
-    execution_status = str(execution.get("status", ""))
-    result = execution.get("result")
-    message = result.get("message") if isinstance(result, dict) else None
-    if execution_status == "COMPLETED" and isinstance(message, str) and message.strip():
+    artifact_markdown = _completed_support_brief_markdown(execution)
+    if artifact_markdown is not None:
         return SupportBriefWorkflowPackResult(
             generation_status="GENERATED",
-            artifact_markdown=message.strip(),
+            artifact_markdown=artifact_markdown,
             workflow_pack_run=workflow_pack_run,
         )
     if workflow_pack_run is not None:
@@ -75,6 +73,16 @@ def _support_brief_result_from_payload(payload: dict[str, Any]) -> SupportBriefW
             workflow_pack_run=workflow_pack_run,
         )
     return SupportBriefWorkflowPackResult(generation_status="UNAVAILABLE")
+
+
+def _completed_support_brief_markdown(execution: dict[str, Any]) -> str | None:
+    if str(execution.get("status", "")) != "COMPLETED":
+        return None
+    result = execution.get("result")
+    message = result.get("message") if isinstance(result, dict) else None
+    if not isinstance(message, str) or not message.strip():
+        return None
+    return message.strip()
 
 
 def _build_workflow_pack_request(

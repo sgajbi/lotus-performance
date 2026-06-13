@@ -38,31 +38,31 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_support_brief_result_from_payload` | function | `app/services/inspection/support_brief_workflow_pack.py:55` | 7 | B |
-| 2 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:88` | 7 | B |
-| 3 | `_synthesize_verdict` | function | `app/services/inspection/twr_inspection_service.py:551` | 7 | B |
-| 4 | `_scope_request_to_response_master_window` | function | `app/services/inspection/twr_inspection_service.py:652` | 7 | B |
-| 5 | `get_pending_payload_stats` | method | `app/services/lineage_metadata_store.py:416` | 7 | B |
-| 6 | `list_inspection_items` | method | `app/services/lineage_metadata_store.py:507` | 7 | B |
-| 7 | `materialize_payload` | method | `app/services/lineage_service.py:72` | 7 | B |
-| 8 | `_validate_artifact_filename` | method | `app/services/lineage_service.py:171` | 7 | B |
-| 9 | `build_mwr_response` | function | `app/services/mwr_calculation_service.py:42` | 7 | B |
-| 10 | `_find_latest_runtime_retention_entry` | function | `app/services/operator_action_guard_service.py:128` | 7 | B |
-| 11 | `validate_history_entry_strings` | function | `app/services/operator_action_history_manifest.py:173` | 7 | B |
-| 12 | `build_operator_action_lease_snapshot` | function | `app/services/operator_action_lease_service.py:185` | 7 | B |
-| 13 | `_read_matching_active_operator_action_leases` | function | `app/services/operator_action_lease_service.py:246` | 7 | B |
-| 14 | `_active_lease_payload_fields` | function | `app/services/operator_action_lease_service.py:314` | 7 | B |
-| 15 | `_read_recent_reclaimed_leases` | function | `app/services/operator_action_lease_service.py:389` | 7 | B |
-| 16 | `_parse_reclaimed_event_payload` | function | `app/services/operator_action_lease_service.py:438` | 7 | B |
-| 17 | `_reclaim_stale_lock` | function | `app/services/operator_action_lease_service.py:505` | 7 | B |
-| 18 | `resolve_recovery_drill_manual_replay` | function | `app/services/operator_action_replay_service.py:120` | 7 | B |
-| 19 | `_runtime_retention_entry_matches` | function | `app/services/operator_action_replay_service.py:154` | 7 | B |
-| 20 | `_recovery_drill_payload_identity_matches` | function | `app/services/operator_action_replay_service.py:266` | 7 | B |
-| 21 | `_build_result_path` | function | `app/services/operator_navigation_service.py:24` | 7 | B |
-| 22 | `collect` | method | `app/services/queue_metrics_service.py:353` | 7 | B |
-| 23 | `_calculate_promoted_stateful_returns_series` | function | `app/services/returns_series_calculation_workflow_service.py:102` | 7 | B |
-| 24 | `risk_free_points_to_dataframe` | function | `app/services/returns_series_service.py:592` | 7 | B |
-| 25 | `_apply_strict_intersection_policy` | function | `app/services/returns_series_service.py:609` | 7 | B |
+| 1 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:88` | 7 | B |
+| 2 | `_synthesize_verdict` | function | `app/services/inspection/twr_inspection_service.py:551` | 7 | B |
+| 3 | `_scope_request_to_response_master_window` | function | `app/services/inspection/twr_inspection_service.py:652` | 7 | B |
+| 4 | `get_pending_payload_stats` | method | `app/services/lineage_metadata_store.py:416` | 7 | B |
+| 5 | `list_inspection_items` | method | `app/services/lineage_metadata_store.py:507` | 7 | B |
+| 6 | `materialize_payload` | method | `app/services/lineage_service.py:72` | 7 | B |
+| 7 | `_validate_artifact_filename` | method | `app/services/lineage_service.py:171` | 7 | B |
+| 8 | `build_mwr_response` | function | `app/services/mwr_calculation_service.py:42` | 7 | B |
+| 9 | `_find_latest_runtime_retention_entry` | function | `app/services/operator_action_guard_service.py:128` | 7 | B |
+| 10 | `validate_history_entry_strings` | function | `app/services/operator_action_history_manifest.py:173` | 7 | B |
+| 11 | `build_operator_action_lease_snapshot` | function | `app/services/operator_action_lease_service.py:185` | 7 | B |
+| 12 | `_read_matching_active_operator_action_leases` | function | `app/services/operator_action_lease_service.py:246` | 7 | B |
+| 13 | `_active_lease_payload_fields` | function | `app/services/operator_action_lease_service.py:314` | 7 | B |
+| 14 | `_read_recent_reclaimed_leases` | function | `app/services/operator_action_lease_service.py:389` | 7 | B |
+| 15 | `_parse_reclaimed_event_payload` | function | `app/services/operator_action_lease_service.py:438` | 7 | B |
+| 16 | `_reclaim_stale_lock` | function | `app/services/operator_action_lease_service.py:505` | 7 | B |
+| 17 | `resolve_recovery_drill_manual_replay` | function | `app/services/operator_action_replay_service.py:120` | 7 | B |
+| 18 | `_runtime_retention_entry_matches` | function | `app/services/operator_action_replay_service.py:154` | 7 | B |
+| 19 | `_recovery_drill_payload_identity_matches` | function | `app/services/operator_action_replay_service.py:266` | 7 | B |
+| 20 | `_build_result_path` | function | `app/services/operator_navigation_service.py:24` | 7 | B |
+| 21 | `collect` | method | `app/services/queue_metrics_service.py:353` | 7 | B |
+| 22 | `_calculate_promoted_stateful_returns_series` | function | `app/services/returns_series_calculation_workflow_service.py:102` | 7 | B |
+| 23 | `risk_free_points_to_dataframe` | function | `app/services/returns_series_service.py:592` | 7 | B |
+| 24 | `_apply_strict_intersection_policy` | function | `app/services/returns_series_service.py:609` | 7 | B |
+| 25 | `_apply_selected_fill_method` | function | `app/services/returns_series_service.py:638` | 7 | B |
 
 ## Lowest Maintainability Index
 
@@ -584,6 +584,9 @@ a dedicated helper and selection precedence was covered directly.
 sample projection policies were moved into dedicated helpers.
 `_load_request_payload` also dropped out after lineage request payload JSON parsing was split into
 a dedicated helper while preserving file, compute-job, deadline, and polling fallback behavior.
+`_support_brief_result_from_payload` also dropped out after completed support-brief markdown
+selection was split into a dedicated helper while preserving action-required and unavailable
+workflow-pack posture behavior.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.
