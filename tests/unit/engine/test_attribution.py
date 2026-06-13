@@ -18,6 +18,7 @@ from engine.attribution import (
     _calculate_currency_attribution_effects,
     _calculate_group_context_metrics,
     _calculate_single_period_effects,
+    _currency_attribution_status,
     _finalize_aligned_attribution_frame,
     _instrument_attribution_panels,
     _link_effects_top_down,
@@ -909,6 +910,44 @@ def test_calculate_currency_attribution_effects_matches_exact_formulas():
     assert row["local_selection"] == pytest.approx(0.50 * (0.025 - 0.020))
     assert row["currency_allocation"] == pytest.approx((0.55 - 0.50) * (1 + 0.020) * 0.010)
     assert row["currency_selection"] == pytest.approx(0.50 * (0.025 - 0.020) * 0.010)
+
+
+def test_currency_attribution_status_reports_not_requested_complete_and_unavailable():
+    effects_df = pd.DataFrame(
+        {
+            "w_p": [0.5],
+            "w_b": [0.5],
+            "r_local_p": [0.025],
+            "r_local_b": [0.020],
+            "r_fx_b": [0.010],
+        },
+        index=pd.MultiIndex.from_tuples(
+            [(pd.Timestamp("2025-01-01"), "EUR")],
+            names=["date", "currency"],
+        ),
+    )
+
+    assert (
+        _currency_attribution_status(
+            effects_df,
+            SimpleNamespace(currency_mode=None, group_by=["currency"]),
+        )
+        == "not_requested"
+    )
+    assert (
+        _currency_attribution_status(
+            effects_df,
+            SimpleNamespace(currency_mode="BOTH", group_by=["currency"]),
+        )
+        == "complete"
+    )
+    assert (
+        _currency_attribution_status(
+            effects_df.drop(columns=["r_fx_b"]),
+            SimpleNamespace(currency_mode="BOTH", group_by=["currency"]),
+        )
+        == "unavailable"
+    )
 
 
 def test_currency_attribution_totals_are_invariant_to_extra_grouping_dimensions():

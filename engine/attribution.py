@@ -638,6 +638,12 @@ def _currency_attribution_requirements_met(effects_df: pd.DataFrame, request: At
     return "currency" in effects_df.reset_index().columns
 
 
+def _currency_attribution_status(effects_df: pd.DataFrame, request: AttributionRequestLike) -> str:
+    if request.currency_mode != "BOTH":
+        return "not_requested"
+    return "complete" if _currency_attribution_requirements_met(effects_df, request) else "unavailable"
+
+
 def _link_effects_top_down(
     effects_df: pd.DataFrame, geometric_total_ar: float, arithmetic_total_ar: float
 ) -> pd.DataFrame:
@@ -703,11 +709,7 @@ def aggregate_attribution_results(
     residual = (aggregation_base.active_return * 100) - final_totals.total_effect
     residual_materiality = classify_attribution_residual(residual)
 
-    currency_attribution_status = "not_requested"
-    if request.currency_mode == "BOTH":
-        currency_attribution_status = (
-            "complete" if _currency_attribution_requirements_met(effects_df, request) else "unavailable"
-        )
+    currency_attribution_status = _currency_attribution_status(effects_df, request)
 
     status, reason_codes, reasons, supportability_evidence, supportability_lineage = (
         build_attribution_supportability_evidence(
@@ -735,7 +737,7 @@ def aggregate_attribution_results(
     )
 
     if request.currency_mode == "BOTH":
-        if _currency_attribution_requirements_met(effects_df, request):
+        if currency_attribution_status == "complete":
             currency_df = _build_currency_attribution_panel(effects_df)
             fx_effects_df = _calculate_currency_attribution_effects(currency_df)
             aggregation_lineage["currency_attribution_effects.csv"] = fx_effects_df.reset_index()
