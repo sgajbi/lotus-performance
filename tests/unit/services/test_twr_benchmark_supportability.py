@@ -6,6 +6,7 @@ from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.models.requests import PerformanceRequest
 from app.services.twr_benchmark_supportability import (
     _benchmark_calendar_alignment,
+    _benchmark_component_currencies,
     _has_benchmark_fx_decomposition,
     build_twr_benchmark_supportability_evidence,
 )
@@ -87,6 +88,36 @@ def test_has_benchmark_fx_decomposition_requires_local_and_fx_columns_with_value
     assert not _has_benchmark_fx_decomposition(
         pd.DataFrame({"benchmark_return_local": [None], "benchmark_return_fx": [None]})
     )
+
+
+def test_benchmark_component_currencies_ignores_missing_component_currency():
+    benchmark_request = BenchmarkPerformanceRequest.model_validate(
+        {
+            "benchmark_id": "BMK_MIXED",
+            "benchmark_start_date": "2025-01-01",
+            "report_end_date": "2025-01-03",
+            "benchmark_currency": "USD",
+            "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+            "return_source": "calculated",
+            "component_observations": [
+                {
+                    "component_id": "IDX_USD",
+                    "perf_date": "2025-01-01",
+                    "weight_bop": 0.5,
+                    "component_return": 0.01,
+                },
+                {
+                    "component_id": "IDX_EUR",
+                    "perf_date": "2025-01-01",
+                    "weight_bop": 0.5,
+                    "component_currency": "EUR",
+                    "component_return": 0.012,
+                },
+            ],
+        }
+    )
+
+    assert _benchmark_component_currencies(benchmark_request) == {"EUR"}
 
 
 def test_benchmark_calendar_alignment_projects_counts_and_warning_codes():

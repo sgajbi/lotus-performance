@@ -135,15 +135,19 @@ def _benchmark_currency_state(
     if _has_benchmark_fx_decomposition(benchmark_daily_returns_df):
         return "fx_decomposed"
 
-    component_currencies = {
-        observation.component_currency
-        for observation in benchmark_request.component_observations
-        if observation.component_currency is not None
-    }
+    component_currencies = _benchmark_component_currencies(benchmark_request)
     if component_currencies and component_currencies != {benchmark_request.benchmark_currency}:
         warning_codes.append("BENCHMARK_FX_DECOMPOSITION_UNAVAILABLE")
         return "base_only"
     return "single_currency"
+
+
+def _benchmark_component_currencies(benchmark_request: BenchmarkPerformanceRequest) -> set[str]:
+    return {
+        observation.component_currency
+        for observation in benchmark_request.component_observations
+        if observation.component_currency is not None
+    }
 
 
 def _has_benchmark_fx_decomposition(benchmark_daily_returns_df: pd.DataFrame) -> bool:
