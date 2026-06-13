@@ -14,6 +14,7 @@ from app.models.benchmark_exposure_context import (
 from app.services.benchmark_exposure_context_service import (
     _accumulate_exposure_point,
     _build_exposure_rows,
+    _classification_labels_from_catalog_record,
     _classification_map_from_catalog_records,
     _group_identity,
     _index_ids_for_component_series,
@@ -242,6 +243,12 @@ def test_benchmark_exposure_context_classification_helpers_normalize_inputs() ->
             },
         ]
     ) == {"": {"sector": "Preserved"}, "IDX_B": {"sector": "Technology", "issuer_id": "123"}}
+    assert _classification_labels_from_catalog_record(None) is None
+    assert _classification_labels_from_catalog_record({"classification_labels": {"sector": "Technology"}}) is None
+    assert _classification_labels_from_catalog_record({"index_id": "IDX_A", "classification_labels": "bad"}) is None
+    assert _classification_labels_from_catalog_record(
+        {"index_id": "IDX_B", "classification_labels": {"sector": "Technology", "rank": 1, "ignored": None}}
+    ) == ("IDX_B", {"sector": "Technology", "rank": "1"})
 
 
 @pytest.mark.asyncio

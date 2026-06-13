@@ -180,13 +180,22 @@ def _index_ids_for_component_series(component_series: list[dict[str, Any]]) -> l
 def _classification_map_from_catalog_records(records: list[Any]) -> dict[str, dict[str, str]]:
     classification_map: dict[str, dict[str, str]] = {}
     for record in records:
-        if not isinstance(record, dict):
+        classification = _classification_labels_from_catalog_record(record)
+        if classification is None:
             continue
-        index_id = record.get("index_id")
-        labels = record.get("classification_labels")
-        if isinstance(index_id, str) and isinstance(labels, dict):
-            classification_map[index_id] = {str(key): str(value) for key, value in labels.items() if value is not None}
+        index_id, labels = classification
+        classification_map[index_id] = labels
     return classification_map
+
+
+def _classification_labels_from_catalog_record(record: Any) -> tuple[str, dict[str, str]] | None:
+    if not isinstance(record, dict):
+        return None
+    index_id = record.get("index_id")
+    labels = record.get("classification_labels")
+    if not isinstance(index_id, str) or not isinstance(labels, dict):
+        return None
+    return index_id, {str(key): str(value) for key, value in labels.items() if value is not None}
 
 
 def _parse_component_series(payload: dict[str, Any]) -> list[dict[str, Any]]:
