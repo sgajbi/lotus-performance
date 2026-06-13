@@ -75,6 +75,30 @@ def test_resolve_workspace_periods_clamps_long_horizons_to_performance_start_dat
     assert resolved[1].start_date == date(2025, 2, 3)
 
 
+def test_resolve_workspace_periods_projects_remaining_fixed_lookback_families():
+    resolved = resolve_workspace_periods(
+        [
+            WorkspacePeriodType.TWO_DAYS,
+            WorkspacePeriodType.TEN_DAYS,
+            WorkspacePeriodType.THREE_MONTHS,
+            WorkspacePeriodType.SIX_MONTHS,
+            WorkspacePeriodType.ONE_YEAR,
+            WorkspacePeriodType.TEN_YEARS,
+        ],
+        as_of=date(2026, 6, 30),
+        performance_start_date=date(2010, 1, 1),
+    )
+
+    assert [item.start_date for item in resolved] == [
+        date(2026, 6, 29),
+        date(2026, 6, 17),
+        date(2026, 3, 31),
+        date(2025, 12, 31),
+        date(2025, 7, 1),
+        date(2016, 7, 1),
+    ]
+
+
 def test_resolve_workspace_periods_rejects_unknown_period_type():
     class UnsupportedPeriod(str, Enum):
         UNKNOWN = "UNKNOWN"
