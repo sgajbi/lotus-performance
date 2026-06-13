@@ -1,6 +1,7 @@
 # tests/unit/services/test_lineage_service.py
 import json
 import os
+from pathlib import PurePath
 from uuid import uuid4
 
 import pandas as pd
@@ -13,7 +14,7 @@ from app.services.execution_stage_names import (
     EXECUTION_STAGE_LINEAGE_MATERIALIZATION,
 )
 from app.services.lineage_metadata_store import LineageMetadataStore, LineageStatus
-from app.services.lineage_service import LineageService, resolve_artifact_stage_name
+from app.services.lineage_service import LineageService, _is_unsafe_artifact_filename, resolve_artifact_stage_name
 
 
 class MockModel(BaseModel):
@@ -290,6 +291,20 @@ def test_lineage_service_rejects_unsafe_artifact_filename_on_materialize(tmp_pat
     record = metadata_store.get_record(calc_id)
     assert record is not None
     assert record.status == LineageStatus.PENDING
+
+
+@pytest.mark.parametrize(
+    "filename",
+    ["", " ", ".", "..", "../escape.csv", "nested/file.csv", os.path.abspath("escape.csv")],
+)
+def test_lineage_artifact_filename_policy_rejects_unsafe_names(filename):
+    candidate = filename.strip()
+
+    assert _is_unsafe_artifact_filename(candidate=candidate, path=PurePath(candidate)) is True
+
+
+def test_lineage_artifact_filename_policy_accepts_single_relative_filename():
+    assert _is_unsafe_artifact_filename(candidate="details.csv", path=PurePath("details.csv")) is False
 
 
 def test_lineage_service_atomic_write_does_not_leave_partial_target(tmp_path, mocker):

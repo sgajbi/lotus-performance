@@ -182,13 +182,7 @@ class LineageService:
     def _validate_artifact_filename(filename: str) -> str:
         candidate = filename.strip()
         path = PurePath(candidate)
-        if (
-            not candidate
-            or candidate in {".", ".."}
-            or path.is_absolute()
-            or path.name != candidate
-            or any(part == ".." for part in path.parts)
-        ):
+        if _is_unsafe_artifact_filename(candidate=candidate, path=path):
             raise ValueError(f"Unsafe lineage artifact filename: {filename}")
         return candidate
 
@@ -197,3 +191,19 @@ class LineageService:
 
 
 lineage_service = LineageService()
+
+
+def _is_unsafe_artifact_filename(*, candidate: str, path: PurePath) -> bool:
+    return any(
+        (
+            not candidate,
+            candidate in {".", ".."},
+            path.is_absolute(),
+            path.name != candidate,
+            _contains_parent_path_segment(path),
+        )
+    )
+
+
+def _contains_parent_path_segment(path: PurePath) -> bool:
+    return any(part == ".." for part in path.parts)
