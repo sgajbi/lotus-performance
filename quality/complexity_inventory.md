@@ -32,37 +32,37 @@ must stay at `0`.
 | --- | ---: |
 | Max cyclomatic complexity | 7 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.14 |
+| Average maintainability index | 55.15 |
 
 ## Highest Cyclomatic Complexity
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_find_latest_runtime_retention_entry` | function | `app/services/operator_action_guard_service.py:128` | 7 | B |
-| 2 | `validate_history_entry_strings` | function | `app/services/operator_action_history_manifest.py:173` | 7 | B |
-| 3 | `build_operator_action_lease_snapshot` | function | `app/services/operator_action_lease_service.py:185` | 7 | B |
-| 4 | `_read_matching_active_operator_action_leases` | function | `app/services/operator_action_lease_service.py:246` | 7 | B |
-| 5 | `_active_lease_payload_fields` | function | `app/services/operator_action_lease_service.py:314` | 7 | B |
-| 6 | `_read_recent_reclaimed_leases` | function | `app/services/operator_action_lease_service.py:389` | 7 | B |
-| 7 | `_parse_reclaimed_event_payload` | function | `app/services/operator_action_lease_service.py:438` | 7 | B |
-| 8 | `_reclaim_stale_lock` | function | `app/services/operator_action_lease_service.py:505` | 7 | B |
-| 9 | `resolve_recovery_drill_manual_replay` | function | `app/services/operator_action_replay_service.py:120` | 7 | B |
-| 10 | `_runtime_retention_entry_matches` | function | `app/services/operator_action_replay_service.py:154` | 7 | B |
-| 11 | `_recovery_drill_payload_identity_matches` | function | `app/services/operator_action_replay_service.py:266` | 7 | B |
-| 12 | `_build_result_path` | function | `app/services/operator_navigation_service.py:24` | 7 | B |
-| 13 | `collect` | method | `app/services/queue_metrics_service.py:353` | 7 | B |
-| 14 | `_calculate_promoted_stateful_returns_series` | function | `app/services/returns_series_calculation_workflow_service.py:102` | 7 | B |
-| 15 | `risk_free_points_to_dataframe` | function | `app/services/returns_series_service.py:592` | 7 | B |
-| 16 | `_apply_strict_intersection_policy` | function | `app/services/returns_series_service.py:609` | 7 | B |
-| 17 | `_apply_selected_fill_method` | function | `app/services/returns_series_service.py:638` | 7 | B |
-| 18 | `_build_resolved_stateful_returns_series_request` | function | `app/services/returns_series_service.py:801` | 7 | B |
-| 19 | `_resolve_stateful_returns_series_benchmark_id` | function | `app/services/returns_series_service.py:881` | 7 | B |
-| 20 | `_build_returns_series_diagnostics` | function | `app/services/returns_series_service.py:1099` | 7 | B |
-| 21 | `_resolve_returns_series_execution_context` | function | `app/services/returns_series_service.py:1268` | 7 | B |
-| 22 | `run_runtime_retention_cleanup` | function | `app/services/runtime_retention_run_service.py:32` | 7 | B |
-| 23 | `runtime_status_from_component_statuses` | function | `app/services/runtime_status_degradation.py:246` | 7 | B |
-| 24 | `_summarize_source_quality_observations` | function | `app/services/source_quality_evidence.py:65` | 7 | B |
-| 25 | `_source_quality_warnings` | function | `app/services/source_quality_evidence.py:109` | 7 | B |
+| 1 | `validate_history_entry_strings` | function | `app/services/operator_action_history_manifest.py:173` | 7 | B |
+| 2 | `build_operator_action_lease_snapshot` | function | `app/services/operator_action_lease_service.py:185` | 7 | B |
+| 3 | `_read_matching_active_operator_action_leases` | function | `app/services/operator_action_lease_service.py:246` | 7 | B |
+| 4 | `_active_lease_payload_fields` | function | `app/services/operator_action_lease_service.py:314` | 7 | B |
+| 5 | `_read_recent_reclaimed_leases` | function | `app/services/operator_action_lease_service.py:389` | 7 | B |
+| 6 | `_parse_reclaimed_event_payload` | function | `app/services/operator_action_lease_service.py:438` | 7 | B |
+| 7 | `_reclaim_stale_lock` | function | `app/services/operator_action_lease_service.py:505` | 7 | B |
+| 8 | `resolve_recovery_drill_manual_replay` | function | `app/services/operator_action_replay_service.py:120` | 7 | B |
+| 9 | `_runtime_retention_entry_matches` | function | `app/services/operator_action_replay_service.py:154` | 7 | B |
+| 10 | `_recovery_drill_payload_identity_matches` | function | `app/services/operator_action_replay_service.py:266` | 7 | B |
+| 11 | `_build_result_path` | function | `app/services/operator_navigation_service.py:24` | 7 | B |
+| 12 | `collect` | method | `app/services/queue_metrics_service.py:353` | 7 | B |
+| 13 | `_calculate_promoted_stateful_returns_series` | function | `app/services/returns_series_calculation_workflow_service.py:102` | 7 | B |
+| 14 | `risk_free_points_to_dataframe` | function | `app/services/returns_series_service.py:592` | 7 | B |
+| 15 | `_apply_strict_intersection_policy` | function | `app/services/returns_series_service.py:609` | 7 | B |
+| 16 | `_apply_selected_fill_method` | function | `app/services/returns_series_service.py:638` | 7 | B |
+| 17 | `_build_resolved_stateful_returns_series_request` | function | `app/services/returns_series_service.py:801` | 7 | B |
+| 18 | `_resolve_stateful_returns_series_benchmark_id` | function | `app/services/returns_series_service.py:881` | 7 | B |
+| 19 | `_build_returns_series_diagnostics` | function | `app/services/returns_series_service.py:1099` | 7 | B |
+| 20 | `_resolve_returns_series_execution_context` | function | `app/services/returns_series_service.py:1268` | 7 | B |
+| 21 | `run_runtime_retention_cleanup` | function | `app/services/runtime_retention_run_service.py:32` | 7 | B |
+| 22 | `runtime_status_from_component_statuses` | function | `app/services/runtime_status_degradation.py:246` | 7 | B |
+| 23 | `_summarize_source_quality_observations` | function | `app/services/source_quality_evidence.py:65` | 7 | B |
+| 24 | `_source_quality_warnings` | function | `app/services/source_quality_evidence.py:109` | 7 | B |
+| 25 | `_summarize_currency_source` | function | `app/services/stateful_attribution_input_service.py:566` | 7 | B |
 
 ## Lowest Maintainability Index
 
