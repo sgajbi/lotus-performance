@@ -12,6 +12,7 @@ from app.services.stateful_mwr_input_service import (
     _add_stateful_mwr_cash_flow_component,
     _carry_forward_mwr_cash_flow_component,
     _collect_stateful_mwr_cash_flows,
+    _observation_cash_flow_currency_matches_reporting,
     _parse_decimal,
     _source_mwr_cash_flow_component,
     _stateful_mwr_cash_flow_projection,
@@ -175,6 +176,21 @@ def test_build_stateful_mwr_input_keeps_fx_metadata_gap_when_cash_flow_currency_
         "upstream_preconverted",
         "upstream_preconverted",
     ]
+
+
+def test_observation_cash_flow_currency_matches_reporting_ignores_missing_currency_and_compares_case_insensitive():
+    assert _observation_cash_flow_currency_matches_reporting(
+        observation={"cash_flow_currency": "eur"},
+        reporting_currency="EUR",
+    )
+    assert _observation_cash_flow_currency_matches_reporting(
+        observation={},
+        reporting_currency="EUR",
+    )
+    assert not _observation_cash_flow_currency_matches_reporting(
+        observation={"cash_flow_currency": "USD"},
+        reporting_currency="EUR",
+    )
 
 
 def test_build_stateful_mwr_input_captures_carry_forward_capital_breaks():

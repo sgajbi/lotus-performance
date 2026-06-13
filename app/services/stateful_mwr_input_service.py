@@ -357,10 +357,23 @@ def _has_single_currency_inputs(*, source_input: StatefulPortfolioInput, reporti
     if source_input.portfolio_currency.upper() != reporting_currency.upper():
         return False
     for observation in source_input.observations:
-        cash_flow_currency = observation.get("cash_flow_currency")
-        if isinstance(cash_flow_currency, str) and cash_flow_currency.upper() != reporting_currency.upper():
+        if not _observation_cash_flow_currency_matches_reporting(
+            observation=observation,
+            reporting_currency=reporting_currency,
+        ):
             return False
     return True
+
+
+def _observation_cash_flow_currency_matches_reporting(
+    *,
+    observation: dict[str, object],
+    reporting_currency: str,
+) -> bool:
+    cash_flow_currency = observation.get("cash_flow_currency")
+    if not isinstance(cash_flow_currency, str):
+        return True
+    return cash_flow_currency.upper() == reporting_currency.upper()
 
 
 def _stateful_currency_reason_codes(*, single_currency_inputs: bool) -> list[str]:
