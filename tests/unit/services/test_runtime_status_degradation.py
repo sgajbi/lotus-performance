@@ -97,6 +97,14 @@ def test_runtime_status_from_component_statuses_degrades_ready_runtime_when_comp
     assert status == "degraded"
 
 
+def test_has_unavailable_runtime_component_detects_any_non_available_status():
+    available_queue = cast(RuntimeQueueStatus, type("Queue", (), {"status": "available"})())
+    degraded_queue = cast(RuntimeQueueStatus, type("Queue", (), {"status": "degraded"})())
+
+    assert runtime_status_degradation.has_unavailable_runtime_component(available_queue) is False
+    assert runtime_status_degradation.has_unavailable_runtime_component(available_queue, degraded_queue) is True
+
+
 def test_runtime_status_collect_reasons_covers_runtime_retention_unavailable():
     reasons = runtime_status_degradation.collect_runtime_degradation_reasons(
         compute_queue=cast(

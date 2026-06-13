@@ -256,14 +256,13 @@ def runtime_status_from_component_statuses(
         return "draining"
     if durable_metadata_status != "ready":
         return durable_metadata_status
-    if (
-        compute_queue.status != "available"
-        or lineage_queue.status != "available"
-        or recovery_drill.status != "available"
-        or runtime_retention.status != "available"
-    ):
+    if has_unavailable_runtime_component(compute_queue, lineage_queue, recovery_drill, runtime_retention):
         return "degraded"
     return "ready"
+
+
+def has_unavailable_runtime_component(*component_statuses: RuntimeDegradationReasonSource) -> bool:
+    return any(component_status.status != "available" for component_status in component_statuses)
 
 
 def collect_runtime_degradation_reasons(

@@ -32,37 +32,37 @@ must stay at `0`.
 | --- | ---: |
 | Max cyclomatic complexity | 7 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.15 |
+| Average maintainability index | 55.16 |
 
 ## Highest Cyclomatic Complexity
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `runtime_status_from_component_statuses` | function | `app/services/runtime_status_degradation.py:246` | 7 | B |
-| 2 | `_summarize_source_quality_observations` | function | `app/services/source_quality_evidence.py:65` | 7 | B |
-| 3 | `_source_quality_warnings` | function | `app/services/source_quality_evidence.py:109` | 7 | B |
-| 4 | `_summarize_currency_source` | function | `app/services/stateful_attribution_input_service.py:566` | 7 | B |
-| 5 | `_build_instruments_data` | function | `app/services/stateful_attribution_input_service.py:648` | 7 | B |
-| 6 | `_add_benchmark_group_row` | function | `app/services/stateful_attribution_input_service.py:753` | 7 | B |
-| 7 | `_benchmark_group_dimension_value` | function | `app/services/stateful_attribution_input_service.py:835` | 7 | B |
-| 8 | `_position_daily_point_market_values` | function | `app/services/stateful_attribution_input_service.py:886` | 7 | B |
-| 9 | `_split_position_cash_flows` | function | `app/services/stateful_attribution_input_service.py:948` | 7 | B |
-| 10 | `_component_price_series_from_response` | function | `app/services/stateful_benchmark_input_service.py:452` | 7 | B |
-| 11 | `_build_component_observations` | function | `app/services/stateful_benchmark_input_service.py:571` | 7 | B |
-| 12 | `_position_value_inputs` | function | `app/services/stateful_contribution_input_service.py:213` | 7 | B |
-| 13 | `_position_contract_meta_from_row` | function | `app/services/stateful_contribution_input_service.py:255` | 7 | B |
-| 14 | `_portfolio_identity_from_payload` | function | `app/services/stateful_input_service.py:1375` | 7 | B |
-| 15 | `_collect_stateful_mwr_cash_flows` | function | `app/services/stateful_mwr_input_service.py:200` | 7 | B |
-| 16 | `_source_mwr_cash_flow_component` | function | `app/services/stateful_mwr_input_service.py:279` | 7 | B |
-| 17 | `_has_single_currency_inputs` | function | `app/services/stateful_mwr_input_service.py:332` | 7 | B |
-| 18 | `split_position_cash_flows_in_value_basis` | function | `app/services/stateful_position_row_service.py:14` | 7 | B |
-| 19 | `_build_component_observations_from_price_points` | function | `app/services/stateless_benchmark_input_service.py:48` | 7 | B |
-| 20 | `_price_point_return_components` | function | `app/services/stateless_benchmark_input_service.py:143` | 7 | B |
-| 21 | `_benchmark_currency_state` | function | `app/services/twr_benchmark_supportability.py:124` | 7 | B |
-| 22 | `_twr_execution_window_benchmark_fields` | function | `app/services/twr_calculation_service.py:237` | 7 | B |
-| 23 | `calculate_twr_workflow` | function | `app/services/twr_calculation_service.py:258` | 7 | B |
-| 24 | `_resolve_twr_benchmark_source_input` | function | `app/services/twr_mode_service.py:464` | 7 | B |
-| 25 | `_calculate_total_return_from_reset_slice` | function | `app/services/twr_service.py:65` | 7 | B |
+| 1 | `_summarize_source_quality_observations` | function | `app/services/source_quality_evidence.py:65` | 7 | B |
+| 2 | `_source_quality_warnings` | function | `app/services/source_quality_evidence.py:109` | 7 | B |
+| 3 | `_summarize_currency_source` | function | `app/services/stateful_attribution_input_service.py:566` | 7 | B |
+| 4 | `_build_instruments_data` | function | `app/services/stateful_attribution_input_service.py:648` | 7 | B |
+| 5 | `_add_benchmark_group_row` | function | `app/services/stateful_attribution_input_service.py:753` | 7 | B |
+| 6 | `_benchmark_group_dimension_value` | function | `app/services/stateful_attribution_input_service.py:835` | 7 | B |
+| 7 | `_position_daily_point_market_values` | function | `app/services/stateful_attribution_input_service.py:886` | 7 | B |
+| 8 | `_split_position_cash_flows` | function | `app/services/stateful_attribution_input_service.py:948` | 7 | B |
+| 9 | `_component_price_series_from_response` | function | `app/services/stateful_benchmark_input_service.py:452` | 7 | B |
+| 10 | `_build_component_observations` | function | `app/services/stateful_benchmark_input_service.py:571` | 7 | B |
+| 11 | `_position_value_inputs` | function | `app/services/stateful_contribution_input_service.py:213` | 7 | B |
+| 12 | `_position_contract_meta_from_row` | function | `app/services/stateful_contribution_input_service.py:255` | 7 | B |
+| 13 | `_portfolio_identity_from_payload` | function | `app/services/stateful_input_service.py:1375` | 7 | B |
+| 14 | `_collect_stateful_mwr_cash_flows` | function | `app/services/stateful_mwr_input_service.py:200` | 7 | B |
+| 15 | `_source_mwr_cash_flow_component` | function | `app/services/stateful_mwr_input_service.py:279` | 7 | B |
+| 16 | `_has_single_currency_inputs` | function | `app/services/stateful_mwr_input_service.py:332` | 7 | B |
+| 17 | `split_position_cash_flows_in_value_basis` | function | `app/services/stateful_position_row_service.py:14` | 7 | B |
+| 18 | `_build_component_observations_from_price_points` | function | `app/services/stateless_benchmark_input_service.py:48` | 7 | B |
+| 19 | `_price_point_return_components` | function | `app/services/stateless_benchmark_input_service.py:143` | 7 | B |
+| 20 | `_benchmark_currency_state` | function | `app/services/twr_benchmark_supportability.py:124` | 7 | B |
+| 21 | `_twr_execution_window_benchmark_fields` | function | `app/services/twr_calculation_service.py:237` | 7 | B |
+| 22 | `calculate_twr_workflow` | function | `app/services/twr_calculation_service.py:258` | 7 | B |
+| 23 | `_resolve_twr_benchmark_source_input` | function | `app/services/twr_mode_service.py:464` | 7 | B |
+| 24 | `_calculate_total_return_from_reset_slice` | function | `app/services/twr_service.py:65` | 7 | B |
+| 25 | `_build_portfolio_breakdown_item` | function | `app/services/twr_service.py:547` | 7 | B |
 
 ## Lowest Maintainability Index
 
@@ -620,6 +620,9 @@ while preserving stateful resolution, execution identity updates, and override b
 `run_runtime_retention_cleanup` also dropped out after apply-preview and manual cooldown guard
 policy were moved into a dedicated helper while preserving replay, guard ordering, lease,
 execution, and response behavior.
+`runtime_status_from_component_statuses` also dropped out after runtime component availability
+selection was moved into a dedicated predicate while preserving draining and durable metadata
+precedence.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.
