@@ -154,3 +154,20 @@ def test_filter_history_entries_ignores_blank_expected_string_filters():
     )
 
     assert filtered == entries
+
+
+def test_filter_history_entries_ignores_none_expected_filters():
+    entries = [
+        _HistoryEntry(operator_id="ops-a", status="passed", generated_at_utc="2026-03-15T00:00:00Z"),
+        _HistoryEntry(operator_id="ops-b", status="failed", generated_at_utc="2026-03-15T12:00:00Z"),
+    ]
+
+    filtered = filter_history_entries(
+        entries,
+        exact_filters=((None, lambda entry: entry.operator_id),),
+        generated_after=None,
+        generated_before=None,
+        get_generated_at_utc=lambda entry: entry.generated_at_utc,
+    )
+
+    assert filtered == entries

@@ -76,6 +76,18 @@ def _build_residual_adjusted_position_timeseries(
     if not target_total_by_position:
         return []
 
+    adjusted_rows = _residual_adjusted_position_timeseries_rows(
+        period_slice_df,
+        target_total_by_position=target_total_by_position,
+    )
+    return _position_contribution_series_from_adjusted_rows(adjusted_rows)
+
+
+def _residual_adjusted_position_timeseries_rows(
+    period_slice_df: pd.DataFrame,
+    *,
+    target_total_by_position: dict[str, float],
+) -> list[dict[str, Any]]:
     adjusted_rows: list[dict[str, Any]] = []
     for position_id, position_slice in period_slice_df.sort_values(
         ["position_id", PortfolioColumns.PERF_DATE.value]
@@ -87,7 +99,12 @@ def _build_residual_adjusted_position_timeseries(
                 target_total=target_total_by_position.get(str(position_id), 0.0),
             )
         )
+    return adjusted_rows
 
+
+def _position_contribution_series_from_adjusted_rows(
+    adjusted_rows: list[dict[str, Any]],
+) -> list[PositionContributionSeries]:
     adjusted_df = pd.DataFrame(adjusted_rows)
     adjusted_series_by_position: list[PositionContributionSeries] = []
     for position_id, position_slice in adjusted_df.groupby("position_id", sort=True):

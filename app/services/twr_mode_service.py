@@ -6,16 +6,24 @@ from datetime import date
 from fastapi import HTTPException, status
 
 from app.core.config import Settings
-from app.models.benchmark_analytics_requests import BenchmarkInputMode, BenchmarkReturnSource, BenchmarkStatefulInput
+from app.models.benchmark_analytics_requests import (
+    BenchmarkInputMode,
+    BenchmarkReturnSource,
+    BenchmarkStatefulInput,
+    BenchmarkStatelessInput,
+)
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.models.requests import PerformanceRequest
-from app.models.twr_requests import TWRAnalyticsRequest, TWRInputMode
+from app.models.twr_requests import TWRAnalyticsRequest, TWRBenchmarkRequest, TWRInputMode
 from app.services.benchmark_assignment_service import resolve_benchmark_identity
 from app.services.execution_registry import execution_registry
 from app.services.execution_stage_names import EXECUTION_STAGE_NORMALIZATION, EXECUTION_STAGE_RETRIEVAL
 from app.services.portfolio_source_service import build_stateful_input_service
 from app.services.service_identity import LOTUS_PERFORMANCE_CONSUMER_SYSTEM
-from app.services.stateful_benchmark_input_service import build_stateful_benchmark_input
+from app.services.stateful_benchmark_input_service import (
+    StatefulBenchmarkNormalizedInput,
+    build_stateful_benchmark_input,
+)
 from app.services.stateful_input_service import StatefulInputService
 from app.services.stateful_performance_input_service import (
     StatefulPortfolioInput,
@@ -63,6 +71,12 @@ class _TWRNormalizationResolution:
     normalization_details: dict[str, object]
 
 
+@dataclass(frozen=True)
+class _ResolvedTWRPerformanceInput:
+    performance_request: PerformanceRequest
+    input_mode: TWRInputMode
+
+
 async def resolve_twr_request(
     request: TWRAnalyticsRequest,
     *,
@@ -105,7 +119,6 @@ async def resolve_twr_request(
 
     execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_NORMALIZATION)
     try:
-        benchmark_resolution = retrieval_resolution.benchmark_resolution
         normalization_resolution = _build_twr_normalization_resolution(
             request=request,
             retrieval_resolution=retrieval_resolution,
@@ -123,13 +136,60 @@ async def resolve_twr_request(
         )
         raise
 
-    resolved_input = normalization_resolution.resolved_input
-    benchmark_request = normalization_resolution.benchmark_request
+    return _build_resolved_twr_request(
+        request=request,
+        retrieval_resolution=retrieval_resolution,
+        normalization_resolution=normalization_resolution,
+    )
+
+
+def _build_resolved_twr_request(
+    *,
+    request: TWRAnalyticsRequest,
+    retrieval_resolution: _TWRRetrievalResolution,
+    normalization_resolution: _TWRNormalizationResolution,
+) -> ResolvedTWRRequest:
+    performance_input = _build_resolved_twr_performance_input(
+        request=request,
+        resolved_input=normalization_resolution.resolved_input,
+    )
+    return ResolvedTWRRequest(
+        performance_request=performance_input.performance_request,
+        input_mode=performance_input.input_mode,
+        benchmark_request=normalization_resolution.benchmark_request if _benchmark_requested(request) else None,
+        benchmark_input_mode=_get_requested_benchmark_mode(request),
+        resolved_benchmark_id=_resolved_twr_benchmark_id(
+            request=request,
+            benchmark_resolution=retrieval_resolution.benchmark_resolution,
+        ),
+    )
+
+
+def _resolved_twr_benchmark_id(
+    *,
+    request: TWRAnalyticsRequest,
+    benchmark_resolution: _ResolvedTWRBenchmarkSourceInput | None,
+) -> str | None:
+    if not _benchmark_requested(request):
+        return None
+    if benchmark_resolution is not None:
+        return benchmark_resolution.benchmark_id
+    return _get_requested_benchmark_id(request)
+
+
+def _build_resolved_twr_performance_input(
+    *,
+    request: TWRAnalyticsRequest,
+    resolved_input: StatefulPortfolioValuationInput | None,
+) -> _ResolvedTWRPerformanceInput:
     if resolved_input is None:
-        performance_request = request.to_stateless_performance_request()
-        input_mode = TWRInputMode.STATELESS
-    else:
-        performance_request = PerformanceRequest.model_validate(
+        return _ResolvedTWRPerformanceInput(
+            performance_request=request.to_stateless_performance_request(),
+            input_mode=TWRInputMode.STATELESS,
+        )
+
+    return _ResolvedTWRPerformanceInput(
+        performance_request=PerformanceRequest.model_validate(
             {
                 **request.model_dump(
                     exclude={
@@ -146,21 +206,8 @@ async def resolve_twr_request(
                 "valuation_points": resolved_input.valuation_points,
                 "source_quality_evidence": resolved_input.source_quality_evidence,
             }
-        )
-        input_mode = TWRInputMode.STATEFUL
-
-    return ResolvedTWRRequest(
-        performance_request=performance_request,
-        input_mode=input_mode,
-        benchmark_request=benchmark_request if _benchmark_requested(request) else None,
-        benchmark_input_mode=_get_requested_benchmark_mode(request),
-        resolved_benchmark_id=(
-            benchmark_resolution.benchmark_id
-            if benchmark_resolution is not None
-            else _get_requested_benchmark_id(request)
-            if _benchmark_requested(request)
-            else None
         ),
+        input_mode=TWRInputMode.STATEFUL,
     )
 
 
@@ -289,14 +336,37 @@ async def _resolve_twr_portfolio_source_input(
     )
 
 
+@dataclass(frozen=True)
+class _StatelessTWRBenchmarkInput:
+    benchmark_id: str
+    stateless_input: BenchmarkStatelessInput
+    return_source: BenchmarkReturnSource
+
+
 def _resolve_stateless_twr_benchmark_request(
     request: TWRAnalyticsRequest,
     *,
     benchmark_start_date=None,
 ) -> BenchmarkPerformanceRequest | None:
-    benchmark = request.benchmark
-    if not _benchmark_requested(request) or _get_requested_benchmark_mode(request) != BenchmarkInputMode.STATELESS:
+    if not _stateless_twr_benchmark_requested(request):
         return None
+    benchmark_input = _resolve_stateless_twr_benchmark_input(request.benchmark)
+    return BenchmarkPerformanceRequest.model_validate(
+        _build_stateless_twr_benchmark_request_payload(
+            request=request,
+            benchmark_input=benchmark_input,
+            benchmark_start_date=benchmark_start_date,
+        )
+    )
+
+
+def _stateless_twr_benchmark_requested(request: TWRAnalyticsRequest) -> bool:
+    return _benchmark_requested(request) and _get_requested_benchmark_mode(request) == BenchmarkInputMode.STATELESS
+
+
+def _resolve_stateless_twr_benchmark_input(
+    benchmark: TWRBenchmarkRequest | None,
+) -> _StatelessTWRBenchmarkInput:
     if benchmark is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -308,33 +378,50 @@ def _resolve_stateless_twr_benchmark_request(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="benchmark stateless mode requires benchmark_id and stateless_input.",
         )
-    return BenchmarkPerformanceRequest.model_validate(
-        {
-            "calculation_id": request.calculation_id,
-            "benchmark_id": benchmark.benchmark_id,
-            "benchmark_start_date": benchmark_start_date or request.performance_start_date,
-            "report_start_date": request.report_start_date,
-            "report_end_date": request.report_end_date,
-            "analyses": [analysis.model_dump(mode="python") for analysis in request.analyses],
-            "return_source": benchmark.return_source.value,
-            "benchmark_currency": stateless_input.benchmark_currency,
-            "component_observations": (
-                normalize_stateless_component_observations(
-                    benchmark_currency=stateless_input.benchmark_currency,
-                    stateless_input=stateless_input,
-                )
-                if benchmark.return_source == BenchmarkReturnSource.CALCULATED
-                else []
-            ),
-            "benchmark_return_points": [
-                point.model_dump(mode="python") for point in stateless_input.benchmark_return_points
-            ],
-            "precision_mode": request.precision_mode,
-            "rounding_precision": request.rounding_precision,
-            "calendar": request.calendar.model_dump(mode="python"),
-            "annualization": request.annualization.model_dump(mode="python"),
-            "output": request.output.model_dump(mode="python"),
-        }
+    return _StatelessTWRBenchmarkInput(
+        benchmark_id=benchmark.benchmark_id,
+        stateless_input=stateless_input,
+        return_source=benchmark.return_source,
+    )
+
+
+def _build_stateless_twr_benchmark_request_payload(
+    *,
+    request: TWRAnalyticsRequest,
+    benchmark_input: _StatelessTWRBenchmarkInput,
+    benchmark_start_date,
+) -> dict[str, object]:
+    stateless_input = benchmark_input.stateless_input
+    return {
+        "calculation_id": request.calculation_id,
+        "benchmark_id": benchmark_input.benchmark_id,
+        "benchmark_start_date": benchmark_start_date or request.performance_start_date,
+        "report_start_date": request.report_start_date,
+        "report_end_date": request.report_end_date,
+        "analyses": [analysis.model_dump(mode="python") for analysis in request.analyses],
+        "return_source": benchmark_input.return_source.value,
+        "benchmark_currency": stateless_input.benchmark_currency,
+        "component_observations": _stateless_twr_component_observations(benchmark_input),
+        "benchmark_return_points": [
+            point.model_dump(mode="python") for point in stateless_input.benchmark_return_points
+        ],
+        "precision_mode": request.precision_mode,
+        "rounding_precision": request.rounding_precision,
+        "calendar": request.calendar.model_dump(mode="python"),
+        "annualization": request.annualization.model_dump(mode="python"),
+        "output": request.output.model_dump(mode="python"),
+    }
+
+
+def _stateless_twr_component_observations(
+    benchmark_input: _StatelessTWRBenchmarkInput,
+) -> list[dict[str, object]]:
+    if benchmark_input.return_source != BenchmarkReturnSource.CALCULATED:
+        return []
+    stateless_input = benchmark_input.stateless_input
+    return normalize_stateless_component_observations(
+        benchmark_currency=stateless_input.benchmark_currency,
+        stateless_input=stateless_input,
     )
 
 
@@ -405,10 +492,30 @@ async def _resolve_twr_benchmark_source_input(
         return_source=_get_requested_benchmark_return_source(request),
     )
     source_details = {**identity.source_details, **normalized_input.source_details}
-    benchmark_request = BenchmarkPerformanceRequest.model_validate(
+    benchmark_request = _build_stateful_twr_benchmark_request(
+        request=request,
+        benchmark_id=identity.benchmark_id,
+        benchmark_start_date=benchmark_start_date,
+        normalized_input=normalized_input,
+    )
+    return _ResolvedTWRBenchmarkSourceInput(
+        benchmark_id=identity.benchmark_id,
+        benchmark_request=benchmark_request,
+        source_details={key: int(value) for key, value in source_details.items()},
+    )
+
+
+def _build_stateful_twr_benchmark_request(
+    *,
+    request: TWRAnalyticsRequest,
+    benchmark_id: str,
+    benchmark_start_date,
+    normalized_input: StatefulBenchmarkNormalizedInput,
+) -> BenchmarkPerformanceRequest:
+    return BenchmarkPerformanceRequest.model_validate(
         {
             "calculation_id": request.calculation_id,
-            "benchmark_id": identity.benchmark_id,
+            "benchmark_id": benchmark_id,
             "benchmark_start_date": benchmark_start_date,
             "report_start_date": request.report_start_date,
             "report_end_date": request.report_end_date,
@@ -427,11 +534,6 @@ async def _resolve_twr_benchmark_source_input(
             "annualization": request.annualization.model_dump(mode="python"),
             "output": request.output.model_dump(mode="python"),
         }
-    )
-    return _ResolvedTWRBenchmarkSourceInput(
-        benchmark_id=identity.benchmark_id,
-        benchmark_request=benchmark_request,
-        source_details={key: int(value) for key, value in source_details.items()},
     )
 
 

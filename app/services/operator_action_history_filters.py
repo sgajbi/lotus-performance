@@ -84,15 +84,7 @@ def filter_history_entries(
     generated_before: str | None,
     get_generated_at_utc: Callable[[HistoryEntryT], str],
 ) -> list[HistoryEntryT]:
-    filtered = entries
-    for expected_value, read_value in exact_filters:
-        normalized_expected = (
-            normalize_optional_evidence_identifier(expected_value)
-            if isinstance(expected_value, str)
-            else expected_value
-        )
-        if isinstance(normalized_expected, str):
-            filtered = [entry for entry in filtered if read_value(entry) == normalized_expected]
+    filtered = _apply_exact_history_filters(entries, exact_filters=exact_filters)
 
     generated_at_bounds = parse_generated_at_bounds(
         generated_after=generated_after,
@@ -105,3 +97,22 @@ def filter_history_entries(
             if generated_at_within_bounds(get_generated_at_utc(entry), bounds=generated_at_bounds)
         ]
     return filtered
+
+
+def _apply_exact_history_filters(
+    entries: list[HistoryEntryT],
+    *,
+    exact_filters: tuple[HistoryExactFilter[HistoryEntryT], ...],
+) -> list[HistoryEntryT]:
+    filtered = entries
+    for expected_value, read_value in exact_filters:
+        normalized_expected = _normalize_exact_history_filter(expected_value)
+        if isinstance(normalized_expected, str):
+            filtered = [entry for entry in filtered if read_value(entry) == normalized_expected]
+    return filtered
+
+
+def _normalize_exact_history_filter(value: str | None) -> str | None:
+    if not isinstance(value, str):
+        return None
+    return normalize_optional_evidence_identifier(value)

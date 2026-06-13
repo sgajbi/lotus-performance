@@ -10,6 +10,7 @@ from app.services.operator_action_lease_service import (
     OPERATOR_ACTION_LEASE_INVALID_REASON,
     OPERATOR_ACTION_RECLAIM_EVENT_INVALID_REASON,
     OPERATOR_ACTION_RECLAIM_HISTORY_INVALID_REASON,
+    ActiveOperatorActionLease,
     OperatorActionLeaseMetadata,
     _has_valid_reclaimed_event_fields,
     _parse_reclaimed_event_payload,
@@ -480,6 +481,27 @@ def test_read_active_operator_action_lease_rejects_invalid_payload_shapes(tmp_pa
     lock_path.write_text(json.dumps(payload), encoding="utf-8")
 
     assert _read_active_operator_action_lease(lock_path=lock_path).__class__.__name__ == "_InvalidLease"
+
+
+def test_read_active_operator_action_lease_accepts_absent_optional_tenant(tmp_path):
+    lock_path = tmp_path / "recovery.lock"
+    lock_path.write_text(
+        json.dumps(
+            {
+                "action_name": "recovery_drill",
+                "operator_id": "ops-user",
+                "governed_target": "backup-123",
+                "acquired_at_utc": "2026-03-15T00:00:00Z",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    lease = _read_active_operator_action_lease(lock_path=lock_path)
+
+    assert isinstance(lease, ActiveOperatorActionLease)
+    assert lease.tenant_id is None
+    assert lease.action_key == "recovery"
 
 
 def test_build_operator_action_lease_snapshot_reports_unreadable_directory(monkeypatch, tmp_path):

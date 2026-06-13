@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -197,37 +199,42 @@ class AttributionAnalyticsRequest(AttributionRequest):
         if not resolved_input.benchmark_groups_data:
             raise ValueError("No stateless benchmark_groups_data are available to build an AttributionRequest")
 
-        payload = self.model_dump(
-            exclude={
-                "input_mode",
-                "stateless_input",
-                "stateful_input",
-                "portfolio_data",
-                "instruments_data",
-                "portfolio_groups_data",
-                "benchmark_groups_data",
-            },
-            mode="python",
-        )
-        payload["portfolio_data"] = (
-            resolved_input.portfolio_data.model_dump(mode="python")
-            if resolved_input.portfolio_data is not None
-            else None
-        )
-        payload["instruments_data"] = (
-            [instrument.model_dump(mode="python") for instrument in resolved_input.instruments_data]
-            if resolved_input.instruments_data is not None
-            else None
-        )
-        payload["portfolio_groups_data"] = (
-            [group.model_dump(mode="python") for group in resolved_input.portfolio_groups_data]
-            if resolved_input.portfolio_groups_data is not None
-            else None
-        )
-        payload["benchmark_groups_data"] = [
-            group.model_dump(mode="python") for group in resolved_input.benchmark_groups_data
-        ]
+        payload = _attribution_request_payload(request=self, resolved_input=resolved_input)
         return AttributionRequest.model_validate(payload)
+
+
+def _attribution_request_payload(
+    *,
+    request: AttributionAnalyticsRequest,
+    resolved_input: _ResolvedAttributionStatelessInput,
+) -> dict[str, object]:
+    payload = request.model_dump(
+        exclude={
+            "input_mode",
+            "stateless_input",
+            "stateful_input",
+            "portfolio_data",
+            "instruments_data",
+            "portfolio_groups_data",
+            "benchmark_groups_data",
+        },
+        mode="python",
+    )
+    payload["portfolio_data"] = _model_payload_or_none(resolved_input.portfolio_data)
+    payload["instruments_data"] = _model_list_payload_or_none(resolved_input.instruments_data)
+    payload["portfolio_groups_data"] = _model_list_payload_or_none(resolved_input.portfolio_groups_data)
+    payload["benchmark_groups_data"] = _model_list_payload_or_none(resolved_input.benchmark_groups_data) or []
+    return payload
+
+
+def _model_payload_or_none(model: BaseModel | None) -> dict[str, Any] | None:
+    return model.model_dump(mode="python") if model is not None else None
+
+
+def _model_list_payload_or_none(models: Sequence[BaseModel] | None) -> list[dict[str, Any]] | None:
+    if models is None:
+        return None
+    return [model.model_dump(mode="python") for model in models]
 
 
 def _resolve_attribution_stateless_input(

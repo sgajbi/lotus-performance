@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
-Report date: 2026-06-08
-Branch: `refactor/lp-cr-796-position-meta-helper`
+Report date: 2026-06-13
+Branch: `refactor/lp-cr-845-benchmark-request-resolution`
 Mode: report-only complexity and maintainability inventory; no blocking CI gate is introduced by this artifact.
 
 ## Purpose
@@ -13,41 +13,46 @@ turning the first measurement into a premature merge blocker.
 ## Command
 
 ```powershell
-python scripts/python_complexity_inventory.py --limit 20
+python scripts/python_complexity_inventory.py --limit 25
 ```
 
 ## Summary
 
 | Metric | Value |
 | --- | ---: |
-| Max cyclomatic complexity | 10 |
+| Max cyclomatic complexity | 8 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.54 |
+| Average maintainability index | 55.20 |
 
 ## Highest Cyclomatic Complexity
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `resolve_benchmark_request` | function | `app/services/benchmark_mode_service.py:29` | 10 | B |
-| 2 | `_queue_stats_from_aggregate_row` | function | `app/services/compute_job_store.py:150` | 10 | B |
-| 3 | `calculate_contribution` | function | `app/services/contribution_service.py:421` | 10 | B |
-| 4 | `generate_twr_inspection_support_brief` | function | `app/services/inspection/support_brief_workflow_pack.py:27` | 10 | B |
-| 5 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:71` | 10 | B |
-| 6 | `_build_twr_inspection_response` | function | `app/services/inspection/twr_inspection_service.py:225` | 10 | B |
-| 7 | `period_start` | function | `app/services/returns_series_service.py:143` | 10 | B |
-| 8 | `_persist_evidence_history` | function | `app/services/runtime_retention_execution_service.py:139` | 10 | B |
-| 9 | `build_portfolio_source_quality_evidence` | function | `app/services/source_quality_evidence.py:13` | 10 | B |
-| 10 | `_validate_stateful_both_currency_support` | function | `app/services/stateful_attribution_input_service.py:956` | 10 | B |
-| 11 | `_validate_stateful_both_currency_support` | function | `app/services/stateful_contribution_input_service.py:274` | 10 | B |
-| 12 | `_merge_component_series` | method | `app/services/stateful_input_service.py:1086` | 10 | B |
-| 13 | `_benchmark_currency_state` | function | `app/services/twr_benchmark_supportability.py:79` | 10 | B |
-| 14 | `calculate_twr_workflow` | function | `app/services/twr_calculation_service.py:250` | 10 | B |
-| 15 | `resolve_twr_request` | function | `app/services/twr_mode_service.py:66` | 10 | B |
-| 16 | `_resolve_stateless_twr_benchmark_request` | function | `app/services/twr_mode_service.py:292` | 10 | B |
-| 17 | `_resolve_twr_benchmark_source_input` | function | `app/services/twr_mode_service.py:377` | 10 | B |
-| 18 | `_iter_frequency_windows` | function | `app/services/twr_service.py:443` | 10 | B |
-| 19 | `_build_portfolio_breakdowns` | function | `app/services/twr_service.py:489` | 10 | B |
-| 20 | `_build_twr_results_by_period` | function | `app/services/twr_service.py:683` | 10 | B |
+| 1 | `_cash_flow_type_counts` | function | `app/services/contribution_source_economics.py:180` | 8 | B |
+| 2 | `_collect_position_continuity_gap_samples` | function | `app/services/inspection/reconciliation.py:500` | 8 | B |
+| 3 | `_row_has_transition_activity` | function | `app/services/inspection/reconciliation.py:563` | 8 | B |
+| 4 | `_sum_detailed_cash_flows` | function | `app/services/inspection/source_economics.py:542` | 8 | B |
+| 5 | `_record_fee_source_signals` | method | `app/services/inspection/source_economics_collector.py:196` | 8 | B |
+| 6 | `run_source_quality_checks` | function | `app/services/inspection/source_quality.py:91` | 8 | B |
+| 7 | `_inspection_timing` | method | `app/services/lineage_metadata_store.py:1163` | 8 | B |
+| 8 | `calculate_mwr_response` | function | `app/services/mwr_calculation_service.py:152` | 8 | B |
+| 9 | `_validate_component` | function | `app/services/mwr_fx_evidence_service.py:195` | 8 | B |
+| 10 | `build_applied_history_filters` | function | `app/services/operator_action_history_filters.py:55` | 8 | B |
+| 11 | `_has_valid_reclaimed_event_fields` | function | `app/services/operator_action_lease_service.py:486` | 8 | B |
+| 12 | `_build_resolved_stateful_returns_series_request` | function | `app/services/returns_series_service.py:801` | 8 | B |
+| 13 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:1407` | 8 | B |
+| 14 | `runtime_retention_preview_fields` | function | `app/services/runtime_status_retention_preview.py:13` | 8 | B |
+| 15 | `classify_cashflow_type` | function | `app/services/source_cashflow_taxonomy.py:45` | 8 | B |
+| 16 | `_summarize_position_classification` | function | `app/services/stateful_attribution_input_service.py:474` | 8 | B |
+| 17 | `_validate_stateful_position_inception_support` | function | `app/services/stateful_attribution_input_service.py:590` | 8 | B |
+| 18 | `_build_group_key` | function | `app/services/stateful_attribution_input_service.py:800` | 8 | B |
+| 19 | `_position_row_to_daily_point` | function | `app/services/stateful_attribution_input_service.py:825` | 8 | B |
+| 20 | `_position_meta_from_row` | function | `app/services/stateful_attribution_input_service.py:925` | 8 | B |
+| 21 | `_normalized_position_dimensions` | function | `app/services/stateful_attribution_input_service.py:947` | 8 | B |
+| 22 | `_build_stateful_vendor_series_input` | function | `app/services/stateful_benchmark_input_service.py:176` | 8 | B |
+| 23 | `_parse_composition_segment` | function | `app/services/stateful_benchmark_input_service.py:314` | 8 | B |
+| 24 | `_load_fx_maps_for_components` | function | `app/services/stateful_benchmark_input_service.py:464` | 8 | B |
+| 25 | `_component_observation_prices` | function | `app/services/stateful_benchmark_input_service.py:603` | 8 | B |
 
 ## Lowest Maintainability Index
 
@@ -58,21 +63,26 @@ python scripts/python_complexity_inventory.py --limit 20
 | 3 | `app/services/returns_series_service.py` | 0.00 | C |
 | 4 | `app/services/stateful_attribution_input_service.py` | 0.00 | C |
 | 5 | `app/services/stateful_input_service.py` | 0.00 | C |
-| 6 | `app/openapi_enrichment.py` | 4.13 | C |
-| 7 | `app/services/twr_service.py` | 7.03 | C |
-| 8 | `app/services/execution_registry.py` | 10.84 | B |
-| 9 | `app/services/workspace_summary_service.py` | 10.84 | B |
-| 10 | `app/services/stateful_benchmark_input_service.py` | 12.90 | B |
-| 11 | `engine/attribution.py` | 14.14 | B |
-| 12 | `app/services/operator_action_lease_service.py` | 15.95 | B |
-| 13 | `app/services/inspection/calculation_consistency.py` | 16.28 | B |
+| 6 | `app/openapi_enrichment.py` | 2.88 | C |
+| 7 | `app/services/twr_service.py` | 6.43 | C |
+| 8 | `app/services/workspace_summary_service.py` | 10.65 | B |
+| 9 | `app/services/execution_registry.py` | 10.84 | B |
+| 10 | `app/services/stateful_benchmark_input_service.py` | 12.26 | B |
+| 11 | `engine/attribution.py` | 13.95 | B |
+| 12 | `app/services/operator_action_lease_service.py` | 15.27 | B |
+| 13 | `app/services/inspection/calculation_consistency.py` | 16.16 | B |
 | 14 | `app/services/inspection/reconciliation.py` | 16.40 | B |
 | 15 | `app/services/inspection/source_economics_collector.py` | 17.35 | B |
 | 16 | `app/services/inspection/source_economics.py` | 17.49 | B |
 | 17 | `app/workers/compute_executor_worker.py` | 18.03 | B |
-| 18 | `app/services/inspection/source_quality.py` | 18.55 | B |
-| 19 | `app/services/twr_mode_service.py` | 19.64 | A |
+| 18 | `app/services/twr_mode_service.py` | 18.24 | B |
+| 19 | `app/services/inspection/source_quality.py` | 18.55 | B |
 | 20 | `app/models/runtime_status.py` | 19.85 | A |
+| 21 | `app/models/returns_series.py` | 20.36 | A |
+| 22 | `app/services/inspection/twr_inspection_service.py` | 20.47 | A |
+| 23 | `engine/composites.py` | 22.52 | A |
+| 24 | `app/services/stateful_mwr_input_service.py` | 22.63 | A |
+| 25 | `engine/mwr.py` | 23.41 | A |
 
 ## Interpretation
 
@@ -279,6 +289,146 @@ moved into a dedicated period-result helper.
 `calculate_benchmark_workflow` also dropped out after promoted stateful replay, sync registration,
 resolved stateful finalization, optional offload, and response calculation were moved into a
 dedicated workflow branch helper.
+`resolve_benchmark_request` also dropped out after stateless source-detail counting, input-count
+selection, calculated observation normalization, and final benchmark request projection were moved
+into a dedicated stateless resolver.
+`_resolve_stateless_twr_benchmark_request` also dropped out after stateless benchmark request
+eligibility, required stateless benchmark input selection, and vendor/calculated payload projection
+were moved into dedicated helpers.
+`_resolve_twr_benchmark_source_input` also dropped out after stateful benchmark engine-request
+projection was moved into a dedicated helper.
+`_iter_frequency_windows` also dropped out after daily grouping and resampled frequency-label
+selection were moved into dedicated helpers.
+`_build_portfolio_breakdowns` also dropped out after per-window portfolio breakdown item projection
+was moved into a dedicated helper.
+`_build_twr_results_by_period` also dropped out after portfolio period-block assembly and reset-event
+window filtering were moved into dedicated helpers.
+`_valuation_cashflow_totals` also dropped out after per-flow valuation cashflow total projection
+was moved into a dedicated helper.
+`workspace_longest_requested_window_days` also dropped out after since-inception default-window and
+assumed-start selection policy were moved into dedicated helpers.
+`_queue_stats_from_aggregate_row` also dropped out after aggregate-row count defaulting and numeric
+conversion were moved into a dedicated mapper helper.
+`calculate_contribution` also dropped out after hierarchy-period slicing, position total
+construction, hierarchy response projection, smoothing evidence, and average-weight methodology
+status assembly were moved into a dedicated hierarchy-period result helper.
+`generate_twr_inspection_support_brief` also dropped out after lotus-ai response payload
+interpretation and workflow-pack run posture mapping were moved into a dedicated result mapper.
+`run_twr_inspection` also dropped out after subject request materialization and calculation
+consistency loading were moved into a dedicated subject-input resolver.
+`_build_twr_inspection_response` also dropped out after finding concatenation, failed-family
+evidence projection, no-check finding insertion, and pending-family calculation were moved into a
+dedicated finding-context helper.
+`validate_mode_fields` also dropped out after explicit and relative returns-window validation
+policy were moved into dedicated helpers.
+`_validate_returns_series_input_envelopes` also dropped out after stateless and stateful request
+envelope policy were moved into dedicated helpers.
+`JsonFormatter` also dropped out after structured log payload assembly and extra-field filtering
+were moved into dedicated helpers.
+`_build_schema_example` also dropped out after object and array structural example routing was
+moved into a dedicated schema-example helper.
+`_ensure_operation_documentation` also dropped out after OpenAPI path/method filtering was moved
+into a dedicated documentable-operation iterator.
+`_ensure_property_schema_documentation` also dropped out after Lotus semantic-id and canonical-term
+property metadata were moved into a dedicated vocabulary helper.
+`calculate_attribution_workflow` also dropped out after resolved stateful finalization and initial
+async submission policy were moved into dedicated workflow helpers.
+`calculate_attribution` dropped out of the top-25 table after attribution period resolution,
+empty-period rejection, master date span calculation, and master request projection were isolated
+from the public attribution calculation entrypoint.
+`_group_identity` also dropped out after generic classification group identity and issuer group
+identity projection were split into dedicated benchmark exposure context helpers.
+`reconcile_stale_jobs` also dropped out after stale row mutation and reconciled-record projection
+were isolated from the durable compute queue reconciliation query loop.
+`_to_record` also dropped out after invalid request/response payload status and error fallback
+policy was isolated from durable compute job record projection.
+`_rollout_posture_notes` also dropped out after rollout note presence checks were isolated from
+ordered reset-aware average-weight diagnostic note assembly.
+`_compare_return_values` also dropped out after comparative return mismatch detection was isolated
+from TWR inspection finding construction.
+`_build_detailed_cashflow_contract_findings` also dropped out after detailed cash-flow source
+contract finding definitions were moved into an explicit ordered catalog and the builder was reduced
+to catalog application.
+`filter_history_entries` also dropped out after exact-filter application and optional filter
+normalization were isolated from generated-at bound filtering.
+`validate_history_manifest_header` also dropped out after safe latest/retained manifest filename
+projection was isolated from retention-field and entry-list validation.
+`_read_active_operator_action_lease` also dropped out after active lease payload field validation
+was isolated from lock-file identity projection.
+`_runtime_retention_payload_identity_matches` also dropped out after required and optional
+runtime-retention replay identity comparisons were moved into explicit field catalogs.
+`parse_stateful_portfolio_timeseries_payload` also dropped out after observation normalization and
+optional string extraction were isolated from required open-date enforcement.
+`_build_price_point_observation` also dropped out after same-currency and cross-currency
+price-point return projection was isolated from observation construction.
+`build_twr_benchmark_supportability_evidence` also dropped out after calendar-alignment state,
+date deltas, and calendar warning-code projection were isolated from final evidence construction.
+`calculate_twr_workflow` also dropped out after resolved response finalization and final TWR
+response calculation were moved into a dedicated helper.
+`resolve_twr_request` also dropped out after final resolved request assembly and benchmark-id
+precedence were moved into dedicated helpers.
+`_build_workspace_summary_response` also dropped out after workspace summary diagnostics note
+assembly was moved into a dedicated helper.
+`_lineage_worker_runtime` also dropped out after repeated explicit-or-default runtime dependency
+selection was routed through a shared helper while preserving existing fallback semantics.
+`resolve_workspace_periods` also dropped out after explicit, since-inception, YTD, business-day,
+month, and year start-date policy was isolated from resolved-period response assembly.
+`_prepare_panel_from_groups` also dropped out after per-observation dict/model normalization,
+legacy return fallback, group-key projection, and return-presence tagging were isolated from panel
+assembly.
+`aggregate_attribution_results` also dropped out after hierarchy level totals, group context,
+group-result sorting, and response-level totals were isolated from supportability and currency
+attribution assembly.
+`_blocked_composite_period_result_for_invalid_ready_facts` also dropped out after invalid-ready
+blocked-result construction, single metadata selection, and aggregate reason-code projection were
+isolated from validation branch ordering.
+`_composite_period_fact_metadata` also dropped out after ready-member asset summation, sorted unique
+metadata collection, and excluded reason-code collection were routed through named helpers.
+`_flag_outliers` also dropped out after outlier diagnostic sample projection and threshold
+selection were isolated from policy eligibility and mask computation.
+`_compound_ror` also dropped out after period and reset-driven compounding block identity policy
+was isolated from growth-factor and cumulative-return arithmetic, reducing the measured maximum
+cyclomatic complexity from `9` to `8`.
+`_load_and_validate_manifest` also dropped out after durable-record manifest consistency checks
+were isolated from manifest file read and schema-validation error mapping.
+`to_stateless_attribution_request` also dropped out after final attribution request payload
+assembly and reusable optional model/list serialization were isolated from source resolution and
+request validation.
+`_resolve_mwr_stateless_input` also dropped out after complete explicit override detection and
+legacy payload resolution were isolated from nested stateless payload precedence and missing-input
+failure handling.
+`_validate_returns_series_stateless_selection_inputs` also dropped out after selected benchmark and
+risk-free stateless series requirements were routed through one reusable required-series helper.
+`WorkspaceBenchmarkRequest` also dropped out after stateless and stateful benchmark payload policy
+were split into dedicated workspace benchmark validators.
+`_explicit_schema_example` also dropped out after named OpenAPI example extraction was isolated
+from direct and list-form schema example precedence.
+`resolve_async_result` also dropped out after stored async-result resolution and active compute-job
+status policy were isolated from the durable compute-job fallback path.
+`AsyncResultStore.get_result` also dropped out after stored response payload state and record
+projection were isolated from the row lookup.
+`attribution_input_count` also dropped out after nested and legacy stateless input-count projection
+was routed through a dedicated helper while preserving stateful zero-count behavior.
+`calculate_attribution_workflow` also dropped out after promoted stateful replay and sync-window
+source-fingerprint reconstruction were isolated from the public attribution workflow orchestration.
+`_inspection_active_since` also dropped out after compute-job inspection timestamp precedence was
+routed through an explicit status-to-field policy and shared first-timestamp selector.
+`_compute_job_record_payload_state` also dropped out after invalid request/response payload
+fail-closed policy, stored/default error selection, and invalid-response detection were split into
+explicit helpers.
+`record_cutover_assessment` also dropped out after known average-weight rollout blocker counting
+was routed through an explicit reason-code-to-counter policy helper.
+`_calculate_reset_aware_average_weight_shadow` also dropped out after reset-aware valid portfolio
+day selection, reset-relative windowing, shadow-weight application, and delta metric projection
+were split into dedicated helpers.
+`_build_residual_adjusted_position_timeseries` also dropped out after residual-adjusted row
+construction and adjusted-row-to-response-series projection were split into dedicated helpers.
+`calculate_contribution` also dropped out after flat-vs-hierarchy period-result collection and
+average-weight residual max tracking were moved into a dedicated contribution period-results helper.
+`_contribution_smoothing_status_and_reasons` also dropped out after base smoothing status selection
+and residual/reconciliation reason-code projection were split into dedicated helpers.
+`_available_stateful_economics` also dropped out after cash-flow-derived and metadata-derived
+stateful source economics were split into dedicated helpers.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.

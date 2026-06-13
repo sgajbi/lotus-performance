@@ -78,6 +78,15 @@ class _LeaseSnapshotFailure:
     reason: str
 
 
+@dataclass(frozen=True)
+class _ActiveLeasePayloadFields:
+    action_name: str
+    operator_id: str
+    tenant_id: str | None
+    governed_target: str
+    acquired_at_utc: str
+
+
 def build_runtime_retention_action_key(
     *,
     operator_id: str,
@@ -288,6 +297,21 @@ def _read_active_operator_action_lease(*, lock_path: Path) -> ActiveOperatorActi
         return _INVALID_LEASE
     if not isinstance(payload, dict):
         return _INVALID_LEASE
+
+    fields = _active_lease_payload_fields(payload)
+    if isinstance(fields, _InvalidLease):
+        return _INVALID_LEASE
+    return ActiveOperatorActionLease(
+        action_key=lock_path.stem,
+        action_name=fields.action_name,
+        operator_id=fields.operator_id,
+        tenant_id=fields.tenant_id,
+        governed_target=fields.governed_target,
+        acquired_at_utc=fields.acquired_at_utc,
+    )
+
+
+def _active_lease_payload_fields(payload: dict[str, Any]) -> _ActiveLeasePayloadFields | _InvalidLease:
     action_name = payload.get("action_name")
     operator_id = payload.get("operator_id")
     tenant_id = payload.get("tenant_id")
@@ -312,8 +336,7 @@ def _read_active_operator_action_lease(*, lock_path: Path) -> ActiveOperatorActi
         parse_utc_datetime(acquired_at_utc_value)
     except ValueError:
         return _INVALID_LEASE
-    return ActiveOperatorActionLease(
-        action_key=lock_path.stem,
+    return _ActiveLeasePayloadFields(
         action_name=action_name_value,
         operator_id=operator_id_value,
         tenant_id=tenant_id_value,

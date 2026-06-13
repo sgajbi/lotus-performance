@@ -93,16 +93,23 @@ class WorkspaceTWRArtifacts:
 def workspace_longest_requested_window_days(request: WorkspaceSummaryRequest) -> int:
     if request.input_mode != TWRInputMode.STATEFUL:
         return 0
-    if any(period.period.value == "SI" for period in request.periods) and request.performance_start_date is None:
+    if _workspace_summary_requires_default_since_inception_window(request):
         return 10_000
-    assumed_start = request.performance_start_date or request.report_start_date or request.report_end_date
     resolved_periods = resolve_workspace_periods(
         [item.period for item in request.periods],
         as_of=request.report_end_date,
-        performance_start_date=assumed_start,
+        performance_start_date=_workspace_summary_assumed_start_date(request),
         explicit_start_date=request.report_start_date,
     )
     return max((period.end_date - period.start_date).days for period in resolved_periods) if resolved_periods else 0
+
+
+def _workspace_summary_requires_default_since_inception_window(request: WorkspaceSummaryRequest) -> bool:
+    return request.performance_start_date is None and any(period.period.value == "SI" for period in request.periods)
+
+
+def _workspace_summary_assumed_start_date(request: WorkspaceSummaryRequest) -> date:
+    return request.performance_start_date or request.report_start_date or request.report_end_date
 
 
 def calculate_workspace_summary(
@@ -325,39 +332,10 @@ def _resolve_workspace_benchmark_input(
         }
     )
     if benchmark.input_mode == BenchmarkInputMode.STATELESS:
-        if benchmark.stateless_input is None or benchmark.benchmark_id is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Stateless workspace benchmark requests require benchmark_id and stateless_input.",
-            )
-        resolved_request = BenchmarkPerformanceRequest.model_validate(
-            {
-                "calculation_id": request.calculation_id,
-                "benchmark_id": benchmark.benchmark_id,
-                "benchmark_start_date": master_start_date,
-                "report_end_date": request.report_end_date,
-                "return_source": benchmark.return_source.value,
-                "benchmark_currency": benchmark.stateless_input.benchmark_currency,
-                "component_observations": (
-                    normalize_stateless_component_observations(
-                        benchmark_currency=benchmark.stateless_input.benchmark_currency,
-                        stateless_input=benchmark.stateless_input,
-                    )
-                    if benchmark.return_source == BenchmarkReturnSource.CALCULATED
-                    else []
-                ),
-                "benchmark_return_points": [
-                    point.model_dump(mode="python") for point in benchmark.stateless_input.benchmark_return_points
-                ],
-                "analyses": [{"period": "EXPLICIT", "frequencies": ["daily"]}],
-                "report_start_date": master_start_date,
-            }
-        )
-        return ResolvedWorkspaceBenchmarkInput(
-            benchmark_request=resolved_request,
-            input_mode=BenchmarkInputMode.STATELESS,
-            benchmark_id=benchmark.benchmark_id,
-            source_details={},
+        return _build_stateless_workspace_benchmark_input(
+            request=request,
+            benchmark=benchmark,
+            master_start_date=master_start_date,
         )
 
     stateful_input_service = build_stateful_input_service(settings=settings)
@@ -407,6 +385,48 @@ def _resolve_workspace_benchmark_input(
         input_mode=BenchmarkInputMode.STATEFUL,
         benchmark_id=identity.benchmark_id,
         source_details=source_details,
+    )
+
+
+def _build_stateless_workspace_benchmark_input(
+    *,
+    request: WorkspaceSummaryRequest,
+    benchmark: WorkspaceBenchmarkRequest,
+    master_start_date: date,
+) -> ResolvedWorkspaceBenchmarkInput:
+    if benchmark.stateless_input is None or benchmark.benchmark_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Stateless workspace benchmark requests require benchmark_id and stateless_input.",
+        )
+    resolved_request = BenchmarkPerformanceRequest.model_validate(
+        {
+            "calculation_id": request.calculation_id,
+            "benchmark_id": benchmark.benchmark_id,
+            "benchmark_start_date": master_start_date,
+            "report_end_date": request.report_end_date,
+            "return_source": benchmark.return_source.value,
+            "benchmark_currency": benchmark.stateless_input.benchmark_currency,
+            "component_observations": (
+                normalize_stateless_component_observations(
+                    benchmark_currency=benchmark.stateless_input.benchmark_currency,
+                    stateless_input=benchmark.stateless_input,
+                )
+                if benchmark.return_source == BenchmarkReturnSource.CALCULATED
+                else []
+            ),
+            "benchmark_return_points": [
+                point.model_dump(mode="python") for point in benchmark.stateless_input.benchmark_return_points
+            ],
+            "analyses": [{"period": "EXPLICIT", "frequencies": ["daily"]}],
+            "report_start_date": master_start_date,
+        }
+    )
+    return ResolvedWorkspaceBenchmarkInput(
+        benchmark_request=resolved_request,
+        input_mode=BenchmarkInputMode.STATELESS,
+        benchmark_id=benchmark.benchmark_id,
+        source_details={},
     )
 
 
@@ -560,15 +580,12 @@ def _build_workspace_summary_response(
             ),
         )
 
-    diagnostics_notes = list(net_artifacts.diagnostics.notes)
-    if benchmark_input is not None:
-        diagnostics_notes.append(
-            f"Benchmark summary uses {benchmark_input.input_mode.value} benchmark input with {benchmark_input.benchmark_request.return_source} returns."
-        )
-
     diagnostics = Diagnostics(
         **net_artifacts.diagnostics.model_dump(mode="python", exclude={"notes"}),
-        notes=diagnostics_notes,
+        notes=_workspace_summary_diagnostics_notes(
+            diagnostics=net_artifacts.diagnostics,
+            benchmark_input=benchmark_input,
+        ),
     )
     return WorkspaceSummaryResponse(
         calculation_id=request.calculation_id,
@@ -601,6 +618,19 @@ def _build_workspace_summary_response(
             }
         ),
     )
+
+
+def _workspace_summary_diagnostics_notes(
+    *,
+    diagnostics: Diagnostics,
+    benchmark_input: ResolvedWorkspaceBenchmarkInput | None,
+) -> list[str]:
+    notes = list(diagnostics.notes)
+    if benchmark_input is not None:
+        notes.append(
+            f"Benchmark summary uses {benchmark_input.input_mode.value} benchmark input with {benchmark_input.benchmark_request.return_source} returns."
+        )
+    return notes
 
 
 def _build_workspace_benchmark_and_active_blocks(

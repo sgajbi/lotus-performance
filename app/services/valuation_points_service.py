@@ -44,18 +44,27 @@ def _valuation_cashflow_totals(cash_flows: object) -> tuple[Decimal, Decimal, De
     if not isinstance(cash_flows, list):
         return bod_cf, eod_cf, mgmt_fees
     for flow in cash_flows:
-        if not isinstance(flow, dict):
-            continue
-        amount = flow.get("amount")
-        timing = flow.get("timing")
-        if amount is None or timing not in {"bod", "eod"}:
-            continue
-        decimal_amount = Decimal(str(amount))
-        economics_role = classify_cashflow_type(flow.get("cash_flow_type")).economics_role
-        if economics_role == "fee":
-            mgmt_fees += decimal_amount
-        elif economics_role != "unsupported" and timing == "bod":
-            bod_cf += decimal_amount
-        elif economics_role != "unsupported":
-            eod_cf += decimal_amount
+        bod_delta, eod_delta, fee_delta = _valuation_cashflow_total_component(flow)
+        bod_cf += bod_delta
+        eod_cf += eod_delta
+        mgmt_fees += fee_delta
     return bod_cf, eod_cf, mgmt_fees
+
+
+def _valuation_cashflow_total_component(flow: object) -> tuple[Decimal, Decimal, Decimal]:
+    zero = Decimal("0")
+    if not isinstance(flow, dict):
+        return zero, zero, zero
+    amount = flow.get("amount")
+    timing = flow.get("timing")
+    if amount is None or timing not in {"bod", "eod"}:
+        return zero, zero, zero
+    decimal_amount = Decimal(str(amount))
+    economics_role = classify_cashflow_type(flow.get("cash_flow_type")).economics_role
+    if economics_role == "fee":
+        return zero, zero, decimal_amount
+    if economics_role == "unsupported":
+        return zero, zero, zero
+    if timing == "bod":
+        return decimal_amount, zero, zero
+    return zero, decimal_amount, zero

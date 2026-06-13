@@ -335,37 +335,11 @@ def build_hierarchical_contribution_result(
     metadata_cols = list(dict.fromkeys(temp_meta_cols))
     unique_meta = daily_contributions_df[metadata_cols].drop_duplicates()
     aggregated_df = pd.merge(totals, unique_meta, on="position_id")
-
-    response_levels = []
-    for i, level_name in enumerate(hierarchy):
-        level_keys = hierarchy[: i + 1]
-        level_agg = (
-            aggregated_df.groupby(level_keys)
-            .agg(
-                contribution=("contribution", "sum"),
-                local_contribution=("local_contribution", "sum"),
-                fx_contribution=("fx_contribution", "sum"),
-                weight_avg=("weight_avg", "sum"),
-            )
-            .reset_index()
-        )
-
-        rows = []
-        for _, row in level_agg.iterrows():
-            key_dict = {key: row[key] for key in level_keys}
-            row_data = {
-                "key": key_dict,
-                "contribution": row["contribution"] * 100,
-                "weight_avg": row["weight_avg"] * 100,
-            }
-            if request.currency_mode == "BOTH":
-                row_data["local_contribution"] = row["local_contribution"] * 100
-                row_data["fx_contribution"] = row["fx_contribution"] * 100
-            rows.append(row_data)
-
-        response_levels.append(
-            {"level": i + 1, "name": level_name, "parent": hierarchy[i - 1] if i > 0 else None, "rows": rows}
-        )
+    response_levels = _build_hierarchical_response_levels(
+        aggregated_df=aggregated_df,
+        hierarchy=hierarchy,
+        currency_mode=request.currency_mode,
+    )
 
     portfolio_contribution = aggregated_df["contribution"].sum()
     summary = {
@@ -378,6 +352,56 @@ def build_hierarchical_contribution_result(
         summary["fx_contribution"] = aggregated_df["fx_contribution"].sum() * 100
 
     return {"summary": summary, "levels": response_levels}
+
+
+def _build_hierarchical_response_levels(
+    *,
+    aggregated_df: pd.DataFrame,
+    hierarchy: list[str],
+    currency_mode: str,
+) -> list[dict[str, Any]]:
+    response_levels = []
+    for index, level_name in enumerate(hierarchy):
+        level_keys = hierarchy[: index + 1]
+        level_agg = (
+            aggregated_df.groupby(level_keys)
+            .agg(
+                contribution=("contribution", "sum"),
+                local_contribution=("local_contribution", "sum"),
+                fx_contribution=("fx_contribution", "sum"),
+                weight_avg=("weight_avg", "sum"),
+            )
+            .reset_index()
+        )
+        response_levels.append(
+            {
+                "level": index + 1,
+                "name": level_name,
+                "parent": hierarchy[index - 1] if index > 0 else None,
+                "rows": [
+                    _hierarchical_response_row(row, level_keys=level_keys, currency_mode=currency_mode)
+                    for _, row in level_agg.iterrows()
+                ],
+            }
+        )
+    return response_levels
+
+
+def _hierarchical_response_row(
+    row: pd.Series,
+    *,
+    level_keys: list[str],
+    currency_mode: str,
+) -> dict[str, Any]:
+    row_data = {
+        "key": {key: row[key] for key in level_keys},
+        "contribution": row["contribution"] * 100,
+        "weight_avg": row["weight_avg"] * 100,
+    }
+    if currency_mode == "BOTH":
+        row_data["local_contribution"] = row["local_contribution"] * 100
+        row_data["fx_contribution"] = row["fx_contribution"] * 100
+    return row_data
 
 
 def _apply_carino_residual_allocation(

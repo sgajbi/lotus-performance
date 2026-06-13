@@ -24,6 +24,22 @@ RUNTIME_RETENTION_ARTIFACT_DIRECTORY_MISSING_REASON = "runtime_retention_artifac
 RUNTIME_RETENTION_MANIFEST_INVALID_REASON = "runtime_retention_manifest_invalid"
 RUNTIME_RETENTION_MANIFEST_MISSING_REASON = "runtime_retention_manifest_missing"
 RUNTIME_RETENTION_MANIFEST_UNREADABLE_REASON = "runtime_retention_manifest_unreadable"
+_RUNTIME_RETENTION_ENTRY_STR_KEYS = (
+    "evidence_file_name",
+    "generated_at_utc",
+    "operator_id",
+    "cleanup_mode",
+    "status",
+)
+_RUNTIME_RETENTION_ENTRY_OPTIONAL_STR_KEYS = ("tenant_id", "correlation_id", "job_id")
+_RUNTIME_RETENTION_ENTRY_INT_KEYS = (
+    "retention_days",
+    "prunable_execution_count",
+    "prunable_compute_job_count",
+    "prunable_async_result_count",
+    "prunable_lineage_record_count",
+    "prunable_lineage_artifact_count",
+)
 RUNTIME_RETENTION_MANIFEST_READ_REASONS = HistoryManifestReadReasons(
     directory_missing=RUNTIME_RETENTION_ARTIFACT_DIRECTORY_MISSING_REASON,
     manifest_missing=RUNTIME_RETENTION_MANIFEST_MISSING_REASON,
@@ -194,39 +210,40 @@ def _unavailable_snapshot(
     )
 
 
-def _validate_manifest_entry(entry: Any) -> dict[str, str | int | None] | None:
-    if not isinstance(entry, dict):
-        return None
-    str_keys = ("evidence_file_name", "generated_at_utc", "operator_id", "cleanup_mode", "status")
-    int_keys = (
-        "retention_days",
-        "prunable_execution_count",
-        "prunable_compute_job_count",
-        "prunable_async_result_count",
-        "prunable_lineage_record_count",
-        "prunable_lineage_artifact_count",
-    )
-    trigger_mode = entry.get("trigger_mode", "manual")
+def _runtime_retention_entry_strings(entry: dict[str, Any]) -> tuple[dict[str, str | None], str] | None:
     entry_strings = validate_history_entry_strings(
         entry,
-        required_keys=str_keys,
-        optional_keys=("tenant_id", "correlation_id", "job_id"),
+        required_keys=_RUNTIME_RETENTION_ENTRY_STR_KEYS,
+        optional_keys=_RUNTIME_RETENTION_ENTRY_OPTIONAL_STR_KEYS,
     )
     if entry_strings is None:
         return None
     if validate_history_entry_generated_at_utc(entry_strings) is None:
         return None
+    trigger_mode = entry.get("trigger_mode", "manual")
     if not isinstance(trigger_mode, str):
         return None
     trigger_mode = trigger_mode.strip()
     if not trigger_mode:
         return None
+    return entry_strings, trigger_mode
+
+
+def _validate_manifest_entry(entry: Any) -> dict[str, str | int | None] | None:
+    if not isinstance(entry, dict):
+        return None
+    entry_fields = _runtime_retention_entry_strings(entry)
+    if entry_fields is None:
+        return None
+    entry_strings, trigger_mode = entry_fields
     job_id = entry_strings["job_id"]
-    if not required_evidence_int_fields_present(entry, int_keys):
+    if not required_evidence_int_fields_present(entry, _RUNTIME_RETENTION_ENTRY_INT_KEYS):
         return None
 
-    validated_entry: dict[str, str | int | None] = {key: entry_strings[key] for key in str_keys}
-    validated_entry.update({key: entry[key] for key in int_keys})
+    validated_entry: dict[str, str | int | None] = {
+        key: entry_strings[key] for key in _RUNTIME_RETENTION_ENTRY_STR_KEYS
+    }
+    validated_entry.update({key: entry[key] for key in _RUNTIME_RETENTION_ENTRY_INT_KEYS})
     validated_entry["trigger_mode"] = trigger_mode
     validated_entry["tenant_id"] = entry_strings["tenant_id"]
     validated_entry["correlation_id"] = entry_strings["correlation_id"]

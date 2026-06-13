@@ -108,6 +108,32 @@ def test_resolve_inspection_subject_records_subject_resolution_stage(fake_regist
     assert EXECUTION_STAGE_SUBJECT_RESOLUTION in fake_registry.completed_stages
 
 
+def test_resolve_subject_inspection_inputs_uses_direct_request_payload_without_math_stage(fake_registry, monkeypatch):
+    performance_request = _build_performance_request()
+    request = TWRInspectionRequest(
+        subject_type=TWRInspectionSubjectType.TWR_REQUEST,
+        request=_build_twr_request(),
+    )
+    subject = ResolvedTWRInspectionSubject(
+        subject_type=TWRInspectionSubjectType.TWR_REQUEST,
+        subject_calculation_id=None,
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        related_execution=None,
+        request_payload={"request": "payload"},
+    )
+    monkeypatch.setattr(service, "extract_performance_request_from_payload", lambda _payload: performance_request)
+
+    inputs = service._resolve_subject_inspection_inputs(request=request, subject=subject)
+
+    assert inputs.performance_request is performance_request
+    assert inputs.resolved_execution_request is None
+    assert inputs.consistency_findings == []
+    assert inputs.completed_check_families == []
+    assert inputs.failed_check_families == []
+    assert EXECUTION_STAGE_MATH_RECONCILIATION not in fake_registry.completed_stages
+    assert not fake_registry.failed_stages
+
+
 def test_run_source_quality_assessment_preserves_failure_outputs(fake_registry, monkeypatch):
     def raise_source_quality_failure(**_kwargs):
         raise RuntimeError("source quality dependency unavailable")
@@ -497,6 +523,31 @@ def test_build_twr_inspection_response_adds_no_check_finding_and_support_brief(m
     assert synthesis.response.evidence_summary["support_brief_generation_status"] == "generated"
     assert synthesis.artifact_payloads["support_brief.md"].startswith("# Support brief")
     assert "support_brief.md" in synthesis.response.artifacts
+
+
+def test_build_inspection_findings_context_adds_no_check_finding_and_failed_family_evidence():
+    evidence_summary = {"artifact_queue_enabled": True}
+
+    context = service._build_inspection_findings_context(
+        consistency_findings=[],
+        source_quality_findings=[],
+        reconciliation_findings=[],
+        source_economics_findings=[],
+        completed_check_families=[],
+        failed_check_families=["source_quality"],
+        evidence_summary=evidence_summary,
+    )
+
+    assert context.findings[0].code == "INSPECTION_NO_CHECK_FAMILY_EXECUTED"
+    assert context.pending_check_families == [
+        "calculation_consistency",
+        "source_quality",
+        "economic_plausibility",
+        "reconciliation",
+        "cashflow_classification",
+    ]
+    assert context.evidence_summary["failed_check_families"] == ["source_quality"]
+    assert "failed_check_families" not in evidence_summary
 
 
 def test_twr_inspection_verdict_and_window_helpers_cover_clean_and_unscoped_paths():

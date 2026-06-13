@@ -8,6 +8,8 @@ from app.core.config import Settings
 from app.models.benchmark_analytics_requests import (
     BenchmarkAnalyticsRequest,
     BenchmarkInputMode,
+    BenchmarkReturnSource,
+    BenchmarkStatelessInput,
 )
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.services.execution_registry import execution_registry
@@ -26,37 +28,45 @@ class ResolvedBenchmarkRequest:
     input_count: int
 
 
+def _benchmark_stateless_source_details(stateless_input: BenchmarkStatelessInput) -> dict[str, int]:
+    return {
+        "component_observations": len(stateless_input.component_observations),
+        "component_price_points": len(stateless_input.component_price_points),
+        "benchmark_return_points": len(stateless_input.benchmark_return_points),
+    }
+
+
+def _resolve_stateless_benchmark_request(request: BenchmarkAnalyticsRequest) -> ResolvedBenchmarkRequest:
+    stateless_input = require_stateless_input(request.stateless_input)
+    component_observations = None
+    if request.return_source == BenchmarkReturnSource.CALCULATED:
+        component_observations = normalize_stateless_component_observations(
+            benchmark_currency=stateless_input.benchmark_currency,
+            stateless_input=stateless_input,
+        )
+    source_details = _benchmark_stateless_source_details(stateless_input)
+    return ResolvedBenchmarkRequest(
+        benchmark_request=request.to_benchmark_performance_request(
+            benchmark_currency=stateless_input.benchmark_currency,
+            component_observations=component_observations,
+        ),
+        input_mode=BenchmarkInputMode.STATELESS,
+        source_details=source_details,
+        input_count=(
+            source_details["component_observations"]
+            or source_details["component_price_points"]
+            or source_details["benchmark_return_points"]
+        ),
+    )
+
+
 async def resolve_benchmark_request(
     request: BenchmarkAnalyticsRequest,
     *,
     settings: Settings,
 ) -> ResolvedBenchmarkRequest:
     if request.input_mode == BenchmarkInputMode.STATELESS:
-        stateless_input = require_stateless_input(request.stateless_input)
-        return ResolvedBenchmarkRequest(
-            benchmark_request=request.to_benchmark_performance_request(
-                benchmark_currency=stateless_input.benchmark_currency,
-                component_observations=(
-                    normalize_stateless_component_observations(
-                        benchmark_currency=stateless_input.benchmark_currency,
-                        stateless_input=stateless_input,
-                    )
-                    if request.return_source.value == "calculated"
-                    else None
-                ),
-            ),
-            input_mode=BenchmarkInputMode.STATELESS,
-            source_details={
-                "component_observations": len(stateless_input.component_observations),
-                "component_price_points": len(stateless_input.component_price_points),
-                "benchmark_return_points": len(stateless_input.benchmark_return_points),
-            },
-            input_count=(
-                len(stateless_input.component_observations)
-                or len(stateless_input.component_price_points)
-                or len(stateless_input.benchmark_return_points)
-            ),
-        )
+        return _resolve_stateless_benchmark_request(request)
 
     require_stateful_input(request.stateful_input)
 

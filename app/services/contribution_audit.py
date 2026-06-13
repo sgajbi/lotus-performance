@@ -8,6 +8,13 @@ from app.services.contribution_methodology import (
 )
 from core.envelope import Diagnostics
 
+AVERAGE_WEIGHT_BLOCKER_COUNTER_FIELDS = {
+    "weight_residual": "blocked_by_weight_residual_periods",
+    "flow_balance": "blocked_by_flow_balance_periods",
+    "reset_alignment": "blocked_by_reset_alignment_periods",
+    "timeseries_reconciliation": "blocked_by_timeseries_delta_periods",
+}
+
 
 @dataclass
 class AverageWeightShadowAuditState:
@@ -75,14 +82,7 @@ class AverageWeightShadowAuditState:
         effective_blockers = set(blocker_reason_codes)
         if effective_blockers:
             self.blocked_periods += 1
-        if "weight_residual" in effective_blockers:
-            self.blocked_by_weight_residual_periods += 1
-        if "flow_balance" in effective_blockers:
-            self.blocked_by_flow_balance_periods += 1
-        if "reset_alignment" in effective_blockers:
-            self.blocked_by_reset_alignment_periods += 1
-        if "timeseries_reconciliation" in effective_blockers:
-            self.blocked_by_timeseries_delta_periods += 1
+            _record_average_weight_blocker_counts(self, effective_blockers)
         return effective_blockers
 
     def append_diagnostic_notes(
@@ -124,48 +124,72 @@ class AverageWeightShadowAuditState:
 
     def _rollout_posture_notes(self) -> list[str]:
         notes: list[str] = []
-        if self.cutover_candidate_periods > 0:
-            notes.append(
+        _append_rollout_note_when_present(
+            notes,
+            count=self.cutover_candidate_periods,
+            note=(
                 "Some periods show material reset-aware average-weight pressure while the surrounding "
                 "bookkeeping remains clean. Those periods are strong candidates for a future denominator "
                 f"cutover study ({self.cutover_candidate_periods} periods)."
-            )
-        if self.material_periods > 0:
-            notes.append(
+            ),
+        )
+        _append_rollout_note_when_present(
+            notes,
+            count=self.material_periods,
+            note=(
                 "Reset-aware average-weight rollout readiness is currently "
                 f"{self.promotion_ready_rate_bp} basis points of material-shadow periods "
                 f"({self.cutover_candidate_periods} of {self.material_periods})."
-            )
-        if self.promoted_periods > 0:
-            notes.append(
+            ),
+        )
+        _append_rollout_note_when_present(
+            notes,
+            count=self.promoted_periods,
+            note=(
                 "Reset-aware average-weight promotion was applied for "
                 f"{self.promoted_periods} periods under the controlled rollout mode."
-            )
-        if self.blocked_periods > 0:
-            notes.append(
+            ),
+        )
+        _append_rollout_note_when_present(
+            notes,
+            count=self.blocked_periods,
+            note=(
                 "Some material reset-aware average-weight periods remained shadow-only because one or "
                 f"more rollout guardrails were not yet clean ({self.blocked_periods} periods)."
-            )
-        if self.blocked_by_weight_residual_periods > 0:
-            notes.append(
+            ),
+        )
+        _append_rollout_note_when_present(
+            notes,
+            count=self.blocked_by_weight_residual_periods,
+            note=(
                 "Some material reset-aware average-weight periods were kept shadow-only because emitted "
                 "position weights did not sum cleanly to 100%."
-            )
-        if self.blocked_by_flow_balance_periods > 0:
-            notes.append(
+            ),
+        )
+        _append_rollout_note_when_present(
+            notes,
+            count=self.blocked_by_flow_balance_periods,
+            note=(
                 "Some material reset-aware average-weight periods were kept shadow-only because "
                 "position-level stock and cash legs did not cancel cleanly."
-            )
-        if self.blocked_by_reset_alignment_periods > 0:
-            notes.append(
+            ),
+        )
+        _append_rollout_note_when_present(
+            notes,
+            count=self.blocked_by_reset_alignment_periods,
+            note=(
                 "Some material reset-aware average-weight periods were kept shadow-only because "
                 "portfolio and position reset boundaries were not aligned."
-            )
-        if self.blocked_by_timeseries_delta_periods > 0:
-            notes.append(
+            ),
+        )
+        _append_rollout_note_when_present(
+            notes,
+            count=self.blocked_by_timeseries_delta_periods,
+            note=(
                 "Some material reset-aware average-weight periods were kept shadow-only because emitted "
                 "daily contribution series still drifted from the residual-adjusted period total."
-            )
+            ),
+        )
         return notes
 
     def _timeseries_total_delta_notes(self) -> list[str]:
@@ -201,6 +225,20 @@ class AverageWeightShadowAuditState:
             "carino_invalid_domain_days": carino_invalid_domain_days,
             "timeseries_total_delta_periods": self.timeseries_total_delta_periods,
         }
+
+
+def _append_rollout_note_when_present(notes: list[str], *, count: int, note: str) -> None:
+    if count > 0:
+        notes.append(note)
+
+
+def _record_average_weight_blocker_counts(
+    audit_state: AverageWeightShadowAuditState,
+    blocker_reason_codes: set[str],
+) -> None:
+    for reason_code, counter_field in AVERAGE_WEIGHT_BLOCKER_COUNTER_FIELDS.items():
+        if reason_code in blocker_reason_codes:
+            setattr(audit_state, counter_field, getattr(audit_state, counter_field) + 1)
 
 
 def _contribution_methodology_notes(

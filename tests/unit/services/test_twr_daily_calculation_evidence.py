@@ -3,10 +3,12 @@ import pytest
 
 from app.services.twr_service import (
     _build_daily_calculation_evidence,
+    _build_portfolio_breakdown_item,
     _calculate_total_return_from_reset_slice,
     _classify_daily_calculation_evidence,
     _daily_calculation_evidence_inputs,
     _iter_frequency_windows,
+    _resampled_frequency_window_label,
 )
 from common.enums import Frequency
 from engine.schema import PortfolioColumns
@@ -280,3 +282,55 @@ def test_frequency_windows_normalize_mixed_date_like_values_for_resampling():
         ("2025-01", "2025-01-03", "2025-01-31"),
         ("2025-02", "2025-02-28", "2025-02-28"),
     ]
+
+
+def test_resampled_frequency_window_label_formats_supported_frequencies():
+    timestamp = pd.Timestamp("2025-06-30")
+
+    assert _resampled_frequency_window_label(Frequency.MONTHLY, timestamp) == "2025-06"
+    assert _resampled_frequency_window_label(Frequency.QUARTERLY, timestamp) == "2025-Q2"
+    assert _resampled_frequency_window_label(Frequency.YEARLY, timestamp) == "2025"
+    assert _resampled_frequency_window_label(Frequency.WEEKLY, timestamp) == "2025-06-30"
+
+
+def test_build_portfolio_breakdown_item_preserves_daily_detail_and_evidence():
+    period_slice_df = pd.DataFrame(
+        [
+            _row(
+                **{
+                    PortfolioColumns.PERF_DATE.value: pd.Timestamp("2025-01-01").date(),
+                    PortfolioColumns.FINAL_CUM_ROR.value: 1.0,
+                }
+            ),
+            _row(
+                **{
+                    PortfolioColumns.PERF_DATE.value: pd.Timestamp("2025-01-02").date(),
+                    PortfolioColumns.FINAL_CUM_ROR.value: 2.0,
+                }
+            ),
+        ]
+    )
+    frequency_df = period_slice_df.iloc[[1]].copy()
+
+    item = _build_portfolio_breakdown_item(
+        period_slice_df=period_slice_df,
+        daily_results_df=period_slice_df,
+        label="2025-01-02",
+        start_date=pd.Timestamp("2025-01-02").date(),
+        end_date=pd.Timestamp("2025-01-02").date(),
+        frequency=Frequency.DAILY,
+        frequency_df=frequency_df,
+        summary_data={"annualized_return_pct": 5.0},
+        include_timeseries=True,
+        metric_basis="NET",
+    )
+
+    assert item.period == "2025-01-02"
+    assert item.period_return.base == pytest.approx(1.3)
+    assert item.cumulative_return is not None
+    assert item.cumulative_return.base == pytest.approx(2.6169)
+    assert item.annualized_return is not None
+    assert item.annualized_return.base == 5.0
+    assert item.daily_data == [frequency_df.iloc[0].to_dict()]
+    assert item.calculation_evidence is not None
+    assert item.calculation_evidence.status == "calculated"

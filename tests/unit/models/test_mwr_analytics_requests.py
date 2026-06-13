@@ -237,6 +237,30 @@ def test_resolve_mwr_stateless_input_prefers_explicit_override():
     assert resolved.cash_flows is override_cash_flows
 
 
+def test_resolve_mwr_stateless_input_ignores_partial_explicit_override():
+    request = MoneyWeightedReturnAnalyticsRequest.model_validate(
+        {
+            "portfolio_id": "MWR_STATELESS",
+            "as_of": "2025-12-31",
+            "input_mode": "stateless",
+            "stateless_input": {
+                "begin_mv": 1000,
+                "end_mv": 1050,
+                "cash_flows": [{"amount": 25, "date": "2025-06-30"}],
+            },
+        }
+    )
+
+    resolved = _resolve_mwr_stateless_input(
+        request=request,
+        begin_mv=2000,
+    )
+
+    assert resolved.begin_mv == 1000
+    assert resolved.end_mv == 1050
+    assert resolved.cash_flows[0].amount == 25
+
+
 def test_resolve_mwr_stateless_input_uses_legacy_payload():
     request = MoneyWeightedReturnAnalyticsRequest.model_validate(
         {

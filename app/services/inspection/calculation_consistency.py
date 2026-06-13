@@ -648,6 +648,29 @@ def _compare_return_values(
     expected: ComparativeReturnValue,
     actual: ComparativeReturnValue,
 ) -> list[TWRInspectionFinding]:
+    mismatches = _comparative_return_mismatches(expected=expected, actual=actual)
+    if not mismatches:
+        return []
+    return [
+        _build_finding(
+            code=code,
+            period_name=period_name,
+            scope=scope,
+            summary="Relative-performance arithmetic does not match portfolio minus benchmark.",
+            evidence={
+                "mismatches": {
+                    component: {"expected": values[0], "actual": values[1]} for component, values in mismatches.items()
+                }
+            },
+        )
+    ]
+
+
+def _comparative_return_mismatches(
+    *,
+    expected: ComparativeReturnValue,
+    actual: ComparativeReturnValue,
+) -> dict[str, tuple[float | None, float | None]]:
     mismatches: dict[str, tuple[float | None, float | None]] = {}
     for component in ("base", "local", "fx"):
         expected_value = getattr(expected, component)
@@ -664,21 +687,7 @@ def _compare_return_values(
             )
         ):
             mismatches[component] = (expected_value, actual_value)
-    if not mismatches:
-        return []
-    return [
-        _build_finding(
-            code=code,
-            period_name=period_name,
-            scope=scope,
-            summary="Relative-performance arithmetic does not match portfolio minus benchmark.",
-            evidence={
-                "mismatches": {
-                    component: {"expected": values[0], "actual": values[1]} for component, values in mismatches.items()
-                }
-            },
-        )
-    ]
+    return mismatches
 
 
 def _subtract_return_values(

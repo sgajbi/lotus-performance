@@ -27,6 +27,7 @@ from app.services.contribution_methodology import (
     RESET_AWARE_AVERAGE_WEIGHT_MODE_CANDIDATE_PERIODS,
     RESET_AWARE_AVERAGE_WEIGHT_MODE_OFF,
     _assess_average_weight_shadow_cutover,
+    _average_weight_shadow_delta_metrics,
     _build_average_weight_methodology_status,
     _calculate_average_weight_sum_residual_bp,
     _calculate_average_weight_sum_residual_bp_from_ratio_series,
@@ -37,6 +38,7 @@ from app.services.contribution_methodology import (
     _classify_average_weight_shadow_period,
     _is_average_weight_shadow_cutover_candidate,
     _normalize_reset_aware_average_weight_mode,
+    _reset_aware_valid_portfolio_days,
 )
 from app.services.contribution_periods import (
     ContributionPeriodMethodologyContext,
@@ -56,6 +58,7 @@ from app.services.contribution_series import (
     _build_position_contribution_series,
     _build_residual_adjusted_daily_contribution_series,
     _build_residual_adjusted_position_timeseries,
+    _position_contribution_series_from_adjusted_rows,
 )
 from app.services.contribution_service import (
     _build_contribution_response,
@@ -65,6 +68,8 @@ from app.services.contribution_service import (
     _select_period_average_weight_column,
 )
 from app.services.contribution_smoothing import (
+    _base_contribution_smoothing_status,
+    _contribution_smoothing_residual_reason_codes,
     _contribution_smoothing_status_and_reasons,
     _count_carino_invalid_domain_days,
 )
@@ -91,6 +96,29 @@ def test_contribution_smoothing_status_and_reasons_reports_applied_reconciliatio
         "CARINO_FACTOR_APPLIED",
         "RAW_CONTRIBUTION_DIFFERS_FROM_LINKED_RETURN",
         "RESIDUAL_ALLOCATED_TO_RECONCILE_PERIOD",
+        "SMOOTHED_CONTRIBUTION_RECONCILES",
+    ]
+
+
+def test_base_contribution_smoothing_status_reports_invalid_domain_fallback():
+    assert _base_contribution_smoothing_status(smoothing_method="CARINO", invalid_domain_days=1) == (
+        "INVALID_DOMAIN_FALLBACK",
+        ["CARINO_INVALID_DAILY_LOG_DOMAIN"],
+    )
+
+
+def test_contribution_smoothing_residual_reason_codes_report_reconciliation_conditions():
+    reason_codes = _contribution_smoothing_residual_reason_codes(
+        smoothing_method="CARINO",
+        invalid_domain_days=0,
+        raw_residual=0.01,
+        smoothing_residual=0.0,
+        residual_allocation_applied=True,
+    )
+
+    assert reason_codes == [
+        "RESIDUAL_ALLOCATED_TO_RECONCILE_PERIOD",
+        "RAW_CONTRIBUTION_DIFFERS_FROM_LINKED_RETURN",
         "SMOOTHED_CONTRIBUTION_RECONCILES",
     ]
 
@@ -738,6 +766,36 @@ def test_calculate_reset_aware_average_weight_shadow_covers_empty_missing_column
     assert zero_valid_shadow_df.loc[0, "reset_aware_average_weight_shadow"] == 0.0
 
 
+def test_reset_aware_valid_portfolio_days_uses_latest_reset_and_excludes_nip_days():
+    portfolio_period_slice_df = pd.DataFrame(
+        {
+            "perf_date": ["2025-01-01", "2025-01-02", "2025-01-03", "2025-01-04"],
+            "perf_reset": [0, 1, 0, 0],
+            "nip": [0, 0, 1, 0],
+        }
+    )
+
+    valid_days = _reset_aware_valid_portfolio_days(portfolio_period_slice_df)
+
+    assert valid_days is not None
+    assert list(valid_days) == [
+        pd.Timestamp("2025-01-02").date(),
+        pd.Timestamp("2025-01-04").date(),
+    ]
+
+
+def test_average_weight_shadow_delta_metrics_reports_position_count_max_and_sum_bp():
+    average_weight_shadow_df = pd.DataFrame(
+        {
+            "position_id": ["A", "B"],
+            "average_weight": [0.50, 0.25],
+            "reset_aware_average_weight_shadow": [0.40, 0.20],
+        }
+    )
+
+    assert _average_weight_shadow_delta_metrics(average_weight_shadow_df) == (2, 1000, 1500)
+
+
 def test_build_portfolio_engine_diagnostics_maps_reset_and_nip_characterization_from_engine_frame():
     portfolio_results_df = pd.DataFrame(
         {
@@ -998,6 +1056,35 @@ def test_residual_adjusted_position_timeseries_handles_missing_targets_and_missi
     assert [point.contribution for point in adjusted_position_series[0].series] == pytest.approx([2.5, 3.5])
     assert [point.contribution for point in adjusted_position_series[1].series] == pytest.approx([0.0])
     assert _build_residual_adjusted_position_timeseries(period_slice_df, []) == []
+
+
+def test_position_contribution_series_from_adjusted_rows_sorts_and_scales_points():
+    adjusted_series = _position_contribution_series_from_adjusted_rows(
+        [
+            {
+                "position_id": "B",
+                "perf_date": pd.Timestamp("2025-01-02").date(),
+                "adjusted_contribution": 0.03,
+            },
+            {
+                "position_id": "A",
+                "perf_date": pd.Timestamp("2025-01-02").date(),
+                "adjusted_contribution": 0.02,
+            },
+            {
+                "position_id": "A",
+                "perf_date": pd.Timestamp("2025-01-01").date(),
+                "adjusted_contribution": 0.01,
+            },
+        ]
+    )
+
+    assert [series.position_id for series in adjusted_series] == ["A", "B"]
+    assert [point.date for point in adjusted_series[0].series] == [
+        pd.Timestamp("2025-01-01").date(),
+        pd.Timestamp("2025-01-02").date(),
+    ]
+    assert [point.contribution for point in adjusted_series[0].series] == [1.0, 2.0]
 
 
 def test_residual_adjusted_series_helpers_handle_empty_inputs():

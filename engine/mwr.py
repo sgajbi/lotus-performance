@@ -90,6 +90,35 @@ def _xirr_failure(
     }
 
 
+def _xirr_initial_failure(
+    *,
+    values: np.ndarray,
+    gross_cash_flow_scale,
+    rate_lower_bound,
+    rate_upper_bound,
+    base_convergence: dict,
+) -> dict | None:
+    if len(values) == 0 or gross_cash_flow_scale == 0:
+        return _xirr_failure(
+            base_convergence=base_convergence,
+            notes="No economic content in cash-flow vector.",
+            reason_code="NO_ECONOMIC_CONTENT",
+        )
+    if np.all(values >= 0) or np.all(values <= 0):
+        return _xirr_failure(
+            base_convergence=base_convergence,
+            notes="No positive and negative cash flows in solver vector.",
+            reason_code="NO_POSITIVE_AND_NEGATIVE_CASH_FLOW",
+        )
+    if rate_lower_bound <= -1 or rate_upper_bound <= rate_lower_bound:
+        return _xirr_failure(
+            base_convergence=base_convergence,
+            notes="Invalid XIRR search bounds.",
+            reason_code="INVALID_SOLVER_BOUNDS",
+        )
+    return None
+
+
 def _xirr_time_diffs(*, dates: np.ndarray, anchor_date: date, annualization: Annualization) -> np.ndarray:
     day_count = _day_count_denominator(annualization)
     return np.array([(d - anchor_date).days / day_count for d in dates])
@@ -199,25 +228,15 @@ def _xirr(
         normalized_flow_count=int(len(values)),
         gross_cash_flow_scale=gross_cash_flow_scale,
     )
-    if len(values) == 0 or gross_cash_flow_scale == 0:
-        return _xirr_failure(
-            base_convergence=base_convergence,
-            notes="No economic content in cash-flow vector.",
-            reason_code="NO_ECONOMIC_CONTENT",
-        )
-    if np.all(values >= 0) or np.all(values <= 0):
-        return _xirr_failure(
-            base_convergence=base_convergence,
-            notes="No positive and negative cash flows in solver vector.",
-            reason_code="NO_POSITIVE_AND_NEGATIVE_CASH_FLOW",
-        )
-
-    if rate_lower_bound <= -1 or rate_upper_bound <= rate_lower_bound:
-        return _xirr_failure(
-            base_convergence=base_convergence,
-            notes="Invalid XIRR search bounds.",
-            reason_code="INVALID_SOLVER_BOUNDS",
-        )
+    initial_failure = _xirr_initial_failure(
+        values=values,
+        gross_cash_flow_scale=gross_cash_flow_scale,
+        rate_lower_bound=rate_lower_bound,
+        rate_upper_bound=rate_upper_bound,
+        base_convergence=base_convergence,
+    )
+    if initial_failure is not None:
+        return initial_failure
 
     assert anchor_date is not None
     time_diffs = _xirr_time_diffs(dates=dates, anchor_date=anchor_date, annualization=annualization)
@@ -266,6 +285,13 @@ class _DietzFallbackMetadata:
     warnings: list[str]
     fallback_from: str | None
     fallback_reason: str | None
+
+
+@dataclass(frozen=True)
+class _MWRPeriodBounds:
+    start_date: date
+    end_date: date
+    period_days: int
 
 
 def _calculate_xirr_mwr_attempt(
@@ -446,6 +472,40 @@ def _dietz_fallback_metadata(
     )
 
 
+def _resolve_mwr_period_bounds(
+    *,
+    cash_flows: Sequence[CashFlowLike],
+    as_of: date,
+    start_date: date | None,
+) -> _MWRPeriodBounds:
+    resolved_start_date = start_date
+    if resolved_start_date is None:
+        cash_flow_dates = [cf.date for cf in cash_flows]
+        resolved_start_date = min(cash_flow_dates) if cash_flow_dates else as_of
+    period_days = (as_of - resolved_start_date).days if as_of > resolved_start_date else 0
+    return _MWRPeriodBounds(start_date=resolved_start_date, end_date=as_of, period_days=period_days)
+
+
+def _mwr_no_economic_content_result(
+    *,
+    begin_mv,
+    end_mv,
+    cash_flows: Sequence[CashFlowLike],
+    bounds: _MWRPeriodBounds,
+) -> MWRResult | None:
+    if begin_mv != 0 or end_mv != 0 or cash_flows:
+        return None
+    return MWRResult(
+        mwr=0.0,
+        method="DIETZ",
+        start_date=bounds.start_date,
+        end_date=bounds.end_date,
+        notes=["No economic content in MWR inputs."],
+        status="NOT_APPLICABLE",
+        reason_codes=["NO_ECONOMIC_CONTENT"],
+    )
+
+
 def calculate_money_weighted_return(
     begin_mv: float,
     end_mv: float,
@@ -461,27 +521,17 @@ def calculate_money_weighted_return(
     Returns a simple MWRResult data object.
     """
     notes = []
-    all_dates = [cf.date for cf in cash_flows]
-    if start_date is None:
-        if not all_dates:
-            start_date = as_of
-        else:
-            start_date = min(all_dates)
-    end_date = as_of
-    period_days = (end_date - start_date).days if end_date > start_date else 0
+    bounds = _resolve_mwr_period_bounds(cash_flows=cash_flows, as_of=as_of, start_date=start_date)
     reason_code: str | None = None
 
-    if begin_mv == 0 and end_mv == 0 and not cash_flows:
-        notes.append("No economic content in MWR inputs.")
-        return MWRResult(
-            mwr=0.0,
-            method="DIETZ",
-            start_date=start_date,
-            end_date=end_date,
-            notes=notes,
-            status="NOT_APPLICABLE",
-            reason_codes=["NO_ECONOMIC_CONTENT"],
-        )
+    no_economic_content_result = _mwr_no_economic_content_result(
+        begin_mv=begin_mv,
+        end_mv=end_mv,
+        cash_flows=cash_flows,
+        bounds=bounds,
+    )
+    if no_economic_content_result is not None:
+        return no_economic_content_result
 
     if calculation_method == "XIRR":
         xirr_attempt = _calculate_xirr_mwr_attempt(
@@ -489,9 +539,9 @@ def calculate_money_weighted_return(
             end_mv=end_mv,
             cash_flows=cash_flows,
             annualization=annualization,
-            start_date=start_date,
-            end_date=end_date,
-            period_days=period_days,
+            start_date=bounds.start_date,
+            end_date=bounds.end_date,
+            period_days=bounds.period_days,
             solver=solver,
         )
         if xirr_attempt.result is not None:
@@ -505,9 +555,9 @@ def calculate_money_weighted_return(
         cash_flows=cash_flows,
         calculation_method=calculation_method,
         annualization=annualization,
-        start_date=start_date,
-        end_date=end_date,
-        period_days=period_days,
+        start_date=bounds.start_date,
+        end_date=bounds.end_date,
+        period_days=bounds.period_days,
         notes=notes,
         xirr_fallback_reason_code=reason_code,
     )

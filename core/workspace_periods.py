@@ -53,6 +53,35 @@ _YEAR_LOOKBACKS: dict[WorkspacePeriodType, int] = {
 }
 
 
+def _workspace_period_start_date(
+    period: WorkspacePeriodType,
+    *,
+    as_of_ts: pd.Timestamp,
+    performance_start_date: date,
+    explicit_start_date: date | None,
+) -> date:
+    if period == WorkspacePeriodType.EXPLICIT:
+        if explicit_start_date is None:
+            raise APIBadRequestError(
+                "EXPLICIT workspace period requests require report_start_date so the window can be resolved."
+            )
+        return explicit_start_date
+    if period == WorkspacePeriodType.SINCE_INCEPTION:
+        return performance_start_date
+    if period == WorkspacePeriodType.YTD:
+        return as_of_ts.to_period("Y").start_time.date()
+    if period in _BUSINESS_DAY_LOOKBACKS:
+        business_days = _BUSINESS_DAY_LOOKBACKS[period] - 1
+        return (as_of_ts - pd.offsets.BDay(business_days)).date()
+    if period in _MONTH_LOOKBACKS:
+        months = _MONTH_LOOKBACKS[period]
+        return (as_of_ts - pd.DateOffset(months=months) + pd.Timedelta(days=1)).date()
+    if period in _YEAR_LOOKBACKS:
+        years = _YEAR_LOOKBACKS[period]
+        return (as_of_ts - pd.DateOffset(years=years) + pd.Timedelta(days=1)).date()
+    raise APIBadRequestError(f"Unsupported workspace period type '{period.value}'.")
+
+
 def resolve_workspace_periods(
     periods: list[WorkspacePeriodType],
     *,
@@ -64,28 +93,12 @@ def resolve_workspace_periods(
     as_of_ts = pd.Timestamp(as_of)
 
     for period in periods:
-        if period == WorkspacePeriodType.EXPLICIT:
-            if explicit_start_date is None:
-                raise APIBadRequestError(
-                    "EXPLICIT workspace period requests require report_start_date so the window can be resolved."
-                )
-            start_date = explicit_start_date
-        elif period == WorkspacePeriodType.SINCE_INCEPTION:
-            start_date = performance_start_date
-        elif period == WorkspacePeriodType.YTD:
-            start_date = as_of_ts.to_period("Y").start_time.date()
-        elif period in _BUSINESS_DAY_LOOKBACKS:
-            business_days = _BUSINESS_DAY_LOOKBACKS[period] - 1
-            start_date = (as_of_ts - pd.offsets.BDay(business_days)).date()
-        elif period in _MONTH_LOOKBACKS:
-            months = _MONTH_LOOKBACKS[period]
-            start_date = (as_of_ts - pd.DateOffset(months=months) + pd.Timedelta(days=1)).date()
-        elif period in _YEAR_LOOKBACKS:
-            years = _YEAR_LOOKBACKS[period]
-            start_date = (as_of_ts - pd.DateOffset(years=years) + pd.Timedelta(days=1)).date()
-        else:
-            raise APIBadRequestError(f"Unsupported workspace period type '{period.value}'.")
-
+        start_date = _workspace_period_start_date(
+            period,
+            as_of_ts=as_of_ts,
+            performance_start_date=performance_start_date,
+            explicit_start_date=explicit_start_date,
+        )
         resolved_periods.append(
             ResolvedWorkspacePeriod(
                 name=period.value,

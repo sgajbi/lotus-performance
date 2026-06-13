@@ -130,16 +130,24 @@ class ReturnsWindow(BaseModel):
     @model_validator(mode="after")
     def validate_mode_fields(self) -> "ReturnsWindow":
         if self.mode == ReturnsWindowMode.EXPLICIT:
-            if self.from_date is None or self.to_date is None:
-                raise ValueError("from_date and to_date are required when mode=EXPLICIT")
-            if self.from_date > self.to_date:
-                raise ValueError("from_date cannot be after to_date")
+            _validate_explicit_returns_window(from_date=self.from_date, to_date=self.to_date)
         if self.mode == ReturnsWindowMode.RELATIVE:
-            if self.period is None:
-                raise ValueError("period is required when mode=RELATIVE")
-            if self.period == ReturnsRelativePeriod.YEAR and self.year is None:
-                raise ValueError("year is required when period=YEAR")
+            _validate_relative_returns_window(period=self.period, year=self.year)
         return self
+
+
+def _validate_explicit_returns_window(*, from_date: dt_date | None, to_date: dt_date | None) -> None:
+    if from_date is None or to_date is None:
+        raise ValueError("from_date and to_date are required when mode=EXPLICIT")
+    if from_date > to_date:
+        raise ValueError("from_date cannot be after to_date")
+
+
+def _validate_relative_returns_window(*, period: ReturnsRelativePeriod | None, year: int | None) -> None:
+    if period is None:
+        raise ValueError("period is required when mode=RELATIVE")
+    if period == ReturnsRelativePeriod.YEAR and year is None:
+        raise ValueError("year is required when period=YEAR")
 
 
 class SeriesSelection(BaseModel):
@@ -247,13 +255,37 @@ def _validate_returns_series_input_envelopes(
     stateless_input: StatelessInput | None,
     stateful_input: StatefulInput | None,
 ) -> None:
-    if input_mode == InputMode.STATELESS and stateless_input is None:
+    if input_mode == InputMode.STATELESS:
+        _validate_stateless_returns_series_input_envelope(
+            stateless_input=stateless_input,
+            stateful_input=stateful_input,
+        )
+    if input_mode == InputMode.STATEFUL:
+        _validate_stateful_returns_series_input_envelope(
+            stateless_input=stateless_input,
+            stateful_input=stateful_input,
+        )
+
+
+def _validate_stateless_returns_series_input_envelope(
+    *,
+    stateless_input: StatelessInput | None,
+    stateful_input: StatefulInput | None,
+) -> None:
+    if stateless_input is None:
         raise ValueError("stateless_input is required when input_mode=stateless")
-    if input_mode == InputMode.STATEFUL and stateful_input is None:
-        raise ValueError("stateful_input is required when input_mode=stateful")
-    if input_mode == InputMode.STATELESS and stateful_input is not None:
+    if stateful_input is not None:
         raise ValueError("stateful_input must be null when input_mode=stateless")
-    if input_mode == InputMode.STATEFUL and stateless_input is not None:
+
+
+def _validate_stateful_returns_series_input_envelope(
+    *,
+    stateless_input: StatelessInput | None,
+    stateful_input: StatefulInput | None,
+) -> None:
+    if stateful_input is None:
+        raise ValueError("stateful_input is required when input_mode=stateful")
+    if stateless_input is not None:
         raise ValueError("stateless_input must be null when input_mode=stateful")
 
 
@@ -265,10 +297,31 @@ def _validate_returns_series_stateless_selection_inputs(
 ) -> None:
     if input_mode != InputMode.STATELESS:
         return
-    if series_selection.include_benchmark and (not stateless_input or not stateless_input.benchmark_returns):
-        raise ValueError("benchmark_returns are required when include_benchmark=true in stateless mode")
-    if series_selection.include_risk_free and (not stateless_input or not stateless_input.risk_free_returns):
-        raise ValueError("risk_free_returns are required when include_risk_free=true in stateless mode")
+    _require_selected_stateless_series(
+        selected=series_selection.include_benchmark,
+        stateless_input=stateless_input,
+        values=stateless_input.benchmark_returns if stateless_input is not None else None,
+        message="benchmark_returns are required when include_benchmark=true in stateless mode",
+    )
+    _require_selected_stateless_series(
+        selected=series_selection.include_risk_free,
+        stateless_input=stateless_input,
+        values=stateless_input.risk_free_returns if stateless_input is not None else None,
+        message="risk_free_returns are required when include_risk_free=true in stateless mode",
+    )
+
+
+def _require_selected_stateless_series(
+    *,
+    selected: bool,
+    stateless_input: StatelessInput | None,
+    values: list[ReturnPoint] | None,
+    message: str,
+) -> None:
+    if not selected:
+        return
+    if stateless_input is None or not values:
+        raise ValueError(message)
 
 
 def _validate_returns_series_stateless_benchmark_override(

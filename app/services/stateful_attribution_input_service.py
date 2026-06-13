@@ -373,13 +373,29 @@ def _position_market_value_pair(
     row: dict[str, object],
     reporting_currency: str | None,
 ) -> tuple[object, object] | None:
-    begin_key = "beginning_market_value_reporting_currency" if reporting_currency is not None else None
-    end_key = "ending_market_value_reporting_currency" if reporting_currency is not None else None
-    begin_value = row.get(begin_key) if begin_key is not None else None
-    end_value = row.get(end_key) if end_key is not None else None
-    if begin_value is None or end_value is None:
-        begin_value = row.get("beginning_market_value_portfolio_currency")
-        end_value = row.get("ending_market_value_portfolio_currency")
+    if reporting_currency is not None:
+        reporting_values = _row_value_pair(
+            row,
+            begin_key="beginning_market_value_reporting_currency",
+            end_key="ending_market_value_reporting_currency",
+        )
+        if reporting_values is not None:
+            return reporting_values
+    return _row_value_pair(
+        row,
+        begin_key="beginning_market_value_portfolio_currency",
+        end_key="ending_market_value_portfolio_currency",
+    )
+
+
+def _row_value_pair(
+    row: dict[str, object],
+    *,
+    begin_key: str,
+    end_key: str,
+) -> tuple[object, object] | None:
+    begin_value = row.get(begin_key)
+    end_value = row.get(end_key)
     if begin_value is None or end_value is None:
         return None
     return begin_value, end_value
@@ -965,12 +981,7 @@ def _validate_stateful_both_currency_support(
             detail="Stateful attribution input requires report_ccy when currency_mode=BOTH.",
         )
 
-    position_currencies = {
-        str(position_currency)
-        for row in rows
-        for position_currency in [row.get("position_currency")]
-        if isinstance(position_currency, str) and position_currency
-    }
+    position_currencies = _stateful_position_currencies(rows)
     if not position_currencies:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -988,3 +999,12 @@ def _validate_stateful_both_currency_support(
                 "include currencies different from report_ccy."
             ),
         )
+
+
+def _stateful_position_currencies(rows: list[dict[str, object]]) -> set[str]:
+    return {
+        position_currency
+        for row in rows
+        for position_currency in [row.get("position_currency")]
+        if isinstance(position_currency, str) and position_currency
+    }

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter, defaultdict
+from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Literal
@@ -8,6 +9,15 @@ from typing import Literal
 from app.models.source_quality import PerformanceSourceQualityEvidence
 from app.services.analytics_observation_dates import latest_observation_date, normalize_observation_date
 from app.services.source_cashflow_taxonomy import classify_cashflow_type
+
+
+@dataclass(frozen=True)
+class _SourceQualityObservationSummary:
+    skipped_observation_count: int
+    unsupported_cashflow_count: int
+    source_classifications: Counter[str]
+    values_by_date: dict[str, set[tuple[Decimal, Decimal]]]
+    normalized_dates: list[date]
 
 
 def build_portfolio_source_quality_evidence(
@@ -19,6 +29,42 @@ def build_portfolio_source_quality_evidence(
     source_owner: str,
     source_product: str,
 ) -> PerformanceSourceQualityEvidence:
+    observation_summary = _summarize_source_quality_observations(observations)
+    source_conflict_count = sum(max(len(values) - 1, 0) for values in observation_summary.values_by_date.values())
+    latest_source_observation_date = latest_observation_date(observation_summary.normalized_dates)
+    warnings = _source_quality_warnings(
+        skipped_observation_count=observation_summary.skipped_observation_count,
+        unsupported_cashflow_count=observation_summary.unsupported_cashflow_count,
+        source_conflict_count=source_conflict_count,
+        latest_observation_date=latest_source_observation_date,
+        report_end_date=report_end_date,
+    )
+    quality_state = "clean"
+    if "STALE_SOURCE_OBSERVATIONS" in warnings:
+        quality_state = "stale"
+    elif warnings:
+        quality_state = "degraded"
+
+    return PerformanceSourceQualityEvidence(
+        source_product=source_product,
+        source_owner=source_owner,
+        input_mode=input_mode,
+        quality_state=quality_state,
+        observation_count=len(observations),
+        valid_valuation_point_count=valid_valuation_point_count,
+        skipped_observation_count=observation_summary.skipped_observation_count,
+        unsupported_cashflow_count=observation_summary.unsupported_cashflow_count,
+        source_conflict_count=source_conflict_count,
+        latest_observation_date=latest_source_observation_date,
+        report_end_date=report_end_date,
+        warnings=warnings,
+        source_classification_counts=dict(sorted(observation_summary.source_classifications.items())),
+    )
+
+
+def _summarize_source_quality_observations(
+    observations: list[dict[str, object]],
+) -> _SourceQualityObservationSummary:
     skipped_observation_count = 0
     unsupported_cashflow_count = 0
     source_classifications: Counter[str] = Counter()
@@ -41,35 +87,12 @@ def build_portfolio_source_quality_evidence(
                 skipped_observation_count += 1
         unsupported_cashflow_count += _unsupported_cashflow_count(observation.get("cash_flows", []))
 
-    source_conflict_count = sum(max(len(values) - 1, 0) for values in values_by_date.values())
-    latest_source_observation_date = latest_observation_date(normalized_dates)
-    warnings = _source_quality_warnings(
+    return _SourceQualityObservationSummary(
         skipped_observation_count=skipped_observation_count,
         unsupported_cashflow_count=unsupported_cashflow_count,
-        source_conflict_count=source_conflict_count,
-        latest_observation_date=latest_source_observation_date,
-        report_end_date=report_end_date,
-    )
-    quality_state = "clean"
-    if "STALE_SOURCE_OBSERVATIONS" in warnings:
-        quality_state = "stale"
-    elif warnings:
-        quality_state = "degraded"
-
-    return PerformanceSourceQualityEvidence(
-        source_product=source_product,
-        source_owner=source_owner,
-        input_mode=input_mode,
-        quality_state=quality_state,
-        observation_count=len(observations),
-        valid_valuation_point_count=valid_valuation_point_count,
-        skipped_observation_count=skipped_observation_count,
-        unsupported_cashflow_count=unsupported_cashflow_count,
-        source_conflict_count=source_conflict_count,
-        latest_observation_date=latest_source_observation_date,
-        report_end_date=report_end_date,
-        warnings=warnings,
-        source_classification_counts=dict(sorted(source_classifications.items())),
+        source_classifications=source_classifications,
+        values_by_date=values_by_date,
+        normalized_dates=normalized_dates,
     )
 
 

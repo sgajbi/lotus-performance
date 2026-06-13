@@ -29,6 +29,12 @@ class HistoryManifestHeader:
 
 
 @dataclass(frozen=True)
+class _HistoryManifestFileNames:
+    latest_file_name: str | None
+    retained_file_names: list[str]
+
+
+@dataclass(frozen=True)
 class HistoryManifestReadReasons:
     directory_missing: str
     manifest_missing: str
@@ -74,6 +80,24 @@ def _manifest_retention_fields(payload: dict[str, Any]) -> tuple[int | None, int
     return payload.get("retention_limit"), payload.get("retention_max_age_days")
 
 
+def _history_manifest_file_names(payload: dict[str, Any]) -> _HistoryManifestFileNames | None:
+    latest_file_name = payload.get("latest_file_name")
+    retained_file_names = payload.get("retained_file_names")
+
+    safe_latest_file_name = _safe_manifest_file_name(latest_file_name, allow_none=True)
+    if latest_file_name is not None and safe_latest_file_name is None:
+        return None
+    safe_retained_file_names = _safe_retained_manifest_file_names(retained_file_names)
+    if safe_retained_file_names is None:
+        return None
+    if safe_latest_file_name is not None and safe_latest_file_name not in safe_retained_file_names:
+        return None
+    return _HistoryManifestFileNames(
+        latest_file_name=safe_latest_file_name,
+        retained_file_names=safe_retained_file_names,
+    )
+
+
 def read_history_manifest_payload(
     *,
     directory: Path,
@@ -102,28 +126,21 @@ def validate_history_manifest_header(payload: Any) -> HistoryManifestHeader | No
     if not isinstance(payload, dict):
         return None
 
-    latest_file_name = payload.get("latest_file_name")
-    retained_file_names = payload.get("retained_file_names")
     entries = payload.get("entries")
 
-    safe_latest_file_name = _safe_manifest_file_name(latest_file_name, allow_none=True)
-    if latest_file_name is not None and safe_latest_file_name is None:
-        return None
-    safe_retained_file_names = _safe_retained_manifest_file_names(retained_file_names)
-    if safe_retained_file_names is None:
+    file_names = _history_manifest_file_names(payload)
+    if file_names is None:
         return None
     retention_fields = _manifest_retention_fields(payload)
     if retention_fields is None:
         return None
     if not isinstance(entries, list):
         return None
-    if safe_latest_file_name is not None and safe_latest_file_name not in safe_retained_file_names:
-        return None
 
     retention_limit, retention_max_age_days = retention_fields
     return HistoryManifestHeader(
-        latest_file_name=safe_latest_file_name,
-        retained_file_names=safe_retained_file_names,
+        latest_file_name=file_names.latest_file_name,
+        retained_file_names=file_names.retained_file_names,
         retention_limit=retention_limit,
         retention_max_age_days=retention_max_age_days,
         entries=entries,

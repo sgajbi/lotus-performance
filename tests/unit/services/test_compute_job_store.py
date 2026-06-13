@@ -15,8 +15,114 @@ from app.services.compute_job_store import (
     ComputeJobRegistrationStatus,
     ComputeJobStatus,
     ComputeJobStore,
+    _aggregate_row_count,
+    _compute_job_inspection_active_since,
+    _compute_job_payload_failure,
     _queue_stats_from_aggregate_row,
 )
+
+
+def _compute_job_model_for_inspection(
+    *,
+    job_status: ComputeJobStatus,
+    created_at_utc: datetime,
+    leased_at_utc: datetime | None = None,
+    started_at_utc: datetime | None = None,
+    completed_at_utc: datetime | None = None,
+) -> ComputeJobModel:
+    return ComputeJobModel(
+        calculation_id=str(uuid4()),
+        analytics_type="ReturnsSeries",
+        job_status=job_status.value,
+        request_json="{}",
+        response_json=None,
+        attempt_count=0,
+        max_attempts=1,
+        created_at_utc=created_at_utc,
+        leased_at_utc=leased_at_utc,
+        started_at_utc=started_at_utc,
+        completed_at_utc=completed_at_utc,
+    )
+
+
+def test_compute_job_inspection_active_since_uses_leased_timestamp_before_created():
+    created_at = datetime(2026, 3, 14, 9, 0, tzinfo=timezone.utc)
+    leased_at = datetime(2026, 3, 14, 9, 5, tzinfo=timezone.utc)
+    row = _compute_job_model_for_inspection(
+        job_status=ComputeJobStatus.LEASED,
+        created_at_utc=created_at,
+        leased_at_utc=leased_at,
+    )
+
+    assert _compute_job_inspection_active_since(row) == leased_at
+
+
+def test_compute_job_inspection_active_since_uses_running_timestamp_precedence():
+    created_at = datetime(2026, 3, 14, 9, 0, tzinfo=timezone.utc)
+    leased_at = datetime(2026, 3, 14, 9, 5, tzinfo=timezone.utc)
+    started_at = datetime(2026, 3, 14, 9, 7, tzinfo=timezone.utc)
+    row = _compute_job_model_for_inspection(
+        job_status=ComputeJobStatus.RUNNING,
+        created_at_utc=created_at,
+        leased_at_utc=leased_at,
+        started_at_utc=started_at,
+    )
+
+    assert _compute_job_inspection_active_since(row) == started_at
+
+
+def test_compute_job_inspection_active_since_uses_failed_completion_before_created():
+    created_at = datetime(2026, 3, 14, 9, 0, tzinfo=timezone.utc)
+    completed_at = datetime(2026, 3, 14, 9, 30, tzinfo=timezone.utc)
+    row = _compute_job_model_for_inspection(
+        job_status=ComputeJobStatus.FAILED,
+        created_at_utc=created_at,
+        completed_at_utc=completed_at,
+    )
+
+    assert _compute_job_inspection_active_since(row) == completed_at
+
+
+def test_compute_job_inspection_active_since_defaults_to_created_timestamp():
+    created_at = datetime(2026, 3, 14, 9, 0, tzinfo=timezone.utc)
+    row = _compute_job_model_for_inspection(
+        job_status=ComputeJobStatus.COMPLETE,
+        created_at_utc=created_at,
+    )
+
+    assert _compute_job_inspection_active_since(row) == created_at
+
+
+def test_compute_job_payload_failure_fails_closed_on_missing_request_payload():
+    row = _compute_job_model_for_inspection(
+        job_status=ComputeJobStatus.COMPLETE,
+        created_at_utc=datetime(2026, 3, 14, 9, 0, tzinfo=timezone.utc),
+    )
+
+    failure = _compute_job_payload_failure(row, request_payload=None, response_payload={"ok": True})
+
+    assert failure is not None
+    assert failure.request_payload == {}
+    assert failure.error_message == INVALID_COMPUTE_JOB_REQUEST_PAYLOAD_MESSAGE
+    assert failure.error_type == INVALID_COMPUTE_JOB_REQUEST_PAYLOAD_ERROR_TYPE
+
+
+def test_compute_job_payload_failure_preserves_existing_response_error_details():
+    row = _compute_job_model_for_inspection(
+        job_status=ComputeJobStatus.COMPLETE,
+        created_at_utc=datetime(2026, 3, 14, 9, 0, tzinfo=timezone.utc),
+    )
+    row.response_json = "{not-json"
+    row.error_message = "stored error"
+    row.error_type = "StoredError"
+    request_payload = {"portfolio_id": "P1"}
+
+    failure = _compute_job_payload_failure(row, request_payload=request_payload, response_payload=None)
+
+    assert failure is not None
+    assert failure.request_payload is request_payload
+    assert failure.error_message == "stored error"
+    assert failure.error_type == "StoredError"
 
 
 def test_compute_job_store_lifecycle(tmp_path):
@@ -77,6 +183,37 @@ def test_compute_job_store_fails_closed_on_invalid_response_json(tmp_path, caplo
     assert record.response_payload is None
     assert record.error_message == INVALID_COMPUTE_JOB_RESPONSE_PAYLOAD_MESSAGE
     assert record.error_type == INVALID_COMPUTE_JOB_RESPONSE_PAYLOAD_ERROR_TYPE
+    assert f"calculation_id={calculation_id}" in caplog.text
+
+
+def test_compute_job_store_preserves_existing_error_details_on_invalid_response_json(tmp_path, caplog):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
+    store.create_schema()
+    calculation_id = uuid4()
+    now = datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc)
+
+    store.enqueue_job(
+        calculation_id=calculation_id,
+        analytics_type="ReturnsSeries",
+        request_payload={"portfolio_id": "P1"},
+    )
+    with store._session() as session:
+        row = session.get(ComputeJobModel, str(calculation_id))
+        assert row is not None
+        row.job_status = ComputeJobStatus.COMPLETE.value
+        row.response_json = "{not-json"
+        row.error_message = "upstream stored error"
+        row.error_type = "UpstreamStoredError"
+        row.completed_at_utc = now
+
+    with caplog.at_level("WARNING", logger="app.services.compute_job_store"):
+        record = store.get_job(calculation_id)
+
+    assert record is not None
+    assert record.job_status == ComputeJobStatus.FAILED
+    assert record.response_payload is None
+    assert record.error_message == "upstream stored error"
+    assert record.error_type == "UpstreamStoredError"
     assert f"calculation_id={calculation_id}" in caplog.text
 
 
@@ -318,6 +455,39 @@ def test_compute_job_store_reconciles_stale_running_job(tmp_path):
     assert failed.error_message == "Compute job execution lease expired after exhausting retry budget."
 
 
+def test_compute_job_store_reconciles_stale_leased_job_without_exhausting_retries(tmp_path):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
+    store.create_schema()
+    calculation_id = uuid4()
+    reconcile_now = datetime(2026, 6, 12, 12, 0, tzinfo=timezone.utc)
+
+    store.enqueue_job(
+        calculation_id=calculation_id,
+        analytics_type="Attribution",
+        request_payload={"portfolio_id": "P1"},
+        max_attempts=3,
+    )
+    store.lease_pending_jobs(worker_id="worker-a", limit=10, lease_seconds=30)
+    with store._session() as session:
+        row = store._get_model(session, calculation_id)
+        row.lease_expires_at_utc = reconcile_now - timedelta(seconds=1)
+
+    reconciled = store.reconcile_stale_jobs(now=reconcile_now)
+
+    assert len(reconciled) == 1
+    assert reconciled[0].previous_status == ComputeJobStatus.LEASED
+    assert reconciled[0].reconciled_status == ComputeJobStatus.PENDING
+    assert reconciled[0].error_message == "Compute job reconciliation detected an expired worker lease."
+    assert reconciled[0].error_type == "LeaseExpired"
+    pending = store.get_job(calculation_id)
+    assert pending is not None
+    assert pending.job_status == ComputeJobStatus.PENDING
+    assert pending.worker_id is None
+    assert pending.leased_at_utc is None
+    assert pending.lease_expires_at_utc is None
+    assert pending.completed_at_utc is None
+
+
 def test_compute_job_store_pending_lease_statement_uses_skip_locked_on_postgresql(tmp_path):
     store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
 
@@ -445,6 +615,13 @@ def test_queue_stats_from_aggregate_row_defaults_counts_and_projects_ages():
     assert stats.oldest_leased_age_seconds == 0.0
     assert stats.oldest_running_age_seconds == 45.0
     assert stats.reclaimable_count == 5
+
+
+def test_aggregate_row_count_defaults_nulls_and_preserves_numeric_values():
+    aggregate_row = SimpleNamespace(pending_count=None, leased_count=2)
+
+    assert _aggregate_row_count(aggregate_row, "pending_count") == 0
+    assert _aggregate_row_count(aggregate_row, "leased_count") == 2
 
 
 def test_compute_job_store_queue_inspection_anchors(tmp_path):

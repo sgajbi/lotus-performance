@@ -9,9 +9,11 @@ from app.services.execution_registry import ExecutionRegistry
 from app.services.stateful_input_service import (
     DateChunk,
     StatefulInputService,
+    _component_index_points,
     _portfolio_identity_from_payload,
     _portfolio_observations_from_payload,
     _portfolio_timeseries_request_payload,
+    _position_rows_from_payload,
     _position_timeseries_request_payload,
 )
 
@@ -454,6 +456,47 @@ async def test_reference_series_merge_chunked_points():
 
 
 @pytest.mark.asyncio
+async def test_stateful_input_service_records_risk_free_snapshots_once_per_chunk(tmp_path):
+    core_service = _CoreServiceStub()
+    execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    execution_store.create_schema()
+    calculation_id = uuid4()
+    execution_store.create_execution(
+        calculation_id=calculation_id,
+        analytics_type="BenchmarkAnalytics",
+        portfolio_id="PORT_1",
+    )
+    service = StatefulInputService(
+        core_service=core_service,
+        execution_store=execution_store,
+        reference_chunk_days=2,
+    )
+
+    status_code, payload = await service.get_risk_free_series(
+        currency="USD",
+        as_of_date=date(2026, 1, 4),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 4),
+        calculation_id=calculation_id,
+    )
+    await service.get_risk_free_series(
+        currency="USD",
+        as_of_date=date(2026, 1, 4),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 4),
+        calculation_id=calculation_id,
+    )
+
+    assert status_code == 200
+    assert payload["retrieval_metadata"] == {"chunk_count": 2, "page_count": 2}
+    snapshots = execution_store.list_upstream_snapshots(calculation_id)
+    risk_free_snapshots = [snapshot for snapshot in snapshots if snapshot.upstream_endpoint == "risk_free_series"]
+    assert len(risk_free_snapshots) == 2
+    assert {snapshot.source_identifier for snapshot in risk_free_snapshots} == {"USD"}
+    assert len(core_service.risk_free_calls) == 4
+
+
+@pytest.mark.asyncio
 async def test_stateful_input_service_fetches_reference_payloads_and_records_snapshots(tmp_path):
     core_service = _CoreServiceStub()
     execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
@@ -615,7 +658,9 @@ async def test_stateful_input_service_merges_chunked_index_price_series_and_skip
         {"series_date": "2026-01-04", "index_price": "101", "series_currency": "USD"},
     ]
     snapshots = execution_store.list_upstream_snapshots(calculation_id)
-    assert len([snapshot for snapshot in snapshots if snapshot.upstream_endpoint == "index_price_series"]) == 2
+    index_snapshots = [snapshot for snapshot in snapshots if snapshot.upstream_endpoint == "index_price_series"]
+    assert len(index_snapshots) == 2
+    assert {snapshot.source_identifier for snapshot in index_snapshots} == {"IDX_1"}
     assert len(core_service.index_price_calls) == 4
 
 
@@ -683,6 +728,13 @@ async def test_stateful_input_service_records_reference_snapshots_even_when_chun
         end_date=date(2026, 1, 4),
         calculation_id=calculation_id,
     )
+    await service.get_benchmark_market_series(
+        benchmark_id="BMK_1",
+        as_of_date=date(2026, 1, 4),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 4),
+        calculation_id=calculation_id,
+    )
 
     assert status_code == 503
     assert payload == {"detail": "reference unavailable"}
@@ -713,6 +765,13 @@ async def test_stateful_input_service_records_fx_snapshots_even_when_chunked_req
     )
 
     status_code, payload = await service.get_fx_rates(
+        from_currency="EUR",
+        to_currency="USD",
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 4),
+        calculation_id=calculation_id,
+    )
+    await service.get_fx_rates(
         from_currency="EUR",
         to_currency="USD",
         start_date=date(2026, 1, 1),
@@ -761,10 +820,21 @@ async def test_stateful_input_service_records_upstream_snapshots(tmp_path):
         end_date=date(2026, 1, 4),
         calculation_id=calculation_id,
     )
+    await service.get_benchmark_return_series(
+        benchmark_id="BMK_1",
+        as_of_date=date(2026, 1, 4),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 4),
+        calculation_id=calculation_id,
+    )
 
     snapshots = execution_store.list_upstream_snapshots(calculation_id)
+    benchmark_snapshots = [
+        snapshot for snapshot in snapshots if snapshot.upstream_endpoint == "benchmark_return_series"
+    ]
 
     assert len(snapshots) >= 5
+    assert len(benchmark_snapshots) == 2
     assert {snapshot.upstream_endpoint for snapshot in snapshots} >= {
         "portfolio_timeseries",
         "benchmark_return_series",
@@ -968,7 +1038,9 @@ async def test_stateful_input_service_records_position_snapshots_before_chunk_fa
     assert status_code == 503
     assert payload == {"detail": "position unavailable"}
     snapshots = execution_store.list_upstream_snapshots(calculation_id)
-    assert len([snapshot for snapshot in snapshots if snapshot.upstream_endpoint == "position_timeseries"]) == 3
+    position_snapshots = [snapshot for snapshot in snapshots if snapshot.upstream_endpoint == "position_timeseries"]
+    assert len(position_snapshots) == 3
+    assert {snapshot.source_identifier for snapshot in position_snapshots} == {"PORT_1"}
 
 
 @pytest.mark.asyncio
@@ -1009,9 +1081,24 @@ def test_stateful_input_service_deduplicates_records_and_component_series():
             {"component_series": [{"index_id": None}, "bad", {"index_id": "IDX_1", "points": "bad"}]},
         ]
     )
+    component_points = service._component_points_by_index(
+        [
+            {"component_series": [{"index_id": "IDX_2", "points": [{"series_date": "2026-01-02"}, None]}]},
+            {"component_series": "bad"},
+            {"component_series": [{"index_id": None, "points": [{"series_date": "ignored"}]}, "bad"]},
+        ]
+    )
 
     assert deduped == [{"valuation_date": "2026-01-01", "position_id": "POS_1", "value": 2}]
     assert merged_series == [{"index_id": "IDX_1", "points": [{"series_date": "2026-01-01"}]}]
+    assert component_points == {"IDX_2": [{"series_date": "2026-01-02"}]}
+    assert _component_index_points({"index_id": "IDX_3", "points": [{"series_date": "2026-01-03"}, None]}) == (
+        "IDX_3",
+        [{"series_date": "2026-01-03"}],
+    )
+    assert _component_index_points({"index_id": "IDX_4", "points": "bad-shape"}) == ("IDX_4", [])
+    assert _component_index_points({"index_id": None}) is None
+    assert _component_index_points("bad-component") is None
 
 
 def test_stateful_input_service_helper_contracts_cover_page_tokens_failures_and_snapshot_identity():
@@ -1054,6 +1141,10 @@ def test_stateful_input_service_helper_contracts_cover_page_tokens_failures_and_
         "filters": {"asset_class": "Equity"},
         "page_token": "page-2",
     }
+    assert _position_rows_from_payload(
+        {"rows": [{"valuation_date": "2026-01-01", "position_id": "POS_1"}, "bad-row"]}
+    ) == [{"valuation_date": "2026-01-01", "position_id": "POS_1"}]
+    assert _position_rows_from_payload({"rows": "bad-shape"}) == []
 
     snapshot_id, request_fingerprint = service._build_snapshot_identity(
         calculation_id=calculation_id,

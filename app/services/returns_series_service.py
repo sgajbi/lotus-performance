@@ -63,6 +63,11 @@ from engine.compute import run_calculations
 from engine.schema import PortfolioColumns
 
 RETURN_POINT_QUANTUM = Decimal("0.000000000001")
+_EXPECTED_RETURN_GAP_DAYS = {
+    ReturnsFrequency.DAILY: 1,
+    ReturnsFrequency.WEEKLY: 7,
+    ReturnsFrequency.MONTHLY: 31,
+}
 
 
 @dataclass(frozen=True)
@@ -140,22 +145,38 @@ class _StatefulReturnsSeriesResolvedRequest:
     identity_payload: dict[str, Any]
 
 
-def period_start(as_of_date: date, period: ReturnsRelativePeriod, year: int | None) -> date:
-    as_of = pd.Timestamp(as_of_date)
-    if period == ReturnsRelativePeriod.MTD:
-        return as_of.to_period("M").start_time.date()
-    if period == ReturnsRelativePeriod.QTD:
-        return as_of.to_period("Q").start_time.date()
-    if period == ReturnsRelativePeriod.YTD:
-        return as_of.to_period("Y").start_time.date()
-    if period == ReturnsRelativePeriod.ONE_YEAR:
-        return (as_of - pd.DateOffset(years=1) + pd.Timedelta(days=1)).date()
-    if period == ReturnsRelativePeriod.THREE_YEAR:
-        return (as_of - pd.DateOffset(years=3) + pd.Timedelta(days=1)).date()
-    if period == ReturnsRelativePeriod.FIVE_YEAR:
-        return (as_of - pd.DateOffset(years=5) + pd.Timedelta(days=1)).date()
+_CALENDAR_PERIOD_START_FREQUENCIES: dict[ReturnsRelativePeriod, str] = {
+    ReturnsRelativePeriod.MTD: "M",
+    ReturnsRelativePeriod.QTD: "Q",
+    ReturnsRelativePeriod.YTD: "Y",
+}
+_TRAILING_PERIOD_YEARS: dict[ReturnsRelativePeriod, int] = {
+    ReturnsRelativePeriod.ONE_YEAR: 1,
+    ReturnsRelativePeriod.THREE_YEAR: 3,
+    ReturnsRelativePeriod.FIVE_YEAR: 5,
+}
+
+
+def _resolved_relative_period_start(as_of: pd.Timestamp, period: ReturnsRelativePeriod) -> date | None:
+    calendar_frequency = _CALENDAR_PERIOD_START_FREQUENCIES.get(period)
+    if calendar_frequency is not None:
+        return as_of.to_period(calendar_frequency).start_time.date()
+
+    trailing_years = _TRAILING_PERIOD_YEARS.get(period)
+    if trailing_years is not None:
+        return (as_of - pd.DateOffset(years=trailing_years) + pd.Timedelta(days=1)).date()
+
     if period == ReturnsRelativePeriod.SI:
         return date(1900, 1, 1)
+
+    return None
+
+
+def period_start(as_of_date: date, period: ReturnsRelativePeriod, year: int | None) -> date:
+    as_of = pd.Timestamp(as_of_date)
+    relative_start = _resolved_relative_period_start(as_of, period)
+    if relative_start is not None:
+        return relative_start
     if period == ReturnsRelativePeriod.YEAR:
         if year is None:
             raise ValueError("year is required when period=YEAR")
@@ -258,6 +279,21 @@ def date_range_count(
     return len(pd.date_range(start, end, freq="ME"))
 
 
+def _missing_return_gap_days(
+    prev: date,
+    curr: date,
+    *,
+    frequency: ReturnsFrequency,
+    calendar_policy: CalendarPolicy,
+) -> int:
+    if frequency == ReturnsFrequency.DAILY and calendar_policy != CalendarPolicy.CALENDAR:
+        return max(len(pd.bdate_range(pd.Timestamp(prev), pd.Timestamp(curr))) - 2, 0)
+    delta = (curr - prev).days
+    if delta <= _EXPECTED_RETURN_GAP_DAYS[frequency] + 1:
+        return 0
+    return delta - 1
+
+
 def detect_gaps(
     df: pd.DataFrame,
     *,
@@ -267,25 +303,17 @@ def detect_gaps(
 ) -> list[SeriesGap]:
     if len(df) < 2:
         return []
-    expected_days = 1 if frequency == ReturnsFrequency.DAILY else (7 if frequency == ReturnsFrequency.WEEKLY else 31)
     gaps: list[SeriesGap] = []
     dates = list(df["date"].dt.date)
     for prev, curr in zip(dates, dates[1:]):
-        if frequency == ReturnsFrequency.DAILY and calendar_policy != CalendarPolicy.CALENDAR:
-            missing_business_days = len(pd.bdate_range(pd.Timestamp(prev), pd.Timestamp(curr))) - 2
-            if missing_business_days > 0:
-                gaps.append(
-                    SeriesGap(
-                        series_type=series_type,
-                        from_date=prev,
-                        to_date=curr,
-                        gap_days=missing_business_days,
-                    )
-                )
-            continue
-        delta = (curr - prev).days
-        if delta > expected_days + 1:
-            gaps.append(SeriesGap(series_type=series_type, from_date=prev, to_date=curr, gap_days=delta - 1))
+        gap_days = _missing_return_gap_days(
+            prev,
+            curr,
+            frequency=frequency,
+            calendar_policy=calendar_policy,
+        )
+        if gap_days > 0:
+            gaps.append(SeriesGap(series_type=series_type, from_date=prev, to_date=curr, gap_days=gap_days))
     return gaps
 
 

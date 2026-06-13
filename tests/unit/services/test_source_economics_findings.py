@@ -115,6 +115,11 @@ def test_build_detailed_cashflow_contract_findings_emits_source_contract_finding
     ]
     assert {finding.owner_repo for finding in findings} == {"lotus-core"}
     assert {finding.severity for finding in findings} == {"warning"}
+    assert findings[-1].evidence == {
+        "portfolio_id": "PB_SG_GLOBAL_BAL_001",
+        "sample_dates": ["2026-03-19"],
+        "samples": [{"valuation_date": "2026-03-19"}],
+    }
 
 
 def test_build_source_economics_findings_preserves_invalid_observation_before_fee_findings():

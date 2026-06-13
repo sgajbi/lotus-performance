@@ -19,6 +19,7 @@ from app.services.workspace_summary_service import (
     _annualize_percentage,
     _build_economic_context,
     _build_mwr_cash_flows,
+    _build_stateless_workspace_benchmark_input,
     _build_workspace_benchmark_and_active_blocks,
     _build_workspace_benchmark_daily_df,
     _date_from_boundary,
@@ -26,6 +27,7 @@ from app.services.workspace_summary_service import (
     _resolve_stateful_portfolio_start_date,
     _resolve_workspace_benchmark_input,
     _resolve_workspace_portfolio_input,
+    _workspace_summary_diagnostics_notes,
     calculate_workspace_summary,
     workspace_longest_requested_window_days,
 )
@@ -62,6 +64,22 @@ def test_workspace_longest_requested_window_days_ignores_stateless_requests():
     )
 
     assert workspace_longest_requested_window_days(request) == 0
+
+
+def test_workspace_longest_requested_window_days_uses_report_start_fallback():
+    request = WorkspaceSummaryRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT-1",
+            "report_start_date": "2026-06-01",
+            "report_end_date": "2026-06-30",
+            "input_mode": "stateful",
+            "stateful_input": {},
+            "periods": [{"period": "EXPLICIT", "frequencies": ["daily"]}],
+        }
+    )
+
+    assert workspace_longest_requested_window_days(request) == 29
 
 
 def test_workspace_summary_stateful_retrieval_uses_longest_requested_window(mocker):
@@ -429,6 +447,49 @@ def test_resolve_workspace_benchmark_input_rejects_stateless_payload_missing_req
         )
 
 
+def test_build_stateless_workspace_benchmark_input_projects_vendor_return_points():
+    request = WorkspaceSummaryRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT-1",
+            "report_end_date": "2026-01-02",
+            "input_mode": "stateful",
+            "stateful_input": {},
+            "periods": [{"period": "1D", "frequencies": ["daily"]}],
+            "include_benchmark": True,
+            "benchmark": {
+                "benchmark_id": "BMK-1",
+                "input_mode": "stateless",
+                "return_source": "vendor_series",
+                "stateless_input": {
+                    "benchmark_currency": "USD",
+                    "benchmark_return_points": [
+                        {"perf_date": "2026-01-01", "benchmark_return": 0.01},
+                        {"perf_date": "2026-01-02", "benchmark_return": 0.02},
+                    ],
+                },
+            },
+        }
+    )
+
+    assert request.benchmark is not None
+    result = _build_stateless_workspace_benchmark_input(
+        request=request,
+        benchmark=request.benchmark,
+        master_start_date=date(2026, 1, 1),
+    )
+
+    assert result.input_mode == BenchmarkInputMode.STATELESS
+    assert result.benchmark_id == "BMK-1"
+    assert result.source_details == {}
+    assert result.benchmark_request.benchmark_id == "BMK-1"
+    assert result.benchmark_request.return_source == "vendor_series"
+    assert result.benchmark_request.benchmark_start_date == date(2026, 1, 1)
+    assert result.benchmark_request.report_start_date == date(2026, 1, 1)
+    assert result.benchmark_request.component_observations == []
+    assert [point.benchmark_return for point in result.benchmark_request.benchmark_return_points] == [0.01, 0.02]
+
+
 def test_resolve_workspace_portfolio_input_rejects_stateless_request_without_performance_start_date():
     request = WorkspaceSummaryRequest.model_construct(
         calculation_id=uuid4(),
@@ -622,3 +683,39 @@ def test_build_workspace_benchmark_daily_df_uses_observation_date_series():
 
     assert daily_df is not None
     assert daily_df["date"].tolist() == [date(2026, 3, 30), date(2026, 3, 31)]
+
+
+def test_workspace_summary_diagnostics_notes_preserve_base_notes_and_benchmark_context():
+    diagnostics = Diagnostics(
+        notes=["source note"],
+        nip_days=0,
+        reset_days=0,
+        effective_period_start=date(2026, 3, 30),
+    )
+    benchmark_request = BenchmarkPerformanceRequest.model_validate(
+        {
+            "benchmark_id": "BMK_VENDOR",
+            "benchmark_start_date": "2026-03-30",
+            "report_end_date": "2026-03-31",
+            "benchmark_currency": "USD",
+            "return_source": "vendor_series",
+            "benchmark_return_points": [{"perf_date": "2026-03-31", "benchmark_return": 0.02}],
+            "analyses": [{"period": "EXPLICIT", "frequencies": ["daily"]}],
+            "report_start_date": "2026-03-30",
+        }
+    )
+    benchmark_input = ResolvedWorkspaceBenchmarkInput(
+        benchmark_request=benchmark_request,
+        input_mode=BenchmarkInputMode.STATELESS,
+        benchmark_id="BMK_VENDOR",
+        source_details={},
+    )
+
+    assert _workspace_summary_diagnostics_notes(diagnostics=diagnostics, benchmark_input=None) == ["source note"]
+    assert _workspace_summary_diagnostics_notes(
+        diagnostics=diagnostics,
+        benchmark_input=benchmark_input,
+    ) == [
+        "source note",
+        "Benchmark summary uses stateless benchmark input with vendor_series returns.",
+    ]

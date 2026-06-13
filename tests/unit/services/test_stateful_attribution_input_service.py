@@ -28,6 +28,7 @@ from app.services.stateful_attribution_input_service import (
     _resolve_stateful_attribution_benchmark_id,
     _split_position_cash_flows,
     _stateful_portfolio_position_alignment_mismatches,
+    _stateful_position_currencies,
     _summarize_benchmark_classification,
     _validate_stateful_both_currency_support,
     _validate_stateful_group_by,
@@ -928,6 +929,14 @@ def test_position_market_value_pair_prefers_reporting_currency_and_skips_incompl
         },
         reporting_currency="USD",
     ) == ("200", "210")
+    assert _position_market_value_pair(
+        row={
+            "beginning_market_value_reporting_currency": "100",
+            "beginning_market_value_portfolio_currency": "200",
+            "ending_market_value_portfolio_currency": "210",
+        },
+        reporting_currency="USD",
+    ) == ("200", "210")
     assert (
         _position_market_value_pair(
             row={"beginning_market_value_portfolio_currency": "200"},
@@ -1368,3 +1377,16 @@ def test_stateful_attribution_both_currency_validation_errors_are_explicit():
             reporting_currency="USD",
             fx=None,
         )
+
+
+def test_stateful_position_currencies_preserves_non_empty_strings_and_ignores_missing_values():
+    assert _stateful_position_currencies(
+        [
+            {"position_id": "POS_1", "position_currency": "EUR"},
+            {"position_id": "POS_2", "position_currency": " "},
+            {"position_id": "POS_3", "position_currency": ""},
+            {"position_id": "POS_4", "position_currency": None},
+            {"position_id": "POS_5", "position_currency": 123},
+            {"position_id": "POS_6", "position_currency": "USD"},
+        ]
+    ) == {" ", "EUR", "USD"}

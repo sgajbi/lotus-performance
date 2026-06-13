@@ -119,6 +119,7 @@ def test_runtime_retention_payload_match_helpers_reject_shape_identity_and_count
         )
         is False
     )
+    assert _runtime_retention_payload_identity_matches(_runtime_retention_payload(job_id=None), entry) is False
     assert (
         _runtime_retention_payload_counts_match(_runtime_retention_payload(prunable_execution_count=99), entry) is False
     )

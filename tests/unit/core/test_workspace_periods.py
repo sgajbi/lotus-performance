@@ -51,6 +51,19 @@ def test_resolve_workspace_periods_uses_explicit_start_date_when_provided():
     assert resolved[0].end_date == date(2026, 6, 30)
 
 
+def test_resolve_workspace_periods_clamps_ytd_to_performance_start_date():
+    resolved = resolve_workspace_periods(
+        [WorkspacePeriodType.YTD],
+        as_of=date(2026, 6, 30),
+        performance_start_date=date(2026, 2, 3),
+    )
+
+    assert len(resolved) == 1
+    assert resolved[0].name == "YTD"
+    assert resolved[0].start_date == date(2026, 2, 3)
+    assert resolved[0].end_date == date(2026, 6, 30)
+
+
 def test_resolve_workspace_periods_clamps_long_horizons_to_performance_start_date():
     resolved = resolve_workspace_periods(
         [WorkspacePeriodType.FIVE_YEARS, WorkspacePeriodType.TEN_YEARS],

@@ -67,6 +67,11 @@ COMPUTE_TERMINAL_JOB_STATUSES = (
     ComputeJobStatus.COMPLETE.value,
     ComputeJobStatus.FAILED.value,
 )
+COMPUTE_INSPECTION_ACTIVE_SINCE_FIELDS: dict[str, tuple[str, ...]] = {
+    ComputeJobStatus.LEASED.value: ("leased_at_utc", "created_at_utc"),
+    ComputeJobStatus.RUNNING.value: ("started_at_utc", "leased_at_utc", "created_at_utc"),
+    ComputeJobStatus.FAILED.value: ("completed_at_utc", "created_at_utc"),
+}
 
 
 class Base(DeclarativeBase):
@@ -132,6 +137,22 @@ class ReconciledJobRecord:
 
 
 @dataclass(frozen=True)
+class _ComputeJobRecordPayloadState:
+    job_status: ComputeJobStatus
+    request_payload: dict[str, Any]
+    response_payload: dict[str, Any] | None
+    error_message: str | None
+    error_type: str | None
+
+
+@dataclass(frozen=True)
+class _ComputeJobPayloadFailure:
+    request_payload: dict[str, Any] | None
+    error_message: str
+    error_type: str
+
+
+@dataclass(frozen=True)
 class ComputeQueueStats:
     pending_count: int
     leased_count: int
@@ -147,23 +168,27 @@ class ComputeQueueStats:
     reclaimable_count: int = 0
 
 
+def _aggregate_row_count(aggregate_row: Any, field_name: str) -> int:
+    return int(getattr(aggregate_row, field_name) or 0)
+
+
 def _queue_stats_from_aggregate_row(*, aggregate_row: Any, stats_now: datetime) -> ComputeQueueStats:
     return ComputeQueueStats(
-        pending_count=int(aggregate_row.pending_count or 0),
-        leased_count=int(aggregate_row.leased_count or 0),
-        running_count=int(aggregate_row.running_count or 0),
-        failed_count=int(aggregate_row.failed_count or 0),
-        complete_count=int(aggregate_row.complete_count or 0),
-        retry_backlog_count=int(aggregate_row.retry_backlog_count or 0),
-        lease_expired_count=int(aggregate_row.lease_expired_count or 0),
-        terminal_failure_count=int(aggregate_row.terminal_failure_count or 0),
+        pending_count=_aggregate_row_count(aggregate_row, "pending_count"),
+        leased_count=_aggregate_row_count(aggregate_row, "leased_count"),
+        running_count=_aggregate_row_count(aggregate_row, "running_count"),
+        failed_count=_aggregate_row_count(aggregate_row, "failed_count"),
+        complete_count=_aggregate_row_count(aggregate_row, "complete_count"),
+        retry_backlog_count=_aggregate_row_count(aggregate_row, "retry_backlog_count"),
+        lease_expired_count=_aggregate_row_count(aggregate_row, "lease_expired_count"),
+        terminal_failure_count=_aggregate_row_count(aggregate_row, "terminal_failure_count"),
         oldest_pending_age_seconds=elapsed_seconds_since_or_zero(
             stats_now,
             aggregate_row.oldest_pending_created_at,
         ),
         oldest_leased_age_seconds=elapsed_seconds_since_or_zero(stats_now, aggregate_row.oldest_leased_at),
         oldest_running_age_seconds=elapsed_seconds_since_or_zero(stats_now, aggregate_row.oldest_running_at),
-        reclaimable_count=int(aggregate_row.reclaimable_count or 0),
+        reclaimable_count=_aggregate_row_count(aggregate_row, "reclaimable_count"),
     )
 
 
@@ -484,35 +509,34 @@ class ComputeJobStore:
             )
             rows = session.execute(statement).scalars().all()
             for row in rows:
-                previous_status = ComputeJobStatus(row.job_status)
-                exhausted_retries = (
-                    previous_status == ComputeJobStatus.RUNNING and row.attempt_count >= row.max_attempts
-                )
-                row.worker_id = None
-                row.leased_at_utc = None
-                row.lease_expires_at_utc = None
-                row.last_error_at_utc = reconcile_now
-                row.error_message = (
-                    "Compute job reconciliation detected an expired worker lease."
-                    if not exhausted_retries
-                    else "Compute job execution lease expired after exhausting retry budget."
-                )
-                row.error_type = "LeaseExpired"
-                row.completed_at_utc = reconcile_now if exhausted_retries else None
-                row.job_status = ComputeJobStatus.FAILED.value if exhausted_retries else ComputeJobStatus.PENDING.value
-                reconciled.append(
-                    ReconciledJobRecord(
-                        calculation_id=UUID(row.calculation_id),
-                        analytics_type=row.analytics_type,
-                        previous_status=previous_status,
-                        reconciled_status=ComputeJobStatus(row.job_status),
-                        attempt_count=row.attempt_count,
-                        max_attempts=row.max_attempts,
-                        error_message=row.error_message,
-                        error_type=row.error_type or "LeaseExpired",
-                    )
-                )
+                reconciled.append(self._reconcile_stale_job_row(row, now=reconcile_now))
         return reconciled
+
+    def _reconcile_stale_job_row(self, row: ComputeJobModel, *, now: datetime) -> ReconciledJobRecord:
+        previous_status = ComputeJobStatus(row.job_status)
+        exhausted_retries = previous_status == ComputeJobStatus.RUNNING and row.attempt_count >= row.max_attempts
+        row.worker_id = None
+        row.leased_at_utc = None
+        row.lease_expires_at_utc = None
+        row.last_error_at_utc = now
+        row.error_message = (
+            "Compute job execution lease expired after exhausting retry budget."
+            if exhausted_retries
+            else "Compute job reconciliation detected an expired worker lease."
+        )
+        row.error_type = "LeaseExpired"
+        row.completed_at_utc = now if exhausted_retries else None
+        row.job_status = ComputeJobStatus.FAILED.value if exhausted_retries else ComputeJobStatus.PENDING.value
+        return ReconciledJobRecord(
+            calculation_id=UUID(row.calculation_id),
+            analytics_type=row.analytics_type,
+            previous_status=previous_status,
+            reconciled_status=ComputeJobStatus(row.job_status),
+            attempt_count=row.attempt_count,
+            max_attempts=row.max_attempts,
+            error_message=row.error_message,
+            error_type=row.error_type or "LeaseExpired",
+        )
 
     def _build_lease_pending_jobs_statement(
         self,
@@ -1109,26 +1133,19 @@ class ComputeJobStore:
     def _to_record(self, row: ComputeJobModel) -> ComputeJobRecord:
         request_payload = _load_request_payload(row)
         response_payload = _load_response_payload(row)
-        job_status = ComputeJobStatus(row.job_status)
-        error_message = row.error_message
-        error_type = row.error_type
-        if request_payload is None:
-            job_status = ComputeJobStatus.FAILED
-            error_message = error_message or INVALID_COMPUTE_JOB_REQUEST_PAYLOAD_MESSAGE
-            error_type = error_type or INVALID_COMPUTE_JOB_REQUEST_PAYLOAD_ERROR_TYPE
-            request_payload = {}
-        if row.response_json and response_payload is None:
-            job_status = ComputeJobStatus.FAILED
-            error_message = error_message or INVALID_COMPUTE_JOB_RESPONSE_PAYLOAD_MESSAGE
-            error_type = error_type or INVALID_COMPUTE_JOB_RESPONSE_PAYLOAD_ERROR_TYPE
+        payload_state = _compute_job_record_payload_state(
+            row,
+            request_payload=request_payload,
+            response_payload=response_payload,
+        )
         return ComputeJobRecord(
             calculation_id=UUID(row.calculation_id),
             analytics_type=row.analytics_type,
-            job_status=job_status,
-            request_payload=request_payload,
-            response_payload=response_payload,
-            error_message=error_message,
-            error_type=error_type,
+            job_status=payload_state.job_status,
+            request_payload=payload_state.request_payload,
+            response_payload=payload_state.response_payload,
+            error_message=payload_state.error_message,
+            error_type=payload_state.error_type,
             attempt_count=row.attempt_count,
             max_attempts=row.max_attempts,
             worker_id=row.worker_id,
@@ -1161,13 +1178,7 @@ class ComputeJobStore:
 
     @staticmethod
     def _inspection_active_since(row: ComputeJobModel) -> datetime | None:
-        if row.job_status == ComputeJobStatus.LEASED.value:
-            return row.leased_at_utc or row.created_at_utc
-        if row.job_status == ComputeJobStatus.RUNNING.value:
-            return row.started_at_utc or row.leased_at_utc or row.created_at_utc
-        if row.job_status == ComputeJobStatus.FAILED.value:
-            return row.completed_at_utc or row.created_at_utc
-        return row.created_at_utc
+        return _compute_job_inspection_active_since(row)
 
     def _to_recovery_event(self, row: ComputeJobModel) -> ComputeRecoveryEvent | None:
         recovered_at_utc = format_timestamp(row.last_error_at_utc)
@@ -1192,6 +1203,97 @@ def get_compute_job_store(*, database_url: str | None = None) -> ComputeJobStore
 
 
 compute_job_store = RuntimeStoreProxy(get_compute_job_store)
+
+
+def _compute_job_inspection_active_since(row: ComputeJobModel) -> datetime | None:
+    field_names = COMPUTE_INSPECTION_ACTIVE_SINCE_FIELDS.get(row.job_status, ("created_at_utc",))
+    return _first_datetime_field(row, field_names)
+
+
+def _first_datetime_field(row: ComputeJobModel, field_names: tuple[str, ...]) -> datetime | None:
+    for field_name in field_names:
+        value = getattr(row, field_name)
+        if value is not None:
+            return value
+    return None
+
+
+def _compute_job_record_payload_state(
+    row: ComputeJobModel,
+    *,
+    request_payload: dict[str, Any] | None,
+    response_payload: dict[str, Any] | None,
+) -> _ComputeJobRecordPayloadState:
+    job_status = ComputeJobStatus(row.job_status)
+    error_message = row.error_message
+    error_type = row.error_type
+    payload_failure = _compute_job_payload_failure(
+        row,
+        request_payload=request_payload,
+        response_payload=response_payload,
+    )
+    if payload_failure is not None:
+        job_status = ComputeJobStatus.FAILED
+        error_message = payload_failure.error_message
+        error_type = payload_failure.error_type
+        request_payload = payload_failure.request_payload
+    assert request_payload is not None
+    return _ComputeJobRecordPayloadState(
+        job_status=job_status,
+        request_payload=request_payload,
+        response_payload=response_payload,
+        error_message=error_message,
+        error_type=error_type,
+    )
+
+
+def _compute_job_payload_failure(
+    row: ComputeJobModel,
+    *,
+    request_payload: dict[str, Any] | None,
+    response_payload: dict[str, Any] | None,
+) -> _ComputeJobPayloadFailure | None:
+    if request_payload is None:
+        return _invalid_compute_job_request_payload_failure(row)
+    if _has_invalid_compute_job_response_payload(row, response_payload=response_payload):
+        return _invalid_compute_job_response_payload_failure(row, request_payload=request_payload)
+    return None
+
+
+def _invalid_compute_job_request_payload_failure(row: ComputeJobModel) -> _ComputeJobPayloadFailure:
+    return _ComputeJobPayloadFailure(
+        request_payload={},
+        error_message=_stored_or_default(row.error_message, INVALID_COMPUTE_JOB_REQUEST_PAYLOAD_MESSAGE),
+        error_type=_stored_or_default(row.error_type, INVALID_COMPUTE_JOB_REQUEST_PAYLOAD_ERROR_TYPE),
+    )
+
+
+def _invalid_compute_job_response_payload_failure(
+    row: ComputeJobModel,
+    *,
+    request_payload: dict[str, Any],
+) -> _ComputeJobPayloadFailure:
+    return _ComputeJobPayloadFailure(
+        request_payload=request_payload,
+        error_message=_stored_or_default(row.error_message, INVALID_COMPUTE_JOB_RESPONSE_PAYLOAD_MESSAGE),
+        error_type=_stored_or_default(row.error_type, INVALID_COMPUTE_JOB_RESPONSE_PAYLOAD_ERROR_TYPE),
+    )
+
+
+def _has_invalid_compute_job_response_payload(
+    row: ComputeJobModel,
+    *,
+    response_payload: dict[str, Any] | None,
+) -> bool:
+    if not row.response_json:
+        return False
+    return response_payload is None
+
+
+def _stored_or_default(value: str | None, default: str) -> str:
+    if value:
+        return value
+    return default
 
 
 def _load_request_payload(row: ComputeJobModel) -> dict[str, Any] | None:

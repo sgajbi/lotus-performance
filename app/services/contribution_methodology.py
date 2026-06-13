@@ -61,11 +61,38 @@ def _calculate_reset_aware_average_weight_shadow(
         current_average_weights["reset_aware_average_weight_shadow"] = pd.Series(index=current_average_weights.index)
         return current_average_weights, 0, 0, 0
 
-    required_columns = {PortfolioColumns.PERF_DATE.value, PortfolioColumns.NIP.value, PortfolioColumns.PERF_RESET.value}
-    if portfolio_period_slice_df.empty or not required_columns.issubset(portfolio_period_slice_df.columns):
+    valid_portfolio_days = _reset_aware_valid_portfolio_days(portfolio_period_slice_df)
+    if valid_portfolio_days is None:
         current_average_weights["reset_aware_average_weight_shadow"] = current_average_weights["average_weight"]
         return current_average_weights, 0, 0, 0
 
+    current_average_weights = _apply_reset_aware_average_weight_shadow(
+        current_average_weights,
+        period_slice_df=period_slice_df,
+        valid_portfolio_days=valid_portfolio_days,
+    )
+    delta_position_count, max_shadow_delta_bp, sum_shadow_delta_bp = _average_weight_shadow_delta_metrics(
+        current_average_weights
+    )
+    return current_average_weights, delta_position_count, max_shadow_delta_bp, sum_shadow_delta_bp
+
+
+def _reset_aware_valid_portfolio_days(portfolio_period_slice_df: pd.DataFrame) -> pd.Series | None:
+    if not _has_reset_aware_portfolio_window(portfolio_period_slice_df):
+        return None
+
+    portfolio_window = _reset_relative_portfolio_window(portfolio_period_slice_df)
+    return portfolio_window[numeric_series(portfolio_window[PortfolioColumns.NIP.value]) != 1][
+        PortfolioColumns.PERF_DATE.value
+    ]
+
+
+def _has_reset_aware_portfolio_window(portfolio_period_slice_df: pd.DataFrame) -> bool:
+    required_columns = {PortfolioColumns.PERF_DATE.value, PortfolioColumns.NIP.value, PortfolioColumns.PERF_RESET.value}
+    return not portfolio_period_slice_df.empty and required_columns.issubset(portfolio_period_slice_df.columns)
+
+
+def _reset_relative_portfolio_window(portfolio_period_slice_df: pd.DataFrame) -> pd.DataFrame:
     portfolio_window = portfolio_period_slice_df.copy()
     portfolio_window[PortfolioColumns.PERF_DATE.value] = observation_date_series(
         portfolio_window[PortfolioColumns.PERF_DATE.value]
@@ -77,31 +104,46 @@ def _calculate_reset_aware_average_weight_shadow(
         last_reset_index = portfolio_window[active_reset_mask].index[-1]
         portfolio_window = portfolio_window.loc[last_reset_index:]
 
-    valid_portfolio_days = portfolio_window[numeric_series(portfolio_window[PortfolioColumns.NIP.value]) != 1][
-        PortfolioColumns.PERF_DATE.value
-    ]
+    return portfolio_window
+
+
+def _apply_reset_aware_average_weight_shadow(
+    current_average_weights: pd.DataFrame,
+    *,
+    period_slice_df: pd.DataFrame,
+    valid_portfolio_days: pd.Series,
+) -> pd.DataFrame:
     valid_day_count = int(valid_portfolio_days.nunique())
 
     if valid_day_count == 0:
         current_average_weights["reset_aware_average_weight_shadow"] = 0.0
-    else:
-        shadow_totals = (
-            period_slice_df[
-                observation_date_series(period_slice_df[PortfolioColumns.PERF_DATE.value]).isin(
-                    set(valid_portfolio_days)
-                )
-            ]
-            .groupby("position_id")
-            .agg(weight_sum=("daily_weight", "sum"))
-            .reset_index()
-        )
-        current_average_weights = current_average_weights.merge(shadow_totals, on="position_id", how="left")
-        current_average_weights["weight_sum"] = current_average_weights["weight_sum"].fillna(0.0)
-        current_average_weights["reset_aware_average_weight_shadow"] = (
-            current_average_weights["weight_sum"] / valid_day_count
-        )
-        current_average_weights = current_average_weights.drop(columns=["weight_sum"])
+        return current_average_weights
 
+    shadow_totals = _reset_aware_position_weight_totals(period_slice_df, valid_portfolio_days=valid_portfolio_days)
+    current_average_weights = current_average_weights.merge(shadow_totals, on="position_id", how="left")
+    current_average_weights["weight_sum"] = current_average_weights["weight_sum"].fillna(0.0)
+    current_average_weights["reset_aware_average_weight_shadow"] = (
+        current_average_weights["weight_sum"] / valid_day_count
+    )
+    return current_average_weights.drop(columns=["weight_sum"])
+
+
+def _reset_aware_position_weight_totals(
+    period_slice_df: pd.DataFrame,
+    *,
+    valid_portfolio_days: pd.Series,
+) -> pd.DataFrame:
+    return (
+        period_slice_df[
+            observation_date_series(period_slice_df[PortfolioColumns.PERF_DATE.value]).isin(set(valid_portfolio_days))
+        ]
+        .groupby("position_id")
+        .agg(weight_sum=("daily_weight", "sum"))
+        .reset_index()
+    )
+
+
+def _average_weight_shadow_delta_metrics(current_average_weights: pd.DataFrame) -> tuple[int, int, int]:
     delta_position_count = int(
         (current_average_weights["average_weight"] - current_average_weights["reset_aware_average_weight_shadow"])
         .abs()
@@ -113,7 +155,7 @@ def _calculate_reset_aware_average_weight_shadow(
     ).abs()
     max_shadow_delta_bp = _to_basis_points(absolute_shadow_delta.max()) if not absolute_shadow_delta.empty else 0
     sum_shadow_delta_bp = _to_basis_points(absolute_shadow_delta.sum()) if not absolute_shadow_delta.empty else 0
-    return current_average_weights, delta_position_count, max_shadow_delta_bp, sum_shadow_delta_bp
+    return delta_position_count, max_shadow_delta_bp, sum_shadow_delta_bp
 
 
 def _calculate_average_weight_sum_residual_bp(position_contributions: list[PositionContribution]) -> int:

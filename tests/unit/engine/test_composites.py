@@ -221,6 +221,25 @@ def test_composite_period_fact_helpers_classify_and_aggregate_metadata():
     assert metadata.ready_restatement_versions == ["v1"]
 
 
+def test_composite_period_fact_metadata_deduplicates_sorted_values():
+    metadata = _composite_period_fact_metadata(
+        ready_facts=[
+            _fact(portfolio_id="P2", reporting_currency="SGD", return_view="NET_ACTUAL", source_fingerprint="sha256:z"),
+            _fact(portfolio_id="P1", reporting_currency="USD", return_view="GROSS", source_fingerprint="sha256:a"),
+            _fact(portfolio_id="P3", reporting_currency="USD", return_view="GROSS", source_fingerprint="sha256:a"),
+        ],
+        excluded_facts=[
+            _fact(portfolio_id="P4", status="BLOCKED", reason_codes=["z_reason", "a_reason"]),
+            _fact(portfolio_id="P5", status="BLOCKED", reason_codes=["a_reason"]),
+        ],
+    )
+
+    assert metadata.reason_codes == ["a_reason", "z_reason"]
+    assert metadata.ready_return_views == ["GROSS", "NET_ACTUAL"]
+    assert metadata.ready_reporting_currencies == ["SGD", "USD"]
+    assert metadata.ready_source_fingerprints == ["sha256:a", "sha256:z"]
+
+
 def test_build_ready_composite_period_result_quantizes_and_links_growth():
     period_fact_set = _build_composite_period_fact_set(
         period_start=date(2026, 1, 1),
@@ -293,6 +312,32 @@ def test_blocked_composite_period_result_for_invalid_ready_facts_blocks_nonposit
     assert period_result.reporting_currency == "USD"
     assert period_result.source_fingerprints == ["sha256:P1-2026-01-31"]
     assert period_result.reason_codes == ["nonpositive_composite_beginning_assets"]
+
+
+def test_blocked_composite_period_result_for_invalid_ready_facts_preserves_prior_reason_codes():
+    ready_facts = [_fact(portfolio_id="P1", beginning_market_value="0.00", ending_market_value="10.00")]
+
+    result = _blocked_composite_period_result_for_invalid_ready_facts(
+        period_start=date(2026, 1, 1),
+        period_end=date(2026, 1, 31),
+        beginning_assets=Decimal("0"),
+        ending_assets=Decimal("10.00"),
+        ready_facts=ready_facts,
+        excluded_facts=[],
+        reason_codes=["upstream_member_fact_warning"],
+        ready_return_views=["NET_ACTUAL"],
+        ready_reporting_currencies=["USD"],
+        ready_source_fingerprints=["sha256:P1-2026-01-31"],
+        ready_restatement_versions=["v1"],
+    )
+
+    assert result is not None
+    period_result, aggregate_reason_code = result
+    assert aggregate_reason_code == "nonpositive_composite_beginning_assets"
+    assert period_result.reason_codes == [
+        "upstream_member_fact_warning",
+        "nonpositive_composite_beginning_assets",
+    ]
 
 
 def test_blocked_composite_period_result_for_invalid_ready_facts_blocks_mixed_return_views():

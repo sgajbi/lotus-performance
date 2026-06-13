@@ -6,6 +6,7 @@ from app.openapi_enrichment import (
     _ensure_model_schema_documentation,
     _ensure_operation_metadata,
     _ensure_operation_response_documentation,
+    _ensure_property_vocabulary_metadata,
     _ensure_request_body_example,
     _ensure_success_response_documentation,
     _enum_schema_example,
@@ -14,10 +15,14 @@ from app.openapi_enrichment import (
     _infer_description,
     _infer_example,
     _infer_schema_description,
+    _iter_documentable_operations,
+    _named_schema_example,
     _object_schema_example,
+    _ref_schema_example,
     _semantic_id,
     _semantic_property_description,
     _semantic_string_example,
+    _structural_schema_example,
     _to_snake_case,
     _typed_schema_example,
     _validation_error_json_content,
@@ -128,6 +133,27 @@ def test_build_schema_example_resolves_refs_and_nested_content():
     assert example["result"]["values"] == [1]
 
 
+def test_ref_schema_example_resolves_refs_and_recursive_refs():
+    components = {
+        "schemas": {
+            "Inner": {"type": "object", "properties": {"status": {"type": "string", "enum": ["complete"]}}},
+            "Loop": {"type": "object", "properties": {"self": {"$ref": "#/components/schemas/Loop"}}},
+        }
+    }
+
+    assert _ref_schema_example(
+        {"$ref": "#/components/schemas/Inner"},
+        components=components,
+        seen_refs=set(),
+    ) == {"status": "pending"}
+    assert _ref_schema_example(
+        {"$ref": "#/components/schemas/Loop"},
+        components=components,
+        seen_refs={"#/components/schemas/Loop"},
+    ) == {"id": "recursive_ref"}
+    assert _ref_schema_example({"type": "string"}, components=components, seen_refs=set()) is None
+
+
 def test_schema_example_helpers_cover_explicit_composed_object_and_array_shapes():
     components = {"schemas": {}}
 
@@ -163,6 +189,38 @@ def test_schema_example_helpers_cover_explicit_composed_object_and_array_shapes(
         seen_refs=set(),
         name_hint="values",
     ) == ["VALUE"]
+
+
+def test_named_schema_example_extracts_first_named_value():
+    assert _named_schema_example({"documented": {"value": {"status": "complete"}}}) == {"status": "complete"}
+    assert _named_schema_example({"documented": {"summary": "missing value"}}) is None
+    assert _named_schema_example([{"value": "not named"}]) is None
+
+
+def test_structural_schema_example_routes_object_array_and_scalar_fallback():
+    components = {"schemas": {}}
+
+    assert _structural_schema_example(
+        {"properties": {"portfolio_id": {"type": "string"}}},
+        components=components,
+        seen_refs=set(),
+        name_hint="payload",
+    ) == {"portfolio_id": "DEMO_DPM_EUR_001"}
+    assert _structural_schema_example(
+        {"type": "array", "items": {"type": "integer"}},
+        components=components,
+        seen_refs=set(),
+        name_hint="values",
+    ) == [1]
+    assert (
+        _structural_schema_example(
+            {"type": "string"},
+            components=components,
+            seen_refs=set(),
+            name_hint="status",
+        )
+        is None
+    )
 
 
 def test_ensure_request_body_example_uses_operation_override():
@@ -367,6 +425,17 @@ def test_ensure_operation_metadata_assigns_governed_defaults_and_tags():
     assert workflow_operation["tags"] == ["Existing"]
 
 
+def test_iter_documentable_operations_filters_malformed_paths_and_methods():
+    operation = {"responses": {}}
+    paths = {
+        "/health": {"get": operation, "parameters": []},
+        "/metrics": ["not-methods"],
+        "/custom": {"trace": {}, "post": "not-operation"},
+    }
+
+    assert list(_iter_documentable_operations(paths)) == [("/health", "get", operation)]
+
+
 def test_enrich_openapi_schema_fills_operation_schema_and_examples():
     schema = {
         "paths": {
@@ -456,6 +525,19 @@ def test_enrich_openapi_schema_fills_operation_schema_and_examples():
     request_id_prop = enriched["components"]["schemas"]["HealthResponse"]["properties"]["request_id"]
     assert request_id_prop["description"] == "Already set"
     assert request_id_prop["example"] == "REQ_1"
+
+    preserved_schema = {
+        "x-lotus-semantic-id": "lotus.custom",
+        "x-lotus-canonical-term": "custom_term",
+    }
+    _ensure_property_vocabulary_metadata(prop_name="portfolio_id", prop_schema=preserved_schema)
+    assert preserved_schema["x-lotus-semantic-id"] == "lotus.custom"
+    assert preserved_schema["x-lotus-canonical-term"] == "custom_term"
+
+    generated_schema: dict[str, object] = {}
+    _ensure_property_vocabulary_metadata(prop_name="portfolio_id", prop_schema=generated_schema)
+    assert generated_schema["x-lotus-semantic-id"] == "lotus.portfolio_id"
+    assert generated_schema["x-lotus-canonical-term"] == "portfolio_id"
 
     other_count = enriched["components"]["schemas"]["Other"]["properties"]["count"]
     assert other_count["description"]

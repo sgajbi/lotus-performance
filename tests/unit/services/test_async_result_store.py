@@ -7,6 +7,7 @@ from app.services.async_result_store import (
     AsyncResultModel,
     AsyncResultStatus,
     AsyncResultStore,
+    _async_result_record_payload_state,
 )
 
 
@@ -126,6 +127,27 @@ def test_async_result_store_fails_closed_on_non_object_response_json(tmp_path, c
     assert result.response_payload is None
     assert result.error_type == INVALID_ASYNC_RESULT_PAYLOAD_ERROR_TYPE
     assert f"calculation_id={calculation_id}" in caplog.text
+
+
+def test_async_result_payload_state_preserves_existing_failure_details_for_invalid_payload():
+    calculation_id = uuid4()
+    row = AsyncResultModel(
+        calculation_id=str(calculation_id),
+        analytics_type="ReturnsSeries",
+        result_status=AsyncResultStatus.COMPLETE.value,
+        response_json="{not-json",
+        error_message="existing failure",
+        error_type="ExistingFailure",
+        created_at_utc=datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc),
+        updated_at_utc=datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc),
+    )
+
+    payload_state = _async_result_record_payload_state(row, response_payload=None)
+
+    assert payload_state.result_status == AsyncResultStatus.FAILED
+    assert payload_state.response_payload is None
+    assert payload_state.error_message == "existing failure"
+    assert payload_state.error_type == "ExistingFailure"
 
 
 def test_async_result_store_prunes_results_older_than_cutoff(tmp_path):

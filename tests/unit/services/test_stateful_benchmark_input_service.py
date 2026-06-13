@@ -11,6 +11,7 @@ from app.services.stateful_benchmark_input_service import (
     _build_component_observation,
     _build_component_observations,
     _build_normalized_component_series,
+    _load_benchmark_definition_currency,
     _load_component_price_series,
     _load_fx_maps_for_components,
     _normalize_price_to_benchmark_currency,
@@ -281,6 +282,24 @@ async def test_build_stateful_benchmark_input_requires_benchmark_currency_for_ve
             end_date=date(2026, 1, 3),
             return_source=BenchmarkReturnSource.VENDOR_SERIES,
         )
+
+
+@pytest.mark.asyncio
+async def test_load_benchmark_definition_currency_maps_upstream_failure_to_source_unavailable():
+    class _UnavailableDefinitionStub(_StatefulInputServiceStub):
+        async def get_benchmark_definition(self, **kwargs):  # noqa: ARG002
+            return 503, {"detail": "unavailable"}
+
+    with pytest.raises(HTTPException) as exc:
+        await _load_benchmark_definition_currency(
+            stateful_input_service=_UnavailableDefinitionStub(),
+            calculation_id=uuid4(),
+            benchmark_id="BMK_1",
+            as_of_date=date(2026, 1, 3),
+        )
+
+    assert exc.value.status_code == 503
+    assert exc.value.detail == "benchmark definition source unavailable (503)."
 
 
 @pytest.mark.asyncio
@@ -645,6 +664,10 @@ async def test_load_component_price_series_surfaces_404_503_and_empty_payloads()
         async def get_index_price_series(self, **kwargs):  # noqa: ARG002
             return 200, {"points": [], "retrieval_metadata": {"chunk_count": 1, "page_count": 1}}
 
+    class _MissingPointsSeriesStub(_StatefulInputServiceStub):
+        async def get_index_price_series(self, **kwargs):  # noqa: ARG002
+            return 200, {"retrieval_metadata": {"chunk_count": 1, "page_count": 1}}
+
     with pytest.raises(HTTPException, match="No index price series found"):
         await _load_component_price_series(
             stateful_input_service=_MissingSeriesStub(),
@@ -670,6 +693,17 @@ async def test_load_component_price_series_surfaces_404_503_and_empty_payloads()
     with pytest.raises(HTTPException, match="payload empty"):
         await _load_component_price_series(
             stateful_input_service=_EmptySeriesStub(),
+            calculation_id=uuid4(),
+            benchmark_id="BMK_1",
+            component_ids=["IDX_USD"],
+            as_of_date=date(2026, 1, 3),
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 3),
+        )
+
+    with pytest.raises(HTTPException, match="payload missing points"):
+        await _load_component_price_series(
+            stateful_input_service=_MissingPointsSeriesStub(),
             calculation_id=uuid4(),
             benchmark_id="BMK_1",
             component_ids=["IDX_USD"],
@@ -864,6 +898,38 @@ def test_build_component_observation_projects_local_fx_and_total_returns():
     assert observation.component_return == pytest.approx(0.0302)
     assert observation.component_return_local == pytest.approx(0.01)
     assert observation.component_return_fx == pytest.approx(0.02)
+
+
+def test_build_component_observation_projects_zero_fx_for_benchmark_currency_component():
+    observation = _build_component_observation(
+        benchmark_id="BMK_1",
+        segment=BenchmarkCompositionSegment(
+            index_id="IDX_USD",
+            composition_weight=Decimal("1"),
+            composition_effective_from=date(2026, 1, 1),
+            composition_effective_to=None,
+        ),
+        point_date=date(2026, 1, 2),
+        normalized_component_series={
+            "IDX_USD": {
+                "normalized_prices": {
+                    date(2026, 1, 1): Decimal("100"),
+                    date(2026, 1, 2): Decimal("101"),
+                },
+                "local_prices": {
+                    date(2026, 1, 1): Decimal("100"),
+                    date(2026, 1, 2): Decimal("101"),
+                },
+                "series_currency": "USD",
+            }
+        },
+        benchmark_currency="USD",
+        fx_map_by_pair={},
+    )
+
+    assert observation.component_return == pytest.approx(0.01)
+    assert observation.component_return_local == pytest.approx(0.01)
+    assert observation.component_return_fx == 0
 
 
 def test_build_normalized_component_series_skips_invalid_points_and_rejects_missing_prices():

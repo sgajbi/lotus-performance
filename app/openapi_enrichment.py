@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import re
+from collections.abc import Iterator
 from typing import Any, Callable
 
 ALLOWED_METHODS = {"get", "post", "put", "patch", "delete"}
@@ -318,10 +319,18 @@ def _explicit_schema_example(schema: dict[str, Any]) -> Any | None:
     examples = schema.get("examples")
     if isinstance(examples, list) and examples:
         return copy.deepcopy(examples[0])
-    if isinstance(examples, dict) and examples:
-        first = next(iter(examples.values()))
-        if isinstance(first, dict) and first.get("value") is not None:
-            return copy.deepcopy(first["value"])
+    named_example = _named_schema_example(examples)
+    if named_example is not None:
+        return named_example
+    return None
+
+
+def _named_schema_example(examples: Any) -> Any | None:
+    if not isinstance(examples, dict) or not examples:
+        return None
+    first = next(iter(examples.values()))
+    if isinstance(first, dict) and first.get("value") is not None:
+        return copy.deepcopy(first["value"])
     return None
 
 
@@ -377,6 +386,51 @@ def _array_schema_example(
     return ["VALUE"]
 
 
+def _ref_schema_example(
+    schema: dict[str, Any],
+    *,
+    components: dict[str, Any],
+    seen_refs: set[str],
+) -> Any | None:
+    ref = schema.get("$ref")
+    if not isinstance(ref, str):
+        return None
+    if ref in seen_refs:
+        return {"id": "recursive_ref"}
+    ref_name = ref.rsplit("/", 1)[-1]
+    target = components.get("schemas", {}).get(ref_name, {})
+    return _build_schema_example(
+        target,
+        components=components,
+        seen_refs={*seen_refs, ref},
+        name_hint=ref_name,
+    )
+
+
+def _structural_schema_example(
+    schema: dict[str, Any],
+    *,
+    components: dict[str, Any],
+    seen_refs: set[str],
+    name_hint: str,
+) -> Any | None:
+    schema_type = schema.get("type")
+    if schema_type == "object" or isinstance(schema.get("properties"), dict):
+        return _object_schema_example(
+            schema,
+            components=components,
+            seen_refs=seen_refs,
+        )
+    if schema_type == "array":
+        return _array_schema_example(
+            schema,
+            components=components,
+            seen_refs=seen_refs,
+            name_hint=name_hint,
+        )
+    return None
+
+
 def _build_schema_example(
     schema: dict[str, Any],
     *,
@@ -385,17 +439,9 @@ def _build_schema_example(
     name_hint: str = "value",
 ) -> Any:
     seen = seen_refs or set()
-    ref = schema.get("$ref")
-    if isinstance(ref, str):
-        if ref in seen:
-            return {"id": "recursive_ref"}
-        target = components.get("schemas", {}).get(ref.rsplit("/", 1)[-1], {})
-        return _build_schema_example(
-            target,
-            components=components,
-            seen_refs={*seen, ref},
-            name_hint=ref.rsplit("/", 1)[-1],
-        )
+    ref_example = _ref_schema_example(schema, components=components, seen_refs=seen)
+    if ref_example is not None:
+        return ref_example
 
     explicit_example = _explicit_schema_example(schema)
     if explicit_example is not None:
@@ -410,20 +456,15 @@ def _build_schema_example(
     if composed_example is not None:
         return composed_example
 
-    schema_type = schema.get("type")
-    if schema_type == "object" or isinstance(schema.get("properties"), dict):
-        return _object_schema_example(
-            schema,
-            components=components,
-            seen_refs=seen,
-        )
-    if schema_type == "array":
-        return _array_schema_example(
-            schema,
-            components=components,
-            seen_refs=seen,
-            name_hint=name_hint,
-        )
+    structural_example = _structural_schema_example(
+        schema,
+        components=components,
+        seen_refs=seen,
+        name_hint=name_hint,
+    )
+    if structural_example is not None:
+        return structural_example
+
     return _infer_example(name_hint, schema)
 
 
@@ -610,36 +651,41 @@ def _ensure_operation_metadata(*, path: str, method: str, operation: dict[str, A
         operation["tags"] = _operation_tags_for_path(path)
 
 
+def _iter_documentable_operations(paths: dict[str, Any]) -> Iterator[tuple[str, str, dict[str, Any]]]:
+    for path, methods in paths.items():
+        if not isinstance(methods, dict):
+            continue
+        for method, operation in methods.items():
+            method_name = str(method)
+            if method_name.lower() not in ALLOWED_METHODS:
+                continue
+            if isinstance(operation, dict):
+                yield str(path), method_name, operation
+
+
 def _ensure_operation_documentation(schema: dict[str, Any]) -> None:
     paths = schema.get("paths", {})
     components = schema.get("components", {})
     if not isinstance(paths, dict):
         return
-    for path, methods in paths.items():
-        if not isinstance(methods, dict):
-            continue
-        for method, operation in methods.items():
-            if method.lower() not in ALLOWED_METHODS:
-                continue
-            if not isinstance(operation, dict):
-                continue
-            _ensure_operation_metadata(path=path, method=method, operation=operation)
+    for path, method, operation in _iter_documentable_operations(paths):
+        _ensure_operation_metadata(path=path, method=method, operation=operation)
 
-            request_body = operation.get("requestBody")
-            if isinstance(request_body, dict):
-                _ensure_request_body_example(
-                    path=path,
-                    request_body=request_body,
-                    components=components,
-                )
+        request_body = operation.get("requestBody")
+        if isinstance(request_body, dict):
+            _ensure_request_body_example(
+                path=path,
+                request_body=request_body,
+                components=components,
+            )
 
-            responses = operation.get("responses")
-            if isinstance(responses, dict):
-                _ensure_operation_response_documentation(
-                    path=path,
-                    responses=responses,
-                    components=components,
-                )
+        responses = operation.get("responses")
+        if isinstance(responses, dict):
+            _ensure_operation_response_documentation(
+                path=path,
+                responses=responses,
+                components=components,
+            )
 
 
 def _ensure_schema_documentation(schema: dict[str, Any]) -> None:
@@ -700,13 +746,17 @@ def _ensure_property_schema_documentation(
             components=components,
             name_hint=prop_name,
         )
+    _ensure_property_vocabulary_metadata(prop_name=prop_name, prop_schema=prop_schema)
+    prop_enum_descriptions = _infer_enum_descriptions(prop_name, prop_resolved)
+    if prop_enum_descriptions and "x-enum-descriptions" not in prop_schema:
+        prop_schema["x-enum-descriptions"] = prop_enum_descriptions
+
+
+def _ensure_property_vocabulary_metadata(*, prop_name: str, prop_schema: dict[str, Any]) -> None:
     if "x-lotus-semantic-id" not in prop_schema:
         prop_schema["x-lotus-semantic-id"] = _semantic_id(prop_name)
     if "x-lotus-canonical-term" not in prop_schema:
         prop_schema["x-lotus-canonical-term"] = _canonical_term(prop_name)
-    prop_enum_descriptions = _infer_enum_descriptions(prop_name, prop_resolved)
-    if prop_enum_descriptions and "x-enum-descriptions" not in prop_schema:
-        prop_schema["x-enum-descriptions"] = prop_enum_descriptions
 
 
 def enrich_openapi_schema(schema: dict[str, Any]) -> dict[str, Any]:

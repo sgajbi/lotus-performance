@@ -36,6 +36,16 @@ class BenchmarkCompositionSegment:
     composition_effective_to: date | None
 
 
+@dataclass(frozen=True)
+class _ComponentObservationPrices:
+    previous_date: date
+    previous_price: Decimal
+    current_price: Decimal
+    local_previous_price: Decimal
+    local_current_price: Decimal
+    component_currency: str
+
+
 async def build_stateful_benchmark_input(
     *,
     stateful_input_service: StatefulInputService,
@@ -47,29 +57,12 @@ async def build_stateful_benchmark_input(
     return_source: BenchmarkReturnSource,
 ) -> StatefulBenchmarkNormalizedInput:
     if return_source == BenchmarkReturnSource.VENDOR_SERIES:
-        definition_status, definition_payload = await stateful_input_service.get_benchmark_definition(
+        benchmark_currency = await _load_benchmark_definition_currency(
+            stateful_input_service=stateful_input_service,
+            calculation_id=calculation_id,
             benchmark_id=benchmark_id,
             as_of_date=as_of_date,
-            calculation_id=calculation_id,
         )
-        if definition_status == status.HTTP_404_NOT_FOUND:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"No benchmark definition found for benchmark_id={benchmark_id}.",
-            )
-        if definition_status >= status.HTTP_400_BAD_REQUEST:
-            raise_for_stateful_source_unavailable(
-                source_label="benchmark definition",
-                upstream_status=definition_status,
-            )
-
-        benchmark_currency_raw = definition_payload.get("benchmark_currency")
-        if not isinstance(benchmark_currency_raw, str) or not benchmark_currency_raw:
-            raise HTTPException(
-                status_code=HTTP_422_UNPROCESSABLE,
-                detail="benchmark definition payload missing benchmark_currency.",
-            )
-        benchmark_currency = benchmark_currency_raw
         return await _build_stateful_vendor_series_input(
             stateful_input_service=stateful_input_service,
             calculation_id=calculation_id,
@@ -146,6 +139,38 @@ async def build_stateful_benchmark_input(
             "fx_page_count": fx_retrieval_metadata.page_count,
         },
     )
+
+
+async def _load_benchmark_definition_currency(
+    *,
+    stateful_input_service: StatefulInputService,
+    calculation_id: UUID,
+    benchmark_id: str,
+    as_of_date: date,
+) -> str:
+    definition_status, definition_payload = await stateful_input_service.get_benchmark_definition(
+        benchmark_id=benchmark_id,
+        as_of_date=as_of_date,
+        calculation_id=calculation_id,
+    )
+    if definition_status == status.HTTP_404_NOT_FOUND:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No benchmark definition found for benchmark_id={benchmark_id}.",
+        )
+    if definition_status >= status.HTTP_400_BAD_REQUEST:
+        raise_for_stateful_source_unavailable(
+            source_label="benchmark definition",
+            upstream_status=definition_status,
+        )
+
+    benchmark_currency_raw = definition_payload.get("benchmark_currency")
+    if not isinstance(benchmark_currency_raw, str) or not benchmark_currency_raw:
+        raise HTTPException(
+            status_code=HTTP_422_UNPROCESSABLE,
+            detail="benchmark definition payload missing benchmark_currency.",
+        )
+    return benchmark_currency_raw
 
 
 async def _build_stateful_vendor_series_input(
@@ -377,36 +402,49 @@ async def _load_component_price_series(
     component_price_series: dict[str, dict[str, Any]] = {}
     retrieval_metadata_total = RetrievalMetadata(chunk_count=0, page_count=0)
     for index_id, (series_status, series_payload) in zip(component_ids, responses):
-        if series_status == status.HTTP_404_NOT_FOUND:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"No index price series found for benchmark component {index_id}.",
-            )
-        if series_status >= status.HTTP_400_BAD_REQUEST:
-            raise_for_stateful_source_unavailable(
-                source_label="index price-series",
-                upstream_status=series_status,
-                context=f"for benchmark component {index_id}",
-            )
-        points_raw = series_payload.get("points")
-        if not isinstance(points_raw, list):
-            raise HTTPException(
-                status_code=HTTP_422_UNPROCESSABLE,
-                detail=f"index price-series payload missing points for benchmark component {index_id}.",
-            )
-        series_points = [point for point in points_raw if isinstance(point, dict)]
-        if not series_points:
-            raise HTTPException(
-                status_code=HTTP_422_UNPROCESSABLE,
-                detail=f"index price-series payload empty for benchmark component {index_id}.",
-            )
-        component_price_series[index_id] = {
-            "points": series_points,
-            "series_currency": _infer_series_currency(index_id=index_id, points=series_points),
-        }
+        component_price_series[index_id] = _component_price_series_from_response(
+            index_id=index_id,
+            series_status=series_status,
+            series_payload=series_payload,
+        )
         retrieval_metadata_total = add_zero_default_retrieval_metadata(retrieval_metadata_total, series_payload)
 
     return component_price_series, retrieval_metadata_total
+
+
+def _component_price_series_from_response(
+    *,
+    index_id: str,
+    series_status: int,
+    series_payload: dict[str, Any],
+) -> dict[str, Any]:
+    if series_status == status.HTTP_404_NOT_FOUND:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No index price series found for benchmark component {index_id}.",
+        )
+    if series_status >= status.HTTP_400_BAD_REQUEST:
+        raise_for_stateful_source_unavailable(
+            source_label="index price-series",
+            upstream_status=series_status,
+            context=f"for benchmark component {index_id}",
+        )
+    points_raw = series_payload.get("points")
+    if not isinstance(points_raw, list):
+        raise HTTPException(
+            status_code=HTTP_422_UNPROCESSABLE,
+            detail=f"index price-series payload missing points for benchmark component {index_id}.",
+        )
+    series_points = [point for point in points_raw if isinstance(point, dict)]
+    if not series_points:
+        raise HTTPException(
+            status_code=HTTP_422_UNPROCESSABLE,
+            detail=f"index price-series payload empty for benchmark component {index_id}.",
+        )
+    return {
+        "points": series_points,
+        "series_currency": _infer_series_currency(index_id=index_id, points=series_points),
+    }
 
 
 def _infer_series_currency(*, index_id: str, points: list[dict[str, Any]]) -> str:
@@ -538,11 +576,42 @@ def _build_component_observation(
     benchmark_currency: str,
     fx_map_by_pair: dict[tuple[str, str], dict[date, Decimal]],
 ) -> BenchmarkComponentObservation:
-    series_payload = normalized_component_series.get(segment.index_id)
+    prices = _component_observation_prices(
+        benchmark_id=benchmark_id,
+        component_id=segment.index_id,
+        point_date=point_date,
+        normalized_component_series=normalized_component_series,
+    )
+    component_return_local = (prices.local_current_price / prices.local_previous_price) - Decimal("1")
+    if prices.component_currency == benchmark_currency:
+        component_return_fx = Decimal("0")
+    else:
+        fx_map = fx_map_by_pair[(prices.component_currency, benchmark_currency)]
+        component_return_fx = (fx_map[point_date] / fx_map[prices.previous_date]) - Decimal("1")
+    component_return = (prices.current_price / prices.previous_price) - Decimal("1")
+    return BenchmarkComponentObservation(
+        component_id=segment.index_id,
+        perf_date=point_date,
+        component_currency=prices.component_currency,
+        weight_bop=float(segment.composition_weight),
+        component_return=float(component_return),
+        component_return_local=float(component_return_local),
+        component_return_fx=float(component_return_fx),
+    )
+
+
+def _component_observation_prices(
+    *,
+    benchmark_id: str,
+    component_id: str,
+    point_date: date,
+    normalized_component_series: dict[str, dict[str, Any]],
+) -> _ComponentObservationPrices:
+    series_payload = normalized_component_series.get(component_id)
     if series_payload is None:
         raise HTTPException(
             status_code=HTTP_422_UNPROCESSABLE,
-            detail=f"Missing index price-series payload for benchmark component {segment.index_id}.",
+            detail=f"Missing index price-series payload for benchmark component {component_id}.",
         )
     normalized_prices = series_payload["normalized_prices"]
     local_prices = series_payload["local_prices"]
@@ -552,7 +621,7 @@ def _build_component_observation(
             status_code=HTTP_422_UNPROCESSABLE,
             detail=(
                 f"Benchmark market-series coverage is incomplete for benchmark_id={benchmark_id}; "
-                f"component {segment.index_id} is missing {point_date}."
+                f"component {component_id} is missing {point_date}."
             ),
         )
     previous_dates = [candidate for candidate in normalized_prices if candidate < point_date]
@@ -561,34 +630,23 @@ def _build_component_observation(
             status_code=HTTP_422_UNPROCESSABLE,
             detail=(
                 f"Benchmark calculated mode requires a prior normalized price before {point_date} "
-                f"for component {segment.index_id}."
+                f"for component {component_id}."
             ),
         )
     previous_date = max(previous_dates)
     previous_price = normalized_prices[previous_date]
-    current_price = normalized_prices[point_date]
     if previous_price == 0:
         raise HTTPException(
             status_code=HTTP_422_UNPROCESSABLE,
-            detail=(f"Normalized benchmark price is zero for component {segment.index_id} on {previous_date}."),
+            detail=f"Normalized benchmark price is zero for component {component_id} on {previous_date}.",
         )
-    local_previous_price = local_prices[previous_date]
-    local_current_price = local_prices[point_date]
-    component_return_local = (local_current_price / local_previous_price) - Decimal("1")
-    if component_currency == benchmark_currency:
-        component_return_fx = Decimal("0")
-    else:
-        fx_map = fx_map_by_pair[(component_currency, benchmark_currency)]
-        component_return_fx = (fx_map[point_date] / fx_map[previous_date]) - Decimal("1")
-    component_return = (current_price / previous_price) - Decimal("1")
-    return BenchmarkComponentObservation(
-        component_id=segment.index_id,
-        perf_date=point_date,
+    return _ComponentObservationPrices(
+        previous_date=previous_date,
+        previous_price=previous_price,
+        current_price=normalized_prices[point_date],
+        local_previous_price=local_prices[previous_date],
+        local_current_price=local_prices[point_date],
         component_currency=component_currency,
-        weight_bop=float(segment.composition_weight),
-        component_return=float(component_return),
-        component_return_local=float(component_return_local),
-        component_return_fx=float(component_return_fx),
     )
 
 

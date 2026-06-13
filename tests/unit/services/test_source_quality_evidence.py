@@ -1,6 +1,11 @@
 from datetime import date
+from decimal import Decimal
 
-from app.services.source_quality_evidence import _unsupported_cashflow_count, build_portfolio_source_quality_evidence
+from app.services.source_quality_evidence import (
+    _summarize_source_quality_observations,
+    _unsupported_cashflow_count,
+    build_portfolio_source_quality_evidence,
+)
 
 
 def test_source_quality_evidence_captures_stateful_quality_warnings():
@@ -115,3 +120,33 @@ def test_unsupported_cashflow_count_ignores_non_flow_values_and_counts_unsupport
         == 1
     )
     assert _unsupported_cashflow_count("not-a-list") == 0
+
+
+def test_source_quality_observation_summary_counts_invalid_numeric_values_and_classifications():
+    summary = _summarize_source_quality_observations(
+        [
+            {
+                "valuation_date": "2026-03-31",
+                "beginning_market_value": "not-a-number",
+                "ending_market_value": "1010",
+                "source_classification": "official",
+                "cash_flows": [{"cash_flow_type": "dividend"}],
+            },
+            {
+                "valuation_date": "2026-04-01",
+                "beginning_market_value": "1010",
+                "ending_market_value": "1012",
+                "source_classification": 123,
+                "cash_flows": [{"cash_flow_type": "external_flow"}],
+            },
+        ]
+    )
+
+    assert summary.skipped_observation_count == 1
+    assert summary.unsupported_cashflow_count == 1
+    assert summary.source_classifications == {"official": 1}
+    assert summary.normalized_dates == [date(2026, 3, 31), date(2026, 4, 1)]
+    assert summary.values_by_date == {
+        "2026-03-31": set(),
+        "2026-04-01": {(Decimal("1010"), Decimal("1012"))},
+    }

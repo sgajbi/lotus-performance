@@ -5,6 +5,7 @@ from pydantic import ValidationError
 from app.models.attribution_analytics_requests import (
     AttributionAnalyticsRequest,
     _attribution_input_shape,
+    _attribution_request_payload,
     _resolve_attribution_stateless_input,
 )
 from app.models.attribution_requests import AttributionRequest, BenchmarkGroup, PortfolioGroup
@@ -327,6 +328,24 @@ def test_resolve_attribution_stateless_input_uses_nested_payload():
     assert resolved.portfolio_groups_data[0].key["assetClass"] == "Equity"
     assert resolved.benchmark_groups_data is not None
     assert resolved.benchmark_groups_data[0].key["assetClass"] == "Equity"
+
+
+def test_attribution_request_payload_serializes_resolved_groups_without_analytics_fields(base_attribution_payload):
+    request = AttributionAnalyticsRequest.model_validate(
+        {
+            **base_attribution_payload,
+            "analyses": [{"period": "ITD", "frequencies": ["monthly"]}],
+        }
+    )
+    resolved = _resolve_attribution_stateless_input(request=request)
+
+    payload = _attribution_request_payload(request=request, resolved_input=resolved)
+
+    assert "input_mode" not in payload
+    assert "stateless_input" not in payload
+    assert "stateful_input" not in payload
+    assert payload["portfolio_groups_data"] == []
+    assert payload["benchmark_groups_data"][0]["key"]["assetClass"] == "Equity"
 
 
 def test_attribution_analytics_request_builds_nested_stateless_request():

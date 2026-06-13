@@ -6,7 +6,11 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.models.contribution_analytics_requests import ContributionInputMode
 from app.models.contribution_requests import ContributionRequest
 from app.services import contribution_evidence
-from app.services.contribution_source_economics import build_contribution_source_economics_evidence
+from app.services.contribution_source_economics import (
+    _stateful_cash_flow_economics,
+    _stateful_metadata_economics,
+    build_contribution_source_economics_evidence,
+)
 from app.services.execution_registry import UpstreamSnapshotRecord
 
 
@@ -86,6 +90,31 @@ def test_source_economics_evidence_preserves_source_rich_stateful_contract():
     assert evidence.source_snapshot_endpoints == ["portfolio_timeseries", "position_timeseries"]
     assert "COMPONENT_PNL_NOT_SOURCE_AUTHORED" in evidence.reason_codes
     assert "income_pnl" in evidence.unsupported_economics
+
+
+def test_stateful_cash_flow_economics_projects_supported_source_flow_families():
+    economics = _stateful_cash_flow_economics(
+        {
+            "external_flow": 1,
+            "transfer": 1,
+            "internal_trade_flow": 2,
+            "fee": 3,
+            "dividend": 4,
+        }
+    )
+
+    assert economics == ["external_flows", "internal_trade_flows", "fees"]
+
+
+def test_stateful_metadata_economics_projects_fx_and_classification_dimensions():
+    request = _request_with_position_meta(
+        {
+            "asset_class": "Equity",
+            "position_to_portfolio_fx_rate": "1.10",
+        }
+    )
+
+    assert _stateful_metadata_economics(request) == ["fx_rates", "classification_dimensions"]
 
 
 def test_source_economics_evidence_ignores_boolean_cash_flow_type_counts():

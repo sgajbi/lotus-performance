@@ -1,9 +1,22 @@
 from __future__ import annotations
 
+from datetime import date
+
 import pytest
 from pydantic import ValidationError
 
-from app.models.returns_series import ReturnsWindow, ReturnsWindowMode
+from app.models.returns_series import (
+    ReturnsRelativePeriod,
+    ReturnsWindow,
+    ReturnsWindowMode,
+    StatefulInput,
+    StatelessInput,
+    _require_selected_stateless_series,
+    _validate_explicit_returns_window,
+    _validate_relative_returns_window,
+    _validate_stateful_returns_series_input_envelope,
+    _validate_stateless_returns_series_input_envelope,
+)
 
 
 def _base_payload() -> dict:
@@ -37,6 +50,16 @@ def test_returns_window_validation_error_paths():
     window = ReturnsWindow.model_validate({"mode": "RELATIVE", "period": "YEAR", "year": 2025})
     assert window.mode == ReturnsWindowMode.RELATIVE
     assert window.year == 2025
+
+
+def test_returns_window_validation_helpers_preserve_explicit_and_relative_policy():
+    _validate_explicit_returns_window(from_date=date(2026, 2, 24), to_date=date(2026, 2, 27))
+    _validate_relative_returns_window(period=ReturnsRelativePeriod.YEAR, year=2026)
+
+    with pytest.raises(ValueError, match="from_date cannot be after to_date"):
+        _validate_explicit_returns_window(from_date=date(2026, 2, 27), to_date=date(2026, 2, 24))
+    with pytest.raises(ValueError, match="year is required when period=YEAR"):
+        _validate_relative_returns_window(period=ReturnsRelativePeriod.YEAR, year=None)
 
 
 def test_returns_series_request_requires_stateless_input_when_stateless_mode():
@@ -92,6 +115,59 @@ def test_returns_series_request_rejects_mixed_input_envelopes():
     }
     with pytest.raises(ValidationError, match="stateless_input must be null when input_mode=stateful"):
         ReturnsSeriesRequest.model_validate(stateful_payload)
+
+
+def test_returns_series_input_envelope_helpers_preserve_mode_policy():
+    stateless_input = StatelessInput.model_validate(
+        {"portfolio_returns": [{"date": "2026-02-24", "return_value": "0.0010"}]}
+    )
+    stateful_input = StatefulInput()
+
+    _validate_stateless_returns_series_input_envelope(stateless_input=stateless_input, stateful_input=None)
+    _validate_stateful_returns_series_input_envelope(stateless_input=None, stateful_input=stateful_input)
+
+    with pytest.raises(ValueError, match="stateless_input is required when input_mode=stateless"):
+        _validate_stateless_returns_series_input_envelope(stateless_input=None, stateful_input=None)
+    with pytest.raises(ValueError, match="stateful_input must be null when input_mode=stateless"):
+        _validate_stateless_returns_series_input_envelope(
+            stateless_input=stateless_input,
+            stateful_input=stateful_input,
+        )
+    with pytest.raises(ValueError, match="stateful_input is required when input_mode=stateful"):
+        _validate_stateful_returns_series_input_envelope(stateless_input=None, stateful_input=None)
+    with pytest.raises(ValueError, match="stateless_input must be null when input_mode=stateful"):
+        _validate_stateful_returns_series_input_envelope(
+            stateless_input=stateless_input,
+            stateful_input=stateful_input,
+        )
+
+
+def test_require_selected_stateless_series_preserves_selected_series_policy():
+    stateless_input = StatelessInput.model_validate(
+        {"portfolio_returns": [{"date": "2026-02-24", "return_value": "0.0010"}]}
+    )
+
+    _require_selected_stateless_series(
+        selected=False,
+        stateless_input=None,
+        values=None,
+        message="not used",
+    )
+
+    with pytest.raises(ValueError, match="benchmark_returns are required"):
+        _require_selected_stateless_series(
+            selected=True,
+            stateless_input=stateless_input,
+            values=stateless_input.benchmark_returns,
+            message="benchmark_returns are required when include_benchmark=true in stateless mode",
+        )
+    with pytest.raises(ValueError, match="risk_free_returns are required"):
+        _require_selected_stateless_series(
+            selected=True,
+            stateless_input=None,
+            values=None,
+            message="risk_free_returns are required when include_risk_free=true in stateless mode",
+        )
 
 
 def test_returns_series_request_requires_stateful_input_when_stateful_mode():

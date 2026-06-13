@@ -9,6 +9,7 @@ from common.enums import AttributionModel, LinkingMethod
 from engine.attribution import (
     _align_and_prepare_data,
     _build_attribution_aggregation_base,
+    _build_attribution_levels,
     _build_group_key_dict,
     _build_instrument_attribution_panel,
     _calculate_currency_attribution_effects,
@@ -230,6 +231,44 @@ def test_aggregate_attribution_results_emits_side_by_side_group_context(by_group
     assert tech_group.benchmark_weight_avg == pytest.approx(42.5)
     assert tech_group.portfolio_return == pytest.approx(3.02)
     assert tech_group.benchmark_return == pytest.approx(-0.01)
+
+
+def test_build_attribution_levels_projects_hierarchy_totals_and_context():
+    granular_totals = pd.DataFrame(
+        [
+            {"sector": "Equity", "region": "US", "allocation": 0.010, "selection": 0.020, "interaction": 0.001},
+            {"sector": "Equity", "region": "EU", "allocation": 0.005, "selection": 0.010, "interaction": 0.000},
+        ]
+    ).set_index(["sector", "region"])
+    effects_reset = pd.DataFrame(
+        [
+            {
+                "date": pd.Timestamp("2025-01-31"),
+                "sector": "Equity",
+                "region": "US",
+                "w_p": 0.6,
+                "w_b": 0.5,
+                "r_base_p": 0.03,
+                "r_base_b": 0.02,
+            },
+            {
+                "date": pd.Timestamp("2025-01-31"),
+                "sector": "Equity",
+                "region": "EU",
+                "w_p": 0.4,
+                "w_b": 0.5,
+                "r_base_p": 0.01,
+                "r_base_b": 0.02,
+            },
+        ]
+    )
+
+    levels = _build_attribution_levels(granular_totals, effects_reset, ["sector", "region"])
+
+    assert [level.dimension for level in levels] == ["sector", "sector -> region"]
+    assert levels[0].groups[0].key == {"sector": "Equity"}
+    assert levels[0].totals.total_effect == pytest.approx(4.6)
+    assert [group.key["region"] for group in levels[1].groups] == ["EU", "US"]
 
 
 def test_attribution_segment_union_and_order_independence_for_portfolio_and_benchmark_only_groups():
@@ -594,6 +633,24 @@ def test_prepare_panel_from_groups_handles_empty_cases():
         observations = []
 
     assert _prepare_panel_from_groups([_EmptyGroup()], ["sector"]).empty
+
+
+def test_prepare_panel_from_groups_normalizes_model_observation_records():
+    class _Observation:
+        def model_dump(self):
+            return {"date": "2025-01-31", "return": 0.015}
+
+    group = SimpleNamespace(key={"sector": "Tech"}, observations=[_Observation()])
+
+    panel = _prepare_panel_from_groups([group], ["sector"])
+
+    assert panel.index.names == ["date", "sector"]
+    row = panel.loc[(pd.Timestamp("2025-01-31"), "Tech")]
+    assert row["weight_bop"] == pytest.approx(0.0)
+    assert row["return_base"] == pytest.approx(0.015)
+    assert row["return_local"] is None
+    assert row["return_fx"] is None
+    assert bool(row["has_return_base"]) is True
 
 
 def test_attribution_group_context_helpers_cover_empty_and_scalar_group_keys():

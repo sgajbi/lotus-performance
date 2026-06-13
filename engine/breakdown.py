@@ -61,6 +61,42 @@ def _daily_breakdown_item(row: pd.Series, include_cumulative: bool) -> Dict:
     return {"period": row[PortfolioColumns.PERF_DATE.value].strftime("%Y-%m-%d"), "summary": summary}
 
 
+def _resampled_breakdown_label(period_timestamp: pd.Timestamp, frequency: Frequency) -> str:
+    if frequency == Frequency.MONTHLY:
+        return period_timestamp.strftime("%Y-%m")
+    if frequency == Frequency.QUARTERLY:
+        return f"{period_timestamp.year}-Q{period_timestamp.quarter}"
+    if frequency == Frequency.YEARLY:
+        return period_timestamp.strftime("%Y")
+    return period_timestamp.strftime("%Y-%m-%d")
+
+
+def _resampled_breakdown_items(
+    *,
+    daily_df_indexed: pd.DataFrame,
+    frequency: Frequency,
+    annualization: Annualization,
+    include_cumulative: bool,
+) -> List[Dict]:
+    freq_map = {
+        Frequency.MONTHLY: "ME",
+        Frequency.QUARTERLY: "QE",
+        Frequency.YEARLY: "YE",
+        Frequency.WEEKLY: "W-FRI",
+    }
+    results = []
+    for period_timestamp, period_df in daily_df_indexed.resample(freq_map[frequency]):
+        if period_df.empty:
+            continue
+        results.append(
+            {
+                "period": _resampled_breakdown_label(period_timestamp, frequency),
+                "summary": _calculate_period_summary_dict(period_df, annualization, include_cumulative),
+            }
+        )
+    return results
+
+
 def generate_performance_breakdowns(
     daily_df: pd.DataFrame,
     frequencies: List[Frequency],
@@ -81,30 +117,13 @@ def generate_performance_breakdowns(
     breakdowns = {}
 
     for freq in frequencies:
-        results = []
         if freq == Frequency.DAILY:
-            for _, row in daily_df.iterrows():
-                results.append(_daily_breakdown_item(row, include_cumulative))
+            breakdowns[freq] = [_daily_breakdown_item(row, include_cumulative) for _, row in daily_df.iterrows()]
         else:
-            freq_map = {
-                Frequency.MONTHLY: "ME",
-                Frequency.QUARTERLY: "QE",
-                Frequency.YEARLY: "YE",
-                Frequency.WEEKLY: "W-FRI",
-            }
-            resampler = daily_df_indexed.resample(freq_map[freq])
-            for period_timestamp, period_df in resampler:
-                if period_df.empty:
-                    continue
-                summary = _calculate_period_summary_dict(period_df, annualization, include_cumulative)
-                if freq == Frequency.MONTHLY:
-                    period_str = period_timestamp.strftime("%Y-%m")
-                elif freq == Frequency.QUARTERLY:
-                    period_str = f"{period_timestamp.year}-Q{period_timestamp.quarter}"
-                elif freq == Frequency.YEARLY:
-                    period_str = period_timestamp.strftime("%Y")
-                else:  # Weekly
-                    period_str = period_timestamp.strftime("%Y-%m-%d")
-                results.append({"period": period_str, "summary": summary})
-        breakdowns[freq] = results
+            breakdowns[freq] = _resampled_breakdown_items(
+                daily_df_indexed=daily_df_indexed,
+                frequency=freq,
+                annualization=annualization,
+                include_cumulative=include_cumulative,
+            )
     return breakdowns

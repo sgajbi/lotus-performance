@@ -68,57 +68,38 @@ class _InspectionResponseSynthesis:
     support_brief_generation_status: str
 
 
+@dataclass(frozen=True)
+class _InspectionFindingsContext:
+    findings: list[TWRInspectionFinding]
+    pending_check_families: list[str]
+    evidence_summary: dict[str, object]
+
+
+@dataclass(frozen=True)
+class _SubjectInspectionInputs:
+    consistency_findings: list[TWRInspectionFinding]
+    completed_check_families: list[str]
+    failed_check_families: list[str]
+    evidence_summary: dict[str, object]
+    performance_request: PerformanceRequest | None
+    resolved_execution_request: TWRResolvedExecutionRequest | None
+
+
 def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
     execution_registry.mark_running(request.inspection_id)
     subject = _resolve_inspection_subject(request)
-
-    consistency_findings: list[TWRInspectionFinding] = []
-    completed_check_families: list[str] = []
-    failed_check_families: list[str] = []
+    subject_inputs = _resolve_subject_inspection_inputs(request=request, subject=subject)
+    consistency_findings = subject_inputs.consistency_findings
+    completed_check_families = list(subject_inputs.completed_check_families)
+    failed_check_families = list(subject_inputs.failed_check_families)
     evidence_summary: dict[str, object] = {
         "artifact_queue_enabled": True,
         "related_execution_found": subject.related_execution is not None,
     }
+    evidence_summary.update(subject_inputs.evidence_summary)
     artifact_payloads: dict[str, str] = {}
-    performance_request = None
-    resolved_execution_request = None
-    if subject.subject_calculation_id is not None:
-        execution_registry.start_stage(request.inspection_id, EXECUTION_STAGE_MATH_RECONCILIATION)
-        try:
-            existing_artifacts = load_existing_twr_calculation_artifacts(subject.subject_calculation_id)
-            resolved_execution_request = extract_resolved_execution_request_from_payload(
-                existing_artifacts.request_payload
-            )
-            performance_request = extract_performance_request_from_payload(existing_artifacts.request_payload)
-            consistency_result = run_twr_calculation_consistency_checks(existing_artifacts.response_model)
-            performance_request = _scope_request_to_response_master_window(
-                performance_request,
-                existing_artifacts.response_model,
-            )
-            resolved_execution_request = _scope_resolved_request_to_response_master_window(
-                resolved_execution_request,
-                existing_artifacts.response_model,
-            )
-        except Exception as exc:
-            _record_check_failure(
-                inspection_id=request.inspection_id,
-                findings=consistency_findings,
-                failed_check_families=failed_check_families,
-                families=["calculation_consistency"],
-                stage=EXECUTION_STAGE_MATH_RECONCILIATION,
-                error=exc,
-            )
-        else:
-            execution_registry.complete_stage(
-                request.inspection_id,
-                EXECUTION_STAGE_MATH_RECONCILIATION,
-                details=consistency_result.evidence_summary,
-            )
-            consistency_findings = consistency_result.findings
-            completed_check_families.append("calculation_consistency")
-            evidence_summary.update(consistency_result.evidence_summary)
-    else:
-        performance_request = extract_performance_request_from_payload(subject.request_payload)
+    performance_request = subject_inputs.performance_request
+    resolved_execution_request = subject_inputs.resolved_execution_request
 
     source_quality_findings: list[TWRInspectionFinding] = []
     if performance_request is not None:
@@ -201,6 +182,70 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
     return response
 
 
+def _resolve_subject_inspection_inputs(
+    *,
+    request: TWRInspectionRequest,
+    subject: ResolvedTWRInspectionSubject,
+) -> _SubjectInspectionInputs:
+    if subject.subject_calculation_id is None:
+        return _SubjectInspectionInputs(
+            consistency_findings=[],
+            completed_check_families=[],
+            failed_check_families=[],
+            evidence_summary={},
+            performance_request=extract_performance_request_from_payload(subject.request_payload),
+            resolved_execution_request=None,
+        )
+
+    consistency_findings: list[TWRInspectionFinding] = []
+    failed_check_families: list[str] = []
+    execution_registry.start_stage(request.inspection_id, EXECUTION_STAGE_MATH_RECONCILIATION)
+    try:
+        existing_artifacts = load_existing_twr_calculation_artifacts(subject.subject_calculation_id)
+        resolved_execution_request = extract_resolved_execution_request_from_payload(existing_artifacts.request_payload)
+        performance_request = extract_performance_request_from_payload(existing_artifacts.request_payload)
+        consistency_result = run_twr_calculation_consistency_checks(existing_artifacts.response_model)
+        performance_request = _scope_request_to_response_master_window(
+            performance_request,
+            existing_artifacts.response_model,
+        )
+        resolved_execution_request = _scope_resolved_request_to_response_master_window(
+            resolved_execution_request,
+            existing_artifacts.response_model,
+        )
+    except Exception as exc:
+        _record_check_failure(
+            inspection_id=request.inspection_id,
+            findings=consistency_findings,
+            failed_check_families=failed_check_families,
+            families=["calculation_consistency"],
+            stage=EXECUTION_STAGE_MATH_RECONCILIATION,
+            error=exc,
+        )
+        return _SubjectInspectionInputs(
+            consistency_findings=consistency_findings,
+            completed_check_families=[],
+            failed_check_families=failed_check_families,
+            evidence_summary={},
+            performance_request=None,
+            resolved_execution_request=None,
+        )
+
+    execution_registry.complete_stage(
+        request.inspection_id,
+        EXECUTION_STAGE_MATH_RECONCILIATION,
+        details=consistency_result.evidence_summary,
+    )
+    return _SubjectInspectionInputs(
+        consistency_findings=consistency_result.findings,
+        completed_check_families=["calculation_consistency"],
+        failed_check_families=[],
+        evidence_summary=consistency_result.evidence_summary,
+        performance_request=performance_request,
+        resolved_execution_request=resolved_execution_request,
+    )
+
+
 def _resolve_inspection_subject(request: TWRInspectionRequest) -> ResolvedTWRInspectionSubject:
     execution_registry.start_stage(request.inspection_id, EXECUTION_STAGE_SUBJECT_RESOLUTION)
     try:
@@ -236,23 +281,20 @@ def _build_twr_inspection_response(
     evidence_summary: dict[str, object],
     artifact_payloads: dict[str, str],
 ) -> _InspectionResponseSynthesis:
-    findings = [
-        *consistency_findings,
-        *source_quality_findings,
-        *reconciliation_findings,
-        *source_economics_findings,
-    ]
-    if failed_check_families:
-        evidence_summary["failed_check_families"] = failed_check_families
-    if not completed_check_families and not findings:
-        findings.append(_build_no_check_family_executed_finding())
-
-    pending_check_families = [family for family in _ALL_CHECK_FAMILIES if family not in completed_check_families]
-    verdict = _synthesize_verdict(
-        findings=findings,
+    findings_context = _build_inspection_findings_context(
+        consistency_findings=consistency_findings,
+        source_quality_findings=source_quality_findings,
+        reconciliation_findings=reconciliation_findings,
+        source_economics_findings=source_economics_findings,
         completed_check_families=completed_check_families,
         failed_check_families=failed_check_families,
-        pending_check_families=pending_check_families,
+        evidence_summary=evidence_summary,
+    )
+    verdict = _synthesize_verdict(
+        findings=findings_context.findings,
+        completed_check_families=completed_check_families,
+        failed_check_families=failed_check_families,
+        pending_check_families=findings_context.pending_check_families,
     )
     response = TWRInspectionResponse(
         inspection_id=request.inspection_id,
@@ -262,12 +304,12 @@ def _build_twr_inspection_response(
         portfolio_id=portfolio_id,
         status="complete",
         verdict=verdict,
-        findings=findings,
-        owner_summary=_build_owner_summary(findings),
-        evidence_summary=evidence_summary,
+        findings=findings_context.findings,
+        owner_summary=_build_owner_summary(findings_context.findings),
+        evidence_summary=findings_context.evidence_summary,
         check_coverage=TWRInspectionCheckCoverage(
             completed_check_families=completed_check_families,
-            pending_check_families=pending_check_families,
+            pending_check_families=findings_context.pending_check_families,
         ),
         related_lineage=TWRInspectionRelatedLineage(
             calculation_id=subject_calculation_id,
@@ -283,6 +325,7 @@ def _build_twr_inspection_response(
         generated_at_utc=format_timestamp(datetime.now(UTC)) or "",
     )
     support_brief_result = generate_twr_inspection_support_brief(inspection=response)
+    evidence_summary = findings_context.evidence_summary
     evidence_summary["support_brief_generation_status"] = support_brief_result.generation_status
     if support_brief_result.workflow_pack_run is not None:
         evidence_summary["support_brief_workflow_pack_run_id"] = support_brief_result.workflow_pack_run.run_id
@@ -302,6 +345,34 @@ def _build_twr_inspection_response(
         response=response,
         artifact_payloads=artifact_payloads,
         support_brief_generation_status=support_brief_result.generation_status,
+    )
+
+
+def _build_inspection_findings_context(
+    *,
+    consistency_findings: list[TWRInspectionFinding],
+    source_quality_findings: list[TWRInspectionFinding],
+    reconciliation_findings: list[TWRInspectionFinding],
+    source_economics_findings: list[TWRInspectionFinding],
+    completed_check_families: list[str],
+    failed_check_families: list[str],
+    evidence_summary: dict[str, object],
+) -> _InspectionFindingsContext:
+    findings = [
+        *consistency_findings,
+        *source_quality_findings,
+        *reconciliation_findings,
+        *source_economics_findings,
+    ]
+    evidence = dict(evidence_summary)
+    if failed_check_families:
+        evidence["failed_check_families"] = failed_check_families
+    if not completed_check_families and not findings:
+        findings.append(_build_no_check_family_executed_finding())
+    return _InspectionFindingsContext(
+        findings=findings,
+        pending_check_families=[family for family in _ALL_CHECK_FAMILIES if family not in completed_check_families],
+        evidence_summary=evidence,
     )
 
 

@@ -13,6 +13,7 @@ from app.services.stateful_contribution_input_service import (
     _position_meta_from_row,
     _position_row_to_daily_point,
     _split_position_cash_flows,
+    _stateful_position_currencies,
     build_stateful_contribution_input,
     retrieve_stateful_contribution_source_input,
 )
@@ -286,6 +287,19 @@ def test_build_stateful_contribution_input_rejects_invalid_both_currency_request
             reporting_currency="USD",
             fx=None,
         )
+
+
+def test_stateful_contribution_position_currencies_preserves_non_empty_strings_and_ignores_missing_values():
+    assert _stateful_position_currencies(
+        [
+            {"position_id": "POS_1", "position_currency": "EUR"},
+            {"position_id": "POS_2", "position_currency": " "},
+            {"position_id": "POS_3", "position_currency": ""},
+            {"position_id": "POS_4", "position_currency": None},
+            {"position_id": "POS_5", "position_currency": 123},
+            {"position_id": "POS_6", "position_currency": "USD"},
+        ]
+    ) == {" ", "EUR", "USD"}
 
 
 def test_position_row_to_daily_point_falls_back_to_portfolio_values_when_reporting_values_are_missing():

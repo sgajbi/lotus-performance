@@ -8,7 +8,7 @@ import pytest
 from core.envelope import HedgingRequestBlock
 from engine.config import EngineConfig, FXRequestBlock
 from engine.periods import get_effective_period_start_dates
-from engine.ror import _compound_ror, calculate_daily_ror
+from engine.ror import _compound_ror, _compounding_block_ids, calculate_daily_ror
 from engine.schema import PortfolioColumns
 
 
@@ -114,6 +114,21 @@ def test_compound_ror_decimal_strict_multi_period():
     result = _compound_ror(df, df[PortfolioColumns.DAILY_ROR], "long", use_resets=False)
     assert isinstance(result.iloc[1], Decimal)
     assert result.iloc[1] == pytest.approx(Decimal("21.0"))
+
+
+def test_compounding_block_ids_start_after_reset_and_period_change():
+    df = pd.DataFrame(
+        {
+            PortfolioColumns.EFFECTIVE_PERIOD_START_DATE: pd.to_datetime(
+                ["2025-01-01", "2025-01-01", "2025-01-01", "2025-02-01"]
+            ),
+            PortfolioColumns.PERF_RESET: [0, 1, 0, 0],
+        }
+    )
+
+    block_ids = _compounding_block_ids(df, use_resets=True)
+
+    assert block_ids.tolist() == [1, 1, 2, 3]
 
 
 def test_daily_ror_fx_decomposition():

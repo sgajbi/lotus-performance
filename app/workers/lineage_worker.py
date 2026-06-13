@@ -4,6 +4,7 @@ import logging
 import time
 from dataclasses import dataclass
 from threading import Event
+from typing import TypeVar, cast
 from uuid import UUID
 
 from app.core.config import get_settings
@@ -14,6 +15,7 @@ from app.services.lineage_metadata_store import LineageMetadataStore, LineagePay
 from app.services.lineage_service import LineageService, lineage_service, resolve_artifact_stage_name
 
 logger = logging.getLogger(__name__)
+_T = TypeVar("_T")
 
 
 @dataclass(frozen=True)
@@ -79,14 +81,24 @@ def _lineage_worker_runtime(
 ) -> _LineageWorkerRuntime:
     active_settings = settings or get_settings()
     return _LineageWorkerRuntime(
-        batch_size=limit or active_settings.LINEAGE_WORKER_BATCH_SIZE,
-        lineage_store=lineage_store or lineage_metadata_store,
-        lineage_service=lineage_service_ or lineage_service,
-        execution_store=execution_store or execution_registry,
-        worker_id=worker_id or active_settings.LINEAGE_WORKER_ID,
-        lease_seconds=lease_seconds or active_settings.LINEAGE_WORKER_LEASE_SECONDS,
-        max_attempts=max_attempts or active_settings.LINEAGE_WORKER_MAX_ATTEMPTS,
+        batch_size=_explicit_or_default(limit, active_settings.LINEAGE_WORKER_BATCH_SIZE),
+        lineage_store=cast(
+            LineageMetadataStore | RuntimeStoreProxy[LineageMetadataStore],
+            _explicit_or_default(lineage_store, lineage_metadata_store),
+        ),
+        lineage_service=_explicit_or_default(lineage_service_, lineage_service),
+        execution_store=cast(
+            ExecutionRegistry | RuntimeStoreProxy[ExecutionRegistry],
+            _explicit_or_default(execution_store, execution_registry),
+        ),
+        worker_id=_explicit_or_default(worker_id, active_settings.LINEAGE_WORKER_ID),
+        lease_seconds=_explicit_or_default(lease_seconds, active_settings.LINEAGE_WORKER_LEASE_SECONDS),
+        max_attempts=_explicit_or_default(max_attempts, active_settings.LINEAGE_WORKER_MAX_ATTEMPTS),
     )
+
+
+def _explicit_or_default(explicit: _T | None, default: _T) -> _T:
+    return explicit or default
 
 
 def run_forever(*, stop_event: Event | None = None, settings=None) -> None:

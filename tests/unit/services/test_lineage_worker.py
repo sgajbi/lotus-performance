@@ -229,6 +229,13 @@ def test_lineage_worker_runtime_uses_settings_for_omitted_values(monkeypatch):
     assert runtime.max_attempts == 4
 
 
+def test_lineage_worker_explicit_or_default_preserves_falsy_fallback_behavior():
+    assert lineage_worker._explicit_or_default(None, "fallback") == "fallback"
+    assert lineage_worker._explicit_or_default("", "fallback") == "fallback"
+    assert lineage_worker._explicit_or_default(0, 7) == 7
+    assert lineage_worker._explicit_or_default("explicit", "fallback") == "explicit"
+
+
 def test_run_forever_initializes_schema_and_sleeps_when_idle(monkeypatch):
     calls: list[str] = []
     settings = _worker_settings(LINEAGE_WORKER_POLL_SECONDS=11.0)

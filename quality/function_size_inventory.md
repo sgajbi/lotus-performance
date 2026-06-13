@@ -1,7 +1,7 @@
 # Lotus Performance Function Size Inventory
 
-Report date: 2026-06-08
-Branch: `refactor/lp-cr-796-position-meta-helper`
+Report date: 2026-06-13
+Branch: `refactor/lp-cr-845-benchmark-request-resolution`
 Mode: report-only function-size inventory; this artifact introduces no new blocking CI gate.
 
 ## Purpose
@@ -13,28 +13,33 @@ hotspot dimension without waiting for external complexity tooling such as `radon
 ## Command
 
 ```powershell
-python scripts/python_function_size_inventory.py --limit 15
+python scripts/python_function_size_inventory.py --limit 20
 ```
 
 ## Largest Production Functions
 
 | Rank | Function | File | Lines |
 | ---: | --- | --- | ---: |
-| 1 | `calculate_contribution` | `app/services/contribution_service.py:421` | 189 |
-| 2 | `_build_detailed_cashflow_contract_findings` | `app/services/inspection/source_economics_findings.py:112` | 186 |
-| 3 | `DurableQueueCollector.describe` | `app/services/queue_metrics_service.py:193` | 159 |
-| 4 | `_build_external_cashflow_findings` | `app/services/inspection/source_economics_findings.py:300` | 140 |
-| 5 | `build_runtime_status_response` | `app/models/runtime_status.py:767` | 131 |
-| 6 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:71` | 131 |
-| 7 | `_build_fee_source_economics_findings` | `app/services/inspection/source_economics_findings.py:442` | 130 |
-| 8 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:327` | 130 |
-| 9 | `aggregate_attribution_results` | `engine/attribution.py:607` | 126 |
-| 10 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:482` | 122 |
-| 11 | `calculate_attribution` | `app/services/attribution_service.py:168` | 120 |
-| 12 | `_build_artifacts` | `app/services/composite_inspection_service.py:114` | 118 |
-| 13 | `calculate_twr_workflow` | `app/services/twr_calculation_service.py:250` | 112 |
-| 14 | `run_runtime_retention_cleanup` | `app/services/runtime_retention_run_service.py:32` | 111 |
-| 15 | `build_stateful_benchmark_input` | `app/services/stateful_benchmark_input_service.py:39` | 110 |
+| 1 | `DurableQueueCollector.describe` | `app/services/queue_metrics_service.py:193` | 159 |
+| 2 | `_build_external_cashflow_findings` | `app/services/inspection/source_economics_findings.py:281` | 140 |
+| 3 | `build_runtime_status_response` | `app/models/runtime_status.py:767` | 131 |
+| 4 | `_build_fee_source_economics_findings` | `app/services/inspection/source_economics_findings.py:423` | 130 |
+| 5 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:327` | 130 |
+| 6 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:502` | 119 |
+| 7 | `_build_artifacts` | `app/services/composite_inspection_service.py:114` | 118 |
+| 8 | `run_runtime_retention_cleanup` | `app/services/runtime_retention_run_service.py:32` | 111 |
+| 9 | `run_source_quality_checks` | `app/services/inspection/source_quality.py:91` | 106 |
+| 10 | `calculate_attribution` | `app/services/attribution_service.py:206` | 104 |
+| 11 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:206` | 102 |
+| 12 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:310` | 102 |
+| 13 | `aggregate_attribution_results` | `engine/attribution.py:648` | 102 |
+| 14 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:87` | 101 |
+| 15 | `_calculate_position_flow_balance_counts` | `app/services/contribution_diagnostics.py:183` | 99 |
+| 16 | `_calculate_returns_series` | `app/services/returns_series_service.py:1308` | 97 |
+| 17 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:62` | 97 |
+| 18 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:88` | 95 |
+| 19 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:31` | 94 |
+| 20 | `build_stateful_benchmark_input` | `app/services/stateful_benchmark_input_service.py:49` | 93 |
 
 ## Interpretation
 
@@ -47,6 +52,8 @@ after lineage queue response mapping was isolated. Attribution orchestration rem
 table but moved from `142` to `133` lines after per-period result assembly was isolated, then moved
 from `133` to `120` lines after response meta, supportability, and benchmark-context assembly were
 isolated.
+Attribution orchestration moved from `120` to `104` lines after execution-window resolution and
+master request projection were isolated.
 Contribution orchestration moved from `287` to `270` lines after engine input preparation was
 isolated, then moved from `270` to `189` lines and is no longer the largest function after
 flat-period result assembly was isolated from the public contribution orchestration. Benchmark calculation workflow
@@ -58,17 +65,27 @@ Attribution result aggregation moved from `148` to `126` lines after active-retu
 and granular effect totals were isolated.
 Contribution calculation workflow dropped out of the top-15 table after promoted stateful
 execution handling was isolated from the public workflow router.
+Contribution orchestration dropped out of the top-15 table again after hierarchy-period result
+assembly was isolated from the public contribution calculation function.
+Contribution orchestration dropped out of the top-20 table after flat-vs-hierarchy period-result
+collection and average-weight residual max tracking were isolated from the public contribution
+calculation function.
 Stateful attribution source input retrieval dropped out of the top-15 table after benchmark
 assignment resolution was isolated from the source-input orchestration path.
 Durable queue metric collection dropped out of the top-15 table after source loading and
 availability/runtime-retention preview metric emission were isolated into dedicated helpers.
 Source-economics top-level finding assembly dropped from `258` lines out of the top-15 table after
 observation-contract, explicit-amount-contract, and detailed cash-flow contract finding groups were
-isolated. `_build_detailed_cashflow_contract_findings` remains a large follow-up hotspot at `186`
-lines because this slice preserved finding text and ordering rather than converting the source
-contract taxonomy to a data-driven table.
+isolated. `_build_detailed_cashflow_contract_findings` dropped out of the top-20 table after the
+detailed cash-flow source contract taxonomy was converted to an explicit ordered catalog.
 TWR inspection orchestration remains in the top-15 table but moved from `147` to `131` lines after
 subject-resolution stage lifecycle handling was isolated from the public inspection orchestrator.
+TWR inspection orchestration dropped out of the top-15 table after subject request materialization
+and calculation-consistency loading were isolated from the public inspection orchestrator.
+TWR calculation workflow dropped out of the top-20 table after resolved response finalization and
+final response calculation were isolated from the public workflow function.
+Attribution calculation workflow dropped out of the top-20 table after resolved stateful
+finalization and initial async submission were isolated from the public workflow orchestrator.
 Returns-series calculation orchestration dropped out of the top-15 table after execution-context
 resolution was isolated from dataframe preparation, execution, diagnostics, and response assembly.
 Stateful returns-series request resolution dropped out of the top-15 table after normalization-stage
