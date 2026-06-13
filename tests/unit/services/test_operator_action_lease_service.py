@@ -17,6 +17,7 @@ from app.services.operator_action_lease_service import (
     _has_valid_reclaimed_event_fields,
     _has_valid_reclaimed_event_string_fields,
     _matching_active_operator_action_lease,
+    _matching_reclaimed_event_action_name,
     _parse_reclaimed_event_payload,
     _read_active_operator_action_lease,
     _read_latest_reclaimed_lease,
@@ -677,6 +678,26 @@ def test_parse_reclaimed_event_payload_rejects_invalid_fields_and_filters_other_
     }
     assert (
         _parse_reclaimed_event_payload(payload=blank_operator, action_name="recovery_drill").__class__.__name__
+        == "_InvalidLease"
+    )
+
+
+def test_matching_reclaimed_event_action_name_filters_payload_action():
+    payload = {"action_name": "recovery_drill"}
+
+    assert _matching_reclaimed_event_action_name(payload=payload, action_name="recovery_drill") == "recovery_drill"
+    assert _matching_reclaimed_event_action_name(payload=payload, action_name=None) == "recovery_drill"
+    assert _matching_reclaimed_event_action_name(payload=payload, action_name="runtime_retention_cleanup") is None
+    assert (
+        _matching_reclaimed_event_action_name(
+            payload={"action_name": " "}, action_name="recovery_drill"
+        ).__class__.__name__
+        == "_InvalidLease"
+    )
+    assert (
+        _matching_reclaimed_event_action_name(
+            payload={"action_name": 123}, action_name="recovery_drill"
+        ).__class__.__name__
         == "_InvalidLease"
     )
 

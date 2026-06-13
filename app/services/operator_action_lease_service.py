@@ -495,10 +495,11 @@ def _parse_reclaimed_event_payload(
 ) -> ReclaimedOperatorActionLeaseEvent | _InvalidLease | None:
     if not isinstance(payload, dict):
         return _INVALID_LEASE
-    candidate_action_name = payload.get("action_name")
-    if not is_required_evidence_string(candidate_action_name):
+
+    candidate_action_name = _matching_reclaimed_event_action_name(payload=payload, action_name=action_name)
+    if candidate_action_name is _INVALID_LEASE:
         return _INVALID_LEASE
-    if action_name is not None and candidate_action_name != action_name:
+    if candidate_action_name is None:
         return None
     if not _has_valid_reclaimed_event_fields(payload):
         return _INVALID_LEASE
@@ -534,6 +535,19 @@ def _parse_reclaimed_event_payload(
         stale_after_seconds=float(stale_after_seconds),
         reclaim_count=reclaim_count,
     )
+
+
+def _matching_reclaimed_event_action_name(
+    *,
+    payload: dict[str, object],
+    action_name: str | None,
+) -> str | _InvalidLease | None:
+    candidate_action_name = payload.get("action_name")
+    if not is_required_evidence_string(candidate_action_name):
+        return _INVALID_LEASE
+    if action_name is not None and candidate_action_name != action_name:
+        return None
+    return cast(str, candidate_action_name)
 
 
 def _has_valid_reclaimed_event_fields(payload: dict[str, object]) -> bool:
