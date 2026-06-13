@@ -33,24 +33,46 @@ def _contribution_smoothing_status_and_reasons(
     smoothing_residual,
     residual_allocation_applied: bool,
 ) -> tuple[str, list[str]]:
-    reason_codes: list[str] = []
-    if smoothing_method != "CARINO":
-        status_text = "NOT_REQUESTED"
-        reason_codes.append("SMOOTHING_NOT_REQUESTED")
-    elif invalid_domain_days > 0:
-        status_text = "INVALID_DOMAIN_FALLBACK"
-        reason_codes.append("CARINO_INVALID_DAILY_LOG_DOMAIN")
-    else:
-        status_text = "APPLIED"
-        reason_codes.append("CARINO_FACTOR_APPLIED")
+    status_text, reason_codes = _base_contribution_smoothing_status(
+        smoothing_method=smoothing_method,
+        invalid_domain_days=invalid_domain_days,
+    )
+    reason_codes.extend(
+        _contribution_smoothing_residual_reason_codes(
+            smoothing_method=smoothing_method,
+            invalid_domain_days=invalid_domain_days,
+            raw_residual=raw_residual,
+            smoothing_residual=smoothing_residual,
+            residual_allocation_applied=residual_allocation_applied,
+        )
+    )
+    return status_text, sorted(set(reason_codes))
 
+
+def _base_contribution_smoothing_status(*, smoothing_method: str, invalid_domain_days: int) -> tuple[str, list[str]]:
+    if smoothing_method != "CARINO":
+        return "NOT_REQUESTED", ["SMOOTHING_NOT_REQUESTED"]
+    if invalid_domain_days > 0:
+        return "INVALID_DOMAIN_FALLBACK", ["CARINO_INVALID_DAILY_LOG_DOMAIN"]
+    return "APPLIED", ["CARINO_FACTOR_APPLIED"]
+
+
+def _contribution_smoothing_residual_reason_codes(
+    *,
+    smoothing_method: str,
+    invalid_domain_days: int,
+    raw_residual,
+    smoothing_residual,
+    residual_allocation_applied: bool,
+) -> list[str]:
+    reason_codes: list[str] = []
     if residual_allocation_applied:
         reason_codes.append("RESIDUAL_ALLOCATED_TO_RECONCILE_PERIOD")
     if abs(raw_residual) > 1e-12:
         reason_codes.append("RAW_CONTRIBUTION_DIFFERS_FROM_LINKED_RETURN")
     if abs(smoothing_residual) <= 1e-9 and smoothing_method == "CARINO" and invalid_domain_days == 0:
         reason_codes.append("SMOOTHED_CONTRIBUTION_RECONCILES")
-    return status_text, sorted(set(reason_codes))
+    return reason_codes
 
 
 def _carino_factor_range(period_slice_df: pd.DataFrame) -> tuple[Any, Any]:

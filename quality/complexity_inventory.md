@@ -28,31 +28,31 @@ python scripts/python_complexity_inventory.py --limit 25
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_contribution_smoothing_status_and_reasons` | function | `app/services/contribution_smoothing.py:28` | 8 | B |
-| 2 | `_available_stateful_economics` | function | `app/services/contribution_source_economics.py:99` | 8 | B |
-| 3 | `_cash_flow_type_counts` | function | `app/services/contribution_source_economics.py:168` | 8 | B |
-| 4 | `_collect_position_continuity_gap_samples` | function | `app/services/inspection/reconciliation.py:500` | 8 | B |
-| 5 | `_row_has_transition_activity` | function | `app/services/inspection/reconciliation.py:563` | 8 | B |
-| 6 | `_sum_detailed_cash_flows` | function | `app/services/inspection/source_economics.py:542` | 8 | B |
-| 7 | `_record_fee_source_signals` | method | `app/services/inspection/source_economics_collector.py:196` | 8 | B |
-| 8 | `run_source_quality_checks` | function | `app/services/inspection/source_quality.py:91` | 8 | B |
-| 9 | `_inspection_timing` | method | `app/services/lineage_metadata_store.py:1163` | 8 | B |
-| 10 | `calculate_mwr_response` | function | `app/services/mwr_calculation_service.py:152` | 8 | B |
-| 11 | `_validate_component` | function | `app/services/mwr_fx_evidence_service.py:195` | 8 | B |
-| 12 | `build_applied_history_filters` | function | `app/services/operator_action_history_filters.py:55` | 8 | B |
-| 13 | `_has_valid_reclaimed_event_fields` | function | `app/services/operator_action_lease_service.py:486` | 8 | B |
-| 14 | `_build_resolved_stateful_returns_series_request` | function | `app/services/returns_series_service.py:801` | 8 | B |
-| 15 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:1407` | 8 | B |
-| 16 | `runtime_retention_preview_fields` | function | `app/services/runtime_status_retention_preview.py:13` | 8 | B |
-| 17 | `classify_cashflow_type` | function | `app/services/source_cashflow_taxonomy.py:45` | 8 | B |
-| 18 | `_summarize_position_classification` | function | `app/services/stateful_attribution_input_service.py:474` | 8 | B |
-| 19 | `_validate_stateful_position_inception_support` | function | `app/services/stateful_attribution_input_service.py:590` | 8 | B |
-| 20 | `_build_group_key` | function | `app/services/stateful_attribution_input_service.py:800` | 8 | B |
-| 21 | `_position_row_to_daily_point` | function | `app/services/stateful_attribution_input_service.py:825` | 8 | B |
-| 22 | `_position_meta_from_row` | function | `app/services/stateful_attribution_input_service.py:925` | 8 | B |
-| 23 | `_normalized_position_dimensions` | function | `app/services/stateful_attribution_input_service.py:947` | 8 | B |
-| 24 | `_build_stateful_vendor_series_input` | function | `app/services/stateful_benchmark_input_service.py:176` | 8 | B |
-| 25 | `_parse_composition_segment` | function | `app/services/stateful_benchmark_input_service.py:314` | 8 | B |
+| 1 | `_available_stateful_economics` | function | `app/services/contribution_source_economics.py:99` | 8 | B |
+| 2 | `_cash_flow_type_counts` | function | `app/services/contribution_source_economics.py:168` | 8 | B |
+| 3 | `_collect_position_continuity_gap_samples` | function | `app/services/inspection/reconciliation.py:500` | 8 | B |
+| 4 | `_row_has_transition_activity` | function | `app/services/inspection/reconciliation.py:563` | 8 | B |
+| 5 | `_sum_detailed_cash_flows` | function | `app/services/inspection/source_economics.py:542` | 8 | B |
+| 6 | `_record_fee_source_signals` | method | `app/services/inspection/source_economics_collector.py:196` | 8 | B |
+| 7 | `run_source_quality_checks` | function | `app/services/inspection/source_quality.py:91` | 8 | B |
+| 8 | `_inspection_timing` | method | `app/services/lineage_metadata_store.py:1163` | 8 | B |
+| 9 | `calculate_mwr_response` | function | `app/services/mwr_calculation_service.py:152` | 8 | B |
+| 10 | `_validate_component` | function | `app/services/mwr_fx_evidence_service.py:195` | 8 | B |
+| 11 | `build_applied_history_filters` | function | `app/services/operator_action_history_filters.py:55` | 8 | B |
+| 12 | `_has_valid_reclaimed_event_fields` | function | `app/services/operator_action_lease_service.py:486` | 8 | B |
+| 13 | `_build_resolved_stateful_returns_series_request` | function | `app/services/returns_series_service.py:801` | 8 | B |
+| 14 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:1407` | 8 | B |
+| 15 | `runtime_retention_preview_fields` | function | `app/services/runtime_status_retention_preview.py:13` | 8 | B |
+| 16 | `classify_cashflow_type` | function | `app/services/source_cashflow_taxonomy.py:45` | 8 | B |
+| 17 | `_summarize_position_classification` | function | `app/services/stateful_attribution_input_service.py:474` | 8 | B |
+| 18 | `_validate_stateful_position_inception_support` | function | `app/services/stateful_attribution_input_service.py:590` | 8 | B |
+| 19 | `_build_group_key` | function | `app/services/stateful_attribution_input_service.py:800` | 8 | B |
+| 20 | `_position_row_to_daily_point` | function | `app/services/stateful_attribution_input_service.py:825` | 8 | B |
+| 21 | `_position_meta_from_row` | function | `app/services/stateful_attribution_input_service.py:925` | 8 | B |
+| 22 | `_normalized_position_dimensions` | function | `app/services/stateful_attribution_input_service.py:947` | 8 | B |
+| 23 | `_build_stateful_vendor_series_input` | function | `app/services/stateful_benchmark_input_service.py:176` | 8 | B |
+| 24 | `_parse_composition_segment` | function | `app/services/stateful_benchmark_input_service.py:314` | 8 | B |
+| 25 | `_load_fx_maps_for_components` | function | `app/services/stateful_benchmark_input_service.py:464` | 8 | B |
 
 ## Lowest Maintainability Index
 
@@ -425,6 +425,8 @@ were split into dedicated helpers.
 construction and adjusted-row-to-response-series projection were split into dedicated helpers.
 `calculate_contribution` also dropped out after flat-vs-hierarchy period-result collection and
 average-weight residual max tracking were moved into a dedicated contribution period-results helper.
+`_contribution_smoothing_status_and_reasons` also dropped out after base smoothing status selection
+and residual/reconciliation reason-code projection were split into dedicated helpers.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.

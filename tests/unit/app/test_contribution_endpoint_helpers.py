@@ -68,6 +68,8 @@ from app.services.contribution_service import (
     _select_period_average_weight_column,
 )
 from app.services.contribution_smoothing import (
+    _base_contribution_smoothing_status,
+    _contribution_smoothing_residual_reason_codes,
     _contribution_smoothing_status_and_reasons,
     _count_carino_invalid_domain_days,
 )
@@ -94,6 +96,29 @@ def test_contribution_smoothing_status_and_reasons_reports_applied_reconciliatio
         "CARINO_FACTOR_APPLIED",
         "RAW_CONTRIBUTION_DIFFERS_FROM_LINKED_RETURN",
         "RESIDUAL_ALLOCATED_TO_RECONCILE_PERIOD",
+        "SMOOTHED_CONTRIBUTION_RECONCILES",
+    ]
+
+
+def test_base_contribution_smoothing_status_reports_invalid_domain_fallback():
+    assert _base_contribution_smoothing_status(smoothing_method="CARINO", invalid_domain_days=1) == (
+        "INVALID_DOMAIN_FALLBACK",
+        ["CARINO_INVALID_DAILY_LOG_DOMAIN"],
+    )
+
+
+def test_contribution_smoothing_residual_reason_codes_report_reconciliation_conditions():
+    reason_codes = _contribution_smoothing_residual_reason_codes(
+        smoothing_method="CARINO",
+        invalid_domain_days=0,
+        raw_residual=0.01,
+        smoothing_residual=0.0,
+        residual_allocation_applied=True,
+    )
+
+    assert reason_codes == [
+        "RESIDUAL_ALLOCATED_TO_RECONCILE_PERIOD",
+        "RAW_CONTRIBUTION_DIFFERS_FROM_LINKED_RETURN",
         "SMOOTHED_CONTRIBUTION_RECONCILES",
     ]
 
