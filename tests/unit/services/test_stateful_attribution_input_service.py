@@ -34,6 +34,7 @@ from app.services.stateful_attribution_input_service import (
     _position_row_to_base_weight_point,
     _position_row_to_daily_point,
     _record_instrument_position_row,
+    _reporting_daily_point_market_values,
     _resolve_stateful_attribution_benchmark_id,
     _split_position_cash_flows,
     _stateful_attribution_fx_required,
@@ -1400,6 +1401,25 @@ def test_position_daily_point_market_values_preserve_reporting_basis_on_portfoli
         currency_mode="BASE_ONLY",
         reporting_currency="USD",
     ) == ("100", "101", "reporting")
+
+
+def test_reporting_daily_point_market_values_fall_back_to_portfolio_values_when_incomplete():
+    assert _reporting_daily_point_market_values(
+        {
+            "beginning_market_value_reporting_currency": "110",
+            "ending_market_value_reporting_currency": "111",
+            "beginning_market_value_portfolio_currency": "100",
+            "ending_market_value_portfolio_currency": "101",
+        }
+    ) == ("110", "111")
+    assert _reporting_daily_point_market_values(
+        {
+            "beginning_market_value_reporting_currency": "110",
+            "ending_market_value_reporting_currency": None,
+            "beginning_market_value_portfolio_currency": "100",
+            "ending_market_value_portfolio_currency": "101",
+        }
+    ) == ("100", "101")
 
 
 def test_position_daily_point_market_values_uses_position_values_for_local_currency_mode():
