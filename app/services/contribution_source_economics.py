@@ -101,17 +101,29 @@ def _available_stateful_economics(
     cash_flow_type_counts: Counter[str],
 ) -> list[str]:
     available = ["portfolio_market_values", "position_market_values"]
+    available.extend(_stateful_cash_flow_economics(cash_flow_type_counts))
+    available.extend(_stateful_metadata_economics(request))
+    return sorted(set(available))
+
+
+def _stateful_cash_flow_economics(cash_flow_type_counts: Counter[str]) -> list[str]:
+    available: list[str] = []
     if cash_flow_type_counts.get("external_flow", 0) > 0 or cash_flow_type_counts.get("transfer", 0) > 0:
         available.append("external_flows")
     if cash_flow_type_counts.get("internal_trade_flow", 0) > 0:
         available.append("internal_trade_flows")
     if cash_flow_type_counts.get("fee", 0) > 0:
         available.append("fees")
+    return available
+
+
+def _stateful_metadata_economics(request: ContributionRequest) -> list[str]:
+    available: list[str] = []
     if any(_has_fx_metadata(position.meta) for position in request.positions_data):
         available.append("fx_rates")
     if _classification_dimensions(request):
         available.append("classification_dimensions")
-    return sorted(set(available))
+    return available
 
 
 def _unsupported_component_pnl_fields(request: ContributionRequest) -> list[str]:
