@@ -38,31 +38,31 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_build_returns_series_diagnostics` | function | `app/services/returns_series_service.py:1151` | 7 | B |
-| 2 | `_resolve_returns_series_execution_context` | function | `app/services/returns_series_service.py:1320` | 7 | B |
-| 3 | `run_runtime_retention_cleanup` | function | `app/services/runtime_retention_run_service.py:32` | 7 | B |
-| 4 | `runtime_status_from_component_statuses` | function | `app/services/runtime_status_degradation.py:246` | 7 | B |
-| 5 | `_summarize_source_quality_observations` | function | `app/services/source_quality_evidence.py:65` | 7 | B |
-| 6 | `_source_quality_warnings` | function | `app/services/source_quality_evidence.py:109` | 7 | B |
-| 7 | `_summarize_currency_source` | function | `app/services/stateful_attribution_input_service.py:566` | 7 | B |
-| 8 | `_build_instruments_data` | function | `app/services/stateful_attribution_input_service.py:648` | 7 | B |
-| 9 | `_add_benchmark_group_row` | function | `app/services/stateful_attribution_input_service.py:753` | 7 | B |
-| 10 | `_benchmark_group_dimension_value` | function | `app/services/stateful_attribution_input_service.py:835` | 7 | B |
-| 11 | `_position_daily_point_market_values` | function | `app/services/stateful_attribution_input_service.py:886` | 7 | B |
-| 12 | `_split_position_cash_flows` | function | `app/services/stateful_attribution_input_service.py:948` | 7 | B |
-| 13 | `_component_price_series_from_response` | function | `app/services/stateful_benchmark_input_service.py:452` | 7 | B |
-| 14 | `_build_component_observations` | function | `app/services/stateful_benchmark_input_service.py:571` | 7 | B |
-| 15 | `_position_value_inputs` | function | `app/services/stateful_contribution_input_service.py:213` | 7 | B |
-| 16 | `_position_contract_meta_from_row` | function | `app/services/stateful_contribution_input_service.py:255` | 7 | B |
-| 17 | `_portfolio_identity_from_payload` | function | `app/services/stateful_input_service.py:1375` | 7 | B |
-| 18 | `_collect_stateful_mwr_cash_flows` | function | `app/services/stateful_mwr_input_service.py:200` | 7 | B |
-| 19 | `_source_mwr_cash_flow_component` | function | `app/services/stateful_mwr_input_service.py:279` | 7 | B |
-| 20 | `_has_single_currency_inputs` | function | `app/services/stateful_mwr_input_service.py:332` | 7 | B |
-| 21 | `split_position_cash_flows_in_value_basis` | function | `app/services/stateful_position_row_service.py:14` | 7 | B |
-| 22 | `_build_component_observations_from_price_points` | function | `app/services/stateless_benchmark_input_service.py:48` | 7 | B |
-| 23 | `_price_point_return_components` | function | `app/services/stateless_benchmark_input_service.py:143` | 7 | B |
-| 24 | `_benchmark_currency_state` | function | `app/services/twr_benchmark_supportability.py:124` | 7 | B |
-| 25 | `_twr_execution_window_benchmark_fields` | function | `app/services/twr_calculation_service.py:237` | 7 | B |
+| 1 | `_resolve_returns_series_execution_context` | function | `app/services/returns_series_service.py:1325` | 7 | B |
+| 2 | `run_runtime_retention_cleanup` | function | `app/services/runtime_retention_run_service.py:32` | 7 | B |
+| 3 | `runtime_status_from_component_statuses` | function | `app/services/runtime_status_degradation.py:246` | 7 | B |
+| 4 | `_summarize_source_quality_observations` | function | `app/services/source_quality_evidence.py:65` | 7 | B |
+| 5 | `_source_quality_warnings` | function | `app/services/source_quality_evidence.py:109` | 7 | B |
+| 6 | `_summarize_currency_source` | function | `app/services/stateful_attribution_input_service.py:566` | 7 | B |
+| 7 | `_build_instruments_data` | function | `app/services/stateful_attribution_input_service.py:648` | 7 | B |
+| 8 | `_add_benchmark_group_row` | function | `app/services/stateful_attribution_input_service.py:753` | 7 | B |
+| 9 | `_benchmark_group_dimension_value` | function | `app/services/stateful_attribution_input_service.py:835` | 7 | B |
+| 10 | `_position_daily_point_market_values` | function | `app/services/stateful_attribution_input_service.py:886` | 7 | B |
+| 11 | `_split_position_cash_flows` | function | `app/services/stateful_attribution_input_service.py:948` | 7 | B |
+| 12 | `_component_price_series_from_response` | function | `app/services/stateful_benchmark_input_service.py:452` | 7 | B |
+| 13 | `_build_component_observations` | function | `app/services/stateful_benchmark_input_service.py:571` | 7 | B |
+| 14 | `_position_value_inputs` | function | `app/services/stateful_contribution_input_service.py:213` | 7 | B |
+| 15 | `_position_contract_meta_from_row` | function | `app/services/stateful_contribution_input_service.py:255` | 7 | B |
+| 16 | `_portfolio_identity_from_payload` | function | `app/services/stateful_input_service.py:1375` | 7 | B |
+| 17 | `_collect_stateful_mwr_cash_flows` | function | `app/services/stateful_mwr_input_service.py:200` | 7 | B |
+| 18 | `_source_mwr_cash_flow_component` | function | `app/services/stateful_mwr_input_service.py:279` | 7 | B |
+| 19 | `_has_single_currency_inputs` | function | `app/services/stateful_mwr_input_service.py:332` | 7 | B |
+| 20 | `split_position_cash_flows_in_value_basis` | function | `app/services/stateful_position_row_service.py:14` | 7 | B |
+| 21 | `_build_component_observations_from_price_points` | function | `app/services/stateless_benchmark_input_service.py:48` | 7 | B |
+| 22 | `_price_point_return_components` | function | `app/services/stateless_benchmark_input_service.py:143` | 7 | B |
+| 23 | `_benchmark_currency_state` | function | `app/services/twr_benchmark_supportability.py:124` | 7 | B |
+| 24 | `_twr_execution_window_benchmark_fields` | function | `app/services/twr_calculation_service.py:237` | 7 | B |
+| 25 | `calculate_twr_workflow` | function | `app/services/twr_calculation_service.py:258` | 7 | B |
 
 ## Lowest Maintainability Index
 
@@ -78,8 +78,8 @@ must stay at `0`.
 | 8 | `app/services/workspace_summary_service.py` | 10.56 | B |
 | 9 | `app/services/stateful_benchmark_input_service.py` | 10.70 | B |
 | 10 | `app/services/execution_registry.py` | 10.72 | B |
-| 11 | `engine/attribution.py` | 13.95 | B |
-| 12 | `app/services/operator_action_lease_service.py` | 15.16 | B |
+| 11 | `app/services/operator_action_lease_service.py` | 12.70 | B |
+| 12 | `engine/attribution.py` | 13.95 | B |
 | 13 | `app/services/inspection/source_economics_collector.py` | 16.34 | B |
 | 14 | `app/services/inspection/reconciliation.py` | 16.37 | B |
 | 15 | `app/services/inspection/source_quality.py` | 16.86 | B |
@@ -87,8 +87,8 @@ must stay at `0`.
 | 17 | `app/services/inspection/source_economics.py` | 17.37 | B |
 | 18 | `app/services/twr_mode_service.py` | 18.24 | B |
 | 19 | `app/models/runtime_status.py` | 19.85 | A |
-| 20 | `app/models/returns_series.py` | 20.36 | A |
-| 21 | `app/services/inspection/twr_inspection_service.py` | 20.47 | A |
+| 20 | `app/services/inspection/twr_inspection_service.py` | 20.27 | A |
+| 21 | `app/models/returns_series.py` | 20.36 | A |
 | 22 | `app/workers/compute_executor_worker.py` | 20.96 | A |
 | 23 | `app/services/stateful_mwr_input_service.py` | 22.43 | A |
 | 24 | `engine/composites.py` | 22.52 | A |
@@ -611,6 +611,9 @@ per-event parsing were moved into a dedicated helper while preserving action-nam
 filtering were moved into a dedicated helper while preserving field and timestamp validation.
 `_reclaim_stale_lock` also dropped out after stale-lock eligibility resolution was moved into a
 dedicated helper while preserving lock deletion and reclaim-evidence write behavior.
+`_build_returns_series_diagnostics` also dropped out after selected portfolio, benchmark, and
+risk-free gap collection was moved into a dedicated helper while preserving coverage, fail-fast,
+warning, and diagnostics assembly behavior.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.

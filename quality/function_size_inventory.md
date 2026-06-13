@@ -29,7 +29,7 @@ python scripts/python_function_size_inventory.py --limit 20
 | 7 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:310` | 102 |
 | 8 | `aggregate_attribution_results` | `engine/attribution.py:648` | 102 |
 | 9 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:87` | 101 |
-| 10 | `_calculate_returns_series` | `app/services/returns_series_service.py:1369` | 97 |
+| 10 | `_calculate_returns_series` | `app/services/returns_series_service.py:1374` | 97 |
 | 11 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:62` | 97 |
 | 12 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:31` | 94 |
 | 13 | `build_stateful_benchmark_input` | `app/services/stateful_benchmark_input_service.py:57` | 93 |

@@ -374,6 +374,33 @@ def test_build_returns_series_diagnostics_reports_coverage_gaps_and_market_warni
     assert {gap.series_type for gap in result.diagnostics.gaps} == {"portfolio", "benchmark"}
 
 
+def test_returns_series_gaps_includes_selected_risk_free_series():
+    portfolio_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-24", "2026-02-25"]),
+            "return_value": [Decimal("0.0100"), Decimal("0.0200")],
+        }
+    )
+    risk_free_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-24", "2026-02-27"]),
+            "return_value": [Decimal("0.0001"), Decimal("0.0003")],
+        }
+    )
+
+    gaps = returns_series_service._returns_series_gaps(
+        portfolio_df=portfolio_df,
+        benchmark_df=None,
+        risk_free_df=risk_free_df,
+        frequency=ReturnsFrequency.DAILY,
+        calendar_policy=CalendarPolicy.CALENDAR,
+    )
+
+    assert [(gap.series_type, gap.from_date, gap.to_date, gap.gap_days) for gap in gaps] == [
+        ("risk_free", date(2026, 2, 24), date(2026, 2, 27), 2)
+    ]
+
+
 def test_build_returns_series_diagnostics_enforces_fail_fast_missing_points():
     request = ReturnsSeriesRequest.model_validate(
         {

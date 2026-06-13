@@ -1148,6 +1148,32 @@ def _build_returns_series_point_outputs(
     )
 
 
+def _returns_series_gaps(
+    *,
+    portfolio_df: pd.DataFrame,
+    benchmark_df: pd.DataFrame | None,
+    risk_free_df: pd.DataFrame | None,
+    frequency: ReturnsFrequency,
+    calendar_policy: CalendarPolicy,
+) -> list[SeriesGap]:
+    selected_series = [
+        ("portfolio", portfolio_df),
+        ("benchmark", benchmark_df),
+        ("risk_free", risk_free_df),
+    ]
+    return [
+        gap
+        for series_type, series_df in selected_series
+        if series_df is not None
+        for gap in detect_gaps(
+            series_df,
+            frequency=frequency,
+            series_type=series_type,
+            calendar_policy=calendar_policy,
+        )
+    ]
+
+
 def _build_returns_series_diagnostics(
     *,
     request: ReturnsSeriesRequest,
@@ -1171,34 +1197,13 @@ def _build_returns_series_diagnostics(
     if request.data_policy.calendar_policy == CalendarPolicy.MARKET:
         warnings.append("MARKET calendar policy currently uses business-day approximation.")
 
-    gaps = [
-        *detect_gaps(
-            portfolio_df,
-            frequency=request.frequency,
-            series_type="portfolio",
-            calendar_policy=request.data_policy.calendar_policy,
-        ),
-        *(
-            detect_gaps(
-                benchmark_df,
-                frequency=request.frequency,
-                series_type="benchmark",
-                calendar_policy=request.data_policy.calendar_policy,
-            )
-            if benchmark_df is not None
-            else []
-        ),
-        *(
-            detect_gaps(
-                risk_free_df,
-                frequency=request.frequency,
-                series_type="risk_free",
-                calendar_policy=request.data_policy.calendar_policy,
-            )
-            if risk_free_df is not None
-            else []
-        ),
-    ]
+    gaps = _returns_series_gaps(
+        portfolio_df=portfolio_df,
+        benchmark_df=benchmark_df,
+        risk_free_df=risk_free_df,
+        frequency=request.frequency,
+        calendar_policy=request.data_policy.calendar_policy,
+    )
     return _ReturnsSeriesDiagnosticsResult(
         requested_points=requested_points,
         returned_points=returned_points,
