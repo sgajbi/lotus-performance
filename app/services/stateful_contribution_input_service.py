@@ -221,11 +221,7 @@ def _position_value_inputs(
         end_value = row.get("ending_market_value_position_currency")
         value_basis: PositionValueBasis = "position"
     elif reporting_currency is not None:
-        begin_value = row.get("beginning_market_value_reporting_currency")
-        end_value = row.get("ending_market_value_reporting_currency")
-        if begin_value is None or end_value is None:
-            begin_value = row.get("beginning_market_value_portfolio_currency")
-            end_value = row.get("ending_market_value_portfolio_currency")
+        begin_value, end_value = _reporting_position_value_pair(row)
         value_basis = "reporting"
     else:
         begin_value = row.get("beginning_market_value_portfolio_currency")
@@ -239,6 +235,17 @@ def _position_value_inputs(
         end_value=end_value,
         value_basis=value_basis,
     )
+
+
+def _reporting_position_value_pair(row: dict[str, object]) -> tuple[object, object]:
+    begin_value = row.get("beginning_market_value_reporting_currency")
+    end_value = row.get("ending_market_value_reporting_currency")
+    if begin_value is None or end_value is None:
+        return (
+            row.get("beginning_market_value_portfolio_currency"),
+            row.get("ending_market_value_portfolio_currency"),
+        )
+    return begin_value, end_value
 
 
 def _position_meta_from_row(row: dict[str, object]) -> dict[str, object]:

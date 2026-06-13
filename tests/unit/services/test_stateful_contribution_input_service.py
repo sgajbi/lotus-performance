@@ -13,6 +13,7 @@ from app.services.stateful_contribution_input_service import (
     _position_meta_from_row,
     _position_row_to_daily_point,
     _position_value_inputs,
+    _reporting_position_value_pair,
     _stateful_contribution_position_series,
     _stateful_position_currencies,
     build_stateful_contribution_input,
@@ -563,6 +564,25 @@ def test_position_value_inputs_uses_reporting_values_with_portfolio_fallback():
     assert fallback_inputs.begin_value == "100"
     assert fallback_inputs.end_value == "101"
     assert fallback_inputs.value_basis == "reporting"
+
+
+def test_reporting_position_value_pair_prefers_complete_reporting_values_and_falls_back_to_portfolio_pair():
+    assert _reporting_position_value_pair(
+        {
+            "beginning_market_value_reporting_currency": "90",
+            "ending_market_value_reporting_currency": "91",
+            "beginning_market_value_portfolio_currency": "100",
+            "ending_market_value_portfolio_currency": "101",
+        }
+    ) == ("90", "91")
+    assert _reporting_position_value_pair(
+        {
+            "beginning_market_value_reporting_currency": "90",
+            "ending_market_value_reporting_currency": None,
+            "beginning_market_value_portfolio_currency": "100",
+            "ending_market_value_portfolio_currency": "101",
+        }
+    ) == ("100", "101")
 
 
 def test_position_value_inputs_uses_portfolio_values_and_rejects_missing_values():
