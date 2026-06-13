@@ -3,6 +3,7 @@ from datetime import date
 from decimal import Decimal
 
 from app.services.source_quality_evidence import (
+    _has_stale_source_observations,
     _record_source_quality_observation,
     _summarize_source_quality_observations,
     _unsupported_cashflow_count,
@@ -175,3 +176,22 @@ def test_record_source_quality_observation_preserves_invalid_numeric_date_and_cl
     assert source_classifications == {"official": 1}
     assert normalized_dates == [date(2026, 3, 31)]
     assert values_by_date == {"2026-03-31": set()}
+
+
+def test_has_stale_source_observations_requires_both_dates_and_lagging_source():
+    assert not _has_stale_source_observations(
+        latest_observation_date=None,
+        report_end_date=date(2026, 4, 1),
+    )
+    assert not _has_stale_source_observations(
+        latest_observation_date=date(2026, 3, 31),
+        report_end_date=None,
+    )
+    assert not _has_stale_source_observations(
+        latest_observation_date=date(2026, 4, 1),
+        report_end_date=date(2026, 4, 1),
+    )
+    assert _has_stale_source_observations(
+        latest_observation_date=date(2026, 3, 31),
+        report_end_date=date(2026, 4, 1),
+    )

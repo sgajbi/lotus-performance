@@ -136,10 +136,19 @@ def _source_quality_warnings(
         warnings.append("UNSUPPORTED_CASHFLOW_LABELS")
     if source_conflict_count > 0:
         warnings.append("SOURCE_DATE_CONFLICTS")
-    if (
-        latest_observation_date is not None
-        and report_end_date is not None
-        and latest_observation_date < report_end_date
+    if _has_stale_source_observations(
+        latest_observation_date=latest_observation_date,
+        report_end_date=report_end_date,
     ):
         warnings.append("STALE_SOURCE_OBSERVATIONS")
     return warnings
+
+
+def _has_stale_source_observations(
+    *,
+    latest_observation_date: date | None,
+    report_end_date: date | None,
+) -> bool:
+    if latest_observation_date is None or report_end_date is None:
+        return False
+    return latest_observation_date < report_end_date
