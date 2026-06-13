@@ -68,6 +68,39 @@ def test_load_existing_twr_calculation_artifacts_reads_materialized_lineage_file
     assert artifacts.request_payload == request_payload
 
 
+def test_existing_artifacts_from_lineage_payload_materializes_response_and_request(monkeypatch):
+    calculation_id = uuid4()
+    response_payload = _performance_response_payload(calculation_id=str(calculation_id))
+    request_payload = {"resolved_request": _resolved_request_payload()}
+
+    monkeypatch.setattr(materialization, "_load_request_payload", lambda _calculation_id: request_payload)
+
+    artifacts = materialization._existing_artifacts_from_lineage_payload(
+        calculation_id=calculation_id,
+        payload=SimpleNamespace(
+            response_json=json.dumps(response_payload),
+            request_json=json.dumps(request_payload),
+        ),
+    )
+
+    assert artifacts is not None
+    assert artifacts.response_model.calculation_id == calculation_id
+    assert artifacts.request_payload == request_payload
+
+
+def test_existing_artifacts_from_lineage_payload_skips_invalid_response(caplog):
+    calculation_id = uuid4()
+
+    with caplog.at_level("WARNING", logger="app.services.inspection.subject_materialization"):
+        artifacts = materialization._existing_artifacts_from_lineage_payload(
+            calculation_id=calculation_id,
+            payload=SimpleNamespace(response_json="{not-json"),
+        )
+
+    assert artifacts is None
+    assert f"calculation_id={calculation_id}" in caplog.text
+
+
 def test_load_existing_twr_calculation_artifacts_waits_for_lineage_request_payload(monkeypatch, tmp_path):
     calculation_id = uuid4()
     response_payload = _performance_response_payload(calculation_id=str(calculation_id))

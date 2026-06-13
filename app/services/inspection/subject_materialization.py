@@ -32,18 +32,12 @@ _REQUEST_PAYLOAD_POLL_INTERVAL_SECONDS = 0.5
 
 
 def load_existing_twr_calculation_artifacts(calculation_id: UUID) -> ExistingTWRCalculationArtifacts:
-    payload = lineage_metadata_store.get_payload(calculation_id)
-    if payload is not None:
-        response_payload = _load_json_object(
-            payload.response_json,
-            calculation_id=calculation_id,
-            payload_name="lineage response",
-        )
-        if response_payload is not None:
-            return ExistingTWRCalculationArtifacts(
-                response_model=PerformanceResponse.model_validate(response_payload),
-                request_payload=_load_request_payload(calculation_id),
-            )
+    lineage_artifacts = _existing_artifacts_from_lineage_payload(
+        calculation_id=calculation_id,
+        payload=lineage_metadata_store.get_payload(calculation_id),
+    )
+    if lineage_artifacts is not None:
+        return lineage_artifacts
 
     async_result = async_result_store.get_result(calculation_id)
     if async_result is not None and async_result.response_payload is not None:
@@ -69,6 +63,26 @@ def load_existing_twr_calculation_artifacts(calculation_id: UUID) -> ExistingTWR
         )
 
     raise KeyError(f"TWR response artifacts not found for calculation: {calculation_id}")
+
+
+def _existing_artifacts_from_lineage_payload(
+    *,
+    calculation_id: UUID,
+    payload: Any | None,
+) -> ExistingTWRCalculationArtifacts | None:
+    if payload is None:
+        return None
+    response_payload = _load_json_object(
+        payload.response_json,
+        calculation_id=calculation_id,
+        payload_name="lineage response",
+    )
+    if response_payload is None:
+        return None
+    return ExistingTWRCalculationArtifacts(
+        response_model=PerformanceResponse.model_validate(response_payload),
+        request_payload=_load_request_payload(calculation_id),
+    )
 
 
 def extract_performance_request_from_payload(request_payload: dict | None) -> PerformanceRequest | None:
