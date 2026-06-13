@@ -251,6 +251,93 @@ def test_run_source_economics_assessment_preserves_failure_outputs(fake_registry
     assert (EXECUTION_STAGE_SOURCE_ECONOMICS_ASSESSMENT, "portfolio source down") in fake_registry.failed_stages
 
 
+def test_run_subject_assessments_merges_all_available_subject_outputs(monkeypatch):
+    performance_request = _build_performance_request()
+    request = TWRInspectionRequest(
+        subject_type=TWRInspectionSubjectType.TWR_CALCULATION,
+        subject_calculation_id=uuid4(),
+        inspection_profile=TWRInspectionProfile.CANONICAL_VALIDATION,
+    )
+    subject = ResolvedTWRInspectionSubject(
+        subject_type=TWRInspectionSubjectType.TWR_CALCULATION,
+        subject_calculation_id=request.subject_calculation_id,
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        related_execution=None,
+        request_payload=None,
+    )
+    subject_inputs = service._SubjectInspectionInputs(
+        consistency_findings=[],
+        completed_check_families=["calculation_consistency"],
+        failed_check_families=["math_warning"],
+        evidence_summary={"period_count": 1},
+        performance_request=performance_request,
+        resolved_execution_request=SimpleNamespace(portfolio=performance_request),
+    )
+    base_evidence = {"artifact_queue_enabled": True, "period_count": 1}
+    monkeypatch.setattr(
+        service,
+        "_run_source_quality_assessment",
+        lambda **_kwargs: service._InspectionStageOutputs(
+            findings=[],
+            completed_check_families=["source_quality", "economic_plausibility"],
+            failed_check_families=[],
+            evidence_summary={"invalid_capital_base_count": 0},
+            artifact_payloads={"source_quality_summary.json": "{}"},
+        ),
+    )
+    monkeypatch.setattr(
+        service,
+        "_run_reconciliation_assessment",
+        lambda **_kwargs: service._InspectionStageOutputs(
+            findings=[],
+            completed_check_families=["reconciliation"],
+            failed_check_families=[],
+            evidence_summary={"position_rows_checked": 2},
+            artifact_payloads={"reconciliation_summary.json": "{}"},
+        ),
+    )
+    monkeypatch.setattr(
+        service,
+        "_run_source_economics_assessment",
+        lambda **_kwargs: service._InspectionStageOutputs(
+            findings=[],
+            completed_check_families=["cashflow_classification"],
+            failed_check_families=[],
+            evidence_summary={"cashflow_rows_checked": 3},
+            artifact_payloads={"source_economics_summary.json": "{}"},
+        ),
+    )
+
+    outputs = service._run_subject_assessments(
+        request=request,
+        subject=subject,
+        subject_inputs=subject_inputs,
+        base_evidence_summary=base_evidence,
+    )
+
+    assert outputs.completed_check_families == [
+        "calculation_consistency",
+        "source_quality",
+        "economic_plausibility",
+        "reconciliation",
+        "cashflow_classification",
+    ]
+    assert outputs.failed_check_families == ["math_warning"]
+    assert outputs.evidence_summary == {
+        "artifact_queue_enabled": True,
+        "period_count": 1,
+        "invalid_capital_base_count": 0,
+        "position_rows_checked": 2,
+        "cashflow_rows_checked": 3,
+    }
+    assert outputs.artifact_payloads == {
+        "source_quality_summary.json": "{}",
+        "reconciliation_summary.json": "{}",
+        "source_economics_summary.json": "{}",
+    }
+    assert base_evidence == {"artifact_queue_enabled": True, "period_count": 1}
+
+
 def test_twr_inspection_preserves_runtime_finding_when_only_check_family_fails(fake_registry, monkeypatch):
     def raise_source_quality_failure(**_kwargs):
         raise RuntimeError("source quality dependency unavailable")

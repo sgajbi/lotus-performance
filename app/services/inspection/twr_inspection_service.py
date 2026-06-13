@@ -85,61 +85,33 @@ class _SubjectInspectionInputs:
     resolved_execution_request: TWRResolvedExecutionRequest | None
 
 
+@dataclass(frozen=True)
+class _SubjectAssessmentOutputs:
+    source_quality_findings: list[TWRInspectionFinding]
+    reconciliation_findings: list[TWRInspectionFinding]
+    source_economics_findings: list[TWRInspectionFinding]
+    completed_check_families: list[str]
+    failed_check_families: list[str]
+    evidence_summary: dict[str, object]
+    artifact_payloads: dict[str, str]
+
+
 def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
     execution_registry.mark_running(request.inspection_id)
     subject = _resolve_inspection_subject(request)
     subject_inputs = _resolve_subject_inspection_inputs(request=request, subject=subject)
     consistency_findings = subject_inputs.consistency_findings
-    completed_check_families = list(subject_inputs.completed_check_families)
-    failed_check_families = list(subject_inputs.failed_check_families)
     evidence_summary: dict[str, object] = {
         "artifact_queue_enabled": True,
         "related_execution_found": subject.related_execution is not None,
     }
     evidence_summary.update(subject_inputs.evidence_summary)
-    artifact_payloads: dict[str, str] = {}
-    performance_request = subject_inputs.performance_request
-    resolved_execution_request = subject_inputs.resolved_execution_request
-
-    source_quality_findings: list[TWRInspectionFinding] = []
-    if performance_request is not None:
-        source_quality_outputs = _run_source_quality_assessment(
-            inspection_id=request.inspection_id,
-            performance_request=performance_request,
-            inspection_profile=request.inspection_profile,
-        )
-        source_quality_findings = source_quality_outputs.findings
-        completed_check_families.extend(source_quality_outputs.completed_check_families)
-        failed_check_families.extend(source_quality_outputs.failed_check_families)
-        evidence_summary.update(source_quality_outputs.evidence_summary)
-        artifact_payloads.update(source_quality_outputs.artifact_payloads)
-
-    reconciliation_findings: list[TWRInspectionFinding] = []
-    if resolved_execution_request is not None and subject.portfolio_id is not None:
-        reconciliation_outputs = _run_reconciliation_assessment(
-            inspection_id=request.inspection_id,
-            performance_request=resolved_execution_request.portfolio,
-            portfolio_id=subject.portfolio_id,
-            inspection_profile=request.inspection_profile,
-        )
-        reconciliation_findings = reconciliation_outputs.findings
-        completed_check_families.extend(reconciliation_outputs.completed_check_families)
-        failed_check_families.extend(reconciliation_outputs.failed_check_families)
-        evidence_summary.update(reconciliation_outputs.evidence_summary)
-        artifact_payloads.update(reconciliation_outputs.artifact_payloads)
-
-    source_economics_findings: list[TWRInspectionFinding] = []
-    if resolved_execution_request is not None and subject.portfolio_id is not None:
-        source_economics_outputs = _run_source_economics_assessment(
-            inspection_id=request.inspection_id,
-            performance_request=resolved_execution_request.portfolio,
-            portfolio_id=subject.portfolio_id,
-        )
-        source_economics_findings = source_economics_outputs.findings
-        completed_check_families.extend(source_economics_outputs.completed_check_families)
-        failed_check_families.extend(source_economics_outputs.failed_check_families)
-        evidence_summary.update(source_economics_outputs.evidence_summary)
-        artifact_payloads.update(source_economics_outputs.artifact_payloads)
+    subject_assessments = _run_subject_assessments(
+        request=request,
+        subject=subject,
+        subject_inputs=subject_inputs,
+        base_evidence_summary=evidence_summary,
+    )
 
     execution_registry.start_stage(request.inspection_id, EXECUTION_STAGE_FINDING_SYNTHESIS)
     response_synthesis = _build_twr_inspection_response(
@@ -147,13 +119,13 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
         subject_calculation_id=subject.subject_calculation_id,
         portfolio_id=subject.portfolio_id,
         consistency_findings=consistency_findings,
-        source_quality_findings=source_quality_findings,
-        reconciliation_findings=reconciliation_findings,
-        source_economics_findings=source_economics_findings,
-        completed_check_families=completed_check_families,
-        failed_check_families=failed_check_families,
-        evidence_summary=evidence_summary,
-        artifact_payloads=artifact_payloads,
+        source_quality_findings=subject_assessments.source_quality_findings,
+        reconciliation_findings=subject_assessments.reconciliation_findings,
+        source_economics_findings=subject_assessments.source_economics_findings,
+        completed_check_families=subject_assessments.completed_check_families,
+        failed_check_families=subject_assessments.failed_check_families,
+        evidence_summary=subject_assessments.evidence_summary,
+        artifact_payloads=subject_assessments.artifact_payloads,
     )
     response = response_synthesis.response
     artifact_payloads = response_synthesis.artifact_payloads
@@ -180,6 +152,69 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
         raise
     execution_registry.mark_complete(request.inspection_id)
     return response
+
+
+def _run_subject_assessments(
+    *,
+    request: TWRInspectionRequest,
+    subject: ResolvedTWRInspectionSubject,
+    subject_inputs: _SubjectInspectionInputs,
+    base_evidence_summary: dict[str, object],
+) -> _SubjectAssessmentOutputs:
+    completed_check_families = list(subject_inputs.completed_check_families)
+    failed_check_families = list(subject_inputs.failed_check_families)
+    evidence_summary = dict(base_evidence_summary)
+    artifact_payloads: dict[str, str] = {}
+
+    source_quality_findings: list[TWRInspectionFinding] = []
+    if subject_inputs.performance_request is not None:
+        source_quality_outputs = _run_source_quality_assessment(
+            inspection_id=request.inspection_id,
+            performance_request=subject_inputs.performance_request,
+            inspection_profile=request.inspection_profile,
+        )
+        source_quality_findings = source_quality_outputs.findings
+        completed_check_families.extend(source_quality_outputs.completed_check_families)
+        failed_check_families.extend(source_quality_outputs.failed_check_families)
+        evidence_summary.update(source_quality_outputs.evidence_summary)
+        artifact_payloads.update(source_quality_outputs.artifact_payloads)
+
+    reconciliation_findings: list[TWRInspectionFinding] = []
+    source_economics_findings: list[TWRInspectionFinding] = []
+    if subject_inputs.resolved_execution_request is not None and subject.portfolio_id is not None:
+        performance_request = subject_inputs.resolved_execution_request.portfolio
+        reconciliation_outputs = _run_reconciliation_assessment(
+            inspection_id=request.inspection_id,
+            performance_request=performance_request,
+            portfolio_id=subject.portfolio_id,
+            inspection_profile=request.inspection_profile,
+        )
+        reconciliation_findings = reconciliation_outputs.findings
+        completed_check_families.extend(reconciliation_outputs.completed_check_families)
+        failed_check_families.extend(reconciliation_outputs.failed_check_families)
+        evidence_summary.update(reconciliation_outputs.evidence_summary)
+        artifact_payloads.update(reconciliation_outputs.artifact_payloads)
+
+        source_economics_outputs = _run_source_economics_assessment(
+            inspection_id=request.inspection_id,
+            performance_request=performance_request,
+            portfolio_id=subject.portfolio_id,
+        )
+        source_economics_findings = source_economics_outputs.findings
+        completed_check_families.extend(source_economics_outputs.completed_check_families)
+        failed_check_families.extend(source_economics_outputs.failed_check_families)
+        evidence_summary.update(source_economics_outputs.evidence_summary)
+        artifact_payloads.update(source_economics_outputs.artifact_payloads)
+
+    return _SubjectAssessmentOutputs(
+        source_quality_findings=source_quality_findings,
+        reconciliation_findings=reconciliation_findings,
+        source_economics_findings=source_economics_findings,
+        completed_check_families=completed_check_families,
+        failed_check_families=failed_check_families,
+        evidence_summary=evidence_summary,
+        artifact_payloads=artifact_payloads,
+    )
 
 
 def _resolve_subject_inspection_inputs(

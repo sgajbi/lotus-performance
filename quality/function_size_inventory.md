@@ -31,15 +31,15 @@ python scripts/python_function_size_inventory.py --limit 20
 | 9 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:87` | 101 |
 | 10 | `_calculate_returns_series` | `app/services/returns_series_service.py:1317` | 97 |
 | 11 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:62` | 97 |
-| 12 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:88` | 95 |
-| 13 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:31` | 94 |
-| 14 | `build_stateful_benchmark_input` | `app/services/stateful_benchmark_input_service.py:57` | 93 |
-| 15 | `calculate_twr_response` | `app/services/twr_service.py:1007` | 93 |
-| 16 | `_build_artifacts` | `app/services/composite_inspection_service.py:151` | 89 |
-| 17 | `LineageMetadataStore.list_inspection_items` | `app/services/lineage_metadata_store.py:507` | 85 |
-| 18 | `build_recovery_drill_history_snapshot` | `app/services/recovery_drill_history_service.py:62` | 85 |
-| 19 | `build_runtime_recovery_snapshot` | `app/services/runtime_recovery_service.py:46` | 84 |
-| 20 | `_align_and_prepare_data` | `engine/attribution.py:452` | 83 |
+| 12 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:31` | 94 |
+| 13 | `build_stateful_benchmark_input` | `app/services/stateful_benchmark_input_service.py:57` | 93 |
+| 14 | `calculate_twr_response` | `app/services/twr_service.py:1007` | 93 |
+| 15 | `_build_artifacts` | `app/services/composite_inspection_service.py:151` | 89 |
+| 16 | `LineageMetadataStore.list_inspection_items` | `app/services/lineage_metadata_store.py:507` | 85 |
+| 17 | `build_recovery_drill_history_snapshot` | `app/services/recovery_drill_history_service.py:62` | 85 |
+| 18 | `build_runtime_recovery_snapshot` | `app/services/runtime_recovery_service.py:46` | 84 |
+| 19 | `_align_and_prepare_data` | `engine/attribution.py:452` | 83 |
+| 20 | `StatefulInputService._fetch_position_chunk` | `app/services/stateful_input_service.py:991` | 81 |
 
 ## Interpretation
 
@@ -86,6 +86,9 @@ TWR inspection orchestration remains in the top-15 table but moved from `147` to
 subject-resolution stage lifecycle handling was isolated from the public inspection orchestrator.
 TWR inspection orchestration dropped out of the top-15 table after subject request materialization
 and calculation-consistency loading were isolated from the public inspection orchestrator.
+TWR inspection orchestration dropped out of the top-20 table after optional source-quality,
+reconciliation, and source-economics subject assessments were isolated from the public inspection
+orchestrator.
 TWR calculation workflow dropped out of the top-20 table after resolved response finalization and
 final response calculation were isolated from the public workflow function.
 Attribution calculation workflow dropped out of the top-20 table after resolved stateful
