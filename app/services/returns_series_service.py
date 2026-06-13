@@ -833,6 +833,19 @@ def _stateful_returns_retrieval_stage_details(
     }
 
 
+def _stateful_returns_normalization_stage_details(
+    *,
+    portfolio_df: pd.DataFrame,
+    benchmark_df: pd.DataFrame | None,
+    risk_free_df: pd.DataFrame | None,
+) -> dict[str, int]:
+    return {
+        "portfolio_points": len(portfolio_df),
+        "benchmark_points": len(benchmark_df) if benchmark_df is not None else 0,
+        "risk_free_points": len(risk_free_df) if risk_free_df is not None else 0,
+    }
+
+
 def _build_resolved_stateful_returns_series_request(
     *,
     request: ReturnsSeriesRequest,
@@ -859,11 +872,11 @@ def _build_resolved_stateful_returns_series_request(
     execution_registry.complete_stage(
         request.calculation_id,
         EXECUTION_STAGE_NORMALIZATION,
-        details={
-            "portfolio_points": len(portfolio_df),
-            "benchmark_points": len(benchmark_df) if benchmark_df is not None else 0,
-            "risk_free_points": len(risk_free_df) if risk_free_df is not None else 0,
-        },
+        details=_stateful_returns_normalization_stage_details(
+            portfolio_df=portfolio_df,
+            benchmark_df=benchmark_df,
+            risk_free_df=risk_free_df,
+        ),
     )
 
     portfolio_return_points = points_from_df(portfolio_df)

@@ -817,6 +817,24 @@ def test_stateful_returns_retrieval_stage_details_preserve_count_policy():
     }
 
 
+def test_stateful_returns_normalization_stage_details_reports_selected_frame_counts():
+    portfolio_df = pd.DataFrame({"date": pd.to_datetime(["2026-02-24", "2026-02-25"])})
+    benchmark_df = pd.DataFrame({"date": pd.to_datetime(["2026-02-24"])})
+    risk_free_df = pd.DataFrame({"date": pd.to_datetime(["2026-02-24", "2026-02-25", "2026-02-26"])})
+
+    details = returns_series_service._stateful_returns_normalization_stage_details(
+        portfolio_df=portfolio_df,
+        benchmark_df=benchmark_df,
+        risk_free_df=risk_free_df,
+    )
+
+    assert details == {
+        "portfolio_points": 2,
+        "benchmark_points": 1,
+        "risk_free_points": 3,
+    }
+
+
 def test_build_resolved_stateful_returns_series_request_completes_normalization_stage(monkeypatch, tmp_path):
     request = _build_stateful_request(
         series_selection={"include_portfolio": True, "include_benchmark": False, "include_risk_free": False}
