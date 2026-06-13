@@ -28,31 +28,31 @@ python scripts/python_complexity_inventory.py --limit 25
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_build_residual_adjusted_position_timeseries` | function | `app/services/contribution_series.py:57` | 8 | B |
-| 2 | `calculate_contribution` | function | `app/services/contribution_service.py:525` | 8 | B |
-| 3 | `_contribution_smoothing_status_and_reasons` | function | `app/services/contribution_smoothing.py:28` | 8 | B |
-| 4 | `_available_stateful_economics` | function | `app/services/contribution_source_economics.py:99` | 8 | B |
-| 5 | `_cash_flow_type_counts` | function | `app/services/contribution_source_economics.py:168` | 8 | B |
-| 6 | `_collect_position_continuity_gap_samples` | function | `app/services/inspection/reconciliation.py:500` | 8 | B |
-| 7 | `_row_has_transition_activity` | function | `app/services/inspection/reconciliation.py:563` | 8 | B |
-| 8 | `_sum_detailed_cash_flows` | function | `app/services/inspection/source_economics.py:542` | 8 | B |
-| 9 | `_record_fee_source_signals` | method | `app/services/inspection/source_economics_collector.py:196` | 8 | B |
-| 10 | `run_source_quality_checks` | function | `app/services/inspection/source_quality.py:91` | 8 | B |
-| 11 | `_inspection_timing` | method | `app/services/lineage_metadata_store.py:1163` | 8 | B |
-| 12 | `calculate_mwr_response` | function | `app/services/mwr_calculation_service.py:152` | 8 | B |
-| 13 | `_validate_component` | function | `app/services/mwr_fx_evidence_service.py:195` | 8 | B |
-| 14 | `build_applied_history_filters` | function | `app/services/operator_action_history_filters.py:55` | 8 | B |
-| 15 | `_has_valid_reclaimed_event_fields` | function | `app/services/operator_action_lease_service.py:486` | 8 | B |
-| 16 | `_build_resolved_stateful_returns_series_request` | function | `app/services/returns_series_service.py:801` | 8 | B |
-| 17 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:1407` | 8 | B |
-| 18 | `runtime_retention_preview_fields` | function | `app/services/runtime_status_retention_preview.py:13` | 8 | B |
-| 19 | `classify_cashflow_type` | function | `app/services/source_cashflow_taxonomy.py:45` | 8 | B |
-| 20 | `_summarize_position_classification` | function | `app/services/stateful_attribution_input_service.py:474` | 8 | B |
-| 21 | `_validate_stateful_position_inception_support` | function | `app/services/stateful_attribution_input_service.py:590` | 8 | B |
-| 22 | `_build_group_key` | function | `app/services/stateful_attribution_input_service.py:800` | 8 | B |
-| 23 | `_position_row_to_daily_point` | function | `app/services/stateful_attribution_input_service.py:825` | 8 | B |
-| 24 | `_position_meta_from_row` | function | `app/services/stateful_attribution_input_service.py:925` | 8 | B |
-| 25 | `_normalized_position_dimensions` | function | `app/services/stateful_attribution_input_service.py:947` | 8 | B |
+| 1 | `calculate_contribution` | function | `app/services/contribution_service.py:525` | 8 | B |
+| 2 | `_contribution_smoothing_status_and_reasons` | function | `app/services/contribution_smoothing.py:28` | 8 | B |
+| 3 | `_available_stateful_economics` | function | `app/services/contribution_source_economics.py:99` | 8 | B |
+| 4 | `_cash_flow_type_counts` | function | `app/services/contribution_source_economics.py:168` | 8 | B |
+| 5 | `_collect_position_continuity_gap_samples` | function | `app/services/inspection/reconciliation.py:500` | 8 | B |
+| 6 | `_row_has_transition_activity` | function | `app/services/inspection/reconciliation.py:563` | 8 | B |
+| 7 | `_sum_detailed_cash_flows` | function | `app/services/inspection/source_economics.py:542` | 8 | B |
+| 8 | `_record_fee_source_signals` | method | `app/services/inspection/source_economics_collector.py:196` | 8 | B |
+| 9 | `run_source_quality_checks` | function | `app/services/inspection/source_quality.py:91` | 8 | B |
+| 10 | `_inspection_timing` | method | `app/services/lineage_metadata_store.py:1163` | 8 | B |
+| 11 | `calculate_mwr_response` | function | `app/services/mwr_calculation_service.py:152` | 8 | B |
+| 12 | `_validate_component` | function | `app/services/mwr_fx_evidence_service.py:195` | 8 | B |
+| 13 | `build_applied_history_filters` | function | `app/services/operator_action_history_filters.py:55` | 8 | B |
+| 14 | `_has_valid_reclaimed_event_fields` | function | `app/services/operator_action_lease_service.py:486` | 8 | B |
+| 15 | `_build_resolved_stateful_returns_series_request` | function | `app/services/returns_series_service.py:801` | 8 | B |
+| 16 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:1407` | 8 | B |
+| 17 | `runtime_retention_preview_fields` | function | `app/services/runtime_status_retention_preview.py:13` | 8 | B |
+| 18 | `classify_cashflow_type` | function | `app/services/source_cashflow_taxonomy.py:45` | 8 | B |
+| 19 | `_summarize_position_classification` | function | `app/services/stateful_attribution_input_service.py:474` | 8 | B |
+| 20 | `_validate_stateful_position_inception_support` | function | `app/services/stateful_attribution_input_service.py:590` | 8 | B |
+| 21 | `_build_group_key` | function | `app/services/stateful_attribution_input_service.py:800` | 8 | B |
+| 22 | `_position_row_to_daily_point` | function | `app/services/stateful_attribution_input_service.py:825` | 8 | B |
+| 23 | `_position_meta_from_row` | function | `app/services/stateful_attribution_input_service.py:925` | 8 | B |
+| 24 | `_normalized_position_dimensions` | function | `app/services/stateful_attribution_input_service.py:947` | 8 | B |
+| 25 | `_build_stateful_vendor_series_input` | function | `app/services/stateful_benchmark_input_service.py:176` | 8 | B |
 
 ## Lowest Maintainability Index
 
@@ -421,6 +421,8 @@ was routed through an explicit reason-code-to-counter policy helper.
 `_calculate_reset_aware_average_weight_shadow` also dropped out after reset-aware valid portfolio
 day selection, reset-relative windowing, shadow-weight application, and delta metric projection
 were split into dedicated helpers.
+`_build_residual_adjusted_position_timeseries` also dropped out after residual-adjusted row
+construction and adjusted-row-to-response-series projection were split into dedicated helpers.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.
