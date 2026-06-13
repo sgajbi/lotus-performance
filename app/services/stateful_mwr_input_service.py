@@ -306,12 +306,17 @@ def _source_mwr_cash_flow_component(
         component_type="source_cash_flow",
         amount=Decimal(str(flow["amount"])),
         currency=reporting_currency,
-        cash_flow_type=str(flow.get("cash_flow_type")) if flow.get("cash_flow_type") is not None else None,
-        flow_scope=str(flow.get("flow_scope")) if flow.get("flow_scope") is not None else None,
-        source_classification=(
-            str(flow.get("source_classification")) if flow.get("source_classification") is not None else None
-        ),
+        cash_flow_type=_optional_source_flow_string(flow=flow, field_name="cash_flow_type"),
+        flow_scope=_optional_source_flow_string(flow=flow, field_name="flow_scope"),
+        source_classification=_optional_source_flow_string(flow=flow, field_name="source_classification"),
     )
+
+
+def _optional_source_flow_string(*, flow: dict[object, object], field_name: str) -> str | None:
+    value = flow.get(field_name)
+    if value is None:
+        return None
+    return str(value)
 
 
 def _parse_decimal(value: object) -> Decimal | None:

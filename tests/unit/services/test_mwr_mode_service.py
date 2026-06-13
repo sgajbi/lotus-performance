@@ -401,6 +401,17 @@ def test_source_mwr_cash_flow_component_projects_eligible_source_flow():
     assert component.cash_flow_type == "external_flow"
     assert component.flow_scope == "external"
     assert component.source_classification == "official"
+    numeric_metadata_component = _source_mwr_cash_flow_component(
+        {
+            "amount": "25",
+            "cash_flow_type": "external_flow",
+            "flow_scope": 123,
+        },
+        reporting_currency="USD",
+    )
+    assert numeric_metadata_component is not None
+    assert numeric_metadata_component.flow_scope == "123"
+    assert numeric_metadata_component.source_classification is None
     assert _source_mwr_cash_flow_component({"amount": "-3", "cash_flow_type": "fee"}, reporting_currency="USD") is None
 
 
