@@ -29,7 +29,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: "pip"
       - name: Install
-        run: make install
+        run: make install-ci
       - name: Generate quality inventories
         run: |
           python scripts/python_function_size_inventory.py --limit 15 > quality/function_size_inventory.md

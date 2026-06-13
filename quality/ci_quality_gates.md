@@ -28,6 +28,10 @@ OpenAPI quality, API vocabulary governance, migration smoke where the lane requi
 dependency security. These jobs run in parallel before test execution to reduce CI wall-clock time
 without dropping any gate.
 
+GitHub Actions jobs use `make install-ci` so CI installs runtime and development dependencies without
+performing developer-workstation pre-commit hook setup. Local contributors should continue using
+`make install` when they need the hook installation side effect.
+
 ## Gate Promotion Model
 
 | Phase | CI posture | Promotion standard |
