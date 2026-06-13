@@ -664,6 +664,27 @@ def _component_observation_prices(
                 f"component {component_id} is missing {point_date}."
             ),
         )
+    previous_date, previous_price = _previous_normalized_component_price(
+        component_id=component_id,
+        point_date=point_date,
+        normalized_prices=normalized_prices,
+    )
+    return _ComponentObservationPrices(
+        previous_date=previous_date,
+        previous_price=previous_price,
+        current_price=normalized_prices[point_date],
+        local_previous_price=local_prices[previous_date],
+        local_current_price=local_prices[point_date],
+        component_currency=component_currency,
+    )
+
+
+def _previous_normalized_component_price(
+    *,
+    component_id: str,
+    point_date: date,
+    normalized_prices: dict[date, Decimal],
+) -> tuple[date, Decimal]:
     previous_dates = [candidate for candidate in normalized_prices if candidate < point_date]
     if not previous_dates:
         raise HTTPException(
@@ -680,14 +701,7 @@ def _component_observation_prices(
             status_code=HTTP_422_UNPROCESSABLE,
             detail=f"Normalized benchmark price is zero for component {component_id} on {previous_date}.",
         )
-    return _ComponentObservationPrices(
-        previous_date=previous_date,
-        previous_price=previous_price,
-        current_price=normalized_prices[point_date],
-        local_previous_price=local_prices[previous_date],
-        local_current_price=local_prices[point_date],
-        component_currency=component_currency,
-    )
+    return previous_date, previous_price
 
 
 def _build_normalized_component_series(

@@ -20,6 +20,7 @@ from app.services.stateful_benchmark_input_service import (
     _normalize_price_to_benchmark_currency,
     _normalized_price_maps_for_component,
     _parse_composition_window,
+    _previous_normalized_component_price,
     _required_fx_pairs_for_components,
     build_stateful_benchmark_input,
 )
@@ -1012,6 +1013,37 @@ def test_build_component_observation_projects_zero_fx_for_benchmark_currency_com
     assert observation.component_return == pytest.approx(0.01)
     assert observation.component_return_local == pytest.approx(0.01)
     assert observation.component_return_fx == 0
+
+
+def test_previous_normalized_component_price_selects_latest_prior_price():
+    assert _previous_normalized_component_price(
+        component_id="IDX_USD",
+        point_date=date(2026, 1, 3),
+        normalized_prices={
+            date(2026, 1, 1): Decimal("100"),
+            date(2026, 1, 2): Decimal("101"),
+            date(2026, 1, 3): Decimal("102"),
+        },
+    ) == (date(2026, 1, 2), Decimal("101"))
+
+
+def test_previous_normalized_component_price_rejects_missing_or_zero_prior_price():
+    with pytest.raises(HTTPException, match="requires a prior normalized price"):
+        _previous_normalized_component_price(
+            component_id="IDX_USD",
+            point_date=date(2026, 1, 2),
+            normalized_prices={date(2026, 1, 2): Decimal("101")},
+        )
+
+    with pytest.raises(HTTPException, match="Normalized benchmark price is zero"):
+        _previous_normalized_component_price(
+            component_id="IDX_USD",
+            point_date=date(2026, 1, 2),
+            normalized_prices={
+                date(2026, 1, 1): Decimal("0"),
+                date(2026, 1, 2): Decimal("101"),
+            },
+        )
 
 
 def test_build_normalized_component_series_skips_invalid_points_and_rejects_missing_prices():
