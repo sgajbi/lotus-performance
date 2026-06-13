@@ -99,20 +99,26 @@ def _apply_ignore_days(df: pd.DataFrame, ignore_days: list, diagnostics: EngineD
     for item in ignore_days:
         dates_to_ignore = pd.to_datetime(item["dates"])
         for ignored_timestamp in dates_to_ignore:
-            if ignored_timestamp in df.index:
-                loc = df.index.get_loc(ignored_timestamp)
-                if loc > 0:
-                    prev_day = df.iloc[loc - 1]
-                    df.loc[ignored_timestamp, PortfolioColumns.BEGIN_MV.value] = prev_day[PortfolioColumns.END_MV.value]
-                    df.loc[ignored_timestamp, PortfolioColumns.END_MV.value] = prev_day[PortfolioColumns.END_MV.value]
-                    df.loc[ignored_timestamp, PortfolioColumns.BOD_CF.value] = 0.0
-                    df.loc[ignored_timestamp, PortfolioColumns.EOD_CF.value] = 0.0
-                    df.loc[ignored_timestamp, PortfolioColumns.MGMT_FEES.value] = 0.0
-                    diagnostics.policy.ignored_days_count += 1
+            diagnostics.policy.ignored_days_count += _apply_ignored_day(df, ignored_timestamp)
 
     if diagnostics.policy.ignored_days_count > 0:
         diagnostics.notes.append(f"Ignored {diagnostics.policy.ignored_days_count} day(s) as specified in data_policy.")
     df.reset_index(inplace=True)
+
+
+def _apply_ignored_day(df: pd.DataFrame, ignored_timestamp: pd.Timestamp) -> int:
+    if ignored_timestamp not in df.index:
+        return 0
+    loc = df.index.get_loc(ignored_timestamp)
+    if loc <= 0:
+        return 0
+    prev_day = df.iloc[loc - 1]
+    df.loc[ignored_timestamp, PortfolioColumns.BEGIN_MV.value] = prev_day[PortfolioColumns.END_MV.value]
+    df.loc[ignored_timestamp, PortfolioColumns.END_MV.value] = prev_day[PortfolioColumns.END_MV.value]
+    df.loc[ignored_timestamp, PortfolioColumns.BOD_CF.value] = 0.0
+    df.loc[ignored_timestamp, PortfolioColumns.EOD_CF.value] = 0.0
+    df.loc[ignored_timestamp, PortfolioColumns.MGMT_FEES.value] = 0.0
+    return 1
 
 
 def _flag_outliers(

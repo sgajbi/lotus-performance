@@ -4,6 +4,7 @@ import pytest
 from app.models.requests import DataPolicy
 from engine.diagnostics import EngineDiagnostics
 from engine.policies import (
+    _apply_ignored_day,
     _apply_override_values,
     _extract_policy_inputs,
     _flag_outliers,
@@ -69,6 +70,19 @@ def test_apply_ignore_days(sample_policy_df):
     assert result_df.loc[1, PortfolioColumns.END_MV.value] == 110.0
     assert result_df.loc[1, PortfolioColumns.BOD_CF.value] == 0.0
     assert diags.policy.ignored_days_count == 1
+
+
+def test_apply_ignored_day_carries_forward_previous_day_state(sample_policy_df):
+    indexed = sample_policy_df.set_index(PortfolioColumns.PERF_DATE.value)
+
+    applied_count = _apply_ignored_day(indexed, pd.Timestamp("2025-03-15"))
+
+    assert applied_count == 1
+    assert indexed.loc[pd.Timestamp("2025-03-15"), PortfolioColumns.BEGIN_MV.value] == 110.0
+    assert indexed.loc[pd.Timestamp("2025-03-15"), PortfolioColumns.END_MV.value] == 110.0
+    assert indexed.loc[pd.Timestamp("2025-03-15"), PortfolioColumns.BOD_CF.value] == 0.0
+    assert indexed.loc[pd.Timestamp("2025-03-15"), PortfolioColumns.EOD_CF.value] == 0.0
+    assert indexed.loc[pd.Timestamp("2025-03-15"), PortfolioColumns.MGMT_FEES.value] == 0.0
 
 
 def test_apply_robustness_policies_preserves_original_df_when_mutating(sample_policy_df):
