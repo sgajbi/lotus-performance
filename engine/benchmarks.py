@@ -144,16 +144,30 @@ def calculate_benchmark_returns(
 def _uses_local_fx_component_returns(
     component_observations: Sequence[BenchmarkComponentObservationLike],
 ) -> bool:
-    has_any_local = any(observation.component_return_local is not None for observation in component_observations)
-    has_any_fx = any(observation.component_return_fx is not None for observation in component_observations)
+    has_any_local, has_any_fx = _component_local_fx_presence(component_observations)
     if has_any_local != has_any_fx:
         raise ValueError("component_return_local and component_return_fx must be supplied together")
-    if has_any_local and not all(
-        observation.component_return_local is not None and observation.component_return_fx is not None
-        for observation in component_observations
-    ):
+    if has_any_local and _has_incomplete_local_fx_component_return(component_observations):
         raise ValueError("component_return_local and component_return_fx must be populated for every observation")
     return has_any_local
+
+
+def _component_local_fx_presence(
+    component_observations: Sequence[BenchmarkComponentObservationLike],
+) -> tuple[bool, bool]:
+    return (
+        any(observation.component_return_local is not None for observation in component_observations),
+        any(observation.component_return_fx is not None for observation in component_observations),
+    )
+
+
+def _has_incomplete_local_fx_component_return(
+    component_observations: Sequence[BenchmarkComponentObservationLike],
+) -> bool:
+    return any(
+        observation.component_return_local is None or observation.component_return_fx is None
+        for observation in component_observations
+    )
 
 
 def benchmark_return_points_to_dataframe(
