@@ -49,6 +49,8 @@ from engine.compute import run_calculations
 from engine.diagnostics import EngineDiagnostics
 from engine.schema import PortfolioColumns
 
+_PercentageNumber = float
+
 
 def _as_numeric(value: object, default=0):
     return numeric_value(value, default=default)
@@ -60,6 +62,17 @@ def _get_total_cum_ror(row: pd.Series | None, prefix: str = "") -> float:
     long_cum = _as_numeric(row.get(f"{prefix}long_cum_ror", 0))
     short_cum = _as_numeric(row.get(f"{prefix}short_cum_ror", 0))
     return ((1 + long_cum / 100) * (1 + short_cum / 100) - 1) * 100
+
+
+def _rebased_cumulative_ror(
+    *,
+    start_cumulative_ror: _PercentageNumber,
+    end_cumulative_ror: _PercentageNumber,
+) -> _PercentageNumber:
+    start_denom = 1 + start_cumulative_ror / 100
+    if start_denom == 0:
+        return end_cumulative_ror
+    return (((1 + end_cumulative_ror / 100) / start_denom) - 1) * 100
 
 
 def _calculate_total_return_from_reset_slice(
@@ -76,11 +89,10 @@ def _calculate_total_return_from_reset_slice(
     )
     end_cum_base = _as_numeric(end_row[PortfolioColumns.FINAL_CUM_ROR.value])
 
-    start_base_denom = 1 + start_cum_base / 100
-    if start_base_denom == 0:
-        base_total = end_cum_base
-    else:
-        base_total = (((1 + end_cum_base / 100) / start_base_denom) - 1) * 100
+    base_total = _rebased_cumulative_ror(
+        start_cumulative_ror=start_cum_base,
+        end_cumulative_ror=end_cum_base,
+    )
 
     if "local_ror" not in df_slice.columns:
         return PortfolioReturnDecomposition(local=base_total, fx=0.0, base=base_total)
@@ -88,11 +100,10 @@ def _calculate_total_return_from_reset_slice(
     start_cum_local = _get_total_cum_ror(day_before_row, "local_ror_")
     end_cum_local = _get_total_cum_ror(end_row, "local_ror_")
 
-    start_local_denom = 1 + start_cum_local / 100
-    if start_local_denom == 0:
-        local_total = end_cum_local
-    else:
-        local_total = (((1 + end_cum_local / 100) / start_local_denom) - 1) * 100
+    local_total = _rebased_cumulative_ror(
+        start_cumulative_ror=start_cum_local,
+        end_cumulative_ror=end_cum_local,
+    )
 
     base_denom_for_fx = 1 + local_total / 100
     if base_denom_for_fx == 0:

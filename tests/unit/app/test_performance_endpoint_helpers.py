@@ -20,6 +20,7 @@ from app.services.twr_service import (
     _build_twr_results_by_period,
     _calculate_total_return_from_slice,
     _get_total_cum_ror,
+    _rebased_cumulative_ror,
     _resolve_twr_execution_period_scope,
     _resolve_twr_supportability,
     _twr_period_reset_events,
@@ -362,6 +363,17 @@ def test_as_numeric_returns_default_for_non_numeric_values():
 
 def test_get_total_cum_ror_returns_zero_for_missing_row():
     assert _get_total_cum_ror(None, "local_ror_") == 0.0
+
+
+def test_rebased_cumulative_ror_handles_standard_and_zero_start_denominators():
+    assert _rebased_cumulative_ror(
+        start_cumulative_ror=10.0,
+        end_cumulative_ror=21.0,
+    ) == pytest.approx(10.0)
+    assert _rebased_cumulative_ror(
+        start_cumulative_ror=-100.0,
+        end_cumulative_ror=12.0,
+    ) == pytest.approx(12.0)
 
 
 def test_calculate_total_return_from_slice_returns_zero_for_empty_slice():
