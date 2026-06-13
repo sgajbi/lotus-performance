@@ -485,13 +485,19 @@ def _parse_reclaimed_event_payload(
 
 def _has_valid_reclaimed_event_fields(payload: dict[str, object]) -> bool:
     return (
+        _has_valid_reclaimed_event_string_fields(payload)
+        and is_required_evidence_number(payload.get("stale_after_seconds"))
+        and is_required_evidence_int(payload.get("reclaim_count", 1))
+    )
+
+
+def _has_valid_reclaimed_event_string_fields(payload: dict[str, object]) -> bool:
+    return (
         is_required_evidence_string(payload.get("operator_id"))
         and is_optional_evidence_string(payload.get("tenant_id"))
         and is_required_evidence_string(payload.get("governed_target"))
         and is_required_evidence_string(payload.get("acquired_at_utc"))
         and is_required_evidence_string(payload.get("reclaimed_at_utc"))
-        and is_required_evidence_number(payload.get("stale_after_seconds"))
-        and is_required_evidence_int(payload.get("reclaim_count", 1))
         and is_required_evidence_string(payload.get("action_key"))
     )
 
