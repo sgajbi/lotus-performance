@@ -1,6 +1,7 @@
 import json
 import logging
 from datetime import UTC, datetime, timedelta
+from typing import Any, cast
 
 import pytest
 from fastapi import HTTPException
@@ -14,6 +15,7 @@ from app.services.operator_action_lease_service import (
     OperatorActionLeaseMetadata,
     _has_valid_reclaimed_event_fields,
     _has_valid_reclaimed_event_string_fields,
+    _matching_active_operator_action_lease,
     _parse_reclaimed_event_payload,
     _read_active_operator_action_lease,
     _read_latest_reclaimed_lease,
@@ -800,6 +802,31 @@ def test_build_operator_action_lease_snapshot_ignores_other_action_names(tmp_pat
 
     assert snapshot.status == "available"
     assert snapshot.active_leases == ()
+
+
+def test_matching_active_operator_action_lease_filters_candidates():
+    lease = ActiveOperatorActionLease(
+        action_key="recovery-drill-ops-user-backup-1",
+        action_name="recovery_drill",
+        operator_id="ops-user",
+        tenant_id=None,
+        governed_target="backup-1",
+        acquired_at_utc="2026-03-15T00:00:00Z",
+    )
+
+    assert _matching_active_operator_action_lease(lease_candidate=lease, action_name="recovery_drill") == lease
+    assert _matching_active_operator_action_lease(lease_candidate=lease, action_name=None) == lease
+    assert (
+        _matching_active_operator_action_lease(lease_candidate=lease, action_name="runtime_retention_cleanup") is None
+    )
+    assert _matching_active_operator_action_lease(lease_candidate=None, action_name="recovery_drill") is None
+    assert (
+        _matching_active_operator_action_lease(
+            lease_candidate=cast(Any, object()),
+            action_name="recovery_drill",
+        ).__class__.__name__
+        == "_LeaseSnapshotFailure"
+    )
 
 
 def test_read_recent_reclaimed_leases_rejects_non_list_payload(tmp_path):

@@ -272,16 +272,31 @@ def _read_matching_active_operator_action_leases(
     leases: list[ActiveOperatorActionLease] = []
     try:
         for lock_path in sorted(locks_dir.glob("*.lock")):
-            lease = _read_active_operator_action_lease(lock_path=lock_path)
-            if lease is None:
-                continue
-            if not isinstance(lease, ActiveOperatorActionLease):
-                return _LeaseSnapshotFailure(reason=OPERATOR_ACTION_LEASE_INVALID_REASON)
-            if action_name is None or lease.action_name == action_name:
+            lease = _matching_active_operator_action_lease(
+                lease_candidate=_read_active_operator_action_lease(lock_path=lock_path),
+                action_name=action_name,
+            )
+            if isinstance(lease, _LeaseSnapshotFailure):
+                return lease
+            if lease is not None:
                 leases.append(lease)
     except OSError:
         return _LeaseSnapshotFailure(reason=OPERATOR_ACTION_LEASE_DIRECTORY_UNREADABLE_REASON)
     return tuple(leases)
+
+
+def _matching_active_operator_action_lease(
+    *,
+    lease_candidate: ActiveOperatorActionLease | _InvalidLease | None,
+    action_name: str | None,
+) -> ActiveOperatorActionLease | _LeaseSnapshotFailure | None:
+    if lease_candidate is None:
+        return None
+    if not isinstance(lease_candidate, ActiveOperatorActionLease):
+        return _LeaseSnapshotFailure(reason=OPERATOR_ACTION_LEASE_INVALID_REASON)
+    if action_name is not None and lease_candidate.action_name != action_name:
+        return None
+    return lease_candidate
 
 
 def _sanitize_key(*parts: str) -> str:
