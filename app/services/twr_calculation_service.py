@@ -241,7 +241,10 @@ def _twr_execution_window_benchmark_fields(
     benchmark_work_units: int | None = None,
 ) -> dict[str, object]:
     benchmark_fields: dict[str, object] = {}
-    requested_benchmark_id = benchmark_id or (request.benchmark.benchmark_id if request.benchmark is not None else None)
+    requested_benchmark_id = _twr_execution_window_benchmark_id(
+        request,
+        benchmark_id=benchmark_id,
+    )
     if requested_benchmark_id is not None:
         benchmark_fields["benchmark_id"] = requested_benchmark_id
     benchmark_input_mode = twr_requested_benchmark_input_mode(request)
@@ -253,6 +256,18 @@ def _twr_execution_window_benchmark_fields(
     if benchmark_work_units is not None:
         benchmark_fields["benchmark_work_units"] = benchmark_work_units
     return benchmark_fields
+
+
+def _twr_execution_window_benchmark_id(
+    request: TWRAnalyticsRequest,
+    *,
+    benchmark_id: str | None = None,
+) -> str | None:
+    if benchmark_id is not None:
+        return benchmark_id
+    if request.benchmark is not None:
+        return request.benchmark.benchmark_id
+    return None
 
 
 async def calculate_twr_workflow(request: TWRAnalyticsRequest) -> PerformanceResponse | TWRAcceptedResponse:
