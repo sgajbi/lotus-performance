@@ -13,7 +13,7 @@ from app.models.inspection_requests import (
     TWRInspectionRequest,
     TWRInspectionSubjectType,
 )
-from app.models.inspection_responses import TWRInspectionVerdict
+from app.models.inspection_responses import TWRInspectionFinding, TWRInspectionVerdict
 from app.models.requests import Analysis, DailyInputData, PerformanceRequest
 from app.models.twr_requests import TWRAnalyticsRequest
 from app.services.execution_stage_names import (
@@ -660,6 +660,13 @@ def test_twr_inspection_verdict_and_window_helpers_cover_clean_and_unscoped_path
     )
 
 
+def test_has_not_supportable_finding_detects_high_and_critical_severity():
+    assert service._has_not_supportable_finding([_inspection_finding(severity="high")]) is True
+    assert service._has_not_supportable_finding([_inspection_finding(severity="critical")]) is True
+    assert service._has_not_supportable_finding([_inspection_finding(severity="warning")]) is False
+    assert service._has_not_supportable_finding([]) is False
+
+
 def test_build_twr_inspection_artifact_links_keeps_required_and_available_artifacts():
     inspection_id = uuid4()
     links = service._build_twr_inspection_artifact_links(
@@ -725,3 +732,16 @@ def _valuation_points() -> list[DailyInputData]:
             end_mv=1005.0,
         )
     ]
+
+
+def _inspection_finding(*, severity: str) -> TWRInspectionFinding:
+    return TWRInspectionFinding(
+        code="TEST_FINDING",
+        severity=severity,
+        category="test",
+        owner_repo="lotus-performance",
+        summary="Test finding.",
+        explanation="Test explanation.",
+        recommended_action="Review the test finding.",
+        evidence={},
+    )

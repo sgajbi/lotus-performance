@@ -592,11 +592,15 @@ def _synthesize_verdict(
 ) -> TWRInspectionVerdict:
     if failed_check_families and not completed_check_families:
         return TWRInspectionVerdict.INSPECTION_FAILED
-    if any(finding.severity in {"high", "critical"} for finding in findings):
+    if _has_not_supportable_finding(findings):
         return TWRInspectionVerdict.NOT_SUPPORTABLE
     if findings or pending_check_families:
         return TWRInspectionVerdict.SUPPORTABLE_WITH_WARNINGS
     return TWRInspectionVerdict.SUPPORTABLE
+
+
+def _has_not_supportable_finding(findings: list[TWRInspectionFinding]) -> bool:
+    return any(finding.severity in {"high", "critical"} for finding in findings)
 
 
 def _record_check_failure(
