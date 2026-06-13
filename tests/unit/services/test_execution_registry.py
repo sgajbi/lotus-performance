@@ -10,6 +10,7 @@ from app.services.execution_registry import (
     ExecutionRegistry,
     ExecutionStageStatus,
     ExecutionStatus,
+    _upstream_snapshot_model_from_payload,
 )
 
 
@@ -246,6 +247,37 @@ def test_execution_registry_ignores_duplicate_upstream_snapshots(tmp_path):
     assert record is not None
     assert len(record.upstream_snapshots) == 1
     assert record.upstream_snapshots[0].snapshot_id == "snap-dup"
+
+
+def test_upstream_snapshot_model_projection_preserves_payload_fields():
+    calculation_id = uuid4()
+    created_at = datetime(2026, 6, 13, tzinfo=timezone.utc)
+
+    model = _upstream_snapshot_model_from_payload(
+        calculation_id=calculation_id,
+        snapshot={
+            "snapshot_id": "snap-model",
+            "upstream_endpoint": "portfolio_timeseries",
+            "source_identifier": "PORT-MODEL",
+            "as_of_date": "2026-06-13",
+            "request_fingerprint": "req-model",
+            "response_fingerprint": "resp-model",
+            "retrieval_status": "200",
+            "paging_metadata": {"page_token": "next"},
+        },
+        created_at=created_at,
+    )
+
+    assert model.snapshot_id == "snap-model"
+    assert model.calculation_id == str(calculation_id)
+    assert model.upstream_endpoint == "portfolio_timeseries"
+    assert model.source_identifier == "PORT-MODEL"
+    assert model.as_of_date == "2026-06-13"
+    assert model.request_fingerprint == "req-model"
+    assert model.response_fingerprint == "resp-model"
+    assert model.retrieval_status == "200"
+    assert model.paging_metadata_json == '{"page_token": "next"}'
+    assert model.created_at_utc == created_at
 
 
 def test_execution_registry_clear_all_records_removes_upstream_snapshots(tmp_path):

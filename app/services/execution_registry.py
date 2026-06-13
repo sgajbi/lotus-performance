@@ -160,6 +160,35 @@ def _serialize_paging_metadata(paging_metadata: dict[str, Any] | None) -> str | 
     return json.dumps(paging_metadata, sort_keys=True) if paging_metadata is not None else None
 
 
+def _existing_upstream_snapshot_ids(session: Session, snapshot_ids: list[str]) -> set[str]:
+    rows = session.execute(
+        select(AnalyticsUpstreamSnapshotModel.snapshot_id).where(
+            AnalyticsUpstreamSnapshotModel.snapshot_id.in_(snapshot_ids)
+        )
+    ).all()
+    return {row[0] for row in rows}
+
+
+def _upstream_snapshot_model_from_payload(
+    *,
+    calculation_id: UUID,
+    snapshot: dict[str, Any],
+    created_at: datetime,
+) -> AnalyticsUpstreamSnapshotModel:
+    return AnalyticsUpstreamSnapshotModel(
+        snapshot_id=snapshot["snapshot_id"],
+        calculation_id=str(calculation_id),
+        upstream_endpoint=snapshot["upstream_endpoint"],
+        source_identifier=snapshot["source_identifier"],
+        as_of_date=snapshot["as_of_date"],
+        request_fingerprint=snapshot["request_fingerprint"],
+        response_fingerprint=snapshot["response_fingerprint"],
+        retrieval_status=snapshot["retrieval_status"],
+        paging_metadata_json=_serialize_paging_metadata(snapshot.get("paging_metadata")),
+        created_at_utc=created_at,
+    )
+
+
 class ExecutionRegistry:
     def __init__(self, database_url: str):
         connect_args = {"check_same_thread": False} if database_url.startswith("sqlite") else {}
@@ -521,14 +550,7 @@ class ExecutionRegistry:
         with self._session() as session:
             self._get_execution_model(session, calculation_id)
             snapshot_ids = [snapshot["snapshot_id"] for snapshot in snapshots]
-            existing_snapshot_ids = {
-                row[0]
-                for row in session.execute(
-                    select(AnalyticsUpstreamSnapshotModel.snapshot_id).where(
-                        AnalyticsUpstreamSnapshotModel.snapshot_id.in_(snapshot_ids)
-                    )
-                ).all()
-            }
+            existing_snapshot_ids = _existing_upstream_snapshot_ids(session, snapshot_ids)
             created_at = datetime.now(timezone.utc)
             for snapshot in snapshots:
                 if snapshot["snapshot_id"] in existing_snapshot_ids:
@@ -536,17 +558,10 @@ class ExecutionRegistry:
                 try:
                     with session.begin_nested():
                         session.add(
-                            AnalyticsUpstreamSnapshotModel(
-                                snapshot_id=snapshot["snapshot_id"],
-                                calculation_id=str(calculation_id),
-                                upstream_endpoint=snapshot["upstream_endpoint"],
-                                source_identifier=snapshot["source_identifier"],
-                                as_of_date=snapshot["as_of_date"],
-                                request_fingerprint=snapshot["request_fingerprint"],
-                                response_fingerprint=snapshot["response_fingerprint"],
-                                retrieval_status=snapshot["retrieval_status"],
-                                paging_metadata_json=_serialize_paging_metadata(snapshot.get("paging_metadata")),
-                                created_at_utc=created_at,
+                            _upstream_snapshot_model_from_payload(
+                                calculation_id=calculation_id,
+                                snapshot=snapshot,
+                                created_at=created_at,
                             )
                         )
                         session.flush()

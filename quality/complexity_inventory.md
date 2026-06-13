@@ -38,31 +38,31 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `record_upstream_snapshots` | method | `app/services/execution_registry.py:513` | 7 | B |
-| 2 | `_expected_daily_calculation_values` | function | `app/services/inspection/calculation_consistency.py:421` | 7 | B |
-| 3 | `_expected_daily_period_statuses` | function | `app/services/inspection/calculation_consistency.py:576` | 7 | B |
-| 4 | `_comparative_return_mismatches` | function | `app/services/inspection/calculation_consistency.py:669` | 7 | B |
-| 5 | `_build_position_reconciliation_findings` | function | `app/services/inspection/reconciliation.py:143` | 7 | B |
-| 6 | `_select_latest_position_rows` | function | `app/services/inspection/reconciliation.py:431` | 7 | B |
-| 7 | `_record_external_mixed_timing_samples` | method | `app/services/inspection/source_economics_collector.py:300` | 7 | B |
-| 8 | `_record_external_timing_contradictions` | function | `app/services/inspection/source_economics_collector.py:462` | 7 | B |
-| 9 | `_build_external_cashflow_findings` | function | `app/services/inspection/source_economics_findings.py:281` | 7 | B |
-| 10 | `_build_fee_source_economics_findings` | function | `app/services/inspection/source_economics_findings.py:423` | 7 | B |
-| 11 | `_find_monthly_day_dominance` | function | `app/services/inspection/source_quality.py:576` | 7 | B |
-| 12 | `load_existing_twr_calculation_artifacts` | function | `app/services/inspection/subject_materialization.py:34` | 7 | B |
-| 13 | `_load_request_payload` | function | `app/services/inspection/subject_materialization.py:109` | 7 | B |
-| 14 | `_support_brief_result_from_payload` | function | `app/services/inspection/support_brief_workflow_pack.py:55` | 7 | B |
-| 15 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:88` | 7 | B |
-| 16 | `_synthesize_verdict` | function | `app/services/inspection/twr_inspection_service.py:551` | 7 | B |
-| 17 | `_scope_request_to_response_master_window` | function | `app/services/inspection/twr_inspection_service.py:652` | 7 | B |
-| 18 | `get_pending_payload_stats` | method | `app/services/lineage_metadata_store.py:416` | 7 | B |
-| 19 | `list_inspection_items` | method | `app/services/lineage_metadata_store.py:507` | 7 | B |
-| 20 | `materialize_payload` | method | `app/services/lineage_service.py:72` | 7 | B |
-| 21 | `_validate_artifact_filename` | method | `app/services/lineage_service.py:171` | 7 | B |
-| 22 | `build_mwr_response` | function | `app/services/mwr_calculation_service.py:42` | 7 | B |
-| 23 | `_find_latest_runtime_retention_entry` | function | `app/services/operator_action_guard_service.py:128` | 7 | B |
-| 24 | `validate_history_entry_strings` | function | `app/services/operator_action_history_manifest.py:173` | 7 | B |
-| 25 | `build_operator_action_lease_snapshot` | function | `app/services/operator_action_lease_service.py:185` | 7 | B |
+| 1 | `_expected_daily_calculation_values` | function | `app/services/inspection/calculation_consistency.py:421` | 7 | B |
+| 2 | `_expected_daily_period_statuses` | function | `app/services/inspection/calculation_consistency.py:576` | 7 | B |
+| 3 | `_comparative_return_mismatches` | function | `app/services/inspection/calculation_consistency.py:669` | 7 | B |
+| 4 | `_build_position_reconciliation_findings` | function | `app/services/inspection/reconciliation.py:143` | 7 | B |
+| 5 | `_select_latest_position_rows` | function | `app/services/inspection/reconciliation.py:431` | 7 | B |
+| 6 | `_record_external_mixed_timing_samples` | method | `app/services/inspection/source_economics_collector.py:300` | 7 | B |
+| 7 | `_record_external_timing_contradictions` | function | `app/services/inspection/source_economics_collector.py:462` | 7 | B |
+| 8 | `_build_external_cashflow_findings` | function | `app/services/inspection/source_economics_findings.py:281` | 7 | B |
+| 9 | `_build_fee_source_economics_findings` | function | `app/services/inspection/source_economics_findings.py:423` | 7 | B |
+| 10 | `_find_monthly_day_dominance` | function | `app/services/inspection/source_quality.py:576` | 7 | B |
+| 11 | `load_existing_twr_calculation_artifacts` | function | `app/services/inspection/subject_materialization.py:34` | 7 | B |
+| 12 | `_load_request_payload` | function | `app/services/inspection/subject_materialization.py:109` | 7 | B |
+| 13 | `_support_brief_result_from_payload` | function | `app/services/inspection/support_brief_workflow_pack.py:55` | 7 | B |
+| 14 | `run_twr_inspection` | function | `app/services/inspection/twr_inspection_service.py:88` | 7 | B |
+| 15 | `_synthesize_verdict` | function | `app/services/inspection/twr_inspection_service.py:551` | 7 | B |
+| 16 | `_scope_request_to_response_master_window` | function | `app/services/inspection/twr_inspection_service.py:652` | 7 | B |
+| 17 | `get_pending_payload_stats` | method | `app/services/lineage_metadata_store.py:416` | 7 | B |
+| 18 | `list_inspection_items` | method | `app/services/lineage_metadata_store.py:507` | 7 | B |
+| 19 | `materialize_payload` | method | `app/services/lineage_service.py:72` | 7 | B |
+| 20 | `_validate_artifact_filename` | method | `app/services/lineage_service.py:171` | 7 | B |
+| 21 | `build_mwr_response` | function | `app/services/mwr_calculation_service.py:42` | 7 | B |
+| 22 | `_find_latest_runtime_retention_entry` | function | `app/services/operator_action_guard_service.py:128` | 7 | B |
+| 23 | `validate_history_entry_strings` | function | `app/services/operator_action_history_manifest.py:173` | 7 | B |
+| 24 | `build_operator_action_lease_snapshot` | function | `app/services/operator_action_lease_service.py:185` | 7 | B |
+| 25 | `_read_matching_active_operator_action_leases` | function | `app/services/operator_action_lease_service.py:246` | 7 | B |
 
 ## Lowest Maintainability Index
 
@@ -77,7 +77,7 @@ must stay at `0`.
 | 7 | `app/services/twr_service.py` | 6.19 | C |
 | 8 | `app/services/workspace_summary_service.py` | 10.56 | B |
 | 9 | `app/services/stateful_benchmark_input_service.py` | 10.70 | B |
-| 10 | `app/services/execution_registry.py` | 10.84 | B |
+| 10 | `app/services/execution_registry.py` | 10.72 | B |
 | 11 | `engine/attribution.py` | 13.95 | B |
 | 12 | `app/services/operator_action_lease_service.py` | 15.16 | B |
 | 13 | `app/services/inspection/calculation_consistency.py` | 16.16 | B |
@@ -558,6 +558,8 @@ unclassified metadata predicates were moved into dedicated helpers.
 moved into a dedicated helper.
 `check_lineage_storage_ready` also dropped out after lineage storage path unavailable-status
 resolution was moved into a dedicated helper.
+`record_upstream_snapshots` also dropped out after existing snapshot-id lookup and upstream
+snapshot model projection were moved into dedicated helpers.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.
