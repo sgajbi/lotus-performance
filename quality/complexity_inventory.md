@@ -38,31 +38,31 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_ensure_request_body_example` | function | `app/openapi_enrichment.py:559` | 6 | B |
-| 2 | `_iter_documentable_operations` | function | `app/openapi_enrichment.py:681` | 6 | B |
-| 3 | `resolve_async_result` | function | `app/services/async_result_service.py:44` | 6 | B |
-| 4 | `build_single_period_attribution_response` | function | `app/services/attribution_response_service.py:19` | 6 | B |
-| 5 | `_count_attribution_input_rows` | function | `app/services/attribution_service.py:44` | 6 | B |
-| 6 | `resolve_benchmark_identity` | function | `app/services/benchmark_assignment_service.py:20` | 6 | B |
-| 7 | `calculate_benchmark_artifacts` | function | `app/services/benchmark_calculation_service.py:71` | 6 | B |
-| 8 | `_benchmark_period_result` | function | `app/services/benchmark_calculation_service.py:118` | 6 | B |
-| 9 | `calculate_benchmark_workflow` | function | `app/services/benchmark_calculation_workflow_service.py:238` | 6 | B |
-| 10 | `_resolve_benchmark_id` | function | `app/services/benchmark_exposure_context_service.py:110` | 6 | B |
-| 11 | `_classification_labels_from_catalog_record` | function | `app/services/benchmark_exposure_context_service.py:192` | 6 | B |
-| 12 | `build_calculation_supportability` | function | `app/services/calculation_supportability_service.py:33` | 6 | B |
-| 13 | `_reconcile_stale_job_row` | method | `app/services/compute_job_store.py:546` | 6 | B |
-| 14 | `calculate_contribution_workflow` | function | `app/services/contribution_calculation_workflow_service.py:199` | 6 | B |
-| 15 | `_is_average_weight_shadow_cutover_candidate` | function | `app/services/contribution_methodology.py:263` | 6 | B |
-| 16 | `_calculate_position_total_return_pct` | function | `app/services/contribution_returns.py:67` | 6 | B |
-| 17 | `_build_hierarchy_from_adjusted_position_series` | function | `app/services/contribution_series.py:176` | 6 | B |
-| 18 | `_build_period_contribution_series_outputs` | function | `app/services/contribution_service.py:188` | 6 | B |
-| 19 | `_prepare_contribution_engine_inputs` | function | `app/services/contribution_service.py:414` | 6 | B |
-| 20 | `_contribution_smoothing_residual_reason_codes` | function | `app/services/contribution_smoothing.py:60` | 6 | B |
-| 21 | `_available_stateless_economics` | function | `app/services/contribution_source_economics.py:86` | 6 | B |
-| 22 | `_unsupported_component_pnl_fields` | function | `app/services/contribution_source_economics.py:129` | 6 | B |
-| 23 | `load_json_object_or_none` | function | `app/services/durable_store_json.py:9` | 6 | B |
-| 24 | `load_json_string_list_or_default` | function | `app/services/durable_store_json.py:31` | 6 | B |
-| 25 | `record_upstream_snapshots` | method | `app/services/execution_registry.py:542` | 6 | B |
+| 1 | `_iter_documentable_operations` | function | `app/openapi_enrichment.py:695` | 6 | B |
+| 2 | `resolve_async_result` | function | `app/services/async_result_service.py:44` | 6 | B |
+| 3 | `build_single_period_attribution_response` | function | `app/services/attribution_response_service.py:19` | 6 | B |
+| 4 | `_count_attribution_input_rows` | function | `app/services/attribution_service.py:44` | 6 | B |
+| 5 | `resolve_benchmark_identity` | function | `app/services/benchmark_assignment_service.py:20` | 6 | B |
+| 6 | `calculate_benchmark_artifacts` | function | `app/services/benchmark_calculation_service.py:71` | 6 | B |
+| 7 | `_benchmark_period_result` | function | `app/services/benchmark_calculation_service.py:118` | 6 | B |
+| 8 | `calculate_benchmark_workflow` | function | `app/services/benchmark_calculation_workflow_service.py:238` | 6 | B |
+| 9 | `_resolve_benchmark_id` | function | `app/services/benchmark_exposure_context_service.py:110` | 6 | B |
+| 10 | `_classification_labels_from_catalog_record` | function | `app/services/benchmark_exposure_context_service.py:192` | 6 | B |
+| 11 | `build_calculation_supportability` | function | `app/services/calculation_supportability_service.py:33` | 6 | B |
+| 12 | `_reconcile_stale_job_row` | method | `app/services/compute_job_store.py:546` | 6 | B |
+| 13 | `calculate_contribution_workflow` | function | `app/services/contribution_calculation_workflow_service.py:199` | 6 | B |
+| 14 | `_is_average_weight_shadow_cutover_candidate` | function | `app/services/contribution_methodology.py:263` | 6 | B |
+| 15 | `_calculate_position_total_return_pct` | function | `app/services/contribution_returns.py:67` | 6 | B |
+| 16 | `_build_hierarchy_from_adjusted_position_series` | function | `app/services/contribution_series.py:176` | 6 | B |
+| 17 | `_build_period_contribution_series_outputs` | function | `app/services/contribution_service.py:188` | 6 | B |
+| 18 | `_prepare_contribution_engine_inputs` | function | `app/services/contribution_service.py:414` | 6 | B |
+| 19 | `_contribution_smoothing_residual_reason_codes` | function | `app/services/contribution_smoothing.py:60` | 6 | B |
+| 20 | `_available_stateless_economics` | function | `app/services/contribution_source_economics.py:86` | 6 | B |
+| 21 | `_unsupported_component_pnl_fields` | function | `app/services/contribution_source_economics.py:129` | 6 | B |
+| 22 | `load_json_object_or_none` | function | `app/services/durable_store_json.py:9` | 6 | B |
+| 23 | `load_json_string_list_or_default` | function | `app/services/durable_store_json.py:31` | 6 | B |
+| 24 | `record_upstream_snapshots` | method | `app/services/execution_registry.py:542` | 6 | B |
+| 25 | `_is_replay_of_existing_execution` | method | `app/services/execution_registry.py:638` | 6 | B |
 
 ## Lowest Maintainability Index
 
@@ -73,7 +73,7 @@ must stay at `0`.
 | 3 | `app/services/returns_series_service.py` | 0.00 | C |
 | 4 | `app/services/stateful_attribution_input_service.py` | 0.00 | C |
 | 5 | `app/services/stateful_input_service.py` | 0.00 | C |
-| 6 | `app/openapi_enrichment.py` | 2.78 | C |
+| 6 | `app/openapi_enrichment.py` | 2.43 | C |
 | 7 | `app/services/twr_service.py` | 6.07 | C |
 | 8 | `app/services/stateful_benchmark_input_service.py` | 10.53 | B |
 | 9 | `app/services/workspace_summary_service.py` | 10.56 | B |
@@ -722,6 +722,8 @@ OpenAPI example-policy helper.
 dedicated temporal example-policy helper.
 `_build_schema_example` also dropped out after composed-before-structural example selection moved
 into a dedicated derived-example policy helper.
+`_ensure_request_body_example` also dropped out after operation override, authored example, and
+schema-generated example selection moved into a dedicated request-body example-policy helper.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.

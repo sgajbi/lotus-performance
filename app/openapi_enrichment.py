@@ -556,6 +556,27 @@ def _infer_enum_descriptions(prop_name: str, prop_schema: dict[str, Any]) -> lis
     return [f"Allowed {readable_name} value: {value}." for value in enum_values]
 
 
+def _request_body_example(
+    *,
+    path: str,
+    json_content: dict[str, Any],
+    components: dict[str, Any],
+) -> Any | None:
+    operation_example = OPERATION_JSON_EXAMPLES.get((path, "request"))
+    if operation_example is not None:
+        return copy.deepcopy(operation_example)
+    if "example" in json_content or "examples" in json_content:
+        return None
+    request_schema = json_content.get("schema", {})
+    if not isinstance(request_schema, dict):
+        return None
+    return _build_schema_example(
+        request_schema,
+        components=components,
+        name_hint="request_body",
+    )
+
+
 def _ensure_request_body_example(
     *,
     path: str,
@@ -565,16 +586,9 @@ def _ensure_request_body_example(
     json_content = _application_json_content(request_body)
     if json_content is None:
         return
-    request_schema = json_content.get("schema", {})
-    operation_example = OPERATION_JSON_EXAMPLES.get((path, "request"))
-    if operation_example is not None:
-        json_content["example"] = copy.deepcopy(operation_example)
-    elif isinstance(request_schema, dict) and "example" not in json_content and "examples" not in json_content:
-        json_content["example"] = _build_schema_example(
-            request_schema,
-            components=components,
-            name_hint="request_body",
-        )
+    example = _request_body_example(path=path, json_content=json_content, components=components)
+    if example is not None:
+        json_content["example"] = example
 
 
 def _has_documented_error_response(responses: dict[str, Any]) -> bool:

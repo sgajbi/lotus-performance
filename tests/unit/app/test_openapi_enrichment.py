@@ -1,4 +1,5 @@
 from app.openapi_enrichment import (
+    OPERATION_JSON_EXAMPLES,
     _application_json_content,
     _array_schema_example,
     _build_schema_example,
@@ -23,6 +24,7 @@ from app.openapi_enrichment import (
     _named_schema_example,
     _object_schema_example,
     _ref_schema_example,
+    _request_body_example,
     _scalar_schema_example,
     _semantic_id,
     _semantic_property_description,
@@ -333,6 +335,40 @@ def test_ensure_request_body_example_ignores_malformed_content():
     )
 
     assert request_body == {"content": {"application/json": "not-a-dict"}}
+
+
+def test_request_body_example_preserves_override_authored_and_schema_precedence():
+    override = _request_body_example(
+        path="/performance/twr",
+        json_content={"example": {"authored": True}, "schema": {"type": "string"}},
+        components={},
+    )
+    assert override == OPERATION_JSON_EXAMPLES[("/performance/twr", "request")]
+    assert override is not OPERATION_JSON_EXAMPLES[("/performance/twr", "request")]
+    assert (
+        _request_body_example(
+            path="/unknown",
+            json_content={"examples": {"documented": {"value": "existing"}}},
+            components={},
+        )
+        is None
+    )
+    assert (
+        _request_body_example(
+            path="/unknown",
+            json_content={"schema": "not-a-dict"},
+            components={},
+        )
+        is None
+    )
+    assert (
+        _request_body_example(
+            path="/unknown",
+            json_content={"schema": {"type": "integer"}},
+            components={},
+        )
+        == 1
+    )
 
 
 def test_ensure_operation_response_documentation_adds_default_and_schema_example():
