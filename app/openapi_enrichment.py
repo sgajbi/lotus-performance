@@ -171,19 +171,21 @@ def _array_schema_fallback_example(prop_name: str, prop_schema: dict[str, Any]) 
     return ["VALUE"]
 
 
+def _scalar_schema_example(schema_type: Any) -> Any | None:
+    return {
+        "boolean": True,
+        "integer": 1,
+        "number": 0.1234,
+    }.get(schema_type)
+
+
 def _typed_schema_example(prop_name: str, prop_schema: dict[str, Any]) -> Any | None:
     schema_type = prop_schema.get("type")
     if schema_type == "array":
         return _array_schema_fallback_example(prop_name, prop_schema)
     if schema_type == "object":
         return {"key": "value"}
-    if schema_type == "boolean":
-        return True
-    if schema_type == "integer":
-        return 1
-    if schema_type == "number":
-        return 0.1234
-    return None
+    return _scalar_schema_example(schema_type)
 
 
 def _formatted_schema_example(prop_schema: dict[str, Any]) -> Any | None:

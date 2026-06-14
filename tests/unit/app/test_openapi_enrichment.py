@@ -22,6 +22,7 @@ from app.openapi_enrichment import (
     _named_schema_example,
     _object_schema_example,
     _ref_schema_example,
+    _scalar_schema_example,
     _semantic_id,
     _semantic_property_description,
     _semantic_string_example,
@@ -74,6 +75,13 @@ def test_infer_example_helpers_preserve_schema_precedence():
     assert _formatted_schema_example({"type": "string"}) is None
     assert _semantic_string_example("base_currency") == "USD"
     assert _semantic_string_example("custom_value") == "example_custom_value"
+
+
+def test_scalar_schema_example_returns_only_governed_scalar_defaults():
+    assert _scalar_schema_example("boolean") is True
+    assert _scalar_schema_example("integer") == 1
+    assert _scalar_schema_example("number") == 0.1234
+    assert _scalar_schema_example("string") is None
 
 
 def test_infer_description_uses_semantic_branches():

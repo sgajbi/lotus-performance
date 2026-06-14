@@ -1,6 +1,6 @@
 # Lotus Performance Complexity Inventory
 
-Report date: 2026-06-14
+Report date: 2026-06-15
 Branch: `refactor/lp-cr-950-mwr-fx-component`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
@@ -38,31 +38,31 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_typed_schema_example` | function | `app/openapi_enrichment.py:174` | 6 | B |
-| 2 | `_semantic_string_example` | function | `app/openapi_enrichment.py:198` | 6 | B |
-| 3 | `_build_schema_example` | function | `app/openapi_enrichment.py:434` | 6 | B |
-| 4 | `_ensure_request_body_example` | function | `app/openapi_enrichment.py:536` | 6 | B |
-| 5 | `_iter_documentable_operations` | function | `app/openapi_enrichment.py:658` | 6 | B |
-| 6 | `resolve_async_result` | function | `app/services/async_result_service.py:44` | 6 | B |
-| 7 | `build_single_period_attribution_response` | function | `app/services/attribution_response_service.py:19` | 6 | B |
-| 8 | `_count_attribution_input_rows` | function | `app/services/attribution_service.py:44` | 6 | B |
-| 9 | `resolve_benchmark_identity` | function | `app/services/benchmark_assignment_service.py:20` | 6 | B |
-| 10 | `calculate_benchmark_artifacts` | function | `app/services/benchmark_calculation_service.py:71` | 6 | B |
-| 11 | `_benchmark_period_result` | function | `app/services/benchmark_calculation_service.py:118` | 6 | B |
-| 12 | `calculate_benchmark_workflow` | function | `app/services/benchmark_calculation_workflow_service.py:238` | 6 | B |
-| 13 | `_resolve_benchmark_id` | function | `app/services/benchmark_exposure_context_service.py:110` | 6 | B |
-| 14 | `_classification_labels_from_catalog_record` | function | `app/services/benchmark_exposure_context_service.py:192` | 6 | B |
-| 15 | `build_calculation_supportability` | function | `app/services/calculation_supportability_service.py:33` | 6 | B |
-| 16 | `_reconcile_stale_job_row` | method | `app/services/compute_job_store.py:546` | 6 | B |
-| 17 | `calculate_contribution_workflow` | function | `app/services/contribution_calculation_workflow_service.py:199` | 6 | B |
-| 18 | `_is_average_weight_shadow_cutover_candidate` | function | `app/services/contribution_methodology.py:263` | 6 | B |
-| 19 | `_calculate_position_total_return_pct` | function | `app/services/contribution_returns.py:67` | 6 | B |
-| 20 | `_build_hierarchy_from_adjusted_position_series` | function | `app/services/contribution_series.py:176` | 6 | B |
-| 21 | `_build_period_contribution_series_outputs` | function | `app/services/contribution_service.py:188` | 6 | B |
-| 22 | `_prepare_contribution_engine_inputs` | function | `app/services/contribution_service.py:414` | 6 | B |
-| 23 | `_contribution_smoothing_residual_reason_codes` | function | `app/services/contribution_smoothing.py:60` | 6 | B |
-| 24 | `_available_stateless_economics` | function | `app/services/contribution_source_economics.py:86` | 6 | B |
-| 25 | `_unsupported_component_pnl_fields` | function | `app/services/contribution_source_economics.py:129` | 6 | B |
+| 1 | `_semantic_string_example` | function | `app/openapi_enrichment.py:200` | 6 | B |
+| 2 | `_build_schema_example` | function | `app/openapi_enrichment.py:436` | 6 | B |
+| 3 | `_ensure_request_body_example` | function | `app/openapi_enrichment.py:538` | 6 | B |
+| 4 | `_iter_documentable_operations` | function | `app/openapi_enrichment.py:660` | 6 | B |
+| 5 | `resolve_async_result` | function | `app/services/async_result_service.py:44` | 6 | B |
+| 6 | `build_single_period_attribution_response` | function | `app/services/attribution_response_service.py:19` | 6 | B |
+| 7 | `_count_attribution_input_rows` | function | `app/services/attribution_service.py:44` | 6 | B |
+| 8 | `resolve_benchmark_identity` | function | `app/services/benchmark_assignment_service.py:20` | 6 | B |
+| 9 | `calculate_benchmark_artifacts` | function | `app/services/benchmark_calculation_service.py:71` | 6 | B |
+| 10 | `_benchmark_period_result` | function | `app/services/benchmark_calculation_service.py:118` | 6 | B |
+| 11 | `calculate_benchmark_workflow` | function | `app/services/benchmark_calculation_workflow_service.py:238` | 6 | B |
+| 12 | `_resolve_benchmark_id` | function | `app/services/benchmark_exposure_context_service.py:110` | 6 | B |
+| 13 | `_classification_labels_from_catalog_record` | function | `app/services/benchmark_exposure_context_service.py:192` | 6 | B |
+| 14 | `build_calculation_supportability` | function | `app/services/calculation_supportability_service.py:33` | 6 | B |
+| 15 | `_reconcile_stale_job_row` | method | `app/services/compute_job_store.py:546` | 6 | B |
+| 16 | `calculate_contribution_workflow` | function | `app/services/contribution_calculation_workflow_service.py:199` | 6 | B |
+| 17 | `_is_average_weight_shadow_cutover_candidate` | function | `app/services/contribution_methodology.py:263` | 6 | B |
+| 18 | `_calculate_position_total_return_pct` | function | `app/services/contribution_returns.py:67` | 6 | B |
+| 19 | `_build_hierarchy_from_adjusted_position_series` | function | `app/services/contribution_series.py:176` | 6 | B |
+| 20 | `_build_period_contribution_series_outputs` | function | `app/services/contribution_service.py:188` | 6 | B |
+| 21 | `_prepare_contribution_engine_inputs` | function | `app/services/contribution_service.py:414` | 6 | B |
+| 22 | `_contribution_smoothing_residual_reason_codes` | function | `app/services/contribution_smoothing.py:60` | 6 | B |
+| 23 | `_available_stateless_economics` | function | `app/services/contribution_source_economics.py:86` | 6 | B |
+| 24 | `_unsupported_component_pnl_fields` | function | `app/services/contribution_source_economics.py:129` | 6 | B |
+| 25 | `load_json_object_or_none` | function | `app/services/durable_store_json.py:9` | 6 | B |
 
 ## Lowest Maintainability Index
 
@@ -73,7 +73,7 @@ must stay at `0`.
 | 3 | `app/services/returns_series_service.py` | 0.00 | C |
 | 4 | `app/services/stateful_attribution_input_service.py` | 0.00 | C |
 | 5 | `app/services/stateful_input_service.py` | 0.00 | C |
-| 6 | `app/openapi_enrichment.py` | 2.56 | C |
+| 6 | `app/openapi_enrichment.py` | 3.13 | C |
 | 7 | `app/services/twr_service.py` | 6.07 | C |
 | 8 | `app/services/stateful_benchmark_input_service.py` | 10.53 | B |
 | 9 | `app/services/workspace_summary_service.py` | 10.56 | B |
@@ -716,6 +716,8 @@ explicit/nested/legacy valuation-point precedence moved into a dedicated resolve
 valuation envelope issue selection moved into a dedicated compatibility-policy helper.
 `_json_log_payload` also dropped out after correlation, request, and trace context projection moved
 into a dedicated observability helper.
+`_typed_schema_example` also dropped out after scalar schema defaults moved into a dedicated
+OpenAPI example-policy helper.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.
