@@ -167,6 +167,19 @@ def test_build_benchmark_source_artifacts_projects_vendor_series_inputs():
     assert list(source_artifacts.daily_returns_df["benchmark_return"]) == [Decimal("0.01"), Decimal("0.02")]
 
 
+def test_normalize_benchmark_source_artifact_dates_handles_mixed_and_empty_component_rows():
+    daily_returns_df = pd.DataFrame({"date": [pd.Timestamp("2025-01-01T15:00:00Z"), "2025-01-02"]})
+    component_contributions_df = pd.DataFrame(columns=["date"])
+
+    benchmark_calculation_service._normalize_benchmark_source_artifact_dates(
+        daily_returns_df=daily_returns_df,
+        component_contributions_df=component_contributions_df,
+    )
+
+    assert list(daily_returns_df["date"]) == [date(2025, 1, 1), date(2025, 1, 2)]
+    assert component_contributions_df.empty
+
+
 def test_calculate_benchmark_artifacts_skips_empty_period_slices(monkeypatch):
     request = _vendor_request()
 

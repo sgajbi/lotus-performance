@@ -68,6 +68,16 @@ def _build_benchmark_source_artifacts(benchmark_request: BenchmarkPerformanceReq
     )
 
 
+def _normalize_benchmark_source_artifact_dates(
+    *,
+    daily_returns_df: pd.DataFrame,
+    component_contributions_df: pd.DataFrame,
+) -> None:
+    daily_returns_df["date"] = observation_date_series(daily_returns_df["date"])
+    if not component_contributions_df.empty:
+        component_contributions_df["date"] = observation_date_series(component_contributions_df["date"])
+
+
 def calculate_benchmark_artifacts(
     benchmark_request: BenchmarkPerformanceRequest,
     *,
@@ -88,9 +98,10 @@ def calculate_benchmark_artifacts(
     daily_returns_df = source_artifacts.daily_returns_df
     component_contributions_df = source_artifacts.component_contributions_df
 
-    daily_returns_df["date"] = observation_date_series(daily_returns_df["date"])
-    if not component_contributions_df.empty:
-        component_contributions_df["date"] = observation_date_series(component_contributions_df["date"])
+    _normalize_benchmark_source_artifact_dates(
+        daily_returns_df=daily_returns_df,
+        component_contributions_df=component_contributions_df,
+    )
 
     results_by_period: dict[str, SinglePeriodBenchmarkResult] = {}
     for period in resolved_periods:
