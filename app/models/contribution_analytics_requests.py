@@ -98,13 +98,32 @@ def _resolved_stateless_contribution_inputs(
     portfolio_data: PortfolioData | None,
     positions_data: list[PositionData] | None,
 ) -> tuple[PortfolioData, list[PositionData]]:
-    if portfolio_data is not None and positions_data is not None:
-        return portfolio_data, positions_data
-    if request.stateless_input is not None:
-        return request.stateless_input.portfolio_data, request.stateless_input.positions_data
-    if request.portfolio_data is not None and request.positions_data is not None:
-        return request.portfolio_data, request.positions_data
+    nested_input = request.stateless_input
+    candidates = (
+        _complete_contribution_input_pair(portfolio_data=portfolio_data, positions_data=positions_data),
+        _complete_contribution_input_pair(
+            portfolio_data=nested_input.portfolio_data if nested_input is not None else None,
+            positions_data=nested_input.positions_data if nested_input is not None else None,
+        ),
+        _complete_contribution_input_pair(
+            portfolio_data=request.portfolio_data,
+            positions_data=request.positions_data,
+        ),
+    )
+    for candidate in candidates:
+        if candidate is not None:
+            return candidate
     raise ValueError("No stateless contribution inputs are available to build a ContributionRequest")
+
+
+def _complete_contribution_input_pair(
+    *,
+    portfolio_data: PortfolioData | None,
+    positions_data: list[PositionData] | None,
+) -> tuple[PortfolioData, list[PositionData]] | None:
+    if portfolio_data is None or positions_data is None:
+        return None
+    return portfolio_data, positions_data
 
 
 class ContributionAnalyticsRequest(ContributionRequestBase):

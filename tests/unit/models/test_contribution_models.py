@@ -7,6 +7,7 @@ from pydantic import ValidationError
 
 from app.models.contribution_analytics_requests import (
     ContributionAnalyticsRequest,
+    _complete_contribution_input_pair,
     _resolved_stateless_contribution_inputs,
     _stateless_contribution_envelope_issue,
     _validate_stateless_contribution_payloads,
@@ -419,6 +420,46 @@ def test_resolved_stateless_contribution_inputs_prefers_override_payload():
 
     assert portfolio_data.metric_basis == "GROSS"
     assert positions_data[0].position_id == "OVERRIDE"
+
+
+def test_complete_contribution_input_pair_requires_both_payloads():
+    portfolio_data = PortfolioData.model_validate({"metric_basis": "GROSS", "valuation_points": []})
+    positions_data = [PositionData.model_validate({"position_id": "OVERRIDE", "valuation_points": []})]
+
+    assert _complete_contribution_input_pair(portfolio_data=portfolio_data, positions_data=positions_data) == (
+        portfolio_data,
+        positions_data,
+    )
+    assert _complete_contribution_input_pair(portfolio_data=portfolio_data, positions_data=None) is None
+    assert _complete_contribution_input_pair(portfolio_data=None, positions_data=positions_data) is None
+
+
+def test_resolved_stateless_contribution_inputs_ignores_partial_override():
+    request = ContributionAnalyticsRequest.model_validate(
+        {
+            "portfolio_id": "CONTRIB_STATELESS",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-31",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "input_mode": "stateless",
+            "stateless_input": {
+                "portfolio_data": {
+                    "metric_basis": "NET",
+                    "valuation_points": [],
+                },
+                "positions_data": [{"position_id": "NESTED", "valuation_points": []}],
+            },
+        }
+    )
+
+    portfolio_data, positions_data = _resolved_stateless_contribution_inputs(
+        request,
+        portfolio_data=PortfolioData.model_validate({"metric_basis": "GROSS", "valuation_points": []}),
+        positions_data=None,
+    )
+
+    assert portfolio_data.metric_basis == "NET"
+    assert positions_data[0].position_id == "NESTED"
 
 
 def test_resolved_stateless_contribution_inputs_uses_legacy_payload():
