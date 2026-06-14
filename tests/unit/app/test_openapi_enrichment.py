@@ -6,6 +6,7 @@ from app.openapi_enrichment import (
     _canonical_term,
     _composed_schema_example,
     _derived_schema_example,
+    _documentable_operation,
     _ensure_model_schema_documentation,
     _ensure_operation_metadata,
     _ensure_operation_response_documentation,
@@ -527,6 +528,13 @@ def test_iter_documentable_operations_filters_malformed_paths_and_methods():
     }
 
     assert list(_iter_documentable_operations(paths)) == [("/health", "get", operation)]
+
+
+def test_documentable_operation_normalizes_identity_and_filters_unsupported_shapes():
+    operation = {"summary": "Health"}
+    assert _documentable_operation(123, "GET", operation) == ("123", "GET", operation)
+    assert _documentable_operation("/health", "parameters", operation) is None
+    assert _documentable_operation("/health", "get", "not-a-dict") is None
 
 
 def test_enrich_openapi_schema_fills_operation_schema_and_examples():

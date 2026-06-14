@@ -692,16 +692,25 @@ def _ensure_operation_metadata(*, path: str, method: str, operation: dict[str, A
         operation["tags"] = _operation_tags_for_path(path)
 
 
+def _documentable_operation(
+    path: Any,
+    method: Any,
+    operation: Any,
+) -> tuple[str, str, dict[str, Any]] | None:
+    method_name = str(method)
+    if method_name.lower() not in ALLOWED_METHODS or not isinstance(operation, dict):
+        return None
+    return str(path), method_name, operation
+
+
 def _iter_documentable_operations(paths: dict[str, Any]) -> Iterator[tuple[str, str, dict[str, Any]]]:
     for path, methods in paths.items():
         if not isinstance(methods, dict):
             continue
         for method, operation in methods.items():
-            method_name = str(method)
-            if method_name.lower() not in ALLOWED_METHODS:
-                continue
-            if isinstance(operation, dict):
-                yield str(path), method_name, operation
+            documented = _documentable_operation(path, method, operation)
+            if documented is not None:
+                yield documented
 
 
 def _ensure_operation_documentation(schema: dict[str, Any]) -> None:
