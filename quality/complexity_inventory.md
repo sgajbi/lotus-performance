@@ -38,31 +38,31 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_validate_workspace_summary_stateless_inputs` | function | `app/models/workspace_summary_requests.py:300` | 6 | B |
-| 2 | `_json_log_payload` | function | `app/observability.py:104` | 6 | B |
-| 3 | `_typed_schema_example` | function | `app/openapi_enrichment.py:174` | 6 | B |
-| 4 | `_semantic_string_example` | function | `app/openapi_enrichment.py:198` | 6 | B |
-| 5 | `_build_schema_example` | function | `app/openapi_enrichment.py:434` | 6 | B |
-| 6 | `_ensure_request_body_example` | function | `app/openapi_enrichment.py:536` | 6 | B |
-| 7 | `_iter_documentable_operations` | function | `app/openapi_enrichment.py:658` | 6 | B |
-| 8 | `resolve_async_result` | function | `app/services/async_result_service.py:44` | 6 | B |
-| 9 | `build_single_period_attribution_response` | function | `app/services/attribution_response_service.py:19` | 6 | B |
-| 10 | `_count_attribution_input_rows` | function | `app/services/attribution_service.py:44` | 6 | B |
-| 11 | `resolve_benchmark_identity` | function | `app/services/benchmark_assignment_service.py:20` | 6 | B |
-| 12 | `calculate_benchmark_artifacts` | function | `app/services/benchmark_calculation_service.py:71` | 6 | B |
-| 13 | `_benchmark_period_result` | function | `app/services/benchmark_calculation_service.py:118` | 6 | B |
-| 14 | `calculate_benchmark_workflow` | function | `app/services/benchmark_calculation_workflow_service.py:238` | 6 | B |
-| 15 | `_resolve_benchmark_id` | function | `app/services/benchmark_exposure_context_service.py:110` | 6 | B |
-| 16 | `_classification_labels_from_catalog_record` | function | `app/services/benchmark_exposure_context_service.py:192` | 6 | B |
-| 17 | `build_calculation_supportability` | function | `app/services/calculation_supportability_service.py:33` | 6 | B |
-| 18 | `_reconcile_stale_job_row` | method | `app/services/compute_job_store.py:546` | 6 | B |
-| 19 | `calculate_contribution_workflow` | function | `app/services/contribution_calculation_workflow_service.py:199` | 6 | B |
-| 20 | `_is_average_weight_shadow_cutover_candidate` | function | `app/services/contribution_methodology.py:263` | 6 | B |
-| 21 | `_calculate_position_total_return_pct` | function | `app/services/contribution_returns.py:67` | 6 | B |
-| 22 | `_build_hierarchy_from_adjusted_position_series` | function | `app/services/contribution_series.py:176` | 6 | B |
-| 23 | `_build_period_contribution_series_outputs` | function | `app/services/contribution_service.py:188` | 6 | B |
-| 24 | `_prepare_contribution_engine_inputs` | function | `app/services/contribution_service.py:414` | 6 | B |
-| 25 | `_contribution_smoothing_residual_reason_codes` | function | `app/services/contribution_smoothing.py:60` | 6 | B |
+| 1 | `_json_log_payload` | function | `app/observability.py:104` | 6 | B |
+| 2 | `_typed_schema_example` | function | `app/openapi_enrichment.py:174` | 6 | B |
+| 3 | `_semantic_string_example` | function | `app/openapi_enrichment.py:198` | 6 | B |
+| 4 | `_build_schema_example` | function | `app/openapi_enrichment.py:434` | 6 | B |
+| 5 | `_ensure_request_body_example` | function | `app/openapi_enrichment.py:536` | 6 | B |
+| 6 | `_iter_documentable_operations` | function | `app/openapi_enrichment.py:658` | 6 | B |
+| 7 | `resolve_async_result` | function | `app/services/async_result_service.py:44` | 6 | B |
+| 8 | `build_single_period_attribution_response` | function | `app/services/attribution_response_service.py:19` | 6 | B |
+| 9 | `_count_attribution_input_rows` | function | `app/services/attribution_service.py:44` | 6 | B |
+| 10 | `resolve_benchmark_identity` | function | `app/services/benchmark_assignment_service.py:20` | 6 | B |
+| 11 | `calculate_benchmark_artifacts` | function | `app/services/benchmark_calculation_service.py:71` | 6 | B |
+| 12 | `_benchmark_period_result` | function | `app/services/benchmark_calculation_service.py:118` | 6 | B |
+| 13 | `calculate_benchmark_workflow` | function | `app/services/benchmark_calculation_workflow_service.py:238` | 6 | B |
+| 14 | `_resolve_benchmark_id` | function | `app/services/benchmark_exposure_context_service.py:110` | 6 | B |
+| 15 | `_classification_labels_from_catalog_record` | function | `app/services/benchmark_exposure_context_service.py:192` | 6 | B |
+| 16 | `build_calculation_supportability` | function | `app/services/calculation_supportability_service.py:33` | 6 | B |
+| 17 | `_reconcile_stale_job_row` | method | `app/services/compute_job_store.py:546` | 6 | B |
+| 18 | `calculate_contribution_workflow` | function | `app/services/contribution_calculation_workflow_service.py:199` | 6 | B |
+| 19 | `_is_average_weight_shadow_cutover_candidate` | function | `app/services/contribution_methodology.py:263` | 6 | B |
+| 20 | `_calculate_position_total_return_pct` | function | `app/services/contribution_returns.py:67` | 6 | B |
+| 21 | `_build_hierarchy_from_adjusted_position_series` | function | `app/services/contribution_series.py:176` | 6 | B |
+| 22 | `_build_period_contribution_series_outputs` | function | `app/services/contribution_service.py:188` | 6 | B |
+| 23 | `_prepare_contribution_engine_inputs` | function | `app/services/contribution_service.py:414` | 6 | B |
+| 24 | `_contribution_smoothing_residual_reason_codes` | function | `app/services/contribution_smoothing.py:60` | 6 | B |
+| 25 | `_available_stateless_economics` | function | `app/services/contribution_source_economics.py:86` | 6 | B |
 
 ## Lowest Maintainability Index
 
@@ -712,6 +712,8 @@ selection moved into a dedicated compatibility-policy helper.
 moved into a dedicated inclusion-policy predicate.
 `to_stateless_performance_request` and aggregate `TWRAnalyticsRequest` also dropped out after
 explicit/nested/legacy valuation-point precedence moved into a dedicated resolver.
+`_validate_workspace_summary_stateless_inputs` also dropped out after nested-versus-legacy workspace
+valuation envelope issue selection moved into a dedicated compatibility-policy helper.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.
