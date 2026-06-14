@@ -3,6 +3,7 @@ import pytest
 from app.models.mwr_analytics_requests import (
     MoneyWeightedReturnAnalyticsRequest,
     _resolve_mwr_stateless_input,
+    _stateless_mwr_envelope_issue,
     _validate_legacy_stateless_payload_complete,
 )
 from app.models.mwr_requests import CashFlow
@@ -139,6 +140,17 @@ def test_mwr_analytics_request_rejects_ambiguous_stateless_payload():
         assert "Provide either stateless_input or legacy begin_mv/end_mv/cash_flows" in str(exc)
     else:
         raise AssertionError("Expected request validation to fail for ambiguous stateless payload.")
+
+
+def test_stateless_mwr_envelope_issue_requires_exactly_one_payload_shape():
+    assert _stateless_mwr_envelope_issue(has_nested=True, has_legacy=False) is None
+    assert _stateless_mwr_envelope_issue(has_nested=False, has_legacy=True) is None
+    assert _stateless_mwr_envelope_issue(has_nested=True, has_legacy=True) == (
+        "Provide either stateless_input or legacy begin_mv/end_mv/cash_flows, not both, for stateless mode"
+    )
+    assert _stateless_mwr_envelope_issue(has_nested=False, has_legacy=False) == (
+        "stateless_input or legacy begin_mv/end_mv/cash_flows is required when input_mode=stateless"
+    )
 
 
 def test_mwr_analytics_request_rejects_stateful_payload_shape_conflicts():
