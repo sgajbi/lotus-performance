@@ -91,16 +91,24 @@ def enterprise_policy_version() -> str:
     return _normalized_enterprise_policy_version() or _DEFAULT_ENTERPRISE_POLICY_VERSION
 
 
+def _secret_rotation_days_valid(rotation_days: int) -> bool:
+    return 0 < rotation_days <= _DEFAULT_SECRET_ROTATION_DAYS
+
+
+def _write_authz_primary_key_config_valid() -> bool:
+    return not _write_authz_enabled() or _primary_key_configured()
+
+
 def _enterprise_runtime_config_issues() -> list[str]:
     issues: list[str] = []
     if not _normalized_enterprise_policy_version():
         issues.append(_MISSING_POLICY_VERSION_ISSUE)
 
     rotation_days = _env_int(_ENV_ENTERPRISE_SECRET_ROTATION_DAYS, _DEFAULT_SECRET_ROTATION_DAYS)
-    if rotation_days <= 0 or rotation_days > _DEFAULT_SECRET_ROTATION_DAYS:
+    if not _secret_rotation_days_valid(rotation_days):
         issues.append(_SECRET_ROTATION_DAYS_OUT_OF_RANGE_ISSUE)
 
-    if _write_authz_enabled() and not _primary_key_configured():
+    if not _write_authz_primary_key_config_valid():
         issues.append(_MISSING_PRIMARY_KEY_ID_ISSUE)
 
     return issues

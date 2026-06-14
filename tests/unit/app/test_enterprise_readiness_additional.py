@@ -861,6 +861,17 @@ def test_enterprise_runtime_config_issues_uses_default_for_invalid_rotation_days
     assert _SECRET_ROTATION_DAYS_OUT_OF_RANGE_ISSUE not in _enterprise_runtime_config_issues()
 
 
+def test_enterprise_runtime_security_predicates_enforce_rotation_and_key_boundaries(monkeypatch):
+    assert enterprise_runtime_config._secret_rotation_days_valid(1)
+    assert enterprise_runtime_config._secret_rotation_days_valid(90)
+    assert not enterprise_runtime_config._secret_rotation_days_valid(0)
+    assert not enterprise_runtime_config._secret_rotation_days_valid(91)
+
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_AUTHZ, "true")
+    monkeypatch.delenv(_ENV_ENTERPRISE_PRIMARY_KEY_ID, raising=False)
+    assert not enterprise_runtime_config._write_authz_primary_key_config_valid()
+
+
 def test_authorize_enterprise_request_preserves_write_denial_precedence(monkeypatch):
     monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_AUTHZ, "true")
     monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ, "true")
