@@ -197,13 +197,20 @@ def _formatted_schema_example(prop_schema: dict[str, Any]) -> Any | None:
     return None
 
 
-def _semantic_string_example(key: str) -> str:
-    if key.endswith("_id"):
-        return f"{key[:-3].upper()}_001"
+def _temporal_string_example(key: str) -> str | None:
     if "date" in key:
         return "2026-02-27"
     if "time" in key or "timestamp" in key:
         return "2026-02-27T10:30:00Z"
+    return None
+
+
+def _semantic_string_example(key: str) -> str:
+    if key.endswith("_id"):
+        return f"{key[:-3].upper()}_001"
+    temporal_example = _temporal_string_example(key)
+    if temporal_example is not None:
+        return temporal_example
     if "currency" in key:
         return "USD"
     return f"example_{key}"

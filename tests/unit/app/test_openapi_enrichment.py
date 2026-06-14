@@ -27,6 +27,7 @@ from app.openapi_enrichment import (
     _semantic_property_description,
     _semantic_string_example,
     _structural_schema_example,
+    _temporal_string_example,
     _to_snake_case,
     _typed_schema_example,
     _validation_error_json_content,
@@ -82,6 +83,14 @@ def test_scalar_schema_example_returns_only_governed_scalar_defaults():
     assert _scalar_schema_example("integer") == 1
     assert _scalar_schema_example("number") == 0.1234
     assert _scalar_schema_example("string") is None
+
+
+def test_temporal_string_example_preserves_date_before_time_precedence():
+    assert _temporal_string_example("as_of_date") == "2026-02-27"
+    assert _temporal_string_example("date_time") == "2026-02-27"
+    assert _temporal_string_example("event_time") == "2026-02-27T10:30:00Z"
+    assert _temporal_string_example("event_timestamp") == "2026-02-27T10:30:00Z"
+    assert _temporal_string_example("base_currency") is None
 
 
 def test_infer_description_uses_semantic_branches():
