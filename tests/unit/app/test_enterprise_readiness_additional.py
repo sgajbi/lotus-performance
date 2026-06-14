@@ -958,6 +958,14 @@ def test_capability_rule_loader_ignores_blank_and_non_string_overrides(monkeypat
     assert rules["POST /analytics"] == "analytics.write"
 
 
+def test_normalized_capability_rule_override_accepts_only_non_blank_strings():
+    normalize = enterprise_capability_rules._normalized_capability_rule_override
+
+    assert normalize(key=" POST /analytics ", value=" analytics.write ") == ("POST /analytics", "analytics.write")
+    assert normalize(key=" ", value="analytics.write") is None
+    assert normalize(key="POST /analytics", value=False) is None
+
+
 def test_privileged_read_rule_loader_ignores_blank_default_override(monkeypatch):
     monkeypatch.setenv(
         _ENV_ENTERPRISE_PRIVILEGED_READ_RULES_JSON,

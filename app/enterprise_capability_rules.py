@@ -69,13 +69,21 @@ def _is_privileged_read_method(method: str) -> bool:
 def _normalized_capability_rule_overrides(configured: dict[str, Any]) -> dict[str, str]:
     rules: dict[str, str] = {}
     for key, value in configured.items():
-        if not isinstance(key, str) or not isinstance(value, str):
-            continue
-        rule_key = key.strip()
-        capability = value.strip()
-        if rule_key and capability:
+        normalized = _normalized_capability_rule_override(key=key, value=value)
+        if normalized is not None:
+            rule_key, capability = normalized
             rules[rule_key] = capability
     return rules
+
+
+def _normalized_capability_rule_override(*, key: object, value: object) -> tuple[str, str] | None:
+    if not isinstance(key, str) or not isinstance(value, str):
+        return None
+    rule_key = key.strip()
+    capability = value.strip()
+    if not rule_key or not capability:
+        return None
+    return rule_key, capability
 
 
 def _path_matches_rule(path: str, rule_path: str) -> bool:
