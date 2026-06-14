@@ -3,7 +3,11 @@ from dataclasses import dataclass
 from fastapi import HTTPException, status
 
 from app.core.config import get_settings
-from app.models.benchmark_analytics_requests import BenchmarkInputMode, BenchmarkReturnSource
+from app.models.benchmark_analytics_requests import (
+    BenchmarkInputMode,
+    BenchmarkReturnSource,
+    benchmark_stateless_work_units,
+)
 from app.models.responses import PerformanceResponse, TWRAcceptedResponse
 from app.models.twr_requests import TWRAnalyticsRequest, TWRInputMode, TWRResolvedExecutionRequest
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_TWR
@@ -84,9 +88,10 @@ def twr_requested_benchmark_work_units(request: TWRAnalyticsRequest) -> int:
     stateless_input = request.benchmark.stateless_input
     if stateless_input is None:
         return 0
-    if request.benchmark.return_source == BenchmarkReturnSource.CALCULATED:
-        return len(stateless_input.component_observations) or len(stateless_input.component_price_points)
-    return len(stateless_input.benchmark_return_points)
+    return benchmark_stateless_work_units(
+        stateless_input=stateless_input,
+        return_source=request.benchmark.return_source,
+    )
 
 
 def twr_requested_input_count(request: TWRAnalyticsRequest) -> int:

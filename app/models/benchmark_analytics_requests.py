@@ -127,6 +127,14 @@ class BenchmarkStatelessInput(BaseModel):
     )
 
 
+def benchmark_stateless_work_units(
+    *, stateless_input: BenchmarkStatelessInput, return_source: BenchmarkReturnSource
+) -> int:
+    if return_source == BenchmarkReturnSource.CALCULATED:
+        return len(stateless_input.component_observations) or len(stateless_input.component_price_points)
+    return len(stateless_input.benchmark_return_points)
+
+
 class BenchmarkStatefulInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

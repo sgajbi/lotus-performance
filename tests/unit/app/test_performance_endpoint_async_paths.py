@@ -95,6 +95,45 @@ def test_twr_workspace_helper_paths_cover_optional_benchmark_shapes():
     assert performance_endpoint._workspace_longest_requested_window_days(workspace_request) == 10_000
 
 
+def test_workspace_benchmark_work_units_count_calculated_observations():
+    request = WorkspaceSummaryRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "performance_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "periods": [{"period": "SI", "frequencies": ["daily"]}],
+            "input_mode": "stateless",
+            "stateless_input": {
+                "valuation_points": [{"perf_date": "2025-01-02", "begin_mv": 1000.0, "end_mv": 1001.0}]
+            },
+            "benchmark": {
+                "benchmark_id": "BMK_1",
+                "input_mode": "stateless",
+                "return_source": "calculated",
+                "stateless_input": {
+                    "benchmark_currency": "USD",
+                    "component_observations": [
+                        {
+                            "component_id": "IDX_1",
+                            "perf_date": "2025-01-01",
+                            "weight_bop": 1.0,
+                            "component_return": 0.01,
+                        },
+                        {
+                            "component_id": "IDX_1",
+                            "perf_date": "2025-01-02",
+                            "weight_bop": 1.0,
+                            "component_return": 0.02,
+                        },
+                    ],
+                },
+            },
+        }
+    )
+
+    assert performance_endpoint._workspace_requested_benchmark_work_units(request) == 2
+
+
 @pytest.mark.asyncio
 async def test_workspace_summary_endpoint_records_http_exception_detail(mocker):
     request = WorkspaceSummaryRequest.model_validate(

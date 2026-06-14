@@ -32,37 +32,37 @@ must stay at `0`.
 | --- | ---: |
 | Max cyclomatic complexity | 6 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.10 |
+| Average maintainability index | 55.11 |
 
 ## Highest Cyclomatic Complexity
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_workspace_requested_benchmark_work_units` | function | `app/api/endpoints/performance.py:60` | 6 | B |
-| 2 | `calculate_workspace_summary_endpoint` | function | `app/api/endpoints/performance.py:105` | 6 | B |
-| 3 | `_normalized_capability_rule_overrides` | function | `app/enterprise_capability_rules.py:69` | 6 | B |
-| 4 | `_enterprise_runtime_config_issues` | function | `app/enterprise_runtime_config.py:94` | 6 | B |
-| 5 | `_validate_stateless_input_shape` | function | `app/models/attribution_analytics_requests.py:280` | 6 | B |
-| 6 | `AttributionLevelResult` | class | `app/models/attribution_responses.py:52` | 6 | B |
-| 7 | `CompositeMembership` | class | `app/models/composites.py:113` | 6 | B |
-| 8 | `_validate_stateless_contribution_payloads` | function | `app/models/contribution_analytics_requests.py:59` | 6 | B |
-| 9 | `_resolved_stateless_contribution_inputs` | function | `app/models/contribution_analytics_requests.py:89` | 6 | B |
-| 10 | `_validate_stateless_mwr_payloads` | function | `app/models/mwr_analytics_requests.py:52` | 6 | B |
-| 11 | `_validate_stateless_twr_payloads` | function | `app/models/twr_requests.py:145` | 6 | B |
-| 12 | `_validate_twr_benchmark_inclusion` | function | `app/models/twr_requests.py:167` | 6 | B |
-| 13 | `TWRAnalyticsRequest` | class | `app/models/twr_requests.py:174` | 6 | B |
-| 14 | `to_stateless_performance_request` | method | `app/models/twr_requests.py:217` | 6 | B |
-| 15 | `_validate_workspace_summary_stateless_inputs` | function | `app/models/workspace_summary_requests.py:300` | 6 | B |
-| 16 | `_json_log_payload` | function | `app/observability.py:104` | 6 | B |
-| 17 | `_typed_schema_example` | function | `app/openapi_enrichment.py:174` | 6 | B |
-| 18 | `_semantic_string_example` | function | `app/openapi_enrichment.py:198` | 6 | B |
-| 19 | `_build_schema_example` | function | `app/openapi_enrichment.py:434` | 6 | B |
-| 20 | `_ensure_request_body_example` | function | `app/openapi_enrichment.py:536` | 6 | B |
-| 21 | `_iter_documentable_operations` | function | `app/openapi_enrichment.py:658` | 6 | B |
-| 22 | `resolve_async_result` | function | `app/services/async_result_service.py:44` | 6 | B |
-| 23 | `build_single_period_attribution_response` | function | `app/services/attribution_response_service.py:19` | 6 | B |
-| 24 | `_count_attribution_input_rows` | function | `app/services/attribution_service.py:44` | 6 | B |
-| 25 | `resolve_benchmark_identity` | function | `app/services/benchmark_assignment_service.py:20` | 6 | B |
+| 1 | `calculate_workspace_summary_endpoint` | function | `app/api/endpoints/performance.py:104` | 6 | B |
+| 2 | `_normalized_capability_rule_overrides` | function | `app/enterprise_capability_rules.py:69` | 6 | B |
+| 3 | `_enterprise_runtime_config_issues` | function | `app/enterprise_runtime_config.py:94` | 6 | B |
+| 4 | `_validate_stateless_input_shape` | function | `app/models/attribution_analytics_requests.py:280` | 6 | B |
+| 5 | `AttributionLevelResult` | class | `app/models/attribution_responses.py:52` | 6 | B |
+| 6 | `CompositeMembership` | class | `app/models/composites.py:113` | 6 | B |
+| 7 | `_validate_stateless_contribution_payloads` | function | `app/models/contribution_analytics_requests.py:59` | 6 | B |
+| 8 | `_resolved_stateless_contribution_inputs` | function | `app/models/contribution_analytics_requests.py:89` | 6 | B |
+| 9 | `_validate_stateless_mwr_payloads` | function | `app/models/mwr_analytics_requests.py:52` | 6 | B |
+| 10 | `_validate_stateless_twr_payloads` | function | `app/models/twr_requests.py:145` | 6 | B |
+| 11 | `_validate_twr_benchmark_inclusion` | function | `app/models/twr_requests.py:167` | 6 | B |
+| 12 | `TWRAnalyticsRequest` | class | `app/models/twr_requests.py:174` | 6 | B |
+| 13 | `to_stateless_performance_request` | method | `app/models/twr_requests.py:217` | 6 | B |
+| 14 | `_validate_workspace_summary_stateless_inputs` | function | `app/models/workspace_summary_requests.py:300` | 6 | B |
+| 15 | `_json_log_payload` | function | `app/observability.py:104` | 6 | B |
+| 16 | `_typed_schema_example` | function | `app/openapi_enrichment.py:174` | 6 | B |
+| 17 | `_semantic_string_example` | function | `app/openapi_enrichment.py:198` | 6 | B |
+| 18 | `_build_schema_example` | function | `app/openapi_enrichment.py:434` | 6 | B |
+| 19 | `_ensure_request_body_example` | function | `app/openapi_enrichment.py:536` | 6 | B |
+| 20 | `_iter_documentable_operations` | function | `app/openapi_enrichment.py:658` | 6 | B |
+| 21 | `resolve_async_result` | function | `app/services/async_result_service.py:44` | 6 | B |
+| 22 | `build_single_period_attribution_response` | function | `app/services/attribution_response_service.py:19` | 6 | B |
+| 23 | `_count_attribution_input_rows` | function | `app/services/attribution_service.py:44` | 6 | B |
+| 24 | `resolve_benchmark_identity` | function | `app/services/benchmark_assignment_service.py:20` | 6 | B |
+| 25 | `calculate_benchmark_artifacts` | function | `app/services/benchmark_calculation_service.py:71` | 6 | B |
 
 ## Lowest Maintainability Index
 
@@ -686,6 +686,8 @@ behind a dedicated helper while preserving storage-integrity validation, control
 and endpoint-level exception mapping.
 `get_lineage_artifact` also dropped out after complete-record and declared-artifact eligibility
 moved behind a dedicated helper while preserving manifest consistency and file-existence checks.
+`_workspace_requested_benchmark_work_units` also dropped out after stateless calculated-versus-vendor
+benchmark work-unit counting was centralized and reused by workspace-summary and TWR offload policy.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.

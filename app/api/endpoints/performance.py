@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 from app.core.config import get_settings
 from app.models.attribution_analytics_requests import AttributionAnalyticsRequest
 from app.models.attribution_responses import AttributionAcceptedResponse, AttributionResponse
-from app.models.benchmark_analytics_requests import BenchmarkInputMode, BenchmarkReturnSource
+from app.models.benchmark_analytics_requests import BenchmarkInputMode, benchmark_stateless_work_units
 from app.models.mwr_analytics_requests import MoneyWeightedReturnAnalyticsRequest
 from app.models.mwr_responses import MoneyWeightedReturnResponse
 from app.models.platform_surfaces import ErrorDetailResponse
@@ -61,11 +61,10 @@ def _workspace_requested_benchmark_work_units(request: WorkspaceSummaryRequest) 
     benchmark = request.benchmark
     if benchmark is None or benchmark.input_mode != BenchmarkInputMode.STATELESS or benchmark.stateless_input is None:
         return 0
-    if benchmark.return_source == BenchmarkReturnSource.CALCULATED:
-        return len(benchmark.stateless_input.component_observations) or len(
-            benchmark.stateless_input.component_price_points
-        )
-    return len(benchmark.stateless_input.benchmark_return_points)
+    return benchmark_stateless_work_units(
+        stateless_input=benchmark.stateless_input,
+        return_source=benchmark.return_source,
+    )
 
 
 def _workspace_requested_input_count(request: WorkspaceSummaryRequest) -> int:
