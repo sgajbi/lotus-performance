@@ -8,6 +8,7 @@ from pydantic import ValidationError
 from app.models.contribution_analytics_requests import (
     ContributionAnalyticsRequest,
     _resolved_stateless_contribution_inputs,
+    _stateless_contribution_envelope_issue,
     _validate_stateless_contribution_payloads,
 )
 from app.models.contribution_requests import ContributionRequest, PortfolioData, PositionData
@@ -254,6 +255,17 @@ def test_validate_stateless_contribution_payloads_rejects_competing_stateful_pay
 
     with pytest.raises(ValueError, match="stateful_input must be null when input_mode=stateless"):
         _validate_stateless_contribution_payloads(request, has_legacy_stateless=False)  # type: ignore[arg-type]
+
+
+def test_stateless_contribution_envelope_issue_requires_exactly_one_payload_shape():
+    assert _stateless_contribution_envelope_issue(has_nested=True, has_legacy=False) is None
+    assert _stateless_contribution_envelope_issue(has_nested=False, has_legacy=True) is None
+    assert _stateless_contribution_envelope_issue(has_nested=True, has_legacy=True) == (
+        "Provide either stateless_input or legacy portfolio_data/positions_data, not both, for stateless mode"
+    )
+    assert _stateless_contribution_envelope_issue(has_nested=False, has_legacy=False) == (
+        "stateless_input or legacy portfolio_data/positions_data is required when input_mode=stateless"
+    )
 
 
 def test_contribution_analytics_request_builds_legacy_stateless_request():
