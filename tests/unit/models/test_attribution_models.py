@@ -7,6 +7,7 @@ from app.models.attribution_analytics_requests import (
     _attribution_input_shape,
     _attribution_request_payload,
     _resolve_attribution_stateless_input,
+    _stateless_input_envelope_issue,
 )
 from app.models.attribution_requests import AttributionRequest, BenchmarkGroup, PortfolioGroup
 from app.models.attribution_responses import AttributionLevelResult, SinglePeriodAttributionResult
@@ -227,6 +228,13 @@ def test_attribution_analytics_request_rejects_missing_stateless_payload():
                 "benchmark_groups_data": [],
             }
         )
+
+
+def test_stateless_input_envelope_issue_requires_exactly_one_payload_shape():
+    assert _stateless_input_envelope_issue(has_nested=True, has_legacy=False) is None
+    assert _stateless_input_envelope_issue(has_nested=False, has_legacy=True) is None
+    assert "not both" in str(_stateless_input_envelope_issue(has_nested=True, has_legacy=True))
+    assert "are required" in str(_stateless_input_envelope_issue(has_nested=False, has_legacy=False))
 
 
 def test_attribution_analytics_request_rejects_mixed_stateless_shapes(base_attribution_payload):

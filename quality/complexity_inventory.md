@@ -32,37 +32,37 @@ must stay at `0`.
 | --- | ---: |
 | Max cyclomatic complexity | 6 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.10 |
+| Average maintainability index | 55.09 |
 
 ## Highest Cyclomatic Complexity
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_validate_stateless_input_shape` | function | `app/models/attribution_analytics_requests.py:280` | 6 | B |
-| 2 | `AttributionLevelResult` | class | `app/models/attribution_responses.py:52` | 6 | B |
-| 3 | `CompositeMembership` | class | `app/models/composites.py:113` | 6 | B |
-| 4 | `_validate_stateless_contribution_payloads` | function | `app/models/contribution_analytics_requests.py:59` | 6 | B |
-| 5 | `_resolved_stateless_contribution_inputs` | function | `app/models/contribution_analytics_requests.py:89` | 6 | B |
-| 6 | `_validate_stateless_mwr_payloads` | function | `app/models/mwr_analytics_requests.py:52` | 6 | B |
-| 7 | `_validate_stateless_twr_payloads` | function | `app/models/twr_requests.py:145` | 6 | B |
-| 8 | `_validate_twr_benchmark_inclusion` | function | `app/models/twr_requests.py:167` | 6 | B |
-| 9 | `TWRAnalyticsRequest` | class | `app/models/twr_requests.py:174` | 6 | B |
-| 10 | `to_stateless_performance_request` | method | `app/models/twr_requests.py:217` | 6 | B |
-| 11 | `_validate_workspace_summary_stateless_inputs` | function | `app/models/workspace_summary_requests.py:300` | 6 | B |
-| 12 | `_json_log_payload` | function | `app/observability.py:104` | 6 | B |
-| 13 | `_typed_schema_example` | function | `app/openapi_enrichment.py:174` | 6 | B |
-| 14 | `_semantic_string_example` | function | `app/openapi_enrichment.py:198` | 6 | B |
-| 15 | `_build_schema_example` | function | `app/openapi_enrichment.py:434` | 6 | B |
-| 16 | `_ensure_request_body_example` | function | `app/openapi_enrichment.py:536` | 6 | B |
-| 17 | `_iter_documentable_operations` | function | `app/openapi_enrichment.py:658` | 6 | B |
-| 18 | `resolve_async_result` | function | `app/services/async_result_service.py:44` | 6 | B |
-| 19 | `build_single_period_attribution_response` | function | `app/services/attribution_response_service.py:19` | 6 | B |
-| 20 | `_count_attribution_input_rows` | function | `app/services/attribution_service.py:44` | 6 | B |
-| 21 | `resolve_benchmark_identity` | function | `app/services/benchmark_assignment_service.py:20` | 6 | B |
-| 22 | `calculate_benchmark_artifacts` | function | `app/services/benchmark_calculation_service.py:71` | 6 | B |
-| 23 | `_benchmark_period_result` | function | `app/services/benchmark_calculation_service.py:118` | 6 | B |
-| 24 | `calculate_benchmark_workflow` | function | `app/services/benchmark_calculation_workflow_service.py:238` | 6 | B |
-| 25 | `_resolve_benchmark_id` | function | `app/services/benchmark_exposure_context_service.py:110` | 6 | B |
+| 1 | `AttributionLevelResult` | class | `app/models/attribution_responses.py:52` | 6 | B |
+| 2 | `CompositeMembership` | class | `app/models/composites.py:113` | 6 | B |
+| 3 | `_validate_stateless_contribution_payloads` | function | `app/models/contribution_analytics_requests.py:59` | 6 | B |
+| 4 | `_resolved_stateless_contribution_inputs` | function | `app/models/contribution_analytics_requests.py:89` | 6 | B |
+| 5 | `_validate_stateless_mwr_payloads` | function | `app/models/mwr_analytics_requests.py:52` | 6 | B |
+| 6 | `_validate_stateless_twr_payloads` | function | `app/models/twr_requests.py:145` | 6 | B |
+| 7 | `_validate_twr_benchmark_inclusion` | function | `app/models/twr_requests.py:167` | 6 | B |
+| 8 | `TWRAnalyticsRequest` | class | `app/models/twr_requests.py:174` | 6 | B |
+| 9 | `to_stateless_performance_request` | method | `app/models/twr_requests.py:217` | 6 | B |
+| 10 | `_validate_workspace_summary_stateless_inputs` | function | `app/models/workspace_summary_requests.py:300` | 6 | B |
+| 11 | `_json_log_payload` | function | `app/observability.py:104` | 6 | B |
+| 12 | `_typed_schema_example` | function | `app/openapi_enrichment.py:174` | 6 | B |
+| 13 | `_semantic_string_example` | function | `app/openapi_enrichment.py:198` | 6 | B |
+| 14 | `_build_schema_example` | function | `app/openapi_enrichment.py:434` | 6 | B |
+| 15 | `_ensure_request_body_example` | function | `app/openapi_enrichment.py:536` | 6 | B |
+| 16 | `_iter_documentable_operations` | function | `app/openapi_enrichment.py:658` | 6 | B |
+| 17 | `resolve_async_result` | function | `app/services/async_result_service.py:44` | 6 | B |
+| 18 | `build_single_period_attribution_response` | function | `app/services/attribution_response_service.py:19` | 6 | B |
+| 19 | `_count_attribution_input_rows` | function | `app/services/attribution_service.py:44` | 6 | B |
+| 20 | `resolve_benchmark_identity` | function | `app/services/benchmark_assignment_service.py:20` | 6 | B |
+| 21 | `calculate_benchmark_artifacts` | function | `app/services/benchmark_calculation_service.py:71` | 6 | B |
+| 22 | `_benchmark_period_result` | function | `app/services/benchmark_calculation_service.py:118` | 6 | B |
+| 23 | `calculate_benchmark_workflow` | function | `app/services/benchmark_calculation_workflow_service.py:238` | 6 | B |
+| 24 | `_resolve_benchmark_id` | function | `app/services/benchmark_exposure_context_service.py:110` | 6 | B |
+| 25 | `_classification_labels_from_catalog_record` | function | `app/services/benchmark_exposure_context_service.py:192` | 6 | B |
 
 ## Lowest Maintainability Index
 
@@ -694,6 +694,8 @@ and async offload-reason selection moved into dedicated deterministic helpers.
 whitespace normalization, and blank-value rejection moved into a dedicated security-policy helper.
 `_enterprise_runtime_config_issues` also dropped out after secret-rotation range validity and
 write-authorization primary-key readiness moved into dedicated security predicates.
+`_validate_stateless_input_shape` also dropped out after nested-versus-legacy attribution envelope
+selection and its authored validation messages moved into a dedicated issue-selector helper.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.

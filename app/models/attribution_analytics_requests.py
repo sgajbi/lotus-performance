@@ -283,12 +283,20 @@ def _validate_stateless_input_shape(
 ) -> None:
     if request.stateful_input is not None:
         raise ValueError("stateful_input must be null when input_mode=stateless")
-    if request.stateless_input is not None and input_shape.has_legacy_stateless:
-        raise ValueError(
-            "Provide either stateless_input or legacy attribution input fields, not both, for stateless mode"
-        )
-    if request.stateless_input is None and not input_shape.has_legacy_stateless:
-        raise ValueError("stateless_input or legacy attribution input fields are required when input_mode=stateless")
+    envelope_issue = _stateless_input_envelope_issue(
+        has_nested=request.stateless_input is not None,
+        has_legacy=input_shape.has_legacy_stateless,
+    )
+    if envelope_issue is not None:
+        raise ValueError(envelope_issue)
+
+
+def _stateless_input_envelope_issue(*, has_nested: bool, has_legacy: bool) -> str | None:
+    if has_nested and has_legacy:
+        return "Provide either stateless_input or legacy attribution input fields, not both, for stateless mode"
+    if not has_nested and not has_legacy:
+        return "stateless_input or legacy attribution input fields are required when input_mode=stateless"
+    return None
 
 
 def _validate_stateful_input_shape(
