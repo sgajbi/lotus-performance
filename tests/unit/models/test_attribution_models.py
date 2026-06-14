@@ -10,7 +10,12 @@ from app.models.attribution_analytics_requests import (
     _stateless_input_envelope_issue,
 )
 from app.models.attribution_requests import AttributionRequest, BenchmarkGroup, PortfolioGroup
-from app.models.attribution_responses import AttributionLevelResult, SinglePeriodAttributionResult
+from app.models.attribution_responses import (
+    AttributionLevelResult,
+    AttributionLevelTotals,
+    SinglePeriodAttributionResult,
+    _attribution_level_totals_payload,
+)
 from common.enums import PeriodType
 
 
@@ -105,6 +110,14 @@ def test_attribution_level_result_exposes_authoritative_total_fields_from_nested
     assert level.selection_total_pct == pytest.approx(0.22)
     assert level.interaction_total_pct == pytest.approx(0.05)
     assert level.total_effect_pct == pytest.approx(0.58)
+
+
+def test_attribution_level_totals_payload_normalizes_typed_and_mapping_totals():
+    totals = AttributionLevelTotals(allocation=0.31, selection=0.22, interaction=0.05, total_effect=0.58)
+
+    assert _attribution_level_totals_payload(totals) == totals.model_dump()
+    assert _attribution_level_totals_payload({"allocation": 0.31}) == {"allocation": 0.31}
+    assert _attribution_level_totals_payload(None) is None
 
 
 def test_attribution_level_result_schema_documents_authoritative_total_fields():
