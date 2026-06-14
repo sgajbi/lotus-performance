@@ -13,6 +13,7 @@ from app.models.twr_requests import (
     _has_legacy_twr_valuation_points,
     _has_nested_twr_stateless_input,
     _stateless_twr_envelope_issue,
+    _twr_benchmark_config_required,
     _validate_calculated_stateless_twr_benchmark_payload,
     _validate_stateless_twr_payloads,
     _validate_twr_benchmark_inclusion,
@@ -257,6 +258,30 @@ def test_twr_benchmark_inclusion_helper_promotes_nested_benchmark(base_payload):
     _validate_twr_benchmark_inclusion(request)
 
     assert request.include_benchmark is True
+
+
+@pytest.mark.parametrize(
+    ("input_mode", "include_benchmark", "has_benchmark", "config_required"),
+    [
+        (TWRInputMode.STATELESS, True, False, True),
+        (TWRInputMode.STATELESS, True, True, False),
+        (TWRInputMode.STATELESS, False, False, False),
+        (TWRInputMode.STATEFUL, True, False, False),
+    ],
+)
+def test_twr_benchmark_config_required_only_for_stateless_inclusion_without_config(
+    input_mode,
+    include_benchmark,
+    has_benchmark,
+    config_required,
+):
+    request = TWRAnalyticsRequest.model_construct(
+        input_mode=input_mode,
+        include_benchmark=include_benchmark,
+        benchmark=TWRBenchmarkRequest.model_construct() if has_benchmark else None,
+    )
+
+    assert _twr_benchmark_config_required(request) is config_required
 
 
 def test_twr_request_accepts_stateless_benchmark_price_points(base_payload):

@@ -175,8 +175,12 @@ def _validate_stateful_twr_payloads(request: "TWRAnalyticsRequest") -> None:
 def _validate_twr_benchmark_inclusion(request: "TWRAnalyticsRequest") -> None:
     if request.benchmark is not None and not request.include_benchmark:
         request.include_benchmark = True
-    if request.include_benchmark and request.input_mode == TWRInputMode.STATELESS and request.benchmark is None:
+    if _twr_benchmark_config_required(request):
         raise ValueError("benchmark configuration is required when include_benchmark=true in stateless mode")
+
+
+def _twr_benchmark_config_required(request: "TWRAnalyticsRequest") -> bool:
+    return request.include_benchmark and request.input_mode == TWRInputMode.STATELESS and request.benchmark is None
 
 
 class TWRAnalyticsRequest(PerformanceRequestBase):
