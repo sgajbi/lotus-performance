@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date
+
 import pytest
 from pydantic import ValidationError
 
@@ -7,6 +9,9 @@ from app.models.composites import (
     CompositeDefinition,
     CompositeMemberReturnFact,
     CompositeMembership,
+    CompositeMembershipStatus,
+    _composite_membership_status_reason_valid,
+    _composite_membership_window_valid,
 )
 
 
@@ -61,6 +66,12 @@ def test_membership_rejects_reversed_effective_dates():
 
     with pytest.raises(ValidationError, match="effective_to cannot be before effective_from"):
         CompositeMembership.model_validate(payload)
+
+
+def test_membership_invariants_accept_open_windows_and_require_exclusion_reason():
+    assert _composite_membership_window_valid(effective_from=date(2026, 1, 1), effective_to=None)
+    assert _composite_membership_status_reason_valid(status=CompositeMembershipStatus.INCLUDED, status_reason=None)
+    assert not _composite_membership_status_reason_valid(status=CompositeMembershipStatus.EXCLUDED, status_reason=None)
 
 
 def test_member_return_fact_requires_reason_codes_for_degraded_status():
