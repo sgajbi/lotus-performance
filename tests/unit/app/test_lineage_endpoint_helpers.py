@@ -1,8 +1,11 @@
 from uuid import uuid4
 
+import pytest
+from fastapi import HTTPException
 from starlette.datastructures import URL
 
 from app.api.endpoints.lineage import (
+    _downloadable_lineage_record,
     _lineage_artifact_links,
     _lineage_terminal_response,
     _manifest_matches_record,
@@ -74,6 +77,22 @@ def test_resolve_lineage_response_returns_terminal_record_without_storage_lookup
 
     assert response.status == LineageStatus.PENDING
     storage_exists.assert_not_called()
+
+
+def test_downloadable_lineage_record_requires_complete_declared_artifact(mocker):
+    calculation_id = uuid4()
+    record = LineageRecord(
+        calculation_id=calculation_id,
+        calculation_type="TWR",
+        status=LineageStatus.COMPLETE,
+        timestamp_utc="2026-01-01T00:00:00Z",
+        artifact_names=["request.json"],
+    )
+    mocker.patch("app.api.endpoints.lineage.lineage_metadata_store.get_record", return_value=record)
+
+    assert _downloadable_lineage_record(calculation_id=calculation_id, artifact_name="request.json") is record
+    with pytest.raises(HTTPException, match="Lineage artifact not found"):
+        _downloadable_lineage_record(calculation_id=calculation_id, artifact_name="response.json")
 
 
 def test_lineage_artifact_links_skip_manifest_and_build_controlled_urls():

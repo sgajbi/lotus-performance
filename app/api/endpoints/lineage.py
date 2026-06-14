@@ -146,6 +146,13 @@ def _resolve_lineage_response(*, request: Request, calculation_id: UUID, record:
     )
 
 
+def _downloadable_lineage_record(*, calculation_id: UUID, artifact_name: str) -> LineageRecord:
+    record = lineage_metadata_store.get_record(calculation_id)
+    if record is None or record.status != LineageStatus.COMPLETE or artifact_name not in record.artifact_names:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lineage artifact not found.")
+    return record
+
+
 @router.get(
     "/lineage/{calculation_id}",
     response_model=LineageResponse,
@@ -235,11 +242,7 @@ async def get_lineage_artifact(
         examples=["request.json"],
     ),
 ):
-    record = lineage_metadata_store.get_record(calculation_id)
-    if record is None or record.status != LineageStatus.COMPLETE:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lineage artifact not found.")
-    if artifact_name not in record.artifact_names:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lineage artifact not found.")
+    record = _downloadable_lineage_record(calculation_id=calculation_id, artifact_name=artifact_name)
 
     manifest_path = os.path.join(get_settings().LINEAGE_STORAGE_PATH, str(calculation_id), "manifest.json")
     if not os.path.exists(manifest_path):
