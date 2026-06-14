@@ -38,31 +38,31 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_validate_stateless_twr_payloads` | function | `app/models/twr_requests.py:145` | 6 | B |
-| 2 | `_validate_twr_benchmark_inclusion` | function | `app/models/twr_requests.py:167` | 6 | B |
-| 3 | `TWRAnalyticsRequest` | class | `app/models/twr_requests.py:174` | 6 | B |
-| 4 | `to_stateless_performance_request` | method | `app/models/twr_requests.py:217` | 6 | B |
-| 5 | `_validate_workspace_summary_stateless_inputs` | function | `app/models/workspace_summary_requests.py:300` | 6 | B |
-| 6 | `_json_log_payload` | function | `app/observability.py:104` | 6 | B |
-| 7 | `_typed_schema_example` | function | `app/openapi_enrichment.py:174` | 6 | B |
-| 8 | `_semantic_string_example` | function | `app/openapi_enrichment.py:198` | 6 | B |
-| 9 | `_build_schema_example` | function | `app/openapi_enrichment.py:434` | 6 | B |
-| 10 | `_ensure_request_body_example` | function | `app/openapi_enrichment.py:536` | 6 | B |
-| 11 | `_iter_documentable_operations` | function | `app/openapi_enrichment.py:658` | 6 | B |
-| 12 | `resolve_async_result` | function | `app/services/async_result_service.py:44` | 6 | B |
-| 13 | `build_single_period_attribution_response` | function | `app/services/attribution_response_service.py:19` | 6 | B |
-| 14 | `_count_attribution_input_rows` | function | `app/services/attribution_service.py:44` | 6 | B |
-| 15 | `resolve_benchmark_identity` | function | `app/services/benchmark_assignment_service.py:20` | 6 | B |
-| 16 | `calculate_benchmark_artifacts` | function | `app/services/benchmark_calculation_service.py:71` | 6 | B |
-| 17 | `_benchmark_period_result` | function | `app/services/benchmark_calculation_service.py:118` | 6 | B |
-| 18 | `calculate_benchmark_workflow` | function | `app/services/benchmark_calculation_workflow_service.py:238` | 6 | B |
-| 19 | `_resolve_benchmark_id` | function | `app/services/benchmark_exposure_context_service.py:110` | 6 | B |
-| 20 | `_classification_labels_from_catalog_record` | function | `app/services/benchmark_exposure_context_service.py:192` | 6 | B |
-| 21 | `build_calculation_supportability` | function | `app/services/calculation_supportability_service.py:33` | 6 | B |
-| 22 | `_reconcile_stale_job_row` | method | `app/services/compute_job_store.py:546` | 6 | B |
-| 23 | `calculate_contribution_workflow` | function | `app/services/contribution_calculation_workflow_service.py:199` | 6 | B |
-| 24 | `_is_average_weight_shadow_cutover_candidate` | function | `app/services/contribution_methodology.py:263` | 6 | B |
-| 25 | `_calculate_position_total_return_pct` | function | `app/services/contribution_returns.py:67` | 6 | B |
+| 1 | `_validate_twr_benchmark_inclusion` | function | `app/models/twr_requests.py:175` | 6 | B |
+| 2 | `TWRAnalyticsRequest` | class | `app/models/twr_requests.py:182` | 6 | B |
+| 3 | `to_stateless_performance_request` | method | `app/models/twr_requests.py:225` | 6 | B |
+| 4 | `_validate_workspace_summary_stateless_inputs` | function | `app/models/workspace_summary_requests.py:300` | 6 | B |
+| 5 | `_json_log_payload` | function | `app/observability.py:104` | 6 | B |
+| 6 | `_typed_schema_example` | function | `app/openapi_enrichment.py:174` | 6 | B |
+| 7 | `_semantic_string_example` | function | `app/openapi_enrichment.py:198` | 6 | B |
+| 8 | `_build_schema_example` | function | `app/openapi_enrichment.py:434` | 6 | B |
+| 9 | `_ensure_request_body_example` | function | `app/openapi_enrichment.py:536` | 6 | B |
+| 10 | `_iter_documentable_operations` | function | `app/openapi_enrichment.py:658` | 6 | B |
+| 11 | `resolve_async_result` | function | `app/services/async_result_service.py:44` | 6 | B |
+| 12 | `build_single_period_attribution_response` | function | `app/services/attribution_response_service.py:19` | 6 | B |
+| 13 | `_count_attribution_input_rows` | function | `app/services/attribution_service.py:44` | 6 | B |
+| 14 | `resolve_benchmark_identity` | function | `app/services/benchmark_assignment_service.py:20` | 6 | B |
+| 15 | `calculate_benchmark_artifacts` | function | `app/services/benchmark_calculation_service.py:71` | 6 | B |
+| 16 | `_benchmark_period_result` | function | `app/services/benchmark_calculation_service.py:118` | 6 | B |
+| 17 | `calculate_benchmark_workflow` | function | `app/services/benchmark_calculation_workflow_service.py:238` | 6 | B |
+| 18 | `_resolve_benchmark_id` | function | `app/services/benchmark_exposure_context_service.py:110` | 6 | B |
+| 19 | `_classification_labels_from_catalog_record` | function | `app/services/benchmark_exposure_context_service.py:192` | 6 | B |
+| 20 | `build_calculation_supportability` | function | `app/services/calculation_supportability_service.py:33` | 6 | B |
+| 21 | `_reconcile_stale_job_row` | method | `app/services/compute_job_store.py:546` | 6 | B |
+| 22 | `calculate_contribution_workflow` | function | `app/services/contribution_calculation_workflow_service.py:199` | 6 | B |
+| 23 | `_is_average_weight_shadow_cutover_candidate` | function | `app/services/contribution_methodology.py:263` | 6 | B |
+| 24 | `_calculate_position_total_return_pct` | function | `app/services/contribution_returns.py:67` | 6 | B |
+| 25 | `_build_hierarchy_from_adjusted_position_series` | function | `app/services/contribution_series.py:176` | 6 | B |
 
 ## Lowest Maintainability Index
 
@@ -705,6 +705,8 @@ envelope issue selection moved into a dedicated compatibility-policy helper.
 `_resolved_stateless_contribution_inputs` also dropped out after complete input-pair recognition and
 override/nested/legacy precedence moved into dedicated selection policy.
 `_validate_stateless_mwr_payloads` also dropped out after nested-versus-legacy MWR envelope issue
+selection moved into a dedicated compatibility-policy helper.
+`_validate_stateless_twr_payloads` also dropped out after nested-versus-legacy TWR envelope issue
 selection moved into a dedicated compatibility-policy helper.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
