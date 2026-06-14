@@ -86,6 +86,23 @@ def _should_offload_workspace_summary(request: WorkspaceSummaryRequest) -> bool:
     ) or (_workspace_requested_input_count(request) >= settings.WORKSPACE_SUMMARY_EXECUTOR_INPUT_COUNT)
 
 
+def _workspace_requested_window(request: WorkspaceSummaryRequest) -> dict[str, object]:
+    return {
+        "report_end_date": str(request.report_end_date),
+        "requested_periods": [item.period.value for item in request.periods],
+        "input_mode": request.input_mode.value,
+        "include_benchmark": request.include_benchmark,
+        "input_count": _workspace_requested_input_count(request),
+        "longest_window_days": _workspace_longest_requested_window_days(request),
+    }
+
+
+def _workspace_offload_reason(request: WorkspaceSummaryRequest) -> str:
+    if request.input_mode == TWRInputMode.STATEFUL:
+        return "long_window_stateful_workspace_summary"
+    return "large_workspace_summary_input_set"
+
+
 @router.post(
     "/workspace-summary",
     response_model=WorkspaceSummaryResponse | WorkspaceSummaryAcceptedResponse,
@@ -107,14 +124,7 @@ def calculate_workspace_summary_endpoint(
     """Calculates multi-horizon workspace summary analytics in one source-owned response."""
     settings = get_settings()
     input_fingerprint, calculation_hash = generate_request_fingerprint(request, settings.APP_VERSION)
-    requested_window = {
-        "report_end_date": str(request.report_end_date),
-        "requested_periods": [item.period.value for item in request.periods],
-        "input_mode": request.input_mode.value,
-        "include_benchmark": request.include_benchmark,
-        "input_count": _workspace_requested_input_count(request),
-        "longest_window_days": _workspace_longest_requested_window_days(request),
-    }
+    requested_window = _workspace_requested_window(request)
     if _should_offload_workspace_summary(request):
         return register_async_submission_or_raise(
             calculation_id=request.calculation_id,
@@ -124,11 +134,7 @@ def calculate_workspace_summary_endpoint(
             input_fingerprint=input_fingerprint,
             calculation_hash=calculation_hash,
             request_payload=request.model_dump(mode="json"),
-            offload_reason=(
-                "long_window_stateful_workspace_summary"
-                if request.input_mode == TWRInputMode.STATEFUL
-                else "large_workspace_summary_input_set"
-            ),
+            offload_reason=_workspace_offload_reason(request),
             accepted_response_factory=_accepted_workspace_summary_response,
         )
     register_sync_execution_or_raise(

@@ -134,6 +134,28 @@ def test_workspace_benchmark_work_units_count_calculated_observations():
     assert performance_endpoint._workspace_requested_benchmark_work_units(request) == 2
 
 
+def test_workspace_submission_helpers_project_window_and_offload_reason():
+    request = WorkspaceSummaryRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "report_end_date": "2025-01-02",
+            "periods": [{"period": "SI", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "stateful_input": {},
+        }
+    )
+
+    assert performance_endpoint._workspace_requested_window(request) == {
+        "report_end_date": "2025-01-02",
+        "requested_periods": ["SI"],
+        "input_mode": "stateful",
+        "include_benchmark": False,
+        "input_count": 0,
+        "longest_window_days": 10_000,
+    }
+    assert performance_endpoint._workspace_offload_reason(request) == "long_window_stateful_workspace_summary"
+
+
 @pytest.mark.asyncio
 async def test_workspace_summary_endpoint_records_http_exception_detail(mocker):
     request = WorkspaceSummaryRequest.model_validate(
