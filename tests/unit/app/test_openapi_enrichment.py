@@ -4,6 +4,7 @@ from app.openapi_enrichment import (
     _build_schema_example,
     _canonical_term,
     _composed_schema_example,
+    _derived_schema_example,
     _ensure_model_schema_documentation,
     _ensure_operation_metadata,
     _ensure_operation_response_documentation,
@@ -241,6 +242,21 @@ def test_structural_schema_example_routes_object_array_and_scalar_fallback():
         )
         is None
     )
+
+
+def test_derived_schema_example_prefers_composed_before_structural_examples():
+    schema = {
+        "type": "object",
+        "properties": {"status": {"type": "string"}},
+        "oneOf": [{"type": "string", "enum": ["READY"]}],
+    }
+    assert _derived_schema_example(schema, components={}, seen_refs=set(), name_hint="status") == "pending"
+    assert _derived_schema_example(
+        {"type": "object"},
+        components={},
+        seen_refs=set(),
+        name_hint="metadata",
+    ) == {"key": "value"}
 
 
 def test_ensure_request_body_example_uses_operation_override():

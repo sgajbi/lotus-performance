@@ -440,6 +440,29 @@ def _structural_schema_example(
     return None
 
 
+def _derived_schema_example(
+    schema: dict[str, Any],
+    *,
+    components: dict[str, Any],
+    seen_refs: set[str],
+    name_hint: str,
+) -> Any | None:
+    composed_example = _composed_schema_example(
+        schema,
+        components=components,
+        seen_refs=seen_refs,
+        name_hint=name_hint,
+    )
+    if composed_example is not None:
+        return composed_example
+    return _structural_schema_example(
+        schema,
+        components=components,
+        seen_refs=seen_refs,
+        name_hint=name_hint,
+    )
+
+
 def _build_schema_example(
     schema: dict[str, Any],
     *,
@@ -456,23 +479,14 @@ def _build_schema_example(
     if explicit_example is not None:
         return explicit_example
 
-    composed_example = _composed_schema_example(
+    derived_example = _derived_schema_example(
         schema,
         components=components,
         seen_refs=seen,
         name_hint=name_hint,
     )
-    if composed_example is not None:
-        return composed_example
-
-    structural_example = _structural_schema_example(
-        schema,
-        components=components,
-        seen_refs=seen,
-        name_hint=name_hint,
-    )
-    if structural_example is not None:
-        return structural_example
+    if derived_example is not None:
+        return derived_example
 
     return _infer_example(name_hint, schema)
 
