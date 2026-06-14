@@ -2,7 +2,12 @@ from uuid import uuid4
 
 from starlette.datastructures import URL
 
-from app.api.endpoints.lineage import _lineage_artifact_links, _lineage_terminal_response, _manifest_matches_record
+from app.api.endpoints.lineage import (
+    _lineage_artifact_links,
+    _lineage_terminal_response,
+    _manifest_matches_record,
+    _resolve_lineage_response,
+)
 from app.models.lineage_responses import LineageManifest
 from app.services.lineage_metadata_store import LineageRecord, LineageStatus
 
@@ -48,6 +53,27 @@ def test_lineage_terminal_response_projects_pending_and_failed_records():
     assert failed_response.status == LineageStatus.FAILED
     assert failed_response.error_message == "write failed"
     assert _lineage_terminal_response(calculation_id=calculation_id, record=complete_record) is None
+
+
+def test_resolve_lineage_response_returns_terminal_record_without_storage_lookup(mocker):
+    calculation_id = uuid4()
+    record = LineageRecord(
+        calculation_id=calculation_id,
+        calculation_type="TWR",
+        status=LineageStatus.PENDING,
+        timestamp_utc="2026-01-01T00:00:00Z",
+        artifact_names=[],
+    )
+    storage_exists = mocker.patch("app.api.endpoints.lineage.os.path.exists")
+
+    response = _resolve_lineage_response(
+        request=_RequestStub(),
+        calculation_id=calculation_id,
+        record=record,
+    )
+
+    assert response.status == LineageStatus.PENDING
+    storage_exists.assert_not_called()
 
 
 def test_lineage_artifact_links_skip_manifest_and_build_controlled_urls():

@@ -126,6 +126,26 @@ def _completed_lineage_response(
     )
 
 
+def _resolve_lineage_response(*, request: Request, calculation_id: UUID, record: LineageRecord) -> LineageResponse:
+    terminal_response = _lineage_terminal_response(calculation_id=calculation_id, record=record)
+    if terminal_response is not None:
+        return terminal_response
+
+    lineage_dir = os.path.join(get_settings().LINEAGE_STORAGE_PATH, str(calculation_id))
+    manifest_path = os.path.join(lineage_dir, "manifest.json")
+    if not os.path.exists(manifest_path):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lineage manifest not found.")
+
+    manifest = _load_and_validate_manifest(manifest_path=manifest_path, record=record)
+    _ensure_declared_artifacts_exist(calculation_id=calculation_id, artifact_names=record.artifact_names)
+    return _completed_lineage_response(
+        request=request,
+        calculation_id=calculation_id,
+        record=record,
+        manifest=manifest,
+    )
+
+
 @router.get(
     "/lineage/{calculation_id}",
     response_model=LineageResponse,
@@ -166,23 +186,10 @@ async def get_lineage_data(
         )
 
     try:
-        lineage_dir = os.path.join(get_settings().LINEAGE_STORAGE_PATH, str(calculation_id))
-        terminal_response = _lineage_terminal_response(calculation_id=calculation_id, record=record)
-        if terminal_response is not None:
-            return terminal_response
-
-        manifest_path = os.path.join(lineage_dir, "manifest.json")
-        if not os.path.exists(manifest_path):
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lineage manifest not found.")
-
-        manifest = _load_and_validate_manifest(manifest_path=manifest_path, record=record)
-        _ensure_declared_artifacts_exist(calculation_id=calculation_id, artifact_names=record.artifact_names)
-
-        return _completed_lineage_response(
+        return _resolve_lineage_response(
             request=request,
             calculation_id=calculation_id,
             record=record,
-            manifest=manifest,
         )
     except Exception as e:
         if isinstance(e, HTTPException):
