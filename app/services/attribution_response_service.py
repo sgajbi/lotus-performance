@@ -19,6 +19,7 @@ from engine import attribution_types
 def build_single_period_attribution_response(
     result: attribution_types.SinglePeriodAttributionResult,
 ) -> SinglePeriodAttributionResult:
+    currency_attribution, currency_attribution_totals = _build_currency_attribution_response(result)
     return SinglePeriodAttributionResult(
         status=result.status,
         reason_codes=result.reason_codes,
@@ -26,16 +27,8 @@ def build_single_period_attribution_response(
         supportability_evidence=_build_supportability_response(result.supportability_evidence),
         levels=[_build_level_response(level) for level in result.levels],
         reconciliation=_build_reconciliation_response(result.reconciliation),
-        currency_attribution=(
-            [_build_currency_result_response(item) for item in result.currency_attribution]
-            if result.currency_attribution is not None
-            else None
-        ),
-        currency_attribution_totals=(
-            _build_currency_totals_response(result.currency_attribution_totals)
-            if result.currency_attribution_totals is not None
-            else None
-        ),
+        currency_attribution=currency_attribution,
+        currency_attribution_totals=currency_attribution_totals,
     )
 
 
@@ -150,3 +143,19 @@ def _build_currency_totals_response(
         total_effect=totals.total_effect,
         currency_count=totals.currency_count,
     )
+
+
+def _build_currency_attribution_response(
+    result: attribution_types.SinglePeriodAttributionResult,
+) -> tuple[list[CurrencyAttributionResult] | None, CurrencyAttributionTotals | None]:
+    currency_attribution = (
+        [_build_currency_result_response(item) for item in result.currency_attribution]
+        if result.currency_attribution is not None
+        else None
+    )
+    currency_attribution_totals = (
+        _build_currency_totals_response(result.currency_attribution_totals)
+        if result.currency_attribution_totals is not None
+        else None
+    )
+    return currency_attribution, currency_attribution_totals
