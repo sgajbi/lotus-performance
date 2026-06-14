@@ -101,6 +101,14 @@ def _record_extra_fields(record: logging.LogRecord) -> dict[str, object]:
     return {}
 
 
+def _log_context_fields() -> dict[str, str | None]:
+    return {
+        "correlation_id": correlation_id_var.get() or None,
+        "request_id": request_id_var.get() or None,
+        "trace_id": trace_id_var.get() or None,
+    }
+
+
 def _json_log_payload(record: logging.LogRecord) -> dict[str, object]:
     payload: dict[str, object] = {
         "timestamp": datetime.now(UTC).isoformat(),
@@ -109,9 +117,7 @@ def _json_log_payload(record: logging.LogRecord) -> dict[str, object]:
         "environment": os.getenv("ENVIRONMENT", "local"),
         "logger": record.name,
         "message": record.getMessage(),
-        "correlation_id": correlation_id_var.get() or None,
-        "request_id": request_id_var.get() or None,
-        "trace_id": trace_id_var.get() or None,
+        **_log_context_fields(),
     }
     payload.update(_record_extra_fields(record))
     return {key: value for key, value in payload.items() if value is not None}

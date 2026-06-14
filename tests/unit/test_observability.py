@@ -9,6 +9,7 @@ from app.observability import (
     _bounded_mwr_solver_outcome_labels,
     _bounded_mwr_solver_reason_codes,
     _json_log_payload,
+    _log_context_fields,
     build_access_log_fields,
     correlation_id_var,
     propagation_headers,
@@ -102,6 +103,18 @@ def test_json_formatter_includes_standard_and_extra_fields(monkeypatch):
     assert payload["message"] == "log-message"
     assert payload["endpoint"] == "/health"
     assert payload["duration_ms"] == 12.3
+
+
+def test_log_context_fields_preserves_present_ids_and_normalizes_empty_ids():
+    correlation_id_var.set("corr-log")
+    request_id_var.set("")
+    trace_id_var.set("trace-log")
+
+    assert _log_context_fields() == {
+        "correlation_id": "corr-log",
+        "request_id": None,
+        "trace_id": "trace-log",
+    }
 
 
 def test_json_log_payload_filters_empty_context_and_ignores_non_dict_extra_fields():
