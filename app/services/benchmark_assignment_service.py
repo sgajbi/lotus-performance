@@ -17,24 +17,12 @@ class ResolvedBenchmarkIdentity:
     source_details: dict[str, int]
 
 
-async def resolve_benchmark_identity(
+def _resolved_assignment_identity(
     *,
-    stateful_input_service: StatefulInputService,
     portfolio_id: str,
-    as_of_date: date,
-    reporting_currency: str | None,
-    calculation_id: UUID,
-    benchmark_id: str | None,
+    assignment_status: int,
+    assignment_payload: dict[str, object],
 ) -> ResolvedBenchmarkIdentity:
-    if benchmark_id is not None:
-        return ResolvedBenchmarkIdentity(benchmark_id=benchmark_id, source_details={})
-
-    assignment_status, assignment_payload = await stateful_input_service.get_benchmark_assignment(
-        portfolio_id=portfolio_id,
-        as_of_date=as_of_date,
-        reporting_currency=reporting_currency,
-        calculation_id=calculation_id,
-    )
     if assignment_status == status.HTTP_404_NOT_FOUND:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -54,4 +42,29 @@ async def resolve_benchmark_identity(
     return ResolvedBenchmarkIdentity(
         benchmark_id=benchmark_id_raw,
         source_details={"resolved_benchmark_assignment": 1},
+    )
+
+
+async def resolve_benchmark_identity(
+    *,
+    stateful_input_service: StatefulInputService,
+    portfolio_id: str,
+    as_of_date: date,
+    reporting_currency: str | None,
+    calculation_id: UUID,
+    benchmark_id: str | None,
+) -> ResolvedBenchmarkIdentity:
+    if benchmark_id is not None:
+        return ResolvedBenchmarkIdentity(benchmark_id=benchmark_id, source_details={})
+
+    assignment_status, assignment_payload = await stateful_input_service.get_benchmark_assignment(
+        portfolio_id=portfolio_id,
+        as_of_date=as_of_date,
+        reporting_currency=reporting_currency,
+        calculation_id=calculation_id,
+    )
+    return _resolved_assignment_identity(
+        portfolio_id=portfolio_id,
+        assignment_status=assignment_status,
+        assignment_payload=assignment_payload,
     )
