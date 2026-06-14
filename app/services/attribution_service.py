@@ -41,16 +41,24 @@ def _count_attribution_benchmark_rows(request: AttributionRequest) -> int:
     return sum(len(group.observations) for group in request.benchmark_groups_data)
 
 
-def _count_attribution_input_rows(request: AttributionRequest) -> int:
-    portfolio_observations = len(request.portfolio_data.valuation_points) if request.portfolio_data is not None else 0
-    instrument_observations = sum(len(instrument.valuation_points) for instrument in (request.instruments_data or []))
-    portfolio_group_observations = sum(len(group.observations) for group in (request.portfolio_groups_data or []))
+def _count_optional_nested_rows(items: Sequence[Any] | None, attribute: str) -> int:
+    return sum(len(getattr(item, attribute)) for item in (items or []))
+
+
+def _count_direct_portfolio_rows(request: AttributionRequest) -> int:
+    return len(request.portfolio_data.valuation_points) if request.portfolio_data is not None else 0
+
+
+def _count_attribution_portfolio_rows(request: AttributionRequest) -> int:
     return (
-        portfolio_observations
-        + instrument_observations
-        + portfolio_group_observations
-        + _count_attribution_benchmark_rows(request)
+        _count_direct_portfolio_rows(request)
+        + _count_optional_nested_rows(request.instruments_data, "valuation_points")
+        + _count_optional_nested_rows(request.portfolio_groups_data, "observations")
     )
+
+
+def _count_attribution_input_rows(request: AttributionRequest) -> int:
+    return _count_attribution_portfolio_rows(request) + _count_attribution_benchmark_rows(request)
 
 
 def _latest_attribution_observation_date(request: AttributionRequest):

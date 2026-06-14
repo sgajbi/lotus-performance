@@ -9,6 +9,29 @@ from app.services import attribution_service
 from common.enums import PeriodType
 
 
+def test_count_attribution_portfolio_rows_handles_absent_and_populated_sources():
+    empty_request = SimpleNamespace(portfolio_data=None, instruments_data=None, portfolio_groups_data=None)
+    populated_request = SimpleNamespace(
+        portfolio_data=SimpleNamespace(valuation_points=[1, 2]),
+        instruments_data=[SimpleNamespace(valuation_points=[1]), SimpleNamespace(valuation_points=[1, 2])],
+        portfolio_groups_data=[SimpleNamespace(observations=[1, 2, 3])],
+    )
+
+    assert attribution_service._count_attribution_portfolio_rows(empty_request) == 0
+    assert attribution_service._count_attribution_portfolio_rows(populated_request) == 8
+
+
+def test_count_optional_nested_rows_handles_absent_and_populated_collections():
+    assert attribution_service._count_optional_nested_rows(None, "observations") == 0
+    assert (
+        attribution_service._count_optional_nested_rows(
+            [SimpleNamespace(observations=[1]), SimpleNamespace(observations=[1, 2])],
+            "observations",
+        )
+        == 3
+    )
+
+
 def test_build_attribution_results_by_period_slices_non_empty_periods_and_prefixes_lineage(monkeypatch):
     effects_df = pd.DataFrame(
         {"effect": [0.1, 0.2]},
