@@ -12,6 +12,7 @@ from app.models.twr_requests import (
     _has_exactly_one_stateless_twr_payload,
     _has_legacy_twr_valuation_points,
     _has_nested_twr_stateless_input,
+    _resolved_twr_stateless_valuation_points,
     _stateless_twr_envelope_issue,
     _twr_benchmark_config_required,
     _validate_calculated_stateless_twr_benchmark_payload,
@@ -202,6 +203,20 @@ def test_twr_request_to_stateless_prefers_explicit_override(base_payload):
 
     assert len(stateless.valuation_points) == 1
     assert stateless.valuation_points[0].perf_date.isoformat() == "2025-01-02"
+
+
+def test_resolved_twr_stateless_valuation_points_preserves_explicit_empty_override(base_payload):
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            **base_payload,
+            "input_mode": "stateless",
+            "stateless_input": {
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+            },
+        }
+    )
+
+    assert _resolved_twr_stateless_valuation_points(request, valuation_points=[]) == []
 
 
 def test_twr_request_to_stateless_fails_without_stateless_payload(base_payload):

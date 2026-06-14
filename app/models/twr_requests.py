@@ -183,6 +183,20 @@ def _twr_benchmark_config_required(request: "TWRAnalyticsRequest") -> bool:
     return request.include_benchmark and request.input_mode == TWRInputMode.STATELESS and request.benchmark is None
 
 
+def _resolved_twr_stateless_valuation_points(
+    request: "TWRAnalyticsRequest",
+    *,
+    valuation_points: list[DailyInputData] | None,
+) -> list[DailyInputData]:
+    if valuation_points is not None:
+        return valuation_points
+    if request.stateless_input is not None:
+        return request.stateless_input.valuation_points
+    if request.valuation_points:
+        return request.valuation_points
+    raise ValueError("No stateless valuation_points are available to build a PerformanceRequest")
+
+
 class TWRAnalyticsRequest(PerformanceRequestBase):
     performance_start_date: date | None = Field(
         default=None,
@@ -231,14 +245,7 @@ class TWRAnalyticsRequest(PerformanceRequestBase):
     ) -> PerformanceRequest:
         if self.performance_start_date is None:
             raise ValueError("performance_start_date is required to build a stateless PerformanceRequest")
-        if valuation_points is not None:
-            resolved_points = valuation_points
-        elif self.stateless_input is not None:
-            resolved_points = self.stateless_input.valuation_points
-        elif self.valuation_points:
-            resolved_points = self.valuation_points
-        else:
-            raise ValueError("No stateless valuation_points are available to build a PerformanceRequest")
+        resolved_points = _resolved_twr_stateless_valuation_points(self, valuation_points=valuation_points)
 
         payload = self.model_dump(
             exclude={
