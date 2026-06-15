@@ -189,6 +189,34 @@ def _upstream_snapshot_model_from_payload(
     )
 
 
+def _record_missing_upstream_snapshot(
+    session: Session,
+    *,
+    calculation_id: UUID,
+    snapshot: dict[str, Any],
+    created_at: datetime,
+    existing_snapshot_ids: set[str],
+) -> bool:
+    snapshot_id = snapshot["snapshot_id"]
+    if snapshot_id in existing_snapshot_ids:
+        return False
+    try:
+        with session.begin_nested():
+            session.add(
+                _upstream_snapshot_model_from_payload(
+                    calculation_id=calculation_id,
+                    snapshot=snapshot,
+                    created_at=created_at,
+                )
+            )
+            session.flush()
+            existing_snapshot_ids.add(snapshot_id)
+            return True
+    except IntegrityError:
+        existing_snapshot_ids.add(snapshot_id)
+        return False
+
+
 class ExecutionRegistry:
     def __init__(self, database_url: str):
         connect_args = {"check_same_thread": False} if database_url.startswith("sqlite") else {}
@@ -553,22 +581,13 @@ class ExecutionRegistry:
             existing_snapshot_ids = _existing_upstream_snapshot_ids(session, snapshot_ids)
             created_at = datetime.now(timezone.utc)
             for snapshot in snapshots:
-                if snapshot["snapshot_id"] in existing_snapshot_ids:
-                    continue
-                try:
-                    with session.begin_nested():
-                        session.add(
-                            _upstream_snapshot_model_from_payload(
-                                calculation_id=calculation_id,
-                                snapshot=snapshot,
-                                created_at=created_at,
-                            )
-                        )
-                        session.flush()
-                        existing_snapshot_ids.add(snapshot["snapshot_id"])
-                except IntegrityError:
-                    existing_snapshot_ids.add(snapshot["snapshot_id"])
-                    continue
+                _record_missing_upstream_snapshot(
+                    session,
+                    calculation_id=calculation_id,
+                    snapshot=snapshot,
+                    created_at=created_at,
+                    existing_snapshot_ids=existing_snapshot_ids,
+                )
 
     def list_upstream_snapshots(self, calculation_id: UUID) -> list[UpstreamSnapshotRecord]:
         with self._session() as session:

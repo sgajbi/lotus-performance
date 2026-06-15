@@ -39,30 +39,30 @@ must stay at `0`.
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
 | 1 | `load_json_object_or_none` | function | `app/services/durable_store_json.py:11` | 6 | B |
-| 2 | `record_upstream_snapshots` | method | `app/services/execution_registry.py:542` | 6 | B |
-| 3 | `_is_replay_of_existing_execution` | method | `app/services/execution_registry.py:638` | 6 | B |
-| 4 | `_check_portfolio_daily_calculation_evidence` | function | `app/services/inspection/calculation_consistency.py:391` | 6 | B |
-| 5 | `_comparative_return_component_mismatch` | function | `app/services/inspection/calculation_consistency.py:713` | 6 | B |
-| 6 | `_select_latest_position_rows` | function | `app/services/inspection/reconciliation.py:459` | 6 | B |
-| 7 | `_build_position_continuity_gap_sample` | function | `app/services/inspection/reconciliation.py:567` | 6 | B |
-| 8 | `_row_has_transition_activity` | function | `app/services/inspection/reconciliation.py:602` | 6 | B |
-| 9 | `_cash_flows_have_nonzero_amount` | function | `app/services/inspection/reconciliation.py:633` | 6 | B |
-| 10 | `_collect_duplicate_snapshot_samples` | function | `app/services/inspection/reconciliation.py:645` | 6 | B |
-| 11 | `_build_observation_source_economics` | function | `app/services/inspection/source_economics.py:439` | 6 | B |
-| 12 | `_read_explicit_decimal_fields` | function | `app/services/inspection/source_economics.py:616` | 6 | B |
-| 13 | `_find_missing_business_dates` | function | `app/services/inspection/source_quality.py:724` | 6 | B |
-| 14 | `load_existing_twr_calculation_artifacts` | function | `app/services/inspection/subject_materialization.py:34` | 6 | B |
-| 15 | `_load_request_payload` | function | `app/services/inspection/subject_materialization.py:123` | 6 | B |
-| 16 | `_build_inspection_findings_context` | function | `app/services/inspection/twr_inspection_service.py:386` | 6 | B |
-| 17 | `_synthesize_verdict` | function | `app/services/inspection/twr_inspection_service.py:586` | 6 | B |
-| 18 | `_response_master_window` | function | `app/services/inspection/twr_inspection_service.py:725` | 6 | B |
-| 19 | `_build_workflow_capabilities` | function | `app/services/integration_capabilities_service.py:169` | 6 | B |
-| 20 | `_stringify_decimals` | function | `app/services/mwr_calculation_service.py:134` | 6 | B |
-| 21 | `_enforce_manual_action_cooldown` | function | `app/services/operator_action_guard_service.py:186` | 6 | B |
-| 22 | `generated_at_within_bounds` | function | `app/services/operator_action_history_filters.py:38` | 6 | B |
-| 23 | `_history_manifest_file_names` | function | `app/services/operator_action_history_manifest.py:83` | 6 | B |
-| 24 | `_parse_reclaimed_event_payload` | function | `app/services/operator_action_lease_service.py:497` | 6 | B |
-| 25 | `_has_valid_reclaimed_event_string_fields` | function | `app/services/operator_action_lease_service.py:567` | 6 | B |
+| 2 | `_is_replay_of_existing_execution` | method | `app/services/execution_registry.py:657` | 6 | B |
+| 3 | `_check_portfolio_daily_calculation_evidence` | function | `app/services/inspection/calculation_consistency.py:391` | 6 | B |
+| 4 | `_comparative_return_component_mismatch` | function | `app/services/inspection/calculation_consistency.py:713` | 6 | B |
+| 5 | `_select_latest_position_rows` | function | `app/services/inspection/reconciliation.py:459` | 6 | B |
+| 6 | `_build_position_continuity_gap_sample` | function | `app/services/inspection/reconciliation.py:567` | 6 | B |
+| 7 | `_row_has_transition_activity` | function | `app/services/inspection/reconciliation.py:602` | 6 | B |
+| 8 | `_cash_flows_have_nonzero_amount` | function | `app/services/inspection/reconciliation.py:633` | 6 | B |
+| 9 | `_collect_duplicate_snapshot_samples` | function | `app/services/inspection/reconciliation.py:645` | 6 | B |
+| 10 | `_build_observation_source_economics` | function | `app/services/inspection/source_economics.py:439` | 6 | B |
+| 11 | `_read_explicit_decimal_fields` | function | `app/services/inspection/source_economics.py:616` | 6 | B |
+| 12 | `_find_missing_business_dates` | function | `app/services/inspection/source_quality.py:724` | 6 | B |
+| 13 | `load_existing_twr_calculation_artifacts` | function | `app/services/inspection/subject_materialization.py:34` | 6 | B |
+| 14 | `_load_request_payload` | function | `app/services/inspection/subject_materialization.py:123` | 6 | B |
+| 15 | `_build_inspection_findings_context` | function | `app/services/inspection/twr_inspection_service.py:386` | 6 | B |
+| 16 | `_synthesize_verdict` | function | `app/services/inspection/twr_inspection_service.py:586` | 6 | B |
+| 17 | `_response_master_window` | function | `app/services/inspection/twr_inspection_service.py:725` | 6 | B |
+| 18 | `_build_workflow_capabilities` | function | `app/services/integration_capabilities_service.py:169` | 6 | B |
+| 19 | `_stringify_decimals` | function | `app/services/mwr_calculation_service.py:134` | 6 | B |
+| 20 | `_enforce_manual_action_cooldown` | function | `app/services/operator_action_guard_service.py:186` | 6 | B |
+| 21 | `generated_at_within_bounds` | function | `app/services/operator_action_history_filters.py:38` | 6 | B |
+| 22 | `_history_manifest_file_names` | function | `app/services/operator_action_history_manifest.py:83` | 6 | B |
+| 23 | `_parse_reclaimed_event_payload` | function | `app/services/operator_action_lease_service.py:497` | 6 | B |
+| 24 | `_has_valid_reclaimed_event_string_fields` | function | `app/services/operator_action_lease_service.py:567` | 6 | B |
+| 25 | `resolve_runtime_retention_manual_replay` | function | `app/services/operator_action_replay_service.py:91` | 6 | B |
 
 ## Lowest Maintainability Index
 
@@ -760,6 +760,8 @@ dropped out after non-empty string-list payload qualification was split into a t
 `load_json_object_or_none` remains the first measured B-grade CC `6` candidate after object-payload
 qualification was split into a typed predicate because absent, empty, invalid JSON, and non-object
 fallback policies still live in the public loader.
+`record_upstream_snapshots` also dropped out after per-snapshot duplicate suppression, nested
+insert, integrity-collision handling, and existing-id tracking were moved into a dedicated helper.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.

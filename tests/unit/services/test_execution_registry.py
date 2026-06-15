@@ -10,6 +10,7 @@ from app.services.execution_registry import (
     ExecutionRegistry,
     ExecutionStageStatus,
     ExecutionStatus,
+    _record_missing_upstream_snapshot,
     _upstream_snapshot_model_from_payload,
 )
 
@@ -278,6 +279,48 @@ def test_upstream_snapshot_model_projection_preserves_payload_fields():
     assert model.retrieval_status == "200"
     assert model.paging_metadata_json == '{"page_token": "next"}'
     assert model.created_at_utc == created_at
+
+
+def test_record_missing_upstream_snapshot_tracks_inserted_snapshot_ids(tmp_path):
+    registry = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    registry.create_schema()
+    calculation_id = uuid4()
+    registry.create_execution(
+        calculation_id=calculation_id,
+        analytics_type="ReturnsSeries",
+        portfolio_id="PORT-MISSING-SNAPSHOT",
+    )
+    snapshot = {
+        "snapshot_id": "snap-policy",
+        "upstream_endpoint": "portfolio_timeseries",
+        "source_identifier": "PORT-MISSING-SNAPSHOT",
+        "as_of_date": "2026-06-16",
+        "request_fingerprint": "req-policy",
+        "response_fingerprint": "resp-policy",
+        "retrieval_status": "200",
+    }
+    existing_snapshot_ids: set[str] = set()
+
+    with registry._session() as session:
+        inserted = _record_missing_upstream_snapshot(
+            session,
+            calculation_id=calculation_id,
+            snapshot=snapshot,
+            created_at=datetime(2026, 6, 16, tzinfo=timezone.utc),
+            existing_snapshot_ids=existing_snapshot_ids,
+        )
+        skipped = _record_missing_upstream_snapshot(
+            session,
+            calculation_id=calculation_id,
+            snapshot=snapshot,
+            created_at=datetime(2026, 6, 16, tzinfo=timezone.utc),
+            existing_snapshot_ids=existing_snapshot_ids,
+        )
+
+    assert inserted
+    assert not skipped
+    assert existing_snapshot_ids == {"snap-policy"}
+    assert [snapshot.snapshot_id for snapshot in registry.list_upstream_snapshots(calculation_id)] == ["snap-policy"]
 
 
 def test_execution_registry_clear_all_records_removes_upstream_snapshots(tmp_path):
