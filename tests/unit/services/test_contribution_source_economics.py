@@ -7,6 +7,9 @@ from app.models.contribution_analytics_requests import ContributionInputMode
 from app.models.contribution_requests import ContributionRequest
 from app.services import contribution_evidence
 from app.services.contribution_source_economics import (
+    _has_caller_supplied_position_flows,
+    _has_non_zero_flow,
+    _has_position_currency_metadata,
     _has_unclassified_position_metadata,
     _has_unsupported_cash_flow_types,
     _is_valid_source_cash_flow_type_count,
@@ -224,6 +227,49 @@ def test_source_economics_evidence_keeps_stateless_boundary_explicit():
     assert evidence.source_owner == "caller"
     assert evidence.source_contracts == ["ContributionRequest"]
     assert evidence.source_snapshot_count == 0
+
+
+def test_stateless_source_economics_predicates_detect_flows_and_currency():
+    request = ContributionRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PB_SG_GLOBAL_BAL_001",
+            "report_start_date": "2026-03-01",
+            "report_end_date": "2026-03-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "portfolio_data": {
+                "metric_basis": "NET",
+                "valuation_points": [
+                    {"perf_date": "2026-03-01", "begin_mv": 1000, "end_mv": 1010},
+                    {"perf_date": "2026-03-02", "begin_mv": 1010, "end_mv": 1020},
+                ],
+            },
+            "positions_data": [
+                {
+                    "position_id": "PB_SG_GLOBAL_BAL_001:SEC_A",
+                    "meta": {"currency": "USD"},
+                    "valuation_points": [
+                        {
+                            "perf_date": "2026-03-01",
+                            "begin_mv": 600,
+                            "end_mv": 606,
+                            "bod_cf": "0",
+                            "eod_cf": "0",
+                            "mgmt_fees": "1.25",
+                        },
+                    ],
+                },
+            ],
+        }
+    )
+
+    assert _has_caller_supplied_position_flows(request)
+    assert _has_position_currency_metadata(request)
+
+
+def test_stateless_source_economics_flow_predicate_ignores_invalid_raw_flow_values():
+    assert _has_non_zero_flow({"bod_cf": "bad-input", "eod_cf": "0", "mgmt_fees": "2"})
+    assert not _has_non_zero_flow({"bod_cf": "bad-input", "eod_cf": "0", "mgmt_fees": "0"})
 
 
 def test_contribution_snapshot_lookup_logs_durable_store_failures(monkeypatch, caplog):

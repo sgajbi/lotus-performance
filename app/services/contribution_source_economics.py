@@ -85,15 +85,23 @@ def build_contribution_source_economics_evidence(
 
 def _available_stateless_economics(request: ContributionRequest) -> list[str]:
     available = ["portfolio_market_values", "position_market_values"]
-    if any(
+    if _has_caller_supplied_position_flows(request):
+        available.append("caller_supplied_position_flows")
+    if _has_position_currency_metadata(request):
+        available.append("position_currency")
+    return sorted(set(available))
+
+
+def _has_caller_supplied_position_flows(request: ContributionRequest) -> bool:
+    return any(
         _has_non_zero_flow(point.model_dump(mode="python"))
         for position in request.positions_data
         for point in position.valuation_points
-    ):
-        available.append("caller_supplied_position_flows")
-    if any(position.meta.get("currency") for position in request.positions_data):
-        available.append("position_currency")
-    return sorted(set(available))
+    )
+
+
+def _has_position_currency_metadata(request: ContributionRequest) -> bool:
+    return any(position.meta.get("currency") for position in request.positions_data)
 
 
 def _available_stateful_economics(
