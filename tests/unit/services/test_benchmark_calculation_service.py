@@ -256,6 +256,31 @@ def test_benchmark_period_result_returns_none_for_empty_window():
     assert result is None
 
 
+def test_benchmark_period_daily_returns_sorts_links_and_suppresses_empty_windows():
+    daily_returns_df = pd.DataFrame(
+        {
+            "date": [date(2025, 1, 2), date(2025, 1, 1)],
+            "benchmark_return": [Decimal("0.02"), Decimal("0.01")],
+        }
+    )
+
+    period_daily_df = benchmark_calculation_service._benchmark_period_daily_returns(
+        period=ResolvedPeriod(name="ITD", start_date=date(2025, 1, 1), end_date=date(2025, 1, 2)),
+        daily_returns_df=daily_returns_df,
+    )
+
+    assert period_daily_df is not None
+    assert list(period_daily_df["date"]) == [date(2025, 1, 1), date(2025, 1, 2)]
+    assert list(period_daily_df["cumulative_return"]) == [Decimal("0.01"), Decimal("0.0302")]
+    assert (
+        benchmark_calculation_service._benchmark_period_daily_returns(
+            period=ResolvedPeriod(name="EMPTY", start_date=date(2024, 1, 1), end_date=date(2024, 1, 2)),
+            daily_returns_df=daily_returns_df,
+        )
+        is None
+    )
+
+
 def test_benchmark_calculation_helpers_cover_breakdown_and_scaling_edges():
     df = pd.DataFrame(
         {

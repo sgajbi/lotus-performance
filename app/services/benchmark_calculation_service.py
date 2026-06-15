@@ -126,15 +126,11 @@ def calculate_benchmark_artifacts(
     )
 
 
-def _benchmark_period_result(
+def _benchmark_period_daily_returns(
     *,
     period: ResolvedPeriod,
     daily_returns_df: pd.DataFrame,
-    component_contributions_df: pd.DataFrame,
-    benchmark_request: BenchmarkPerformanceRequest,
-    frequencies: list[Frequency],
-    input_mode: str | None,
-) -> SinglePeriodBenchmarkResult | None:
+) -> pd.DataFrame | None:
     period_daily_df = daily_returns_df[
         (daily_returns_df["date"] >= period.start_date) & (daily_returns_df["date"] <= period.end_date)
     ].copy()
@@ -147,6 +143,21 @@ def _benchmark_period_result(
         running *= Decimal("1") + Decimal(str(benchmark_return))
         period_cumulative.append(running - Decimal("1"))
     period_daily_df["cumulative_return"] = period_cumulative
+    return period_daily_df
+
+
+def _benchmark_period_result(
+    *,
+    period: ResolvedPeriod,
+    daily_returns_df: pd.DataFrame,
+    component_contributions_df: pd.DataFrame,
+    benchmark_request: BenchmarkPerformanceRequest,
+    frequencies: list[Frequency],
+    input_mode: str | None,
+) -> SinglePeriodBenchmarkResult | None:
+    period_daily_df = _benchmark_period_daily_returns(period=period, daily_returns_df=daily_returns_df)
+    if period_daily_df is None:
+        return None
 
     period_component_df = component_contributions_df[
         (component_contributions_df["date"] >= period.start_date)
