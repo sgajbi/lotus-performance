@@ -64,6 +64,21 @@ def _calculate_reset_aware_period_portfolio_return(
     return _as_numeric(period_results_df[PortfolioColumns.FINAL_CUM_ROR.value].iloc[-1] / 100)
 
 
+def _position_period_valuation_points(
+    *,
+    position_data: PositionData | None,
+    period_start_date,
+    period_end_date,
+) -> list[dict[str, Any]]:
+    if position_data is None:
+        return []
+    return [
+        valuation_point.model_dump(mode="python")
+        for valuation_point in position_data.valuation_points
+        if period_start_date <= valuation_point.perf_date <= period_end_date
+    ]
+
+
 def _calculate_position_total_return_pct(
     *,
     request: ContributionRequest,
@@ -71,14 +86,11 @@ def _calculate_position_total_return_pct(
     period_start_date,
     period_end_date,
 ) -> Any:
-    if position_data is None:
-        return 0.0
-
-    period_valuation_points = [
-        valuation_point.model_dump(mode="python")
-        for valuation_point in position_data.valuation_points
-        if period_start_date <= valuation_point.perf_date <= period_end_date
-    ]
+    period_valuation_points = _position_period_valuation_points(
+        position_data=position_data,
+        period_start_date=period_start_date,
+        period_end_date=period_end_date,
+    )
     if not period_valuation_points:
         return 0.0
 

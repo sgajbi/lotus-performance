@@ -38,31 +38,31 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_calculate_position_total_return_pct` | function | `app/services/contribution_returns.py:67` | 6 | B |
-| 2 | `_build_hierarchy_from_adjusted_position_series` | function | `app/services/contribution_series.py:176` | 6 | B |
-| 3 | `_build_period_contribution_series_outputs` | function | `app/services/contribution_service.py:188` | 6 | B |
-| 4 | `_prepare_contribution_engine_inputs` | function | `app/services/contribution_service.py:414` | 6 | B |
-| 5 | `_contribution_smoothing_residual_reason_codes` | function | `app/services/contribution_smoothing.py:60` | 6 | B |
-| 6 | `_available_stateless_economics` | function | `app/services/contribution_source_economics.py:86` | 6 | B |
-| 7 | `_unsupported_component_pnl_fields` | function | `app/services/contribution_source_economics.py:129` | 6 | B |
-| 8 | `load_json_object_or_none` | function | `app/services/durable_store_json.py:9` | 6 | B |
-| 9 | `load_json_string_list_or_default` | function | `app/services/durable_store_json.py:31` | 6 | B |
-| 10 | `record_upstream_snapshots` | method | `app/services/execution_registry.py:542` | 6 | B |
-| 11 | `_is_replay_of_existing_execution` | method | `app/services/execution_registry.py:638` | 6 | B |
-| 12 | `_check_portfolio_daily_calculation_evidence` | function | `app/services/inspection/calculation_consistency.py:391` | 6 | B |
-| 13 | `_comparative_return_component_mismatch` | function | `app/services/inspection/calculation_consistency.py:713` | 6 | B |
-| 14 | `_select_latest_position_rows` | function | `app/services/inspection/reconciliation.py:459` | 6 | B |
-| 15 | `_build_position_continuity_gap_sample` | function | `app/services/inspection/reconciliation.py:567` | 6 | B |
-| 16 | `_row_has_transition_activity` | function | `app/services/inspection/reconciliation.py:602` | 6 | B |
-| 17 | `_cash_flows_have_nonzero_amount` | function | `app/services/inspection/reconciliation.py:633` | 6 | B |
-| 18 | `_collect_duplicate_snapshot_samples` | function | `app/services/inspection/reconciliation.py:645` | 6 | B |
-| 19 | `_build_observation_source_economics` | function | `app/services/inspection/source_economics.py:439` | 6 | B |
-| 20 | `_read_explicit_decimal_fields` | function | `app/services/inspection/source_economics.py:616` | 6 | B |
-| 21 | `_find_missing_business_dates` | function | `app/services/inspection/source_quality.py:724` | 6 | B |
-| 22 | `load_existing_twr_calculation_artifacts` | function | `app/services/inspection/subject_materialization.py:34` | 6 | B |
-| 23 | `_load_request_payload` | function | `app/services/inspection/subject_materialization.py:123` | 6 | B |
-| 24 | `_build_inspection_findings_context` | function | `app/services/inspection/twr_inspection_service.py:386` | 6 | B |
-| 25 | `_synthesize_verdict` | function | `app/services/inspection/twr_inspection_service.py:586` | 6 | B |
+| 1 | `_build_hierarchy_from_adjusted_position_series` | function | `app/services/contribution_series.py:176` | 6 | B |
+| 2 | `_build_period_contribution_series_outputs` | function | `app/services/contribution_service.py:188` | 6 | B |
+| 3 | `_prepare_contribution_engine_inputs` | function | `app/services/contribution_service.py:414` | 6 | B |
+| 4 | `_contribution_smoothing_residual_reason_codes` | function | `app/services/contribution_smoothing.py:60` | 6 | B |
+| 5 | `_available_stateless_economics` | function | `app/services/contribution_source_economics.py:86` | 6 | B |
+| 6 | `_unsupported_component_pnl_fields` | function | `app/services/contribution_source_economics.py:129` | 6 | B |
+| 7 | `load_json_object_or_none` | function | `app/services/durable_store_json.py:9` | 6 | B |
+| 8 | `load_json_string_list_or_default` | function | `app/services/durable_store_json.py:31` | 6 | B |
+| 9 | `record_upstream_snapshots` | method | `app/services/execution_registry.py:542` | 6 | B |
+| 10 | `_is_replay_of_existing_execution` | method | `app/services/execution_registry.py:638` | 6 | B |
+| 11 | `_check_portfolio_daily_calculation_evidence` | function | `app/services/inspection/calculation_consistency.py:391` | 6 | B |
+| 12 | `_comparative_return_component_mismatch` | function | `app/services/inspection/calculation_consistency.py:713` | 6 | B |
+| 13 | `_select_latest_position_rows` | function | `app/services/inspection/reconciliation.py:459` | 6 | B |
+| 14 | `_build_position_continuity_gap_sample` | function | `app/services/inspection/reconciliation.py:567` | 6 | B |
+| 15 | `_row_has_transition_activity` | function | `app/services/inspection/reconciliation.py:602` | 6 | B |
+| 16 | `_cash_flows_have_nonzero_amount` | function | `app/services/inspection/reconciliation.py:633` | 6 | B |
+| 17 | `_collect_duplicate_snapshot_samples` | function | `app/services/inspection/reconciliation.py:645` | 6 | B |
+| 18 | `_build_observation_source_economics` | function | `app/services/inspection/source_economics.py:439` | 6 | B |
+| 19 | `_read_explicit_decimal_fields` | function | `app/services/inspection/source_economics.py:616` | 6 | B |
+| 20 | `_find_missing_business_dates` | function | `app/services/inspection/source_quality.py:724` | 6 | B |
+| 21 | `load_existing_twr_calculation_artifacts` | function | `app/services/inspection/subject_materialization.py:34` | 6 | B |
+| 22 | `_load_request_payload` | function | `app/services/inspection/subject_materialization.py:123` | 6 | B |
+| 23 | `_build_inspection_findings_context` | function | `app/services/inspection/twr_inspection_service.py:386` | 6 | B |
+| 24 | `_synthesize_verdict` | function | `app/services/inspection/twr_inspection_service.py:586` | 6 | B |
+| 25 | `_response_master_window` | function | `app/services/inspection/twr_inspection_service.py:725` | 6 | B |
 
 ## Lowest Maintainability Index
 
@@ -752,6 +752,8 @@ selection moved into a dedicated stale-job outcome policy.
 resolution, execution, and failure mapping moved into a dedicated lifecycle helper.
 `_is_average_weight_shadow_cutover_candidate` also dropped out after exact clean-bookkeeping
 qualification moved into a dedicated methodology helper.
+`_calculate_position_total_return_pct` also dropped out after optional-position handling and
+inclusive period valuation-point slicing moved into a dedicated preparation helper.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.

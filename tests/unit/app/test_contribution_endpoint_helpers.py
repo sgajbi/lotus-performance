@@ -5,7 +5,7 @@ import pytest
 
 from app.api.endpoints.contribution import _as_numeric
 from app.models.contribution_analytics_requests import ContributionAnalyticsRequest, ContributionInputMode
-from app.models.contribution_requests import ContributionRequest
+from app.models.contribution_requests import ContributionRequest, PositionData
 from app.models.contribution_responses import DailyContribution, PositionContribution, SinglePeriodContributionResult
 from app.services.contribution_audit import AverageWeightShadowAuditState
 from app.services.contribution_calculation_workflow_service import (
@@ -52,6 +52,7 @@ from app.services.contribution_periods import (
 from app.services.contribution_returns import (
     _calculate_position_total_return_pct,
     _calculate_reset_aware_period_portfolio_return,
+    _position_period_valuation_points,
     build_position_contributions,
     build_residual_adjusted_position_totals,
 )
@@ -658,6 +659,27 @@ def test_contribution_reset_helpers_cover_empty_and_zero_paths(mocker):
         )
         == 0.0
     )
+
+
+def test_position_period_valuation_points_filters_inclusive_window() -> None:
+    position_data = PositionData.model_validate(
+        {
+            "position_id": "A",
+            "valuation_points": [
+                {"perf_date": "2025-01-01", "begin_mv": 100, "end_mv": 101},
+                {"perf_date": "2025-01-02", "begin_mv": 101, "end_mv": 102},
+                {"perf_date": "2025-01-03", "begin_mv": 102, "end_mv": 103},
+            ],
+        }
+    )
+
+    period_points = _position_period_valuation_points(
+        position_data=position_data,
+        period_start_date=pd.Timestamp("2025-01-02").date(),
+        period_end_date=pd.Timestamp("2025-01-02").date(),
+    )
+
+    assert [point["perf_date"] for point in period_points] == [pd.Timestamp("2025-01-02").date()]
 
 
 def test_calculate_reset_aware_average_weight_shadow_ignores_pre_reset_history_and_nip_days():
