@@ -38,6 +38,7 @@ from app.services.contribution_methodology import (
     _classify_average_weight_methodology_status,
     _classify_average_weight_shadow_cutover_blockers,
     _classify_average_weight_shadow_period,
+    _has_clean_average_weight_shadow_bookkeeping,
     _is_average_weight_shadow_cutover_candidate,
     _normalize_reset_aware_average_weight_mode,
     _reset_aware_valid_portfolio_days,
@@ -1156,6 +1157,13 @@ def test_average_weight_shadow_helper_classifies_materiality_and_cutover_readine
         max_shadow_delta_bp=600,
         average_weight_sum_residual_bp=0,
         position_flow_residual_days=0,
+        portfolio_reset_without_position_reset_days=0,
+        position_reset_without_portfolio_reset_days=0,
+        timeseries_total_delta_periods=0,
+    )
+    assert not _has_clean_average_weight_shadow_bookkeeping(
+        average_weight_sum_residual_bp=0,
+        position_flow_residual_days=-1,
         portfolio_reset_without_position_reset_days=0,
         position_reset_without_portfolio_reset_days=0,
         timeseries_total_delta_periods=0,

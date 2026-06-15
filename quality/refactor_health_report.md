@@ -27,7 +27,7 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | Python files | 480 | 543 | measured | `rg --files -g '*.py'` |
 | Python package markers | 18 | 18 | measured | recursive `__init__.py` count |
-| Python LOC | 104,454 | 148,144 | measured | recursive tracked `.py` line count |
+| Python LOC | 104,454 | 148,168 | measured | recursive tracked `.py` line count |
 | Largest Python file LOC | 2,399 | 2,399 | measured | largest-file inventory in baseline report |
 | Largest production file LOC | 1,156 | 1,156 | measured | `app/services/lineage_metadata_store.py` |
 | Duplicate code hotspots | 0 | 0 | measured | `quality/duplicate_code_inventory.md` via `scripts/python_duplicate_code_inventory.py` with `--min-lines 12` |
@@ -40,7 +40,7 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | Max cyclomatic complexity | unknown | 6 | enforced | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py`; `make quality-complexity-gate` |
 | High-complexity functions | unknown | 0 | enforced | rank D-F functions in `quality/complexity_inventory.md`; `make quality-complexity-gate` |
-| Average maintainability index | unknown | 55.07 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
+| Average maintainability index | unknown | 55.06 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
 | Largest functions by LOC | unknown | 159 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py` |
 
 ## Architecture

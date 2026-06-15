@@ -260,6 +260,23 @@ def _build_average_weight_methodology_status(
     )
 
 
+def _has_clean_average_weight_shadow_bookkeeping(
+    *,
+    average_weight_sum_residual_bp: int,
+    position_flow_residual_days: int,
+    portfolio_reset_without_position_reset_days: int,
+    position_reset_without_portfolio_reset_days: int,
+    timeseries_total_delta_periods: int,
+) -> bool:
+    return (
+        average_weight_sum_residual_bp <= 1
+        and position_flow_residual_days == 0
+        and portfolio_reset_without_position_reset_days == 0
+        and position_reset_without_portfolio_reset_days == 0
+        and timeseries_total_delta_periods == 0
+    )
+
+
 def _is_average_weight_shadow_cutover_candidate(
     *,
     max_shadow_delta_bp: int,
@@ -276,13 +293,12 @@ def _is_average_weight_shadow_cutover_candidate(
     cutover candidate when the surrounding bookkeeping and reconciliation signals are otherwise
     clean. That keeps us from mistaking unrelated flow or reset defects for denominator evidence.
     """
-    return (
-        max_shadow_delta_bp >= 500
-        and average_weight_sum_residual_bp <= 1
-        and position_flow_residual_days == 0
-        and portfolio_reset_without_position_reset_days == 0
-        and position_reset_without_portfolio_reset_days == 0
-        and timeseries_total_delta_periods == 0
+    return max_shadow_delta_bp >= 500 and _has_clean_average_weight_shadow_bookkeeping(
+        average_weight_sum_residual_bp=average_weight_sum_residual_bp,
+        position_flow_residual_days=position_flow_residual_days,
+        portfolio_reset_without_position_reset_days=portfolio_reset_without_position_reset_days,
+        position_reset_without_portfolio_reset_days=position_reset_without_portfolio_reset_days,
+        timeseries_total_delta_periods=timeseries_total_delta_periods,
     )
 
 
