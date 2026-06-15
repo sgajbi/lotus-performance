@@ -2,6 +2,7 @@ import logging
 
 from app.services.durable_store_json import (
     _INVALID_JSON_PAYLOAD,
+    _is_non_empty_string_list_payload,
     _load_json_payload_or_invalid,
     load_json_object_or_none,
     load_json_string_list_or_default,
@@ -150,6 +151,13 @@ def test_load_json_payload_or_invalid_logs_decode_failures(caplog):
     assert valid_payload == {"ok": True}
     assert invalid_payload is _INVALID_JSON_PAYLOAD
     assert "Payload invalid JSON for row=row-2." in caplog.text
+
+
+def test_is_non_empty_string_list_payload_requires_non_blank_strings():
+    assert _is_non_empty_string_list_payload(["missing_final_valuation", "stale_source"])
+    assert not _is_non_empty_string_list_payload(["missing_final_valuation", ""])
+    assert not _is_non_empty_string_list_payload(["missing_final_valuation", 1])
+    assert not _is_non_empty_string_list_payload("missing_final_valuation")
 
 
 def test_read_json_object_file_returns_object_payload(tmp_path):

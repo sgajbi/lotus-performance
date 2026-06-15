@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeGuard
 
 _INVALID_JSON_PAYLOAD = object()
 
@@ -52,7 +52,7 @@ def load_json_string_list_or_default(
     )
     if payload is _INVALID_JSON_PAYLOAD:
         return default_value
-    if not isinstance(payload, list) or not all(isinstance(item, str) and item for item in payload):
+    if not _is_non_empty_string_list_payload(payload):
         logger.warning("%s is not a string list for %s=%s.", payload_name, identity_name, identity_value)
         return default_value
     return payload
@@ -71,6 +71,10 @@ def _load_json_payload_or_invalid(
     except json.JSONDecodeError:
         logger.warning("%s invalid JSON for %s=%s.", payload_name, identity_name, identity_value)
         return _INVALID_JSON_PAYLOAD
+
+
+def _is_non_empty_string_list_payload(payload: Any) -> TypeGuard[list[str]]:
+    return isinstance(payload, list) and all(isinstance(item, str) and item for item in payload)
 
 
 def read_json_file(path: Path) -> Any:
