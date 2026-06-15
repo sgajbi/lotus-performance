@@ -20,6 +20,7 @@ from app.services.benchmark_exposure_context_service import (
     _group_identity,
     _index_ids_for_component_series,
     _iter_component_exposure_points,
+    _normalized_classification_labels,
     _page_rows,
     _requires_index_catalog,
     build_benchmark_exposure_context,
@@ -251,6 +252,13 @@ def test_benchmark_exposure_context_classification_helpers_normalize_inputs() ->
     assert _classification_labels_from_catalog_record(
         {"index_id": "IDX_B", "classification_labels": {"sector": "Technology", "rank": 1, "ignored": None}}
     ) == ("IDX_B", {"sector": "Technology", "rank": "1"})
+
+
+def test_normalized_classification_labels_omits_nulls_and_stringifies_values() -> None:
+    assert _normalized_classification_labels({"sector": "Technology", "rank": 1, "ignored": None}) == {
+        "sector": "Technology",
+        "rank": "1",
+    }
 
 
 def test_benchmark_exposure_assignment_response_resolves_identity() -> None:

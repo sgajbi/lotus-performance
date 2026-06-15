@@ -196,6 +196,10 @@ def _classification_map_from_catalog_records(records: list[Any]) -> dict[str, di
     return classification_map
 
 
+def _normalized_classification_labels(labels: dict[Any, Any]) -> dict[str, str]:
+    return {str(key): str(value) for key, value in labels.items() if value is not None}
+
+
 def _classification_labels_from_catalog_record(record: Any) -> tuple[str, dict[str, str]] | None:
     if not isinstance(record, dict):
         return None
@@ -203,7 +207,7 @@ def _classification_labels_from_catalog_record(record: Any) -> tuple[str, dict[s
     labels = record.get("classification_labels")
     if not isinstance(index_id, str) or not isinstance(labels, dict):
         return None
-    return index_id, {str(key): str(value) for key, value in labels.items() if value is not None}
+    return index_id, _normalized_classification_labels(labels)
 
 
 def _parse_component_series(payload: dict[str, Any]) -> list[dict[str, Any]]:
