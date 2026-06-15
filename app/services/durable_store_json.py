@@ -28,7 +28,7 @@ def load_json_object_or_none(
     )
     if payload is _INVALID_JSON_PAYLOAD:
         return None
-    if not isinstance(payload, dict):
+    if not _is_json_object_payload(payload):
         logger.warning("%s is not an object for %s=%s.", payload_name, identity_name, identity_value)
         return None
     return payload
@@ -75,6 +75,10 @@ def _load_json_payload_or_invalid(
 
 def _is_non_empty_string_list_payload(payload: Any) -> TypeGuard[list[str]]:
     return isinstance(payload, list) and all(isinstance(item, str) and item for item in payload)
+
+
+def _is_json_object_payload(payload: Any) -> TypeGuard[dict[str, Any]]:
+    return isinstance(payload, dict)
 
 
 def read_json_file(path: Path) -> Any:

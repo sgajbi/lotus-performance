@@ -757,7 +757,9 @@ inclusive period valuation-point slicing moved into a dedicated preparation help
 The durable JSON object and string-list loaders now share a single JSON decode/logging helper while
 preserving their separate shape-validation policies. `load_json_string_list_or_default` then
 dropped out after non-empty string-list payload qualification was split into a typed predicate;
-`load_json_object_or_none` remains the first measured B-grade CC `6` candidate.
+`load_json_object_or_none` remains the first measured B-grade CC `6` candidate after object-payload
+qualification was split into a typed predicate because absent, empty, invalid JSON, and non-object
+fallback policies still live in the public loader.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.
