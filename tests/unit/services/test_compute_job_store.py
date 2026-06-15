@@ -21,6 +21,7 @@ from app.services.compute_job_store import (
     _ensure_compute_job_can_mark_running,
     _matches_existing_compute_job_registration,
     _queue_stats_from_aggregate_row,
+    _stale_job_reconciliation_outcome,
 )
 from app.services.durable_store_inspection import build_inspection_query_context
 
@@ -456,6 +457,28 @@ def test_compute_job_store_reconciles_stale_running_job(tmp_path):
     assert failed is not None
     assert failed.job_status == ComputeJobStatus.FAILED
     assert failed.error_message == "Compute job execution lease expired after exhausting retry budget."
+
+
+def test_stale_job_reconciliation_outcome_only_exhausts_running_jobs() -> None:
+    now = datetime(2026, 6, 12, 12, 0, tzinfo=timezone.utc)
+
+    exhausted_running = _stale_job_reconciliation_outcome(
+        previous_status=ComputeJobStatus.RUNNING,
+        attempt_count=2,
+        max_attempts=2,
+        now=now,
+    )
+    exhausted_leased = _stale_job_reconciliation_outcome(
+        previous_status=ComputeJobStatus.LEASED,
+        attempt_count=2,
+        max_attempts=2,
+        now=now,
+    )
+
+    assert exhausted_running.job_status == ComputeJobStatus.FAILED
+    assert exhausted_running.completed_at_utc == now
+    assert exhausted_leased.job_status == ComputeJobStatus.PENDING
+    assert exhausted_leased.completed_at_utc is None
 
 
 def test_compute_job_store_reconciles_stale_leased_job_without_exhausting_retries(tmp_path):
