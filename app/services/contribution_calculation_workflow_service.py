@@ -196,6 +196,46 @@ def _initial_contribution_async_submission(
     )
 
 
+async def _calculate_initial_sync_contribution(
+    *,
+    request: ContributionAnalyticsRequest,
+    active_settings: Any,
+    input_fingerprint: str,
+    calculation_hash: str,
+) -> ContributionResponse:
+    register_sync_execution_or_raise(
+        calculation_id=request.calculation_id,
+        analytics_type=ANALYTICS_WORKFLOW_CONTRIBUTION,
+        portfolio_id=request.portfolio_id,
+        requested_window=build_contribution_execution_window(request),
+        input_fingerprint=input_fingerprint,
+        calculation_hash=calculation_hash,
+    )
+    try:
+        resolved = await resolve_contribution_request(request, settings=active_settings)
+        return calculate_contribution(
+            resolved.contribution_request,
+            input_fingerprint=input_fingerprint,
+            calculation_hash=calculation_hash,
+            input_mode=resolved.input_mode,
+        )
+    except HTTPException as exc:
+        record_execution_failure(
+            calculation_id=request.calculation_id,
+            message=str(exc.detail),
+        )
+        raise
+    except Exception as exc:
+        record_execution_failure(
+            calculation_id=request.calculation_id,
+            message=f"An unexpected error occurred during contribution request resolution: {exc}",
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An unexpected error occurred during contribution request resolution: {exc}",
+        ) from exc
+
+
 async def calculate_contribution_workflow(
     request: ContributionAnalyticsRequest,
 ) -> ContributionResponse | ContributionAcceptedResponse:
@@ -219,36 +259,9 @@ async def calculate_contribution_workflow(
             calculation_hash=calculation_hash,
         )
 
-    register_sync_execution_or_raise(
-        calculation_id=request.calculation_id,
-        analytics_type=ANALYTICS_WORKFLOW_CONTRIBUTION,
-        portfolio_id=request.portfolio_id,
-        requested_window=build_contribution_execution_window(request),
+    return await _calculate_initial_sync_contribution(
+        request=request,
+        active_settings=active_settings,
         input_fingerprint=input_fingerprint,
         calculation_hash=calculation_hash,
     )
-
-    try:
-        resolved = await resolve_contribution_request(request, settings=active_settings)
-        response = calculate_contribution(
-            resolved.contribution_request,
-            input_fingerprint=input_fingerprint,
-            calculation_hash=calculation_hash,
-            input_mode=resolved.input_mode,
-        )
-        return response
-    except HTTPException as exc:
-        record_execution_failure(
-            calculation_id=request.calculation_id,
-            message=str(exc.detail),
-        )
-        raise
-    except Exception as exc:
-        record_execution_failure(
-            calculation_id=request.calculation_id,
-            message=f"An unexpected error occurred during contribution request resolution: {exc}",
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"An unexpected error occurred during contribution request resolution: {exc}",
-        ) from exc
