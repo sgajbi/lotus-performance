@@ -107,19 +107,7 @@ async def build_benchmark_exposure_context(
     )
 
 
-async def _resolve_benchmark_id(
-    *,
-    request: BenchmarkExposureContextRequest,
-    stateful_input_service: StatefulInputService,
-) -> str:
-    if request.benchmark_id:
-        return request.benchmark_id
-    assignment_status, assignment_payload = await stateful_input_service.get_benchmark_assignment(
-        calculation_id=request.calculation_id,
-        portfolio_id=request.portfolio_id,
-        as_of_date=request.as_of_date,
-        reporting_currency=request.reporting_currency,
-    )
+def _benchmark_id_from_assignment_response(*, assignment_status: int, assignment_payload: dict[str, Any]) -> str:
     if assignment_status == status.HTTP_404_NOT_FOUND:
         raise HTTPException(
             status_code=HTTP_422_UNPROCESSABLE,
@@ -134,6 +122,25 @@ async def _resolve_benchmark_id(
             detail="benchmark assignment payload missing benchmark_id.",
         )
     return benchmark_id
+
+
+async def _resolve_benchmark_id(
+    *,
+    request: BenchmarkExposureContextRequest,
+    stateful_input_service: StatefulInputService,
+) -> str:
+    if request.benchmark_id:
+        return request.benchmark_id
+    assignment_status, assignment_payload = await stateful_input_service.get_benchmark_assignment(
+        calculation_id=request.calculation_id,
+        portfolio_id=request.portfolio_id,
+        as_of_date=request.as_of_date,
+        reporting_currency=request.reporting_currency,
+    )
+    return _benchmark_id_from_assignment_response(
+        assignment_status=assignment_status,
+        assignment_payload=assignment_payload,
+    )
 
 
 async def _classification_map_for_request(
