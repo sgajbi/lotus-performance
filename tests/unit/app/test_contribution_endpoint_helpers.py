@@ -78,6 +78,7 @@ from app.services.contribution_smoothing import (
     _contribution_smoothing_residual_reason_codes,
     _contribution_smoothing_status_and_reasons,
     _count_carino_invalid_domain_days,
+    _is_reconciled_carino_smoothing,
 )
 from common.enums import PeriodType
 from core.envelope import Diagnostics
@@ -127,6 +128,31 @@ def test_contribution_smoothing_residual_reason_codes_report_reconciliation_cond
         "RAW_CONTRIBUTION_DIFFERS_FROM_LINKED_RETURN",
         "SMOOTHED_CONTRIBUTION_RECONCILES",
     ]
+
+
+@pytest.mark.parametrize(
+    ("smoothing_method", "invalid_domain_days", "smoothing_residual", "expected"),
+    [
+        ("CARINO", 0, 1e-9, True),
+        ("CARINO", 0, 1.1e-9, False),
+        ("NONE", 0, 0.0, False),
+        ("CARINO", 1, 0.0, False),
+    ],
+)
+def test_is_reconciled_carino_smoothing_requires_valid_carino_within_tolerance(
+    smoothing_method,
+    invalid_domain_days,
+    smoothing_residual,
+    expected,
+):
+    assert (
+        _is_reconciled_carino_smoothing(
+            smoothing_method=smoothing_method,
+            invalid_domain_days=invalid_domain_days,
+            smoothing_residual=smoothing_residual,
+        )
+        is expected
+    )
 
 
 def test_average_weight_shadow_audit_state_records_counts_and_diagnostic_notes():
