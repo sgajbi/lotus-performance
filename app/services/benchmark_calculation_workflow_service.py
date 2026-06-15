@@ -235,6 +235,46 @@ def _initial_benchmark_async_submission(
     )
 
 
+async def _calculate_initial_sync_benchmark_workflow(
+    *,
+    request: BenchmarkAnalyticsRequest,
+    settings,
+    source_request_fingerprint: str,
+    source_request_hash: str,
+) -> BenchmarkPerformanceResponse:
+    register_sync_execution_or_raise(
+        calculation_id=request.calculation_id,
+        analytics_type=ANALYTICS_WORKFLOW_BENCHMARK,
+        portfolio_id=request.benchmark_id,
+        requested_window=build_benchmark_execution_window(request),
+        input_fingerprint=source_request_fingerprint,
+        calculation_hash=source_request_hash,
+    )
+    try:
+        resolved_context = await _resolve_benchmark_execution_context(
+            request=request,
+            settings=settings,
+            input_fingerprint=source_request_fingerprint,
+            calculation_hash=source_request_hash,
+        )
+        if resolved_context.should_persist_request:
+            execution_registry.update_execution_identity(
+                request.calculation_id,
+                input_fingerprint=resolved_context.input_fingerprint,
+                calculation_hash=resolved_context.calculation_hash,
+            )
+        return calculate_benchmark_response(
+            resolved_context.benchmark_request,
+            input_fingerprint=resolved_context.input_fingerprint,
+            calculation_hash=resolved_context.calculation_hash,
+            input_mode=resolved_context.resolved_request.input_mode,
+            engine_version=settings.APP_VERSION,
+            request_artifact_model=resolved_context.request_model_for_lineage,
+        )
+    except Exception as exc:
+        _raise_benchmark_workflow_failure(request, exc)
+
+
 async def calculate_benchmark_workflow(
     request: BenchmarkAnalyticsRequest,
 ) -> BenchmarkPerformanceResponse | BenchmarkAcceptedResponse:
@@ -261,34 +301,9 @@ async def calculate_benchmark_workflow(
     if accepted_response is not None:
         return accepted_response
 
-    register_sync_execution_or_raise(
-        calculation_id=request.calculation_id,
-        analytics_type=ANALYTICS_WORKFLOW_BENCHMARK,
-        portfolio_id=request.benchmark_id,
-        requested_window=build_benchmark_execution_window(request),
-        input_fingerprint=source_request_fingerprint,
-        calculation_hash=source_request_hash,
+    return await _calculate_initial_sync_benchmark_workflow(
+        request=request,
+        settings=settings,
+        source_request_fingerprint=input_fingerprint,
+        source_request_hash=calculation_hash,
     )
-    try:
-        resolved_context = await _resolve_benchmark_execution_context(
-            request=request,
-            settings=settings,
-            input_fingerprint=input_fingerprint,
-            calculation_hash=calculation_hash,
-        )
-        if resolved_context.should_persist_request:
-            execution_registry.update_execution_identity(
-                request.calculation_id,
-                input_fingerprint=resolved_context.input_fingerprint,
-                calculation_hash=resolved_context.calculation_hash,
-            )
-        return calculate_benchmark_response(
-            resolved_context.benchmark_request,
-            input_fingerprint=resolved_context.input_fingerprint,
-            calculation_hash=resolved_context.calculation_hash,
-            input_mode=resolved_context.resolved_request.input_mode,
-            engine_version=settings.APP_VERSION,
-            request_artifact_model=resolved_context.request_model_for_lineage,
-        )
-    except Exception as exc:
-        _raise_benchmark_workflow_failure(request, exc)

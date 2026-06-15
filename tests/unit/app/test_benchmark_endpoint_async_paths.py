@@ -434,6 +434,57 @@ def test_initial_benchmark_async_submission_projects_large_input_payload(mocker)
 
 
 @pytest.mark.asyncio
+async def test_initial_sync_benchmark_workflow_preserves_source_identity_for_non_persisted_request(mocker):
+    request = BenchmarkAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "benchmark_id": "BMK_VENDOR",
+            "benchmark_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "input_mode": "stateless",
+            "return_source": "vendor_series",
+            "stateless_input": {
+                "benchmark_currency": "USD",
+                "benchmark_return_points": [{"perf_date": "2025-01-01", "benchmark_return": 0.01}],
+            },
+        }
+    )
+    resolved_request = _resolved_benchmark_request()
+    register_sync = mocker.patch("app.services.benchmark_calculation_workflow_service.register_sync_execution_or_raise")
+    mocker.patch(
+        "app.services.benchmark_calculation_workflow_service.resolve_benchmark_request",
+        return_value=ResolvedBenchmarkRequest(
+            benchmark_request=resolved_request,
+            input_mode=BenchmarkInputMode.STATELESS,
+            source_details={"benchmark_return_points": 1},
+            input_count=1,
+        ),
+    )
+    update_execution_identity = mocker.patch(
+        "app.services.benchmark_calculation_workflow_service.execution_registry.update_execution_identity"
+    )
+    calculate_response = mocker.patch(
+        "app.services.benchmark_calculation_workflow_service.calculate_benchmark_response",
+        return_value={"ok": True},
+    )
+
+    response = await benchmark_calculation_workflow_service._calculate_initial_sync_benchmark_workflow(
+        request=request,
+        settings=SimpleNamespace(APP_VERSION="runtime-version"),
+        source_request_fingerprint="source-fingerprint",
+        source_request_hash="source-hash",
+    )
+
+    assert response == {"ok": True}
+    assert register_sync.call_args.kwargs["input_fingerprint"] == "source-fingerprint"
+    assert register_sync.call_args.kwargs["calculation_hash"] == "source-hash"
+    update_execution_identity.assert_not_called()
+    assert calculate_response.call_args.kwargs["input_fingerprint"] == "source-fingerprint"
+    assert calculate_response.call_args.kwargs["calculation_hash"] == "source-hash"
+
+
+@pytest.mark.asyncio
 async def test_benchmark_endpoint_maps_stateful_resolution_errors_to_http_500(mocker):
     request = BenchmarkAnalyticsRequest.model_validate(_stateful_benchmark_payload())
     failure_capture: dict[str, object] = {}
