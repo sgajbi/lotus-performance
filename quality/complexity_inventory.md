@@ -32,14 +32,14 @@ must stay at `0`.
 | --- | ---: |
 | Max cyclomatic complexity | 6 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.05 |
+| Average maintainability index | 55.04 |
 
 ## Highest Cyclomatic Complexity
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `load_json_object_or_none` | function | `app/services/durable_store_json.py:9` | 6 | B |
-| 2 | `load_json_string_list_or_default` | function | `app/services/durable_store_json.py:31` | 6 | B |
+| 1 | `load_json_object_or_none` | function | `app/services/durable_store_json.py:11` | 6 | B |
+| 2 | `load_json_string_list_or_default` | function | `app/services/durable_store_json.py:37` | 6 | B |
 | 3 | `record_upstream_snapshots` | method | `app/services/execution_registry.py:542` | 6 | B |
 | 4 | `_is_replay_of_existing_execution` | method | `app/services/execution_registry.py:638` | 6 | B |
 | 5 | `_check_portfolio_daily_calculation_evidence` | function | `app/services/inspection/calculation_consistency.py:391` | 6 | B |
@@ -754,6 +754,9 @@ resolution, execution, and failure mapping moved into a dedicated lifecycle help
 qualification moved into a dedicated methodology helper.
 `_calculate_position_total_return_pct` also dropped out after optional-position handling and
 inclusive period valuation-point slicing moved into a dedicated preparation helper.
+The durable JSON object and string-list loaders now share a single JSON decode/logging helper while
+preserving their separate shape-validation policies; both remain B-grade CC `6` candidates for
+future object-shape and string-list policy extraction.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.
