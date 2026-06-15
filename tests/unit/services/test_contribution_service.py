@@ -79,6 +79,30 @@ def test_prepare_contribution_engine_inputs_rejects_unresolved_periods(monkeypat
         raise AssertionError("Expected HTTPException for unresolved contribution periods.")
 
 
+def test_resolve_contribution_periods_uses_report_end_as_inception_without_valuations(monkeypatch):
+    period = SimpleNamespace(name="MTD", start_date=date(2026, 2, 1), end_date=date(2026, 2, 28))
+    request = SimpleNamespace(
+        analyses=[SimpleNamespace(period="MTD")],
+        portfolio_data=SimpleNamespace(valuation_points=[]),
+        report_end_date=date(2026, 2, 28),
+        report_start_date=None,
+    )
+    resolve_calls: list[tuple[object, ...]] = []
+
+    def resolve_periods(periods_to_resolve, report_end_date, inception_date, *, explicit_start_date):
+        resolve_calls.append((periods_to_resolve, report_end_date, inception_date, explicit_start_date))
+        return [period]
+
+    monkeypatch.setattr(contribution_service, "resolve_periods", resolve_periods)
+
+    result = contribution_service._resolve_contribution_periods(request)
+
+    assert resolve_calls == [(["MTD"], date(2026, 2, 28), date(2026, 2, 28), None)]
+    assert result.resolved_periods == [period]
+    assert result.master_start_date == date(2026, 2, 1)
+    assert result.master_end_date == date(2026, 2, 28)
+
+
 def test_build_contribution_results_by_period_routes_flat_periods_and_tracks_max_residual(monkeypatch):
     periods = [
         SimpleNamespace(name="JAN"),

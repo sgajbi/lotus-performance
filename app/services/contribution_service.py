@@ -89,6 +89,14 @@ class _ContributionEngineInputs:
 
 
 @dataclass(frozen=True)
+class _ContributionPeriodResolution:
+    periods_to_resolve: list[Any]
+    resolved_periods: list[Any]
+    master_start_date: date
+    master_end_date: date
+
+
+@dataclass(frozen=True)
 class _ContributionPeriodResult:
     period_name: str
     result: SinglePeriodContributionResult
@@ -425,23 +433,7 @@ def _build_hierarchy_period_contribution_result(
 
 
 def _prepare_contribution_engine_inputs(request: ContributionRequest) -> _ContributionEngineInputs:
-    periods_to_resolve = [analysis.period for analysis in request.analyses]
-    inception_date = (
-        request.portfolio_data.valuation_points[0].perf_date
-        if request.portfolio_data.valuation_points
-        else request.report_end_date
-    )
-    resolved_periods = resolve_periods(
-        periods_to_resolve,
-        request.report_end_date,
-        inception_date,
-        explicit_start_date=request.report_start_date,
-    )
-    if not resolved_periods:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No valid periods could be resolved.")
-
-    master_start_date = min(p.start_date for p in resolved_periods)
-    master_end_date = max(p.end_date for p in resolved_periods)
+    period_resolution = _resolve_contribution_periods(request)
     instruments_df, portfolio_results_df = _prepare_hierarchical_data(request)
     daily_contributions_df = _calculate_daily_instrument_contributions(
         instruments_df, portfolio_results_df, request.weighting_scheme, request.smoothing
@@ -450,13 +442,46 @@ def _prepare_contribution_engine_inputs(request: ContributionRequest) -> _Contri
         daily_contributions_df[PortfolioColumns.PERF_DATE.value]
     )
     return _ContributionEngineInputs(
+        periods_to_resolve=period_resolution.periods_to_resolve,
+        resolved_periods=period_resolution.resolved_periods,
+        master_start_date=period_resolution.master_start_date,
+        master_end_date=period_resolution.master_end_date,
+        instruments_df=instruments_df,
+        portfolio_results_df=portfolio_results_df,
+        daily_contributions_df=daily_contributions_df,
+    )
+
+
+def _resolve_contribution_periods(request: ContributionRequest) -> _ContributionPeriodResolution:
+    periods_to_resolve = [analysis.period for analysis in request.analyses]
+    resolved_periods = resolve_periods(
+        periods_to_resolve,
+        request.report_end_date,
+        _contribution_inception_date(request),
+        explicit_start_date=request.report_start_date,
+    )
+    if not resolved_periods:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No valid periods could be resolved.")
+
+    master_start_date, master_end_date = _contribution_master_window(resolved_periods)
+    return _ContributionPeriodResolution(
         periods_to_resolve=periods_to_resolve,
         resolved_periods=resolved_periods,
         master_start_date=master_start_date,
         master_end_date=master_end_date,
-        instruments_df=instruments_df,
-        portfolio_results_df=portfolio_results_df,
-        daily_contributions_df=daily_contributions_df,
+    )
+
+
+def _contribution_inception_date(request: ContributionRequest) -> date:
+    if request.portfolio_data.valuation_points:
+        return request.portfolio_data.valuation_points[0].perf_date
+    return request.report_end_date
+
+
+def _contribution_master_window(resolved_periods: list[Any]) -> tuple[date, date]:
+    return (
+        min(period.start_date for period in resolved_periods),
+        max(period.end_date for period in resolved_periods),
     )
 
 
