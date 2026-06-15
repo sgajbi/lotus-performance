@@ -24,8 +24,8 @@ python scripts/python_function_size_inventory.py --limit 20
 | 2 | `build_runtime_status_response` | `app/models/runtime_status.py:767` | 131 |
 | 3 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:327` | 130 |
 | 4 | `calculate_attribution` | `app/services/attribution_service.py:214` | 104 |
-| 5 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:206` | 102 |
-| 6 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:310` | 102 |
+| 5 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:219` | 102 |
+| 6 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:323` | 102 |
 | 7 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:87` | 101 |
 | 8 | `aggregate_attribution_results` | `engine/attribution.py:697` | 98 |
 | 9 | `_calculate_returns_series` | `app/services/returns_series_service.py:1397` | 97 |
@@ -38,7 +38,7 @@ python scripts/python_function_size_inventory.py --limit 20
 | 16 | `build_runtime_recovery_snapshot` | `app/services/runtime_recovery_service.py:46` | 84 |
 | 17 | `run_runtime_retention_cleanup` | `app/services/runtime_retention_run_service.py:93` | 83 |
 | 18 | `StatefulInputService._fetch_position_chunk` | `app/services/stateful_input_service.py:991` | 81 |
-| 19 | `calculate_contribution` | `app/services/contribution_service.py:576` | 80 |
+| 19 | `calculate_contribution` | `app/services/contribution_service.py:589` | 80 |
 | 20 | `LineageMetadataStore._build_inspection_query_statements` | `app/services/lineage_metadata_store.py:529` | 80 |
 
 ## Interpretation

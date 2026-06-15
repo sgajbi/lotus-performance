@@ -195,12 +195,25 @@ def _build_period_contribution_series_outputs(
 ) -> tuple[list[PositionContributionSeries], list[DailyContribution] | None, list[PositionContributionSeries] | None]:
     position_series = (
         _build_residual_adjusted_position_timeseries(period_slice_df, position_contributions)
-        if emit_by_position_timeseries or emit_timeseries or force_position_series
+        if _requires_position_contribution_series(
+            emit_timeseries=emit_timeseries,
+            emit_by_position_timeseries=emit_by_position_timeseries,
+            force_position_series=force_position_series,
+        )
         else []
     )
     daily_series = _build_residual_adjusted_daily_contribution_series(position_series) if emit_timeseries else None
     emitted_position_series = position_series if emit_by_position_timeseries else None
     return position_series, daily_series, emitted_position_series
+
+
+def _requires_position_contribution_series(
+    *,
+    emit_timeseries: bool,
+    emit_by_position_timeseries: bool,
+    force_position_series: bool,
+) -> bool:
+    return emit_timeseries or emit_by_position_timeseries or force_position_series
 
 
 def _build_flat_period_contribution_result(

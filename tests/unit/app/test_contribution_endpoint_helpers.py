@@ -70,6 +70,7 @@ from app.services.contribution_service import (
     _build_period_average_weight_methodology_status,
     _build_period_contribution_series_outputs,
     _record_period_timeseries_total_delta,
+    _requires_position_contribution_series,
     _select_period_average_weight_column,
 )
 from app.services.contribution_smoothing import (
@@ -465,6 +466,31 @@ def test_build_period_contribution_series_outputs_omits_optional_series_when_not
     assert position_series == []
     assert daily_series is None
     assert emitted_position_series is None
+
+
+@pytest.mark.parametrize(
+    ("emit_timeseries", "emit_by_position_timeseries", "force_position_series", "expected"),
+    [
+        (False, False, False, False),
+        (True, False, False, True),
+        (False, True, False, True),
+        (False, False, True, True),
+    ],
+)
+def test_requires_position_contribution_series_for_any_consumer(
+    emit_timeseries,
+    emit_by_position_timeseries,
+    force_position_series,
+    expected,
+):
+    assert (
+        _requires_position_contribution_series(
+            emit_timeseries=emit_timeseries,
+            emit_by_position_timeseries=emit_by_position_timeseries,
+            force_position_series=force_position_series,
+        )
+        is expected
+    )
 
 
 def test_build_period_contribution_series_outputs_builds_daily_series_when_requested():
