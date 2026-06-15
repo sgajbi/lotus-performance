@@ -30,6 +30,29 @@ def resolve_freshness_bucket(
     return "stale"
 
 
+def _has_degraded_source_quality(source_quality_evidence: PerformanceSourceQualityEvidence | None) -> bool:
+    return source_quality_evidence is not None and source_quality_evidence.quality_state == "degraded"
+
+
+def _supportability_state_and_reason(
+    *,
+    input_row_count: int,
+    minimum_input_row_count: int,
+    resolved_period_count: int,
+    freshness_bucket: PerformanceFreshnessBucket,
+    source_quality_evidence: PerformanceSourceQualityEvidence | None,
+) -> tuple[PerformanceSupportabilityState, PerformanceSupportabilityReason]:
+    if input_row_count < minimum_input_row_count:
+        return "empty", "insufficient_valuation_points"
+    if resolved_period_count <= 0:
+        return "empty", "empty_resolved_periods"
+    if freshness_bucket == "stale":
+        return "stale", "stale_source_observations"
+    if _has_degraded_source_quality(source_quality_evidence):
+        return "degraded", "calculation_quality_issue"
+    return "ready", "calculation_complete"
+
+
 def build_calculation_supportability(
     *,
     input_row_count: int,
@@ -44,23 +67,13 @@ def build_calculation_supportability(
         latest_observation_date=latest_observation_date,
         report_end_date=report_end_date,
     )
-    state: PerformanceSupportabilityState
-    reason: PerformanceSupportabilityReason
-    if input_row_count < minimum_input_row_count:
-        state = "empty"
-        reason = "insufficient_valuation_points"
-    elif resolved_period_count <= 0:
-        state = "empty"
-        reason = "empty_resolved_periods"
-    elif freshness_bucket == "stale":
-        state = "stale"
-        reason = "stale_source_observations"
-    elif source_quality_evidence is not None and source_quality_evidence.quality_state == "degraded":
-        state = "degraded"
-        reason = "calculation_quality_issue"
-    else:
-        state = "ready"
-        reason = "calculation_complete"
+    state, reason = _supportability_state_and_reason(
+        input_row_count=input_row_count,
+        minimum_input_row_count=minimum_input_row_count,
+        resolved_period_count=resolved_period_count,
+        freshness_bucket=freshness_bucket,
+        source_quality_evidence=source_quality_evidence,
+    )
 
     return PerformanceCalculationSupportability(
         state=state,

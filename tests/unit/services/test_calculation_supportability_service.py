@@ -2,7 +2,20 @@ from datetime import date
 
 from app.models.source_quality import PerformanceSourceQualityEvidence
 from app.observability_contracts import PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS
-from app.services.calculation_supportability_service import build_calculation_supportability
+from app.services.calculation_supportability_service import (
+    _supportability_state_and_reason,
+    build_calculation_supportability,
+)
+
+
+def test_supportability_state_policy_prioritizes_insufficient_inputs() -> None:
+    assert _supportability_state_and_reason(
+        input_row_count=0,
+        minimum_input_row_count=1,
+        resolved_period_count=0,
+        freshness_bucket="stale",
+        source_quality_evidence=None,
+    ) == ("empty", "insufficient_valuation_points")
 
 
 def test_calculation_supportability_marks_current_completed_calculation_ready() -> None:
