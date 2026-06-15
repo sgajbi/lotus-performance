@@ -1,6 +1,6 @@
 # Lotus Performance Function Size Inventory
 
-Report date: 2026-06-14
+Report date: 2026-06-15
 Branch: `refactor/lp-cr-950-mwr-fx-component`
 Mode: report-only function-size inventory; this artifact introduces no new blocking CI gate.
 
@@ -23,7 +23,7 @@ python scripts/python_function_size_inventory.py --limit 20
 | 1 | `DurableQueueCollector.describe` | `app/services/queue_metrics_service.py:193` | 159 |
 | 2 | `build_runtime_status_response` | `app/models/runtime_status.py:767` | 131 |
 | 3 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:327` | 130 |
-| 4 | `calculate_attribution` | `app/services/attribution_service.py:206` | 104 |
+| 4 | `calculate_attribution` | `app/services/attribution_service.py:214` | 104 |
 | 5 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:206` | 102 |
 | 6 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:310` | 102 |
 | 7 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:87` | 101 |

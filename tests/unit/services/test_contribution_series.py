@@ -9,6 +9,7 @@ from app.services.contribution_series import (
     _apply_hierarchy_unclassified_policy,
     _build_hierarchy_from_adjusted_position_series,
     _daily_hierarchy_metadata,
+    _prepared_adjusted_hierarchy_frames,
     _residual_adjusted_position_rows,
 )
 from engine.schema import PortfolioColumns
@@ -142,6 +143,14 @@ def test_hierarchy_metadata_helpers_align_dates_and_unclassified_policy():
         update={"emit": request.emit.model_copy(update={"include_unclassified": False})}
     )
     assert _apply_hierarchy_unclassified_policy(merged_df, request=exclude_request).empty
+    assert (
+        _prepared_adjusted_hierarchy_frames(
+            period_slice_df=period_slice_df,
+            position_series=position_series,
+            request=exclude_request,
+        )
+        is None
+    )
 
 
 def test_residual_adjusted_position_rows_allocate_by_weight_and_equal_fallback():

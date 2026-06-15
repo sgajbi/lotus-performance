@@ -25,9 +25,9 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Python files | 480 | 543 | measured | `rg --files -g '*.py'` |
+| Python files | 480 | 544 | measured | `rg --files -g '*.py'` |
 | Python package markers | 18 | 18 | measured | recursive `__init__.py` count |
-| Python LOC | 104,454 | 148,202 | measured | recursive tracked `.py` line count |
+| Python LOC | 104,454 | 148,227 | measured | recursive tracked `.py` line count |
 | Largest Python file LOC | 2,399 | 2,399 | measured | largest-file inventory in baseline report |
 | Largest production file LOC | 1,156 | 1,156 | measured | `app/services/lineage_metadata_store.py` |
 | Duplicate code hotspots | 0 | 0 | measured | `quality/duplicate_code_inventory.md` via `scripts/python_duplicate_code_inventory.py` with `--min-lines 12` |
