@@ -38,31 +38,31 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_unsupported_component_pnl_fields` | function | `app/services/contribution_source_economics.py:137` | 6 | B |
-| 2 | `load_json_object_or_none` | function | `app/services/durable_store_json.py:9` | 6 | B |
-| 3 | `load_json_string_list_or_default` | function | `app/services/durable_store_json.py:31` | 6 | B |
-| 4 | `record_upstream_snapshots` | method | `app/services/execution_registry.py:542` | 6 | B |
-| 5 | `_is_replay_of_existing_execution` | method | `app/services/execution_registry.py:638` | 6 | B |
-| 6 | `_check_portfolio_daily_calculation_evidence` | function | `app/services/inspection/calculation_consistency.py:391` | 6 | B |
-| 7 | `_comparative_return_component_mismatch` | function | `app/services/inspection/calculation_consistency.py:713` | 6 | B |
-| 8 | `_select_latest_position_rows` | function | `app/services/inspection/reconciliation.py:459` | 6 | B |
-| 9 | `_build_position_continuity_gap_sample` | function | `app/services/inspection/reconciliation.py:567` | 6 | B |
-| 10 | `_row_has_transition_activity` | function | `app/services/inspection/reconciliation.py:602` | 6 | B |
-| 11 | `_cash_flows_have_nonzero_amount` | function | `app/services/inspection/reconciliation.py:633` | 6 | B |
-| 12 | `_collect_duplicate_snapshot_samples` | function | `app/services/inspection/reconciliation.py:645` | 6 | B |
-| 13 | `_build_observation_source_economics` | function | `app/services/inspection/source_economics.py:439` | 6 | B |
-| 14 | `_read_explicit_decimal_fields` | function | `app/services/inspection/source_economics.py:616` | 6 | B |
-| 15 | `_find_missing_business_dates` | function | `app/services/inspection/source_quality.py:724` | 6 | B |
-| 16 | `load_existing_twr_calculation_artifacts` | function | `app/services/inspection/subject_materialization.py:34` | 6 | B |
-| 17 | `_load_request_payload` | function | `app/services/inspection/subject_materialization.py:123` | 6 | B |
-| 18 | `_build_inspection_findings_context` | function | `app/services/inspection/twr_inspection_service.py:386` | 6 | B |
-| 19 | `_synthesize_verdict` | function | `app/services/inspection/twr_inspection_service.py:586` | 6 | B |
-| 20 | `_response_master_window` | function | `app/services/inspection/twr_inspection_service.py:725` | 6 | B |
-| 21 | `_build_workflow_capabilities` | function | `app/services/integration_capabilities_service.py:169` | 6 | B |
-| 22 | `_stringify_decimals` | function | `app/services/mwr_calculation_service.py:134` | 6 | B |
-| 23 | `_enforce_manual_action_cooldown` | function | `app/services/operator_action_guard_service.py:186` | 6 | B |
-| 24 | `generated_at_within_bounds` | function | `app/services/operator_action_history_filters.py:38` | 6 | B |
-| 25 | `_history_manifest_file_names` | function | `app/services/operator_action_history_manifest.py:83` | 6 | B |
+| 1 | `load_json_object_or_none` | function | `app/services/durable_store_json.py:9` | 6 | B |
+| 2 | `load_json_string_list_or_default` | function | `app/services/durable_store_json.py:31` | 6 | B |
+| 3 | `record_upstream_snapshots` | method | `app/services/execution_registry.py:542` | 6 | B |
+| 4 | `_is_replay_of_existing_execution` | method | `app/services/execution_registry.py:638` | 6 | B |
+| 5 | `_check_portfolio_daily_calculation_evidence` | function | `app/services/inspection/calculation_consistency.py:391` | 6 | B |
+| 6 | `_comparative_return_component_mismatch` | function | `app/services/inspection/calculation_consistency.py:713` | 6 | B |
+| 7 | `_select_latest_position_rows` | function | `app/services/inspection/reconciliation.py:459` | 6 | B |
+| 8 | `_build_position_continuity_gap_sample` | function | `app/services/inspection/reconciliation.py:567` | 6 | B |
+| 9 | `_row_has_transition_activity` | function | `app/services/inspection/reconciliation.py:602` | 6 | B |
+| 10 | `_cash_flows_have_nonzero_amount` | function | `app/services/inspection/reconciliation.py:633` | 6 | B |
+| 11 | `_collect_duplicate_snapshot_samples` | function | `app/services/inspection/reconciliation.py:645` | 6 | B |
+| 12 | `_build_observation_source_economics` | function | `app/services/inspection/source_economics.py:439` | 6 | B |
+| 13 | `_read_explicit_decimal_fields` | function | `app/services/inspection/source_economics.py:616` | 6 | B |
+| 14 | `_find_missing_business_dates` | function | `app/services/inspection/source_quality.py:724` | 6 | B |
+| 15 | `load_existing_twr_calculation_artifacts` | function | `app/services/inspection/subject_materialization.py:34` | 6 | B |
+| 16 | `_load_request_payload` | function | `app/services/inspection/subject_materialization.py:123` | 6 | B |
+| 17 | `_build_inspection_findings_context` | function | `app/services/inspection/twr_inspection_service.py:386` | 6 | B |
+| 18 | `_synthesize_verdict` | function | `app/services/inspection/twr_inspection_service.py:586` | 6 | B |
+| 19 | `_response_master_window` | function | `app/services/inspection/twr_inspection_service.py:725` | 6 | B |
+| 20 | `_build_workflow_capabilities` | function | `app/services/integration_capabilities_service.py:169` | 6 | B |
+| 21 | `_stringify_decimals` | function | `app/services/mwr_calculation_service.py:134` | 6 | B |
+| 22 | `_enforce_manual_action_cooldown` | function | `app/services/operator_action_guard_service.py:186` | 6 | B |
+| 23 | `generated_at_within_bounds` | function | `app/services/operator_action_history_filters.py:38` | 6 | B |
+| 24 | `_history_manifest_file_names` | function | `app/services/operator_action_history_manifest.py:83` | 6 | B |
+| 25 | `_parse_reclaimed_event_payload` | function | `app/services/operator_action_lease_service.py:497` | 6 | B |
 
 ## Lowest Maintainability Index
 

@@ -13,6 +13,7 @@ from app.services.contribution_source_economics import (
     _has_unclassified_position_metadata,
     _has_unsupported_cash_flow_types,
     _is_valid_source_cash_flow_type_count,
+    _present_component_pnl_fields,
     _source_cash_flow_type_counts,
     _stateful_cash_flow_economics,
     _stateful_metadata_economics,
@@ -270,6 +271,12 @@ def test_stateless_source_economics_predicates_detect_flows_and_currency():
 def test_stateless_source_economics_flow_predicate_ignores_invalid_raw_flow_values():
     assert _has_non_zero_flow({"bod_cf": "bad-input", "eod_cf": "0", "mgmt_fees": "2"})
     assert not _has_non_zero_flow({"bod_cf": "bad-input", "eod_cf": "0", "mgmt_fees": "0"})
+
+
+def test_present_component_pnl_fields_aggregates_canonical_fields_across_positions():
+    request = _request_with_position_meta({"income_pnl": 15, "fee_pnl": -10, "custom_pnl": 5})
+
+    assert _present_component_pnl_fields(request) == {"income_pnl", "fee_pnl"}
 
 
 def test_contribution_snapshot_lookup_logs_durable_store_failures(monkeypatch, caplog):

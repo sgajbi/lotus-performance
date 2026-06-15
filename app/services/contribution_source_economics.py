@@ -135,13 +135,17 @@ def _stateful_metadata_economics(request: ContributionRequest) -> list[str]:
 
 
 def _unsupported_component_pnl_fields(request: ContributionRequest) -> list[str]:
-    present_component_fields = {
+    present_component_fields = _present_component_pnl_fields(request)
+    return [field_name for field_name in _COMPONENT_PNL_FIELDS if field_name not in present_component_fields]
+
+
+def _present_component_pnl_fields(request: ContributionRequest) -> set[str]:
+    return {
         field_name
         for position in request.positions_data
         for field_name in _COMPONENT_PNL_FIELDS
         if field_name in position.meta
     }
-    return [field_name for field_name in _COMPONENT_PNL_FIELDS if field_name not in present_component_fields]
 
 
 def _degraded_stateful_economics(
