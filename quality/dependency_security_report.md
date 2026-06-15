@@ -1,7 +1,7 @@
 # Lotus Performance Dependency Security Report
 
-Report date: 2026-06-02
-Branch: `feat/performance-hardening-wave-8`
+Report date: 2026-06-16
+Branch: `refactor/lp-cr-950-mwr-fx-component`
 Mode: report-only dependency security evidence; this artifact introduces no new blocking CI gate.
 
 ## Purpose
@@ -36,9 +36,14 @@ Known vulnerabilities: 0
 ## Interpretation
 
 This is a clean point-in-time dependency vulnerability result for the current branch dependency set.
-It does not replace the existing blocking `make security-audit` path, and it does not claim that all
-dependency-security risk is permanently closed. Future slices should keep this result current when
-dependency pins, audit tooling, or security-gate behavior changes.
+On 2026-06-16 the audit was refreshed after remediating the Starlette security findings reported
+against `starlette==1.0.1` by pinning `starlette==1.3.1`. The test dependency set also adds
+`httpx2>=2.4.0,<3.0.0` and raises `idna` to `3.18` so Starlette's `TestClient` uses the current
+backend without the deprecated `httpx` fallback warning.
+
+This report does not replace the existing blocking `make security-audit` path, and it does not claim
+that all dependency-security risk is permanently closed. Future slices should keep this result
+current when dependency pins, audit tooling, or security-gate behavior changes.
 
 ## Gate Posture
 
