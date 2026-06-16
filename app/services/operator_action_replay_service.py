@@ -153,17 +153,25 @@ def resolve_recovery_drill_manual_replay(
             backup_identifier=backup_identifier,
         ):
             continue
-        payload = _load_payload(artifact_directory=artifact_directory, evidence_file_name=entry.evidence_file_name)
-        if payload is None:
-            return None
-        if not _recovery_drill_payload_matches_entry(payload, entry):
-            logger.warning(
-                "Operator action replay evidence ignored because payload does not match recovery drill history entry: %s",
-                entry.evidence_file_name,
-            )
-            return None
-        return ActionReplayResult(payload=payload, evidence_file_name=entry.evidence_file_name)
+        return _recovery_drill_replay_from_entry(entry, artifact_directory=artifact_directory)
     return None
+
+
+def _recovery_drill_replay_from_entry(
+    entry: RecoveryDrillHistoryEntry,
+    *,
+    artifact_directory: Path,
+) -> ActionReplayResult | None:
+    payload = _load_payload(artifact_directory=artifact_directory, evidence_file_name=entry.evidence_file_name)
+    if payload is None:
+        return None
+    if not _recovery_drill_payload_matches_entry(payload, entry):
+        logger.warning(
+            "Operator action replay evidence ignored because payload does not match recovery drill history entry: %s",
+            entry.evidence_file_name,
+        )
+        return None
+    return ActionReplayResult(payload=payload, evidence_file_name=entry.evidence_file_name)
 
 
 def _recovery_drill_entry_matches(
