@@ -675,12 +675,16 @@ def _cash_flows_have_nonzero_amount(cash_flows: object) -> bool:
     if not isinstance(cash_flows, list):
         return False
     for flow in cash_flows:
-        if not isinstance(flow, dict):
-            continue
-        amount = _parse_decimal(flow.get("amount"))
-        if amount is not None and amount != 0:
+        if _cash_flow_has_nonzero_amount(flow):
             return True
     return False
+
+
+def _cash_flow_has_nonzero_amount(flow: object) -> bool:
+    if not isinstance(flow, dict):
+        return False
+    amount = _parse_decimal(flow.get("amount"))
+    return amount is not None and amount != 0
 
 
 def _collect_duplicate_snapshot_samples(position_rows: list[dict[str, object]]) -> list[dict[str, object]]:

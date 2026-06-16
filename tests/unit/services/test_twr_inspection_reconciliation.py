@@ -340,6 +340,14 @@ def test_field_has_nonzero_transition_activity_requires_activity_marker_and_nonz
     )
 
 
+def test_cash_flow_has_nonzero_amount_requires_mapping_amount_and_nonzero_decimal():
+    assert reconciliation._cash_flow_has_nonzero_amount({"amount": "10.00"})
+    assert not reconciliation._cash_flow_has_nonzero_amount({"amount": "0.00"})
+    assert not reconciliation._cash_flow_has_nonzero_amount({"amount": "not-decimal"})
+    assert not reconciliation._cash_flow_has_nonzero_amount({"missing": "10.00"})
+    assert not reconciliation._cash_flow_has_nonzero_amount("not-a-flow")
+
+
 def test_analyze_portfolio_position_reconciliation_does_not_flag_activity_explained_begin_change():
     performance_request = PerformanceRequest(
         portfolio_id="PB_SG_GLOBAL_BAL_001",
