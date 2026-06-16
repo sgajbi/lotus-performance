@@ -19,6 +19,8 @@ from app.services.durable_store_time import format_timestamp, normalize_filter_d
 
 logger = logging.getLogger(__name__)
 
+_ExecutionReplaySignature = tuple[str, str | None, str, str, str | None, str | None]
+
 
 class ExecutionStatus(StrEnum):
     PENDING = "pending"
@@ -215,6 +217,36 @@ def _record_missing_upstream_snapshot(
     except IntegrityError:
         existing_snapshot_ids.add(snapshot_id)
         return False
+
+
+def _existing_execution_replay_signature(existing: AnalyticsExecutionModel) -> _ExecutionReplaySignature:
+    return (
+        existing.analytics_type,
+        existing.portfolio_id,
+        existing.execution_mode,
+        existing.requested_window_json,
+        existing.input_fingerprint,
+        existing.calculation_hash,
+    )
+
+
+def _requested_execution_replay_signature(
+    *,
+    analytics_type: str,
+    portfolio_id: str | None,
+    execution_mode: str,
+    requested_window_json: str,
+    input_fingerprint: str | None,
+    calculation_hash: str | None,
+) -> _ExecutionReplaySignature:
+    return (
+        analytics_type,
+        portfolio_id,
+        execution_mode,
+        requested_window_json,
+        input_fingerprint,
+        calculation_hash,
+    )
 
 
 class ExecutionRegistry:
@@ -664,13 +696,13 @@ class ExecutionRegistry:
         input_fingerprint: str | None,
         calculation_hash: str | None,
     ) -> bool:
-        return (
-            existing.analytics_type == analytics_type
-            and existing.portfolio_id == portfolio_id
-            and existing.execution_mode == execution_mode
-            and existing.requested_window_json == requested_window_json
-            and existing.input_fingerprint == input_fingerprint
-            and existing.calculation_hash == calculation_hash
+        return _existing_execution_replay_signature(existing) == _requested_execution_replay_signature(
+            analytics_type=analytics_type,
+            portfolio_id=portfolio_id,
+            execution_mode=execution_mode,
+            requested_window_json=requested_window_json,
+            input_fingerprint=input_fingerprint,
+            calculation_hash=calculation_hash,
         )
 
 

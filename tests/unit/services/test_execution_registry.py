@@ -5,6 +5,7 @@ import pytest
 from sqlalchemy import inspect
 
 from app.services.execution_registry import (
+    AnalyticsExecutionModel,
     AnalyticsUpstreamSnapshotModel,
     ExecutionRegistrationStatus,
     ExecutionRegistry,
@@ -321,6 +322,39 @@ def test_record_missing_upstream_snapshot_tracks_inserted_snapshot_ids(tmp_path)
     assert not skipped
     assert existing_snapshot_ids == {"snap-policy"}
     assert [snapshot.snapshot_id for snapshot in registry.list_upstream_snapshots(calculation_id)] == ["snap-policy"]
+
+
+def test_execution_replay_policy_matches_complete_execution_identity():
+    existing = AnalyticsExecutionModel(
+        calculation_id=str(uuid4()),
+        analytics_type="TWR",
+        portfolio_id="PORT-REPLAY",
+        execution_mode="async",
+        status="pending",
+        requested_window_json='{"report_end_date": "2026-06-16"}',
+        input_fingerprint="input-1",
+        calculation_hash="calc-1",
+        created_at_utc=datetime(2026, 6, 16, tzinfo=timezone.utc),
+    )
+
+    assert ExecutionRegistry._is_replay_of_existing_execution(
+        existing=existing,
+        analytics_type="TWR",
+        portfolio_id="PORT-REPLAY",
+        execution_mode="async",
+        requested_window_json='{"report_end_date": "2026-06-16"}',
+        input_fingerprint="input-1",
+        calculation_hash="calc-1",
+    )
+    assert not ExecutionRegistry._is_replay_of_existing_execution(
+        existing=existing,
+        analytics_type="TWR",
+        portfolio_id="PORT-REPLAY",
+        execution_mode="async",
+        requested_window_json='{"report_end_date": "2026-06-17"}',
+        input_fingerprint="input-1",
+        calculation_hash="calc-1",
+    )
 
 
 def test_execution_registry_clear_all_records_removes_upstream_snapshots(tmp_path):
