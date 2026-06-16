@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import date, timedelta
 
 from app.models.inspection_requests import TWRInspectionProfile
 from app.models.inspection_responses import TWRInspectionFinding
@@ -729,10 +729,14 @@ def _find_missing_business_dates(valuation_points: list[DailyInputData]) -> list
     last = valuation_points[-1].perf_date
     observed = {point.perf_date.isoformat() for point in valuation_points}
     while current <= last:
-        if current.weekday() < 5 and current.isoformat() not in observed:
+        if _is_unobserved_business_date(current, observed):
             expected.append(current.isoformat())
         current += timedelta(days=1)
     return expected
+
+
+def _is_unobserved_business_date(candidate_date: date, observed_iso_dates: set[str]) -> bool:
+    return candidate_date.weekday() < 5 and candidate_date.isoformat() not in observed_iso_dates
 
 
 def _build_warning_finding(

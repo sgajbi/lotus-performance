@@ -38,31 +38,31 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_find_missing_business_dates` | function | `app/services/inspection/source_quality.py:724` | 6 | B |
-| 2 | `load_existing_twr_calculation_artifacts` | function | `app/services/inspection/subject_materialization.py:34` | 6 | B |
-| 3 | `_load_request_payload` | function | `app/services/inspection/subject_materialization.py:123` | 6 | B |
-| 4 | `_build_inspection_findings_context` | function | `app/services/inspection/twr_inspection_service.py:386` | 6 | B |
-| 5 | `_synthesize_verdict` | function | `app/services/inspection/twr_inspection_service.py:586` | 6 | B |
-| 6 | `_response_master_window` | function | `app/services/inspection/twr_inspection_service.py:725` | 6 | B |
-| 7 | `_build_workflow_capabilities` | function | `app/services/integration_capabilities_service.py:169` | 6 | B |
-| 8 | `_stringify_decimals` | function | `app/services/mwr_calculation_service.py:134` | 6 | B |
-| 9 | `_enforce_manual_action_cooldown` | function | `app/services/operator_action_guard_service.py:186` | 6 | B |
-| 10 | `generated_at_within_bounds` | function | `app/services/operator_action_history_filters.py:38` | 6 | B |
-| 11 | `_history_manifest_file_names` | function | `app/services/operator_action_history_manifest.py:83` | 6 | B |
-| 12 | `_parse_reclaimed_event_payload` | function | `app/services/operator_action_lease_service.py:497` | 6 | B |
-| 13 | `_has_valid_reclaimed_event_string_fields` | function | `app/services/operator_action_lease_service.py:567` | 6 | B |
-| 14 | `resolve_runtime_retention_manual_replay` | function | `app/services/operator_action_replay_service.py:91` | 6 | B |
-| 15 | `resolve_recovery_drill_manual_replay` | function | `app/services/operator_action_replay_service.py:128` | 6 | B |
-| 16 | `_runtime_retention_payload_counts_match` | function | `app/services/operator_action_replay_service.py:269` | 6 | B |
-| 17 | `build_active_return_points` | function | `app/services/returns_series_service.py:352` | 6 | B |
-| 18 | `build_cumulative_active_return_points` | function | `app/services/returns_series_service.py:387` | 6 | B |
-| 19 | `_risk_free_return_point_from_source` | function | `app/services/returns_series_service.py:592` | 6 | B |
-| 20 | `_prepare_stateless_returns_series_dataframes` | function | `app/services/returns_series_service.py:715` | 6 | B |
-| 21 | `_retrieve_stateful_returns_series_risk_free` | function | `app/services/returns_series_service.py:967` | 6 | B |
-| 22 | `_build_returns_series_response` | function | `app/services/returns_series_service.py:1258` | 6 | B |
-| 23 | `_calculate_returns_series` | function | `app/services/returns_series_service.py:1397` | 6 | B |
-| 24 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:1496` | 6 | B |
-| 25 | `threshold_breach_values` | function | `app/services/runtime_degradation_policy.py:13` | 6 | B |
+| 1 | `load_existing_twr_calculation_artifacts` | function | `app/services/inspection/subject_materialization.py:34` | 6 | B |
+| 2 | `_load_request_payload` | function | `app/services/inspection/subject_materialization.py:123` | 6 | B |
+| 3 | `_build_inspection_findings_context` | function | `app/services/inspection/twr_inspection_service.py:386` | 6 | B |
+| 4 | `_synthesize_verdict` | function | `app/services/inspection/twr_inspection_service.py:586` | 6 | B |
+| 5 | `_response_master_window` | function | `app/services/inspection/twr_inspection_service.py:725` | 6 | B |
+| 6 | `_build_workflow_capabilities` | function | `app/services/integration_capabilities_service.py:169` | 6 | B |
+| 7 | `_stringify_decimals` | function | `app/services/mwr_calculation_service.py:134` | 6 | B |
+| 8 | `_enforce_manual_action_cooldown` | function | `app/services/operator_action_guard_service.py:186` | 6 | B |
+| 9 | `generated_at_within_bounds` | function | `app/services/operator_action_history_filters.py:38` | 6 | B |
+| 10 | `_history_manifest_file_names` | function | `app/services/operator_action_history_manifest.py:83` | 6 | B |
+| 11 | `_parse_reclaimed_event_payload` | function | `app/services/operator_action_lease_service.py:497` | 6 | B |
+| 12 | `_has_valid_reclaimed_event_string_fields` | function | `app/services/operator_action_lease_service.py:567` | 6 | B |
+| 13 | `resolve_runtime_retention_manual_replay` | function | `app/services/operator_action_replay_service.py:91` | 6 | B |
+| 14 | `resolve_recovery_drill_manual_replay` | function | `app/services/operator_action_replay_service.py:128` | 6 | B |
+| 15 | `_runtime_retention_payload_counts_match` | function | `app/services/operator_action_replay_service.py:269` | 6 | B |
+| 16 | `build_active_return_points` | function | `app/services/returns_series_service.py:352` | 6 | B |
+| 17 | `build_cumulative_active_return_points` | function | `app/services/returns_series_service.py:387` | 6 | B |
+| 18 | `_risk_free_return_point_from_source` | function | `app/services/returns_series_service.py:592` | 6 | B |
+| 19 | `_prepare_stateless_returns_series_dataframes` | function | `app/services/returns_series_service.py:715` | 6 | B |
+| 20 | `_retrieve_stateful_returns_series_risk_free` | function | `app/services/returns_series_service.py:967` | 6 | B |
+| 21 | `_build_returns_series_response` | function | `app/services/returns_series_service.py:1258` | 6 | B |
+| 22 | `_calculate_returns_series` | function | `app/services/returns_series_service.py:1397` | 6 | B |
+| 23 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:1496` | 6 | B |
+| 24 | `threshold_breach_values` | function | `app/services/runtime_degradation_policy.py:13` | 6 | B |
+| 25 | `build_runtime_recoveries_response_for_query` | function | `app/services/runtime_recoveries_service.py:39` | 6 | B |
 
 ## Lowest Maintainability Index
 
@@ -83,7 +83,7 @@ must stay at `0`.
 | 13 | `app/services/inspection/reconciliation.py` | 15.11 | B |
 | 14 | `app/services/inspection/source_economics.py` | 16.03 | B |
 | 15 | `app/services/inspection/source_economics_collector.py` | 16.34 | B |
-| 16 | `app/services/inspection/source_quality.py` | 16.86 | B |
+| 16 | `app/services/inspection/source_quality.py` | 16.80 | B |
 | 17 | `app/services/inspection/calculation_consistency.py` | 17.79 | B |
 | 18 | `app/services/twr_mode_service.py` | 18.07 | B |
 | 19 | `app/models/runtime_status.py` | 19.85 | A |

@@ -59,6 +59,14 @@ def test_source_quality_evidence_builders_project_summary_and_artifacts():
     assert artifact["extreme_daily_moves"] == [{"perf_date": "2026-04-03", "return_pct": 12.0}]
 
 
+def test_is_unobserved_business_date_detects_missing_weekday_only():
+    observed_dates = {"2026-04-03"}
+
+    assert source_quality._is_unobserved_business_date(date(2026, 4, 6), observed_dates)
+    assert not source_quality._is_unobserved_business_date(date(2026, 4, 4), observed_dates)
+    assert not source_quality._is_unobserved_business_date(date(2026, 4, 3), observed_dates)
+
+
 def test_run_source_quality_checks_flags_stale_valuation_series():
     performance_request = PerformanceRequest(
         portfolio_id="PB_SG_GLOBAL_BAL_001",
