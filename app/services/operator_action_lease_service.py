@@ -503,10 +503,8 @@ def _parse_reclaimed_event_payload(
         return _INVALID_LEASE
 
     candidate_action_name = _matching_reclaimed_event_action_name(payload=payload, action_name=action_name)
-    if candidate_action_name is _INVALID_LEASE:
-        return _INVALID_LEASE
-    if candidate_action_name is None:
-        return None
+    if not isinstance(candidate_action_name, str):
+        return candidate_action_name
     if not _has_valid_reclaimed_event_fields(payload):
         return _INVALID_LEASE
     operator_id = payload.get("operator_id")
@@ -517,7 +515,6 @@ def _parse_reclaimed_event_payload(
     stale_after_seconds = payload.get("stale_after_seconds")
     reclaim_count = payload.get("reclaim_count", 1)
     action_key = payload.get("action_key")
-    candidate_action_name_value = cast(str, candidate_action_name)
     operator_id_value = cast(str, operator_id)
     tenant_id_value = cast(str | None, tenant_id)
     governed_target_value = cast(str, governed_target)
@@ -525,14 +522,14 @@ def _parse_reclaimed_event_payload(
     reclaimed_at_utc_value = cast(str, reclaimed_at_utc)
     stale_after_seconds = cast(Any, stale_after_seconds)
     action_key_value = cast(str, action_key)
-    try:
-        parse_utc_datetime(acquired_at_utc_value)
-        parse_utc_datetime(reclaimed_at_utc_value)
-    except ValueError:
+    if not _reclaimed_event_timestamps_valid(
+        acquired_at_utc=acquired_at_utc_value,
+        reclaimed_at_utc=reclaimed_at_utc_value,
+    ):
         return _INVALID_LEASE
     return ReclaimedOperatorActionLeaseEvent(
         action_key=action_key_value,
-        action_name=candidate_action_name_value,
+        action_name=candidate_action_name,
         operator_id=operator_id_value,
         tenant_id=tenant_id_value,
         governed_target=governed_target_value,
@@ -541,6 +538,15 @@ def _parse_reclaimed_event_payload(
         stale_after_seconds=float(stale_after_seconds),
         reclaim_count=reclaim_count,
     )
+
+
+def _reclaimed_event_timestamps_valid(*, acquired_at_utc: str, reclaimed_at_utc: str) -> bool:
+    try:
+        parse_utc_datetime(acquired_at_utc)
+        parse_utc_datetime(reclaimed_at_utc)
+    except ValueError:
+        return False
+    return True
 
 
 def _matching_reclaimed_event_action_name(

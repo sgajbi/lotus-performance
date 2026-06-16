@@ -24,6 +24,7 @@ from app.services.operator_action_lease_service import (
     _read_recent_reclaimed_leases,
     _recent_reclaimed_lease_events_from_payload,
     _reclaim_stale_lock,
+    _reclaimed_event_timestamps_valid,
     _stale_lock_reclaim_candidate,
     _write_latest_reclaimed_lease,
     build_operator_action_lease_snapshot,
@@ -717,6 +718,21 @@ def test_has_valid_reclaimed_event_fields_checks_complete_post_filter_shape():
 
     assert _has_valid_reclaimed_event_fields(payload)
     assert not _has_valid_reclaimed_event_fields({**payload, "reclaim_count": "1"})
+
+
+def test_reclaimed_event_timestamps_valid_requires_both_utc_timestamps():
+    assert _reclaimed_event_timestamps_valid(
+        acquired_at_utc="2026-03-15T00:00:00Z",
+        reclaimed_at_utc="2026-03-15T01:00:00Z",
+    )
+    assert not _reclaimed_event_timestamps_valid(
+        acquired_at_utc="not-a-date",
+        reclaimed_at_utc="2026-03-15T01:00:00Z",
+    )
+    assert not _reclaimed_event_timestamps_valid(
+        acquired_at_utc="2026-03-15T00:00:00Z",
+        reclaimed_at_utc="not-a-date",
+    )
 
 
 def test_has_valid_reclaimed_event_string_fields_allows_absent_optional_tenant():
