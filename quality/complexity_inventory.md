@@ -38,31 +38,31 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `resolve_runtime_retention_manual_replay` | function | `app/services/operator_action_replay_service.py:91` | 6 | B |
-| 2 | `resolve_recovery_drill_manual_replay` | function | `app/services/operator_action_replay_service.py:128` | 6 | B |
-| 3 | `_runtime_retention_payload_counts_match` | function | `app/services/operator_action_replay_service.py:269` | 6 | B |
-| 4 | `build_active_return_points` | function | `app/services/returns_series_service.py:352` | 6 | B |
-| 5 | `build_cumulative_active_return_points` | function | `app/services/returns_series_service.py:387` | 6 | B |
-| 6 | `_risk_free_return_point_from_source` | function | `app/services/returns_series_service.py:592` | 6 | B |
-| 7 | `_prepare_stateless_returns_series_dataframes` | function | `app/services/returns_series_service.py:715` | 6 | B |
-| 8 | `_retrieve_stateful_returns_series_risk_free` | function | `app/services/returns_series_service.py:967` | 6 | B |
-| 9 | `_build_returns_series_response` | function | `app/services/returns_series_service.py:1258` | 6 | B |
-| 10 | `_calculate_returns_series` | function | `app/services/returns_series_service.py:1397` | 6 | B |
-| 11 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:1496` | 6 | B |
-| 12 | `threshold_breach_values` | function | `app/services/runtime_degradation_policy.py:13` | 6 | B |
-| 13 | `build_runtime_recoveries_response_for_query` | function | `app/services/runtime_recoveries_service.py:39` | 6 | B |
-| 14 | `execute_runtime_retention_cleanup` | function | `app/services/runtime_retention_execution_service.py:78` | 6 | B |
-| 15 | `_persist_evidence_history` | function | `app/services/runtime_retention_execution_service.py:139` | 6 | B |
-| 16 | `_prune_old_evidence` | function | `app/services/runtime_retention_execution_service.py:203` | 6 | B |
-| 17 | `_validate_manifest_entry` | function | `app/services/runtime_retention_history_service.py:232` | 6 | B |
-| 18 | `run_runtime_retention_cleanup` | function | `app/services/runtime_retention_run_service.py:93` | 6 | B |
-| 19 | `build_recovery_drill_status` | function | `app/services/runtime_status_lifecycle.py:68` | 6 | B |
-| 20 | `build_runtime_retention_status` | function | `app/services/runtime_status_lifecycle.py:131` | 6 | B |
-| 21 | `_record_source_quality_observation` | function | `app/services/source_quality_evidence.py:92` | 6 | B |
-| 22 | `retrieve_stateful_attribution_source_input` | function | `app/services/stateful_attribution_input_service.py:62` | 6 | B |
-| 23 | `_resolve_stateful_attribution_benchmark_id` | function | `app/services/stateful_attribution_input_service.py:161` | 6 | B |
-| 24 | `_sum_internal_cash_flow_abs_in_alignment_basis` | function | `app/services/stateful_attribution_input_service.py:431` | 6 | B |
-| 25 | `_classified_component_count` | function | `app/services/stateful_attribution_input_service.py:518` | 6 | B |
+| 1 | `resolve_recovery_drill_manual_replay` | function | `app/services/operator_action_replay_service.py:136` | 6 | B |
+| 2 | `_runtime_retention_payload_counts_match` | function | `app/services/operator_action_replay_service.py:277` | 6 | B |
+| 3 | `build_active_return_points` | function | `app/services/returns_series_service.py:352` | 6 | B |
+| 4 | `build_cumulative_active_return_points` | function | `app/services/returns_series_service.py:387` | 6 | B |
+| 5 | `_risk_free_return_point_from_source` | function | `app/services/returns_series_service.py:592` | 6 | B |
+| 6 | `_prepare_stateless_returns_series_dataframes` | function | `app/services/returns_series_service.py:715` | 6 | B |
+| 7 | `_retrieve_stateful_returns_series_risk_free` | function | `app/services/returns_series_service.py:967` | 6 | B |
+| 8 | `_build_returns_series_response` | function | `app/services/returns_series_service.py:1258` | 6 | B |
+| 9 | `_calculate_returns_series` | function | `app/services/returns_series_service.py:1397` | 6 | B |
+| 10 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:1496` | 6 | B |
+| 11 | `threshold_breach_values` | function | `app/services/runtime_degradation_policy.py:13` | 6 | B |
+| 12 | `build_runtime_recoveries_response_for_query` | function | `app/services/runtime_recoveries_service.py:39` | 6 | B |
+| 13 | `execute_runtime_retention_cleanup` | function | `app/services/runtime_retention_execution_service.py:78` | 6 | B |
+| 14 | `_persist_evidence_history` | function | `app/services/runtime_retention_execution_service.py:139` | 6 | B |
+| 15 | `_prune_old_evidence` | function | `app/services/runtime_retention_execution_service.py:203` | 6 | B |
+| 16 | `_validate_manifest_entry` | function | `app/services/runtime_retention_history_service.py:232` | 6 | B |
+| 17 | `run_runtime_retention_cleanup` | function | `app/services/runtime_retention_run_service.py:93` | 6 | B |
+| 18 | `build_recovery_drill_status` | function | `app/services/runtime_status_lifecycle.py:68` | 6 | B |
+| 19 | `build_runtime_retention_status` | function | `app/services/runtime_status_lifecycle.py:131` | 6 | B |
+| 20 | `_record_source_quality_observation` | function | `app/services/source_quality_evidence.py:92` | 6 | B |
+| 21 | `retrieve_stateful_attribution_source_input` | function | `app/services/stateful_attribution_input_service.py:62` | 6 | B |
+| 22 | `_resolve_stateful_attribution_benchmark_id` | function | `app/services/stateful_attribution_input_service.py:161` | 6 | B |
+| 23 | `_sum_internal_cash_flow_abs_in_alignment_basis` | function | `app/services/stateful_attribution_input_service.py:431` | 6 | B |
+| 24 | `_classified_component_count` | function | `app/services/stateful_attribution_input_service.py:518` | 6 | B |
+| 25 | `_build_benchmark_groups` | function | `app/services/stateful_attribution_input_service.py:721` | 6 | B |
 
 ## Lowest Maintainability Index
 

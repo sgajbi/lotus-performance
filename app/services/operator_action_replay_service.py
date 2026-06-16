@@ -112,17 +112,25 @@ def resolve_runtime_retention_manual_replay(
             job_id=job_id,
         ):
             continue
-        payload = _load_payload(artifact_directory=artifact_directory, evidence_file_name=entry.evidence_file_name)
-        if payload is None:
-            return None
-        if not _runtime_retention_payload_matches_entry(payload, entry):
-            logger.warning(
-                "Operator action replay evidence ignored because payload does not match runtime retention history entry: %s",
-                entry.evidence_file_name,
-            )
-            return None
-        return ActionReplayResult(payload=payload, evidence_file_name=entry.evidence_file_name)
+        return _runtime_retention_replay_from_entry(entry, artifact_directory=artifact_directory)
     return None
+
+
+def _runtime_retention_replay_from_entry(
+    entry: RuntimeRetentionHistoryEntry,
+    *,
+    artifact_directory: Path,
+) -> ActionReplayResult | None:
+    payload = _load_payload(artifact_directory=artifact_directory, evidence_file_name=entry.evidence_file_name)
+    if payload is None:
+        return None
+    if not _runtime_retention_payload_matches_entry(payload, entry):
+        logger.warning(
+            "Operator action replay evidence ignored because payload does not match runtime retention history entry: %s",
+            entry.evidence_file_name,
+        )
+        return None
+    return ActionReplayResult(payload=payload, evidence_file_name=entry.evidence_file_name)
 
 
 def resolve_recovery_drill_manual_replay(
