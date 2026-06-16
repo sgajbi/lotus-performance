@@ -56,6 +56,36 @@ def test_build_active_return_points_uses_aligned_arithmetic_difference():
     assert [str(point.return_value) for point in active_points] == ["0.004000000000", "-0.003000000000"]
 
 
+def test_aligned_portfolio_benchmark_returns_df_requires_benchmark_and_overlap():
+    portfolio_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-23"]),
+            "return_value": [Decimal("0.0100")],
+        }
+    )
+    benchmark_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-24"]),
+            "return_value": [Decimal("0.0010")],
+        }
+    )
+
+    assert (
+        returns_series_service._aligned_portfolio_benchmark_returns_df(
+            portfolio_df=portfolio_df,
+            benchmark_df=None,
+        )
+        is None
+    )
+    assert (
+        returns_series_service._aligned_portfolio_benchmark_returns_df(
+            portfolio_df=portfolio_df,
+            benchmark_df=benchmark_df,
+        )
+        is None
+    )
+
+
 def test_daily_return_percentage_to_ratio_uses_shared_numeric_fallback():
     assert returns_series_service._daily_return_percentage_to_ratio("1.25") == Decimal("0.0125")
     assert returns_series_service._daily_return_percentage_to_ratio("not-a-number") is None

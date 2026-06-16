@@ -354,20 +354,8 @@ def build_active_return_points(
     portfolio_df: pd.DataFrame,
     benchmark_df: pd.DataFrame | None,
 ) -> list[ReturnPoint] | None:
-    if benchmark_df is None:
-        return None
-
-    aligned_df = (
-        portfolio_df[["date", "return_value"]]
-        .merge(
-            benchmark_df[["date", "return_value"]],
-            on="date",
-            how="inner",
-            suffixes=("_portfolio", "_benchmark"),
-        )
-        .sort_values("date")
-    )
-    if aligned_df.empty:
+    aligned_df = _aligned_portfolio_benchmark_returns_df(portfolio_df=portfolio_df, benchmark_df=benchmark_df)
+    if aligned_df is None:
         return None
 
     portfolio_values = [Decimal(str(value)) for value in aligned_df["return_value_portfolio"]]
@@ -397,19 +385,11 @@ def build_cumulative_active_return_points(
     if cumulative_portfolio is None or cumulative_benchmark is None:
         return None
 
-    portfolio_df_aligned = to_dataframe(cumulative_portfolio, series_type="portfolio_cumulative")
-    benchmark_df_aligned = to_dataframe(cumulative_benchmark, series_type="benchmark_cumulative")
-    aligned_df = (
-        portfolio_df_aligned[["date", "return_value"]]
-        .merge(
-            benchmark_df_aligned[["date", "return_value"]],
-            on="date",
-            how="inner",
-            suffixes=("_portfolio", "_benchmark"),
-        )
-        .sort_values("date")
+    aligned_df = _aligned_portfolio_benchmark_returns_df(
+        portfolio_df=to_dataframe(cumulative_portfolio, series_type="portfolio_cumulative"),
+        benchmark_df=to_dataframe(cumulative_benchmark, series_type="benchmark_cumulative"),
     )
-    if aligned_df.empty:
+    if aligned_df is None:
         return None
 
     active_df = pd.DataFrame(
@@ -426,6 +406,29 @@ def build_cumulative_active_return_points(
         }
     )
     return points_from_df(active_df)
+
+
+def _aligned_portfolio_benchmark_returns_df(
+    *,
+    portfolio_df: pd.DataFrame,
+    benchmark_df: pd.DataFrame | None,
+) -> pd.DataFrame | None:
+    if benchmark_df is None:
+        return None
+
+    aligned_df = (
+        portfolio_df[["date", "return_value"]]
+        .merge(
+            benchmark_df[["date", "return_value"]],
+            on="date",
+            how="inner",
+            suffixes=("_portfolio", "_benchmark"),
+        )
+        .sort_values("date")
+    )
+    if aligned_df.empty:
+        return None
+    return aligned_df
 
 
 def core_frequency_label(_frequency: ReturnsFrequency) -> str:
