@@ -1,4 +1,4 @@
-from app.services.integration_capabilities_service import build_integration_capabilities_report
+from app.services.integration_capabilities_service import _workflow_enabled, build_integration_capabilities_report
 
 
 def test_build_integration_capabilities_report_default():
@@ -70,6 +70,12 @@ def test_build_integration_capabilities_report_limits_are_applied():
     assert len(report.workflows) == 1
     assert report.features[0]["key"] == "performance.analytics.twr"
     assert report.workflows[0]["workflow_key"] == "performance_snapshot"
+
+
+def test_workflow_enabled_requires_every_feature_flag():
+    assert _workflow_enabled(True, True, True) is True
+    assert _workflow_enabled(True, False, True) is False
+    assert _workflow_enabled(False) is False
 
 
 def test_build_integration_capabilities_report_supportability_stays_enabled_without_twr(monkeypatch):

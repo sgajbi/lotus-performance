@@ -22,7 +22,7 @@ python scripts/python_function_size_inventory.py --limit 20
 | ---: | --- | --- | ---: |
 | 1 | `DurableQueueCollector.describe` | `app/services/queue_metrics_service.py:193` | 159 |
 | 2 | `build_runtime_status_response` | `app/models/runtime_status.py:767` | 131 |
-| 3 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:327` | 130 |
+| 3 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:331` | 130 |
 | 4 | `calculate_attribution` | `app/services/attribution_service.py:214` | 104 |
 | 5 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:227` | 102 |
 | 6 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:331` | 102 |
