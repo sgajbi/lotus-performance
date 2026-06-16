@@ -98,6 +98,12 @@ class DetailedCashFlowEconomics:
     fee_bod_timing_rows: tuple[dict[str, object], ...]
 
 
+@dataclass(frozen=True)
+class _ObservationDateResolution:
+    valuation_date: str | None
+    invalid_sample: dict[str, object] | None
+
+
 @dataclass
 class _DetailedCashFlowAccumulator:
     external_bod: Decimal = Decimal("0")
@@ -444,17 +450,12 @@ def _build_observation_source_economics(
     source_points: list[ObservationSourceEconomics] = []
     invalid_observation_date_samples: list[dict[str, object]] = []
     for observation in observations:
-        valuation_date = observation.get("valuation_date")
-        if not isinstance(valuation_date, str) or not _is_iso_date(valuation_date):
-            invalid_observation_date_samples.append(
-                {
-                    "valuation_date": valuation_date if isinstance(valuation_date, str) else None,
-                    "raw_type": type(valuation_date).__name__,
-                    "raw_value": _sample_raw_collection_value(valuation_date),
-                    "observation_keys": sorted(str(key) for key in observation),
-                }
-            )
+        date_resolution = _resolve_observation_valuation_date(observation)
+        if date_resolution.valuation_date is None:
+            if date_resolution.invalid_sample is not None:
+                invalid_observation_date_samples.append(date_resolution.invalid_sample)
             continue
+        valuation_date = date_resolution.valuation_date
         normalized_point = normalized_by_date.get(
             valuation_date,
             {"bod_cf": Decimal("0"), "eod_cf": Decimal("0"), "mgmt_fees": Decimal("0")},
@@ -489,6 +490,21 @@ def _build_observation_source_economics(
     return SourceObservationBuildResult(
         source_points=source_points,
         invalid_observation_date_samples=invalid_observation_date_samples,
+    )
+
+
+def _resolve_observation_valuation_date(observation: dict[str, object]) -> _ObservationDateResolution:
+    valuation_date = observation.get("valuation_date")
+    if isinstance(valuation_date, str) and _is_iso_date(valuation_date):
+        return _ObservationDateResolution(valuation_date=valuation_date, invalid_sample=None)
+    return _ObservationDateResolution(
+        valuation_date=None,
+        invalid_sample={
+            "valuation_date": valuation_date if isinstance(valuation_date, str) else None,
+            "raw_type": type(valuation_date).__name__,
+            "raw_value": _sample_raw_collection_value(valuation_date),
+            "observation_keys": sorted(str(key) for key in observation),
+        },
     )
 
 

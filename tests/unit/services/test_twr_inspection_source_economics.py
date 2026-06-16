@@ -1633,3 +1633,36 @@ def test_record_detailed_cash_flow_routes_governed_alias_amount_and_sample():
     assert result.governed_alias_cashflow_type_rows == (
         {"timing": "eod", "amount": "12.5", "cash_flow_type": "deposit"},
     )
+
+
+def test_resolve_observation_valuation_date_accepts_iso_date():
+    result = source_economics._resolve_observation_valuation_date({"valuation_date": "2026-03-25", "cash_flows": []})
+
+    assert result.valuation_date == "2026-03-25"
+    assert result.invalid_sample is None
+
+
+def test_resolve_observation_valuation_date_captures_invalid_identity_sample():
+    result = source_economics._resolve_observation_valuation_date(
+        {"valuation_date": "25-03-2026", "cash_flows": [], "market_value": "100.0"}
+    )
+
+    assert result.valuation_date is None
+    assert result.invalid_sample == {
+        "valuation_date": "25-03-2026",
+        "raw_type": "str",
+        "raw_value": "25-03-2026",
+        "observation_keys": ["cash_flows", "market_value", "valuation_date"],
+    }
+
+
+def test_resolve_observation_valuation_date_captures_non_string_identity_sample():
+    result = source_economics._resolve_observation_valuation_date({"valuation_date": {"year": 2026}, "cash_flows": []})
+
+    assert result.valuation_date is None
+    assert result.invalid_sample == {
+        "valuation_date": None,
+        "raw_type": "dict",
+        "raw_value": {"year": 2026},
+        "observation_keys": ["cash_flows", "valuation_date"],
+    }
