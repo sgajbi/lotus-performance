@@ -622,3 +622,17 @@ def test_analyze_portfolio_position_reconciliation_flags_duplicate_snapshot_rows
             "duplicate_count": 2,
         }
     ]
+
+
+def test_duplicate_snapshot_key_requires_string_identity_and_uses_parsed_epoch():
+    assert reconciliation._duplicate_snapshot_key(
+        {"valuation_date": "2026-01-02", "position_id": "SEC_2", "valuation_epoch": "5"}
+    ) == ("2026-01-02", "SEC_2", 5)
+    assert reconciliation._duplicate_snapshot_key({"position_id": "SEC_2", "valuation_epoch": 5}) is None
+    assert reconciliation._duplicate_snapshot_key({"valuation_date": "2026-01-02", "valuation_epoch": 5}) is None
+    assert (
+        reconciliation._duplicate_snapshot_key(
+            {"valuation_date": date(2026, 1, 2), "position_id": "SEC_2", "valuation_epoch": 5}
+        )
+        is None
+    )

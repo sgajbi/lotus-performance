@@ -692,12 +692,10 @@ def _collect_duplicate_snapshot_samples(position_rows: list[dict[str, object]]) 
     sample_index_by_key: dict[tuple[str, object, int], int] = {}
     samples: list[dict[str, object]] = []
     for row in position_rows:
-        valuation_date = row.get("valuation_date")
-        position_id = row.get("position_id")
-        if not isinstance(valuation_date, str) or not isinstance(position_id, str):
+        key = _duplicate_snapshot_key(row)
+        if key is None:
             continue
-        epoch = _parse_epoch_value(row)
-        key = (valuation_date, position_id, epoch)
+        valuation_date, position_id, epoch = key
         counts[key] = counts.get(key, 0) + 1
         if counts[key] == 2:
             samples.append(
@@ -712,6 +710,14 @@ def _collect_duplicate_snapshot_samples(position_rows: list[dict[str, object]]) 
         elif counts[key] > 2:
             samples[sample_index_by_key[key]]["duplicate_count"] = counts[key]
     return samples
+
+
+def _duplicate_snapshot_key(row: dict[str, object]) -> tuple[str, str, int] | None:
+    valuation_date = row.get("valuation_date")
+    position_id = row.get("position_id")
+    if not isinstance(valuation_date, str) or not isinstance(position_id, str):
+        return None
+    return valuation_date, position_id, _parse_epoch_value(row)
 
 
 def _collect_invalid_epoch_samples(position_rows: list[dict[str, object]]) -> list[dict[str, object]]:
