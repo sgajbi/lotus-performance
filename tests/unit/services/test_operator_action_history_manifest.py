@@ -3,6 +3,7 @@ import logging
 from app.services.operator_action_history_manifest import (
     HistoryManifestHeader,
     HistoryManifestReadReasons,
+    _latest_manifest_file_name_retained,
     _safe_manifest_file_name,
     _safe_retained_manifest_file_names,
     build_history_manifest_payload,
@@ -160,6 +161,20 @@ def test_validate_history_manifest_header_rejects_mismatched_latest_file():
             }
         )
         is None
+    )
+
+
+def test_latest_manifest_file_name_retained_accepts_absent_or_retained_latest():
+    retained_file_names = ["latest.json", "previous.json"]
+
+    assert _latest_manifest_file_name_retained(latest_file_name=None, retained_file_names=retained_file_names)
+    assert _latest_manifest_file_name_retained(
+        latest_file_name="latest.json",
+        retained_file_names=retained_file_names,
+    )
+    assert not _latest_manifest_file_name_retained(
+        latest_file_name="missing.json",
+        retained_file_names=retained_file_names,
     )
 
 
