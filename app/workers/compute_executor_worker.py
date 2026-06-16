@@ -66,6 +66,9 @@ class _ComputeJobExecutionContext:
     inspection_calculator: Callable[[TWRInspectionRequest], Any]
 
 
+_ComputeJobExecutor = Callable[[ComputeJobRecord, _ComputeJobExecutionContext], Any]
+
+
 @dataclass(frozen=True)
 class _ComputeJobRuntime:
     job_store: ComputeJobStore | RuntimeStoreProxy[ComputeJobStore]
@@ -75,6 +78,28 @@ class _ComputeJobRuntime:
     lease_seconds: int
     batch_size: int
     execution_context: _ComputeJobExecutionContext
+
+
+@dataclass(frozen=True)
+class _ComputeJobRuntimeOptions:
+    settings: Any
+    job_store: ComputeJobStore | RuntimeStoreProxy[ComputeJobStore]
+    execution_store: ExecutionRegistry | RuntimeStoreProxy[ExecutionRegistry]
+    result_store: AsyncResultStore | RuntimeStoreProxy[AsyncResultStore]
+    worker_id: str
+    lease_seconds: int
+    batch_size: int
+
+
+@dataclass(frozen=True)
+class _ComputeJobCalculators:
+    returns_series_calculator: Callable[..., Coroutine[Any, Any, Any]]
+    contribution_calculator: Callable[..., Any]
+    attribution_calculator: Callable[..., Any]
+    benchmark_calculator: Callable[..., Any]
+    twr_calculator: Callable[..., Any]
+    workspace_summary_calculator: Callable[..., Any]
+    inspection_calculator: Callable[[TWRInspectionRequest], Any]
 
 
 def process_pending_jobs(*, limit: int | None = None, settings=None) -> int:
@@ -170,23 +195,25 @@ def _build_compute_job_runtime(
     inspection_calculator: Callable[[TWRInspectionRequest], Any] | None,
     settings,
 ) -> _ComputeJobRuntime:
-    active_settings = settings or get_settings()
-    batch_size = limit or active_settings.COMPUTE_EXECUTOR_BATCH_SIZE
-    active_job_store = job_store or compute_job_store
-    active_execution_store = execution_store or execution_registry
-    active_result_store = result_store or async_result_store
-    current_worker_id = worker_id or active_settings.COMPUTE_EXECUTOR_WORKER_ID
-    current_lease_seconds = lease_seconds or active_settings.COMPUTE_EXECUTOR_LEASE_SECONDS
+    runtime_options = _resolve_compute_job_runtime_options(
+        limit=limit,
+        job_store=job_store,
+        execution_store=execution_store,
+        result_store=result_store,
+        worker_id=worker_id,
+        lease_seconds=lease_seconds,
+        settings=settings,
+    )
     return _ComputeJobRuntime(
-        job_store=active_job_store,
-        execution_store=active_execution_store,
-        result_store=active_result_store,
-        worker_id=current_worker_id,
-        lease_seconds=current_lease_seconds,
-        batch_size=batch_size,
+        job_store=runtime_options.job_store,
+        execution_store=runtime_options.execution_store,
+        result_store=runtime_options.result_store,
+        worker_id=runtime_options.worker_id,
+        lease_seconds=runtime_options.lease_seconds,
+        batch_size=runtime_options.batch_size,
         execution_context=_build_compute_job_execution_context(
-            settings=active_settings,
-            execution_store=active_execution_store,
+            settings=runtime_options.settings,
+            execution_store=runtime_options.execution_store,
             returns_series_calculator=returns_series_calculator,
             contribution_calculator=contribution_calculator,
             attribution_calculator=attribution_calculator,
@@ -196,6 +223,32 @@ def _build_compute_job_runtime(
             inspection_calculator=inspection_calculator,
         ),
     )
+
+
+def _resolve_compute_job_runtime_options(
+    *,
+    limit: int | None,
+    job_store: ComputeJobStore | RuntimeStoreProxy[ComputeJobStore] | None,
+    execution_store: ExecutionRegistry | RuntimeStoreProxy[ExecutionRegistry] | None,
+    result_store: AsyncResultStore | RuntimeStoreProxy[AsyncResultStore] | None,
+    worker_id: str | None,
+    lease_seconds: int | None,
+    settings,
+) -> _ComputeJobRuntimeOptions:
+    active_settings = settings or get_settings()
+    return _ComputeJobRuntimeOptions(
+        settings=active_settings,
+        job_store=_truthy_or_default(job_store, compute_job_store),
+        execution_store=_truthy_or_default(execution_store, execution_registry),
+        result_store=_truthy_or_default(result_store, async_result_store),
+        worker_id=_truthy_or_default(worker_id, active_settings.COMPUTE_EXECUTOR_WORKER_ID),
+        lease_seconds=_truthy_or_default(lease_seconds, active_settings.COMPUTE_EXECUTOR_LEASE_SECONDS),
+        batch_size=_truthy_or_default(limit, active_settings.COMPUTE_EXECUTOR_BATCH_SIZE),
+    )
+
+
+def _truthy_or_default(value: Any, default: Any) -> Any:
+    return value or default
 
 
 def _build_compute_job_execution_context(
@@ -210,35 +263,62 @@ def _build_compute_job_execution_context(
     workspace_summary_calculator: Callable[..., Any] | None,
     inspection_calculator: Callable[[TWRInspectionRequest], Any] | None,
 ) -> _ComputeJobExecutionContext:
+    calculators = _resolve_compute_job_calculators(
+        returns_series_calculator=returns_series_calculator,
+        contribution_calculator=contribution_calculator,
+        attribution_calculator=attribution_calculator,
+        benchmark_calculator=benchmark_calculator,
+        twr_calculator=twr_calculator,
+        workspace_summary_calculator=workspace_summary_calculator,
+        inspection_calculator=inspection_calculator,
+    )
     return _ComputeJobExecutionContext(
         settings=settings,
         execution_store=execution_store,
-        returns_series_calculator=returns_series_calculator or calculate_returns_series,
-        contribution_calculator=contribution_calculator or calculate_contribution,
-        attribution_calculator=attribution_calculator or calculate_attribution,
-        benchmark_calculator=benchmark_calculator or calculate_benchmark_response,
-        twr_calculator=twr_calculator or calculate_twr_response,
-        workspace_summary_calculator=workspace_summary_calculator or calculate_workspace_summary,
-        inspection_calculator=inspection_calculator or run_twr_inspection,
+        returns_series_calculator=calculators.returns_series_calculator,
+        contribution_calculator=calculators.contribution_calculator,
+        attribution_calculator=calculators.attribution_calculator,
+        benchmark_calculator=calculators.benchmark_calculator,
+        twr_calculator=calculators.twr_calculator,
+        workspace_summary_calculator=calculators.workspace_summary_calculator,
+        inspection_calculator=calculators.inspection_calculator,
+    )
+
+
+def _resolve_compute_job_calculators(
+    *,
+    returns_series_calculator: Callable[..., Coroutine[Any, Any, Any]] | None,
+    contribution_calculator: Callable[..., Any] | None,
+    attribution_calculator: Callable[..., Any] | None,
+    benchmark_calculator: Callable[..., Any] | None,
+    twr_calculator: Callable[..., Any] | None,
+    workspace_summary_calculator: Callable[..., Any] | None,
+    inspection_calculator: Callable[[TWRInspectionRequest], Any] | None,
+) -> _ComputeJobCalculators:
+    return _ComputeJobCalculators(
+        returns_series_calculator=_truthy_or_default(returns_series_calculator, calculate_returns_series),
+        contribution_calculator=_truthy_or_default(contribution_calculator, calculate_contribution),
+        attribution_calculator=_truthy_or_default(attribution_calculator, calculate_attribution),
+        benchmark_calculator=_truthy_or_default(benchmark_calculator, calculate_benchmark_response),
+        twr_calculator=_truthy_or_default(twr_calculator, calculate_twr_response),
+        workspace_summary_calculator=_truthy_or_default(
+            workspace_summary_calculator,
+            calculate_workspace_summary,
+        ),
+        inspection_calculator=_truthy_or_default(inspection_calculator, run_twr_inspection),
     )
 
 
 def _execute_compute_job(job: ComputeJobRecord, context: _ComputeJobExecutionContext) -> Any:
-    if job.analytics_type == ANALYTICS_WORKFLOW_RETURNS_SERIES:
-        return _execute_returns_series_job(job, context)
-    if job.analytics_type == ANALYTICS_WORKFLOW_ATTRIBUTION:
-        return _execute_attribution_job(job, context)
-    if job.analytics_type == ANALYTICS_WORKFLOW_CONTRIBUTION:
-        return _execute_contribution_job(job, context)
-    if job.analytics_type == ANALYTICS_WORKFLOW_BENCHMARK:
-        return _execute_benchmark_job(job, context)
-    if job.analytics_type == ANALYTICS_WORKFLOW_TWR:
-        return _execute_twr_job(job, context)
-    if job.analytics_type == ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY:
-        return _execute_workspace_summary_job(job, context)
-    if job.analytics_type == ANALYTICS_WORKFLOW_TWR_INSPECTION:
-        return _execute_twr_inspection_job(job, context)
-    raise ValueError(f"Unsupported compute job analytics_type: {job.analytics_type}")
+    executor = _compute_job_executor_for(job.analytics_type)
+    return executor(job, context)
+
+
+def _compute_job_executor_for(analytics_type: str) -> _ComputeJobExecutor:
+    try:
+        return _COMPUTE_JOB_EXECUTORS[analytics_type]
+    except KeyError as exc:
+        raise ValueError(f"Unsupported compute job analytics_type: {analytics_type}") from exc
 
 
 def _execute_returns_series_job(job: ComputeJobRecord, context: _ComputeJobExecutionContext) -> Any:
@@ -379,6 +459,17 @@ def _execute_twr_inspection_job(job: ComputeJobRecord, context: _ComputeJobExecu
     inspection_request = TWRInspectionRequest.model_validate(job.request_payload)
     _update_execution_identity(job, context, inspection_request)
     return context.inspection_calculator(inspection_request)
+
+
+_COMPUTE_JOB_EXECUTORS: dict[str, _ComputeJobExecutor] = {
+    ANALYTICS_WORKFLOW_RETURNS_SERIES: _execute_returns_series_job,
+    ANALYTICS_WORKFLOW_ATTRIBUTION: _execute_attribution_job,
+    ANALYTICS_WORKFLOW_CONTRIBUTION: _execute_contribution_job,
+    ANALYTICS_WORKFLOW_BENCHMARK: _execute_benchmark_job,
+    ANALYTICS_WORKFLOW_TWR: _execute_twr_job,
+    ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY: _execute_workspace_summary_job,
+    ANALYTICS_WORKFLOW_TWR_INSPECTION: _execute_twr_inspection_job,
+}
 
 
 def _handle_compute_job_failure(
@@ -566,22 +657,59 @@ def _resolve_async_twr_job_request(
 ]:
     resolved_request_payload = payload.get("resolved_request")
     source_input_mode = payload.get("source_input_mode")
+    if isinstance(resolved_request_payload, dict) and isinstance(source_input_mode, str):
+        return _resolve_persisted_twr_job_request(
+            payload,
+            resolved_request_payload=resolved_request_payload,
+            source_input_mode=source_input_mode,
+        )
+    return _resolve_raw_twr_job_request(payload, settings=settings)
+
+
+def _resolve_persisted_twr_job_request(
+    payload: dict[str, Any],
+    *,
+    resolved_request_payload: dict[str, Any],
+    source_input_mode: str,
+) -> tuple[
+    TWRResolvedExecutionRequest,
+    TWRInputMode,
+    TWRResolvedExecutionRequest,
+    str,
+    str | None,
+    BenchmarkInputMode | None,
+    str,
+    bool,
+]:
+    resolved_request = TWRResolvedExecutionRequest.model_validate(resolved_request_payload)
     benchmark_input_mode = payload.get("benchmark_input_mode")
     resolved_benchmark_id = payload.get("resolved_benchmark_id")
-    benchmark_return_source = payload.get("benchmark_return_source", "calculated")
-    if isinstance(resolved_request_payload, dict) and isinstance(source_input_mode, str):
-        resolved_request = TWRResolvedExecutionRequest.model_validate(resolved_request_payload)
-        return (
-            resolved_request,
-            TWRInputMode(source_input_mode),
-            resolved_request,
-            payload.get("portfolio_id", resolved_request.portfolio.portfolio_id),
-            resolved_benchmark_id if isinstance(resolved_benchmark_id, str) else None,
-            BenchmarkInputMode(benchmark_input_mode) if isinstance(benchmark_input_mode, str) else None,
-            benchmark_return_source,
-            True,
-        )
+    return (
+        resolved_request,
+        TWRInputMode(source_input_mode),
+        resolved_request,
+        payload.get("portfolio_id", resolved_request.portfolio.portfolio_id),
+        resolved_benchmark_id if isinstance(resolved_benchmark_id, str) else None,
+        BenchmarkInputMode(benchmark_input_mode) if isinstance(benchmark_input_mode, str) else None,
+        payload.get("benchmark_return_source", "calculated"),
+        True,
+    )
 
+
+def _resolve_raw_twr_job_request(
+    payload: dict[str, Any],
+    *,
+    settings,
+) -> tuple[
+    TWRResolvedExecutionRequest,
+    TWRInputMode,
+    TWRResolvedExecutionRequest | TWRAnalyticsRequest,
+    str,
+    str | None,
+    BenchmarkInputMode | None,
+    str,
+    bool,
+]:
     analytics_request = TWRAnalyticsRequest.model_validate(payload)
     resolved_request = asyncio.run(resolve_twr_request(analytics_request, settings=settings))
     resolved_identity_payload = TWRResolvedExecutionRequest(

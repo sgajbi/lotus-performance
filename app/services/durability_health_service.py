@@ -5,6 +5,7 @@ import os
 import shutil
 import tempfile
 from dataclasses import dataclass
+from typing import Any
 
 from app.core.config import get_settings
 from app.services.execution_registry import get_execution_registry
@@ -64,16 +65,23 @@ def check_durable_metadata_schema_ready() -> DurabilityHealthStatus:
 def check_lineage_storage_ready() -> DurabilityHealthStatus:
     settings = get_settings()
     storage_path = getattr(settings, "LINEAGE_STORAGE_PATH", None)
+    path_status = _lineage_storage_path_unavailable_status(storage_path)
+    if path_status is not None:
+        return path_status
+    if getattr(settings, "LINEAGE_STORAGE_HEALTHCHECK_WRITE_PROBE_ENABLED", True):
+        if not _probe_lineage_storage_write(str(storage_path)):
+            return _unavailable_status("lineage_storage_write_probe_failed")
+    return _ready_status()
+
+
+def _lineage_storage_path_unavailable_status(storage_path: Any) -> DurabilityHealthStatus | None:
     if not storage_path or not os.path.exists(storage_path):
         return _unavailable_status("lineage_storage_path_missing")
     if not os.path.isdir(storage_path):
         return _unavailable_status("lineage_storage_path_invalid")
     if not os.access(storage_path, os.R_OK | os.W_OK | os.X_OK):
         return _unavailable_status("lineage_storage_path_unreadable")
-    if getattr(settings, "LINEAGE_STORAGE_HEALTHCHECK_WRITE_PROBE_ENABLED", True):
-        if not _probe_lineage_storage_write(str(storage_path)):
-            return _unavailable_status("lineage_storage_write_probe_failed")
-    return _ready_status()
+    return None
 
 
 def get_lineage_storage_capacity() -> LineageStorageCapacitySnapshot:

@@ -3,7 +3,10 @@ from uuid import uuid4
 
 from app.models.requests import Analysis, DailyInputData, PerformanceRequest
 from app.models.responses import PerformanceResponse
-from app.services.inspection.twr_inspection_service import _scope_request_to_response_master_window
+from app.services.inspection.twr_inspection_service import (
+    _scope_request_to_response_master_window,
+    _valuation_points_in_window,
+)
 
 
 def test_scope_request_to_response_master_window_uses_executed_twr_period():
@@ -87,3 +90,20 @@ def test_scope_request_to_response_master_window_uses_executed_twr_period():
     assert scoped.performance_start_date == date(2026, 1, 1)
     assert scoped.report_end_date == date(2026, 4, 10)
     assert [point.perf_date for point in scoped.valuation_points] == [date(2026, 1, 1)]
+
+
+def test_valuation_points_in_window_includes_boundaries_and_omits_outside_points():
+    points = [
+        DailyInputData(perf_date=date(2025, 12, 31), begin_mv=900.0, end_mv=950.0),
+        DailyInputData(perf_date=date(2026, 1, 1), begin_mv=1000.0, end_mv=1001.0),
+        DailyInputData(perf_date=date(2026, 1, 2), begin_mv=1001.0, end_mv=1002.0),
+        DailyInputData(perf_date=date(2026, 1, 3), begin_mv=1002.0, end_mv=1003.0),
+    ]
+
+    scoped_points = _valuation_points_in_window(
+        points,
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 2),
+    )
+
+    assert [point.perf_date for point in scoped_points] == [date(2026, 1, 1), date(2026, 1, 2)]

@@ -4,32 +4,45 @@ from datetime import date
 from decimal import Decimal
 from uuid import uuid4
 
+import pandas as pd
 import pytest
 from fastapi import HTTPException
 
 from app.models.benchmark_requests import BenchmarkComponentObservation
 from app.services.stateful_attribution_input_service import (
     StatefulAttributionSourceInput,
+    _benchmark_currency_group_value,
+    _benchmark_group_dimension_value,
+    _benchmark_group_key_from_row,
     _build_benchmark_groups,
     _build_group_key,
     _build_instruments_data,
     _distinct_source_currencies,
     _first_rows_by_position,
+    _has_unsupported_position_inception_row,
     _normalize_group_value,
+    _normalized_position_dimension_value,
     _normalized_position_dimensions,
     _parse_index_catalog,
     _parse_position_rows,
     _portfolio_market_values_by_date,
+    _position_cash_flow_amount,
+    _position_daily_point_market_values,
     _position_market_value_pair,
     _position_market_value_totals_by_date,
     _position_meta_from_row,
+    _position_meta_fx_rate_fields,
     _position_row_to_base_weight_point,
     _position_row_to_daily_point,
+    _record_instrument_position_row,
+    _reporting_daily_point_market_values,
     _resolve_stateful_attribution_benchmark_id,
     _split_position_cash_flows,
+    _stateful_attribution_fx_required,
     _stateful_portfolio_position_alignment_mismatches,
     _stateful_position_currencies,
     _summarize_benchmark_classification,
+    _summarize_position_classification,
     _validate_stateful_both_currency_support,
     _validate_stateful_group_by,
     _validate_stateful_portfolio_position_alignment,
@@ -61,6 +74,29 @@ class _AttributionInputServiceStub:
     async def get_index_catalog(self, **kwargs):
         self.index_catalog_calls.append(kwargs)
         return self.index_response
+
+
+def test_summarize_position_classification_counts_required_dimensions():
+    rows = [
+        {"dimensions": {"sector": "Technology", "region": "North America"}},
+        {"dimensions": {"sector": "Healthcare", "region": "  "}},
+        {"dimensions": {"sector": "Financials"}},
+        {"dimensions": "invalid"},
+    ]
+
+    summary = _summarize_position_classification(rows=rows, dimensions=["sector", "region"])
+    not_required_summary = _summarize_position_classification(rows=rows, dimensions=[])
+
+    assert summary == {
+        "status": "partial",
+        "classified_row_count": 1,
+        "unclassified_row_count": 3,
+    }
+    assert not_required_summary == {
+        "status": "not_required",
+        "classified_row_count": 4,
+        "unclassified_row_count": 0,
+    }
 
 
 @pytest.mark.asyncio
@@ -592,6 +628,29 @@ def test_distinct_source_currencies_filters_deduplicates_and_sorts_values():
     assert _distinct_source_currencies(["USD", None, "", "EUR", "USD", 1]) == ["EUR", "USD"]
 
 
+def test_stateful_attribution_fx_required_uses_both_mode_reporting_currency_and_position_mismatch():
+    assert not _stateful_attribution_fx_required(
+        currency_mode="LOCAL",
+        reporting_currency="USD",
+        position_currencies=["EUR"],
+    )
+    assert not _stateful_attribution_fx_required(
+        currency_mode="BOTH",
+        reporting_currency=None,
+        position_currencies=["EUR"],
+    )
+    assert not _stateful_attribution_fx_required(
+        currency_mode="BOTH",
+        reporting_currency="USD",
+        position_currencies=["USD"],
+    )
+    assert _stateful_attribution_fx_required(
+        currency_mode="BOTH",
+        reporting_currency="USD",
+        position_currencies=["EUR", "USD"],
+    )
+
+
 def test_build_stateful_attribution_input_rejects_missing_benchmark_observations():
     source_input = StatefulAttributionSourceInput(
         portfolio_input=StatefulPortfolioInput(
@@ -1077,6 +1136,28 @@ def test_stateful_attribution_rejects_unsupported_position_inception_window():
         )
 
 
+def test_has_unsupported_position_inception_row_honors_bod_cash_flow_support():
+    unsupported_row = {
+        "beginning_market_value_portfolio_currency": "0",
+        "ending_market_value_portfolio_currency": "5",
+        "cash_flows": [],
+    }
+    supported_by_bod_cash_flow = {
+        "beginning_market_value_portfolio_currency": "0",
+        "ending_market_value_portfolio_currency": "5",
+        "cash_flows": [{"timing": "bod", "amount": "5"}],
+    }
+    no_position_opening_value = {
+        "beginning_market_value_portfolio_currency": "0",
+        "ending_market_value_portfolio_currency": "0",
+        "cash_flows": [],
+    }
+
+    assert _has_unsupported_position_inception_row(unsupported_row) is True
+    assert _has_unsupported_position_inception_row(supported_by_bod_cash_flow) is False
+    assert _has_unsupported_position_inception_row(no_position_opening_value) is False
+
+
 def test_stateful_attribution_group_by_and_benchmark_validation_errors():
     with pytest.raises(HTTPException, match="Unsupported: issuer"):
         _validate_stateful_group_by(["issuer"])
@@ -1129,6 +1210,23 @@ def test_stateful_attribution_builds_unknown_bucket_for_missing_benchmark_labels
     )
 
     assert groups[0].key == {"sector": "unknown"}
+
+
+def test_stateful_attribution_benchmark_group_key_from_row_applies_label_guard_and_currency_key():
+    row = pd.Series({"component_id": "IDX_1", "component_currency": "USD"})
+
+    assert _benchmark_group_key_from_row(
+        row=row,
+        labels_by_index={},
+        group_by=["currency"],
+    ) == (("currency", "usd"),)
+
+    with pytest.raises(HTTPException, match="missing classification labels"):
+        _benchmark_group_key_from_row(
+            row=row,
+            labels_by_index={},
+            group_by=["sector"],
+        )
 
 
 def test_stateful_attribution_aggregates_benchmark_components_by_group_and_date():
@@ -1196,8 +1294,32 @@ def test_stateful_attribution_parsers_filter_invalid_rows():
     assert _parse_index_catalog({"records": [{"index_id": "IDX_1"}, "bad"]}) == [{"index_id": "IDX_1"}]
 
 
+def test_position_cash_flow_amount_parses_supported_bod_eod_flows():
+    assert _position_cash_flow_amount({"amount": "4.5", "timing": "bod"}) == ("bod", Decimal("4.5"))
+    assert _position_cash_flow_amount({"amount": "-1", "timing": "eod"}) == ("eod", Decimal("-1"))
+    assert _position_cash_flow_amount("bad") is None
+    assert _position_cash_flow_amount({"amount": None, "timing": "bod"}) is None
+    assert _position_cash_flow_amount({"amount": "2", "timing": "midday"}) is None
+
+
 def test_stateful_attribution_normalizes_group_values():
     assert _normalize_group_value("Fixed Income") == "fixed_income"
+
+
+def test_position_meta_fx_rate_fields_convert_available_rates_to_decimals():
+    assert _position_meta_fx_rate_fields(
+        {
+            "position_to_portfolio_fx_rate": "1.2",
+            "portfolio_to_reporting_fx_rate": "1.1",
+        }
+    ) == {
+        "position_to_portfolio_fx_rate": Decimal("1.2"),
+        "portfolio_to_reporting_fx_rate": Decimal("1.1"),
+    }
+
+
+def test_position_meta_fx_rate_fields_omit_missing_rates():
+    assert _position_meta_fx_rate_fields({"position_to_portfolio_fx_rate": None}) == {}
 
 
 def test_stateful_attribution_normalizes_position_dimensions():
@@ -1205,14 +1327,23 @@ def test_stateful_attribution_normalizes_position_dimensions():
         {
             "asset_class": "Fixed Income",
             "rank": 3,
+            "empty": "",
             "nullable": None,
             7: "ignored",
         }
     ) == {
         "asset_class": "fixed_income",
         "rank": 3,
+        "empty": "",
     }
     assert _normalized_position_dimensions(None) == {}
+
+
+def test_stateful_attribution_normalizes_position_dimension_value_policy():
+    assert _normalized_position_dimension_value("Fixed Income") == "fixed_income"
+    assert _normalized_position_dimension_value("") == ""
+    assert _normalized_position_dimension_value(None) is None
+    assert _normalized_position_dimension_value(3) == 3
 
 
 def test_stateful_attribution_builds_normalized_group_key():
@@ -1221,6 +1352,36 @@ def test_stateful_attribution_builds_normalized_group_key():
         group_by=["asset_class"],
         index_id="IDX_1",
     ) == (("asset_class", "equity"),)
+
+
+def test_benchmark_group_dimension_value_normalizes_currency_component_source():
+    assert (
+        _benchmark_group_dimension_value(
+            dimension="currency",
+            labels={},
+            index_id="IDX_1",
+            component_currency="US Dollar",
+        )
+        == "us_dollar"
+    )
+
+
+def test_benchmark_currency_group_value_requires_component_currency():
+    assert _benchmark_currency_group_value(index_id="IDX_1", component_currency="US Dollar") == "us_dollar"
+
+    with pytest.raises(HTTPException, match="Benchmark component IDX_1 missing classification label for currency"):
+        _benchmark_currency_group_value(index_id="IDX_1", component_currency=None)
+
+
+def test_benchmark_group_dimension_value_preserves_unknown_non_currency_fallback():
+    assert (
+        _benchmark_group_dimension_value(
+            dimension="sector",
+            labels={"sector": ""},
+            index_id="IDX_1",
+        )
+        == "unknown"
+    )
 
 
 def test_stateful_attribution_position_row_to_daily_point_requires_market_values():
@@ -1236,6 +1397,49 @@ def test_stateful_attribution_position_row_to_daily_point_requires_market_values
         )
         is None
     )
+
+
+def test_position_daily_point_market_values_preserve_reporting_basis_on_portfolio_value_fallback():
+    assert _position_daily_point_market_values(
+        row={
+            "beginning_market_value_reporting_currency": None,
+            "ending_market_value_reporting_currency": None,
+            "beginning_market_value_portfolio_currency": "100",
+            "ending_market_value_portfolio_currency": "101",
+        },
+        currency_mode="BASE_ONLY",
+        reporting_currency="USD",
+    ) == ("100", "101", "reporting")
+
+
+def test_reporting_daily_point_market_values_fall_back_to_portfolio_values_when_incomplete():
+    assert _reporting_daily_point_market_values(
+        {
+            "beginning_market_value_reporting_currency": "110",
+            "ending_market_value_reporting_currency": "111",
+            "beginning_market_value_portfolio_currency": "100",
+            "ending_market_value_portfolio_currency": "101",
+        }
+    ) == ("110", "111")
+    assert _reporting_daily_point_market_values(
+        {
+            "beginning_market_value_reporting_currency": "110",
+            "ending_market_value_reporting_currency": None,
+            "beginning_market_value_portfolio_currency": "100",
+            "ending_market_value_portfolio_currency": "101",
+        }
+    ) == ("100", "101")
+
+
+def test_position_daily_point_market_values_uses_position_values_for_local_currency_mode():
+    assert _position_daily_point_market_values(
+        row={
+            "beginning_market_value_position_currency": "90",
+            "ending_market_value_position_currency": "95",
+        },
+        currency_mode="LOCAL_ONLY",
+        reporting_currency="USD",
+    ) == ("90", "95", "position")
 
 
 def test_stateful_attribution_position_row_to_daily_point_falls_back_from_null_reporting_currency_values():
@@ -1358,6 +1562,37 @@ def test_stateful_attribution_build_instruments_data_skips_invalid_rows_and_none
     assert len(instruments) == 1
     assert instruments[0].instrument_id == "POS_OK"
     assert instruments[0].valuation_points[0].begin_mv == Decimal("100")
+
+
+def test_stateful_attribution_record_instrument_position_row_projects_point_and_base_weight_meta():
+    positions_by_id: dict[str, list[dict[str, object]]] = {}
+    instrument_meta: dict[str, dict[str, object]] = {}
+
+    recorded = _record_instrument_position_row(
+        row={
+            "position_id": "POS_OK",
+            "valuation_date": "2025-01-01",
+            "security_id": "SEC_1",
+            "beginning_market_value_portfolio_currency": "100",
+            "ending_market_value_portfolio_currency": "102",
+            "beginning_market_value_reporting_currency": "110",
+            "cash_flows": [{"amount": "5", "timing": "bod"}],
+        },
+        positions_by_id=positions_by_id,
+        instrument_meta=instrument_meta,
+        currency_mode="BASE_ONLY",
+        reporting_currency="USD",
+    )
+
+    assert recorded is True
+    assert positions_by_id["POS_OK"][0]["begin_mv"] == Decimal("100")
+    assert instrument_meta["POS_OK"]["base_weight_points"] == [
+        {
+            "perf_date": "2025-01-01",
+            "begin_mv": Decimal("110"),
+            "bod_cf": Decimal("5"),
+        }
+    ]
 
 
 def test_stateful_attribution_both_currency_validation_errors_are_explicit():

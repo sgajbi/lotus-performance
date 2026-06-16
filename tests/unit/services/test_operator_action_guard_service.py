@@ -6,6 +6,7 @@ from fastapi import HTTPException
 from app.services.operator_action_guard_service import (
     _find_latest_recovery_drill_entry,
     _find_latest_runtime_retention_entry,
+    _runtime_retention_history_entry_matches,
     enforce_recovery_drill_manual_run_cooldown,
     enforce_runtime_retention_apply_preview,
     enforce_runtime_retention_manual_run_cooldown,
@@ -547,4 +548,49 @@ def test_find_latest_helpers_and_resolvers_cover_mismatch_paths():
             backup_identifier="backup-1",
         )
         is None
+    )
+
+
+def test_runtime_retention_history_entry_matches_runtime_action_identity():
+    entry = RuntimeRetentionHistoryEntry(
+        evidence_file_name="retention.json",
+        generated_at_utc="2026-03-15T00:00:00Z",
+        operator_id="ops-user",
+        tenant_id="tenant-a",
+        correlation_id="corr-1",
+        trigger_mode="manual",
+        job_id="job-1",
+        cleanup_mode="dry_run",
+        status="planned",
+        retention_days=30,
+        prunable_execution_count=1,
+        prunable_compute_job_count=1,
+        prunable_async_result_count=1,
+        prunable_lineage_record_count=1,
+        prunable_lineage_artifact_count=1,
+    )
+
+    assert _runtime_retention_history_entry_matches(
+        entry,
+        apply=False,
+        operator_id="ops-user",
+        tenant_id="tenant-a",
+        retention_days=30,
+        job_id=" job-1 ",
+    )
+    assert not _runtime_retention_history_entry_matches(
+        entry,
+        apply=True,
+        operator_id="ops-user",
+        tenant_id="tenant-a",
+        retention_days=30,
+        job_id="job-1",
+    )
+    assert not _runtime_retention_history_entry_matches(
+        entry,
+        apply=False,
+        operator_id="ops-user",
+        tenant_id="tenant-a",
+        retention_days=30,
+        job_id="job-2",
     )

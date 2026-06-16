@@ -1,7 +1,10 @@
+from collections import Counter, defaultdict
 from datetime import date
 from decimal import Decimal
 
 from app.services.source_quality_evidence import (
+    _has_stale_source_observations,
+    _record_source_quality_observation,
     _summarize_source_quality_observations,
     _unsupported_cashflow_count,
     build_portfolio_source_quality_evidence,
@@ -150,3 +153,45 @@ def test_source_quality_observation_summary_counts_invalid_numeric_values_and_cl
         "2026-03-31": set(),
         "2026-04-01": {(Decimal("1010"), Decimal("1012"))},
     }
+
+
+def test_record_source_quality_observation_preserves_invalid_numeric_date_and_classification():
+    source_classifications: Counter[str] = Counter()
+    values_by_date: dict[str, set[tuple[Decimal, Decimal]]] = defaultdict(set)
+    normalized_dates: list[date] = []
+
+    skipped_count = _record_source_quality_observation(
+        {
+            "valuation_date": "2026-03-31",
+            "beginning_market_value": "not-a-number",
+            "ending_market_value": "1010",
+            "source_classification": "official",
+        },
+        source_classifications=source_classifications,
+        values_by_date=values_by_date,
+        normalized_dates=normalized_dates,
+    )
+
+    assert skipped_count == 1
+    assert source_classifications == {"official": 1}
+    assert normalized_dates == [date(2026, 3, 31)]
+    assert values_by_date == {"2026-03-31": set()}
+
+
+def test_has_stale_source_observations_requires_both_dates_and_lagging_source():
+    assert not _has_stale_source_observations(
+        latest_observation_date=None,
+        report_end_date=date(2026, 4, 1),
+    )
+    assert not _has_stale_source_observations(
+        latest_observation_date=date(2026, 3, 31),
+        report_end_date=None,
+    )
+    assert not _has_stale_source_observations(
+        latest_observation_date=date(2026, 4, 1),
+        report_end_date=date(2026, 4, 1),
+    )
+    assert _has_stale_source_observations(
+        latest_observation_date=date(2026, 3, 31),
+        report_end_date=date(2026, 4, 1),
+    )

@@ -72,6 +72,14 @@ _RECOVERY_DRILL_REQUIRED_STRING_FIELDS = (
 _RECOVERY_DRILL_OPTIONAL_STRING_FIELDS = ("tenant_id", "correlation_id")
 _RECOVERY_DRILL_REQUIRED_INT_FIELDS = ("compute_job_processed_count", "processed_payload_count")
 _RECOVERY_DRILL_REQUIRED_BOOL_FIELDS = ("materialized_artifact_exists",)
+_RECOVERY_DRILL_REQUIRED_IDENTITY_FIELDS = (
+    "evidence_file_name",
+    "generated_at_utc",
+    "operator_id",
+    "backup_identifier",
+    "status",
+)
+_RECOVERY_DRILL_OPTIONAL_IDENTITY_FIELDS = ("tenant_id", "correlation_id")
 
 
 @dataclass(frozen=True)
@@ -129,14 +137,13 @@ def resolve_recovery_drill_manual_replay(
     if not correlation_id:
         return None
     for entry in snapshot.entries:
-        if not operator_action_correlation_matches(
+        if not _recovery_drill_entry_matches(
             entry,
             operator_id=operator_id,
             tenant_id=tenant_id,
             correlation_id=correlation_id,
+            backup_identifier=backup_identifier,
         ):
-            continue
-        if not operator_action_required_identity_matches(entry.backup_identifier, backup_identifier):
             continue
         payload = _load_payload(artifact_directory=artifact_directory, evidence_file_name=entry.evidence_file_name)
         if payload is None:
@@ -151,6 +158,22 @@ def resolve_recovery_drill_manual_replay(
     return None
 
 
+def _recovery_drill_entry_matches(
+    entry: RecoveryDrillHistoryEntry,
+    *,
+    operator_id: str,
+    tenant_id: str | None,
+    correlation_id: str,
+    backup_identifier: str,
+) -> bool:
+    return operator_action_correlation_matches(
+        entry,
+        operator_id=operator_id,
+        tenant_id=tenant_id,
+        correlation_id=correlation_id,
+    ) and operator_action_required_identity_matches(entry.backup_identifier, backup_identifier)
+
+
 def _runtime_retention_entry_matches(
     entry: RuntimeRetentionHistoryEntry,
     *,
@@ -161,7 +184,6 @@ def _runtime_retention_entry_matches(
     retention_days: int | None,
     job_id: str | None,
 ) -> bool:
-    expected_cleanup_mode = "apply" if apply else "dry_run"
     if not operator_action_correlation_matches(
         entry,
         operator_id=operator_id,
@@ -169,13 +191,27 @@ def _runtime_retention_entry_matches(
         correlation_id=correlation_id,
     ):
         return False
+    return _runtime_retention_request_filters_match(
+        entry,
+        apply=apply,
+        retention_days=retention_days,
+        job_id=job_id,
+    )
+
+
+def _runtime_retention_request_filters_match(
+    entry: RuntimeRetentionHistoryEntry,
+    *,
+    apply: bool,
+    retention_days: int | None,
+    job_id: str | None,
+) -> bool:
+    expected_cleanup_mode = "apply" if apply else "dry_run"
     if entry.cleanup_mode != expected_cleanup_mode:
         return False
     if retention_days is not None and entry.retention_days != retention_days:
         return False
-    if not operator_action_optional_identity_matches(entry.job_id, job_id):
-        return False
-    return True
+    return operator_action_optional_identity_matches(entry.job_id, job_id)
 
 
 def _runtime_retention_payload_matches_entry(
@@ -267,14 +303,14 @@ def _recovery_drill_payload_identity_matches(
     payload: dict[str, Any],
     entry: RecoveryDrillHistoryEntry,
 ) -> bool:
-    return (
-        payload["evidence_file_name"] == entry.evidence_file_name
-        and payload["generated_at_utc"] == entry.generated_at_utc
-        and payload["operator_id"] == entry.operator_id
-        and payload.get("tenant_id") == entry.tenant_id
-        and payload.get("correlation_id") == entry.correlation_id
-        and payload["backup_identifier"] == entry.backup_identifier
-        and payload["status"] == entry.status
+    return _payload_entry_required_fields_match(
+        payload,
+        entry,
+        field_names=_RECOVERY_DRILL_REQUIRED_IDENTITY_FIELDS,
+    ) and _payload_entry_optional_fields_match(
+        payload,
+        entry,
+        field_names=_RECOVERY_DRILL_OPTIONAL_IDENTITY_FIELDS,
     )
 
 

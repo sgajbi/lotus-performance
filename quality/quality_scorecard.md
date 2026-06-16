@@ -1,10 +1,10 @@
 # Lotus Performance Refactor Quality Scorecard
 
-Report date: 2026-06-13
-Branch: `refactor/lp-cr-942-source-economics-counts`
+Report date: 2026-06-16
+Branch: `refactor/lp-cr-950-mwr-fx-component`
 Baseline source: `quality/baseline_report.md`
 Current source: `quality/refactor_health_report.md`
-Mode: phase-zero scorecard; no blocking gate is introduced by this artifact.
+Mode: phase-zero scorecard; complexity regression posture is enforced separately by CI.
 
 ## Purpose
 
@@ -18,21 +18,21 @@ metrics in each section are updated with each meaningful slice.
 
 | Metric | Baseline | Current | Delta | Status | Evidence |
 | --- | ---: | ---: | ---: | --- | --- |
-| Python files | 480 | 543 | 63 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python files | 480 | 544 | 64 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Python package markers | 18 | 18 | 0 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Python LOC | 104,454 | 123,528 | 19,074 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python LOC | 104,454 | 148,664 | 44,210 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest Python file LOC | 2,399 | 2,399 | 0 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest production file LOC | 1,156 | 1,156 | 0 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
-| Python test modules | 228 | 259 | 31 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Collected tests | 2,035 | 2,473 | 438 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python test modules | 228 | 260 | 32 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Collected tests | 2,035 | 2,745 | 710 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 
 ### Complexity And Maintainability
 
 | Metric | Baseline | Current | Delta | Status | Evidence |
 | --- | ---: | ---: | ---: | --- | --- |
-| Max cyclomatic complexity | unknown | 8 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
-| High-complexity functions (D-F) | unknown | 0 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
-| Average maintainability index | unknown | 55.18 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
+| Max cyclomatic complexity | unknown | 6 | n/a | enforced | `quality/complexity_inventory.md`; `quality/refactor_health_report.md`; `make quality-complexity-gate` |
+| High-complexity functions (D-F) | unknown | 0 | n/a | enforced | `quality/complexity_inventory.md`; `quality/refactor_health_report.md`; `make quality-complexity-gate` |
+| Average maintainability index | unknown | 55.04 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
 | Largest functions by LOC | unknown | 159 | n/a | measured | `quality/function_size_inventory.md`; `quality/refactor_health_report.md` |
 
 ### Architecture

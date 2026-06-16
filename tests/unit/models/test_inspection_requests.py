@@ -3,7 +3,12 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
-from app.models.inspection_requests import TWRInspectionRequest
+from app.models.inspection_requests import (
+    TWRInspectionRequest,
+    TWRInspectionSubjectType,
+    _is_valid_twr_calculation_inspection_subject,
+    _is_valid_twr_request_inspection_subject,
+)
 
 
 def test_twr_calculation_inspection_rejects_embedded_request_payload():
@@ -22,6 +27,23 @@ def test_twr_request_inspection_rejects_subject_calculation_id():
             subject_calculation_id=uuid4(),
             request=_twr_request_payload(),
         )
+
+
+def test_twr_inspection_subject_predicates_accept_valid_shapes():
+    calculation_request = TWRInspectionRequest.model_construct(
+        subject_type=TWRInspectionSubjectType.TWR_CALCULATION,
+        subject_calculation_id=uuid4(),
+        request=None,
+    )
+    request_payload = TWRInspectionRequest.model_validate(
+        {
+            "subject_type": "twr_request",
+            "request": _twr_request_payload(),
+        }
+    )
+
+    assert _is_valid_twr_calculation_inspection_subject(calculation_request) is True
+    assert _is_valid_twr_request_inspection_subject(request_payload) is True
 
 
 def _twr_request_payload() -> dict:

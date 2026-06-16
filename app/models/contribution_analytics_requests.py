@@ -63,14 +63,20 @@ def _validate_stateless_contribution_payloads(
 ) -> None:
     if request.stateful_input is not None:
         raise ValueError("stateful_input must be null when input_mode=stateless")
-    if request.stateless_input is not None and has_legacy_stateless:
-        raise ValueError(
-            "Provide either stateless_input or legacy portfolio_data/positions_data, not both, for stateless mode"
-        )
-    if request.stateless_input is None and not has_legacy_stateless:
-        raise ValueError(
-            "stateless_input or legacy portfolio_data/positions_data is required when input_mode=stateless"
-        )
+    envelope_issue = _stateless_contribution_envelope_issue(
+        has_nested=request.stateless_input is not None,
+        has_legacy=has_legacy_stateless,
+    )
+    if envelope_issue is not None:
+        raise ValueError(envelope_issue)
+
+
+def _stateless_contribution_envelope_issue(*, has_nested: bool, has_legacy: bool) -> str | None:
+    if has_nested and has_legacy:
+        return "Provide either stateless_input or legacy portfolio_data/positions_data, not both, for stateless mode"
+    if not has_nested and not has_legacy:
+        return "stateless_input or legacy portfolio_data/positions_data is required when input_mode=stateless"
+    return None
 
 
 def _validate_stateful_contribution_payloads(
@@ -84,6 +90,40 @@ def _validate_stateful_contribution_payloads(
         raise ValueError("stateless_input must be null when input_mode=stateful")
     if has_legacy_stateless:
         raise ValueError("portfolio_data and positions_data must be null when input_mode=stateful")
+
+
+def _resolved_stateless_contribution_inputs(
+    request: "ContributionAnalyticsRequest",
+    *,
+    portfolio_data: PortfolioData | None,
+    positions_data: list[PositionData] | None,
+) -> tuple[PortfolioData, list[PositionData]]:
+    nested_input = request.stateless_input
+    candidates = (
+        _complete_contribution_input_pair(portfolio_data=portfolio_data, positions_data=positions_data),
+        _complete_contribution_input_pair(
+            portfolio_data=nested_input.portfolio_data if nested_input is not None else None,
+            positions_data=nested_input.positions_data if nested_input is not None else None,
+        ),
+        _complete_contribution_input_pair(
+            portfolio_data=request.portfolio_data,
+            positions_data=request.positions_data,
+        ),
+    )
+    for candidate in candidates:
+        if candidate is not None:
+            return candidate
+    raise ValueError("No stateless contribution inputs are available to build a ContributionRequest")
+
+
+def _complete_contribution_input_pair(
+    *,
+    portfolio_data: PortfolioData | None,
+    positions_data: list[PositionData] | None,
+) -> tuple[PortfolioData, list[PositionData]] | None:
+    if portfolio_data is None or positions_data is None:
+        return None
+    return portfolio_data, positions_data
 
 
 class ContributionAnalyticsRequest(ContributionRequestBase):
@@ -125,17 +165,11 @@ class ContributionAnalyticsRequest(ContributionRequestBase):
         portfolio_data: PortfolioData | None = None,
         positions_data: list[PositionData] | None = None,
     ) -> ContributionRequest:
-        if portfolio_data is not None and positions_data is not None:
-            resolved_portfolio_data = portfolio_data
-            resolved_positions_data = positions_data
-        elif self.stateless_input is not None:
-            resolved_portfolio_data = self.stateless_input.portfolio_data
-            resolved_positions_data = self.stateless_input.positions_data
-        elif self.portfolio_data is not None and self.positions_data is not None:
-            resolved_portfolio_data = self.portfolio_data
-            resolved_positions_data = self.positions_data
-        else:
-            raise ValueError("No stateless contribution inputs are available to build a ContributionRequest")
+        resolved_portfolio_data, resolved_positions_data = _resolved_stateless_contribution_inputs(
+            self,
+            portfolio_data=portfolio_data,
+            positions_data=positions_data,
+        )
 
         payload = self.model_dump(
             exclude={

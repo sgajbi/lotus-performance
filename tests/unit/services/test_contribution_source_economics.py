@@ -7,6 +7,13 @@ from app.models.contribution_analytics_requests import ContributionInputMode
 from app.models.contribution_requests import ContributionRequest
 from app.services import contribution_evidence
 from app.services.contribution_source_economics import (
+    _has_caller_supplied_position_flows,
+    _has_non_zero_flow,
+    _has_position_currency_metadata,
+    _has_unclassified_position_metadata,
+    _has_unsupported_cash_flow_types,
+    _is_valid_source_cash_flow_type_count,
+    _present_component_pnl_fields,
     _source_cash_flow_type_counts,
     _stateful_cash_flow_economics,
     _stateful_metadata_economics,
@@ -136,10 +143,25 @@ def test_source_cash_flow_type_counts_accepts_positive_integer_counts_only():
     assert counts == {"external_flow": 2}
 
 
+def test_source_cash_flow_type_count_entry_validation_rejects_non_source_counts():
+    assert _is_valid_source_cash_flow_type_count("external_flow", 2)
+    assert not _is_valid_source_cash_flow_type_count("fee", True)
+    assert not _is_valid_source_cash_flow_type_count("zero", 0)
+    assert not _is_valid_source_cash_flow_type_count(1, 3)
+
+
 def test_source_cash_flow_type_counts_ignores_missing_or_invalid_source_economics():
     assert _source_cash_flow_type_counts({}) == {}
     assert _source_cash_flow_type_counts({"_source_economics": []}) == {}
     assert _source_cash_flow_type_counts({"_source_economics": {"cash_flow_type_counts": []}}) == {}
+
+
+def test_source_economics_predicates_identify_unsupported_flows_and_unclassified_metadata():
+    request = _request_with_position_meta({"asset_class": "Unclassified"})
+
+    assert _has_unsupported_cash_flow_types({"external_flow": 1, "dividend": 1})
+    assert not _has_unsupported_cash_flow_types({"external_flow": 1, "fee": 1, "missing": 1})
+    assert _has_unclassified_position_metadata(request)
 
 
 def test_source_economics_evidence_ignores_boolean_cash_flow_type_counts():
@@ -206,6 +228,55 @@ def test_source_economics_evidence_keeps_stateless_boundary_explicit():
     assert evidence.source_owner == "caller"
     assert evidence.source_contracts == ["ContributionRequest"]
     assert evidence.source_snapshot_count == 0
+
+
+def test_stateless_source_economics_predicates_detect_flows_and_currency():
+    request = ContributionRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PB_SG_GLOBAL_BAL_001",
+            "report_start_date": "2026-03-01",
+            "report_end_date": "2026-03-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "portfolio_data": {
+                "metric_basis": "NET",
+                "valuation_points": [
+                    {"perf_date": "2026-03-01", "begin_mv": 1000, "end_mv": 1010},
+                    {"perf_date": "2026-03-02", "begin_mv": 1010, "end_mv": 1020},
+                ],
+            },
+            "positions_data": [
+                {
+                    "position_id": "PB_SG_GLOBAL_BAL_001:SEC_A",
+                    "meta": {"currency": "USD"},
+                    "valuation_points": [
+                        {
+                            "perf_date": "2026-03-01",
+                            "begin_mv": 600,
+                            "end_mv": 606,
+                            "bod_cf": "0",
+                            "eod_cf": "0",
+                            "mgmt_fees": "1.25",
+                        },
+                    ],
+                },
+            ],
+        }
+    )
+
+    assert _has_caller_supplied_position_flows(request)
+    assert _has_position_currency_metadata(request)
+
+
+def test_stateless_source_economics_flow_predicate_ignores_invalid_raw_flow_values():
+    assert _has_non_zero_flow({"bod_cf": "bad-input", "eod_cf": "0", "mgmt_fees": "2"})
+    assert not _has_non_zero_flow({"bod_cf": "bad-input", "eod_cf": "0", "mgmt_fees": "0"})
+
+
+def test_present_component_pnl_fields_aggregates_canonical_fields_across_positions():
+    request = _request_with_position_meta({"income_pnl": 15, "fee_pnl": -10, "custom_pnl": 5})
+
+    assert _present_component_pnl_fields(request) == {"income_pnl", "fee_pnl"}
 
 
 def test_contribution_snapshot_lookup_logs_durable_store_failures(monkeypatch, caplog):

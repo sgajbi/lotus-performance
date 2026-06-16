@@ -1,4 +1,6 @@
 from scripts.python_complexity_inventory import (
+    ComplexityFinding,
+    complexity_gate_failures,
     parse_complexity_payload,
     parse_maintainability_payload,
     render_markdown,
@@ -92,3 +94,42 @@ def test_render_markdown_handles_empty_findings():
     assert "| Max cyclomatic complexity | 0 |" in output
     assert "| High-complexity functions (rank D-F) | 0 |" in output
     assert "| Average maintainability index | 0.00 |" in output
+
+
+def test_complexity_gate_failures_accepts_remediated_posture():
+    findings = [
+        ComplexityFinding(
+            path="app/sample.py",
+            name="current_ceiling",
+            kind="function",
+            rank="B",
+            complexity=8,
+            line=10,
+            end_line=30,
+        )
+    ]
+
+    failures = complexity_gate_failures(findings, max_cc=8, max_high_complexity=0)
+
+    assert failures == []
+
+
+def test_complexity_gate_failures_reports_regressions():
+    findings = [
+        ComplexityFinding(
+            path="app/sample.py",
+            name="new_hotspot",
+            kind="function",
+            rank="D",
+            complexity=21,
+            line=10,
+            end_line=80,
+        )
+    ]
+
+    failures = complexity_gate_failures(findings, max_cc=8, max_high_complexity=0)
+
+    assert failures == [
+        "max cyclomatic complexity 21 exceeds allowed 8",
+        "high-complexity function count 1 exceeds allowed 0",
+    ]

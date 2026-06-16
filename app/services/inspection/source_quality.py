@@ -580,23 +580,32 @@ def _find_monthly_day_dominance(daily_moves: list[DailyMove]) -> list[MonthlyDay
 
     dominance_samples: list[MonthlyDayDominance] = []
     for month, month_moves in sorted(moves_by_month.items()):
-        if len(month_moves) < _MONTHLY_DAY_DOMINANCE_MIN_OBSERVATIONS:
-            continue
-        total_abs_return = sum(abs(move.return_pct) for move in month_moves)
-        if total_abs_return <= 0:
-            continue
-        dominant_move = max(month_moves, key=lambda move: abs(move.return_pct))
-        dominance_ratio = abs(dominant_move.return_pct) / total_abs_return
-        if dominance_ratio >= _MONTHLY_DAY_DOMINANCE_THRESHOLD:
-            dominance_samples.append(
-                MonthlyDayDominance(
-                    month=month,
-                    observation_count=len(month_moves),
-                    dominance_ratio=dominance_ratio,
-                    dominant_move=dominant_move,
-                )
-            )
+        dominance = _monthly_day_dominance(month=month, month_moves=month_moves)
+        if dominance is not None:
+            dominance_samples.append(dominance)
     return dominance_samples
+
+
+def _monthly_day_dominance(
+    *,
+    month: str,
+    month_moves: list[DailyMove],
+) -> MonthlyDayDominance | None:
+    if len(month_moves) < _MONTHLY_DAY_DOMINANCE_MIN_OBSERVATIONS:
+        return None
+    total_abs_return = sum(abs(move.return_pct) for move in month_moves)
+    if total_abs_return <= 0:
+        return None
+    dominant_move = max(month_moves, key=lambda move: abs(move.return_pct))
+    dominance_ratio = abs(dominant_move.return_pct) / total_abs_return
+    if dominance_ratio < _MONTHLY_DAY_DOMINANCE_THRESHOLD:
+        return None
+    return MonthlyDayDominance(
+        month=month,
+        observation_count=len(month_moves),
+        dominance_ratio=dominance_ratio,
+        dominant_move=dominant_move,
+    )
 
 
 def _build_monthly_day_dominance_findings(

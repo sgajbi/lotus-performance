@@ -205,6 +205,10 @@ def _validate_component(
         _raise_fx_evidence_error(f"{location}.reporting_amount must match the MWR input amount")
     if item.source_currency == item.reporting_currency and _decimal(item.fx_rate) != Decimal("1"):
         _raise_fx_evidence_error(f"{location}.fx_rate must be 1 when source_currency equals reporting_currency")
+    _validate_component_required_text_fields(item, location=location)
+
+
+def _validate_component_required_text_fields(item: MWRSourcePreconvertedFXComponent, *, location: str) -> None:
     required_text_fields = {
         "source_currency": item.source_currency,
         "reporting_currency": item.reporting_currency,

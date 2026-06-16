@@ -1,6 +1,7 @@
 # tests/unit/services/test_lineage_service.py
 import json
 import os
+from pathlib import PurePath
 from uuid import uuid4
 
 import pandas as pd
@@ -13,7 +14,7 @@ from app.services.execution_stage_names import (
     EXECUTION_STAGE_LINEAGE_MATERIALIZATION,
 )
 from app.services.lineage_metadata_store import LineageMetadataStore, LineageStatus
-from app.services.lineage_service import LineageService, resolve_artifact_stage_name
+from app.services.lineage_service import LineageService, _is_unsafe_artifact_filename, resolve_artifact_stage_name
 
 
 class MockModel(BaseModel):
@@ -217,6 +218,27 @@ def test_lineage_service_uses_injected_execution_store_for_stage_completion(tmp_
     execution_store.complete_stage.assert_called_once()
 
 
+def test_lineage_service_materialize_artifact_files_returns_written_artifact_names(tmp_path):
+    metadata_store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    metadata_store.create_schema()
+    service = LineageService(storage_path=str(tmp_path), metadata_store=metadata_store)
+    calc_id = uuid4()
+
+    target_dir, artifact_names = service._materialize_artifact_files(
+        calculation_id=calc_id,
+        request_json='{"key":"request"}',
+        response_json='{"key":"response"}',
+        calculation_details={"first.csv": "a\n1\n", "second.csv": "b\n2\n"},
+    )
+
+    assert target_dir == os.path.join(tmp_path, str(calc_id))
+    assert artifact_names == ["request.json", "response.json", "first.csv", "second.csv"]
+    assert os.path.exists(os.path.join(target_dir, "request.json"))
+    assert os.path.exists(os.path.join(target_dir, "response.json"))
+    assert os.path.exists(os.path.join(target_dir, "first.csv"))
+    assert os.path.exists(os.path.join(target_dir, "second.csv"))
+
+
 def test_lineage_service_uses_runtime_storage_path_when_not_explicit(tmp_path, mocker):
     metadata_store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
     metadata_store.create_schema()
@@ -269,6 +291,20 @@ def test_lineage_service_rejects_unsafe_artifact_filename_on_materialize(tmp_pat
     record = metadata_store.get_record(calc_id)
     assert record is not None
     assert record.status == LineageStatus.PENDING
+
+
+@pytest.mark.parametrize(
+    "filename",
+    ["", " ", ".", "..", "../escape.csv", "nested/file.csv", os.path.abspath("escape.csv")],
+)
+def test_lineage_artifact_filename_policy_rejects_unsafe_names(filename):
+    candidate = filename.strip()
+
+    assert _is_unsafe_artifact_filename(candidate=candidate, path=PurePath(candidate)) is True
+
+
+def test_lineage_artifact_filename_policy_accepts_single_relative_filename():
+    assert _is_unsafe_artifact_filename(candidate="details.csv", path=PurePath("details.csv")) is False
 
 
 def test_lineage_service_atomic_write_does_not_leave_partial_target(tmp_path, mocker):

@@ -151,6 +151,19 @@ def test_uses_local_fx_component_returns_rejects_incomplete_mode():
             ]
         )
 
+    with pytest.raises(ValueError, match="must be supplied together"):
+        _uses_local_fx_component_returns(
+            [
+                BenchmarkComponentObservation(
+                    component_id="IDX_A",
+                    perf_date=date(2026, 1, 2),
+                    weight_bop=1.0,
+                    component_return=0.02,
+                    component_return_fx=0.005,
+                )
+            ]
+        )
+
 
 def test_benchmark_return_points_to_dataframe_links_vendor_series():
     returns_df = benchmark_return_points_to_dataframe(

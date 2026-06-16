@@ -317,6 +317,16 @@ def test_portfolio_chunk_helper_contracts_preserve_request_identity_and_payload_
         portfolio_currency=portfolio_currency,
         reporting_currency=reporting_currency,
     )
+    ignored_non_string_identity = _portfolio_identity_from_payload(
+        payload={
+            "portfolio_open_date": date(2025, 12, 31),
+            "portfolio_currency": 123,
+            "reporting_currency": None,
+        },
+        portfolio_open_date=None,
+        portfolio_currency=None,
+        reporting_currency=None,
+    )
 
     assert request_payload == {
         "portfolio_id": "PORT_1",
@@ -328,6 +338,7 @@ def test_portfolio_chunk_helper_contracts_preserve_request_identity_and_payload_
     }
     assert (portfolio_open_date, portfolio_currency, reporting_currency) == ("2025-12-31", "EUR", "USD")
     assert preserved_identity == ("2025-12-31", "EUR", "USD")
+    assert ignored_non_string_identity == (None, None, None)
     assert _portfolio_observations_from_payload({"observations": [{"valuation_date": "2026-01-01"}, "bad"]}) == [
         {"valuation_date": "2026-01-01"}
     ]
@@ -1099,6 +1110,45 @@ def test_stateful_input_service_deduplicates_records_and_component_series():
     assert _component_index_points({"index_id": "IDX_4", "points": "bad-shape"}) == ("IDX_4", [])
     assert _component_index_points({"index_id": None}) is None
     assert _component_index_points("bad-component") is None
+
+
+def test_stateful_input_service_builds_position_timeseries_payload():
+    service = StatefulInputService(core_service=_CoreServiceStub())
+
+    payload = service._build_position_timeseries_payload(
+        responses=[
+            (
+                200,
+                {
+                    "rows": [
+                        {"valuation_date": "2026-01-01", "position_id": "POS_1", "value": 1},
+                        "ignored",
+                    ],
+                    "retrieval_metadata": {"page_count": 1},
+                },
+            ),
+            (
+                200,
+                {
+                    "rows": [
+                        {"valuation_date": "2026-01-01", "position_id": "POS_1", "value": 2},
+                        {"valuation_date": "2026-01-02", "position_id": "POS_2", "value": 3},
+                        {"valuation_date": "2026-01-03", "position_id": None, "value": 4},
+                    ],
+                    "retrieval_metadata": {"page_count": 2},
+                },
+            ),
+        ],
+        chunk_count=2,
+    )
+
+    assert payload == {
+        "rows": [
+            {"valuation_date": "2026-01-01", "position_id": "POS_1", "value": 2},
+            {"valuation_date": "2026-01-02", "position_id": "POS_2", "value": 3},
+        ],
+        "retrieval_metadata": {"chunk_count": 2, "page_count": 3},
+    }
 
 
 def test_stateful_input_service_helper_contracts_cover_page_tokens_failures_and_snapshot_identity():

@@ -70,9 +70,17 @@ def _contribution_smoothing_residual_reason_codes(
         reason_codes.append("RESIDUAL_ALLOCATED_TO_RECONCILE_PERIOD")
     if abs(raw_residual) > 1e-12:
         reason_codes.append("RAW_CONTRIBUTION_DIFFERS_FROM_LINKED_RETURN")
-    if abs(smoothing_residual) <= 1e-9 and smoothing_method == "CARINO" and invalid_domain_days == 0:
+    if _is_reconciled_carino_smoothing(
+        smoothing_method=smoothing_method,
+        invalid_domain_days=invalid_domain_days,
+        smoothing_residual=smoothing_residual,
+    ):
         reason_codes.append("SMOOTHED_CONTRIBUTION_RECONCILES")
     return reason_codes
+
+
+def _is_reconciled_carino_smoothing(*, smoothing_method: str, invalid_domain_days: int, smoothing_residual) -> bool:
+    return abs(smoothing_residual) <= 1e-9 and smoothing_method == "CARINO" and invalid_domain_days == 0
 
 
 def _carino_factor_range(period_slice_df: pd.DataFrame) -> tuple[Any, Any]:

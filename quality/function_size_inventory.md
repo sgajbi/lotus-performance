@@ -1,7 +1,7 @@
 # Lotus Performance Function Size Inventory
 
-Report date: 2026-06-13
-Branch: `refactor/lp-cr-942-source-economics-counts`
+Report date: 2026-06-16
+Branch: `refactor/lp-cr-950-mwr-fx-component`
 Mode: report-only function-size inventory; this artifact introduces no new blocking CI gate.
 
 ## Purpose
@@ -21,25 +21,25 @@ python scripts/python_function_size_inventory.py --limit 20
 | Rank | Function | File | Lines |
 | ---: | --- | --- | ---: |
 | 1 | `DurableQueueCollector.describe` | `app/services/queue_metrics_service.py:193` | 159 |
-| 2 | `_build_external_cashflow_findings` | `app/services/inspection/source_economics_findings.py:281` | 140 |
-| 3 | `build_runtime_status_response` | `app/models/runtime_status.py:767` | 131 |
-| 4 | `_build_fee_source_economics_findings` | `app/services/inspection/source_economics_findings.py:423` | 130 |
-| 5 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:327` | 130 |
-| 6 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:502` | 119 |
-| 7 | `_build_artifacts` | `app/services/composite_inspection_service.py:114` | 118 |
-| 8 | `run_runtime_retention_cleanup` | `app/services/runtime_retention_run_service.py:32` | 111 |
-| 9 | `calculate_attribution` | `app/services/attribution_service.py:206` | 104 |
-| 10 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:206` | 102 |
-| 11 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:310` | 102 |
-| 12 | `aggregate_attribution_results` | `engine/attribution.py:648` | 102 |
-| 13 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:87` | 101 |
-| 14 | `_calculate_position_flow_balance_counts` | `app/services/contribution_diagnostics.py:183` | 99 |
-| 15 | `_calculate_returns_series` | `app/services/returns_series_service.py:1308` | 97 |
-| 16 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:62` | 97 |
-| 17 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:88` | 95 |
-| 18 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:31` | 94 |
-| 19 | `build_stateful_benchmark_input` | `app/services/stateful_benchmark_input_service.py:49` | 93 |
-| 20 | `calculate_twr_response` | `app/services/twr_service.py:989` | 93 |
+| 2 | `build_runtime_status_response` | `app/models/runtime_status.py:767` | 131 |
+| 3 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:327` | 130 |
+| 4 | `calculate_attribution` | `app/services/attribution_service.py:214` | 104 |
+| 5 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:227` | 102 |
+| 6 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:331` | 102 |
+| 7 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:87` | 101 |
+| 8 | `aggregate_attribution_results` | `engine/attribution.py:697` | 98 |
+| 9 | `_calculate_returns_series` | `app/services/returns_series_service.py:1397` | 97 |
+| 10 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:62` | 97 |
+| 11 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:31` | 94 |
+| 12 | `build_stateful_benchmark_input` | `app/services/stateful_benchmark_input_service.py:57` | 93 |
+| 13 | `calculate_twr_response` | `app/services/twr_service.py:1061` | 93 |
+| 14 | `_build_artifacts` | `app/services/composite_inspection_service.py:151` | 89 |
+| 15 | `build_recovery_drill_history_snapshot` | `app/services/recovery_drill_history_service.py:62` | 85 |
+| 16 | `build_runtime_recovery_snapshot` | `app/services/runtime_recovery_service.py:46` | 84 |
+| 17 | `run_runtime_retention_cleanup` | `app/services/runtime_retention_run_service.py:93` | 83 |
+| 18 | `StatefulInputService._fetch_position_chunk` | `app/services/stateful_input_service.py:991` | 81 |
+| 19 | `calculate_contribution` | `app/services/contribution_service.py:614` | 80 |
+| 20 | `LineageMetadataStore._build_inspection_query_statements` | `app/services/lineage_metadata_store.py:529` | 80 |
 
 ## Interpretation
 
@@ -78,10 +78,17 @@ Source-economics top-level finding assembly dropped from `258` lines out of the 
 observation-contract, explicit-amount-contract, and detailed cash-flow contract finding groups were
 isolated. `_build_detailed_cashflow_contract_findings` dropped out of the top-20 table after the
 detailed cash-flow source contract taxonomy was converted to an explicit ordered catalog.
+`_build_external_cashflow_findings` dropped out of the top-20 table after external cash-flow finding
+construction was converted to the same explicit ordered catalog pattern.
+`_build_fee_source_economics_findings` also dropped out of the top-20 table after fee finding
+construction was converted to the same explicit ordered catalog pattern.
 TWR inspection orchestration remains in the top-15 table but moved from `147` to `131` lines after
 subject-resolution stage lifecycle handling was isolated from the public inspection orchestrator.
 TWR inspection orchestration dropped out of the top-15 table after subject request materialization
 and calculation-consistency loading were isolated from the public inspection orchestrator.
+TWR inspection orchestration dropped out of the top-20 table after optional source-quality,
+reconciliation, and source-economics subject assessments were isolated from the public inspection
+orchestrator.
 TWR calculation workflow dropped out of the top-20 table after resolved response finalization and
 final response calculation were isolated from the public workflow function.
 Attribution calculation workflow dropped out of the top-20 table after resolved stateful
@@ -89,10 +96,17 @@ finalization and initial async submission were isolated from the public workflow
 Returns-series calculation orchestration dropped out of the top-15 table after execution-context
 resolution was isolated from dataframe preparation, execution, diagnostics, and response assembly.
 Stateful returns-series request resolution dropped out of the top-15 table after normalization-stage
-Composite inspection artifact assembly moved from `135` to `118` lines after customer-consumable
-composite-period return row projection was isolated.
 completion, identity payload construction, and resolved stateless request assembly were isolated.
+Composite inspection artifact assembly moved from `135` to `118` lines after customer-consumable
+composite-period return row projection was isolated, then moved from `118` to `89` lines after
+member-input and period-weight support artifact row projection were isolated.
 
 Future refactor slices should use this report to choose bounded work where extraction, shared
 helpers, or narrower tests can reduce function size while preserving analytics truth and API
 contracts.
+Runtime-retention manual cleanup orchestration moved from `111` to `93` lines after cleanup
+evidence response projection was isolated. It remains a CC `7` hotspot, so future work should
+target replay, guard, or lease-context assembly separately rather than claiming the function is
+fully remediated.
+It then moved from `93` to `83` lines and left the top-25 complexity table after apply-preview and
+manual cooldown guard policy were isolated.

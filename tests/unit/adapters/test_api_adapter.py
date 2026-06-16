@@ -6,6 +6,8 @@ import pandas as pd
 import pytest
 
 from adapters.api_adapter import (
+    _daily_data_for_breakdown,
+    _performance_summary_payload,
     create_engine_config,
     create_engine_dataframe,
     format_breakdowns_for_response,
@@ -148,6 +150,66 @@ def test_format_breakdowns_for_response_empty_input():
     empty_df = pd.DataFrame()
     formatted_response = format_breakdowns_for_response(empty_breakdowns, empty_df, include_timeseries=False)
     assert formatted_response == {}
+
+
+def test_performance_summary_payload_maps_engine_summary_keys():
+    payload = _performance_summary_payload(
+        {
+            PortfolioColumns.BEGIN_MV: 1000.0,
+            PortfolioColumns.END_MV: 1010.0,
+            "net_cash_flow": 5.0,
+            "period_return_pct": 1.0,
+            "cumulative_return_pct_to_date": 2.0,
+            "annualized_return_pct": 12.0,
+        }
+    )
+
+    assert payload == {
+        "begin_mv": 1000.0,
+        "end_mv": 1010.0,
+        "net_cash_flow": 5.0,
+        "period_return_pct": 1.0,
+        "cumulative_return_pct_to_date": 2.0,
+        "annualized_return_pct": 12.0,
+    }
+
+
+def test_daily_data_for_breakdown_respects_frequency_bounds_and_flag():
+    daily_records = [{"perf_date": date(2025, 1, 1)}]
+
+    assert _daily_data_for_breakdown(
+        frequency=Frequency.DAILY,
+        item_index=0,
+        daily_records=daily_records,
+        include_timeseries=True,
+    ) == [daily_records[0]]
+    assert (
+        _daily_data_for_breakdown(
+            frequency=Frequency.MONTHLY,
+            item_index=0,
+            daily_records=daily_records,
+            include_timeseries=True,
+        )
+        is None
+    )
+    assert (
+        _daily_data_for_breakdown(
+            frequency=Frequency.DAILY,
+            item_index=1,
+            daily_records=daily_records,
+            include_timeseries=True,
+        )
+        is None
+    )
+    assert (
+        _daily_data_for_breakdown(
+            frequency=Frequency.DAILY,
+            item_index=0,
+            daily_records=daily_records,
+            include_timeseries=False,
+        )
+        is None
+    )
 
 
 def test_format_breakdowns_populates_daily_cumulative_return(sample_engine_outputs):

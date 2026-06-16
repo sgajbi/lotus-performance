@@ -283,17 +283,39 @@ def _validate_workspace_summary_explicit_window(request: WorkspaceSummaryRequest
         raise ValueError("report_start_date is required when periods include EXPLICIT")
 
 
+def _has_nested_workspace_summary_stateless_input(request: WorkspaceSummaryRequest) -> bool:
+    return request.stateless_input is not None
+
+
+def _has_legacy_workspace_summary_valuation_points(request: WorkspaceSummaryRequest) -> bool:
+    return bool(request.valuation_points)
+
+
+def _has_exactly_one_workspace_summary_stateless_payload(request: WorkspaceSummaryRequest) -> bool:
+    return _has_nested_workspace_summary_stateless_input(request) != _has_legacy_workspace_summary_valuation_points(
+        request
+    )
+
+
 def _validate_workspace_summary_stateless_inputs(request: WorkspaceSummaryRequest) -> None:
-    has_nested = request.stateless_input is not None
-    has_legacy = bool(request.valuation_points)
     if request.performance_start_date is None:
         raise ValueError("performance_start_date is required when input_mode=stateless")
-    if has_nested and has_legacy:
-        raise ValueError("Provide either stateless_input or valuation_points, not both, for stateless mode")
-    if not has_nested and not has_legacy:
-        raise ValueError("stateless_input or valuation_points is required when input_mode=stateless")
+    envelope_issue = _workspace_summary_stateless_envelope_issue(
+        has_nested=_has_nested_workspace_summary_stateless_input(request),
+        has_legacy=_has_legacy_workspace_summary_valuation_points(request),
+    )
+    if envelope_issue is not None:
+        raise ValueError(envelope_issue)
     if request.stateful_input is not None:
         raise ValueError("stateful_input must be null when input_mode=stateless")
+
+
+def _workspace_summary_stateless_envelope_issue(*, has_nested: bool, has_legacy: bool) -> str | None:
+    if has_nested and has_legacy:
+        return "Provide either stateless_input or valuation_points, not both, for stateless mode"
+    if not has_nested and not has_legacy:
+        return "stateless_input or valuation_points is required when input_mode=stateless"
+    return None
 
 
 def _validate_workspace_summary_stateful_inputs(request: WorkspaceSummaryRequest) -> None:

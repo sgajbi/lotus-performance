@@ -13,10 +13,14 @@ from app.models.benchmark_exposure_context import (
 )
 from app.services.benchmark_exposure_context_service import (
     _accumulate_exposure_point,
+    _benchmark_id_from_assignment_response,
     _build_exposure_rows,
+    _classification_labels_from_catalog_record,
     _classification_map_from_catalog_records,
     _group_identity,
     _index_ids_for_component_series,
+    _iter_component_exposure_points,
+    _normalized_classification_labels,
     _page_rows,
     _requires_index_catalog,
     build_benchmark_exposure_context,
@@ -242,6 +246,42 @@ def test_benchmark_exposure_context_classification_helpers_normalize_inputs() ->
             },
         ]
     ) == {"": {"sector": "Preserved"}, "IDX_B": {"sector": "Technology", "issuer_id": "123"}}
+    assert _classification_labels_from_catalog_record(None) is None
+    assert _classification_labels_from_catalog_record({"classification_labels": {"sector": "Technology"}}) is None
+    assert _classification_labels_from_catalog_record({"index_id": "IDX_A", "classification_labels": "bad"}) is None
+    assert _classification_labels_from_catalog_record(
+        {"index_id": "IDX_B", "classification_labels": {"sector": "Technology", "rank": 1, "ignored": None}}
+    ) == ("IDX_B", {"sector": "Technology", "rank": "1"})
+
+
+def test_normalized_classification_labels_omits_nulls_and_stringifies_values() -> None:
+    assert _normalized_classification_labels({"sector": "Technology", "rank": 1, "ignored": None}) == {
+        "sector": "Technology",
+        "rank": "1",
+    }
+
+
+def test_benchmark_exposure_assignment_response_resolves_identity() -> None:
+    assert (
+        _benchmark_id_from_assignment_response(
+            assignment_status=200,
+            assignment_payload={"benchmark_id": "BMK_GLOBAL_60_40"},
+        )
+        == "BMK_GLOBAL_60_40"
+    )
+
+
+@pytest.mark.parametrize("assignment_payload", [{}, {"benchmark_id": ""}, {"benchmark_id": 123}])
+def test_benchmark_exposure_assignment_response_rejects_unusable_identity(
+    assignment_payload: dict[str, object],
+) -> None:
+    with pytest.raises(HTTPException, match="payload missing benchmark_id") as exc_info:
+        _benchmark_id_from_assignment_response(
+            assignment_status=200,
+            assignment_payload=assignment_payload,
+        )
+
+    assert exc_info.value.status_code == 503
 
 
 @pytest.mark.asyncio
@@ -371,6 +411,21 @@ def test_build_exposure_rows_skips_invalid_component_shapes_and_rejects_invalid_
             grouping_dimensions=[BenchmarkExposureGroupingDimension.POSITION],
             classification_map={},
         )
+
+
+def test_iter_component_exposure_points_yields_only_valid_component_point_lists() -> None:
+    valid_points = [{"series_date": "2026-01-02", "component_weight": "0.10"}]
+
+    assert list(
+        _iter_component_exposure_points(
+            [
+                {"index_id": "", "points": valid_points},
+                {"index_id": None, "points": valid_points},
+                {"index_id": "IDX_BAD", "points": "not-a-list"},
+                {"index_id": "IDX_OK", "points": valid_points},
+            ]
+        )
+    ) == [("IDX_OK", valid_points)]
 
 
 def test_accumulate_exposure_point_groups_valid_points_and_skips_invalid_shapes() -> None:

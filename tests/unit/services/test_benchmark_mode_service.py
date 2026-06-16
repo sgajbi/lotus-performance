@@ -7,7 +7,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.models.benchmark_analytics_requests import BenchmarkAnalyticsRequest, BenchmarkInputMode
-from app.models.benchmark_requests import BenchmarkReturnPoint
+from app.models.benchmark_requests import BenchmarkComponentObservation, BenchmarkReturnPoint
 from app.services import benchmark_mode_service
 from app.services.stateful_benchmark_input_service import StatefulBenchmarkNormalizedInput
 
@@ -130,6 +130,66 @@ def test_resolve_stateless_benchmark_request_projects_vendor_series_details():
     }
     assert not resolved.benchmark_request.component_observations
     assert len(resolved.benchmark_request.benchmark_return_points) == 2
+
+
+def test_stateful_benchmark_request_helpers_project_normalized_inputs_and_counts():
+    calculated_request = BenchmarkAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "benchmark_id": "BMK_1",
+            "benchmark_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "return_source": "calculated",
+            "stateful_input": {},
+        }
+    )
+    vendor_request = BenchmarkAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "benchmark_id": "BMK_1",
+            "benchmark_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "return_source": "vendor_series",
+            "stateful_input": {},
+        }
+    )
+    calculated_input = StatefulBenchmarkNormalizedInput(
+        benchmark_currency="USD",
+        component_observations=[
+            BenchmarkComponentObservation(
+                component_id="IDX_1",
+                perf_date=date(2025, 1, 1),
+                weight_bop=1.0,
+                component_return=0.01,
+            )
+        ],
+        benchmark_return_points=[],
+        source_details={"component_observations": 1},
+    )
+    vendor_input = StatefulBenchmarkNormalizedInput(
+        benchmark_currency="USD",
+        component_observations=[],
+        benchmark_return_points=[
+            BenchmarkReturnPoint(perf_date=date(2025, 1, 1), benchmark_return=0.01),
+            BenchmarkReturnPoint(perf_date=date(2025, 1, 2), benchmark_return=0.02),
+        ],
+        source_details={"benchmark_return_points": 2},
+    )
+
+    benchmark_request = benchmark_mode_service._stateful_benchmark_performance_request(
+        calculated_request,
+        calculated_input,
+    )
+
+    assert benchmark_request.benchmark_currency == "USD"
+    assert len(benchmark_request.component_observations) == 1
+    assert not benchmark_request.benchmark_return_points
+    assert benchmark_mode_service._stateful_benchmark_input_count(calculated_request, calculated_input) == 1
+    assert benchmark_mode_service._stateful_benchmark_input_count(vendor_request, vendor_input) == 2
 
 
 @pytest.mark.asyncio

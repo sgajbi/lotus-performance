@@ -9,12 +9,15 @@ from app.models.mwr_analytics_requests import MoneyWeightedReturnAnalyticsReques
 from app.models.mwr_requests import CashFlow, MoneyWeightedReturnRequest
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_MWR
 from app.services.mwr_calculation_service import (
+    _mwr_currency_evidence_payload,
+    _mwr_reporting_currency,
     _mwr_requested_window,
     build_mwr_response,
     calculate_mwr_response,
     calculate_mwr_result,
 )
 from app.services.mwr_mode_service import ResolvedMWRRequest
+from app.services.stateful_mwr_input_service import MWRCurrencyEvidence
 from engine.mwr import calculate_money_weighted_return
 
 
@@ -142,6 +145,92 @@ def test_build_mwr_response_preserves_endpoint_payload_contract(mocker):
     assert response.calculation_supportability.resolved_period_count == 1
     supportability_metric.assert_called_once()
     solver_metric.assert_called_once()
+
+
+def test_mwr_reporting_currency_prefers_currency_evidence_then_request_fallback():
+    analytics_request = MoneyWeightedReturnAnalyticsRequest.model_validate(
+        {
+            "portfolio_id": "MWR-SERVICE-CURRENCY",
+            "begin_mv": 100.0,
+            "end_mv": 130.0,
+            "as_of": "2025-12-31",
+            "cash_flows": [{"amount": 10.0, "date": "2025-06-30"}],
+            "mwr_method": "DIETZ",
+            "currency": "USD",
+            "report_ccy": "CHF",
+        }
+    )
+    evidence = MWRCurrencyEvidence(
+        reporting_currency="EUR",
+        portfolio_currency="USD",
+        currency_mode="SINGLE_REPORTING_CURRENCY",
+        conversion_evidence_status="not_required_single_currency_inputs",
+        conversion_evidence_reason_codes=[],
+        market_values_used=[],
+        cashflow_evidence=[],
+    )
+
+    assert (
+        _mwr_reporting_currency(
+            resolved_request=ResolvedMWRRequest(
+                mwr_request=analytics_request.to_stateless_mwr_request(),
+                input_mode=MWRInputMode.STATELESS,
+                currency_evidence=evidence,
+            )
+        )
+        == "EUR"
+    )
+    assert (
+        _mwr_reporting_currency(
+            resolved_request=ResolvedMWRRequest(
+                mwr_request=analytics_request.to_stateless_mwr_request(),
+                input_mode=MWRInputMode.STATELESS,
+                currency_evidence=None,
+            )
+        )
+        == "CHF"
+    )
+
+
+def test_mwr_currency_evidence_payload_serializes_dataclass_evidence():
+    analytics_request = MoneyWeightedReturnAnalyticsRequest.model_validate(
+        {
+            "portfolio_id": "MWR-SERVICE-CURRENCY-EVIDENCE",
+            "begin_mv": 100.0,
+            "end_mv": 130.0,
+            "as_of": "2025-12-31",
+            "cash_flows": [{"amount": 10.0, "date": "2025-06-30"}],
+            "mwr_method": "DIETZ",
+            "currency": "USD",
+        }
+    )
+    evidence = MWRCurrencyEvidence(
+        reporting_currency="USD",
+        portfolio_currency="USD",
+        currency_mode="SINGLE_REPORTING_CURRENCY",
+        conversion_evidence_status="not_required_single_currency_inputs",
+        conversion_evidence_reason_codes=["single_currency"],
+        market_values_used=[],
+        cashflow_evidence=[],
+    )
+
+    payload = _mwr_currency_evidence_payload(
+        resolved_request=ResolvedMWRRequest(
+            mwr_request=analytics_request.to_stateless_mwr_request(),
+            input_mode=MWRInputMode.STATELESS,
+            currency_evidence=evidence,
+        )
+    )
+
+    assert payload == {
+        "reporting_currency": "USD",
+        "portfolio_currency": "USD",
+        "currency_mode": "SINGLE_REPORTING_CURRENCY",
+        "conversion_evidence_status": "not_required_single_currency_inputs",
+        "conversion_evidence_reason_codes": ["single_currency"],
+        "market_values_used": [],
+        "cashflow_evidence": [],
+    }
 
 
 @pytest.mark.asyncio

@@ -36,6 +36,19 @@ class StatefulContributionNormalizedInput:
     positions_data: list[PositionData]
 
 
+@dataclass(frozen=True)
+class _StatefulContributionPositionSeries:
+    valuation_points_by_position_id: dict[str, list[dict[str, object]]]
+    meta_by_position_id: dict[str, dict[str, object]]
+
+
+@dataclass(frozen=True)
+class _PositionValueInputs:
+    begin_value: object
+    end_value: object
+    value_basis: PositionValueBasis
+
+
 async def retrieve_stateful_contribution_source_input(
     *,
     settings: Settings,
@@ -114,37 +127,54 @@ def build_stateful_contribution_input(
         }
     )
 
+    position_series = _stateful_contribution_position_series(
+        rows=source_input.position_rows,
+        currency_mode=normalized_currency_mode,
+        reporting_currency=reporting_currency,
+    )
+
+    positions_data = [
+        PositionData.model_validate(
+            {
+                "position_id": position_id,
+                "meta": position_series.meta_by_position_id.get(position_id, {}),
+                "valuation_points": valuation_points,
+            }
+        )
+        for position_id, valuation_points in sorted(position_series.valuation_points_by_position_id.items())
+    ]
+
+    return StatefulContributionNormalizedInput(
+        portfolio_data=portfolio_data,
+        positions_data=positions_data,
+    )
+
+
+def _stateful_contribution_position_series(
+    *,
+    rows: list[dict[str, object]],
+    currency_mode: str,
+    reporting_currency: str | None,
+) -> _StatefulContributionPositionSeries:
     positions_by_id: dict[str, list[dict[str, object]]] = {}
     position_meta: dict[str, dict[str, object]] = {}
-    for row in source_input.position_rows:
+    for row in rows:
         position_id_raw = row.get("position_id")
         valuation_date = row.get("valuation_date")
         if not isinstance(position_id_raw, str) or not isinstance(valuation_date, str):
             continue
         point = _position_row_to_daily_point(
             row=row,
-            currency_mode=normalized_currency_mode,
+            currency_mode=currency_mode,
             reporting_currency=reporting_currency,
         )
         if point is None:
             continue
         positions_by_id.setdefault(position_id_raw, []).append(point)
         position_meta[position_id_raw] = _position_meta_from_row(row)
-
-    positions_data = [
-        PositionData.model_validate(
-            {
-                "position_id": position_id,
-                "meta": position_meta.get(position_id, {}),
-                "valuation_points": valuation_points,
-            }
-        )
-        for position_id, valuation_points in sorted(positions_by_id.items())
-    ]
-
-    return StatefulContributionNormalizedInput(
-        portfolio_data=portfolio_data,
-        positions_data=positions_data,
+    return _StatefulContributionPositionSeries(
+        valuation_points_by_position_id=positions_by_id,
+        meta_by_position_id=position_meta,
     )
 
 
@@ -157,18 +187,41 @@ def _position_row_to_daily_point(
     valuation_date = row.get("valuation_date")
     if not isinstance(valuation_date, str):
         return None
-    value_basis: PositionValueBasis
+    value_inputs = _position_value_inputs(
+        row=row,
+        currency_mode=currency_mode,
+        reporting_currency=reporting_currency,
+    )
+    if value_inputs is None:
+        return None
 
+    bod_cf, eod_cf, mgmt_fees = split_position_cash_flows_in_value_basis(
+        cash_flows_raw=row.get("cash_flows"),
+        row=row,
+        value_basis=value_inputs.value_basis,
+    )
+    return {
+        "perf_date": valuation_date,
+        "begin_mv": Decimal(str(value_inputs.begin_value)),
+        "end_mv": Decimal(str(value_inputs.end_value)),
+        "bod_cf": bod_cf,
+        "eod_cf": eod_cf,
+        "mgmt_fees": mgmt_fees,
+    }
+
+
+def _position_value_inputs(
+    *,
+    row: dict[str, object],
+    currency_mode: str,
+    reporting_currency: str | None,
+) -> _PositionValueInputs | None:
     if currency_mode == "LOCAL_ONLY":
         begin_value = row.get("beginning_market_value_position_currency")
         end_value = row.get("ending_market_value_position_currency")
-        value_basis = "position"
+        value_basis: PositionValueBasis = "position"
     elif reporting_currency is not None:
-        begin_value = row.get("beginning_market_value_reporting_currency")
-        end_value = row.get("ending_market_value_reporting_currency")
-        if begin_value is None or end_value is None:
-            begin_value = row.get("beginning_market_value_portfolio_currency")
-            end_value = row.get("ending_market_value_portfolio_currency")
+        begin_value, end_value = _reporting_position_value_pair(row)
         value_basis = "reporting"
     else:
         begin_value = row.get("beginning_market_value_portfolio_currency")
@@ -177,45 +230,22 @@ def _position_row_to_daily_point(
 
     if begin_value is None or end_value is None:
         return None
-
-    bod_cf, eod_cf, mgmt_fees = split_position_cash_flows_in_value_basis(
-        cash_flows_raw=row.get("cash_flows"),
-        row=row,
+    return _PositionValueInputs(
+        begin_value=begin_value,
+        end_value=end_value,
         value_basis=value_basis,
     )
-    return {
-        "perf_date": valuation_date,
-        "begin_mv": Decimal(str(begin_value)),
-        "end_mv": Decimal(str(end_value)),
-        "bod_cf": bod_cf,
-        "eod_cf": eod_cf,
-        "mgmt_fees": mgmt_fees,
-    }
 
 
-def _split_position_cash_flows(cash_flows_raw: object) -> tuple[Decimal, Decimal, Decimal]:
-    bod_cf = Decimal("0")
-    eod_cf = Decimal("0")
-    mgmt_fees = Decimal("0")
-    if not isinstance(cash_flows_raw, list):
-        return bod_cf, eod_cf, mgmt_fees
-
-    for flow in cash_flows_raw:
-        if not isinstance(flow, dict):
-            continue
-        amount = flow.get("amount")
-        timing = flow.get("timing")
-        cash_flow_type = flow.get("cash_flow_type")
-        if amount is None or timing not in {"bod", "eod"}:
-            continue
-        decimal_amount = Decimal(str(amount))
-        if cash_flow_type == "fee":
-            mgmt_fees += decimal_amount
-        if timing == "bod":
-            bod_cf += decimal_amount
-        else:
-            eod_cf += decimal_amount
-    return bod_cf, eod_cf, mgmt_fees
+def _reporting_position_value_pair(row: dict[str, object]) -> tuple[object, object]:
+    begin_value = row.get("beginning_market_value_reporting_currency")
+    end_value = row.get("ending_market_value_reporting_currency")
+    if begin_value is None or end_value is None:
+        return (
+            row.get("beginning_market_value_portfolio_currency"),
+            row.get("ending_market_value_portfolio_currency"),
+        )
+    return begin_value, end_value
 
 
 def _position_meta_from_row(row: dict[str, object]) -> dict[str, object]:
@@ -243,6 +273,12 @@ def _position_contract_meta_from_row(row: dict[str, object]) -> dict[str, object
         if isinstance(value, str) and value:
             meta[target_field] = value
 
+    meta.update(_position_contract_fx_rate_meta(row))
+    return meta
+
+
+def _position_contract_fx_rate_meta(row: dict[str, object]) -> dict[str, object]:
+    meta: dict[str, object] = {}
     for fx_rate_field in (
         "position_to_portfolio_fx_rate",
         "portfolio_to_reporting_fx_rate",

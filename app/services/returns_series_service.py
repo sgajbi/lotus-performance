@@ -589,21 +589,40 @@ def _risk_free_day_count_denominator(day_count_convention: object) -> Decimal:
     return Decimal("360")
 
 
+def _risk_free_return_point_from_source(point: dict[str, Any]) -> ReturnPoint | None:
+    date_raw = point.get("series_date")
+    value_raw = point.get("value")
+    if not isinstance(date_raw, str) or value_raw is None:
+        return None
+    try:
+        return_value = Decimal(str(value_raw))
+        if str(point.get("value_convention") or "").lower() == "annualized_rate":
+            return_value = return_value / _risk_free_day_count_denominator(point.get("day_count_convention"))
+        return ReturnPoint(date=date.fromisoformat(date_raw), return_value=return_value)
+    except (ValueError, ArithmeticError):
+        return None
+
+
 def risk_free_points_to_dataframe(*, points: list[dict[str, Any]]) -> pd.DataFrame:
-    normalized_points: list[ReturnPoint] = []
-    for point in points:
-        date_raw = point.get("series_date")
-        value_raw = point.get("value")
-        if not isinstance(date_raw, str) or value_raw is None:
-            continue
-        try:
-            return_value = Decimal(str(value_raw))
-            if str(point.get("value_convention") or "").lower() == "annualized_rate":
-                return_value = return_value / _risk_free_day_count_denominator(point.get("day_count_convention"))
-            normalized_points.append(ReturnPoint(date=date.fromisoformat(date_raw), return_value=return_value))
-        except (ValueError, ArithmeticError):
-            continue
+    normalized_points = [
+        normalized_point
+        for point in points
+        if (normalized_point := _risk_free_return_point_from_source(point)) is not None
+    ]
     return to_dataframe(normalized_points, series_type="risk_free")
+
+
+def _selected_series_common_dates(
+    *,
+    portfolio_df: pd.DataFrame,
+    benchmark_df: pd.DataFrame | None,
+    risk_free_df: pd.DataFrame | None,
+) -> set[Any]:
+    common_dates = set(portfolio_df["date"])
+    for selected_df in (benchmark_df, risk_free_df):
+        if selected_df is not None:
+            common_dates &= set(selected_df["date"])
+    return common_dates
 
 
 def _apply_strict_intersection_policy(
@@ -616,11 +635,11 @@ def _apply_strict_intersection_policy(
     if missing_data_policy != MissingDataPolicy.STRICT_INTERSECTION:
         return portfolio_df, benchmark_df, risk_free_df
 
-    common_dates = set(portfolio_df["date"])
-    if benchmark_df is not None:
-        common_dates &= set(benchmark_df["date"])
-    if risk_free_df is not None:
-        common_dates &= set(risk_free_df["date"])
+    common_dates = _selected_series_common_dates(
+        portfolio_df=portfolio_df,
+        benchmark_df=benchmark_df,
+        risk_free_df=risk_free_df,
+    )
     if not common_dates:
         raise HTTPException(
             status_code=HTTP_422_UNPROCESSABLE,
@@ -635,6 +654,21 @@ def _apply_strict_intersection_policy(
     return portfolio_df, benchmark_df, risk_free_df
 
 
+def _fill_optional_series_to_portfolio_dates(
+    *,
+    selected_df: pd.DataFrame | None,
+    portfolio_dates: pd.Series,
+    fill_method: FillMethod,
+) -> pd.DataFrame | None:
+    if selected_df is None:
+        return None
+    if fill_method == FillMethod.FORWARD_FILL:
+        return selected_df.set_index("date").reindex(portfolio_dates).ffill().reset_index()
+    if fill_method == FillMethod.ZERO_FILL:
+        return selected_df.set_index("date").reindex(portfolio_dates).fillna(0.0).reset_index()
+    return selected_df
+
+
 def _apply_selected_fill_method(
     *,
     portfolio_df: pd.DataFrame,
@@ -642,16 +676,17 @@ def _apply_selected_fill_method(
     risk_free_df: pd.DataFrame | None,
     fill_method: FillMethod,
 ) -> tuple[pd.DataFrame, pd.DataFrame | None, pd.DataFrame | None]:
-    if fill_method == FillMethod.FORWARD_FILL:
-        if benchmark_df is not None:
-            benchmark_df = benchmark_df.set_index("date").reindex(portfolio_df["date"]).ffill().reset_index()
-        if risk_free_df is not None:
-            risk_free_df = risk_free_df.set_index("date").reindex(portfolio_df["date"]).ffill().reset_index()
-    elif fill_method == FillMethod.ZERO_FILL:
-        if benchmark_df is not None:
-            benchmark_df = benchmark_df.set_index("date").reindex(portfolio_df["date"]).fillna(0.0).reset_index()
-        if risk_free_df is not None:
-            risk_free_df = risk_free_df.set_index("date").reindex(portfolio_df["date"]).fillna(0.0).reset_index()
+    portfolio_dates = portfolio_df["date"]
+    benchmark_df = _fill_optional_series_to_portfolio_dates(
+        selected_df=benchmark_df,
+        portfolio_dates=portfolio_dates,
+        fill_method=fill_method,
+    )
+    risk_free_df = _fill_optional_series_to_portfolio_dates(
+        selected_df=risk_free_df,
+        portfolio_dates=portfolio_dates,
+        fill_method=fill_method,
+    )
     return portfolio_df, benchmark_df, risk_free_df
 
 
@@ -798,6 +833,19 @@ def _stateful_returns_retrieval_stage_details(
     }
 
 
+def _stateful_returns_normalization_stage_details(
+    *,
+    portfolio_df: pd.DataFrame,
+    benchmark_df: pd.DataFrame | None,
+    risk_free_df: pd.DataFrame | None,
+) -> dict[str, int]:
+    return {
+        "portfolio_points": len(portfolio_df),
+        "benchmark_points": len(benchmark_df) if benchmark_df is not None else 0,
+        "risk_free_points": len(risk_free_df) if risk_free_df is not None else 0,
+    }
+
+
 def _build_resolved_stateful_returns_series_request(
     *,
     request: ReturnsSeriesRequest,
@@ -824,11 +872,11 @@ def _build_resolved_stateful_returns_series_request(
     execution_registry.complete_stage(
         request.calculation_id,
         EXECUTION_STAGE_NORMALIZATION,
-        details={
-            "portfolio_points": len(portfolio_df),
-            "benchmark_points": len(benchmark_df) if benchmark_df is not None else 0,
-            "risk_free_points": len(risk_free_df) if risk_free_df is not None else 0,
-        },
+        details=_stateful_returns_normalization_stage_details(
+            portfolio_df=portfolio_df,
+            benchmark_df=benchmark_df,
+            risk_free_df=risk_free_df,
+        ),
     )
 
     portfolio_return_points = points_from_df(portfolio_df)
@@ -844,29 +892,49 @@ def _build_resolved_stateful_returns_series_request(
         resolved_benchmark_return_source=(resolved_benchmark_return_source.value if resolved_benchmark_id else None),
     )
     resolved_request = ReturnsSeriesRequest.model_validate(
-        {
-            "calculation_id": str(request.calculation_id),
-            "portfolio_id": request.portfolio_id,
-            "as_of_date": request.as_of_date.isoformat(),
-            "window": request.window.model_dump(mode="json"),
-            "frequency": request.frequency.value,
-            "metric_basis": request.metric_basis.value,
-            "reporting_currency": request.reporting_currency,
-            "series_selection": request.series_selection.model_dump(mode="json"),
-            "risk_free": request.risk_free.model_dump(mode="json") if request.risk_free is not None else None,
-            "data_policy": request.data_policy.model_dump(mode="json"),
-            "input_mode": InputMode.STATELESS.value,
-            "stateless_input": {
-                "portfolio_returns": identity_payload["stateless_input"]["portfolio_returns"],
-                "benchmark_returns": identity_payload["stateless_input"]["benchmark_returns"],
-                "risk_free_returns": identity_payload["stateless_input"]["risk_free_returns"],
-            },
-        }
+        _resolved_stateful_returns_series_request_payload(request=request, identity_payload=identity_payload)
     )
     return _StatefulReturnsSeriesResolvedRequest(
         request=resolved_request,
         identity_payload=identity_payload,
     )
+
+
+def _resolved_stateful_returns_series_request_payload(
+    *,
+    request: ReturnsSeriesRequest,
+    identity_payload: dict[str, Any],
+) -> dict[str, Any]:
+    stateless_input = identity_payload["stateless_input"]
+    return {
+        "calculation_id": str(request.calculation_id),
+        "portfolio_id": request.portfolio_id,
+        "as_of_date": request.as_of_date.isoformat(),
+        "window": request.window.model_dump(mode="json"),
+        "frequency": request.frequency.value,
+        "metric_basis": request.metric_basis.value,
+        "reporting_currency": request.reporting_currency,
+        "series_selection": request.series_selection.model_dump(mode="json"),
+        "risk_free": request.risk_free.model_dump(mode="json") if request.risk_free is not None else None,
+        "data_policy": request.data_policy.model_dump(mode="json"),
+        "input_mode": InputMode.STATELESS.value,
+        "stateless_input": {
+            "portfolio_returns": stateless_input["portfolio_returns"],
+            "benchmark_returns": stateless_input["benchmark_returns"],
+            "risk_free_returns": stateless_input["risk_free_returns"],
+        },
+    }
+
+
+def _benchmark_id_from_assignment_payload(assignment_payload: dict[str, Any]) -> str:
+    benchmark_id_raw = assignment_payload.get("benchmark_id")
+    benchmark_id = str(benchmark_id_raw) if benchmark_id_raw else None
+    if not benchmark_id:
+        raise HTTPException(
+            status_code=HTTP_422_UNPROCESSABLE,
+            detail=upstream_contract_violation_detail("Benchmark assignment payload missing benchmark_id."),
+        )
+    return benchmark_id
 
 
 async def _resolve_stateful_returns_series_benchmark_id(
@@ -893,14 +961,7 @@ async def _resolve_stateful_returns_series_benchmark_id(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=source_unavailable_detail(f"Benchmark assignment source unavailable ({assignment_status})."),
         )
-    benchmark_id_raw = assignment_payload.get("benchmark_id")
-    benchmark_id = str(benchmark_id_raw) if benchmark_id_raw else None
-    if not benchmark_id:
-        raise HTTPException(
-            status_code=HTTP_422_UNPROCESSABLE,
-            detail=upstream_contract_violation_detail("Benchmark assignment payload missing benchmark_id."),
-        )
-    return benchmark_id
+    return _benchmark_id_from_assignment_payload(assignment_payload)
 
 
 async def _retrieve_stateful_returns_series_risk_free(
@@ -1087,6 +1148,32 @@ def _build_returns_series_point_outputs(
     )
 
 
+def _returns_series_gaps(
+    *,
+    portfolio_df: pd.DataFrame,
+    benchmark_df: pd.DataFrame | None,
+    risk_free_df: pd.DataFrame | None,
+    frequency: ReturnsFrequency,
+    calendar_policy: CalendarPolicy,
+) -> list[SeriesGap]:
+    selected_series = [
+        ("portfolio", portfolio_df),
+        ("benchmark", benchmark_df),
+        ("risk_free", risk_free_df),
+    ]
+    return [
+        gap
+        for series_type, series_df in selected_series
+        if series_df is not None
+        for gap in detect_gaps(
+            series_df,
+            frequency=frequency,
+            series_type=series_type,
+            calendar_policy=calendar_policy,
+        )
+    ]
+
+
 def _build_returns_series_diagnostics(
     *,
     request: ReturnsSeriesRequest,
@@ -1110,34 +1197,13 @@ def _build_returns_series_diagnostics(
     if request.data_policy.calendar_policy == CalendarPolicy.MARKET:
         warnings.append("MARKET calendar policy currently uses business-day approximation.")
 
-    gaps = [
-        *detect_gaps(
-            portfolio_df,
-            frequency=request.frequency,
-            series_type="portfolio",
-            calendar_policy=request.data_policy.calendar_policy,
-        ),
-        *(
-            detect_gaps(
-                benchmark_df,
-                frequency=request.frequency,
-                series_type="benchmark",
-                calendar_policy=request.data_policy.calendar_policy,
-            )
-            if benchmark_df is not None
-            else []
-        ),
-        *(
-            detect_gaps(
-                risk_free_df,
-                frequency=request.frequency,
-                series_type="risk_free",
-                calendar_policy=request.data_policy.calendar_policy,
-            )
-            if risk_free_df is not None
-            else []
-        ),
-    ]
+    gaps = _returns_series_gaps(
+        portfolio_df=portfolio_df,
+        benchmark_df=benchmark_df,
+        risk_free_df=risk_free_df,
+        frequency=request.frequency,
+        calendar_policy=request.data_policy.calendar_policy,
+    )
     return _ReturnsSeriesDiagnosticsResult(
         requested_points=requested_points,
         returned_points=returned_points,
@@ -1256,7 +1322,7 @@ async def calculate_returns_series(
     )
 
 
-async def _resolve_returns_series_execution_context(
+def _requested_returns_series_execution_context(
     *,
     request: ReturnsSeriesRequest,
     source_input_mode: InputMode | None,
@@ -1264,40 +1330,63 @@ async def _resolve_returns_series_execution_context(
     resolved_benchmark_return_source_override: str | None,
 ) -> _ReturnsSeriesExecutionContext:
     input_fingerprint, calculation_hash = generate_canonical_hash(request, "returns-series-v1")
-    effective_input_mode = source_input_mode or request.input_mode
-    resolved_window = resolve_window(request)
-    resolved_benchmark_id: str | None = resolved_benchmark_id_override or (
-        request.benchmark.benchmark_id if request.benchmark else None
-    )
     resolved_benchmark_return_source = (
         BenchmarkReturnSource(resolved_benchmark_return_source_override)
         if resolved_benchmark_return_source_override is not None
         else _get_requested_benchmark_return_source(request)
     )
+    return _ReturnsSeriesExecutionContext(
+        request=request,
+        resolved_window=resolve_window(request),
+        effective_input_mode=source_input_mode or request.input_mode,
+        input_fingerprint=input_fingerprint,
+        calculation_hash=calculation_hash,
+        resolved_benchmark_id=resolved_benchmark_id_override
+        or (request.benchmark.benchmark_id if request.benchmark else None),
+        resolved_benchmark_return_source=resolved_benchmark_return_source,
+    )
 
-    if request.input_mode == InputMode.STATEFUL:
-        resolved_stateful_request = await resolve_stateful_returns_series_request(request)
-        request = resolved_stateful_request.request
-        resolved_benchmark_id = resolved_stateful_request.resolved_benchmark_id
-        if resolved_stateful_request.resolved_benchmark_return_source is not None:
-            resolved_benchmark_return_source = BenchmarkReturnSource(
-                resolved_stateful_request.resolved_benchmark_return_source
-            )
-        input_fingerprint, calculation_hash = generate_canonical_hash(
-            resolved_stateful_request.identity_payload,
-            "returns-series-v1",
+
+async def _resolve_returns_series_execution_context(
+    *,
+    request: ReturnsSeriesRequest,
+    source_input_mode: InputMode | None,
+    resolved_benchmark_id_override: str | None,
+    resolved_benchmark_return_source_override: str | None,
+) -> _ReturnsSeriesExecutionContext:
+    context = _requested_returns_series_execution_context(
+        request=request,
+        source_input_mode=source_input_mode,
+        resolved_benchmark_id_override=resolved_benchmark_id_override,
+        resolved_benchmark_return_source_override=resolved_benchmark_return_source_override,
+    )
+    resolved_benchmark_id = context.resolved_benchmark_id
+    resolved_benchmark_return_source = context.resolved_benchmark_return_source
+
+    if request.input_mode != InputMode.STATEFUL:
+        return context
+
+    resolved_stateful_request = await resolve_stateful_returns_series_request(request)
+    request = resolved_stateful_request.request
+    resolved_benchmark_id = resolved_stateful_request.resolved_benchmark_id
+    if resolved_stateful_request.resolved_benchmark_return_source is not None:
+        resolved_benchmark_return_source = BenchmarkReturnSource(
+            resolved_stateful_request.resolved_benchmark_return_source
         )
-        execution_registry.update_execution_identity(
-            request.calculation_id,
-            input_fingerprint=input_fingerprint,
-            calculation_hash=calculation_hash,
-        )
-        resolved_window = resolve_window(request)
+    input_fingerprint, calculation_hash = generate_canonical_hash(
+        resolved_stateful_request.identity_payload,
+        "returns-series-v1",
+    )
+    execution_registry.update_execution_identity(
+        request.calculation_id,
+        input_fingerprint=input_fingerprint,
+        calculation_hash=calculation_hash,
+    )
 
     return _ReturnsSeriesExecutionContext(
         request=request,
-        resolved_window=resolved_window,
-        effective_input_mode=effective_input_mode,
+        resolved_window=resolve_window(request),
+        effective_input_mode=context.effective_input_mode,
         input_fingerprint=input_fingerprint,
         calculation_hash=calculation_hash,
         resolved_benchmark_id=resolved_benchmark_id,
@@ -1421,28 +1510,12 @@ async def resolve_stateful_returns_series_request(
 
     execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_RETRIEVAL)
     stateful_input_service = build_stateful_input_service(settings=active_settings)
-    try:
-        portfolio_source = await retrieve_stateful_portfolio_input(
-            settings=active_settings,
-            stateful_input_service=stateful_input_service,
-            calculation_id=request.calculation_id,
-            portfolio_id=request.portfolio_id,
-            as_of_date=request.as_of_date,
-            start_date=resolved_window.start_date,
-            end_date=resolved_window.end_date,
-            reporting_currency=request.reporting_currency,
-            consumer_system=LOTUS_PERFORMANCE_CONSUMER_SYSTEM,
-        )
-    except HTTPException as exc:
-        if exc.status_code == status.HTTP_503_SERVICE_UNAVAILABLE:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=source_unavailable_detail(str(exc.detail)),
-            ) from exc
-        raise HTTPException(
-            status_code=HTTP_422_UNPROCESSABLE,
-            detail=insufficient_data_detail(str(exc.detail)),
-        ) from exc
+    portfolio_source = await _retrieve_stateful_returns_series_portfolio_source(
+        active_settings=active_settings,
+        stateful_input_service=stateful_input_service,
+        request=request,
+        resolved_window=resolved_window,
+    )
 
     observations = portfolio_source.observations
     resolved_benchmark_id: str | None = request.benchmark.benchmark_id if request.benchmark else None
@@ -1494,3 +1567,34 @@ async def resolve_stateful_returns_series_request(
         resolved_benchmark_return_source=(resolved_benchmark_return_source.value if resolved_benchmark_id else None),
         benchmark_work_units=benchmark_resolution.benchmark_work_units,
     )
+
+
+async def _retrieve_stateful_returns_series_portfolio_source(
+    *,
+    active_settings: Any,
+    stateful_input_service: Any,
+    request: ReturnsSeriesRequest,
+    resolved_window: ResolvedWindow,
+) -> StatefulPortfolioInput:
+    try:
+        return await retrieve_stateful_portfolio_input(
+            settings=active_settings,
+            stateful_input_service=stateful_input_service,
+            calculation_id=request.calculation_id,
+            portfolio_id=request.portfolio_id,
+            as_of_date=request.as_of_date,
+            start_date=resolved_window.start_date,
+            end_date=resolved_window.end_date,
+            reporting_currency=request.reporting_currency,
+            consumer_system=LOTUS_PERFORMANCE_CONSUMER_SYSTEM,
+        )
+    except HTTPException as exc:
+        if exc.status_code == status.HTTP_503_SERVICE_UNAVAILABLE:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=source_unavailable_detail(str(exc.detail)),
+            ) from exc
+        raise HTTPException(
+            status_code=HTTP_422_UNPROCESSABLE,
+            detail=insufficient_data_detail(str(exc.detail)),
+        ) from exc

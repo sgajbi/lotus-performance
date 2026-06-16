@@ -364,66 +364,11 @@ class DurableQueueCollector:
             compute_queue_policy=compute_queue_policy,
             lineage_queue_policy=lineage_queue_policy,
         )
-
-        yield policy_threshold_metric(
-            metric_name="lotus_performance_recovery_drill_policy_threshold",
-            description="Configured recovery-drill degradation thresholds.",
-            max_age_seconds=recovery_drill_policy.max_age_seconds,
-            active_run_age_seconds=recovery_drill_policy.active_run_age_seconds,
-            reclaim_count=recovery_drill_policy.reclaim_count,
+        yield from _lifecycle_history_metrics(
+            sources=sources,
+            recovery_drill_policy=recovery_drill_policy,
+            runtime_retention_policy=runtime_retention_policy,
         )
-
-        yield from operator_action_lease_metrics(
-            snapshot=sources.recovery_drill_action_snapshot,
-            spec=RECOVERY_DRILL_ACTION_METRICS,
-        )
-
-        yield policy_threshold_metric(
-            metric_name="lotus_performance_runtime_retention_policy_threshold",
-            description="Configured runtime-retention degradation thresholds.",
-            max_age_seconds=runtime_retention_policy.max_age_seconds,
-            active_run_age_seconds=runtime_retention_policy.active_run_age_seconds,
-            reclaim_count=runtime_retention_policy.reclaim_count,
-        )
-
-        yield from operator_action_lease_metrics(
-            snapshot=sources.runtime_retention_action_snapshot,
-            spec=RUNTIME_RETENTION_ACTION_METRICS,
-        )
-
-        if (
-            sources.recovery_drill_snapshot is not None
-            and sources.recovery_drill_snapshot.status == "available"
-            and sources.recovery_drill_snapshot.entries
-        ):
-            latest = sources.recovery_drill_snapshot.entries[0]
-            latest_age_seconds = age_seconds_since(latest.generated_at_utc)
-
-            yield recovery_drill_latest_age_metric(latest_age_seconds=latest_age_seconds)
-
-            yield recovery_drill_degradation_breach_metric(
-                latest=latest,
-                latest_age_seconds=latest_age_seconds,
-                action_snapshot=sources.recovery_drill_action_snapshot,
-                policy=recovery_drill_policy,
-            )
-
-        if (
-            sources.runtime_retention_snapshot is not None
-            and sources.runtime_retention_snapshot.status == "available"
-            and sources.runtime_retention_snapshot.entries
-        ):
-            latest = sources.runtime_retention_snapshot.entries[0]
-            latest_age_seconds = age_seconds_since(latest.generated_at_utc)
-
-            yield runtime_retention_latest_age_metric(latest_age_seconds=latest_age_seconds)
-
-            yield runtime_retention_degradation_breach_metric(
-                latest=latest,
-                latest_age_seconds=latest_age_seconds,
-                action_snapshot=sources.runtime_retention_action_snapshot,
-                policy=runtime_retention_policy,
-            )
 
 
 def _core_queue_and_storage_metrics(
@@ -464,3 +409,67 @@ def _core_queue_and_storage_metrics(
 
     metrics.append(lineage_storage_pressure_threshold_metric(policy=lineage_queue_policy))
     return tuple(metrics)
+
+
+def _lifecycle_history_metrics(
+    *,
+    sources: _DurableQueueMetricSources,
+    recovery_drill_policy: Any,
+    runtime_retention_policy: Any,
+) -> tuple[GaugeMetricFamily, ...]:
+    metrics = [
+        policy_threshold_metric(
+            metric_name="lotus_performance_recovery_drill_policy_threshold",
+            description="Configured recovery-drill degradation thresholds.",
+            max_age_seconds=recovery_drill_policy.max_age_seconds,
+            active_run_age_seconds=recovery_drill_policy.active_run_age_seconds,
+            reclaim_count=recovery_drill_policy.reclaim_count,
+        ),
+        *operator_action_lease_metrics(
+            snapshot=sources.recovery_drill_action_snapshot,
+            spec=RECOVERY_DRILL_ACTION_METRICS,
+        ),
+        policy_threshold_metric(
+            metric_name="lotus_performance_runtime_retention_policy_threshold",
+            description="Configured runtime-retention degradation thresholds.",
+            max_age_seconds=runtime_retention_policy.max_age_seconds,
+            active_run_age_seconds=runtime_retention_policy.active_run_age_seconds,
+            reclaim_count=runtime_retention_policy.reclaim_count,
+        ),
+        *operator_action_lease_metrics(
+            snapshot=sources.runtime_retention_action_snapshot,
+            spec=RUNTIME_RETENTION_ACTION_METRICS,
+        ),
+    ]
+    recovery_drill_snapshot = sources.recovery_drill_snapshot
+    if recovery_drill_snapshot is not None and _snapshot_has_entries(recovery_drill_snapshot):
+        latest = recovery_drill_snapshot.entries[0]
+        latest_age_seconds = age_seconds_since(latest.generated_at_utc)
+        metrics.append(recovery_drill_latest_age_metric(latest_age_seconds=latest_age_seconds))
+        metrics.append(
+            recovery_drill_degradation_breach_metric(
+                latest=latest,
+                latest_age_seconds=latest_age_seconds,
+                action_snapshot=sources.recovery_drill_action_snapshot,
+                policy=recovery_drill_policy,
+            )
+        )
+
+    runtime_retention_snapshot = sources.runtime_retention_snapshot
+    if runtime_retention_snapshot is not None and _snapshot_has_entries(runtime_retention_snapshot):
+        latest = runtime_retention_snapshot.entries[0]
+        latest_age_seconds = age_seconds_since(latest.generated_at_utc)
+        metrics.append(runtime_retention_latest_age_metric(latest_age_seconds=latest_age_seconds))
+        metrics.append(
+            runtime_retention_degradation_breach_metric(
+                latest=latest,
+                latest_age_seconds=latest_age_seconds,
+                action_snapshot=sources.runtime_retention_action_snapshot,
+                policy=runtime_retention_policy,
+            )
+        )
+    return tuple(metrics)
+
+
+def _snapshot_has_entries(snapshot: Any | None) -> bool:
+    return snapshot is not None and snapshot.status == "available" and bool(snapshot.entries)

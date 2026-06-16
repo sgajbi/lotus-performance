@@ -4,7 +4,7 @@ from uuid import uuid4
 import pytest
 from fastapi import HTTPException
 
-from app.services.benchmark_assignment_service import resolve_benchmark_identity
+from app.services.benchmark_assignment_service import _resolved_assignment_identity, resolve_benchmark_identity
 
 
 class _BenchmarkAssignmentStub:
@@ -16,6 +16,23 @@ class _BenchmarkAssignmentStub:
     async def get_benchmark_assignment(self, **kwargs):
         self.calls.append(kwargs)
         return self.status_code, self.payload
+
+
+def test_resolved_assignment_identity_projects_evidence_and_rejects_empty_identity():
+    identity = _resolved_assignment_identity(
+        portfolio_id="PORT_1",
+        assignment_status=200,
+        assignment_payload={"benchmark_id": "BMK_ASSIGNED"},
+    )
+    assert identity.benchmark_id == "BMK_ASSIGNED"
+    assert identity.source_details == {"resolved_benchmark_assignment": 1}
+
+    with pytest.raises(HTTPException, match="payload missing benchmark_id"):
+        _resolved_assignment_identity(
+            portfolio_id="PORT_1",
+            assignment_status=200,
+            assignment_payload={"benchmark_id": ""},
+        )
 
 
 @pytest.mark.asyncio

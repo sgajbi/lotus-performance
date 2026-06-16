@@ -10,9 +10,14 @@ from app.models.responses import (
     TWRDailyCalculationEvidence,
 )
 from app.services.inspection.calculation_consistency import (
+    _apply_daily_no_investment_period_status,
+    _check_daily_breakdown_calculation_evidence,
     _check_relative_breakdown_frequency,
+    _comparative_return_component_mismatch,
     _comparative_return_mismatches,
     _daily_calculation_evidence_mismatches,
+    _expected_daily_external_flows,
+    _expected_daily_return,
     run_twr_calculation_consistency_checks,
 )
 from common.enums import Frequency
@@ -73,6 +78,13 @@ def test_comparative_return_mismatches_distinguish_absent_equal_and_different_co
         "local": (None, 0.2),
         "fx": (0.1, 0.3),
     }
+
+
+def test_comparative_return_component_mismatch_policy_handles_absent_equal_and_different_values():
+    assert _comparative_return_component_mismatch(expected_value=None, actual_value=None) is None
+    assert _comparative_return_component_mismatch(expected_value=1.0, actual_value=1.0 + 1e-7) is None
+    assert _comparative_return_component_mismatch(expected_value=None, actual_value=0.2) == (None, 0.2)
+    assert _comparative_return_component_mismatch(expected_value=0.1, actual_value=0.3) == (0.1, 0.3)
 
 
 def test_calculation_consistency_does_not_compare_misaligned_relative_breakdown_arithmetic():
@@ -366,6 +378,38 @@ def test_calculation_consistency_flags_daily_calculation_evidence_mismatch():
     assert finding.evidence["mismatches"]["period_return.base"]["actual"] == 1.3
 
 
+def test_daily_breakdown_calculation_evidence_check_builds_finding_payload():
+    item = _daily_evidence_block(
+        evidence=TWRDailyCalculationEvidence(
+            begin_mv=1000.0,
+            end_mv=1013.0,
+            bod_cf=100.0,
+            eod_cf=-50.0,
+            external_inflows=0.0,
+            external_outflows=0.0,
+            management_fees=3.0,
+            signed_adjusted_capital=1000.0,
+            adjusted_capital=1000.0,
+            performance_pnl=13.0,
+            daily_return=99.0,
+            status="calculated",
+            reason_codes=["FLOW_NEUTRALIZED_DAILY_RETURN"],
+            warnings=[],
+        )
+    ).breakdowns[Frequency.DAILY][0]
+
+    rows_checked, findings = _check_daily_breakdown_calculation_evidence(
+        period_name="YTD",
+        frequency=Frequency.DAILY,
+        item=item,
+    )
+
+    assert rows_checked == 1
+    assert [finding.code for finding in findings] == ["DAILY_CALCULATION_EVIDENCE_MISMATCH"]
+    assert findings[0].evidence["scope"] == "breakdowns.daily.2026-03-01.calculation_evidence"
+    assert findings[0].evidence["calculation_method"] == "flow_neutralized_daily_twr"
+
+
 def test_daily_calculation_evidence_mismatches_capture_numeric_status_and_semantics():
     block = _daily_evidence_block(
         evidence=TWRDailyCalculationEvidence(
@@ -401,6 +445,52 @@ def test_daily_calculation_evidence_mismatches_capture_numeric_status_and_semant
         "FLOW_NEUTRALIZED_DAILY_RETURN",
         "ZERO_ADJUSTED_CAPITAL",
     ]
+
+
+def test_expected_daily_flow_and_return_helpers_project_evidence_policy():
+    evidence = TWRDailyCalculationEvidence(
+        begin_mv=1000.0,
+        end_mv=1013.0,
+        bod_cf=100.0,
+        eod_cf=-50.0,
+        external_inflows=100.0,
+        external_outflows=50.0,
+        management_fees=3.0,
+        signed_adjusted_capital=1100.0,
+        adjusted_capital=1100.0,
+        performance_pnl=13.0,
+        daily_return=1.1818181818,
+        status="calculated",
+        reason_codes=["FLOW_NEUTRALIZED_DAILY_RETURN"],
+        warnings=[],
+    )
+
+    flows = _expected_daily_external_flows(evidence)
+
+    assert flows.external_inflows == 100.0
+    assert flows.external_outflows == 50.0
+    assert _expected_daily_return(evidence) == 13.0 / 1100.0 * 100
+
+
+def test_expected_daily_return_is_absent_when_daily_evidence_is_not_calculable():
+    evidence = TWRDailyCalculationEvidence(
+        begin_mv=0.0,
+        end_mv=0.0,
+        bod_cf=0.0,
+        eod_cf=0.0,
+        external_inflows=0.0,
+        external_outflows=0.0,
+        management_fees=0.0,
+        signed_adjusted_capital=0.0,
+        adjusted_capital=0.0,
+        performance_pnl=0.0,
+        daily_return=0.0,
+        status="calculated",
+        reason_codes=["ZERO_ADJUSTED_CAPITAL"],
+        warnings=[],
+    )
+
+    assert _expected_daily_return(evidence) is None
 
 
 def test_calculation_consistency_flags_calculated_status_with_zero_adjusted_capital():
@@ -587,6 +677,17 @@ def test_calculation_consistency_flags_episode_status_mismatch_for_reset_and_nip
         "linkability_status": {"expected": "reset_boundary", "actual": "linkable"},
         "episode_status": {"expected": "reset_boundary", "actual": "open"},
     }
+
+
+def test_no_investment_period_status_policy_only_overrides_open_linkable_days():
+    assert _apply_daily_no_investment_period_status(
+        linkability_status="linkable",
+        episode_status="open",
+    ) == ("not_calculated", "no_investment")
+    assert _apply_daily_no_investment_period_status(
+        linkability_status="reset_boundary",
+        episode_status="reset_boundary",
+    ) == ("reset_boundary", "reset_boundary")
 
 
 def test_calculation_consistency_flags_effective_period_exclusion_warning():

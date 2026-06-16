@@ -26,8 +26,8 @@ jobs:
       - uses: actions/checkout@v6
       - uses: reviewdog/action-actionlint@v1
 
-  lint-typecheck-security:
-    name: Main Releasability / Lint Typecheck Security
+  static-quality-gates:
+    name: Main Releasability / Static Quality Gates
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -36,15 +36,29 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: "pip"
       - name: Install
-        run: make install
-      - name: Verify Dependencies
+        run: make install-ci
+      - name: Verify Installed Dependencies
         run: python -m pip check
-      - name: Lint
+      - name: Ruff Lint And Format
         run: make lint
+      - name: Quality Complexity Gate
+        run: make quality-complexity-gate
       - name: No-Alias Contract Guard
         run: make no-alias-gate
-      - name: Typecheck
+      - name: Mypy Typecheck
         run: make typecheck
+
+  contract-security-gates:
+    name: Main Releasability / Contract Security Gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+      - name: Install
+        run: make install-ci
       - name: OpenAPI Gate
         run: make openapi-gate
       - name: API Vocabulary Gate
@@ -56,7 +70,7 @@ jobs:
 
   test-suites:
     name: Main Releasability / Tests (${{ matrix.suite }})
-    needs: [lint-typecheck-security]
+    needs: [static-quality-gates, contract-security-gates]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -75,7 +89,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: "pip"
       - name: Install
-        run: make install
+        run: make install-ci
       - name: Run tests with coverage data
         env:
           COVERAGE_FILE: .coverage.${{ matrix.suite }}
@@ -99,7 +113,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: "pip"
       - name: Install
-        run: make install
+        run: make install-ci
       - name: Download coverage artifacts
         uses: actions/download-artifact@v4
         with:

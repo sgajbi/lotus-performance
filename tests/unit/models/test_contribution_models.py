@@ -7,6 +7,9 @@ from pydantic import ValidationError
 
 from app.models.contribution_analytics_requests import (
     ContributionAnalyticsRequest,
+    _complete_contribution_input_pair,
+    _resolved_stateless_contribution_inputs,
+    _stateless_contribution_envelope_issue,
     _validate_stateless_contribution_payloads,
 )
 from app.models.contribution_requests import ContributionRequest, PortfolioData, PositionData
@@ -255,6 +258,17 @@ def test_validate_stateless_contribution_payloads_rejects_competing_stateful_pay
         _validate_stateless_contribution_payloads(request, has_legacy_stateless=False)  # type: ignore[arg-type]
 
 
+def test_stateless_contribution_envelope_issue_requires_exactly_one_payload_shape():
+    assert _stateless_contribution_envelope_issue(has_nested=True, has_legacy=False) is None
+    assert _stateless_contribution_envelope_issue(has_nested=False, has_legacy=True) is None
+    assert _stateless_contribution_envelope_issue(has_nested=True, has_legacy=True) == (
+        "Provide either stateless_input or legacy portfolio_data/positions_data, not both, for stateless mode"
+    )
+    assert _stateless_contribution_envelope_issue(has_nested=False, has_legacy=False) == (
+        "stateless_input or legacy portfolio_data/positions_data is required when input_mode=stateless"
+    )
+
+
 def test_contribution_analytics_request_builds_legacy_stateless_request():
     payload = {
         "calculation_id": str(uuid4()),
@@ -378,6 +392,99 @@ def test_contribution_analytics_request_to_stateless_prefers_override_payload():
 
     assert stateless.portfolio_data.metric_basis == "GROSS"
     assert stateless.positions_data[0].position_id == "OVERRIDE"
+
+
+def test_resolved_stateless_contribution_inputs_prefers_override_payload():
+    request = ContributionAnalyticsRequest.model_validate(
+        {
+            "portfolio_id": "CONTRIB_STATELESS",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-31",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "input_mode": "stateless",
+            "stateless_input": {
+                "portfolio_data": {
+                    "metric_basis": "NET",
+                    "valuation_points": [],
+                },
+                "positions_data": [],
+            },
+        }
+    )
+
+    portfolio_data, positions_data = _resolved_stateless_contribution_inputs(
+        request,
+        portfolio_data=PortfolioData.model_validate({"metric_basis": "GROSS", "valuation_points": []}),
+        positions_data=[PositionData.model_validate({"position_id": "OVERRIDE", "valuation_points": []})],
+    )
+
+    assert portfolio_data.metric_basis == "GROSS"
+    assert positions_data[0].position_id == "OVERRIDE"
+
+
+def test_complete_contribution_input_pair_requires_both_payloads():
+    portfolio_data = PortfolioData.model_validate({"metric_basis": "GROSS", "valuation_points": []})
+    positions_data = [PositionData.model_validate({"position_id": "OVERRIDE", "valuation_points": []})]
+
+    assert _complete_contribution_input_pair(portfolio_data=portfolio_data, positions_data=positions_data) == (
+        portfolio_data,
+        positions_data,
+    )
+    assert _complete_contribution_input_pair(portfolio_data=portfolio_data, positions_data=None) is None
+    assert _complete_contribution_input_pair(portfolio_data=None, positions_data=positions_data) is None
+
+
+def test_resolved_stateless_contribution_inputs_ignores_partial_override():
+    request = ContributionAnalyticsRequest.model_validate(
+        {
+            "portfolio_id": "CONTRIB_STATELESS",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-31",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "input_mode": "stateless",
+            "stateless_input": {
+                "portfolio_data": {
+                    "metric_basis": "NET",
+                    "valuation_points": [],
+                },
+                "positions_data": [{"position_id": "NESTED", "valuation_points": []}],
+            },
+        }
+    )
+
+    portfolio_data, positions_data = _resolved_stateless_contribution_inputs(
+        request,
+        portfolio_data=PortfolioData.model_validate({"metric_basis": "GROSS", "valuation_points": []}),
+        positions_data=None,
+    )
+
+    assert portfolio_data.metric_basis == "NET"
+    assert positions_data[0].position_id == "NESTED"
+
+
+def test_resolved_stateless_contribution_inputs_uses_legacy_payload():
+    request = ContributionAnalyticsRequest.model_validate(
+        {
+            "portfolio_id": "CONTRIB_LEGACY",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-31",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "portfolio_data": {
+                "metric_basis": "NET",
+                "valuation_points": [],
+            },
+            "positions_data": [{"position_id": "POS_LEGACY", "valuation_points": []}],
+        }
+    )
+
+    portfolio_data, positions_data = _resolved_stateless_contribution_inputs(
+        request,
+        portfolio_data=None,
+        positions_data=None,
+    )
+
+    assert portfolio_data.metric_basis == "NET"
+    assert positions_data[0].position_id == "POS_LEGACY"
 
 
 def test_contribution_analytics_request_to_stateless_fails_without_stateless_payload():

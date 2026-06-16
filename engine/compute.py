@@ -178,7 +178,17 @@ def _prepare_dataframe(df: pd.DataFrame, config: EngineConfig):
 
 
 def _coerce_engine_numeric_columns(df: pd.DataFrame, config: EngineConfig) -> None:
-    numeric_cols = [
+    numeric_cols = _engine_numeric_column_names()
+
+    if config.precision_mode == PrecisionMode.DECIMAL_STRICT:
+        _coerce_decimal_strict_numeric_columns(df, numeric_cols)
+        return
+
+    _coerce_standard_numeric_columns(df, numeric_cols)
+
+
+def _engine_numeric_column_names() -> tuple[str, ...]:
+    return (
         PortfolioColumns.DAY.value,
         PortfolioColumns.BEGIN_MV.value,
         PortfolioColumns.BOD_CF.value,
@@ -186,14 +196,16 @@ def _coerce_engine_numeric_columns(df: pd.DataFrame, config: EngineConfig) -> No
         PortfolioColumns.MGMT_FEES.value,
         PortfolioColumns.END_MV.value,
         PortfolioColumns.ACCOUNT_PERFORMANCE_RESET.value,
-    ]
+    )
 
-    if config.precision_mode == PrecisionMode.DECIMAL_STRICT:
-        for col in numeric_cols:
-            if col in df.columns:
-                df[col] = df[col].apply(lambda x: Decimal(str(x)) if pd.notna(x) else Decimal(0))
-        return
 
+def _coerce_decimal_strict_numeric_columns(df: pd.DataFrame, numeric_cols: tuple[str, ...]) -> None:
+    for col in numeric_cols:
+        if col in df.columns:
+            df[col] = df[col].apply(lambda x: Decimal(str(x)) if pd.notna(x) else Decimal(0))
+
+
+def _coerce_standard_numeric_columns(df: pd.DataFrame, numeric_cols: tuple[str, ...]) -> None:
     for col in numeric_cols:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0.0)

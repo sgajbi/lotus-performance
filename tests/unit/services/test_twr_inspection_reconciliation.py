@@ -7,6 +7,76 @@ from app.services.inspection import reconciliation
 from app.services.inspection.reconciliation import analyze_portfolio_position_reconciliation
 
 
+def test_append_reconciliation_finding_when_present_is_lazy_for_empty_evidence():
+    findings = []
+    factory_calls = 0
+
+    def build_finding():
+        nonlocal factory_calls
+        factory_calls += 1
+        return reconciliation._mixed_position_epoch_finding("portfolio-1", ["2026-01-01"])
+
+    reconciliation._append_reconciliation_finding_when_present(findings, [], build_finding)
+
+    assert findings == []
+    assert factory_calls == 0
+
+
+def test_append_reconciliation_finding_when_present_appends_present_evidence_once():
+    findings = []
+
+    reconciliation._append_reconciliation_finding_when_present(
+        findings,
+        ["2026-01-01"],
+        lambda: reconciliation._mixed_position_epoch_finding("portfolio-1", ["2026-01-01"]),
+    )
+
+    assert [finding.code for finding in findings] == ["MIXED_POSITION_EPOCH_SNAPSHOT"]
+
+
+def test_position_row_selection_key_requires_string_date_and_position_identity():
+    assert reconciliation._position_row_selection_key(
+        {"valuation_date": "2026-01-01", "position_id": "SEC_1"},
+    ) == ("2026-01-01", "SEC_1")
+    assert reconciliation._position_row_selection_key({"valuation_date": "2026-01-01"}) is None
+    assert reconciliation._position_row_selection_key({"position_id": "SEC_1"}) is None
+    assert reconciliation._position_row_selection_key({"valuation_date": 20260101, "position_id": "SEC_1"}) is None
+
+
+def test_select_latest_position_rows_keeps_latest_epoch_and_replaces_equal_epoch_with_later_row():
+    selected = reconciliation._select_latest_position_rows(
+        [
+            {
+                "valuation_date": "2026-01-01",
+                "position_id": "SEC_1",
+                "valuation_epoch": 1,
+                "marker": "old",
+            },
+            {
+                "valuation_date": "2026-01-01",
+                "position_id": "SEC_1",
+                "valuation_epoch": 2,
+                "marker": "latest",
+            },
+            {
+                "valuation_date": "2026-01-01",
+                "position_id": "SEC_1",
+                "valuation_epoch": 2,
+                "marker": "same_epoch_later",
+            },
+        ]
+    )
+
+    assert selected == [
+        {
+            "valuation_date": "2026-01-01",
+            "position_id": "SEC_1",
+            "valuation_epoch": 2,
+            "marker": "same_epoch_later",
+        }
+    ]
+
+
 def test_analyze_position_reconciliation_gaps_applies_tolerance_and_preserves_gap_evidence():
     gap_analysis = reconciliation._analyze_position_reconciliation_gaps(
         portfolio_end_by_date={

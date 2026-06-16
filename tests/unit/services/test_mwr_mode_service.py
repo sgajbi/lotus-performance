@@ -10,9 +10,13 @@ from app.services.mwr_mode_service import resolve_mwr_request
 from app.services.stateful_mwr_input_service import (
     MWRCashFlowEvidenceComponent,
     _add_stateful_mwr_cash_flow_component,
+    _carry_forward_mwr_cash_flow_component,
     _collect_stateful_mwr_cash_flows,
+    _observation_cash_flow_currency_matches_reporting,
     _parse_decimal,
     _source_mwr_cash_flow_component,
+    _stateful_mwr_cash_flow_projection,
+    _StatefulMWRCashFlowCollection,
     build_stateful_mwr_input,
     build_stateful_mwr_input_for_window,
 )
@@ -174,6 +178,21 @@ def test_build_stateful_mwr_input_keeps_fx_metadata_gap_when_cash_flow_currency_
     ]
 
 
+def test_observation_cash_flow_currency_matches_reporting_ignores_missing_currency_and_compares_case_insensitive():
+    assert _observation_cash_flow_currency_matches_reporting(
+        observation={"cash_flow_currency": "eur"},
+        reporting_currency="EUR",
+    )
+    assert _observation_cash_flow_currency_matches_reporting(
+        observation={},
+        reporting_currency="EUR",
+    )
+    assert not _observation_cash_flow_currency_matches_reporting(
+        observation={"cash_flow_currency": "USD"},
+        reporting_currency="EUR",
+    )
+
+
 def test_build_stateful_mwr_input_captures_carry_forward_capital_breaks():
     source_input = StatefulPortfolioInput(
         performance_start_date=date(2025, 1, 1),
@@ -233,6 +252,67 @@ def test_collect_stateful_mwr_cash_flows_combines_external_flows_and_carry_forwa
         "carry_forward_adjustment",
         "source_cash_flow",
     ]
+
+
+def test_carry_forward_mwr_cash_flow_component_projects_only_non_zero_capital_breaks():
+    component = _carry_forward_mwr_cash_flow_component(
+        beginning_market_value=Decimal("1250"),
+        previous_ending_market_value=Decimal("1010"),
+        reporting_currency="USD",
+    )
+
+    assert component == MWRCashFlowEvidenceComponent(
+        component_type="carry_forward_adjustment",
+        amount=Decimal("240"),
+        currency="USD",
+    )
+    assert (
+        _carry_forward_mwr_cash_flow_component(
+            beginning_market_value=Decimal("1010"),
+            previous_ending_market_value=Decimal("1010"),
+            reporting_currency="USD",
+        )
+        is None
+    )
+    assert (
+        _carry_forward_mwr_cash_flow_component(
+            beginning_market_value=None,
+            previous_ending_market_value=Decimal("1010"),
+            reporting_currency="USD",
+        )
+        is None
+    )
+
+
+def test_stateful_mwr_cash_flow_projection_keeps_sorted_non_zero_flows_and_evidence():
+    component = MWRCashFlowEvidenceComponent(
+        component_type="source_cash_flow",
+        amount=Decimal("25"),
+        currency="USD",
+    )
+
+    projection = _stateful_mwr_cash_flow_projection(
+        cash_flow_collection=_StatefulMWRCashFlowCollection(
+            cash_flows_by_date={
+                date(2025, 1, 3): Decimal("0"),
+                date(2025, 1, 2): Decimal("-5"),
+                date(2025, 1, 1): Decimal("25"),
+            },
+            cash_flow_components_by_date={date(2025, 1, 1): [component]},
+        ),
+        reporting_currency="USD",
+    )
+
+    assert [(cash_flow.date, cash_flow.amount) for cash_flow in projection.cash_flows] == [
+        (date(2025, 1, 1), 25.0),
+        (date(2025, 1, 2), -5.0),
+    ]
+    assert [evidence.date for evidence in projection.cashflow_evidence] == [
+        date(2025, 1, 1),
+        date(2025, 1, 2),
+    ]
+    assert projection.cashflow_evidence[0].source_components == [component]
+    assert projection.cashflow_evidence[1].source_components == []
 
 
 def test_add_stateful_mwr_cash_flow_component_accumulates_amount_and_evidence():
@@ -337,6 +417,17 @@ def test_source_mwr_cash_flow_component_projects_eligible_source_flow():
     assert component.cash_flow_type == "external_flow"
     assert component.flow_scope == "external"
     assert component.source_classification == "official"
+    numeric_metadata_component = _source_mwr_cash_flow_component(
+        {
+            "amount": "25",
+            "cash_flow_type": "external_flow",
+            "flow_scope": 123,
+        },
+        reporting_currency="USD",
+    )
+    assert numeric_metadata_component is not None
+    assert numeric_metadata_component.flow_scope == "123"
+    assert numeric_metadata_component.source_classification is None
     assert _source_mwr_cash_flow_component({"amount": "-3", "cash_flow_type": "fee"}, reporting_currency="USD") is None
 
 

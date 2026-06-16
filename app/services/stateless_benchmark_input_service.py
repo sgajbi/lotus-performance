@@ -13,6 +13,8 @@ from app.models.benchmark_analytics_requests import (
 from app.models.benchmark_requests import BenchmarkComponentObservation
 from core.errors import HTTP_422_UNPROCESSABLE
 
+_RatioNumber = float
+
 
 @dataclass(frozen=True)
 class _PricePointReturnComponents:
@@ -57,19 +59,12 @@ def _build_component_observations_from_price_points(
     observations: list[BenchmarkComponentObservation] = []
     expected_component_dates: set[date] | None = None
     for component_id in sorted(by_component):
-        component_points = sorted(by_component[component_id], key=lambda item: item.perf_date)
-        component_dates: set[date] = set()
-        for index in range(1, len(component_points)):
-            previous_point = component_points[index - 1]
-            current_point = component_points[index]
-            observation = _build_price_point_observation(
-                component_id=component_id,
-                benchmark_currency=benchmark_currency,
-                previous_point=previous_point,
-                current_point=current_point,
-            )
-            observations.append(observation)
-            component_dates.add(observation.perf_date)
+        component_observations, component_dates = _component_observations_from_price_points(
+            benchmark_currency=benchmark_currency,
+            component_id=component_id,
+            price_points=by_component[component_id],
+        )
+        observations.extend(component_observations)
 
         if expected_component_dates is None:
             expected_component_dates = component_dates
@@ -91,6 +86,27 @@ def _build_component_observations_from_price_points(
             ),
         )
     return observations
+
+
+def _component_observations_from_price_points(
+    *,
+    benchmark_currency: str,
+    component_id: str,
+    price_points: list[BenchmarkComponentPricePointInput],
+) -> tuple[list[BenchmarkComponentObservation], set[date]]:
+    component_observations: list[BenchmarkComponentObservation] = []
+    component_dates: set[date] = set()
+    component_points = sorted(price_points, key=lambda item: item.perf_date)
+    for index in range(1, len(component_points)):
+        observation = _build_price_point_observation(
+            component_id=component_id,
+            benchmark_currency=benchmark_currency,
+            previous_point=component_points[index - 1],
+            current_point=component_points[index],
+        )
+        component_observations.append(observation)
+        component_dates.add(observation.perf_date)
+    return component_observations, component_dates
 
 
 def _build_price_point_observation(
@@ -159,6 +175,27 @@ def _price_point_return_components(
             fx=0.0,
         )
 
+    return _cross_currency_price_point_return_components(
+        component_id=component_id,
+        component_currency=str(component_currency),
+        local_return=component_return_local,
+        previous_level=previous_level,
+        current_level=current_level,
+        previous_point=previous_point,
+        current_point=current_point,
+    )
+
+
+def _cross_currency_price_point_return_components(
+    *,
+    component_id: str,
+    component_currency: str,
+    local_return: _RatioNumber,
+    previous_level: float,
+    current_level: float,
+    previous_point: BenchmarkComponentPricePointInput,
+    current_point: BenchmarkComponentPricePointInput,
+) -> _PricePointReturnComponents:
     current_fx = current_point.fx_rate_to_benchmark
     previous_fx = previous_point.fx_rate_to_benchmark
     if current_fx is None or previous_fx is None:
@@ -174,8 +211,8 @@ def _price_point_return_components(
     normalized_previous_price = previous_level * previous_fx_value
     normalized_current_price = current_level * current_fx_value
     return _PricePointReturnComponents(
-        currency=str(component_currency),
+        currency=component_currency,
         total=(normalized_current_price / normalized_previous_price) - 1.0,
-        local=component_return_local,
+        local=local_return,
         fx=(current_fx_value / previous_fx_value) - 1.0,
     )

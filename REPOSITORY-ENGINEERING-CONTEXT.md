@@ -140,6 +140,10 @@ Important validation expectations:
 5. repo-native domain-product declaration validation is part of local ownership proof for RFC-0086 rollout,
 6. public documentation is regression-tested and README or guide reshaping should preserve governed
    contract truth unless the underlying repo truth is intentionally changing.
+7. `make lint` includes `scripts/check_monetary_float_usage.py`; that guard matches allowlisted
+   findings by file path and source expression, not line number alone. When refactoring existing
+   reviewed monetary-float conversions, preserve the reviewed expression or remediate the float use
+   rather than refreshing `docs/standards/monetary-float-allowlist.json` as incidental churn.
 
 ## Standards And RFCs That Govern This Repository
 

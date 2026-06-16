@@ -6,6 +6,8 @@ from fastapi import HTTPException
 from app.models.benchmark_analytics_requests import BenchmarkComponentPricePointInput, BenchmarkStatelessInput
 from app.services.stateless_benchmark_input_service import (
     _build_price_point_observation,
+    _component_observations_from_price_points,
+    _cross_currency_price_point_return_components,
     _price_point_return_components,
     normalize_stateless_component_observations,
 )
@@ -119,6 +121,43 @@ def test_build_price_point_observation_projects_cross_currency_returns():
     assert observation.component_return == pytest.approx(0.0201)
 
 
+def test_component_observations_from_price_points_sorts_and_tracks_return_dates():
+    observations, component_dates = _component_observations_from_price_points(
+        component_id="IDX_A",
+        benchmark_currency="USD",
+        price_points=[
+            BenchmarkComponentPricePointInput(
+                component_id="IDX_A",
+                perf_date=date(2026, 1, 3),
+                weight_bop=0.6,
+                index_price=103.0,
+            ),
+            BenchmarkComponentPricePointInput(
+                component_id="IDX_A",
+                perf_date=date(2026, 1, 1),
+                weight_bop=0.6,
+                index_price=100.0,
+            ),
+            BenchmarkComponentPricePointInput(
+                component_id="IDX_A",
+                perf_date=date(2026, 1, 2),
+                weight_bop=0.6,
+                index_price=102.0,
+            ),
+        ],
+    )
+
+    assert [observation.perf_date for observation in observations] == [
+        date(2026, 1, 2),
+        date(2026, 1, 3),
+    ]
+    assert component_dates == {date(2026, 1, 2), date(2026, 1, 3)}
+    assert [observation.component_return for observation in observations] == [
+        pytest.approx(0.02),
+        pytest.approx(103.0 / 102.0 - 1.0),
+    ]
+
+
 def test_price_point_return_components_resolve_same_and_cross_currency_returns():
     previous_usd = BenchmarkComponentPricePointInput(
         component_id="IDX_USD",
@@ -175,6 +214,63 @@ def test_price_point_return_components_resolve_same_and_cross_currency_returns()
     assert cross_currency.local == pytest.approx(0.01)
     assert cross_currency.fx == pytest.approx(0.01)
     assert cross_currency.total == pytest.approx(0.0201)
+
+
+def test_cross_currency_price_point_return_components_project_fx_decomposition():
+    projection = _cross_currency_price_point_return_components(
+        component_id="IDX_EUR",
+        component_currency="EUR",
+        local_return=0.01,
+        previous_level=100.0,
+        current_level=101.0,
+        previous_point=BenchmarkComponentPricePointInput(
+            component_id="IDX_EUR",
+            perf_date=date(2026, 1, 1),
+            weight_bop=0.4,
+            index_price=100.0,
+            component_currency="EUR",
+            fx_rate_to_benchmark=1.2,
+        ),
+        current_point=BenchmarkComponentPricePointInput(
+            component_id="IDX_EUR",
+            perf_date=date(2026, 1, 2),
+            weight_bop=0.4,
+            index_price=101.0,
+            component_currency="EUR",
+            fx_rate_to_benchmark=1.212,
+        ),
+    )
+
+    assert projection.currency == "EUR"
+    assert projection.local == pytest.approx(0.01)
+    assert projection.fx == pytest.approx(0.01)
+    assert projection.total == pytest.approx(0.0201)
+
+
+def test_cross_currency_price_point_return_components_requires_fx_rates():
+    with pytest.raises(HTTPException, match="require fx_rate_to_benchmark"):
+        _cross_currency_price_point_return_components(
+            component_id="IDX_EUR",
+            component_currency="EUR",
+            local_return=0.01,
+            previous_level=100.0,
+            current_level=101.0,
+            previous_point=BenchmarkComponentPricePointInput(
+                component_id="IDX_EUR",
+                perf_date=date(2026, 1, 1),
+                weight_bop=0.4,
+                index_price=100.0,
+                component_currency="EUR",
+            ),
+            current_point=BenchmarkComponentPricePointInput(
+                component_id="IDX_EUR",
+                perf_date=date(2026, 1, 2),
+                weight_bop=0.4,
+                index_price=101.0,
+                component_currency="EUR",
+                fx_rate_to_benchmark=1.212,
+            ),
+        )
 
 
 def test_normalize_stateless_component_observations_rejects_cross_currency_price_points_without_fx():

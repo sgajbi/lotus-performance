@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 from app.services.operator_action_history_filters import (
+    _normalized_optional_history_filters,
     build_applied_history_filters,
     filter_history_entries,
     generated_at_within_bounds,
@@ -86,6 +87,17 @@ def test_build_applied_history_filters_preserves_integer_optional_filters():
         generated_after=None,
         generated_before=None,
     ) == {"retention_days": 30}
+
+
+def test_normalized_optional_history_filters_trims_strings_and_preserves_integers():
+    assert _normalized_optional_history_filters(
+        (
+            ("operator_id", " ops-user "),
+            ("status", " "),
+            ("retention_days", 30),
+            ("job_id", None),
+        )
+    ) == {"operator_id": "ops-user", "retention_days": 30}
 
 
 def test_build_applied_history_filters_omits_empty_common_values():

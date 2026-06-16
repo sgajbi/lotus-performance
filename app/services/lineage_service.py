@@ -81,23 +81,12 @@ class LineageService:
         """Materializes lineage artifacts from a previously enqueued payload."""
         try:
             self._ensure_storage_directory()
-            target_dir = os.path.join(self.storage_path, str(calculation_id))
-            if not os.path.exists(target_dir):
-                os.makedirs(target_dir, exist_ok=True)
-
-            self._write_text_atomic(os.path.join(target_dir, "request.json"), request_json)
-
-            self._write_text_atomic(os.path.join(target_dir, "response.json"), response_json)
-
-            for filename, csv_payload in calculation_details.items():
-                safe_filename = self._validate_artifact_filename(filename)
-                self._write_text_atomic(os.path.join(target_dir, safe_filename), csv_payload)
-
-            artifact_names = [
-                "request.json",
-                "response.json",
-                *(self._validate_artifact_filename(filename) for filename in calculation_details.keys()),
-            ]
+            target_dir, artifact_names = self._materialize_artifact_files(
+                calculation_id=calculation_id,
+                request_json=request_json,
+                response_json=response_json,
+                calculation_details=calculation_details,
+            )
             completion_timestamp = datetime.now(timezone.utc)
             self._write_text_atomic(
                 os.path.join(target_dir, "manifest.json"),
@@ -142,6 +131,28 @@ class LineageService:
             )
             return False
 
+    def _materialize_artifact_files(
+        self,
+        *,
+        calculation_id: UUID,
+        request_json: str,
+        response_json: str,
+        calculation_details: dict[str, str],
+    ) -> tuple[str, list[str]]:
+        target_dir = os.path.join(self.storage_path, str(calculation_id))
+        os.makedirs(target_dir, exist_ok=True)
+
+        self._write_text_atomic(os.path.join(target_dir, "request.json"), request_json)
+        self._write_text_atomic(os.path.join(target_dir, "response.json"), response_json)
+
+        detail_artifact_names: list[str] = []
+        for filename, csv_payload in calculation_details.items():
+            safe_filename = self._validate_artifact_filename(filename)
+            self._write_text_atomic(os.path.join(target_dir, safe_filename), csv_payload)
+            detail_artifact_names.append(safe_filename)
+
+        return target_dir, ["request.json", "response.json", *detail_artifact_names]
+
     def _serialize_details(self, calculation_details: dict[str, pd.DataFrame]) -> dict[str, str]:
         serialized: dict[str, str] = {}
         for filename, df in calculation_details.items():
@@ -171,13 +182,7 @@ class LineageService:
     def _validate_artifact_filename(filename: str) -> str:
         candidate = filename.strip()
         path = PurePath(candidate)
-        if (
-            not candidate
-            or candidate in {".", ".."}
-            or path.is_absolute()
-            or path.name != candidate
-            or any(part == ".." for part in path.parts)
-        ):
+        if _is_unsafe_artifact_filename(candidate=candidate, path=path):
             raise ValueError(f"Unsafe lineage artifact filename: {filename}")
         return candidate
 
@@ -186,3 +191,19 @@ class LineageService:
 
 
 lineage_service = LineageService()
+
+
+def _is_unsafe_artifact_filename(*, candidate: str, path: PurePath) -> bool:
+    return any(
+        (
+            not candidate,
+            candidate in {".", ".."},
+            path.is_absolute(),
+            path.name != candidate,
+            _contains_parent_path_segment(path),
+        )
+    )
+
+
+def _contains_parent_path_segment(path: PurePath) -> bool:
+    return any(part == ".." for part in path.parts)

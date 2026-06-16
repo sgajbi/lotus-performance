@@ -26,8 +26,8 @@ jobs:
       - uses: actions/checkout@v6
       - uses: reviewdog/action-actionlint@v1
 
-  lint-typecheck-security:
-    name: Feature Lane / Lint Typecheck Security
+  static-quality-gates:
+    name: Feature Lane / Static Quality Gates
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -36,15 +36,29 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: "pip"
       - name: Install
-        run: make install
-      - name: Verify Dependencies
+        run: make install-ci
+      - name: Verify Installed Dependencies
         run: python -m pip check
-      - name: Lint
+      - name: Ruff Lint And Format
         run: make lint
+      - name: Quality Complexity Gate
+        run: make quality-complexity-gate
       - name: No-Alias Contract Guard
         run: make no-alias-gate
-      - name: Typecheck
+      - name: Mypy Typecheck
         run: make typecheck
+
+  contract-security-gates:
+    name: Feature Lane / Contract Security Gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+      - name: Install
+        run: make install-ci
       - name: OpenAPI Gate
         run: make openapi-gate
       - name: API Vocabulary Gate
@@ -54,7 +68,7 @@ jobs:
 
   unit-tests:
     name: Feature Lane / Tests (unit)
-    needs: [lint-typecheck-security]
+    needs: [static-quality-gates, contract-security-gates]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -63,6 +77,6 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: "pip"
       - name: Install
-        run: make install
+        run: make install-ci
       - name: Run unit tests
         run: python -m pytest tests/unit

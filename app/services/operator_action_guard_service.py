@@ -134,18 +134,37 @@ def _find_latest_runtime_retention_entry(
     retention_days: int,
     job_id: str | None,
 ) -> RuntimeRetentionHistoryEntry | None:
-    expected_cleanup_mode = "apply" if apply else "dry_run"
     for entry in snapshot.entries:
-        if not operator_action_actor_matches(entry, operator_id=operator_id, tenant_id=tenant_id):
-            continue
-        if entry.cleanup_mode != expected_cleanup_mode:
-            continue
-        if entry.retention_days != retention_days:
-            continue
-        if not operator_action_optional_identity_matches(entry.job_id, job_id):
-            continue
-        return entry
+        if _runtime_retention_history_entry_matches(
+            entry,
+            apply=apply,
+            operator_id=operator_id,
+            tenant_id=tenant_id,
+            retention_days=retention_days,
+            job_id=job_id,
+        ):
+            return entry
     return None
+
+
+def _runtime_retention_history_entry_matches(
+    entry: RuntimeRetentionHistoryEntry,
+    *,
+    apply: bool,
+    operator_id: str,
+    tenant_id: str | None,
+    retention_days: int,
+    job_id: str | None,
+) -> bool:
+    expected_cleanup_mode = "apply" if apply else "dry_run"
+    return all(
+        (
+            operator_action_actor_matches(entry, operator_id=operator_id, tenant_id=tenant_id),
+            entry.cleanup_mode == expected_cleanup_mode,
+            entry.retention_days == retention_days,
+            operator_action_optional_identity_matches(entry.job_id, job_id),
+        )
+    )
 
 
 def _find_latest_recovery_drill_entry(

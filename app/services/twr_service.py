@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 from fastapi import HTTPException
@@ -24,6 +24,7 @@ from app.models.responses import (
     ResetEvent,
     SinglePeriodPerformanceResult,
     TWRBenchmarkContext,
+    TWRDailyCalculationEvidence,
 )
 from app.models.twr_requests import TWRInputMode
 from app.services.analytics_numeric import numeric_value
@@ -49,6 +50,8 @@ from engine.compute import run_calculations
 from engine.diagnostics import EngineDiagnostics
 from engine.schema import PortfolioColumns
 
+_PercentageNumber = float
+
 
 def _as_numeric(value: object, default=0):
     return numeric_value(value, default=default)
@@ -60,6 +63,17 @@ def _get_total_cum_ror(row: pd.Series | None, prefix: str = "") -> float:
     long_cum = _as_numeric(row.get(f"{prefix}long_cum_ror", 0))
     short_cum = _as_numeric(row.get(f"{prefix}short_cum_ror", 0))
     return ((1 + long_cum / 100) * (1 + short_cum / 100) - 1) * 100
+
+
+def _rebased_cumulative_ror(
+    *,
+    start_cumulative_ror: _PercentageNumber,
+    end_cumulative_ror: _PercentageNumber,
+) -> _PercentageNumber:
+    start_denom = 1 + start_cumulative_ror / 100
+    if start_denom == 0:
+        return end_cumulative_ror
+    return (((1 + end_cumulative_ror / 100) / start_denom) - 1) * 100
 
 
 def _calculate_total_return_from_reset_slice(
@@ -76,11 +90,10 @@ def _calculate_total_return_from_reset_slice(
     )
     end_cum_base = _as_numeric(end_row[PortfolioColumns.FINAL_CUM_ROR.value])
 
-    start_base_denom = 1 + start_cum_base / 100
-    if start_base_denom == 0:
-        base_total = end_cum_base
-    else:
-        base_total = (((1 + end_cum_base / 100) / start_base_denom) - 1) * 100
+    base_total = _rebased_cumulative_ror(
+        start_cumulative_ror=start_cum_base,
+        end_cumulative_ror=end_cum_base,
+    )
 
     if "local_ror" not in df_slice.columns:
         return PortfolioReturnDecomposition(local=base_total, fx=0.0, base=base_total)
@@ -88,11 +101,10 @@ def _calculate_total_return_from_reset_slice(
     start_cum_local = _get_total_cum_ror(day_before_row, "local_ror_")
     end_cum_local = _get_total_cum_ror(end_row, "local_ror_")
 
-    start_local_denom = 1 + start_cum_local / 100
-    if start_local_denom == 0:
-        local_total = end_cum_local
-    else:
-        local_total = (((1 + end_cum_local / 100) / start_local_denom) - 1) * 100
+    local_total = _rebased_cumulative_ror(
+        start_cumulative_ror=start_cum_local,
+        end_cumulative_ror=end_cum_local,
+    )
 
     base_denom_for_fx = 1 + local_total / 100
     if base_denom_for_fx == 0:
@@ -186,6 +198,14 @@ class _DailyCalculationEvidenceClassification:
     episode_status: str
     reason_codes: list[str]
     warnings: list[str]
+
+
+@dataclass(frozen=True)
+class _TWRExecutionPeriodScope:
+    resolved_periods: list[ResolvedPeriod]
+    freqs_by_period: dict[str, list[Frequency]]
+    master_start_date: date
+    master_end_date: date
 
 
 @dataclass(frozen=True)
@@ -382,9 +402,7 @@ def _build_daily_calculation_evidence(
     row: pd.Series,
     *,
     metric_basis: str,
-) -> object:
-    from app.models.responses import TWRDailyCalculationEvidence
-
+) -> TWRDailyCalculationEvidence:
     inputs = _daily_calculation_evidence_inputs(row, metric_basis=metric_basis)
     classification = _classify_daily_calculation_evidence(row, inputs=inputs)
 
@@ -565,17 +583,39 @@ def _build_portfolio_breakdown_item(
             if summary_data.get("annualized_return_pct") is not None
             else None
         ),
-        daily_data=(
-            [frequency_df.iloc[0].to_dict()]
-            if include_timeseries and frequency == Frequency.DAILY and not frequency_df.empty
-            else None
+        daily_data=_portfolio_breakdown_daily_data(
+            frequency=frequency,
+            frequency_df=frequency_df,
+            include_timeseries=include_timeseries,
         ),
-        calculation_evidence=(
-            _build_daily_calculation_evidence(frequency_df.iloc[0], metric_basis=metric_basis)
-            if frequency == Frequency.DAILY and not frequency_df.empty
-            else None
+        calculation_evidence=_portfolio_breakdown_calculation_evidence(
+            frequency=frequency,
+            frequency_df=frequency_df,
+            metric_basis=metric_basis,
         ),
     )
+
+
+def _portfolio_breakdown_daily_data(
+    *,
+    frequency: Frequency,
+    frequency_df: pd.DataFrame,
+    include_timeseries: bool,
+) -> list[dict[str, Any]] | None:
+    if not include_timeseries or frequency != Frequency.DAILY or frequency_df.empty:
+        return None
+    return [cast("dict[str, Any]", frequency_df.iloc[0].to_dict())]
+
+
+def _portfolio_breakdown_calculation_evidence(
+    *,
+    frequency: Frequency,
+    frequency_df: pd.DataFrame,
+    metric_basis: str,
+) -> TWRDailyCalculationEvidence | None:
+    if frequency != Frequency.DAILY or frequency_df.empty:
+        return None
+    return _build_daily_calculation_evidence(frequency_df.iloc[0], metric_basis=metric_basis)
 
 
 def _build_benchmark_breakdowns(
@@ -687,35 +727,45 @@ def _run_twr_execution_calculation(
     performance_request: PerformanceRequest,
     benchmark_request: BenchmarkPerformanceRequest | None,
 ) -> _TWRExecutionCalculation:
+    period_scope = _resolve_twr_execution_period_scope(performance_request)
+    engine_config = create_engine_config(
+        performance_request,
+        period_scope.master_start_date,
+        period_scope.master_end_date,
+    )
+    engine_df = create_engine_dataframe([item.model_dump() for item in performance_request.valuation_points])
+    daily_results_df, engine_diagnostics = run_calculations(engine_df, engine_config)
+    benchmark_artifacts = calculate_benchmark_artifacts(benchmark_request) if benchmark_request is not None else None
+
+    return _TWRExecutionCalculation(
+        resolved_periods=period_scope.resolved_periods,
+        freqs_by_period=period_scope.freqs_by_period,
+        master_start_date=period_scope.master_start_date,
+        master_end_date=period_scope.master_end_date,
+        daily_results_df=daily_results_df,
+        engine_diagnostics=engine_diagnostics,
+        benchmark_artifacts=benchmark_artifacts,
+    )
+
+
+def _resolve_twr_execution_period_scope(performance_request: PerformanceRequest) -> _TWRExecutionPeriodScope:
     periods_to_resolve = [analysis.period for analysis in performance_request.analyses]
     freqs_by_period = {analysis.period.value: analysis.frequencies for analysis in performance_request.analyses}
 
-    as_of_date = performance_request.report_end_date
     resolved_periods = resolve_periods(
         periods_to_resolve,
-        as_of_date,
+        performance_request.report_end_date,
         performance_request.performance_start_date,
         explicit_start_date=performance_request.report_start_date,
     )
     if not resolved_periods:
         raise HTTPException(status_code=400, detail="No valid periods could be resolved.")
 
-    master_start_date = min(p.start_date for p in resolved_periods)
-    master_end_date = max(p.end_date for p in resolved_periods)
-
-    engine_config = create_engine_config(performance_request, master_start_date, master_end_date)
-    engine_df = create_engine_dataframe([item.model_dump() for item in performance_request.valuation_points])
-    daily_results_df, engine_diagnostics = run_calculations(engine_df, engine_config)
-    benchmark_artifacts = calculate_benchmark_artifacts(benchmark_request) if benchmark_request is not None else None
-
-    return _TWRExecutionCalculation(
+    return _TWRExecutionPeriodScope(
         resolved_periods=resolved_periods,
         freqs_by_period=freqs_by_period,
-        master_start_date=master_start_date,
-        master_end_date=master_end_date,
-        daily_results_df=daily_results_df,
-        engine_diagnostics=engine_diagnostics,
-        benchmark_artifacts=benchmark_artifacts,
+        master_start_date=min(p.start_date for p in resolved_periods),
+        master_end_date=max(p.end_date for p in resolved_periods),
     )
 
 
@@ -751,51 +801,73 @@ def _build_twr_results_by_period(
     )
 
     for period in resolved_periods:
-        period_slice_df = daily_results_df[
-            (daily_results_df[PortfolioColumns.PERF_DATE.value] >= period.start_date)
-            & (daily_results_df[PortfolioColumns.PERF_DATE.value] <= period.end_date)
-        ].copy()
-        if period_slice_df.empty:
-            continue
-
-        requested_frequencies_for_period = freqs_by_period.get(period.name, [])
-        breakdowns_data = generate_performance_breakdowns(
-            period_slice_df.copy(),
-            requested_frequencies_for_period,
-            performance_request.annualization,
-            performance_request.output.include_cumulative,
-            performance_request.rounding_precision,
-        )
-        portfolio = _build_twr_portfolio_period_block(
+        period_result = _build_twr_period_result(
             performance_request=performance_request,
             period=period,
-            period_slice_df=period_slice_df,
+            requested_frequencies=freqs_by_period.get(period.name, []),
             daily_results_df=daily_results_df,
-            requested_frequencies=requested_frequencies_for_period,
-            breakdowns_data=breakdowns_data,
-        )
-
-        period_result = SinglePeriodPerformanceResult(portfolio=portfolio)
-
-        if benchmark_context is not None:
-            period_result.benchmark, period_result.relative_performance = _build_twr_benchmark_period_blocks(
-                period=period,
-                requested_frequencies=requested_frequencies_for_period,
-                portfolio=period_result.portfolio,
-                context=benchmark_context,
-            )
-
-        reset_events = _twr_period_reset_events(
-            performance_request=performance_request,
             engine_diagnostics=engine_diagnostics,
-            period=period,
+            benchmark_context=benchmark_context,
         )
-        if reset_events is not None:
-            period_result.reset_events = reset_events
+        if period_result is None:
+            continue
 
         results_by_period[period.name] = period_result
 
     return results_by_period
+
+
+def _build_twr_period_result(
+    *,
+    performance_request: PerformanceRequest,
+    period: ResolvedPeriod,
+    requested_frequencies: list[Frequency],
+    daily_results_df: pd.DataFrame,
+    engine_diagnostics: EngineDiagnostics,
+    benchmark_context: _TWRBenchmarkPeriodContext | None,
+) -> SinglePeriodPerformanceResult | None:
+    period_slice_df = daily_results_df[
+        (daily_results_df[PortfolioColumns.PERF_DATE.value] >= period.start_date)
+        & (daily_results_df[PortfolioColumns.PERF_DATE.value] <= period.end_date)
+    ].copy()
+    if period_slice_df.empty:
+        return None
+
+    breakdowns_data = generate_performance_breakdowns(
+        period_slice_df.copy(),
+        requested_frequencies,
+        performance_request.annualization,
+        performance_request.output.include_cumulative,
+        performance_request.rounding_precision,
+    )
+    portfolio = _build_twr_portfolio_period_block(
+        performance_request=performance_request,
+        period=period,
+        period_slice_df=period_slice_df,
+        daily_results_df=daily_results_df,
+        requested_frequencies=requested_frequencies,
+        breakdowns_data=breakdowns_data,
+    )
+
+    period_result = SinglePeriodPerformanceResult(portfolio=portfolio)
+
+    if benchmark_context is not None:
+        period_result.benchmark, period_result.relative_performance = _build_twr_benchmark_period_blocks(
+            period=period,
+            requested_frequencies=requested_frequencies,
+            portfolio=period_result.portfolio,
+            context=benchmark_context,
+        )
+
+    reset_events = _twr_period_reset_events(
+        performance_request=performance_request,
+        engine_diagnostics=engine_diagnostics,
+        period=period,
+    )
+    if reset_events is not None:
+        period_result.reset_events = reset_events
+
+    return period_result
 
 
 def _twr_period_reset_events(

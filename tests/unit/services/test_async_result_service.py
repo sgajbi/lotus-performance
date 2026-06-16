@@ -7,7 +7,11 @@ from fastapi import HTTPException
 from pydantic import BaseModel
 
 from app.services import async_result_service
-from app.services.async_result_service import _is_active_async_job_status, resolve_async_result
+from app.services.async_result_service import (
+    _is_active_async_job_status,
+    _resolve_compute_job_result,
+    resolve_async_result,
+)
 from app.services.async_result_store import AsyncResultRecord, AsyncResultStatus
 from app.services.compute_job_store import ComputeJobRecord, ComputeJobStatus
 
@@ -40,6 +44,7 @@ def _job_record(
     *,
     job_status: ComputeJobStatus,
     response_payload: dict[str, Any] | None = None,
+    error_message: str | None = None,
 ) -> ComputeJobRecord:
     return ComputeJobRecord(
         calculation_id=calculation_id,
@@ -47,7 +52,7 @@ def _job_record(
         job_status=job_status,
         request_payload={"calculation_id": str(calculation_id)},
         response_payload=response_payload,
-        error_message=None,
+        error_message=error_message,
         error_type=None,
         attempt_count=0,
         max_attempts=1,
@@ -90,6 +95,39 @@ def test_active_async_job_status_policy_covers_in_flight_statuses():
     assert _is_active_async_job_status(ComputeJobStatus.RUNNING)
     assert not _is_active_async_job_status(ComputeJobStatus.COMPLETE)
     assert not _is_active_async_job_status(ComputeJobStatus.FAILED)
+
+
+def test_resolve_compute_job_result_raises_not_found_for_missing_job():
+    with pytest.raises(HTTPException) as exc_info:
+        _resolve_compute_job_result(
+            calculation_id=uuid4(),
+            job=None,
+            response_model=_AsyncResponse,
+            accepted_response_factory=_accepted_response,
+            not_found_detail="not found",
+            failed_detail="failed",
+        )
+
+    assert exc_info.value.status_code == 404
+    assert exc_info.value.detail == "not found"
+
+
+def test_resolve_compute_job_result_raises_conflict_for_failed_job():
+    calculation_id = uuid4()
+    job = _job_record(calculation_id, job_status=ComputeJobStatus.FAILED, error_message="worker failed")
+
+    with pytest.raises(HTTPException) as exc_info:
+        _resolve_compute_job_result(
+            calculation_id=calculation_id,
+            job=job,
+            response_model=_AsyncResponse,
+            accepted_response_factory=_accepted_response,
+            not_found_detail="not found",
+            failed_detail="failed",
+        )
+
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.detail == "worker failed"
 
 
 def test_resolve_async_result_returns_accepted_for_active_compute_job(monkeypatch):

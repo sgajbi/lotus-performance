@@ -95,6 +95,67 @@ def test_twr_workspace_helper_paths_cover_optional_benchmark_shapes():
     assert performance_endpoint._workspace_longest_requested_window_days(workspace_request) == 10_000
 
 
+def test_workspace_benchmark_work_units_count_calculated_observations():
+    request = WorkspaceSummaryRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "performance_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "periods": [{"period": "SI", "frequencies": ["daily"]}],
+            "input_mode": "stateless",
+            "stateless_input": {
+                "valuation_points": [{"perf_date": "2025-01-02", "begin_mv": 1000.0, "end_mv": 1001.0}]
+            },
+            "benchmark": {
+                "benchmark_id": "BMK_1",
+                "input_mode": "stateless",
+                "return_source": "calculated",
+                "stateless_input": {
+                    "benchmark_currency": "USD",
+                    "component_observations": [
+                        {
+                            "component_id": "IDX_1",
+                            "perf_date": "2025-01-01",
+                            "weight_bop": 1.0,
+                            "component_return": 0.01,
+                        },
+                        {
+                            "component_id": "IDX_1",
+                            "perf_date": "2025-01-02",
+                            "weight_bop": 1.0,
+                            "component_return": 0.02,
+                        },
+                    ],
+                },
+            },
+        }
+    )
+
+    assert performance_endpoint._workspace_requested_benchmark_work_units(request) == 2
+
+
+def test_workspace_submission_helpers_project_window_and_offload_reason():
+    request = WorkspaceSummaryRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "report_end_date": "2025-01-02",
+            "periods": [{"period": "SI", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "stateful_input": {},
+        }
+    )
+
+    assert performance_endpoint._workspace_requested_window(request) == {
+        "report_end_date": "2025-01-02",
+        "requested_periods": ["SI"],
+        "input_mode": "stateful",
+        "include_benchmark": False,
+        "input_count": 0,
+        "longest_window_days": 10_000,
+    }
+    assert performance_endpoint._workspace_offload_reason(request) == "long_window_stateful_workspace_summary"
+
+
 @pytest.mark.asyncio
 async def test_workspace_summary_endpoint_records_http_exception_detail(mocker):
     request = WorkspaceSummaryRequest.model_validate(
@@ -342,6 +403,59 @@ def test_finalize_resolved_stateful_attribution_execution_preserves_resolved_ide
     assert isinstance(resolved_payload, dict)
     assert resolved_payload["source_input_mode"] == "stateful"
     assert resolved_payload["resolved_benchmark_id"] == "BMK_1"
+
+
+def test_calculate_resolved_attribution_response_returns_stateful_accepted_response(mocker):
+    request = performance_endpoint.AttributionAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "P1",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "mode": "by_group",
+            "group_by": ["sector"],
+            "input_mode": "stateful",
+            "stateful_input": {},
+        }
+    )
+    attribution_request = AttributionRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "mode": "by_group",
+            "group_by": ["sector"],
+            "benchmark_groups_data": [{"key": {"sector": "Tech"}, "observations": []}],
+        }
+    )
+    resolved = ResolvedAttributionRequest(
+        attribution_request=attribution_request,
+        input_mode=AttributionInputMode.STATEFUL,
+        input_count=7,
+        resolved_benchmark_id="BMK_1",
+        resolved_benchmark_return_source="calculated",
+    )
+    accepted = attribution_calculation_workflow_service.accepted_attribution_response(request.calculation_id)
+    finalize = mocker.patch(
+        "app.services.attribution_calculation_workflow_service._finalize_resolved_stateful_attribution_execution",
+        return_value=("resolved-fingerprint", "resolved-hash", accepted),
+    )
+    calculate = mocker.patch("app.services.attribution_calculation_workflow_service.calculate_attribution")
+
+    response = attribution_calculation_workflow_service._calculate_resolved_attribution_response(
+        request,
+        resolved,
+        active_settings=type("Settings", (), {"APP_VERSION": "runtime-version"})(),
+        source_request_fingerprint="source-fingerprint",
+        input_fingerprint="input-fingerprint",
+        calculation_hash="calculation-hash",
+    )
+
+    assert response is accepted
+    assert finalize.call_args.kwargs["source_request_fingerprint"] == "source-fingerprint"
+    calculate.assert_not_called()
 
 
 def test_initial_attribution_async_submission_projects_stateful_offload_reason(mocker):

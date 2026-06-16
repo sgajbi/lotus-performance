@@ -28,17 +28,30 @@ def split_position_cash_flows_in_value_basis(
         projected_flow = _position_cash_flow_projection(flow, conversion_factor=conversion_factor)
         if projected_flow is None:
             continue
-        timing, decimal_amount, cashflow_type = projected_flow
-        if cashflow_type.economics_role == "fee":
-            mgmt_fees += decimal_amount
-            continue
-        if cashflow_type.economics_role == "unsupported":
-            continue
-        if timing == "bod":
-            bod_cf += decimal_amount
-        else:
-            eod_cf += decimal_amount
+        bod_cf, eod_cf, mgmt_fees = _accumulate_position_cash_flow_projection(
+            bod_cf=bod_cf,
+            eod_cf=eod_cf,
+            mgmt_fees=mgmt_fees,
+            projected_flow=projected_flow,
+        )
     return bod_cf, eod_cf, mgmt_fees
+
+
+def _accumulate_position_cash_flow_projection(
+    *,
+    bod_cf: Decimal,
+    eod_cf: Decimal,
+    mgmt_fees: Decimal,
+    projected_flow: tuple[Literal["bod", "eod"], Decimal, CashflowTypeClassification],
+) -> tuple[Decimal, Decimal, Decimal]:
+    timing, decimal_amount, cashflow_type = projected_flow
+    if cashflow_type.economics_role == "fee":
+        return bod_cf, eod_cf, mgmt_fees + decimal_amount
+    if cashflow_type.economics_role == "unsupported":
+        return bod_cf, eod_cf, mgmt_fees
+    if timing == "bod":
+        return bod_cf + decimal_amount, eod_cf, mgmt_fees
+    return bod_cf, eod_cf + decimal_amount, mgmt_fees
 
 
 def _position_cash_flow_projection(
@@ -64,15 +77,7 @@ def _cash_flow_conversion_factor(
     if value_basis == "position":
         return Decimal("1")
 
-    cash_flow_currency = row.get("cash_flow_currency")
-    position_currency = row.get("position_currency")
-    if (
-        isinstance(cash_flow_currency, str)
-        and cash_flow_currency
-        and isinstance(position_currency, str)
-        and position_currency
-        and cash_flow_currency != position_currency
-    ):
+    if _has_cash_flow_position_currency_mismatch(row):
         raise HTTPException(
             status_code=HTTP_422_UNPROCESSABLE,
             detail=(
@@ -87,6 +92,18 @@ def _cash_flow_conversion_factor(
 
     portfolio_to_reporting_rate = _decimal_or_one(row.get("portfolio_to_reporting_fx_rate"))
     return position_to_portfolio_rate * portfolio_to_reporting_rate
+
+
+def _has_cash_flow_position_currency_mismatch(row: dict[str, object]) -> bool:
+    cash_flow_currency = row.get("cash_flow_currency")
+    position_currency = row.get("position_currency")
+    return (
+        isinstance(cash_flow_currency, str)
+        and bool(cash_flow_currency)
+        and isinstance(position_currency, str)
+        and bool(position_currency)
+        and cash_flow_currency != position_currency
+    )
 
 
 def _decimal_or_one(value: object) -> Decimal:

@@ -481,12 +481,7 @@ def _summarize_position_classification(
 
     classified_count = 0
     for row in rows:
-        labels = row.get("dimensions")
-        if not isinstance(labels, dict):
-            continue
-        if all(
-            isinstance(labels.get(dimension), str) and str(labels.get(dimension)).strip() for dimension in dimensions
-        ):
+        if _row_has_required_position_dimensions(row=row, dimensions=dimensions):
             classified_count += 1
 
     unclassified_count = len(rows) - classified_count
@@ -495,6 +490,19 @@ def _summarize_position_classification(
         "classified_row_count": classified_count,
         "unclassified_row_count": unclassified_count,
     }
+
+
+def _row_has_required_position_dimensions(
+    *,
+    row: dict[str, object],
+    dimensions: list[str],
+) -> bool:
+    labels = row.get("dimensions")
+    if not isinstance(labels, dict):
+        return False
+    return all(
+        isinstance(labels.get(dimension), str) and str(labels.get(dimension)).strip() for dimension in dimensions
+    )
 
 
 def _classification_labels_by_index(index_records: list[dict[str, object]]) -> dict[str, dict[str, object]]:
@@ -567,10 +575,10 @@ def _summarize_currency_source(
     benchmark_component_currencies = _distinct_source_currencies(
         observation.component_currency for observation in component_observations
     )
-    fx_required = (
-        currency_mode == "BOTH"
-        and reporting_currency is not None
-        and any(position_currency != reporting_currency for position_currency in position_currencies)
+    fx_required = _stateful_attribution_fx_required(
+        currency_mode=currency_mode,
+        reporting_currency=reporting_currency,
+        position_currencies=position_currencies,
     )
 
     return {
@@ -583,6 +591,19 @@ def _summarize_currency_source(
     }
 
 
+def _stateful_attribution_fx_required(
+    *,
+    currency_mode: str,
+    reporting_currency: str | None,
+    position_currencies: list[str],
+) -> bool:
+    return (
+        currency_mode == "BOTH"
+        and reporting_currency is not None
+        and any(position_currency != reporting_currency for position_currency in position_currencies)
+    )
+
+
 def _distinct_source_currencies(values: Iterable[object]) -> list[str]:
     return sorted({value for value in values if isinstance(value, str) and value})
 
@@ -590,12 +611,7 @@ def _distinct_source_currencies(values: Iterable[object]) -> list[str]:
 def _validate_stateful_position_inception_support(*, rows: list[dict[str, object]]) -> None:
     unsupported_positions: list[str] = []
     for position_id, row in _first_rows_by_position(rows).items():
-        begin_value_raw = row.get("beginning_market_value_portfolio_currency")
-        end_value_raw = row.get("ending_market_value_portfolio_currency")
-        begin_value = Decimal(str(begin_value_raw)) if begin_value_raw is not None else Decimal("0")
-        end_value = Decimal(str(end_value_raw)) if end_value_raw is not None else Decimal("0")
-        bod_cf, _ = _split_position_cash_flows(row.get("cash_flows"))
-        if begin_value == 0 and end_value > 0 and (begin_value + bod_cf) <= 0:
+        if _has_unsupported_position_inception_row(row):
             unsupported_positions.append(position_id)
 
     if unsupported_positions:
@@ -609,6 +625,15 @@ def _validate_stateful_position_inception_support(*, rows: list[dict[str, object
                 f"Affected positions: {sample_positions}."
             ),
         )
+
+
+def _has_unsupported_position_inception_row(row: dict[str, object]) -> bool:
+    begin_value_raw = row.get("beginning_market_value_portfolio_currency")
+    end_value_raw = row.get("ending_market_value_portfolio_currency")
+    begin_value = Decimal(str(begin_value_raw)) if begin_value_raw is not None else Decimal("0")
+    end_value = Decimal(str(end_value_raw)) if end_value_raw is not None else Decimal("0")
+    bod_cf, _ = _split_position_cash_flows(row.get("cash_flows"))
+    return begin_value == 0 and end_value > 0 and (begin_value + bod_cf) <= 0
 
 
 def _first_rows_by_position(rows: list[dict[str, object]]) -> dict[str, dict[str, object]]:
@@ -642,26 +667,13 @@ def _build_instruments_data(
     positions_by_id: dict[str, list[dict[str, object]]] = {}
     instrument_meta: dict[str, dict[str, object]] = {}
     for row in rows:
-        position_id = row.get("position_id")
-        valuation_date = row.get("valuation_date")
-        if not isinstance(position_id, str) or not isinstance(valuation_date, str):
-            continue
-        point = _position_row_to_daily_point(
+        _record_instrument_position_row(
             row=row,
+            positions_by_id=positions_by_id,
+            instrument_meta=instrument_meta,
             currency_mode=currency_mode,
             reporting_currency=reporting_currency,
         )
-        if point is None:
-            continue
-        positions_by_id.setdefault(position_id, []).append(point)
-        meta = instrument_meta.setdefault(position_id, _position_meta_from_row(row))
-        base_weight_point = _position_row_to_base_weight_point(
-            row=row,
-            reporting_currency=reporting_currency,
-        )
-        if base_weight_point is not None:
-            base_weight_points = cast(list[dict[str, object]], meta.setdefault("base_weight_points", []))
-            base_weight_points.append(base_weight_point)
 
     return [
         InstrumentData.model_validate(
@@ -673,6 +685,37 @@ def _build_instruments_data(
         )
         for position_id in sorted(positions_by_id)
     ]
+
+
+def _record_instrument_position_row(
+    *,
+    row: dict[str, object],
+    positions_by_id: dict[str, list[dict[str, object]]],
+    instrument_meta: dict[str, dict[str, object]],
+    currency_mode: str,
+    reporting_currency: str | None,
+) -> bool:
+    position_id = row.get("position_id")
+    valuation_date = row.get("valuation_date")
+    if not isinstance(position_id, str) or not isinstance(valuation_date, str):
+        return False
+    point = _position_row_to_daily_point(
+        row=row,
+        currency_mode=currency_mode,
+        reporting_currency=reporting_currency,
+    )
+    if point is None:
+        return False
+    positions_by_id.setdefault(position_id, []).append(point)
+    meta = instrument_meta.setdefault(position_id, _position_meta_from_row(row))
+    base_weight_point = _position_row_to_base_weight_point(
+        row=row,
+        reporting_currency=reporting_currency,
+    )
+    if base_weight_point is not None:
+        base_weight_points = cast(list[dict[str, object]], meta.setdefault("base_weight_points", []))
+        base_weight_points.append(base_weight_point)
+    return True
 
 
 def _build_benchmark_groups(
@@ -745,20 +788,10 @@ def _add_benchmark_group_row(
     group_by: list[str],
     row: pd.Series,
 ) -> None:
-    index_id = row["component_id"]
-    labels = labels_by_index.get(index_id)
-    component_currency = row.get("component_currency")
-    if labels is None and "currency" not in group_by:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=f"Index catalog missing classification labels for benchmark component {index_id}.",
-        )
-
-    group_key = _build_group_key(
-        labels=labels or {},
+    group_key = _benchmark_group_key_from_row(
+        row=row,
+        labels_by_index=labels_by_index,
         group_by=group_by,
-        index_id=index_id,
-        component_currency=str(component_currency) if component_currency is not None else None,
     )
     series_date = row["date"].isoformat()
     date_bucket = grouped.setdefault(group_key, {}).setdefault(series_date, _empty_benchmark_group_date_bucket())
@@ -772,6 +805,28 @@ def _add_benchmark_group_row(
         date_bucket["weighted_local_return_sum"] += weight * Decimal(str(component_return_local))
     if pd.notna(component_return_fx):
         date_bucket["weighted_fx_return_sum"] += weight * Decimal(str(component_return_fx))
+
+
+def _benchmark_group_key_from_row(
+    *,
+    row: pd.Series,
+    labels_by_index: dict[str, dict[str, object]],
+    group_by: list[str],
+) -> tuple[tuple[str, str], ...]:
+    index_id = row["component_id"]
+    labels = labels_by_index.get(index_id)
+    component_currency = row.get("component_currency")
+    if labels is None and "currency" not in group_by:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"Index catalog missing classification labels for benchmark component {index_id}.",
+        )
+    return _build_group_key(
+        labels=labels or {},
+        group_by=group_by,
+        index_id=index_id,
+        component_currency=str(component_currency) if component_currency is not None else None,
+    )
 
 
 def _benchmark_group_observation(
@@ -806,20 +861,47 @@ def _build_group_key(
 ) -> tuple[tuple[str, str], ...]:
     key_parts: list[tuple[str, str]] = []
     for dimension in group_by:
-        raw_value = component_currency if dimension == "currency" else labels.get(dimension)
-        if dimension == "currency":
-            if not isinstance(raw_value, str) or not raw_value:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                    detail=f"Benchmark component {index_id} missing classification label for {dimension}.",
-                )
-            normalized_value = _normalize_group_value(raw_value)
-        else:
-            normalized_value = (
-                _normalize_group_value(raw_value) if isinstance(raw_value, str) and raw_value else "unknown"
+        key_parts.append(
+            (
+                dimension,
+                _benchmark_group_dimension_value(
+                    dimension=dimension,
+                    labels=labels,
+                    index_id=index_id,
+                    component_currency=component_currency,
+                ),
             )
-        key_parts.append((dimension, normalized_value))
+        )
     return tuple(key_parts)
+
+
+def _benchmark_group_dimension_value(
+    *,
+    dimension: str,
+    labels: dict[str, object],
+    index_id: str,
+    component_currency: str | None = None,
+) -> str:
+    if dimension == "currency":
+        return _benchmark_currency_group_value(
+            index_id=index_id,
+            component_currency=component_currency,
+        )
+    raw_value = labels.get(dimension)
+    return _normalize_group_value(raw_value) if isinstance(raw_value, str) and raw_value else "unknown"
+
+
+def _benchmark_currency_group_value(
+    *,
+    index_id: str,
+    component_currency: str | None,
+) -> str:
+    if not isinstance(component_currency, str) or not component_currency:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"Benchmark component {index_id} missing classification label for currency.",
+        )
+    return _normalize_group_value(component_currency)
 
 
 def _position_row_to_daily_point(
@@ -831,26 +913,15 @@ def _position_row_to_daily_point(
     valuation_date = row.get("valuation_date")
     if not isinstance(valuation_date, str):
         return None
-    value_basis: PositionValueBasis
 
-    if currency_mode in {"LOCAL_ONLY", "BOTH"}:
-        begin_value = row.get("beginning_market_value_position_currency")
-        end_value = row.get("ending_market_value_position_currency")
-        value_basis = "position"
-    elif reporting_currency is not None:
-        begin_value = row.get("beginning_market_value_reporting_currency")
-        end_value = row.get("ending_market_value_reporting_currency")
-        if begin_value is None or end_value is None:
-            begin_value = row.get("beginning_market_value_portfolio_currency")
-            end_value = row.get("ending_market_value_portfolio_currency")
-        value_basis = "reporting"
-    else:
-        begin_value = row.get("beginning_market_value_portfolio_currency")
-        end_value = row.get("ending_market_value_portfolio_currency")
-        value_basis = "portfolio"
-
-    if begin_value is None or end_value is None:
+    market_values = _position_daily_point_market_values(
+        row=row,
+        currency_mode=currency_mode,
+        reporting_currency=reporting_currency,
+    )
+    if market_values is None:
         return None
+    begin_value, end_value, value_basis = market_values
 
     bod_cf, eod_cf, _ = split_position_cash_flows_in_value_basis(
         cash_flows_raw=row.get("cash_flows"),
@@ -864,6 +935,40 @@ def _position_row_to_daily_point(
         "bod_cf": bod_cf,
         "eod_cf": eod_cf,
     }
+
+
+def _position_daily_point_market_values(
+    *,
+    row: dict[str, object],
+    currency_mode: str,
+    reporting_currency: str | None,
+) -> tuple[object, object, PositionValueBasis] | None:
+    if currency_mode in {"LOCAL_ONLY", "BOTH"}:
+        begin_value = row.get("beginning_market_value_position_currency")
+        end_value = row.get("ending_market_value_position_currency")
+        value_basis: PositionValueBasis = "position"
+    elif reporting_currency is not None:
+        begin_value, end_value = _reporting_daily_point_market_values(row)
+        value_basis = "reporting"
+    else:
+        begin_value = row.get("beginning_market_value_portfolio_currency")
+        end_value = row.get("ending_market_value_portfolio_currency")
+        value_basis = "portfolio"
+
+    if begin_value is None or end_value is None:
+        return None
+    return begin_value, end_value, value_basis
+
+
+def _reporting_daily_point_market_values(row: dict[str, object]) -> tuple[object, object]:
+    begin_value = row.get("beginning_market_value_reporting_currency")
+    end_value = row.get("ending_market_value_reporting_currency")
+    if begin_value is None or end_value is None:
+        return (
+            row.get("beginning_market_value_portfolio_currency"),
+            row.get("ending_market_value_portfolio_currency"),
+        )
+    return begin_value, end_value
 
 
 def _position_row_to_base_weight_point(
@@ -908,18 +1013,25 @@ def _split_position_cash_flows(cash_flows_raw: object) -> tuple[Decimal, Decimal
         return bod_cf, eod_cf
 
     for flow in cash_flows_raw:
-        if not isinstance(flow, dict):
+        parsed_flow = _position_cash_flow_amount(flow)
+        if parsed_flow is None:
             continue
-        amount = flow.get("amount")
-        timing = flow.get("timing")
-        if amount is None or timing not in {"bod", "eod"}:
-            continue
-        decimal_amount = Decimal(str(amount))
+        timing, decimal_amount = parsed_flow
         if timing == "bod":
             bod_cf += decimal_amount
         else:
             eod_cf += decimal_amount
     return bod_cf, eod_cf
+
+
+def _position_cash_flow_amount(flow: object) -> tuple[str, Decimal] | None:
+    if not isinstance(flow, dict):
+        return None
+    amount = flow.get("amount")
+    timing = flow.get("timing")
+    if amount is None or timing not in {"bod", "eod"}:
+        return None
+    return cast(str, timing), Decimal(str(amount))
 
 
 def _position_meta_from_row(row: dict[str, object]) -> dict[str, object]:
@@ -933,26 +1045,42 @@ def _position_meta_from_row(row: dict[str, object]) -> dict[str, object]:
     cash_flow_currency = row.get("cash_flow_currency")
     if isinstance(cash_flow_currency, str) and cash_flow_currency:
         meta["cash_flow_currency"] = _normalize_group_value(cash_flow_currency)
-    position_to_portfolio_fx_rate = row.get("position_to_portfolio_fx_rate")
-    if position_to_portfolio_fx_rate is not None:
-        meta["position_to_portfolio_fx_rate"] = Decimal(str(position_to_portfolio_fx_rate))
-    portfolio_to_reporting_fx_rate = row.get("portfolio_to_reporting_fx_rate")
-    if portfolio_to_reporting_fx_rate is not None:
-        meta["portfolio_to_reporting_fx_rate"] = Decimal(str(portfolio_to_reporting_fx_rate))
 
+    meta.update(_position_meta_fx_rate_fields(row))
     meta.update(_normalized_position_dimensions(row.get("dimensions")))
     return meta
 
 
+def _position_meta_fx_rate_fields(row: dict[str, object]) -> dict[str, object]:
+    fx_rates: dict[str, object] = {}
+    position_to_portfolio_fx_rate = row.get("position_to_portfolio_fx_rate")
+    if position_to_portfolio_fx_rate is not None:
+        fx_rates["position_to_portfolio_fx_rate"] = Decimal(str(position_to_portfolio_fx_rate))
+    portfolio_to_reporting_fx_rate = row.get("portfolio_to_reporting_fx_rate")
+    if portfolio_to_reporting_fx_rate is not None:
+        fx_rates["portfolio_to_reporting_fx_rate"] = Decimal(str(portfolio_to_reporting_fx_rate))
+    return fx_rates
+
+
 def _normalized_position_dimensions(dimensions_raw: object) -> dict[str, object]:
     dimensions: dict[str, object] = {}
-    if isinstance(dimensions_raw, dict):
-        for key, value in dimensions_raw.items():
-            if isinstance(key, str) and isinstance(value, str) and value:
-                dimensions[key] = _normalize_group_value(value)
-            elif isinstance(key, str) and value is not None:
-                dimensions[key] = value
+    if not isinstance(dimensions_raw, dict):
+        return dimensions
+    for key, value in dimensions_raw.items():
+        if not isinstance(key, str):
+            continue
+        dimension_value = _normalized_position_dimension_value(value)
+        if dimension_value is not None:
+            dimensions[key] = dimension_value
     return dimensions
+
+
+def _normalized_position_dimension_value(value: object) -> object | None:
+    if isinstance(value, str) and value:
+        return _normalize_group_value(value)
+    if value is not None:
+        return value
+    return None
 
 
 def _normalize_group_value(value: str) -> str:

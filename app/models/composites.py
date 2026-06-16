@@ -141,11 +141,19 @@ class CompositeMembership(BaseModel):
 
     @model_validator(mode="after")
     def validate_membership_dates(self) -> "CompositeMembership":
-        if self.effective_to is not None and self.effective_to < self.effective_from:
+        if not _composite_membership_window_valid(effective_from=self.effective_from, effective_to=self.effective_to):
             raise ValueError("effective_to cannot be before effective_from")
-        if self.status != CompositeMembershipStatus.INCLUDED and not self.status_reason:
+        if not _composite_membership_status_reason_valid(status=self.status, status_reason=self.status_reason):
             raise ValueError("status_reason is required when membership status is not INCLUDED")
         return self
+
+
+def _composite_membership_window_valid(*, effective_from: dt_date, effective_to: dt_date | None) -> bool:
+    return effective_to is None or effective_to >= effective_from
+
+
+def _composite_membership_status_reason_valid(*, status: CompositeMembershipStatus, status_reason: str | None) -> bool:
+    return status == CompositeMembershipStatus.INCLUDED or bool(status_reason)
 
 
 class CompositeMemberReturnFact(BaseModel):

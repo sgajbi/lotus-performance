@@ -688,6 +688,12 @@ def test_allowed_audit_metadata_requires_privileged_read_enforcement(monkeypatch
     }
 
 
+def test_allowed_audit_metadata_ignores_unmatched_privileged_read_path(monkeypatch):
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ, "true")
+
+    assert _allowed_audit_metadata(method="GET", path="/integration/capabilities", status_code=200) is None
+
+
 def test_authorization_denied_response_emits_audit_and_structured_reason(mocker):
     emit = mocker.patch("app.enterprise_readiness.emit_audit_event")
 
@@ -855,6 +861,17 @@ def test_enterprise_runtime_config_issues_uses_default_for_invalid_rotation_days
     assert _SECRET_ROTATION_DAYS_OUT_OF_RANGE_ISSUE not in _enterprise_runtime_config_issues()
 
 
+def test_enterprise_runtime_security_predicates_enforce_rotation_and_key_boundaries(monkeypatch):
+    assert enterprise_runtime_config._secret_rotation_days_valid(1)
+    assert enterprise_runtime_config._secret_rotation_days_valid(90)
+    assert not enterprise_runtime_config._secret_rotation_days_valid(0)
+    assert not enterprise_runtime_config._secret_rotation_days_valid(91)
+
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_AUTHZ, "true")
+    monkeypatch.delenv(_ENV_ENTERPRISE_PRIMARY_KEY_ID, raising=False)
+    assert not enterprise_runtime_config._write_authz_primary_key_config_valid()
+
+
 def test_authorize_enterprise_request_preserves_write_denial_precedence(monkeypatch):
     monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_AUTHZ, "true")
     monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ, "true")
@@ -950,6 +967,14 @@ def test_capability_rule_loader_ignores_blank_and_non_string_overrides(monkeypat
     assert rules[_RULE_RUNTIME_RETENTION_CLEANUP_RUN_WRITE] == _CAPABILITY_OPERATIONS_RUNTIME_MANAGE
     assert " " not in rules
     assert rules["POST /analytics"] == "analytics.write"
+
+
+def test_normalized_capability_rule_override_accepts_only_non_blank_strings():
+    normalize = enterprise_capability_rules._normalized_capability_rule_override
+
+    assert normalize(key=" POST /analytics ", value=" analytics.write ") == ("POST /analytics", "analytics.write")
+    assert normalize(key=" ", value="analytics.write") is None
+    assert normalize(key="POST /analytics", value=False) is None
 
 
 def test_privileged_read_rule_loader_ignores_blank_default_override(monkeypatch):

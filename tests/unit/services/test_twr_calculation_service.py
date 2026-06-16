@@ -120,6 +120,55 @@ def test_twr_execution_window_benchmark_fields_project_stateful_assignment_metad
     }
 
 
+def test_twr_execution_window_benchmark_id_prefers_resolved_id_over_request_id():
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            **_stateful_twr_payload(),
+            "benchmark": {
+                "input_mode": "stateless",
+                "return_source": "vendor_series",
+                "benchmark_id": "BMK_REQUESTED",
+                "benchmark_currency": "USD",
+                "stateless_input": {
+                    "benchmark_currency": "USD",
+                    "benchmark_return_points": [
+                        {"perf_date": "2025-01-01", "benchmark_return": 0.01},
+                    ],
+                },
+            },
+        }
+    )
+
+    assert (
+        twr_calculation_service._twr_execution_window_benchmark_id(
+            request,
+            benchmark_id="BMK_RESOLVED",
+        )
+        == "BMK_RESOLVED"
+    )
+    assert twr_calculation_service._twr_execution_window_benchmark_id(request) == "BMK_REQUESTED"
+
+
+def test_twr_pre_resolution_offload_reason_names_stateful_and_large_input_paths():
+    stateful_request = TWRAnalyticsRequest.model_validate(_stateful_twr_payload())
+    stateless_request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "P1",
+            "performance_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "metric_basis": "NET",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "valuation_points": [
+                {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1001.0},
+            ],
+        }
+    )
+
+    assert twr_calculation_service._twr_pre_resolution_offload_reason(stateful_request) == "long_window_stateful_twr"
+    assert twr_calculation_service._twr_pre_resolution_offload_reason(stateless_request) == "large_twr_input_set"
+
+
 def test_finalize_twr_resolved_execution_identity_preserves_stateful_payload(mocker):
     request = TWRAnalyticsRequest.model_validate(_stateful_twr_payload())
     performance_request = _performance_request(request.calculation_id)

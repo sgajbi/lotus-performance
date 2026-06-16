@@ -8,6 +8,8 @@ from app.services.twr_service import (
     _classify_daily_calculation_evidence,
     _daily_calculation_evidence_inputs,
     _iter_frequency_windows,
+    _portfolio_breakdown_calculation_evidence,
+    _portfolio_breakdown_daily_data,
     _resampled_frequency_window_label,
 )
 from common.enums import Frequency
@@ -291,6 +293,53 @@ def test_resampled_frequency_window_label_formats_supported_frequencies():
     assert _resampled_frequency_window_label(Frequency.QUARTERLY, timestamp) == "2025-Q2"
     assert _resampled_frequency_window_label(Frequency.YEARLY, timestamp) == "2025"
     assert _resampled_frequency_window_label(Frequency.WEEKLY, timestamp) == "2025-06-30"
+
+
+def test_portfolio_breakdown_daily_data_respects_frequency_and_timeseries_flag():
+    frequency_df = pd.DataFrame([_row()])
+
+    assert _portfolio_breakdown_daily_data(
+        frequency=Frequency.DAILY,
+        frequency_df=frequency_df,
+        include_timeseries=True,
+    ) == [frequency_df.iloc[0].to_dict()]
+    assert (
+        _portfolio_breakdown_daily_data(
+            frequency=Frequency.DAILY,
+            frequency_df=frequency_df,
+            include_timeseries=False,
+        )
+        is None
+    )
+    assert (
+        _portfolio_breakdown_daily_data(
+            frequency=Frequency.MONTHLY,
+            frequency_df=frequency_df,
+            include_timeseries=True,
+        )
+        is None
+    )
+
+
+def test_portfolio_breakdown_calculation_evidence_only_projects_daily_rows():
+    frequency_df = pd.DataFrame([_row()])
+
+    evidence = _portfolio_breakdown_calculation_evidence(
+        frequency=Frequency.DAILY,
+        frequency_df=frequency_df,
+        metric_basis="NET",
+    )
+
+    assert evidence is not None
+    assert evidence.status == "calculated"
+    assert (
+        _portfolio_breakdown_calculation_evidence(
+            frequency=Frequency.MONTHLY,
+            frequency_df=frequency_df,
+            metric_basis="NET",
+        )
+        is None
+    )
 
 
 def test_build_portfolio_breakdown_item_preserves_daily_detail_and_evidence():

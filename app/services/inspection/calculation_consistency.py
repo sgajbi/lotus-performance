@@ -40,6 +40,12 @@ class DailyEvidenceExpectedValues:
     daily_return: float | None  # monetary-float-allow
 
 
+@dataclass(frozen=True)
+class DailyEvidenceExpectedFlows:
+    external_inflows: float
+    external_outflows: float
+
+
 def run_twr_calculation_consistency_checks(response: PerformanceResponse) -> CalculationConsistencyCheckResult:
     findings: list[TWRInspectionFinding] = []
     linked_blocks_checked = 0
@@ -393,43 +399,69 @@ def _check_portfolio_daily_calculation_evidence(
         if frequency.value != "daily":
             continue
         for item in items:
-            evidence = item.calculation_evidence
-            if evidence is None:
-                continue
-            rows_checked += 1
-            scope = f"breakdowns.{frequency.value}.{item.period}.calculation_evidence"
-            mismatches = _daily_calculation_evidence_mismatches(evidence=evidence, item=item)
-
-            if mismatches:
-                findings.append(
-                    _build_finding(
-                        code="DAILY_CALCULATION_EVIDENCE_MISMATCH",
-                        period_name=period_name,
-                        scope=scope,
-                        summary="Daily TWR calculation evidence does not reconcile to its served return contract.",
-                        evidence={
-                            "daily_period": item.period,
-                            "mismatches": mismatches,
-                            "calculation_method": evidence.calculation_method,
-                            "denominator_basis": evidence.denominator_basis,
-                        },
-                    )
-                )
+            item_rows_checked, item_findings = _check_daily_breakdown_calculation_evidence(
+                period_name=period_name,
+                frequency=frequency,
+                item=item,
+            )
+            rows_checked += item_rows_checked
+            findings.extend(item_findings)
     return rows_checked, findings
+
+
+def _check_daily_breakdown_calculation_evidence(
+    *,
+    period_name: str,
+    frequency: Frequency,
+    item: ComparativeBreakdownItem,
+) -> tuple[int, list[TWRInspectionFinding]]:
+    evidence = item.calculation_evidence
+    if evidence is None:
+        return 0, []
+    mismatches = _daily_calculation_evidence_mismatches(evidence=evidence, item=item)
+    if not mismatches:
+        return 1, []
+    scope = f"breakdowns.{frequency.value}.{item.period}.calculation_evidence"
+    return 1, [
+        _build_finding(
+            code="DAILY_CALCULATION_EVIDENCE_MISMATCH",
+            period_name=period_name,
+            scope=scope,
+            summary="Daily TWR calculation evidence does not reconcile to its served return contract.",
+            evidence={
+                "daily_period": item.period,
+                "mismatches": mismatches,
+                "calculation_method": evidence.calculation_method,
+                "denominator_basis": evidence.denominator_basis,
+            },
+        )
+    ]
 
 
 def _expected_daily_calculation_values(evidence: TWRDailyCalculationEvidence) -> DailyEvidenceExpectedValues:
     adjusted_capital = evidence.begin_mv + evidence.bod_cf
-    daily_return = None
-    if evidence.status == "calculated" and evidence.adjusted_capital != 0:
-        daily_return = evidence.performance_pnl / evidence.adjusted_capital * 100
+    expected_flows = _expected_daily_external_flows(evidence)
     return DailyEvidenceExpectedValues(
         signed_adjusted_capital=adjusted_capital,
         adjusted_capital=abs(adjusted_capital),
-        external_inflows=sum(value for value in (evidence.bod_cf, evidence.eod_cf) if value > 0),
-        external_outflows=abs(sum(value for value in (evidence.bod_cf, evidence.eod_cf) if value < 0)),
-        daily_return=daily_return,
+        external_inflows=expected_flows.external_inflows,
+        external_outflows=expected_flows.external_outflows,
+        daily_return=_expected_daily_return(evidence),
     )
+
+
+def _expected_daily_external_flows(evidence: TWRDailyCalculationEvidence) -> DailyEvidenceExpectedFlows:
+    flows = (evidence.bod_cf, evidence.eod_cf)
+    return DailyEvidenceExpectedFlows(
+        external_inflows=sum(value for value in flows if value > 0),
+        external_outflows=abs(sum(value for value in flows if value < 0)),
+    )
+
+
+def _expected_daily_return(evidence: TWRDailyCalculationEvidence) -> float | None:  # monetary-float-allow
+    if evidence.status != "calculated" or evidence.adjusted_capital == 0:
+        return None
+    return evidence.performance_pnl / evidence.adjusted_capital * 100
 
 
 def _daily_calculation_evidence_mismatches(
@@ -590,10 +622,18 @@ def _expected_daily_period_statuses(
         if linkability_status == "linkable":
             linkability_status = "reset_boundary"
     if "NO_INVESTMENT_PERIOD" in reason_codes:
-        if episode_status == "open":
-            episode_status = "no_investment"
-        if linkability_status == "linkable":
-            linkability_status = "not_calculated"
+        linkability_status, episode_status = _apply_daily_no_investment_period_status(
+            linkability_status=linkability_status,
+            episode_status=episode_status,
+        )
+    return linkability_status, episode_status
+
+
+def _apply_daily_no_investment_period_status(*, linkability_status: str, episode_status: str) -> tuple[str, str]:
+    if episode_status == "open":
+        episode_status = "no_investment"
+    if linkability_status == "linkable":
+        linkability_status = "not_calculated"
     return linkability_status, episode_status
 
 
@@ -675,19 +715,27 @@ def _comparative_return_mismatches(
     for component in ("base", "local", "fx"):
         expected_value = getattr(expected, component)
         actual_value = getattr(actual, component)
-        if expected_value is None and actual_value is None:
-            continue
-        if (
-            expected_value is None
-            or actual_value is None
-            or not isclose(
-                expected_value,
-                actual_value,
-                abs_tol=_ABS_TOLERANCE,
-            )
-        ):
-            mismatches[component] = (expected_value, actual_value)
+        mismatch = _comparative_return_component_mismatch(
+            expected_value=expected_value,
+            actual_value=actual_value,
+        )
+        if mismatch is not None:
+            mismatches[component] = mismatch
     return mismatches
+
+
+def _comparative_return_component_mismatch(
+    *,
+    expected_value: float | None,  # monetary-float-allow
+    actual_value: float | None,  # monetary-float-allow
+) -> tuple[float | None, float | None] | None:
+    if expected_value is None and actual_value is None:
+        return None
+    if expected_value is None or actual_value is None:
+        return expected_value, actual_value
+    if isclose(expected_value, actual_value, abs_tol=_ABS_TOLERANCE):
+        return None
+    return expected_value, actual_value
 
 
 def _subtract_return_values(

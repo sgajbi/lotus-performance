@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable, Collection
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 
@@ -152,19 +153,46 @@ def _build_position_reconciliation_findings(
     position_continuity_gap_samples: list[dict[str, object]],
 ) -> list[TWRInspectionFinding]:
     findings: list[TWRInspectionFinding] = []
-    if mixed_epoch_dates:
-        findings.append(_mixed_position_epoch_finding(portfolio_id, mixed_epoch_dates))
-    if duplicate_snapshot_samples:
-        findings.append(_duplicate_position_snapshot_finding(portfolio_id, duplicate_snapshot_samples))
-    if invalid_epoch_samples:
-        findings.append(_invalid_position_epoch_finding(portfolio_id, invalid_epoch_samples))
-    if invalid_position_value_samples:
-        findings.append(_invalid_position_value_finding(portfolio_id, invalid_position_value_samples))
-    if gap_details:
-        findings.append(_position_reconciliation_gap_finding(portfolio_id, gap_details, max_abs_gap_amount))
-    if position_continuity_gap_samples:
-        findings.append(_position_continuity_gap_finding(portfolio_id, position_continuity_gap_samples))
+    _append_reconciliation_finding_when_present(
+        findings,
+        mixed_epoch_dates,
+        lambda: _mixed_position_epoch_finding(portfolio_id, mixed_epoch_dates),
+    )
+    _append_reconciliation_finding_when_present(
+        findings,
+        duplicate_snapshot_samples,
+        lambda: _duplicate_position_snapshot_finding(portfolio_id, duplicate_snapshot_samples),
+    )
+    _append_reconciliation_finding_when_present(
+        findings,
+        invalid_epoch_samples,
+        lambda: _invalid_position_epoch_finding(portfolio_id, invalid_epoch_samples),
+    )
+    _append_reconciliation_finding_when_present(
+        findings,
+        invalid_position_value_samples,
+        lambda: _invalid_position_value_finding(portfolio_id, invalid_position_value_samples),
+    )
+    _append_reconciliation_finding_when_present(
+        findings,
+        gap_details,
+        lambda: _position_reconciliation_gap_finding(portfolio_id, gap_details, max_abs_gap_amount),
+    )
+    _append_reconciliation_finding_when_present(
+        findings,
+        position_continuity_gap_samples,
+        lambda: _position_continuity_gap_finding(portfolio_id, position_continuity_gap_samples),
+    )
     return findings
+
+
+def _append_reconciliation_finding_when_present(
+    findings: list[TWRInspectionFinding],
+    evidence_items: Collection[object],
+    finding_factory: Callable[[], TWRInspectionFinding],
+) -> None:
+    if evidence_items:
+        findings.append(finding_factory())
 
 
 def _mixed_position_epoch_finding(portfolio_id: str, mixed_epoch_dates: list[str]) -> TWRInspectionFinding:
@@ -431,16 +459,22 @@ def _analyze_position_reconciliation_gaps(
 def _select_latest_position_rows(position_rows: list[dict[str, object]]) -> list[dict[str, object]]:
     selected: dict[tuple[str, str], tuple[int, dict[str, object]]] = {}
     for row in position_rows:
-        valuation_date = row.get("valuation_date")
-        position_id = row.get("position_id")
-        if not isinstance(valuation_date, str) or not isinstance(position_id, str):
+        key = _position_row_selection_key(row)
+        if key is None:
             continue
         epoch = _parse_epoch_value(row)
-        key = (valuation_date, position_id)
         current = selected.get(key)
         if current is None or epoch >= current[0]:
             selected[key] = (epoch, row)
     return [row for _, row in selected.values()]
+
+
+def _position_row_selection_key(row: dict[str, object]) -> tuple[str, str] | None:
+    valuation_date = row.get("valuation_date")
+    position_id = row.get("position_id")
+    if not isinstance(valuation_date, str) or not isinstance(position_id, str):
+        return None
+    return valuation_date, position_id
 
 
 def _position_rows_from_payload(position_payload: dict[str, object]) -> list[dict[str, object]]:

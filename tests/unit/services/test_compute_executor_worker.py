@@ -151,6 +151,57 @@ def test_compute_executor_worker_runtime_builder_preserves_explicit_overrides(tm
     assert runtime.execution_context.contribution_calculator is _calculator
 
 
+def test_compute_executor_worker_runtime_options_use_settings_defaults(tmp_path):
+    job_store = ComputeJobStore(f"sqlite:///{tmp_path / 'jobs.db'}")
+    execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    result_store = AsyncResultStore(f"sqlite:///{tmp_path / 'results.db'}")
+    settings = _worker_settings(
+        COMPUTE_EXECUTOR_BATCH_SIZE=7,
+        COMPUTE_EXECUTOR_WORKER_ID="settings-worker",
+        COMPUTE_EXECUTOR_LEASE_SECONDS=45,
+    )
+
+    options = compute_executor_worker._resolve_compute_job_runtime_options(
+        limit=None,
+        job_store=job_store,
+        execution_store=execution_store,
+        result_store=result_store,
+        worker_id=None,
+        lease_seconds=None,
+        settings=settings,
+    )
+
+    assert options.settings is settings
+    assert options.job_store is job_store
+    assert options.execution_store is execution_store
+    assert options.result_store is result_store
+    assert options.worker_id == "settings-worker"
+    assert options.lease_seconds == 45
+    assert options.batch_size == 7
+
+
+def test_compute_executor_worker_runtime_options_preserve_truthy_default_policy(tmp_path):
+    settings = _worker_settings(
+        COMPUTE_EXECUTOR_BATCH_SIZE=7,
+        COMPUTE_EXECUTOR_WORKER_ID="settings-worker",
+        COMPUTE_EXECUTOR_LEASE_SECONDS=45,
+    )
+
+    options = compute_executor_worker._resolve_compute_job_runtime_options(
+        limit=0,
+        job_store=None,
+        execution_store=None,
+        result_store=None,
+        worker_id="",
+        lease_seconds=0,
+        settings=settings,
+    )
+
+    assert options.worker_id == "settings-worker"
+    assert options.lease_seconds == 45
+    assert options.batch_size == 7
+
+
 def test_compute_executor_worker_execution_context_preserves_all_calculator_overrides(tmp_path):
     execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
     settings = _worker_settings()
@@ -182,6 +233,80 @@ def test_compute_executor_worker_execution_context_preserves_all_calculator_over
     assert context.twr_calculator is _calculator
     assert context.workspace_summary_calculator is _calculator
     assert context.inspection_calculator is _calculator
+
+
+def test_compute_executor_worker_calculator_options_use_default_calculators():
+    calculators = compute_executor_worker._resolve_compute_job_calculators(
+        returns_series_calculator=None,
+        contribution_calculator=None,
+        attribution_calculator=None,
+        benchmark_calculator=None,
+        twr_calculator=None,
+        workspace_summary_calculator=None,
+        inspection_calculator=None,
+    )
+
+    assert calculators.returns_series_calculator is compute_executor_worker.calculate_returns_series
+    assert calculators.contribution_calculator is compute_executor_worker.calculate_contribution
+    assert calculators.attribution_calculator is compute_executor_worker.calculate_attribution
+    assert calculators.benchmark_calculator is compute_executor_worker.calculate_benchmark_response
+    assert calculators.twr_calculator is compute_executor_worker.calculate_twr_response
+    assert calculators.workspace_summary_calculator is compute_executor_worker.calculate_workspace_summary
+    assert calculators.inspection_calculator is compute_executor_worker.run_twr_inspection
+
+
+def test_compute_executor_worker_calculator_options_preserve_truthy_default_policy():
+    class FalsyCalculator:
+        def __call__(self, *args, **kwargs):  # noqa: ANN202, ANN002, ANN003, ARG002
+            return None
+
+        def __bool__(self):
+            return False
+
+    falsy_calculator = FalsyCalculator()
+
+    calculators = compute_executor_worker._resolve_compute_job_calculators(
+        returns_series_calculator=falsy_calculator,
+        contribution_calculator=falsy_calculator,
+        attribution_calculator=falsy_calculator,
+        benchmark_calculator=falsy_calculator,
+        twr_calculator=falsy_calculator,
+        workspace_summary_calculator=falsy_calculator,
+        inspection_calculator=falsy_calculator,
+    )
+
+    assert calculators.returns_series_calculator is compute_executor_worker.calculate_returns_series
+    assert calculators.contribution_calculator is compute_executor_worker.calculate_contribution
+    assert calculators.attribution_calculator is compute_executor_worker.calculate_attribution
+    assert calculators.benchmark_calculator is compute_executor_worker.calculate_benchmark_response
+    assert calculators.twr_calculator is compute_executor_worker.calculate_twr_response
+    assert calculators.workspace_summary_calculator is compute_executor_worker.calculate_workspace_summary
+    assert calculators.inspection_calculator is compute_executor_worker.run_twr_inspection
+
+
+def test_compute_executor_worker_dispatches_known_workflow_through_executor_registry(monkeypatch):
+    job = SimpleNamespace(analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES)
+    context = SimpleNamespace()
+    captured = {}
+
+    def _executor(job_arg, context_arg):  # noqa: ANN202, ANN001
+        captured["job"] = job_arg
+        captured["context"] = context_arg
+        return "handled"
+
+    monkeypatch.setitem(
+        compute_executor_worker._COMPUTE_JOB_EXECUTORS,
+        ANALYTICS_WORKFLOW_RETURNS_SERIES,
+        _executor,
+    )
+
+    assert compute_executor_worker._execute_compute_job(job, context) == "handled"
+    assert captured == {"job": job, "context": context}
+
+
+def test_compute_executor_worker_executor_lookup_rejects_unsupported_workflow():
+    with pytest.raises(ValueError, match="Unsupported compute job analytics_type: unsupported"):
+        compute_executor_worker._compute_job_executor_for("unsupported")
 
 
 def test_compute_executor_worker_processes_pending_returns_series_job(tmp_path, monkeypatch):
@@ -1560,6 +1685,35 @@ def test_compute_executor_worker_resolves_twr_jobs_from_resolved_payload_and_raw
     assert portfolio_id == "P1"
     assert benchmark_id == "BMK_1"
     assert benchmark_input_mode == compute_executor_worker.BenchmarkInputMode.STATEFUL
+    assert source == "calculated"
+    assert should_update is True
+
+    persisted_without_optional_identity = {
+        "resolved_request": resolved_request_payload,
+        "source_input_mode": "stateful",
+        "benchmark_input_mode": None,
+        "resolved_benchmark_id": 123,
+    }
+
+    (
+        resolved_request,
+        input_mode,
+        request_artifact_model,
+        portfolio_id,
+        benchmark_id,
+        benchmark_input_mode,
+        source,
+        should_update,
+    ) = compute_executor_worker._resolve_async_twr_job_request(
+        persisted_without_optional_identity,
+        settings=_worker_settings(),
+    )
+
+    assert input_mode == compute_executor_worker.TWRInputMode.STATEFUL
+    assert request_artifact_model == resolved_request
+    assert portfolio_id == "P1"
+    assert benchmark_id is None
+    assert benchmark_input_mode is None
     assert source == "calculated"
     assert should_update is True
 

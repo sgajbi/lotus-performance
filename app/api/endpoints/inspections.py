@@ -54,6 +54,25 @@ def _retained_inspection_artifact_response(*, payload: LineagePayload | None, ar
     )
 
 
+def _inspection_portfolio_id(request: TWRInspectionRequest) -> str | None:
+    if request.request is not None:
+        return request.request.portfolio_id
+    if request.subject_calculation_id is None:
+        return None
+    existing = execution_registry.get_execution(request.subject_calculation_id)
+    return existing.portfolio_id if existing is not None else None
+
+
+def _inspection_requested_window(request: TWRInspectionRequest) -> dict[str, str | None]:
+    return {
+        "subject_type": request.subject_type.value,
+        "inspection_profile": request.inspection_profile.value,
+        "subject_calculation_id": (
+            str(request.subject_calculation_id) if request.subject_calculation_id is not None else None
+        ),
+    }
+
+
 @router.post(
     "/inspections/twr",
     response_model=TWRInspectionAcceptedResponse,
@@ -69,22 +88,11 @@ def _retained_inspection_artifact_response(*, payload: LineagePayload | None, ar
 )
 def submit_twr_inspection(request: TWRInspectionRequest):
     input_fingerprint, calculation_hash = generate_request_fingerprint(request, get_settings().APP_VERSION)
-    portfolio_id = request.request.portfolio_id if request.request is not None else None
-    if portfolio_id is None and request.subject_calculation_id is not None:
-        existing = execution_registry.get_execution(request.subject_calculation_id)
-        portfolio_id = existing.portfolio_id if existing is not None else None
-    requested_window = {
-        "subject_type": request.subject_type.value,
-        "inspection_profile": request.inspection_profile.value,
-        "subject_calculation_id": (
-            str(request.subject_calculation_id) if request.subject_calculation_id is not None else None
-        ),
-    }
     return register_async_submission_or_raise(
         calculation_id=request.inspection_id,
         analytics_type=ANALYTICS_WORKFLOW_TWR_INSPECTION,
-        portfolio_id=portfolio_id,
-        requested_window=requested_window,
+        portfolio_id=_inspection_portfolio_id(request),
+        requested_window=_inspection_requested_window(request),
         input_fingerprint=input_fingerprint,
         calculation_hash=calculation_hash,
         request_payload=request.model_dump(mode="json"),

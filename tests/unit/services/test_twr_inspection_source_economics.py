@@ -7,6 +7,139 @@ from app.services.inspection.source_economics import ObservationSourceEconomics,
 from app.services.inspection.source_economics_collector import collect_source_economics_samples
 
 
+def _source_economics_point(**overrides: object) -> ObservationSourceEconomics:
+    values: dict[str, object] = {
+        "valuation_date": "2026-03-12",
+        "normalized_bod_cf": Decimal("0"),
+        "normalized_eod_cf": Decimal("0"),
+        "normalized_mgmt_fees": Decimal("0"),
+        "detailed_external_bod": Decimal("0"),
+        "detailed_external_eod": Decimal("0"),
+        "detailed_fee_bod": Decimal("0"),
+        "detailed_fee_eod": Decimal("0"),
+        "explicit_bod_total": None,
+        "explicit_eod_total": None,
+        "explicit_fee_total": None,
+        "conflicting_explicit_amount_fields": (),
+        "invalid_explicit_amount_fields": (),
+        "invalid_cashflow_collection": None,
+        "invalid_cashflow_rows": (),
+        "invalid_amount_rows": (),
+        "invalid_timing_rows": (),
+        "missing_cashflow_type_rows": (),
+        "noncanonical_cashflow_types": (),
+        "unsupported_cashflow_type_rows": (),
+        "governed_alias_cashflow_type_rows": (),
+        "fee_bod_timing_rows": (),
+    }
+    values.update(overrides)
+    return ObservationSourceEconomics(**values)
+
+
+def test_external_mixed_timing_sample_requires_detailed_bod_and_eod_flows():
+    assert source_economics_collector._external_mixed_timing_sample(
+        _source_economics_point(detailed_external_bod=Decimal("100"), detailed_external_eod=Decimal("-25"))
+    ) == {
+        "valuation_date": "2026-03-12",
+        "detailed_external_bod": 100.0,
+        "detailed_external_eod": -25.0,
+    }
+    assert (
+        source_economics_collector._external_mixed_timing_sample(
+            _source_economics_point(detailed_external_bod=Decimal("100"), detailed_external_eod=Decimal("0"))
+        )
+        is None
+    )
+
+
+def test_external_explicit_mixed_timing_sample_requires_explicit_bod_and_eod_flows():
+    assert source_economics_collector._external_explicit_mixed_timing_sample(
+        _source_economics_point(explicit_bod_total=Decimal("100"), explicit_eod_total=Decimal("-25"))
+    ) == {
+        "valuation_date": "2026-03-12",
+        "explicit_external_bod": 100.0,
+        "explicit_external_eod": -25.0,
+    }
+    assert (
+        source_economics_collector._external_explicit_mixed_timing_sample(
+            _source_economics_point(explicit_bod_total=Decimal("100"), explicit_eod_total=None)
+        )
+        is None
+    )
+    assert (
+        source_economics_collector._external_explicit_mixed_timing_sample(
+            _source_economics_point(explicit_bod_total=Decimal("100"), explicit_eod_total=Decimal("0"))
+        )
+        is None
+    )
+
+
+def test_external_timing_contradiction_sample_projects_artifact_fields():
+    assert source_economics_collector._external_timing_contradiction_sample(
+        valuation_date="2026-03-12",
+        explicit_timing="bod",
+        opposite_detailed_timing="eod",
+        explicit_total=Decimal("100"),
+        opposite_detailed_total=Decimal("-25"),
+    ) == {
+        "valuation_date": "2026-03-12",
+        "explicit_timing": "bod",
+        "opposite_detailed_timing": "eod",
+        "explicit_cashflow_amount": "100",
+        "opposite_detailed_cashflow_amount": "-25",
+    }
+
+
+def test_record_external_timing_contradictions_routes_bod_and_eod_conflicts():
+    samples: list[dict[str, object]] = []
+
+    source_economics_collector._record_external_timing_contradictions(
+        source_point=_source_economics_point(
+            explicit_bod_total=Decimal("100"),
+            explicit_eod_total=Decimal("-25"),
+            detailed_external_bod=Decimal("10"),
+            detailed_external_eod=Decimal("-20"),
+        ),
+        sample_target=samples,
+    )
+
+    assert samples == []
+
+    source_economics_collector._record_external_timing_contradictions(
+        source_point=_source_economics_point(
+            explicit_bod_total=Decimal("100"),
+            detailed_external_bod=Decimal("0"),
+            detailed_external_eod=Decimal("-20"),
+        ),
+        sample_target=samples,
+    )
+    source_economics_collector._record_external_timing_contradictions(
+        source_point=_source_economics_point(
+            explicit_eod_total=Decimal("-25"),
+            detailed_external_bod=Decimal("10"),
+            detailed_external_eod=Decimal("0"),
+        ),
+        sample_target=samples,
+    )
+
+    assert samples == [
+        {
+            "valuation_date": "2026-03-12",
+            "explicit_timing": "bod",
+            "opposite_detailed_timing": "eod",
+            "explicit_cashflow_amount": "100",
+            "opposite_detailed_cashflow_amount": "-20",
+        },
+        {
+            "valuation_date": "2026-03-12",
+            "explicit_timing": "eod",
+            "opposite_detailed_timing": "bod",
+            "explicit_cashflow_amount": "-25",
+            "opposite_detailed_cashflow_amount": "10",
+        },
+    ]
+
+
 def test_collect_source_economics_samples_routes_taxonomy_samples():
     samples = collect_source_economics_samples(
         source_points=[

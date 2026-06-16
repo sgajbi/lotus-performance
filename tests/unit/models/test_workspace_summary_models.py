@@ -9,12 +9,16 @@ from app.models.twr_requests import TWRInputMode
 from app.models.workspace_summary_requests import (
     WorkspaceBenchmarkRequest,
     WorkspaceSummaryRequest,
+    _has_exactly_one_workspace_summary_stateless_payload,
+    _has_legacy_workspace_summary_valuation_points,
+    _has_nested_workspace_summary_stateless_input,
     _requested_workspace_periods,
     _resolve_workspace_summary_include_benchmark,
     _validate_workspace_stateful_benchmark_payload,
     _validate_workspace_stateless_benchmark_payload,
     _validate_workspace_summary_benchmark_request,
     _validate_workspace_summary_stateless_inputs,
+    _workspace_summary_stateless_envelope_issue,
 )
 from app.models.workspace_summary_responses import WorkspaceSummaryAcceptedResponse, WorkspaceSummaryResponse
 
@@ -145,6 +149,46 @@ def test_validate_workspace_summary_stateless_inputs_rejects_dual_payloads():
 
     with pytest.raises(ValueError, match="Provide either stateless_input or valuation_points"):
         _validate_workspace_summary_stateless_inputs(request)
+
+
+@pytest.mark.parametrize(
+    ("stateless_input", "valuation_points", "has_nested", "has_legacy", "has_exactly_one"),
+    [
+        (object(), [], True, False, True),
+        (None, [object()], False, True, True),
+        (None, [], False, False, False),
+        (object(), [object()], True, True, False),
+    ],
+)
+def test_workspace_summary_stateless_payload_shape_predicates(
+    stateless_input,
+    valuation_points,
+    has_nested,
+    has_legacy,
+    has_exactly_one,
+):
+    request = WorkspaceSummaryRequest.model_construct(
+        input_mode=TWRInputMode.STATELESS,
+        performance_start_date=date(2026, 1, 1),
+        stateless_input=stateless_input,
+        valuation_points=valuation_points,
+        stateful_input=None,
+    )
+
+    assert _has_nested_workspace_summary_stateless_input(request) is has_nested
+    assert _has_legacy_workspace_summary_valuation_points(request) is has_legacy
+    assert _has_exactly_one_workspace_summary_stateless_payload(request) is has_exactly_one
+
+
+def test_workspace_summary_stateless_envelope_issue_requires_exactly_one_payload_shape():
+    assert _workspace_summary_stateless_envelope_issue(has_nested=True, has_legacy=False) is None
+    assert _workspace_summary_stateless_envelope_issue(has_nested=False, has_legacy=True) is None
+    assert _workspace_summary_stateless_envelope_issue(has_nested=True, has_legacy=True) == (
+        "Provide either stateless_input or valuation_points, not both, for stateless mode"
+    )
+    assert _workspace_summary_stateless_envelope_issue(has_nested=False, has_legacy=False) == (
+        "stateless_input or valuation_points is required when input_mode=stateless"
+    )
 
 
 def test_workspace_summary_request_rejects_stateless_request_without_performance_start_date():

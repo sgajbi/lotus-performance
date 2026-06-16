@@ -124,23 +124,10 @@ class StatefulInputService:
         if failure is not None:
             return failure
 
-        rows = self._merge_dedup_records_by_fields(
-            records=[
-                row
-                for _, payload in responses
-                for row in (payload.get("rows", []) if isinstance(payload, dict) else [])
-                if isinstance(row, dict)
-            ],
-            key_fields=("valuation_date", "position_id"),
+        return 200, self._build_position_timeseries_payload(
+            responses=responses,
+            chunk_count=len(chunks),
         )
-        total_page_count = self._total_retrieval_page_count(responses)
-        return 200, {
-            "rows": rows,
-            "retrieval_metadata": {
-                "chunk_count": len(chunks),
-                "page_count": total_page_count,
-            },
-        }
 
     async def get_benchmark_assignment(
         self,
@@ -1178,6 +1165,23 @@ class StatefulInputService:
             },
         }
 
+    def _build_position_timeseries_payload(
+        self,
+        *,
+        responses: list[tuple[int, dict[str, Any]]],
+        chunk_count: int,
+    ) -> dict[str, Any]:
+        return {
+            "rows": self._merge_dedup_records_by_fields(
+                records=_dict_list_payload_items(responses=responses, field_name="rows"),
+                key_fields=("valuation_date", "position_id"),
+            ),
+            "retrieval_metadata": {
+                "chunk_count": chunk_count,
+                "page_count": self._total_retrieval_page_count(responses),
+            },
+        }
+
     def _next_page_token(self, payload: dict[str, Any]) -> str | None:
         next_page_token = payload.get("next_page_token")
         if isinstance(next_page_token, str) and next_page_token:
@@ -1375,13 +1379,37 @@ def _portfolio_identity_from_payload(
     portfolio_currency: str | None,
     reporting_currency: str | None,
 ) -> tuple[str | None, str | None, str | None]:
-    if portfolio_open_date is None and isinstance(payload.get("portfolio_open_date"), str):
-        portfolio_open_date = payload["portfolio_open_date"]
-    if portfolio_currency is None and isinstance(payload.get("portfolio_currency"), str):
-        portfolio_currency = payload["portfolio_currency"]
-    if reporting_currency is None and isinstance(payload.get("reporting_currency"), str):
-        reporting_currency = payload["reporting_currency"]
-    return portfolio_open_date, portfolio_currency, reporting_currency
+    return (
+        _payload_string_identity_value(
+            payload=payload,
+            field_name="portfolio_open_date",
+            current_value=portfolio_open_date,
+        ),
+        _payload_string_identity_value(
+            payload=payload,
+            field_name="portfolio_currency",
+            current_value=portfolio_currency,
+        ),
+        _payload_string_identity_value(
+            payload=payload,
+            field_name="reporting_currency",
+            current_value=reporting_currency,
+        ),
+    )
+
+
+def _payload_string_identity_value(
+    *,
+    payload: dict[str, Any],
+    field_name: str,
+    current_value: str | None,
+) -> str | None:
+    if current_value is not None:
+        return current_value
+    payload_value = payload.get(field_name)
+    if isinstance(payload_value, str):
+        return payload_value
+    return None
 
 
 def _portfolio_observations_from_payload(payload: dict[str, Any]) -> list[dict[str, Any]]:

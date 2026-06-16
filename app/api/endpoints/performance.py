@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 from app.core.config import get_settings
 from app.models.attribution_analytics_requests import AttributionAnalyticsRequest
 from app.models.attribution_responses import AttributionAcceptedResponse, AttributionResponse
-from app.models.benchmark_analytics_requests import BenchmarkInputMode, BenchmarkReturnSource
+from app.models.benchmark_analytics_requests import BenchmarkInputMode, benchmark_stateless_work_units
 from app.models.mwr_analytics_requests import MoneyWeightedReturnAnalyticsRequest
 from app.models.mwr_responses import MoneyWeightedReturnResponse
 from app.models.platform_surfaces import ErrorDetailResponse
@@ -61,11 +61,10 @@ def _workspace_requested_benchmark_work_units(request: WorkspaceSummaryRequest) 
     benchmark = request.benchmark
     if benchmark is None or benchmark.input_mode != BenchmarkInputMode.STATELESS or benchmark.stateless_input is None:
         return 0
-    if benchmark.return_source == BenchmarkReturnSource.CALCULATED:
-        return len(benchmark.stateless_input.component_observations) or len(
-            benchmark.stateless_input.component_price_points
-        )
-    return len(benchmark.stateless_input.benchmark_return_points)
+    return benchmark_stateless_work_units(
+        stateless_input=benchmark.stateless_input,
+        return_source=benchmark.return_source,
+    )
 
 
 def _workspace_requested_input_count(request: WorkspaceSummaryRequest) -> int:
@@ -85,6 +84,23 @@ def _should_offload_workspace_summary(request: WorkspaceSummaryRequest) -> bool:
         request.input_mode == TWRInputMode.STATEFUL
         and _workspace_longest_requested_window_days(request) >= settings.WORKSPACE_SUMMARY_EXECUTOR_WINDOW_DAYS
     ) or (_workspace_requested_input_count(request) >= settings.WORKSPACE_SUMMARY_EXECUTOR_INPUT_COUNT)
+
+
+def _workspace_requested_window(request: WorkspaceSummaryRequest) -> dict[str, object]:
+    return {
+        "report_end_date": str(request.report_end_date),
+        "requested_periods": [item.period.value for item in request.periods],
+        "input_mode": request.input_mode.value,
+        "include_benchmark": request.include_benchmark,
+        "input_count": _workspace_requested_input_count(request),
+        "longest_window_days": _workspace_longest_requested_window_days(request),
+    }
+
+
+def _workspace_offload_reason(request: WorkspaceSummaryRequest) -> str:
+    if request.input_mode == TWRInputMode.STATEFUL:
+        return "long_window_stateful_workspace_summary"
+    return "large_workspace_summary_input_set"
 
 
 @router.post(
@@ -108,14 +124,7 @@ def calculate_workspace_summary_endpoint(
     """Calculates multi-horizon workspace summary analytics in one source-owned response."""
     settings = get_settings()
     input_fingerprint, calculation_hash = generate_request_fingerprint(request, settings.APP_VERSION)
-    requested_window = {
-        "report_end_date": str(request.report_end_date),
-        "requested_periods": [item.period.value for item in request.periods],
-        "input_mode": request.input_mode.value,
-        "include_benchmark": request.include_benchmark,
-        "input_count": _workspace_requested_input_count(request),
-        "longest_window_days": _workspace_longest_requested_window_days(request),
-    }
+    requested_window = _workspace_requested_window(request)
     if _should_offload_workspace_summary(request):
         return register_async_submission_or_raise(
             calculation_id=request.calculation_id,
@@ -125,11 +134,7 @@ def calculate_workspace_summary_endpoint(
             input_fingerprint=input_fingerprint,
             calculation_hash=calculation_hash,
             request_payload=request.model_dump(mode="json"),
-            offload_reason=(
-                "long_window_stateful_workspace_summary"
-                if request.input_mode == TWRInputMode.STATEFUL
-                else "large_workspace_summary_input_set"
-            ),
+            offload_reason=_workspace_offload_reason(request),
             accepted_response_factory=_accepted_workspace_summary_response,
         )
     register_sync_execution_or_raise(

@@ -109,6 +109,26 @@ def test_coerce_engine_numeric_columns_uses_decimal_strict_zero_for_missing_valu
     assert df[PortfolioColumns.END_MV.value].tolist() == [Decimal("101.50"), Decimal("0")]
 
 
+def test_coerce_engine_numeric_columns_uses_standard_zero_for_invalid_values():
+    config = EngineConfig(
+        performance_start_date=date(2025, 1, 1),
+        report_end_date=date(2025, 1, 1),
+        metric_basis="NET",
+        period_type=PeriodType.YTD,
+    )
+    df = pd.DataFrame(
+        {
+            PortfolioColumns.BEGIN_MV.value: ["100.25", "not-a-number"],
+            PortfolioColumns.END_MV.value: ["101.50", pd.NA],
+        }
+    )
+
+    _coerce_engine_numeric_columns(df, config)
+
+    assert df[PortfolioColumns.BEGIN_MV.value].tolist() == [100.25, 0.0]
+    assert df[PortfolioColumns.END_MV.value].tolist() == [101.50, 0.0]
+
+
 def test_run_calculations_does_not_mutate_caller_dataframe():
     config = EngineConfig(
         performance_start_date=date(2025, 1, 1),

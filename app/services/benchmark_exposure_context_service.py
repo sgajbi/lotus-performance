@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
@@ -106,19 +107,7 @@ async def build_benchmark_exposure_context(
     )
 
 
-async def _resolve_benchmark_id(
-    *,
-    request: BenchmarkExposureContextRequest,
-    stateful_input_service: StatefulInputService,
-) -> str:
-    if request.benchmark_id:
-        return request.benchmark_id
-    assignment_status, assignment_payload = await stateful_input_service.get_benchmark_assignment(
-        calculation_id=request.calculation_id,
-        portfolio_id=request.portfolio_id,
-        as_of_date=request.as_of_date,
-        reporting_currency=request.reporting_currency,
-    )
+def _benchmark_id_from_assignment_response(*, assignment_status: int, assignment_payload: dict[str, Any]) -> str:
     if assignment_status == status.HTTP_404_NOT_FOUND:
         raise HTTPException(
             status_code=HTTP_422_UNPROCESSABLE,
@@ -133,6 +122,25 @@ async def _resolve_benchmark_id(
             detail="benchmark assignment payload missing benchmark_id.",
         )
     return benchmark_id
+
+
+async def _resolve_benchmark_id(
+    *,
+    request: BenchmarkExposureContextRequest,
+    stateful_input_service: StatefulInputService,
+) -> str:
+    if request.benchmark_id:
+        return request.benchmark_id
+    assignment_status, assignment_payload = await stateful_input_service.get_benchmark_assignment(
+        calculation_id=request.calculation_id,
+        portfolio_id=request.portfolio_id,
+        as_of_date=request.as_of_date,
+        reporting_currency=request.reporting_currency,
+    )
+    return _benchmark_id_from_assignment_response(
+        assignment_status=assignment_status,
+        assignment_payload=assignment_payload,
+    )
 
 
 async def _classification_map_for_request(
@@ -180,13 +188,26 @@ def _index_ids_for_component_series(component_series: list[dict[str, Any]]) -> l
 def _classification_map_from_catalog_records(records: list[Any]) -> dict[str, dict[str, str]]:
     classification_map: dict[str, dict[str, str]] = {}
     for record in records:
-        if not isinstance(record, dict):
+        classification = _classification_labels_from_catalog_record(record)
+        if classification is None:
             continue
-        index_id = record.get("index_id")
-        labels = record.get("classification_labels")
-        if isinstance(index_id, str) and isinstance(labels, dict):
-            classification_map[index_id] = {str(key): str(value) for key, value in labels.items() if value is not None}
+        index_id, labels = classification
+        classification_map[index_id] = labels
     return classification_map
+
+
+def _normalized_classification_labels(labels: dict[Any, Any]) -> dict[str, str]:
+    return {str(key): str(value) for key, value in labels.items() if value is not None}
+
+
+def _classification_labels_from_catalog_record(record: Any) -> tuple[str, dict[str, str]] | None:
+    if not isinstance(record, dict):
+        return None
+    index_id = record.get("index_id")
+    labels = record.get("classification_labels")
+    if not isinstance(index_id, str) or not isinstance(labels, dict):
+        return None
+    return index_id, _normalized_classification_labels(labels)
 
 
 def _parse_component_series(payload: dict[str, Any]) -> list[dict[str, Any]]:
@@ -209,16 +230,10 @@ def _build_exposure_rows(
     labels: dict[tuple[BenchmarkExposureGroupingDimension, str], str] = {}
     component_ids: dict[tuple[BenchmarkExposureGroupingDimension, str], str | None] = {}
 
-    for component in component_series:
-        index_id_raw = component.get("index_id")
-        if not isinstance(index_id_raw, str) or not index_id_raw:
-            continue
-        points = component.get("points")
-        if not isinstance(points, list):
-            continue
+    for index_id, points in _iter_component_exposure_points(component_series):
         for point in points:
             _accumulate_exposure_point(
-                index_id=index_id_raw,
+                index_id=index_id,
                 point=point,
                 grouping_dimensions=grouping_dimensions,
                 classification_map=classification_map,
@@ -238,6 +253,16 @@ def _build_exposure_rows(
         )
         for (series_date, dimension, group_key), weight in sorted(grouped_weights.items())
     ]
+
+
+def _iter_component_exposure_points(component_series: list[dict[str, Any]]) -> Iterator[tuple[str, list[Any]]]:
+    for component in component_series:
+        index_id = component.get("index_id")
+        if not isinstance(index_id, str) or not index_id:
+            continue
+        points = component.get("points")
+        if isinstance(points, list):
+            yield index_id, points
 
 
 def _accumulate_exposure_point(

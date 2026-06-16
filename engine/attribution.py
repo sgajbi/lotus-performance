@@ -1,7 +1,7 @@
 # engine/attribution.py
 from dataclasses import dataclass
 from datetime import date as dt_date
-from typing import Any, Dict, Mapping, Protocol, Sequence, Tuple
+from typing import Any, Dict, Mapping, Protocol, Sequence, Tuple, TypedDict
 
 import numpy as np
 import pandas as pd
@@ -128,6 +128,11 @@ class _AttributionAggregationBase:
     linking_status: str
 
 
+class _BaseWeightRecord(TypedDict):
+    date: pd.Timestamp
+    capital: float
+
+
 def _calculate_linked_return(return_series: pd.Series) -> float:
     """Calculates a linked period return from per-date group returns expressed as decimal ratios."""
     numeric_returns = pd.to_numeric(return_series, errors="coerce").dropna()
@@ -252,16 +257,11 @@ def _prepare_data_from_instruments(request: AttributionRequestLike) -> list[Attr
     portfolio_df = portfolio_df.set_index(PortfolioColumns.PERF_DATE.value)
     portfolio_bop_mv = portfolio_df[PortfolioColumns.BEGIN_MV.value] + portfolio_df[PortfolioColumns.BOD_CF.value]
 
-    all_instruments = []
-    for inst in request.instruments_data:
-        instrument_panel = _build_instrument_attribution_panel(
-            inst=inst,
-            request=request,
-            twr_config=twr_config,
-            portfolio_bop_mv=portfolio_bop_mv,
-        )
-        if instrument_panel is not None:
-            all_instruments.append(instrument_panel)
+    all_instruments = _instrument_attribution_panels(
+        request=request,
+        twr_config=twr_config,
+        portfolio_bop_mv=portfolio_bop_mv,
+    )
 
     if not all_instruments:
         return []
@@ -272,6 +272,25 @@ def _prepare_data_from_instruments(request: AttributionRequestLike) -> list[Attr
 
     aggregated_panel = _build_instrument_group_aggregation(full_df, group_cols)
     return _build_instrument_attribution_groups(aggregated_panel, group_cols)
+
+
+def _instrument_attribution_panels(
+    *,
+    request: AttributionRequestLike,
+    twr_config: EngineConfig,
+    portfolio_bop_mv: pd.Series,
+) -> list[pd.DataFrame]:
+    panels: list[pd.DataFrame] = []
+    for inst in request.instruments_data:
+        instrument_panel = _build_instrument_attribution_panel(
+            inst=inst,
+            request=request,
+            twr_config=twr_config,
+            portfolio_bop_mv=portfolio_bop_mv,
+        )
+        if instrument_panel is not None:
+            panels.append(instrument_panel)
+    return panels
 
 
 def _build_instrument_attribution_panel(
@@ -327,15 +346,31 @@ def _normalize_instrument_return_columns(
         },
         inplace=True,
     )
-    if currency_mode == "BOTH" and instrument_currency == report_ccy:
-        if "return_local" not in inst_results.columns:
-            inst_results["return_local"] = inst_results["return_base"]
-        if "return_fx" not in inst_results.columns:
-            inst_results["return_fx"] = 0.0
+    _backfill_same_currency_return_columns(
+        inst_results,
+        currency_mode=currency_mode,
+        instrument_currency=instrument_currency,
+        report_ccy=report_ccy,
+    )
 
     for col in ["return_base", "return_local", "return_fx"]:
         if col in inst_results.columns:
             inst_results[col] /= 100
+
+
+def _backfill_same_currency_return_columns(
+    inst_results: pd.DataFrame,
+    *,
+    currency_mode: object,
+    instrument_currency: object,
+    report_ccy: object,
+) -> None:
+    if currency_mode != "BOTH" or instrument_currency != report_ccy:
+        return
+    if "return_local" not in inst_results.columns:
+        inst_results["return_local"] = inst_results["return_base"]
+    if "return_fx" not in inst_results.columns:
+        inst_results["return_fx"] = 0.0
 
 
 def _build_instrument_group_aggregation(full_df: pd.DataFrame, group_cols: list[str]) -> pd.DataFrame:
@@ -385,27 +420,31 @@ def _build_base_weight_series(meta: Mapping[str, Any]) -> pd.Series | None:
     if not isinstance(weight_points_raw, list):
         return None
 
-    records: list[dict[str, float | pd.Timestamp]] = []
+    records: list[_BaseWeightRecord] = []
     for item in weight_points_raw:
-        if not isinstance(item, dict):
-            continue
-        perf_date = item.get("perf_date")
-        begin_mv = item.get("begin_mv")
-        bod_cf = item.get("bod_cf", 0.0)
-        if perf_date is None or begin_mv is None:
-            continue
-        records.append(
-            {
-                "date": pd.to_datetime(perf_date),
-                "capital": float(begin_mv) + float(bod_cf),
-            }
-        )
+        record = _base_weight_record_from_point(item)
+        if record is not None:
+            records.append(record)
 
     if not records:
         return None
 
     weights_df = pd.DataFrame(records).drop_duplicates(subset=["date"], keep="last").set_index("date")
     return weights_df["capital"]
+
+
+def _base_weight_record_from_point(item: object) -> _BaseWeightRecord | None:
+    if not isinstance(item, dict):
+        return None
+    perf_date = item.get("perf_date")
+    begin_mv = item.get("begin_mv")
+    bod_cf = item.get("bod_cf", 0.0)
+    if perf_date is None or begin_mv is None:
+        return None
+    return {
+        "date": pd.to_datetime(perf_date),
+        "capital": float(begin_mv) + float(bod_cf),
+    }
 
 
 def _attribution_group_observation_record(
@@ -511,6 +550,10 @@ def _align_and_prepare_data(
     df_b = resample_panel(benchmark_panel)
 
     aligned_df = pd.merge(df_p, df_b, left_index=True, right_index=True, how="outer", suffixes=("_p", "_b"))
+    return _finalize_aligned_attribution_frame(aligned_df, group_by)
+
+
+def _finalize_aligned_attribution_frame(aligned_df: pd.DataFrame, group_by: Sequence[str]) -> pd.DataFrame:
     aligned_df["portfolio_observation_present"] = aligned_df["w_p"].notna() | aligned_df["r_base_p"].notna()
     aligned_df["benchmark_observation_present"] = aligned_df["w_b"].notna() | aligned_df["r_base_b"].notna()
     if "has_base_return_b" not in aligned_df.columns:
@@ -595,6 +638,12 @@ def _currency_attribution_requirements_met(effects_df: pd.DataFrame, request: At
     return "currency" in effects_df.reset_index().columns
 
 
+def _currency_attribution_status(effects_df: pd.DataFrame, request: AttributionRequestLike) -> str:
+    if request.currency_mode != "BOTH":
+        return "not_requested"
+    return "complete" if _currency_attribution_requirements_met(effects_df, request) else "unavailable"
+
+
 def _link_effects_top_down(
     effects_df: pd.DataFrame, geometric_total_ar: float, arithmetic_total_ar: float
 ) -> pd.DataFrame:
@@ -660,11 +709,7 @@ def aggregate_attribution_results(
     residual = (aggregation_base.active_return * 100) - final_totals.total_effect
     residual_materiality = classify_attribution_residual(residual)
 
-    currency_attribution_status = "not_requested"
-    if request.currency_mode == "BOTH":
-        currency_attribution_status = (
-            "complete" if _currency_attribution_requirements_met(effects_df, request) else "unavailable"
-        )
+    currency_attribution_status = _currency_attribution_status(effects_df, request)
 
     status, reason_codes, reasons, supportability_evidence, supportability_lineage = (
         build_attribution_supportability_evidence(
@@ -692,7 +737,7 @@ def aggregate_attribution_results(
     )
 
     if request.currency_mode == "BOTH":
-        if _currency_attribution_requirements_met(effects_df, request):
+        if currency_attribution_status == "complete":
             currency_df = _build_currency_attribution_panel(effects_df)
             fx_effects_df = _calculate_currency_attribution_effects(currency_df)
             aggregation_lineage["currency_attribution_effects.csv"] = fx_effects_df.reset_index()

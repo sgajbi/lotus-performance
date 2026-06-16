@@ -19,7 +19,10 @@ def test_build_fee_source_economics_findings_emits_fee_findings_in_source_order(
     samples = _samples(
         fee_normalization_samples=[{"valuation_date": "2026-03-12"}],
         duplicate_fee_signal_samples=[{"valuation_date": "2026-03-13"}],
-        fee_timing_bucket_samples=[{"valuation_date": "2026-03-14"}],
+        fee_source_mismatch_samples=[{"valuation_date": "2026-03-14"}],
+        positive_fee_signal_samples=[{"valuation_date": "2026-03-15"}],
+        fee_timing_bucket_samples=[{"valuation_date": "2026-03-16"}],
+        fee_mixed_timing_samples=[{"valuation_date": "2026-03-17"}],
     )
 
     findings = _build_fee_source_economics_findings(
@@ -30,19 +33,47 @@ def test_build_fee_source_economics_findings_emits_fee_findings_in_source_order(
     assert [finding.code for finding in findings] == [
         "FEE_CASHFLOW_CLASSIFICATION_NOT_PRESERVED",
         "DUPLICATE_FEE_SOURCE_SIGNAL",
+        "FEE_SOURCE_TOTAL_MISMATCH",
+        "POSITIVE_FEE_SOURCE_SIGNAL",
         "FEE_CASHFLOW_TIMING_BUCKET_UNSUPPORTED",
+        "FEE_CASHFLOW_MIXED_TIMING_BUCKETS",
     ]
     assert [finding.owner_repo for finding in findings] == [
         "lotus-performance",
         "lotus-core",
         "lotus-core",
+        "lotus-core",
+        "lotus-core",
+        "lotus-core",
     ]
-    assert [finding.severity for finding in findings] == ["high", "high", "warning"]
+    assert [finding.severity for finding in findings] == [
+        "high",
+        "high",
+        "high",
+        "high",
+        "warning",
+        "warning",
+    ]
+    assert {finding.category for finding in findings} == {"cashflow_classification"}
     assert findings[0].evidence == {
         "portfolio_id": "PB_SG_GLOBAL_BAL_001",
         "sample_dates": ["2026-03-12"],
         "samples": [{"valuation_date": "2026-03-12"}],
     }
+    assert findings[-1].evidence == {
+        "portfolio_id": "PB_SG_GLOBAL_BAL_001",
+        "sample_dates": ["2026-03-17"],
+        "samples": [{"valuation_date": "2026-03-17"}],
+    }
+
+
+def test_build_fee_source_economics_findings_suppresses_empty_fee_samples():
+    findings = _build_fee_source_economics_findings(
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        samples=_samples(),
+    )
+
+    assert findings == []
 
 
 def test_build_external_cashflow_findings_emits_external_findings_in_source_order():
@@ -84,6 +115,21 @@ def test_build_external_cashflow_findings_emits_external_findings_in_source_orde
         "warning",
         "warning",
     ]
+    assert {finding.category for finding in findings} == {"cashflow_classification"}
+    assert findings[-1].evidence == {
+        "portfolio_id": "PB_SG_GLOBAL_BAL_001",
+        "sample_dates": ["2026-03-17"],
+        "samples": [{"valuation_date": "2026-03-17"}],
+    }
+
+
+def test_build_external_cashflow_findings_suppresses_empty_external_samples():
+    findings = _build_external_cashflow_findings(
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        samples=_samples(),
+    )
+
+    assert findings == []
 
 
 def test_build_detailed_cashflow_contract_findings_emits_source_contract_findings_in_order():

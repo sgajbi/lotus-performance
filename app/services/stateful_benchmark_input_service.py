@@ -46,6 +46,14 @@ class _ComponentObservationPrices:
     component_currency: str
 
 
+@dataclass(frozen=True)
+class _NormalizedComponentPricePoint:
+    point_date: date
+    local_price: Decimal
+    normalized_price: Decimal
+    is_requested_date: bool
+
+
 async def build_stateful_benchmark_input(
     *,
     stateful_input_service: StatefulInputService,
@@ -202,22 +210,7 @@ async def _build_stateful_vendor_series_input(
             upstream_status=return_status,
         )
 
-    points_raw = return_payload.get("points")
-    if not isinstance(points_raw, list):
-        raise HTTPException(
-            status_code=HTTP_422_UNPROCESSABLE,
-            detail="benchmark return-series payload missing points list.",
-        )
-    benchmark_return_points = [
-        BenchmarkReturnPoint(
-            perf_date=date.fromisoformat(point["series_date"]),
-            benchmark_return=float(point["benchmark_return"]),
-        )
-        for point in points_raw
-        if isinstance(point, dict)
-        and isinstance(point.get("series_date"), str)
-        and point.get("benchmark_return") is not None
-    ]
+    benchmark_return_points = _benchmark_return_points_from_payload(return_payload)
     retrieval_metadata = parse_zero_default_retrieval_metadata(return_payload)
     return StatefulBenchmarkNormalizedInput(
         benchmark_currency=benchmark_currency,
@@ -229,6 +222,31 @@ async def _build_stateful_vendor_series_input(
             "benchmark_page_count": retrieval_metadata.page_count,
         },
     )
+
+
+def _benchmark_return_points_from_payload(return_payload: dict[str, Any]) -> list[BenchmarkReturnPoint]:
+    points_raw = return_payload.get("points")
+    if not isinstance(points_raw, list):
+        raise HTTPException(
+            status_code=HTTP_422_UNPROCESSABLE,
+            detail="benchmark return-series payload missing points list.",
+        )
+
+    benchmark_return_points: list[BenchmarkReturnPoint] = []
+    for point in points_raw:
+        if not isinstance(point, dict):
+            continue
+        series_date = point.get("series_date")
+        benchmark_return = point.get("benchmark_return")
+        if not isinstance(series_date, str) or benchmark_return is None:
+            continue
+        benchmark_return_points.append(
+            BenchmarkReturnPoint(
+                perf_date=date.fromisoformat(series_date),
+                benchmark_return=float(point["benchmark_return"]),
+            )
+        )
+    return benchmark_return_points
 
 
 def _parse_composition_window(
@@ -331,7 +349,12 @@ def _parse_composition_segment(
         )
     effective_from = date.fromisoformat(effective_from_raw)
     effective_to = date.fromisoformat(effective_to_raw) if isinstance(effective_to_raw, str) else None
-    if effective_from > end_date or (effective_to is not None and effective_to < start_date):
+    if not _composition_segment_overlaps_window(
+        effective_from=effective_from,
+        effective_to=effective_to,
+        start_date=start_date,
+        end_date=end_date,
+    ):
         return None
     return BenchmarkCompositionSegment(
         index_id=index_id,
@@ -339,6 +362,20 @@ def _parse_composition_segment(
         composition_effective_from=effective_from,
         composition_effective_to=effective_to,
     )
+
+
+def _composition_segment_overlaps_window(
+    *,
+    effective_from: date,
+    effective_to: date | None,
+    start_date: date,
+    end_date: date,
+) -> bool:
+    if effective_from > end_date:
+        return False
+    if effective_to is not None and effective_to < start_date:
+        return False
+    return True
 
 
 def _validate_composition_window_coverage(
@@ -429,6 +466,14 @@ def _component_price_series_from_response(
             upstream_status=series_status,
             context=f"for benchmark component {index_id}",
         )
+    series_points = _component_price_series_points(index_id=index_id, series_payload=series_payload)
+    return {
+        "points": series_points,
+        "series_currency": _infer_series_currency(index_id=index_id, points=series_points),
+    }
+
+
+def _component_price_series_points(*, index_id: str, series_payload: dict[str, Any]) -> list[dict[str, Any]]:
     points_raw = series_payload.get("points")
     if not isinstance(points_raw, list):
         raise HTTPException(
@@ -441,10 +486,7 @@ def _component_price_series_from_response(
             status_code=HTTP_422_UNPROCESSABLE,
             detail=f"index price-series payload empty for benchmark component {index_id}.",
         )
-    return {
-        "points": series_points,
-        "series_currency": _infer_series_currency(index_id=index_id, points=series_points),
-    }
+    return series_points
 
 
 def _infer_series_currency(*, index_id: str, points: list[dict[str, Any]]) -> str:
@@ -491,21 +533,32 @@ async def _load_fx_maps_for_components(
                 upstream_status=fx_status,
                 context=f"for {from_currency}/{to_currency}",
             )
-        points_raw = fx_payload.get("points")
-        if not isinstance(points_raw, list):
-            raise HTTPException(
-                status_code=HTTP_422_UNPROCESSABLE,
-                detail=f"fx rate payload missing points for {from_currency}/{to_currency}.",
-            )
-        fx_maps[(from_currency, to_currency)] = {
-            date.fromisoformat(point["series_date"]): Decimal(str(point["fx_rate"]))
-            for point in points_raw
-            if isinstance(point, dict)
-            and isinstance(point.get("series_date"), str)
-            and point.get("fx_rate") is not None
-        }
+        fx_maps[(from_currency, to_currency)] = _fx_rate_map_from_payload(
+            fx_payload=fx_payload,
+            from_currency=from_currency,
+            to_currency=to_currency,
+        )
         retrieval_metadata_total = add_zero_default_retrieval_metadata(retrieval_metadata_total, fx_payload)
     return fx_maps, retrieval_metadata_total
+
+
+def _fx_rate_map_from_payload(
+    *,
+    fx_payload: dict[str, Any],
+    from_currency: str,
+    to_currency: str,
+) -> dict[date, Decimal]:
+    points_raw = fx_payload.get("points")
+    if not isinstance(points_raw, list):
+        raise HTTPException(
+            status_code=HTTP_422_UNPROCESSABLE,
+            detail=f"fx rate payload missing points for {from_currency}/{to_currency}.",
+        )
+    return {
+        date.fromisoformat(point["series_date"]): Decimal(str(point["fx_rate"]))
+        for point in points_raw
+        if isinstance(point, dict) and isinstance(point.get("series_date"), str) and point.get("fx_rate") is not None
+    }
 
 
 def _required_fx_pairs_for_components(
@@ -541,13 +594,10 @@ def _build_component_observations(
     )
 
     for point_date in _iter_requested_dates(start_date=requested_start_date, end_date=requested_end_date):
-        active_segments = [segment for segment in component_segments if _segment_is_active(segment, point_date)]
-        if not active_segments:
-            raise HTTPException(
-                status_code=HTTP_422_UNPROCESSABLE,
-                detail=f"Benchmark composition window missing active segments for {point_date}.",
-            )
-        for segment in sorted(active_segments, key=lambda item: item.index_id):
+        for segment in _active_component_segments_for_date(
+            component_segments=component_segments,
+            point_date=point_date,
+        ):
             observations.append(
                 _build_component_observation(
                     benchmark_id=benchmark_id,
@@ -565,6 +615,20 @@ def _build_component_observations(
             detail=f"No normalized benchmark observations available for benchmark_id={benchmark_id}.",
         )
     return sorted(observations, key=lambda item: (item.perf_date, item.component_id))
+
+
+def _active_component_segments_for_date(
+    *,
+    component_segments: list[BenchmarkCompositionSegment],
+    point_date: date,
+) -> list[BenchmarkCompositionSegment]:
+    active_segments = [segment for segment in component_segments if _segment_is_active(segment, point_date)]
+    if not active_segments:
+        raise HTTPException(
+            status_code=HTTP_422_UNPROCESSABLE,
+            detail=f"Benchmark composition window missing active segments for {point_date}.",
+        )
+    return sorted(active_segments, key=lambda item: item.index_id)
 
 
 def _build_component_observation(
@@ -624,6 +688,27 @@ def _component_observation_prices(
                 f"component {component_id} is missing {point_date}."
             ),
         )
+    previous_date, previous_price = _previous_normalized_component_price(
+        component_id=component_id,
+        point_date=point_date,
+        normalized_prices=normalized_prices,
+    )
+    return _ComponentObservationPrices(
+        previous_date=previous_date,
+        previous_price=previous_price,
+        current_price=normalized_prices[point_date],
+        local_previous_price=local_prices[previous_date],
+        local_current_price=local_prices[point_date],
+        component_currency=component_currency,
+    )
+
+
+def _previous_normalized_component_price(
+    *,
+    component_id: str,
+    point_date: date,
+    normalized_prices: dict[date, Decimal],
+) -> tuple[date, Decimal]:
     previous_dates = [candidate for candidate in normalized_prices if candidate < point_date]
     if not previous_dates:
         raise HTTPException(
@@ -640,14 +725,7 @@ def _component_observation_prices(
             status_code=HTTP_422_UNPROCESSABLE,
             detail=f"Normalized benchmark price is zero for component {component_id} on {previous_date}.",
         )
-    return _ComponentObservationPrices(
-        previous_date=previous_date,
-        previous_price=previous_price,
-        current_price=normalized_prices[point_date],
-        local_previous_price=local_prices[previous_date],
-        local_current_price=local_prices[point_date],
-        component_currency=component_currency,
-    )
+    return previous_date, previous_price
 
 
 def _build_normalized_component_series(
@@ -705,35 +783,63 @@ def _normalized_price_maps_for_component(
     local_prices: dict[date, Decimal] = {}
     component_dates: set[date] = set()
     for point in points_raw:
-        if not isinstance(point, dict):
+        price_point = _normalized_component_price_point_from_payload(
+            index_id=index_id,
+            point=point,
+            component_currency=component_currency,
+            benchmark_currency=benchmark_currency,
+            fx_map_by_pair=fx_map_by_pair,
+            requested_start_date=requested_start_date,
+            requested_end_date=requested_end_date,
+        )
+        if price_point is None:
             continue
-        date_raw = point.get("series_date")
-        index_price_raw = point.get("index_price")
-        if not isinstance(date_raw, str):
-            continue
-        point_date = date.fromisoformat(date_raw)
-        if point_date < requested_start_date - timedelta(days=1) or point_date > requested_end_date:
-            continue
-        if index_price_raw is None:
-            raise HTTPException(
-                status_code=HTTP_422_UNPROCESSABLE,
-                detail=(
-                    f"Index price-series payload missing index_price for benchmark component "
-                    f"{index_id} on {point_date}."
-                ),
-            )
-        local_price = Decimal(str(index_price_raw))
-        local_prices[point_date] = local_price
-        normalized_prices[point_date] = _normalize_price_to_benchmark_currency(
+        local_prices[price_point.point_date] = price_point.local_price
+        normalized_prices[price_point.point_date] = price_point.normalized_price
+        if price_point.is_requested_date:
+            component_dates.add(price_point.point_date)
+    return normalized_prices, local_prices, component_dates
+
+
+def _normalized_component_price_point_from_payload(
+    *,
+    index_id: str,
+    point: Any,
+    component_currency: str,
+    benchmark_currency: str,
+    fx_map_by_pair: dict[tuple[str, str], dict[date, Decimal]],
+    requested_start_date: date,
+    requested_end_date: date,
+) -> _NormalizedComponentPricePoint | None:
+    if not isinstance(point, dict):
+        return None
+    date_raw = point.get("series_date")
+    if not isinstance(date_raw, str):
+        return None
+    point_date = date.fromisoformat(date_raw)
+    if point_date < requested_start_date - timedelta(days=1) or point_date > requested_end_date:
+        return None
+    index_price_raw = point.get("index_price")
+    if index_price_raw is None:
+        raise HTTPException(
+            status_code=HTTP_422_UNPROCESSABLE,
+            detail=(
+                f"Index price-series payload missing index_price for benchmark component {index_id} on {point_date}."
+            ),
+        )
+    local_price = Decimal(str(index_price_raw))
+    return _NormalizedComponentPricePoint(
+        point_date=point_date,
+        local_price=local_price,
+        normalized_price=_normalize_price_to_benchmark_currency(
             component_currency=component_currency,
             benchmark_currency=benchmark_currency,
             price=local_price,
             price_date=point_date,
             fx_map_by_pair=fx_map_by_pair,
-        )
-        if requested_start_date <= point_date <= requested_end_date:
-            component_dates.add(point_date)
-    return normalized_prices, local_prices, component_dates
+        ),
+        is_requested_date=requested_start_date <= point_date <= requested_end_date,
+    )
 
 
 def _normalize_price_to_benchmark_currency(

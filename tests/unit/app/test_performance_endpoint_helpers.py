@@ -3,6 +3,7 @@ from typing import cast
 
 import pandas as pd
 import pytest
+from fastapi import HTTPException
 
 from app.models.benchmark_analytics_requests import BenchmarkInputMode, BenchmarkReturnSource
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
@@ -14,11 +15,14 @@ from app.services.twr_service import (
     _as_numeric,
     _build_twr_benchmark_period_blocks,
     _build_twr_lineage_details,
+    _build_twr_period_result,
     _build_twr_portfolio_period_block,
     _build_twr_response_model,
     _build_twr_results_by_period,
     _calculate_total_return_from_slice,
     _get_total_cum_ror,
+    _rebased_cumulative_ror,
+    _resolve_twr_execution_period_scope,
     _resolve_twr_supportability,
     _twr_period_reset_events,
     _TWRBenchmarkPeriodContext,
@@ -76,6 +80,25 @@ def _daily_twr_results_df() -> pd.DataFrame:
             },
         ]
     )
+
+
+def test_resolve_twr_execution_period_scope_projects_periods_frequencies_and_master_window():
+    scope = _resolve_twr_execution_period_scope(_twr_request())
+
+    assert [period.name for period in scope.resolved_periods] == ["ITD"]
+    assert scope.freqs_by_period == {"ITD": [Frequency.DAILY]}
+    assert scope.master_start_date == date(2025, 1, 1)
+    assert scope.master_end_date == date(2025, 1, 3)
+
+
+def test_resolve_twr_execution_period_scope_rejects_unresolved_periods(mocker):
+    mocker.patch("app.services.twr_service.resolve_periods", return_value=[])
+
+    with pytest.raises(HTTPException) as exc_info:
+        _resolve_twr_execution_period_scope(_twr_request())
+
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "No valid periods could be resolved."
 
 
 def test_build_twr_results_by_period_builds_portfolio_summary_and_skips_empty_periods():
@@ -151,6 +174,40 @@ def test_twr_period_reset_events_respects_policy_and_period_window():
     assert disabled is None
     assert enabled is not None
     assert [event.reason for event in enabled] == ["in_period"]
+
+
+def test_build_twr_period_result_skips_empty_period():
+    result = _build_twr_period_result(
+        performance_request=_twr_request(),
+        period=ResolvedPeriod(name="YTD", start_date=date(2026, 1, 1), end_date=date(2026, 1, 2)),
+        requested_frequencies=[Frequency.DAILY],
+        daily_results_df=_daily_twr_results_df(),
+        engine_diagnostics=EngineDiagnostics(),
+        benchmark_context=None,
+    )
+
+    assert result is None
+
+
+def test_build_twr_period_result_preserves_reset_event_projection():
+    result = _build_twr_period_result(
+        performance_request=_twr_request(emit_resets=True),
+        period=ResolvedPeriod(name="ITD", start_date=date(2025, 1, 1), end_date=date(2025, 1, 2)),
+        requested_frequencies=[Frequency.DAILY],
+        daily_results_df=_daily_twr_results_df(),
+        engine_diagnostics=EngineDiagnostics(
+            resets=[
+                EngineResetEvent(date=date(2025, 1, 2), reason="in_period", impacted_rows=1),
+                EngineResetEvent(date=date(2025, 1, 3), reason="outside_period", impacted_rows=1),
+            ]
+        ),
+        benchmark_context=None,
+    )
+
+    assert result is not None
+    assert result.portfolio.summary.period_return.base == pytest.approx(3.02)
+    assert result.reset_events is not None
+    assert [event.reason for event in result.reset_events] == ["in_period"]
 
 
 def test_build_twr_portfolio_period_block_preserves_summary_and_breakdowns():
@@ -341,6 +398,17 @@ def test_as_numeric_returns_default_for_non_numeric_values():
 
 def test_get_total_cum_ror_returns_zero_for_missing_row():
     assert _get_total_cum_ror(None, "local_ror_") == 0.0
+
+
+def test_rebased_cumulative_ror_handles_standard_and_zero_start_denominators():
+    assert _rebased_cumulative_ror(
+        start_cumulative_ror=10.0,
+        end_cumulative_ror=21.0,
+    ) == pytest.approx(10.0)
+    assert _rebased_cumulative_ror(
+        start_cumulative_ror=-100.0,
+        end_cumulative_ror=12.0,
+    ) == pytest.approx(12.0)
 
 
 def test_calculate_total_return_from_slice_returns_zero_for_empty_slice():

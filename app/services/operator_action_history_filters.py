@@ -65,14 +65,20 @@ def build_applied_history_filters(
         filters["limit"] = limit
     if offset > 0:
         filters["offset"] = offset
-    for key, value in optional_filters:
-        normalized_value = normalize_optional_evidence_identifier(value) if isinstance(value, str) else value
-        if normalized_value is not None:
-            filters[key] = normalized_value
+    filters.update(_normalized_optional_history_filters(optional_filters))
     if generated_after is not None:
         filters["generated_after"] = generated_after
     if generated_before is not None:
         filters["generated_before"] = generated_before
+    return filters
+
+
+def _normalized_optional_history_filters(optional_filters: tuple[OptionalHistoryFilter, ...]) -> AppliedHistoryFilters:
+    filters: AppliedHistoryFilters = {}
+    for key, value in optional_filters:
+        normalized_value = normalize_optional_evidence_identifier(value) if isinstance(value, str) else value
+        if normalized_value is not None:
+            filters[key] = normalized_value
     return filters
 
 

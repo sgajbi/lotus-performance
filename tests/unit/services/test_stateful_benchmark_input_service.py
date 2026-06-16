@@ -8,15 +8,22 @@ from fastapi import HTTPException
 from app.models.benchmark_analytics_requests import BenchmarkReturnSource
 from app.services.stateful_benchmark_input_service import (
     BenchmarkCompositionSegment,
+    _active_component_segments_for_date,
+    _benchmark_return_points_from_payload,
     _build_component_observation,
     _build_component_observations,
     _build_normalized_component_series,
+    _component_price_series_points,
+    _composition_segment_overlaps_window,
+    _fx_rate_map_from_payload,
     _load_benchmark_definition_currency,
     _load_component_price_series,
     _load_fx_maps_for_components,
     _normalize_price_to_benchmark_currency,
+    _normalized_component_price_point_from_payload,
     _normalized_price_maps_for_component,
     _parse_composition_window,
+    _previous_normalized_component_price,
     _required_fx_pairs_for_components,
     build_stateful_benchmark_input,
 )
@@ -211,6 +218,30 @@ async def test_build_stateful_benchmark_input_supports_explicit_vendor_series_mo
 
     assert result.component_observations == []
     assert [point.benchmark_return for point in result.benchmark_return_points] == [0.01, 0.011]
+
+
+def test_benchmark_return_points_from_payload_projects_valid_points_only():
+    points = _benchmark_return_points_from_payload(
+        {
+            "points": [
+                {"series_date": "2026-01-02", "benchmark_return": "0.0100"},
+                {"series_date": "2026-01-03", "benchmark_return": Decimal("0.0110")},
+                {"series_date": "2026-01-04"},
+                {"benchmark_return": "0.0120"},
+                "ignored",
+            ]
+        }
+    )
+
+    assert [(point.perf_date, point.benchmark_return) for point in points] == [
+        (date(2026, 1, 2), 0.01),
+        (date(2026, 1, 3), 0.011),
+    ]
+
+
+def test_benchmark_return_points_from_payload_requires_points_list():
+    with pytest.raises(HTTPException, match="missing points list"):
+        _benchmark_return_points_from_payload({"points": None})
 
 
 @pytest.mark.asyncio
@@ -635,6 +666,33 @@ def test_parse_composition_window_filters_and_sorts_usable_segments():
     assert segments[1].composition_effective_to == date(2026, 1, 3)
 
 
+def test_composition_segment_overlaps_window_policy():
+    assert _composition_segment_overlaps_window(
+        effective_from=date(2026, 1, 1),
+        effective_to=None,
+        start_date=date(2026, 1, 2),
+        end_date=date(2026, 1, 3),
+    )
+    assert _composition_segment_overlaps_window(
+        effective_from=date(2026, 1, 3),
+        effective_to=date(2026, 1, 3),
+        start_date=date(2026, 1, 2),
+        end_date=date(2026, 1, 3),
+    )
+    assert not _composition_segment_overlaps_window(
+        effective_from=date(2026, 1, 4),
+        effective_to=None,
+        start_date=date(2026, 1, 2),
+        end_date=date(2026, 1, 3),
+    )
+    assert not _composition_segment_overlaps_window(
+        effective_from=date(2026, 1, 1),
+        effective_to=date(2026, 1, 1),
+        start_date=date(2026, 1, 2),
+        end_date=date(2026, 1, 3),
+    )
+
+
 def test_required_fx_pairs_for_components_dedupes_non_benchmark_currencies():
     pairs = _required_fx_pairs_for_components(
         component_price_series={
@@ -648,6 +706,19 @@ def test_required_fx_pairs_for_components_dedupes_non_benchmark_currencies():
     )
 
     assert pairs == {("EUR", "USD"), ("GBP", "USD")}
+
+
+def test_component_price_series_points_filters_dict_points_and_rejects_missing_or_empty_payloads():
+    assert _component_price_series_points(
+        index_id="IDX_USD",
+        series_payload={"points": [{"series_date": "2026-01-01"}, "bad"]},
+    ) == [{"series_date": "2026-01-01"}]
+
+    with pytest.raises(HTTPException, match="payload missing points"):
+        _component_price_series_points(index_id="IDX_USD", series_payload={})
+
+    with pytest.raises(HTTPException, match="payload empty"):
+        _component_price_series_points(index_id="IDX_USD", series_payload={"points": ["bad"]})
 
 
 @pytest.mark.asyncio
@@ -767,6 +838,65 @@ async def test_load_fx_maps_for_components_handles_empty_pairs_and_payload_error
             benchmark_currency="USD",
             start_date=date(2026, 1, 1),
             end_date=date(2026, 1, 3),
+        )
+
+
+def test_fx_rate_map_from_payload_projects_valid_rates_only():
+    assert _fx_rate_map_from_payload(
+        fx_payload={
+            "points": [
+                {"series_date": "2026-01-02", "fx_rate": "1.20"},
+                {"series_date": "2026-01-03", "fx_rate": Decimal("1.21")},
+                {"series_date": "2026-01-04"},
+                {"fx_rate": "1.22"},
+                "ignored",
+            ]
+        },
+        from_currency="EUR",
+        to_currency="USD",
+    ) == {
+        date(2026, 1, 2): Decimal("1.20"),
+        date(2026, 1, 3): Decimal("1.21"),
+    }
+
+
+def test_fx_rate_map_from_payload_requires_points_list():
+    with pytest.raises(HTTPException, match="fx rate payload missing points for EUR/USD"):
+        _fx_rate_map_from_payload(
+            fx_payload={"points": None},
+            from_currency="EUR",
+            to_currency="USD",
+        )
+
+
+def test_active_component_segments_for_date_sorts_active_segments_and_rejects_gaps():
+    segments = [
+        BenchmarkCompositionSegment(
+            index_id="IDX_B",
+            composition_weight=Decimal("0.4"),
+            composition_effective_from=date(2026, 1, 1),
+            composition_effective_to=None,
+        ),
+        BenchmarkCompositionSegment(
+            index_id="IDX_A",
+            composition_weight=Decimal("0.6"),
+            composition_effective_from=date(2026, 1, 2),
+            composition_effective_to=date(2026, 1, 5),
+        ),
+    ]
+
+    assert [
+        segment.index_id
+        for segment in _active_component_segments_for_date(
+            component_segments=segments,
+            point_date=date(2026, 1, 3),
+        )
+    ] == ["IDX_A", "IDX_B"]
+
+    with pytest.raises(HTTPException, match="missing active segments for 2025-12-31"):
+        _active_component_segments_for_date(
+            component_segments=segments,
+            point_date=date(2025, 12, 31),
         )
 
 
@@ -932,6 +1062,37 @@ def test_build_component_observation_projects_zero_fx_for_benchmark_currency_com
     assert observation.component_return_fx == 0
 
 
+def test_previous_normalized_component_price_selects_latest_prior_price():
+    assert _previous_normalized_component_price(
+        component_id="IDX_USD",
+        point_date=date(2026, 1, 3),
+        normalized_prices={
+            date(2026, 1, 1): Decimal("100"),
+            date(2026, 1, 2): Decimal("101"),
+            date(2026, 1, 3): Decimal("102"),
+        },
+    ) == (date(2026, 1, 2), Decimal("101"))
+
+
+def test_previous_normalized_component_price_rejects_missing_or_zero_prior_price():
+    with pytest.raises(HTTPException, match="requires a prior normalized price"):
+        _previous_normalized_component_price(
+            component_id="IDX_USD",
+            point_date=date(2026, 1, 2),
+            normalized_prices={date(2026, 1, 2): Decimal("101")},
+        )
+
+    with pytest.raises(HTTPException, match="Normalized benchmark price is zero"):
+        _previous_normalized_component_price(
+            component_id="IDX_USD",
+            point_date=date(2026, 1, 2),
+            normalized_prices={
+                date(2026, 1, 1): Decimal("0"),
+                date(2026, 1, 2): Decimal("101"),
+            },
+        )
+
+
 def test_build_normalized_component_series_skips_invalid_points_and_rejects_missing_prices():
     with pytest.raises(HTTPException, match="missing index_price"):
         _build_normalized_component_series(
@@ -985,6 +1146,76 @@ def test_normalized_price_maps_for_component_filters_and_normalizes_requested_da
         date(2026, 1, 2): Decimal("113.12"),
     }
     assert component_dates == {date(2026, 1, 2)}
+
+
+def test_normalized_component_price_point_from_payload_projects_normalized_point_scope():
+    prior_point = _normalized_component_price_point_from_payload(
+        index_id="IDX_EUR",
+        point={"series_date": "2026-01-01", "index_price": "100"},
+        component_currency="EUR",
+        benchmark_currency="USD",
+        fx_map_by_pair={("EUR", "USD"): {date(2026, 1, 1): Decimal("1.10")}},
+        requested_start_date=date(2026, 1, 2),
+        requested_end_date=date(2026, 1, 3),
+    )
+    requested_point = _normalized_component_price_point_from_payload(
+        index_id="IDX_EUR",
+        point={"series_date": "2026-01-02", "index_price": Decimal("101")},
+        component_currency="EUR",
+        benchmark_currency="USD",
+        fx_map_by_pair={("EUR", "USD"): {date(2026, 1, 2): Decimal("1.12")}},
+        requested_start_date=date(2026, 1, 2),
+        requested_end_date=date(2026, 1, 3),
+    )
+
+    assert prior_point is not None
+    assert prior_point.point_date == date(2026, 1, 1)
+    assert prior_point.local_price == Decimal("100")
+    assert prior_point.normalized_price == Decimal("110.00")
+    assert not prior_point.is_requested_date
+    assert requested_point is not None
+    assert requested_point.normalized_price == Decimal("113.12")
+    assert requested_point.is_requested_date
+
+
+def test_normalized_component_price_point_from_payload_skips_invalid_or_out_of_window_points():
+    assert (
+        _normalized_component_price_point_from_payload(
+            index_id="IDX_EUR",
+            point="ignored",
+            component_currency="EUR",
+            benchmark_currency="USD",
+            fx_map_by_pair={},
+            requested_start_date=date(2026, 1, 2),
+            requested_end_date=date(2026, 1, 3),
+        )
+        is None
+    )
+    assert (
+        _normalized_component_price_point_from_payload(
+            index_id="IDX_EUR",
+            point={"series_date": "2026-01-04", "index_price": "104"},
+            component_currency="EUR",
+            benchmark_currency="USD",
+            fx_map_by_pair={},
+            requested_start_date=date(2026, 1, 2),
+            requested_end_date=date(2026, 1, 3),
+        )
+        is None
+    )
+
+
+def test_normalized_component_price_point_from_payload_rejects_missing_index_price():
+    with pytest.raises(HTTPException, match="missing index_price"):
+        _normalized_component_price_point_from_payload(
+            index_id="IDX_EUR",
+            point={"series_date": "2026-01-02", "index_price": None},
+            component_currency="EUR",
+            benchmark_currency="USD",
+            fx_map_by_pair={},
+            requested_start_date=date(2026, 1, 2),
+            requested_end_date=date(2026, 1, 3),
+        )
 
 
 def test_normalization_and_metadata_helpers_cover_direct_contracts():

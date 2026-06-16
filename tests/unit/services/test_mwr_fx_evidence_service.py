@@ -6,6 +6,7 @@ from fastapi import HTTPException
 from app.models.mwr_requests import MoneyWeightedReturnRequest
 from app.services.mwr_fx_evidence_service import (
     _build_cashflow_response_evidence,
+    _validate_component_required_text_fields,
     _validated_cash_flow_evidence_by_index,
     build_source_preconverted_mwr_currency_evidence,
 )
@@ -116,6 +117,22 @@ def test_cashflow_response_evidence_helpers_preserve_source_conversion_metadata(
     assert cashflow_evidence[0].source_amount == 5000
     assert cashflow_evidence[0].source_currency == "EUR"
     assert cashflow_evidence[0].conversion_fingerprint == "fx-cashflow"
+
+
+def test_validate_component_required_text_fields_reports_missing_fields():
+    request = _request_with_evidence(
+        source_preconverted_fx_evidence={
+            "market_values": [
+                _market_value("beginning_market_value", 100000.0, 110000.0, "2025-01-01", "fx-begin"),
+                _market_value("ending_market_value", 115000.0, 126500.0, "2025-12-31", "fx-end"),
+            ],
+            "cash_flows": [_cash_flow(fx_pair=" ", conversion_fingerprint="")],
+        }
+    )
+    component = request.source_preconverted_fx_evidence.cash_flows[0]
+
+    with pytest.raises(HTTPException, match="fx_pair, conversion_fingerprint"):
+        _validate_component_required_text_fields(component, location="source_preconverted_fx_evidence.cash_flows[0]")
 
 
 @pytest.mark.parametrize(

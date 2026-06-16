@@ -5,7 +5,7 @@ import pytest
 
 from app.api.endpoints.contribution import _as_numeric
 from app.models.contribution_analytics_requests import ContributionAnalyticsRequest, ContributionInputMode
-from app.models.contribution_requests import ContributionRequest
+from app.models.contribution_requests import ContributionRequest, PositionData
 from app.models.contribution_responses import DailyContribution, PositionContribution, SinglePeriodContributionResult
 from app.services.contribution_audit import AverageWeightShadowAuditState
 from app.services.contribution_calculation_workflow_service import (
@@ -22,11 +22,13 @@ from app.services.contribution_diagnostics import (
     _calculate_position_flow_balance_counts,
     _calculate_reset_characterization_counts,
     _calculate_reset_relative_day_counts,
+    _position_flow_residual_counts,
 )
 from app.services.contribution_methodology import (
     RESET_AWARE_AVERAGE_WEIGHT_MODE_CANDIDATE_PERIODS,
     RESET_AWARE_AVERAGE_WEIGHT_MODE_OFF,
     _assess_average_weight_shadow_cutover,
+    _average_weight_shadow_cutover_blocker_conditions,
     _average_weight_shadow_delta_metrics,
     _build_average_weight_methodology_status,
     _calculate_average_weight_sum_residual_bp,
@@ -36,6 +38,7 @@ from app.services.contribution_methodology import (
     _classify_average_weight_methodology_status,
     _classify_average_weight_shadow_cutover_blockers,
     _classify_average_weight_shadow_period,
+    _has_clean_average_weight_shadow_bookkeeping,
     _is_average_weight_shadow_cutover_candidate,
     _normalize_reset_aware_average_weight_mode,
     _reset_aware_valid_portfolio_days,
@@ -49,6 +52,7 @@ from app.services.contribution_periods import (
 from app.services.contribution_returns import (
     _calculate_position_total_return_pct,
     _calculate_reset_aware_period_portfolio_return,
+    _position_period_valuation_points,
     build_position_contributions,
     build_residual_adjusted_position_totals,
 )
@@ -58,6 +62,7 @@ from app.services.contribution_series import (
     _build_position_contribution_series,
     _build_residual_adjusted_daily_contribution_series,
     _build_residual_adjusted_position_timeseries,
+    _partition_hierarchy_rows_for_emission,
     _position_contribution_series_from_adjusted_rows,
 )
 from app.services.contribution_service import (
@@ -65,6 +70,7 @@ from app.services.contribution_service import (
     _build_period_average_weight_methodology_status,
     _build_period_contribution_series_outputs,
     _record_period_timeseries_total_delta,
+    _requires_position_contribution_series,
     _select_period_average_weight_column,
 )
 from app.services.contribution_smoothing import (
@@ -72,6 +78,7 @@ from app.services.contribution_smoothing import (
     _contribution_smoothing_residual_reason_codes,
     _contribution_smoothing_status_and_reasons,
     _count_carino_invalid_domain_days,
+    _is_reconciled_carino_smoothing,
 )
 from common.enums import PeriodType
 from core.envelope import Diagnostics
@@ -121,6 +128,31 @@ def test_contribution_smoothing_residual_reason_codes_report_reconciliation_cond
         "RAW_CONTRIBUTION_DIFFERS_FROM_LINKED_RETURN",
         "SMOOTHED_CONTRIBUTION_RECONCILES",
     ]
+
+
+@pytest.mark.parametrize(
+    ("smoothing_method", "invalid_domain_days", "smoothing_residual", "expected"),
+    [
+        ("CARINO", 0, 1e-9, True),
+        ("CARINO", 0, 1.1e-9, False),
+        ("NONE", 0, 0.0, False),
+        ("CARINO", 1, 0.0, False),
+    ],
+)
+def test_is_reconciled_carino_smoothing_requires_valid_carino_within_tolerance(
+    smoothing_method,
+    invalid_domain_days,
+    smoothing_residual,
+    expected,
+):
+    assert (
+        _is_reconciled_carino_smoothing(
+            smoothing_method=smoothing_method,
+            invalid_domain_days=invalid_domain_days,
+            smoothing_residual=smoothing_residual,
+        )
+        is expected
+    )
 
 
 def test_average_weight_shadow_audit_state_records_counts_and_diagnostic_notes():
@@ -462,6 +494,31 @@ def test_build_period_contribution_series_outputs_omits_optional_series_when_not
     assert emitted_position_series is None
 
 
+@pytest.mark.parametrize(
+    ("emit_timeseries", "emit_by_position_timeseries", "force_position_series", "expected"),
+    [
+        (False, False, False, False),
+        (True, False, False, True),
+        (False, True, False, True),
+        (False, False, True, True),
+    ],
+)
+def test_requires_position_contribution_series_for_any_consumer(
+    emit_timeseries,
+    emit_by_position_timeseries,
+    force_position_series,
+    expected,
+):
+    assert (
+        _requires_position_contribution_series(
+            emit_timeseries=emit_timeseries,
+            emit_by_position_timeseries=emit_by_position_timeseries,
+            force_position_series=force_position_series,
+        )
+        is expected
+    )
+
+
 def test_build_period_contribution_series_outputs_builds_daily_series_when_requested():
     period_slice_df = pd.DataFrame(
         {
@@ -654,6 +711,27 @@ def test_contribution_reset_helpers_cover_empty_and_zero_paths(mocker):
         )
         == 0.0
     )
+
+
+def test_position_period_valuation_points_filters_inclusive_window() -> None:
+    position_data = PositionData.model_validate(
+        {
+            "position_id": "A",
+            "valuation_points": [
+                {"perf_date": "2025-01-01", "begin_mv": 100, "end_mv": 101},
+                {"perf_date": "2025-01-02", "begin_mv": 101, "end_mv": 102},
+                {"perf_date": "2025-01-03", "begin_mv": 102, "end_mv": 103},
+            ],
+        }
+    )
+
+    period_points = _position_period_valuation_points(
+        position_data=position_data,
+        period_start_date=pd.Timestamp("2025-01-02").date(),
+        period_end_date=pd.Timestamp("2025-01-02").date(),
+    )
+
+    assert [point["perf_date"] for point in period_points] == [pd.Timestamp("2025-01-02").date()]
 
 
 def test_calculate_reset_aware_average_weight_shadow_ignores_pre_reset_history_and_nip_days():
@@ -894,6 +972,31 @@ def test_calculate_position_flow_balance_counts_sizes_non_flow_neutral_days():
     }
 
 
+def test_position_flow_residual_counts_size_residuals_against_capital_base():
+    residual_flow_by_day = pd.Series(
+        [10.0, 5.0, 0.0],
+        index=pd.Index(
+            [
+                pd.Timestamp("2025-01-01").date(),
+                pd.Timestamp("2025-01-02").date(),
+                pd.Timestamp("2025-01-03").date(),
+            ]
+        ),
+    )
+    portfolio_capital_by_day = pd.Series(
+        [1000.0, 500.0, 100.0],
+        index=residual_flow_by_day.index,
+    )
+
+    counts = _position_flow_residual_counts(residual_flow_by_day, portfolio_capital_by_day)
+
+    assert counts == {
+        "position_flow_residual_days": 2,
+        "position_flow_residual_max_bp": 100,
+        "position_flow_residual_sum_bp": 200,
+    }
+
+
 def test_contribution_series_helpers_build_and_reconcile_daily_outputs():
     period_slice_df = pd.DataFrame(
         {
@@ -1092,6 +1195,25 @@ def test_residual_adjusted_series_helpers_handle_empty_inputs():
     assert _build_residual_adjusted_daily_contribution_series([]) == []
 
 
+def test_partition_hierarchy_rows_for_emission_moves_threshold_and_top_n_overflow():
+    ordered = pd.DataFrame(
+        {
+            "sector": ["Technology", "Healthcare", "Energy", "Cash"],
+            "contribution": [0.04, 0.03, 0.02, 0.01],
+            "weight_avg": [0.50, 0.30, 0.20, 0.01],
+        }
+    )
+
+    explicit_rows, overflow_rows = _partition_hierarchy_rows_for_emission(
+        ordered,
+        threshold=0.10,
+        top_n=2,
+    )
+
+    assert explicit_rows["sector"].tolist() == ["Technology", "Healthcare"]
+    assert overflow_rows["sector"].tolist() == ["Cash", "Energy"]
+
+
 def test_average_weight_shadow_helper_classifies_materiality_and_cutover_readiness():
     assert _classify_average_weight_shadow_period(50) == "noise"
     assert _classify_average_weight_shadow_period(250) == "warning"
@@ -1113,6 +1235,13 @@ def test_average_weight_shadow_helper_classifies_materiality_and_cutover_readine
         position_reset_without_portfolio_reset_days=0,
         timeseries_total_delta_periods=0,
     )
+    assert not _has_clean_average_weight_shadow_bookkeeping(
+        average_weight_sum_residual_bp=0,
+        position_flow_residual_days=-1,
+        portfolio_reset_without_position_reset_days=0,
+        position_reset_without_portfolio_reset_days=0,
+        timeseries_total_delta_periods=0,
+    )
     assert _classify_average_weight_shadow_cutover_blockers(
         max_shadow_delta_bp=600,
         average_weight_sum_residual_bp=50,
@@ -1121,6 +1250,18 @@ def test_average_weight_shadow_helper_classifies_materiality_and_cutover_readine
         position_reset_without_portfolio_reset_days=0,
         timeseries_total_delta_periods=1,
     ) == {"weight_residual", "flow_balance", "reset_alignment", "timeseries_reconciliation"}
+    assert _average_weight_shadow_cutover_blocker_conditions(
+        average_weight_sum_residual_bp=50,
+        position_flow_residual_days=1,
+        portfolio_reset_without_position_reset_days=1,
+        position_reset_without_portfolio_reset_days=0,
+        timeseries_total_delta_periods=1,
+    ) == {
+        "weight_residual": True,
+        "flow_balance": True,
+        "reset_alignment": True,
+        "timeseries_reconciliation": True,
+    }
     ready_assessment = _assess_average_weight_shadow_cutover(
         max_shadow_delta_bp=600,
         average_weight_sum_residual_bp=0,

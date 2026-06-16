@@ -19,6 +19,7 @@ from app.services.durable_store_inspection import (
     INSPECTION_STATUS_ALL,
     INSPECTION_STATUS_FAILED,
     INSPECTION_STATUS_RECLAIMABLE,
+    InspectionQueryContext,
     apply_min_age_filter,
     build_inspection_query_context,
 )
@@ -137,6 +138,14 @@ class ReconciledJobRecord:
 
 
 @dataclass(frozen=True)
+class _StaleJobReconciliationOutcome:
+    job_status: ComputeJobStatus
+    error_message: str
+    error_type: str
+    completed_at_utc: datetime | None
+
+
+@dataclass(frozen=True)
 class _ComputeJobRecordPayloadState:
     job_status: ComputeJobStatus
     request_payload: dict[str, Any]
@@ -153,6 +162,12 @@ class _ComputeJobPayloadFailure:
 
 
 @dataclass(frozen=True)
+class _ComputeInspectionStatements:
+    count_statement: Any
+    items_statement: Any
+
+
+@dataclass(frozen=True)
 class ComputeQueueStats:
     pending_count: int
     leased_count: int
@@ -166,6 +181,29 @@ class ComputeQueueStats:
     oldest_leased_age_seconds: float
     oldest_running_age_seconds: float
     reclaimable_count: int = 0
+
+
+def _stale_job_reconciliation_outcome(
+    *,
+    previous_status: ComputeJobStatus,
+    attempt_count: int,
+    max_attempts: int,
+    now: datetime,
+) -> _StaleJobReconciliationOutcome:
+    exhausted_retries = previous_status == ComputeJobStatus.RUNNING and attempt_count >= max_attempts
+    if exhausted_retries:
+        return _StaleJobReconciliationOutcome(
+            job_status=ComputeJobStatus.FAILED,
+            error_message="Compute job execution lease expired after exhausting retry budget.",
+            error_type="LeaseExpired",
+            completed_at_utc=now,
+        )
+    return _StaleJobReconciliationOutcome(
+        job_status=ComputeJobStatus.PENDING,
+        error_message="Compute job reconciliation detected an expired worker lease.",
+        error_type="LeaseExpired",
+        completed_at_utc=None,
+    )
 
 
 def _aggregate_row_count(aggregate_row: Any, field_name: str) -> int:
@@ -244,6 +282,34 @@ class ComputeRecoveryEventPage:
 class ComputeJobRegistrationResult:
     status: ComputeJobRegistrationStatus
     existing_status: ComputeJobStatus | None = None
+
+
+def _matches_existing_compute_job_registration(
+    existing: ComputeJobModel,
+    *,
+    analytics_type: str,
+    request_json: str,
+    max_attempts: int,
+) -> bool:
+    return (
+        existing.analytics_type == analytics_type
+        and existing.request_json == request_json
+        and existing.max_attempts == max_attempts
+    )
+
+
+def _ensure_compute_job_can_mark_running(
+    row: ComputeJobModel,
+    *,
+    calculation_id: UUID,
+    worker_id: str | None,
+) -> None:
+    if row.job_status == ComputeJobStatus.FAILED.value:
+        raise ValueError(f"Cannot mark failed job as running: {calculation_id}")
+    if row.job_status == ComputeJobStatus.COMPLETE.value:
+        raise ValueError(f"Cannot mark complete job as running: {calculation_id}")
+    if worker_id is not None and row.worker_id not in {None, worker_id}:
+        raise ValueError(f"Compute job leased by another worker: {calculation_id}")
 
 
 class ComputeJobStore:
@@ -365,10 +431,11 @@ class ComputeJobStore:
             existing = session.get(ComputeJobModel, str(calculation_id))
             if existing is None:
                 raise
-            if (
-                existing.analytics_type == analytics_type
-                and existing.request_json == request_json
-                and existing.max_attempts == configured_max_attempts
+            if _matches_existing_compute_job_registration(
+                existing,
+                analytics_type=analytics_type,
+                request_json=request_json,
+                max_attempts=configured_max_attempts,
             ):
                 return ComputeJobRegistrationResult(
                     status=ComputeJobRegistrationStatus.REPLAY,
@@ -426,12 +493,7 @@ class ComputeJobStore:
     ) -> None:
         with self._session() as session:
             row = self._get_model(session, calculation_id)
-            if row.job_status == ComputeJobStatus.FAILED.value:
-                raise ValueError(f"Cannot mark failed job as running: {calculation_id}")
-            if row.job_status == ComputeJobStatus.COMPLETE.value:
-                raise ValueError(f"Cannot mark complete job as running: {calculation_id}")
-            if worker_id is not None and row.worker_id not in {None, worker_id}:
-                raise ValueError(f"Compute job leased by another worker: {calculation_id}")
+            _ensure_compute_job_can_mark_running(row, calculation_id=calculation_id, worker_id=worker_id)
             row.job_status = ComputeJobStatus.RUNNING.value
             row.attempt_count += 1
             row.error_message = None
@@ -514,19 +576,20 @@ class ComputeJobStore:
 
     def _reconcile_stale_job_row(self, row: ComputeJobModel, *, now: datetime) -> ReconciledJobRecord:
         previous_status = ComputeJobStatus(row.job_status)
-        exhausted_retries = previous_status == ComputeJobStatus.RUNNING and row.attempt_count >= row.max_attempts
+        outcome = _stale_job_reconciliation_outcome(
+            previous_status=previous_status,
+            attempt_count=row.attempt_count,
+            max_attempts=row.max_attempts,
+            now=now,
+        )
         row.worker_id = None
         row.leased_at_utc = None
         row.lease_expires_at_utc = None
         row.last_error_at_utc = now
-        row.error_message = (
-            "Compute job execution lease expired after exhausting retry budget."
-            if exhausted_retries
-            else "Compute job reconciliation detected an expired worker lease."
-        )
-        row.error_type = "LeaseExpired"
-        row.completed_at_utc = now if exhausted_retries else None
-        row.job_status = ComputeJobStatus.FAILED.value if exhausted_retries else ComputeJobStatus.PENDING.value
+        row.error_message = outcome.error_message
+        row.error_type = outcome.error_type
+        row.completed_at_utc = outcome.completed_at_utc
+        row.job_status = outcome.job_status.value
         return ReconciledJobRecord(
             calculation_id=UUID(row.calculation_id),
             analytics_type=row.analytics_type,
@@ -534,8 +597,8 @@ class ComputeJobStore:
             reconciled_status=ComputeJobStatus(row.job_status),
             attempt_count=row.attempt_count,
             max_attempts=row.max_attempts,
-            error_message=row.error_message,
-            error_type=row.error_type or "LeaseExpired",
+            error_message=outcome.error_message,
+            error_type=outcome.error_type,
         )
 
     def _build_lease_pending_jobs_statement(
@@ -676,67 +739,75 @@ class ComputeJobStore:
         )
 
         with self._session() as session:
-            if inspection_context.status_filter == INSPECTION_STATUS_ACTIVE:
-                count_statement = self._build_active_inspection_count_statement(
-                    analytics_type=analytics_type,
-                    calculation_id_contains=calculation_id_contains,
-                    min_age_threshold=inspection_context.min_age_threshold,
-                )
-                statement = self._build_active_inspection_items_statement(
-                    limit=limit,
-                    offset=offset,
-                    analytics_type=analytics_type,
-                    calculation_id_contains=calculation_id_contains,
-                    min_age_threshold=inspection_context.min_age_threshold,
-                )
-            elif inspection_context.status_filter == INSPECTION_STATUS_FAILED:
-                count_statement = self._build_failed_inspection_count_statement(
-                    analytics_type=analytics_type,
-                    calculation_id_contains=calculation_id_contains,
-                    min_age_threshold=inspection_context.min_age_threshold,
-                )
-                statement = self._build_failed_inspection_items_statement(
-                    limit=limit,
-                    offset=offset,
-                    analytics_type=analytics_type,
-                    calculation_id_contains=calculation_id_contains,
-                    min_age_threshold=inspection_context.min_age_threshold,
-                )
-            elif inspection_context.status_filter == INSPECTION_STATUS_ALL:
-                count_statement = self._build_all_inspection_count_statement(
-                    analytics_type=analytics_type,
-                    calculation_id_contains=calculation_id_contains,
-                    min_age_threshold=inspection_context.min_age_threshold,
-                )
-                statement = self._build_all_inspection_items_statement(
-                    limit=limit,
-                    offset=offset,
-                    analytics_type=analytics_type,
-                    calculation_id_contains=calculation_id_contains,
-                    min_age_threshold=inspection_context.min_age_threshold,
-                )
-            elif inspection_context.status_filter == INSPECTION_STATUS_RECLAIMABLE:
-                count_statement = self._build_reclaimable_inspection_count_statement(
-                    analytics_type=analytics_type,
-                    calculation_id_contains=calculation_id_contains,
-                    now=inspection_context.now,
-                    min_age_threshold=inspection_context.min_age_threshold,
-                )
-                statement = self._build_reclaimable_inspection_items_statement(
-                    limit=limit,
-                    offset=offset,
-                    analytics_type=analytics_type,
-                    calculation_id_contains=calculation_id_contains,
-                    now=inspection_context.now,
-                    min_age_threshold=inspection_context.min_age_threshold,
-                )
-            else:
-                raise ValueError(f"Unsupported status filter: {status_filter}")
-            rows = session.execute(statement).scalars().all()
+            statements = self._build_inspection_statements(
+                inspection_context=inspection_context,
+                limit=limit,
+                offset=offset,
+                analytics_type=analytics_type,
+                calculation_id_contains=calculation_id_contains,
+            )
+            rows = session.execute(statements.items_statement).scalars().all()
             items = [self._to_inspection_item(row, now=inspection_context.now) for row in rows]
-            total_count = int(session.execute(count_statement).scalar_one() or 0)
+            total_count = int(session.execute(statements.count_statement).scalar_one() or 0)
             next_offset = next_offset_or_none(offset=offset, item_count=len(items), total_count=total_count)
             return ComputeQueueInspectionPage(total_count=total_count, next_offset=next_offset, items=items)
+
+    def _build_inspection_statements(
+        self,
+        *,
+        inspection_context: InspectionQueryContext,
+        limit: int,
+        offset: int,
+        analytics_type: str | None,
+        calculation_id_contains: str | None,
+    ) -> _ComputeInspectionStatements:
+        if inspection_context.status_filter == INSPECTION_STATUS_RECLAIMABLE:
+            return _ComputeInspectionStatements(
+                count_statement=self._build_reclaimable_inspection_count_statement(
+                    analytics_type=analytics_type,
+                    calculation_id_contains=calculation_id_contains,
+                    now=inspection_context.now,
+                    min_age_threshold=inspection_context.min_age_threshold,
+                ),
+                items_statement=self._build_reclaimable_inspection_items_statement(
+                    limit=limit,
+                    offset=offset,
+                    analytics_type=analytics_type,
+                    calculation_id_contains=calculation_id_contains,
+                    now=inspection_context.now,
+                    min_age_threshold=inspection_context.min_age_threshold,
+                ),
+            )
+
+        statement_builders = {
+            INSPECTION_STATUS_ACTIVE: (
+                self._build_active_inspection_count_statement,
+                self._build_active_inspection_items_statement,
+            ),
+            INSPECTION_STATUS_FAILED: (
+                self._build_failed_inspection_count_statement,
+                self._build_failed_inspection_items_statement,
+            ),
+            INSPECTION_STATUS_ALL: (
+                self._build_all_inspection_count_statement,
+                self._build_all_inspection_items_statement,
+            ),
+        }
+        count_builder, items_builder = statement_builders[inspection_context.status_filter]
+        return _ComputeInspectionStatements(
+            count_statement=count_builder(
+                analytics_type=analytics_type,
+                calculation_id_contains=calculation_id_contains,
+                min_age_threshold=inspection_context.min_age_threshold,
+            ),
+            items_statement=items_builder(
+                limit=limit,
+                offset=offset,
+                analytics_type=analytics_type,
+                calculation_id_contains=calculation_id_contains,
+                min_age_threshold=inspection_context.min_age_threshold,
+            ),
+        )
 
     def _build_queue_stats_statement(self, *, now: datetime):
         return select(

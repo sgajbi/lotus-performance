@@ -8,13 +8,19 @@ from app.models.attribution_requests import AttributionRequest
 from common.enums import AttributionModel, LinkingMethod
 from engine.attribution import (
     _align_and_prepare_data,
+    _backfill_same_currency_return_columns,
+    _base_weight_record_from_point,
     _build_attribution_aggregation_base,
     _build_attribution_levels,
+    _build_base_weight_series,
     _build_group_key_dict,
     _build_instrument_attribution_panel,
     _calculate_currency_attribution_effects,
     _calculate_group_context_metrics,
     _calculate_single_period_effects,
+    _currency_attribution_status,
+    _finalize_aligned_attribution_frame,
+    _instrument_attribution_panels,
     _link_effects_top_down,
     _normalize_instrument_group_columns,
     _normalize_instrument_return_columns,
@@ -504,6 +510,44 @@ def test_prepare_data_from_instruments_preserves_unclassified_weight():
     assert weights_by_sector == pytest.approx({"Tech": 0.6, "unknown": 0.4})
 
 
+def test_instrument_attribution_panels_skips_empty_instruments_and_keeps_valid_panels():
+    request = AttributionRequest.model_validate(
+        {
+            "portfolio_id": "ATTR_PANEL_COLLECTION",
+            "mode": "by_instrument",
+            "group_by": ["sector"],
+            "linking": "none",
+            "frequency": "daily",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-01",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "portfolio_data": {
+                "metric_basis": "NET",
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+            },
+            "instruments_data": [
+                {"instrument_id": "EMPTY", "meta": {"sector": "Cash"}, "valuation_points": []},
+                {
+                    "instrument_id": "AAPL",
+                    "meta": {"sector": "Tech"},
+                    "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 600, "end_mv": 612}],
+                },
+            ],
+            "benchmark_groups_data": [],
+        }
+    )
+
+    panels = _instrument_attribution_panels(
+        request=request,
+        twr_config=_build_test_twr_config(request),
+        portfolio_bop_mv=pd.Series([1000.0], index=[pd.Timestamp("2025-01-01")]),
+    )
+
+    assert len(panels) == 1
+    assert panels[0].iloc[0]["sector"] == "Tech"
+    assert panels[0].iloc[0]["return_base"] == pytest.approx(0.02)
+
+
 def test_build_instrument_attribution_panel_uses_base_weight_points():
     request = AttributionRequest.model_validate(
         {
@@ -547,6 +591,28 @@ def test_build_instrument_attribution_panel_uses_base_weight_points():
     assert row["weight_bop"] == pytest.approx(0.3)
     assert row["return_base"] == pytest.approx(0.01)
     assert row["sector"] == "Tech"
+
+
+def test_base_weight_record_from_point_projects_date_and_capital():
+    record = _base_weight_record_from_point({"perf_date": "2025-01-01", "begin_mv": "250", "bod_cf": "50"})
+
+    assert record == {"date": pd.Timestamp("2025-01-01"), "capital": 300.0}
+    assert _base_weight_record_from_point("bad") is None
+    assert _base_weight_record_from_point({"perf_date": "2025-01-01"}) is None
+
+
+def test_build_base_weight_series_keeps_latest_duplicate_date_record():
+    series = _build_base_weight_series(
+        {
+            "base_weight_points": [
+                {"perf_date": "2025-01-01", "begin_mv": 200, "bod_cf": 0},
+                {"perf_date": "2025-01-01", "begin_mv": 250, "bod_cf": 50},
+            ]
+        }
+    )
+
+    assert series is not None
+    assert series.to_dict() == {pd.Timestamp("2025-01-01"): 300.0}
 
 
 def test_build_instrument_attribution_panel_backfills_same_currency_returns():
@@ -604,6 +670,25 @@ def test_normalize_instrument_return_columns_backfills_and_scales_same_currency_
         {
             "return_base": 0.025,
             "return_local": 0.025,
+            "return_fx": 0.0,
+        }
+    ]
+
+
+def test_backfill_same_currency_return_columns_projects_local_and_zero_fx_returns():
+    instrument_results = pd.DataFrame({"return_base": [2.5]})
+
+    _backfill_same_currency_return_columns(
+        instrument_results,
+        currency_mode="BOTH",
+        instrument_currency="USD",
+        report_ccy="USD",
+    )
+
+    assert instrument_results.to_dict(orient="records") == [
+        {
+            "return_base": 2.5,
+            "return_local": 2.5,
             "return_fx": 0.0,
         }
     ]
@@ -709,6 +794,32 @@ def test_align_and_prepare_data_returns_empty_when_benchmark_missing(by_group_re
     assert aligned_df.empty
 
 
+def test_finalize_aligned_attribution_frame_flags_observations_and_computes_benchmark_total_return():
+    aligned_df = pd.DataFrame(
+        {
+            "w_p": [0.6, None],
+            "r_base_p": [0.02, None],
+            "w_b": [0.5, 0.5],
+            "r_base_b": [0.01, 0.03],
+        },
+        index=pd.MultiIndex.from_tuples(
+            [
+                (pd.Timestamp("2025-01-31"), "Tech"),
+                (pd.Timestamp("2025-01-31"), "Cash"),
+            ],
+            names=["date", "sector"],
+        ),
+    )
+
+    result = _finalize_aligned_attribution_frame(aligned_df, ["sector"])
+
+    assert result.index.names == ["date", "sector"]
+    assert bool(result.loc[(pd.Timestamp("2025-01-31"), "Tech"), "portfolio_observation_present"]) is True
+    assert bool(result.loc[(pd.Timestamp("2025-01-31"), "Cash"), "portfolio_observation_present"]) is False
+    assert result.loc[(pd.Timestamp("2025-01-31"), "Cash"), "w_p"] == 0.0
+    assert result.loc[(pd.Timestamp("2025-01-31"), "Tech"), "r_b_total"] == pytest.approx(0.02)
+
+
 def test_align_and_prepare_data_uses_period_start_weights_for_sparse_groups():
     request = AttributionRequest.model_validate(
         {
@@ -799,6 +910,44 @@ def test_calculate_currency_attribution_effects_matches_exact_formulas():
     assert row["local_selection"] == pytest.approx(0.50 * (0.025 - 0.020))
     assert row["currency_allocation"] == pytest.approx((0.55 - 0.50) * (1 + 0.020) * 0.010)
     assert row["currency_selection"] == pytest.approx(0.50 * (0.025 - 0.020) * 0.010)
+
+
+def test_currency_attribution_status_reports_not_requested_complete_and_unavailable():
+    effects_df = pd.DataFrame(
+        {
+            "w_p": [0.5],
+            "w_b": [0.5],
+            "r_local_p": [0.025],
+            "r_local_b": [0.020],
+            "r_fx_b": [0.010],
+        },
+        index=pd.MultiIndex.from_tuples(
+            [(pd.Timestamp("2025-01-01"), "EUR")],
+            names=["date", "currency"],
+        ),
+    )
+
+    assert (
+        _currency_attribution_status(
+            effects_df,
+            SimpleNamespace(currency_mode=None, group_by=["currency"]),
+        )
+        == "not_requested"
+    )
+    assert (
+        _currency_attribution_status(
+            effects_df,
+            SimpleNamespace(currency_mode="BOTH", group_by=["currency"]),
+        )
+        == "complete"
+    )
+    assert (
+        _currency_attribution_status(
+            effects_df.drop(columns=["r_fx_b"]),
+            SimpleNamespace(currency_mode="BOTH", group_by=["currency"]),
+        )
+        == "unavailable"
+    )
 
 
 def test_currency_attribution_totals_are_invariant_to_extra_grouping_dimensions():

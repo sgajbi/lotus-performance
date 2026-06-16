@@ -85,15 +85,23 @@ def build_contribution_source_economics_evidence(
 
 def _available_stateless_economics(request: ContributionRequest) -> list[str]:
     available = ["portfolio_market_values", "position_market_values"]
-    if any(
+    if _has_caller_supplied_position_flows(request):
+        available.append("caller_supplied_position_flows")
+    if _has_position_currency_metadata(request):
+        available.append("position_currency")
+    return sorted(set(available))
+
+
+def _has_caller_supplied_position_flows(request: ContributionRequest) -> bool:
+    return any(
         _has_non_zero_flow(point.model_dump(mode="python"))
         for position in request.positions_data
         for point in position.valuation_points
-    ):
-        available.append("caller_supplied_position_flows")
-    if any(position.meta.get("currency") for position in request.positions_data):
-        available.append("position_currency")
-    return sorted(set(available))
+    )
+
+
+def _has_position_currency_metadata(request: ContributionRequest) -> bool:
+    return any(position.meta.get("currency") for position in request.positions_data)
 
 
 def _available_stateful_economics(
@@ -127,13 +135,17 @@ def _stateful_metadata_economics(request: ContributionRequest) -> list[str]:
 
 
 def _unsupported_component_pnl_fields(request: ContributionRequest) -> list[str]:
-    present_component_fields = {
+    present_component_fields = _present_component_pnl_fields(request)
+    return [field_name for field_name in _COMPONENT_PNL_FIELDS if field_name not in present_component_fields]
+
+
+def _present_component_pnl_fields(request: ContributionRequest) -> set[str]:
+    return {
         field_name
         for position in request.positions_data
         for field_name in _COMPONENT_PNL_FIELDS
         if field_name in position.meta
     }
-    return [field_name for field_name in _COMPONENT_PNL_FIELDS if field_name not in present_component_fields]
 
 
 def _degraded_stateful_economics(
@@ -143,18 +155,24 @@ def _degraded_stateful_economics(
     upstream_snapshots: list[UpstreamSnapshotRecord],
 ) -> list[str]:
     degraded: set[str] = set()
-    unsupported_flow_count = sum(
-        count
-        for flow_type, count in cash_flow_type_counts.items()
-        if flow_type not in {"external_flow", "internal_trade_flow", "transfer", "fee", "missing"}
-    )
-    if unsupported_flow_count > 0:
+    if _has_unsupported_cash_flow_types(cash_flow_type_counts):
         degraded.add("unsupported_cash_flow_types")
-    if any("Unclassified" in position.meta.values() for position in request.positions_data):
+    if _has_unclassified_position_metadata(request):
         degraded.add("missing_classification")
     if not upstream_snapshots:
         degraded.add("upstream_snapshot_lineage_not_embedded")
     return sorted(degraded)
+
+
+def _has_unsupported_cash_flow_types(cash_flow_type_counts: Counter[str]) -> bool:
+    return any(
+        count > 0 and flow_type not in {"external_flow", "internal_trade_flow", "transfer", "fee", "missing"}
+        for flow_type, count in cash_flow_type_counts.items()
+    )
+
+
+def _has_unclassified_position_metadata(request: ContributionRequest) -> bool:
+    return any("Unclassified" in position.meta.values() for position in request.positions_data)
 
 
 def _stateful_reason_codes(
@@ -194,9 +212,13 @@ def _source_cash_flow_type_counts(meta: dict[str, Any]) -> Counter[str]:
 
     counts: Counter[str] = Counter()
     for key, value in raw_counts.items():
-        if isinstance(key, str) and type(value) is int and value > 0:
+        if _is_valid_source_cash_flow_type_count(key, value):
             counts[key] += value
     return counts
+
+
+def _is_valid_source_cash_flow_type_count(key: Any, value: Any) -> bool:
+    return isinstance(key, str) and type(value) is int and value > 0
 
 
 def _classification_dimensions(request: ContributionRequest) -> list[str]:

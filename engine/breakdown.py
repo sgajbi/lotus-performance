@@ -34,18 +34,34 @@ def _calculate_period_summary_dict(
         )
 
     if annualization.enabled:
-        days_in_period = (
-            last_day[PortfolioColumns.PERF_DATE.value] - first_day[PortfolioColumns.PERF_DATE.value]
-        ).days + 1
-        ppy = annualization.periods_per_year or (
-            252 if annualization.basis == "BUS/252" else 365.25 if annualization.basis == "ACT/ACT" else 365.0
+        annualized_return_pct = _period_annualized_return_pct(
+            period_ror=period_ror,
+            first_day=first_day,
+            last_day=last_day,
+            annualization=annualization,
         )
-
-        if days_in_period > 0:
-            annualized_return = annualize_return(period_ror, days_in_period, ppy, annualization.basis) * 100
-            summary["annualized_return_pct"] = float(quantize_performance(annualized_return))
+        if annualized_return_pct is not None:
+            summary["annualized_return_pct"] = annualized_return_pct
 
     return summary
+
+
+def _period_annualized_return_pct(
+    *,
+    period_ror: float,
+    first_day: pd.Series,
+    last_day: pd.Series,
+    annualization: Annualization,
+) -> float | None:
+    days_in_period = (last_day[PortfolioColumns.PERF_DATE.value] - first_day[PortfolioColumns.PERF_DATE.value]).days + 1
+    if days_in_period <= 0:
+        return None
+    ppy = annualization.periods_per_year or (
+        252 if annualization.basis == "BUS/252" else 365.25 if annualization.basis == "ACT/ACT" else 365.0
+    )
+    annualized_pct = annualize_return(period_ror, days_in_period, ppy, annualization.basis) * 100
+    quantized = float(quantize_performance(annualized_pct))
+    return quantized
 
 
 def _daily_breakdown_item(row: pd.Series, include_cumulative: bool) -> Dict:

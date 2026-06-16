@@ -77,3 +77,17 @@ def test_get_effective_period_start_dates_fallback_branch(sample_dates):
 
     result_series = get_effective_period_start_dates(sample_dates, _FallbackConfig())
     assert (result_series == pd.to_datetime(date(2020, 1, 1))).all()
+
+
+def test_get_effective_period_start_dates_explicit_clamps_to_performance_start(sample_dates):
+    config = EngineConfig(
+        performance_start_date=date(2020, 1, 1),
+        report_start_date=date(2019, 12, 31),
+        report_end_date=date(2025, 12, 31),
+        metric_basis="NET",
+        period_type=PeriodType.EXPLICIT,
+    )
+
+    result_series = get_effective_period_start_dates(sample_dates, config)
+
+    assert (result_series == pd.to_datetime(date(2020, 1, 1))).all()

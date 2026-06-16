@@ -10,6 +10,8 @@ from app.services.runtime_retention_execution_service import RuntimeRetentionCle
 from app.services.runtime_retention_history_service import RuntimeRetentionHistorySnapshot
 from app.services.runtime_retention_run_service import (
     RuntimeRetentionCleanupRunResult,
+    _enforce_runtime_retention_manual_run_guards,
+    _runtime_retention_cleanup_response_from_evidence,
     run_runtime_retention_cleanup,
 )
 
@@ -51,6 +53,84 @@ def _build_evidence() -> RuntimeRetentionCleanupEvidence:
         prunable_lineage_record_count=1,
         prunable_lineage_artifact_count=1,
     )
+
+
+def test_runtime_retention_cleanup_response_from_evidence_projects_counts_and_identity():
+    response = _runtime_retention_cleanup_response_from_evidence(_build_evidence())
+
+    assert response.cleanup_name == "runtime_retention_cleanup"
+    assert response.operator_id == "ops-user"
+    assert response.job_id == "ticket-7"
+    assert response.cleanup_mode == "dry_run"
+    assert response.status == "planned"
+    assert response.prunable_execution_count == 1
+    assert response.prunable_lineage_artifact_count == 1
+
+
+def test_runtime_retention_manual_run_guards_skip_preview_for_dry_run(monkeypatch):
+    calls = {"preview": 0, "cooldown": 0}
+
+    def fake_preview(*args, **kwargs):
+        calls["preview"] += 1
+
+    def fake_cooldown(*args, **kwargs):
+        calls["cooldown"] += 1
+        assert kwargs["apply"] is False
+        assert kwargs["retention_days"] == 30
+
+    monkeypatch.setattr(
+        "app.services.runtime_retention_run_service.enforce_runtime_retention_apply_preview",
+        fake_preview,
+    )
+    monkeypatch.setattr(
+        "app.services.runtime_retention_run_service.enforce_runtime_retention_manual_run_cooldown",
+        fake_cooldown,
+    )
+
+    _enforce_runtime_retention_manual_run_guards(
+        cleanup_request=RuntimeRetentionCleanupRunRequest(apply=False, retention_days=30, job_id="ticket-7"),
+        history_snapshot=_build_snapshot(),
+        operator_id="ops-user",
+        tenant_id=None,
+        resolved_retention_days=30,
+        apply_preview_max_age_seconds=3600.0,
+        cooldown_seconds=300.0,
+    )
+
+    assert calls == {"preview": 0, "cooldown": 1}
+
+
+def test_runtime_retention_manual_run_guards_enforce_preview_before_cooldown_for_apply(monkeypatch):
+    calls = []
+
+    def fake_preview(*args, **kwargs):
+        calls.append("preview")
+        assert kwargs["preview_max_age_seconds"] == 3600.0
+
+    def fake_cooldown(*args, **kwargs):
+        calls.append("cooldown")
+        assert kwargs["apply"] is True
+
+    monkeypatch.setattr(
+        "app.services.runtime_retention_run_service.enforce_runtime_retention_apply_preview",
+        fake_preview,
+    )
+    monkeypatch.setattr(
+        "app.services.runtime_retention_run_service.enforce_runtime_retention_manual_run_cooldown",
+        fake_cooldown,
+    )
+
+    _enforce_runtime_retention_manual_run_guards(
+        cleanup_request=RuntimeRetentionCleanupRunRequest(apply=True, retention_days=None, job_id="ticket-7"),
+        history_snapshot=_build_snapshot(),
+        operator_id="ops-user",
+        tenant_id="tenant-a",
+        resolved_retention_days=45,
+        apply_preview_max_age_seconds=3600.0,
+        cooldown_seconds=300.0,
+    )
+
+    assert calls == ["preview", "cooldown"]
 
 
 def test_runtime_retention_cleanup_run_replays_existing_evidence_payload(tmp_path, monkeypatch):

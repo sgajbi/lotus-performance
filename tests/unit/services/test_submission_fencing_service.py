@@ -10,6 +10,7 @@ from app.services.execution_registry import ExecutionRegistrationResult, Executi
 from app.services.execution_stage_names import EXECUTION_STAGE_SUBMISSION
 from app.services.submission_fencing_service import (
     _complete_async_submission_stage_if_needed,
+    _register_async_compute_job_or_rollback_execution,
     promote_existing_execution_to_async_submission_or_raise,
     register_async_submission_or_raise,
 )
@@ -165,6 +166,27 @@ def test_register_async_submission_conflict_on_job_payload_drift_raises_409(mock
 
     assert exc_info.value.status_code == 409
     assert "A different async compute job already exists" in str(exc_info.value.detail)
+
+
+def test_register_async_compute_job_conflict_does_not_delete_replayed_execution(mocker):
+    calculation_id = uuid4()
+    mocker.patch(
+        "app.services.submission_fencing_service.compute_job_store.register_job",
+        return_value=ComputeJobRegistrationResult(status=ComputeJobRegistrationStatus.CONFLICT),
+    )
+    delete_execution = mocker.patch("app.services.submission_fencing_service.execution_registry.delete_execution")
+
+    with pytest.raises(HTTPException) as exc_info:
+        _register_async_compute_job_or_rollback_execution(
+            calculation_id=calculation_id,
+            analytics_type="Contribution",
+            request_payload={"calculation_id": str(calculation_id)},
+            created_execution=False,
+        )
+
+    assert exc_info.value.status_code == 409
+    assert "A different async compute job already exists" in str(exc_info.value.detail)
+    delete_execution.assert_not_called()
 
 
 def test_register_async_submission_cleans_up_new_execution_on_job_conflict(mocker):

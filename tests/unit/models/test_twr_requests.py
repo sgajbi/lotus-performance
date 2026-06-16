@@ -9,6 +9,12 @@ from app.models.twr_requests import (
     TWRAnalyticsRequest,
     TWRBenchmarkRequest,
     TWRInputMode,
+    _has_exactly_one_stateless_twr_payload,
+    _has_legacy_twr_valuation_points,
+    _has_nested_twr_stateless_input,
+    _resolved_twr_stateless_valuation_points,
+    _stateless_twr_envelope_issue,
+    _twr_benchmark_config_required,
     _validate_calculated_stateless_twr_benchmark_payload,
     _validate_stateless_twr_payloads,
     _validate_twr_benchmark_inclusion,
@@ -92,6 +98,57 @@ def test_twr_stateless_payload_helper_rejects_ambiguous_payloads():
         _validate_stateless_twr_payloads(request)
 
 
+@pytest.mark.parametrize(
+    ("stateless_input", "valuation_points", "has_nested", "has_legacy", "has_exactly_one"),
+    [
+        (object(), [], True, False, True),
+        (
+            None,
+            [DailyInputData.model_validate({"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010})],
+            False,
+            True,
+            True,
+        ),
+        (None, [], False, False, False),
+        (
+            object(),
+            [DailyInputData.model_validate({"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010})],
+            True,
+            True,
+            False,
+        ),
+    ],
+)
+def test_twr_stateless_payload_shape_predicates(
+    stateless_input,
+    valuation_points,
+    has_nested,
+    has_legacy,
+    has_exactly_one,
+):
+    request = TWRAnalyticsRequest.model_construct(
+        performance_start_date=date(2024, 12, 31),
+        stateless_input=stateless_input,
+        stateful_input=None,
+        valuation_points=valuation_points,
+    )
+
+    assert _has_nested_twr_stateless_input(request) is has_nested
+    assert _has_legacy_twr_valuation_points(request) is has_legacy
+    assert _has_exactly_one_stateless_twr_payload(request) is has_exactly_one
+
+
+def test_stateless_twr_envelope_issue_requires_exactly_one_payload_shape():
+    assert _stateless_twr_envelope_issue(has_nested=True, has_legacy=False) is None
+    assert _stateless_twr_envelope_issue(has_nested=False, has_legacy=True) is None
+    assert _stateless_twr_envelope_issue(has_nested=True, has_legacy=True) == (
+        "Provide either stateless_input or valuation_points, not both, for stateless mode"
+    )
+    assert _stateless_twr_envelope_issue(has_nested=False, has_legacy=False) == (
+        "stateless_input or valuation_points is required when input_mode=stateless"
+    )
+
+
 def test_twr_request_rejects_stateful_payload_in_stateless_mode(base_payload):
     with pytest.raises(ValidationError, match="stateful_input must be null when input_mode=stateless"):
         TWRAnalyticsRequest.model_validate(
@@ -148,6 +205,20 @@ def test_twr_request_to_stateless_prefers_explicit_override(base_payload):
     assert stateless.valuation_points[0].perf_date.isoformat() == "2025-01-02"
 
 
+def test_resolved_twr_stateless_valuation_points_preserves_explicit_empty_override(base_payload):
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            **base_payload,
+            "input_mode": "stateless",
+            "stateless_input": {
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+            },
+        }
+    )
+
+    assert _resolved_twr_stateless_valuation_points(request, valuation_points=[]) == []
+
+
 def test_twr_request_to_stateless_fails_without_stateless_payload(base_payload):
     request = TWRAnalyticsRequest.model_validate(
         {
@@ -202,6 +273,30 @@ def test_twr_benchmark_inclusion_helper_promotes_nested_benchmark(base_payload):
     _validate_twr_benchmark_inclusion(request)
 
     assert request.include_benchmark is True
+
+
+@pytest.mark.parametrize(
+    ("input_mode", "include_benchmark", "has_benchmark", "config_required"),
+    [
+        (TWRInputMode.STATELESS, True, False, True),
+        (TWRInputMode.STATELESS, True, True, False),
+        (TWRInputMode.STATELESS, False, False, False),
+        (TWRInputMode.STATEFUL, True, False, False),
+    ],
+)
+def test_twr_benchmark_config_required_only_for_stateless_inclusion_without_config(
+    input_mode,
+    include_benchmark,
+    has_benchmark,
+    config_required,
+):
+    request = TWRAnalyticsRequest.model_construct(
+        input_mode=input_mode,
+        include_benchmark=include_benchmark,
+        benchmark=TWRBenchmarkRequest.model_construct() if has_benchmark else None,
+    )
+
+    assert _twr_benchmark_config_required(request) is config_required
 
 
 def test_twr_request_accepts_stateless_benchmark_price_points(base_payload):

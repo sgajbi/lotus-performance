@@ -11,7 +11,14 @@ from app.models.benchmark_analytics_requests import BenchmarkInputMode
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.models.requests import DailyInputData
 from app.models.workspace_summary_requests import WorkspaceSummaryRequest
-from app.models.workspace_summary_responses import WorkspaceReturnSummary, WorkspaceReturnValue
+from app.models.workspace_summary_responses import (
+    WorkspaceEconomicContext,
+    WorkspaceEconomicReturnSummary,
+    WorkspaceMoneyWeightedReturnSummary,
+    WorkspacePerformanceBlock,
+    WorkspaceReturnSummary,
+    WorkspaceReturnValue,
+)
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY
 from app.services.workspace_summary_service import (
     ResolvedWorkspaceBenchmarkInput,
@@ -20,8 +27,10 @@ from app.services.workspace_summary_service import (
     _build_economic_context,
     _build_mwr_cash_flows,
     _build_stateless_workspace_benchmark_input,
+    _build_stateless_workspace_portfolio_input,
     _build_workspace_benchmark_and_active_blocks,
     _build_workspace_benchmark_daily_df,
+    _build_workspace_results_by_period,
     _date_from_boundary,
     _decimal_or_zero,
     _resolve_stateful_portfolio_start_date,
@@ -526,6 +535,123 @@ def test_resolve_workspace_portfolio_input_rejects_stateless_request_without_per
 
     with pytest.raises(HTTPException, match="performance_start_date is required for stateless workspace summary"):
         _resolve_workspace_portfolio_input(request=request, settings=SimpleNamespace())
+
+
+def test_build_stateless_workspace_portfolio_input_projects_values_and_source_details():
+    request = WorkspaceSummaryRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT-1",
+            "report_end_date": "2026-01-02",
+            "performance_start_date": "2026-01-01",
+            "input_mode": "stateless",
+            "stateless_input": {
+                "valuation_points": [
+                    {"perf_date": "2026-01-01", "begin_mv": 100.0, "end_mv": 101.0},
+                    {"perf_date": "2026-01-02", "begin_mv": 101.0, "end_mv": 102.0},
+                ]
+            },
+            "periods": [{"period": "1D", "frequencies": ["daily"]}],
+        }
+    )
+
+    result = _build_stateless_workspace_portfolio_input(request)
+
+    assert result.input_mode == "stateless"
+    assert result.performance_start_date == date(2026, 1, 1)
+    assert [point.perf_date for point in result.valuation_points] == [date(2026, 1, 1), date(2026, 1, 2)]
+    assert [observation["perf_date"] for observation in result.observations] == [
+        date(2026, 1, 1),
+        date(2026, 1, 2),
+    ]
+    assert result.source_details == {"portfolio_chunk_count": 0, "portfolio_page_count": 0}
+
+
+def test_build_workspace_results_by_period_skips_empty_periods_and_projects_summaries(mocker):
+    request = WorkspaceSummaryRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT-1",
+            "report_end_date": "2026-01-03",
+            "performance_start_date": "2026-01-01",
+            "input_mode": "stateless",
+            "stateless_input": {
+                "valuation_points": [
+                    {"perf_date": "2026-01-01", "begin_mv": 100.0, "end_mv": 101.0},
+                    {"perf_date": "2026-01-02", "begin_mv": 101.0, "end_mv": 102.0},
+                ]
+            },
+            "periods": [
+                {"period": "1D", "frequencies": ["daily"]},
+                {"period": "YTD", "frequencies": ["monthly"]},
+            ],
+        }
+    )
+    return_value = WorkspaceReturnValue(base=1.0)
+    performance_block = WorkspacePerformanceBlock(
+        summary=WorkspaceEconomicReturnSummary(
+            economics=WorkspaceEconomicContext(
+                begin_market_value=100.0,
+                end_market_value=102.0,
+                beginning_cash_flow=0.0,
+                ending_cash_flow=0.0,
+                fees=0.0,
+                net_cash_flow=0.0,
+                flow_adjusted_end_market_value=102.0,
+            ),
+            period_return=return_value,
+            cumulative_return=return_value,
+            annualized_return=return_value,
+        ),
+        breakdowns={},
+    )
+    mwr_summary = WorkspaceMoneyWeightedReturnSummary(
+        input_mode="stateless",
+        method="XIRR",
+        period_return=1.0,
+        cumulative_return=1.0,
+        annualized_return=1.0,
+        economics=performance_block.summary.economics,
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 2),
+        notes=[],
+    )
+    performance_builder = mocker.patch(
+        "app.services.workspace_summary_service._build_workspace_performance_block",
+        return_value=performance_block,
+    )
+    mocker.patch(
+        "app.services.workspace_summary_service._build_workspace_mwr_summary",
+        return_value=mwr_summary,
+    )
+
+    results = _build_workspace_results_by_period(
+        request=request,
+        resolved_periods=[
+            ResolvedWorkspacePeriod(name="1D", start_date=date(2026, 1, 1), end_date=date(2026, 1, 2)),
+            ResolvedWorkspacePeriod(name="YTD", start_date=date(2027, 1, 1), end_date=date(2027, 1, 2)),
+        ],
+        portfolio_input=SimpleNamespace(input_mode="stateless"),
+        valuation_df=pd.DataFrame(
+            [
+                {"perf_date": date(2026, 1, 1), "begin_mv": 100.0, "end_mv": 101.0},
+                {"perf_date": date(2026, 1, 2), "begin_mv": 101.0, "end_mv": 102.0},
+            ]
+        ),
+        net_daily_results_df=pd.DataFrame({"perf_date": [date(2026, 1, 1), date(2026, 1, 2)]}),
+        gross_daily_results_df=pd.DataFrame({"perf_date": [date(2026, 1, 1), date(2026, 1, 2)]}),
+        benchmark_input=None,
+        benchmark_daily_df=None,
+        requested_frequencies={"1D": []},
+    )
+
+    assert list(results) == ["1D"]
+    assert results["1D"].portfolio_twr.net.summary.period_return.base == 1.0
+    assert results["1D"].portfolio_twr.gross.summary.cumulative_return.base == 1.0
+    assert results["1D"].benchmark is None
+    assert results["1D"].active is None
+    assert results["1D"].money_weighted_return is mwr_summary
+    assert performance_builder.call_count == 2
 
 
 def test_resolve_stateful_portfolio_start_date_rejects_missing_open_date(mocker):

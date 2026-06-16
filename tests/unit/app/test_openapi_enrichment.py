@@ -1,11 +1,16 @@
 from app.openapi_enrichment import (
+    OPERATION_JSON_EXAMPLES,
+    _application_json_content,
     _array_schema_example,
     _build_schema_example,
     _canonical_term,
     _composed_schema_example,
+    _derived_schema_example,
+    _documentable_operation,
     _ensure_model_schema_documentation,
     _ensure_operation_metadata,
     _ensure_operation_response_documentation,
+    _ensure_property_description,
     _ensure_property_vocabulary_metadata,
     _ensure_request_body_example,
     _ensure_success_response_documentation,
@@ -16,13 +21,17 @@ from app.openapi_enrichment import (
     _infer_example,
     _infer_schema_description,
     _iter_documentable_operations,
+    _iter_schema_properties,
     _named_schema_example,
     _object_schema_example,
     _ref_schema_example,
+    _request_body_example,
+    _scalar_schema_example,
     _semantic_id,
     _semantic_property_description,
     _semantic_string_example,
     _structural_schema_example,
+    _temporal_string_example,
     _to_snake_case,
     _typed_schema_example,
     _validation_error_json_content,
@@ -71,6 +80,21 @@ def test_infer_example_helpers_preserve_schema_precedence():
     assert _formatted_schema_example({"type": "string"}) is None
     assert _semantic_string_example("base_currency") == "USD"
     assert _semantic_string_example("custom_value") == "example_custom_value"
+
+
+def test_scalar_schema_example_returns_only_governed_scalar_defaults():
+    assert _scalar_schema_example("boolean") is True
+    assert _scalar_schema_example("integer") == 1
+    assert _scalar_schema_example("number") == 0.1234
+    assert _scalar_schema_example("string") is None
+
+
+def test_temporal_string_example_preserves_date_before_time_precedence():
+    assert _temporal_string_example("as_of_date") == "2026-02-27"
+    assert _temporal_string_example("date_time") == "2026-02-27"
+    assert _temporal_string_example("event_time") == "2026-02-27T10:30:00Z"
+    assert _temporal_string_example("event_timestamp") == "2026-02-27T10:30:00Z"
+    assert _temporal_string_example("base_currency") is None
 
 
 def test_infer_description_uses_semantic_branches():
@@ -223,6 +247,21 @@ def test_structural_schema_example_routes_object_array_and_scalar_fallback():
     )
 
 
+def test_derived_schema_example_prefers_composed_before_structural_examples():
+    schema = {
+        "type": "object",
+        "properties": {"status": {"type": "string"}},
+        "oneOf": [{"type": "string", "enum": ["READY"]}],
+    }
+    assert _derived_schema_example(schema, components={}, seen_refs=set(), name_hint="status") == "pending"
+    assert _derived_schema_example(
+        {"type": "object"},
+        components={},
+        seen_refs=set(),
+        name_hint="metadata",
+    ) == {"key": "value"}
+
+
 def test_ensure_request_body_example_uses_operation_override():
     request_body = {
         "content": {
@@ -285,6 +324,52 @@ def test_ensure_request_body_example_preserves_existing_examples():
 
     assert "example" not in request_body["content"]["application/json"]
     assert request_body["content"]["application/json"]["examples"]["documented"]["value"]["portfolio_id"] == "EXISTING"
+
+
+def test_ensure_request_body_example_ignores_malformed_content():
+    request_body = {"content": {"application/json": "not-a-dict"}}
+
+    _ensure_request_body_example(
+        path="/custom/workflow",
+        request_body=request_body,
+        components={"schemas": {}},
+    )
+
+    assert request_body == {"content": {"application/json": "not-a-dict"}}
+
+
+def test_request_body_example_preserves_override_authored_and_schema_precedence():
+    override = _request_body_example(
+        path="/performance/twr",
+        json_content={"example": {"authored": True}, "schema": {"type": "string"}},
+        components={},
+    )
+    assert override == OPERATION_JSON_EXAMPLES[("/performance/twr", "request")]
+    assert override is not OPERATION_JSON_EXAMPLES[("/performance/twr", "request")]
+    assert (
+        _request_body_example(
+            path="/unknown",
+            json_content={"examples": {"documented": {"value": "existing"}}},
+            components={},
+        )
+        is None
+    )
+    assert (
+        _request_body_example(
+            path="/unknown",
+            json_content={"schema": "not-a-dict"},
+            components={},
+        )
+        is None
+    )
+    assert (
+        _request_body_example(
+            path="/unknown",
+            json_content={"schema": {"type": "integer"}},
+            components={},
+        )
+        == 1
+    )
 
 
 def test_ensure_operation_response_documentation_adds_default_and_schema_example():
@@ -355,6 +440,15 @@ def test_validation_error_json_content_selects_undocumented_http_validation_sche
     assert json_content is response["content"]["application/json"]
     assert _validation_error_json_content(documented_response) is None
     assert _validation_error_json_content({"content": {"text/plain": {"schema": {"type": "string"}}}}) is None
+
+
+def test_application_json_content_selects_only_json_content_dicts():
+    json_content = {"schema": {"type": "object"}}
+
+    assert _application_json_content({"content": {"application/json": json_content}}) is json_content
+    assert _application_json_content({"content": {"application/json": "not-a-dict"}}) is None
+    assert _application_json_content({"content": "not-a-dict"}) is None
+    assert _application_json_content("not-a-response") is None
 
 
 def test_ensure_operation_response_documentation_rewrites_metrics_response():
@@ -434,6 +528,13 @@ def test_iter_documentable_operations_filters_malformed_paths_and_methods():
     }
 
     assert list(_iter_documentable_operations(paths)) == [("/health", "get", operation)]
+
+
+def test_documentable_operation_normalizes_identity_and_filters_unsupported_shapes():
+    operation = {"summary": "Health"}
+    assert _documentable_operation(123, "GET", operation) == ("123", "GET", operation)
+    assert _documentable_operation("/health", "parameters", operation) is None
+    assert _documentable_operation("/health", "get", "not-a-dict") is None
 
 
 def test_enrich_openapi_schema_fills_operation_schema_and_examples():
@@ -587,6 +688,43 @@ def test_ensure_model_schema_documentation_preserves_existing_metadata_and_resol
     assert nested_ref["description"] == "Referenced schema description."
     assert nested_ref["example"] == {"count": 1}
     assert nested_ref["x-lotus-semantic-id"] == "lotus.nested_ref"
+
+
+def test_iter_schema_properties_yields_only_dict_properties():
+    string_property = {"type": "string"}
+
+    assert list(
+        _iter_schema_properties(
+            {
+                "properties": {
+                    "portfolio_id": string_property,
+                    "ignored": "not-a-schema",
+                    7: {"type": "integer"},
+                }
+            }
+        )
+    ) == [("portfolio_id", string_property), ("7", {"type": "integer"})]
+    assert list(_iter_schema_properties({"properties": "not-a-dict"})) == []
+
+
+def test_ensure_property_description_preserves_existing_and_uses_resolved_schema_description():
+    documented_schema = {"description": "Already documented."}
+    _ensure_property_description(
+        model_name="Envelope",
+        prop_name="request_id",
+        prop_schema=documented_schema,
+        prop_resolved={"description": "Resolved description."},
+    )
+    assert documented_schema["description"] == "Already documented."
+
+    ref_schema: dict[str, object] = {}
+    _ensure_property_description(
+        model_name="Envelope",
+        prop_name="nested_ref",
+        prop_schema=ref_schema,
+        prop_resolved={"description": "Referenced schema description."},
+    )
+    assert ref_schema["description"] == "Referenced schema description."
 
 
 def test_enrich_openapi_schema_adds_fastapi_validation_error_examples():

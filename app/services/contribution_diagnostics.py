@@ -180,6 +180,63 @@ def _calculate_grouped_return_reset_alignment_counts(
     }
 
 
+def _empty_position_flow_balance_counts(*, residual_days: int = 0) -> dict[str, int]:
+    return {
+        "position_flow_residual_days": residual_days,
+        "position_flow_residual_max_bp": 0,
+        "position_flow_residual_sum_bp": 0,
+    }
+
+
+def _daily_cash_flow_series(frame: pd.DataFrame, *, value_name: str) -> pd.Series:
+    return (
+        pd.DataFrame(
+            {
+                PortfolioColumns.PERF_DATE.value: observation_date_series(frame[PortfolioColumns.PERF_DATE.value]),
+                value_name: _numeric_series_or_default(frame, PortfolioColumns.BOD_CF.value)
+                + _numeric_series_or_default(frame, PortfolioColumns.EOD_CF.value),
+            }
+        )
+        .groupby(PortfolioColumns.PERF_DATE.value, dropna=False)[value_name]
+        .sum()
+    )
+
+
+def _portfolio_capital_base_by_day(portfolio_results_df: pd.DataFrame) -> pd.Series:
+    capital_by_day = (
+        pd.DataFrame(
+            {
+                PortfolioColumns.PERF_DATE.value: observation_date_series(
+                    portfolio_results_df[PortfolioColumns.PERF_DATE.value]
+                ),
+                "capital_base": _numeric_series_or_default(portfolio_results_df, PortfolioColumns.BEGIN_MV.value).abs()
+                + _numeric_series_or_default(portfolio_results_df, PortfolioColumns.BOD_CF.value).abs(),
+            }
+        )
+        .groupby(PortfolioColumns.PERF_DATE.value, dropna=False)["capital_base"]
+        .max()
+    )
+    return capital_by_day.replace(0, pd.NA).fillna(1.0)
+
+
+def _position_flow_residual_counts(
+    residual_flow_by_day: pd.Series,
+    portfolio_capital_by_day: pd.Series,
+) -> dict[str, int]:
+    residual_ratio_by_day = (
+        residual_flow_by_day.abs().reindex(portfolio_capital_by_day.index, fill_value=0.0) / portfolio_capital_by_day
+    )
+    return {
+        "position_flow_residual_days": int(residual_flow_by_day.abs().gt(1e-9).sum()),
+        "position_flow_residual_max_bp": _to_basis_points(residual_ratio_by_day.max())
+        if not residual_ratio_by_day.empty
+        else 0,
+        "position_flow_residual_sum_bp": _to_basis_points(residual_ratio_by_day.sum())
+        if not residual_ratio_by_day.empty
+        else 0,
+    }
+
+
 def _calculate_position_flow_balance_counts(
     instruments_df: pd.DataFrame,
     portfolio_results_df: pd.DataFrame,
@@ -208,74 +265,18 @@ def _calculate_position_flow_balance_counts(
         PortfolioColumns.EOD_CF.value,
     }
     if instruments_df.empty or not required_columns.issubset(instruments_df.columns):
-        return {
-            "position_flow_residual_days": 0,
-            "position_flow_residual_max_bp": 0,
-            "position_flow_residual_sum_bp": 0,
-        }
+        return _empty_position_flow_balance_counts()
 
-    position_flow_by_day = (
-        pd.DataFrame(
-            {
-                PortfolioColumns.PERF_DATE.value: observation_date_series(
-                    instruments_df[PortfolioColumns.PERF_DATE.value]
-                ),
-                "position_flow": _numeric_series_or_default(instruments_df, PortfolioColumns.BOD_CF.value)
-                + _numeric_series_or_default(instruments_df, PortfolioColumns.EOD_CF.value),
-            }
-        )
-        .groupby(PortfolioColumns.PERF_DATE.value, dropna=False)["position_flow"]
-        .sum()
-    )
+    position_flow_by_day = _daily_cash_flow_series(instruments_df, value_name="position_flow")
 
     if portfolio_results_df.empty or not required_columns.issubset(portfolio_results_df.columns):
         residual_days = int(position_flow_by_day.abs().gt(1e-9).sum())
-        return {
-            "position_flow_residual_days": residual_days,
-            "position_flow_residual_max_bp": 0,
-            "position_flow_residual_sum_bp": 0,
-        }
+        return _empty_position_flow_balance_counts(residual_days=residual_days)
 
-    portfolio_flow_by_day = (
-        pd.DataFrame(
-            {
-                PortfolioColumns.PERF_DATE.value: observation_date_series(
-                    portfolio_results_df[PortfolioColumns.PERF_DATE.value]
-                ),
-                "portfolio_flow": _numeric_series_or_default(portfolio_results_df, PortfolioColumns.BOD_CF.value)
-                + _numeric_series_or_default(portfolio_results_df, PortfolioColumns.EOD_CF.value),
-            }
-        )
-        .groupby(PortfolioColumns.PERF_DATE.value, dropna=False)["portfolio_flow"]
-        .sum()
-    )
+    portfolio_flow_by_day = _daily_cash_flow_series(portfolio_results_df, value_name="portfolio_flow")
     residual_flow_by_day = position_flow_by_day.subtract(portfolio_flow_by_day, fill_value=0.0)
 
-    portfolio_capital_by_day = (
-        pd.DataFrame(
-            {
-                PortfolioColumns.PERF_DATE.value: observation_date_series(
-                    portfolio_results_df[PortfolioColumns.PERF_DATE.value]
-                ),
-                "capital_base": _numeric_series_or_default(portfolio_results_df, PortfolioColumns.BEGIN_MV.value).abs()
-                + _numeric_series_or_default(portfolio_results_df, PortfolioColumns.BOD_CF.value).abs(),
-            }
-        )
-        .groupby(PortfolioColumns.PERF_DATE.value, dropna=False)["capital_base"]
-        .max()
+    return _position_flow_residual_counts(
+        residual_flow_by_day,
+        _portfolio_capital_base_by_day(portfolio_results_df),
     )
-    portfolio_capital_by_day = portfolio_capital_by_day.replace(0, pd.NA).fillna(1.0)
-
-    residual_ratio_by_day = (
-        residual_flow_by_day.abs().reindex(portfolio_capital_by_day.index, fill_value=0.0) / portfolio_capital_by_day
-    )
-
-    return {
-        "position_flow_residual_days": int(residual_flow_by_day.abs().gt(1e-9).sum()),
-        "position_flow_residual_max_bp": _to_basis_points(residual_ratio_by_day.max())
-        if not residual_ratio_by_day.empty
-        else 0,
-        "position_flow_residual_sum_bp": _to_basis_points(residual_ratio_by_day.sum())
-        if not residual_ratio_by_day.empty
-        else 0,
-    }

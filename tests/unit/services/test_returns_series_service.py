@@ -282,6 +282,38 @@ def test_build_returns_series_response_preserves_context_provenance_and_series_p
     assert response.diagnostics == diagnostics_result.diagnostics
 
 
+def test_requested_returns_series_execution_context_uses_stateful_benchmark_defaults():
+    request = ReturnsSeriesRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "as_of_date": "2026-02-24",
+            "window": {"mode": "EXPLICIT", "from_date": "2026-02-23", "to_date": "2026-02-24"},
+            "frequency": "DAILY",
+            "series_selection": {"include_portfolio": True, "include_benchmark": True, "include_risk_free": False},
+            "input_mode": "stateful",
+            "benchmark": {"benchmark_id": "BMK_REQUESTED", "return_source": "vendor_series"},
+            "stateful_input": {},
+        }
+    )
+    expected_fingerprint, expected_hash = generate_canonical_hash(request, "returns-series-v1")
+
+    context = returns_series_service._requested_returns_series_execution_context(
+        request=request,
+        source_input_mode=None,
+        resolved_benchmark_id_override=None,
+        resolved_benchmark_return_source_override=None,
+    )
+
+    assert context.request is request
+    assert context.resolved_window.start_date.isoformat() == "2026-02-23"
+    assert context.resolved_window.end_date.isoformat() == "2026-02-24"
+    assert context.effective_input_mode == InputMode.STATEFUL
+    assert context.input_fingerprint == expected_fingerprint
+    assert context.calculation_hash == expected_hash
+    assert context.resolved_benchmark_id == "BMK_REQUESTED"
+    assert context.resolved_benchmark_return_source == BenchmarkReturnSource.VENDOR_SERIES
+
+
 @pytest.mark.asyncio
 async def test_resolve_returns_series_execution_context_preserves_stateless_overrides():
     request = ReturnsSeriesRequest.model_validate(
@@ -374,6 +406,33 @@ def test_build_returns_series_diagnostics_reports_coverage_gaps_and_market_warni
     assert {gap.series_type for gap in result.diagnostics.gaps} == {"portfolio", "benchmark"}
 
 
+def test_returns_series_gaps_includes_selected_risk_free_series():
+    portfolio_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-24", "2026-02-25"]),
+            "return_value": [Decimal("0.0100"), Decimal("0.0200")],
+        }
+    )
+    risk_free_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-24", "2026-02-27"]),
+            "return_value": [Decimal("0.0001"), Decimal("0.0003")],
+        }
+    )
+
+    gaps = returns_series_service._returns_series_gaps(
+        portfolio_df=portfolio_df,
+        benchmark_df=None,
+        risk_free_df=risk_free_df,
+        frequency=ReturnsFrequency.DAILY,
+        calendar_policy=CalendarPolicy.CALENDAR,
+    )
+
+    assert [(gap.series_type, gap.from_date, gap.to_date, gap.gap_days) for gap in gaps] == [
+        ("risk_free", date(2026, 2, 24), date(2026, 2, 27), 2)
+    ]
+
+
 def test_build_returns_series_diagnostics_enforces_fail_fast_missing_points():
     request = ReturnsSeriesRequest.model_validate(
         {
@@ -437,6 +496,21 @@ def test_risk_free_points_to_dataframe_converts_annualized_rates_to_daily_return
         "0.0001",
         "0.0002",
     ]
+
+
+def test_risk_free_points_to_dataframe_skips_malformed_points():
+    risk_free_df = returns_series_service.risk_free_points_to_dataframe(
+        points=[
+            {"series_date": "2026-04-10", "value": "0.0001"},
+            {"series_date": "not-a-date", "value": "0.0002"},
+            {"series_date": "2026-04-11"},
+            {"value": "0.0003"},
+            {"series_date": "2026-04-12", "value": "not-a-decimal"},
+        ]
+    )
+
+    assert [value.date().isoformat() for value in risk_free_df["date"]] == ["2026-04-10"]
+    assert [str(value) for value in risk_free_df["return_value"]] == ["0.0001"]
 
 
 def test_apply_calendar_policy_filters_daily_business_and_market_dates():
@@ -537,6 +611,40 @@ def test_strict_intersection_policy_aligns_selected_series():
     assert aligned_risk_free is None
 
 
+def test_strict_intersection_policy_includes_risk_free_dates():
+    portfolio_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-24", "2026-02-25", "2026-02-26"]),
+            "return_value": [Decimal("0.0100"), Decimal("0.0200"), Decimal("0.0300")],
+        }
+    )
+    benchmark_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-24", "2026-02-25"]),
+            "return_value": [Decimal("0.0010"), Decimal("0.0020")],
+        }
+    )
+    risk_free_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-25", "2026-02-26"]),
+            "return_value": [Decimal("0.0001"), Decimal("0.0002")],
+        }
+    )
+
+    aligned_portfolio, aligned_benchmark, aligned_risk_free = returns_series_service._apply_strict_intersection_policy(
+        portfolio_df=portfolio_df,
+        benchmark_df=benchmark_df,
+        risk_free_df=risk_free_df,
+        missing_data_policy=MissingDataPolicy.STRICT_INTERSECTION,
+    )
+
+    assert list(aligned_portfolio["date"].dt.date) == [pd.Timestamp("2026-02-25").date()]
+    assert aligned_benchmark is not None
+    assert list(aligned_benchmark["date"].dt.date) == [pd.Timestamp("2026-02-25").date()]
+    assert aligned_risk_free is not None
+    assert list(aligned_risk_free["date"].dt.date) == [pd.Timestamp("2026-02-25").date()]
+
+
 def test_strict_intersection_policy_rejects_no_overlap():
     portfolio_df = pd.DataFrame({"date": pd.to_datetime(["2026-02-24"]), "return_value": [Decimal("0.0100")]})
     benchmark_df = pd.DataFrame({"date": pd.to_datetime(["2026-02-25"]), "return_value": [Decimal("0.0010")]})
@@ -575,6 +683,32 @@ def test_selected_fill_method_aligns_optional_series_to_portfolio_dates():
 
     assert filled_benchmark is not None
     assert list(filled_benchmark["return_value"]) == [Decimal("0.0010"), Decimal("0.0010"), Decimal("0.0030")]
+
+
+def test_selected_fill_method_zero_fills_risk_free_to_portfolio_dates():
+    portfolio_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-24", "2026-02-25", "2026-02-26"]),
+            "return_value": [Decimal("0.0100"), Decimal("0.0200"), Decimal("0.0300")],
+        }
+    )
+    risk_free_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-24", "2026-02-26"]),
+            "return_value": [Decimal("0.0001"), Decimal("0.0003")],
+        }
+    )
+
+    _, filled_benchmark, filled_risk_free = returns_series_service._apply_selected_fill_method(
+        portfolio_df=portfolio_df,
+        benchmark_df=None,
+        risk_free_df=risk_free_df,
+        fill_method=FillMethod.ZERO_FILL,
+    )
+
+    assert filled_benchmark is None
+    assert filled_risk_free is not None
+    assert list(filled_risk_free["return_value"]) == [Decimal("0.0001"), 0.0, Decimal("0.0003")]
 
 
 def test_prepare_stateless_returns_series_dataframes_respects_selected_series():
@@ -742,6 +876,24 @@ def test_stateful_returns_retrieval_stage_details_preserve_count_policy():
     }
 
 
+def test_stateful_returns_normalization_stage_details_reports_selected_frame_counts():
+    portfolio_df = pd.DataFrame({"date": pd.to_datetime(["2026-02-24", "2026-02-25"])})
+    benchmark_df = pd.DataFrame({"date": pd.to_datetime(["2026-02-24"])})
+    risk_free_df = pd.DataFrame({"date": pd.to_datetime(["2026-02-24", "2026-02-25", "2026-02-26"])})
+
+    details = returns_series_service._stateful_returns_normalization_stage_details(
+        portfolio_df=portfolio_df,
+        benchmark_df=benchmark_df,
+        risk_free_df=risk_free_df,
+    )
+
+    assert details == {
+        "portfolio_points": 2,
+        "benchmark_points": 1,
+        "risk_free_points": 3,
+    }
+
+
 def test_build_resolved_stateful_returns_series_request_completes_normalization_stage(monkeypatch, tmp_path):
     request = _build_stateful_request(
         series_selection={"include_portfolio": True, "include_benchmark": False, "include_risk_free": False}
@@ -786,6 +938,66 @@ def test_build_resolved_stateful_returns_series_request_completes_normalization_
         "benchmark_points": 0,
         "risk_free_points": 0,
     }
+
+
+def test_resolved_stateful_returns_series_request_payload_promotes_stateless_input():
+    request = _build_stateful_request(
+        series_selection={"include_portfolio": True, "include_benchmark": True, "include_risk_free": True},
+        risk_free={"source": "SOFR"},
+    )
+    identity_payload = {
+        "stateless_input": {
+            "portfolio_returns": [{"date": "2026-02-23", "return": 0.01}],
+            "benchmark_returns": [{"date": "2026-02-23", "return": 0.008}],
+            "risk_free_returns": [{"date": "2026-02-23", "return": 0.001}],
+        }
+    }
+
+    payload = returns_series_service._resolved_stateful_returns_series_request_payload(
+        request=request,
+        identity_payload=identity_payload,
+    )
+
+    assert payload["input_mode"] == InputMode.STATELESS.value
+    assert payload["portfolio_id"] == request.portfolio_id
+    assert payload["risk_free"] == request.risk_free.model_dump(mode="json")
+    assert payload["stateless_input"] == identity_payload["stateless_input"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("upstream_status", "mapped_status", "mapped_code"),
+    [(503, 503, "SOURCE_UNAVAILABLE"), (404, 422, "INSUFFICIENT_DATA")],
+)
+async def test_retrieve_stateful_returns_series_portfolio_source_maps_upstream_errors(
+    monkeypatch,
+    upstream_status,
+    mapped_status,
+    mapped_code,
+):
+    request = _build_stateful_request()
+    resolved_window = returns_series_service.resolve_window(request)
+
+    async def _retrieve_stateful_portfolio_input(**kwargs):  # noqa: ARG001
+        raise HTTPException(status_code=upstream_status, detail={"message": "portfolio source unavailable"})
+
+    monkeypatch.setattr(
+        returns_series_service,
+        "retrieve_stateful_portfolio_input",
+        _retrieve_stateful_portfolio_input,
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        await returns_series_service._retrieve_stateful_returns_series_portfolio_source(
+            active_settings=object(),
+            stateful_input_service=object(),
+            request=request,
+            resolved_window=resolved_window,
+        )
+
+    assert exc.value.status_code == mapped_status
+    assert exc.value.detail["code"] == mapped_code
+    assert "portfolio source unavailable" in exc.value.detail["message"]
 
 
 @pytest.mark.asyncio
@@ -839,6 +1051,14 @@ async def test_resolve_stateful_returns_series_benchmark_id_rejects_invalid_payl
         )
 
     assert exc.value.status_code == 422
+
+
+def test_benchmark_id_from_assignment_payload_rejects_blank_benchmark_id():
+    with pytest.raises(HTTPException) as exc:
+        returns_series_service._benchmark_id_from_assignment_payload({"benchmark_id": ""})
+
+    assert exc.value.status_code == 422
+    assert exc.value.detail["code"] == "CONTRACT_VIOLATION_UPSTREAM"
 
 
 @pytest.mark.asyncio

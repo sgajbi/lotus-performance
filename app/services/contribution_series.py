@@ -184,21 +184,14 @@ def _build_hierarchy_from_adjusted_position_series(
     if not request.hierarchy or period_slice_df.empty or not position_series:
         return {"summary": summary, "levels": []}
 
-    adjusted_records = _adjusted_position_hierarchy_records(position_series)
-    if not adjusted_records:
-        return {"summary": summary, "levels": []}
-
-    adjusted_df = pd.DataFrame(adjusted_records)
-    daily_meta = _daily_hierarchy_metadata(period_slice_df, hierarchy_levels=request.hierarchy)
-    merged_df = adjusted_df.merge(
-        daily_meta,
-        on=["position_id", PortfolioColumns.PERF_DATE.value],
-        how="left",
+    prepared_frames = _prepared_adjusted_hierarchy_frames(
+        period_slice_df=period_slice_df,
+        position_series=position_series,
+        request=request,
     )
-    merged_df = _apply_hierarchy_unclassified_policy(merged_df, request=request)
-
-    if merged_df.empty:
+    if prepared_frames is None:
         return {"summary": summary, "levels": []}
+    adjusted_df, merged_df = prepared_frames
 
     observed_dates = observation_date_set(period_slice_df[PortfolioColumns.PERF_DATE.value])
     day_count = max(1, len(observed_dates))
@@ -206,6 +199,29 @@ def _build_hierarchy_from_adjusted_position_series(
 
     summary["portfolio_contribution"] = _as_numeric(adjusted_df["adjusted_contribution"].sum()) * 100
     return {"summary": summary, "levels": response_levels}
+
+
+def _prepared_adjusted_hierarchy_frames(
+    *,
+    period_slice_df: pd.DataFrame,
+    position_series: list[PositionContributionSeries],
+    request: ContributionRequest,
+) -> tuple[pd.DataFrame, pd.DataFrame] | None:
+    adjusted_records = _adjusted_position_hierarchy_records(position_series)
+    if not adjusted_records:
+        return None
+
+    adjusted_df = pd.DataFrame(adjusted_records)
+    daily_meta = _daily_hierarchy_metadata(period_slice_df, hierarchy_levels=request.hierarchy or [])
+    merged_df = adjusted_df.merge(
+        daily_meta,
+        on=["position_id", PortfolioColumns.PERF_DATE.value],
+        how="left",
+    )
+    merged_df = _apply_hierarchy_unclassified_policy(merged_df, request=request)
+    if merged_df.empty:
+        return None
+    return adjusted_df, merged_df
 
 
 def _initial_hierarchy_summary(request: ContributionRequest) -> dict[str, Any]:
@@ -306,12 +322,12 @@ def _build_hierarchy_rows(
     ordered = ordered.sort_values("_abs_contribution", ascending=False)
 
     threshold = max(0.0, request.emit.threshold_weight)
-    explicit_rows = ordered[ordered["weight_avg"].abs() >= threshold]
-    overflow_rows = ordered[ordered["weight_avg"].abs() < threshold]
     top_n = max(0, int(request.emit.top_n_per_level))
-    if top_n and len(explicit_rows) > top_n:
-        overflow_rows = pd.concat([overflow_rows, explicit_rows.iloc[top_n:]], ignore_index=True)
-        explicit_rows = explicit_rows.iloc[:top_n]
+    explicit_rows, overflow_rows = _partition_hierarchy_rows_for_emission(
+        ordered,
+        threshold=threshold,
+        top_n=top_n,
+    )
 
     rows = [_hierarchy_row_to_response(row, level_keys=level_keys) for _, row in explicit_rows.iterrows()]
     if request.emit.include_other and not overflow_rows.empty:
@@ -324,6 +340,20 @@ def _build_hierarchy_rows(
         }
         rows.append(other_row)
     return rows
+
+
+def _partition_hierarchy_rows_for_emission(
+    ordered: pd.DataFrame,
+    *,
+    threshold: float,
+    top_n: int,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    explicit_rows = ordered[ordered["weight_avg"].abs() >= threshold]
+    overflow_rows = ordered[ordered["weight_avg"].abs() < threshold]
+    if top_n and len(explicit_rows) > top_n:
+        overflow_rows = pd.concat([overflow_rows, explicit_rows.iloc[top_n:]], ignore_index=True)
+        explicit_rows = explicit_rows.iloc[:top_n]
+    return explicit_rows, overflow_rows
 
 
 def _hierarchy_row_to_response(row: pd.Series, *, level_keys: list[str]) -> dict[str, Any]:

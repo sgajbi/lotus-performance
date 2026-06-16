@@ -18,8 +18,12 @@ from app.services.compute_job_store import (
     _aggregate_row_count,
     _compute_job_inspection_active_since,
     _compute_job_payload_failure,
+    _ensure_compute_job_can_mark_running,
+    _matches_existing_compute_job_registration,
     _queue_stats_from_aggregate_row,
+    _stale_job_reconciliation_outcome,
 )
+from app.services.durable_store_inspection import build_inspection_query_context
 
 
 def _compute_job_model_for_inspection(
@@ -455,6 +459,28 @@ def test_compute_job_store_reconciles_stale_running_job(tmp_path):
     assert failed.error_message == "Compute job execution lease expired after exhausting retry budget."
 
 
+def test_stale_job_reconciliation_outcome_only_exhausts_running_jobs() -> None:
+    now = datetime(2026, 6, 12, 12, 0, tzinfo=timezone.utc)
+
+    exhausted_running = _stale_job_reconciliation_outcome(
+        previous_status=ComputeJobStatus.RUNNING,
+        attempt_count=2,
+        max_attempts=2,
+        now=now,
+    )
+    exhausted_leased = _stale_job_reconciliation_outcome(
+        previous_status=ComputeJobStatus.LEASED,
+        attempt_count=2,
+        max_attempts=2,
+        now=now,
+    )
+
+    assert exhausted_running.job_status == ComputeJobStatus.FAILED
+    assert exhausted_running.completed_at_utc == now
+    assert exhausted_leased.job_status == ComputeJobStatus.PENDING
+    assert exhausted_leased.completed_at_utc is None
+
+
 def test_compute_job_store_reconciles_stale_leased_job_without_exhausting_retries(tmp_path):
     store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
     store.create_schema()
@@ -767,6 +793,61 @@ def test_compute_job_store_lists_reclaimable_items_with_expired_leases(tmp_path)
     assert page.items[0].status == ComputeJobStatus.RUNNING.value
 
 
+def test_compute_job_store_builds_reclaimable_inspection_statements_with_context(tmp_path, monkeypatch):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
+    inspection_now = datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc)
+    context = build_inspection_query_context(
+        status_filter="reclaimable",
+        min_age_seconds=30.0,
+        now=inspection_now,
+    )
+    calls = []
+
+    def count_builder(**kwargs):
+        calls.append(("count", kwargs))
+        return "count-statement"
+
+    def items_builder(**kwargs):
+        calls.append(("items", kwargs))
+        return "items-statement"
+
+    monkeypatch.setattr(store, "_build_reclaimable_inspection_count_statement", count_builder)
+    monkeypatch.setattr(store, "_build_reclaimable_inspection_items_statement", items_builder)
+
+    statements = store._build_inspection_statements(
+        inspection_context=context,
+        limit=25,
+        offset=50,
+        analytics_type="ReturnsSeries",
+        calculation_id_contains="abc",
+    )
+
+    assert statements.count_statement == "count-statement"
+    assert statements.items_statement == "items-statement"
+    assert calls == [
+        (
+            "count",
+            {
+                "analytics_type": "ReturnsSeries",
+                "calculation_id_contains": "abc",
+                "min_age_threshold": inspection_now - timedelta(seconds=30),
+                "now": inspection_now,
+            },
+        ),
+        (
+            "items",
+            {
+                "limit": 25,
+                "offset": 50,
+                "analytics_type": "ReturnsSeries",
+                "calculation_id_contains": "abc",
+                "min_age_threshold": inspection_now - timedelta(seconds=30),
+                "now": inspection_now,
+            },
+        ),
+    ]
+
+
 def test_compute_job_store_queue_stats_include_reclaimable_count(tmp_path):
     store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
     store.create_schema()
@@ -1047,6 +1128,74 @@ def test_compute_job_store_register_job_distinguishes_create_replay_and_conflict
     assert replay.status == ComputeJobRegistrationStatus.REPLAY
     assert replay.existing_status == ComputeJobStatus.PENDING
     assert conflict.status == ComputeJobRegistrationStatus.CONFLICT
+
+
+def test_matches_existing_compute_job_registration_requires_same_request_and_attempt_policy():
+    existing = ComputeJobModel(
+        calculation_id=str(uuid4()),
+        analytics_type="Contribution",
+        job_status=ComputeJobStatus.PENDING.value,
+        request_json='{"portfolio_id": "P1"}',
+        response_json=None,
+        attempt_count=0,
+        max_attempts=2,
+        created_at_utc=datetime.now(timezone.utc),
+    )
+
+    assert _matches_existing_compute_job_registration(
+        existing,
+        analytics_type="Contribution",
+        request_json='{"portfolio_id": "P1"}',
+        max_attempts=2,
+    )
+    assert not _matches_existing_compute_job_registration(
+        existing,
+        analytics_type="Contribution",
+        request_json='{"portfolio_id": "P2"}',
+        max_attempts=2,
+    )
+    assert not _matches_existing_compute_job_registration(
+        existing,
+        analytics_type="Contribution",
+        request_json='{"portfolio_id": "P1"}',
+        max_attempts=3,
+    )
+    assert not _matches_existing_compute_job_registration(
+        existing,
+        analytics_type="Attribution",
+        request_json='{"portfolio_id": "P1"}',
+        max_attempts=2,
+    )
+
+
+@pytest.mark.parametrize(
+    ("job_status", "expected_message"),
+    [
+        (ComputeJobStatus.FAILED, "Cannot mark failed job as running"),
+        (ComputeJobStatus.COMPLETE, "Cannot mark complete job as running"),
+    ],
+)
+def test_ensure_compute_job_can_mark_running_rejects_terminal_jobs(job_status, expected_message):
+    calculation_id = uuid4()
+    row = _compute_job_model_for_inspection(
+        job_status=job_status,
+        created_at_utc=datetime.now(timezone.utc),
+    )
+
+    with pytest.raises(ValueError, match=expected_message):
+        _ensure_compute_job_can_mark_running(row, calculation_id=calculation_id, worker_id=None)
+
+
+def test_ensure_compute_job_can_mark_running_rejects_other_worker_lease():
+    calculation_id = uuid4()
+    row = _compute_job_model_for_inspection(
+        job_status=ComputeJobStatus.LEASED,
+        created_at_utc=datetime.now(timezone.utc),
+    )
+    row.worker_id = "worker-a"
+
+    with pytest.raises(ValueError, match="Compute job leased by another worker"):
+        _ensure_compute_job_can_mark_running(row, calculation_id=calculation_id, worker_id="worker-b")
 
 
 def test_compute_job_store_get_queue_stats_uses_single_aggregate_query(tmp_path):

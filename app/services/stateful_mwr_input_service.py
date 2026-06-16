@@ -96,6 +96,12 @@ class _StatefulMWRCashFlowCollection:
     cash_flow_components_by_date: dict[Date, list[MWRCashFlowEvidenceComponent]]
 
 
+@dataclass(frozen=True)
+class _StatefulMWRCashFlowProjection:
+    cash_flows: list[CashFlow]
+    cashflow_evidence: list[MWRCashFlowEvidence]
+
+
 def build_stateful_mwr_input(*, source_input: StatefulPortfolioInput) -> StatefulMWRInput:
     return build_stateful_mwr_input_for_window(
         source_input=source_input,
@@ -123,30 +129,16 @@ def build_stateful_mwr_input_for_window(
         observations=source_input.observations,
         reporting_currency=reporting_currency,
     )
-    cash_flows_by_date = cash_flow_collection.cash_flows_by_date
-    cash_flow_components_by_date = cash_flow_collection.cash_flow_components_by_date
-
-    cash_flows = [
-        CashFlow(amount=amount, date=cash_flow_date)
-        for cash_flow_date, amount in sorted(cash_flows_by_date.items())
-        if amount != 0
-    ]
-    cashflow_evidence = [
-        MWRCashFlowEvidence(
-            date=cash_flow_date,
-            amount=amount,
-            currency=reporting_currency,
-            source_components=cash_flow_components_by_date.get(cash_flow_date, []),
-        )
-        for cash_flow_date, amount in sorted(cash_flows_by_date.items())
-        if amount != 0
-    ]
+    cash_flow_projection = _stateful_mwr_cash_flow_projection(
+        cash_flow_collection=cash_flow_collection,
+        reporting_currency=reporting_currency,
+    )
 
     return StatefulMWRInput(
         start_date=window_start_date,
         begin_mv=begin_mv,
         end_mv=end_mv,
-        cash_flows=cash_flows,
+        cash_flows=cash_flow_projection.cash_flows,
         observations=source_input.observations,
         currency_evidence=MWRCurrencyEvidence(
             reporting_currency=reporting_currency,
@@ -176,8 +168,32 @@ def build_stateful_mwr_input_for_window(
                     conversion_status=("no_conversion_required" if single_currency_inputs else "upstream_preconverted"),
                 ),
             ],
-            cashflow_evidence=cashflow_evidence,
+            cashflow_evidence=cash_flow_projection.cashflow_evidence,
         ),
+    )
+
+
+def _stateful_mwr_cash_flow_projection(
+    *,
+    cash_flow_collection: _StatefulMWRCashFlowCollection,
+    reporting_currency: str | None,
+) -> _StatefulMWRCashFlowProjection:
+    non_zero_cash_flows = [
+        (cash_flow_date, amount)
+        for cash_flow_date, amount in sorted(cash_flow_collection.cash_flows_by_date.items())
+        if amount != 0
+    ]
+    return _StatefulMWRCashFlowProjection(
+        cash_flows=[CashFlow(amount=amount, date=cash_flow_date) for cash_flow_date, amount in non_zero_cash_flows],
+        cashflow_evidence=[
+            MWRCashFlowEvidence(
+                date=cash_flow_date,
+                amount=amount,
+                currency=reporting_currency,
+                source_components=cash_flow_collection.cash_flow_components_by_date.get(cash_flow_date, []),
+            )
+            for cash_flow_date, amount in non_zero_cash_flows
+        ],
     )
 
 
@@ -196,19 +212,18 @@ def _collect_stateful_mwr_cash_flows(
             continue
         valuation_date = Date.fromisoformat(valuation_date_raw)
         beginning_market_value = _parse_decimal(observation.get("beginning_market_value"))
-        if beginning_market_value is not None and previous_ending_market_value is not None:
-            carry_forward_adjustment = beginning_market_value - previous_ending_market_value
-            if carry_forward_adjustment != 0:
-                _add_stateful_mwr_cash_flow_component(
-                    cash_flows_by_date=cash_flows_by_date,
-                    cash_flow_components_by_date=cash_flow_components_by_date,
-                    valuation_date=valuation_date,
-                    component=MWRCashFlowEvidenceComponent(
-                        component_type="carry_forward_adjustment",
-                        amount=carry_forward_adjustment,
-                        currency=reporting_currency,
-                    ),
-                )
+        carry_forward_component = _carry_forward_mwr_cash_flow_component(
+            beginning_market_value=beginning_market_value,
+            previous_ending_market_value=previous_ending_market_value,
+            reporting_currency=reporting_currency,
+        )
+        if carry_forward_component is not None:
+            _add_stateful_mwr_cash_flow_component(
+                cash_flows_by_date=cash_flows_by_date,
+                cash_flow_components_by_date=cash_flow_components_by_date,
+                valuation_date=valuation_date,
+                component=carry_forward_component,
+            )
         flows_raw = observation.get("cash_flows", [])
         if not isinstance(flows_raw, list):
             previous_ending_market_value = _parse_decimal(observation.get("ending_market_value"))
@@ -225,6 +240,24 @@ def _collect_stateful_mwr_cash_flows(
     return _StatefulMWRCashFlowCollection(
         cash_flows_by_date=cash_flows_by_date,
         cash_flow_components_by_date=cash_flow_components_by_date,
+    )
+
+
+def _carry_forward_mwr_cash_flow_component(
+    *,
+    beginning_market_value: Decimal | None,
+    previous_ending_market_value: Decimal | None,
+    reporting_currency: str | None,
+) -> MWRCashFlowEvidenceComponent | None:
+    if beginning_market_value is None or previous_ending_market_value is None:
+        return None
+    carry_forward_adjustment = beginning_market_value - previous_ending_market_value
+    if carry_forward_adjustment == 0:
+        return None
+    return MWRCashFlowEvidenceComponent(
+        component_type="carry_forward_adjustment",
+        amount=carry_forward_adjustment,
+        currency=reporting_currency,
     )
 
 
@@ -273,12 +306,17 @@ def _source_mwr_cash_flow_component(
         component_type="source_cash_flow",
         amount=Decimal(str(flow["amount"])),
         currency=reporting_currency,
-        cash_flow_type=str(flow.get("cash_flow_type")) if flow.get("cash_flow_type") is not None else None,
-        flow_scope=str(flow.get("flow_scope")) if flow.get("flow_scope") is not None else None,
-        source_classification=(
-            str(flow.get("source_classification")) if flow.get("source_classification") is not None else None
-        ),
+        cash_flow_type=_optional_source_flow_string(flow=flow, field_name="cash_flow_type"),
+        flow_scope=_optional_source_flow_string(flow=flow, field_name="flow_scope"),
+        source_classification=_optional_source_flow_string(flow=flow, field_name="source_classification"),
     )
+
+
+def _optional_source_flow_string(*, flow: dict[object, object], field_name: str) -> str | None:
+    value = flow.get(field_name)
+    if value is None:
+        return None
+    return str(value)
 
 
 def _parse_decimal(value: object) -> Decimal | None:
@@ -319,10 +357,23 @@ def _has_single_currency_inputs(*, source_input: StatefulPortfolioInput, reporti
     if source_input.portfolio_currency.upper() != reporting_currency.upper():
         return False
     for observation in source_input.observations:
-        cash_flow_currency = observation.get("cash_flow_currency")
-        if isinstance(cash_flow_currency, str) and cash_flow_currency.upper() != reporting_currency.upper():
+        if not _observation_cash_flow_currency_matches_reporting(
+            observation=observation,
+            reporting_currency=reporting_currency,
+        ):
             return False
     return True
+
+
+def _observation_cash_flow_currency_matches_reporting(
+    *,
+    observation: dict[str, object],
+    reporting_currency: str,
+) -> bool:
+    cash_flow_currency = observation.get("cash_flow_currency")
+    if not isinstance(cash_flow_currency, str):
+        return True
+    return cash_flow_currency.upper() == reporting_currency.upper()
 
 
 def _stateful_currency_reason_codes(*, single_currency_inputs: bool) -> list[str]:

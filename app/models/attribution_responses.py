@@ -49,6 +49,14 @@ class AttributionLevelTotals(BaseModel):
     total_effect: float = Field(description="Level total effect in percentage-point output units.", examples=[0.58])
 
 
+def _attribution_level_totals_payload(totals: object) -> dict[str, Any] | None:
+    if isinstance(totals, AttributionLevelTotals):
+        return totals.model_dump()
+    if isinstance(totals, dict):
+        return totals
+    return None
+
+
 class AttributionLevelResult(BaseModel):
     """The complete set of results for a single dimension/level of the hierarchy."""
 
@@ -93,14 +101,8 @@ class AttributionLevelResult(BaseModel):
     def populate_authoritative_total_fields(cls, data: object) -> object:
         if not isinstance(data, dict):
             return data
-        totals = data.get("totals")
-        if totals is None:
-            return data
-        if isinstance(totals, AttributionLevelTotals):
-            totals_payload = totals.model_dump()
-        elif isinstance(totals, dict):
-            totals_payload = totals
-        else:
+        totals_payload = _attribution_level_totals_payload(data.get("totals"))
+        if totals_payload is None:
             return data
         data.setdefault("allocation_total_pct", totals_payload.get("allocation"))
         data.setdefault("selection_total_pct", totals_payload.get("selection"))

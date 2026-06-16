@@ -7,10 +7,16 @@ from app.services.queue_metrics_service import (
     _availability_and_preview_metrics,
     _core_queue_and_storage_metrics,
     _DurableQueueMetricSources,
+    _lifecycle_history_metrics,
     _load_durable_queue_metric_sources,
     _load_metric_source,
 )
-from app.services.runtime_status_domain import ComputeQueueDegradationPolicy, LineageQueueDegradationPolicy
+from app.services.runtime_status_domain import (
+    ComputeQueueDegradationPolicy,
+    LineageQueueDegradationPolicy,
+    RecoveryDrillDegradationPolicy,
+    RuntimeRetentionDegradationPolicy,
+)
 
 
 def test_load_metric_source_returns_value_and_availability():
@@ -200,6 +206,105 @@ def test_availability_and_preview_metrics_preserve_order_and_preview_samples():
     prunable_samples = {sample.labels["category"]: sample.value for sample in metrics[-1].samples}
     assert prunable_samples["execution"] == 4
     assert prunable_samples["compute_job"] == 3
+
+
+def test_lifecycle_history_metrics_emit_policy_and_latest_history_metrics(monkeypatch):
+    monkeypatch.setattr("app.services.queue_metrics_service.age_seconds_since", lambda timestamp_utc: 120.0)
+    sources = _DurableQueueMetricSources(
+        compute_stats=None,
+        compute_available=True,
+        lineage_stats=None,
+        lineage_available=True,
+        lineage_storage_capacity=None,
+        lineage_storage_capacity_available=True,
+        recovery_drill_snapshot=SimpleNamespace(
+            status="available",
+            entries=(SimpleNamespace(generated_at_utc="2026-03-15T00:00:00Z", status="passed"),),
+        ),
+        recovery_drill_available=True,
+        recovery_drill_action_snapshot=SimpleNamespace(
+            status="available",
+            active_leases=(),
+            latest_reclaimed_lease=None,
+        ),
+        runtime_retention_snapshot=SimpleNamespace(
+            status="available",
+            entries=(SimpleNamespace(generated_at_utc="2026-03-15T00:00:00Z", cleanup_mode="apply"),),
+        ),
+        runtime_retention_available=True,
+        runtime_retention_action_snapshot=SimpleNamespace(
+            status="available",
+            active_leases=(),
+            latest_reclaimed_lease=None,
+        ),
+        runtime_retention_preview=None,
+        runtime_retention_preview_available=False,
+    )
+
+    metrics = _lifecycle_history_metrics(
+        sources=sources,
+        recovery_drill_policy=RecoveryDrillDegradationPolicy(
+            max_age_seconds=3600.0,
+            active_run_age_seconds=1800.0,
+            reclaim_count=2,
+        ),
+        runtime_retention_policy=RuntimeRetentionDegradationPolicy(
+            max_age_seconds=7200.0,
+            active_run_age_seconds=2400.0,
+            reclaim_count=3,
+        ),
+    )
+
+    metric_names = {metric.name for metric in metrics}
+    assert "lotus_performance_recovery_drill_policy_threshold" in metric_names
+    assert "lotus_performance_recovery_drill_active_actions" in metric_names
+    assert "lotus_performance_recovery_drill_latest_age_seconds" in metric_names
+    assert "lotus_performance_recovery_drill_degradation_breach" in metric_names
+    assert "lotus_performance_runtime_retention_policy_threshold" in metric_names
+    assert "lotus_performance_runtime_retention_active_actions" in metric_names
+    assert "lotus_performance_runtime_retention_latest_age_seconds" in metric_names
+    assert "lotus_performance_runtime_retention_degradation_breach" in metric_names
+
+
+def test_lifecycle_history_metrics_omit_latest_history_metrics_when_snapshots_unavailable():
+    sources = _DurableQueueMetricSources(
+        compute_stats=None,
+        compute_available=True,
+        lineage_stats=None,
+        lineage_available=True,
+        lineage_storage_capacity=None,
+        lineage_storage_capacity_available=True,
+        recovery_drill_snapshot=SimpleNamespace(status="unavailable", entries=()),
+        recovery_drill_available=False,
+        recovery_drill_action_snapshot=None,
+        runtime_retention_snapshot=None,
+        runtime_retention_available=False,
+        runtime_retention_action_snapshot=None,
+        runtime_retention_preview=None,
+        runtime_retention_preview_available=False,
+    )
+
+    metrics = _lifecycle_history_metrics(
+        sources=sources,
+        recovery_drill_policy=RecoveryDrillDegradationPolicy(
+            max_age_seconds=3600.0,
+            active_run_age_seconds=1800.0,
+            reclaim_count=2,
+        ),
+        runtime_retention_policy=RuntimeRetentionDegradationPolicy(
+            max_age_seconds=7200.0,
+            active_run_age_seconds=2400.0,
+            reclaim_count=3,
+        ),
+    )
+
+    metric_names = {metric.name for metric in metrics}
+    assert "lotus_performance_recovery_drill_policy_threshold" in metric_names
+    assert "lotus_performance_runtime_retention_policy_threshold" in metric_names
+    assert "lotus_performance_recovery_drill_latest_age_seconds" not in metric_names
+    assert "lotus_performance_recovery_drill_degradation_breach" not in metric_names
+    assert "lotus_performance_runtime_retention_latest_age_seconds" not in metric_names
+    assert "lotus_performance_runtime_retention_degradation_breach" not in metric_names
 
 
 def test_queue_metrics_collector_emits_compute_and_lineage_metrics(monkeypatch):

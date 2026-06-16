@@ -134,17 +134,33 @@ def _has_legacy_twr_valuation_points(request: "TWRAnalyticsRequest") -> bool:
     return len(request.valuation_points) > 0
 
 
+def _has_nested_twr_stateless_input(request: "TWRAnalyticsRequest") -> bool:
+    return request.stateless_input is not None
+
+
+def _has_exactly_one_stateless_twr_payload(request: "TWRAnalyticsRequest") -> bool:
+    return _has_nested_twr_stateless_input(request) != _has_legacy_twr_valuation_points(request)
+
+
 def _validate_stateless_twr_payloads(request: "TWRAnalyticsRequest") -> None:
-    has_nested = request.stateless_input is not None
-    has_legacy = _has_legacy_twr_valuation_points(request)
     if request.performance_start_date is None:
         raise ValueError("performance_start_date is required when input_mode=stateless")
-    if has_nested and has_legacy:
-        raise ValueError("Provide either stateless_input or valuation_points, not both, for stateless mode")
-    if not has_nested and not has_legacy:
-        raise ValueError("stateless_input or valuation_points is required when input_mode=stateless")
+    envelope_issue = _stateless_twr_envelope_issue(
+        has_nested=_has_nested_twr_stateless_input(request),
+        has_legacy=_has_legacy_twr_valuation_points(request),
+    )
+    if envelope_issue is not None:
+        raise ValueError(envelope_issue)
     if request.stateful_input is not None:
         raise ValueError("stateful_input must be null when input_mode=stateless")
+
+
+def _stateless_twr_envelope_issue(*, has_nested: bool, has_legacy: bool) -> str | None:
+    if has_nested and has_legacy:
+        return "Provide either stateless_input or valuation_points, not both, for stateless mode"
+    if not has_nested and not has_legacy:
+        return "stateless_input or valuation_points is required when input_mode=stateless"
+    return None
 
 
 def _validate_stateful_twr_payloads(request: "TWRAnalyticsRequest") -> None:
@@ -159,8 +175,26 @@ def _validate_stateful_twr_payloads(request: "TWRAnalyticsRequest") -> None:
 def _validate_twr_benchmark_inclusion(request: "TWRAnalyticsRequest") -> None:
     if request.benchmark is not None and not request.include_benchmark:
         request.include_benchmark = True
-    if request.include_benchmark and request.input_mode == TWRInputMode.STATELESS and request.benchmark is None:
+    if _twr_benchmark_config_required(request):
         raise ValueError("benchmark configuration is required when include_benchmark=true in stateless mode")
+
+
+def _twr_benchmark_config_required(request: "TWRAnalyticsRequest") -> bool:
+    return request.include_benchmark and request.input_mode == TWRInputMode.STATELESS and request.benchmark is None
+
+
+def _resolved_twr_stateless_valuation_points(
+    request: "TWRAnalyticsRequest",
+    *,
+    valuation_points: list[DailyInputData] | None,
+) -> list[DailyInputData]:
+    if valuation_points is not None:
+        return valuation_points
+    if request.stateless_input is not None:
+        return request.stateless_input.valuation_points
+    if request.valuation_points:
+        return request.valuation_points
+    raise ValueError("No stateless valuation_points are available to build a PerformanceRequest")
 
 
 class TWRAnalyticsRequest(PerformanceRequestBase):
@@ -211,14 +245,7 @@ class TWRAnalyticsRequest(PerformanceRequestBase):
     ) -> PerformanceRequest:
         if self.performance_start_date is None:
             raise ValueError("performance_start_date is required to build a stateless PerformanceRequest")
-        if valuation_points is not None:
-            resolved_points = valuation_points
-        elif self.stateless_input is not None:
-            resolved_points = self.stateless_input.valuation_points
-        elif self.valuation_points:
-            resolved_points = self.valuation_points
-        else:
-            raise ValueError("No stateless valuation_points are available to build a PerformanceRequest")
+        resolved_points = _resolved_twr_stateless_valuation_points(self, valuation_points=valuation_points)
 
         payload = self.model_dump(
             exclude={

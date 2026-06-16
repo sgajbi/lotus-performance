@@ -3,7 +3,11 @@ from dataclasses import dataclass
 from fastapi import HTTPException, status
 
 from app.core.config import get_settings
-from app.models.benchmark_analytics_requests import BenchmarkInputMode, BenchmarkReturnSource
+from app.models.benchmark_analytics_requests import (
+    BenchmarkInputMode,
+    BenchmarkReturnSource,
+    benchmark_stateless_work_units,
+)
 from app.models.responses import PerformanceResponse, TWRAcceptedResponse
 from app.models.twr_requests import TWRAnalyticsRequest, TWRInputMode, TWRResolvedExecutionRequest
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_TWR
@@ -84,9 +88,10 @@ def twr_requested_benchmark_work_units(request: TWRAnalyticsRequest) -> int:
     stateless_input = request.benchmark.stateless_input
     if stateless_input is None:
         return 0
-    if request.benchmark.return_source == BenchmarkReturnSource.CALCULATED:
-        return len(stateless_input.component_observations) or len(stateless_input.component_price_points)
-    return len(stateless_input.benchmark_return_points)
+    return benchmark_stateless_work_units(
+        stateless_input=stateless_input,
+        return_source=request.benchmark.return_source,
+    )
 
 
 def twr_requested_input_count(request: TWRAnalyticsRequest) -> int:
@@ -241,7 +246,10 @@ def _twr_execution_window_benchmark_fields(
     benchmark_work_units: int | None = None,
 ) -> dict[str, object]:
     benchmark_fields: dict[str, object] = {}
-    requested_benchmark_id = benchmark_id or (request.benchmark.benchmark_id if request.benchmark is not None else None)
+    requested_benchmark_id = _twr_execution_window_benchmark_id(
+        request,
+        benchmark_id=benchmark_id,
+    )
     if requested_benchmark_id is not None:
         benchmark_fields["benchmark_id"] = requested_benchmark_id
     benchmark_input_mode = twr_requested_benchmark_input_mode(request)
@@ -253,6 +261,18 @@ def _twr_execution_window_benchmark_fields(
     if benchmark_work_units is not None:
         benchmark_fields["benchmark_work_units"] = benchmark_work_units
     return benchmark_fields
+
+
+def _twr_execution_window_benchmark_id(
+    request: TWRAnalyticsRequest,
+    *,
+    benchmark_id: str | None = None,
+) -> str | None:
+    if benchmark_id is not None:
+        return benchmark_id
+    if request.benchmark is not None:
+        return request.benchmark.benchmark_id
+    return None
 
 
 async def calculate_twr_workflow(request: TWRAnalyticsRequest) -> PerformanceResponse | TWRAcceptedResponse:
@@ -273,9 +293,7 @@ async def calculate_twr_workflow(request: TWRAnalyticsRequest) -> PerformanceRes
             input_fingerprint=input_fingerprint,
             calculation_hash=calculation_hash,
             request_payload=request.model_dump(mode="json"),
-            offload_reason=(
-                "long_window_stateful_twr" if request.input_mode == TWRInputMode.STATEFUL else "large_twr_input_set"
-            ),
+            offload_reason=_twr_pre_resolution_offload_reason(request),
             accepted_response_factory=accepted_twr_response,
         )
 
@@ -329,6 +347,12 @@ async def calculate_twr_workflow(request: TWRAnalyticsRequest) -> PerformanceRes
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An unexpected server error occurred: {str(exc)}",
         ) from exc
+
+
+def _twr_pre_resolution_offload_reason(request: TWRAnalyticsRequest) -> str:
+    if request.input_mode == TWRInputMode.STATEFUL:
+        return "long_window_stateful_twr"
+    return "large_twr_input_set"
 
 
 def _calculate_twr_resolved_response(

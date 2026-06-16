@@ -1,9 +1,9 @@
 # Lotus Performance Progressive CI Quality Gates
 
-Report date: 2026-06-04
-Branch: `feat/performance-hardening-wave-12`
+Report date: 2026-06-13
+Branch: `refactor/lp-cr-950-mwr-fx-component`
 Baseline sources: `quality/baseline_report.md`, `quality/refactor_health_report.md`, `quality/quality_scorecard.md`
-Mode: report-only gate map; this artifact introduces no new blocking CI gate.
+Mode: progressive gate map; remediated complexity posture is now enforced in CI.
 
 ## Purpose
 
@@ -17,10 +17,24 @@ developers or GitHub Actions.
 
 | Lane | Trigger | Current blocking checks |
 | --- | --- | --- |
-| Remote Feature Lane | Pushes to non-`main` branches and manual dispatch | workflow lint, dependency verification, Ruff lint and format, monetary float guard, no-alias guard, mypy, OpenAPI gate, API vocabulary gate, security audit, unit tests |
-| Pull Request Merge Gate | Pull requests targeting `main` and manual dispatch | workflow lint, dependency verification, Ruff lint and format, monetary float guard, no-alias guard, mypy, OpenAPI gate, API vocabulary gate, migration smoke, security audit, unit, integration, and e2e tests, combined coverage floor at 99 percent, Docker build |
-| Main Releasability Gate | Pushes to `main` and manual dispatch | PR-grade checks rerun on `main`, combined coverage floor at 99 percent, coverage artifact publication, Docker build |
+| Remote Feature Lane | Pushes to non-`main` branches and manual dispatch | workflow lint, static quality gates, contract/security gates, unit tests |
+| Pull Request Merge Gate | Pull requests targeting `main` and manual dispatch | workflow lint, static quality gates, contract/security gates, compatibility `Lint Typecheck Security` aggregate, migration smoke, unit, integration, and e2e tests, combined coverage floor at 99 percent, Docker build |
+| Main Releasability Gate | Pushes to `main` and manual dispatch | workflow lint, static quality gates, contract/security gates, migration smoke, unit, integration, and e2e tests, combined coverage floor at 99 percent, coverage artifact publication, Docker build |
 | PR Auto Merge | Pull request lifecycle events | queues merge-commit auto-merge and branch deletion after required checks pass; this is release automation, not an independent quality gate |
+
+`Static Quality Gates` verifies installed dependencies, Ruff lint/format, monetary-float safety,
+complexity regression, no-alias governance, and mypy type safety. `Contract Security Gates` verifies
+OpenAPI quality, API vocabulary governance, migration smoke where the lane requires it, and
+dependency security. These jobs run in parallel before test execution to reduce CI wall-clock time
+without dropping any gate.
+
+The PR lane also publishes `PR Merge Gate / Lint Typecheck Security` as a lightweight aggregate over
+the split static-quality and contract-security jobs. It exists to satisfy the current GitHub
+required-check contract while preserving the faster parallel lane structure.
+
+GitHub Actions jobs use `make install-ci` so CI installs runtime and development dependencies without
+performing developer-workstation pre-commit hook setup. Local contributors should continue using
+`make install` when they need the hook installation side effect.
 
 ## Gate Promotion Model
 
@@ -60,7 +74,7 @@ No gate should move from one phase to the next until it has:
 | Migration smoke | Blocking in PR and main lanes | Keep blocking outside feature lane unless a migration-heavy slice needs earlier proof. |
 | Docker build | Blocking in PR and main lanes | Keep blocking; no new Docker gate is needed for report-only quality artifacts. |
 | Domain data product validation | Blocking locally through `make check` and repo-native command | Confirm whether GitHub workflows should include this explicitly before changing CI. |
-| Complexity and maintainability | Measured in `quality/complexity_inventory.md` through `scripts/python_complexity_inventory.py` and `radon` | Keep report-only until a stable baseline, false-positive policy, and remediation guidance exist. |
+| Complexity and maintainability | Max cyclomatic complexity and D-F function count are blocking through `make quality-complexity-gate`; maintainability index remains measured in `quality/complexity_inventory.md` through `scripts/python_complexity_inventory.py` and `radon` | Keep max CC at `8` and D-F count at `0`; keep MI report-only until a stable remediation threshold and exception policy exist. |
 | Function-size hotspots | Measured in `quality/function_size_inventory.md` through a repo-native standard-library scanner | Use as refactor-planning evidence; do not block CI until stable thresholds and exclusions are agreed. |
 | Duplicate code hotspots | Measured in `quality/duplicate_code_inventory.md` through `scripts/python_duplicate_code_inventory.py`; current report shows 0 duplicate hotspot groups at `--min-lines 12` | Keep report-only until duplicate-family policy and remediation thresholds are aligned with the enterprise refactor roadmap. |
 | Dead-code detection | Measured in `quality/dead_code_inventory.md` through `scripts/python_dead_code_inventory.py` and `vulture`; 60% findings are dominated by framework/model false positives, while 80% findings are zero | Add reviewed allowlist before considering any regression-blocking gate. |
@@ -90,7 +104,7 @@ The next hardening commits should stay small and add proof in this order:
 
 1. reduce measured API error-contract gaps for error examples, explicit schemas, and problem-detail consistency,
 2. reduce measured architecture-boundary findings through bounded router/domain extraction slices,
-3. reduce measured complexity, function-size, and reviewed dead-code hotspots through bounded slices,
+3. keep reducing measured complexity, function-size, and reviewed dead-code hotspots through bounded slices,
 4. review runtime-only dependency declarations before removing or allowlisting them,
 5. measure branch-coverage posture before proposing a stricter branch gate.
 
@@ -100,6 +114,5 @@ This slice does not:
 
 1. change application behavior,
 2. change API or Swagger contracts,
-3. introduce new CI failures,
-4. promote complexity measurement to a blocking CI threshold,
-5. claim enterprise-readiness completion.
+3. promote maintainability index, function-size, duplicate-code, dead-code, or documentation metrics to blocking gates,
+4. claim enterprise-readiness completion.

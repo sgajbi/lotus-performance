@@ -61,29 +61,42 @@ def format_breakdowns_for_response(
     for freq, results in breakdowns_data.items():
         formatted_results = []
         for i, result_item in enumerate(results):
-            summary_data = result_item["summary"]
-
-            pydantic_summary_data = {
-                "begin_mv": summary_data.get(PortfolioColumns.BEGIN_MV),
-                "end_mv": summary_data.get(PortfolioColumns.END_MV),
-                "net_cash_flow": summary_data.get("net_cash_flow"),
-                "period_return_pct": summary_data.get("period_return_pct"),
-                "cumulative_return_pct_to_date": summary_data.get("cumulative_return_pct_to_date"),
-                "annualized_return_pct": summary_data.get("annualized_return_pct"),
-            }
-
-            summary_model = PerformanceSummary.model_validate(pydantic_summary_data)
-
-            daily_data_for_period = None
-            if freq == Frequency.DAILY and i < len(daily_records) and include_timeseries:
-                daily_data_for_period = [daily_records[i]]
-
             formatted_results.append(
                 PerformanceResultItem(
                     period=result_item["period"],
-                    summary=summary_model,
-                    daily_data=daily_data_for_period,
+                    summary=PerformanceSummary.model_validate(_performance_summary_payload(result_item["summary"])),
+                    daily_data=_daily_data_for_breakdown(
+                        frequency=freq,
+                        item_index=i,
+                        daily_records=daily_records,
+                        include_timeseries=include_timeseries,
+                    ),
                 )
             )
         response_breakdowns[freq] = formatted_results
     return response_breakdowns
+
+
+def _performance_summary_payload(summary_data: Dict) -> dict[str, Any]:
+    return {
+        "begin_mv": summary_data.get(PortfolioColumns.BEGIN_MV),
+        "end_mv": summary_data.get(PortfolioColumns.END_MV),
+        "net_cash_flow": summary_data.get("net_cash_flow"),
+        "period_return_pct": summary_data.get("period_return_pct"),
+        "cumulative_return_pct_to_date": summary_data.get("cumulative_return_pct_to_date"),
+        "annualized_return_pct": summary_data.get("annualized_return_pct"),
+    }
+
+
+def _daily_data_for_breakdown(
+    *,
+    frequency: Frequency,
+    item_index: int,
+    daily_records: list[dict],
+    include_timeseries: bool,
+) -> list[dict] | None:
+    if frequency != Frequency.DAILY or not include_timeseries:
+        return None
+    if item_index >= len(daily_records):
+        return None
+    return [daily_records[item_index]]

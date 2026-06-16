@@ -1,6 +1,10 @@
 import logging
 
 from app.services.durable_store_json import (
+    _INVALID_JSON_PAYLOAD,
+    _is_json_object_payload,
+    _is_non_empty_string_list_payload,
+    _load_json_payload_or_invalid,
     load_json_object_or_none,
     load_json_string_list_or_default,
     read_json_file,
@@ -124,6 +128,43 @@ def test_load_json_string_list_or_default_returns_default_for_malformed_payloads
     assert invalid_shape == ["invalid_payload"]
     assert "Reason codes invalid JSON for row=row-1." in caplog.text
     assert "Reason codes is not a string list for row=row-2." in caplog.text
+
+
+def test_load_json_payload_or_invalid_logs_decode_failures(caplog):
+    logger = logging.getLogger("tests.durable_store_json")
+
+    with caplog.at_level(logging.WARNING, logger="tests.durable_store_json"):
+        valid_payload = _load_json_payload_or_invalid(
+            '{"ok": true}',
+            logger=logger,
+            payload_name="Payload",
+            identity_name="row",
+            identity_value="row-1",
+        )
+        invalid_payload = _load_json_payload_or_invalid(
+            "{not-json",
+            logger=logger,
+            payload_name="Payload",
+            identity_name="row",
+            identity_value="row-2",
+        )
+
+    assert valid_payload == {"ok": True}
+    assert invalid_payload is _INVALID_JSON_PAYLOAD
+    assert "Payload invalid JSON for row=row-2." in caplog.text
+
+
+def test_is_non_empty_string_list_payload_requires_non_blank_strings():
+    assert _is_non_empty_string_list_payload(["missing_final_valuation", "stale_source"])
+    assert not _is_non_empty_string_list_payload(["missing_final_valuation", ""])
+    assert not _is_non_empty_string_list_payload(["missing_final_valuation", 1])
+    assert not _is_non_empty_string_list_payload("missing_final_valuation")
+
+
+def test_is_json_object_payload_accepts_only_mapping_payloads():
+    assert _is_json_object_payload({"ok": True})
+    assert not _is_json_object_payload(["ok"])
+    assert not _is_json_object_payload("ok")
 
 
 def test_read_json_object_file_returns_object_payload(tmp_path):
