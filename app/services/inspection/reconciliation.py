@@ -464,9 +464,17 @@ def _select_latest_position_rows(position_rows: list[dict[str, object]]) -> list
             continue
         epoch = _parse_epoch_value(row)
         current = selected.get(key)
-        if current is None or epoch >= current[0]:
+        if _should_replace_selected_position_row(candidate_epoch=epoch, selected=current):
             selected[key] = (epoch, row)
     return [row for _, row in selected.values()]
+
+
+def _should_replace_selected_position_row(
+    *,
+    candidate_epoch: int,
+    selected: tuple[int, dict[str, object]] | None,
+) -> bool:
+    return selected is None or candidate_epoch >= selected[0]
 
 
 def _position_row_selection_key(row: dict[str, object]) -> tuple[str, str] | None:

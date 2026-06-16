@@ -77,6 +77,15 @@ def test_select_latest_position_rows_keeps_latest_epoch_and_replaces_equal_epoch
     ]
 
 
+def test_should_replace_selected_position_row_policy_compares_candidate_epoch():
+    selected = (2, {"marker": "current"})
+
+    assert reconciliation._should_replace_selected_position_row(candidate_epoch=1, selected=None)
+    assert not reconciliation._should_replace_selected_position_row(candidate_epoch=1, selected=selected)
+    assert reconciliation._should_replace_selected_position_row(candidate_epoch=3, selected=selected)
+    assert reconciliation._should_replace_selected_position_row(candidate_epoch=2, selected=selected)
+
+
 def test_analyze_position_reconciliation_gaps_applies_tolerance_and_preserves_gap_evidence():
     gap_analysis = reconciliation._analyze_position_reconciliation_gaps(
         portfolio_end_by_date={
