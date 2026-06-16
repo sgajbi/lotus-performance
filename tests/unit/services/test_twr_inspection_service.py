@@ -637,6 +637,29 @@ def test_build_inspection_findings_context_adds_no_check_finding_and_failed_fami
     assert "failed_check_families" not in evidence_summary
 
 
+def test_pending_check_families_preserves_governed_order_and_excludes_completed():
+    assert service._pending_check_families(["source_quality", "reconciliation"]) == [
+        "calculation_consistency",
+        "economic_plausibility",
+        "cashflow_classification",
+    ]
+
+
+def test_pending_check_families_returns_empty_when_all_completed():
+    assert (
+        service._pending_check_families(
+            [
+                "calculation_consistency",
+                "source_quality",
+                "economic_plausibility",
+                "reconciliation",
+                "cashflow_classification",
+            ]
+        )
+        == []
+    )
+
+
 def test_twr_inspection_verdict_and_window_helpers_cover_clean_and_unscoped_paths():
     assert (
         service._synthesize_verdict(

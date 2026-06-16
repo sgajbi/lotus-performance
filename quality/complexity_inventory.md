@@ -38,31 +38,31 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_build_inspection_findings_context` | function | `app/services/inspection/twr_inspection_service.py:386` | 6 | B |
-| 2 | `_synthesize_verdict` | function | `app/services/inspection/twr_inspection_service.py:586` | 6 | B |
-| 3 | `_response_master_window` | function | `app/services/inspection/twr_inspection_service.py:725` | 6 | B |
-| 4 | `_build_workflow_capabilities` | function | `app/services/integration_capabilities_service.py:169` | 6 | B |
-| 5 | `_stringify_decimals` | function | `app/services/mwr_calculation_service.py:134` | 6 | B |
-| 6 | `_enforce_manual_action_cooldown` | function | `app/services/operator_action_guard_service.py:186` | 6 | B |
-| 7 | `generated_at_within_bounds` | function | `app/services/operator_action_history_filters.py:38` | 6 | B |
-| 8 | `_history_manifest_file_names` | function | `app/services/operator_action_history_manifest.py:83` | 6 | B |
-| 9 | `_parse_reclaimed_event_payload` | function | `app/services/operator_action_lease_service.py:497` | 6 | B |
-| 10 | `_has_valid_reclaimed_event_string_fields` | function | `app/services/operator_action_lease_service.py:567` | 6 | B |
-| 11 | `resolve_runtime_retention_manual_replay` | function | `app/services/operator_action_replay_service.py:91` | 6 | B |
-| 12 | `resolve_recovery_drill_manual_replay` | function | `app/services/operator_action_replay_service.py:128` | 6 | B |
-| 13 | `_runtime_retention_payload_counts_match` | function | `app/services/operator_action_replay_service.py:269` | 6 | B |
-| 14 | `build_active_return_points` | function | `app/services/returns_series_service.py:352` | 6 | B |
-| 15 | `build_cumulative_active_return_points` | function | `app/services/returns_series_service.py:387` | 6 | B |
-| 16 | `_risk_free_return_point_from_source` | function | `app/services/returns_series_service.py:592` | 6 | B |
-| 17 | `_prepare_stateless_returns_series_dataframes` | function | `app/services/returns_series_service.py:715` | 6 | B |
-| 18 | `_retrieve_stateful_returns_series_risk_free` | function | `app/services/returns_series_service.py:967` | 6 | B |
-| 19 | `_build_returns_series_response` | function | `app/services/returns_series_service.py:1258` | 6 | B |
-| 20 | `_calculate_returns_series` | function | `app/services/returns_series_service.py:1397` | 6 | B |
-| 21 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:1496` | 6 | B |
-| 22 | `threshold_breach_values` | function | `app/services/runtime_degradation_policy.py:13` | 6 | B |
-| 23 | `build_runtime_recoveries_response_for_query` | function | `app/services/runtime_recoveries_service.py:39` | 6 | B |
-| 24 | `execute_runtime_retention_cleanup` | function | `app/services/runtime_retention_execution_service.py:78` | 6 | B |
-| 25 | `_persist_evidence_history` | function | `app/services/runtime_retention_execution_service.py:139` | 6 | B |
+| 1 | `_synthesize_verdict` | function | `app/services/inspection/twr_inspection_service.py:590` | 6 | B |
+| 2 | `_response_master_window` | function | `app/services/inspection/twr_inspection_service.py:729` | 6 | B |
+| 3 | `_build_workflow_capabilities` | function | `app/services/integration_capabilities_service.py:169` | 6 | B |
+| 4 | `_stringify_decimals` | function | `app/services/mwr_calculation_service.py:134` | 6 | B |
+| 5 | `_enforce_manual_action_cooldown` | function | `app/services/operator_action_guard_service.py:186` | 6 | B |
+| 6 | `generated_at_within_bounds` | function | `app/services/operator_action_history_filters.py:38` | 6 | B |
+| 7 | `_history_manifest_file_names` | function | `app/services/operator_action_history_manifest.py:83` | 6 | B |
+| 8 | `_parse_reclaimed_event_payload` | function | `app/services/operator_action_lease_service.py:497` | 6 | B |
+| 9 | `_has_valid_reclaimed_event_string_fields` | function | `app/services/operator_action_lease_service.py:567` | 6 | B |
+| 10 | `resolve_runtime_retention_manual_replay` | function | `app/services/operator_action_replay_service.py:91` | 6 | B |
+| 11 | `resolve_recovery_drill_manual_replay` | function | `app/services/operator_action_replay_service.py:128` | 6 | B |
+| 12 | `_runtime_retention_payload_counts_match` | function | `app/services/operator_action_replay_service.py:269` | 6 | B |
+| 13 | `build_active_return_points` | function | `app/services/returns_series_service.py:352` | 6 | B |
+| 14 | `build_cumulative_active_return_points` | function | `app/services/returns_series_service.py:387` | 6 | B |
+| 15 | `_risk_free_return_point_from_source` | function | `app/services/returns_series_service.py:592` | 6 | B |
+| 16 | `_prepare_stateless_returns_series_dataframes` | function | `app/services/returns_series_service.py:715` | 6 | B |
+| 17 | `_retrieve_stateful_returns_series_risk_free` | function | `app/services/returns_series_service.py:967` | 6 | B |
+| 18 | `_build_returns_series_response` | function | `app/services/returns_series_service.py:1258` | 6 | B |
+| 19 | `_calculate_returns_series` | function | `app/services/returns_series_service.py:1397` | 6 | B |
+| 20 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:1496` | 6 | B |
+| 21 | `threshold_breach_values` | function | `app/services/runtime_degradation_policy.py:13` | 6 | B |
+| 22 | `build_runtime_recoveries_response_for_query` | function | `app/services/runtime_recoveries_service.py:39` | 6 | B |
+| 23 | `execute_runtime_retention_cleanup` | function | `app/services/runtime_retention_execution_service.py:78` | 6 | B |
+| 24 | `_persist_evidence_history` | function | `app/services/runtime_retention_execution_service.py:139` | 6 | B |
+| 25 | `_prune_old_evidence` | function | `app/services/runtime_retention_execution_service.py:203` | 6 | B |
 
 ## Lowest Maintainability Index
 
@@ -87,7 +87,7 @@ must stay at `0`.
 | 17 | `app/services/inspection/calculation_consistency.py` | 17.79 | B |
 | 18 | `app/services/twr_mode_service.py` | 18.07 | B |
 | 19 | `app/models/runtime_status.py` | 19.85 | A |
-| 20 | `app/services/inspection/twr_inspection_service.py` | 20.27 | A |
+| 20 | `app/services/inspection/twr_inspection_service.py` | 20.20 | A |
 | 21 | `app/models/returns_series.py` | 20.36 | A |
 | 22 | `app/workers/compute_executor_worker.py` | 20.96 | A |
 | 23 | `app/services/stateful_mwr_input_service.py` | 22.00 | A |
