@@ -286,13 +286,10 @@ def _runtime_retention_payload_counts_match(
     payload: dict[str, Any],
     entry: RuntimeRetentionHistoryEntry,
 ) -> bool:
-    return (
-        payload["retention_days"] == entry.retention_days
-        and payload["prunable_execution_count"] == entry.prunable_execution_count
-        and payload["prunable_compute_job_count"] == entry.prunable_compute_job_count
-        and payload["prunable_async_result_count"] == entry.prunable_async_result_count
-        and payload["prunable_lineage_record_count"] == entry.prunable_lineage_record_count
-        and payload["prunable_lineage_artifact_count"] == entry.prunable_lineage_artifact_count
+    return _payload_entry_required_fields_match(
+        payload,
+        entry,
+        field_names=_RUNTIME_RETENTION_REQUIRED_INT_FIELDS,
     )
 
 

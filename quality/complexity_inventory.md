@@ -32,37 +32,37 @@ must stay at `0`.
 | --- | ---: |
 | Max cyclomatic complexity | 6 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.01 |
+| Average maintainability index | 55.02 |
 
 ## Highest Cyclomatic Complexity
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_runtime_retention_payload_counts_match` | function | `app/services/operator_action_replay_service.py:285` | 6 | B |
-| 2 | `build_active_return_points` | function | `app/services/returns_series_service.py:352` | 6 | B |
-| 3 | `build_cumulative_active_return_points` | function | `app/services/returns_series_service.py:387` | 6 | B |
-| 4 | `_risk_free_return_point_from_source` | function | `app/services/returns_series_service.py:592` | 6 | B |
-| 5 | `_prepare_stateless_returns_series_dataframes` | function | `app/services/returns_series_service.py:715` | 6 | B |
-| 6 | `_retrieve_stateful_returns_series_risk_free` | function | `app/services/returns_series_service.py:967` | 6 | B |
-| 7 | `_build_returns_series_response` | function | `app/services/returns_series_service.py:1258` | 6 | B |
-| 8 | `_calculate_returns_series` | function | `app/services/returns_series_service.py:1397` | 6 | B |
-| 9 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:1496` | 6 | B |
-| 10 | `threshold_breach_values` | function | `app/services/runtime_degradation_policy.py:13` | 6 | B |
-| 11 | `build_runtime_recoveries_response_for_query` | function | `app/services/runtime_recoveries_service.py:39` | 6 | B |
-| 12 | `execute_runtime_retention_cleanup` | function | `app/services/runtime_retention_execution_service.py:78` | 6 | B |
-| 13 | `_persist_evidence_history` | function | `app/services/runtime_retention_execution_service.py:139` | 6 | B |
-| 14 | `_prune_old_evidence` | function | `app/services/runtime_retention_execution_service.py:203` | 6 | B |
-| 15 | `_validate_manifest_entry` | function | `app/services/runtime_retention_history_service.py:232` | 6 | B |
-| 16 | `run_runtime_retention_cleanup` | function | `app/services/runtime_retention_run_service.py:93` | 6 | B |
-| 17 | `build_recovery_drill_status` | function | `app/services/runtime_status_lifecycle.py:68` | 6 | B |
-| 18 | `build_runtime_retention_status` | function | `app/services/runtime_status_lifecycle.py:131` | 6 | B |
-| 19 | `_record_source_quality_observation` | function | `app/services/source_quality_evidence.py:92` | 6 | B |
-| 20 | `retrieve_stateful_attribution_source_input` | function | `app/services/stateful_attribution_input_service.py:62` | 6 | B |
-| 21 | `_resolve_stateful_attribution_benchmark_id` | function | `app/services/stateful_attribution_input_service.py:161` | 6 | B |
-| 22 | `_sum_internal_cash_flow_abs_in_alignment_basis` | function | `app/services/stateful_attribution_input_service.py:431` | 6 | B |
-| 23 | `_classified_component_count` | function | `app/services/stateful_attribution_input_service.py:518` | 6 | B |
-| 24 | `_build_benchmark_groups` | function | `app/services/stateful_attribution_input_service.py:721` | 6 | B |
-| 25 | `_position_row_to_base_weight_point` | function | `app/services/stateful_attribution_input_service.py:974` | 6 | B |
+| 1 | `build_active_return_points` | function | `app/services/returns_series_service.py:352` | 6 | B |
+| 2 | `build_cumulative_active_return_points` | function | `app/services/returns_series_service.py:387` | 6 | B |
+| 3 | `_risk_free_return_point_from_source` | function | `app/services/returns_series_service.py:592` | 6 | B |
+| 4 | `_prepare_stateless_returns_series_dataframes` | function | `app/services/returns_series_service.py:715` | 6 | B |
+| 5 | `_retrieve_stateful_returns_series_risk_free` | function | `app/services/returns_series_service.py:967` | 6 | B |
+| 6 | `_build_returns_series_response` | function | `app/services/returns_series_service.py:1258` | 6 | B |
+| 7 | `_calculate_returns_series` | function | `app/services/returns_series_service.py:1397` | 6 | B |
+| 8 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:1496` | 6 | B |
+| 9 | `threshold_breach_values` | function | `app/services/runtime_degradation_policy.py:13` | 6 | B |
+| 10 | `build_runtime_recoveries_response_for_query` | function | `app/services/runtime_recoveries_service.py:39` | 6 | B |
+| 11 | `execute_runtime_retention_cleanup` | function | `app/services/runtime_retention_execution_service.py:78` | 6 | B |
+| 12 | `_persist_evidence_history` | function | `app/services/runtime_retention_execution_service.py:139` | 6 | B |
+| 13 | `_prune_old_evidence` | function | `app/services/runtime_retention_execution_service.py:203` | 6 | B |
+| 14 | `_validate_manifest_entry` | function | `app/services/runtime_retention_history_service.py:232` | 6 | B |
+| 15 | `run_runtime_retention_cleanup` | function | `app/services/runtime_retention_run_service.py:93` | 6 | B |
+| 16 | `build_recovery_drill_status` | function | `app/services/runtime_status_lifecycle.py:68` | 6 | B |
+| 17 | `build_runtime_retention_status` | function | `app/services/runtime_status_lifecycle.py:131` | 6 | B |
+| 18 | `_record_source_quality_observation` | function | `app/services/source_quality_evidence.py:92` | 6 | B |
+| 19 | `retrieve_stateful_attribution_source_input` | function | `app/services/stateful_attribution_input_service.py:62` | 6 | B |
+| 20 | `_resolve_stateful_attribution_benchmark_id` | function | `app/services/stateful_attribution_input_service.py:161` | 6 | B |
+| 21 | `_sum_internal_cash_flow_abs_in_alignment_basis` | function | `app/services/stateful_attribution_input_service.py:431` | 6 | B |
+| 22 | `_classified_component_count` | function | `app/services/stateful_attribution_input_service.py:518` | 6 | B |
+| 23 | `_build_benchmark_groups` | function | `app/services/stateful_attribution_input_service.py:721` | 6 | B |
+| 24 | `_position_row_to_base_weight_point` | function | `app/services/stateful_attribution_input_service.py:974` | 6 | B |
+| 25 | `_position_meta_from_row` | function | `app/services/stateful_attribution_input_service.py:1037` | 6 | B |
 
 ## Lowest Maintainability Index
 
