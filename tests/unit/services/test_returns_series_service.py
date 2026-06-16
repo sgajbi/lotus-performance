@@ -170,6 +170,36 @@ def test_build_cumulative_active_return_points_uses_cumulative_excess_not_linked
     ]
 
 
+def test_aligned_cumulative_portfolio_benchmark_returns_df_requires_benchmark_and_overlap():
+    portfolio_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-23"]),
+            "return_value": [Decimal("0.0100")],
+        }
+    )
+    benchmark_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-24"]),
+            "return_value": [Decimal("0.0010")],
+        }
+    )
+
+    assert (
+        returns_series_service._aligned_cumulative_portfolio_benchmark_returns_df(
+            portfolio_df=portfolio_df,
+            benchmark_df=None,
+        )
+        is None
+    )
+    assert (
+        returns_series_service._aligned_cumulative_portfolio_benchmark_returns_df(
+            portfolio_df=portfolio_df,
+            benchmark_df=benchmark_df,
+        )
+        is None
+    )
+
+
 def test_build_returns_series_point_outputs_emits_selected_point_families():
     portfolio_df = pd.DataFrame(
         {

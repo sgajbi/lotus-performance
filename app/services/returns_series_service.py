@@ -357,7 +357,10 @@ def build_active_return_points(
     aligned_df = _aligned_portfolio_benchmark_returns_df(portfolio_df=portfolio_df, benchmark_df=benchmark_df)
     if aligned_df is None:
         return None
+    return _active_return_points_from_aligned_df(aligned_df)
 
+
+def _active_return_points_from_aligned_df(aligned_df: pd.DataFrame) -> list[ReturnPoint] | None:
     portfolio_values = [Decimal(str(value)) for value in aligned_df["return_value_portfolio"]]
     benchmark_values = [Decimal(str(value)) for value in aligned_df["return_value_benchmark"]]
     active_df = pd.DataFrame(
@@ -377,6 +380,20 @@ def build_cumulative_active_return_points(
     portfolio_df: pd.DataFrame,
     benchmark_df: pd.DataFrame | None,
 ) -> list[ReturnPoint] | None:
+    aligned_df = _aligned_cumulative_portfolio_benchmark_returns_df(
+        portfolio_df=portfolio_df,
+        benchmark_df=benchmark_df,
+    )
+    if aligned_df is None:
+        return None
+    return _active_return_points_from_aligned_df(aligned_df)
+
+
+def _aligned_cumulative_portfolio_benchmark_returns_df(
+    *,
+    portfolio_df: pd.DataFrame,
+    benchmark_df: pd.DataFrame | None,
+) -> pd.DataFrame | None:
     if benchmark_df is None:
         return None
 
@@ -384,28 +401,10 @@ def build_cumulative_active_return_points(
     cumulative_benchmark = build_cumulative_return_points(benchmark_df)
     if cumulative_portfolio is None or cumulative_benchmark is None:
         return None
-
-    aligned_df = _aligned_portfolio_benchmark_returns_df(
+    return _aligned_portfolio_benchmark_returns_df(
         portfolio_df=to_dataframe(cumulative_portfolio, series_type="portfolio_cumulative"),
         benchmark_df=to_dataframe(cumulative_benchmark, series_type="benchmark_cumulative"),
     )
-    if aligned_df is None:
-        return None
-
-    active_df = pd.DataFrame(
-        {
-            "date": aligned_df["date"],
-            "return_value": [
-                Decimal(str(portfolio_value)) - Decimal(str(benchmark_value))
-                for portfolio_value, benchmark_value in zip(
-                    aligned_df["return_value_portfolio"],
-                    aligned_df["return_value_benchmark"],
-                    strict=True,
-                )
-            ],
-        }
-    )
-    return points_from_df(active_df)
 
 
 def _aligned_portfolio_benchmark_returns_df(

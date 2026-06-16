@@ -38,31 +38,31 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `build_cumulative_active_return_points` | function | `app/services/returns_series_service.py:375` | 6 | B |
-| 2 | `_risk_free_return_point_from_source` | function | `app/services/returns_series_service.py:595` | 6 | B |
-| 3 | `_prepare_stateless_returns_series_dataframes` | function | `app/services/returns_series_service.py:718` | 6 | B |
-| 4 | `_retrieve_stateful_returns_series_risk_free` | function | `app/services/returns_series_service.py:970` | 6 | B |
-| 5 | `_build_returns_series_response` | function | `app/services/returns_series_service.py:1261` | 6 | B |
-| 6 | `_calculate_returns_series` | function | `app/services/returns_series_service.py:1400` | 6 | B |
-| 7 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:1499` | 6 | B |
-| 8 | `threshold_breach_values` | function | `app/services/runtime_degradation_policy.py:13` | 6 | B |
-| 9 | `build_runtime_recoveries_response_for_query` | function | `app/services/runtime_recoveries_service.py:39` | 6 | B |
-| 10 | `execute_runtime_retention_cleanup` | function | `app/services/runtime_retention_execution_service.py:78` | 6 | B |
-| 11 | `_persist_evidence_history` | function | `app/services/runtime_retention_execution_service.py:139` | 6 | B |
-| 12 | `_prune_old_evidence` | function | `app/services/runtime_retention_execution_service.py:203` | 6 | B |
-| 13 | `_validate_manifest_entry` | function | `app/services/runtime_retention_history_service.py:232` | 6 | B |
-| 14 | `run_runtime_retention_cleanup` | function | `app/services/runtime_retention_run_service.py:93` | 6 | B |
-| 15 | `build_recovery_drill_status` | function | `app/services/runtime_status_lifecycle.py:68` | 6 | B |
-| 16 | `build_runtime_retention_status` | function | `app/services/runtime_status_lifecycle.py:131` | 6 | B |
-| 17 | `_record_source_quality_observation` | function | `app/services/source_quality_evidence.py:92` | 6 | B |
-| 18 | `retrieve_stateful_attribution_source_input` | function | `app/services/stateful_attribution_input_service.py:62` | 6 | B |
-| 19 | `_resolve_stateful_attribution_benchmark_id` | function | `app/services/stateful_attribution_input_service.py:161` | 6 | B |
-| 20 | `_sum_internal_cash_flow_abs_in_alignment_basis` | function | `app/services/stateful_attribution_input_service.py:431` | 6 | B |
-| 21 | `_classified_component_count` | function | `app/services/stateful_attribution_input_service.py:518` | 6 | B |
-| 22 | `_build_benchmark_groups` | function | `app/services/stateful_attribution_input_service.py:721` | 6 | B |
-| 23 | `_position_row_to_base_weight_point` | function | `app/services/stateful_attribution_input_service.py:974` | 6 | B |
-| 24 | `_position_meta_from_row` | function | `app/services/stateful_attribution_input_service.py:1037` | 6 | B |
-| 25 | `_validate_stateful_both_currency_support` | function | `app/services/stateful_attribution_input_service.py:1100` | 6 | B |
+| 1 | `_risk_free_return_point_from_source` | function | `app/services/returns_series_service.py:594` | 6 | B |
+| 2 | `_prepare_stateless_returns_series_dataframes` | function | `app/services/returns_series_service.py:717` | 6 | B |
+| 3 | `_retrieve_stateful_returns_series_risk_free` | function | `app/services/returns_series_service.py:969` | 6 | B |
+| 4 | `_build_returns_series_response` | function | `app/services/returns_series_service.py:1260` | 6 | B |
+| 5 | `_calculate_returns_series` | function | `app/services/returns_series_service.py:1399` | 6 | B |
+| 6 | `resolve_stateful_returns_series_request` | function | `app/services/returns_series_service.py:1498` | 6 | B |
+| 7 | `threshold_breach_values` | function | `app/services/runtime_degradation_policy.py:13` | 6 | B |
+| 8 | `build_runtime_recoveries_response_for_query` | function | `app/services/runtime_recoveries_service.py:39` | 6 | B |
+| 9 | `execute_runtime_retention_cleanup` | function | `app/services/runtime_retention_execution_service.py:78` | 6 | B |
+| 10 | `_persist_evidence_history` | function | `app/services/runtime_retention_execution_service.py:139` | 6 | B |
+| 11 | `_prune_old_evidence` | function | `app/services/runtime_retention_execution_service.py:203` | 6 | B |
+| 12 | `_validate_manifest_entry` | function | `app/services/runtime_retention_history_service.py:232` | 6 | B |
+| 13 | `run_runtime_retention_cleanup` | function | `app/services/runtime_retention_run_service.py:93` | 6 | B |
+| 14 | `build_recovery_drill_status` | function | `app/services/runtime_status_lifecycle.py:68` | 6 | B |
+| 15 | `build_runtime_retention_status` | function | `app/services/runtime_status_lifecycle.py:131` | 6 | B |
+| 16 | `_record_source_quality_observation` | function | `app/services/source_quality_evidence.py:92` | 6 | B |
+| 17 | `retrieve_stateful_attribution_source_input` | function | `app/services/stateful_attribution_input_service.py:62` | 6 | B |
+| 18 | `_resolve_stateful_attribution_benchmark_id` | function | `app/services/stateful_attribution_input_service.py:161` | 6 | B |
+| 19 | `_sum_internal_cash_flow_abs_in_alignment_basis` | function | `app/services/stateful_attribution_input_service.py:431` | 6 | B |
+| 20 | `_classified_component_count` | function | `app/services/stateful_attribution_input_service.py:518` | 6 | B |
+| 21 | `_build_benchmark_groups` | function | `app/services/stateful_attribution_input_service.py:721` | 6 | B |
+| 22 | `_position_row_to_base_weight_point` | function | `app/services/stateful_attribution_input_service.py:974` | 6 | B |
+| 23 | `_position_meta_from_row` | function | `app/services/stateful_attribution_input_service.py:1037` | 6 | B |
+| 24 | `_validate_stateful_both_currency_support` | function | `app/services/stateful_attribution_input_service.py:1100` | 6 | B |
+| 25 | `_benchmark_return_points_from_payload` | function | `app/services/stateful_benchmark_input_service.py:227` | 6 | B |
 
 ## Lowest Maintainability Index
 
