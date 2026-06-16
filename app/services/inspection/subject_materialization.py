@@ -49,20 +49,24 @@ def load_existing_twr_calculation_artifacts(calculation_id: UUID) -> ExistingTWR
             ),
         )
 
-    lineage_directory = Path(get_settings().LINEAGE_STORAGE_PATH) / str(calculation_id)
-    response_path = lineage_directory / "response.json"
-    request_path = lineage_directory / "request.json"
-    if response_path.exists():
-        response_payload = read_json_file(response_path)
-        request_payload = None
-        if request_path.exists():
-            request_payload = read_json_file(request_path)
-        return ExistingTWRCalculationArtifacts(
-            response_model=PerformanceResponse.model_validate(response_payload),
-            request_payload=request_payload,
-        )
+    materialized_artifacts = _artifacts_from_materialized_lineage_files(calculation_id)
+    if materialized_artifacts is not None:
+        return materialized_artifacts
 
     raise KeyError(f"TWR response artifacts not found for calculation: {calculation_id}")
+
+
+def _artifacts_from_materialized_lineage_files(calculation_id: UUID) -> ExistingTWRCalculationArtifacts | None:
+    lineage_directory = Path(get_settings().LINEAGE_STORAGE_PATH) / str(calculation_id)
+    response_path = lineage_directory / "response.json"
+    if not response_path.exists():
+        return None
+    request_path = lineage_directory / "request.json"
+    request_payload = read_json_file(request_path) if request_path.exists() else None
+    return ExistingTWRCalculationArtifacts(
+        response_model=PerformanceResponse.model_validate(read_json_file(response_path)),
+        request_payload=request_payload,
+    )
 
 
 def _existing_artifacts_from_lineage_payload(
