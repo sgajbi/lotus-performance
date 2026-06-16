@@ -571,14 +571,18 @@ def _has_valid_reclaimed_event_fields(payload: dict[str, object]) -> bool:
 
 
 def _has_valid_reclaimed_event_string_fields(payload: dict[str, object]) -> bool:
-    return (
-        is_required_evidence_string(payload.get("operator_id"))
-        and is_optional_evidence_string(payload.get("tenant_id"))
-        and is_required_evidence_string(payload.get("governed_target"))
-        and is_required_evidence_string(payload.get("acquired_at_utc"))
-        and is_required_evidence_string(payload.get("reclaimed_at_utc"))
-        and is_required_evidence_string(payload.get("action_key"))
+    return _has_required_reclaimed_event_strings(payload) and is_optional_evidence_string(payload.get("tenant_id"))
+
+
+def _has_required_reclaimed_event_strings(payload: dict[str, object]) -> bool:
+    required_keys = (
+        "operator_id",
+        "governed_target",
+        "acquired_at_utc",
+        "reclaimed_at_utc",
+        "action_key",
     )
+    return all(is_required_evidence_string(payload.get(key)) for key in required_keys)
 
 
 def _reclaim_stale_lock(
