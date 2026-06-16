@@ -593,15 +593,27 @@ def _risk_free_day_count_denominator(day_count_convention: object) -> Decimal:
 
 def _risk_free_return_point_from_source(point: dict[str, Any]) -> ReturnPoint | None:
     date_raw = point.get("series_date")
+    if not isinstance(date_raw, str):
+        return None
+    try:
+        return_value = _risk_free_return_value_from_source(point)
+        if return_value is None:
+            return None
+        return ReturnPoint(date=date.fromisoformat(date_raw), return_value=return_value)
+    except ValueError:
+        return None
+
+
+def _risk_free_return_value_from_source(point: dict[str, Any]) -> Decimal | None:
     value_raw = point.get("value")
-    if not isinstance(date_raw, str) or value_raw is None:
+    if value_raw is None:
         return None
     try:
         return_value = Decimal(str(value_raw))
         if str(point.get("value_convention") or "").lower() == "annualized_rate":
-            return_value = return_value / _risk_free_day_count_denominator(point.get("day_count_convention"))
-        return ReturnPoint(date=date.fromisoformat(date_raw), return_value=return_value)
-    except (ValueError, ArithmeticError):
+            return return_value / _risk_free_day_count_denominator(point.get("day_count_convention"))
+        return return_value
+    except ArithmeticError:
         return None
 
 

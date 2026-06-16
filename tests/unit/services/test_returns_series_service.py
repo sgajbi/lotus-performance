@@ -558,6 +558,29 @@ def test_risk_free_points_to_dataframe_converts_annualized_rates_to_daily_return
     ]
 
 
+def test_risk_free_return_value_from_source_normalizes_annualized_and_period_returns():
+    assert returns_series_service._risk_free_return_value_from_source(
+        {
+            "value": "0.036",
+            "value_convention": "annualized_rate",
+            "day_count_convention": "ACT_360",
+        }
+    ) == Decimal("0.0001")
+    assert returns_series_service._risk_free_return_value_from_source(
+        {
+            "value": "0.036",
+            "value_convention": "annualized_rate",
+            "day_count_convention": "unknown",
+        }
+    ) == Decimal("0.0001")
+    assert returns_series_service._risk_free_return_value_from_source({"value": "0.0002"}) == Decimal("0.0002")
+
+
+def test_risk_free_return_value_from_source_rejects_missing_or_invalid_values():
+    assert returns_series_service._risk_free_return_value_from_source({}) is None
+    assert returns_series_service._risk_free_return_value_from_source({"value": "not-a-decimal"}) is None
+
+
 def test_risk_free_points_to_dataframe_skips_malformed_points():
     risk_free_df = returns_series_service.risk_free_points_to_dataframe(
         points=[
