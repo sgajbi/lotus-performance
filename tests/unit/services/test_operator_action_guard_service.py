@@ -6,6 +6,7 @@ from fastapi import HTTPException
 from app.services.operator_action_guard_service import (
     _find_latest_recovery_drill_entry,
     _find_latest_runtime_retention_entry,
+    _manual_action_retry_after_seconds,
     _runtime_retention_history_entry_matches,
     enforce_recovery_drill_manual_run_cooldown,
     enforce_runtime_retention_apply_preview,
@@ -284,6 +285,51 @@ def test_runtime_retention_manual_run_cooldown_clamps_future_evidence_age():
         )
 
     assert exc_info.value.headers == {"Retry-After": "300"}
+
+
+def test_manual_action_retry_after_seconds_projects_cooldown_policy():
+    now_utc = datetime(2026, 3, 15, 0, 5, 0, tzinfo=UTC)
+
+    assert (
+        _manual_action_retry_after_seconds(
+            latest_generated_at_utc="2026-03-15T00:00:00Z",
+            cooldown_seconds=0,
+            now_utc=now_utc,
+        )
+        is None
+    )
+    assert (
+        _manual_action_retry_after_seconds(
+            latest_generated_at_utc=None,
+            cooldown_seconds=300.0,
+            now_utc=now_utc,
+        )
+        is None
+    )
+    assert (
+        _manual_action_retry_after_seconds(
+            latest_generated_at_utc="2026-03-15T00:00:00Z",
+            cooldown_seconds=300.0,
+            now_utc=now_utc,
+        )
+        is None
+    )
+    assert (
+        _manual_action_retry_after_seconds(
+            latest_generated_at_utc="2026-03-15T00:04:00Z",
+            cooldown_seconds=300.0,
+            now_utc=now_utc,
+        )
+        == 240
+    )
+    assert (
+        _manual_action_retry_after_seconds(
+            latest_generated_at_utc="2026-03-15T00:10:00Z",
+            cooldown_seconds=300.0,
+            now_utc=now_utc,
+        )
+        == 300
+    )
 
 
 def test_runtime_retention_apply_preview_rejects_missing_matching_dry_run():
