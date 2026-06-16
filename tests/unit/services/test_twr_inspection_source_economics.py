@@ -1635,6 +1635,51 @@ def test_record_detailed_cash_flow_routes_governed_alias_amount_and_sample():
     )
 
 
+def test_read_explicit_decimal_fields_accepts_matching_aliases():
+    value, conflicts, invalid_fields = source_economics._read_explicit_decimal_fields(
+        {"bod_cashflow": "50.0", "beginning_cash_flow": "50.00"},
+        semantic="bod_cashflow_total",
+        keys=("bod_cashflow", "beginning_cash_flow"),
+    )
+
+    assert value == Decimal("50.0")
+    assert conflicts == ()
+    assert invalid_fields == ()
+
+
+def test_read_explicit_decimal_fields_reports_conflicting_aliases():
+    value, conflicts, invalid_fields = source_economics._read_explicit_decimal_fields(
+        {"bod_cashflow": "50.0", "beginning_cash_flow": "55.0"},
+        semantic="bod_cashflow_total",
+        keys=("bod_cashflow", "beginning_cash_flow"),
+    )
+
+    assert value == Decimal("50.0")
+    assert conflicts == (
+        {
+            "field": "beginning_cash_flow",
+            "semantic": "bod_cashflow_total",
+            "raw_value": "55.0",
+            "resolved_field": "bod_cashflow",
+            "resolved_value": "50.0",
+            "conflicting_value": "55.0",
+        },
+    )
+    assert invalid_fields == ()
+
+
+def test_read_explicit_decimal_fields_reports_invalid_values_and_skips_none():
+    value, conflicts, invalid_fields = source_economics._read_explicit_decimal_fields(
+        {"fees": None, "management_fees": "oops"},
+        semantic="fee_total",
+        keys=("fees", "management_fees"),
+    )
+
+    assert value is None
+    assert conflicts == ()
+    assert invalid_fields == ({"field": "management_fees", "semantic": "fee_total", "raw_value": "oops"},)
+
+
 def test_resolve_observation_valuation_date_accepts_iso_date():
     result = source_economics._resolve_observation_valuation_date({"valuation_date": "2026-03-25", "cash_flows": []})
 

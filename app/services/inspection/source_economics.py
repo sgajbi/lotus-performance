@@ -105,6 +105,39 @@ class _ObservationDateResolution:
 
 
 @dataclass
+class _ExplicitDecimalFieldAccumulator:
+    semantic: str
+    decimal_value: Decimal | None = None
+    decimal_field: str | None = None
+    conflicting_fields: list[dict[str, object]] = field(default_factory=list)
+    invalid_fields: list[dict[str, object]] = field(default_factory=list)
+
+    def record(self, *, field_name: str, raw_value: object) -> None:
+        parsed_value = _parse_decimal(raw_value)
+        if parsed_value is None:
+            self.invalid_fields.append({"field": field_name, "semantic": self.semantic, "raw_value": raw_value})
+            return
+        if self.decimal_value is None:
+            self.decimal_value = parsed_value
+            self.decimal_field = field_name
+            return
+        if not _decimals_match(self.decimal_value, parsed_value):
+            self.conflicting_fields.append(
+                {
+                    "field": field_name,
+                    "semantic": self.semantic,
+                    "raw_value": raw_value,
+                    "resolved_field": self.decimal_field,
+                    "resolved_value": _decimal_to_artifact(self.decimal_value),
+                    "conflicting_value": _decimal_to_artifact(parsed_value),
+                }
+            )
+
+    def to_result(self) -> tuple[Decimal | None, tuple[dict[str, object], ...], tuple[dict[str, object], ...]]:
+        return self.decimal_value, tuple(self.conflicting_fields), tuple(self.invalid_fields)
+
+
+@dataclass
 class _DetailedCashFlowAccumulator:
     external_bod: Decimal = Decimal("0")
     external_eod: Decimal = Decimal("0")
@@ -635,33 +668,13 @@ def _read_explicit_decimal_fields(
     semantic: str,
     keys: tuple[str, ...],
 ) -> tuple[Decimal | None, tuple[dict[str, object], ...], tuple[dict[str, object], ...]]:
-    decimal_value: Decimal | None = None
-    decimal_field: str | None = None
-    conflicting_fields: list[dict[str, object]] = []
-    invalid_fields: list[dict[str, object]] = []
+    accumulator = _ExplicitDecimalFieldAccumulator(semantic=semantic)
     for key in keys:
         raw_value = observation.get(key)
         if raw_value is None:
             continue
-        parsed_value = _parse_decimal(raw_value)
-        if parsed_value is not None:
-            if decimal_value is None:
-                decimal_value = parsed_value
-                decimal_field = key
-            elif not _decimals_match(decimal_value, parsed_value):
-                conflicting_fields.append(
-                    {
-                        "field": key,
-                        "semantic": semantic,
-                        "raw_value": raw_value,
-                        "resolved_field": decimal_field,
-                        "resolved_value": _decimal_to_artifact(decimal_value),
-                        "conflicting_value": _decimal_to_artifact(parsed_value),
-                    }
-                )
-            continue
-        invalid_fields.append({"field": key, "semantic": semantic, "raw_value": raw_value})
-    return decimal_value, tuple(conflicting_fields), tuple(invalid_fields)
+        accumulator.record(field_name=key, raw_value=raw_value)
+    return accumulator.to_result()
 
 
 def _sample_raw_collection_value(raw_value: object) -> object:
