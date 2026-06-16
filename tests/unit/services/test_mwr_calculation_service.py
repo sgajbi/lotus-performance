@@ -1,4 +1,5 @@
 from datetime import date
+from decimal import Decimal
 from unittest.mock import ANY
 from uuid import uuid4
 
@@ -12,6 +13,7 @@ from app.services.mwr_calculation_service import (
     _mwr_currency_evidence_payload,
     _mwr_reporting_currency,
     _mwr_requested_window,
+    _stringify_decimals,
     build_mwr_response,
     calculate_mwr_response,
     calculate_mwr_result,
@@ -230,6 +232,26 @@ def test_mwr_currency_evidence_payload_serializes_dataclass_evidence():
         "conversion_evidence_reason_codes": ["single_currency"],
         "market_values_used": [],
         "cashflow_evidence": [],
+    }
+
+
+def test_stringify_decimals_preserves_nested_payload_shape():
+    payload = {
+        "market_values": [
+            {"amount": Decimal("100.25"), "currency": "USD"},
+            {"amount": None, "currency": "CHF"},
+        ],
+        "cashflows": {"net": Decimal("-10.50")},
+        "status": "complete",
+    }
+
+    assert _stringify_decimals(payload) == {
+        "market_values": [
+            {"amount": "100.25", "currency": "USD"},
+            {"amount": None, "currency": "CHF"},
+        ],
+        "cashflows": {"net": "-10.50"},
+        "status": "complete",
     }
 
 
