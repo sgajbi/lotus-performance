@@ -640,12 +640,16 @@ def _row_has_transition_activity(row: dict[str, object]) -> bool:
     if _cash_flows_have_nonzero_amount(row.get("cash_flows")):
         return True
     for key, value in row.items():
-        if not _is_transition_activity_field(key):
-            continue
-        decimal_value = _parse_decimal(value)
-        if decimal_value is not None and decimal_value != 0:
+        if _field_has_nonzero_transition_activity(key, value):
             return True
     return False
+
+
+def _field_has_nonzero_transition_activity(key: str, value: object) -> bool:
+    if not _is_transition_activity_field(key):
+        return False
+    decimal_value = _parse_decimal(value)
+    return decimal_value is not None and decimal_value != 0
 
 
 def _is_transition_activity_field(key: str) -> bool:

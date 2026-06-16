@@ -330,6 +330,16 @@ def test_is_transition_activity_field_matches_cashflow_trade_and_quantity_delta_
     assert not reconciliation._is_transition_activity_field("ending_market_value_portfolio_currency")
 
 
+def test_field_has_nonzero_transition_activity_requires_activity_marker_and_nonzero_decimal():
+    assert reconciliation._field_has_nonzero_transition_activity("trade_notional", "10.00")
+    assert not reconciliation._field_has_nonzero_transition_activity("trade_notional", "0.00")
+    assert not reconciliation._field_has_nonzero_transition_activity("trade_notional", "not-decimal")
+    assert not reconciliation._field_has_nonzero_transition_activity(
+        "ending_market_value_portfolio_currency",
+        "10.00",
+    )
+
+
 def test_analyze_portfolio_position_reconciliation_does_not_flag_activity_explained_begin_change():
     performance_request = PerformanceRequest(
         portfolio_id="PB_SG_GLOBAL_BAL_001",
