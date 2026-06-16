@@ -32,37 +32,37 @@ must stay at `0`.
 | --- | ---: |
 | Max cyclomatic complexity | 6 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.03 |
+| Average maintainability index | 55.04 |
 
 ## Highest Cyclomatic Complexity
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_comparative_return_component_mismatch` | function | `app/services/inspection/calculation_consistency.py:727` | 6 | B |
-| 2 | `_select_latest_position_rows` | function | `app/services/inspection/reconciliation.py:459` | 6 | B |
-| 3 | `_build_position_continuity_gap_sample` | function | `app/services/inspection/reconciliation.py:567` | 6 | B |
-| 4 | `_row_has_transition_activity` | function | `app/services/inspection/reconciliation.py:602` | 6 | B |
-| 5 | `_cash_flows_have_nonzero_amount` | function | `app/services/inspection/reconciliation.py:633` | 6 | B |
-| 6 | `_collect_duplicate_snapshot_samples` | function | `app/services/inspection/reconciliation.py:645` | 6 | B |
-| 7 | `_build_observation_source_economics` | function | `app/services/inspection/source_economics.py:439` | 6 | B |
-| 8 | `_read_explicit_decimal_fields` | function | `app/services/inspection/source_economics.py:616` | 6 | B |
-| 9 | `_find_missing_business_dates` | function | `app/services/inspection/source_quality.py:724` | 6 | B |
-| 10 | `load_existing_twr_calculation_artifacts` | function | `app/services/inspection/subject_materialization.py:34` | 6 | B |
-| 11 | `_load_request_payload` | function | `app/services/inspection/subject_materialization.py:123` | 6 | B |
-| 12 | `_build_inspection_findings_context` | function | `app/services/inspection/twr_inspection_service.py:386` | 6 | B |
-| 13 | `_synthesize_verdict` | function | `app/services/inspection/twr_inspection_service.py:586` | 6 | B |
-| 14 | `_response_master_window` | function | `app/services/inspection/twr_inspection_service.py:725` | 6 | B |
-| 15 | `_build_workflow_capabilities` | function | `app/services/integration_capabilities_service.py:169` | 6 | B |
-| 16 | `_stringify_decimals` | function | `app/services/mwr_calculation_service.py:134` | 6 | B |
-| 17 | `_enforce_manual_action_cooldown` | function | `app/services/operator_action_guard_service.py:186` | 6 | B |
-| 18 | `generated_at_within_bounds` | function | `app/services/operator_action_history_filters.py:38` | 6 | B |
-| 19 | `_history_manifest_file_names` | function | `app/services/operator_action_history_manifest.py:83` | 6 | B |
-| 20 | `_parse_reclaimed_event_payload` | function | `app/services/operator_action_lease_service.py:497` | 6 | B |
-| 21 | `_has_valid_reclaimed_event_string_fields` | function | `app/services/operator_action_lease_service.py:567` | 6 | B |
-| 22 | `resolve_runtime_retention_manual_replay` | function | `app/services/operator_action_replay_service.py:91` | 6 | B |
-| 23 | `resolve_recovery_drill_manual_replay` | function | `app/services/operator_action_replay_service.py:128` | 6 | B |
-| 24 | `_runtime_retention_payload_counts_match` | function | `app/services/operator_action_replay_service.py:269` | 6 | B |
-| 25 | `build_active_return_points` | function | `app/services/returns_series_service.py:352` | 6 | B |
+| 1 | `_select_latest_position_rows` | function | `app/services/inspection/reconciliation.py:459` | 6 | B |
+| 2 | `_build_position_continuity_gap_sample` | function | `app/services/inspection/reconciliation.py:567` | 6 | B |
+| 3 | `_row_has_transition_activity` | function | `app/services/inspection/reconciliation.py:602` | 6 | B |
+| 4 | `_cash_flows_have_nonzero_amount` | function | `app/services/inspection/reconciliation.py:633` | 6 | B |
+| 5 | `_collect_duplicate_snapshot_samples` | function | `app/services/inspection/reconciliation.py:645` | 6 | B |
+| 6 | `_build_observation_source_economics` | function | `app/services/inspection/source_economics.py:439` | 6 | B |
+| 7 | `_read_explicit_decimal_fields` | function | `app/services/inspection/source_economics.py:616` | 6 | B |
+| 8 | `_find_missing_business_dates` | function | `app/services/inspection/source_quality.py:724` | 6 | B |
+| 9 | `load_existing_twr_calculation_artifacts` | function | `app/services/inspection/subject_materialization.py:34` | 6 | B |
+| 10 | `_load_request_payload` | function | `app/services/inspection/subject_materialization.py:123` | 6 | B |
+| 11 | `_build_inspection_findings_context` | function | `app/services/inspection/twr_inspection_service.py:386` | 6 | B |
+| 12 | `_synthesize_verdict` | function | `app/services/inspection/twr_inspection_service.py:586` | 6 | B |
+| 13 | `_response_master_window` | function | `app/services/inspection/twr_inspection_service.py:725` | 6 | B |
+| 14 | `_build_workflow_capabilities` | function | `app/services/integration_capabilities_service.py:169` | 6 | B |
+| 15 | `_stringify_decimals` | function | `app/services/mwr_calculation_service.py:134` | 6 | B |
+| 16 | `_enforce_manual_action_cooldown` | function | `app/services/operator_action_guard_service.py:186` | 6 | B |
+| 17 | `generated_at_within_bounds` | function | `app/services/operator_action_history_filters.py:38` | 6 | B |
+| 18 | `_history_manifest_file_names` | function | `app/services/operator_action_history_manifest.py:83` | 6 | B |
+| 19 | `_parse_reclaimed_event_payload` | function | `app/services/operator_action_lease_service.py:497` | 6 | B |
+| 20 | `_has_valid_reclaimed_event_string_fields` | function | `app/services/operator_action_lease_service.py:567` | 6 | B |
+| 21 | `resolve_runtime_retention_manual_replay` | function | `app/services/operator_action_replay_service.py:91` | 6 | B |
+| 22 | `resolve_recovery_drill_manual_replay` | function | `app/services/operator_action_replay_service.py:128` | 6 | B |
+| 23 | `_runtime_retention_payload_counts_match` | function | `app/services/operator_action_replay_service.py:269` | 6 | B |
+| 24 | `build_active_return_points` | function | `app/services/returns_series_service.py:352` | 6 | B |
+| 25 | `build_cumulative_active_return_points` | function | `app/services/returns_series_service.py:387` | 6 | B |
 
 ## Lowest Maintainability Index
 
@@ -83,8 +83,8 @@ must stay at `0`.
 | 13 | `app/services/inspection/source_economics_collector.py` | 16.34 | B |
 | 14 | `app/services/inspection/reconciliation.py` | 16.37 | B |
 | 15 | `app/services/inspection/source_quality.py` | 16.86 | B |
-| 16 | `app/services/inspection/calculation_consistency.py` | 16.97 | B |
-| 17 | `app/services/inspection/source_economics.py` | 17.37 | B |
+| 16 | `app/services/inspection/source_economics.py` | 17.37 | B |
+| 17 | `app/services/inspection/calculation_consistency.py` | 17.79 | B |
 | 18 | `app/services/twr_mode_service.py` | 18.07 | B |
 | 19 | `app/models/runtime_status.py` | 19.85 | A |
 | 20 | `app/services/inspection/twr_inspection_service.py` | 20.27 | A |

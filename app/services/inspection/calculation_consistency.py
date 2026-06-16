@@ -729,13 +729,24 @@ def _comparative_return_component_mismatch(
     expected_value: float | None,  # monetary-float-allow
     actual_value: float | None,  # monetary-float-allow
 ) -> tuple[float | None, float | None] | None:
-    if expected_value is None and actual_value is None:
-        return None
-    if expected_value is None or actual_value is None:
-        return expected_value, actual_value
-    if isclose(expected_value, actual_value, abs_tol=_ABS_TOLERANCE):
+    if _comparative_return_components_match(
+        expected_value=expected_value,
+        actual_value=actual_value,
+    ):
         return None
     return expected_value, actual_value
+
+
+def _comparative_return_components_match(
+    *,
+    expected_value: float | None,  # monetary-float-allow
+    actual_value: float | None,  # monetary-float-allow
+) -> bool:
+    if expected_value is None and actual_value is None:
+        return True
+    if expected_value is None or actual_value is None:
+        return False
+    return isclose(expected_value, actual_value, abs_tol=_ABS_TOLERANCE)
 
 
 def _subtract_return_values(
