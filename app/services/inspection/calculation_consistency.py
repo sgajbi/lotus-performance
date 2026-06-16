@@ -399,29 +399,43 @@ def _check_portfolio_daily_calculation_evidence(
         if frequency.value != "daily":
             continue
         for item in items:
-            evidence = item.calculation_evidence
-            if evidence is None:
-                continue
-            rows_checked += 1
-            scope = f"breakdowns.{frequency.value}.{item.period}.calculation_evidence"
-            mismatches = _daily_calculation_evidence_mismatches(evidence=evidence, item=item)
-
-            if mismatches:
-                findings.append(
-                    _build_finding(
-                        code="DAILY_CALCULATION_EVIDENCE_MISMATCH",
-                        period_name=period_name,
-                        scope=scope,
-                        summary="Daily TWR calculation evidence does not reconcile to its served return contract.",
-                        evidence={
-                            "daily_period": item.period,
-                            "mismatches": mismatches,
-                            "calculation_method": evidence.calculation_method,
-                            "denominator_basis": evidence.denominator_basis,
-                        },
-                    )
-                )
+            item_rows_checked, item_findings = _check_daily_breakdown_calculation_evidence(
+                period_name=period_name,
+                frequency=frequency,
+                item=item,
+            )
+            rows_checked += item_rows_checked
+            findings.extend(item_findings)
     return rows_checked, findings
+
+
+def _check_daily_breakdown_calculation_evidence(
+    *,
+    period_name: str,
+    frequency: Frequency,
+    item: ComparativeBreakdownItem,
+) -> tuple[int, list[TWRInspectionFinding]]:
+    evidence = item.calculation_evidence
+    if evidence is None:
+        return 0, []
+    mismatches = _daily_calculation_evidence_mismatches(evidence=evidence, item=item)
+    if not mismatches:
+        return 1, []
+    scope = f"breakdowns.{frequency.value}.{item.period}.calculation_evidence"
+    return 1, [
+        _build_finding(
+            code="DAILY_CALCULATION_EVIDENCE_MISMATCH",
+            period_name=period_name,
+            scope=scope,
+            summary="Daily TWR calculation evidence does not reconcile to its served return contract.",
+            evidence={
+                "daily_period": item.period,
+                "mismatches": mismatches,
+                "calculation_method": evidence.calculation_method,
+                "denominator_basis": evidence.denominator_basis,
+            },
+        )
+    ]
 
 
 def _expected_daily_calculation_values(evidence: TWRDailyCalculationEvidence) -> DailyEvidenceExpectedValues:

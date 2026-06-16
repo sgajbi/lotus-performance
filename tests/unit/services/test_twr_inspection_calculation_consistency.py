@@ -11,6 +11,7 @@ from app.models.responses import (
 )
 from app.services.inspection.calculation_consistency import (
     _apply_daily_no_investment_period_status,
+    _check_daily_breakdown_calculation_evidence,
     _check_relative_breakdown_frequency,
     _comparative_return_component_mismatch,
     _comparative_return_mismatches,
@@ -375,6 +376,38 @@ def test_calculation_consistency_flags_daily_calculation_evidence_mismatch():
     assert finding.evidence["mismatches"]["external_outflows"] == {"expected": 50.0, "actual": 0.0}
     assert finding.evidence["mismatches"]["daily_return"]["actual"] == 99.0
     assert finding.evidence["mismatches"]["period_return.base"]["actual"] == 1.3
+
+
+def test_daily_breakdown_calculation_evidence_check_builds_finding_payload():
+    item = _daily_evidence_block(
+        evidence=TWRDailyCalculationEvidence(
+            begin_mv=1000.0,
+            end_mv=1013.0,
+            bod_cf=100.0,
+            eod_cf=-50.0,
+            external_inflows=0.0,
+            external_outflows=0.0,
+            management_fees=3.0,
+            signed_adjusted_capital=1000.0,
+            adjusted_capital=1000.0,
+            performance_pnl=13.0,
+            daily_return=99.0,
+            status="calculated",
+            reason_codes=["FLOW_NEUTRALIZED_DAILY_RETURN"],
+            warnings=[],
+        )
+    ).breakdowns[Frequency.DAILY][0]
+
+    rows_checked, findings = _check_daily_breakdown_calculation_evidence(
+        period_name="YTD",
+        frequency=Frequency.DAILY,
+        item=item,
+    )
+
+    assert rows_checked == 1
+    assert [finding.code for finding in findings] == ["DAILY_CALCULATION_EVIDENCE_MISMATCH"]
+    assert findings[0].evidence["scope"] == "breakdowns.daily.2026-03-01.calculation_evidence"
+    assert findings[0].evidence["calculation_method"] == "flow_neutralized_daily_twr"
 
 
 def test_daily_calculation_evidence_mismatches_capture_numeric_status_and_semantics():
