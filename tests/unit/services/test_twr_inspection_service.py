@@ -683,6 +683,42 @@ def test_twr_inspection_verdict_and_window_helpers_cover_clean_and_unscoped_path
     )
 
 
+def test_synthesize_verdict_preserves_partial_evidence_as_warnings():
+    assert (
+        service._synthesize_verdict(
+            findings=[],
+            completed_check_families=["calculation_consistency"],
+            failed_check_families=["source_quality"],
+            pending_check_families=["economic_plausibility"],
+        )
+        == TWRInspectionVerdict.SUPPORTABLE_WITH_WARNINGS
+    )
+
+
+def test_only_failed_check_families_requires_failed_without_completed_evidence():
+    assert (
+        service._only_failed_check_families(
+            completed_check_families=[],
+            failed_check_families=["source_quality"],
+        )
+        is True
+    )
+    assert (
+        service._only_failed_check_families(
+            completed_check_families=["calculation_consistency"],
+            failed_check_families=["source_quality"],
+        )
+        is False
+    )
+    assert (
+        service._only_failed_check_families(
+            completed_check_families=[],
+            failed_check_families=[],
+        )
+        is False
+    )
+
+
 def test_has_not_supportable_finding_detects_high_and_critical_severity():
     assert service._has_not_supportable_finding([_inspection_finding(severity="high")]) is True
     assert service._has_not_supportable_finding([_inspection_finding(severity="critical")]) is True

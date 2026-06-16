@@ -1,7 +1,7 @@
 # Lotus Performance Function Size Inventory
 
-Report date: 2026-06-16
-Branch: `refactor/lp-cr-1154-durable-json-object-loader`
+Report date: 2026-06-17
+Branch: `refactor/lp-cr-1167-inspection-verdict-policy`
 Mode: report-only function-size inventory; this artifact introduces no new blocking CI gate.
 
 ## Purpose

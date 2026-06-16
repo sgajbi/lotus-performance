@@ -594,13 +594,24 @@ def _synthesize_verdict(
     failed_check_families: list[str],
     pending_check_families: list[str],
 ) -> TWRInspectionVerdict:
-    if failed_check_families and not completed_check_families:
+    if _only_failed_check_families(
+        completed_check_families=completed_check_families,
+        failed_check_families=failed_check_families,
+    ):
         return TWRInspectionVerdict.INSPECTION_FAILED
     if _has_not_supportable_finding(findings):
         return TWRInspectionVerdict.NOT_SUPPORTABLE
     if findings or pending_check_families:
         return TWRInspectionVerdict.SUPPORTABLE_WITH_WARNINGS
     return TWRInspectionVerdict.SUPPORTABLE
+
+
+def _only_failed_check_families(
+    *,
+    completed_check_families: list[str],
+    failed_check_families: list[str],
+) -> bool:
+    return bool(failed_check_families) and not completed_check_families
 
 
 def _has_not_supportable_finding(findings: list[TWRInspectionFinding]) -> bool:
