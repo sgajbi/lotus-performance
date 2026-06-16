@@ -18,7 +18,7 @@ developers or GitHub Actions.
 | Lane | Trigger | Current blocking checks |
 | --- | --- | --- |
 | Remote Feature Lane | Pushes to non-`main` branches and manual dispatch | workflow lint, static quality gates, contract/security gates, unit tests |
-| Pull Request Merge Gate | Pull requests targeting `main` and manual dispatch | workflow lint, static quality gates, contract/security gates, migration smoke, unit, integration, and e2e tests, combined coverage floor at 99 percent, Docker build |
+| Pull Request Merge Gate | Pull requests targeting `main` and manual dispatch | workflow lint, static quality gates, contract/security gates, compatibility `Lint Typecheck Security` aggregate, migration smoke, unit, integration, and e2e tests, combined coverage floor at 99 percent, Docker build |
 | Main Releasability Gate | Pushes to `main` and manual dispatch | workflow lint, static quality gates, contract/security gates, migration smoke, unit, integration, and e2e tests, combined coverage floor at 99 percent, coverage artifact publication, Docker build |
 | PR Auto Merge | Pull request lifecycle events | queues merge-commit auto-merge and branch deletion after required checks pass; this is release automation, not an independent quality gate |
 
@@ -27,6 +27,10 @@ complexity regression, no-alias governance, and mypy type safety. `Contract Secu
 OpenAPI quality, API vocabulary governance, migration smoke where the lane requires it, and
 dependency security. These jobs run in parallel before test execution to reduce CI wall-clock time
 without dropping any gate.
+
+The PR lane also publishes `PR Merge Gate / Lint Typecheck Security` as a lightweight aggregate over
+the split static-quality and contract-security jobs. It exists to satisfy the current GitHub
+required-check contract while preserving the faster parallel lane structure.
 
 GitHub Actions jobs use `make install-ci` so CI installs runtime and development dependencies without
 performing developer-workstation pre-commit hook setup. Local contributors should continue using

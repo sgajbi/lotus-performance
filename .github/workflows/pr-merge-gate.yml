@@ -68,6 +68,24 @@ jobs:
       - name: Security Audit
         run: make security-audit
 
+  lint-typecheck-security:
+    name: PR Merge Gate / Lint Typecheck Security
+    needs: [static-quality-gates, contract-security-gates]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify split quality and security gates passed
+        run: |
+          if [ "${{ needs.static-quality-gates.result }}" != "success" ]; then
+            echo "Static quality gates did not pass: ${{ needs.static-quality-gates.result }}"
+            exit 1
+          fi
+          if [ "${{ needs.contract-security-gates.result }}" != "success" ]; then
+            echo "Contract security gates did not pass: ${{ needs.contract-security-gates.result }}"
+            exit 1
+          fi
+          echo "Static quality and contract security gates passed."
+
   test-suites:
     name: PR Merge Gate / Tests (${{ matrix.suite }})
     needs: [static-quality-gates, contract-security-gates]
