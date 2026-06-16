@@ -27,6 +27,12 @@ class ExistingTWRCalculationArtifacts:
     request_payload: dict | None
 
 
+@dataclass(frozen=True)
+class _RequestPayloadLookup:
+    found: bool
+    payload: dict | None
+
+
 _REQUEST_PAYLOAD_WAIT_SECONDS = 10.0
 _REQUEST_PAYLOAD_POLL_INTERVAL_SECONDS = 0.5
 
@@ -127,23 +133,31 @@ def _resolved_request_payload_from_lineage_payload(request_payload: dict) -> dic
 def _load_request_payload(calculation_id: UUID, *, wait_seconds: float = 0.0) -> dict | None:
     deadline = time.monotonic() + wait_seconds
     while True:
-        request_payload = _request_payload_from_lineage_payload(
-            calculation_id=calculation_id,
-            payload=lineage_metadata_store.get_payload(calculation_id),
-        )
-        if request_payload is not None:
-            return request_payload
-
-        request_path = Path(get_settings().LINEAGE_STORAGE_PATH) / str(calculation_id) / "request.json"
-        if request_path.exists():
-            return read_json_file(request_path)
-        compute_job = compute_job_store.get_job(calculation_id)
-        if compute_job is not None:
-            return compute_job.request_payload
+        lookup = _request_payload_from_available_sources(calculation_id)
+        if lookup.found:
+            return lookup.payload
         if time.monotonic() >= deadline:
             break
         time.sleep(_REQUEST_PAYLOAD_POLL_INTERVAL_SECONDS)
     return None
+
+
+def _request_payload_from_available_sources(calculation_id: UUID) -> _RequestPayloadLookup:
+    request_payload = _request_payload_from_lineage_payload(
+        calculation_id=calculation_id,
+        payload=lineage_metadata_store.get_payload(calculation_id),
+    )
+    if request_payload is not None:
+        return _RequestPayloadLookup(found=True, payload=request_payload)
+
+    request_path = Path(get_settings().LINEAGE_STORAGE_PATH) / str(calculation_id) / "request.json"
+    if request_path.exists():
+        return _RequestPayloadLookup(found=True, payload=read_json_file(request_path))
+
+    compute_job = compute_job_store.get_job(calculation_id)
+    if compute_job is not None:
+        return _RequestPayloadLookup(found=True, payload=compute_job.request_payload)
+    return _RequestPayloadLookup(found=False, payload=None)
 
 
 def _request_payload_from_lineage_payload(
