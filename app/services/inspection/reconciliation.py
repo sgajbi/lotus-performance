@@ -41,6 +41,14 @@ class _PositionReconciliationGapAnalysis:
     max_abs_gap_amount: Decimal
 
 
+@dataclass(frozen=True)
+class _PositionContinuityValues:
+    previous_end_field: str
+    previous_end: Decimal
+    current_begin_field: str
+    current_begin: Decimal
+
+
 def run_reconciliation_checks(
     *,
     performance_request: PerformanceRequest,
@@ -578,12 +586,14 @@ def _build_position_continuity_gap_sample(
     previous_row: dict[str, object],
     current_row: dict[str, object],
 ) -> dict[str, object] | None:
-    previous_end_field, raw_previous_end = _select_position_continuity_end_value_field(previous_row)
-    current_begin_field, raw_current_begin = _select_position_continuity_begin_value_field(current_row)
-    previous_end = _parse_decimal(raw_previous_end)
-    current_begin = _parse_decimal(raw_current_begin)
-    if previous_end is None or current_begin is None:
+    continuity_values = _position_continuity_values(
+        previous_row=previous_row,
+        current_row=current_row,
+    )
+    if continuity_values is None:
         return None
+    previous_end = continuity_values.previous_end
+    current_begin = continuity_values.current_begin
     gap_amount = current_begin - previous_end
     tolerance = max(_ABSOLUTE_GAP_TOLERANCE, abs(previous_end) * _RELATIVE_GAP_TOLERANCE)
     if abs(gap_amount) <= tolerance:
@@ -598,13 +608,32 @@ def _build_position_continuity_gap_sample(
         "position_id": position_id,
         "previous_valuation_date": previous_row.get("valuation_date"),
         "valuation_date": current_row.get("valuation_date"),
-        "previous_end_value_field": previous_end_field,
-        "current_begin_value_field": current_begin_field,
+        "previous_end_value_field": continuity_values.previous_end_field,
+        "current_begin_value_field": continuity_values.current_begin_field,
         "previous_end_value": _decimal_to_artifact(previous_end),
         "current_begin_value": _decimal_to_artifact(current_begin),
         "gap_amount": _decimal_to_artifact(gap_amount),
         "gap_pct_of_previous_end": gap_pct,
     }
+
+
+def _position_continuity_values(
+    *,
+    previous_row: dict[str, object],
+    current_row: dict[str, object],
+) -> _PositionContinuityValues | None:
+    previous_end_field, raw_previous_end = _select_position_continuity_end_value_field(previous_row)
+    current_begin_field, raw_current_begin = _select_position_continuity_begin_value_field(current_row)
+    previous_end = _parse_decimal(raw_previous_end)
+    current_begin = _parse_decimal(raw_current_begin)
+    if previous_end is None or current_begin is None:
+        return None
+    return _PositionContinuityValues(
+        previous_end_field=previous_end_field,
+        previous_end=previous_end,
+        current_begin_field=current_begin_field,
+        current_begin=current_begin,
+    )
 
 
 def _row_has_transition_activity(row: dict[str, object]) -> bool:

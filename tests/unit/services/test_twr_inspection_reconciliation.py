@@ -86,6 +86,33 @@ def test_should_replace_selected_position_row_policy_compares_candidate_epoch():
     assert reconciliation._should_replace_selected_position_row(candidate_epoch=2, selected=selected)
 
 
+def test_position_continuity_values_prefers_position_currency_and_rejects_invalid_pairs():
+    values = reconciliation._position_continuity_values(
+        previous_row={
+            "ending_market_value_position_currency": "101.25",
+            "ending_market_value_portfolio_currency": "999.00",
+        },
+        current_row={
+            "beginning_market_value_position_currency": "102.50",
+            "beginning_market_value_portfolio_currency": "999.00",
+        },
+    )
+
+    assert values == reconciliation._PositionContinuityValues(
+        previous_end_field="ending_market_value_position_currency",
+        previous_end=Decimal("101.25"),
+        current_begin_field="beginning_market_value_position_currency",
+        current_begin=Decimal("102.50"),
+    )
+    assert (
+        reconciliation._position_continuity_values(
+            previous_row={"ending_market_value_portfolio_currency": "not-decimal"},
+            current_row={"beginning_market_value_portfolio_currency": "102.50"},
+        )
+        is None
+    )
+
+
 def test_analyze_position_reconciliation_gaps_applies_tolerance_and_preserves_gap_evidence():
     gap_analysis = reconciliation._analyze_position_reconciliation_gaps(
         portfolio_end_by_date={
