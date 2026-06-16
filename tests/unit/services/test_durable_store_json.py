@@ -5,6 +5,7 @@ from app.services.durable_store_json import (
     _is_json_object_payload,
     _is_non_empty_string_list_payload,
     _load_json_payload_or_invalid,
+    _present_json_payload_or_none,
     load_json_object_or_none,
     load_json_string_list_or_default,
     read_json_file,
@@ -152,6 +153,17 @@ def test_load_json_payload_or_invalid_logs_decode_failures(caplog):
     assert valid_payload == {"ok": True}
     assert invalid_payload is _INVALID_JSON_PAYLOAD
     assert "Payload invalid JSON for row=row-2." in caplog.text
+
+
+def test_present_json_payload_policy_treats_none_as_absent():
+    assert _present_json_payload_or_none(None, empty_is_absent=True) is None
+    assert _present_json_payload_or_none(None, empty_is_absent=False) is None
+
+
+def test_present_json_payload_policy_can_require_empty_payloads():
+    assert _present_json_payload_or_none("", empty_is_absent=True) is None
+    assert _present_json_payload_or_none("", empty_is_absent=False) == ""
+    assert _present_json_payload_or_none("{}", empty_is_absent=True) == "{}"
 
 
 def test_is_non_empty_string_list_payload_requires_non_blank_strings():

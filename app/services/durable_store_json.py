@@ -17,10 +17,11 @@ def load_json_object_or_none(
     identity_value: str,
     empty_is_absent: bool = True,
 ) -> dict[str, Any] | None:
-    if raw_payload is None or (empty_is_absent and raw_payload == ""):
+    present_payload = _present_json_payload_or_none(raw_payload, empty_is_absent=empty_is_absent)
+    if present_payload is None:
         return None
     payload = _load_json_payload_or_invalid(
-        raw_payload,
+        present_payload,
         logger=logger,
         payload_name=payload_name,
         identity_name=identity_name,
@@ -70,7 +71,15 @@ def _load_json_payload_or_invalid(
         return json.loads(raw_payload)
     except json.JSONDecodeError:
         logger.warning("%s invalid JSON for %s=%s.", payload_name, identity_name, identity_value)
-        return _INVALID_JSON_PAYLOAD
+    return _INVALID_JSON_PAYLOAD
+
+
+def _present_json_payload_or_none(raw_payload: str | None, *, empty_is_absent: bool) -> str | None:
+    if raw_payload is None:
+        return None
+    if empty_is_absent and raw_payload == "":
+        return None
+    return raw_payload
 
 
 def _is_non_empty_string_list_payload(payload: Any) -> TypeGuard[list[str]]:
