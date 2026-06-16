@@ -68,6 +68,34 @@ def test_load_existing_twr_calculation_artifacts_reads_materialized_lineage_file
     assert artifacts.request_payload == request_payload
 
 
+def test_artifacts_from_materialized_lineage_files_reads_optional_request(monkeypatch, tmp_path):
+    calculation_id = uuid4()
+    artifact_dir = tmp_path / str(calculation_id)
+    artifact_dir.mkdir()
+    response_payload = _performance_response_payload(calculation_id=str(calculation_id))
+    (artifact_dir / "response.json").write_text(json.dumps(response_payload), encoding="utf-8")
+
+    monkeypatch.setattr(
+        materialization, "get_settings", lambda: type("Settings", (), {"LINEAGE_STORAGE_PATH": str(tmp_path)})()
+    )
+
+    artifacts = materialization._artifacts_from_materialized_lineage_files(calculation_id)
+
+    assert artifacts is not None
+    assert artifacts.response_model.calculation_id == calculation_id
+    assert artifacts.request_payload is None
+
+
+def test_artifacts_from_materialized_lineage_files_skips_missing_response(monkeypatch, tmp_path):
+    calculation_id = uuid4()
+
+    monkeypatch.setattr(
+        materialization, "get_settings", lambda: type("Settings", (), {"LINEAGE_STORAGE_PATH": str(tmp_path)})()
+    )
+
+    assert materialization._artifacts_from_materialized_lineage_files(calculation_id) is None
+
+
 def test_existing_artifacts_from_lineage_payload_materializes_response_and_request(monkeypatch):
     calculation_id = uuid4()
     response_payload = _performance_response_payload(calculation_id=str(calculation_id))
@@ -126,6 +154,44 @@ def test_request_payload_from_lineage_payload_skips_absent_or_invalid_request(ca
 
     assert request_payload is None
     assert f"calculation_id={calculation_id}" in caplog.text
+
+
+def test_request_payload_from_available_sources_reads_materialized_request(monkeypatch, tmp_path):
+    calculation_id = uuid4()
+    request_payload = {"resolved_request": _resolved_request_payload()}
+    artifact_dir = tmp_path / str(calculation_id)
+    artifact_dir.mkdir()
+    (artifact_dir / "request.json").write_text(json.dumps(request_payload), encoding="utf-8")
+
+    monkeypatch.setattr(
+        materialization, "get_settings", lambda: type("Settings", (), {"LINEAGE_STORAGE_PATH": str(tmp_path)})()
+    )
+    monkeypatch.setattr(materialization.lineage_metadata_store, "get_payload", lambda _calculation_id: None)
+    monkeypatch.setattr(materialization.compute_job_store, "get_job", lambda _calculation_id: None)
+
+    lookup = materialization._request_payload_from_available_sources(calculation_id)
+
+    assert lookup.found
+    assert lookup.payload == request_payload
+
+
+def test_request_payload_from_available_sources_treats_compute_job_none_as_found(monkeypatch, tmp_path):
+    calculation_id = uuid4()
+
+    monkeypatch.setattr(
+        materialization, "get_settings", lambda: type("Settings", (), {"LINEAGE_STORAGE_PATH": str(tmp_path)})()
+    )
+    monkeypatch.setattr(materialization.lineage_metadata_store, "get_payload", lambda _calculation_id: None)
+    monkeypatch.setattr(
+        materialization.compute_job_store,
+        "get_job",
+        lambda _calculation_id: SimpleNamespace(request_payload=None),
+    )
+
+    lookup = materialization._request_payload_from_available_sources(calculation_id)
+
+    assert lookup.found
+    assert lookup.payload is None
 
 
 def test_load_existing_twr_calculation_artifacts_waits_for_lineage_request_payload(monkeypatch, tmp_path):

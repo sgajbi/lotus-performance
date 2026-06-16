@@ -27,6 +27,12 @@ class ExistingTWRCalculationArtifacts:
     request_payload: dict | None
 
 
+@dataclass(frozen=True)
+class _RequestPayloadLookup:
+    found: bool
+    payload: dict | None
+
+
 _REQUEST_PAYLOAD_WAIT_SECONDS = 10.0
 _REQUEST_PAYLOAD_POLL_INTERVAL_SECONDS = 0.5
 
@@ -49,20 +55,24 @@ def load_existing_twr_calculation_artifacts(calculation_id: UUID) -> ExistingTWR
             ),
         )
 
-    lineage_directory = Path(get_settings().LINEAGE_STORAGE_PATH) / str(calculation_id)
-    response_path = lineage_directory / "response.json"
-    request_path = lineage_directory / "request.json"
-    if response_path.exists():
-        response_payload = read_json_file(response_path)
-        request_payload = None
-        if request_path.exists():
-            request_payload = read_json_file(request_path)
-        return ExistingTWRCalculationArtifacts(
-            response_model=PerformanceResponse.model_validate(response_payload),
-            request_payload=request_payload,
-        )
+    materialized_artifacts = _artifacts_from_materialized_lineage_files(calculation_id)
+    if materialized_artifacts is not None:
+        return materialized_artifacts
 
     raise KeyError(f"TWR response artifacts not found for calculation: {calculation_id}")
+
+
+def _artifacts_from_materialized_lineage_files(calculation_id: UUID) -> ExistingTWRCalculationArtifacts | None:
+    lineage_directory = Path(get_settings().LINEAGE_STORAGE_PATH) / str(calculation_id)
+    response_path = lineage_directory / "response.json"
+    if not response_path.exists():
+        return None
+    request_path = lineage_directory / "request.json"
+    request_payload = read_json_file(request_path) if request_path.exists() else None
+    return ExistingTWRCalculationArtifacts(
+        response_model=PerformanceResponse.model_validate(read_json_file(response_path)),
+        request_payload=request_payload,
+    )
 
 
 def _existing_artifacts_from_lineage_payload(
@@ -123,23 +133,31 @@ def _resolved_request_payload_from_lineage_payload(request_payload: dict) -> dic
 def _load_request_payload(calculation_id: UUID, *, wait_seconds: float = 0.0) -> dict | None:
     deadline = time.monotonic() + wait_seconds
     while True:
-        request_payload = _request_payload_from_lineage_payload(
-            calculation_id=calculation_id,
-            payload=lineage_metadata_store.get_payload(calculation_id),
-        )
-        if request_payload is not None:
-            return request_payload
-
-        request_path = Path(get_settings().LINEAGE_STORAGE_PATH) / str(calculation_id) / "request.json"
-        if request_path.exists():
-            return read_json_file(request_path)
-        compute_job = compute_job_store.get_job(calculation_id)
-        if compute_job is not None:
-            return compute_job.request_payload
+        lookup = _request_payload_from_available_sources(calculation_id)
+        if lookup.found:
+            return lookup.payload
         if time.monotonic() >= deadline:
             break
         time.sleep(_REQUEST_PAYLOAD_POLL_INTERVAL_SECONDS)
     return None
+
+
+def _request_payload_from_available_sources(calculation_id: UUID) -> _RequestPayloadLookup:
+    request_payload = _request_payload_from_lineage_payload(
+        calculation_id=calculation_id,
+        payload=lineage_metadata_store.get_payload(calculation_id),
+    )
+    if request_payload is not None:
+        return _RequestPayloadLookup(found=True, payload=request_payload)
+
+    request_path = Path(get_settings().LINEAGE_STORAGE_PATH) / str(calculation_id) / "request.json"
+    if request_path.exists():
+        return _RequestPayloadLookup(found=True, payload=read_json_file(request_path))
+
+    compute_job = compute_job_store.get_job(calculation_id)
+    if compute_job is not None:
+        return _RequestPayloadLookup(found=True, payload=compute_job.request_payload)
+    return _RequestPayloadLookup(found=False, payload=None)
 
 
 def _request_payload_from_lineage_payload(

@@ -41,6 +41,14 @@ class _PositionReconciliationGapAnalysis:
     max_abs_gap_amount: Decimal
 
 
+@dataclass(frozen=True)
+class _PositionContinuityValues:
+    previous_end_field: str
+    previous_end: Decimal
+    current_begin_field: str
+    current_begin: Decimal
+
+
 def run_reconciliation_checks(
     *,
     performance_request: PerformanceRequest,
@@ -464,9 +472,17 @@ def _select_latest_position_rows(position_rows: list[dict[str, object]]) -> list
             continue
         epoch = _parse_epoch_value(row)
         current = selected.get(key)
-        if current is None or epoch >= current[0]:
+        if _should_replace_selected_position_row(candidate_epoch=epoch, selected=current):
             selected[key] = (epoch, row)
     return [row for _, row in selected.values()]
+
+
+def _should_replace_selected_position_row(
+    *,
+    candidate_epoch: int,
+    selected: tuple[int, dict[str, object]] | None,
+) -> bool:
+    return selected is None or candidate_epoch >= selected[0]
 
 
 def _position_row_selection_key(row: dict[str, object]) -> tuple[str, str] | None:
@@ -570,12 +586,14 @@ def _build_position_continuity_gap_sample(
     previous_row: dict[str, object],
     current_row: dict[str, object],
 ) -> dict[str, object] | None:
-    previous_end_field, raw_previous_end = _select_position_continuity_end_value_field(previous_row)
-    current_begin_field, raw_current_begin = _select_position_continuity_begin_value_field(current_row)
-    previous_end = _parse_decimal(raw_previous_end)
-    current_begin = _parse_decimal(raw_current_begin)
-    if previous_end is None or current_begin is None:
+    continuity_values = _position_continuity_values(
+        previous_row=previous_row,
+        current_row=current_row,
+    )
+    if continuity_values is None:
         return None
+    previous_end = continuity_values.previous_end
+    current_begin = continuity_values.current_begin
     gap_amount = current_begin - previous_end
     tolerance = max(_ABSOLUTE_GAP_TOLERANCE, abs(previous_end) * _RELATIVE_GAP_TOLERANCE)
     if abs(gap_amount) <= tolerance:
@@ -590,8 +608,8 @@ def _build_position_continuity_gap_sample(
         "position_id": position_id,
         "previous_valuation_date": previous_row.get("valuation_date"),
         "valuation_date": current_row.get("valuation_date"),
-        "previous_end_value_field": previous_end_field,
-        "current_begin_value_field": current_begin_field,
+        "previous_end_value_field": continuity_values.previous_end_field,
+        "current_begin_value_field": continuity_values.current_begin_field,
         "previous_end_value": _decimal_to_artifact(previous_end),
         "current_begin_value": _decimal_to_artifact(current_begin),
         "gap_amount": _decimal_to_artifact(gap_amount),
@@ -599,16 +617,39 @@ def _build_position_continuity_gap_sample(
     }
 
 
+def _position_continuity_values(
+    *,
+    previous_row: dict[str, object],
+    current_row: dict[str, object],
+) -> _PositionContinuityValues | None:
+    previous_end_field, raw_previous_end = _select_position_continuity_end_value_field(previous_row)
+    current_begin_field, raw_current_begin = _select_position_continuity_begin_value_field(current_row)
+    previous_end = _parse_decimal(raw_previous_end)
+    current_begin = _parse_decimal(raw_current_begin)
+    if previous_end is None or current_begin is None:
+        return None
+    return _PositionContinuityValues(
+        previous_end_field=previous_end_field,
+        previous_end=previous_end,
+        current_begin_field=current_begin_field,
+        current_begin=current_begin,
+    )
+
+
 def _row_has_transition_activity(row: dict[str, object]) -> bool:
     if _cash_flows_have_nonzero_amount(row.get("cash_flows")):
         return True
     for key, value in row.items():
-        if not _is_transition_activity_field(key):
-            continue
-        decimal_value = _parse_decimal(value)
-        if decimal_value is not None and decimal_value != 0:
+        if _field_has_nonzero_transition_activity(key, value):
             return True
     return False
+
+
+def _field_has_nonzero_transition_activity(key: str, value: object) -> bool:
+    if not _is_transition_activity_field(key):
+        return False
+    decimal_value = _parse_decimal(value)
+    return decimal_value is not None and decimal_value != 0
 
 
 def _is_transition_activity_field(key: str) -> bool:
@@ -634,12 +675,16 @@ def _cash_flows_have_nonzero_amount(cash_flows: object) -> bool:
     if not isinstance(cash_flows, list):
         return False
     for flow in cash_flows:
-        if not isinstance(flow, dict):
-            continue
-        amount = _parse_decimal(flow.get("amount"))
-        if amount is not None and amount != 0:
+        if _cash_flow_has_nonzero_amount(flow):
             return True
     return False
+
+
+def _cash_flow_has_nonzero_amount(flow: object) -> bool:
+    if not isinstance(flow, dict):
+        return False
+    amount = _parse_decimal(flow.get("amount"))
+    return amount is not None and amount != 0
 
 
 def _collect_duplicate_snapshot_samples(position_rows: list[dict[str, object]]) -> list[dict[str, object]]:
@@ -647,12 +692,10 @@ def _collect_duplicate_snapshot_samples(position_rows: list[dict[str, object]]) 
     sample_index_by_key: dict[tuple[str, object, int], int] = {}
     samples: list[dict[str, object]] = []
     for row in position_rows:
-        valuation_date = row.get("valuation_date")
-        position_id = row.get("position_id")
-        if not isinstance(valuation_date, str) or not isinstance(position_id, str):
+        key = _duplicate_snapshot_key(row)
+        if key is None:
             continue
-        epoch = _parse_epoch_value(row)
-        key = (valuation_date, position_id, epoch)
+        valuation_date, position_id, epoch = key
         counts[key] = counts.get(key, 0) + 1
         if counts[key] == 2:
             samples.append(
@@ -667,6 +710,14 @@ def _collect_duplicate_snapshot_samples(position_rows: list[dict[str, object]]) 
         elif counts[key] > 2:
             samples[sample_index_by_key[key]]["duplicate_count"] = counts[key]
     return samples
+
+
+def _duplicate_snapshot_key(row: dict[str, object]) -> tuple[str, str, int] | None:
+    valuation_date = row.get("valuation_date")
+    position_id = row.get("position_id")
+    if not isinstance(valuation_date, str) or not isinstance(position_id, str):
+        return None
+    return valuation_date, position_id, _parse_epoch_value(row)
 
 
 def _collect_invalid_epoch_samples(position_rows: list[dict[str, object]]) -> list[dict[str, object]]:

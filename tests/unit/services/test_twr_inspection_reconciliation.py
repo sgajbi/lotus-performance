@@ -77,6 +77,42 @@ def test_select_latest_position_rows_keeps_latest_epoch_and_replaces_equal_epoch
     ]
 
 
+def test_should_replace_selected_position_row_policy_compares_candidate_epoch():
+    selected = (2, {"marker": "current"})
+
+    assert reconciliation._should_replace_selected_position_row(candidate_epoch=1, selected=None)
+    assert not reconciliation._should_replace_selected_position_row(candidate_epoch=1, selected=selected)
+    assert reconciliation._should_replace_selected_position_row(candidate_epoch=3, selected=selected)
+    assert reconciliation._should_replace_selected_position_row(candidate_epoch=2, selected=selected)
+
+
+def test_position_continuity_values_prefers_position_currency_and_rejects_invalid_pairs():
+    values = reconciliation._position_continuity_values(
+        previous_row={
+            "ending_market_value_position_currency": "101.25",
+            "ending_market_value_portfolio_currency": "999.00",
+        },
+        current_row={
+            "beginning_market_value_position_currency": "102.50",
+            "beginning_market_value_portfolio_currency": "999.00",
+        },
+    )
+
+    assert values == reconciliation._PositionContinuityValues(
+        previous_end_field="ending_market_value_position_currency",
+        previous_end=Decimal("101.25"),
+        current_begin_field="beginning_market_value_position_currency",
+        current_begin=Decimal("102.50"),
+    )
+    assert (
+        reconciliation._position_continuity_values(
+            previous_row={"ending_market_value_portfolio_currency": "not-decimal"},
+            current_row={"beginning_market_value_portfolio_currency": "102.50"},
+        )
+        is None
+    )
+
+
 def test_analyze_position_reconciliation_gaps_applies_tolerance_and_preserves_gap_evidence():
     gap_analysis = reconciliation._analyze_position_reconciliation_gaps(
         portfolio_end_by_date={
@@ -292,6 +328,24 @@ def test_is_transition_activity_field_matches_cashflow_trade_and_quantity_delta_
     assert reconciliation._is_transition_activity_field("quantity_delta")
     assert not reconciliation._is_transition_activity_field("cash_flows")
     assert not reconciliation._is_transition_activity_field("ending_market_value_portfolio_currency")
+
+
+def test_field_has_nonzero_transition_activity_requires_activity_marker_and_nonzero_decimal():
+    assert reconciliation._field_has_nonzero_transition_activity("trade_notional", "10.00")
+    assert not reconciliation._field_has_nonzero_transition_activity("trade_notional", "0.00")
+    assert not reconciliation._field_has_nonzero_transition_activity("trade_notional", "not-decimal")
+    assert not reconciliation._field_has_nonzero_transition_activity(
+        "ending_market_value_portfolio_currency",
+        "10.00",
+    )
+
+
+def test_cash_flow_has_nonzero_amount_requires_mapping_amount_and_nonzero_decimal():
+    assert reconciliation._cash_flow_has_nonzero_amount({"amount": "10.00"})
+    assert not reconciliation._cash_flow_has_nonzero_amount({"amount": "0.00"})
+    assert not reconciliation._cash_flow_has_nonzero_amount({"amount": "not-decimal"})
+    assert not reconciliation._cash_flow_has_nonzero_amount({"missing": "10.00"})
+    assert not reconciliation._cash_flow_has_nonzero_amount("not-a-flow")
 
 
 def test_analyze_portfolio_position_reconciliation_does_not_flag_activity_explained_begin_change():
@@ -568,3 +622,17 @@ def test_analyze_portfolio_position_reconciliation_flags_duplicate_snapshot_rows
             "duplicate_count": 2,
         }
     ]
+
+
+def test_duplicate_snapshot_key_requires_string_identity_and_uses_parsed_epoch():
+    assert reconciliation._duplicate_snapshot_key(
+        {"valuation_date": "2026-01-02", "position_id": "SEC_2", "valuation_epoch": "5"}
+    ) == ("2026-01-02", "SEC_2", 5)
+    assert reconciliation._duplicate_snapshot_key({"position_id": "SEC_2", "valuation_epoch": 5}) is None
+    assert reconciliation._duplicate_snapshot_key({"valuation_date": "2026-01-02", "valuation_epoch": 5}) is None
+    assert (
+        reconciliation._duplicate_snapshot_key(
+            {"valuation_date": date(2026, 1, 2), "position_id": "SEC_2", "valuation_epoch": 5}
+        )
+        is None
+    )

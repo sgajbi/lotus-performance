@@ -406,9 +406,13 @@ def _build_inspection_findings_context(
         findings.append(_build_no_check_family_executed_finding())
     return _InspectionFindingsContext(
         findings=findings,
-        pending_check_families=[family for family in _ALL_CHECK_FAMILIES if family not in completed_check_families],
+        pending_check_families=_pending_check_families(completed_check_families),
         evidence_summary=evidence,
     )
+
+
+def _pending_check_families(completed_check_families: list[str]) -> list[str]:
+    return [family for family in _ALL_CHECK_FAMILIES if family not in completed_check_families]
 
 
 def _run_source_quality_assessment(
