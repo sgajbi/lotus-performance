@@ -18,6 +18,7 @@ from app.services.stateful_benchmark_input_service import (
     _composition_segment_overlaps_window,
     _composition_segment_required_fields,
     _fx_rate_map_from_payload,
+    _fx_rate_point_from_payload_point,
     _load_benchmark_definition_currency,
     _load_component_price_series,
     _load_fx_maps_for_components,
@@ -899,6 +900,16 @@ def test_fx_rate_map_from_payload_projects_valid_rates_only():
         date(2026, 1, 2): Decimal("1.20"),
         date(2026, 1, 3): Decimal("1.21"),
     }
+
+
+def test_fx_rate_point_from_payload_point_projects_valid_point_only():
+    assert _fx_rate_point_from_payload_point({"series_date": "2026-01-02", "fx_rate": Decimal("1.20")}) == (
+        date(2026, 1, 2),
+        Decimal("1.20"),
+    )
+    assert _fx_rate_point_from_payload_point("ignored") is None
+    assert _fx_rate_point_from_payload_point({"series_date": "2026-01-02"}) is None
+    assert _fx_rate_point_from_payload_point({"fx_rate": "1.20"}) is None
 
 
 def test_fx_rate_map_from_payload_requires_points_list():

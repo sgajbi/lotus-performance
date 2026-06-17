@@ -564,11 +564,23 @@ def _fx_rate_map_from_payload(
             status_code=HTTP_422_UNPROCESSABLE,
             detail=f"fx rate payload missing points for {from_currency}/{to_currency}.",
         )
-    return {
-        date.fromisoformat(point["series_date"]): Decimal(str(point["fx_rate"]))
-        for point in points_raw
-        if isinstance(point, dict) and isinstance(point.get("series_date"), str) and point.get("fx_rate") is not None
-    }
+    fx_rates: dict[date, Decimal] = {}
+    for point in points_raw:
+        parsed_point = _fx_rate_point_from_payload_point(point)
+        if parsed_point is not None:
+            series_date, fx_rate = parsed_point
+            fx_rates[series_date] = fx_rate
+    return fx_rates
+
+
+def _fx_rate_point_from_payload_point(point: object) -> tuple[date, Decimal] | None:
+    if not isinstance(point, dict):
+        return None
+    series_date = point.get("series_date")
+    fx_rate = point.get("fx_rate")
+    if not isinstance(series_date, str) or fx_rate is None:
+        return None
+    return date.fromisoformat(series_date), Decimal(str(fx_rate))
 
 
 def _required_fx_pairs_for_components(
