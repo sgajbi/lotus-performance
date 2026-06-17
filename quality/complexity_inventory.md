@@ -38,31 +38,31 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_annualize_percentage` | function | `app/services/workspace_summary_service.py:1080` | 6 | B |
-| 2 | `_resolve_async_attribution_job_request` | function | `app/workers/compute_executor_worker.py:594` | 6 | B |
-| 3 | `Periods` | class | `core/envelope.py:95` | 6 | B |
-| 4 | `_workspace_period_start_date` | function | `core/workspace_periods.py:56` | 6 | B |
-| 5 | `_build_instrument_attribution_panel` | function | `engine/attribution.py:296` | 6 | B |
-| 6 | `_build_instrument_attribution_groups` | function | `engine/attribution.py:398` | 6 | B |
-| 7 | `_prepare_panel_from_groups` | function | `engine/attribution.py:472` | 6 | B |
-| 8 | `_determine_attribution_supportability_status` | function | `engine/attribution_supportability.py:297` | 6 | B |
-| 9 | `_component_contributions_dataframe` | function | `engine/benchmarks.py:35` | 6 | B |
-| 10 | `_blocked_composite_period_result_for_invalid_ready_facts` | function | `engine/composites.py:224` | 6 | B |
-| 11 | `_composite_calculation_status` | function | `engine/composites.py:416` | 6 | B |
-| 12 | `calculate_asset_weighted_composite_twr` | function | `engine/composites.py:424` | 6 | B |
-| 13 | `run_calculations` | function | `engine/compute.py:21` | 6 | B |
-| 14 | `_prepare_dataframe` | function | `engine/compute.py:163` | 6 | B |
-| 15 | `_apply_position_fx_capital_conversion` | function | `engine/contribution.py:256` | 6 | B |
-| 16 | `_net_same_day_flows` | function | `engine/mwr.py:21` | 6 | B |
-| 17 | `_dietz_denominator` | function | `engine/mwr.py:310` | 6 | B |
-| 18 | `_calculate_xirr_mwr_attempt` | function | `engine/mwr.py:345` | 6 | B |
-| 19 | `_extract_policy_inputs` | function | `engine/policies.py:24` | 6 | B |
-| 20 | `_apply_overrides` | function | `engine/policies.py:38` | 6 | B |
-| 21 | `_flag_outliers` | function | `engine/policies.py:124` | 6 | B |
-| 22 | `_apply_hedging_to_fx_return` | function | `engine/ror.py:150` | 6 | B |
-| 23 | `calculate_sod_reset_reason` | function | `engine/rules.py:164` | 6 | B |
-| 24 | `health_ready` | function | `app/api/endpoints/health.py:41` | 5 | A |
-| 25 | `get_twr_inspection_artifact` | function | `app/api/endpoints/inspections.py:174` | 5 | A |
+| 1 | `_resolve_async_attribution_job_request` | function | `app/workers/compute_executor_worker.py:594` | 6 | B |
+| 2 | `Periods` | class | `core/envelope.py:95` | 6 | B |
+| 3 | `_workspace_period_start_date` | function | `core/workspace_periods.py:56` | 6 | B |
+| 4 | `_build_instrument_attribution_panel` | function | `engine/attribution.py:296` | 6 | B |
+| 5 | `_build_instrument_attribution_groups` | function | `engine/attribution.py:398` | 6 | B |
+| 6 | `_prepare_panel_from_groups` | function | `engine/attribution.py:472` | 6 | B |
+| 7 | `_determine_attribution_supportability_status` | function | `engine/attribution_supportability.py:297` | 6 | B |
+| 8 | `_component_contributions_dataframe` | function | `engine/benchmarks.py:35` | 6 | B |
+| 9 | `_blocked_composite_period_result_for_invalid_ready_facts` | function | `engine/composites.py:224` | 6 | B |
+| 10 | `_composite_calculation_status` | function | `engine/composites.py:416` | 6 | B |
+| 11 | `calculate_asset_weighted_composite_twr` | function | `engine/composites.py:424` | 6 | B |
+| 12 | `run_calculations` | function | `engine/compute.py:21` | 6 | B |
+| 13 | `_prepare_dataframe` | function | `engine/compute.py:163` | 6 | B |
+| 14 | `_apply_position_fx_capital_conversion` | function | `engine/contribution.py:256` | 6 | B |
+| 15 | `_net_same_day_flows` | function | `engine/mwr.py:21` | 6 | B |
+| 16 | `_dietz_denominator` | function | `engine/mwr.py:310` | 6 | B |
+| 17 | `_calculate_xirr_mwr_attempt` | function | `engine/mwr.py:345` | 6 | B |
+| 18 | `_extract_policy_inputs` | function | `engine/policies.py:24` | 6 | B |
+| 19 | `_apply_overrides` | function | `engine/policies.py:38` | 6 | B |
+| 20 | `_flag_outliers` | function | `engine/policies.py:124` | 6 | B |
+| 21 | `_apply_hedging_to_fx_return` | function | `engine/ror.py:150` | 6 | B |
+| 22 | `calculate_sod_reset_reason` | function | `engine/rules.py:164` | 6 | B |
+| 23 | `health_ready` | function | `app/api/endpoints/health.py:41` | 5 | A |
+| 24 | `get_twr_inspection_artifact` | function | `app/api/endpoints/inspections.py:174` | 5 | A |
+| 25 | `_load_and_validate_manifest` | function | `app/api/endpoints/lineage.py:27` | 5 | A |
 
 ## Lowest Maintainability Index
 
@@ -76,7 +76,7 @@ must stay at `0`.
 | 6 | `app/openapi_enrichment.py` | 2.14 | C |
 | 7 | `app/services/twr_service.py` | 5.85 | C |
 | 8 | `app/services/stateful_benchmark_input_service.py` | 9.19 | B |
-| 9 | `app/services/workspace_summary_service.py` | 10.34 | B |
+| 9 | `app/services/workspace_summary_service.py` | 10.26 | B |
 | 10 | `app/services/execution_registry.py` | 11.48 | B |
 | 11 | `engine/attribution.py` | 13.12 | B |
 | 12 | `app/services/operator_action_lease_service.py` | 13.14 | B |
@@ -413,6 +413,8 @@ master-window eligibility were moved into a dedicated predicate helper.
 retrieval, request projection, and source-detail merging were moved into a dedicated helper.
 `_build_workspace_summary_response` also dropped out after audit count projection was moved into a
 dedicated helper while preserving input-row, period, portfolio-source, and benchmark-source counts.
+`_annualize_percentage` also dropped out after annualization periods-per-year and elapsed-measure
+policy were moved into a dedicated helper while preserving business-day and calendar basis behavior.
 `_queue_stats_from_aggregate_row` also dropped out after aggregate-row count defaulting and numeric
 conversion were moved into a dedicated mapper helper.
 `calculate_contribution` also dropped out after hierarchy-period slicing, position total

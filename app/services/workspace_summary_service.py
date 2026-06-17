@@ -1088,8 +1088,11 @@ def _annualize_percentage(
     elapsed_days = max((end_date - start_date).days + 1, 1)
     if elapsed_days <= 365:
         return value_pct
-    periods_per_year = annualization.periods_per_year or (252 if annualization.basis == "BUS/252" else 365)
-    elapsed_measure = business_day_count if annualization.basis == "BUS/252" else elapsed_days
+    periods_per_year, elapsed_measure = _annualization_periods_and_elapsed_measure(
+        annualization=annualization,
+        business_day_count=business_day_count,
+        elapsed_days=elapsed_days,
+    )
     if elapsed_measure <= 0:
         return value_pct
     growth_factor = Decimal("1") + (value_pct / Decimal("100"))
@@ -1098,6 +1101,17 @@ def _annualize_percentage(
         ctx.prec = max(ctx.prec, 28)
         annualized_growth = (growth_factor.ln() * exponent).exp()
     return (annualized_growth - Decimal("1")) * Decimal("100")
+
+
+def _annualization_periods_and_elapsed_measure(
+    *,
+    annualization,
+    business_day_count: int,
+    elapsed_days: int,
+) -> tuple[int, int]:
+    periods_per_year = annualization.periods_per_year or (252 if annualization.basis == "BUS/252" else 365)
+    elapsed_measure = business_day_count if annualization.basis == "BUS/252" else elapsed_days
+    return periods_per_year, elapsed_measure
 
 
 def _build_workspace_benchmark_daily_df(

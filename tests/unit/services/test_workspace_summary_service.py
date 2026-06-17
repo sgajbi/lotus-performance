@@ -24,6 +24,7 @@ from app.services.workspace_summary_service import (
     ResolvedWorkspaceBenchmarkInput,
     ResolvedWorkspacePortfolioInput,
     WorkspaceTWRArtifacts,
+    _annualization_periods_and_elapsed_measure,
     _annualize_percentage,
     _build_economic_context,
     _build_mwr_cash_flows,
@@ -952,6 +953,22 @@ def test_annualize_percentage_returns_original_value_when_elapsed_measure_is_non
         )
         == 12.5
     )
+
+
+def test_annualization_periods_and_elapsed_measure_uses_business_day_basis_defaults():
+    assert _annualization_periods_and_elapsed_measure(
+        annualization=SimpleNamespace(periods_per_year=None, basis="BUS/252"),
+        business_day_count=200,
+        elapsed_days=365,
+    ) == (252, 200)
+
+
+def test_annualization_periods_and_elapsed_measure_uses_calendar_basis_and_explicit_periods():
+    assert _annualization_periods_and_elapsed_measure(
+        annualization=SimpleNamespace(periods_per_year=360, basis="CAL/365"),
+        business_day_count=200,
+        elapsed_days=400,
+    ) == (360, 400)
 
 
 def test_date_from_boundary_rejects_unsupported_boundary_values():
