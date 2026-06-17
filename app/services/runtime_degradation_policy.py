@@ -10,6 +10,21 @@ def as_decimal_number(value: object) -> Decimal:
     return Decimal(str(value))
 
 
+def _is_supported_threshold(threshold_decimal: Decimal) -> bool:
+    return threshold_decimal > 0
+
+
+def _threshold_comparison_is_breached(
+    *,
+    observed_decimal: Decimal,
+    threshold_decimal: Decimal,
+    comparison: ThresholdComparison,
+) -> bool:
+    if comparison == "at_or_above":
+        return observed_decimal >= threshold_decimal
+    return observed_decimal <= threshold_decimal
+
+
 def threshold_breach_values(
     *,
     observed_value: object,
@@ -18,11 +33,13 @@ def threshold_breach_values(
 ) -> tuple[Decimal, Decimal] | None:
     observed_decimal = as_decimal_number(observed_value)
     threshold_decimal = as_decimal_number(threshold_value)
-    if threshold_decimal <= 0:
+    if not _is_supported_threshold(threshold_decimal):
         return None
-    if comparison == "at_or_above" and observed_decimal < threshold_decimal:
-        return None
-    if comparison == "at_or_below" and observed_decimal > threshold_decimal:
+    if not _threshold_comparison_is_breached(
+        observed_decimal=observed_decimal,
+        threshold_decimal=threshold_decimal,
+        comparison=comparison,
+    ):
         return None
     return observed_decimal, threshold_decimal
 
