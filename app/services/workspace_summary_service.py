@@ -315,14 +315,15 @@ def _trim_portfolio_input_to_master_window(
     filtered_points = [
         point for point in portfolio_input.valuation_points if master_start_date <= point.perf_date <= report_end_date
     ]
-    filtered_observations = []
-    for observation in portfolio_input.observations:
-        perf_date_raw = observation.get("perf_date")
-        if not isinstance(perf_date_raw, str):
-            continue
-        perf_date = date.fromisoformat(perf_date_raw)
-        if master_start_date <= perf_date <= report_end_date:
-            filtered_observations.append(observation)
+    filtered_observations = [
+        observation
+        for observation in portfolio_input.observations
+        if _workspace_observation_in_master_window(
+            observation,
+            master_start_date=master_start_date,
+            report_end_date=report_end_date,
+        )
+    ]
     return ResolvedWorkspacePortfolioInput(
         input_mode=portfolio_input.input_mode,
         performance_start_date=portfolio_input.performance_start_date,
@@ -330,6 +331,19 @@ def _trim_portfolio_input_to_master_window(
         observations=filtered_observations,
         source_details=portfolio_input.source_details,
     )
+
+
+def _workspace_observation_in_master_window(
+    observation: dict[str, object],
+    *,
+    master_start_date: date,
+    report_end_date: date,
+) -> bool:
+    perf_date_raw = observation.get("perf_date")
+    if not isinstance(perf_date_raw, str):
+        return False
+    perf_date = date.fromisoformat(perf_date_raw)
+    return master_start_date <= perf_date <= report_end_date
 
 
 def _resolve_workspace_benchmark_input(

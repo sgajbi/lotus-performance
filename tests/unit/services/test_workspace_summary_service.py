@@ -38,6 +38,7 @@ from app.services.workspace_summary_service import (
     _resolve_stateful_portfolio_start_date,
     _resolve_workspace_benchmark_input,
     _resolve_workspace_portfolio_input,
+    _workspace_observation_in_master_window,
     _workspace_summary_diagnostics_notes,
     calculate_workspace_summary,
     workspace_longest_requested_window_days,
@@ -639,6 +640,30 @@ def test_build_stateful_workspace_portfolio_input_projects_retrieval_and_source_
     assert [point.perf_date for point in result.valuation_points] == [date(2026, 1, 2)]
     assert result.observations == [{"perf_date": "2026-01-02"}]
     assert result.source_details == {"portfolio_chunk_count": 3, "portfolio_page_count": 7}
+
+
+def test_workspace_observation_in_master_window_accepts_bounded_string_dates():
+    assert _workspace_observation_in_master_window(
+        {"perf_date": "2026-01-02"},
+        master_start_date=date(2026, 1, 1),
+        report_end_date=date(2026, 1, 2),
+    )
+
+
+def test_workspace_observation_in_master_window_rejects_dates_outside_window():
+    assert not _workspace_observation_in_master_window(
+        {"perf_date": "2025-12-31"},
+        master_start_date=date(2026, 1, 1),
+        report_end_date=date(2026, 1, 2),
+    )
+
+
+def test_workspace_observation_in_master_window_rejects_non_string_dates():
+    assert not _workspace_observation_in_master_window(
+        {"perf_date": date(2026, 1, 2)},
+        master_start_date=date(2026, 1, 1),
+        report_end_date=date(2026, 1, 2),
+    )
 
 
 def test_build_workspace_results_by_period_skips_empty_periods_and_projects_summaries(mocker):
