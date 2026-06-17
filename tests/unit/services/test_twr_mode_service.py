@@ -25,6 +25,7 @@ from app.services.twr_mode_service import (
     _resolve_twr_retrieval_inputs,
     _resolved_twr_benchmark_id,
     _ResolvedTWRBenchmarkSourceInput,
+    _twr_normalization_details,
     _twr_request_needs_retrieval,
     _TWRRetrievalResolution,
     resolve_twr_request,
@@ -218,6 +219,59 @@ def test_build_twr_normalization_resolution_projects_stateful_valuation_details(
     assert len(resolution.resolved_input.valuation_points) == 1
     assert resolution.benchmark_request is None
     assert resolution.normalization_details == {"valuation_points": 1}
+
+
+def test_twr_normalization_details_projects_portfolio_and_benchmark_counts():
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_1",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "stateful_input": {},
+            "benchmark": {
+                "benchmark_id": "BMK_1",
+                "input_mode": "stateless",
+                "return_source": "vendor_series",
+                "stateless_input": {
+                    "benchmark_currency": "USD",
+                    "benchmark_return_points": [
+                        {"perf_date": "2025-01-01", "benchmark_return": 0.01},
+                        {"perf_date": "2025-01-02", "benchmark_return": 0.02},
+                    ],
+                },
+            },
+        }
+    )
+    resolution = _build_twr_normalization_resolution(
+        request=request,
+        retrieval_resolution=_TWRRetrievalResolution(
+            portfolio_input=StatefulPortfolioInput(
+                performance_start_date=request.report_end_date,
+                observations=[
+                    {
+                        "valuation_date": "2025-01-02",
+                        "beginning_market_value": "1000",
+                        "ending_market_value": "1010",
+                    }
+                ],
+            ),
+            benchmark_resolution=None,
+            benchmark_start_date=request.report_end_date,
+            retrieval_details={},
+        ),
+    )
+
+    assert _twr_normalization_details(
+        resolved_input=resolution.resolved_input,
+        benchmark_request=resolution.benchmark_request,
+    ) == {
+        "valuation_points": 1,
+        "benchmark_component_observations": 0,
+        "benchmark_return_points": 2,
+    }
 
 
 def test_build_resolved_twr_performance_input_projects_stateful_request_fields():

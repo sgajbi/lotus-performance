@@ -239,17 +239,28 @@ def _build_twr_normalization_resolution(
         if _benchmark_requested(request)
         else None
     )
-    normalization_details: dict[str, object] = {}
-    if resolved_input is not None:
-        normalization_details["valuation_points"] = len(resolved_input.valuation_points)
-    if benchmark_request is not None:
-        normalization_details["benchmark_component_observations"] = len(benchmark_request.component_observations)
-        normalization_details["benchmark_return_points"] = len(benchmark_request.benchmark_return_points)
     return _TWRNormalizationResolution(
         resolved_input=resolved_input,
         benchmark_request=benchmark_request,
-        normalization_details=normalization_details,
+        normalization_details=_twr_normalization_details(
+            resolved_input=resolved_input,
+            benchmark_request=benchmark_request,
+        ),
     )
+
+
+def _twr_normalization_details(
+    *,
+    resolved_input: StatefulPortfolioValuationInput | None,
+    benchmark_request: BenchmarkPerformanceRequest | None,
+) -> dict[str, object]:
+    details: dict[str, object] = {}
+    if resolved_input is not None:
+        details["valuation_points"] = len(resolved_input.valuation_points)
+    if benchmark_request is not None:
+        details["benchmark_component_observations"] = len(benchmark_request.component_observations)
+        details["benchmark_return_points"] = len(benchmark_request.benchmark_return_points)
+    return details
 
 
 async def _resolve_twr_retrieval_inputs(
