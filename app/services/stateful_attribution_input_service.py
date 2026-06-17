@@ -766,7 +766,10 @@ def _build_benchmark_groups(
             group_by=group_by,
             row=row,
         )
+    return _benchmark_groups_from_buckets(grouped)
 
+
+def _benchmark_groups_from_buckets(grouped: _BenchmarkGroupBuckets) -> list[BenchmarkGroup]:
     benchmark_groups: list[BenchmarkGroup] = []
     for key_tuple in sorted(grouped):
         observations = []

@@ -14,6 +14,7 @@ from app.services.stateful_attribution_input_service import (
     _benchmark_currency_group_value,
     _benchmark_group_dimension_value,
     _benchmark_group_key_from_row,
+    _benchmark_groups_from_buckets,
     _build_benchmark_groups,
     _build_group_key,
     _build_instruments_data,
@@ -1277,6 +1278,33 @@ def test_stateful_attribution_benchmark_group_key_from_row_applies_label_guard_a
             labels_by_index={},
             group_by=["sector"],
         )
+
+
+def test_stateful_attribution_benchmark_groups_from_buckets_orders_keys_and_observations():
+    groups = _benchmark_groups_from_buckets(
+        {
+            (("sector", "technology"),): {
+                "2025-01-02": {
+                    "weight_sum": Decimal("2"),
+                    "weighted_return_sum": Decimal("0.04"),
+                    "weighted_local_return_sum": Decimal("0.03"),
+                    "weighted_fx_return_sum": Decimal("0.01"),
+                },
+                "2025-01-01": {
+                    "weight_sum": Decimal("1"),
+                    "weighted_return_sum": Decimal("0.01"),
+                    "weighted_local_return_sum": Decimal("0.01"),
+                    "weighted_fx_return_sum": Decimal("0"),
+                },
+            }
+        }
+    )
+
+    assert groups[0].key == {"sector": "technology"}
+    assert [observation.date for observation in groups[0].observations] == [date(2025, 1, 1), date(2025, 1, 2)]
+    assert groups[0].observations[1].return_base == pytest.approx(0.02)
+    assert groups[0].observations[1].return_local == pytest.approx(0.015)
+    assert groups[0].observations[1].return_fx == pytest.approx(0.005)
 
 
 def test_stateful_attribution_aggregates_benchmark_components_by_group_and_date():
