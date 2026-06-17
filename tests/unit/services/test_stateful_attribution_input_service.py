@@ -20,6 +20,7 @@ from app.services.stateful_attribution_input_service import (
     _distinct_source_currencies,
     _first_rows_by_position,
     _has_unsupported_position_inception_row,
+    _internal_cash_flow_abs_in_alignment_basis,
     _normalize_group_value,
     _normalized_position_dimension_value,
     _normalized_position_dimensions,
@@ -949,6 +950,26 @@ def test_stateful_attribution_alignment_validator_tolerates_unusable_rows_and_in
         ],
         reporting_currency=None,
     )
+
+
+def test_internal_cash_flow_abs_in_alignment_basis_filters_and_converts_supported_internal_flows():
+    conversion_factor = Decimal("1.5")
+
+    assert _internal_cash_flow_abs_in_alignment_basis(
+        flow={"amount": "-10", "cash_flow_type": "internal_trade_flow"},
+        conversion_factor=conversion_factor,
+    ) == Decimal("15.0")
+    assert _internal_cash_flow_abs_in_alignment_basis(
+        flow={"amount": "10", "cash_flow_type": "external_contribution"},
+        conversion_factor=conversion_factor,
+    ) == Decimal("0")
+    assert _internal_cash_flow_abs_in_alignment_basis(
+        flow={"cash_flow_type": "internal_trade_flow"},
+        conversion_factor=conversion_factor,
+    ) == Decimal("0")
+    assert _internal_cash_flow_abs_in_alignment_basis(
+        flow="not-a-flow", conversion_factor=conversion_factor
+    ) == Decimal("0")
 
 
 def test_portfolio_market_values_by_date_skips_incomplete_observations():

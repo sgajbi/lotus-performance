@@ -456,15 +456,22 @@ def _sum_internal_cash_flow_abs_in_alignment_basis(
     )
     total = Decimal("0")
     for flow in cash_flows_raw:
-        if not isinstance(flow, dict):
-            continue
-        amount = flow.get("amount")
-        if amount is None:
-            continue
-        if classify_cashflow_type(flow.get("cash_flow_type")).economics_role != "internal":
-            continue
-        total += abs(Decimal(str(amount)) * conversion_factor)
+        total += _internal_cash_flow_abs_in_alignment_basis(
+            flow=flow,
+            conversion_factor=conversion_factor,
+        )
     return total
+
+
+def _internal_cash_flow_abs_in_alignment_basis(*, flow: object, conversion_factor: Decimal) -> Decimal:
+    if not isinstance(flow, dict):
+        return Decimal("0")
+    amount = flow.get("amount")
+    if amount is None:
+        return Decimal("0")
+    if classify_cashflow_type(flow.get("cash_flow_type")).economics_role != "internal":
+        return Decimal("0")
+    return abs(Decimal(str(amount)) * conversion_factor)
 
 
 def _alignment_cash_flow_conversion_factor(
