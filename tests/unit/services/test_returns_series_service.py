@@ -1220,6 +1220,20 @@ async def test_retrieve_stateful_returns_series_risk_free_requires_reporting_cur
     assert exc.value.status_code == 400
 
 
+def test_risk_free_points_from_payload_accepts_points_list():
+    points = [{"series_date": "2026-02-25", "value": "0.0001"}]
+
+    assert returns_series_service._risk_free_points_from_payload({"points": points}) == points
+
+
+def test_risk_free_points_from_payload_rejects_missing_points_list():
+    with pytest.raises(HTTPException) as exc:
+        returns_series_service._risk_free_points_from_payload({"points": None})
+
+    assert exc.value.status_code == 422
+    assert exc.value.detail["code"] == "CONTRACT_VIOLATION_UPSTREAM"
+
+
 @pytest.mark.asyncio
 async def test_retrieve_stateful_returns_series_risk_free_rejects_invalid_payload():
     request = _build_stateful_request(

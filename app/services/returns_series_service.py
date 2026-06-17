@@ -1023,13 +1023,18 @@ async def _retrieve_stateful_returns_series_risk_free(
             detail=source_unavailable_detail(f"Risk-free series source unavailable ({risk_free_status})."),
         )
 
+    risk_free_points = _risk_free_points_from_payload(risk_free_payload)
+    return risk_free_points, risk_free_payload
+
+
+def _risk_free_points_from_payload(risk_free_payload: dict[str, Any]) -> list[dict[str, Any]]:
     risk_free_points = risk_free_payload.get("points")
     if not isinstance(risk_free_points, list):
         raise HTTPException(
             status_code=HTTP_422_UNPROCESSABLE,
             detail=upstream_contract_violation_detail("Risk-free series payload missing points list."),
         )
-    return risk_free_points, risk_free_payload
+    return risk_free_points
 
 
 async def _retrieve_stateful_returns_series_vendor_benchmark(
