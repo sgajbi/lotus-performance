@@ -18,6 +18,7 @@ from app.models.twr_requests import TWRInputMode
 from app.services.benchmark_calculation_service import BenchmarkCalculationArtifacts
 from app.services.twr_service import (
     _as_numeric,
+    _benchmark_context_input_mode_value,
     _build_twr_benchmark_period_block,
     _build_twr_benchmark_period_blocks,
     _build_twr_lineage_details,
@@ -375,6 +376,11 @@ def test_build_twr_benchmark_period_block_projects_metadata_fallbacks_and_cumula
     assert benchmark.return_source == "vendor_series"
     assert benchmark.summary.cumulative_return is not None
     assert benchmark.summary.cumulative_return.base == pytest.approx(3.02)
+
+
+def test_benchmark_context_input_mode_value_uses_explicit_mode_and_stateless_fallback():
+    assert _benchmark_context_input_mode_value(BenchmarkInputMode.STATEFUL) == "stateful"
+    assert _benchmark_context_input_mode_value(None) == "stateless"
 
 
 def test_build_twr_response_model_preserves_envelope_metadata_and_supportability():

@@ -1023,20 +1023,25 @@ def _build_twr_benchmark_context(
     if benchmark_artifacts is None or benchmark_request is None:
         return None
 
+    benchmark_input_mode_value = _benchmark_context_input_mode_value(benchmark_input_mode)
     return TWRBenchmarkContext(
         benchmark_id=resolved_benchmark_id or benchmark_request.benchmark_id,
         benchmark_currency=benchmark_request.benchmark_currency,
-        input_mode=(benchmark_input_mode or BenchmarkInputMode.STATELESS).value,
+        input_mode=benchmark_input_mode_value,
         return_source=benchmark_return_source.value,
         supportability_evidence=build_twr_benchmark_supportability_evidence(
             performance_request=performance_request,
             benchmark_request=benchmark_request,
             portfolio_daily_results_df=daily_results_df,
             benchmark_daily_returns_df=benchmark_artifacts.daily_returns_df,
-            benchmark_input_mode=(benchmark_input_mode or BenchmarkInputMode.STATELESS).value,
+            benchmark_input_mode=benchmark_input_mode_value,
             benchmark_return_source=benchmark_return_source.value,
         ),
     )
+
+
+def _benchmark_context_input_mode_value(benchmark_input_mode: BenchmarkInputMode | None) -> str:
+    return (benchmark_input_mode or BenchmarkInputMode.STATELESS).value
 
 
 def _build_twr_response_model(
