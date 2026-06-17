@@ -475,11 +475,23 @@ def _group_composite_member_return_facts(
 
 
 def _composite_calculation_status(period_results: Sequence[CompositePeriodResult]) -> str:
-    if all(period.status == "READY" for period in period_results):
+    if _all_composite_periods_ready(period_results):
         return "READY"
-    if any(period.status == "READY" or period.status == "DEGRADED" for period in period_results):
+    if _has_calculated_composite_period(period_results):
         return "DEGRADED"
     return "BLOCKED"
+
+
+def _all_composite_periods_ready(period_results: Sequence[CompositePeriodResult]) -> bool:
+    return all(period.status == "READY" for period in period_results)
+
+
+def _has_calculated_composite_period(period_results: Sequence[CompositePeriodResult]) -> bool:
+    return any(_is_calculated_composite_period(period) for period in period_results)
+
+
+def _is_calculated_composite_period(period: CompositePeriodResult) -> bool:
+    return period.status in {"READY", "DEGRADED"}
 
 
 def calculate_asset_weighted_composite_twr(

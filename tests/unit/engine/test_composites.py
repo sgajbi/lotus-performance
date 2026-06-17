@@ -6,13 +6,17 @@ from decimal import Decimal
 
 from app.models.composites import CompositeMemberReturnFact
 from engine.composites import (
+    CompositePeriodResult,
+    _all_composite_periods_ready,
     _blocked_composite_period_result,
     _blocked_composite_period_result_for_invalid_ready_facts,
     _build_composite_period_fact_set,
     _build_ready_composite_period_result,
     _build_ready_member_contributions,
     _classify_composite_period_facts,
+    _composite_calculation_status,
     _composite_period_fact_metadata,
+    _has_calculated_composite_period,
     calculate_asset_weighted_composite_twr,
 )
 
@@ -67,6 +71,27 @@ def _fact(
             "status": status,
             "reason_codes": reason_codes or [],
         }
+    )
+
+
+def _period_result(*, status: str) -> CompositePeriodResult:
+    return CompositePeriodResult(
+        period_start=date(2026, 1, 1),
+        period_end=date(2026, 1, 31),
+        status=status,
+        return_value=None,
+        cumulative_return=None,
+        beginning_market_value=Decimal("0"),
+        ending_market_value=Decimal("0"),
+        member_count=0,
+        excluded_member_count=0,
+        dispersion_equal_weight=None,
+        return_view=None,
+        reporting_currency=None,
+        source_fingerprints=[],
+        restatement_versions=[],
+        reason_codes=[],
+        member_contributions=[],
     )
 
 
@@ -263,6 +288,20 @@ def test_build_ready_composite_period_result_quantizes_and_links_growth():
     assert period_result.member_count == 2
     assert period_result.excluded_member_count == 0
     assert [item.portfolio_id for item in period_result.member_contributions] == ["P1", "P2"]
+
+
+def test_composite_calculation_status_uses_ready_and_calculated_period_policy():
+    ready_period = _period_result(status="READY")
+    degraded_period = _period_result(status="DEGRADED")
+    blocked_period = _period_result(status="BLOCKED")
+
+    assert _all_composite_periods_ready([ready_period]) is True
+    assert _all_composite_periods_ready([ready_period, degraded_period]) is False
+    assert _has_calculated_composite_period([blocked_period, degraded_period]) is True
+    assert _has_calculated_composite_period([blocked_period]) is False
+    assert _composite_calculation_status([ready_period]) == "READY"
+    assert _composite_calculation_status([ready_period, degraded_period]) == "DEGRADED"
+    assert _composite_calculation_status([blocked_period]) == "BLOCKED"
 
 
 def test_blocked_composite_period_result_for_invalid_ready_facts_blocks_empty_ready_set():
