@@ -6,7 +6,9 @@ from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.models.requests import PerformanceRequest
 from app.services.twr_benchmark_supportability import (
     _benchmark_calendar_alignment,
+    _benchmark_calendar_alignment_state,
     _benchmark_component_currencies,
+    _has_benchmark_calendar_no_overlap,
     _has_benchmark_fx_decomposition,
     build_twr_benchmark_supportability_evidence,
 )
@@ -147,6 +149,58 @@ def test_benchmark_calendar_alignment_projects_counts_and_warning_codes():
     assert no_overlap.state == "no_overlap"
     assert no_overlap.warning_codes == ["BENCHMARK_CALENDAR_NO_OVERLAP"]
     assert no_overlap.overlapping_dates == set()
+
+
+def test_benchmark_calendar_alignment_state_projects_warnings():
+    assert _benchmark_calendar_alignment_state(
+        portfolio_dates=set(),
+        benchmark_dates=set(),
+        overlapping_dates=set(),
+        missing_benchmark_dates=[],
+        extra_benchmark_dates=[],
+    ) == ("aligned", [])
+
+    assert _benchmark_calendar_alignment_state(
+        portfolio_dates={date(2025, 1, 1)},
+        benchmark_dates={date(2025, 1, 1)},
+        overlapping_dates={date(2025, 1, 1)},
+        missing_benchmark_dates=[],
+        extra_benchmark_dates=[],
+    ) == ("aligned", [])
+
+    assert _benchmark_calendar_alignment_state(
+        portfolio_dates={date(2025, 1, 1), date(2025, 1, 2)},
+        benchmark_dates={date(2025, 1, 2), date(2025, 1, 3)},
+        overlapping_dates={date(2025, 1, 2)},
+        missing_benchmark_dates=[date(2025, 1, 1)],
+        extra_benchmark_dates=[date(2025, 1, 3)],
+    ) == ("partial_overlap", ["BENCHMARK_CALENDAR_GAP"])
+
+    assert _benchmark_calendar_alignment_state(
+        portfolio_dates={date(2025, 1, 1)},
+        benchmark_dates={date(2025, 1, 2)},
+        overlapping_dates=set(),
+        missing_benchmark_dates=[date(2025, 1, 1)],
+        extra_benchmark_dates=[date(2025, 1, 2)],
+    ) == ("no_overlap", ["BENCHMARK_CALENDAR_NO_OVERLAP"])
+
+
+def test_has_benchmark_calendar_no_overlap_requires_dates_without_intersection():
+    assert not _has_benchmark_calendar_no_overlap(
+        portfolio_dates=set(),
+        benchmark_dates=set(),
+        overlapping_dates=set(),
+    )
+    assert _has_benchmark_calendar_no_overlap(
+        portfolio_dates={date(2025, 1, 1)},
+        benchmark_dates={date(2025, 1, 2)},
+        overlapping_dates=set(),
+    )
+    assert not _has_benchmark_calendar_no_overlap(
+        portfolio_dates={date(2025, 1, 1)},
+        benchmark_dates={date(2025, 1, 1)},
+        overlapping_dates={date(2025, 1, 1)},
+    )
 
 
 def test_twr_benchmark_supportability_reports_calendar_and_vendor_series_warnings():
