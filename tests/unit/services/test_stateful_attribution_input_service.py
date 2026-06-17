@@ -38,6 +38,7 @@ from app.services.stateful_attribution_input_service import (
     _reporting_daily_point_market_values,
     _resolve_stateful_attribution_benchmark_id,
     _split_position_cash_flows,
+    _stateful_attribution_benchmark_id_from_assignment_payload,
     _stateful_attribution_fx_required,
     _stateful_attribution_requested_dimensions,
     _stateful_portfolio_position_alignment_mismatches,
@@ -132,6 +133,13 @@ async def test_resolve_stateful_attribution_benchmark_id_prefers_override_and_re
             "calculation_id": calculation_id,
         }
     ]
+
+
+def test_stateful_attribution_benchmark_id_from_assignment_payload_validates_assignment_shape():
+    assert _stateful_attribution_benchmark_id_from_assignment_payload({"benchmark_id": "BMK_1"}) == "BMK_1"
+
+    with pytest.raises(HTTPException, match="payload missing benchmark_id"):
+        _stateful_attribution_benchmark_id_from_assignment_payload({"benchmark_id": ""})
 
 
 def test_stateful_attribution_requested_dimensions_merges_explicit_and_upstream_grouping_dimensions():

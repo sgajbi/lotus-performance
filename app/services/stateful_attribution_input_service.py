@@ -195,6 +195,10 @@ async def _resolve_stateful_attribution_benchmark_id(
             source_label="benchmark assignment",
             upstream_status=assignment_status,
         )
+    return _stateful_attribution_benchmark_id_from_assignment_payload(assignment_payload)
+
+
+def _stateful_attribution_benchmark_id_from_assignment_payload(assignment_payload: dict[str, object]) -> str:
     benchmark_id_raw = assignment_payload.get("benchmark_id")
     if not isinstance(benchmark_id_raw, str) or not benchmark_id_raw:
         raise HTTPException(
