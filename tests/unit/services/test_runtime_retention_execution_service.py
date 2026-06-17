@@ -9,6 +9,8 @@ from app.services.runtime_retention_execution_service import (
     _build_retention_manifest,
     _persist_evidence_history,
     _prune_old_evidence,
+    _runtime_retention_execution_identity,
+    _runtime_retention_history_policy,
     _write_text_atomic,
     execute_runtime_retention_cleanup,
 )
@@ -143,6 +145,71 @@ def test_execute_runtime_retention_cleanup_rejects_blank_operator_id(tmp_path, m
 
     assert not cleanup_called
     assert not output_dir.exists()
+
+
+def test_runtime_retention_execution_identity_normalizes_operator_evidence_fields():
+    identity = _runtime_retention_execution_identity(
+        operator_id=" ops ",
+        tenant_id=" tenant-a ",
+        correlation_id=" ",
+        trigger_mode=" scheduled ",
+        job_id=" retention-nightly ",
+    )
+
+    assert identity.operator_id == "ops"
+    assert identity.tenant_id == "tenant-a"
+    assert identity.correlation_id is None
+    assert identity.trigger_mode == "scheduled"
+    assert identity.job_id == "retention-nightly"
+
+
+def test_runtime_retention_history_policy_prefers_explicit_runtime_overrides(tmp_path):
+    default_output_dir = tmp_path / "defaults"
+    override_output_dir = tmp_path / "overrides"
+    settings = type(
+        "Settings",
+        (),
+        {
+            "RUNTIME_RETENTION_ARTIFACT_PATH": default_output_dir,
+            "RUNTIME_RETENTION_HISTORY_LIMIT": 30,
+            "RUNTIME_RETENTION_HISTORY_MAX_AGE_DAYS": 90,
+        },
+    )()
+
+    policy = _runtime_retention_history_policy(
+        settings=settings,
+        output_dir=override_output_dir,
+        retention_limit=5,
+        retention_max_age_days=14,
+    )
+
+    assert policy.output_dir == override_output_dir
+    assert policy.retention_limit == 5
+    assert policy.retention_max_age_days == 14
+
+
+def test_runtime_retention_history_policy_uses_settings_defaults(tmp_path):
+    default_output_dir = tmp_path / "defaults"
+    settings = type(
+        "Settings",
+        (),
+        {
+            "RUNTIME_RETENTION_ARTIFACT_PATH": default_output_dir,
+            "RUNTIME_RETENTION_HISTORY_LIMIT": 30,
+            "RUNTIME_RETENTION_HISTORY_MAX_AGE_DAYS": 90,
+        },
+    )()
+
+    policy = _runtime_retention_history_policy(
+        settings=settings,
+        output_dir=None,
+        retention_limit=None,
+        retention_max_age_days=None,
+    )
+
+    assert policy.output_dir == default_output_dir
+    assert policy.retention_limit == 30
+    assert policy.retention_max_age_days == 90
 
 
 def test_runtime_retention_execution_prunes_stale_history_by_limit_and_age(tmp_path, monkeypatch):

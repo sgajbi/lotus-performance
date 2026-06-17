@@ -75,6 +75,22 @@ class RuntimeRetentionManifest:
     entries: list[RuntimeRetentionManifestEntry]
 
 
+@dataclass(frozen=True)
+class _RuntimeRetentionExecutionIdentity:
+    operator_id: str
+    tenant_id: str | None
+    correlation_id: str | None
+    trigger_mode: str
+    job_id: str | None
+
+
+@dataclass(frozen=True)
+class _RuntimeRetentionHistoryPolicy:
+    output_dir: Path
+    retention_limit: int
+    retention_max_age_days: int
+
+
 def execute_runtime_retention_cleanup(
     *,
     apply: bool,
@@ -89,11 +105,19 @@ def execute_runtime_retention_cleanup(
     retention_max_age_days: int | None = None,
 ) -> RuntimeRetentionCleanupEvidence:
     settings = get_settings()
-    normalized_operator_id = normalize_required_evidence_identifier(operator_id, field_name="operator_id")
-    normalized_tenant_id = normalize_optional_evidence_identifier(tenant_id)
-    normalized_correlation_id = normalize_optional_evidence_identifier(correlation_id)
-    normalized_trigger_mode = normalize_required_evidence_identifier(trigger_mode, field_name="trigger_mode")
-    normalized_job_id = normalize_optional_evidence_identifier(job_id)
+    identity = _runtime_retention_execution_identity(
+        operator_id=operator_id,
+        tenant_id=tenant_id,
+        correlation_id=correlation_id,
+        trigger_mode=trigger_mode,
+        job_id=job_id,
+    )
+    history_policy = _runtime_retention_history_policy(
+        settings=settings,
+        output_dir=output_dir,
+        retention_limit=retention_limit,
+        retention_max_age_days=retention_max_age_days,
+    )
     summary = run_runtime_retention_cleanup(
         retention_days=retention_days,
         dry_run=not apply,
@@ -103,11 +127,11 @@ def execute_runtime_retention_cleanup(
         cleanup_name="runtime_retention_cleanup",
         generated_at_utc=generated_at_utc,
         evidence_file_name=_build_evidence_file_name(generated_at_utc),
-        operator_id=normalized_operator_id,
-        tenant_id=normalized_tenant_id,
-        correlation_id=normalized_correlation_id,
-        trigger_mode=normalized_trigger_mode,
-        job_id=normalized_job_id,
+        operator_id=identity.operator_id,
+        tenant_id=identity.tenant_id,
+        correlation_id=identity.correlation_id,
+        trigger_mode=identity.trigger_mode,
+        job_id=identity.job_id,
         cleanup_mode="apply" if apply else "dry_run",
         status="applied" if apply else "planned",
         retention_days=summary.retention_days,
@@ -119,8 +143,40 @@ def execute_runtime_retention_cleanup(
         prunable_lineage_artifact_count=summary.prunable_lineage_artifact_count,
     )
     _persist_evidence_history(
-        output_dir=output_dir or settings.RUNTIME_RETENTION_ARTIFACT_PATH,
+        output_dir=history_policy.output_dir,
         evidence=evidence,
+        retention_limit=history_policy.retention_limit,
+        retention_max_age_days=history_policy.retention_max_age_days,
+    )
+    return evidence
+
+
+def _runtime_retention_execution_identity(
+    *,
+    operator_id: str,
+    tenant_id: str | None,
+    correlation_id: str | None,
+    trigger_mode: str,
+    job_id: str | None,
+) -> _RuntimeRetentionExecutionIdentity:
+    return _RuntimeRetentionExecutionIdentity(
+        operator_id=normalize_required_evidence_identifier(operator_id, field_name="operator_id"),
+        tenant_id=normalize_optional_evidence_identifier(tenant_id),
+        correlation_id=normalize_optional_evidence_identifier(correlation_id),
+        trigger_mode=normalize_required_evidence_identifier(trigger_mode, field_name="trigger_mode"),
+        job_id=normalize_optional_evidence_identifier(job_id),
+    )
+
+
+def _runtime_retention_history_policy(
+    *,
+    settings: Any,
+    output_dir: Path | None,
+    retention_limit: int | None,
+    retention_max_age_days: int | None,
+) -> _RuntimeRetentionHistoryPolicy:
+    return _RuntimeRetentionHistoryPolicy(
+        output_dir=output_dir or settings.RUNTIME_RETENTION_ARTIFACT_PATH,
         retention_limit=retention_limit if retention_limit is not None else settings.RUNTIME_RETENTION_HISTORY_LIMIT,
         retention_max_age_days=(
             retention_max_age_days
@@ -128,7 +184,6 @@ def execute_runtime_retention_cleanup(
             else settings.RUNTIME_RETENTION_HISTORY_MAX_AGE_DAYS
         ),
     )
-    return evidence
 
 
 def _build_evidence_file_name(generated_at_utc: str) -> str:
