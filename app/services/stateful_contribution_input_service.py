@@ -329,7 +329,13 @@ def _validate_stateful_both_currency_support(
             ),
         )
 
-    if any(position_currency != reporting_currency for position_currency in position_currencies) and fx is None:
+    if (
+        _stateful_both_currency_requires_fx(
+            position_currencies=position_currencies,
+            reporting_currency=reporting_currency,
+        )
+        and fx is None
+    ):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
@@ -337,6 +343,14 @@ def _validate_stateful_both_currency_support(
                 "include currencies different from report_ccy."
             ),
         )
+
+
+def _stateful_both_currency_requires_fx(
+    *,
+    position_currencies: set[str],
+    reporting_currency: str,
+) -> bool:
+    return any(position_currency != reporting_currency for position_currency in position_currencies)
 
 
 def _stateful_position_currencies(rows: list[dict[str, object]]) -> set[str]:
