@@ -745,29 +745,40 @@ def _prepare_stateless_returns_series_dataframes(
         frequency=request.frequency,
         calendar_policy=request.data_policy.calendar_policy,
     )
-    benchmark_df = (
-        _returns_series_input_dataframe(
-            points=stateless_input.benchmark_returns or [],
-            series_type="benchmark",
-            resolved_window=resolved_window,
-            frequency=request.frequency,
-            calendar_policy=request.data_policy.calendar_policy,
-        )
-        if request.series_selection.include_benchmark
-        else None
+    benchmark_df = _optional_stateless_returns_series_dataframe(
+        selected=request.series_selection.include_benchmark,
+        points=stateless_input.benchmark_returns,
+        series_type="benchmark",
+        request=request,
+        resolved_window=resolved_window,
     )
-    risk_free_df = (
-        _returns_series_input_dataframe(
-            points=stateless_input.risk_free_returns or [],
-            series_type="risk_free",
-            resolved_window=resolved_window,
-            frequency=request.frequency,
-            calendar_policy=request.data_policy.calendar_policy,
-        )
-        if request.series_selection.include_risk_free
-        else None
+    risk_free_df = _optional_stateless_returns_series_dataframe(
+        selected=request.series_selection.include_risk_free,
+        points=stateless_input.risk_free_returns,
+        series_type="risk_free",
+        request=request,
+        resolved_window=resolved_window,
     )
     return portfolio_df, benchmark_df, risk_free_df
+
+
+def _optional_stateless_returns_series_dataframe(
+    *,
+    selected: bool,
+    points: list[ReturnPoint] | None,
+    series_type: str,
+    request: ReturnsSeriesRequest,
+    resolved_window: ResolvedWindow,
+) -> pd.DataFrame | None:
+    if not selected:
+        return None
+    return _returns_series_input_dataframe(
+        points=points or [],
+        series_type=series_type,
+        resolved_window=resolved_window,
+        frequency=request.frequency,
+        calendar_policy=request.data_policy.calendar_policy,
+    )
 
 
 def _build_stateful_returns_series_frames(

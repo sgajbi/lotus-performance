@@ -830,6 +830,43 @@ def test_prepare_stateless_returns_series_dataframes_respects_selected_series():
     assert risk_free_df is None
 
 
+def test_optional_stateless_returns_series_dataframe_builds_only_selected_series():
+    request = ReturnsSeriesRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "as_of_date": "2026-02-26",
+            "window": {"mode": "EXPLICIT", "from_date": "2026-02-24", "to_date": "2026-02-26"},
+            "frequency": "DAILY",
+            "series_selection": {"include_portfolio": True, "include_benchmark": False, "include_risk_free": False},
+            "input_mode": "stateless",
+            "stateless_input": {
+                "portfolio_returns": [{"date": "2026-02-24", "return_value": "0.0100"}],
+            },
+        }
+    )
+    resolved_window = returns_series_service.resolve_window(request)
+    points = [ReturnPoint(date=date(2026, 2, 24), return_value=Decimal("0.0010"))]
+
+    unselected_df = returns_series_service._optional_stateless_returns_series_dataframe(
+        selected=False,
+        points=points,
+        series_type="benchmark",
+        request=request,
+        resolved_window=resolved_window,
+    )
+    selected_df = returns_series_service._optional_stateless_returns_series_dataframe(
+        selected=True,
+        points=points,
+        series_type="benchmark",
+        request=request,
+        resolved_window=resolved_window,
+    )
+
+    assert unselected_df is None
+    assert selected_df is not None
+    assert list(selected_df["return_value"]) == [Decimal("0.0010")]
+
+
 def test_prepare_stateless_returns_series_dataframes_requires_stateless_input():
     request = ReturnsSeriesRequest.model_construct(
         portfolio_id="P1",
