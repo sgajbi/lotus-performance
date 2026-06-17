@@ -1074,20 +1074,31 @@ def _position_cash_flow_amount(flow: object) -> tuple[str, Decimal] | None:
 
 
 def _position_meta_from_row(row: dict[str, object]) -> dict[str, object]:
+    meta = _position_meta_identity_fields(row)
+    meta.update(_position_meta_fx_rate_fields(row))
+    meta.update(_normalized_position_dimensions(row.get("dimensions")))
+    return meta
+
+
+def _position_meta_identity_fields(row: dict[str, object]) -> dict[str, object]:
     meta: dict[str, object] = {}
     security_id = row.get("security_id")
     if isinstance(security_id, str):
         meta["security_id"] = security_id
-    position_currency = row.get("position_currency")
-    if isinstance(position_currency, str) and position_currency:
-        meta["currency"] = _normalize_group_value(position_currency)
-    cash_flow_currency = row.get("cash_flow_currency")
-    if isinstance(cash_flow_currency, str) and cash_flow_currency:
-        meta["cash_flow_currency"] = _normalize_group_value(cash_flow_currency)
-
-    meta.update(_position_meta_fx_rate_fields(row))
-    meta.update(_normalized_position_dimensions(row.get("dimensions")))
+    for source_field, target_field in (
+        ("position_currency", "currency"),
+        ("cash_flow_currency", "cash_flow_currency"),
+    ):
+        normalized_value = _normalized_non_empty_group_value(row.get(source_field))
+        if normalized_value is not None:
+            meta[target_field] = normalized_value
     return meta
+
+
+def _normalized_non_empty_group_value(value: object) -> str | None:
+    if not isinstance(value, str) or not value:
+        return None
+    return _normalize_group_value(value)
 
 
 def _position_meta_fx_rate_fields(row: dict[str, object]) -> dict[str, object]:

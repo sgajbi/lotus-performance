@@ -24,6 +24,7 @@ from app.services.stateful_attribution_input_service import (
     _internal_cash_flow_abs_in_alignment_basis,
     _labels_have_required_dimensions,
     _normalize_group_value,
+    _normalized_non_empty_group_value,
     _normalized_position_dimension_value,
     _normalized_position_dimensions,
     _parse_index_catalog,
@@ -36,6 +37,7 @@ from app.services.stateful_attribution_input_service import (
     _position_market_value_totals_by_date,
     _position_meta_from_row,
     _position_meta_fx_rate_fields,
+    _position_meta_identity_fields,
     _position_row_to_base_weight_point,
     _position_row_to_daily_point,
     _record_instrument_position_row,
@@ -1385,6 +1387,13 @@ def test_stateful_attribution_normalizes_group_values():
     assert _normalize_group_value("Fixed Income") == "fixed_income"
 
 
+def test_stateful_attribution_normalized_non_empty_group_value_policy():
+    assert _normalized_non_empty_group_value("US Dollar") == "us_dollar"
+    assert _normalized_non_empty_group_value("") is None
+    assert _normalized_non_empty_group_value(None) is None
+    assert _normalized_non_empty_group_value(123) is None
+
+
 def test_position_meta_fx_rate_fields_convert_available_rates_to_decimals():
     assert _position_meta_fx_rate_fields(
         {
@@ -1399,6 +1408,30 @@ def test_position_meta_fx_rate_fields_convert_available_rates_to_decimals():
 
 def test_position_meta_fx_rate_fields_omit_missing_rates():
     assert _position_meta_fx_rate_fields({"position_to_portfolio_fx_rate": None}) == {}
+
+
+def test_position_meta_identity_fields_normalizes_supported_currency_metadata():
+    assert _position_meta_identity_fields(
+        {
+            "security_id": "SEC_1",
+            "position_currency": "US Dollar",
+            "cash_flow_currency": "Euro",
+        }
+    ) == {
+        "security_id": "SEC_1",
+        "currency": "us_dollar",
+        "cash_flow_currency": "euro",
+    }
+    assert (
+        _position_meta_identity_fields(
+            {
+                "security_id": 123,
+                "position_currency": "",
+                "cash_flow_currency": None,
+            }
+        )
+        == {}
+    )
 
 
 def test_stateful_attribution_normalizes_position_dimensions():
