@@ -38,31 +38,31 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_record_source_quality_observation` | function | `app/services/source_quality_evidence.py:92` | 6 | B |
-| 2 | `retrieve_stateful_attribution_source_input` | function | `app/services/stateful_attribution_input_service.py:62` | 6 | B |
-| 3 | `_resolve_stateful_attribution_benchmark_id` | function | `app/services/stateful_attribution_input_service.py:161` | 6 | B |
-| 4 | `_sum_internal_cash_flow_abs_in_alignment_basis` | function | `app/services/stateful_attribution_input_service.py:431` | 6 | B |
-| 5 | `_classified_component_count` | function | `app/services/stateful_attribution_input_service.py:518` | 6 | B |
-| 6 | `_build_benchmark_groups` | function | `app/services/stateful_attribution_input_service.py:721` | 6 | B |
-| 7 | `_position_row_to_base_weight_point` | function | `app/services/stateful_attribution_input_service.py:974` | 6 | B |
-| 8 | `_position_meta_from_row` | function | `app/services/stateful_attribution_input_service.py:1037` | 6 | B |
-| 9 | `_validate_stateful_both_currency_support` | function | `app/services/stateful_attribution_input_service.py:1100` | 6 | B |
-| 10 | `_benchmark_return_points_from_payload` | function | `app/services/stateful_benchmark_input_service.py:227` | 6 | B |
-| 11 | `_parse_composition_segment` | function | `app/services/stateful_benchmark_input_service.py:332` | 6 | B |
-| 12 | `_fx_rate_map_from_payload` | function | `app/services/stateful_benchmark_input_service.py:545` | 6 | B |
-| 13 | `_normalized_component_price_point_from_payload` | function | `app/services/stateful_benchmark_input_service.py:804` | 6 | B |
-| 14 | `_validate_stateful_both_currency_support` | function | `app/services/stateful_contribution_input_service.py:310` | 6 | B |
-| 15 | `get_benchmark_return_series` | method | `app/services/stateful_input_service.py:218` | 6 | B |
-| 16 | `get_fx_rates` | method | `app/services/stateful_input_service.py:516` | 6 | B |
-| 17 | `get_index_catalog` | method | `app/services/stateful_input_service.py:618` | 6 | B |
-| 18 | `get_index_price_series` | method | `app/services/stateful_input_service.py:661` | 6 | B |
-| 19 | `get_risk_free_series` | method | `app/services/stateful_input_service.py:769` | 6 | B |
-| 20 | `_fetch_position_chunk` | method | `app/services/stateful_input_service.py:991` | 6 | B |
-| 21 | `_next_page_token` | method | `app/services/stateful_input_service.py:1185` | 6 | B |
-| 22 | `_merge_dedup_records_by_fields` | method | `app/services/stateful_input_service.py:1204` | 6 | B |
-| 23 | `_component_index_points` | function | `app/services/stateful_input_service.py:1363` | 6 | B |
-| 24 | `_has_single_currency_inputs` | function | `app/services/stateful_mwr_input_service.py:354` | 6 | B |
-| 25 | `retrieve_stateful_portfolio_input` | function | `app/services/stateful_performance_input_service.py:42` | 6 | B |
+| 1 | `retrieve_stateful_attribution_source_input` | function | `app/services/stateful_attribution_input_service.py:62` | 6 | B |
+| 2 | `_resolve_stateful_attribution_benchmark_id` | function | `app/services/stateful_attribution_input_service.py:161` | 6 | B |
+| 3 | `_sum_internal_cash_flow_abs_in_alignment_basis` | function | `app/services/stateful_attribution_input_service.py:431` | 6 | B |
+| 4 | `_classified_component_count` | function | `app/services/stateful_attribution_input_service.py:518` | 6 | B |
+| 5 | `_build_benchmark_groups` | function | `app/services/stateful_attribution_input_service.py:721` | 6 | B |
+| 6 | `_position_row_to_base_weight_point` | function | `app/services/stateful_attribution_input_service.py:974` | 6 | B |
+| 7 | `_position_meta_from_row` | function | `app/services/stateful_attribution_input_service.py:1037` | 6 | B |
+| 8 | `_validate_stateful_both_currency_support` | function | `app/services/stateful_attribution_input_service.py:1100` | 6 | B |
+| 9 | `_benchmark_return_points_from_payload` | function | `app/services/stateful_benchmark_input_service.py:227` | 6 | B |
+| 10 | `_parse_composition_segment` | function | `app/services/stateful_benchmark_input_service.py:332` | 6 | B |
+| 11 | `_fx_rate_map_from_payload` | function | `app/services/stateful_benchmark_input_service.py:545` | 6 | B |
+| 12 | `_normalized_component_price_point_from_payload` | function | `app/services/stateful_benchmark_input_service.py:804` | 6 | B |
+| 13 | `_validate_stateful_both_currency_support` | function | `app/services/stateful_contribution_input_service.py:310` | 6 | B |
+| 14 | `get_benchmark_return_series` | method | `app/services/stateful_input_service.py:218` | 6 | B |
+| 15 | `get_fx_rates` | method | `app/services/stateful_input_service.py:516` | 6 | B |
+| 16 | `get_index_catalog` | method | `app/services/stateful_input_service.py:618` | 6 | B |
+| 17 | `get_index_price_series` | method | `app/services/stateful_input_service.py:661` | 6 | B |
+| 18 | `get_risk_free_series` | method | `app/services/stateful_input_service.py:769` | 6 | B |
+| 19 | `_fetch_position_chunk` | method | `app/services/stateful_input_service.py:991` | 6 | B |
+| 20 | `_next_page_token` | method | `app/services/stateful_input_service.py:1185` | 6 | B |
+| 21 | `_merge_dedup_records_by_fields` | method | `app/services/stateful_input_service.py:1204` | 6 | B |
+| 22 | `_component_index_points` | function | `app/services/stateful_input_service.py:1363` | 6 | B |
+| 23 | `_has_single_currency_inputs` | function | `app/services/stateful_mwr_input_service.py:354` | 6 | B |
+| 24 | `retrieve_stateful_portfolio_input` | function | `app/services/stateful_performance_input_service.py:42` | 6 | B |
+| 25 | `_build_component_observations_from_price_points` | function | `app/services/stateless_benchmark_input_service.py:50` | 6 | B |
 
 ## Lowest Maintainability Index
 
@@ -791,6 +791,10 @@ assembly.
 projection was moved into a dedicated helper while preserving missing-artifact degradation,
 unavailable-history projection, latest-entry freshness evaluation, active-run evidence, preview
 summary fields, and degradation detail assembly.
+`_record_source_quality_observation` also dropped out after source-quality date/value recording was
+moved into a dedicated helper while preserving source classification counting, missing-field skip
+behavior, invalid numeric/date skip behavior, normalized-date recording, and per-date market-value
+conflict evidence.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.
