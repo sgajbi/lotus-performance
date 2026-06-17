@@ -331,15 +331,15 @@ def _with_reset_no_investment_classification(
     reason_codes = list(classification.reason_codes)
     if _as_numeric(row.get(PortfolioColumns.PERF_RESET.value, 0)) == 1:
         reason_codes.append("RESET_DAY")
-        episode_status = "reset_boundary"
-        if linkability_status == "linkable":
-            linkability_status = "reset_boundary"
+        linkability_status, episode_status = _reset_boundary_status(
+            linkability_status=linkability_status,
+        )
     if _as_numeric(row.get(PortfolioColumns.NIP.value, 0)) == 1:
         reason_codes.append("NO_INVESTMENT_PERIOD")
-        if episode_status == "open":
-            episode_status = "no_investment"
-        if linkability_status == "linkable":
-            linkability_status = "not_calculated"
+        linkability_status, episode_status = _no_investment_status(
+            linkability_status=linkability_status,
+            episode_status=episode_status,
+        )
 
     return _DailyCalculationEvidenceClassification(
         status=classification.status,
@@ -348,6 +348,20 @@ def _with_reset_no_investment_classification(
         reason_codes=reason_codes,
         warnings=classification.warnings,
     )
+
+
+def _reset_boundary_status(*, linkability_status: str) -> tuple[str, str]:
+    if linkability_status == "linkable":
+        linkability_status = "reset_boundary"
+    return linkability_status, "reset_boundary"
+
+
+def _no_investment_status(*, linkability_status: str, episode_status: str) -> tuple[str, str]:
+    if episode_status == "open":
+        episode_status = "no_investment"
+    if linkability_status == "linkable":
+        linkability_status = "not_calculated"
+    return linkability_status, episode_status
 
 
 def _with_cashflow_reason_codes(
