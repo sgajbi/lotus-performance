@@ -610,37 +610,55 @@ class StatefulInputService:
             as_of_date=as_of_date,
             index_ids=index_ids,
         )
-        if calculation_id is not None:
-            sorted_index_ids = sorted(set(index_ids or []))
-            request_payload = {
-                "as_of_date": str(as_of_date),
-                "index_ids": sorted_index_ids,
-            }
-            snapshot_id, request_fingerprint = self._build_snapshot_identity(
-                calculation_id=calculation_id,
-                upstream_endpoint="index_catalog",
-                source_identifier="|".join(sorted_index_ids) if sorted_index_ids else "all_indices",
-                request_payload=request_payload,
-            )
-            existing_snapshot_ids = self._existing_snapshot_ids(calculation_id)
-            if snapshot_id not in existing_snapshot_ids:
-                self._execution_store.record_upstream_snapshots(
-                    calculation_id=calculation_id,
-                    snapshots=[
-                        self._build_snapshot(
-                            calculation_id=calculation_id,
-                            upstream_endpoint="index_catalog",
-                            source_identifier="|".join(sorted_index_ids) if sorted_index_ids else "all_indices",
-                            as_of_date=as_of_date,
-                            request_payload=request_payload,
-                            response=response,
-                            snapshot_id=snapshot_id,
-                            request_fingerprint=request_fingerprint,
-                        )
-                    ],
-                )
-                existing_snapshot_ids.add(snapshot_id)
+        self._record_index_catalog_snapshot(
+            calculation_id=calculation_id,
+            as_of_date=as_of_date,
+            index_ids=index_ids,
+            response=response,
+        )
         return response
+
+    def _record_index_catalog_snapshot(
+        self,
+        *,
+        calculation_id: UUID | None,
+        as_of_date: date,
+        index_ids: list[str] | None,
+        response: tuple[int, dict[str, Any]],
+    ) -> None:
+        if calculation_id is None:
+            return
+        sorted_index_ids = sorted(set(index_ids or []))
+        source_identifier = "|".join(sorted_index_ids) if sorted_index_ids else "all_indices"
+        request_payload = {
+            "as_of_date": str(as_of_date),
+            "index_ids": sorted_index_ids,
+        }
+        snapshot_id, request_fingerprint = self._build_snapshot_identity(
+            calculation_id=calculation_id,
+            upstream_endpoint="index_catalog",
+            source_identifier=source_identifier,
+            request_payload=request_payload,
+        )
+        existing_snapshot_ids = self._existing_snapshot_ids(calculation_id)
+        if snapshot_id in existing_snapshot_ids:
+            return
+        self._execution_store.record_upstream_snapshots(
+            calculation_id=calculation_id,
+            snapshots=[
+                self._build_snapshot(
+                    calculation_id=calculation_id,
+                    upstream_endpoint="index_catalog",
+                    source_identifier=source_identifier,
+                    as_of_date=as_of_date,
+                    request_payload=request_payload,
+                    response=response,
+                    snapshot_id=snapshot_id,
+                    request_fingerprint=request_fingerprint,
+                )
+            ],
+        )
+        existing_snapshot_ids.add(snapshot_id)
 
     async def get_index_price_series(
         self,

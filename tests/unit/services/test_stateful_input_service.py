@@ -546,6 +546,11 @@ async def test_stateful_input_service_fetches_reference_payloads_and_records_sna
         index_ids=["IDX_2", "IDX_1"],
         calculation_id=calculation_id,
     )
+    await service.get_index_catalog(
+        as_of_date=date(2026, 1, 3),
+        index_ids=["IDX_1", "IDX_2"],
+        calculation_id=calculation_id,
+    )
 
     assert portfolio_status == 200
     assert definition_status == 200
