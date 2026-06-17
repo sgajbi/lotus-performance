@@ -271,16 +271,26 @@ def _prune_old_evidence(*, output_dir: Path, retention_max_age_days: int) -> Non
         return
     cutoff = datetime.now(UTC) - timedelta(days=retention_max_age_days)
     for path in output_dir.glob("*.json"):
-        if path.name in {"latest.json", "manifest.json"}:
-            continue
-        try:
-            payload = _read_runtime_retention_evidence_payload(path)
-            generated_at_utc = parse_utc_datetime(str(payload["generated_at_utc"]))
-        except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError):
-            logger.warning("Runtime retention evidence ignored during age pruning: %s", path, exc_info=True)
-            continue
-        if generated_at_utc < cutoff:
-            path.unlink(missing_ok=True)
+        _prune_evidence_path_if_stale(path=path, cutoff=cutoff)
+
+
+def _runtime_retention_evidence_generated_at(path: Path) -> datetime | None:
+    try:
+        payload = _read_runtime_retention_evidence_payload(path)
+        return parse_utc_datetime(str(payload["generated_at_utc"]))
+    except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError):
+        logger.warning("Runtime retention evidence ignored during age pruning: %s", path, exc_info=True)
+        return None
+
+
+def _prune_evidence_path_if_stale(*, path: Path, cutoff: datetime) -> None:
+    if path.name in {"latest.json", "manifest.json"}:
+        return
+    generated_at_utc = _runtime_retention_evidence_generated_at(path)
+    if generated_at_utc is None:
+        return
+    if generated_at_utc < cutoff:
+        path.unlink(missing_ok=True)
 
 
 def _load_manifest_entry(path: Path) -> RuntimeRetentionManifestEntry | None:
