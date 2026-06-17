@@ -21,6 +21,7 @@ from app.services.stateful_attribution_input_service import (
     _first_rows_by_position,
     _has_unsupported_position_inception_row,
     _internal_cash_flow_abs_in_alignment_basis,
+    _labels_have_required_dimensions,
     _normalize_group_value,
     _normalized_position_dimension_value,
     _normalized_position_dimensions,
@@ -100,6 +101,16 @@ def test_summarize_position_classification_counts_required_dimensions():
         "classified_row_count": 4,
         "unclassified_row_count": 0,
     }
+
+
+def test_labels_have_required_dimensions_requires_non_blank_string_values():
+    assert _labels_have_required_dimensions(
+        labels={"sector": "Technology", "region": "North America"},
+        dimensions=["sector", "region"],
+    )
+    assert not _labels_have_required_dimensions(labels={"sector": "Technology", "region": "  "}, dimensions=["region"])
+    assert not _labels_have_required_dimensions(labels={"sector": "Technology"}, dimensions=["region"])
+    assert not _labels_have_required_dimensions(labels={"sector": 123}, dimensions=["sector"])
 
 
 @pytest.mark.asyncio

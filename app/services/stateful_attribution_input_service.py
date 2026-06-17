@@ -520,6 +520,14 @@ def _row_has_required_position_dimensions(
     labels = row.get("dimensions")
     if not isinstance(labels, dict):
         return False
+    return _labels_have_required_dimensions(labels=labels, dimensions=dimensions)
+
+
+def _labels_have_required_dimensions(
+    *,
+    labels: dict[str, object],
+    dimensions: list[str],
+) -> bool:
     return all(
         isinstance(labels.get(dimension), str) and str(labels.get(dimension)).strip() for dimension in dimensions
     )
@@ -546,9 +554,7 @@ def _classified_component_count(
         labels = labels_by_index.get(component_id)
         if labels is None:
             continue
-        if all(
-            isinstance(labels.get(dimension), str) and str(labels.get(dimension)).strip() for dimension in dimensions
-        ):
+        if _labels_have_required_dimensions(labels=labels, dimensions=dimensions):
             classified_count += 1
     return classified_count
 

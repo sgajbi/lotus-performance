@@ -38,31 +38,31 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_classified_component_count` | function | `app/services/stateful_attribution_input_service.py:538` | 6 | B |
-| 2 | `_build_benchmark_groups` | function | `app/services/stateful_attribution_input_service.py:741` | 6 | B |
-| 3 | `_position_row_to_base_weight_point` | function | `app/services/stateful_attribution_input_service.py:994` | 6 | B |
-| 4 | `_position_meta_from_row` | function | `app/services/stateful_attribution_input_service.py:1057` | 6 | B |
-| 5 | `_validate_stateful_both_currency_support` | function | `app/services/stateful_attribution_input_service.py:1120` | 6 | B |
-| 6 | `_benchmark_return_points_from_payload` | function | `app/services/stateful_benchmark_input_service.py:227` | 6 | B |
-| 7 | `_parse_composition_segment` | function | `app/services/stateful_benchmark_input_service.py:332` | 6 | B |
-| 8 | `_fx_rate_map_from_payload` | function | `app/services/stateful_benchmark_input_service.py:545` | 6 | B |
-| 9 | `_normalized_component_price_point_from_payload` | function | `app/services/stateful_benchmark_input_service.py:804` | 6 | B |
-| 10 | `_validate_stateful_both_currency_support` | function | `app/services/stateful_contribution_input_service.py:310` | 6 | B |
-| 11 | `get_benchmark_return_series` | method | `app/services/stateful_input_service.py:218` | 6 | B |
-| 12 | `get_fx_rates` | method | `app/services/stateful_input_service.py:516` | 6 | B |
-| 13 | `get_index_catalog` | method | `app/services/stateful_input_service.py:618` | 6 | B |
-| 14 | `get_index_price_series` | method | `app/services/stateful_input_service.py:661` | 6 | B |
-| 15 | `get_risk_free_series` | method | `app/services/stateful_input_service.py:769` | 6 | B |
-| 16 | `_fetch_position_chunk` | method | `app/services/stateful_input_service.py:991` | 6 | B |
-| 17 | `_next_page_token` | method | `app/services/stateful_input_service.py:1185` | 6 | B |
-| 18 | `_merge_dedup_records_by_fields` | method | `app/services/stateful_input_service.py:1204` | 6 | B |
-| 19 | `_component_index_points` | function | `app/services/stateful_input_service.py:1363` | 6 | B |
-| 20 | `_has_single_currency_inputs` | function | `app/services/stateful_mwr_input_service.py:354` | 6 | B |
-| 21 | `retrieve_stateful_portfolio_input` | function | `app/services/stateful_performance_input_service.py:42` | 6 | B |
-| 22 | `_build_component_observations_from_price_points` | function | `app/services/stateless_benchmark_input_service.py:50` | 6 | B |
-| 23 | `_register_async_compute_job_or_rollback_execution` | function | `app/services/submission_fencing_service.py:107` | 6 | B |
-| 24 | `_benchmark_calendar_alignment` | function | `app/services/twr_benchmark_supportability.py:84` | 6 | B |
-| 25 | `calculate_twr_workflow` | function | `app/services/twr_calculation_service.py:278` | 6 | B |
+| 1 | `_build_benchmark_groups` | function | `app/services/stateful_attribution_input_service.py:747` | 6 | B |
+| 2 | `_position_row_to_base_weight_point` | function | `app/services/stateful_attribution_input_service.py:1000` | 6 | B |
+| 3 | `_position_meta_from_row` | function | `app/services/stateful_attribution_input_service.py:1063` | 6 | B |
+| 4 | `_validate_stateful_both_currency_support` | function | `app/services/stateful_attribution_input_service.py:1126` | 6 | B |
+| 5 | `_benchmark_return_points_from_payload` | function | `app/services/stateful_benchmark_input_service.py:227` | 6 | B |
+| 6 | `_parse_composition_segment` | function | `app/services/stateful_benchmark_input_service.py:332` | 6 | B |
+| 7 | `_fx_rate_map_from_payload` | function | `app/services/stateful_benchmark_input_service.py:545` | 6 | B |
+| 8 | `_normalized_component_price_point_from_payload` | function | `app/services/stateful_benchmark_input_service.py:804` | 6 | B |
+| 9 | `_validate_stateful_both_currency_support` | function | `app/services/stateful_contribution_input_service.py:310` | 6 | B |
+| 10 | `get_benchmark_return_series` | method | `app/services/stateful_input_service.py:218` | 6 | B |
+| 11 | `get_fx_rates` | method | `app/services/stateful_input_service.py:516` | 6 | B |
+| 12 | `get_index_catalog` | method | `app/services/stateful_input_service.py:618` | 6 | B |
+| 13 | `get_index_price_series` | method | `app/services/stateful_input_service.py:661` | 6 | B |
+| 14 | `get_risk_free_series` | method | `app/services/stateful_input_service.py:769` | 6 | B |
+| 15 | `_fetch_position_chunk` | method | `app/services/stateful_input_service.py:991` | 6 | B |
+| 16 | `_next_page_token` | method | `app/services/stateful_input_service.py:1185` | 6 | B |
+| 17 | `_merge_dedup_records_by_fields` | method | `app/services/stateful_input_service.py:1204` | 6 | B |
+| 18 | `_component_index_points` | function | `app/services/stateful_input_service.py:1363` | 6 | B |
+| 19 | `_has_single_currency_inputs` | function | `app/services/stateful_mwr_input_service.py:354` | 6 | B |
+| 20 | `retrieve_stateful_portfolio_input` | function | `app/services/stateful_performance_input_service.py:42` | 6 | B |
+| 21 | `_build_component_observations_from_price_points` | function | `app/services/stateless_benchmark_input_service.py:50` | 6 | B |
+| 22 | `_register_async_compute_job_or_rollback_execution` | function | `app/services/submission_fencing_service.py:107` | 6 | B |
+| 23 | `_benchmark_calendar_alignment` | function | `app/services/twr_benchmark_supportability.py:84` | 6 | B |
+| 24 | `calculate_twr_workflow` | function | `app/services/twr_calculation_service.py:278` | 6 | B |
+| 25 | `resolve_twr_request` | function | `app/services/twr_mode_service.py:80` | 6 | B |
 
 ## Lowest Maintainability Index
 
@@ -807,6 +807,10 @@ assigned benchmark identity projection.
 amount projection was moved into a dedicated helper while preserving non-list and non-dict
 suppression, missing-amount suppression, internal-only taxonomy filtering, conversion-factor
 application, and absolute amount aggregation.
+`_classified_component_count` also dropped out after required classification-label qualification
+was moved into a shared predicate while preserving missing index suppression, missing/blank/non-string
+label rejection, complete-label counting, and the same required-dimension policy used by position
+classification.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.
