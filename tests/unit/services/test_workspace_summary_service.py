@@ -26,6 +26,7 @@ from app.services.workspace_summary_service import (
     _annualize_percentage,
     _build_economic_context,
     _build_mwr_cash_flows,
+    _build_stateful_workspace_benchmark_input,
     _build_stateful_workspace_portfolio_input,
     _build_stateless_workspace_benchmark_input,
     _build_stateless_workspace_portfolio_input,
@@ -435,6 +436,78 @@ def test_resolve_workspace_benchmark_input_rejects_assignment_payload_without_be
             settings=SimpleNamespace(),
             master_start_date=date(2026, 1, 2),
         )
+
+
+def test_build_stateful_workspace_benchmark_input_projects_request_and_source_details(mocker):
+    captured_identity: dict[str, object] = {}
+    captured_input: dict[str, object] = {}
+
+    async def _resolve_benchmark_identity(**kwargs):
+        captured_identity.update(kwargs)
+        return SimpleNamespace(benchmark_id="LINKED-BMK", source_details={"resolved_benchmark_assignment": 1})
+
+    async def _build_stateful_benchmark_input(**kwargs):
+        captured_input.update(kwargs)
+        return SimpleNamespace(
+            benchmark_currency="USD",
+            component_observations=[],
+            benchmark_return_points=[
+                SimpleNamespace(model_dump=lambda mode="python": {"perf_date": "2026-01-02", "benchmark_return": 0.01})
+            ],
+            source_details={"benchmark_chunk_count": 4},
+        )
+
+    stateful_input_service = SimpleNamespace()
+    mocker.patch(
+        "app.services.workspace_summary_service.build_stateful_input_service",
+        return_value=stateful_input_service,
+    )
+    mocker.patch(
+        "app.services.workspace_summary_service.resolve_benchmark_identity",
+        side_effect=_resolve_benchmark_identity,
+    )
+    mocker.patch(
+        "app.services.workspace_summary_service.build_stateful_benchmark_input",
+        side_effect=_build_stateful_benchmark_input,
+    )
+    request = WorkspaceSummaryRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT-1",
+            "report_end_date": "2026-01-02",
+            "report_ccy": "USD",
+            "input_mode": "stateful",
+            "stateful_input": {},
+            "periods": [{"period": "1D", "frequencies": ["daily"]}],
+            "include_benchmark": True,
+            "benchmark": {"input_mode": "stateful", "stateful_input": {}, "return_source": "vendor_series"},
+        }
+    )
+    assert request.benchmark is not None
+
+    result = _build_stateful_workspace_benchmark_input(
+        request=request,
+        benchmark=request.benchmark,
+        settings=SimpleNamespace(),
+        master_start_date=date(2026, 1, 1),
+    )
+
+    assert captured_identity["stateful_input_service"] is stateful_input_service
+    assert captured_identity["portfolio_id"] == "PORT-1"
+    assert captured_identity["reporting_currency"] == "USD"
+    assert captured_input["benchmark_id"] == "LINKED-BMK"
+    assert captured_input["start_date"] == date(2026, 1, 1)
+    assert captured_input["end_date"] == date(2026, 1, 2)
+    assert result.input_mode == BenchmarkInputMode.STATEFUL
+    assert result.benchmark_id == "LINKED-BMK"
+    assert result.source_details == {"resolved_benchmark_assignment": 1, "benchmark_chunk_count": 4}
+    assert result.benchmark_request.benchmark_id == "LINKED-BMK"
+    assert result.benchmark_request.benchmark_start_date == date(2026, 1, 1)
+    assert result.benchmark_request.report_start_date == date(2026, 1, 1)
+    assert result.benchmark_request.report_end_date == date(2026, 1, 2)
+    assert result.benchmark_request.return_source == "vendor_series"
+    assert [point.benchmark_return for point in result.benchmark_request.benchmark_return_points] == [0.01]
+    assert result.benchmark_request.component_observations == []
 
 
 def test_resolve_workspace_benchmark_input_rejects_stateless_payload_missing_required_fields():

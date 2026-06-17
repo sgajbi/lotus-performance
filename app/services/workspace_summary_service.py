@@ -368,6 +368,21 @@ def _resolve_workspace_benchmark_input(
             master_start_date=master_start_date,
         )
 
+    return _build_stateful_workspace_benchmark_input(
+        request=request,
+        benchmark=benchmark,
+        settings=settings,
+        master_start_date=master_start_date,
+    )
+
+
+def _build_stateful_workspace_benchmark_input(
+    *,
+    request: WorkspaceSummaryRequest,
+    benchmark: WorkspaceBenchmarkRequest,
+    settings: Settings,
+    master_start_date: date,
+) -> ResolvedWorkspaceBenchmarkInput:
     stateful_input_service = build_stateful_input_service(settings=settings)
     identity = _run_async(
         resolve_benchmark_identity(
