@@ -310,11 +310,7 @@ def _build_instrument_attribution_panel(
     )
     inst_results = inst_results.set_index(PortfolioColumns.PERF_DATE.value)
 
-    base_weight_series = _build_base_weight_series(inst.meta)
-    if base_weight_series is not None:
-        inst_bop_mv = base_weight_series.reindex(inst_results.index).fillna(0.0)
-    else:
-        inst_bop_mv = inst_results[PortfolioColumns.BEGIN_MV.value] + inst_results[PortfolioColumns.BOD_CF.value]
+    inst_bop_mv = _instrument_bop_mv_series(inst_results, inst.meta)
     with np.errstate(divide="ignore", invalid="ignore"):
         weight_bop = inst_bop_mv / portfolio_bop_mv
     inst_results["weight_bop"] = weight_bop.replace([np.inf, -np.inf], np.nan).fillna(0.0)
@@ -329,6 +325,13 @@ def _build_instrument_attribution_panel(
     for key, value in inst.meta.items():
         inst_results[key] = value
     return inst_results.reset_index()
+
+
+def _instrument_bop_mv_series(inst_results: pd.DataFrame, meta: Mapping[str, Any]) -> pd.Series:
+    base_weight_series = _build_base_weight_series(meta)
+    if base_weight_series is not None:
+        return base_weight_series.reindex(inst_results.index).fillna(0.0)
+    return inst_results[PortfolioColumns.BEGIN_MV.value] + inst_results[PortfolioColumns.BOD_CF.value]
 
 
 def _normalize_instrument_return_columns(

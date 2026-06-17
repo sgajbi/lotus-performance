@@ -21,6 +21,7 @@ from engine.attribution import (
     _currency_attribution_status,
     _finalize_aligned_attribution_frame,
     _instrument_attribution_panels,
+    _instrument_bop_mv_series,
     _link_effects_top_down,
     _normalize_instrument_group_columns,
     _normalize_instrument_return_columns,
@@ -613,6 +614,35 @@ def test_build_base_weight_series_keeps_latest_duplicate_date_record():
 
     assert series is not None
     assert series.to_dict() == {pd.Timestamp("2025-01-01"): 300.0}
+
+
+def test_instrument_bop_mv_series_prefers_base_weight_points_and_falls_back_to_engine_capital():
+    inst_results = pd.DataFrame(
+        {
+            "begin_mv": [100.0, 200.0],
+            "bod_cf": [10.0, 20.0],
+        },
+        index=[pd.Timestamp("2025-01-01"), pd.Timestamp("2025-01-02")],
+    )
+
+    explicit_weights = _instrument_bop_mv_series(
+        inst_results,
+        {
+            "base_weight_points": [
+                {"perf_date": "2025-01-01", "begin_mv": 250, "bod_cf": 50},
+            ]
+        },
+    )
+    fallback_weights = _instrument_bop_mv_series(inst_results, {})
+
+    assert explicit_weights.to_dict() == {
+        pd.Timestamp("2025-01-01"): 300.0,
+        pd.Timestamp("2025-01-02"): 0.0,
+    }
+    assert fallback_weights.to_dict() == {
+        pd.Timestamp("2025-01-01"): 110.0,
+        pd.Timestamp("2025-01-02"): 220.0,
+    }
 
 
 def test_build_instrument_attribution_panel_backfills_same_currency_returns():
