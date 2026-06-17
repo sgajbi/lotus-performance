@@ -954,20 +954,11 @@ def _build_twr_benchmark_period_blocks(
         period_daily_df=benchmark_period_df,
         requested_frequencies=requested_frequencies,
     )
-    benchmark = ComparativeAnalyticsBlock(
-        summary=ComparativeSummary(
-            period_return=benchmark_period_return,
-            cumulative_return=_get_benchmark_cumulative_return_to_date(
-                master_start_date=context.master_start_date,
-                period_end_date=period.end_date,
-                benchmark_daily_returns_df=context.artifacts.daily_returns_df,
-            ),
-        ),
-        breakdowns=benchmark_breakdowns,
-        benchmark_id=context.resolved_benchmark_id or context.request.benchmark_id,
-        benchmark_currency=context.request.benchmark_currency,
-        input_mode=(context.input_mode or BenchmarkInputMode.STATELESS).value,
-        return_source=context.return_source.value,
+    benchmark = _build_twr_benchmark_period_block(
+        period=period,
+        benchmark_period_return=benchmark_period_return,
+        benchmark_breakdowns=benchmark_breakdowns,
+        context=context,
     )
     relative = ComparativeAnalyticsBlock(
         summary=ComparativeSummary(
@@ -983,6 +974,30 @@ def _build_twr_benchmark_period_blocks(
         ),
     )
     return benchmark, relative
+
+
+def _build_twr_benchmark_period_block(
+    *,
+    period: ResolvedPeriod,
+    benchmark_period_return: ComparativeReturnValue,
+    benchmark_breakdowns: dict[Frequency, list[ComparativeBreakdownItem]],
+    context: _TWRBenchmarkPeriodContext,
+) -> ComparativeAnalyticsBlock:
+    return ComparativeAnalyticsBlock(
+        summary=ComparativeSummary(
+            period_return=benchmark_period_return,
+            cumulative_return=_get_benchmark_cumulative_return_to_date(
+                master_start_date=context.master_start_date,
+                period_end_date=period.end_date,
+                benchmark_daily_returns_df=context.artifacts.daily_returns_df,
+            ),
+        ),
+        breakdowns=benchmark_breakdowns,
+        benchmark_id=context.resolved_benchmark_id or context.request.benchmark_id,
+        benchmark_currency=context.request.benchmark_currency,
+        input_mode=(context.input_mode or BenchmarkInputMode.STATELESS).value,
+        return_source=context.return_source.value,
+    )
 
 
 def _twr_benchmark_period_returns(
