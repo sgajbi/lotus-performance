@@ -12,6 +12,8 @@ from app.services.runtime_retention_run_service import (
     RuntimeRetentionCleanupRunResult,
     _enforce_runtime_retention_manual_run_guards,
     _runtime_retention_cleanup_response_from_evidence,
+    _runtime_retention_governed_target,
+    _runtime_retention_replay_run_result,
     run_runtime_retention_cleanup,
 )
 
@@ -65,6 +67,57 @@ def test_runtime_retention_cleanup_response_from_evidence_projects_counts_and_id
     assert response.status == "planned"
     assert response.prunable_execution_count == 1
     assert response.prunable_lineage_artifact_count == 1
+
+
+def test_runtime_retention_replay_run_result_projects_payload_as_replay_response():
+    replay = ActionReplayResult(
+        payload={
+            "cleanup_name": "runtime_retention_cleanup",
+            "generated_at_utc": "2026-03-15T00:00:00Z",
+            "evidence_file_name": "2026-03-15t00-00-00z.json",
+            "operator_id": "ops-user",
+            "tenant_id": None,
+            "correlation_id": "corr-1",
+            "trigger_mode": "manual",
+            "job_id": "ticket-7",
+            "cleanup_mode": "dry_run",
+            "status": "planned",
+            "retention_days": 30,
+            "cutoff_utc": "2026-03-15T00:00:00Z",
+            "prunable_execution_count": 1,
+            "prunable_compute_job_count": 2,
+            "prunable_async_result_count": 3,
+            "prunable_lineage_record_count": 4,
+            "prunable_lineage_artifact_count": 5,
+        },
+        evidence_file_name="2026-03-15t00-00-00z.json",
+    )
+
+    result = _runtime_retention_replay_run_result(replay)
+
+    assert result is not None
+    assert result.is_replay is True
+    assert result.response.evidence_file_name == "2026-03-15t00-00-00z.json"
+    assert result.response.correlation_id == "corr-1"
+    assert result.response.prunable_lineage_artifact_count == 5
+
+
+@pytest.mark.parametrize(
+    ("apply", "retention_days", "job_id", "expected"),
+    [
+        (True, 30, "ticket-7", "apply:30:ticket-7"),
+        (False, 45, None, "dry_run:45:no-job"),
+    ],
+)
+def test_runtime_retention_governed_target_projects_cleanup_identity(apply, retention_days, job_id, expected):
+    assert (
+        _runtime_retention_governed_target(
+            apply=apply,
+            retention_days=retention_days,
+            job_id=job_id,
+        )
+        == expected
+    )
 
 
 def test_runtime_retention_manual_run_guards_skip_preview_for_dry_run(monkeypatch):

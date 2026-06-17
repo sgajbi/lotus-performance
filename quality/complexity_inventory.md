@@ -32,37 +32,37 @@ must stay at `0`.
 | --- | ---: |
 | Max cyclomatic complexity | 6 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.00 |
+| Average maintainability index | 54.99 |
 
 ## Highest Cyclomatic Complexity
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `run_runtime_retention_cleanup` | function | `app/services/runtime_retention_run_service.py:93` | 6 | B |
-| 2 | `build_recovery_drill_status` | function | `app/services/runtime_status_lifecycle.py:68` | 6 | B |
-| 3 | `build_runtime_retention_status` | function | `app/services/runtime_status_lifecycle.py:131` | 6 | B |
-| 4 | `_record_source_quality_observation` | function | `app/services/source_quality_evidence.py:92` | 6 | B |
-| 5 | `retrieve_stateful_attribution_source_input` | function | `app/services/stateful_attribution_input_service.py:62` | 6 | B |
-| 6 | `_resolve_stateful_attribution_benchmark_id` | function | `app/services/stateful_attribution_input_service.py:161` | 6 | B |
-| 7 | `_sum_internal_cash_flow_abs_in_alignment_basis` | function | `app/services/stateful_attribution_input_service.py:431` | 6 | B |
-| 8 | `_classified_component_count` | function | `app/services/stateful_attribution_input_service.py:518` | 6 | B |
-| 9 | `_build_benchmark_groups` | function | `app/services/stateful_attribution_input_service.py:721` | 6 | B |
-| 10 | `_position_row_to_base_weight_point` | function | `app/services/stateful_attribution_input_service.py:974` | 6 | B |
-| 11 | `_position_meta_from_row` | function | `app/services/stateful_attribution_input_service.py:1037` | 6 | B |
-| 12 | `_validate_stateful_both_currency_support` | function | `app/services/stateful_attribution_input_service.py:1100` | 6 | B |
-| 13 | `_benchmark_return_points_from_payload` | function | `app/services/stateful_benchmark_input_service.py:227` | 6 | B |
-| 14 | `_parse_composition_segment` | function | `app/services/stateful_benchmark_input_service.py:332` | 6 | B |
-| 15 | `_fx_rate_map_from_payload` | function | `app/services/stateful_benchmark_input_service.py:545` | 6 | B |
-| 16 | `_normalized_component_price_point_from_payload` | function | `app/services/stateful_benchmark_input_service.py:804` | 6 | B |
-| 17 | `_validate_stateful_both_currency_support` | function | `app/services/stateful_contribution_input_service.py:310` | 6 | B |
-| 18 | `get_benchmark_return_series` | method | `app/services/stateful_input_service.py:218` | 6 | B |
-| 19 | `get_fx_rates` | method | `app/services/stateful_input_service.py:516` | 6 | B |
-| 20 | `get_index_catalog` | method | `app/services/stateful_input_service.py:618` | 6 | B |
-| 21 | `get_index_price_series` | method | `app/services/stateful_input_service.py:661` | 6 | B |
-| 22 | `get_risk_free_series` | method | `app/services/stateful_input_service.py:769` | 6 | B |
-| 23 | `_fetch_position_chunk` | method | `app/services/stateful_input_service.py:991` | 6 | B |
-| 24 | `_next_page_token` | method | `app/services/stateful_input_service.py:1185` | 6 | B |
-| 25 | `_merge_dedup_records_by_fields` | method | `app/services/stateful_input_service.py:1204` | 6 | B |
+| 1 | `build_recovery_drill_status` | function | `app/services/runtime_status_lifecycle.py:68` | 6 | B |
+| 2 | `build_runtime_retention_status` | function | `app/services/runtime_status_lifecycle.py:131` | 6 | B |
+| 3 | `_record_source_quality_observation` | function | `app/services/source_quality_evidence.py:92` | 6 | B |
+| 4 | `retrieve_stateful_attribution_source_input` | function | `app/services/stateful_attribution_input_service.py:62` | 6 | B |
+| 5 | `_resolve_stateful_attribution_benchmark_id` | function | `app/services/stateful_attribution_input_service.py:161` | 6 | B |
+| 6 | `_sum_internal_cash_flow_abs_in_alignment_basis` | function | `app/services/stateful_attribution_input_service.py:431` | 6 | B |
+| 7 | `_classified_component_count` | function | `app/services/stateful_attribution_input_service.py:518` | 6 | B |
+| 8 | `_build_benchmark_groups` | function | `app/services/stateful_attribution_input_service.py:721` | 6 | B |
+| 9 | `_position_row_to_base_weight_point` | function | `app/services/stateful_attribution_input_service.py:974` | 6 | B |
+| 10 | `_position_meta_from_row` | function | `app/services/stateful_attribution_input_service.py:1037` | 6 | B |
+| 11 | `_validate_stateful_both_currency_support` | function | `app/services/stateful_attribution_input_service.py:1100` | 6 | B |
+| 12 | `_benchmark_return_points_from_payload` | function | `app/services/stateful_benchmark_input_service.py:227` | 6 | B |
+| 13 | `_parse_composition_segment` | function | `app/services/stateful_benchmark_input_service.py:332` | 6 | B |
+| 14 | `_fx_rate_map_from_payload` | function | `app/services/stateful_benchmark_input_service.py:545` | 6 | B |
+| 15 | `_normalized_component_price_point_from_payload` | function | `app/services/stateful_benchmark_input_service.py:804` | 6 | B |
+| 16 | `_validate_stateful_both_currency_support` | function | `app/services/stateful_contribution_input_service.py:310` | 6 | B |
+| 17 | `get_benchmark_return_series` | method | `app/services/stateful_input_service.py:218` | 6 | B |
+| 18 | `get_fx_rates` | method | `app/services/stateful_input_service.py:516` | 6 | B |
+| 19 | `get_index_catalog` | method | `app/services/stateful_input_service.py:618` | 6 | B |
+| 20 | `get_index_price_series` | method | `app/services/stateful_input_service.py:661` | 6 | B |
+| 21 | `get_risk_free_series` | method | `app/services/stateful_input_service.py:769` | 6 | B |
+| 22 | `_fetch_position_chunk` | method | `app/services/stateful_input_service.py:991` | 6 | B |
+| 23 | `_next_page_token` | method | `app/services/stateful_input_service.py:1185` | 6 | B |
+| 24 | `_merge_dedup_records_by_fields` | method | `app/services/stateful_input_service.py:1204` | 6 | B |
+| 25 | `_component_index_points` | function | `app/services/stateful_input_service.py:1363` | 6 | B |
 
 ## Lowest Maintainability Index
 
@@ -780,6 +780,9 @@ preservation, malformed-payload warning semantics, and stale-file deletion.
 `_validate_manifest_entry` also dropped out after validated runtime-retention manifest-entry
 projection was moved into a dedicated helper while preserving required string validation,
 trigger-mode defaulting, integer metric validation, optional identity fields, and payload shape.
+`run_runtime_retention_cleanup` also dropped out after manual replay result projection and governed
+lease-target construction were moved into dedicated helpers while preserving replay-before-guard
+ordering, manual guard enforcement, lease metadata, execution, and response behavior.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.
