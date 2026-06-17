@@ -207,15 +207,10 @@ def _persist_evidence_history(
 
     _prune_old_evidence(output_dir=output_dir, retention_max_age_days=retention_max_age_days)
 
-    retained_paths = sorted(
-        (path for path in output_dir.glob("*.json") if path.name not in {"latest.json", "manifest.json"}),
-        key=lambda path: path.name,
-        reverse=True,
+    retained_paths = _apply_retention_limit(
+        retained_paths=_retained_evidence_paths(output_dir),
+        retention_limit=retention_limit,
     )
-    if retention_limit > 0 and len(retained_paths) > retention_limit:
-        for stale_path in retained_paths[retention_limit:]:
-            stale_path.unlink(missing_ok=True)
-        retained_paths = retained_paths[:retention_limit]
 
     manifest = _build_retention_manifest(
         evidence=evidence,
@@ -224,6 +219,22 @@ def _persist_evidence_history(
         retention_max_age_days=retention_max_age_days,
     )
     _write_text_atomic(output_dir / "manifest.json", json.dumps(asdict(manifest), indent=2))
+
+
+def _retained_evidence_paths(output_dir: Path) -> list[Path]:
+    return sorted(
+        (path for path in output_dir.glob("*.json") if path.name not in {"latest.json", "manifest.json"}),
+        key=lambda path: path.name,
+        reverse=True,
+    )
+
+
+def _apply_retention_limit(*, retained_paths: list[Path], retention_limit: int) -> list[Path]:
+    if retention_limit <= 0 or len(retained_paths) <= retention_limit:
+        return retained_paths
+    for stale_path in retained_paths[retention_limit:]:
+        stale_path.unlink(missing_ok=True)
+    return retained_paths[:retention_limit]
 
 
 def _build_retention_manifest(

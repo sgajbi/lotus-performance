@@ -6,9 +6,11 @@ import pytest
 
 from app.services.runtime_retention_execution_service import (
     RuntimeRetentionCleanupEvidence,
+    _apply_retention_limit,
     _build_retention_manifest,
     _persist_evidence_history,
     _prune_old_evidence,
+    _retained_evidence_paths,
     _runtime_retention_execution_identity,
     _runtime_retention_history_policy,
     _write_text_atomic,
@@ -210,6 +212,66 @@ def test_runtime_retention_history_policy_uses_settings_defaults(tmp_path):
     assert policy.output_dir == default_output_dir
     assert policy.retention_limit == 30
     assert policy.retention_max_age_days == 90
+
+
+def test_retained_evidence_paths_excludes_control_files_and_sorts_newest_first(tmp_path):
+    output_dir = tmp_path / "artifacts" / "runtime-retention-cleanup"
+    output_dir.mkdir(parents=True)
+    for name in (
+        "manifest.json",
+        "latest.json",
+        "2026-03-15t00-00-00z.json",
+        "2026-03-17t00-00-00z.json",
+        "2026-03-16t00-00-00z.json",
+    ):
+        (output_dir / name).write_text("{}", encoding="utf-8")
+
+    retained_paths = _retained_evidence_paths(output_dir)
+
+    assert [path.name for path in retained_paths] == [
+        "2026-03-17t00-00-00z.json",
+        "2026-03-16t00-00-00z.json",
+        "2026-03-15t00-00-00z.json",
+    ]
+
+
+def test_apply_retention_limit_deletes_stale_paths_and_returns_retained_prefix(tmp_path):
+    output_dir = tmp_path / "artifacts" / "runtime-retention-cleanup"
+    output_dir.mkdir(parents=True)
+    retained_paths = []
+    for name in (
+        "2026-03-17t00-00-00z.json",
+        "2026-03-16t00-00-00z.json",
+        "2026-03-15t00-00-00z.json",
+    ):
+        path = output_dir / name
+        path.write_text("{}", encoding="utf-8")
+        retained_paths.append(path)
+
+    limited_paths = _apply_retention_limit(retained_paths=retained_paths, retention_limit=2)
+
+    assert [path.name for path in limited_paths] == [
+        "2026-03-17t00-00-00z.json",
+        "2026-03-16t00-00-00z.json",
+    ]
+    assert (output_dir / "2026-03-17t00-00-00z.json").exists()
+    assert (output_dir / "2026-03-16t00-00-00z.json").exists()
+    assert not (output_dir / "2026-03-15t00-00-00z.json").exists()
+
+
+def test_apply_retention_limit_keeps_all_paths_when_limit_is_disabled(tmp_path):
+    output_dir = tmp_path / "artifacts" / "runtime-retention-cleanup"
+    output_dir.mkdir(parents=True)
+    retained_paths = []
+    for name in ("2026-03-17t00-00-00z.json", "2026-03-16t00-00-00z.json"):
+        path = output_dir / name
+        path.write_text("{}", encoding="utf-8")
+        retained_paths.append(path)
+
+    limited_paths = _apply_retention_limit(retained_paths=retained_paths, retention_limit=0)
+
+    assert limited_paths == retained_paths
+    assert all(path.exists() for path in retained_paths)
 
 
 def test_runtime_retention_execution_prunes_stale_history_by_limit_and_age(tmp_path, monkeypatch):
