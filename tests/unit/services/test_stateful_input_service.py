@@ -10,6 +10,7 @@ from app.services.stateful_input_service import (
     DateChunk,
     StatefulInputService,
     _component_index_points,
+    _non_empty_string,
     _portfolio_identity_from_payload,
     _portfolio_observations_from_payload,
     _portfolio_timeseries_request_payload,
@@ -1198,6 +1199,12 @@ def test_stateful_input_service_helper_contracts_cover_page_tokens_failures_and_
     assert service._next_page_token({"next_page_token": "top-level-token"}) == "top-level-token"
     assert service._next_page_token({"page": {"next_page_token": "nested-token"}}) == "nested-token"
     assert service._next_page_token({"next_page_token": ""}) is None
+    assert service._next_page_token({"next_page_token": 7}) is None
+    assert service._next_page_token({"page": {"next_page_token": ""}}) is None
+    assert service._next_page_token({"page": {"next_page_token": 7}}) is None
+    assert _non_empty_string("page-2") is True
+    assert _non_empty_string("") is False
+    assert _non_empty_string(7) is False
     assert service._merge_dedup_records(
         records=[
             {"series_date": "2026-01-02", "value": 2},

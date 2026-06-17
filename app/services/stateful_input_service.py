@@ -5,7 +5,7 @@ import hashlib
 import json
 from dataclasses import dataclass
 from datetime import date, timedelta
-from typing import Any, Awaitable, Callable
+from typing import Any, Awaitable, Callable, TypeGuard
 from uuid import UUID
 
 from app.services.core_integration_service import CoreIntegrationService
@@ -1197,12 +1197,12 @@ class StatefulInputService:
 
     def _next_page_token(self, payload: dict[str, Any]) -> str | None:
         next_page_token = payload.get("next_page_token")
-        if isinstance(next_page_token, str) and next_page_token:
+        if _non_empty_string(next_page_token):
             return next_page_token
         page_block = payload.get("page")
         if isinstance(page_block, dict):
             nested_token = page_block.get("next_page_token")
-            if isinstance(nested_token, str) and nested_token:
+            if _non_empty_string(nested_token):
                 return nested_token
         return None
 
@@ -1405,6 +1405,10 @@ def _component_index_points(component: Any) -> tuple[str, list[dict[str, Any]]] 
     if not isinstance(points_raw, list):
         return index_id, []
     return index_id, [point for point in points_raw if isinstance(point, dict)]
+
+
+def _non_empty_string(value: Any) -> TypeGuard[str]:
+    return isinstance(value, str) and bool(value)
 
 
 def _portfolio_identity_from_payload(
