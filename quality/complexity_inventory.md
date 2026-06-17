@@ -39,7 +39,7 @@ must stay at `0`.
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
 | 1 | `_build_twr_benchmark_period_blocks` | function | `app/services/twr_service.py:938` | 6 | B |
-| 2 | `_build_twr_benchmark_context` | function | `app/services/twr_service.py:988` | 6 | B |
+| 2 | `_build_twr_benchmark_context` | function | `app/services/twr_service.py:998` | 6 | B |
 | 3 | `portfolio_timeseries_to_valuation_points` | function | `app/services/valuation_points_service.py:12` | 6 | B |
 | 4 | `workspace_longest_requested_window_days` | function | `app/services/workspace_summary_service.py:93` | 6 | B |
 | 5 | `_resolve_workspace_portfolio_input` | function | `app/services/workspace_summary_service.py:210` | 6 | B |
@@ -74,7 +74,7 @@ must stay at `0`.
 | 4 | `app/services/stateful_attribution_input_service.py` | 0.00 | C |
 | 5 | `app/services/stateful_input_service.py` | 0.00 | C |
 | 6 | `app/openapi_enrichment.py` | 2.14 | C |
-| 7 | `app/services/twr_service.py` | 5.88 | C |
+| 7 | `app/services/twr_service.py` | 5.82 | C |
 | 8 | `app/services/stateful_benchmark_input_service.py` | 9.19 | B |
 | 9 | `app/services/workspace_summary_service.py` | 10.56 | B |
 | 10 | `app/services/execution_registry.py` | 11.48 | B |

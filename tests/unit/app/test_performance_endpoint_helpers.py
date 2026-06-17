@@ -24,6 +24,7 @@ from app.services.twr_service import (
     _rebased_cumulative_ror,
     _resolve_twr_execution_period_scope,
     _resolve_twr_supportability,
+    _twr_benchmark_period_returns,
     _twr_execution_master_window,
     _twr_period_reset_events,
     _TWRBenchmarkPeriodContext,
@@ -298,6 +299,25 @@ def test_build_twr_benchmark_period_blocks_projects_benchmark_identity_and_relat
     assert benchmark.summary.period_return.base == pytest.approx(3.02)
     assert relative is not None
     assert relative.summary.period_return.base == pytest.approx(0.0)
+
+
+def test_twr_benchmark_period_returns_filters_inclusive_period_window():
+    daily_returns_df = pd.DataFrame(
+        [
+            {"date": date(2024, 12, 31), "benchmark_return": 0.99},
+            {"date": date(2025, 1, 1), "benchmark_return": 0.01},
+            {"date": date(2025, 1, 2), "benchmark_return": 0.02},
+            {"date": date(2025, 1, 3), "benchmark_return": 0.98},
+        ]
+    )
+
+    period_returns = _twr_benchmark_period_returns(
+        daily_returns_df=daily_returns_df,
+        period=ResolvedPeriod(name="CUSTOM", start_date=date(2025, 1, 1), end_date=date(2025, 1, 2)),
+    )
+
+    assert period_returns["date"].tolist() == [date(2025, 1, 1), date(2025, 1, 2)]
+    assert period_returns["benchmark_return"].tolist() == [0.01, 0.02]
 
 
 def test_build_twr_response_model_preserves_envelope_metadata_and_supportability():

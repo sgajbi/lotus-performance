@@ -942,10 +942,10 @@ def _build_twr_benchmark_period_blocks(
     portfolio: ComparativeAnalyticsBlock,
     context: _TWRBenchmarkPeriodContext,
 ) -> tuple[ComparativeAnalyticsBlock | None, ComparativeAnalyticsBlock | None]:
-    benchmark_period_df = context.artifacts.daily_returns_df[
-        (context.artifacts.daily_returns_df["date"] >= period.start_date)
-        & (context.artifacts.daily_returns_df["date"] <= period.end_date)
-    ].copy()
+    benchmark_period_df = _twr_benchmark_period_returns(
+        daily_returns_df=context.artifacts.daily_returns_df,
+        period=period,
+    )
     if benchmark_period_df.empty:
         return None, None
 
@@ -983,6 +983,16 @@ def _build_twr_benchmark_period_blocks(
         ),
     )
     return benchmark, relative
+
+
+def _twr_benchmark_period_returns(
+    *,
+    daily_returns_df: pd.DataFrame,
+    period: ResolvedPeriod,
+) -> pd.DataFrame:
+    return daily_returns_df[
+        (daily_returns_df["date"] >= period.start_date) & (daily_returns_df["date"] <= period.end_date)
+    ].copy()
 
 
 def _build_twr_benchmark_context(
