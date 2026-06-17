@@ -9,6 +9,7 @@ from app.models.benchmark_analytics_requests import BenchmarkReturnSource
 from app.services.stateful_benchmark_input_service import (
     BenchmarkCompositionSegment,
     _active_component_segments_for_date,
+    _benchmark_return_point_from_payload_point,
     _benchmark_return_points_from_payload,
     _build_component_observation,
     _build_component_observations,
@@ -237,6 +238,19 @@ def test_benchmark_return_points_from_payload_projects_valid_points_only():
         (date(2026, 1, 2), 0.01),
         (date(2026, 1, 3), 0.011),
     ]
+
+
+def test_benchmark_return_point_from_payload_point_projects_valid_point_only():
+    point = _benchmark_return_point_from_payload_point(
+        {"series_date": "2026-01-02", "benchmark_return": Decimal("0.0100")}
+    )
+
+    assert point is not None
+    assert point.perf_date == date(2026, 1, 2)
+    assert point.benchmark_return == 0.01
+    assert _benchmark_return_point_from_payload_point("ignored") is None
+    assert _benchmark_return_point_from_payload_point({"series_date": "2026-01-02"}) is None
+    assert _benchmark_return_point_from_payload_point({"benchmark_return": "0.0100"}) is None
 
 
 def test_benchmark_return_points_from_payload_requires_points_list():

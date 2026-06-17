@@ -234,19 +234,24 @@ def _benchmark_return_points_from_payload(return_payload: dict[str, Any]) -> lis
 
     benchmark_return_points: list[BenchmarkReturnPoint] = []
     for point in points_raw:
-        if not isinstance(point, dict):
+        benchmark_return_point = _benchmark_return_point_from_payload_point(point)
+        if benchmark_return_point is None:
             continue
-        series_date = point.get("series_date")
-        benchmark_return = point.get("benchmark_return")
-        if not isinstance(series_date, str) or benchmark_return is None:
-            continue
-        benchmark_return_points.append(
-            BenchmarkReturnPoint(
-                perf_date=date.fromisoformat(series_date),
-                benchmark_return=float(point["benchmark_return"]),
-            )
-        )
+        benchmark_return_points.append(benchmark_return_point)
     return benchmark_return_points
+
+
+def _benchmark_return_point_from_payload_point(point: object) -> BenchmarkReturnPoint | None:
+    if not isinstance(point, dict):
+        return None
+    series_date = point.get("series_date")
+    benchmark_return = point.get("benchmark_return")
+    if not isinstance(series_date, str) or benchmark_return is None:
+        return None
+    return BenchmarkReturnPoint(
+        perf_date=date.fromisoformat(series_date),
+        benchmark_return=float(point["benchmark_return"]),
+    )
 
 
 def _parse_composition_window(
