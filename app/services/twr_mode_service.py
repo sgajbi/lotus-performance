@@ -82,11 +82,7 @@ async def resolve_twr_request(
     *,
     settings: Settings,
 ) -> ResolvedTWRRequest:
-    needs_retrieval = request.input_mode == TWRInputMode.STATEFUL or (
-        _benchmark_requested(request) and _get_requested_benchmark_mode(request) == BenchmarkInputMode.STATEFUL
-    )
-
-    if not needs_retrieval:
+    if not _twr_request_needs_retrieval(request):
         benchmark_start_date = _resolve_benchmark_start_date_from_request(request)
         return ResolvedTWRRequest(
             performance_request=request.to_stateless_performance_request(),
@@ -141,6 +137,12 @@ async def resolve_twr_request(
         retrieval_resolution=retrieval_resolution,
         normalization_resolution=normalization_resolution,
     )
+
+
+def _twr_request_needs_retrieval(request: TWRAnalyticsRequest) -> bool:
+    if request.input_mode == TWRInputMode.STATEFUL:
+        return True
+    return _benchmark_requested(request) and _get_requested_benchmark_mode(request) == BenchmarkInputMode.STATEFUL
 
 
 def _build_resolved_twr_request(

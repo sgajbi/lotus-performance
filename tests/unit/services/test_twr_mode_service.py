@@ -25,6 +25,7 @@ from app.services.twr_mode_service import (
     _resolve_twr_retrieval_inputs,
     _resolved_twr_benchmark_id,
     _ResolvedTWRBenchmarkSourceInput,
+    _twr_request_needs_retrieval,
     _TWRRetrievalResolution,
     resolve_twr_request,
 )
@@ -42,6 +43,59 @@ def _settings():
         STATEFUL_INPUT_REFERENCE_CHUNK_DAYS=365,
         STATEFUL_INPUT_MAX_CONCURRENT_CHUNKS=4,
     )
+
+
+def test_twr_request_needs_retrieval_for_stateful_portfolio_mode():
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_1",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "stateful_input": {},
+        }
+    )
+
+    assert _twr_request_needs_retrieval(request) is True
+
+
+def test_twr_request_needs_retrieval_skips_plain_stateless_mode():
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_1",
+            "performance_start_date": "2025-01-01",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "valuation_points": [{"perf_date": "2025-01-02", "begin_mv": 1000, "end_mv": 1010}],
+        }
+    )
+
+    assert _twr_request_needs_retrieval(request) is False
+
+
+def test_twr_request_needs_retrieval_for_stateful_benchmark_mode():
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_1",
+            "performance_start_date": "2025-01-01",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "valuation_points": [{"perf_date": "2025-01-02", "begin_mv": 1000, "end_mv": 1010}],
+            "benchmark": {
+                "input_mode": "stateful",
+                "return_source": "calculated",
+                "stateful_input": {},
+            },
+        }
+    )
+
+    assert _twr_request_needs_retrieval(request) is True
 
 
 @pytest.fixture(autouse=True)

@@ -38,31 +38,31 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `resolve_twr_request` | function | `app/services/twr_mode_service.py:80` | 6 | B |
-| 2 | `_build_twr_normalization_resolution` | function | `app/services/twr_mode_service.py:214` | 6 | B |
-| 3 | `_resolve_twr_retrieval_inputs` | function | `app/services/twr_mode_service.py:253` | 6 | B |
-| 4 | `_resolve_twr_portfolio_source_input` | function | `app/services/twr_mode_service.py:293` | 6 | B |
-| 5 | `_resolve_benchmark_start_date_from_request` | function | `app/services/twr_mode_service.py:585` | 6 | B |
-| 6 | `_with_reset_no_investment_classification` | function | `app/services/twr_service.py:324` | 6 | B |
-| 7 | `_resolve_twr_execution_period_scope` | function | `app/services/twr_service.py:751` | 6 | B |
-| 8 | `_build_twr_benchmark_period_blocks` | function | `app/services/twr_service.py:916` | 6 | B |
-| 9 | `_build_twr_benchmark_context` | function | `app/services/twr_service.py:966` | 6 | B |
-| 10 | `portfolio_timeseries_to_valuation_points` | function | `app/services/valuation_points_service.py:12` | 6 | B |
-| 11 | `workspace_longest_requested_window_days` | function | `app/services/workspace_summary_service.py:93` | 6 | B |
-| 12 | `_resolve_workspace_portfolio_input` | function | `app/services/workspace_summary_service.py:210` | 6 | B |
-| 13 | `_trim_portfolio_input_to_master_window` | function | `app/services/workspace_summary_service.py:297` | 6 | B |
-| 14 | `_resolve_workspace_benchmark_input` | function | `app/services/workspace_summary_service.py:323` | 6 | B |
-| 15 | `_build_workspace_summary_response` | function | `app/services/workspace_summary_service.py:506` | 6 | B |
-| 16 | `_annualize_percentage` | function | `app/services/workspace_summary_service.py:1026` | 6 | B |
-| 17 | `_resolve_async_attribution_job_request` | function | `app/workers/compute_executor_worker.py:594` | 6 | B |
-| 18 | `Periods` | class | `core/envelope.py:95` | 6 | B |
-| 19 | `_workspace_period_start_date` | function | `core/workspace_periods.py:56` | 6 | B |
-| 20 | `_build_instrument_attribution_panel` | function | `engine/attribution.py:296` | 6 | B |
-| 21 | `_build_instrument_attribution_groups` | function | `engine/attribution.py:398` | 6 | B |
-| 22 | `_prepare_panel_from_groups` | function | `engine/attribution.py:472` | 6 | B |
-| 23 | `_determine_attribution_supportability_status` | function | `engine/attribution_supportability.py:297` | 6 | B |
-| 24 | `_component_contributions_dataframe` | function | `engine/benchmarks.py:35` | 6 | B |
-| 25 | `_blocked_composite_period_result_for_invalid_ready_facts` | function | `engine/composites.py:224` | 6 | B |
+| 1 | `_build_twr_normalization_resolution` | function | `app/services/twr_mode_service.py:216` | 6 | B |
+| 2 | `_resolve_twr_retrieval_inputs` | function | `app/services/twr_mode_service.py:255` | 6 | B |
+| 3 | `_resolve_twr_portfolio_source_input` | function | `app/services/twr_mode_service.py:295` | 6 | B |
+| 4 | `_resolve_benchmark_start_date_from_request` | function | `app/services/twr_mode_service.py:587` | 6 | B |
+| 5 | `_with_reset_no_investment_classification` | function | `app/services/twr_service.py:324` | 6 | B |
+| 6 | `_resolve_twr_execution_period_scope` | function | `app/services/twr_service.py:751` | 6 | B |
+| 7 | `_build_twr_benchmark_period_blocks` | function | `app/services/twr_service.py:916` | 6 | B |
+| 8 | `_build_twr_benchmark_context` | function | `app/services/twr_service.py:966` | 6 | B |
+| 9 | `portfolio_timeseries_to_valuation_points` | function | `app/services/valuation_points_service.py:12` | 6 | B |
+| 10 | `workspace_longest_requested_window_days` | function | `app/services/workspace_summary_service.py:93` | 6 | B |
+| 11 | `_resolve_workspace_portfolio_input` | function | `app/services/workspace_summary_service.py:210` | 6 | B |
+| 12 | `_trim_portfolio_input_to_master_window` | function | `app/services/workspace_summary_service.py:297` | 6 | B |
+| 13 | `_resolve_workspace_benchmark_input` | function | `app/services/workspace_summary_service.py:323` | 6 | B |
+| 14 | `_build_workspace_summary_response` | function | `app/services/workspace_summary_service.py:506` | 6 | B |
+| 15 | `_annualize_percentage` | function | `app/services/workspace_summary_service.py:1026` | 6 | B |
+| 16 | `_resolve_async_attribution_job_request` | function | `app/workers/compute_executor_worker.py:594` | 6 | B |
+| 17 | `Periods` | class | `core/envelope.py:95` | 6 | B |
+| 18 | `_workspace_period_start_date` | function | `core/workspace_periods.py:56` | 6 | B |
+| 19 | `_build_instrument_attribution_panel` | function | `engine/attribution.py:296` | 6 | B |
+| 20 | `_build_instrument_attribution_groups` | function | `engine/attribution.py:398` | 6 | B |
+| 21 | `_prepare_panel_from_groups` | function | `engine/attribution.py:472` | 6 | B |
+| 22 | `_determine_attribution_supportability_status` | function | `engine/attribution_supportability.py:297` | 6 | B |
+| 23 | `_component_contributions_dataframe` | function | `engine/benchmarks.py:35` | 6 | B |
+| 24 | `_blocked_composite_period_result_for_invalid_ready_facts` | function | `engine/composites.py:224` | 6 | B |
+| 25 | `_composite_calculation_status` | function | `engine/composites.py:416` | 6 | B |
 
 ## Lowest Maintainability Index
 
@@ -85,7 +85,7 @@ must stay at `0`.
 | 15 | `app/services/inspection/source_economics_collector.py` | 16.34 | B |
 | 16 | `app/services/inspection/source_quality.py` | 16.80 | B |
 | 17 | `app/services/inspection/calculation_consistency.py` | 17.79 | B |
-| 18 | `app/services/twr_mode_service.py` | 18.07 | B |
+| 18 | `app/services/twr_mode_service.py` | 18.02 | B |
 | 19 | `app/services/inspection/twr_inspection_service.py` | 19.72 | A |
 | 20 | `app/models/runtime_status.py` | 19.85 | A |
 | 21 | `app/models/returns_series.py` | 20.36 | A |
