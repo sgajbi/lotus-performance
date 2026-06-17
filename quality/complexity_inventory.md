@@ -32,37 +32,37 @@ must stay at `0`.
 | --- | ---: |
 | Max cyclomatic complexity | 6 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 54.96 |
+| Average maintainability index | 54.95 |
 
 ## Highest Cyclomatic Complexity
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `Periods` | class | `core/envelope.py:95` | 6 | B |
-| 2 | `_workspace_period_start_date` | function | `core/workspace_periods.py:56` | 6 | B |
-| 3 | `_build_instrument_attribution_panel` | function | `engine/attribution.py:296` | 6 | B |
-| 4 | `_build_instrument_attribution_groups` | function | `engine/attribution.py:398` | 6 | B |
-| 5 | `_prepare_panel_from_groups` | function | `engine/attribution.py:472` | 6 | B |
-| 6 | `_determine_attribution_supportability_status` | function | `engine/attribution_supportability.py:297` | 6 | B |
-| 7 | `_component_contributions_dataframe` | function | `engine/benchmarks.py:35` | 6 | B |
-| 8 | `_blocked_composite_period_result_for_invalid_ready_facts` | function | `engine/composites.py:224` | 6 | B |
-| 9 | `_composite_calculation_status` | function | `engine/composites.py:416` | 6 | B |
-| 10 | `calculate_asset_weighted_composite_twr` | function | `engine/composites.py:424` | 6 | B |
-| 11 | `run_calculations` | function | `engine/compute.py:21` | 6 | B |
-| 12 | `_prepare_dataframe` | function | `engine/compute.py:163` | 6 | B |
-| 13 | `_apply_position_fx_capital_conversion` | function | `engine/contribution.py:256` | 6 | B |
-| 14 | `_net_same_day_flows` | function | `engine/mwr.py:21` | 6 | B |
-| 15 | `_dietz_denominator` | function | `engine/mwr.py:310` | 6 | B |
-| 16 | `_calculate_xirr_mwr_attempt` | function | `engine/mwr.py:345` | 6 | B |
-| 17 | `_extract_policy_inputs` | function | `engine/policies.py:24` | 6 | B |
-| 18 | `_apply_overrides` | function | `engine/policies.py:38` | 6 | B |
-| 19 | `_flag_outliers` | function | `engine/policies.py:124` | 6 | B |
-| 20 | `_apply_hedging_to_fx_return` | function | `engine/ror.py:150` | 6 | B |
-| 21 | `calculate_sod_reset_reason` | function | `engine/rules.py:164` | 6 | B |
-| 22 | `health_ready` | function | `app/api/endpoints/health.py:41` | 5 | A |
-| 23 | `get_twr_inspection_artifact` | function | `app/api/endpoints/inspections.py:174` | 5 | A |
-| 24 | `_load_and_validate_manifest` | function | `app/api/endpoints/lineage.py:27` | 5 | A |
-| 25 | `resolve_operator_request_context` | function | `app/api/operator_context.py:15` | 5 | A |
+| 1 | `_workspace_period_start_date` | function | `core/workspace_periods.py:56` | 6 | B |
+| 2 | `_build_instrument_attribution_panel` | function | `engine/attribution.py:296` | 6 | B |
+| 3 | `_build_instrument_attribution_groups` | function | `engine/attribution.py:398` | 6 | B |
+| 4 | `_prepare_panel_from_groups` | function | `engine/attribution.py:472` | 6 | B |
+| 5 | `_determine_attribution_supportability_status` | function | `engine/attribution_supportability.py:297` | 6 | B |
+| 6 | `_component_contributions_dataframe` | function | `engine/benchmarks.py:35` | 6 | B |
+| 7 | `_blocked_composite_period_result_for_invalid_ready_facts` | function | `engine/composites.py:224` | 6 | B |
+| 8 | `_composite_calculation_status` | function | `engine/composites.py:416` | 6 | B |
+| 9 | `calculate_asset_weighted_composite_twr` | function | `engine/composites.py:424` | 6 | B |
+| 10 | `run_calculations` | function | `engine/compute.py:21` | 6 | B |
+| 11 | `_prepare_dataframe` | function | `engine/compute.py:163` | 6 | B |
+| 12 | `_apply_position_fx_capital_conversion` | function | `engine/contribution.py:256` | 6 | B |
+| 13 | `_net_same_day_flows` | function | `engine/mwr.py:21` | 6 | B |
+| 14 | `_dietz_denominator` | function | `engine/mwr.py:310` | 6 | B |
+| 15 | `_calculate_xirr_mwr_attempt` | function | `engine/mwr.py:345` | 6 | B |
+| 16 | `_extract_policy_inputs` | function | `engine/policies.py:24` | 6 | B |
+| 17 | `_apply_overrides` | function | `engine/policies.py:38` | 6 | B |
+| 18 | `_flag_outliers` | function | `engine/policies.py:124` | 6 | B |
+| 19 | `_apply_hedging_to_fx_return` | function | `engine/ror.py:150` | 6 | B |
+| 20 | `calculate_sod_reset_reason` | function | `engine/rules.py:164` | 6 | B |
+| 21 | `health_ready` | function | `app/api/endpoints/health.py:41` | 5 | A |
+| 22 | `get_twr_inspection_artifact` | function | `app/api/endpoints/inspections.py:174` | 5 | A |
+| 23 | `_load_and_validate_manifest` | function | `app/api/endpoints/lineage.py:27` | 5 | A |
+| 24 | `resolve_operator_request_context` | function | `app/api/operator_context.py:15` | 5 | A |
+| 25 | `_normalized_capability_rule_override` | function | `app/enterprise_capability_rules.py:79` | 5 | A |
 
 ## Lowest Maintainability Index
 
@@ -873,6 +873,8 @@ rejection, FX normalization, and requested-date classification.
 non-reporting-currency FX requirement detection was moved into a dedicated predicate while
 preserving missing report currency rejection, missing position currency rejection, same-currency
 suppression, and mixed-currency FX requirement behavior.
+`Periods` also dropped out after conditional period definition requirements were moved into a
+dedicated issue selector with direct coverage for non-conditional period types.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.

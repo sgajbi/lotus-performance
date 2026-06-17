@@ -99,11 +99,27 @@ class Periods(BaseModel):
 
     @model_validator(mode="after")
     def check_conditional_fields(self) -> "Periods":
-        if self.type == "EXPLICIT" and self.explicit is None:
-            raise ValueError('"explicit" period definition is required when type is "EXPLICIT"')
-        if self.type == "ROLLING" and self.rolling is None:
-            raise ValueError('"rolling" period definition is required when type is "ROLLING"')
+        period_definition_issue = _period_definition_issue(
+            period_type=self.type,
+            explicit=self.explicit,
+            rolling=self.rolling,
+        )
+        if period_definition_issue is not None:
+            raise ValueError(period_definition_issue)
         return self
+
+
+def _period_definition_issue(
+    *,
+    period_type: str,
+    explicit: ExplicitPeriod | None,
+    rolling: RollingPeriod | None,
+) -> str | None:
+    if period_type == "EXPLICIT" and explicit is None:
+        return '"explicit" period definition is required when type is "EXPLICIT"'
+    if period_type == "ROLLING" and rolling is None:
+        return '"rolling" period definition is required when type is "ROLLING"'
+    return None
 
 
 class Output(BaseModel):
