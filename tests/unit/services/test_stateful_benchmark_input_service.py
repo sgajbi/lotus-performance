@@ -14,6 +14,7 @@ from app.services.stateful_benchmark_input_service import (
     _build_component_observation,
     _build_component_observations,
     _build_normalized_component_series,
+    _component_price_point_date_in_scope,
     _component_price_series_points,
     _composition_segment_overlaps_window,
     _composition_segment_required_fields,
@@ -1228,6 +1229,35 @@ def test_normalized_component_price_point_from_payload_projects_normalized_point
     assert requested_point is not None
     assert requested_point.normalized_price == Decimal("113.12")
     assert requested_point.is_requested_date
+
+
+def test_component_price_point_date_in_scope_allows_prior_day_and_requested_window_only():
+    assert _component_price_point_date_in_scope(
+        point={"series_date": "2026-01-01"},
+        requested_start_date=date(2026, 1, 2),
+        requested_end_date=date(2026, 1, 3),
+    ) == date(2026, 1, 1)
+    assert _component_price_point_date_in_scope(
+        point={"series_date": "2026-01-03"},
+        requested_start_date=date(2026, 1, 2),
+        requested_end_date=date(2026, 1, 3),
+    ) == date(2026, 1, 3)
+    assert (
+        _component_price_point_date_in_scope(
+            point={"series_date": "2026-01-04"},
+            requested_start_date=date(2026, 1, 2),
+            requested_end_date=date(2026, 1, 3),
+        )
+        is None
+    )
+    assert (
+        _component_price_point_date_in_scope(
+            point="ignored",
+            requested_start_date=date(2026, 1, 2),
+            requested_end_date=date(2026, 1, 3),
+        )
+        is None
+    )
 
 
 def test_normalized_component_price_point_from_payload_skips_invalid_or_out_of_window_points():

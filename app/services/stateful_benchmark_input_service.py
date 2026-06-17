@@ -833,13 +833,12 @@ def _normalized_component_price_point_from_payload(
     requested_start_date: date,
     requested_end_date: date,
 ) -> _NormalizedComponentPricePoint | None:
-    if not isinstance(point, dict):
-        return None
-    date_raw = point.get("series_date")
-    if not isinstance(date_raw, str):
-        return None
-    point_date = date.fromisoformat(date_raw)
-    if point_date < requested_start_date - timedelta(days=1) or point_date > requested_end_date:
+    point_date = _component_price_point_date_in_scope(
+        point=point,
+        requested_start_date=requested_start_date,
+        requested_end_date=requested_end_date,
+    )
+    if point_date is None:
         return None
     index_price_raw = point.get("index_price")
     if index_price_raw is None:
@@ -862,6 +861,23 @@ def _normalized_component_price_point_from_payload(
         ),
         is_requested_date=requested_start_date <= point_date <= requested_end_date,
     )
+
+
+def _component_price_point_date_in_scope(
+    *,
+    point: Any,
+    requested_start_date: date,
+    requested_end_date: date,
+) -> date | None:
+    if not isinstance(point, dict):
+        return None
+    date_raw = point.get("series_date")
+    if not isinstance(date_raw, str):
+        return None
+    point_date = date.fromisoformat(date_raw)
+    if point_date < requested_start_date - timedelta(days=1) or point_date > requested_end_date:
+        return None
+    return point_date
 
 
 def _normalize_price_to_benchmark_currency(
