@@ -340,19 +340,9 @@ def _parse_composition_segment(
     start_date: date,
     end_date: date,
 ) -> BenchmarkCompositionSegment | None:
-    index_id = segment.get("index_id")
-    composition_weight = segment.get("composition_weight")
-    effective_from_raw = segment.get("composition_effective_from")
-    effective_to_raw = segment.get("composition_effective_to")
-    if not isinstance(index_id, str) or composition_weight is None or not isinstance(effective_from_raw, str):
-        raise HTTPException(
-            status_code=HTTP_422_UNPROCESSABLE,
-            detail=(
-                "benchmark composition-window payload missing index_id, "
-                "composition_weight, or composition_effective_from."
-            ),
-        )
+    index_id, composition_weight, effective_from_raw = _composition_segment_required_fields(segment)
     effective_from = date.fromisoformat(effective_from_raw)
+    effective_to_raw = segment.get("composition_effective_to")
     effective_to = date.fromisoformat(effective_to_raw) if isinstance(effective_to_raw, str) else None
     if not _composition_segment_overlaps_window(
         effective_from=effective_from,
@@ -367,6 +357,21 @@ def _parse_composition_segment(
         composition_effective_from=effective_from,
         composition_effective_to=effective_to,
     )
+
+
+def _composition_segment_required_fields(segment: dict[str, Any]) -> tuple[str, Any, str]:
+    index_id = segment.get("index_id")
+    composition_weight = segment.get("composition_weight")
+    effective_from_raw = segment.get("composition_effective_from")
+    if not isinstance(index_id, str) or composition_weight is None or not isinstance(effective_from_raw, str):
+        raise HTTPException(
+            status_code=HTTP_422_UNPROCESSABLE,
+            detail=(
+                "benchmark composition-window payload missing index_id, "
+                "composition_weight, or composition_effective_from."
+            ),
+        )
+    return index_id, composition_weight, effective_from_raw
 
 
 def _composition_segment_overlaps_window(

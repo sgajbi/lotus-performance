@@ -16,6 +16,7 @@ from app.services.stateful_benchmark_input_service import (
     _build_normalized_component_series,
     _component_price_series_points,
     _composition_segment_overlaps_window,
+    _composition_segment_required_fields,
     _fx_rate_map_from_payload,
     _load_benchmark_definition_currency,
     _load_component_price_series,
@@ -678,6 +679,32 @@ def test_parse_composition_window_filters_and_sorts_usable_segments():
     assert [segment.index_id for segment in segments] == ["IDX_A", "IDX_B"]
     assert segments[0].composition_weight == Decimal("0.6")
     assert segments[1].composition_effective_to == date(2026, 1, 3)
+
+
+def test_composition_segment_required_fields_project_values_and_reject_missing_fields():
+    assert _composition_segment_required_fields(
+        {
+            "index_id": "IDX_A",
+            "composition_weight": "0.6",
+            "composition_effective_from": "2026-01-01",
+        }
+    ) == ("IDX_A", "0.6", "2026-01-01")
+
+    with pytest.raises(HTTPException, match="missing index_id, composition_weight, or composition_effective_from"):
+        _composition_segment_required_fields(
+            {
+                "index_id": "IDX_A",
+                "composition_effective_from": "2026-01-01",
+            }
+        )
+    with pytest.raises(HTTPException, match="missing index_id, composition_weight, or composition_effective_from"):
+        _composition_segment_required_fields(
+            {
+                "index_id": 123,
+                "composition_weight": "0.6",
+                "composition_effective_from": "2026-01-01",
+            }
+        )
 
 
 def test_composition_segment_overlaps_window_policy():
