@@ -33,6 +33,7 @@ from app.services.workspace_summary_service import (
     _build_workspace_results_by_period,
     _date_from_boundary,
     _decimal_or_zero,
+    _longest_workspace_period_days,
     _resolve_stateful_portfolio_start_date,
     _resolve_workspace_benchmark_input,
     _resolve_workspace_portfolio_input,
@@ -89,6 +90,22 @@ def test_workspace_longest_requested_window_days_uses_report_start_fallback():
     )
 
     assert workspace_longest_requested_window_days(request) == 29
+
+
+def test_longest_workspace_period_days_returns_zero_for_empty_periods():
+    assert _longest_workspace_period_days([]) == 0
+
+
+def test_longest_workspace_period_days_uses_largest_resolved_window():
+    assert (
+        _longest_workspace_period_days(
+            [
+                ResolvedWorkspacePeriod(name="SHORT", start_date=date(2026, 6, 1), end_date=date(2026, 6, 5)),
+                ResolvedWorkspacePeriod(name="LONG", start_date=date(2026, 5, 1), end_date=date(2026, 6, 30)),
+            ]
+        )
+        == 60
+    )
 
 
 def test_workspace_summary_stateful_retrieval_uses_longest_requested_window(mocker):

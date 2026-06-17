@@ -38,31 +38,31 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `workspace_longest_requested_window_days` | function | `app/services/workspace_summary_service.py:93` | 6 | B |
-| 2 | `_resolve_workspace_portfolio_input` | function | `app/services/workspace_summary_service.py:210` | 6 | B |
-| 3 | `_trim_portfolio_input_to_master_window` | function | `app/services/workspace_summary_service.py:297` | 6 | B |
-| 4 | `_resolve_workspace_benchmark_input` | function | `app/services/workspace_summary_service.py:323` | 6 | B |
-| 5 | `_build_workspace_summary_response` | function | `app/services/workspace_summary_service.py:506` | 6 | B |
-| 6 | `_annualize_percentage` | function | `app/services/workspace_summary_service.py:1026` | 6 | B |
-| 7 | `_resolve_async_attribution_job_request` | function | `app/workers/compute_executor_worker.py:594` | 6 | B |
-| 8 | `Periods` | class | `core/envelope.py:95` | 6 | B |
-| 9 | `_workspace_period_start_date` | function | `core/workspace_periods.py:56` | 6 | B |
-| 10 | `_build_instrument_attribution_panel` | function | `engine/attribution.py:296` | 6 | B |
-| 11 | `_build_instrument_attribution_groups` | function | `engine/attribution.py:398` | 6 | B |
-| 12 | `_prepare_panel_from_groups` | function | `engine/attribution.py:472` | 6 | B |
-| 13 | `_determine_attribution_supportability_status` | function | `engine/attribution_supportability.py:297` | 6 | B |
-| 14 | `_component_contributions_dataframe` | function | `engine/benchmarks.py:35` | 6 | B |
-| 15 | `_blocked_composite_period_result_for_invalid_ready_facts` | function | `engine/composites.py:224` | 6 | B |
-| 16 | `_composite_calculation_status` | function | `engine/composites.py:416` | 6 | B |
-| 17 | `calculate_asset_weighted_composite_twr` | function | `engine/composites.py:424` | 6 | B |
-| 18 | `run_calculations` | function | `engine/compute.py:21` | 6 | B |
-| 19 | `_prepare_dataframe` | function | `engine/compute.py:163` | 6 | B |
-| 20 | `_apply_position_fx_capital_conversion` | function | `engine/contribution.py:256` | 6 | B |
-| 21 | `_net_same_day_flows` | function | `engine/mwr.py:21` | 6 | B |
-| 22 | `_dietz_denominator` | function | `engine/mwr.py:310` | 6 | B |
-| 23 | `_calculate_xirr_mwr_attempt` | function | `engine/mwr.py:345` | 6 | B |
-| 24 | `_extract_policy_inputs` | function | `engine/policies.py:24` | 6 | B |
-| 25 | `_apply_overrides` | function | `engine/policies.py:38` | 6 | B |
+| 1 | `_resolve_workspace_portfolio_input` | function | `app/services/workspace_summary_service.py:214` | 6 | B |
+| 2 | `_trim_portfolio_input_to_master_window` | function | `app/services/workspace_summary_service.py:301` | 6 | B |
+| 3 | `_resolve_workspace_benchmark_input` | function | `app/services/workspace_summary_service.py:327` | 6 | B |
+| 4 | `_build_workspace_summary_response` | function | `app/services/workspace_summary_service.py:510` | 6 | B |
+| 5 | `_annualize_percentage` | function | `app/services/workspace_summary_service.py:1030` | 6 | B |
+| 6 | `_resolve_async_attribution_job_request` | function | `app/workers/compute_executor_worker.py:594` | 6 | B |
+| 7 | `Periods` | class | `core/envelope.py:95` | 6 | B |
+| 8 | `_workspace_period_start_date` | function | `core/workspace_periods.py:56` | 6 | B |
+| 9 | `_build_instrument_attribution_panel` | function | `engine/attribution.py:296` | 6 | B |
+| 10 | `_build_instrument_attribution_groups` | function | `engine/attribution.py:398` | 6 | B |
+| 11 | `_prepare_panel_from_groups` | function | `engine/attribution.py:472` | 6 | B |
+| 12 | `_determine_attribution_supportability_status` | function | `engine/attribution_supportability.py:297` | 6 | B |
+| 13 | `_component_contributions_dataframe` | function | `engine/benchmarks.py:35` | 6 | B |
+| 14 | `_blocked_composite_period_result_for_invalid_ready_facts` | function | `engine/composites.py:224` | 6 | B |
+| 15 | `_composite_calculation_status` | function | `engine/composites.py:416` | 6 | B |
+| 16 | `calculate_asset_weighted_composite_twr` | function | `engine/composites.py:424` | 6 | B |
+| 17 | `run_calculations` | function | `engine/compute.py:21` | 6 | B |
+| 18 | `_prepare_dataframe` | function | `engine/compute.py:163` | 6 | B |
+| 19 | `_apply_position_fx_capital_conversion` | function | `engine/contribution.py:256` | 6 | B |
+| 20 | `_net_same_day_flows` | function | `engine/mwr.py:21` | 6 | B |
+| 21 | `_dietz_denominator` | function | `engine/mwr.py:310` | 6 | B |
+| 22 | `_calculate_xirr_mwr_attempt` | function | `engine/mwr.py:345` | 6 | B |
+| 23 | `_extract_policy_inputs` | function | `engine/policies.py:24` | 6 | B |
+| 24 | `_apply_overrides` | function | `engine/policies.py:38` | 6 | B |
+| 25 | `_flag_outliers` | function | `engine/policies.py:124` | 6 | B |
 
 ## Lowest Maintainability Index
 
@@ -76,7 +76,7 @@ must stay at `0`.
 | 6 | `app/openapi_enrichment.py` | 2.14 | C |
 | 7 | `app/services/twr_service.py` | 5.85 | C |
 | 8 | `app/services/stateful_benchmark_input_service.py` | 9.19 | B |
-| 9 | `app/services/workspace_summary_service.py` | 10.56 | B |
+| 9 | `app/services/workspace_summary_service.py` | 10.51 | B |
 | 10 | `app/services/execution_registry.py` | 11.48 | B |
 | 11 | `engine/attribution.py` | 13.12 | B |
 | 12 | `app/services/operator_action_lease_service.py` | 13.14 | B |

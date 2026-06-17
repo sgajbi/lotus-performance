@@ -101,7 +101,7 @@ def workspace_longest_requested_window_days(request: WorkspaceSummaryRequest) ->
         performance_start_date=_workspace_summary_assumed_start_date(request),
         explicit_start_date=request.report_start_date,
     )
-    return max((period.end_date - period.start_date).days for period in resolved_periods) if resolved_periods else 0
+    return _longest_workspace_period_days(resolved_periods)
 
 
 def _workspace_summary_requires_default_since_inception_window(request: WorkspaceSummaryRequest) -> bool:
@@ -110,6 +110,10 @@ def _workspace_summary_requires_default_since_inception_window(request: Workspac
 
 def _workspace_summary_assumed_start_date(request: WorkspaceSummaryRequest) -> date:
     return request.performance_start_date or request.report_start_date or request.report_end_date
+
+
+def _longest_workspace_period_days(resolved_periods: list[ResolvedWorkspacePeriod]) -> int:
+    return max((period.end_date - period.start_date).days for period in resolved_periods) if resolved_periods else 0
 
 
 def calculate_workspace_summary(
