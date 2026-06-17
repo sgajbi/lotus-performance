@@ -1008,21 +1008,14 @@ def _position_row_to_base_weight_point(
     valuation_date = row.get("valuation_date")
     if not isinstance(valuation_date, str):
         return None
-    value_basis: PositionValueBasis
 
-    if reporting_currency is not None:
-        begin_value = row.get("beginning_market_value_reporting_currency")
-    else:
-        begin_value = row.get("beginning_market_value_portfolio_currency")
-    if begin_value is None:
-        begin_value = row.get("beginning_market_value_portfolio_currency")
-    if begin_value is None:
+    begin_value_and_basis = _position_base_weight_begin_value_and_basis(
+        row=row,
+        reporting_currency=reporting_currency,
+    )
+    if begin_value_and_basis is None:
         return None
-
-    if reporting_currency is not None:
-        value_basis = "reporting"
-    else:
-        value_basis = "portfolio"
+    begin_value, value_basis = begin_value_and_basis
     bod_cf, _, _ = split_position_cash_flows_in_value_basis(
         cash_flows_raw=row.get("cash_flows"),
         row=row,
@@ -1033,6 +1026,23 @@ def _position_row_to_base_weight_point(
         "begin_mv": Decimal(str(begin_value)),
         "bod_cf": bod_cf,
     }
+
+
+def _position_base_weight_begin_value_and_basis(
+    *,
+    row: dict[str, object],
+    reporting_currency: str | None,
+) -> tuple[object, PositionValueBasis] | None:
+    value_basis: PositionValueBasis = "portfolio"
+    begin_value = row.get("beginning_market_value_portfolio_currency")
+    if reporting_currency is not None:
+        value_basis = "reporting"
+        begin_value = row.get("beginning_market_value_reporting_currency")
+        if begin_value is None:
+            begin_value = row.get("beginning_market_value_portfolio_currency")
+    if begin_value is None:
+        return None
+    return begin_value, value_basis
 
 
 def _split_position_cash_flows(cash_flows_raw: object) -> tuple[Decimal, Decimal]:

@@ -29,6 +29,7 @@ from app.services.stateful_attribution_input_service import (
     _parse_index_catalog,
     _parse_position_rows,
     _portfolio_market_values_by_date,
+    _position_base_weight_begin_value_and_basis,
     _position_cash_flow_amount,
     _position_daily_point_market_values,
     _position_market_value_pair,
@@ -1590,6 +1591,28 @@ def test_stateful_attribution_base_weight_point_converts_bod_cash_flow_to_report
         "begin_mv": Decimal("132"),
         "bod_cf": Decimal("6.60"),
     }
+
+
+def test_stateful_attribution_base_weight_begin_value_policy_selects_basis_and_fallbacks():
+    assert _position_base_weight_begin_value_and_basis(
+        row={
+            "beginning_market_value_reporting_currency": "110",
+            "beginning_market_value_portfolio_currency": "100",
+        },
+        reporting_currency="USD",
+    ) == ("110", "reporting")
+    assert _position_base_weight_begin_value_and_basis(
+        row={
+            "beginning_market_value_reporting_currency": None,
+            "beginning_market_value_portfolio_currency": "100",
+        },
+        reporting_currency="USD",
+    ) == ("100", "reporting")
+    assert _position_base_weight_begin_value_and_basis(
+        row={"beginning_market_value_portfolio_currency": "100"},
+        reporting_currency=None,
+    ) == ("100", "portfolio")
+    assert _position_base_weight_begin_value_and_basis(row={}, reporting_currency=None) is None
 
 
 def test_stateful_attribution_base_weight_point_handles_missing_dates_and_fallback_values():
