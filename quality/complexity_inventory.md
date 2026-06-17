@@ -38,31 +38,31 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_validate_stateful_both_currency_support` | function | `app/services/stateful_attribution_input_service.py:1150` | 6 | B |
-| 2 | `_benchmark_return_points_from_payload` | function | `app/services/stateful_benchmark_input_service.py:227` | 6 | B |
-| 3 | `_parse_composition_segment` | function | `app/services/stateful_benchmark_input_service.py:332` | 6 | B |
-| 4 | `_fx_rate_map_from_payload` | function | `app/services/stateful_benchmark_input_service.py:545` | 6 | B |
-| 5 | `_normalized_component_price_point_from_payload` | function | `app/services/stateful_benchmark_input_service.py:804` | 6 | B |
-| 6 | `_validate_stateful_both_currency_support` | function | `app/services/stateful_contribution_input_service.py:310` | 6 | B |
-| 7 | `get_benchmark_return_series` | method | `app/services/stateful_input_service.py:218` | 6 | B |
-| 8 | `get_fx_rates` | method | `app/services/stateful_input_service.py:516` | 6 | B |
-| 9 | `get_index_catalog` | method | `app/services/stateful_input_service.py:618` | 6 | B |
-| 10 | `get_index_price_series` | method | `app/services/stateful_input_service.py:661` | 6 | B |
-| 11 | `get_risk_free_series` | method | `app/services/stateful_input_service.py:769` | 6 | B |
-| 12 | `_fetch_position_chunk` | method | `app/services/stateful_input_service.py:991` | 6 | B |
-| 13 | `_next_page_token` | method | `app/services/stateful_input_service.py:1185` | 6 | B |
-| 14 | `_merge_dedup_records_by_fields` | method | `app/services/stateful_input_service.py:1204` | 6 | B |
-| 15 | `_component_index_points` | function | `app/services/stateful_input_service.py:1363` | 6 | B |
-| 16 | `_has_single_currency_inputs` | function | `app/services/stateful_mwr_input_service.py:354` | 6 | B |
-| 17 | `retrieve_stateful_portfolio_input` | function | `app/services/stateful_performance_input_service.py:42` | 6 | B |
-| 18 | `_build_component_observations_from_price_points` | function | `app/services/stateless_benchmark_input_service.py:50` | 6 | B |
-| 19 | `_register_async_compute_job_or_rollback_execution` | function | `app/services/submission_fencing_service.py:107` | 6 | B |
-| 20 | `_benchmark_calendar_alignment` | function | `app/services/twr_benchmark_supportability.py:84` | 6 | B |
-| 21 | `calculate_twr_workflow` | function | `app/services/twr_calculation_service.py:278` | 6 | B |
-| 22 | `resolve_twr_request` | function | `app/services/twr_mode_service.py:80` | 6 | B |
-| 23 | `_build_twr_normalization_resolution` | function | `app/services/twr_mode_service.py:214` | 6 | B |
-| 24 | `_resolve_twr_retrieval_inputs` | function | `app/services/twr_mode_service.py:253` | 6 | B |
-| 25 | `_resolve_twr_portfolio_source_input` | function | `app/services/twr_mode_service.py:293` | 6 | B |
+| 1 | `_benchmark_return_points_from_payload` | function | `app/services/stateful_benchmark_input_service.py:227` | 6 | B |
+| 2 | `_parse_composition_segment` | function | `app/services/stateful_benchmark_input_service.py:332` | 6 | B |
+| 3 | `_fx_rate_map_from_payload` | function | `app/services/stateful_benchmark_input_service.py:545` | 6 | B |
+| 4 | `_normalized_component_price_point_from_payload` | function | `app/services/stateful_benchmark_input_service.py:804` | 6 | B |
+| 5 | `_validate_stateful_both_currency_support` | function | `app/services/stateful_contribution_input_service.py:310` | 6 | B |
+| 6 | `get_benchmark_return_series` | method | `app/services/stateful_input_service.py:218` | 6 | B |
+| 7 | `get_fx_rates` | method | `app/services/stateful_input_service.py:516` | 6 | B |
+| 8 | `get_index_catalog` | method | `app/services/stateful_input_service.py:618` | 6 | B |
+| 9 | `get_index_price_series` | method | `app/services/stateful_input_service.py:661` | 6 | B |
+| 10 | `get_risk_free_series` | method | `app/services/stateful_input_service.py:769` | 6 | B |
+| 11 | `_fetch_position_chunk` | method | `app/services/stateful_input_service.py:991` | 6 | B |
+| 12 | `_next_page_token` | method | `app/services/stateful_input_service.py:1185` | 6 | B |
+| 13 | `_merge_dedup_records_by_fields` | method | `app/services/stateful_input_service.py:1204` | 6 | B |
+| 14 | `_component_index_points` | function | `app/services/stateful_input_service.py:1363` | 6 | B |
+| 15 | `_has_single_currency_inputs` | function | `app/services/stateful_mwr_input_service.py:354` | 6 | B |
+| 16 | `retrieve_stateful_portfolio_input` | function | `app/services/stateful_performance_input_service.py:42` | 6 | B |
+| 17 | `_build_component_observations_from_price_points` | function | `app/services/stateless_benchmark_input_service.py:50` | 6 | B |
+| 18 | `_register_async_compute_job_or_rollback_execution` | function | `app/services/submission_fencing_service.py:107` | 6 | B |
+| 19 | `_benchmark_calendar_alignment` | function | `app/services/twr_benchmark_supportability.py:84` | 6 | B |
+| 20 | `calculate_twr_workflow` | function | `app/services/twr_calculation_service.py:278` | 6 | B |
+| 21 | `resolve_twr_request` | function | `app/services/twr_mode_service.py:80` | 6 | B |
+| 22 | `_build_twr_normalization_resolution` | function | `app/services/twr_mode_service.py:214` | 6 | B |
+| 23 | `_resolve_twr_retrieval_inputs` | function | `app/services/twr_mode_service.py:253` | 6 | B |
+| 24 | `_resolve_twr_portfolio_source_input` | function | `app/services/twr_mode_service.py:293` | 6 | B |
+| 25 | `_resolve_benchmark_start_date_from_request` | function | `app/services/twr_mode_service.py:585` | 6 | B |
 
 ## Lowest Maintainability Index
 
@@ -823,6 +823,10 @@ cash-flow conversion basis, and base-weight point projection.
 moved into a dedicated helper with reusable non-empty group-value normalization while preserving
 security id retention, currency normalization, empty/non-string currency suppression, FX metadata,
 and dimension metadata merging.
+`_validate_stateful_both_currency_support` in stateful attribution also dropped out after
+non-reporting-currency FX requirement detection was moved into a dedicated predicate while
+preserving missing report currency rejection, missing position currency rejection, same-currency
+suppression, and mixed-currency FX requirement behavior.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.

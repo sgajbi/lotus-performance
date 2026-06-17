@@ -47,6 +47,7 @@ from app.services.stateful_attribution_input_service import (
     _stateful_attribution_benchmark_id_from_assignment_payload,
     _stateful_attribution_fx_required,
     _stateful_attribution_requested_dimensions,
+    _stateful_both_currency_requires_fx,
     _stateful_portfolio_position_alignment_mismatches,
     _stateful_position_currencies,
     _summarize_benchmark_classification,
@@ -1746,6 +1747,23 @@ def test_stateful_attribution_both_currency_validation_errors_are_explicit():
             reporting_currency="USD",
             fx=None,
         )
+
+
+def test_stateful_both_currency_requires_fx_only_for_non_reporting_currencies():
+    assert (
+        _stateful_both_currency_requires_fx(
+            position_currencies={"USD"},
+            reporting_currency="USD",
+        )
+        is False
+    )
+    assert (
+        _stateful_both_currency_requires_fx(
+            position_currencies={"USD", "EUR"},
+            reporting_currency="USD",
+        )
+        is True
+    )
 
 
 def test_stateful_position_currencies_preserves_non_empty_strings_and_ignores_missing_values():
