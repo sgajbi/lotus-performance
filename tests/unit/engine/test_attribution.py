@@ -8,6 +8,7 @@ from app.models.attribution_requests import AttributionRequest
 from common.enums import AttributionModel, LinkingMethod
 from engine.attribution import (
     _align_and_prepare_data,
+    _attribution_group_observation_records,
     _backfill_same_currency_return_columns,
     _base_weight_record_from_point,
     _build_attribution_aggregation_base,
@@ -21,6 +22,8 @@ from engine.attribution import (
     _currency_attribution_status,
     _finalize_aligned_attribution_frame,
     _instrument_attribution_panels,
+    _instrument_bop_mv_series,
+    _instrument_group_observations,
     _link_effects_top_down,
     _normalize_instrument_group_columns,
     _normalize_instrument_return_columns,
@@ -615,6 +618,35 @@ def test_build_base_weight_series_keeps_latest_duplicate_date_record():
     assert series.to_dict() == {pd.Timestamp("2025-01-01"): 300.0}
 
 
+def test_instrument_bop_mv_series_prefers_base_weight_points_and_falls_back_to_engine_capital():
+    inst_results = pd.DataFrame(
+        {
+            "begin_mv": [100.0, 200.0],
+            "bod_cf": [10.0, 20.0],
+        },
+        index=[pd.Timestamp("2025-01-01"), pd.Timestamp("2025-01-02")],
+    )
+
+    explicit_weights = _instrument_bop_mv_series(
+        inst_results,
+        {
+            "base_weight_points": [
+                {"perf_date": "2025-01-01", "begin_mv": 250, "bod_cf": 50},
+            ]
+        },
+    )
+    fallback_weights = _instrument_bop_mv_series(inst_results, {})
+
+    assert explicit_weights.to_dict() == {
+        pd.Timestamp("2025-01-01"): 300.0,
+        pd.Timestamp("2025-01-02"): 0.0,
+    }
+    assert fallback_weights.to_dict() == {
+        pd.Timestamp("2025-01-01"): 110.0,
+        pd.Timestamp("2025-01-02"): 220.0,
+    }
+
+
 def test_build_instrument_attribution_panel_backfills_same_currency_returns():
     request = AttributionRequest.model_validate(
         {
@@ -694,6 +726,25 @@ def test_backfill_same_currency_return_columns_projects_local_and_zero_fx_return
     ]
 
 
+def test_instrument_group_observations_projects_available_return_columns():
+    group_df = pd.DataFrame(
+        {
+            "perf_date": [pd.Timestamp("2025-01-01")],
+            "weight_bop": [0.25],
+            "return_base": [0.01],
+            "ignored": ["not exported"],
+        }
+    )
+
+    assert _instrument_group_observations(group_df) == [
+        {
+            "date": pd.Timestamp("2025-01-01"),
+            "weight_bop": 0.25,
+            "return_base": 0.01,
+        }
+    ]
+
+
 def test_normalize_instrument_group_columns_adds_missing_group_keys():
     full_df = pd.DataFrame({"weight_bop": [1.0]})
 
@@ -718,6 +769,25 @@ def test_prepare_panel_from_groups_handles_empty_cases():
         observations = []
 
     assert _prepare_panel_from_groups([_EmptyGroup()], ["sector"]).empty
+
+
+def test_attribution_group_observation_records_projects_group_keys():
+    group = SimpleNamespace(
+        key={"sector": "Tech", "region": "US"},
+        observations=[
+            {"date": "2025-01-31", "return_base": 0.015, "weight_bop": 0.4},
+            {"date": "2025-02-28", "return": 0.02},
+        ],
+    )
+
+    records = _attribution_group_observation_records([group], ["sector", "region"])
+
+    assert records[0]["sector"] == "Tech"
+    assert records[0]["region"] == "US"
+    assert records[0]["return_base"] == pytest.approx(0.015)
+    assert records[0]["weight_bop"] == pytest.approx(0.4)
+    assert records[1]["return_base"] == pytest.approx(0.02)
+    assert records[1]["weight_bop"] == pytest.approx(0.0)
 
 
 def test_prepare_panel_from_groups_normalizes_model_observation_records():

@@ -236,10 +236,22 @@ def _validate_manifest_entry(entry: Any) -> dict[str, str | int | None] | None:
     if entry_fields is None:
         return None
     entry_strings, trigger_mode = entry_fields
-    job_id = entry_strings["job_id"]
     if not required_evidence_int_fields_present(entry, _RUNTIME_RETENTION_ENTRY_INT_KEYS):
         return None
 
+    return _runtime_retention_manifest_entry_payload(
+        entry=entry,
+        entry_strings=entry_strings,
+        trigger_mode=trigger_mode,
+    )
+
+
+def _runtime_retention_manifest_entry_payload(
+    *,
+    entry: dict[str, Any],
+    entry_strings: dict[str, str | None],
+    trigger_mode: str,
+) -> dict[str, str | int | None]:
     validated_entry: dict[str, str | int | None] = {
         key: entry_strings[key] for key in _RUNTIME_RETENTION_ENTRY_STR_KEYS
     }
@@ -247,5 +259,5 @@ def _validate_manifest_entry(entry: Any) -> dict[str, str | int | None] | None:
     validated_entry["trigger_mode"] = trigger_mode
     validated_entry["tenant_id"] = entry_strings["tenant_id"]
     validated_entry["correlation_id"] = entry_strings["correlation_id"]
-    validated_entry["job_id"] = job_id
+    validated_entry["job_id"] = entry_strings["job_id"]
     return validated_entry

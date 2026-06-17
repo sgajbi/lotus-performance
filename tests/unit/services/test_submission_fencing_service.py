@@ -11,6 +11,7 @@ from app.services.execution_stage_names import EXECUTION_STAGE_SUBMISSION
 from app.services.submission_fencing_service import (
     _complete_async_submission_stage_if_needed,
     _register_async_compute_job_or_rollback_execution,
+    _rollback_created_async_execution,
     promote_existing_execution_to_async_submission_or_raise,
     register_async_submission_or_raise,
 )
@@ -286,6 +287,43 @@ def test_register_async_submission_preserves_job_error_when_cleanup_fails(mocker
     assert f"Async compute job registration failed for calculation_id={calculation_id}" in caplog.text
     assert f"Async execution registration cleanup failed for calculation_id={calculation_id}" in caplog.text
     assert "RuntimeError: queue unavailable" in caplog.text
+    assert "RuntimeError: cleanup unavailable" in caplog.text
+
+
+def test_rollback_created_async_execution_deletes_only_new_execution(mocker):
+    calculation_id = uuid4()
+    delete_execution = mocker.patch("app.services.submission_fencing_service.execution_registry.delete_execution")
+
+    _rollback_created_async_execution(
+        calculation_id=calculation_id,
+        analytics_type="Contribution",
+        created_execution=False,
+    )
+    _rollback_created_async_execution(
+        calculation_id=calculation_id,
+        analytics_type="Contribution",
+        created_execution=True,
+    )
+
+    delete_execution.assert_called_once_with(calculation_id)
+
+
+def test_rollback_created_async_execution_logs_cleanup_failure(mocker, caplog):
+    calculation_id = uuid4()
+    mocker.patch(
+        "app.services.submission_fencing_service.execution_registry.delete_execution",
+        side_effect=RuntimeError("cleanup unavailable"),
+    )
+
+    with caplog.at_level(logging.WARNING, logger="app.services.submission_fencing_service"):
+        _rollback_created_async_execution(
+            calculation_id=calculation_id,
+            analytics_type="Contribution",
+            created_execution=True,
+        )
+
+    assert f"Async execution registration cleanup failed for calculation_id={calculation_id}" in caplog.text
+    assert "analytics_type=Contribution" in caplog.text
     assert "RuntimeError: cleanup unavailable" in caplog.text
 
 

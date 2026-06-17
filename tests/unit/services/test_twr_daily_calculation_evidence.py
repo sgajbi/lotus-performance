@@ -8,9 +8,11 @@ from app.services.twr_service import (
     _classify_daily_calculation_evidence,
     _daily_calculation_evidence_inputs,
     _iter_frequency_windows,
+    _no_investment_status,
     _portfolio_breakdown_calculation_evidence,
     _portfolio_breakdown_daily_data,
     _resampled_frequency_window_label,
+    _reset_boundary_status,
 )
 from common.enums import Frequency
 from engine.schema import PortfolioColumns
@@ -144,6 +146,22 @@ def test_daily_calculation_evidence_records_reset_and_no_investment_reason_codes
     assert "NO_INVESTMENT_PERIOD" in evidence.reason_codes
     assert evidence.linkability_status == "reset_boundary"
     assert evidence.episode_status == "reset_boundary"
+
+
+def test_reset_boundary_status_preserves_non_linkable_status():
+    assert _reset_boundary_status(linkability_status="linkable") == ("reset_boundary", "reset_boundary")
+    assert _reset_boundary_status(linkability_status="not_calculated") == ("not_calculated", "reset_boundary")
+
+
+def test_no_investment_status_only_overrides_open_linkable_days():
+    assert _no_investment_status(linkability_status="linkable", episode_status="open") == (
+        "not_calculated",
+        "no_investment",
+    )
+    assert _no_investment_status(linkability_status="reset_boundary", episode_status="reset_boundary") == (
+        "reset_boundary",
+        "reset_boundary",
+    )
 
 
 def test_daily_calculation_evidence_records_negative_and_near_zero_denominator_semantics():

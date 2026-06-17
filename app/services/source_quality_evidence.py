@@ -103,9 +103,26 @@ def _record_source_quality_observation(
         source_classifications[str(observation["source_classification"])] += 1
     if not isinstance(valuation_date, str) or begin_mv is None or end_mv is None:
         return 1
+    return _record_source_values_by_date(
+        valuation_date=valuation_date,
+        beginning_market_value=begin_mv,
+        ending_market_value=end_mv,
+        values_by_date=values_by_date,
+        normalized_dates=normalized_dates,
+    )
+
+
+def _record_source_values_by_date(
+    *,
+    valuation_date: str,
+    beginning_market_value: object,
+    ending_market_value: object,
+    values_by_date: dict[str, set[tuple[Decimal, Decimal]]],
+    normalized_dates: list[date],
+) -> int:
     try:
         normalized_dates.append(normalize_observation_date(valuation_date))
-        values_by_date[valuation_date].add((Decimal(str(begin_mv)), Decimal(str(end_mv))))
+        values_by_date[valuation_date].add((Decimal(str(beginning_market_value)), Decimal(str(ending_market_value))))
     except (InvalidOperation, TypeError, ValueError):
         return 1
     return 0

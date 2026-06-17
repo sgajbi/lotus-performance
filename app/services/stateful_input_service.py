@@ -5,7 +5,7 @@ import hashlib
 import json
 from dataclasses import dataclass
 from datetime import date, timedelta
-from typing import Any, Awaitable, Callable
+from typing import Any, Awaitable, Callable, TypeGuard
 from uuid import UUID
 
 from app.services.core_integration_service import CoreIntegrationService
@@ -254,15 +254,7 @@ class StatefulInputService:
         if failure is not None:
             return failure
 
-        points = self._merge_dedup_records(
-            records=[
-                point
-                for _, payload in responses
-                for point in (payload.get("points", []) if isinstance(payload, dict) else [])
-                if isinstance(point, dict)
-            ],
-            date_key="series_date",
-        )
+        points = self._merge_dedup_points_from_responses(responses)
         return 200, {
             "points": points,
             "retrieval_metadata": {
@@ -550,15 +542,7 @@ class StatefulInputService:
         if failure is not None:
             return failure
 
-        merged_rates = self._merge_dedup_records(
-            records=[
-                {"series_date": rate.get("rate_date"), "fx_rate": rate.get("rate")}
-                for _, payload in responses
-                for rate in (payload.get("rates", []) if isinstance(payload, dict) else [])
-                if isinstance(rate, dict)
-            ],
-            date_key="series_date",
-        )
+        merged_rates = self._merge_dedup_fx_rates_from_responses(responses)
         return 200, {
             "points": merged_rates,
             "retrieval_metadata": {
@@ -626,37 +610,55 @@ class StatefulInputService:
             as_of_date=as_of_date,
             index_ids=index_ids,
         )
-        if calculation_id is not None:
-            sorted_index_ids = sorted(set(index_ids or []))
-            request_payload = {
-                "as_of_date": str(as_of_date),
-                "index_ids": sorted_index_ids,
-            }
-            snapshot_id, request_fingerprint = self._build_snapshot_identity(
-                calculation_id=calculation_id,
-                upstream_endpoint="index_catalog",
-                source_identifier="|".join(sorted_index_ids) if sorted_index_ids else "all_indices",
-                request_payload=request_payload,
-            )
-            existing_snapshot_ids = self._existing_snapshot_ids(calculation_id)
-            if snapshot_id not in existing_snapshot_ids:
-                self._execution_store.record_upstream_snapshots(
-                    calculation_id=calculation_id,
-                    snapshots=[
-                        self._build_snapshot(
-                            calculation_id=calculation_id,
-                            upstream_endpoint="index_catalog",
-                            source_identifier="|".join(sorted_index_ids) if sorted_index_ids else "all_indices",
-                            as_of_date=as_of_date,
-                            request_payload=request_payload,
-                            response=response,
-                            snapshot_id=snapshot_id,
-                            request_fingerprint=request_fingerprint,
-                        )
-                    ],
-                )
-                existing_snapshot_ids.add(snapshot_id)
+        self._record_index_catalog_snapshot(
+            calculation_id=calculation_id,
+            as_of_date=as_of_date,
+            index_ids=index_ids,
+            response=response,
+        )
         return response
+
+    def _record_index_catalog_snapshot(
+        self,
+        *,
+        calculation_id: UUID | None,
+        as_of_date: date,
+        index_ids: list[str] | None,
+        response: tuple[int, dict[str, Any]],
+    ) -> None:
+        if calculation_id is None:
+            return
+        sorted_index_ids = sorted(set(index_ids or []))
+        source_identifier = "|".join(sorted_index_ids) if sorted_index_ids else "all_indices"
+        request_payload = {
+            "as_of_date": str(as_of_date),
+            "index_ids": sorted_index_ids,
+        }
+        snapshot_id, request_fingerprint = self._build_snapshot_identity(
+            calculation_id=calculation_id,
+            upstream_endpoint="index_catalog",
+            source_identifier=source_identifier,
+            request_payload=request_payload,
+        )
+        existing_snapshot_ids = self._existing_snapshot_ids(calculation_id)
+        if snapshot_id in existing_snapshot_ids:
+            return
+        self._execution_store.record_upstream_snapshots(
+            calculation_id=calculation_id,
+            snapshots=[
+                self._build_snapshot(
+                    calculation_id=calculation_id,
+                    upstream_endpoint="index_catalog",
+                    source_identifier=source_identifier,
+                    as_of_date=as_of_date,
+                    request_payload=request_payload,
+                    response=response,
+                    snapshot_id=snapshot_id,
+                    request_fingerprint=request_fingerprint,
+                )
+            ],
+        )
+        existing_snapshot_ids.add(snapshot_id)
 
     async def get_index_price_series(
         self,
@@ -700,15 +702,7 @@ class StatefulInputService:
         if failure is not None:
             return failure
 
-        points = self._merge_dedup_records(
-            records=[
-                point
-                for _, payload in responses
-                for point in (payload.get("points", []) if isinstance(payload, dict) else [])
-                if isinstance(point, dict)
-            ],
-            date_key="series_date",
-        )
+        points = self._merge_dedup_points_from_responses(responses)
         return 200, {
             "points": points,
             "retrieval_metadata": {
@@ -808,15 +802,7 @@ class StatefulInputService:
         if failure is not None:
             return failure
 
-        points = self._merge_dedup_records(
-            records=[
-                point
-                for _, payload in responses
-                for point in (payload.get("points", []) if isinstance(payload, dict) else [])
-                if isinstance(point, dict)
-            ],
-            date_key="series_date",
-        )
+        points = self._merge_dedup_points_from_responses(responses)
         return 200, {
             "points": points,
             "retrieval_metadata": {
@@ -1008,20 +994,9 @@ class StatefulInputService:
         page_count = 0
 
         while True:
-            status_code, payload = await self._core_service.get_position_analytics_timeseries(
+            status_code, payload, request_payload = await self._fetch_position_timeseries_page(
                 portfolio_id=portfolio_id,
                 as_of_date=as_of_date,
-                start_date=chunk.start_date,
-                end_date=chunk.end_date,
-                reporting_currency=reporting_currency,
-                consumer_system=consumer_system,
-                dimensions=dimensions,
-                include_cash_flows=include_cash_flows,
-                filters=filters,
-                page_token=page_token,
-            )
-            request_payload = _position_timeseries_request_payload(
-                portfolio_id=portfolio_id,
                 chunk=chunk,
                 reporting_currency=reporting_currency,
                 consumer_system=consumer_system,
@@ -1040,11 +1015,10 @@ class StatefulInputService:
                 existing_snapshot_ids=existing_snapshot_ids,
             )
             if status_code >= 400:
-                if calculation_id is not None:
-                    self._execution_store.record_upstream_snapshots(
-                        calculation_id=calculation_id,
-                        snapshots=snapshot_batch,
-                    )
+                self._record_upstream_snapshot_batch(
+                    calculation_id=calculation_id,
+                    snapshots=snapshot_batch,
+                )
                 return status_code, payload
             page_count += 1
 
@@ -1054,11 +1028,10 @@ class StatefulInputService:
             if not page_token:
                 break
 
-        if calculation_id is not None:
-            self._execution_store.record_upstream_snapshots(
-                calculation_id=calculation_id,
-                snapshots=snapshot_batch,
-            )
+        self._record_upstream_snapshot_batch(
+            calculation_id=calculation_id,
+            snapshots=snapshot_batch,
+        )
 
         return 200, {
             "rows": self._merge_dedup_records_by_fields(
@@ -1069,6 +1042,46 @@ class StatefulInputService:
                 "page_count": page_count,
             },
         }
+
+    async def _fetch_position_timeseries_page(
+        self,
+        *,
+        portfolio_id: str,
+        as_of_date: date,
+        chunk: DateChunk,
+        reporting_currency: str | None,
+        consumer_system: str,
+        dimensions: list[str],
+        include_cash_flows: bool,
+        filters: dict[str, Any],
+        page_token: str | None,
+    ) -> tuple[int, dict[str, Any], dict[str, Any]]:
+        response = await self._core_service.get_position_analytics_timeseries(
+            portfolio_id=portfolio_id,
+            as_of_date=as_of_date,
+            start_date=chunk.start_date,
+            end_date=chunk.end_date,
+            reporting_currency=reporting_currency,
+            consumer_system=consumer_system,
+            dimensions=dimensions,
+            include_cash_flows=include_cash_flows,
+            filters=filters,
+            page_token=page_token,
+        )
+        return (
+            response[0],
+            response[1],
+            _position_timeseries_request_payload(
+                portfolio_id=portfolio_id,
+                chunk=chunk,
+                reporting_currency=reporting_currency,
+                consumer_system=consumer_system,
+                dimensions=dimensions,
+                include_cash_flows=include_cash_flows,
+                filters=filters,
+                page_token=page_token,
+            ),
+        )
 
     def _record_upstream_snapshot_batch(
         self,
@@ -1184,12 +1197,12 @@ class StatefulInputService:
 
     def _next_page_token(self, payload: dict[str, Any]) -> str | None:
         next_page_token = payload.get("next_page_token")
-        if isinstance(next_page_token, str) and next_page_token:
+        if _non_empty_string(next_page_token):
             return next_page_token
         page_block = payload.get("page")
         if isinstance(page_block, dict):
             nested_token = page_block.get("next_page_token")
-            if isinstance(nested_token, str) and nested_token:
+            if _non_empty_string(nested_token):
                 return nested_token
         return None
 
@@ -1201,6 +1214,28 @@ class StatefulInputService:
                 deduped[record_date] = record
         return [deduped[key] for key in sorted(deduped)]
 
+    def _merge_dedup_points_from_responses(self, responses: list[tuple[int, dict[str, Any]]]) -> list[dict[str, Any]]:
+        return self._merge_dedup_records(
+            records=[
+                point
+                for _, payload in responses
+                for point in (payload.get("points", []) if isinstance(payload, dict) else [])
+                if isinstance(point, dict)
+            ],
+            date_key="series_date",
+        )
+
+    def _merge_dedup_fx_rates_from_responses(self, responses: list[tuple[int, dict[str, Any]]]) -> list[dict[str, Any]]:
+        return self._merge_dedup_records(
+            records=[
+                {"series_date": rate.get("rate_date"), "fx_rate": rate.get("rate")}
+                for _, payload in responses
+                for rate in (payload.get("rates", []) if isinstance(payload, dict) else [])
+                if isinstance(rate, dict)
+            ],
+            date_key="series_date",
+        )
+
     def _merge_dedup_records_by_fields(
         self,
         *,
@@ -1209,15 +1244,10 @@ class StatefulInputService:
     ) -> list[dict[str, Any]]:
         deduped: dict[tuple[str, ...], dict[str, Any]] = {}
         for record in records:
-            key_values: list[str] = []
-            for field in key_fields:
-                value = record.get(field)
-                if not isinstance(value, str):
-                    break
-                key_values.append(value)
-            if len(key_values) != len(key_fields):
+            record_key = _record_key_by_fields(record=record, key_fields=key_fields)
+            if record_key is None:
                 continue
-            deduped[tuple(key_values)] = record
+            deduped[record_key] = record
         return [deduped[key] for key in sorted(deduped)]
 
     def _merge_component_series(self, *, payloads: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -1363,13 +1393,38 @@ def _position_rows_from_payload(payload: dict[str, Any]) -> list[dict[str, Any]]
 def _component_index_points(component: Any) -> tuple[str, list[dict[str, Any]]] | None:
     if not isinstance(component, dict):
         return None
+    index_id = _component_index_id(component)
+    if index_id is None:
+        return None
+    return index_id, _component_point_records(component)
+
+
+def _component_index_id(component: dict[str, Any]) -> str | None:
     index_id = component.get("index_id")
     if not isinstance(index_id, str):
         return None
+    return index_id
+
+
+def _component_point_records(component: dict[str, Any]) -> list[dict[str, Any]]:
     points_raw = component.get("points")
     if not isinstance(points_raw, list):
-        return index_id, []
-    return index_id, [point for point in points_raw if isinstance(point, dict)]
+        return []
+    return [point for point in points_raw if isinstance(point, dict)]
+
+
+def _non_empty_string(value: Any) -> TypeGuard[str]:
+    return isinstance(value, str) and bool(value)
+
+
+def _record_key_by_fields(*, record: dict[str, Any], key_fields: tuple[str, ...]) -> tuple[str, ...] | None:
+    key_values: list[str] = []
+    for field in key_fields:
+        value = record.get(field)
+        if not isinstance(value, str):
+            return None
+        key_values.append(value)
+    return tuple(key_values)
 
 
 def _portfolio_identity_from_payload(

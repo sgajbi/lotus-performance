@@ -14,31 +14,40 @@ from app.services.stateful_attribution_input_service import (
     _benchmark_currency_group_value,
     _benchmark_group_dimension_value,
     _benchmark_group_key_from_row,
+    _benchmark_groups_from_buckets,
     _build_benchmark_groups,
     _build_group_key,
     _build_instruments_data,
     _distinct_source_currencies,
     _first_rows_by_position,
     _has_unsupported_position_inception_row,
+    _internal_cash_flow_abs_in_alignment_basis,
+    _labels_have_required_dimensions,
     _normalize_group_value,
+    _normalized_non_empty_group_value,
     _normalized_position_dimension_value,
     _normalized_position_dimensions,
     _parse_index_catalog,
     _parse_position_rows,
     _portfolio_market_values_by_date,
+    _position_base_weight_begin_value_and_basis,
     _position_cash_flow_amount,
     _position_daily_point_market_values,
     _position_market_value_pair,
     _position_market_value_totals_by_date,
     _position_meta_from_row,
     _position_meta_fx_rate_fields,
+    _position_meta_identity_fields,
     _position_row_to_base_weight_point,
     _position_row_to_daily_point,
     _record_instrument_position_row,
     _reporting_daily_point_market_values,
     _resolve_stateful_attribution_benchmark_id,
     _split_position_cash_flows,
+    _stateful_attribution_benchmark_id_from_assignment_payload,
     _stateful_attribution_fx_required,
+    _stateful_attribution_requested_dimensions,
+    _stateful_both_currency_requires_fx,
     _stateful_portfolio_position_alignment_mismatches,
     _stateful_position_currencies,
     _summarize_benchmark_classification,
@@ -99,6 +108,16 @@ def test_summarize_position_classification_counts_required_dimensions():
     }
 
 
+def test_labels_have_required_dimensions_requires_non_blank_string_values():
+    assert _labels_have_required_dimensions(
+        labels={"sector": "Technology", "region": "North America"},
+        dimensions=["sector", "region"],
+    )
+    assert not _labels_have_required_dimensions(labels={"sector": "Technology", "region": "  "}, dimensions=["region"])
+    assert not _labels_have_required_dimensions(labels={"sector": "Technology"}, dimensions=["region"])
+    assert not _labels_have_required_dimensions(labels={"sector": 123}, dimensions=["sector"])
+
+
 @pytest.mark.asyncio
 async def test_resolve_stateful_attribution_benchmark_id_prefers_override_and_reads_assignment():
     service = _AttributionInputServiceStub()
@@ -131,6 +150,22 @@ async def test_resolve_stateful_attribution_benchmark_id_prefers_override_and_re
             "calculation_id": calculation_id,
         }
     ]
+
+
+def test_stateful_attribution_benchmark_id_from_assignment_payload_validates_assignment_shape():
+    assert _stateful_attribution_benchmark_id_from_assignment_payload({"benchmark_id": "BMK_1"}) == "BMK_1"
+
+    with pytest.raises(HTTPException, match="payload missing benchmark_id"):
+        _stateful_attribution_benchmark_id_from_assignment_payload({"benchmark_id": ""})
+
+
+def test_stateful_attribution_requested_dimensions_merges_explicit_and_upstream_grouping_dimensions():
+    requested_dimensions = _stateful_attribution_requested_dimensions(
+        group_by=["sector", "currency", "asset_class", "sector"],
+        dimensions=["country", "sector"],
+    )
+
+    assert requested_dimensions == ["asset_class", "country", "sector"]
 
 
 @pytest.mark.asyncio
@@ -933,6 +968,26 @@ def test_stateful_attribution_alignment_validator_tolerates_unusable_rows_and_in
     )
 
 
+def test_internal_cash_flow_abs_in_alignment_basis_filters_and_converts_supported_internal_flows():
+    conversion_factor = Decimal("1.5")
+
+    assert _internal_cash_flow_abs_in_alignment_basis(
+        flow={"amount": "-10", "cash_flow_type": "internal_trade_flow"},
+        conversion_factor=conversion_factor,
+    ) == Decimal("15.0")
+    assert _internal_cash_flow_abs_in_alignment_basis(
+        flow={"amount": "10", "cash_flow_type": "external_contribution"},
+        conversion_factor=conversion_factor,
+    ) == Decimal("0")
+    assert _internal_cash_flow_abs_in_alignment_basis(
+        flow={"cash_flow_type": "internal_trade_flow"},
+        conversion_factor=conversion_factor,
+    ) == Decimal("0")
+    assert _internal_cash_flow_abs_in_alignment_basis(
+        flow="not-a-flow", conversion_factor=conversion_factor
+    ) == Decimal("0")
+
+
 def test_portfolio_market_values_by_date_skips_incomplete_observations():
     values_by_date = _portfolio_market_values_by_date(
         [
@@ -1229,6 +1284,33 @@ def test_stateful_attribution_benchmark_group_key_from_row_applies_label_guard_a
         )
 
 
+def test_stateful_attribution_benchmark_groups_from_buckets_orders_keys_and_observations():
+    groups = _benchmark_groups_from_buckets(
+        {
+            (("sector", "technology"),): {
+                "2025-01-02": {
+                    "weight_sum": Decimal("2"),
+                    "weighted_return_sum": Decimal("0.04"),
+                    "weighted_local_return_sum": Decimal("0.03"),
+                    "weighted_fx_return_sum": Decimal("0.01"),
+                },
+                "2025-01-01": {
+                    "weight_sum": Decimal("1"),
+                    "weighted_return_sum": Decimal("0.01"),
+                    "weighted_local_return_sum": Decimal("0.01"),
+                    "weighted_fx_return_sum": Decimal("0"),
+                },
+            }
+        }
+    )
+
+    assert groups[0].key == {"sector": "technology"}
+    assert [observation.date for observation in groups[0].observations] == [date(2025, 1, 1), date(2025, 1, 2)]
+    assert groups[0].observations[1].return_base == pytest.approx(0.02)
+    assert groups[0].observations[1].return_local == pytest.approx(0.015)
+    assert groups[0].observations[1].return_fx == pytest.approx(0.005)
+
+
 def test_stateful_attribution_aggregates_benchmark_components_by_group_and_date():
     groups = _build_benchmark_groups(
         group_by=["sector"],
@@ -1306,6 +1388,13 @@ def test_stateful_attribution_normalizes_group_values():
     assert _normalize_group_value("Fixed Income") == "fixed_income"
 
 
+def test_stateful_attribution_normalized_non_empty_group_value_policy():
+    assert _normalized_non_empty_group_value("US Dollar") == "us_dollar"
+    assert _normalized_non_empty_group_value("") is None
+    assert _normalized_non_empty_group_value(None) is None
+    assert _normalized_non_empty_group_value(123) is None
+
+
 def test_position_meta_fx_rate_fields_convert_available_rates_to_decimals():
     assert _position_meta_fx_rate_fields(
         {
@@ -1320,6 +1409,30 @@ def test_position_meta_fx_rate_fields_convert_available_rates_to_decimals():
 
 def test_position_meta_fx_rate_fields_omit_missing_rates():
     assert _position_meta_fx_rate_fields({"position_to_portfolio_fx_rate": None}) == {}
+
+
+def test_position_meta_identity_fields_normalizes_supported_currency_metadata():
+    assert _position_meta_identity_fields(
+        {
+            "security_id": "SEC_1",
+            "position_currency": "US Dollar",
+            "cash_flow_currency": "Euro",
+        }
+    ) == {
+        "security_id": "SEC_1",
+        "currency": "us_dollar",
+        "cash_flow_currency": "euro",
+    }
+    assert (
+        _position_meta_identity_fields(
+            {
+                "security_id": 123,
+                "position_currency": "",
+                "cash_flow_currency": None,
+            }
+        )
+        == {}
+    )
 
 
 def test_stateful_attribution_normalizes_position_dimensions():
@@ -1514,6 +1627,28 @@ def test_stateful_attribution_base_weight_point_converts_bod_cash_flow_to_report
     }
 
 
+def test_stateful_attribution_base_weight_begin_value_policy_selects_basis_and_fallbacks():
+    assert _position_base_weight_begin_value_and_basis(
+        row={
+            "beginning_market_value_reporting_currency": "110",
+            "beginning_market_value_portfolio_currency": "100",
+        },
+        reporting_currency="USD",
+    ) == ("110", "reporting")
+    assert _position_base_weight_begin_value_and_basis(
+        row={
+            "beginning_market_value_reporting_currency": None,
+            "beginning_market_value_portfolio_currency": "100",
+        },
+        reporting_currency="USD",
+    ) == ("100", "reporting")
+    assert _position_base_weight_begin_value_and_basis(
+        row={"beginning_market_value_portfolio_currency": "100"},
+        reporting_currency=None,
+    ) == ("100", "portfolio")
+    assert _position_base_weight_begin_value_and_basis(row={}, reporting_currency=None) is None
+
+
 def test_stateful_attribution_base_weight_point_handles_missing_dates_and_fallback_values():
     assert _position_row_to_base_weight_point(row={"valuation_date": None}, reporting_currency="USD") is None
     assert (
@@ -1612,6 +1747,23 @@ def test_stateful_attribution_both_currency_validation_errors_are_explicit():
             reporting_currency="USD",
             fx=None,
         )
+
+
+def test_stateful_both_currency_requires_fx_only_for_non_reporting_currencies():
+    assert (
+        _stateful_both_currency_requires_fx(
+            position_currencies={"USD"},
+            reporting_currency="USD",
+        )
+        is False
+    )
+    assert (
+        _stateful_both_currency_requires_fx(
+            position_currencies={"USD", "EUR"},
+            reporting_currency="USD",
+        )
+        is True
+    )
 
 
 def test_stateful_position_currencies_preserves_non_empty_strings_and_ignores_missing_values():

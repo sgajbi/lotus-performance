@@ -1,10 +1,11 @@
 from datetime import date
 from enum import Enum
 
+import pandas as pd
 import pytest
 
 from core.errors import APIBadRequestError
-from core.workspace_periods import WorkspacePeriodType, resolve_workspace_periods
+from core.workspace_periods import WorkspacePeriodType, _direct_workspace_period_start_date, resolve_workspace_periods
 
 
 def test_resolve_workspace_periods_supports_attached_horizons_and_since_inception():
@@ -49,6 +50,51 @@ def test_resolve_workspace_periods_uses_explicit_start_date_when_provided():
     assert resolved[0].name == "EXPLICIT"
     assert resolved[0].start_date == date(2026, 4, 1)
     assert resolved[0].end_date == date(2026, 6, 30)
+
+
+def test_direct_workspace_period_start_date_projects_direct_periods():
+    as_of_ts = pd.Timestamp(date(2026, 6, 30))
+
+    assert _direct_workspace_period_start_date(
+        WorkspacePeriodType.EXPLICIT,
+        as_of_ts=as_of_ts,
+        performance_start_date=date(2024, 1, 15),
+        explicit_start_date=date(2026, 4, 1),
+    ) == date(2026, 4, 1)
+    assert _direct_workspace_period_start_date(
+        WorkspacePeriodType.SINCE_INCEPTION,
+        as_of_ts=as_of_ts,
+        performance_start_date=date(2024, 1, 15),
+        explicit_start_date=None,
+    ) == date(2024, 1, 15)
+    assert _direct_workspace_period_start_date(
+        WorkspacePeriodType.YTD,
+        as_of_ts=as_of_ts,
+        performance_start_date=date(2024, 1, 15),
+        explicit_start_date=None,
+    ) == date(2026, 1, 1)
+    assert (
+        _direct_workspace_period_start_date(
+            WorkspacePeriodType.ONE_MONTH,
+            as_of_ts=as_of_ts,
+            performance_start_date=date(2024, 1, 15),
+            explicit_start_date=None,
+        )
+        is None
+    )
+
+
+def test_direct_workspace_period_start_date_requires_explicit_start():
+    with pytest.raises(
+        APIBadRequestError,
+        match="EXPLICIT workspace period requests require report_start_date",
+    ):
+        _direct_workspace_period_start_date(
+            WorkspacePeriodType.EXPLICIT,
+            as_of_ts=pd.Timestamp(date(2026, 6, 30)),
+            performance_start_date=date(2024, 1, 15),
+            explicit_start_date=None,
+        )
 
 
 def test_resolve_workspace_periods_clamps_ytd_to_performance_start_date():

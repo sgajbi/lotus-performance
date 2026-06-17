@@ -90,12 +90,19 @@ def _history_manifest_file_names(payload: dict[str, Any]) -> _HistoryManifestFil
     safe_retained_file_names = _safe_retained_manifest_file_names(retained_file_names)
     if safe_retained_file_names is None:
         return None
-    if safe_latest_file_name is not None and safe_latest_file_name not in safe_retained_file_names:
+    if not _latest_manifest_file_name_retained(
+        latest_file_name=safe_latest_file_name,
+        retained_file_names=safe_retained_file_names,
+    ):
         return None
     return _HistoryManifestFileNames(
         latest_file_name=safe_latest_file_name,
         retained_file_names=safe_retained_file_names,
     )
+
+
+def _latest_manifest_file_name_retained(*, latest_file_name: str | None, retained_file_names: list[str]) -> bool:
+    return latest_file_name is None or latest_file_name in retained_file_names
 
 
 def read_history_manifest_payload(

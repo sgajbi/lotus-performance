@@ -170,7 +170,7 @@ def _build_workflow_capabilities(flags: IntegrationCapabilityFlags) -> list[dict
     return [
         {
             "workflow_key": "performance_snapshot",
-            "enabled": flags.twr_enabled and flags.mwr_enabled and flags.benchmark_enabled,
+            "enabled": _workflow_enabled(flags.twr_enabled, flags.mwr_enabled, flags.benchmark_enabled),
             "required_features": [
                 "performance.analytics.twr",
                 "performance.analytics.mwr",
@@ -179,12 +179,12 @@ def _build_workflow_capabilities(flags: IntegrationCapabilityFlags) -> list[dict
         },
         {
             "workflow_key": "performance_explainability",
-            "enabled": flags.contribution_enabled and flags.attribution_enabled,
+            "enabled": _workflow_enabled(flags.contribution_enabled, flags.attribution_enabled),
             "required_features": ["performance.analytics.contribution", "performance.analytics.attribution"],
         },
         {
             "workflow_key": "performance_workspace",
-            "enabled": flags.workspace_summary_enabled and flags.twr_enabled and flags.mwr_enabled,
+            "enabled": _workflow_enabled(flags.workspace_summary_enabled, flags.twr_enabled, flags.mwr_enabled),
             "required_features": [
                 "performance.analytics.workspace_summary",
                 "performance.analytics.twr",
@@ -215,6 +215,10 @@ def _build_workflow_capabilities(flags: IntegrationCapabilityFlags) -> list[dict
             "required_features": ["performance.execution.stateless"],
         },
     ]
+
+
+def _workflow_enabled(*feature_flags: bool) -> bool:
+    return all(feature_flags)
 
 
 def _twr_inspection_contract_notes(flags: IntegrationCapabilityFlags) -> list[str]:

@@ -101,7 +101,7 @@ def workspace_longest_requested_window_days(request: WorkspaceSummaryRequest) ->
         performance_start_date=_workspace_summary_assumed_start_date(request),
         explicit_start_date=request.report_start_date,
     )
-    return max((period.end_date - period.start_date).days for period in resolved_periods) if resolved_periods else 0
+    return _longest_workspace_period_days(resolved_periods)
 
 
 def _workspace_summary_requires_default_since_inception_window(request: WorkspaceSummaryRequest) -> bool:
@@ -110,6 +110,10 @@ def _workspace_summary_requires_default_since_inception_window(request: Workspac
 
 def _workspace_summary_assumed_start_date(request: WorkspaceSummaryRequest) -> date:
     return request.performance_start_date or request.report_start_date or request.report_end_date
+
+
+def _longest_workspace_period_days(resolved_periods: list[ResolvedWorkspacePeriod]) -> int:
+    return max((period.end_date - period.start_date).days for period in resolved_periods) if resolved_periods else 0
 
 
 def calculate_workspace_summary(
@@ -215,6 +219,14 @@ def _resolve_workspace_portfolio_input(
     if request.input_mode == TWRInputMode.STATELESS:
         return _build_stateless_workspace_portfolio_input(request)
 
+    return _build_stateful_workspace_portfolio_input(request=request, settings=settings)
+
+
+def _build_stateful_workspace_portfolio_input(
+    *,
+    request: WorkspaceSummaryRequest,
+    settings: Settings,
+) -> ResolvedWorkspacePortfolioInput:
     performance_start_date = request.performance_start_date or _resolve_stateful_portfolio_start_date(
         request=request,
         settings=settings,
@@ -303,14 +315,15 @@ def _trim_portfolio_input_to_master_window(
     filtered_points = [
         point for point in portfolio_input.valuation_points if master_start_date <= point.perf_date <= report_end_date
     ]
-    filtered_observations = []
-    for observation in portfolio_input.observations:
-        perf_date_raw = observation.get("perf_date")
-        if not isinstance(perf_date_raw, str):
-            continue
-        perf_date = date.fromisoformat(perf_date_raw)
-        if master_start_date <= perf_date <= report_end_date:
-            filtered_observations.append(observation)
+    filtered_observations = [
+        observation
+        for observation in portfolio_input.observations
+        if _workspace_observation_in_master_window(
+            observation,
+            master_start_date=master_start_date,
+            report_end_date=report_end_date,
+        )
+    ]
     return ResolvedWorkspacePortfolioInput(
         input_mode=portfolio_input.input_mode,
         performance_start_date=portfolio_input.performance_start_date,
@@ -318,6 +331,19 @@ def _trim_portfolio_input_to_master_window(
         observations=filtered_observations,
         source_details=portfolio_input.source_details,
     )
+
+
+def _workspace_observation_in_master_window(
+    observation: dict[str, object],
+    *,
+    master_start_date: date,
+    report_end_date: date,
+) -> bool:
+    perf_date_raw = observation.get("perf_date")
+    if not isinstance(perf_date_raw, str):
+        return False
+    perf_date = date.fromisoformat(perf_date_raw)
+    return master_start_date <= perf_date <= report_end_date
 
 
 def _resolve_workspace_benchmark_input(
@@ -342,6 +368,21 @@ def _resolve_workspace_benchmark_input(
             master_start_date=master_start_date,
         )
 
+    return _build_stateful_workspace_benchmark_input(
+        request=request,
+        benchmark=benchmark,
+        settings=settings,
+        master_start_date=master_start_date,
+    )
+
+
+def _build_stateful_workspace_benchmark_input(
+    *,
+    request: WorkspaceSummaryRequest,
+    benchmark: WorkspaceBenchmarkRequest,
+    settings: Settings,
+    master_start_date: date,
+) -> ResolvedWorkspaceBenchmarkInput:
     stateful_input_service = build_stateful_input_service(settings=settings)
     identity = _run_async(
         resolve_benchmark_identity(
@@ -564,15 +605,28 @@ def _build_workspace_summary_response(
         ),
         diagnostics=diagnostics,
         audit=Audit(
-            counts={
-                "input_rows": len(portfolio_input.valuation_points),
-                "periods_resolved": len(results_by_period),
-                "portfolio_chunk_count": portfolio_input.source_details.get("portfolio_chunk_count", 0),
-                "portfolio_page_count": portfolio_input.source_details.get("portfolio_page_count", 0),
-                "benchmark_chunk_count": benchmark_input.source_details.get("chunk_count", 0) if benchmark_input else 0,
-            }
+            counts=_workspace_summary_audit_counts(
+                portfolio_input=portfolio_input,
+                benchmark_input=benchmark_input,
+                results_by_period=results_by_period,
+            )
         ),
     )
+
+
+def _workspace_summary_audit_counts(
+    *,
+    portfolio_input: ResolvedWorkspacePortfolioInput,
+    benchmark_input: ResolvedWorkspaceBenchmarkInput | None,
+    results_by_period: dict[str, WorkspacePeriodSummaryResult],
+) -> dict[str, int]:
+    return {
+        "input_rows": len(portfolio_input.valuation_points),
+        "periods_resolved": len(results_by_period),
+        "portfolio_chunk_count": portfolio_input.source_details.get("portfolio_chunk_count", 0),
+        "portfolio_page_count": portfolio_input.source_details.get("portfolio_page_count", 0),
+        "benchmark_chunk_count": benchmark_input.source_details.get("chunk_count", 0) if benchmark_input else 0,
+    }
 
 
 def _build_workspace_results_by_period(
@@ -1034,8 +1088,11 @@ def _annualize_percentage(
     elapsed_days = max((end_date - start_date).days + 1, 1)
     if elapsed_days <= 365:
         return value_pct
-    periods_per_year = annualization.periods_per_year or (252 if annualization.basis == "BUS/252" else 365)
-    elapsed_measure = business_day_count if annualization.basis == "BUS/252" else elapsed_days
+    periods_per_year, elapsed_measure = _annualization_periods_and_elapsed_measure(
+        annualization=annualization,
+        business_day_count=business_day_count,
+        elapsed_days=elapsed_days,
+    )
     if elapsed_measure <= 0:
         return value_pct
     growth_factor = Decimal("1") + (value_pct / Decimal("100"))
@@ -1044,6 +1101,17 @@ def _annualize_percentage(
         ctx.prec = max(ctx.prec, 28)
         annualized_growth = (growth_factor.ln() * exponent).exp()
     return (annualized_growth - Decimal("1")) * Decimal("100")
+
+
+def _annualization_periods_and_elapsed_measure(
+    *,
+    annualization,
+    business_day_count: int,
+    elapsed_days: int,
+) -> tuple[int, int]:
+    periods_per_year = annualization.periods_per_year or (252 if annualization.basis == "BUS/252" else 365)
+    elapsed_measure = business_day_count if annualization.basis == "BUS/252" else elapsed_days
+    return periods_per_year, elapsed_measure
 
 
 def _build_workspace_benchmark_daily_df(

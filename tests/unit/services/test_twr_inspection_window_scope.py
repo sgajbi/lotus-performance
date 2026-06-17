@@ -4,6 +4,7 @@ from uuid import uuid4
 from app.models.requests import Analysis, DailyInputData, PerformanceRequest
 from app.models.responses import PerformanceResponse
 from app.services.inspection.twr_inspection_service import (
+    _response_master_window_values,
     _scope_request_to_response_master_window,
     _valuation_points_in_window,
 )
@@ -107,3 +108,22 @@ def test_valuation_points_in_window_includes_boundaries_and_omits_outside_points
     )
 
     assert [point.perf_date for point in scoped_points] == [date(2026, 1, 1), date(2026, 1, 2)]
+
+
+def test_response_master_window_values_reads_only_string_master_bounds():
+    assert _response_master_window_values(
+        _response_with_periods({"master_start": "2026-01-01", "master_end": "2026-01-02"})
+    ) == ("2026-01-01", "2026-01-02")
+    assert _response_master_window_values(_response_with_periods({"master_start": "2026-01-01"})) is None
+    assert (
+        _response_master_window_values(_response_with_periods({"master_start": "2026-01-01", "master_end": 7})) is None
+    )
+    assert _response_master_window_values(_response_with_periods(["2026-01-01", "2026-01-02"])) is None
+
+
+def _response_with_periods(periods):
+    return type(
+        "ResponseWithPeriods",
+        (),
+        {"meta": type("MetaWithPeriods", (), {"periods": periods})()},
+    )()

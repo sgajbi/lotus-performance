@@ -5,6 +5,7 @@ from fastapi import HTTPException
 
 from app.models.benchmark_analytics_requests import BenchmarkComponentPricePointInput, BenchmarkStatelessInput
 from app.services.stateless_benchmark_input_service import (
+    _aligned_component_return_dates,
     _build_price_point_observation,
     _component_observations_from_price_points,
     _cross_currency_price_point_return_components,
@@ -156,6 +157,33 @@ def test_component_observations_from_price_points_sorts_and_tracks_return_dates(
         pytest.approx(0.02),
         pytest.approx(103.0 / 102.0 - 1.0),
     ]
+
+
+def test_aligned_component_return_dates_sets_and_preserves_expected_coverage():
+    component_dates = {date(2026, 1, 2), date(2026, 1, 3)}
+
+    expected_dates = _aligned_component_return_dates(
+        component_id="IDX_A",
+        component_dates=component_dates,
+        expected_component_dates=None,
+    )
+    matched_dates = _aligned_component_return_dates(
+        component_id="IDX_B",
+        component_dates={date(2026, 1, 2), date(2026, 1, 3)},
+        expected_component_dates=expected_dates,
+    )
+
+    assert expected_dates == component_dates
+    assert matched_dates == expected_dates
+
+
+def test_aligned_component_return_dates_rejects_peer_coverage_mismatch():
+    with pytest.raises(HTTPException, match="same derived return-date set"):
+        _aligned_component_return_dates(
+            component_id="IDX_B",
+            component_dates={date(2026, 1, 3)},
+            expected_component_dates={date(2026, 1, 2)},
+        )
 
 
 def test_price_point_return_components_resolve_same_and_cross_currency_returns():

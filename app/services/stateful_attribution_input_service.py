@@ -77,8 +77,9 @@ async def retrieve_stateful_attribution_source_input(
     benchmark_id_override: str | None,
 ) -> StatefulAttributionSourceInput:
     _validate_stateful_group_by(group_by)
-    requested_dimensions = sorted(
-        {*dimensions, *[dimension for dimension in group_by if dimension in _UPSTREAM_DIMENSION_GROUPS]}
+    requested_dimensions = _stateful_attribution_requested_dimensions(
+        group_by=group_by,
+        dimensions=dimensions,
     )
 
     portfolio_input = await retrieve_stateful_portfolio_input(
@@ -158,6 +159,14 @@ async def retrieve_stateful_attribution_source_input(
     )
 
 
+def _stateful_attribution_requested_dimensions(
+    *,
+    group_by: list[str],
+    dimensions: list[StatefulDimensionName],
+) -> list[str]:
+    return sorted({*dimensions, *[dimension for dimension in group_by if dimension in _UPSTREAM_DIMENSION_GROUPS]})
+
+
 async def _resolve_stateful_attribution_benchmark_id(
     *,
     stateful_input_service: StatefulInputService,
@@ -186,6 +195,10 @@ async def _resolve_stateful_attribution_benchmark_id(
             source_label="benchmark assignment",
             upstream_status=assignment_status,
         )
+    return _stateful_attribution_benchmark_id_from_assignment_payload(assignment_payload)
+
+
+def _stateful_attribution_benchmark_id_from_assignment_payload(assignment_payload: dict[str, object]) -> str:
     benchmark_id_raw = assignment_payload.get("benchmark_id")
     if not isinstance(benchmark_id_raw, str) or not benchmark_id_raw:
         raise HTTPException(
@@ -443,15 +456,22 @@ def _sum_internal_cash_flow_abs_in_alignment_basis(
     )
     total = Decimal("0")
     for flow in cash_flows_raw:
-        if not isinstance(flow, dict):
-            continue
-        amount = flow.get("amount")
-        if amount is None:
-            continue
-        if classify_cashflow_type(flow.get("cash_flow_type")).economics_role != "internal":
-            continue
-        total += abs(Decimal(str(amount)) * conversion_factor)
+        total += _internal_cash_flow_abs_in_alignment_basis(
+            flow=flow,
+            conversion_factor=conversion_factor,
+        )
     return total
+
+
+def _internal_cash_flow_abs_in_alignment_basis(*, flow: object, conversion_factor: Decimal) -> Decimal:
+    if not isinstance(flow, dict):
+        return Decimal("0")
+    amount = flow.get("amount")
+    if amount is None:
+        return Decimal("0")
+    if classify_cashflow_type(flow.get("cash_flow_type")).economics_role != "internal":
+        return Decimal("0")
+    return abs(Decimal(str(amount)) * conversion_factor)
 
 
 def _alignment_cash_flow_conversion_factor(
@@ -500,6 +520,14 @@ def _row_has_required_position_dimensions(
     labels = row.get("dimensions")
     if not isinstance(labels, dict):
         return False
+    return _labels_have_required_dimensions(labels=labels, dimensions=dimensions)
+
+
+def _labels_have_required_dimensions(
+    *,
+    labels: dict[str, object],
+    dimensions: list[str],
+) -> bool:
     return all(
         isinstance(labels.get(dimension), str) and str(labels.get(dimension)).strip() for dimension in dimensions
     )
@@ -526,9 +554,7 @@ def _classified_component_count(
         labels = labels_by_index.get(component_id)
         if labels is None:
             continue
-        if all(
-            isinstance(labels.get(dimension), str) and str(labels.get(dimension)).strip() for dimension in dimensions
-        ):
+        if _labels_have_required_dimensions(labels=labels, dimensions=dimensions):
             classified_count += 1
     return classified_count
 
@@ -740,7 +766,10 @@ def _build_benchmark_groups(
             group_by=group_by,
             row=row,
         )
+    return _benchmark_groups_from_buckets(grouped)
 
+
+def _benchmark_groups_from_buckets(grouped: _BenchmarkGroupBuckets) -> list[BenchmarkGroup]:
     benchmark_groups: list[BenchmarkGroup] = []
     for key_tuple in sorted(grouped):
         observations = []
@@ -979,21 +1008,14 @@ def _position_row_to_base_weight_point(
     valuation_date = row.get("valuation_date")
     if not isinstance(valuation_date, str):
         return None
-    value_basis: PositionValueBasis
 
-    if reporting_currency is not None:
-        begin_value = row.get("beginning_market_value_reporting_currency")
-    else:
-        begin_value = row.get("beginning_market_value_portfolio_currency")
-    if begin_value is None:
-        begin_value = row.get("beginning_market_value_portfolio_currency")
-    if begin_value is None:
+    begin_value_and_basis = _position_base_weight_begin_value_and_basis(
+        row=row,
+        reporting_currency=reporting_currency,
+    )
+    if begin_value_and_basis is None:
         return None
-
-    if reporting_currency is not None:
-        value_basis = "reporting"
-    else:
-        value_basis = "portfolio"
+    begin_value, value_basis = begin_value_and_basis
     bod_cf, _, _ = split_position_cash_flows_in_value_basis(
         cash_flows_raw=row.get("cash_flows"),
         row=row,
@@ -1004,6 +1026,23 @@ def _position_row_to_base_weight_point(
         "begin_mv": Decimal(str(begin_value)),
         "bod_cf": bod_cf,
     }
+
+
+def _position_base_weight_begin_value_and_basis(
+    *,
+    row: dict[str, object],
+    reporting_currency: str | None,
+) -> tuple[object, PositionValueBasis] | None:
+    value_basis: PositionValueBasis = "portfolio"
+    begin_value = row.get("beginning_market_value_portfolio_currency")
+    if reporting_currency is not None:
+        value_basis = "reporting"
+        begin_value = row.get("beginning_market_value_reporting_currency")
+        if begin_value is None:
+            begin_value = row.get("beginning_market_value_portfolio_currency")
+    if begin_value is None:
+        return None
+    return begin_value, value_basis
 
 
 def _split_position_cash_flows(cash_flows_raw: object) -> tuple[Decimal, Decimal]:
@@ -1035,20 +1074,31 @@ def _position_cash_flow_amount(flow: object) -> tuple[str, Decimal] | None:
 
 
 def _position_meta_from_row(row: dict[str, object]) -> dict[str, object]:
+    meta = _position_meta_identity_fields(row)
+    meta.update(_position_meta_fx_rate_fields(row))
+    meta.update(_normalized_position_dimensions(row.get("dimensions")))
+    return meta
+
+
+def _position_meta_identity_fields(row: dict[str, object]) -> dict[str, object]:
     meta: dict[str, object] = {}
     security_id = row.get("security_id")
     if isinstance(security_id, str):
         meta["security_id"] = security_id
-    position_currency = row.get("position_currency")
-    if isinstance(position_currency, str) and position_currency:
-        meta["currency"] = _normalize_group_value(position_currency)
-    cash_flow_currency = row.get("cash_flow_currency")
-    if isinstance(cash_flow_currency, str) and cash_flow_currency:
-        meta["cash_flow_currency"] = _normalize_group_value(cash_flow_currency)
-
-    meta.update(_position_meta_fx_rate_fields(row))
-    meta.update(_normalized_position_dimensions(row.get("dimensions")))
+    for source_field, target_field in (
+        ("position_currency", "currency"),
+        ("cash_flow_currency", "cash_flow_currency"),
+    ):
+        normalized_value = _normalized_non_empty_group_value(row.get(source_field))
+        if normalized_value is not None:
+            meta[target_field] = normalized_value
     return meta
+
+
+def _normalized_non_empty_group_value(value: object) -> str | None:
+    if not isinstance(value, str) or not value:
+        return None
+    return _normalize_group_value(value)
 
 
 def _position_meta_fx_rate_fields(row: dict[str, object]) -> dict[str, object]:
@@ -1119,7 +1169,13 @@ def _validate_stateful_both_currency_support(
             ),
         )
 
-    if any(position_currency != reporting_currency for position_currency in position_currencies) and fx is None:
+    if (
+        _stateful_both_currency_requires_fx(
+            position_currencies=position_currencies,
+            reporting_currency=reporting_currency,
+        )
+        and fx is None
+    ):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=(
@@ -1127,6 +1183,14 @@ def _validate_stateful_both_currency_support(
                 "include currencies different from report_ccy."
             ),
         )
+
+
+def _stateful_both_currency_requires_fx(
+    *,
+    position_currencies: set[str],
+    reporting_currency: str,
+) -> bool:
+    return any(position_currency != reporting_currency for position_currency in position_currencies)
 
 
 def _stateful_position_currencies(rows: list[dict[str, object]]) -> set[str]:

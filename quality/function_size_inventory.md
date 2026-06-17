@@ -1,7 +1,7 @@
 # Lotus Performance Function Size Inventory
 
-Report date: 2026-06-16
-Branch: `refactor/lp-cr-1154-durable-json-object-loader`
+Report date: 2026-06-17
+Branch: `refactor/lp-cr-1167-inspection-verdict-policy`
 Mode: report-only function-size inventory; this artifact introduces no new blocking CI gate.
 
 ## Purpose
@@ -22,24 +22,24 @@ python scripts/python_function_size_inventory.py --limit 20
 | ---: | --- | --- | ---: |
 | 1 | `DurableQueueCollector.describe` | `app/services/queue_metrics_service.py:193` | 159 |
 | 2 | `build_runtime_status_response` | `app/models/runtime_status.py:767` | 131 |
-| 3 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:327` | 130 |
+| 3 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:331` | 130 |
 | 4 | `calculate_attribution` | `app/services/attribution_service.py:214` | 104 |
 | 5 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:227` | 102 |
 | 6 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:331` | 102 |
 | 7 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:87` | 101 |
-| 8 | `aggregate_attribution_results` | `engine/attribution.py:697` | 98 |
-| 9 | `_calculate_returns_series` | `app/services/returns_series_service.py:1397` | 97 |
-| 10 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:62` | 97 |
-| 11 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:31` | 94 |
-| 12 | `build_stateful_benchmark_input` | `app/services/stateful_benchmark_input_service.py:57` | 93 |
-| 13 | `calculate_twr_response` | `app/services/twr_service.py:1061` | 93 |
+| 8 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:62` | 98 |
+| 9 | `aggregate_attribution_results` | `engine/attribution.py:697` | 98 |
+| 10 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:31` | 94 |
+| 11 | `build_stateful_benchmark_input` | `app/services/stateful_benchmark_input_service.py:57` | 93 |
+| 12 | `calculate_twr_response` | `app/services/twr_service.py:1061` | 93 |
+| 13 | `_calculate_returns_series` | `app/services/returns_series_service.py:1463` | 90 |
 | 14 | `_build_artifacts` | `app/services/composite_inspection_service.py:151` | 89 |
 | 15 | `build_recovery_drill_history_snapshot` | `app/services/recovery_drill_history_service.py:62` | 85 |
 | 16 | `build_runtime_recovery_snapshot` | `app/services/runtime_recovery_service.py:46` | 84 |
-| 17 | `run_runtime_retention_cleanup` | `app/services/runtime_retention_run_service.py:93` | 83 |
-| 18 | `StatefulInputService._fetch_position_chunk` | `app/services/stateful_input_service.py:991` | 81 |
-| 19 | `calculate_contribution` | `app/services/contribution_service.py:614` | 80 |
-| 20 | `LineageMetadataStore._build_inspection_query_statements` | `app/services/lineage_metadata_store.py:529` | 80 |
+| 17 | `run_runtime_retention_cleanup` | `app/services/runtime_retention_run_service.py:112` | 83 |
+| 18 | `calculate_contribution` | `app/services/contribution_service.py:614` | 80 |
+| 19 | `LineageMetadataStore._build_inspection_query_statements` | `app/services/lineage_metadata_store.py:529` | 80 |
+| 20 | `_build_contribution_response` | `app/services/contribution_service.py:533` | 79 |
 
 ## Interpretation
 
@@ -72,6 +72,11 @@ collection and average-weight residual max tracking were isolated from the publi
 calculation function.
 Stateful attribution source input retrieval dropped out of the top-15 table after benchmark
 assignment resolution was isolated from the source-input orchestration path.
+It remains in the top-20 function-size table after requested upstream attribution dimension
+selection was isolated; future size-focused work should target source retrieval/result projection
+only where behavior can be preserved with direct tests.
+Stateful position chunk retrieval dropped out of the top-20 table after page request/payload
+projection was isolated from the chunk pagination loop.
 Durable queue metric collection dropped out of the top-15 table after source loading and
 availability/runtime-retention preview metric emission were isolated into dedicated helpers.
 Source-economics top-level finding assembly dropped from `258` lines out of the top-15 table after

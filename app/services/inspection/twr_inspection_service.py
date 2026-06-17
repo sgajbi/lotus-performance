@@ -594,13 +594,24 @@ def _synthesize_verdict(
     failed_check_families: list[str],
     pending_check_families: list[str],
 ) -> TWRInspectionVerdict:
-    if failed_check_families and not completed_check_families:
+    if _only_failed_check_families(
+        completed_check_families=completed_check_families,
+        failed_check_families=failed_check_families,
+    ):
         return TWRInspectionVerdict.INSPECTION_FAILED
     if _has_not_supportable_finding(findings):
         return TWRInspectionVerdict.NOT_SUPPORTABLE
     if findings or pending_check_families:
         return TWRInspectionVerdict.SUPPORTABLE_WITH_WARNINGS
     return TWRInspectionVerdict.SUPPORTABLE
+
+
+def _only_failed_check_families(
+    *,
+    completed_check_families: list[str],
+    failed_check_families: list[str],
+) -> bool:
+    return bool(failed_check_families) and not completed_check_families
 
 
 def _has_not_supportable_finding(findings: list[TWRInspectionFinding]) -> bool:
@@ -727,15 +738,25 @@ def _valuation_points_in_window(
 
 
 def _response_master_window(response_model: PerformanceResponse) -> tuple[date | None, date | None]:
-    periods = response_model.meta.periods
-    master_start_raw = periods.get("master_start") if isinstance(periods, dict) else None
-    master_end_raw = periods.get("master_end") if isinstance(periods, dict) else None
-    if not isinstance(master_start_raw, str) or not isinstance(master_end_raw, str):
+    master_window_values = _response_master_window_values(response_model)
+    if master_window_values is None:
         return None, None
+    master_start_raw, master_end_raw = master_window_values
     try:
         return date.fromisoformat(master_start_raw), date.fromisoformat(master_end_raw)
     except ValueError:
         return None, None
+
+
+def _response_master_window_values(response_model: PerformanceResponse) -> tuple[str, str] | None:
+    periods = response_model.meta.periods
+    if not isinstance(periods, dict):
+        return None
+    master_start_raw = periods.get("master_start")
+    master_end_raw = periods.get("master_end")
+    if not isinstance(master_start_raw, str) or not isinstance(master_end_raw, str):
+        return None
+    return master_start_raw, master_end_raw
 
 
 def _build_owner_summary(findings: list[TWRInspectionFinding]) -> TWRInspectionOwnerSummary:

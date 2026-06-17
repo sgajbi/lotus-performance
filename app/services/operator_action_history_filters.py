@@ -23,6 +23,13 @@ class GeneratedAtBounds:
     def has_bounds(self) -> bool:
         return self.after is not None or self.before is not None
 
+    def contains(self, generated_at: datetime) -> bool:
+        if self.after is not None and generated_at < self.after:
+            return False
+        if self.before is not None and generated_at > self.before:
+            return False
+        return True
+
 
 def parse_generated_at_bounds(
     *,
@@ -37,13 +44,7 @@ def parse_generated_at_bounds(
 
 def generated_at_within_bounds(generated_at_utc: str, *, bounds: GeneratedAtBounds) -> bool:
     generated_at = parse_generated_at_filter(generated_at_utc)
-    if generated_at is None:
-        return False
-    if bounds.after is not None and generated_at < bounds.after:
-        return False
-    if bounds.before is not None and generated_at > bounds.before:
-        return False
-    return True
+    return generated_at is not None and bounds.contains(generated_at)
 
 
 def parse_generated_at_filter(value: str | None) -> datetime | None:

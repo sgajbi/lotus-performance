@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
 from app.services.operator_action_history_filters import (
     _normalized_optional_history_filters,
@@ -41,6 +42,18 @@ def test_generated_at_bounds_supports_open_range():
 
     assert generated_at_within_bounds("2026-03-15T00:00:00Z", bounds=bounds)
     assert not generated_at_within_bounds("2026-03-14T23:59:59Z", bounds=bounds)
+
+
+def test_generated_at_bounds_contains_uses_inclusive_boundaries():
+    bounds = parse_generated_at_bounds(
+        generated_after="2026-03-15T00:00:00Z",
+        generated_before="2026-03-15T23:59:59Z",
+    )
+
+    assert bounds.contains(datetime(2026, 3, 15, 0, 0, 0, tzinfo=UTC))
+    assert bounds.contains(datetime(2026, 3, 15, 23, 59, 59, tzinfo=UTC))
+    assert not bounds.contains(datetime(2026, 3, 14, 23, 59, 59, tzinfo=UTC))
+    assert not bounds.contains(datetime(2026, 3, 16, 0, 0, 0, tzinfo=UTC))
 
 
 def test_build_applied_history_filters_keeps_common_and_optional_filters():

@@ -22,10 +22,14 @@ from app.models.workspace_summary_responses import (
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY
 from app.services.workspace_summary_service import (
     ResolvedWorkspaceBenchmarkInput,
+    ResolvedWorkspacePortfolioInput,
     WorkspaceTWRArtifacts,
+    _annualization_periods_and_elapsed_measure,
     _annualize_percentage,
     _build_economic_context,
     _build_mwr_cash_flows,
+    _build_stateful_workspace_benchmark_input,
+    _build_stateful_workspace_portfolio_input,
     _build_stateless_workspace_benchmark_input,
     _build_stateless_workspace_portfolio_input,
     _build_workspace_benchmark_and_active_blocks,
@@ -33,9 +37,12 @@ from app.services.workspace_summary_service import (
     _build_workspace_results_by_period,
     _date_from_boundary,
     _decimal_or_zero,
+    _longest_workspace_period_days,
     _resolve_stateful_portfolio_start_date,
     _resolve_workspace_benchmark_input,
     _resolve_workspace_portfolio_input,
+    _workspace_observation_in_master_window,
+    _workspace_summary_audit_counts,
     _workspace_summary_diagnostics_notes,
     calculate_workspace_summary,
     workspace_longest_requested_window_days,
@@ -89,6 +96,22 @@ def test_workspace_longest_requested_window_days_uses_report_start_fallback():
     )
 
     assert workspace_longest_requested_window_days(request) == 29
+
+
+def test_longest_workspace_period_days_returns_zero_for_empty_periods():
+    assert _longest_workspace_period_days([]) == 0
+
+
+def test_longest_workspace_period_days_uses_largest_resolved_window():
+    assert (
+        _longest_workspace_period_days(
+            [
+                ResolvedWorkspacePeriod(name="SHORT", start_date=date(2026, 6, 1), end_date=date(2026, 6, 5)),
+                ResolvedWorkspacePeriod(name="LONG", start_date=date(2026, 5, 1), end_date=date(2026, 6, 30)),
+            ]
+        )
+        == 60
+    )
 
 
 def test_workspace_summary_stateful_retrieval_uses_longest_requested_window(mocker):
@@ -418,6 +441,78 @@ def test_resolve_workspace_benchmark_input_rejects_assignment_payload_without_be
         )
 
 
+def test_build_stateful_workspace_benchmark_input_projects_request_and_source_details(mocker):
+    captured_identity: dict[str, object] = {}
+    captured_input: dict[str, object] = {}
+
+    async def _resolve_benchmark_identity(**kwargs):
+        captured_identity.update(kwargs)
+        return SimpleNamespace(benchmark_id="LINKED-BMK", source_details={"resolved_benchmark_assignment": 1})
+
+    async def _build_stateful_benchmark_input(**kwargs):
+        captured_input.update(kwargs)
+        return SimpleNamespace(
+            benchmark_currency="USD",
+            component_observations=[],
+            benchmark_return_points=[
+                SimpleNamespace(model_dump=lambda mode="python": {"perf_date": "2026-01-02", "benchmark_return": 0.01})
+            ],
+            source_details={"benchmark_chunk_count": 4},
+        )
+
+    stateful_input_service = SimpleNamespace()
+    mocker.patch(
+        "app.services.workspace_summary_service.build_stateful_input_service",
+        return_value=stateful_input_service,
+    )
+    mocker.patch(
+        "app.services.workspace_summary_service.resolve_benchmark_identity",
+        side_effect=_resolve_benchmark_identity,
+    )
+    mocker.patch(
+        "app.services.workspace_summary_service.build_stateful_benchmark_input",
+        side_effect=_build_stateful_benchmark_input,
+    )
+    request = WorkspaceSummaryRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT-1",
+            "report_end_date": "2026-01-02",
+            "report_ccy": "USD",
+            "input_mode": "stateful",
+            "stateful_input": {},
+            "periods": [{"period": "1D", "frequencies": ["daily"]}],
+            "include_benchmark": True,
+            "benchmark": {"input_mode": "stateful", "stateful_input": {}, "return_source": "vendor_series"},
+        }
+    )
+    assert request.benchmark is not None
+
+    result = _build_stateful_workspace_benchmark_input(
+        request=request,
+        benchmark=request.benchmark,
+        settings=SimpleNamespace(),
+        master_start_date=date(2026, 1, 1),
+    )
+
+    assert captured_identity["stateful_input_service"] is stateful_input_service
+    assert captured_identity["portfolio_id"] == "PORT-1"
+    assert captured_identity["reporting_currency"] == "USD"
+    assert captured_input["benchmark_id"] == "LINKED-BMK"
+    assert captured_input["start_date"] == date(2026, 1, 1)
+    assert captured_input["end_date"] == date(2026, 1, 2)
+    assert result.input_mode == BenchmarkInputMode.STATEFUL
+    assert result.benchmark_id == "LINKED-BMK"
+    assert result.source_details == {"resolved_benchmark_assignment": 1, "benchmark_chunk_count": 4}
+    assert result.benchmark_request.benchmark_id == "LINKED-BMK"
+    assert result.benchmark_request.benchmark_start_date == date(2026, 1, 1)
+    assert result.benchmark_request.report_start_date == date(2026, 1, 1)
+    assert result.benchmark_request.report_end_date == date(2026, 1, 2)
+    assert result.benchmark_request.return_source == "vendor_series"
+    assert [point.benchmark_return for point in result.benchmark_request.benchmark_return_points] == [0.01]
+    assert result.benchmark_request.component_observations == []
+
+
 def test_resolve_workspace_benchmark_input_rejects_stateless_payload_missing_required_fields():
     request = WorkspaceSummaryRequest.model_construct(
         calculation_id=uuid4(),
@@ -565,6 +660,134 @@ def test_build_stateless_workspace_portfolio_input_projects_values_and_source_de
         date(2026, 1, 2),
     ]
     assert result.source_details == {"portfolio_chunk_count": 0, "portfolio_page_count": 0}
+
+
+def test_build_stateful_workspace_portfolio_input_projects_retrieval_and_source_details(mocker):
+    captured: dict[str, object] = {}
+    source_input = SimpleNamespace(retrieval_metadata=SimpleNamespace(chunk_count=3, page_count=7))
+
+    async def _retrieve_stateful_portfolio_input(**kwargs):
+        captured.update(kwargs)
+        return source_input
+
+    mocker.patch(
+        "app.services.workspace_summary_service.retrieve_stateful_portfolio_input",
+        side_effect=_retrieve_stateful_portfolio_input,
+    )
+    mocker.patch(
+        "app.services.workspace_summary_service.build_stateful_portfolio_valuation_input",
+        return_value=SimpleNamespace(
+            performance_start_date=date(2026, 1, 1),
+            observations=[{"perf_date": "2026-01-02"}],
+            valuation_points=[
+                {
+                    "perf_date": "2026-01-02",
+                    "begin_mv": 100.0,
+                    "bod_cf": 0.0,
+                    "eod_cf": 0.0,
+                    "mgmt_fees": 0.0,
+                    "end_mv": 101.0,
+                }
+            ],
+        ),
+    )
+    request = WorkspaceSummaryRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT-1",
+            "report_end_date": "2026-01-02",
+            "report_start_date": "2026-01-01",
+            "performance_start_date": "2026-01-01",
+            "input_mode": "stateful",
+            "stateful_input": {},
+            "periods": [{"period": "EXPLICIT", "frequencies": ["daily"]}],
+        }
+    )
+
+    result = _build_stateful_workspace_portfolio_input(request=request, settings=SimpleNamespace())
+
+    assert captured["portfolio_id"] == "PORT-1"
+    assert captured["as_of_date"] == date(2026, 1, 2)
+    assert captured["start_date"] == date(2026, 1, 1)
+    assert captured["end_date"] == date(2026, 1, 2)
+    assert captured["consumer_system"] == "lotus-performance"
+    assert result.input_mode == "stateful"
+    assert result.performance_start_date == date(2026, 1, 1)
+    assert [point.perf_date for point in result.valuation_points] == [date(2026, 1, 2)]
+    assert result.observations == [{"perf_date": "2026-01-02"}]
+    assert result.source_details == {"portfolio_chunk_count": 3, "portfolio_page_count": 7}
+
+
+def test_workspace_observation_in_master_window_accepts_bounded_string_dates():
+    assert _workspace_observation_in_master_window(
+        {"perf_date": "2026-01-02"},
+        master_start_date=date(2026, 1, 1),
+        report_end_date=date(2026, 1, 2),
+    )
+
+
+def test_workspace_observation_in_master_window_rejects_dates_outside_window():
+    assert not _workspace_observation_in_master_window(
+        {"perf_date": "2025-12-31"},
+        master_start_date=date(2026, 1, 1),
+        report_end_date=date(2026, 1, 2),
+    )
+
+
+def test_workspace_observation_in_master_window_rejects_non_string_dates():
+    assert not _workspace_observation_in_master_window(
+        {"perf_date": date(2026, 1, 2)},
+        master_start_date=date(2026, 1, 1),
+        report_end_date=date(2026, 1, 2),
+    )
+
+
+def test_workspace_summary_audit_counts_projects_portfolio_counts_without_benchmark():
+    portfolio_input = ResolvedWorkspacePortfolioInput(
+        input_mode="stateful",
+        performance_start_date=date(2026, 1, 1),
+        valuation_points=[
+            DailyInputData.model_validate({"perf_date": "2026-01-01", "begin_mv": 100.0, "end_mv": 101.0}),
+            DailyInputData.model_validate({"perf_date": "2026-01-02", "begin_mv": 101.0, "end_mv": 102.0}),
+        ],
+        observations=[],
+        source_details={"portfolio_chunk_count": 3, "portfolio_page_count": 7},
+    )
+
+    assert _workspace_summary_audit_counts(
+        portfolio_input=portfolio_input,
+        benchmark_input=None,
+        results_by_period={"1D": SimpleNamespace()},
+    ) == {
+        "input_rows": 2,
+        "periods_resolved": 1,
+        "portfolio_chunk_count": 3,
+        "portfolio_page_count": 7,
+        "benchmark_chunk_count": 0,
+    }
+
+
+def test_workspace_summary_audit_counts_projects_benchmark_chunk_count():
+    portfolio_input = ResolvedWorkspacePortfolioInput(
+        input_mode="stateful",
+        performance_start_date=date(2026, 1, 1),
+        valuation_points=[],
+        observations=[],
+        source_details={},
+    )
+    benchmark_input = SimpleNamespace(source_details={"chunk_count": 5})
+
+    assert _workspace_summary_audit_counts(
+        portfolio_input=portfolio_input,
+        benchmark_input=benchmark_input,
+        results_by_period={"1D": SimpleNamespace(), "1M": SimpleNamespace()},
+    ) == {
+        "input_rows": 0,
+        "periods_resolved": 2,
+        "portfolio_chunk_count": 0,
+        "portfolio_page_count": 0,
+        "benchmark_chunk_count": 5,
+    }
 
 
 def test_build_workspace_results_by_period_skips_empty_periods_and_projects_summaries(mocker):
@@ -730,6 +953,22 @@ def test_annualize_percentage_returns_original_value_when_elapsed_measure_is_non
         )
         == 12.5
     )
+
+
+def test_annualization_periods_and_elapsed_measure_uses_business_day_basis_defaults():
+    assert _annualization_periods_and_elapsed_measure(
+        annualization=SimpleNamespace(periods_per_year=None, basis="BUS/252"),
+        business_day_count=200,
+        elapsed_days=365,
+    ) == (252, 200)
+
+
+def test_annualization_periods_and_elapsed_measure_uses_calendar_basis_and_explicit_periods():
+    assert _annualization_periods_and_elapsed_measure(
+        annualization=SimpleNamespace(periods_per_year=360, basis="CAL/365"),
+        business_day_count=200,
+        elapsed_days=400,
+    ) == (360, 400)
 
 
 def test_date_from_boundary_rejects_unsupported_boundary_values():

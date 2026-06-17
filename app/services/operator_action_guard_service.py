@@ -192,13 +192,15 @@ def _enforce_manual_action_cooldown(
     cooldown_seconds: float,
     now_utc: datetime | None,
 ) -> None:
-    if cooldown_seconds <= 0 or latest_generated_at_utc is None or latest_evidence_file_name is None:
+    if latest_evidence_file_name is None:
         return
 
-    current_time = now_utc or datetime.now(UTC)
-    elapsed_seconds = elapsed_seconds_since(current_time, parse_utc_datetime(latest_generated_at_utc))
-    retry_after_seconds = math.ceil(cooldown_seconds - elapsed_seconds)
-    if retry_after_seconds <= 0:
+    retry_after_seconds = _manual_action_retry_after_seconds(
+        latest_generated_at_utc=latest_generated_at_utc,
+        cooldown_seconds=cooldown_seconds,
+        now_utc=now_utc,
+    )
+    if retry_after_seconds is None:
         return
 
     raise HTTPException(
@@ -215,3 +217,18 @@ def _enforce_manual_action_cooldown(
         },
         headers={"Retry-After": str(retry_after_seconds)},
     )
+
+
+def _manual_action_retry_after_seconds(
+    *,
+    latest_generated_at_utc: str | None,
+    cooldown_seconds: float,
+    now_utc: datetime | None,
+) -> int | None:
+    if cooldown_seconds <= 0 or latest_generated_at_utc is None:
+        return None
+
+    current_time = now_utc or datetime.now(UTC)
+    elapsed_seconds = elapsed_seconds_since(current_time, parse_utc_datetime(latest_generated_at_utc))
+    retry_after_seconds = math.ceil(cooldown_seconds - elapsed_seconds)
+    return retry_after_seconds if retry_after_seconds > 0 else None

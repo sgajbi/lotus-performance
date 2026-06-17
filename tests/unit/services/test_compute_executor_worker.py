@@ -1072,6 +1072,59 @@ def test_compute_executor_worker_processes_resolved_stateful_attribution_job(tmp
     }
 
 
+def test_compute_executor_worker_resolves_attribution_job_from_resolved_payload():
+    resolved_request = AttributionRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "P1",
+            "mode": "by_group",
+            "group_by": ["sector"],
+            "linking": "none",
+            "frequency": "daily",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-01",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "portfolio_groups_data": [
+                {
+                    "key": {"sector": "Tech"},
+                    "observations": [{"date": "2025-01-01", "return_base": 0.015, "weight_bop": 1.0}],
+                }
+            ],
+            "benchmark_groups_data": [
+                {
+                    "key": {"sector": "Tech"},
+                    "observations": [{"date": "2025-01-01", "return_base": 0.01, "weight_bop": 1.0}],
+                }
+            ],
+        }
+    )
+
+    result = compute_executor_worker._resolved_async_attribution_job_request_from_payload(
+        {
+            "resolved_request": resolved_request.model_dump(mode="json"),
+            "source_input_mode": "stateful",
+            "resolved_benchmark_id": "BMK_1",
+            "resolved_benchmark_return_source": "calculated",
+        }
+    )
+
+    assert result is not None
+    request, input_mode, benchmark_id, benchmark_return_source = result
+    assert request == resolved_request
+    assert input_mode == compute_executor_worker.AttributionInputMode.STATEFUL
+    assert benchmark_id == "BMK_1"
+    assert benchmark_return_source == "calculated"
+
+
+def test_compute_executor_worker_skips_attribution_resolved_payload_without_input_mode():
+    assert (
+        compute_executor_worker._resolved_async_attribution_job_request_from_payload(
+            {"resolved_request": {"portfolio_id": "P1"}}
+        )
+        is None
+    )
+
+
 def test_compute_executor_worker_marks_failed_and_handles_missing_execution(tmp_path, monkeypatch):
     job_store = ComputeJobStore(f"sqlite:///{tmp_path / 'jobs.db'}")
     job_store.create_schema()

@@ -14,6 +14,7 @@ from app.services.operator_action_lease_service import (
     ActiveOperatorActionLease,
     OperatorActionLeaseMetadata,
     _active_lease_required_string_fields,
+    _has_required_reclaimed_event_strings,
     _has_valid_reclaimed_event_fields,
     _has_valid_reclaimed_event_string_fields,
     _matching_active_operator_action_lease,
@@ -24,6 +25,7 @@ from app.services.operator_action_lease_service import (
     _read_recent_reclaimed_leases,
     _recent_reclaimed_lease_events_from_payload,
     _reclaim_stale_lock,
+    _reclaimed_event_timestamps_valid,
     _stale_lock_reclaim_candidate,
     _write_latest_reclaimed_lease,
     build_operator_action_lease_snapshot,
@@ -719,6 +721,21 @@ def test_has_valid_reclaimed_event_fields_checks_complete_post_filter_shape():
     assert not _has_valid_reclaimed_event_fields({**payload, "reclaim_count": "1"})
 
 
+def test_reclaimed_event_timestamps_valid_requires_both_utc_timestamps():
+    assert _reclaimed_event_timestamps_valid(
+        acquired_at_utc="2026-03-15T00:00:00Z",
+        reclaimed_at_utc="2026-03-15T01:00:00Z",
+    )
+    assert not _reclaimed_event_timestamps_valid(
+        acquired_at_utc="not-a-date",
+        reclaimed_at_utc="2026-03-15T01:00:00Z",
+    )
+    assert not _reclaimed_event_timestamps_valid(
+        acquired_at_utc="2026-03-15T00:00:00Z",
+        reclaimed_at_utc="not-a-date",
+    )
+
+
 def test_has_valid_reclaimed_event_string_fields_allows_absent_optional_tenant():
     payload = {
         "action_key": "key",
@@ -732,6 +749,22 @@ def test_has_valid_reclaimed_event_string_fields_allows_absent_optional_tenant()
     assert _has_valid_reclaimed_event_string_fields(payload)
     assert not _has_valid_reclaimed_event_string_fields({**payload, "action_key": " "})
     assert not _has_valid_reclaimed_event_string_fields({**payload, "tenant_id": 1})
+
+
+def test_has_required_reclaimed_event_strings_rejects_missing_or_blank_required_values():
+    payload = {
+        "operator_id": "ops-user",
+        "governed_target": "backup-123",
+        "acquired_at_utc": "2026-03-15T00:00:00Z",
+        "reclaimed_at_utc": "2026-03-15T01:00:00Z",
+        "action_key": "recovery-drill-ops-user-backup-123",
+    }
+
+    assert _has_required_reclaimed_event_strings(payload)
+    assert not _has_required_reclaimed_event_strings({**payload, "operator_id": " "})
+    assert not _has_required_reclaimed_event_strings(
+        {key: value for key, value in payload.items() if key != "action_key"}
+    )
 
 
 def test_write_latest_reclaimed_lease_increments_prior_count_and_history(tmp_path):

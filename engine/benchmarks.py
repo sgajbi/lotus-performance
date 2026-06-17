@@ -37,24 +37,7 @@ def _component_contributions_dataframe(
     *,
     has_any_local: bool,
 ) -> pd.DataFrame:
-    records = [
-        {
-            "date": observation.perf_date,
-            "component_id": observation.component_id,
-            "component_currency": observation.component_currency,
-            "weight_bop": Decimal(str(observation.weight_bop)),
-            "component_return": Decimal(str(observation.component_return)),
-            "component_return_local": (
-                Decimal(str(observation.component_return_local))
-                if observation.component_return_local is not None
-                else None
-            ),
-            "component_return_fx": (
-                Decimal(str(observation.component_return_fx)) if observation.component_return_fx is not None else None
-            ),
-        }
-        for observation in component_observations
-    ]
+    records = [_component_contribution_record(observation) for observation in component_observations]
     contributions_df = pd.DataFrame(records)
     if contributions_df.duplicated(subset=["date", "component_id"]).any():
         raise ValueError("Duplicate component observation detected for the same date/component_id")
@@ -67,6 +50,22 @@ def _component_contributions_dataframe(
         )
         contributions_df["fx_contribution"] = contributions_df["weight_bop"] * contributions_df["component_return_fx"]
     return contributions_df
+
+
+def _component_contribution_record(observation: BenchmarkComponentObservationLike) -> dict[str, Any]:
+    return {
+        "date": observation.perf_date,
+        "component_id": observation.component_id,
+        "component_currency": observation.component_currency,
+        "weight_bop": Decimal(str(observation.weight_bop)),
+        "component_return": Decimal(str(observation.component_return)),
+        "component_return_local": (
+            Decimal(str(observation.component_return_local)) if observation.component_return_local is not None else None
+        ),
+        "component_return_fx": (
+            Decimal(str(observation.component_return_fx)) if observation.component_return_fx is not None else None
+        ),
+    }
 
 
 def _aggregate_benchmark_returns(

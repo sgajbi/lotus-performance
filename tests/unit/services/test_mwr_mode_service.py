@@ -14,6 +14,7 @@ from app.services.stateful_mwr_input_service import (
     _collect_stateful_mwr_cash_flows,
     _observation_cash_flow_currency_matches_reporting,
     _parse_decimal,
+    _portfolio_currency_matches_reporting,
     _source_mwr_cash_flow_component,
     _stateful_mwr_cash_flow_projection,
     _StatefulMWRCashFlowCollection,
@@ -190,6 +191,41 @@ def test_observation_cash_flow_currency_matches_reporting_ignores_missing_curren
     assert not _observation_cash_flow_currency_matches_reporting(
         observation={"cash_flow_currency": "USD"},
         reporting_currency="EUR",
+    )
+
+
+def test_portfolio_currency_matches_reporting_requires_both_values_and_compares_case_insensitive():
+    assert _portfolio_currency_matches_reporting(
+        source_input=StatefulPortfolioInput(
+            performance_start_date=date(2025, 1, 1),
+            portfolio_currency="eur",
+            observations=[],
+        ),
+        reporting_currency="EUR",
+    )
+    assert not _portfolio_currency_matches_reporting(
+        source_input=StatefulPortfolioInput(
+            performance_start_date=date(2025, 1, 1),
+            portfolio_currency="USD",
+            observations=[],
+        ),
+        reporting_currency="EUR",
+    )
+    assert not _portfolio_currency_matches_reporting(
+        source_input=StatefulPortfolioInput(
+            performance_start_date=date(2025, 1, 1),
+            portfolio_currency=None,
+            observations=[],
+        ),
+        reporting_currency="EUR",
+    )
+    assert not _portfolio_currency_matches_reporting(
+        source_input=StatefulPortfolioInput(
+            performance_start_date=date(2025, 1, 1),
+            portfolio_currency="EUR",
+            observations=[],
+        ),
+        reporting_currency=None,
     )
 
 

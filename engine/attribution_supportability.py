@@ -295,6 +295,14 @@ def _append_residual_materiality_reason(
 
 
 def _determine_attribution_supportability_status(reasons: Sequence[AttributionReason]) -> str:
+    if _has_attribution_coverage_gap(reasons):
+        return "partial"
+    if any(reason.severity == "warning" for reason in reasons):
+        return "warning"
+    return "valid"
+
+
+def _has_attribution_coverage_gap(reasons: Sequence[AttributionReason]) -> bool:
     coverage_reason_codes = {
         "off_benchmark_exposure",
         "benchmark_only_exposure",
@@ -304,11 +312,7 @@ def _determine_attribution_supportability_status(reasons: Sequence[AttributionRe
         "linking_invalid_return_chain",
     }
     reason_codes = [reason.code for reason in reasons]
-    if any(code in coverage_reason_codes for code in reason_codes):
-        return "partial"
-    if any(reason.severity == "warning" for reason in reasons):
-        return "warning"
-    return "valid"
+    return any(code in coverage_reason_codes for code in reason_codes)
 
 
 def _append_attribution_supportability_lineage_flags(

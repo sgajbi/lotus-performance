@@ -5,6 +5,7 @@ from decimal import Decimal
 from app.services.source_quality_evidence import (
     _has_stale_source_observations,
     _record_source_quality_observation,
+    _record_source_values_by_date,
     _summarize_source_quality_observations,
     _unsupported_cashflow_count,
     build_portfolio_source_quality_evidence,
@@ -176,6 +177,23 @@ def test_record_source_quality_observation_preserves_invalid_numeric_date_and_cl
     assert source_classifications == {"official": 1}
     assert normalized_dates == [date(2026, 3, 31)]
     assert values_by_date == {"2026-03-31": set()}
+
+
+def test_record_source_values_by_date_projects_valid_market_values():
+    values_by_date: dict[str, set[tuple[Decimal, Decimal]]] = defaultdict(set)
+    normalized_dates: list[date] = []
+
+    skipped_count = _record_source_values_by_date(
+        valuation_date="2026-03-31",
+        beginning_market_value="1000.25",
+        ending_market_value="1010.50",
+        values_by_date=values_by_date,
+        normalized_dates=normalized_dates,
+    )
+
+    assert skipped_count == 0
+    assert normalized_dates == [date(2026, 3, 31)]
+    assert values_by_date == {"2026-03-31": {(Decimal("1000.25"), Decimal("1010.50"))}}
 
 
 def test_has_stale_source_observations_requires_both_dates_and_lagging_source():

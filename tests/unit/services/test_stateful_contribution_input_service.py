@@ -15,6 +15,7 @@ from app.services.stateful_contribution_input_service import (
     _position_row_to_daily_point,
     _position_value_inputs,
     _reporting_position_value_pair,
+    _stateful_both_currency_requires_fx,
     _stateful_contribution_position_series,
     _stateful_position_currencies,
     build_stateful_contribution_input,
@@ -290,6 +291,23 @@ def test_build_stateful_contribution_input_rejects_invalid_both_currency_request
             reporting_currency="USD",
             fx=None,
         )
+
+
+def test_stateful_contribution_both_currency_requires_fx_only_for_non_reporting_currencies():
+    assert (
+        _stateful_both_currency_requires_fx(
+            position_currencies={"USD"},
+            reporting_currency="USD",
+        )
+        is False
+    )
+    assert (
+        _stateful_both_currency_requires_fx(
+            position_currencies={"USD", "EUR"},
+            reporting_currency="USD",
+        )
+        is True
+    )
 
 
 def test_stateful_contribution_position_currencies_preserves_non_empty_strings_and_ignores_missing_values():

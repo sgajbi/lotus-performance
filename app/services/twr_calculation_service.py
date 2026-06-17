@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import NoReturn
 
 from fastapi import HTTPException, status
 
@@ -325,28 +326,38 @@ async def calculate_twr_workflow(request: TWRAnalyticsRequest) -> PerformanceRes
             calculation_hash=calculation_hash,
             engine_version=settings.APP_VERSION,
         )
-    except HTTPException as exc:
-        record_execution_failure(
+    except Exception as exc:
+        _raise_twr_workflow_http_error(
             calculation_id=request.calculation_id,
+            exc=exc,
+        )
+
+
+def _raise_twr_workflow_http_error(*, calculation_id, exc: Exception) -> NoReturn:
+    if isinstance(exc, HTTPException):
+        record_execution_failure(
+            calculation_id=calculation_id,
             message=str(exc.detail),
         )
-        raise
-    except Exception as exc:
-        mapped_engine_error = map_engine_exception_to_http_error(exc)
-        if mapped_engine_error is not None:
-            record_execution_failure(
-                calculation_id=request.calculation_id,
-                message=mapped_engine_error.failure_message,
-            )
-            raise HTTPException(status_code=mapped_engine_error.status_code, detail=mapped_engine_error.detail) from exc
+        raise exc
+
+    mapped_engine_error = map_engine_exception_to_http_error(exc)
+    if mapped_engine_error is not None:
         record_execution_failure(
-            calculation_id=request.calculation_id,
-            message=f"An unexpected server error occurred: {str(exc)}",
+            calculation_id=calculation_id,
+            message=mapped_engine_error.failure_message,
         )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"An unexpected server error occurred: {str(exc)}",
-        ) from exc
+        raise HTTPException(status_code=mapped_engine_error.status_code, detail=mapped_engine_error.detail) from exc
+
+    detail = f"An unexpected server error occurred: {str(exc)}"
+    record_execution_failure(
+        calculation_id=calculation_id,
+        message=detail,
+    )
+    raise HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail=detail,
+    ) from exc
 
 
 def _twr_pre_resolution_offload_reason(request: TWRAnalyticsRequest) -> str:

@@ -134,11 +134,16 @@ def _decimal_safe_dataclass_payload(value: object) -> object:
 def _stringify_decimals(value: object) -> object:
     if isinstance(value, Decimal):
         return str(value)
+    collection_payload = _stringify_decimal_collection(value)
+    return value if collection_payload is None else collection_payload
+
+
+def _stringify_decimal_collection(value: object) -> object | None:
     if isinstance(value, list):
         return [_stringify_decimals(item) for item in value]
     if isinstance(value, dict):
         return {key: _stringify_decimals(item) for key, item in value.items()}
-    return value
+    return None
 
 
 def _build_mwr_lineage_dataframe(

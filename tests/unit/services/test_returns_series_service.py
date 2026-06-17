@@ -56,6 +56,36 @@ def test_build_active_return_points_uses_aligned_arithmetic_difference():
     assert [str(point.return_value) for point in active_points] == ["0.004000000000", "-0.003000000000"]
 
 
+def test_aligned_portfolio_benchmark_returns_df_requires_benchmark_and_overlap():
+    portfolio_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-23"]),
+            "return_value": [Decimal("0.0100")],
+        }
+    )
+    benchmark_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-24"]),
+            "return_value": [Decimal("0.0010")],
+        }
+    )
+
+    assert (
+        returns_series_service._aligned_portfolio_benchmark_returns_df(
+            portfolio_df=portfolio_df,
+            benchmark_df=None,
+        )
+        is None
+    )
+    assert (
+        returns_series_service._aligned_portfolio_benchmark_returns_df(
+            portfolio_df=portfolio_df,
+            benchmark_df=benchmark_df,
+        )
+        is None
+    )
+
+
 def test_daily_return_percentage_to_ratio_uses_shared_numeric_fallback():
     assert returns_series_service._daily_return_percentage_to_ratio("1.25") == Decimal("0.0125")
     assert returns_series_service._daily_return_percentage_to_ratio("not-a-number") is None
@@ -140,6 +170,36 @@ def test_build_cumulative_active_return_points_uses_cumulative_excess_not_linked
     ]
 
 
+def test_aligned_cumulative_portfolio_benchmark_returns_df_requires_benchmark_and_overlap():
+    portfolio_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-23"]),
+            "return_value": [Decimal("0.0100")],
+        }
+    )
+    benchmark_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-24"]),
+            "return_value": [Decimal("0.0010")],
+        }
+    )
+
+    assert (
+        returns_series_service._aligned_cumulative_portfolio_benchmark_returns_df(
+            portfolio_df=portfolio_df,
+            benchmark_df=None,
+        )
+        is None
+    )
+    assert (
+        returns_series_service._aligned_cumulative_portfolio_benchmark_returns_df(
+            portfolio_df=portfolio_df,
+            benchmark_df=benchmark_df,
+        )
+        is None
+    )
+
+
 def test_build_returns_series_point_outputs_emits_selected_point_families():
     portfolio_df = pd.DataFrame(
         {
@@ -212,6 +272,105 @@ def test_build_returns_series_point_outputs_omits_unselected_optional_families()
     assert outputs.cumulative_active_return_points is None
 
 
+def test_final_returns_series_identity_preserves_stateless_context_identity():
+    request = ReturnsSeriesRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "as_of_date": "2026-02-24",
+            "window": {"mode": "EXPLICIT", "from_date": "2026-02-23", "to_date": "2026-02-24"},
+            "frequency": "DAILY",
+            "series_selection": {"include_portfolio": True, "include_benchmark": False, "include_risk_free": False},
+            "input_mode": "stateless",
+            "stateless_input": {
+                "portfolio_returns": [
+                    {"date": "2026-02-23", "return_value": "0.0100"},
+                ],
+            },
+        }
+    )
+    context = returns_series_service._ReturnsSeriesExecutionContext(
+        request=request,
+        resolved_window=returns_series_service.resolve_window(request),
+        effective_input_mode=InputMode.STATELESS,
+        input_fingerprint="fingerprint-1",
+        calculation_hash="hash-1",
+        resolved_benchmark_id=None,
+        resolved_benchmark_return_source=BenchmarkReturnSource.CALCULATED,
+    )
+    point_outputs = returns_series_service._ReturnsSeriesPointOutputs(
+        portfolio_return_points=[ReturnPoint(date=date(2026, 2, 23), return_value=Decimal("0.0100"))],
+        cumulative_portfolio_return_points=None,
+        benchmark_return_points=None,
+        cumulative_benchmark_return_points=None,
+        risk_free_return_points=None,
+        cumulative_risk_free_return_points=None,
+        active_return_points=None,
+        cumulative_active_return_points=None,
+    )
+
+    identity = returns_series_service._final_returns_series_identity(
+        request=request,
+        context=context,
+        point_outputs=point_outputs,
+    )
+
+    assert identity.input_fingerprint == "fingerprint-1"
+    assert identity.calculation_hash == "hash-1"
+
+
+def test_final_returns_series_identity_refreshes_stateful_identity(monkeypatch):
+    request = _build_stateful_request()
+    point_outputs = returns_series_service._ReturnsSeriesPointOutputs(
+        portfolio_return_points=[ReturnPoint(date=date(2026, 2, 23), return_value=Decimal("0.0100"))],
+        cumulative_portfolio_return_points=None,
+        benchmark_return_points=[ReturnPoint(date=date(2026, 2, 23), return_value=Decimal("0.0010"))],
+        cumulative_benchmark_return_points=None,
+        risk_free_return_points=None,
+        cumulative_risk_free_return_points=None,
+        active_return_points=None,
+        cumulative_active_return_points=None,
+    )
+    context = returns_series_service._ReturnsSeriesExecutionContext(
+        request=request,
+        resolved_window=returns_series_service.resolve_window(request),
+        effective_input_mode=InputMode.STATEFUL,
+        input_fingerprint="initial-fingerprint",
+        calculation_hash="initial-hash",
+        resolved_benchmark_id="BMK_1",
+        resolved_benchmark_return_source=BenchmarkReturnSource.VENDOR_SERIES,
+    )
+    captured: dict[str, object] = {}
+
+    def _fake_update_resolved_stateful_returns_identity(**kwargs):
+        captured.update(kwargs)
+        return returns_series_service._ReturnsSeriesIdentity(
+            input_fingerprint="resolved-fingerprint",
+            calculation_hash="resolved-hash",
+        )
+
+    monkeypatch.setattr(
+        returns_series_service,
+        "_update_resolved_stateful_returns_identity",
+        _fake_update_resolved_stateful_returns_identity,
+    )
+
+    identity = returns_series_service._final_returns_series_identity(
+        request=request,
+        context=context,
+        point_outputs=point_outputs,
+    )
+
+    assert identity.input_fingerprint == "resolved-fingerprint"
+    assert identity.calculation_hash == "resolved-hash"
+    assert captured == {
+        "request": request,
+        "resolved_window": context.resolved_window,
+        "point_outputs": point_outputs,
+        "resolved_benchmark_id": "BMK_1",
+        "resolved_benchmark_return_source": BenchmarkReturnSource.VENDOR_SERIES,
+    }
+
+
 def test_build_returns_series_response_preserves_context_provenance_and_series_payload():
     request = ReturnsSeriesRequest.model_validate(
         {
@@ -280,6 +439,31 @@ def test_build_returns_series_response_preserves_context_provenance_and_series_p
     assert response.series.portfolio_returns == point_outputs.portfolio_return_points
     assert response.series.benchmark_returns == point_outputs.benchmark_return_points
     assert response.diagnostics == diagnostics_result.diagnostics
+
+
+def test_returns_series_benchmark_context_requires_id_and_source():
+    context = returns_series_service._returns_series_benchmark_context(
+        resolved_benchmark_id="BMK_1",
+        resolved_benchmark_return_source=BenchmarkReturnSource.VENDOR_SERIES,
+    )
+
+    assert context is not None
+    assert context.benchmark_id == "BMK_1"
+    assert context.return_source == BenchmarkReturnSource.VENDOR_SERIES
+    assert (
+        returns_series_service._returns_series_benchmark_context(
+            resolved_benchmark_id=None,
+            resolved_benchmark_return_source=BenchmarkReturnSource.VENDOR_SERIES,
+        )
+        is None
+    )
+    assert (
+        returns_series_service._returns_series_benchmark_context(
+            resolved_benchmark_id="BMK_1",
+            resolved_benchmark_return_source=None,
+        )
+        is None
+    )
 
 
 def test_requested_returns_series_execution_context_uses_stateful_benchmark_defaults():
@@ -496,6 +680,29 @@ def test_risk_free_points_to_dataframe_converts_annualized_rates_to_daily_return
         "0.0001",
         "0.0002",
     ]
+
+
+def test_risk_free_return_value_from_source_normalizes_annualized_and_period_returns():
+    assert returns_series_service._risk_free_return_value_from_source(
+        {
+            "value": "0.036",
+            "value_convention": "annualized_rate",
+            "day_count_convention": "ACT_360",
+        }
+    ) == Decimal("0.0001")
+    assert returns_series_service._risk_free_return_value_from_source(
+        {
+            "value": "0.036",
+            "value_convention": "annualized_rate",
+            "day_count_convention": "unknown",
+        }
+    ) == Decimal("0.0001")
+    assert returns_series_service._risk_free_return_value_from_source({"value": "0.0002"}) == Decimal("0.0002")
+
+
+def test_risk_free_return_value_from_source_rejects_missing_or_invalid_values():
+    assert returns_series_service._risk_free_return_value_from_source({}) is None
+    assert returns_series_service._risk_free_return_value_from_source({"value": "not-a-decimal"}) is None
 
 
 def test_risk_free_points_to_dataframe_skips_malformed_points():
@@ -747,6 +954,43 @@ def test_prepare_stateless_returns_series_dataframes_respects_selected_series():
     assert risk_free_df is None
 
 
+def test_optional_stateless_returns_series_dataframe_builds_only_selected_series():
+    request = ReturnsSeriesRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "as_of_date": "2026-02-26",
+            "window": {"mode": "EXPLICIT", "from_date": "2026-02-24", "to_date": "2026-02-26"},
+            "frequency": "DAILY",
+            "series_selection": {"include_portfolio": True, "include_benchmark": False, "include_risk_free": False},
+            "input_mode": "stateless",
+            "stateless_input": {
+                "portfolio_returns": [{"date": "2026-02-24", "return_value": "0.0100"}],
+            },
+        }
+    )
+    resolved_window = returns_series_service.resolve_window(request)
+    points = [ReturnPoint(date=date(2026, 2, 24), return_value=Decimal("0.0010"))]
+
+    unselected_df = returns_series_service._optional_stateless_returns_series_dataframe(
+        selected=False,
+        points=points,
+        series_type="benchmark",
+        request=request,
+        resolved_window=resolved_window,
+    )
+    selected_df = returns_series_service._optional_stateless_returns_series_dataframe(
+        selected=True,
+        points=points,
+        series_type="benchmark",
+        request=request,
+        resolved_window=resolved_window,
+    )
+
+    assert unselected_df is None
+    assert selected_df is not None
+    assert list(selected_df["return_value"]) == [Decimal("0.0010")]
+
+
 def test_prepare_stateless_returns_series_dataframes_requires_stateless_input():
     request = ReturnsSeriesRequest.model_construct(
         portfolio_id="P1",
@@ -964,6 +1208,55 @@ def test_resolved_stateful_returns_series_request_payload_promotes_stateless_inp
     assert payload["stateless_input"] == identity_payload["stateless_input"]
 
 
+def test_stateful_returns_series_resolution_context_builds_window_and_service(monkeypatch):
+    request = _build_stateful_request()
+    settings = object()
+    service = object()
+
+    monkeypatch.setattr(returns_series_service, "get_settings", lambda: settings)
+    monkeypatch.setattr(
+        returns_series_service,
+        "build_stateful_input_service",
+        lambda *, settings: service,
+    )
+
+    context = returns_series_service._stateful_returns_series_resolution_context(request)
+
+    assert context.active_settings is settings
+    assert context.stateful_input_service is service
+    assert context.resolved_window == returns_series_service.resolve_window(request)
+
+
+def test_stateful_returns_series_resolution_context_requires_stateful_mode():
+    request = ReturnsSeriesRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "as_of_date": "2026-02-24",
+            "window": {"mode": "EXPLICIT", "from_date": "2026-02-23", "to_date": "2026-02-24"},
+            "frequency": "DAILY",
+            "series_selection": {"include_portfolio": True, "include_benchmark": False, "include_risk_free": False},
+            "input_mode": "stateless",
+            "stateless_input": {
+                "portfolio_returns": [
+                    {"date": "2026-02-23", "return_value": "0.0100"},
+                ],
+            },
+        }
+    )
+
+    with pytest.raises(ValueError, match="only supports stateful requests"):
+        returns_series_service._stateful_returns_series_resolution_context(request)
+
+
+def test_stateful_returns_series_resolution_context_requires_stateful_input():
+    request = _build_stateful_request().model_copy(update={"stateful_input": None})
+
+    with pytest.raises(HTTPException) as exc:
+        returns_series_service._stateful_returns_series_resolution_context(request)
+
+    assert exc.value.status_code == 400
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("upstream_status", "mapped_status", "mapped_code"),
@@ -1098,6 +1391,20 @@ async def test_retrieve_stateful_returns_series_risk_free_requires_reporting_cur
         )
 
     assert exc.value.status_code == 400
+
+
+def test_risk_free_points_from_payload_accepts_points_list():
+    points = [{"series_date": "2026-02-25", "value": "0.0001"}]
+
+    assert returns_series_service._risk_free_points_from_payload({"points": points}) == points
+
+
+def test_risk_free_points_from_payload_rejects_missing_points_list():
+    with pytest.raises(HTTPException) as exc:
+        returns_series_service._risk_free_points_from_payload({"points": None})
+
+    assert exc.value.status_code == 422
+    assert exc.value.detail["code"] == "CONTRACT_VIOLATION_UPSTREAM"
 
 
 @pytest.mark.asyncio

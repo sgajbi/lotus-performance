@@ -124,21 +124,19 @@ def _register_async_compute_job_or_rollback_execution(
             analytics_type,
             exc_info=True,
         )
-        if created_execution:
-            try:
-                execution_registry.delete_execution(calculation_id)
-            except Exception:
-                logger.warning(
-                    "Async execution registration cleanup failed for calculation_id=%s analytics_type=%s.",
-                    calculation_id,
-                    analytics_type,
-                    exc_info=True,
-                )
+        _rollback_created_async_execution(
+            calculation_id=calculation_id,
+            analytics_type=analytics_type,
+            created_execution=created_execution,
+        )
         raise
 
     if job_registration.status == ComputeJobRegistrationStatus.CONFLICT:
-        if created_execution:
-            execution_registry.delete_execution(calculation_id)
+        _rollback_created_async_execution(
+            calculation_id=calculation_id,
+            analytics_type=analytics_type,
+            created_execution=created_execution,
+        )
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=(
@@ -147,6 +145,25 @@ def _register_async_compute_job_or_rollback_execution(
             ),
         )
     return job_registration
+
+
+def _rollback_created_async_execution(
+    *,
+    calculation_id: UUID,
+    analytics_type: str,
+    created_execution: bool,
+) -> None:
+    if not created_execution:
+        return
+    try:
+        execution_registry.delete_execution(calculation_id)
+    except Exception:
+        logger.warning(
+            "Async execution registration cleanup failed for calculation_id=%s analytics_type=%s.",
+            calculation_id,
+            analytics_type,
+            exc_info=True,
+        )
 
 
 def _complete_async_submission_stage_if_needed(

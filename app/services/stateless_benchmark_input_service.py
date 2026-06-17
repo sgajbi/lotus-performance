@@ -65,17 +65,11 @@ def _build_component_observations_from_price_points(
             price_points=by_component[component_id],
         )
         observations.extend(component_observations)
-
-        if expected_component_dates is None:
-            expected_component_dates = component_dates
-        elif component_dates != expected_component_dates:
-            raise HTTPException(
-                status_code=HTTP_422_UNPROCESSABLE,
-                detail=(
-                    "stateless benchmark component_price_points must yield the same derived return-date "
-                    f"set for every component; component_id={component_id} does not match peer coverage."
-                ),
-            )
+        expected_component_dates = _aligned_component_return_dates(
+            component_id=component_id,
+            component_dates=component_dates,
+            expected_component_dates=expected_component_dates,
+        )
 
     if not observations:
         raise HTTPException(
@@ -86,6 +80,25 @@ def _build_component_observations_from_price_points(
             ),
         )
     return observations
+
+
+def _aligned_component_return_dates(
+    *,
+    component_id: str,
+    component_dates: set[date],
+    expected_component_dates: set[date] | None,
+) -> set[date]:
+    if expected_component_dates is None:
+        return component_dates
+    if component_dates != expected_component_dates:
+        raise HTTPException(
+            status_code=HTTP_422_UNPROCESSABLE,
+            detail=(
+                "stateless benchmark component_price_points must yield the same derived return-date "
+                f"set for every component; component_id={component_id} does not match peer coverage."
+            ),
+        )
+    return expected_component_dates
 
 
 def _component_observations_from_price_points(

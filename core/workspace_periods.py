@@ -60,6 +60,28 @@ def _workspace_period_start_date(
     performance_start_date: date,
     explicit_start_date: date | None,
 ) -> date:
+    direct_start_date = _direct_workspace_period_start_date(
+        period,
+        as_of_ts=as_of_ts,
+        performance_start_date=performance_start_date,
+        explicit_start_date=explicit_start_date,
+    )
+    if direct_start_date is not None:
+        return direct_start_date
+
+    lookback_start_date = _fixed_lookback_workspace_period_start(period, as_of_ts)
+    if lookback_start_date is not None:
+        return lookback_start_date
+    raise APIBadRequestError(f"Unsupported workspace period type '{period.value}'.")
+
+
+def _direct_workspace_period_start_date(
+    period: WorkspacePeriodType,
+    *,
+    as_of_ts: pd.Timestamp,
+    performance_start_date: date,
+    explicit_start_date: date | None,
+) -> date | None:
     if period == WorkspacePeriodType.EXPLICIT:
         if explicit_start_date is None:
             raise APIBadRequestError(
@@ -70,10 +92,7 @@ def _workspace_period_start_date(
         return performance_start_date
     if period == WorkspacePeriodType.YTD:
         return as_of_ts.to_period("Y").start_time.date()
-    lookback_start_date = _fixed_lookback_workspace_period_start(period, as_of_ts)
-    if lookback_start_date is not None:
-        return lookback_start_date
-    raise APIBadRequestError(f"Unsupported workspace period type '{period.value}'.")
+    return None
 
 
 def _fixed_lookback_workspace_period_start(

@@ -352,10 +352,9 @@ def _resolve_reporting_currency(source_input: StatefulPortfolioInput) -> str | N
 
 
 def _has_single_currency_inputs(*, source_input: StatefulPortfolioInput, reporting_currency: str | None) -> bool:
-    if not reporting_currency or not source_input.portfolio_currency:
+    if not _portfolio_currency_matches_reporting(source_input=source_input, reporting_currency=reporting_currency):
         return False
-    if source_input.portfolio_currency.upper() != reporting_currency.upper():
-        return False
+    assert reporting_currency is not None
     for observation in source_input.observations:
         if not _observation_cash_flow_currency_matches_reporting(
             observation=observation,
@@ -363,6 +362,16 @@ def _has_single_currency_inputs(*, source_input: StatefulPortfolioInput, reporti
         ):
             return False
     return True
+
+
+def _portfolio_currency_matches_reporting(
+    *,
+    source_input: StatefulPortfolioInput,
+    reporting_currency: str | None,
+) -> bool:
+    if not reporting_currency or not source_input.portfolio_currency:
+        return False
+    return source_input.portfolio_currency.upper() == reporting_currency.upper()
 
 
 def _observation_cash_flow_currency_matches_reporting(

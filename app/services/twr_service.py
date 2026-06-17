@@ -331,15 +331,15 @@ def _with_reset_no_investment_classification(
     reason_codes = list(classification.reason_codes)
     if _as_numeric(row.get(PortfolioColumns.PERF_RESET.value, 0)) == 1:
         reason_codes.append("RESET_DAY")
-        episode_status = "reset_boundary"
-        if linkability_status == "linkable":
-            linkability_status = "reset_boundary"
+        linkability_status, episode_status = _reset_boundary_status(
+            linkability_status=linkability_status,
+        )
     if _as_numeric(row.get(PortfolioColumns.NIP.value, 0)) == 1:
         reason_codes.append("NO_INVESTMENT_PERIOD")
-        if episode_status == "open":
-            episode_status = "no_investment"
-        if linkability_status == "linkable":
-            linkability_status = "not_calculated"
+        linkability_status, episode_status = _no_investment_status(
+            linkability_status=linkability_status,
+            episode_status=episode_status,
+        )
 
     return _DailyCalculationEvidenceClassification(
         status=classification.status,
@@ -348,6 +348,20 @@ def _with_reset_no_investment_classification(
         reason_codes=reason_codes,
         warnings=classification.warnings,
     )
+
+
+def _reset_boundary_status(*, linkability_status: str) -> tuple[str, str]:
+    if linkability_status == "linkable":
+        linkability_status = "reset_boundary"
+    return linkability_status, "reset_boundary"
+
+
+def _no_investment_status(*, linkability_status: str, episode_status: str) -> tuple[str, str]:
+    if episode_status == "open":
+        episode_status = "no_investment"
+    if linkability_status == "linkable":
+        linkability_status = "not_calculated"
+    return linkability_status, episode_status
 
 
 def _with_cashflow_reason_codes(
@@ -761,11 +775,19 @@ def _resolve_twr_execution_period_scope(performance_request: PerformanceRequest)
     if not resolved_periods:
         raise HTTPException(status_code=400, detail="No valid periods could be resolved.")
 
+    master_start_date, master_end_date = _twr_execution_master_window(resolved_periods)
     return _TWRExecutionPeriodScope(
         resolved_periods=resolved_periods,
         freqs_by_period=freqs_by_period,
-        master_start_date=min(p.start_date for p in resolved_periods),
-        master_end_date=max(p.end_date for p in resolved_periods),
+        master_start_date=master_start_date,
+        master_end_date=master_end_date,
+    )
+
+
+def _twr_execution_master_window(resolved_periods: list[ResolvedPeriod]) -> tuple[date, date]:
+    return (
+        min(period.start_date for period in resolved_periods),
+        max(period.end_date for period in resolved_periods),
     )
 
 
@@ -920,10 +942,10 @@ def _build_twr_benchmark_period_blocks(
     portfolio: ComparativeAnalyticsBlock,
     context: _TWRBenchmarkPeriodContext,
 ) -> tuple[ComparativeAnalyticsBlock | None, ComparativeAnalyticsBlock | None]:
-    benchmark_period_df = context.artifacts.daily_returns_df[
-        (context.artifacts.daily_returns_df["date"] >= period.start_date)
-        & (context.artifacts.daily_returns_df["date"] <= period.end_date)
-    ].copy()
+    benchmark_period_df = _twr_benchmark_period_returns(
+        daily_returns_df=context.artifacts.daily_returns_df,
+        period=period,
+    )
     if benchmark_period_df.empty:
         return None, None
 
@@ -932,20 +954,11 @@ def _build_twr_benchmark_period_blocks(
         period_daily_df=benchmark_period_df,
         requested_frequencies=requested_frequencies,
     )
-    benchmark = ComparativeAnalyticsBlock(
-        summary=ComparativeSummary(
-            period_return=benchmark_period_return,
-            cumulative_return=_get_benchmark_cumulative_return_to_date(
-                master_start_date=context.master_start_date,
-                period_end_date=period.end_date,
-                benchmark_daily_returns_df=context.artifacts.daily_returns_df,
-            ),
-        ),
-        breakdowns=benchmark_breakdowns,
-        benchmark_id=context.resolved_benchmark_id or context.request.benchmark_id,
-        benchmark_currency=context.request.benchmark_currency,
-        input_mode=(context.input_mode or BenchmarkInputMode.STATELESS).value,
-        return_source=context.return_source.value,
+    benchmark = _build_twr_benchmark_period_block(
+        period=period,
+        benchmark_period_return=benchmark_period_return,
+        benchmark_breakdowns=benchmark_breakdowns,
+        context=context,
     )
     relative = ComparativeAnalyticsBlock(
         summary=ComparativeSummary(
@@ -963,6 +976,40 @@ def _build_twr_benchmark_period_blocks(
     return benchmark, relative
 
 
+def _build_twr_benchmark_period_block(
+    *,
+    period: ResolvedPeriod,
+    benchmark_period_return: ComparativeReturnValue,
+    benchmark_breakdowns: dict[Frequency, list[ComparativeBreakdownItem]],
+    context: _TWRBenchmarkPeriodContext,
+) -> ComparativeAnalyticsBlock:
+    return ComparativeAnalyticsBlock(
+        summary=ComparativeSummary(
+            period_return=benchmark_period_return,
+            cumulative_return=_get_benchmark_cumulative_return_to_date(
+                master_start_date=context.master_start_date,
+                period_end_date=period.end_date,
+                benchmark_daily_returns_df=context.artifacts.daily_returns_df,
+            ),
+        ),
+        breakdowns=benchmark_breakdowns,
+        benchmark_id=context.resolved_benchmark_id or context.request.benchmark_id,
+        benchmark_currency=context.request.benchmark_currency,
+        input_mode=(context.input_mode or BenchmarkInputMode.STATELESS).value,
+        return_source=context.return_source.value,
+    )
+
+
+def _twr_benchmark_period_returns(
+    *,
+    daily_returns_df: pd.DataFrame,
+    period: ResolvedPeriod,
+) -> pd.DataFrame:
+    return daily_returns_df[
+        (daily_returns_df["date"] >= period.start_date) & (daily_returns_df["date"] <= period.end_date)
+    ].copy()
+
+
 def _build_twr_benchmark_context(
     *,
     performance_request: PerformanceRequest,
@@ -976,20 +1023,25 @@ def _build_twr_benchmark_context(
     if benchmark_artifacts is None or benchmark_request is None:
         return None
 
+    benchmark_input_mode_value = _benchmark_context_input_mode_value(benchmark_input_mode)
     return TWRBenchmarkContext(
         benchmark_id=resolved_benchmark_id or benchmark_request.benchmark_id,
         benchmark_currency=benchmark_request.benchmark_currency,
-        input_mode=(benchmark_input_mode or BenchmarkInputMode.STATELESS).value,
+        input_mode=benchmark_input_mode_value,
         return_source=benchmark_return_source.value,
         supportability_evidence=build_twr_benchmark_supportability_evidence(
             performance_request=performance_request,
             benchmark_request=benchmark_request,
             portfolio_daily_results_df=daily_results_df,
             benchmark_daily_returns_df=benchmark_artifacts.daily_returns_df,
-            benchmark_input_mode=(benchmark_input_mode or BenchmarkInputMode.STATELESS).value,
+            benchmark_input_mode=benchmark_input_mode_value,
             benchmark_return_source=benchmark_return_source.value,
         ),
     )
+
+
+def _benchmark_context_input_mode_value(benchmark_input_mode: BenchmarkInputMode | None) -> str:
+    return (benchmark_input_mode or BenchmarkInputMode.STATELESS).value
 
 
 def _build_twr_response_model(

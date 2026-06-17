@@ -9,13 +9,17 @@ from app.models.benchmark_analytics_requests import BenchmarkReturnSource
 from app.services.stateful_benchmark_input_service import (
     BenchmarkCompositionSegment,
     _active_component_segments_for_date,
+    _benchmark_return_point_from_payload_point,
     _benchmark_return_points_from_payload,
     _build_component_observation,
     _build_component_observations,
     _build_normalized_component_series,
+    _component_price_point_date_in_scope,
     _component_price_series_points,
     _composition_segment_overlaps_window,
+    _composition_segment_required_fields,
     _fx_rate_map_from_payload,
+    _fx_rate_point_from_payload_point,
     _load_benchmark_definition_currency,
     _load_component_price_series,
     _load_fx_maps_for_components,
@@ -237,6 +241,19 @@ def test_benchmark_return_points_from_payload_projects_valid_points_only():
         (date(2026, 1, 2), 0.01),
         (date(2026, 1, 3), 0.011),
     ]
+
+
+def test_benchmark_return_point_from_payload_point_projects_valid_point_only():
+    point = _benchmark_return_point_from_payload_point(
+        {"series_date": "2026-01-02", "benchmark_return": Decimal("0.0100")}
+    )
+
+    assert point is not None
+    assert point.perf_date == date(2026, 1, 2)
+    assert point.benchmark_return == 0.01
+    assert _benchmark_return_point_from_payload_point("ignored") is None
+    assert _benchmark_return_point_from_payload_point({"series_date": "2026-01-02"}) is None
+    assert _benchmark_return_point_from_payload_point({"benchmark_return": "0.0100"}) is None
 
 
 def test_benchmark_return_points_from_payload_requires_points_list():
@@ -666,6 +683,32 @@ def test_parse_composition_window_filters_and_sorts_usable_segments():
     assert segments[1].composition_effective_to == date(2026, 1, 3)
 
 
+def test_composition_segment_required_fields_project_values_and_reject_missing_fields():
+    assert _composition_segment_required_fields(
+        {
+            "index_id": "IDX_A",
+            "composition_weight": "0.6",
+            "composition_effective_from": "2026-01-01",
+        }
+    ) == ("IDX_A", "0.6", "2026-01-01")
+
+    with pytest.raises(HTTPException, match="missing index_id, composition_weight, or composition_effective_from"):
+        _composition_segment_required_fields(
+            {
+                "index_id": "IDX_A",
+                "composition_effective_from": "2026-01-01",
+            }
+        )
+    with pytest.raises(HTTPException, match="missing index_id, composition_weight, or composition_effective_from"):
+        _composition_segment_required_fields(
+            {
+                "index_id": 123,
+                "composition_weight": "0.6",
+                "composition_effective_from": "2026-01-01",
+            }
+        )
+
+
 def test_composition_segment_overlaps_window_policy():
     assert _composition_segment_overlaps_window(
         effective_from=date(2026, 1, 1),
@@ -858,6 +901,16 @@ def test_fx_rate_map_from_payload_projects_valid_rates_only():
         date(2026, 1, 2): Decimal("1.20"),
         date(2026, 1, 3): Decimal("1.21"),
     }
+
+
+def test_fx_rate_point_from_payload_point_projects_valid_point_only():
+    assert _fx_rate_point_from_payload_point({"series_date": "2026-01-02", "fx_rate": Decimal("1.20")}) == (
+        date(2026, 1, 2),
+        Decimal("1.20"),
+    )
+    assert _fx_rate_point_from_payload_point("ignored") is None
+    assert _fx_rate_point_from_payload_point({"series_date": "2026-01-02"}) is None
+    assert _fx_rate_point_from_payload_point({"fx_rate": "1.20"}) is None
 
 
 def test_fx_rate_map_from_payload_requires_points_list():
@@ -1176,6 +1229,35 @@ def test_normalized_component_price_point_from_payload_projects_normalized_point
     assert requested_point is not None
     assert requested_point.normalized_price == Decimal("113.12")
     assert requested_point.is_requested_date
+
+
+def test_component_price_point_date_in_scope_allows_prior_day_and_requested_window_only():
+    assert _component_price_point_date_in_scope(
+        point={"series_date": "2026-01-01"},
+        requested_start_date=date(2026, 1, 2),
+        requested_end_date=date(2026, 1, 3),
+    ) == date(2026, 1, 1)
+    assert _component_price_point_date_in_scope(
+        point={"series_date": "2026-01-03"},
+        requested_start_date=date(2026, 1, 2),
+        requested_end_date=date(2026, 1, 3),
+    ) == date(2026, 1, 3)
+    assert (
+        _component_price_point_date_in_scope(
+            point={"series_date": "2026-01-04"},
+            requested_start_date=date(2026, 1, 2),
+            requested_end_date=date(2026, 1, 3),
+        )
+        is None
+    )
+    assert (
+        _component_price_point_date_in_scope(
+            point="ignored",
+            requested_start_date=date(2026, 1, 2),
+            requested_end_date=date(2026, 1, 3),
+        )
+        is None
+    )
 
 
 def test_normalized_component_price_point_from_payload_skips_invalid_or_out_of_window_points():

@@ -9,12 +9,16 @@ from app.services.execution_registry import ExecutionRegistry
 from app.services.stateful_input_service import (
     DateChunk,
     StatefulInputService,
+    _component_index_id,
     _component_index_points,
+    _component_point_records,
+    _non_empty_string,
     _portfolio_identity_from_payload,
     _portfolio_observations_from_payload,
     _portfolio_timeseries_request_payload,
     _position_rows_from_payload,
     _position_timeseries_request_payload,
+    _record_key_by_fields,
 )
 
 
@@ -544,6 +548,11 @@ async def test_stateful_input_service_fetches_reference_payloads_and_records_sna
     catalog_status, catalog_payload = await service.get_index_catalog(
         as_of_date=date(2026, 1, 3),
         index_ids=["IDX_2", "IDX_1"],
+        calculation_id=calculation_id,
+    )
+    await service.get_index_catalog(
+        as_of_date=date(2026, 1, 3),
+        index_ids=["IDX_1", "IDX_2"],
         calculation_id=calculation_id,
     )
 
@@ -1083,6 +1092,7 @@ def test_stateful_input_service_deduplicates_records_and_component_series():
             {"valuation_date": "2026-01-01", "position_id": "POS_1", "value": 1},
             {"valuation_date": "2026-01-01", "position_id": "POS_1", "value": 2},
             {"valuation_date": "2026-01-02", "position_id": 7},
+            {"valuation_date": "2026-01-03", "value": 3},
         ],
         key_fields=("valuation_date", "position_id"),
     )
@@ -1101,6 +1111,24 @@ def test_stateful_input_service_deduplicates_records_and_component_series():
     )
 
     assert deduped == [{"valuation_date": "2026-01-01", "position_id": "POS_1", "value": 2}]
+    assert _record_key_by_fields(
+        record={"valuation_date": "2026-01-01", "position_id": "POS_1"},
+        key_fields=("valuation_date", "position_id"),
+    ) == ("2026-01-01", "POS_1")
+    assert (
+        _record_key_by_fields(
+            record={"valuation_date": "2026-01-01"},
+            key_fields=("valuation_date", "position_id"),
+        )
+        is None
+    )
+    assert (
+        _record_key_by_fields(
+            record={"valuation_date": "2026-01-01", "position_id": 7},
+            key_fields=("valuation_date", "position_id"),
+        )
+        is None
+    )
     assert merged_series == [{"index_id": "IDX_1", "points": [{"series_date": "2026-01-01"}]}]
     assert component_points == {"IDX_2": [{"series_date": "2026-01-02"}]}
     assert _component_index_points({"index_id": "IDX_3", "points": [{"series_date": "2026-01-03"}, None]}) == (
@@ -1110,6 +1138,13 @@ def test_stateful_input_service_deduplicates_records_and_component_series():
     assert _component_index_points({"index_id": "IDX_4", "points": "bad-shape"}) == ("IDX_4", [])
     assert _component_index_points({"index_id": None}) is None
     assert _component_index_points("bad-component") is None
+    assert _component_index_id({"index_id": "IDX_5"}) == "IDX_5"
+    assert _component_index_id({}) is None
+    assert _component_index_id({"index_id": 7}) is None
+    assert _component_point_records({"points": [{"series_date": "2026-01-05"}, None]}) == [
+        {"series_date": "2026-01-05"}
+    ]
+    assert _component_point_records({"points": "bad-shape"}) == []
 
 
 def test_stateful_input_service_builds_position_timeseries_payload():
@@ -1151,6 +1186,39 @@ def test_stateful_input_service_builds_position_timeseries_payload():
     }
 
 
+@pytest.mark.asyncio
+async def test_stateful_input_service_fetches_position_timeseries_page_with_request_payload():
+    core_service = _CoreServiceStub()
+    service = StatefulInputService(core_service=core_service)
+    chunk = DateChunk(start_date=date(2026, 1, 1), end_date=date(2026, 1, 3))
+
+    status_code, payload, request_payload = await service._fetch_position_timeseries_page(
+        portfolio_id="PORT_1",
+        as_of_date=date(2026, 1, 3),
+        chunk=chunk,
+        reporting_currency="USD",
+        consumer_system="lotus-performance",
+        dimensions=["asset_class"],
+        include_cash_flows=True,
+        filters={"asset_class": "Equity"},
+        page_token="page-2",
+    )
+
+    assert status_code == 200
+    assert payload["rows"][0]["valuation_date"] == "2026-01-02"
+    assert core_service.position_calls[-1]["page_token"] == "page-2"
+    assert request_payload == _position_timeseries_request_payload(
+        portfolio_id="PORT_1",
+        chunk=chunk,
+        reporting_currency="USD",
+        consumer_system="lotus-performance",
+        dimensions=["asset_class"],
+        include_cash_flows=True,
+        filters={"asset_class": "Equity"},
+        page_token="page-2",
+    )
+
+
 def test_stateful_input_service_helper_contracts_cover_page_tokens_failures_and_snapshot_identity():
     service = StatefulInputService(core_service=_CoreServiceStub())
     calculation_id = UUID("00000000-0000-0000-0000-000000000001")
@@ -1160,6 +1228,12 @@ def test_stateful_input_service_helper_contracts_cover_page_tokens_failures_and_
     assert service._next_page_token({"next_page_token": "top-level-token"}) == "top-level-token"
     assert service._next_page_token({"page": {"next_page_token": "nested-token"}}) == "nested-token"
     assert service._next_page_token({"next_page_token": ""}) is None
+    assert service._next_page_token({"next_page_token": 7}) is None
+    assert service._next_page_token({"page": {"next_page_token": ""}}) is None
+    assert service._next_page_token({"page": {"next_page_token": 7}}) is None
+    assert _non_empty_string("page-2") is True
+    assert _non_empty_string("") is False
+    assert _non_empty_string(7) is False
     assert service._merge_dedup_records(
         records=[
             {"series_date": "2026-01-02", "value": 2},
@@ -1170,6 +1244,26 @@ def test_stateful_input_service_helper_contracts_cover_page_tokens_failures_and_
     ) == [
         {"series_date": "2026-01-01", "value": 1},
         {"series_date": "2026-01-02", "value": 2},
+    ]
+    assert service._merge_dedup_points_from_responses(
+        [
+            (200, {"points": [{"series_date": "2026-01-02", "value": 2}, "ignored"]}),
+            (200, {"points": [{"series_date": "2026-01-01", "value": 1}]}),
+            (200, {"rows": [{"series_date": "2026-01-03", "value": 3}]}),
+        ]
+    ) == [
+        {"series_date": "2026-01-01", "value": 1},
+        {"series_date": "2026-01-02", "value": 2},
+    ]
+    assert service._merge_dedup_fx_rates_from_responses(
+        [
+            (200, {"rates": [{"rate_date": "2026-01-02", "rate": "1.2"}, "ignored"]}),
+            (200, {"rates": [{"rate_date": "2026-01-01", "rate": "1.1"}]}),
+            (200, {"points": [{"rate_date": "2026-01-03", "rate": "1.3"}]}),
+        ]
+    ) == [
+        {"series_date": "2026-01-01", "fx_rate": "1.1"},
+        {"series_date": "2026-01-02", "fx_rate": "1.2"},
     ]
     assert _position_timeseries_request_payload(
         portfolio_id="PORT_1",

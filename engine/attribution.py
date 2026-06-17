@@ -310,11 +310,7 @@ def _build_instrument_attribution_panel(
     )
     inst_results = inst_results.set_index(PortfolioColumns.PERF_DATE.value)
 
-    base_weight_series = _build_base_weight_series(inst.meta)
-    if base_weight_series is not None:
-        inst_bop_mv = base_weight_series.reindex(inst_results.index).fillna(0.0)
-    else:
-        inst_bop_mv = inst_results[PortfolioColumns.BEGIN_MV.value] + inst_results[PortfolioColumns.BOD_CF.value]
+    inst_bop_mv = _instrument_bop_mv_series(inst_results, inst.meta)
     with np.errstate(divide="ignore", invalid="ignore"):
         weight_bop = inst_bop_mv / portfolio_bop_mv
     inst_results["weight_bop"] = weight_bop.replace([np.inf, -np.inf], np.nan).fillna(0.0)
@@ -329,6 +325,13 @@ def _build_instrument_attribution_panel(
     for key, value in inst.meta.items():
         inst_results[key] = value
     return inst_results.reset_index()
+
+
+def _instrument_bop_mv_series(inst_results: pd.DataFrame, meta: Mapping[str, Any]) -> pd.Series:
+    base_weight_series = _build_base_weight_series(meta)
+    if base_weight_series is not None:
+        return base_weight_series.reindex(inst_results.index).fillna(0.0)
+    return inst_results[PortfolioColumns.BEGIN_MV.value] + inst_results[PortfolioColumns.BOD_CF.value]
 
 
 def _normalize_instrument_return_columns(
@@ -398,21 +401,22 @@ def _build_instrument_group_aggregation(full_df: pd.DataFrame, group_cols: list[
 def _build_instrument_attribution_groups(
     aggregated_panel: pd.DataFrame, group_cols: list[str]
 ) -> list[AttributionObservationGroup]:
-    return_cols = ["return_base", "return_local", "return_fx"]
     output_groups = []
     for keys, group_df in aggregated_panel.groupby(group_cols):
-        key_dict = {group_cols[i]: key_val for i, key_val in enumerate(keys if isinstance(keys, tuple) else [keys])}
-        obs_cols = [PortfolioColumns.PERF_DATE.value, "weight_bop"] + return_cols
-        obs_df = group_df[[c for c in obs_cols if c in group_df.columns]]
         output_groups.append(
             AttributionObservationGroup(
-                key=key_dict,
-                observations=obs_df.rename(columns={PortfolioColumns.PERF_DATE.value: "date"}).to_dict(
-                    orient="records"
-                ),
+                key=_build_group_key_dict(keys, group_cols),
+                observations=_instrument_group_observations(group_df),
             )
         )
     return output_groups
+
+
+def _instrument_group_observations(group_df: pd.DataFrame) -> list[dict[str, Any]]:
+    return_cols = ["return_base", "return_local", "return_fx"]
+    obs_cols = [PortfolioColumns.PERF_DATE.value, "weight_bop"] + return_cols
+    obs_df = group_df[[col for col in obs_cols if col in group_df.columns]]
+    return obs_df.rename(columns={PortfolioColumns.PERF_DATE.value: "date"}).to_dict(orient="records")
 
 
 def _build_base_weight_series(meta: Mapping[str, Any]) -> pd.Series | None:
@@ -473,19 +477,22 @@ def _prepare_panel_from_groups(
     groups: Sequence[AttributionObservationGroupLike], group_by: Sequence[str]
 ) -> pd.DataFrame:
     """Helper to convert list of group data into a tidy DataFrame panel."""
-    all_obs = []
-    if not groups:
-        return pd.DataFrame()
-
-    for group in groups:
-        group_key_tuple = tuple(group.key.get(k) for k in group_by)
-        for obs in group.observations:
-            all_obs.append(_attribution_group_observation_record(obs, group_key_tuple, group_by))
-
+    all_obs = _attribution_group_observation_records(groups, group_by)
     if not all_obs:
         return pd.DataFrame()
     df = pd.DataFrame(all_obs)
     return df.set_index(["date"] + group_by)
+
+
+def _attribution_group_observation_records(
+    groups: Sequence[AttributionObservationGroupLike], group_by: Sequence[str]
+) -> list[dict[str, Any]]:
+    all_obs: list[dict[str, Any]] = []
+    for group in groups:
+        group_key_tuple = tuple(group.key.get(k) for k in group_by)
+        for obs in group.observations:
+            all_obs.append(_attribution_group_observation_record(obs, group_key_tuple, group_by))
+    return all_obs
 
 
 def _align_and_prepare_data(

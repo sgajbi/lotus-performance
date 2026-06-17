@@ -112,17 +112,25 @@ def resolve_runtime_retention_manual_replay(
             job_id=job_id,
         ):
             continue
-        payload = _load_payload(artifact_directory=artifact_directory, evidence_file_name=entry.evidence_file_name)
-        if payload is None:
-            return None
-        if not _runtime_retention_payload_matches_entry(payload, entry):
-            logger.warning(
-                "Operator action replay evidence ignored because payload does not match runtime retention history entry: %s",
-                entry.evidence_file_name,
-            )
-            return None
-        return ActionReplayResult(payload=payload, evidence_file_name=entry.evidence_file_name)
+        return _runtime_retention_replay_from_entry(entry, artifact_directory=artifact_directory)
     return None
+
+
+def _runtime_retention_replay_from_entry(
+    entry: RuntimeRetentionHistoryEntry,
+    *,
+    artifact_directory: Path,
+) -> ActionReplayResult | None:
+    payload = _load_payload(artifact_directory=artifact_directory, evidence_file_name=entry.evidence_file_name)
+    if payload is None:
+        return None
+    if not _runtime_retention_payload_matches_entry(payload, entry):
+        logger.warning(
+            "Operator action replay evidence ignored because payload does not match runtime retention history entry: %s",
+            entry.evidence_file_name,
+        )
+        return None
+    return ActionReplayResult(payload=payload, evidence_file_name=entry.evidence_file_name)
 
 
 def resolve_recovery_drill_manual_replay(
@@ -145,17 +153,25 @@ def resolve_recovery_drill_manual_replay(
             backup_identifier=backup_identifier,
         ):
             continue
-        payload = _load_payload(artifact_directory=artifact_directory, evidence_file_name=entry.evidence_file_name)
-        if payload is None:
-            return None
-        if not _recovery_drill_payload_matches_entry(payload, entry):
-            logger.warning(
-                "Operator action replay evidence ignored because payload does not match recovery drill history entry: %s",
-                entry.evidence_file_name,
-            )
-            return None
-        return ActionReplayResult(payload=payload, evidence_file_name=entry.evidence_file_name)
+        return _recovery_drill_replay_from_entry(entry, artifact_directory=artifact_directory)
     return None
+
+
+def _recovery_drill_replay_from_entry(
+    entry: RecoveryDrillHistoryEntry,
+    *,
+    artifact_directory: Path,
+) -> ActionReplayResult | None:
+    payload = _load_payload(artifact_directory=artifact_directory, evidence_file_name=entry.evidence_file_name)
+    if payload is None:
+        return None
+    if not _recovery_drill_payload_matches_entry(payload, entry):
+        logger.warning(
+            "Operator action replay evidence ignored because payload does not match recovery drill history entry: %s",
+            entry.evidence_file_name,
+        )
+        return None
+    return ActionReplayResult(payload=payload, evidence_file_name=entry.evidence_file_name)
 
 
 def _recovery_drill_entry_matches(
@@ -270,13 +286,10 @@ def _runtime_retention_payload_counts_match(
     payload: dict[str, Any],
     entry: RuntimeRetentionHistoryEntry,
 ) -> bool:
-    return (
-        payload["retention_days"] == entry.retention_days
-        and payload["prunable_execution_count"] == entry.prunable_execution_count
-        and payload["prunable_compute_job_count"] == entry.prunable_compute_job_count
-        and payload["prunable_async_result_count"] == entry.prunable_async_result_count
-        and payload["prunable_lineage_record_count"] == entry.prunable_lineage_record_count
-        and payload["prunable_lineage_artifact_count"] == entry.prunable_lineage_artifact_count
+    return _payload_entry_required_fields_match(
+        payload,
+        entry,
+        field_names=_RUNTIME_RETENTION_REQUIRED_INT_FIELDS,
     )
 
 

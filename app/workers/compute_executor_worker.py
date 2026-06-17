@@ -596,17 +596,10 @@ def _resolve_async_attribution_job_request(
     *,
     settings,
 ) -> tuple[AttributionRequest, AttributionInputMode, str | None, str | None]:
-    resolved_request_payload = payload.get("resolved_request")
-    source_input_mode = payload.get("source_input_mode")
-    resolved_benchmark_id = payload.get("resolved_benchmark_id")
-    resolved_benchmark_return_source = payload.get("resolved_benchmark_return_source")
-    if isinstance(resolved_request_payload, dict) and isinstance(source_input_mode, str):
-        return (
-            AttributionRequest.model_validate(resolved_request_payload),
-            AttributionInputMode(source_input_mode),
-            resolved_benchmark_id if isinstance(resolved_benchmark_id, str) else None,
-            resolved_benchmark_return_source if isinstance(resolved_benchmark_return_source, str) else None,
-        )
+    resolved_job_request = _resolved_async_attribution_job_request_from_payload(payload)
+    if resolved_job_request is not None:
+        return resolved_job_request
+
     try:
         request = AttributionRequest.model_validate(payload)
     except ValidationError:
@@ -619,6 +612,23 @@ def _resolve_async_attribution_job_request(
             resolved_attribution.resolved_benchmark_return_source,
         )
     return request, AttributionInputMode.STATEFUL, None, None
+
+
+def _resolved_async_attribution_job_request_from_payload(
+    payload: dict[str, Any],
+) -> tuple[AttributionRequest, AttributionInputMode, str | None, str | None] | None:
+    resolved_request_payload = payload.get("resolved_request")
+    source_input_mode = payload.get("source_input_mode")
+    resolved_benchmark_id = payload.get("resolved_benchmark_id")
+    resolved_benchmark_return_source = payload.get("resolved_benchmark_return_source")
+    if isinstance(resolved_request_payload, dict) and isinstance(source_input_mode, str):
+        return (
+            AttributionRequest.model_validate(resolved_request_payload),
+            AttributionInputMode(source_input_mode),
+            resolved_benchmark_id if isinstance(resolved_benchmark_id, str) else None,
+            resolved_benchmark_return_source if isinstance(resolved_benchmark_return_source, str) else None,
+        )
+    return None
 
 
 def _resolve_async_benchmark_job_request(

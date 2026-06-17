@@ -8,11 +8,18 @@ from fastapi import HTTPException
 from app.models.benchmark_analytics_requests import BenchmarkInputMode, BenchmarkReturnSource
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.models.requests import PerformanceRequest
-from app.models.responses import ComparativeAnalyticsBlock, ComparativeSummary, SinglePeriodPerformanceResult
+from app.models.responses import (
+    ComparativeAnalyticsBlock,
+    ComparativeReturnValue,
+    ComparativeSummary,
+    SinglePeriodPerformanceResult,
+)
 from app.models.twr_requests import TWRInputMode
 from app.services.benchmark_calculation_service import BenchmarkCalculationArtifacts
 from app.services.twr_service import (
     _as_numeric,
+    _benchmark_context_input_mode_value,
+    _build_twr_benchmark_period_block,
     _build_twr_benchmark_period_blocks,
     _build_twr_lineage_details,
     _build_twr_period_result,
@@ -24,6 +31,8 @@ from app.services.twr_service import (
     _rebased_cumulative_ror,
     _resolve_twr_execution_period_scope,
     _resolve_twr_supportability,
+    _twr_benchmark_period_returns,
+    _twr_execution_master_window,
     _twr_period_reset_events,
     _TWRBenchmarkPeriodContext,
     _TWRExecutionCalculation,
@@ -99,6 +108,18 @@ def test_resolve_twr_execution_period_scope_rejects_unresolved_periods(mocker):
 
     assert exc_info.value.status_code == 400
     assert exc_info.value.detail == "No valid periods could be resolved."
+
+
+def test_twr_execution_master_window_spans_all_resolved_periods():
+    master_start_date, master_end_date = _twr_execution_master_window(
+        [
+            ResolvedPeriod(name="SHORT", start_date=date(2025, 1, 5), end_date=date(2025, 1, 7)),
+            ResolvedPeriod(name="LONG", start_date=date(2025, 1, 1), end_date=date(2025, 1, 10)),
+        ]
+    )
+
+    assert master_start_date == date(2025, 1, 1)
+    assert master_end_date == date(2025, 1, 10)
 
 
 def test_build_twr_results_by_period_builds_portfolio_summary_and_skips_empty_periods():
@@ -285,6 +306,81 @@ def test_build_twr_benchmark_period_blocks_projects_benchmark_identity_and_relat
     assert benchmark.summary.period_return.base == pytest.approx(3.02)
     assert relative is not None
     assert relative.summary.period_return.base == pytest.approx(0.0)
+
+
+def test_twr_benchmark_period_returns_filters_inclusive_period_window():
+    daily_returns_df = pd.DataFrame(
+        [
+            {"date": date(2024, 12, 31), "benchmark_return": 0.99},
+            {"date": date(2025, 1, 1), "benchmark_return": 0.01},
+            {"date": date(2025, 1, 2), "benchmark_return": 0.02},
+            {"date": date(2025, 1, 3), "benchmark_return": 0.98},
+        ]
+    )
+
+    period_returns = _twr_benchmark_period_returns(
+        daily_returns_df=daily_returns_df,
+        period=ResolvedPeriod(name="CUSTOM", start_date=date(2025, 1, 1), end_date=date(2025, 1, 2)),
+    )
+
+    assert period_returns["date"].tolist() == [date(2025, 1, 1), date(2025, 1, 2)]
+    assert period_returns["benchmark_return"].tolist() == [0.01, 0.02]
+
+
+def test_build_twr_benchmark_period_block_projects_metadata_fallbacks_and_cumulative_return():
+    benchmark_request = BenchmarkPerformanceRequest.model_validate(
+        {
+            "benchmark_id": "BMK-REQUESTED",
+            "benchmark_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "benchmark_currency": "USD",
+            "return_source": "vendor_series",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "benchmark_return_points": [
+                {"perf_date": "2025-01-01", "benchmark_return": 0.01},
+                {"perf_date": "2025-01-02", "benchmark_return": 0.02},
+            ],
+        }
+    )
+    benchmark_daily_returns_df = pd.DataFrame(
+        [
+            {"date": date(2025, 1, 1), "benchmark_return": 0.01},
+            {"date": date(2025, 1, 2), "benchmark_return": 0.02},
+        ]
+    )
+    context = _TWRBenchmarkPeriodContext(
+        artifacts=BenchmarkCalculationArtifacts(
+            results_by_period={},
+            daily_returns_df=benchmark_daily_returns_df,
+            component_contributions_df=pd.DataFrame(),
+            effective_period_start=date(2025, 1, 1),
+            max_weight_sum_deviation=0.0,
+            notes=[],
+        ),
+        request=benchmark_request,
+        input_mode=None,
+        resolved_benchmark_id=None,
+        return_source=BenchmarkReturnSource.VENDOR_SERIES,
+        master_start_date=date(2025, 1, 1),
+    )
+
+    benchmark = _build_twr_benchmark_period_block(
+        period=ResolvedPeriod(name="ITD", start_date=date(2025, 1, 2), end_date=date(2025, 1, 2)),
+        benchmark_period_return=ComparativeReturnValue(base=2.0),
+        benchmark_breakdowns={},
+        context=context,
+    )
+
+    assert benchmark.benchmark_id == "BMK-REQUESTED"
+    assert benchmark.input_mode == "stateless"
+    assert benchmark.return_source == "vendor_series"
+    assert benchmark.summary.cumulative_return is not None
+    assert benchmark.summary.cumulative_return.base == pytest.approx(3.02)
+
+
+def test_benchmark_context_input_mode_value_uses_explicit_mode_and_stateless_fallback():
+    assert _benchmark_context_input_mode_value(BenchmarkInputMode.STATEFUL) == "stateful"
+    assert _benchmark_context_input_mode_value(None) == "stateless"
 
 
 def test_build_twr_response_model_preserves_envelope_metadata_and_supportability():

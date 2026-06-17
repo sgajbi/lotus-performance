@@ -19,12 +19,18 @@ from app.services.twr_mode_service import (
     _build_stateful_twr_benchmark_request,
     _build_twr_normalization_resolution,
     _requested_stateful_twr_benchmark_input,
+    _resolve_benchmark_start_date_from_request,
     _resolve_default_stateful_benchmark_input,
     _resolve_stateless_twr_benchmark_request,
+    _resolve_stateless_valuation_start_date,
     _resolve_twr_portfolio_source_input,
+    _resolve_twr_portfolio_start_date,
     _resolve_twr_retrieval_inputs,
     _resolved_twr_benchmark_id,
     _ResolvedTWRBenchmarkSourceInput,
+    _twr_normalization_details,
+    _twr_request_needs_retrieval,
+    _twr_retrieval_details,
     _TWRRetrievalResolution,
     resolve_twr_request,
 )
@@ -42,6 +48,113 @@ def _settings():
         STATEFUL_INPUT_REFERENCE_CHUNK_DAYS=365,
         STATEFUL_INPUT_MAX_CONCURRENT_CHUNKS=4,
     )
+
+
+def test_twr_request_needs_retrieval_for_stateful_portfolio_mode():
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_1",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "stateful_input": {},
+        }
+    )
+
+    assert _twr_request_needs_retrieval(request) is True
+
+
+def test_twr_request_needs_retrieval_skips_plain_stateless_mode():
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_1",
+            "performance_start_date": "2025-01-01",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "valuation_points": [{"perf_date": "2025-01-02", "begin_mv": 1000, "end_mv": 1010}],
+        }
+    )
+
+    assert _twr_request_needs_retrieval(request) is False
+
+
+def test_twr_request_needs_retrieval_for_stateful_benchmark_mode():
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_1",
+            "performance_start_date": "2025-01-01",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "valuation_points": [{"perf_date": "2025-01-02", "begin_mv": 1000, "end_mv": 1010}],
+            "benchmark": {
+                "input_mode": "stateful",
+                "return_source": "calculated",
+                "stateful_input": {},
+            },
+        }
+    )
+
+    assert _twr_request_needs_retrieval(request) is True
+
+
+def test_resolve_stateless_valuation_start_date_uses_earliest_valuation_point():
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_1",
+            "performance_start_date": "2024-12-31",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+            "valuation_points": [
+                {"perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1020.1},
+                {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+            ],
+        }
+    )
+
+    assert _resolve_stateless_valuation_start_date(request) == date(2025, 1, 1)
+    assert _resolve_benchmark_start_date_from_request(request) == date(2025, 1, 1)
+
+
+def test_resolve_benchmark_start_date_from_request_prefers_request_start_for_stateful_mode():
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_1",
+            "performance_start_date": "2024-12-31",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "stateful_input": {},
+        }
+    )
+
+    assert _resolve_stateless_valuation_start_date(request) is None
+    assert _resolve_benchmark_start_date_from_request(request) == date(2024, 12, 31)
+
+
+def test_resolve_benchmark_start_date_from_request_uses_report_end_without_request_start():
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_1",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "stateful_input": {},
+        }
+    )
+
+    assert _resolve_benchmark_start_date_from_request(request) == date(2025, 1, 2)
 
 
 @pytest.fixture(autouse=True)
@@ -164,6 +277,101 @@ def test_build_twr_normalization_resolution_projects_stateful_valuation_details(
     assert len(resolution.resolved_input.valuation_points) == 1
     assert resolution.benchmark_request is None
     assert resolution.normalization_details == {"valuation_points": 1}
+
+
+def test_twr_normalization_details_projects_portfolio_and_benchmark_counts():
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_1",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "stateful_input": {},
+            "benchmark": {
+                "benchmark_id": "BMK_1",
+                "input_mode": "stateless",
+                "return_source": "vendor_series",
+                "stateless_input": {
+                    "benchmark_currency": "USD",
+                    "benchmark_return_points": [
+                        {"perf_date": "2025-01-01", "benchmark_return": 0.01},
+                        {"perf_date": "2025-01-02", "benchmark_return": 0.02},
+                    ],
+                },
+            },
+        }
+    )
+    resolution = _build_twr_normalization_resolution(
+        request=request,
+        retrieval_resolution=_TWRRetrievalResolution(
+            portfolio_input=StatefulPortfolioInput(
+                performance_start_date=request.report_end_date,
+                observations=[
+                    {
+                        "valuation_date": "2025-01-02",
+                        "beginning_market_value": "1000",
+                        "ending_market_value": "1010",
+                    }
+                ],
+            ),
+            benchmark_resolution=None,
+            benchmark_start_date=request.report_end_date,
+            retrieval_details={},
+        ),
+    )
+
+    assert _twr_normalization_details(
+        resolved_input=resolution.resolved_input,
+        benchmark_request=resolution.benchmark_request,
+    ) == {
+        "valuation_points": 1,
+        "benchmark_component_observations": 0,
+        "benchmark_return_points": 2,
+    }
+
+
+def test_twr_retrieval_details_merges_portfolio_and_benchmark_sources():
+    benchmark_resolution = _ResolvedTWRBenchmarkSourceInput(
+        benchmark_id="BMK_1",
+        benchmark_request=_resolve_stateless_twr_benchmark_request(
+            TWRAnalyticsRequest.model_validate(
+                {
+                    "calculation_id": str(uuid4()),
+                    "portfolio_id": "PORT_1",
+                    "performance_start_date": "2025-01-01",
+                    "metric_basis": "NET",
+                    "report_end_date": "2025-01-02",
+                    "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+                    "valuation_points": [{"perf_date": "2025-01-02", "begin_mv": 1000, "end_mv": 1010}],
+                    "benchmark": {
+                        "benchmark_id": "BMK_1",
+                        "input_mode": "stateless",
+                        "return_source": "vendor_series",
+                        "stateless_input": {
+                            "benchmark_currency": "USD",
+                            "benchmark_return_points": [{"perf_date": "2025-01-02", "benchmark_return": 0.01}],
+                        },
+                    },
+                }
+            )
+        ),
+        source_details={"benchmark_source": "stateful", "shared": "benchmark"},
+    )
+
+    assert _twr_retrieval_details(
+        portfolio_retrieval_details={"portfolio_source": "stateful", "shared": "portfolio"},
+        benchmark_resolution=benchmark_resolution,
+    ) == {
+        "portfolio_source": "stateful",
+        "benchmark_source": "stateful",
+        "shared": "benchmark",
+    }
+    assert _twr_retrieval_details(
+        portfolio_retrieval_details={"portfolio_source": "stateful"},
+        benchmark_resolution=None,
+    ) == {"portfolio_source": "stateful"}
 
 
 def test_build_resolved_twr_performance_input_projects_stateful_request_fields():
@@ -515,6 +723,76 @@ async def test_resolve_twr_portfolio_source_input_reports_retrieval_details_from
         "portfolio_chunk_count": 3,
         "portfolio_page_count": 2,
     }
+
+
+@pytest.mark.asyncio
+async def test_resolve_twr_portfolio_start_date_prefers_explicit_request_date():
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_1",
+            "performance_start_date": "2024-12-31",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "stateful_input": {},
+        }
+    )
+
+    assert await _resolve_twr_portfolio_start_date(
+        request=request,
+        stateful_input_service=object(),
+    ) == date(2024, 12, 31)
+
+
+@pytest.mark.asyncio
+async def test_resolve_twr_portfolio_start_date_uses_upstream_open_date_when_missing():
+    class _StatefulPortfolioStub:
+        async def get_portfolio_reference(self, **kwargs):  # noqa: ARG002
+            return 200, {"portfolio_id": "PORT_1", "portfolio_open_date": "2024-01-15"}
+
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_1",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "stateful_input": {},
+        }
+    )
+
+    assert await _resolve_twr_portfolio_start_date(
+        request=request,
+        stateful_input_service=_StatefulPortfolioStub(),
+    ) == date(2024, 1, 15)
+
+
+@pytest.mark.asyncio
+async def test_resolve_twr_portfolio_start_date_rejects_missing_derived_start():
+    class _StatefulPortfolioStub:
+        async def get_portfolio_reference(self, **kwargs):  # noqa: ARG002
+            return 200, {"portfolio_id": "PORT_1"}
+
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_1",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "stateful_input": {},
+        }
+    )
+
+    with pytest.raises(HTTPException, match="Stateful source missing portfolio_open_date"):
+        await _resolve_twr_portfolio_start_date(
+            request=request,
+            stateful_input_service=_StatefulPortfolioStub(),
+        )
 
 
 @pytest.mark.asyncio

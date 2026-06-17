@@ -82,11 +82,7 @@ async def resolve_twr_request(
     *,
     settings: Settings,
 ) -> ResolvedTWRRequest:
-    needs_retrieval = request.input_mode == TWRInputMode.STATEFUL or (
-        _benchmark_requested(request) and _get_requested_benchmark_mode(request) == BenchmarkInputMode.STATEFUL
-    )
-
-    if not needs_retrieval:
+    if not _twr_request_needs_retrieval(request):
         benchmark_start_date = _resolve_benchmark_start_date_from_request(request)
         return ResolvedTWRRequest(
             performance_request=request.to_stateless_performance_request(),
@@ -141,6 +137,12 @@ async def resolve_twr_request(
         retrieval_resolution=retrieval_resolution,
         normalization_resolution=normalization_resolution,
     )
+
+
+def _twr_request_needs_retrieval(request: TWRAnalyticsRequest) -> bool:
+    if request.input_mode == TWRInputMode.STATEFUL:
+        return True
+    return _benchmark_requested(request) and _get_requested_benchmark_mode(request) == BenchmarkInputMode.STATEFUL
 
 
 def _build_resolved_twr_request(
@@ -237,17 +239,28 @@ def _build_twr_normalization_resolution(
         if _benchmark_requested(request)
         else None
     )
-    normalization_details: dict[str, object] = {}
-    if resolved_input is not None:
-        normalization_details["valuation_points"] = len(resolved_input.valuation_points)
-    if benchmark_request is not None:
-        normalization_details["benchmark_component_observations"] = len(benchmark_request.component_observations)
-        normalization_details["benchmark_return_points"] = len(benchmark_request.benchmark_return_points)
     return _TWRNormalizationResolution(
         resolved_input=resolved_input,
         benchmark_request=benchmark_request,
-        normalization_details=normalization_details,
+        normalization_details=_twr_normalization_details(
+            resolved_input=resolved_input,
+            benchmark_request=benchmark_request,
+        ),
     )
+
+
+def _twr_normalization_details(
+    *,
+    resolved_input: StatefulPortfolioValuationInput | None,
+    benchmark_request: BenchmarkPerformanceRequest | None,
+) -> dict[str, object]:
+    details: dict[str, object] = {}
+    if resolved_input is not None:
+        details["valuation_points"] = len(resolved_input.valuation_points)
+    if benchmark_request is not None:
+        details["benchmark_component_observations"] = len(benchmark_request.component_observations)
+        details["benchmark_return_points"] = len(benchmark_request.benchmark_return_points)
+    return details
 
 
 async def _resolve_twr_retrieval_inputs(
@@ -256,10 +269,10 @@ async def _resolve_twr_retrieval_inputs(
     settings: Settings,
     stateful_input_service: StatefulInputService,
 ) -> _TWRRetrievalResolution:
-    retrieval_details: dict[str, object] = {}
     portfolio_input = None
     benchmark_start_date = None
     benchmark_resolution = None
+    portfolio_retrieval_details: dict[str, object] = {}
 
     if request.input_mode == TWRInputMode.STATEFUL:
         portfolio_resolution = await _resolve_twr_portfolio_source_input(
@@ -269,7 +282,7 @@ async def _resolve_twr_retrieval_inputs(
         )
         portfolio_input = portfolio_resolution.portfolio_input
         benchmark_start_date = portfolio_resolution.benchmark_start_date
-        retrieval_details.update(portfolio_resolution.retrieval_details)
+        portfolio_retrieval_details = portfolio_resolution.retrieval_details
 
     if _benchmark_requested(request):
         if benchmark_start_date is None:
@@ -279,15 +292,27 @@ async def _resolve_twr_retrieval_inputs(
             stateful_input_service=stateful_input_service,
             benchmark_start_date=benchmark_start_date,
         )
-        if benchmark_resolution is not None and benchmark_resolution.source_details:
-            retrieval_details.update(benchmark_resolution.source_details)
 
     return _TWRRetrievalResolution(
         portfolio_input=portfolio_input,
         benchmark_resolution=benchmark_resolution,
         benchmark_start_date=benchmark_start_date,
-        retrieval_details=retrieval_details,
+        retrieval_details=_twr_retrieval_details(
+            portfolio_retrieval_details=portfolio_retrieval_details,
+            benchmark_resolution=benchmark_resolution,
+        ),
     )
+
+
+def _twr_retrieval_details(
+    *,
+    portfolio_retrieval_details: dict[str, object],
+    benchmark_resolution: _ResolvedTWRBenchmarkSourceInput | None,
+) -> dict[str, object]:
+    details = dict(portfolio_retrieval_details)
+    if benchmark_resolution is not None and benchmark_resolution.source_details:
+        details.update(benchmark_resolution.source_details)
+    return details
 
 
 async def _resolve_twr_portfolio_source_input(
@@ -302,21 +327,14 @@ async def _resolve_twr_portfolio_source_input(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="stateful_input is required when input_mode=stateful",
         )
-    derived_start_date = None
-    if request.performance_start_date is None:
-        derived_start_date = await _resolve_stateful_portfolio_start_date(
-            request=request,
-            stateful_input_service=stateful_input_service,
-        )
-    resolved_start_date = derived_start_date or request.performance_start_date
-    if resolved_start_date is None:
-        raise HTTPException(
-            status_code=HTTP_422_UNPROCESSABLE,
-            detail="Unable to derive a performance_start_date for the stateful TWR request.",
-        )
+    resolved_start_date = await _resolve_twr_portfolio_start_date(
+        request=request,
+        stateful_input_service=stateful_input_service,
+    )
+    uses_derived_start_date = request.performance_start_date is None
     portfolio_input = await retrieve_stateful_portfolio_input(
         settings=settings,
-        stateful_input_service=(stateful_input_service if derived_start_date is not None else None),
+        stateful_input_service=(stateful_input_service if uses_derived_start_date else None),
         calculation_id=request.calculation_id,
         portfolio_id=request.portfolio_id,
         as_of_date=request.report_end_date,
@@ -334,6 +352,25 @@ async def _resolve_twr_portfolio_source_input(
             "portfolio_page_count": portfolio_input.retrieval_metadata.page_count,
         },
     )
+
+
+async def _resolve_twr_portfolio_start_date(
+    *,
+    request: TWRAnalyticsRequest,
+    stateful_input_service: StatefulInputService,
+) -> date:
+    if request.performance_start_date is not None:
+        return request.performance_start_date
+    derived_start_date = await _resolve_stateful_portfolio_start_date(
+        request=request,
+        stateful_input_service=stateful_input_service,
+    )
+    if derived_start_date is None:
+        raise HTTPException(
+            status_code=HTTP_422_UNPROCESSABLE,
+            detail="Unable to derive a performance_start_date for the stateful TWR request.",
+        )
+    return derived_start_date
 
 
 @dataclass(frozen=True)
@@ -582,13 +619,20 @@ def _resolve_default_stateful_benchmark_input(request: TWRAnalyticsRequest) -> B
     return BenchmarkStatefulInput()
 
 
-def _resolve_benchmark_start_date_from_request(request: TWRAnalyticsRequest):
-    performance_request = (
-        request.to_stateless_performance_request() if request.input_mode == TWRInputMode.STATELESS else None
-    )
-    if performance_request is not None and performance_request.valuation_points:
-        return min(point.perf_date for point in performance_request.valuation_points)
+def _resolve_benchmark_start_date_from_request(request: TWRAnalyticsRequest) -> date:
+    stateless_start_date = _resolve_stateless_valuation_start_date(request)
+    if stateless_start_date is not None:
+        return stateless_start_date
     return request.performance_start_date or request.report_end_date
+
+
+def _resolve_stateless_valuation_start_date(request: TWRAnalyticsRequest) -> date | None:
+    if request.input_mode != TWRInputMode.STATELESS:
+        return None
+    performance_request = request.to_stateless_performance_request()
+    if not performance_request.valuation_points:
+        return None
+    return min(point.perf_date for point in performance_request.valuation_points)
 
 
 def _resolve_benchmark_start_date_from_stateful_source(observations: list[dict]) -> date | None:

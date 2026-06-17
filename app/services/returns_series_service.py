@@ -145,6 +145,13 @@ class _StatefulReturnsSeriesResolvedRequest:
     identity_payload: dict[str, Any]
 
 
+@dataclass(frozen=True)
+class _StatefulReturnsSeriesResolutionContext:
+    active_settings: Any
+    resolved_window: ResolvedWindow
+    stateful_input_service: Any
+
+
 _CALENDAR_PERIOD_START_FREQUENCIES: dict[ReturnsRelativePeriod, str] = {
     ReturnsRelativePeriod.MTD: "M",
     ReturnsRelativePeriod.QTD: "Q",
@@ -354,22 +361,13 @@ def build_active_return_points(
     portfolio_df: pd.DataFrame,
     benchmark_df: pd.DataFrame | None,
 ) -> list[ReturnPoint] | None:
-    if benchmark_df is None:
+    aligned_df = _aligned_portfolio_benchmark_returns_df(portfolio_df=portfolio_df, benchmark_df=benchmark_df)
+    if aligned_df is None:
         return None
+    return _active_return_points_from_aligned_df(aligned_df)
 
-    aligned_df = (
-        portfolio_df[["date", "return_value"]]
-        .merge(
-            benchmark_df[["date", "return_value"]],
-            on="date",
-            how="inner",
-            suffixes=("_portfolio", "_benchmark"),
-        )
-        .sort_values("date")
-    )
-    if aligned_df.empty:
-        return None
 
+def _active_return_points_from_aligned_df(aligned_df: pd.DataFrame) -> list[ReturnPoint] | None:
     portfolio_values = [Decimal(str(value)) for value in aligned_df["return_value_portfolio"]]
     benchmark_values = [Decimal(str(value)) for value in aligned_df["return_value_benchmark"]]
     active_df = pd.DataFrame(
@@ -389,6 +387,20 @@ def build_cumulative_active_return_points(
     portfolio_df: pd.DataFrame,
     benchmark_df: pd.DataFrame | None,
 ) -> list[ReturnPoint] | None:
+    aligned_df = _aligned_cumulative_portfolio_benchmark_returns_df(
+        portfolio_df=portfolio_df,
+        benchmark_df=benchmark_df,
+    )
+    if aligned_df is None:
+        return None
+    return _active_return_points_from_aligned_df(aligned_df)
+
+
+def _aligned_cumulative_portfolio_benchmark_returns_df(
+    *,
+    portfolio_df: pd.DataFrame,
+    benchmark_df: pd.DataFrame | None,
+) -> pd.DataFrame | None:
     if benchmark_df is None:
         return None
 
@@ -396,13 +408,24 @@ def build_cumulative_active_return_points(
     cumulative_benchmark = build_cumulative_return_points(benchmark_df)
     if cumulative_portfolio is None or cumulative_benchmark is None:
         return None
+    return _aligned_portfolio_benchmark_returns_df(
+        portfolio_df=to_dataframe(cumulative_portfolio, series_type="portfolio_cumulative"),
+        benchmark_df=to_dataframe(cumulative_benchmark, series_type="benchmark_cumulative"),
+    )
 
-    portfolio_df_aligned = to_dataframe(cumulative_portfolio, series_type="portfolio_cumulative")
-    benchmark_df_aligned = to_dataframe(cumulative_benchmark, series_type="benchmark_cumulative")
+
+def _aligned_portfolio_benchmark_returns_df(
+    *,
+    portfolio_df: pd.DataFrame,
+    benchmark_df: pd.DataFrame | None,
+) -> pd.DataFrame | None:
+    if benchmark_df is None:
+        return None
+
     aligned_df = (
-        portfolio_df_aligned[["date", "return_value"]]
+        portfolio_df[["date", "return_value"]]
         .merge(
-            benchmark_df_aligned[["date", "return_value"]],
+            benchmark_df[["date", "return_value"]],
             on="date",
             how="inner",
             suffixes=("_portfolio", "_benchmark"),
@@ -411,21 +434,7 @@ def build_cumulative_active_return_points(
     )
     if aligned_df.empty:
         return None
-
-    active_df = pd.DataFrame(
-        {
-            "date": aligned_df["date"],
-            "return_value": [
-                Decimal(str(portfolio_value)) - Decimal(str(benchmark_value))
-                for portfolio_value, benchmark_value in zip(
-                    aligned_df["return_value_portfolio"],
-                    aligned_df["return_value_benchmark"],
-                    strict=True,
-                )
-            ],
-        }
-    )
-    return points_from_df(active_df)
+    return aligned_df
 
 
 def core_frequency_label(_frequency: ReturnsFrequency) -> str:
@@ -591,15 +600,27 @@ def _risk_free_day_count_denominator(day_count_convention: object) -> Decimal:
 
 def _risk_free_return_point_from_source(point: dict[str, Any]) -> ReturnPoint | None:
     date_raw = point.get("series_date")
+    if not isinstance(date_raw, str):
+        return None
+    try:
+        return_value = _risk_free_return_value_from_source(point)
+        if return_value is None:
+            return None
+        return ReturnPoint(date=date.fromisoformat(date_raw), return_value=return_value)
+    except ValueError:
+        return None
+
+
+def _risk_free_return_value_from_source(point: dict[str, Any]) -> Decimal | None:
     value_raw = point.get("value")
-    if not isinstance(date_raw, str) or value_raw is None:
+    if value_raw is None:
         return None
     try:
         return_value = Decimal(str(value_raw))
         if str(point.get("value_convention") or "").lower() == "annualized_rate":
-            return_value = return_value / _risk_free_day_count_denominator(point.get("day_count_convention"))
-        return ReturnPoint(date=date.fromisoformat(date_raw), return_value=return_value)
-    except (ValueError, ArithmeticError):
+            return return_value / _risk_free_day_count_denominator(point.get("day_count_convention"))
+        return return_value
+    except ArithmeticError:
         return None
 
 
@@ -731,29 +752,40 @@ def _prepare_stateless_returns_series_dataframes(
         frequency=request.frequency,
         calendar_policy=request.data_policy.calendar_policy,
     )
-    benchmark_df = (
-        _returns_series_input_dataframe(
-            points=stateless_input.benchmark_returns or [],
-            series_type="benchmark",
-            resolved_window=resolved_window,
-            frequency=request.frequency,
-            calendar_policy=request.data_policy.calendar_policy,
-        )
-        if request.series_selection.include_benchmark
-        else None
+    benchmark_df = _optional_stateless_returns_series_dataframe(
+        selected=request.series_selection.include_benchmark,
+        points=stateless_input.benchmark_returns,
+        series_type="benchmark",
+        request=request,
+        resolved_window=resolved_window,
     )
-    risk_free_df = (
-        _returns_series_input_dataframe(
-            points=stateless_input.risk_free_returns or [],
-            series_type="risk_free",
-            resolved_window=resolved_window,
-            frequency=request.frequency,
-            calendar_policy=request.data_policy.calendar_policy,
-        )
-        if request.series_selection.include_risk_free
-        else None
+    risk_free_df = _optional_stateless_returns_series_dataframe(
+        selected=request.series_selection.include_risk_free,
+        points=stateless_input.risk_free_returns,
+        series_type="risk_free",
+        request=request,
+        resolved_window=resolved_window,
     )
     return portfolio_df, benchmark_df, risk_free_df
+
+
+def _optional_stateless_returns_series_dataframe(
+    *,
+    selected: bool,
+    points: list[ReturnPoint] | None,
+    series_type: str,
+    request: ReturnsSeriesRequest,
+    resolved_window: ResolvedWindow,
+) -> pd.DataFrame | None:
+    if not selected:
+        return None
+    return _returns_series_input_dataframe(
+        points=points or [],
+        series_type=series_type,
+        resolved_window=resolved_window,
+        frequency=request.frequency,
+        calendar_policy=request.data_policy.calendar_policy,
+    )
 
 
 def _build_stateful_returns_series_frames(
@@ -998,13 +1030,18 @@ async def _retrieve_stateful_returns_series_risk_free(
             detail=source_unavailable_detail(f"Risk-free series source unavailable ({risk_free_status})."),
         )
 
+    risk_free_points = _risk_free_points_from_payload(risk_free_payload)
+    return risk_free_points, risk_free_payload
+
+
+def _risk_free_points_from_payload(risk_free_payload: dict[str, Any]) -> list[dict[str, Any]]:
     risk_free_points = risk_free_payload.get("points")
     if not isinstance(risk_free_points, list):
         raise HTTPException(
             status_code=HTTP_422_UNPROCESSABLE,
             detail=upstream_contract_violation_detail("Risk-free series payload missing points list."),
         )
-    return risk_free_points, risk_free_payload
+    return risk_free_points
 
 
 async def _retrieve_stateful_returns_series_vendor_benchmark(
@@ -1255,6 +1292,26 @@ def _update_resolved_stateful_returns_identity(
     )
 
 
+def _final_returns_series_identity(
+    *,
+    request: ReturnsSeriesRequest,
+    context: _ReturnsSeriesExecutionContext,
+    point_outputs: _ReturnsSeriesPointOutputs,
+) -> _ReturnsSeriesIdentity:
+    if context.effective_input_mode != InputMode.STATEFUL:
+        return _ReturnsSeriesIdentity(
+            input_fingerprint=context.input_fingerprint,
+            calculation_hash=context.calculation_hash,
+        )
+    return _update_resolved_stateful_returns_identity(
+        request=request,
+        resolved_window=context.resolved_window,
+        point_outputs=point_outputs,
+        resolved_benchmark_id=context.resolved_benchmark_id,
+        resolved_benchmark_return_source=context.resolved_benchmark_return_source,
+    )
+
+
 def _build_returns_series_response(
     *,
     request: ReturnsSeriesRequest,
@@ -1274,13 +1331,9 @@ def _build_returns_series_response(
         frequency=request.frequency,
         metric_basis=request.metric_basis,
         resolved_window=resolved_window,
-        benchmark_context=(
-            ReturnsSeriesBenchmarkContext(
-                benchmark_id=resolved_benchmark_id,
-                return_source=resolved_benchmark_return_source,
-            )
-            if resolved_benchmark_id is not None and resolved_benchmark_return_source is not None
-            else None
+        benchmark_context=_returns_series_benchmark_context(
+            resolved_benchmark_id=resolved_benchmark_id,
+            resolved_benchmark_return_source=resolved_benchmark_return_source,
         ),
         series=ReturnsSeriesPayload(
             portfolio_returns=point_outputs.portfolio_return_points,
@@ -1304,6 +1357,19 @@ def _build_returns_series_response(
             request_id=request_id_var.get() or None,
             trace_id=trace_id_var.get() or None,
         ),
+    )
+
+
+def _returns_series_benchmark_context(
+    *,
+    resolved_benchmark_id: str | None,
+    resolved_benchmark_return_source: BenchmarkReturnSource | None,
+) -> ReturnsSeriesBenchmarkContext | None:
+    if resolved_benchmark_id is None or resolved_benchmark_return_source is None:
+        return None
+    return ReturnsSeriesBenchmarkContext(
+        benchmark_id=resolved_benchmark_id,
+        return_source=resolved_benchmark_return_source,
     )
 
 
@@ -1438,18 +1504,11 @@ async def _calculate_returns_series(
             risk_free_df=risk_free_df,
         )
 
-        input_fingerprint = context.input_fingerprint
-        calculation_hash = context.calculation_hash
-        if context.effective_input_mode == InputMode.STATEFUL:
-            resolved_identity = _update_resolved_stateful_returns_identity(
-                request=request,
-                resolved_window=context.resolved_window,
-                point_outputs=point_outputs,
-                resolved_benchmark_id=context.resolved_benchmark_id,
-                resolved_benchmark_return_source=context.resolved_benchmark_return_source,
-            )
-            input_fingerprint = resolved_identity.input_fingerprint
-            calculation_hash = resolved_identity.calculation_hash
+        resolved_identity = _final_returns_series_identity(
+            request=request,
+            context=context,
+            point_outputs=point_outputs,
+        )
 
         diagnostics_result = _build_returns_series_diagnostics(
             request=request,
@@ -1465,8 +1524,8 @@ async def _calculate_returns_series(
             point_outputs=point_outputs,
             diagnostics_result=diagnostics_result,
             effective_input_mode=context.effective_input_mode,
-            input_fingerprint=input_fingerprint,
-            calculation_hash=calculation_hash,
+            input_fingerprint=resolved_identity.input_fingerprint,
+            calculation_hash=resolved_identity.calculation_hash,
             resolved_benchmark_id=context.resolved_benchmark_id,
             resolved_benchmark_return_source=context.resolved_benchmark_return_source,
         )
@@ -1496,25 +1555,14 @@ async def _calculate_returns_series(
 async def resolve_stateful_returns_series_request(
     request: ReturnsSeriesRequest,
 ) -> ResolvedStatefulReturnsSeriesRequest:
-    if request.input_mode != InputMode.STATEFUL:
-        raise ValueError("resolve_stateful_returns_series_request only supports stateful requests")
-
-    active_settings = get_settings()
-    resolved_window = resolve_window(request)
-    stateful_input = request.stateful_input
-    if stateful_input is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=invalid_request_detail("stateful_input is required in stateful mode."),
-        )
+    context = _stateful_returns_series_resolution_context(request)
 
     execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_RETRIEVAL)
-    stateful_input_service = build_stateful_input_service(settings=active_settings)
     portfolio_source = await _retrieve_stateful_returns_series_portfolio_source(
-        active_settings=active_settings,
-        stateful_input_service=stateful_input_service,
+        active_settings=context.active_settings,
+        stateful_input_service=context.stateful_input_service,
         request=request,
-        resolved_window=resolved_window,
+        resolved_window=context.resolved_window,
     )
 
     observations = portfolio_source.observations
@@ -1522,8 +1570,8 @@ async def resolve_stateful_returns_series_request(
     resolved_benchmark_return_source = _get_requested_benchmark_return_source(request)
     benchmark_resolution = await _resolve_stateful_returns_series_benchmark_source(
         request=request,
-        stateful_input_service=stateful_input_service,
-        resolved_window=resolved_window,
+        stateful_input_service=context.stateful_input_service,
+        resolved_window=context.resolved_window,
         resolved_benchmark_id=resolved_benchmark_id,
         resolved_benchmark_return_source=resolved_benchmark_return_source,
     )
@@ -1531,8 +1579,8 @@ async def resolve_stateful_returns_series_request(
 
     risk_free_points, risk_free_payload = await _retrieve_stateful_returns_series_risk_free(
         request=request,
-        stateful_input_service=stateful_input_service,
-        resolved_window=resolved_window,
+        stateful_input_service=context.stateful_input_service,
+        resolved_window=context.resolved_window,
     )
 
     execution_registry.complete_stage(
@@ -1550,7 +1598,7 @@ async def resolve_stateful_returns_series_request(
     execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_NORMALIZATION)
     resolved_stateful_request = _build_resolved_stateful_returns_series_request(
         request=request,
-        resolved_window=resolved_window,
+        resolved_window=context.resolved_window,
         observations=observations,
         portfolio_performance_start_date=portfolio_source.performance_start_date,
         benchmark_resolution=benchmark_resolution,
@@ -1566,6 +1614,24 @@ async def resolve_stateful_returns_series_request(
         resolved_benchmark_id=resolved_benchmark_id,
         resolved_benchmark_return_source=(resolved_benchmark_return_source.value if resolved_benchmark_id else None),
         benchmark_work_units=benchmark_resolution.benchmark_work_units,
+    )
+
+
+def _stateful_returns_series_resolution_context(
+    request: ReturnsSeriesRequest,
+) -> _StatefulReturnsSeriesResolutionContext:
+    if request.input_mode != InputMode.STATEFUL:
+        raise ValueError("resolve_stateful_returns_series_request only supports stateful requests")
+    if request.stateful_input is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=invalid_request_detail("stateful_input is required in stateful mode."),
+        )
+    active_settings = get_settings()
+    return _StatefulReturnsSeriesResolutionContext(
+        active_settings=active_settings,
+        resolved_window=resolve_window(request),
+        stateful_input_service=build_stateful_input_service(settings=active_settings),
     )
 
 

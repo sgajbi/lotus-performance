@@ -234,19 +234,24 @@ def _benchmark_return_points_from_payload(return_payload: dict[str, Any]) -> lis
 
     benchmark_return_points: list[BenchmarkReturnPoint] = []
     for point in points_raw:
-        if not isinstance(point, dict):
+        benchmark_return_point = _benchmark_return_point_from_payload_point(point)
+        if benchmark_return_point is None:
             continue
-        series_date = point.get("series_date")
-        benchmark_return = point.get("benchmark_return")
-        if not isinstance(series_date, str) or benchmark_return is None:
-            continue
-        benchmark_return_points.append(
-            BenchmarkReturnPoint(
-                perf_date=date.fromisoformat(series_date),
-                benchmark_return=float(point["benchmark_return"]),
-            )
-        )
+        benchmark_return_points.append(benchmark_return_point)
     return benchmark_return_points
+
+
+def _benchmark_return_point_from_payload_point(point: object) -> BenchmarkReturnPoint | None:
+    if not isinstance(point, dict):
+        return None
+    series_date = point.get("series_date")
+    benchmark_return = point.get("benchmark_return")
+    if not isinstance(series_date, str) or benchmark_return is None:
+        return None
+    return BenchmarkReturnPoint(
+        perf_date=date.fromisoformat(series_date),
+        benchmark_return=float(point["benchmark_return"]),
+    )
 
 
 def _parse_composition_window(
@@ -335,19 +340,9 @@ def _parse_composition_segment(
     start_date: date,
     end_date: date,
 ) -> BenchmarkCompositionSegment | None:
-    index_id = segment.get("index_id")
-    composition_weight = segment.get("composition_weight")
-    effective_from_raw = segment.get("composition_effective_from")
-    effective_to_raw = segment.get("composition_effective_to")
-    if not isinstance(index_id, str) or composition_weight is None or not isinstance(effective_from_raw, str):
-        raise HTTPException(
-            status_code=HTTP_422_UNPROCESSABLE,
-            detail=(
-                "benchmark composition-window payload missing index_id, "
-                "composition_weight, or composition_effective_from."
-            ),
-        )
+    index_id, composition_weight, effective_from_raw = _composition_segment_required_fields(segment)
     effective_from = date.fromisoformat(effective_from_raw)
+    effective_to_raw = segment.get("composition_effective_to")
     effective_to = date.fromisoformat(effective_to_raw) if isinstance(effective_to_raw, str) else None
     if not _composition_segment_overlaps_window(
         effective_from=effective_from,
@@ -362,6 +357,21 @@ def _parse_composition_segment(
         composition_effective_from=effective_from,
         composition_effective_to=effective_to,
     )
+
+
+def _composition_segment_required_fields(segment: dict[str, Any]) -> tuple[str, Any, str]:
+    index_id = segment.get("index_id")
+    composition_weight = segment.get("composition_weight")
+    effective_from_raw = segment.get("composition_effective_from")
+    if not isinstance(index_id, str) or composition_weight is None or not isinstance(effective_from_raw, str):
+        raise HTTPException(
+            status_code=HTTP_422_UNPROCESSABLE,
+            detail=(
+                "benchmark composition-window payload missing index_id, "
+                "composition_weight, or composition_effective_from."
+            ),
+        )
+    return index_id, composition_weight, effective_from_raw
 
 
 def _composition_segment_overlaps_window(
@@ -554,11 +564,23 @@ def _fx_rate_map_from_payload(
             status_code=HTTP_422_UNPROCESSABLE,
             detail=f"fx rate payload missing points for {from_currency}/{to_currency}.",
         )
-    return {
-        date.fromisoformat(point["series_date"]): Decimal(str(point["fx_rate"]))
-        for point in points_raw
-        if isinstance(point, dict) and isinstance(point.get("series_date"), str) and point.get("fx_rate") is not None
-    }
+    fx_rates: dict[date, Decimal] = {}
+    for point in points_raw:
+        parsed_point = _fx_rate_point_from_payload_point(point)
+        if parsed_point is not None:
+            series_date, fx_rate = parsed_point
+            fx_rates[series_date] = fx_rate
+    return fx_rates
+
+
+def _fx_rate_point_from_payload_point(point: object) -> tuple[date, Decimal] | None:
+    if not isinstance(point, dict):
+        return None
+    series_date = point.get("series_date")
+    fx_rate = point.get("fx_rate")
+    if not isinstance(series_date, str) or fx_rate is None:
+        return None
+    return date.fromisoformat(series_date), Decimal(str(fx_rate))
 
 
 def _required_fx_pairs_for_components(
@@ -811,13 +833,12 @@ def _normalized_component_price_point_from_payload(
     requested_start_date: date,
     requested_end_date: date,
 ) -> _NormalizedComponentPricePoint | None:
-    if not isinstance(point, dict):
-        return None
-    date_raw = point.get("series_date")
-    if not isinstance(date_raw, str):
-        return None
-    point_date = date.fromisoformat(date_raw)
-    if point_date < requested_start_date - timedelta(days=1) or point_date > requested_end_date:
+    point_date = _component_price_point_date_in_scope(
+        point=point,
+        requested_start_date=requested_start_date,
+        requested_end_date=requested_end_date,
+    )
+    if point_date is None:
         return None
     index_price_raw = point.get("index_price")
     if index_price_raw is None:
@@ -840,6 +861,23 @@ def _normalized_component_price_point_from_payload(
         ),
         is_requested_date=requested_start_date <= point_date <= requested_end_date,
     )
+
+
+def _component_price_point_date_in_scope(
+    *,
+    point: Any,
+    requested_start_date: date,
+    requested_end_date: date,
+) -> date | None:
+    if not isinstance(point, dict):
+        return None
+    date_raw = point.get("series_date")
+    if not isinstance(date_raw, str):
+        return None
+    point_date = date.fromisoformat(date_raw)
+    if point_date < requested_start_date - timedelta(days=1) or point_date > requested_end_date:
+        return None
+    return point_date
 
 
 def _normalize_price_to_benchmark_currency(

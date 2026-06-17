@@ -18,7 +18,7 @@ from app.services.operator_action_lease_service import (
     build_runtime_retention_action_key,
     operator_action_lease,
 )
-from app.services.operator_action_replay_service import resolve_runtime_retention_manual_replay
+from app.services.operator_action_replay_service import ActionReplayResult, resolve_runtime_retention_manual_replay
 from app.services.runtime_retention_execution_service import (
     RuntimeRetentionCleanupEvidence,
     execute_runtime_retention_cleanup,
@@ -90,6 +90,25 @@ def _enforce_runtime_retention_manual_run_guards(
     )
 
 
+def _runtime_retention_replay_run_result(replay: ActionReplayResult | None) -> RuntimeRetentionCleanupRunResult | None:
+    if replay is None:
+        return None
+    return RuntimeRetentionCleanupRunResult(
+        response=build_runtime_retention_cleanup_run_response(**replay.payload),
+        is_replay=True,
+    )
+
+
+def _runtime_retention_governed_target(
+    *,
+    apply: bool,
+    retention_days: int,
+    job_id: str | None,
+) -> str:
+    cleanup_mode = "apply" if apply else "dry_run"
+    return f"{cleanup_mode}:{retention_days}:{job_id or 'no-job'}"
+
+
 def run_runtime_retention_cleanup(
     *,
     cleanup_request: RuntimeRetentionCleanupRunRequest,
@@ -120,11 +139,9 @@ def run_runtime_retention_cleanup(
         retention_days=cleanup_request.retention_days,
         job_id=cleanup_request.job_id,
     )
-    if replay is not None:
-        return RuntimeRetentionCleanupRunResult(
-            response=build_runtime_retention_cleanup_run_response(**replay.payload),
-            is_replay=True,
-        )
+    replay_result = _runtime_retention_replay_run_result(replay)
+    if replay_result is not None:
+        return replay_result
 
     _enforce_runtime_retention_manual_run_guards(
         cleanup_request=cleanup_request,
@@ -150,8 +167,10 @@ def run_runtime_retention_cleanup(
             action_name="runtime_retention_cleanup",
             operator_id=operator_id,
             tenant_id=tenant_id,
-            governed_target=(
-                f"{'apply' if cleanup_request.apply else 'dry_run'}:{resolved_retention_days}:{cleanup_request.job_id or 'no-job'}"
+            governed_target=_runtime_retention_governed_target(
+                apply=cleanup_request.apply,
+                retention_days=resolved_retention_days,
+                job_id=cleanup_request.job_id,
             ),
             acquired_at_utc=(now_utc or datetime.now(UTC)).isoformat(),
         ),

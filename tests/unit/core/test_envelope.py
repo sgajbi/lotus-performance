@@ -4,7 +4,7 @@ from datetime import date
 import pytest
 from pydantic import ValidationError
 
-from core.envelope import BaseRequest, FXRequestBlock, Periods, RollingPeriod
+from core.envelope import BaseRequest, FXRequestBlock, Periods, RollingPeriod, _period_definition_issue
 
 
 def test_base_request_validation_happy_path():
@@ -32,6 +32,32 @@ def test_periods_model_validation():
     # Succeeds
     Periods(type="EXPLICIT", explicit={"start": "2025-01-01", "end": "2025-01-31"})
     Periods(type="ROLLING", rolling={"months": 12})
+
+
+@pytest.mark.parametrize("period_type", ["YTD", "QTD", "MTD", "WTD", "1Y", "3Y", "5Y", "ITD"])
+def test_periods_model_accepts_non_conditional_period_types(period_type):
+    period = Periods(type=period_type)
+
+    assert period.type == period_type
+    assert period.explicit is None
+    assert period.rolling is None
+
+
+def test_period_definition_issue_preserves_conditional_period_policy():
+    explicit = Periods(type="EXPLICIT", explicit={"start": "2025-01-01", "end": "2025-01-31"}).explicit
+    rolling = Periods(type="ROLLING", rolling={"months": 12}).rolling
+
+    assert (
+        _period_definition_issue(period_type="EXPLICIT", explicit=None, rolling=None)
+        == '"explicit" period definition is required when type is "EXPLICIT"'
+    )
+    assert (
+        _period_definition_issue(period_type="ROLLING", explicit=None, rolling=None)
+        == '"rolling" period definition is required when type is "ROLLING"'
+    )
+    assert _period_definition_issue(period_type="EXPLICIT", explicit=explicit, rolling=None) is None
+    assert _period_definition_issue(period_type="ROLLING", explicit=None, rolling=rolling) is None
+    assert _period_definition_issue(period_type="YTD", explicit=None, rolling=None) is None
 
 
 def test_rolling_period_validation():

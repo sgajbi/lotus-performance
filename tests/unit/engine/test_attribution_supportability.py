@@ -3,6 +3,9 @@ from types import SimpleNamespace
 import pandas as pd
 
 from engine.attribution_supportability import (
+    _build_attribution_reason,
+    _determine_attribution_supportability_status,
+    _has_attribution_coverage_gap,
     build_attribution_supportability_evidence,
     classify_attribution_residual,
 )
@@ -10,6 +13,17 @@ from engine.attribution_supportability import (
 
 def _request():
     return SimpleNamespace(group_by=["sector"])
+
+
+def test_attribution_supportability_status_prioritizes_coverage_gaps_over_warnings():
+    coverage_reason = _build_attribution_reason("missing_benchmark_return", "warning", "Missing benchmark return.", 1)
+    residual_warning = _build_attribution_reason("material_residual", "warning", "Material residual.", 0)
+
+    assert _has_attribution_coverage_gap([coverage_reason]) is True
+    assert _has_attribution_coverage_gap([residual_warning]) is False
+    assert _determine_attribution_supportability_status([coverage_reason, residual_warning]) == "partial"
+    assert _determine_attribution_supportability_status([residual_warning]) == "warning"
+    assert _determine_attribution_supportability_status([]) == "valid"
 
 
 def test_attribution_supportability_handles_empty_evidence_as_unavailable():

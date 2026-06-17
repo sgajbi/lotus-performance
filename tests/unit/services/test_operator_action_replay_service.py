@@ -6,10 +6,12 @@ from app.services.operator_action_replay_service import (
     _recovery_drill_payload_has_required_shape,
     _recovery_drill_payload_identity_matches,
     _recovery_drill_payload_matches_entry,
+    _recovery_drill_replay_from_entry,
     _runtime_retention_payload_counts_match,
     _runtime_retention_payload_has_required_shape,
     _runtime_retention_payload_identity_matches,
     _runtime_retention_payload_matches_entry,
+    _runtime_retention_replay_from_entry,
     _runtime_retention_request_filters_match,
     resolve_recovery_drill_manual_replay,
     resolve_runtime_retention_manual_replay,
@@ -125,6 +127,7 @@ def test_runtime_retention_payload_match_helpers_reject_shape_identity_and_count
     assert (
         _runtime_retention_payload_counts_match(_runtime_retention_payload(prunable_execution_count=99), entry) is False
     )
+    assert _runtime_retention_payload_counts_match(_runtime_retention_payload(retention_days=60), entry) is False
     assert (
         _runtime_retention_payload_matches_entry(_runtime_retention_payload(prunable_execution_count=99), entry)
         is False
@@ -185,6 +188,34 @@ def test_runtime_retention_request_filters_reject_drift():
         )
         is False
     )
+
+
+def test_runtime_retention_replay_from_entry_returns_loaded_matching_payload(tmp_path):
+    artifact_dir = tmp_path / "artifacts" / "runtime-retention-cleanup"
+    artifact_dir.mkdir(parents=True)
+    entry = _runtime_retention_entry()
+    payload = _runtime_retention_payload()
+    (artifact_dir / entry.evidence_file_name).write_text(__import__("json").dumps(payload), encoding="utf-8")
+
+    replay = _runtime_retention_replay_from_entry(entry, artifact_directory=artifact_dir)
+
+    assert replay is not None
+    assert replay.payload == payload
+    assert replay.evidence_file_name == entry.evidence_file_name
+
+
+def test_runtime_retention_replay_from_entry_rejects_payload_drift(tmp_path, caplog):
+    artifact_dir = tmp_path / "artifacts" / "runtime-retention-cleanup"
+    artifact_dir.mkdir(parents=True)
+    entry = _runtime_retention_entry()
+    payload = _runtime_retention_payload(prunable_execution_count=99)
+    (artifact_dir / entry.evidence_file_name).write_text(__import__("json").dumps(payload), encoding="utf-8")
+
+    with caplog.at_level(logging.WARNING):
+        replay = _runtime_retention_replay_from_entry(entry, artifact_directory=artifact_dir)
+
+    assert replay is None
+    assert "payload does not match runtime retention history entry" in caplog.text
 
 
 def test_recovery_drill_payload_match_helpers_accept_matching_payload():
@@ -273,6 +304,34 @@ def test_recovery_drill_entry_matches_rejects_identity_drift():
         )
         is False
     )
+
+
+def test_recovery_drill_replay_from_entry_returns_loaded_matching_payload(tmp_path):
+    artifact_dir = tmp_path / "artifacts" / "durable-recovery-drill"
+    artifact_dir.mkdir(parents=True)
+    entry = _recovery_drill_entry()
+    payload = _recovery_drill_payload()
+    (artifact_dir / entry.evidence_file_name).write_text(__import__("json").dumps(payload), encoding="utf-8")
+
+    replay = _recovery_drill_replay_from_entry(entry, artifact_directory=artifact_dir)
+
+    assert replay is not None
+    assert replay.payload == payload
+    assert replay.evidence_file_name == entry.evidence_file_name
+
+
+def test_recovery_drill_replay_from_entry_rejects_payload_drift(tmp_path, caplog):
+    artifact_dir = tmp_path / "artifacts" / "durable-recovery-drill"
+    artifact_dir.mkdir(parents=True)
+    entry = _recovery_drill_entry()
+    payload = _recovery_drill_payload(status="failed")
+    (artifact_dir / entry.evidence_file_name).write_text(__import__("json").dumps(payload), encoding="utf-8")
+
+    with caplog.at_level(logging.WARNING):
+        replay = _recovery_drill_replay_from_entry(entry, artifact_directory=artifact_dir)
+
+    assert replay is None
+    assert "payload does not match recovery drill history entry" in caplog.text
 
 
 def test_runtime_retention_manual_replay_returns_matching_evidence(tmp_path):

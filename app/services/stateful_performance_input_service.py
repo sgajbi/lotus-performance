@@ -51,27 +51,17 @@ async def retrieve_stateful_portfolio_input(
     reporting_currency: str | None,
     consumer_system: str,
 ) -> StatefulPortfolioInput:
-    if stateful_input_service is None:
-        upstream_status, upstream_payload = await fetch_stateful_portfolio_timeseries(
-            settings=settings,
-            calculation_id=calculation_id,
-            portfolio_id=portfolio_id,
-            as_of_date=as_of_date,
-            start_date=start_date,
-            end_date=end_date,
-            reporting_currency=reporting_currency,
-            consumer_system=consumer_system,
-        )
-    else:
-        upstream_status, upstream_payload = await stateful_input_service.get_portfolio_timeseries(
-            calculation_id=calculation_id,
-            portfolio_id=portfolio_id,
-            as_of_date=as_of_date,
-            start_date=start_date,
-            end_date=end_date,
-            reporting_currency=reporting_currency,
-            consumer_system=consumer_system,
-        )
+    upstream_status, upstream_payload = await _retrieve_portfolio_timeseries_response(
+        settings=settings,
+        stateful_input_service=stateful_input_service,
+        calculation_id=calculation_id,
+        portfolio_id=portfolio_id,
+        as_of_date=as_of_date,
+        start_date=start_date,
+        end_date=end_date,
+        reporting_currency=reporting_currency,
+        consumer_system=consumer_system,
+    )
     raise_for_stateful_control_plane_unavailable(
         source_label="stateful portfolio timeseries source",
         upstream_status=upstream_status,
@@ -108,6 +98,40 @@ async def retrieve_stateful_portfolio_input(
         portfolio_currency=portfolio_source.portfolio_currency,
         reporting_currency=portfolio_source.reporting_currency,
         retrieval_metadata=parse_retrieval_metadata(upstream_payload),
+    )
+
+
+async def _retrieve_portfolio_timeseries_response(
+    *,
+    settings: Settings,
+    stateful_input_service: StatefulInputService | None,
+    calculation_id: UUID | None,
+    portfolio_id: str,
+    as_of_date: date,
+    start_date: date,
+    end_date: date,
+    reporting_currency: str | None,
+    consumer_system: str,
+) -> tuple[int, dict[str, object]]:
+    if stateful_input_service is None:
+        return await fetch_stateful_portfolio_timeseries(
+            settings=settings,
+            calculation_id=calculation_id,
+            portfolio_id=portfolio_id,
+            as_of_date=as_of_date,
+            start_date=start_date,
+            end_date=end_date,
+            reporting_currency=reporting_currency,
+            consumer_system=consumer_system,
+        )
+    return await stateful_input_service.get_portfolio_timeseries(
+        calculation_id=calculation_id,
+        portfolio_id=portfolio_id,
+        as_of_date=as_of_date,
+        start_date=start_date,
+        end_date=end_date,
+        reporting_currency=reporting_currency,
+        consumer_system=consumer_system,
     )
 
 
