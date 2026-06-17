@@ -32,7 +32,7 @@ must stay at `0`.
 | --- | ---: |
 | Max cyclomatic complexity | 6 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 54.94 |
+| Average maintainability index | 54.92 |
 
 ## Highest Cyclomatic Complexity
 

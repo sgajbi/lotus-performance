@@ -1,13 +1,14 @@
 import json
 import logging
 
-from fastapi import Request
+from fastapi import APIRouter, FastAPI, Request
 from prometheus_client import REGISTRY, generate_latest
 
 from app.observability import (
     JsonFormatter,
     _bounded_mwr_solver_outcome_labels,
     _bounded_mwr_solver_reason_codes,
+    _instrumentator_route_name,
     _json_log_payload,
     _log_context_fields,
     build_access_log_fields,
@@ -155,6 +156,34 @@ def test_build_access_log_fields_contains_platform_duration_and_legacy_latency()
     assert fields["endpoint"] == "/health"
     assert fields["duration_ms"] == 10.5
     assert fields["latency_ms"] == 10.5
+
+
+def test_instrumentator_route_name_resolves_fastapi_included_router_context():
+    router = APIRouter()
+
+    @router.get("/items/{item_id}")
+    async def read_item(item_id: str) -> dict[str, str]:
+        return {"item_id": item_id}
+
+    app = FastAPI()
+    app.include_router(router, prefix="/api")
+    request = Request(
+        {
+            "type": "http",
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/api/items/123",
+            "root_path": "",
+            "query_string": b"",
+            "headers": [],
+            "client": ("testclient", 50000),
+            "server": ("testserver", 80),
+            "app": app,
+        }
+    )
+
+    assert _instrumentator_route_name(request) == "/api/items/{item_id}"
 
 
 def test_bounded_mwr_solver_reason_codes_defaults_and_filters_unsafe_values():

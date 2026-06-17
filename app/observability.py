@@ -9,6 +9,8 @@ from uuid import uuid4
 from fastapi import FastAPI, Request
 from prometheus_client import REGISTRY, Counter
 from prometheus_fastapi_instrumentator import Instrumentator
+from prometheus_fastapi_instrumentator import routing as instrumentator_routing
+from starlette.routing import Match
 
 from app.observability_contracts import (
     PERFORMANCE_ANALYTICS_FRESHNESS_METRIC_LABELS,
@@ -36,6 +38,8 @@ MWR_SOLVER_OUTCOME_TOTAL = Counter(
     "MWR solver outcomes by bounded input mode, method, status, reason code, and fallback flag.",
     PERFORMANCE_MWR_SOLVER_OUTCOME_METRIC_LABELS,
 )
+
+_ORIGINAL_INSTRUMENTATOR_ROUTE_NAME_RESOLVER = instrumentator_routing.get_route_name
 
 _MWR_ALLOWED_INPUT_MODES = frozenset({"stateless", "stateful"})
 _MWR_ALLOWED_METHODS = frozenset({"XIRR", "MODIFIED_DIETZ", "DIETZ"})
@@ -228,6 +232,7 @@ def build_access_log_fields(*, request: Request, duration_ms: float) -> dict[str
 def setup_observability(app: FastAPI, *, log_level: str = "INFO") -> None:
     setup_logging(log_level)
     _register_queue_collector_once()
+    _patch_instrumentator_route_name_resolution()
     Instrumentator().instrument(app).expose(app)
 
     @app.middleware("http")
@@ -265,3 +270,48 @@ def _register_queue_collector_once() -> None:
     if any(isinstance(collector, DurableQueueCollector) for collector in list(REGISTRY._collector_to_names)):
         return
     REGISTRY.register(DurableQueueCollector())
+
+
+def _patch_instrumentator_route_name_resolution() -> None:
+    instrumentator_routing.get_route_name = _instrumentator_route_name
+
+
+def _instrumentator_route_name(request: Request) -> str | None:
+    try:
+        return _ORIGINAL_INSTRUMENTATOR_ROUTE_NAME_RESOLVER(request)
+    except AttributeError:
+        return _included_router_route_name(request)
+
+
+def _included_router_route_name(request: Request) -> str | None:
+    for route in request.app.routes:
+        if _route_matches(route, request.scope) != Match.FULL:
+            continue
+
+        route_name = _route_path(route) or _matching_effective_candidate_path(route, request.scope)
+        if route_name:
+            return route_name
+    return None
+
+
+def _route_path(route: object) -> str | None:
+    return getattr(route, "path", None) or getattr(route, "path_format", None)
+
+
+def _matching_effective_candidate_path(route: object, scope: object) -> str | None:
+    effective_candidates = getattr(route, "effective_candidates", None)
+    if not callable(effective_candidates):
+        return None
+
+    for candidate in effective_candidates():
+        if _route_matches(candidate, scope) == Match.FULL:
+            return _route_path(candidate)
+    return None
+
+
+def _route_matches(route: object, scope: object) -> Match:
+    matches = getattr(route, "matches", None)
+    if not callable(matches):
+        return Match.NONE
+    match, _ = matches(scope)
+    return match
