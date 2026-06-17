@@ -145,6 +145,13 @@ class _StatefulReturnsSeriesResolvedRequest:
     identity_payload: dict[str, Any]
 
 
+@dataclass(frozen=True)
+class _StatefulReturnsSeriesResolutionContext:
+    active_settings: Any
+    resolved_window: ResolvedWindow
+    stateful_input_service: Any
+
+
 _CALENDAR_PERIOD_START_FREQUENCIES: dict[ReturnsRelativePeriod, str] = {
     ReturnsRelativePeriod.MTD: "M",
     ReturnsRelativePeriod.QTD: "Q",
@@ -1548,25 +1555,14 @@ async def _calculate_returns_series(
 async def resolve_stateful_returns_series_request(
     request: ReturnsSeriesRequest,
 ) -> ResolvedStatefulReturnsSeriesRequest:
-    if request.input_mode != InputMode.STATEFUL:
-        raise ValueError("resolve_stateful_returns_series_request only supports stateful requests")
-
-    active_settings = get_settings()
-    resolved_window = resolve_window(request)
-    stateful_input = request.stateful_input
-    if stateful_input is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=invalid_request_detail("stateful_input is required in stateful mode."),
-        )
+    context = _stateful_returns_series_resolution_context(request)
 
     execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_RETRIEVAL)
-    stateful_input_service = build_stateful_input_service(settings=active_settings)
     portfolio_source = await _retrieve_stateful_returns_series_portfolio_source(
-        active_settings=active_settings,
-        stateful_input_service=stateful_input_service,
+        active_settings=context.active_settings,
+        stateful_input_service=context.stateful_input_service,
         request=request,
-        resolved_window=resolved_window,
+        resolved_window=context.resolved_window,
     )
 
     observations = portfolio_source.observations
@@ -1574,8 +1570,8 @@ async def resolve_stateful_returns_series_request(
     resolved_benchmark_return_source = _get_requested_benchmark_return_source(request)
     benchmark_resolution = await _resolve_stateful_returns_series_benchmark_source(
         request=request,
-        stateful_input_service=stateful_input_service,
-        resolved_window=resolved_window,
+        stateful_input_service=context.stateful_input_service,
+        resolved_window=context.resolved_window,
         resolved_benchmark_id=resolved_benchmark_id,
         resolved_benchmark_return_source=resolved_benchmark_return_source,
     )
@@ -1583,8 +1579,8 @@ async def resolve_stateful_returns_series_request(
 
     risk_free_points, risk_free_payload = await _retrieve_stateful_returns_series_risk_free(
         request=request,
-        stateful_input_service=stateful_input_service,
-        resolved_window=resolved_window,
+        stateful_input_service=context.stateful_input_service,
+        resolved_window=context.resolved_window,
     )
 
     execution_registry.complete_stage(
@@ -1602,7 +1598,7 @@ async def resolve_stateful_returns_series_request(
     execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_NORMALIZATION)
     resolved_stateful_request = _build_resolved_stateful_returns_series_request(
         request=request,
-        resolved_window=resolved_window,
+        resolved_window=context.resolved_window,
         observations=observations,
         portfolio_performance_start_date=portfolio_source.performance_start_date,
         benchmark_resolution=benchmark_resolution,
@@ -1618,6 +1614,24 @@ async def resolve_stateful_returns_series_request(
         resolved_benchmark_id=resolved_benchmark_id,
         resolved_benchmark_return_source=(resolved_benchmark_return_source.value if resolved_benchmark_id else None),
         benchmark_work_units=benchmark_resolution.benchmark_work_units,
+    )
+
+
+def _stateful_returns_series_resolution_context(
+    request: ReturnsSeriesRequest,
+) -> _StatefulReturnsSeriesResolutionContext:
+    if request.input_mode != InputMode.STATEFUL:
+        raise ValueError("resolve_stateful_returns_series_request only supports stateful requests")
+    if request.stateful_input is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=invalid_request_detail("stateful_input is required in stateful mode."),
+        )
+    active_settings = get_settings()
+    return _StatefulReturnsSeriesResolutionContext(
+        active_settings=active_settings,
+        resolved_window=resolve_window(request),
+        stateful_input_service=build_stateful_input_service(settings=active_settings),
     )
 
 

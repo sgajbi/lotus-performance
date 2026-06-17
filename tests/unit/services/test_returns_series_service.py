@@ -1208,6 +1208,55 @@ def test_resolved_stateful_returns_series_request_payload_promotes_stateless_inp
     assert payload["stateless_input"] == identity_payload["stateless_input"]
 
 
+def test_stateful_returns_series_resolution_context_builds_window_and_service(monkeypatch):
+    request = _build_stateful_request()
+    settings = object()
+    service = object()
+
+    monkeypatch.setattr(returns_series_service, "get_settings", lambda: settings)
+    monkeypatch.setattr(
+        returns_series_service,
+        "build_stateful_input_service",
+        lambda *, settings: service,
+    )
+
+    context = returns_series_service._stateful_returns_series_resolution_context(request)
+
+    assert context.active_settings is settings
+    assert context.stateful_input_service is service
+    assert context.resolved_window == returns_series_service.resolve_window(request)
+
+
+def test_stateful_returns_series_resolution_context_requires_stateful_mode():
+    request = ReturnsSeriesRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "as_of_date": "2026-02-24",
+            "window": {"mode": "EXPLICIT", "from_date": "2026-02-23", "to_date": "2026-02-24"},
+            "frequency": "DAILY",
+            "series_selection": {"include_portfolio": True, "include_benchmark": False, "include_risk_free": False},
+            "input_mode": "stateless",
+            "stateless_input": {
+                "portfolio_returns": [
+                    {"date": "2026-02-23", "return_value": "0.0100"},
+                ],
+            },
+        }
+    )
+
+    with pytest.raises(ValueError, match="only supports stateful requests"):
+        returns_series_service._stateful_returns_series_resolution_context(request)
+
+
+def test_stateful_returns_series_resolution_context_requires_stateful_input():
+    request = _build_stateful_request().model_copy(update={"stateful_input": None})
+
+    with pytest.raises(HTTPException) as exc:
+        returns_series_service._stateful_returns_series_resolution_context(request)
+
+    assert exc.value.status_code == 400
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("upstream_status", "mapped_status", "mapped_code"),

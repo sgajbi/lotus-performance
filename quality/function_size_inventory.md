@@ -32,7 +32,7 @@ python scripts/python_function_size_inventory.py --limit 20
 | 10 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:31` | 94 |
 | 11 | `build_stateful_benchmark_input` | `app/services/stateful_benchmark_input_service.py:57` | 93 |
 | 12 | `calculate_twr_response` | `app/services/twr_service.py:1061` | 93 |
-| 13 | `_calculate_returns_series` | `app/services/returns_series_service.py:1456` | 90 |
+| 13 | `_calculate_returns_series` | `app/services/returns_series_service.py:1463` | 90 |
 | 14 | `_build_artifacts` | `app/services/composite_inspection_service.py:151` | 89 |
 | 15 | `build_recovery_drill_history_snapshot` | `app/services/recovery_drill_history_service.py:62` | 85 |
 | 16 | `build_runtime_recovery_snapshot` | `app/services/runtime_recovery_service.py:46` | 84 |
