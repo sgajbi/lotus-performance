@@ -1304,13 +1304,9 @@ def _build_returns_series_response(
         frequency=request.frequency,
         metric_basis=request.metric_basis,
         resolved_window=resolved_window,
-        benchmark_context=(
-            ReturnsSeriesBenchmarkContext(
-                benchmark_id=resolved_benchmark_id,
-                return_source=resolved_benchmark_return_source,
-            )
-            if resolved_benchmark_id is not None and resolved_benchmark_return_source is not None
-            else None
+        benchmark_context=_returns_series_benchmark_context(
+            resolved_benchmark_id=resolved_benchmark_id,
+            resolved_benchmark_return_source=resolved_benchmark_return_source,
         ),
         series=ReturnsSeriesPayload(
             portfolio_returns=point_outputs.portfolio_return_points,
@@ -1334,6 +1330,19 @@ def _build_returns_series_response(
             request_id=request_id_var.get() or None,
             trace_id=trace_id_var.get() or None,
         ),
+    )
+
+
+def _returns_series_benchmark_context(
+    *,
+    resolved_benchmark_id: str | None,
+    resolved_benchmark_return_source: BenchmarkReturnSource | None,
+) -> ReturnsSeriesBenchmarkContext | None:
+    if resolved_benchmark_id is None or resolved_benchmark_return_source is None:
+        return None
+    return ReturnsSeriesBenchmarkContext(
+        benchmark_id=resolved_benchmark_id,
+        return_source=resolved_benchmark_return_source,
     )
 
 

@@ -342,6 +342,31 @@ def test_build_returns_series_response_preserves_context_provenance_and_series_p
     assert response.diagnostics == diagnostics_result.diagnostics
 
 
+def test_returns_series_benchmark_context_requires_id_and_source():
+    context = returns_series_service._returns_series_benchmark_context(
+        resolved_benchmark_id="BMK_1",
+        resolved_benchmark_return_source=BenchmarkReturnSource.VENDOR_SERIES,
+    )
+
+    assert context is not None
+    assert context.benchmark_id == "BMK_1"
+    assert context.return_source == BenchmarkReturnSource.VENDOR_SERIES
+    assert (
+        returns_series_service._returns_series_benchmark_context(
+            resolved_benchmark_id=None,
+            resolved_benchmark_return_source=BenchmarkReturnSource.VENDOR_SERIES,
+        )
+        is None
+    )
+    assert (
+        returns_series_service._returns_series_benchmark_context(
+            resolved_benchmark_id="BMK_1",
+            resolved_benchmark_return_source=None,
+        )
+        is None
+    )
+
+
 def test_requested_returns_series_execution_context_uses_stateful_benchmark_defaults():
     request = ReturnsSeriesRequest.model_validate(
         {
