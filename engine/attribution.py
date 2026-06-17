@@ -401,21 +401,22 @@ def _build_instrument_group_aggregation(full_df: pd.DataFrame, group_cols: list[
 def _build_instrument_attribution_groups(
     aggregated_panel: pd.DataFrame, group_cols: list[str]
 ) -> list[AttributionObservationGroup]:
-    return_cols = ["return_base", "return_local", "return_fx"]
     output_groups = []
     for keys, group_df in aggregated_panel.groupby(group_cols):
-        key_dict = {group_cols[i]: key_val for i, key_val in enumerate(keys if isinstance(keys, tuple) else [keys])}
-        obs_cols = [PortfolioColumns.PERF_DATE.value, "weight_bop"] + return_cols
-        obs_df = group_df[[c for c in obs_cols if c in group_df.columns]]
         output_groups.append(
             AttributionObservationGroup(
-                key=key_dict,
-                observations=obs_df.rename(columns={PortfolioColumns.PERF_DATE.value: "date"}).to_dict(
-                    orient="records"
-                ),
+                key=_build_group_key_dict(keys, group_cols),
+                observations=_instrument_group_observations(group_df),
             )
         )
     return output_groups
+
+
+def _instrument_group_observations(group_df: pd.DataFrame) -> list[dict[str, Any]]:
+    return_cols = ["return_base", "return_local", "return_fx"]
+    obs_cols = [PortfolioColumns.PERF_DATE.value, "weight_bop"] + return_cols
+    obs_df = group_df[[col for col in obs_cols if col in group_df.columns]]
+    return obs_df.rename(columns={PortfolioColumns.PERF_DATE.value: "date"}).to_dict(orient="records")
 
 
 def _build_base_weight_series(meta: Mapping[str, Any]) -> pd.Series | None:

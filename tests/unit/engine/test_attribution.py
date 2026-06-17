@@ -22,6 +22,7 @@ from engine.attribution import (
     _finalize_aligned_attribution_frame,
     _instrument_attribution_panels,
     _instrument_bop_mv_series,
+    _instrument_group_observations,
     _link_effects_top_down,
     _normalize_instrument_group_columns,
     _normalize_instrument_return_columns,
@@ -720,6 +721,25 @@ def test_backfill_same_currency_return_columns_projects_local_and_zero_fx_return
             "return_base": 2.5,
             "return_local": 2.5,
             "return_fx": 0.0,
+        }
+    ]
+
+
+def test_instrument_group_observations_projects_available_return_columns():
+    group_df = pd.DataFrame(
+        {
+            "perf_date": [pd.Timestamp("2025-01-01")],
+            "weight_bop": [0.25],
+            "return_base": [0.01],
+            "ignored": ["not exported"],
+        }
+    )
+
+    assert _instrument_group_observations(group_df) == [
+        {
+            "date": pd.Timestamp("2025-01-01"),
+            "weight_bop": 0.25,
+            "return_base": 0.01,
         }
     ]
 
