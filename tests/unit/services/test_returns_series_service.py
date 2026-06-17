@@ -272,6 +272,105 @@ def test_build_returns_series_point_outputs_omits_unselected_optional_families()
     assert outputs.cumulative_active_return_points is None
 
 
+def test_final_returns_series_identity_preserves_stateless_context_identity():
+    request = ReturnsSeriesRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "as_of_date": "2026-02-24",
+            "window": {"mode": "EXPLICIT", "from_date": "2026-02-23", "to_date": "2026-02-24"},
+            "frequency": "DAILY",
+            "series_selection": {"include_portfolio": True, "include_benchmark": False, "include_risk_free": False},
+            "input_mode": "stateless",
+            "stateless_input": {
+                "portfolio_returns": [
+                    {"date": "2026-02-23", "return_value": "0.0100"},
+                ],
+            },
+        }
+    )
+    context = returns_series_service._ReturnsSeriesExecutionContext(
+        request=request,
+        resolved_window=returns_series_service.resolve_window(request),
+        effective_input_mode=InputMode.STATELESS,
+        input_fingerprint="fingerprint-1",
+        calculation_hash="hash-1",
+        resolved_benchmark_id=None,
+        resolved_benchmark_return_source=BenchmarkReturnSource.CALCULATED,
+    )
+    point_outputs = returns_series_service._ReturnsSeriesPointOutputs(
+        portfolio_return_points=[ReturnPoint(date=date(2026, 2, 23), return_value=Decimal("0.0100"))],
+        cumulative_portfolio_return_points=None,
+        benchmark_return_points=None,
+        cumulative_benchmark_return_points=None,
+        risk_free_return_points=None,
+        cumulative_risk_free_return_points=None,
+        active_return_points=None,
+        cumulative_active_return_points=None,
+    )
+
+    identity = returns_series_service._final_returns_series_identity(
+        request=request,
+        context=context,
+        point_outputs=point_outputs,
+    )
+
+    assert identity.input_fingerprint == "fingerprint-1"
+    assert identity.calculation_hash == "hash-1"
+
+
+def test_final_returns_series_identity_refreshes_stateful_identity(monkeypatch):
+    request = _build_stateful_request()
+    point_outputs = returns_series_service._ReturnsSeriesPointOutputs(
+        portfolio_return_points=[ReturnPoint(date=date(2026, 2, 23), return_value=Decimal("0.0100"))],
+        cumulative_portfolio_return_points=None,
+        benchmark_return_points=[ReturnPoint(date=date(2026, 2, 23), return_value=Decimal("0.0010"))],
+        cumulative_benchmark_return_points=None,
+        risk_free_return_points=None,
+        cumulative_risk_free_return_points=None,
+        active_return_points=None,
+        cumulative_active_return_points=None,
+    )
+    context = returns_series_service._ReturnsSeriesExecutionContext(
+        request=request,
+        resolved_window=returns_series_service.resolve_window(request),
+        effective_input_mode=InputMode.STATEFUL,
+        input_fingerprint="initial-fingerprint",
+        calculation_hash="initial-hash",
+        resolved_benchmark_id="BMK_1",
+        resolved_benchmark_return_source=BenchmarkReturnSource.VENDOR_SERIES,
+    )
+    captured: dict[str, object] = {}
+
+    def _fake_update_resolved_stateful_returns_identity(**kwargs):
+        captured.update(kwargs)
+        return returns_series_service._ReturnsSeriesIdentity(
+            input_fingerprint="resolved-fingerprint",
+            calculation_hash="resolved-hash",
+        )
+
+    monkeypatch.setattr(
+        returns_series_service,
+        "_update_resolved_stateful_returns_identity",
+        _fake_update_resolved_stateful_returns_identity,
+    )
+
+    identity = returns_series_service._final_returns_series_identity(
+        request=request,
+        context=context,
+        point_outputs=point_outputs,
+    )
+
+    assert identity.input_fingerprint == "resolved-fingerprint"
+    assert identity.calculation_hash == "resolved-hash"
+    assert captured == {
+        "request": request,
+        "resolved_window": context.resolved_window,
+        "point_outputs": point_outputs,
+        "resolved_benchmark_id": "BMK_1",
+        "resolved_benchmark_return_source": BenchmarkReturnSource.VENDOR_SERIES,
+    }
+
+
 def test_build_returns_series_response_preserves_context_provenance_and_series_payload():
     request = ReturnsSeriesRequest.model_validate(
         {

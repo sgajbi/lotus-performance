@@ -28,11 +28,11 @@ python scripts/python_function_size_inventory.py --limit 20
 | 6 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:331` | 102 |
 | 7 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:87` | 101 |
 | 8 | `aggregate_attribution_results` | `engine/attribution.py:697` | 98 |
-| 9 | `_calculate_returns_series` | `app/services/returns_series_service.py:1397` | 97 |
-| 10 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:62` | 97 |
-| 11 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:31` | 94 |
-| 12 | `build_stateful_benchmark_input` | `app/services/stateful_benchmark_input_service.py:57` | 93 |
-| 13 | `calculate_twr_response` | `app/services/twr_service.py:1061` | 93 |
+| 9 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:62` | 97 |
+| 10 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:31` | 94 |
+| 11 | `build_stateful_benchmark_input` | `app/services/stateful_benchmark_input_service.py:57` | 93 |
+| 12 | `calculate_twr_response` | `app/services/twr_service.py:1061` | 93 |
+| 13 | `_calculate_returns_series` | `app/services/returns_series_service.py:1456` | 90 |
 | 14 | `_build_artifacts` | `app/services/composite_inspection_service.py:151` | 89 |
 | 15 | `build_recovery_drill_history_snapshot` | `app/services/recovery_drill_history_service.py:62` | 85 |
 | 16 | `build_runtime_recovery_snapshot` | `app/services/runtime_recovery_service.py:46` | 84 |

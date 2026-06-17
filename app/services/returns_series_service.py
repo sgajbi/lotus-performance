@@ -1285,6 +1285,26 @@ def _update_resolved_stateful_returns_identity(
     )
 
 
+def _final_returns_series_identity(
+    *,
+    request: ReturnsSeriesRequest,
+    context: _ReturnsSeriesExecutionContext,
+    point_outputs: _ReturnsSeriesPointOutputs,
+) -> _ReturnsSeriesIdentity:
+    if context.effective_input_mode != InputMode.STATEFUL:
+        return _ReturnsSeriesIdentity(
+            input_fingerprint=context.input_fingerprint,
+            calculation_hash=context.calculation_hash,
+        )
+    return _update_resolved_stateful_returns_identity(
+        request=request,
+        resolved_window=context.resolved_window,
+        point_outputs=point_outputs,
+        resolved_benchmark_id=context.resolved_benchmark_id,
+        resolved_benchmark_return_source=context.resolved_benchmark_return_source,
+    )
+
+
 def _build_returns_series_response(
     *,
     request: ReturnsSeriesRequest,
@@ -1477,18 +1497,11 @@ async def _calculate_returns_series(
             risk_free_df=risk_free_df,
         )
 
-        input_fingerprint = context.input_fingerprint
-        calculation_hash = context.calculation_hash
-        if context.effective_input_mode == InputMode.STATEFUL:
-            resolved_identity = _update_resolved_stateful_returns_identity(
-                request=request,
-                resolved_window=context.resolved_window,
-                point_outputs=point_outputs,
-                resolved_benchmark_id=context.resolved_benchmark_id,
-                resolved_benchmark_return_source=context.resolved_benchmark_return_source,
-            )
-            input_fingerprint = resolved_identity.input_fingerprint
-            calculation_hash = resolved_identity.calculation_hash
+        resolved_identity = _final_returns_series_identity(
+            request=request,
+            context=context,
+            point_outputs=point_outputs,
+        )
 
         diagnostics_result = _build_returns_series_diagnostics(
             request=request,
@@ -1504,8 +1517,8 @@ async def _calculate_returns_series(
             point_outputs=point_outputs,
             diagnostics_result=diagnostics_result,
             effective_input_mode=context.effective_input_mode,
-            input_fingerprint=input_fingerprint,
-            calculation_hash=calculation_hash,
+            input_fingerprint=resolved_identity.input_fingerprint,
+            calculation_hash=resolved_identity.calculation_hash,
             resolved_benchmark_id=context.resolved_benchmark_id,
             resolved_benchmark_return_source=context.resolved_benchmark_return_source,
         )
