@@ -27,8 +27,8 @@ python scripts/python_function_size_inventory.py --limit 20
 | 5 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:227` | 102 |
 | 6 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:331` | 102 |
 | 7 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:87` | 101 |
-| 8 | `aggregate_attribution_results` | `engine/attribution.py:697` | 98 |
-| 9 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:62` | 97 |
+| 8 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:62` | 98 |
+| 9 | `aggregate_attribution_results` | `engine/attribution.py:697` | 98 |
 | 10 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:31` | 94 |
 | 11 | `build_stateful_benchmark_input` | `app/services/stateful_benchmark_input_service.py:57` | 93 |
 | 12 | `calculate_twr_response` | `app/services/twr_service.py:1061` | 93 |
@@ -72,6 +72,9 @@ collection and average-weight residual max tracking were isolated from the publi
 calculation function.
 Stateful attribution source input retrieval dropped out of the top-15 table after benchmark
 assignment resolution was isolated from the source-input orchestration path.
+It remains in the top-20 function-size table after requested upstream attribution dimension
+selection was isolated; future size-focused work should target source retrieval/result projection
+only where behavior can be preserved with direct tests.
 Durable queue metric collection dropped out of the top-15 table after source loading and
 availability/runtime-retention preview metric emission were isolated into dedicated helpers.
 Source-economics top-level finding assembly dropped from `258` lines out of the top-15 table after

@@ -77,8 +77,9 @@ async def retrieve_stateful_attribution_source_input(
     benchmark_id_override: str | None,
 ) -> StatefulAttributionSourceInput:
     _validate_stateful_group_by(group_by)
-    requested_dimensions = sorted(
-        {*dimensions, *[dimension for dimension in group_by if dimension in _UPSTREAM_DIMENSION_GROUPS]}
+    requested_dimensions = _stateful_attribution_requested_dimensions(
+        group_by=group_by,
+        dimensions=dimensions,
     )
 
     portfolio_input = await retrieve_stateful_portfolio_input(
@@ -156,6 +157,14 @@ async def retrieve_stateful_attribution_source_input(
         index_records=index_records,
         index_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
     )
+
+
+def _stateful_attribution_requested_dimensions(
+    *,
+    group_by: list[str],
+    dimensions: list[StatefulDimensionName],
+) -> list[str]:
+    return sorted({*dimensions, *[dimension for dimension in group_by if dimension in _UPSTREAM_DIMENSION_GROUPS]})
 
 
 async def _resolve_stateful_attribution_benchmark_id(

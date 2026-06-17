@@ -39,6 +39,7 @@ from app.services.stateful_attribution_input_service import (
     _resolve_stateful_attribution_benchmark_id,
     _split_position_cash_flows,
     _stateful_attribution_fx_required,
+    _stateful_attribution_requested_dimensions,
     _stateful_portfolio_position_alignment_mismatches,
     _stateful_position_currencies,
     _summarize_benchmark_classification,
@@ -131,6 +132,15 @@ async def test_resolve_stateful_attribution_benchmark_id_prefers_override_and_re
             "calculation_id": calculation_id,
         }
     ]
+
+
+def test_stateful_attribution_requested_dimensions_merges_explicit_and_upstream_grouping_dimensions():
+    requested_dimensions = _stateful_attribution_requested_dimensions(
+        group_by=["sector", "currency", "asset_class", "sector"],
+        dimensions=["country", "sector"],
+    )
+
+    assert requested_dimensions == ["asset_class", "country", "sector"]
 
 
 @pytest.mark.asyncio
