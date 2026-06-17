@@ -38,31 +38,31 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `get_fx_rates` | method | `app/services/stateful_input_service.py:508` | 6 | B |
-| 2 | `get_index_catalog` | method | `app/services/stateful_input_service.py:610` | 6 | B |
-| 3 | `_fetch_position_chunk` | method | `app/services/stateful_input_service.py:967` | 6 | B |
-| 4 | `_next_page_token` | method | `app/services/stateful_input_service.py:1161` | 6 | B |
-| 5 | `_merge_dedup_records_by_fields` | method | `app/services/stateful_input_service.py:1191` | 6 | B |
-| 6 | `_component_index_points` | function | `app/services/stateful_input_service.py:1350` | 6 | B |
-| 7 | `_has_single_currency_inputs` | function | `app/services/stateful_mwr_input_service.py:354` | 6 | B |
-| 8 | `retrieve_stateful_portfolio_input` | function | `app/services/stateful_performance_input_service.py:42` | 6 | B |
-| 9 | `_build_component_observations_from_price_points` | function | `app/services/stateless_benchmark_input_service.py:50` | 6 | B |
-| 10 | `_register_async_compute_job_or_rollback_execution` | function | `app/services/submission_fencing_service.py:107` | 6 | B |
-| 11 | `_benchmark_calendar_alignment` | function | `app/services/twr_benchmark_supportability.py:84` | 6 | B |
-| 12 | `calculate_twr_workflow` | function | `app/services/twr_calculation_service.py:278` | 6 | B |
-| 13 | `resolve_twr_request` | function | `app/services/twr_mode_service.py:80` | 6 | B |
-| 14 | `_build_twr_normalization_resolution` | function | `app/services/twr_mode_service.py:214` | 6 | B |
-| 15 | `_resolve_twr_retrieval_inputs` | function | `app/services/twr_mode_service.py:253` | 6 | B |
-| 16 | `_resolve_twr_portfolio_source_input` | function | `app/services/twr_mode_service.py:293` | 6 | B |
-| 17 | `_resolve_benchmark_start_date_from_request` | function | `app/services/twr_mode_service.py:585` | 6 | B |
-| 18 | `_with_reset_no_investment_classification` | function | `app/services/twr_service.py:324` | 6 | B |
-| 19 | `_resolve_twr_execution_period_scope` | function | `app/services/twr_service.py:751` | 6 | B |
-| 20 | `_build_twr_benchmark_period_blocks` | function | `app/services/twr_service.py:916` | 6 | B |
-| 21 | `_build_twr_benchmark_context` | function | `app/services/twr_service.py:966` | 6 | B |
-| 22 | `portfolio_timeseries_to_valuation_points` | function | `app/services/valuation_points_service.py:12` | 6 | B |
-| 23 | `workspace_longest_requested_window_days` | function | `app/services/workspace_summary_service.py:93` | 6 | B |
-| 24 | `_resolve_workspace_portfolio_input` | function | `app/services/workspace_summary_service.py:210` | 6 | B |
-| 25 | `_trim_portfolio_input_to_master_window` | function | `app/services/workspace_summary_service.py:297` | 6 | B |
+| 1 | `get_index_catalog` | method | `app/services/stateful_input_service.py:602` | 6 | B |
+| 2 | `_fetch_position_chunk` | method | `app/services/stateful_input_service.py:959` | 6 | B |
+| 3 | `_next_page_token` | method | `app/services/stateful_input_service.py:1153` | 6 | B |
+| 4 | `_merge_dedup_records_by_fields` | method | `app/services/stateful_input_service.py:1194` | 6 | B |
+| 5 | `_component_index_points` | function | `app/services/stateful_input_service.py:1353` | 6 | B |
+| 6 | `_has_single_currency_inputs` | function | `app/services/stateful_mwr_input_service.py:354` | 6 | B |
+| 7 | `retrieve_stateful_portfolio_input` | function | `app/services/stateful_performance_input_service.py:42` | 6 | B |
+| 8 | `_build_component_observations_from_price_points` | function | `app/services/stateless_benchmark_input_service.py:50` | 6 | B |
+| 9 | `_register_async_compute_job_or_rollback_execution` | function | `app/services/submission_fencing_service.py:107` | 6 | B |
+| 10 | `_benchmark_calendar_alignment` | function | `app/services/twr_benchmark_supportability.py:84` | 6 | B |
+| 11 | `calculate_twr_workflow` | function | `app/services/twr_calculation_service.py:278` | 6 | B |
+| 12 | `resolve_twr_request` | function | `app/services/twr_mode_service.py:80` | 6 | B |
+| 13 | `_build_twr_normalization_resolution` | function | `app/services/twr_mode_service.py:214` | 6 | B |
+| 14 | `_resolve_twr_retrieval_inputs` | function | `app/services/twr_mode_service.py:253` | 6 | B |
+| 15 | `_resolve_twr_portfolio_source_input` | function | `app/services/twr_mode_service.py:293` | 6 | B |
+| 16 | `_resolve_benchmark_start_date_from_request` | function | `app/services/twr_mode_service.py:585` | 6 | B |
+| 17 | `_with_reset_no_investment_classification` | function | `app/services/twr_service.py:324` | 6 | B |
+| 18 | `_resolve_twr_execution_period_scope` | function | `app/services/twr_service.py:751` | 6 | B |
+| 19 | `_build_twr_benchmark_period_blocks` | function | `app/services/twr_service.py:916` | 6 | B |
+| 20 | `_build_twr_benchmark_context` | function | `app/services/twr_service.py:966` | 6 | B |
+| 21 | `portfolio_timeseries_to_valuation_points` | function | `app/services/valuation_points_service.py:12` | 6 | B |
+| 22 | `workspace_longest_requested_window_days` | function | `app/services/workspace_summary_service.py:93` | 6 | B |
+| 23 | `_resolve_workspace_portfolio_input` | function | `app/services/workspace_summary_service.py:210` | 6 | B |
+| 24 | `_trim_portfolio_input_to_master_window` | function | `app/services/workspace_summary_service.py:297` | 6 | B |
+| 25 | `_resolve_workspace_benchmark_input` | function | `app/services/workspace_summary_service.py:323` | 6 | B |
 
 ## Lowest Maintainability Index
 
@@ -120,6 +120,8 @@ helpers.
 point payload fallback projection were split into named helpers.
 `get_benchmark_return_series` also dropped out after benchmark, index-price, and risk-free reference
 series response point merging was routed through a shared helper.
+`get_fx_rates` also dropped out after FX-rate response-to-point projection and date-key
+deduplication were routed through a focused helper.
 `_build_portfolio_breakdown_item` also dropped out after daily raw-data projection and daily
 calculation-evidence projection were split into named helpers.
 `_build_twr_results_by_period` also dropped out after single-period result construction, optional

@@ -542,15 +542,7 @@ class StatefulInputService:
         if failure is not None:
             return failure
 
-        merged_rates = self._merge_dedup_records(
-            records=[
-                {"series_date": rate.get("rate_date"), "fx_rate": rate.get("rate")}
-                for _, payload in responses
-                for rate in (payload.get("rates", []) if isinstance(payload, dict) else [])
-                if isinstance(rate, dict)
-            ],
-            date_key="series_date",
-        )
+        merged_rates = self._merge_dedup_fx_rates_from_responses(responses)
         return 200, {
             "points": merged_rates,
             "retrieval_metadata": {
@@ -1184,6 +1176,17 @@ class StatefulInputService:
                 for _, payload in responses
                 for point in (payload.get("points", []) if isinstance(payload, dict) else [])
                 if isinstance(point, dict)
+            ],
+            date_key="series_date",
+        )
+
+    def _merge_dedup_fx_rates_from_responses(self, responses: list[tuple[int, dict[str, Any]]]) -> list[dict[str, Any]]:
+        return self._merge_dedup_records(
+            records=[
+                {"series_date": rate.get("rate_date"), "fx_rate": rate.get("rate")}
+                for _, payload in responses
+                for rate in (payload.get("rates", []) if isinstance(payload, dict) else [])
+                if isinstance(rate, dict)
             ],
             date_key="series_date",
         )

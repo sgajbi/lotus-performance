@@ -1181,6 +1181,16 @@ def test_stateful_input_service_helper_contracts_cover_page_tokens_failures_and_
         {"series_date": "2026-01-01", "value": 1},
         {"series_date": "2026-01-02", "value": 2},
     ]
+    assert service._merge_dedup_fx_rates_from_responses(
+        [
+            (200, {"rates": [{"rate_date": "2026-01-02", "rate": "1.2"}, "ignored"]}),
+            (200, {"rates": [{"rate_date": "2026-01-01", "rate": "1.1"}]}),
+            (200, {"points": [{"rate_date": "2026-01-03", "rate": "1.3"}]}),
+        ]
+    ) == [
+        {"series_date": "2026-01-01", "fx_rate": "1.1"},
+        {"series_date": "2026-01-02", "fx_rate": "1.2"},
+    ]
     assert _position_timeseries_request_payload(
         portfolio_id="PORT_1",
         chunk=chunk,
