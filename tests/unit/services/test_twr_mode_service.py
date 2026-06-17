@@ -19,8 +19,10 @@ from app.services.twr_mode_service import (
     _build_stateful_twr_benchmark_request,
     _build_twr_normalization_resolution,
     _requested_stateful_twr_benchmark_input,
+    _resolve_benchmark_start_date_from_request,
     _resolve_default_stateful_benchmark_input,
     _resolve_stateless_twr_benchmark_request,
+    _resolve_stateless_valuation_start_date,
     _resolve_twr_portfolio_source_input,
     _resolve_twr_portfolio_start_date,
     _resolve_twr_retrieval_inputs,
@@ -99,6 +101,60 @@ def test_twr_request_needs_retrieval_for_stateful_benchmark_mode():
     )
 
     assert _twr_request_needs_retrieval(request) is True
+
+
+def test_resolve_stateless_valuation_start_date_uses_earliest_valuation_point():
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_1",
+            "performance_start_date": "2024-12-31",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+            "valuation_points": [
+                {"perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1020.1},
+                {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+            ],
+        }
+    )
+
+    assert _resolve_stateless_valuation_start_date(request) == date(2025, 1, 1)
+    assert _resolve_benchmark_start_date_from_request(request) == date(2025, 1, 1)
+
+
+def test_resolve_benchmark_start_date_from_request_prefers_request_start_for_stateful_mode():
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_1",
+            "performance_start_date": "2024-12-31",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "stateful_input": {},
+        }
+    )
+
+    assert _resolve_stateless_valuation_start_date(request) is None
+    assert _resolve_benchmark_start_date_from_request(request) == date(2024, 12, 31)
+
+
+def test_resolve_benchmark_start_date_from_request_uses_report_end_without_request_start():
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_1",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "stateful_input": {},
+        }
+    )
+
+    assert _resolve_benchmark_start_date_from_request(request) == date(2025, 1, 2)
 
 
 @pytest.fixture(autouse=True)

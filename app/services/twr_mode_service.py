@@ -619,13 +619,20 @@ def _resolve_default_stateful_benchmark_input(request: TWRAnalyticsRequest) -> B
     return BenchmarkStatefulInput()
 
 
-def _resolve_benchmark_start_date_from_request(request: TWRAnalyticsRequest):
-    performance_request = (
-        request.to_stateless_performance_request() if request.input_mode == TWRInputMode.STATELESS else None
-    )
-    if performance_request is not None and performance_request.valuation_points:
-        return min(point.perf_date for point in performance_request.valuation_points)
+def _resolve_benchmark_start_date_from_request(request: TWRAnalyticsRequest) -> date:
+    stateless_start_date = _resolve_stateless_valuation_start_date(request)
+    if stateless_start_date is not None:
+        return stateless_start_date
     return request.performance_start_date or request.report_end_date
+
+
+def _resolve_stateless_valuation_start_date(request: TWRAnalyticsRequest) -> date | None:
+    if request.input_mode != TWRInputMode.STATELESS:
+        return None
+    performance_request = request.to_stateless_performance_request()
+    if not performance_request.valuation_points:
+        return None
+    return min(point.perf_date for point in performance_request.valuation_points)
 
 
 def _resolve_benchmark_start_date_from_stateful_source(observations: list[dict]) -> date | None:
