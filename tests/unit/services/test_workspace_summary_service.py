@@ -26,6 +26,7 @@ from app.services.workspace_summary_service import (
     _annualize_percentage,
     _build_economic_context,
     _build_mwr_cash_flows,
+    _build_stateful_workspace_portfolio_input,
     _build_stateless_workspace_benchmark_input,
     _build_stateless_workspace_portfolio_input,
     _build_workspace_benchmark_and_active_blocks,
@@ -582,6 +583,62 @@ def test_build_stateless_workspace_portfolio_input_projects_values_and_source_de
         date(2026, 1, 2),
     ]
     assert result.source_details == {"portfolio_chunk_count": 0, "portfolio_page_count": 0}
+
+
+def test_build_stateful_workspace_portfolio_input_projects_retrieval_and_source_details(mocker):
+    captured: dict[str, object] = {}
+    source_input = SimpleNamespace(retrieval_metadata=SimpleNamespace(chunk_count=3, page_count=7))
+
+    async def _retrieve_stateful_portfolio_input(**kwargs):
+        captured.update(kwargs)
+        return source_input
+
+    mocker.patch(
+        "app.services.workspace_summary_service.retrieve_stateful_portfolio_input",
+        side_effect=_retrieve_stateful_portfolio_input,
+    )
+    mocker.patch(
+        "app.services.workspace_summary_service.build_stateful_portfolio_valuation_input",
+        return_value=SimpleNamespace(
+            performance_start_date=date(2026, 1, 1),
+            observations=[{"perf_date": "2026-01-02"}],
+            valuation_points=[
+                {
+                    "perf_date": "2026-01-02",
+                    "begin_mv": 100.0,
+                    "bod_cf": 0.0,
+                    "eod_cf": 0.0,
+                    "mgmt_fees": 0.0,
+                    "end_mv": 101.0,
+                }
+            ],
+        ),
+    )
+    request = WorkspaceSummaryRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT-1",
+            "report_end_date": "2026-01-02",
+            "report_start_date": "2026-01-01",
+            "performance_start_date": "2026-01-01",
+            "input_mode": "stateful",
+            "stateful_input": {},
+            "periods": [{"period": "EXPLICIT", "frequencies": ["daily"]}],
+        }
+    )
+
+    result = _build_stateful_workspace_portfolio_input(request=request, settings=SimpleNamespace())
+
+    assert captured["portfolio_id"] == "PORT-1"
+    assert captured["as_of_date"] == date(2026, 1, 2)
+    assert captured["start_date"] == date(2026, 1, 1)
+    assert captured["end_date"] == date(2026, 1, 2)
+    assert captured["consumer_system"] == "lotus-performance"
+    assert result.input_mode == "stateful"
+    assert result.performance_start_date == date(2026, 1, 1)
+    assert [point.perf_date for point in result.valuation_points] == [date(2026, 1, 2)]
+    assert result.observations == [{"perf_date": "2026-01-02"}]
+    assert result.source_details == {"portfolio_chunk_count": 3, "portfolio_page_count": 7}
 
 
 def test_build_workspace_results_by_period_skips_empty_periods_and_projects_summaries(mocker):

@@ -219,6 +219,14 @@ def _resolve_workspace_portfolio_input(
     if request.input_mode == TWRInputMode.STATELESS:
         return _build_stateless_workspace_portfolio_input(request)
 
+    return _build_stateful_workspace_portfolio_input(request=request, settings=settings)
+
+
+def _build_stateful_workspace_portfolio_input(
+    *,
+    request: WorkspaceSummaryRequest,
+    settings: Settings,
+) -> ResolvedWorkspacePortfolioInput:
     performance_start_date = request.performance_start_date or _resolve_stateful_portfolio_start_date(
         request=request,
         settings=settings,
