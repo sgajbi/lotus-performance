@@ -994,20 +994,9 @@ class StatefulInputService:
         page_count = 0
 
         while True:
-            status_code, payload = await self._core_service.get_position_analytics_timeseries(
+            status_code, payload, request_payload = await self._fetch_position_timeseries_page(
                 portfolio_id=portfolio_id,
                 as_of_date=as_of_date,
-                start_date=chunk.start_date,
-                end_date=chunk.end_date,
-                reporting_currency=reporting_currency,
-                consumer_system=consumer_system,
-                dimensions=dimensions,
-                include_cash_flows=include_cash_flows,
-                filters=filters,
-                page_token=page_token,
-            )
-            request_payload = _position_timeseries_request_payload(
-                portfolio_id=portfolio_id,
                 chunk=chunk,
                 reporting_currency=reporting_currency,
                 consumer_system=consumer_system,
@@ -1026,11 +1015,10 @@ class StatefulInputService:
                 existing_snapshot_ids=existing_snapshot_ids,
             )
             if status_code >= 400:
-                if calculation_id is not None:
-                    self._execution_store.record_upstream_snapshots(
-                        calculation_id=calculation_id,
-                        snapshots=snapshot_batch,
-                    )
+                self._record_upstream_snapshot_batch(
+                    calculation_id=calculation_id,
+                    snapshots=snapshot_batch,
+                )
                 return status_code, payload
             page_count += 1
 
@@ -1040,11 +1028,10 @@ class StatefulInputService:
             if not page_token:
                 break
 
-        if calculation_id is not None:
-            self._execution_store.record_upstream_snapshots(
-                calculation_id=calculation_id,
-                snapshots=snapshot_batch,
-            )
+        self._record_upstream_snapshot_batch(
+            calculation_id=calculation_id,
+            snapshots=snapshot_batch,
+        )
 
         return 200, {
             "rows": self._merge_dedup_records_by_fields(
@@ -1055,6 +1042,46 @@ class StatefulInputService:
                 "page_count": page_count,
             },
         }
+
+    async def _fetch_position_timeseries_page(
+        self,
+        *,
+        portfolio_id: str,
+        as_of_date: date,
+        chunk: DateChunk,
+        reporting_currency: str | None,
+        consumer_system: str,
+        dimensions: list[str],
+        include_cash_flows: bool,
+        filters: dict[str, Any],
+        page_token: str | None,
+    ) -> tuple[int, dict[str, Any], dict[str, Any]]:
+        response = await self._core_service.get_position_analytics_timeseries(
+            portfolio_id=portfolio_id,
+            as_of_date=as_of_date,
+            start_date=chunk.start_date,
+            end_date=chunk.end_date,
+            reporting_currency=reporting_currency,
+            consumer_system=consumer_system,
+            dimensions=dimensions,
+            include_cash_flows=include_cash_flows,
+            filters=filters,
+            page_token=page_token,
+        )
+        return (
+            response[0],
+            response[1],
+            _position_timeseries_request_payload(
+                portfolio_id=portfolio_id,
+                chunk=chunk,
+                reporting_currency=reporting_currency,
+                consumer_system=consumer_system,
+                dimensions=dimensions,
+                include_cash_flows=include_cash_flows,
+                filters=filters,
+                page_token=page_token,
+            ),
+        )
 
     def _record_upstream_snapshot_batch(
         self,

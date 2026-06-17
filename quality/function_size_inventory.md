@@ -37,9 +37,9 @@ python scripts/python_function_size_inventory.py --limit 20
 | 15 | `build_recovery_drill_history_snapshot` | `app/services/recovery_drill_history_service.py:62` | 85 |
 | 16 | `build_runtime_recovery_snapshot` | `app/services/runtime_recovery_service.py:46` | 84 |
 | 17 | `run_runtime_retention_cleanup` | `app/services/runtime_retention_run_service.py:112` | 83 |
-| 18 | `StatefulInputService._fetch_position_chunk` | `app/services/stateful_input_service.py:977` | 81 |
-| 19 | `calculate_contribution` | `app/services/contribution_service.py:614` | 80 |
-| 20 | `LineageMetadataStore._build_inspection_query_statements` | `app/services/lineage_metadata_store.py:529` | 80 |
+| 18 | `calculate_contribution` | `app/services/contribution_service.py:614` | 80 |
+| 19 | `LineageMetadataStore._build_inspection_query_statements` | `app/services/lineage_metadata_store.py:529` | 80 |
+| 20 | `_build_contribution_response` | `app/services/contribution_service.py:533` | 79 |
 
 ## Interpretation
 
@@ -75,6 +75,8 @@ assignment resolution was isolated from the source-input orchestration path.
 It remains in the top-20 function-size table after requested upstream attribution dimension
 selection was isolated; future size-focused work should target source retrieval/result projection
 only where behavior can be preserved with direct tests.
+Stateful position chunk retrieval dropped out of the top-20 table after page request/payload
+projection was isolated from the chunk pagination loop.
 Durable queue metric collection dropped out of the top-15 table after source loading and
 availability/runtime-retention preview metric emission were isolated into dedicated helpers.
 Source-economics top-level finding assembly dropped from `258` lines out of the top-15 table after

@@ -1156,6 +1156,39 @@ def test_stateful_input_service_builds_position_timeseries_payload():
     }
 
 
+@pytest.mark.asyncio
+async def test_stateful_input_service_fetches_position_timeseries_page_with_request_payload():
+    core_service = _CoreServiceStub()
+    service = StatefulInputService(core_service=core_service)
+    chunk = DateChunk(start_date=date(2026, 1, 1), end_date=date(2026, 1, 3))
+
+    status_code, payload, request_payload = await service._fetch_position_timeseries_page(
+        portfolio_id="PORT_1",
+        as_of_date=date(2026, 1, 3),
+        chunk=chunk,
+        reporting_currency="USD",
+        consumer_system="lotus-performance",
+        dimensions=["asset_class"],
+        include_cash_flows=True,
+        filters={"asset_class": "Equity"},
+        page_token="page-2",
+    )
+
+    assert status_code == 200
+    assert payload["rows"][0]["valuation_date"] == "2026-01-02"
+    assert core_service.position_calls[-1]["page_token"] == "page-2"
+    assert request_payload == _position_timeseries_request_payload(
+        portfolio_id="PORT_1",
+        chunk=chunk,
+        reporting_currency="USD",
+        consumer_system="lotus-performance",
+        dimensions=["asset_class"],
+        include_cash_flows=True,
+        filters={"asset_class": "Equity"},
+        page_token="page-2",
+    )
+
+
 def test_stateful_input_service_helper_contracts_cover_page_tokens_failures_and_snapshot_identity():
     service = StatefulInputService(core_service=_CoreServiceStub())
     calculation_id = UUID("00000000-0000-0000-0000-000000000001")
