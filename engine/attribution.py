@@ -477,19 +477,22 @@ def _prepare_panel_from_groups(
     groups: Sequence[AttributionObservationGroupLike], group_by: Sequence[str]
 ) -> pd.DataFrame:
     """Helper to convert list of group data into a tidy DataFrame panel."""
-    all_obs = []
-    if not groups:
-        return pd.DataFrame()
-
-    for group in groups:
-        group_key_tuple = tuple(group.key.get(k) for k in group_by)
-        for obs in group.observations:
-            all_obs.append(_attribution_group_observation_record(obs, group_key_tuple, group_by))
-
+    all_obs = _attribution_group_observation_records(groups, group_by)
     if not all_obs:
         return pd.DataFrame()
     df = pd.DataFrame(all_obs)
     return df.set_index(["date"] + group_by)
+
+
+def _attribution_group_observation_records(
+    groups: Sequence[AttributionObservationGroupLike], group_by: Sequence[str]
+) -> list[dict[str, Any]]:
+    all_obs: list[dict[str, Any]] = []
+    for group in groups:
+        group_key_tuple = tuple(group.key.get(k) for k in group_by)
+        for obs in group.observations:
+            all_obs.append(_attribution_group_observation_record(obs, group_key_tuple, group_by))
+    return all_obs
 
 
 def _align_and_prepare_data(

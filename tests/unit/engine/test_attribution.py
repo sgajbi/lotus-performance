@@ -8,6 +8,7 @@ from app.models.attribution_requests import AttributionRequest
 from common.enums import AttributionModel, LinkingMethod
 from engine.attribution import (
     _align_and_prepare_data,
+    _attribution_group_observation_records,
     _backfill_same_currency_return_columns,
     _base_weight_record_from_point,
     _build_attribution_aggregation_base,
@@ -768,6 +769,25 @@ def test_prepare_panel_from_groups_handles_empty_cases():
         observations = []
 
     assert _prepare_panel_from_groups([_EmptyGroup()], ["sector"]).empty
+
+
+def test_attribution_group_observation_records_projects_group_keys():
+    group = SimpleNamespace(
+        key={"sector": "Tech", "region": "US"},
+        observations=[
+            {"date": "2025-01-31", "return_base": 0.015, "weight_bop": 0.4},
+            {"date": "2025-02-28", "return": 0.02},
+        ],
+    )
+
+    records = _attribution_group_observation_records([group], ["sector", "region"])
+
+    assert records[0]["sector"] == "Tech"
+    assert records[0]["region"] == "US"
+    assert records[0]["return_base"] == pytest.approx(0.015)
+    assert records[0]["weight_bop"] == pytest.approx(0.4)
+    assert records[1]["return_base"] == pytest.approx(0.02)
+    assert records[1]["weight_bop"] == pytest.approx(0.0)
 
 
 def test_prepare_panel_from_groups_normalizes_model_observation_records():
