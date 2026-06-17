@@ -7,6 +7,7 @@ from app.services.valuation_points_service import (
     _valuation_cashflow_component_for_role,
     _valuation_cashflow_total_component,
     _valuation_cashflow_totals,
+    _valuation_point_from_observation,
     portfolio_timeseries_to_valuation_points,
 )
 
@@ -95,6 +96,37 @@ def test_portfolio_timeseries_to_valuation_points_rejects_empty_valid_observatio
         "code": "INSUFFICIENT_DATA",
         "message": "No valid valuation observations after canonical normalization.",
     }
+
+
+def test_valuation_point_from_observation_projects_decimal_values_and_cashflows():
+    assert _valuation_point_from_observation(
+        {
+            "valuation_date": "2026-03-12",
+            "beginning_market_value": "1200",
+            "ending_market_value": "925",
+            "cash_flows": [
+                {"amount": "100", "timing": "bod", "cash_flow_type": "external_flow"},
+                {"amount": "-10", "timing": "eod", "cash_flow_type": "fee"},
+            ],
+        }
+    ) == {
+        "perf_date": "2026-03-12",
+        "begin_mv": Decimal("1200"),
+        "end_mv": Decimal("925"),
+        "bod_cf": Decimal("100"),
+        "eod_cf": Decimal("0"),
+        "mgmt_fees": Decimal("-10"),
+    }
+
+
+def test_valuation_point_from_observation_suppresses_incomplete_rows():
+    assert _valuation_point_from_observation({"valuation_date": "2026-03-12", "beginning_market_value": "1200"}) is None
+    assert (
+        _valuation_point_from_observation(
+            {"valuation_date": None, "beginning_market_value": "1200", "ending_market_value": "925"}
+        )
+        is None
+    )
 
 
 def test_valuation_cashflow_totals_classifies_fee_external_and_unsupported_flows():
