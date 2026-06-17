@@ -1,6 +1,8 @@
+from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
+from fastapi import HTTPException
 
 from app.models.benchmark_analytics_requests import BenchmarkInputMode, BenchmarkReturnSource
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
@@ -275,6 +277,66 @@ def test_prepare_twr_sync_execution_start_enriches_stateful_window_when_no_repla
     assert sync_start.replay_response is None
     assert sync_start.requested_window["source_request_fingerprint"] == "source-fingerprint"
     replay_promoted.assert_called_once()
+
+
+def test_raise_twr_workflow_http_error_records_existing_http_exception(mocker):
+    record_failure = mocker.patch("app.services.twr_calculation_service.record_execution_failure")
+
+    with pytest.raises(HTTPException) as raised:
+        twr_calculation_service._raise_twr_workflow_http_error(
+            calculation_id="calculation-1",
+            exc=HTTPException(status_code=422, detail="invalid request"),
+        )
+
+    assert raised.value.status_code == 422
+    assert raised.value.detail == "invalid request"
+    record_failure.assert_called_once_with(
+        calculation_id="calculation-1",
+        message="invalid request",
+    )
+
+
+def test_raise_twr_workflow_http_error_records_mapped_engine_error(mocker):
+    record_failure = mocker.patch("app.services.twr_calculation_service.record_execution_failure")
+    mocker.patch(
+        "app.services.twr_calculation_service.map_engine_exception_to_http_error",
+        return_value=SimpleNamespace(
+            status_code=400,
+            detail="Invalid Input: valuation points are required",
+            failure_message="Invalid Input: valuation points are required",
+        ),
+    )
+
+    with pytest.raises(HTTPException) as raised:
+        twr_calculation_service._raise_twr_workflow_http_error(
+            calculation_id="calculation-1",
+            exc=ValueError("engine rejected request"),
+        )
+
+    assert raised.value.status_code == 400
+    assert raised.value.detail == "Invalid Input: valuation points are required"
+    record_failure.assert_called_once_with(
+        calculation_id="calculation-1",
+        message="Invalid Input: valuation points are required",
+    )
+
+
+def test_raise_twr_workflow_http_error_records_unexpected_error(mocker):
+    record_failure = mocker.patch("app.services.twr_calculation_service.record_execution_failure")
+    mocker.patch("app.services.twr_calculation_service.map_engine_exception_to_http_error", return_value=None)
+
+    with pytest.raises(HTTPException) as raised:
+        twr_calculation_service._raise_twr_workflow_http_error(
+            calculation_id="calculation-1",
+            exc=RuntimeError("boom"),
+        )
+
+    assert raised.value.status_code == 500
+    assert raised.value.detail == "An unexpected server error occurred: boom"
+    record_failure.assert_called_once_with(
+        calculation_id="calculation-1",
+        message="An unexpected server error occurred: boom",
+    )
 
 
 @pytest.mark.asyncio
