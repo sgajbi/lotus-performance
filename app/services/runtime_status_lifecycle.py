@@ -8,6 +8,7 @@ from app.services.recovery_drill_history_service import (
     RECOVERY_DRILL_ARTIFACT_DIRECTORY_MISSING_REASON,
     RECOVERY_DRILL_MANIFEST_MISSING_REASON,
     RecoveryDrillHistoryEntry,
+    RecoveryDrillHistorySnapshot,
     build_recovery_drill_history_snapshot,
 )
 from app.services.runtime_retention_history_service import (
@@ -79,6 +80,19 @@ def build_recovery_drill_status(*, settings, policy: RecoveryDrillDegradationPol
             active_run_status=active_run_status,
         )
 
+    return recovery_drill_status_from_snapshot(
+        snapshot=snapshot,
+        policy=policy,
+        active_run_status=active_run_status,
+    )
+
+
+def recovery_drill_status_from_snapshot(
+    *,
+    snapshot: RecoveryDrillHistorySnapshot,
+    policy: RecoveryDrillDegradationPolicy,
+    active_run_status: OperatorActionStatus,
+) -> RecoveryDrillStatus:
     if snapshot.status != "available":
         if snapshot.reason in {
             RECOVERY_DRILL_ARTIFACT_DIRECTORY_MISSING_REASON,
@@ -92,7 +106,6 @@ def build_recovery_drill_status(*, settings, policy: RecoveryDrillDegradationPol
             reason=snapshot.reason or snapshot.status,
             active_run_status=active_run_status,
         )
-
     if not snapshot.entries:
         return missing_recovery_drill_status(
             threshold=policy.max_age_seconds,

@@ -30,6 +30,7 @@ from app.services.runtime_status_lifecycle import (
     recovery_drill_degradation_details,
     recovery_drill_operator_action_status,
     recovery_drill_status_from_latest,
+    recovery_drill_status_from_snapshot,
     runtime_retention_current_preview_status_fields,
     runtime_retention_degradation_details,
     runtime_retention_operator_action_status,
@@ -233,6 +234,55 @@ def test_build_recovery_drill_status_returns_unavailable_when_history_read_fails
     assert status.reason == "RuntimeError"
     assert status.active_run_count == 1
     assert "Runtime status recovery-drill history snapshot unavailable." in caplog.text
+
+
+def test_recovery_drill_status_from_snapshot_projects_missing_artifact_history():
+    status = recovery_drill_status_from_snapshot(
+        snapshot=_recovery_drill_snapshot(
+            status="unavailable",
+            reason=RECOVERY_DRILL_MANIFEST_MISSING_REASON,
+        ),
+        policy=_recovery_drill_policy(),
+        active_run_status=_operator_action_status(),
+    )
+
+    assert status.status == "degraded"
+    assert status.reason == RECOVERY_DRILL_HISTORY_UNAVAILABLE_REASON
+    assert status.degradation_reasons == (RECOVERY_DRILL_HISTORY_UNAVAILABLE_REASON,)
+
+
+def test_recovery_drill_status_from_snapshot_projects_unavailable_history_reason():
+    status = recovery_drill_status_from_snapshot(
+        snapshot=_recovery_drill_snapshot(status="unavailable", reason="manifest_unreadable"),
+        policy=_recovery_drill_policy(),
+        active_run_status=_operator_action_status(active_run_count=1),
+    )
+
+    assert status.status == "unavailable"
+    assert status.reason == "manifest_unreadable"
+    assert status.active_run_count == 1
+
+
+def test_recovery_drill_status_from_snapshot_projects_latest_entry():
+    latest = RecoveryDrillHistoryEntry(
+        evidence_file_name="latest.json",
+        generated_at_utc=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        operator_id="ops-user",
+        backup_identifier="backup-123",
+        status="passed",
+    )
+
+    status = recovery_drill_status_from_snapshot(
+        snapshot=_recovery_drill_snapshot(entries=[latest]),
+        policy=_recovery_drill_policy(),
+        active_run_status=_operator_action_status(),
+    )
+
+    assert status.status == "available"
+    assert status.reason is None
+    assert status.latest_operator_id == "ops-user"
+    assert status.latest_backup_identifier == "backup-123"
+    assert status.latest_age_seconds is not None
 
 
 def test_build_runtime_retention_status_projects_latest_history_and_preview(mocker):
