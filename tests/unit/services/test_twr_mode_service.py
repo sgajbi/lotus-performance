@@ -27,6 +27,7 @@ from app.services.twr_mode_service import (
     _ResolvedTWRBenchmarkSourceInput,
     _twr_normalization_details,
     _twr_request_needs_retrieval,
+    _twr_retrieval_details,
     _TWRRetrievalResolution,
     resolve_twr_request,
 )
@@ -272,6 +273,48 @@ def test_twr_normalization_details_projects_portfolio_and_benchmark_counts():
         "benchmark_component_observations": 0,
         "benchmark_return_points": 2,
     }
+
+
+def test_twr_retrieval_details_merges_portfolio_and_benchmark_sources():
+    benchmark_resolution = _ResolvedTWRBenchmarkSourceInput(
+        benchmark_id="BMK_1",
+        benchmark_request=_resolve_stateless_twr_benchmark_request(
+            TWRAnalyticsRequest.model_validate(
+                {
+                    "calculation_id": str(uuid4()),
+                    "portfolio_id": "PORT_1",
+                    "performance_start_date": "2025-01-01",
+                    "metric_basis": "NET",
+                    "report_end_date": "2025-01-02",
+                    "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+                    "valuation_points": [{"perf_date": "2025-01-02", "begin_mv": 1000, "end_mv": 1010}],
+                    "benchmark": {
+                        "benchmark_id": "BMK_1",
+                        "input_mode": "stateless",
+                        "return_source": "vendor_series",
+                        "stateless_input": {
+                            "benchmark_currency": "USD",
+                            "benchmark_return_points": [{"perf_date": "2025-01-02", "benchmark_return": 0.01}],
+                        },
+                    },
+                }
+            )
+        ),
+        source_details={"benchmark_source": "stateful", "shared": "benchmark"},
+    )
+
+    assert _twr_retrieval_details(
+        portfolio_retrieval_details={"portfolio_source": "stateful", "shared": "portfolio"},
+        benchmark_resolution=benchmark_resolution,
+    ) == {
+        "portfolio_source": "stateful",
+        "benchmark_source": "stateful",
+        "shared": "benchmark",
+    }
+    assert _twr_retrieval_details(
+        portfolio_retrieval_details={"portfolio_source": "stateful"},
+        benchmark_resolution=None,
+    ) == {"portfolio_source": "stateful"}
 
 
 def test_build_resolved_twr_performance_input_projects_stateful_request_fields():

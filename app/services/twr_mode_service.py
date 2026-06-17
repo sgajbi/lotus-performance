@@ -269,10 +269,10 @@ async def _resolve_twr_retrieval_inputs(
     settings: Settings,
     stateful_input_service: StatefulInputService,
 ) -> _TWRRetrievalResolution:
-    retrieval_details: dict[str, object] = {}
     portfolio_input = None
     benchmark_start_date = None
     benchmark_resolution = None
+    portfolio_retrieval_details: dict[str, object] = {}
 
     if request.input_mode == TWRInputMode.STATEFUL:
         portfolio_resolution = await _resolve_twr_portfolio_source_input(
@@ -282,7 +282,7 @@ async def _resolve_twr_retrieval_inputs(
         )
         portfolio_input = portfolio_resolution.portfolio_input
         benchmark_start_date = portfolio_resolution.benchmark_start_date
-        retrieval_details.update(portfolio_resolution.retrieval_details)
+        portfolio_retrieval_details = portfolio_resolution.retrieval_details
 
     if _benchmark_requested(request):
         if benchmark_start_date is None:
@@ -292,15 +292,27 @@ async def _resolve_twr_retrieval_inputs(
             stateful_input_service=stateful_input_service,
             benchmark_start_date=benchmark_start_date,
         )
-        if benchmark_resolution is not None and benchmark_resolution.source_details:
-            retrieval_details.update(benchmark_resolution.source_details)
 
     return _TWRRetrievalResolution(
         portfolio_input=portfolio_input,
         benchmark_resolution=benchmark_resolution,
         benchmark_start_date=benchmark_start_date,
-        retrieval_details=retrieval_details,
+        retrieval_details=_twr_retrieval_details(
+            portfolio_retrieval_details=portfolio_retrieval_details,
+            benchmark_resolution=benchmark_resolution,
+        ),
     )
+
+
+def _twr_retrieval_details(
+    *,
+    portfolio_retrieval_details: dict[str, object],
+    benchmark_resolution: _ResolvedTWRBenchmarkSourceInput | None,
+) -> dict[str, object]:
+    details = dict(portfolio_retrieval_details)
+    if benchmark_resolution is not None and benchmark_resolution.source_details:
+        details.update(benchmark_resolution.source_details)
+    return details
 
 
 async def _resolve_twr_portfolio_source_input(
