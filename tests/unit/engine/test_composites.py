@@ -288,6 +288,29 @@ def test_blocked_composite_period_result_for_invalid_ready_facts_blocks_empty_re
     assert period_result.excluded_member_count == 1
 
 
+def test_blocked_composite_period_result_for_invalid_ready_facts_prioritizes_empty_ready_set():
+    result = _blocked_composite_period_result_for_invalid_ready_facts(
+        period_start=date(2026, 1, 1),
+        period_end=date(2026, 1, 31),
+        beginning_assets=Decimal("0"),
+        ending_assets=Decimal("0"),
+        ready_facts=[],
+        excluded_facts=[],
+        reason_codes=[],
+        ready_return_views=["GROSS", "NET_ACTUAL"],
+        ready_reporting_currencies=["SGD", "USD"],
+        ready_source_fingerprints=[],
+        ready_restatement_versions=[],
+    )
+
+    assert result is not None
+    period_result, aggregate_reason_code = result
+    assert aggregate_reason_code == "no_ready_member_return_facts"
+    assert period_result.reason_codes == ["no_ready_member_return_facts"]
+    assert period_result.return_view is None
+    assert period_result.reporting_currency is None
+
+
 def test_blocked_composite_period_result_for_invalid_ready_facts_blocks_nonpositive_assets():
     ready_facts = [_fact(portfolio_id="P1", beginning_market_value="0.00", ending_market_value="10.00")]
 

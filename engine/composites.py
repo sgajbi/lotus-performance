@@ -108,6 +108,18 @@ class _InvalidReadyCompositePeriodContext:
     excluded_facts: Sequence[CompositeMemberReturnFactLike]
 
 
+@dataclass(frozen=True)
+class _InvalidReadyCompositePeriodInputs:
+    context: _InvalidReadyCompositePeriodContext
+    beginning_assets: Decimal
+    ending_assets: Decimal
+    reason_codes: list[str]
+    ready_return_views: list[str]
+    ready_reporting_currencies: list[str]
+    ready_source_fingerprints: list[str]
+    ready_restatement_versions: list[str]
+
+
 def _quantize_decimal(value: Decimal, quantum: Decimal) -> Decimal:
     if value == 0:
         return Decimal("0").quantize(quantum)
@@ -221,6 +233,91 @@ def _blocked_invalid_ready_composite_period_result(
     )
 
 
+def _no_ready_member_return_facts_block(
+    inputs: _InvalidReadyCompositePeriodInputs,
+) -> tuple[CompositePeriodResult, str] | None:
+    if inputs.context.ready_facts:
+        return None
+    return _blocked_invalid_ready_composite_period_result(
+        inputs.context,
+        beginning_assets=Decimal("0"),
+        ending_assets=Decimal("0"),
+        aggregate_reason_code="no_ready_member_return_facts",
+        reason_codes=inputs.reason_codes or ["no_ready_member_return_facts"],
+    )
+
+
+def _nonpositive_composite_beginning_assets_block(
+    inputs: _InvalidReadyCompositePeriodInputs,
+) -> tuple[CompositePeriodResult, str] | None:
+    if inputs.beginning_assets > 0:
+        return None
+    return _blocked_invalid_ready_composite_period_result(
+        inputs.context,
+        beginning_assets=inputs.beginning_assets,
+        ending_assets=inputs.ending_assets,
+        aggregate_reason_code="nonpositive_composite_beginning_assets",
+        reason_codes=inputs.reason_codes + ["nonpositive_composite_beginning_assets"],
+        return_view=_single_composite_metadata_value(inputs.ready_return_views),
+        reporting_currency=_single_composite_metadata_value(inputs.ready_reporting_currencies),
+        source_fingerprints=inputs.ready_source_fingerprints,
+        restatement_versions=inputs.ready_restatement_versions,
+    )
+
+
+def _mixed_member_return_views_block(
+    inputs: _InvalidReadyCompositePeriodInputs,
+) -> tuple[CompositePeriodResult, str] | None:
+    if len(inputs.ready_return_views) <= 1:
+        return None
+    return _blocked_invalid_ready_composite_period_result(
+        inputs.context,
+        beginning_assets=inputs.beginning_assets,
+        ending_assets=inputs.ending_assets,
+        aggregate_reason_code="mixed_member_return_views",
+        reason_codes=inputs.reason_codes + ["mixed_member_return_views"],
+        reporting_currency=_single_composite_metadata_value(inputs.ready_reporting_currencies),
+        source_fingerprints=inputs.ready_source_fingerprints,
+        restatement_versions=inputs.ready_restatement_versions,
+    )
+
+
+def _mixed_member_reporting_currencies_block(
+    inputs: _InvalidReadyCompositePeriodInputs,
+) -> tuple[CompositePeriodResult, str] | None:
+    if len(inputs.ready_reporting_currencies) <= 1:
+        return None
+    return _blocked_invalid_ready_composite_period_result(
+        inputs.context,
+        beginning_assets=inputs.beginning_assets,
+        ending_assets=inputs.ending_assets,
+        aggregate_reason_code="mixed_member_reporting_currencies",
+        reason_codes=inputs.reason_codes + ["mixed_member_reporting_currencies"],
+        return_view=inputs.ready_return_views[0],
+        source_fingerprints=inputs.ready_source_fingerprints,
+        restatement_versions=inputs.ready_restatement_versions,
+    )
+
+
+def _blocked_invalid_ready_period_result(
+    inputs: _InvalidReadyCompositePeriodInputs,
+) -> tuple[CompositePeriodResult, str] | None:
+    block_policies: tuple[
+        Callable[[_InvalidReadyCompositePeriodInputs], tuple[CompositePeriodResult, str] | None],
+        ...,
+    ] = (
+        _no_ready_member_return_facts_block,
+        _nonpositive_composite_beginning_assets_block,
+        _mixed_member_return_views_block,
+        _mixed_member_reporting_currencies_block,
+    )
+    for block_policy in block_policies:
+        blocked_result = block_policy(inputs)
+        if blocked_result is not None:
+            return blocked_result
+    return None
+
+
 def _blocked_composite_period_result_for_invalid_ready_facts(
     *,
     period_start: dt_date,
@@ -235,59 +332,23 @@ def _blocked_composite_period_result_for_invalid_ready_facts(
     ready_source_fingerprints: list[str],
     ready_restatement_versions: list[str],
 ) -> tuple[CompositePeriodResult, str] | None:
-    context = _InvalidReadyCompositePeriodContext(
-        period_start=period_start,
-        period_end=period_end,
-        ready_facts=ready_facts,
-        excluded_facts=excluded_facts,
+    return _blocked_invalid_ready_period_result(
+        _InvalidReadyCompositePeriodInputs(
+            context=_InvalidReadyCompositePeriodContext(
+                period_start=period_start,
+                period_end=period_end,
+                ready_facts=ready_facts,
+                excluded_facts=excluded_facts,
+            ),
+            beginning_assets=beginning_assets,
+            ending_assets=ending_assets,
+            reason_codes=reason_codes,
+            ready_return_views=ready_return_views,
+            ready_reporting_currencies=ready_reporting_currencies,
+            ready_source_fingerprints=ready_source_fingerprints,
+            ready_restatement_versions=ready_restatement_versions,
+        )
     )
-    if not ready_facts:
-        return _blocked_invalid_ready_composite_period_result(
-            context,
-            beginning_assets=Decimal("0"),
-            ending_assets=Decimal("0"),
-            aggregate_reason_code="no_ready_member_return_facts",
-            reason_codes=reason_codes or ["no_ready_member_return_facts"],
-        )
-
-    if beginning_assets <= 0:
-        return _blocked_invalid_ready_composite_period_result(
-            context,
-            beginning_assets=beginning_assets,
-            ending_assets=ending_assets,
-            aggregate_reason_code="nonpositive_composite_beginning_assets",
-            reason_codes=reason_codes + ["nonpositive_composite_beginning_assets"],
-            return_view=_single_composite_metadata_value(ready_return_views),
-            reporting_currency=_single_composite_metadata_value(ready_reporting_currencies),
-            source_fingerprints=ready_source_fingerprints,
-            restatement_versions=ready_restatement_versions,
-        )
-
-    if len(ready_return_views) > 1:
-        return _blocked_invalid_ready_composite_period_result(
-            context,
-            beginning_assets=beginning_assets,
-            ending_assets=ending_assets,
-            aggregate_reason_code="mixed_member_return_views",
-            reason_codes=reason_codes + ["mixed_member_return_views"],
-            reporting_currency=_single_composite_metadata_value(ready_reporting_currencies),
-            source_fingerprints=ready_source_fingerprints,
-            restatement_versions=ready_restatement_versions,
-        )
-
-    if len(ready_reporting_currencies) > 1:
-        return _blocked_invalid_ready_composite_period_result(
-            context,
-            beginning_assets=beginning_assets,
-            ending_assets=ending_assets,
-            aggregate_reason_code="mixed_member_reporting_currencies",
-            reason_codes=reason_codes + ["mixed_member_reporting_currencies"],
-            return_view=ready_return_views[0],
-            source_fingerprints=ready_source_fingerprints,
-            restatement_versions=ready_restatement_versions,
-        )
-
-    return None
 
 
 def _build_composite_period_fact_set(
