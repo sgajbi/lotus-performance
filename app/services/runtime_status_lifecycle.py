@@ -15,6 +15,7 @@ from app.services.runtime_retention_history_service import (
     RUNTIME_RETENTION_ARTIFACT_DIRECTORY_MISSING_REASON,
     RUNTIME_RETENTION_MANIFEST_MISSING_REASON,
     RuntimeRetentionHistoryEntry,
+    RuntimeRetentionHistorySnapshot,
     build_runtime_retention_history_snapshot,
 )
 from app.services.runtime_retention_service import RuntimeRetentionCleanupSummary
@@ -159,6 +160,25 @@ def build_runtime_retention_status(*, settings, policy: RuntimeRetentionDegradat
         )
     preview_status, preview_reason, preview_summary = build_runtime_retention_preview()
 
+    return runtime_retention_status_from_snapshot(
+        snapshot=snapshot,
+        policy=policy,
+        active_run_status=active_run_status,
+        preview_status=preview_status,
+        preview_reason=preview_reason,
+        preview_summary=preview_summary,
+    )
+
+
+def runtime_retention_status_from_snapshot(
+    *,
+    snapshot: RuntimeRetentionHistorySnapshot,
+    policy: RuntimeRetentionDegradationPolicy,
+    active_run_status: OperatorActionStatus,
+    preview_status: str,
+    preview_reason: str | None,
+    preview_summary: RuntimeRetentionCleanupSummary | None,
+) -> RuntimeRetentionStatus:
     if snapshot.status != "available":
         if snapshot.reason in {
             RUNTIME_RETENTION_ARTIFACT_DIRECTORY_MISSING_REASON,
