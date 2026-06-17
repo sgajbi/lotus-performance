@@ -24,6 +24,7 @@ from app.services.twr_service import (
     _rebased_cumulative_ror,
     _resolve_twr_execution_period_scope,
     _resolve_twr_supportability,
+    _twr_execution_master_window,
     _twr_period_reset_events,
     _TWRBenchmarkPeriodContext,
     _TWRExecutionCalculation,
@@ -99,6 +100,18 @@ def test_resolve_twr_execution_period_scope_rejects_unresolved_periods(mocker):
 
     assert exc_info.value.status_code == 400
     assert exc_info.value.detail == "No valid periods could be resolved."
+
+
+def test_twr_execution_master_window_spans_all_resolved_periods():
+    master_start_date, master_end_date = _twr_execution_master_window(
+        [
+            ResolvedPeriod(name="SHORT", start_date=date(2025, 1, 5), end_date=date(2025, 1, 7)),
+            ResolvedPeriod(name="LONG", start_date=date(2025, 1, 1), end_date=date(2025, 1, 10)),
+        ]
+    )
+
+    assert master_start_date == date(2025, 1, 1)
+    assert master_end_date == date(2025, 1, 10)
 
 
 def test_build_twr_results_by_period_builds_portfolio_summary_and_skips_empty_periods():

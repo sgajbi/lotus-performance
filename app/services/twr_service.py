@@ -775,11 +775,19 @@ def _resolve_twr_execution_period_scope(performance_request: PerformanceRequest)
     if not resolved_periods:
         raise HTTPException(status_code=400, detail="No valid periods could be resolved.")
 
+    master_start_date, master_end_date = _twr_execution_master_window(resolved_periods)
     return _TWRExecutionPeriodScope(
         resolved_periods=resolved_periods,
         freqs_by_period=freqs_by_period,
-        master_start_date=min(p.start_date for p in resolved_periods),
-        master_end_date=max(p.end_date for p in resolved_periods),
+        master_start_date=master_start_date,
+        master_end_date=master_end_date,
+    )
+
+
+def _twr_execution_master_window(resolved_periods: list[ResolvedPeriod]) -> tuple[date, date]:
+    return (
+        min(period.start_date for period in resolved_periods),
+        max(period.end_date for period in resolved_periods),
     )
 
 
