@@ -49,23 +49,12 @@ def build_runtime_recoveries_response_for_query(
     lineage_calculation_type: str | None,
     calculation_id_contains: str | None = None,
 ) -> RuntimeRecoveriesResponse:
-    if recovered_after is not None and recovered_before is not None and recovered_after > recovered_before:
-        raise RuntimeRecoveriesValidationError.from_problem(
-            RuntimeRecoveriesValidationProblem(
-                code="invalid_recovery_time_window",
-                fields=["recovered_after", "recovered_before"],
-                message="recovered_after must be less than or equal to recovered_before.",
-            )
-        )
-
-    if cursor_calculation_id_before is not None and cursor_recovered_before is None:
-        raise RuntimeRecoveriesValidationError.from_problem(
-            RuntimeRecoveriesValidationProblem(
-                code="incomplete_recovery_cursor",
-                fields=["cursor_recovered_before", "cursor_calculation_id_before"],
-                message="cursor_calculation_id_before requires cursor_recovered_before.",
-            )
-        )
+    _validate_runtime_recoveries_query(
+        recovered_after=recovered_after,
+        recovered_before=recovered_before,
+        cursor_recovered_before=cursor_recovered_before,
+        cursor_calculation_id_before=cursor_calculation_id_before,
+    )
 
     snapshot = build_runtime_recovery_snapshot(
         queue_filter=queue,
@@ -80,3 +69,53 @@ def build_runtime_recoveries_response_for_query(
         lineage_calculation_type=lineage_calculation_type,
     )
     return build_runtime_recoveries_response(snapshot)
+
+
+def _validate_runtime_recoveries_query(
+    *,
+    recovered_after: datetime | None,
+    recovered_before: datetime | None,
+    cursor_recovered_before: datetime | None,
+    cursor_calculation_id_before: str | None,
+) -> None:
+    if _has_inverted_recovery_time_window(
+        recovered_after=recovered_after,
+        recovered_before=recovered_before,
+    ):
+        raise RuntimeRecoveriesValidationError.from_problem(
+            RuntimeRecoveriesValidationProblem(
+                code="invalid_recovery_time_window",
+                fields=["recovered_after", "recovered_before"],
+                message="recovered_after must be less than or equal to recovered_before.",
+            )
+        )
+
+    if _has_incomplete_recovery_cursor(
+        cursor_recovered_before=cursor_recovered_before,
+        cursor_calculation_id_before=cursor_calculation_id_before,
+    ):
+        raise RuntimeRecoveriesValidationError.from_problem(
+            RuntimeRecoveriesValidationProblem(
+                code="incomplete_recovery_cursor",
+                fields=["cursor_recovered_before", "cursor_calculation_id_before"],
+                message="cursor_calculation_id_before requires cursor_recovered_before.",
+            )
+        )
+
+
+def _has_inverted_recovery_time_window(
+    *,
+    recovered_after: datetime | None,
+    recovered_before: datetime | None,
+) -> bool:
+    if recovered_after is None or recovered_before is None:
+        return False
+    return recovered_after > recovered_before
+
+
+def _has_incomplete_recovery_cursor(
+    *,
+    cursor_recovered_before: datetime | None,
+    cursor_calculation_id_before: str | None,
+) -> bool:
+    return cursor_calculation_id_before is not None and cursor_recovered_before is None

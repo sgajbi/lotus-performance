@@ -7,6 +7,9 @@ from app.services.durability_health_service import DurabilityHealthStatus
 from app.services.runtime_recoveries_service import (
     RuntimeRecoveriesValidationError,
     RuntimeRecoveriesValidationProblem,
+    _has_incomplete_recovery_cursor,
+    _has_inverted_recovery_time_window,
+    _validate_runtime_recoveries_query,
     build_runtime_recoveries_response_for_query,
 )
 from app.services.runtime_recovery_service import RuntimeRecoveryQueueState, RuntimeRecoverySnapshot
@@ -85,6 +88,72 @@ def test_build_runtime_recoveries_response_for_query_propagates_snapshot_build(m
             lineage_calculation_type=None,
         )
     ]
+
+
+def test_recovery_time_window_predicate_requires_both_bounds_and_inversion():
+    after = datetime(2026, 3, 14, 12, tzinfo=UTC)
+    before = datetime(2026, 3, 14, 11, tzinfo=UTC)
+
+    assert _has_inverted_recovery_time_window(recovered_after=after, recovered_before=before)
+    assert not _has_inverted_recovery_time_window(recovered_after=before, recovered_before=after)
+    assert not _has_inverted_recovery_time_window(recovered_after=after, recovered_before=None)
+    assert not _has_inverted_recovery_time_window(recovered_after=None, recovered_before=before)
+
+
+def test_recovery_cursor_predicate_requires_timestamp_when_id_is_supplied():
+    recovered_at = datetime(2026, 3, 14, 12, tzinfo=UTC)
+
+    assert _has_incomplete_recovery_cursor(
+        cursor_recovered_before=None,
+        cursor_calculation_id_before="calc-1",
+    )
+    assert not _has_incomplete_recovery_cursor(
+        cursor_recovered_before=recovered_at,
+        cursor_calculation_id_before="calc-1",
+    )
+    assert not _has_incomplete_recovery_cursor(
+        cursor_recovered_before=None,
+        cursor_calculation_id_before=None,
+    )
+
+
+def test_validate_runtime_recoveries_query_accepts_complete_bounds_and_cursor():
+    recovered_at = datetime(2026, 3, 14, 12, tzinfo=UTC)
+
+    _validate_runtime_recoveries_query(
+        recovered_after=recovered_at,
+        recovered_before=recovered_at,
+        cursor_recovered_before=recovered_at,
+        cursor_calculation_id_before="calc-1",
+    )
+
+
+def test_validate_runtime_recoveries_query_rejects_inverted_window():
+    with pytest.raises(RuntimeRecoveriesValidationError) as error_info:
+        _validate_runtime_recoveries_query(
+            recovered_after=datetime(2026, 3, 14, 12, tzinfo=UTC),
+            recovered_before=datetime(2026, 3, 14, 11, tzinfo=UTC),
+            cursor_recovered_before=None,
+            cursor_calculation_id_before=None,
+        )
+
+    assert error_info.value.detail["code"] == "invalid_recovery_time_window"
+    assert error_info.value.status_code == 422
+    assert error_info.value.detail["fields"] == ["recovered_after", "recovered_before"]
+
+
+def test_validate_runtime_recoveries_query_rejects_incomplete_cursor():
+    with pytest.raises(RuntimeRecoveriesValidationError) as error_info:
+        _validate_runtime_recoveries_query(
+            recovered_after=None,
+            recovered_before=None,
+            cursor_recovered_before=None,
+            cursor_calculation_id_before="calc-1",
+        )
+
+    assert error_info.value.detail["code"] == "incomplete_recovery_cursor"
+    assert error_info.value.status_code == 422
+    assert error_info.value.detail["fields"] == ["cursor_recovered_before", "cursor_calculation_id_before"]
 
 
 def test_build_runtime_recoveries_response_for_query_rejects_inverted_window():
