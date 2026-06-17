@@ -38,31 +38,31 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_component_contributions_dataframe` | function | `engine/benchmarks.py:35` | 6 | B |
-| 2 | `_blocked_composite_period_result_for_invalid_ready_facts` | function | `engine/composites.py:224` | 6 | B |
-| 3 | `_composite_calculation_status` | function | `engine/composites.py:416` | 6 | B |
-| 4 | `calculate_asset_weighted_composite_twr` | function | `engine/composites.py:424` | 6 | B |
-| 5 | `run_calculations` | function | `engine/compute.py:21` | 6 | B |
-| 6 | `_prepare_dataframe` | function | `engine/compute.py:163` | 6 | B |
-| 7 | `_apply_position_fx_capital_conversion` | function | `engine/contribution.py:256` | 6 | B |
-| 8 | `_net_same_day_flows` | function | `engine/mwr.py:21` | 6 | B |
-| 9 | `_dietz_denominator` | function | `engine/mwr.py:310` | 6 | B |
-| 10 | `_calculate_xirr_mwr_attempt` | function | `engine/mwr.py:345` | 6 | B |
-| 11 | `_extract_policy_inputs` | function | `engine/policies.py:24` | 6 | B |
-| 12 | `_apply_overrides` | function | `engine/policies.py:38` | 6 | B |
-| 13 | `_flag_outliers` | function | `engine/policies.py:124` | 6 | B |
-| 14 | `_apply_hedging_to_fx_return` | function | `engine/ror.py:150` | 6 | B |
-| 15 | `calculate_sod_reset_reason` | function | `engine/rules.py:164` | 6 | B |
-| 16 | `health_ready` | function | `app/api/endpoints/health.py:41` | 5 | A |
-| 17 | `get_twr_inspection_artifact` | function | `app/api/endpoints/inspections.py:174` | 5 | A |
-| 18 | `_load_and_validate_manifest` | function | `app/api/endpoints/lineage.py:27` | 5 | A |
-| 19 | `resolve_operator_request_context` | function | `app/api/operator_context.py:15` | 5 | A |
-| 20 | `_normalized_capability_rule_override` | function | `app/enterprise_capability_rules.py:79` | 5 | A |
-| 21 | `_stateless_input_envelope_issue` | function | `app/models/attribution_analytics_requests.py:294` | 5 | A |
-| 22 | `_validate_benchmark_analysis_selection` | function | `app/models/benchmark_analytics_requests.py:142` | 5 | A |
-| 23 | `_validate_benchmark_analysis_window` | function | `app/models/benchmark_requests.py:48` | 5 | A |
-| 24 | `CompositeMemberReturnFact` | class | `app/models/composites.py:159` | 5 | A |
-| 25 | `_stateless_contribution_envelope_issue` | function | `app/models/contribution_analytics_requests.py:74` | 5 | A |
+| 1 | `_blocked_composite_period_result_for_invalid_ready_facts` | function | `engine/composites.py:224` | 6 | B |
+| 2 | `_composite_calculation_status` | function | `engine/composites.py:416` | 6 | B |
+| 3 | `calculate_asset_weighted_composite_twr` | function | `engine/composites.py:424` | 6 | B |
+| 4 | `run_calculations` | function | `engine/compute.py:21` | 6 | B |
+| 5 | `_prepare_dataframe` | function | `engine/compute.py:163` | 6 | B |
+| 6 | `_apply_position_fx_capital_conversion` | function | `engine/contribution.py:256` | 6 | B |
+| 7 | `_net_same_day_flows` | function | `engine/mwr.py:21` | 6 | B |
+| 8 | `_dietz_denominator` | function | `engine/mwr.py:310` | 6 | B |
+| 9 | `_calculate_xirr_mwr_attempt` | function | `engine/mwr.py:345` | 6 | B |
+| 10 | `_extract_policy_inputs` | function | `engine/policies.py:24` | 6 | B |
+| 11 | `_apply_overrides` | function | `engine/policies.py:38` | 6 | B |
+| 12 | `_flag_outliers` | function | `engine/policies.py:124` | 6 | B |
+| 13 | `_apply_hedging_to_fx_return` | function | `engine/ror.py:150` | 6 | B |
+| 14 | `calculate_sod_reset_reason` | function | `engine/rules.py:164` | 6 | B |
+| 15 | `health_ready` | function | `app/api/endpoints/health.py:41` | 5 | A |
+| 16 | `get_twr_inspection_artifact` | function | `app/api/endpoints/inspections.py:174` | 5 | A |
+| 17 | `_load_and_validate_manifest` | function | `app/api/endpoints/lineage.py:27` | 5 | A |
+| 18 | `resolve_operator_request_context` | function | `app/api/operator_context.py:15` | 5 | A |
+| 19 | `_normalized_capability_rule_override` | function | `app/enterprise_capability_rules.py:79` | 5 | A |
+| 20 | `_stateless_input_envelope_issue` | function | `app/models/attribution_analytics_requests.py:294` | 5 | A |
+| 21 | `_validate_benchmark_analysis_selection` | function | `app/models/benchmark_analytics_requests.py:142` | 5 | A |
+| 22 | `_validate_benchmark_analysis_window` | function | `app/models/benchmark_requests.py:48` | 5 | A |
+| 23 | `CompositeMemberReturnFact` | class | `app/models/composites.py:159` | 5 | A |
+| 24 | `_stateless_contribution_envelope_issue` | function | `app/models/contribution_analytics_requests.py:74` | 5 | A |
+| 25 | `_resolved_stateless_contribution_inputs` | function | `app/models/contribution_analytics_requests.py:95` | 5 | A |
 
 ## Lowest Maintainability Index
 
@@ -888,6 +888,8 @@ instrument group observations.
 moved into a dedicated helper with direct coverage for multi-key group observation projection.
 `_determine_attribution_supportability_status` also dropped out after attribution coverage-gap
 detection was moved into a dedicated predicate with direct status-precedence coverage.
+`_component_contributions_dataframe` also dropped out after benchmark component observation record
+projection was moved into a dedicated helper with direct coverage for base-only and local/FX fields.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.

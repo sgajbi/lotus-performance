@@ -4,6 +4,7 @@ import pytest
 
 from app.models.benchmark_requests import BenchmarkComponentObservation, BenchmarkReturnPoint
 from engine.benchmarks import (
+    _component_contribution_record,
     _component_contributions_dataframe,
     _uses_local_fx_component_returns,
     benchmark_return_points_to_dataframe,
@@ -109,6 +110,39 @@ def test_component_contributions_dataframe_preserves_decimal_values_and_sort_ord
     assert str(rows[0]["contribution"]) == "0.012"
     assert str(rows[1]["local_contribution"]) == "0.004"
     assert str(rows[1]["fx_contribution"]) == "0.004"
+
+
+def test_component_contribution_record_projects_decimal_values_and_optional_local_fx_fields():
+    base_record = _component_contribution_record(
+        BenchmarkComponentObservation(
+            component_id="IDX_BASE",
+            component_currency="USD",
+            perf_date=date(2026, 1, 2),
+            weight_bop=0.75,
+            component_return=0.0125,
+        )
+    )
+    local_record = _component_contribution_record(
+        BenchmarkComponentObservation(
+            component_id="IDX_LOCAL",
+            component_currency="EUR",
+            perf_date=date(2026, 1, 3),
+            weight_bop=0.25,
+            component_return=0.0201,
+            component_return_local=0.01,
+            component_return_fx=0.01,
+        )
+    )
+
+    assert base_record["date"] == date(2026, 1, 2)
+    assert base_record["component_id"] == "IDX_BASE"
+    assert str(base_record["weight_bop"]) == "0.75"
+    assert str(base_record["component_return"]) == "0.0125"
+    assert base_record["component_return_local"] is None
+    assert base_record["component_return_fx"] is None
+    assert local_record["component_currency"] == "EUR"
+    assert str(local_record["component_return_local"]) == "0.01"
+    assert str(local_record["component_return_fx"]) == "0.01"
 
 
 def test_uses_local_fx_component_returns_detects_complete_and_absent_modes():
