@@ -1244,15 +1244,10 @@ class StatefulInputService:
     ) -> list[dict[str, Any]]:
         deduped: dict[tuple[str, ...], dict[str, Any]] = {}
         for record in records:
-            key_values: list[str] = []
-            for field in key_fields:
-                value = record.get(field)
-                if not isinstance(value, str):
-                    break
-                key_values.append(value)
-            if len(key_values) != len(key_fields):
+            record_key = _record_key_by_fields(record=record, key_fields=key_fields)
+            if record_key is None:
                 continue
-            deduped[tuple(key_values)] = record
+            deduped[record_key] = record
         return [deduped[key] for key in sorted(deduped)]
 
     def _merge_component_series(self, *, payloads: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -1409,6 +1404,16 @@ def _component_index_points(component: Any) -> tuple[str, list[dict[str, Any]]] 
 
 def _non_empty_string(value: Any) -> TypeGuard[str]:
     return isinstance(value, str) and bool(value)
+
+
+def _record_key_by_fields(*, record: dict[str, Any], key_fields: tuple[str, ...]) -> tuple[str, ...] | None:
+    key_values: list[str] = []
+    for field in key_fields:
+        value = record.get(field)
+        if not isinstance(value, str):
+            return None
+        key_values.append(value)
+    return tuple(key_values)
 
 
 def _portfolio_identity_from_payload(

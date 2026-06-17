@@ -16,6 +16,7 @@ from app.services.stateful_input_service import (
     _portfolio_timeseries_request_payload,
     _position_rows_from_payload,
     _position_timeseries_request_payload,
+    _record_key_by_fields,
 )
 
 
@@ -1089,6 +1090,7 @@ def test_stateful_input_service_deduplicates_records_and_component_series():
             {"valuation_date": "2026-01-01", "position_id": "POS_1", "value": 1},
             {"valuation_date": "2026-01-01", "position_id": "POS_1", "value": 2},
             {"valuation_date": "2026-01-02", "position_id": 7},
+            {"valuation_date": "2026-01-03", "value": 3},
         ],
         key_fields=("valuation_date", "position_id"),
     )
@@ -1107,6 +1109,24 @@ def test_stateful_input_service_deduplicates_records_and_component_series():
     )
 
     assert deduped == [{"valuation_date": "2026-01-01", "position_id": "POS_1", "value": 2}]
+    assert _record_key_by_fields(
+        record={"valuation_date": "2026-01-01", "position_id": "POS_1"},
+        key_fields=("valuation_date", "position_id"),
+    ) == ("2026-01-01", "POS_1")
+    assert (
+        _record_key_by_fields(
+            record={"valuation_date": "2026-01-01"},
+            key_fields=("valuation_date", "position_id"),
+        )
+        is None
+    )
+    assert (
+        _record_key_by_fields(
+            record={"valuation_date": "2026-01-01", "position_id": 7},
+            key_fields=("valuation_date", "position_id"),
+        )
+        is None
+    )
     assert merged_series == [{"index_id": "IDX_1", "points": [{"series_date": "2026-01-01"}]}]
     assert component_points == {"IDX_2": [{"series_date": "2026-01-02"}]}
     assert _component_index_points({"index_id": "IDX_3", "points": [{"series_date": "2026-01-03"}, None]}) == (
