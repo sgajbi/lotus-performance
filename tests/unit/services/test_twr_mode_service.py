@@ -22,6 +22,7 @@ from app.services.twr_mode_service import (
     _resolve_default_stateful_benchmark_input,
     _resolve_stateless_twr_benchmark_request,
     _resolve_twr_portfolio_source_input,
+    _resolve_twr_portfolio_start_date,
     _resolve_twr_retrieval_inputs,
     _resolved_twr_benchmark_id,
     _ResolvedTWRBenchmarkSourceInput,
@@ -666,6 +667,76 @@ async def test_resolve_twr_portfolio_source_input_reports_retrieval_details_from
         "portfolio_chunk_count": 3,
         "portfolio_page_count": 2,
     }
+
+
+@pytest.mark.asyncio
+async def test_resolve_twr_portfolio_start_date_prefers_explicit_request_date():
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_1",
+            "performance_start_date": "2024-12-31",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "stateful_input": {},
+        }
+    )
+
+    assert await _resolve_twr_portfolio_start_date(
+        request=request,
+        stateful_input_service=object(),
+    ) == date(2024, 12, 31)
+
+
+@pytest.mark.asyncio
+async def test_resolve_twr_portfolio_start_date_uses_upstream_open_date_when_missing():
+    class _StatefulPortfolioStub:
+        async def get_portfolio_reference(self, **kwargs):  # noqa: ARG002
+            return 200, {"portfolio_id": "PORT_1", "portfolio_open_date": "2024-01-15"}
+
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_1",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "stateful_input": {},
+        }
+    )
+
+    assert await _resolve_twr_portfolio_start_date(
+        request=request,
+        stateful_input_service=_StatefulPortfolioStub(),
+    ) == date(2024, 1, 15)
+
+
+@pytest.mark.asyncio
+async def test_resolve_twr_portfolio_start_date_rejects_missing_derived_start():
+    class _StatefulPortfolioStub:
+        async def get_portfolio_reference(self, **kwargs):  # noqa: ARG002
+            return 200, {"portfolio_id": "PORT_1"}
+
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_1",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "stateful_input": {},
+        }
+    )
+
+    with pytest.raises(HTTPException, match="Stateful source missing portfolio_open_date"):
+        await _resolve_twr_portfolio_start_date(
+            request=request,
+            stateful_input_service=_StatefulPortfolioStub(),
+        )
 
 
 @pytest.mark.asyncio

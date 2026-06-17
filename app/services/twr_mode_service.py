@@ -327,21 +327,14 @@ async def _resolve_twr_portfolio_source_input(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="stateful_input is required when input_mode=stateful",
         )
-    derived_start_date = None
-    if request.performance_start_date is None:
-        derived_start_date = await _resolve_stateful_portfolio_start_date(
-            request=request,
-            stateful_input_service=stateful_input_service,
-        )
-    resolved_start_date = derived_start_date or request.performance_start_date
-    if resolved_start_date is None:
-        raise HTTPException(
-            status_code=HTTP_422_UNPROCESSABLE,
-            detail="Unable to derive a performance_start_date for the stateful TWR request.",
-        )
+    resolved_start_date = await _resolve_twr_portfolio_start_date(
+        request=request,
+        stateful_input_service=stateful_input_service,
+    )
+    uses_derived_start_date = request.performance_start_date is None
     portfolio_input = await retrieve_stateful_portfolio_input(
         settings=settings,
-        stateful_input_service=(stateful_input_service if derived_start_date is not None else None),
+        stateful_input_service=(stateful_input_service if uses_derived_start_date else None),
         calculation_id=request.calculation_id,
         portfolio_id=request.portfolio_id,
         as_of_date=request.report_end_date,
@@ -359,6 +352,25 @@ async def _resolve_twr_portfolio_source_input(
             "portfolio_page_count": portfolio_input.retrieval_metadata.page_count,
         },
     )
+
+
+async def _resolve_twr_portfolio_start_date(
+    *,
+    request: TWRAnalyticsRequest,
+    stateful_input_service: StatefulInputService,
+) -> date:
+    if request.performance_start_date is not None:
+        return request.performance_start_date
+    derived_start_date = await _resolve_stateful_portfolio_start_date(
+        request=request,
+        stateful_input_service=stateful_input_service,
+    )
+    if derived_start_date is None:
+        raise HTTPException(
+            status_code=HTTP_422_UNPROCESSABLE,
+            detail="Unable to derive a performance_start_date for the stateful TWR request.",
+        )
+    return derived_start_date
 
 
 @dataclass(frozen=True)
