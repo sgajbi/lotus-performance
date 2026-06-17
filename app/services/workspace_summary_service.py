@@ -605,15 +605,28 @@ def _build_workspace_summary_response(
         ),
         diagnostics=diagnostics,
         audit=Audit(
-            counts={
-                "input_rows": len(portfolio_input.valuation_points),
-                "periods_resolved": len(results_by_period),
-                "portfolio_chunk_count": portfolio_input.source_details.get("portfolio_chunk_count", 0),
-                "portfolio_page_count": portfolio_input.source_details.get("portfolio_page_count", 0),
-                "benchmark_chunk_count": benchmark_input.source_details.get("chunk_count", 0) if benchmark_input else 0,
-            }
+            counts=_workspace_summary_audit_counts(
+                portfolio_input=portfolio_input,
+                benchmark_input=benchmark_input,
+                results_by_period=results_by_period,
+            )
         ),
     )
+
+
+def _workspace_summary_audit_counts(
+    *,
+    portfolio_input: ResolvedWorkspacePortfolioInput,
+    benchmark_input: ResolvedWorkspaceBenchmarkInput | None,
+    results_by_period: dict[str, WorkspacePeriodSummaryResult],
+) -> dict[str, int]:
+    return {
+        "input_rows": len(portfolio_input.valuation_points),
+        "periods_resolved": len(results_by_period),
+        "portfolio_chunk_count": portfolio_input.source_details.get("portfolio_chunk_count", 0),
+        "portfolio_page_count": portfolio_input.source_details.get("portfolio_page_count", 0),
+        "benchmark_chunk_count": benchmark_input.source_details.get("chunk_count", 0) if benchmark_input else 0,
+    }
 
 
 def _build_workspace_results_by_period(

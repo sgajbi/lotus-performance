@@ -22,6 +22,7 @@ from app.models.workspace_summary_responses import (
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY
 from app.services.workspace_summary_service import (
     ResolvedWorkspaceBenchmarkInput,
+    ResolvedWorkspacePortfolioInput,
     WorkspaceTWRArtifacts,
     _annualize_percentage,
     _build_economic_context,
@@ -40,6 +41,7 @@ from app.services.workspace_summary_service import (
     _resolve_workspace_benchmark_input,
     _resolve_workspace_portfolio_input,
     _workspace_observation_in_master_window,
+    _workspace_summary_audit_counts,
     _workspace_summary_diagnostics_notes,
     calculate_workspace_summary,
     workspace_longest_requested_window_days,
@@ -737,6 +739,54 @@ def test_workspace_observation_in_master_window_rejects_non_string_dates():
         master_start_date=date(2026, 1, 1),
         report_end_date=date(2026, 1, 2),
     )
+
+
+def test_workspace_summary_audit_counts_projects_portfolio_counts_without_benchmark():
+    portfolio_input = ResolvedWorkspacePortfolioInput(
+        input_mode="stateful",
+        performance_start_date=date(2026, 1, 1),
+        valuation_points=[
+            DailyInputData.model_validate({"perf_date": "2026-01-01", "begin_mv": 100.0, "end_mv": 101.0}),
+            DailyInputData.model_validate({"perf_date": "2026-01-02", "begin_mv": 101.0, "end_mv": 102.0}),
+        ],
+        observations=[],
+        source_details={"portfolio_chunk_count": 3, "portfolio_page_count": 7},
+    )
+
+    assert _workspace_summary_audit_counts(
+        portfolio_input=portfolio_input,
+        benchmark_input=None,
+        results_by_period={"1D": SimpleNamespace()},
+    ) == {
+        "input_rows": 2,
+        "periods_resolved": 1,
+        "portfolio_chunk_count": 3,
+        "portfolio_page_count": 7,
+        "benchmark_chunk_count": 0,
+    }
+
+
+def test_workspace_summary_audit_counts_projects_benchmark_chunk_count():
+    portfolio_input = ResolvedWorkspacePortfolioInput(
+        input_mode="stateful",
+        performance_start_date=date(2026, 1, 1),
+        valuation_points=[],
+        observations=[],
+        source_details={},
+    )
+    benchmark_input = SimpleNamespace(source_details={"chunk_count": 5})
+
+    assert _workspace_summary_audit_counts(
+        portfolio_input=portfolio_input,
+        benchmark_input=benchmark_input,
+        results_by_period={"1D": SimpleNamespace(), "1M": SimpleNamespace()},
+    ) == {
+        "input_rows": 0,
+        "periods_resolved": 2,
+        "portfolio_chunk_count": 0,
+        "portfolio_page_count": 0,
+        "benchmark_chunk_count": 5,
+    }
 
 
 def test_build_workspace_results_by_period_skips_empty_periods_and_projects_summaries(mocker):
