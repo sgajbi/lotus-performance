@@ -1393,13 +1393,24 @@ def _position_rows_from_payload(payload: dict[str, Any]) -> list[dict[str, Any]]
 def _component_index_points(component: Any) -> tuple[str, list[dict[str, Any]]] | None:
     if not isinstance(component, dict):
         return None
+    index_id = _component_index_id(component)
+    if index_id is None:
+        return None
+    return index_id, _component_point_records(component)
+
+
+def _component_index_id(component: dict[str, Any]) -> str | None:
     index_id = component.get("index_id")
     if not isinstance(index_id, str):
         return None
+    return index_id
+
+
+def _component_point_records(component: dict[str, Any]) -> list[dict[str, Any]]:
     points_raw = component.get("points")
     if not isinstance(points_raw, list):
-        return index_id, []
-    return index_id, [point for point in points_raw if isinstance(point, dict)]
+        return []
+    return [point for point in points_raw if isinstance(point, dict)]
 
 
 def _non_empty_string(value: Any) -> TypeGuard[str]:

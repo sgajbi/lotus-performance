@@ -38,31 +38,31 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_component_index_points` | function | `app/services/stateful_input_service.py:1393` | 6 | B |
-| 2 | `_has_single_currency_inputs` | function | `app/services/stateful_mwr_input_service.py:354` | 6 | B |
-| 3 | `retrieve_stateful_portfolio_input` | function | `app/services/stateful_performance_input_service.py:42` | 6 | B |
-| 4 | `_build_component_observations_from_price_points` | function | `app/services/stateless_benchmark_input_service.py:50` | 6 | B |
-| 5 | `_register_async_compute_job_or_rollback_execution` | function | `app/services/submission_fencing_service.py:107` | 6 | B |
-| 6 | `_benchmark_calendar_alignment` | function | `app/services/twr_benchmark_supportability.py:84` | 6 | B |
-| 7 | `calculate_twr_workflow` | function | `app/services/twr_calculation_service.py:278` | 6 | B |
-| 8 | `resolve_twr_request` | function | `app/services/twr_mode_service.py:80` | 6 | B |
-| 9 | `_build_twr_normalization_resolution` | function | `app/services/twr_mode_service.py:214` | 6 | B |
-| 10 | `_resolve_twr_retrieval_inputs` | function | `app/services/twr_mode_service.py:253` | 6 | B |
-| 11 | `_resolve_twr_portfolio_source_input` | function | `app/services/twr_mode_service.py:293` | 6 | B |
-| 12 | `_resolve_benchmark_start_date_from_request` | function | `app/services/twr_mode_service.py:585` | 6 | B |
-| 13 | `_with_reset_no_investment_classification` | function | `app/services/twr_service.py:324` | 6 | B |
-| 14 | `_resolve_twr_execution_period_scope` | function | `app/services/twr_service.py:751` | 6 | B |
-| 15 | `_build_twr_benchmark_period_blocks` | function | `app/services/twr_service.py:916` | 6 | B |
-| 16 | `_build_twr_benchmark_context` | function | `app/services/twr_service.py:966` | 6 | B |
-| 17 | `portfolio_timeseries_to_valuation_points` | function | `app/services/valuation_points_service.py:12` | 6 | B |
-| 18 | `workspace_longest_requested_window_days` | function | `app/services/workspace_summary_service.py:93` | 6 | B |
-| 19 | `_resolve_workspace_portfolio_input` | function | `app/services/workspace_summary_service.py:210` | 6 | B |
-| 20 | `_trim_portfolio_input_to_master_window` | function | `app/services/workspace_summary_service.py:297` | 6 | B |
-| 21 | `_resolve_workspace_benchmark_input` | function | `app/services/workspace_summary_service.py:323` | 6 | B |
-| 22 | `_build_workspace_summary_response` | function | `app/services/workspace_summary_service.py:506` | 6 | B |
-| 23 | `_annualize_percentage` | function | `app/services/workspace_summary_service.py:1026` | 6 | B |
-| 24 | `_resolve_async_attribution_job_request` | function | `app/workers/compute_executor_worker.py:594` | 6 | B |
-| 25 | `Periods` | class | `core/envelope.py:95` | 6 | B |
+| 1 | `_has_single_currency_inputs` | function | `app/services/stateful_mwr_input_service.py:354` | 6 | B |
+| 2 | `retrieve_stateful_portfolio_input` | function | `app/services/stateful_performance_input_service.py:42` | 6 | B |
+| 3 | `_build_component_observations_from_price_points` | function | `app/services/stateless_benchmark_input_service.py:50` | 6 | B |
+| 4 | `_register_async_compute_job_or_rollback_execution` | function | `app/services/submission_fencing_service.py:107` | 6 | B |
+| 5 | `_benchmark_calendar_alignment` | function | `app/services/twr_benchmark_supportability.py:84` | 6 | B |
+| 6 | `calculate_twr_workflow` | function | `app/services/twr_calculation_service.py:278` | 6 | B |
+| 7 | `resolve_twr_request` | function | `app/services/twr_mode_service.py:80` | 6 | B |
+| 8 | `_build_twr_normalization_resolution` | function | `app/services/twr_mode_service.py:214` | 6 | B |
+| 9 | `_resolve_twr_retrieval_inputs` | function | `app/services/twr_mode_service.py:253` | 6 | B |
+| 10 | `_resolve_twr_portfolio_source_input` | function | `app/services/twr_mode_service.py:293` | 6 | B |
+| 11 | `_resolve_benchmark_start_date_from_request` | function | `app/services/twr_mode_service.py:585` | 6 | B |
+| 12 | `_with_reset_no_investment_classification` | function | `app/services/twr_service.py:324` | 6 | B |
+| 13 | `_resolve_twr_execution_period_scope` | function | `app/services/twr_service.py:751` | 6 | B |
+| 14 | `_build_twr_benchmark_period_blocks` | function | `app/services/twr_service.py:916` | 6 | B |
+| 15 | `_build_twr_benchmark_context` | function | `app/services/twr_service.py:966` | 6 | B |
+| 16 | `portfolio_timeseries_to_valuation_points` | function | `app/services/valuation_points_service.py:12` | 6 | B |
+| 17 | `workspace_longest_requested_window_days` | function | `app/services/workspace_summary_service.py:93` | 6 | B |
+| 18 | `_resolve_workspace_portfolio_input` | function | `app/services/workspace_summary_service.py:210` | 6 | B |
+| 19 | `_trim_portfolio_input_to_master_window` | function | `app/services/workspace_summary_service.py:297` | 6 | B |
+| 20 | `_resolve_workspace_benchmark_input` | function | `app/services/workspace_summary_service.py:323` | 6 | B |
+| 21 | `_build_workspace_summary_response` | function | `app/services/workspace_summary_service.py:506` | 6 | B |
+| 22 | `_annualize_percentage` | function | `app/services/workspace_summary_service.py:1026` | 6 | B |
+| 23 | `_resolve_async_attribution_job_request` | function | `app/workers/compute_executor_worker.py:594` | 6 | B |
+| 24 | `Periods` | class | `core/envelope.py:95` | 6 | B |
+| 25 | `_workspace_period_start_date` | function | `core/workspace_periods.py:56` | 6 | B |
 
 ## Lowest Maintainability Index
 
@@ -129,6 +129,8 @@ and snapshot-batch flushing were moved into focused helpers.
 `_next_page_token` also dropped out after reusable non-empty string token qualification was isolated.
 `_merge_dedup_records_by_fields` also dropped out after multi-field record-key construction was
 isolated into a focused helper.
+`_component_index_points` also dropped out after component index identifier qualification and
+component point-record projection were split into focused helpers.
 `_build_portfolio_breakdown_item` also dropped out after daily raw-data projection and daily
 calculation-evidence projection were split into named helpers.
 `_build_twr_results_by_period` also dropped out after single-period result construction, optional
