@@ -254,15 +254,7 @@ class StatefulInputService:
         if failure is not None:
             return failure
 
-        points = self._merge_dedup_records(
-            records=[
-                point
-                for _, payload in responses
-                for point in (payload.get("points", []) if isinstance(payload, dict) else [])
-                if isinstance(point, dict)
-            ],
-            date_key="series_date",
-        )
+        points = self._merge_dedup_points_from_responses(responses)
         return 200, {
             "points": points,
             "retrieval_metadata": {
@@ -700,15 +692,7 @@ class StatefulInputService:
         if failure is not None:
             return failure
 
-        points = self._merge_dedup_records(
-            records=[
-                point
-                for _, payload in responses
-                for point in (payload.get("points", []) if isinstance(payload, dict) else [])
-                if isinstance(point, dict)
-            ],
-            date_key="series_date",
-        )
+        points = self._merge_dedup_points_from_responses(responses)
         return 200, {
             "points": points,
             "retrieval_metadata": {
@@ -808,15 +792,7 @@ class StatefulInputService:
         if failure is not None:
             return failure
 
-        points = self._merge_dedup_records(
-            records=[
-                point
-                for _, payload in responses
-                for point in (payload.get("points", []) if isinstance(payload, dict) else [])
-                if isinstance(point, dict)
-            ],
-            date_key="series_date",
-        )
+        points = self._merge_dedup_points_from_responses(responses)
         return 200, {
             "points": points,
             "retrieval_metadata": {
@@ -1200,6 +1176,17 @@ class StatefulInputService:
             if isinstance(record_date, str):
                 deduped[record_date] = record
         return [deduped[key] for key in sorted(deduped)]
+
+    def _merge_dedup_points_from_responses(self, responses: list[tuple[int, dict[str, Any]]]) -> list[dict[str, Any]]:
+        return self._merge_dedup_records(
+            records=[
+                point
+                for _, payload in responses
+                for point in (payload.get("points", []) if isinstance(payload, dict) else [])
+                if isinstance(point, dict)
+            ],
+            date_key="series_date",
+        )
 
     def _merge_dedup_records_by_fields(
         self,
