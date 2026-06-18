@@ -359,14 +359,12 @@ def _build_hierarchy_rows(
     )
 
     rows = [_hierarchy_row_to_response(row, level_keys=level_keys) for _, row in explicit_rows.iterrows()]
-    if request.emit.include_other and not overflow_rows.empty:
-        other_row: dict[str, Any] = {
-            "key": {key: "Other" for key in level_keys},
-            "contribution": _as_numeric(overflow_rows["contribution"].sum()) * 100,
-            "weight_avg": _as_numeric(overflow_rows["weight_avg"].sum()) * 100,
-            "children_count": int(len(overflow_rows)),
-            "is_other": True,
-        }
+    other_row = _other_hierarchy_row_for_emission(
+        overflow_rows=overflow_rows,
+        level_keys=level_keys,
+        include_other=request.emit.include_other,
+    )
+    if other_row is not None:
         rows.append(other_row)
     return rows
 
@@ -390,4 +388,21 @@ def _hierarchy_row_to_response(row: pd.Series, *, level_keys: list[str]) -> dict
         "key": {key: row[key] for key in level_keys},
         "contribution": _as_numeric(row["contribution"]) * 100,
         "weight_avg": _as_numeric(row["weight_avg"]) * 100,
+    }
+
+
+def _other_hierarchy_row_for_emission(
+    *,
+    overflow_rows: pd.DataFrame,
+    level_keys: list[str],
+    include_other: bool,
+) -> dict[str, Any] | None:
+    if not include_other or overflow_rows.empty:
+        return None
+    return {
+        "key": {key: "Other" for key in level_keys},
+        "contribution": _as_numeric(overflow_rows["contribution"].sum()) * 100,
+        "weight_avg": _as_numeric(overflow_rows["weight_avg"].sum()) * 100,
+        "children_count": int(len(overflow_rows)),
+        "is_other": True,
     }

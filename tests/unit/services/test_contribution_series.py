@@ -15,6 +15,7 @@ from app.services.contribution_series import (
     _daily_hierarchy_metadata,
     _has_adjusted_hierarchy_inputs,
     _hierarchy_metadata_columns,
+    _other_hierarchy_row_for_emission,
     _prepared_adjusted_hierarchy_frames,
     _residual_adjusted_daily_totals_by_date,
     _residual_adjusted_position_rows,
@@ -238,6 +239,43 @@ def test_hierarchy_metadata_columns_preserves_base_columns_and_unique_levels():
         "sector",
         "region",
     ]
+
+
+def test_other_hierarchy_row_for_emission_aggregates_overflow_rows_and_suppresses_when_disabled():
+    overflow_rows = pd.DataFrame(
+        {
+            "contribution": [0.0125, -0.0025],
+            "weight_avg": [0.15, 0.05],
+        }
+    )
+
+    assert _other_hierarchy_row_for_emission(
+        overflow_rows=overflow_rows,
+        level_keys=["sector", "region"],
+        include_other=True,
+    ) == {
+        "key": {"sector": "Other", "region": "Other"},
+        "contribution": 1.0,
+        "weight_avg": 20.0,
+        "children_count": 2,
+        "is_other": True,
+    }
+    assert (
+        _other_hierarchy_row_for_emission(
+            overflow_rows=overflow_rows,
+            level_keys=["sector"],
+            include_other=False,
+        )
+        is None
+    )
+    assert (
+        _other_hierarchy_row_for_emission(
+            overflow_rows=overflow_rows.iloc[0:0],
+            level_keys=["sector"],
+            include_other=True,
+        )
+        is None
+    )
 
 
 def test_residual_adjusted_position_rows_allocate_by_weight_and_equal_fallback():
