@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
+from typing import TypeAlias
 
 import pandas as pd
 
@@ -25,6 +26,7 @@ from core.periods import ResolvedPeriod, resolve_periods
 from engine.benchmarks import benchmark_return_points_to_dataframe, calculate_benchmark_returns
 
 PERCENT_SCALE = 100.0
+PercentagePoint: TypeAlias = float
 
 
 @dataclass(frozen=True)
@@ -231,17 +233,17 @@ def _benchmark_period_timeseries_records(
 
 
 def _calculate_benchmark_return_from_slice(period_daily_df: pd.DataFrame) -> ComparativeReturnValue:
-    local = None
-    fx = None
-    if "benchmark_return_local" in period_daily_df.columns and period_daily_df["benchmark_return_local"].notna().any():
-        local = _series_return(period_daily_df["benchmark_return_local"])
-    if "benchmark_return_fx" in period_daily_df.columns and period_daily_df["benchmark_return_fx"].notna().any():
-        fx = _series_return(period_daily_df["benchmark_return_fx"])
     return ComparativeReturnValue(
         base=_series_return(period_daily_df["benchmark_return"]),
-        local=local,
-        fx=fx,
+        local=_optional_benchmark_return_component(period_daily_df, "benchmark_return_local"),
+        fx=_optional_benchmark_return_component(period_daily_df, "benchmark_return_fx"),
     )
+
+
+def _optional_benchmark_return_component(period_daily_df: pd.DataFrame, column: str) -> PercentagePoint | None:
+    if column not in period_daily_df.columns or not period_daily_df[column].notna().any():
+        return None
+    return _series_return(period_daily_df[column])
 
 
 def _build_benchmark_breakdowns(

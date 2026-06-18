@@ -366,6 +366,23 @@ def test_benchmark_calculation_helpers_cover_breakdown_and_scaling_edges():
     assert benchmark_calculation_service._series_return(pd.Series([0.01, 0.02])) == pytest.approx(3.02)
 
 
+def test_optional_benchmark_return_component_suppresses_missing_and_all_null_components():
+    df = pd.DataFrame(
+        {
+            "benchmark_return": [0.01, 0.02],
+            "benchmark_return_local": [None, None],
+            "benchmark_return_fx": [0.001, 0.002],
+        }
+    )
+
+    assert benchmark_calculation_service._optional_benchmark_return_component(df, "missing") is None
+    assert benchmark_calculation_service._optional_benchmark_return_component(df, "benchmark_return_local") is None
+    assert benchmark_calculation_service._optional_benchmark_return_component(
+        df,
+        "benchmark_return_fx",
+    ) == pytest.approx(0.3002)
+
+
 def test_benchmark_breakdowns_label_weekly_quarterly_and_yearly_periods():
     df = pd.DataFrame(
         {
