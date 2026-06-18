@@ -13,6 +13,7 @@ from app.models.twr_requests import (
     _has_exactly_one_stateless_twr_payload,
     _has_legacy_twr_valuation_points,
     _has_nested_twr_stateless_input,
+    _invalid_stateless_twr_envelope_message,
     _resolved_twr_stateless_valuation_points,
     _stateless_twr_benchmark_envelope_issue,
     _stateless_twr_envelope_issue,
@@ -149,6 +150,16 @@ def test_stateless_twr_envelope_issue_requires_exactly_one_payload_shape():
     )
     assert _stateless_twr_envelope_issue(has_nested=False, has_legacy=False) == (
         "stateless_input or valuation_points is required when input_mode=stateless"
+    )
+
+
+def test_invalid_stateless_twr_envelope_message_selects_conflict_or_missing_payload_text():
+    assert _invalid_stateless_twr_envelope_message(has_nested=True) == (
+        "Provide either stateless_input or valuation_points, not both, for stateless mode"
+    )
+    assert (
+        _invalid_stateless_twr_envelope_message(has_nested=False)
+        == "stateless_input or valuation_points is required when input_mode=stateless"
     )
 
 
