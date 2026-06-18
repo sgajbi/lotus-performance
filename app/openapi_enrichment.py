@@ -221,6 +221,14 @@ def _infer_example(prop_name: str, prop_schema: dict[str, Any]) -> Any:
     if key in EXAMPLE_BY_KEY:
         return EXAMPLE_BY_KEY[key]
 
+    schema_hint_example = _schema_hint_example(prop_name, prop_schema)
+    if schema_hint_example is not None:
+        return schema_hint_example
+
+    return _semantic_string_example(key)
+
+
+def _schema_hint_example(prop_name: str, prop_schema: dict[str, Any]) -> Any | None:
     enum_example = _enum_schema_example(prop_schema)
     if enum_example is not None:
         return enum_example
@@ -233,7 +241,7 @@ def _infer_example(prop_name: str, prop_schema: dict[str, Any]) -> Any:
     if formatted_example is not None:
         return formatted_example
 
-    return _semantic_string_example(key)
+    return None
 
 
 PropertyDescriptionRule = Callable[[str, str, dict[str, Any]], str | None]
@@ -326,21 +334,35 @@ def _explicit_schema_example(schema: dict[str, Any]) -> Any | None:
     if schema.get("example") is not None:
         return copy.deepcopy(schema["example"])
     examples = schema.get("examples")
-    if isinstance(examples, list) and examples:
-        return copy.deepcopy(examples[0])
+    list_example = _listed_schema_example(examples)
+    if list_example is not None:
+        return list_example
     named_example = _named_schema_example(examples)
     if named_example is not None:
         return named_example
     return None
 
 
+def _listed_schema_example(examples: Any) -> Any | None:
+    if not isinstance(examples, list) or not examples:
+        return None
+    return copy.deepcopy(examples[0])
+
+
 def _named_schema_example(examples: Any) -> Any | None:
     if not isinstance(examples, dict) or not examples:
         return None
     first = next(iter(examples.values()))
-    if isinstance(first, dict) and first.get("value") is not None:
-        return copy.deepcopy(first["value"])
+    named_value = _named_schema_example_value(first)
+    if named_value is not None:
+        return named_value
     return None
+
+
+def _named_schema_example_value(example: Any) -> Any | None:
+    if not isinstance(example, dict) or example.get("value") is None:
+        return None
+    return copy.deepcopy(example["value"])
 
 
 def _composed_schema_example(
@@ -350,14 +372,26 @@ def _composed_schema_example(
     seen_refs: set[str],
     name_hint: str,
 ) -> Any | None:
-    for composition_key in ("oneOf", "anyOf"):
-        variants = schema.get(composition_key)
-        if not isinstance(variants, list) or not variants:
-            continue
-        first = variants[0]
-        if isinstance(first, dict):
-            return _build_schema_example(first, components=components, seen_refs=seen_refs, name_hint=name_hint)
+    first = _first_composed_schema_variant(schema)
+    if first is not None:
+        return _build_schema_example(first, components=components, seen_refs=seen_refs, name_hint=name_hint)
     return None
+
+
+def _first_composed_schema_variant(schema: dict[str, Any]) -> dict[str, Any] | None:
+    one_of_variant = _first_dict_schema_variant(schema.get("oneOf"))
+    if one_of_variant is not None:
+        return one_of_variant
+    return _first_dict_schema_variant(schema.get("anyOf"))
+
+
+def _first_dict_schema_variant(variants: Any) -> dict[str, Any] | None:
+    if not isinstance(variants, list) or not variants:
+        return None
+    first = variants[0]
+    if not isinstance(first, dict):
+        return None
+    return first
 
 
 def _object_schema_example(
@@ -474,7 +508,16 @@ def _build_schema_example(
     ref_example = _ref_schema_example(schema, components=components, seen_refs=seen)
     if ref_example is not None:
         return ref_example
+    return _non_ref_schema_example(schema, components=components, seen_refs=seen, name_hint=name_hint)
 
+
+def _non_ref_schema_example(
+    schema: dict[str, Any],
+    *,
+    components: dict[str, Any],
+    seen_refs: set[str],
+    name_hint: str,
+) -> Any:
     explicit_example = _explicit_schema_example(schema)
     if explicit_example is not None:
         return explicit_example
@@ -482,7 +525,7 @@ def _build_schema_example(
     derived_example = _derived_schema_example(
         schema,
         components=components,
-        seen_refs=seen,
+        seen_refs=seen_refs,
         name_hint=name_hint,
     )
     if derived_example is not None:
@@ -520,11 +563,15 @@ def _validation_error_json_content(response: Any) -> dict[str, Any] | None:
     json_content = _application_json_content(response)
     if json_content is None:
         return None
-    if "example" in json_content or "examples" in json_content:
+    if _json_content_has_authored_example(json_content):
         return None
     if not _is_http_validation_error_schema(json_content):
         return None
     return json_content
+
+
+def _json_content_has_authored_example(json_content: dict[str, Any]) -> bool:
+    return "example" in json_content or "examples" in json_content
 
 
 def _ensure_error_response_examples(responses: dict[str, Any]) -> None:
@@ -562,10 +609,10 @@ def _request_body_example(
     json_content: dict[str, Any],
     components: dict[str, Any],
 ) -> Any | None:
-    operation_example = OPERATION_JSON_EXAMPLES.get((path, "request"))
+    operation_example = _operation_request_example(path)
     if operation_example is not None:
-        return copy.deepcopy(operation_example)
-    if "example" in json_content or "examples" in json_content:
+        return operation_example
+    if _json_content_has_authored_example(json_content):
         return None
     request_schema = json_content.get("schema", {})
     if not isinstance(request_schema, dict):
@@ -574,6 +621,37 @@ def _request_body_example(
         request_schema,
         components=components,
         name_hint="request_body",
+    )
+
+
+def _operation_request_example(path: str) -> Any | None:
+    operation_example = OPERATION_JSON_EXAMPLES.get((path, "request"))
+    if operation_example is None:
+        return None
+    return copy.deepcopy(operation_example)
+
+
+def _operation_response_example(path: str) -> Any | None:
+    operation_example = OPERATION_JSON_EXAMPLES.get((path, "response"))
+    if operation_example is None:
+        return None
+    return copy.deepcopy(operation_example)
+
+
+def _json_success_schema_example(
+    json_content: dict[str, Any],
+    *,
+    components: dict[str, Any],
+) -> Any | None:
+    response_schema = json_content.get("schema", {})
+    if not isinstance(response_schema, dict):
+        return None
+    if _json_content_has_authored_example(json_content):
+        return None
+    return _build_schema_example(
+        response_schema,
+        components=components,
+        name_hint="response_body",
     )
 
 
@@ -615,17 +693,13 @@ def _ensure_json_success_response_example(
     json_content: dict[str, Any],
     components: dict[str, Any],
 ) -> None:
-    response_schema = json_content.get("schema", {})
-    operation_example = OPERATION_JSON_EXAMPLES.get((path, "response"))
+    operation_example = _operation_response_example(path)
     if operation_example is not None:
-        json_content["example"] = copy.deepcopy(operation_example)
+        json_content["example"] = operation_example
         return
-    if isinstance(response_schema, dict) and "example" not in json_content and "examples" not in json_content:
-        json_content["example"] = _build_schema_example(
-            response_schema,
-            components=components,
-            name_hint="response_body",
-        )
+    schema_example = _json_success_schema_example(json_content, components=components)
+    if schema_example is not None:
+        json_content["example"] = schema_example
 
 
 def _ensure_success_response_documentation(
@@ -650,6 +724,12 @@ def _ensure_success_response_documentation(
     )
 
 
+def _iter_success_responses(responses: dict[str, Any]) -> Iterator[dict[str, Any]]:
+    for code, response in responses.items():
+        if str(code).startswith("2") and isinstance(response, dict):
+            yield response
+
+
 def _ensure_operation_response_documentation(
     *,
     path: str,
@@ -659,9 +739,7 @@ def _ensure_operation_response_documentation(
     if not _has_documented_error_response(responses):
         responses["default"] = _problem_detail_response()
     _ensure_error_response_examples(responses)
-    for code, response in responses.items():
-        if not str(code).startswith("2") or not isinstance(response, dict):
-            continue
+    for response in _iter_success_responses(responses):
         _ensure_success_response_documentation(
             path=path,
             response=response,
@@ -678,16 +756,21 @@ def _operation_tags_for_path(path: str) -> list[str]:
     return [segment.replace("-", " ").title()]
 
 
-def _ensure_operation_metadata(*, path: str, method: str, operation: dict[str, Any]) -> None:
-    if not operation.get("summary"):
-        operation["summary"] = f"{method.upper()} {path}"
-    if not operation.get("description"):
-        operation["description"] = f"{method.upper()} operation for {path} in lotus-performance."
+def _operation_description(path: str, method: str, current_description: Any) -> str:
     if path == "/metrics":
-        operation["description"] = (
+        return (
             "Returns the Prometheus metrics surface for lotus-performance, including durable queue availability, "
             "queue pressure, lineage storage capacity, recovery-drill assurance, and runtime-retention assurance gauges."
         )
+    if current_description:
+        return str(current_description)
+    return f"{method.upper()} operation for {path} in lotus-performance."
+
+
+def _ensure_operation_metadata(*, path: str, method: str, operation: dict[str, Any]) -> None:
+    if not operation.get("summary"):
+        operation["summary"] = f"{method.upper()} {path}"
+    operation["description"] = _operation_description(path, method, operation.get("description"))
     if not operation.get("tags"):
         operation["tags"] = _operation_tags_for_path(path)
 
@@ -703,14 +786,43 @@ def _documentable_operation(
     return str(path), method_name, operation
 
 
-def _iter_documentable_operations(paths: dict[str, Any]) -> Iterator[tuple[str, str, dict[str, Any]]]:
+def _iter_path_operations(paths: dict[str, Any]) -> Iterator[tuple[Any, Any, Any]]:
     for path, methods in paths.items():
-        if not isinstance(methods, dict):
-            continue
-        for method, operation in methods.items():
-            documented = _documentable_operation(path, method, operation)
-            if documented is not None:
-                yield documented
+        if isinstance(methods, dict):
+            yield from ((path, method, operation) for method, operation in methods.items())
+
+
+def _iter_documentable_operations(paths: dict[str, Any]) -> Iterator[tuple[str, str, dict[str, Any]]]:
+    for path, method, operation in _iter_path_operations(paths):
+        documented = _documentable_operation(path, method, operation)
+        if documented is not None:
+            yield documented
+
+
+def _ensure_documentable_operation_documentation(
+    *,
+    path: str,
+    method: str,
+    operation: dict[str, Any],
+    components: dict[str, Any],
+) -> None:
+    _ensure_operation_metadata(path=path, method=method, operation=operation)
+
+    request_body = operation.get("requestBody")
+    if isinstance(request_body, dict):
+        _ensure_request_body_example(
+            path=path,
+            request_body=request_body,
+            components=components,
+        )
+
+    responses = operation.get("responses")
+    if isinstance(responses, dict):
+        _ensure_operation_response_documentation(
+            path=path,
+            responses=responses,
+            components=components,
+        )
 
 
 def _ensure_operation_documentation(schema: dict[str, Any]) -> None:
@@ -719,37 +831,40 @@ def _ensure_operation_documentation(schema: dict[str, Any]) -> None:
     if not isinstance(paths, dict):
         return
     for path, method, operation in _iter_documentable_operations(paths):
-        _ensure_operation_metadata(path=path, method=method, operation=operation)
+        _ensure_documentable_operation_documentation(
+            path=path,
+            method=method,
+            operation=operation,
+            components=components,
+        )
 
-        request_body = operation.get("requestBody")
-        if isinstance(request_body, dict):
-            _ensure_request_body_example(
-                path=path,
-                request_body=request_body,
-                components=components,
-            )
 
-        responses = operation.get("responses")
-        if isinstance(responses, dict):
-            _ensure_operation_response_documentation(
-                path=path,
-                responses=responses,
-                components=components,
-            )
+def _component_schemas(schema: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]] | None:
+    components = schema.get("components", {})
+    if not isinstance(components, dict):
+        return None
+    schemas = components.get("schemas", {})
+    if not isinstance(schemas, dict):
+        return None
+    return components, schemas
+
+
+def _iter_component_model_schemas(
+    schema: dict[str, Any],
+) -> Iterator[tuple[str, dict[str, Any], dict[str, Any]]]:
+    component_schemas = _component_schemas(schema)
+    if component_schemas is None:
+        return
+    components, schemas = component_schemas
+    schemas.setdefault(PROBLEM_DETAIL_SCHEMA_NAME, copy.deepcopy(PROBLEM_DETAIL_SCHEMA))
+    for model_name, model_schema in schemas.items():
+        if isinstance(model_schema, dict):
+            yield str(model_name), model_schema, components
 
 
 def _ensure_schema_documentation(schema: dict[str, Any]) -> None:
-    components = schema.get("components", {})
-    if not isinstance(components, dict):
-        return
-    schemas = components.get("schemas", {})
-    if not isinstance(schemas, dict):
-        return
-    schemas.setdefault(PROBLEM_DETAIL_SCHEMA_NAME, copy.deepcopy(PROBLEM_DETAIL_SCHEMA))
-    for model_name, model_schema in schemas.items():
-        if not isinstance(model_schema, dict):
-            continue
-        _ensure_model_schema_documentation(str(model_name), model_schema, components)
+    for model_name, model_schema, components in _iter_component_model_schemas(schema):
+        _ensure_model_schema_documentation(model_name, model_schema, components)
 
 
 def _ensure_model_schema_documentation(

@@ -2,7 +2,7 @@
 import logging
 from dataclasses import dataclass
 from datetime import date
-from typing import Dict, Tuple
+from typing import Any, Dict, Mapping, Tuple
 
 import numpy as np
 import pandas as pd
@@ -26,13 +26,20 @@ def _extract_policy_inputs(data_policy_model: BaseModel | None) -> PolicyInputs:
         return PolicyInputs(overrides={}, ignore_days=[], ignored_dates=set())
 
     policy_payload = data_policy_model.model_dump(exclude_unset=True)
+    return _policy_inputs_from_payload(policy_payload)
+
+
+def _policy_inputs_from_payload(policy_payload: Mapping[str, Any]) -> PolicyInputs:
     ignore_days = policy_payload.get("ignore_days") or []
-    ignored_dates = {ignored_date for item in ignore_days for ignored_date in item.get("dates", [])}
     return PolicyInputs(
         overrides=policy_payload.get("overrides") or {},
         ignore_days=ignore_days,
-        ignored_dates=ignored_dates,
+        ignored_dates=_ignored_dates_from_ignore_days(ignore_days),
     )
+
+
+def _ignored_dates_from_ignore_days(ignore_days: list) -> set[date]:
+    return {ignored_date for item in ignore_days for ignored_date in item.get("dates", [])}
 
 
 def _apply_overrides(df: pd.DataFrame, overrides: Dict, diagnostics: EngineDiagnostics) -> None:
@@ -43,24 +50,31 @@ def _apply_overrides(df: pd.DataFrame, overrides: Dict, diagnostics: EngineDiagn
     mv_overrides = overrides.get("market_values", [])
     cf_overrides = overrides.get("cash_flows", [])
 
-    for override in mv_overrides:
-        diagnostics.policy.overrides.applied_mv_count += _apply_override_values(
-            df,
-            override,
-            keys=("begin_mv", "end_mv"),
-            mask=_override_mask(df, override),
-        )
-
-    for override in cf_overrides:
-        diagnostics.policy.overrides.applied_cf_count += _apply_override_values(
-            df,
-            override,
-            keys=("bod_cf", "eod_cf"),
-            mask=_override_mask(df, override),
-        )
+    diagnostics.policy.overrides.applied_mv_count += _apply_override_group(
+        df,
+        mv_overrides,
+        keys=("begin_mv", "end_mv"),
+    )
+    diagnostics.policy.overrides.applied_cf_count += _apply_override_group(
+        df,
+        cf_overrides,
+        keys=("bod_cf", "eod_cf"),
+    )
 
     if diagnostics.policy.overrides.applied_mv_count > 0 or diagnostics.policy.overrides.applied_cf_count > 0:
         diagnostics.notes.append("Applied overrides from the data_policy request.")
+
+
+def _apply_override_group(df: pd.DataFrame, override_items: list, *, keys: tuple[str, ...]) -> int:
+    return sum(
+        _apply_override_values(
+            df,
+            override,
+            keys=keys,
+            mask=_override_mask(df, override),
+        )
+        for override in override_items
+    )
 
 
 def _override_mask(df: pd.DataFrame, override: Dict) -> pd.Series:
@@ -129,19 +143,14 @@ def _flag_outliers(
     ignored_dates: set[date] | None = None,
 ) -> None:
     """Detects and flags outliers, excluding ignored days from statistical analysis."""
-    if not data_policy_model or not data_policy_model.outliers or not data_policy_model.outliers.enabled:
+    outlier_policy = _flaggable_outlier_policy(data_policy_model)
+    if outlier_policy is None:
         return
-
-    outlier_policy = data_policy_model.outliers.model_dump()
-    if outlier_policy.get("action") != "FLAG":
-        return
-
-    window = outlier_policy.get("params", {}).get("window", 63)
-    mad_k = outlier_policy.get("params", {}).get("mad_k", 5.0)
 
     if PortfolioColumns.DAILY_ROR.value not in df.columns:
         return
 
+    window, mad_k = _outlier_window_and_mad_k(outlier_policy)
     outliers, upper_bound, lower_bound = _outlier_mask_and_bounds(
         df=df,
         ignored_dates=ignored_dates,
@@ -157,6 +166,21 @@ def _flag_outliers(
         lower_bound=lower_bound,
         diagnostics=diagnostics,
     )
+
+
+def _flaggable_outlier_policy(data_policy_model: BaseModel | None) -> Mapping[str, Any] | None:
+    if not data_policy_model or not data_policy_model.outliers or not data_policy_model.outliers.enabled:
+        return None
+
+    outlier_policy = data_policy_model.outliers.model_dump()
+    if outlier_policy.get("action") != "FLAG":
+        return None
+    return outlier_policy
+
+
+def _outlier_window_and_mad_k(outlier_policy: Mapping[str, Any]) -> tuple[Any, Any]:
+    params = outlier_policy.get("params", {})
+    return params.get("window", 63), params.get("mad_k", 5.0)
 
 
 def _record_outlier_samples(

@@ -76,12 +76,17 @@ def _normalized_capability_rule_overrides(configured: dict[str, Any]) -> dict[st
     return rules
 
 
-def _normalized_capability_rule_override(*, key: object, value: object) -> tuple[str, str] | None:
-    if not isinstance(key, str) or not isinstance(value, str):
+def _non_blank_rule_string(value: object) -> str | None:
+    if not isinstance(value, str):
         return None
-    rule_key = key.strip()
-    capability = value.strip()
-    if not rule_key or not capability:
+    normalized = value.strip()
+    return normalized or None
+
+
+def _normalized_capability_rule_override(*, key: object, value: object) -> tuple[str, str] | None:
+    rule_key = _non_blank_rule_string(key)
+    capability = _non_blank_rule_string(value)
+    if rule_key is None or capability is None:
         return None
     return rule_key, capability
 

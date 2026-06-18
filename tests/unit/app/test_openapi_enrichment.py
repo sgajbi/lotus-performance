@@ -4,9 +4,11 @@ from app.openapi_enrichment import (
     _array_schema_example,
     _build_schema_example,
     _canonical_term,
+    _component_schemas,
     _composed_schema_example,
     _derived_schema_example,
     _documentable_operation,
+    _ensure_documentable_operation_documentation,
     _ensure_model_schema_documentation,
     _ensure_operation_metadata,
     _ensure_operation_response_documentation,
@@ -16,17 +18,31 @@ from app.openapi_enrichment import (
     _ensure_success_response_documentation,
     _enum_schema_example,
     _explicit_schema_example,
+    _first_composed_schema_variant,
+    _first_dict_schema_variant,
     _formatted_schema_example,
     _infer_description,
     _infer_example,
     _infer_schema_description,
+    _iter_component_model_schemas,
     _iter_documentable_operations,
+    _iter_path_operations,
     _iter_schema_properties,
+    _iter_success_responses,
+    _json_content_has_authored_example,
+    _json_success_schema_example,
+    _listed_schema_example,
     _named_schema_example,
+    _named_schema_example_value,
+    _non_ref_schema_example,
     _object_schema_example,
+    _operation_description,
+    _operation_request_example,
+    _operation_response_example,
     _ref_schema_example,
     _request_body_example,
     _scalar_schema_example,
+    _schema_hint_example,
     _semantic_id,
     _semantic_property_description,
     _semantic_string_example,
@@ -67,6 +83,10 @@ def test_infer_example_prefers_named_examples_and_schema_hints():
 def test_infer_example_helpers_preserve_schema_precedence():
     assert _enum_schema_example({"type": "string", "enum": ["NET", "GROSS"]}) == "NET"
     assert _enum_schema_example({"type": "string"}) is None
+    assert _schema_hint_example("period", {"type": "string", "enum": ["YTD", "MTD"]}) == "YTD"
+    assert _schema_hint_example("items", {"type": "array", "items": {"type": "string"}}) == ["example_items_item"]
+    assert _schema_hint_example("as_of_date", {"type": "string", "format": "date"}) == "2026-02-27"
+    assert _schema_hint_example("custom_field", {"type": "string"}) is None
     assert _typed_schema_example("portfolio_ids", {"type": "array", "items": {"type": "string"}}) == [
         "example_portfolio_ids_item"
     ]
@@ -221,6 +241,33 @@ def test_named_schema_example_extracts_first_named_value():
     assert _named_schema_example([{"value": "not named"}]) is None
 
 
+def test_named_schema_example_value_extracts_value_only_from_named_mapping():
+    assert _named_schema_example_value({"value": {"status": "complete"}}) == {"status": "complete"}
+    assert _named_schema_example_value({"summary": "missing value"}) is None
+    assert _named_schema_example_value(["not named"]) is None
+
+
+def test_first_composed_schema_variant_prefers_one_of_then_any_of_dict_variants():
+    assert _first_composed_schema_variant({"oneOf": [{"type": "string"}]}) == {"type": "string"}
+    assert _first_composed_schema_variant({"anyOf": [{"type": "integer"}]}) == {"type": "integer"}
+    assert _first_composed_schema_variant({"oneOf": [], "anyOf": [{"type": "number"}]}) == {"type": "number"}
+    assert _first_composed_schema_variant({"oneOf": ["not-a-dict"]}) is None
+    assert _first_composed_schema_variant({"oneOf": "not-a-list"}) is None
+
+
+def test_first_dict_schema_variant_accepts_only_non_empty_dict_variant_lists():
+    assert _first_dict_schema_variant([{"type": "string"}]) == {"type": "string"}
+    assert _first_dict_schema_variant([]) is None
+    assert _first_dict_schema_variant(["not-a-dict"]) is None
+    assert _first_dict_schema_variant("not-a-list") is None
+
+
+def test_listed_schema_example_extracts_first_list_value():
+    assert _listed_schema_example([{"status": "pending"}, {"status": "complete"}]) == {"status": "pending"}
+    assert _listed_schema_example([]) is None
+    assert _listed_schema_example({"named": {"value": "not a list"}}) is None
+
+
 def test_structural_schema_example_routes_object_array_and_scalar_fallback():
     components = {"schemas": {}}
 
@@ -372,6 +419,46 @@ def test_request_body_example_preserves_override_authored_and_schema_precedence(
     )
 
 
+def test_operation_request_example_returns_copy_for_known_request_override():
+    example = _operation_request_example("/performance/twr")
+
+    assert example == OPERATION_JSON_EXAMPLES[("/performance/twr", "request")]
+    assert example is not OPERATION_JSON_EXAMPLES[("/performance/twr", "request")]
+    assert _operation_request_example("/unknown") is None
+
+
+def test_operation_response_example_returns_copy_for_known_response_override():
+    example = _operation_response_example("/health")
+
+    assert example == OPERATION_JSON_EXAMPLES[("/health", "response")]
+    assert example is not OPERATION_JSON_EXAMPLES[("/health", "response")]
+    assert _operation_response_example("/unknown") is None
+
+
+def test_json_success_schema_example_preserves_authored_and_invalid_content():
+    components = {"schemas": {}}
+
+    assert _json_success_schema_example(
+        {"schema": {"type": "object", "properties": {"portfolio_id": {"type": "string"}}}},
+        components=components,
+    ) == {"portfolio_id": "DEMO_DPM_EUR_001"}
+    assert (
+        _json_success_schema_example(
+            {"schema": {"type": "object"}, "example": {"documented": True}},
+            components=components,
+        )
+        is None
+    )
+    assert (
+        _json_success_schema_example(
+            {"schema": {"type": "object"}, "examples": {"documented": {"value": {}}}},
+            components=components,
+        )
+        is None
+    )
+    assert _json_success_schema_example({"schema": "not-a-schema"}, components=components) is None
+
+
 def test_ensure_operation_response_documentation_adds_default_and_schema_example():
     responses = {
         "200": {
@@ -442,6 +529,12 @@ def test_validation_error_json_content_selects_undocumented_http_validation_sche
     assert _validation_error_json_content({"content": {"text/plain": {"schema": {"type": "string"}}}}) is None
 
 
+def test_json_content_has_authored_example_detects_example_forms():
+    assert _json_content_has_authored_example({"example": {"status": "ready"}}) is True
+    assert _json_content_has_authored_example({"examples": {"ready": {"value": {"status": "ready"}}}}) is True
+    assert _json_content_has_authored_example({"schema": {"type": "object"}}) is False
+
+
 def test_application_json_content_selects_only_json_content_dicts():
     json_content = {"schema": {"type": "object"}}
 
@@ -469,6 +562,20 @@ def test_ensure_operation_response_documentation_rewrites_metrics_response():
     assert "application/json" not in content
     assert content["text/plain"]["schema"]["description"] == "Prometheus exposition format payload."
     assert "lotus_performance_durable_queue_store_availability" in content["text/plain"]["example"]
+
+
+def test_iter_success_responses_filters_success_dict_responses():
+    success_response = {"description": "ok"}
+    created_response = {"description": "created"}
+    responses = {
+        "200": success_response,
+        201: created_response,
+        "204": "not-a-dict",
+        "400": {"description": "bad request"},
+        "default": {"description": "problem"},
+    }
+
+    assert list(_iter_success_responses(responses)) == [success_response, created_response]
 
 
 def test_ensure_success_response_documentation_preserves_existing_json_examples():
@@ -519,6 +626,14 @@ def test_ensure_operation_metadata_assigns_governed_defaults_and_tags():
     assert workflow_operation["tags"] == ["Existing"]
 
 
+def test_operation_description_resolves_default_existing_and_metrics_text():
+    assert _operation_description("/returns-series/results", "post", None) == (
+        "POST operation for /returns-series/results in lotus-performance."
+    )
+    assert _operation_description("/returns-series/results", "post", "Existing description") == "Existing description"
+    assert "Prometheus metrics surface" in _operation_description("/metrics", "get", "Existing description")
+
+
 def test_iter_documentable_operations_filters_malformed_paths_and_methods():
     operation = {"responses": {}}
     paths = {
@@ -530,11 +645,52 @@ def test_iter_documentable_operations_filters_malformed_paths_and_methods():
     assert list(_iter_documentable_operations(paths)) == [("/health", "get", operation)]
 
 
+def test_iter_path_operations_filters_malformed_path_entries():
+    operation = {"responses": {}}
+    paths = {
+        "/health": {"get": operation, "parameters": []},
+        "/metrics": ["not-methods"],
+    }
+
+    assert list(_iter_path_operations(paths)) == [
+        ("/health", "get", operation),
+        ("/health", "parameters", []),
+    ]
+
+
 def test_documentable_operation_normalizes_identity_and_filters_unsupported_shapes():
     operation = {"summary": "Health"}
     assert _documentable_operation(123, "GET", operation) == ("123", "GET", operation)
     assert _documentable_operation("/health", "parameters", operation) is None
     assert _documentable_operation("/health", "get", "not-a-dict") is None
+
+
+def test_ensure_documentable_operation_documentation_updates_metadata_request_and_responses():
+    operation = {
+        "requestBody": {
+            "content": {
+                "application/json": {"schema": {"type": "object", "properties": {"portfolio_id": {"type": "string"}}}}
+            }
+        },
+        "responses": {
+            "200": {
+                "description": "ok",
+                "content": {"application/json": {"schema": {"type": "object"}}},
+            }
+        },
+    }
+
+    _ensure_documentable_operation_documentation(
+        path="/custom/workflow",
+        method="post",
+        operation=operation,
+        components={"schemas": {}},
+    )
+
+    assert operation["summary"] == "POST /custom/workflow"
+    assert operation["tags"] == ["Custom"]
+    assert operation["requestBody"]["content"]["application/json"]["example"] == {"portfolio_id": "DEMO_DPM_EUR_001"}
+    assert operation["responses"]["default"]["content"]["application/problem+json"]["example"]["status"] == 500
 
 
 def test_enrich_openapi_schema_fills_operation_schema_and_examples():
@@ -688,6 +844,33 @@ def test_ensure_model_schema_documentation_preserves_existing_metadata_and_resol
     assert nested_ref["description"] == "Referenced schema description."
     assert nested_ref["example"] == {"count": 1}
     assert nested_ref["x-lotus-semantic-id"] == "lotus.nested_ref"
+
+
+def test_iter_component_model_schemas_filters_malformed_entries_and_adds_problem_detail():
+    portfolio_schema = {"type": "object"}
+    components = {
+        "schemas": {
+            "Portfolio": portfolio_schema,
+            "Ignored": "not-a-schema",
+        }
+    }
+    schema = {"components": components}
+
+    model_schemas = list(_iter_component_model_schemas(schema))
+
+    assert ("Portfolio", portfolio_schema, components) in model_schemas
+    assert any(name == "ProblemDetail" for name, _, _ in model_schemas)
+    assert all(name != "Ignored" for name, _, _ in model_schemas)
+    assert list(_iter_component_model_schemas({"components": "not-components"})) == []
+    assert list(_iter_component_model_schemas({"components": {"schemas": "not-schemas"}})) == []
+
+
+def test_component_schemas_resolves_components_and_schema_map():
+    components = {"schemas": {"Portfolio": {"type": "object"}}}
+
+    assert _component_schemas({"components": components}) == (components, components["schemas"])
+    assert _component_schemas({"components": "not-components"}) is None
+    assert _component_schemas({"components": {"schemas": "not-schemas"}}) is None
 
 
 def test_iter_schema_properties_yields_only_dict_properties():
@@ -867,6 +1050,35 @@ def test_build_schema_example_covers_recursive_examples_and_union_forms():
     )
     assert _build_schema_example({"type": "object"}, components=components) == {"key": "value"}
     assert _build_schema_example({"type": "array", "items": "not-a-dict"}, components=components) == ["VALUE"]
+
+
+def test_non_ref_schema_example_routes_explicit_derived_and_inferred_examples():
+    components = {"schemas": {}}
+
+    assert _non_ref_schema_example(
+        {"example": {"status": "ready"}},
+        components=components,
+        seen_refs=set(),
+        name_hint="status",
+    ) == {"status": "ready"}
+    assert (
+        _non_ref_schema_example(
+            {"oneOf": [{"type": "string", "enum": ["NET", "GROSS"]}]},
+            components=components,
+            seen_refs=set(),
+            name_hint="metric_basis",
+        )
+        == "NET"
+    )
+    assert (
+        _non_ref_schema_example(
+            {"type": "string"},
+            components=components,
+            seen_refs=set(),
+            name_hint="custom_field",
+        )
+        == "example_custom_field"
+    )
 
 
 def test_enrich_openapi_schema_ignores_non_object_sections_and_non_http_methods():

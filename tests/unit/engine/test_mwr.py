@@ -11,11 +11,16 @@ from engine.mwr import (
     _build_xirr_base_convergence,
     _calculate_dietz_mwr_result,
     _calculate_xirr_mwr_attempt,
+    _dietz_denominator,
     _dietz_fallback_metadata,
     _dietz_method_for_calculation,
     _mwr_no_economic_content_result,
+    _net_cash_flow_amounts_by_date,
+    _net_same_day_flows,
     _resolve_mwr_period_bounds,
     _scan_xirr_roots,
+    _simple_dietz_denominator,
+    _successful_xirr_mwr_result,
     _xirr,
     _xirr_failure,
     _xirr_initial_failure,
@@ -131,6 +136,28 @@ def test_xirr_initial_failure_reason_maps_empty_and_one_sided_vectors():
         rate_lower_bound=-0.999999999,
         rate_upper_bound=1000.0,
     ) == ("No positive and negative cash flows in solver vector.", "NO_POSITIVE_AND_NEGATIVE_CASH_FLOW")
+
+
+def test_net_cash_flow_amounts_by_date_preserves_zero_net_dates():
+    amounts_by_date = _net_cash_flow_amounts_by_date(
+        values=[100.0, -100.0, 25.5],
+        dates=[date(2026, 1, 2), date(2026, 1, 2), date(2026, 1, 3)],
+    )
+
+    assert amounts_by_date == {
+        date(2026, 1, 2): 0.0,
+        date(2026, 1, 3): 25.5,
+    }
+
+
+def test_net_same_day_flows_sorts_dates_and_drops_zero_net_dates():
+    values, dates = _net_same_day_flows(
+        values=[25.5, 100.0, -100.0, -10.0],
+        dates=[date(2026, 1, 3), date(2026, 1, 2), date(2026, 1, 2), date(2026, 1, 1)],
+    )
+
+    assert values.tolist() == [-10.0, 25.5]
+    assert dates.tolist() == [date(2026, 1, 1), date(2026, 1, 3)]
 
 
 def test_scan_xirr_roots_returns_single_residual_for_bracketed_schedule():
@@ -256,6 +283,48 @@ def test_calculate_xirr_mwr_attempt_maps_no_economic_content_to_not_applicable()
     assert attempt.result.reason_codes == ["NO_ECONOMIC_CONTENT"]
 
 
+def test_successful_xirr_mwr_result_projects_annualized_and_holding_period_returns():
+    convergence = _build_xirr_base_convergence(
+        annualization=Annualization(enabled=False, basis="ACT/365"),
+        lower_bound=-0.999999999,
+        upper_bound=1000.0,
+        anchor_date=date(2026, 1, 1),
+        normalized_flow_count=2,
+        gross_cash_flow_scale=210.0,
+    )
+
+    result = _successful_xirr_mwr_result(
+        rate=0.1,
+        annualization=Annualization(enabled=False, basis="ACT/365"),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 7, 2),
+        period_days=182,
+        notes=["XIRR calculation successful."],
+        convergence=convergence,
+    )
+
+    assert result.method == "XIRR"
+    assert result.mwr == pytest.approx(10.0)
+    assert result.mwr_annualized == pytest.approx(10.0)
+    assert result.holding_period_return == pytest.approx(((1.1) ** (182 / 365.0) - 1) * 100)
+    assert result.is_annualized_primary is True
+    assert result.is_approximation is False
+
+
+def test_successful_xirr_mwr_result_keeps_holding_period_absent_for_non_positive_period():
+    result = _successful_xirr_mwr_result(
+        rate=0.1,
+        annualization=Annualization(enabled=False, basis="ACT/365"),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 1),
+        period_days=0,
+        notes=["XIRR calculation successful."],
+        convergence=None,
+    )
+
+    assert result.holding_period_return is None
+
+
 def test_calculate_dietz_mwr_result_preserves_xirr_fallback_metadata():
     result = _calculate_dietz_mwr_result(
         begin_mv=1000.0,
@@ -299,6 +368,30 @@ def test_dietz_policy_helpers_preserve_method_and_fallback_metadata():
     assert fallback_metadata.warnings == ["FALLBACK_METHOD_USED"]
     assert fallback_metadata.fallback_from == "XIRR"
     assert fallback_metadata.fallback_reason == "MULTIPLE_IRR_ROOTS_DETECTED"
+
+
+def test_simple_dietz_denominator_uses_average_cash_flows():
+    denominator = _simple_dietz_denominator(
+        begin_mv=100.0,
+        cash_flows=[
+            CashFlow(amount=20.0, date=date(2026, 1, 1)),
+            CashFlow(amount=-10.0, date=date(2026, 1, 2)),
+        ],
+    )
+
+    assert denominator == pytest.approx(105.0)
+
+
+def test_dietz_denominator_uses_simple_policy_for_non_positive_period_days():
+    denominator = _dietz_denominator(
+        begin_mv=100.0,
+        cash_flows=[CashFlow(amount=20.0, date=date(2026, 1, 1))],
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 1),
+        method="MODIFIED_DIETZ",
+    )
+
+    assert denominator == pytest.approx(110.0)
 
 
 def test_mwr_preflight_resolves_bounds_and_no_economic_content_result():

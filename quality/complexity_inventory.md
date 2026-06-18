@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
-Report date: 2026-06-17
-Branch: `refactor/lp-cr-1167-inspection-verdict-policy`
+Report date: 2026-06-18
+Branch: `refactor/lp-cr-1251-composite-twr-period-flow`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
@@ -30,50 +30,50 @@ must stay at `0`.
 
 | Metric | Value |
 | --- | ---: |
-| Max cyclomatic complexity | 6 |
+| Max cyclomatic complexity | 5 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 54.92 |
+| Average maintainability index | 54.86 |
 
 ## Highest Cyclomatic Complexity
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `calculate_asset_weighted_composite_twr` | function | `engine/composites.py:497` | 6 | B |
-| 2 | `run_calculations` | function | `engine/compute.py:21` | 6 | B |
-| 3 | `_prepare_dataframe` | function | `engine/compute.py:163` | 6 | B |
-| 4 | `_apply_position_fx_capital_conversion` | function | `engine/contribution.py:256` | 6 | B |
-| 5 | `_net_same_day_flows` | function | `engine/mwr.py:21` | 6 | B |
-| 6 | `_dietz_denominator` | function | `engine/mwr.py:310` | 6 | B |
-| 7 | `_calculate_xirr_mwr_attempt` | function | `engine/mwr.py:345` | 6 | B |
-| 8 | `_extract_policy_inputs` | function | `engine/policies.py:24` | 6 | B |
-| 9 | `_apply_overrides` | function | `engine/policies.py:38` | 6 | B |
-| 10 | `_flag_outliers` | function | `engine/policies.py:124` | 6 | B |
-| 11 | `_apply_hedging_to_fx_return` | function | `engine/ror.py:150` | 6 | B |
-| 12 | `calculate_sod_reset_reason` | function | `engine/rules.py:164` | 6 | B |
-| 13 | `health_ready` | function | `app/api/endpoints/health.py:41` | 5 | A |
-| 14 | `get_twr_inspection_artifact` | function | `app/api/endpoints/inspections.py:174` | 5 | A |
-| 15 | `_load_and_validate_manifest` | function | `app/api/endpoints/lineage.py:27` | 5 | A |
-| 16 | `resolve_operator_request_context` | function | `app/api/operator_context.py:15` | 5 | A |
-| 17 | `_normalized_capability_rule_override` | function | `app/enterprise_capability_rules.py:79` | 5 | A |
-| 18 | `_stateless_input_envelope_issue` | function | `app/models/attribution_analytics_requests.py:294` | 5 | A |
-| 19 | `_validate_benchmark_analysis_selection` | function | `app/models/benchmark_analytics_requests.py:142` | 5 | A |
-| 20 | `_validate_benchmark_analysis_window` | function | `app/models/benchmark_requests.py:48` | 5 | A |
-| 21 | `CompositeMemberReturnFact` | class | `app/models/composites.py:159` | 5 | A |
-| 22 | `_stateless_contribution_envelope_issue` | function | `app/models/contribution_analytics_requests.py:74` | 5 | A |
-| 23 | `_resolved_stateless_contribution_inputs` | function | `app/models/contribution_analytics_requests.py:95` | 5 | A |
-| 24 | `build_execution_response` | function | `app/models/execution_polling.py:239` | 5 | A |
-| 25 | `TWRInspectionRequest` | class | `app/models/inspection_requests.py:64` | 5 | A |
+| 1 | `_ensure_model_schema_documentation` | function | `app/openapi_enrichment.py:870` | 5 | A |
+| 2 | `_ensure_property_schema_documentation` | function | `app/openapi_enrichment.py:899` | 5 | A |
+| 3 | `_resolve_compute_job_result` | function | `app/services/async_result_service.py:44` | 5 | A |
+| 4 | `_async_result_record_payload_state` | function | `app/services/async_result_store.py:163` | 5 | A |
+| 5 | `build_attribution_execution_window` | function | `app/services/attribution_calculation_workflow_service.py:71` | 5 | A |
+| 6 | `calculate_attribution_workflow` | function | `app/services/attribution_calculation_workflow_service.py:214` | 5 | A |
+| 7 | `_portfolio_group_observation_dates` | function | `app/services/attribution_service.py:85` | 5 | A |
+| 8 | `_build_attribution_results_by_period` | function | `app/services/attribution_service.py:110` | 5 | A |
+| 9 | `_resolve_attribution_execution_window` | function | `app/services/attribution_service.py:186` | 5 | A |
+| 10 | `calculate_attribution` | function | `app/services/attribution_service.py:214` | 5 | A |
+| 11 | `_resolved_assignment_identity` | function | `app/services/benchmark_assignment_service.py:20` | 5 | A |
+| 12 | `calculate_benchmark_artifacts` | function | `app/services/benchmark_calculation_service.py:81` | 5 | A |
+| 13 | `_benchmark_period_result` | function | `app/services/benchmark_calculation_service.py:149` | 5 | A |
+| 14 | `_calculate_benchmark_return_from_slice` | function | `app/services/benchmark_calculation_service.py:190` | 5 | A |
+| 15 | `_group_benchmark_breakdown_rows` | function | `app/services/benchmark_calculation_service.py:227` | 5 | A |
+| 16 | `build_benchmark_exposure_context` | function | `app/services/benchmark_exposure_context_service.py:38` | 5 | A |
+| 17 | `_benchmark_id_from_assignment_response` | function | `app/services/benchmark_exposure_context_service.py:110` | 5 | A |
+| 18 | `_classification_map_for_request` | function | `app/services/benchmark_exposure_context_service.py:146` | 5 | A |
+| 19 | `_index_ids_for_component_series` | function | `app/services/benchmark_exposure_context_service.py:177` | 5 | A |
+| 20 | `_iter_component_exposure_points` | function | `app/services/benchmark_exposure_context_service.py:258` | 5 | A |
+| 21 | `_accumulate_exposure_point` | function | `app/services/benchmark_exposure_context_service.py:268` | 5 | A |
+| 22 | `_group_identity` | function | `app/services/benchmark_exposure_context_service.py:299` | 5 | A |
+| 23 | `resolve_freshness_bucket` | function | `app/services/calculation_supportability_service.py:17` | 5 | A |
+| 24 | `_supportability_state_and_reason` | function | `app/services/calculation_supportability_service.py:37` | 5 | A |
+| 25 | `inspect_composite_twr_from_persisted_facts` | function | `app/services/composite_inspection_service.py:37` | 5 | A |
 
 ## Lowest Maintainability Index
 
 | Rank | File | MI | Grade |
 | ---: | --- | ---: | --- |
-| 1 | `app/services/compute_job_store.py` | 0.00 | C |
-| 2 | `app/services/lineage_metadata_store.py` | 0.00 | C |
-| 3 | `app/services/returns_series_service.py` | 0.00 | C |
-| 4 | `app/services/stateful_attribution_input_service.py` | 0.00 | C |
-| 5 | `app/services/stateful_input_service.py` | 0.00 | C |
-| 6 | `app/openapi_enrichment.py` | 2.14 | C |
+| 1 | `app/openapi_enrichment.py` | 0.00 | C |
+| 2 | `app/services/compute_job_store.py` | 0.00 | C |
+| 3 | `app/services/lineage_metadata_store.py` | 0.00 | C |
+| 4 | `app/services/returns_series_service.py` | 0.00 | C |
+| 5 | `app/services/stateful_attribution_input_service.py` | 0.00 | C |
+| 6 | `app/services/stateful_input_service.py` | 0.00 | C |
 | 7 | `app/services/twr_service.py` | 5.85 | C |
 | 8 | `app/services/stateful_benchmark_input_service.py` | 9.19 | B |
 | 9 | `app/services/workspace_summary_service.py` | 10.26 | B |
@@ -86,13 +86,13 @@ must stay at `0`.
 | 16 | `app/services/inspection/source_quality.py` | 16.80 | B |
 | 17 | `app/services/twr_mode_service.py` | 17.66 | B |
 | 18 | `app/services/inspection/calculation_consistency.py` | 17.79 | B |
-| 19 | `app/services/inspection/twr_inspection_service.py` | 19.72 | A |
-| 20 | `app/models/runtime_status.py` | 19.85 | A |
-| 21 | `app/models/returns_series.py` | 20.36 | A |
+| 19 | `app/models/returns_series.py` | 19.70 | A |
+| 20 | `app/services/inspection/twr_inspection_service.py` | 19.72 | A |
+| 21 | `app/models/runtime_status.py` | 19.85 | A |
 | 22 | `app/workers/compute_executor_worker.py` | 20.54 | A |
-| 23 | `engine/composites.py` | 21.09 | A |
+| 23 | `engine/composites.py` | 20.75 | A |
 | 24 | `app/services/stateful_mwr_input_service.py` | 21.63 | A |
-| 25 | `engine/mwr.py` | 22.24 | A |
+| 25 | `engine/mwr.py` | 22.16 | A |
 
 ## Interpretation
 
@@ -731,8 +731,21 @@ into a dedicated response-contract helper while preserving authoritative total-f
 requirements moved into dedicated composite-governance predicates.
 `_validate_stateless_contribution_payloads` also dropped out after nested-versus-legacy contribution
 envelope issue selection moved into a dedicated compatibility-policy helper.
+`_stateless_contribution_envelope_issue` also dropped out after exact-one contribution input-shape
+selection moved into a dedicated predicate while preserving authored validation messages.
 `_resolved_stateless_contribution_inputs` also dropped out after complete input-pair recognition and
 override/nested/legacy precedence moved into dedicated selection policy.
+The remaining measured `_resolved_stateless_contribution_inputs` entry later dropped out after
+nested stateless input-pair projection moved into a dedicated helper while preserving source
+precedence.
+`build_execution_response` also dropped out after optional compute-job response projection moved
+into a dedicated helper while preserving execution polling payload shape.
+`TWRInspectionRequest` also dropped out after inspection subject-mode validation message selection
+moved into a dedicated issue helper while preserving accepted subject shapes.
+`_stateless_mwr_envelope_issue` also dropped out after exact-one MWR input-shape selection moved
+into a dedicated predicate while preserving authored validation messages.
+`_validate_stateful_mwr_payloads` also dropped out after stateful MWR payload issue ordering moved
+into a dedicated selector while preserving validation-message priority.
 `_validate_stateless_mwr_payloads` also dropped out after nested-versus-legacy MWR envelope issue
 selection moved into a dedicated compatibility-policy helper.
 `_validate_stateless_twr_payloads` also dropped out after nested-versus-legacy TWR envelope issue
@@ -894,6 +907,94 @@ projection was moved into a dedicated helper with direct coverage for base-only 
 blocking was routed through ordered, named policy helpers with direct no-ready precedence coverage.
 `_composite_calculation_status` also dropped out after all-ready and calculated-period status
 predicates were separated with direct coverage for ready, degraded, and blocked aggregate outcomes.
+`calculate_asset_weighted_composite_twr` also dropped out after blocked-vs-ready period
+calculation was moved into a dedicated helper with direct blocked and ready period coverage.
+`_extract_policy_inputs` also dropped out after data-policy payload projection and ignored-date
+flattening were split into dedicated helpers with direct coverage for missing policies, missing
+payload sections, and projected override/ignore-day sections.
+`_apply_overrides` also dropped out after market-value and cash-flow override group application
+were routed through a shared helper with direct coverage for matching-field counts and no-match
+suppression.
+`_flag_outliers` also dropped out after outlier policy eligibility and window/MAD parameter
+projection were isolated with direct coverage for enabled FLAG policy projection, non-FLAG
+suppression, and default parameter selection.
+`_apply_hedging_to_fx_return` also dropped out after ratio-hedge series eligibility and hedge-ratio
+date mapping were isolated with direct coverage for configured ratio-series projection,
+missing-date zero hedge defaults, and no-hedge pass-through behavior.
+`ReturnsWindow` also dropped out after legacy relative-period alias normalization moved into a
+dedicated helper with direct coverage for canonical aliases, already-canonical periods, non-string
+period values, and non-dict validator input.
+`_validate_returns_series_stateless_benchmark_override` also dropped out after stateless benchmark
+override issue selection was split from validation raising and stateful-mode suppression, with
+direct coverage for stateful benchmark override allowance, default stateless allowance, benchmark-id
+rejection, and vendor-series source rejection.
+`_validate_vendor_series_stateless_twr_benchmark_payload` also dropped out after vendor-series
+stateless benchmark payload issue selection was split from validation raising, with direct coverage
+for missing benchmark returns, component-observation rejection, component-price rejection, and valid
+vendor-series payload acceptance.
+`_validate_stateless_twr_benchmark_payloads` also dropped out after stateless TWR benchmark envelope
+issue selection was split from calculated/vendor payload dispatch, with direct coverage for missing
+stateless input, stateful-input conflict priority, missing benchmark-id rejection, and valid
+stateless benchmark envelope acceptance.
+`_stateless_twr_envelope_issue` also dropped out after invalid-shape message selection was split
+from exact-one stateless TWR payload eligibility, with direct coverage for ambiguous and missing
+payload messages.
+`_workspace_summary_stateless_envelope_issue` also dropped out after invalid-shape message selection
+was split from exact-one workspace-summary payload eligibility, with direct coverage for ambiguous
+and missing payload messages.
+`_bounded_mwr_solver_outcome_labels` also dropped out after reusable metric-label cardinality
+bounding was extracted, with direct coverage for allowed label preservation and unsafe value
+collapse.
+`resolve_trace_id` also dropped out after traceparent parsing was split from trace-id precedence and
+fallback resolution, with direct coverage for valid, missing, malformed, and short traceparent
+values.
+`propagation_headers` also dropped out after propagation header identity resolution was split from
+header-envelope assembly, with direct coverage for override, context, request-id, and trace-id
+fallback behavior.
+`_included_router_route_name` also dropped out after matched route-name resolution was split from
+included-router route scanning, with direct coverage for full-match and partial-match route
+candidates.
+`_infer_example` also dropped out after schema-hint example selection was split from named-key and
+semantic fallback selection, with direct coverage for enum, typed, formatted, and no-hint
+branches.
+`_explicit_schema_example` also dropped out after list-valued explicit example selection was split
+from direct `example` and named-example selection, with direct coverage for non-empty, empty, and
+non-list `examples` values.
+`_named_schema_example` also dropped out after named example value extraction was split from
+named-example map validation, with direct coverage for value-bearing, missing-value, and non-dict
+entries.
+`_composed_schema_example` also dropped out after composed-schema first-variant selection and
+dict-variant validation were split from composed example building, with direct coverage for `oneOf`,
+`anyOf`, empty, non-list, and non-dict variant inputs.
+`_build_schema_example` also dropped out after non-reference schema example selection was split from
+`$ref` handling, with direct coverage for explicit, derived, and inferred fallback examples.
+`_validation_error_json_content` also dropped out after authored JSON example detection was split
+from HTTP validation-error schema selection, with direct coverage for singular `example`, plural
+`examples`, and undocumented content.
+`_request_body_example` also dropped out after operation-specific request example lookup was split
+from authored-example suppression and schema fallback building, with direct coverage for override
+copy semantics and missing override behavior.
+`_ensure_json_success_response_example` also dropped out after operation response override lookup
+and response schema fallback example building were split from success-response example assignment,
+with direct coverage for override copy behavior, authored example preservation, invalid schema
+suppression, and semantic schema fallback values.
+`_ensure_operation_response_documentation` also dropped out after success-response iteration and
+response-shape filtering were split from error defaulting and response documentation enrichment,
+with direct coverage for success status-code selection, numeric response codes, and non-dict
+response suppression.
+`_ensure_operation_metadata` also dropped out after operation description resolution was split from
+summary and tag assignment, with direct coverage for default descriptions, existing descriptions,
+and the metrics-specific Prometheus description override.
+`_iter_documentable_operations` also dropped out after path/method traversal was split from
+documentable operation eligibility, with direct coverage for malformed path entries, method maps,
+and non-dict operation candidates.
+`_ensure_operation_documentation` also dropped out after per-operation metadata/request/response
+enrichment was split from top-level OpenAPI paths traversal, with direct coverage for metadata,
+request-body example enrichment, and response default enrichment on a single documentable operation.
+`_ensure_schema_documentation` also dropped out after component/schema-map resolution and model
+schema iteration were split from schema documentation dispatch, with direct coverage for malformed
+component shapes, malformed schema maps, non-dict schema entries, and problem-detail schema
+insertion.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.
@@ -907,6 +1008,6 @@ tests, and module-boundary cleanup.
 
 The max cyclomatic complexity and rank D-F function-count posture is now a blocking CI gate through
 `make quality-complexity-gate`. The gate currently enforces max CC `8` and D-F count `0`; the
-measured repository maximum is now `6`.
+measured repository maximum is now `5`.
 Maintainability index remains report-only until a stable threshold, exception policy, and
 remediation workflow exist.

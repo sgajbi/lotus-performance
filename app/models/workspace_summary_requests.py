@@ -311,11 +311,15 @@ def _validate_workspace_summary_stateless_inputs(request: WorkspaceSummaryReques
 
 
 def _workspace_summary_stateless_envelope_issue(*, has_nested: bool, has_legacy: bool) -> str | None:
-    if has_nested and has_legacy:
-        return "Provide either stateless_input or valuation_points, not both, for stateless mode"
-    if not has_nested and not has_legacy:
-        return "stateless_input or valuation_points is required when input_mode=stateless"
+    if has_nested == has_legacy:
+        return _invalid_workspace_summary_stateless_envelope_message(has_nested=has_nested)
     return None
+
+
+def _invalid_workspace_summary_stateless_envelope_message(*, has_nested: bool) -> str:
+    if has_nested:
+        return "Provide either stateless_input or valuation_points, not both, for stateless mode"
+    return "stateless_input or valuation_points is required when input_mode=stateless"
 
 
 def _validate_workspace_summary_stateful_inputs(request: WorkspaceSummaryRequest) -> None:

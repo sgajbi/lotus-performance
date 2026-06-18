@@ -4,6 +4,7 @@ from uuid import uuid4
 from app.api.endpoints.inspections import (
     _inspection_portfolio_id,
     _inspection_requested_window,
+    _is_available_twr_inspection_artifact,
     _is_completed_twr_inspection_record,
     _retained_inspection_artifact_response,
 )
@@ -32,6 +33,29 @@ def test_is_completed_twr_inspection_record_requires_complete_twr_record():
     assert _is_completed_twr_inspection_record(complete_record) is True
     assert _is_completed_twr_inspection_record(pending_record) is False
     assert _is_completed_twr_inspection_record(None) is False
+
+
+def test_is_available_twr_inspection_artifact_requires_complete_record_and_artifact_name():
+    inspection_id = uuid4()
+    complete_record = LineageRecord(
+        calculation_id=inspection_id,
+        calculation_type=ANALYTICS_WORKFLOW_TWR_INSPECTION,
+        status=LineageStatus.COMPLETE,
+        timestamp_utc="2026-01-01T00:00:00Z",
+        artifact_names=["inspection_summary.json"],
+    )
+    pending_record = LineageRecord(
+        calculation_id=inspection_id,
+        calculation_type=ANALYTICS_WORKFLOW_TWR_INSPECTION,
+        status=LineageStatus.PENDING,
+        timestamp_utc="2026-01-01T00:00:00Z",
+        artifact_names=["inspection_summary.json"],
+    )
+
+    assert _is_available_twr_inspection_artifact(complete_record, "inspection_summary.json") is True
+    assert _is_available_twr_inspection_artifact(complete_record, "support_brief.md") is False
+    assert _is_available_twr_inspection_artifact(pending_record, "inspection_summary.json") is False
+    assert _is_available_twr_inspection_artifact(None, "inspection_summary.json") is False
 
 
 def test_retained_inspection_artifact_response_sets_markdown_media_type_and_attachment():

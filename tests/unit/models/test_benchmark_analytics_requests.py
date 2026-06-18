@@ -10,9 +10,11 @@ from app.models.benchmark_analytics_requests import (
     BenchmarkStatelessInput,
     _benchmark_component_observations_payload,
     _benchmark_return_points_payload,
+    _has_explicit_benchmark_analysis,
     _validate_stateful_benchmark_payloads,
     _validate_stateless_benchmark_payloads,
 )
+from app.models.requests import Analysis
 
 
 def test_benchmark_analytics_request_schema_documents_public_examples():
@@ -183,6 +185,19 @@ def test_benchmark_request_requires_analyses_and_stateless_payload_shape(base_pa
                 },
             }
         )
+
+
+def test_has_explicit_benchmark_analysis_detects_explicit_periods():
+    explicit = Analysis(
+        period="EXPLICIT",
+        frequencies=["daily"],
+        start_date=date(2025, 1, 1),
+        end_date=date(2025, 1, 31),
+    )
+    ytd = Analysis(period="YTD", frequencies=["daily"])
+
+    assert _has_explicit_benchmark_analysis([ytd]) is False
+    assert _has_explicit_benchmark_analysis([ytd, explicit]) is True
 
 
 def test_benchmark_request_requires_vendor_return_points_without_component_inputs(base_payload):

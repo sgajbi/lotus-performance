@@ -3,14 +3,21 @@ import logging
 
 from fastapi import APIRouter, FastAPI, Request
 from prometheus_client import REGISTRY, generate_latest
+from starlette.routing import Match
 
 from app.observability import (
     JsonFormatter,
+    _bounded_metric_label,
     _bounded_mwr_solver_outcome_labels,
     _bounded_mwr_solver_reason_codes,
     _instrumentator_route_name,
     _json_log_payload,
     _log_context_fields,
+    _matched_route_name,
+    _propagation_correlation_id,
+    _propagation_request_id,
+    _propagation_trace_id,
+    _trace_id_from_traceparent,
     build_access_log_fields,
     correlation_id_var,
     propagation_headers,
@@ -55,6 +62,17 @@ def test_resolve_trace_id_prefers_traceparent_then_header_then_generated():
     assert len(generated) == 32
 
 
+def test_trace_id_from_traceparent_accepts_only_traceparent_with_32_character_trace_id():
+    assert (
+        _trace_id_from_traceparent("00-0123456789abcdef0123456789abcdef-0000000000000001-01")
+        == "0123456789abcdef0123456789abcdef"
+    )
+    assert _trace_id_from_traceparent(None) is None
+    assert _trace_id_from_traceparent("  ") is None
+    assert _trace_id_from_traceparent("invalid") is None
+    assert _trace_id_from_traceparent("00-short-0000000000000001-01") is None
+
+
 def test_propagation_headers_use_context_values():
     correlation_id_var.set(" corr-ctx ")
     request_id_var.set(" req-ctx ")
@@ -78,6 +96,17 @@ def test_propagation_headers_generates_when_context_absent():
     assert headers["X-Correlation-Id"].startswith("corr_")
     assert headers["X-Request-Id"].startswith("req_")
     assert len(headers["X-Trace-Id"]) == 32
+
+
+def test_propagation_id_helpers_apply_override_context_and_generated_fallbacks():
+    correlation_id_var.set(" corr-ctx ")
+    request_id_var.set(" ")
+    trace_id_var.set(" ")
+
+    assert _propagation_correlation_id(" corr-override ") == "corr-override"
+    assert _propagation_correlation_id(" ") == "corr-ctx"
+    assert _propagation_request_id().startswith("req_")
+    assert len(_propagation_trace_id()) == 32
 
 
 def test_json_formatter_includes_standard_and_extra_fields(monkeypatch):
@@ -186,9 +215,30 @@ def test_instrumentator_route_name_resolves_fastapi_included_router_context():
     assert _instrumentator_route_name(request) == "/api/items/{item_id}"
 
 
+def test_matched_route_name_returns_route_path_only_for_full_matches():
+    class RouteStub:
+        path = "/api/items/{item_id}"
+
+        def __init__(self, match_result):
+            self.match_result = match_result
+
+        def matches(self, scope):
+            return self.match_result, scope
+
+    assert _matched_route_name(RouteStub(Match.FULL), {"path": "/api/items/123"}) == "/api/items/{item_id}"
+    assert _matched_route_name(RouteStub(Match.PARTIAL), {"path": "/api/items/123"}) is None
+
+
 def test_bounded_mwr_solver_reason_codes_defaults_and_filters_unsafe_values():
     assert _bounded_mwr_solver_reason_codes([]) == ("NONE",)
     assert _bounded_mwr_solver_reason_codes(["NO_ROOT_FOUND", "portfolio-123"]) == ("NO_ROOT_FOUND", "OTHER")
+
+
+def test_bounded_metric_label_preserves_allowed_values_and_collapses_unsafe_values():
+    allowed_values = frozenset({"stateful", "stateless"})
+
+    assert _bounded_metric_label("stateful", allowed_values=allowed_values, fallback="other") == "stateful"
+    assert _bounded_metric_label("portfolio-123", allowed_values=allowed_values, fallback="other") == "other"
 
 
 def test_bounded_mwr_solver_outcome_labels_filter_unsafe_values():

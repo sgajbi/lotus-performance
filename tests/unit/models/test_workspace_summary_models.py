@@ -12,6 +12,7 @@ from app.models.workspace_summary_requests import (
     _has_exactly_one_workspace_summary_stateless_payload,
     _has_legacy_workspace_summary_valuation_points,
     _has_nested_workspace_summary_stateless_input,
+    _invalid_workspace_summary_stateless_envelope_message,
     _requested_workspace_periods,
     _resolve_workspace_summary_include_benchmark,
     _validate_workspace_stateful_benchmark_payload,
@@ -188,6 +189,16 @@ def test_workspace_summary_stateless_envelope_issue_requires_exactly_one_payload
     )
     assert _workspace_summary_stateless_envelope_issue(has_nested=False, has_legacy=False) == (
         "stateless_input or valuation_points is required when input_mode=stateless"
+    )
+
+
+def test_invalid_workspace_summary_stateless_envelope_message_selects_conflict_or_missing_payload_text():
+    assert _invalid_workspace_summary_stateless_envelope_message(has_nested=True) == (
+        "Provide either stateless_input or valuation_points, not both, for stateless mode"
+    )
+    assert (
+        _invalid_workspace_summary_stateless_envelope_message(has_nested=False)
+        == "stateless_input or valuation_points is required when input_mode=stateless"
     )
 
 

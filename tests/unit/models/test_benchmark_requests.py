@@ -7,8 +7,10 @@ from app.models.benchmark_requests import (
     BenchmarkComponentObservation,
     BenchmarkPerformanceRequest,
     BenchmarkReturnPoint,
+    _has_explicit_benchmark_period,
     _validate_benchmark_source_payloads,
 )
+from app.models.requests import Analysis
 
 
 @pytest.fixture
@@ -123,6 +125,19 @@ def test_validate_benchmark_source_payloads_enforces_source_exclusivity():
             component_observations=[component_observation],
             benchmark_return_points=[return_point],
         )
+
+
+def test_has_explicit_benchmark_period_detects_explicit_analyses():
+    explicit = Analysis(
+        period="EXPLICIT",
+        frequencies=["daily"],
+        start_date=date(2025, 1, 2),
+        end_date=date(2025, 1, 31),
+    )
+    mtd = Analysis(period="MTD", frequencies=["daily"])
+
+    assert _has_explicit_benchmark_period([mtd]) is False
+    assert _has_explicit_benchmark_period([mtd, explicit]) is True
 
 
 def test_benchmark_performance_request_accepts_valid_calculated_and_vendor_payloads(base_payload):

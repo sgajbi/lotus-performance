@@ -120,6 +120,13 @@ class _InvalidReadyCompositePeriodInputs:
     ready_restatement_versions: list[str]
 
 
+@dataclass(frozen=True)
+class _CompositePeriodCalculation:
+    period_result: CompositePeriodResult
+    cumulative_growth: Decimal
+    aggregate_reason_codes: tuple[str, ...]
+
+
 def _quantize_decimal(value: Decimal, quantum: Decimal) -> Decimal:
     if value == 0:
         return Decimal("0").quantize(quantum)
@@ -494,6 +501,43 @@ def _is_calculated_composite_period(period: CompositePeriodResult) -> bool:
     return period.status in {"READY", "DEGRADED"}
 
 
+def _calculate_composite_period_result(
+    *,
+    period_fact_set: _CompositePeriodFactSet,
+    cumulative_growth: Decimal,
+) -> _CompositePeriodCalculation:
+    blocked_period = _blocked_composite_period_result_for_invalid_ready_facts(
+        period_start=period_fact_set.period_start,
+        period_end=period_fact_set.period_end,
+        beginning_assets=period_fact_set.beginning_assets,
+        ending_assets=period_fact_set.ending_assets,
+        ready_facts=period_fact_set.ready_facts,
+        excluded_facts=period_fact_set.excluded_facts,
+        reason_codes=period_fact_set.reason_codes,
+        ready_return_views=period_fact_set.ready_return_views,
+        ready_reporting_currencies=period_fact_set.ready_reporting_currencies,
+        ready_source_fingerprints=period_fact_set.ready_source_fingerprints,
+        ready_restatement_versions=period_fact_set.ready_restatement_versions,
+    )
+    if blocked_period is not None:
+        period_result, aggregate_reason_code = blocked_period
+        return _CompositePeriodCalculation(
+            period_result=period_result,
+            cumulative_growth=cumulative_growth,
+            aggregate_reason_codes=(aggregate_reason_code,),
+        )
+
+    period_result, next_cumulative_growth = _build_ready_composite_period_result(
+        period_fact_set=period_fact_set,
+        cumulative_growth=cumulative_growth,
+    )
+    return _CompositePeriodCalculation(
+        period_result=period_result,
+        cumulative_growth=next_cumulative_growth,
+        aggregate_reason_codes=(),
+    )
+
+
 def calculate_asset_weighted_composite_twr(
     *,
     composite_id: str,
@@ -516,30 +560,13 @@ def calculate_asset_weighted_composite_twr(
             facts=facts,
         )
         aggregate_reason_codes.update(period_fact_set.reason_codes)
-        blocked_period = _blocked_composite_period_result_for_invalid_ready_facts(
-            period_start=period_start,
-            period_end=period_end,
-            beginning_assets=period_fact_set.beginning_assets,
-            ending_assets=period_fact_set.ending_assets,
-            ready_facts=period_fact_set.ready_facts,
-            excluded_facts=period_fact_set.excluded_facts,
-            reason_codes=period_fact_set.reason_codes,
-            ready_return_views=period_fact_set.ready_return_views,
-            ready_reporting_currencies=period_fact_set.ready_reporting_currencies,
-            ready_source_fingerprints=period_fact_set.ready_source_fingerprints,
-            ready_restatement_versions=period_fact_set.ready_restatement_versions,
-        )
-        if blocked_period is not None:
-            period_result, aggregate_reason_code = blocked_period
-            period_results.append(period_result)
-            aggregate_reason_codes.add(aggregate_reason_code)
-            continue
-
-        period_result, cumulative_growth = _build_ready_composite_period_result(
+        period_calculation = _calculate_composite_period_result(
             period_fact_set=period_fact_set,
             cumulative_growth=cumulative_growth,
         )
-        period_results.append(period_result)
+        period_results.append(period_calculation.period_result)
+        cumulative_growth = period_calculation.cumulative_growth
+        aggregate_reason_codes.update(period_calculation.aggregate_reason_codes)
 
     if not period_results:
         return CompositeCalculationResult(

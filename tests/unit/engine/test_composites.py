@@ -13,6 +13,7 @@ from engine.composites import (
     _build_composite_period_fact_set,
     _build_ready_composite_period_result,
     _build_ready_member_contributions,
+    _calculate_composite_period_result,
     _classify_composite_period_facts,
     _composite_calculation_status,
     _composite_period_fact_metadata,
@@ -288,6 +289,45 @@ def test_build_ready_composite_period_result_quantizes_and_links_growth():
     assert period_result.member_count == 2
     assert period_result.excluded_member_count == 0
     assert [item.portfolio_id for item in period_result.member_contributions] == ["P1", "P2"]
+
+
+def test_calculate_composite_period_result_preserves_cumulative_growth_for_blocked_period():
+    period_fact_set = _build_composite_period_fact_set(
+        period_start=date(2026, 1, 1),
+        period_end=date(2026, 1, 31),
+        facts=[_fact(portfolio_id="P1", status="BLOCKED", reason_codes=["upstream_twr_blocked"])],
+    )
+
+    calculation = _calculate_composite_period_result(
+        period_fact_set=period_fact_set,
+        cumulative_growth=Decimal("1.25"),
+    )
+
+    assert calculation.period_result.status == "BLOCKED"
+    assert calculation.period_result.cumulative_return is None
+    assert calculation.cumulative_growth == Decimal("1.25")
+    assert calculation.aggregate_reason_codes == ("no_ready_member_return_facts",)
+
+
+def test_calculate_composite_period_result_links_ready_period_growth():
+    period_fact_set = _build_composite_period_fact_set(
+        period_start=date(2026, 1, 1),
+        period_end=date(2026, 1, 31),
+        facts=[
+            _fact(portfolio_id="P1", return_value="0.0100", beginning_market_value="100.00"),
+            _fact(portfolio_id="P2", return_value="0.0300", beginning_market_value="300.00"),
+        ],
+    )
+
+    calculation = _calculate_composite_period_result(
+        period_fact_set=period_fact_set,
+        cumulative_growth=Decimal("1.02"),
+    )
+
+    assert calculation.period_result.status == "READY"
+    assert str(calculation.period_result.return_value) == "0.025000000000"
+    assert calculation.cumulative_growth == Decimal("1.04550000")
+    assert calculation.aggregate_reason_codes == ()
 
 
 def test_composite_calculation_status_uses_ready_and_calculated_period_policy():

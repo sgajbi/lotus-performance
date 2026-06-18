@@ -1,6 +1,6 @@
 from uuid import uuid4
 
-from app.models.execution_polling import build_execution_response
+from app.models.execution_polling import _compute_job_response, build_execution_response
 from app.services.async_result_store import AsyncResultRecord, AsyncResultStatus
 from app.services.compute_job_store import ComputeJobRecord, ComputeJobStatus
 from app.services.execution_registry import (
@@ -90,6 +90,12 @@ def test_build_execution_response_includes_compute_job_and_async_result():
     assert response.async_result is not None
     assert response.async_result.result_status == "complete"
 
+    compute_job_response = _compute_job_response(job)
+
+    assert compute_job_response is not None
+    assert compute_job_response.job_status == "complete"
+    assert compute_job_response.attempt_count == 1
+
 
 def test_build_execution_response_handles_missing_optional_async_metadata():
     calculation_id = uuid4()
@@ -115,3 +121,4 @@ def test_build_execution_response_handles_missing_optional_async_metadata():
     assert response.compute_job is None
     assert response.async_result is None
     assert response.upstream_snapshots == []
+    assert _compute_job_response(None) is None

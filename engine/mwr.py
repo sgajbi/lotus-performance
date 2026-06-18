@@ -19,14 +19,19 @@ def _day_count_denominator(annualization: Annualization) -> float:
 
 
 def _net_same_day_flows(values: list[float], dates: list[date]) -> tuple[np.ndarray, np.ndarray]:
-    by_date: dict[date, float] = {}
-    for value, flow_date in zip(values, dates):
-        by_date[flow_date] = by_date.get(flow_date, 0.0) + float(value)
+    by_date = _net_cash_flow_amounts_by_date(values, dates)
     sorted_items = [(flow_date, amount) for flow_date, amount in sorted(by_date.items()) if amount != 0.0]
     return (
         np.array([amount for _, amount in sorted_items], dtype=float),
         np.array([flow_date for flow_date, _ in sorted_items]),
     )
+
+
+def _net_cash_flow_amounts_by_date(values, dates):
+    by_date = {}
+    for value, flow_date in zip(values, dates):
+        by_date[flow_date] = by_date.get(flow_date, 0) + value
+    return by_date
 
 
 def _npv_at_rate(values: np.ndarray, taus: np.ndarray, rate: float) -> float:
@@ -309,14 +314,18 @@ def _xirr(
 
 def _dietz_denominator(*, begin_mv, cash_flows, start_date, end_date, method):
     if method == "DIETZ":
-        return begin_mv + (sum(cf.amount for cf in cash_flows) / 2)
+        return _simple_dietz_denominator(begin_mv=begin_mv, cash_flows=cash_flows)
 
     period_days = (end_date - start_date).days
     if period_days <= 0:
-        return begin_mv + (sum(cf.amount for cf in cash_flows) / 2)
+        return _simple_dietz_denominator(begin_mv=begin_mv, cash_flows=cash_flows)
 
     weighted_cash_flows = sum(cf.amount * ((end_date - cf.date).days / period_days) for cf in cash_flows)
     return begin_mv + weighted_cash_flows
+
+
+def _simple_dietz_denominator(*, begin_mv, cash_flows):
+    return begin_mv + (sum(cf.amount for cf in cash_flows) / 2)
 
 
 @dataclass(frozen=True)
@@ -370,23 +379,15 @@ def _calculate_xirr_mwr_attempt(
     convergence = MWRConvergence(**xirr_result.get("convergence", {}))
     notes = [xirr_result["notes"]]
     if xirr_result["converged"]:
-        rate = xirr_result["rate"]
-        holding_period_return = None
-        if period_days > 0:
-            day_count = _day_count_denominator(annualization)
-            holding_period_return = (((1 + rate) ** (period_days / day_count)) - 1) * 100
         return _MWRXirrAttempt(
-            result=MWRResult(
-                mwr=rate * 100,
-                mwr_annualized=rate * 100,
-                method="XIRR",
+            result=_successful_xirr_mwr_result(
+                rate=xirr_result["rate"],
+                annualization=annualization,
                 start_date=xirr_start_date,
                 end_date=end_date,
+                period_days=period_days,
                 notes=notes,
                 convergence=convergence,
-                holding_period_return=holding_period_return,
-                is_annualized_primary=True,
-                is_approximation=False,
             ),
             notes=notes,
         )
@@ -410,6 +411,25 @@ def _calculate_xirr_mwr_attempt(
 
     notes.append("XIRR failed, falling back to Modified Dietz.")
     return _MWRXirrAttempt(result=None, notes=notes, reason_code=reason_code)
+
+
+def _successful_xirr_mwr_result(*, rate, annualization, start_date, end_date, period_days, notes, convergence):
+    holding_period_return = None
+    if period_days > 0:
+        day_count = _day_count_denominator(annualization)
+        holding_period_return = (((1 + rate) ** (period_days / day_count)) - 1) * 100
+    return MWRResult(
+        mwr=rate * 100,
+        mwr_annualized=rate * 100,
+        method="XIRR",
+        start_date=start_date,
+        end_date=end_date,
+        notes=notes,
+        convergence=convergence,
+        holding_period_return=holding_period_return,
+        is_annualized_primary=True,
+        is_approximation=False,
+    )
 
 
 def _calculate_dietz_mwr_result(

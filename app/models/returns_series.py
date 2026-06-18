@@ -119,13 +119,7 @@ class ReturnsWindow(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def normalize_period_aliases(cls, data: Any) -> Any:
-        if isinstance(data, dict):
-            period = data.get("period")
-            if isinstance(period, str):
-                normalized_period = cls.PERIOD_ALIASES.get(period, period)
-                if normalized_period != period:
-                    return {**data, "period": normalized_period}
-        return data
+        return _returns_window_with_normalized_period_alias(data, period_aliases=cls.PERIOD_ALIASES)
 
     @model_validator(mode="after")
     def validate_mode_fields(self) -> "ReturnsWindow":
@@ -134,6 +128,18 @@ class ReturnsWindow(BaseModel):
         if self.mode == ReturnsWindowMode.RELATIVE:
             _validate_relative_returns_window(period=self.period, year=self.year)
         return self
+
+
+def _returns_window_with_normalized_period_alias(data: Any, *, period_aliases: dict[str, str]) -> Any:
+    if not isinstance(data, dict):
+        return data
+    period = data.get("period")
+    if not isinstance(period, str):
+        return data
+    normalized_period = period_aliases.get(period, period)
+    if normalized_period == period:
+        return data
+    return {**data, "period": normalized_period}
 
 
 def _validate_explicit_returns_window(*, from_date: dt_date | None, to_date: dt_date | None) -> None:
@@ -329,12 +335,28 @@ def _validate_returns_series_stateless_benchmark_override(
     input_mode: InputMode,
     benchmark: BenchmarkSpec | None,
 ) -> None:
-    if input_mode != InputMode.STATELESS or benchmark is None:
+    issue = _returns_series_stateless_benchmark_override_issue(input_mode=input_mode, benchmark=benchmark)
+    if issue is None:
         return
+    raise ValueError(issue)
+
+
+def _returns_series_stateless_benchmark_override_issue(
+    *,
+    input_mode: InputMode,
+    benchmark: BenchmarkSpec | None,
+) -> str | None:
+    if input_mode == InputMode.STATELESS and benchmark is not None:
+        return _stateless_benchmark_override_issue(benchmark)
+    return None
+
+
+def _stateless_benchmark_override_issue(benchmark: BenchmarkSpec) -> str | None:
     if benchmark.benchmark_id is not None:
-        raise ValueError("benchmark.benchmark_id is only supported in stateful mode for returns-series")
+        return "benchmark.benchmark_id is only supported in stateful mode for returns-series"
     if benchmark.return_source != BenchmarkReturnSource.CALCULATED:
-        raise ValueError("benchmark.return_source is only supported in stateful mode for returns-series")
+        return "benchmark.return_source is only supported in stateful mode for returns-series"
+    return None
 
 
 class ReturnsSeriesRequest(BaseModel):

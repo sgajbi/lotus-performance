@@ -2,12 +2,14 @@
 
 from decimal import Decimal
 
+import numpy as np
 import pandas as pd
 import pytest
 
 from engine.config import EngineConfig, FeatureFlags, PeriodType
 from engine.rules import (
     _get_decimal_sign,
+    _sod_reset_flags_from_next_open,
     calculate_account_reset_reason,
     calculate_initial_resets,
     calculate_nctrl4_reset,
@@ -272,6 +274,16 @@ def test_calculate_sod_reset_reason_does_not_mark_day_when_next_open_has_no_cash
     result = calculate_sod_reset_reason(df, base_reset_mask)
 
     assert result.tolist() == [0, 0, 0]
+
+
+def test_sod_reset_flags_from_next_open_carries_reset_state_backward():
+    """A derived SOD reset becomes canonical state for the preceding day."""
+    next_day_bod_cf = np.array([Decimal("10"), Decimal("20"), Decimal("0"), Decimal("0")], dtype=object)
+    canonical_reset = np.array([False, False, True, False], dtype=bool)
+
+    result = _sod_reset_flags_from_next_open(next_day_bod_cf, canonical_reset, Decimal("0"))
+
+    assert result.tolist() == [True, True, False, False]
 
 
 def test_calculate_nctrl4_reset_requires_broken_prior_state_and_cash_flow_boundary():

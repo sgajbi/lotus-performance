@@ -8,6 +8,7 @@ from app.models.inspection_requests import (
     TWRInspectionSubjectType,
     _is_valid_twr_calculation_inspection_subject,
     _is_valid_twr_request_inspection_subject,
+    _twr_inspection_subject_issue,
 )
 
 
@@ -44,6 +45,26 @@ def test_twr_inspection_subject_predicates_accept_valid_shapes():
 
     assert _is_valid_twr_calculation_inspection_subject(calculation_request) is True
     assert _is_valid_twr_request_inspection_subject(request_payload) is True
+
+
+def test_twr_inspection_subject_issue_reports_invalid_shapes():
+    calculation_with_request = TWRInspectionRequest.model_construct(
+        subject_type=TWRInspectionSubjectType.TWR_CALCULATION,
+        subject_calculation_id=uuid4(),
+        request=_twr_request_payload(),
+    )
+    request_without_payload = TWRInspectionRequest.model_construct(
+        subject_type=TWRInspectionSubjectType.TWR_REQUEST,
+        subject_calculation_id=None,
+        request=None,
+    )
+
+    assert _twr_inspection_subject_issue(calculation_with_request) == (
+        "twr_calculation inspection requires subject_calculation_id and does not accept request payload."
+    )
+    assert _twr_inspection_subject_issue(request_without_payload) == (
+        "twr_request inspection requires request payload and does not accept subject_calculation_id."
+    )
 
 
 def _twr_request_payload() -> dict:

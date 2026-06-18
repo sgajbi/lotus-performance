@@ -7,8 +7,10 @@ import pytest
 
 from engine.compute import (
     _build_engine_diagnostics,
+    _build_reporting_results,
     _build_reset_events,
     _coerce_engine_numeric_columns,
+    _ensure_engine_schema_columns,
     run_calculations,
 )
 from engine.config import EngineConfig, PeriodType, PrecisionMode
@@ -127,6 +129,39 @@ def test_coerce_engine_numeric_columns_uses_standard_zero_for_invalid_values():
 
     assert df[PortfolioColumns.BEGIN_MV.value].tolist() == [100.25, 0.0]
     assert df[PortfolioColumns.END_MV.value].tolist() == [101.50, 0.0]
+
+
+def test_ensure_engine_schema_columns_uses_standard_defaults_and_generated_columns():
+    config = EngineConfig(
+        performance_start_date=date(2025, 1, 1),
+        report_end_date=date(2025, 1, 1),
+        metric_basis="NET",
+        period_type=PeriodType.YTD,
+    )
+    df = pd.DataFrame({PortfolioColumns.PERF_DATE.value: [pd.Timestamp("2025-01-01")]})
+
+    _ensure_engine_schema_columns(df, config)
+
+    assert df[PortfolioColumns.BEGIN_MV.value].tolist() == [0.0]
+    assert df[PortfolioColumns.PERF_RESET.value].tolist() == [0]
+    assert df[PortfolioColumns.LONG_SHORT.value].tolist() == [""]
+    assert PortfolioColumns.EFFECTIVE_PERIOD_START_DATE.value not in df.columns
+
+
+def test_ensure_engine_schema_columns_uses_decimal_strict_defaults():
+    config = EngineConfig(
+        performance_start_date=date(2025, 1, 1),
+        report_end_date=date(2025, 1, 1),
+        metric_basis="NET",
+        period_type=PeriodType.YTD,
+        precision_mode=PrecisionMode.DECIMAL_STRICT,
+    )
+    df = pd.DataFrame({PortfolioColumns.PERF_DATE.value: [pd.Timestamp("2025-01-01")]})
+
+    _ensure_engine_schema_columns(df, config)
+
+    assert df[PortfolioColumns.BEGIN_MV.value].tolist() == [Decimal(0)]
+    assert df[PortfolioColumns.END_MV.value].tolist() == [Decimal(0)]
 
 
 def test_run_calculations_does_not_mutate_caller_dataframe():
@@ -313,6 +348,54 @@ def test_engine_diagnostics_helper_preserves_policy_and_methodology_samples():
     assert diagnostics.notes == ["Applied overrides from the data_policy request."]
     assert diagnostics.resets == reset_events
     assert diagnostics.samples.methodology_shadows
+
+
+def test_build_reporting_results_filters_window_and_rounds_float_mode():
+    config = EngineConfig(
+        performance_start_date=date(2025, 1, 1),
+        report_start_date=date(2025, 1, 2),
+        report_end_date=date(2025, 1, 3),
+        metric_basis="NET",
+        period_type=PeriodType.YTD,
+        rounding_precision=2,
+    )
+    working_df = pd.DataFrame(
+        {
+            PortfolioColumns.PERF_DATE.value: [
+                pd.Timestamp("2025-01-01"),
+                pd.Timestamp("2025-01-02"),
+                pd.Timestamp("2025-01-03"),
+            ],
+            PortfolioColumns.DAILY_ROR.value: [0.1111, 1.2345, 2.3456],
+        }
+    )
+
+    result_df = _build_reporting_results(working_df, config)
+
+    assert result_df[PortfolioColumns.PERF_DATE.value].tolist() == [date(2025, 1, 2), date(2025, 1, 3)]
+    assert result_df[PortfolioColumns.DAILY_ROR.value].tolist() == [1.23, 2.35]
+
+
+def test_build_reporting_results_keeps_decimal_strict_precision_unrounded():
+    config = EngineConfig(
+        performance_start_date=date(2025, 1, 1),
+        report_end_date=date(2025, 1, 1),
+        metric_basis="NET",
+        period_type=PeriodType.YTD,
+        precision_mode=PrecisionMode.DECIMAL_STRICT,
+        rounding_precision=2,
+    )
+    working_df = pd.DataFrame(
+        {
+            PortfolioColumns.PERF_DATE.value: [pd.Timestamp("2025-01-01")],
+            PortfolioColumns.DAILY_ROR.value: [1.2345],
+        }
+    )
+
+    result_df = _build_reporting_results(working_df, config)
+
+    assert result_df[PortfolioColumns.PERF_DATE.value].tolist() == [date(2025, 1, 1)]
+    assert result_df[PortfolioColumns.DAILY_ROR.value].tolist() == [1.2345]
 
 
 def test_run_calculations_emits_methodology_shadow_diagnostics():

@@ -65,6 +65,10 @@ def _bounded_mwr_solver_reason_codes(reason_codes: list[str] | tuple[str, ...]) 
     )
 
 
+def _bounded_metric_label(value: str, *, allowed_values: frozenset[str], fallback: str) -> str:
+    return value if value in allowed_values else fallback
+
+
 def _bounded_mwr_solver_outcome_labels(
     *,
     input_mode: str,
@@ -74,10 +78,10 @@ def _bounded_mwr_solver_outcome_labels(
     fallback_used: bool,
 ) -> dict[str, str]:
     return {
-        "input_mode": input_mode if input_mode in _MWR_ALLOWED_INPUT_MODES else "other",
-        "method": method if method in _MWR_ALLOWED_METHODS else "OTHER",
-        "status": status if status in _MWR_ALLOWED_STATUSES else "OTHER",
-        "reason_code": reason_code if reason_code in _MWR_ALLOWED_REASON_CODES else "OTHER",
+        "input_mode": _bounded_metric_label(input_mode, allowed_values=_MWR_ALLOWED_INPUT_MODES, fallback="other"),
+        "method": _bounded_metric_label(method, allowed_values=_MWR_ALLOWED_METHODS, fallback="OTHER"),
+        "status": _bounded_metric_label(status, allowed_values=_MWR_ALLOWED_STATUSES, fallback="OTHER"),
+        "reason_code": _bounded_metric_label(reason_code, allowed_values=_MWR_ALLOWED_REASON_CODES, fallback="OTHER"),
         "fallback_used": str(fallback_used).lower(),
     }
 
@@ -148,25 +152,42 @@ def resolve_request_id(request: Request) -> str:
 
 
 def resolve_trace_id(request: Request) -> str:
-    traceparent = _nonblank_header(request, "traceparent")
-    if traceparent:
-        parts = traceparent.split("-")
-        if len(parts) >= 4 and len(parts[1]) == 32:
-            return parts[1]
+    traceparent_trace_id = _trace_id_from_traceparent(_nonblank_header(request, "traceparent"))
+    if traceparent_trace_id is not None:
+        return traceparent_trace_id
     incoming = _nonblank_header(request, "X-Trace-Id")
     return incoming if incoming else uuid4().hex
 
 
+def _trace_id_from_traceparent(traceparent: str | None) -> str | None:
+    if traceparent is None:
+        return None
+    parts = traceparent.split("-")
+    if len(parts) >= 4 and len(parts[1]) == 32:
+        return parts[1]
+    return None
+
+
 def propagation_headers(correlation_id: str | None = None) -> dict[str, str]:
-    trace_id = _nonblank_value(trace_id_var.get()) or uuid4().hex
+    trace_id = _propagation_trace_id()
     return {
-        "X-Correlation-Id": _nonblank_value(correlation_id)
-        or _nonblank_value(correlation_id_var.get())
-        or f"corr_{uuid4().hex[:12]}",
-        "X-Request-Id": _nonblank_value(request_id_var.get()) or f"req_{uuid4().hex[:12]}",
+        "X-Correlation-Id": _propagation_correlation_id(correlation_id),
+        "X-Request-Id": _propagation_request_id(),
         "X-Trace-Id": trace_id,
         "traceparent": f"00-{trace_id}-0000000000000001-01",
     }
+
+
+def _propagation_correlation_id(correlation_id: str | None) -> str:
+    return _nonblank_value(correlation_id) or _nonblank_value(correlation_id_var.get()) or f"corr_{uuid4().hex[:12]}"
+
+
+def _propagation_request_id() -> str:
+    return _nonblank_value(request_id_var.get()) or f"req_{uuid4().hex[:12]}"
+
+
+def _propagation_trace_id() -> str:
+    return _nonblank_value(trace_id_var.get()) or uuid4().hex
 
 
 def record_calculation_supportability(
@@ -285,13 +306,16 @@ def _instrumentator_route_name(request: Request) -> str | None:
 
 def _included_router_route_name(request: Request) -> str | None:
     for route in request.app.routes:
-        if _route_matches(route, request.scope) != Match.FULL:
-            continue
-
-        route_name = _route_path(route) or _matching_effective_candidate_path(route, request.scope)
+        route_name = _matched_route_name(route, request.scope)
         if route_name:
             return route_name
     return None
+
+
+def _matched_route_name(route: object, scope: object) -> str | None:
+    if _route_matches(route, scope) != Match.FULL:
+        return None
+    return _route_path(route) or _matching_effective_candidate_path(route, scope)
 
 
 def _route_path(route: object) -> str | None:

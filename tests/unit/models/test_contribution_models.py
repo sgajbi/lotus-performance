@@ -8,6 +8,8 @@ from pydantic import ValidationError
 from app.models.contribution_analytics_requests import (
     ContributionAnalyticsRequest,
     _complete_contribution_input_pair,
+    _has_exactly_one_stateless_contribution_shape,
+    _nested_contribution_input_pair,
     _resolved_stateless_contribution_inputs,
     _stateless_contribution_envelope_issue,
     _validate_stateless_contribution_payloads,
@@ -269,6 +271,13 @@ def test_stateless_contribution_envelope_issue_requires_exactly_one_payload_shap
     )
 
 
+def test_stateless_contribution_shape_predicate_requires_exactly_one_payload_shape():
+    assert _has_exactly_one_stateless_contribution_shape(has_nested=True, has_legacy=False)
+    assert _has_exactly_one_stateless_contribution_shape(has_nested=False, has_legacy=True)
+    assert not _has_exactly_one_stateless_contribution_shape(has_nested=True, has_legacy=True)
+    assert not _has_exactly_one_stateless_contribution_shape(has_nested=False, has_legacy=False)
+
+
 def test_contribution_analytics_request_builds_legacy_stateless_request():
     payload = {
         "calculation_id": str(uuid4()),
@@ -432,6 +441,33 @@ def test_complete_contribution_input_pair_requires_both_payloads():
     )
     assert _complete_contribution_input_pair(portfolio_data=portfolio_data, positions_data=None) is None
     assert _complete_contribution_input_pair(portfolio_data=None, positions_data=positions_data) is None
+
+
+def test_nested_contribution_input_pair_projects_nested_payload():
+    nested_input = ContributionAnalyticsRequest.model_validate(
+        {
+            "portfolio_id": "CONTRIB_STATELESS",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-31",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "input_mode": "stateless",
+            "stateless_input": {
+                "portfolio_data": {
+                    "metric_basis": "NET",
+                    "valuation_points": [],
+                },
+                "positions_data": [{"position_id": "NESTED", "valuation_points": []}],
+            },
+        }
+    ).stateless_input
+
+    resolved_pair = _nested_contribution_input_pair(nested_input)
+
+    assert resolved_pair is not None
+    portfolio_data, positions_data = resolved_pair
+    assert portfolio_data.metric_basis == "NET"
+    assert positions_data[0].position_id == "NESTED"
+    assert _nested_contribution_input_pair(None) is None
 
 
 def test_resolved_stateless_contribution_inputs_ignores_partial_override():

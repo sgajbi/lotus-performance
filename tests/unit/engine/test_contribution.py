@@ -18,6 +18,7 @@ from engine.contribution import (
     _carino_smoothing_domain_is_valid,
     _ensure_same_currency_local_fx_columns,
     _prepare_hierarchical_data,
+    _requires_position_fx_capital_conversion,
     build_hierarchical_contribution_result,
     calculate_hierarchical_contribution,
 )
@@ -112,6 +113,38 @@ def test_ensure_same_currency_local_fx_columns_fills_base_only_position_results(
 
     assert position_results_df["local_ror"].tolist() == [1.25]
     assert position_results_df["fx_ror"].tolist() == [0.0]
+
+
+@pytest.mark.parametrize(
+    ("currency_mode", "position_ccy", "report_ccy", "has_fx_rates", "expected"),
+    [
+        ("BOTH", "EUR", "USD", True, True),
+        ("BASE_ONLY", "EUR", "USD", True, False),
+        ("BOTH", "USD", "USD", True, False),
+        ("BOTH", "EUR", "USD", False, False),
+    ],
+)
+def test_requires_position_fx_capital_conversion_checks_currency_mode_position_currency_and_rates(
+    hierarchical_request_fixture,
+    currency_mode,
+    position_ccy,
+    report_ccy,
+    has_fx_rates,
+    expected,
+):
+    request = hierarchical_request_fixture.model_copy(update={"currency_mode": currency_mode, "report_ccy": report_ccy})
+    fx_rates_df = pd.DataFrame({"date": [pd.Timestamp("2025-01-01")], "ccy": [position_ccy], "rate": [1.2]})
+    if not has_fx_rates:
+        fx_rates_df = pd.DataFrame()
+
+    assert (
+        _requires_position_fx_capital_conversion(
+            request=request,
+            position_ccy=position_ccy,
+            fx_rates_df=fx_rates_df,
+        )
+        is expected
+    )
 
 
 def test_calculate_daily_contributions_bod_weighting(prepared_data_fixture):

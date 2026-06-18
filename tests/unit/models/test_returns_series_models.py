@@ -6,12 +6,16 @@ import pytest
 from pydantic import ValidationError
 
 from app.models.returns_series import (
+    BenchmarkSpec,
+    InputMode,
     ReturnsRelativePeriod,
     ReturnsWindow,
     ReturnsWindowMode,
     StatefulInput,
     StatelessInput,
     _require_selected_stateless_series,
+    _returns_series_stateless_benchmark_override_issue,
+    _returns_window_with_normalized_period_alias,
     _validate_explicit_returns_window,
     _validate_relative_returns_window,
     _validate_stateful_returns_series_input_envelope,
@@ -60,6 +64,24 @@ def test_returns_window_validation_helpers_preserve_explicit_and_relative_policy
         _validate_explicit_returns_window(from_date=date(2026, 2, 27), to_date=date(2026, 2, 24))
     with pytest.raises(ValueError, match="year is required when period=YEAR"):
         _validate_relative_returns_window(period=ReturnsRelativePeriod.YEAR, year=None)
+
+
+def test_returns_window_period_alias_helper_normalizes_only_legacy_string_aliases():
+    aliases = {"THREE_YEAR": "3Y"}
+
+    assert _returns_window_with_normalized_period_alias(
+        {"mode": "RELATIVE", "period": "THREE_YEAR"},
+        period_aliases=aliases,
+    ) == {"mode": "RELATIVE", "period": "3Y"}
+    assert _returns_window_with_normalized_period_alias(
+        {"mode": "RELATIVE", "period": "3Y"},
+        period_aliases=aliases,
+    ) == {"mode": "RELATIVE", "period": "3Y"}
+    assert _returns_window_with_normalized_period_alias(
+        {"mode": "RELATIVE", "period": 3},
+        period_aliases=aliases,
+    ) == {"mode": "RELATIVE", "period": 3}
+    assert _returns_window_with_normalized_period_alias("not-a-dict", period_aliases=aliases) == "not-a-dict"
 
 
 def test_returns_series_request_requires_stateless_input_when_stateless_mode():
@@ -220,6 +242,37 @@ def test_returns_series_rejects_stateful_only_benchmark_config_in_stateless_mode
         match="benchmark.return_source is only supported in stateful mode for returns-series",
     ):
         ReturnsSeriesRequest.model_validate(payload)
+
+
+def test_returns_series_stateless_benchmark_override_issue_preserves_mode_policy():
+    assert (
+        _returns_series_stateless_benchmark_override_issue(
+            input_mode=InputMode.STATEFUL,
+            benchmark=BenchmarkSpec.model_validate({"benchmark_id": "BMK_1"}),
+        )
+        is None
+    )
+    assert (
+        _returns_series_stateless_benchmark_override_issue(
+            input_mode=InputMode.STATELESS,
+            benchmark=BenchmarkSpec.model_validate({}),
+        )
+        is None
+    )
+    assert (
+        _returns_series_stateless_benchmark_override_issue(
+            input_mode=InputMode.STATELESS,
+            benchmark=BenchmarkSpec.model_validate({"benchmark_id": "BMK_1"}),
+        )
+        == "benchmark.benchmark_id is only supported in stateful mode for returns-series"
+    )
+    assert (
+        _returns_series_stateless_benchmark_override_issue(
+            input_mode=InputMode.STATELESS,
+            benchmark=BenchmarkSpec.model_validate({"return_source": "vendor_series"}),
+        )
+        == "benchmark.return_source is only supported in stateful mode for returns-series"
+    )
 
 
 def test_returns_series_allows_default_benchmark_override_in_stateless_mode():

@@ -5,11 +5,15 @@ from app.models.requests import DataPolicy
 from engine.diagnostics import EngineDiagnostics
 from engine.policies import (
     _apply_ignored_day,
+    _apply_override_group,
     _apply_override_values,
     _extract_policy_inputs,
     _flag_outliers,
+    _flaggable_outlier_policy,
     _outlier_mask_and_bounds,
+    _outlier_window_and_mad_k,
     _override_mask,
+    _policy_inputs_from_payload,
     _record_outlier_samples,
     apply_robustness_policies,
 )
@@ -56,6 +60,21 @@ def test_override_helpers_filter_positions_and_count_applied_fields(sample_polic
 
     assert mask.tolist() == [False, True, False]
     assert _apply_override_values(sample_policy_df, override, keys=("begin_mv", "end_mv"), mask=mask) == 2
+    assert sample_policy_df.loc[1, PortfolioColumns.BEGIN_MV.value] == 500.0
+    assert sample_policy_df.loc[1, PortfolioColumns.END_MV.value] == 600.0
+
+
+def test_apply_override_group_counts_matching_fields_only(sample_policy_df):
+    applied_count = _apply_override_group(
+        sample_policy_df,
+        [
+            {"perf_date": "2025-03-15", "position_id": "P1", "begin_mv": 500.0, "end_mv": 600.0},
+            {"perf_date": "2025-03-17", "position_id": "P1", "begin_mv": 700.0, "end_mv": 800.0},
+        ],
+        keys=("begin_mv", "end_mv"),
+    )
+
+    assert applied_count == 2
     assert sample_policy_df.loc[1, PortfolioColumns.BEGIN_MV.value] == 500.0
     assert sample_policy_df.loc[1, PortfolioColumns.END_MV.value] == 600.0
 
@@ -185,6 +204,35 @@ def test_flag_outliers_returns_early_when_disabled(sample_policy_df):
     assert diagnostics.policy.outliers.flagged_rows == 0
 
 
+def test_flaggable_outlier_policy_projects_enabled_flag_policy():
+    policy_model = DataPolicy.model_validate(
+        {"outliers": {"enabled": True, "action": "FLAG", "params": {"window": 5, "mad_k": 3.0}}}
+    )
+
+    outlier_policy = _flaggable_outlier_policy(policy_model)
+
+    assert outlier_policy is not None
+    assert _outlier_window_and_mad_k(outlier_policy) == (5, 3.0)
+
+
+def test_flaggable_outlier_policy_returns_none_for_non_flag_action():
+    class _Outliers:
+        enabled = True
+
+        @staticmethod
+        def model_dump():
+            return {"action": "IGNORE", "params": {}}
+
+    class _Policy:
+        outliers = _Outliers()
+
+    assert _flaggable_outlier_policy(_Policy()) is None
+
+
+def test_outlier_window_and_mad_k_uses_defaults():
+    assert _outlier_window_and_mad_k({"action": "FLAG"}) == (63, 5.0)
+
+
 def test_flag_outliers_returns_early_for_non_flag_action(sample_policy_df):
     diagnostics = EngineDiagnostics()
 
@@ -233,3 +281,33 @@ def test_extract_policy_inputs_collects_ignored_dates():
         pd.Timestamp("2025-03-15").date(),
         pd.Timestamp("2025-03-16").date(),
     }
+
+
+def test_extract_policy_inputs_returns_empty_inputs_for_missing_policy():
+    inputs = _extract_policy_inputs(None)
+
+    assert inputs.overrides == {}
+    assert inputs.ignore_days == []
+    assert inputs.ignored_dates == set()
+
+
+def test_policy_inputs_from_payload_defaults_missing_sections():
+    inputs = _policy_inputs_from_payload({})
+
+    assert inputs.overrides == {}
+    assert inputs.ignore_days == []
+    assert inputs.ignored_dates == set()
+
+
+def test_policy_inputs_from_payload_projects_payload_sections():
+    ignored_date = pd.Timestamp("2025-03-15").date()
+    payload = {
+        "overrides": {"market_values": [{"perf_date": ignored_date, "end_mv": 200.0}]},
+        "ignore_days": [{"entity_type": "POSITION", "entity_id": "P1", "dates": [ignored_date]}],
+    }
+
+    inputs = _policy_inputs_from_payload(payload)
+
+    assert inputs.overrides == payload["overrides"]
+    assert inputs.ignore_days == payload["ignore_days"]
+    assert inputs.ignored_dates == {ignored_date}

@@ -280,24 +280,7 @@ def build_execution_response(
             )
             for snapshot in record.upstream_snapshots
         ],
-        compute_job=(
-            None
-            if job is None
-            else ComputeJobResponse(
-                job_status=job.job_status.value,
-                attempt_count=job.attempt_count,
-                max_attempts=job.max_attempts,
-                worker_id=job.worker_id,
-                error_message=job.error_message,
-                error_type=job.error_type,
-                leased_at_utc=job.leased_at_utc,
-                lease_expires_at_utc=job.lease_expires_at_utc,
-                last_error_at_utc=job.last_error_at_utc,
-                created_at_utc=job.created_at_utc,
-                started_at_utc=job.started_at_utc,
-                completed_at_utc=job.completed_at_utc,
-            )
-        ),
+        compute_job=_compute_job_response(job),
         async_result=(
             None
             if async_result is None
@@ -309,4 +292,23 @@ def build_execution_response(
                 updated_at_utc=async_result.updated_at_utc,
             )
         ),
+    )
+
+
+def _compute_job_response(job: ComputeJobRecord | None) -> ComputeJobResponse | None:
+    if job is None:
+        return None
+    return ComputeJobResponse(
+        job_status=job.job_status.value,
+        attempt_count=job.attempt_count,
+        max_attempts=job.max_attempts,
+        worker_id=job.worker_id,
+        error_message=job.error_message,
+        error_type=job.error_type,
+        leased_at_utc=job.leased_at_utc,
+        lease_expires_at_utc=job.lease_expires_at_utc,
+        last_error_at_utc=job.last_error_at_utc,
+        created_at_utc=job.created_at_utc,
+        started_at_utc=job.started_at_utc,
+        completed_at_utc=job.completed_at_utc,
     )

@@ -72,11 +72,15 @@ def _validate_stateless_contribution_payloads(
 
 
 def _stateless_contribution_envelope_issue(*, has_nested: bool, has_legacy: bool) -> str | None:
+    if _has_exactly_one_stateless_contribution_shape(has_nested=has_nested, has_legacy=has_legacy):
+        return None
     if has_nested and has_legacy:
         return "Provide either stateless_input or legacy portfolio_data/positions_data, not both, for stateless mode"
-    if not has_nested and not has_legacy:
-        return "stateless_input or legacy portfolio_data/positions_data is required when input_mode=stateless"
-    return None
+    return "stateless_input or legacy portfolio_data/positions_data is required when input_mode=stateless"
+
+
+def _has_exactly_one_stateless_contribution_shape(*, has_nested: bool, has_legacy: bool) -> bool:
+    return has_nested != has_legacy
 
 
 def _validate_stateful_contribution_payloads(
@@ -101,10 +105,7 @@ def _resolved_stateless_contribution_inputs(
     nested_input = request.stateless_input
     candidates = (
         _complete_contribution_input_pair(portfolio_data=portfolio_data, positions_data=positions_data),
-        _complete_contribution_input_pair(
-            portfolio_data=nested_input.portfolio_data if nested_input is not None else None,
-            positions_data=nested_input.positions_data if nested_input is not None else None,
-        ),
+        _nested_contribution_input_pair(nested_input),
         _complete_contribution_input_pair(
             portfolio_data=request.portfolio_data,
             positions_data=request.positions_data,
@@ -114,6 +115,17 @@ def _resolved_stateless_contribution_inputs(
         if candidate is not None:
             return candidate
     raise ValueError("No stateless contribution inputs are available to build a ContributionRequest")
+
+
+def _nested_contribution_input_pair(
+    nested_input: ContributionStatelessInput | None,
+) -> tuple[PortfolioData, list[PositionData]] | None:
+    if nested_input is None:
+        return None
+    return _complete_contribution_input_pair(
+        portfolio_data=nested_input.portfolio_data,
+        positions_data=nested_input.positions_data,
+    )
 
 
 def _complete_contribution_input_pair(

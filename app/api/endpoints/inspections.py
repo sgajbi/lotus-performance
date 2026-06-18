@@ -43,6 +43,12 @@ def _is_completed_twr_inspection_record(record: LineageRecord | None) -> bool:
     )
 
 
+def _is_available_twr_inspection_artifact(record: LineageRecord | None, artifact_name: str) -> bool:
+    if record is None:
+        return False
+    return _is_completed_twr_inspection_record(record) and artifact_name in record.artifact_names
+
+
 def _retained_inspection_artifact_response(*, payload: LineagePayload | None, artifact_name: str) -> Response | None:
     if payload is None or artifact_name not in payload.details:
         return None
@@ -186,9 +192,7 @@ def get_twr_inspection_artifact(
     ),
 ):
     record = lineage_metadata_store.get_record(inspection_id)
-    if not _is_completed_twr_inspection_record(record):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Inspection artifact not found.")
-    if artifact_name not in record.artifact_names:
+    if not _is_available_twr_inspection_artifact(record, artifact_name):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Inspection artifact not found.")
 
     artifact_path = _inspection_storage_path(inspection_id=inspection_id, artifact_name=artifact_name)

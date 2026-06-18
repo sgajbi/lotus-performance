@@ -17,6 +17,11 @@ from engine.schema import PortfolioColumns
 
 logger = logging.getLogger(__name__)
 
+_ENGINE_GENERATED_COLUMNS = {
+    PortfolioColumns.LONG_SHORT.value,
+    PortfolioColumns.EFFECTIVE_PERIOD_START_DATE.value,
+}
+
 
 def run_calculations(df: pd.DataFrame, config: EngineConfig) -> Tuple[pd.DataFrame, EngineDiagnostics]:
     """
@@ -55,10 +60,7 @@ def run_calculations(df: pd.DataFrame, config: EngineConfig) -> Tuple[pd.DataFra
 
         reset_events = _build_reset_events(working_df)
 
-        final_df = _filter_results_to_reporting_period(working_df, config)
-
-        if config.precision_mode != PrecisionMode.DECIMAL_STRICT:
-            _round_float_columns(final_df, config.rounding_precision)
+        final_df = _build_reporting_results(working_df, config)
 
         diagnostics = _build_engine_diagnostics(
             working_df=working_df,
@@ -160,6 +162,15 @@ def _build_engine_diagnostics(
     return diagnostics
 
 
+def _build_reporting_results(working_df: pd.DataFrame, config: EngineConfig) -> pd.DataFrame:
+    final_df = _filter_results_to_reporting_period(working_df, config)
+
+    if config.precision_mode != PrecisionMode.DECIMAL_STRICT:
+        _round_float_columns(final_df, config.rounding_precision)
+
+    return final_df
+
+
 def _prepare_dataframe(df: pd.DataFrame, config: EngineConfig):
     """Initializes and prepares the DataFrame for calculation, handling precision mode."""
     _coerce_engine_numeric_columns(df, config)
@@ -167,12 +178,15 @@ def _prepare_dataframe(df: pd.DataFrame, config: EngineConfig):
     if df[PortfolioColumns.PERF_DATE.value].isnull().any():
         raise InvalidEngineInputError("One or more 'perf_date' values are invalid or missing.")
 
+    _ensure_engine_schema_columns(df, config)
+
+
+def _ensure_engine_schema_columns(df: pd.DataFrame, config: EngineConfig) -> None:
+    default_value = Decimal(0) if config.precision_mode == PrecisionMode.DECIMAL_STRICT else 0.0
     for col in PortfolioColumns:
-        if col.value not in df.columns and col.value not in [
-            PortfolioColumns.LONG_SHORT.value,
-            PortfolioColumns.EFFECTIVE_PERIOD_START_DATE.value,
-        ]:
-            df[col.value] = Decimal(0) if config.precision_mode == PrecisionMode.DECIMAL_STRICT else 0.0
+        if col.value in df.columns or col.value in _ENGINE_GENERATED_COLUMNS:
+            continue
+        df[col.value] = default_value
     df[PortfolioColumns.PERF_RESET.value] = 0
     df[PortfolioColumns.LONG_SHORT.value] = ""
 

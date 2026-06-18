@@ -6,6 +6,7 @@ from app.models.attribution_analytics_requests import (
     AttributionAnalyticsRequest,
     _attribution_input_shape,
     _attribution_request_payload,
+    _has_exactly_one_stateless_input_shape,
     _resolve_attribution_stateless_input,
     _stateless_input_envelope_issue,
 )
@@ -248,6 +249,19 @@ def test_stateless_input_envelope_issue_requires_exactly_one_payload_shape():
     assert _stateless_input_envelope_issue(has_nested=False, has_legacy=True) is None
     assert "not both" in str(_stateless_input_envelope_issue(has_nested=True, has_legacy=True))
     assert "are required" in str(_stateless_input_envelope_issue(has_nested=False, has_legacy=False))
+
+
+@pytest.mark.parametrize(
+    ("has_nested", "has_legacy", "expected"),
+    [
+        (True, False, True),
+        (False, True, True),
+        (True, True, False),
+        (False, False, False),
+    ],
+)
+def test_has_exactly_one_stateless_input_shape_requires_one_payload_shape(has_nested, has_legacy, expected):
+    assert _has_exactly_one_stateless_input_shape(has_nested=has_nested, has_legacy=has_legacy) is expected
 
 
 def test_attribution_analytics_request_rejects_mixed_stateless_shapes(base_attribution_payload):
