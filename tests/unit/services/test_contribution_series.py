@@ -13,12 +13,74 @@ from app.services.contribution_series import (
     _apply_hierarchy_unclassified_policy,
     _build_hierarchy_from_adjusted_position_series,
     _daily_hierarchy_metadata,
+    _has_adjusted_hierarchy_inputs,
     _prepared_adjusted_hierarchy_frames,
     _residual_adjusted_daily_totals_by_date,
     _residual_adjusted_position_rows,
     _target_total_contribution_by_position,
 )
 from engine.schema import PortfolioColumns
+
+
+def test_has_adjusted_hierarchy_inputs_requires_hierarchy_period_rows_and_position_series():
+    request = ContributionRequest.model_validate(
+        {
+            "portfolio_id": "PB_TEST",
+            "report_start_date": "2026-03-30",
+            "report_end_date": "2026-03-31",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "hierarchy": ["sector"],
+            "portfolio_data": {
+                "metric_basis": "NET",
+                "valuation_points": [
+                    {"perf_date": "2026-03-30", "begin_mv": 1000, "end_mv": 1010},
+                ],
+            },
+            "positions_data": [
+                {
+                    "position_id": "SEC_A",
+                    "valuation_points": [
+                        {"perf_date": "2026-03-30", "begin_mv": 500, "end_mv": 505},
+                    ],
+                }
+            ],
+        }
+    )
+    period_slice_df = pd.DataFrame(
+        {
+            "position_id": ["SEC_A"],
+            PortfolioColumns.PERF_DATE.value: [date(2026, 3, 30)],
+            "daily_weight": [0.5],
+            "sector": ["Technology"],
+        }
+    )
+    position_series = [
+        PositionContributionSeries(
+            position_id="SEC_A",
+            series=[PositionDailyContribution(date=date(2026, 3, 30), contribution=1.0)],
+        )
+    ]
+
+    assert _has_adjusted_hierarchy_inputs(
+        period_slice_df=period_slice_df,
+        position_series=position_series,
+        request=request,
+    )
+    assert not _has_adjusted_hierarchy_inputs(
+        period_slice_df=period_slice_df,
+        position_series=position_series,
+        request=request.model_copy(update={"hierarchy": []}),
+    )
+    assert not _has_adjusted_hierarchy_inputs(
+        period_slice_df=period_slice_df.iloc[0:0],
+        position_series=position_series,
+        request=request,
+    )
+    assert not _has_adjusted_hierarchy_inputs(
+        period_slice_df=period_slice_df,
+        position_series=[],
+        request=request,
+    )
 
 
 def test_build_hierarchy_from_adjusted_position_series_uses_observation_date_alignment():

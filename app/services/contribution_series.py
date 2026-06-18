@@ -193,7 +193,11 @@ def _build_hierarchy_from_adjusted_position_series(
 ) -> dict[str, Any]:
     """Builds hierarchy rows from the same adjusted daily position series emitted to clients."""
     summary = _initial_hierarchy_summary(request)
-    if not request.hierarchy or period_slice_df.empty or not position_series:
+    if not _has_adjusted_hierarchy_inputs(
+        period_slice_df=period_slice_df,
+        position_series=position_series,
+        request=request,
+    ):
         return {"summary": summary, "levels": []}
 
     prepared_frames = _prepared_adjusted_hierarchy_frames(
@@ -211,6 +215,15 @@ def _build_hierarchy_from_adjusted_position_series(
 
     summary["portfolio_contribution"] = _as_numeric(adjusted_df["adjusted_contribution"].sum()) * 100
     return {"summary": summary, "levels": response_levels}
+
+
+def _has_adjusted_hierarchy_inputs(
+    *,
+    period_slice_df: pd.DataFrame,
+    position_series: list[PositionContributionSeries],
+    request: ContributionRequest,
+) -> bool:
+    return bool(request.hierarchy) and not period_slice_df.empty and bool(position_series)
 
 
 def _prepared_adjusted_hierarchy_frames(
