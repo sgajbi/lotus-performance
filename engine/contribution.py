@@ -260,7 +260,11 @@ def _apply_position_fx_capital_conversion(
     position_ccy: Any,
     fx_rates_df: pd.DataFrame,
 ) -> pd.DataFrame:
-    if request.currency_mode != "BOTH" or position_ccy == request.report_ccy or fx_rates_df.empty:
+    if not _requires_position_fx_capital_conversion(
+        request=request,
+        position_ccy=position_ccy,
+        fx_rates_df=fx_rates_df,
+    ):
         return position_results_df
     pos_fx_lookup = fx_rates_df[fx_rates_df["ccy"] == position_ccy][["date", "rate"]].rename(
         columns={"rate": "fx_rate"}
@@ -273,6 +277,15 @@ def _apply_position_fx_capital_conversion(
         for col in [PortfolioColumns.BEGIN_MV.value, PortfolioColumns.BOD_CF.value]:
             converted_df[col] *= converted_df["fx_rate"]
     return converted_df
+
+
+def _requires_position_fx_capital_conversion(
+    *,
+    request: ContributionRequestLike,
+    position_ccy: Any,
+    fx_rates_df: pd.DataFrame,
+) -> bool:
+    return request.currency_mode == "BOTH" and position_ccy != request.report_ccy and not fx_rates_df.empty
 
 
 def calculate_hierarchical_contribution(request: ContributionRequestLike) -> Tuple[Dict, Dict]:
