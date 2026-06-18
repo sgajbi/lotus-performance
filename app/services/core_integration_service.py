@@ -225,14 +225,14 @@ class CoreIntegrationService:
         index_status: str | None = None,
     ) -> tuple[int, dict[str, Any]]:
         payload: dict[str, Any] = {"as_of_date": str(as_of_date)}
-        if index_ids:
-            payload["index_ids"] = index_ids
-        if index_currency:
-            payload["index_currency"] = index_currency
-        if index_type:
-            payload["index_type"] = index_type
-        if index_status:
-            payload["index_status"] = index_status
+        payload.update(
+            _index_catalog_filter_payload(
+                index_ids=index_ids,
+                index_currency=index_currency,
+                index_type=index_type,
+                index_status=index_status,
+            )
+        )
         return await self._post_json(
             path="/integration/indices/catalog",
             payload=payload,
@@ -281,3 +281,19 @@ class CoreIntegrationService:
             path="/integration/reference/risk-free-series",
             payload=payload,
         )
+
+
+def _index_catalog_filter_payload(
+    *,
+    index_ids: list[str] | None,
+    index_currency: str | None,
+    index_type: str | None,
+    index_status: str | None,
+) -> dict[str, Any]:
+    filter_values: tuple[tuple[str, Any], ...] = (
+        ("index_ids", index_ids),
+        ("index_currency", index_currency),
+        ("index_type", index_type),
+        ("index_status", index_status),
+    )
+    return {field_name: value for field_name, value in filter_values if value}
