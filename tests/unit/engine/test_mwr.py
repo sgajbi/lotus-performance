@@ -14,6 +14,8 @@ from engine.mwr import (
     _dietz_fallback_metadata,
     _dietz_method_for_calculation,
     _mwr_no_economic_content_result,
+    _net_cash_flow_amounts_by_date,
+    _net_same_day_flows,
     _resolve_mwr_period_bounds,
     _scan_xirr_roots,
     _xirr,
@@ -131,6 +133,28 @@ def test_xirr_initial_failure_reason_maps_empty_and_one_sided_vectors():
         rate_lower_bound=-0.999999999,
         rate_upper_bound=1000.0,
     ) == ("No positive and negative cash flows in solver vector.", "NO_POSITIVE_AND_NEGATIVE_CASH_FLOW")
+
+
+def test_net_cash_flow_amounts_by_date_preserves_zero_net_dates():
+    amounts_by_date = _net_cash_flow_amounts_by_date(
+        values=[100.0, -100.0, 25.5],
+        dates=[date(2026, 1, 2), date(2026, 1, 2), date(2026, 1, 3)],
+    )
+
+    assert amounts_by_date == {
+        date(2026, 1, 2): 0.0,
+        date(2026, 1, 3): 25.5,
+    }
+
+
+def test_net_same_day_flows_sorts_dates_and_drops_zero_net_dates():
+    values, dates = _net_same_day_flows(
+        values=[25.5, 100.0, -100.0, -10.0],
+        dates=[date(2026, 1, 3), date(2026, 1, 2), date(2026, 1, 2), date(2026, 1, 1)],
+    )
+
+    assert values.tolist() == [-10.0, 25.5]
+    assert dates.tolist() == [date(2026, 1, 1), date(2026, 1, 3)]
 
 
 def test_scan_xirr_roots_returns_single_residual_for_bracketed_schedule():

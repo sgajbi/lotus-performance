@@ -19,14 +19,19 @@ def _day_count_denominator(annualization: Annualization) -> float:
 
 
 def _net_same_day_flows(values: list[float], dates: list[date]) -> tuple[np.ndarray, np.ndarray]:
-    by_date: dict[date, float] = {}
-    for value, flow_date in zip(values, dates):
-        by_date[flow_date] = by_date.get(flow_date, 0.0) + float(value)
+    by_date = _net_cash_flow_amounts_by_date(values, dates)
     sorted_items = [(flow_date, amount) for flow_date, amount in sorted(by_date.items()) if amount != 0.0]
     return (
         np.array([amount for _, amount in sorted_items], dtype=float),
         np.array([flow_date for flow_date, _ in sorted_items]),
     )
+
+
+def _net_cash_flow_amounts_by_date(values, dates):
+    by_date = {}
+    for value, flow_date in zip(values, dates):
+        by_date[flow_date] = by_date.get(flow_date, 0) + value
+    return by_date
 
 
 def _npv_at_rate(values: np.ndarray, taus: np.ndarray, rate: float) -> float:
