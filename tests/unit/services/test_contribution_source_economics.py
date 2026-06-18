@@ -18,7 +18,9 @@ from app.services.contribution_source_economics import (
     _source_cash_flow_type_counts,
     _stateful_cash_flow_economics,
     _stateful_metadata_economics,
+    _stateful_reason_codes,
     _stateful_source_economics_evidence,
+    _upstream_snapshot_lineage_reason_code,
     build_contribution_source_economics_evidence,
 )
 from app.services.execution_registry import UpstreamSnapshotRecord
@@ -137,6 +139,21 @@ def test_stateful_source_economics_evidence_reports_source_backed_contract_when_
     assert evidence.source_snapshot_count == 1
     assert evidence.source_snapshot_endpoints == ["portfolio_timeseries"]
     assert "UPSTREAM_SNAPSHOT_LINEAGE_AVAILABLE" in evidence.reason_codes
+
+
+def test_stateful_reason_codes_project_snapshot_lineage_policy():
+    assert _upstream_snapshot_lineage_reason_code([_snapshot("portfolio_timeseries")]) == (
+        "UPSTREAM_SNAPSHOT_LINEAGE_AVAILABLE"
+    )
+    assert _upstream_snapshot_lineage_reason_code([]) == "UPSTREAM_SNAPSHOT_LINEAGE_AVAILABLE_VIA_EXECUTION_ONLY"
+    assert _stateful_reason_codes(
+        unsupported_economics=[],
+        degraded_economics=[],
+        upstream_snapshots=[],
+    ) == [
+        "LOTUS_CORE_ANALYTICS_INPUTS_USED",
+        "UPSTREAM_SNAPSHOT_LINEAGE_AVAILABLE_VIA_EXECUTION_ONLY",
+    ]
 
 
 def test_stateful_cash_flow_economics_projects_supported_source_flow_families():

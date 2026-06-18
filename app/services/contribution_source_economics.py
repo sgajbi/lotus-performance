@@ -202,11 +202,14 @@ def _stateful_reason_codes(
         reason_codes.append("UNSUPPORTED_SOURCE_CASH_FLOW_TYPES_PRESENT")
     if "missing_classification" in degraded_economics:
         reason_codes.append("UNCLASSIFIED_POSITION_ECONOMICS_PRESENT")
-    if upstream_snapshots:
-        reason_codes.append("UPSTREAM_SNAPSHOT_LINEAGE_AVAILABLE")
-    else:
-        reason_codes.append("UPSTREAM_SNAPSHOT_LINEAGE_AVAILABLE_VIA_EXECUTION_ONLY")
+    reason_codes.append(_upstream_snapshot_lineage_reason_code(upstream_snapshots))
     return sorted(set(reason_codes))
+
+
+def _upstream_snapshot_lineage_reason_code(upstream_snapshots: list[UpstreamSnapshotRecord]) -> str:
+    if upstream_snapshots:
+        return "UPSTREAM_SNAPSHOT_LINEAGE_AVAILABLE"
+    return "UPSTREAM_SNAPSHOT_LINEAGE_AVAILABLE_VIA_EXECUTION_ONLY"
 
 
 def _cash_flow_type_counts(request: ContributionRequest) -> Counter[str]:
