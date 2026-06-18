@@ -563,11 +563,15 @@ def _validation_error_json_content(response: Any) -> dict[str, Any] | None:
     json_content = _application_json_content(response)
     if json_content is None:
         return None
-    if "example" in json_content or "examples" in json_content:
+    if _json_content_has_authored_example(json_content):
         return None
     if not _is_http_validation_error_schema(json_content):
         return None
     return json_content
+
+
+def _json_content_has_authored_example(json_content: dict[str, Any]) -> bool:
+    return "example" in json_content or "examples" in json_content
 
 
 def _ensure_error_response_examples(responses: dict[str, Any]) -> None:

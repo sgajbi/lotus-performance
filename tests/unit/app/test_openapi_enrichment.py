@@ -24,6 +24,7 @@ from app.openapi_enrichment import (
     _infer_schema_description,
     _iter_documentable_operations,
     _iter_schema_properties,
+    _json_content_has_authored_example,
     _listed_schema_example,
     _named_schema_example,
     _named_schema_example_value,
@@ -477,6 +478,12 @@ def test_validation_error_json_content_selects_undocumented_http_validation_sche
     assert json_content is response["content"]["application/json"]
     assert _validation_error_json_content(documented_response) is None
     assert _validation_error_json_content({"content": {"text/plain": {"schema": {"type": "string"}}}}) is None
+
+
+def test_json_content_has_authored_example_detects_example_forms():
+    assert _json_content_has_authored_example({"example": {"status": "ready"}}) is True
+    assert _json_content_has_authored_example({"examples": {"ready": {"value": {"status": "ready"}}}}) is True
+    assert _json_content_has_authored_example({"schema": {"type": "object"}}) is False
 
 
 def test_application_json_content_selects_only_json_content_dicts():
