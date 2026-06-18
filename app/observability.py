@@ -65,6 +65,10 @@ def _bounded_mwr_solver_reason_codes(reason_codes: list[str] | tuple[str, ...]) 
     )
 
 
+def _bounded_metric_label(value: str, *, allowed_values: frozenset[str], fallback: str) -> str:
+    return value if value in allowed_values else fallback
+
+
 def _bounded_mwr_solver_outcome_labels(
     *,
     input_mode: str,
@@ -74,10 +78,10 @@ def _bounded_mwr_solver_outcome_labels(
     fallback_used: bool,
 ) -> dict[str, str]:
     return {
-        "input_mode": input_mode if input_mode in _MWR_ALLOWED_INPUT_MODES else "other",
-        "method": method if method in _MWR_ALLOWED_METHODS else "OTHER",
-        "status": status if status in _MWR_ALLOWED_STATUSES else "OTHER",
-        "reason_code": reason_code if reason_code in _MWR_ALLOWED_REASON_CODES else "OTHER",
+        "input_mode": _bounded_metric_label(input_mode, allowed_values=_MWR_ALLOWED_INPUT_MODES, fallback="other"),
+        "method": _bounded_metric_label(method, allowed_values=_MWR_ALLOWED_METHODS, fallback="OTHER"),
+        "status": _bounded_metric_label(status, allowed_values=_MWR_ALLOWED_STATUSES, fallback="OTHER"),
+        "reason_code": _bounded_metric_label(reason_code, allowed_values=_MWR_ALLOWED_REASON_CODES, fallback="OTHER"),
         "fallback_used": str(fallback_used).lower(),
     }
 

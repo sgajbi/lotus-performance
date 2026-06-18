@@ -6,6 +6,7 @@ from prometheus_client import REGISTRY, generate_latest
 
 from app.observability import (
     JsonFormatter,
+    _bounded_metric_label,
     _bounded_mwr_solver_outcome_labels,
     _bounded_mwr_solver_reason_codes,
     _instrumentator_route_name,
@@ -189,6 +190,13 @@ def test_instrumentator_route_name_resolves_fastapi_included_router_context():
 def test_bounded_mwr_solver_reason_codes_defaults_and_filters_unsafe_values():
     assert _bounded_mwr_solver_reason_codes([]) == ("NONE",)
     assert _bounded_mwr_solver_reason_codes(["NO_ROOT_FOUND", "portfolio-123"]) == ("NO_ROOT_FOUND", "OTHER")
+
+
+def test_bounded_metric_label_preserves_allowed_values_and_collapses_unsafe_values():
+    allowed_values = frozenset({"stateful", "stateless"})
+
+    assert _bounded_metric_label("stateful", allowed_values=allowed_values, fallback="other") == "stateful"
+    assert _bounded_metric_label("portfolio-123", allowed_values=allowed_values, fallback="other") == "other"
 
 
 def test_bounded_mwr_solver_outcome_labels_filter_unsafe_values():
