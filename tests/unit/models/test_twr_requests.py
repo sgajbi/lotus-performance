@@ -4,6 +4,7 @@ from types import SimpleNamespace
 import pytest
 from pydantic import ValidationError
 
+from app.models.benchmark_analytics_requests import BenchmarkStatelessInput
 from app.models.requests import DailyInputData
 from app.models.twr_requests import (
     TWRAnalyticsRequest,
@@ -18,6 +19,7 @@ from app.models.twr_requests import (
     _validate_calculated_stateless_twr_benchmark_payload,
     _validate_stateless_twr_payloads,
     _validate_twr_benchmark_inclusion,
+    _vendor_series_stateless_twr_benchmark_input_issue,
 )
 
 
@@ -521,6 +523,67 @@ def test_twr_benchmark_request_enforces_vendor_series_payload_shape():
                 },
             }
         )
+
+
+def test_vendor_series_stateless_twr_benchmark_issue_preserves_payload_policy():
+    assert (
+        _vendor_series_stateless_twr_benchmark_input_issue(
+            BenchmarkStatelessInput.model_validate({"benchmark_currency": "USD"})
+        )
+        == "benchmark.stateless_input.benchmark_return_points are required when benchmark.return_source=vendor_series"
+    )
+
+    assert (
+        _vendor_series_stateless_twr_benchmark_input_issue(
+            BenchmarkStatelessInput.model_validate(
+                {
+                    "benchmark_currency": "USD",
+                    "benchmark_return_points": [{"perf_date": "2025-01-01", "benchmark_return": 0.01}],
+                    "component_observations": [
+                        {
+                            "component_id": "IDX_A",
+                            "perf_date": "2025-01-01",
+                            "weight_bop": 1.0,
+                            "component_return": 0.01,
+                        }
+                    ],
+                }
+            )
+        )
+        == "benchmark.stateless_input.component_observations must be empty when benchmark.return_source=vendor_series"
+    )
+
+    assert (
+        _vendor_series_stateless_twr_benchmark_input_issue(
+            BenchmarkStatelessInput.model_validate(
+                {
+                    "benchmark_currency": "USD",
+                    "benchmark_return_points": [{"perf_date": "2025-01-01", "benchmark_return": 0.01}],
+                    "component_price_points": [
+                        {
+                            "component_id": "IDX_A",
+                            "perf_date": "2025-01-01",
+                            "weight_bop": 1.0,
+                            "index_price": 101.0,
+                        }
+                    ],
+                }
+            )
+        )
+        == "benchmark.stateless_input.component_price_points must be empty when benchmark.return_source=vendor_series"
+    )
+
+    assert (
+        _vendor_series_stateless_twr_benchmark_input_issue(
+            BenchmarkStatelessInput.model_validate(
+                {
+                    "benchmark_currency": "USD",
+                    "benchmark_return_points": [{"perf_date": "2025-01-01", "benchmark_return": 0.01}],
+                }
+            )
+        )
+        is None
+    )
 
 
 def test_validate_calculated_stateless_twr_benchmark_payload_requires_one_component_source():

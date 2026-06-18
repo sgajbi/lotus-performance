@@ -50,21 +50,32 @@ def _validate_calculated_stateless_twr_benchmark_payload(request: "TWRBenchmarkR
 
 
 def _validate_vendor_series_stateless_twr_benchmark_payload(request: "TWRBenchmarkRequest") -> None:
-    if request.stateless_input is None:
+    issue = _vendor_series_stateless_twr_benchmark_payload_issue(request)
+    if issue is None:
         return
+    raise ValueError(issue)
 
-    if not request.stateless_input.benchmark_return_points:
-        raise ValueError(
+
+def _vendor_series_stateless_twr_benchmark_payload_issue(request: "TWRBenchmarkRequest") -> str | None:
+    if request.stateless_input is None:
+        return None
+    return _vendor_series_stateless_twr_benchmark_input_issue(request.stateless_input)
+
+
+def _vendor_series_stateless_twr_benchmark_input_issue(stateless_input: BenchmarkStatelessInput) -> str | None:
+    if not stateless_input.benchmark_return_points:
+        return (
             "benchmark.stateless_input.benchmark_return_points are required when benchmark.return_source=vendor_series"
         )
-    if request.stateless_input.component_observations:
-        raise ValueError(
+    if stateless_input.component_observations:
+        return (
             "benchmark.stateless_input.component_observations must be empty when benchmark.return_source=vendor_series"
         )
-    if request.stateless_input.component_price_points:
-        raise ValueError(
+    if stateless_input.component_price_points:
+        return (
             "benchmark.stateless_input.component_price_points must be empty when benchmark.return_source=vendor_series"
         )
+    return None
 
 
 def _validate_stateless_twr_benchmark_payloads(request: "TWRBenchmarkRequest") -> None:
