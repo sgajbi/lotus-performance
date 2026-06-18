@@ -2,6 +2,7 @@ import pytest
 
 from app.models.mwr_analytics_requests import (
     MoneyWeightedReturnAnalyticsRequest,
+    _has_exactly_one_stateless_mwr_shape,
     _resolve_mwr_stateless_input,
     _stateless_mwr_envelope_issue,
     _validate_legacy_stateless_payload_complete,
@@ -151,6 +152,13 @@ def test_stateless_mwr_envelope_issue_requires_exactly_one_payload_shape():
     assert _stateless_mwr_envelope_issue(has_nested=False, has_legacy=False) == (
         "stateless_input or legacy begin_mv/end_mv/cash_flows is required when input_mode=stateless"
     )
+
+
+def test_stateless_mwr_shape_predicate_requires_exactly_one_payload_shape():
+    assert _has_exactly_one_stateless_mwr_shape(has_nested=True, has_legacy=False)
+    assert _has_exactly_one_stateless_mwr_shape(has_nested=False, has_legacy=True)
+    assert not _has_exactly_one_stateless_mwr_shape(has_nested=True, has_legacy=True)
+    assert not _has_exactly_one_stateless_mwr_shape(has_nested=False, has_legacy=False)
 
 
 def test_mwr_analytics_request_rejects_stateful_payload_shape_conflicts():

@@ -65,11 +65,15 @@ def _validate_stateless_mwr_payloads(
 
 
 def _stateless_mwr_envelope_issue(*, has_nested: bool, has_legacy: bool) -> str | None:
+    if _has_exactly_one_stateless_mwr_shape(has_nested=has_nested, has_legacy=has_legacy):
+        return None
     if has_nested and has_legacy:
         return "Provide either stateless_input or legacy begin_mv/end_mv/cash_flows, not both, for stateless mode"
-    if not has_nested and not has_legacy:
-        return "stateless_input or legacy begin_mv/end_mv/cash_flows is required when input_mode=stateless"
-    return None
+    return "stateless_input or legacy begin_mv/end_mv/cash_flows is required when input_mode=stateless"
+
+
+def _has_exactly_one_stateless_mwr_shape(*, has_nested: bool, has_legacy: bool) -> bool:
+    return has_nested != has_legacy
 
 
 def _validate_stateful_mwr_payloads(
