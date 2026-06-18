@@ -24,6 +24,7 @@ from app.openapi_enrichment import (
     _iter_schema_properties,
     _listed_schema_example,
     _named_schema_example,
+    _named_schema_example_value,
     _object_schema_example,
     _ref_schema_example,
     _request_body_example,
@@ -225,6 +226,12 @@ def test_named_schema_example_extracts_first_named_value():
     assert _named_schema_example({"documented": {"value": {"status": "complete"}}}) == {"status": "complete"}
     assert _named_schema_example({"documented": {"summary": "missing value"}}) is None
     assert _named_schema_example([{"value": "not named"}]) is None
+
+
+def test_named_schema_example_value_extracts_value_only_from_named_mapping():
+    assert _named_schema_example_value({"value": {"status": "complete"}}) == {"status": "complete"}
+    assert _named_schema_example_value({"summary": "missing value"}) is None
+    assert _named_schema_example_value(["not named"]) is None
 
 
 def test_listed_schema_example_extracts_first_list_value():

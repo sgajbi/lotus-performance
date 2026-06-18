@@ -353,9 +353,16 @@ def _named_schema_example(examples: Any) -> Any | None:
     if not isinstance(examples, dict) or not examples:
         return None
     first = next(iter(examples.values()))
-    if isinstance(first, dict) and first.get("value") is not None:
-        return copy.deepcopy(first["value"])
+    named_value = _named_schema_example_value(first)
+    if named_value is not None:
+        return named_value
     return None
+
+
+def _named_schema_example_value(example: Any) -> Any | None:
+    if not isinstance(example, dict) or example.get("value") is None:
+        return None
+    return copy.deepcopy(example["value"])
 
 
 def _composed_schema_example(
