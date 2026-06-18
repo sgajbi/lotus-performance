@@ -1,4 +1,5 @@
 from datetime import date
+from math import isclose
 from types import SimpleNamespace
 
 from app.models.responses import (
@@ -11,6 +12,8 @@ from app.models.responses import (
 )
 from app.services.inspection.calculation_consistency import (
     _apply_daily_no_investment_period_status,
+    _block_linking_mismatch_finding,
+    _block_linking_mismatch_for_frequency,
     _check_benchmark_relative_pairing,
     _check_daily_breakdown_calculation_evidence,
     _check_period_calculation_consistency,
@@ -454,6 +457,117 @@ def test_calculation_consistency_flags_portfolio_breakdown_link_mismatch():
 
     assert {finding.code for finding in result.findings} == {"PORTFOLIO_BREAKDOWN_LINK_MISMATCH"}
     assert result.findings[0].evidence["bucket_count"] == 2
+
+
+def test_block_linking_mismatch_finding_projects_operational_evidence():
+    finding = _block_linking_mismatch_finding(
+        period_name="YTD",
+        block_name="portfolio",
+        owner_repo="lotus-performance",
+        frequency=Frequency.MONTHLY,
+        linked_return=2.01,
+        actual_return=99.0,
+        bucket_count=2,
+    )
+
+    assert finding.code == "PORTFOLIO_BREAKDOWN_LINK_MISMATCH"
+    assert finding.severity == "high"
+    assert finding.category == "math_consistency"
+    assert finding.owner_repo == "lotus-performance"
+    assert finding.summary == "Portfolio breakdowns do not geometrically link to the served summary return."
+    assert "compound to 2.0100000000" in finding.explanation
+    assert finding.evidence == {
+        "period": "YTD",
+        "frequency": "monthly",
+        "linked_return_base": 2.01,
+        "summary_return_base": 99.0,
+        "bucket_count": 2,
+    }
+
+
+def test_block_linking_mismatch_for_frequency_skips_unlinkable_and_matching_rows():
+    one_item = [
+        _breakdown_item(
+            period="2026-03",
+            period_start=date(2026, 3, 1),
+            period_end=date(2026, 3, 31),
+            period_return=1.0,
+            cumulative_return=1.0,
+        )
+    ]
+
+    assert (
+        _block_linking_mismatch_for_frequency(
+            period_name="YTD",
+            block_name="portfolio",
+            owner_repo="lotus-performance",
+            frequency=Frequency.MONTHLY,
+            items=one_item,
+            summary_return=1.0,
+        )
+        is None
+    )
+
+    matching_items = [
+        _breakdown_item(
+            period="2026-03",
+            period_start=date(2026, 3, 1),
+            period_end=date(2026, 3, 31),
+            period_return=1.0,
+            cumulative_return=1.0,
+        ),
+        _breakdown_item(
+            period="2026-04",
+            period_start=date(2026, 4, 1),
+            period_end=date(2026, 4, 30),
+            period_return=1.0,
+            cumulative_return=2.01,
+        ),
+    ]
+
+    assert (
+        _block_linking_mismatch_for_frequency(
+            period_name="YTD",
+            block_name="portfolio",
+            owner_repo="lotus-performance",
+            frequency=Frequency.MONTHLY,
+            items=matching_items,
+            summary_return=2.01,
+        )
+        is None
+    )
+
+
+def test_block_linking_mismatch_for_frequency_projects_mismatch_finding():
+    finding = _block_linking_mismatch_for_frequency(
+        period_name="YTD",
+        block_name="portfolio",
+        owner_repo="lotus-performance",
+        frequency=Frequency.MONTHLY,
+        items=[
+            _breakdown_item(
+                period="2026-03",
+                period_start=date(2026, 3, 1),
+                period_end=date(2026, 3, 31),
+                period_return=1.0,
+                cumulative_return=1.0,
+            ),
+            _breakdown_item(
+                period="2026-04",
+                period_start=date(2026, 4, 1),
+                period_end=date(2026, 4, 30),
+                period_return=1.0,
+                cumulative_return=2.01,
+            ),
+        ],
+        summary_return=99.0,
+    )
+
+    assert finding is not None
+    assert finding.code == "PORTFOLIO_BREAKDOWN_LINK_MISMATCH"
+    assert isclose(finding.evidence["linked_return_base"], 2.01)
+    assert finding.evidence["summary_return_base"] == 99.0
+    assert finding.evidence["bucket_count"] == 2
 
 
 def test_calculation_consistency_checks_daily_calculation_evidence():

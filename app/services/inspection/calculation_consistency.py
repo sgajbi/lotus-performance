@@ -420,33 +420,73 @@ def _check_block_linking(
 ) -> list[TWRInspectionFinding]:
     findings: list[TWRInspectionFinding] = []
     for frequency, items in analytics_block.breakdowns.items():
-        if len(items) <= 1:
-            continue
-        linked_return = _link_returns(item.period_return.base for item in items)
-        actual_return = analytics_block.summary.period_return.base
-        if not isclose(linked_return, actual_return, abs_tol=_ABS_TOLERANCE):
-            findings.append(
-                TWRInspectionFinding(
-                    code=f"{block_name.upper()}_BREAKDOWN_LINK_MISMATCH",
-                    severity="high",
-                    category="math_consistency",
-                    owner_repo=owner_repo,
-                    summary=f"{block_name.capitalize()} breakdowns do not geometrically link to the served summary return.",
-                    explanation=(
-                        f"The {block_name} {frequency.value} breakdowns for period {period_name} compound to "
-                        f"{linked_return:.10f}, while the served summary return is {actual_return:.10f}."
-                    ),
-                    recommended_action="Inspect TWR response construction and breakdown-linking logic in lotus-performance.",
-                    evidence={
-                        "period": period_name,
-                        "frequency": frequency.value,
-                        "linked_return_base": linked_return,
-                        "summary_return_base": actual_return,
-                        "bucket_count": len(items),
-                    },
-                )
-            )
+        finding = _block_linking_mismatch_for_frequency(
+            period_name=period_name,
+            block_name=block_name,
+            owner_repo=owner_repo,
+            frequency=frequency,
+            items=items,
+            summary_return=analytics_block.summary.period_return.base,
+        )
+        if finding is not None:
+            findings.append(finding)
     return findings
+
+
+def _block_linking_mismatch_for_frequency(
+    *,
+    period_name: str,
+    block_name: str,
+    owner_repo: str,
+    frequency: Frequency,
+    items: list[ComparativeBreakdownItem],
+    summary_return: float,  # monetary-float-allow
+) -> TWRInspectionFinding | None:
+    if len(items) <= 1:
+        return None
+    linked_return = _link_returns(item.period_return.base for item in items)
+    if isclose(linked_return, summary_return, abs_tol=_ABS_TOLERANCE):
+        return None
+    return _block_linking_mismatch_finding(
+        period_name=period_name,
+        block_name=block_name,
+        owner_repo=owner_repo,
+        frequency=frequency,
+        linked_return=linked_return,
+        actual_return=summary_return,
+        bucket_count=len(items),
+    )
+
+
+def _block_linking_mismatch_finding(
+    *,
+    period_name: str,
+    block_name: str,
+    owner_repo: str,
+    frequency: Frequency,
+    linked_return: float,  # monetary-float-allow
+    actual_return: float,  # monetary-float-allow
+    bucket_count: int,
+) -> TWRInspectionFinding:
+    return TWRInspectionFinding(
+        code=f"{block_name.upper()}_BREAKDOWN_LINK_MISMATCH",
+        severity="high",
+        category="math_consistency",
+        owner_repo=owner_repo,
+        summary=f"{block_name.capitalize()} breakdowns do not geometrically link to the served summary return.",
+        explanation=(
+            f"The {block_name} {frequency.value} breakdowns for period {period_name} compound to "
+            f"{linked_return:.10f}, while the served summary return is {actual_return:.10f}."
+        ),
+        recommended_action="Inspect TWR response construction and breakdown-linking logic in lotus-performance.",
+        evidence={
+            "period": period_name,
+            "frequency": frequency.value,
+            "linked_return_base": linked_return,
+            "summary_return_base": actual_return,
+            "bucket_count": bucket_count,
+        },
+    )
 
 
 def _check_portfolio_daily_calculation_evidence(
