@@ -7,6 +7,7 @@ from app.openapi_enrichment import (
     _composed_schema_example,
     _derived_schema_example,
     _documentable_operation,
+    _ensure_documentable_operation_documentation,
     _ensure_model_schema_documentation,
     _ensure_operation_metadata,
     _ensure_operation_response_documentation,
@@ -660,6 +661,34 @@ def test_documentable_operation_normalizes_identity_and_filters_unsupported_shap
     assert _documentable_operation(123, "GET", operation) == ("123", "GET", operation)
     assert _documentable_operation("/health", "parameters", operation) is None
     assert _documentable_operation("/health", "get", "not-a-dict") is None
+
+
+def test_ensure_documentable_operation_documentation_updates_metadata_request_and_responses():
+    operation = {
+        "requestBody": {
+            "content": {
+                "application/json": {"schema": {"type": "object", "properties": {"portfolio_id": {"type": "string"}}}}
+            }
+        },
+        "responses": {
+            "200": {
+                "description": "ok",
+                "content": {"application/json": {"schema": {"type": "object"}}},
+            }
+        },
+    }
+
+    _ensure_documentable_operation_documentation(
+        path="/custom/workflow",
+        method="post",
+        operation=operation,
+        components={"schemas": {}},
+    )
+
+    assert operation["summary"] == "POST /custom/workflow"
+    assert operation["tags"] == ["Custom"]
+    assert operation["requestBody"]["content"]["application/json"]["example"] == {"portfolio_id": "DEMO_DPM_EUR_001"}
+    assert operation["responses"]["default"]["content"]["application/problem+json"]["example"]["status"] == 500
 
 
 def test_enrich_openapi_schema_fills_operation_schema_and_examples():

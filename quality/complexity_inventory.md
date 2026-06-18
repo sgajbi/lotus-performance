@@ -38,42 +38,42 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_ensure_operation_documentation` | function | `app/openapi_enrichment.py:802` | 5 | A |
-| 2 | `_ensure_schema_documentation` | function | `app/openapi_enrichment.py:827` | 5 | A |
-| 3 | `_ensure_model_schema_documentation` | function | `app/openapi_enrichment.py:841` | 5 | A |
-| 4 | `_ensure_property_schema_documentation` | function | `app/openapi_enrichment.py:870` | 5 | A |
-| 5 | `_resolve_compute_job_result` | function | `app/services/async_result_service.py:44` | 5 | A |
-| 6 | `_async_result_record_payload_state` | function | `app/services/async_result_store.py:163` | 5 | A |
-| 7 | `build_attribution_execution_window` | function | `app/services/attribution_calculation_workflow_service.py:71` | 5 | A |
-| 8 | `calculate_attribution_workflow` | function | `app/services/attribution_calculation_workflow_service.py:214` | 5 | A |
-| 9 | `_portfolio_group_observation_dates` | function | `app/services/attribution_service.py:85` | 5 | A |
-| 10 | `_build_attribution_results_by_period` | function | `app/services/attribution_service.py:110` | 5 | A |
-| 11 | `_resolve_attribution_execution_window` | function | `app/services/attribution_service.py:186` | 5 | A |
-| 12 | `calculate_attribution` | function | `app/services/attribution_service.py:214` | 5 | A |
-| 13 | `_resolved_assignment_identity` | function | `app/services/benchmark_assignment_service.py:20` | 5 | A |
-| 14 | `calculate_benchmark_artifacts` | function | `app/services/benchmark_calculation_service.py:81` | 5 | A |
-| 15 | `_benchmark_period_result` | function | `app/services/benchmark_calculation_service.py:149` | 5 | A |
-| 16 | `_calculate_benchmark_return_from_slice` | function | `app/services/benchmark_calculation_service.py:190` | 5 | A |
-| 17 | `_group_benchmark_breakdown_rows` | function | `app/services/benchmark_calculation_service.py:227` | 5 | A |
-| 18 | `build_benchmark_exposure_context` | function | `app/services/benchmark_exposure_context_service.py:38` | 5 | A |
-| 19 | `_benchmark_id_from_assignment_response` | function | `app/services/benchmark_exposure_context_service.py:110` | 5 | A |
-| 20 | `_classification_map_for_request` | function | `app/services/benchmark_exposure_context_service.py:146` | 5 | A |
-| 21 | `_index_ids_for_component_series` | function | `app/services/benchmark_exposure_context_service.py:177` | 5 | A |
-| 22 | `_iter_component_exposure_points` | function | `app/services/benchmark_exposure_context_service.py:258` | 5 | A |
-| 23 | `_accumulate_exposure_point` | function | `app/services/benchmark_exposure_context_service.py:268` | 5 | A |
-| 24 | `_group_identity` | function | `app/services/benchmark_exposure_context_service.py:299` | 5 | A |
-| 25 | `resolve_freshness_bucket` | function | `app/services/calculation_supportability_service.py:17` | 5 | A |
+| 1 | `_ensure_schema_documentation` | function | `app/openapi_enrichment.py:842` | 5 | A |
+| 2 | `_ensure_model_schema_documentation` | function | `app/openapi_enrichment.py:856` | 5 | A |
+| 3 | `_ensure_property_schema_documentation` | function | `app/openapi_enrichment.py:885` | 5 | A |
+| 4 | `_resolve_compute_job_result` | function | `app/services/async_result_service.py:44` | 5 | A |
+| 5 | `_async_result_record_payload_state` | function | `app/services/async_result_store.py:163` | 5 | A |
+| 6 | `build_attribution_execution_window` | function | `app/services/attribution_calculation_workflow_service.py:71` | 5 | A |
+| 7 | `calculate_attribution_workflow` | function | `app/services/attribution_calculation_workflow_service.py:214` | 5 | A |
+| 8 | `_portfolio_group_observation_dates` | function | `app/services/attribution_service.py:85` | 5 | A |
+| 9 | `_build_attribution_results_by_period` | function | `app/services/attribution_service.py:110` | 5 | A |
+| 10 | `_resolve_attribution_execution_window` | function | `app/services/attribution_service.py:186` | 5 | A |
+| 11 | `calculate_attribution` | function | `app/services/attribution_service.py:214` | 5 | A |
+| 12 | `_resolved_assignment_identity` | function | `app/services/benchmark_assignment_service.py:20` | 5 | A |
+| 13 | `calculate_benchmark_artifacts` | function | `app/services/benchmark_calculation_service.py:81` | 5 | A |
+| 14 | `_benchmark_period_result` | function | `app/services/benchmark_calculation_service.py:149` | 5 | A |
+| 15 | `_calculate_benchmark_return_from_slice` | function | `app/services/benchmark_calculation_service.py:190` | 5 | A |
+| 16 | `_group_benchmark_breakdown_rows` | function | `app/services/benchmark_calculation_service.py:227` | 5 | A |
+| 17 | `build_benchmark_exposure_context` | function | `app/services/benchmark_exposure_context_service.py:38` | 5 | A |
+| 18 | `_benchmark_id_from_assignment_response` | function | `app/services/benchmark_exposure_context_service.py:110` | 5 | A |
+| 19 | `_classification_map_for_request` | function | `app/services/benchmark_exposure_context_service.py:146` | 5 | A |
+| 20 | `_index_ids_for_component_series` | function | `app/services/benchmark_exposure_context_service.py:177` | 5 | A |
+| 21 | `_iter_component_exposure_points` | function | `app/services/benchmark_exposure_context_service.py:258` | 5 | A |
+| 22 | `_accumulate_exposure_point` | function | `app/services/benchmark_exposure_context_service.py:268` | 5 | A |
+| 23 | `_group_identity` | function | `app/services/benchmark_exposure_context_service.py:299` | 5 | A |
+| 24 | `resolve_freshness_bucket` | function | `app/services/calculation_supportability_service.py:17` | 5 | A |
+| 25 | `_supportability_state_and_reason` | function | `app/services/calculation_supportability_service.py:37` | 5 | A |
 
 ## Lowest Maintainability Index
 
 | Rank | File | MI | Grade |
 | ---: | --- | ---: | --- |
-| 1 | `app/services/compute_job_store.py` | 0.00 | C |
-| 2 | `app/services/lineage_metadata_store.py` | 0.00 | C |
-| 3 | `app/services/returns_series_service.py` | 0.00 | C |
-| 4 | `app/services/stateful_attribution_input_service.py` | 0.00 | C |
-| 5 | `app/services/stateful_input_service.py` | 0.00 | C |
-| 6 | `app/openapi_enrichment.py` | 0.01 | C |
+| 1 | `app/openapi_enrichment.py` | 0.00 | C |
+| 2 | `app/services/compute_job_store.py` | 0.00 | C |
+| 3 | `app/services/lineage_metadata_store.py` | 0.00 | C |
+| 4 | `app/services/returns_series_service.py` | 0.00 | C |
+| 5 | `app/services/stateful_attribution_input_service.py` | 0.00 | C |
+| 6 | `app/services/stateful_input_service.py` | 0.00 | C |
 | 7 | `app/services/twr_service.py` | 5.85 | C |
 | 8 | `app/services/stateful_benchmark_input_service.py` | 9.19 | B |
 | 9 | `app/services/workspace_summary_service.py` | 10.26 | B |
@@ -988,6 +988,9 @@ and the metrics-specific Prometheus description override.
 `_iter_documentable_operations` also dropped out after path/method traversal was split from
 documentable operation eligibility, with direct coverage for malformed path entries, method maps,
 and non-dict operation candidates.
+`_ensure_operation_documentation` also dropped out after per-operation metadata/request/response
+enrichment was split from top-level OpenAPI paths traversal, with direct coverage for metadata,
+request-body example enrichment, and response default enrichment on a single documentable operation.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.

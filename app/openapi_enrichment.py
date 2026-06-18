@@ -799,29 +799,44 @@ def _iter_documentable_operations(paths: dict[str, Any]) -> Iterator[tuple[str, 
             yield documented
 
 
+def _ensure_documentable_operation_documentation(
+    *,
+    path: str,
+    method: str,
+    operation: dict[str, Any],
+    components: dict[str, Any],
+) -> None:
+    _ensure_operation_metadata(path=path, method=method, operation=operation)
+
+    request_body = operation.get("requestBody")
+    if isinstance(request_body, dict):
+        _ensure_request_body_example(
+            path=path,
+            request_body=request_body,
+            components=components,
+        )
+
+    responses = operation.get("responses")
+    if isinstance(responses, dict):
+        _ensure_operation_response_documentation(
+            path=path,
+            responses=responses,
+            components=components,
+        )
+
+
 def _ensure_operation_documentation(schema: dict[str, Any]) -> None:
     paths = schema.get("paths", {})
     components = schema.get("components", {})
     if not isinstance(paths, dict):
         return
     for path, method, operation in _iter_documentable_operations(paths):
-        _ensure_operation_metadata(path=path, method=method, operation=operation)
-
-        request_body = operation.get("requestBody")
-        if isinstance(request_body, dict):
-            _ensure_request_body_example(
-                path=path,
-                request_body=request_body,
-                components=components,
-            )
-
-        responses = operation.get("responses")
-        if isinstance(responses, dict):
-            _ensure_operation_response_documentation(
-                path=path,
-                responses=responses,
-                components=components,
-            )
+        _ensure_documentable_operation_documentation(
+            path=path,
+            method=method,
+            operation=operation,
+            components=components,
+        )
 
 
 def _ensure_schema_documentation(schema: dict[str, Any]) -> None:
