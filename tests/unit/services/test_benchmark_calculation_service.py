@@ -392,6 +392,16 @@ def test_daily_benchmark_breakdown_items_link_cumulative_returns_without_reslici
     assert items[1].cumulative_return.fx == pytest.approx(1.3022)
 
 
+def test_optional_scaled_return_component_suppresses_missing_values_and_scales_present_values():
+    assert benchmark_calculation_service._optional_scaled_return_component({"value": None}, "value") is None
+    assert benchmark_calculation_service._optional_scaled_return_component({"value": pd.NA}, "value") is None
+    assert benchmark_calculation_service._optional_scaled_return_component({"value": float("nan")}, "value") is None
+    assert benchmark_calculation_service._optional_scaled_return_component(
+        {"value": "0.0125"},
+        "value",
+    ) == pytest.approx(1.25)
+
+
 def test_optional_benchmark_return_component_suppresses_missing_and_all_null_components():
     df = pd.DataFrame(
         {

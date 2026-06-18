@@ -418,9 +418,17 @@ def _optional_scaled_return_component(  # monetary-float-allow
     row: Mapping[Hashable, object], column: str
 ) -> float | None:
     value = row.get(column)
-    if value is None or value is pd.NA or (isinstance(value, float) and math.isnan(value)):  # monetary-float-allow
+    if _is_missing_return_component(value):
         return None
     return _scale_decimal_return(Decimal(str(value)))
+
+
+def _is_missing_return_component(value: object) -> bool:
+    if value is None or value is pd.NA:
+        return True
+    if not isinstance(value, float):  # monetary-float-allow
+        return False
+    return math.isnan(value)
 
 
 def _scale_percent(value: object) -> float | None:
