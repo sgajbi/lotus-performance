@@ -5,6 +5,7 @@ from app.models.requests import DataPolicy
 from engine.diagnostics import EngineDiagnostics
 from engine.policies import (
     _apply_ignored_day,
+    _apply_override_group,
     _apply_override_values,
     _extract_policy_inputs,
     _flag_outliers,
@@ -57,6 +58,21 @@ def test_override_helpers_filter_positions_and_count_applied_fields(sample_polic
 
     assert mask.tolist() == [False, True, False]
     assert _apply_override_values(sample_policy_df, override, keys=("begin_mv", "end_mv"), mask=mask) == 2
+    assert sample_policy_df.loc[1, PortfolioColumns.BEGIN_MV.value] == 500.0
+    assert sample_policy_df.loc[1, PortfolioColumns.END_MV.value] == 600.0
+
+
+def test_apply_override_group_counts_matching_fields_only(sample_policy_df):
+    applied_count = _apply_override_group(
+        sample_policy_df,
+        [
+            {"perf_date": "2025-03-15", "position_id": "P1", "begin_mv": 500.0, "end_mv": 600.0},
+            {"perf_date": "2025-03-17", "position_id": "P1", "begin_mv": 700.0, "end_mv": 800.0},
+        ],
+        keys=("begin_mv", "end_mv"),
+    )
+
+    assert applied_count == 2
     assert sample_policy_df.loc[1, PortfolioColumns.BEGIN_MV.value] == 500.0
     assert sample_policy_df.loc[1, PortfolioColumns.END_MV.value] == 600.0
 

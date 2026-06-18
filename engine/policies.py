@@ -50,24 +50,31 @@ def _apply_overrides(df: pd.DataFrame, overrides: Dict, diagnostics: EngineDiagn
     mv_overrides = overrides.get("market_values", [])
     cf_overrides = overrides.get("cash_flows", [])
 
-    for override in mv_overrides:
-        diagnostics.policy.overrides.applied_mv_count += _apply_override_values(
-            df,
-            override,
-            keys=("begin_mv", "end_mv"),
-            mask=_override_mask(df, override),
-        )
-
-    for override in cf_overrides:
-        diagnostics.policy.overrides.applied_cf_count += _apply_override_values(
-            df,
-            override,
-            keys=("bod_cf", "eod_cf"),
-            mask=_override_mask(df, override),
-        )
+    diagnostics.policy.overrides.applied_mv_count += _apply_override_group(
+        df,
+        mv_overrides,
+        keys=("begin_mv", "end_mv"),
+    )
+    diagnostics.policy.overrides.applied_cf_count += _apply_override_group(
+        df,
+        cf_overrides,
+        keys=("bod_cf", "eod_cf"),
+    )
 
     if diagnostics.policy.overrides.applied_mv_count > 0 or diagnostics.policy.overrides.applied_cf_count > 0:
         diagnostics.notes.append("Applied overrides from the data_policy request.")
+
+
+def _apply_override_group(df: pd.DataFrame, override_items: list, *, keys: tuple[str, ...]) -> int:
+    return sum(
+        _apply_override_values(
+            df,
+            override,
+            keys=keys,
+            mask=_override_mask(df, override),
+        )
+        for override in override_items
+    )
 
 
 def _override_mask(df: pd.DataFrame, override: Dict) -> pd.Series:
