@@ -119,13 +119,7 @@ class ReturnsWindow(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def normalize_period_aliases(cls, data: Any) -> Any:
-        if isinstance(data, dict):
-            period = data.get("period")
-            if isinstance(period, str):
-                normalized_period = cls.PERIOD_ALIASES.get(period, period)
-                if normalized_period != period:
-                    return {**data, "period": normalized_period}
-        return data
+        return _returns_window_with_normalized_period_alias(data, period_aliases=cls.PERIOD_ALIASES)
 
     @model_validator(mode="after")
     def validate_mode_fields(self) -> "ReturnsWindow":
@@ -134,6 +128,18 @@ class ReturnsWindow(BaseModel):
         if self.mode == ReturnsWindowMode.RELATIVE:
             _validate_relative_returns_window(period=self.period, year=self.year)
         return self
+
+
+def _returns_window_with_normalized_period_alias(data: Any, *, period_aliases: dict[str, str]) -> Any:
+    if not isinstance(data, dict):
+        return data
+    period = data.get("period")
+    if not isinstance(period, str):
+        return data
+    normalized_period = period_aliases.get(period, period)
+    if normalized_period == period:
+        return data
+    return {**data, "period": normalized_period}
 
 
 def _validate_explicit_returns_window(*, from_date: dt_date | None, to_date: dt_date | None) -> None:

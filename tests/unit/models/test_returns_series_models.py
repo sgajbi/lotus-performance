@@ -12,6 +12,7 @@ from app.models.returns_series import (
     StatefulInput,
     StatelessInput,
     _require_selected_stateless_series,
+    _returns_window_with_normalized_period_alias,
     _validate_explicit_returns_window,
     _validate_relative_returns_window,
     _validate_stateful_returns_series_input_envelope,
@@ -60,6 +61,24 @@ def test_returns_window_validation_helpers_preserve_explicit_and_relative_policy
         _validate_explicit_returns_window(from_date=date(2026, 2, 27), to_date=date(2026, 2, 24))
     with pytest.raises(ValueError, match="year is required when period=YEAR"):
         _validate_relative_returns_window(period=ReturnsRelativePeriod.YEAR, year=None)
+
+
+def test_returns_window_period_alias_helper_normalizes_only_legacy_string_aliases():
+    aliases = {"THREE_YEAR": "3Y"}
+
+    assert _returns_window_with_normalized_period_alias(
+        {"mode": "RELATIVE", "period": "THREE_YEAR"},
+        period_aliases=aliases,
+    ) == {"mode": "RELATIVE", "period": "3Y"}
+    assert _returns_window_with_normalized_period_alias(
+        {"mode": "RELATIVE", "period": "3Y"},
+        period_aliases=aliases,
+    ) == {"mode": "RELATIVE", "period": "3Y"}
+    assert _returns_window_with_normalized_period_alias(
+        {"mode": "RELATIVE", "period": 3},
+        period_aliases=aliases,
+    ) == {"mode": "RELATIVE", "period": 3}
+    assert _returns_window_with_normalized_period_alias("not-a-dict", period_aliases=aliases) == "not-a-dict"
 
 
 def test_returns_series_request_requires_stateless_input_when_stateless_mode():
