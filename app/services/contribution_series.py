@@ -69,10 +69,7 @@ def _build_residual_adjusted_position_timeseries(
     if period_slice_df.empty:
         return []
 
-    target_total_by_position = {
-        position_contribution.position_id: (position_contribution.total_contribution or 0.0) / 100
-        for position_contribution in position_contributions
-    }
+    target_total_by_position = _target_total_contribution_by_position(position_contributions)
     if not target_total_by_position:
         return []
 
@@ -81,6 +78,15 @@ def _build_residual_adjusted_position_timeseries(
         target_total_by_position=target_total_by_position,
     )
     return _position_contribution_series_from_adjusted_rows(adjusted_rows)
+
+
+def _target_total_contribution_by_position(
+    position_contributions: list[PositionContribution],
+) -> dict[str, float]:
+    return {
+        position_contribution.position_id: (position_contribution.total_contribution or 0.0) / 100
+        for position_contribution in position_contributions
+    }
 
 
 def _residual_adjusted_position_timeseries_rows(

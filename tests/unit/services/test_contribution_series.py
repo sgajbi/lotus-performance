@@ -3,7 +3,11 @@ from datetime import date
 import pandas as pd
 
 from app.models.contribution_requests import ContributionRequest
-from app.models.contribution_responses import PositionContributionSeries, PositionDailyContribution
+from app.models.contribution_responses import (
+    PositionContribution,
+    PositionContributionSeries,
+    PositionDailyContribution,
+)
 from app.services.contribution_series import (
     _adjusted_position_hierarchy_records,
     _apply_hierarchy_unclassified_policy,
@@ -11,6 +15,7 @@ from app.services.contribution_series import (
     _daily_hierarchy_metadata,
     _prepared_adjusted_hierarchy_frames,
     _residual_adjusted_position_rows,
+    _target_total_contribution_by_position,
 )
 from engine.schema import PortfolioColumns
 
@@ -179,3 +184,24 @@ def test_residual_adjusted_position_rows_allocate_by_weight_and_equal_fallback()
 
     assert [row["adjusted_contribution"] for row in weighted_rows] == [0.015, 0.025]
     assert [row["adjusted_contribution"] for row in equal_fallback_rows] == [0.01, -0.01]
+
+
+def test_target_total_contribution_by_position_projects_percentage_totals_to_ratios():
+    targets = _target_total_contribution_by_position(
+        [
+            PositionContribution(
+                position_id="SEC_A",
+                total_contribution=2.5,
+                average_weight=25.0,
+                total_return=10.0,
+            ),
+            PositionContribution(
+                position_id="SEC_B",
+                total_contribution=0.0,
+                average_weight=0.0,
+                total_return=0.0,
+            ),
+        ]
+    )
+
+    assert targets == {"SEC_A": 0.025, "SEC_B": 0.0}
