@@ -38,31 +38,31 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `calculate_asset_weighted_composite_twr` | function | `engine/composites.py:497` | 6 | B |
-| 2 | `run_calculations` | function | `engine/compute.py:21` | 6 | B |
-| 3 | `_prepare_dataframe` | function | `engine/compute.py:163` | 6 | B |
-| 4 | `_apply_position_fx_capital_conversion` | function | `engine/contribution.py:256` | 6 | B |
-| 5 | `_net_same_day_flows` | function | `engine/mwr.py:21` | 6 | B |
-| 6 | `_dietz_denominator` | function | `engine/mwr.py:310` | 6 | B |
-| 7 | `_calculate_xirr_mwr_attempt` | function | `engine/mwr.py:345` | 6 | B |
-| 8 | `_extract_policy_inputs` | function | `engine/policies.py:24` | 6 | B |
-| 9 | `_apply_overrides` | function | `engine/policies.py:38` | 6 | B |
-| 10 | `_flag_outliers` | function | `engine/policies.py:124` | 6 | B |
-| 11 | `_apply_hedging_to_fx_return` | function | `engine/ror.py:150` | 6 | B |
-| 12 | `calculate_sod_reset_reason` | function | `engine/rules.py:164` | 6 | B |
-| 13 | `health_ready` | function | `app/api/endpoints/health.py:41` | 5 | A |
-| 14 | `get_twr_inspection_artifact` | function | `app/api/endpoints/inspections.py:174` | 5 | A |
-| 15 | `_load_and_validate_manifest` | function | `app/api/endpoints/lineage.py:27` | 5 | A |
-| 16 | `resolve_operator_request_context` | function | `app/api/operator_context.py:15` | 5 | A |
-| 17 | `_normalized_capability_rule_override` | function | `app/enterprise_capability_rules.py:79` | 5 | A |
-| 18 | `_stateless_input_envelope_issue` | function | `app/models/attribution_analytics_requests.py:294` | 5 | A |
-| 19 | `_validate_benchmark_analysis_selection` | function | `app/models/benchmark_analytics_requests.py:142` | 5 | A |
-| 20 | `_validate_benchmark_analysis_window` | function | `app/models/benchmark_requests.py:48` | 5 | A |
-| 21 | `CompositeMemberReturnFact` | class | `app/models/composites.py:159` | 5 | A |
-| 22 | `_stateless_contribution_envelope_issue` | function | `app/models/contribution_analytics_requests.py:74` | 5 | A |
-| 23 | `_resolved_stateless_contribution_inputs` | function | `app/models/contribution_analytics_requests.py:95` | 5 | A |
-| 24 | `build_execution_response` | function | `app/models/execution_polling.py:239` | 5 | A |
-| 25 | `TWRInspectionRequest` | class | `app/models/inspection_requests.py:64` | 5 | A |
+| 1 | `run_calculations` | function | `engine/compute.py:21` | 6 | B |
+| 2 | `_prepare_dataframe` | function | `engine/compute.py:163` | 6 | B |
+| 3 | `_apply_position_fx_capital_conversion` | function | `engine/contribution.py:256` | 6 | B |
+| 4 | `_net_same_day_flows` | function | `engine/mwr.py:21` | 6 | B |
+| 5 | `_dietz_denominator` | function | `engine/mwr.py:310` | 6 | B |
+| 6 | `_calculate_xirr_mwr_attempt` | function | `engine/mwr.py:345` | 6 | B |
+| 7 | `_extract_policy_inputs` | function | `engine/policies.py:24` | 6 | B |
+| 8 | `_apply_overrides` | function | `engine/policies.py:38` | 6 | B |
+| 9 | `_flag_outliers` | function | `engine/policies.py:124` | 6 | B |
+| 10 | `_apply_hedging_to_fx_return` | function | `engine/ror.py:150` | 6 | B |
+| 11 | `calculate_sod_reset_reason` | function | `engine/rules.py:164` | 6 | B |
+| 12 | `health_ready` | function | `app/api/endpoints/health.py:41` | 5 | A |
+| 13 | `get_twr_inspection_artifact` | function | `app/api/endpoints/inspections.py:174` | 5 | A |
+| 14 | `_load_and_validate_manifest` | function | `app/api/endpoints/lineage.py:27` | 5 | A |
+| 15 | `resolve_operator_request_context` | function | `app/api/operator_context.py:15` | 5 | A |
+| 16 | `_normalized_capability_rule_override` | function | `app/enterprise_capability_rules.py:79` | 5 | A |
+| 17 | `_stateless_input_envelope_issue` | function | `app/models/attribution_analytics_requests.py:294` | 5 | A |
+| 18 | `_validate_benchmark_analysis_selection` | function | `app/models/benchmark_analytics_requests.py:142` | 5 | A |
+| 19 | `_validate_benchmark_analysis_window` | function | `app/models/benchmark_requests.py:48` | 5 | A |
+| 20 | `CompositeMemberReturnFact` | class | `app/models/composites.py:159` | 5 | A |
+| 21 | `_stateless_contribution_envelope_issue` | function | `app/models/contribution_analytics_requests.py:74` | 5 | A |
+| 22 | `_resolved_stateless_contribution_inputs` | function | `app/models/contribution_analytics_requests.py:95` | 5 | A |
+| 23 | `build_execution_response` | function | `app/models/execution_polling.py:239` | 5 | A |
+| 24 | `TWRInspectionRequest` | class | `app/models/inspection_requests.py:64` | 5 | A |
+| 25 | `_stateless_mwr_envelope_issue` | function | `app/models/mwr_analytics_requests.py:67` | 5 | A |
 
 ## Lowest Maintainability Index
 
@@ -90,7 +90,7 @@ must stay at `0`.
 | 20 | `app/models/runtime_status.py` | 19.85 | A |
 | 21 | `app/models/returns_series.py` | 20.36 | A |
 | 22 | `app/workers/compute_executor_worker.py` | 20.54 | A |
-| 23 | `engine/composites.py` | 21.09 | A |
+| 23 | `engine/composites.py` | 20.75 | A |
 | 24 | `app/services/stateful_mwr_input_service.py` | 21.63 | A |
 | 25 | `engine/mwr.py` | 22.24 | A |
 
@@ -894,6 +894,8 @@ projection was moved into a dedicated helper with direct coverage for base-only 
 blocking was routed through ordered, named policy helpers with direct no-ready precedence coverage.
 `_composite_calculation_status` also dropped out after all-ready and calculated-period status
 predicates were separated with direct coverage for ready, degraded, and blocked aggregate outcomes.
+`calculate_asset_weighted_composite_twr` also dropped out after blocked-vs-ready period
+calculation was moved into a dedicated helper with direct blocked and ready period coverage.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.
