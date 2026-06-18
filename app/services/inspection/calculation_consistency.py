@@ -848,16 +848,25 @@ def _expected_daily_return_linkability_status(
     required_reason_codes: set[str],
     required_warnings: set[str],
 ) -> str:
+    reason_code = _daily_return_anomaly_reason_code(evidence)
+    if reason_code is None:
+        return linkability_status
+    required_reason_codes.add(reason_code)
+    required_warnings.add(reason_code)
+    return _daily_return_anomaly_linkability_status(linkability_status=linkability_status)
+
+
+def _daily_return_anomaly_reason_code(evidence: TWRDailyCalculationEvidence) -> str | None:
     if evidence.daily_return == -100:
-        required_reason_codes.add("FULL_LOSS_RETURN")
-        required_warnings.add("FULL_LOSS_RETURN")
-        if linkability_status == "linkable":
-            return "not_linkable"
-    elif evidence.daily_return < -100:
-        required_reason_codes.add("BELOW_FULL_LOSS_RETURN")
-        required_warnings.add("BELOW_FULL_LOSS_RETURN")
-        if linkability_status == "linkable":
-            return "not_linkable"
+        return "FULL_LOSS_RETURN"
+    if evidence.daily_return < -100:
+        return "BELOW_FULL_LOSS_RETURN"
+    return None
+
+
+def _daily_return_anomaly_linkability_status(*, linkability_status: str) -> str:
+    if linkability_status == "linkable":
+        return "not_linkable"
     return linkability_status
 
 

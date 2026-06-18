@@ -29,6 +29,8 @@ from app.services.inspection.calculation_consistency import (
     _daily_external_flow_values,
     _daily_market_event_reason_codes,
     _daily_required_semantic_mismatches,
+    _daily_return_anomaly_linkability_status,
+    _daily_return_anomaly_reason_code,
     _daily_status_semantic_mismatches,
     _daily_zero_capital_status_mismatch,
     _expected_daily_calculation_values,
@@ -1235,6 +1237,36 @@ def test_daily_market_event_reason_codes_omit_non_market_events():
         )
         == set()
     )
+
+
+def test_daily_return_anomaly_reason_code_classifies_loss_thresholds():
+    evidence = TWRDailyCalculationEvidence(
+        begin_mv=1000.0,
+        end_mv=0.0,
+        bod_cf=0.0,
+        eod_cf=0.0,
+        external_inflows=0.0,
+        external_outflows=0.0,
+        management_fees=0.0,
+        signed_adjusted_capital=1000.0,
+        adjusted_capital=1000.0,
+        performance_pnl=-1000.0,
+        daily_return=-100.0,
+        status="calculated",
+        reason_codes=[],
+        warnings=[],
+    )
+
+    assert _daily_return_anomaly_reason_code(evidence) == "FULL_LOSS_RETURN"
+    evidence.daily_return = -100.1
+    assert _daily_return_anomaly_reason_code(evidence) == "BELOW_FULL_LOSS_RETURN"
+    evidence.daily_return = -99.9
+    assert _daily_return_anomaly_reason_code(evidence) is None
+
+
+def test_daily_return_anomaly_linkability_status_only_overrides_linkable_status():
+    assert _daily_return_anomaly_linkability_status(linkability_status="linkable") == "not_linkable"
+    assert _daily_return_anomaly_linkability_status(linkability_status="not_calculated") == "not_calculated"
 
 
 def test_calculation_consistency_flags_effective_period_exclusion_warning():
