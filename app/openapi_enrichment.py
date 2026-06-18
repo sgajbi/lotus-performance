@@ -631,6 +631,30 @@ def _operation_request_example(path: str) -> Any | None:
     return copy.deepcopy(operation_example)
 
 
+def _operation_response_example(path: str) -> Any | None:
+    operation_example = OPERATION_JSON_EXAMPLES.get((path, "response"))
+    if operation_example is None:
+        return None
+    return copy.deepcopy(operation_example)
+
+
+def _json_success_schema_example(
+    json_content: dict[str, Any],
+    *,
+    components: dict[str, Any],
+) -> Any | None:
+    response_schema = json_content.get("schema", {})
+    if not isinstance(response_schema, dict):
+        return None
+    if _json_content_has_authored_example(json_content):
+        return None
+    return _build_schema_example(
+        response_schema,
+        components=components,
+        name_hint="response_body",
+    )
+
+
 def _ensure_request_body_example(
     *,
     path: str,
@@ -669,17 +693,13 @@ def _ensure_json_success_response_example(
     json_content: dict[str, Any],
     components: dict[str, Any],
 ) -> None:
-    response_schema = json_content.get("schema", {})
-    operation_example = OPERATION_JSON_EXAMPLES.get((path, "response"))
+    operation_example = _operation_response_example(path)
     if operation_example is not None:
-        json_content["example"] = copy.deepcopy(operation_example)
+        json_content["example"] = operation_example
         return
-    if isinstance(response_schema, dict) and "example" not in json_content and "examples" not in json_content:
-        json_content["example"] = _build_schema_example(
-            response_schema,
-            components=components,
-            name_hint="response_body",
-        )
+    schema_example = _json_success_schema_example(json_content, components=components)
+    if schema_example is not None:
+        json_content["example"] = schema_example
 
 
 def _ensure_success_response_documentation(

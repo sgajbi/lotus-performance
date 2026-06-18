@@ -25,12 +25,14 @@ from app.openapi_enrichment import (
     _iter_documentable_operations,
     _iter_schema_properties,
     _json_content_has_authored_example,
+    _json_success_schema_example,
     _listed_schema_example,
     _named_schema_example,
     _named_schema_example_value,
     _non_ref_schema_example,
     _object_schema_example,
     _operation_request_example,
+    _operation_response_example,
     _ref_schema_example,
     _request_body_example,
     _scalar_schema_example,
@@ -417,6 +419,38 @@ def test_operation_request_example_returns_copy_for_known_request_override():
     assert example == OPERATION_JSON_EXAMPLES[("/performance/twr", "request")]
     assert example is not OPERATION_JSON_EXAMPLES[("/performance/twr", "request")]
     assert _operation_request_example("/unknown") is None
+
+
+def test_operation_response_example_returns_copy_for_known_response_override():
+    example = _operation_response_example("/health")
+
+    assert example == OPERATION_JSON_EXAMPLES[("/health", "response")]
+    assert example is not OPERATION_JSON_EXAMPLES[("/health", "response")]
+    assert _operation_response_example("/unknown") is None
+
+
+def test_json_success_schema_example_preserves_authored_and_invalid_content():
+    components = {"schemas": {}}
+
+    assert _json_success_schema_example(
+        {"schema": {"type": "object", "properties": {"portfolio_id": {"type": "string"}}}},
+        components=components,
+    ) == {"portfolio_id": "DEMO_DPM_EUR_001"}
+    assert (
+        _json_success_schema_example(
+            {"schema": {"type": "object"}, "example": {"documented": True}},
+            components=components,
+        )
+        is None
+    )
+    assert (
+        _json_success_schema_example(
+            {"schema": {"type": "object"}, "examples": {"documented": {"value": {}}}},
+            components=components,
+        )
+        is None
+    )
+    assert _json_success_schema_example({"schema": "not-a-schema"}, components=components) is None
 
 
 def test_ensure_operation_response_documentation_adds_default_and_schema_example():
