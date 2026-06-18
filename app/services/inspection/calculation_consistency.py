@@ -783,20 +783,28 @@ def _expected_daily_period_statuses(
 ) -> tuple[str, str]:
     episode_status = "open"
     if "BEFORE_EFFECTIVE_PERIOD_START" in reason_codes:
-        required_warnings.add("BEFORE_EFFECTIVE_PERIOD_START")
-        linkability_status = "not_calculated"
-        episode_status = "not_in_period"
-
+        linkability_status, episode_status = _apply_daily_effective_period_exclusion_status(
+            required_warnings=required_warnings
+        )
     if "RESET_DAY" in reason_codes:
-        episode_status = "reset_boundary"
-        if linkability_status == "linkable":
-            linkability_status = "reset_boundary"
+        linkability_status, episode_status = _apply_daily_reset_boundary_status(linkability_status=linkability_status)
     if "NO_INVESTMENT_PERIOD" in reason_codes:
         linkability_status, episode_status = _apply_daily_no_investment_period_status(
             linkability_status=linkability_status,
             episode_status=episode_status,
         )
     return linkability_status, episode_status
+
+
+def _apply_daily_effective_period_exclusion_status(*, required_warnings: set[str]) -> tuple[str, str]:
+    required_warnings.add("BEFORE_EFFECTIVE_PERIOD_START")
+    return "not_calculated", "not_in_period"
+
+
+def _apply_daily_reset_boundary_status(*, linkability_status: str) -> tuple[str, str]:
+    if linkability_status == "linkable":
+        linkability_status = "reset_boundary"
+    return linkability_status, "reset_boundary"
 
 
 def _apply_daily_no_investment_period_status(*, linkability_status: str, episode_status: str) -> tuple[str, str]:

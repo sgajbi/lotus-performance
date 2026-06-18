@@ -11,7 +11,9 @@ from app.models.responses import (
     TWRDailyCalculationEvidence,
 )
 from app.services.inspection.calculation_consistency import (
+    _apply_daily_effective_period_exclusion_status,
     _apply_daily_no_investment_period_status,
+    _apply_daily_reset_boundary_status,
     _block_linking_mismatch_finding,
     _block_linking_mismatch_for_frequency,
     _check_benchmark_relative_pairing,
@@ -1050,6 +1052,27 @@ def test_no_investment_period_status_policy_only_overrides_open_linkable_days():
         linkability_status="reset_boundary",
         episode_status="reset_boundary",
     ) == ("reset_boundary", "reset_boundary")
+
+
+def test_effective_period_exclusion_status_records_warning_and_terminal_statuses():
+    warnings: set[str] = set()
+
+    assert _apply_daily_effective_period_exclusion_status(required_warnings=warnings) == (
+        "not_calculated",
+        "not_in_period",
+    )
+    assert warnings == {"BEFORE_EFFECTIVE_PERIOD_START"}
+
+
+def test_reset_boundary_status_only_overrides_linkable_days():
+    assert _apply_daily_reset_boundary_status(linkability_status="linkable") == (
+        "reset_boundary",
+        "reset_boundary",
+    )
+    assert _apply_daily_reset_boundary_status(linkability_status="not_calculated") == (
+        "not_calculated",
+        "reset_boundary",
+    )
 
 
 def test_daily_status_semantic_mismatches_project_expected_statuses():
