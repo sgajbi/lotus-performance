@@ -241,6 +241,13 @@ def _record_average_weight_blocker_counts(
             setattr(audit_state, counter_field, getattr(audit_state, counter_field) + 1)
 
 
+def _has_reset_alignment_methodology_pressure(reset_alignment_counts: dict[str, int]) -> bool:
+    return (
+        reset_alignment_counts["portfolio_reset_without_position_reset_days"] > 0
+        or reset_alignment_counts["position_reset_without_portfolio_reset_days"] > 0
+    )
+
+
 def _contribution_methodology_notes(
     *,
     average_weight_sum_residual_bp: int,
@@ -259,10 +266,7 @@ def _contribution_methodology_notes(
             f"{carino_invalid_domain_days} portfolio days because the linked gross return factor "
             "left the valid logarithmic domain."
         )
-    if (
-        reset_alignment_counts["portfolio_reset_without_position_reset_days"] > 0
-        or reset_alignment_counts["position_reset_without_portfolio_reset_days"] > 0
-    ):
+    if _has_reset_alignment_methodology_pressure(reset_alignment_counts):
         notes.append(
             "Portfolio and position reset boundaries differ on some contribution dates; "
             "grouped-return alignment remains under characterization."

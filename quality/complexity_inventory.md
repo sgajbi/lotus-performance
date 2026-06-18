@@ -38,31 +38,31 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_contribution_methodology_notes` | function | `app/services/contribution_audit.py:244` | 5 | A |
-| 2 | `contribution_position_count` | function | `app/services/contribution_calculation_workflow_service.py:37` | 5 | A |
-| 3 | `_calculate_promoted_stateful_contribution` | function | `app/services/contribution_calculation_workflow_service.py:100` | 5 | A |
-| 4 | `_calculate_position_flow_balance_counts` | function | `app/services/contribution_diagnostics.py:240` | 5 | A |
-| 5 | `_classify_average_weight_methodology_status` | function | `app/services/contribution_methodology.py:221` | 5 | A |
-| 6 | `_has_clean_average_weight_shadow_bookkeeping` | function | `app/services/contribution_methodology.py:263` | 5 | A |
-| 7 | `_calculate_reset_aware_period_portfolio_return` | function | `app/services/contribution_returns.py:22` | 5 | A |
-| 8 | `_build_residual_adjusted_position_timeseries` | function | `app/services/contribution_series.py:57` | 5 | A |
-| 9 | `_build_residual_adjusted_daily_contribution_series` | function | `app/services/contribution_series.py:156` | 5 | A |
-| 10 | `_build_hierarchy_from_adjusted_position_series` | function | `app/services/contribution_series.py:176` | 5 | A |
-| 11 | `_daily_hierarchy_metadata` | function | `app/services/contribution_series.py:255` | 5 | A |
-| 12 | `_build_hierarchy_rows` | function | `app/services/contribution_series.py:314` | 5 | A |
-| 13 | `build_contribution_source_economics_evidence` | function | `app/services/contribution_source_economics.py:26` | 5 | A |
-| 14 | `_stateful_cash_flow_economics` | function | `app/services/contribution_source_economics.py:117` | 5 | A |
-| 15 | `_stateful_reason_codes` | function | `app/services/contribution_source_economics.py:178` | 5 | A |
-| 16 | `_source_cash_flow_type_counts` | function | `app/services/contribution_source_economics.py:205` | 5 | A |
-| 17 | `_has_non_zero_flow` | function | `app/services/contribution_source_economics.py:240` | 5 | A |
-| 18 | `get_index_catalog` | method | `app/services/core_integration_service.py:218` | 5 | A |
-| 19 | `_lineage_storage_path_unavailable_status` | function | `app/services/durability_health_service.py:77` | 5 | A |
-| 20 | `_probe_lineage_storage_write` | function | `app/services/durability_health_service.py:119` | 5 | A |
-| 21 | `register_execution` | method | `app/services/execution_registry.py:354` | 5 | A |
-| 22 | `get_execution` | method | `app/services/execution_registry.py:524` | 5 | A |
-| 23 | `run_twr_calculation_consistency_checks` | function | `app/services/inspection/calculation_consistency.py:49` | 5 | A |
-| 24 | `_check_benchmark_relative_pairing` | function | `app/services/inspection/calculation_consistency.py:121` | 5 | A |
-| 25 | `_check_relative_breakdown_item` | function | `app/services/inspection/calculation_consistency.py:274` | 5 | A |
+| 1 | `contribution_position_count` | function | `app/services/contribution_calculation_workflow_service.py:37` | 5 | A |
+| 2 | `_calculate_promoted_stateful_contribution` | function | `app/services/contribution_calculation_workflow_service.py:100` | 5 | A |
+| 3 | `_calculate_position_flow_balance_counts` | function | `app/services/contribution_diagnostics.py:240` | 5 | A |
+| 4 | `_classify_average_weight_methodology_status` | function | `app/services/contribution_methodology.py:221` | 5 | A |
+| 5 | `_has_clean_average_weight_shadow_bookkeeping` | function | `app/services/contribution_methodology.py:263` | 5 | A |
+| 6 | `_calculate_reset_aware_period_portfolio_return` | function | `app/services/contribution_returns.py:22` | 5 | A |
+| 7 | `_build_residual_adjusted_position_timeseries` | function | `app/services/contribution_series.py:57` | 5 | A |
+| 8 | `_build_residual_adjusted_daily_contribution_series` | function | `app/services/contribution_series.py:156` | 5 | A |
+| 9 | `_build_hierarchy_from_adjusted_position_series` | function | `app/services/contribution_series.py:176` | 5 | A |
+| 10 | `_daily_hierarchy_metadata` | function | `app/services/contribution_series.py:255` | 5 | A |
+| 11 | `_build_hierarchy_rows` | function | `app/services/contribution_series.py:314` | 5 | A |
+| 12 | `build_contribution_source_economics_evidence` | function | `app/services/contribution_source_economics.py:26` | 5 | A |
+| 13 | `_stateful_cash_flow_economics` | function | `app/services/contribution_source_economics.py:117` | 5 | A |
+| 14 | `_stateful_reason_codes` | function | `app/services/contribution_source_economics.py:178` | 5 | A |
+| 15 | `_source_cash_flow_type_counts` | function | `app/services/contribution_source_economics.py:205` | 5 | A |
+| 16 | `_has_non_zero_flow` | function | `app/services/contribution_source_economics.py:240` | 5 | A |
+| 17 | `get_index_catalog` | method | `app/services/core_integration_service.py:218` | 5 | A |
+| 18 | `_lineage_storage_path_unavailable_status` | function | `app/services/durability_health_service.py:77` | 5 | A |
+| 19 | `_probe_lineage_storage_write` | function | `app/services/durability_health_service.py:119` | 5 | A |
+| 20 | `register_execution` | method | `app/services/execution_registry.py:354` | 5 | A |
+| 21 | `get_execution` | method | `app/services/execution_registry.py:524` | 5 | A |
+| 22 | `run_twr_calculation_consistency_checks` | function | `app/services/inspection/calculation_consistency.py:49` | 5 | A |
+| 23 | `_check_benchmark_relative_pairing` | function | `app/services/inspection/calculation_consistency.py:121` | 5 | A |
+| 24 | `_check_relative_breakdown_item` | function | `app/services/inspection/calculation_consistency.py:274` | 5 | A |
+| 25 | `_check_block_linking` | function | `app/services/inspection/calculation_consistency.py:353` | 5 | A |
 
 ## Lowest Maintainability Index
 
