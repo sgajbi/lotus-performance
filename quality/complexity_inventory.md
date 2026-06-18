@@ -38,31 +38,31 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_validate_returns_series_stateless_benchmark_override` | function | `app/models/returns_series.py:333` | 5 | A |
-| 2 | `_validate_vendor_series_stateless_twr_benchmark_payload` | function | `app/models/twr_requests.py:52` | 5 | A |
-| 3 | `_validate_stateless_twr_benchmark_payloads` | function | `app/models/twr_requests.py:70` | 5 | A |
-| 4 | `_stateless_twr_envelope_issue` | function | `app/models/twr_requests.py:158` | 5 | A |
-| 5 | `_workspace_summary_stateless_envelope_issue` | function | `app/models/workspace_summary_requests.py:313` | 5 | A |
-| 6 | `_bounded_mwr_solver_outcome_labels` | function | `app/observability.py:68` | 5 | A |
-| 7 | `resolve_trace_id` | function | `app/observability.py:150` | 5 | A |
-| 8 | `propagation_headers` | function | `app/observability.py:160` | 5 | A |
-| 9 | `_included_router_route_name` | function | `app/observability.py:286` | 5 | A |
-| 10 | `_infer_example` | function | `app/openapi_enrichment.py:219` | 5 | A |
-| 11 | `_explicit_schema_example` | function | `app/openapi_enrichment.py:325` | 5 | A |
-| 12 | `_named_schema_example` | function | `app/openapi_enrichment.py:337` | 5 | A |
-| 13 | `_composed_schema_example` | function | `app/openapi_enrichment.py:346` | 5 | A |
-| 14 | `_build_schema_example` | function | `app/openapi_enrichment.py:466` | 5 | A |
-| 15 | `_validation_error_json_content` | function | `app/openapi_enrichment.py:519` | 5 | A |
-| 16 | `_request_body_example` | function | `app/openapi_enrichment.py:559` | 5 | A |
-| 17 | `_ensure_json_success_response_example` | function | `app/openapi_enrichment.py:612` | 5 | A |
-| 18 | `_ensure_operation_response_documentation` | function | `app/openapi_enrichment.py:653` | 5 | A |
-| 19 | `_ensure_operation_metadata` | function | `app/openapi_enrichment.py:681` | 5 | A |
-| 20 | `_iter_documentable_operations` | function | `app/openapi_enrichment.py:706` | 5 | A |
-| 21 | `_ensure_operation_documentation` | function | `app/openapi_enrichment.py:716` | 5 | A |
-| 22 | `_ensure_schema_documentation` | function | `app/openapi_enrichment.py:741` | 5 | A |
-| 23 | `_ensure_model_schema_documentation` | function | `app/openapi_enrichment.py:755` | 5 | A |
-| 24 | `_ensure_property_schema_documentation` | function | `app/openapi_enrichment.py:784` | 5 | A |
-| 25 | `_resolve_compute_job_result` | function | `app/services/async_result_service.py:44` | 5 | A |
+| 1 | `_validate_vendor_series_stateless_twr_benchmark_payload` | function | `app/models/twr_requests.py:52` | 5 | A |
+| 2 | `_validate_stateless_twr_benchmark_payloads` | function | `app/models/twr_requests.py:70` | 5 | A |
+| 3 | `_stateless_twr_envelope_issue` | function | `app/models/twr_requests.py:158` | 5 | A |
+| 4 | `_workspace_summary_stateless_envelope_issue` | function | `app/models/workspace_summary_requests.py:313` | 5 | A |
+| 5 | `_bounded_mwr_solver_outcome_labels` | function | `app/observability.py:68` | 5 | A |
+| 6 | `resolve_trace_id` | function | `app/observability.py:150` | 5 | A |
+| 7 | `propagation_headers` | function | `app/observability.py:160` | 5 | A |
+| 8 | `_included_router_route_name` | function | `app/observability.py:286` | 5 | A |
+| 9 | `_infer_example` | function | `app/openapi_enrichment.py:219` | 5 | A |
+| 10 | `_explicit_schema_example` | function | `app/openapi_enrichment.py:325` | 5 | A |
+| 11 | `_named_schema_example` | function | `app/openapi_enrichment.py:337` | 5 | A |
+| 12 | `_composed_schema_example` | function | `app/openapi_enrichment.py:346` | 5 | A |
+| 13 | `_build_schema_example` | function | `app/openapi_enrichment.py:466` | 5 | A |
+| 14 | `_validation_error_json_content` | function | `app/openapi_enrichment.py:519` | 5 | A |
+| 15 | `_request_body_example` | function | `app/openapi_enrichment.py:559` | 5 | A |
+| 16 | `_ensure_json_success_response_example` | function | `app/openapi_enrichment.py:612` | 5 | A |
+| 17 | `_ensure_operation_response_documentation` | function | `app/openapi_enrichment.py:653` | 5 | A |
+| 18 | `_ensure_operation_metadata` | function | `app/openapi_enrichment.py:681` | 5 | A |
+| 19 | `_iter_documentable_operations` | function | `app/openapi_enrichment.py:706` | 5 | A |
+| 20 | `_ensure_operation_documentation` | function | `app/openapi_enrichment.py:716` | 5 | A |
+| 21 | `_ensure_schema_documentation` | function | `app/openapi_enrichment.py:741` | 5 | A |
+| 22 | `_ensure_model_schema_documentation` | function | `app/openapi_enrichment.py:755` | 5 | A |
+| 23 | `_ensure_property_schema_documentation` | function | `app/openapi_enrichment.py:784` | 5 | A |
+| 24 | `_resolve_compute_job_result` | function | `app/services/async_result_service.py:44` | 5 | A |
+| 25 | `_async_result_record_payload_state` | function | `app/services/async_result_store.py:163` | 5 | A |
 
 ## Lowest Maintainability Index
 
@@ -86,9 +86,9 @@ must stay at `0`.
 | 16 | `app/services/inspection/source_quality.py` | 16.80 | B |
 | 17 | `app/services/twr_mode_service.py` | 17.66 | B |
 | 18 | `app/services/inspection/calculation_consistency.py` | 17.79 | B |
-| 19 | `app/services/inspection/twr_inspection_service.py` | 19.72 | A |
-| 20 | `app/models/runtime_status.py` | 19.85 | A |
-| 21 | `app/models/returns_series.py` | 20.15 | A |
+| 19 | `app/models/returns_series.py` | 19.70 | A |
+| 20 | `app/services/inspection/twr_inspection_service.py` | 19.72 | A |
+| 21 | `app/models/runtime_status.py` | 19.85 | A |
 | 22 | `app/workers/compute_executor_worker.py` | 20.54 | A |
 | 23 | `engine/composites.py` | 20.75 | A |
 | 24 | `app/services/stateful_mwr_input_service.py` | 21.63 | A |
@@ -924,6 +924,10 @@ missing-date zero hedge defaults, and no-hedge pass-through behavior.
 `ReturnsWindow` also dropped out after legacy relative-period alias normalization moved into a
 dedicated helper with direct coverage for canonical aliases, already-canonical periods, non-string
 period values, and non-dict validator input.
+`_validate_returns_series_stateless_benchmark_override` also dropped out after stateless benchmark
+override issue selection was split from validation raising and stateful-mode suppression, with
+direct coverage for stateful benchmark override allowance, default stateless allowance, benchmark-id
+rejection, and vendor-series source rejection.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.

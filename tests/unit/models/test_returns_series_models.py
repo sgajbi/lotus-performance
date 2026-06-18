@@ -6,12 +6,15 @@ import pytest
 from pydantic import ValidationError
 
 from app.models.returns_series import (
+    BenchmarkSpec,
+    InputMode,
     ReturnsRelativePeriod,
     ReturnsWindow,
     ReturnsWindowMode,
     StatefulInput,
     StatelessInput,
     _require_selected_stateless_series,
+    _returns_series_stateless_benchmark_override_issue,
     _returns_window_with_normalized_period_alias,
     _validate_explicit_returns_window,
     _validate_relative_returns_window,
@@ -239,6 +242,37 @@ def test_returns_series_rejects_stateful_only_benchmark_config_in_stateless_mode
         match="benchmark.return_source is only supported in stateful mode for returns-series",
     ):
         ReturnsSeriesRequest.model_validate(payload)
+
+
+def test_returns_series_stateless_benchmark_override_issue_preserves_mode_policy():
+    assert (
+        _returns_series_stateless_benchmark_override_issue(
+            input_mode=InputMode.STATEFUL,
+            benchmark=BenchmarkSpec.model_validate({"benchmark_id": "BMK_1"}),
+        )
+        is None
+    )
+    assert (
+        _returns_series_stateless_benchmark_override_issue(
+            input_mode=InputMode.STATELESS,
+            benchmark=BenchmarkSpec.model_validate({}),
+        )
+        is None
+    )
+    assert (
+        _returns_series_stateless_benchmark_override_issue(
+            input_mode=InputMode.STATELESS,
+            benchmark=BenchmarkSpec.model_validate({"benchmark_id": "BMK_1"}),
+        )
+        == "benchmark.benchmark_id is only supported in stateful mode for returns-series"
+    )
+    assert (
+        _returns_series_stateless_benchmark_override_issue(
+            input_mode=InputMode.STATELESS,
+            benchmark=BenchmarkSpec.model_validate({"return_source": "vendor_series"}),
+        )
+        == "benchmark.return_source is only supported in stateful mode for returns-series"
+    )
 
 
 def test_returns_series_allows_default_benchmark_override_in_stateless_mode():

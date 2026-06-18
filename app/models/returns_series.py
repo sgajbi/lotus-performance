@@ -335,12 +335,28 @@ def _validate_returns_series_stateless_benchmark_override(
     input_mode: InputMode,
     benchmark: BenchmarkSpec | None,
 ) -> None:
-    if input_mode != InputMode.STATELESS or benchmark is None:
+    issue = _returns_series_stateless_benchmark_override_issue(input_mode=input_mode, benchmark=benchmark)
+    if issue is None:
         return
+    raise ValueError(issue)
+
+
+def _returns_series_stateless_benchmark_override_issue(
+    *,
+    input_mode: InputMode,
+    benchmark: BenchmarkSpec | None,
+) -> str | None:
+    if input_mode == InputMode.STATELESS and benchmark is not None:
+        return _stateless_benchmark_override_issue(benchmark)
+    return None
+
+
+def _stateless_benchmark_override_issue(benchmark: BenchmarkSpec) -> str | None:
     if benchmark.benchmark_id is not None:
-        raise ValueError("benchmark.benchmark_id is only supported in stateful mode for returns-series")
+        return "benchmark.benchmark_id is only supported in stateful mode for returns-series"
     if benchmark.return_source != BenchmarkReturnSource.CALCULATED:
-        raise ValueError("benchmark.return_source is only supported in stateful mode for returns-series")
+        return "benchmark.return_source is only supported in stateful mode for returns-series"
+    return None
 
 
 class ReturnsSeriesRequest(BaseModel):
