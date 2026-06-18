@@ -298,6 +298,12 @@ def _matches_existing_compute_job_registration(
     )
 
 
+def _compute_job_has_conflicting_worker_lease(
+    *, current_worker_id: str | None, requested_worker_id: str | None
+) -> bool:
+    return requested_worker_id is not None and current_worker_id not in {None, requested_worker_id}
+
+
 def _ensure_compute_job_can_mark_running(
     row: ComputeJobModel,
     *,
@@ -308,7 +314,7 @@ def _ensure_compute_job_can_mark_running(
         raise ValueError(f"Cannot mark failed job as running: {calculation_id}")
     if row.job_status == ComputeJobStatus.COMPLETE.value:
         raise ValueError(f"Cannot mark complete job as running: {calculation_id}")
-    if worker_id is not None and row.worker_id not in {None, worker_id}:
+    if _compute_job_has_conflicting_worker_lease(current_worker_id=row.worker_id, requested_worker_id=worker_id):
         raise ValueError(f"Compute job leased by another worker: {calculation_id}")
 
 

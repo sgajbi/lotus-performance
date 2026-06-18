@@ -16,6 +16,7 @@ from app.services.compute_job_store import (
     ComputeJobStatus,
     ComputeJobStore,
     _aggregate_row_count,
+    _compute_job_has_conflicting_worker_lease,
     _compute_job_inspection_active_since,
     _compute_job_payload_failure,
     _ensure_compute_job_can_mark_running,
@@ -1196,6 +1197,26 @@ def test_ensure_compute_job_can_mark_running_rejects_other_worker_lease():
 
     with pytest.raises(ValueError, match="Compute job leased by another worker"):
         _ensure_compute_job_can_mark_running(row, calculation_id=calculation_id, worker_id="worker-b")
+
+
+@pytest.mark.parametrize(
+    ("current_worker_id", "requested_worker_id", "expected"),
+    [
+        (None, None, False),
+        (None, "worker-a", False),
+        ("worker-a", "worker-a", False),
+        ("worker-a", None, False),
+        ("worker-a", "worker-b", True),
+    ],
+)
+def test_compute_job_has_conflicting_worker_lease(current_worker_id, requested_worker_id, expected):
+    assert (
+        _compute_job_has_conflicting_worker_lease(
+            current_worker_id=current_worker_id,
+            requested_worker_id=requested_worker_id,
+        )
+        is expected
+    )
 
 
 def test_compute_job_store_get_queue_stats_uses_single_aggregate_query(tmp_path):
