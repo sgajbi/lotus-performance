@@ -17,6 +17,7 @@ from app.services.benchmark_exposure_context_service import (
     _benchmark_id_from_assignment_response,
     _build_exposure_rows,
     _classification_labels_from_catalog_record,
+    _classification_map_from_catalog_payload,
     _classification_map_from_catalog_records,
     _component_series_from_market_response,
     _group_identity,
@@ -261,6 +262,24 @@ def test_normalized_classification_labels_omits_nulls_and_stringifies_values() -
         "sector": "Technology",
         "rank": "1",
     }
+
+
+def test_classification_map_from_catalog_payload_validates_records_shape() -> None:
+    assert _classification_map_from_catalog_payload(
+        {
+            "records": [
+                {
+                    "index_id": "IDX_A",
+                    "classification_labels": {"sector": "Technology", "rank": 1},
+                }
+            ]
+        }
+    ) == {"IDX_A": {"sector": "Technology", "rank": "1"}}
+
+    with pytest.raises(HTTPException, match="records list") as exc_info:
+        _classification_map_from_catalog_payload({"records": "bad"})
+
+    assert exc_info.value.status_code == 422
 
 
 def test_benchmark_exposure_assignment_response_resolves_identity() -> None:

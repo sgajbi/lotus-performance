@@ -32,37 +32,37 @@ must stay at `0`.
 | --- | ---: |
 | Max cyclomatic complexity | 5 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 54.84 |
+| Average maintainability index | 54.83 |
 
 ## Highest Cyclomatic Complexity
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_classification_map_for_request` | function | `app/services/benchmark_exposure_context_service.py:166` | 5 | A |
-| 2 | `_index_ids_for_component_series` | function | `app/services/benchmark_exposure_context_service.py:197` | 5 | A |
-| 3 | `_iter_component_exposure_points` | function | `app/services/benchmark_exposure_context_service.py:278` | 5 | A |
-| 4 | `_accumulate_exposure_point` | function | `app/services/benchmark_exposure_context_service.py:288` | 5 | A |
-| 5 | `_group_identity` | function | `app/services/benchmark_exposure_context_service.py:319` | 5 | A |
-| 6 | `resolve_freshness_bucket` | function | `app/services/calculation_supportability_service.py:17` | 5 | A |
-| 7 | `_supportability_state_and_reason` | function | `app/services/calculation_supportability_service.py:37` | 5 | A |
-| 8 | `inspect_composite_twr_from_persisted_facts` | function | `app/services/composite_inspection_service.py:37` | 5 | A |
-| 9 | `_upgrade_member_return_fact_schema` | method | `app/services/composite_metadata_store.py:112` | 5 | A |
-| 10 | `_ensure_compute_job_can_mark_running` | function | `app/services/compute_job_store.py:301` | 5 | A |
-| 11 | `register_job` | method | `app/services/compute_job_store.py:394` | 5 | A |
-| 12 | `list_recent_recoveries` | method | `app/services/compute_job_store.py:659` | 5 | A |
-| 13 | `_apply_recovery_time_filters` | method | `app/services/compute_job_store.py:927` | 5 | A |
-| 14 | `_contribution_methodology_notes` | function | `app/services/contribution_audit.py:244` | 5 | A |
-| 15 | `contribution_position_count` | function | `app/services/contribution_calculation_workflow_service.py:37` | 5 | A |
-| 16 | `_calculate_promoted_stateful_contribution` | function | `app/services/contribution_calculation_workflow_service.py:100` | 5 | A |
-| 17 | `_calculate_position_flow_balance_counts` | function | `app/services/contribution_diagnostics.py:240` | 5 | A |
-| 18 | `_classify_average_weight_methodology_status` | function | `app/services/contribution_methodology.py:221` | 5 | A |
-| 19 | `_has_clean_average_weight_shadow_bookkeeping` | function | `app/services/contribution_methodology.py:263` | 5 | A |
-| 20 | `_calculate_reset_aware_period_portfolio_return` | function | `app/services/contribution_returns.py:22` | 5 | A |
-| 21 | `_build_residual_adjusted_position_timeseries` | function | `app/services/contribution_series.py:57` | 5 | A |
-| 22 | `_build_residual_adjusted_daily_contribution_series` | function | `app/services/contribution_series.py:156` | 5 | A |
-| 23 | `_build_hierarchy_from_adjusted_position_series` | function | `app/services/contribution_series.py:176` | 5 | A |
-| 24 | `_daily_hierarchy_metadata` | function | `app/services/contribution_series.py:255` | 5 | A |
-| 25 | `_build_hierarchy_rows` | function | `app/services/contribution_series.py:314` | 5 | A |
+| 1 | `_index_ids_for_component_series` | function | `app/services/benchmark_exposure_context_service.py:201` | 5 | A |
+| 2 | `_iter_component_exposure_points` | function | `app/services/benchmark_exposure_context_service.py:282` | 5 | A |
+| 3 | `_accumulate_exposure_point` | function | `app/services/benchmark_exposure_context_service.py:292` | 5 | A |
+| 4 | `_group_identity` | function | `app/services/benchmark_exposure_context_service.py:323` | 5 | A |
+| 5 | `resolve_freshness_bucket` | function | `app/services/calculation_supportability_service.py:17` | 5 | A |
+| 6 | `_supportability_state_and_reason` | function | `app/services/calculation_supportability_service.py:37` | 5 | A |
+| 7 | `inspect_composite_twr_from_persisted_facts` | function | `app/services/composite_inspection_service.py:37` | 5 | A |
+| 8 | `_upgrade_member_return_fact_schema` | method | `app/services/composite_metadata_store.py:112` | 5 | A |
+| 9 | `_ensure_compute_job_can_mark_running` | function | `app/services/compute_job_store.py:301` | 5 | A |
+| 10 | `register_job` | method | `app/services/compute_job_store.py:394` | 5 | A |
+| 11 | `list_recent_recoveries` | method | `app/services/compute_job_store.py:659` | 5 | A |
+| 12 | `_apply_recovery_time_filters` | method | `app/services/compute_job_store.py:927` | 5 | A |
+| 13 | `_contribution_methodology_notes` | function | `app/services/contribution_audit.py:244` | 5 | A |
+| 14 | `contribution_position_count` | function | `app/services/contribution_calculation_workflow_service.py:37` | 5 | A |
+| 15 | `_calculate_promoted_stateful_contribution` | function | `app/services/contribution_calculation_workflow_service.py:100` | 5 | A |
+| 16 | `_calculate_position_flow_balance_counts` | function | `app/services/contribution_diagnostics.py:240` | 5 | A |
+| 17 | `_classify_average_weight_methodology_status` | function | `app/services/contribution_methodology.py:221` | 5 | A |
+| 18 | `_has_clean_average_weight_shadow_bookkeeping` | function | `app/services/contribution_methodology.py:263` | 5 | A |
+| 19 | `_calculate_reset_aware_period_portfolio_return` | function | `app/services/contribution_returns.py:22` | 5 | A |
+| 20 | `_build_residual_adjusted_position_timeseries` | function | `app/services/contribution_series.py:57` | 5 | A |
+| 21 | `_build_residual_adjusted_daily_contribution_series` | function | `app/services/contribution_series.py:156` | 5 | A |
+| 22 | `_build_hierarchy_from_adjusted_position_series` | function | `app/services/contribution_series.py:176` | 5 | A |
+| 23 | `_daily_hierarchy_metadata` | function | `app/services/contribution_series.py:255` | 5 | A |
+| 24 | `_build_hierarchy_rows` | function | `app/services/contribution_series.py:314` | 5 | A |
+| 25 | `build_contribution_source_economics_evidence` | function | `app/services/contribution_source_economics.py:26` | 5 | A |
 
 ## Lowest Maintainability Index
 
@@ -794,6 +794,9 @@ component-series payload parsing were moved into a dedicated response-policy hel
 `_benchmark_id_from_assignment_response` also dropped out after assignment response status mapping
 and benchmark-id payload extraction were split into dedicated helpers while preserving 422/503
 semantics.
+`_classification_map_for_request` also dropped out after catalog payload records-list validation
+and classification-map construction moved into a dedicated helper while preserving source-failure
+mapping.
 `calculate_benchmark_artifacts` also dropped out after daily and optional component artifact date
 normalization moved into a dedicated source-artifact normalization helper.
 `_benchmark_period_result` also dropped out after inclusive daily slicing, empty-window suppression,

@@ -181,6 +181,10 @@ async def _classification_map_for_request(
     )
     if catalog_status >= status.HTTP_400_BAD_REQUEST:
         raise_for_stateful_source_unavailable(source_label="index catalog", upstream_status=catalog_status)
+    return _classification_map_from_catalog_payload(catalog_payload)
+
+
+def _classification_map_from_catalog_payload(catalog_payload: dict[str, Any]) -> dict[str, dict[str, str]]:
     records = catalog_payload.get("records")
     if not isinstance(records, list):
         raise HTTPException(
