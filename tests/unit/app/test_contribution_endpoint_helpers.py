@@ -55,6 +55,7 @@ from app.services.contribution_periods import (
 from app.services.contribution_returns import (
     _calculate_position_total_return_pct,
     _calculate_reset_aware_period_portfolio_return,
+    _period_engine_final_cum_ror,
     _position_period_valuation_points,
     build_position_contributions,
     build_residual_adjusted_position_totals,
@@ -735,6 +736,41 @@ def test_position_period_valuation_points_filters_inclusive_window() -> None:
     )
 
     assert [point["perf_date"] for point in period_points] == [pd.Timestamp("2025-01-02").date()]
+
+
+def test_period_engine_final_cum_ror_applies_scale_and_preserves_period_config(mocker):
+    request = ContributionRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "currency_mode": "BOTH",
+            "portfolio_data": {
+                "metric_basis": "NET",
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+            },
+            "positions_data": [],
+        }
+    )
+    run_engine = mocker.patch(
+        "app.services.contribution_returns.run_engine_for_valuation_points",
+        return_value=pd.DataFrame({PortfolioColumns.FINAL_CUM_ROR.value: [2.5]}),
+    )
+
+    result = _period_engine_final_cum_ror(
+        request=request,
+        period_valuation_points=[{"perf_date": pd.Timestamp("2025-01-01").date()}],
+        period_start_date=pd.Timestamp("2025-01-01").date(),
+        period_end_date=pd.Timestamp("2025-01-02").date(),
+        period_type="ITD",
+        result_scale=0.01,
+    )
+
+    assert result == pytest.approx(0.025)
+    period_engine_config = run_engine.call_args.args[1]
+    assert period_engine_config.period_type == "ITD"
+    assert run_engine.call_args.kwargs["force_base_only"] is True
 
 
 def test_calculate_reset_aware_average_weight_shadow_ignores_pre_reset_history_and_nip_days():
