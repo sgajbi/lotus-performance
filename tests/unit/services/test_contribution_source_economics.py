@@ -10,6 +10,7 @@ from app.services.contribution_source_economics import (
     _has_caller_supplied_position_flows,
     _has_non_zero_flow,
     _has_position_currency_metadata,
+    _has_stateful_external_flow_economics,
     _has_unclassified_position_metadata,
     _has_unsupported_cash_flow_types,
     _is_valid_source_cash_flow_type_count,
@@ -150,6 +151,12 @@ def test_stateful_cash_flow_economics_projects_supported_source_flow_families():
     )
 
     assert economics == ["external_flows", "internal_trade_flows", "fees"]
+
+
+def test_has_stateful_external_flow_economics_accepts_external_flows_and_transfers():
+    assert _has_stateful_external_flow_economics({"external_flow": 1})
+    assert _has_stateful_external_flow_economics({"transfer": 1})
+    assert not _has_stateful_external_flow_economics({"internal_trade_flow": 1, "fee": 1})
 
 
 def test_stateful_metadata_economics_projects_fx_and_classification_dimensions():
