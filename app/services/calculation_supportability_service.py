@@ -63,15 +63,31 @@ def _supportability_state_and_reason(
     freshness_bucket: PerformanceFreshnessBucket,
     source_quality_evidence: PerformanceSourceQualityEvidence | None,
 ) -> tuple[PerformanceSupportabilityState, PerformanceSupportabilityReason]:
-    if input_row_count < minimum_input_row_count:
-        return "empty", "insufficient_valuation_points"
-    if resolved_period_count <= 0:
-        return "empty", "empty_resolved_periods"
+    empty_state = _empty_supportability_state_and_reason(
+        input_row_count=input_row_count,
+        minimum_input_row_count=minimum_input_row_count,
+        resolved_period_count=resolved_period_count,
+    )
+    if empty_state is not None:
+        return empty_state
     if freshness_bucket == "stale":
         return "stale", "stale_source_observations"
     if _has_degraded_source_quality(source_quality_evidence):
         return "degraded", "calculation_quality_issue"
     return "ready", "calculation_complete"
+
+
+def _empty_supportability_state_and_reason(
+    *,
+    input_row_count: int,
+    minimum_input_row_count: int,
+    resolved_period_count: int,
+) -> tuple[PerformanceSupportabilityState, PerformanceSupportabilityReason] | None:
+    if input_row_count < minimum_input_row_count:
+        return "empty", "insufficient_valuation_points"
+    if resolved_period_count <= 0:
+        return "empty", "empty_resolved_periods"
+    return None
 
 
 def build_calculation_supportability(

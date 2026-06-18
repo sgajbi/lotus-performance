@@ -3,6 +3,7 @@ from datetime import date
 from app.models.source_quality import PerformanceSourceQualityEvidence
 from app.observability_contracts import PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS
 from app.services.calculation_supportability_service import (
+    _empty_supportability_state_and_reason,
     _normalized_freshness_dates,
     _source_observation_is_current_or_newer,
     _supportability_state_and_reason,
@@ -19,6 +20,27 @@ def test_supportability_state_policy_prioritizes_insufficient_inputs() -> None:
         freshness_bucket="stale",
         source_quality_evidence=None,
     ) == ("empty", "insufficient_valuation_points")
+
+
+def test_empty_supportability_state_policy_prioritizes_input_rows_before_periods() -> None:
+    assert _empty_supportability_state_and_reason(
+        input_row_count=0,
+        minimum_input_row_count=1,
+        resolved_period_count=0,
+    ) == ("empty", "insufficient_valuation_points")
+    assert _empty_supportability_state_and_reason(
+        input_row_count=1,
+        minimum_input_row_count=1,
+        resolved_period_count=0,
+    ) == ("empty", "empty_resolved_periods")
+    assert (
+        _empty_supportability_state_and_reason(
+            input_row_count=1,
+            minimum_input_row_count=1,
+            resolved_period_count=1,
+        )
+        is None
+    )
 
 
 def test_freshness_bucket_policy_classifies_missing_current_and_stale_inputs() -> None:
