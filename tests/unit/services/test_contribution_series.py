@@ -14,6 +14,7 @@ from app.services.contribution_series import (
     _build_hierarchy_from_adjusted_position_series,
     _daily_hierarchy_metadata,
     _has_adjusted_hierarchy_inputs,
+    _hierarchy_metadata_columns,
     _prepared_adjusted_hierarchy_frames,
     _residual_adjusted_daily_totals_by_date,
     _residual_adjusted_position_rows,
@@ -219,6 +220,24 @@ def test_hierarchy_metadata_helpers_align_dates_and_unclassified_policy():
         )
         is None
     )
+
+
+def test_hierarchy_metadata_columns_preserves_base_columns_and_unique_levels():
+    assert _hierarchy_metadata_columns(
+        [
+            "sector",
+            "daily_weight",
+            "region",
+            "sector",
+            PortfolioColumns.PERF_DATE.value,
+        ]
+    ) == [
+        "position_id",
+        PortfolioColumns.PERF_DATE.value,
+        "daily_weight",
+        "sector",
+        "region",
+    ]
 
 
 def test_residual_adjusted_position_rows_allocate_by_weight_and_equal_fallback():

@@ -38,31 +38,31 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_daily_hierarchy_metadata` | function | `app/services/contribution_series.py:280` | 5 | A |
-| 2 | `_build_hierarchy_rows` | function | `app/services/contribution_series.py:339` | 5 | A |
-| 3 | `build_contribution_source_economics_evidence` | function | `app/services/contribution_source_economics.py:26` | 5 | A |
-| 4 | `_stateful_cash_flow_economics` | function | `app/services/contribution_source_economics.py:117` | 5 | A |
-| 5 | `_stateful_reason_codes` | function | `app/services/contribution_source_economics.py:178` | 5 | A |
-| 6 | `_source_cash_flow_type_counts` | function | `app/services/contribution_source_economics.py:205` | 5 | A |
-| 7 | `_has_non_zero_flow` | function | `app/services/contribution_source_economics.py:240` | 5 | A |
-| 8 | `get_index_catalog` | method | `app/services/core_integration_service.py:218` | 5 | A |
-| 9 | `_lineage_storage_path_unavailable_status` | function | `app/services/durability_health_service.py:77` | 5 | A |
-| 10 | `_probe_lineage_storage_write` | function | `app/services/durability_health_service.py:119` | 5 | A |
-| 11 | `register_execution` | method | `app/services/execution_registry.py:354` | 5 | A |
-| 12 | `get_execution` | method | `app/services/execution_registry.py:524` | 5 | A |
-| 13 | `run_twr_calculation_consistency_checks` | function | `app/services/inspection/calculation_consistency.py:49` | 5 | A |
-| 14 | `_check_benchmark_relative_pairing` | function | `app/services/inspection/calculation_consistency.py:121` | 5 | A |
-| 15 | `_check_relative_breakdown_item` | function | `app/services/inspection/calculation_consistency.py:274` | 5 | A |
-| 16 | `_check_block_linking` | function | `app/services/inspection/calculation_consistency.py:353` | 5 | A |
-| 17 | `_expected_daily_external_flows` | function | `app/services/inspection/calculation_consistency.py:453` | 5 | A |
-| 18 | `_daily_calculation_evidence_mismatches` | function | `app/services/inspection/calculation_consistency.py:467` | 5 | A |
-| 19 | `_daily_evidence_semantic_mismatches` | function | `app/services/inspection/calculation_consistency.py:525` | 5 | A |
-| 20 | `_expected_daily_capital_linkability_status` | function | `app/services/inspection/calculation_consistency.py:584` | 5 | A |
-| 21 | `_expected_daily_period_statuses` | function | `app/services/inspection/calculation_consistency.py:608` | 5 | A |
-| 22 | `_add_daily_market_event_reason_codes` | function | `app/services/inspection/calculation_consistency.py:640` | 5 | A |
-| 23 | `_expected_daily_return_linkability_status` | function | `app/services/inspection/calculation_consistency.py:651` | 5 | A |
-| 24 | `_comparative_return_components_match` | function | `app/services/inspection/calculation_consistency.py:740` | 5 | A |
-| 25 | `_subtract_return_values` | function | `app/services/inspection/calculation_consistency.py:752` | 5 | A |
+| 1 | `_build_hierarchy_rows` | function | `app/services/contribution_series.py:343` | 5 | A |
+| 2 | `build_contribution_source_economics_evidence` | function | `app/services/contribution_source_economics.py:26` | 5 | A |
+| 3 | `_stateful_cash_flow_economics` | function | `app/services/contribution_source_economics.py:117` | 5 | A |
+| 4 | `_stateful_reason_codes` | function | `app/services/contribution_source_economics.py:178` | 5 | A |
+| 5 | `_source_cash_flow_type_counts` | function | `app/services/contribution_source_economics.py:205` | 5 | A |
+| 6 | `_has_non_zero_flow` | function | `app/services/contribution_source_economics.py:240` | 5 | A |
+| 7 | `get_index_catalog` | method | `app/services/core_integration_service.py:218` | 5 | A |
+| 8 | `_lineage_storage_path_unavailable_status` | function | `app/services/durability_health_service.py:77` | 5 | A |
+| 9 | `_probe_lineage_storage_write` | function | `app/services/durability_health_service.py:119` | 5 | A |
+| 10 | `register_execution` | method | `app/services/execution_registry.py:354` | 5 | A |
+| 11 | `get_execution` | method | `app/services/execution_registry.py:524` | 5 | A |
+| 12 | `run_twr_calculation_consistency_checks` | function | `app/services/inspection/calculation_consistency.py:49` | 5 | A |
+| 13 | `_check_benchmark_relative_pairing` | function | `app/services/inspection/calculation_consistency.py:121` | 5 | A |
+| 14 | `_check_relative_breakdown_item` | function | `app/services/inspection/calculation_consistency.py:274` | 5 | A |
+| 15 | `_check_block_linking` | function | `app/services/inspection/calculation_consistency.py:353` | 5 | A |
+| 16 | `_expected_daily_external_flows` | function | `app/services/inspection/calculation_consistency.py:453` | 5 | A |
+| 17 | `_daily_calculation_evidence_mismatches` | function | `app/services/inspection/calculation_consistency.py:467` | 5 | A |
+| 18 | `_daily_evidence_semantic_mismatches` | function | `app/services/inspection/calculation_consistency.py:525` | 5 | A |
+| 19 | `_expected_daily_capital_linkability_status` | function | `app/services/inspection/calculation_consistency.py:584` | 5 | A |
+| 20 | `_expected_daily_period_statuses` | function | `app/services/inspection/calculation_consistency.py:608` | 5 | A |
+| 21 | `_add_daily_market_event_reason_codes` | function | `app/services/inspection/calculation_consistency.py:640` | 5 | A |
+| 22 | `_expected_daily_return_linkability_status` | function | `app/services/inspection/calculation_consistency.py:651` | 5 | A |
+| 23 | `_comparative_return_components_match` | function | `app/services/inspection/calculation_consistency.py:740` | 5 | A |
+| 24 | `_subtract_return_values` | function | `app/services/inspection/calculation_consistency.py:752` | 5 | A |
+| 25 | `_select_latest_position_rows` | function | `app/services/inspection/reconciliation.py:467` | 5 | A |
 
 ## Lowest Maintainability Index
 
@@ -1072,6 +1072,9 @@ same-day aggregation and negative contribution preservation before sorted respon
 `_build_hierarchy_from_adjusted_position_series` also dropped out after hierarchy eligibility was
 split into a dedicated guard helper, with direct coverage for hierarchy, period-row, and adjusted
 position-series prerequisites.
+`_daily_hierarchy_metadata` also dropped out after hierarchy metadata column selection was split
+into a dedicated helper, with direct coverage for base metadata preservation and duplicate
+hierarchy-level suppression.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.

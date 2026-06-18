@@ -278,17 +278,21 @@ def _adjusted_position_hierarchy_records(
 
 
 def _daily_hierarchy_metadata(period_slice_df: pd.DataFrame, *, hierarchy_levels: list[str]) -> pd.DataFrame:
-    meta_columns = ["position_id", PortfolioColumns.PERF_DATE.value, "daily_weight"]
-    for level_name in hierarchy_levels:
-        if level_name not in meta_columns:
-            meta_columns.append(level_name)
-
+    meta_columns = _hierarchy_metadata_columns(hierarchy_levels)
     daily_meta = period_slice_df.copy()
     for level_name in hierarchy_levels:
         if level_name not in daily_meta.columns:
             daily_meta[level_name] = None
     daily_meta[PortfolioColumns.PERF_DATE.value] = observation_date_series(daily_meta[PortfolioColumns.PERF_DATE.value])
     return daily_meta[meta_columns]
+
+
+def _hierarchy_metadata_columns(hierarchy_levels: list[str]) -> list[str]:
+    meta_columns = ["position_id", PortfolioColumns.PERF_DATE.value, "daily_weight"]
+    for level_name in hierarchy_levels:
+        if level_name not in meta_columns:
+            meta_columns.append(level_name)
+    return meta_columns
 
 
 def _apply_hierarchy_unclassified_policy(
