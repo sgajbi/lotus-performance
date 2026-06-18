@@ -306,15 +306,10 @@ def _accumulate_exposure_point(
     labels: dict[tuple[BenchmarkExposureGroupingDimension, str], str],
     component_ids: dict[tuple[BenchmarkExposureGroupingDimension, str], str | None],
 ) -> None:
-    if not isinstance(point, dict):
+    point_facts = _exposure_point_series_date_and_weight(point)
+    if point_facts is None:
         return
-    series_date = point.get("series_date")
-    if not isinstance(series_date, str):
-        return
-    component_weight = point.get("component_weight")
-    if component_weight is None:
-        return
-    weight = _as_decimal(component_weight, field_name="component_weight")
+    series_date, weight = point_facts
     for dimension in grouping_dimensions:
         group_key, group_label, component_id = _group_identity(
             index_id=index_id,
@@ -325,6 +320,18 @@ def _accumulate_exposure_point(
         grouped_weights[grouped_key] = grouped_weights.get(grouped_key, Decimal("0")) + weight
         labels[(dimension, group_key)] = group_label
         component_ids[(dimension, group_key)] = component_id
+
+
+def _exposure_point_series_date_and_weight(point: Any) -> tuple[str, Decimal] | None:
+    if not isinstance(point, dict):
+        return None
+    series_date = point.get("series_date")
+    if not isinstance(series_date, str):
+        return None
+    component_weight = point.get("component_weight")
+    if component_weight is None:
+        return None
+    return series_date, _as_decimal(component_weight, field_name="component_weight")
 
 
 def _group_identity(

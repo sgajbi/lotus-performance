@@ -21,6 +21,7 @@ from app.services.benchmark_exposure_context_service import (
     _classification_map_from_catalog_records,
     _component_exposure_points,
     _component_series_from_market_response,
+    _exposure_point_series_date_and_weight,
     _group_identity,
     _index_ids_for_component_series,
     _iter_component_exposure_points,
@@ -552,6 +553,20 @@ def test_accumulate_exposure_point_groups_valid_points_and_skips_invalid_shapes(
     )
     assert labels[(BenchmarkExposureGroupingDimension.SECTOR, "SECTOR_Technology")] == "Technology"
     assert component_ids[(BenchmarkExposureGroupingDimension.POSITION, "IDX")] == "IDX"
+
+
+def test_exposure_point_series_date_and_weight_qualifies_point_facts() -> None:
+    assert _exposure_point_series_date_and_weight({"series_date": "2026-01-02", "component_weight": "0.25"}) == (
+        "2026-01-02",
+        Decimal("0.25"),
+    )
+
+    assert _exposure_point_series_date_and_weight(None) is None
+    assert _exposure_point_series_date_and_weight({"series_date": None, "component_weight": "0.25"}) is None
+    assert _exposure_point_series_date_and_weight({"series_date": "2026-01-02"}) is None
+
+    with pytest.raises(HTTPException, match="invalid component_weight"):
+        _exposure_point_series_date_and_weight({"series_date": "2026-01-02", "component_weight": "not-a-number"})
 
 
 def test_group_identity_uses_unknown_defaults_for_classification_groups() -> None:
