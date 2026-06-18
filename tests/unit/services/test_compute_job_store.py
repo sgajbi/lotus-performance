@@ -24,6 +24,7 @@ from app.services.compute_job_store import (
     _ensure_compute_job_can_mark_running,
     _matches_existing_compute_job_registration,
     _queue_stats_from_aggregate_row,
+    _recovery_seek_cursor_filter,
     _stale_job_reconciliation_outcome,
 )
 from app.services.durable_store_inspection import build_inspection_query_context
@@ -1077,6 +1078,35 @@ def test_recovery_events_from_rows_suppresses_rows_without_recovery_timestamp(tm
     assert events[0].calculation_id == recovered.calculation_id
     assert events[0].recovery_kind == "stale_lease_recovered"
     assert events[0].recovered_at_utc == "2026-03-14T12:00:00Z"
+
+
+def test_recovery_seek_cursor_filter_without_calculation_tiebreaker_uses_timestamp_only():
+    cursor_time = datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc)
+
+    compiled = str(
+        _recovery_seek_cursor_filter(
+            cursor_recovered_before=cursor_time,
+            cursor_calculation_id_before=None,
+        ).compile(dialect=postgresql.dialect())
+    )
+
+    assert "last_error_at_utc <" in compiled
+    assert "calculation_id <" not in compiled
+
+
+def test_recovery_seek_cursor_filter_with_calculation_tiebreaker_uses_stable_seek_order():
+    cursor_time = datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc)
+
+    compiled = str(
+        _recovery_seek_cursor_filter(
+            cursor_recovered_before=cursor_time,
+            cursor_calculation_id_before="calc-b",
+        ).compile(dialect=postgresql.dialect())
+    )
+
+    assert "last_error_at_utc <" in compiled
+    assert "last_error_at_utc =" in compiled
+    assert "calculation_id <" in compiled
 
 
 def test_compute_job_store_prunes_terminal_jobs_older_than_cutoff(tmp_path):

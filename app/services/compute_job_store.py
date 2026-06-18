@@ -330,6 +330,20 @@ def _compute_job_registration_result_for_integrity_conflict(
     )
 
 
+def _recovery_seek_cursor_filter(
+    *,
+    cursor_recovered_before: datetime,
+    cursor_calculation_id_before: str | None,
+):
+    cursor_filter = ComputeJobModel.last_error_at_utc < cursor_recovered_before
+    if cursor_calculation_id_before:
+        cursor_filter = cursor_filter | (
+            (ComputeJobModel.last_error_at_utc == cursor_recovered_before)
+            & (ComputeJobModel.calculation_id < cursor_calculation_id_before)
+        )
+    return cursor_filter
+
+
 def _ensure_compute_job_can_mark_running(
     row: ComputeJobModel,
     *,
@@ -955,13 +969,12 @@ class ComputeJobStore:
         if recovered_before is not None:
             statement = statement.where(ComputeJobModel.last_error_at_utc <= recovered_before)
         if cursor_recovered_before is not None:
-            cursor_filter = ComputeJobModel.last_error_at_utc < cursor_recovered_before
-            if cursor_calculation_id_before:
-                cursor_filter = cursor_filter | (
-                    (ComputeJobModel.last_error_at_utc == cursor_recovered_before)
-                    & (ComputeJobModel.calculation_id < cursor_calculation_id_before)
+            statement = statement.where(
+                _recovery_seek_cursor_filter(
+                    cursor_recovered_before=cursor_recovered_before,
+                    cursor_calculation_id_before=cursor_calculation_id_before,
                 )
-            statement = statement.where(cursor_filter)
+            )
         return statement
 
     def _build_recent_recoveries_statement(
