@@ -11,6 +11,7 @@ from app.services.execution_registry import (
     ExecutionRegistry,
     ExecutionStageStatus,
     ExecutionStatus,
+    _execution_model_for_registration,
     _record_missing_upstream_snapshot,
     _upstream_snapshot_model_from_payload,
 )
@@ -420,6 +421,32 @@ def test_execution_registry_register_execution_distinguishes_create_replay_and_c
     assert replay.existing_status == ExecutionStatus.PENDING
     assert conflict.status == ExecutionRegistrationStatus.CONFLICT
     assert conflict.existing_execution_mode == "async"
+
+
+def test_execution_registration_model_factory_projects_pending_execution_contract():
+    calculation_id = uuid4()
+    created_at = datetime(2026, 6, 19, 8, 30, tzinfo=timezone.utc)
+
+    execution = _execution_model_for_registration(
+        calculation_id=calculation_id,
+        analytics_type="ReturnsSeries",
+        portfolio_id="PORT-FACTORY",
+        execution_mode="async",
+        requested_window_json='{"from_date": "2026-01-01", "to_date": "2026-06-19"}',
+        input_fingerprint="sha256:input",
+        calculation_hash="sha256:calc",
+        created_at=created_at,
+    )
+
+    assert execution.calculation_id == str(calculation_id)
+    assert execution.status == ExecutionStatus.PENDING.value
+    assert execution.requested_window_json == '{"from_date": "2026-01-01", "to_date": "2026-06-19"}'
+    assert execution.input_fingerprint == "sha256:input"
+    assert execution.calculation_hash == "sha256:calc"
+    assert execution.created_at_utc == created_at
+    assert execution.started_at_utc is None
+    assert execution.completed_at_utc is None
+    assert execution.error_message is None
 
 
 def test_execution_registry_declares_upstream_snapshot_ordering_index(tmp_path):
