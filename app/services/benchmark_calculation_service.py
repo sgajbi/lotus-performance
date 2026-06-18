@@ -271,8 +271,19 @@ def _build_benchmark_breakdowns(
 
 def _group_benchmark_breakdown_rows(*, sorted_period_df: pd.DataFrame, frequency: Frequency) -> list[pd.DataFrame]:
     if frequency == Frequency.DAILY:
-        return [pd.DataFrame([row]).reset_index(drop=True) for _, row in sorted_period_df.iterrows()]
+        return _daily_benchmark_breakdown_rows(sorted_period_df)
+    return _resampled_benchmark_breakdown_rows(sorted_period_df=sorted_period_df, frequency=frequency)
 
+
+def _daily_benchmark_breakdown_rows(sorted_period_df: pd.DataFrame) -> list[pd.DataFrame]:
+    return [pd.DataFrame([row]).reset_index(drop=True) for _, row in sorted_period_df.iterrows()]
+
+
+def _resampled_benchmark_breakdown_rows(
+    *,
+    sorted_period_df: pd.DataFrame,
+    frequency: Frequency,
+) -> list[pd.DataFrame]:
     local_df = sorted_period_df.copy()
     local_df["date"] = observation_timestamp_series(local_df["date"])
     indexed = local_df.set_index(local_df["date"])

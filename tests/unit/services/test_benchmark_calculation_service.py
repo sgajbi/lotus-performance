@@ -454,6 +454,24 @@ def test_benchmark_breakdown_helpers_group_rows_and_format_labels():
     )
 
 
+def test_benchmark_breakdown_group_helpers_project_daily_and_resampled_rows():
+    df = pd.DataFrame(
+        {
+            "date": [date(2025, 1, 1), date(2025, 1, 2), date(2025, 2, 3)],
+            "benchmark_return": [0.01, 0.02, 0.03],
+        }
+    )
+
+    daily_rows = benchmark_calculation_service._daily_benchmark_breakdown_rows(df)
+    monthly_rows = benchmark_calculation_service._resampled_benchmark_breakdown_rows(
+        sorted_period_df=df,
+        frequency=Frequency.MONTHLY,
+    )
+
+    assert [len(row) for row in daily_rows] == [1, 1, 1]
+    assert [row["date"].iloc[-1] for row in monthly_rows] == [date(2025, 1, 2), date(2025, 2, 3)]
+
+
 def test_calculate_benchmark_artifacts_supports_explicit_period_window():
     request = BenchmarkPerformanceRequest.model_validate(
         {
