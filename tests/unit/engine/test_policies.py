@@ -9,7 +9,9 @@ from engine.policies import (
     _apply_override_values,
     _extract_policy_inputs,
     _flag_outliers,
+    _flaggable_outlier_policy,
     _outlier_mask_and_bounds,
+    _outlier_window_and_mad_k,
     _override_mask,
     _policy_inputs_from_payload,
     _record_outlier_samples,
@@ -200,6 +202,35 @@ def test_flag_outliers_returns_early_when_disabled(sample_policy_df):
         ignored_dates=_extract_policy_inputs(policy_model).ignored_dates,
     )
     assert diagnostics.policy.outliers.flagged_rows == 0
+
+
+def test_flaggable_outlier_policy_projects_enabled_flag_policy():
+    policy_model = DataPolicy.model_validate(
+        {"outliers": {"enabled": True, "action": "FLAG", "params": {"window": 5, "mad_k": 3.0}}}
+    )
+
+    outlier_policy = _flaggable_outlier_policy(policy_model)
+
+    assert outlier_policy is not None
+    assert _outlier_window_and_mad_k(outlier_policy) == (5, 3.0)
+
+
+def test_flaggable_outlier_policy_returns_none_for_non_flag_action():
+    class _Outliers:
+        enabled = True
+
+        @staticmethod
+        def model_dump():
+            return {"action": "IGNORE", "params": {}}
+
+    class _Policy:
+        outliers = _Outliers()
+
+    assert _flaggable_outlier_policy(_Policy()) is None
+
+
+def test_outlier_window_and_mad_k_uses_defaults():
+    assert _outlier_window_and_mad_k({"action": "FLAG"}) == (63, 5.0)
 
 
 def test_flag_outliers_returns_early_for_non_flag_action(sample_policy_df):

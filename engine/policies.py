@@ -143,19 +143,14 @@ def _flag_outliers(
     ignored_dates: set[date] | None = None,
 ) -> None:
     """Detects and flags outliers, excluding ignored days from statistical analysis."""
-    if not data_policy_model or not data_policy_model.outliers or not data_policy_model.outliers.enabled:
+    outlier_policy = _flaggable_outlier_policy(data_policy_model)
+    if outlier_policy is None:
         return
-
-    outlier_policy = data_policy_model.outliers.model_dump()
-    if outlier_policy.get("action") != "FLAG":
-        return
-
-    window = outlier_policy.get("params", {}).get("window", 63)
-    mad_k = outlier_policy.get("params", {}).get("mad_k", 5.0)
 
     if PortfolioColumns.DAILY_ROR.value not in df.columns:
         return
 
+    window, mad_k = _outlier_window_and_mad_k(outlier_policy)
     outliers, upper_bound, lower_bound = _outlier_mask_and_bounds(
         df=df,
         ignored_dates=ignored_dates,
@@ -171,6 +166,21 @@ def _flag_outliers(
         lower_bound=lower_bound,
         diagnostics=diagnostics,
     )
+
+
+def _flaggable_outlier_policy(data_policy_model: BaseModel | None) -> Mapping[str, Any] | None:
+    if not data_policy_model or not data_policy_model.outliers or not data_policy_model.outliers.enabled:
+        return None
+
+    outlier_policy = data_policy_model.outliers.model_dump()
+    if outlier_policy.get("action") != "FLAG":
+        return None
+    return outlier_policy
+
+
+def _outlier_window_and_mad_k(outlier_policy: Mapping[str, Any]) -> tuple[Any, Any]:
+    params = outlier_policy.get("params", {})
+    return params.get("window", 63), params.get("mad_k", 5.0)
 
 
 def _record_outlier_samples(

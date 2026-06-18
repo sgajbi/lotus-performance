@@ -32,37 +32,37 @@ must stay at `0`.
 | --- | ---: |
 | Max cyclomatic complexity | 6 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 54.92 |
+| Average maintainability index | 54.91 |
 
 ## Highest Cyclomatic Complexity
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_flag_outliers` | function | `engine/policies.py:138` | 6 | B |
-| 2 | `_apply_hedging_to_fx_return` | function | `engine/ror.py:150` | 6 | B |
-| 3 | `calculate_sod_reset_reason` | function | `engine/rules.py:164` | 6 | B |
-| 4 | `health_ready` | function | `app/api/endpoints/health.py:41` | 5 | A |
-| 5 | `get_twr_inspection_artifact` | function | `app/api/endpoints/inspections.py:174` | 5 | A |
-| 6 | `_load_and_validate_manifest` | function | `app/api/endpoints/lineage.py:27` | 5 | A |
-| 7 | `resolve_operator_request_context` | function | `app/api/operator_context.py:15` | 5 | A |
-| 8 | `_normalized_capability_rule_override` | function | `app/enterprise_capability_rules.py:79` | 5 | A |
-| 9 | `_stateless_input_envelope_issue` | function | `app/models/attribution_analytics_requests.py:294` | 5 | A |
-| 10 | `_validate_benchmark_analysis_selection` | function | `app/models/benchmark_analytics_requests.py:142` | 5 | A |
-| 11 | `_validate_benchmark_analysis_window` | function | `app/models/benchmark_requests.py:48` | 5 | A |
-| 12 | `CompositeMemberReturnFact` | class | `app/models/composites.py:159` | 5 | A |
-| 13 | `_stateless_contribution_envelope_issue` | function | `app/models/contribution_analytics_requests.py:74` | 5 | A |
-| 14 | `_resolved_stateless_contribution_inputs` | function | `app/models/contribution_analytics_requests.py:95` | 5 | A |
-| 15 | `build_execution_response` | function | `app/models/execution_polling.py:239` | 5 | A |
-| 16 | `TWRInspectionRequest` | class | `app/models/inspection_requests.py:64` | 5 | A |
-| 17 | `_stateless_mwr_envelope_issue` | function | `app/models/mwr_analytics_requests.py:67` | 5 | A |
-| 18 | `_validate_stateful_mwr_payloads` | function | `app/models/mwr_analytics_requests.py:75` | 5 | A |
-| 19 | `ReturnsWindow` | class | `app/models/returns_series.py:79` | 5 | A |
-| 20 | `_validate_returns_series_stateless_benchmark_override` | function | `app/models/returns_series.py:327` | 5 | A |
-| 21 | `_validate_vendor_series_stateless_twr_benchmark_payload` | function | `app/models/twr_requests.py:52` | 5 | A |
-| 22 | `_validate_stateless_twr_benchmark_payloads` | function | `app/models/twr_requests.py:70` | 5 | A |
-| 23 | `_stateless_twr_envelope_issue` | function | `app/models/twr_requests.py:158` | 5 | A |
-| 24 | `_workspace_summary_stateless_envelope_issue` | function | `app/models/workspace_summary_requests.py:313` | 5 | A |
-| 25 | `_bounded_mwr_solver_outcome_labels` | function | `app/observability.py:68` | 5 | A |
+| 1 | `_apply_hedging_to_fx_return` | function | `engine/ror.py:150` | 6 | B |
+| 2 | `calculate_sod_reset_reason` | function | `engine/rules.py:164` | 6 | B |
+| 3 | `health_ready` | function | `app/api/endpoints/health.py:41` | 5 | A |
+| 4 | `get_twr_inspection_artifact` | function | `app/api/endpoints/inspections.py:174` | 5 | A |
+| 5 | `_load_and_validate_manifest` | function | `app/api/endpoints/lineage.py:27` | 5 | A |
+| 6 | `resolve_operator_request_context` | function | `app/api/operator_context.py:15` | 5 | A |
+| 7 | `_normalized_capability_rule_override` | function | `app/enterprise_capability_rules.py:79` | 5 | A |
+| 8 | `_stateless_input_envelope_issue` | function | `app/models/attribution_analytics_requests.py:294` | 5 | A |
+| 9 | `_validate_benchmark_analysis_selection` | function | `app/models/benchmark_analytics_requests.py:142` | 5 | A |
+| 10 | `_validate_benchmark_analysis_window` | function | `app/models/benchmark_requests.py:48` | 5 | A |
+| 11 | `CompositeMemberReturnFact` | class | `app/models/composites.py:159` | 5 | A |
+| 12 | `_stateless_contribution_envelope_issue` | function | `app/models/contribution_analytics_requests.py:74` | 5 | A |
+| 13 | `_resolved_stateless_contribution_inputs` | function | `app/models/contribution_analytics_requests.py:95` | 5 | A |
+| 14 | `build_execution_response` | function | `app/models/execution_polling.py:239` | 5 | A |
+| 15 | `TWRInspectionRequest` | class | `app/models/inspection_requests.py:64` | 5 | A |
+| 16 | `_stateless_mwr_envelope_issue` | function | `app/models/mwr_analytics_requests.py:67` | 5 | A |
+| 17 | `_validate_stateful_mwr_payloads` | function | `app/models/mwr_analytics_requests.py:75` | 5 | A |
+| 18 | `ReturnsWindow` | class | `app/models/returns_series.py:79` | 5 | A |
+| 19 | `_validate_returns_series_stateless_benchmark_override` | function | `app/models/returns_series.py:327` | 5 | A |
+| 20 | `_validate_vendor_series_stateless_twr_benchmark_payload` | function | `app/models/twr_requests.py:52` | 5 | A |
+| 21 | `_validate_stateless_twr_benchmark_payloads` | function | `app/models/twr_requests.py:70` | 5 | A |
+| 22 | `_stateless_twr_envelope_issue` | function | `app/models/twr_requests.py:158` | 5 | A |
+| 23 | `_workspace_summary_stateless_envelope_issue` | function | `app/models/workspace_summary_requests.py:313` | 5 | A |
+| 24 | `_bounded_mwr_solver_outcome_labels` | function | `app/observability.py:68` | 5 | A |
+| 25 | `resolve_trace_id` | function | `app/observability.py:150` | 5 | A |
 
 ## Lowest Maintainability Index
 
@@ -902,6 +902,9 @@ payload sections, and projected override/ignore-day sections.
 `_apply_overrides` also dropped out after market-value and cash-flow override group application
 were routed through a shared helper with direct coverage for matching-field counts and no-match
 suppression.
+`_flag_outliers` also dropped out after outlier policy eligibility and window/MAD parameter
+projection were isolated with direct coverage for enabled FLAG policy projection, non-FLAG
+suppression, and default parameter selection.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.
