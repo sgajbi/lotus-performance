@@ -975,17 +975,18 @@ def _subtract_return_values(
 ) -> ComparativeReturnValue:
     return ComparativeReturnValue(
         base=portfolio_value.base - benchmark_value.base,
-        local=(
-            None
-            if portfolio_value.local is None or benchmark_value.local is None
-            else portfolio_value.local - benchmark_value.local
-        ),
-        fx=(
-            None
-            if portfolio_value.fx is None or benchmark_value.fx is None
-            else portfolio_value.fx - benchmark_value.fx
-        ),
+        local=_subtract_optional_return_component(portfolio_value.local, benchmark_value.local),
+        fx=_subtract_optional_return_component(portfolio_value.fx, benchmark_value.fx),
     )
+
+
+def _subtract_optional_return_component(
+    portfolio_value: float | None,  # monetary-float-allow
+    benchmark_value: float | None,  # monetary-float-allow
+) -> float | None:
+    if portfolio_value is None or benchmark_value is None:
+        return None
+    return portfolio_value - benchmark_value  # monetary-float-allow
 
 
 def _link_returns(values: Iterable[float]) -> float:  # monetary-float-allow
