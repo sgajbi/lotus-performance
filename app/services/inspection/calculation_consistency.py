@@ -660,6 +660,17 @@ def _daily_zero_capital_status_mismatch(evidence: TWRDailyCalculationEvidence) -
 def _daily_evidence_semantic_mismatches(evidence: TWRDailyCalculationEvidence) -> dict[str, object]:
     expected = _expected_daily_evidence_semantics(evidence)
     mismatches: dict[str, object] = {}
+    mismatches.update(_daily_status_semantic_mismatches(expected=expected, evidence=evidence))
+    mismatches.update(_daily_required_semantic_mismatches(expected=expected, evidence=evidence))
+    return mismatches
+
+
+def _daily_status_semantic_mismatches(
+    *,
+    expected: DailyEvidenceExpectedSemantics,
+    evidence: TWRDailyCalculationEvidence,
+) -> dict[str, dict[str, object]]:
+    mismatches: dict[str, dict[str, object]] = {}
     if evidence.linkability_status != expected.linkability_status:
         mismatches["linkability_status"] = {
             "expected": expected.linkability_status,
@@ -670,7 +681,15 @@ def _daily_evidence_semantic_mismatches(evidence: TWRDailyCalculationEvidence) -
             "expected": expected.episode_status,
             "actual": evidence.episode_status,
         }
+    return mismatches
 
+
+def _daily_required_semantic_mismatches(
+    *,
+    expected: DailyEvidenceExpectedSemantics,
+    evidence: TWRDailyCalculationEvidence,
+) -> dict[str, list[str]]:
+    mismatches: dict[str, list[str]] = {}
     reason_codes = set(evidence.reason_codes)
     missing_reason_codes = sorted(expected.required_reason_codes - reason_codes)
     if missing_reason_codes:

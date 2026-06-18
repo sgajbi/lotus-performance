@@ -24,8 +24,11 @@ from app.services.inspection.calculation_consistency import (
     _daily_calculation_evidence_mismatches,
     _daily_calculation_numeric_mismatches,
     _daily_external_flow_values,
+    _daily_required_semantic_mismatches,
+    _daily_status_semantic_mismatches,
     _daily_zero_capital_status_mismatch,
     _expected_daily_calculation_values,
+    _expected_daily_evidence_semantics,
     _expected_daily_external_flows,
     _expected_daily_return,
     _external_inflow_value,
@@ -1046,6 +1049,62 @@ def test_no_investment_period_status_policy_only_overrides_open_linkable_days():
         linkability_status="reset_boundary",
         episode_status="reset_boundary",
     ) == ("reset_boundary", "reset_boundary")
+
+
+def test_daily_status_semantic_mismatches_project_expected_statuses():
+    evidence = TWRDailyCalculationEvidence(
+        begin_mv=1000.0,
+        end_mv=1000.0,
+        bod_cf=0.0,
+        eod_cf=0.0,
+        external_inflows=0.0,
+        external_outflows=0.0,
+        management_fees=0.0,
+        signed_adjusted_capital=1000.0,
+        adjusted_capital=1000.0,
+        performance_pnl=0.0,
+        daily_return=0.0,
+        status="not_calculated",
+        linkability_status="linkable",
+        episode_status="open",
+        reason_codes=["FLOW_NEUTRALIZED_DAILY_RETURN", "BEFORE_EFFECTIVE_PERIOD_START"],
+        warnings=[],
+    )
+
+    assert _daily_status_semantic_mismatches(
+        expected=_expected_daily_evidence_semantics(evidence),
+        evidence=evidence,
+    ) == {
+        "linkability_status": {"expected": "not_calculated", "actual": "linkable"},
+        "episode_status": {"expected": "not_in_period", "actual": "open"},
+    }
+
+
+def test_daily_required_semantic_mismatches_project_missing_codes_and_warnings():
+    evidence = TWRDailyCalculationEvidence(
+        begin_mv=-1000.0,
+        end_mv=-987.0,
+        bod_cf=0.0,
+        eod_cf=0.0,
+        external_inflows=0.0,
+        external_outflows=0.0,
+        management_fees=0.0,
+        signed_adjusted_capital=-1000.0,
+        adjusted_capital=1000.0,
+        performance_pnl=13.0,
+        daily_return=1.3,
+        status="calculated",
+        reason_codes=["FLOW_NEUTRALIZED_DAILY_RETURN"],
+        warnings=[],
+    )
+
+    assert _daily_required_semantic_mismatches(
+        expected=_expected_daily_evidence_semantics(evidence),
+        evidence=evidence,
+    ) == {
+        "missing_reason_codes": ["NEGATIVE_ADJUSTED_CAPITAL_INPUT"],
+        "missing_warnings": ["NEGATIVE_ADJUSTED_CAPITAL_INPUT"],
+    }
 
 
 def test_calculation_consistency_flags_effective_period_exclusion_warning():
