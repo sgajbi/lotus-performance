@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Hashable, Mapping
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
@@ -638,6 +639,7 @@ def _build_benchmark_breakdowns(
     requested_frequencies: list[Frequency],
 ) -> dict[Frequency, list[ComparativeBreakdownItem]]:
     breakdowns: dict[Frequency, list[ComparativeBreakdownItem]] = {}
+    cumulative_returns_by_date = _benchmark_cumulative_returns_by_date(period_daily_df)
     for frequency in requested_frequencies:
         items: list[ComparativeBreakdownItem] = []
         for label, start_date, end_date, frequency_df in _iter_frequency_windows(
@@ -645,18 +647,62 @@ def _build_benchmark_breakdowns(
             date_column="date",
             frequency=frequency,
         ):
-            cumulative_df = period_daily_df[period_daily_df["date"] <= end_date].copy()
             items.append(
                 ComparativeBreakdownItem(
                     period=label,
                     period_start=start_date,
                     period_end=end_date,
                     period_return=_calculate_benchmark_return_from_slice(frequency_df),
-                    cumulative_return=_calculate_benchmark_return_from_slice(cumulative_df),
+                    cumulative_return=cumulative_returns_by_date[cast(date, end_date)],
                 )
             )
         breakdowns[frequency] = items
     return breakdowns
+
+
+def _benchmark_cumulative_returns_by_date(period_daily_df: pd.DataFrame) -> dict[date, ComparativeReturnValue]:
+    sorted_df = period_daily_df.sort_values("date").reset_index(drop=True)
+    has_local = bool(
+        "benchmark_return_local" in sorted_df.columns and sorted_df["benchmark_return_local"].notna().any()
+    )
+    has_fx = bool("benchmark_return_fx" in sorted_df.columns and sorted_df["benchmark_return_fx"].notna().any())
+    running_base = Decimal("1")
+    running_local = Decimal("1")
+    running_fx = Decimal("1")
+    cumulative_returns: dict[date, ComparativeReturnValue] = {}
+    for row in sorted_df.to_dict("records"):
+        running_base *= Decimal("1") + Decimal(str(row["benchmark_return"]))
+        running_local, local = _next_optional_benchmark_running_return(
+            running=running_local,
+            row=row,
+            column="benchmark_return_local",
+            enabled=has_local,
+        )
+        running_fx, fx = _next_optional_benchmark_running_return(
+            running=running_fx,
+            row=row,
+            column="benchmark_return_fx",
+            enabled=has_fx,
+        )
+        cumulative_returns[row["date"]] = _build_return_value(
+            float((running_base - Decimal("1")) * Decimal("100")),  # monetary-float-allow
+            local=local,
+            fx=fx,
+        )
+    return cumulative_returns
+
+
+def _next_optional_benchmark_running_return(
+    *,
+    running: Decimal,
+    row: Mapping[Hashable, object],
+    column: str,
+    enabled: bool,
+) -> tuple[Decimal, float | None]:  # monetary-float-allow
+    if not enabled:
+        return running, None
+    next_running = running * (Decimal("1") + Decimal(str(row[column])))
+    return next_running, float((next_running - Decimal("1")) * Decimal("100"))  # monetary-float-allow
 
 
 def _build_relative_breakdowns(

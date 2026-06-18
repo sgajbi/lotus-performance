@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+from collections.abc import Hashable, Mapping
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
@@ -256,6 +258,9 @@ def _build_benchmark_breakdowns(
     sorted_period_df["date"] = observation_date_series(sorted_period_df["date"])
     sorted_period_df = sorted_period_df.sort_values("date").reset_index(drop=True)
     for frequency in frequencies:
+        if frequency == Frequency.DAILY:
+            breakdowns[frequency] = _daily_benchmark_breakdown_items(sorted_period_df)
+            continue
         items: list[ComparativeBreakdownItem] = []
         for frequency_df in _group_benchmark_breakdown_rows(sorted_period_df=sorted_period_df, frequency=frequency):
             items.append(
@@ -267,6 +272,76 @@ def _build_benchmark_breakdowns(
             )
         breakdowns[frequency] = items
     return breakdowns
+
+
+def _daily_benchmark_breakdown_items(sorted_period_df: pd.DataFrame) -> list[ComparativeBreakdownItem]:
+    running_base = Decimal("1")
+    running_local = Decimal("1")
+    running_fx = Decimal("1")
+    has_local = _has_return_component(sorted_period_df, "benchmark_return_local")
+    has_fx = _has_return_component(sorted_period_df, "benchmark_return_fx")
+    items: list[ComparativeBreakdownItem] = []
+    for row in sorted_period_df.to_dict("records"):
+        benchmark_return = Decimal(str(row["benchmark_return"]))
+        running_base *= Decimal("1") + benchmark_return
+        running_local, cumulative_local = _next_optional_running_return(
+            running=running_local,
+            row=row,
+            column="benchmark_return_local",
+            enabled=has_local,
+        )
+        running_fx, cumulative_fx = _next_optional_running_return(
+            running=running_fx,
+            row=row,
+            column="benchmark_return_fx",
+            enabled=has_fx,
+        )
+        period_end = row["date"]
+        cumulative_return = ComparativeReturnValue(
+            base=_scale_decimal_return(running_base - Decimal("1")),
+            local=cumulative_local,
+            fx=cumulative_fx,
+        )
+        items.append(
+            ComparativeBreakdownItem(
+                period=_benchmark_breakdown_label(frequency=Frequency.DAILY, period_end=period_end),
+                period_start=period_end,
+                period_end=period_end,
+                period_return=_daily_benchmark_period_return(row, has_local=has_local, has_fx=has_fx),
+                cumulative_return=cumulative_return,
+            )
+        )
+    return items
+
+
+def _daily_benchmark_period_return(
+    row: Mapping[Hashable, object],
+    *,
+    has_local: bool,
+    has_fx: bool,
+) -> ComparativeReturnValue:
+    return ComparativeReturnValue(
+        base=_scale_decimal_return(Decimal(str(row["benchmark_return"]))),
+        local=_optional_scaled_return_component(row, "benchmark_return_local") if has_local else None,
+        fx=_optional_scaled_return_component(row, "benchmark_return_fx") if has_fx else None,
+    )
+
+
+def _next_optional_running_return(
+    *,
+    running: Decimal,
+    row: Mapping[Hashable, object],
+    column: str,
+    enabled: bool,
+) -> tuple[Decimal, float | None]:  # monetary-float-allow
+    if not enabled:
+        return running, None
+    next_running = running * (Decimal("1") + Decimal(str(row[column])))
+    return next_running, _scale_decimal_return(next_running - Decimal("1"))
+
+
+def _has_return_component(df: pd.DataFrame, column: str) -> bool:
+    return bool(column in df.columns and df[column].notna().any())
 
 
 def _group_benchmark_breakdown_rows(*, sorted_period_df: pd.DataFrame, frequency: Frequency) -> list[pd.DataFrame]:
@@ -333,6 +408,19 @@ def _series_return(return_series: pd.Series) -> float:
     for value in return_series:
         running *= Decimal("1") + Decimal(str(value))
     return float((running - Decimal("1")) * Decimal(str(PERCENT_SCALE)))
+
+
+def _scale_decimal_return(value: Decimal) -> float:  # monetary-float-allow
+    return float(value * Decimal(str(PERCENT_SCALE)))  # monetary-float-allow
+
+
+def _optional_scaled_return_component(  # monetary-float-allow
+    row: Mapping[Hashable, object], column: str
+) -> float | None:
+    value = row.get(column)
+    if value is None or value is pd.NA or (isinstance(value, float) and math.isnan(value)):  # monetary-float-allow
+        return None
+    return _scale_decimal_return(Decimal(str(value)))
 
 
 def _scale_percent(value: object) -> float | None:

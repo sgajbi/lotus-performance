@@ -366,6 +366,32 @@ def test_benchmark_calculation_helpers_cover_breakdown_and_scaling_edges():
     assert benchmark_calculation_service._series_return(pd.Series([0.01, 0.02])) == pytest.approx(3.02)
 
 
+def test_daily_benchmark_breakdown_items_link_cumulative_returns_without_reslicing():
+    df = pd.DataFrame(
+        {
+            "date": [date(2025, 1, 1), date(2025, 1, 2)],
+            "benchmark_return": [0.01, 0.02],
+            "benchmark_return_local": [0.008, 0.009],
+            "benchmark_return_fx": [0.002, 0.011],
+            "cumulative_return": [0.01, 0.0302],
+        }
+    )
+
+    items = benchmark_calculation_service._daily_benchmark_breakdown_items(df)
+
+    assert [item.period for item in items] == ["2025-01-01", "2025-01-02"]
+    assert items[0].period_return.base == pytest.approx(1.0)
+    assert items[0].period_return.local == pytest.approx(0.8)
+    assert items[0].period_return.fx == pytest.approx(0.2)
+    assert items[0].cumulative_return is not None
+    assert items[0].cumulative_return.base == pytest.approx(1.0)
+    assert items[1].period_return.base == pytest.approx(2.0)
+    assert items[1].cumulative_return is not None
+    assert items[1].cumulative_return.base == pytest.approx(3.02)
+    assert items[1].cumulative_return.local == pytest.approx(1.7072)
+    assert items[1].cumulative_return.fx == pytest.approx(1.3022)
+
+
 def test_optional_benchmark_return_component_suppresses_missing_and_all_null_components():
     df = pd.DataFrame(
         {
