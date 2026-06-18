@@ -197,6 +197,34 @@ def test_calculate_benchmark_artifacts_skips_empty_period_slices(monkeypatch):
     assert set(artifacts.results_by_period) == {"ITD"}
 
 
+def test_benchmark_results_by_period_skips_empty_slices_and_preserves_frequency_selection():
+    request = _vendor_request()
+    daily_returns_df = pd.DataFrame(
+        {
+            "date": [date(2025, 1, 1), date(2025, 1, 2)],
+            "benchmark_return": [0.01, 0.02],
+        }
+    )
+
+    results = benchmark_calculation_service._benchmark_results_by_period(
+        resolved_periods=[
+            ResolvedPeriod(name="EMPTY", start_date=date(2024, 1, 1), end_date=date(2024, 1, 2)),
+            ResolvedPeriod(name="ITD", start_date=date(2025, 1, 1), end_date=date(2025, 1, 2)),
+        ],
+        daily_returns_df=daily_returns_df,
+        component_contributions_df=pd.DataFrame(
+            columns=["date", "component_id", "weight_bop", "component_return", "contribution"]
+        ),
+        benchmark_request=request,
+        requested_frequencies_by_period={"ITD": [Frequency.DAILY]},
+        input_mode="stateful",
+    )
+
+    assert set(results) == {"ITD"}
+    assert results["ITD"].benchmark.input_mode == "stateful"
+    assert set(results["ITD"].benchmark.breakdowns) == {Frequency.DAILY}
+
+
 def test_benchmark_period_result_projects_timeseries_and_summary():
     request = _vendor_request()
     daily_returns_df = pd.DataFrame(

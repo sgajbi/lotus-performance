@@ -103,6 +103,32 @@ def calculate_benchmark_artifacts(
         component_contributions_df=component_contributions_df,
     )
 
+    return BenchmarkCalculationArtifacts(
+        results_by_period=_benchmark_results_by_period(
+            resolved_periods=resolved_periods,
+            daily_returns_df=daily_returns_df,
+            component_contributions_df=component_contributions_df,
+            benchmark_request=benchmark_request,
+            requested_frequencies_by_period=requested_frequencies_by_period,
+            input_mode=input_mode,
+        ),
+        daily_returns_df=daily_returns_df,
+        component_contributions_df=component_contributions_df,
+        effective_period_start=source_artifacts.effective_period_start,
+        max_weight_sum_deviation=source_artifacts.max_weight_sum_deviation,
+        notes=source_artifacts.notes,
+    )
+
+
+def _benchmark_results_by_period(
+    *,
+    resolved_periods: list[ResolvedPeriod],
+    daily_returns_df: pd.DataFrame,
+    component_contributions_df: pd.DataFrame,
+    benchmark_request: BenchmarkPerformanceRequest,
+    requested_frequencies_by_period: dict[str, list[Frequency]],
+    input_mode: str | None,
+) -> dict[str, SinglePeriodBenchmarkResult]:
     results_by_period: dict[str, SinglePeriodBenchmarkResult] = {}
     for period in resolved_periods:
         period_result = _benchmark_period_result(
@@ -115,15 +141,7 @@ def calculate_benchmark_artifacts(
         )
         if period_result is not None:
             results_by_period[period.name] = period_result
-
-    return BenchmarkCalculationArtifacts(
-        results_by_period=results_by_period,
-        daily_returns_df=daily_returns_df,
-        component_contributions_df=component_contributions_df,
-        effective_period_start=source_artifacts.effective_period_start,
-        max_weight_sum_deviation=source_artifacts.max_weight_sum_deviation,
-        notes=source_artifacts.notes,
-    )
+    return results_by_period
 
 
 def _benchmark_period_daily_returns(
