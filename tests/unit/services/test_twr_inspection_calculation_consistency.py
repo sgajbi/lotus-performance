@@ -27,6 +27,7 @@ from app.services.inspection.calculation_consistency import (
     _daily_calculation_numeric_mismatches,
     _daily_capital_linkability_status_override,
     _daily_external_flow_values,
+    _daily_market_event_reason_codes,
     _daily_required_semantic_mismatches,
     _daily_status_semantic_mismatches,
     _daily_zero_capital_status_mismatch,
@@ -1189,6 +1190,51 @@ def test_daily_capital_linkability_status_override_records_negative_capital_warn
     assert status is None
     assert reason_codes == {"NEGATIVE_ADJUSTED_CAPITAL_INPUT"}
     assert warnings == {"NEGATIVE_ADJUSTED_CAPITAL_INPUT"}
+
+
+def test_daily_market_event_reason_codes_project_withdrawal_and_refunding_days():
+    assert _daily_market_event_reason_codes(
+        TWRDailyCalculationEvidence(
+            begin_mv=0.0,
+            end_mv=0.0,
+            bod_cf=100.0,
+            eod_cf=-100.0,
+            external_inflows=100.0,
+            external_outflows=100.0,
+            management_fees=0.0,
+            signed_adjusted_capital=100.0,
+            adjusted_capital=100.0,
+            performance_pnl=0.0,
+            daily_return=0.0,
+            status="calculated",
+            reason_codes=[],
+            warnings=[],
+        )
+    ) == {"FULL_WITHDRAWAL_DAY", "REFUNDING_DAY"}
+
+
+def test_daily_market_event_reason_codes_omit_non_market_events():
+    assert (
+        _daily_market_event_reason_codes(
+            TWRDailyCalculationEvidence(
+                begin_mv=1000.0,
+                end_mv=1010.0,
+                bod_cf=0.0,
+                eod_cf=0.0,
+                external_inflows=0.0,
+                external_outflows=0.0,
+                management_fees=0.0,
+                signed_adjusted_capital=1000.0,
+                adjusted_capital=1000.0,
+                performance_pnl=10.0,
+                daily_return=1.0,
+                status="calculated",
+                reason_codes=[],
+                warnings=[],
+            )
+        )
+        == set()
+    )
 
 
 def test_calculation_consistency_flags_effective_period_exclusion_warning():

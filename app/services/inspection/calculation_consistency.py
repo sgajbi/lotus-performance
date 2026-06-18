@@ -820,10 +820,25 @@ def _add_daily_market_event_reason_codes(
     *,
     required_reason_codes: set[str],
 ) -> None:
-    if evidence.end_mv == 0 and evidence.eod_cf < 0:
-        required_reason_codes.add("FULL_WITHDRAWAL_DAY")
-    if evidence.begin_mv <= 0 and evidence.bod_cf > 0:
-        required_reason_codes.add("REFUNDING_DAY")
+    required_reason_codes.update(_daily_market_event_reason_codes(evidence))
+
+
+def _daily_market_event_reason_codes(evidence: TWRDailyCalculationEvidence) -> set[str]:
+    return {reason_code for reason_code, predicate in _DAILY_MARKET_EVENT_REASON_PREDICATES if predicate(evidence)}
+
+
+def _is_daily_full_withdrawal_event(evidence: TWRDailyCalculationEvidence) -> bool:
+    return evidence.end_mv == 0 and evidence.eod_cf < 0
+
+
+def _is_daily_refunding_event(evidence: TWRDailyCalculationEvidence) -> bool:
+    return evidence.begin_mv <= 0 and evidence.bod_cf > 0
+
+
+_DAILY_MARKET_EVENT_REASON_PREDICATES = (
+    ("FULL_WITHDRAWAL_DAY", _is_daily_full_withdrawal_event),
+    ("REFUNDING_DAY", _is_daily_refunding_event),
+)
 
 
 def _expected_daily_return_linkability_status(
