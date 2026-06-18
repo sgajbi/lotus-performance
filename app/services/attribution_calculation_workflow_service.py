@@ -256,6 +256,29 @@ async def calculate_attribution_workflow(
     if replay_response is not None:
         return replay_response
 
+    _register_attribution_sync_execution(
+        request,
+        requested_window=requested_window,
+        input_fingerprint=input_fingerprint,
+        calculation_hash=calculation_hash,
+    )
+
+    return await _resolve_and_calculate_attribution_response(
+        request,
+        active_settings=active_settings,
+        source_request_fingerprint=source_request_fingerprint,
+        input_fingerprint=input_fingerprint,
+        calculation_hash=calculation_hash,
+    )
+
+
+def _register_attribution_sync_execution(
+    request: AttributionAnalyticsRequest,
+    *,
+    requested_window: dict[str, object],
+    input_fingerprint: str,
+    calculation_hash: str,
+) -> None:
     register_sync_execution_or_raise(
         calculation_id=request.calculation_id,
         analytics_type=ANALYTICS_WORKFLOW_ATTRIBUTION,
@@ -265,6 +288,15 @@ async def calculate_attribution_workflow(
         calculation_hash=calculation_hash,
     )
 
+
+async def _resolve_and_calculate_attribution_response(
+    request: AttributionAnalyticsRequest,
+    *,
+    active_settings: _AttributionWorkflowSettings,
+    source_request_fingerprint: str,
+    input_fingerprint: str,
+    calculation_hash: str,
+) -> AttributionResponse | AttributionAcceptedResponse:
     try:
         resolved = await resolve_attribution_request(request, settings=active_settings)
         return _calculate_resolved_attribution_response(
