@@ -786,14 +786,17 @@ def _documentable_operation(
     return str(path), method_name, operation
 
 
-def _iter_documentable_operations(paths: dict[str, Any]) -> Iterator[tuple[str, str, dict[str, Any]]]:
+def _iter_path_operations(paths: dict[str, Any]) -> Iterator[tuple[Any, Any, Any]]:
     for path, methods in paths.items():
-        if not isinstance(methods, dict):
-            continue
-        for method, operation in methods.items():
-            documented = _documentable_operation(path, method, operation)
-            if documented is not None:
-                yield documented
+        if isinstance(methods, dict):
+            yield from ((path, method, operation) for method, operation in methods.items())
+
+
+def _iter_documentable_operations(paths: dict[str, Any]) -> Iterator[tuple[str, str, dict[str, Any]]]:
+    for path, method, operation in _iter_path_operations(paths):
+        documented = _documentable_operation(path, method, operation)
+        if documented is not None:
+            yield documented
 
 
 def _ensure_operation_documentation(schema: dict[str, Any]) -> None:

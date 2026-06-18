@@ -23,6 +23,7 @@ from app.openapi_enrichment import (
     _infer_example,
     _infer_schema_description,
     _iter_documentable_operations,
+    _iter_path_operations,
     _iter_schema_properties,
     _iter_success_responses,
     _json_content_has_authored_example,
@@ -639,6 +640,19 @@ def test_iter_documentable_operations_filters_malformed_paths_and_methods():
     }
 
     assert list(_iter_documentable_operations(paths)) == [("/health", "get", operation)]
+
+
+def test_iter_path_operations_filters_malformed_path_entries():
+    operation = {"responses": {}}
+    paths = {
+        "/health": {"get": operation, "parameters": []},
+        "/metrics": ["not-methods"],
+    }
+
+    assert list(_iter_path_operations(paths)) == [
+        ("/health", "get", operation),
+        ("/health", "parameters", []),
+    ]
 
 
 def test_documentable_operation_normalizes_identity_and_filters_unsupported_shapes():
