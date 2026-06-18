@@ -161,6 +161,22 @@ def calculate_account_reset_reason(df: pd.DataFrame) -> pd.Series:
     return (df[PortfolioColumns.ACCOUNT_PERFORMANCE_RESET.value] != 0).astype(int)
 
 
+def _sod_reset_flags_from_next_open(
+    next_day_bod_cf: np.ndarray,
+    canonical_reset: np.ndarray,
+    zero: object,
+) -> np.ndarray:
+    """Resolve SOD reset flags by walking backward through next-day opening reset state."""
+    sod_reset = np.zeros(len(canonical_reset), dtype=bool)
+
+    for position in range(len(canonical_reset) - 2, -1, -1):
+        should_reset_from_next_open = (next_day_bod_cf[position] != zero) and canonical_reset[position + 1]
+        sod_reset[position] = should_reset_from_next_open
+        canonical_reset[position] = canonical_reset[position] or should_reset_from_next_open
+
+    return sod_reset
+
+
 def calculate_sod_reset_reason(df: pd.DataFrame, base_reset_mask: pd.Series) -> pd.Series:
     """Calculates the start-of-day reset reason from the next day's canonical reset state.
 
@@ -179,11 +195,6 @@ def calculate_sod_reset_reason(df: pd.DataFrame, base_reset_mask: pd.Series) -> 
 
     next_day_bod_cf = df[PortfolioColumns.BOD_CF.value].shift(-1, fill_value=zero).to_numpy(copy=False)
     canonical_reset = base_reset_mask.astype(bool).to_numpy(copy=True)
-    sod_reset = np.zeros(len(df), dtype=bool)
-
-    for position in range(len(df) - 2, -1, -1):
-        should_reset_from_next_open = (next_day_bod_cf[position] != zero) and canonical_reset[position + 1]
-        sod_reset[position] = should_reset_from_next_open
-        canonical_reset[position] = canonical_reset[position] or should_reset_from_next_open
+    sod_reset = _sod_reset_flags_from_next_open(next_day_bod_cf, canonical_reset, zero)
 
     return pd.Series(sod_reset.astype(int), index=df.index)
