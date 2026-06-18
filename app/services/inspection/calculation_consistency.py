@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from math import isclose
-from typing import Iterable
+from typing import Iterable, cast
 
 from app.models.inspection_responses import TWRInspectionFinding
 from app.models.responses import (
@@ -944,11 +944,29 @@ def _comparative_return_components_match(
     expected_value: float | None,  # monetary-float-allow
     actual_value: float | None,  # monetary-float-allow
 ) -> bool:
-    if expected_value is None and actual_value is None:
+    if _return_component_absence_matches(expected_value=expected_value, actual_value=actual_value):
         return True
-    if expected_value is None or actual_value is None:
+    if _return_component_has_missing_side(expected_value=expected_value, actual_value=actual_value):
         return False
-    return isclose(expected_value, actual_value, abs_tol=_ABS_TOLERANCE)
+    expected_float = cast(float, expected_value)  # monetary-float-allow
+    actual_float = cast(float, actual_value)  # monetary-float-allow
+    return isclose(expected_float, actual_float, abs_tol=_ABS_TOLERANCE)
+
+
+def _return_component_absence_matches(
+    *,
+    expected_value: float | None,  # monetary-float-allow
+    actual_value: float | None,  # monetary-float-allow
+) -> bool:
+    return expected_value is None and actual_value is None
+
+
+def _return_component_has_missing_side(
+    *,
+    expected_value: float | None,  # monetary-float-allow
+    actual_value: float | None,  # monetary-float-allow
+) -> bool:
+    return (expected_value is None) != (actual_value is None)
 
 
 def _subtract_return_values(

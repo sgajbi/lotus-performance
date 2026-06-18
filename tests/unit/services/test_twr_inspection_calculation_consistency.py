@@ -40,6 +40,8 @@ from app.services.inspection.calculation_consistency import (
     _external_inflow_value,
     _external_outflow_value,
     _relative_breakdown_cumulative_comparison,
+    _return_component_absence_matches,
+    _return_component_has_missing_side,
     run_twr_calculation_consistency_checks,
 )
 from common.enums import Frequency
@@ -253,6 +255,14 @@ def test_comparative_return_components_match_policy_handles_absent_equal_and_dif
     assert _comparative_return_components_match(expected_value=1.0, actual_value=1.0 + 1e-7)
     assert not _comparative_return_components_match(expected_value=None, actual_value=0.2)
     assert not _comparative_return_components_match(expected_value=0.1, actual_value=0.3)
+
+
+def test_return_component_absence_helpers_classify_optional_component_presence():
+    assert _return_component_absence_matches(expected_value=None, actual_value=None)
+    assert not _return_component_absence_matches(expected_value=0.0, actual_value=None)
+    assert _return_component_has_missing_side(expected_value=0.0, actual_value=None)
+    assert _return_component_has_missing_side(expected_value=None, actual_value=0.0)
+    assert not _return_component_has_missing_side(expected_value=0.0, actual_value=0.0)
 
 
 def test_calculation_consistency_does_not_compare_misaligned_relative_breakdown_arithmetic():
