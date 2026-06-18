@@ -1,3 +1,4 @@
+import json
 from uuid import uuid4
 
 import pytest
@@ -9,6 +10,7 @@ from app.api.endpoints.lineage import (
     _lineage_artifact_links,
     _lineage_terminal_response,
     _manifest_matches_record,
+    _read_lineage_manifest_payload,
     _resolve_lineage_response,
 )
 from app.models.lineage_responses import LineageManifest
@@ -106,6 +108,29 @@ def test_lineage_artifact_links_skip_manifest_and_build_controlled_urls():
 
     assert list(links) == ["request.json"]
     assert links["request.json"].url == f"http://testserver/lineage_artifact_file/{calculation_id}/request.json"
+
+
+def test_read_lineage_manifest_payload_maps_storage_errors_to_unavailable(mocker):
+    mocker.patch("app.api.endpoints.lineage.read_json_file", side_effect=OSError("permission denied"))
+
+    with pytest.raises(HTTPException) as exc_info:
+        _read_lineage_manifest_payload("manifest.json")
+
+    assert exc_info.value.status_code == 503
+    assert exc_info.value.detail == "Lineage manifest is unreadable."
+
+
+def test_read_lineage_manifest_payload_maps_invalid_json_to_unavailable(mocker):
+    mocker.patch(
+        "app.api.endpoints.lineage.read_json_file",
+        side_effect=json.JSONDecodeError("bad json", "", 0),
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        _read_lineage_manifest_payload("manifest.json")
+
+    assert exc_info.value.status_code == 503
+    assert exc_info.value.detail == "Lineage manifest is invalid."
 
 
 def test_manifest_matches_record_allows_sorted_artifact_equivalence_and_rejects_mismatch():

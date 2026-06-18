@@ -2,6 +2,7 @@
 import json
 import os
 from pathlib import Path as FilePath
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Path, Request, status
@@ -24,9 +25,9 @@ def _resolve_lineage_artifact_path(*, calculation_id: UUID, artifact_name: str) 
     return os.path.join(lineage_dir, safe_artifact_name)
 
 
-def _load_and_validate_manifest(*, manifest_path: str, record: LineageRecord) -> LineageManifest:
+def _read_lineage_manifest_payload(manifest_path: str) -> Any:
     try:
-        manifest_payload = read_json_file(FilePath(manifest_path))
+        return read_json_file(FilePath(manifest_path))
     except OSError:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -37,6 +38,10 @@ def _load_and_validate_manifest(*, manifest_path: str, record: LineageRecord) ->
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Lineage manifest is invalid.",
         ) from None
+
+
+def _load_and_validate_manifest(*, manifest_path: str, record: LineageRecord) -> LineageManifest:
+    manifest_payload = _read_lineage_manifest_payload(manifest_path)
 
     try:
         manifest = LineageManifest.model_validate(manifest_payload)
