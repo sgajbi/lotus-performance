@@ -234,12 +234,10 @@ def _resolve_attribution_execution_window(request: AttributionRequest) -> _Attri
     if not resolved_periods:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No valid periods could be resolved.")
 
-    master_start_date = min(p.start_date for p in resolved_periods)
-    master_end_date = max(p.end_date for p in resolved_periods)
-
-    master_request = request.model_copy(deep=True)
-    master_request.report_start_date = master_start_date
-    master_request.report_end_date = master_end_date
+    master_start_date, master_end_date, master_request = _attribution_master_request_for_resolved_periods(
+        request,
+        resolved_periods=resolved_periods,
+    )
 
     return _AttributionExecutionWindow(
         periods_to_resolve=periods_to_resolve,
@@ -248,6 +246,19 @@ def _resolve_attribution_execution_window(request: AttributionRequest) -> _Attri
         master_end_date=master_end_date,
         master_request=master_request,
     )
+
+
+def _attribution_master_request_for_resolved_periods(
+    request: AttributionRequest,
+    *,
+    resolved_periods: Sequence[Any],
+) -> tuple[Any, Any, AttributionRequest]:
+    master_start_date = min(period.start_date for period in resolved_periods)
+    master_end_date = max(period.end_date for period in resolved_periods)
+    master_request = request.model_copy(deep=True)
+    master_request.report_start_date = master_start_date
+    master_request.report_end_date = master_end_date
+    return master_start_date, master_end_date, master_request
 
 
 def calculate_attribution(

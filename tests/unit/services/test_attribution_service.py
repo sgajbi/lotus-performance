@@ -222,6 +222,10 @@ def test_resolve_attribution_execution_window_projects_master_request(monkeypatc
     monkeypatch.setattr(attribution_service, "resolve_periods", resolve)
 
     window = attribution_service._resolve_attribution_execution_window(request)
+    helper_start, helper_end, helper_request = attribution_service._attribution_master_request_for_resolved_periods(
+        request,
+        resolved_periods=resolved_periods,
+    )
 
     assert window.periods_to_resolve == [PeriodType.MTD, PeriodType.QTD]
     assert window.resolved_periods is resolved_periods
@@ -232,6 +236,11 @@ def test_resolve_attribution_execution_window_projects_master_request(monkeypatc
     assert window.master_request.report_end_date == pd.Timestamp("2025-03-31").date()
     assert captured["periods_to_resolve"] == [PeriodType.MTD, PeriodType.QTD]
     assert captured["explicit_start_date"] == request.report_start_date
+    assert helper_start == window.master_start_date
+    assert helper_end == window.master_end_date
+    assert helper_request is not request
+    assert helper_request.report_start_date == window.master_start_date
+    assert helper_request.report_end_date == window.master_end_date
 
 
 def test_resolve_attribution_execution_window_rejects_empty_resolved_periods(monkeypatch):
