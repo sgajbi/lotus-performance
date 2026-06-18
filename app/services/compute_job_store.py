@@ -6,7 +6,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from enum import StrEnum
-from typing import Any, Iterator
+from typing import Any, Iterable, Iterator
 from uuid import UUID
 
 from sqlalchemy import DateTime, Index, Integer, String, Text, case, create_engine, func, select
@@ -715,12 +715,7 @@ class ComputeJobStore:
                 .scalars()
                 .all()
             )
-            events: list[ComputeRecoveryEvent] = []
-            for row in rows:
-                event = self._to_recovery_event(row)
-                if event is None:
-                    continue
-                events.append(event)
+            events = self._recovery_events_from_rows(rows)
             total_count = int(
                 session.execute(
                     self._build_recent_recoveries_count_statement(
@@ -1287,6 +1282,15 @@ class ComputeJobStore:
             attempt_count=row.attempt_count,
             error_type=row.error_type,
         )
+
+    def _recovery_events_from_rows(self, rows: Iterable[ComputeJobModel]) -> list[ComputeRecoveryEvent]:
+        events: list[ComputeRecoveryEvent] = []
+        for row in rows:
+            event = self._to_recovery_event(row)
+            if event is None:
+                continue
+            events.append(event)
+        return events
 
 
 _store_cache: dict[str, ComputeJobStore] = {}

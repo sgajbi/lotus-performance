@@ -1057,6 +1057,28 @@ def test_compute_job_store_formats_sqlite_recovery_timestamps_as_utc(tmp_path):
     assert page.items[0].recovered_at_utc == "2026-03-14T12:00:00Z"
 
 
+def test_recovery_events_from_rows_suppresses_rows_without_recovery_timestamp(tmp_path):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
+    now = datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc)
+    incomplete = _compute_job_model_for_inspection(
+        job_status=ComputeJobStatus.PENDING,
+        created_at_utc=now,
+    )
+    recovered = _compute_job_model_for_inspection(
+        job_status=ComputeJobStatus.PENDING,
+        created_at_utc=now,
+    )
+    recovered.last_error_at_utc = now
+    recovered.error_type = "LeaseExpired"
+
+    events = store._recovery_events_from_rows([incomplete, recovered])
+
+    assert len(events) == 1
+    assert events[0].calculation_id == recovered.calculation_id
+    assert events[0].recovery_kind == "stale_lease_recovered"
+    assert events[0].recovered_at_utc == "2026-03-14T12:00:00Z"
+
+
 def test_compute_job_store_prunes_terminal_jobs_older_than_cutoff(tmp_path):
     store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
     store.create_schema()
