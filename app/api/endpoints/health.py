@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request, Response, status
 
 from app.models.platform_surfaces import HealthStatusResponse
-from app.services.durability_health_service import check_durable_metadata_store_ready
+from app.services.durability_health_service import DurabilityHealthStatus, check_durable_metadata_store_ready
 from app.services.remediation_hint_service import get_remediation_hint
 
 router = APIRouter(tags=["Health"])
@@ -29,6 +29,18 @@ async def health_live() -> HealthStatusResponse:
     return HealthStatusResponse(status="live")
 
 
+def _readiness_failure_response(durability_status: DurabilityHealthStatus) -> HealthStatusResponse:
+    """Build the readiness failure payload from durable dependency status."""
+    payload = {
+        "status": durability_status.status,
+        "reason": durability_status.reason or "durability_check_failed",
+    }
+    remediation_hint = get_remediation_hint(durability_status.reason)
+    if remediation_hint is not None:
+        payload["remediation_hint"] = remediation_hint
+    return HealthStatusResponse(**payload)
+
+
 @router.get(
     "/health/ready",
     summary="Service readiness",
@@ -46,12 +58,5 @@ async def health_ready(request: Request, response: Response) -> HealthStatusResp
     durability_status = check_durable_metadata_store_ready()
     if not durability_status.is_ready:
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
-        payload = {
-            "status": durability_status.status,
-            "reason": durability_status.reason or "durability_check_failed",
-        }
-        remediation_hint = get_remediation_hint(durability_status.reason)
-        if remediation_hint is not None:
-            payload["remediation_hint"] = remediation_hint
-        return HealthStatusResponse(**payload)
+        return _readiness_failure_response(durability_status)
     return HealthStatusResponse(status=durability_status.status)
