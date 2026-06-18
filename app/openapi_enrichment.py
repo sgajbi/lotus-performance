@@ -221,6 +221,14 @@ def _infer_example(prop_name: str, prop_schema: dict[str, Any]) -> Any:
     if key in EXAMPLE_BY_KEY:
         return EXAMPLE_BY_KEY[key]
 
+    schema_hint_example = _schema_hint_example(prop_name, prop_schema)
+    if schema_hint_example is not None:
+        return schema_hint_example
+
+    return _semantic_string_example(key)
+
+
+def _schema_hint_example(prop_name: str, prop_schema: dict[str, Any]) -> Any | None:
     enum_example = _enum_schema_example(prop_schema)
     if enum_example is not None:
         return enum_example
@@ -233,7 +241,7 @@ def _infer_example(prop_name: str, prop_schema: dict[str, Any]) -> Any:
     if formatted_example is not None:
         return formatted_example
 
-    return _semantic_string_example(key)
+    return None
 
 
 PropertyDescriptionRule = Callable[[str, str, dict[str, Any]], str | None]

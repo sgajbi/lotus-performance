@@ -27,6 +27,7 @@ from app.openapi_enrichment import (
     _ref_schema_example,
     _request_body_example,
     _scalar_schema_example,
+    _schema_hint_example,
     _semantic_id,
     _semantic_property_description,
     _semantic_string_example,
@@ -67,6 +68,10 @@ def test_infer_example_prefers_named_examples_and_schema_hints():
 def test_infer_example_helpers_preserve_schema_precedence():
     assert _enum_schema_example({"type": "string", "enum": ["NET", "GROSS"]}) == "NET"
     assert _enum_schema_example({"type": "string"}) is None
+    assert _schema_hint_example("period", {"type": "string", "enum": ["YTD", "MTD"]}) == "YTD"
+    assert _schema_hint_example("items", {"type": "array", "items": {"type": "string"}}) == ["example_items_item"]
+    assert _schema_hint_example("as_of_date", {"type": "string", "format": "date"}) == "2026-02-27"
+    assert _schema_hint_example("custom_field", {"type": "string"}) is None
     assert _typed_schema_example("portfolio_ids", {"type": "array", "items": {"type": "string"}}) == [
         "example_portfolio_ids_item"
     ]

@@ -38,31 +38,31 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_infer_example` | function | `app/openapi_enrichment.py:219` | 5 | A |
-| 2 | `_explicit_schema_example` | function | `app/openapi_enrichment.py:325` | 5 | A |
-| 3 | `_named_schema_example` | function | `app/openapi_enrichment.py:337` | 5 | A |
-| 4 | `_composed_schema_example` | function | `app/openapi_enrichment.py:346` | 5 | A |
-| 5 | `_build_schema_example` | function | `app/openapi_enrichment.py:466` | 5 | A |
-| 6 | `_validation_error_json_content` | function | `app/openapi_enrichment.py:519` | 5 | A |
-| 7 | `_request_body_example` | function | `app/openapi_enrichment.py:559` | 5 | A |
-| 8 | `_ensure_json_success_response_example` | function | `app/openapi_enrichment.py:612` | 5 | A |
-| 9 | `_ensure_operation_response_documentation` | function | `app/openapi_enrichment.py:653` | 5 | A |
-| 10 | `_ensure_operation_metadata` | function | `app/openapi_enrichment.py:681` | 5 | A |
-| 11 | `_iter_documentable_operations` | function | `app/openapi_enrichment.py:706` | 5 | A |
-| 12 | `_ensure_operation_documentation` | function | `app/openapi_enrichment.py:716` | 5 | A |
-| 13 | `_ensure_schema_documentation` | function | `app/openapi_enrichment.py:741` | 5 | A |
-| 14 | `_ensure_model_schema_documentation` | function | `app/openapi_enrichment.py:755` | 5 | A |
-| 15 | `_ensure_property_schema_documentation` | function | `app/openapi_enrichment.py:784` | 5 | A |
-| 16 | `_resolve_compute_job_result` | function | `app/services/async_result_service.py:44` | 5 | A |
-| 17 | `_async_result_record_payload_state` | function | `app/services/async_result_store.py:163` | 5 | A |
-| 18 | `build_attribution_execution_window` | function | `app/services/attribution_calculation_workflow_service.py:71` | 5 | A |
-| 19 | `calculate_attribution_workflow` | function | `app/services/attribution_calculation_workflow_service.py:214` | 5 | A |
-| 20 | `_portfolio_group_observation_dates` | function | `app/services/attribution_service.py:85` | 5 | A |
-| 21 | `_build_attribution_results_by_period` | function | `app/services/attribution_service.py:110` | 5 | A |
-| 22 | `_resolve_attribution_execution_window` | function | `app/services/attribution_service.py:186` | 5 | A |
-| 23 | `calculate_attribution` | function | `app/services/attribution_service.py:214` | 5 | A |
-| 24 | `_resolved_assignment_identity` | function | `app/services/benchmark_assignment_service.py:20` | 5 | A |
-| 25 | `calculate_benchmark_artifacts` | function | `app/services/benchmark_calculation_service.py:81` | 5 | A |
+| 1 | `_explicit_schema_example` | function | `app/openapi_enrichment.py:333` | 5 | A |
+| 2 | `_named_schema_example` | function | `app/openapi_enrichment.py:345` | 5 | A |
+| 3 | `_composed_schema_example` | function | `app/openapi_enrichment.py:354` | 5 | A |
+| 4 | `_build_schema_example` | function | `app/openapi_enrichment.py:474` | 5 | A |
+| 5 | `_validation_error_json_content` | function | `app/openapi_enrichment.py:527` | 5 | A |
+| 6 | `_request_body_example` | function | `app/openapi_enrichment.py:567` | 5 | A |
+| 7 | `_ensure_json_success_response_example` | function | `app/openapi_enrichment.py:620` | 5 | A |
+| 8 | `_ensure_operation_response_documentation` | function | `app/openapi_enrichment.py:661` | 5 | A |
+| 9 | `_ensure_operation_metadata` | function | `app/openapi_enrichment.py:689` | 5 | A |
+| 10 | `_iter_documentable_operations` | function | `app/openapi_enrichment.py:714` | 5 | A |
+| 11 | `_ensure_operation_documentation` | function | `app/openapi_enrichment.py:724` | 5 | A |
+| 12 | `_ensure_schema_documentation` | function | `app/openapi_enrichment.py:749` | 5 | A |
+| 13 | `_ensure_model_schema_documentation` | function | `app/openapi_enrichment.py:763` | 5 | A |
+| 14 | `_ensure_property_schema_documentation` | function | `app/openapi_enrichment.py:792` | 5 | A |
+| 15 | `_resolve_compute_job_result` | function | `app/services/async_result_service.py:44` | 5 | A |
+| 16 | `_async_result_record_payload_state` | function | `app/services/async_result_store.py:163` | 5 | A |
+| 17 | `build_attribution_execution_window` | function | `app/services/attribution_calculation_workflow_service.py:71` | 5 | A |
+| 18 | `calculate_attribution_workflow` | function | `app/services/attribution_calculation_workflow_service.py:214` | 5 | A |
+| 19 | `_portfolio_group_observation_dates` | function | `app/services/attribution_service.py:85` | 5 | A |
+| 20 | `_build_attribution_results_by_period` | function | `app/services/attribution_service.py:110` | 5 | A |
+| 21 | `_resolve_attribution_execution_window` | function | `app/services/attribution_service.py:186` | 5 | A |
+| 22 | `calculate_attribution` | function | `app/services/attribution_service.py:214` | 5 | A |
+| 23 | `_resolved_assignment_identity` | function | `app/services/benchmark_assignment_service.py:20` | 5 | A |
+| 24 | `calculate_benchmark_artifacts` | function | `app/services/benchmark_calculation_service.py:81` | 5 | A |
+| 25 | `_benchmark_period_result` | function | `app/services/benchmark_calculation_service.py:149` | 5 | A |
 
 ## Lowest Maintainability Index
 
@@ -954,6 +954,9 @@ fallback behavior.
 `_included_router_route_name` also dropped out after matched route-name resolution was split from
 included-router route scanning, with direct coverage for full-match and partial-match route
 candidates.
+`_infer_example` also dropped out after schema-hint example selection was split from named-key and
+semantic fallback selection, with direct coverage for enum, typed, formatted, and no-hint
+branches.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.
