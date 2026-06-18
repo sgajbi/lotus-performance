@@ -724,6 +724,12 @@ def _ensure_success_response_documentation(
     )
 
 
+def _iter_success_responses(responses: dict[str, Any]) -> Iterator[dict[str, Any]]:
+    for code, response in responses.items():
+        if str(code).startswith("2") and isinstance(response, dict):
+            yield response
+
+
 def _ensure_operation_response_documentation(
     *,
     path: str,
@@ -733,9 +739,7 @@ def _ensure_operation_response_documentation(
     if not _has_documented_error_response(responses):
         responses["default"] = _problem_detail_response()
     _ensure_error_response_examples(responses)
-    for code, response in responses.items():
-        if not str(code).startswith("2") or not isinstance(response, dict):
-            continue
+    for response in _iter_success_responses(responses):
         _ensure_success_response_documentation(
             path=path,
             response=response,

@@ -24,6 +24,7 @@ from app.openapi_enrichment import (
     _infer_schema_description,
     _iter_documentable_operations,
     _iter_schema_properties,
+    _iter_success_responses,
     _json_content_has_authored_example,
     _json_success_schema_example,
     _listed_schema_example,
@@ -556,6 +557,20 @@ def test_ensure_operation_response_documentation_rewrites_metrics_response():
     assert "application/json" not in content
     assert content["text/plain"]["schema"]["description"] == "Prometheus exposition format payload."
     assert "lotus_performance_durable_queue_store_availability" in content["text/plain"]["example"]
+
+
+def test_iter_success_responses_filters_success_dict_responses():
+    success_response = {"description": "ok"}
+    created_response = {"description": "created"}
+    responses = {
+        "200": success_response,
+        201: created_response,
+        "204": "not-a-dict",
+        "400": {"description": "bad request"},
+        "default": {"description": "problem"},
+    }
+
+    assert list(_iter_success_responses(responses)) == [success_response, created_response]
 
 
 def test_ensure_success_response_documentation_preserves_existing_json_examples():
