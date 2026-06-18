@@ -32,37 +32,37 @@ must stay at `0`.
 | --- | ---: |
 | Max cyclomatic complexity | 5 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 54.88 |
+| Average maintainability index | 54.87 |
 
 ## Highest Cyclomatic Complexity
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `resolve_trace_id` | function | `app/observability.py:154` | 5 | A |
-| 2 | `propagation_headers` | function | `app/observability.py:164` | 5 | A |
-| 3 | `_included_router_route_name` | function | `app/observability.py:290` | 5 | A |
-| 4 | `_infer_example` | function | `app/openapi_enrichment.py:219` | 5 | A |
-| 5 | `_explicit_schema_example` | function | `app/openapi_enrichment.py:325` | 5 | A |
-| 6 | `_named_schema_example` | function | `app/openapi_enrichment.py:337` | 5 | A |
-| 7 | `_composed_schema_example` | function | `app/openapi_enrichment.py:346` | 5 | A |
-| 8 | `_build_schema_example` | function | `app/openapi_enrichment.py:466` | 5 | A |
-| 9 | `_validation_error_json_content` | function | `app/openapi_enrichment.py:519` | 5 | A |
-| 10 | `_request_body_example` | function | `app/openapi_enrichment.py:559` | 5 | A |
-| 11 | `_ensure_json_success_response_example` | function | `app/openapi_enrichment.py:612` | 5 | A |
-| 12 | `_ensure_operation_response_documentation` | function | `app/openapi_enrichment.py:653` | 5 | A |
-| 13 | `_ensure_operation_metadata` | function | `app/openapi_enrichment.py:681` | 5 | A |
-| 14 | `_iter_documentable_operations` | function | `app/openapi_enrichment.py:706` | 5 | A |
-| 15 | `_ensure_operation_documentation` | function | `app/openapi_enrichment.py:716` | 5 | A |
-| 16 | `_ensure_schema_documentation` | function | `app/openapi_enrichment.py:741` | 5 | A |
-| 17 | `_ensure_model_schema_documentation` | function | `app/openapi_enrichment.py:755` | 5 | A |
-| 18 | `_ensure_property_schema_documentation` | function | `app/openapi_enrichment.py:784` | 5 | A |
-| 19 | `_resolve_compute_job_result` | function | `app/services/async_result_service.py:44` | 5 | A |
-| 20 | `_async_result_record_payload_state` | function | `app/services/async_result_store.py:163` | 5 | A |
-| 21 | `build_attribution_execution_window` | function | `app/services/attribution_calculation_workflow_service.py:71` | 5 | A |
-| 22 | `calculate_attribution_workflow` | function | `app/services/attribution_calculation_workflow_service.py:214` | 5 | A |
-| 23 | `_portfolio_group_observation_dates` | function | `app/services/attribution_service.py:85` | 5 | A |
-| 24 | `_build_attribution_results_by_period` | function | `app/services/attribution_service.py:110` | 5 | A |
-| 25 | `_resolve_attribution_execution_window` | function | `app/services/attribution_service.py:186` | 5 | A |
+| 1 | `propagation_headers` | function | `app/observability.py:171` | 5 | A |
+| 2 | `_included_router_route_name` | function | `app/observability.py:297` | 5 | A |
+| 3 | `_infer_example` | function | `app/openapi_enrichment.py:219` | 5 | A |
+| 4 | `_explicit_schema_example` | function | `app/openapi_enrichment.py:325` | 5 | A |
+| 5 | `_named_schema_example` | function | `app/openapi_enrichment.py:337` | 5 | A |
+| 6 | `_composed_schema_example` | function | `app/openapi_enrichment.py:346` | 5 | A |
+| 7 | `_build_schema_example` | function | `app/openapi_enrichment.py:466` | 5 | A |
+| 8 | `_validation_error_json_content` | function | `app/openapi_enrichment.py:519` | 5 | A |
+| 9 | `_request_body_example` | function | `app/openapi_enrichment.py:559` | 5 | A |
+| 10 | `_ensure_json_success_response_example` | function | `app/openapi_enrichment.py:612` | 5 | A |
+| 11 | `_ensure_operation_response_documentation` | function | `app/openapi_enrichment.py:653` | 5 | A |
+| 12 | `_ensure_operation_metadata` | function | `app/openapi_enrichment.py:681` | 5 | A |
+| 13 | `_iter_documentable_operations` | function | `app/openapi_enrichment.py:706` | 5 | A |
+| 14 | `_ensure_operation_documentation` | function | `app/openapi_enrichment.py:716` | 5 | A |
+| 15 | `_ensure_schema_documentation` | function | `app/openapi_enrichment.py:741` | 5 | A |
+| 16 | `_ensure_model_schema_documentation` | function | `app/openapi_enrichment.py:755` | 5 | A |
+| 17 | `_ensure_property_schema_documentation` | function | `app/openapi_enrichment.py:784` | 5 | A |
+| 18 | `_resolve_compute_job_result` | function | `app/services/async_result_service.py:44` | 5 | A |
+| 19 | `_async_result_record_payload_state` | function | `app/services/async_result_store.py:163` | 5 | A |
+| 20 | `build_attribution_execution_window` | function | `app/services/attribution_calculation_workflow_service.py:71` | 5 | A |
+| 21 | `calculate_attribution_workflow` | function | `app/services/attribution_calculation_workflow_service.py:214` | 5 | A |
+| 22 | `_portfolio_group_observation_dates` | function | `app/services/attribution_service.py:85` | 5 | A |
+| 23 | `_build_attribution_results_by_period` | function | `app/services/attribution_service.py:110` | 5 | A |
+| 24 | `_resolve_attribution_execution_window` | function | `app/services/attribution_service.py:186` | 5 | A |
+| 25 | `calculate_attribution` | function | `app/services/attribution_service.py:214` | 5 | A |
 
 ## Lowest Maintainability Index
 
@@ -945,6 +945,9 @@ and missing payload messages.
 `_bounded_mwr_solver_outcome_labels` also dropped out after reusable metric-label cardinality
 bounding was extracted, with direct coverage for allowed label preservation and unsafe value
 collapse.
+`resolve_trace_id` also dropped out after traceparent parsing was split from trace-id precedence and
+fallback resolution, with direct coverage for valid, missing, malformed, and short traceparent
+values.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.

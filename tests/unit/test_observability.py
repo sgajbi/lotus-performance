@@ -12,6 +12,7 @@ from app.observability import (
     _instrumentator_route_name,
     _json_log_payload,
     _log_context_fields,
+    _trace_id_from_traceparent,
     build_access_log_fields,
     correlation_id_var,
     propagation_headers,
@@ -54,6 +55,17 @@ def test_resolve_trace_id_prefers_traceparent_then_header_then_generated():
     assert resolve_trace_id(_request_with_headers({"traceparent": "invalid", "X-Trace-Id": " trace-1 "})) == "trace-1"
     generated = resolve_trace_id(_request_with_headers({"traceparent": "invalid", "X-Trace-Id": "  "}))
     assert len(generated) == 32
+
+
+def test_trace_id_from_traceparent_accepts_only_traceparent_with_32_character_trace_id():
+    assert (
+        _trace_id_from_traceparent("00-0123456789abcdef0123456789abcdef-0000000000000001-01")
+        == "0123456789abcdef0123456789abcdef"
+    )
+    assert _trace_id_from_traceparent(None) is None
+    assert _trace_id_from_traceparent("  ") is None
+    assert _trace_id_from_traceparent("invalid") is None
+    assert _trace_id_from_traceparent("00-short-0000000000000001-01") is None
 
 
 def test_propagation_headers_use_context_values():

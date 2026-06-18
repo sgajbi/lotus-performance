@@ -152,13 +152,20 @@ def resolve_request_id(request: Request) -> str:
 
 
 def resolve_trace_id(request: Request) -> str:
-    traceparent = _nonblank_header(request, "traceparent")
-    if traceparent:
-        parts = traceparent.split("-")
-        if len(parts) >= 4 and len(parts[1]) == 32:
-            return parts[1]
+    traceparent_trace_id = _trace_id_from_traceparent(_nonblank_header(request, "traceparent"))
+    if traceparent_trace_id is not None:
+        return traceparent_trace_id
     incoming = _nonblank_header(request, "X-Trace-Id")
     return incoming if incoming else uuid4().hex
+
+
+def _trace_id_from_traceparent(traceparent: str | None) -> str | None:
+    if traceparent is None:
+        return None
+    parts = traceparent.split("-")
+    if len(parts) >= 4 and len(parts[1]) == 32:
+        return parts[1]
+    return None
 
 
 def propagation_headers(correlation_id: str | None = None) -> dict[str, str]:
