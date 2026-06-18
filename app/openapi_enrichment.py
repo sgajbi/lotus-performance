@@ -508,7 +508,16 @@ def _build_schema_example(
     ref_example = _ref_schema_example(schema, components=components, seen_refs=seen)
     if ref_example is not None:
         return ref_example
+    return _non_ref_schema_example(schema, components=components, seen_refs=seen, name_hint=name_hint)
 
+
+def _non_ref_schema_example(
+    schema: dict[str, Any],
+    *,
+    components: dict[str, Any],
+    seen_refs: set[str],
+    name_hint: str,
+) -> Any:
     explicit_example = _explicit_schema_example(schema)
     if explicit_example is not None:
         return explicit_example
@@ -516,7 +525,7 @@ def _build_schema_example(
     derived_example = _derived_schema_example(
         schema,
         components=components,
-        seen_refs=seen,
+        seen_refs=seen_refs,
         name_hint=name_hint,
     )
     if derived_example is not None:

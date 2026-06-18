@@ -27,6 +27,7 @@ from app.openapi_enrichment import (
     _listed_schema_example,
     _named_schema_example,
     _named_schema_example_value,
+    _non_ref_schema_example,
     _object_schema_example,
     _ref_schema_example,
     _request_body_example,
@@ -903,6 +904,35 @@ def test_build_schema_example_covers_recursive_examples_and_union_forms():
     )
     assert _build_schema_example({"type": "object"}, components=components) == {"key": "value"}
     assert _build_schema_example({"type": "array", "items": "not-a-dict"}, components=components) == ["VALUE"]
+
+
+def test_non_ref_schema_example_routes_explicit_derived_and_inferred_examples():
+    components = {"schemas": {}}
+
+    assert _non_ref_schema_example(
+        {"example": {"status": "ready"}},
+        components=components,
+        seen_refs=set(),
+        name_hint="status",
+    ) == {"status": "ready"}
+    assert (
+        _non_ref_schema_example(
+            {"oneOf": [{"type": "string", "enum": ["NET", "GROSS"]}]},
+            components=components,
+            seen_refs=set(),
+            name_hint="metric_basis",
+        )
+        == "NET"
+    )
+    assert (
+        _non_ref_schema_example(
+            {"type": "string"},
+            components=components,
+            seen_refs=set(),
+            name_hint="custom_field",
+        )
+        == "example_custom_field"
+    )
 
 
 def test_enrich_openapi_schema_ignores_non_object_sections_and_non_http_methods():
