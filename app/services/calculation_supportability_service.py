@@ -19,15 +19,36 @@ def resolve_freshness_bucket(
     latest_observation_date: Any,
     report_end_date: Any,
 ) -> PerformanceFreshnessBucket:
-    if latest_observation_date is None or report_end_date is None:
+    freshness_dates = _normalized_freshness_dates(
+        latest_observation_date=latest_observation_date,
+        report_end_date=report_end_date,
+    )
+    if freshness_dates is None:
         return "unknown"
-    latest = normalize_observation_date(latest_observation_date)
-    expected = normalize_observation_date(report_end_date)
-    if latest >= expected:
+    latest, expected = freshness_dates
+    if _source_observation_is_current_or_newer(latest_observation_date=latest, report_end_date=expected):
         return "current"
     if latest == expected:
         return "same_day"
     return "stale"
+
+
+def _normalized_freshness_dates(
+    *,
+    latest_observation_date: Any,
+    report_end_date: Any,
+) -> tuple[date, date] | None:
+    if latest_observation_date is None or report_end_date is None:
+        return None
+    return normalize_observation_date(latest_observation_date), normalize_observation_date(report_end_date)
+
+
+def _source_observation_is_current_or_newer(
+    *,
+    latest_observation_date: date,
+    report_end_date: date,
+) -> bool:
+    return latest_observation_date >= report_end_date
 
 
 def _has_degraded_source_quality(source_quality_evidence: PerformanceSourceQualityEvidence | None) -> bool:

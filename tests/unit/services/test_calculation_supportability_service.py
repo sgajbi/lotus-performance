@@ -3,8 +3,11 @@ from datetime import date
 from app.models.source_quality import PerformanceSourceQualityEvidence
 from app.observability_contracts import PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS
 from app.services.calculation_supportability_service import (
+    _normalized_freshness_dates,
+    _source_observation_is_current_or_newer,
     _supportability_state_and_reason,
     build_calculation_supportability,
+    resolve_freshness_bucket,
 )
 
 
@@ -16,6 +19,45 @@ def test_supportability_state_policy_prioritizes_insufficient_inputs() -> None:
         freshness_bucket="stale",
         source_quality_evidence=None,
     ) == ("empty", "insufficient_valuation_points")
+
+
+def test_freshness_bucket_policy_classifies_missing_current_and_stale_inputs() -> None:
+    assert resolve_freshness_bucket(latest_observation_date=None, report_end_date=date(2026, 3, 31)) == "unknown"
+    assert (
+        resolve_freshness_bucket(latest_observation_date=date(2026, 3, 31), report_end_date=date(2026, 3, 31))
+        == "current"
+    )
+    assert (
+        resolve_freshness_bucket(latest_observation_date=date(2026, 4, 1), report_end_date=date(2026, 3, 31))
+        == "current"
+    )
+    assert (
+        resolve_freshness_bucket(latest_observation_date=date(2026, 3, 30), report_end_date=date(2026, 3, 31))
+        == "stale"
+    )
+
+
+def test_normalized_freshness_dates_handles_missing_and_date_like_values() -> None:
+    assert _normalized_freshness_dates(latest_observation_date=None, report_end_date=date(2026, 3, 31)) is None
+    assert _normalized_freshness_dates(
+        latest_observation_date="2026-03-31T12:00:00Z",
+        report_end_date=date(2026, 3, 31),
+    ) == (date(2026, 3, 31), date(2026, 3, 31))
+
+
+def test_source_observation_is_current_or_newer_compares_normalized_dates() -> None:
+    assert _source_observation_is_current_or_newer(
+        latest_observation_date=date(2026, 3, 31),
+        report_end_date=date(2026, 3, 31),
+    )
+    assert _source_observation_is_current_or_newer(
+        latest_observation_date=date(2026, 4, 1),
+        report_end_date=date(2026, 3, 31),
+    )
+    assert not _source_observation_is_current_or_newer(
+        latest_observation_date=date(2026, 3, 30),
+        report_end_date=date(2026, 3, 31),
+    )
 
 
 def test_calculation_supportability_marks_current_completed_calculation_ready() -> None:
