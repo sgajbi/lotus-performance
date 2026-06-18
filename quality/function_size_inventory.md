@@ -23,23 +23,23 @@ python scripts/python_function_size_inventory.py --limit 20
 | 1 | `DurableQueueCollector.describe` | `app/services/queue_metrics_service.py:193` | 159 |
 | 2 | `build_runtime_status_response` | `app/models/runtime_status.py:767` | 131 |
 | 3 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:331` | 130 |
-| 4 | `calculate_attribution` | `app/services/attribution_service.py:214` | 104 |
-| 5 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:227` | 102 |
-| 6 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:331` | 102 |
-| 7 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:87` | 101 |
-| 8 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:62` | 98 |
-| 9 | `aggregate_attribution_results` | `engine/attribution.py:704` | 98 |
-| 10 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:31` | 94 |
-| 11 | `build_stateful_benchmark_input` | `app/services/stateful_benchmark_input_service.py:57` | 93 |
-| 12 | `calculate_twr_response` | `app/services/twr_service.py:1113` | 93 |
-| 13 | `_calculate_returns_series` | `app/services/returns_series_service.py:1463` | 90 |
-| 14 | `_build_artifacts` | `app/services/composite_inspection_service.py:151` | 89 |
-| 15 | `build_recovery_drill_history_snapshot` | `app/services/recovery_drill_history_service.py:62` | 85 |
-| 16 | `build_runtime_recovery_snapshot` | `app/services/runtime_recovery_service.py:46` | 84 |
-| 17 | `run_runtime_retention_cleanup` | `app/services/runtime_retention_run_service.py:112` | 83 |
-| 18 | `calculate_contribution` | `app/services/contribution_service.py:614` | 80 |
-| 19 | `LineageMetadataStore._build_inspection_query_statements` | `app/services/lineage_metadata_store.py:529` | 80 |
-| 20 | `_build_contribution_response` | `app/services/contribution_service.py:533` | 79 |
+| 4 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:227` | 102 |
+| 5 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:331` | 102 |
+| 6 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:87` | 101 |
+| 7 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:62` | 98 |
+| 8 | `aggregate_attribution_results` | `engine/attribution.py:704` | 98 |
+| 9 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:31` | 94 |
+| 10 | `build_stateful_benchmark_input` | `app/services/stateful_benchmark_input_service.py:57` | 93 |
+| 11 | `calculate_twr_response` | `app/services/twr_service.py:1113` | 93 |
+| 12 | `_calculate_returns_series` | `app/services/returns_series_service.py:1463` | 90 |
+| 13 | `_build_artifacts` | `app/services/composite_inspection_service.py:151` | 89 |
+| 14 | `build_recovery_drill_history_snapshot` | `app/services/recovery_drill_history_service.py:62` | 85 |
+| 15 | `build_runtime_recovery_snapshot` | `app/services/runtime_recovery_service.py:46` | 84 |
+| 16 | `run_runtime_retention_cleanup` | `app/services/runtime_retention_run_service.py:112` | 83 |
+| 17 | `calculate_contribution` | `app/services/contribution_service.py:614` | 80 |
+| 18 | `LineageMetadataStore._build_inspection_query_statements` | `app/services/lineage_metadata_store.py:529` | 80 |
+| 19 | `_build_contribution_response` | `app/services/contribution_service.py:533` | 79 |
+| 20 | `_build_twr_inspection_response` | `app/services/inspection/twr_inspection_service.py:305` | 79 |
 
 ## Interpretation
 
@@ -54,6 +54,8 @@ from `133` to `120` lines after response meta, supportability, and benchmark-con
 isolated.
 Attribution orchestration moved from `120` to `104` lines after execution-window resolution and
 master request projection were isolated.
+Attribution orchestration dropped out of the top-20 table after failure recording and HTTP
+exception mapping were isolated from the public calculation path.
 Contribution orchestration moved from `287` to `270` lines after engine input preparation was
 isolated, then moved from `270` to `189` lines and is no longer the largest function after
 flat-period result assembly was isolated from the public contribution orchestration. Benchmark calculation workflow

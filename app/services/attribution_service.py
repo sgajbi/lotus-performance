@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Iterator, Sequence
+from typing import Any, Iterator, NoReturn, Sequence
+from uuid import UUID
 
 import pandas as pd
 from fastapi import HTTPException, status
@@ -261,6 +262,54 @@ def _attribution_master_request_for_resolved_periods(
     return master_start_date, master_end_date, master_request
 
 
+def _record_attribution_execution_failure(
+    *,
+    calculation_id: UUID,
+    message: str,
+    execution_stage_started: bool,
+    lineage_stage_started: bool,
+) -> None:
+    record_execution_failure(
+        calculation_id=calculation_id,
+        message=message,
+        execution_stage_started=execution_stage_started,
+        lineage_stage_started=lineage_stage_started,
+    )
+
+
+def _attribution_failure_http_exception(exc: Exception) -> HTTPException:
+    if isinstance(exc, HTTPException):
+        return exc
+    if isinstance(exc, (InvalidEngineInputError, ValueError, NotImplementedError)):
+        return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    if isinstance(exc, EngineCalculationError):
+        return HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Calculation Error: {exc.message}",
+        )
+    return HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail=f"An unexpected server error occurred: {str(exc)}",
+    )
+
+
+def _raise_recorded_attribution_failure(
+    exc: Exception,
+    *,
+    calculation_id: UUID,
+    execution_stage_started: bool,
+    lineage_stage_started: bool,
+) -> NoReturn:
+    mapped_exc = _attribution_failure_http_exception(exc)
+    _record_attribution_execution_failure(
+        calculation_id=calculation_id,
+        message=str(mapped_exc.detail),
+        execution_stage_started=execution_stage_started,
+        lineage_stage_started=lineage_stage_started,
+    )
+    raise mapped_exc from exc
+
+
 def calculate_attribution(
     request: AttributionRequest,
     *,
@@ -327,41 +376,10 @@ def calculate_attribution(
             calculation_details=lineage_data,
         )
         return response_model
-    except (InvalidEngineInputError, ValueError, NotImplementedError) as exc:
-        record_execution_failure(
-            calculation_id=request.calculation_id,
-            message=str(exc),
-            execution_stage_started=execution_stage_started,
-            lineage_stage_started=lineage_stage_started,
-        )
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    except EngineCalculationError as exc:
-        record_execution_failure(
-            calculation_id=request.calculation_id,
-            message=f"Calculation Error: {exc.message}",
-            execution_stage_started=execution_stage_started,
-            lineage_stage_started=lineage_stage_started,
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Calculation Error: {exc.message}",
-        ) from exc
-    except HTTPException as exc:
-        record_execution_failure(
-            calculation_id=request.calculation_id,
-            message=str(exc.detail),
-            execution_stage_started=execution_stage_started,
-            lineage_stage_started=lineage_stage_started,
-        )
-        raise
     except Exception as exc:
-        record_execution_failure(
+        _raise_recorded_attribution_failure(
+            exc,
             calculation_id=request.calculation_id,
-            message=f"An unexpected server error occurred: {str(exc)}",
             execution_stage_started=execution_stage_started,
             lineage_stage_started=lineage_stage_started,
         )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"An unexpected server error occurred: {str(exc)}",
-        ) from exc

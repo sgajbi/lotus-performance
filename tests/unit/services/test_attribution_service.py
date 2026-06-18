@@ -7,6 +7,7 @@ from fastapi import HTTPException
 from app.models.attribution_requests import AttributionRequest
 from app.services import attribution_service
 from common.enums import PeriodType
+from engine.exceptions import EngineCalculationError, InvalidEngineInputError
 
 
 def test_count_attribution_portfolio_rows_handles_absent_and_populated_sources():
@@ -263,6 +264,24 @@ def test_resolve_attribution_execution_window_rejects_empty_resolved_periods(mon
 
     assert exc_info.value.status_code == 400
     assert exc_info.value.detail == "No valid periods could be resolved."
+
+
+@pytest.mark.parametrize(
+    ("error", "expected_status", "expected_detail"),
+    [
+        (InvalidEngineInputError("bad input"), 400, "bad input"),
+        (ValueError("bad value"), 400, "bad value"),
+        (NotImplementedError("not ready"), 400, "not ready"),
+        (EngineCalculationError("engine failed"), 500, "Calculation Error: engine failed"),
+        (HTTPException(status_code=409, detail="already running"), 409, "already running"),
+        (RuntimeError("boom"), 500, "An unexpected server error occurred: boom"),
+    ],
+)
+def test_attribution_failure_http_exception_preserves_status_and_detail(error, expected_status, expected_detail):
+    mapped = attribution_service._attribution_failure_http_exception(error)
+
+    assert mapped.status_code == expected_status
+    assert mapped.detail == expected_detail
 
 
 def test_attribution_response_support_helpers_preserve_meta_supportability_and_benchmark_context(monkeypatch):
