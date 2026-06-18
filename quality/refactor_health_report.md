@@ -40,7 +40,7 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | Max cyclomatic complexity | unknown | 5 | enforced | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py`; `make quality-complexity-gate` |
 | High-complexity functions | unknown | 0 | enforced | rank D-F functions in `quality/complexity_inventory.md`; `make quality-complexity-gate` |
-| Average maintainability index | unknown | 54.87 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
+| Average maintainability index | unknown | 54.86 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
 | Largest functions by LOC | unknown | 159 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py` |
 
 ## Architecture
