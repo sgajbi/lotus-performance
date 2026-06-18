@@ -839,18 +839,32 @@ def _ensure_operation_documentation(schema: dict[str, Any]) -> None:
         )
 
 
-def _ensure_schema_documentation(schema: dict[str, Any]) -> None:
+def _component_schemas(schema: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]] | None:
     components = schema.get("components", {})
     if not isinstance(components, dict):
-        return
+        return None
     schemas = components.get("schemas", {})
     if not isinstance(schemas, dict):
+        return None
+    return components, schemas
+
+
+def _iter_component_model_schemas(
+    schema: dict[str, Any],
+) -> Iterator[tuple[str, dict[str, Any], dict[str, Any]]]:
+    component_schemas = _component_schemas(schema)
+    if component_schemas is None:
         return
+    components, schemas = component_schemas
     schemas.setdefault(PROBLEM_DETAIL_SCHEMA_NAME, copy.deepcopy(PROBLEM_DETAIL_SCHEMA))
     for model_name, model_schema in schemas.items():
-        if not isinstance(model_schema, dict):
-            continue
-        _ensure_model_schema_documentation(str(model_name), model_schema, components)
+        if isinstance(model_schema, dict):
+            yield str(model_name), model_schema, components
+
+
+def _ensure_schema_documentation(schema: dict[str, Any]) -> None:
+    for model_name, model_schema, components in _iter_component_model_schemas(schema):
+        _ensure_model_schema_documentation(model_name, model_schema, components)
 
 
 def _ensure_model_schema_documentation(

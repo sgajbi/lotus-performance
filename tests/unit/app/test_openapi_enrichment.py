@@ -4,6 +4,7 @@ from app.openapi_enrichment import (
     _array_schema_example,
     _build_schema_example,
     _canonical_term,
+    _component_schemas,
     _composed_schema_example,
     _derived_schema_example,
     _documentable_operation,
@@ -23,6 +24,7 @@ from app.openapi_enrichment import (
     _infer_description,
     _infer_example,
     _infer_schema_description,
+    _iter_component_model_schemas,
     _iter_documentable_operations,
     _iter_path_operations,
     _iter_schema_properties,
@@ -842,6 +844,33 @@ def test_ensure_model_schema_documentation_preserves_existing_metadata_and_resol
     assert nested_ref["description"] == "Referenced schema description."
     assert nested_ref["example"] == {"count": 1}
     assert nested_ref["x-lotus-semantic-id"] == "lotus.nested_ref"
+
+
+def test_iter_component_model_schemas_filters_malformed_entries_and_adds_problem_detail():
+    portfolio_schema = {"type": "object"}
+    components = {
+        "schemas": {
+            "Portfolio": portfolio_schema,
+            "Ignored": "not-a-schema",
+        }
+    }
+    schema = {"components": components}
+
+    model_schemas = list(_iter_component_model_schemas(schema))
+
+    assert ("Portfolio", portfolio_schema, components) in model_schemas
+    assert any(name == "ProblemDetail" for name, _, _ in model_schemas)
+    assert all(name != "Ignored" for name, _, _ in model_schemas)
+    assert list(_iter_component_model_schemas({"components": "not-components"})) == []
+    assert list(_iter_component_model_schemas({"components": {"schemas": "not-schemas"}})) == []
+
+
+def test_component_schemas_resolves_components_and_schema_map():
+    components = {"schemas": {"Portfolio": {"type": "object"}}}
+
+    assert _component_schemas({"components": components}) == (components, components["schemas"])
+    assert _component_schemas({"components": "not-components"}) is None
+    assert _component_schemas({"components": {"schemas": "not-schemas"}}) is None
 
 
 def test_iter_schema_properties_yields_only_dict_properties():
