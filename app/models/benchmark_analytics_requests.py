@@ -142,8 +142,12 @@ class BenchmarkStatefulInput(BaseModel):
 def _validate_benchmark_analysis_selection(analyses: list[Analysis], report_start_date: dt_date | None) -> None:
     if not analyses:
         raise ValueError("analyses list cannot be empty")
-    if any(analysis.period == PeriodType.EXPLICIT for analysis in analyses) and report_start_date is None:
+    if _has_explicit_benchmark_analysis(analyses) and report_start_date is None:
         raise ValueError("report_start_date is required when analyses include EXPLICIT")
+
+
+def _has_explicit_benchmark_analysis(analyses: list[Analysis]) -> bool:
+    return any(analysis.period == PeriodType.EXPLICIT for analysis in analyses)
 
 
 def _validate_calculated_stateless_benchmark_payload(stateless_input: BenchmarkStatelessInput) -> None:
