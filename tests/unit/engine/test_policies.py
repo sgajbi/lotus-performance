@@ -10,6 +10,7 @@ from engine.policies import (
     _flag_outliers,
     _outlier_mask_and_bounds,
     _override_mask,
+    _policy_inputs_from_payload,
     _record_outlier_samples,
     apply_robustness_policies,
 )
@@ -233,3 +234,33 @@ def test_extract_policy_inputs_collects_ignored_dates():
         pd.Timestamp("2025-03-15").date(),
         pd.Timestamp("2025-03-16").date(),
     }
+
+
+def test_extract_policy_inputs_returns_empty_inputs_for_missing_policy():
+    inputs = _extract_policy_inputs(None)
+
+    assert inputs.overrides == {}
+    assert inputs.ignore_days == []
+    assert inputs.ignored_dates == set()
+
+
+def test_policy_inputs_from_payload_defaults_missing_sections():
+    inputs = _policy_inputs_from_payload({})
+
+    assert inputs.overrides == {}
+    assert inputs.ignore_days == []
+    assert inputs.ignored_dates == set()
+
+
+def test_policy_inputs_from_payload_projects_payload_sections():
+    ignored_date = pd.Timestamp("2025-03-15").date()
+    payload = {
+        "overrides": {"market_values": [{"perf_date": ignored_date, "end_mv": 200.0}]},
+        "ignore_days": [{"entity_type": "POSITION", "entity_id": "P1", "dates": [ignored_date]}],
+    }
+
+    inputs = _policy_inputs_from_payload(payload)
+
+    assert inputs.overrides == payload["overrides"]
+    assert inputs.ignore_days == payload["ignore_days"]
+    assert inputs.ignored_dates == {ignored_date}

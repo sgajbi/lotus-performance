@@ -2,7 +2,7 @@
 import logging
 from dataclasses import dataclass
 from datetime import date
-from typing import Dict, Tuple
+from typing import Any, Dict, Mapping, Tuple
 
 import numpy as np
 import pandas as pd
@@ -26,13 +26,20 @@ def _extract_policy_inputs(data_policy_model: BaseModel | None) -> PolicyInputs:
         return PolicyInputs(overrides={}, ignore_days=[], ignored_dates=set())
 
     policy_payload = data_policy_model.model_dump(exclude_unset=True)
+    return _policy_inputs_from_payload(policy_payload)
+
+
+def _policy_inputs_from_payload(policy_payload: Mapping[str, Any]) -> PolicyInputs:
     ignore_days = policy_payload.get("ignore_days") or []
-    ignored_dates = {ignored_date for item in ignore_days for ignored_date in item.get("dates", [])}
     return PolicyInputs(
         overrides=policy_payload.get("overrides") or {},
         ignore_days=ignore_days,
-        ignored_dates=ignored_dates,
+        ignored_dates=_ignored_dates_from_ignore_days(ignore_days),
     )
+
+
+def _ignored_dates_from_ignore_days(ignore_days: list) -> set[date]:
+    return {ignored_date for item in ignore_days for ignored_date in item.get("dates", [])}
 
 
 def _apply_overrides(df: pd.DataFrame, overrides: Dict, diagnostics: EngineDiagnostics) -> None:
