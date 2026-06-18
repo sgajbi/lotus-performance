@@ -169,15 +169,25 @@ def _trace_id_from_traceparent(traceparent: str | None) -> str | None:
 
 
 def propagation_headers(correlation_id: str | None = None) -> dict[str, str]:
-    trace_id = _nonblank_value(trace_id_var.get()) or uuid4().hex
+    trace_id = _propagation_trace_id()
     return {
-        "X-Correlation-Id": _nonblank_value(correlation_id)
-        or _nonblank_value(correlation_id_var.get())
-        or f"corr_{uuid4().hex[:12]}",
-        "X-Request-Id": _nonblank_value(request_id_var.get()) or f"req_{uuid4().hex[:12]}",
+        "X-Correlation-Id": _propagation_correlation_id(correlation_id),
+        "X-Request-Id": _propagation_request_id(),
         "X-Trace-Id": trace_id,
         "traceparent": f"00-{trace_id}-0000000000000001-01",
     }
+
+
+def _propagation_correlation_id(correlation_id: str | None) -> str:
+    return _nonblank_value(correlation_id) or _nonblank_value(correlation_id_var.get()) or f"corr_{uuid4().hex[:12]}"
+
+
+def _propagation_request_id() -> str:
+    return _nonblank_value(request_id_var.get()) or f"req_{uuid4().hex[:12]}"
+
+
+def _propagation_trace_id() -> str:
+    return _nonblank_value(trace_id_var.get()) or uuid4().hex
 
 
 def record_calculation_supportability(

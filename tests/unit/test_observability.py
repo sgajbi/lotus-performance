@@ -12,6 +12,9 @@ from app.observability import (
     _instrumentator_route_name,
     _json_log_payload,
     _log_context_fields,
+    _propagation_correlation_id,
+    _propagation_request_id,
+    _propagation_trace_id,
     _trace_id_from_traceparent,
     build_access_log_fields,
     correlation_id_var,
@@ -91,6 +94,17 @@ def test_propagation_headers_generates_when_context_absent():
     assert headers["X-Correlation-Id"].startswith("corr_")
     assert headers["X-Request-Id"].startswith("req_")
     assert len(headers["X-Trace-Id"]) == 32
+
+
+def test_propagation_id_helpers_apply_override_context_and_generated_fallbacks():
+    correlation_id_var.set(" corr-ctx ")
+    request_id_var.set(" ")
+    trace_id_var.set(" ")
+
+    assert _propagation_correlation_id(" corr-override ") == "corr-override"
+    assert _propagation_correlation_id(" ") == "corr-ctx"
+    assert _propagation_request_id().startswith("req_")
+    assert len(_propagation_trace_id()) == 32
 
 
 def test_json_formatter_includes_standard_and_extra_fields(monkeypatch):
