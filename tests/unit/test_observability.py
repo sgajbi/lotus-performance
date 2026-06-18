@@ -3,6 +3,7 @@ import logging
 
 from fastapi import APIRouter, FastAPI, Request
 from prometheus_client import REGISTRY, generate_latest
+from starlette.routing import Match
 
 from app.observability import (
     JsonFormatter,
@@ -12,6 +13,7 @@ from app.observability import (
     _instrumentator_route_name,
     _json_log_payload,
     _log_context_fields,
+    _matched_route_name,
     _propagation_correlation_id,
     _propagation_request_id,
     _propagation_trace_id,
@@ -211,6 +213,20 @@ def test_instrumentator_route_name_resolves_fastapi_included_router_context():
     )
 
     assert _instrumentator_route_name(request) == "/api/items/{item_id}"
+
+
+def test_matched_route_name_returns_route_path_only_for_full_matches():
+    class RouteStub:
+        path = "/api/items/{item_id}"
+
+        def __init__(self, match_result):
+            self.match_result = match_result
+
+        def matches(self, scope):
+            return self.match_result, scope
+
+    assert _matched_route_name(RouteStub(Match.FULL), {"path": "/api/items/123"}) == "/api/items/{item_id}"
+    assert _matched_route_name(RouteStub(Match.PARTIAL), {"path": "/api/items/123"}) is None
 
 
 def test_bounded_mwr_solver_reason_codes_defaults_and_filters_unsafe_values():

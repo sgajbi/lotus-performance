@@ -306,13 +306,16 @@ def _instrumentator_route_name(request: Request) -> str | None:
 
 def _included_router_route_name(request: Request) -> str | None:
     for route in request.app.routes:
-        if _route_matches(route, request.scope) != Match.FULL:
-            continue
-
-        route_name = _route_path(route) or _matching_effective_candidate_path(route, request.scope)
+        route_name = _matched_route_name(route, request.scope)
         if route_name:
             return route_name
     return None
+
+
+def _matched_route_name(route: object, scope: object) -> str | None:
+    if _route_matches(route, scope) != Match.FULL:
+        return None
+    return _route_path(route) or _matching_effective_candidate_path(route, scope)
 
 
 def _route_path(route: object) -> str | None:
