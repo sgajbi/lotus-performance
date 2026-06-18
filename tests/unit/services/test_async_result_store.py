@@ -8,6 +8,7 @@ from app.services.async_result_store import (
     AsyncResultStatus,
     AsyncResultStore,
     _async_result_record_payload_state,
+    _has_invalid_response_payload,
 )
 
 
@@ -148,6 +149,26 @@ def test_async_result_payload_state_preserves_existing_failure_details_for_inval
     assert payload_state.response_payload is None
     assert payload_state.error_message == "existing failure"
     assert payload_state.error_type == "ExistingFailure"
+
+
+def test_has_invalid_response_payload_requires_source_json_without_loaded_payload():
+    calculation_id = uuid4()
+    row = AsyncResultModel(
+        calculation_id=str(calculation_id),
+        analytics_type="ReturnsSeries",
+        result_status=AsyncResultStatus.COMPLETE.value,
+        response_json="{not-json",
+        error_message=None,
+        error_type=None,
+        created_at_utc=datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc),
+        updated_at_utc=datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc),
+    )
+
+    assert _has_invalid_response_payload(row, response_payload=None)
+    assert not _has_invalid_response_payload(row, response_payload={"ok": True})
+
+    row.response_json = None
+    assert not _has_invalid_response_payload(row, response_payload=None)
 
 
 def test_async_result_store_prunes_results_older_than_cutoff(tmp_path):

@@ -168,7 +168,7 @@ def _async_result_record_payload_state(
     result_status = AsyncResultStatus(row.result_status)
     error_message = row.error_message
     error_type = row.error_type
-    if row.response_json and response_payload is None:
+    if _has_invalid_response_payload(row, response_payload=response_payload):
         result_status = AsyncResultStatus.FAILED
         error_message = error_message or INVALID_ASYNC_RESULT_PAYLOAD_MESSAGE
         error_type = error_type or INVALID_ASYNC_RESULT_PAYLOAD_ERROR_TYPE
@@ -178,6 +178,14 @@ def _async_result_record_payload_state(
         error_message=error_message,
         error_type=error_type,
     )
+
+
+def _has_invalid_response_payload(
+    row: AsyncResultModel,
+    *,
+    response_payload: dict[str, Any] | None,
+) -> bool:
+    return bool(row.response_json) and response_payload is None
 
 
 def _async_result_record_from_row(row: AsyncResultModel) -> AsyncResultRecord:
