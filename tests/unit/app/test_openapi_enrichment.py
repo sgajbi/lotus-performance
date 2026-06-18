@@ -32,6 +32,7 @@ from app.openapi_enrichment import (
     _named_schema_example_value,
     _non_ref_schema_example,
     _object_schema_example,
+    _operation_description,
     _operation_request_example,
     _operation_response_example,
     _ref_schema_example,
@@ -619,6 +620,14 @@ def test_ensure_operation_metadata_assigns_governed_defaults_and_tags():
     assert workflow_operation["summary"] == "Existing summary"
     assert workflow_operation["description"] == "POST operation for /returns-series/results in lotus-performance."
     assert workflow_operation["tags"] == ["Existing"]
+
+
+def test_operation_description_resolves_default_existing_and_metrics_text():
+    assert _operation_description("/returns-series/results", "post", None) == (
+        "POST operation for /returns-series/results in lotus-performance."
+    )
+    assert _operation_description("/returns-series/results", "post", "Existing description") == "Existing description"
+    assert "Prometheus metrics surface" in _operation_description("/metrics", "get", "Existing description")
 
 
 def test_iter_documentable_operations_filters_malformed_paths_and_methods():

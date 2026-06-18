@@ -756,16 +756,21 @@ def _operation_tags_for_path(path: str) -> list[str]:
     return [segment.replace("-", " ").title()]
 
 
-def _ensure_operation_metadata(*, path: str, method: str, operation: dict[str, Any]) -> None:
-    if not operation.get("summary"):
-        operation["summary"] = f"{method.upper()} {path}"
-    if not operation.get("description"):
-        operation["description"] = f"{method.upper()} operation for {path} in lotus-performance."
+def _operation_description(path: str, method: str, current_description: Any) -> str:
     if path == "/metrics":
-        operation["description"] = (
+        return (
             "Returns the Prometheus metrics surface for lotus-performance, including durable queue availability, "
             "queue pressure, lineage storage capacity, recovery-drill assurance, and runtime-retention assurance gauges."
         )
+    if current_description:
+        return str(current_description)
+    return f"{method.upper()} operation for {path} in lotus-performance."
+
+
+def _ensure_operation_metadata(*, path: str, method: str, operation: dict[str, Any]) -> None:
+    if not operation.get("summary"):
+        operation["summary"] = f"{method.upper()} {path}"
+    operation["description"] = _operation_description(path, method, operation.get("description"))
     if not operation.get("tags"):
         operation["tags"] = _operation_tags_for_path(path)
 
