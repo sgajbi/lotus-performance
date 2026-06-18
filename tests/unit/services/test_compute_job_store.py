@@ -5,6 +5,7 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import event, inspect
 from sqlalchemy.dialects import postgresql
+from sqlalchemy.exc import IntegrityError
 
 from app.services.compute_job_store import (
     INVALID_COMPUTE_JOB_REQUEST_PAYLOAD_ERROR_TYPE,
@@ -19,6 +20,7 @@ from app.services.compute_job_store import (
     _compute_job_has_conflicting_worker_lease,
     _compute_job_inspection_active_since,
     _compute_job_payload_failure,
+    _compute_job_registration_result_for_integrity_conflict,
     _ensure_compute_job_can_mark_running,
     _matches_existing_compute_job_registration,
     _queue_stats_from_aggregate_row,
@@ -1167,6 +1169,69 @@ def test_matches_existing_compute_job_registration_requires_same_request_and_att
         request_json='{"portfolio_id": "P1"}',
         max_attempts=2,
     )
+
+
+def test_compute_job_registration_result_for_integrity_conflict_replays_matching_job():
+    existing = ComputeJobModel(
+        calculation_id=str(uuid4()),
+        analytics_type="Contribution",
+        job_status=ComputeJobStatus.PENDING.value,
+        request_json='{"portfolio_id": "P1"}',
+        response_json=None,
+        attempt_count=0,
+        max_attempts=2,
+        created_at_utc=datetime.now(timezone.utc),
+    )
+
+    result = _compute_job_registration_result_for_integrity_conflict(
+        existing,
+        integrity_error=IntegrityError("insert", {}, RuntimeError("duplicate")),
+        analytics_type="Contribution",
+        request_json='{"portfolio_id": "P1"}',
+        max_attempts=2,
+    )
+
+    assert result.status == ComputeJobRegistrationStatus.REPLAY
+    assert result.existing_status == ComputeJobStatus.PENDING
+
+
+def test_compute_job_registration_result_for_integrity_conflict_reports_conflicting_job():
+    existing = ComputeJobModel(
+        calculation_id=str(uuid4()),
+        analytics_type="Contribution",
+        job_status=ComputeJobStatus.RUNNING.value,
+        request_json='{"portfolio_id": "P1"}',
+        response_json=None,
+        attempt_count=1,
+        max_attempts=2,
+        created_at_utc=datetime.now(timezone.utc),
+    )
+
+    result = _compute_job_registration_result_for_integrity_conflict(
+        existing,
+        integrity_error=IntegrityError("insert", {}, RuntimeError("duplicate")),
+        analytics_type="Contribution",
+        request_json='{"portfolio_id": "P2"}',
+        max_attempts=2,
+    )
+
+    assert result.status == ComputeJobRegistrationStatus.CONFLICT
+    assert result.existing_status == ComputeJobStatus.RUNNING
+
+
+def test_compute_job_registration_result_for_integrity_conflict_reraises_missing_row():
+    original_error = IntegrityError("insert", {}, RuntimeError("duplicate"))
+
+    with pytest.raises(IntegrityError) as exc_info:
+        _compute_job_registration_result_for_integrity_conflict(
+            None,
+            integrity_error=original_error,
+            analytics_type="Contribution",
+            request_json='{"portfolio_id": "P1"}',
+            max_attempts=2,
+        )
+
+    assert exc_info.value is original_error
 
 
 @pytest.mark.parametrize(

@@ -304,6 +304,32 @@ def _compute_job_has_conflicting_worker_lease(
     return requested_worker_id is not None and current_worker_id not in {None, requested_worker_id}
 
 
+def _compute_job_registration_result_for_integrity_conflict(
+    existing: ComputeJobModel | None,
+    *,
+    integrity_error: IntegrityError,
+    analytics_type: str,
+    request_json: str,
+    max_attempts: int,
+) -> ComputeJobRegistrationResult:
+    if existing is None:
+        raise integrity_error
+    if _matches_existing_compute_job_registration(
+        existing,
+        analytics_type=analytics_type,
+        request_json=request_json,
+        max_attempts=max_attempts,
+    ):
+        return ComputeJobRegistrationResult(
+            status=ComputeJobRegistrationStatus.REPLAY,
+            existing_status=ComputeJobStatus(existing.job_status),
+        )
+    return ComputeJobRegistrationResult(
+        status=ComputeJobRegistrationStatus.CONFLICT,
+        existing_status=ComputeJobStatus(existing.job_status),
+    )
+
+
 def _ensure_compute_job_can_mark_running(
     row: ComputeJobModel,
     *,
@@ -432,24 +458,15 @@ class ComputeJobStore:
             session.add(job)
             session.commit()
             return ComputeJobRegistrationResult(status=ComputeJobRegistrationStatus.CREATED)
-        except IntegrityError:
+        except IntegrityError as exc:
             session.rollback()
             existing = session.get(ComputeJobModel, str(calculation_id))
-            if existing is None:
-                raise
-            if _matches_existing_compute_job_registration(
+            return _compute_job_registration_result_for_integrity_conflict(
                 existing,
+                integrity_error=exc,
                 analytics_type=analytics_type,
                 request_json=request_json,
                 max_attempts=configured_max_attempts,
-            ):
-                return ComputeJobRegistrationResult(
-                    status=ComputeJobRegistrationStatus.REPLAY,
-                    existing_status=ComputeJobStatus(existing.job_status),
-                )
-            return ComputeJobRegistrationResult(
-                status=ComputeJobRegistrationStatus.CONFLICT,
-                existing_status=ComputeJobStatus(existing.job_status),
             )
         finally:
             session.close()
