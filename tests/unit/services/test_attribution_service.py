@@ -78,6 +78,33 @@ def test_build_attribution_results_by_period_slices_non_empty_periods_and_prefix
     assert lineage_data == {"engine": "complete", "JAN_row_count": 1}
 
 
+def test_build_single_attribution_period_response_skips_empty_slices(monkeypatch):
+    effects_df = pd.DataFrame(
+        {"effect": [0.1]},
+        index=pd.MultiIndex.from_tuples(
+            [(pd.Timestamp("2026-01-02"), "Equity")],
+            names=["date", "group"],
+        ),
+    )
+    period = SimpleNamespace(name="FEB", start_date="2026-02-01", end_date="2026-02-28")
+    lineage_data = {"engine": "complete"}
+
+    def aggregate(*_args, **_kwargs):
+        raise AssertionError("empty period slices must not be aggregated")
+
+    monkeypatch.setattr(attribution_service, "aggregate_attribution_results", aggregate)
+
+    response = attribution_service._build_single_attribution_period_response(
+        effects_df,
+        request=SimpleNamespace(portfolio_id="DEMO_DPM_EUR_001"),
+        period=period,
+        lineage_data=lineage_data,
+    )
+
+    assert response is None
+    assert lineage_data == {"engine": "complete"}
+
+
 def test_latest_attribution_observation_date_uses_all_stateless_input_sources():
     request = AttributionRequest.model_validate(
         {

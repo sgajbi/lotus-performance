@@ -38,31 +38,31 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_build_attribution_results_by_period` | function | `app/services/attribution_service.py:118` | 5 | A |
-| 2 | `_resolve_attribution_execution_window` | function | `app/services/attribution_service.py:194` | 5 | A |
-| 3 | `calculate_attribution` | function | `app/services/attribution_service.py:222` | 5 | A |
-| 4 | `_resolved_assignment_identity` | function | `app/services/benchmark_assignment_service.py:20` | 5 | A |
-| 5 | `calculate_benchmark_artifacts` | function | `app/services/benchmark_calculation_service.py:81` | 5 | A |
-| 6 | `_benchmark_period_result` | function | `app/services/benchmark_calculation_service.py:149` | 5 | A |
-| 7 | `_calculate_benchmark_return_from_slice` | function | `app/services/benchmark_calculation_service.py:190` | 5 | A |
-| 8 | `_group_benchmark_breakdown_rows` | function | `app/services/benchmark_calculation_service.py:227` | 5 | A |
-| 9 | `build_benchmark_exposure_context` | function | `app/services/benchmark_exposure_context_service.py:38` | 5 | A |
-| 10 | `_benchmark_id_from_assignment_response` | function | `app/services/benchmark_exposure_context_service.py:110` | 5 | A |
-| 11 | `_classification_map_for_request` | function | `app/services/benchmark_exposure_context_service.py:146` | 5 | A |
-| 12 | `_index_ids_for_component_series` | function | `app/services/benchmark_exposure_context_service.py:177` | 5 | A |
-| 13 | `_iter_component_exposure_points` | function | `app/services/benchmark_exposure_context_service.py:258` | 5 | A |
-| 14 | `_accumulate_exposure_point` | function | `app/services/benchmark_exposure_context_service.py:268` | 5 | A |
-| 15 | `_group_identity` | function | `app/services/benchmark_exposure_context_service.py:299` | 5 | A |
-| 16 | `resolve_freshness_bucket` | function | `app/services/calculation_supportability_service.py:17` | 5 | A |
-| 17 | `_supportability_state_and_reason` | function | `app/services/calculation_supportability_service.py:37` | 5 | A |
-| 18 | `inspect_composite_twr_from_persisted_facts` | function | `app/services/composite_inspection_service.py:37` | 5 | A |
-| 19 | `_upgrade_member_return_fact_schema` | method | `app/services/composite_metadata_store.py:112` | 5 | A |
-| 20 | `_ensure_compute_job_can_mark_running` | function | `app/services/compute_job_store.py:301` | 5 | A |
-| 21 | `register_job` | method | `app/services/compute_job_store.py:394` | 5 | A |
-| 22 | `list_recent_recoveries` | method | `app/services/compute_job_store.py:659` | 5 | A |
-| 23 | `_apply_recovery_time_filters` | method | `app/services/compute_job_store.py:927` | 5 | A |
-| 24 | `_contribution_methodology_notes` | function | `app/services/contribution_audit.py:244` | 5 | A |
-| 25 | `contribution_position_count` | function | `app/services/contribution_calculation_workflow_service.py:37` | 5 | A |
+| 1 | `_resolve_attribution_execution_window` | function | `app/services/attribution_service.py:225` | 5 | A |
+| 2 | `calculate_attribution` | function | `app/services/attribution_service.py:253` | 5 | A |
+| 3 | `_resolved_assignment_identity` | function | `app/services/benchmark_assignment_service.py:20` | 5 | A |
+| 4 | `calculate_benchmark_artifacts` | function | `app/services/benchmark_calculation_service.py:81` | 5 | A |
+| 5 | `_benchmark_period_result` | function | `app/services/benchmark_calculation_service.py:149` | 5 | A |
+| 6 | `_calculate_benchmark_return_from_slice` | function | `app/services/benchmark_calculation_service.py:190` | 5 | A |
+| 7 | `_group_benchmark_breakdown_rows` | function | `app/services/benchmark_calculation_service.py:227` | 5 | A |
+| 8 | `build_benchmark_exposure_context` | function | `app/services/benchmark_exposure_context_service.py:38` | 5 | A |
+| 9 | `_benchmark_id_from_assignment_response` | function | `app/services/benchmark_exposure_context_service.py:110` | 5 | A |
+| 10 | `_classification_map_for_request` | function | `app/services/benchmark_exposure_context_service.py:146` | 5 | A |
+| 11 | `_index_ids_for_component_series` | function | `app/services/benchmark_exposure_context_service.py:177` | 5 | A |
+| 12 | `_iter_component_exposure_points` | function | `app/services/benchmark_exposure_context_service.py:258` | 5 | A |
+| 13 | `_accumulate_exposure_point` | function | `app/services/benchmark_exposure_context_service.py:268` | 5 | A |
+| 14 | `_group_identity` | function | `app/services/benchmark_exposure_context_service.py:299` | 5 | A |
+| 15 | `resolve_freshness_bucket` | function | `app/services/calculation_supportability_service.py:17` | 5 | A |
+| 16 | `_supportability_state_and_reason` | function | `app/services/calculation_supportability_service.py:37` | 5 | A |
+| 17 | `inspect_composite_twr_from_persisted_facts` | function | `app/services/composite_inspection_service.py:37` | 5 | A |
+| 18 | `_upgrade_member_return_fact_schema` | method | `app/services/composite_metadata_store.py:112` | 5 | A |
+| 19 | `_ensure_compute_job_can_mark_running` | function | `app/services/compute_job_store.py:301` | 5 | A |
+| 20 | `register_job` | method | `app/services/compute_job_store.py:394` | 5 | A |
+| 21 | `list_recent_recoveries` | method | `app/services/compute_job_store.py:659` | 5 | A |
+| 22 | `_apply_recovery_time_filters` | method | `app/services/compute_job_store.py:927` | 5 | A |
+| 23 | `_contribution_methodology_notes` | function | `app/services/contribution_audit.py:244` | 5 | A |
+| 24 | `contribution_position_count` | function | `app/services/contribution_calculation_workflow_service.py:37` | 5 | A |
+| 25 | `_calculate_promoted_stateful_contribution` | function | `app/services/contribution_calculation_workflow_service.py:100` | 5 | A |
 
 ## Lowest Maintainability Index
 
@@ -1015,6 +1015,9 @@ sync fencing payload projection and resolved attribution response delegation.
 `_portfolio_group_observation_dates` also dropped out after portfolio-group observation iteration
 and per-observation date qualification were split into dedicated helpers, with direct coverage for
 missing and empty date suppression.
+`_build_attribution_results_by_period` also dropped out after single-period attribution response
+assembly and period-lineage recording were split into dedicated helpers, with direct coverage for
+empty-slice suppression before aggregation.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.

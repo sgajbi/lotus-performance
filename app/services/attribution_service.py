@@ -124,20 +124,51 @@ def _build_attribution_results_by_period(
 ) -> dict[str, Any]:
     results_by_period: dict[str, Any] = {}
     for period in resolved_periods:
-        period_slice_df = _slice_attribution_effects_by_period(
+        period_response = _build_single_attribution_period_response(
             effects_df,
-            start_date=period.start_date,
-            end_date=period.end_date,
+            request=request,
+            period=period,
+            lineage_data=lineage_data,
         )
-
-        if period_slice_df.empty:
+        if period_response is None:
             continue
-
-        period_result, aggregation_lineage = aggregate_attribution_results(period_slice_df, request)
-        if aggregation_lineage:
-            lineage_data.update({f"{period.name}_{key}": value for key, value in aggregation_lineage.items()})
-        results_by_period[period.name] = build_single_period_attribution_response(period_result)
+        results_by_period[period.name] = period_response
     return results_by_period
+
+
+def _build_single_attribution_period_response(
+    effects_df: pd.DataFrame,
+    *,
+    request: AttributionRequest,
+    period: Any,
+    lineage_data: dict[str, Any],
+) -> dict[str, Any] | None:
+    period_slice_df = _slice_attribution_effects_by_period(
+        effects_df,
+        start_date=period.start_date,
+        end_date=period.end_date,
+    )
+
+    if period_slice_df.empty:
+        return None
+
+    period_result, aggregation_lineage = aggregate_attribution_results(period_slice_df, request)
+    _record_attribution_period_lineage(
+        lineage_data,
+        period_name=period.name,
+        aggregation_lineage=aggregation_lineage,
+    )
+    return build_single_period_attribution_response(period_result)
+
+
+def _record_attribution_period_lineage(
+    lineage_data: dict[str, Any],
+    *,
+    period_name: str,
+    aggregation_lineage: dict[str, Any],
+) -> None:
+    if aggregation_lineage:
+        lineage_data.update({f"{period_name}_{key}": value for key, value in aggregation_lineage.items()})
 
 
 def _build_attribution_meta(
