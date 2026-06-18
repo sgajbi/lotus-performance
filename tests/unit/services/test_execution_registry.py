@@ -6,12 +6,14 @@ from sqlalchemy import inspect
 
 from app.services.execution_registry import (
     AnalyticsExecutionModel,
+    AnalyticsExecutionStageModel,
     AnalyticsUpstreamSnapshotModel,
     ExecutionRegistrationStatus,
     ExecutionRegistry,
     ExecutionStageStatus,
     ExecutionStatus,
     _execution_model_for_registration,
+    _execution_record_from_model,
     _record_missing_upstream_snapshot,
     _upstream_snapshot_model_from_payload,
 )
@@ -447,6 +449,62 @@ def test_execution_registration_model_factory_projects_pending_execution_contrac
     assert execution.started_at_utc is None
     assert execution.completed_at_utc is None
     assert execution.error_message is None
+
+
+def test_execution_record_projection_orders_stages_and_formats_execution_contract():
+    calculation_id = uuid4()
+    execution = AnalyticsExecutionModel(
+        calculation_id=str(calculation_id),
+        analytics_type="Attribution",
+        portfolio_id="PORT-PROJECTION",
+        execution_mode="sync",
+        status=ExecutionStatus.COMPLETE.value,
+        requested_window_json='{"from_date": "2026-01-01", "to_date": "2026-06-19"}',
+        input_fingerprint="sha256:projection-input",
+        calculation_hash="sha256:projection-calc",
+        error_message=None,
+        created_at_utc=datetime(2026, 6, 19, 8, 0, tzinfo=timezone.utc),
+        started_at_utc=datetime(2026, 6, 19, 8, 1, tzinfo=timezone.utc),
+        completed_at_utc=datetime(2026, 6, 19, 8, 2, tzinfo=timezone.utc),
+    )
+    execution.stages = [
+        AnalyticsExecutionStageModel(
+            calculation_id=str(calculation_id),
+            stage_name="lineage_materialization",
+            status=ExecutionStageStatus.COMPLETE.value,
+            started_at_utc=None,
+            completed_at_utc=datetime(2026, 6, 19, 8, 3, tzinfo=timezone.utc),
+            details_json='{"artifact_names": ["lineage.json"]}',
+            error_message=None,
+        ),
+        AnalyticsExecutionStageModel(
+            calculation_id=str(calculation_id),
+            stage_name="execution",
+            status=ExecutionStageStatus.COMPLETE.value,
+            started_at_utc=datetime(2026, 6, 19, 8, 1, tzinfo=timezone.utc),
+            completed_at_utc=datetime(2026, 6, 19, 8, 2, tzinfo=timezone.utc),
+            details_json='{"rows": 3}',
+            error_message=None,
+        ),
+    ]
+
+    record = _execution_record_from_model(execution=execution, upstream_snapshots=[])
+
+    assert record.calculation_id == calculation_id
+    assert record.analytics_type == "Attribution"
+    assert record.portfolio_id == "PORT-PROJECTION"
+    assert record.execution_mode == "sync"
+    assert record.status == ExecutionStatus.COMPLETE
+    assert record.requested_window == {"from_date": "2026-01-01", "to_date": "2026-06-19"}
+    assert record.input_fingerprint == "sha256:projection-input"
+    assert record.calculation_hash == "sha256:projection-calc"
+    assert record.created_at_utc == "2026-06-19T08:00:00Z"
+    assert record.started_at_utc == "2026-06-19T08:01:00Z"
+    assert record.completed_at_utc == "2026-06-19T08:02:00Z"
+    assert [stage.stage_name for stage in record.stages] == ["execution", "lineage_materialization"]
+    assert record.stages[0].details == {"rows": 3}
+    assert record.stages[1].details == {"artifact_names": ["lineage.json"]}
+    assert record.upstream_snapshots == []
 
 
 def test_execution_registry_declares_upstream_snapshot_ordering_index(tmp_path):
