@@ -220,11 +220,8 @@ def _cash_flow_type_counts(request: ContributionRequest) -> Counter[str]:
 
 
 def _source_cash_flow_type_counts(meta: dict[str, Any]) -> Counter[str]:
-    source_economics = meta.get("_source_economics")
-    if not isinstance(source_economics, dict):
-        return Counter()
-    raw_counts = source_economics.get("cash_flow_type_counts")
-    if not isinstance(raw_counts, dict):
+    raw_counts = _raw_source_cash_flow_type_counts(meta)
+    if raw_counts is None:
         return Counter()
 
     counts: Counter[str] = Counter()
@@ -232,6 +229,16 @@ def _source_cash_flow_type_counts(meta: dict[str, Any]) -> Counter[str]:
         if _is_valid_source_cash_flow_type_count(key, value):
             counts[key] += value
     return counts
+
+
+def _raw_source_cash_flow_type_counts(meta: dict[str, Any]) -> dict[Any, Any] | None:
+    source_economics = meta.get("_source_economics")
+    if not isinstance(source_economics, dict):
+        return None
+    raw_counts = source_economics.get("cash_flow_type_counts")
+    if not isinstance(raw_counts, dict):
+        return None
+    return raw_counts
 
 
 def _is_valid_source_cash_flow_type_count(key: Any, value: Any) -> bool:

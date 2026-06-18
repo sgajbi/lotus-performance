@@ -15,6 +15,7 @@ from app.services.contribution_source_economics import (
     _has_unsupported_cash_flow_types,
     _is_valid_source_cash_flow_type_count,
     _present_component_pnl_fields,
+    _raw_source_cash_flow_type_counts,
     _source_cash_flow_type_counts,
     _stateful_cash_flow_economics,
     _stateful_metadata_economics,
@@ -203,6 +204,15 @@ def test_source_cash_flow_type_counts_accepts_positive_integer_counts_only():
     )
 
     assert counts == {"external_flow": 2}
+
+
+def test_raw_source_cash_flow_type_counts_resolves_only_dict_payloads():
+    raw_counts = {"external_flow": 2}
+
+    assert _raw_source_cash_flow_type_counts({"_source_economics": {"cash_flow_type_counts": raw_counts}}) == raw_counts
+    assert _raw_source_cash_flow_type_counts({}) is None
+    assert _raw_source_cash_flow_type_counts({"_source_economics": []}) is None
+    assert _raw_source_cash_flow_type_counts({"_source_economics": {"cash_flow_type_counts": []}}) is None
 
 
 def test_source_cash_flow_type_count_entry_validation_rejects_non_source_counts():
