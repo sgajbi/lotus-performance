@@ -199,14 +199,14 @@ def _requires_index_catalog(grouping_dimensions: list[BenchmarkExposureGroupingD
 
 
 def _index_ids_for_component_series(component_series: list[dict[str, Any]]) -> list[str]:
-    return sorted(
-        {
-            index_id
-            for component in component_series
-            for index_id in [component.get("index_id")]
-            if isinstance(index_id, str) and index_id
-        }
-    )
+    return sorted(set(_iter_component_index_ids(component_series)))
+
+
+def _iter_component_index_ids(component_series: list[dict[str, Any]]) -> Iterator[str]:
+    for component in component_series:
+        index_id = component.get("index_id")
+        if isinstance(index_id, str) and index_id:
+            yield index_id
 
 
 def _classification_map_from_catalog_records(records: list[Any]) -> dict[str, dict[str, str]]:

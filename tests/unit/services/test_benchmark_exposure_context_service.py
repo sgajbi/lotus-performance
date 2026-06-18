@@ -23,6 +23,7 @@ from app.services.benchmark_exposure_context_service import (
     _group_identity,
     _index_ids_for_component_series,
     _iter_component_exposure_points,
+    _iter_component_index_ids,
     _normalized_classification_labels,
     _page_rows,
     _requires_index_catalog,
@@ -233,6 +234,16 @@ def test_benchmark_exposure_context_classification_helpers_normalize_inputs() ->
             {"index_id": "IDX_B"},
         ]
     ) == ["IDX_A", "IDX_B"]
+    assert list(
+        _iter_component_index_ids(
+            [
+                {"index_id": "IDX_B"},
+                {"index_id": ""},
+                {"index_id": None},
+                {"index_id": "IDX_A"},
+            ]
+        )
+    ) == ["IDX_B", "IDX_A"]
 
     assert _classification_map_from_catalog_records(
         [
