@@ -584,55 +584,77 @@ def _daily_calculation_evidence_mismatches(
 ) -> dict[str, dict[str, object] | object]:
     expected = _expected_daily_calculation_values(evidence)
     mismatches: dict[str, dict[str, object] | object] = {}
-    numeric_mismatches: dict[str, dict[str, object]] = {}
+    mismatches.update(
+        _daily_calculation_numeric_mismatches(
+            expected=expected,
+            evidence=evidence,
+            item=item,
+        )
+    )
+    status_mismatch = _daily_zero_capital_status_mismatch(evidence)
+    if status_mismatch is not None:
+        mismatches["status"] = status_mismatch
+    semantic_mismatches = _daily_evidence_semantic_mismatches(evidence)
+    if semantic_mismatches:
+        mismatches["semantics"] = semantic_mismatches
+    return mismatches
+
+
+def _daily_calculation_numeric_mismatches(
+    *,
+    expected: DailyEvidenceExpectedValues,
+    evidence: TWRDailyCalculationEvidence,
+    item: ComparativeBreakdownItem,
+) -> dict[str, dict[str, object]]:
+    mismatches: dict[str, dict[str, object]] = {}
     _record_numeric_mismatch(
-        mismatches=numeric_mismatches,
+        mismatches=mismatches,
         field="signed_adjusted_capital",
         expected=expected.signed_adjusted_capital,
         actual=evidence.signed_adjusted_capital,
     )
     _record_numeric_mismatch(
-        mismatches=numeric_mismatches,
+        mismatches=mismatches,
         field="adjusted_capital",
         expected=expected.adjusted_capital,
         actual=evidence.adjusted_capital,
     )
     _record_numeric_mismatch(
-        mismatches=numeric_mismatches,
+        mismatches=mismatches,
         field="external_inflows",
         expected=expected.external_inflows,
         actual=evidence.external_inflows,
     )
     _record_numeric_mismatch(
-        mismatches=numeric_mismatches,
+        mismatches=mismatches,
         field="external_outflows",
         expected=expected.external_outflows,
         actual=evidence.external_outflows,
     )
     if expected.daily_return is not None:
         _record_numeric_mismatch(
-            mismatches=numeric_mismatches,
+            mismatches=mismatches,
             field="daily_return",
             expected=expected.daily_return,
             actual=evidence.daily_return,
         )
         _record_numeric_mismatch(
-            mismatches=numeric_mismatches,
+            mismatches=mismatches,
             field="period_return.base",
             expected=evidence.daily_return,
             actual=item.period_return.base,
         )
-    mismatches.update(numeric_mismatches)
-    if evidence.status == "calculated" and evidence.adjusted_capital == 0:
-        mismatches["status"] = {
-            "expected": "not_calculated",
-            "actual": evidence.status,
-            "reason": "zero_adjusted_capital",
-        }
-    semantic_mismatches = _daily_evidence_semantic_mismatches(evidence)
-    if semantic_mismatches:
-        mismatches["semantics"] = semantic_mismatches
     return mismatches
+
+
+def _daily_zero_capital_status_mismatch(evidence: TWRDailyCalculationEvidence) -> dict[str, object] | None:
+    if evidence.status != "calculated" or evidence.adjusted_capital != 0:
+        return None
+    return {
+        "expected": "not_calculated",
+        "actual": evidence.status,
+        "reason": "zero_adjusted_capital",
+    }
 
 
 def _daily_evidence_semantic_mismatches(evidence: TWRDailyCalculationEvidence) -> dict[str, object]:

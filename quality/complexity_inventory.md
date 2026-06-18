@@ -32,37 +32,37 @@ must stay at `0`.
 | --- | ---: |
 | Max cyclomatic complexity | 5 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 54.79 |
+| Average maintainability index | 54.80 |
 
 ## Highest Cyclomatic Complexity
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_daily_calculation_evidence_mismatches` | function | `app/services/inspection/calculation_consistency.py:580` | 5 | A |
-| 2 | `_daily_evidence_semantic_mismatches` | function | `app/services/inspection/calculation_consistency.py:638` | 5 | A |
-| 3 | `_expected_daily_capital_linkability_status` | function | `app/services/inspection/calculation_consistency.py:697` | 5 | A |
-| 4 | `_expected_daily_period_statuses` | function | `app/services/inspection/calculation_consistency.py:721` | 5 | A |
-| 5 | `_add_daily_market_event_reason_codes` | function | `app/services/inspection/calculation_consistency.py:753` | 5 | A |
-| 6 | `_expected_daily_return_linkability_status` | function | `app/services/inspection/calculation_consistency.py:764` | 5 | A |
-| 7 | `_comparative_return_components_match` | function | `app/services/inspection/calculation_consistency.py:853` | 5 | A |
-| 8 | `_subtract_return_values` | function | `app/services/inspection/calculation_consistency.py:865` | 5 | A |
-| 9 | `_select_latest_position_rows` | function | `app/services/inspection/reconciliation.py:467` | 5 | A |
-| 10 | `_find_mixed_epoch_dates` | function | `app/services/inspection/reconciliation.py:503` | 5 | A |
-| 11 | `_collect_position_continuity_gap_samples` | function | `app/services/inspection/reconciliation.py:551` | 5 | A |
-| 12 | `_build_position_continuity_gap_sample` | function | `app/services/inspection/reconciliation.py:583` | 5 | A |
-| 13 | `_collect_duplicate_snapshot_samples` | function | `app/services/inspection/reconciliation.py:690` | 5 | A |
-| 14 | `record_taxonomy_signal` | method | `app/services/inspection/source_economics.py:187` | 5 | A |
-| 15 | `add_amount` | method | `app/services/inspection/source_economics.py:212` | 5 | A |
-| 16 | `_collect_noncanonical_cashflow_types` | function | `app/services/inspection/source_economics.py:457` | 5 | A |
-| 17 | `_resolve_observation_valuation_date` | function | `app/services/inspection/source_economics.py:529` | 5 | A |
-| 18 | `_record_detailed_cash_flow` | function | `app/services/inspection/source_economics.py:627` | 5 | A |
-| 19 | `_sample_raw_collection_value` | function | `app/services/inspection/source_economics.py:680` | 5 | A |
-| 20 | `_record_fee_source_consistency_sample` | method | `app/services/inspection/source_economics_collector.py:208` | 5 | A |
-| 21 | `_record_external_source_signals` | method | `app/services/inspection/source_economics_collector.py:280` | 5 | A |
-| 22 | `_external_explicit_mixed_timing_sample` | function | `app/services/inspection/source_economics_collector.py:361` | 5 | A |
-| 23 | `_expected_external_total` | function | `app/services/inspection/source_economics_collector.py:423` | 5 | A |
-| 24 | `_append_stale_run_if_needed` | function | `app/services/inspection/source_quality.py:301` | 5 | A |
-| 25 | `_assess_return_concentration` | function | `app/services/inspection/source_quality.py:436` | 5 | A |
+| 1 | `_daily_evidence_semantic_mismatches` | function | `app/services/inspection/calculation_consistency.py:660` | 5 | A |
+| 2 | `_expected_daily_capital_linkability_status` | function | `app/services/inspection/calculation_consistency.py:719` | 5 | A |
+| 3 | `_expected_daily_period_statuses` | function | `app/services/inspection/calculation_consistency.py:743` | 5 | A |
+| 4 | `_add_daily_market_event_reason_codes` | function | `app/services/inspection/calculation_consistency.py:775` | 5 | A |
+| 5 | `_expected_daily_return_linkability_status` | function | `app/services/inspection/calculation_consistency.py:786` | 5 | A |
+| 6 | `_comparative_return_components_match` | function | `app/services/inspection/calculation_consistency.py:875` | 5 | A |
+| 7 | `_subtract_return_values` | function | `app/services/inspection/calculation_consistency.py:887` | 5 | A |
+| 8 | `_select_latest_position_rows` | function | `app/services/inspection/reconciliation.py:467` | 5 | A |
+| 9 | `_find_mixed_epoch_dates` | function | `app/services/inspection/reconciliation.py:503` | 5 | A |
+| 10 | `_collect_position_continuity_gap_samples` | function | `app/services/inspection/reconciliation.py:551` | 5 | A |
+| 11 | `_build_position_continuity_gap_sample` | function | `app/services/inspection/reconciliation.py:583` | 5 | A |
+| 12 | `_collect_duplicate_snapshot_samples` | function | `app/services/inspection/reconciliation.py:690` | 5 | A |
+| 13 | `record_taxonomy_signal` | method | `app/services/inspection/source_economics.py:187` | 5 | A |
+| 14 | `add_amount` | method | `app/services/inspection/source_economics.py:212` | 5 | A |
+| 15 | `_collect_noncanonical_cashflow_types` | function | `app/services/inspection/source_economics.py:457` | 5 | A |
+| 16 | `_resolve_observation_valuation_date` | function | `app/services/inspection/source_economics.py:529` | 5 | A |
+| 17 | `_record_detailed_cash_flow` | function | `app/services/inspection/source_economics.py:627` | 5 | A |
+| 18 | `_sample_raw_collection_value` | function | `app/services/inspection/source_economics.py:680` | 5 | A |
+| 19 | `_record_fee_source_consistency_sample` | method | `app/services/inspection/source_economics_collector.py:208` | 5 | A |
+| 20 | `_record_external_source_signals` | method | `app/services/inspection/source_economics_collector.py:280` | 5 | A |
+| 21 | `_external_explicit_mixed_timing_sample` | function | `app/services/inspection/source_economics_collector.py:361` | 5 | A |
+| 22 | `_expected_external_total` | function | `app/services/inspection/source_economics_collector.py:423` | 5 | A |
+| 23 | `_append_stale_run_if_needed` | function | `app/services/inspection/source_quality.py:301` | 5 | A |
+| 24 | `_assess_return_concentration` | function | `app/services/inspection/source_quality.py:436` | 5 | A |
+| 25 | `_find_repeated_move_runs` | function | `app/services/inspection/source_quality.py:488` | 5 | A |
 
 ## Lowest Maintainability Index
 
@@ -85,7 +85,7 @@ must stay at `0`.
 | 15 | `app/services/inspection/source_economics_collector.py` | 16.34 | B |
 | 16 | `app/services/inspection/source_quality.py` | 16.80 | B |
 | 17 | `app/services/twr_mode_service.py` | 17.66 | B |
-| 18 | `app/services/inspection/calculation_consistency.py` | 17.93 | B |
+| 18 | `app/services/inspection/calculation_consistency.py` | 18.41 | B |
 | 19 | `app/models/returns_series.py` | 19.70 | A |
 | 20 | `app/services/inspection/twr_inspection_service.py` | 19.72 | A |
 | 21 | `app/models/runtime_status.py` | 19.85 | A |

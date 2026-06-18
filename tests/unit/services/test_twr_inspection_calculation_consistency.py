@@ -22,7 +22,10 @@ from app.services.inspection.calculation_consistency import (
     _comparative_return_components_match,
     _comparative_return_mismatches,
     _daily_calculation_evidence_mismatches,
+    _daily_calculation_numeric_mismatches,
     _daily_external_flow_values,
+    _daily_zero_capital_status_mismatch,
+    _expected_daily_calculation_values,
     _expected_daily_external_flows,
     _expected_daily_return,
     _external_inflow_value,
@@ -712,6 +715,69 @@ def test_daily_calculation_evidence_mismatches_capture_numeric_status_and_semant
         "FLOW_NEUTRALIZED_DAILY_RETURN",
         "ZERO_ADJUSTED_CAPITAL",
     ]
+
+
+def test_daily_calculation_numeric_mismatches_project_expected_value_contract():
+    block = _daily_evidence_block(
+        evidence=TWRDailyCalculationEvidence(
+            begin_mv=1000.0,
+            end_mv=1013.0,
+            bod_cf=100.0,
+            eod_cf=-50.0,
+            external_inflows=0.0,
+            external_outflows=0.0,
+            management_fees=3.0,
+            signed_adjusted_capital=1000.0,
+            adjusted_capital=1000.0,
+            performance_pnl=13.0,
+            daily_return=99.0,
+            status="calculated",
+            reason_codes=["FLOW_NEUTRALIZED_DAILY_RETURN"],
+            warnings=[],
+        )
+    )
+    item = block.breakdowns[Frequency.DAILY][0]
+
+    mismatches = _daily_calculation_numeric_mismatches(
+        expected=_expected_daily_calculation_values(item.calculation_evidence),
+        evidence=item.calculation_evidence,
+        item=item,
+    )
+
+    assert mismatches["signed_adjusted_capital"] == {"expected": 1100.0, "actual": 1000.0}
+    assert mismatches["adjusted_capital"] == {"expected": 1100.0, "actual": 1000.0}
+    assert mismatches["external_inflows"] == {"expected": 100.0, "actual": 0.0}
+    assert mismatches["external_outflows"] == {"expected": 50.0, "actual": 0.0}
+    assert mismatches["daily_return"]["actual"] == 99.0
+    assert mismatches["period_return.base"]["actual"] == 1.3
+
+
+def test_daily_zero_capital_status_mismatch_projects_only_invalid_calculated_status():
+    evidence = TWRDailyCalculationEvidence(
+        begin_mv=0.0,
+        end_mv=0.0,
+        bod_cf=0.0,
+        eod_cf=0.0,
+        external_inflows=0.0,
+        external_outflows=0.0,
+        management_fees=0.0,
+        signed_adjusted_capital=0.0,
+        adjusted_capital=0.0,
+        performance_pnl=0.0,
+        daily_return=0.0,
+        status="calculated",
+        reason_codes=[],
+        warnings=[],
+    )
+
+    assert _daily_zero_capital_status_mismatch(evidence) == {
+        "expected": "not_calculated",
+        "actual": "calculated",
+        "reason": "zero_adjusted_capital",
+    }
+
+    evidence.status = "not_calculated"
+    assert _daily_zero_capital_status_mismatch(evidence) is None
 
 
 def test_expected_daily_flow_and_return_helpers_project_evidence_policy():
