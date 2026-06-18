@@ -46,6 +46,12 @@ class _BenchmarkSourceArtifacts:
     notes: list[str]
 
 
+@dataclass(frozen=True)
+class _BenchmarkPeriodTimeseriesRecords:
+    daily_returns: list[DailyBenchmarkReturn] | None
+    component_contributions: list[DailyBenchmarkComponentContribution] | None
+
+
 def _build_benchmark_source_artifacts(benchmark_request: BenchmarkPerformanceRequest) -> _BenchmarkSourceArtifacts:
     if benchmark_request.return_source == "calculated":
         engine_result = calculate_benchmark_returns(benchmark_request.component_observations)
@@ -181,6 +187,11 @@ def _benchmark_period_result(
         (component_contributions_df["date"] >= period.start_date)
         & (component_contributions_df["date"] <= period.end_date)
     ].copy()
+    timeseries_records = _benchmark_period_timeseries_records(
+        period_daily_df=period_daily_df,
+        period_component_df=period_component_df,
+        include_timeseries=benchmark_request.output.include_timeseries,
+    )
     return SinglePeriodBenchmarkResult(
         benchmark=ComparativeAnalyticsBlock(
             summary=ComparativeSummary(
@@ -198,9 +209,23 @@ def _benchmark_period_result(
             input_mode=input_mode,
             return_source=benchmark_request.return_source,
         ),
-        daily_returns=_daily_return_records(period_daily_df) if benchmark_request.output.include_timeseries else None,
+        daily_returns=timeseries_records.daily_returns,
+        component_contributions=timeseries_records.component_contributions,
+    )
+
+
+def _benchmark_period_timeseries_records(
+    *,
+    period_daily_df: pd.DataFrame,
+    period_component_df: pd.DataFrame,
+    include_timeseries: bool,
+) -> _BenchmarkPeriodTimeseriesRecords:
+    if not include_timeseries:
+        return _BenchmarkPeriodTimeseriesRecords(daily_returns=None, component_contributions=None)
+    return _BenchmarkPeriodTimeseriesRecords(
+        daily_returns=_daily_return_records(period_daily_df),
         component_contributions=_component_contribution_records(period_component_df)
-        if benchmark_request.output.include_timeseries and not period_component_df.empty
+        if not period_component_df.empty
         else None,
     )
 

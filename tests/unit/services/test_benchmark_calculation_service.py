@@ -284,6 +284,36 @@ def test_benchmark_period_result_returns_none_for_empty_window():
     assert result is None
 
 
+def test_benchmark_period_timeseries_records_applies_output_and_empty_component_policy():
+    period_daily_df = pd.DataFrame(
+        {
+            "date": [date(2025, 1, 1)],
+            "benchmark_return": [0.01],
+            "cumulative_return": [0.01],
+        }
+    )
+    empty_component_df = pd.DataFrame(
+        columns=["date", "component_id", "weight_bop", "component_return", "contribution"]
+    )
+
+    disabled_records = benchmark_calculation_service._benchmark_period_timeseries_records(
+        period_daily_df=period_daily_df,
+        period_component_df=empty_component_df,
+        include_timeseries=False,
+    )
+    enabled_records = benchmark_calculation_service._benchmark_period_timeseries_records(
+        period_daily_df=period_daily_df,
+        period_component_df=empty_component_df,
+        include_timeseries=True,
+    )
+
+    assert disabled_records.daily_returns is None
+    assert disabled_records.component_contributions is None
+    assert enabled_records.daily_returns is not None
+    assert len(enabled_records.daily_returns) == 1
+    assert enabled_records.component_contributions is None
+
+
 def test_benchmark_period_daily_returns_sorts_links_and_suppresses_empty_windows():
     daily_returns_df = pd.DataFrame(
         {
