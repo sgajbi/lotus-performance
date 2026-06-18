@@ -105,10 +105,7 @@ def _resolved_stateless_contribution_inputs(
     nested_input = request.stateless_input
     candidates = (
         _complete_contribution_input_pair(portfolio_data=portfolio_data, positions_data=positions_data),
-        _complete_contribution_input_pair(
-            portfolio_data=nested_input.portfolio_data if nested_input is not None else None,
-            positions_data=nested_input.positions_data if nested_input is not None else None,
-        ),
+        _nested_contribution_input_pair(nested_input),
         _complete_contribution_input_pair(
             portfolio_data=request.portfolio_data,
             positions_data=request.positions_data,
@@ -118,6 +115,17 @@ def _resolved_stateless_contribution_inputs(
         if candidate is not None:
             return candidate
     raise ValueError("No stateless contribution inputs are available to build a ContributionRequest")
+
+
+def _nested_contribution_input_pair(
+    nested_input: ContributionStatelessInput | None,
+) -> tuple[PortfolioData, list[PositionData]] | None:
+    if nested_input is None:
+        return None
+    return _complete_contribution_input_pair(
+        portfolio_data=nested_input.portfolio_data,
+        positions_data=nested_input.positions_data,
+    )
 
 
 def _complete_contribution_input_pair(
