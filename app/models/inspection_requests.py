@@ -61,6 +61,16 @@ def _is_valid_twr_request_inspection_subject(request: "TWRInspectionRequest") ->
     return request.subject_calculation_id is None and request.request is not None
 
 
+def _twr_inspection_subject_issue(request: "TWRInspectionRequest") -> str | None:
+    if request.subject_type == TWRInspectionSubjectType.TWR_CALCULATION:
+        if not _is_valid_twr_calculation_inspection_subject(request):
+            return "twr_calculation inspection requires subject_calculation_id and does not accept request payload."
+        return None
+    if not _is_valid_twr_request_inspection_subject(request):
+        return "twr_request inspection requires request payload and does not accept subject_calculation_id."
+    return None
+
+
 class TWRInspectionRequest(BaseModel):
     inspection_id: UUID = Field(
         default_factory=uuid4,
@@ -98,13 +108,7 @@ class TWRInspectionRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_subject_mode(self) -> "TWRInspectionRequest":
-        if self.subject_type == TWRInspectionSubjectType.TWR_CALCULATION:
-            if not _is_valid_twr_calculation_inspection_subject(self):
-                raise ValueError(
-                    "twr_calculation inspection requires subject_calculation_id and does not accept request payload."
-                )
-        elif not _is_valid_twr_request_inspection_subject(self):
-            raise ValueError(
-                "twr_request inspection requires request payload and does not accept subject_calculation_id."
-            )
+        subject_issue = _twr_inspection_subject_issue(self)
+        if subject_issue is not None:
+            raise ValueError(subject_issue)
         return self
