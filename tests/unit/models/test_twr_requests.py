@@ -14,6 +14,7 @@ from app.models.twr_requests import (
     _has_legacy_twr_valuation_points,
     _has_nested_twr_stateless_input,
     _resolved_twr_stateless_valuation_points,
+    _stateless_twr_benchmark_envelope_issue,
     _stateless_twr_envelope_issue,
     _twr_benchmark_config_required,
     _validate_calculated_stateless_twr_benchmark_payload,
@@ -465,6 +466,67 @@ def test_twr_benchmark_request_requires_benchmark_id_for_stateless_mode():
                 },
             }
         )
+
+
+def test_stateless_twr_benchmark_envelope_issue_preserves_validation_order():
+    assert (
+        _stateless_twr_benchmark_envelope_issue(
+            TWRBenchmarkRequest.model_construct(
+                benchmark_id=None,
+                input_mode="stateless",
+                stateless_input=None,
+                stateful_input={},
+            )
+        )
+        == "benchmark.stateless_input is required when benchmark.input_mode=stateless"
+    )
+
+    stateless_input = BenchmarkStatelessInput.model_validate(
+        {
+            "benchmark_currency": "USD",
+            "component_observations": [
+                {
+                    "component_id": "IDX_A",
+                    "perf_date": "2025-01-01",
+                    "weight_bop": 1.0,
+                    "component_return": 0.01,
+                }
+            ],
+        }
+    )
+    assert (
+        _stateless_twr_benchmark_envelope_issue(
+            TWRBenchmarkRequest.model_construct(
+                benchmark_id=None,
+                input_mode="stateless",
+                stateless_input=stateless_input,
+                stateful_input={},
+            )
+        )
+        == "benchmark.stateful_input must be null when benchmark.input_mode=stateless"
+    )
+    assert (
+        _stateless_twr_benchmark_envelope_issue(
+            TWRBenchmarkRequest.model_construct(
+                benchmark_id=None,
+                input_mode="stateless",
+                stateless_input=stateless_input,
+                stateful_input=None,
+            )
+        )
+        == "benchmark.benchmark_id is required when benchmark.input_mode=stateless"
+    )
+    assert (
+        _stateless_twr_benchmark_envelope_issue(
+            TWRBenchmarkRequest.model_construct(
+                benchmark_id="BMK_1",
+                input_mode="stateless",
+                stateless_input=stateless_input,
+                stateful_input=None,
+            )
+        )
+        is None
+    )
 
 
 def test_twr_benchmark_request_enforces_vendor_series_payload_shape():
