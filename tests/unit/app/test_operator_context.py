@@ -1,7 +1,11 @@
 import pytest
 from fastapi import HTTPException, Request
 
-from app.api.operator_context import resolve_operator_request_context
+from app.api.operator_context import (
+    _operator_identity_from_headers,
+    _optional_trimmed_request_header,
+    resolve_operator_request_context,
+)
 
 
 def _request_with_headers(headers: list[tuple[bytes, bytes]]) -> Request:
@@ -43,3 +47,32 @@ def test_resolve_operator_request_context_rejects_missing_identity():
 
     assert exc_info.value.status_code == 400
     assert exc_info.value.detail == "missing_operator_identity"
+
+
+def test_operator_identity_from_headers_trims_and_prefers_actor_identity():
+    request = _request_with_headers(
+        [
+            (b"x-actor-id", b" ops-user "),
+            (b"x-service-identity", b" automation-user "),
+        ]
+    )
+
+    assert _operator_identity_from_headers(request) == "ops-user"
+
+
+def test_operator_identity_from_headers_falls_back_to_trimmed_service_identity():
+    request = _request_with_headers(
+        [
+            (b"x-actor-id", b"   "),
+            (b"x-service-identity", b" lotus-platform "),
+        ]
+    )
+
+    assert _operator_identity_from_headers(request) == "lotus-platform"
+
+
+def test_optional_trimmed_request_header_suppresses_blank_values():
+    request = _request_with_headers([(b"x-tenant-id", b"   ")])
+
+    assert _optional_trimmed_request_header(request, "X-Tenant-Id") is None
+    assert _optional_trimmed_request_header(request, "X-Correlation-Id") is None
