@@ -17,6 +17,7 @@ from app.services.benchmark_exposure_context_service import (
     _build_exposure_rows,
     _classification_labels_from_catalog_record,
     _classification_map_from_catalog_records,
+    _component_series_from_market_response,
     _group_identity,
     _index_ids_for_component_series,
     _iter_component_exposure_points,
@@ -282,6 +283,41 @@ def test_benchmark_exposure_assignment_response_rejects_unusable_identity(
         )
 
     assert exc_info.value.status_code == 503
+
+
+def test_component_series_from_market_response_maps_status_and_payload_shape() -> None:
+    payload = {"component_series": [{"index_id": "IDX_A", "points": []}]}
+
+    assert (
+        _component_series_from_market_response(
+            benchmark_id="BMK",
+            market_status=200,
+            market_payload=payload,
+        )
+        == payload["component_series"]
+    )
+
+    with pytest.raises(HTTPException, match="No benchmark market-series found") as not_found:
+        _component_series_from_market_response(
+            benchmark_id="BMK",
+            market_status=404,
+            market_payload={},
+        )
+    assert not_found.value.status_code == 404
+
+    with pytest.raises(HTTPException, match="market-series source unavailable"):
+        _component_series_from_market_response(
+            benchmark_id="BMK",
+            market_status=503,
+            market_payload={},
+        )
+
+    with pytest.raises(HTTPException, match="component_series list"):
+        _component_series_from_market_response(
+            benchmark_id="BMK",
+            market_status=200,
+            market_payload={"component_series": "bad"},
+        )
 
 
 @pytest.mark.asyncio

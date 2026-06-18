@@ -51,15 +51,11 @@ async def build_benchmark_exposure_context(
         target_currency=request.reporting_currency,
         series_fields=["component_weight"],
     )
-    if market_status == status.HTTP_404_NOT_FOUND:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No benchmark market-series found for benchmark_id={benchmark_id}.",
-        )
-    if market_status >= status.HTTP_400_BAD_REQUEST:
-        raise_for_stateful_source_unavailable(source_label="benchmark market-series", upstream_status=market_status)
-
-    component_series = _parse_component_series(market_payload)
+    component_series = _component_series_from_market_response(
+        benchmark_id=benchmark_id,
+        market_status=market_status,
+        market_payload=market_payload,
+    )
     classification_map = await _classification_map_for_request(
         request=request,
         stateful_input_service=stateful_input_service,
@@ -105,6 +101,22 @@ async def build_benchmark_exposure_context(
             },
         ),
     )
+
+
+def _component_series_from_market_response(
+    *,
+    benchmark_id: str,
+    market_status: int,
+    market_payload: dict[str, Any],
+) -> list[dict[str, Any]]:
+    if market_status == status.HTTP_404_NOT_FOUND:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No benchmark market-series found for benchmark_id={benchmark_id}.",
+        )
+    if market_status >= status.HTTP_400_BAD_REQUEST:
+        raise_for_stateful_source_unavailable(source_label="benchmark market-series", upstream_status=market_status)
+    return _parse_component_series(market_payload)
 
 
 def _benchmark_id_from_assignment_response(*, assignment_status: int, assignment_payload: dict[str, Any]) -> str:
