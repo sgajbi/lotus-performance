@@ -609,10 +609,10 @@ def _request_body_example(
     json_content: dict[str, Any],
     components: dict[str, Any],
 ) -> Any | None:
-    operation_example = OPERATION_JSON_EXAMPLES.get((path, "request"))
+    operation_example = _operation_request_example(path)
     if operation_example is not None:
-        return copy.deepcopy(operation_example)
-    if "example" in json_content or "examples" in json_content:
+        return operation_example
+    if _json_content_has_authored_example(json_content):
         return None
     request_schema = json_content.get("schema", {})
     if not isinstance(request_schema, dict):
@@ -622,6 +622,13 @@ def _request_body_example(
         components=components,
         name_hint="request_body",
     )
+
+
+def _operation_request_example(path: str) -> Any | None:
+    operation_example = OPERATION_JSON_EXAMPLES.get((path, "request"))
+    if operation_example is None:
+        return None
+    return copy.deepcopy(operation_example)
 
 
 def _ensure_request_body_example(

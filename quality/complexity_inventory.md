@@ -38,31 +38,31 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_request_body_example` | function | `app/openapi_enrichment.py:606` | 5 | A |
-| 2 | `_ensure_json_success_response_example` | function | `app/openapi_enrichment.py:659` | 5 | A |
-| 3 | `_ensure_operation_response_documentation` | function | `app/openapi_enrichment.py:700` | 5 | A |
-| 4 | `_ensure_operation_metadata` | function | `app/openapi_enrichment.py:728` | 5 | A |
-| 5 | `_iter_documentable_operations` | function | `app/openapi_enrichment.py:753` | 5 | A |
-| 6 | `_ensure_operation_documentation` | function | `app/openapi_enrichment.py:763` | 5 | A |
-| 7 | `_ensure_schema_documentation` | function | `app/openapi_enrichment.py:788` | 5 | A |
-| 8 | `_ensure_model_schema_documentation` | function | `app/openapi_enrichment.py:802` | 5 | A |
-| 9 | `_ensure_property_schema_documentation` | function | `app/openapi_enrichment.py:831` | 5 | A |
-| 10 | `_resolve_compute_job_result` | function | `app/services/async_result_service.py:44` | 5 | A |
-| 11 | `_async_result_record_payload_state` | function | `app/services/async_result_store.py:163` | 5 | A |
-| 12 | `build_attribution_execution_window` | function | `app/services/attribution_calculation_workflow_service.py:71` | 5 | A |
-| 13 | `calculate_attribution_workflow` | function | `app/services/attribution_calculation_workflow_service.py:214` | 5 | A |
-| 14 | `_portfolio_group_observation_dates` | function | `app/services/attribution_service.py:85` | 5 | A |
-| 15 | `_build_attribution_results_by_period` | function | `app/services/attribution_service.py:110` | 5 | A |
-| 16 | `_resolve_attribution_execution_window` | function | `app/services/attribution_service.py:186` | 5 | A |
-| 17 | `calculate_attribution` | function | `app/services/attribution_service.py:214` | 5 | A |
-| 18 | `_resolved_assignment_identity` | function | `app/services/benchmark_assignment_service.py:20` | 5 | A |
-| 19 | `calculate_benchmark_artifacts` | function | `app/services/benchmark_calculation_service.py:81` | 5 | A |
-| 20 | `_benchmark_period_result` | function | `app/services/benchmark_calculation_service.py:149` | 5 | A |
-| 21 | `_calculate_benchmark_return_from_slice` | function | `app/services/benchmark_calculation_service.py:190` | 5 | A |
-| 22 | `_group_benchmark_breakdown_rows` | function | `app/services/benchmark_calculation_service.py:227` | 5 | A |
-| 23 | `build_benchmark_exposure_context` | function | `app/services/benchmark_exposure_context_service.py:38` | 5 | A |
-| 24 | `_benchmark_id_from_assignment_response` | function | `app/services/benchmark_exposure_context_service.py:110` | 5 | A |
-| 25 | `_classification_map_for_request` | function | `app/services/benchmark_exposure_context_service.py:146` | 5 | A |
+| 1 | `_ensure_json_success_response_example` | function | `app/openapi_enrichment.py:666` | 5 | A |
+| 2 | `_ensure_operation_response_documentation` | function | `app/openapi_enrichment.py:707` | 5 | A |
+| 3 | `_ensure_operation_metadata` | function | `app/openapi_enrichment.py:735` | 5 | A |
+| 4 | `_iter_documentable_operations` | function | `app/openapi_enrichment.py:760` | 5 | A |
+| 5 | `_ensure_operation_documentation` | function | `app/openapi_enrichment.py:770` | 5 | A |
+| 6 | `_ensure_schema_documentation` | function | `app/openapi_enrichment.py:795` | 5 | A |
+| 7 | `_ensure_model_schema_documentation` | function | `app/openapi_enrichment.py:809` | 5 | A |
+| 8 | `_ensure_property_schema_documentation` | function | `app/openapi_enrichment.py:838` | 5 | A |
+| 9 | `_resolve_compute_job_result` | function | `app/services/async_result_service.py:44` | 5 | A |
+| 10 | `_async_result_record_payload_state` | function | `app/services/async_result_store.py:163` | 5 | A |
+| 11 | `build_attribution_execution_window` | function | `app/services/attribution_calculation_workflow_service.py:71` | 5 | A |
+| 12 | `calculate_attribution_workflow` | function | `app/services/attribution_calculation_workflow_service.py:214` | 5 | A |
+| 13 | `_portfolio_group_observation_dates` | function | `app/services/attribution_service.py:85` | 5 | A |
+| 14 | `_build_attribution_results_by_period` | function | `app/services/attribution_service.py:110` | 5 | A |
+| 15 | `_resolve_attribution_execution_window` | function | `app/services/attribution_service.py:186` | 5 | A |
+| 16 | `calculate_attribution` | function | `app/services/attribution_service.py:214` | 5 | A |
+| 17 | `_resolved_assignment_identity` | function | `app/services/benchmark_assignment_service.py:20` | 5 | A |
+| 18 | `calculate_benchmark_artifacts` | function | `app/services/benchmark_calculation_service.py:81` | 5 | A |
+| 19 | `_benchmark_period_result` | function | `app/services/benchmark_calculation_service.py:149` | 5 | A |
+| 20 | `_calculate_benchmark_return_from_slice` | function | `app/services/benchmark_calculation_service.py:190` | 5 | A |
+| 21 | `_group_benchmark_breakdown_rows` | function | `app/services/benchmark_calculation_service.py:227` | 5 | A |
+| 22 | `build_benchmark_exposure_context` | function | `app/services/benchmark_exposure_context_service.py:38` | 5 | A |
+| 23 | `_benchmark_id_from_assignment_response` | function | `app/services/benchmark_exposure_context_service.py:110` | 5 | A |
+| 24 | `_classification_map_for_request` | function | `app/services/benchmark_exposure_context_service.py:146` | 5 | A |
+| 25 | `_index_ids_for_component_series` | function | `app/services/benchmark_exposure_context_service.py:177` | 5 | A |
 
 ## Lowest Maintainability Index
 
@@ -73,7 +73,7 @@ must stay at `0`.
 | 3 | `app/services/returns_series_service.py` | 0.00 | C |
 | 4 | `app/services/stateful_attribution_input_service.py` | 0.00 | C |
 | 5 | `app/services/stateful_input_service.py` | 0.00 | C |
-| 6 | `app/openapi_enrichment.py` | 0.74 | C |
+| 6 | `app/openapi_enrichment.py` | 0.69 | C |
 | 7 | `app/services/twr_service.py` | 5.85 | C |
 | 8 | `app/services/stateful_benchmark_input_service.py` | 9.19 | B |
 | 9 | `app/services/workspace_summary_service.py` | 10.26 | B |
@@ -971,6 +971,9 @@ dict-variant validation were split from composed example building, with direct c
 `_validation_error_json_content` also dropped out after authored JSON example detection was split
 from HTTP validation-error schema selection, with direct coverage for singular `example`, plural
 `examples`, and undocumented content.
+`_request_body_example` also dropped out after operation-specific request example lookup was split
+from authored-example suppression and schema fallback building, with direct coverage for override
+copy semantics and missing override behavior.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.
