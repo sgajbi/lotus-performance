@@ -120,6 +120,11 @@ def _component_series_from_market_response(
 
 
 def _benchmark_id_from_assignment_response(*, assignment_status: int, assignment_payload: dict[str, Any]) -> str:
+    _raise_for_unusable_assignment_response_status(assignment_status)
+    return _benchmark_id_from_assignment_payload(assignment_payload)
+
+
+def _raise_for_unusable_assignment_response_status(assignment_status: int) -> None:
     if assignment_status == status.HTTP_404_NOT_FOUND:
         raise HTTPException(
             status_code=HTTP_422_UNPROCESSABLE,
@@ -127,6 +132,9 @@ def _benchmark_id_from_assignment_response(*, assignment_status: int, assignment
         )
     if assignment_status >= status.HTTP_400_BAD_REQUEST:
         raise_for_stateful_source_unavailable(source_label="benchmark assignment", upstream_status=assignment_status)
+
+
+def _benchmark_id_from_assignment_payload(assignment_payload: dict[str, Any]) -> str:
     benchmark_id = assignment_payload.get("benchmark_id")
     if not isinstance(benchmark_id, str) or not benchmark_id:
         raise HTTPException(

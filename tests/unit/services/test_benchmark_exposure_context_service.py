@@ -13,6 +13,7 @@ from app.models.benchmark_exposure_context import (
 )
 from app.services.benchmark_exposure_context_service import (
     _accumulate_exposure_point,
+    _benchmark_id_from_assignment_payload,
     _benchmark_id_from_assignment_response,
     _build_exposure_rows,
     _classification_labels_from_catalog_record,
@@ -272,6 +273,10 @@ def test_benchmark_exposure_assignment_response_resolves_identity() -> None:
     )
 
 
+def test_benchmark_id_from_assignment_payload_extracts_valid_identity() -> None:
+    assert _benchmark_id_from_assignment_payload({"benchmark_id": "BMK_GLOBAL_60_40"}) == "BMK_GLOBAL_60_40"
+
+
 @pytest.mark.parametrize("assignment_payload", [{}, {"benchmark_id": ""}, {"benchmark_id": 123}])
 def test_benchmark_exposure_assignment_response_rejects_unusable_identity(
     assignment_payload: dict[str, object],
@@ -281,6 +286,16 @@ def test_benchmark_exposure_assignment_response_rejects_unusable_identity(
             assignment_status=200,
             assignment_payload=assignment_payload,
         )
+
+    assert exc_info.value.status_code == 503
+
+
+@pytest.mark.parametrize("assignment_payload", [{}, {"benchmark_id": ""}, {"benchmark_id": 123}])
+def test_benchmark_id_from_assignment_payload_rejects_unusable_identity(
+    assignment_payload: dict[str, object],
+) -> None:
+    with pytest.raises(HTTPException, match="payload missing benchmark_id") as exc_info:
+        _benchmark_id_from_assignment_payload(assignment_payload)
 
     assert exc_info.value.status_code == 503
 
