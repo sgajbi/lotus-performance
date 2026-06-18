@@ -334,12 +334,19 @@ def _explicit_schema_example(schema: dict[str, Any]) -> Any | None:
     if schema.get("example") is not None:
         return copy.deepcopy(schema["example"])
     examples = schema.get("examples")
-    if isinstance(examples, list) and examples:
-        return copy.deepcopy(examples[0])
+    list_example = _listed_schema_example(examples)
+    if list_example is not None:
+        return list_example
     named_example = _named_schema_example(examples)
     if named_example is not None:
         return named_example
     return None
+
+
+def _listed_schema_example(examples: Any) -> Any | None:
+    if not isinstance(examples, list) or not examples:
+        return None
+    return copy.deepcopy(examples[0])
 
 
 def _named_schema_example(examples: Any) -> Any | None:

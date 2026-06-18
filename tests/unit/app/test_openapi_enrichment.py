@@ -22,6 +22,7 @@ from app.openapi_enrichment import (
     _infer_schema_description,
     _iter_documentable_operations,
     _iter_schema_properties,
+    _listed_schema_example,
     _named_schema_example,
     _object_schema_example,
     _ref_schema_example,
@@ -224,6 +225,12 @@ def test_named_schema_example_extracts_first_named_value():
     assert _named_schema_example({"documented": {"value": {"status": "complete"}}}) == {"status": "complete"}
     assert _named_schema_example({"documented": {"summary": "missing value"}}) is None
     assert _named_schema_example([{"value": "not named"}]) is None
+
+
+def test_listed_schema_example_extracts_first_list_value():
+    assert _listed_schema_example([{"status": "pending"}, {"status": "complete"}]) == {"status": "pending"}
+    assert _listed_schema_example([]) is None
+    assert _listed_schema_example({"named": {"value": "not a list"}}) is None
 
 
 def test_structural_schema_example_routes_object_array_and_scalar_fallback():
