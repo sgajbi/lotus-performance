@@ -543,3 +543,14 @@ def test_contribution_endpoint_numeric_and_stateful_window_helpers_cover_statefu
         contribution_calculation_workflow_service.build_contribution_execution_window(legacy_request)["position_count"]
         == 1
     )
+
+
+def test_stateless_input_position_count_distinguishes_missing_and_empty_nested_positions():
+    assert contribution_calculation_workflow_service._stateless_input_position_count(None) is None
+    assert (
+        contribution_calculation_workflow_service._stateless_input_position_count(
+            SimpleNamespace(positions_data=[SimpleNamespace(), SimpleNamespace()])
+        )
+        == 2
+    )
+    assert contribution_calculation_workflow_service._stateless_input_position_count(SimpleNamespace()) == 0

@@ -34,11 +34,18 @@ def accepted_contribution_response(calculation_id) -> ContributionAcceptedRespon
     )
 
 
+def _stateless_input_position_count(stateless_input: Any | None) -> int | None:
+    if stateless_input is None:
+        return None
+    return len(getattr(stateless_input, "positions_data", []) or [])
+
+
 def contribution_position_count(request: ContributionAnalyticsRequest | ContributionRequest) -> int:
     stateless_input = getattr(request, "stateless_input", None)
     input_mode = getattr(request, "input_mode", ContributionInputMode.STATELESS)
-    if stateless_input is not None:
-        return len(getattr(stateless_input, "positions_data", []) or [])
+    stateless_input_count = _stateless_input_position_count(stateless_input)
+    if stateless_input_count is not None:
+        return stateless_input_count
     if input_mode == ContributionInputMode.STATEFUL:
         return 0
     return len(getattr(request, "positions_data", []) or [])
