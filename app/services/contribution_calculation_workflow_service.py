@@ -104,13 +104,12 @@ def build_resolved_contribution_execution_window(
     return requested_window
 
 
-async def _calculate_promoted_stateful_contribution(
+def _prepare_promoted_stateful_contribution_sync_execution(
     *,
     request: ContributionAnalyticsRequest,
-    active_settings: Any,
     input_fingerprint: str,
     calculation_hash: str,
-) -> ContributionResponse | ContributionAcceptedResponse:
+) -> ContributionAcceptedResponse | None:
     replay_response = replay_promoted_stateful_async_execution(
         calculation_id=request.calculation_id,
         analytics_type=ANALYTICS_WORKFLOW_CONTRIBUTION,
@@ -130,6 +129,15 @@ async def _calculate_promoted_stateful_contribution(
         input_fingerprint=input_fingerprint,
         calculation_hash=calculation_hash,
     )
+    return None
+
+
+async def _resolve_promoted_stateful_contribution_response(
+    *,
+    request: ContributionAnalyticsRequest,
+    active_settings: Any,
+    source_request_fingerprint: str,
+) -> ContributionResponse | ContributionAcceptedResponse:
     try:
         resolved = await resolve_contribution_request(request, settings=active_settings)
         resolved_request = resolved.contribution_request
@@ -140,7 +148,7 @@ async def _calculate_promoted_stateful_contribution(
         resolved_window = build_resolved_contribution_execution_window(
             request,
             position_count=resolved.position_count,
-            source_request_fingerprint=input_fingerprint,
+            source_request_fingerprint=source_request_fingerprint,
         )
         accepted_response = finalize_resolved_stateful_execution(
             calculation_id=request.calculation_id,
@@ -177,6 +185,27 @@ async def _calculate_promoted_stateful_contribution(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An unexpected error occurred during contribution request resolution: {exc}",
         ) from exc
+
+
+async def _calculate_promoted_stateful_contribution(
+    *,
+    request: ContributionAnalyticsRequest,
+    active_settings: Any,
+    input_fingerprint: str,
+    calculation_hash: str,
+) -> ContributionResponse | ContributionAcceptedResponse:
+    replay_response = _prepare_promoted_stateful_contribution_sync_execution(
+        request=request,
+        input_fingerprint=input_fingerprint,
+        calculation_hash=calculation_hash,
+    )
+    if replay_response is not None:
+        return replay_response
+    return await _resolve_promoted_stateful_contribution_response(
+        request=request,
+        active_settings=active_settings,
+        source_request_fingerprint=input_fingerprint,
+    )
 
 
 def _initial_contribution_async_submission(
