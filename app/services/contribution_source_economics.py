@@ -263,9 +263,13 @@ def _has_fx_metadata(meta: dict[str, Any]) -> bool:
 
 def _has_non_zero_flow(point: dict[str, Any]) -> bool:
     for field_name in ("bod_cf", "eod_cf", "mgmt_fees"):
-        try:
-            if Decimal(str(point.get(field_name, 0) or 0)) != 0:
-                return True
-        except (InvalidOperation, TypeError, ValueError):
-            continue
+        if _is_non_zero_flow_field(point, field_name):
+            return True
     return False
+
+
+def _is_non_zero_flow_field(point: dict[str, Any], field_name: str) -> bool:
+    try:
+        return Decimal(str(point.get(field_name, 0) or 0)) != 0
+    except (InvalidOperation, TypeError, ValueError):
+        return False
