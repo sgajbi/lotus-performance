@@ -21,6 +21,7 @@ from app.services.inspection.calculation_consistency import (
     _daily_calculation_evidence_mismatches,
     _expected_daily_external_flows,
     _expected_daily_return,
+    _relative_breakdown_cumulative_comparison,
     run_twr_calculation_consistency_checks,
 )
 from common.enums import Frequency
@@ -145,6 +146,69 @@ def test_benchmark_relative_pairing_policy_projects_presence_contracts():
         "benchmark_present": True,
         "relative_performance_present": False,
     }
+
+
+def test_relative_breakdown_cumulative_comparison_projects_expected_and_actual_values():
+    comparison = _relative_breakdown_cumulative_comparison(
+        relative_item=_breakdown_item(
+            period="2026-03",
+            period_start=date(2026, 3, 1),
+            period_end=date(2026, 3, 31),
+            period_return=0.75,
+            cumulative_return=1.5,
+        ),
+        portfolio_item=_breakdown_item(
+            period="2026-03",
+            period_start=date(2026, 3, 1),
+            period_end=date(2026, 3, 31),
+            period_return=2.0,
+            cumulative_return=3.5,
+        ),
+        benchmark_item=_breakdown_item(
+            period="2026-03",
+            period_start=date(2026, 3, 1),
+            period_end=date(2026, 3, 31),
+            period_return=1.25,
+            cumulative_return=2.0,
+        ),
+    )
+
+    assert comparison is not None
+    expected, actual = comparison
+    assert expected == ComparativeReturnValue(base=1.5)
+    assert actual == ComparativeReturnValue(base=1.5)
+
+
+def test_relative_breakdown_cumulative_comparison_skips_absent_cumulative_values():
+    relative_item = _breakdown_item(
+        period="2026-03",
+        period_start=date(2026, 3, 1),
+        period_end=date(2026, 3, 31),
+        period_return=0.75,
+        cumulative_return=1.5,
+    )
+    relative_item.cumulative_return = None
+
+    assert (
+        _relative_breakdown_cumulative_comparison(
+            relative_item=relative_item,
+            portfolio_item=_breakdown_item(
+                period="2026-03",
+                period_start=date(2026, 3, 1),
+                period_end=date(2026, 3, 31),
+                period_return=2.0,
+                cumulative_return=3.5,
+            ),
+            benchmark_item=_breakdown_item(
+                period="2026-03",
+                period_start=date(2026, 3, 1),
+                period_end=date(2026, 3, 31),
+                period_return=1.25,
+                cumulative_return=2.0,
+            ),
+        )
+        is None
+    )
 
 
 def test_comparative_return_mismatches_distinguish_absent_equal_and_different_components():

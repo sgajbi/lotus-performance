@@ -345,25 +345,44 @@ def _check_relative_breakdown_item(
         expected=_subtract_return_values(portfolio_item.period_return, benchmark_item.period_return),
         actual=relative_item.period_return,
     )
-    if (
-        relative_item.cumulative_return is None
-        or portfolio_item.cumulative_return is None
-        or benchmark_item.cumulative_return is None
-    ):
+    cumulative_comparison = _relative_breakdown_cumulative_comparison(
+        relative_item=relative_item,
+        portfolio_item=portfolio_item,
+        benchmark_item=benchmark_item,
+    )
+    if cumulative_comparison is None:
         return findings
     findings.extend(
         _compare_return_values(
             code="RELATIVE_BREAKDOWN_CUMULATIVE_MISMATCH",
             period_name=period_name,
             scope=f"{row_scope}.cumulative_return",
-            expected=_subtract_return_values(
-                portfolio_item.cumulative_return,
-                benchmark_item.cumulative_return,
-            ),
-            actual=relative_item.cumulative_return,
+            expected=cumulative_comparison[0],
+            actual=cumulative_comparison[1],
         )
     )
     return findings
+
+
+def _relative_breakdown_cumulative_comparison(
+    *,
+    relative_item: ComparativeBreakdownItem,
+    portfolio_item: ComparativeBreakdownItem,
+    benchmark_item: ComparativeBreakdownItem,
+) -> tuple[ComparativeReturnValue, ComparativeReturnValue] | None:
+    if (
+        relative_item.cumulative_return is None
+        or portfolio_item.cumulative_return is None
+        or benchmark_item.cumulative_return is None
+    ):
+        return None
+    return (
+        _subtract_return_values(
+            portfolio_item.cumulative_return,
+            benchmark_item.cumulative_return,
+        ),
+        relative_item.cumulative_return,
+    )
 
 
 def _find_breakdown_alignment_mismatch(
