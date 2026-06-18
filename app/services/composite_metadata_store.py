@@ -17,6 +17,11 @@ from app.services.durable_store_runtime import RuntimeStoreProxy, resolve_runtim
 logger = logging.getLogger(__name__)
 
 INVALID_COMPOSITE_REASON_CODES_PAYLOAD = "invalid_reason_codes_payload"
+MEMBER_RETURN_FACT_SCHEMA_UPGRADE_COLUMNS = {
+    "return_view": "TEXT NOT NULL DEFAULT 'NET_ACTUAL'",
+    "source_fingerprint": "TEXT NOT NULL DEFAULT 'legacy-source-fingerprint-unavailable'",
+    "restatement_version": "TEXT NOT NULL DEFAULT 'v1'",
+}
 
 
 class Base(DeclarativeBase):
@@ -112,20 +117,16 @@ class CompositeMetadataStore:
     def _upgrade_member_return_fact_schema(self) -> None:
         if self._engine.dialect.name != "sqlite":
             return
-        required_columns = {
-            "return_view": "TEXT NOT NULL DEFAULT 'NET_ACTUAL'",
-            "source_fingerprint": "TEXT NOT NULL DEFAULT 'legacy-source-fingerprint-unavailable'",
-            "restatement_version": "TEXT NOT NULL DEFAULT 'v1'",
-        }
         with self._engine.begin() as connection:
             existing_columns = {
                 row[1] for row in connection.exec_driver_sql("PRAGMA table_info(composite_member_return_facts)")
             }
-            for column_name, column_definition in required_columns.items():
-                if column_name not in existing_columns:
-                    connection.execute(
-                        text(f"ALTER TABLE composite_member_return_facts ADD COLUMN {column_name} {column_definition}")
-                    )
+            for column_name, column_definition in _missing_member_return_fact_schema_upgrade_columns(
+                existing_columns
+            ).items():
+                connection.execute(
+                    text(f"ALTER TABLE composite_member_return_facts ADD COLUMN {column_name} {column_definition}")
+                )
 
     @contextmanager
     def _session(self) -> Iterator[Session]:
@@ -300,6 +301,14 @@ class CompositeMetadataStore:
                 memberships=session.query(CompositeMembershipModel).count(),
                 member_return_facts=session.query(CompositeMemberReturnFactModel).count(),
             )
+
+
+def _missing_member_return_fact_schema_upgrade_columns(existing_columns: set[str]) -> dict[str, str]:
+    return {
+        column_name: column_definition
+        for column_name, column_definition in MEMBER_RETURN_FACT_SCHEMA_UPGRADE_COLUMNS.items()
+        if column_name not in existing_columns
+    }
 
 
 _store_cache: dict[str, CompositeMetadataStore] = {}

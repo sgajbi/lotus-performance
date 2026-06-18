@@ -5,9 +5,11 @@ from datetime import date
 from app.models.composites import CompositeDefinition, CompositeMemberReturnFact, CompositeMembership
 from app.services.composite_metadata_store import (
     INVALID_COMPOSITE_REASON_CODES_PAYLOAD,
+    MEMBER_RETURN_FACT_SCHEMA_UPGRADE_COLUMNS,
     CompositeDefinitionModel,
     CompositeMemberReturnFactModel,
     CompositeMetadataStore,
+    _missing_member_return_fact_schema_upgrade_columns,
 )
 
 
@@ -35,6 +37,18 @@ def _definition() -> CompositeDefinition:
             },
         }
     )
+
+
+def test_missing_member_return_fact_schema_upgrade_columns_selects_only_absent_columns():
+    missing_columns = _missing_member_return_fact_schema_upgrade_columns(
+        {"fact_key", "composite_id", "portfolio_id", "return_view"}
+    )
+
+    assert missing_columns == {
+        column_name: column_definition
+        for column_name, column_definition in MEMBER_RETURN_FACT_SCHEMA_UPGRADE_COLUMNS.items()
+        if column_name != "return_view"
+    }
 
 
 def test_composite_metadata_store_round_trips_definition_membership_and_fact(tmp_path):
