@@ -4,6 +4,7 @@ from app.models.mwr_analytics_requests import (
     MoneyWeightedReturnAnalyticsRequest,
     _has_exactly_one_stateless_mwr_shape,
     _resolve_mwr_stateless_input,
+    _stateful_mwr_payload_issue,
     _stateless_mwr_envelope_issue,
     _validate_legacy_stateless_payload_complete,
 )
@@ -201,6 +202,43 @@ def test_mwr_analytics_request_rejects_stateful_payload_shape_conflicts():
         assert "begin_mv, end_mv, and cash_flows must be null when input_mode=stateful" in str(exc)
     else:
         raise AssertionError("Expected request validation to fail for stateful legacy payload.")
+
+
+def test_stateful_mwr_payload_issue_reports_conflicts_in_validation_order():
+    missing_stateful = MoneyWeightedReturnAnalyticsRequest.model_construct(
+        stateful_input=None,
+        stateless_input=None,
+        source_preconverted_fx_evidence=None,
+    )
+    stateless_conflict = MoneyWeightedReturnAnalyticsRequest.model_construct(
+        stateful_input=object(),
+        stateless_input=object(),
+        source_preconverted_fx_evidence=None,
+    )
+    legacy_conflict = MoneyWeightedReturnAnalyticsRequest.model_construct(
+        stateful_input=object(),
+        stateless_input=None,
+        source_preconverted_fx_evidence={"source": "legacy"},
+    )
+    valid_stateful = MoneyWeightedReturnAnalyticsRequest.model_construct(
+        stateful_input=object(),
+        stateless_input=None,
+        source_preconverted_fx_evidence=None,
+    )
+
+    assert _stateful_mwr_payload_issue(missing_stateful, has_legacy_stateless=False) == (
+        "stateful_input is required when input_mode=stateful"
+    )
+    assert _stateful_mwr_payload_issue(stateless_conflict, has_legacy_stateless=False) == (
+        "stateless_input must be null when input_mode=stateful"
+    )
+    assert _stateful_mwr_payload_issue(legacy_conflict, has_legacy_stateless=True) == (
+        "begin_mv, end_mv, and cash_flows must be null when input_mode=stateful"
+    )
+    assert _stateful_mwr_payload_issue(legacy_conflict, has_legacy_stateless=False) == (
+        "source_preconverted_fx_evidence must be null when input_mode=stateful"
+    )
+    assert _stateful_mwr_payload_issue(valid_stateful, has_legacy_stateless=False) is None
 
 
 def test_mwr_analytics_request_to_stateless_prefers_explicit_override():

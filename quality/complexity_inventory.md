@@ -38,31 +38,31 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_validate_stateful_mwr_payloads` | function | `app/models/mwr_analytics_requests.py:79` | 5 | A |
-| 2 | `ReturnsWindow` | class | `app/models/returns_series.py:79` | 5 | A |
-| 3 | `_validate_returns_series_stateless_benchmark_override` | function | `app/models/returns_series.py:327` | 5 | A |
-| 4 | `_validate_vendor_series_stateless_twr_benchmark_payload` | function | `app/models/twr_requests.py:52` | 5 | A |
-| 5 | `_validate_stateless_twr_benchmark_payloads` | function | `app/models/twr_requests.py:70` | 5 | A |
-| 6 | `_stateless_twr_envelope_issue` | function | `app/models/twr_requests.py:158` | 5 | A |
-| 7 | `_workspace_summary_stateless_envelope_issue` | function | `app/models/workspace_summary_requests.py:313` | 5 | A |
-| 8 | `_bounded_mwr_solver_outcome_labels` | function | `app/observability.py:68` | 5 | A |
-| 9 | `resolve_trace_id` | function | `app/observability.py:150` | 5 | A |
-| 10 | `propagation_headers` | function | `app/observability.py:160` | 5 | A |
-| 11 | `_included_router_route_name` | function | `app/observability.py:286` | 5 | A |
-| 12 | `_infer_example` | function | `app/openapi_enrichment.py:219` | 5 | A |
-| 13 | `_explicit_schema_example` | function | `app/openapi_enrichment.py:325` | 5 | A |
-| 14 | `_named_schema_example` | function | `app/openapi_enrichment.py:337` | 5 | A |
-| 15 | `_composed_schema_example` | function | `app/openapi_enrichment.py:346` | 5 | A |
-| 16 | `_build_schema_example` | function | `app/openapi_enrichment.py:466` | 5 | A |
-| 17 | `_validation_error_json_content` | function | `app/openapi_enrichment.py:519` | 5 | A |
-| 18 | `_request_body_example` | function | `app/openapi_enrichment.py:559` | 5 | A |
-| 19 | `_ensure_json_success_response_example` | function | `app/openapi_enrichment.py:612` | 5 | A |
-| 20 | `_ensure_operation_response_documentation` | function | `app/openapi_enrichment.py:653` | 5 | A |
-| 21 | `_ensure_operation_metadata` | function | `app/openapi_enrichment.py:681` | 5 | A |
-| 22 | `_iter_documentable_operations` | function | `app/openapi_enrichment.py:706` | 5 | A |
-| 23 | `_ensure_operation_documentation` | function | `app/openapi_enrichment.py:716` | 5 | A |
-| 24 | `_ensure_schema_documentation` | function | `app/openapi_enrichment.py:741` | 5 | A |
-| 25 | `_ensure_model_schema_documentation` | function | `app/openapi_enrichment.py:755` | 5 | A |
+| 1 | `ReturnsWindow` | class | `app/models/returns_series.py:79` | 5 | A |
+| 2 | `_validate_returns_series_stateless_benchmark_override` | function | `app/models/returns_series.py:327` | 5 | A |
+| 3 | `_validate_vendor_series_stateless_twr_benchmark_payload` | function | `app/models/twr_requests.py:52` | 5 | A |
+| 4 | `_validate_stateless_twr_benchmark_payloads` | function | `app/models/twr_requests.py:70` | 5 | A |
+| 5 | `_stateless_twr_envelope_issue` | function | `app/models/twr_requests.py:158` | 5 | A |
+| 6 | `_workspace_summary_stateless_envelope_issue` | function | `app/models/workspace_summary_requests.py:313` | 5 | A |
+| 7 | `_bounded_mwr_solver_outcome_labels` | function | `app/observability.py:68` | 5 | A |
+| 8 | `resolve_trace_id` | function | `app/observability.py:150` | 5 | A |
+| 9 | `propagation_headers` | function | `app/observability.py:160` | 5 | A |
+| 10 | `_included_router_route_name` | function | `app/observability.py:286` | 5 | A |
+| 11 | `_infer_example` | function | `app/openapi_enrichment.py:219` | 5 | A |
+| 12 | `_explicit_schema_example` | function | `app/openapi_enrichment.py:325` | 5 | A |
+| 13 | `_named_schema_example` | function | `app/openapi_enrichment.py:337` | 5 | A |
+| 14 | `_composed_schema_example` | function | `app/openapi_enrichment.py:346` | 5 | A |
+| 15 | `_build_schema_example` | function | `app/openapi_enrichment.py:466` | 5 | A |
+| 16 | `_validation_error_json_content` | function | `app/openapi_enrichment.py:519` | 5 | A |
+| 17 | `_request_body_example` | function | `app/openapi_enrichment.py:559` | 5 | A |
+| 18 | `_ensure_json_success_response_example` | function | `app/openapi_enrichment.py:612` | 5 | A |
+| 19 | `_ensure_operation_response_documentation` | function | `app/openapi_enrichment.py:653` | 5 | A |
+| 20 | `_ensure_operation_metadata` | function | `app/openapi_enrichment.py:681` | 5 | A |
+| 21 | `_iter_documentable_operations` | function | `app/openapi_enrichment.py:706` | 5 | A |
+| 22 | `_ensure_operation_documentation` | function | `app/openapi_enrichment.py:716` | 5 | A |
+| 23 | `_ensure_schema_documentation` | function | `app/openapi_enrichment.py:741` | 5 | A |
+| 24 | `_ensure_model_schema_documentation` | function | `app/openapi_enrichment.py:755` | 5 | A |
+| 25 | `_ensure_property_schema_documentation` | function | `app/openapi_enrichment.py:784` | 5 | A |
 
 ## Lowest Maintainability Index
 
@@ -744,6 +744,8 @@ into a dedicated helper while preserving execution polling payload shape.
 moved into a dedicated issue helper while preserving accepted subject shapes.
 `_stateless_mwr_envelope_issue` also dropped out after exact-one MWR input-shape selection moved
 into a dedicated predicate while preserving authored validation messages.
+`_validate_stateful_mwr_payloads` also dropped out after stateful MWR payload issue ordering moved
+into a dedicated selector while preserving validation-message priority.
 `_validate_stateless_mwr_payloads` also dropped out after nested-versus-legacy MWR envelope issue
 selection moved into a dedicated compatibility-policy helper.
 `_validate_stateless_twr_payloads` also dropped out after nested-versus-legacy TWR envelope issue

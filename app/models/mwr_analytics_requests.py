@@ -81,14 +81,29 @@ def _validate_stateful_mwr_payloads(
     *,
     has_legacy_stateless: bool,
 ) -> None:
-    if request.stateful_input is None:
-        raise ValueError("stateful_input is required when input_mode=stateful")
-    if request.stateless_input is not None:
-        raise ValueError("stateless_input must be null when input_mode=stateful")
-    if has_legacy_stateless:
-        raise ValueError("begin_mv, end_mv, and cash_flows must be null when input_mode=stateful")
-    if request.source_preconverted_fx_evidence is not None:
-        raise ValueError("source_preconverted_fx_evidence must be null when input_mode=stateful")
+    payload_issue = _stateful_mwr_payload_issue(request, has_legacy_stateless=has_legacy_stateless)
+    if payload_issue is not None:
+        raise ValueError(payload_issue)
+
+
+def _stateful_mwr_payload_issue(
+    request: "MoneyWeightedReturnAnalyticsRequest",
+    *,
+    has_legacy_stateless: bool,
+) -> str | None:
+    issue_candidates = (
+        (request.stateful_input is None, "stateful_input is required when input_mode=stateful"),
+        (request.stateless_input is not None, "stateless_input must be null when input_mode=stateful"),
+        (has_legacy_stateless, "begin_mv, end_mv, and cash_flows must be null when input_mode=stateful"),
+        (
+            request.source_preconverted_fx_evidence is not None,
+            "source_preconverted_fx_evidence must be null when input_mode=stateful",
+        ),
+    )
+    for has_issue, message in issue_candidates:
+        if has_issue:
+            return message
+    return None
 
 
 class MoneyWeightedReturnAnalyticsRequest(MoneyWeightedReturnRequestBase):
