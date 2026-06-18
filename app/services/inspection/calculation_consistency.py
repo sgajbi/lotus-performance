@@ -552,11 +552,23 @@ def _expected_daily_calculation_values(evidence: TWRDailyCalculationEvidence) ->
 
 
 def _expected_daily_external_flows(evidence: TWRDailyCalculationEvidence) -> DailyEvidenceExpectedFlows:
-    flows = (evidence.bod_cf, evidence.eod_cf)
+    flows = _daily_external_flow_values(evidence)
     return DailyEvidenceExpectedFlows(
-        external_inflows=sum(value for value in flows if value > 0),
-        external_outflows=abs(sum(value for value in flows if value < 0)),
+        external_inflows=sum(_external_inflow_value(value) for value in flows),
+        external_outflows=sum(_external_outflow_value(value) for value in flows),
     )
+
+
+def _daily_external_flow_values(evidence: TWRDailyCalculationEvidence) -> tuple[float, float]:  # monetary-float-allow
+    return (evidence.bod_cf, evidence.eod_cf)
+
+
+def _external_inflow_value(value: float) -> float:  # monetary-float-allow
+    return max(value, 0.0)
+
+
+def _external_outflow_value(value: float) -> float:  # monetary-float-allow
+    return abs(min(value, 0.0))
 
 
 def _expected_daily_return(evidence: TWRDailyCalculationEvidence) -> float | None:  # monetary-float-allow

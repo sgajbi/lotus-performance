@@ -22,8 +22,11 @@ from app.services.inspection.calculation_consistency import (
     _comparative_return_components_match,
     _comparative_return_mismatches,
     _daily_calculation_evidence_mismatches,
+    _daily_external_flow_values,
     _expected_daily_external_flows,
     _expected_daily_return,
+    _external_inflow_value,
+    _external_outflow_value,
     _relative_breakdown_cumulative_comparison,
     run_twr_calculation_consistency_checks,
 )
@@ -734,6 +737,31 @@ def test_expected_daily_flow_and_return_helpers_project_evidence_policy():
     assert flows.external_inflows == 100.0
     assert flows.external_outflows == 50.0
     assert _expected_daily_return(evidence) == 13.0 / 1100.0 * 100
+
+
+def test_daily_external_flow_helpers_project_signed_flow_policy():
+    evidence = TWRDailyCalculationEvidence(
+        begin_mv=1000.0,
+        end_mv=1013.0,
+        bod_cf=100.0,
+        eod_cf=-50.0,
+        external_inflows=100.0,
+        external_outflows=50.0,
+        management_fees=3.0,
+        signed_adjusted_capital=1100.0,
+        adjusted_capital=1100.0,
+        performance_pnl=13.0,
+        daily_return=13.0 / 1100.0 * 100,
+        status="calculated",
+        reason_codes=["FLOW_NEUTRALIZED_DAILY_RETURN"],
+        warnings=[],
+    )
+
+    assert _daily_external_flow_values(evidence) == (100.0, -50.0)
+    assert _external_inflow_value(100.0) == 100.0
+    assert _external_inflow_value(-50.0) == 0.0
+    assert _external_outflow_value(100.0) == 0.0
+    assert _external_outflow_value(-50.0) == 50.0
 
 
 def test_expected_daily_return_is_absent_when_daily_evidence_is_not_calculable():
