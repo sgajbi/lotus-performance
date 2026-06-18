@@ -38,31 +38,31 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_normalized_capability_rule_override` | function | `app/enterprise_capability_rules.py:79` | 5 | A |
-| 2 | `_stateless_input_envelope_issue` | function | `app/models/attribution_analytics_requests.py:294` | 5 | A |
-| 3 | `_validate_benchmark_analysis_selection` | function | `app/models/benchmark_analytics_requests.py:142` | 5 | A |
-| 4 | `_validate_benchmark_analysis_window` | function | `app/models/benchmark_requests.py:48` | 5 | A |
-| 5 | `CompositeMemberReturnFact` | class | `app/models/composites.py:159` | 5 | A |
-| 6 | `_stateless_contribution_envelope_issue` | function | `app/models/contribution_analytics_requests.py:74` | 5 | A |
-| 7 | `_resolved_stateless_contribution_inputs` | function | `app/models/contribution_analytics_requests.py:95` | 5 | A |
-| 8 | `build_execution_response` | function | `app/models/execution_polling.py:239` | 5 | A |
-| 9 | `TWRInspectionRequest` | class | `app/models/inspection_requests.py:64` | 5 | A |
-| 10 | `_stateless_mwr_envelope_issue` | function | `app/models/mwr_analytics_requests.py:67` | 5 | A |
-| 11 | `_validate_stateful_mwr_payloads` | function | `app/models/mwr_analytics_requests.py:75` | 5 | A |
-| 12 | `ReturnsWindow` | class | `app/models/returns_series.py:79` | 5 | A |
-| 13 | `_validate_returns_series_stateless_benchmark_override` | function | `app/models/returns_series.py:327` | 5 | A |
-| 14 | `_validate_vendor_series_stateless_twr_benchmark_payload` | function | `app/models/twr_requests.py:52` | 5 | A |
-| 15 | `_validate_stateless_twr_benchmark_payloads` | function | `app/models/twr_requests.py:70` | 5 | A |
-| 16 | `_stateless_twr_envelope_issue` | function | `app/models/twr_requests.py:158` | 5 | A |
-| 17 | `_workspace_summary_stateless_envelope_issue` | function | `app/models/workspace_summary_requests.py:313` | 5 | A |
-| 18 | `_bounded_mwr_solver_outcome_labels` | function | `app/observability.py:68` | 5 | A |
-| 19 | `resolve_trace_id` | function | `app/observability.py:150` | 5 | A |
-| 20 | `propagation_headers` | function | `app/observability.py:160` | 5 | A |
-| 21 | `_included_router_route_name` | function | `app/observability.py:286` | 5 | A |
-| 22 | `_infer_example` | function | `app/openapi_enrichment.py:219` | 5 | A |
-| 23 | `_explicit_schema_example` | function | `app/openapi_enrichment.py:325` | 5 | A |
-| 24 | `_named_schema_example` | function | `app/openapi_enrichment.py:337` | 5 | A |
-| 25 | `_composed_schema_example` | function | `app/openapi_enrichment.py:346` | 5 | A |
+| 1 | `_stateless_input_envelope_issue` | function | `app/models/attribution_analytics_requests.py:294` | 5 | A |
+| 2 | `_validate_benchmark_analysis_selection` | function | `app/models/benchmark_analytics_requests.py:142` | 5 | A |
+| 3 | `_validate_benchmark_analysis_window` | function | `app/models/benchmark_requests.py:48` | 5 | A |
+| 4 | `CompositeMemberReturnFact` | class | `app/models/composites.py:159` | 5 | A |
+| 5 | `_stateless_contribution_envelope_issue` | function | `app/models/contribution_analytics_requests.py:74` | 5 | A |
+| 6 | `_resolved_stateless_contribution_inputs` | function | `app/models/contribution_analytics_requests.py:95` | 5 | A |
+| 7 | `build_execution_response` | function | `app/models/execution_polling.py:239` | 5 | A |
+| 8 | `TWRInspectionRequest` | class | `app/models/inspection_requests.py:64` | 5 | A |
+| 9 | `_stateless_mwr_envelope_issue` | function | `app/models/mwr_analytics_requests.py:67` | 5 | A |
+| 10 | `_validate_stateful_mwr_payloads` | function | `app/models/mwr_analytics_requests.py:75` | 5 | A |
+| 11 | `ReturnsWindow` | class | `app/models/returns_series.py:79` | 5 | A |
+| 12 | `_validate_returns_series_stateless_benchmark_override` | function | `app/models/returns_series.py:327` | 5 | A |
+| 13 | `_validate_vendor_series_stateless_twr_benchmark_payload` | function | `app/models/twr_requests.py:52` | 5 | A |
+| 14 | `_validate_stateless_twr_benchmark_payloads` | function | `app/models/twr_requests.py:70` | 5 | A |
+| 15 | `_stateless_twr_envelope_issue` | function | `app/models/twr_requests.py:158` | 5 | A |
+| 16 | `_workspace_summary_stateless_envelope_issue` | function | `app/models/workspace_summary_requests.py:313` | 5 | A |
+| 17 | `_bounded_mwr_solver_outcome_labels` | function | `app/observability.py:68` | 5 | A |
+| 18 | `resolve_trace_id` | function | `app/observability.py:150` | 5 | A |
+| 19 | `propagation_headers` | function | `app/observability.py:160` | 5 | A |
+| 20 | `_included_router_route_name` | function | `app/observability.py:286` | 5 | A |
+| 21 | `_infer_example` | function | `app/openapi_enrichment.py:219` | 5 | A |
+| 22 | `_explicit_schema_example` | function | `app/openapi_enrichment.py:325` | 5 | A |
+| 23 | `_named_schema_example` | function | `app/openapi_enrichment.py:337` | 5 | A |
+| 24 | `_composed_schema_example` | function | `app/openapi_enrichment.py:346` | 5 | A |
+| 25 | `_build_schema_example` | function | `app/openapi_enrichment.py:466` | 5 | A |
 
 ## Lowest Maintainability Index
 

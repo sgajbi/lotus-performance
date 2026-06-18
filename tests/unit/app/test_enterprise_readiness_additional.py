@@ -977,6 +977,22 @@ def test_normalized_capability_rule_override_accepts_only_non_blank_strings():
     assert normalize(key="POST /analytics", value=False) is None
 
 
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (" analytics.write ", "analytics.write"),
+        (" ", None),
+        ("", None),
+        (False, None),
+        (123, None),
+    ],
+)
+def test_non_blank_rule_string_normalizes_only_required_strings(value, expected):
+    normalize = enterprise_capability_rules._non_blank_rule_string
+
+    assert normalize(value) == expected
+
+
 def test_privileged_read_rule_loader_ignores_blank_default_override(monkeypatch):
     monkeypatch.setenv(
         _ENV_ENTERPRISE_PRIVILEGED_READ_RULES_JSON,
