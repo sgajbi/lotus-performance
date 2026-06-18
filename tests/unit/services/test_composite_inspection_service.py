@@ -4,9 +4,10 @@ from datetime import date
 from decimal import Decimal
 from uuid import UUID
 
-from app.models.composites import CompositeDefinition, CompositeMemberReturnFact
+from app.models.composites import CompositeDefinition, CompositeInspectionFinding, CompositeMemberReturnFact
 from app.services.composite_calculation_service import CompositeDefinitionNotFoundError
 from app.services.composite_inspection_service import (
+    _composite_inspection_verdict,
     _composite_return_rows,
     _member_input_rows,
     _optional_artifact_text,
@@ -66,6 +67,18 @@ def _fact(
             "status": status,
             "reason_codes": reason_codes or [],
         }
+    )
+
+
+def _inspection_finding(*, code: str, severity: str) -> CompositeInspectionFinding:
+    return CompositeInspectionFinding(
+        code=code,
+        severity=severity,
+        category="composite_calculation_supportability",
+        owner_repo="lotus-performance",
+        summary=f"Composite calculation reported {code}.",
+        recommended_action="Review member inputs.",
+        evidence={"reason_code": code.lower()},
     )
 
 
@@ -170,6 +183,35 @@ def test_composite_inspection_reports_degraded_verdict(tmp_path):
     assert response.findings[0].code == "MISSING_FINAL_VALUATION"
     assert response.findings[0].severity == "warning"
     store.close()
+
+
+def test_composite_inspection_verdict_policy_preserves_status_priority():
+    assert _composite_inspection_verdict(result_status="READY", findings=[]) == "supportable"
+    assert (
+        _composite_inspection_verdict(
+            result_status="READY",
+            findings=[
+                _inspection_finding(
+                    code="MISSING_FINAL_VALUATION",
+                    severity="warning",
+                )
+            ],
+        )
+        == "supportable_with_warnings"
+    )
+    assert _composite_inspection_verdict(result_status="DEGRADED", findings=[]) == "supportable_with_warnings"
+    assert (
+        _composite_inspection_verdict(
+            result_status="BLOCKED",
+            findings=[
+                _inspection_finding(
+                    code="MIXED_MEMBER_REPORTING_CURRENCIES",
+                    severity="critical",
+                )
+            ],
+        )
+        == "not_supportable"
+    )
 
 
 def test_member_input_rows_preserve_operator_lineage_values():
