@@ -8,6 +8,7 @@ from pydantic import ValidationError
 from app.models.contribution_analytics_requests import (
     ContributionAnalyticsRequest,
     _complete_contribution_input_pair,
+    _has_exactly_one_stateless_contribution_shape,
     _resolved_stateless_contribution_inputs,
     _stateless_contribution_envelope_issue,
     _validate_stateless_contribution_payloads,
@@ -267,6 +268,13 @@ def test_stateless_contribution_envelope_issue_requires_exactly_one_payload_shap
     assert _stateless_contribution_envelope_issue(has_nested=False, has_legacy=False) == (
         "stateless_input or legacy portfolio_data/positions_data is required when input_mode=stateless"
     )
+
+
+def test_stateless_contribution_shape_predicate_requires_exactly_one_payload_shape():
+    assert _has_exactly_one_stateless_contribution_shape(has_nested=True, has_legacy=False)
+    assert _has_exactly_one_stateless_contribution_shape(has_nested=False, has_legacy=True)
+    assert not _has_exactly_one_stateless_contribution_shape(has_nested=True, has_legacy=True)
+    assert not _has_exactly_one_stateless_contribution_shape(has_nested=False, has_legacy=False)
 
 
 def test_contribution_analytics_request_builds_legacy_stateless_request():
