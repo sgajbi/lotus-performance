@@ -32,37 +32,37 @@ must stay at `0`.
 | --- | ---: |
 | Max cyclomatic complexity | 5 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 54.80 |
+| Average maintainability index | 54.79 |
 
 ## Highest Cyclomatic Complexity
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_probe_lineage_storage_write` | function | `app/services/durability_health_service.py:140` | 5 | A |
-| 2 | `register_execution` | method | `app/services/execution_registry.py:354` | 5 | A |
-| 3 | `get_execution` | method | `app/services/execution_registry.py:524` | 5 | A |
-| 4 | `run_twr_calculation_consistency_checks` | function | `app/services/inspection/calculation_consistency.py:49` | 5 | A |
-| 5 | `_check_benchmark_relative_pairing` | function | `app/services/inspection/calculation_consistency.py:121` | 5 | A |
-| 6 | `_check_relative_breakdown_item` | function | `app/services/inspection/calculation_consistency.py:274` | 5 | A |
-| 7 | `_check_block_linking` | function | `app/services/inspection/calculation_consistency.py:353` | 5 | A |
-| 8 | `_expected_daily_external_flows` | function | `app/services/inspection/calculation_consistency.py:453` | 5 | A |
-| 9 | `_daily_calculation_evidence_mismatches` | function | `app/services/inspection/calculation_consistency.py:467` | 5 | A |
-| 10 | `_daily_evidence_semantic_mismatches` | function | `app/services/inspection/calculation_consistency.py:525` | 5 | A |
-| 11 | `_expected_daily_capital_linkability_status` | function | `app/services/inspection/calculation_consistency.py:584` | 5 | A |
-| 12 | `_expected_daily_period_statuses` | function | `app/services/inspection/calculation_consistency.py:608` | 5 | A |
-| 13 | `_add_daily_market_event_reason_codes` | function | `app/services/inspection/calculation_consistency.py:640` | 5 | A |
-| 14 | `_expected_daily_return_linkability_status` | function | `app/services/inspection/calculation_consistency.py:651` | 5 | A |
-| 15 | `_comparative_return_components_match` | function | `app/services/inspection/calculation_consistency.py:740` | 5 | A |
-| 16 | `_subtract_return_values` | function | `app/services/inspection/calculation_consistency.py:752` | 5 | A |
-| 17 | `_select_latest_position_rows` | function | `app/services/inspection/reconciliation.py:467` | 5 | A |
-| 18 | `_find_mixed_epoch_dates` | function | `app/services/inspection/reconciliation.py:503` | 5 | A |
-| 19 | `_collect_position_continuity_gap_samples` | function | `app/services/inspection/reconciliation.py:551` | 5 | A |
-| 20 | `_build_position_continuity_gap_sample` | function | `app/services/inspection/reconciliation.py:583` | 5 | A |
-| 21 | `_collect_duplicate_snapshot_samples` | function | `app/services/inspection/reconciliation.py:690` | 5 | A |
-| 22 | `record_taxonomy_signal` | method | `app/services/inspection/source_economics.py:187` | 5 | A |
-| 23 | `add_amount` | method | `app/services/inspection/source_economics.py:212` | 5 | A |
-| 24 | `_collect_noncanonical_cashflow_types` | function | `app/services/inspection/source_economics.py:457` | 5 | A |
-| 25 | `_resolve_observation_valuation_date` | function | `app/services/inspection/source_economics.py:529` | 5 | A |
+| 1 | `register_execution` | method | `app/services/execution_registry.py:354` | 5 | A |
+| 2 | `get_execution` | method | `app/services/execution_registry.py:524` | 5 | A |
+| 3 | `run_twr_calculation_consistency_checks` | function | `app/services/inspection/calculation_consistency.py:49` | 5 | A |
+| 4 | `_check_benchmark_relative_pairing` | function | `app/services/inspection/calculation_consistency.py:121` | 5 | A |
+| 5 | `_check_relative_breakdown_item` | function | `app/services/inspection/calculation_consistency.py:274` | 5 | A |
+| 6 | `_check_block_linking` | function | `app/services/inspection/calculation_consistency.py:353` | 5 | A |
+| 7 | `_expected_daily_external_flows` | function | `app/services/inspection/calculation_consistency.py:453` | 5 | A |
+| 8 | `_daily_calculation_evidence_mismatches` | function | `app/services/inspection/calculation_consistency.py:467` | 5 | A |
+| 9 | `_daily_evidence_semantic_mismatches` | function | `app/services/inspection/calculation_consistency.py:525` | 5 | A |
+| 10 | `_expected_daily_capital_linkability_status` | function | `app/services/inspection/calculation_consistency.py:584` | 5 | A |
+| 11 | `_expected_daily_period_statuses` | function | `app/services/inspection/calculation_consistency.py:608` | 5 | A |
+| 12 | `_add_daily_market_event_reason_codes` | function | `app/services/inspection/calculation_consistency.py:640` | 5 | A |
+| 13 | `_expected_daily_return_linkability_status` | function | `app/services/inspection/calculation_consistency.py:651` | 5 | A |
+| 14 | `_comparative_return_components_match` | function | `app/services/inspection/calculation_consistency.py:740` | 5 | A |
+| 15 | `_subtract_return_values` | function | `app/services/inspection/calculation_consistency.py:752` | 5 | A |
+| 16 | `_select_latest_position_rows` | function | `app/services/inspection/reconciliation.py:467` | 5 | A |
+| 17 | `_find_mixed_epoch_dates` | function | `app/services/inspection/reconciliation.py:503` | 5 | A |
+| 18 | `_collect_position_continuity_gap_samples` | function | `app/services/inspection/reconciliation.py:551` | 5 | A |
+| 19 | `_build_position_continuity_gap_sample` | function | `app/services/inspection/reconciliation.py:583` | 5 | A |
+| 20 | `_collect_duplicate_snapshot_samples` | function | `app/services/inspection/reconciliation.py:690` | 5 | A |
+| 21 | `record_taxonomy_signal` | method | `app/services/inspection/source_economics.py:187` | 5 | A |
+| 22 | `add_amount` | method | `app/services/inspection/source_economics.py:212` | 5 | A |
+| 23 | `_collect_noncanonical_cashflow_types` | function | `app/services/inspection/source_economics.py:457` | 5 | A |
+| 24 | `_resolve_observation_valuation_date` | function | `app/services/inspection/source_economics.py:529` | 5 | A |
+| 25 | `_record_detailed_cash_flow` | function | `app/services/inspection/source_economics.py:627` | 5 | A |
 
 ## Lowest Maintainability Index
 

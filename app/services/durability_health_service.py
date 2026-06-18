@@ -146,11 +146,8 @@ def _probe_lineage_storage_write(storage_path: str) -> bool:
             prefix=".lotus-lineage-healthcheck-",
             suffix=".tmp",
         )
-        with os.fdopen(fd, "wb") as handle:
-            fd = None
-            handle.write(b"lotus-performance-lineage-healthcheck\n")
-            handle.flush()
-            os.fsync(handle.fileno())
+        _write_lineage_storage_probe_file(fd)
+        fd = None
         os.remove(temp_path)
         temp_path = None
         return True
@@ -158,7 +155,18 @@ def _probe_lineage_storage_write(storage_path: str) -> bool:
         logger.warning("Lineage storage write probe failed.", exc_info=True)
         return False
     finally:
-        if fd is not None:
-            os.close(fd)
-        if temp_path is not None and os.path.exists(temp_path):
-            os.remove(temp_path)
+        _cleanup_lineage_storage_probe(fd, temp_path)
+
+
+def _write_lineage_storage_probe_file(fd: int) -> None:
+    with os.fdopen(fd, "wb") as handle:
+        handle.write(b"lotus-performance-lineage-healthcheck\n")
+        handle.flush()
+        os.fsync(handle.fileno())
+
+
+def _cleanup_lineage_storage_probe(fd: int | None, temp_path: str | None) -> None:
+    if fd is not None:
+        os.close(fd)
+    if temp_path is not None and os.path.exists(temp_path):
+        os.remove(temp_path)

@@ -262,6 +262,15 @@ def test_lineage_storage_health_write_probe_logs_os_errors(monkeypatch, tmp_path
     assert "OSError: disk unavailable" in caplog.text
 
 
+def test_lineage_storage_probe_cleanup_removes_retained_temp_file(tmp_path):
+    temp_path = tmp_path / ".lotus-lineage-healthcheck-retained.tmp"
+    temp_path.write_text("retained", encoding="utf-8")
+
+    durability_health_service._cleanup_lineage_storage_probe(None, str(temp_path))
+
+    assert not temp_path.exists()
+
+
 def test_get_lineage_storage_capacity_returns_free_space_snapshot(monkeypatch, tmp_path):
     monkeypatch.setattr(
         durability_health_service,
