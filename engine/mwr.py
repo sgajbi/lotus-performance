@@ -379,23 +379,15 @@ def _calculate_xirr_mwr_attempt(
     convergence = MWRConvergence(**xirr_result.get("convergence", {}))
     notes = [xirr_result["notes"]]
     if xirr_result["converged"]:
-        rate = xirr_result["rate"]
-        holding_period_return = None
-        if period_days > 0:
-            day_count = _day_count_denominator(annualization)
-            holding_period_return = (((1 + rate) ** (period_days / day_count)) - 1) * 100
         return _MWRXirrAttempt(
-            result=MWRResult(
-                mwr=rate * 100,
-                mwr_annualized=rate * 100,
-                method="XIRR",
+            result=_successful_xirr_mwr_result(
+                rate=xirr_result["rate"],
+                annualization=annualization,
                 start_date=xirr_start_date,
                 end_date=end_date,
+                period_days=period_days,
                 notes=notes,
                 convergence=convergence,
-                holding_period_return=holding_period_return,
-                is_annualized_primary=True,
-                is_approximation=False,
             ),
             notes=notes,
         )
@@ -419,6 +411,25 @@ def _calculate_xirr_mwr_attempt(
 
     notes.append("XIRR failed, falling back to Modified Dietz.")
     return _MWRXirrAttempt(result=None, notes=notes, reason_code=reason_code)
+
+
+def _successful_xirr_mwr_result(*, rate, annualization, start_date, end_date, period_days, notes, convergence):
+    holding_period_return = None
+    if period_days > 0:
+        day_count = _day_count_denominator(annualization)
+        holding_period_return = (((1 + rate) ** (period_days / day_count)) - 1) * 100
+    return MWRResult(
+        mwr=rate * 100,
+        mwr_annualized=rate * 100,
+        method="XIRR",
+        start_date=start_date,
+        end_date=end_date,
+        notes=notes,
+        convergence=convergence,
+        holding_period_return=holding_period_return,
+        is_annualized_primary=True,
+        is_approximation=False,
+    )
 
 
 def _calculate_dietz_mwr_result(

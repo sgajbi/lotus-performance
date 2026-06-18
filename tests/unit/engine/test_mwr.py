@@ -20,6 +20,7 @@ from engine.mwr import (
     _resolve_mwr_period_bounds,
     _scan_xirr_roots,
     _simple_dietz_denominator,
+    _successful_xirr_mwr_result,
     _xirr,
     _xirr_failure,
     _xirr_initial_failure,
@@ -280,6 +281,48 @@ def test_calculate_xirr_mwr_attempt_maps_no_economic_content_to_not_applicable()
     assert attempt.result is not None
     assert attempt.result.status == "NOT_APPLICABLE"
     assert attempt.result.reason_codes == ["NO_ECONOMIC_CONTENT"]
+
+
+def test_successful_xirr_mwr_result_projects_annualized_and_holding_period_returns():
+    convergence = _build_xirr_base_convergence(
+        annualization=Annualization(enabled=False, basis="ACT/365"),
+        lower_bound=-0.999999999,
+        upper_bound=1000.0,
+        anchor_date=date(2026, 1, 1),
+        normalized_flow_count=2,
+        gross_cash_flow_scale=210.0,
+    )
+
+    result = _successful_xirr_mwr_result(
+        rate=0.1,
+        annualization=Annualization(enabled=False, basis="ACT/365"),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 7, 2),
+        period_days=182,
+        notes=["XIRR calculation successful."],
+        convergence=convergence,
+    )
+
+    assert result.method == "XIRR"
+    assert result.mwr == pytest.approx(10.0)
+    assert result.mwr_annualized == pytest.approx(10.0)
+    assert result.holding_period_return == pytest.approx(((1.1) ** (182 / 365.0) - 1) * 100)
+    assert result.is_annualized_primary is True
+    assert result.is_approximation is False
+
+
+def test_successful_xirr_mwr_result_keeps_holding_period_absent_for_non_positive_period():
+    result = _successful_xirr_mwr_result(
+        rate=0.1,
+        annualization=Annualization(enabled=False, basis="ACT/365"),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 1),
+        period_days=0,
+        notes=["XIRR calculation successful."],
+        convergence=None,
+    )
+
+    assert result.holding_period_return is None
 
 
 def test_calculate_dietz_mwr_result_preserves_xirr_fallback_metadata():
