@@ -166,17 +166,23 @@ def _build_residual_adjusted_daily_contribution_series(
     if not position_series:
         return []
 
+    totals_by_date = _residual_adjusted_daily_totals_by_date(position_series)
+    return [
+        DailyContribution(date=series_date, total_contribution=totals_by_date[series_date])
+        for series_date in sorted(totals_by_date)
+    ]
+
+
+def _residual_adjusted_daily_totals_by_date(
+    position_series: list[PositionContributionSeries],
+) -> dict[Any, float]:
     totals_by_date: dict[Any, float] = {}
     for position_series_entry in position_series:
         for daily_point in position_series_entry.series:
             totals_by_date[daily_point.date] = totals_by_date.get(daily_point.date, 0.0) + _as_numeric(
                 daily_point.contribution
             )
-
-    return [
-        DailyContribution(date=series_date, total_contribution=totals_by_date[series_date])
-        for series_date in sorted(totals_by_date)
-    ]
+    return totals_by_date
 
 
 def _build_hierarchy_from_adjusted_position_series(

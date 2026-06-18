@@ -14,6 +14,7 @@ from app.services.contribution_series import (
     _build_hierarchy_from_adjusted_position_series,
     _daily_hierarchy_metadata,
     _prepared_adjusted_hierarchy_frames,
+    _residual_adjusted_daily_totals_by_date,
     _residual_adjusted_position_rows,
     _target_total_contribution_by_position,
 )
@@ -205,3 +206,28 @@ def test_target_total_contribution_by_position_projects_percentage_totals_to_rat
     )
 
     assert targets == {"SEC_A": 0.025, "SEC_B": 0.0}
+
+
+def test_residual_adjusted_daily_totals_by_date_aggregates_position_points():
+    totals_by_date = _residual_adjusted_daily_totals_by_date(
+        [
+            PositionContributionSeries(
+                position_id="SEC_A",
+                series=[
+                    PositionDailyContribution(date=date(2026, 3, 30), contribution=1.25),
+                    PositionDailyContribution(date=date(2026, 3, 31), contribution=-0.25),
+                ],
+            ),
+            PositionContributionSeries(
+                position_id="SEC_B",
+                series=[
+                    PositionDailyContribution(date=date(2026, 3, 30), contribution=2.75),
+                ],
+            ),
+        ]
+    )
+
+    assert totals_by_date == {
+        date(2026, 3, 30): 4.0,
+        date(2026, 3, 31): -0.25,
+    }
