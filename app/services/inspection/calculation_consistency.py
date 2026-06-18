@@ -746,6 +746,22 @@ def _expected_daily_capital_linkability_status(
     else:
         linkability_status = "linkable"
 
+    capital_linkability_status = _daily_capital_linkability_status_override(
+        evidence,
+        required_reason_codes=required_reason_codes,
+        required_warnings=required_warnings,
+    )
+    if capital_linkability_status is not None:
+        return capital_linkability_status
+    return linkability_status
+
+
+def _daily_capital_linkability_status_override(
+    evidence: TWRDailyCalculationEvidence,
+    *,
+    required_reason_codes: set[str],
+    required_warnings: set[str],
+) -> str | None:
     if evidence.adjusted_capital == 0:
         required_reason_codes.add("ZERO_ADJUSTED_CAPITAL")
         required_warnings.add("ZERO_ADJUSTED_CAPITAL")
@@ -756,7 +772,7 @@ def _expected_daily_capital_linkability_status(
     elif evidence.adjusted_capital < 1e-8:
         required_reason_codes.add("NEAR_ZERO_ADJUSTED_CAPITAL")
         required_warnings.add("NEAR_ZERO_ADJUSTED_CAPITAL")
-    return linkability_status
+    return None
 
 
 def _expected_daily_period_statuses(

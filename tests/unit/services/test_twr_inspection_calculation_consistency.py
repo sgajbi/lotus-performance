@@ -23,6 +23,7 @@ from app.services.inspection.calculation_consistency import (
     _comparative_return_mismatches,
     _daily_calculation_evidence_mismatches,
     _daily_calculation_numeric_mismatches,
+    _daily_capital_linkability_status_override,
     _daily_external_flow_values,
     _daily_required_semantic_mismatches,
     _daily_status_semantic_mismatches,
@@ -1105,6 +1106,66 @@ def test_daily_required_semantic_mismatches_project_missing_codes_and_warnings()
         "missing_reason_codes": ["NEGATIVE_ADJUSTED_CAPITAL_INPUT"],
         "missing_warnings": ["NEGATIVE_ADJUSTED_CAPITAL_INPUT"],
     }
+
+
+def test_daily_capital_linkability_status_override_projects_zero_capital_status():
+    reason_codes: set[str] = set()
+    warnings: set[str] = set()
+
+    status = _daily_capital_linkability_status_override(
+        TWRDailyCalculationEvidence(
+            begin_mv=0.0,
+            end_mv=0.0,
+            bod_cf=0.0,
+            eod_cf=0.0,
+            external_inflows=0.0,
+            external_outflows=0.0,
+            management_fees=0.0,
+            signed_adjusted_capital=0.0,
+            adjusted_capital=0.0,
+            performance_pnl=0.0,
+            daily_return=0.0,
+            status="calculated",
+            reason_codes=[],
+            warnings=[],
+        ),
+        required_reason_codes=reason_codes,
+        required_warnings=warnings,
+    )
+
+    assert status == "not_calculated"
+    assert reason_codes == {"ZERO_ADJUSTED_CAPITAL"}
+    assert warnings == {"ZERO_ADJUSTED_CAPITAL"}
+
+
+def test_daily_capital_linkability_status_override_records_negative_capital_warning():
+    reason_codes: set[str] = set()
+    warnings: set[str] = set()
+
+    status = _daily_capital_linkability_status_override(
+        TWRDailyCalculationEvidence(
+            begin_mv=-1000.0,
+            end_mv=-987.0,
+            bod_cf=0.0,
+            eod_cf=0.0,
+            external_inflows=0.0,
+            external_outflows=0.0,
+            management_fees=0.0,
+            signed_adjusted_capital=-1000.0,
+            adjusted_capital=1000.0,
+            performance_pnl=13.0,
+            daily_return=1.3,
+            status="calculated",
+            reason_codes=[],
+            warnings=[],
+        ),
+        required_reason_codes=reason_codes,
+        required_warnings=warnings,
+    )
+
+    assert status is None
+    assert reason_codes == {"NEGATIVE_ADJUSTED_CAPITAL_INPUT"}
+    assert warnings == {"NEGATIVE_ADJUSTED_CAPITAL_INPUT"}
 
 
 def test_calculation_consistency_flags_effective_period_exclusion_warning():
