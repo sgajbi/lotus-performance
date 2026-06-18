@@ -314,14 +314,18 @@ def _xirr(
 
 def _dietz_denominator(*, begin_mv, cash_flows, start_date, end_date, method):
     if method == "DIETZ":
-        return begin_mv + (sum(cf.amount for cf in cash_flows) / 2)
+        return _simple_dietz_denominator(begin_mv=begin_mv, cash_flows=cash_flows)
 
     period_days = (end_date - start_date).days
     if period_days <= 0:
-        return begin_mv + (sum(cf.amount for cf in cash_flows) / 2)
+        return _simple_dietz_denominator(begin_mv=begin_mv, cash_flows=cash_flows)
 
     weighted_cash_flows = sum(cf.amount * ((end_date - cf.date).days / period_days) for cf in cash_flows)
     return begin_mv + weighted_cash_flows
+
+
+def _simple_dietz_denominator(*, begin_mv, cash_flows):
+    return begin_mv + (sum(cf.amount for cf in cash_flows) / 2)
 
 
 @dataclass(frozen=True)

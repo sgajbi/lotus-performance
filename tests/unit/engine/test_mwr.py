@@ -11,6 +11,7 @@ from engine.mwr import (
     _build_xirr_base_convergence,
     _calculate_dietz_mwr_result,
     _calculate_xirr_mwr_attempt,
+    _dietz_denominator,
     _dietz_fallback_metadata,
     _dietz_method_for_calculation,
     _mwr_no_economic_content_result,
@@ -18,6 +19,7 @@ from engine.mwr import (
     _net_same_day_flows,
     _resolve_mwr_period_bounds,
     _scan_xirr_roots,
+    _simple_dietz_denominator,
     _xirr,
     _xirr_failure,
     _xirr_initial_failure,
@@ -323,6 +325,30 @@ def test_dietz_policy_helpers_preserve_method_and_fallback_metadata():
     assert fallback_metadata.warnings == ["FALLBACK_METHOD_USED"]
     assert fallback_metadata.fallback_from == "XIRR"
     assert fallback_metadata.fallback_reason == "MULTIPLE_IRR_ROOTS_DETECTED"
+
+
+def test_simple_dietz_denominator_uses_average_cash_flows():
+    denominator = _simple_dietz_denominator(
+        begin_mv=100.0,
+        cash_flows=[
+            CashFlow(amount=20.0, date=date(2026, 1, 1)),
+            CashFlow(amount=-10.0, date=date(2026, 1, 2)),
+        ],
+    )
+
+    assert denominator == pytest.approx(105.0)
+
+
+def test_dietz_denominator_uses_simple_policy_for_non_positive_period_days():
+    denominator = _dietz_denominator(
+        begin_mv=100.0,
+        cash_flows=[CashFlow(amount=20.0, date=date(2026, 1, 1))],
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 1),
+        method="MODIFIED_DIETZ",
+    )
+
+    assert denominator == pytest.approx(110.0)
 
 
 def test_mwr_preflight_resolves_bounds_and_no_economic_content_result():
