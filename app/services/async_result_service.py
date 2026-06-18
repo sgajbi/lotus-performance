@@ -50,11 +50,7 @@ def _resolve_compute_job_result(
     not_found_detail: str,
     failed_detail: str,
 ) -> ResponseModelT | JSONResponse:
-    if job is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=not_found_detail,
-        )
+    job = _require_compute_job(job, not_found_detail=not_found_detail)
     if _is_active_async_job_status(job.job_status):
         accepted = accepted_response_factory(calculation_id)
         return JSONResponse(status_code=status.HTTP_202_ACCEPTED, content=accepted.model_dump(mode="json"))
@@ -64,6 +60,19 @@ def _resolve_compute_job_result(
             detail=job.error_message or failed_detail,
         )
     return response_model.model_validate(job.response_payload)
+
+
+def _require_compute_job(
+    job: ComputeJobRecord | None,
+    *,
+    not_found_detail: str,
+) -> ComputeJobRecord:
+    if job is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=not_found_detail,
+        )
+    return job
 
 
 def resolve_async_result(
