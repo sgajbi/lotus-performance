@@ -120,6 +120,31 @@ def test_latest_attribution_observation_date_uses_all_stateless_input_sources():
     assert attribution_service._latest_attribution_observation_date(request) == pd.Timestamp("2025-04-30").date()
 
 
+def test_portfolio_group_observation_helpers_filter_missing_dates():
+    request = SimpleNamespace(
+        portfolio_groups_data=[
+            SimpleNamespace(
+                observations=[
+                    {"date": "2025-03-31", "weight_bop": 1.0},
+                    {"date": "", "weight_bop": 1.0},
+                    {"weight_bop": 1.0},
+                ]
+            )
+        ]
+    )
+
+    observations = list(attribution_service._iter_portfolio_group_observations(request))
+
+    assert len(observations) == 3
+    assert attribution_service._portfolio_group_observation_date(observations[0]) == "2025-03-31"
+    assert attribution_service._portfolio_group_observation_date(observations[1]) is None
+    assert attribution_service._portfolio_group_observation_date(observations[2]) is None
+    assert attribution_service._portfolio_group_observation_dates(request) == ["2025-03-31"]
+    assert (
+        list(attribution_service._iter_portfolio_group_observations(SimpleNamespace(portfolio_groups_data=None))) == []
+    )
+
+
 def test_resolve_attribution_execution_window_projects_master_request(monkeypatch):
     request = AttributionRequest.model_validate(
         {

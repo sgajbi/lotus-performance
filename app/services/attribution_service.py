@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Sequence
+from typing import Any, Iterator, Sequence
 
 import pandas as pd
 from fastapi import HTTPException, status
@@ -84,11 +84,19 @@ def _instrument_observation_dates(request: AttributionRequest) -> list[object]:
 
 def _portfolio_group_observation_dates(request: AttributionRequest) -> list[object]:
     return [
-        observation["date"]
-        for group in request.portfolio_groups_data or []
-        for observation in group.observations
-        if observation.get("date")
+        observation_date
+        for observation in _iter_portfolio_group_observations(request)
+        if (observation_date := _portfolio_group_observation_date(observation)) is not None
     ]
+
+
+def _iter_portfolio_group_observations(request: AttributionRequest) -> Iterator[dict[str, Any]]:
+    for group in request.portfolio_groups_data or []:
+        yield from group.observations
+
+
+def _portfolio_group_observation_date(observation: dict[str, Any]) -> object | None:
+    return observation.get("date") or None
 
 
 def _benchmark_group_observation_dates(request: AttributionRequest) -> list[object]:
