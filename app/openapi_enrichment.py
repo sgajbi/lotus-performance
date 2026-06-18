@@ -372,14 +372,26 @@ def _composed_schema_example(
     seen_refs: set[str],
     name_hint: str,
 ) -> Any | None:
-    for composition_key in ("oneOf", "anyOf"):
-        variants = schema.get(composition_key)
-        if not isinstance(variants, list) or not variants:
-            continue
-        first = variants[0]
-        if isinstance(first, dict):
-            return _build_schema_example(first, components=components, seen_refs=seen_refs, name_hint=name_hint)
+    first = _first_composed_schema_variant(schema)
+    if first is not None:
+        return _build_schema_example(first, components=components, seen_refs=seen_refs, name_hint=name_hint)
     return None
+
+
+def _first_composed_schema_variant(schema: dict[str, Any]) -> dict[str, Any] | None:
+    one_of_variant = _first_dict_schema_variant(schema.get("oneOf"))
+    if one_of_variant is not None:
+        return one_of_variant
+    return _first_dict_schema_variant(schema.get("anyOf"))
+
+
+def _first_dict_schema_variant(variants: Any) -> dict[str, Any] | None:
+    if not isinstance(variants, list) or not variants:
+        return None
+    first = variants[0]
+    if not isinstance(first, dict):
+        return None
+    return first
 
 
 def _object_schema_example(

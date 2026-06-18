@@ -16,6 +16,8 @@ from app.openapi_enrichment import (
     _ensure_success_response_documentation,
     _enum_schema_example,
     _explicit_schema_example,
+    _first_composed_schema_variant,
+    _first_dict_schema_variant,
     _formatted_schema_example,
     _infer_description,
     _infer_example,
@@ -232,6 +234,21 @@ def test_named_schema_example_value_extracts_value_only_from_named_mapping():
     assert _named_schema_example_value({"value": {"status": "complete"}}) == {"status": "complete"}
     assert _named_schema_example_value({"summary": "missing value"}) is None
     assert _named_schema_example_value(["not named"]) is None
+
+
+def test_first_composed_schema_variant_prefers_one_of_then_any_of_dict_variants():
+    assert _first_composed_schema_variant({"oneOf": [{"type": "string"}]}) == {"type": "string"}
+    assert _first_composed_schema_variant({"anyOf": [{"type": "integer"}]}) == {"type": "integer"}
+    assert _first_composed_schema_variant({"oneOf": [], "anyOf": [{"type": "number"}]}) == {"type": "number"}
+    assert _first_composed_schema_variant({"oneOf": ["not-a-dict"]}) is None
+    assert _first_composed_schema_variant({"oneOf": "not-a-list"}) is None
+
+
+def test_first_dict_schema_variant_accepts_only_non_empty_dict_variant_lists():
+    assert _first_dict_schema_variant([{"type": "string"}]) == {"type": "string"}
+    assert _first_dict_schema_variant([]) is None
+    assert _first_dict_schema_variant(["not-a-dict"]) is None
+    assert _first_dict_schema_variant("not-a-list") is None
 
 
 def test_listed_schema_example_extracts_first_list_value():
