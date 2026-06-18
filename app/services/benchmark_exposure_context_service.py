@@ -281,12 +281,19 @@ def _build_exposure_rows(
 
 def _iter_component_exposure_points(component_series: list[dict[str, Any]]) -> Iterator[tuple[str, list[Any]]]:
     for component in component_series:
-        index_id = component.get("index_id")
-        if not isinstance(index_id, str) or not index_id:
-            continue
-        points = component.get("points")
-        if isinstance(points, list):
-            yield index_id, points
+        exposure_points = _component_exposure_points(component)
+        if exposure_points is not None:
+            yield exposure_points
+
+
+def _component_exposure_points(component: dict[str, Any]) -> tuple[str, list[Any]] | None:
+    index_id = component.get("index_id")
+    if not isinstance(index_id, str) or not index_id:
+        return None
+    points = component.get("points")
+    if not isinstance(points, list):
+        return None
+    return index_id, points
 
 
 def _accumulate_exposure_point(
