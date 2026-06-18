@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Protocol, cast
 
 from fastapi import HTTPException, status
 
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
 from app.models.attribution_analytics_requests import AttributionAnalyticsRequest, AttributionInputMode
 from app.models.attribution_requests import AttributionRequest
 from app.models.attribution_responses import AttributionAcceptedResponse, AttributionResponse
@@ -298,7 +298,7 @@ async def _resolve_and_calculate_attribution_response(
     calculation_hash: str,
 ) -> AttributionResponse | AttributionAcceptedResponse:
     try:
-        resolved = await resolve_attribution_request(request, settings=active_settings)
+        resolved = await resolve_attribution_request(request, settings=cast(Settings, active_settings))
         return _calculate_resolved_attribution_response(
             request,
             resolved,
