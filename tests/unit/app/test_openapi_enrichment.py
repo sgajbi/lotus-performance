@@ -10,6 +10,7 @@ from app.openapi_enrichment import (
     _documentable_operation,
     _ensure_documentable_operation_documentation,
     _ensure_model_schema_documentation,
+    _ensure_model_schema_metadata,
     _ensure_operation_metadata,
     _ensure_operation_response_documentation,
     _ensure_property_description,
@@ -844,6 +845,40 @@ def test_ensure_model_schema_documentation_preserves_existing_metadata_and_resol
     assert nested_ref["description"] == "Referenced schema description."
     assert nested_ref["example"] == {"count": 1}
     assert nested_ref["x-lotus-semantic-id"] == "lotus.nested_ref"
+
+
+def test_ensure_model_schema_metadata_documents_description_and_enums():
+    model_schema = {"type": "string", "enum": ["pending", "complete"]}
+
+    _ensure_model_schema_metadata("WorkflowStatus", model_schema)
+
+    assert model_schema["description"] == "workflow status schema."
+    assert model_schema["x-enum-descriptions"] == [
+        "Allowed workflow status value: pending.",
+        "Allowed workflow status value: complete.",
+    ]
+
+
+def test_ensure_model_schema_metadata_preserves_authored_description_and_enum_descriptions():
+    model_schema = {
+        "description": "Authored workflow status.",
+        "enum": ["pending"],
+        "x-enum-descriptions": ["Already documented."],
+    }
+
+    _ensure_model_schema_metadata("WorkflowStatus", model_schema)
+
+    assert model_schema["description"] == "Authored workflow status."
+    assert model_schema["x-enum-descriptions"] == ["Already documented."]
+
+
+def test_ensure_model_schema_metadata_skips_enum_extension_without_enum_values():
+    model_schema = {"type": "object"}
+
+    _ensure_model_schema_metadata("Envelope", model_schema)
+
+    assert model_schema["description"] == "envelope object."
+    assert "x-enum-descriptions" not in model_schema
 
 
 def test_iter_component_model_schemas_filters_malformed_entries_and_adds_problem_detail():

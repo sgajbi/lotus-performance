@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-18
-Branch: `refactor/lp-cr-1251-composite-twr-period-flow`
+Branch: `refactor/lp-cr-1301-openapi-model-schema-docs`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
@@ -38,31 +38,31 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_ensure_model_schema_documentation` | function | `app/openapi_enrichment.py:870` | 5 | A |
-| 2 | `_ensure_property_schema_documentation` | function | `app/openapi_enrichment.py:899` | 5 | A |
-| 3 | `_resolve_compute_job_result` | function | `app/services/async_result_service.py:44` | 5 | A |
-| 4 | `_async_result_record_payload_state` | function | `app/services/async_result_store.py:163` | 5 | A |
-| 5 | `build_attribution_execution_window` | function | `app/services/attribution_calculation_workflow_service.py:71` | 5 | A |
-| 6 | `calculate_attribution_workflow` | function | `app/services/attribution_calculation_workflow_service.py:214` | 5 | A |
-| 7 | `_portfolio_group_observation_dates` | function | `app/services/attribution_service.py:85` | 5 | A |
-| 8 | `_build_attribution_results_by_period` | function | `app/services/attribution_service.py:110` | 5 | A |
-| 9 | `_resolve_attribution_execution_window` | function | `app/services/attribution_service.py:186` | 5 | A |
-| 10 | `calculate_attribution` | function | `app/services/attribution_service.py:214` | 5 | A |
-| 11 | `_resolved_assignment_identity` | function | `app/services/benchmark_assignment_service.py:20` | 5 | A |
-| 12 | `calculate_benchmark_artifacts` | function | `app/services/benchmark_calculation_service.py:81` | 5 | A |
-| 13 | `_benchmark_period_result` | function | `app/services/benchmark_calculation_service.py:149` | 5 | A |
-| 14 | `_calculate_benchmark_return_from_slice` | function | `app/services/benchmark_calculation_service.py:190` | 5 | A |
-| 15 | `_group_benchmark_breakdown_rows` | function | `app/services/benchmark_calculation_service.py:227` | 5 | A |
-| 16 | `build_benchmark_exposure_context` | function | `app/services/benchmark_exposure_context_service.py:38` | 5 | A |
-| 17 | `_benchmark_id_from_assignment_response` | function | `app/services/benchmark_exposure_context_service.py:110` | 5 | A |
-| 18 | `_classification_map_for_request` | function | `app/services/benchmark_exposure_context_service.py:146` | 5 | A |
-| 19 | `_index_ids_for_component_series` | function | `app/services/benchmark_exposure_context_service.py:177` | 5 | A |
-| 20 | `_iter_component_exposure_points` | function | `app/services/benchmark_exposure_context_service.py:258` | 5 | A |
-| 21 | `_accumulate_exposure_point` | function | `app/services/benchmark_exposure_context_service.py:268` | 5 | A |
-| 22 | `_group_identity` | function | `app/services/benchmark_exposure_context_service.py:299` | 5 | A |
-| 23 | `resolve_freshness_bucket` | function | `app/services/calculation_supportability_service.py:17` | 5 | A |
-| 24 | `_supportability_state_and_reason` | function | `app/services/calculation_supportability_service.py:37` | 5 | A |
-| 25 | `inspect_composite_twr_from_persisted_facts` | function | `app/services/composite_inspection_service.py:37` | 5 | A |
+| 1 | `_ensure_property_schema_documentation` | function | `app/openapi_enrichment.py:903` | 5 | A |
+| 2 | `_resolve_compute_job_result` | function | `app/services/async_result_service.py:44` | 5 | A |
+| 3 | `_async_result_record_payload_state` | function | `app/services/async_result_store.py:163` | 5 | A |
+| 4 | `build_attribution_execution_window` | function | `app/services/attribution_calculation_workflow_service.py:71` | 5 | A |
+| 5 | `calculate_attribution_workflow` | function | `app/services/attribution_calculation_workflow_service.py:214` | 5 | A |
+| 6 | `_portfolio_group_observation_dates` | function | `app/services/attribution_service.py:85` | 5 | A |
+| 7 | `_build_attribution_results_by_period` | function | `app/services/attribution_service.py:110` | 5 | A |
+| 8 | `_resolve_attribution_execution_window` | function | `app/services/attribution_service.py:186` | 5 | A |
+| 9 | `calculate_attribution` | function | `app/services/attribution_service.py:214` | 5 | A |
+| 10 | `_resolved_assignment_identity` | function | `app/services/benchmark_assignment_service.py:20` | 5 | A |
+| 11 | `calculate_benchmark_artifacts` | function | `app/services/benchmark_calculation_service.py:81` | 5 | A |
+| 12 | `_benchmark_period_result` | function | `app/services/benchmark_calculation_service.py:149` | 5 | A |
+| 13 | `_calculate_benchmark_return_from_slice` | function | `app/services/benchmark_calculation_service.py:190` | 5 | A |
+| 14 | `_group_benchmark_breakdown_rows` | function | `app/services/benchmark_calculation_service.py:227` | 5 | A |
+| 15 | `build_benchmark_exposure_context` | function | `app/services/benchmark_exposure_context_service.py:38` | 5 | A |
+| 16 | `_benchmark_id_from_assignment_response` | function | `app/services/benchmark_exposure_context_service.py:110` | 5 | A |
+| 17 | `_classification_map_for_request` | function | `app/services/benchmark_exposure_context_service.py:146` | 5 | A |
+| 18 | `_index_ids_for_component_series` | function | `app/services/benchmark_exposure_context_service.py:177` | 5 | A |
+| 19 | `_iter_component_exposure_points` | function | `app/services/benchmark_exposure_context_service.py:258` | 5 | A |
+| 20 | `_accumulate_exposure_point` | function | `app/services/benchmark_exposure_context_service.py:268` | 5 | A |
+| 21 | `_group_identity` | function | `app/services/benchmark_exposure_context_service.py:299` | 5 | A |
+| 22 | `resolve_freshness_bucket` | function | `app/services/calculation_supportability_service.py:17` | 5 | A |
+| 23 | `_supportability_state_and_reason` | function | `app/services/calculation_supportability_service.py:37` | 5 | A |
+| 24 | `inspect_composite_twr_from_persisted_facts` | function | `app/services/composite_inspection_service.py:37` | 5 | A |
+| 25 | `_upgrade_member_return_fact_schema` | method | `app/services/composite_metadata_store.py:112` | 5 | A |
 
 ## Lowest Maintainability Index
 
@@ -995,6 +995,9 @@ request-body example enrichment, and response default enrichment on a single doc
 schema iteration were split from schema documentation dispatch, with direct coverage for malformed
 component shapes, malformed schema maps, non-dict schema entries, and problem-detail schema
 insertion.
+`_ensure_model_schema_documentation` also dropped out after model-level schema metadata enrichment
+was split from property-documentation dispatch, with direct coverage for generated descriptions,
+generated enum descriptions, authored metadata preservation, and non-enum schemas.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.

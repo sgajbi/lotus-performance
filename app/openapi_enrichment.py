@@ -872,11 +872,7 @@ def _ensure_model_schema_documentation(
     model_schema: dict[str, Any],
     components: dict[str, Any],
 ) -> None:
-    if not model_schema.get("description"):
-        model_schema["description"] = _infer_schema_description(model_name, model_schema)
-    enum_descriptions = _infer_enum_descriptions(model_name, model_schema)
-    if enum_descriptions and "x-enum-descriptions" not in model_schema:
-        model_schema["x-enum-descriptions"] = enum_descriptions
+    _ensure_model_schema_metadata(model_name, model_schema)
 
     for prop_name, prop_schema in _iter_schema_properties(model_schema):
         _ensure_property_schema_documentation(
@@ -885,6 +881,14 @@ def _ensure_model_schema_documentation(
             prop_schema=prop_schema,
             components=components,
         )
+
+
+def _ensure_model_schema_metadata(model_name: str, model_schema: dict[str, Any]) -> None:
+    if not model_schema.get("description"):
+        model_schema["description"] = _infer_schema_description(model_name, model_schema)
+    enum_descriptions = _infer_enum_descriptions(model_name, model_schema)
+    if enum_descriptions and "x-enum-descriptions" not in model_schema:
+        model_schema["x-enum-descriptions"] = enum_descriptions
 
 
 def _iter_schema_properties(model_schema: dict[str, Any]) -> Iterator[tuple[str, dict[str, Any]]]:
