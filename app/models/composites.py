@@ -218,11 +218,23 @@ class CompositeMemberReturnFact(BaseModel):
 
     @model_validator(mode="after")
     def validate_fact(self) -> "CompositeMemberReturnFact":
-        if self.period_end < self.period_start:
+        if not _composite_member_return_period_valid(period_start=self.period_start, period_end=self.period_end):
             raise ValueError("period_end cannot be before period_start")
-        if self.status != CompositeMemberReturnStatus.READY and not self.reason_codes:
+        if not _composite_member_return_status_reason_valid(status=self.status, reason_codes=self.reason_codes):
             raise ValueError("reason_codes are required when member return status is not READY")
         return self
+
+
+def _composite_member_return_period_valid(*, period_start: dt_date, period_end: dt_date) -> bool:
+    return period_end >= period_start
+
+
+def _composite_member_return_status_reason_valid(
+    *,
+    status: CompositeMemberReturnStatus,
+    reason_codes: list[str],
+) -> bool:
+    return status == CompositeMemberReturnStatus.READY or bool(reason_codes)
 
 
 class CompositeTWRRequest(BaseModel):

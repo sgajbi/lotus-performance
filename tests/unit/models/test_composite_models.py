@@ -8,8 +8,11 @@ from pydantic import ValidationError
 from app.models.composites import (
     CompositeDefinition,
     CompositeMemberReturnFact,
+    CompositeMemberReturnStatus,
     CompositeMembership,
     CompositeMembershipStatus,
+    _composite_member_return_period_valid,
+    _composite_member_return_status_reason_valid,
     _composite_membership_status_reason_valid,
     _composite_membership_window_valid,
 )
@@ -92,6 +95,29 @@ def test_member_return_fact_requires_reason_codes_for_degraded_status():
 
     with pytest.raises(ValidationError, match="reason_codes are required"):
         CompositeMemberReturnFact.model_validate(payload)
+
+
+def test_member_return_fact_invariants_validate_period_and_status_reasons():
+    assert _composite_member_return_period_valid(
+        period_start=date(2026, 1, 1),
+        period_end=date(2026, 1, 31),
+    )
+    assert not _composite_member_return_period_valid(
+        period_start=date(2026, 2, 1),
+        period_end=date(2026, 1, 31),
+    )
+    assert _composite_member_return_status_reason_valid(
+        status=CompositeMemberReturnStatus.READY,
+        reason_codes=[],
+    )
+    assert _composite_member_return_status_reason_valid(
+        status=CompositeMemberReturnStatus.DEGRADED,
+        reason_codes=["missing_final_valuation"],
+    )
+    assert not _composite_member_return_status_reason_valid(
+        status=CompositeMemberReturnStatus.BLOCKED,
+        reason_codes=[],
+    )
 
 
 def test_member_return_fact_rejects_negative_assets():
