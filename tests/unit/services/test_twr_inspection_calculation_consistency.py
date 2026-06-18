@@ -11,6 +11,7 @@ from app.models.responses import (
 )
 from app.services.inspection.calculation_consistency import (
     _apply_daily_no_investment_period_status,
+    _check_benchmark_relative_pairing,
     _check_daily_breakdown_calculation_evidence,
     _check_period_calculation_consistency,
     _check_relative_breakdown_frequency,
@@ -97,6 +98,52 @@ def test_period_calculation_consistency_projects_relative_pairing_findings_and_c
         "scope": "relative_performance",
         "benchmark_present": False,
         "relative_performance_present": True,
+    }
+
+
+def test_benchmark_relative_pairing_policy_projects_presence_contracts():
+    benchmark_block = _analytics_block(
+        period="2026-03",
+        period_start=date(2026, 3, 1),
+        period_end=date(2026, 3, 31),
+        period_return=1.0,
+    )
+    relative_block = _analytics_block(
+        period="2026-03",
+        period_start=date(2026, 3, 1),
+        period_end=date(2026, 3, 31),
+        period_return=0.5,
+    )
+
+    assert (
+        _check_benchmark_relative_pairing(
+            period_name="YTD",
+            benchmark_block=benchmark_block,
+            relative_block=relative_block,
+        )
+        == []
+    )
+    assert (
+        _check_benchmark_relative_pairing(
+            period_name="YTD",
+            benchmark_block=None,
+            relative_block=None,
+        )
+        == []
+    )
+
+    findings = _check_benchmark_relative_pairing(
+        period_name="YTD",
+        benchmark_block=benchmark_block,
+        relative_block=None,
+    )
+
+    assert [finding.code for finding in findings] == ["BENCHMARK_RELATIVE_PERFORMANCE_BLOCK_MISSING"]
+    assert findings[0].evidence == {
+        "period": "YTD",
+        "scope": "benchmark",
+        "benchmark_present": True,
+        "relative_performance_present": False,
     }
 
 

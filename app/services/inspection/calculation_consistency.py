@@ -32,6 +32,14 @@ class PeriodCalculationConsistencyResult:
 
 
 @dataclass(frozen=True)
+class RelativePairingFindingContract:
+    code: str
+    scope: str
+    summary: str
+    evidence: dict[str, bool]
+
+
+@dataclass(frozen=True)
 class DailyEvidenceExpectedSemantics:
     linkability_status: str
     episode_status: str
@@ -52,6 +60,22 @@ class DailyEvidenceExpectedValues:
 class DailyEvidenceExpectedFlows:
     external_inflows: float
     external_outflows: float
+
+
+_RELATIVE_PAIRING_FINDING_CONTRACTS: dict[tuple[bool, bool], RelativePairingFindingContract] = {
+    (False, True): RelativePairingFindingContract(
+        code="RELATIVE_PERFORMANCE_BENCHMARK_BLOCK_MISSING",
+        scope="relative_performance",
+        summary="Relative-performance block is present without the benchmark block required to validate it.",
+        evidence={"benchmark_present": False, "relative_performance_present": True},
+    ),
+    (True, False): RelativePairingFindingContract(
+        code="BENCHMARK_RELATIVE_PERFORMANCE_BLOCK_MISSING",
+        scope="benchmark",
+        summary="Benchmark block is present without the relative-performance block required by the TWR benchmark contract.",
+        evidence={"benchmark_present": True, "relative_performance_present": False},
+    ),
+}
 
 
 def run_twr_calculation_consistency_checks(response: PerformanceResponse) -> CalculationConsistencyCheckResult:
@@ -153,29 +177,18 @@ def _check_benchmark_relative_pairing(
     benchmark_block: ComparativeAnalyticsBlock | None,
     relative_block: ComparativeAnalyticsBlock | None,
 ) -> list[TWRInspectionFinding]:
-    if benchmark_block is None and relative_block is None:
+    contract = _RELATIVE_PAIRING_FINDING_CONTRACTS.get((benchmark_block is not None, relative_block is not None))
+    if contract is None:
         return []
-    if benchmark_block is None:
-        return [
-            _build_finding(
-                code="RELATIVE_PERFORMANCE_BENCHMARK_BLOCK_MISSING",
-                period_name=period_name,
-                scope="relative_performance",
-                summary="Relative-performance block is present without the benchmark block required to validate it.",
-                evidence={"benchmark_present": False, "relative_performance_present": True},
-            )
-        ]
-    if relative_block is None:
-        return [
-            _build_finding(
-                code="BENCHMARK_RELATIVE_PERFORMANCE_BLOCK_MISSING",
-                period_name=period_name,
-                scope="benchmark",
-                summary="Benchmark block is present without the relative-performance block required by the TWR benchmark contract.",
-                evidence={"benchmark_present": True, "relative_performance_present": False},
-            )
-        ]
-    return []
+    return [
+        _build_finding(
+            code=contract.code,
+            period_name=period_name,
+            scope=contract.scope,
+            summary=contract.summary,
+            evidence=dict(contract.evidence),
+        )
+    ]
 
 
 def _check_relative_block(
