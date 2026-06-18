@@ -12,6 +12,7 @@ from app.models.responses import (
 from app.services.inspection.calculation_consistency import (
     _apply_daily_no_investment_period_status,
     _check_daily_breakdown_calculation_evidence,
+    _check_period_calculation_consistency,
     _check_relative_breakdown_frequency,
     _comparative_return_component_mismatch,
     _comparative_return_components_match,
@@ -66,6 +67,36 @@ def test_calculation_consistency_flags_relative_breakdown_bucket_alignment_misma
         "period": "2026-04",
         "period_start": "2026-04-01",
         "period_end": "2026-04-30",
+    }
+
+
+def test_period_calculation_consistency_projects_relative_pairing_findings_and_counters():
+    result = _check_period_calculation_consistency(
+        period_name="YTD",
+        portfolio_block=_analytics_block(
+            period="2026-03",
+            period_start=date(2026, 3, 1),
+            period_end=date(2026, 3, 31),
+            period_return=2.0,
+        ),
+        benchmark_block=None,
+        relative_block=_analytics_block(
+            period="2026-03",
+            period_start=date(2026, 3, 1),
+            period_end=date(2026, 3, 31),
+            period_return=1.0,
+        ),
+    )
+
+    assert result.linked_blocks_checked == 1
+    assert result.relative_rows_checked == 0
+    assert result.daily_evidence_rows_checked == 0
+    assert [finding.code for finding in result.findings] == ["RELATIVE_PERFORMANCE_BENCHMARK_BLOCK_MISSING"]
+    assert result.findings[0].evidence == {
+        "period": "YTD",
+        "scope": "relative_performance",
+        "benchmark_present": False,
+        "relative_performance_present": True,
     }
 
 

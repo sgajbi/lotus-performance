@@ -24,6 +24,14 @@ class CalculationConsistencyCheckResult:
 
 
 @dataclass(frozen=True)
+class PeriodCalculationConsistencyResult:
+    findings: list[TWRInspectionFinding]
+    linked_blocks_checked: int
+    relative_rows_checked: int
+    daily_evidence_rows_checked: int
+
+
+@dataclass(frozen=True)
 class DailyEvidenceExpectedSemantics:
     linkability_status: str
     episode_status: str
@@ -53,54 +61,16 @@ def run_twr_calculation_consistency_checks(response: PerformanceResponse) -> Cal
     daily_evidence_rows_checked = 0
 
     for period_name, period_result in response.results_by_period.items():
-        relative_block = period_result.relative_performance
-        portfolio_block = period_result.portfolio
-        benchmark_block = period_result.benchmark
-
-        findings.extend(
-            _check_benchmark_relative_pairing(
-                period_name=period_name,
-                benchmark_block=benchmark_block,
-                relative_block=relative_block,
-            )
-        )
-
-        if benchmark_block is not None and relative_block is not None:
-            relative_rows_checked += _count_breakdown_rows(relative_block)
-            findings.extend(
-                _check_relative_block(
-                    period_name=period_name,
-                    portfolio_block=portfolio_block,
-                    benchmark_block=benchmark_block,
-                    relative_block=relative_block,
-                )
-            )
-
-        linked_blocks_checked += 1
-        findings.extend(
-            _check_block_linking(
-                period_name=period_name,
-                block_name="portfolio",
-                owner_repo="lotus-performance",
-                analytics_block=portfolio_block,
-            )
-        )
-        evidence_result = _check_portfolio_daily_calculation_evidence(
+        period_consistency = _check_period_calculation_consistency(
             period_name=period_name,
-            portfolio_block=portfolio_block,
+            portfolio_block=period_result.portfolio,
+            benchmark_block=period_result.benchmark,
+            relative_block=period_result.relative_performance,
         )
-        daily_evidence_rows_checked += evidence_result[0]
-        findings.extend(evidence_result[1])
-        if benchmark_block is not None:
-            linked_blocks_checked += 1
-            findings.extend(
-                _check_block_linking(
-                    period_name=period_name,
-                    block_name="benchmark",
-                    owner_repo="lotus-performance",
-                    analytics_block=benchmark_block,
-                )
-            )
+        findings.extend(period_consistency.findings)
+        linked_blocks_checked += period_consistency.linked_blocks_checked
+        relative_rows_checked += period_consistency.relative_rows_checked
+        daily_evidence_rows_checked += period_consistency.daily_evidence_rows_checked
 
     return CalculationConsistencyCheckResult(
         findings=findings,
@@ -111,6 +81,65 @@ def run_twr_calculation_consistency_checks(response: PerformanceResponse) -> Cal
             "daily_calculation_evidence_rows_checked": daily_evidence_rows_checked,
             "consistency_findings": len(findings),
         },
+    )
+
+
+def _check_period_calculation_consistency(
+    *,
+    period_name: str,
+    portfolio_block: ComparativeAnalyticsBlock,
+    benchmark_block: ComparativeAnalyticsBlock | None,
+    relative_block: ComparativeAnalyticsBlock | None,
+) -> PeriodCalculationConsistencyResult:
+    findings = _check_benchmark_relative_pairing(
+        period_name=period_name,
+        benchmark_block=benchmark_block,
+        relative_block=relative_block,
+    )
+    linked_blocks_checked = 1
+    relative_rows_checked = 0
+
+    if benchmark_block is not None and relative_block is not None:
+        relative_rows_checked = _count_breakdown_rows(relative_block)
+        findings.extend(
+            _check_relative_block(
+                period_name=period_name,
+                portfolio_block=portfolio_block,
+                benchmark_block=benchmark_block,
+                relative_block=relative_block,
+            )
+        )
+
+    findings.extend(
+        _check_block_linking(
+            period_name=period_name,
+            block_name="portfolio",
+            owner_repo="lotus-performance",
+            analytics_block=portfolio_block,
+        )
+    )
+    evidence_rows_checked, evidence_findings = _check_portfolio_daily_calculation_evidence(
+        period_name=period_name,
+        portfolio_block=portfolio_block,
+    )
+    findings.extend(evidence_findings)
+
+    if benchmark_block is not None:
+        linked_blocks_checked += 1
+        findings.extend(
+            _check_block_linking(
+                period_name=period_name,
+                block_name="benchmark",
+                owner_repo="lotus-performance",
+                analytics_block=benchmark_block,
+            )
+        )
+
+    return PeriodCalculationConsistencyResult(
+        findings=findings,
+        linked_blocks_checked=linked_blocks_checked,
+        relative_rows_checked=relative_rows_checked,
+        daily_evidence_rows_checked=evidence_rows_checked,
     )
 
 
