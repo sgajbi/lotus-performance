@@ -329,6 +329,54 @@ def test_attribution_input_count_supports_legacy_stateless_fields_and_stateful_z
     assert attribution_calculation_workflow_service.attribution_input_count(stateful_request) == 0
 
 
+def test_attribution_execution_window_optional_metadata_filters_absent_values():
+    assert attribution_calculation_workflow_service._attribution_execution_window_optional_metadata() == {}
+    assert attribution_calculation_workflow_service._attribution_execution_window_optional_metadata(
+        source_request_fingerprint="src-fingerprint",
+        benchmark_id="BMK_1",
+        benchmark_return_source="calculated",
+    ) == {
+        "source_request_fingerprint": "src-fingerprint",
+        "benchmark_id": "BMK_1",
+        "benchmark_return_source": "calculated",
+    }
+
+
+def test_build_attribution_execution_window_merges_optional_metadata():
+    request = AttributionRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "mode": "by_group",
+            "group_by": ["sector"],
+            "benchmark_groups_data": [{"key": {"sector": "Tech"}, "observations": []}],
+        }
+    )
+
+    window = attribution_calculation_workflow_service.build_attribution_execution_window(
+        request,
+        input_count=1,
+        source_request_fingerprint="src-fingerprint",
+        benchmark_id="BMK_1",
+        benchmark_return_source="calculated",
+    )
+
+    assert window == {
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-02",
+        "requested_periods": ["ITD"],
+        "input_count": 1,
+        "mode": "by_group",
+        "group_by": ["sector"],
+        "input_mode": "stateless",
+        "source_request_fingerprint": "src-fingerprint",
+        "benchmark_id": "BMK_1",
+        "benchmark_return_source": "calculated",
+    }
+
+
 def test_finalize_resolved_stateful_attribution_execution_preserves_resolved_identity(mocker):
     request = performance_endpoint.AttributionAnalyticsRequest.model_validate(
         {

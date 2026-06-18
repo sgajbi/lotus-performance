@@ -85,13 +85,30 @@ def build_attribution_execution_window(
         "group_by": request.group_by,
         "input_mode": getattr(request, "input_mode", AttributionInputMode.STATELESS).value,
     }
-    if source_request_fingerprint is not None:
-        requested_window["source_request_fingerprint"] = source_request_fingerprint
-    if benchmark_id is not None:
-        requested_window["benchmark_id"] = benchmark_id
-    if benchmark_return_source is not None:
-        requested_window["benchmark_return_source"] = benchmark_return_source
+    requested_window.update(
+        _attribution_execution_window_optional_metadata(
+            source_request_fingerprint=source_request_fingerprint,
+            benchmark_id=benchmark_id,
+            benchmark_return_source=benchmark_return_source,
+        )
+    )
     return requested_window
+
+
+def _attribution_execution_window_optional_metadata(
+    *,
+    source_request_fingerprint: str | None = None,
+    benchmark_id: str | None = None,
+    benchmark_return_source: str | None = None,
+) -> dict[str, object]:
+    optional_metadata: dict[str, object] = {}
+    if source_request_fingerprint is not None:
+        optional_metadata["source_request_fingerprint"] = source_request_fingerprint
+    if benchmark_id is not None:
+        optional_metadata["benchmark_id"] = benchmark_id
+    if benchmark_return_source is not None:
+        optional_metadata["benchmark_return_source"] = benchmark_return_source
+    return optional_metadata
 
 
 def _finalize_resolved_stateful_attribution_execution(
