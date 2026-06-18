@@ -16,6 +16,7 @@ from app.services.benchmark_exposure_context_service import (
     _benchmark_id_from_assignment_payload,
     _benchmark_id_from_assignment_response,
     _build_exposure_rows,
+    _classification_group_for_dimension,
     _classification_labels_from_catalog_record,
     _classification_map_from_catalog_payload,
     _classification_map_from_catalog_records,
@@ -612,6 +613,16 @@ def test_group_identity_projects_position_and_classification_labels() -> None:
         grouping_dimension=BenchmarkExposureGroupingDimension.ASSET_CLASS,
         classification_map=classification_map,
     ) == ("ASSET_CLASS_Equity", "Equity", None)
+
+
+def test_classification_group_for_dimension_maps_only_classification_groups() -> None:
+    assert _classification_group_for_dimension(BenchmarkExposureGroupingDimension.SECTOR) == ("sector", "SECTOR")
+    assert _classification_group_for_dimension(BenchmarkExposureGroupingDimension.ASSET_CLASS) == (
+        "asset_class",
+        "ASSET_CLASS",
+    )
+    assert _classification_group_for_dimension(BenchmarkExposureGroupingDimension.POSITION) is None
+    assert _classification_group_for_dimension(BenchmarkExposureGroupingDimension.ISSUER) is None
 
 
 def test_page_rows_rejects_invalid_page_token_inputs() -> None:

@@ -342,19 +342,14 @@ def _group_identity(
 ) -> tuple[str, str, str | None]:
     if grouping_dimension == BenchmarkExposureGroupingDimension.POSITION:
         return index_id, index_id, index_id
-    if grouping_dimension == BenchmarkExposureGroupingDimension.SECTOR:
+    classification_group = _classification_group_for_dimension(grouping_dimension)
+    if classification_group is not None:
+        label_key, group_prefix = classification_group
         return _classification_group_identity(
             index_id=index_id,
             classification_map=classification_map,
-            label_key="sector",
-            group_prefix="SECTOR",
-        )
-    if grouping_dimension == BenchmarkExposureGroupingDimension.ASSET_CLASS:
-        return _classification_group_identity(
-            index_id=index_id,
-            classification_map=classification_map,
-            label_key="asset_class",
-            group_prefix="ASSET_CLASS",
+            label_key=label_key,
+            group_prefix=group_prefix,
         )
     if grouping_dimension == BenchmarkExposureGroupingDimension.ISSUER:
         return _issuer_group_identity(index_id=index_id, classification_map=classification_map)
@@ -362,6 +357,16 @@ def _group_identity(
         status_code=HTTP_422_UNPROCESSABLE,
         detail=f"benchmark exposure context does not yet support grouping_dimension={grouping_dimension.value}",
     )
+
+
+def _classification_group_for_dimension(
+    grouping_dimension: BenchmarkExposureGroupingDimension,
+) -> tuple[str, str] | None:
+    if grouping_dimension == BenchmarkExposureGroupingDimension.SECTOR:
+        return "sector", "SECTOR"
+    if grouping_dimension == BenchmarkExposureGroupingDimension.ASSET_CLASS:
+        return "asset_class", "ASSET_CLASS"
+    return None
 
 
 def _classification_group_identity(
