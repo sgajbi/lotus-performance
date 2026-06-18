@@ -10,6 +10,7 @@ from engine.compute import (
     _build_reporting_results,
     _build_reset_events,
     _coerce_engine_numeric_columns,
+    _ensure_engine_schema_columns,
     run_calculations,
 )
 from engine.config import EngineConfig, PeriodType, PrecisionMode
@@ -128,6 +129,39 @@ def test_coerce_engine_numeric_columns_uses_standard_zero_for_invalid_values():
 
     assert df[PortfolioColumns.BEGIN_MV.value].tolist() == [100.25, 0.0]
     assert df[PortfolioColumns.END_MV.value].tolist() == [101.50, 0.0]
+
+
+def test_ensure_engine_schema_columns_uses_standard_defaults_and_generated_columns():
+    config = EngineConfig(
+        performance_start_date=date(2025, 1, 1),
+        report_end_date=date(2025, 1, 1),
+        metric_basis="NET",
+        period_type=PeriodType.YTD,
+    )
+    df = pd.DataFrame({PortfolioColumns.PERF_DATE.value: [pd.Timestamp("2025-01-01")]})
+
+    _ensure_engine_schema_columns(df, config)
+
+    assert df[PortfolioColumns.BEGIN_MV.value].tolist() == [0.0]
+    assert df[PortfolioColumns.PERF_RESET.value].tolist() == [0]
+    assert df[PortfolioColumns.LONG_SHORT.value].tolist() == [""]
+    assert PortfolioColumns.EFFECTIVE_PERIOD_START_DATE.value not in df.columns
+
+
+def test_ensure_engine_schema_columns_uses_decimal_strict_defaults():
+    config = EngineConfig(
+        performance_start_date=date(2025, 1, 1),
+        report_end_date=date(2025, 1, 1),
+        metric_basis="NET",
+        period_type=PeriodType.YTD,
+        precision_mode=PrecisionMode.DECIMAL_STRICT,
+    )
+    df = pd.DataFrame({PortfolioColumns.PERF_DATE.value: [pd.Timestamp("2025-01-01")]})
+
+    _ensure_engine_schema_columns(df, config)
+
+    assert df[PortfolioColumns.BEGIN_MV.value].tolist() == [Decimal(0)]
+    assert df[PortfolioColumns.END_MV.value].tolist() == [Decimal(0)]
 
 
 def test_run_calculations_does_not_mutate_caller_dataframe():

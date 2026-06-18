@@ -17,6 +17,11 @@ from engine.schema import PortfolioColumns
 
 logger = logging.getLogger(__name__)
 
+_ENGINE_GENERATED_COLUMNS = {
+    PortfolioColumns.LONG_SHORT.value,
+    PortfolioColumns.EFFECTIVE_PERIOD_START_DATE.value,
+}
+
 
 def run_calculations(df: pd.DataFrame, config: EngineConfig) -> Tuple[pd.DataFrame, EngineDiagnostics]:
     """
@@ -173,12 +178,15 @@ def _prepare_dataframe(df: pd.DataFrame, config: EngineConfig):
     if df[PortfolioColumns.PERF_DATE.value].isnull().any():
         raise InvalidEngineInputError("One or more 'perf_date' values are invalid or missing.")
 
+    _ensure_engine_schema_columns(df, config)
+
+
+def _ensure_engine_schema_columns(df: pd.DataFrame, config: EngineConfig) -> None:
+    default_value = Decimal(0) if config.precision_mode == PrecisionMode.DECIMAL_STRICT else 0.0
     for col in PortfolioColumns:
-        if col.value not in df.columns and col.value not in [
-            PortfolioColumns.LONG_SHORT.value,
-            PortfolioColumns.EFFECTIVE_PERIOD_START_DATE.value,
-        ]:
-            df[col.value] = Decimal(0) if config.precision_mode == PrecisionMode.DECIMAL_STRICT else 0.0
+        if col.value in df.columns or col.value in _ENGINE_GENERATED_COLUMNS:
+            continue
+        df[col.value] = default_value
     df[PortfolioColumns.PERF_RESET.value] = 0
     df[PortfolioColumns.LONG_SHORT.value] = ""
 
