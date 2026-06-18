@@ -218,6 +218,21 @@ def _calculate_promotion_ready_rate_bp(*, ready_periods: int, material_periods: 
     return round((ready_periods / material_periods) * 10000)
 
 
+def _classify_material_average_weight_methodology_status(
+    *,
+    is_cutover_candidate: bool,
+    is_promoted: bool,
+    blocker_reason_codes: set[str],
+) -> str:
+    if is_promoted:
+        return "PROMOTED"
+    if is_cutover_candidate:
+        return "PROMOTION_READY"
+    if blocker_reason_codes:
+        return "BLOCKED"
+    return "UNDER_REVIEW"
+
+
 def _classify_average_weight_methodology_status(
     *,
     max_shadow_delta_bp: int,
@@ -228,13 +243,11 @@ def _classify_average_weight_methodology_status(
     """Classifies the per-period reset-aware average-weight rollout state."""
     if max_shadow_delta_bp < 500:
         return "NO_MATERIAL_SHADOW"
-    if is_promoted:
-        return "PROMOTED"
-    if is_cutover_candidate:
-        return "PROMOTION_READY"
-    if blocker_reason_codes:
-        return "BLOCKED"
-    return "UNDER_REVIEW"
+    return _classify_material_average_weight_methodology_status(
+        is_cutover_candidate=is_cutover_candidate,
+        is_promoted=is_promoted,
+        blocker_reason_codes=blocker_reason_codes,
+    )
 
 
 def _build_average_weight_methodology_status(

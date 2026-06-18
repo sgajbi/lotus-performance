@@ -39,6 +39,7 @@ from app.services.contribution_methodology import (
     _classify_average_weight_methodology_status,
     _classify_average_weight_shadow_cutover_blockers,
     _classify_average_weight_shadow_period,
+    _classify_material_average_weight_methodology_status,
     _has_clean_average_weight_shadow_bookkeeping,
     _is_average_weight_shadow_cutover_candidate,
     _normalize_reset_aware_average_weight_mode,
@@ -1335,6 +1336,14 @@ def test_average_weight_shadow_helper_classifies_materiality_and_cutover_readine
             blocker_reason_codes=set(),
         )
         == "NO_MATERIAL_SHADOW"
+    )
+    assert (
+        _classify_material_average_weight_methodology_status(
+            is_cutover_candidate=False,
+            is_promoted=True,
+            blocker_reason_codes={"flow_balance"},
+        )
+        == "PROMOTED"
     )
     response_status = _build_average_weight_methodology_status(
         max_shadow_delta_bp=600,
