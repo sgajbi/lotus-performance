@@ -55,10 +55,7 @@ def run_calculations(df: pd.DataFrame, config: EngineConfig) -> Tuple[pd.DataFra
 
         reset_events = _build_reset_events(working_df)
 
-        final_df = _filter_results_to_reporting_period(working_df, config)
-
-        if config.precision_mode != PrecisionMode.DECIMAL_STRICT:
-            _round_float_columns(final_df, config.rounding_precision)
+        final_df = _build_reporting_results(working_df, config)
 
         diagnostics = _build_engine_diagnostics(
             working_df=working_df,
@@ -158,6 +155,15 @@ def _build_engine_diagnostics(
     )
     diagnostics.samples.methodology_shadows.extend(_build_methodology_shadow_samples(final_df))
     return diagnostics
+
+
+def _build_reporting_results(working_df: pd.DataFrame, config: EngineConfig) -> pd.DataFrame:
+    final_df = _filter_results_to_reporting_period(working_df, config)
+
+    if config.precision_mode != PrecisionMode.DECIMAL_STRICT:
+        _round_float_columns(final_df, config.rounding_precision)
+
+    return final_df
 
 
 def _prepare_dataframe(df: pd.DataFrame, config: EngineConfig):

@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
-Report date: 2026-06-17
-Branch: `refactor/lp-cr-1167-inspection-verdict-policy`
+Report date: 2026-06-18
+Branch: `refactor/lp-cr-1251-composite-twr-period-flow`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
@@ -38,31 +38,31 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `run_calculations` | function | `engine/compute.py:21` | 6 | B |
-| 2 | `_prepare_dataframe` | function | `engine/compute.py:163` | 6 | B |
-| 3 | `_apply_position_fx_capital_conversion` | function | `engine/contribution.py:256` | 6 | B |
-| 4 | `_net_same_day_flows` | function | `engine/mwr.py:21` | 6 | B |
-| 5 | `_dietz_denominator` | function | `engine/mwr.py:310` | 6 | B |
-| 6 | `_calculate_xirr_mwr_attempt` | function | `engine/mwr.py:345` | 6 | B |
-| 7 | `_extract_policy_inputs` | function | `engine/policies.py:24` | 6 | B |
-| 8 | `_apply_overrides` | function | `engine/policies.py:38` | 6 | B |
-| 9 | `_flag_outliers` | function | `engine/policies.py:124` | 6 | B |
-| 10 | `_apply_hedging_to_fx_return` | function | `engine/ror.py:150` | 6 | B |
-| 11 | `calculate_sod_reset_reason` | function | `engine/rules.py:164` | 6 | B |
-| 12 | `health_ready` | function | `app/api/endpoints/health.py:41` | 5 | A |
-| 13 | `get_twr_inspection_artifact` | function | `app/api/endpoints/inspections.py:174` | 5 | A |
-| 14 | `_load_and_validate_manifest` | function | `app/api/endpoints/lineage.py:27` | 5 | A |
-| 15 | `resolve_operator_request_context` | function | `app/api/operator_context.py:15` | 5 | A |
-| 16 | `_normalized_capability_rule_override` | function | `app/enterprise_capability_rules.py:79` | 5 | A |
-| 17 | `_stateless_input_envelope_issue` | function | `app/models/attribution_analytics_requests.py:294` | 5 | A |
-| 18 | `_validate_benchmark_analysis_selection` | function | `app/models/benchmark_analytics_requests.py:142` | 5 | A |
-| 19 | `_validate_benchmark_analysis_window` | function | `app/models/benchmark_requests.py:48` | 5 | A |
-| 20 | `CompositeMemberReturnFact` | class | `app/models/composites.py:159` | 5 | A |
-| 21 | `_stateless_contribution_envelope_issue` | function | `app/models/contribution_analytics_requests.py:74` | 5 | A |
-| 22 | `_resolved_stateless_contribution_inputs` | function | `app/models/contribution_analytics_requests.py:95` | 5 | A |
-| 23 | `build_execution_response` | function | `app/models/execution_polling.py:239` | 5 | A |
-| 24 | `TWRInspectionRequest` | class | `app/models/inspection_requests.py:64` | 5 | A |
-| 25 | `_stateless_mwr_envelope_issue` | function | `app/models/mwr_analytics_requests.py:67` | 5 | A |
+| 1 | `_prepare_dataframe` | function | `engine/compute.py:169` | 6 | B |
+| 2 | `_apply_position_fx_capital_conversion` | function | `engine/contribution.py:256` | 6 | B |
+| 3 | `_net_same_day_flows` | function | `engine/mwr.py:21` | 6 | B |
+| 4 | `_dietz_denominator` | function | `engine/mwr.py:310` | 6 | B |
+| 5 | `_calculate_xirr_mwr_attempt` | function | `engine/mwr.py:345` | 6 | B |
+| 6 | `_extract_policy_inputs` | function | `engine/policies.py:24` | 6 | B |
+| 7 | `_apply_overrides` | function | `engine/policies.py:38` | 6 | B |
+| 8 | `_flag_outliers` | function | `engine/policies.py:124` | 6 | B |
+| 9 | `_apply_hedging_to_fx_return` | function | `engine/ror.py:150` | 6 | B |
+| 10 | `calculate_sod_reset_reason` | function | `engine/rules.py:164` | 6 | B |
+| 11 | `health_ready` | function | `app/api/endpoints/health.py:41` | 5 | A |
+| 12 | `get_twr_inspection_artifact` | function | `app/api/endpoints/inspections.py:174` | 5 | A |
+| 13 | `_load_and_validate_manifest` | function | `app/api/endpoints/lineage.py:27` | 5 | A |
+| 14 | `resolve_operator_request_context` | function | `app/api/operator_context.py:15` | 5 | A |
+| 15 | `_normalized_capability_rule_override` | function | `app/enterprise_capability_rules.py:79` | 5 | A |
+| 16 | `_stateless_input_envelope_issue` | function | `app/models/attribution_analytics_requests.py:294` | 5 | A |
+| 17 | `_validate_benchmark_analysis_selection` | function | `app/models/benchmark_analytics_requests.py:142` | 5 | A |
+| 18 | `_validate_benchmark_analysis_window` | function | `app/models/benchmark_requests.py:48` | 5 | A |
+| 19 | `CompositeMemberReturnFact` | class | `app/models/composites.py:159` | 5 | A |
+| 20 | `_stateless_contribution_envelope_issue` | function | `app/models/contribution_analytics_requests.py:74` | 5 | A |
+| 21 | `_resolved_stateless_contribution_inputs` | function | `app/models/contribution_analytics_requests.py:95` | 5 | A |
+| 22 | `build_execution_response` | function | `app/models/execution_polling.py:239` | 5 | A |
+| 23 | `TWRInspectionRequest` | class | `app/models/inspection_requests.py:64` | 5 | A |
+| 24 | `_stateless_mwr_envelope_issue` | function | `app/models/mwr_analytics_requests.py:67` | 5 | A |
+| 25 | `_validate_stateful_mwr_payloads` | function | `app/models/mwr_analytics_requests.py:75` | 5 | A |
 
 ## Lowest Maintainability Index
 
