@@ -40,6 +40,7 @@ from app.services.contribution_methodology import (
     _classify_average_weight_shadow_cutover_blockers,
     _classify_average_weight_shadow_period,
     _classify_material_average_weight_methodology_status,
+    _has_clean_average_weight_reset_alignment,
     _has_clean_average_weight_shadow_bookkeeping,
     _is_average_weight_shadow_cutover_candidate,
     _normalize_reset_aware_average_weight_mode,
@@ -1354,6 +1355,21 @@ def test_average_weight_shadow_helper_classifies_materiality_and_cutover_readine
     assert response_status.status == "BLOCKED"
     assert response_status.is_material_shadow
     assert response_status.blocker_reason_codes == ["flow_balance", "timeseries_reconciliation"]
+
+
+def test_average_weight_reset_alignment_helper_requires_both_directions_clean():
+    assert _has_clean_average_weight_reset_alignment(
+        portfolio_reset_without_position_reset_days=0,
+        position_reset_without_portfolio_reset_days=0,
+    )
+    assert not _has_clean_average_weight_reset_alignment(
+        portfolio_reset_without_position_reset_days=1,
+        position_reset_without_portfolio_reset_days=0,
+    )
+    assert not _has_clean_average_weight_reset_alignment(
+        portfolio_reset_without_position_reset_days=0,
+        position_reset_without_portfolio_reset_days=1,
+    )
 
 
 def test_build_hierarchy_from_adjusted_position_series_handles_empty_and_unclassified_paths():
