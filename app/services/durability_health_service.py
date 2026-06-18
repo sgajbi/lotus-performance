@@ -5,7 +5,7 @@ import os
 import shutil
 import tempfile
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
 
 from app.core.config import get_settings
 from app.services.execution_registry import get_execution_registry
@@ -75,13 +75,34 @@ def check_lineage_storage_ready() -> DurabilityHealthStatus:
 
 
 def _lineage_storage_path_unavailable_status(storage_path: Any) -> DurabilityHealthStatus | None:
-    if not storage_path or not os.path.exists(storage_path):
-        return _unavailable_status("lineage_storage_path_missing")
-    if not os.path.isdir(storage_path):
-        return _unavailable_status("lineage_storage_path_invalid")
-    if not os.access(storage_path, os.R_OK | os.W_OK | os.X_OK):
-        return _unavailable_status("lineage_storage_path_unreadable")
+    failure_reason = _lineage_storage_path_failure_reason(storage_path)
+    if failure_reason is not None:
+        return _unavailable_status(failure_reason)
     return None
+
+
+def _lineage_storage_path_failure_reason(storage_path: Any) -> str | None:
+    path_failure_checks: tuple[tuple[str, Callable[[Any], bool]], ...] = (
+        ("lineage_storage_path_missing", _is_missing_lineage_storage_path),
+        ("lineage_storage_path_invalid", _is_invalid_lineage_storage_path),
+        ("lineage_storage_path_unreadable", _is_unreadable_lineage_storage_path),
+    )
+    for reason, is_failure in path_failure_checks:
+        if is_failure(storage_path):
+            return reason
+    return None
+
+
+def _is_missing_lineage_storage_path(storage_path: Any) -> bool:
+    return not storage_path or not os.path.exists(storage_path)
+
+
+def _is_invalid_lineage_storage_path(storage_path: Any) -> bool:
+    return not os.path.isdir(storage_path)
+
+
+def _is_unreadable_lineage_storage_path(storage_path: Any) -> bool:
+    return not os.access(storage_path, os.R_OK | os.W_OK | os.X_OK)
 
 
 def get_lineage_storage_capacity() -> LineageStorageCapacitySnapshot:

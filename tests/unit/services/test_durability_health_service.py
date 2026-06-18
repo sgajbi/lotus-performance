@@ -197,6 +197,21 @@ def test_lineage_storage_path_status_accepts_readable_directory(tmp_path):
     assert durability_health_service._lineage_storage_path_unavailable_status(tmp_path) is None
 
 
+def test_lineage_storage_path_failure_reason_classifies_path_states(monkeypatch, tmp_path):
+    file_path = tmp_path / "not-a-directory"
+    file_path.write_text("x", encoding="utf-8")
+
+    assert (
+        durability_health_service._lineage_storage_path_failure_reason(tmp_path / "missing")
+        == "lineage_storage_path_missing"
+    )
+    assert durability_health_service._lineage_storage_path_failure_reason(file_path) == "lineage_storage_path_invalid"
+
+    monkeypatch.setattr(durability_health_service.os, "access", lambda *args: False)
+
+    assert durability_health_service._lineage_storage_path_failure_reason(tmp_path) == "lineage_storage_path_unreadable"
+
+
 def test_lineage_storage_health_skips_write_probe_when_disabled(monkeypatch, tmp_path):
     monkeypatch.setattr(
         durability_health_service,
