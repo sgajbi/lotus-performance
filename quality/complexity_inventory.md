@@ -38,31 +38,31 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `build_contribution_source_economics_evidence` | function | `app/services/contribution_source_economics.py:26` | 5 | A |
-| 2 | `_stateful_cash_flow_economics` | function | `app/services/contribution_source_economics.py:117` | 5 | A |
-| 3 | `_stateful_reason_codes` | function | `app/services/contribution_source_economics.py:178` | 5 | A |
-| 4 | `_source_cash_flow_type_counts` | function | `app/services/contribution_source_economics.py:205` | 5 | A |
-| 5 | `_has_non_zero_flow` | function | `app/services/contribution_source_economics.py:240` | 5 | A |
-| 6 | `get_index_catalog` | method | `app/services/core_integration_service.py:218` | 5 | A |
-| 7 | `_lineage_storage_path_unavailable_status` | function | `app/services/durability_health_service.py:77` | 5 | A |
-| 8 | `_probe_lineage_storage_write` | function | `app/services/durability_health_service.py:119` | 5 | A |
-| 9 | `register_execution` | method | `app/services/execution_registry.py:354` | 5 | A |
-| 10 | `get_execution` | method | `app/services/execution_registry.py:524` | 5 | A |
-| 11 | `run_twr_calculation_consistency_checks` | function | `app/services/inspection/calculation_consistency.py:49` | 5 | A |
-| 12 | `_check_benchmark_relative_pairing` | function | `app/services/inspection/calculation_consistency.py:121` | 5 | A |
-| 13 | `_check_relative_breakdown_item` | function | `app/services/inspection/calculation_consistency.py:274` | 5 | A |
-| 14 | `_check_block_linking` | function | `app/services/inspection/calculation_consistency.py:353` | 5 | A |
-| 15 | `_expected_daily_external_flows` | function | `app/services/inspection/calculation_consistency.py:453` | 5 | A |
-| 16 | `_daily_calculation_evidence_mismatches` | function | `app/services/inspection/calculation_consistency.py:467` | 5 | A |
-| 17 | `_daily_evidence_semantic_mismatches` | function | `app/services/inspection/calculation_consistency.py:525` | 5 | A |
-| 18 | `_expected_daily_capital_linkability_status` | function | `app/services/inspection/calculation_consistency.py:584` | 5 | A |
-| 19 | `_expected_daily_period_statuses` | function | `app/services/inspection/calculation_consistency.py:608` | 5 | A |
-| 20 | `_add_daily_market_event_reason_codes` | function | `app/services/inspection/calculation_consistency.py:640` | 5 | A |
-| 21 | `_expected_daily_return_linkability_status` | function | `app/services/inspection/calculation_consistency.py:651` | 5 | A |
-| 22 | `_comparative_return_components_match` | function | `app/services/inspection/calculation_consistency.py:740` | 5 | A |
-| 23 | `_subtract_return_values` | function | `app/services/inspection/calculation_consistency.py:752` | 5 | A |
-| 24 | `_select_latest_position_rows` | function | `app/services/inspection/reconciliation.py:467` | 5 | A |
-| 25 | `_find_mixed_epoch_dates` | function | `app/services/inspection/reconciliation.py:503` | 5 | A |
+| 1 | `_stateful_cash_flow_economics` | function | `app/services/contribution_source_economics.py:127` | 5 | A |
+| 2 | `_stateful_reason_codes` | function | `app/services/contribution_source_economics.py:188` | 5 | A |
+| 3 | `_source_cash_flow_type_counts` | function | `app/services/contribution_source_economics.py:215` | 5 | A |
+| 4 | `_has_non_zero_flow` | function | `app/services/contribution_source_economics.py:250` | 5 | A |
+| 5 | `get_index_catalog` | method | `app/services/core_integration_service.py:218` | 5 | A |
+| 6 | `_lineage_storage_path_unavailable_status` | function | `app/services/durability_health_service.py:77` | 5 | A |
+| 7 | `_probe_lineage_storage_write` | function | `app/services/durability_health_service.py:119` | 5 | A |
+| 8 | `register_execution` | method | `app/services/execution_registry.py:354` | 5 | A |
+| 9 | `get_execution` | method | `app/services/execution_registry.py:524` | 5 | A |
+| 10 | `run_twr_calculation_consistency_checks` | function | `app/services/inspection/calculation_consistency.py:49` | 5 | A |
+| 11 | `_check_benchmark_relative_pairing` | function | `app/services/inspection/calculation_consistency.py:121` | 5 | A |
+| 12 | `_check_relative_breakdown_item` | function | `app/services/inspection/calculation_consistency.py:274` | 5 | A |
+| 13 | `_check_block_linking` | function | `app/services/inspection/calculation_consistency.py:353` | 5 | A |
+| 14 | `_expected_daily_external_flows` | function | `app/services/inspection/calculation_consistency.py:453` | 5 | A |
+| 15 | `_daily_calculation_evidence_mismatches` | function | `app/services/inspection/calculation_consistency.py:467` | 5 | A |
+| 16 | `_daily_evidence_semantic_mismatches` | function | `app/services/inspection/calculation_consistency.py:525` | 5 | A |
+| 17 | `_expected_daily_capital_linkability_status` | function | `app/services/inspection/calculation_consistency.py:584` | 5 | A |
+| 18 | `_expected_daily_period_statuses` | function | `app/services/inspection/calculation_consistency.py:608` | 5 | A |
+| 19 | `_add_daily_market_event_reason_codes` | function | `app/services/inspection/calculation_consistency.py:640` | 5 | A |
+| 20 | `_expected_daily_return_linkability_status` | function | `app/services/inspection/calculation_consistency.py:651` | 5 | A |
+| 21 | `_comparative_return_components_match` | function | `app/services/inspection/calculation_consistency.py:740` | 5 | A |
+| 22 | `_subtract_return_values` | function | `app/services/inspection/calculation_consistency.py:752` | 5 | A |
+| 23 | `_select_latest_position_rows` | function | `app/services/inspection/reconciliation.py:467` | 5 | A |
+| 24 | `_find_mixed_epoch_dates` | function | `app/services/inspection/reconciliation.py:503` | 5 | A |
+| 25 | `_collect_position_continuity_gap_samples` | function | `app/services/inspection/reconciliation.py:551` | 5 | A |
 
 ## Lowest Maintainability Index
 

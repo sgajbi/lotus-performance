@@ -47,6 +47,17 @@ def build_contribution_source_economics_evidence(
             lineage_policy="caller-supplied stateless payload; no upstream source snapshot is available",
         )
 
+    return _stateful_source_economics_evidence(
+        request=request,
+        upstream_snapshots=upstream_snapshots,
+    )
+
+
+def _stateful_source_economics_evidence(
+    *,
+    request: ContributionRequest,
+    upstream_snapshots: list[UpstreamSnapshotRecord],
+) -> ContributionSourceEconomicsEvidence:
     cash_flow_type_counts = _cash_flow_type_counts(request)
     available_economics = _available_stateful_economics(request, cash_flow_type_counts)
     unsupported_economics = _unsupported_component_pnl_fields(request)
@@ -62,7 +73,6 @@ def build_contribution_source_economics_evidence(
     )
     status: Literal["SOURCE_BACKED", "SOURCE_LIMITED"]
     status = "SOURCE_LIMITED" if degraded_economics or unsupported_economics else "SOURCE_BACKED"
-
     return ContributionSourceEconomicsEvidence(
         input_mode="stateful",
         source_owner="lotus-core",

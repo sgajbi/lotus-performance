@@ -17,6 +17,7 @@ from app.services.contribution_source_economics import (
     _source_cash_flow_type_counts,
     _stateful_cash_flow_economics,
     _stateful_metadata_economics,
+    _stateful_source_economics_evidence,
     build_contribution_source_economics_evidence,
 )
 from app.services.execution_registry import UpstreamSnapshotRecord
@@ -98,6 +99,43 @@ def test_source_economics_evidence_preserves_source_rich_stateful_contract():
     assert evidence.source_snapshot_endpoints == ["portfolio_timeseries", "position_timeseries"]
     assert "COMPONENT_PNL_NOT_SOURCE_AUTHORED" in evidence.reason_codes
     assert "income_pnl" in evidence.unsupported_economics
+
+
+def test_stateful_source_economics_evidence_reports_source_backed_contract_when_complete():
+    request = _request_with_position_meta(
+        {
+            "asset_class": "Equity",
+            "sector": "Technology",
+            "price_pnl": 1,
+            "income_pnl": 2,
+            "fee_pnl": 3,
+            "tax_pnl": 4,
+            "fx_pnl": 5,
+            "corporate_action_pnl": 6,
+            "derivative_pnl": 7,
+            "cash_pnl": 8,
+            "residual_pnl": 9,
+            "_source_economics": {
+                "cash_flow_type_counts": {
+                    "external_flow": 1,
+                    "fee": 2,
+                }
+            },
+        }
+    )
+
+    evidence = _stateful_source_economics_evidence(
+        request=request,
+        upstream_snapshots=[_snapshot("portfolio_timeseries")],
+    )
+
+    assert evidence.status == "SOURCE_BACKED"
+    assert evidence.unsupported_economics == []
+    assert evidence.degraded_economics == []
+    assert evidence.cash_flow_type_counts == {"external_flow": 1, "fee": 2}
+    assert evidence.source_snapshot_count == 1
+    assert evidence.source_snapshot_endpoints == ["portfolio_timeseries"]
+    assert "UPSTREAM_SNAPSHOT_LINEAGE_AVAILABLE" in evidence.reason_codes
 
 
 def test_stateful_cash_flow_economics_projects_supported_source_flow_families():
