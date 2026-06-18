@@ -8,7 +8,15 @@ import pytest
 from core.envelope import HedgingRequestBlock
 from engine.config import EngineConfig, FXRequestBlock
 from engine.periods import get_effective_period_start_dates
-from engine.ror import _compound_ror, _compounding_block_ids, _leg_growth_factor, calculate_daily_ror
+from engine.ror import (
+    _apply_hedging_to_fx_return,
+    _compound_ror,
+    _compounding_block_ids,
+    _hedge_ratios_for_dates,
+    _leg_growth_factor,
+    _ratio_hedge_series,
+    calculate_daily_ror,
+)
 from engine.schema import PortfolioColumns
 
 
@@ -263,6 +271,51 @@ def test_daily_ror_fx_decomposition_with_hedging():
 
     # Day 2 was not hedged. fx_ror should be the original unhedged value.
     assert ror_df["fx_ror"].iloc[1] == pytest.approx(-0.92592, abs=1e-5)
+
+
+def test_ratio_hedge_series_projects_configured_ratio_series():
+    hedging = HedgingRequestBlock.model_validate(
+        {"mode": "RATIO", "series": [{"date": date(2025, 1, 1), "ccy": "EUR", "hedge_ratio": 0.50}]}
+    )
+    config = EngineConfig(
+        performance_start_date=date(2025, 1, 1),
+        report_end_date=date(2025, 1, 1),
+        metric_basis="GROSS",
+        period_type="YTD",
+        hedging=hedging,
+    )
+
+    hedge_series = _ratio_hedge_series(config)
+
+    assert hedge_series is not None
+    assert len(hedge_series) == 1
+    assert hedge_series[0].hedge_ratio == 0.50
+
+
+def test_hedge_ratios_for_dates_maps_missing_dates_to_zero():
+    hedging = HedgingRequestBlock.model_validate(
+        {"mode": "RATIO", "series": [{"date": date(2025, 1, 1), "ccy": "EUR", "hedge_ratio": 0.50}]}
+    )
+    perf_dates = pd.Series(pd.to_datetime(["2025-01-01", "2025-01-02"]))
+
+    hedge_ratios = _hedge_ratios_for_dates(perf_dates, list(hedging.series))
+
+    assert hedge_ratios.tolist() == [0.50, 0.0]
+
+
+def test_apply_hedging_to_fx_return_returns_original_series_without_ratio_hedge():
+    config = EngineConfig(
+        performance_start_date=date(2025, 1, 1),
+        report_end_date=date(2025, 1, 1),
+        metric_basis="GROSS",
+        period_type="YTD",
+    )
+    df = pd.DataFrame({PortfolioColumns.PERF_DATE: pd.to_datetime(["2025-01-01"])})
+    fx_ror = pd.Series([0.02])
+
+    result = _apply_hedging_to_fx_return(df, config, fx_ror)
+
+    assert result is fx_ror
 
 
 def test_daily_ror_fx_decomposition_keeps_last_duplicate_fx_rate():

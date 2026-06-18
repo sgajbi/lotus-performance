@@ -2,6 +2,7 @@
 import warnings
 from dataclasses import dataclass
 from decimal import Decimal
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -152,17 +153,28 @@ def _apply_hedging_to_fx_return(
     config: EngineConfig,
     fx_ror: pd.Series,
 ) -> pd.Series:
-    if not (config.hedging and config.hedging.mode == "RATIO" and config.hedging.series):
+    hedge_series = _ratio_hedge_series(config)
+    if hedge_series is None:
         return fx_ror
 
-    hedge_series_df = pd.DataFrame([series.model_dump() for series in config.hedging.series])
+    hedge_ratios = _hedge_ratios_for_dates(df[PortfolioColumns.PERF_DATE.value], hedge_series)
+    return fx_ror * (1.0 - hedge_ratios)
+
+
+def _ratio_hedge_series(config: EngineConfig) -> list[Any] | None:
+    if not config.hedging or config.hedging.mode != "RATIO" or not config.hedging.series:
+        return None
+    return list(config.hedging.series)
+
+
+def _hedge_ratios_for_dates(perf_dates: pd.Series, hedge_series: list[Any]) -> pd.Series:
+    hedge_series_df = pd.DataFrame([series.model_dump() for series in hedge_series])
     if hedge_series_df.empty:
-        return fx_ror
+        return pd.Series(0.0, index=perf_dates.index)
 
     hedge_series_df["date"] = pd.to_datetime(hedge_series_df["date"])
     hedge_map = hedge_series_df.set_index("date")["hedge_ratio"]
-    hedge_ratios = df[PortfolioColumns.PERF_DATE.value].map(hedge_map).fillna(0.0)
-    return fx_ror * (1.0 - hedge_ratios)
+    return perf_dates.map(hedge_map).fillna(0.0)
 
 
 def calculate_cumulative_ror(df: pd.DataFrame, config):
