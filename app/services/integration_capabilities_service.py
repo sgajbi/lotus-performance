@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from typing import Final
@@ -10,6 +11,7 @@ CALCULATION_SUPPORTABILITY_DESCRIPTION: Final[str] = (
     "Bounded TWR, MWR, contribution, and attribution calculation supportability response metadata "
     "and Prometheus posture metrics."
 )
+PERFORMANCE_EXECUTION_POLL_PATH_TEMPLATE: Final[str] = "/performance/executions/{calculation_id}"
 
 
 @dataclass(frozen=True)
@@ -328,39 +330,57 @@ def _benchmark_exposure_contract_notes(flags: IntegrationCapabilityFlags) -> lis
     ]
 
 
+def _async_analytics_surface(
+    *,
+    key: str,
+    path: str,
+    enabled: bool,
+    supported_input_modes: Sequence[str],
+    result_path_template: str,
+    stateful_restrictions: Sequence[str] = (),
+    contract_notes: Sequence[str] = (),
+    options: Sequence[dict[str, object]] = (),
+) -> dict[str, object]:
+    return {
+        "key": key,
+        "path": path,
+        "enabled": enabled,
+        "supported_input_modes": list(supported_input_modes),
+        "supports_async": True,
+        "poll_path_template": PERFORMANCE_EXECUTION_POLL_PATH_TEMPLATE,
+        "result_path_template": result_path_template,
+        "stateful_restrictions": list(stateful_restrictions),
+        "contract_notes": list(contract_notes),
+        "options": list(options),
+    }
+
+
 def _build_analytics_surfaces(
     *,
     flags: IntegrationCapabilityFlags,
     supported_input_modes: list[str],
 ) -> list[dict[str, object]]:
     return [
-        {
-            "key": "twr",
-            "path": "/performance/twr",
-            "enabled": flags.twr_enabled,
-            "supported_input_modes": supported_input_modes,
-            "supports_async": True,
-            "poll_path_template": "/performance/executions/{calculation_id}",
-            "result_path_template": "/performance/twr/results/{calculation_id}",
-            "stateful_restrictions": [],
-            "contract_notes": [
+        _async_analytics_surface(
+            key="twr",
+            path="/performance/twr",
+            enabled=flags.twr_enabled,
+            supported_input_modes=supported_input_modes,
+            result_path_template="/performance/twr/results/{calculation_id}",
+            contract_notes=[
                 "supports portfolio-level TWR only",
                 "does not advertise composite, group, or sleeve TWR calculation support",
             ],
-            "options": [],
-        },
-        {
-            "key": "twr_inspection",
-            "path": "/performance/inspections/twr",
-            "enabled": flags.twr_enabled,
-            "supported_input_modes": [],
-            "supports_async": True,
-            "poll_path_template": "/performance/executions/{calculation_id}",
-            "result_path_template": "/performance/inspections/{inspection_id}",
-            "stateful_restrictions": [],
-            "contract_notes": _twr_inspection_contract_notes(flags),
-            "options": _twr_inspection_options(flags),
-        },
+        ),
+        _async_analytics_surface(
+            key="twr_inspection",
+            path="/performance/inspections/twr",
+            enabled=flags.twr_enabled,
+            supported_input_modes=[],
+            result_path_template="/performance/inspections/{inspection_id}",
+            contract_notes=_twr_inspection_contract_notes(flags),
+            options=_twr_inspection_options(flags),
+        ),
         {
             "key": "mwr",
             "path": "/performance/mwr",
@@ -373,54 +393,37 @@ def _build_analytics_surfaces(
             "contract_notes": [],
             "options": [],
         },
-        {
-            "key": "benchmark",
-            "path": "/performance/benchmark",
-            "enabled": flags.benchmark_enabled,
-            "supported_input_modes": supported_input_modes,
-            "supports_async": True,
-            "poll_path_template": "/performance/executions/{calculation_id}",
-            "result_path_template": "/performance/benchmark/results/{calculation_id}",
-            "stateful_restrictions": [],
-            "contract_notes": [],
-            "options": [],
-        },
-        {
-            "key": "workspace_summary",
-            "path": "/performance/workspace-summary",
-            "enabled": flags.workspace_summary_enabled,
-            "supported_input_modes": supported_input_modes,
-            "supports_async": True,
-            "poll_path_template": "/performance/executions/{calculation_id}",
-            "result_path_template": "/performance/workspace-summary/results/{calculation_id}",
-            "stateful_restrictions": [],
-            "contract_notes": _workspace_summary_contract_notes(flags),
-            "options": _workspace_summary_options(flags),
-        },
-        {
-            "key": "contribution",
-            "path": "/performance/contribution",
-            "enabled": flags.contribution_enabled,
-            "supported_input_modes": supported_input_modes,
-            "supports_async": True,
-            "poll_path_template": "/performance/executions/{calculation_id}",
-            "result_path_template": "/performance/contribution/results/{calculation_id}",
-            "stateful_restrictions": [],
-            "contract_notes": [],
-            "options": [],
-        },
-        {
-            "key": "attribution",
-            "path": "/performance/attribution",
-            "enabled": flags.attribution_enabled,
-            "supported_input_modes": supported_input_modes,
-            "supports_async": True,
-            "poll_path_template": "/performance/executions/{calculation_id}",
-            "result_path_template": "/performance/attribution/results/{calculation_id}",
-            "stateful_restrictions": _attribution_stateful_restrictions(flags),
-            "contract_notes": [],
-            "options": [],
-        },
+        _async_analytics_surface(
+            key="benchmark",
+            path="/performance/benchmark",
+            enabled=flags.benchmark_enabled,
+            supported_input_modes=supported_input_modes,
+            result_path_template="/performance/benchmark/results/{calculation_id}",
+        ),
+        _async_analytics_surface(
+            key="workspace_summary",
+            path="/performance/workspace-summary",
+            enabled=flags.workspace_summary_enabled,
+            supported_input_modes=supported_input_modes,
+            result_path_template="/performance/workspace-summary/results/{calculation_id}",
+            contract_notes=_workspace_summary_contract_notes(flags),
+            options=_workspace_summary_options(flags),
+        ),
+        _async_analytics_surface(
+            key="contribution",
+            path="/performance/contribution",
+            enabled=flags.contribution_enabled,
+            supported_input_modes=supported_input_modes,
+            result_path_template="/performance/contribution/results/{calculation_id}",
+        ),
+        _async_analytics_surface(
+            key="attribution",
+            path="/performance/attribution",
+            enabled=flags.attribution_enabled,
+            supported_input_modes=supported_input_modes,
+            result_path_template="/performance/attribution/results/{calculation_id}",
+            stateful_restrictions=_attribution_stateful_restrictions(flags),
+        ),
         {
             "key": "mandate_performance_health_context",
             "path": "/performance/mandate-health-context",
@@ -433,18 +436,13 @@ def _build_analytics_surfaces(
             "contract_notes": _mandate_performance_health_contract_notes(flags),
             "options": [],
         },
-        {
-            "key": "returns_series",
-            "path": "/integration/returns/series",
-            "enabled": bool(flags.stateful_mode_enabled or flags.stateless_mode_enabled),
-            "supported_input_modes": supported_input_modes,
-            "supports_async": True,
-            "poll_path_template": "/performance/executions/{calculation_id}",
-            "result_path_template": "/integration/returns/series/results/{calculation_id}",
-            "stateful_restrictions": [],
-            "contract_notes": [],
-            "options": [],
-        },
+        _async_analytics_surface(
+            key="returns_series",
+            path="/integration/returns/series",
+            enabled=bool(flags.stateful_mode_enabled or flags.stateless_mode_enabled),
+            supported_input_modes=supported_input_modes,
+            result_path_template="/integration/returns/series/results/{calculation_id}",
+        ),
         {
             "key": "benchmark_exposure_context",
             "path": "/integration/benchmarks/exposure-context",
