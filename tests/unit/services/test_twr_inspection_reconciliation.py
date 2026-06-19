@@ -34,6 +34,23 @@ def test_append_reconciliation_finding_when_present_appends_present_evidence_onc
     assert [finding.code for finding in findings] == ["MIXED_POSITION_EPOCH_SNAPSHOT"]
 
 
+def test_sampled_position_finding_evidence_preserves_limited_samples_and_full_count():
+    samples = [{"valuation_date": f"2026-01-{day:02d}", "position_id": f"SEC_{day}"} for day in range(1, 13)]
+
+    evidence = reconciliation._sampled_position_finding_evidence(
+        samples,
+        date_key="sample_dates",
+        count_key="sample_count",
+        samples_key="sample_rows",
+    )
+
+    assert evidence == {
+        "sample_dates": [f"2026-01-{day:02d}" for day in range(1, 11)],
+        "sample_count": 12,
+        "sample_rows": samples[:10],
+    }
+
+
 def test_position_row_selection_key_requires_string_date_and_position_identity():
     assert reconciliation._position_row_selection_key(
         {"valuation_date": "2026-01-01", "position_id": "SEC_1"},

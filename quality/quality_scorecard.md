@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Quality Scorecard
 
 Report date: 2026-06-19
-Branch: `lp-cr-1388-source-economics-raw-sampling`
+Branch: `lp-cr-1393-reconciliation-duplicate-samples`
 Baseline source: `quality/baseline_report.md`
 Current source: `quality/refactor_health_report.md`
 Mode: phase-zero scorecard; complexity regression posture is enforced separately by CI.
@@ -24,8 +24,8 @@ metrics in each section are updated with each meaningful slice.
 | Largest Python file LOC | 2,399 | 2,399 | 0 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest production file LOC | 1,156 | 1,156 | 0 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
 | Python test modules | 228 | 263 | 35 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Collected tests | 2,035 | 3,106 | 1,071 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Duplicate code hotspots | 0 | 15 | 15 | enforced | `quality/duplicate_code_inventory.md`; `quality/refactor_health_report.md`; `make quality-duplicate-code-gate` |
+| Collected tests | 2,035 | 3,107 | 1,072 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Duplicate code hotspots | 0 | 14 | 14 | enforced | `quality/duplicate_code_inventory.md`; `quality/refactor_health_report.md`; `make quality-duplicate-code-gate` |
 
 ### Complexity And Maintainability
 
