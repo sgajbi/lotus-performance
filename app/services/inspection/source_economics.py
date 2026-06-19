@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal, InvalidOperation
 from numbers import Real
+from typing import TypeGuard
 
 from app.core.config import Settings, get_settings
 from app.models.inspection_responses import TWRInspectionFinding
@@ -558,17 +559,29 @@ def _build_observation_source_economics(
 
 def _resolve_observation_valuation_date(observation: dict[str, object]) -> _ObservationDateResolution:
     valuation_date = observation.get("valuation_date")
-    if isinstance(valuation_date, str) and _is_iso_date(valuation_date):
+    if _is_valid_observation_valuation_date(valuation_date):
         return _ObservationDateResolution(valuation_date=valuation_date, invalid_sample=None)
     return _ObservationDateResolution(
         valuation_date=None,
-        invalid_sample={
-            "valuation_date": valuation_date if isinstance(valuation_date, str) else None,
-            "raw_type": type(valuation_date).__name__,
-            "raw_value": _sample_raw_collection_value(valuation_date),
-            "observation_keys": sorted(str(key) for key in observation),
-        },
+        invalid_sample=_invalid_observation_date_sample(valuation_date=valuation_date, observation=observation),
     )
+
+
+def _is_valid_observation_valuation_date(raw_value: object) -> TypeGuard[str]:
+    return isinstance(raw_value, str) and _is_iso_date(raw_value)
+
+
+def _invalid_observation_date_sample(
+    *,
+    valuation_date: object,
+    observation: dict[str, object],
+) -> dict[str, object]:
+    return {
+        "valuation_date": valuation_date if isinstance(valuation_date, str) else None,
+        "raw_type": type(valuation_date).__name__,
+        "raw_value": _sample_raw_collection_value(valuation_date),
+        "observation_keys": sorted(str(key) for key in observation),
+    }
 
 
 def _is_iso_date(raw_value: str) -> bool:

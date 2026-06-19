@@ -1842,3 +1842,21 @@ def test_resolve_observation_valuation_date_captures_non_string_identity_sample(
         "raw_value": {"year": 2026},
         "observation_keys": ["cash_flows", "valuation_date"],
     }
+
+
+def test_resolve_observation_valuation_date_captures_missing_identity_sample():
+    result = source_economics._resolve_observation_valuation_date({"cash_flows": []})
+
+    assert result.valuation_date is None
+    assert result.invalid_sample == {
+        "valuation_date": None,
+        "raw_type": "NoneType",
+        "raw_value": None,
+        "observation_keys": ["cash_flows"],
+    }
+
+
+def test_is_valid_observation_valuation_date_requires_iso_date_string():
+    assert source_economics._is_valid_observation_valuation_date("2026-03-25") is True
+    assert source_economics._is_valid_observation_valuation_date("25-03-2026") is False
+    assert source_economics._is_valid_observation_valuation_date(None) is False
