@@ -1,7 +1,7 @@
 # Lotus Performance Function Size Inventory
 
 Report date: 2026-06-19
-Branch: `lp-cr-1407-queue-metric-status-builders`
+Branch: `lp-cr-1408-queue-metric-describe-catalog`
 Mode: report-only function-size inventory; this artifact introduces no new blocking CI gate.
 
 ## Purpose
@@ -20,31 +20,31 @@ python scripts/python_function_size_inventory.py --limit 25
 
 | Rank | Function | File | Lines |
 | ---: | --- | --- | ---: |
-| 1 | `DurableQueueCollector.describe` | `app/services/queue_metrics_service.py:193` | 159 |
-| 2 | `build_runtime_status_response` | `app/models/runtime_status.py:767` | 131 |
-| 3 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:331` | 130 |
-| 4 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:227` | 102 |
-| 5 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:331` | 102 |
-| 6 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:71` | 98 |
-| 7 | `aggregate_attribution_results` | `engine/attribution.py:704` | 98 |
-| 8 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:91` | 97 |
-| 9 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:31` | 94 |
-| 10 | `build_stateful_benchmark_input` | `app/services/stateful_benchmark_input_service.py:57` | 93 |
-| 11 | `calculate_twr_response` | `app/services/twr_service.py:1159` | 93 |
-| 12 | `_calculate_returns_series` | `app/services/returns_series_service.py:1463` | 90 |
-| 13 | `_build_artifacts` | `app/services/composite_inspection_service.py:154` | 89 |
-| 14 | `run_runtime_retention_cleanup` | `app/services/runtime_retention_run_service.py:112` | 83 |
-| 15 | `build_recovery_drill_history_snapshot` | `app/services/recovery_drill_history_service.py:66` | 81 |
-| 16 | `build_runtime_recovery_snapshot` | `app/services/runtime_recovery_service.py:67` | 81 |
-| 17 | `calculate_contribution` | `app/services/contribution_service.py:614` | 80 |
-| 18 | `LineageMetadataStore._build_inspection_query_statements` | `app/services/lineage_metadata_store.py:529` | 80 |
-| 19 | `_build_contribution_response` | `app/services/contribution_service.py:533` | 79 |
-| 20 | `_build_twr_inspection_response` | `app/services/inspection/twr_inspection_service.py:305` | 79 |
-| 21 | `StatefulInputService._fetch_portfolio_chunk` | `app/services/stateful_input_service.py:877` | 79 |
-| 22 | `resolve_contribution_request` | `app/services/contribution_mode_service.py:32` | 77 |
-| 23 | `LineageMetadataStore._lease_pending_payloads_postgresql` | `app/services/lineage_metadata_store.py:1043` | 77 |
-| 24 | `_build_feature_capabilities` | `app/services/integration_capabilities_service.py:92` | 75 |
-| 25 | `build_runtime_retention_history_query` | `app/api/dependencies/runtime_retention_history.py:11` | 74 |
+| 1 | `build_runtime_status_response` | `app/models/runtime_status.py:767` | 131 |
+| 2 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:331` | 130 |
+| 3 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:227` | 102 |
+| 4 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:331` | 102 |
+| 5 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:71` | 98 |
+| 6 | `aggregate_attribution_results` | `engine/attribution.py:704` | 98 |
+| 7 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:91` | 97 |
+| 8 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:31` | 94 |
+| 9 | `build_stateful_benchmark_input` | `app/services/stateful_benchmark_input_service.py:57` | 93 |
+| 10 | `calculate_twr_response` | `app/services/twr_service.py:1159` | 93 |
+| 11 | `_calculate_returns_series` | `app/services/returns_series_service.py:1463` | 90 |
+| 12 | `_build_artifacts` | `app/services/composite_inspection_service.py:154` | 89 |
+| 13 | `run_runtime_retention_cleanup` | `app/services/runtime_retention_run_service.py:112` | 83 |
+| 14 | `build_recovery_drill_history_snapshot` | `app/services/recovery_drill_history_service.py:66` | 81 |
+| 15 | `build_runtime_recovery_snapshot` | `app/services/runtime_recovery_service.py:67` | 81 |
+| 16 | `calculate_contribution` | `app/services/contribution_service.py:614` | 80 |
+| 17 | `LineageMetadataStore._build_inspection_query_statements` | `app/services/lineage_metadata_store.py:529` | 80 |
+| 18 | `_build_contribution_response` | `app/services/contribution_service.py:533` | 79 |
+| 19 | `_build_twr_inspection_response` | `app/services/inspection/twr_inspection_service.py:305` | 79 |
+| 20 | `StatefulInputService._fetch_portfolio_chunk` | `app/services/stateful_input_service.py:877` | 79 |
+| 21 | `resolve_contribution_request` | `app/services/contribution_mode_service.py:32` | 77 |
+| 22 | `LineageMetadataStore._lease_pending_payloads_postgresql` | `app/services/lineage_metadata_store.py:1043` | 77 |
+| 23 | `_build_feature_capabilities` | `app/services/integration_capabilities_service.py:92` | 75 |
+| 24 | `build_runtime_retention_history_query` | `app/api/dependencies/runtime_retention_history.py:11` | 74 |
+| 25 | `_build_portfolio_engine_diagnostics` | `app/services/contribution_diagnostics.py:62` | 74 |
 
 ## Interpretation
 
@@ -146,3 +146,6 @@ helper. `build_runtime_retention_history_snapshot` moved from `101` to `97` line
 LP-CR-1407 centralized attribute-backed queue metric sample projection and did not change the
 top-25 function-size table; the largest function remains `DurableQueueCollector.describe` at
 `159` lines.
+LP-CR-1408 isolated durable queue metric descriptor metadata into a deterministic catalog;
+`DurableQueueCollector.describe` dropped out of the top-25 table and the largest function moved
+from `159` to `131` lines.

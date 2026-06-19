@@ -70,6 +70,180 @@ class _DurableQueueMetricSources:
     runtime_retention_preview_available: bool
 
 
+@dataclass(frozen=True)
+class _DurableQueueMetricDescriptor:
+    name: str
+    description: str
+    labels: tuple[str, ...] = ()
+
+    def build(self) -> GaugeMetricFamily:
+        if self.labels:
+            return GaugeMetricFamily(self.name, self.description, labels=list(self.labels))
+        return GaugeMetricFamily(self.name, self.description)
+
+
+_DURABLE_QUEUE_METRIC_DESCRIPTORS = (
+    _DurableQueueMetricDescriptor(
+        "lotus_performance_durable_queue_store_availability",
+        "Availability of durable queue metric sources by store.",
+        ("store",),
+    ),
+    _DurableQueueMetricDescriptor(
+        "lotus_performance_compute_queue_jobs",
+        "Durable compute job counts by status.",
+        ("status",),
+    ),
+    _DurableQueueMetricDescriptor(
+        "lotus_performance_compute_queue_failure_pressure_jobs",
+        "Durable compute job counts for retry backlog and failure-pressure categories.",
+        ("category",),
+    ),
+    _DurableQueueMetricDescriptor(
+        "lotus_performance_compute_queue_oldest_pending_age_seconds",
+        "Age in seconds of the oldest pending compute job.",
+    ),
+    _DurableQueueMetricDescriptor(
+        "lotus_performance_compute_queue_oldest_leased_age_seconds",
+        "Age in seconds of the oldest leased compute job.",
+    ),
+    _DurableQueueMetricDescriptor(
+        "lotus_performance_compute_queue_oldest_running_age_seconds",
+        "Age in seconds of the oldest running compute job.",
+    ),
+    _DurableQueueMetricDescriptor(
+        "lotus_performance_compute_queue_degradation_breach",
+        "Whether the compute queue currently breaches a configured runtime degradation threshold.",
+        ("reason",),
+    ),
+    _DurableQueueMetricDescriptor(
+        "lotus_performance_lineage_queue_pending_payloads",
+        "Number of pending lineage payloads awaiting materialization.",
+    ),
+    _DurableQueueMetricDescriptor(
+        "lotus_performance_lineage_queue_failure_pressure_payloads",
+        "Lineage payload counts for retry backlog and terminal failure categories.",
+        ("category",),
+    ),
+    _DurableQueueMetricDescriptor(
+        "lotus_performance_lineage_queue_oldest_pending_age_seconds",
+        "Age in seconds of the oldest pending lineage payload.",
+    ),
+    _DurableQueueMetricDescriptor(
+        "lotus_performance_lineage_queue_degradation_breach",
+        "Whether the lineage queue currently breaches a configured runtime degradation threshold.",
+        ("reason",),
+    ),
+    _DurableQueueMetricDescriptor(
+        "lotus_performance_lineage_storage_capacity_availability",
+        "Availability of lineage storage capacity metrics.",
+    ),
+    _DurableQueueMetricDescriptor(
+        "lotus_performance_lineage_storage_capacity_bytes",
+        "Lineage storage capacity by segment.",
+        ("segment",),
+    ),
+    _DurableQueueMetricDescriptor(
+        "lotus_performance_lineage_storage_free_ratio",
+        "Fraction of free lineage storage capacity currently remaining.",
+    ),
+    _DurableQueueMetricDescriptor(
+        "lotus_performance_lineage_storage_pressure_threshold",
+        "Configured proactive lineage storage pressure thresholds.",
+        ("threshold",),
+    ),
+    _DurableQueueMetricDescriptor(
+        "lotus_performance_lineage_storage_pressure_breach",
+        "Whether lineage storage currently breaches a proactive saturation threshold.",
+        ("reason",),
+    ),
+    _DurableQueueMetricDescriptor(
+        "lotus_performance_recovery_drill_availability",
+        "Availability of retained durable recovery-drill history.",
+    ),
+    _DurableQueueMetricDescriptor(
+        "lotus_performance_recovery_drill_action_availability",
+        "Availability of governed in-flight recovery-drill action lease visibility.",
+    ),
+    _DurableQueueMetricDescriptor(
+        "lotus_performance_recovery_drill_active_actions",
+        "Number of active governed recovery-drill runs currently holding an in-flight lease.",
+    ),
+    _DurableQueueMetricDescriptor(
+        "lotus_performance_recovery_drill_oldest_active_action_age_seconds",
+        "Age in seconds of the oldest active governed recovery-drill run.",
+    ),
+    _DurableQueueMetricDescriptor(
+        "lotus_performance_recovery_drill_latest_reclaimed_action_age_seconds",
+        "Age in seconds since the latest stale governed recovery-drill lease reclaim.",
+    ),
+    _DurableQueueMetricDescriptor(
+        "lotus_performance_recovery_drill_reclaimed_actions",
+        "Count of stale governed recovery-drill leases reclaimed and retained in the current control-plane counter.",
+    ),
+    _DurableQueueMetricDescriptor(
+        "lotus_performance_recovery_drill_latest_age_seconds",
+        "Age in seconds of the latest retained durable recovery drill.",
+    ),
+    _DurableQueueMetricDescriptor(
+        "lotus_performance_recovery_drill_policy_threshold",
+        "Configured recovery-drill degradation thresholds.",
+        ("threshold",),
+    ),
+    _DurableQueueMetricDescriptor(
+        "lotus_performance_recovery_drill_degradation_breach",
+        "Whether retained durable recovery-drill history currently breaches a recovery assurance policy.",
+        ("reason",),
+    ),
+    _DurableQueueMetricDescriptor(
+        "lotus_performance_runtime_retention_availability",
+        "Availability of retained runtime-retention cleanup history.",
+    ),
+    _DurableQueueMetricDescriptor(
+        "lotus_performance_runtime_retention_action_availability",
+        "Availability of governed in-flight runtime-retention cleanup lease visibility.",
+    ),
+    _DurableQueueMetricDescriptor(
+        "lotus_performance_runtime_retention_active_actions",
+        "Number of active governed runtime-retention cleanups currently holding an in-flight lease.",
+    ),
+    _DurableQueueMetricDescriptor(
+        "lotus_performance_runtime_retention_oldest_active_action_age_seconds",
+        "Age in seconds of the oldest active governed runtime-retention cleanup.",
+    ),
+    _DurableQueueMetricDescriptor(
+        "lotus_performance_runtime_retention_latest_reclaimed_action_age_seconds",
+        "Age in seconds since the latest stale governed runtime-retention lease reclaim.",
+    ),
+    _DurableQueueMetricDescriptor(
+        "lotus_performance_runtime_retention_reclaimed_actions",
+        "Count of stale governed runtime-retention leases reclaimed and retained in the current control-plane counter.",
+    ),
+    _DurableQueueMetricDescriptor(
+        "lotus_performance_runtime_retention_latest_age_seconds",
+        "Age in seconds of the latest retained runtime-retention cleanup.",
+    ),
+    _DurableQueueMetricDescriptor(
+        "lotus_performance_runtime_retention_policy_threshold",
+        "Configured runtime-retention degradation thresholds.",
+        ("threshold",),
+    ),
+    _DurableQueueMetricDescriptor(
+        "lotus_performance_runtime_retention_degradation_breach",
+        "Whether retained runtime-retention cleanup history currently breaches a lifecycle-governance policy.",
+        ("reason",),
+    ),
+    _DurableQueueMetricDescriptor(
+        "lotus_performance_runtime_retention_preview_availability",
+        "Availability of the live runtime-retention preview under the current policy.",
+    ),
+    _DurableQueueMetricDescriptor(
+        "lotus_performance_runtime_retention_prunable_items",
+        "Current runtime-retention items that would be pruned by a dry-run cleanup.",
+        ("category",),
+    ),
+)
+
+
 def _load_metric_source(
     loader: Callable[[], TMetricSource],
     *,
@@ -191,164 +365,8 @@ def _availability_and_preview_metrics(sources: _DurableQueueMetricSources) -> tu
 
 class DurableQueueCollector:
     def describe(self):
-        yield GaugeMetricFamily(
-            "lotus_performance_durable_queue_store_availability",
-            "Availability of durable queue metric sources by store.",
-            labels=["store"],
-        )
-        yield GaugeMetricFamily(
-            "lotus_performance_compute_queue_jobs",
-            "Durable compute job counts by status.",
-            labels=["status"],
-        )
-        yield GaugeMetricFamily(
-            "lotus_performance_compute_queue_failure_pressure_jobs",
-            "Durable compute job counts for retry backlog and failure-pressure categories.",
-            labels=["category"],
-        )
-        yield GaugeMetricFamily(
-            "lotus_performance_compute_queue_oldest_pending_age_seconds",
-            "Age in seconds of the oldest pending compute job.",
-        )
-        yield GaugeMetricFamily(
-            "lotus_performance_compute_queue_oldest_leased_age_seconds",
-            "Age in seconds of the oldest leased compute job.",
-        )
-        yield GaugeMetricFamily(
-            "lotus_performance_compute_queue_oldest_running_age_seconds",
-            "Age in seconds of the oldest running compute job.",
-        )
-        yield GaugeMetricFamily(
-            "lotus_performance_compute_queue_degradation_breach",
-            "Whether the compute queue currently breaches a configured runtime degradation threshold.",
-            labels=["reason"],
-        )
-        yield GaugeMetricFamily(
-            "lotus_performance_lineage_queue_pending_payloads",
-            "Number of pending lineage payloads awaiting materialization.",
-        )
-        yield GaugeMetricFamily(
-            "lotus_performance_lineage_queue_failure_pressure_payloads",
-            "Lineage payload counts for retry backlog and terminal failure categories.",
-            labels=["category"],
-        )
-        yield GaugeMetricFamily(
-            "lotus_performance_lineage_queue_oldest_pending_age_seconds",
-            "Age in seconds of the oldest pending lineage payload.",
-        )
-        yield GaugeMetricFamily(
-            "lotus_performance_lineage_queue_degradation_breach",
-            "Whether the lineage queue currently breaches a configured runtime degradation threshold.",
-            labels=["reason"],
-        )
-        yield GaugeMetricFamily(
-            "lotus_performance_lineage_storage_capacity_availability",
-            "Availability of lineage storage capacity metrics.",
-        )
-        yield GaugeMetricFamily(
-            "lotus_performance_lineage_storage_capacity_bytes",
-            "Lineage storage capacity by segment.",
-            labels=["segment"],
-        )
-        yield GaugeMetricFamily(
-            "lotus_performance_lineage_storage_free_ratio",
-            "Fraction of free lineage storage capacity currently remaining.",
-        )
-        yield GaugeMetricFamily(
-            "lotus_performance_lineage_storage_pressure_threshold",
-            "Configured proactive lineage storage pressure thresholds.",
-            labels=["threshold"],
-        )
-        yield GaugeMetricFamily(
-            "lotus_performance_lineage_storage_pressure_breach",
-            "Whether lineage storage currently breaches a proactive saturation threshold.",
-            labels=["reason"],
-        )
-        yield GaugeMetricFamily(
-            "lotus_performance_recovery_drill_availability",
-            "Availability of retained durable recovery-drill history.",
-        )
-        yield GaugeMetricFamily(
-            "lotus_performance_recovery_drill_action_availability",
-            "Availability of governed in-flight recovery-drill action lease visibility.",
-        )
-        yield GaugeMetricFamily(
-            "lotus_performance_recovery_drill_active_actions",
-            "Number of active governed recovery-drill runs currently holding an in-flight lease.",
-        )
-        yield GaugeMetricFamily(
-            "lotus_performance_recovery_drill_oldest_active_action_age_seconds",
-            "Age in seconds of the oldest active governed recovery-drill run.",
-        )
-        yield GaugeMetricFamily(
-            "lotus_performance_recovery_drill_latest_reclaimed_action_age_seconds",
-            "Age in seconds since the latest stale governed recovery-drill lease reclaim.",
-        )
-        yield GaugeMetricFamily(
-            "lotus_performance_recovery_drill_reclaimed_actions",
-            "Count of stale governed recovery-drill leases reclaimed and retained in the current control-plane counter.",
-        )
-        yield GaugeMetricFamily(
-            "lotus_performance_recovery_drill_latest_age_seconds",
-            "Age in seconds of the latest retained durable recovery drill.",
-        )
-        yield GaugeMetricFamily(
-            "lotus_performance_recovery_drill_policy_threshold",
-            "Configured recovery-drill degradation thresholds.",
-            labels=["threshold"],
-        )
-        yield GaugeMetricFamily(
-            "lotus_performance_recovery_drill_degradation_breach",
-            "Whether retained durable recovery-drill history currently breaches a recovery assurance policy.",
-            labels=["reason"],
-        )
-        yield GaugeMetricFamily(
-            "lotus_performance_runtime_retention_availability",
-            "Availability of retained runtime-retention cleanup history.",
-        )
-        yield GaugeMetricFamily(
-            "lotus_performance_runtime_retention_action_availability",
-            "Availability of governed in-flight runtime-retention cleanup lease visibility.",
-        )
-        yield GaugeMetricFamily(
-            "lotus_performance_runtime_retention_active_actions",
-            "Number of active governed runtime-retention cleanups currently holding an in-flight lease.",
-        )
-        yield GaugeMetricFamily(
-            "lotus_performance_runtime_retention_oldest_active_action_age_seconds",
-            "Age in seconds of the oldest active governed runtime-retention cleanup.",
-        )
-        yield GaugeMetricFamily(
-            "lotus_performance_runtime_retention_latest_reclaimed_action_age_seconds",
-            "Age in seconds since the latest stale governed runtime-retention lease reclaim.",
-        )
-        yield GaugeMetricFamily(
-            "lotus_performance_runtime_retention_reclaimed_actions",
-            "Count of stale governed runtime-retention leases reclaimed and retained in the current control-plane counter.",
-        )
-        yield GaugeMetricFamily(
-            "lotus_performance_runtime_retention_latest_age_seconds",
-            "Age in seconds of the latest retained runtime-retention cleanup.",
-        )
-        yield GaugeMetricFamily(
-            "lotus_performance_runtime_retention_policy_threshold",
-            "Configured runtime-retention degradation thresholds.",
-            labels=["threshold"],
-        )
-        yield GaugeMetricFamily(
-            "lotus_performance_runtime_retention_degradation_breach",
-            "Whether retained runtime-retention cleanup history currently breaches a lifecycle-governance policy.",
-            labels=["reason"],
-        )
-        yield GaugeMetricFamily(
-            "lotus_performance_runtime_retention_preview_availability",
-            "Availability of the live runtime-retention preview under the current policy.",
-        )
-        yield GaugeMetricFamily(
-            "lotus_performance_runtime_retention_prunable_items",
-            "Current runtime-retention items that would be pruned by a dry-run cleanup.",
-            labels=["category"],
-        )
+        for descriptor in _DURABLE_QUEUE_METRIC_DESCRIPTORS:
+            yield descriptor.build()
 
     def collect(self):
         settings = get_settings()
