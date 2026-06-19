@@ -487,13 +487,15 @@ def _collect_noncanonical_cashflow_types(
 ) -> list[str]:
     cashflow_types: set[str] = set()
     for sample in noncanonical_cashflow_type_samples:
-        sample_cashflow_types = sample.get("cash_flow_types")
-        if not isinstance(sample_cashflow_types, list):
-            continue
-        cashflow_types.update(
-            cash_flow_type for cash_flow_type in sample_cashflow_types if isinstance(cash_flow_type, str)
-        )
+        cashflow_types.update(_cashflow_type_strings_from_sample(sample))
     return sorted(cashflow_types)
+
+
+def _cashflow_type_strings_from_sample(sample: dict[str, object]) -> tuple[str, ...]:
+    cashflow_types = sample.get("cash_flow_types")
+    if not isinstance(cashflow_types, list):
+        return ()
+    return tuple(cash_flow_type for cash_flow_type in cashflow_types if isinstance(cash_flow_type, str))
 
 
 def _observations_from_payload(portfolio_payload: dict[str, object]) -> list[dict[str, object]]:
