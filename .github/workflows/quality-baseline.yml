@@ -45,7 +45,7 @@ jobs:
           python scripts/python_documentation_inventory.py --limit 40 > quality/documentation_inventory.md
           python scripts/python_router_middleware_thinness_inventory.py --threshold 80 --limit 50 > quality/router_middleware_thinness_inventory.md
       - name: Upload quality baseline artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: quality-baseline-reports
           path: quality/*.md

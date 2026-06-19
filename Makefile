@@ -1,4 +1,4 @@
-.PHONY: install install-ci verify-dependencies check check-all test test-unit test-integration test-e2e test-all test-coverage coverage-gate ci ci-local ci-local-docker ci-local-docker-down typecheck lint quality-complexity-gate monetary-float-guard format clean run check-deps security-audit openapi-gate api-vocabulary-gate no-alias-gate domain-product-validate migration-smoke migration-apply recovery-drill-smoke runtime-retention-smoke performance-characterization performance-characterization-postgres pre-commit docker-up docker-down docker-build
+.PHONY: install install-ci verify-dependencies check check-all test test-unit test-integration test-e2e test-all test-coverage coverage-gate ci ci-local ci-local-docker ci-local-docker-down typecheck lint quality-complexity-gate github-action-runtime-guard monetary-float-guard format clean run check-deps security-audit openapi-gate api-vocabulary-gate no-alias-gate domain-product-validate migration-smoke migration-apply recovery-drill-smoke runtime-retention-smoke performance-characterization performance-characterization-postgres pre-commit docker-up docker-down docker-build
 
 install:
 	pip install -r requirements.txt
@@ -101,10 +101,14 @@ migration-apply:
 lint:
 	python -m ruff check .
 	python -m ruff format --check .
+	$(MAKE) github-action-runtime-guard
 	$(MAKE) monetary-float-guard
 
 quality-complexity-gate:
 	python scripts/python_complexity_inventory.py --limit 25 --max-cc 8 --max-high-complexity 0
+
+github-action-runtime-guard:
+	python scripts/github_action_runtime_guard.py
 
 monetary-float-guard:
 	python scripts/check_monetary_float_usage.py
@@ -133,5 +137,4 @@ docker-down:
 
 docker-build:
 	docker build -f Dockerfile -t lotus-performance:ci .
-
 
