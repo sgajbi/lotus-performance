@@ -702,7 +702,7 @@ def _qualified_detailed_cash_flow_row(
     cash_flow_type = flow.get("cash_flow_type")
     raw_amount = flow.get("amount")
     amount = _parse_decimal(raw_amount)
-    normalized_timing = timing.strip() if isinstance(timing, str) else timing
+    normalized_timing = _normalized_cash_flow_timing(timing)
     if amount is None:
         accumulator.record_invalid_amount(
             timing=normalized_timing,
@@ -710,7 +710,7 @@ def _qualified_detailed_cash_flow_row(
             cash_flow_type=cash_flow_type,
         )
         return None
-    if normalized_timing not in {"bod", "eod"}:
+    if not _is_supported_cash_flow_timing(normalized_timing):
         accumulator.record_invalid_timing(
             timing=normalized_timing,
             amount=amount,
@@ -722,6 +722,14 @@ def _qualified_detailed_cash_flow_row(
         amount=amount,
         classification=classify_cashflow_type(cash_flow_type),
     )
+
+
+def _normalized_cash_flow_timing(timing: object) -> object:
+    return timing.strip() if isinstance(timing, str) else timing
+
+
+def _is_supported_cash_flow_timing(timing: object) -> TypeGuard[str]:
+    return timing in {"bod", "eod"}
 
 
 def _read_explicit_decimal_fields(
