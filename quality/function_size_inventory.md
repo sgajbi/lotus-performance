@@ -1,7 +1,7 @@
 # Lotus Performance Function Size Inventory
 
 Report date: 2026-06-19
-Branch: `lp-cr-1403-runtime-lifecycle-degradation`
+Branch: `lp-cr-1404-inspection-stateful-fetch`
 Mode: report-only function-size inventory; this artifact introduces no new blocking CI gate.
 
 ## Purpose
@@ -13,7 +13,7 @@ hotspot dimension without waiting for external complexity tooling such as `radon
 ## Command
 
 ```powershell
-python scripts/python_function_size_inventory.py --limit 20
+python scripts/python_function_size_inventory.py --limit 25
 ```
 
 ## Largest Production Functions
@@ -40,6 +40,11 @@ python scripts/python_function_size_inventory.py --limit 20
 | 18 | `LineageMetadataStore._build_inspection_query_statements` | `app/services/lineage_metadata_store.py:529` | 80 |
 | 19 | `_build_contribution_response` | `app/services/contribution_service.py:533` | 79 |
 | 20 | `_build_twr_inspection_response` | `app/services/inspection/twr_inspection_service.py:305` | 79 |
+| 21 | `StatefulInputService._fetch_portfolio_chunk` | `app/services/stateful_input_service.py:877` | 79 |
+| 22 | `resolve_contribution_request` | `app/services/contribution_mode_service.py:32` | 77 |
+| 23 | `LineageMetadataStore._lease_pending_payloads_postgresql` | `app/services/lineage_metadata_store.py:1043` | 77 |
+| 24 | `_build_feature_capabilities` | `app/services/integration_capabilities_service.py:92` | 75 |
+| 25 | `build_runtime_retention_history_query` | `app/api/dependencies/runtime_retention_history.py:11` | 74 |
 
 ## Interpretation
 
@@ -74,10 +79,10 @@ collection and average-weight residual max tracking were isolated from the publi
 calculation function.
 Stateful attribution source input retrieval dropped out of the top-15 table after benchmark
 assignment resolution was isolated from the source-input orchestration path.
-It remains in the top-20 function-size table after requested upstream attribution dimension
+It remains in the top-25 function-size table after requested upstream attribution dimension
 selection was isolated; future size-focused work should target source retrieval/result projection
 only where behavior can be preserved with direct tests.
-Stateful position chunk retrieval dropped out of the top-20 table after page request/payload
+Stateful position chunk retrieval dropped out of the top-25 table after page request/payload
 projection was isolated from the chunk pagination loop.
 Durable queue metric collection dropped out of the top-15 table after source loading and
 availability/runtime-retention preview metric emission were isolated into dedicated helpers.
@@ -129,4 +134,6 @@ largest function remains `DurableQueueCollector.describe` at `159` lines.
 The stateful timeseries snapshot append extraction did not change the top-20 function-size table;
 the largest function remains `DurableQueueCollector.describe` at `159` lines.
 LP-CR-1403 did not change the top-20 function-size table; the largest function remains
+`DurableQueueCollector.describe` at `159` lines.
+LP-CR-1404 did not change the top-25 function-size table; the largest function remains
 `DurableQueueCollector.describe` at `159` lines.

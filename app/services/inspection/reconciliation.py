@@ -9,13 +9,12 @@ from app.core.config import Settings, get_settings
 from app.models.inspection_requests import TWRInspectionProfile
 from app.models.inspection_responses import TWRInspectionFinding
 from app.models.requests import PerformanceRequest
-from app.services.inspection.source_availability import raise_inspection_source_unavailable
+from app.services.inspection.stateful_timeseries_fetch import fetch_inspection_stateful_timeseries
 from app.services.portfolio_source_service import build_stateful_input_service
 
 _ABSOLUTE_GAP_TOLERANCE = Decimal("0.01")
 _RELATIVE_GAP_TOLERANCE = Decimal("0.0001")
 _TRANSITION_ACTIVITY_FIELD_TOKENS = ("cashflow", "cash_flow", "trade", "quantity_delta")
-_INSPECTOR_CONSUMER_SYSTEM = "lotus-performance-inspector"
 _FINDING_SAMPLE_LIMIT = 10
 _RECONCILIATION_SAMPLE_LIMIT = 25
 _PositionRowSelection = dict[tuple[str, str], tuple[int, dict[str, object]]]
@@ -225,23 +224,15 @@ async def _fetch_position_timeseries(
     portfolio_id: str,
     settings: Settings,
 ) -> dict[str, object]:
-    stateful_input_service = build_stateful_input_service(settings=settings)
-    status_code, payload = await stateful_input_service.get_position_timeseries(
+    return await fetch_inspection_stateful_timeseries(
+        performance_request=performance_request,
         portfolio_id=portfolio_id,
-        as_of_date=performance_request.report_end_date,
-        start_date=performance_request.performance_start_date,
-        end_date=performance_request.report_end_date,
-        reporting_currency=performance_request.report_ccy,
-        consumer_system=_INSPECTOR_CONSUMER_SYSTEM,
-        calculation_id=None,
+        settings=settings,
+        service_factory=build_stateful_input_service,
+        timeseries_kind="position",
+        source_label="Position timeseries",
+        inspection_label="reconciliation",
     )
-    if status_code >= 400:
-        raise_inspection_source_unavailable(
-            source_label="Position timeseries",
-            inspection_label="reconciliation",
-            status_code=status_code,
-        )
-    return payload
 
 
 def analyze_portfolio_position_reconciliation(
