@@ -17,7 +17,7 @@ from app.services.inspection.source_economics_collector import (
 )
 from app.services.inspection.source_economics_findings import build_source_economics_findings
 from app.services.portfolio_source_service import build_stateful_input_service
-from app.services.source_cashflow_taxonomy import classify_cashflow_type
+from app.services.source_cashflow_taxonomy import CashflowTypeClassification, classify_cashflow_type
 
 _INSPECTOR_CONSUMER_SYSTEM = "lotus-performance-inspector"
 _SAMPLE_LIMIT = 25
@@ -103,6 +103,13 @@ class DetailedCashFlowEconomics:
 class _ObservationDateResolution:
     valuation_date: str | None
     invalid_sample: dict[str, object] | None
+
+
+@dataclass(frozen=True)
+class _DetailedCashFlowRow:
+    timing: str
+    amount: Decimal
+    classification: CashflowTypeClassification
 
 
 @dataclass
@@ -668,9 +675,29 @@ def _empty_detailed_cash_flow_economics(
 
 
 def _record_detailed_cash_flow(accumulator: _DetailedCashFlowAccumulator, flow: object) -> None:
+    row = _qualified_detailed_cash_flow_row(accumulator, flow)
+    if row is None:
+        return
+    accumulator.record_taxonomy_signal(
+        timing=row.timing,
+        amount=row.amount,
+        classification=row.classification,
+    )
+    accumulator.add_amount(
+        timing=row.timing,
+        amount=row.amount,
+        economics_role=row.classification.economics_role,
+        cash_flow_type=row.classification.normalized_value,
+    )
+
+
+def _qualified_detailed_cash_flow_row(
+    accumulator: _DetailedCashFlowAccumulator,
+    flow: object,
+) -> _DetailedCashFlowRow | None:
     if not isinstance(flow, dict):
         accumulator.record_invalid_row(flow)
-        return
+        return None
     timing = flow.get("timing")
     cash_flow_type = flow.get("cash_flow_type")
     raw_amount = flow.get("amount")
@@ -682,26 +709,18 @@ def _record_detailed_cash_flow(accumulator: _DetailedCashFlowAccumulator, flow: 
             amount=raw_amount,
             cash_flow_type=cash_flow_type,
         )
-        return
+        return None
     if normalized_timing not in {"bod", "eod"}:
         accumulator.record_invalid_timing(
             timing=normalized_timing,
             amount=amount,
             cash_flow_type=cash_flow_type,
         )
-        return
-    cashflow_type_classification = classify_cashflow_type(cash_flow_type)
-    normalized_cash_flow_type = cashflow_type_classification.normalized_value
-    accumulator.record_taxonomy_signal(
+        return None
+    return _DetailedCashFlowRow(
         timing=normalized_timing,
         amount=amount,
-        classification=cashflow_type_classification,
-    )
-    accumulator.add_amount(
-        timing=normalized_timing,
-        amount=amount,
-        economics_role=cashflow_type_classification.economics_role,
-        cash_flow_type=normalized_cash_flow_type,
+        classification=classify_cashflow_type(cash_flow_type),
     )
 
 

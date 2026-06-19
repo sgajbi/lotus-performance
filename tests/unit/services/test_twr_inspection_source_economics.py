@@ -1707,6 +1707,39 @@ def test_record_detailed_cash_flow_routes_governed_alias_amount_and_sample():
     )
 
 
+def test_qualified_detailed_cash_flow_row_normalizes_timing_and_classifies_type():
+    accumulator = source_economics._DetailedCashFlowAccumulator()
+
+    row = source_economics._qualified_detailed_cash_flow_row(
+        accumulator,
+        {"amount": "12.5", "timing": " eod ", "cash_flow_type": "deposit"},
+    )
+
+    assert row is not None
+    assert row.timing == "eod"
+    assert row.amount == Decimal("12.5")
+    assert row.classification.normalized_value == "deposit"
+    assert row.classification.economics_role == "external"
+    assert row.classification.governed_alias is True
+    assert accumulator.to_result().invalid_amount_rows == ()
+    assert accumulator.to_result().invalid_timing_rows == ()
+
+
+def test_qualified_detailed_cash_flow_row_records_invalid_amount_without_routing():
+    accumulator = source_economics._DetailedCashFlowAccumulator()
+
+    row = source_economics._qualified_detailed_cash_flow_row(
+        accumulator,
+        {"amount": "bad", "timing": " bod ", "cash_flow_type": "external_flow"},
+    )
+
+    result = accumulator.to_result()
+    assert row is None
+    assert result.invalid_amount_rows == ({"timing": "bod", "amount": "bad", "cash_flow_type": "external_flow"},)
+    assert result.invalid_timing_rows == ()
+    assert result.external_bod == Decimal("0")
+
+
 def test_record_taxonomy_signal_routes_missing_and_canonical_classifications():
     accumulator = source_economics._DetailedCashFlowAccumulator()
 
