@@ -1,9 +1,9 @@
 # Lotus Performance Progressive CI Quality Gates
 
 Report date: 2026-06-13
-Branch: `refactor/lp-cr-950-mwr-fx-component`
+Branch: `lp-cr-1388-source-economics-raw-sampling`
 Baseline sources: `quality/baseline_report.md`, `quality/refactor_health_report.md`, `quality/quality_scorecard.md`
-Mode: progressive gate map; remediated complexity posture is now enforced in CI.
+Mode: progressive gate map; remediated complexity, architecture-boundary, and router-thinness posture is now enforced in CI.
 
 ## Purpose
 
@@ -23,7 +23,8 @@ developers or GitHub Actions.
 | PR Auto Merge | Pull request lifecycle events | queues merge-commit auto-merge and branch deletion after required checks pass; this is release automation, not an independent quality gate |
 
 `Static Quality Gates` verifies installed dependencies, Ruff lint/format, monetary-float safety,
-complexity regression, no-alias governance, and mypy type safety. `Contract Security Gates` verifies
+complexity regression, architecture-boundary regression, router/middleware thinness, no-alias governance,
+and mypy type safety. `Contract Security Gates` verifies
 OpenAPI quality, API vocabulary governance, migration smoke where the lane requires it, and
 dependency security. These jobs run in parallel before test execution to reduce CI wall-clock time
 without dropping any gate.
@@ -82,9 +83,9 @@ No gate should move from one phase to the next until it has:
 | Python security scanning | Measured in `quality/python_security_inventory.md` through `scripts/python_security_inventory.py` and `bandit`; current scan has zero high, medium, and low findings, with two targeted skipped tests for reviewed environment-name false positives | Keep report-only until the targeted environment-name exception policy and CI placement are stable. |
 | Documentation readiness | Measured in `quality/documentation_inventory.md` through `scripts/python_documentation_inventory.py`; current report shows 8/8 README markers, 20 wiki pages, 230 markdown files, 20 endpoint certification docs, 4/4 API catalog files, 56 docs regression test functions, and 12.02 percent public definition docstring coverage | Keep report-only until docstring scope, generated/model exclusions, and remediation thresholds are agreed. |
 | OpenAPI Spectral linting | Not configured; no `.spectral.yaml` present | Decide whether Spectral adds value beyond the existing OpenAPI gate before adding it. |
-| Architecture boundaries | Measured in `quality/architecture_boundary_inventory.md` through `scripts/python_architecture_boundary_inventory.py`; latest report shows 0 import-boundary findings | Keep report-only while router/core and domain/application boundary policy is operationalized into reusable boundary contracts. |
+| Architecture boundaries | Blocking through `make quality-architecture-gate`; latest report shows 0 import-boundary findings and the script enforces `--max-findings 0` | Keep blocking for the current router/core/domain import rules; add new boundary rules only after report-only inventory proves stability. |
 | Public docstring coverage | Not configured; `interrogate` not present | Measure before deciding whether public docstrings are a useful gate for this service. |
-| Router and middleware thinness | Measured report-only in `quality/router_middleware_thinness_inventory.md` through `scripts/python_router_middleware_thinness_inventory.py`; current snapshot shows 0 router findings and 0 middleware findings at `--threshold 80` | Keep report-only until false-positive policy and refactoring-remediation workflow are established, then move this family toward regression gating. |
+| Router and middleware thinness | Blocking through `make quality-router-thinness-gate`; current snapshot shows 0 router findings and 0 middleware findings at `--threshold 80` with `--max-findings 0` | Keep blocking for the current router/middleware function-size threshold; revisit only with documented exceptions and tests. |
 | RFC 7807 error consistency | Measured report-only through `scripts/openapi_completeness_inventory.py`; current inventory shows 0 error responses missing named problem/error schemas | Keep the report-only inventory clean while separately planning any runtime migration from legacy string-detail errors to full RFC 7807 payloads. |
 | Observability and operational contracts | Measured in `quality/observability_readiness_inventory.md` through `scripts/python_observability_readiness_inventory.py`; current report shows 28/28 expected implementation markers, 0 missing markers, and 287 family-mapped readiness test functions | Keep report-only until marker ownership, overlap-aware test counting, and CI placement are stable. |
 

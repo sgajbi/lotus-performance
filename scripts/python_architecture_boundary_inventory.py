@@ -149,14 +149,30 @@ def render_markdown(findings: Sequence[ArchitectureBoundaryFinding], *, limit: i
     return "\n".join(lines)
 
 
+def max_findings_violation(findings_count: int, max_findings: int | None) -> str | None:
+    if max_findings is None or findings_count <= max_findings:
+        return None
+    return f"Architecture boundary gate failed: {findings_count} finding(s) exceed configured maximum {max_findings}."
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Inventory Lotus architecture-boundary import findings")
     parser.add_argument("--path", action="append", dest="paths", help="Path to scan relative to the repository root")
     parser.add_argument("--limit", type=int, default=40, help="Maximum rows in the findings table")
+    parser.add_argument(
+        "--max-findings",
+        type=int,
+        help="Fail when architecture-boundary finding count exceeds this value",
+    )
     args = parser.parse_args()
 
     paths = tuple(args.paths or DEFAULT_PATHS)
-    print(render_markdown(collect_architecture_findings(paths), limit=args.limit))
+    findings = collect_architecture_findings(paths)
+    print(render_markdown(findings, limit=args.limit))
+    violation = max_findings_violation(len(findings), args.max_findings)
+    if violation is not None:
+        print(violation)
+        return 1
     return 0
 
 
