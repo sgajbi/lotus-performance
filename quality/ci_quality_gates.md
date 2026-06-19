@@ -1,7 +1,7 @@
 # Lotus Performance Progressive CI Quality Gates
 
 Report date: 2026-06-19
-Branch: `lp-cr-1408-queue-metric-describe-catalog`
+Branch: `lp-cr-1409-runtime-status-reclaim-event-mapper`
 Baseline sources: `quality/baseline_report.md`, `quality/refactor_health_report.md`, `quality/quality_scorecard.md`
 Mode: progressive gate map; remediated complexity, architecture-boundary, router-thinness, duplicate-code, and Python security posture is now enforced in CI.
 

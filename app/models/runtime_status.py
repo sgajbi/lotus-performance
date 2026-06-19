@@ -12,7 +12,11 @@ from app.services.lineage_metadata_store import LineageQueueInspectionAnchors, L
 from app.services.remediation_hint_service import get_remediation_hint
 
 if TYPE_CHECKING:
-    from app.services.runtime_status_domain import RuntimeQueueStatus, RuntimeStatusSnapshot
+    from app.services.runtime_status_domain import (
+        RecentOperatorActionReclaim,
+        RuntimeQueueStatus,
+        RuntimeStatusSnapshot,
+    )
 
 
 DegradationNumeric = Annotated[Decimal, PlainSerializer(lambda v: float(v))]
@@ -689,6 +693,23 @@ def _compute_recovery_event_responses(
     ]
 
 
+def _operator_action_reclaim_event_responses(
+    reclaim_events: tuple[RecentOperatorActionReclaim, ...],
+) -> list[OperatorActionReclaimEventResponse]:
+    return [
+        OperatorActionReclaimEventResponse(
+            operator_id=event.operator_id,
+            tenant_id=event.tenant_id,
+            governed_target=event.governed_target,
+            acquired_at_utc=event.acquired_at_utc,
+            reclaimed_at_utc=event.reclaimed_at_utc,
+            reclaimed_age_seconds=event.reclaimed_age_seconds,
+            reclaim_count=event.reclaim_count,
+        )
+        for event in reclaim_events
+    ]
+
+
 def _lineage_queue_response(queue_status: RuntimeQueueStatus) -> LineageQueueStatusDetailsResponse:
     lineage_stats = cast(LineageQueueStats | None, queue_status.stats)
     lineage_anchors = cast(LineageQueueInspectionAnchors | None, queue_status.inspection_anchors)
@@ -798,18 +819,9 @@ def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeSta
             latest_reclaimed_run_reclaimed_at_utc=snapshot.recovery_drill.latest_reclaimed_run_reclaimed_at_utc,
             latest_reclaimed_run_age_seconds=snapshot.recovery_drill.latest_reclaimed_run_age_seconds,
             reclaimed_run_count=snapshot.recovery_drill.reclaimed_run_count,
-            recent_reclaimed_runs=[
-                OperatorActionReclaimEventResponse(
-                    operator_id=event.operator_id,
-                    tenant_id=event.tenant_id,
-                    governed_target=event.governed_target,
-                    acquired_at_utc=event.acquired_at_utc,
-                    reclaimed_at_utc=event.reclaimed_at_utc,
-                    reclaimed_age_seconds=event.reclaimed_age_seconds,
-                    reclaim_count=event.reclaim_count,
-                )
-                for event in snapshot.recovery_drill.recent_reclaimed_runs
-            ],
+            recent_reclaimed_runs=_operator_action_reclaim_event_responses(
+                snapshot.recovery_drill.recent_reclaimed_runs
+            ),
             degradation_reasons=list(snapshot.recovery_drill.degradation_reasons),
             degradation_details=_degradation_details_response(snapshot.recovery_drill.degradation_details),
             latest_generated_at_utc=snapshot.recovery_drill.latest_generated_at_utc,
@@ -836,18 +848,9 @@ def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeSta
             latest_reclaimed_run_reclaimed_at_utc=snapshot.runtime_retention.latest_reclaimed_run_reclaimed_at_utc,
             latest_reclaimed_run_age_seconds=snapshot.runtime_retention.latest_reclaimed_run_age_seconds,
             reclaimed_run_count=snapshot.runtime_retention.reclaimed_run_count,
-            recent_reclaimed_runs=[
-                OperatorActionReclaimEventResponse(
-                    operator_id=event.operator_id,
-                    tenant_id=event.tenant_id,
-                    governed_target=event.governed_target,
-                    acquired_at_utc=event.acquired_at_utc,
-                    reclaimed_at_utc=event.reclaimed_at_utc,
-                    reclaimed_age_seconds=event.reclaimed_age_seconds,
-                    reclaim_count=event.reclaim_count,
-                )
-                for event in snapshot.runtime_retention.recent_reclaimed_runs
-            ],
+            recent_reclaimed_runs=_operator_action_reclaim_event_responses(
+                snapshot.runtime_retention.recent_reclaimed_runs
+            ),
             preview_status=snapshot.runtime_retention.preview_status,
             preview_reason=snapshot.runtime_retention.preview_reason,
             degradation_reasons=list(snapshot.runtime_retention.degradation_reasons),

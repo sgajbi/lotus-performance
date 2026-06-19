@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-19
-Branch: `lp-cr-1408-queue-metric-describe-catalog`
+Branch: `lp-cr-1409-runtime-status-reclaim-event-mapper`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
@@ -1126,6 +1126,9 @@ high-complexity functions remain `0`, and average maintainability index measured
 LP-CR-1408 isolated durable queue metric descriptor metadata from the Prometheus collector
 `describe` method. The measured max cyclomatic complexity remains `5`, high-complexity functions
 remain `0`, and average maintainability index measured `55.14`.
+LP-CR-1409 isolated runtime-status operator-action reclaim event projection from the public
+runtime-status response mapper. The measured max cyclomatic complexity remains `5`,
+high-complexity functions remain `0`, and average maintainability index measured `55.14`.
 
 Maintainability index values should be treated as directional hotspot evidence because generated
 schemas, persistence-style modules, and dense orchestration files can score poorly even when tests
