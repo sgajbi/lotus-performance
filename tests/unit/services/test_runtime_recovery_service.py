@@ -1,9 +1,45 @@
 from datetime import UTC, datetime
 
-from app.services.compute_job_store import ComputeRecoveryEventPage
+from app.services.compute_job_store import ComputeRecoveryEvent, ComputeRecoveryEventPage
 from app.services.durability_health_service import DurabilityHealthStatus
 from app.services.lineage_metadata_store import LineageRecoveryEventPage
-from app.services.runtime_recovery_service import build_runtime_recovery_snapshot
+from app.services.runtime_recovery_service import _queue_state_from_recovery_page, build_runtime_recovery_snapshot
+
+
+def test_queue_state_from_recovery_page_projects_cursor_metadata():
+    page = ComputeRecoveryEventPage(
+        total_count=7,
+        next_offset=5,
+        next_cursor_recovered_before="2026-03-14T11:00:00Z",
+        next_cursor_calculation_id_before="calc-5",
+        items=[
+            ComputeRecoveryEvent(
+                calculation_id="calc-1",
+                analytics_type="ReturnsSeries",
+                recovery_kind="retry",
+                recovered_at_utc="2026-03-14T10:00:00Z",
+                attempt_count=2,
+                error_type="TimeoutError",
+            ),
+            ComputeRecoveryEvent(
+                calculation_id="calc-2",
+                analytics_type="TWR",
+                recovery_kind="retry",
+                recovered_at_utc="2026-03-14T10:30:00Z",
+                attempt_count=3,
+                error_type="RuntimeError",
+            ),
+        ],
+    )
+
+    state = _queue_state_from_recovery_page(page)
+
+    assert state.status == "available"
+    assert state.total_count == 7
+    assert state.returned_count == 2
+    assert state.next_offset == 5
+    assert state.next_cursor_recovered_before == "2026-03-14T11:00:00Z"
+    assert state.next_cursor_calculation_id_before == "calc-5"
 
 
 def test_runtime_recovery_snapshot_reports_partial_queue_failure(mocker):
