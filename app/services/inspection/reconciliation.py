@@ -51,6 +51,13 @@ class _PositionContinuityValues:
     current_begin: Decimal
 
 
+@dataclass(frozen=True)
+class _PositionContinuityGap:
+    values: _PositionContinuityValues
+    gap_amount: Decimal
+    gap_pct_of_previous_end: float | None
+
+
 def run_reconciliation_checks(
     *,
     performance_request: PerformanceRequest,
@@ -599,34 +606,85 @@ def _build_position_continuity_gap_sample(
     previous_row: dict[str, object],
     current_row: dict[str, object],
 ) -> dict[str, object] | None:
+    continuity_gap = _material_position_continuity_gap(
+        previous_row=previous_row,
+        current_row=current_row,
+    )
+    if continuity_gap is None:
+        return None
+    return _position_continuity_gap_sample_payload(
+        position_id=position_id,
+        previous_row=previous_row,
+        current_row=current_row,
+        continuity_gap=continuity_gap,
+    )
+
+
+def _material_position_continuity_gap(
+    *,
+    previous_row: dict[str, object],
+    current_row: dict[str, object],
+) -> _PositionContinuityGap | None:
     continuity_values = _position_continuity_values(
         previous_row=previous_row,
         current_row=current_row,
     )
     if continuity_values is None:
         return None
-    previous_end = continuity_values.previous_end
-    current_begin = continuity_values.current_begin
-    gap_amount = current_begin - previous_end
-    tolerance = max(_ABSOLUTE_GAP_TOLERANCE, abs(previous_end) * _RELATIVE_GAP_TOLERANCE)
-    if abs(gap_amount) <= tolerance:
+    gap_amount = _material_position_continuity_gap_amount(continuity_values)
+    if gap_amount is None:
         return None
     if _row_has_transition_activity(current_row):
         return None
+    return _PositionContinuityGap(
+        values=continuity_values,
+        gap_amount=gap_amount,
+        gap_pct_of_previous_end=_position_continuity_gap_pct(
+            gap_amount=gap_amount,
+            previous_end=continuity_values.previous_end,
+        ),
+    )
 
-    gap_pct = None
-    if previous_end != 0:
-        gap_pct = _decimal_pct_to_float((gap_amount / previous_end) * Decimal("100"))
+
+def _material_position_continuity_gap_amount(
+    continuity_values: _PositionContinuityValues,
+) -> Decimal | None:
+    gap_amount = continuity_values.current_begin - continuity_values.previous_end
+    tolerance = max(
+        _ABSOLUTE_GAP_TOLERANCE,
+        abs(continuity_values.previous_end) * _RELATIVE_GAP_TOLERANCE,
+    )
+    if abs(gap_amount) <= tolerance:
+        return None
+    return gap_amount
+
+
+def _position_continuity_gap_pct(  # monetary-float-allow
+    *, gap_amount: Decimal, previous_end: Decimal
+) -> float | None:
+    if previous_end == 0:
+        return None
+    return _decimal_pct_to_float((gap_amount / previous_end) * Decimal("100"))
+
+
+def _position_continuity_gap_sample_payload(
+    *,
+    position_id: str,
+    previous_row: dict[str, object],
+    current_row: dict[str, object],
+    continuity_gap: _PositionContinuityGap,
+) -> dict[str, object]:
+    continuity_values = continuity_gap.values
     return {
         "position_id": position_id,
         "previous_valuation_date": previous_row.get("valuation_date"),
         "valuation_date": current_row.get("valuation_date"),
         "previous_end_value_field": continuity_values.previous_end_field,
         "current_begin_value_field": continuity_values.current_begin_field,
-        "previous_end_value": _decimal_to_artifact(previous_end),
-        "current_begin_value": _decimal_to_artifact(current_begin),
-        "gap_amount": _decimal_to_artifact(gap_amount),
-        "gap_pct_of_previous_end": gap_pct,
+        "previous_end_value": _decimal_to_artifact(continuity_values.previous_end),
+        "current_begin_value": _decimal_to_artifact(continuity_values.current_begin),
+        "gap_amount": _decimal_to_artifact(continuity_gap.gap_amount),
+        "gap_pct_of_previous_end": continuity_gap.gap_pct_of_previous_end,
     }
 
 
