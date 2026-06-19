@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Health Report
 
 Report date: 2026-06-19
-Branch: `lp-cr-1406-history-snapshot-builders`
+Branch: `lp-cr-1407-queue-metric-status-builders`
 Baseline source: `quality/baseline_report.md`
 Report mode: phase-zero scorecard; complexity regression posture is enforced separately by CI.
 
@@ -27,10 +27,10 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | Python files | 480 | 555 | measured | `rg --files -g '*.py'` |
 | Python package markers | 18 | 18 | measured | recursive `__init__.py` count |
-| Python LOC | 104,454 | 159,142 | measured | `rg --files -g '*.py'` plus line count |
+| Python LOC | 104,454 | 159,169 | measured | LP-CR-1407 diff-based net movement from prior scorecard after the broad shell line count produced an inconsistent historical-method reset |
 | Largest Python file LOC | 2,399 | 2,399 | measured | largest-file inventory in baseline report |
 | Largest production file LOC | 1,156 | 1,156 | measured | `app/services/lineage_metadata_store.py` |
-| Duplicate code hotspots | 0 | 1 | enforced | `quality/duplicate_code_inventory.md`; `make quality-duplicate-code-gate` with `--min-lines 12 --max-groups 1`; duplicated LOC reduced from `54` to `24` in LP-CR-1406 |
+| Duplicate code hotspots | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `make quality-duplicate-code-gate` with `--min-lines 12 --max-groups 0`; duplicated LOC reduced from `24` to `0` in LP-CR-1407 |
 | Dead-code candidates at 60% confidence | unknown | 438 | measured | `quality/dead_code_inventory.md` via `scripts/python_dead_code_inventory.py` |
 | Dead-code candidates at 80% confidence | unknown | 0 | measured | `quality/dead_code_inventory.md` via `scripts/python_dead_code_inventory.py` |
 
@@ -40,7 +40,7 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | Max cyclomatic complexity | unknown | 5 | enforced | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py`; `make quality-complexity-gate` |
 | High-complexity functions | unknown | 0 | enforced | rank D-F functions in `quality/complexity_inventory.md`; `make quality-complexity-gate` |
-| Average maintainability index | unknown | 55.14 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
+| Average maintainability index | unknown | 55.13 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
 | Largest functions by LOC | unknown | 159 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py` |
 
 ## Architecture

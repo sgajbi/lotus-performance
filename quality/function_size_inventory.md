@@ -1,7 +1,7 @@
 # Lotus Performance Function Size Inventory
 
 Report date: 2026-06-19
-Branch: `lp-cr-1406-history-snapshot-builders`
+Branch: `lp-cr-1407-queue-metric-status-builders`
 Mode: report-only function-size inventory; this artifact introduces no new blocking CI gate.
 
 ## Purpose
@@ -143,3 +143,6 @@ LP-CR-1406 moved common operator-action history snapshot envelope construction i
 helper. `build_runtime_retention_history_snapshot` moved from `101` to `97` lines and
 `build_recovery_drill_history_snapshot` moved from `85` to `81` lines; the largest function remains
 `DurableQueueCollector.describe` at `159` lines.
+LP-CR-1407 centralized attribute-backed queue metric sample projection and did not change the
+top-25 function-size table; the largest function remains `DurableQueueCollector.describe` at
+`159` lines.
