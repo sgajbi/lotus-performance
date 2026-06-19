@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.models.operator_run_response import build_lotus_performance_operator_run_response
 from app.services.runtime_retention_history_service import RuntimeRetentionHistorySnapshot
 
 
@@ -241,24 +242,7 @@ def build_runtime_retention_cleanup_run_response(
     prunable_lineage_record_count: int,
     prunable_lineage_artifact_count: int,
 ) -> RuntimeRetentionCleanupRunResponse:
-    return RuntimeRetentionCleanupRunResponse(
-        contract_version="v1",
-        source_service="lotus-performance",
-        cleanup_name=cleanup_name,
-        generated_at_utc=generated_at_utc,
-        evidence_file_name=evidence_file_name,
-        operator_id=operator_id,
-        tenant_id=tenant_id,
-        correlation_id=correlation_id,
-        trigger_mode=trigger_mode,
-        job_id=job_id,
-        cleanup_mode=cleanup_mode,
-        status=status,
-        retention_days=retention_days,
-        cutoff_utc=cutoff_utc,
-        prunable_execution_count=prunable_execution_count,
-        prunable_compute_job_count=prunable_compute_job_count,
-        prunable_async_result_count=prunable_async_result_count,
-        prunable_lineage_record_count=prunable_lineage_record_count,
-        prunable_lineage_artifact_count=prunable_lineage_artifact_count,
+    return build_lotus_performance_operator_run_response(
+        RuntimeRetentionCleanupRunResponse,
+        **locals(),
     )

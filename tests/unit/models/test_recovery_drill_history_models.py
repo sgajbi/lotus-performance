@@ -72,6 +72,8 @@ def test_build_recovery_drill_run_response_serializes_enterprise_context():
         materialized_artifact_exists=True,
     )
 
+    assert response.contract_version == "v1"
+    assert response.source_service == "lotus-performance"
     assert response.operator_id == "ops-user"
     assert response.tenant_id == "tenant-a"
     assert response.correlation_id == "corr-1"

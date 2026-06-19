@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-19
-Branch: `lp-cr-1404-inspection-stateful-fetch`
+Branch: `lp-cr-1405-history-response-builders`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
@@ -32,7 +32,7 @@ must stay at `0`.
 | --- | ---: |
 | Max cyclomatic complexity | 5 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 54.77 |
+| Average maintainability index | 54.96 |
 
 ## Highest Cyclomatic Complexity
 
