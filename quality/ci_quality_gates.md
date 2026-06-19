@@ -1,7 +1,7 @@
 # Lotus Performance Progressive CI Quality Gates
 
 Report date: 2026-06-19
-Branch: `lp-cr-1405-history-response-builders`
+Branch: `lp-cr-1406-history-snapshot-builders`
 Baseline sources: `quality/baseline_report.md`, `quality/refactor_health_report.md`, `quality/quality_scorecard.md`
 Mode: progressive gate map; remediated complexity, architecture-boundary, router-thinness, duplicate-code, and Python security posture is now enforced in CI.
 
@@ -77,7 +77,7 @@ No gate should move from one phase to the next until it has:
 | Domain data product validation | Blocking locally through `make check` and repo-native command | Confirm whether GitHub workflows should include this explicitly before changing CI. |
 | Complexity and maintainability | Max cyclomatic complexity and D-F function count are blocking through `make quality-complexity-gate`; maintainability index remains measured in `quality/complexity_inventory.md` through `scripts/python_complexity_inventory.py` and `radon` | Keep max CC at `8` and D-F count at `0`; keep MI report-only until a stable remediation threshold and exception policy exist. |
 | Function-size hotspots | Measured in `quality/function_size_inventory.md` through a repo-native standard-library scanner | Use as refactor-planning evidence; do not block CI until stable thresholds and exclusions are agreed. |
-| Duplicate code hotspots | Blocking through `make quality-duplicate-code-gate`; current report shows 2 duplicate hotspot groups at `--min-lines 12` with `--max-groups 2` | Keep blocking against the current measured baseline while refactor slices reduce duplicate hotspots; future increases require a documented reason and a better reusable abstraction decision. |
+| Duplicate code hotspots | Blocking through `make quality-duplicate-code-gate`; current report shows 1 duplicate hotspot group at `--min-lines 12` with `--max-groups 1` | Keep blocking against the current measured baseline while refactor slices reduce duplicate hotspots; future increases require a documented reason and a better reusable abstraction decision. |
 | Dead-code detection | Measured in `quality/dead_code_inventory.md` through `scripts/python_dead_code_inventory.py` and `vulture`; 60% findings are dominated by framework/model false positives, while 80% findings are zero | Add reviewed allowlist before considering any regression-blocking gate. |
 | Dependency hygiene | Measured in `quality/dependency_hygiene_report.md` through `scripts/python_dependency_hygiene_inventory.py` and `deptry`; direct imported transitive dependencies are closed, and reviewed runtime-only DEP002 declarations are explicitly allowlisted in the repo scanner | Keep report-only until the allowlist policy and CI placement are stable. |
 | Python security scanning | Blocking through `make python-security-gate`; current Bandit scan has zero high, medium, and low findings, with two targeted skipped tests for reviewed environment-name false positives | Keep blocking for first-party runtime paths; future exceptions must be targeted, documented, and test-backed. |

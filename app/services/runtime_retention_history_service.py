@@ -19,6 +19,10 @@ from app.services.operator_action_history_manifest import (
     validate_history_manifest_payload,
 )
 from app.services.operator_action_history_pagination import paginate_history_entries
+from app.services.operator_action_history_snapshot import (
+    build_available_history_snapshot,
+    build_unavailable_history_snapshot,
+)
 
 RUNTIME_RETENTION_ARTIFACT_DIRECTORY_MISSING_REASON = "runtime_retention_artifact_directory_missing"
 RUNTIME_RETENTION_MANIFEST_INVALID_REASON = "runtime_retention_manifest_invalid"
@@ -170,20 +174,16 @@ def build_runtime_retention_history_snapshot(
     )
     page = paginate_history_entries(filtered_entries, limit=limit, offset=offset)
 
-    return RuntimeRetentionHistorySnapshot(
-        status="available",
-        artifact_directory=str(directory),
-        latest_file_name=manifest_payload["latest_file_name"],
-        retained_file_names=manifest_payload["retained_file_names"],
-        retention_limit=manifest_payload["retention_limit"],
-        retention_max_age_days=manifest_payload["retention_max_age_days"],
+    return build_available_history_snapshot(
+        RuntimeRetentionHistorySnapshot,
+        directory=directory,
+        manifest_payload=manifest_payload,
         entries=page.entries,
         total_entries=len(all_entries),
         matched_entries=len(filtered_entries),
         returned_entries=len(page.entries),
         next_offset=page.next_offset,
         applied_filters=applied_filters,
-        reason=None,
     )
 
 
@@ -193,18 +193,9 @@ def _unavailable_snapshot(
     applied_filters: dict[str, str | int],
     reason: str,
 ) -> RuntimeRetentionHistorySnapshot:
-    return RuntimeRetentionHistorySnapshot(
-        status="unavailable",
-        artifact_directory=str(directory),
-        latest_file_name=None,
-        retained_file_names=[],
-        retention_limit=None,
-        retention_max_age_days=None,
-        entries=[],
-        total_entries=0,
-        matched_entries=0,
-        returned_entries=0,
-        next_offset=None,
+    return build_unavailable_history_snapshot(
+        RuntimeRetentionHistorySnapshot,
+        directory=directory,
         applied_filters=applied_filters,
         reason=reason,
     )
