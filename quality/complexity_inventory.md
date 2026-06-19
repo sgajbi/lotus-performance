@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-19
-Branch: `lp-cr-1405-history-response-builders`
+Branch: `lp-cr-1406-history-snapshot-builders`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
@@ -32,7 +32,7 @@ must stay at `0`.
 | --- | ---: |
 | Max cyclomatic complexity | 5 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 54.96 |
+| Average maintainability index | 55.14 |
 
 ## Highest Cyclomatic Complexity
 
@@ -80,8 +80,8 @@ must stay at `0`.
 | 10 | `app/services/execution_registry.py` | 11.12 | B |
 | 11 | `app/services/operator_action_lease_service.py` | 13.14 | B |
 | 12 | `engine/attribution.py` | 13.46 | B |
-| 13 | `app/services/inspection/reconciliation.py` | 13.93 | B |
-| 14 | `app/services/inspection/source_economics.py` | 14.52 | B |
+| 13 | `app/services/inspection/reconciliation.py` | 14.26 | B |
+| 14 | `app/services/inspection/source_economics.py` | 14.85 | B |
 | 15 | `app/services/inspection/source_economics_collector.py` | 16.34 | B |
 | 16 | `app/services/inspection/source_quality.py` | 16.55 | B |
 | 17 | `app/services/twr_mode_service.py` | 17.66 | B |
@@ -1116,6 +1116,10 @@ posture; the measured repository maximum remains `5`.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.
+LP-CR-1406 removed the recovery-drill/runtime-retention unavailable snapshot duplicate builder
+through a shared operator-action history snapshot helper. The measured max cyclomatic complexity
+remains `5`, high-complexity functions remain `0`, and average maintainability index moved from
+`54.96` to `55.14`.
 
 Maintainability index values should be treated as directional hotspot evidence because generated
 schemas, persistence-style modules, and dense orchestration files can score poorly even when tests

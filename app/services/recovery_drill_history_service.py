@@ -18,6 +18,10 @@ from app.services.operator_action_history_manifest import (
     validate_history_manifest_payload,
 )
 from app.services.operator_action_history_pagination import paginate_history_entries
+from app.services.operator_action_history_snapshot import (
+    build_available_history_snapshot,
+    build_unavailable_history_snapshot,
+)
 
 RECOVERY_DRILL_ARTIFACT_DIRECTORY_MISSING_REASON = "recovery_drill_artifact_directory_missing"
 RECOVERY_DRILL_MANIFEST_INVALID_REASON = "recovery_drill_manifest_invalid"
@@ -129,20 +133,16 @@ def build_recovery_drill_history_snapshot(
         get_generated_at_utc=lambda entry: entry.generated_at_utc,
     )
     page = paginate_history_entries(filtered_entries, limit=limit, offset=offset)
-    return RecoveryDrillHistorySnapshot(
-        status="available",
-        artifact_directory=str(directory),
-        latest_file_name=manifest_payload["latest_file_name"],
-        retained_file_names=manifest_payload["retained_file_names"],
-        retention_limit=manifest_payload["retention_limit"],
-        retention_max_age_days=manifest_payload["retention_max_age_days"],
+    return build_available_history_snapshot(
+        RecoveryDrillHistorySnapshot,
+        directory=directory,
+        manifest_payload=manifest_payload,
         entries=page.entries,
         total_entries=len(all_entries),
         matched_entries=len(filtered_entries),
         returned_entries=len(page.entries),
         next_offset=page.next_offset,
         applied_filters=applied_filters,
-        reason=None,
     )
 
 
@@ -152,18 +152,9 @@ def _unavailable_snapshot(
     applied_filters: dict[str, str | int],
     reason: str,
 ) -> RecoveryDrillHistorySnapshot:
-    return RecoveryDrillHistorySnapshot(
-        status="unavailable",
-        artifact_directory=str(directory),
-        latest_file_name=None,
-        retained_file_names=[],
-        retention_limit=None,
-        retention_max_age_days=None,
-        entries=[],
-        total_entries=0,
-        matched_entries=0,
-        returned_entries=0,
-        next_offset=None,
+    return build_unavailable_history_snapshot(
+        RecoveryDrillHistorySnapshot,
+        directory=directory,
         applied_filters=applied_filters,
         reason=reason,
     )
