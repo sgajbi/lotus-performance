@@ -78,6 +78,8 @@ jobs:
         run: make migration-smoke
       - name: Security Audit
         run: make security-audit
+      - name: Python Security Gate
+        run: make python-security-gate
 
   lint-typecheck-security:
     name: PR Merge Gate / Lint Typecheck Security

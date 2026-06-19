@@ -3,7 +3,7 @@
 Report date: 2026-06-13
 Branch: `lp-cr-1388-source-economics-raw-sampling`
 Baseline sources: `quality/baseline_report.md`, `quality/refactor_health_report.md`, `quality/quality_scorecard.md`
-Mode: progressive gate map; remediated complexity, architecture-boundary, and router-thinness posture is now enforced in CI.
+Mode: progressive gate map; remediated complexity, architecture-boundary, router-thinness, and Python security posture is now enforced in CI.
 
 ## Purpose
 
@@ -26,7 +26,7 @@ developers or GitHub Actions.
 complexity regression, architecture-boundary regression, router/middleware thinness, no-alias governance,
 and mypy type safety. `Contract Security Gates` verifies
 OpenAPI quality, API vocabulary governance, migration smoke where the lane requires it, and
-dependency security. These jobs run in parallel before test execution to reduce CI wall-clock time
+dependency security plus first-party Python static security. These jobs run in parallel before test execution to reduce CI wall-clock time
 without dropping any gate.
 
 The PR lane also publishes `PR Merge Gate / Lint Typecheck Security` as a lightweight aggregate over
@@ -80,7 +80,7 @@ No gate should move from one phase to the next until it has:
 | Duplicate code hotspots | Measured in `quality/duplicate_code_inventory.md` through `scripts/python_duplicate_code_inventory.py`; current report shows 0 duplicate hotspot groups at `--min-lines 12` | Keep report-only until duplicate-family policy and remediation thresholds are aligned with the enterprise refactor roadmap. |
 | Dead-code detection | Measured in `quality/dead_code_inventory.md` through `scripts/python_dead_code_inventory.py` and `vulture`; 60% findings are dominated by framework/model false positives, while 80% findings are zero | Add reviewed allowlist before considering any regression-blocking gate. |
 | Dependency hygiene | Measured in `quality/dependency_hygiene_report.md` through `scripts/python_dependency_hygiene_inventory.py` and `deptry`; direct imported transitive dependencies are closed, and reviewed runtime-only DEP002 declarations are explicitly allowlisted in the repo scanner | Keep report-only until the allowlist policy and CI placement are stable. |
-| Python security scanning | Measured in `quality/python_security_inventory.md` through `scripts/python_security_inventory.py` and `bandit`; current scan has zero high, medium, and low findings, with two targeted skipped tests for reviewed environment-name false positives | Keep report-only until the targeted environment-name exception policy and CI placement are stable. |
+| Python security scanning | Blocking through `make python-security-gate`; current Bandit scan has zero high, medium, and low findings, with two targeted skipped tests for reviewed environment-name false positives | Keep blocking for first-party runtime paths; future exceptions must be targeted, documented, and test-backed. |
 | Documentation readiness | Measured in `quality/documentation_inventory.md` through `scripts/python_documentation_inventory.py`; current report shows 8/8 README markers, 20 wiki pages, 230 markdown files, 20 endpoint certification docs, 4/4 API catalog files, 56 docs regression test functions, and 12.02 percent public definition docstring coverage | Keep report-only until docstring scope, generated/model exclusions, and remediation thresholds are agreed. |
 | OpenAPI Spectral linting | Not configured; no `.spectral.yaml` present | Decide whether Spectral adds value beyond the existing OpenAPI gate before adding it. |
 | Architecture boundaries | Blocking through `make quality-architecture-gate`; latest report shows 0 import-boundary findings and the script enforces `--max-findings 0` | Keep blocking for the current router/core/domain import rules; add new boundary rules only after report-only inventory proves stability. |

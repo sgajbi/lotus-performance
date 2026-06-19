@@ -4,6 +4,7 @@ from scripts.python_security_inventory import (
     parse_bandit_payload,
     parse_bandit_scan,
     render_markdown,
+    security_threshold_violations,
 )
 
 
@@ -92,3 +93,32 @@ def test_render_markdown_summarizes_bandit_findings():
     assert "| Services | 1 |" in output
     assert "service \\| issue" in output
     assert "`app/models/benchmark_exposure_context.py:63`" in output
+
+
+def test_security_threshold_violations_enforces_bandit_severity_gate():
+    issues = [
+        BanditIssue(
+            severity="HIGH",
+            confidence="HIGH",
+            test_id="B999",
+            test_name="example_test",
+            filename="app/services/example.py",
+            line_number=10,
+            issue_text="high severity issue",
+        ),
+        BanditIssue(
+            severity="LOW",
+            confidence="MEDIUM",
+            test_id="B105",
+            test_name="hardcoded_password_string",
+            filename="app/models/example.py",
+            line_number=20,
+            issue_text="low severity issue",
+        ),
+    ]
+
+    assert security_threshold_violations(issues, max_high=1, max_medium=0, max_low=1) == []
+    assert security_threshold_violations(issues, max_high=0, max_medium=0, max_low=0) == [
+        "Python security gate failed: high severity findings 1 exceed configured maximum 0.",
+        "Python security gate failed: low severity findings 1 exceed configured maximum 0.",
+    ]

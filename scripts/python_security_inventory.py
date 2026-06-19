@@ -201,10 +201,37 @@ def render_markdown(
     return "\n".join(lines)
 
 
+def security_threshold_violations(
+    issues: Sequence[BanditIssue],
+    *,
+    max_high: int | None = None,
+    max_medium: int | None = None,
+    max_low: int | None = None,
+) -> list[str]:
+    severity_counts = _count(issues, "severity")
+    thresholds = (
+        ("HIGH", max_high),
+        ("MEDIUM", max_medium),
+        ("LOW", max_low),
+    )
+    violations: list[str] = []
+    for severity, maximum in thresholds:
+        if maximum is None or severity_counts[severity] <= maximum:
+            continue
+        violations.append(
+            "Python security gate failed: "
+            f"{severity.lower()} severity findings {severity_counts[severity]} exceed configured maximum {maximum}."
+        )
+    return violations
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Inventory Python security findings with Bandit")
     parser.add_argument("--path", action="append", dest="paths", help="Path to scan relative to the repository root")
     parser.add_argument("--limit", type=int, default=30, help="Maximum rows in the findings table")
+    parser.add_argument("--max-high", type=int, help="Fail when high severity findings exceed this value")
+    parser.add_argument("--max-medium", type=int, help="Fail when medium severity findings exceed this value")
+    parser.add_argument("--max-low", type=int, help="Fail when low severity findings exceed this value")
     args = parser.parse_args()
 
     paths = tuple(args.paths or DEFAULT_PATHS)
@@ -218,6 +245,16 @@ def main() -> int:
             skipped_tests=scan.skipped_tests,
         )
     )
+    violations = security_threshold_violations(
+        scan.issues,
+        max_high=args.max_high,
+        max_medium=args.max_medium,
+        max_low=args.max_low,
+    )
+    for violation in violations:
+        print(violation)
+    if violations:
+        return 1
     return 0
 
 

@@ -75,6 +75,8 @@ jobs:
         run: make api-vocabulary-gate
       - name: Security Audit
         run: make security-audit
+      - name: Python Security Gate
+        run: make python-security-gate
 
   unit-tests:
     name: Feature Lane / Tests (unit)
