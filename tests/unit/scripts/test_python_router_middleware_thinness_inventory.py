@@ -3,6 +3,7 @@ from pathlib import Path
 from scripts.python_router_middleware_thinness_inventory import (
     ThinnessFinding,
     collect_thinness_findings,
+    max_findings_violation,
     render_markdown,
 )
 
@@ -105,3 +106,11 @@ def test_render_markdown_reports_findings_order():
 
     assert "| Router and middleware oversized function findings | 2 |" in output
     assert "| 1 | router | `app/api/endpoints/sample.py:1` | `endpoint_handler` | 5 |" in output
+
+
+def test_max_findings_violation_enforces_router_middleware_thinness_gate():
+    assert max_findings_violation(0, 0) is None
+    assert max_findings_violation(1, None) is None
+    assert max_findings_violation(3, 2) == (
+        "Router/middleware thinness gate failed: 3 finding(s) exceed configured maximum 2."
+    )

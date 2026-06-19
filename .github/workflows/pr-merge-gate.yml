@@ -48,6 +48,10 @@ jobs:
         run: make lint
       - name: Quality Complexity Gate
         run: make quality-complexity-gate
+      - name: Quality Architecture Gate
+        run: make quality-architecture-gate
+      - name: Quality Router Thinness Gate
+        run: make quality-router-thinness-gate
       - name: No-Alias Contract Guard
         run: make no-alias-gate
       - name: Mypy Typecheck

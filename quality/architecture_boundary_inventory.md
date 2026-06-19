@@ -1,8 +1,8 @@
 # Lotus Performance Architecture Boundary Inventory
 
 Report date: 2026-06-04
-Branch: `feat/performance-hardening-wave-9`
-Mode: report-only architecture-boundary inventory; no blocking CI gate is introduced by this artifact.
+Branch: `lp-cr-1388-source-economics-raw-sampling`
+Mode: enforced architecture-boundary inventory; zero findings are blocked by CI.
 
 ## Purpose
 
@@ -13,7 +13,7 @@ hardening stream from relying on subjective architecture claims.
 ## Command
 
 ```powershell
-python scripts/python_architecture_boundary_inventory.py --limit 40
+python scripts/python_architecture_boundary_inventory.py --limit 40 --max-findings 0
 ```
 
 ## Summary
@@ -46,11 +46,10 @@ rules: API modules no longer reach directly into `core` or `engine`, and engine/
 longer import application DTOs, adapters, or FastAPI primitives for the measured rules.
 
 Future boundary drift should be handled through bounded behavior-preserving slices with
-characterization tests. The report is not a blocking gate yet; it is the measured architecture
-boundary scorecard for the hardening stream.
+characterization tests. The current zero-finding posture is now a blocking architecture boundary
+gate in local checks, Feature Lane, PR Merge Gate, and Main Releasability.
 
 ## Gate Posture
 
-This is a Phase 1 report-only quality measurement. It does not introduce a CI threshold, branch
-failure, or exception policy. Promotion to a blocking gate should wait until current findings are
-classified and the first remediation slices prove stable.
+`make quality-architecture-gate` enforces `--max-findings 0` for the current router, engine, and
+core import-boundary rule set.

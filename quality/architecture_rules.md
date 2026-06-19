@@ -1,37 +1,34 @@
 # Lotus Performance Architecture Rules
 
 Report date: 2026-06-02
-Branch: `feat/performance-hardening-wave-9`
-Mode: report-only architecture-rule definition; no blocking CI gate is introduced by this artifact.
+Branch: `lp-cr-1388-source-economics-raw-sampling`
+Mode: enforced architecture-rule definition; zero current findings are now blocked by CI.
 
 ## Purpose
 
 This document defines the first measured architecture boundary rules for the performance hardening
-stream. The rules intentionally start as report-only so current violations can be reviewed and
-reduced through bounded refactor slices before any regression-blocking gate is introduced.
+stream. The current import-boundary rules are promoted from report-only measurement to blocking
+regression gates after the inventory reached zero findings and the scanner gained an explicit
+`--max-findings` threshold.
 
 ## Rule Set
 
 | Rule | Boundary | Current posture |
 | --- | --- | --- |
-| `ROUTER_DIRECT_BOUNDARY_IMPORT` | API routers should route through app services/use cases instead of direct domain, engine, or infrastructure imports. | Measured in `quality/architecture_boundary_inventory.md`; not yet blocking. |
-| `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | Engine/core modules should stay independent from application DTOs, adapters, and web framework imports. | Measured in `quality/architecture_boundary_inventory.md`; not yet blocking. |
+| `ROUTER_DIRECT_BOUNDARY_IMPORT` | API routers should route through app services/use cases instead of direct domain, engine, or infrastructure imports. | Enforced by `make quality-architecture-gate` with `--max-findings 0`. |
+| `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | Engine/core modules should stay independent from application DTOs, adapters, and web framework imports. | Enforced by `make quality-architecture-gate` with `--max-findings 0`. |
 
 ## Developer Command
 
 ```powershell
-python scripts/python_architecture_boundary_inventory.py --limit 40
+python scripts/python_architecture_boundary_inventory.py --limit 40 --max-findings 0
 ```
 
-## Promotion Standard
+## Gate Standard
 
-Before either rule becomes a blocking gate:
-
-1. every current finding must be classified as actionable, intentionally tolerated, or superseded,
-2. tolerated findings need a documented exception reason and owner,
-3. at least one bounded refactor slice should prove the remediation path,
-4. CI should first block only new findings against a checked-in baseline,
-5. strict thresholds should wait until false positives and framework conventions are understood.
+The current strict threshold is zero findings. If a future framework integration requires an
+exception, it must be documented in this rule file and backed by focused tests before the gate is
+relaxed.
 
 ## Non-Goals
 

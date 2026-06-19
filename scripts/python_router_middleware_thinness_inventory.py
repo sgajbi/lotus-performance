@@ -148,6 +148,14 @@ def render_markdown(findings: Sequence[ThinnessFinding], *, limit: int) -> str:
     return "\n".join(lines)
 
 
+def max_findings_violation(findings_count: int, max_findings: int | None) -> str | None:
+    if max_findings is None or findings_count <= max_findings:
+        return None
+    return (
+        f"Router/middleware thinness gate failed: {findings_count} finding(s) exceed configured maximum {max_findings}."
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Inventory oversized router and middleware functions")
     parser.add_argument("--path", action="append", dest="paths", help="Path to scan relative to the repository root")
@@ -155,11 +163,20 @@ def main() -> int:
         "--threshold", type=int, default=DEFAULT_THRESHOLD, help="Line threshold to flag oversized functions"
     )
     parser.add_argument("--limit", type=int, default=40, help="Maximum number of findings to report")
+    parser.add_argument(
+        "--max-findings",
+        type=int,
+        help="Fail when router/middleware oversized-function finding count exceeds this value",
+    )
     args = parser.parse_args()
 
     paths = tuple(args.paths or DEFAULT_PATHS)
     findings = collect_thinness_findings(paths, threshold=args.threshold)
     print(render_markdown(findings, limit=args.limit))
+    violation = max_findings_violation(len(findings), args.max_findings)
+    if violation is not None:
+        print(violation)
+        return 1
     return 0
 
 

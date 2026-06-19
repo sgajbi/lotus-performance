@@ -1,6 +1,7 @@
 from scripts.python_architecture_boundary_inventory import (
     ArchitectureBoundaryFinding,
     classify_import,
+    max_findings_violation,
     render_markdown,
 )
 
@@ -56,3 +57,11 @@ def test_render_markdown_summarizes_architecture_findings():
         in output
     )
     assert "`engine/mwr.py:8`" not in output
+
+
+def test_max_findings_violation_enforces_architecture_boundary_gate():
+    assert max_findings_violation(0, 0) is None
+    assert max_findings_violation(1, None) is None
+    assert max_findings_violation(2, 1) == (
+        "Architecture boundary gate failed: 2 finding(s) exceed configured maximum 1."
+    )
