@@ -2,14 +2,35 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Callable, Protocol, TypedDict, TypeVar
 
-from app.services.compute_job_store import ComputeRecoveryEvent, ComputeRecoveryEventPage, compute_job_store
+from app.services.compute_job_store import ComputeRecoveryEvent, compute_job_store
 from app.services.durability_health_service import (
     DurabilityHealthStatus,
     check_durable_metadata_schema_ready,
 )
-from app.services.lineage_metadata_store import LineageRecoveryEvent, LineageRecoveryEventPage, lineage_metadata_store
+from app.services.lineage_metadata_store import LineageRecoveryEvent, lineage_metadata_store
 from app.services.runtime_unavailability import durable_metadata_unavailable_reason
+
+RecoveryEventT = TypeVar("RecoveryEventT")
+
+
+class _RecoveryEventPage(Protocol[RecoveryEventT]):
+    total_count: int
+    next_offset: int | None
+    next_cursor_recovered_before: str | None
+    next_cursor_calculation_id_before: str | None
+    items: list[RecoveryEventT]
+
+
+class _RecoveryListCommonKwargs(TypedDict):
+    limit: int
+    offset: int
+    recovered_after: datetime | None
+    recovered_before: datetime | None
+    cursor_recovered_before: datetime | None
+    cursor_calculation_id_before: str | None
+    calculation_id_contains: str | None
 
 
 @dataclass(frozen=True)
@@ -85,9 +106,7 @@ def build_runtime_recovery_snapshot(
 
     include_compute = queue_filter in {"both", "compute"}
     include_lineage = queue_filter in {"both", "lineage"}
-
-    compute_queue, compute_recoveries = _safe_compute_recoveries(
-        include_queue=include_compute,
+    recovery_filters = _RecoveryListFilters(
         limit=limit,
         offset=offset,
         recovered_after=recovered_after,
@@ -95,17 +114,16 @@ def build_runtime_recovery_snapshot(
         cursor_recovered_before=cursor_recovered_before,
         cursor_calculation_id_before=cursor_calculation_id_before,
         calculation_id_contains=calculation_id_contains,
+    )
+
+    compute_queue, compute_recoveries = _safe_compute_recoveries(
+        include_queue=include_compute,
+        filters=recovery_filters,
         compute_analytics_type=compute_analytics_type,
     )
     lineage_queue, lineage_recoveries = _safe_lineage_recoveries(
         include_queue=include_lineage,
-        limit=limit,
-        offset=offset,
-        recovered_after=recovered_after,
-        recovered_before=recovered_before,
-        cursor_recovered_before=cursor_recovered_before,
-        cursor_calculation_id_before=cursor_calculation_id_before,
-        calculation_id_contains=calculation_id_contains,
+        filters=recovery_filters,
         lineage_calculation_type=lineage_calculation_type,
     )
 
@@ -132,87 +150,82 @@ def build_runtime_recovery_snapshot(
 def _safe_compute_recoveries(
     *,
     include_queue: bool,
-    limit: int,
-    offset: int,
-    recovered_after: datetime | None,
-    recovered_before: datetime | None,
-    cursor_recovered_before: datetime | None,
-    cursor_calculation_id_before: str | None,
-    calculation_id_contains: str | None,
+    filters: _RecoveryListFilters,
     compute_analytics_type: str | None,
 ) -> tuple[RuntimeRecoveryQueueState, list[ComputeRecoveryEvent]]:
-    if not include_queue:
-        return _queue_state(status="excluded"), []
-    try:
-        page: ComputeRecoveryEventPage = compute_job_store.list_recent_recoveries(
-            limit=limit,
-            offset=offset,
-            recovered_after=recovered_after,
-            recovered_before=recovered_before,
-            cursor_recovered_before=cursor_recovered_before,
-            cursor_calculation_id_before=cursor_calculation_id_before,
+    return _safe_recoveries(
+        include_queue=include_queue,
+        filters=filters,
+        load_page=lambda filters: compute_job_store.list_recent_recoveries(
+            **filters.common_kwargs,
             analytics_type=compute_analytics_type,
-            calculation_id_contains=calculation_id_contains,
-        )
-        return (
-            _queue_state(
-                status="available",
-                total_count=page.total_count,
-                returned_count=len(page.items),
-                next_offset=page.next_offset,
-                next_cursor_recovered_before=page.next_cursor_recovered_before,
-                next_cursor_calculation_id_before=page.next_cursor_calculation_id_before,
-            ),
-            page.items,
-        )
-    except Exception as exc:
-        return (
-            _queue_state(status="unavailable", reason=type(exc).__name__),
-            [],
-        )
+        ),
+    )
 
 
 def _safe_lineage_recoveries(
     *,
     include_queue: bool,
-    limit: int,
-    offset: int,
-    recovered_after: datetime | None,
-    recovered_before: datetime | None,
-    cursor_recovered_before: datetime | None,
-    cursor_calculation_id_before: str | None,
-    calculation_id_contains: str | None,
+    filters: _RecoveryListFilters,
     lineage_calculation_type: str | None,
 ) -> tuple[RuntimeRecoveryQueueState, list[LineageRecoveryEvent]]:
+    return _safe_recoveries(
+        include_queue=include_queue,
+        filters=filters,
+        load_page=lambda filters: lineage_metadata_store.list_recent_recoveries(
+            **filters.common_kwargs,
+            calculation_type=lineage_calculation_type,
+        ),
+    )
+
+
+@dataclass(frozen=True)
+class _RecoveryListFilters:
+    limit: int
+    offset: int
+    recovered_after: datetime | None
+    recovered_before: datetime | None
+    cursor_recovered_before: datetime | None
+    cursor_calculation_id_before: str | None
+    calculation_id_contains: str | None
+
+    @property
+    def common_kwargs(self) -> _RecoveryListCommonKwargs:
+        return {
+            "limit": self.limit,
+            "offset": self.offset,
+            "recovered_after": self.recovered_after,
+            "recovered_before": self.recovered_before,
+            "cursor_recovered_before": self.cursor_recovered_before,
+            "cursor_calculation_id_before": self.cursor_calculation_id_before,
+            "calculation_id_contains": self.calculation_id_contains,
+        }
+
+
+def _safe_recoveries(
+    *,
+    include_queue: bool,
+    filters: _RecoveryListFilters,
+    load_page: Callable[[_RecoveryListFilters], _RecoveryEventPage[RecoveryEventT]],
+) -> tuple[RuntimeRecoveryQueueState, list[RecoveryEventT]]:
     if not include_queue:
         return _queue_state(status="excluded"), []
     try:
-        page: LineageRecoveryEventPage = lineage_metadata_store.list_recent_recoveries(
-            limit=limit,
-            offset=offset,
-            recovered_after=recovered_after,
-            recovered_before=recovered_before,
-            cursor_recovered_before=cursor_recovered_before,
-            cursor_calculation_id_before=cursor_calculation_id_before,
-            calculation_type=lineage_calculation_type,
-            calculation_id_contains=calculation_id_contains,
-        )
-        return (
-            _queue_state(
-                status="available",
-                total_count=page.total_count,
-                returned_count=len(page.items),
-                next_offset=page.next_offset,
-                next_cursor_recovered_before=page.next_cursor_recovered_before,
-                next_cursor_calculation_id_before=page.next_cursor_calculation_id_before,
-            ),
-            page.items,
-        )
+        page = load_page(filters)
+        return _queue_state_from_recovery_page(page), page.items
     except Exception as exc:
-        return (
-            _queue_state(status="unavailable", reason=type(exc).__name__),
-            [],
-        )
+        return _queue_state(status="unavailable", reason=type(exc).__name__), []
+
+
+def _queue_state_from_recovery_page(page: _RecoveryEventPage[RecoveryEventT]) -> RuntimeRecoveryQueueState:
+    return _queue_state(
+        status="available",
+        total_count=page.total_count,
+        returned_count=len(page.items),
+        next_offset=page.next_offset,
+        next_cursor_recovered_before=page.next_cursor_recovered_before,
+        next_cursor_calculation_id_before=page.next_cursor_calculation_id_before,
+    )
 
 
 def _queue_state(

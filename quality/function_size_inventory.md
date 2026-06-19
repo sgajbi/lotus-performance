@@ -1,7 +1,7 @@
 # Lotus Performance Function Size Inventory
 
 Report date: 2026-06-19
-Branch: `lp-cr-1397-stateful-currency-support`
+Branch: `lp-cr-1398-runtime-recovery-snapshots`
 Mode: report-only function-size inventory; this artifact introduces no new blocking CI gate.
 
 ## Purpose
@@ -34,8 +34,8 @@ python scripts/python_function_size_inventory.py --limit 20
 | 12 | `_calculate_returns_series` | `app/services/returns_series_service.py:1463` | 90 |
 | 13 | `_build_artifacts` | `app/services/composite_inspection_service.py:154` | 89 |
 | 14 | `build_recovery_drill_history_snapshot` | `app/services/recovery_drill_history_service.py:62` | 85 |
-| 15 | `build_runtime_recovery_snapshot` | `app/services/runtime_recovery_service.py:46` | 84 |
-| 16 | `run_runtime_retention_cleanup` | `app/services/runtime_retention_run_service.py:112` | 83 |
+| 15 | `run_runtime_retention_cleanup` | `app/services/runtime_retention_run_service.py:112` | 83 |
+| 16 | `build_runtime_recovery_snapshot` | `app/services/runtime_recovery_service.py:67` | 81 |
 | 17 | `calculate_contribution` | `app/services/contribution_service.py:614` | 80 |
 | 18 | `LineageMetadataStore._build_inspection_query_statements` | `app/services/lineage_metadata_store.py:529` | 80 |
 | 19 | `_build_contribution_response` | `app/services/contribution_service.py:533` | 79 |
@@ -117,3 +117,6 @@ target replay, guard, or lease-context assembly separately rather than claiming 
 fully remediated.
 It then moved from `93` to `83` lines and left the top-25 complexity table after apply-preview and
 manual cooldown guard policy were isolated.
+Runtime recovery snapshot assembly moved from `84` to `81` lines after common recovery list filters
+and safe page-to-queue-state projection were isolated while preserving compute and lineage
+queue-specific store filters.
