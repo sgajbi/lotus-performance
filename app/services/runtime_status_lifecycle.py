@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TypedDict
 
@@ -58,6 +59,28 @@ class RuntimeRetentionCurrentPreviewFields(TypedDict):
     current_prunable_async_result_count: int | None
     current_prunable_lineage_record_count: int | None
     current_prunable_lineage_artifact_count: int | None
+
+
+@dataclass(frozen=True)
+class _LatestOperatorHistoryDegradationReasons:
+    lifecycle_reason: str
+    age_reason: str
+    active_run_reason: str
+    reclaim_reason: str
+
+
+RECOVERY_DRILL_DEGRADATION_REASONS = _LatestOperatorHistoryDegradationReasons(
+    lifecycle_reason="recovery_drill_latest_not_passed",
+    age_reason="recovery_drill_age_exceeded",
+    active_run_reason="recovery_drill_active_run_age_exceeded",
+    reclaim_reason="recovery_drill_reclaim_pressure_exceeded",
+)
+RUNTIME_RETENTION_DEGRADATION_REASONS = _LatestOperatorHistoryDegradationReasons(
+    lifecycle_reason="runtime_retention_latest_not_applied",
+    age_reason="runtime_retention_age_exceeded",
+    active_run_reason="runtime_retention_active_run_age_exceeded",
+    reclaim_reason="runtime_retention_reclaim_pressure_exceeded",
+)
 
 
 def recovery_drill_operator_action_status(*, settings) -> OperatorActionStatus:
@@ -251,6 +274,39 @@ def recovery_drill_status_from_latest(
     )
 
 
+def _latest_operator_history_degradation_details(
+    *,
+    is_healthy: bool,
+    latest_age_seconds: float,
+    threshold: float,
+    active_run_status: OperatorActionStatus,
+    active_run_age_threshold: float,
+    reclaim_threshold: int,
+    reasons: _LatestOperatorHistoryDegradationReasons,
+) -> tuple[RuntimeDegradationDetail, ...]:
+    details: list[RuntimeDegradationDetail] = []
+    append_lifecycle_state_degradation_detail(
+        details,
+        is_healthy=is_healthy,
+        reason=reasons.lifecycle_reason,
+    )
+    append_latest_history_age_degradation_detail(
+        details,
+        reason=reasons.age_reason,
+        latest_age_seconds=latest_age_seconds,
+        threshold=threshold,
+    )
+    append_operator_action_degradation_details(
+        details,
+        active_run_status=active_run_status,
+        active_run_age_threshold=active_run_age_threshold,
+        active_run_reason=reasons.active_run_reason,
+        reclaim_threshold=reclaim_threshold,
+        reclaim_reason=reasons.reclaim_reason,
+    )
+    return tuple(details)
+
+
 def recovery_drill_degradation_details(
     *,
     latest: RecoveryDrillHistoryEntry,
@@ -260,27 +316,15 @@ def recovery_drill_degradation_details(
     active_run_age_threshold: float,
     reclaim_threshold: int,
 ) -> tuple[RuntimeDegradationDetail, ...]:
-    details: list[RuntimeDegradationDetail] = []
-    append_lifecycle_state_degradation_detail(
-        details,
+    return _latest_operator_history_degradation_details(
         is_healthy=latest.status == "passed",
-        reason="recovery_drill_latest_not_passed",
-    )
-    append_latest_history_age_degradation_detail(
-        details,
-        reason="recovery_drill_age_exceeded",
         latest_age_seconds=latest_age_seconds,
         threshold=threshold,
-    )
-    append_operator_action_degradation_details(
-        details,
         active_run_status=active_run_status,
         active_run_age_threshold=active_run_age_threshold,
-        active_run_reason="recovery_drill_active_run_age_exceeded",
         reclaim_threshold=reclaim_threshold,
-        reclaim_reason="recovery_drill_reclaim_pressure_exceeded",
+        reasons=RECOVERY_DRILL_DEGRADATION_REASONS,
     )
-    return tuple(details)
 
 
 def unavailable_recovery_drill_status(
@@ -399,27 +443,15 @@ def runtime_retention_degradation_details(
     active_run_age_threshold: float,
     reclaim_threshold: int,
 ) -> tuple[RuntimeDegradationDetail, ...]:
-    details: list[RuntimeDegradationDetail] = []
-    append_lifecycle_state_degradation_detail(
-        details,
+    return _latest_operator_history_degradation_details(
         is_healthy=latest.cleanup_mode == "apply",
-        reason="runtime_retention_latest_not_applied",
-    )
-    append_latest_history_age_degradation_detail(
-        details,
-        reason="runtime_retention_age_exceeded",
         latest_age_seconds=latest_age_seconds,
         threshold=threshold,
-    )
-    append_operator_action_degradation_details(
-        details,
         active_run_status=active_run_status,
         active_run_age_threshold=active_run_age_threshold,
-        active_run_reason="runtime_retention_active_run_age_exceeded",
         reclaim_threshold=reclaim_threshold,
-        reclaim_reason="runtime_retention_reclaim_pressure_exceeded",
+        reasons=RUNTIME_RETENTION_DEGRADATION_REASONS,
     )
-    return tuple(details)
 
 
 def missing_runtime_retention_status(
