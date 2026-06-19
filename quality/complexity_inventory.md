@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-19
-Branch: `lp-cr-1401-runtime-work-items`
+Branch: `lp-cr-1402-stateful-input-snapshot-pages`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
@@ -1111,6 +1111,8 @@ The source-quality economic plausibility finding extraction did not change the m
 complexity posture; the measured repository maximum remains `5`.
 The runtime work-item safe listing extraction did not change the max cyclomatic complexity posture;
 the measured repository maximum remains `5`.
+The stateful timeseries snapshot append extraction did not change the max cyclomatic complexity
+posture; the measured repository maximum remains `5`.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.

@@ -965,28 +965,16 @@ class StatefulInputService:
         snapshot_batch: list[dict[str, Any]],
         existing_snapshot_ids: set[str],
     ) -> None:
-        if calculation_id is None:
-            return
-        snapshot_id, request_fingerprint = self._build_snapshot_identity(
+        self._append_timeseries_snapshot_if_new(
             calculation_id=calculation_id,
             upstream_endpoint="portfolio_timeseries",
             source_identifier=portfolio_id,
+            as_of_date=as_of_date,
             request_payload=request_payload,
+            response=response,
+            snapshot_batch=snapshot_batch,
+            existing_snapshot_ids=existing_snapshot_ids,
         )
-        if snapshot_id not in existing_snapshot_ids:
-            snapshot_batch.append(
-                self._build_snapshot(
-                    calculation_id=calculation_id,
-                    upstream_endpoint="portfolio_timeseries",
-                    source_identifier=portfolio_id,
-                    as_of_date=as_of_date,
-                    request_payload=request_payload,
-                    response=response,
-                    snapshot_id=snapshot_id,
-                    request_fingerprint=request_fingerprint,
-                )
-            )
-            existing_snapshot_ids.add(snapshot_id)
 
     async def _fetch_position_chunk(
         self,
@@ -1121,20 +1109,43 @@ class StatefulInputService:
         snapshot_batch: list[dict[str, Any]],
         existing_snapshot_ids: set[str],
     ) -> None:
+        self._append_timeseries_snapshot_if_new(
+            calculation_id=calculation_id,
+            upstream_endpoint="position_timeseries",
+            source_identifier=portfolio_id,
+            as_of_date=as_of_date,
+            request_payload=request_payload,
+            response=response,
+            snapshot_batch=snapshot_batch,
+            existing_snapshot_ids=existing_snapshot_ids,
+        )
+
+    def _append_timeseries_snapshot_if_new(
+        self,
+        *,
+        calculation_id: UUID | None,
+        upstream_endpoint: str,
+        source_identifier: str,
+        as_of_date: date,
+        request_payload: dict[str, Any],
+        response: tuple[int, dict[str, Any]],
+        snapshot_batch: list[dict[str, Any]],
+        existing_snapshot_ids: set[str],
+    ) -> None:
         if calculation_id is None:
             return
         snapshot_id, request_fingerprint = self._build_snapshot_identity(
             calculation_id=calculation_id,
-            upstream_endpoint="position_timeseries",
-            source_identifier=portfolio_id,
+            upstream_endpoint=upstream_endpoint,
+            source_identifier=source_identifier,
             request_payload=request_payload,
         )
         if snapshot_id not in existing_snapshot_ids:
             snapshot_batch.append(
                 self._build_snapshot(
                     calculation_id=calculation_id,
-                    upstream_endpoint="position_timeseries",
-                    source_identifier=portfolio_id,
+                    upstream_endpoint=upstream_endpoint,
+                    source_identifier=source_identifier,
                     as_of_date=as_of_date,
                     request_payload=request_payload,
                     response=response,
