@@ -24,6 +24,26 @@ class RetrievalMetadata:
     page_count: int
 
 
+@dataclass(frozen=True)
+class _IndexPriceSeriesRequest:
+    index_id: str
+    as_of_date: date
+    start_date: date
+    end_date: date
+    frequency: str
+    target_currency: str | None
+
+
+@dataclass(frozen=True)
+class _RiskFreeSeriesRequest:
+    currency: str
+    as_of_date: date
+    start_date: date
+    end_date: date
+    frequency: str
+    series_mode: str
+
+
 class StatefulInputService:
     def __init__(
         self,
@@ -671,70 +691,15 @@ class StatefulInputService:
         target_currency: str | None = None,
         calculation_id: UUID | None = None,
     ) -> tuple[int, dict[str, Any]]:
-        existing_snapshot_ids = self._existing_snapshot_ids(calculation_id)
-        chunks = self.plan_chunks(
-            start_date=start_date,
-            end_date=end_date,
-            chunk_days=self._reference_chunk_days,
-        )
-        responses = await self._gather_chunked(
-            chunks=chunks,
-            fetcher=lambda chunk: self._core_service.get_index_price_series(
-                index_id=index_id,
-                as_of_date=as_of_date,
-                start_date=chunk.start_date,
-                end_date=chunk.end_date,
-                frequency=frequency,
-                target_currency=target_currency,
-            ),
-        )
-        self._record_index_price_series_snapshots(
-            calculation_id=calculation_id,
+        request = _IndexPriceSeriesRequest(
             index_id=index_id,
             as_of_date=as_of_date,
+            start_date=start_date,
+            end_date=end_date,
             frequency=frequency,
             target_currency=target_currency,
-            chunks=chunks,
-            responses=responses,
-            existing_snapshot_ids=existing_snapshot_ids,
         )
-        failure = self._first_failure(responses)
-        if failure is not None:
-            return failure
-
-        points = self._merge_dedup_points_from_responses(responses)
-        return 200, {
-            "points": points,
-            "retrieval_metadata": {
-                "chunk_count": len(chunks),
-                "page_count": len(chunks),
-            },
-        }
-
-    def _record_index_price_series_snapshots(
-        self,
-        *,
-        calculation_id: UUID | None,
-        index_id: str,
-        as_of_date: date,
-        frequency: str,
-        target_currency: str | None,
-        chunks: list[DateChunk],
-        responses: list[tuple[int, dict[str, Any]]],
-        existing_snapshot_ids: set[str],
-    ) -> None:
-        self._record_chunked_series_snapshots(
-            calculation_id=calculation_id,
-            upstream_endpoint="index_price_series",
-            source_identifier=index_id,
-            as_of_date=as_of_date,
-            chunks=chunks,
-            responses=responses,
-            existing_snapshot_ids=existing_snapshot_ids,
-            request_payload_factory=lambda chunk: _index_price_series_request_payload(
-                index_id=index_id, chunk=chunk, frequency=frequency, target_currency=target_currency
-            ),
-        )
+        return await self._get_chunked_points_series(request=request, calculation_id=calculation_id)
 
     async def get_risk_free_series(
         self,
@@ -747,29 +712,35 @@ class StatefulInputService:
         series_mode: str = "return_series",
         calculation_id: UUID | None = None,
     ) -> tuple[int, dict[str, Any]]:
-        existing_snapshot_ids = self._existing_snapshot_ids(calculation_id)
-        chunks = self.plan_chunks(
+        request = _RiskFreeSeriesRequest(
+            currency=currency,
+            as_of_date=as_of_date,
             start_date=start_date,
             end_date=end_date,
+            frequency=frequency,
+            series_mode=series_mode,
+        )
+        return await self._get_chunked_points_series(request=request, calculation_id=calculation_id)
+
+    async def _get_chunked_points_series(
+        self,
+        *,
+        request: _IndexPriceSeriesRequest | _RiskFreeSeriesRequest,
+        calculation_id: UUID | None,
+    ) -> tuple[int, dict[str, Any]]:
+        existing_snapshot_ids = self._existing_snapshot_ids(calculation_id)
+        chunks = self.plan_chunks(
+            start_date=request.start_date,
+            end_date=request.end_date,
             chunk_days=self._reference_chunk_days,
         )
         responses = await self._gather_chunked(
             chunks=chunks,
-            fetcher=lambda chunk: self._core_service.get_risk_free_series(
-                currency=currency,
-                as_of_date=as_of_date,
-                start_date=chunk.start_date,
-                end_date=chunk.end_date,
-                frequency=frequency,
-                series_mode=series_mode,
-            ),
+            fetcher=lambda chunk: self._fetch_chunked_points_series(request=request, chunk=chunk),
         )
-        self._record_risk_free_series_snapshots(
+        self._record_chunked_points_series_snapshots(
+            request=request,
             calculation_id=calculation_id,
-            currency=currency,
-            as_of_date=as_of_date,
-            frequency=frequency,
-            series_mode=series_mode,
             chunks=chunks,
             responses=responses,
             existing_snapshot_ids=existing_snapshot_ids,
@@ -787,30 +758,72 @@ class StatefulInputService:
             },
         }
 
-    def _record_risk_free_series_snapshots(
+    async def _fetch_chunked_points_series(
         self,
         *,
+        request: _IndexPriceSeriesRequest | _RiskFreeSeriesRequest,
+        chunk: DateChunk,
+    ) -> tuple[int, dict[str, Any]]:
+        if isinstance(request, _IndexPriceSeriesRequest):
+            return await self._core_service.get_index_price_series(
+                index_id=request.index_id,
+                as_of_date=request.as_of_date,
+                start_date=chunk.start_date,
+                end_date=chunk.end_date,
+                frequency=request.frequency,
+                target_currency=request.target_currency,
+            )
+        return await self._core_service.get_risk_free_series(
+            currency=request.currency,
+            as_of_date=request.as_of_date,
+            start_date=chunk.start_date,
+            end_date=chunk.end_date,
+            frequency=request.frequency,
+            series_mode=request.series_mode,
+        )
+
+    def _record_chunked_points_series_snapshots(
+        self,
+        *,
+        request: _IndexPriceSeriesRequest | _RiskFreeSeriesRequest,
         calculation_id: UUID | None,
-        currency: str,
-        as_of_date: date,
-        frequency: str,
-        series_mode: str,
         chunks: list[DateChunk],
         responses: list[tuple[int, dict[str, Any]]],
         existing_snapshot_ids: set[str],
     ) -> None:
-        rate_source_identifier = currency
+        if isinstance(request, _IndexPriceSeriesRequest):
+            upstream_endpoint = "index_price_series"
+            source_identifier = request.index_id
+
+            def request_payload_factory(chunk: DateChunk) -> dict[str, Any]:
+                return _index_price_series_request_payload(
+                    index_id=request.index_id,
+                    chunk=chunk,
+                    frequency=request.frequency,
+                    target_currency=request.target_currency,
+                )
+
+        else:
+            upstream_endpoint = "risk_free_series"
+            source_identifier = request.currency
+
+            def request_payload_factory(chunk: DateChunk) -> dict[str, Any]:
+                return _risk_free_series_request_payload(
+                    currency=request.currency,
+                    chunk=chunk,
+                    frequency=request.frequency,
+                    series_mode=request.series_mode,
+                )
+
         self._record_chunked_series_snapshots(
             calculation_id=calculation_id,
-            upstream_endpoint="risk_free_series",
-            source_identifier=rate_source_identifier,
-            as_of_date=as_of_date,
+            upstream_endpoint=upstream_endpoint,
+            source_identifier=source_identifier,
+            as_of_date=request.as_of_date,
             chunks=chunks,
             responses=responses,
             existing_snapshot_ids=existing_snapshot_ids,
-            request_payload_factory=lambda chunk: _risk_free_series_request_payload(
-                currency=currency, chunk=chunk, frequency=frequency, series_mode=series_mode
-            ),
+            request_payload_factory=request_payload_factory,
         )
 
     def _record_chunked_series_snapshots(
