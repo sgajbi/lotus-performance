@@ -427,6 +427,55 @@ def test_runtime_retention_degradation_breach_metric_uses_latest_history_and_act
     }
 
 
+def test_lifecycle_degradation_breach_metrics_report_zero_when_history_and_actions_are_healthy():
+    action_snapshot = type(
+        "ActionSnapshot",
+        (),
+        {
+            "status": "available",
+            "active_leases": (),
+            "latest_reclaimed_lease": None,
+        },
+    )()
+
+    recovery_metric = recovery_drill_degradation_breach_metric(
+        latest=type("RecoveryEntry", (), {"status": "passed"})(),
+        latest_age_seconds=30.0,
+        action_snapshot=action_snapshot,
+        policy=RecoveryDrillDegradationPolicy(
+            max_age_seconds=60.0,
+            active_run_age_seconds=30.0,
+            reclaim_count=1,
+        ),
+    )
+    retention_metric = runtime_retention_degradation_breach_metric(
+        latest=type("RuntimeRetentionEntry", (), {"cleanup_mode": "apply"})(),
+        latest_age_seconds=30.0,
+        action_snapshot=action_snapshot,
+        policy=RuntimeRetentionDegradationPolicy(
+            max_age_seconds=60.0,
+            active_run_age_seconds=30.0,
+            reclaim_count=1,
+        ),
+    )
+
+    recovery_samples = {sample.labels["reason"]: sample.value for sample in recovery_metric.samples}
+    retention_samples = {sample.labels["reason"]: sample.value for sample in retention_metric.samples}
+
+    assert recovery_samples == {
+        "recovery_drill_latest_not_passed": 0,
+        "recovery_drill_age_exceeded": 0,
+        "recovery_drill_active_run_age_exceeded": 0,
+        "recovery_drill_reclaim_pressure_exceeded": 0,
+    }
+    assert retention_samples == {
+        "runtime_retention_latest_not_applied": 0,
+        "runtime_retention_age_exceeded": 0,
+        "runtime_retention_active_run_age_exceeded": 0,
+        "runtime_retention_reclaim_pressure_exceeded": 0,
+    }
+
+
 def test_lifecycle_latest_age_metrics_preserve_metric_contracts():
     recovery_metric = recovery_drill_latest_age_metric(latest_age_seconds=120.0)
     retention_metric = runtime_retention_latest_age_metric(latest_age_seconds=240.0)
