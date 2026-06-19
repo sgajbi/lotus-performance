@@ -23,6 +23,8 @@ jobs:
     name: Quality Baseline / Snapshot
     runs-on: ubuntu-latest
     steps:
+      - name: Configure Git Default Branch
+        run: git config --global init.defaultBranch main
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
