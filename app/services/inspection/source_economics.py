@@ -216,21 +216,27 @@ class _DetailedCashFlowAccumulator:
         economics_role: str,
         cash_flow_type: object,
     ) -> None:
-        if economics_role == "fee":
-            if timing == "bod":
-                self.fee_bod += amount
-                self.fee_bod_timing_rows.append(
-                    {
-                        "timing": timing,
-                        "amount": _decimal_to_artifact(amount),
-                        "cash_flow_type": cash_flow_type,
-                    }
-                )
-            else:
-                self.fee_eod += amount
-            return
         if economics_role == "unsupported":
             return
+        if economics_role == "fee":
+            self._add_fee_amount(timing=timing, amount=amount, cash_flow_type=cash_flow_type)
+            return
+        self._add_external_amount(timing=timing, amount=amount)
+
+    def _add_fee_amount(self, *, timing: str, amount: Decimal, cash_flow_type: object) -> None:
+        if timing == "bod":
+            self.fee_bod += amount
+            self.fee_bod_timing_rows.append(
+                {
+                    "timing": timing,
+                    "amount": _decimal_to_artifact(amount),
+                    "cash_flow_type": cash_flow_type,
+                }
+            )
+        else:
+            self.fee_eod += amount
+
+    def _add_external_amount(self, *, timing: str, amount: Decimal) -> None:
         if timing == "bod":
             self.external_bod += amount
         else:

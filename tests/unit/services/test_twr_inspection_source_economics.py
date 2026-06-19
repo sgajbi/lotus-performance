@@ -1620,6 +1620,59 @@ def test_sum_detailed_cash_flows_accumulates_totals_and_row_quality_samples():
     assert result.fee_bod_timing_rows == ({"timing": "bod", "amount": "-2.5", "cash_flow_type": "fee"},)
 
 
+def test_add_amount_routes_fee_timing_and_bod_sample():
+    accumulator = source_economics._DetailedCashFlowAccumulator()
+
+    accumulator.add_amount(
+        timing="bod",
+        amount=Decimal("-2.5"),
+        economics_role="fee",
+        cash_flow_type="fee",
+    )
+    accumulator.add_amount(
+        timing="eod",
+        amount=Decimal("-7.5"),
+        economics_role="fee",
+        cash_flow_type="fee",
+    )
+
+    result = accumulator.to_result()
+    assert result.fee_bod == Decimal("-2.5")
+    assert result.fee_eod == Decimal("-7.5")
+    assert result.external_bod == Decimal("0")
+    assert result.external_eod == Decimal("0")
+    assert result.fee_bod_timing_rows == ({"timing": "bod", "amount": "-2.5", "cash_flow_type": "fee"},)
+
+
+def test_add_amount_suppresses_unsupported_and_routes_other_roles_as_external():
+    accumulator = source_economics._DetailedCashFlowAccumulator()
+
+    accumulator.add_amount(
+        timing="bod",
+        amount=Decimal("13.0"),
+        economics_role="unsupported",
+        cash_flow_type="dividend",
+    )
+    accumulator.add_amount(
+        timing="bod",
+        amount=Decimal("21.0"),
+        economics_role="external",
+        cash_flow_type="external_flow",
+    )
+    accumulator.add_amount(
+        timing="eod",
+        amount=Decimal("34.0"),
+        economics_role="internal",
+        cash_flow_type="internal_transfer",
+    )
+
+    result = accumulator.to_result()
+    assert result.external_bod == Decimal("21.0")
+    assert result.external_eod == Decimal("34.0")
+    assert result.fee_bod == Decimal("0")
+    assert result.fee_eod == Decimal("0")
+
+
 def test_record_detailed_cash_flow_routes_governed_alias_amount_and_sample():
     accumulator = source_economics._DetailedCashFlowAccumulator()
 
