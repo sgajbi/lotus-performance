@@ -194,6 +194,44 @@ def test_position_continuity_values_prefers_position_currency_and_rejects_invali
     )
 
 
+def test_material_position_continuity_gap_applies_tolerance_and_transition_suppression():
+    assert (
+        reconciliation._material_position_continuity_gap(
+            previous_row={"ending_market_value_portfolio_currency": "100.00"},
+            current_row={"beginning_market_value_portfolio_currency": "100.005"},
+        )
+        is None
+    )
+    assert (
+        reconciliation._material_position_continuity_gap(
+            previous_row={"ending_market_value_portfolio_currency": "100.00"},
+            current_row={
+                "beginning_market_value_portfolio_currency": "120.00",
+                "trade_amount": "20.00",
+            },
+        )
+        is None
+    )
+
+
+def test_material_position_continuity_gap_preserves_zero_previous_end_sample_policy():
+    gap = reconciliation._material_position_continuity_gap(
+        previous_row={"ending_market_value_portfolio_currency": "0.00"},
+        current_row={"beginning_market_value_portfolio_currency": "50.00"},
+    )
+
+    assert gap == reconciliation._PositionContinuityGap(
+        values=reconciliation._PositionContinuityValues(
+            previous_end_field="ending_market_value_portfolio_currency",
+            previous_end=Decimal("0.00"),
+            current_begin_field="beginning_market_value_portfolio_currency",
+            current_begin=Decimal("50.00"),
+        ),
+        gap_amount=Decimal("50.00"),
+        gap_pct_of_previous_end=None,
+    )
+
+
 def test_analyze_position_reconciliation_gaps_applies_tolerance_and_preserves_gap_evidence():
     gap_analysis = reconciliation._analyze_position_reconciliation_gaps(
         portfolio_end_by_date={
