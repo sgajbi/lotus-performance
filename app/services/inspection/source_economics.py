@@ -10,16 +10,15 @@ from typing import TypeGuard
 from app.core.config import Settings, get_settings
 from app.models.inspection_responses import TWRInspectionFinding
 from app.models.requests import PerformanceRequest
-from app.services.inspection.source_availability import raise_inspection_source_unavailable
 from app.services.inspection.source_economics_collector import (
     SourceEconomicsSamples,
     collect_source_economics_samples,
 )
 from app.services.inspection.source_economics_findings import build_source_economics_findings
+from app.services.inspection.stateful_timeseries_fetch import fetch_inspection_stateful_timeseries
 from app.services.portfolio_source_service import build_stateful_input_service
 from app.services.source_cashflow_taxonomy import CashflowTypeClassification, classify_cashflow_type
 
-_INSPECTOR_CONSUMER_SYSTEM = "lotus-performance-inspector"
 _SAMPLE_LIMIT = 25
 
 
@@ -323,23 +322,15 @@ async def _fetch_portfolio_timeseries(
     portfolio_id: str,
     settings: Settings,
 ) -> dict[str, object]:
-    stateful_input_service = build_stateful_input_service(settings=settings)
-    status_code, payload = await stateful_input_service.get_portfolio_timeseries(
+    return await fetch_inspection_stateful_timeseries(
+        performance_request=performance_request,
         portfolio_id=portfolio_id,
-        as_of_date=performance_request.report_end_date,
-        start_date=performance_request.performance_start_date,
-        end_date=performance_request.report_end_date,
-        reporting_currency=performance_request.report_ccy,
-        consumer_system=_INSPECTOR_CONSUMER_SYSTEM,
-        calculation_id=None,
+        settings=settings,
+        service_factory=build_stateful_input_service,
+        timeseries_kind="portfolio",
+        source_label="Portfolio timeseries",
+        inspection_label="source-economics",
     )
-    if status_code >= 400:
-        raise_inspection_source_unavailable(
-            source_label="Portfolio timeseries",
-            inspection_label="source-economics",
-            status_code=status_code,
-        )
-    return payload
 
 
 def analyze_source_economics(
