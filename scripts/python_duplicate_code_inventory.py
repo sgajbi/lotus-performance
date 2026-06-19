@@ -142,10 +142,8 @@ def collect_duplicate_code_hotspots(
         collector.visit(tree)
         for qualified_name, function in collector.functions:
             body = _strip_leading_docstring(list(function.body))
-            if len(body) < min_lines:
-                continue
             fingerprint, lines = _function_fingerprint(function)
-            if not fingerprint:
+            if not fingerprint or lines < min_lines:
                 continue
             groups[fingerprint].append(
                 DuplicateCodeChunk(

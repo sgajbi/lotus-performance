@@ -1,6 +1,12 @@
+import subprocess
+
+import pytest
+
+import scripts.python_security_inventory as security_inventory
 from scripts.python_security_inventory import (
     BanditIssue,
     build_bandit_command,
+    collect_bandit_scan,
     parse_bandit_payload,
     parse_bandit_scan,
     render_markdown,
@@ -53,6 +59,16 @@ def test_parse_bandit_scan_includes_totals_metrics():
     assert scan.lines_scanned == 123
     assert scan.nosec_count == 2
     assert scan.skipped_tests == 4
+
+
+def test_collect_bandit_scan_rejects_nonzero_without_json_report(monkeypatch):
+    def fake_run(*args, **kwargs):
+        return subprocess.CompletedProcess(args=args, returncode=1, stdout="", stderr="No module named bandit")
+
+    monkeypatch.setattr(security_inventory.subprocess, "run", fake_run)
+
+    with pytest.raises(RuntimeError, match="Bandit did not produce a JSON report"):
+        collect_bandit_scan(("app",))
 
 
 def test_render_markdown_summarizes_bandit_findings():

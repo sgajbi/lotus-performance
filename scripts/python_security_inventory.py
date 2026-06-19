@@ -88,6 +88,20 @@ def parse_bandit_scan(payload: Mapping[str, Any]) -> BanditScan:
     )
 
 
+def _load_bandit_payload(stdout: str) -> Mapping[str, Any]:
+    if not stdout.strip():
+        raise RuntimeError("Bandit did not produce a JSON report.")
+    try:
+        payload = json.loads(stdout)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("Bandit did not produce a valid JSON report.") from exc
+    if not isinstance(payload, Mapping):
+        raise RuntimeError("Bandit JSON report had an unexpected shape.")
+    if not isinstance(payload.get("metrics"), Mapping) or not isinstance(payload.get("results"), list):
+        raise RuntimeError("Bandit JSON report is missing required metrics or results.")
+    return payload
+
+
 def collect_bandit_scan(paths: Sequence[str] = DEFAULT_PATHS) -> BanditScan:
     completed = subprocess.run(
         build_bandit_command(paths),
@@ -98,7 +112,7 @@ def collect_bandit_scan(paths: Sequence[str] = DEFAULT_PATHS) -> BanditScan:
     )
     if completed.returncode not in {0, 1}:
         raise RuntimeError(completed.stderr.strip() or completed.stdout.strip())
-    payload = json.loads(completed.stdout or "{}")
+    payload = _load_bandit_payload(completed.stdout)
     return parse_bandit_scan(payload)
 
 

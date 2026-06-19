@@ -48,6 +48,34 @@ def test_collect_duplicate_code_hotspots_respects_min_lines(tmp_path):
     assert hotspots == []
 
 
+def test_collect_duplicate_code_hotspots_uses_physical_body_lines(tmp_path):
+    sample = tmp_path / "sample.py"
+    sample.write_text(
+        "\n".join(
+            [
+                "def duplicate_a(flag):",
+                "    if flag:",
+                "        value = 1",
+                "        value += 2",
+                "        return value",
+                "",
+                "def duplicate_b(marker):",
+                "    if marker:",
+                "        value = 1",
+                "        value += 2",
+                "        return value",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    hotspots = collect_duplicate_code_hotspots(["sample.py"], root=tmp_path, min_lines=4)
+
+    assert len(hotspots) == 1
+    assert hotspots[0].lines == 4
+    assert [chunk.qualified_name for chunk in hotspots[0].chunks] == ["duplicate_a", "duplicate_b"]
+
+
 def test_render_markdown_reports_duplicate_counts_and_locations():
     output = render_markdown(
         [
