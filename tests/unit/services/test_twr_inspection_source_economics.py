@@ -1740,6 +1740,15 @@ def test_qualified_detailed_cash_flow_row_records_invalid_amount_without_routing
     assert result.external_bod == Decimal("0")
 
 
+def test_detailed_cash_flow_timing_helpers_normalize_and_qualify_supported_values():
+    assert source_economics._normalized_cash_flow_timing(" bod ") == "bod"
+    assert source_economics._normalized_cash_flow_timing(7) == 7
+    assert source_economics._is_supported_cash_flow_timing("bod") is True
+    assert source_economics._is_supported_cash_flow_timing("eod") is True
+    assert source_economics._is_supported_cash_flow_timing(" intraday ") is False
+    assert source_economics._is_supported_cash_flow_timing(7) is False
+
+
 def test_record_taxonomy_signal_routes_missing_and_canonical_classifications():
     accumulator = source_economics._DetailedCashFlowAccumulator()
 
