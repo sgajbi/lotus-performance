@@ -1,4 +1,9 @@
-from app.services.integration_capabilities_service import _workflow_enabled, build_integration_capabilities_report
+from app.services.integration_capabilities_service import (
+    PERFORMANCE_EXECUTION_POLL_PATH_TEMPLATE,
+    _async_analytics_surface,
+    _workflow_enabled,
+    build_integration_capabilities_report,
+)
 
 
 def test_build_integration_capabilities_report_default():
@@ -70,6 +75,47 @@ def test_build_integration_capabilities_report_limits_are_applied():
     assert len(report.workflows) == 1
     assert report.features[0]["key"] == "performance.analytics.twr"
     assert report.workflows[0]["workflow_key"] == "performance_snapshot"
+
+
+def test_async_analytics_surface_projects_execution_contract():
+    supported_input_modes = ["stateful", "stateless"]
+    stateful_restrictions = ["mode=by_instrument only"]
+    contract_notes = ["supports portfolio-level analytics"]
+    options = [{"key": "period", "supported_values": ["YTD"]}]
+
+    surface = _async_analytics_surface(
+        key="attribution",
+        path="/performance/attribution",
+        enabled=True,
+        supported_input_modes=supported_input_modes,
+        result_path_template="/performance/attribution/results/{calculation_id}",
+        stateful_restrictions=stateful_restrictions,
+        contract_notes=contract_notes,
+        options=options,
+    )
+
+    assert surface == {
+        "key": "attribution",
+        "path": "/performance/attribution",
+        "enabled": True,
+        "supported_input_modes": ["stateful", "stateless"],
+        "supports_async": True,
+        "poll_path_template": PERFORMANCE_EXECUTION_POLL_PATH_TEMPLATE,
+        "result_path_template": "/performance/attribution/results/{calculation_id}",
+        "stateful_restrictions": ["mode=by_instrument only"],
+        "contract_notes": ["supports portfolio-level analytics"],
+        "options": [{"key": "period", "supported_values": ["YTD"]}],
+    }
+
+    supported_input_modes.append("unsupported")
+    stateful_restrictions.append("unsupported")
+    contract_notes.append("unsupported")
+    options.append({"key": "unsupported"})
+
+    assert surface["supported_input_modes"] == ["stateful", "stateless"]
+    assert surface["stateful_restrictions"] == ["mode=by_instrument only"]
+    assert surface["contract_notes"] == ["supports portfolio-level analytics"]
+    assert surface["options"] == [{"key": "period", "supported_values": ["YTD"]}]
 
 
 def test_workflow_enabled_requires_every_feature_flag():
