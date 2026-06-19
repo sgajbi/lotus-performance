@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-19
-Branch: `lp-cr-1410-integration-capability-surface-catalog`
+Branch: `lp-cr-1411-runtime-status-policy-mappers`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
@@ -88,7 +88,7 @@ must stay at `0`.
 | 18 | `app/services/inspection/calculation_consistency.py` | 19.69 | A |
 | 19 | `app/models/returns_series.py` | 19.70 | A |
 | 20 | `app/services/inspection/twr_inspection_service.py` | 19.72 | A |
-| 21 | `app/models/runtime_status.py` | 19.85 | A |
+| 21 | `app/models/runtime_status.py` | 19.75 | A |
 | 22 | `app/workers/compute_executor_worker.py` | 20.54 | A |
 | 23 | `engine/composites.py` | 20.75 | A |
 | 24 | `app/services/stateful_mwr_input_service.py` | 21.59 | A |
@@ -1127,6 +1127,9 @@ LP-CR-1408 isolated durable queue metric descriptor metadata from the Prometheus
 `describe` method. The measured max cyclomatic complexity remains `5`, high-complexity functions
 remain `0`, and average maintainability index measured `55.14`.
 LP-CR-1409 isolated runtime-status operator-action reclaim event projection from the public
+runtime-status response mapper. The measured max cyclomatic complexity remains `5`,
+high-complexity functions remain `0`, and average maintainability index measured `55.14`.
+LP-CR-1411 isolated runtime-status degradation policy response projection from the public
 runtime-status response mapper. The measured max cyclomatic complexity remains `5`,
 high-complexity functions remain `0`, and average maintainability index measured `55.14`.
 

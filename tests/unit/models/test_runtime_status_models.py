@@ -1,11 +1,15 @@
 from datetime import UTC, datetime
 
 from app.models.runtime_status import (
+    _compute_queue_policy_response,
     _compute_queue_response,
     _compute_queue_stats_fields,
     _lineage_queue_measurement_fields,
+    _lineage_queue_policy_response,
     _lineage_queue_response,
     _operator_action_reclaim_event_responses,
+    _recovery_drill_policy_response,
+    _runtime_retention_policy_response,
     build_runtime_status_response,
 )
 from app.services.compute_job_store import ComputeQueueInspectionAnchors, ComputeQueueStats, ComputeRecoveryEvent
@@ -251,6 +255,56 @@ def test_operator_action_reclaim_event_responses_project_governed_action_context
     assert responses[0].reclaimed_at_utc == "2026-03-13T23:15:00Z"
     assert responses[0].reclaimed_age_seconds == 4500.0
     assert responses[0].reclaim_count == 4
+
+
+def test_runtime_status_policy_responses_project_thresholds():
+    compute_policy = _compute_queue_policy_response(
+        ComputeQueueDegradationPolicy(
+            pending_age_seconds=30.0,
+            leased_age_seconds=20.0,
+            running_age_seconds=10.0,
+            retry_backlog_count=3,
+            lease_expiry_count=2,
+            terminal_failure_count=1,
+        )
+    )
+    lineage_policy = _lineage_queue_policy_response(
+        LineageQueueDegradationPolicy(
+            pending_age_seconds=15.0,
+            leased_age_seconds=8.0,
+            retry_backlog_count=4,
+            terminal_failure_count=5,
+            storage_min_free_bytes=200,
+            storage_min_free_ratio=0.25,
+        )
+    )
+    recovery_policy = _recovery_drill_policy_response(
+        RecoveryDrillDegradationPolicy(
+            max_age_seconds=3600.0,
+            active_run_age_seconds=900.0,
+            reclaim_count=2,
+        )
+    )
+    retention_policy = _runtime_retention_policy_response(
+        RuntimeRetentionDegradationPolicy(
+            max_age_seconds=7200.0,
+            active_run_age_seconds=1200.0,
+            reclaim_count=3,
+        )
+    )
+
+    assert compute_policy.pending_age_seconds == 30.0
+    assert compute_policy.running_age_seconds == 10.0
+    assert compute_policy.terminal_failure_count == 1
+    assert lineage_policy.leased_age_seconds == 8.0
+    assert lineage_policy.storage_min_free_bytes == 200
+    assert lineage_policy.storage_min_free_ratio == 0.25
+    assert recovery_policy.max_age_seconds == 3600.0
+    assert recovery_policy.active_run_age_seconds == 900.0
+    assert recovery_policy.reclaim_count == 2
+    assert retention_policy.max_age_seconds == 7200.0
+    assert retention_policy.active_run_age_seconds == 1200.0
+    assert retention_policy.reclaim_count == 3
 
 
 def test_build_runtime_status_response_serializes_snapshot_details():

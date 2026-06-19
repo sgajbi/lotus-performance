@@ -1,7 +1,7 @@
 # Lotus Performance Function Size Inventory
 
 Report date: 2026-06-19
-Branch: `lp-cr-1410-integration-capability-surface-catalog`
+Branch: `lp-cr-1411-runtime-status-policy-mappers`
 Mode: report-only function-size inventory; this artifact introduces no new blocking CI gate.
 
 ## Purpose
@@ -20,16 +20,16 @@ python scripts/python_function_size_inventory.py --limit 25
 
 | Rank | Function | File | Lines |
 | ---: | --- | --- | ---: |
-| 1 | `build_runtime_status_response` | `app/models/runtime_status.py:788` | 113 |
-| 2 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:227` | 102 |
-| 3 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:331` | 102 |
-| 4 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:358` | 101 |
-| 5 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:71` | 98 |
-| 6 | `aggregate_attribution_results` | `engine/attribution.py:704` | 98 |
-| 7 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:91` | 97 |
-| 8 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:31` | 94 |
-| 9 | `build_stateful_benchmark_input` | `app/services/stateful_benchmark_input_service.py:57` | 93 |
-| 10 | `calculate_twr_response` | `app/services/twr_service.py:1159` | 93 |
+| 1 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:227` | 102 |
+| 2 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:331` | 102 |
+| 3 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:358` | 101 |
+| 4 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:71` | 98 |
+| 5 | `aggregate_attribution_results` | `engine/attribution.py:704` | 98 |
+| 6 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:91` | 97 |
+| 7 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:31` | 94 |
+| 8 | `build_stateful_benchmark_input` | `app/services/stateful_benchmark_input_service.py:57` | 93 |
+| 9 | `calculate_twr_response` | `app/services/twr_service.py:1159` | 93 |
+| 10 | `build_runtime_status_response` | `app/models/runtime_status.py:838` | 91 |
 | 11 | `_calculate_returns_series` | `app/services/returns_series_service.py:1463` | 90 |
 | 12 | `_build_artifacts` | `app/services/composite_inspection_service.py:154` | 89 |
 | 13 | `run_runtime_retention_cleanup` | `app/services/runtime_retention_run_service.py:112` | 83 |
@@ -57,6 +57,9 @@ after lineage queue response mapping was isolated. Attribution orchestration rem
 table but moved from `142` to `133` lines after per-period result assembly was isolated, then moved
 from `133` to `120` lines after response meta, supportability, and benchmark-context assembly were
 isolated.
+LP-CR-1411 isolated runtime-status degradation policy response projection into focused helpers.
+`build_runtime_status_response` moved from `113` to `91` lines, and the largest production
+functions moved to the contribution period result builders at `102` lines.
 Attribution orchestration moved from `120` to `104` lines after execution-window resolution and
 master request projection were isolated.
 Attribution orchestration dropped out of the top-20 table after failure recording and HTTP
