@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-19
-Branch: `lp-cr-1385-source-economics-date-resolution`
+Branch: `lp-cr-1386-source-economics-detailed-flow-row`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
@@ -38,8 +38,8 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_record_detailed_cash_flow` | function | `app/services/inspection/source_economics.py:670` | 5 | A |
-| 2 | `_sample_raw_collection_value` | function | `app/services/inspection/source_economics.py:723` | 5 | A |
+| 1 | `_qualified_detailed_cash_flow_row` | function | `app/services/inspection/source_economics.py:694` | 5 | A |
+| 2 | `_sample_raw_collection_value` | function | `app/services/inspection/source_economics.py:742` | 5 | A |
 | 3 | `_record_fee_source_consistency_sample` | method | `app/services/inspection/source_economics_collector.py:208` | 5 | A |
 | 4 | `_record_external_source_signals` | method | `app/services/inspection/source_economics_collector.py:280` | 5 | A |
 | 5 | `_external_explicit_mixed_timing_sample` | function | `app/services/inspection/source_economics_collector.py:361` | 5 | A |
@@ -81,7 +81,7 @@ must stay at `0`.
 | 11 | `app/services/operator_action_lease_service.py` | 13.14 | B |
 | 12 | `engine/attribution.py` | 13.46 | B |
 | 13 | `app/services/inspection/reconciliation.py` | 14.34 | B |
-| 14 | `app/services/inspection/source_economics.py` | 15.08 | B |
+| 14 | `app/services/inspection/source_economics.py` | 14.60 | B |
 | 15 | `app/services/inspection/source_economics_collector.py` | 16.34 | B |
 | 16 | `app/services/inspection/source_quality.py` | 16.80 | B |
 | 17 | `app/services/twr_mode_service.py` | 17.66 | B |
@@ -1097,6 +1097,10 @@ sample shapes, non-string suppression, de-duplication, and sorted artifact outpu
 `_resolve_observation_valuation_date` also dropped out after ISO date qualification and invalid
 observation-date sample projection were split into focused helpers with direct coverage for valid
 ISO strings, invalid strings, non-string values, and missing valuation-date samples.
+`_record_detailed_cash_flow` also dropped out after detailed cash-flow row qualification was split
+from taxonomy/economics routing with direct coverage for normalized row qualification and invalid
+amount evidence. The extracted row qualifier remains a top CC `5` candidate for a future narrower
+shape-sampling cleanup.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.
