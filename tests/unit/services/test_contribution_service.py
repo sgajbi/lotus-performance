@@ -12,6 +12,7 @@ from app.models.contribution_responses import (
 )
 from app.services import contribution_service
 from app.services.contribution_audit import AverageWeightShadowAuditState
+from app.services.contribution_periods import ContributionPeriodMethodologyContext
 from engine.schema import PortfolioColumns
 
 
@@ -176,6 +177,87 @@ def test_build_contribution_results_by_period_routes_hierarchy_periods(monkeypat
     assert hierarchy_calls == ["QTD"]
     assert result.results_by_period == {"QTD": period_result}
     assert result.average_weight_sum_residual_bp == 11
+
+
+def test_build_contribution_period_supportability_preserves_evidence_inputs(monkeypatch):
+    period_slice_df = pd.DataFrame({"position_id": ["A"], "smoothed_contribution": [0.01]})
+    portfolio_period_slice_df = pd.DataFrame({"portfolio_id": ["P"]})
+    methodology_context = ContributionPeriodMethodologyContext(
+        average_weight_shadow_df=pd.DataFrame({"position_id": ["A"], "average_weight": [0.5]}),
+        delta_positions=1,
+        max_shadow_delta_bp=25,
+        sum_shadow_delta_bp=40,
+        position_reset_dates=set(),
+        portfolio_reset_dates=set(),
+        position_flow_balance_counts={"position_flow_residual_days": 0},
+    )
+    position_contributions = [
+        PositionContribution(
+            position_id="A",
+            total_contribution=2.5,
+            average_weight=50.0,
+            total_return=5.0,
+        ),
+        PositionContribution(
+            position_id="B",
+            total_contribution=1.5,
+            average_weight=50.0,
+            total_return=3.0,
+        ),
+    ]
+    audit_state = AverageWeightShadowAuditState()
+    smoothing_calls: list[dict[str, object]] = []
+    methodology_calls: list[dict[str, object]] = []
+
+    monkeypatch.setattr(contribution_service, "_calculate_average_weight_sum_residual_bp", lambda _rows: 17)
+
+    def build_smoothing_evidence(**kwargs):
+        smoothing_calls.append(kwargs)
+        return SimpleNamespace(status="OK")
+
+    def build_methodology_status(**kwargs):
+        methodology_calls.append(kwargs)
+        return AverageWeightMethodologyStatus(
+            status="PROMOTED",
+            max_shadow_delta_bp=25,
+            is_material_shadow=False,
+            is_cutover_candidate=True,
+            is_promoted=True,
+        )
+
+    monkeypatch.setattr(contribution_service, "_build_contribution_smoothing_evidence", build_smoothing_evidence)
+    monkeypatch.setattr(contribution_service, "_record_period_timeseries_total_delta", lambda **_kwargs: 3)
+    monkeypatch.setattr(
+        contribution_service, "_build_period_average_weight_methodology_status", build_methodology_status
+    )
+
+    result = contribution_service._build_contribution_period_supportability(
+        period_slice_df=period_slice_df,
+        portfolio_period_slice_df=portfolio_period_slice_df,
+        position_contributions=position_contributions,
+        daily_series=None,
+        total_portfolio_return=0.04,
+        smoothing_method="CARINO",
+        residual_allocation_applied=True,
+        residual_allocation_basis="reset_aware_average_weight_shadow",
+        period_methodology_context=methodology_context,
+        average_weight_audit_state=audit_state,
+        is_promoted=True,
+    )
+
+    assert result.average_weight_sum_residual_bp == 17
+    assert result.total_contribution == pytest.approx(4.0)
+    assert result.smoothing_evidence.status == "OK"
+    assert result.average_weight_methodology_status.is_promoted is True
+    assert smoothing_calls[0]["linked_return"] == 0.04
+    assert smoothing_calls[0]["final_contribution"] == pytest.approx(0.04)
+    assert smoothing_calls[0]["residual_allocation_applied"] is True
+    assert smoothing_calls[0]["residual_allocation_basis"] == "reset_aware_average_weight_shadow"
+    assert methodology_calls[0]["period_methodology_context"] is methodology_context
+    assert methodology_calls[0]["average_weight_sum_residual_bp"] == 17
+    assert methodology_calls[0]["timeseries_total_delta_periods"] == 3
+    assert methodology_calls[0]["average_weight_audit_state"] is audit_state
+    assert methodology_calls[0]["is_promoted"] is True
 
 
 def test_build_flat_period_contribution_result_preserves_average_weight_basis(monkeypatch):

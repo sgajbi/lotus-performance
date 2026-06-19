@@ -12,6 +12,7 @@ from app.models.contribution_requests import ContributionRequest
 from app.models.contribution_responses import (
     AverageWeightMethodologyStatus,
     ContributionResponse,
+    ContributionSmoothingEvidence,
     DailyContribution,
     PositionContribution,
     PositionContributionSeries,
@@ -107,6 +108,14 @@ class _ContributionPeriodResult:
 class _ContributionPeriodResults:
     results_by_period: dict[str, SinglePeriodContributionResult]
     average_weight_sum_residual_bp: int
+
+
+@dataclass(frozen=True)
+class _ContributionPeriodSupportability:
+    average_weight_sum_residual_bp: int
+    total_contribution: float
+    smoothing_evidence: ContributionSmoothingEvidence | None
+    average_weight_methodology_status: AverageWeightMethodologyStatus
 
 
 def _build_period_average_weight_methodology_status(
@@ -224,6 +233,53 @@ def _requires_position_contribution_series(
     return emit_timeseries or emit_by_position_timeseries or force_position_series
 
 
+def _build_contribution_period_supportability(
+    *,
+    period_slice_df: Any,
+    portfolio_period_slice_df: Any,
+    position_contributions: list[PositionContribution],
+    daily_series: list[DailyContribution] | None,
+    total_portfolio_return: Any,
+    smoothing_method: str,
+    residual_allocation_applied: bool,
+    residual_allocation_basis: str,
+    period_methodology_context: ContributionPeriodMethodologyContext,
+    average_weight_audit_state: AverageWeightShadowAuditState,
+    is_promoted: bool = False,
+) -> _ContributionPeriodSupportability:
+    average_weight_sum_residual_bp = _calculate_average_weight_sum_residual_bp(position_contributions)
+    total_contribution = sum(
+        position_contribution.total_contribution for position_contribution in position_contributions
+    )
+    smoothing_evidence = _build_contribution_smoothing_evidence(
+        period_slice_df=period_slice_df,
+        portfolio_period_slice_df=portfolio_period_slice_df,
+        smoothing_method=smoothing_method,
+        linked_return=total_portfolio_return,
+        final_contribution=total_contribution / 100,
+        residual_allocation_applied=residual_allocation_applied,
+        residual_allocation_basis=residual_allocation_basis,
+    )
+    timeseries_total_delta_periods = _record_period_timeseries_total_delta(
+        daily_series=daily_series,
+        period_total_contribution=total_contribution,
+        average_weight_audit_state=average_weight_audit_state,
+    )
+    average_weight_methodology_status = _build_period_average_weight_methodology_status(
+        period_methodology_context=period_methodology_context,
+        average_weight_sum_residual_bp=average_weight_sum_residual_bp,
+        timeseries_total_delta_periods=timeseries_total_delta_periods,
+        average_weight_audit_state=average_weight_audit_state,
+        is_promoted=is_promoted,
+    )
+    return _ContributionPeriodSupportability(
+        average_weight_sum_residual_bp=average_weight_sum_residual_bp,
+        total_contribution=total_contribution,
+        smoothing_evidence=smoothing_evidence,
+        average_weight_methodology_status=average_weight_methodology_status,
+    )
+
+
 def _build_flat_period_contribution_result(
     *,
     request: ContributionRequest,
@@ -290,40 +346,30 @@ def _build_flat_period_contribution_result(
         emit_timeseries=request.emit.timeseries,
         emit_by_position_timeseries=request.emit.by_position_timeseries,
     )
-    period_average_weight_sum_residual_bp = _calculate_average_weight_sum_residual_bp(position_contributions)
-    period_total_contribution = sum(pc.total_contribution for pc in position_contributions)
-    smoothing_evidence = _build_contribution_smoothing_evidence(
+    supportability = _build_contribution_period_supportability(
         period_slice_df=period_slice_df,
         portfolio_period_slice_df=portfolio_period_slice_df,
+        position_contributions=position_contributions,
+        daily_series=daily_series,
+        total_portfolio_return=total_portfolio_return,
         smoothing_method=request.smoothing.method,
-        linked_return=total_portfolio_return,
-        final_contribution=period_total_contribution / 100,
         residual_allocation_applied=position_totals_result.residual_allocation_applied,
         residual_allocation_basis=selected_average_weight_column,
-    )
-    period_timeseries_total_delta_periods = _record_period_timeseries_total_delta(
-        daily_series=daily_series,
-        period_total_contribution=period_total_contribution,
-        average_weight_audit_state=average_weight_audit_state,
-    )
-    period_methodology_status = _build_period_average_weight_methodology_status(
         period_methodology_context=period_methodology_context,
-        average_weight_sum_residual_bp=period_average_weight_sum_residual_bp,
-        timeseries_total_delta_periods=period_timeseries_total_delta_periods,
         average_weight_audit_state=average_weight_audit_state,
         is_promoted=use_reset_aware_average_weight,
     )
     return _ContributionPeriodResult(
         period_name=period.name,
-        average_weight_sum_residual_bp=period_average_weight_sum_residual_bp,
+        average_weight_sum_residual_bp=supportability.average_weight_sum_residual_bp,
         result=SinglePeriodContributionResult(
             total_portfolio_return=total_portfolio_return * 100,
-            total_contribution=period_total_contribution,
+            total_contribution=supportability.total_contribution,
             position_contributions=position_contributions,
             timeseries=daily_series,
             by_position_timeseries=emitted_position_series,
-            average_weight_methodology_status=period_methodology_status,
-            smoothing_evidence=smoothing_evidence,
+            average_weight_methodology_status=supportability.average_weight_methodology_status,
+            smoothing_evidence=supportability.smoothing_evidence,
         ),
     )
 
@@ -391,41 +437,29 @@ def _build_hierarchy_period_contribution_result(
         position_series=position_series,
         request=request,
     )
-    period_average_weight_sum_residual_bp = _calculate_average_weight_sum_residual_bp(position_contributions)
-    period_total_contribution = sum(
-        position_contribution.total_contribution for position_contribution in position_contributions
-    )
-    smoothing_evidence = _build_contribution_smoothing_evidence(
+    supportability = _build_contribution_period_supportability(
         period_slice_df=period_slice_df,
         portfolio_period_slice_df=portfolio_period_slice_df,
+        position_contributions=position_contributions,
+        daily_series=daily_series,
+        total_portfolio_return=total_portfolio_return,
         smoothing_method=request.smoothing.method,
-        linked_return=total_portfolio_return,
-        final_contribution=period_total_contribution / 100,
         residual_allocation_applied=position_totals_result.residual_allocation_applied,
         residual_allocation_basis="average_weight",
-    )
-    period_timeseries_total_delta_periods = _record_period_timeseries_total_delta(
-        daily_series=daily_series,
-        period_total_contribution=period_total_contribution,
-        average_weight_audit_state=average_weight_audit_state,
-    )
-    period_methodology_status = _build_period_average_weight_methodology_status(
         period_methodology_context=period_methodology_context,
-        average_weight_sum_residual_bp=period_average_weight_sum_residual_bp,
-        timeseries_total_delta_periods=period_timeseries_total_delta_periods,
         average_weight_audit_state=average_weight_audit_state,
     )
     return _ContributionPeriodResult(
         period_name=period.name,
-        average_weight_sum_residual_bp=period_average_weight_sum_residual_bp,
+        average_weight_sum_residual_bp=supportability.average_weight_sum_residual_bp,
         result=SinglePeriodContributionResult(
             total_portfolio_return=total_portfolio_return * 100,
-            total_contribution=period_total_contribution,
+            total_contribution=supportability.total_contribution,
             position_contributions=position_contributions,
             timeseries=daily_series,
             by_position_timeseries=emitted_position_series,
-            average_weight_methodology_status=period_methodology_status,
-            smoothing_evidence=smoothing_evidence,
+            average_weight_methodology_status=supportability.average_weight_methodology_status,
+            smoothing_evidence=supportability.smoothing_evidence,
             summary=period_results.get("summary"),
             levels=period_results.get("levels"),
         ),
