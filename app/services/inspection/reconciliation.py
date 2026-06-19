@@ -508,11 +508,15 @@ def _position_rows_from_payload(position_payload: dict[str, object]) -> list[dic
 def _find_mixed_epoch_dates(position_rows: list[dict[str, object]]) -> set[str]:
     epochs_by_date: dict[str, set[int]] = {}
     for row in position_rows:
-        valuation_date = row.get("valuation_date")
-        if not isinstance(valuation_date, str):
-            continue
-        epochs_by_date.setdefault(valuation_date, set()).add(_parse_epoch_value(row))
+        _record_position_epoch_by_date(epochs_by_date, row)
     return {valuation_date for valuation_date, epochs in epochs_by_date.items() if len(epochs) > 1}
+
+
+def _record_position_epoch_by_date(epochs_by_date: dict[str, set[int]], row: dict[str, object]) -> None:
+    valuation_date = row.get("valuation_date")
+    if not isinstance(valuation_date, str):
+        return
+    epochs_by_date.setdefault(valuation_date, set()).add(_parse_epoch_value(row))
 
 
 def _sum_position_end_values_by_date(
