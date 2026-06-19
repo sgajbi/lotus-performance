@@ -27,6 +27,16 @@ class OperatorActionMetricSpec:
     reclaimed_count_description: str
 
 
+@dataclass(frozen=True)
+class _LifecycleDegradationMetricSpec:
+    metric_name: str
+    description: str
+    latest_history_breach_reason: str
+    latest_age_breach_reason: str
+    active_run_age_breach_reason: str
+    reclaim_pressure_breach_reason: str
+
+
 RECOVERY_DRILL_ACTION_METRICS = OperatorActionMetricSpec(
     active_metric_name="lotus_performance_recovery_drill_active_actions",
     active_description="Number of active governed recovery-drill runs currently holding an in-flight lease.",
@@ -51,6 +61,24 @@ RUNTIME_RETENTION_ACTION_METRICS = OperatorActionMetricSpec(
     reclaimed_count_description=(
         "Count of stale governed runtime-retention leases reclaimed and retained in the current control-plane counter."
     ),
+)
+
+_RECOVERY_DRILL_DEGRADATION_METRICS = _LifecycleDegradationMetricSpec(
+    metric_name="lotus_performance_recovery_drill_degradation_breach",
+    description="Whether retained durable recovery-drill history currently breaches a recovery assurance policy.",
+    latest_history_breach_reason="recovery_drill_latest_not_passed",
+    latest_age_breach_reason="recovery_drill_age_exceeded",
+    active_run_age_breach_reason="recovery_drill_active_run_age_exceeded",
+    reclaim_pressure_breach_reason="recovery_drill_reclaim_pressure_exceeded",
+)
+
+_RUNTIME_RETENTION_DEGRADATION_METRICS = _LifecycleDegradationMetricSpec(
+    metric_name="lotus_performance_runtime_retention_degradation_breach",
+    description="Whether retained runtime-retention cleanup history currently breaches a lifecycle-governance policy.",
+    latest_history_breach_reason="runtime_retention_latest_not_applied",
+    latest_age_breach_reason="runtime_retention_age_exceeded",
+    active_run_age_breach_reason="runtime_retention_active_run_age_exceeded",
+    reclaim_pressure_breach_reason="runtime_retention_reclaim_pressure_exceeded",
 )
 
 
@@ -358,33 +386,12 @@ def recovery_drill_degradation_breach_metric(
     action_snapshot: Any,
     policy: RecoveryDrillDegradationPolicy,
 ) -> GaugeMetricFamily:
-    return reason_labeled_metric(
-        metric_name="lotus_performance_recovery_drill_degradation_breach",
-        description="Whether retained durable recovery-drill history currently breaches a recovery assurance policy.",
-        samples=(
-            ("recovery_drill_latest_not_passed", 1 if latest.status != "passed" else 0),
-            (
-                "recovery_drill_age_exceeded",
-                threshold_breach_flag(
-                    threshold_value=policy.max_age_seconds,
-                    observed_value=latest_age_seconds,
-                ),
-            ),
-            (
-                "recovery_drill_active_run_age_exceeded",
-                threshold_breach_flag(
-                    threshold_value=policy.active_run_age_seconds,
-                    observed_value=active_lease_age_seconds_or_zero(action_snapshot),
-                ),
-            ),
-            (
-                "recovery_drill_reclaim_pressure_exceeded",
-                threshold_breach_flag(
-                    threshold_value=policy.reclaim_count,
-                    observed_value=latest_reclaim_count_or_zero(action_snapshot),
-                ),
-            ),
-        ),
+    return _lifecycle_degradation_breach_metric(
+        spec=_RECOVERY_DRILL_DEGRADATION_METRICS,
+        latest_history_breached=latest.status != "passed",
+        latest_age_seconds=latest_age_seconds,
+        action_snapshot=action_snapshot,
+        policy=policy,
     )
 
 
@@ -395,27 +402,44 @@ def runtime_retention_degradation_breach_metric(
     action_snapshot: Any,
     policy: RuntimeRetentionDegradationPolicy,
 ) -> GaugeMetricFamily:
+    return _lifecycle_degradation_breach_metric(
+        spec=_RUNTIME_RETENTION_DEGRADATION_METRICS,
+        latest_history_breached=latest.cleanup_mode != "apply",
+        latest_age_seconds=latest_age_seconds,
+        action_snapshot=action_snapshot,
+        policy=policy,
+    )
+
+
+def _lifecycle_degradation_breach_metric(
+    *,
+    spec: _LifecycleDegradationMetricSpec,
+    latest_history_breached: bool,
+    latest_age_seconds: float,
+    action_snapshot: Any,
+    policy: RecoveryDrillDegradationPolicy | RuntimeRetentionDegradationPolicy,
+) -> GaugeMetricFamily:
     return reason_labeled_metric(
-        metric_name="lotus_performance_runtime_retention_degradation_breach",
-        description="Whether retained runtime-retention cleanup history currently breaches a lifecycle-governance policy.",
+        metric_name=spec.metric_name,
+        description=spec.description,
         samples=(
-            ("runtime_retention_latest_not_applied", 1 if latest.cleanup_mode != "apply" else 0),
+            (spec.latest_history_breach_reason, 1 if latest_history_breached else 0),
             (
-                "runtime_retention_age_exceeded",
+                spec.latest_age_breach_reason,
                 threshold_breach_flag(
                     threshold_value=policy.max_age_seconds,
                     observed_value=latest_age_seconds,
                 ),
             ),
             (
-                "runtime_retention_active_run_age_exceeded",
+                spec.active_run_age_breach_reason,
                 threshold_breach_flag(
                     threshold_value=policy.active_run_age_seconds,
                     observed_value=active_lease_age_seconds_or_zero(action_snapshot),
                 ),
             ),
             (
-                "runtime_retention_reclaim_pressure_exceeded",
+                spec.reclaim_pressure_breach_reason,
                 threshold_breach_flag(
                     threshold_value=policy.reclaim_count,
                     observed_value=latest_reclaim_count_or_zero(action_snapshot),
