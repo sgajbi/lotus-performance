@@ -88,6 +88,20 @@ def parse_bandit_scan(payload: Mapping[str, Any]) -> BanditScan:
     )
 
 
+def _load_bandit_payload(stdout: str) -> Mapping[str, Any]:
+    if not stdout.strip():
+        raise RuntimeError("Bandit did not produce a JSON report.")
+    try:
+        payload = json.loads(stdout)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("Bandit did not produce a valid JSON report.") from exc
+    if not isinstance(payload, Mapping):
+        raise RuntimeError("Bandit JSON report had an unexpected shape.")
+    if not isinstance(payload.get("metrics"), Mapping) or not isinstance(payload.get("results"), list):
+        raise RuntimeError("Bandit JSON report is missing required metrics or results.")
+    return payload
+
+
 def collect_bandit_scan(paths: Sequence[str] = DEFAULT_PATHS) -> BanditScan:
     completed = subprocess.run(
         build_bandit_command(paths),
@@ -98,7 +112,7 @@ def collect_bandit_scan(paths: Sequence[str] = DEFAULT_PATHS) -> BanditScan:
     )
     if completed.returncode not in {0, 1}:
         raise RuntimeError(completed.stderr.strip() or completed.stdout.strip())
-    payload = json.loads(completed.stdout or "{}")
+    payload = _load_bandit_payload(completed.stdout)
     return parse_bandit_scan(payload)
 
 
@@ -201,10 +215,37 @@ def render_markdown(
     return "\n".join(lines)
 
 
+def security_threshold_violations(
+    issues: Sequence[BanditIssue],
+    *,
+    max_high: int | None = None,
+    max_medium: int | None = None,
+    max_low: int | None = None,
+) -> list[str]:
+    severity_counts = _count(issues, "severity")
+    thresholds = (
+        ("HIGH", max_high),
+        ("MEDIUM", max_medium),
+        ("LOW", max_low),
+    )
+    violations: list[str] = []
+    for severity, maximum in thresholds:
+        if maximum is None or severity_counts[severity] <= maximum:
+            continue
+        violations.append(
+            "Python security gate failed: "
+            f"{severity.lower()} severity findings {severity_counts[severity]} exceed configured maximum {maximum}."
+        )
+    return violations
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Inventory Python security findings with Bandit")
     parser.add_argument("--path", action="append", dest="paths", help="Path to scan relative to the repository root")
     parser.add_argument("--limit", type=int, default=30, help="Maximum rows in the findings table")
+    parser.add_argument("--max-high", type=int, help="Fail when high severity findings exceed this value")
+    parser.add_argument("--max-medium", type=int, help="Fail when medium severity findings exceed this value")
+    parser.add_argument("--max-low", type=int, help="Fail when low severity findings exceed this value")
     args = parser.parse_args()
 
     paths = tuple(args.paths or DEFAULT_PATHS)
@@ -218,6 +259,16 @@ def main() -> int:
             skipped_tests=scan.skipped_tests,
         )
     )
+    violations = security_threshold_violations(
+        scan.issues,
+        max_high=args.max_high,
+        max_medium=args.max_medium,
+        max_low=args.max_low,
+    )
+    for violation in violations:
+        print(violation)
+    if violations:
+        return 1
     return 0
 
 

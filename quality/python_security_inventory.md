@@ -1,8 +1,8 @@
 # Lotus Performance Python Security Inventory
 
 Report date: 2026-06-04
-Branch: `feat/performance-hardening-wave-9`
-Mode: report-only Bandit inventory; no blocking CI gate is introduced by this artifact.
+Branch: `lp-cr-1388-source-economics-raw-sampling`
+Mode: enforced Bandit inventory; zero high, medium, and low findings are blocked by CI.
 
 ## Purpose
 
@@ -13,7 +13,7 @@ directly in first-party application, engine, core, and adapter code.
 ## Command
 
 ```powershell
-python scripts/python_security_inventory.py --limit 30
+python scripts/python_security_inventory.py --limit 30 --max-high 0 --max-medium 0 --max-low 0
 ```
 
 ## Summary
@@ -25,7 +25,7 @@ python scripts/python_security_inventory.py --limit 30
 | Medium severity findings | 0 |
 | Low severity findings | 0 |
 | Distinct test IDs | 0 |
-| Lines scanned | 41002 |
+| Lines scanned | 50038 |
 | `nosec` markers | 0 |
 | Targeted skipped tests | 2 |
 
@@ -57,15 +57,13 @@ python scripts/python_security_inventory.py --limit 30
 ## Interpretation
 
 Bandit reports zero findings in the scanned first-party runtime paths. The current scan covers
-41002 lines and reports two targeted skipped tests from reviewed `# nosec B105` markers. The
-earlier low-severity string-heuristic findings have been classified: OpenAPI null pagination
-examples and pagination validation messages now use neutral named constants, while the two
-enterprise runtime configuration strings that intentionally contain the word `secret` use targeted
-`# nosec B105` markers with a nearby code comment explaining that they are issue-code and
-environment-variable names, not credential material.
+50038 lines and reports two targeted skipped tests from reviewed `# nosec B105` markers. Earlier
+low-severity string-heuristic findings were classified and remediated with neutral named constants
+or targeted reviewed markers. The latest gate-promotion slice also removed five production
+`assert` statements so Bandit `B101` findings are not hidden behind an allowlist.
 
 ## Gate Posture
 
-This is a Phase 1 report-only quality measurement. It does not introduce a CI threshold, branch
-failure, or exception policy. Promotion to a blocking gate should wait until the targeted
-environment-name exception policy and CI placement are documented.
+`make python-security-gate` enforces zero high, medium, and low Bandit findings in local checks,
+Feature Lane, PR Merge Gate, and Main Releasability. Future exceptions must be documented,
+targeted, and covered by tests before this threshold is relaxed.

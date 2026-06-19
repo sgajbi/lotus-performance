@@ -1,9 +1,16 @@
+import subprocess
+
+import pytest
+
+import scripts.python_security_inventory as security_inventory
 from scripts.python_security_inventory import (
     BanditIssue,
     build_bandit_command,
+    collect_bandit_scan,
     parse_bandit_payload,
     parse_bandit_scan,
     render_markdown,
+    security_threshold_violations,
 )
 
 
@@ -54,6 +61,16 @@ def test_parse_bandit_scan_includes_totals_metrics():
     assert scan.skipped_tests == 4
 
 
+def test_collect_bandit_scan_rejects_nonzero_without_json_report(monkeypatch):
+    def fake_run(*args, **kwargs):
+        return subprocess.CompletedProcess(args=args, returncode=1, stdout="", stderr="No module named bandit")
+
+    monkeypatch.setattr(security_inventory.subprocess, "run", fake_run)
+
+    with pytest.raises(RuntimeError, match="Bandit did not produce a JSON report"):
+        collect_bandit_scan(("app",))
+
+
 def test_render_markdown_summarizes_bandit_findings():
     issues = [
         BanditIssue(
@@ -92,3 +109,32 @@ def test_render_markdown_summarizes_bandit_findings():
     assert "| Services | 1 |" in output
     assert "service \\| issue" in output
     assert "`app/models/benchmark_exposure_context.py:63`" in output
+
+
+def test_security_threshold_violations_enforces_bandit_severity_gate():
+    issues = [
+        BanditIssue(
+            severity="HIGH",
+            confidence="HIGH",
+            test_id="B999",
+            test_name="example_test",
+            filename="app/services/example.py",
+            line_number=10,
+            issue_text="high severity issue",
+        ),
+        BanditIssue(
+            severity="LOW",
+            confidence="MEDIUM",
+            test_id="B105",
+            test_name="hardcoded_password_string",
+            filename="app/models/example.py",
+            line_number=20,
+            issue_text="low severity issue",
+        ),
+    ]
+
+    assert security_threshold_violations(issues, max_high=1, max_medium=0, max_low=1) == []
+    assert security_threshold_violations(issues, max_high=0, max_medium=0, max_low=0) == [
+        "Python security gate failed: high severity findings 1 exceed configured maximum 0.",
+        "Python security gate failed: low severity findings 1 exceed configured maximum 0.",
+    ]

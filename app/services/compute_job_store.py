@@ -1348,7 +1348,8 @@ def _compute_job_record_payload_state(
         error_message = payload_failure.error_message
         error_type = payload_failure.error_type
         request_payload = payload_failure.request_payload
-    assert request_payload is not None
+    if request_payload is None:
+        raise RuntimeError("Compute job request payload resolution failed.")
     return _ComputeJobRecordPayloadState(
         job_status=job_status,
         request_payload=request_payload,

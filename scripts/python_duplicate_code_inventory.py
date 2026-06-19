@@ -142,10 +142,8 @@ def collect_duplicate_code_hotspots(
         collector.visit(tree)
         for qualified_name, function in collector.functions:
             body = _strip_leading_docstring(list(function.body))
-            if len(body) < min_lines:
-                continue
             fingerprint, lines = _function_fingerprint(function)
-            if not fingerprint:
+            if not fingerprint or lines < min_lines:
                 continue
             groups[fingerprint].append(
                 DuplicateCodeChunk(
@@ -206,6 +204,18 @@ def render_markdown(hotspots: Sequence[DuplicateCodeHotspot], *, limit: int) -> 
     return "\n".join(lines)
 
 
+def duplicate_code_threshold_violations(
+    hotspots: Sequence[DuplicateCodeHotspot],
+    *,
+    max_groups: int | None = None,
+) -> list[str]:
+    if max_groups is None or len(hotspots) <= max_groups:
+        return []
+    return [
+        f"Duplicate code gate failed: duplicate hotspot groups {len(hotspots)} exceed configured maximum {max_groups}."
+    ]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Inventory duplicate production Python code blocks")
     parser.add_argument("--path", action="append", dest="paths", help="Path to scan relative to the repository root")
@@ -216,12 +226,21 @@ def main() -> int:
         help="Minimum body line count for a function to participate in duplicate detection",
     )
     parser.add_argument("--limit", type=int, default=20, help="Maximum hotspot rows in output")
+    parser.add_argument(
+        "--max-groups",
+        type=int,
+        default=None,
+        help="Fail when duplicate hotspot groups exceed this maximum",
+    )
     args = parser.parse_args()
 
     paths = tuple(args.paths or DEFAULT_PATHS)
     hotspots = collect_duplicate_code_hotspots(paths, min_lines=args.min_lines)
     print(render_markdown(hotspots, limit=args.limit))
-    return 0
+    violations = duplicate_code_threshold_violations(hotspots, max_groups=args.max_groups)
+    for violation in violations:
+        print(f"\nERROR: {violation}")
+    return 1 if violations else 0
 
 
 if __name__ == "__main__":

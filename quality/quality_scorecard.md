@@ -20,11 +20,12 @@ metrics in each section are updated with each meaningful slice.
 | --- | ---: | ---: | ---: | --- | --- |
 | Python files | 480 | 548 | 68 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Python package markers | 18 | 18 | 0 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Python LOC | 104,454 | 158,090 | 53,636 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python LOC | 104,454 | 158,272 | 53,818 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest Python file LOC | 2,399 | 2,399 | 0 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest production file LOC | 1,156 | 1,156 | 0 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
 | Python test modules | 228 | 263 | 35 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Collected tests | 2,035 | 3,102 | 1,067 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Collected tests | 2,035 | 3,106 | 1,071 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Duplicate code hotspots | 0 | 15 | 15 | enforced | `quality/duplicate_code_inventory.md`; `quality/refactor_health_report.md`; `make quality-duplicate-code-gate` |
 
 ### Complexity And Maintainability
 
@@ -68,8 +69,9 @@ metrics in each section are updated with each meaningful slice.
 
 | Metric | Baseline | Current | Delta | Status | Evidence |
 | --- | ---: | ---: | ---: | --- | --- |
-| Bandit high findings | unknown | 0 | n/a | measured | `quality/python_security_inventory.md`; `quality/refactor_health_report.md` |
-| Bandit medium findings | unknown | 0 | n/a | measured | `quality/python_security_inventory.md`; `quality/refactor_health_report.md` |
+| Bandit high findings | unknown | 0 | n/a | enforced | `quality/python_security_inventory.md`; `quality/refactor_health_report.md`; `make python-security-gate` |
+| Bandit medium findings | unknown | 0 | n/a | enforced | `quality/python_security_inventory.md`; `quality/refactor_health_report.md`; `make python-security-gate` |
+| Bandit low findings | unknown | 0 | n/a | enforced | `quality/python_security_inventory.md`; `quality/refactor_health_report.md`; `make python-security-gate` |
 | Dependency vulnerability findings | unknown | 0 | n/a | measured | `quality/dependency_security_report.md`; `quality/refactor_health_report.md` |
 | Dependency hygiene findings | unknown | 0 | n/a | measured | `quality/dependency_hygiene_report.md`; `quality/refactor_health_report.md` |
 
@@ -97,8 +99,8 @@ metrics in each section are updated with each meaningful slice.
 
 | Signal | Value | Note |
 | --- | ---: | --- |
-| Total metrics tracked | 39 | All metrics in this file are measured or explicitly called out as not-yet-measured. |
-| Measured metrics | 38 | Four measured metrics are now also enforced through blocking static-quality gates. Remaining gaps are primarily branch coverage and a few baseline historical values remain for future slices. |
+| Total metrics tracked | 41 | All metrics in this file are measured or explicitly called out as not-yet-measured. |
+| Measured metrics | 40 | Eight measured metrics are now also enforced through blocking static-quality or security gates. Remaining gaps are primarily branch coverage and a few baseline historical values remain for future slices. |
 | Not-yet-measured metrics | 1 | Branch coverage remains unconfigured and untracked on this stream. |
 
 ## Method Note

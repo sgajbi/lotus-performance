@@ -291,7 +291,8 @@ def _xirr(
     if initial_failure is not None:
         return initial_failure
 
-    assert anchor_date is not None
+    if anchor_date is None:
+        raise ValueError("XIRR anchor date is required after preflight validation.")
     time_diffs = _xirr_time_diffs(dates=dates, anchor_date=anchor_date, annualization=annualization)
 
     def f_log(log_rate: float) -> float:

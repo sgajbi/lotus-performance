@@ -1,4 +1,4 @@
-.PHONY: install install-ci verify-dependencies check check-all test test-unit test-integration test-e2e test-all test-coverage coverage-gate ci ci-local ci-local-docker ci-local-docker-down typecheck lint quality-complexity-gate quality-architecture-gate quality-router-thinness-gate github-action-runtime-guard monetary-float-guard format clean run check-deps security-audit openapi-gate api-vocabulary-gate no-alias-gate domain-product-validate migration-smoke migration-apply recovery-drill-smoke runtime-retention-smoke performance-characterization performance-characterization-postgres pre-commit docker-up docker-down docker-build
+.PHONY: install install-ci verify-dependencies check check-all test test-unit test-integration test-e2e test-all test-coverage coverage-gate ci ci-local ci-local-docker ci-local-docker-down typecheck lint quality-complexity-gate quality-architecture-gate quality-router-thinness-gate quality-duplicate-code-gate python-security-gate github-action-runtime-guard monetary-float-guard format clean run check-deps security-audit openapi-gate api-vocabulary-gate no-alias-gate domain-product-validate migration-smoke migration-apply recovery-drill-smoke runtime-retention-smoke performance-characterization performance-characterization-postgres pre-commit docker-up docker-down docker-build
 
 install:
 	pip install -r requirements.txt
@@ -16,7 +16,7 @@ verify-dependencies:
 pre-commit:
 	pre-commit run --all-files
 
-check: lint quality-complexity-gate quality-architecture-gate quality-router-thinness-gate no-alias-gate typecheck openapi-gate api-vocabulary-gate domain-product-validate test
+check: lint quality-complexity-gate quality-architecture-gate quality-router-thinness-gate quality-duplicate-code-gate no-alias-gate typecheck openapi-gate api-vocabulary-gate domain-product-validate python-security-gate test
 
 test-coverage:
 	COVERAGE_FILE=.coverage.unit python -m pytest tests/unit --cov=app --cov=engine --cov=core --cov=adapters --cov-report=
@@ -27,7 +27,7 @@ test-coverage:
 
 coverage-gate: test-coverage
 
-ci: lint quality-complexity-gate quality-architecture-gate quality-router-thinness-gate no-alias-gate typecheck openapi-gate api-vocabulary-gate domain-product-validate migration-smoke security-audit test-unit test-integration test-e2e coverage-gate docker-build
+ci: lint quality-complexity-gate quality-architecture-gate quality-router-thinness-gate quality-duplicate-code-gate no-alias-gate typecheck openapi-gate api-vocabulary-gate domain-product-validate migration-smoke security-audit python-security-gate test-unit test-integration test-e2e coverage-gate docker-build
 
 test:
 	$(MAKE) test-unit
@@ -112,6 +112,12 @@ quality-architecture-gate:
 
 quality-router-thinness-gate:
 	python scripts/python_router_middleware_thinness_inventory.py --threshold 80 --limit 50 --max-findings 0
+
+quality-duplicate-code-gate:
+	python scripts/python_duplicate_code_inventory.py --min-lines 12 --limit 40 --max-groups 15
+
+python-security-gate:
+	python scripts/python_security_inventory.py --limit 30 --max-high 0 --max-medium 0 --max-low 0
 
 github-action-runtime-guard:
 	python scripts/github_action_runtime_guard.py

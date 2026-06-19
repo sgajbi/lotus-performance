@@ -31,7 +31,8 @@ def calculate_daily_ror(df: pd.DataFrame, metric_basis: str, config: EngineConfi
     local_return = _calculate_local_daily_return(df, metric_basis)
     result_df = pd.DataFrame(index=df.index)
     if _should_decompose_currency(config):
-        assert config is not None
+        if config is None:
+            raise ValueError("Currency decomposition requires engine configuration.")
         fx_ror = _calculate_fx_daily_return(df, config)
         result_df["local_ror"] = local_return.local_ror * local_return.hundred
         result_df["fx_ror"] = fx_ror * local_return.hundred
@@ -127,8 +128,10 @@ def _should_decompose_currency(config: EngineConfig | None) -> bool:
 
 
 def _calculate_fx_daily_return(df: pd.DataFrame, config: EngineConfig) -> pd.Series:
-    assert config.fx is not None
-    fx_rates_df = pd.DataFrame([rate.model_dump() for rate in config.fx.rates])
+    fx_config = config.fx
+    if fx_config is None:
+        raise ValueError("FX daily return calculation requires FX configuration.")
+    fx_rates_df = pd.DataFrame([rate.model_dump() for rate in fx_config.rates])
 
     if "date" in fx_rates_df.columns and "ccy" in fx_rates_df.columns:
         fx_rates_df.drop_duplicates(subset=["date", "ccy"], keep="last", inplace=True)
