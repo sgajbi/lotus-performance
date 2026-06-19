@@ -1635,6 +1635,65 @@ def test_record_detailed_cash_flow_routes_governed_alias_amount_and_sample():
     )
 
 
+def test_record_taxonomy_signal_routes_missing_and_canonical_classifications():
+    accumulator = source_economics._DetailedCashFlowAccumulator()
+
+    accumulator.record_taxonomy_signal(
+        timing="eod",
+        amount=Decimal("3.0"),
+        classification=source_economics.classify_cashflow_type(None),
+    )
+    accumulator.record_taxonomy_signal(
+        timing="bod",
+        amount=Decimal("5.0"),
+        classification=source_economics.classify_cashflow_type("fee"),
+    )
+
+    result = accumulator.to_result()
+    assert result.missing_cashflow_type_rows == ({"timing": "eod", "amount": "3.0"},)
+    assert result.noncanonical_cashflow_types == ()
+    assert result.unsupported_cashflow_type_rows == ()
+    assert result.governed_alias_cashflow_type_rows == ()
+
+
+def test_record_taxonomy_signal_routes_governed_alias_and_unsupported_samples():
+    accumulator = source_economics._DetailedCashFlowAccumulator()
+
+    accumulator.record_taxonomy_signal(
+        timing="eod",
+        amount=Decimal("12.5"),
+        classification=source_economics.classify_cashflow_type("deposit"),
+    )
+    accumulator.record_taxonomy_signal(
+        timing="bod",
+        amount=Decimal("1.0"),
+        classification=source_economics.classify_cashflow_type("dividend"),
+    )
+
+    result = accumulator.to_result()
+    assert result.noncanonical_cashflow_types == ("deposit", "dividend")
+    assert result.governed_alias_cashflow_type_rows == (
+        {"timing": "eod", "amount": "12.5", "cash_flow_type": "deposit"},
+    )
+    assert result.unsupported_cashflow_type_rows == ({"timing": "bod", "amount": "1.0", "cash_flow_type": "dividend"},)
+
+
+def test_cashflow_taxonomy_sample_row_suppresses_absent_cashflow_type():
+    assert source_economics._cashflow_taxonomy_sample_row(timing="eod", amount=Decimal("2.5")) == {
+        "timing": "eod",
+        "amount": "2.5",
+    }
+    assert source_economics._cashflow_taxonomy_sample_row(
+        timing="bod",
+        amount=Decimal("2.5"),
+        cash_flow_type="deposit",
+    ) == {
+        "timing": "bod",
+        "amount": "2.5",
+        "cash_flow_type": "deposit",
+    }
+
+
 def test_read_explicit_decimal_fields_accepts_matching_aliases():
     value, conflicts, invalid_fields = source_economics._read_explicit_decimal_fields(
         {"bod_cashflow": "50.0", "beginning_cash_flow": "50.00"},

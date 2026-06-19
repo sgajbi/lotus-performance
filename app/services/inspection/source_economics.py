@@ -192,18 +192,17 @@ class _DetailedCashFlowAccumulator:
         classification: object,
     ) -> None:
         normalized_cash_flow_type = getattr(classification, "normalized_value")
-        economics_role = getattr(classification, "economics_role")
-        if economics_role == "missing":
-            self.missing_cashflow_type_rows.append({"timing": timing, "amount": _decimal_to_artifact(amount)})
+        if _is_missing_cashflow_type_classification(classification):
+            self.missing_cashflow_type_rows.append(_cashflow_taxonomy_sample_row(timing=timing, amount=amount))
             return
-        if getattr(classification, "canonical") or normalized_cash_flow_type is None:
+        if _is_canonical_or_unclassified_cashflow_type(classification):
             return
         self.noncanonical_cashflow_types.add(normalized_cash_flow_type)
-        sample_row = {
-            "timing": timing,
-            "amount": _decimal_to_artifact(amount),
-            "cash_flow_type": normalized_cash_flow_type,
-        }
+        sample_row = _cashflow_taxonomy_sample_row(
+            timing=timing,
+            amount=amount,
+            cash_flow_type=normalized_cash_flow_type,
+        )
         if getattr(classification, "governed_alias"):
             self.governed_alias_cashflow_type_rows.append(sample_row)
         else:
@@ -253,6 +252,29 @@ class _DetailedCashFlowAccumulator:
             governed_alias_cashflow_type_rows=tuple(self.governed_alias_cashflow_type_rows),
             fee_bod_timing_rows=tuple(self.fee_bod_timing_rows),
         )
+
+
+def _is_missing_cashflow_type_classification(classification: object) -> bool:
+    return getattr(classification, "economics_role") == "missing"
+
+
+def _is_canonical_or_unclassified_cashflow_type(classification: object) -> bool:
+    return getattr(classification, "canonical") or getattr(classification, "normalized_value") is None
+
+
+def _cashflow_taxonomy_sample_row(
+    *,
+    timing: str,
+    amount: Decimal,
+    cash_flow_type: object | None = None,
+) -> dict[str, object]:
+    sample_row: dict[str, object] = {
+        "timing": timing,
+        "amount": _decimal_to_artifact(amount),
+    }
+    if cash_flow_type is not None:
+        sample_row["cash_flow_type"] = cash_flow_type
+    return sample_row
 
 
 @dataclass(frozen=True)
