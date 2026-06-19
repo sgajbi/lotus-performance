@@ -403,6 +403,76 @@ def test_position_rows_by_position_id_keeps_only_rows_with_position_and_date():
     }
 
 
+def test_iter_position_continuity_pairs_orders_rows_within_each_position():
+    first_position_day_one = {"position_id": "FO_EQ_SAP_DE", "valuation_date": "2025-04-25"}
+    first_position_day_two = {"position_id": "FO_EQ_SAP_DE", "valuation_date": "2025-04-26"}
+    second_position_day_one = {"position_id": "FO_BOND_US_TSY", "valuation_date": "2025-04-24"}
+    second_position_day_two = {"position_id": "FO_BOND_US_TSY", "valuation_date": "2025-04-26"}
+
+    pairs = list(
+        reconciliation._iter_position_continuity_pairs(
+            [
+                first_position_day_two,
+                second_position_day_two,
+                {"position_id": "FO_EQ_SAP_DE"},
+                {"valuation_date": "2025-04-25"},
+                first_position_day_one,
+                second_position_day_one,
+            ]
+        )
+    )
+
+    assert pairs == [
+        ("FO_EQ_SAP_DE", first_position_day_one, first_position_day_two),
+        ("FO_BOND_US_TSY", second_position_day_one, second_position_day_two),
+    ]
+
+
+def test_collect_position_continuity_gap_samples_uses_pair_helper_for_multiple_positions():
+    samples = reconciliation._collect_position_continuity_gap_samples(
+        [
+            {
+                "position_id": "FO_EQ_SAP_DE",
+                "valuation_date": "2025-04-26",
+                "beginning_market_value_portfolio_currency": "120.00",
+                "ending_market_value_portfolio_currency": "130.00",
+            },
+            {
+                "position_id": "FO_BOND_US_TSY",
+                "valuation_date": "2025-04-26",
+                "beginning_market_value_portfolio_currency": "200.00",
+                "ending_market_value_portfolio_currency": "200.00",
+            },
+            {
+                "position_id": "FO_EQ_SAP_DE",
+                "valuation_date": "2025-04-25",
+                "beginning_market_value_portfolio_currency": "100.00",
+                "ending_market_value_portfolio_currency": "100.00",
+            },
+            {
+                "position_id": "FO_BOND_US_TSY",
+                "valuation_date": "2025-04-25",
+                "beginning_market_value_portfolio_currency": "200.00",
+                "ending_market_value_portfolio_currency": "200.00",
+            },
+        ]
+    )
+
+    assert samples == [
+        {
+            "position_id": "FO_EQ_SAP_DE",
+            "previous_valuation_date": "2025-04-25",
+            "valuation_date": "2025-04-26",
+            "previous_end_value_field": "ending_market_value_portfolio_currency",
+            "current_begin_value_field": "beginning_market_value_portfolio_currency",
+            "previous_end_value": "100.00",
+            "current_begin_value": "120.00",
+            "gap_amount": "20.00",
+            "gap_pct_of_previous_end": 20.0,
+        }
+    ]
+
+
 def test_is_transition_activity_field_matches_cashflow_trade_and_quantity_delta_fields():
     assert reconciliation._is_transition_activity_field("external_cashflow_amount")
     assert reconciliation._is_transition_activity_field("trade_notional")
