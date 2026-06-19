@@ -1,7 +1,7 @@
 # Lotus Performance Function Size Inventory
 
 Report date: 2026-06-19
-Branch: `lp-cr-1399-queue-metric-builders`
+Branch: `lp-cr-1400-source-quality-findings`
 Mode: report-only function-size inventory; this artifact introduces no new blocking CI gate.
 
 ## Purpose
@@ -122,3 +122,5 @@ and safe page-to-queue-state projection were isolated while preserving compute a
 queue-specific store filters.
 The lifecycle degradation metric extraction did not change the top-20 function-size table; the
 largest function remains `DurableQueueCollector.describe` at `159` lines.
+The source-quality economic plausibility finding extraction did not change the top-20 function-size
+table; the largest function remains `DurableQueueCollector.describe` at `159` lines.
