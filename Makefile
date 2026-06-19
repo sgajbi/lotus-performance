@@ -114,7 +114,7 @@ quality-router-thinness-gate:
 	python scripts/python_router_middleware_thinness_inventory.py --threshold 80 --limit 50 --max-findings 0
 
 quality-duplicate-code-gate:
-	python scripts/python_duplicate_code_inventory.py --min-lines 12 --limit 40 --max-groups 11
+	python scripts/python_duplicate_code_inventory.py --min-lines 12 --limit 40 --max-groups 10
 
 python-security-gate:
 	python scripts/python_security_inventory.py --limit 30 --max-high 0 --max-medium 0 --max-low 0

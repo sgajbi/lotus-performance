@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-19
-Branch: `lp-cr-1388-source-economics-raw-sampling`
+Branch: `lp-cr-1397-stateful-currency-support`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
@@ -14,7 +14,7 @@ threshold and exception policy exist.
 ## Command
 
 ```powershell
-python scripts/python_complexity_inventory.py --limit 25
+python scripts/python_complexity_inventory.py --limit 25 --max-cc 8 --max-high-complexity 0
 ```
 
 Blocking CI command:
@@ -32,7 +32,7 @@ must stay at `0`.
 | --- | ---: |
 | Max cyclomatic complexity | 5 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 54.79 |
+| Average maintainability index | 54.82 |
 
 ## Highest Cyclomatic Complexity
 
@@ -80,7 +80,7 @@ must stay at `0`.
 | 10 | `app/services/execution_registry.py` | 11.12 | B |
 | 11 | `app/services/operator_action_lease_service.py` | 13.14 | B |
 | 12 | `engine/attribution.py` | 13.46 | B |
-| 13 | `app/services/inspection/reconciliation.py` | 14.34 | B |
+| 13 | `app/services/inspection/reconciliation.py` | 13.93 | B |
 | 14 | `app/services/inspection/source_economics.py` | 14.52 | B |
 | 15 | `app/services/inspection/source_economics_collector.py` | 16.34 | B |
 | 16 | `app/services/inspection/source_quality.py` | 16.80 | B |
@@ -91,8 +91,8 @@ must stay at `0`.
 | 21 | `app/models/runtime_status.py` | 19.85 | A |
 | 22 | `app/workers/compute_executor_worker.py` | 20.54 | A |
 | 23 | `engine/composites.py` | 20.75 | A |
-| 24 | `app/services/stateful_mwr_input_service.py` | 21.63 | A |
-| 25 | `engine/mwr.py` | 22.16 | A |
+| 24 | `app/services/stateful_mwr_input_service.py` | 21.59 | A |
+| 25 | `engine/mwr.py` | 22.11 | A |
 
 ## Interpretation
 

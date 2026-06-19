@@ -1,7 +1,7 @@
 # Lotus Performance Function Size Inventory
 
 Report date: 2026-06-19
-Branch: `lp-cr-1388-source-economics-raw-sampling`
+Branch: `lp-cr-1397-stateful-currency-support`
 Mode: report-only function-size inventory; this artifact introduces no new blocking CI gate.
 
 ## Purpose
@@ -26,7 +26,7 @@ python scripts/python_function_size_inventory.py --limit 20
 | 4 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:227` | 102 |
 | 5 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:331` | 102 |
 | 6 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:87` | 101 |
-| 7 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:62` | 98 |
+| 7 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:71` | 98 |
 | 8 | `aggregate_attribution_results` | `engine/attribution.py:704` | 98 |
 | 9 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:31` | 94 |
 | 10 | `build_stateful_benchmark_input` | `app/services/stateful_benchmark_input_service.py:57` | 93 |
