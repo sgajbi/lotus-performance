@@ -1,7 +1,7 @@
 # Lotus Performance Function Size Inventory
 
 Report date: 2026-06-19
-Branch: `lp-cr-1402-stateful-input-snapshot-pages`
+Branch: `lp-cr-1403-runtime-lifecycle-degradation`
 Mode: report-only function-size inventory; this artifact introduces no new blocking CI gate.
 
 ## Purpose
@@ -128,3 +128,5 @@ The runtime work-item safe listing extraction did not change the top-20 function
 largest function remains `DurableQueueCollector.describe` at `159` lines.
 The stateful timeseries snapshot append extraction did not change the top-20 function-size table;
 the largest function remains `DurableQueueCollector.describe` at `159` lines.
+LP-CR-1403 did not change the top-20 function-size table; the largest function remains
+`DurableQueueCollector.describe` at `159` lines.
