@@ -1,3 +1,8 @@
+Report date: 2026-06-19
+Branch: `lp-cr-1388-source-economics-raw-sampling`
+Command: `python scripts/python_duplicate_code_inventory.py --min-lines 12 --limit 40 --max-groups 0`
+Mode: enforced first-party duplicate function-body hotspot gate.
+
 ## Summary
 
 | Metric | Value |

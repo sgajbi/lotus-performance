@@ -2,6 +2,7 @@ from scripts.python_duplicate_code_inventory import (
     DuplicateCodeChunk,
     DuplicateCodeHotspot,
     collect_duplicate_code_hotspots,
+    duplicate_code_threshold_violations,
     render_markdown,
 )
 
@@ -77,3 +78,33 @@ def test_render_markdown_reports_duplicate_counts_and_locations():
     assert "| Duplicate hotspot groups | 1 |" in output
     assert "| Duplicate functions/methods | 2 |" in output
     assert "| 1 | 2 | 5 | 2 | `app/api/endpoints/sample.py:10-20`<br>`app/services/sample.py:40-50` |" in output
+
+
+def test_duplicate_code_threshold_violations_enforces_group_limit():
+    hotspots = [
+        DuplicateCodeHotspot(
+            lines=5,
+            count=2,
+            chunks=(
+                DuplicateCodeChunk(
+                    path="app/api/endpoints/sample.py",
+                    qualified_name="handler_a",
+                    start_line=10,
+                    end_line=20,
+                    lines=5,
+                ),
+                DuplicateCodeChunk(
+                    path="app/services/sample.py",
+                    qualified_name="service_a",
+                    start_line=40,
+                    end_line=50,
+                    lines=5,
+                ),
+            ),
+        )
+    ]
+
+    assert duplicate_code_threshold_violations(hotspots, max_groups=1) == []
+    assert duplicate_code_threshold_violations(hotspots, max_groups=0) == [
+        "Duplicate code gate failed: duplicate hotspot groups 1 exceed configured maximum 0."
+    ]
