@@ -17,6 +17,7 @@ _RELATIVE_GAP_TOLERANCE = Decimal("0.0001")
 _TRANSITION_ACTIVITY_FIELD_TOKENS = ("cashflow", "cash_flow", "trade", "quantity_delta")
 _INSPECTOR_CONSUMER_SYSTEM = "lotus-performance-inspector"
 _RECONCILIATION_SAMPLE_LIMIT = 25
+_PositionRowSelection = dict[tuple[str, str], tuple[int, dict[str, object]]]
 
 
 def _decimal_to_artifact(value: Decimal) -> str:
@@ -465,16 +466,20 @@ def _analyze_position_reconciliation_gaps(
 
 
 def _select_latest_position_rows(position_rows: list[dict[str, object]]) -> list[dict[str, object]]:
-    selected: dict[tuple[str, str], tuple[int, dict[str, object]]] = {}
+    selected: _PositionRowSelection = {}
     for row in position_rows:
-        key = _position_row_selection_key(row)
-        if key is None:
-            continue
-        epoch = _parse_epoch_value(row)
-        current = selected.get(key)
-        if _should_replace_selected_position_row(candidate_epoch=epoch, selected=current):
-            selected[key] = (epoch, row)
+        _select_latest_position_row(selected, row)
     return [row for _, row in selected.values()]
+
+
+def _select_latest_position_row(selected: _PositionRowSelection, row: dict[str, object]) -> None:
+    key = _position_row_selection_key(row)
+    if key is None:
+        return
+    epoch = _parse_epoch_value(row)
+    current = selected.get(key)
+    if _should_replace_selected_position_row(candidate_epoch=epoch, selected=current):
+        selected[key] = (epoch, row)
 
 
 def _should_replace_selected_position_row(

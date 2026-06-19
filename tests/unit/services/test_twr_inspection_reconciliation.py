@@ -77,6 +77,52 @@ def test_select_latest_position_rows_keeps_latest_epoch_and_replaces_equal_epoch
     ]
 
 
+def test_select_latest_position_row_updates_selection_and_ignores_missing_identity():
+    selected = {
+        ("2026-01-01", "SEC_1"): (
+            2,
+            {
+                "valuation_date": "2026-01-01",
+                "position_id": "SEC_1",
+                "valuation_epoch": 2,
+                "marker": "current",
+            },
+        )
+    }
+
+    reconciliation._select_latest_position_row(
+        selected,
+        {
+            "valuation_date": "2026-01-01",
+            "position_id": "SEC_1",
+            "valuation_epoch": 1,
+            "marker": "older",
+        },
+    )
+    reconciliation._select_latest_position_row(selected, {"valuation_date": "2026-01-01"})
+    reconciliation._select_latest_position_row(
+        selected,
+        {
+            "valuation_date": "2026-01-01",
+            "position_id": "SEC_1",
+            "valuation_epoch": 3,
+            "marker": "latest",
+        },
+    )
+
+    assert selected == {
+        ("2026-01-01", "SEC_1"): (
+            3,
+            {
+                "valuation_date": "2026-01-01",
+                "position_id": "SEC_1",
+                "valuation_epoch": 3,
+                "marker": "latest",
+            },
+        )
+    }
+
+
 def test_should_replace_selected_position_row_policy_compares_candidate_epoch():
     selected = (2, {"marker": "current"})
 
