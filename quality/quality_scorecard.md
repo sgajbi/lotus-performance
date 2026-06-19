@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Quality Scorecard
 
 Report date: 2026-06-19
-Branch: `lp-cr-1404-inspection-stateful-fetch`
+Branch: `lp-cr-1405-history-response-builders`
 Baseline source: `quality/baseline_report.md`
 Current source: `quality/refactor_health_report.md`
 Mode: phase-zero scorecard; complexity regression posture is enforced separately by CI.
@@ -18,14 +18,14 @@ metrics in each section are updated with each meaningful slice.
 
 | Metric | Baseline | Current | Delta | Status | Evidence |
 | --- | ---: | ---: | ---: | --- | --- |
-| Python files | 480 | 552 | 72 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python files | 480 | 553 | 73 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Python package markers | 18 | 18 | 0 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Python LOC | 104,454 | 159,010 | 54,556 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python LOC | 104,454 | 159,033 | 54,579 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest Python file LOC | 2,399 | 2,399 | 0 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest production file LOC | 1,156 | 1,156 | 0 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
 | Python test modules | 228 | 265 | 37 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Collected tests | 2,035 | 3,119 | 1,084 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Duplicate code hotspots | 0 | 3 | 3 | enforced | `quality/duplicate_code_inventory.md`; `quality/refactor_health_report.md`; `make quality-duplicate-code-gate` |
+| Collected tests | 2,035 | 3,120 | 1,085 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Duplicate code hotspots | 0 | 2 | 2 | enforced | `quality/duplicate_code_inventory.md`; `quality/refactor_health_report.md`; `make quality-duplicate-code-gate` |
 
 ### Complexity And Maintainability
 
@@ -33,7 +33,7 @@ metrics in each section are updated with each meaningful slice.
 | --- | ---: | ---: | ---: | --- | --- |
 | Max cyclomatic complexity | unknown | 5 | n/a | enforced | `quality/complexity_inventory.md`; `quality/refactor_health_report.md`; `make quality-complexity-gate` |
 | High-complexity functions (D-F) | unknown | 0 | n/a | enforced | `quality/complexity_inventory.md`; `quality/refactor_health_report.md`; `make quality-complexity-gate` |
-| Average maintainability index | unknown | 54.77 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
+| Average maintainability index | unknown | 54.96 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
 | Largest functions by LOC | unknown | 159 | n/a | measured | `quality/function_size_inventory.md`; `quality/refactor_health_report.md` |
 
 ### Architecture

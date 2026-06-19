@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.models.operator_run_response import build_lotus_performance_operator_run_response
 from app.services.recovery_drill_history_service import RecoveryDrillHistorySnapshot
 
 
@@ -160,24 +161,7 @@ def build_recovery_drill_run_response(
     materialized_artifact_path: str,
     materialized_artifact_exists: bool,
 ) -> RecoveryDrillRunResponse:
-    return RecoveryDrillRunResponse(
-        contract_version="v1",
-        source_service="lotus-performance",
-        drill_name=drill_name,
-        generated_at_utc=generated_at_utc,
-        evidence_file_name=evidence_file_name,
-        operator_id=operator_id,
-        tenant_id=tenant_id,
-        correlation_id=correlation_id,
-        backup_identifier=backup_identifier,
-        status=status,
-        database_path=database_path,
-        restored_schema_mode=restored_schema_mode,
-        owned_tables_present=owned_tables_present,
-        compute_job_processed_count=compute_job_processed_count,
-        compute_async_result_status=compute_async_result_status,
-        compute_execution_status=compute_execution_status,
-        processed_payload_count=processed_payload_count,
-        materialized_artifact_path=materialized_artifact_path,
-        materialized_artifact_exists=materialized_artifact_exists,
+    return build_lotus_performance_operator_run_response(
+        RecoveryDrillRunResponse,
+        **locals(),
     )
