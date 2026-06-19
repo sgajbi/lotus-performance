@@ -77,6 +77,52 @@ def test_select_latest_position_rows_keeps_latest_epoch_and_replaces_equal_epoch
     ]
 
 
+def test_select_latest_position_row_updates_selection_and_ignores_missing_identity():
+    selected = {
+        ("2026-01-01", "SEC_1"): (
+            2,
+            {
+                "valuation_date": "2026-01-01",
+                "position_id": "SEC_1",
+                "valuation_epoch": 2,
+                "marker": "current",
+            },
+        )
+    }
+
+    reconciliation._select_latest_position_row(
+        selected,
+        {
+            "valuation_date": "2026-01-01",
+            "position_id": "SEC_1",
+            "valuation_epoch": 1,
+            "marker": "older",
+        },
+    )
+    reconciliation._select_latest_position_row(selected, {"valuation_date": "2026-01-01"})
+    reconciliation._select_latest_position_row(
+        selected,
+        {
+            "valuation_date": "2026-01-01",
+            "position_id": "SEC_1",
+            "valuation_epoch": 3,
+            "marker": "latest",
+        },
+    )
+
+    assert selected == {
+        ("2026-01-01", "SEC_1"): (
+            3,
+            {
+                "valuation_date": "2026-01-01",
+                "position_id": "SEC_1",
+                "valuation_epoch": 3,
+                "marker": "latest",
+            },
+        )
+    }
+
+
 def test_should_replace_selected_position_row_policy_compares_candidate_epoch():
     selected = (2, {"marker": "current"})
 
@@ -84,6 +130,41 @@ def test_should_replace_selected_position_row_policy_compares_candidate_epoch():
     assert not reconciliation._should_replace_selected_position_row(candidate_epoch=1, selected=selected)
     assert reconciliation._should_replace_selected_position_row(candidate_epoch=3, selected=selected)
     assert reconciliation._should_replace_selected_position_row(candidate_epoch=2, selected=selected)
+
+
+def test_record_position_epoch_by_date_ignores_invalid_dates_and_groups_duplicate_epochs():
+    epochs_by_date: dict[str, set[int]] = {}
+
+    reconciliation._record_position_epoch_by_date(
+        epochs_by_date,
+        {"valuation_date": "2026-01-01", "valuation_epoch": 1},
+    )
+    reconciliation._record_position_epoch_by_date(
+        epochs_by_date,
+        {"valuation_date": "2026-01-01", "valuation_epoch": "1"},
+    )
+    reconciliation._record_position_epoch_by_date(
+        epochs_by_date,
+        {"valuation_date": "2026-01-02", "valuation_epoch": 2},
+    )
+    reconciliation._record_position_epoch_by_date(
+        epochs_by_date,
+        {"valuation_date": 20260103, "valuation_epoch": 3},
+    )
+
+    assert epochs_by_date == {"2026-01-01": {1}, "2026-01-02": {2}}
+
+
+def test_find_mixed_epoch_dates_requires_multiple_epoch_values_per_date():
+    assert reconciliation._find_mixed_epoch_dates(
+        [
+            {"valuation_date": "2026-01-01", "valuation_epoch": 1},
+            {"valuation_date": "2026-01-01", "valuation_epoch": "1"},
+            {"valuation_date": "2026-01-02", "valuation_epoch": 1},
+            {"valuation_date": "2026-01-02", "valuation_epoch": 2},
+            {"valuation_date": 20260103, "valuation_epoch": 1},
+        ]
+    ) == {"2026-01-02"}
 
 
 def test_position_continuity_values_prefers_position_currency_and_rejects_invalid_pairs():

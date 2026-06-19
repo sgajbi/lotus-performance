@@ -197,6 +197,34 @@ def test_calculate_benchmark_artifacts_skips_empty_period_slices(monkeypatch):
     assert set(artifacts.results_by_period) == {"ITD"}
 
 
+def test_benchmark_results_by_period_skips_empty_slices_and_preserves_frequency_selection():
+    request = _vendor_request()
+    daily_returns_df = pd.DataFrame(
+        {
+            "date": [date(2025, 1, 1), date(2025, 1, 2)],
+            "benchmark_return": [0.01, 0.02],
+        }
+    )
+
+    results = benchmark_calculation_service._benchmark_results_by_period(
+        resolved_periods=[
+            ResolvedPeriod(name="EMPTY", start_date=date(2024, 1, 1), end_date=date(2024, 1, 2)),
+            ResolvedPeriod(name="ITD", start_date=date(2025, 1, 1), end_date=date(2025, 1, 2)),
+        ],
+        daily_returns_df=daily_returns_df,
+        component_contributions_df=pd.DataFrame(
+            columns=["date", "component_id", "weight_bop", "component_return", "contribution"]
+        ),
+        benchmark_request=request,
+        requested_frequencies_by_period={"ITD": [Frequency.DAILY]},
+        input_mode="stateful",
+    )
+
+    assert set(results) == {"ITD"}
+    assert results["ITD"].benchmark.input_mode == "stateful"
+    assert set(results["ITD"].benchmark.breakdowns) == {Frequency.DAILY}
+
+
 def test_benchmark_period_result_projects_timeseries_and_summary():
     request = _vendor_request()
     daily_returns_df = pd.DataFrame(
@@ -256,6 +284,36 @@ def test_benchmark_period_result_returns_none_for_empty_window():
     assert result is None
 
 
+def test_benchmark_period_timeseries_records_applies_output_and_empty_component_policy():
+    period_daily_df = pd.DataFrame(
+        {
+            "date": [date(2025, 1, 1)],
+            "benchmark_return": [0.01],
+            "cumulative_return": [0.01],
+        }
+    )
+    empty_component_df = pd.DataFrame(
+        columns=["date", "component_id", "weight_bop", "component_return", "contribution"]
+    )
+
+    disabled_records = benchmark_calculation_service._benchmark_period_timeseries_records(
+        period_daily_df=period_daily_df,
+        period_component_df=empty_component_df,
+        include_timeseries=False,
+    )
+    enabled_records = benchmark_calculation_service._benchmark_period_timeseries_records(
+        period_daily_df=period_daily_df,
+        period_component_df=empty_component_df,
+        include_timeseries=True,
+    )
+
+    assert disabled_records.daily_returns is None
+    assert disabled_records.component_contributions is None
+    assert enabled_records.daily_returns is not None
+    assert len(enabled_records.daily_returns) == 1
+    assert enabled_records.component_contributions is None
+
+
 def test_benchmark_period_daily_returns_sorts_links_and_suppresses_empty_windows():
     daily_returns_df = pd.DataFrame(
         {
@@ -306,6 +364,59 @@ def test_benchmark_calculation_helpers_cover_breakdown_and_scaling_edges():
     assert benchmark_calculation_service._scale_percent(None) is None
     assert benchmark_calculation_service._scale_percent("bad") is None
     assert benchmark_calculation_service._series_return(pd.Series([0.01, 0.02])) == pytest.approx(3.02)
+
+
+def test_daily_benchmark_breakdown_items_link_cumulative_returns_without_reslicing():
+    df = pd.DataFrame(
+        {
+            "date": [date(2025, 1, 1), date(2025, 1, 2)],
+            "benchmark_return": [0.01, 0.02],
+            "benchmark_return_local": [0.008, 0.009],
+            "benchmark_return_fx": [0.002, 0.011],
+            "cumulative_return": [0.01, 0.0302],
+        }
+    )
+
+    items = benchmark_calculation_service._daily_benchmark_breakdown_items(df)
+
+    assert [item.period for item in items] == ["2025-01-01", "2025-01-02"]
+    assert items[0].period_return.base == pytest.approx(1.0)
+    assert items[0].period_return.local == pytest.approx(0.8)
+    assert items[0].period_return.fx == pytest.approx(0.2)
+    assert items[0].cumulative_return is not None
+    assert items[0].cumulative_return.base == pytest.approx(1.0)
+    assert items[1].period_return.base == pytest.approx(2.0)
+    assert items[1].cumulative_return is not None
+    assert items[1].cumulative_return.base == pytest.approx(3.02)
+    assert items[1].cumulative_return.local == pytest.approx(1.7072)
+    assert items[1].cumulative_return.fx == pytest.approx(1.3022)
+
+
+def test_optional_scaled_return_component_suppresses_missing_values_and_scales_present_values():
+    assert benchmark_calculation_service._optional_scaled_return_component({"value": None}, "value") is None
+    assert benchmark_calculation_service._optional_scaled_return_component({"value": pd.NA}, "value") is None
+    assert benchmark_calculation_service._optional_scaled_return_component({"value": float("nan")}, "value") is None
+    assert benchmark_calculation_service._optional_scaled_return_component(
+        {"value": "0.0125"},
+        "value",
+    ) == pytest.approx(1.25)
+
+
+def test_optional_benchmark_return_component_suppresses_missing_and_all_null_components():
+    df = pd.DataFrame(
+        {
+            "benchmark_return": [0.01, 0.02],
+            "benchmark_return_local": [None, None],
+            "benchmark_return_fx": [0.001, 0.002],
+        }
+    )
+
+    assert benchmark_calculation_service._optional_benchmark_return_component(df, "missing") is None
+    assert benchmark_calculation_service._optional_benchmark_return_component(df, "benchmark_return_local") is None
+    assert benchmark_calculation_service._optional_benchmark_return_component(
+        df,
+        "benchmark_return_fx",
+    ) == pytest.approx(0.3002)
 
 
 def test_benchmark_breakdowns_label_weekly_quarterly_and_yearly_periods():
@@ -377,6 +488,24 @@ def test_benchmark_breakdown_helpers_group_rows_and_format_labels():
         )
         == "2025"
     )
+
+
+def test_benchmark_breakdown_group_helpers_project_daily_and_resampled_rows():
+    df = pd.DataFrame(
+        {
+            "date": [date(2025, 1, 1), date(2025, 1, 2), date(2025, 2, 3)],
+            "benchmark_return": [0.01, 0.02, 0.03],
+        }
+    )
+
+    daily_rows = benchmark_calculation_service._daily_benchmark_breakdown_rows(df)
+    monthly_rows = benchmark_calculation_service._resampled_benchmark_breakdown_rows(
+        sorted_period_df=df,
+        frequency=Frequency.MONTHLY,
+    )
+
+    assert [len(row) for row in daily_rows] == [1, 1, 1]
+    assert [row["date"].iloc[-1] for row in monthly_rows] == [date(2025, 1, 2), date(2025, 2, 3)]
 
 
 def test_calculate_benchmark_artifacts_supports_explicit_period_window():

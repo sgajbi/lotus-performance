@@ -69,10 +69,7 @@ def _build_residual_adjusted_position_timeseries(
     if period_slice_df.empty:
         return []
 
-    target_total_by_position = {
-        position_contribution.position_id: (position_contribution.total_contribution or 0.0) / 100
-        for position_contribution in position_contributions
-    }
+    target_total_by_position = _target_total_contribution_by_position(position_contributions)
     if not target_total_by_position:
         return []
 
@@ -81,6 +78,15 @@ def _build_residual_adjusted_position_timeseries(
         target_total_by_position=target_total_by_position,
     )
     return _position_contribution_series_from_adjusted_rows(adjusted_rows)
+
+
+def _target_total_contribution_by_position(
+    position_contributions: list[PositionContribution],
+) -> dict[str, float]:
+    return {
+        position_contribution.position_id: (position_contribution.total_contribution or 0.0) / 100
+        for position_contribution in position_contributions
+    }
 
 
 def _residual_adjusted_position_timeseries_rows(
@@ -160,17 +166,23 @@ def _build_residual_adjusted_daily_contribution_series(
     if not position_series:
         return []
 
+    totals_by_date = _residual_adjusted_daily_totals_by_date(position_series)
+    return [
+        DailyContribution(date=series_date, total_contribution=totals_by_date[series_date])
+        for series_date in sorted(totals_by_date)
+    ]
+
+
+def _residual_adjusted_daily_totals_by_date(
+    position_series: list[PositionContributionSeries],
+) -> dict[Any, float]:
     totals_by_date: dict[Any, float] = {}
     for position_series_entry in position_series:
         for daily_point in position_series_entry.series:
             totals_by_date[daily_point.date] = totals_by_date.get(daily_point.date, 0.0) + _as_numeric(
                 daily_point.contribution
             )
-
-    return [
-        DailyContribution(date=series_date, total_contribution=totals_by_date[series_date])
-        for series_date in sorted(totals_by_date)
-    ]
+    return totals_by_date
 
 
 def _build_hierarchy_from_adjusted_position_series(
@@ -181,7 +193,11 @@ def _build_hierarchy_from_adjusted_position_series(
 ) -> dict[str, Any]:
     """Builds hierarchy rows from the same adjusted daily position series emitted to clients."""
     summary = _initial_hierarchy_summary(request)
-    if not request.hierarchy or period_slice_df.empty or not position_series:
+    if not _has_adjusted_hierarchy_inputs(
+        period_slice_df=period_slice_df,
+        position_series=position_series,
+        request=request,
+    ):
         return {"summary": summary, "levels": []}
 
     prepared_frames = _prepared_adjusted_hierarchy_frames(
@@ -199,6 +215,15 @@ def _build_hierarchy_from_adjusted_position_series(
 
     summary["portfolio_contribution"] = _as_numeric(adjusted_df["adjusted_contribution"].sum()) * 100
     return {"summary": summary, "levels": response_levels}
+
+
+def _has_adjusted_hierarchy_inputs(
+    *,
+    period_slice_df: pd.DataFrame,
+    position_series: list[PositionContributionSeries],
+    request: ContributionRequest,
+) -> bool:
+    return bool(request.hierarchy) and not period_slice_df.empty and bool(position_series)
 
 
 def _prepared_adjusted_hierarchy_frames(
@@ -253,17 +278,21 @@ def _adjusted_position_hierarchy_records(
 
 
 def _daily_hierarchy_metadata(period_slice_df: pd.DataFrame, *, hierarchy_levels: list[str]) -> pd.DataFrame:
-    meta_columns = ["position_id", PortfolioColumns.PERF_DATE.value, "daily_weight"]
-    for level_name in hierarchy_levels:
-        if level_name not in meta_columns:
-            meta_columns.append(level_name)
-
+    meta_columns = _hierarchy_metadata_columns(hierarchy_levels)
     daily_meta = period_slice_df.copy()
     for level_name in hierarchy_levels:
         if level_name not in daily_meta.columns:
             daily_meta[level_name] = None
     daily_meta[PortfolioColumns.PERF_DATE.value] = observation_date_series(daily_meta[PortfolioColumns.PERF_DATE.value])
     return daily_meta[meta_columns]
+
+
+def _hierarchy_metadata_columns(hierarchy_levels: list[str]) -> list[str]:
+    meta_columns = ["position_id", PortfolioColumns.PERF_DATE.value, "daily_weight"]
+    for level_name in hierarchy_levels:
+        if level_name not in meta_columns:
+            meta_columns.append(level_name)
+    return meta_columns
 
 
 def _apply_hierarchy_unclassified_policy(
@@ -330,14 +359,12 @@ def _build_hierarchy_rows(
     )
 
     rows = [_hierarchy_row_to_response(row, level_keys=level_keys) for _, row in explicit_rows.iterrows()]
-    if request.emit.include_other and not overflow_rows.empty:
-        other_row: dict[str, Any] = {
-            "key": {key: "Other" for key in level_keys},
-            "contribution": _as_numeric(overflow_rows["contribution"].sum()) * 100,
-            "weight_avg": _as_numeric(overflow_rows["weight_avg"].sum()) * 100,
-            "children_count": int(len(overflow_rows)),
-            "is_other": True,
-        }
+    other_row = _other_hierarchy_row_for_emission(
+        overflow_rows=overflow_rows,
+        level_keys=level_keys,
+        include_other=request.emit.include_other,
+    )
+    if other_row is not None:
         rows.append(other_row)
     return rows
 
@@ -361,4 +388,21 @@ def _hierarchy_row_to_response(row: pd.Series, *, level_keys: list[str]) -> dict
         "key": {key: row[key] for key in level_keys},
         "contribution": _as_numeric(row["contribution"]) * 100,
         "weight_avg": _as_numeric(row["weight_avg"]) * 100,
+    }
+
+
+def _other_hierarchy_row_for_emission(
+    *,
+    overflow_rows: pd.DataFrame,
+    level_keys: list[str],
+    include_other: bool,
+) -> dict[str, Any] | None:
+    if not include_other or overflow_rows.empty:
+        return None
+    return {
+        "key": {key: "Other" for key in level_keys},
+        "contribution": _as_numeric(overflow_rows["contribution"].sum()) * 100,
+        "weight_avg": _as_numeric(overflow_rows["weight_avg"].sum()) * 100,
+        "children_count": int(len(overflow_rows)),
+        "is_other": True,
     }

@@ -1,4 +1,5 @@
 from datetime import date
+from math import isclose
 from types import SimpleNamespace
 
 from app.models.responses import (
@@ -10,15 +11,38 @@ from app.models.responses import (
     TWRDailyCalculationEvidence,
 )
 from app.services.inspection.calculation_consistency import (
+    _apply_daily_effective_period_exclusion_status,
     _apply_daily_no_investment_period_status,
+    _apply_daily_reset_boundary_status,
+    _block_linking_mismatch_finding,
+    _block_linking_mismatch_for_frequency,
+    _check_benchmark_relative_pairing,
     _check_daily_breakdown_calculation_evidence,
+    _check_period_calculation_consistency,
     _check_relative_breakdown_frequency,
     _comparative_return_component_mismatch,
     _comparative_return_components_match,
     _comparative_return_mismatches,
     _daily_calculation_evidence_mismatches,
+    _daily_calculation_numeric_mismatches,
+    _daily_capital_linkability_status_override,
+    _daily_external_flow_values,
+    _daily_market_event_reason_codes,
+    _daily_required_semantic_mismatches,
+    _daily_return_anomaly_linkability_status,
+    _daily_return_anomaly_reason_code,
+    _daily_status_semantic_mismatches,
+    _daily_zero_capital_status_mismatch,
+    _expected_daily_calculation_values,
+    _expected_daily_evidence_semantics,
     _expected_daily_external_flows,
     _expected_daily_return,
+    _external_inflow_value,
+    _external_outflow_value,
+    _relative_breakdown_cumulative_comparison,
+    _return_component_absence_matches,
+    _return_component_has_missing_side,
+    _subtract_optional_return_component,
     run_twr_calculation_consistency_checks,
 )
 from common.enums import Frequency
@@ -69,6 +93,145 @@ def test_calculation_consistency_flags_relative_breakdown_bucket_alignment_misma
     }
 
 
+def test_period_calculation_consistency_projects_relative_pairing_findings_and_counters():
+    result = _check_period_calculation_consistency(
+        period_name="YTD",
+        portfolio_block=_analytics_block(
+            period="2026-03",
+            period_start=date(2026, 3, 1),
+            period_end=date(2026, 3, 31),
+            period_return=2.0,
+        ),
+        benchmark_block=None,
+        relative_block=_analytics_block(
+            period="2026-03",
+            period_start=date(2026, 3, 1),
+            period_end=date(2026, 3, 31),
+            period_return=1.0,
+        ),
+    )
+
+    assert result.linked_blocks_checked == 1
+    assert result.relative_rows_checked == 0
+    assert result.daily_evidence_rows_checked == 0
+    assert [finding.code for finding in result.findings] == ["RELATIVE_PERFORMANCE_BENCHMARK_BLOCK_MISSING"]
+    assert result.findings[0].evidence == {
+        "period": "YTD",
+        "scope": "relative_performance",
+        "benchmark_present": False,
+        "relative_performance_present": True,
+    }
+
+
+def test_benchmark_relative_pairing_policy_projects_presence_contracts():
+    benchmark_block = _analytics_block(
+        period="2026-03",
+        period_start=date(2026, 3, 1),
+        period_end=date(2026, 3, 31),
+        period_return=1.0,
+    )
+    relative_block = _analytics_block(
+        period="2026-03",
+        period_start=date(2026, 3, 1),
+        period_end=date(2026, 3, 31),
+        period_return=0.5,
+    )
+
+    assert (
+        _check_benchmark_relative_pairing(
+            period_name="YTD",
+            benchmark_block=benchmark_block,
+            relative_block=relative_block,
+        )
+        == []
+    )
+    assert (
+        _check_benchmark_relative_pairing(
+            period_name="YTD",
+            benchmark_block=None,
+            relative_block=None,
+        )
+        == []
+    )
+
+    findings = _check_benchmark_relative_pairing(
+        period_name="YTD",
+        benchmark_block=benchmark_block,
+        relative_block=None,
+    )
+
+    assert [finding.code for finding in findings] == ["BENCHMARK_RELATIVE_PERFORMANCE_BLOCK_MISSING"]
+    assert findings[0].evidence == {
+        "period": "YTD",
+        "scope": "benchmark",
+        "benchmark_present": True,
+        "relative_performance_present": False,
+    }
+
+
+def test_relative_breakdown_cumulative_comparison_projects_expected_and_actual_values():
+    comparison = _relative_breakdown_cumulative_comparison(
+        relative_item=_breakdown_item(
+            period="2026-03",
+            period_start=date(2026, 3, 1),
+            period_end=date(2026, 3, 31),
+            period_return=0.75,
+            cumulative_return=1.5,
+        ),
+        portfolio_item=_breakdown_item(
+            period="2026-03",
+            period_start=date(2026, 3, 1),
+            period_end=date(2026, 3, 31),
+            period_return=2.0,
+            cumulative_return=3.5,
+        ),
+        benchmark_item=_breakdown_item(
+            period="2026-03",
+            period_start=date(2026, 3, 1),
+            period_end=date(2026, 3, 31),
+            period_return=1.25,
+            cumulative_return=2.0,
+        ),
+    )
+
+    assert comparison is not None
+    expected, actual = comparison
+    assert expected == ComparativeReturnValue(base=1.5)
+    assert actual == ComparativeReturnValue(base=1.5)
+
+
+def test_relative_breakdown_cumulative_comparison_skips_absent_cumulative_values():
+    relative_item = _breakdown_item(
+        period="2026-03",
+        period_start=date(2026, 3, 1),
+        period_end=date(2026, 3, 31),
+        period_return=0.75,
+        cumulative_return=1.5,
+    )
+    relative_item.cumulative_return = None
+
+    assert (
+        _relative_breakdown_cumulative_comparison(
+            relative_item=relative_item,
+            portfolio_item=_breakdown_item(
+                period="2026-03",
+                period_start=date(2026, 3, 1),
+                period_end=date(2026, 3, 31),
+                period_return=2.0,
+                cumulative_return=3.5,
+            ),
+            benchmark_item=_breakdown_item(
+                period="2026-03",
+                period_start=date(2026, 3, 1),
+                period_end=date(2026, 3, 31),
+                period_return=1.25,
+                cumulative_return=2.0,
+            ),
+        )
+        is None
+    )
+
+
 def test_comparative_return_mismatches_distinguish_absent_equal_and_different_components():
     mismatches = _comparative_return_mismatches(
         expected=ComparativeReturnValue(base=1.0, local=None, fx=0.1),
@@ -93,6 +256,20 @@ def test_comparative_return_components_match_policy_handles_absent_equal_and_dif
     assert _comparative_return_components_match(expected_value=1.0, actual_value=1.0 + 1e-7)
     assert not _comparative_return_components_match(expected_value=None, actual_value=0.2)
     assert not _comparative_return_components_match(expected_value=0.1, actual_value=0.3)
+
+
+def test_return_component_absence_helpers_classify_optional_component_presence():
+    assert _return_component_absence_matches(expected_value=None, actual_value=None)
+    assert not _return_component_absence_matches(expected_value=0.0, actual_value=None)
+    assert _return_component_has_missing_side(expected_value=0.0, actual_value=None)
+    assert _return_component_has_missing_side(expected_value=None, actual_value=0.0)
+    assert not _return_component_has_missing_side(expected_value=0.0, actual_value=0.0)
+
+
+def test_subtract_optional_return_component_preserves_missing_component_policy():
+    assert _subtract_optional_return_component(1.5, 0.4) == 1.1
+    assert _subtract_optional_return_component(None, 0.4) is None
+    assert _subtract_optional_return_component(1.5, None) is None
 
 
 def test_calculation_consistency_does_not_compare_misaligned_relative_breakdown_arithmetic():
@@ -314,6 +491,117 @@ def test_calculation_consistency_flags_portfolio_breakdown_link_mismatch():
     assert result.findings[0].evidence["bucket_count"] == 2
 
 
+def test_block_linking_mismatch_finding_projects_operational_evidence():
+    finding = _block_linking_mismatch_finding(
+        period_name="YTD",
+        block_name="portfolio",
+        owner_repo="lotus-performance",
+        frequency=Frequency.MONTHLY,
+        linked_return=2.01,
+        actual_return=99.0,
+        bucket_count=2,
+    )
+
+    assert finding.code == "PORTFOLIO_BREAKDOWN_LINK_MISMATCH"
+    assert finding.severity == "high"
+    assert finding.category == "math_consistency"
+    assert finding.owner_repo == "lotus-performance"
+    assert finding.summary == "Portfolio breakdowns do not geometrically link to the served summary return."
+    assert "compound to 2.0100000000" in finding.explanation
+    assert finding.evidence == {
+        "period": "YTD",
+        "frequency": "monthly",
+        "linked_return_base": 2.01,
+        "summary_return_base": 99.0,
+        "bucket_count": 2,
+    }
+
+
+def test_block_linking_mismatch_for_frequency_skips_unlinkable_and_matching_rows():
+    one_item = [
+        _breakdown_item(
+            period="2026-03",
+            period_start=date(2026, 3, 1),
+            period_end=date(2026, 3, 31),
+            period_return=1.0,
+            cumulative_return=1.0,
+        )
+    ]
+
+    assert (
+        _block_linking_mismatch_for_frequency(
+            period_name="YTD",
+            block_name="portfolio",
+            owner_repo="lotus-performance",
+            frequency=Frequency.MONTHLY,
+            items=one_item,
+            summary_return=1.0,
+        )
+        is None
+    )
+
+    matching_items = [
+        _breakdown_item(
+            period="2026-03",
+            period_start=date(2026, 3, 1),
+            period_end=date(2026, 3, 31),
+            period_return=1.0,
+            cumulative_return=1.0,
+        ),
+        _breakdown_item(
+            period="2026-04",
+            period_start=date(2026, 4, 1),
+            period_end=date(2026, 4, 30),
+            period_return=1.0,
+            cumulative_return=2.01,
+        ),
+    ]
+
+    assert (
+        _block_linking_mismatch_for_frequency(
+            period_name="YTD",
+            block_name="portfolio",
+            owner_repo="lotus-performance",
+            frequency=Frequency.MONTHLY,
+            items=matching_items,
+            summary_return=2.01,
+        )
+        is None
+    )
+
+
+def test_block_linking_mismatch_for_frequency_projects_mismatch_finding():
+    finding = _block_linking_mismatch_for_frequency(
+        period_name="YTD",
+        block_name="portfolio",
+        owner_repo="lotus-performance",
+        frequency=Frequency.MONTHLY,
+        items=[
+            _breakdown_item(
+                period="2026-03",
+                period_start=date(2026, 3, 1),
+                period_end=date(2026, 3, 31),
+                period_return=1.0,
+                cumulative_return=1.0,
+            ),
+            _breakdown_item(
+                period="2026-04",
+                period_start=date(2026, 4, 1),
+                period_end=date(2026, 4, 30),
+                period_return=1.0,
+                cumulative_return=2.01,
+            ),
+        ],
+        summary_return=99.0,
+    )
+
+    assert finding is not None
+    assert finding.code == "PORTFOLIO_BREAKDOWN_LINK_MISMATCH"
+    assert isclose(finding.evidence["linked_return_base"], 2.01)
+    assert finding.evidence["summary_return_base"] == 99.0
+    assert finding.evidence["bucket_count"] == 2
+
+
 def test_calculation_consistency_checks_daily_calculation_evidence():
     response = SimpleNamespace(
         results_by_period={
@@ -455,6 +743,69 @@ def test_daily_calculation_evidence_mismatches_capture_numeric_status_and_semant
     ]
 
 
+def test_daily_calculation_numeric_mismatches_project_expected_value_contract():
+    block = _daily_evidence_block(
+        evidence=TWRDailyCalculationEvidence(
+            begin_mv=1000.0,
+            end_mv=1013.0,
+            bod_cf=100.0,
+            eod_cf=-50.0,
+            external_inflows=0.0,
+            external_outflows=0.0,
+            management_fees=3.0,
+            signed_adjusted_capital=1000.0,
+            adjusted_capital=1000.0,
+            performance_pnl=13.0,
+            daily_return=99.0,
+            status="calculated",
+            reason_codes=["FLOW_NEUTRALIZED_DAILY_RETURN"],
+            warnings=[],
+        )
+    )
+    item = block.breakdowns[Frequency.DAILY][0]
+
+    mismatches = _daily_calculation_numeric_mismatches(
+        expected=_expected_daily_calculation_values(item.calculation_evidence),
+        evidence=item.calculation_evidence,
+        item=item,
+    )
+
+    assert mismatches["signed_adjusted_capital"] == {"expected": 1100.0, "actual": 1000.0}
+    assert mismatches["adjusted_capital"] == {"expected": 1100.0, "actual": 1000.0}
+    assert mismatches["external_inflows"] == {"expected": 100.0, "actual": 0.0}
+    assert mismatches["external_outflows"] == {"expected": 50.0, "actual": 0.0}
+    assert mismatches["daily_return"]["actual"] == 99.0
+    assert mismatches["period_return.base"]["actual"] == 1.3
+
+
+def test_daily_zero_capital_status_mismatch_projects_only_invalid_calculated_status():
+    evidence = TWRDailyCalculationEvidence(
+        begin_mv=0.0,
+        end_mv=0.0,
+        bod_cf=0.0,
+        eod_cf=0.0,
+        external_inflows=0.0,
+        external_outflows=0.0,
+        management_fees=0.0,
+        signed_adjusted_capital=0.0,
+        adjusted_capital=0.0,
+        performance_pnl=0.0,
+        daily_return=0.0,
+        status="calculated",
+        reason_codes=[],
+        warnings=[],
+    )
+
+    assert _daily_zero_capital_status_mismatch(evidence) == {
+        "expected": "not_calculated",
+        "actual": "calculated",
+        "reason": "zero_adjusted_capital",
+    }
+
+    evidence.status = "not_calculated"
+    assert _daily_zero_capital_status_mismatch(evidence) is None
+
+
 def test_expected_daily_flow_and_return_helpers_project_evidence_policy():
     evidence = TWRDailyCalculationEvidence(
         begin_mv=1000.0,
@@ -478,6 +829,31 @@ def test_expected_daily_flow_and_return_helpers_project_evidence_policy():
     assert flows.external_inflows == 100.0
     assert flows.external_outflows == 50.0
     assert _expected_daily_return(evidence) == 13.0 / 1100.0 * 100
+
+
+def test_daily_external_flow_helpers_project_signed_flow_policy():
+    evidence = TWRDailyCalculationEvidence(
+        begin_mv=1000.0,
+        end_mv=1013.0,
+        bod_cf=100.0,
+        eod_cf=-50.0,
+        external_inflows=100.0,
+        external_outflows=50.0,
+        management_fees=3.0,
+        signed_adjusted_capital=1100.0,
+        adjusted_capital=1100.0,
+        performance_pnl=13.0,
+        daily_return=13.0 / 1100.0 * 100,
+        status="calculated",
+        reason_codes=["FLOW_NEUTRALIZED_DAILY_RETURN"],
+        warnings=[],
+    )
+
+    assert _daily_external_flow_values(evidence) == (100.0, -50.0)
+    assert _external_inflow_value(100.0) == 100.0
+    assert _external_inflow_value(-50.0) == 0.0
+    assert _external_outflow_value(100.0) == 0.0
+    assert _external_outflow_value(-50.0) == 50.0
 
 
 def test_expected_daily_return_is_absent_when_daily_evidence_is_not_calculable():
@@ -696,6 +1072,218 @@ def test_no_investment_period_status_policy_only_overrides_open_linkable_days():
         linkability_status="reset_boundary",
         episode_status="reset_boundary",
     ) == ("reset_boundary", "reset_boundary")
+
+
+def test_effective_period_exclusion_status_records_warning_and_terminal_statuses():
+    warnings: set[str] = set()
+
+    assert _apply_daily_effective_period_exclusion_status(required_warnings=warnings) == (
+        "not_calculated",
+        "not_in_period",
+    )
+    assert warnings == {"BEFORE_EFFECTIVE_PERIOD_START"}
+
+
+def test_reset_boundary_status_only_overrides_linkable_days():
+    assert _apply_daily_reset_boundary_status(linkability_status="linkable") == (
+        "reset_boundary",
+        "reset_boundary",
+    )
+    assert _apply_daily_reset_boundary_status(linkability_status="not_calculated") == (
+        "not_calculated",
+        "reset_boundary",
+    )
+
+
+def test_daily_status_semantic_mismatches_project_expected_statuses():
+    evidence = TWRDailyCalculationEvidence(
+        begin_mv=1000.0,
+        end_mv=1000.0,
+        bod_cf=0.0,
+        eod_cf=0.0,
+        external_inflows=0.0,
+        external_outflows=0.0,
+        management_fees=0.0,
+        signed_adjusted_capital=1000.0,
+        adjusted_capital=1000.0,
+        performance_pnl=0.0,
+        daily_return=0.0,
+        status="not_calculated",
+        linkability_status="linkable",
+        episode_status="open",
+        reason_codes=["FLOW_NEUTRALIZED_DAILY_RETURN", "BEFORE_EFFECTIVE_PERIOD_START"],
+        warnings=[],
+    )
+
+    assert _daily_status_semantic_mismatches(
+        expected=_expected_daily_evidence_semantics(evidence),
+        evidence=evidence,
+    ) == {
+        "linkability_status": {"expected": "not_calculated", "actual": "linkable"},
+        "episode_status": {"expected": "not_in_period", "actual": "open"},
+    }
+
+
+def test_daily_required_semantic_mismatches_project_missing_codes_and_warnings():
+    evidence = TWRDailyCalculationEvidence(
+        begin_mv=-1000.0,
+        end_mv=-987.0,
+        bod_cf=0.0,
+        eod_cf=0.0,
+        external_inflows=0.0,
+        external_outflows=0.0,
+        management_fees=0.0,
+        signed_adjusted_capital=-1000.0,
+        adjusted_capital=1000.0,
+        performance_pnl=13.0,
+        daily_return=1.3,
+        status="calculated",
+        reason_codes=["FLOW_NEUTRALIZED_DAILY_RETURN"],
+        warnings=[],
+    )
+
+    assert _daily_required_semantic_mismatches(
+        expected=_expected_daily_evidence_semantics(evidence),
+        evidence=evidence,
+    ) == {
+        "missing_reason_codes": ["NEGATIVE_ADJUSTED_CAPITAL_INPUT"],
+        "missing_warnings": ["NEGATIVE_ADJUSTED_CAPITAL_INPUT"],
+    }
+
+
+def test_daily_capital_linkability_status_override_projects_zero_capital_status():
+    reason_codes: set[str] = set()
+    warnings: set[str] = set()
+
+    status = _daily_capital_linkability_status_override(
+        TWRDailyCalculationEvidence(
+            begin_mv=0.0,
+            end_mv=0.0,
+            bod_cf=0.0,
+            eod_cf=0.0,
+            external_inflows=0.0,
+            external_outflows=0.0,
+            management_fees=0.0,
+            signed_adjusted_capital=0.0,
+            adjusted_capital=0.0,
+            performance_pnl=0.0,
+            daily_return=0.0,
+            status="calculated",
+            reason_codes=[],
+            warnings=[],
+        ),
+        required_reason_codes=reason_codes,
+        required_warnings=warnings,
+    )
+
+    assert status == "not_calculated"
+    assert reason_codes == {"ZERO_ADJUSTED_CAPITAL"}
+    assert warnings == {"ZERO_ADJUSTED_CAPITAL"}
+
+
+def test_daily_capital_linkability_status_override_records_negative_capital_warning():
+    reason_codes: set[str] = set()
+    warnings: set[str] = set()
+
+    status = _daily_capital_linkability_status_override(
+        TWRDailyCalculationEvidence(
+            begin_mv=-1000.0,
+            end_mv=-987.0,
+            bod_cf=0.0,
+            eod_cf=0.0,
+            external_inflows=0.0,
+            external_outflows=0.0,
+            management_fees=0.0,
+            signed_adjusted_capital=-1000.0,
+            adjusted_capital=1000.0,
+            performance_pnl=13.0,
+            daily_return=1.3,
+            status="calculated",
+            reason_codes=[],
+            warnings=[],
+        ),
+        required_reason_codes=reason_codes,
+        required_warnings=warnings,
+    )
+
+    assert status is None
+    assert reason_codes == {"NEGATIVE_ADJUSTED_CAPITAL_INPUT"}
+    assert warnings == {"NEGATIVE_ADJUSTED_CAPITAL_INPUT"}
+
+
+def test_daily_market_event_reason_codes_project_withdrawal_and_refunding_days():
+    assert _daily_market_event_reason_codes(
+        TWRDailyCalculationEvidence(
+            begin_mv=0.0,
+            end_mv=0.0,
+            bod_cf=100.0,
+            eod_cf=-100.0,
+            external_inflows=100.0,
+            external_outflows=100.0,
+            management_fees=0.0,
+            signed_adjusted_capital=100.0,
+            adjusted_capital=100.0,
+            performance_pnl=0.0,
+            daily_return=0.0,
+            status="calculated",
+            reason_codes=[],
+            warnings=[],
+        )
+    ) == {"FULL_WITHDRAWAL_DAY", "REFUNDING_DAY"}
+
+
+def test_daily_market_event_reason_codes_omit_non_market_events():
+    assert (
+        _daily_market_event_reason_codes(
+            TWRDailyCalculationEvidence(
+                begin_mv=1000.0,
+                end_mv=1010.0,
+                bod_cf=0.0,
+                eod_cf=0.0,
+                external_inflows=0.0,
+                external_outflows=0.0,
+                management_fees=0.0,
+                signed_adjusted_capital=1000.0,
+                adjusted_capital=1000.0,
+                performance_pnl=10.0,
+                daily_return=1.0,
+                status="calculated",
+                reason_codes=[],
+                warnings=[],
+            )
+        )
+        == set()
+    )
+
+
+def test_daily_return_anomaly_reason_code_classifies_loss_thresholds():
+    evidence = TWRDailyCalculationEvidence(
+        begin_mv=1000.0,
+        end_mv=0.0,
+        bod_cf=0.0,
+        eod_cf=0.0,
+        external_inflows=0.0,
+        external_outflows=0.0,
+        management_fees=0.0,
+        signed_adjusted_capital=1000.0,
+        adjusted_capital=1000.0,
+        performance_pnl=-1000.0,
+        daily_return=-100.0,
+        status="calculated",
+        reason_codes=[],
+        warnings=[],
+    )
+
+    assert _daily_return_anomaly_reason_code(evidence) == "FULL_LOSS_RETURN"
+    evidence.daily_return = -100.1
+    assert _daily_return_anomaly_reason_code(evidence) == "BELOW_FULL_LOSS_RETURN"
+    evidence.daily_return = -99.9
+    assert _daily_return_anomaly_reason_code(evidence) is None
+
+
+def test_daily_return_anomaly_linkability_status_only_overrides_linkable_status():
+    assert _daily_return_anomaly_linkability_status(linkability_status="linkable") == "not_linkable"
+    assert _daily_return_anomaly_linkability_status(linkability_status="not_calculated") == "not_calculated"
 
 
 def test_calculation_consistency_flags_effective_period_exclusion_warning():

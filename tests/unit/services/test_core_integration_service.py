@@ -3,7 +3,7 @@ from datetime import date
 import httpx
 import pytest
 
-from app.services.core_integration_service import CoreIntegrationService
+from app.services.core_integration_service import CoreIntegrationService, _index_catalog_filter_payload
 
 
 class _FakeAsyncClient:
@@ -247,6 +247,15 @@ async def test_get_index_catalog_posts_contract_payload():
         "index_type": "BENCHMARK",
         "index_status": "ACTIVE",
     }
+
+
+def test_index_catalog_filter_payload_omits_absent_optional_filters():
+    assert _index_catalog_filter_payload(
+        index_ids=[],
+        index_currency=None,
+        index_type="BENCHMARK",
+        index_status="",
+    ) == {"index_type": "BENCHMARK"}
 
 
 @pytest.mark.asyncio

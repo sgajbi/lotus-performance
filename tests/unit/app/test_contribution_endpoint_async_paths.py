@@ -96,6 +96,35 @@ async def test_promoted_stateful_contribution_helper_returns_replay_without_regi
     register_sync.assert_not_called()
 
 
+def test_promoted_stateful_contribution_sync_start_registers_when_no_replay(mocker):
+    request = ContributionAnalyticsRequest.model_validate(_stateful_contribution_payload())
+    replay_promoted = mocker.patch(
+        "app.services.contribution_calculation_workflow_service.replay_promoted_stateful_async_execution",
+        return_value=None,
+    )
+    register_sync = mocker.patch(
+        "app.services.contribution_calculation_workflow_service.register_sync_execution_or_raise"
+    )
+
+    response = contribution_calculation_workflow_service._prepare_promoted_stateful_contribution_sync_execution(
+        request=request,
+        input_fingerprint="source-fingerprint",
+        calculation_hash="source-hash",
+    )
+
+    assert response is None
+    replay_promoted.assert_called_once()
+    register_sync.assert_called_once()
+    registered = register_sync.call_args.kwargs
+    assert registered["calculation_id"] == request.calculation_id
+    assert registered["analytics_type"] == "Contribution"
+    assert registered["portfolio_id"] == request.portfolio_id
+    assert registered["input_fingerprint"] == "source-fingerprint"
+    assert registered["calculation_hash"] == "source-hash"
+    assert registered["requested_window"]["input_mode"] == "stateful"
+    assert registered["requested_window"]["source_request_fingerprint"] == "source-fingerprint"
+
+
 @pytest.mark.asyncio
 async def test_contribution_endpoint_returns_accepted_response_when_resolved_stateful_request_is_offloaded(mocker):
     request = ContributionAnalyticsRequest.model_validate(_stateful_contribution_payload())
@@ -543,3 +572,14 @@ def test_contribution_endpoint_numeric_and_stateful_window_helpers_cover_statefu
         contribution_calculation_workflow_service.build_contribution_execution_window(legacy_request)["position_count"]
         == 1
     )
+
+
+def test_stateless_input_position_count_distinguishes_missing_and_empty_nested_positions():
+    assert contribution_calculation_workflow_service._stateless_input_position_count(None) is None
+    assert (
+        contribution_calculation_workflow_service._stateless_input_position_count(
+            SimpleNamespace(positions_data=[SimpleNamespace(), SimpleNamespace()])
+        )
+        == 2
+    )
+    assert contribution_calculation_workflow_service._stateless_input_position_count(SimpleNamespace()) == 0

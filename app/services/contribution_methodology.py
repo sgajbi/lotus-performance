@@ -218,6 +218,21 @@ def _calculate_promotion_ready_rate_bp(*, ready_periods: int, material_periods: 
     return round((ready_periods / material_periods) * 10000)
 
 
+def _classify_material_average_weight_methodology_status(
+    *,
+    is_cutover_candidate: bool,
+    is_promoted: bool,
+    blocker_reason_codes: set[str],
+) -> str:
+    if is_promoted:
+        return "PROMOTED"
+    if is_cutover_candidate:
+        return "PROMOTION_READY"
+    if blocker_reason_codes:
+        return "BLOCKED"
+    return "UNDER_REVIEW"
+
+
 def _classify_average_weight_methodology_status(
     *,
     max_shadow_delta_bp: int,
@@ -228,13 +243,11 @@ def _classify_average_weight_methodology_status(
     """Classifies the per-period reset-aware average-weight rollout state."""
     if max_shadow_delta_bp < 500:
         return "NO_MATERIAL_SHADOW"
-    if is_promoted:
-        return "PROMOTED"
-    if is_cutover_candidate:
-        return "PROMOTION_READY"
-    if blocker_reason_codes:
-        return "BLOCKED"
-    return "UNDER_REVIEW"
+    return _classify_material_average_weight_methodology_status(
+        is_cutover_candidate=is_cutover_candidate,
+        is_promoted=is_promoted,
+        blocker_reason_codes=blocker_reason_codes,
+    )
 
 
 def _build_average_weight_methodology_status(
@@ -260,6 +273,14 @@ def _build_average_weight_methodology_status(
     )
 
 
+def _has_clean_average_weight_reset_alignment(
+    *,
+    portfolio_reset_without_position_reset_days: int,
+    position_reset_without_portfolio_reset_days: int,
+) -> bool:
+    return portfolio_reset_without_position_reset_days == 0 and position_reset_without_portfolio_reset_days == 0
+
+
 def _has_clean_average_weight_shadow_bookkeeping(
     *,
     average_weight_sum_residual_bp: int,
@@ -268,12 +289,16 @@ def _has_clean_average_weight_shadow_bookkeeping(
     position_reset_without_portfolio_reset_days: int,
     timeseries_total_delta_periods: int,
 ) -> bool:
-    return (
-        average_weight_sum_residual_bp <= 1
-        and position_flow_residual_days == 0
-        and portfolio_reset_without_position_reset_days == 0
-        and position_reset_without_portfolio_reset_days == 0
-        and timeseries_total_delta_periods == 0
+    return all(
+        (
+            average_weight_sum_residual_bp <= 1,
+            position_flow_residual_days == 0,
+            _has_clean_average_weight_reset_alignment(
+                portfolio_reset_without_position_reset_days=portfolio_reset_without_position_reset_days,
+                position_reset_without_portfolio_reset_days=position_reset_without_portfolio_reset_days,
+            ),
+            timeseries_total_delta_periods == 0,
+        )
     )
 
 

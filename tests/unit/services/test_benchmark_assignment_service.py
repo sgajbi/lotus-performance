@@ -4,7 +4,11 @@ from uuid import uuid4
 import pytest
 from fastapi import HTTPException
 
-from app.services.benchmark_assignment_service import _resolved_assignment_identity, resolve_benchmark_identity
+from app.services.benchmark_assignment_service import (
+    _benchmark_id_from_assignment_payload,
+    _resolved_assignment_identity,
+    resolve_benchmark_identity,
+)
 
 
 class _BenchmarkAssignmentStub:
@@ -33,6 +37,16 @@ def test_resolved_assignment_identity_projects_evidence_and_rejects_empty_identi
             assignment_status=200,
             assignment_payload={"benchmark_id": ""},
         )
+
+
+@pytest.mark.parametrize("payload", [{"benchmark_id": ""}, {"benchmark_id": 123}, {}])
+def test_benchmark_id_from_assignment_payload_rejects_unusable_identity(payload):
+    with pytest.raises(HTTPException, match="payload missing benchmark_id"):
+        _benchmark_id_from_assignment_payload(payload)
+
+
+def test_benchmark_id_from_assignment_payload_returns_valid_identity():
+    assert _benchmark_id_from_assignment_payload({"benchmark_id": "BMK_ASSIGNED"}) == "BMK_ASSIGNED"
 
 
 @pytest.mark.asyncio

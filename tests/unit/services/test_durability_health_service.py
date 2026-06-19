@@ -197,6 +197,21 @@ def test_lineage_storage_path_status_accepts_readable_directory(tmp_path):
     assert durability_health_service._lineage_storage_path_unavailable_status(tmp_path) is None
 
 
+def test_lineage_storage_path_failure_reason_classifies_path_states(monkeypatch, tmp_path):
+    file_path = tmp_path / "not-a-directory"
+    file_path.write_text("x", encoding="utf-8")
+
+    assert (
+        durability_health_service._lineage_storage_path_failure_reason(tmp_path / "missing")
+        == "lineage_storage_path_missing"
+    )
+    assert durability_health_service._lineage_storage_path_failure_reason(file_path) == "lineage_storage_path_invalid"
+
+    monkeypatch.setattr(durability_health_service.os, "access", lambda *args: False)
+
+    assert durability_health_service._lineage_storage_path_failure_reason(tmp_path) == "lineage_storage_path_unreadable"
+
+
 def test_lineage_storage_health_skips_write_probe_when_disabled(monkeypatch, tmp_path):
     monkeypatch.setattr(
         durability_health_service,
@@ -245,6 +260,15 @@ def test_lineage_storage_health_write_probe_logs_os_errors(monkeypatch, tmp_path
     assert ready is False
     assert "Lineage storage write probe failed." in caplog.text
     assert "OSError: disk unavailable" in caplog.text
+
+
+def test_lineage_storage_probe_cleanup_removes_retained_temp_file(tmp_path):
+    temp_path = tmp_path / ".lotus-lineage-healthcheck-retained.tmp"
+    temp_path.write_text("retained", encoding="utf-8")
+
+    durability_health_service._cleanup_lineage_storage_probe(None, str(temp_path))
+
+    assert not temp_path.exists()
 
 
 def test_get_lineage_storage_capacity_returns_free_space_snapshot(monkeypatch, tmp_path):

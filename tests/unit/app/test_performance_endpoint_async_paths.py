@@ -329,6 +329,54 @@ def test_attribution_input_count_supports_legacy_stateless_fields_and_stateful_z
     assert attribution_calculation_workflow_service.attribution_input_count(stateful_request) == 0
 
 
+def test_attribution_execution_window_optional_metadata_filters_absent_values():
+    assert attribution_calculation_workflow_service._attribution_execution_window_optional_metadata() == {}
+    assert attribution_calculation_workflow_service._attribution_execution_window_optional_metadata(
+        source_request_fingerprint="src-fingerprint",
+        benchmark_id="BMK_1",
+        benchmark_return_source="calculated",
+    ) == {
+        "source_request_fingerprint": "src-fingerprint",
+        "benchmark_id": "BMK_1",
+        "benchmark_return_source": "calculated",
+    }
+
+
+def test_build_attribution_execution_window_merges_optional_metadata():
+    request = AttributionRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "mode": "by_group",
+            "group_by": ["sector"],
+            "benchmark_groups_data": [{"key": {"sector": "Tech"}, "observations": []}],
+        }
+    )
+
+    window = attribution_calculation_workflow_service.build_attribution_execution_window(
+        request,
+        input_count=1,
+        source_request_fingerprint="src-fingerprint",
+        benchmark_id="BMK_1",
+        benchmark_return_source="calculated",
+    )
+
+    assert window == {
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-02",
+        "requested_periods": ["ITD"],
+        "input_count": 1,
+        "mode": "by_group",
+        "group_by": ["sector"],
+        "input_mode": "stateless",
+        "source_request_fingerprint": "src-fingerprint",
+        "benchmark_id": "BMK_1",
+        "benchmark_return_source": "calculated",
+    }
+
+
 def test_finalize_resolved_stateful_attribution_execution_preserves_resolved_identity(mocker):
     request = performance_endpoint.AttributionAnalyticsRequest.model_validate(
         {
@@ -560,3 +608,98 @@ def test_stateful_attribution_replay_or_sync_window_adds_source_fingerprint_with
     assert replay_response is None
     assert sync_window["input_count"] == 0
     assert sync_window["source_request_fingerprint"] == "source-fingerprint"
+
+
+def test_register_attribution_sync_execution_projects_fencing_payload(mocker):
+    request = performance_endpoint.AttributionAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "P1",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "mode": "by_group",
+            "group_by": ["sector"],
+            "benchmark_groups_data": [{"key": {"sector": "Tech"}, "observations": []}],
+        }
+    )
+    register_capture: dict[str, object] = {}
+    mocker.patch(
+        "app.services.attribution_calculation_workflow_service.register_sync_execution_or_raise",
+        side_effect=lambda **kwargs: register_capture.update(kwargs),
+    )
+
+    attribution_calculation_workflow_service._register_attribution_sync_execution(
+        request,
+        requested_window={"input_count": 1},
+        input_fingerprint="input-fingerprint",
+        calculation_hash="calculation-hash",
+    )
+
+    assert register_capture == {
+        "calculation_id": request.calculation_id,
+        "analytics_type": "Attribution",
+        "portfolio_id": "P1",
+        "requested_window": {"input_count": 1},
+        "input_fingerprint": "input-fingerprint",
+        "calculation_hash": "calculation-hash",
+    }
+
+
+@pytest.mark.asyncio
+async def test_resolve_and_calculate_attribution_response_delegates_to_resolved_calculation(mocker):
+    request = performance_endpoint.AttributionAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "P1",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "mode": "by_group",
+            "group_by": ["sector"],
+            "benchmark_groups_data": [{"key": {"sector": "Tech"}, "observations": []}],
+        }
+    )
+    attribution_request = AttributionRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "mode": "by_group",
+            "group_by": ["sector"],
+            "benchmark_groups_data": [{"key": {"sector": "Tech"}, "observations": []}],
+        }
+    )
+    resolved = ResolvedAttributionRequest(
+        attribution_request=attribution_request,
+        input_mode=AttributionInputMode.STATELESS,
+        input_count=1,
+        resolved_benchmark_id="BMK_1",
+        resolved_benchmark_return_source="calculated",
+    )
+    settings = type("Settings", (), {"APP_VERSION": "runtime-version"})()
+    expected_response = object()
+    resolve = mocker.patch(
+        "app.services.attribution_calculation_workflow_service.resolve_attribution_request",
+        return_value=resolved,
+    )
+    calculate = mocker.patch(
+        "app.services.attribution_calculation_workflow_service._calculate_resolved_attribution_response",
+        return_value=expected_response,
+    )
+
+    response = await attribution_calculation_workflow_service._resolve_and_calculate_attribution_response(
+        request,
+        active_settings=settings,
+        source_request_fingerprint="source-fingerprint",
+        input_fingerprint="input-fingerprint",
+        calculation_hash="calculation-hash",
+    )
+
+    assert response is expected_response
+    resolve.assert_awaited_once_with(request, settings=settings)
+    assert calculate.call_args.args == (request, resolved)
+    assert calculate.call_args.kwargs["source_request_fingerprint"] == "source-fingerprint"
+    assert calculate.call_args.kwargs["input_fingerprint"] == "input-fingerprint"
+    assert calculate.call_args.kwargs["calculation_hash"] == "calculation-hash"

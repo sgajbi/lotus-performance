@@ -32,36 +32,31 @@ def _calculate_reset_aware_period_portfolio_return(
     the same slice. Multiplying daily returns across the window is incorrect once performance resets
     break the economic continuity of the path.
     """
-    period_valuation_points = [
+    return _period_engine_final_cum_ror(
+        request=request,
+        period_valuation_points=_portfolio_period_valuation_points(
+            request=request,
+            period_start_date=period_start_date,
+            period_end_date=period_end_date,
+        ),
+        period_start_date=period_start_date,
+        period_end_date=period_end_date,
+        period_type=period_type,
+        result_scale=0.01,
+    )
+
+
+def _portfolio_period_valuation_points(
+    *,
+    request: ContributionRequest,
+    period_start_date,
+    period_end_date,
+) -> list[dict[str, Any]]:
+    return [
         valuation_point.model_dump()
         for valuation_point in request.portfolio_data.valuation_points
         if period_start_date <= valuation_point.perf_date <= period_end_date
     ]
-    if not period_valuation_points:
-        return 0.0
-
-    period_engine_config = EngineConfig(
-        performance_start_date=period_valuation_points[0]["perf_date"],
-        report_start_date=period_start_date,
-        report_end_date=period_end_date,
-        metric_basis=request.portfolio_data.metric_basis,
-        period_type=period_type,
-        precision_mode=PrecisionMode(request.precision_mode),
-        rounding_precision=request.rounding_precision,
-        currency_mode=request.currency_mode,
-        report_ccy=request.report_ccy,
-        fx=request.fx,
-        hedging=request.hedging,
-    )
-    period_results_df = run_engine_for_valuation_points(
-        period_valuation_points,
-        period_engine_config,
-        force_base_only=period_engine_config.currency_mode == "BOTH",
-    )
-    if period_results_df.empty:
-        return 0.0
-
-    return _as_numeric(period_results_df[PortfolioColumns.FINAL_CUM_ROR.value].iloc[-1] / 100)
 
 
 def _position_period_valuation_points(
@@ -91,6 +86,24 @@ def _calculate_position_total_return_pct(
         period_start_date=period_start_date,
         period_end_date=period_end_date,
     )
+    return _period_engine_final_cum_ror(
+        request=request,
+        period_valuation_points=period_valuation_points,
+        period_start_date=period_start_date,
+        period_end_date=period_end_date,
+        period_type="EXPLICIT",
+    )
+
+
+def _period_engine_final_cum_ror(
+    *,
+    request: ContributionRequest,
+    period_valuation_points: list[dict[str, Any]],
+    period_start_date,
+    period_end_date,
+    period_type,
+    result_scale: float = 1.0,
+) -> Any:
     if not period_valuation_points:
         return 0.0
 
@@ -99,7 +112,7 @@ def _calculate_position_total_return_pct(
         report_start_date=period_start_date,
         report_end_date=period_end_date,
         metric_basis=request.portfolio_data.metric_basis,
-        period_type="EXPLICIT",
+        period_type=period_type,
         precision_mode=PrecisionMode(request.precision_mode),
         rounding_precision=request.rounding_precision,
         currency_mode=request.currency_mode,
@@ -115,7 +128,7 @@ def _calculate_position_total_return_pct(
     if period_results_df.empty:
         return 0.0
 
-    return _as_numeric(period_results_df[PortfolioColumns.FINAL_CUM_ROR.value].iloc[-1])
+    return _as_numeric(period_results_df[PortfolioColumns.FINAL_CUM_ROR.value].iloc[-1] * result_scale)
 
 
 def build_residual_adjusted_position_totals(

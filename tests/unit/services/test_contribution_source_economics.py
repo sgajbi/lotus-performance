@@ -10,13 +10,19 @@ from app.services.contribution_source_economics import (
     _has_caller_supplied_position_flows,
     _has_non_zero_flow,
     _has_position_currency_metadata,
+    _has_stateful_external_flow_economics,
     _has_unclassified_position_metadata,
     _has_unsupported_cash_flow_types,
+    _is_non_zero_flow_field,
     _is_valid_source_cash_flow_type_count,
     _present_component_pnl_fields,
+    _raw_source_cash_flow_type_counts,
     _source_cash_flow_type_counts,
     _stateful_cash_flow_economics,
     _stateful_metadata_economics,
+    _stateful_reason_codes,
+    _stateful_source_economics_evidence,
+    _upstream_snapshot_lineage_reason_code,
     build_contribution_source_economics_evidence,
 )
 from app.services.execution_registry import UpstreamSnapshotRecord
@@ -100,6 +106,58 @@ def test_source_economics_evidence_preserves_source_rich_stateful_contract():
     assert "income_pnl" in evidence.unsupported_economics
 
 
+def test_stateful_source_economics_evidence_reports_source_backed_contract_when_complete():
+    request = _request_with_position_meta(
+        {
+            "asset_class": "Equity",
+            "sector": "Technology",
+            "price_pnl": 1,
+            "income_pnl": 2,
+            "fee_pnl": 3,
+            "tax_pnl": 4,
+            "fx_pnl": 5,
+            "corporate_action_pnl": 6,
+            "derivative_pnl": 7,
+            "cash_pnl": 8,
+            "residual_pnl": 9,
+            "_source_economics": {
+                "cash_flow_type_counts": {
+                    "external_flow": 1,
+                    "fee": 2,
+                }
+            },
+        }
+    )
+
+    evidence = _stateful_source_economics_evidence(
+        request=request,
+        upstream_snapshots=[_snapshot("portfolio_timeseries")],
+    )
+
+    assert evidence.status == "SOURCE_BACKED"
+    assert evidence.unsupported_economics == []
+    assert evidence.degraded_economics == []
+    assert evidence.cash_flow_type_counts == {"external_flow": 1, "fee": 2}
+    assert evidence.source_snapshot_count == 1
+    assert evidence.source_snapshot_endpoints == ["portfolio_timeseries"]
+    assert "UPSTREAM_SNAPSHOT_LINEAGE_AVAILABLE" in evidence.reason_codes
+
+
+def test_stateful_reason_codes_project_snapshot_lineage_policy():
+    assert _upstream_snapshot_lineage_reason_code([_snapshot("portfolio_timeseries")]) == (
+        "UPSTREAM_SNAPSHOT_LINEAGE_AVAILABLE"
+    )
+    assert _upstream_snapshot_lineage_reason_code([]) == "UPSTREAM_SNAPSHOT_LINEAGE_AVAILABLE_VIA_EXECUTION_ONLY"
+    assert _stateful_reason_codes(
+        unsupported_economics=[],
+        degraded_economics=[],
+        upstream_snapshots=[],
+    ) == [
+        "LOTUS_CORE_ANALYTICS_INPUTS_USED",
+        "UPSTREAM_SNAPSHOT_LINEAGE_AVAILABLE_VIA_EXECUTION_ONLY",
+    ]
+
+
 def test_stateful_cash_flow_economics_projects_supported_source_flow_families():
     economics = _stateful_cash_flow_economics(
         {
@@ -112,6 +170,12 @@ def test_stateful_cash_flow_economics_projects_supported_source_flow_families():
     )
 
     assert economics == ["external_flows", "internal_trade_flows", "fees"]
+
+
+def test_has_stateful_external_flow_economics_accepts_external_flows_and_transfers():
+    assert _has_stateful_external_flow_economics({"external_flow": 1})
+    assert _has_stateful_external_flow_economics({"transfer": 1})
+    assert not _has_stateful_external_flow_economics({"internal_trade_flow": 1, "fee": 1})
 
 
 def test_stateful_metadata_economics_projects_fx_and_classification_dimensions():
@@ -141,6 +205,15 @@ def test_source_cash_flow_type_counts_accepts_positive_integer_counts_only():
     )
 
     assert counts == {"external_flow": 2}
+
+
+def test_raw_source_cash_flow_type_counts_resolves_only_dict_payloads():
+    raw_counts = {"external_flow": 2}
+
+    assert _raw_source_cash_flow_type_counts({"_source_economics": {"cash_flow_type_counts": raw_counts}}) == raw_counts
+    assert _raw_source_cash_flow_type_counts({}) is None
+    assert _raw_source_cash_flow_type_counts({"_source_economics": []}) is None
+    assert _raw_source_cash_flow_type_counts({"_source_economics": {"cash_flow_type_counts": []}}) is None
 
 
 def test_source_cash_flow_type_count_entry_validation_rejects_non_source_counts():
@@ -271,6 +344,13 @@ def test_stateless_source_economics_predicates_detect_flows_and_currency():
 def test_stateless_source_economics_flow_predicate_ignores_invalid_raw_flow_values():
     assert _has_non_zero_flow({"bod_cf": "bad-input", "eod_cf": "0", "mgmt_fees": "2"})
     assert not _has_non_zero_flow({"bod_cf": "bad-input", "eod_cf": "0", "mgmt_fees": "0"})
+
+
+def test_non_zero_flow_field_handles_decimal_zero_and_invalid_values():
+    assert _is_non_zero_flow_field({"bod_cf": "0.01"}, "bod_cf")
+    assert not _is_non_zero_flow_field({"bod_cf": "0"}, "bod_cf")
+    assert not _is_non_zero_flow_field({"bod_cf": "bad-input"}, "bod_cf")
+    assert not _is_non_zero_flow_field({}, "bod_cf")
 
 
 def test_present_component_pnl_fields_aggregates_canonical_fields_across_positions():

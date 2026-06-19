@@ -7,6 +7,7 @@ from fastapi import HTTPException
 from app.models.attribution_requests import AttributionRequest
 from app.services import attribution_service
 from common.enums import PeriodType
+from engine.exceptions import EngineCalculationError, InvalidEngineInputError
 
 
 def test_count_attribution_portfolio_rows_handles_absent_and_populated_sources():
@@ -78,6 +79,33 @@ def test_build_attribution_results_by_period_slices_non_empty_periods_and_prefix
     assert lineage_data == {"engine": "complete", "JAN_row_count": 1}
 
 
+def test_build_single_attribution_period_response_skips_empty_slices(monkeypatch):
+    effects_df = pd.DataFrame(
+        {"effect": [0.1]},
+        index=pd.MultiIndex.from_tuples(
+            [(pd.Timestamp("2026-01-02"), "Equity")],
+            names=["date", "group"],
+        ),
+    )
+    period = SimpleNamespace(name="FEB", start_date="2026-02-01", end_date="2026-02-28")
+    lineage_data = {"engine": "complete"}
+
+    def aggregate(*_args, **_kwargs):
+        raise AssertionError("empty period slices must not be aggregated")
+
+    monkeypatch.setattr(attribution_service, "aggregate_attribution_results", aggregate)
+
+    response = attribution_service._build_single_attribution_period_response(
+        effects_df,
+        request=SimpleNamespace(portfolio_id="DEMO_DPM_EUR_001"),
+        period=period,
+        lineage_data=lineage_data,
+    )
+
+    assert response is None
+    assert lineage_data == {"engine": "complete"}
+
+
 def test_latest_attribution_observation_date_uses_all_stateless_input_sources():
     request = AttributionRequest.model_validate(
         {
@@ -118,6 +146,31 @@ def test_latest_attribution_observation_date_uses_all_stateless_input_sources():
     assert attribution_service._portfolio_group_observation_dates(request) == ["2025-03-31"]
     assert attribution_service._benchmark_group_observation_dates(request) == [pd.Timestamp("2025-04-30").date()]
     assert attribution_service._latest_attribution_observation_date(request) == pd.Timestamp("2025-04-30").date()
+
+
+def test_portfolio_group_observation_helpers_filter_missing_dates():
+    request = SimpleNamespace(
+        portfolio_groups_data=[
+            SimpleNamespace(
+                observations=[
+                    {"date": "2025-03-31", "weight_bop": 1.0},
+                    {"date": "", "weight_bop": 1.0},
+                    {"weight_bop": 1.0},
+                ]
+            )
+        ]
+    )
+
+    observations = list(attribution_service._iter_portfolio_group_observations(request))
+
+    assert len(observations) == 3
+    assert attribution_service._portfolio_group_observation_date(observations[0]) == "2025-03-31"
+    assert attribution_service._portfolio_group_observation_date(observations[1]) is None
+    assert attribution_service._portfolio_group_observation_date(observations[2]) is None
+    assert attribution_service._portfolio_group_observation_dates(request) == ["2025-03-31"]
+    assert (
+        list(attribution_service._iter_portfolio_group_observations(SimpleNamespace(portfolio_groups_data=None))) == []
+    )
 
 
 def test_resolve_attribution_execution_window_projects_master_request(monkeypatch):
@@ -170,6 +223,10 @@ def test_resolve_attribution_execution_window_projects_master_request(monkeypatc
     monkeypatch.setattr(attribution_service, "resolve_periods", resolve)
 
     window = attribution_service._resolve_attribution_execution_window(request)
+    helper_start, helper_end, helper_request = attribution_service._attribution_master_request_for_resolved_periods(
+        request,
+        resolved_periods=resolved_periods,
+    )
 
     assert window.periods_to_resolve == [PeriodType.MTD, PeriodType.QTD]
     assert window.resolved_periods is resolved_periods
@@ -180,6 +237,11 @@ def test_resolve_attribution_execution_window_projects_master_request(monkeypatc
     assert window.master_request.report_end_date == pd.Timestamp("2025-03-31").date()
     assert captured["periods_to_resolve"] == [PeriodType.MTD, PeriodType.QTD]
     assert captured["explicit_start_date"] == request.report_start_date
+    assert helper_start == window.master_start_date
+    assert helper_end == window.master_end_date
+    assert helper_request is not request
+    assert helper_request.report_start_date == window.master_start_date
+    assert helper_request.report_end_date == window.master_end_date
 
 
 def test_resolve_attribution_execution_window_rejects_empty_resolved_periods(monkeypatch):
@@ -202,6 +264,24 @@ def test_resolve_attribution_execution_window_rejects_empty_resolved_periods(mon
 
     assert exc_info.value.status_code == 400
     assert exc_info.value.detail == "No valid periods could be resolved."
+
+
+@pytest.mark.parametrize(
+    ("error", "expected_status", "expected_detail"),
+    [
+        (InvalidEngineInputError("bad input"), 400, "bad input"),
+        (ValueError("bad value"), 400, "bad value"),
+        (NotImplementedError("not ready"), 400, "not ready"),
+        (EngineCalculationError("engine failed"), 500, "Calculation Error: engine failed"),
+        (HTTPException(status_code=409, detail="already running"), 409, "already running"),
+        (RuntimeError("boom"), 500, "An unexpected server error occurred: boom"),
+    ],
+)
+def test_attribution_failure_http_exception_preserves_status_and_detail(error, expected_status, expected_detail):
+    mapped = attribution_service._attribution_failure_http_exception(error)
+
+    assert mapped.status_code == expected_status
+    assert mapped.detail == expected_detail
 
 
 def test_attribution_response_support_helpers_preserve_meta_supportability_and_benchmark_context(monkeypatch):

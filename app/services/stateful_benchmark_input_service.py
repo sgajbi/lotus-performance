@@ -701,6 +701,7 @@ def _component_observation_prices(
         )
     normalized_prices = series_payload["normalized_prices"]
     local_prices = series_payload["local_prices"]
+    previous_prices = series_payload["previous_prices"]
     component_currency = series_payload["series_currency"]
     if point_date not in normalized_prices or point_date not in local_prices:
         raise HTTPException(
@@ -710,10 +711,10 @@ def _component_observation_prices(
                 f"component {component_id} is missing {point_date}."
             ),
         )
-    previous_date, previous_price = _previous_normalized_component_price(
+    previous_date, previous_price = _previous_normalized_component_price_for_date(
         component_id=component_id,
         point_date=point_date,
-        normalized_prices=normalized_prices,
+        previous_prices=previous_prices,
     )
     return _ComponentObservationPrices(
         previous_date=previous_date,
@@ -725,14 +726,14 @@ def _component_observation_prices(
     )
 
 
-def _previous_normalized_component_price(
+def _previous_normalized_component_price_for_date(
     *,
     component_id: str,
     point_date: date,
-    normalized_prices: dict[date, Decimal],
+    previous_prices: dict[date, tuple[date, Decimal]],
 ) -> tuple[date, Decimal]:
-    previous_dates = [candidate for candidate in normalized_prices if candidate < point_date]
-    if not previous_dates:
+    previous_price = previous_prices.get(point_date)
+    if previous_price is None:
         raise HTTPException(
             status_code=HTTP_422_UNPROCESSABLE,
             detail=(
@@ -740,14 +741,25 @@ def _previous_normalized_component_price(
                 f"for component {component_id}."
             ),
         )
-    previous_date = max(previous_dates)
-    previous_price = normalized_prices[previous_date]
-    if previous_price == 0:
+    previous_date, previous_price_value = previous_price
+    if previous_price_value == 0:
         raise HTTPException(
             status_code=HTTP_422_UNPROCESSABLE,
             detail=f"Normalized benchmark price is zero for component {component_id} on {previous_date}.",
         )
-    return previous_date, previous_price
+    return previous_date, previous_price_value
+
+
+def _previous_normalized_component_prices(
+    normalized_prices: dict[date, Decimal],
+) -> dict[date, tuple[date, Decimal]]:
+    previous_prices: dict[date, tuple[date, Decimal]] = {}
+    previous_date: date | None = None
+    for price_date in sorted(normalized_prices):
+        if previous_date is not None:
+            previous_prices[price_date] = (previous_date, normalized_prices[previous_date])
+        previous_date = price_date
+    return previous_prices
 
 
 def _build_normalized_component_series(
@@ -786,6 +798,7 @@ def _build_normalized_component_series(
         normalized_by_component[index_id] = {
             "normalized_prices": normalized_prices,
             "local_prices": local_prices,
+            "previous_prices": _previous_normalized_component_prices(normalized_prices),
             "series_currency": component_currency,
         }
     return normalized_by_component

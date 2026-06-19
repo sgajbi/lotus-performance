@@ -5,6 +5,7 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import event, inspect
 from sqlalchemy.dialects import postgresql
+from sqlalchemy.exc import IntegrityError
 
 from app.services.compute_job_store import (
     INVALID_COMPUTE_JOB_REQUEST_PAYLOAD_ERROR_TYPE,
@@ -16,11 +17,14 @@ from app.services.compute_job_store import (
     ComputeJobStatus,
     ComputeJobStore,
     _aggregate_row_count,
+    _compute_job_has_conflicting_worker_lease,
     _compute_job_inspection_active_since,
     _compute_job_payload_failure,
+    _compute_job_registration_result_for_integrity_conflict,
     _ensure_compute_job_can_mark_running,
     _matches_existing_compute_job_registration,
     _queue_stats_from_aggregate_row,
+    _recovery_seek_cursor_filter,
     _stale_job_reconciliation_outcome,
 )
 from app.services.durable_store_inspection import build_inspection_query_context
@@ -1054,6 +1058,57 @@ def test_compute_job_store_formats_sqlite_recovery_timestamps_as_utc(tmp_path):
     assert page.items[0].recovered_at_utc == "2026-03-14T12:00:00Z"
 
 
+def test_recovery_events_from_rows_suppresses_rows_without_recovery_timestamp(tmp_path):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
+    now = datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc)
+    incomplete = _compute_job_model_for_inspection(
+        job_status=ComputeJobStatus.PENDING,
+        created_at_utc=now,
+    )
+    recovered = _compute_job_model_for_inspection(
+        job_status=ComputeJobStatus.PENDING,
+        created_at_utc=now,
+    )
+    recovered.last_error_at_utc = now
+    recovered.error_type = "LeaseExpired"
+
+    events = store._recovery_events_from_rows([incomplete, recovered])
+
+    assert len(events) == 1
+    assert events[0].calculation_id == recovered.calculation_id
+    assert events[0].recovery_kind == "stale_lease_recovered"
+    assert events[0].recovered_at_utc == "2026-03-14T12:00:00Z"
+
+
+def test_recovery_seek_cursor_filter_without_calculation_tiebreaker_uses_timestamp_only():
+    cursor_time = datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc)
+
+    compiled = str(
+        _recovery_seek_cursor_filter(
+            cursor_recovered_before=cursor_time,
+            cursor_calculation_id_before=None,
+        ).compile(dialect=postgresql.dialect())
+    )
+
+    assert "last_error_at_utc <" in compiled
+    assert "calculation_id <" not in compiled
+
+
+def test_recovery_seek_cursor_filter_with_calculation_tiebreaker_uses_stable_seek_order():
+    cursor_time = datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc)
+
+    compiled = str(
+        _recovery_seek_cursor_filter(
+            cursor_recovered_before=cursor_time,
+            cursor_calculation_id_before="calc-b",
+        ).compile(dialect=postgresql.dialect())
+    )
+
+    assert "last_error_at_utc <" in compiled
+    assert "last_error_at_utc =" in compiled
+    assert "calculation_id <" in compiled
+
+
 def test_compute_job_store_prunes_terminal_jobs_older_than_cutoff(tmp_path):
     store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
     store.create_schema()
@@ -1168,6 +1223,69 @@ def test_matches_existing_compute_job_registration_requires_same_request_and_att
     )
 
 
+def test_compute_job_registration_result_for_integrity_conflict_replays_matching_job():
+    existing = ComputeJobModel(
+        calculation_id=str(uuid4()),
+        analytics_type="Contribution",
+        job_status=ComputeJobStatus.PENDING.value,
+        request_json='{"portfolio_id": "P1"}',
+        response_json=None,
+        attempt_count=0,
+        max_attempts=2,
+        created_at_utc=datetime.now(timezone.utc),
+    )
+
+    result = _compute_job_registration_result_for_integrity_conflict(
+        existing,
+        integrity_error=IntegrityError("insert", {}, RuntimeError("duplicate")),
+        analytics_type="Contribution",
+        request_json='{"portfolio_id": "P1"}',
+        max_attempts=2,
+    )
+
+    assert result.status == ComputeJobRegistrationStatus.REPLAY
+    assert result.existing_status == ComputeJobStatus.PENDING
+
+
+def test_compute_job_registration_result_for_integrity_conflict_reports_conflicting_job():
+    existing = ComputeJobModel(
+        calculation_id=str(uuid4()),
+        analytics_type="Contribution",
+        job_status=ComputeJobStatus.RUNNING.value,
+        request_json='{"portfolio_id": "P1"}',
+        response_json=None,
+        attempt_count=1,
+        max_attempts=2,
+        created_at_utc=datetime.now(timezone.utc),
+    )
+
+    result = _compute_job_registration_result_for_integrity_conflict(
+        existing,
+        integrity_error=IntegrityError("insert", {}, RuntimeError("duplicate")),
+        analytics_type="Contribution",
+        request_json='{"portfolio_id": "P2"}',
+        max_attempts=2,
+    )
+
+    assert result.status == ComputeJobRegistrationStatus.CONFLICT
+    assert result.existing_status == ComputeJobStatus.RUNNING
+
+
+def test_compute_job_registration_result_for_integrity_conflict_reraises_missing_row():
+    original_error = IntegrityError("insert", {}, RuntimeError("duplicate"))
+
+    with pytest.raises(IntegrityError) as exc_info:
+        _compute_job_registration_result_for_integrity_conflict(
+            None,
+            integrity_error=original_error,
+            analytics_type="Contribution",
+            request_json='{"portfolio_id": "P1"}',
+            max_attempts=2,
+        )
+
+    assert exc_info.value is original_error
+
+
 @pytest.mark.parametrize(
     ("job_status", "expected_message"),
     [
@@ -1196,6 +1314,26 @@ def test_ensure_compute_job_can_mark_running_rejects_other_worker_lease():
 
     with pytest.raises(ValueError, match="Compute job leased by another worker"):
         _ensure_compute_job_can_mark_running(row, calculation_id=calculation_id, worker_id="worker-b")
+
+
+@pytest.mark.parametrize(
+    ("current_worker_id", "requested_worker_id", "expected"),
+    [
+        (None, None, False),
+        (None, "worker-a", False),
+        ("worker-a", "worker-a", False),
+        ("worker-a", None, False),
+        ("worker-a", "worker-b", True),
+    ],
+)
+def test_compute_job_has_conflicting_worker_lease(current_worker_id, requested_worker_id, expected):
+    assert (
+        _compute_job_has_conflicting_worker_lease(
+            current_worker_id=current_worker_id,
+            requested_worker_id=requested_worker_id,
+        )
+        is expected
+    )
 
 
 def test_compute_job_store_get_queue_stats_uses_single_aggregate_query(tmp_path):

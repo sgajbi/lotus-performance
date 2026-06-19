@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from app.services import async_result_service
 from app.services.async_result_service import (
     _is_active_async_job_status,
+    _require_compute_job,
     _resolve_compute_job_result,
     resolve_async_result,
 )
@@ -107,6 +108,21 @@ def test_resolve_compute_job_result_raises_not_found_for_missing_job():
             not_found_detail="not found",
             failed_detail="failed",
         )
+
+    assert exc_info.value.status_code == 404
+    assert exc_info.value.detail == "not found"
+
+
+def test_require_compute_job_returns_existing_job():
+    calculation_id = uuid4()
+    job = _job_record(calculation_id, job_status=ComputeJobStatus.COMPLETE)
+
+    assert _require_compute_job(job, not_found_detail="not found") is job
+
+
+def test_require_compute_job_raises_not_found_for_missing_job():
+    with pytest.raises(HTTPException) as exc_info:
+        _require_compute_job(None, not_found_detail="not found")
 
     assert exc_info.value.status_code == 404
     assert exc_info.value.detail == "not found"

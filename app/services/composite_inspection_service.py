@@ -54,11 +54,6 @@ def inspect_composite_twr_from_persisted_facts(
     result = calculate_asset_weighted_composite_twr(composite_id=composite_id, member_return_facts=facts)
     findings = _build_findings(result_status=result.status, reason_codes=result.reason_codes, fact_count=len(facts))
     artifacts = _build_artifacts(composite_id=composite_id, facts=facts, result=result)
-    verdict = "supportable"
-    if result.status == "BLOCKED":
-        verdict = "not_supportable"
-    elif findings or result.status == "DEGRADED":
-        verdict = "supportable_with_warnings"
 
     return CompositeInspectionResponse(
         inspection_id=inspection_id,
@@ -66,7 +61,7 @@ def inspect_composite_twr_from_persisted_facts(
         period_start=period_start,
         period_end=period_end,
         status="complete",
-        verdict=verdict,
+        verdict=_composite_inspection_verdict(result_status=result.status, findings=findings),
         findings=findings,
         evidence_summary={
             "member_return_fact_count": len(facts),
@@ -77,6 +72,14 @@ def inspect_composite_twr_from_persisted_facts(
         },
         artifacts=artifacts,
     )
+
+
+def _composite_inspection_verdict(*, result_status: str, findings: list[CompositeInspectionFinding]) -> str:
+    if result_status == "BLOCKED":
+        return "not_supportable"
+    if findings or result_status == "DEGRADED":
+        return "supportable_with_warnings"
+    return "supportable"
 
 
 def _build_findings(

@@ -2,6 +2,8 @@ import pandas as pd
 import pytest
 
 from app.services.twr_service import (
+    _benchmark_cumulative_returns_by_date,
+    _build_benchmark_breakdowns,
     _build_daily_calculation_evidence,
     _build_portfolio_breakdown_item,
     _calculate_total_return_from_reset_slice,
@@ -311,6 +313,33 @@ def test_resampled_frequency_window_label_formats_supported_frequencies():
     assert _resampled_frequency_window_label(Frequency.QUARTERLY, timestamp) == "2025-Q2"
     assert _resampled_frequency_window_label(Frequency.YEARLY, timestamp) == "2025"
     assert _resampled_frequency_window_label(Frequency.WEEKLY, timestamp) == "2025-06-30"
+
+
+def test_benchmark_breakdowns_reuse_linked_cumulative_returns_by_date():
+    period_daily_df = pd.DataFrame(
+        {
+            "date": [pd.Timestamp("2025-01-31"), pd.Timestamp("2025-02-28")],
+            "benchmark_return": [0.01, 0.02],
+            "benchmark_return_local": [0.008, 0.009],
+            "benchmark_return_fx": [0.002, 0.011],
+        }
+    )
+    period_daily_df["date"] = period_daily_df["date"].dt.date
+
+    cumulative_returns = _benchmark_cumulative_returns_by_date(period_daily_df)
+    breakdowns = _build_benchmark_breakdowns(
+        period_daily_df=period_daily_df,
+        requested_frequencies=[Frequency.MONTHLY],
+    )
+
+    assert cumulative_returns[period_daily_df["date"].iloc[1]].base == pytest.approx(3.02)
+    february = breakdowns[Frequency.MONTHLY][1]
+    assert february.period == "2025-02"
+    assert february.period_return.base == pytest.approx(2.0)
+    assert february.cumulative_return is not None
+    assert february.cumulative_return.base == pytest.approx(3.02)
+    assert february.cumulative_return.local == pytest.approx(1.7072)
+    assert february.cumulative_return.fx == pytest.approx(1.3022)
 
 
 def test_portfolio_breakdown_daily_data_respects_frequency_and_timeseries_flag():

@@ -6,7 +6,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from enum import StrEnum
-from typing import Any, Iterator
+from typing import Any, Iterable, Iterator
 from uuid import UUID
 
 from sqlalchemy import DateTime, Index, Integer, String, Text, case, create_engine, func, select
@@ -298,6 +298,52 @@ def _matches_existing_compute_job_registration(
     )
 
 
+def _compute_job_has_conflicting_worker_lease(
+    *, current_worker_id: str | None, requested_worker_id: str | None
+) -> bool:
+    return requested_worker_id is not None and current_worker_id not in {None, requested_worker_id}
+
+
+def _compute_job_registration_result_for_integrity_conflict(
+    existing: ComputeJobModel | None,
+    *,
+    integrity_error: IntegrityError,
+    analytics_type: str,
+    request_json: str,
+    max_attempts: int,
+) -> ComputeJobRegistrationResult:
+    if existing is None:
+        raise integrity_error
+    if _matches_existing_compute_job_registration(
+        existing,
+        analytics_type=analytics_type,
+        request_json=request_json,
+        max_attempts=max_attempts,
+    ):
+        return ComputeJobRegistrationResult(
+            status=ComputeJobRegistrationStatus.REPLAY,
+            existing_status=ComputeJobStatus(existing.job_status),
+        )
+    return ComputeJobRegistrationResult(
+        status=ComputeJobRegistrationStatus.CONFLICT,
+        existing_status=ComputeJobStatus(existing.job_status),
+    )
+
+
+def _recovery_seek_cursor_filter(
+    *,
+    cursor_recovered_before: datetime,
+    cursor_calculation_id_before: str | None,
+):
+    cursor_filter = ComputeJobModel.last_error_at_utc < cursor_recovered_before
+    if cursor_calculation_id_before:
+        cursor_filter = cursor_filter | (
+            (ComputeJobModel.last_error_at_utc == cursor_recovered_before)
+            & (ComputeJobModel.calculation_id < cursor_calculation_id_before)
+        )
+    return cursor_filter
+
+
 def _ensure_compute_job_can_mark_running(
     row: ComputeJobModel,
     *,
@@ -308,7 +354,7 @@ def _ensure_compute_job_can_mark_running(
         raise ValueError(f"Cannot mark failed job as running: {calculation_id}")
     if row.job_status == ComputeJobStatus.COMPLETE.value:
         raise ValueError(f"Cannot mark complete job as running: {calculation_id}")
-    if worker_id is not None and row.worker_id not in {None, worker_id}:
+    if _compute_job_has_conflicting_worker_lease(current_worker_id=row.worker_id, requested_worker_id=worker_id):
         raise ValueError(f"Compute job leased by another worker: {calculation_id}")
 
 
@@ -426,24 +472,15 @@ class ComputeJobStore:
             session.add(job)
             session.commit()
             return ComputeJobRegistrationResult(status=ComputeJobRegistrationStatus.CREATED)
-        except IntegrityError:
+        except IntegrityError as exc:
             session.rollback()
             existing = session.get(ComputeJobModel, str(calculation_id))
-            if existing is None:
-                raise
-            if _matches_existing_compute_job_registration(
+            return _compute_job_registration_result_for_integrity_conflict(
                 existing,
+                integrity_error=exc,
                 analytics_type=analytics_type,
                 request_json=request_json,
                 max_attempts=configured_max_attempts,
-            ):
-                return ComputeJobRegistrationResult(
-                    status=ComputeJobRegistrationStatus.REPLAY,
-                    existing_status=ComputeJobStatus(existing.job_status),
-                )
-            return ComputeJobRegistrationResult(
-                status=ComputeJobRegistrationStatus.CONFLICT,
-                existing_status=ComputeJobStatus(existing.job_status),
             )
         finally:
             session.close()
@@ -692,12 +729,7 @@ class ComputeJobStore:
                 .scalars()
                 .all()
             )
-            events: list[ComputeRecoveryEvent] = []
-            for row in rows:
-                event = self._to_recovery_event(row)
-                if event is None:
-                    continue
-                events.append(event)
+            events = self._recovery_events_from_rows(rows)
             total_count = int(
                 session.execute(
                     self._build_recent_recoveries_count_statement(
@@ -937,13 +969,12 @@ class ComputeJobStore:
         if recovered_before is not None:
             statement = statement.where(ComputeJobModel.last_error_at_utc <= recovered_before)
         if cursor_recovered_before is not None:
-            cursor_filter = ComputeJobModel.last_error_at_utc < cursor_recovered_before
-            if cursor_calculation_id_before:
-                cursor_filter = cursor_filter | (
-                    (ComputeJobModel.last_error_at_utc == cursor_recovered_before)
-                    & (ComputeJobModel.calculation_id < cursor_calculation_id_before)
+            statement = statement.where(
+                _recovery_seek_cursor_filter(
+                    cursor_recovered_before=cursor_recovered_before,
+                    cursor_calculation_id_before=cursor_calculation_id_before,
                 )
-            statement = statement.where(cursor_filter)
+            )
         return statement
 
     def _build_recent_recoveries_statement(
@@ -1264,6 +1295,15 @@ class ComputeJobStore:
             attempt_count=row.attempt_count,
             error_type=row.error_type,
         )
+
+    def _recovery_events_from_rows(self, rows: Iterable[ComputeJobModel]) -> list[ComputeRecoveryEvent]:
+        events: list[ComputeRecoveryEvent] = []
+        for row in rows:
+            event = self._to_recovery_event(row)
+            if event is None:
+                continue
+            events.append(event)
+        return events
 
 
 _store_cache: dict[str, ComputeJobStore] = {}

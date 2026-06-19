@@ -13,13 +13,20 @@ from app.models.benchmark_exposure_context import (
 )
 from app.services.benchmark_exposure_context_service import (
     _accumulate_exposure_point,
+    _benchmark_id_from_assignment_payload,
     _benchmark_id_from_assignment_response,
     _build_exposure_rows,
+    _classification_group_for_dimension,
     _classification_labels_from_catalog_record,
+    _classification_map_from_catalog_payload,
     _classification_map_from_catalog_records,
+    _component_exposure_points,
+    _component_series_from_market_response,
+    _exposure_point_series_date_and_weight,
     _group_identity,
     _index_ids_for_component_series,
     _iter_component_exposure_points,
+    _iter_component_index_ids,
     _normalized_classification_labels,
     _page_rows,
     _requires_index_catalog,
@@ -230,6 +237,16 @@ def test_benchmark_exposure_context_classification_helpers_normalize_inputs() ->
             {"index_id": "IDX_B"},
         ]
     ) == ["IDX_A", "IDX_B"]
+    assert list(
+        _iter_component_index_ids(
+            [
+                {"index_id": "IDX_B"},
+                {"index_id": ""},
+                {"index_id": None},
+                {"index_id": "IDX_A"},
+            ]
+        )
+    ) == ["IDX_B", "IDX_A"]
 
     assert _classification_map_from_catalog_records(
         [
@@ -261,6 +278,24 @@ def test_normalized_classification_labels_omits_nulls_and_stringifies_values() -
     }
 
 
+def test_classification_map_from_catalog_payload_validates_records_shape() -> None:
+    assert _classification_map_from_catalog_payload(
+        {
+            "records": [
+                {
+                    "index_id": "IDX_A",
+                    "classification_labels": {"sector": "Technology", "rank": 1},
+                }
+            ]
+        }
+    ) == {"IDX_A": {"sector": "Technology", "rank": "1"}}
+
+    with pytest.raises(HTTPException, match="records list") as exc_info:
+        _classification_map_from_catalog_payload({"records": "bad"})
+
+    assert exc_info.value.status_code == 422
+
+
 def test_benchmark_exposure_assignment_response_resolves_identity() -> None:
     assert (
         _benchmark_id_from_assignment_response(
@@ -269,6 +304,10 @@ def test_benchmark_exposure_assignment_response_resolves_identity() -> None:
         )
         == "BMK_GLOBAL_60_40"
     )
+
+
+def test_benchmark_id_from_assignment_payload_extracts_valid_identity() -> None:
+    assert _benchmark_id_from_assignment_payload({"benchmark_id": "BMK_GLOBAL_60_40"}) == "BMK_GLOBAL_60_40"
 
 
 @pytest.mark.parametrize("assignment_payload", [{}, {"benchmark_id": ""}, {"benchmark_id": 123}])
@@ -282,6 +321,51 @@ def test_benchmark_exposure_assignment_response_rejects_unusable_identity(
         )
 
     assert exc_info.value.status_code == 503
+
+
+@pytest.mark.parametrize("assignment_payload", [{}, {"benchmark_id": ""}, {"benchmark_id": 123}])
+def test_benchmark_id_from_assignment_payload_rejects_unusable_identity(
+    assignment_payload: dict[str, object],
+) -> None:
+    with pytest.raises(HTTPException, match="payload missing benchmark_id") as exc_info:
+        _benchmark_id_from_assignment_payload(assignment_payload)
+
+    assert exc_info.value.status_code == 503
+
+
+def test_component_series_from_market_response_maps_status_and_payload_shape() -> None:
+    payload = {"component_series": [{"index_id": "IDX_A", "points": []}]}
+
+    assert (
+        _component_series_from_market_response(
+            benchmark_id="BMK",
+            market_status=200,
+            market_payload=payload,
+        )
+        == payload["component_series"]
+    )
+
+    with pytest.raises(HTTPException, match="No benchmark market-series found") as not_found:
+        _component_series_from_market_response(
+            benchmark_id="BMK",
+            market_status=404,
+            market_payload={},
+        )
+    assert not_found.value.status_code == 404
+
+    with pytest.raises(HTTPException, match="market-series source unavailable"):
+        _component_series_from_market_response(
+            benchmark_id="BMK",
+            market_status=503,
+            market_payload={},
+        )
+
+    with pytest.raises(HTTPException, match="component_series list"):
+        _component_series_from_market_response(
+            benchmark_id="BMK",
+            market_status=200,
+            market_payload={"component_series": "bad"},
+        )
 
 
 @pytest.mark.asyncio
@@ -428,6 +512,15 @@ def test_iter_component_exposure_points_yields_only_valid_component_point_lists(
     ) == [("IDX_OK", valid_points)]
 
 
+def test_component_exposure_points_qualifies_index_id_and_points() -> None:
+    valid_points = [{"series_date": "2026-01-02", "component_weight": "0.10"}]
+
+    assert _component_exposure_points({"index_id": "IDX_OK", "points": valid_points}) == ("IDX_OK", valid_points)
+    assert _component_exposure_points({"index_id": "", "points": valid_points}) is None
+    assert _component_exposure_points({"index_id": 123, "points": valid_points}) is None
+    assert _component_exposure_points({"index_id": "IDX_BAD", "points": "not-a-list"}) is None
+
+
 def test_accumulate_exposure_point_groups_valid_points_and_skips_invalid_shapes() -> None:
     grouped_weights: dict[tuple[str, BenchmarkExposureGroupingDimension, str], Decimal] = {}
     labels: dict[tuple[BenchmarkExposureGroupingDimension, str], str] = {}
@@ -461,6 +554,20 @@ def test_accumulate_exposure_point_groups_valid_points_and_skips_invalid_shapes(
     )
     assert labels[(BenchmarkExposureGroupingDimension.SECTOR, "SECTOR_Technology")] == "Technology"
     assert component_ids[(BenchmarkExposureGroupingDimension.POSITION, "IDX")] == "IDX"
+
+
+def test_exposure_point_series_date_and_weight_qualifies_point_facts() -> None:
+    assert _exposure_point_series_date_and_weight({"series_date": "2026-01-02", "component_weight": "0.25"}) == (
+        "2026-01-02",
+        Decimal("0.25"),
+    )
+
+    assert _exposure_point_series_date_and_weight(None) is None
+    assert _exposure_point_series_date_and_weight({"series_date": None, "component_weight": "0.25"}) is None
+    assert _exposure_point_series_date_and_weight({"series_date": "2026-01-02"}) is None
+
+    with pytest.raises(HTTPException, match="invalid component_weight"):
+        _exposure_point_series_date_and_weight({"series_date": "2026-01-02", "component_weight": "not-a-number"})
 
 
 def test_group_identity_uses_unknown_defaults_for_classification_groups() -> None:
@@ -506,6 +613,16 @@ def test_group_identity_projects_position_and_classification_labels() -> None:
         grouping_dimension=BenchmarkExposureGroupingDimension.ASSET_CLASS,
         classification_map=classification_map,
     ) == ("ASSET_CLASS_Equity", "Equity", None)
+
+
+def test_classification_group_for_dimension_maps_only_classification_groups() -> None:
+    assert _classification_group_for_dimension(BenchmarkExposureGroupingDimension.SECTOR) == ("sector", "SECTOR")
+    assert _classification_group_for_dimension(BenchmarkExposureGroupingDimension.ASSET_CLASS) == (
+        "asset_class",
+        "ASSET_CLASS",
+    )
+    assert _classification_group_for_dimension(BenchmarkExposureGroupingDimension.POSITION) is None
+    assert _classification_group_for_dimension(BenchmarkExposureGroupingDimension.ISSUER) is None
 
 
 def test_page_rows_rejects_invalid_page_token_inputs() -> None:

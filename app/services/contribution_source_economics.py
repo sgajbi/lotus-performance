@@ -47,6 +47,17 @@ def build_contribution_source_economics_evidence(
             lineage_policy="caller-supplied stateless payload; no upstream source snapshot is available",
         )
 
+    return _stateful_source_economics_evidence(
+        request=request,
+        upstream_snapshots=upstream_snapshots,
+    )
+
+
+def _stateful_source_economics_evidence(
+    *,
+    request: ContributionRequest,
+    upstream_snapshots: list[UpstreamSnapshotRecord],
+) -> ContributionSourceEconomicsEvidence:
     cash_flow_type_counts = _cash_flow_type_counts(request)
     available_economics = _available_stateful_economics(request, cash_flow_type_counts)
     unsupported_economics = _unsupported_component_pnl_fields(request)
@@ -62,7 +73,6 @@ def build_contribution_source_economics_evidence(
     )
     status: Literal["SOURCE_BACKED", "SOURCE_LIMITED"]
     status = "SOURCE_LIMITED" if degraded_economics or unsupported_economics else "SOURCE_BACKED"
-
     return ContributionSourceEconomicsEvidence(
         input_mode="stateful",
         source_owner="lotus-core",
@@ -116,13 +126,17 @@ def _available_stateful_economics(
 
 def _stateful_cash_flow_economics(cash_flow_type_counts: Counter[str]) -> list[str]:
     available: list[str] = []
-    if cash_flow_type_counts.get("external_flow", 0) > 0 or cash_flow_type_counts.get("transfer", 0) > 0:
+    if _has_stateful_external_flow_economics(cash_flow_type_counts):
         available.append("external_flows")
     if cash_flow_type_counts.get("internal_trade_flow", 0) > 0:
         available.append("internal_trade_flows")
     if cash_flow_type_counts.get("fee", 0) > 0:
         available.append("fees")
     return available
+
+
+def _has_stateful_external_flow_economics(cash_flow_type_counts: Counter[str]) -> bool:
+    return cash_flow_type_counts.get("external_flow", 0) > 0 or cash_flow_type_counts.get("transfer", 0) > 0
 
 
 def _stateful_metadata_economics(request: ContributionRequest) -> list[str]:
@@ -188,11 +202,14 @@ def _stateful_reason_codes(
         reason_codes.append("UNSUPPORTED_SOURCE_CASH_FLOW_TYPES_PRESENT")
     if "missing_classification" in degraded_economics:
         reason_codes.append("UNCLASSIFIED_POSITION_ECONOMICS_PRESENT")
-    if upstream_snapshots:
-        reason_codes.append("UPSTREAM_SNAPSHOT_LINEAGE_AVAILABLE")
-    else:
-        reason_codes.append("UPSTREAM_SNAPSHOT_LINEAGE_AVAILABLE_VIA_EXECUTION_ONLY")
+    reason_codes.append(_upstream_snapshot_lineage_reason_code(upstream_snapshots))
     return sorted(set(reason_codes))
+
+
+def _upstream_snapshot_lineage_reason_code(upstream_snapshots: list[UpstreamSnapshotRecord]) -> str:
+    if upstream_snapshots:
+        return "UPSTREAM_SNAPSHOT_LINEAGE_AVAILABLE"
+    return "UPSTREAM_SNAPSHOT_LINEAGE_AVAILABLE_VIA_EXECUTION_ONLY"
 
 
 def _cash_flow_type_counts(request: ContributionRequest) -> Counter[str]:
@@ -203,11 +220,8 @@ def _cash_flow_type_counts(request: ContributionRequest) -> Counter[str]:
 
 
 def _source_cash_flow_type_counts(meta: dict[str, Any]) -> Counter[str]:
-    source_economics = meta.get("_source_economics")
-    if not isinstance(source_economics, dict):
-        return Counter()
-    raw_counts = source_economics.get("cash_flow_type_counts")
-    if not isinstance(raw_counts, dict):
+    raw_counts = _raw_source_cash_flow_type_counts(meta)
+    if raw_counts is None:
         return Counter()
 
     counts: Counter[str] = Counter()
@@ -215,6 +229,16 @@ def _source_cash_flow_type_counts(meta: dict[str, Any]) -> Counter[str]:
         if _is_valid_source_cash_flow_type_count(key, value):
             counts[key] += value
     return counts
+
+
+def _raw_source_cash_flow_type_counts(meta: dict[str, Any]) -> dict[Any, Any] | None:
+    source_economics = meta.get("_source_economics")
+    if not isinstance(source_economics, dict):
+        return None
+    raw_counts = source_economics.get("cash_flow_type_counts")
+    if not isinstance(raw_counts, dict):
+        return None
+    return raw_counts
 
 
 def _is_valid_source_cash_flow_type_count(key: Any, value: Any) -> bool:
@@ -239,9 +263,13 @@ def _has_fx_metadata(meta: dict[str, Any]) -> bool:
 
 def _has_non_zero_flow(point: dict[str, Any]) -> bool:
     for field_name in ("bod_cf", "eod_cf", "mgmt_fees"):
-        try:
-            if Decimal(str(point.get(field_name, 0) or 0)) != 0:
-                return True
-        except (InvalidOperation, TypeError, ValueError):
-            continue
+        if _is_non_zero_flow_field(point, field_name):
+            return True
     return False
+
+
+def _is_non_zero_flow_field(point: dict[str, Any], field_name: str) -> bool:
+    try:
+        return Decimal(str(point.get(field_name, 0) or 0)) != 0
+    except (InvalidOperation, TypeError, ValueError):
+        return False

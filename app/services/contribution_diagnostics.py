@@ -188,6 +188,17 @@ def _empty_position_flow_balance_counts(*, residual_days: int = 0) -> dict[str, 
     }
 
 
+_FLOW_BALANCE_REQUIRED_COLUMNS = {
+    PortfolioColumns.PERF_DATE.value,
+    PortfolioColumns.BOD_CF.value,
+    PortfolioColumns.EOD_CF.value,
+}
+
+
+def _has_flow_balance_source_columns(frame: pd.DataFrame) -> bool:
+    return not frame.empty and _FLOW_BALANCE_REQUIRED_COLUMNS.issubset(frame.columns)
+
+
 def _daily_cash_flow_series(frame: pd.DataFrame, *, value_name: str) -> pd.Series:
     return (
         pd.DataFrame(
@@ -217,6 +228,11 @@ def _portfolio_capital_base_by_day(portfolio_results_df: pd.DataFrame) -> pd.Ser
         .max()
     )
     return capital_by_day.replace(0, pd.NA).fillna(1.0)
+
+
+def _position_flow_counts_without_portfolio_flow(position_flow_by_day: pd.Series) -> dict[str, int]:
+    residual_days = int(position_flow_by_day.abs().gt(1e-9).sum())
+    return _empty_position_flow_balance_counts(residual_days=residual_days)
 
 
 def _position_flow_residual_counts(
@@ -259,19 +275,13 @@ def _calculate_position_flow_balance_counts(
 
     and size that residual relative to the portfolio capital base for the date.
     """
-    required_columns = {
-        PortfolioColumns.PERF_DATE.value,
-        PortfolioColumns.BOD_CF.value,
-        PortfolioColumns.EOD_CF.value,
-    }
-    if instruments_df.empty or not required_columns.issubset(instruments_df.columns):
+    if not _has_flow_balance_source_columns(instruments_df):
         return _empty_position_flow_balance_counts()
 
     position_flow_by_day = _daily_cash_flow_series(instruments_df, value_name="position_flow")
 
-    if portfolio_results_df.empty or not required_columns.issubset(portfolio_results_df.columns):
-        residual_days = int(position_flow_by_day.abs().gt(1e-9).sum())
-        return _empty_position_flow_balance_counts(residual_days=residual_days)
+    if not _has_flow_balance_source_columns(portfolio_results_df):
+        return _position_flow_counts_without_portfolio_flow(position_flow_by_day)
 
     portfolio_flow_by_day = _daily_cash_flow_series(portfolio_results_df, value_name="portfolio_flow")
     residual_flow_by_day = position_flow_by_day.subtract(portfolio_flow_by_day, fill_value=0.0)

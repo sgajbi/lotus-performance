@@ -22,6 +22,7 @@ from app.services.contribution_diagnostics import (
     _calculate_position_flow_balance_counts,
     _calculate_reset_characterization_counts,
     _calculate_reset_relative_day_counts,
+    _position_flow_counts_without_portfolio_flow,
     _position_flow_residual_counts,
 )
 from app.services.contribution_methodology import (
@@ -38,6 +39,8 @@ from app.services.contribution_methodology import (
     _classify_average_weight_methodology_status,
     _classify_average_weight_shadow_cutover_blockers,
     _classify_average_weight_shadow_period,
+    _classify_material_average_weight_methodology_status,
+    _has_clean_average_weight_reset_alignment,
     _has_clean_average_weight_shadow_bookkeeping,
     _is_average_weight_shadow_cutover_candidate,
     _normalize_reset_aware_average_weight_mode,
@@ -52,6 +55,7 @@ from app.services.contribution_periods import (
 from app.services.contribution_returns import (
     _calculate_position_total_return_pct,
     _calculate_reset_aware_period_portfolio_return,
+    _period_engine_final_cum_ror,
     _position_period_valuation_points,
     build_position_contributions,
     build_residual_adjusted_position_totals,
@@ -734,6 +738,41 @@ def test_position_period_valuation_points_filters_inclusive_window() -> None:
     assert [point["perf_date"] for point in period_points] == [pd.Timestamp("2025-01-02").date()]
 
 
+def test_period_engine_final_cum_ror_applies_scale_and_preserves_period_config(mocker):
+    request = ContributionRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "currency_mode": "BOTH",
+            "portfolio_data": {
+                "metric_basis": "NET",
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
+            },
+            "positions_data": [],
+        }
+    )
+    run_engine = mocker.patch(
+        "app.services.contribution_returns.run_engine_for_valuation_points",
+        return_value=pd.DataFrame({PortfolioColumns.FINAL_CUM_ROR.value: [2.5]}),
+    )
+
+    result = _period_engine_final_cum_ror(
+        request=request,
+        period_valuation_points=[{"perf_date": pd.Timestamp("2025-01-01").date()}],
+        period_start_date=pd.Timestamp("2025-01-01").date(),
+        period_end_date=pd.Timestamp("2025-01-02").date(),
+        period_type="ITD",
+        result_scale=0.01,
+    )
+
+    assert result == pytest.approx(0.025)
+    period_engine_config = run_engine.call_args.args[1]
+    assert period_engine_config.period_type == "ITD"
+    assert run_engine.call_args.kwargs["force_base_only"] is True
+
+
 def test_calculate_reset_aware_average_weight_shadow_ignores_pre_reset_history_and_nip_days():
     period_slice_df = pd.DataFrame(
         {
@@ -994,6 +1033,18 @@ def test_position_flow_residual_counts_size_residuals_against_capital_base():
         "position_flow_residual_days": 2,
         "position_flow_residual_max_bp": 100,
         "position_flow_residual_sum_bp": 200,
+    }
+
+
+def test_position_flow_counts_without_portfolio_flow_reports_residual_days_only():
+    position_flow_by_day = pd.Series([10.0, 0.0, -5.0])
+
+    counts = _position_flow_counts_without_portfolio_flow(position_flow_by_day)
+
+    assert counts == {
+        "position_flow_residual_days": 2,
+        "position_flow_residual_max_bp": 0,
+        "position_flow_residual_sum_bp": 0,
     }
 
 
@@ -1323,6 +1374,14 @@ def test_average_weight_shadow_helper_classifies_materiality_and_cutover_readine
         )
         == "NO_MATERIAL_SHADOW"
     )
+    assert (
+        _classify_material_average_weight_methodology_status(
+            is_cutover_candidate=False,
+            is_promoted=True,
+            blocker_reason_codes={"flow_balance"},
+        )
+        == "PROMOTED"
+    )
     response_status = _build_average_weight_methodology_status(
         max_shadow_delta_bp=600,
         is_cutover_candidate=False,
@@ -1332,6 +1391,21 @@ def test_average_weight_shadow_helper_classifies_materiality_and_cutover_readine
     assert response_status.status == "BLOCKED"
     assert response_status.is_material_shadow
     assert response_status.blocker_reason_codes == ["flow_balance", "timeseries_reconciliation"]
+
+
+def test_average_weight_reset_alignment_helper_requires_both_directions_clean():
+    assert _has_clean_average_weight_reset_alignment(
+        portfolio_reset_without_position_reset_days=0,
+        position_reset_without_portfolio_reset_days=0,
+    )
+    assert not _has_clean_average_weight_reset_alignment(
+        portfolio_reset_without_position_reset_days=1,
+        position_reset_without_portfolio_reset_days=0,
+    )
+    assert not _has_clean_average_weight_reset_alignment(
+        portfolio_reset_without_position_reset_days=0,
+        position_reset_without_portfolio_reset_days=1,
+    )
 
 
 def test_build_hierarchy_from_adjusted_position_series_handles_empty_and_unclassified_paths():

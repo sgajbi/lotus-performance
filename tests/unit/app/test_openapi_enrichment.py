@@ -10,9 +10,11 @@ from app.openapi_enrichment import (
     _documentable_operation,
     _ensure_documentable_operation_documentation,
     _ensure_model_schema_documentation,
+    _ensure_model_schema_metadata,
     _ensure_operation_metadata,
     _ensure_operation_response_documentation,
     _ensure_property_description,
+    _ensure_property_schema_example,
     _ensure_property_vocabulary_metadata,
     _ensure_request_body_example,
     _ensure_success_response_documentation,
@@ -846,6 +848,40 @@ def test_ensure_model_schema_documentation_preserves_existing_metadata_and_resol
     assert nested_ref["x-lotus-semantic-id"] == "lotus.nested_ref"
 
 
+def test_ensure_model_schema_metadata_documents_description_and_enums():
+    model_schema = {"type": "string", "enum": ["pending", "complete"]}
+
+    _ensure_model_schema_metadata("WorkflowStatus", model_schema)
+
+    assert model_schema["description"] == "workflow status schema."
+    assert model_schema["x-enum-descriptions"] == [
+        "Allowed workflow status value: pending.",
+        "Allowed workflow status value: complete.",
+    ]
+
+
+def test_ensure_model_schema_metadata_preserves_authored_description_and_enum_descriptions():
+    model_schema = {
+        "description": "Authored workflow status.",
+        "enum": ["pending"],
+        "x-enum-descriptions": ["Already documented."],
+    }
+
+    _ensure_model_schema_metadata("WorkflowStatus", model_schema)
+
+    assert model_schema["description"] == "Authored workflow status."
+    assert model_schema["x-enum-descriptions"] == ["Already documented."]
+
+
+def test_ensure_model_schema_metadata_skips_enum_extension_without_enum_values():
+    model_schema = {"type": "object"}
+
+    _ensure_model_schema_metadata("Envelope", model_schema)
+
+    assert model_schema["description"] == "envelope object."
+    assert "x-enum-descriptions" not in model_schema
+
+
 def test_iter_component_model_schemas_filters_malformed_entries_and_adds_problem_detail():
     portfolio_schema = {"type": "object"}
     components = {
@@ -908,6 +944,38 @@ def test_ensure_property_description_preserves_existing_and_uses_resolved_schema
         prop_resolved={"description": "Referenced schema description."},
     )
     assert ref_schema["description"] == "Referenced schema description."
+
+
+def test_ensure_property_schema_example_preserves_authored_example_forms():
+    singular_example = {"type": "string", "example": "EXISTING"}
+    plural_examples = {"type": "string", "examples": {"documented": {"value": "EXISTING"}}}
+
+    _ensure_property_schema_example(
+        prop_name="portfolio_id",
+        prop_schema=singular_example,
+        components={"schemas": {}},
+    )
+    _ensure_property_schema_example(
+        prop_name="portfolio_id",
+        prop_schema=plural_examples,
+        components={"schemas": {}},
+    )
+
+    assert singular_example["example"] == "EXISTING"
+    assert plural_examples["examples"]["documented"]["value"] == "EXISTING"
+    assert "example" not in plural_examples
+
+
+def test_ensure_property_schema_example_builds_schema_fallback_example():
+    prop_schema = {"type": "string"}
+
+    _ensure_property_schema_example(
+        prop_name="portfolio_id",
+        prop_schema=prop_schema,
+        components={"schemas": {}},
+    )
+
+    assert prop_schema["example"] == "DEMO_DPM_EUR_001"
 
 
 def test_enrich_openapi_schema_adds_fastapi_validation_error_examples():

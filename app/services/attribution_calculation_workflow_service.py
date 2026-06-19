@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Protocol, cast
 
 from fastapi import HTTPException, status
 
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
 from app.models.attribution_analytics_requests import AttributionAnalyticsRequest, AttributionInputMode
 from app.models.attribution_requests import AttributionRequest
 from app.models.attribution_responses import AttributionAcceptedResponse, AttributionResponse
@@ -85,13 +85,30 @@ def build_attribution_execution_window(
         "group_by": request.group_by,
         "input_mode": getattr(request, "input_mode", AttributionInputMode.STATELESS).value,
     }
-    if source_request_fingerprint is not None:
-        requested_window["source_request_fingerprint"] = source_request_fingerprint
-    if benchmark_id is not None:
-        requested_window["benchmark_id"] = benchmark_id
-    if benchmark_return_source is not None:
-        requested_window["benchmark_return_source"] = benchmark_return_source
+    requested_window.update(
+        _attribution_execution_window_optional_metadata(
+            source_request_fingerprint=source_request_fingerprint,
+            benchmark_id=benchmark_id,
+            benchmark_return_source=benchmark_return_source,
+        )
+    )
     return requested_window
+
+
+def _attribution_execution_window_optional_metadata(
+    *,
+    source_request_fingerprint: str | None = None,
+    benchmark_id: str | None = None,
+    benchmark_return_source: str | None = None,
+) -> dict[str, object]:
+    optional_metadata: dict[str, object] = {}
+    if source_request_fingerprint is not None:
+        optional_metadata["source_request_fingerprint"] = source_request_fingerprint
+    if benchmark_id is not None:
+        optional_metadata["benchmark_id"] = benchmark_id
+    if benchmark_return_source is not None:
+        optional_metadata["benchmark_return_source"] = benchmark_return_source
+    return optional_metadata
 
 
 def _finalize_resolved_stateful_attribution_execution(
@@ -239,6 +256,29 @@ async def calculate_attribution_workflow(
     if replay_response is not None:
         return replay_response
 
+    _register_attribution_sync_execution(
+        request,
+        requested_window=requested_window,
+        input_fingerprint=input_fingerprint,
+        calculation_hash=calculation_hash,
+    )
+
+    return await _resolve_and_calculate_attribution_response(
+        request,
+        active_settings=active_settings,
+        source_request_fingerprint=source_request_fingerprint,
+        input_fingerprint=input_fingerprint,
+        calculation_hash=calculation_hash,
+    )
+
+
+def _register_attribution_sync_execution(
+    request: AttributionAnalyticsRequest,
+    *,
+    requested_window: dict[str, object],
+    input_fingerprint: str,
+    calculation_hash: str,
+) -> None:
     register_sync_execution_or_raise(
         calculation_id=request.calculation_id,
         analytics_type=ANALYTICS_WORKFLOW_ATTRIBUTION,
@@ -248,8 +288,17 @@ async def calculate_attribution_workflow(
         calculation_hash=calculation_hash,
     )
 
+
+async def _resolve_and_calculate_attribution_response(
+    request: AttributionAnalyticsRequest,
+    *,
+    active_settings: _AttributionWorkflowSettings,
+    source_request_fingerprint: str,
+    input_fingerprint: str,
+    calculation_hash: str,
+) -> AttributionResponse | AttributionAcceptedResponse:
     try:
-        resolved = await resolve_attribution_request(request, settings=active_settings)
+        resolved = await resolve_attribution_request(request, settings=cast(Settings, active_settings))
         return _calculate_resolved_attribution_response(
             request,
             resolved,

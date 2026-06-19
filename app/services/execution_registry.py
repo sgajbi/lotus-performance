@@ -158,6 +158,45 @@ class ExecutionRegistrationResult:
     existing_execution_mode: str | None = None
 
 
+def _execution_model_for_registration(
+    *,
+    calculation_id: UUID,
+    analytics_type: str,
+    portfolio_id: str | None,
+    execution_mode: str,
+    requested_window_json: str,
+    input_fingerprint: str | None,
+    calculation_hash: str | None,
+    created_at: datetime,
+) -> AnalyticsExecutionModel:
+    return AnalyticsExecutionModel(
+        calculation_id=str(calculation_id),
+        analytics_type=analytics_type,
+        portfolio_id=portfolio_id,
+        execution_mode=execution_mode,
+        status=ExecutionStatus.PENDING.value,
+        requested_window_json=requested_window_json,
+        input_fingerprint=input_fingerprint,
+        calculation_hash=calculation_hash,
+        error_message=None,
+        created_at_utc=created_at,
+        started_at_utc=None,
+        completed_at_utc=None,
+    )
+
+
+def _existing_execution_registration_result(
+    *,
+    status: ExecutionRegistrationStatus,
+    existing: AnalyticsExecutionModel,
+) -> ExecutionRegistrationResult:
+    return ExecutionRegistrationResult(
+        status=status,
+        existing_status=ExecutionStatus(existing.status),
+        existing_execution_mode=existing.execution_mode,
+    )
+
+
 def _serialize_paging_metadata(paging_metadata: dict[str, Any] | None) -> str | None:
     return json.dumps(paging_metadata, sort_keys=True) if paging_metadata is not None else None
 
@@ -246,6 +285,57 @@ def _requested_execution_replay_signature(
         requested_window_json,
         input_fingerprint,
         calculation_hash,
+    )
+
+
+def _execution_stage_record_from_model(
+    *,
+    execution: AnalyticsExecutionModel,
+    stage: AnalyticsExecutionStageModel,
+) -> ExecutionStageRecord:
+    return ExecutionStageRecord(
+        stage_name=stage.stage_name,
+        status=ExecutionStageStatus(stage.status),
+        started_at_utc=format_timestamp(stage.started_at_utc),
+        completed_at_utc=format_timestamp(stage.completed_at_utc),
+        details=_load_json_object(
+            stage.details_json,
+            calculation_id=execution.calculation_id,
+            payload_name=f"stage {stage.stage_name} details",
+        ),
+        error_message=stage.error_message,
+    )
+
+
+def _execution_record_from_model(
+    *,
+    execution: AnalyticsExecutionModel,
+    upstream_snapshots: list[UpstreamSnapshotRecord],
+) -> ExecutionRecord:
+    stage_records = [
+        _execution_stage_record_from_model(execution=execution, stage=stage)
+        for stage in sorted(execution.stages, key=lambda item: item.stage_name)
+    ]
+    return ExecutionRecord(
+        calculation_id=UUID(execution.calculation_id),
+        analytics_type=execution.analytics_type,
+        portfolio_id=execution.portfolio_id,
+        execution_mode=execution.execution_mode,
+        status=ExecutionStatus(execution.status),
+        requested_window=_load_json_object(
+            execution.requested_window_json,
+            calculation_id=execution.calculation_id,
+            payload_name="requested window",
+        )
+        or {},
+        input_fingerprint=execution.input_fingerprint,
+        calculation_hash=execution.calculation_hash,
+        error_message=execution.error_message,
+        created_at_utc=format_timestamp(execution.created_at_utc) or "",
+        started_at_utc=format_timestamp(execution.started_at_utc),
+        completed_at_utc=format_timestamp(execution.completed_at_utc),
+        stages=stage_records,
+        upstream_snapshots=upstream_snapshots,
     )
 
 
@@ -364,19 +454,15 @@ class ExecutionRegistry:
     ) -> ExecutionRegistrationResult:
         now = datetime.now(timezone.utc)
         requested_window_json = json.dumps(requested_window or {}, sort_keys=True)
-        execution = AnalyticsExecutionModel(
-            calculation_id=str(calculation_id),
+        execution = _execution_model_for_registration(
+            calculation_id=calculation_id,
             analytics_type=analytics_type,
             portfolio_id=portfolio_id,
             execution_mode=execution_mode,
-            status=ExecutionStatus.PENDING.value,
             requested_window_json=requested_window_json,
             input_fingerprint=input_fingerprint,
             calculation_hash=calculation_hash,
-            error_message=None,
-            created_at_utc=now,
-            started_at_utc=None,
-            completed_at_utc=None,
+            created_at=now,
         )
 
         session = self._session_factory()
@@ -384,29 +470,18 @@ class ExecutionRegistry:
             session.add(execution)
             session.commit()
             return ExecutionRegistrationResult(status=ExecutionRegistrationStatus.CREATED)
-        except IntegrityError:
+        except IntegrityError as exc:
             session.rollback()
-            existing = session.get(AnalyticsExecutionModel, str(calculation_id))
-            if existing is None:
-                raise
-            if self._is_replay_of_existing_execution(
-                existing=existing,
+            return self._registration_result_for_duplicate_execution(
+                session=session,
+                calculation_id=calculation_id,
+                integrity_error=exc,
                 analytics_type=analytics_type,
                 portfolio_id=portfolio_id,
                 execution_mode=execution_mode,
                 requested_window_json=requested_window_json,
                 input_fingerprint=input_fingerprint,
                 calculation_hash=calculation_hash,
-            ):
-                return ExecutionRegistrationResult(
-                    status=ExecutionRegistrationStatus.REPLAY,
-                    existing_status=ExecutionStatus(existing.status),
-                    existing_execution_mode=existing.execution_mode,
-                )
-            return ExecutionRegistrationResult(
-                status=ExecutionRegistrationStatus.CONFLICT,
-                existing_status=ExecutionStatus(existing.status),
-                existing_execution_mode=existing.execution_mode,
             )
         finally:
             session.close()
@@ -527,40 +602,8 @@ class ExecutionRegistry:
             execution = session.execute(statement).scalar_one_or_none()
             if execution is None:
                 return None
-            stage_records = [
-                ExecutionStageRecord(
-                    stage_name=stage.stage_name,
-                    status=ExecutionStageStatus(stage.status),
-                    started_at_utc=format_timestamp(stage.started_at_utc),
-                    completed_at_utc=format_timestamp(stage.completed_at_utc),
-                    details=_load_json_object(
-                        stage.details_json,
-                        calculation_id=execution.calculation_id,
-                        payload_name=f"stage {stage.stage_name} details",
-                    ),
-                    error_message=stage.error_message,
-                )
-                for stage in sorted(execution.stages, key=lambda item: item.stage_name)
-            ]
-            return ExecutionRecord(
-                calculation_id=UUID(execution.calculation_id),
-                analytics_type=execution.analytics_type,
-                portfolio_id=execution.portfolio_id,
-                execution_mode=execution.execution_mode,
-                status=ExecutionStatus(execution.status),
-                requested_window=_load_json_object(
-                    execution.requested_window_json,
-                    calculation_id=execution.calculation_id,
-                    payload_name="requested window",
-                )
-                or {},
-                input_fingerprint=execution.input_fingerprint,
-                calculation_hash=execution.calculation_hash,
-                error_message=execution.error_message,
-                created_at_utc=format_timestamp(execution.created_at_utc) or "",
-                started_at_utc=format_timestamp(execution.started_at_utc),
-                completed_at_utc=format_timestamp(execution.completed_at_utc),
-                stages=stage_records,
+            return _execution_record_from_model(
+                execution=execution,
                 upstream_snapshots=self.list_upstream_snapshots(calculation_id),
             )
 
@@ -684,6 +727,40 @@ class ExecutionRegistry:
                     "ON analytics_upstream_snapshot (calculation_id, created_at_utc)"
                 )
             )
+
+    def _registration_result_for_duplicate_execution(
+        self,
+        *,
+        session: Session,
+        calculation_id: UUID,
+        integrity_error: IntegrityError,
+        analytics_type: str,
+        portfolio_id: str | None,
+        execution_mode: str,
+        requested_window_json: str,
+        input_fingerprint: str | None,
+        calculation_hash: str | None,
+    ) -> ExecutionRegistrationResult:
+        existing = session.get(AnalyticsExecutionModel, str(calculation_id))
+        if existing is None:
+            raise integrity_error
+        if self._is_replay_of_existing_execution(
+            existing=existing,
+            analytics_type=analytics_type,
+            portfolio_id=portfolio_id,
+            execution_mode=execution_mode,
+            requested_window_json=requested_window_json,
+            input_fingerprint=input_fingerprint,
+            calculation_hash=calculation_hash,
+        ):
+            return _existing_execution_registration_result(
+                status=ExecutionRegistrationStatus.REPLAY,
+                existing=existing,
+            )
+        return _existing_execution_registration_result(
+            status=ExecutionRegistrationStatus.CONFLICT,
+            existing=existing,
+        )
 
     @staticmethod
     def _is_replay_of_existing_execution(

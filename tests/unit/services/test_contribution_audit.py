@@ -1,6 +1,7 @@
 from app.services.contribution_audit import (
     AverageWeightShadowAuditState,
     _contribution_methodology_notes,
+    _has_reset_alignment_methodology_pressure,
     _position_flow_balance_notes,
 )
 
@@ -130,6 +131,27 @@ def test_contribution_methodology_notes_report_residual_smoothing_and_alignment(
     assert "maximum residual was 3 basis points" in notes[0]
     assert "Carino smoothing fell back" in notes[1]
     assert "grouped-return alignment remains under characterization" in notes[2]
+
+
+def test_has_reset_alignment_methodology_pressure_detects_either_reset_mismatch_direction():
+    assert _has_reset_alignment_methodology_pressure(
+        {
+            "portfolio_reset_without_position_reset_days": 1,
+            "position_reset_without_portfolio_reset_days": 0,
+        }
+    )
+    assert _has_reset_alignment_methodology_pressure(
+        {
+            "portfolio_reset_without_position_reset_days": 0,
+            "position_reset_without_portfolio_reset_days": 1,
+        }
+    )
+    assert not _has_reset_alignment_methodology_pressure(
+        {
+            "portfolio_reset_without_position_reset_days": 0,
+            "position_reset_without_portfolio_reset_days": 0,
+        }
+    )
 
 
 def test_position_flow_balance_notes_distinguish_material_and_small_residuals():

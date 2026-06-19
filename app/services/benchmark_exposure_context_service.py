@@ -51,15 +51,11 @@ async def build_benchmark_exposure_context(
         target_currency=request.reporting_currency,
         series_fields=["component_weight"],
     )
-    if market_status == status.HTTP_404_NOT_FOUND:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No benchmark market-series found for benchmark_id={benchmark_id}.",
-        )
-    if market_status >= status.HTTP_400_BAD_REQUEST:
-        raise_for_stateful_source_unavailable(source_label="benchmark market-series", upstream_status=market_status)
-
-    component_series = _parse_component_series(market_payload)
+    component_series = _component_series_from_market_response(
+        benchmark_id=benchmark_id,
+        market_status=market_status,
+        market_payload=market_payload,
+    )
     classification_map = await _classification_map_for_request(
         request=request,
         stateful_input_service=stateful_input_service,
@@ -107,7 +103,28 @@ async def build_benchmark_exposure_context(
     )
 
 
+def _component_series_from_market_response(
+    *,
+    benchmark_id: str,
+    market_status: int,
+    market_payload: dict[str, Any],
+) -> list[dict[str, Any]]:
+    if market_status == status.HTTP_404_NOT_FOUND:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No benchmark market-series found for benchmark_id={benchmark_id}.",
+        )
+    if market_status >= status.HTTP_400_BAD_REQUEST:
+        raise_for_stateful_source_unavailable(source_label="benchmark market-series", upstream_status=market_status)
+    return _parse_component_series(market_payload)
+
+
 def _benchmark_id_from_assignment_response(*, assignment_status: int, assignment_payload: dict[str, Any]) -> str:
+    _raise_for_unusable_assignment_response_status(assignment_status)
+    return _benchmark_id_from_assignment_payload(assignment_payload)
+
+
+def _raise_for_unusable_assignment_response_status(assignment_status: int) -> None:
     if assignment_status == status.HTTP_404_NOT_FOUND:
         raise HTTPException(
             status_code=HTTP_422_UNPROCESSABLE,
@@ -115,6 +132,9 @@ def _benchmark_id_from_assignment_response(*, assignment_status: int, assignment
         )
     if assignment_status >= status.HTTP_400_BAD_REQUEST:
         raise_for_stateful_source_unavailable(source_label="benchmark assignment", upstream_status=assignment_status)
+
+
+def _benchmark_id_from_assignment_payload(assignment_payload: dict[str, Any]) -> str:
     benchmark_id = assignment_payload.get("benchmark_id")
     if not isinstance(benchmark_id, str) or not benchmark_id:
         raise HTTPException(
@@ -161,6 +181,10 @@ async def _classification_map_for_request(
     )
     if catalog_status >= status.HTTP_400_BAD_REQUEST:
         raise_for_stateful_source_unavailable(source_label="index catalog", upstream_status=catalog_status)
+    return _classification_map_from_catalog_payload(catalog_payload)
+
+
+def _classification_map_from_catalog_payload(catalog_payload: dict[str, Any]) -> dict[str, dict[str, str]]:
     records = catalog_payload.get("records")
     if not isinstance(records, list):
         raise HTTPException(
@@ -175,14 +199,14 @@ def _requires_index_catalog(grouping_dimensions: list[BenchmarkExposureGroupingD
 
 
 def _index_ids_for_component_series(component_series: list[dict[str, Any]]) -> list[str]:
-    return sorted(
-        {
-            index_id
-            for component in component_series
-            for index_id in [component.get("index_id")]
-            if isinstance(index_id, str) and index_id
-        }
-    )
+    return sorted(set(_iter_component_index_ids(component_series)))
+
+
+def _iter_component_index_ids(component_series: list[dict[str, Any]]) -> Iterator[str]:
+    for component in component_series:
+        index_id = component.get("index_id")
+        if isinstance(index_id, str) and index_id:
+            yield index_id
 
 
 def _classification_map_from_catalog_records(records: list[Any]) -> dict[str, dict[str, str]]:
@@ -257,12 +281,19 @@ def _build_exposure_rows(
 
 def _iter_component_exposure_points(component_series: list[dict[str, Any]]) -> Iterator[tuple[str, list[Any]]]:
     for component in component_series:
-        index_id = component.get("index_id")
-        if not isinstance(index_id, str) or not index_id:
-            continue
-        points = component.get("points")
-        if isinstance(points, list):
-            yield index_id, points
+        exposure_points = _component_exposure_points(component)
+        if exposure_points is not None:
+            yield exposure_points
+
+
+def _component_exposure_points(component: dict[str, Any]) -> tuple[str, list[Any]] | None:
+    index_id = component.get("index_id")
+    if not isinstance(index_id, str) or not index_id:
+        return None
+    points = component.get("points")
+    if not isinstance(points, list):
+        return None
+    return index_id, points
 
 
 def _accumulate_exposure_point(
@@ -275,15 +306,10 @@ def _accumulate_exposure_point(
     labels: dict[tuple[BenchmarkExposureGroupingDimension, str], str],
     component_ids: dict[tuple[BenchmarkExposureGroupingDimension, str], str | None],
 ) -> None:
-    if not isinstance(point, dict):
+    point_facts = _exposure_point_series_date_and_weight(point)
+    if point_facts is None:
         return
-    series_date = point.get("series_date")
-    if not isinstance(series_date, str):
-        return
-    component_weight = point.get("component_weight")
-    if component_weight is None:
-        return
-    weight = _as_decimal(component_weight, field_name="component_weight")
+    series_date, weight = point_facts
     for dimension in grouping_dimensions:
         group_key, group_label, component_id = _group_identity(
             index_id=index_id,
@@ -296,6 +322,18 @@ def _accumulate_exposure_point(
         component_ids[(dimension, group_key)] = component_id
 
 
+def _exposure_point_series_date_and_weight(point: Any) -> tuple[str, Decimal] | None:
+    if not isinstance(point, dict):
+        return None
+    series_date = point.get("series_date")
+    if not isinstance(series_date, str):
+        return None
+    component_weight = point.get("component_weight")
+    if component_weight is None:
+        return None
+    return series_date, _as_decimal(component_weight, field_name="component_weight")
+
+
 def _group_identity(
     *,
     index_id: str,
@@ -304,19 +342,14 @@ def _group_identity(
 ) -> tuple[str, str, str | None]:
     if grouping_dimension == BenchmarkExposureGroupingDimension.POSITION:
         return index_id, index_id, index_id
-    if grouping_dimension == BenchmarkExposureGroupingDimension.SECTOR:
+    classification_group = _classification_group_for_dimension(grouping_dimension)
+    if classification_group is not None:
+        label_key, group_prefix = classification_group
         return _classification_group_identity(
             index_id=index_id,
             classification_map=classification_map,
-            label_key="sector",
-            group_prefix="SECTOR",
-        )
-    if grouping_dimension == BenchmarkExposureGroupingDimension.ASSET_CLASS:
-        return _classification_group_identity(
-            index_id=index_id,
-            classification_map=classification_map,
-            label_key="asset_class",
-            group_prefix="ASSET_CLASS",
+            label_key=label_key,
+            group_prefix=group_prefix,
         )
     if grouping_dimension == BenchmarkExposureGroupingDimension.ISSUER:
         return _issuer_group_identity(index_id=index_id, classification_map=classification_map)
@@ -324,6 +357,16 @@ def _group_identity(
         status_code=HTTP_422_UNPROCESSABLE,
         detail=f"benchmark exposure context does not yet support grouping_dimension={grouping_dimension.value}",
     )
+
+
+def _classification_group_for_dimension(
+    grouping_dimension: BenchmarkExposureGroupingDimension,
+) -> tuple[str, str] | None:
+    if grouping_dimension == BenchmarkExposureGroupingDimension.SECTOR:
+        return "sector", "SECTOR"
+    if grouping_dimension == BenchmarkExposureGroupingDimension.ASSET_CLASS:
+        return "asset_class", "ASSET_CLASS"
+    return None
 
 
 def _classification_group_identity(
