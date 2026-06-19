@@ -197,6 +197,25 @@ def test_collect_source_economics_samples_routes_taxonomy_samples():
     ]
 
 
+def test_collect_noncanonical_cashflow_types_deduplicates_valid_sample_types():
+    assert source_economics._collect_noncanonical_cashflow_types(
+        [
+            {"cash_flow_types": ["dividend", "deposit", "dividend"]},
+            {"cash_flow_types": ["withdrawal", None, 1]},
+            {"cash_flow_types": "fee"},
+            {"cash_flow_types": []},
+            {},
+        ]
+    ) == ["deposit", "dividend", "withdrawal"]
+
+
+def test_cashflow_type_strings_from_sample_rejects_non_list_and_non_string_values():
+    assert source_economics._cashflow_type_strings_from_sample({"cash_flow_types": "dividend"}) == ()
+    assert source_economics._cashflow_type_strings_from_sample({"cash_flow_types": [None, 7, "deposit"]}) == (
+        "deposit",
+    )
+
+
 def test_collect_source_economics_samples_routes_fee_samples():
     samples = collect_source_economics_samples(
         source_points=[
