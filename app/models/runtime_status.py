@@ -13,8 +13,12 @@ from app.services.remediation_hint_service import get_remediation_hint
 
 if TYPE_CHECKING:
     from app.services.runtime_status_domain import (
+        ComputeQueueDegradationPolicy,
+        LineageQueueDegradationPolicy,
         RecentOperatorActionReclaim,
+        RecoveryDrillDegradationPolicy,
         RuntimeQueueStatus,
+        RuntimeRetentionDegradationPolicy,
         RuntimeStatusSnapshot,
     )
 
@@ -785,6 +789,52 @@ def _lineage_queue_measurement_fields(
     return {**stats_fields, **storage_fields}
 
 
+def _compute_queue_policy_response(
+    policy: ComputeQueueDegradationPolicy,
+) -> ComputeQueueDegradationPolicyResponse:
+    return ComputeQueueDegradationPolicyResponse(
+        pending_age_seconds=policy.pending_age_seconds,
+        leased_age_seconds=policy.leased_age_seconds,
+        running_age_seconds=policy.running_age_seconds,
+        retry_backlog_count=policy.retry_backlog_count,
+        lease_expiry_count=policy.lease_expiry_count,
+        terminal_failure_count=policy.terminal_failure_count,
+    )
+
+
+def _lineage_queue_policy_response(
+    policy: LineageQueueDegradationPolicy,
+) -> LineageQueueDegradationPolicyResponse:
+    return LineageQueueDegradationPolicyResponse(
+        pending_age_seconds=policy.pending_age_seconds,
+        leased_age_seconds=policy.leased_age_seconds,
+        retry_backlog_count=policy.retry_backlog_count,
+        terminal_failure_count=policy.terminal_failure_count,
+        storage_min_free_bytes=policy.storage_min_free_bytes,
+        storage_min_free_ratio=policy.storage_min_free_ratio,
+    )
+
+
+def _recovery_drill_policy_response(
+    policy: RecoveryDrillDegradationPolicy,
+) -> RecoveryDrillDegradationPolicyResponse:
+    return RecoveryDrillDegradationPolicyResponse(
+        max_age_seconds=policy.max_age_seconds,
+        active_run_age_seconds=policy.active_run_age_seconds,
+        reclaim_count=policy.reclaim_count,
+    )
+
+
+def _runtime_retention_policy_response(
+    policy: RuntimeRetentionDegradationPolicy,
+) -> RuntimeRetentionDegradationPolicyResponse:
+    return RuntimeRetentionDegradationPolicyResponse(
+        max_age_seconds=policy.max_age_seconds,
+        active_run_age_seconds=policy.active_run_age_seconds,
+        reclaim_count=policy.reclaim_count,
+    )
+
+
 def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeStatusResponse:
     return RuntimeStatusResponse(
         contract_version="v1",
@@ -871,30 +921,8 @@ def build_runtime_status_response(snapshot: RuntimeStatusSnapshot) -> RuntimeSta
             current_prunable_lineage_record_count=snapshot.runtime_retention.current_prunable_lineage_record_count,
             current_prunable_lineage_artifact_count=snapshot.runtime_retention.current_prunable_lineage_artifact_count,
         ),
-        compute_queue_policy=ComputeQueueDegradationPolicyResponse(
-            pending_age_seconds=snapshot.compute_queue_policy.pending_age_seconds,
-            leased_age_seconds=snapshot.compute_queue_policy.leased_age_seconds,
-            running_age_seconds=snapshot.compute_queue_policy.running_age_seconds,
-            retry_backlog_count=snapshot.compute_queue_policy.retry_backlog_count,
-            lease_expiry_count=snapshot.compute_queue_policy.lease_expiry_count,
-            terminal_failure_count=snapshot.compute_queue_policy.terminal_failure_count,
-        ),
-        lineage_queue_policy=LineageQueueDegradationPolicyResponse(
-            pending_age_seconds=snapshot.lineage_queue_policy.pending_age_seconds,
-            leased_age_seconds=snapshot.lineage_queue_policy.leased_age_seconds,
-            retry_backlog_count=snapshot.lineage_queue_policy.retry_backlog_count,
-            terminal_failure_count=snapshot.lineage_queue_policy.terminal_failure_count,
-            storage_min_free_bytes=snapshot.lineage_queue_policy.storage_min_free_bytes,
-            storage_min_free_ratio=snapshot.lineage_queue_policy.storage_min_free_ratio,
-        ),
-        recovery_drill_policy=RecoveryDrillDegradationPolicyResponse(
-            max_age_seconds=snapshot.recovery_drill_policy.max_age_seconds,
-            active_run_age_seconds=snapshot.recovery_drill_policy.active_run_age_seconds,
-            reclaim_count=snapshot.recovery_drill_policy.reclaim_count,
-        ),
-        runtime_retention_policy=RuntimeRetentionDegradationPolicyResponse(
-            max_age_seconds=snapshot.runtime_retention_policy.max_age_seconds,
-            active_run_age_seconds=snapshot.runtime_retention_policy.active_run_age_seconds,
-            reclaim_count=snapshot.runtime_retention_policy.reclaim_count,
-        ),
+        compute_queue_policy=_compute_queue_policy_response(snapshot.compute_queue_policy),
+        lineage_queue_policy=_lineage_queue_policy_response(snapshot.lineage_queue_policy),
+        recovery_drill_policy=_recovery_drill_policy_response(snapshot.recovery_drill_policy),
+        runtime_retention_policy=_runtime_retention_policy_response(snapshot.runtime_retention_policy),
     )
