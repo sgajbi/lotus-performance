@@ -37,6 +37,14 @@ class _LifecycleDegradationMetricSpec:
     reclaim_pressure_breach_reason: str
 
 
+@dataclass(frozen=True)
+class _AttributeLabeledMetricSpec:
+    metric_name: str
+    description: str
+    label_name: str
+    sample_attributes: tuple[tuple[str, str], ...]
+
+
 RECOVERY_DRILL_ACTION_METRICS = OperatorActionMetricSpec(
     active_metric_name="lotus_performance_recovery_drill_active_actions",
     active_description="Number of active governed recovery-drill runs currently holding an in-flight lease.",
@@ -79,6 +87,32 @@ _RUNTIME_RETENTION_DEGRADATION_METRICS = _LifecycleDegradationMetricSpec(
     latest_age_breach_reason="runtime_retention_age_exceeded",
     active_run_age_breach_reason="runtime_retention_active_run_age_exceeded",
     reclaim_pressure_breach_reason="runtime_retention_reclaim_pressure_exceeded",
+)
+
+_COMPUTE_QUEUE_JOB_COUNT_METRIC = _AttributeLabeledMetricSpec(
+    metric_name="lotus_performance_compute_queue_jobs",
+    description="Durable compute job counts by status.",
+    label_name="status",
+    sample_attributes=(
+        ("pending", "pending_count"),
+        ("leased", "leased_count"),
+        ("running", "running_count"),
+        ("failed", "failed_count"),
+        ("complete", "complete_count"),
+    ),
+)
+
+_RUNTIME_RETENTION_PRUNABLE_ITEMS_METRIC = _AttributeLabeledMetricSpec(
+    metric_name="lotus_performance_runtime_retention_prunable_items",
+    description="Current runtime-retention items that would be pruned by a dry-run cleanup.",
+    label_name="category",
+    sample_attributes=(
+        ("execution", "prunable_execution_count"),
+        ("compute_job", "prunable_compute_job_count"),
+        ("async_result", "prunable_async_result_count"),
+        ("lineage_record", "prunable_lineage_record_count"),
+        ("lineage_artifact", "prunable_lineage_artifact_count"),
+    ),
 )
 
 
@@ -204,18 +238,7 @@ def compute_queue_degradation_breach_metric(
 
 
 def compute_queue_job_count_metric(*, stats: Any) -> GaugeMetricFamily:
-    return labeled_metric(
-        metric_name="lotus_performance_compute_queue_jobs",
-        description="Durable compute job counts by status.",
-        label_name="status",
-        samples=(
-            ("pending", stats.pending_count),
-            ("leased", stats.leased_count),
-            ("running", stats.running_count),
-            ("failed", stats.failed_count),
-            ("complete", stats.complete_count),
-        ),
-    )
+    return attribute_labeled_metric(spec=_COMPUTE_QUEUE_JOB_COUNT_METRIC, source=stats)
 
 
 def compute_queue_failure_pressure_metric(*, stats: Any) -> GaugeMetricFamily:
@@ -466,18 +489,7 @@ def runtime_retention_latest_age_metric(*, latest_age_seconds: float) -> GaugeMe
 
 
 def runtime_retention_prunable_items_metric(*, preview: Any) -> GaugeMetricFamily:
-    return labeled_metric(
-        metric_name="lotus_performance_runtime_retention_prunable_items",
-        description="Current runtime-retention items that would be pruned by a dry-run cleanup.",
-        label_name="category",
-        samples=(
-            ("execution", preview.prunable_execution_count),
-            ("compute_job", preview.prunable_compute_job_count),
-            ("async_result", preview.prunable_async_result_count),
-            ("lineage_record", preview.prunable_lineage_record_count),
-            ("lineage_artifact", preview.prunable_lineage_artifact_count),
-        ),
-    )
+    return attribute_labeled_metric(spec=_RUNTIME_RETENTION_PRUNABLE_ITEMS_METRIC, source=preview)
 
 
 def labeled_metric(
@@ -491,6 +503,21 @@ def labeled_metric(
     for label_value, value in samples:
         metric.add_metric([label_value], value)
     return metric
+
+
+def attribute_labeled_metric(
+    *,
+    spec: _AttributeLabeledMetricSpec,
+    source: Any,
+) -> GaugeMetricFamily:
+    return labeled_metric(
+        metric_name=spec.metric_name,
+        description=spec.description,
+        label_name=spec.label_name,
+        samples=(
+            (label_value, getattr(source, attribute_name)) for label_value, attribute_name in spec.sample_attributes
+        ),
+    )
 
 
 def reason_labeled_metric(

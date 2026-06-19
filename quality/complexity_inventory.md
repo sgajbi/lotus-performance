@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-19
-Branch: `lp-cr-1406-history-snapshot-builders`
+Branch: `lp-cr-1407-queue-metric-status-builders`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
@@ -32,7 +32,7 @@ must stay at `0`.
 | --- | ---: |
 | Max cyclomatic complexity | 5 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.14 |
+| Average maintainability index | 55.13 |
 
 ## Highest Cyclomatic Complexity
 
@@ -1120,6 +1120,9 @@ LP-CR-1406 removed the recovery-drill/runtime-retention unavailable snapshot dup
 through a shared operator-action history snapshot helper. The measured max cyclomatic complexity
 remains `5`, high-complexity functions remain `0`, and average maintainability index moved from
 `54.96` to `55.14`.
+LP-CR-1407 removed the final duplicate function-body hotspot by centralizing attribute-backed
+queue metric sample projection. The measured max cyclomatic complexity remains `5`,
+high-complexity functions remain `0`, and average maintainability index measured `55.13`.
 
 Maintainability index values should be treated as directional hotspot evidence because generated
 schemas, persistence-style modules, and dense orchestration files can score poorly even when tests
