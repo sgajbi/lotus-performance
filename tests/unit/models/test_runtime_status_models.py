@@ -5,6 +5,7 @@ from app.models.runtime_status import (
     _compute_queue_stats_fields,
     _lineage_queue_measurement_fields,
     _lineage_queue_response,
+    _operator_action_reclaim_event_responses,
     build_runtime_status_response,
 )
 from app.services.compute_job_store import ComputeQueueInspectionAnchors, ComputeQueueStats, ComputeRecoveryEvent
@@ -13,6 +14,7 @@ from app.services.lineage_metadata_store import LineageQueueInspectionAnchors, L
 from app.services.runtime_status_domain import (
     ComputeQueueDegradationPolicy,
     LineageQueueDegradationPolicy,
+    RecentOperatorActionReclaim,
     RecoveryDrillDegradationPolicy,
     RecoveryDrillStatus,
     RuntimeDegradationDetail,
@@ -224,6 +226,31 @@ def test_lineage_queue_measurement_fields_map_available_and_unavailable_sources(
         "storage_free_ratio": 0.1,
     }
     assert all(value is None for value in _lineage_queue_measurement_fields(None, None).values())
+
+
+def test_operator_action_reclaim_event_responses_project_governed_action_context():
+    responses = _operator_action_reclaim_event_responses(
+        (
+            RecentOperatorActionReclaim(
+                operator_id="ops-old",
+                tenant_id="tenant-a",
+                governed_target="apply:30:old-job",
+                acquired_at_utc="2026-03-13T22:00:00Z",
+                reclaimed_at_utc="2026-03-13T23:15:00Z",
+                reclaimed_age_seconds=4500.0,
+                reclaim_count=4,
+            ),
+        )
+    )
+
+    assert len(responses) == 1
+    assert responses[0].operator_id == "ops-old"
+    assert responses[0].tenant_id == "tenant-a"
+    assert responses[0].governed_target == "apply:30:old-job"
+    assert responses[0].acquired_at_utc == "2026-03-13T22:00:00Z"
+    assert responses[0].reclaimed_at_utc == "2026-03-13T23:15:00Z"
+    assert responses[0].reclaimed_age_seconds == 4500.0
+    assert responses[0].reclaim_count == 4
 
 
 def test_build_runtime_status_response_serializes_snapshot_details():

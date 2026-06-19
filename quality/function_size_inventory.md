@@ -1,7 +1,7 @@
 # Lotus Performance Function Size Inventory
 
 Report date: 2026-06-19
-Branch: `lp-cr-1408-queue-metric-describe-catalog`
+Branch: `lp-cr-1409-runtime-status-reclaim-event-mapper`
 Mode: report-only function-size inventory; this artifact introduces no new blocking CI gate.
 
 ## Purpose
@@ -20,8 +20,8 @@ python scripts/python_function_size_inventory.py --limit 25
 
 | Rank | Function | File | Lines |
 | ---: | --- | --- | ---: |
-| 1 | `build_runtime_status_response` | `app/models/runtime_status.py:767` | 131 |
-| 2 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:331` | 130 |
+| 1 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:331` | 130 |
+| 2 | `build_runtime_status_response` | `app/models/runtime_status.py:788` | 113 |
 | 3 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:227` | 102 |
 | 4 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:331` | 102 |
 | 5 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:71` | 98 |
@@ -149,3 +149,6 @@ top-25 function-size table; the largest function remains `DurableQueueCollector.
 LP-CR-1408 isolated durable queue metric descriptor metadata into a deterministic catalog;
 `DurableQueueCollector.describe` dropped out of the top-25 table and the largest function moved
 from `159` to `131` lines.
+LP-CR-1409 isolated runtime-status operator-action reclaim event projection into a shared response
+mapper. `build_runtime_status_response` moved from `131` to `113` lines and the largest function
+became `_build_analytics_surfaces` at `130` lines.
