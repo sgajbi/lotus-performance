@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-19
-Branch: `lp-cr-1400-source-quality-findings`
+Branch: `lp-cr-1401-runtime-work-items`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
@@ -32,7 +32,7 @@ must stay at `0`.
 | --- | ---: |
 | Max cyclomatic complexity | 5 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 54.79 |
+| Average maintainability index | 54.78 |
 
 ## Highest Cyclomatic Complexity
 
@@ -1109,6 +1109,8 @@ a focused helper with direct coverage for string, boolean, numeric, `None`, dict
 fallback behavior.
 The source-quality economic plausibility finding extraction did not change the max cyclomatic
 complexity posture; the measured repository maximum remains `5`.
+The runtime work-item safe listing extraction did not change the max cyclomatic complexity posture;
+the measured repository maximum remains `5`.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.

@@ -163,6 +163,53 @@ def test_runtime_work_item_snapshot_passes_reclaimable_status_filter(mocker):
     assert lineage_list.call_args.kwargs["status_filter"] == "reclaimable"
 
 
+def test_runtime_work_item_snapshot_forwards_queue_specific_filters(mocker):
+    mocker.patch(
+        "app.services.runtime_work_item_service.check_durable_metadata_schema_ready",
+        return_value=DurabilityHealthStatus(is_ready=True, status="ready", reason=None),
+    )
+    compute_list = mocker.patch(
+        "app.services.runtime_work_item_service.compute_job_store.list_inspection_items",
+        return_value=ComputeQueueInspectionPage(total_count=0, next_offset=None, items=[]),
+    )
+    lineage_list = mocker.patch(
+        "app.services.runtime_work_item_service.lineage_metadata_store.list_inspection_items",
+        return_value=type("LineagePage", (), {"total_count": 0, "next_offset": None, "items": []})(),
+    )
+
+    snapshot = build_runtime_work_item_snapshot(
+        queue_filter="both",
+        status_filter="failed",
+        limit=11,
+        offset=4,
+        min_age_seconds=45.0,
+        compute_analytics_type="Contribution",
+        lineage_calculation_type="TWR",
+        calculation_id_contains="calc-",
+    )
+
+    assert snapshot.compute_queue.status == "available"
+    assert snapshot.lineage_queue.status == "available"
+    assert compute_list.call_args.kwargs == {
+        "status_filter": "failed",
+        "limit": 11,
+        "offset": 4,
+        "min_age_seconds": 45.0,
+        "analytics_type": "Contribution",
+        "calculation_id_contains": "calc-",
+        "now": snapshot.generated_at,
+    }
+    assert lineage_list.call_args.kwargs == {
+        "status_filter": "failed",
+        "limit": 11,
+        "offset": 4,
+        "min_age_seconds": 45.0,
+        "calculation_type": "TWR",
+        "calculation_id_contains": "calc-",
+        "now": snapshot.generated_at,
+    }
+
+
 def test_runtime_work_item_snapshot_reports_next_offset(mocker):
     mocker.patch(
         "app.services.runtime_work_item_service.check_durable_metadata_schema_ready",

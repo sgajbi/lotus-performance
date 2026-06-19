@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Protocol, TypeVar
 
 from app.services.compute_job_store import ComputeQueueInspectionItem, compute_job_store
 from app.services.durability_health_service import (
@@ -10,6 +12,24 @@ from app.services.durability_health_service import (
 )
 from app.services.lineage_metadata_store import LineageQueueInspectionItem, lineage_metadata_store
 from app.services.runtime_unavailability import durable_metadata_unavailable_reason
+
+_RuntimeWorkItemT = TypeVar("_RuntimeWorkItemT")
+
+
+class _RuntimeWorkItemPage(Protocol[_RuntimeWorkItemT]):
+    total_count: int
+    next_offset: int | None
+    items: list[_RuntimeWorkItemT]
+
+
+@dataclass(frozen=True)
+class _RuntimeWorkItemListRequest:
+    status_filter: str
+    limit: int
+    offset: int
+    min_age_seconds: float
+    calculation_id_contains: str | None
+    generated_at: datetime
 
 
 @dataclass(frozen=True)
@@ -77,26 +97,24 @@ def build_runtime_work_item_snapshot(
 
     include_compute = queue_filter in {"both", "compute"}
     include_lineage = queue_filter in {"both", "lineage"}
-
-    compute_queue_state, compute_items = _safe_compute_items(
-        include_queue=include_compute,
+    list_request = _RuntimeWorkItemListRequest(
         status_filter=status_filter,
         limit=limit,
         offset=offset,
         min_age_seconds=min_age_seconds,
-        compute_analytics_type=compute_analytics_type,
         calculation_id_contains=calculation_id_contains,
         generated_at=generated_at,
     )
+
+    compute_queue_state, compute_items = _safe_compute_items(
+        include_queue=include_compute,
+        list_request=list_request,
+        compute_analytics_type=compute_analytics_type,
+    )
     lineage_queue_state, lineage_items = _safe_lineage_items(
         include_queue=include_lineage,
-        status_filter=status_filter,
-        limit=limit,
-        offset=offset,
-        min_age_seconds=min_age_seconds,
+        list_request=list_request,
         lineage_calculation_type=lineage_calculation_type,
-        calculation_id_contains=calculation_id_contains,
-        generated_at=generated_at,
     )
 
     return RuntimeWorkItemSnapshot(
@@ -120,62 +138,53 @@ def build_runtime_work_item_snapshot(
 def _safe_compute_items(
     *,
     include_queue: bool,
-    status_filter: str,
-    limit: int,
-    offset: int,
-    min_age_seconds: float,
+    list_request: _RuntimeWorkItemListRequest,
     compute_analytics_type: str | None,
-    calculation_id_contains: str | None,
-    generated_at: datetime,
 ) -> tuple[RuntimeWorkItemQueueState, list[ComputeQueueInspectionItem]]:
-    if not include_queue:
-        return _queue_state(status="excluded"), []
-    try:
-        page = compute_job_store.list_inspection_items(
-            status_filter=status_filter,
-            limit=limit,
-            offset=offset,
-            min_age_seconds=min_age_seconds,
+    return _safe_runtime_work_items(
+        include_queue=include_queue,
+        load_page=lambda: compute_job_store.list_inspection_items(
+            **_runtime_work_item_page_kwargs(list_request),
             analytics_type=compute_analytics_type,
-            calculation_id_contains=calculation_id_contains,
-            now=generated_at,
-        )
-        return (
-            _queue_state(
-                status="available",
-                total_count=page.total_count,
-                returned_count=len(page.items),
-                next_offset=page.next_offset,
-            ),
-            page.items,
-        )
-    except Exception as exc:
-        return _queue_state(status="unavailable", reason=type(exc).__name__), []
+        ),
+    )
 
 
 def _safe_lineage_items(
     *,
     include_queue: bool,
-    status_filter: str,
-    limit: int,
-    offset: int,
-    min_age_seconds: float,
+    list_request: _RuntimeWorkItemListRequest,
     lineage_calculation_type: str | None,
-    calculation_id_contains: str | None,
-    generated_at: datetime,
 ) -> tuple[RuntimeWorkItemQueueState, list[LineageQueueInspectionItem]]:
+    return _safe_runtime_work_items(
+        include_queue=include_queue,
+        load_page=lambda: lineage_metadata_store.list_inspection_items(
+            **_runtime_work_item_page_kwargs(list_request),
+            calculation_type=lineage_calculation_type,
+        ),
+    )
+
+
+def _runtime_work_item_page_kwargs(list_request: _RuntimeWorkItemListRequest) -> dict[str, object]:
+    return {
+        "status_filter": list_request.status_filter,
+        "limit": list_request.limit,
+        "offset": list_request.offset,
+        "min_age_seconds": list_request.min_age_seconds,
+        "calculation_id_contains": list_request.calculation_id_contains,
+        "now": list_request.generated_at,
+    }
+
+
+def _safe_runtime_work_items(
+    *,
+    include_queue: bool,
+    load_page: Callable[[], _RuntimeWorkItemPage[_RuntimeWorkItemT]],
+) -> tuple[RuntimeWorkItemQueueState, list[_RuntimeWorkItemT]]:
     if not include_queue:
         return _queue_state(status="excluded"), []
     try:
-        page = lineage_metadata_store.list_inspection_items(
-            status_filter=status_filter,
-            limit=limit,
-            offset=offset,
-            min_age_seconds=min_age_seconds,
-            calculation_type=lineage_calculation_type,
-            calculation_id_contains=calculation_id_contains,
-            now=generated_at,
-        )
+        page = load_page()
         return (
             _queue_state(
                 status="available",
