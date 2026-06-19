@@ -113,7 +113,7 @@ jobs:
           COVERAGE_FILE: .coverage.${{ matrix.suite }}
         run: python -m pytest ${{ matrix.path }} --cov=app --cov=engine --cov=core --cov=adapters --cov-report=
       - name: Upload coverage data
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-data-${{ matrix.suite }}
           path: .coverage.${{ matrix.suite }}
@@ -133,7 +133,7 @@ jobs:
       - name: Install
         run: make install-ci
       - name: Download coverage artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: coverage-data-*
           merge-multiple: true
