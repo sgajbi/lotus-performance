@@ -19,6 +19,7 @@ _INSPECTOR_CONSUMER_SYSTEM = "lotus-performance-inspector"
 _RECONCILIATION_SAMPLE_LIMIT = 25
 _PositionRowSelection = dict[tuple[str, str], tuple[int, dict[str, object]]]
 _PositionContinuityPair = tuple[str, dict[str, object], dict[str, object]]
+_DuplicateSnapshotKey = tuple[str, str, int]
 
 
 def _decimal_to_artifact(value: Decimal) -> str:
@@ -56,6 +57,13 @@ class _PositionContinuityGap:
     values: _PositionContinuityValues
     gap_amount: Decimal
     gap_pct_of_previous_end: float | None
+
+
+@dataclass
+class _DuplicateSnapshotSamples:
+    counts: dict[_DuplicateSnapshotKey, int]
+    sample_index_by_key: dict[_DuplicateSnapshotKey, int]
+    samples: list[dict[str, object]]
 
 
 def run_reconciliation_checks(
@@ -759,31 +767,42 @@ def _cash_flow_has_nonzero_amount(flow: object) -> bool:
 
 
 def _collect_duplicate_snapshot_samples(position_rows: list[dict[str, object]]) -> list[dict[str, object]]:
-    counts: dict[tuple[str, object, int], int] = {}
-    sample_index_by_key: dict[tuple[str, object, int], int] = {}
-    samples: list[dict[str, object]] = []
+    sample_state = _DuplicateSnapshotSamples(counts={}, sample_index_by_key={}, samples=[])
     for row in position_rows:
-        key = _duplicate_snapshot_key(row)
-        if key is None:
-            continue
-        valuation_date, position_id, epoch = key
-        counts[key] = counts.get(key, 0) + 1
-        if counts[key] == 2:
-            samples.append(
-                {
-                    "valuation_date": valuation_date,
-                    "position_id": position_id,
-                    "valuation_epoch": epoch,
-                    "duplicate_count": counts[key],
-                }
-            )
-            sample_index_by_key[key] = len(samples) - 1
-        elif counts[key] > 2:
-            samples[sample_index_by_key[key]]["duplicate_count"] = counts[key]
-    return samples
+        _record_duplicate_snapshot_sample(sample_state, row)
+    return sample_state.samples
 
 
-def _duplicate_snapshot_key(row: dict[str, object]) -> tuple[str, str, int] | None:
+def _record_duplicate_snapshot_sample(sample_state: _DuplicateSnapshotSamples, row: dict[str, object]) -> None:
+    key = _duplicate_snapshot_key(row)
+    if key is None:
+        return
+    duplicate_count = sample_state.counts.get(key, 0) + 1
+    sample_state.counts[key] = duplicate_count
+    _sync_duplicate_snapshot_sample(sample_state, key, duplicate_count)
+
+
+def _sync_duplicate_snapshot_sample(
+    sample_state: _DuplicateSnapshotSamples, key: _DuplicateSnapshotKey, duplicate_count: int
+) -> None:
+    if duplicate_count == 2:
+        sample_state.samples.append(_duplicate_snapshot_sample_payload(key, duplicate_count))
+        sample_state.sample_index_by_key[key] = len(sample_state.samples) - 1
+    elif duplicate_count > 2:
+        sample_state.samples[sample_state.sample_index_by_key[key]]["duplicate_count"] = duplicate_count
+
+
+def _duplicate_snapshot_sample_payload(key: _DuplicateSnapshotKey, duplicate_count: int) -> dict[str, object]:
+    valuation_date, position_id, epoch = key
+    return {
+        "valuation_date": valuation_date,
+        "position_id": position_id,
+        "valuation_epoch": epoch,
+        "duplicate_count": duplicate_count,
+    }
+
+
+def _duplicate_snapshot_key(row: dict[str, object]) -> _DuplicateSnapshotKey | None:
     valuation_date = row.get("valuation_date")
     position_id = row.get("position_id")
     if not isinstance(valuation_date, str) or not isinstance(position_id, str):
