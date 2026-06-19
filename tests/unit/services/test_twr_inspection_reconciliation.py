@@ -825,3 +825,36 @@ def test_duplicate_snapshot_key_requires_string_identity_and_uses_parsed_epoch()
         )
         is None
     )
+
+
+def test_record_duplicate_snapshot_sample_ignores_rows_without_snapshot_identity():
+    sample_state = reconciliation._DuplicateSnapshotSamples(counts={}, sample_index_by_key={}, samples=[])
+
+    reconciliation._record_duplicate_snapshot_sample(
+        sample_state,
+        {"valuation_date": "2026-01-02", "valuation_epoch": 5},
+    )
+
+    assert sample_state.counts == {}
+    assert sample_state.sample_index_by_key == {}
+    assert sample_state.samples == []
+
+
+def test_record_duplicate_snapshot_sample_updates_existing_sample_duplicate_count():
+    sample_state = reconciliation._DuplicateSnapshotSamples(counts={}, sample_index_by_key={}, samples=[])
+    duplicate_row = {"valuation_date": "2026-01-02", "position_id": "SEC_2", "valuation_epoch": "5"}
+
+    reconciliation._record_duplicate_snapshot_sample(sample_state, duplicate_row)
+    reconciliation._record_duplicate_snapshot_sample(sample_state, duplicate_row)
+    reconciliation._record_duplicate_snapshot_sample(sample_state, duplicate_row)
+
+    assert sample_state.counts == {("2026-01-02", "SEC_2", 5): 3}
+    assert sample_state.sample_index_by_key == {("2026-01-02", "SEC_2", 5): 0}
+    assert sample_state.samples == [
+        {
+            "valuation_date": "2026-01-02",
+            "position_id": "SEC_2",
+            "valuation_epoch": 5,
+            "duplicate_count": 3,
+        }
+    ]
