@@ -1611,8 +1611,17 @@ def test_analyze_source_economics_captures_governed_alias_and_raw_collection_sam
             "raw_value": {"bad": "shape"},
         }
     ]
-    assert source_economics._sample_raw_collection_value(["not", "scalar"]) == "['not', 'scalar']"
     assert source_economics._parse_decimal(object()) is None
+
+
+def test_sample_raw_collection_value_preserves_scalars_and_bounded_structures():
+    assert source_economics._is_artifact_scalar_sample("bad-row") is True
+    assert source_economics._is_artifact_scalar_sample(True) is True
+    assert source_economics._is_artifact_scalar_sample(7) is True
+    assert source_economics._is_artifact_scalar_sample(None) is True
+    assert source_economics._is_artifact_scalar_sample(["not", "scalar"]) is False
+    assert source_economics._sample_raw_collection_value({"bad": "shape"}) == {"bad": "shape"}
+    assert source_economics._sample_raw_collection_value(["not", "scalar"]) == "['not', 'scalar']"
 
 
 def test_sum_detailed_cash_flows_accumulates_totals_and_row_quality_samples():

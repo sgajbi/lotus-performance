@@ -748,13 +748,15 @@ def _read_explicit_decimal_fields(
 
 
 def _sample_raw_collection_value(raw_value: object) -> object:
-    if isinstance(raw_value, str | bool) or raw_value is None:
-        return raw_value
-    if isinstance(raw_value, Real):
+    if _is_artifact_scalar_sample(raw_value):
         return raw_value
     if isinstance(raw_value, dict):
         return raw_value
     return repr(raw_value)
+
+
+def _is_artifact_scalar_sample(raw_value: object) -> bool:
+    return isinstance(raw_value, str | bool | Real) or raw_value is None
 
 
 def _decimals_match(left: Decimal, right: Decimal) -> bool:
