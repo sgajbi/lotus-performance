@@ -684,6 +684,64 @@ async def test_stateful_input_service_merges_chunked_index_price_series_and_skip
     assert len(core_service.index_price_calls) == 4
 
 
+def test_stateful_input_service_records_chunked_series_snapshots_once_per_request_fingerprint(tmp_path):
+    execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    execution_store.create_schema()
+    calculation_id = uuid4()
+    execution_store.create_execution(
+        calculation_id=calculation_id,
+        analytics_type="BenchmarkAnalytics",
+        portfolio_id="PORT_1",
+    )
+    service = StatefulInputService(core_service=_CoreServiceStub(), execution_store=execution_store)
+    chunks = [
+        DateChunk(start_date=date(2026, 1, 1), end_date=date(2026, 1, 2)),
+        DateChunk(start_date=date(2026, 1, 3), end_date=date(2026, 1, 4)),
+    ]
+    responses = [(200, {"points": [{"series_date": str(chunk.start_date)}]}) for chunk in chunks]
+    existing_snapshot_ids: set[str] = set()
+
+    def request_payload(chunk: DateChunk) -> dict[str, str]:
+        return {"source": "SRC_1", "start_date": str(chunk.start_date), "end_date": str(chunk.end_date)}
+
+    service._record_chunked_series_snapshots(
+        calculation_id=calculation_id,
+        upstream_endpoint="synthetic_series",
+        source_identifier="SRC_1",
+        as_of_date=date(2026, 1, 4),
+        chunks=chunks,
+        responses=responses,
+        existing_snapshot_ids=existing_snapshot_ids,
+        request_payload_factory=request_payload,
+    )
+    service._record_chunked_series_snapshots(
+        calculation_id=calculation_id,
+        upstream_endpoint="synthetic_series",
+        source_identifier="SRC_1",
+        as_of_date=date(2026, 1, 4),
+        chunks=chunks,
+        responses=responses,
+        existing_snapshot_ids=existing_snapshot_ids,
+        request_payload_factory=request_payload,
+    )
+    service._record_chunked_series_snapshots(
+        calculation_id=None,
+        upstream_endpoint="synthetic_series",
+        source_identifier="SRC_1",
+        as_of_date=date(2026, 1, 4),
+        chunks=chunks,
+        responses=responses,
+        existing_snapshot_ids=existing_snapshot_ids,
+        request_payload_factory=request_payload,
+    )
+
+    snapshots = execution_store.list_upstream_snapshots(calculation_id)
+    assert len(snapshots) == 2
+    assert len(existing_snapshot_ids) == 2
+    assert {snapshot.source_identifier for snapshot in snapshots} == {"SRC_1"}
+    assert {snapshot.paging_metadata["start_date"] for snapshot in snapshots} == {"2026-01-01", "2026-01-03"}
+
+
 @pytest.mark.asyncio
 async def test_stateful_input_service_returns_first_failure_for_reference_chunks():
     class _FailingReferenceCoreService(_CoreServiceStub):
