@@ -23,6 +23,8 @@ jobs:
     name: Feature Lane / Workflow Lint
     runs-on: ubuntu-latest
     steps:
+      - name: Configure Git Default Branch
+        run: git config --global init.defaultBranch main
       - uses: actions/checkout@v6
       - uses: reviewdog/action-actionlint@v1
 
@@ -30,6 +32,8 @@ jobs:
     name: Feature Lane / Static Quality Gates
     runs-on: ubuntu-latest
     steps:
+      - name: Configure Git Default Branch
+        run: git config --global init.defaultBranch main
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
@@ -52,6 +56,8 @@ jobs:
     name: Feature Lane / Contract Security Gates
     runs-on: ubuntu-latest
     steps:
+      - name: Configure Git Default Branch
+        run: git config --global init.defaultBranch main
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
@@ -71,6 +77,8 @@ jobs:
     needs: [static-quality-gates, contract-security-gates]
     runs-on: ubuntu-latest
     steps:
+      - name: Configure Git Default Branch
+        run: git config --global init.defaultBranch main
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
