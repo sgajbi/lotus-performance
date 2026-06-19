@@ -578,6 +578,51 @@ async def test_stateful_input_service_fetches_reference_payloads_and_records_sna
     assert index_catalog_snapshots[0].paging_metadata["index_ids"] == ["IDX_1", "IDX_2"]
 
 
+def test_stateful_input_service_records_single_response_snapshot_once_per_request_fingerprint(tmp_path):
+    execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    execution_store.create_schema()
+    calculation_id = uuid4()
+    execution_store.create_execution(
+        calculation_id=calculation_id,
+        analytics_type="BenchmarkAnalytics",
+        portfolio_id="PORT_1",
+    )
+    service = StatefulInputService(core_service=_CoreServiceStub(), execution_store=execution_store)
+    request_payload = {"portfolio_id": "PORT_1", "as_of_date": "2026-01-03"}
+    response = (200, {"portfolio_id": "PORT_1", "base_currency": "USD"})
+
+    service._record_single_response_snapshot(
+        calculation_id=calculation_id,
+        upstream_endpoint="portfolio_reference",
+        source_identifier="PORT_1",
+        as_of_date=date(2026, 1, 3),
+        request_payload=request_payload,
+        response=response,
+    )
+    service._record_single_response_snapshot(
+        calculation_id=calculation_id,
+        upstream_endpoint="portfolio_reference",
+        source_identifier="PORT_1",
+        as_of_date=date(2026, 1, 3),
+        request_payload=request_payload,
+        response=response,
+    )
+    service._record_single_response_snapshot(
+        calculation_id=None,
+        upstream_endpoint="portfolio_reference",
+        source_identifier="PORT_1",
+        as_of_date=date(2026, 1, 3),
+        request_payload=request_payload,
+        response=response,
+    )
+
+    snapshots = execution_store.list_upstream_snapshots(calculation_id)
+    assert len(snapshots) == 1
+    assert snapshots[0].upstream_endpoint == "portfolio_reference"
+    assert snapshots[0].source_identifier == "PORT_1"
+    assert snapshots[0].paging_metadata == request_payload
+
+
 @pytest.mark.asyncio
 async def test_stateful_input_service_merges_chunked_market_series_and_fx_rates():
     core_service = _CoreServiceStub()

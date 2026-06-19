@@ -25,6 +25,18 @@ class RetrievalMetadata:
 
 
 @dataclass(frozen=True)
+class _PortfolioReferenceRequest:
+    portfolio_id: str
+    as_of_date: date
+
+
+@dataclass(frozen=True)
+class _BenchmarkDefinitionRequest:
+    benchmark_id: str
+    as_of_date: date
+
+
+@dataclass(frozen=True)
 class _IndexPriceSeriesRequest:
     index_id: str
     as_of_date: date
@@ -200,40 +212,8 @@ class StatefulInputService:
         as_of_date: date,
         calculation_id: UUID | None = None,
     ) -> tuple[int, dict[str, Any]]:
-        response = await self._core_service.get_portfolio_analytics_reference(
-            portfolio_id=portfolio_id,
-            as_of_date=as_of_date,
-        )
-        if calculation_id is not None:
-            request_payload = {
-                "portfolio_id": portfolio_id,
-                "as_of_date": str(as_of_date),
-            }
-            snapshot_id, request_fingerprint = self._build_snapshot_identity(
-                calculation_id=calculation_id,
-                upstream_endpoint="portfolio_reference",
-                source_identifier=portfolio_id,
-                request_payload=request_payload,
-            )
-            existing_snapshot_ids = self._existing_snapshot_ids(calculation_id)
-            if snapshot_id not in existing_snapshot_ids:
-                self._execution_store.record_upstream_snapshots(
-                    calculation_id=calculation_id,
-                    snapshots=[
-                        self._build_snapshot(
-                            calculation_id=calculation_id,
-                            upstream_endpoint="portfolio_reference",
-                            source_identifier=portfolio_id,
-                            as_of_date=as_of_date,
-                            request_payload=request_payload,
-                            response=response,
-                            snapshot_id=snapshot_id,
-                            request_fingerprint=request_fingerprint,
-                        )
-                    ],
-                )
-                existing_snapshot_ids.add(snapshot_id)
-        return response
+        request = _PortfolioReferenceRequest(portfolio_id=portfolio_id, as_of_date=as_of_date)
+        return await self._get_single_reference_payload(request=request, calculation_id=calculation_id)
 
     async def get_benchmark_return_series(
         self,
@@ -282,6 +262,63 @@ class StatefulInputService:
                 "page_count": len(chunks),
             },
         }
+
+    async def _get_single_reference_payload(
+        self,
+        *,
+        request: _PortfolioReferenceRequest | _BenchmarkDefinitionRequest,
+        calculation_id: UUID | None,
+    ) -> tuple[int, dict[str, Any]]:
+        response = await self._fetch_single_reference_payload(request)
+        self._record_single_reference_snapshot(
+            request=request,
+            calculation_id=calculation_id,
+            response=response,
+        )
+        return response
+
+    async def _fetch_single_reference_payload(
+        self, request: _PortfolioReferenceRequest | _BenchmarkDefinitionRequest
+    ) -> tuple[int, dict[str, Any]]:
+        if isinstance(request, _PortfolioReferenceRequest):
+            return await self._core_service.get_portfolio_analytics_reference(
+                portfolio_id=request.portfolio_id,
+                as_of_date=request.as_of_date,
+            )
+        return await self._core_service.get_benchmark_definition(
+            benchmark_id=request.benchmark_id,
+            as_of_date=request.as_of_date,
+        )
+
+    def _record_single_reference_snapshot(
+        self,
+        *,
+        request: _PortfolioReferenceRequest | _BenchmarkDefinitionRequest,
+        calculation_id: UUID | None,
+        response: tuple[int, dict[str, Any]],
+    ) -> None:
+        if isinstance(request, _PortfolioReferenceRequest):
+            upstream_endpoint = "portfolio_reference"
+            source_identifier = request.portfolio_id
+            request_payload = {
+                "portfolio_id": request.portfolio_id,
+                "as_of_date": str(request.as_of_date),
+            }
+        else:
+            upstream_endpoint = "benchmark_definition"
+            source_identifier = request.benchmark_id
+            request_payload = {
+                "benchmark_id": request.benchmark_id,
+                "as_of_date": str(request.as_of_date),
+            }
+        self._record_single_response_snapshot(
+            calculation_id=calculation_id,
+            upstream_endpoint=upstream_endpoint,
+            source_identifier=source_identifier,
+            as_of_date=request.as_of_date,
+            request_payload=request_payload,
+            response=response,
+        )
 
     def _record_benchmark_return_series_snapshots(
         self,
@@ -337,40 +374,8 @@ class StatefulInputService:
         as_of_date: date,
         calculation_id: UUID | None = None,
     ) -> tuple[int, dict[str, Any]]:
-        response = await self._core_service.get_benchmark_definition(
-            benchmark_id=benchmark_id,
-            as_of_date=as_of_date,
-        )
-        if calculation_id is not None:
-            request_payload = {
-                "benchmark_id": benchmark_id,
-                "as_of_date": str(as_of_date),
-            }
-            snapshot_id, request_fingerprint = self._build_snapshot_identity(
-                calculation_id=calculation_id,
-                upstream_endpoint="benchmark_definition",
-                source_identifier=benchmark_id,
-                request_payload=request_payload,
-            )
-            existing_snapshot_ids = self._existing_snapshot_ids(calculation_id)
-            if snapshot_id not in existing_snapshot_ids:
-                self._execution_store.record_upstream_snapshots(
-                    calculation_id=calculation_id,
-                    snapshots=[
-                        self._build_snapshot(
-                            calculation_id=calculation_id,
-                            upstream_endpoint="benchmark_definition",
-                            source_identifier=benchmark_id,
-                            as_of_date=as_of_date,
-                            request_payload=request_payload,
-                            response=response,
-                            snapshot_id=snapshot_id,
-                            request_fingerprint=request_fingerprint,
-                        )
-                    ],
-                )
-                existing_snapshot_ids.add(snapshot_id)
-        return response
+        request = _BenchmarkDefinitionRequest(benchmark_id=benchmark_id, as_of_date=as_of_date)
+        return await self._get_single_reference_payload(request=request, calculation_id=calculation_id)
 
     async def get_benchmark_composition_window(
         self,
@@ -1320,6 +1325,44 @@ class StatefulInputService:
             "retrieval_status": str(status_code),
             "paging_metadata": request_payload,
         }
+
+    def _record_single_response_snapshot(
+        self,
+        *,
+        calculation_id: UUID | None,
+        upstream_endpoint: str,
+        source_identifier: str,
+        as_of_date: date,
+        request_payload: dict[str, Any],
+        response: tuple[int, dict[str, Any]],
+    ) -> None:
+        if calculation_id is None:
+            return
+        snapshot_id, request_fingerprint = self._build_snapshot_identity(
+            calculation_id=calculation_id,
+            upstream_endpoint=upstream_endpoint,
+            source_identifier=source_identifier,
+            request_payload=request_payload,
+        )
+        existing_snapshot_ids = self._existing_snapshot_ids(calculation_id)
+        if snapshot_id in existing_snapshot_ids:
+            return
+        self._execution_store.record_upstream_snapshots(
+            calculation_id=calculation_id,
+            snapshots=[
+                self._build_snapshot(
+                    calculation_id=calculation_id,
+                    upstream_endpoint=upstream_endpoint,
+                    source_identifier=source_identifier,
+                    as_of_date=as_of_date,
+                    request_payload=request_payload,
+                    response=response,
+                    snapshot_id=snapshot_id,
+                    request_fingerprint=request_fingerprint,
+                )
+            ],
+        )
+        existing_snapshot_ids.add(snapshot_id)
 
     def _build_snapshot_identity(
         self,
