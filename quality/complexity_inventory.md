@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-19
-Branch: `lp-cr-1399-queue-metric-builders`
+Branch: `lp-cr-1400-source-quality-findings`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
@@ -32,7 +32,7 @@ must stay at `0`.
 | --- | ---: |
 | Max cyclomatic complexity | 5 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 54.80 |
+| Average maintainability index | 54.79 |
 
 ## Highest Cyclomatic Complexity
 
@@ -42,11 +42,11 @@ must stay at `0`.
 | 2 | `_record_external_source_signals` | method | `app/services/inspection/source_economics_collector.py:280` | 5 | A |
 | 3 | `_external_explicit_mixed_timing_sample` | function | `app/services/inspection/source_economics_collector.py:361` | 5 | A |
 | 4 | `_expected_external_total` | function | `app/services/inspection/source_economics_collector.py:423` | 5 | A |
-| 5 | `_append_stale_run_if_needed` | function | `app/services/inspection/source_quality.py:301` | 5 | A |
-| 6 | `_assess_return_concentration` | function | `app/services/inspection/source_quality.py:436` | 5 | A |
-| 7 | `_find_repeated_move_runs` | function | `app/services/inspection/source_quality.py:488` | 5 | A |
-| 8 | `_monthly_day_dominance` | function | `app/services/inspection/source_quality.py:589` | 5 | A |
-| 9 | `_find_missing_business_dates` | function | `app/services/inspection/source_quality.py:724` | 5 | A |
+| 5 | `_append_stale_run_if_needed` | function | `app/services/inspection/source_quality.py:335` | 5 | A |
+| 6 | `_assess_return_concentration` | function | `app/services/inspection/source_quality.py:470` | 5 | A |
+| 7 | `_find_repeated_move_runs` | function | `app/services/inspection/source_quality.py:529` | 5 | A |
+| 8 | `_monthly_day_dominance` | function | `app/services/inspection/source_quality.py:630` | 5 | A |
+| 9 | `_find_missing_business_dates` | function | `app/services/inspection/source_quality.py:750` | 5 | A |
 | 10 | `load_existing_twr_calculation_artifacts` | function | `app/services/inspection/subject_materialization.py:40` | 5 | A |
 | 11 | `extract_performance_request_from_payload` | function | `app/services/inspection/subject_materialization.py:98` | 5 | A |
 | 12 | `resolve_twr_inspection_subject` | function | `app/services/inspection/subject_resolution.py:20` | 5 | A |
@@ -83,7 +83,7 @@ must stay at `0`.
 | 13 | `app/services/inspection/reconciliation.py` | 13.93 | B |
 | 14 | `app/services/inspection/source_economics.py` | 14.52 | B |
 | 15 | `app/services/inspection/source_economics_collector.py` | 16.34 | B |
-| 16 | `app/services/inspection/source_quality.py` | 16.80 | B |
+| 16 | `app/services/inspection/source_quality.py` | 16.55 | B |
 | 17 | `app/services/twr_mode_service.py` | 17.66 | B |
 | 18 | `app/services/inspection/calculation_consistency.py` | 19.69 | A |
 | 19 | `app/models/returns_series.py` | 19.70 | A |
@@ -1107,6 +1107,8 @@ trimmed string timing, non-string preservation, and supported-timing checks.
 `_sample_raw_collection_value` also dropped out after scalar sample qualification was isolated into
 a focused helper with direct coverage for string, boolean, numeric, `None`, dict, and non-scalar
 fallback behavior.
+The source-quality economic plausibility finding extraction did not change the max cyclomatic
+complexity posture; the measured repository maximum remains `5`.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.

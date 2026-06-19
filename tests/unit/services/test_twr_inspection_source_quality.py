@@ -439,6 +439,45 @@ def test_run_source_quality_checks_flags_monthly_single_day_dominance():
     assert result.artifact_payload["monthly_day_dominance_count"] == 1
 
 
+def test_economic_plausibility_finding_builders_preserve_contract_metadata():
+    concentration_findings = source_quality._build_return_concentration_findings(
+        source_quality.ReturnConcentrationAssessment(
+            observation_count=20,
+            concentration_ratio=0.81,
+            top_moves=[source_quality.DailyMove(perf_date="2026-03-16", return_pct=8.0)],
+            triggered=True,
+        )
+    )
+    dominance_findings = source_quality._build_monthly_day_dominance_findings(
+        [
+            source_quality.MonthlyDayDominance(
+                month="2026-03",
+                observation_count=11,
+                dominance_ratio=0.8,
+                dominant_move=source_quality.DailyMove(perf_date="2026-03-16", return_pct=8.0),
+            )
+        ]
+    )
+
+    assert [(finding.severity, finding.category, finding.owner_repo) for finding in concentration_findings] == [
+        ("warning", "economic_plausibility", "lotus-performance")
+    ]
+    assert [(finding.severity, finding.category, finding.owner_repo) for finding in dominance_findings] == [
+        ("warning", "economic_plausibility", "lotus-performance")
+    ]
+    assert concentration_findings[0].code == "RETURN_CONCENTRATION_DETECTED"
+    assert concentration_findings[0].evidence["top_moves"] == [{"perf_date": "2026-03-16", "return_pct": 8.0}]
+    assert dominance_findings[0].code == "MONTHLY_RETURN_DAY_DOMINANCE_DETECTED"
+    assert dominance_findings[0].evidence["samples"] == [
+        {
+            "month": "2026-03",
+            "observation_count": 11,
+            "dominance_ratio": 0.8,
+            "dominant_move": {"perf_date": "2026-03-16", "return_pct": 8.0},
+        }
+    ]
+
+
 def test_run_source_quality_checks_requires_enough_monthly_observations_for_day_dominance():
     performance_request = PerformanceRequest(
         portfolio_id="NON_CANONICAL_PORTFOLIO",

@@ -89,6 +89,14 @@ class MonthlyDayDominance:
 
 
 @dataclass(frozen=True)
+class _EconomicPlausibilityFindingSpec:
+    code: str
+    summary: str
+    explanation: str
+    recommended_action: str
+
+
+@dataclass(frozen=True)
 class _SourceQualityEvidenceContext:
     valuation_point_count: int
     weekend_dates: list[str]
@@ -107,6 +115,32 @@ class _SourceQualityEvidenceContext:
     @property
     def stale_observation_count(self) -> int:
         return sum(run.observation_count for run in self.stale_runs)
+
+
+_RETURN_CONCENTRATION_FINDING = _EconomicPlausibilityFindingSpec(
+    code="RETURN_CONCENTRATION_DETECTED",
+    summary="Resolved source inputs concentrate most absolute daily movement in a small number of dates.",
+    explanation=(
+        f"The top {_RETURN_CONCENTRATION_TOP_N} absolute daily moves explain at least "
+        f"{_RETURN_CONCENTRATION_THRESHOLD:.0%} of total absolute movement across the inspected window."
+    ),
+    recommended_action=(
+        "Review the sampled dates for valuation, fee, external cash-flow, or upstream source-state events "
+        "before treating the TWR path as operationally robust."
+    ),
+)
+_MONTHLY_DAY_DOMINANCE_FINDING = _EconomicPlausibilityFindingSpec(
+    code="MONTHLY_RETURN_DAY_DOMINANCE_DETECTED",
+    summary="Resolved source inputs have a month where one day dominates absolute movement.",
+    explanation=(
+        f"For at least one month with {_MONTHLY_DAY_DOMINANCE_MIN_OBSERVATIONS} or more daily moves, "
+        f"one day explains at least {_MONTHLY_DAY_DOMINANCE_THRESHOLD:.0%} of total absolute movement."
+    ),
+    recommended_action=(
+        "Review the dominant day for valuation restatement, cash-flow timing, fee, or source-state events "
+        "before treating the monthly TWR path as operationally robust."
+    ),
+)
 
 
 def run_source_quality_checks(
@@ -454,35 +488,42 @@ def _assess_return_concentration(daily_moves: list[DailyMove]) -> ReturnConcentr
     )
 
 
-def _build_return_concentration_findings(
-    return_concentration: ReturnConcentrationAssessment,
+def _build_economic_plausibility_findings(
+    *,
+    should_emit: bool,
+    spec: _EconomicPlausibilityFindingSpec,
+    evidence: dict[str, object],
 ) -> list[TWRInspectionFinding]:
-    if not return_concentration.triggered:
+    if not should_emit:
         return []
     return [
         TWRInspectionFinding(
-            code="RETURN_CONCENTRATION_DETECTED",
+            code=spec.code,
             severity="warning",
             category="economic_plausibility",
             owner_repo="lotus-performance",
-            summary="Resolved source inputs concentrate most absolute daily movement in a small number of dates.",
-            explanation=(
-                f"The top {_RETURN_CONCENTRATION_TOP_N} absolute daily moves explain at least "
-                f"{_RETURN_CONCENTRATION_THRESHOLD:.0%} of total absolute movement across the inspected window."
-            ),
-            recommended_action=(
-                "Review the sampled dates for valuation, fee, external cash-flow, or upstream source-state events "
-                "before treating the TWR path as operationally robust."
-            ),
-            evidence={
-                "top_n": _RETURN_CONCENTRATION_TOP_N,
-                "threshold": _RETURN_CONCENTRATION_THRESHOLD,
-                "observation_count": return_concentration.observation_count,
-                "concentration_ratio": return_concentration.concentration_ratio,
-                "top_moves": _daily_moves_to_artifacts(return_concentration.top_moves),
-            },
+            summary=spec.summary,
+            explanation=spec.explanation,
+            recommended_action=spec.recommended_action,
+            evidence=evidence,
         )
     ]
+
+
+def _build_return_concentration_findings(
+    return_concentration: ReturnConcentrationAssessment,
+) -> list[TWRInspectionFinding]:
+    return _build_economic_plausibility_findings(
+        should_emit=return_concentration.triggered,
+        spec=_RETURN_CONCENTRATION_FINDING,
+        evidence={
+            "top_n": _RETURN_CONCENTRATION_TOP_N,
+            "threshold": _RETURN_CONCENTRATION_THRESHOLD,
+            "observation_count": return_concentration.observation_count,
+            "concentration_ratio": return_concentration.concentration_ratio,
+            "top_moves": _daily_moves_to_artifacts(return_concentration.top_moves),
+        },
+    )
 
 
 def _find_repeated_move_runs(daily_moves: list[DailyMove]) -> list[RepeatedMoveRun]:
@@ -611,31 +652,16 @@ def _monthly_day_dominance(
 def _build_monthly_day_dominance_findings(
     monthly_day_dominance: list[MonthlyDayDominance],
 ) -> list[TWRInspectionFinding]:
-    if not monthly_day_dominance:
-        return []
-    return [
-        TWRInspectionFinding(
-            code="MONTHLY_RETURN_DAY_DOMINANCE_DETECTED",
-            severity="warning",
-            category="economic_plausibility",
-            owner_repo="lotus-performance",
-            summary="Resolved source inputs have a month where one day dominates absolute movement.",
-            explanation=(
-                f"For at least one month with {_MONTHLY_DAY_DOMINANCE_MIN_OBSERVATIONS} or more daily moves, "
-                f"one day explains at least {_MONTHLY_DAY_DOMINANCE_THRESHOLD:.0%} of total absolute movement."
-            ),
-            recommended_action=(
-                "Review the dominant day for valuation restatement, cash-flow timing, fee, or source-state events "
-                "before treating the monthly TWR path as operationally robust."
-            ),
-            evidence={
-                "min_observations": _MONTHLY_DAY_DOMINANCE_MIN_OBSERVATIONS,
-                "threshold": _MONTHLY_DAY_DOMINANCE_THRESHOLD,
-                "dominance_count": len(monthly_day_dominance),
-                "samples": _monthly_day_dominance_to_artifacts(monthly_day_dominance),
-            },
-        )
-    ]
+    return _build_economic_plausibility_findings(
+        should_emit=bool(monthly_day_dominance),
+        spec=_MONTHLY_DAY_DOMINANCE_FINDING,
+        evidence={
+            "min_observations": _MONTHLY_DAY_DOMINANCE_MIN_OBSERVATIONS,
+            "threshold": _MONTHLY_DAY_DOMINANCE_THRESHOLD,
+            "dominance_count": len(monthly_day_dominance),
+            "samples": _monthly_day_dominance_to_artifacts(monthly_day_dominance),
+        },
+    )
 
 
 def _build_extreme_move_findings(
