@@ -47,6 +47,60 @@ def test_load_metric_source_logs_source_failures(caplog):
     assert "RuntimeError: source unavailable" in caplog.text
 
 
+def test_durable_queue_collector_describe_preserves_metric_catalog_order_and_labels():
+    metrics = list(DurableQueueCollector().describe())
+
+    metric_names = [metric.name for metric in metrics]
+    assert metric_names == [
+        "lotus_performance_durable_queue_store_availability",
+        "lotus_performance_compute_queue_jobs",
+        "lotus_performance_compute_queue_failure_pressure_jobs",
+        "lotus_performance_compute_queue_oldest_pending_age_seconds",
+        "lotus_performance_compute_queue_oldest_leased_age_seconds",
+        "lotus_performance_compute_queue_oldest_running_age_seconds",
+        "lotus_performance_compute_queue_degradation_breach",
+        "lotus_performance_lineage_queue_pending_payloads",
+        "lotus_performance_lineage_queue_failure_pressure_payloads",
+        "lotus_performance_lineage_queue_oldest_pending_age_seconds",
+        "lotus_performance_lineage_queue_degradation_breach",
+        "lotus_performance_lineage_storage_capacity_availability",
+        "lotus_performance_lineage_storage_capacity_bytes",
+        "lotus_performance_lineage_storage_free_ratio",
+        "lotus_performance_lineage_storage_pressure_threshold",
+        "lotus_performance_lineage_storage_pressure_breach",
+        "lotus_performance_recovery_drill_availability",
+        "lotus_performance_recovery_drill_action_availability",
+        "lotus_performance_recovery_drill_active_actions",
+        "lotus_performance_recovery_drill_oldest_active_action_age_seconds",
+        "lotus_performance_recovery_drill_latest_reclaimed_action_age_seconds",
+        "lotus_performance_recovery_drill_reclaimed_actions",
+        "lotus_performance_recovery_drill_latest_age_seconds",
+        "lotus_performance_recovery_drill_policy_threshold",
+        "lotus_performance_recovery_drill_degradation_breach",
+        "lotus_performance_runtime_retention_availability",
+        "lotus_performance_runtime_retention_action_availability",
+        "lotus_performance_runtime_retention_active_actions",
+        "lotus_performance_runtime_retention_oldest_active_action_age_seconds",
+        "lotus_performance_runtime_retention_latest_reclaimed_action_age_seconds",
+        "lotus_performance_runtime_retention_reclaimed_actions",
+        "lotus_performance_runtime_retention_latest_age_seconds",
+        "lotus_performance_runtime_retention_policy_threshold",
+        "lotus_performance_runtime_retention_degradation_breach",
+        "lotus_performance_runtime_retention_preview_availability",
+        "lotus_performance_runtime_retention_prunable_items",
+    ]
+    assert len(metric_names) == len(set(metric_names))
+
+    label_names_by_metric = {metric.name: metric._labelnames for metric in metrics}
+    assert label_names_by_metric["lotus_performance_durable_queue_store_availability"] == ("store",)
+    assert label_names_by_metric["lotus_performance_compute_queue_jobs"] == ("status",)
+    assert label_names_by_metric["lotus_performance_compute_queue_degradation_breach"] == ("reason",)
+    assert label_names_by_metric["lotus_performance_lineage_storage_capacity_bytes"] == ("segment",)
+    assert label_names_by_metric["lotus_performance_recovery_drill_policy_threshold"] == ("threshold",)
+    assert label_names_by_metric["lotus_performance_runtime_retention_prunable_items"] == ("category",)
+    assert label_names_by_metric["lotus_performance_runtime_retention_latest_age_seconds"] == ()
+
+
 def test_load_durable_queue_metric_sources_captures_availability_and_action_paths(monkeypatch):
     lease_calls: list[dict[str, object]] = []
     monkeypatch.setattr("app.services.queue_metrics_service.compute_job_store.get_queue_stats", lambda: "compute")

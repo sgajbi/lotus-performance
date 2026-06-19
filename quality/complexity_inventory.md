@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-19
-Branch: `lp-cr-1407-queue-metric-status-builders`
+Branch: `lp-cr-1408-queue-metric-describe-catalog`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
@@ -32,7 +32,7 @@ must stay at `0`.
 | --- | ---: |
 | Max cyclomatic complexity | 5 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.13 |
+| Average maintainability index | 55.14 |
 
 ## Highest Cyclomatic Complexity
 
@@ -1123,6 +1123,9 @@ remains `5`, high-complexity functions remain `0`, and average maintainability i
 LP-CR-1407 removed the final duplicate function-body hotspot by centralizing attribute-backed
 queue metric sample projection. The measured max cyclomatic complexity remains `5`,
 high-complexity functions remain `0`, and average maintainability index measured `55.13`.
+LP-CR-1408 isolated durable queue metric descriptor metadata from the Prometheus collector
+`describe` method. The measured max cyclomatic complexity remains `5`, high-complexity functions
+remain `0`, and average maintainability index measured `55.14`.
 
 Maintainability index values should be treated as directional hotspot evidence because generated
 schemas, persistence-style modules, and dense orchestration files can score poorly even when tests
