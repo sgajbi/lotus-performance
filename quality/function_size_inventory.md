@@ -1,7 +1,7 @@
 # Lotus Performance Function Size Inventory
 
 Report date: 2026-06-19
-Branch: `lp-cr-1381-duplicate-snapshot-sampling`
+Branch: `lp-cr-1382-source-economics-taxonomy-signal`
 Mode: report-only function-size inventory; this artifact introduces no new blocking CI gate.
 
 ## Purpose

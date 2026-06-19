@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-19
-Branch: `lp-cr-1381-duplicate-snapshot-sampling`
+Branch: `lp-cr-1382-source-economics-taxonomy-signal`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
@@ -38,31 +38,31 @@ must stay at `0`.
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `record_taxonomy_signal` | method | `app/services/inspection/source_economics.py:187` | 5 | A |
-| 2 | `add_amount` | method | `app/services/inspection/source_economics.py:212` | 5 | A |
-| 3 | `_collect_noncanonical_cashflow_types` | function | `app/services/inspection/source_economics.py:457` | 5 | A |
-| 4 | `_resolve_observation_valuation_date` | function | `app/services/inspection/source_economics.py:529` | 5 | A |
-| 5 | `_record_detailed_cash_flow` | function | `app/services/inspection/source_economics.py:627` | 5 | A |
-| 6 | `_sample_raw_collection_value` | function | `app/services/inspection/source_economics.py:680` | 5 | A |
-| 7 | `_record_fee_source_consistency_sample` | method | `app/services/inspection/source_economics_collector.py:208` | 5 | A |
-| 8 | `_record_external_source_signals` | method | `app/services/inspection/source_economics_collector.py:280` | 5 | A |
-| 9 | `_external_explicit_mixed_timing_sample` | function | `app/services/inspection/source_economics_collector.py:361` | 5 | A |
-| 10 | `_expected_external_total` | function | `app/services/inspection/source_economics_collector.py:423` | 5 | A |
-| 11 | `_append_stale_run_if_needed` | function | `app/services/inspection/source_quality.py:301` | 5 | A |
-| 12 | `_assess_return_concentration` | function | `app/services/inspection/source_quality.py:436` | 5 | A |
-| 13 | `_find_repeated_move_runs` | function | `app/services/inspection/source_quality.py:488` | 5 | A |
-| 14 | `_monthly_day_dominance` | function | `app/services/inspection/source_quality.py:589` | 5 | A |
-| 15 | `_find_missing_business_dates` | function | `app/services/inspection/source_quality.py:724` | 5 | A |
-| 16 | `load_existing_twr_calculation_artifacts` | function | `app/services/inspection/subject_materialization.py:40` | 5 | A |
-| 17 | `extract_performance_request_from_payload` | function | `app/services/inspection/subject_materialization.py:98` | 5 | A |
-| 18 | `resolve_twr_inspection_subject` | function | `app/services/inspection/subject_resolution.py:20` | 5 | A |
-| 19 | `_completed_support_brief_markdown` | function | `app/services/inspection/support_brief_workflow_pack.py:78` | 5 | A |
-| 20 | `_map_workflow_pack_run_finding` | function | `app/services/inspection/support_brief_workflow_pack.py:192` | 5 | A |
-| 21 | `_build_twr_inspection_response` | function | `app/services/inspection/twr_inspection_service.py:305` | 5 | A |
-| 22 | `_synthesize_verdict` | function | `app/services/inspection/twr_inspection_service.py:590` | 5 | A |
-| 23 | `_scope_request_to_response_master_window` | function | `app/services/inspection/twr_inspection_service.py:706` | 5 | A |
-| 24 | `get_record` | method | `app/services/lineage_metadata_store.py:249` | 5 | A |
-| 25 | `lease_pending_payloads` | method | `app/services/lineage_metadata_store.py:360` | 5 | A |
+| 1 | `add_amount` | method | `app/services/inspection/source_economics.py:211` | 5 | A |
+| 2 | `_collect_noncanonical_cashflow_types` | function | `app/services/inspection/source_economics.py:479` | 5 | A |
+| 3 | `_resolve_observation_valuation_date` | function | `app/services/inspection/source_economics.py:551` | 5 | A |
+| 4 | `_record_detailed_cash_flow` | function | `app/services/inspection/source_economics.py:649` | 5 | A |
+| 5 | `_sample_raw_collection_value` | function | `app/services/inspection/source_economics.py:702` | 5 | A |
+| 6 | `_record_fee_source_consistency_sample` | method | `app/services/inspection/source_economics_collector.py:208` | 5 | A |
+| 7 | `_record_external_source_signals` | method | `app/services/inspection/source_economics_collector.py:280` | 5 | A |
+| 8 | `_external_explicit_mixed_timing_sample` | function | `app/services/inspection/source_economics_collector.py:361` | 5 | A |
+| 9 | `_expected_external_total` | function | `app/services/inspection/source_economics_collector.py:423` | 5 | A |
+| 10 | `_append_stale_run_if_needed` | function | `app/services/inspection/source_quality.py:301` | 5 | A |
+| 11 | `_assess_return_concentration` | function | `app/services/inspection/source_quality.py:436` | 5 | A |
+| 12 | `_find_repeated_move_runs` | function | `app/services/inspection/source_quality.py:488` | 5 | A |
+| 13 | `_monthly_day_dominance` | function | `app/services/inspection/source_quality.py:589` | 5 | A |
+| 14 | `_find_missing_business_dates` | function | `app/services/inspection/source_quality.py:724` | 5 | A |
+| 15 | `load_existing_twr_calculation_artifacts` | function | `app/services/inspection/subject_materialization.py:40` | 5 | A |
+| 16 | `extract_performance_request_from_payload` | function | `app/services/inspection/subject_materialization.py:98` | 5 | A |
+| 17 | `resolve_twr_inspection_subject` | function | `app/services/inspection/subject_resolution.py:20` | 5 | A |
+| 18 | `_completed_support_brief_markdown` | function | `app/services/inspection/support_brief_workflow_pack.py:78` | 5 | A |
+| 19 | `_map_workflow_pack_run_finding` | function | `app/services/inspection/support_brief_workflow_pack.py:192` | 5 | A |
+| 20 | `_build_twr_inspection_response` | function | `app/services/inspection/twr_inspection_service.py:305` | 5 | A |
+| 21 | `_synthesize_verdict` | function | `app/services/inspection/twr_inspection_service.py:590` | 5 | A |
+| 22 | `_scope_request_to_response_master_window` | function | `app/services/inspection/twr_inspection_service.py:706` | 5 | A |
+| 23 | `get_record` | method | `app/services/lineage_metadata_store.py:249` | 5 | A |
+| 24 | `lease_pending_payloads` | method | `app/services/lineage_metadata_store.py:360` | 5 | A |
+| 25 | `list_recent_recoveries` | method | `app/services/lineage_metadata_store.py:435` | 5 | A |
 
 ## Lowest Maintainability Index
 
@@ -81,7 +81,7 @@ must stay at `0`.
 | 11 | `app/services/operator_action_lease_service.py` | 13.14 | B |
 | 12 | `engine/attribution.py` | 13.46 | B |
 | 13 | `app/services/inspection/reconciliation.py` | 14.34 | B |
-| 14 | `app/services/inspection/source_economics.py` | 16.03 | B |
+| 14 | `app/services/inspection/source_economics.py` | 15.64 | B |
 | 15 | `app/services/inspection/source_economics_collector.py` | 16.34 | B |
 | 16 | `app/services/inspection/source_quality.py` | 16.80 | B |
 | 17 | `app/services/twr_mode_service.py` | 17.66 | B |
@@ -1084,6 +1084,9 @@ payload projection were split into focused helpers with direct policy coverage.
 `_collect_duplicate_snapshot_samples` also dropped out after duplicate-count state tracking and
 sample payload projection were split from the collector, with direct coverage for invalid-row
 suppression and duplicate-count updates beyond two rows.
+`record_taxonomy_signal` also dropped out after missing/canonical taxonomy predicates and taxonomy
+sample-row projection were split from accumulator mutation, with direct coverage for missing,
+canonical, governed-alias, and unsupported cash-flow type classifications.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.
