@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable, Collection
+from collections.abc import Callable, Collection, Iterator
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 
@@ -18,6 +18,7 @@ _TRANSITION_ACTIVITY_FIELD_TOKENS = ("cashflow", "cash_flow", "trade", "quantity
 _INSPECTOR_CONSUMER_SYSTEM = "lotus-performance-inspector"
 _RECONCILIATION_SAMPLE_LIMIT = 25
 _PositionRowSelection = dict[tuple[str, str], tuple[int, dict[str, object]]]
+_PositionContinuityPair = tuple[str, dict[str, object], dict[str, object]]
 
 
 def _decimal_to_artifact(value: Decimal) -> str:
@@ -558,24 +559,27 @@ def _select_position_begin_value_field(row: dict[str, object]) -> tuple[str, obj
 
 
 def _collect_position_continuity_gap_samples(position_rows: list[dict[str, object]]) -> list[dict[str, object]]:
-    rows_by_position = _position_rows_by_position_id(position_rows)
     samples: list[dict[str, object]] = []
+    for position_id, previous_row, current_row in _iter_position_continuity_pairs(position_rows):
+        sample = _build_position_continuity_gap_sample(
+            position_id=position_id,
+            previous_row=previous_row,
+            current_row=current_row,
+        )
+        if sample is not None:
+            samples.append(sample)
+    return samples
+
+
+def _iter_position_continuity_pairs(position_rows: list[dict[str, object]]) -> Iterator[_PositionContinuityPair]:
+    rows_by_position = _position_rows_by_position_id(position_rows)
     for position_id, rows in rows_by_position.items():
         sorted_rows = sorted(rows, key=lambda row: str(row.get("valuation_date")))
         previous_row: dict[str, object] | None = None
         for row in sorted_rows:
-            if previous_row is None:
-                previous_row = row
-                continue
-            sample = _build_position_continuity_gap_sample(
-                position_id=position_id,
-                previous_row=previous_row,
-                current_row=row,
-            )
-            if sample is not None:
-                samples.append(sample)
+            if previous_row is not None:
+                yield position_id, previous_row, row
             previous_row = row
-    return samples
 
 
 def _position_rows_by_position_id(position_rows: list[dict[str, object]]) -> dict[str, list[dict[str, object]]]:
