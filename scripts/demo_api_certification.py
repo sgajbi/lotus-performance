@@ -17,6 +17,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from app.core.config import get_settings  # noqa: E402
 from app.services.composite_metadata_store import composite_metadata_store  # noqa: E402
 from app.services.durable_metadata_bootstrap import bootstrap_durable_metadata_stores  # noqa: E402
 from main import app  # noqa: E402
@@ -60,6 +61,11 @@ def _cumulative_return(values: list[str]) -> Decimal:
 
 def _cumulative_active_difference(portfolio_returns: list[str], benchmark_returns: list[str]) -> str:
     return f"{_cumulative_return(portfolio_returns) - _cumulative_return(benchmark_returns):.12f}"
+
+
+def _prepare_demo_runtime() -> None:
+    Path(get_settings().LINEAGE_STORAGE_PATH).mkdir(parents=True, exist_ok=True)
+    bootstrap_durable_metadata_stores()
 
 
 def _certify_capability_registry(client: TestClient) -> CertificationCheck:
@@ -462,6 +468,7 @@ def _certify_composite_twr(client: TestClient) -> CertificationCheck:
 
 
 def certify_demo_apis() -> dict[str, Any]:
+    _prepare_demo_runtime()
     with TestClient(app) as client:
         checks = [
             _certify_capability_registry(client),
