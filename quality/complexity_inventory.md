@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-20
-Branch: `lp-cr-1417-stateful-attribution-source-retrieval`
+Branch: `lp-cr-1418-attribution-currency-projection`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose

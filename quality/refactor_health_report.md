@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Health Report
 
 Report date: 2026-06-20
-Branch: `lp-cr-1417-stateful-attribution-source-retrieval`
+Branch: `lp-cr-1418-attribution-currency-projection`
 Baseline source: `quality/baseline_report.md`
 Report mode: phase-zero scorecard; complexity, architecture, duplicate-code, router-thinness,
 observability-readiness, and Python security posture are enforced separately by CI.
@@ -28,7 +28,7 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | Python files | 480 | 558 | measured | `rg --files -g '*.py'` |
 | Python package markers | 18 | 18 | measured | recursive `__init__.py` count |
-| Python LOC | 104,454 | 160,494 | measured | `rg --files -g '*.py'` plus PowerShell line count on this branch |
+| Python LOC | 104,454 | 160,749 | measured | `rg --files -g '*.py'` plus PowerShell line count on this branch |
 | Largest Python file LOC | 2,399 | 2,399 | measured | largest-file inventory in baseline report |
 | Largest production file LOC | 1,156 | 1,156 | measured | `app/services/lineage_metadata_store.py` |
 | Duplicate code hotspots | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `make quality-duplicate-code-gate` with `--min-lines 12 --max-groups 0`; duplicated LOC reduced from `24` to `0` in LP-CR-1407 |
@@ -42,7 +42,7 @@ link the commit, command, or CI artifact that proves the change.
 | Max cyclomatic complexity | unknown | 5 | enforced | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py`; `make quality-complexity-gate` |
 | High-complexity functions | unknown | 0 | enforced | rank D-F functions in `quality/complexity_inventory.md`; `make quality-complexity-gate` |
 | Average maintainability index | unknown | 55.13 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
-| Largest functions by LOC | unknown | 98 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; LP-CR-1417 moved `retrieve_stateful_attribution_source_input(...)` from `98` to `71` lines by isolating stateful attribution source retrieval helpers |
+| Largest functions by LOC | unknown | 97 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; LP-CR-1418 moved `aggregate_attribution_results(...)` from `98` to `50` lines by isolating currency-attribution projection; `build_runtime_retention_history_snapshot(...)` is now the largest production function at `97` lines |
 
 ## Architecture
 

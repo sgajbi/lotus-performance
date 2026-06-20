@@ -14,6 +14,7 @@ from engine.attribution import (
     _build_attribution_aggregation_base,
     _build_attribution_levels,
     _build_base_weight_series,
+    _build_currency_attribution_projection,
     _build_group_key_dict,
     _build_instrument_attribution_panel,
     _calculate_currency_attribution_effects,
@@ -1089,6 +1090,7 @@ def test_currency_attribution_totals_are_invariant_to_extra_grouping_dimensions(
     )
 
     effects_df, _ = run_attribution_calculations(request)
+    projection = _build_currency_attribution_projection(effects_df)
     result, lineage = aggregate_attribution_results(effects_df, request)
 
     totals = result.currency_attribution_totals
@@ -1119,6 +1121,11 @@ def test_currency_attribution_totals_are_invariant_to_extra_grouping_dimensions(
     assert totals.currency_allocation == pytest.approx(expected_currency_allocation * 100)
     assert totals.currency_selection == pytest.approx(expected_currency_selection * 100)
     assert totals.total_effect == pytest.approx(expected_total_effect * 100)
+    assert projection.results[0].currency == "EUR"
+    assert projection.results[0].weight_portfolio_avg == pytest.approx(50.0)
+    assert projection.results[0].weight_benchmark_avg == pytest.approx(50.0)
+    assert projection.totals == totals
+    assert projection.effects.index.names == ["date", "currency"]
 
 
 def test_run_attribution_calculations_invalid_mode_raises_value_error():
