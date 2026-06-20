@@ -1,4 +1,8 @@
-from scripts.python_observability_readiness_inventory import collect_readiness_surfaces, render_markdown
+from scripts.python_observability_readiness_inventory import (
+    collect_readiness_surfaces,
+    observability_threshold_violations,
+    render_markdown,
+)
 
 
 def test_collect_readiness_surfaces_reports_endpoint_and_marker_coverage() -> None:
@@ -31,3 +35,23 @@ def test_render_markdown_summarizes_missing_markers() -> None:
     assert "| Missing implementation markers | 2 |" in output
     assert "`/health/live`" in output
     assert "`/health/ready`" in output
+
+
+def test_observability_threshold_violations_allows_clean_inventory() -> None:
+    surfaces = collect_readiness_surfaces(
+        schema={"paths": {"/health": {}, "/health/live": {}, "/health/ready": {}, "/metrics": {}}},
+        test_paths=("tests/unit/test_observability.py",),
+    )
+
+    assert observability_threshold_violations(surfaces, max_missing=0) == []
+
+
+def test_observability_threshold_violations_enforces_missing_marker_gate() -> None:
+    surfaces = collect_readiness_surfaces(
+        schema={"paths": {"/health": {}, "/metrics": {}}},
+        test_paths=("tests/unit/test_observability.py",),
+    )
+
+    assert observability_threshold_violations(surfaces, max_missing=1) == [
+        "Observability readiness gate failed: 2 missing marker(s) exceed configured maximum 1."
+    ]

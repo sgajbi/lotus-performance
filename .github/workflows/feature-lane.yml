@@ -53,6 +53,8 @@ jobs:
         run: make quality-router-thinness-gate
       - name: Quality Duplicate Code Gate
         run: make quality-duplicate-code-gate
+      - name: Quality Observability Readiness Gate
+        run: make quality-observability-readiness-gate
       - name: No-Alias Contract Guard
         run: make no-alias-gate
       - name: Mypy Typecheck

@@ -11,9 +11,14 @@
 ## Local command mapping
 
 - `make check`
-  fast engineering proof: lint, no-alias gate, typecheck, OpenAPI gate, API vocabulary gate, unit tests
+  fast engineering proof: lint, static quality gates, no-alias gate, typecheck, OpenAPI gate, API
+  vocabulary gate, unit tests
+- `make quality-observability-readiness-gate`
+  static quality proof that health/metrics endpoint, correlation propagation, structured logging,
+  metrics, and readiness implementation markers have no missing entries
 - `make ci`
-  PR-grade proof: migration smoke, security audit, unit, integration, e2e, coverage, Docker build
+  PR-grade proof: static quality gates, migration smoke, security audit, unit, integration, e2e,
+  coverage, Docker build
 - `make ci-local`
   local Docker-parity coverage run
 - `make test-all`
@@ -24,6 +29,7 @@
 - downstream product surfaces trust the emitted figures
 - contract drift breaks gateway and operator consumers
 - runtime-control surfaces are part of supportability, not optional extras
+- observability-readiness drift can make an API appear healthy while losing operational evidence
 - public docs are regression-tested and should stay aligned to shipped behavior
 
 ## Documentation contract proof

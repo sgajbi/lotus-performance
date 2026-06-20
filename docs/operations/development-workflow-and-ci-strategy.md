@@ -12,3 +12,17 @@ Canonical standard:
 4. Run heavier checks in scheduled/manual/mainline tiers.
 5. Merge only with green required checks.
 6. Always finish with `local = remote = main`.
+
+## Repository-specific static quality gates
+
+`make check`, `make ci`, and the GitHub static-quality lanes enforce the repo-native quality gates.
+In addition to lint, typecheck, OpenAPI, API vocabulary, no-alias, duplicate-code, architecture, and
+router-thinness checks, `lotus-performance` now enforces:
+
+```bash
+make quality-observability-readiness-gate
+```
+
+That gate fails when health/metrics endpoint, correlation propagation, structured logging, metrics,
+or health/readiness implementation markers have any missing entries. Broader observability maturity
+scoring remains report-only in `quality/observability_readiness_inventory.md`.
