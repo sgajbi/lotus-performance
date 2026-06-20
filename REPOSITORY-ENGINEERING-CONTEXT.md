@@ -122,7 +122,9 @@ Use these commands as the primary local contract:
    `make run`
 7. repo-native domain-product declaration validation
    `make domain-product-validate`
-8. repo-native observability-readiness marker gate
+8. demo API certification
+   `make demo-api-certification`
+9. repo-native observability-readiness marker gate
    `make quality-observability-readiness-gate`
 
 ## Validation And CI Expectations
@@ -146,7 +148,13 @@ Important validation expectations:
    findings by file path and source expression, not line number alone. When refactoring existing
    reviewed monetary-float conversions, preserve the reviewed expression or remediate the float use
    rather than refreshing `docs/standards/monetary-float-allowlist.json` as incidental churn.
-8. `make quality-observability-readiness-gate` blocks missing health/metrics endpoint,
+8. `make demo-api-certification` is the single local demo-readiness API sweep. It calls the
+   supported demo-critical calculation and integration APIs with deterministic synthetic data,
+   seeds composite persisted-fact data repeatably, validates expected figures and capability
+   publication, and writes reviewed evidence under `output/demo-api-certification/`. The Quality
+   Baseline Snapshot workflow runs it as report-only CI evidence and uploads the JSON artifact; it
+   is not yet a blocking readiness gate.
+9. `make quality-observability-readiness-gate` blocks missing health/metrics endpoint,
    correlation propagation, structured logging, metrics, and health/readiness implementation
    markers through `scripts/python_observability_readiness_inventory.py --max-missing 0`. Broader
    observability maturity scoring remains measured in `quality/observability_readiness_inventory.md`

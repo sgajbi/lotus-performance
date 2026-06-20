@@ -159,6 +159,22 @@
     },
     {
       "contract_notes": [
+        "calculates composite TWR only from persisted member-return facts",
+        "does not accept ad hoc member returns or hidden request-time portfolio TWR fan-out",
+        "does not advertise composite contribution, attribution, MWR, benchmark active return, or special composite structures"
+      ],
+      "enabled": true,
+      "key": "composite_twr",
+      "options": [],
+      "path": "/performance/composites/twr",
+      "stateful_restrictions": [],
+      "supported_input_modes": [
+        "persisted_member_facts"
+      ],
+      "supports_async": false
+    },
+    {
+      "contract_notes": [
         "emits bounded lotus-performance-owned active-return health posture for lotus-manage DPM supportability",
         "does not create mandate actions, rebalance waves, client communications, orders, OMS, or execution instructions"
       ],
@@ -258,6 +274,12 @@
       "owner_service": "lotus-performance"
     },
     {
+      "description": "Persisted-fact composite TWR analytics API.",
+      "enabled": true,
+      "key": "performance.analytics.composite_twr",
+      "owner_service": "lotus-performance"
+    },
+    {
       "description": "Durable TWR supportability inspection and artifact-backed triage API.",
       "enabled": true,
       "key": "performance.support.twr_inspection",
@@ -322,6 +344,13 @@
         "performance.analytics.mwr"
       ],
       "workflow_key": "performance_workspace"
+    },
+    {
+      "enabled": true,
+      "required_features": [
+        "performance.analytics.composite_twr"
+      ],
+      "workflow_key": "composite_performance_publication"
     },
     {
       "enabled": true,

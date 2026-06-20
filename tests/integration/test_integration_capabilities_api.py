@@ -105,6 +105,11 @@ def test_integration_capabilities_default_contract():
     ]
     assert surfaces["attribution"]["poll_path_template"] == "/performance/executions/{calculation_id}"
     assert surfaces["attribution"]["result_path_template"] == "/performance/attribution/results/{calculation_id}"
+    assert surfaces["composite_twr"]["path"] == "/performance/composites/twr"
+    assert surfaces["composite_twr"]["supported_input_modes"] == ["persisted_member_facts"]
+    assert surfaces["composite_twr"]["supports_async"] is False
+    assert "persisted member-return facts" in " ".join(surfaces["composite_twr"]["contract_notes"])
+    assert "hidden request-time portfolio TWR fan-out" in " ".join(surfaces["composite_twr"]["contract_notes"])
     assert surfaces["returns_series"]["poll_path_template"] == "/performance/executions/{calculation_id}"
     assert surfaces["returns_series"]["result_path_template"] == "/integration/returns/series/results/{calculation_id}"
     assert surfaces["returns_series"]["path"] == "/integration/returns/series"
@@ -129,6 +134,7 @@ def test_integration_capabilities_default_contract():
     )
     assert "performance.integration.benchmark_exposure_context" in features
     assert "performance.analytics.workspace_summary" in features
+    assert "performance.analytics.composite_twr" in features
     assert "performance.support.twr_inspection" in features
     assert features["performance.observability.calculation_supportability"]["enabled"] is True
     assert (
@@ -266,11 +272,13 @@ def test_integration_capabilities_advertises_every_supported_surface():
         "workspace_summary",
         "contribution",
         "attribution",
+        "composite_twr",
         "mandate_performance_health_context",
         "returns_series",
         "benchmark_exposure_context",
     }
     assert surfaces["mwr"]["supports_async"] is False
+    assert surfaces["composite_twr"]["supports_async"] is False
     assert surfaces["mandate_performance_health_context"]["supports_async"] is False
     for key in {
         "twr",

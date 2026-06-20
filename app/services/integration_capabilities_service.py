@@ -22,6 +22,7 @@ class IntegrationCapabilityFlags:
     attribution_enabled: bool
     benchmark_enabled: bool
     workspace_summary_enabled: bool
+    composite_twr_enabled: bool
     stateful_mode_enabled: bool
     stateless_mode_enabled: bool
     policy_version: str
@@ -63,6 +64,7 @@ def read_capability_flags() -> IntegrationCapabilityFlags:
         attribution_enabled=_env_bool("PA_CAP_ATTRIBUTION_ENABLED", True),
         benchmark_enabled=_env_bool("PA_CAP_BENCHMARK_ENABLED", True),
         workspace_summary_enabled=_env_bool("PA_CAP_WORKSPACE_SUMMARY_ENABLED", True),
+        composite_twr_enabled=_env_bool("PA_CAP_COMPOSITE_TWR_ENABLED", True),
         stateful_mode_enabled=_env_bool("PLATFORM_INPUT_MODE_STATEFUL_ENABLED", True),
         stateless_mode_enabled=_env_bool("PLATFORM_INPUT_MODE_STATELESS_ENABLED", True),
         policy_version=_env_nonblank("PA_POLICY_VERSION", "tenant-default-v1"),
@@ -136,6 +138,12 @@ def _build_feature_capabilities(flags: IntegrationCapabilityFlags) -> list[dict[
             "description": "Interaction-efficient workspace summary analytics API.",
         },
         {
+            "key": "performance.analytics.composite_twr",
+            "enabled": flags.composite_twr_enabled,
+            "owner_service": "lotus-performance",
+            "description": "Persisted-fact composite TWR analytics API.",
+        },
+        {
             "key": "performance.support.twr_inspection",
             "enabled": flags.twr_enabled,
             "owner_service": "lotus-performance",
@@ -192,6 +200,11 @@ def _build_workflow_capabilities(flags: IntegrationCapabilityFlags) -> list[dict
                 "performance.analytics.twr",
                 "performance.analytics.mwr",
             ],
+        },
+        {
+            "workflow_key": "composite_performance_publication",
+            "enabled": flags.composite_twr_enabled,
+            "required_features": ["performance.analytics.composite_twr"],
         },
         {
             "workflow_key": "performance_support_triage",
@@ -304,6 +317,16 @@ def _mandate_performance_health_contract_notes(flags: IntegrationCapabilityFlags
     return [
         "emits bounded lotus-performance-owned active-return health posture for lotus-manage DPM supportability.",
         "does not create mandate actions, rebalance waves, client communications, orders, OMS, or execution instructions",
+    ]
+
+
+def _composite_twr_contract_notes(flags: IntegrationCapabilityFlags) -> list[str]:
+    if not flags.composite_twr_enabled:
+        return []
+    return [
+        "calculates composite TWR only from persisted member-return facts",
+        "does not accept ad hoc member returns or hidden request-time portfolio TWR fan-out",
+        "does not advertise composite contribution, attribution, MWR, benchmark active return, or special composite structures",
     ]
 
 
@@ -424,6 +447,18 @@ def _build_analytics_surfaces(
             result_path_template="/performance/attribution/results/{calculation_id}",
             stateful_restrictions=_attribution_stateful_restrictions(flags),
         ),
+        {
+            "key": "composite_twr",
+            "path": "/performance/composites/twr",
+            "enabled": flags.composite_twr_enabled,
+            "supported_input_modes": ["persisted_member_facts"],
+            "supports_async": False,
+            "poll_path_template": None,
+            "result_path_template": None,
+            "stateful_restrictions": [],
+            "contract_notes": _composite_twr_contract_notes(flags),
+            "options": [],
+        },
         {
             "key": "mandate_performance_health_context",
             "path": "/performance/mandate-health-context",

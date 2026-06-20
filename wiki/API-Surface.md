@@ -97,6 +97,11 @@ operations, audit, and client-evidence preparation. See [Composite Performance](
 and [docs/technical/composite-performance-documentation-map.md](../docs/technical/composite-performance-documentation-map.md)
 for the implementation-backed boundary.
 
+`GET /integration/capabilities` advertises `composite_twr` as a separate persisted-member-facts
+surface. It does not change the portfolio-level `twr` surface and does not advertise composite
+contribution, composite attribution, composite MWR, benchmark active return, or special composite
+structures.
+
 ## Operator and platform surfaces
 
 Runtime and supportability routes:
@@ -128,6 +133,8 @@ Runtime and supportability routes:
   [docs/guides/api_reference.md](../docs/guides/api_reference.md)
 - full examples and config inventory:
   [docs/guides/complete_service_reference.md](../docs/guides/complete_service_reference.md)
+- demo API certification:
+  `make demo-api-certification`
 - Lotus MWR production controls and review findings:
   [docs/guides/mwr-lotus-production-controls.md](../docs/guides/mwr-lotus-production-controls.md),
   [docs/technical/mwr-industry-review-findings.md](../docs/technical/mwr-industry-review-findings.md),

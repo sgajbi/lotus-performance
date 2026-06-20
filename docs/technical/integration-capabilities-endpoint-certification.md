@@ -70,6 +70,7 @@ Certified surface keys:
 - `workspace_summary`
 - `contribution`
 - `attribution`
+- `composite_twr`
 - `returns_series`
 - `benchmark_exposure_context`
 
@@ -90,6 +91,7 @@ Environment controls:
 | `PA_CAP_ATTRIBUTION_ENABLED` | Enables attribution posture. |
 | `PA_CAP_BENCHMARK_ENABLED` | Enables benchmark and benchmark exposure context posture. |
 | `PA_CAP_WORKSPACE_SUMMARY_ENABLED` | Enables workspace-summary posture. |
+| `PA_CAP_COMPOSITE_TWR_ENABLED` | Enables persisted-fact composite TWR posture. |
 | `PLATFORM_INPUT_MODE_STATEFUL_ENABLED` | Adds or removes stateful mode from applicable surfaces. |
 | `PLATFORM_INPUT_MODE_STATELESS_ENABLED` | Adds or removes stateless mode from applicable surfaces. |
 | `PA_POLICY_VERSION` | Sets the response `policy_version`. |
@@ -99,6 +101,11 @@ not selected through the normal analytics input-mode envelope.
 
 `benchmark_exposure_context` advertises only `stateful` because it is a performance-owned integration
 view over lotus-core benchmark lineage.
+
+`composite_twr` advertises `persisted_member_facts` because it calculates only from materialized
+composite member-return facts. It does not change the portfolio-level `twr` surface and does not
+advertise ad hoc member uploads, hidden request-time member TWR fan-out, composite contribution,
+composite attribution, composite MWR, benchmark active return, or special composite structures.
 
 ## Upstream Integration
 

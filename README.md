@@ -165,6 +165,8 @@ source-economics or reconciliation regressions.
   `make migration-smoke`
 - retention smoke
   `make runtime-retention-smoke`
+- demo API certification
+  `make demo-api-certification`
 - observability readiness marker gate
   `make quality-observability-readiness-gate`
 - Docker image proof
@@ -187,6 +189,14 @@ The local mapping is:
   governance, migration smoke, security audit, unit, integration, e2e, coverage, and Docker build
 - `make ci-local`
   local Docker-parity proof with full coverage and dependency checks
+- `make demo-api-certification`
+  one request-level demo certification sweep covering health/readiness, integration capabilities,
+  TWR, MWR, benchmark, returns-series, contribution, attribution, workspace summary, mandate health
+  context, and composite persisted-fact TWR with deterministic synthetic seed data and expected
+  calculation assertions. It writes machine-readable evidence to
+  `output/demo-api-certification/latest.json`. The Quality Baseline Snapshot workflow also runs
+  this command as report-only CI evidence and uploads the JSON artifact; it is not yet a blocking
+  readiness gate.
 
 When a slice changes `README.md` or public guides, also run:
 

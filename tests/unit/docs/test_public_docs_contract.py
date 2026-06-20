@@ -740,6 +740,7 @@ def test_api_reference_documents_endpoint_level_capabilities_contract():
         "workspace_summary",
         "contribution",
         "attribution",
+        "composite_twr",
         "mandate_performance_health_context",
         "returns_series",
         "benchmark_exposure_context",
