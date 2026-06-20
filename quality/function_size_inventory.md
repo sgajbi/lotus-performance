@@ -1,7 +1,7 @@
 # Lotus Performance Function Size Inventory
 
 Report date: 2026-06-20
-Branch: `lp-cr-1413-demo-api-certification`
+Branch: `lp-cr-1416-integration-capability-surface-helpers`
 Mode: report-only function-size inventory; this artifact introduces no new blocking CI gate.
 
 ## Purpose
@@ -20,11 +20,11 @@ python scripts/python_function_size_inventory.py --limit 25
 
 | Rank | Function | File | Lines |
 | ---: | --- | --- | ---: |
-| 1 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:381` | 113 |
-| 2 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:71` | 98 |
-| 3 | `aggregate_attribution_results` | `engine/attribution.py:704` | 98 |
-| 4 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:91` | 97 |
-| 5 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:31` | 94 |
+| 1 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:71` | 98 |
+| 2 | `aggregate_attribution_results` | `engine/attribution.py:704` | 98 |
+| 3 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:91` | 97 |
+| 4 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:31` | 94 |
+| 5 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:405` | 93 |
 | 6 | `build_stateful_benchmark_input` | `app/services/stateful_benchmark_input_service.py:57` | 93 |
 | 7 | `calculate_twr_response` | `app/services/twr_service.py:1159` | 93 |
 | 8 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:283` | 92 |
@@ -64,6 +64,10 @@ LP-CR-1412 isolated contribution period supportability evidence assembly into a 
 `_build_flat_period_contribution_result` moved from `102` to `92` lines,
 `_build_hierarchy_period_contribution_result` moved from `102` to `90` lines, and the largest
 production function moved to `_build_analytics_surfaces` at `101` lines.
+LP-CR-1416 isolated synchronous integration-capability surface projection into a focused helper.
+`_build_analytics_surfaces` moved from `113` to `93` lines and is no longer the largest production
+function; the largest production functions are now `retrieve_stateful_attribution_source_input`
+and `aggregate_attribution_results` at `98` lines each.
 Attribution orchestration moved from `120` to `104` lines after execution-window resolution and
 master request projection were isolated.
 Attribution orchestration dropped out of the top-20 table after failure recording and HTTP
