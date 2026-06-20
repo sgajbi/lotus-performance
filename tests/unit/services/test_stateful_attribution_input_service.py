@@ -43,6 +43,8 @@ from app.services.stateful_attribution_input_service import (
     _record_instrument_position_row,
     _reporting_daily_point_market_values,
     _resolve_stateful_attribution_benchmark_id,
+    _retrieve_stateful_attribution_index_records,
+    _retrieve_stateful_attribution_position_source,
     _split_position_cash_flows,
     _stateful_attribution_benchmark_id_from_assignment_payload,
     _stateful_attribution_fx_required,
@@ -70,10 +72,12 @@ class _AttributionInputServiceStub:
         self.position_response = (200, {"rows": []})
         self.assignment_response = (200, {"benchmark_id": "BMK_1"})
         self.index_response = (200, {"records": []})
+        self.position_calls: list[dict[str, object]] = []
         self.assignment_calls: list[dict[str, object]] = []
         self.index_catalog_calls: list[dict[str, object]] = []
 
     async def get_position_timeseries(self, **kwargs):
+        self.position_calls.append(kwargs)
         return self.position_response
 
     async def get_benchmark_assignment(self, **kwargs):
@@ -166,6 +170,101 @@ def test_stateful_attribution_requested_dimensions_merges_explicit_and_upstream_
     )
 
     assert requested_dimensions == ["asset_class", "country", "sector"]
+
+
+@pytest.mark.asyncio
+async def test_retrieve_stateful_attribution_position_source_projects_rows_metadata_and_request_shape():
+    service = _AttributionInputServiceStub()
+    calculation_id = uuid4()
+    service.position_response = (
+        200,
+        {
+            "rows": [{"position_id": "POS_1", "valuation_date": "2025-01-01"}],
+            "retrieval_metadata": {"chunk_count": 2, "page_count": 3},
+        },
+    )
+
+    source = await _retrieve_stateful_attribution_position_source(
+        stateful_input_service=service,
+        calculation_id=calculation_id,
+        portfolio_id="P1",
+        as_of_date=date(2025, 1, 31),
+        start_date=date(2025, 1, 1),
+        end_date=date(2025, 1, 31),
+        reporting_currency="USD",
+        consumer_system="lotus-performance",
+        dimensions=["asset_class", "sector"],
+        include_cash_flows=True,
+        filters={"book": "managed"},
+    )
+
+    assert source.rows == [{"position_id": "POS_1", "valuation_date": "2025-01-01"}]
+    assert source.retrieval_metadata == RetrievalMetadata(chunk_count=2, page_count=3)
+    assert service.position_calls == [
+        {
+            "calculation_id": calculation_id,
+            "portfolio_id": "P1",
+            "as_of_date": date(2025, 1, 31),
+            "start_date": date(2025, 1, 1),
+            "end_date": date(2025, 1, 31),
+            "reporting_currency": "USD",
+            "consumer_system": "lotus-performance",
+            "dimensions": ["asset_class", "sector"],
+            "include_cash_flows": True,
+            "filters": {"book": "managed"},
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_retrieve_stateful_attribution_index_records_sorts_distinct_component_ids():
+    service = _AttributionInputServiceStub()
+    service.index_response = (200, {"records": [{"index_id": "IDX_1"}, {"index_id": "IDX_2"}]})
+    calculation_id = uuid4()
+
+    records = await _retrieve_stateful_attribution_index_records(
+        stateful_input_service=service,
+        calculation_id=calculation_id,
+        as_of_date=date(2025, 1, 31),
+        component_observations=[
+            BenchmarkComponentObservation(
+                component_id="IDX_2",
+                component_currency="USD",
+                perf_date=date(2025, 1, 1),
+                weight_bop=0.4,
+                component_return=0.01,
+                component_return_local=0.01,
+                component_return_fx=0.0,
+            ),
+            BenchmarkComponentObservation(
+                component_id="IDX_1",
+                component_currency="USD",
+                perf_date=date(2025, 1, 1),
+                weight_bop=0.6,
+                component_return=0.02,
+                component_return_local=0.02,
+                component_return_fx=0.0,
+            ),
+            BenchmarkComponentObservation(
+                component_id="IDX_2",
+                component_currency="USD",
+                perf_date=date(2025, 1, 2),
+                weight_bop=0.4,
+                component_return=0.03,
+                component_return_local=0.03,
+                component_return_fx=0.0,
+            ),
+        ],
+    )
+
+    assert records == [{"index_id": "IDX_1"}, {"index_id": "IDX_2"}]
+    assert service.index_catalog_calls == [
+        {
+            "as_of_date": date(2025, 1, 31),
+            "index_ids": ["IDX_1", "IDX_2"],
+            "calculation_id": calculation_id,
+        }
+    ]
 
 
 @pytest.mark.asyncio

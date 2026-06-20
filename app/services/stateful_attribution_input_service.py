@@ -68,6 +68,22 @@ class StatefulAttributionNormalizedInput:
     source_alignment_evidence: dict[str, object]
 
 
+@dataclass(frozen=True)
+class _StatefulAttributionPositionSource:
+    rows: list[dict[str, object]]
+    retrieval_metadata: RetrievalMetadata
+
+
+@dataclass(frozen=True)
+class _StatefulAttributionBenchmarkSource:
+    benchmark_id: str
+    component_observations: list[BenchmarkComponentObservation]
+    source_details: dict[str, int]
+    retrieval_metadata: RetrievalMetadata
+    index_records: list[dict[str, object]]
+    index_retrieval_metadata: RetrievalMetadata
+
+
 async def retrieve_stateful_attribution_source_input(
     *,
     settings: Settings,
@@ -103,7 +119,8 @@ async def retrieve_stateful_attribution_source_input(
         consumer_system=consumer_system,
     )
 
-    upstream_status, upstream_payload = await stateful_input_service.get_position_timeseries(
+    position_source = await _retrieve_stateful_attribution_position_source(
+        stateful_input_service=stateful_input_service,
         calculation_id=calculation_id,
         portfolio_id=portfolio_id,
         as_of_date=as_of_date,
@@ -115,12 +132,78 @@ async def retrieve_stateful_attribution_source_input(
         include_cash_flows=include_cash_flows,
         filters=filters,
     )
+
+    benchmark_source = await _retrieve_stateful_attribution_benchmark_source(
+        stateful_input_service=stateful_input_service,
+        portfolio_id=portfolio_id,
+        as_of_date=as_of_date,
+        reporting_currency=reporting_currency,
+        calculation_id=calculation_id,
+        benchmark_id_override=benchmark_id_override,
+        start_date=report_start_date,
+        end_date=report_end_date,
+    )
+
+    return StatefulAttributionSourceInput(
+        portfolio_input=portfolio_input,
+        position_rows=position_source.rows,
+        position_retrieval_metadata=position_source.retrieval_metadata,
+        benchmark_id=benchmark_source.benchmark_id,
+        benchmark_component_observations=benchmark_source.component_observations,
+        benchmark_source_details=benchmark_source.source_details,
+        benchmark_retrieval_metadata=benchmark_source.retrieval_metadata,
+        index_records=benchmark_source.index_records,
+        index_retrieval_metadata=benchmark_source.index_retrieval_metadata,
+    )
+
+
+async def _retrieve_stateful_attribution_position_source(
+    *,
+    stateful_input_service: StatefulInputService,
+    calculation_id,
+    portfolio_id: str,
+    as_of_date,
+    start_date,
+    end_date,
+    reporting_currency: str | None,
+    consumer_system: str,
+    dimensions: list[str],
+    include_cash_flows: bool,
+    filters: dict[str, object],
+) -> _StatefulAttributionPositionSource:
+    upstream_status, upstream_payload = await stateful_input_service.get_position_timeseries(
+        calculation_id=calculation_id,
+        portfolio_id=portfolio_id,
+        as_of_date=as_of_date,
+        start_date=start_date,
+        end_date=end_date,
+        reporting_currency=reporting_currency,
+        consumer_system=consumer_system,
+        dimensions=dimensions,
+        include_cash_flows=include_cash_flows,
+        filters=filters,
+    )
     raise_for_stateful_control_plane_unavailable(
         source_label="stateful position timeseries source",
         upstream_status=upstream_status,
     )
-    position_rows = _parse_position_rows(upstream_payload)
+    return _StatefulAttributionPositionSource(
+        rows=_parse_position_rows(upstream_payload),
+        retrieval_metadata=parse_retrieval_metadata(upstream_payload),
+    )
 
+
+async def _retrieve_stateful_attribution_benchmark_source(
+    *,
+    stateful_input_service: StatefulInputService,
+    portfolio_id: str,
+    as_of_date,
+    reporting_currency: str | None,
+    calculation_id,
+    benchmark_id_override: str | None,
+    start_date,
+    end_date,
+) -> _StatefulAttributionBenchmarkSource:
     benchmark_id = await _resolve_stateful_attribution_benchmark_id(
         stateful_input_service=stateful_input_service,
         portfolio_id=portfolio_id,
@@ -129,20 +212,44 @@ async def retrieve_stateful_attribution_source_input(
         calculation_id=calculation_id,
         benchmark_id_override=benchmark_id_override,
     )
-
     benchmark_input = await build_stateful_benchmark_input(
         stateful_input_service=stateful_input_service,
         calculation_id=calculation_id,
         benchmark_id=benchmark_id,
         as_of_date=as_of_date,
-        start_date=report_start_date,
-        end_date=report_end_date,
+        start_date=start_date,
+        end_date=end_date,
         return_source=BenchmarkReturnSource.CALCULATED,
     )
-    benchmark_component_index_ids = sorted(
-        {observation.component_id for observation in benchmark_input.component_observations if observation.component_id}
+    index_records = await _retrieve_stateful_attribution_index_records(
+        stateful_input_service=stateful_input_service,
+        calculation_id=calculation_id,
+        as_of_date=as_of_date,
+        component_observations=benchmark_input.component_observations,
+    )
+    return _StatefulAttributionBenchmarkSource(
+        benchmark_id=benchmark_id,
+        component_observations=benchmark_input.component_observations,
+        source_details=benchmark_input.source_details,
+        retrieval_metadata=RetrievalMetadata(
+            chunk_count=benchmark_input.source_details.get("benchmark_chunk_count", 0),
+            page_count=benchmark_input.source_details.get("benchmark_page_count", 0),
+        ),
+        index_records=index_records,
+        index_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
     )
 
+
+async def _retrieve_stateful_attribution_index_records(
+    *,
+    stateful_input_service: StatefulInputService,
+    calculation_id,
+    as_of_date,
+    component_observations: Iterable[BenchmarkComponentObservation],
+) -> list[dict[str, object]]:
+    benchmark_component_index_ids = sorted(
+        {observation.component_id for observation in component_observations if observation.component_id}
+    )
     index_status, index_payload = await stateful_input_service.get_index_catalog(
         as_of_date=as_of_date,
         index_ids=benchmark_component_index_ids,
@@ -150,22 +257,7 @@ async def retrieve_stateful_attribution_source_input(
     )
     if index_status >= status.HTTP_400_BAD_REQUEST:
         raise_for_stateful_source_unavailable(source_label="index catalog", upstream_status=index_status)
-    index_records = _parse_index_catalog(index_payload)
-
-    return StatefulAttributionSourceInput(
-        portfolio_input=portfolio_input,
-        position_rows=position_rows,
-        position_retrieval_metadata=parse_retrieval_metadata(upstream_payload),
-        benchmark_id=benchmark_id,
-        benchmark_component_observations=benchmark_input.component_observations,
-        benchmark_source_details=benchmark_input.source_details,
-        benchmark_retrieval_metadata=RetrievalMetadata(
-            chunk_count=benchmark_input.source_details.get("benchmark_chunk_count", 0),
-            page_count=benchmark_input.source_details.get("benchmark_page_count", 0),
-        ),
-        index_records=index_records,
-        index_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
-    )
+    return _parse_index_catalog(index_payload)
 
 
 def _stateful_attribution_requested_dimensions(

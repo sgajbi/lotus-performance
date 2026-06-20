@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Health Report
 
 Report date: 2026-06-20
-Branch: `lp-cr-1416-integration-capability-surface-helpers`
+Branch: `lp-cr-1417-stateful-attribution-source-retrieval`
 Baseline source: `quality/baseline_report.md`
 Report mode: phase-zero scorecard; complexity, architecture, duplicate-code, router-thinness,
 observability-readiness, and Python security posture are enforced separately by CI.
@@ -42,7 +42,7 @@ link the commit, command, or CI artifact that proves the change.
 | Max cyclomatic complexity | unknown | 5 | enforced | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py`; `make quality-complexity-gate` |
 | High-complexity functions | unknown | 0 | enforced | rank D-F functions in `quality/complexity_inventory.md`; `make quality-complexity-gate` |
 | Average maintainability index | unknown | 55.13 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
-| Largest functions by LOC | unknown | 98 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; LP-CR-1416 moved `_build_analytics_surfaces(...)` from `113` to `93` lines by isolating synchronous capability-surface projection |
+| Largest functions by LOC | unknown | 98 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; LP-CR-1417 moved `retrieve_stateful_attribution_source_input(...)` from `98` to `71` lines by isolating stateful attribution source retrieval helpers |
 
 ## Architecture
 
@@ -71,7 +71,7 @@ link the commit, command, or CI artifact that proves the change.
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
 | Test modules | 228 | 268 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 3,136 | measured | `python -m pytest --collect-only -q` |
+| Collected tests | 2,035 | 3,138 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99% | measured | `quality/coverage_inventory.md` via `make test-coverage` |
 | Branch coverage | unknown | not configured | not-yet-measured | `quality/coverage_inventory.md`; branch coverage is not configured in pytest-cov or coverage.py |
 | Integration/API/runtime test functions | unknown | 592 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |
