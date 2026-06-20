@@ -408,48 +408,7 @@ def _build_analytics_surfaces(
     supported_input_modes: list[str],
 ) -> list[dict[str, object]]:
     return [
-        _async_analytics_surface(
-            key="twr",
-            path="/performance/twr",
-            enabled=flags.twr_enabled,
-            supported_input_modes=supported_input_modes,
-            result_path_template="/performance/twr/results/{calculation_id}",
-            contract_notes=[
-                "supports portfolio-level TWR only",
-                "does not advertise composite, group, or sleeve TWR calculation support",
-            ],
-        ),
-        _async_analytics_surface(
-            key="twr_inspection",
-            path="/performance/inspections/twr",
-            enabled=flags.twr_enabled,
-            supported_input_modes=[],
-            result_path_template="/performance/inspections/{inspection_id}",
-            contract_notes=_twr_inspection_contract_notes(flags),
-            options=_twr_inspection_options(flags),
-        ),
-        _sync_analytics_surface(
-            key="mwr",
-            path="/performance/mwr",
-            enabled=flags.mwr_enabled,
-            supported_input_modes=supported_input_modes,
-        ),
-        _async_analytics_surface(
-            key="benchmark",
-            path="/performance/benchmark",
-            enabled=flags.benchmark_enabled,
-            supported_input_modes=supported_input_modes,
-            result_path_template="/performance/benchmark/results/{calculation_id}",
-        ),
-        _async_analytics_surface(
-            key="workspace_summary",
-            path="/performance/workspace-summary",
-            enabled=flags.workspace_summary_enabled,
-            supported_input_modes=supported_input_modes,
-            result_path_template="/performance/workspace-summary/results/{calculation_id}",
-            contract_notes=_workspace_summary_contract_notes(flags),
-            options=_workspace_summary_options(flags),
-        ),
+        *_portfolio_analytics_surfaces(flags=flags, supported_input_modes=supported_input_modes),
         _async_analytics_surface(
             key="contribution",
             path="/performance/contribution",
@@ -493,6 +452,57 @@ def _build_analytics_surfaces(
             supported_input_modes=["stateful"] if flags.stateful_mode_enabled else [],
             stateful_restrictions=_benchmark_exposure_stateful_restrictions(flags),
             contract_notes=_benchmark_exposure_contract_notes(flags),
+        ),
+    ]
+
+
+def _portfolio_analytics_surfaces(
+    *,
+    flags: IntegrationCapabilityFlags,
+    supported_input_modes: list[str],
+) -> list[dict[str, object]]:
+    return [
+        _async_analytics_surface(
+            key="twr",
+            path="/performance/twr",
+            enabled=flags.twr_enabled,
+            supported_input_modes=supported_input_modes,
+            result_path_template="/performance/twr/results/{calculation_id}",
+            contract_notes=[
+                "supports portfolio-level TWR only",
+                "does not advertise composite, group, or sleeve TWR calculation support",
+            ],
+        ),
+        _async_analytics_surface(
+            key="twr_inspection",
+            path="/performance/inspections/twr",
+            enabled=flags.twr_enabled,
+            supported_input_modes=[],
+            result_path_template="/performance/inspections/{inspection_id}",
+            contract_notes=_twr_inspection_contract_notes(flags),
+            options=_twr_inspection_options(flags),
+        ),
+        _sync_analytics_surface(
+            key="mwr",
+            path="/performance/mwr",
+            enabled=flags.mwr_enabled,
+            supported_input_modes=supported_input_modes,
+        ),
+        _async_analytics_surface(
+            key="benchmark",
+            path="/performance/benchmark",
+            enabled=flags.benchmark_enabled,
+            supported_input_modes=supported_input_modes,
+            result_path_template="/performance/benchmark/results/{calculation_id}",
+        ),
+        _async_analytics_surface(
+            key="workspace_summary",
+            path="/performance/workspace-summary",
+            enabled=flags.workspace_summary_enabled,
+            supported_input_modes=supported_input_modes,
+            result_path_template="/performance/workspace-summary/results/{calculation_id}",
+            contract_notes=_workspace_summary_contract_notes(flags),
+            options=_workspace_summary_options(flags),
         ),
     ]
 

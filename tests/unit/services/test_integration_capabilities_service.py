@@ -1,6 +1,8 @@
 from app.services.integration_capabilities_service import (
     PERFORMANCE_EXECUTION_POLL_PATH_TEMPLATE,
+    IntegrationCapabilityFlags,
     _async_analytics_surface,
+    _portfolio_analytics_surfaces,
     _sync_analytics_surface,
     _workflow_enabled,
     build_integration_capabilities_report,
@@ -162,6 +164,39 @@ def test_sync_analytics_surface_projects_non_async_contract():
     assert surface["stateful_restrictions"] == ["lotus-core remains the source of record"]
     assert surface["contract_notes"] == ["lineage-backed benchmark exposure view"]
     assert surface["options"] == [{"key": "group_by", "supported_values": ["POSITION"]}]
+
+
+def test_portfolio_analytics_surfaces_project_governed_surface_group():
+    flags = IntegrationCapabilityFlags(
+        twr_enabled=True,
+        mwr_enabled=True,
+        contribution_enabled=True,
+        attribution_enabled=True,
+        benchmark_enabled=True,
+        workspace_summary_enabled=False,
+        composite_twr_enabled=True,
+        stateful_mode_enabled=True,
+        stateless_mode_enabled=True,
+        policy_version="tenant-default-v1",
+    )
+
+    surfaces = _portfolio_analytics_surfaces(flags=flags, supported_input_modes=["stateful", "stateless"])
+
+    assert [surface["key"] for surface in surfaces] == [
+        "twr",
+        "twr_inspection",
+        "mwr",
+        "benchmark",
+        "workspace_summary",
+    ]
+    assert surfaces[0]["contract_notes"] == [
+        "supports portfolio-level TWR only",
+        "does not advertise composite, group, or sleeve TWR calculation support",
+    ]
+    assert surfaces[2]["supports_async"] is False
+    assert surfaces[4]["enabled"] is False
+    assert surfaces[4]["contract_notes"] == []
+    assert surfaces[4]["options"] == []
 
 
 def test_workflow_enabled_requires_every_feature_flag():
