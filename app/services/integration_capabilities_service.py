@@ -378,6 +378,30 @@ def _async_analytics_surface(
     }
 
 
+def _sync_analytics_surface(
+    *,
+    key: str,
+    path: str,
+    enabled: bool,
+    supported_input_modes: Sequence[str],
+    stateful_restrictions: Sequence[str] = (),
+    contract_notes: Sequence[str] = (),
+    options: Sequence[dict[str, object]] = (),
+) -> dict[str, object]:
+    return {
+        "key": key,
+        "path": path,
+        "enabled": enabled,
+        "supported_input_modes": list(supported_input_modes),
+        "supports_async": False,
+        "poll_path_template": None,
+        "result_path_template": None,
+        "stateful_restrictions": list(stateful_restrictions),
+        "contract_notes": list(contract_notes),
+        "options": list(options),
+    }
+
+
 def _build_analytics_surfaces(
     *,
     flags: IntegrationCapabilityFlags,
@@ -404,18 +428,12 @@ def _build_analytics_surfaces(
             contract_notes=_twr_inspection_contract_notes(flags),
             options=_twr_inspection_options(flags),
         ),
-        {
-            "key": "mwr",
-            "path": "/performance/mwr",
-            "enabled": flags.mwr_enabled,
-            "supported_input_modes": supported_input_modes,
-            "supports_async": False,
-            "poll_path_template": None,
-            "result_path_template": None,
-            "stateful_restrictions": [],
-            "contract_notes": [],
-            "options": [],
-        },
+        _sync_analytics_surface(
+            key="mwr",
+            path="/performance/mwr",
+            enabled=flags.mwr_enabled,
+            supported_input_modes=supported_input_modes,
+        ),
         _async_analytics_surface(
             key="benchmark",
             path="/performance/benchmark",
@@ -447,30 +465,20 @@ def _build_analytics_surfaces(
             result_path_template="/performance/attribution/results/{calculation_id}",
             stateful_restrictions=_attribution_stateful_restrictions(flags),
         ),
-        {
-            "key": "composite_twr",
-            "path": "/performance/composites/twr",
-            "enabled": flags.composite_twr_enabled,
-            "supported_input_modes": ["persisted_member_facts"],
-            "supports_async": False,
-            "poll_path_template": None,
-            "result_path_template": None,
-            "stateful_restrictions": [],
-            "contract_notes": _composite_twr_contract_notes(flags),
-            "options": [],
-        },
-        {
-            "key": "mandate_performance_health_context",
-            "path": "/performance/mandate-health-context",
-            "enabled": flags.twr_enabled,
-            "supported_input_modes": ["stateless"],
-            "supports_async": False,
-            "poll_path_template": None,
-            "result_path_template": None,
-            "stateful_restrictions": [],
-            "contract_notes": _mandate_performance_health_contract_notes(flags),
-            "options": [],
-        },
+        _sync_analytics_surface(
+            key="composite_twr",
+            path="/performance/composites/twr",
+            enabled=flags.composite_twr_enabled,
+            supported_input_modes=["persisted_member_facts"],
+            contract_notes=_composite_twr_contract_notes(flags),
+        ),
+        _sync_analytics_surface(
+            key="mandate_performance_health_context",
+            path="/performance/mandate-health-context",
+            enabled=flags.twr_enabled,
+            supported_input_modes=["stateless"],
+            contract_notes=_mandate_performance_health_contract_notes(flags),
+        ),
         _async_analytics_surface(
             key="returns_series",
             path="/integration/returns/series",
@@ -478,18 +486,14 @@ def _build_analytics_surfaces(
             supported_input_modes=supported_input_modes,
             result_path_template="/integration/returns/series/results/{calculation_id}",
         ),
-        {
-            "key": "benchmark_exposure_context",
-            "path": "/integration/benchmarks/exposure-context",
-            "enabled": _benchmark_exposure_context_enabled(flags),
-            "supported_input_modes": ["stateful"] if flags.stateful_mode_enabled else [],
-            "supports_async": False,
-            "poll_path_template": None,
-            "result_path_template": None,
-            "stateful_restrictions": _benchmark_exposure_stateful_restrictions(flags),
-            "contract_notes": _benchmark_exposure_contract_notes(flags),
-            "options": [],
-        },
+        _sync_analytics_surface(
+            key="benchmark_exposure_context",
+            path="/integration/benchmarks/exposure-context",
+            enabled=_benchmark_exposure_context_enabled(flags),
+            supported_input_modes=["stateful"] if flags.stateful_mode_enabled else [],
+            stateful_restrictions=_benchmark_exposure_stateful_restrictions(flags),
+            contract_notes=_benchmark_exposure_contract_notes(flags),
+        ),
     ]
 
 
