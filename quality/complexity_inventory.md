@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
-Report date: 2026-06-19
-Branch: `lp-cr-1412-contribution-period-supportability`
+Report date: 2026-06-20
+Branch: `lp-cr-1413-demo-api-certification`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose

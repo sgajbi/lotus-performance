@@ -1,7 +1,7 @@
 # Lotus Performance Progressive CI Quality Gates
 
-Report date: 2026-06-19
-Branch: `lp-cr-1412-contribution-period-supportability`
+Report date: 2026-06-20
+Branch: `lp-cr-1413-demo-api-certification`
 Baseline sources: `quality/baseline_report.md`, `quality/refactor_health_report.md`, `quality/quality_scorecard.md`
 Mode: progressive gate map; remediated complexity, architecture-boundary, router-thinness, duplicate-code, and Python security posture is now enforced in CI.
 
@@ -65,18 +65,18 @@ No gate should move from one phase to the next until it has:
 | mypy typecheck | Blocking in feature, PR, and main lanes | Keep blocking; expand typed boundary cleanup through normal refactor slices. |
 | Unit tests | Blocking in feature, PR, and main lanes | Keep blocking; add focused tests when refactoring hotspots. |
 | Integration and e2e tests | Blocking in PR and main lanes | Keep blocking at merge/release lanes; use targeted local subsets during slices. |
-| Test taxonomy | Measured in `quality/test_taxonomy_inventory.md` through `scripts/python_test_taxonomy_inventory.py`; current AST inventory shows 453 integration/API/runtime test functions and 107 contract/governance test functions | Keep report-only until taxonomy labels and uncategorized-test policy are stable. |
+| Test taxonomy | Measured in `quality/test_taxonomy_inventory.md` through `scripts/python_test_taxonomy_inventory.py`; current AST inventory shows 589 integration/API/runtime test functions and 107 contract/governance test functions | Keep report-only until taxonomy labels and uncategorized-test policy are stable. |
 | Combined line coverage | Blocking at 99 percent in PR and main lanes; locally measured in `quality/coverage_inventory.md` through `make test-coverage` | Keep blocking and preserve the local coverage inventory as scorecard evidence; capture branch-coverage posture before adding a stricter branch gate. |
 | Dependency verification | Blocking through `python -m pip check` and dependency-health scripts | Keep blocking; preserve project-scoped dependency-health evidence. |
 | Dependency vulnerabilities | `pip-audit` is available, security audit is already blocking through repo script, and report-only output is captured in `quality/dependency_security_report.md` | Keep the report current when dependency pins, audit tooling, or exception policy changes. |
 | OpenAPI quality | Blocking through `scripts/openapi_quality_gate.py`; measured further through `quality/api_completeness_inventory.md`; clean API completeness inventory is guarded by `tests/unit/scripts/test_openapi_completeness_inventory.py` | Keep the blocking gate and unit-level clean-inventory guard; only add a separate workflow gate if the report remains stable and adds value beyond existing OpenAPI checks. |
 | API vocabulary and no-alias governance | Blocking in feature, PR, and main lanes | Keep blocking and preserve RFC-0067 vocabulary discipline. |
-| Quality baseline snapshot workflow | Non-blocking report run in `.github/workflows/quality-baseline.yml`; generates and uploads all quality-family inventory artifacts | Keep as a reporting aid while quality targets and thresholds are stabilized. |
+| Quality baseline snapshot workflow | Non-blocking report run in `.github/workflows/quality-baseline.yml`; generates and uploads all quality-family inventory artifacts plus report-only demo API certification evidence | Keep as a reporting aid while quality targets and thresholds are stabilized. |
 | Migration smoke | Blocking in PR and main lanes | Keep blocking outside feature lane unless a migration-heavy slice needs earlier proof. |
 | Docker build | Blocking in PR and main lanes | Keep blocking; no new Docker gate is needed for report-only quality artifacts. |
 | Domain data product validation | Blocking locally through `make check` and repo-native command | Confirm whether GitHub workflows should include this explicitly before changing CI. |
 | Complexity and maintainability | Max cyclomatic complexity and D-F function count are blocking through `make quality-complexity-gate`; maintainability index remains measured in `quality/complexity_inventory.md` through `scripts/python_complexity_inventory.py` and `radon` | Keep max CC at `8` and D-F count at `0`; keep MI report-only until a stable remediation threshold and exception policy exist. |
-| Function-size hotspots | Measured in `quality/function_size_inventory.md` through a repo-native standard-library scanner; largest production function is now `101` lines after LP-CR-1412 | Use as refactor-planning evidence; do not block CI until stable thresholds and exclusions are agreed. |
+| Function-size hotspots | Measured in `quality/function_size_inventory.md` through a repo-native standard-library scanner; largest production function is now `_build_analytics_surfaces(...)` at `113` lines after LP-CR-1413 added explicit composite TWR capability truth | Use as refactor-planning evidence; do not block CI until stable thresholds and exclusions are agreed. |
 | Duplicate code hotspots | Blocking through `make quality-duplicate-code-gate`; current report shows 0 duplicate hotspot groups at `--min-lines 12` with `--max-groups 0` | Keep blocking at zero accepted first-party duplicate function-body hotspot groups; future increases require a documented reason and a better reusable abstraction decision. |
 | Dead-code detection | Measured in `quality/dead_code_inventory.md` through `scripts/python_dead_code_inventory.py` and `vulture`; 60% findings are dominated by framework/model false positives, while 80% findings are zero | Add reviewed allowlist before considering any regression-blocking gate. |
 | Dependency hygiene | Measured in `quality/dependency_hygiene_report.md` through `scripts/python_dependency_hygiene_inventory.py` and `deptry`; direct imported transitive dependencies are closed, and reviewed runtime-only DEP002 declarations are explicitly allowlisted in the repo scanner | Keep report-only until the allowlist policy and CI placement are stable. |
@@ -88,6 +88,7 @@ No gate should move from one phase to the next until it has:
 | Router and middleware thinness | Blocking through `make quality-router-thinness-gate`; current snapshot shows 0 router findings and 0 middleware findings at `--threshold 80` with `--max-findings 0` | Keep blocking for the current router/middleware function-size threshold; revisit only with documented exceptions and tests. |
 | RFC 7807 error consistency | Measured report-only through `scripts/openapi_completeness_inventory.py`; current inventory shows 0 error responses missing named problem/error schemas | Keep the report-only inventory clean while separately planning any runtime migration from legacy string-detail errors to full RFC 7807 payloads. |
 | Observability and operational contracts | Measured in `quality/observability_readiness_inventory.md` through `scripts/python_observability_readiness_inventory.py`; current report shows 28/28 expected implementation markers, 0 missing markers, and 287 family-mapped readiness test functions | Keep report-only until marker ownership, overlap-aware test counting, and CI placement are stable. |
+| Demo API certification | Repository-native command through `make demo-api-certification`; `.github/workflows/quality-baseline.yml` runs it as report-only evidence with `continue-on-error` and uploads `output/demo-api-certification/*.json`; it calls demo-critical health/readiness, capabilities, calculation, returns, workspace, mandate, and composite TWR APIs with deterministic data | Keep report-only until repeated runs prove low noise, GitHub lane placement is agreed, seeded-data isolation is reviewed, and an exception/remediation policy exists. |
 
 ## Recommended Lane Placement For New Gates
 

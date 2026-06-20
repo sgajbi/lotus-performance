@@ -22,6 +22,7 @@ def test_integration_capabilities_response_schema_includes_certified_surface_exa
         "workspace_summary",
         "contribution",
         "attribution",
+        "composite_twr",
         "mandate_performance_health_context",
         "returns_series",
         "benchmark_exposure_context",
@@ -32,9 +33,17 @@ def test_integration_capabilities_response_schema_includes_certified_surface_exa
         "supports portfolio-level TWR only",
         "does not advertise composite, group, or sleeve TWR calculation support",
     ]
+    assert surfaces["composite_twr"]["supported_input_modes"] == ["persisted_member_facts"]
+    assert surfaces["composite_twr"]["contract_notes"] == [
+        "calculates composite TWR only from persisted member-return facts",
+        "does not accept ad hoc member returns or hidden request-time portfolio TWR fan-out",
+        "does not advertise composite contribution, attribution, MWR, benchmark active return, or special composite structures",
+    ]
+    assert "performance.analytics.composite_twr" in features
     assert "performance.analytics.workspace_summary" in features
     assert "performance.integration.mandate_performance_health_context" in features
     assert "performance_workspace" in workflows
+    assert "composite_performance_publication" in workflows
     assert "mandate_performance_health_context" in workflows
 
 

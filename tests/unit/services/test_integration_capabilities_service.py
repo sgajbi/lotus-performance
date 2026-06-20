@@ -11,16 +11,20 @@ def test_build_integration_capabilities_report_default():
 
     assert report.supported_input_modes == ["stateful", "stateless"]
     assert report.policy_version == "tenant-default-v1"
-    assert len(report.features) == 12
-    assert len(report.workflows) == 7
+    assert len(report.features) == 13
+    assert len(report.workflows) == 8
 
     features = {item["key"]: item for item in report.features}
     workflows = {item["workflow_key"]: item for item in report.workflows}
     surfaces = {item["key"]: item for item in report.analytics_surfaces}
 
     assert features["performance.analytics.twr"]["enabled"] is True
+    assert features["performance.analytics.composite_twr"]["enabled"] is True
     assert features["performance.observability.calculation_supportability"]["enabled"] is True
+    assert surfaces["composite_twr"]["supported_input_modes"] == ["persisted_member_facts"]
+    assert surfaces["composite_twr"]["supports_async"] is False
     assert surfaces["workspace_summary"]["supports_async"] is True
+    assert workflows["composite_performance_publication"]["enabled"] is True
     assert workflows["performance_workspace"]["enabled"] is True
     assert surfaces["twr_inspection"]["contract_notes"]
 
@@ -58,6 +62,7 @@ def test_build_integration_capabilities_report_blank_values_keep_defaults(monkey
         "performance.analytics.contribution",
         "performance.analytics.attribution",
         "performance.analytics.benchmark",
+        "performance.analytics.composite_twr",
         "performance.integration.benchmark_exposure_context",
         "performance.analytics.workspace_summary",
         "performance.support.twr_inspection",

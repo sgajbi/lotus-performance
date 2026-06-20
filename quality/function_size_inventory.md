@@ -1,7 +1,7 @@
 # Lotus Performance Function Size Inventory
 
-Report date: 2026-06-19
-Branch: `lp-cr-1412-contribution-period-supportability`
+Report date: 2026-06-20
+Branch: `lp-cr-1413-demo-api-certification`
 Mode: report-only function-size inventory; this artifact introduces no new blocking CI gate.
 
 ## Purpose
@@ -20,7 +20,7 @@ python scripts/python_function_size_inventory.py --limit 25
 
 | Rank | Function | File | Lines |
 | ---: | --- | --- | ---: |
-| 1 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:358` | 101 |
+| 1 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:381` | 113 |
 | 2 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:71` | 98 |
 | 3 | `aggregate_attribution_results` | `engine/attribution.py:704` | 98 |
 | 4 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:91` | 97 |
@@ -33,16 +33,16 @@ python scripts/python_function_size_inventory.py --limit 25
 | 11 | `_calculate_returns_series` | `app/services/returns_series_service.py:1463` | 90 |
 | 12 | `_build_artifacts` | `app/services/composite_inspection_service.py:154` | 89 |
 | 13 | `run_runtime_retention_cleanup` | `app/services/runtime_retention_run_service.py:112` | 83 |
-| 14 | `build_recovery_drill_history_snapshot` | `app/services/recovery_drill_history_service.py:66` | 81 |
-| 15 | `build_runtime_recovery_snapshot` | `app/services/runtime_recovery_service.py:67` | 81 |
-| 16 | `calculate_contribution` | `app/services/contribution_service.py:648` | 80 |
-| 17 | `LineageMetadataStore._build_inspection_query_statements` | `app/services/lineage_metadata_store.py:529` | 80 |
-| 18 | `_build_contribution_response` | `app/services/contribution_service.py:567` | 79 |
-| 19 | `_build_twr_inspection_response` | `app/services/inspection/twr_inspection_service.py:305` | 79 |
-| 20 | `StatefulInputService._fetch_portfolio_chunk` | `app/services/stateful_input_service.py:877` | 79 |
-| 21 | `resolve_contribution_request` | `app/services/contribution_mode_service.py:32` | 77 |
-| 22 | `LineageMetadataStore._lease_pending_payloads_postgresql` | `app/services/lineage_metadata_store.py:1043` | 77 |
-| 23 | `_build_feature_capabilities` | `app/services/integration_capabilities_service.py:94` | 75 |
+| 14 | `_build_feature_capabilities` | `app/services/integration_capabilities_service.py:96` | 81 |
+| 15 | `build_recovery_drill_history_snapshot` | `app/services/recovery_drill_history_service.py:66` | 81 |
+| 16 | `build_runtime_recovery_snapshot` | `app/services/runtime_recovery_service.py:67` | 81 |
+| 17 | `calculate_contribution` | `app/services/contribution_service.py:648` | 80 |
+| 18 | `LineageMetadataStore._build_inspection_query_statements` | `app/services/lineage_metadata_store.py:529` | 80 |
+| 19 | `_build_contribution_response` | `app/services/contribution_service.py:567` | 79 |
+| 20 | `_build_twr_inspection_response` | `app/services/inspection/twr_inspection_service.py:305` | 79 |
+| 21 | `StatefulInputService._fetch_portfolio_chunk` | `app/services/stateful_input_service.py:877` | 79 |
+| 22 | `resolve_contribution_request` | `app/services/contribution_mode_service.py:32` | 77 |
+| 23 | `LineageMetadataStore._lease_pending_payloads_postgresql` | `app/services/lineage_metadata_store.py:1043` | 77 |
 | 24 | `build_runtime_retention_history_query` | `app/api/dependencies/runtime_retention_history.py:11` | 74 |
 | 25 | `_build_portfolio_engine_diagnostics` | `app/services/contribution_diagnostics.py:62` | 74 |
 
@@ -162,3 +162,8 @@ became `_build_analytics_surfaces` at `130` lines.
 LP-CR-1410 isolated shared async analytics-surface response projection for integration
 capabilities. `_build_analytics_surfaces` moved from `130` to `101` lines and the largest
 production function moved to `build_runtime_status_response` at `113` lines.
+LP-CR-1413 added the explicit composite TWR capability surface and the reusable demo API
+certification command. The capability catalog change intentionally improved API truth but moved
+`_build_analytics_surfaces` from `101` to `113` lines and `_build_feature_capabilities` from `75`
+to `81` lines, so the next catalog refactor should split published feature/surface descriptors
+without changing `/integration/capabilities` behavior.

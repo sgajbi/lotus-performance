@@ -1,4 +1,4 @@
-.PHONY: install install-ci verify-dependencies check check-all test test-unit test-integration test-e2e test-all test-coverage coverage-gate ci ci-local ci-local-docker ci-local-docker-down typecheck lint quality-complexity-gate quality-architecture-gate quality-router-thinness-gate quality-duplicate-code-gate python-security-gate github-action-runtime-guard monetary-float-guard format clean run check-deps security-audit openapi-gate api-vocabulary-gate no-alias-gate domain-product-validate migration-smoke migration-apply recovery-drill-smoke runtime-retention-smoke performance-characterization performance-characterization-postgres pre-commit docker-up docker-down docker-build
+.PHONY: install install-ci verify-dependencies check check-all test test-unit test-integration test-e2e test-all test-coverage coverage-gate ci ci-local ci-local-docker ci-local-docker-down typecheck lint quality-complexity-gate quality-architecture-gate quality-router-thinness-gate quality-duplicate-code-gate python-security-gate github-action-runtime-guard monetary-float-guard demo-api-certification format clean run check-deps security-audit openapi-gate api-vocabulary-gate no-alias-gate domain-product-validate migration-smoke migration-apply recovery-drill-smoke runtime-retention-smoke performance-characterization performance-characterization-postgres pre-commit docker-up docker-down docker-build
 
 install:
 	pip install -r requirements.txt
@@ -124,6 +124,9 @@ github-action-runtime-guard:
 
 monetary-float-guard:
 	python scripts/check_monetary_float_usage.py
+
+demo-api-certification:
+	python scripts/demo_api_certification.py
 
 format:
 	python -m ruff format .

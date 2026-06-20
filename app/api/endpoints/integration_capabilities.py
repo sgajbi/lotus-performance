@@ -164,6 +164,20 @@ INTEGRATION_CAPABILITIES_RESPONSE_EXAMPLES = [
                 "options": [],
             },
             {
+                "key": "composite_twr",
+                "path": "/performance/composites/twr",
+                "enabled": True,
+                "supported_input_modes": ["persisted_member_facts"],
+                "supports_async": False,
+                "stateful_restrictions": [],
+                "contract_notes": [
+                    "calculates composite TWR only from persisted member-return facts",
+                    "does not accept ad hoc member returns or hidden request-time portfolio TWR fan-out",
+                    "does not advertise composite contribution, attribution, MWR, benchmark active return, or special composite structures",
+                ],
+                "options": [],
+            },
+            {
                 "key": "mandate_performance_health_context",
                 "path": "/performance/mandate-health-context",
                 "enabled": True,
@@ -254,6 +268,12 @@ INTEGRATION_CAPABILITIES_RESPONSE_EXAMPLES = [
                 "description": "Interaction-efficient workspace summary analytics API.",
             },
             {
+                "key": "performance.analytics.composite_twr",
+                "enabled": True,
+                "owner_service": "lotus-performance",
+                "description": "Persisted-fact composite TWR analytics API.",
+            },
+            {
                 "key": "performance.support.twr_inspection",
                 "enabled": True,
                 "owner_service": "lotus-performance",
@@ -307,6 +327,11 @@ INTEGRATION_CAPABILITIES_RESPONSE_EXAMPLES = [
                     "performance.analytics.twr",
                     "performance.analytics.mwr",
                 ],
+            },
+            {
+                "workflow_key": "composite_performance_publication",
+                "enabled": True,
+                "required_features": ["performance.analytics.composite_twr"],
             },
             {
                 "workflow_key": "performance_support_triage",
