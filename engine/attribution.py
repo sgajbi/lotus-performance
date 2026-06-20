@@ -128,6 +128,13 @@ class _AttributionAggregationBase:
     linking_status: str
 
 
+@dataclass(frozen=True)
+class _CurrencyAttributionProjection:
+    results: list[CurrencyAttributionResult]
+    totals: CurrencyAttributionTotals
+    effects: pd.DataFrame
+
+
 class _BaseWeightRecord(TypedDict):
     date: pd.Timestamp
     capital: float
@@ -745,60 +752,65 @@ def aggregate_attribution_results(
 
     if request.currency_mode == "BOTH":
         if currency_attribution_status == "complete":
-            currency_df = _build_currency_attribution_panel(effects_df)
-            fx_effects_df = _calculate_currency_attribution_effects(currency_df)
-            aggregation_lineage["currency_attribution_effects.csv"] = fx_effects_df.reset_index()
-            total_fx_effects = fx_effects_df.groupby("currency").sum(numeric_only=True)
-
-            fx_results = []
-            for currency, row in total_fx_effects.iterrows():
-                avg_weights = currency_df.loc[currency_df.index.get_level_values("currency") == currency][
-                    ["w_p", "w_b"]
-                ].mean()
-                effects_sum = (
-                    row["local_allocation"]
-                    + row["local_selection"]
-                    + row["currency_allocation"]
-                    + row["currency_selection"]
-                )
-                effects = CurrencyAttributionEffects(
-                    local_allocation=row["local_allocation"] * 100,
-                    local_selection=row["local_selection"] * 100,
-                    currency_allocation=row["currency_allocation"] * 100,
-                    currency_selection=row["currency_selection"] * 100,
-                    total_effect=effects_sum * 100,
-                )
-                fx_results.append(
-                    CurrencyAttributionResult(
-                        currency=str(currency),
-                        weight_portfolio_avg=avg_weights["w_p"] * 100,
-                        weight_benchmark_avg=avg_weights["w_b"] * 100,
-                        effects=effects,
-                    )
-                )
-            period_result.currency_attribution = fx_results
-            period_result.currency_attribution_totals = CurrencyAttributionTotals(
-                local_allocation=total_fx_effects["local_allocation"].sum() * 100,
-                local_selection=total_fx_effects["local_selection"].sum() * 100,
-                currency_allocation=total_fx_effects["currency_allocation"].sum() * 100,
-                currency_selection=total_fx_effects["currency_selection"].sum() * 100,
-                total_effect=(
-                    total_fx_effects[
-                        [
-                            "local_allocation",
-                            "local_selection",
-                            "currency_allocation",
-                            "currency_selection",
-                        ]
-                    ]
-                    .sum()
-                    .sum()
-                    * 100
-                ),
-                currency_count=len(fx_results),
-            )
+            currency_projection = _build_currency_attribution_projection(effects_df)
+            aggregation_lineage["currency_attribution_effects.csv"] = currency_projection.effects.reset_index()
+            period_result.currency_attribution = currency_projection.results
+            period_result.currency_attribution_totals = currency_projection.totals
 
     return period_result, aggregation_lineage
+
+
+def _build_currency_attribution_projection(effects_df: pd.DataFrame) -> _CurrencyAttributionProjection:
+    currency_df = _build_currency_attribution_panel(effects_df)
+    fx_effects_df = _calculate_currency_attribution_effects(currency_df)
+    total_fx_effects = fx_effects_df.groupby("currency").sum(numeric_only=True)
+
+    fx_results = []
+    for currency, row in total_fx_effects.iterrows():
+        avg_weights = currency_df.loc[currency_df.index.get_level_values("currency") == currency][["w_p", "w_b"]].mean()
+        effects_sum = (
+            row["local_allocation"] + row["local_selection"] + row["currency_allocation"] + row["currency_selection"]
+        )
+        effects = CurrencyAttributionEffects(
+            local_allocation=row["local_allocation"] * 100,
+            local_selection=row["local_selection"] * 100,
+            currency_allocation=row["currency_allocation"] * 100,
+            currency_selection=row["currency_selection"] * 100,
+            total_effect=effects_sum * 100,
+        )
+        fx_results.append(
+            CurrencyAttributionResult(
+                currency=str(currency),
+                weight_portfolio_avg=avg_weights["w_p"] * 100,
+                weight_benchmark_avg=avg_weights["w_b"] * 100,
+                effects=effects,
+            )
+        )
+
+    return _CurrencyAttributionProjection(
+        results=fx_results,
+        totals=CurrencyAttributionTotals(
+            local_allocation=total_fx_effects["local_allocation"].sum() * 100,
+            local_selection=total_fx_effects["local_selection"].sum() * 100,
+            currency_allocation=total_fx_effects["currency_allocation"].sum() * 100,
+            currency_selection=total_fx_effects["currency_selection"].sum() * 100,
+            total_effect=(
+                total_fx_effects[
+                    [
+                        "local_allocation",
+                        "local_selection",
+                        "currency_allocation",
+                        "currency_selection",
+                    ]
+                ]
+                .sum()
+                .sum()
+                * 100
+            ),
+            currency_count=len(fx_results),
+        ),
+        effects=fx_effects_df,
+    )
 
 
 def _build_attribution_aggregation_base(
