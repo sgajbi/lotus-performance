@@ -1,9 +1,10 @@
 # Lotus Performance Progressive CI Quality Gates
 
-Report date: 2026-06-19
-Branch: `lp-cr-1412-contribution-period-supportability`
+Report date: 2026-06-20
+Branch: `lp-cr-1414-observability-readiness-gate`
 Baseline sources: `quality/baseline_report.md`, `quality/refactor_health_report.md`, `quality/quality_scorecard.md`
-Mode: progressive gate map; remediated complexity, architecture-boundary, router-thinness, duplicate-code, and Python security posture is now enforced in CI.
+Mode: progressive gate map; remediated complexity, architecture-boundary, router-thinness,
+duplicate-code, observability-readiness, and Python security posture is now enforced in CI.
 
 ## Purpose
 
@@ -24,7 +25,7 @@ developers or GitHub Actions.
 
 `Static Quality Gates` verifies installed dependencies, Ruff lint/format, monetary-float safety,
 complexity regression, architecture-boundary regression, router/middleware thinness, duplicate-code regression, no-alias governance,
-and mypy type safety. `Contract Security Gates` verifies
+observability-readiness marker regression, and mypy type safety. `Contract Security Gates` verifies
 OpenAPI quality, API vocabulary governance, migration smoke where the lane requires it, and
 dependency security plus first-party Python static security. These jobs run in parallel before test execution to reduce CI wall-clock time
 without dropping any gate.
@@ -87,7 +88,7 @@ No gate should move from one phase to the next until it has:
 | Public docstring coverage | Not configured; `interrogate` not present | Measure before deciding whether public docstrings are a useful gate for this service. |
 | Router and middleware thinness | Blocking through `make quality-router-thinness-gate`; current snapshot shows 0 router findings and 0 middleware findings at `--threshold 80` with `--max-findings 0` | Keep blocking for the current router/middleware function-size threshold; revisit only with documented exceptions and tests. |
 | RFC 7807 error consistency | Measured report-only through `scripts/openapi_completeness_inventory.py`; current inventory shows 0 error responses missing named problem/error schemas | Keep the report-only inventory clean while separately planning any runtime migration from legacy string-detail errors to full RFC 7807 payloads. |
-| Observability and operational contracts | Measured in `quality/observability_readiness_inventory.md` through `scripts/python_observability_readiness_inventory.py`; current report shows 28/28 expected implementation markers, 0 missing markers, and 287 family-mapped readiness test functions | Keep report-only until marker ownership, overlap-aware test counting, and CI placement are stable. |
+| Observability and operational contracts | Blocking through `make quality-observability-readiness-gate`, which runs `scripts/python_observability_readiness_inventory.py --limit 30 --max-missing 0`; current report shows 28/28 expected implementation markers, 0 missing markers, and 340 family-mapped readiness test functions | Keep the zero-missing marker gate blocking in feature, PR, and main static quality lanes. Broader maturity scoring and overlap-aware test counting remain report-only planning evidence. |
 
 ## Recommended Lane Placement For New Gates
 
@@ -115,5 +116,6 @@ This slice does not:
 
 1. change application behavior,
 2. change API or Swagger contracts,
-3. promote maintainability index, function-size, dead-code, or documentation metrics to blocking gates,
+3. promote maintainability index, function-size, dead-code, documentation metrics, or broader
+   observability maturity scoring to blocking gates,
 4. claim enterprise-readiness completion.

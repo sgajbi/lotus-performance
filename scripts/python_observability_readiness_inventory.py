@@ -205,15 +205,42 @@ def render_markdown(surfaces: Sequence[ReadinessSurface], *, limit: int) -> str:
     return "\n".join(lines)
 
 
+def observability_threshold_violations(
+    surfaces: Sequence[ReadinessSurface],
+    *,
+    max_missing: int | None,
+) -> list[str]:
+    if max_missing is None:
+        return []
+
+    missing = sum(surface.expected_markers - surface.present_markers for surface in surfaces)
+    if missing <= max_missing:
+        return []
+
+    return [
+        f"Observability readiness gate failed: {missing} missing marker(s) exceed configured maximum {max_missing}."
+    ]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Inventory Lotus performance observability/readiness surfaces")
     parser.add_argument("--test-path", action="append", dest="test_paths", help="Test path to scan")
     parser.add_argument("--limit", type=int, default=30, help="Maximum missing-marker rows to render")
+    parser.add_argument(
+        "--max-missing",
+        type=int,
+        default=None,
+        help="Fail when missing implementation markers exceed this maximum",
+    )
     args = parser.parse_args()
 
     test_paths = tuple(args.test_paths or ("tests",))
-    print(render_markdown(collect_readiness_surfaces(schema=app.openapi(), test_paths=test_paths), limit=args.limit))
-    return 0
+    surfaces = collect_readiness_surfaces(schema=app.openapi(), test_paths=test_paths)
+    print(render_markdown(surfaces, limit=args.limit))
+    violations = observability_threshold_violations(surfaces, max_missing=args.max_missing)
+    for violation in violations:
+        print(violation, file=sys.stderr)
+    return 1 if violations else 0
 
 
 if __name__ == "__main__":

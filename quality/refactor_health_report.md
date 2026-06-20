@@ -1,9 +1,10 @@
 # Lotus Performance Refactor Health Report
 
-Report date: 2026-06-19
-Branch: `lp-cr-1412-contribution-period-supportability`
+Report date: 2026-06-20
+Branch: `lp-cr-1414-observability-readiness-gate`
 Baseline source: `quality/baseline_report.md`
-Report mode: phase-zero scorecard; complexity regression posture is enforced separately by CI.
+Report mode: phase-zero scorecard; complexity, architecture, duplicate-code, router-thinness,
+observability-readiness, and Python security posture are enforced separately by CI.
 
 ## Purpose
 
@@ -70,7 +71,7 @@ link the commit, command, or CI artifact that proves the change.
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
 | Test modules | 228 | 266 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 3,127 | measured | `python -m pytest --collect-only -q` |
+| Collected tests | 2,035 | 3,129 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99% | measured | `quality/coverage_inventory.md` via `make test-coverage` |
 | Branch coverage | unknown | not configured | not-yet-measured | `quality/coverage_inventory.md`; branch coverage is not configured in pytest-cov or coverage.py |
 | Integration/API/runtime test functions | unknown | 453 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |
@@ -90,14 +91,14 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Operational readiness implementation markers | unknown | 28 | measured | `quality/observability_readiness_inventory.md` via `scripts/python_observability_readiness_inventory.py` |
-| Missing operational readiness markers | unknown | 0 | measured | `quality/observability_readiness_inventory.md` via `scripts/python_observability_readiness_inventory.py` |
+| Operational readiness implementation markers | unknown | 28 | enforced | `quality/observability_readiness_inventory.md`; `make quality-observability-readiness-gate` enforces `--max-missing 0` |
+| Missing operational readiness markers | unknown | 0 | enforced | `quality/observability_readiness_inventory.md`; `make quality-observability-readiness-gate` enforces `--max-missing 0` |
 | Correlation propagation markers | unknown | 6 | measured | `correlation_propagation` family in `quality/observability_readiness_inventory.md` |
 | Structured logging markers | unknown | 6 | measured | `structured_logging` family in `quality/observability_readiness_inventory.md` |
 | Metrics markers | unknown | 6 | measured | `metrics` family in `quality/observability_readiness_inventory.md` |
 | Health/readiness markers | unknown | 6 | measured | `health_readiness` family in `quality/observability_readiness_inventory.md` |
 | Health/metrics endpoint markers | unknown | 4 | measured | `health_metrics_endpoints` family in `quality/observability_readiness_inventory.md` |
-| Mapped observability/readiness test functions | unknown | 287 | measured | family-mapped test-function count in `quality/observability_readiness_inventory.md`; counts can overlap across families |
+| Mapped observability/readiness test functions | unknown | 340 | measured | family-mapped test-function count in `quality/observability_readiness_inventory.md`; counts can overlap across families |
 
 ## Documentation
 
