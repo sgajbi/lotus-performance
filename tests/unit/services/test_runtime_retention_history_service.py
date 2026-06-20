@@ -8,6 +8,7 @@ from app.services.runtime_retention_history_service import (
     RUNTIME_RETENTION_ARTIFACT_DIRECTORY_MISSING_REASON,
     RUNTIME_RETENTION_MANIFEST_INVALID_REASON,
     RUNTIME_RETENTION_MANIFEST_UNREADABLE_REASON,
+    _runtime_retention_history_entries_from_manifest,
     _runtime_retention_manifest_entry_payload,
     _validate_manifest_entry,
     build_runtime_retention_history_snapshot,
@@ -317,6 +318,50 @@ def test_runtime_retention_manifest_entry_payload_projects_validated_fields():
         "correlation_id": None,
         "job_id": "retention-nightly",
     }
+
+
+def test_runtime_retention_history_entries_from_manifest_projects_entry_model():
+    entries = _runtime_retention_history_entries_from_manifest(
+        {
+            "entries": [
+                {
+                    "evidence_file_name": "2026-03-15t00-00-00z.json",
+                    "generated_at_utc": "2026-03-15T00:00:00Z",
+                    "operator_id": "ops-user",
+                    "tenant_id": "tenant-a",
+                    "correlation_id": "corr-1",
+                    "trigger_mode": "scheduled",
+                    "job_id": "retention-nightly",
+                    "cleanup_mode": "apply",
+                    "status": "applied",
+                    "retention_days": 45,
+                    "prunable_execution_count": 1,
+                    "prunable_compute_job_count": 2,
+                    "prunable_async_result_count": 3,
+                    "prunable_lineage_record_count": 4,
+                    "prunable_lineage_artifact_count": 5,
+                }
+            ]
+        }
+    )
+
+    assert len(entries) == 1
+    entry = entries[0]
+    assert entry.evidence_file_name == "2026-03-15t00-00-00z.json"
+    assert entry.generated_at_utc == "2026-03-15T00:00:00Z"
+    assert entry.operator_id == "ops-user"
+    assert entry.tenant_id == "tenant-a"
+    assert entry.correlation_id == "corr-1"
+    assert entry.trigger_mode == "scheduled"
+    assert entry.job_id == "retention-nightly"
+    assert entry.cleanup_mode == "apply"
+    assert entry.status == "applied"
+    assert entry.retention_days == 45
+    assert entry.prunable_execution_count == 1
+    assert entry.prunable_compute_job_count == 2
+    assert entry.prunable_async_result_count == 3
+    assert entry.prunable_lineage_record_count == 4
+    assert entry.prunable_lineage_artifact_count == 5
 
 
 def test_runtime_retention_history_applies_generated_before_and_offset_filters(tmp_path):

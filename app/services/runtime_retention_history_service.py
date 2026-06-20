@@ -139,26 +139,7 @@ def build_runtime_retention_history_snapshot(
             reason=RUNTIME_RETENTION_MANIFEST_INVALID_REASON,
         )
 
-    all_entries = [
-        RuntimeRetentionHistoryEntry(
-            evidence_file_name=entry["evidence_file_name"],
-            generated_at_utc=entry["generated_at_utc"],
-            operator_id=entry["operator_id"],
-            tenant_id=entry["tenant_id"],
-            correlation_id=entry["correlation_id"],
-            trigger_mode=entry["trigger_mode"],
-            job_id=entry["job_id"],
-            cleanup_mode=entry["cleanup_mode"],
-            status=entry["status"],
-            retention_days=entry["retention_days"],
-            prunable_execution_count=entry["prunable_execution_count"],
-            prunable_compute_job_count=entry["prunable_compute_job_count"],
-            prunable_async_result_count=entry["prunable_async_result_count"],
-            prunable_lineage_record_count=entry["prunable_lineage_record_count"],
-            prunable_lineage_artifact_count=entry["prunable_lineage_artifact_count"],
-        )
-        for entry in manifest_payload["entries"]
-    ]
+    all_entries = _runtime_retention_history_entries_from_manifest(manifest_payload)
     filtered_entries = filter_history_entries(
         entries=all_entries,
         exact_filters=(
@@ -185,6 +166,31 @@ def build_runtime_retention_history_snapshot(
         next_offset=page.next_offset,
         applied_filters=applied_filters,
     )
+
+
+def _runtime_retention_history_entries_from_manifest(
+    manifest_payload: dict[str, Any],
+) -> list[RuntimeRetentionHistoryEntry]:
+    return [
+        RuntimeRetentionHistoryEntry(
+            evidence_file_name=entry["evidence_file_name"],
+            generated_at_utc=entry["generated_at_utc"],
+            operator_id=entry["operator_id"],
+            tenant_id=entry["tenant_id"],
+            correlation_id=entry["correlation_id"],
+            trigger_mode=entry["trigger_mode"],
+            job_id=entry["job_id"],
+            cleanup_mode=entry["cleanup_mode"],
+            status=entry["status"],
+            retention_days=entry["retention_days"],
+            prunable_execution_count=entry["prunable_execution_count"],
+            prunable_compute_job_count=entry["prunable_compute_job_count"],
+            prunable_async_result_count=entry["prunable_async_result_count"],
+            prunable_lineage_record_count=entry["prunable_lineage_record_count"],
+            prunable_lineage_artifact_count=entry["prunable_lineage_artifact_count"],
+        )
+        for entry in manifest_payload["entries"]
+    ]
 
 
 def _unavailable_snapshot(

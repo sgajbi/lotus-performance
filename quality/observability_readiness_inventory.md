@@ -6,7 +6,7 @@
 | Expected implementation markers | 28 |
 | Present implementation markers | 28 |
 | Missing implementation markers | 0 |
-| Mapped observability/readiness test functions | 340 |
+| Mapped observability/readiness test functions | 341 |
 
 Mapped test functions are counted per readiness family and can overlap when one test proves multiple operational contracts.
 
@@ -15,7 +15,7 @@ Mapped test functions are counted per readiness family and can overlap when one 
 | Family | Present markers | Expected markers | Test functions | Missing markers |
 | --- | ---: | ---: | ---: | ---: |
 | `health_metrics_endpoints` | 4 | 4 | 44 | 0 |
-| `correlation_propagation` | 6 | 6 | 115 | 0 |
+| `correlation_propagation` | 6 | 6 | 116 | 0 |
 | `structured_logging` | 6 | 6 | 37 | 0 |
 | `metrics` | 6 | 6 | 39 | 0 |
 | `health_readiness` | 6 | 6 | 105 | 0 |
