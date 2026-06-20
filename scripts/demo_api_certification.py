@@ -71,16 +71,20 @@ def _prepare_demo_runtime() -> None:
 
 
 def _expected_demo_capability_paths() -> set[str]:
+    return set(_expected_demo_capability_modes())
+
+
+def _expected_demo_capability_modes() -> dict[str, str]:
     return {
-        "/performance/workspace-summary",
-        "/performance/twr",
-        "/performance/mwr",
-        "/performance/benchmark",
-        "/integration/returns/series",
-        "/performance/contribution",
-        "/performance/attribution",
-        "/performance/composites/twr",
-        "/performance/mandate-health-context",
+        "/performance/workspace-summary": "stateless",
+        "/performance/twr": "stateless",
+        "/performance/mwr": "stateless",
+        "/performance/benchmark": "stateless",
+        "/integration/returns/series": "stateless",
+        "/performance/contribution": "stateless",
+        "/performance/attribution": "stateless",
+        "/performance/composites/twr": "persisted_member_facts",
+        "/performance/mandate-health-context": "stateless",
     }
 
 
@@ -92,6 +96,14 @@ def _assert_enabled_demo_surfaces(capabilities: dict[str, Any], expected_paths: 
     disabled_paths = sorted(path for path in expected_paths if surfaces_by_path[path].get("enabled") is not True)
     if disabled_paths:
         raise AssertionError(f"Capability registry marks demo API paths as disabled: {disabled_paths}")
+    expected_modes = _expected_demo_capability_modes()
+    missing_modes = sorted(
+        f"{path}:{expected_modes[path]}"
+        for path in expected_paths
+        if expected_modes[path] not in surfaces_by_path[path].get("supported_input_modes", [])
+    )
+    if missing_modes:
+        raise AssertionError(f"Capability registry is missing demo API input modes: {missing_modes}")
 
 
 def _certify_capability_registry(client: TestClient) -> CertificationCheck:
