@@ -44,7 +44,12 @@ def test_assert_enabled_demo_surfaces_rejects_disabled_expected_surface() -> Non
     expected_paths = _expected_demo_capability_paths()
     capabilities = {
         "analytics_surfaces": [
-            {"path": path, "enabled": path != "/performance/composites/twr"} for path in sorted(expected_paths)
+            {
+                "path": path,
+                "enabled": path != "/performance/composites/twr",
+                "supported_input_modes": ["stateless", "persisted_member_facts"],
+            }
+            for path in sorted(expected_paths)
         ]
     }
 
@@ -52,3 +57,24 @@ def test_assert_enabled_demo_surfaces_rejects_disabled_expected_surface() -> Non
         _assert_enabled_demo_surfaces(capabilities, expected_paths)
 
     assert "/performance/composites/twr" in str(exc_info.value)
+
+
+def test_assert_enabled_demo_surfaces_rejects_missing_certified_input_mode() -> None:
+    expected_paths = _expected_demo_capability_paths()
+    capabilities = {
+        "analytics_surfaces": [
+            {
+                "path": path,
+                "enabled": True,
+                "supported_input_modes": ["stateful"]
+                if path == "/performance/twr"
+                else ["stateless", "persisted_member_facts"],
+            }
+            for path in sorted(expected_paths)
+        ]
+    }
+
+    with pytest.raises(AssertionError) as exc_info:
+        _assert_enabled_demo_surfaces(capabilities, expected_paths)
+
+    assert "/performance/twr:stateless" in str(exc_info.value)
