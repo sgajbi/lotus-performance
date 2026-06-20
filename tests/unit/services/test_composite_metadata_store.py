@@ -8,6 +8,7 @@ from app.services.composite_metadata_store import (
     MEMBER_RETURN_FACT_SCHEMA_UPGRADE_COLUMNS,
     CompositeDefinitionModel,
     CompositeMemberReturnFactModel,
+    CompositeMembershipModel,
     CompositeMetadataStore,
     _missing_member_return_fact_schema_upgrade_columns,
 )
@@ -139,6 +140,59 @@ def test_composite_metadata_store_upserts_member_return_facts_by_composite_portf
 
     assert facts == [restated_fact]
     assert store.count_records().member_return_facts == 1
+
+
+def test_composite_metadata_store_clears_only_requested_composites(tmp_path):
+    store = _store(tmp_path)
+    keep_definition = CompositeDefinition.model_validate(
+        _definition().model_dump(mode="json") | {"composite_id": "KEEP_COMPOSITE"}
+    )
+    demo_definition = CompositeDefinition.model_validate(
+        _definition().model_dump(mode="json") | {"composite_id": "PB_GLOBAL_BALANCED_USD"}
+    )
+    for definition in (keep_definition, demo_definition):
+        store.upsert_definition(definition)
+        store.upsert_membership(
+            CompositeMembership.model_validate(
+                {
+                    "composite_id": definition.composite_id,
+                    "portfolio_id": f"{definition.composite_id}_PORTFOLIO",
+                    "effective_from": "2026-01-01",
+                    "source_snapshot_id": f"{definition.composite_id}-membership-snapshot",
+                }
+            )
+        )
+        store.upsert_member_return_fact(
+            CompositeMemberReturnFact.model_validate(
+                {
+                    "composite_id": definition.composite_id,
+                    "portfolio_id": f"{definition.composite_id}_PORTFOLIO",
+                    "period_start": "2026-01-01",
+                    "period_end": "2026-01-31",
+                    "return_value": "0.0100",
+                    "beginning_market_value": "1000000.00",
+                    "ending_market_value": "1010000.00",
+                    "reporting_currency": "USD",
+                    "calculation_id": f"{definition.composite_id}-calculation",
+                    "source_snapshot_id": f"{definition.composite_id}-snapshot",
+                    "source_fingerprint": f"sha256:{definition.composite_id}-snapshot",
+                }
+            )
+        )
+
+    store.clear_records_for_composites({"PB_GLOBAL_BALANCED_USD"})
+
+    counts = store.count_records()
+    assert counts.definitions == 1
+    assert counts.memberships == 1
+    assert counts.member_return_facts == 1
+    assert store.get_definition("KEEP_COMPOSITE") == keep_definition
+    assert store.get_definition("PB_GLOBAL_BALANCED_USD") is None
+    with store._session() as session:
+        assert session.query(CompositeMembershipModel).filter_by(composite_id="PB_GLOBAL_BALANCED_USD").count() == 0
+        assert (
+            session.query(CompositeMemberReturnFactModel).filter_by(composite_id="PB_GLOBAL_BALANCED_USD").count() == 0
+        )
 
 
 def test_composite_metadata_store_bounds_malformed_definition_source_authority(tmp_path, caplog):

@@ -23,6 +23,8 @@ from app.services.durable_metadata_bootstrap import bootstrap_durable_metadata_s
 from main import app  # noqa: E402
 from scripts.seed_composite_performance_fixture import seed_canonical_composite_fixture  # noqa: E402
 
+DEMO_COMPOSITE_FIXTURE_IDS = {"PB_GLOBAL_BALANCED_USD", "PB_GLOBAL_BALANCED_USD_DEGRADED"}
+
 
 @dataclass(frozen=True)
 class CertificationCheck:
@@ -68,12 +70,8 @@ def _prepare_demo_runtime() -> None:
     bootstrap_durable_metadata_stores()
 
 
-def _certify_capability_registry(client: TestClient) -> CertificationCheck:
-    health = _get_json(client, "/health")
-    readiness = _get_json(client, "/health/ready")
-    capabilities = _get_json(client, "/integration/capabilities?consumer_system=lotus-gateway&tenant_id=default")
-    surface_paths = {surface["path"] for surface in capabilities["analytics_surfaces"]}
-    expected_paths = {
+def _expected_demo_capability_paths() -> set[str]:
+    return {
         "/performance/workspace-summary",
         "/performance/twr",
         "/performance/mwr",
@@ -84,9 +82,24 @@ def _certify_capability_registry(client: TestClient) -> CertificationCheck:
         "/performance/composites/twr",
         "/performance/mandate-health-context",
     }
-    missing_paths = sorted(expected_paths.difference(surface_paths))
+
+
+def _assert_enabled_demo_surfaces(capabilities: dict[str, Any], expected_paths: set[str]) -> None:
+    surfaces_by_path = {surface["path"]: surface for surface in capabilities["analytics_surfaces"]}
+    missing_paths = sorted(expected_paths.difference(surfaces_by_path))
     if missing_paths:
         raise AssertionError(f"Capability registry is missing supported demo API paths: {missing_paths}")
+    disabled_paths = sorted(path for path in expected_paths if surfaces_by_path[path].get("enabled") is not True)
+    if disabled_paths:
+        raise AssertionError(f"Capability registry marks demo API paths as disabled: {disabled_paths}")
+
+
+def _certify_capability_registry(client: TestClient) -> CertificationCheck:
+    health = _get_json(client, "/health")
+    readiness = _get_json(client, "/health/ready")
+    capabilities = _get_json(client, "/integration/capabilities?consumer_system=lotus-gateway&tenant_id=default")
+    expected_paths = _expected_demo_capability_paths()
+    _assert_enabled_demo_surfaces(capabilities, expected_paths)
     return CertificationCheck(
         name="capability_registry",
         endpoints=["/health", "/health/ready", "/integration/capabilities"],
@@ -439,7 +452,7 @@ def _certify_mandate_health_context(client: TestClient) -> CertificationCheck:
 
 def _certify_composite_twr(client: TestClient) -> CertificationCheck:
     bootstrap_durable_metadata_stores()
-    composite_metadata_store.clear_all_records()
+    composite_metadata_store.clear_records_for_composites(DEMO_COMPOSITE_FIXTURE_IDS)
     seed_canonical_composite_fixture()
     body = _post_json(
         client,
@@ -480,10 +493,11 @@ def certify_demo_apis() -> dict[str, Any]:
             _certify_mandate_health_context(client),
             _certify_composite_twr(client),
         ]
+    api_call_count = sum(len(check.endpoints) for check in checks)
     return {
         "generated_at_utc": datetime.now(UTC).replace(microsecond=0).isoformat(),
         "status": "passed",
-        "api_call_count": 13,
+        "api_call_count": api_call_count,
         "feature_families": [
             "capabilities",
             "twr",

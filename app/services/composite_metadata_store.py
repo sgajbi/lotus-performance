@@ -146,6 +146,20 @@ class CompositeMetadataStore:
             session.query(CompositeMembershipModel).delete()
             session.query(CompositeDefinitionModel).delete()
 
+    def clear_records_for_composites(self, composite_ids: set[str]) -> None:
+        if not composite_ids:
+            return
+        with self._session() as session:
+            session.query(CompositeMemberReturnFactModel).filter(
+                CompositeMemberReturnFactModel.composite_id.in_(composite_ids)
+            ).delete(synchronize_session=False)
+            session.query(CompositeMembershipModel).filter(
+                CompositeMembershipModel.composite_id.in_(composite_ids)
+            ).delete(synchronize_session=False)
+            session.query(CompositeDefinitionModel).filter(
+                CompositeDefinitionModel.composite_id.in_(composite_ids)
+            ).delete(synchronize_session=False)
+
     def upsert_definition(self, definition: CompositeDefinition) -> None:
         with self._session() as session:
             session.merge(

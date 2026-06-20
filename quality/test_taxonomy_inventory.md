@@ -21,8 +21,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 268 |
-| Test functions inventoried | 2930 |
-| Integration/API/runtime test functions | 590 |
+| Test functions inventoried | 2934 |
+| Integration/API/runtime test functions | 591 |
 | Contract/governance test functions | 107 |
 
 ## Test Functions By Suite
@@ -32,18 +32,18 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | benchmarks | 9 | 17 |
 | e2e | 1 | 21 |
 | integration | 24 | 299 |
-| unit | 234 | 2593 |
+| unit | 234 | 2597 |
 
 ## Test Functions By Family
 
 | Family | Test functions |
 | --- | ---: |
 | analytics_domain | 1012 |
-| api_or_runtime | 590 |
+| api_or_runtime | 591 |
 | contract_or_governance | 107 |
-| observability_or_readiness | 183 |
-| quality_or_security | 81 |
-| uncategorized | 1180 |
+| observability_or_readiness | 185 |
+| quality_or_security | 84 |
+| uncategorized | 1181 |
 
 ## Largest Test Modules
 
@@ -86,7 +86,7 @@ The AST inventory counts test function definitions, while `pytest --collect-only
 pytest items including parametrized cases. The two values are intentionally different and
 complementary: collected tests show execution breadth, while this report shows source test-module
 and test-function distribution. The current suite has meaningful API/runtime and
-contract/governance coverage, but 1180 test functions remain uncategorized by the first-wave
+contract/governance coverage, but 1181 test functions remain uncategorized by the first-wave
 taxonomy and should be reviewed before turning taxonomy into a blocking gate.
 
 ## Gate Posture

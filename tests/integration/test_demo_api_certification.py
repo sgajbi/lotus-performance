@@ -7,7 +7,7 @@ def test_demo_api_certification_calls_supported_demo_feature_apis() -> None:
     report = certify_demo_apis()
 
     assert report["status"] == "passed"
-    assert report["api_call_count"] == 13
+    assert report["api_call_count"] == 12
     assert set(report["feature_families"]) == {
         "capabilities",
         "twr",
