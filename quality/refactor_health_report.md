@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Health Report
 
 Report date: 2026-06-20
-Branch: `lp-cr-1418-attribution-currency-projection`
+Branch: `lp-cr-1419-runtime-retention-history-entries`
 Baseline source: `quality/baseline_report.md`
 Report mode: phase-zero scorecard; complexity, architecture, duplicate-code, router-thinness,
 observability-readiness, and Python security posture are enforced separately by CI.
@@ -28,7 +28,7 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | Python files | 480 | 558 | measured | `rg --files -g '*.py'` |
 | Python package markers | 18 | 18 | measured | recursive `__init__.py` count |
-| Python LOC | 104,454 | 160,749 | measured | `rg --files -g '*.py'` plus PowerShell line count on this branch |
+| Python LOC | 104,454 | 160,800 | measured | `rg --files -g '*.py'` plus PowerShell line count on this branch |
 | Largest Python file LOC | 2,399 | 2,399 | measured | largest-file inventory in baseline report |
 | Largest production file LOC | 1,156 | 1,156 | measured | `app/services/lineage_metadata_store.py` |
 | Duplicate code hotspots | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `make quality-duplicate-code-gate` with `--min-lines 12 --max-groups 0`; duplicated LOC reduced from `24` to `0` in LP-CR-1407 |
@@ -42,7 +42,7 @@ link the commit, command, or CI artifact that proves the change.
 | Max cyclomatic complexity | unknown | 5 | enforced | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py`; `make quality-complexity-gate` |
 | High-complexity functions | unknown | 0 | enforced | rank D-F functions in `quality/complexity_inventory.md`; `make quality-complexity-gate` |
 | Average maintainability index | unknown | 55.13 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
-| Largest functions by LOC | unknown | 97 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; LP-CR-1418 moved `aggregate_attribution_results(...)` from `98` to `50` lines by isolating currency-attribution projection; `build_runtime_retention_history_snapshot(...)` is now the largest production function at `97` lines |
+| Largest functions by LOC | unknown | 94 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; LP-CR-1419 moved `build_runtime_retention_history_snapshot(...)` from `97` to `78` lines by isolating runtime-retention manifest entry projection; `resolve_attribution_request(...)` is now the largest production function at `94` lines |
 
 ## Architecture
 
@@ -71,7 +71,7 @@ link the commit, command, or CI artifact that proves the change.
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
 | Test modules | 228 | 268 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 3,138 | measured | `python -m pytest --collect-only -q` |
+| Collected tests | 2,035 | 3,139 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99% | measured | `quality/coverage_inventory.md` via `make test-coverage` |
 | Branch coverage | unknown | not configured | not-yet-measured | `quality/coverage_inventory.md`; branch coverage is not configured in pytest-cov or coverage.py |
 | Integration/API/runtime test functions | unknown | 592 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |
@@ -98,7 +98,7 @@ link the commit, command, or CI artifact that proves the change.
 | Metrics markers | unknown | 6 | measured | `metrics` family in `quality/observability_readiness_inventory.md` |
 | Health/readiness markers | unknown | 6 | measured | `health_readiness` family in `quality/observability_readiness_inventory.md` |
 | Health/metrics endpoint markers | unknown | 4 | measured | `health_metrics_endpoints` family in `quality/observability_readiness_inventory.md` |
-| Mapped observability/readiness test functions | unknown | 340 | measured | family-mapped test-function count in `quality/observability_readiness_inventory.md`; counts can overlap across families |
+| Mapped observability/readiness test functions | unknown | 341 | measured | family-mapped test-function count in `quality/observability_readiness_inventory.md`; counts can overlap across families |
 | Demo API certification command | unknown | 1 | measured | `make demo-api-certification` runs `scripts/demo_api_certification.py` and writes reviewed JSON evidence under `output/demo-api-certification/latest.json` |
 
 ## Documentation
