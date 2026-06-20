@@ -1156,6 +1156,31 @@ def _build_twr_lineage_details(
     return execution_details, calculation_details
 
 
+def _complete_twr_execution_with_lineage(
+    *,
+    performance_request: PerformanceRequest,
+    request_artifact_model: Any,
+    response_model: PerformanceResponse,
+    daily_results_df: pd.DataFrame,
+    results_by_period: dict[str, SinglePeriodPerformanceResult],
+    benchmark_artifacts: BenchmarkCalculationArtifacts | None,
+) -> None:
+    execution_details, calculation_details = _build_twr_lineage_details(
+        daily_results_df=daily_results_df,
+        results_by_period=results_by_period,
+        benchmark_artifacts=benchmark_artifacts,
+    )
+
+    complete_execution_with_lineage(
+        calculation_id=performance_request.calculation_id,
+        calculation_type=ANALYTICS_WORKFLOW_TWR,
+        request_model=request_artifact_model,
+        response_model=response_model,
+        execution_details=execution_details,
+        calculation_details=calculation_details,
+    )
+
+
 def calculate_twr_response(
     performance_request: PerformanceRequest,
     *,
@@ -1234,18 +1259,12 @@ def calculate_twr_response(
         calculation_supportability=calculation_supportability,
     )
 
-    execution_details, calculation_details = _build_twr_lineage_details(
+    _complete_twr_execution_with_lineage(
+        performance_request=performance_request,
+        request_artifact_model=request_artifact_model,
+        response_model=response_model,
         daily_results_df=calculation.daily_results_df,
         results_by_period=results_by_period,
         benchmark_artifacts=calculation.benchmark_artifacts,
-    )
-
-    complete_execution_with_lineage(
-        calculation_id=performance_request.calculation_id,
-        calculation_type=ANALYTICS_WORKFLOW_TWR,
-        request_model=request_artifact_model,
-        response_model=response_model,
-        execution_details=execution_details,
-        calculation_details=calculation_details,
     )
     return response_model

@@ -15,6 +15,7 @@ from app.models.responses import (
     SinglePeriodPerformanceResult,
 )
 from app.models.twr_requests import TWRInputMode
+from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_TWR
 from app.services.benchmark_calculation_service import BenchmarkCalculationArtifacts
 from app.services.twr_service import (
     _as_numeric,
@@ -27,6 +28,7 @@ from app.services.twr_service import (
     _build_twr_response_model,
     _build_twr_results_by_period,
     _calculate_total_return_from_slice,
+    _complete_twr_execution_with_lineage,
     _get_total_cum_ror,
     _rebased_cumulative_ror,
     _resolve_twr_execution_period_scope,
@@ -486,6 +488,35 @@ def test_build_twr_lineage_details_includes_benchmark_artifacts():
     assert calculation_details["daily_results.csv"] is daily_results_df
     assert calculation_details["benchmark_daily_returns.csv"] is benchmark_daily_returns_df
     assert calculation_details["benchmark_component_contributions.csv"] is component_contributions_df
+
+
+def test_complete_twr_execution_with_lineage_delegates_twr_lineage_payload(mocker):
+    request = _twr_request()
+    response_model = mocker.Mock()
+    request_artifact_model = mocker.Mock()
+    daily_results_df = _daily_twr_results_df()
+    complete_lineage = mocker.patch("app.services.twr_service.complete_execution_with_lineage")
+
+    _complete_twr_execution_with_lineage(
+        performance_request=request,
+        request_artifact_model=request_artifact_model,
+        response_model=response_model,
+        daily_results_df=daily_results_df,
+        results_by_period=cast(dict[str, SinglePeriodPerformanceResult], {"ITD": object()}),
+        benchmark_artifacts=None,
+    )
+
+    complete_lineage.assert_called_once()
+    kwargs = complete_lineage.call_args.kwargs
+    assert kwargs["calculation_id"] == request.calculation_id
+    assert kwargs["calculation_type"] == ANALYTICS_WORKFLOW_TWR
+    assert kwargs["request_model"] is request_artifact_model
+    assert kwargs["response_model"] is response_model
+    assert kwargs["execution_details"] == {
+        "periods_resolved": 1,
+        "daily_rows": 2,
+    }
+    assert kwargs["calculation_details"] == {"daily_results.csv": daily_results_df}
 
 
 def test_as_numeric_returns_default_for_non_numeric_values():

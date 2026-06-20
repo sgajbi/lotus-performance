@@ -1,7 +1,7 @@
 # Lotus Performance Function Size Inventory
 
 Report date: 2026-06-20
-Branch: `lp-cr-1422-stateful-benchmark-calculated-input`
+Branch: `lp-cr-1423-twr-lineage-completion`
 Mode: report-only function-size inventory; this artifact introduces no new blocking CI gate.
 
 ## Purpose
@@ -20,12 +20,12 @@ python scripts/python_function_size_inventory.py --limit 25
 
 | Rank | Function | File | Lines |
 | ---: | --- | --- | ---: |
-| 1 | `calculate_twr_response` | `app/services/twr_service.py:1159` | 93 |
-| 2 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:283` | 92 |
-| 3 | `build_runtime_status_response` | `app/models/runtime_status.py:838` | 91 |
-| 4 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:377` | 90 |
-| 5 | `_calculate_returns_series` | `app/services/returns_series_service.py:1463` | 90 |
-| 6 | `_build_artifacts` | `app/services/composite_inspection_service.py:154` | 89 |
+| 1 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:283` | 92 |
+| 2 | `build_runtime_status_response` | `app/models/runtime_status.py:838` | 91 |
+| 3 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:377` | 90 |
+| 4 | `_calculate_returns_series` | `app/services/returns_series_service.py:1463` | 90 |
+| 5 | `_build_artifacts` | `app/services/composite_inspection_service.py:154` | 89 |
+| 6 | `calculate_twr_response` | `app/services/twr_service.py:1184` | 87 |
 | 7 | `run_runtime_retention_cleanup` | `app/services/runtime_retention_run_service.py:112` | 83 |
 | 8 | `_build_feature_capabilities` | `app/services/integration_capabilities_service.py:96` | 81 |
 | 9 | `build_recovery_drill_history_snapshot` | `app/services/recovery_drill_history_service.py:66` | 81 |
