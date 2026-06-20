@@ -58,6 +58,10 @@ service, not as a calculation demo. The current bank-readiness evidence includes
 - release evidence:
   `make check`, `make ci`, and `make ci-local` map local proof to the Lotus multi-lane delivery
   model
+- observability guardrails:
+  `make quality-observability-readiness-gate` blocks missing health/metrics, correlation,
+  structured logging, metrics, and readiness markers before feature branches can degrade runtime
+  supportability
 
 This is not a blanket production certification for every client environment. Final bank-buyable
 readiness still requires the target deployment, entitlement model, SLOs, observability integration,
@@ -163,6 +167,8 @@ source-economics or reconciliation regressions.
   `make runtime-retention-smoke`
 - demo API certification
   `make demo-api-certification`
+- observability readiness marker gate
+  `make quality-observability-readiness-gate`
 - Docker image proof
   `make docker-build`
 
@@ -177,7 +183,8 @@ source-economics or reconciliation regressions.
 The local mapping is:
 
 - `make check`
-  lint, no-alias gate, typecheck, OpenAPI gate, API vocabulary gate, and unit tests
+  lint, static quality gates including observability-readiness markers, no-alias gate, typecheck,
+  OpenAPI gate, API vocabulary gate, and unit tests
 - `make ci`
   governance, migration smoke, security audit, unit, integration, e2e, coverage, and Docker build
 - `make ci-local`

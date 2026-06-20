@@ -124,6 +124,8 @@ Use these commands as the primary local contract:
    `make domain-product-validate`
 8. demo API certification
    `make demo-api-certification`
+9. repo-native observability-readiness marker gate
+   `make quality-observability-readiness-gate`
 
 ## Validation And CI Expectations
 
@@ -152,6 +154,11 @@ Important validation expectations:
    publication, and writes reviewed evidence under `output/demo-api-certification/`. The Quality
    Baseline Snapshot workflow runs it as report-only CI evidence and uploads the JSON artifact; it
    is not yet a blocking readiness gate.
+9. `make quality-observability-readiness-gate` blocks missing health/metrics endpoint,
+   correlation propagation, structured logging, metrics, and health/readiness implementation
+   markers through `scripts/python_observability_readiness_inventory.py --max-missing 0`. Broader
+   observability maturity scoring remains measured in `quality/observability_readiness_inventory.md`
+   rather than claimed as complete.
 
 ## Standards And RFCs That Govern This Repository
 

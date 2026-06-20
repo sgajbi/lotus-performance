@@ -4,7 +4,8 @@ Report date: 2026-06-20
 Branch: `lp-cr-1413-demo-api-certification`
 Baseline source: `quality/baseline_report.md`
 Current source: `quality/refactor_health_report.md`
-Mode: phase-zero scorecard; complexity regression posture is enforced separately by CI.
+Mode: phase-zero scorecard; static-quality enforcement includes complexity, architecture,
+router-thinness, duplicate-code, and observability-readiness gates.
 
 ## Purpose
 
@@ -24,7 +25,7 @@ metrics in each section are updated with each meaningful slice.
 | Largest Python file LOC | 2,399 | 2,399 | 0 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest production file LOC | 1,156 | 1,156 | 0 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
 | Python test modules | 228 | 268 | 40 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Collected tests | 2,035 | 3,130 | 1,095 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Collected tests | 2,035 | 3,132 | 1,097 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Duplicate code hotspots | 0 | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `quality/refactor_health_report.md`; `make quality-duplicate-code-gate` |
 
 ### Complexity And Maintainability
@@ -79,8 +80,8 @@ metrics in each section are updated with each meaningful slice.
 
 | Metric | Baseline | Current | Delta | Status | Evidence |
 | --- | ---: | ---: | ---: | --- | --- |
-| Operational readiness markers | unknown | 28 | n/a | measured | `quality/observability_readiness_inventory.md`; `quality/refactor_health_report.md` |
-| Missing readiness markers | unknown | 0 | n/a | measured | `quality/observability_readiness_inventory.md`; `quality/refactor_health_report.md` |
+| Operational readiness markers | unknown | 28 | n/a | enforced | `quality/observability_readiness_inventory.md`; `quality/refactor_health_report.md`; `make quality-observability-readiness-gate` |
+| Missing readiness markers | unknown | 0 | n/a | enforced | `quality/observability_readiness_inventory.md`; `quality/refactor_health_report.md`; `make quality-observability-readiness-gate` |
 | Correlation propagation markers | unknown | 6 | n/a | measured | `quality/observability_readiness_inventory.md`; `quality/refactor_health_report.md` |
 | Structured logging markers | unknown | 6 | n/a | measured | `quality/observability_readiness_inventory.md`; `quality/refactor_health_report.md` |
 | Metrics markers | unknown | 6 | n/a | measured | `quality/observability_readiness_inventory.md`; `quality/refactor_health_report.md` |
@@ -101,12 +102,12 @@ metrics in each section are updated with each meaningful slice.
 | Signal | Value | Note |
 | --- | ---: | --- |
 | Total metrics tracked | 42 | All metrics in this file are measured or explicitly called out as not-yet-measured. |
-| Measured metrics | 41 | Eight measured metrics are now also enforced through blocking static-quality or security gates. Remaining gaps are primarily branch coverage and a few baseline historical values remain for future slices. |
+| Measured metrics | 41 | Ten measured metrics are now also enforced through blocking static-quality or security gates. Remaining gaps are primarily branch coverage and a few baseline historical values remain for future slices. |
 | Not-yet-measured metrics | 1 | Branch coverage remains unconfigured and untracked on this stream. |
 
 ## Method Note
 
-- This phase is report-only. Values are intentionally conservative and map to artifacts already
-  generated from repository-native scripts.
+- Values are intentionally conservative and map to artifacts already generated from
+  repository-native scripts; selected zero-finding signals are now blocking gates.
 - `n/a` indicates that a comparable historical pre-baseline value is not yet available in-repo.
 - The next slice should replace `not-yet-measured` entries first and add explicit trend deltas.
