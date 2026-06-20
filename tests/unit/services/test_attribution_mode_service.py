@@ -7,9 +7,18 @@ import pytest
 from fastapi import HTTPException
 
 from app.models.attribution_analytics_requests import AttributionAnalyticsRequest, AttributionInputMode
+from app.models.attribution_requests import AttributionPortfolioData, BenchmarkGroup, InstrumentData
 from app.models.benchmark_requests import BenchmarkComponentObservation
-from app.services.attribution_mode_service import resolve_attribution_request
-from app.services.stateful_attribution_input_service import StatefulAttributionSourceInput
+from app.models.requests import DailyInputData
+from app.services.attribution_mode_service import (
+    _attribution_normalization_stage_details,
+    _attribution_retrieval_stage_details,
+    resolve_attribution_request,
+)
+from app.services.stateful_attribution_input_service import (
+    StatefulAttributionNormalizedInput,
+    StatefulAttributionSourceInput,
+)
 from app.services.stateful_input_service import RetrievalMetadata
 from app.services.stateful_performance_input_service import StatefulPortfolioInput
 
@@ -157,3 +166,98 @@ async def test_resolve_attribution_request_fails_normalization_stage(monkeypatch
         await resolve_attribution_request(request, settings=object())
 
     assert failed and failed[0][1] == "normalization"
+
+
+def test_attribution_retrieval_stage_details_preserve_source_counts():
+    source_input = StatefulAttributionSourceInput(
+        portfolio_input=StatefulPortfolioInput(
+            performance_start_date=date(2025, 1, 1),
+            observations=[{"valuation_date": "2025-01-01"}, {"valuation_date": "2025-01-02"}],
+            retrieval_metadata=RetrievalMetadata(chunk_count=3, page_count=4),
+        ),
+        position_rows=[{"instrument_id": "AAPL"}, {"instrument_id": "MSFT"}],
+        position_retrieval_metadata=RetrievalMetadata(chunk_count=5, page_count=6),
+        benchmark_id="BMK_1",
+        benchmark_component_observations=[
+            BenchmarkComponentObservation(
+                component_id="IDX_1",
+                perf_date=date(2025, 1, 1),
+                weight_bop=1.0,
+                component_return=0.01,
+            ),
+            BenchmarkComponentObservation(
+                component_id="IDX_2",
+                perf_date=date(2025, 1, 1),
+                weight_bop=0.0,
+                component_return=0.0,
+            ),
+        ],
+        benchmark_source_details={
+            "benchmark_components": 2,
+            "fx_pair_count": 1,
+            "fx_chunk_count": 7,
+            "fx_page_count": 8,
+        },
+        benchmark_retrieval_metadata=RetrievalMetadata(chunk_count=9, page_count=10),
+        index_records=[{"component_id": "IDX_1"}],
+        index_retrieval_metadata=RetrievalMetadata(chunk_count=11, page_count=12),
+    )
+
+    assert _attribution_retrieval_stage_details(source_input) == {
+        "portfolio_observations": 2,
+        "position_rows": 2,
+        "benchmark_components": 2,
+        "benchmark_component_observations": 2,
+        "portfolio_chunk_count": 3,
+        "portfolio_page_count": 4,
+        "position_chunk_count": 5,
+        "position_page_count": 6,
+        "benchmark_chunk_count": 9,
+        "benchmark_page_count": 10,
+        "fx_pair_count": 1,
+        "fx_chunk_count": 7,
+        "fx_page_count": 8,
+        "index_request_count": 12,
+    }
+
+
+def test_attribution_normalization_stage_details_preserve_alignment_evidence():
+    normalized_input = StatefulAttributionNormalizedInput(
+        portfolio_data=AttributionPortfolioData(
+            metric_basis="NET",
+            valuation_points=[
+                DailyInputData(
+                    perf_date=date(2025, 1, 1),
+                    begin_mv=100.0,
+                    end_mv=101.0,
+                )
+            ],
+        ),
+        instruments_data=[
+            InstrumentData(
+                instrument_id="AAPL",
+                meta={"sector": "Technology"},
+                valuation_points=[
+                    DailyInputData(
+                        perf_date=date(2025, 1, 1),
+                        begin_mv=50.0,
+                        end_mv=51.0,
+                    )
+                ],
+            )
+        ],
+        benchmark_groups_data=[
+            BenchmarkGroup(
+                key={"sector": "Technology"},
+                observations=[{"date": date(2025, 1, 1), "weight_bop": 1.0, "return_base": 0.01}],
+            )
+        ],
+        source_alignment_evidence={"position_classification": {"missing": 0}},
+    )
+
+    assert _attribution_normalization_stage_details(normalized_input) == {
+        "portfolio_points": 1,
+        "instruments": 1,
+        "benchmark_groups": 1,
+        "source_alignment": {"position_classification": {"missing": 0}},
+    }
