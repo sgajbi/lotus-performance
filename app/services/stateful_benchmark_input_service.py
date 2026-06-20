@@ -81,6 +81,25 @@ async def build_stateful_benchmark_input(
             end_date=end_date,
         )
 
+    return await _build_stateful_calculated_benchmark_input(
+        stateful_input_service=stateful_input_service,
+        calculation_id=calculation_id,
+        benchmark_id=benchmark_id,
+        as_of_date=as_of_date,
+        start_date=start_date,
+        end_date=end_date,
+    )
+
+
+async def _build_stateful_calculated_benchmark_input(
+    *,
+    stateful_input_service: StatefulInputService,
+    calculation_id: UUID,
+    benchmark_id: str,
+    as_of_date: date,
+    start_date: date,
+    end_date: date,
+) -> StatefulBenchmarkNormalizedInput:
     composition_status, composition_payload = await stateful_input_service.get_benchmark_composition_window(
         benchmark_id=benchmark_id,
         start_date=start_date,

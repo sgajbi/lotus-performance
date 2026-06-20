@@ -14,6 +14,7 @@ from app.services.stateful_benchmark_input_service import (
     _build_component_observation,
     _build_component_observations,
     _build_normalized_component_series,
+    _build_stateful_calculated_benchmark_input,
     _component_price_point_date_in_scope,
     _component_price_series_points,
     _composition_segment_overlaps_window,
@@ -207,6 +208,32 @@ async def test_build_stateful_benchmark_input_calculates_fx_normalized_component
     assert result.source_details["fx_pair_count"] == 2
     assert result.source_details["fx_chunk_count"] == 3
     assert result.source_details["fx_page_count"] == 5
+
+
+@pytest.mark.asyncio
+async def test_stateful_calculated_benchmark_input_projects_source_details():
+    result = await _build_stateful_calculated_benchmark_input(
+        stateful_input_service=_StatefulInputServiceStub(),
+        calculation_id=uuid4(),
+        benchmark_id="BMK_1",
+        as_of_date=date(2026, 1, 3),
+        start_date=date(2026, 1, 2),
+        end_date=date(2026, 1, 3),
+    )
+
+    assert result.benchmark_currency == "USD"
+    assert result.benchmark_return_points == []
+    assert len(result.component_observations) == 5
+    assert result.source_details == {
+        "benchmark_components": 3,
+        "benchmark_segments": 5,
+        "component_observations": 5,
+        "benchmark_chunk_count": 3,
+        "benchmark_page_count": 3,
+        "fx_pair_count": 2,
+        "fx_chunk_count": 3,
+        "fx_page_count": 5,
+    }
 
 
 @pytest.mark.asyncio

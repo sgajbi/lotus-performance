@@ -1,7 +1,7 @@
 # Lotus Performance Progressive CI Quality Gates
 
 Report date: 2026-06-20
-Branch: `lp-cr-1421-capability-portfolio-surfaces`
+Branch: `lp-cr-1422-stateful-benchmark-calculated-input`
 Baseline sources: `quality/baseline_report.md`, `quality/refactor_health_report.md`, `quality/quality_scorecard.md`
 Mode: progressive gate map; remediated complexity, architecture-boundary, router-thinness,
 duplicate-code, observability-readiness, and Python security posture is now enforced in CI.
@@ -77,7 +77,7 @@ No gate should move from one phase to the next until it has:
 | Docker build | Blocking in PR and main lanes | Keep blocking; no new Docker gate is needed for report-only quality artifacts. |
 | Domain data product validation | Blocking locally through `make check` and repo-native command | Confirm whether GitHub workflows should include this explicitly before changing CI. |
 | Complexity and maintainability | Max cyclomatic complexity and D-F function count are blocking through `make quality-complexity-gate`; maintainability index remains measured in `quality/complexity_inventory.md` through `scripts/python_complexity_inventory.py` and `radon` | Keep max CC at `8` and D-F count at `0`; keep MI report-only until a stable remediation threshold and exception policy exist. |
-| Function-size hotspots | Measured in `quality/function_size_inventory.md` through a repo-native standard-library scanner; largest production functions are now `build_stateful_benchmark_input(...)` and `calculate_twr_response(...)` at `93` lines each after LP-CR-1421 moved `_build_analytics_surfaces(...)` from `93` to `52` lines | Use as refactor-planning evidence; do not block CI until stable thresholds and exclusions are agreed. |
+| Function-size hotspots | Measured in `quality/function_size_inventory.md` through a repo-native standard-library scanner; largest production function is now `calculate_twr_response(...)` at `93` lines after LP-CR-1422 moved `build_stateful_benchmark_input(...)` from `93` to `35` lines | Use as refactor-planning evidence; do not block CI until stable thresholds and exclusions are agreed. |
 | Duplicate code hotspots | Blocking through `make quality-duplicate-code-gate`; current report shows 0 duplicate hotspot groups at `--min-lines 12` with `--max-groups 0` | Keep blocking at zero accepted first-party duplicate function-body hotspot groups; future increases require a documented reason and a better reusable abstraction decision. |
 | Dead-code detection | Measured in `quality/dead_code_inventory.md` through `scripts/python_dead_code_inventory.py` and `vulture`; 60% findings are dominated by framework/model false positives, while 80% findings are zero | Add reviewed allowlist before considering any regression-blocking gate. |
 | Dependency hygiene | Measured in `quality/dependency_hygiene_report.md` through `scripts/python_dependency_hygiene_inventory.py` and `deptry`; direct imported transitive dependencies are closed, and reviewed runtime-only DEP002 declarations are explicitly allowlisted in the repo scanner | Keep report-only until the allowlist policy and CI placement are stable. |
