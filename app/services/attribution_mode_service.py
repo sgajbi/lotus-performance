@@ -14,6 +14,8 @@ from app.services.input_mode_validation import require_stateful_input
 from app.services.portfolio_source_service import build_stateful_input_service
 from app.services.service_identity import LOTUS_PERFORMANCE_CONSUMER_SYSTEM
 from app.services.stateful_attribution_input_service import (
+    StatefulAttributionNormalizedInput,
+    StatefulAttributionSourceInput,
     build_stateful_attribution_input,
     retrieve_stateful_attribution_source_input,
 )
@@ -65,22 +67,7 @@ async def resolve_attribution_request(
         execution_registry.complete_stage(
             request.calculation_id,
             EXECUTION_STAGE_RETRIEVAL,
-            details={
-                "portfolio_observations": len(source_input.portfolio_input.observations),
-                "position_rows": len(source_input.position_rows),
-                "benchmark_components": source_input.benchmark_source_details.get("benchmark_components", 0),
-                "benchmark_component_observations": len(source_input.benchmark_component_observations),
-                "portfolio_chunk_count": source_input.portfolio_input.retrieval_metadata.chunk_count,
-                "portfolio_page_count": source_input.portfolio_input.retrieval_metadata.page_count,
-                "position_chunk_count": source_input.position_retrieval_metadata.chunk_count,
-                "position_page_count": source_input.position_retrieval_metadata.page_count,
-                "benchmark_chunk_count": source_input.benchmark_retrieval_metadata.chunk_count,
-                "benchmark_page_count": source_input.benchmark_retrieval_metadata.page_count,
-                "fx_pair_count": source_input.benchmark_source_details.get("fx_pair_count", 0),
-                "fx_chunk_count": source_input.benchmark_source_details.get("fx_chunk_count", 0),
-                "fx_page_count": source_input.benchmark_source_details.get("fx_page_count", 0),
-                "index_request_count": source_input.index_retrieval_metadata.page_count,
-            },
+            details=_attribution_retrieval_stage_details(source_input),
         )
     except HTTPException as exc:
         execution_registry.fail_stage(request.calculation_id, EXECUTION_STAGE_RETRIEVAL, str(exc.detail))
@@ -100,12 +87,7 @@ async def resolve_attribution_request(
         execution_registry.complete_stage(
             request.calculation_id,
             EXECUTION_STAGE_NORMALIZATION,
-            details={
-                "portfolio_points": len(normalized_input.portfolio_data.valuation_points),
-                "instruments": len(normalized_input.instruments_data),
-                "benchmark_groups": len(normalized_input.benchmark_groups_data),
-                "source_alignment": normalized_input.source_alignment_evidence,
-            },
+            details=_attribution_normalization_stage_details(normalized_input),
         )
     except Exception as exc:
         execution_registry.fail_stage(request.calculation_id, EXECUTION_STAGE_NORMALIZATION, str(exc))
@@ -130,3 +112,33 @@ def _resolved_attribution_input_count(request: AttributionRequest) -> int:
         + len(request.portfolio_groups_data or [])
         + len(request.benchmark_groups_data or [])
     )
+
+
+def _attribution_retrieval_stage_details(source_input: StatefulAttributionSourceInput) -> dict[str, object]:
+    return {
+        "portfolio_observations": len(source_input.portfolio_input.observations),
+        "position_rows": len(source_input.position_rows),
+        "benchmark_components": source_input.benchmark_source_details.get("benchmark_components", 0),
+        "benchmark_component_observations": len(source_input.benchmark_component_observations),
+        "portfolio_chunk_count": source_input.portfolio_input.retrieval_metadata.chunk_count,
+        "portfolio_page_count": source_input.portfolio_input.retrieval_metadata.page_count,
+        "position_chunk_count": source_input.position_retrieval_metadata.chunk_count,
+        "position_page_count": source_input.position_retrieval_metadata.page_count,
+        "benchmark_chunk_count": source_input.benchmark_retrieval_metadata.chunk_count,
+        "benchmark_page_count": source_input.benchmark_retrieval_metadata.page_count,
+        "fx_pair_count": source_input.benchmark_source_details.get("fx_pair_count", 0),
+        "fx_chunk_count": source_input.benchmark_source_details.get("fx_chunk_count", 0),
+        "fx_page_count": source_input.benchmark_source_details.get("fx_page_count", 0),
+        "index_request_count": source_input.index_retrieval_metadata.page_count,
+    }
+
+
+def _attribution_normalization_stage_details(
+    normalized_input: StatefulAttributionNormalizedInput,
+) -> dict[str, object]:
+    return {
+        "portfolio_points": len(normalized_input.portfolio_data.valuation_points),
+        "instruments": len(normalized_input.instruments_data),
+        "benchmark_groups": len(normalized_input.benchmark_groups_data),
+        "source_alignment": normalized_input.source_alignment_evidence,
+    }
