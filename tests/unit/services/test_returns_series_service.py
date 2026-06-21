@@ -441,6 +441,73 @@ def test_build_returns_series_response_preserves_context_provenance_and_series_p
     assert response.diagnostics == diagnostics_result.diagnostics
 
 
+def test_build_returns_series_execution_result_preserves_policy_response_and_stage_details():
+    request = ReturnsSeriesRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "as_of_date": "2026-02-25",
+            "window": {"mode": "EXPLICIT", "from_date": "2026-02-23", "to_date": "2026-02-25"},
+            "frequency": "DAILY",
+            "series_selection": {"include_portfolio": True, "include_benchmark": True, "include_risk_free": True},
+            "data_policy": {"missing_data_policy": "STRICT_INTERSECTION"},
+            "input_mode": "stateless",
+            "stateless_input": {
+                "portfolio_returns": [{"date": "2026-02-23", "return_value": "0.0100"}],
+                "benchmark_returns": [{"date": "2026-02-23", "return_value": "0.0050"}],
+                "risk_free_returns": [{"date": "2026-02-23", "return_value": "0.0001"}],
+            },
+        }
+    )
+    context = returns_series_service._ReturnsSeriesExecutionContext(
+        request=request,
+        resolved_window=returns_series_service.resolve_window(request),
+        effective_input_mode=InputMode.STATELESS,
+        input_fingerprint="input-fingerprint",
+        calculation_hash="calculation-hash",
+        resolved_benchmark_id="BMK_1",
+        resolved_benchmark_return_source=BenchmarkReturnSource.VENDOR_SERIES,
+    )
+    portfolio_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-23", "2026-02-24"]),
+            "return_value": [Decimal("0.0100"), Decimal("0.0200")],
+        }
+    )
+    benchmark_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-24", "2026-02-25"]),
+            "return_value": [Decimal("0.0150"), Decimal("0.0300")],
+        }
+    )
+    risk_free_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-24", "2026-02-25"]),
+            "return_value": [Decimal("0.0002"), Decimal("0.0003")],
+        }
+    )
+
+    result = returns_series_service._build_returns_series_execution_result(
+        context=context,
+        portfolio_df=portfolio_df,
+        benchmark_df=benchmark_df,
+        risk_free_df=risk_free_df,
+    )
+
+    response = result.response
+    assert result.stage_details == {"requested_points": 3, "returned_points": 1}
+    assert [point.date for point in response.series.portfolio_returns] == [date(2026, 2, 24)]
+    assert response.series.benchmark_returns is not None
+    assert [str(point.return_value) for point in response.series.benchmark_returns] == ["0.015000000000"]
+    assert response.series.risk_free_returns is not None
+    assert [str(point.return_value) for point in response.series.risk_free_returns] == ["0.000200000000"]
+    assert response.benchmark_context is not None
+    assert response.benchmark_context.benchmark_id == "BMK_1"
+    assert response.benchmark_context.return_source == BenchmarkReturnSource.VENDOR_SERIES
+    assert response.provenance.input_fingerprint == "input-fingerprint"
+    assert response.provenance.calculation_hash == "calculation-hash"
+    assert response.diagnostics.coverage.returned_points == 1
+
+
 def test_returns_series_benchmark_context_requires_id_and_source():
     context = returns_series_service._returns_series_benchmark_context(
         resolved_benchmark_id="BMK_1",
