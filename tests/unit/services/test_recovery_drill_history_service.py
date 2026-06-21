@@ -9,6 +9,8 @@ from app.services.recovery_drill_history_service import (
     RECOVERY_DRILL_MANIFEST_INVALID_REASON,
     RECOVERY_DRILL_MANIFEST_MISSING_REASON,
     RECOVERY_DRILL_MANIFEST_UNREADABLE_REASON,
+    _filtered_recovery_drill_history_entries,
+    _recovery_drill_history_entries_from_manifest,
     build_recovery_drill_history_snapshot,
 )
 
@@ -19,6 +21,81 @@ def test_recovery_drill_history_snapshot_reports_missing_directory(tmp_path):
     assert snapshot.status == "unavailable"
     assert snapshot.reason == RECOVERY_DRILL_ARTIFACT_DIRECTORY_MISSING_REASON
     assert snapshot.entries == []
+
+
+def test_recovery_drill_history_entries_from_manifest_projects_entry_model():
+    entries = _recovery_drill_history_entries_from_manifest(
+        {
+            "entries": [
+                {
+                    "evidence_file_name": "2026-03-14t00-00-00.json",
+                    "generated_at_utc": "2026-03-14T00:00:00Z",
+                    "operator_id": "ops-user",
+                    "tenant_id": "tenant-a",
+                    "correlation_id": "corr-1",
+                    "backup_identifier": "backup-123",
+                    "status": "passed",
+                }
+            ]
+        }
+    )
+
+    assert len(entries) == 1
+    entry = entries[0]
+    assert entry.evidence_file_name == "2026-03-14t00-00-00.json"
+    assert entry.generated_at_utc == "2026-03-14T00:00:00Z"
+    assert entry.operator_id == "ops-user"
+    assert entry.tenant_id == "tenant-a"
+    assert entry.correlation_id == "corr-1"
+    assert entry.backup_identifier == "backup-123"
+    assert entry.status == "passed"
+
+
+def test_filtered_recovery_drill_history_entries_applies_exact_and_time_filters():
+    entries = _recovery_drill_history_entries_from_manifest(
+        {
+            "entries": [
+                {
+                    "evidence_file_name": "2026-03-14t00-00-00.json",
+                    "generated_at_utc": "2026-03-14T00:00:00Z",
+                    "operator_id": "ops-user",
+                    "tenant_id": None,
+                    "correlation_id": None,
+                    "backup_identifier": "backup-123",
+                    "status": "passed",
+                },
+                {
+                    "evidence_file_name": "2026-03-13t00-00-00.json",
+                    "generated_at_utc": "2026-03-13T00:00:00Z",
+                    "operator_id": "ops-user",
+                    "tenant_id": None,
+                    "correlation_id": None,
+                    "backup_identifier": "backup-123",
+                    "status": "failed",
+                },
+                {
+                    "evidence_file_name": "2026-03-12t00-00-00.json",
+                    "generated_at_utc": "2026-03-12T00:00:00Z",
+                    "operator_id": "ops-batch",
+                    "tenant_id": None,
+                    "correlation_id": None,
+                    "backup_identifier": "backup-999",
+                    "status": "passed",
+                },
+            ]
+        }
+    )
+
+    filtered = _filtered_recovery_drill_history_entries(
+        entries=entries,
+        operator_id="ops-user",
+        backup_identifier="backup-123",
+        status_filter="passed",
+        generated_after="2026-03-13T00:00:00Z",
+        generated_before="2026-03-14T00:00:00Z",
+    )
+
+    assert [entry.evidence_file_name for entry in filtered] == ["2026-03-14t00-00-00.json"]
 
 
 def test_recovery_drill_history_snapshot_reads_manifest(tmp_path):

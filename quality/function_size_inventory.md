@@ -1,7 +1,7 @@
 # Lotus Performance Function Size Inventory
 
 Report date: 2026-06-21
-Branch: `lp-cr-1431-integration-capability-feature-boundary`
+Branch: `lp-cr-1433-recovery-drill-history-snapshot-boundary`
 Mode: report-only function-size inventory; this artifact introduces no new blocking CI gate.
 
 ## Purpose
@@ -20,31 +20,31 @@ python scripts/python_function_size_inventory.py --limit 25
 
 | Rank | Function | File | Lines |
 | ---: | --- | --- | ---: |
-| 1 | `build_recovery_drill_history_snapshot` | `app/services/recovery_drill_history_service.py:66` | 81 |
-| 2 | `build_runtime_recovery_snapshot` | `app/services/runtime_recovery_service.py:67` | 81 |
-| 3 | `calculate_contribution` | `app/services/contribution_service.py:716` | 80 |
-| 4 | `LineageMetadataStore._build_inspection_query_statements` | `app/services/lineage_metadata_store.py:529` | 80 |
-| 5 | `_build_contribution_response` | `app/services/contribution_service.py:635` | 79 |
-| 6 | `_build_twr_inspection_response` | `app/services/inspection/twr_inspection_service.py:305` | 79 |
-| 7 | `StatefulInputService._fetch_portfolio_chunk` | `app/services/stateful_input_service.py:877` | 79 |
-| 8 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:91` | 78 |
-| 9 | `resolve_contribution_request` | `app/services/contribution_mode_service.py:32` | 77 |
-| 10 | `LineageMetadataStore._lease_pending_payloads_postgresql` | `app/services/lineage_metadata_store.py:1043` | 77 |
-| 11 | `_build_stateful_calculated_benchmark_input` | `app/services/stateful_benchmark_input_service.py:94` | 75 |
-| 12 | `build_runtime_retention_history_query` | `app/api/dependencies/runtime_retention_history.py:11` | 74 |
-| 13 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:33` | 74 |
-| 14 | `_build_portfolio_engine_diagnostics` | `app/services/contribution_diagnostics.py:62` | 74 |
-| 15 | `build_runtime_work_item_snapshot` | `app/services/runtime_work_item_service.py:62` | 74 |
-| 16 | `_build_workspace_benchmark_and_active_blocks` | `app/services/workspace_summary_service.py:717` | 74 |
-| 17 | `calculate_attribution` | `app/services/attribution_service.py:313` | 73 |
-| 18 | `_build_attribution_supportability_reasons` | `engine/attribution_supportability.py:174` | 73 |
-| 19 | `run_recovery_drill` | `app/api/endpoints/recovery_drill_history.py:115` | 72 |
-| 20 | `calculate_benchmark_response` | `app/services/benchmark_service.py:14` | 72 |
-| 21 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:391` | 72 |
-| 22 | `calculate_mwr_response` | `app/services/mwr_calculation_service.py:162` | 72 |
-| 23 | `_resolve_stateful_returns_series_benchmark_source` | `app/services/returns_series_service.py:1096` | 72 |
-| 24 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:87` | 71 |
-| 25 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:465` | 70 |
+| 1 | `build_runtime_recovery_snapshot` | `app/services/runtime_recovery_service.py:67` | 81 |
+| 2 | `calculate_contribution` | `app/services/contribution_service.py:716` | 80 |
+| 3 | `LineageMetadataStore._build_inspection_query_statements` | `app/services/lineage_metadata_store.py:529` | 80 |
+| 4 | `_build_contribution_response` | `app/services/contribution_service.py:635` | 79 |
+| 5 | `_build_twr_inspection_response` | `app/services/inspection/twr_inspection_service.py:305` | 79 |
+| 6 | `StatefulInputService._fetch_portfolio_chunk` | `app/services/stateful_input_service.py:877` | 79 |
+| 7 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:91` | 78 |
+| 8 | `resolve_contribution_request` | `app/services/contribution_mode_service.py:32` | 77 |
+| 9 | `LineageMetadataStore._lease_pending_payloads_postgresql` | `app/services/lineage_metadata_store.py:1043` | 77 |
+| 10 | `_build_stateful_calculated_benchmark_input` | `app/services/stateful_benchmark_input_service.py:94` | 75 |
+| 11 | `build_runtime_retention_history_query` | `app/api/dependencies/runtime_retention_history.py:11` | 74 |
+| 12 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:33` | 74 |
+| 13 | `_build_portfolio_engine_diagnostics` | `app/services/contribution_diagnostics.py:62` | 74 |
+| 14 | `build_runtime_work_item_snapshot` | `app/services/runtime_work_item_service.py:62` | 74 |
+| 15 | `_build_workspace_benchmark_and_active_blocks` | `app/services/workspace_summary_service.py:717` | 74 |
+| 16 | `calculate_attribution` | `app/services/attribution_service.py:313` | 73 |
+| 17 | `_build_attribution_supportability_reasons` | `engine/attribution_supportability.py:174` | 73 |
+| 18 | `run_recovery_drill` | `app/api/endpoints/recovery_drill_history.py:115` | 72 |
+| 19 | `calculate_benchmark_response` | `app/services/benchmark_service.py:14` | 72 |
+| 20 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:391` | 72 |
+| 21 | `calculate_mwr_response` | `app/services/mwr_calculation_service.py:162` | 72 |
+| 22 | `_resolve_stateful_returns_series_benchmark_source` | `app/services/returns_series_service.py:1096` | 72 |
+| 23 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:87` | 71 |
+| 24 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:465` | 70 |
+| 25 | `build_mwr_response` | `app/services/mwr_calculation_service.py:42` | 70 |
 
 ## Interpretation
 
@@ -225,3 +225,7 @@ capability-family helpers while preserving the public feature order and enabled-
 `_build_feature_capabilities` dropped out of the top-25 table, and the largest production
 functions are now `build_recovery_drill_history_snapshot` and `build_runtime_recovery_snapshot`
 at `81` lines each.
+LP-CR-1433 isolated recovery-drill manifest entry projection and history filtering into focused
+helpers while preserving manifest validation, unavailable-history reason semantics, applied
+filters, and pagination. `build_recovery_drill_history_snapshot` dropped out of the top-25 table,
+and the largest production function is now `build_runtime_recovery_snapshot` at `81` lines.
