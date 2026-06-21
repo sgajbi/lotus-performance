@@ -13,7 +13,15 @@ from app.models.inspection_requests import (
     TWRInspectionRequest,
     TWRInspectionSubjectType,
 )
-from app.models.inspection_responses import TWRInspectionFinding, TWRInspectionVerdict
+from app.models.inspection_responses import (
+    TWRInspectionCheckCoverage,
+    TWRInspectionFinding,
+    TWRInspectionOwnerSummary,
+    TWRInspectionRelatedLineage,
+    TWRInspectionResponse,
+    TWRInspectionVerdict,
+    TWRInspectionWorkflowPackRun,
+)
 from app.models.requests import Analysis, DailyInputData, PerformanceRequest
 from app.models.twr_requests import TWRAnalyticsRequest
 from app.services.execution_stage_names import (
@@ -610,6 +618,72 @@ def test_build_twr_inspection_response_adds_no_check_finding_and_support_brief(m
     assert synthesis.response.evidence_summary["support_brief_generation_status"] == "generated"
     assert synthesis.artifact_payloads["support_brief.md"].startswith("# Support brief")
     assert "support_brief.md" in synthesis.response.artifacts
+
+
+def test_attach_support_brief_to_inspection_response_preserves_workflow_pack_evidence(monkeypatch):
+    inspection_id = uuid4()
+    workflow_pack_run = TWRInspectionWorkflowPackRun(
+        run_id="packrun_twr_inspection_support_brief_req_001",
+        runtime_state="COMPLETED",
+        review_state="AWAITING_REVIEW",
+        allowed_review_actions=["ACCEPT", "REJECT", "REVISE"],
+        supportability_status="ACTION_REQUIRED",
+        review_pending=True,
+        superseded=False,
+        workflow_authority_owner="lotus-performance",
+        current_summary_note="Run completed but still requires bounded human review before downstream use.",
+        replacement_run_id=None,
+        findings=[],
+    )
+    monkeypatch.setattr(
+        service,
+        "generate_twr_inspection_support_brief",
+        lambda inspection: SimpleNamespace(
+            generation_status="generated",
+            workflow_pack_run=workflow_pack_run,
+            artifact_markdown=f"# Support brief\n\nInspection {inspection.inspection_id}",
+        ),
+    )
+    response = TWRInspectionResponse(
+        inspection_id=inspection_id,
+        subject_type=TWRInspectionSubjectType.TWR_REQUEST,
+        inspection_profile=TWRInspectionProfile.SUPPORT_TRIAGE,
+        subject_calculation_id=None,
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        status="complete",
+        verdict=TWRInspectionVerdict.SUPPORTABLE,
+        findings=[],
+        owner_summary=TWRInspectionOwnerSummary(primary_owner_repo="lotus-performance"),
+        evidence_summary={"artifact_queue_enabled": True},
+        check_coverage=TWRInspectionCheckCoverage(
+            completed_check_families=["source_quality"],
+            pending_check_families=[],
+        ),
+        related_lineage=TWRInspectionRelatedLineage(),
+        artifacts=service._build_twr_inspection_artifact_links(
+            inspection_id=inspection_id,
+            artifact_payloads={},
+        ),
+        workflow_pack_run=None,
+        generated_at_utc="2026-06-21T00:00:00Z",
+    )
+    original_evidence_summary = dict(response.evidence_summary)
+
+    synthesis = service._attach_support_brief_to_inspection_response(
+        response=response,
+        artifact_payloads={},
+    )
+
+    assert response.evidence_summary == original_evidence_summary
+    assert synthesis.support_brief_generation_status == "generated"
+    assert synthesis.artifact_payloads["support_brief.md"].startswith("# Support brief")
+    assert synthesis.response.evidence_summary["support_brief_generation_status"] == "generated"
+    assert (
+        synthesis.response.evidence_summary["support_brief_workflow_pack_run_id"]
+        == "packrun_twr_inspection_support_brief_req_001"
+    )
+    assert synthesis.response.workflow_pack_run is workflow_pack_run
+    assert synthesis.response.artifacts["support_brief.md"].endswith("/artifacts/support_brief.md")
 
 
 def test_build_inspection_findings_context_adds_no_check_finding_and_failed_family_evidence():

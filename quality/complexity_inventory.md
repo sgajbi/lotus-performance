@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-21
-Branch: `lp-cr-1436-lineage-inspection-query-boundary`
+Branch: `lp-cr-1437-twr-inspection-support-brief-boundary`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
@@ -52,17 +52,17 @@ must stay at `0`.
 | 12 | `resolve_twr_inspection_subject` | function | `app/services/inspection/subject_resolution.py:20` | 5 | A |
 | 13 | `_completed_support_brief_markdown` | function | `app/services/inspection/support_brief_workflow_pack.py:78` | 5 | A |
 | 14 | `_map_workflow_pack_run_finding` | function | `app/services/inspection/support_brief_workflow_pack.py:192` | 5 | A |
-| 15 | `_build_twr_inspection_response` | function | `app/services/inspection/twr_inspection_service.py:305` | 5 | A |
-| 16 | `_synthesize_verdict` | function | `app/services/inspection/twr_inspection_service.py:590` | 5 | A |
-| 17 | `_scope_request_to_response_master_window` | function | `app/services/inspection/twr_inspection_service.py:706` | 5 | A |
-| 18 | `get_record` | method | `app/services/lineage_metadata_store.py:249` | 5 | A |
-| 19 | `lease_pending_payloads` | method | `app/services/lineage_metadata_store.py:360` | 5 | A |
-| 20 | `list_recent_recoveries` | method | `app/services/lineage_metadata_store.py:435` | 5 | A |
-| 21 | `_apply_recovery_time_filters` | method | `app/services/lineage_metadata_store.py:749` | 5 | A |
-| 22 | `_inspection_timing` | method | `app/services/lineage_metadata_store.py:1146` | 5 | A |
-| 23 | `_ensure_payload_lease_columns` | method | `app/services/lineage_metadata_store.py:1172` | 5 | A |
-| 24 | `_load_payload_details` | function | `app/services/lineage_metadata_store.py:1233` | 5 | A |
-| 25 | `evaluate_mandate_performance_health_context` | function | `app/services/mandate_health_context_service.py:15` | 5 | A |
+| 15 | `_synthesize_verdict` | function | `app/services/inspection/twr_inspection_service.py:601` | 5 | A |
+| 16 | `_scope_request_to_response_master_window` | function | `app/services/inspection/twr_inspection_service.py:717` | 5 | A |
+| 17 | `get_record` | method | `app/services/lineage_metadata_store.py:249` | 5 | A |
+| 18 | `lease_pending_payloads` | method | `app/services/lineage_metadata_store.py:360` | 5 | A |
+| 19 | `list_recent_recoveries` | method | `app/services/lineage_metadata_store.py:435` | 5 | A |
+| 20 | `_apply_recovery_time_filters` | method | `app/services/lineage_metadata_store.py:749` | 5 | A |
+| 21 | `_inspection_timing` | method | `app/services/lineage_metadata_store.py:1146` | 5 | A |
+| 22 | `_ensure_payload_lease_columns` | method | `app/services/lineage_metadata_store.py:1172` | 5 | A |
+| 23 | `_load_payload_details` | function | `app/services/lineage_metadata_store.py:1233` | 5 | A |
+| 24 | `evaluate_mandate_performance_health_context` | function | `app/services/mandate_health_context_service.py:15` | 5 | A |
+| 25 | `_stringify_decimal_collection` | function | `app/services/mwr_calculation_service.py:141` | 5 | A |
 
 ## Lowest Maintainability Index
 
@@ -85,10 +85,10 @@ must stay at `0`.
 | 15 | `app/services/inspection/source_economics_collector.py` | 16.34 | B |
 | 16 | `app/services/inspection/source_quality.py` | 16.55 | B |
 | 17 | `app/services/twr_mode_service.py` | 17.66 | B |
-| 18 | `app/models/runtime_status.py` | 19.66 | A |
-| 19 | `app/services/inspection/calculation_consistency.py` | 19.69 | A |
-| 20 | `app/models/returns_series.py` | 19.70 | A |
-| 21 | `app/services/inspection/twr_inspection_service.py` | 19.72 | A |
+| 18 | `app/services/inspection/twr_inspection_service.py` | 19.65 | A |
+| 19 | `app/models/runtime_status.py` | 19.66 | A |
+| 20 | `app/services/inspection/calculation_consistency.py` | 19.69 | A |
+| 21 | `app/models/returns_series.py` | 19.70 | A |
 | 22 | `app/workers/compute_executor_worker.py` | 20.54 | A |
 | 23 | `engine/composites.py` | 20.75 | A |
 | 24 | `app/services/stateful_mwr_input_service.py` | 21.59 | A |
@@ -1109,6 +1109,9 @@ a focused helper with direct coverage for string, boolean, numeric, `None`, dict
 fallback behavior.
 The source-quality economic plausibility finding extraction did not change the max cyclomatic
 complexity posture; the measured repository maximum remains `5`.
+LP-CR-1437 isolated TWR inspection support-brief response projection into a focused helper.
+`_build_twr_inspection_response(...)` dropped out of the top-25 complexity table, while the
+measured repository maximum remains `5` and high-complexity functions remain `0`.
 The runtime work-item safe listing extraction did not change the max cyclomatic complexity posture;
 the measured repository maximum remains `5`.
 The stateful timeseries snapshot append extraction did not change the max cyclomatic complexity
