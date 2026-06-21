@@ -19,6 +19,7 @@ from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_TWR
 from app.services.benchmark_calculation_service import BenchmarkCalculationArtifacts
 from app.services.twr_service import (
     _as_numeric,
+    _assemble_completed_twr_response,
     _benchmark_context_input_mode_value,
     _build_twr_benchmark_period_block,
     _build_twr_benchmark_period_blocks,
@@ -517,6 +518,110 @@ def test_complete_twr_execution_with_lineage_delegates_twr_lineage_payload(mocke
         "daily_rows": 2,
     }
     assert kwargs["calculation_details"] == {"daily_results.csv": daily_results_df}
+
+
+def test_assemble_completed_twr_response_preserves_supportability_benchmark_context_and_lineage(mocker):
+    request = _twr_request()
+    resolved_period = ResolvedPeriod(name="ITD", start_date=date(2025, 1, 1), end_date=date(2025, 1, 2))
+    daily_results_df = _daily_twr_results_df()
+    benchmark_request = BenchmarkPerformanceRequest.model_validate(
+        {
+            "benchmark_id": "BMK-REQUESTED",
+            "benchmark_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "benchmark_currency": "USD",
+            "return_source": "vendor_series",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "benchmark_return_points": [
+                {"perf_date": "2025-01-01", "benchmark_return": 0.01},
+                {"perf_date": "2025-01-02", "benchmark_return": 0.02},
+            ],
+        }
+    )
+    benchmark_daily_returns_df = pd.DataFrame(
+        [
+            {"date": date(2025, 1, 1), "benchmark_return": 0.01},
+            {"date": date(2025, 1, 2), "benchmark_return": 0.02},
+        ]
+    )
+    component_contributions_df = pd.DataFrame(
+        [
+            {
+                "date": date(2025, 1, 1),
+                "component_id": "EQ",
+                "weight_bop": 1.0,
+                "component_return": 0.01,
+                "contribution": 0.01,
+            }
+        ]
+    )
+    calculation = _TWRExecutionCalculation(
+        resolved_periods=[resolved_period],
+        freqs_by_period={"ITD": [Frequency.DAILY]},
+        master_start_date=resolved_period.start_date,
+        master_end_date=resolved_period.end_date,
+        daily_results_df=daily_results_df,
+        engine_diagnostics=EngineDiagnostics(effective_period_start=date(2025, 1, 1)),
+        benchmark_artifacts=BenchmarkCalculationArtifacts(
+            results_by_period={},
+            daily_returns_df=benchmark_daily_returns_df,
+            component_contributions_df=component_contributions_df,
+            effective_period_start=date(2025, 1, 1),
+            max_weight_sum_deviation=0.0,
+            notes=[],
+        ),
+    )
+    results_by_period = _build_twr_results_by_period(
+        performance_request=request,
+        resolved_periods=calculation.resolved_periods,
+        freqs_by_period=calculation.freqs_by_period,
+        daily_results_df=daily_results_df,
+        engine_diagnostics=calculation.engine_diagnostics,
+        benchmark_artifacts=calculation.benchmark_artifacts,
+        benchmark_request=benchmark_request,
+        benchmark_input_mode=BenchmarkInputMode.STATEFUL,
+        resolved_benchmark_id="BMK-RESOLVED",
+        benchmark_return_source=BenchmarkReturnSource.VENDOR_SERIES,
+        master_start_date=calculation.master_start_date,
+    )
+    supportability_metric = mocker.patch("app.services.twr_service.record_supportability_metric")
+    complete_lineage = mocker.patch("app.services.twr_service.complete_execution_with_lineage")
+    request_artifact_model = mocker.Mock()
+
+    response = _assemble_completed_twr_response(
+        performance_request=request,
+        portfolio_id="P1",
+        input_mode=TWRInputMode.STATELESS,
+        input_fingerprint="fingerprint-1",
+        calculation_hash="hash-1",
+        engine_version="test-engine",
+        request_artifact_model=request_artifact_model,
+        calculation=calculation,
+        results_by_period=results_by_period,
+        benchmark_request=benchmark_request,
+        benchmark_input_mode=BenchmarkInputMode.STATEFUL,
+        resolved_benchmark_id="BMK-RESOLVED",
+        benchmark_return_source=BenchmarkReturnSource.VENDOR_SERIES,
+    )
+
+    assert response.calculation_supportability.resolved_period_count == 1
+    assert response.calculation_supportability.benchmark_row_count == 2
+    assert response.benchmark_context is not None
+    assert response.benchmark_context.benchmark_id == "BMK-RESOLVED"
+    assert response.benchmark_context.input_mode == "stateful"
+    assert response.benchmark_context.return_source == "vendor_series"
+    assert response.meta.input_fingerprint == "fingerprint-1"
+    assert response.results_by_period == results_by_period
+    supportability_metric.assert_called_once_with(operation="twr", supportability=response.calculation_supportability)
+    lineage_kwargs = complete_lineage.call_args.kwargs
+    assert lineage_kwargs["request_model"] is request_artifact_model
+    assert lineage_kwargs["response_model"] is response
+    assert lineage_kwargs["execution_details"] == {
+        "periods_resolved": 1,
+        "daily_rows": 2,
+        "benchmark_daily_returns": 2,
+        "benchmark_component_contributions": 1,
+    }
 
 
 def test_as_numeric_returns_default_for_non_numeric_values():
