@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-21
-Branch: `lp-cr-1437-twr-inspection-support-brief-boundary`
+Branch: `lp-cr-1438-portfolio-timeseries-page-helper`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
@@ -1112,6 +1112,10 @@ complexity posture; the measured repository maximum remains `5`.
 LP-CR-1437 isolated TWR inspection support-brief response projection into a focused helper.
 `_build_twr_inspection_response(...)` dropped out of the top-25 complexity table, while the
 measured repository maximum remains `5` and high-complexity functions remain `0`.
+LP-CR-1438 isolated portfolio timeseries page retrieval and request-payload projection into
+`StatefulInputService._fetch_portfolio_timeseries_page(...)`. The measured repository maximum
+remains `5`, high-complexity functions remain `0`, and average maintainability index remains
+`55.08`.
 The runtime work-item safe listing extraction did not change the max cyclomatic complexity posture;
 the measured repository maximum remains `5`.
 The stateful timeseries snapshot append extraction did not change the max cyclomatic complexity
