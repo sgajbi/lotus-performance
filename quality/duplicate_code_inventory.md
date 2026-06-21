@@ -1,5 +1,5 @@
 Report date: 2026-06-21
-Branch: `lp-cr-1433-recovery-drill-history-snapshot-boundary`
+Branch: `lp-cr-1434-runtime-recovery-snapshot-boundary`
 Command: `python scripts/python_duplicate_code_inventory.py --min-lines 12 --limit 40 --max-groups 0`
 Mode: enforced first-party duplicate function-body hotspot regression gate.
 

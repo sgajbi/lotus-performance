@@ -3,7 +3,100 @@ from datetime import UTC, datetime
 from app.services.compute_job_store import ComputeRecoveryEvent, ComputeRecoveryEventPage
 from app.services.durability_health_service import DurabilityHealthStatus
 from app.services.lineage_metadata_store import LineageRecoveryEventPage
-from app.services.runtime_recovery_service import _queue_state_from_recovery_page, build_runtime_recovery_snapshot
+from app.services.runtime_recovery_service import (
+    RuntimeRecoveryQueueState,
+    _queue_state_from_recovery_page,
+    _runtime_recovery_snapshot_from_request,
+    _RuntimeRecoverySnapshotRequest,
+    build_runtime_recovery_snapshot,
+)
+
+
+def test_runtime_recovery_snapshot_request_projects_queue_scope_and_filters():
+    recovered_after = datetime(2026, 3, 14, 0, 0, tzinfo=UTC)
+    recovered_before = datetime(2026, 3, 14, 12, 0, tzinfo=UTC)
+    cursor_recovered_before = datetime(2026, 3, 14, 11, 0, tzinfo=UTC)
+
+    request = _RuntimeRecoverySnapshotRequest(
+        queue_filter="compute",
+        limit=25,
+        offset=50,
+        recovered_after=recovered_after,
+        recovered_before=recovered_before,
+        cursor_recovered_before=cursor_recovered_before,
+        cursor_calculation_id_before="calc-25",
+        calculation_id_contains="calc",
+        compute_analytics_type="ReturnsSeries",
+        lineage_calculation_type="TWR",
+    )
+
+    assert request.include_compute is True
+    assert request.include_lineage is False
+    assert request.recovery_filters.common_kwargs == {
+        "limit": 25,
+        "offset": 50,
+        "recovered_after": recovered_after,
+        "recovered_before": recovered_before,
+        "cursor_recovered_before": cursor_recovered_before,
+        "cursor_calculation_id_before": "calc-25",
+        "calculation_id_contains": "calc",
+    }
+
+
+def test_runtime_recovery_snapshot_from_request_preserves_request_and_queue_state():
+    generated_at = datetime(2026, 3, 14, 12, 0, tzinfo=UTC)
+    request = _RuntimeRecoverySnapshotRequest(
+        queue_filter="lineage",
+        limit=10,
+        offset=20,
+        recovered_after=None,
+        recovered_before=None,
+        cursor_recovered_before=None,
+        cursor_calculation_id_before=None,
+        calculation_id_contains="lineage-calc",
+        compute_analytics_type="ReturnsSeries",
+        lineage_calculation_type="Attribution",
+    )
+    compute_queue = RuntimeRecoveryQueueState(
+        status="excluded",
+        reason=None,
+        total_count=0,
+        returned_count=0,
+        next_offset=None,
+        next_cursor_recovered_before=None,
+        next_cursor_calculation_id_before=None,
+    )
+    lineage_queue = RuntimeRecoveryQueueState(
+        status="available",
+        reason=None,
+        total_count=3,
+        returned_count=1,
+        next_offset=21,
+        next_cursor_recovered_before="2026-03-14T11:00:00Z",
+        next_cursor_calculation_id_before="lineage-calc-2",
+    )
+    durability_status = DurabilityHealthStatus(is_ready=True, status="ready", reason=None)
+
+    snapshot = _runtime_recovery_snapshot_from_request(
+        generated_at=generated_at,
+        request=request,
+        durability_status=durability_status,
+        compute_queue=compute_queue,
+        lineage_queue=lineage_queue,
+        compute_recoveries=[],
+        lineage_recoveries=[],
+    )
+
+    assert snapshot.generated_at == generated_at
+    assert snapshot.queue_filter == "lineage"
+    assert snapshot.limit == 10
+    assert snapshot.offset == 20
+    assert snapshot.calculation_id_contains == "lineage-calc"
+    assert snapshot.compute_analytics_type == "ReturnsSeries"
+    assert snapshot.lineage_calculation_type == "Attribution"
+    assert snapshot.durable_metadata_store == durability_status
+    assert snapshot.compute_queue == compute_queue
+    assert snapshot.lineage_queue == lineage_queue
 
 
 def test_queue_state_from_recovery_page_projects_cursor_metadata():
