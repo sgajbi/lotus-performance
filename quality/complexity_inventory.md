@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-21
-Branch: `lp-cr-1430-runtime-retention-lease-execution-boundary`
+Branch: `lp-cr-1431-integration-capability-feature-boundary`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
@@ -32,7 +32,7 @@ must stay at `0`.
 | --- | ---: |
 | Max cyclomatic complexity | 5 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.11 |
+| Average maintainability index | 55.10 |
 
 ## Highest Cyclomatic Complexity
 
@@ -1115,6 +1115,8 @@ The stateful timeseries snapshot append extraction did not change the max cyclom
 posture; the measured repository maximum remains `5`.
 The runtime-retention lease/execution extraction did not change the max cyclomatic complexity
 posture; the measured repository maximum remains `5`.
+The integration-capability feature publication extraction did not change the max cyclomatic
+complexity posture; the measured repository maximum remains `5`.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
 behavior defect.
