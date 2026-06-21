@@ -16,6 +16,44 @@ from app.services.composite_metadata_store import CompositeMetadataStore, compos
 from app.services.durable_store_runtime import RuntimeStoreProxy
 from engine.composites import CompositePeriodResult, calculate_asset_weighted_composite_twr
 
+_MEMBER_INPUT_FIELDS = [
+    "composite_id",
+    "portfolio_id",
+    "period_start",
+    "period_end",
+    "return_view",
+    "return_value",
+    "beginning_market_value",
+    "ending_market_value",
+    "reporting_currency",
+    "status",
+    "reason_codes",
+    "source_fingerprint",
+    "restatement_version",
+]
+_PERIOD_WEIGHT_FIELDS = [
+    "portfolio_id",
+    "period_start",
+    "period_end",
+    "beginning_asset_weight",
+    "contribution",
+    "source_fingerprint",
+    "restatement_version",
+]
+_COMPOSITE_RETURN_FIELDS = [
+    "period_start",
+    "period_end",
+    "status",
+    "return_view",
+    "reporting_currency",
+    "return_value",
+    "cumulative_return",
+    "member_count",
+    "excluded_member_count",
+    "dispersion_equal_weight",
+    "reason_codes",
+]
+
 
 def _csv_text(fieldnames: list[str], rows: list[dict[str, object]]) -> str:
     output = io.StringIO()
@@ -32,6 +70,16 @@ def _artifact(name: str, content_type: str, classification: str, artifact_conten
         access_classification=classification,
         artifact_content=artifact_content,
     )
+
+
+def _csv_artifact(
+    *,
+    name: str,
+    classification: str,
+    fieldnames: list[str],
+    rows: list[dict[str, object]],
+) -> CompositeInspectionArtifact:
+    return _artifact(name, "text/csv", classification, _csv_text(fieldnames, rows))
 
 
 def inspect_composite_twr_from_persisted_facts(
@@ -151,17 +199,17 @@ def _period_weight_rows(period_results: list[CompositePeriodResult]) -> list[dic
     ]
 
 
-def _build_artifacts(*, composite_id: str, facts, result) -> list[CompositeInspectionArtifact]:
-    member_rows = _member_input_rows(facts)
-    weight_rows = _period_weight_rows(result.period_results)
-    composite_rows = _composite_return_rows(result.period_results)
-    lineage_manifest = {
+def _lineage_manifest(*, composite_id: str, facts, result) -> dict[str, object]:
+    return {
         "composite_id": composite_id,
         "calculation_status": result.status,
         "source_fingerprints": sorted({fact.source_fingerprint for fact in facts}),
         "restatement_versions": sorted({fact.restatement_version for fact in facts}),
     }
-    support_brief = (
+
+
+def _support_brief(*, composite_id: str, facts, result) -> str:
+    return (
         f"# Composite Inspection Brief\n\n"
         f"- Composite: {composite_id}\n"
         f"- Status: {result.status}\n"
@@ -170,75 +218,39 @@ def _build_artifacts(*, composite_id: str, facts, result) -> list[CompositeInspe
         f"- Reason codes: {', '.join(result.reason_codes) if result.reason_codes else 'none'}\n"
     )
 
+
+def _build_artifacts(*, composite_id: str, facts, result) -> list[CompositeInspectionArtifact]:
     return [
-        _artifact(
-            "member_inputs.csv",
-            "text/csv",
-            "operator_only",
-            _csv_text(
-                [
-                    "composite_id",
-                    "portfolio_id",
-                    "period_start",
-                    "period_end",
-                    "return_view",
-                    "return_value",
-                    "beginning_market_value",
-                    "ending_market_value",
-                    "reporting_currency",
-                    "status",
-                    "reason_codes",
-                    "source_fingerprint",
-                    "restatement_version",
-                ],
-                member_rows,
-            ),
+        _csv_artifact(
+            name="member_inputs.csv",
+            classification="operator_only",
+            fieldnames=_MEMBER_INPUT_FIELDS,
+            rows=_member_input_rows(facts),
         ),
-        _artifact(
-            "period_weights.csv",
-            "text/csv",
-            "operator_only",
-            _csv_text(
-                [
-                    "portfolio_id",
-                    "period_start",
-                    "period_end",
-                    "beginning_asset_weight",
-                    "contribution",
-                    "source_fingerprint",
-                    "restatement_version",
-                ],
-                weight_rows,
-            ),
+        _csv_artifact(
+            name="period_weights.csv",
+            classification="operator_only",
+            fieldnames=_PERIOD_WEIGHT_FIELDS,
+            rows=_period_weight_rows(result.period_results),
         ),
-        _artifact(
-            "composite_returns.csv",
-            "text/csv",
-            "customer_consumable",
-            _csv_text(
-                [
-                    "period_start",
-                    "period_end",
-                    "status",
-                    "return_view",
-                    "reporting_currency",
-                    "return_value",
-                    "cumulative_return",
-                    "member_count",
-                    "excluded_member_count",
-                    "dispersion_equal_weight",
-                    "reason_codes",
-                ],
-                composite_rows,
-            ),
+        _csv_artifact(
+            name="composite_returns.csv",
+            classification="customer_consumable",
+            fieldnames=_COMPOSITE_RETURN_FIELDS,
+            rows=_composite_return_rows(result.period_results),
         ),
         _artifact(
             "lineage_manifest.json",
             "application/json",
             "operator_only",
-            json.dumps(lineage_manifest, sort_keys=True),
+            json.dumps(_lineage_manifest(composite_id=composite_id, facts=facts, result=result), sort_keys=True),
         ),
-        _artifact("support_brief.md", "text/markdown", "operator_only", support_brief),
+        _artifact(
+            "support_brief.md",
+            "text/markdown",
+            "operator_only",
+            _support_brief(composite_id=composite_id, facts=facts, result=result),
+        ),
     ]
 
 

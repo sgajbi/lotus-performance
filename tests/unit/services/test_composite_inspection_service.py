@@ -7,6 +7,7 @@ from uuid import UUID
 from app.models.composites import CompositeDefinition, CompositeInspectionFinding, CompositeMemberReturnFact
 from app.services.composite_calculation_service import CompositeDefinitionNotFoundError
 from app.services.composite_inspection_service import (
+    _build_artifacts,
     _composite_inspection_verdict,
     _composite_return_rows,
     _member_input_rows,
@@ -15,7 +16,7 @@ from app.services.composite_inspection_service import (
     inspect_composite_twr_from_persisted_facts,
 )
 from app.services.composite_metadata_store import CompositeMetadataStore
-from engine.composites import CompositeMemberContribution, CompositePeriodResult
+from engine.composites import CompositeCalculationResult, CompositeMemberContribution, CompositePeriodResult
 
 
 def _store(tmp_path) -> CompositeMetadataStore:
@@ -107,6 +108,69 @@ def test_composite_inspection_generates_classified_artifacts(tmp_path):
         '"restatement_versions": ["v1"], "source_fingerprints": ["sha256:P1", "sha256:P2"]}'
     )
     store.close()
+
+
+def test_build_artifacts_preserves_names_classifications_lineage_and_brief():
+    period_result = CompositePeriodResult(
+        period_start=date(2026, 1, 1),
+        period_end=date(2026, 1, 31),
+        status="DEGRADED",
+        return_value=Decimal("0.0125"),
+        cumulative_return=Decimal("0.0125"),
+        beginning_market_value=Decimal("400"),
+        ending_market_value=Decimal("405"),
+        member_count=1,
+        excluded_member_count=1,
+        dispersion_equal_weight=Decimal("0.0000"),
+        return_view="NET_ACTUAL",
+        reporting_currency="USD",
+        source_fingerprints=["sha256:P1"],
+        restatement_versions=["v1"],
+        reason_codes=["missing_final_valuation"],
+        member_contributions=[
+            CompositeMemberContribution(
+                portfolio_id="P1",
+                period_start=date(2026, 1, 1),
+                period_end=date(2026, 1, 31),
+                return_value=Decimal("0.0125"),
+                beginning_market_value=Decimal("400"),
+                weight=Decimal("1.000000000000"),
+                contribution=Decimal("0.012500000000"),
+                source_snapshot_id="snapshot-P1",
+                source_fingerprint="sha256:P1",
+                restatement_version="v1",
+                calculation_id="calc-P1",
+            )
+        ],
+    )
+    result = CompositeCalculationResult(
+        composite_id="PB_GLOBAL_BALANCED_USD",
+        status="DEGRADED",
+        period_results=[period_result],
+        cumulative_return=Decimal("0.0125"),
+        reason_codes=["missing_final_valuation"],
+    )
+
+    artifacts = _build_artifacts(composite_id="PB_GLOBAL_BALANCED_USD", facts=[_fact("P1")], result=result)
+    artifact_by_name = {artifact.artifact_name: artifact for artifact in artifacts}
+
+    assert list(artifact_by_name) == [
+        "member_inputs.csv",
+        "period_weights.csv",
+        "composite_returns.csv",
+        "lineage_manifest.json",
+        "support_brief.md",
+    ]
+    assert artifact_by_name["member_inputs.csv"].access_classification == "operator_only"
+    assert artifact_by_name["period_weights.csv"].access_classification == "operator_only"
+    assert artifact_by_name["composite_returns.csv"].access_classification == "customer_consumable"
+    assert "source_fingerprint" in artifact_by_name["member_inputs.csv"].artifact_content.splitlines()[0]
+    assert "beginning_asset_weight" in artifact_by_name["period_weights.csv"].artifact_content.splitlines()[0]
+    assert artifact_by_name["lineage_manifest.json"].artifact_content == (
+        '{"calculation_status": "DEGRADED", "composite_id": "PB_GLOBAL_BALANCED_USD", '
+        '"restatement_versions": ["v1"], "source_fingerprints": ["sha256:P1"]}'
+    )
+    assert "- Reason codes: missing_final_valuation" in artifact_by_name["support_brief.md"].artifact_content
 
 
 def test_composite_inspection_reports_blocking_findings(tmp_path):
