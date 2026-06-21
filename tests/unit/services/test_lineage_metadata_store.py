@@ -703,6 +703,61 @@ def test_lineage_metadata_store_list_inspection_items_normalizes_status_filter(t
     assert [item.calculation_id for item in page.items] == [str(calculation_id)]
 
 
+def test_lineage_metadata_store_inspection_statement_dispatch_forwards_filters(tmp_path, mocker):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    now = datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc)
+    min_age_threshold = now - timedelta(seconds=120)
+    count_statement = object()
+    items_statement = object()
+    count_builder = mocker.patch.object(
+        store,
+        "_build_active_inspection_count_statement",
+        return_value=count_statement,
+    )
+    items_builder = mocker.patch.object(
+        store,
+        "_build_active_inspection_items_statement",
+        return_value=items_statement,
+    )
+
+    statements = store._build_inspection_query_statements(
+        status_filter="active",
+        now=now,
+        limit=25,
+        offset=5,
+        calculation_type="TWR",
+        calculation_id_contains="abc123",
+        min_age_threshold=min_age_threshold,
+    )
+
+    assert statements == (count_statement, items_statement)
+    count_builder.assert_called_once_with(
+        now=now,
+        calculation_type="TWR",
+        calculation_id_contains="abc123",
+        min_age_threshold=min_age_threshold,
+    )
+    items_builder.assert_called_once_with(
+        now=now,
+        limit=25,
+        offset=5,
+        calculation_type="TWR",
+        calculation_id_contains="abc123",
+        min_age_threshold=min_age_threshold,
+    )
+
+
+def test_lineage_metadata_store_inspection_statement_dispatch_rejects_unsupported_status(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+
+    try:
+        store._inspection_statement_builders("unsupported")
+    except ValueError as exc:
+        assert "Unsupported status filter: unsupported" in str(exc)
+    else:
+        raise AssertionError("Expected unsupported inspection status to raise ValueError")
+
+
 def test_lineage_metadata_store_mark_pending_clears_error(tmp_path):
     store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
     store.create_schema()

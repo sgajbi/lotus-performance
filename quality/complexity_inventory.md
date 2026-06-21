@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-21
-Branch: `lp-cr-1435-contribution-response-evidence-boundary`
+Branch: `lp-cr-1436-lineage-inspection-query-boundary`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
@@ -58,11 +58,11 @@ must stay at `0`.
 | 18 | `get_record` | method | `app/services/lineage_metadata_store.py:249` | 5 | A |
 | 19 | `lease_pending_payloads` | method | `app/services/lineage_metadata_store.py:360` | 5 | A |
 | 20 | `list_recent_recoveries` | method | `app/services/lineage_metadata_store.py:435` | 5 | A |
-| 21 | `_build_inspection_query_statements` | method | `app/services/lineage_metadata_store.py:529` | 5 | A |
-| 22 | `_apply_recovery_time_filters` | method | `app/services/lineage_metadata_store.py:783` | 5 | A |
-| 23 | `_inspection_timing` | method | `app/services/lineage_metadata_store.py:1180` | 5 | A |
-| 24 | `_ensure_payload_lease_columns` | method | `app/services/lineage_metadata_store.py:1206` | 5 | A |
-| 25 | `_load_payload_details` | function | `app/services/lineage_metadata_store.py:1267` | 5 | A |
+| 21 | `_apply_recovery_time_filters` | method | `app/services/lineage_metadata_store.py:749` | 5 | A |
+| 22 | `_inspection_timing` | method | `app/services/lineage_metadata_store.py:1146` | 5 | A |
+| 23 | `_ensure_payload_lease_columns` | method | `app/services/lineage_metadata_store.py:1172` | 5 | A |
+| 24 | `_load_payload_details` | function | `app/services/lineage_metadata_store.py:1233` | 5 | A |
+| 25 | `evaluate_mandate_performance_health_context` | function | `app/services/mandate_health_context_service.py:15` | 5 | A |
 
 ## Lowest Maintainability Index
 
@@ -70,10 +70,10 @@ must stay at `0`.
 | ---: | --- | ---: | --- |
 | 1 | `app/openapi_enrichment.py` | 0.00 | C |
 | 2 | `app/services/compute_job_store.py` | 0.00 | C |
-| 3 | `app/services/lineage_metadata_store.py` | 0.00 | C |
-| 4 | `app/services/returns_series_service.py` | 0.00 | C |
-| 5 | `app/services/stateful_attribution_input_service.py` | 0.00 | C |
-| 6 | `app/services/stateful_input_service.py` | 0.00 | C |
+| 3 | `app/services/returns_series_service.py` | 0.00 | C |
+| 4 | `app/services/stateful_attribution_input_service.py` | 0.00 | C |
+| 5 | `app/services/stateful_input_service.py` | 0.00 | C |
+| 6 | `app/services/lineage_metadata_store.py` | 0.01 | C |
 | 7 | `app/services/twr_service.py` | 5.69 | C |
 | 8 | `app/services/stateful_benchmark_input_service.py` | 8.81 | C |
 | 9 | `app/services/workspace_summary_service.py` | 10.26 | B |

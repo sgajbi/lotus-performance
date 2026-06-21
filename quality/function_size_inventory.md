@@ -1,7 +1,7 @@
 # Lotus Performance Function Size Inventory
 
 Report date: 2026-06-21
-Branch: `lp-cr-1435-contribution-response-evidence-boundary`
+Branch: `lp-cr-1436-lineage-inspection-query-boundary`
 Mode: report-only function-size inventory; this artifact introduces no new blocking CI gate.
 
 ## Purpose
@@ -20,31 +20,31 @@ python scripts/python_function_size_inventory.py --limit 25
 
 | Rank | Function | File | Lines |
 | ---: | --- | --- | ---: |
-| 1 | `LineageMetadataStore._build_inspection_query_statements` | `app/services/lineage_metadata_store.py:529` | 80 |
-| 2 | `_build_twr_inspection_response` | `app/services/inspection/twr_inspection_service.py:305` | 79 |
-| 3 | `StatefulInputService._fetch_portfolio_chunk` | `app/services/stateful_input_service.py:877` | 79 |
-| 4 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:91` | 78 |
-| 5 | `resolve_contribution_request` | `app/services/contribution_mode_service.py:32` | 77 |
-| 6 | `LineageMetadataStore._lease_pending_payloads_postgresql` | `app/services/lineage_metadata_store.py:1043` | 77 |
-| 7 | `_build_stateful_calculated_benchmark_input` | `app/services/stateful_benchmark_input_service.py:94` | 75 |
-| 8 | `build_runtime_retention_history_query` | `app/api/dependencies/runtime_retention_history.py:11` | 74 |
-| 9 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:33` | 74 |
-| 10 | `_build_portfolio_engine_diagnostics` | `app/services/contribution_diagnostics.py:62` | 74 |
-| 11 | `calculate_contribution` | `app/services/contribution_service.py:773` | 74 |
-| 12 | `build_runtime_work_item_snapshot` | `app/services/runtime_work_item_service.py:62` | 74 |
-| 13 | `_build_workspace_benchmark_and_active_blocks` | `app/services/workspace_summary_service.py:717` | 74 |
-| 14 | `calculate_attribution` | `app/services/attribution_service.py:313` | 73 |
-| 15 | `_build_attribution_supportability_reasons` | `engine/attribution_supportability.py:174` | 73 |
-| 16 | `run_recovery_drill` | `app/api/endpoints/recovery_drill_history.py:115` | 72 |
-| 17 | `calculate_benchmark_response` | `app/services/benchmark_service.py:14` | 72 |
-| 18 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:399` | 72 |
-| 19 | `calculate_mwr_response` | `app/services/mwr_calculation_service.py:162` | 72 |
-| 20 | `_resolve_stateful_returns_series_benchmark_source` | `app/services/returns_series_service.py:1096` | 72 |
-| 21 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:87` | 71 |
-| 22 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:473` | 70 |
-| 23 | `build_mwr_response` | `app/services/mwr_calculation_service.py:42` | 70 |
-| 24 | `_build_workspace_results_by_period` | `app/services/workspace_summary_service.py:632` | 70 |
-| 25 | `_process_pending_jobs` | `app/workers/compute_executor_worker.py:109` | 70 |
+| 1 | `_build_twr_inspection_response` | `app/services/inspection/twr_inspection_service.py:305` | 79 |
+| 2 | `StatefulInputService._fetch_portfolio_chunk` | `app/services/stateful_input_service.py:877` | 79 |
+| 3 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:91` | 78 |
+| 4 | `resolve_contribution_request` | `app/services/contribution_mode_service.py:32` | 77 |
+| 5 | `LineageMetadataStore._lease_pending_payloads_postgresql` | `app/services/lineage_metadata_store.py:1009` | 77 |
+| 6 | `_build_stateful_calculated_benchmark_input` | `app/services/stateful_benchmark_input_service.py:94` | 75 |
+| 7 | `build_runtime_retention_history_query` | `app/api/dependencies/runtime_retention_history.py:11` | 74 |
+| 8 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:33` | 74 |
+| 9 | `_build_portfolio_engine_diagnostics` | `app/services/contribution_diagnostics.py:62` | 74 |
+| 10 | `calculate_contribution` | `app/services/contribution_service.py:773` | 74 |
+| 11 | `build_runtime_work_item_snapshot` | `app/services/runtime_work_item_service.py:62` | 74 |
+| 12 | `_build_workspace_benchmark_and_active_blocks` | `app/services/workspace_summary_service.py:717` | 74 |
+| 13 | `calculate_attribution` | `app/services/attribution_service.py:313` | 73 |
+| 14 | `_build_attribution_supportability_reasons` | `engine/attribution_supportability.py:174` | 73 |
+| 15 | `run_recovery_drill` | `app/api/endpoints/recovery_drill_history.py:115` | 72 |
+| 16 | `calculate_benchmark_response` | `app/services/benchmark_service.py:14` | 72 |
+| 17 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:399` | 72 |
+| 18 | `calculate_mwr_response` | `app/services/mwr_calculation_service.py:162` | 72 |
+| 19 | `_resolve_stateful_returns_series_benchmark_source` | `app/services/returns_series_service.py:1096` | 72 |
+| 20 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:87` | 71 |
+| 21 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:473` | 70 |
+| 22 | `build_mwr_response` | `app/services/mwr_calculation_service.py:42` | 70 |
+| 23 | `_build_workspace_results_by_period` | `app/services/workspace_summary_service.py:632` | 70 |
+| 24 | `_process_pending_jobs` | `app/workers/compute_executor_worker.py:109` | 70 |
+| 25 | `AverageWeightShadowAuditState._rollout_posture_notes` | `app/services/contribution_audit.py:125` | 69 |
 
 ## Interpretation
 
@@ -57,6 +57,10 @@ after lineage queue response mapping was isolated. Attribution orchestration rem
 table but moved from `142` to `133` lines after per-period result assembly was isolated, then moved
 from `133` to `120` lines after response meta, supportability, and benchmark-context assembly were
 isolated.
+LP-CR-1436 isolated lineage inspection status-filter statement dispatch into a focused helper.
+`LineageMetadataStore._build_inspection_query_statements(...)` dropped out of the top-25 table, and
+the largest production functions are now `_build_twr_inspection_response(...)` and
+`StatefulInputService._fetch_portfolio_chunk(...)` at `79` lines each.
 LP-CR-1411 isolated runtime-status degradation policy response projection into focused helpers.
 `build_runtime_status_response` moved from `113` to `91` lines, and the largest production
 functions moved to the contribution period result builders at `102` lines.
