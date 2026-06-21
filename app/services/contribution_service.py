@@ -119,6 +119,14 @@ class _ContributionPeriodSupportability:
 
 
 @dataclass(frozen=True)
+class _ContributionResponseEvidence:
+    diagnostics: Any
+    audit: Audit
+    calculation_supportability: Any
+    source_economics_evidence: Any
+
+
+@dataclass(frozen=True)
 class _FlatContributionPositionAssembly:
     selected_average_weight_column: str
     use_reset_aware_average_weight: bool
@@ -663,6 +671,41 @@ def _build_contribution_response(
         calculation_hash=calculation_hash,
         report_ccy=request.report_ccy,
     )
+    evidence = _build_contribution_response_evidence(
+        request=request,
+        input_mode=input_mode,
+        instruments_df=instruments_df,
+        portfolio_results_df=portfolio_results_df,
+        master_start_date=master_start_date,
+        resolved_period_count=len(results_by_period),
+        average_weight_audit_state=average_weight_audit_state,
+        average_weight_sum_residual_bp=average_weight_sum_residual_bp,
+    )
+
+    return ContributionResponse(
+        calculation_id=request.calculation_id,
+        portfolio_id=request.portfolio_id,
+        input_mode=input_mode,
+        results_by_period=results_by_period,
+        calculation_supportability=evidence.calculation_supportability,
+        source_economics_evidence=evidence.source_economics_evidence,
+        meta=meta,
+        diagnostics=evidence.diagnostics,
+        audit=evidence.audit,
+    )
+
+
+def _build_contribution_response_evidence(
+    *,
+    request: ContributionRequest,
+    input_mode: ContributionInputMode,
+    instruments_df,
+    portfolio_results_df,
+    master_start_date: date,
+    resolved_period_count: int,
+    average_weight_audit_state: AverageWeightShadowAuditState,
+    average_weight_sum_residual_bp: int,
+) -> _ContributionResponseEvidence:
     diagnostics = _build_portfolio_engine_diagnostics(portfolio_results_df, master_start_date)
     carino_invalid_domain_days = (
         _count_carino_invalid_domain_days(portfolio_results_df) if request.smoothing.method == "CARINO" else 0
@@ -689,7 +732,7 @@ def _build_contribution_response(
     )
     calculation_supportability = build_calculation_supportability(
         input_row_count=_count_contribution_input_rows(request),
-        resolved_period_count=len(results_by_period),
+        resolved_period_count=resolved_period_count,
         latest_observation_date=_latest_contribution_observation_date(request),
         report_end_date=request.report_end_date,
     )
@@ -699,17 +742,31 @@ def _build_contribution_response(
         upstream_snapshots=_list_upstream_snapshots_for_contribution(request.calculation_id),
     )
     record_supportability_metric(operation="contribution", supportability=calculation_supportability)
-
-    return ContributionResponse(
-        calculation_id=request.calculation_id,
-        portfolio_id=request.portfolio_id,
-        input_mode=input_mode,
-        results_by_period=results_by_period,
-        calculation_supportability=calculation_supportability,
-        source_economics_evidence=source_economics_evidence,
-        meta=meta,
+    return _ContributionResponseEvidence(
         diagnostics=diagnostics,
         audit=audit,
+        calculation_supportability=calculation_supportability,
+        source_economics_evidence=source_economics_evidence,
+    )
+
+
+def _complete_contribution_execution(
+    *,
+    request: ContributionRequest,
+    response_model: ContributionResponse,
+    portfolio_results_df,
+    daily_contributions_df,
+) -> None:
+    complete_execution_with_lineage(
+        calculation_id=request.calculation_id,
+        calculation_type="Contribution",
+        request_model=request,
+        response_model=response_model,
+        execution_details={"input_positions": len(request.positions_data)},
+        calculation_details={
+            "portfolio_twr.csv": portfolio_results_df,
+            "daily_contributions.csv": daily_contributions_df,
+        },
     )
 
 
@@ -780,16 +837,10 @@ def calculate_contribution(
         average_weight_audit_state=average_weight_audit_state,
         average_weight_sum_residual_bp=average_weight_sum_residual_bp,
     )
-
-    complete_execution_with_lineage(
-        calculation_id=request.calculation_id,
-        calculation_type="Contribution",
-        request_model=request,
+    _complete_contribution_execution(
+        request=request,
         response_model=response_model,
-        execution_details={"input_positions": len(request.positions_data)},
-        calculation_details={
-            "portfolio_twr.csv": portfolio_results_df,
-            "daily_contributions.csv": daily_contributions_df,
-        },
+        portfolio_results_df=portfolio_results_df,
+        daily_contributions_df=daily_contributions_df,
     )
     return response_model
