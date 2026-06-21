@@ -5,6 +5,7 @@ import pandas as pd
 import pytest
 from fastapi import HTTPException
 
+from app.models.contribution_analytics_requests import ContributionInputMode
 from app.models.contribution_responses import (
     AverageWeightMethodologyStatus,
     PositionContribution,
@@ -177,6 +178,142 @@ def test_build_contribution_results_by_period_routes_hierarchy_periods(monkeypat
     assert hierarchy_calls == ["QTD"]
     assert result.results_by_period == {"QTD": period_result}
     assert result.average_weight_sum_residual_bp == 11
+
+
+def test_build_contribution_response_evidence_preserves_audit_supportability_and_source_inputs(monkeypatch):
+    request = SimpleNamespace(
+        calculation_id="contribution-calc-1",
+        positions_data=["A", "B"],
+        report_end_date=date(2026, 3, 31),
+        smoothing=SimpleNamespace(method="CARINO"),
+    )
+    diagnostics = SimpleNamespace(notes=[])
+    supportability = SimpleNamespace(status="READY")
+    source_economics = SimpleNamespace(mode="source-economics")
+    audit_state = AverageWeightShadowAuditState()
+    diagnostic_calls: list[dict[str, object]] = []
+    supportability_calls: list[dict[str, object]] = []
+    source_calls: list[dict[str, object]] = []
+    metric_calls: list[dict[str, object]] = []
+
+    def append_diagnostic_notes(diagnostics_model, **kwargs):
+        diagnostic_calls.append({"diagnostics": diagnostics_model, **kwargs})
+
+    audit_state.append_diagnostic_notes = append_diagnostic_notes  # type: ignore[method-assign]
+    monkeypatch.setattr(contribution_service, "_build_portfolio_engine_diagnostics", lambda *_args: diagnostics)
+    monkeypatch.setattr(contribution_service, "_count_carino_invalid_domain_days", lambda _df: 4)
+    monkeypatch.setattr(
+        contribution_service,
+        "_calculate_grouped_return_reset_alignment_counts",
+        lambda *_args: {"grouped_return_reset_alignment_drift_days": 2},
+    )
+    monkeypatch.setattr(
+        contribution_service,
+        "_calculate_position_flow_balance_counts",
+        lambda *_args: {"position_flow_residual_days": 1},
+    )
+    monkeypatch.setattr(contribution_service, "_count_contribution_input_rows", lambda _request: 9)
+    monkeypatch.setattr(
+        contribution_service,
+        "_latest_contribution_observation_date",
+        lambda _request: date(2026, 3, 30),
+    )
+    monkeypatch.setattr(
+        contribution_service,
+        "_list_upstream_snapshots_for_contribution",
+        lambda calculation_id: [f"snapshot-for-{calculation_id}"],
+    )
+
+    def build_calculation_supportability(**kwargs):
+        supportability_calls.append(kwargs)
+        return supportability
+
+    def build_source_economics(**kwargs):
+        source_calls.append(kwargs)
+        return source_economics
+
+    def record_metric(**kwargs):
+        metric_calls.append(kwargs)
+
+    monkeypatch.setattr(contribution_service, "build_calculation_supportability", build_calculation_supportability)
+    monkeypatch.setattr(contribution_service, "build_contribution_source_economics_evidence", build_source_economics)
+    monkeypatch.setattr(contribution_service, "record_supportability_metric", record_metric)
+
+    evidence = contribution_service._build_contribution_response_evidence(
+        request=request,
+        input_mode=ContributionInputMode.STATELESS,
+        instruments_df=pd.DataFrame(),
+        portfolio_results_df=pd.DataFrame(),
+        master_start_date=date(2026, 1, 1),
+        resolved_period_count=3,
+        average_weight_audit_state=audit_state,
+        average_weight_sum_residual_bp=17,
+    )
+
+    assert evidence.diagnostics is diagnostics
+    assert evidence.audit.counts["input_positions"] == 2
+    assert evidence.audit.counts["average_weight_sum_residual_bp"] == 17
+    assert evidence.audit.counts["carino_invalid_domain_days"] == 4
+    assert evidence.audit.counts["grouped_return_reset_alignment_drift_days"] == 2
+    assert evidence.audit.counts["position_flow_residual_days"] == 1
+    assert evidence.calculation_supportability is supportability
+    assert evidence.source_economics_evidence is source_economics
+    assert diagnostic_calls == [
+        {
+            "diagnostics": diagnostics,
+            "average_weight_sum_residual_bp": 17,
+            "carino_invalid_domain_days": 4,
+            "reset_alignment_counts": {"grouped_return_reset_alignment_drift_days": 2},
+            "position_flow_balance_counts": {"position_flow_residual_days": 1},
+        }
+    ]
+    assert supportability_calls == [
+        {
+            "input_row_count": 9,
+            "resolved_period_count": 3,
+            "latest_observation_date": date(2026, 3, 30),
+            "report_end_date": date(2026, 3, 31),
+        }
+    ]
+    assert source_calls == [
+        {
+            "request": request,
+            "input_mode": ContributionInputMode.STATELESS,
+            "upstream_snapshots": ["snapshot-for-contribution-calc-1"],
+        }
+    ]
+    assert metric_calls == [{"operation": "contribution", "supportability": supportability}]
+
+
+def test_complete_contribution_execution_preserves_lineage_handoff(monkeypatch):
+    request = SimpleNamespace(calculation_id="contribution-calc-1", positions_data=["A", "B", "C"])
+    response_model = SimpleNamespace(calculation_id="contribution-calc-1")
+    portfolio_results_df = pd.DataFrame({"portfolio_id": ["P"]})
+    daily_contributions_df = pd.DataFrame({"position_id": ["A"]})
+    completion_calls: list[dict[str, object]] = []
+
+    def complete_execution_with_lineage(**kwargs):
+        completion_calls.append(kwargs)
+
+    monkeypatch.setattr(contribution_service, "complete_execution_with_lineage", complete_execution_with_lineage)
+
+    contribution_service._complete_contribution_execution(
+        request=request,
+        response_model=response_model,
+        portfolio_results_df=portfolio_results_df,
+        daily_contributions_df=daily_contributions_df,
+    )
+
+    assert len(completion_calls) == 1
+    completion = completion_calls[0]
+    assert completion["calculation_id"] == "contribution-calc-1"
+    assert completion["calculation_type"] == "Contribution"
+    assert completion["request_model"] is request
+    assert completion["response_model"] is response_model
+    assert completion["execution_details"] == {"input_positions": 3}
+    calculation_details = completion["calculation_details"]
+    assert calculation_details["portfolio_twr.csv"] is portfolio_results_df
+    assert calculation_details["daily_contributions.csv"] is daily_contributions_df
 
 
 def test_build_contribution_period_supportability_preserves_evidence_inputs(monkeypatch):
