@@ -117,6 +117,12 @@ class _ReturnsSeriesExecutionContext:
 
 
 @dataclass(frozen=True)
+class _ReturnsSeriesExecutionResult:
+    response: ReturnsSeriesResponse
+    stage_details: dict[str, int]
+
+
+@dataclass(frozen=True)
 class _StatefulBenchmarkSeriesSource:
     benchmark_points: list[dict[str, Any]]
     benchmark_source_details: dict[str, int]
@@ -1460,6 +1466,63 @@ async def _resolve_returns_series_execution_context(
     )
 
 
+def _build_returns_series_execution_result(
+    *,
+    context: _ReturnsSeriesExecutionContext,
+    portfolio_df: pd.DataFrame,
+    benchmark_df: pd.DataFrame | None,
+    risk_free_df: pd.DataFrame | None,
+) -> _ReturnsSeriesExecutionResult:
+    request = context.request
+    portfolio_df, benchmark_df, risk_free_df = _apply_strict_intersection_policy(
+        portfolio_df=portfolio_df,
+        benchmark_df=benchmark_df,
+        risk_free_df=risk_free_df,
+        missing_data_policy=request.data_policy.missing_data_policy,
+    )
+    portfolio_df, benchmark_df, risk_free_df = _apply_selected_fill_method(
+        portfolio_df=portfolio_df,
+        benchmark_df=benchmark_df,
+        risk_free_df=risk_free_df,
+        fill_method=request.data_policy.fill_method,
+    )
+    point_outputs = _build_returns_series_point_outputs(
+        portfolio_df=portfolio_df,
+        benchmark_df=benchmark_df,
+        risk_free_df=risk_free_df,
+    )
+    resolved_identity = _final_returns_series_identity(
+        request=request,
+        context=context,
+        point_outputs=point_outputs,
+    )
+    diagnostics_result = _build_returns_series_diagnostics(
+        request=request,
+        resolved_window=context.resolved_window,
+        portfolio_df=portfolio_df,
+        benchmark_df=benchmark_df,
+        risk_free_df=risk_free_df,
+    )
+    response = _build_returns_series_response(
+        request=request,
+        resolved_window=context.resolved_window,
+        point_outputs=point_outputs,
+        diagnostics_result=diagnostics_result,
+        effective_input_mode=context.effective_input_mode,
+        input_fingerprint=resolved_identity.input_fingerprint,
+        calculation_hash=resolved_identity.calculation_hash,
+        resolved_benchmark_id=context.resolved_benchmark_id,
+        resolved_benchmark_return_source=context.resolved_benchmark_return_source,
+    )
+    return _ReturnsSeriesExecutionResult(
+        response=response,
+        stage_details={
+            "requested_points": diagnostics_result.requested_points,
+            "returned_points": diagnostics_result.returned_points,
+        },
+    )
+
+
 async def _calculate_returns_series(
     request: ReturnsSeriesRequest,
     *,
@@ -1485,60 +1548,19 @@ async def _calculate_returns_series(
 
         active_stage = EXECUTION_STAGE_EXECUTION
         execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_EXECUTION)
-        portfolio_df, benchmark_df, risk_free_df = _apply_strict_intersection_policy(
-            portfolio_df=portfolio_df,
-            benchmark_df=benchmark_df,
-            risk_free_df=risk_free_df,
-            missing_data_policy=request.data_policy.missing_data_policy,
-        )
-        portfolio_df, benchmark_df, risk_free_df = _apply_selected_fill_method(
-            portfolio_df=portfolio_df,
-            benchmark_df=benchmark_df,
-            risk_free_df=risk_free_df,
-            fill_method=request.data_policy.fill_method,
-        )
-
-        point_outputs = _build_returns_series_point_outputs(
-            portfolio_df=portfolio_df,
-            benchmark_df=benchmark_df,
-            risk_free_df=risk_free_df,
-        )
-
-        resolved_identity = _final_returns_series_identity(
-            request=request,
+        result = _build_returns_series_execution_result(
             context=context,
-            point_outputs=point_outputs,
-        )
-
-        diagnostics_result = _build_returns_series_diagnostics(
-            request=request,
-            resolved_window=context.resolved_window,
             portfolio_df=portfolio_df,
             benchmark_df=benchmark_df,
             risk_free_df=risk_free_df,
-        )
-
-        response = _build_returns_series_response(
-            request=request,
-            resolved_window=context.resolved_window,
-            point_outputs=point_outputs,
-            diagnostics_result=diagnostics_result,
-            effective_input_mode=context.effective_input_mode,
-            input_fingerprint=resolved_identity.input_fingerprint,
-            calculation_hash=resolved_identity.calculation_hash,
-            resolved_benchmark_id=context.resolved_benchmark_id,
-            resolved_benchmark_return_source=context.resolved_benchmark_return_source,
         )
         execution_registry.complete_stage(
             request.calculation_id,
             EXECUTION_STAGE_EXECUTION,
-            details={
-                "requested_points": diagnostics_result.requested_points,
-                "returned_points": diagnostics_result.returned_points,
-            },
+            details=result.stage_details,
         )
         execution_registry.mark_complete(request.calculation_id)
-        return response
+        return result.response
     except HTTPException as exc:
         message = exc.detail["message"] if isinstance(exc.detail, dict) and "message" in exc.detail else str(exc.detail)
         fail_execution(calculation_id=request.calculation_id, message=message, active_stage=active_stage)
