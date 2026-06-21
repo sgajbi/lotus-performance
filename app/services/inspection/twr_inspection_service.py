@@ -359,25 +359,36 @@ def _build_twr_inspection_response(
         workflow_pack_run=None,
         generated_at_utc=format_timestamp(datetime.now(UTC)) or "",
     )
+    return _attach_support_brief_to_inspection_response(
+        response=response,
+        artifact_payloads=artifact_payloads,
+    )
+
+
+def _attach_support_brief_to_inspection_response(
+    *,
+    response: TWRInspectionResponse,
+    artifact_payloads: dict[str, str],
+) -> _InspectionResponseSynthesis:
     support_brief_result = generate_twr_inspection_support_brief(inspection=response)
-    evidence_summary = findings_context.evidence_summary
+    evidence_summary = dict(response.evidence_summary)
     evidence_summary["support_brief_generation_status"] = support_brief_result.generation_status
     if support_brief_result.workflow_pack_run is not None:
         evidence_summary["support_brief_workflow_pack_run_id"] = support_brief_result.workflow_pack_run.run_id
     if support_brief_result.artifact_markdown is not None:
         artifact_payloads["support_brief.md"] = support_brief_result.artifact_markdown
-    response = response.model_copy(
+    updated_response = response.model_copy(
         update={
             "evidence_summary": evidence_summary,
             "artifacts": _build_twr_inspection_artifact_links(
-                inspection_id=request.inspection_id,
+                inspection_id=response.inspection_id,
                 artifact_payloads=artifact_payloads,
             ),
             "workflow_pack_run": support_brief_result.workflow_pack_run,
         }
     )
     return _InspectionResponseSynthesis(
-        response=response,
+        response=updated_response,
         artifact_payloads=artifact_payloads,
         support_brief_generation_status=support_brief_result.generation_status,
     )
