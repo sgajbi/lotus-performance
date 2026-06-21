@@ -118,6 +118,16 @@ class _ContributionPeriodSupportability:
     average_weight_methodology_status: AverageWeightMethodologyStatus
 
 
+@dataclass(frozen=True)
+class _FlatContributionPositionAssembly:
+    selected_average_weight_column: str
+    use_reset_aware_average_weight: bool
+    position_contributions: list[PositionContribution]
+    daily_series: list[DailyContribution] | None
+    emitted_position_series: list[PositionContributionSeries] | None
+    residual_allocation_applied: bool
+
+
 def _build_period_average_weight_methodology_status(
     *,
     period_methodology_context: ContributionPeriodMethodologyContext,
@@ -280,6 +290,51 @@ def _build_contribution_period_supportability(
     )
 
 
+def _build_flat_contribution_position_assembly(
+    *,
+    request: ContributionRequest,
+    period: Any,
+    period_slice_df: Any,
+    period_methodology_context: ContributionPeriodMethodologyContext,
+    reset_aware_average_weight_mode: str,
+    total_portfolio_return: Any,
+) -> _FlatContributionPositionAssembly:
+    selected_average_weight_column, use_reset_aware_average_weight = _select_period_average_weight_column(
+        period_methodology_context=period_methodology_context,
+        reset_aware_average_weight_mode=reset_aware_average_weight_mode,
+    )
+    position_totals_result = build_residual_adjusted_position_totals(
+        period_slice_df=period_slice_df,
+        average_weight_df=period_methodology_context.average_weight_shadow_df,
+        total_portfolio_return=total_portfolio_return,
+        smoothing_method=request.smoothing.method,
+        average_weight_columns=["average_weight", "reset_aware_average_weight_shadow"],
+        residual_allocation_weight_column="selected_average_weight",
+        selected_average_weight_source_column=selected_average_weight_column,
+    )
+    position_contributions = build_position_contributions(
+        totals_df=position_totals_result.totals_df,
+        request=request,
+        period_start_date=period.start_date,
+        period_end_date=period.end_date,
+        average_weight_column="selected_average_weight",
+    )
+    _position_series, daily_series, emitted_position_series = _build_period_contribution_series_outputs(
+        period_slice_df=period_slice_df,
+        position_contributions=position_contributions,
+        emit_timeseries=request.emit.timeseries,
+        emit_by_position_timeseries=request.emit.by_position_timeseries,
+    )
+    return _FlatContributionPositionAssembly(
+        selected_average_weight_column=selected_average_weight_column,
+        use_reset_aware_average_weight=use_reset_aware_average_weight,
+        position_contributions=position_contributions,
+        daily_series=daily_series,
+        emitted_position_series=emitted_position_series,
+        residual_allocation_applied=position_totals_result.residual_allocation_applied,
+    )
+
+
 def _build_flat_period_contribution_result(
     *,
     request: ContributionRequest,
@@ -312,52 +367,32 @@ def _build_flat_period_contribution_result(
         sum_shadow_delta_bp=period_methodology_context.sum_shadow_delta_bp,
     )
 
-    selected_average_weight_column, use_reset_aware_average_weight = _select_period_average_weight_column(
-        period_methodology_context=period_methodology_context,
-        reset_aware_average_weight_mode=reset_aware_average_weight_mode,
-    )
-
     total_portfolio_return = _calculate_reset_aware_period_portfolio_return(
         request,
         period.start_date,
         period.end_date,
         period.name,
     )
-    position_totals_result = build_residual_adjusted_position_totals(
-        period_slice_df=period_slice_df,
-        average_weight_df=period_methodology_context.average_weight_shadow_df,
-        total_portfolio_return=total_portfolio_return,
-        smoothing_method=request.smoothing.method,
-        average_weight_columns=["average_weight", "reset_aware_average_weight_shadow"],
-        residual_allocation_weight_column="selected_average_weight",
-        selected_average_weight_source_column=selected_average_weight_column,
-    )
-
-    position_contributions = build_position_contributions(
-        totals_df=position_totals_result.totals_df,
+    position_assembly = _build_flat_contribution_position_assembly(
         request=request,
-        period_start_date=period.start_date,
-        period_end_date=period.end_date,
-        average_weight_column="selected_average_weight",
-    )
-    position_series, daily_series, emitted_position_series = _build_period_contribution_series_outputs(
+        period=period,
         period_slice_df=period_slice_df,
-        position_contributions=position_contributions,
-        emit_timeseries=request.emit.timeseries,
-        emit_by_position_timeseries=request.emit.by_position_timeseries,
+        period_methodology_context=period_methodology_context,
+        reset_aware_average_weight_mode=reset_aware_average_weight_mode,
+        total_portfolio_return=total_portfolio_return,
     )
     supportability = _build_contribution_period_supportability(
         period_slice_df=period_slice_df,
         portfolio_period_slice_df=portfolio_period_slice_df,
-        position_contributions=position_contributions,
-        daily_series=daily_series,
+        position_contributions=position_assembly.position_contributions,
+        daily_series=position_assembly.daily_series,
         total_portfolio_return=total_portfolio_return,
         smoothing_method=request.smoothing.method,
-        residual_allocation_applied=position_totals_result.residual_allocation_applied,
-        residual_allocation_basis=selected_average_weight_column,
+        residual_allocation_applied=position_assembly.residual_allocation_applied,
+        residual_allocation_basis=position_assembly.selected_average_weight_column,
         period_methodology_context=period_methodology_context,
         average_weight_audit_state=average_weight_audit_state,
-        is_promoted=use_reset_aware_average_weight,
+        is_promoted=position_assembly.use_reset_aware_average_weight,
     )
     return _ContributionPeriodResult(
         period_name=period.name,
@@ -365,9 +400,9 @@ def _build_flat_period_contribution_result(
         result=SinglePeriodContributionResult(
             total_portfolio_return=total_portfolio_return * 100,
             total_contribution=supportability.total_contribution,
-            position_contributions=position_contributions,
-            timeseries=daily_series,
-            by_position_timeseries=emitted_position_series,
+            position_contributions=position_assembly.position_contributions,
+            timeseries=position_assembly.daily_series,
+            by_position_timeseries=position_assembly.emitted_position_series,
             average_weight_methodology_status=supportability.average_weight_methodology_status,
             smoothing_evidence=supportability.smoothing_evidence,
         ),

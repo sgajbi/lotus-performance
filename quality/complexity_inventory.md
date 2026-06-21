@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-20
-Branch: `lp-cr-1423-twr-lineage-completion`
+Branch: `lp-cr-1424-flat-contribution-position-assembly`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
