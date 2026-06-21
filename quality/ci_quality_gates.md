@@ -21,7 +21,7 @@ developers or GitHub Actions.
 | Remote Feature Lane | Pushes to non-`main` branches and manual dispatch | workflow lint, static quality gates, contract/security gates, unit tests |
 | Pull Request Merge Gate | Pull requests targeting `main` and manual dispatch | workflow lint, static quality gates, contract/security gates, compatibility `Lint Typecheck Security` aggregate, migration smoke, unit, integration, and e2e tests, combined coverage floor at 99 percent, Docker build |
 | Main Releasability Gate | Pushes to `main` and manual dispatch | workflow lint, static quality gates, contract/security gates, migration smoke, unit, integration, and e2e tests, combined coverage floor at 99 percent, coverage artifact publication, Docker build |
-| PR Auto Merge | Pull request lifecycle events | queues merge-commit auto-merge and branch deletion after required checks pass; this is release automation, not an independent quality gate |
+| PR Auto Merge | Pull request lifecycle events | queues rebase auto-merge and branch deletion after required checks pass; this is release automation, not an independent quality gate |
 
 `Static Quality Gates` verifies installed dependencies, Ruff lint/format, monetary-float safety,
 complexity regression, architecture-boundary regression, router/middleware thinness, duplicate-code regression, no-alias governance,
