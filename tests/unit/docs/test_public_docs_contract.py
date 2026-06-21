@@ -43,6 +43,35 @@ def test_readme_enterprise_readiness_evidence_is_grounded():
     assert "target deployment, entitlement model, SLOs" in readme_flat
 
 
+def test_demo_readiness_guide_is_linked_bounded_and_evidence_driven():
+    readme = _read("README.md")
+    guide = _read("docs/guides/demo_readiness.md")
+    wiki_home = _read("wiki/Home.md")
+    wiki_overview = _read("wiki/Overview.md")
+    wiki_supported_features = _read("wiki/Supported-Features.md")
+    wiki_validation = _read("wiki/Validation-and-CI.md")
+
+    assert "docs/guides/demo_readiness.md" in readme
+    assert "docs/guides/demo_readiness.md" in wiki_home
+    assert "docs/guides/demo_readiness.md" in wiki_overview
+    assert "docs/guides/demo_readiness.md" in wiki_supported_features
+    assert "docs/guides/demo_readiness.md" in wiki_validation
+
+    assert "make demo-api-certification" in guide
+    assert "output/demo-api-certification/latest.json" in guide
+    assert "Demo API certification passed: checks=8, api_calls=12" in guide
+    assert "`GET /integration/capabilities`" in guide
+    assert "`POST /performance/composites/twr`" in guide
+    assert "Portfolio return is `2.0%`" in guide
+    assert "benchmark return is `1.5%`" in guide
+    assert "active return is `0.5%`" in guide
+    assert "report-only CI evidence" in guide
+    assert "not yet a blocking readiness gate" in guide
+    assert "not certify every deployment" in guide
+    assert "not a claim that every API route" in guide
+    assert "full UI demo readiness from this backend API sweep alone" in guide
+
+
 def test_user_guide_documents_async_execution_surfaces():
     guide = _read("docs/Portfolio Performance Analytics - A User Guide.md")
 

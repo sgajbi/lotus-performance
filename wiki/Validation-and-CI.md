@@ -42,6 +42,23 @@ python -m pytest tests/unit/docs/test_public_docs_contract.py -q
 
 That pack protects the shipped public contract language and examples, not just formatting.
 
+## Demo API certification
+
+For demo preparation and report-only branch evidence, run:
+
+```bash
+make demo-api-certification
+```
+
+The command calls the supported demo-critical API routes, checks expected domain figures, verifies
+enabled capability publication, and writes JSON evidence to
+`output/demo-api-certification/latest.json`. Review the output with
+[docs/guides/demo_readiness.md](../docs/guides/demo_readiness.md) before presenting.
+
+The Quality Baseline Snapshot workflow uploads this evidence as report-only CI output. It is not a
+blocking readiness gate until CI-enforcement governance proves the signal is deterministic,
+low-noise, policy-backed, and stable in the intended lane.
+
 ## References
 
 - [docs/operations/development-workflow-and-ci-strategy.md](../docs/operations/development-workflow-and-ci-strategy.md)

@@ -16,6 +16,11 @@ The current implementation-backed feature ledger is maintained in
 [Supported Features](Supported-Features). Use that page for demo, sales, operations, and client
 conversation boundaries; use [Roadmap](Roadmap) for target-state material.
 
+For demo preparation, run `make demo-api-certification` and review the generated evidence with the
+[Demo Readiness Guide](../docs/guides/demo_readiness.md). That guide explains the supported
+request-level API sweep, expected calculation assertions, report-only CI posture, and boundaries
+between backend API proof and broader Gateway or Workbench product-surface proof.
+
 ## Ownership boundaries
 
 This repo owns:
@@ -43,4 +48,5 @@ This repo does not own:
 - [Architecture](Architecture)
 - [Integrations](Integrations)
 - [Supported Features](Supported-Features)
+- [Demo Readiness Guide](../docs/guides/demo_readiness.md)
 - [Operations Runbook](Operations-Runbook)

@@ -1,7 +1,7 @@
 # Lotus Performance Progressive CI Quality Gates
 
 Report date: 2026-06-21
-Branch: `lp-cr-1431-integration-capability-feature-boundary`
+Branch: `lp-cr-1432-demo-docs-readiness`
 Baseline sources: `quality/baseline_report.md`, `quality/refactor_health_report.md`, `quality/quality_scorecard.md`
 Mode: progressive gate map; remediated complexity, architecture-boundary, router-thinness,
 duplicate-code, observability-readiness, and Python security posture is now enforced in CI.
@@ -82,7 +82,7 @@ No gate should move from one phase to the next until it has:
 | Dead-code detection | Measured in `quality/dead_code_inventory.md` through `scripts/python_dead_code_inventory.py` and `vulture`; 60% findings are dominated by framework/model false positives, while 80% findings are zero | Add reviewed allowlist before considering any regression-blocking gate. |
 | Dependency hygiene | Measured in `quality/dependency_hygiene_report.md` through `scripts/python_dependency_hygiene_inventory.py` and `deptry`; direct imported transitive dependencies are closed, and reviewed runtime-only DEP002 declarations are explicitly allowlisted in the repo scanner | Keep report-only until the allowlist policy and CI placement are stable. |
 | Python security scanning | Blocking through `make python-security-gate`; current Bandit scan has zero high, medium, and low findings, with two targeted skipped tests for reviewed environment-name false positives | Keep blocking for first-party runtime paths; future exceptions must be targeted, documented, and test-backed. |
-| Documentation readiness | Measured in `quality/documentation_inventory.md` through `scripts/python_documentation_inventory.py`; current report shows 8/8 README markers, 20 wiki pages, 230 markdown files, 20 endpoint certification docs, 4/4 API catalog files, 56 docs regression test functions, and 12.02 percent public definition docstring coverage | Keep report-only until docstring scope, generated/model exclusions, and remediation thresholds are agreed. |
+| Documentation readiness | Measured in `quality/documentation_inventory.md` through `scripts/python_documentation_inventory.py`; current report shows 8/8 README markers, 20 wiki pages, 232 markdown files, 20 endpoint certification docs, 4/4 API catalog files, 57 docs regression test functions, and 11.59 percent public definition docstring coverage | Keep report-only until docstring scope, generated/model exclusions, and remediation thresholds are agreed. |
 | OpenAPI Spectral linting | Not configured; no `.spectral.yaml` present | Decide whether Spectral adds value beyond the existing OpenAPI gate before adding it. |
 | Architecture boundaries | Blocking through `make quality-architecture-gate`; latest report shows 0 import-boundary findings and the script enforces `--max-findings 0` | Keep blocking for the current router/core/domain import rules; add new boundary rules only after report-only inventory proves stability. |
 | Public docstring coverage | Not configured; `interrogate` not present | Measure before deciding whether public docstrings are a useful gate for this service. |

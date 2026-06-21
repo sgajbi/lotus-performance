@@ -47,7 +47,16 @@ make install
 make run
 make check
 make ci
+make demo-api-certification
 ```
+
+## Audience paths
+
+| Audience | Start with | Why |
+| --- | --- | --- |
+| Business, sales, and demo teams | [Supported Features](Supported-Features), [Demo Readiness Guide](../docs/guides/demo_readiness.md) | Understand which analytics claims are implementation-backed and how to review repeatable demo evidence. |
+| Operators and support | [Operations Runbook](Operations-Runbook), [Validation and CI](Validation-and-CI) | Review runtime posture, readiness, recovery, retention, metrics, and validation lanes. |
+| Engineers and agents | [API Surface](API-Surface), [Development Workflow](Development-Workflow), [REPOSITORY-ENGINEERING-CONTEXT.md](../REPOSITORY-ENGINEERING-CONTEXT.md) | Keep API contracts, docs, tests, and repo-native gates synchronized with implementation truth. |
 
 ## Navigation
 
