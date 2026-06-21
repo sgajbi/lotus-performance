@@ -377,6 +377,87 @@ def test_build_flat_period_contribution_result_preserves_average_weight_basis(mo
     assert smoothing_calls[0]["residual_allocation_basis"] == "reset_aware_average_weight_shadow"
 
 
+def test_build_flat_contribution_position_assembly_preserves_reset_aware_weighting(monkeypatch):
+    period_slice_df = pd.DataFrame({"position_id": ["A"], "smoothed_contribution": [0.01]})
+    totals_df = pd.DataFrame({"position_id": ["A"], "selected_average_weight": [0.5]})
+    average_weight_shadow_df = pd.DataFrame(
+        {
+            "position_id": ["A"],
+            "average_weight": [0.4],
+            "reset_aware_average_weight_shadow": [0.5],
+        }
+    )
+    methodology_context = SimpleNamespace(average_weight_shadow_df=average_weight_shadow_df)
+    period = SimpleNamespace(name="QTD", start_date=date(2026, 1, 1), end_date=date(2026, 3, 31))
+    request = SimpleNamespace(
+        smoothing=SimpleNamespace(method="CARINO"),
+        emit=SimpleNamespace(timeseries=True, by_position_timeseries=True),
+    )
+    residual_calls: list[dict[str, object]] = []
+    contribution_calls: list[dict[str, object]] = []
+    series_calls: list[dict[str, object]] = []
+    position_contributions = [
+        PositionContribution(
+            position_id="A",
+            total_contribution=3.48,
+            average_weight=50.0,
+            total_return=6.96,
+        )
+    ]
+
+    monkeypatch.setattr(
+        contribution_service,
+        "_select_period_average_weight_column",
+        lambda **_kwargs: ("reset_aware_average_weight_shadow", True),
+    )
+
+    def build_residual_adjusted_position_totals(**kwargs):
+        residual_calls.append(kwargs)
+        return SimpleNamespace(totals_df=totals_df, residual_allocation_applied=True)
+
+    def build_position_contributions(**kwargs):
+        contribution_calls.append(kwargs)
+        return position_contributions
+
+    def build_period_series_outputs(**kwargs):
+        series_calls.append(kwargs)
+        return (["position-series"], ["daily-series"], ["emitted-position-series"])
+
+    monkeypatch.setattr(
+        contribution_service,
+        "build_residual_adjusted_position_totals",
+        build_residual_adjusted_position_totals,
+    )
+    monkeypatch.setattr(contribution_service, "build_position_contributions", build_position_contributions)
+    monkeypatch.setattr(contribution_service, "_build_period_contribution_series_outputs", build_period_series_outputs)
+
+    result = contribution_service._build_flat_contribution_position_assembly(
+        request=request,
+        period=period,
+        period_slice_df=period_slice_df,
+        period_methodology_context=methodology_context,
+        reset_aware_average_weight_mode="candidate_periods",
+        total_portfolio_return=0.0348,
+    )
+
+    assert result.selected_average_weight_column == "reset_aware_average_weight_shadow"
+    assert result.use_reset_aware_average_weight is True
+    assert result.position_contributions == position_contributions
+    assert result.daily_series == ["daily-series"]
+    assert result.emitted_position_series == ["emitted-position-series"]
+    assert result.residual_allocation_applied is True
+    assert residual_calls[0]["average_weight_df"] is average_weight_shadow_df
+    assert residual_calls[0]["selected_average_weight_source_column"] == "reset_aware_average_weight_shadow"
+    assert residual_calls[0]["residual_allocation_weight_column"] == "selected_average_weight"
+    assert contribution_calls[0]["totals_df"] is totals_df
+    assert contribution_calls[0]["period_start_date"] == date(2026, 1, 1)
+    assert contribution_calls[0]["period_end_date"] == date(2026, 3, 31)
+    assert contribution_calls[0]["average_weight_column"] == "selected_average_weight"
+    assert series_calls[0]["position_contributions"] == position_contributions
+    assert series_calls[0]["emit_timeseries"] is True
+    assert series_calls[0]["emit_by_position_timeseries"] is True
+
+
 def test_build_hierarchy_period_contribution_result_preserves_hierarchy_outputs(monkeypatch):
     period_slice_df = pd.DataFrame({"position_id": ["A"], "smoothed_contribution": [0.01]})
     portfolio_period_slice_df = pd.DataFrame({"portfolio_id": ["P"]})
