@@ -894,17 +894,9 @@ class StatefulInputService:
         page_count = 0
 
         while True:
-            status_code, payload = await self._core_service.get_portfolio_analytics_timeseries(
+            status_code, payload, request_payload = await self._fetch_portfolio_timeseries_page(
                 portfolio_id=portfolio_id,
                 as_of_date=as_of_date,
-                start_date=chunk.start_date,
-                end_date=chunk.end_date,
-                reporting_currency=reporting_currency,
-                consumer_system=consumer_system,
-                page_token=page_token,
-            )
-            request_payload = _portfolio_timeseries_request_payload(
-                portfolio_id=portfolio_id,
                 chunk=chunk,
                 reporting_currency=reporting_currency,
                 consumer_system=consumer_system,
@@ -953,6 +945,37 @@ class StatefulInputService:
                 "page_count": page_count,
             },
         }
+
+    async def _fetch_portfolio_timeseries_page(
+        self,
+        *,
+        portfolio_id: str,
+        as_of_date: date,
+        chunk: DateChunk,
+        reporting_currency: str | None,
+        consumer_system: str,
+        page_token: str | None,
+    ) -> tuple[int, dict[str, Any], dict[str, Any]]:
+        response = await self._core_service.get_portfolio_analytics_timeseries(
+            portfolio_id=portfolio_id,
+            as_of_date=as_of_date,
+            start_date=chunk.start_date,
+            end_date=chunk.end_date,
+            reporting_currency=reporting_currency,
+            consumer_system=consumer_system,
+            page_token=page_token,
+        )
+        return (
+            response[0],
+            response[1],
+            _portfolio_timeseries_request_payload(
+                portfolio_id=portfolio_id,
+                chunk=chunk,
+                reporting_currency=reporting_currency,
+                consumer_system=consumer_system,
+                page_token=page_token,
+            ),
+        )
 
     def _append_portfolio_timeseries_snapshot_if_new(
         self,

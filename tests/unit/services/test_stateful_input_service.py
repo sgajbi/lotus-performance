@@ -430,6 +430,33 @@ async def test_get_portfolio_timeseries_merges_chunked_and_paginated_observation
 
 
 @pytest.mark.asyncio
+async def test_stateful_input_service_fetches_portfolio_timeseries_page_with_request_payload():
+    core_service = _CoreServiceStub()
+    service = StatefulInputService(core_service=core_service)
+    chunk = DateChunk(start_date=date(2026, 1, 1), end_date=date(2026, 1, 3))
+
+    status_code, payload, request_payload = await service._fetch_portfolio_timeseries_page(
+        portfolio_id="PORT_1",
+        as_of_date=date(2026, 1, 3),
+        chunk=chunk,
+        reporting_currency="USD",
+        consumer_system="lotus-performance",
+        page_token="page-2",
+    )
+
+    assert status_code == 200
+    assert payload["observations"][0]["valuation_date"] == "2026-01-02"
+    assert core_service.portfolio_calls[-1]["page_token"] == "page-2"
+    assert request_payload == _portfolio_timeseries_request_payload(
+        portfolio_id="PORT_1",
+        chunk=chunk,
+        reporting_currency="USD",
+        consumer_system="lotus-performance",
+        page_token="page-2",
+    )
+
+
+@pytest.mark.asyncio
 async def test_reference_series_merge_chunked_points():
     core_service = _CoreServiceStub()
     service = StatefulInputService(
