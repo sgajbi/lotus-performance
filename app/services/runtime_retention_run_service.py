@@ -109,6 +109,58 @@ def _runtime_retention_governed_target(
     return f"{cleanup_mode}:{retention_days}:{job_id or 'no-job'}"
 
 
+def _run_runtime_retention_cleanup_under_lease(
+    *,
+    cleanup_request: RuntimeRetentionCleanupRunRequest,
+    operator_id: str,
+    tenant_id: str | None,
+    correlation_id: str | None,
+    artifact_directory: Path,
+    action_lease_stale_seconds: float,
+    resolved_retention_days: int,
+    now_utc: datetime | None,
+) -> RuntimeRetentionCleanupRunResult:
+    action_key = build_runtime_retention_action_key(
+        operator_id=operator_id,
+        tenant_id=tenant_id,
+        apply=cleanup_request.apply,
+        retention_days=resolved_retention_days,
+        job_id=cleanup_request.job_id,
+    )
+    with operator_action_lease(
+        artifact_directory=artifact_directory,
+        action_key=action_key,
+        metadata=OperatorActionLeaseMetadata(
+            action_name="runtime_retention_cleanup",
+            operator_id=operator_id,
+            tenant_id=tenant_id,
+            governed_target=_runtime_retention_governed_target(
+                apply=cleanup_request.apply,
+                retention_days=resolved_retention_days,
+                job_id=cleanup_request.job_id,
+            ),
+            acquired_at_utc=(now_utc or datetime.now(UTC)).isoformat(),
+        ),
+        stale_after_seconds=action_lease_stale_seconds,
+        now_utc=now_utc,
+    ):
+        evidence = execute_runtime_retention_cleanup(
+            apply=cleanup_request.apply,
+            retention_days=cleanup_request.retention_days,
+            operator_id=operator_id,
+            tenant_id=tenant_id,
+            correlation_id=correlation_id,
+            trigger_mode="manual",
+            job_id=cleanup_request.job_id,
+            output_dir=artifact_directory,
+        )
+
+    return RuntimeRetentionCleanupRunResult(
+        response=_runtime_retention_cleanup_response_from_evidence(evidence),
+        is_replay=False,
+    )
+
+
 def run_runtime_retention_cleanup(
     *,
     cleanup_request: RuntimeRetentionCleanupRunRequest,
@@ -153,42 +205,13 @@ def run_runtime_retention_cleanup(
         cooldown_seconds=cooldown_seconds,
     )
 
-    action_key = build_runtime_retention_action_key(
+    return _run_runtime_retention_cleanup_under_lease(
+        cleanup_request=cleanup_request,
         operator_id=operator_id,
         tenant_id=tenant_id,
-        apply=cleanup_request.apply,
-        retention_days=resolved_retention_days,
-        job_id=cleanup_request.job_id,
-    )
-    with operator_action_lease(
+        correlation_id=correlation_id,
         artifact_directory=artifact_directory,
-        action_key=action_key,
-        metadata=OperatorActionLeaseMetadata(
-            action_name="runtime_retention_cleanup",
-            operator_id=operator_id,
-            tenant_id=tenant_id,
-            governed_target=_runtime_retention_governed_target(
-                apply=cleanup_request.apply,
-                retention_days=resolved_retention_days,
-                job_id=cleanup_request.job_id,
-            ),
-            acquired_at_utc=(now_utc or datetime.now(UTC)).isoformat(),
-        ),
-        stale_after_seconds=action_lease_stale_seconds,
+        action_lease_stale_seconds=action_lease_stale_seconds,
+        resolved_retention_days=resolved_retention_days,
         now_utc=now_utc,
-    ):
-        evidence = execute_runtime_retention_cleanup(
-            apply=cleanup_request.apply,
-            retention_days=cleanup_request.retention_days,
-            operator_id=operator_id,
-            tenant_id=tenant_id,
-            correlation_id=correlation_id,
-            trigger_mode="manual",
-            job_id=cleanup_request.job_id,
-            output_dir=artifact_directory,
-        )
-
-    return RuntimeRetentionCleanupRunResult(
-        response=_runtime_retention_cleanup_response_from_evidence(evidence),
-        is_replay=False,
     )

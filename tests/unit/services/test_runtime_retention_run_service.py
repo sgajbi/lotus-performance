@@ -11,6 +11,7 @@ from app.services.runtime_retention_history_service import RuntimeRetentionHisto
 from app.services.runtime_retention_run_service import (
     RuntimeRetentionCleanupRunResult,
     _enforce_runtime_retention_manual_run_guards,
+    _run_runtime_retention_cleanup_under_lease,
     _runtime_retention_cleanup_response_from_evidence,
     _runtime_retention_governed_target,
     _runtime_retention_replay_run_result,
@@ -184,6 +185,74 @@ def test_runtime_retention_manual_run_guards_enforce_preview_before_cooldown_for
     )
 
     assert calls == ["preview", "cooldown"]
+
+
+def test_run_runtime_retention_cleanup_under_lease_preserves_action_identity_and_execution_inputs(
+    tmp_path,
+    monkeypatch,
+):
+    lease_payload = {}
+    execution_payload = {}
+
+    @contextmanager
+    def fake_lease(*, artifact_directory: Path, action_key: str, metadata, stale_after_seconds, now_utc):
+        lease_payload["artifact_directory"] = artifact_directory
+        lease_payload["action_key"] = action_key
+        lease_payload["metadata"] = metadata
+        lease_payload["stale_after_seconds"] = stale_after_seconds
+        lease_payload["now_utc"] = now_utc
+        yield
+
+    def fake_execute(**kwargs):
+        execution_payload.update(kwargs)
+        return _build_evidence()
+
+    monkeypatch.setattr(
+        "app.services.runtime_retention_run_service.build_runtime_retention_action_key",
+        lambda **kwargs: f"{kwargs['operator_id']}:{kwargs['retention_days']}:{kwargs['job_id']}",
+    )
+    monkeypatch.setattr(
+        "app.services.runtime_retention_run_service.operator_action_lease",
+        fake_lease,
+    )
+    monkeypatch.setattr(
+        "app.services.runtime_retention_run_service.execute_runtime_retention_cleanup",
+        fake_execute,
+    )
+
+    now_utc = datetime(2026, 3, 15, 0, 0, 0, tzinfo=UTC)
+    result = _run_runtime_retention_cleanup_under_lease(
+        cleanup_request=RuntimeRetentionCleanupRunRequest(apply=False, retention_days=None, job_id="ticket-7"),
+        operator_id="ops-user",
+        tenant_id="tenant-a",
+        correlation_id="corr-1",
+        artifact_directory=tmp_path,
+        action_lease_stale_seconds=120.0,
+        resolved_retention_days=30,
+        now_utc=now_utc,
+    )
+
+    assert result.is_replay is False
+    assert result.response.evidence_file_name == "2026-03-15t00-00-00z.json"
+    assert lease_payload["artifact_directory"] == tmp_path
+    assert lease_payload["action_key"] == "ops-user:30:ticket-7"
+    assert lease_payload["stale_after_seconds"] == 120.0
+    assert lease_payload["now_utc"] == now_utc
+    assert lease_payload["metadata"].action_name == "runtime_retention_cleanup"
+    assert lease_payload["metadata"].operator_id == "ops-user"
+    assert lease_payload["metadata"].tenant_id == "tenant-a"
+    assert lease_payload["metadata"].governed_target == "dry_run:30:ticket-7"
+    assert lease_payload["metadata"].acquired_at_utc == now_utc.isoformat()
+    assert execution_payload == {
+        "apply": False,
+        "retention_days": None,
+        "operator_id": "ops-user",
+        "tenant_id": "tenant-a",
+        "correlation_id": "corr-1",
+        "trigger_mode": "manual",
+        "job_id": "ticket-7",
+        "output_dir": tmp_path,
+    }
 
 
 def test_runtime_retention_cleanup_run_replays_existing_evidence_payload(tmp_path, monkeypatch):

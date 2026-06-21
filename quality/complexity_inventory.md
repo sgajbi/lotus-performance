@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-21
-Branch: `lp-cr-1429-twr-response-assembly-boundary`
+Branch: `lp-cr-1430-runtime-retention-lease-execution-boundary`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
@@ -74,7 +74,7 @@ must stay at `0`.
 | 4 | `app/services/returns_series_service.py` | 0.00 | C |
 | 5 | `app/services/stateful_attribution_input_service.py` | 0.00 | C |
 | 6 | `app/services/stateful_input_service.py` | 0.00 | C |
-| 7 | `app/services/twr_service.py` | 5.79 | C |
+| 7 | `app/services/twr_service.py` | 5.69 | C |
 | 8 | `app/services/stateful_benchmark_input_service.py` | 8.81 | C |
 | 9 | `app/services/workspace_summary_service.py` | 10.26 | B |
 | 10 | `app/services/execution_registry.py` | 11.12 | B |
@@ -1112,6 +1112,8 @@ complexity posture; the measured repository maximum remains `5`.
 The runtime work-item safe listing extraction did not change the max cyclomatic complexity posture;
 the measured repository maximum remains `5`.
 The stateful timeseries snapshot append extraction did not change the max cyclomatic complexity
+posture; the measured repository maximum remains `5`.
+The runtime-retention lease/execution extraction did not change the max cyclomatic complexity
 posture; the measured repository maximum remains `5`.
 The remaining C-grade
 hotspots should be treated as future bounded refactor candidates, not as evidence of an immediate
