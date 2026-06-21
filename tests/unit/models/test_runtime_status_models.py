@@ -9,7 +9,9 @@ from app.models.runtime_status import (
     _lineage_queue_response,
     _operator_action_reclaim_event_responses,
     _recovery_drill_policy_response,
+    _recovery_drill_status_response,
     _runtime_retention_policy_response,
+    _runtime_retention_status_response,
     build_runtime_status_response,
 )
 from app.services.compute_job_store import ComputeQueueInspectionAnchors, ComputeQueueStats, ComputeRecoveryEvent
@@ -255,6 +257,141 @@ def test_operator_action_reclaim_event_responses_project_governed_action_context
     assert responses[0].reclaimed_at_utc == "2026-03-13T23:15:00Z"
     assert responses[0].reclaimed_age_seconds == 4500.0
     assert responses[0].reclaim_count == 4
+
+
+def test_recovery_drill_status_response_projects_operator_assurance_fields():
+    response = _recovery_drill_status_response(
+        RecoveryDrillStatus(
+            status="degraded",
+            reason="recovery_drill_age_exceeded",
+            active_run_status="active",
+            active_run_reason=None,
+            active_run_count=1,
+            oldest_active_run_operator_id="ops-user",
+            oldest_active_run_tenant_id="tenant-a",
+            oldest_active_run_governed_target="backup-123",
+            oldest_active_run_acquired_at_utc="2026-03-14T00:30:00Z",
+            oldest_active_run_age_seconds=1800.0,
+            latest_reclaimed_run_operator_id="ops-old",
+            latest_reclaimed_run_tenant_id="tenant-a",
+            latest_reclaimed_run_governed_target="backup-old",
+            latest_reclaimed_run_acquired_at_utc="2026-03-13T22:30:00Z",
+            latest_reclaimed_run_reclaimed_at_utc="2026-03-14T00:15:00Z",
+            latest_reclaimed_run_age_seconds=2700.0,
+            reclaimed_run_count=3,
+            recent_reclaimed_runs=(
+                RecentOperatorActionReclaim(
+                    operator_id="ops-old",
+                    tenant_id="tenant-a",
+                    governed_target="backup-old",
+                    acquired_at_utc="2026-03-13T22:30:00Z",
+                    reclaimed_at_utc="2026-03-14T00:15:00Z",
+                    reclaimed_age_seconds=2700.0,
+                    reclaim_count=3,
+                ),
+            ),
+            latest_generated_at_utc="2026-03-13T00:00:00Z",
+            latest_status="passed",
+            latest_operator_id="ops-user",
+            latest_backup_identifier="backup-123",
+            latest_age_seconds=86400.0,
+            degradation_reasons=("recovery_drill_age_exceeded",),
+            degradation_details=(
+                RuntimeDegradationDetail(
+                    reason="recovery_drill_age_exceeded",
+                    observed_value=86400.0,
+                    threshold_value=3600.0,
+                ),
+            ),
+        )
+    )
+
+    assert response.status == "degraded"
+    assert response.active_run_status == "active"
+    assert response.oldest_active_run_governed_target == "backup-123"
+    assert response.latest_reclaimed_run_operator_id == "ops-old"
+    assert response.latest_reclaimed_run_governed_target == "backup-old"
+    assert response.reclaimed_run_count == 3
+    assert response.recent_reclaimed_runs[0].operator_id == "ops-old"
+    assert response.latest_status == "passed"
+    assert response.latest_backup_identifier == "backup-123"
+    assert response.degradation_reasons == ["recovery_drill_age_exceeded"]
+    assert response.degradation_details[0].threshold_value == 3600.0
+
+
+def test_runtime_retention_status_response_projects_cleanup_preview_and_counts():
+    response = _runtime_retention_status_response(
+        RuntimeRetentionStatus(
+            status="degraded",
+            reason="runtime_retention_age_exceeded",
+            active_run_status="active",
+            active_run_reason=None,
+            active_run_count=2,
+            oldest_active_run_operator_id="ops-batch",
+            oldest_active_run_tenant_id="tenant-a",
+            oldest_active_run_governed_target="apply:30:retention-nightly",
+            oldest_active_run_acquired_at_utc="2026-03-13T23:30:00Z",
+            oldest_active_run_age_seconds=1800.0,
+            latest_reclaimed_run_operator_id="ops-old-batch",
+            latest_reclaimed_run_tenant_id="tenant-a",
+            latest_reclaimed_run_governed_target="apply:30:old-job",
+            latest_reclaimed_run_acquired_at_utc="2026-03-13T22:00:00Z",
+            latest_reclaimed_run_reclaimed_at_utc="2026-03-13T23:15:00Z",
+            latest_reclaimed_run_age_seconds=4500.0,
+            reclaimed_run_count=4,
+            recent_reclaimed_runs=(
+                RecentOperatorActionReclaim(
+                    operator_id="ops-old-batch",
+                    tenant_id="tenant-a",
+                    governed_target="apply:30:old-job",
+                    acquired_at_utc="2026-03-13T22:00:00Z",
+                    reclaimed_at_utc="2026-03-13T23:15:00Z",
+                    reclaimed_age_seconds=4500.0,
+                    reclaim_count=4,
+                ),
+            ),
+            preview_status="available",
+            preview_reason=None,
+            current_cutoff_utc="2026-02-13T00:00:00Z",
+            current_retention_days=30,
+            current_prunable_execution_count=7,
+            current_prunable_compute_job_count=6,
+            current_prunable_async_result_count=5,
+            current_prunable_lineage_record_count=4,
+            current_prunable_lineage_artifact_count=3,
+            latest_generated_at_utc="2026-03-12T00:00:00Z",
+            latest_status="applied",
+            latest_operator_id="ops-batch",
+            latest_trigger_mode="scheduled",
+            latest_job_id="retention-nightly",
+            latest_cleanup_mode="apply",
+            latest_retention_days=30,
+            latest_age_seconds=172800.0,
+            degradation_reasons=("runtime_retention_age_exceeded",),
+            degradation_details=(
+                RuntimeDegradationDetail(
+                    reason="runtime_retention_age_exceeded",
+                    observed_value=172800.0,
+                    threshold_value=3600.0,
+                ),
+            ),
+        )
+    )
+
+    assert response.status == "degraded"
+    assert response.active_run_count == 2
+    assert response.oldest_active_run_governed_target == "apply:30:retention-nightly"
+    assert response.latest_reclaimed_run_operator_id == "ops-old-batch"
+    assert response.recent_reclaimed_runs[0].governed_target == "apply:30:old-job"
+    assert response.preview_status == "available"
+    assert response.current_cutoff_utc == "2026-02-13T00:00:00Z"
+    assert response.current_prunable_execution_count == 7
+    assert response.current_prunable_lineage_artifact_count == 3
+    assert response.latest_trigger_mode == "scheduled"
+    assert response.latest_job_id == "retention-nightly"
+    assert response.latest_cleanup_mode == "apply"
+    assert response.degradation_reasons == ["runtime_retention_age_exceeded"]
+    assert response.degradation_details[0].observed_value == 172800.0
 
 
 def test_runtime_status_policy_responses_project_thresholds():
