@@ -109,28 +109,41 @@ def build_recovery_drill_history_snapshot(
             applied_filters=applied_filters,
             reason=RECOVERY_DRILL_MANIFEST_INVALID_REASON,
         )
-    all_entries = [
-        RecoveryDrillHistoryEntry(
-            evidence_file_name=entry["evidence_file_name"],
-            generated_at_utc=entry["generated_at_utc"],
-            operator_id=entry["operator_id"],
-            tenant_id=entry["tenant_id"],
-            correlation_id=entry["correlation_id"],
-            backup_identifier=entry["backup_identifier"],
-            status=entry["status"],
-        )
-        for entry in manifest_payload["entries"]
-    ]
-    filtered_entries = filter_history_entries(
-        entries=all_entries,
-        exact_filters=(
-            (operator_id, lambda entry: entry.operator_id),
-            (backup_identifier, lambda entry: entry.backup_identifier),
-            (status_filter, lambda entry: entry.status),
-        ),
+    return _available_snapshot_from_manifest(
+        directory=directory,
+        manifest_payload=manifest_payload,
+        applied_filters=applied_filters,
+        limit=limit,
+        offset=offset,
+        operator_id=operator_id,
+        backup_identifier=backup_identifier,
+        status_filter=status_filter,
         generated_after=generated_after,
         generated_before=generated_before,
-        get_generated_at_utc=lambda entry: entry.generated_at_utc,
+    )
+
+
+def _available_snapshot_from_manifest(
+    *,
+    directory: Path,
+    manifest_payload: dict[str, Any],
+    applied_filters: dict[str, str | int],
+    limit: int | None,
+    offset: int,
+    operator_id: str | None,
+    backup_identifier: str | None,
+    status_filter: str | None,
+    generated_after: str | None,
+    generated_before: str | None,
+) -> RecoveryDrillHistorySnapshot:
+    all_entries = _recovery_drill_history_entries_from_manifest(manifest_payload)
+    filtered_entries = _filtered_recovery_drill_history_entries(
+        entries=all_entries,
+        operator_id=operator_id,
+        backup_identifier=backup_identifier,
+        status_filter=status_filter,
+        generated_after=generated_after,
+        generated_before=generated_before,
     )
     page = paginate_history_entries(filtered_entries, limit=limit, offset=offset)
     return build_available_history_snapshot(
@@ -143,6 +156,45 @@ def build_recovery_drill_history_snapshot(
         returned_entries=len(page.entries),
         next_offset=page.next_offset,
         applied_filters=applied_filters,
+    )
+
+
+def _recovery_drill_history_entries_from_manifest(
+    manifest_payload: dict[str, Any],
+) -> list[RecoveryDrillHistoryEntry]:
+    return [
+        RecoveryDrillHistoryEntry(
+            evidence_file_name=entry["evidence_file_name"],
+            generated_at_utc=entry["generated_at_utc"],
+            operator_id=entry["operator_id"],
+            tenant_id=entry["tenant_id"],
+            correlation_id=entry["correlation_id"],
+            backup_identifier=entry["backup_identifier"],
+            status=entry["status"],
+        )
+        for entry in manifest_payload["entries"]
+    ]
+
+
+def _filtered_recovery_drill_history_entries(
+    *,
+    entries: list[RecoveryDrillHistoryEntry],
+    operator_id: str | None,
+    backup_identifier: str | None,
+    status_filter: str | None,
+    generated_after: str | None,
+    generated_before: str | None,
+) -> list[RecoveryDrillHistoryEntry]:
+    return filter_history_entries(
+        entries=entries,
+        exact_filters=(
+            (operator_id, lambda entry: entry.operator_id),
+            (backup_identifier, lambda entry: entry.backup_identifier),
+            (status_filter, lambda entry: entry.status),
+        ),
+        generated_after=generated_after,
+        generated_before=generated_before,
+        get_generated_at_utc=lambda entry: entry.generated_at_utc,
     )
 
 

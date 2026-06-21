@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-21
-Branch: `lp-cr-1431-integration-capability-feature-boundary`
+Branch: `lp-cr-1433-recovery-drill-history-snapshot-boundary`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
