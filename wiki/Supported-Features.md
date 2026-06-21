@@ -75,6 +75,11 @@ runtime health, and downstream-consumption boundaries.
 
 Use these implementation-backed stories in client demos and presentations:
 
+Before presenting, use the [Demo Readiness Guide](../docs/guides/demo_readiness.md) to run and
+review `make demo-api-certification`. The guide explains the `checks=8`, `api_calls=12` evidence,
+which routes and figures are asserted, and why report-only CI evidence is not the same as final
+demo sign-off without review.
+
 1. Evidence-backed performance numbers
    show TWR, MWR, contribution, attribution, or composite outputs together with supportability,
    reason codes, warnings, benchmark context, and lineage. Do not present the numeric result alone

@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Health Report
 
 Report date: 2026-06-21
-Branch: `lp-cr-1431-integration-capability-feature-boundary`
+Branch: `lp-cr-1432-demo-docs-readiness`
 Baseline source: `quality/baseline_report.md`
 Report mode: phase-zero scorecard; complexity, architecture, duplicate-code, router-thinness,
 observability-readiness, and Python security posture are enforced separately by CI.
@@ -71,7 +71,7 @@ link the commit, command, or CI artifact that proves the change.
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
 | Test modules | 228 | 268 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 3,154 | measured | `python -m pytest --collect-only -q` |
+| Collected tests | 2,035 | 3,155 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99% | measured | `quality/coverage_inventory.md` via `make test-coverage` |
 | Branch coverage | unknown | not configured | not-yet-measured | `quality/coverage_inventory.md`; branch coverage is not configured in pytest-cov or coverage.py |
 | Integration/API/runtime test functions | unknown | 592 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |
@@ -108,12 +108,12 @@ link the commit, command, or CI artifact that proves the change.
 | README required markers | unknown | 8 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
 | Missing README required markers | unknown | 0 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
 | Wiki source pages | unknown | 20 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
-| Markdown documentation files | unknown | 230 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
+| Markdown documentation files | unknown | 232 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
 | Endpoint certification docs | unknown | 20 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
 | API catalog files | unknown | 4 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
-| Docs regression test functions | unknown | 56 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
-| Public definitions missing docstrings | unknown | 988 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
-| Public definition docstring coverage percent | unknown | 12.02 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
+| Docs regression test functions | unknown | 57 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
+| Public definitions missing docstrings | unknown | 1,083 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
+| Public definition docstring coverage percent | unknown | 11.59 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
 
 ## Phase-Zero Interpretation
 

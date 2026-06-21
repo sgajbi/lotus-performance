@@ -172,6 +172,25 @@ source-economics or reconciliation regressions.
 - Docker image proof
   `make docker-build`
 
+## Demo Readiness
+
+For a demo, client review, or internal delivery checkpoint, use one repeatable backend API sweep
+before presenting product claims:
+
+```bash
+make demo-api-certification
+```
+
+The command seeds deterministic synthetic data where needed, calls the supported demo-critical API
+routes, asserts expected domain figures, verifies enabled capability publication, and writes
+machine-readable evidence to `output/demo-api-certification/latest.json`. Review the evidence with
+[docs/guides/demo_readiness.md](docs/guides/demo_readiness.md), then cross-check claims against
+[wiki/Supported-Features.md](wiki/Supported-Features.md).
+
+This backend certification is necessary demo evidence for `lotus-performance`; it is not a blanket
+production certification and does not replace Gateway or Workbench runtime proof when presenting
+front-office product surfaces.
+
 ## Validation And CI Lanes
 
 `lotus-performance` follows the Lotus multi-lane model:
@@ -335,6 +354,8 @@ Key operator and certification references:
 
 ## Documentation Map
 
+- demo readiness:
+  [docs/guides/demo_readiness.md](docs/guides/demo_readiness.md)
 - human API map:
   [docs/guides/api_reference.md](docs/guides/api_reference.md)
 - complete service reference:

@@ -153,7 +153,8 @@ Important validation expectations:
    seeds composite persisted-fact data repeatably, validates expected figures and capability
    publication, and writes reviewed evidence under `output/demo-api-certification/`. The Quality
    Baseline Snapshot workflow runs it as report-only CI evidence and uploads the JSON artifact; it
-   is not yet a blocking readiness gate.
+   is not yet a blocking readiness gate. The audience-facing evidence review guide is
+   `docs/guides/demo_readiness.md`.
 9. `make quality-observability-readiness-gate` blocks missing health/metrics endpoint,
    correlation propagation, structured logging, metrics, and health/readiness implementation
    markers through `scripts/python_observability_readiness_inventory.py --max-missing 0`. Broader

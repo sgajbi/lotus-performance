@@ -134,7 +134,8 @@ Runtime and supportability routes:
 - full examples and config inventory:
   [docs/guides/complete_service_reference.md](../docs/guides/complete_service_reference.md)
 - demo API certification:
-  `make demo-api-certification`
+  `make demo-api-certification`,
+  [docs/guides/demo_readiness.md](../docs/guides/demo_readiness.md)
 - Lotus MWR production controls and review findings:
   [docs/guides/mwr-lotus-production-controls.md](../docs/guides/mwr-lotus-production-controls.md),
   [docs/technical/mwr-industry-review-findings.md](../docs/technical/mwr-industry-review-findings.md),
