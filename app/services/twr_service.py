@@ -1181,6 +1181,67 @@ def _complete_twr_execution_with_lineage(
     )
 
 
+def _assemble_completed_twr_response(
+    *,
+    performance_request: PerformanceRequest,
+    portfolio_id: str,
+    input_mode: TWRInputMode,
+    input_fingerprint: str,
+    calculation_hash: str,
+    engine_version: str,
+    request_artifact_model: Any,
+    calculation: _TWRExecutionCalculation,
+    results_by_period: dict[str, SinglePeriodPerformanceResult],
+    benchmark_request: BenchmarkPerformanceRequest | None,
+    benchmark_input_mode: BenchmarkInputMode | None,
+    resolved_benchmark_id: str | None,
+    benchmark_return_source: BenchmarkReturnSource,
+) -> PerformanceResponse:
+    calculation_supportability = _resolve_twr_supportability(
+        performance_request=performance_request,
+        results_by_period=results_by_period,
+        daily_results_df=calculation.daily_results_df,
+        benchmark_row_count=(
+            len(calculation.benchmark_artifacts.daily_returns_df) if calculation.benchmark_artifacts is not None else 0
+        ),
+    )
+    record_supportability_metric(
+        operation="twr",
+        supportability=calculation_supportability,
+    )
+    benchmark_context = _build_twr_benchmark_context(
+        performance_request=performance_request,
+        benchmark_request=benchmark_request,
+        benchmark_artifacts=calculation.benchmark_artifacts,
+        benchmark_input_mode=benchmark_input_mode,
+        resolved_benchmark_id=resolved_benchmark_id,
+        benchmark_return_source=benchmark_return_source,
+        daily_results_df=calculation.daily_results_df,
+    )
+    response_model = _build_twr_response_model(
+        performance_request=performance_request,
+        portfolio_id=portfolio_id,
+        input_mode=input_mode,
+        input_fingerprint=input_fingerprint,
+        calculation_hash=calculation_hash,
+        engine_version=engine_version,
+        calculation=calculation,
+        results_by_period=results_by_period,
+        benchmark_context=benchmark_context,
+        calculation_supportability=calculation_supportability,
+    )
+
+    _complete_twr_execution_with_lineage(
+        performance_request=performance_request,
+        request_artifact_model=request_artifact_model,
+        response_model=response_model,
+        daily_results_df=calculation.daily_results_df,
+        results_by_period=results_by_period,
+        benchmark_artifacts=calculation.benchmark_artifacts,
+    )
+    return response_model
+
+
 def calculate_twr_response(
     performance_request: PerformanceRequest,
     *,
@@ -1225,46 +1286,18 @@ def calculate_twr_response(
         master_start_date=calculation.master_start_date,
     )
 
-    calculation_supportability = _resolve_twr_supportability(
-        performance_request=performance_request,
-        results_by_period=results_by_period,
-        daily_results_df=calculation.daily_results_df,
-        benchmark_row_count=(
-            len(calculation.benchmark_artifacts.daily_returns_df) if calculation.benchmark_artifacts is not None else 0
-        ),
-    )
-    record_supportability_metric(
-        operation="twr",
-        supportability=calculation_supportability,
-    )
-    benchmark_context = _build_twr_benchmark_context(
-        performance_request=performance_request,
-        benchmark_request=benchmark_request,
-        benchmark_artifacts=calculation.benchmark_artifacts,
-        benchmark_input_mode=benchmark_input_mode,
-        resolved_benchmark_id=resolved_benchmark_id,
-        benchmark_return_source=normalized_benchmark_return_source,
-        daily_results_df=calculation.daily_results_df,
-    )
-    response_model = _build_twr_response_model(
+    return _assemble_completed_twr_response(
         performance_request=performance_request,
         portfolio_id=portfolio_id,
         input_mode=input_mode,
         input_fingerprint=input_fingerprint,
         calculation_hash=calculation_hash,
         engine_version=engine_version,
+        request_artifact_model=request_artifact_model,
         calculation=calculation,
         results_by_period=results_by_period,
-        benchmark_context=benchmark_context,
-        calculation_supportability=calculation_supportability,
+        benchmark_request=benchmark_request,
+        benchmark_input_mode=benchmark_input_mode,
+        resolved_benchmark_id=resolved_benchmark_id,
+        benchmark_return_source=normalized_benchmark_return_source,
     )
-
-    _complete_twr_execution_with_lineage(
-        performance_request=performance_request,
-        request_artifact_model=request_artifact_model,
-        response_model=response_model,
-        daily_results_df=calculation.daily_results_df,
-        results_by_period=results_by_period,
-        benchmark_artifacts=calculation.benchmark_artifacts,
-    )
-    return response_model

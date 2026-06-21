@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-21
-Branch: `lp-cr-1428-composite-inspection-artifact-builders`
+Branch: `lp-cr-1429-twr-response-assembly-boundary`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
