@@ -128,6 +128,15 @@ class _FlatContributionPositionAssembly:
     residual_allocation_applied: bool
 
 
+@dataclass(frozen=True)
+class _HierarchyContributionPositionAssembly:
+    position_contributions: list[PositionContribution]
+    daily_series: list[DailyContribution] | None
+    emitted_position_series: list[PositionContributionSeries] | None
+    hierarchy_results: dict[str, Any]
+    residual_allocation_applied: bool
+
+
 def _build_period_average_weight_methodology_status(
     *,
     period_methodology_context: ContributionPeriodMethodologyContext,
@@ -335,6 +344,50 @@ def _build_flat_contribution_position_assembly(
     )
 
 
+def _build_hierarchy_contribution_position_assembly(
+    *,
+    request: ContributionRequest,
+    period: Any,
+    period_slice_df: Any,
+    period_methodology_context: ContributionPeriodMethodologyContext,
+    total_portfolio_return: Any,
+) -> _HierarchyContributionPositionAssembly:
+    position_totals_result = build_residual_adjusted_position_totals(
+        period_slice_df=period_slice_df,
+        average_weight_df=period_methodology_context.average_weight_shadow_df,
+        total_portfolio_return=total_portfolio_return,
+        smoothing_method=request.smoothing.method,
+        average_weight_columns=["average_weight"],
+        residual_allocation_weight_column="average_weight",
+    )
+    position_contributions = build_position_contributions(
+        totals_df=position_totals_result.totals_df,
+        request=request,
+        period_start_date=period.start_date,
+        period_end_date=period.end_date,
+        average_weight_column="average_weight",
+    )
+    position_series, daily_series, emitted_position_series = _build_period_contribution_series_outputs(
+        period_slice_df=period_slice_df,
+        position_contributions=position_contributions,
+        emit_timeseries=request.emit.timeseries,
+        emit_by_position_timeseries=request.emit.by_position_timeseries,
+        force_position_series=True,
+    )
+    hierarchy_results = _build_hierarchy_from_adjusted_position_series(
+        period_slice_df=period_slice_df,
+        position_series=position_series,
+        request=request,
+    )
+    return _HierarchyContributionPositionAssembly(
+        position_contributions=position_contributions,
+        daily_series=daily_series,
+        emitted_position_series=emitted_position_series,
+        hierarchy_results=hierarchy_results,
+        residual_allocation_applied=position_totals_result.residual_allocation_applied,
+    )
+
+
 def _build_flat_period_contribution_result(
     *,
     request: ContributionRequest,
@@ -445,41 +498,21 @@ def _build_hierarchy_period_contribution_result(
         sum_shadow_delta_bp=period_methodology_context.sum_shadow_delta_bp,
     )
 
-    position_totals_result = build_residual_adjusted_position_totals(
+    position_assembly = _build_hierarchy_contribution_position_assembly(
+        request=request,
+        period=period,
         period_slice_df=period_slice_df,
-        average_weight_df=period_methodology_context.average_weight_shadow_df,
+        period_methodology_context=period_methodology_context,
         total_portfolio_return=total_portfolio_return,
-        smoothing_method=request.smoothing.method,
-        average_weight_columns=["average_weight"],
-        residual_allocation_weight_column="average_weight",
-    )
-    position_contributions = build_position_contributions(
-        totals_df=position_totals_result.totals_df,
-        request=request,
-        period_start_date=period.start_date,
-        period_end_date=period.end_date,
-        average_weight_column="average_weight",
-    )
-    position_series, daily_series, emitted_position_series = _build_period_contribution_series_outputs(
-        period_slice_df=period_slice_df,
-        position_contributions=position_contributions,
-        emit_timeseries=request.emit.timeseries,
-        emit_by_position_timeseries=request.emit.by_position_timeseries,
-        force_position_series=True,
-    )
-    period_results = _build_hierarchy_from_adjusted_position_series(
-        period_slice_df=period_slice_df,
-        position_series=position_series,
-        request=request,
     )
     supportability = _build_contribution_period_supportability(
         period_slice_df=period_slice_df,
         portfolio_period_slice_df=portfolio_period_slice_df,
-        position_contributions=position_contributions,
-        daily_series=daily_series,
+        position_contributions=position_assembly.position_contributions,
+        daily_series=position_assembly.daily_series,
         total_portfolio_return=total_portfolio_return,
         smoothing_method=request.smoothing.method,
-        residual_allocation_applied=position_totals_result.residual_allocation_applied,
+        residual_allocation_applied=position_assembly.residual_allocation_applied,
         residual_allocation_basis="average_weight",
         period_methodology_context=period_methodology_context,
         average_weight_audit_state=average_weight_audit_state,
@@ -490,13 +523,13 @@ def _build_hierarchy_period_contribution_result(
         result=SinglePeriodContributionResult(
             total_portfolio_return=total_portfolio_return * 100,
             total_contribution=supportability.total_contribution,
-            position_contributions=position_contributions,
-            timeseries=daily_series,
-            by_position_timeseries=emitted_position_series,
+            position_contributions=position_assembly.position_contributions,
+            timeseries=position_assembly.daily_series,
+            by_position_timeseries=position_assembly.emitted_position_series,
             average_weight_methodology_status=supportability.average_weight_methodology_status,
             smoothing_evidence=supportability.smoothing_evidence,
-            summary=period_results.get("summary"),
-            levels=period_results.get("levels"),
+            summary=position_assembly.hierarchy_results.get("summary"),
+            levels=position_assembly.hierarchy_results.get("levels"),
         ),
     )
 
