@@ -11,6 +11,7 @@ CALCULATION_SUPPORTABILITY_DESCRIPTION: Final[str] = (
     "Bounded TWR, MWR, contribution, and attribution calculation supportability response metadata "
     "and Prometheus posture metrics."
 )
+OWNER_SERVICE: Final[str] = "lotus-performance"
 PERFORMANCE_EXECUTION_POLL_PATH_TEMPLATE: Final[str] = "/performance/executions/{calculation_id}"
 
 
@@ -93,87 +94,129 @@ def _calculation_supportability_enabled(flags: IntegrationCapabilityFlags) -> bo
     )
 
 
+def _feature_capability(*, key: str, enabled: bool, description: str) -> dict[str, object]:
+    return {
+        "key": key,
+        "enabled": enabled,
+        "owner_service": OWNER_SERVICE,
+        "description": description,
+    }
+
+
+def _feature_capabilities(
+    specs: Sequence[tuple[str, bool, str]],
+) -> list[dict[str, object]]:
+    return [
+        _feature_capability(key=key, enabled=enabled, description=description) for key, enabled, description in specs
+    ]
+
+
 def _build_feature_capabilities(flags: IntegrationCapabilityFlags) -> list[dict[str, object]]:
     return [
-        {
-            "key": "performance.analytics.twr",
-            "enabled": flags.twr_enabled,
-            "owner_service": "lotus-performance",
-            "description": "Portfolio-level time-weighted return analytics APIs.",
-        },
-        {
-            "key": "performance.analytics.mwr",
-            "enabled": flags.mwr_enabled,
-            "owner_service": "lotus-performance",
-            "description": "Money-weighted return analytics APIs.",
-        },
-        {
-            "key": "performance.analytics.contribution",
-            "enabled": flags.contribution_enabled,
-            "owner_service": "lotus-performance",
-            "description": "Contribution analytics APIs.",
-        },
-        {
-            "key": "performance.analytics.attribution",
-            "enabled": flags.attribution_enabled,
-            "owner_service": "lotus-performance",
-            "description": "Attribution analytics APIs.",
-        },
-        {
-            "key": "performance.analytics.benchmark",
-            "enabled": flags.benchmark_enabled,
-            "owner_service": "lotus-performance",
-            "description": "Benchmark performance analytics APIs.",
-        },
-        {
-            "key": "performance.integration.benchmark_exposure_context",
-            "enabled": flags.benchmark_enabled and flags.stateful_mode_enabled,
-            "owner_service": "lotus-performance",
-            "description": "Performance-aligned benchmark exposure context derived from lotus-core benchmark lineage.",
-        },
-        {
-            "key": "performance.analytics.workspace_summary",
-            "enabled": flags.workspace_summary_enabled,
-            "owner_service": "lotus-performance",
-            "description": "Interaction-efficient workspace summary analytics API.",
-        },
-        {
-            "key": "performance.analytics.composite_twr",
-            "enabled": flags.composite_twr_enabled,
-            "owner_service": "lotus-performance",
-            "description": "Persisted-fact composite TWR analytics API.",
-        },
-        {
-            "key": "performance.support.twr_inspection",
-            "enabled": flags.twr_enabled,
-            "owner_service": "lotus-performance",
-            "description": "Durable TWR supportability inspection and artifact-backed triage API.",
-        },
-        {
-            "key": "performance.observability.calculation_supportability",
-            "enabled": _calculation_supportability_enabled(flags),
-            "owner_service": "lotus-performance",
-            "description": CALCULATION_SUPPORTABILITY_DESCRIPTION,
-        },
-        {
-            "key": "performance.integration.mandate_performance_health_context",
-            "enabled": flags.twr_enabled,
-            "owner_service": "lotus-performance",
-            "description": "Bounded source-owned mandate performance health context for DPM supportability.",
-        },
-        {
-            "key": "performance.execution.stateful",
-            "enabled": flags.stateful_mode_enabled,
-            "owner_service": "lotus-performance",
-            "description": "lotus-performance executes using platform-managed stateful input retrieval.",
-        },
-        {
-            "key": "performance.execution.stateless",
-            "enabled": flags.stateless_mode_enabled,
-            "owner_service": "lotus-performance",
-            "description": "lotus-performance executes analytics from request-supplied stateless input data.",
-        },
+        *_analytics_feature_capabilities(flags),
+        *_integration_feature_capabilities(flags),
+        *_workspace_feature_capabilities(flags),
+        *_supportability_feature_capabilities(flags),
+        *_mandate_feature_capabilities(flags),
+        *_execution_feature_capabilities(flags),
     ]
+
+
+def _analytics_feature_capabilities(flags: IntegrationCapabilityFlags) -> list[dict[str, object]]:
+    return [
+        _feature_capability(
+            key="performance.analytics.twr",
+            enabled=flags.twr_enabled,
+            description="Portfolio-level time-weighted return analytics APIs.",
+        ),
+        _feature_capability(
+            key="performance.analytics.mwr",
+            enabled=flags.mwr_enabled,
+            description="Money-weighted return analytics APIs.",
+        ),
+        _feature_capability(
+            key="performance.analytics.contribution",
+            enabled=flags.contribution_enabled,
+            description="Contribution analytics APIs.",
+        ),
+        _feature_capability(
+            key="performance.analytics.attribution",
+            enabled=flags.attribution_enabled,
+            description="Attribution analytics APIs.",
+        ),
+        _feature_capability(
+            key="performance.analytics.benchmark",
+            enabled=flags.benchmark_enabled,
+            description="Benchmark performance analytics APIs.",
+        ),
+    ]
+
+
+def _integration_feature_capabilities(flags: IntegrationCapabilityFlags) -> list[dict[str, object]]:
+    return [
+        _feature_capability(
+            key="performance.integration.benchmark_exposure_context",
+            enabled=flags.benchmark_enabled and flags.stateful_mode_enabled,
+            description="Performance-aligned benchmark exposure context derived from lotus-core benchmark lineage.",
+        ),
+    ]
+
+
+def _workspace_feature_capabilities(flags: IntegrationCapabilityFlags) -> list[dict[str, object]]:
+    return [
+        _feature_capability(
+            key="performance.analytics.workspace_summary",
+            enabled=flags.workspace_summary_enabled,
+            description="Interaction-efficient workspace summary analytics API.",
+        ),
+        _feature_capability(
+            key="performance.analytics.composite_twr",
+            enabled=flags.composite_twr_enabled,
+            description="Persisted-fact composite TWR analytics API.",
+        ),
+    ]
+
+
+def _supportability_feature_capabilities(flags: IntegrationCapabilityFlags) -> list[dict[str, object]]:
+    return [
+        _feature_capability(
+            key="performance.support.twr_inspection",
+            enabled=flags.twr_enabled,
+            description="Durable TWR supportability inspection and artifact-backed triage API.",
+        ),
+        _feature_capability(
+            key="performance.observability.calculation_supportability",
+            enabled=_calculation_supportability_enabled(flags),
+            description=CALCULATION_SUPPORTABILITY_DESCRIPTION,
+        ),
+    ]
+
+
+def _mandate_feature_capabilities(flags: IntegrationCapabilityFlags) -> list[dict[str, object]]:
+    return [
+        _feature_capability(
+            key="performance.integration.mandate_performance_health_context",
+            enabled=flags.twr_enabled,
+            description="Bounded source-owned mandate performance health context for DPM supportability.",
+        ),
+    ]
+
+
+def _execution_feature_capabilities(flags: IntegrationCapabilityFlags) -> list[dict[str, object]]:
+    return _feature_capabilities(
+        (
+            (
+                "performance.execution.stateful",
+                flags.stateful_mode_enabled,
+                "lotus-performance executes using platform-managed stateful input retrieval.",
+            ),
+            (
+                "performance.execution.stateless",
+                flags.stateless_mode_enabled,
+                "lotus-performance executes analytics from request-supplied stateless input data.",
+            ),
+        )
+    )
 
 
 def _build_workflow_capabilities(flags: IntegrationCapabilityFlags) -> list[dict[str, object]]:

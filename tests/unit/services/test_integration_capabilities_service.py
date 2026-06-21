@@ -2,6 +2,8 @@ from app.services.integration_capabilities_service import (
     PERFORMANCE_EXECUTION_POLL_PATH_TEMPLATE,
     IntegrationCapabilityFlags,
     _async_analytics_surface,
+    _build_feature_capabilities,
+    _feature_capability,
     _portfolio_analytics_surfaces,
     _sync_analytics_surface,
     _workflow_enabled,
@@ -83,6 +85,60 @@ def test_build_integration_capabilities_report_limits_are_applied():
     assert len(report.workflows) == 1
     assert report.features[0]["key"] == "performance.analytics.twr"
     assert report.workflows[0]["workflow_key"] == "performance_snapshot"
+
+
+def test_feature_capability_projects_owner_and_description():
+    assert _feature_capability(
+        key="performance.analytics.twr",
+        enabled=True,
+        description="Portfolio-level time-weighted return analytics APIs.",
+    ) == {
+        "key": "performance.analytics.twr",
+        "enabled": True,
+        "owner_service": "lotus-performance",
+        "description": "Portfolio-level time-weighted return analytics APIs.",
+    }
+
+
+def test_feature_capabilities_preserve_publication_order_and_flags():
+    flags = IntegrationCapabilityFlags(
+        twr_enabled=True,
+        mwr_enabled=True,
+        contribution_enabled=True,
+        attribution_enabled=False,
+        benchmark_enabled=True,
+        workspace_summary_enabled=False,
+        composite_twr_enabled=True,
+        stateful_mode_enabled=False,
+        stateless_mode_enabled=True,
+        policy_version="tenant-default-v1",
+    )
+
+    features = _build_feature_capabilities(flags)
+
+    assert [feature["key"] for feature in features] == [
+        "performance.analytics.twr",
+        "performance.analytics.mwr",
+        "performance.analytics.contribution",
+        "performance.analytics.attribution",
+        "performance.analytics.benchmark",
+        "performance.integration.benchmark_exposure_context",
+        "performance.analytics.workspace_summary",
+        "performance.analytics.composite_twr",
+        "performance.support.twr_inspection",
+        "performance.observability.calculation_supportability",
+        "performance.integration.mandate_performance_health_context",
+        "performance.execution.stateful",
+        "performance.execution.stateless",
+    ]
+    feature_flags = {feature["key"]: feature["enabled"] for feature in features}
+    assert feature_flags["performance.analytics.attribution"] is False
+    assert feature_flags["performance.integration.benchmark_exposure_context"] is False
+    assert feature_flags["performance.analytics.workspace_summary"] is False
+    assert feature_flags["performance.observability.calculation_supportability"] is True
+    assert feature_flags["performance.execution.stateful"] is False
+    assert feature_flags["performance.execution.stateless"] is True
+    assert {feature["owner_service"] for feature in features} == {"lotus-performance"}
 
 
 def test_async_analytics_surface_projects_execution_contract():
