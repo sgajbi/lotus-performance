@@ -458,6 +458,85 @@ def test_build_flat_contribution_position_assembly_preserves_reset_aware_weighti
     assert series_calls[0]["emit_by_position_timeseries"] is True
 
 
+def test_build_hierarchy_contribution_position_assembly_preserves_hierarchy_projection(monkeypatch):
+    period_slice_df = pd.DataFrame({"position_id": ["A"], "sector": ["Technology"], "smoothed_contribution": [0.01]})
+    totals_df = pd.DataFrame({"position_id": ["A"], "average_weight": [0.5]})
+    average_weight_shadow_df = pd.DataFrame({"position_id": ["A"], "average_weight": [0.5]})
+    methodology_context = SimpleNamespace(average_weight_shadow_df=average_weight_shadow_df)
+    period = SimpleNamespace(name="ITD", start_date=date(2026, 1, 1), end_date=date(2026, 3, 31))
+    request = SimpleNamespace(
+        smoothing=SimpleNamespace(method="CARINO"),
+        emit=SimpleNamespace(timeseries=True, by_position_timeseries=True),
+        hierarchy=["sector"],
+    )
+    residual_calls: list[dict[str, object]] = []
+    contribution_calls: list[dict[str, object]] = []
+    series_calls: list[dict[str, object]] = []
+    hierarchy_calls: list[dict[str, object]] = []
+    position_contributions = [
+        PositionContribution(
+            position_id="A",
+            total_contribution=2.0,
+            average_weight=50.0,
+            total_return=4.0,
+        )
+    ]
+
+    def build_residual_adjusted_position_totals(**kwargs):
+        residual_calls.append(kwargs)
+        return SimpleNamespace(totals_df=totals_df, residual_allocation_applied=True)
+
+    def build_position_contributions(**kwargs):
+        contribution_calls.append(kwargs)
+        return position_contributions
+
+    def build_period_series_outputs(**kwargs):
+        series_calls.append(kwargs)
+        return (["position-series"], ["daily-series"], ["emitted-position-series"])
+
+    def build_hierarchy(**kwargs):
+        hierarchy_calls.append(kwargs)
+        return {
+            "summary": {"portfolio_contribution": 2.0},
+            "levels": [{"level": 1, "name": "sector", "rows": []}],
+        }
+
+    monkeypatch.setattr(
+        contribution_service,
+        "build_residual_adjusted_position_totals",
+        build_residual_adjusted_position_totals,
+    )
+    monkeypatch.setattr(contribution_service, "build_position_contributions", build_position_contributions)
+    monkeypatch.setattr(contribution_service, "_build_period_contribution_series_outputs", build_period_series_outputs)
+    monkeypatch.setattr(contribution_service, "_build_hierarchy_from_adjusted_position_series", build_hierarchy)
+
+    result = contribution_service._build_hierarchy_contribution_position_assembly(
+        request=request,
+        period=period,
+        period_slice_df=period_slice_df,
+        period_methodology_context=methodology_context,
+        total_portfolio_return=0.02,
+    )
+
+    assert result.position_contributions == position_contributions
+    assert result.daily_series == ["daily-series"]
+    assert result.emitted_position_series == ["emitted-position-series"]
+    assert result.hierarchy_results["summary"]["portfolio_contribution"] == pytest.approx(2.0)
+    assert result.hierarchy_results["levels"][0]["name"] == "sector"
+    assert result.residual_allocation_applied is True
+    assert residual_calls[0]["average_weight_df"] is average_weight_shadow_df
+    assert residual_calls[0]["average_weight_columns"] == ["average_weight"]
+    assert residual_calls[0]["residual_allocation_weight_column"] == "average_weight"
+    assert contribution_calls[0]["totals_df"] is totals_df
+    assert contribution_calls[0]["period_start_date"] == date(2026, 1, 1)
+    assert contribution_calls[0]["period_end_date"] == date(2026, 3, 31)
+    assert contribution_calls[0]["average_weight_column"] == "average_weight"
+    assert series_calls[0]["force_position_series"] is True
+    assert hierarchy_calls[0]["period_slice_df"] is period_slice_df
+    assert hierarchy_calls[0]["position_series"] == ["position-series"]
+    assert hierarchy_calls[0]["request"] is request
+
+
 def test_build_hierarchy_period_contribution_result_preserves_hierarchy_outputs(monkeypatch):
     period_slice_df = pd.DataFrame({"position_id": ["A"], "smoothed_contribution": [0.01]})
     portfolio_period_slice_df = pd.DataFrame({"portfolio_id": ["P"]})
