@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-20
-Branch: `lp-cr-1424-flat-contribution-position-assembly`
+Branch: `lp-cr-1425-runtime-status-assurance-projection`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
@@ -79,16 +79,16 @@ must stay at `0`.
 | 9 | `app/services/workspace_summary_service.py` | 10.26 | B |
 | 10 | `app/services/execution_registry.py` | 11.12 | B |
 | 11 | `app/services/operator_action_lease_service.py` | 13.14 | B |
-| 12 | `engine/attribution.py` | 13.46 | B |
+| 12 | `engine/attribution.py` | 13.19 | B |
 | 13 | `app/services/inspection/reconciliation.py` | 14.26 | B |
 | 14 | `app/services/inspection/source_economics.py` | 14.85 | B |
 | 15 | `app/services/inspection/source_economics_collector.py` | 16.34 | B |
 | 16 | `app/services/inspection/source_quality.py` | 16.55 | B |
 | 17 | `app/services/twr_mode_service.py` | 17.66 | B |
-| 18 | `app/services/inspection/calculation_consistency.py` | 19.69 | A |
-| 19 | `app/models/returns_series.py` | 19.70 | A |
-| 20 | `app/services/inspection/twr_inspection_service.py` | 19.72 | A |
-| 21 | `app/models/runtime_status.py` | 19.75 | A |
+| 18 | `app/models/runtime_status.py` | 19.66 | A |
+| 19 | `app/services/inspection/calculation_consistency.py` | 19.69 | A |
+| 20 | `app/models/returns_series.py` | 19.70 | A |
+| 21 | `app/services/inspection/twr_inspection_service.py` | 19.72 | A |
 | 22 | `app/workers/compute_executor_worker.py` | 20.54 | A |
 | 23 | `engine/composites.py` | 20.75 | A |
 | 24 | `app/services/stateful_mwr_input_service.py` | 21.59 | A |
