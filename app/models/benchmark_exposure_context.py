@@ -159,8 +159,7 @@ class BenchmarkExposureMetadata(BaseModel):
     contract_version: Literal["v1"] = Field(default="v1", description="Contract version for this response payload.")
     correlation_id: str = Field(
         description=(
-            "Request correlation identifier carried as required trust metadata for downstream "
-            "mesh consumers."
+            "Request correlation identifier carried as required trust metadata for downstream mesh consumers."
         ),
         examples=["corr_benchmark_exposure_001"],
     )
