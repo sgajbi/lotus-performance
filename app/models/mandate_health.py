@@ -124,6 +124,13 @@ class MandatePerformanceHealthContextResponse(BaseModel):
         description="Product contract version.",
         examples=["v1"],
     )
+    correlation_id: str = Field(
+        description=(
+            "Request correlation identifier carried as required trust metadata for downstream "
+            "mesh consumers."
+        ),
+        examples=["corr_mandate_health_001"],
+    )
     portfolio_id: str = Field(
         description="Portfolio identifier evaluated by the source product.",
         examples=["PB_SG_GLOBAL_BAL_001"],

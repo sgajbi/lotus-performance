@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-06-04T10:16:40.360832+00:00",
+  "generatedAt": "2026-06-23T05:58:55.615447+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.access_classification",
@@ -1331,7 +1331,7 @@
       "semanticId": "lotus.correlation_id",
       "canonicalTerm": "correlation_id",
       "preferredName": "correlation_id",
-      "description": "Canonical correlation id used by lotus-performance APIs.",
+      "description": "Request correlation identifier carried as required trust metadata for downstream mesh consumers.",
       "example": "ENTITY_001",
       "type": "string",
       "locations": [
@@ -11733,6 +11733,14 @@
             "attributeRef": "#/attributeCatalog/lotus.product_version"
           },
           {
+            "name": "correlation_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.correlation_id",
+            "attributeRef": "#/attributeCatalog/lotus.correlation_id"
+          },
+          {
             "name": "portfolio_id",
             "location": "body",
             "required": true,
@@ -12797,6 +12805,14 @@
             "type": "string",
             "semanticId": "lotus.contract_version",
             "attributeRef": "#/attributeCatalog/lotus.contract_version"
+          },
+          {
+            "name": "metadata.correlation_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.correlation_id",
+            "attributeRef": "#/attributeCatalog/lotus.correlation_id"
           },
           {
             "name": "metadata.generated_at",

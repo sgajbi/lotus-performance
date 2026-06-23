@@ -11,6 +11,7 @@ from app.models.benchmark_exposure_context import (
     BenchmarkExposureRow,
     BenchmarkExposureWindow,
 )
+from app.observability import correlation_id_var
 from app.services.benchmark_exposure_context_service import (
     _accumulate_exposure_point,
     _benchmark_id_from_assignment_payload,
@@ -136,11 +137,16 @@ def _request(**overrides) -> BenchmarkExposureContextRequest:
 async def test_build_benchmark_exposure_context_groups_and_aligns_weights() -> None:
     service = _StatefulInputServiceStub()
 
-    response = await build_benchmark_exposure_context(request=_request(), stateful_input_service=service)
+    correlation_token = correlation_id_var.set("corr-benchmark-exposure-unit")
+    try:
+        response = await build_benchmark_exposure_context(request=_request(), stateful_input_service=service)
+    finally:
+        correlation_id_var.reset(correlation_token)
 
     assert response.benchmark_id == "BMK_GLOBAL_60_40"
     assert response.metadata.source_system == "lotus-core"
     assert response.metadata.served_by == "lotus-performance"
+    assert response.metadata.correlation_id == "corr-benchmark-exposure-unit"
     assert response.metadata.retrieval_metadata == {
         "benchmark_market_series_chunk_count": 1,
         "benchmark_market_series_page_count": 2,

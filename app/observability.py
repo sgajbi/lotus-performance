@@ -178,6 +178,10 @@ def propagation_headers(correlation_id: str | None = None) -> dict[str, str]:
     }
 
 
+def source_product_correlation_id() -> str:
+    return _propagation_correlation_id(None)
+
+
 def _propagation_correlation_id(correlation_id: str | None) -> str:
     return _nonblank_value(correlation_id) or _nonblank_value(correlation_id_var.get()) or f"corr_{uuid4().hex[:12]}"
 

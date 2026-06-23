@@ -79,7 +79,11 @@ def test_benchmark_exposure_context_api_returns_performance_aligned_view(monkeyp
     }
 
     with TestClient(app) as client:
-        response = client.post("/integration/benchmarks/exposure-context", json=payload)
+        response = client.post(
+            "/integration/benchmarks/exposure-context",
+            json=payload,
+            headers={"X-Correlation-Id": "corr-benchmark-exposure-api"},
+        )
 
     assert response.status_code == 200
     body = response.json()
@@ -88,6 +92,7 @@ def test_benchmark_exposure_context_api_returns_performance_aligned_view(monkeyp
     assert body["metadata"]["source_system"] == "lotus-core"
     assert body["metadata"]["served_by"] == "lotus-performance"
     assert body["metadata"]["contract_version"] == "v1"
+    assert body["metadata"]["correlation_id"] == "corr-benchmark-exposure-api"
     assert body["metadata"]["retrieval_metadata"] == {
         "benchmark_market_series_chunk_count": 1,
         "benchmark_market_series_page_count": 1,
