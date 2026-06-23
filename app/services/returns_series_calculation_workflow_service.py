@@ -12,6 +12,7 @@ from app.models.returns_series import (
     ReturnsSeriesRequest,
     ReturnsSeriesResponse,
 )
+from app.observability import correlation_id_var, request_id_var, trace_id_var
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_RETURNS_SERIES
 from app.services.execution_registry import execution_registry
 from app.services.reproducibility_service import generate_request_fingerprint
@@ -28,6 +29,8 @@ from app.services.submission_fencing_service import (
     register_async_submission_or_raise,
     register_sync_execution_or_raise,
 )
+
+ASYNC_OBSERVABILITY_CONTEXT_FIELD = "observability_context"
 
 
 def accepted_returns_series_response(calculation_id: UUID) -> ReturnsSeriesAcceptedResponse:
@@ -76,6 +79,29 @@ def _execution_failure_message(exc: Exception) -> str:
     if isinstance(detail, dict) and "message" in detail:
         return str(detail["message"])
     return str(detail)
+
+
+def _nonblank_context_value(value: object) -> str | None:
+    return value.strip() if isinstance(value, str) and value.strip() else None
+
+
+def _current_async_observability_context() -> dict[str, str]:
+    context = {
+        "correlation_id": _nonblank_context_value(correlation_id_var.get()),
+        "request_id": _nonblank_context_value(request_id_var.get()),
+        "trace_id": _nonblank_context_value(trace_id_var.get()),
+    }
+    return {field: value for field, value in context.items() if value is not None}
+
+
+def _returns_series_async_request_payload(payload: dict[str, object]) -> dict[str, object]:
+    observability_context = _current_async_observability_context()
+    if not observability_context:
+        return payload
+    return {
+        **payload,
+        ASYNC_OBSERVABILITY_CONTEXT_FIELD: observability_context,
+    }
 
 
 def build_returns_series_execution_window(
@@ -151,12 +177,14 @@ async def _calculate_promoted_stateful_returns_series(
             ),
             input_fingerprint=resolved_input_fingerprint,
             calculation_hash=resolved_calculation_hash,
-            resolved_request_payload={
-                "resolved_request": resolved.request.model_dump(mode="json"),
-                "source_input_mode": InputMode.STATEFUL.value,
-                "resolved_benchmark_id": resolved.resolved_benchmark_id,
-                "resolved_benchmark_return_source": resolved.resolved_benchmark_return_source,
-            },
+            resolved_request_payload=_returns_series_async_request_payload(
+                {
+                    "resolved_request": resolved.request.model_dump(mode="json"),
+                    "source_input_mode": InputMode.STATEFUL.value,
+                    "resolved_benchmark_id": resolved.resolved_benchmark_id,
+                    "resolved_benchmark_return_source": resolved.resolved_benchmark_return_source,
+                }
+            ),
             should_offload=should_offload_resolved_returns_series(resolved.input_count),
             offload_reason="large_resolved_stateful_returns_series",
             accepted_response_factory=accepted_returns_series_response,
@@ -196,7 +224,7 @@ async def calculate_returns_series_workflow(
             requested_window=build_returns_series_execution_window(request),
             input_fingerprint=input_fingerprint,
             calculation_hash=calculation_hash,
-            request_payload=request.model_dump(mode="json"),
+            request_payload=_returns_series_async_request_payload(request.model_dump(mode="json")),
             offload_reason="long_window_stateful_returns_series",
             accepted_response_factory=accepted_returns_series_response,
         )
