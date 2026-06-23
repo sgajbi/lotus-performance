@@ -12,6 +12,7 @@ from app.models.contribution_requests import ContributionRequest
 from app.models.requests import PerformanceRequest
 from app.models.returns_series import ReturnsSeriesRequest
 from app.models.twr_requests import TWRInputMode, TWRResolvedExecutionRequest
+from app.observability import correlation_id_var
 from app.services import (
     attribution_service,
     benchmark_service,
@@ -352,7 +353,14 @@ def test_compute_executor_worker_processes_pending_returns_series_job(tmp_path, 
     job_store.enqueue_job(
         calculation_id=calculation_id,
         analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES,
-        request_payload=request.model_dump(mode="json"),
+        request_payload={
+            **request.model_dump(mode="json"),
+            "observability_context": {
+                "correlation_id": "corr-async-returns-series",
+                "request_id": "req-async-returns-series",
+                "trace_id": "trace-async-returns-series",
+            },
+        },
     )
 
     assert compute_executor_worker.process_pending_jobs(limit=10) == 1
@@ -368,6 +376,10 @@ def test_compute_executor_worker_processes_pending_returns_series_job(tmp_path, 
     result = result_store.get_result(calculation_id)
     assert result is not None
     assert result.result_status == AsyncResultStatus.COMPLETE
+    assert result.response_payload["metadata"]["correlation_id"] == "corr-async-returns-series"
+    assert result.response_payload["metadata"]["request_id"] == "req-async-returns-series"
+    assert result.response_payload["metadata"]["trace_id"] == "trace-async-returns-series"
+    assert correlation_id_var.get() != "corr-async-returns-series"
 
 
 def test_compute_executor_worker_dispatches_benchmark_job_and_updates_execution_identity(tmp_path):

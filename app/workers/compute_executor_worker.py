@@ -3,9 +3,10 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from contextlib import contextmanager
 from dataclasses import dataclass
 from threading import Event
-from typing import Any, Callable, Coroutine
+from typing import Any, Callable, Coroutine, Iterator
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -22,6 +23,7 @@ from app.models.inspection_requests import TWRInspectionRequest
 from app.models.returns_series import InputMode, ReturnsSeriesRequest
 from app.models.twr_requests import TWRAnalyticsRequest, TWRInputMode, TWRResolvedExecutionRequest
 from app.models.workspace_summary_requests import WorkspaceSummaryRequest
+from app.observability import correlation_id_var, request_id_var, trace_id_var
 from app.services.analytics_workflow_types import (
     ANALYTICS_WORKFLOW_ATTRIBUTION,
     ANALYTICS_WORKFLOW_BENCHMARK,
@@ -51,6 +53,8 @@ from core.repro import generate_canonical_hash, generate_canonical_hash_from_val
 from engine.exceptions import EngineCalculationError, InvalidEngineInputError
 
 logger = logging.getLogger(__name__)
+
+ASYNC_OBSERVABILITY_CONTEXT_FIELD = "observability_context"
 
 
 @dataclass(frozen=True)
@@ -328,16 +332,48 @@ def _execute_returns_series_job(job: ComputeJobRecord, context: _ComputeJobExecu
         resolved_benchmark_id_override,
         resolved_benchmark_return_source_override,
     ) = _resolve_async_returns_series_job_request(job.request_payload)
-    if source_input_mode == request.input_mode:
-        return asyncio.run(context.returns_series_calculator(request))
-    return asyncio.run(
-        context.returns_series_calculator(
-            request,
-            source_input_mode=source_input_mode,
-            resolved_benchmark_id_override=resolved_benchmark_id_override,
-            resolved_benchmark_return_source_override=resolved_benchmark_return_source_override,
+    with _restored_async_observability_context(job.request_payload):
+        if source_input_mode == request.input_mode:
+            return asyncio.run(context.returns_series_calculator(request))
+        return asyncio.run(
+            context.returns_series_calculator(
+                request,
+                source_input_mode=source_input_mode,
+                resolved_benchmark_id_override=resolved_benchmark_id_override,
+                resolved_benchmark_return_source_override=resolved_benchmark_return_source_override,
+            )
         )
-    )
+
+
+def _nonblank_context_value(value: object) -> str | None:
+    return value.strip() if isinstance(value, str) and value.strip() else None
+
+
+@contextmanager
+def _restored_async_observability_context(payload: dict[str, Any]) -> Iterator[None]:
+    context = payload.get(ASYNC_OBSERVABILITY_CONTEXT_FIELD)
+    if not isinstance(context, dict):
+        yield
+        return
+
+    tokens = []
+    for field_name, context_var in (
+        ("correlation_id", correlation_id_var),
+        ("request_id", request_id_var),
+        ("trace_id", trace_id_var),
+    ):
+        value = _nonblank_context_value(context.get(field_name))
+        if value is not None:
+            tokens.append((context_var, context_var.set(value)))
+    try:
+        yield
+    finally:
+        for context_var, token in reversed(tokens):
+            context_var.reset(token)
+
+
+def _payload_without_async_observability_context(payload: dict[str, Any]) -> dict[str, Any]:
+    return {field: value for field, value in payload.items() if field != ASYNC_OBSERVABILITY_CONTEXT_FIELD}
 
 
 def _update_execution_identity(
@@ -576,10 +612,11 @@ def _resolve_async_contribution_job_request(
 def _resolve_async_returns_series_job_request(
     payload: dict[str, Any],
 ) -> tuple[ReturnsSeriesRequest, InputMode, str | None, str | None]:
-    resolved_request_payload = payload.get("resolved_request")
-    source_input_mode = payload.get("source_input_mode")
-    resolved_benchmark_id = payload.get("resolved_benchmark_id")
-    resolved_benchmark_return_source = payload.get("resolved_benchmark_return_source")
+    request_payload = _payload_without_async_observability_context(payload)
+    resolved_request_payload = request_payload.get("resolved_request")
+    source_input_mode = request_payload.get("source_input_mode")
+    resolved_benchmark_id = request_payload.get("resolved_benchmark_id")
+    resolved_benchmark_return_source = request_payload.get("resolved_benchmark_return_source")
     if isinstance(resolved_request_payload, dict) and isinstance(source_input_mode, str):
         return (
             ReturnsSeriesRequest.model_validate(resolved_request_payload),
@@ -587,7 +624,7 @@ def _resolve_async_returns_series_job_request(
             resolved_benchmark_id if isinstance(resolved_benchmark_id, str) else None,
             resolved_benchmark_return_source if isinstance(resolved_benchmark_return_source, str) else None,
         )
-    request = ReturnsSeriesRequest.model_validate(payload)
+    request = ReturnsSeriesRequest.model_validate(request_payload)
     return request, request.input_mode, None, None
 
 

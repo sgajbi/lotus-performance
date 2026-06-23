@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
+from typing import Any
 
 import pandas as pd
 import pytest
@@ -23,6 +24,7 @@ from app.models.returns_series import (
     StatefulInput,
     StatelessInput,
 )
+from app.observability import correlation_id_var, request_id_var, trace_id_var
 from app.services import returns_series_calculation_workflow_service
 from app.services.execution_registry import execution_registry
 from app.services.returns_series_calculation_workflow_service import (
@@ -320,6 +322,49 @@ def test_should_offload_resolved_returns_series_uses_runtime_settings(mocker):
 
     assert should_offload_resolved_returns_series(3) is True
     assert should_offload_resolved_returns_series(2) is False
+
+
+@pytest.mark.asyncio
+async def test_async_returns_series_submission_captures_observability_context(mocker):
+    request = ReturnsSeriesRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "as_of_date": "2026-02-27",
+            "window": {"mode": "EXPLICIT", "from_date": "2026-02-24", "to_date": "2026-02-27"},
+            "input_mode": "stateful",
+            "stateful_input": {},
+        }
+    )
+    mocker.patch(
+        "app.services.returns_series_calculation_workflow_service.get_settings",
+        return_value=type("Settings", (), {"RETURNS_SERIES_EXECUTOR_WINDOW_DAYS": 1})(),
+    )
+    captured: dict[str, Any] = {}
+
+    def _register_async_submission_or_raise(**kwargs):
+        captured.update(kwargs)
+        return returns_series_calculation_workflow_service.accepted_returns_series_response(request.calculation_id)
+
+    mocker.patch(
+        "app.services.returns_series_calculation_workflow_service.register_async_submission_or_raise",
+        side_effect=_register_async_submission_or_raise,
+    )
+    correlation_token = correlation_id_var.set(" corr-returns-series ")
+    request_token = request_id_var.set(" req-returns-series ")
+    trace_token = trace_id_var.set(" trace-returns-series ")
+    try:
+        response = await calculate_returns_series_workflow(request)
+    finally:
+        correlation_id_var.reset(correlation_token)
+        request_id_var.reset(request_token)
+        trace_id_var.reset(trace_token)
+
+    assert response.calculation_id == request.calculation_id
+    assert captured["request_payload"]["observability_context"] == {
+        "correlation_id": "corr-returns-series",
+        "request_id": "req-returns-series",
+        "trace_id": "trace-returns-series",
+    }
 
 
 def test_build_returns_series_execution_window_projects_optional_metadata():
