@@ -237,6 +237,16 @@ def test_integration_capabilities_honors_canonical_query_controls():
     assert body["tenant_id"] == "tenant-risk"
 
 
+def test_integration_capabilities_accepts_idea_consumer_for_mesh_discovery():
+    with TestClient(app) as client:
+        response = client.get("/integration/capabilities?consumer_system=lotus-idea&tenant_id=tenant-idea")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["consumer_system"] == "lotus-idea"
+    assert body["tenant_id"] == "tenant-idea"
+
+
 def test_integration_capabilities_rejects_blank_tenant_scope():
     with TestClient(app) as client:
         response = client.get("/integration/capabilities?consumer_system=lotus-gateway&tenant_id=%20%20")

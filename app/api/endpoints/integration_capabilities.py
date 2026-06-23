@@ -16,6 +16,7 @@ ConsumerSystem = Literal[
     "lotus-performance",
     "lotus-risk",
     "lotus-manage",
+    "lotus-idea",
     "lotus-workbench",
     "lotus-report",
     "lotus-advise",
@@ -483,14 +484,15 @@ class IntegrationCapabilitiesResponse(BaseModel):
     response_model=IntegrationCapabilitiesResponse,
     summary="Get lotus-performance Integration Capabilities",
     description=(
-        "Returns backend-governed lotus-performance capability/workflow controls for lotus-gateway, lotus-core, and lotus-manage integration."
+        "Returns backend-governed lotus-performance capability/workflow controls for lotus-gateway, "
+        "lotus-core, lotus-manage, and lotus-idea integration."
     ),
 )
 async def get_integration_capabilities(
     consumer_system: ConsumerSystem = Query(
         "lotus-gateway",
         description="Canonical downstream consumer system. Use snake_case query name `consumer_system`.",
-        examples=["lotus-gateway"],
+        examples=["lotus-gateway", "lotus-idea"],
     ),
     tenant_id: str = Query(
         "default",
