@@ -15,6 +15,7 @@ from app.models.benchmark_exposure_context import (
     BenchmarkExposurePageResponse,
     BenchmarkExposureRow,
 )
+from app.observability import source_product_correlation_id
 from app.services.offset_pagination import slice_offset_page
 from app.services.stateful_input_service import StatefulInputService
 from app.services.stateful_retrieval_metadata import parse_zero_default_retrieval_metadata
@@ -93,6 +94,7 @@ async def build_benchmark_exposure_context(
         page=BenchmarkExposurePageResponse(next_page_token=next_page_token),
         metadata=BenchmarkExposureMetadata(
             calculation_run_id=request.calculation_id,
+            correlation_id=source_product_correlation_id(),
             generated_at=datetime.now(UTC),
             retrieval_metadata={
                 "benchmark_market_series_chunk_count": market_retrieval.chunk_count,

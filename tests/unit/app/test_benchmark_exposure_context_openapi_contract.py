@@ -60,4 +60,6 @@ def test_benchmark_exposure_context_openapi_documents_usage_and_fields() -> None
         assert response_schema["properties"][field_name]["description"]
 
     assert response_schema["examples"][0]["metadata"]["source_system"] == "lotus-core"
+    assert metadata_schema["properties"]["correlation_id"]["description"]
+    assert response_schema["examples"][0]["metadata"]["correlation_id"] == "corr_benchmark_exposure_001"
     assert metadata_schema["properties"]["retrieval_metadata"]["description"]

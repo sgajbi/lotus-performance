@@ -157,6 +157,13 @@ class BenchmarkExposureMetadata(BaseModel):
         description="lotus-performance request/calc identifier for this exposure context response."
     )
     contract_version: Literal["v1"] = Field(default="v1", description="Contract version for this response payload.")
+    correlation_id: str = Field(
+        description=(
+            "Request correlation identifier carried as required trust metadata for downstream "
+            "mesh consumers."
+        ),
+        examples=["corr_benchmark_exposure_001"],
+    )
     generated_at: dt_datetime = Field(description="UTC timestamp at which the response was generated.")
     retrieval_metadata: dict[str, int] = Field(
         default_factory=dict,
@@ -225,6 +232,7 @@ class BenchmarkExposureContextResponse(BaseModel):
                         "served_by": "lotus-performance",
                         "calculation_run_id": "0d000004-1111-4222-8333-abcdefabcdef",
                         "contract_version": "v1",
+                        "correlation_id": "corr_benchmark_exposure_001",
                         "generated_at": "2026-04-10T00:00:00Z",
                         "retrieval_metadata": {
                             "benchmark_market_series_chunk_count": 1,

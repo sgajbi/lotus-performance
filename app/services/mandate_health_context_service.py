@@ -9,6 +9,7 @@ from app.models.mandate_health import (
     MandatePerformanceHealthSourceMetric,
     MandatePerformanceHealthState,
 )
+from app.observability import source_product_correlation_id
 from core.repro import generate_canonical_hash_from_value
 
 
@@ -36,6 +37,7 @@ def evaluate_mandate_performance_health_context(
     )
 
     return MandatePerformanceHealthContextResponse(
+        correlation_id=source_product_correlation_id(),
         portfolio_id=request.portfolio_id,
         as_of_date=request.as_of_date,
         period_name=request.period_name,

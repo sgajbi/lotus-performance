@@ -5,6 +5,7 @@ from decimal import Decimal
 from fastapi.testclient import TestClient
 
 from app.models.mandate_health import MandatePerformanceHealthContextRequest
+from app.observability import correlation_id_var
 from app.services.mandate_health_context_service import evaluate_mandate_performance_health_context
 from main import app
 
@@ -25,10 +26,15 @@ def _request_payload(**overrides: object) -> dict[str, object]:
 def test_mandate_performance_health_context_flags_source_owned_underperformance() -> None:
     request = MandatePerformanceHealthContextRequest.model_validate(_request_payload())
 
-    response = evaluate_mandate_performance_health_context(request)
+    correlation_token = correlation_id_var.set("corr-mandate-health-unit")
+    try:
+        response = evaluate_mandate_performance_health_context(request)
+    finally:
+        correlation_id_var.reset(correlation_token)
 
     assert response.product_name == "MandatePerformanceHealthContext"
     assert response.product_version == "v1"
+    assert response.correlation_id == "corr-mandate-health-unit"
     assert response.portfolio_id == "PB_SG_GLOBAL_BAL_001"
     assert response.period_name == "YTD"
     assert response.health_state == "attention"
@@ -62,11 +68,16 @@ def test_mandate_performance_health_context_is_unavailable_without_benchmark() -
 def test_mandate_performance_health_context_endpoint_returns_source_product() -> None:
     client = TestClient(app)
 
-    response = client.post("/performance/mandate-health-context", json=_request_payload())
+    response = client.post(
+        "/performance/mandate-health-context",
+        json=_request_payload(),
+        headers={"X-Correlation-Id": "corr-mandate-health-api"},
+    )
 
     assert response.status_code == 200
     body = response.json()
     assert body["product_name"] == "MandatePerformanceHealthContext"
+    assert body["correlation_id"] == "corr-mandate-health-api"
     assert body["methodology_posture"]["source_service"] == "lotus-performance"
     assert body["methodology_posture"]["source_metrics_product"] == "TimeWeightedReturnAnalytics:v1"
     assert body["source_services"] == ["lotus-performance"]
