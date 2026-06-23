@@ -126,8 +126,7 @@ class MandatePerformanceHealthContextResponse(BaseModel):
     )
     correlation_id: str = Field(
         description=(
-            "Request correlation identifier carried as required trust metadata for downstream "
-            "mesh consumers."
+            "Request correlation identifier carried as required trust metadata for downstream mesh consumers."
         ),
         examples=["corr_mandate_health_001"],
     )
