@@ -275,7 +275,8 @@
         "as_of_date",
         "request_fingerprint",
         "source_services",
-        "benchmark_context"
+        "benchmark_context",
+        "correlation_id"
       ],
       "current_routes": [
         "/performance/mandate-health-context"
@@ -297,7 +298,8 @@
       "security_profile_ref": "system_access:client_confidential:retain_for_client_record:audit_system_access",
       "approved_consumers": [
         "lotus-gateway",
-        "lotus-manage"
+        "lotus-manage",
+        "lotus-idea"
       ],
       "deprecation_policy": {
         "state": "not_deprecated",
@@ -352,7 +354,8 @@
       },
       "security_profile_ref": "system_access:client_confidential:retain_for_client_record:audit_system_access",
       "approved_consumers": [
-        "lotus-risk"
+        "lotus-risk",
+        "lotus-idea"
       ],
       "deprecation_policy": {
         "state": "not_deprecated",
@@ -385,7 +388,8 @@
         "product_name",
         "product_version",
         "generated_at",
-        "as_of_date"
+        "as_of_date",
+        "correlation_id"
       ],
       "current_routes": [
         "/integration/benchmarks/exposure-context"
@@ -405,7 +409,8 @@
       },
       "security_profile_ref": "system_access:reference_internal:retain_for_source_audit:audit_system_access",
       "approved_consumers": [
-        "lotus-risk"
+        "lotus-risk",
+        "lotus-idea"
       ],
       "deprecation_policy": {
         "state": "not_deprecated",
