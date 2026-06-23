@@ -88,14 +88,21 @@ def test_repo_native_producer_declarations_cover_governed_first_wave_products_an
     assert "coverage_status" in attribution_product["required_trust_metadata"]
     assert "coverage_ratio" in attribution_product["required_trust_metadata"]
     mandate_health_product = payload["products"][4]
-    assert mandate_health_product["approved_consumers"] == ["lotus-gateway", "lotus-manage"]
+    assert mandate_health_product["approved_consumers"] == [
+        "lotus-gateway",
+        "lotus-manage",
+        "lotus-idea",
+    ]
     assert mandate_health_product["current_routes"] == ["/performance/mandate-health-context"]
     assert mandate_health_product["completeness_policy"]["partial_allowed"] is True
     assert "request_fingerprint" in mandate_health_product["required_trust_metadata"]
     assert "source_services" in mandate_health_product["required_trust_metadata"]
     assert "benchmark_context" in mandate_health_product["required_trust_metadata"]
-    assert payload["products"][5]["approved_consumers"] == ["lotus-risk"]
-    assert payload["products"][6]["approved_consumers"] == ["lotus-risk"]
+    assert "correlation_id" in mandate_health_product["required_trust_metadata"]
+    assert payload["products"][5]["approved_consumers"] == ["lotus-risk", "lotus-idea"]
+    assert "correlation_id" in payload["products"][5]["required_trust_metadata"]
+    assert payload["products"][6]["approved_consumers"] == ["lotus-risk", "lotus-idea"]
+    assert "correlation_id" in payload["products"][6]["required_trust_metadata"]
     composite_product = payload["products"][7]
     assert composite_product["approved_consumers"] == ["lotus-gateway"]
     assert composite_product["current_routes"] == ["/performance/composites/twr"]
