@@ -21,6 +21,7 @@ from app.services.compute_job_store import (
     _compute_job_inspection_active_since,
     _compute_job_payload_failure,
     _compute_job_registration_result_for_integrity_conflict,
+    _compute_job_request_identity_json,
     _ensure_compute_job_can_mark_running,
     _matches_existing_compute_job_registration,
     _queue_stats_from_aggregate_row,
@@ -1185,6 +1186,37 @@ def test_compute_job_store_register_job_distinguishes_create_replay_and_conflict
     assert conflict.status == ComputeJobRegistrationStatus.CONFLICT
 
 
+def test_compute_job_store_register_job_ignores_transient_observability_context_for_replay(tmp_path):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
+    store.create_schema()
+    calculation_id = uuid4()
+
+    created = store.register_job(
+        calculation_id=calculation_id,
+        analytics_type="ReturnsSeries",
+        request_payload={
+            "portfolio_id": "P1",
+            "observability_context": {"correlation_id": "corr-first"},
+        },
+        max_attempts=2,
+    )
+    replay = store.register_job(
+        calculation_id=calculation_id,
+        analytics_type="ReturnsSeries",
+        request_payload={
+            "portfolio_id": "P1",
+            "observability_context": {"correlation_id": "corr-second"},
+        },
+        max_attempts=2,
+    )
+
+    assert created.status == ComputeJobRegistrationStatus.CREATED
+    assert replay.status == ComputeJobRegistrationStatus.REPLAY
+    stored_job = store.get_job(calculation_id)
+    assert stored_job is not None
+    assert stored_job.request_payload["observability_context"] == {"correlation_id": "corr-first"}
+
+
 def test_matches_existing_compute_job_registration_requires_same_request_and_attempt_policy():
     existing = ComputeJobModel(
         calculation_id=str(uuid4()),
@@ -1200,25 +1232,25 @@ def test_matches_existing_compute_job_registration_requires_same_request_and_att
     assert _matches_existing_compute_job_registration(
         existing,
         analytics_type="Contribution",
-        request_json='{"portfolio_id": "P1"}',
+        request_identity_json=_compute_job_request_identity_json({"portfolio_id": "P1"}),
         max_attempts=2,
     )
     assert not _matches_existing_compute_job_registration(
         existing,
         analytics_type="Contribution",
-        request_json='{"portfolio_id": "P2"}',
+        request_identity_json=_compute_job_request_identity_json({"portfolio_id": "P2"}),
         max_attempts=2,
     )
     assert not _matches_existing_compute_job_registration(
         existing,
         analytics_type="Contribution",
-        request_json='{"portfolio_id": "P1"}',
+        request_identity_json=_compute_job_request_identity_json({"portfolio_id": "P1"}),
         max_attempts=3,
     )
     assert not _matches_existing_compute_job_registration(
         existing,
         analytics_type="Attribution",
-        request_json='{"portfolio_id": "P1"}',
+        request_identity_json=_compute_job_request_identity_json({"portfolio_id": "P1"}),
         max_attempts=2,
     )
 
@@ -1239,7 +1271,7 @@ def test_compute_job_registration_result_for_integrity_conflict_replays_matching
         existing,
         integrity_error=IntegrityError("insert", {}, RuntimeError("duplicate")),
         analytics_type="Contribution",
-        request_json='{"portfolio_id": "P1"}',
+        request_identity_json=_compute_job_request_identity_json({"portfolio_id": "P1"}),
         max_attempts=2,
     )
 
@@ -1263,7 +1295,7 @@ def test_compute_job_registration_result_for_integrity_conflict_reports_conflict
         existing,
         integrity_error=IntegrityError("insert", {}, RuntimeError("duplicate")),
         analytics_type="Contribution",
-        request_json='{"portfolio_id": "P2"}',
+        request_identity_json=_compute_job_request_identity_json({"portfolio_id": "P2"}),
         max_attempts=2,
     )
 
@@ -1279,7 +1311,7 @@ def test_compute_job_registration_result_for_integrity_conflict_reraises_missing
             None,
             integrity_error=original_error,
             analytics_type="Contribution",
-            request_json='{"portfolio_id": "P1"}',
+            request_identity_json=_compute_job_request_identity_json({"portfolio_id": "P1"}),
             max_attempts=2,
         )
 

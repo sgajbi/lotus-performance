@@ -68,6 +68,7 @@ COMPUTE_TERMINAL_JOB_STATUSES = (
     ComputeJobStatus.COMPLETE.value,
     ComputeJobStatus.FAILED.value,
 )
+TRANSIENT_COMPUTE_JOB_REQUEST_FIELDS = frozenset({"observability_context"})
 COMPUTE_INSPECTION_ACTIVE_SINCE_FIELDS: dict[str, tuple[str, ...]] = {
     ComputeJobStatus.LEASED.value: ("leased_at_utc", "created_at_utc"),
     ComputeJobStatus.RUNNING.value: ("started_at_utc", "leased_at_utc", "created_at_utc"),
@@ -288,14 +289,31 @@ def _matches_existing_compute_job_registration(
     existing: ComputeJobModel,
     *,
     analytics_type: str,
-    request_json: str,
+    request_identity_json: str,
     max_attempts: int,
 ) -> bool:
     return (
         existing.analytics_type == analytics_type
-        and existing.request_json == request_json
+        and _compute_job_request_identity_json_from_json(existing.request_json) == request_identity_json
         and existing.max_attempts == max_attempts
     )
+
+
+def _compute_job_request_identity_json(request_payload: dict[str, Any]) -> str:
+    identity_payload = {
+        field: value for field, value in request_payload.items() if field not in TRANSIENT_COMPUTE_JOB_REQUEST_FIELDS
+    }
+    return json.dumps(identity_payload, sort_keys=True)
+
+
+def _compute_job_request_identity_json_from_json(request_json: str) -> str:
+    try:
+        request_payload = json.loads(request_json)
+    except json.JSONDecodeError:
+        return request_json
+    if not isinstance(request_payload, dict):
+        return request_json
+    return _compute_job_request_identity_json(request_payload)
 
 
 def _compute_job_has_conflicting_worker_lease(
@@ -309,7 +327,7 @@ def _compute_job_registration_result_for_integrity_conflict(
     *,
     integrity_error: IntegrityError,
     analytics_type: str,
-    request_json: str,
+    request_identity_json: str,
     max_attempts: int,
 ) -> ComputeJobRegistrationResult:
     if existing is None:
@@ -317,7 +335,7 @@ def _compute_job_registration_result_for_integrity_conflict(
     if _matches_existing_compute_job_registration(
         existing,
         analytics_type=analytics_type,
-        request_json=request_json,
+        request_identity_json=request_identity_json,
         max_attempts=max_attempts,
     ):
         return ComputeJobRegistrationResult(
@@ -448,6 +466,7 @@ class ComputeJobStore:
         now = datetime.now(timezone.utc)
         configured_max_attempts = max_attempts or get_settings().COMPUTE_EXECUTOR_MAX_ATTEMPTS
         request_json = json.dumps(request_payload, sort_keys=True)
+        request_identity_json = _compute_job_request_identity_json(request_payload)
         job = ComputeJobModel(
             calculation_id=str(calculation_id),
             analytics_type=analytics_type,
@@ -479,7 +498,7 @@ class ComputeJobStore:
                 existing,
                 integrity_error=exc,
                 analytics_type=analytics_type,
-                request_json=request_json,
+                request_identity_json=request_identity_json,
                 max_attempts=configured_max_attempts,
             )
         finally:
