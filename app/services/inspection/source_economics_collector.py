@@ -109,6 +109,11 @@ class _SourceEconomicsSampleCollector:
         )
 
     def _record_taxonomy_samples(self, source_point: ObservationSourceEconomics) -> None:
+        self._record_flow_date_samples(source_point)
+        self._record_cashflow_quality_samples(source_point)
+        self._record_cashflow_taxonomy_samples(source_point)
+
+    def _record_flow_date_samples(self, source_point: ObservationSourceEconomics) -> None:
         _append_nonzero_flow_date(
             self.fee_flow_dates,
             valuation_date=source_point.valuation_date,
@@ -121,41 +126,25 @@ class _SourceEconomicsSampleCollector:
             bod_amount=source_point.detailed_external_bod,
             eod_amount=source_point.detailed_external_eod,
         )
-        _append_rows_sample(
-            self.conflicting_explicit_amount_samples,
-            valuation_date=source_point.valuation_date,
-            rows=source_point.conflicting_explicit_amount_fields,
+
+    def _record_cashflow_quality_samples(self, source_point: ObservationSourceEconomics) -> None:
+        row_sample_sources: tuple[tuple[list[dict[str, object]], tuple[dict[str, object], ...]], ...] = (
+            (self.conflicting_explicit_amount_samples, source_point.conflicting_explicit_amount_fields),
+            (self.invalid_explicit_amount_samples, source_point.invalid_explicit_amount_fields),
+            (self.invalid_cashflow_row_samples, source_point.invalid_cashflow_rows),
+            (self.invalid_amount_samples, source_point.invalid_amount_rows),
+            (self.invalid_timing_samples, source_point.invalid_timing_rows),
+            (self.missing_cashflow_type_samples, source_point.missing_cashflow_type_rows),
         )
-        _append_rows_sample(
-            self.invalid_explicit_amount_samples,
-            valuation_date=source_point.valuation_date,
-            rows=source_point.invalid_explicit_amount_fields,
-        )
+        for target, rows in row_sample_sources:
+            _append_rows_sample(target, valuation_date=source_point.valuation_date, rows=rows)
         _append_mapping_sample(
             self.invalid_cashflow_collection_samples,
             valuation_date=source_point.valuation_date,
             details=source_point.invalid_cashflow_collection,
         )
-        _append_rows_sample(
-            self.invalid_cashflow_row_samples,
-            valuation_date=source_point.valuation_date,
-            rows=source_point.invalid_cashflow_rows,
-        )
-        _append_rows_sample(
-            self.invalid_amount_samples,
-            valuation_date=source_point.valuation_date,
-            rows=source_point.invalid_amount_rows,
-        )
-        _append_rows_sample(
-            self.invalid_timing_samples,
-            valuation_date=source_point.valuation_date,
-            rows=source_point.invalid_timing_rows,
-        )
-        _append_rows_sample(
-            self.missing_cashflow_type_samples,
-            valuation_date=source_point.valuation_date,
-            rows=source_point.missing_cashflow_type_rows,
-        )
+
+    def _record_cashflow_taxonomy_samples(self, source_point: ObservationSourceEconomics) -> None:
         _append_cashflow_types_sample(
             self.noncanonical_cashflow_type_samples,
             valuation_date=source_point.valuation_date,

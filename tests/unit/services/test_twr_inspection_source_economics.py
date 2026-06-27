@@ -81,6 +81,55 @@ def test_external_explicit_mixed_timing_sample_requires_explicit_bod_and_eod_flo
     )
 
 
+def test_collect_source_economics_samples_projects_flow_quality_and_taxonomy_samples():
+    samples = collect_source_economics_samples(
+        source_points=[
+            _source_economics_point(
+                detailed_fee_bod=Decimal("-2.5"),
+                detailed_external_eod=Decimal("100"),
+                invalid_cashflow_collection={"raw_type": "dict", "raw_value": {"bad": "shape"}},
+                invalid_amount_rows=({"timing": "bod", "amount": "bad", "cash_flow_type": "external_flow"},),
+                missing_cashflow_type_rows=({"timing": "eod", "amount": "3.0"},),
+                noncanonical_cashflow_types=("deposit", "dividend"),
+                unsupported_cashflow_type_rows=({"timing": "bod", "amount": "1.0", "cash_flow_type": "dividend"},),
+                governed_alias_cashflow_type_rows=({"timing": "eod", "amount": "12.5", "cash_flow_type": "deposit"},),
+            )
+        ],
+    )
+
+    assert samples.fee_flow_dates == ["2026-03-12"]
+    assert samples.external_flow_dates == ["2026-03-12"]
+    assert samples.invalid_cashflow_collection_samples == [
+        {"valuation_date": "2026-03-12", "raw_type": "dict", "raw_value": {"bad": "shape"}}
+    ]
+    assert samples.invalid_amount_samples == [
+        {
+            "valuation_date": "2026-03-12",
+            "rows": [{"timing": "bod", "amount": "bad", "cash_flow_type": "external_flow"}],
+        }
+    ]
+    assert samples.missing_cashflow_type_samples == [
+        {"valuation_date": "2026-03-12", "rows": [{"timing": "eod", "amount": "3.0"}]}
+    ]
+    assert samples.noncanonical_cashflow_type_samples == [
+        {"valuation_date": "2026-03-12", "cash_flow_types": ["deposit", "dividend"]}
+    ]
+    assert samples.unsupported_cashflow_type_samples == [
+        {
+            "valuation_date": "2026-03-12",
+            "cash_flow_types": ["dividend"],
+            "rows": [{"timing": "bod", "amount": "1.0", "cash_flow_type": "dividend"}],
+        }
+    ]
+    assert samples.governed_alias_cashflow_type_samples == [
+        {
+            "valuation_date": "2026-03-12",
+            "cash_flow_types": ["deposit"],
+            "rows": [{"timing": "eod", "amount": "12.5", "cash_flow_type": "deposit"}],
+        }
+    ]
+
+
 def test_external_timing_contradiction_sample_projects_artifact_fields():
     assert source_economics_collector._external_timing_contradiction_sample(
         valuation_date="2026-03-12",

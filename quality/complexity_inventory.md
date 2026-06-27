@@ -32,16 +32,16 @@ must stay at `0`.
 | --- | ---: |
 | Max cyclomatic complexity | 5 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 54.95 |
+| Average maintainability index | 54.94 |
 
 ## Highest Cyclomatic Complexity
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_record_fee_source_consistency_sample` | method | `app/services/inspection/source_economics_collector.py:208` | 5 | A |
-| 2 | `_record_external_source_signals` | method | `app/services/inspection/source_economics_collector.py:280` | 5 | A |
-| 3 | `_external_explicit_mixed_timing_sample` | function | `app/services/inspection/source_economics_collector.py:361` | 5 | A |
-| 4 | `_expected_external_total` | function | `app/services/inspection/source_economics_collector.py:423` | 5 | A |
+| 1 | `_record_fee_source_consistency_sample` | method | `app/services/inspection/source_economics_collector.py:197` | 5 | A |
+| 2 | `_record_external_source_signals` | method | `app/services/inspection/source_economics_collector.py:269` | 5 | A |
+| 3 | `_external_explicit_mixed_timing_sample` | function | `app/services/inspection/source_economics_collector.py:350` | 5 | A |
+| 4 | `_expected_external_total` | function | `app/services/inspection/source_economics_collector.py:412` | 5 | A |
 | 5 | `_append_stale_run_if_needed` | function | `app/services/inspection/source_quality.py:346` | 5 | A |
 | 6 | `_assess_return_concentration` | function | `app/services/inspection/source_quality.py:481` | 5 | A |
 | 7 | `_find_repeated_move_runs` | function | `app/services/inspection/source_quality.py:540` | 5 | A |
@@ -1243,6 +1243,10 @@ functions remain `0`, and average maintainability index measured `54.95`.
 LP-CR-1481 isolated lineage pending-payload stats predicates from the stats and inspection query
 builders. The measured max cyclomatic complexity remains `5`, high-complexity functions remain
 `0`, and average maintainability index measured `54.95`.
+LP-CR-1482 isolated source-economics flow-date, cash-flow quality, and cash-flow taxonomy sample
+recording from the taxonomy-sample collector orchestrator. The measured max cyclomatic complexity
+remains `5`, high-complexity functions remain `0`, and average maintainability index measured
+`54.94`.
 
 Maintainability index values should be treated as directional hotspot evidence because generated
 schemas, persistence-style modules, and dense orchestration files can score poorly even when tests

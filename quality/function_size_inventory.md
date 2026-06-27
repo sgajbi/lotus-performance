@@ -20,31 +20,31 @@ python scripts/python_function_size_inventory.py --limit 25
 
 | Rank | Function | File | Lines |
 | ---: | --- | --- | ---: |
-| 1 | `_SourceEconomicsSampleCollector._record_taxonomy_samples` | `app/services/inspection/source_economics_collector.py:111` | 63 |
-| 2 | `_load_durable_queue_metric_sources` | `app/services/queue_metrics_service.py:259` | 63 |
-| 3 | `resolve_stateful_returns_series_request` | `app/services/returns_series_service.py:1594` | 63 |
-| 4 | `build_stateful_attribution_input` | `app/services/stateful_attribution_input_service.py:354` | 63 |
-| 5 | `_align_and_prepare_data` | `engine/attribution.py:505` | 63 |
-| 6 | `resolve_contribution_request` | `app/services/contribution_mode_service.py:34` | 62 |
-| 7 | `_build_contribution_smoothing_evidence` | `app/services/contribution_smoothing.py:96` | 62 |
-| 8 | `_resolve_subject_inspection_inputs` | `app/services/inspection/twr_inspection_service.py:220` | 62 |
-| 9 | `calculate_mwr_response` | `app/services/mwr_calculation_service.py:221` | 62 |
-| 10 | `build_stateful_mwr_input_for_window` | `app/services/stateful_mwr_input_service.py:112` | 62 |
-| 11 | `build_benchmark_exposure_context` | `app/services/benchmark_exposure_context_service.py:39` | 61 |
-| 12 | `_build_twr_inspection_response` | `app/services/inspection/twr_inspection_service.py:305` | 61 |
-| 13 | `_run_subject_assessments` | `app/services/inspection/twr_inspection_service.py:157` | 61 |
-| 14 | `LineageService.materialize_payload` | `app/services/lineage_service.py:72` | 61 |
-| 15 | `StatefulInputService._fetch_portfolio_chunk` | `app/services/stateful_input_service.py:892` | 61 |
-| 16 | `_calculate_dietz_mwr_result` | `engine/mwr.py:436` | 61 |
-| 17 | `LineageMetadataStore.list_recent_recoveries` | `app/services/lineage_metadata_store.py:435` | 60 |
-| 18 | `retrieve_stateful_portfolio_input` | `app/services/stateful_performance_input_service.py:42` | 60 |
-| 19 | `resolve_twr_request` | `app/services/twr_mode_service.py:80` | 60 |
-| 20 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:547` | 60 |
-| 21 | `_calculate_xirr_mwr_attempt` | `engine/mwr.py:355` | 60 |
-| 22 | `get_recovery_drill_history` | `app/api/endpoints/recovery_drill_history.py:33` | 59 |
-| 23 | `get_runtime_work_items` | `app/api/endpoints/runtime_work_items.py:25` | 59 |
-| 24 | `ComputeJobStore._build_queue_stats_statement` | `app/services/compute_job_store.py:863` | 59 |
-| 25 | `ComputeJobStore.list_recent_recoveries` | `app/services/compute_job_store.py:715` | 59 |
+| 1 | `_load_durable_queue_metric_sources` | `app/services/queue_metrics_service.py:259` | 63 |
+| 2 | `resolve_stateful_returns_series_request` | `app/services/returns_series_service.py:1594` | 63 |
+| 3 | `build_stateful_attribution_input` | `app/services/stateful_attribution_input_service.py:354` | 63 |
+| 4 | `_align_and_prepare_data` | `engine/attribution.py:505` | 63 |
+| 5 | `resolve_contribution_request` | `app/services/contribution_mode_service.py:34` | 62 |
+| 6 | `_build_contribution_smoothing_evidence` | `app/services/contribution_smoothing.py:96` | 62 |
+| 7 | `_resolve_subject_inspection_inputs` | `app/services/inspection/twr_inspection_service.py:220` | 62 |
+| 8 | `calculate_mwr_response` | `app/services/mwr_calculation_service.py:221` | 62 |
+| 9 | `build_stateful_mwr_input_for_window` | `app/services/stateful_mwr_input_service.py:112` | 62 |
+| 10 | `build_benchmark_exposure_context` | `app/services/benchmark_exposure_context_service.py:39` | 61 |
+| 11 | `_build_twr_inspection_response` | `app/services/inspection/twr_inspection_service.py:305` | 61 |
+| 12 | `_run_subject_assessments` | `app/services/inspection/twr_inspection_service.py:157` | 61 |
+| 13 | `LineageService.materialize_payload` | `app/services/lineage_service.py:72` | 61 |
+| 14 | `StatefulInputService._fetch_portfolio_chunk` | `app/services/stateful_input_service.py:892` | 61 |
+| 15 | `_calculate_dietz_mwr_result` | `engine/mwr.py:436` | 61 |
+| 16 | `LineageMetadataStore.list_recent_recoveries` | `app/services/lineage_metadata_store.py:435` | 60 |
+| 17 | `retrieve_stateful_portfolio_input` | `app/services/stateful_performance_input_service.py:42` | 60 |
+| 18 | `resolve_twr_request` | `app/services/twr_mode_service.py:80` | 60 |
+| 19 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:547` | 60 |
+| 20 | `_calculate_xirr_mwr_attempt` | `engine/mwr.py:355` | 60 |
+| 21 | `get_recovery_drill_history` | `app/api/endpoints/recovery_drill_history.py:33` | 59 |
+| 22 | `get_runtime_work_items` | `app/api/endpoints/runtime_work_items.py:25` | 59 |
+| 23 | `ComputeJobStore._build_queue_stats_statement` | `app/services/compute_job_store.py:863` | 59 |
+| 24 | `ComputeJobStore.list_recent_recoveries` | `app/services/compute_job_store.py:715` | 59 |
+| 25 | `_build_stateful_calculated_benchmark_input` | `app/services/stateful_benchmark_input_service.py:94` | 59 |
 
 ## Interpretation
 
@@ -258,6 +258,10 @@ for pending, active leased, retry-backlog, and reclaimable payloads, then reused
 active-lease predicates in queue inspection and recovery query builders. The lineage stats builder
 dropped out of the top-25 table, duplicate hotspots remain `0`, and the largest production
 functions now measure `63` lines.
+LP-CR-1482 isolated source-economics flow-date, cash-flow quality, and cash-flow taxonomy sample
+recording from `_SourceEconomicsSampleCollector._record_taxonomy_samples(...)`. The taxonomy
+orchestrator dropped out of the top-25 table, duplicate hotspots remain `0`, and the largest
+production functions continue to measure `63` lines.
 LP-CR-1411 isolated runtime-status degradation policy response projection into focused helpers.
 `build_runtime_status_response` moved from `113` to `91` lines, and the largest production
 functions moved to the contribution period result builders at `102` lines.
