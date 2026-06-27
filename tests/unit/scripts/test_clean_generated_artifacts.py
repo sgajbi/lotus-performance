@@ -18,7 +18,7 @@ def test_build_cleanup_plan_collects_known_local_artifacts(tmp_path) -> None:
 
 
 def test_build_cleanup_plan_prunes_git_venv_and_node_modules(tmp_path) -> None:
-    for pruned_root in [".git", ".venv", "node_modules"]:
+    for pruned_root in [".git", ".venv", "venv", "node_modules"]:
         cache_dir = tmp_path / pruned_root / "__pycache__"
         cache_dir.mkdir(parents=True)
         coverage_file = tmp_path / pruned_root / ".coverage"
@@ -39,6 +39,13 @@ def test_build_cleanup_plan_prunes_local_path_without_resolving_target(tmp_path)
 
     cache_dir = local_venv / "__pycache__"
     cache_dir.mkdir(exist_ok=True)
+
+    assert build_cleanup_plan(tmp_path).directories == ()
+
+
+def test_build_cleanup_plan_prunes_dependency_trees_before_descent(tmp_path) -> None:
+    (tmp_path / "node_modules" / "package" / "__pycache__").mkdir(parents=True)
+    (tmp_path / "venv" / "Lib" / "site-packages" / "__pycache__").mkdir(parents=True)
 
     assert build_cleanup_plan(tmp_path).directories == ()
 

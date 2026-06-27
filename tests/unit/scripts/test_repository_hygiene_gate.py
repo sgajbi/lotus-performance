@@ -64,6 +64,8 @@ def test_repository_hygiene_gate_blocks_local_environment_and_coverage_artifacts
             ".pytest_cache/v/cache/nodeids",
             ".ruff_cache/0.14.6/12345",
             ".mypy_cache/3.12/app.meta.json",
+            "venv/pyvenv.cfg",
+            "local-env/pyvenv.cfg",
         ]
     )
 
@@ -74,6 +76,8 @@ def test_repository_hygiene_gate_blocks_local_environment_and_coverage_artifacts
         ".mypy_cache/3.12/app.meta.json: generated or dependency directory content must not be tracked",
         ".pytest_cache/v/cache/nodeids: generated or dependency directory content must not be tracked",
         ".ruff_cache/0.14.6/12345: generated or dependency directory content must not be tracked",
+        "local-env/pyvenv.cfg: virtual environment marker must not be tracked",
+        "venv/pyvenv.cfg: virtual environment marker must not be tracked",
     ]
 
 

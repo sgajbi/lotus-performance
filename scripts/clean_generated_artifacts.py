@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
@@ -34,6 +35,7 @@ PRUNED_DIR_NAMES = frozenset(
     {
         ".git",
         ".venv",
+        "venv",
         "node_modules",
     }
 )
@@ -55,15 +57,25 @@ def build_cleanup_plan(root: Path = ROOT) -> CleanupPlan:
     directories: list[Path] = []
     files: list[Path] = []
 
-    for path in sorted(root.rglob("*")):
-        if _is_pruned(path, root):
-            continue
-        if path.is_dir() and path.name in CACHE_DIR_NAMES | BUILD_DIR_NAMES:
-            directories.append(path)
-        elif path.is_file() and path.name in LOCAL_FILE_NAMES:
-            files.append(path)
+    for dirpath, dirnames, filenames in os.walk(root, topdown=True):
+        current = Path(dirpath)
+        kept_dirnames: list[str] = []
+        for dirname in sorted(dirnames):
+            child = current / dirname
+            if _is_pruned(child, root):
+                continue
+            if dirname in CACHE_DIR_NAMES | BUILD_DIR_NAMES:
+                directories.append(child)
+                continue
+            kept_dirnames.append(dirname)
+        dirnames[:] = kept_dirnames
 
-    return CleanupPlan(directories=tuple(directories), files=tuple(files))
+        for filename in sorted(filenames):
+            path = current / filename
+            if path.name in LOCAL_FILE_NAMES:
+                files.append(path)
+
+    return CleanupPlan(directories=tuple(sorted(directories)), files=tuple(sorted(files)))
 
 
 def clean_generated_artifacts(root: Path = ROOT) -> CleanupPlan:
