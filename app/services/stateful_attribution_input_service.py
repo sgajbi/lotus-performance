@@ -84,6 +84,13 @@ class _StatefulAttributionBenchmarkSource:
     index_retrieval_metadata: RetrievalMetadata
 
 
+@dataclass(frozen=True)
+class _StatefulAttributionSourceBundle:
+    portfolio_input: StatefulPortfolioInput
+    position_source: _StatefulAttributionPositionSource
+    benchmark_source: _StatefulAttributionBenchmarkSource
+
+
 async def retrieve_stateful_attribution_source_input(
     *,
     settings: Settings,
@@ -106,20 +113,8 @@ async def retrieve_stateful_attribution_source_input(
         group_by=group_by,
         dimensions=dimensions,
     )
-
-    portfolio_input = await retrieve_stateful_portfolio_input(
+    source_bundle = await _retrieve_stateful_attribution_sources(
         settings=settings,
-        stateful_input_service=stateful_input_service,
-        calculation_id=calculation_id,
-        portfolio_id=portfolio_id,
-        as_of_date=as_of_date,
-        start_date=report_start_date,
-        end_date=report_end_date,
-        reporting_currency=reporting_currency,
-        consumer_system=consumer_system,
-    )
-
-    position_source = await _retrieve_stateful_attribution_position_source(
         stateful_input_service=stateful_input_service,
         calculation_id=calculation_id,
         portfolio_id=portfolio_id,
@@ -131,8 +126,62 @@ async def retrieve_stateful_attribution_source_input(
         dimensions=requested_dimensions,
         include_cash_flows=include_cash_flows,
         filters=filters,
+        benchmark_id_override=benchmark_id_override,
     )
 
+    return StatefulAttributionSourceInput(
+        portfolio_input=source_bundle.portfolio_input,
+        position_rows=source_bundle.position_source.rows,
+        position_retrieval_metadata=source_bundle.position_source.retrieval_metadata,
+        benchmark_id=source_bundle.benchmark_source.benchmark_id,
+        benchmark_component_observations=source_bundle.benchmark_source.component_observations,
+        benchmark_source_details=source_bundle.benchmark_source.source_details,
+        benchmark_retrieval_metadata=source_bundle.benchmark_source.retrieval_metadata,
+        index_records=source_bundle.benchmark_source.index_records,
+        index_retrieval_metadata=source_bundle.benchmark_source.index_retrieval_metadata,
+    )
+
+
+async def _retrieve_stateful_attribution_sources(
+    *,
+    settings: Settings,
+    stateful_input_service: StatefulInputService,
+    calculation_id,
+    portfolio_id: str,
+    as_of_date,
+    start_date,
+    end_date,
+    reporting_currency: str | None,
+    consumer_system: str,
+    dimensions: list[str],
+    include_cash_flows: bool,
+    filters: dict[str, object],
+    benchmark_id_override: str | None,
+) -> _StatefulAttributionSourceBundle:
+    portfolio_input = await retrieve_stateful_portfolio_input(
+        settings=settings,
+        stateful_input_service=stateful_input_service,
+        calculation_id=calculation_id,
+        portfolio_id=portfolio_id,
+        as_of_date=as_of_date,
+        start_date=start_date,
+        end_date=end_date,
+        reporting_currency=reporting_currency,
+        consumer_system=consumer_system,
+    )
+    position_source = await _retrieve_stateful_attribution_position_source(
+        stateful_input_service=stateful_input_service,
+        calculation_id=calculation_id,
+        portfolio_id=portfolio_id,
+        as_of_date=as_of_date,
+        start_date=start_date,
+        end_date=end_date,
+        reporting_currency=reporting_currency,
+        consumer_system=consumer_system,
+        dimensions=dimensions,
+        include_cash_flows=include_cash_flows,
+        filters=filters,
+    )
     benchmark_source = await _retrieve_stateful_attribution_benchmark_source(
         stateful_input_service=stateful_input_service,
         portfolio_id=portfolio_id,
@@ -140,20 +189,13 @@ async def retrieve_stateful_attribution_source_input(
         reporting_currency=reporting_currency,
         calculation_id=calculation_id,
         benchmark_id_override=benchmark_id_override,
-        start_date=report_start_date,
-        end_date=report_end_date,
+        start_date=start_date,
+        end_date=end_date,
     )
-
-    return StatefulAttributionSourceInput(
+    return _StatefulAttributionSourceBundle(
         portfolio_input=portfolio_input,
-        position_rows=position_source.rows,
-        position_retrieval_metadata=position_source.retrieval_metadata,
-        benchmark_id=benchmark_source.benchmark_id,
-        benchmark_component_observations=benchmark_source.component_observations,
-        benchmark_source_details=benchmark_source.source_details,
-        benchmark_retrieval_metadata=benchmark_source.retrieval_metadata,
-        index_records=benchmark_source.index_records,
-        index_retrieval_metadata=benchmark_source.index_retrieval_metadata,
+        position_source=position_source,
+        benchmark_source=benchmark_source,
     )
 
 

@@ -45,6 +45,7 @@ from app.services.stateful_attribution_input_service import (
     _resolve_stateful_attribution_benchmark_id,
     _retrieve_stateful_attribution_index_records,
     _retrieve_stateful_attribution_position_source,
+    _retrieve_stateful_attribution_sources,
     _split_position_cash_flows,
     _stateful_attribution_benchmark_id_from_assignment_payload,
     _stateful_attribution_fx_required,
@@ -214,6 +215,78 @@ async def test_retrieve_stateful_attribution_position_source_projects_rows_metad
             "filters": {"book": "managed"},
         }
     ]
+
+
+@pytest.mark.asyncio
+async def test_retrieve_stateful_attribution_sources_projects_source_bundle(monkeypatch):
+    portfolio_input = StatefulPortfolioInput(
+        performance_start_date=date(2025, 1, 1),
+        observations=[{"valuation_date": "2025-01-01"}],
+    )
+
+    async def _mock_retrieve_stateful_portfolio_input(**kwargs):  # noqa: ARG001
+        return portfolio_input
+
+    async def _mock_build_benchmark_input(**kwargs):  # noqa: ARG001
+        return StatefulBenchmarkNormalizedInput(
+            benchmark_currency="USD",
+            component_observations=[
+                BenchmarkComponentObservation(
+                    component_id="IDX_1",
+                    component_currency="USD",
+                    perf_date=date(2025, 1, 1),
+                    weight_bop=1.0,
+                    component_return=0.01,
+                    component_return_local=0.01,
+                    component_return_fx=0.0,
+                )
+            ],
+            benchmark_return_points=[],
+            source_details={"benchmark_components": 1, "benchmark_chunk_count": 4, "benchmark_page_count": 5},
+        )
+
+    monkeypatch.setattr(
+        "app.services.stateful_attribution_input_service.retrieve_stateful_portfolio_input",
+        _mock_retrieve_stateful_portfolio_input,
+    )
+    monkeypatch.setattr(
+        "app.services.stateful_attribution_input_service.build_stateful_benchmark_input",
+        _mock_build_benchmark_input,
+    )
+    service = _AttributionInputServiceStub()
+    service.position_response = (
+        200,
+        {
+            "rows": [{"position_id": "POS_1", "valuation_date": "2025-01-01"}],
+            "retrieval_metadata": {"chunk_count": 2, "page_count": 3},
+        },
+    )
+    service.index_response = (200, {"records": [{"index_id": "IDX_1", "classification_labels": {"sector": "Tech"}}]})
+    calculation_id = uuid4()
+
+    source_bundle = await _retrieve_stateful_attribution_sources(
+        settings=object(),
+        stateful_input_service=service,
+        calculation_id=calculation_id,
+        portfolio_id="P1",
+        as_of_date=date(2025, 1, 31),
+        start_date=date(2025, 1, 1),
+        end_date=date(2025, 1, 31),
+        reporting_currency="USD",
+        consumer_system="lotus-performance",
+        dimensions=["asset_class", "sector"],
+        include_cash_flows=True,
+        filters={"book": "managed"},
+        benchmark_id_override="BMK_OVERRIDE",
+    )
+
+    assert source_bundle.portfolio_input is portfolio_input
+    assert source_bundle.position_source.rows == [{"position_id": "POS_1", "valuation_date": "2025-01-01"}]
+    assert source_bundle.position_source.retrieval_metadata == RetrievalMetadata(chunk_count=2, page_count=3)
+    assert source_bundle.benchmark_source.benchmark_id == "BMK_OVERRIDE"
+    assert source_bundle.benchmark_source.retrieval_metadata == RetrievalMetadata(chunk_count=4, page_count=5)
+    assert source_bundle.benchmark_source.index_retrieval_metadata == RetrievalMetadata(chunk_count=1, page_count=1)
+    assert service.position_calls[0]["dimensions"] == ["asset_class", "sector"]
 
 
 @pytest.mark.asyncio
