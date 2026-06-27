@@ -21,7 +21,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 274 |
-| Test functions inventoried | 3057 |
+| Test functions inventoried | 3058 |
 | Integration/API/runtime test functions | 600 |
 | Contract/governance test functions | 108 |
 
@@ -32,13 +32,13 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | benchmarks | 9 | 17 |
 | e2e | 1 | 21 |
 | integration | 24 | 300 |
-| unit | 240 | 2719 |
+| unit | 240 | 2720 |
 
 ## Test Functions By Family
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 1058 |
+| analytics_domain | 1059 |
 | api_or_runtime | 600 |
 | contract_or_governance | 108 |
 | observability_or_readiness | 186 |
@@ -63,9 +63,9 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | 12 | `tests/integration/test_contribution_api.py` | integration | 40 | analytics_domain, api_or_runtime |
 | 13 | `tests/unit/services/test_lineage_metadata_store.py` | unit | 40 | uncategorized |
 | 14 | `tests/unit/services/test_operator_action_lease_service.py` | unit | 39 | uncategorized |
-| 15 | `tests/integration/test_performance_api.py` | integration | 38 | api_or_runtime |
-| 16 | `tests/unit/services/test_compute_executor_worker.py` | unit | 38 | uncategorized |
-| 17 | `tests/unit/services/test_twr_mode_service.py` | unit | 38 | analytics_domain |
+| 15 | `tests/unit/services/test_twr_mode_service.py` | unit | 39 | analytics_domain |
+| 16 | `tests/integration/test_performance_api.py` | integration | 38 | api_or_runtime |
+| 17 | `tests/unit/services/test_compute_executor_worker.py` | unit | 38 | uncategorized |
 | 18 | `tests/unit/services/test_workspace_summary_service.py` | unit | 38 | uncategorized |
 | 19 | `tests/unit/engine/test_mwr.py` | unit | 34 | analytics_domain |
 | 20 | `tests/unit/services/test_benchmark_exposure_context_service.py` | unit | 34 | uncategorized |
