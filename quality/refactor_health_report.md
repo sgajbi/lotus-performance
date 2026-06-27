@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Health Report
 
 Report date: 2026-06-28
-Branch: `feature/support-brief-branch-coverage-hardening`
+Branch: `feature/attribution-branch-coverage-hardening`
 Baseline source: `quality/baseline_report.md`
 Report mode: phase-zero scorecard; complexity, architecture, duplicate-code, repository hygiene,
 router-thinness, observability-readiness, and Python security posture are enforced separately by CI.
@@ -72,9 +72,9 @@ link the commit, command, or CI artifact that proves the change.
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
 | Test modules | 228 | 275 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 3,294 | measured | `python -m pytest --collect-only -q` |
-| Line coverage | unknown | 99.36% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`2,948` unit, `308` integration, and `21` e2e tests under branch coverage; `21,108` covered lines of `21,244` statements) |
-| Branch coverage | unknown | 96.53% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`2,948` unit, `308` integration, and `21` e2e tests under branch coverage; `4,255` covered branches of `4,408`, `153` missing branches, `151` partial branches) |
+| Collected tests | 2,035 | 3,302 | measured | `python -m pytest --collect-only -q` |
+| Line coverage | unknown | 99.38% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`2,956` unit, `308` integration, and `21` e2e tests under branch coverage; `21,112` covered lines of `21,244` statements) |
+| Branch coverage | unknown | 96.76% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`2,956` unit, `308` integration, and `21` e2e tests under branch coverage; `4,265` covered branches of `4,408`, `143` missing branches, `141` partial branches) |
 | Integration/API/runtime test functions | unknown | 600 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |
 | Contract/governance test functions | unknown | 108 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |
 
@@ -183,6 +183,24 @@ Latest support-brief workflow-pack branch-coverage hardening evidence on `featur
 4. `app/services/inspection/support_brief_workflow_pack.py` dropped out of the top branch-gap table after focused tests covered non-200 Lotus AI responses, malformed execution payloads, unavailable fallback without a valid run, optional source-reference projection, invalid workflow-pack run payload rejection, non-list action/finding payloads, and ready/default summary-note posture.
 5. Branch coverage remains report-only; no fail-under threshold or GitHub blocking lane is added in
    this slice.
+
+Latest attribution branch-coverage hardening evidence on `feature/attribution-branch-coverage-hardening`:
+
+1. `python -m pytest tests\unit\engine\test_attribution.py tests\unit\engine\test_attribution_supportability.py --cov=engine.attribution --cov-branch --cov-report=term-missing --cov-report=json:output\attribution-branch-coverage.json` passed with `64` focused tests and `100%` focused branch coverage for `engine/attribution.py`.
+2. `make branch-coverage-baseline` passed with `2,956` unit tests, `308` integration tests, and
+   `21` e2e tests under `pytest --cov-branch`.
+3. The generated `quality/coverage_inventory.md` records combined line coverage at `99.38%`,
+   branch coverage at `96.76%`, `4,408` total branches, `143` missing branches, and `141` partial
+   branches.
+4. `engine/attribution.py` dropped out of the top branch-gap table after focused tests covered
+   empty linked-return handling, invalid base-weight metadata, same-currency local/FX preservation,
+   sparse resampling without return-presence flags, partial effect-column linking, direct
+   currency-attribution requirement fail-fast behavior, unsupported model no-op fallback, and
+   by-instrument orchestration through `run_attribution_calculations`.
+5. Branch coverage remains report-only; no fail-under threshold or GitHub blocking lane is added in
+   this slice. README, wiki, repository context, platform context, skills, and agent context did not
+   need updates because this slice changed test evidence only and did not change commands, API
+   contracts, runtime topology, operator workflow, or cross-repo ownership.
 
 ## Next Updates
 
