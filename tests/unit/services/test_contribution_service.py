@@ -486,6 +486,28 @@ def test_complete_contribution_execution_preserves_lineage_handoff(monkeypatch):
     assert calculation_details["daily_contributions.csv"] is daily_contributions_df
 
 
+def test_record_average_weight_shadow_observation_projects_methodology_deltas():
+    audit_state = AverageWeightShadowAuditState()
+    methodology_context = ContributionPeriodMethodologyContext(
+        average_weight_shadow_df=pd.DataFrame(),
+        delta_positions=3,
+        max_shadow_delta_bp=125,
+        sum_shadow_delta_bp=175,
+        position_reset_dates=set(),
+        portfolio_reset_dates=set(),
+        position_flow_balance_counts={"position_flow_residual_days": 0},
+    )
+
+    contribution_service._record_average_weight_shadow_observation(
+        average_weight_audit_state=audit_state,
+        period_methodology_context=methodology_context,
+    )
+
+    assert audit_state.delta_positions == 3
+    assert audit_state.delta_max_bp == 125
+    assert audit_state.delta_sum_bp == 175
+
+
 def test_build_contribution_period_supportability_preserves_evidence_inputs(monkeypatch):
     period_slice_df = pd.DataFrame({"position_id": ["A"], "smoothed_contribution": [0.01]})
     portfolio_period_slice_df = pd.DataFrame({"portfolio_id": ["P"]})

@@ -20,7 +20,7 @@ python scripts/python_function_size_inventory.py --limit 25
 
 | Rank | Function | File | Lines |
 | ---: | --- | --- | ---: |
-| 1 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:407` | 67 |
+| 1 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:407` | 66 |
 | 2 | `build_runtime_work_item_snapshot` | `app/services/runtime_work_item_service.py:62` | 66 |
 | 3 | `build_runtime_recoveries_query` | `app/api/dependencies/runtime_recoveries.py:11` | 65 |
 | 4 | `_calculate_promoted_stateful_benchmark_workflow` | `app/services/benchmark_calculation_workflow_service.py:146` | 65 |
@@ -30,8 +30,8 @@ python scripts/python_function_size_inventory.py --limit 25
 | 8 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:91` | 65 |
 | 9 | `StatefulInputService._fetch_position_chunk` | `app/services/stateful_input_service.py:1007` | 65 |
 | 10 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:38` | 64 |
-| 11 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:476` | 64 |
-| 12 | `LineageMetadataStore._build_pending_payload_stats_statement` | `app/services/lineage_metadata_store.py:576` | 64 |
+| 11 | `LineageMetadataStore._build_pending_payload_stats_statement` | `app/services/lineage_metadata_store.py:576` | 64 |
+| 12 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:475` | 63 |
 | 13 | `_SourceEconomicsSampleCollector._record_taxonomy_samples` | `app/services/inspection/source_economics_collector.py:111` | 63 |
 | 14 | `_load_durable_queue_metric_sources` | `app/services/queue_metrics_service.py:259` | 63 |
 | 15 | `resolve_stateful_returns_series_request` | `app/services/returns_series_service.py:1594` | 63 |
@@ -205,6 +205,11 @@ LP-CR-1469 isolated stateless contribution resolution envelope projection into
 `_resolved_stateless_contribution_request(...)`. `resolve_contribution_request(...)` moved from
 `67` to `62` lines, duplicate hotspots remain `0`, and the largest production function is now
 `_build_flat_period_contribution_result(...)` at `67` lines.
+LP-CR-1470 isolated reset-aware average-weight shadow audit observation into
+`_record_average_weight_shadow_observation(...)`, shared by flat and hierarchy contribution period
+builders. `_build_flat_period_contribution_result(...)` moved from `67` to `66` lines,
+`_build_hierarchy_period_contribution_result(...)` moved from `64` to `63` lines, duplicate
+hotspots remain `0`, and the largest production functions now measure `66` lines.
 LP-CR-1411 isolated runtime-status degradation policy response projection into focused helpers.
 `build_runtime_status_response` moved from `113` to `91` lines, and the largest production
 functions moved to the contribution period result builders at `102` lines.
