@@ -21,7 +21,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 274 |
-| Test functions inventoried | 3034 |
+| Test functions inventoried | 3035 |
 | Integration/API/runtime test functions | 599 |
 | Contract/governance test functions | 108 |
 
@@ -32,7 +32,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | benchmarks | 9 | 17 |
 | e2e | 1 | 21 |
 | integration | 24 | 300 |
-| unit | 240 | 2696 |
+| unit | 240 | 2697 |
 
 ## Test Functions By Family
 
@@ -43,7 +43,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | contract_or_governance | 108 |
 | observability_or_readiness | 185 |
 | quality_or_security | 107 |
-| uncategorized | 1220 |
+| uncategorized | 1221 |
 
 ## Largest Test Modules
 
@@ -72,9 +72,9 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | 21 | `tests/unit/models/test_twr_requests.py` | unit | 32 | analytics_domain |
 | 22 | `tests/unit/models/test_workspace_summary_models.py` | unit | 31 | uncategorized |
 | 23 | `tests/unit/services/test_twr_inspection_reconciliation.py` | unit | 31 | analytics_domain |
-| 24 | `tests/unit/engine/test_composites.py` | unit | 29 | analytics_domain |
-| 25 | `tests/unit/services/test_operator_action_replay_service.py` | unit | 29 | uncategorized |
-| 26 | `tests/unit/services/test_stateful_input_service.py` | unit | 29 | uncategorized |
+| 24 | `tests/unit/services/test_stateful_input_service.py` | unit | 30 | uncategorized |
+| 25 | `tests/unit/engine/test_composites.py` | unit | 29 | analytics_domain |
+| 26 | `tests/unit/services/test_operator_action_replay_service.py` | unit | 29 | uncategorized |
 | 27 | `tests/integration/test_returns_series_api.py` | integration | 26 | api_or_runtime |
 | 28 | `tests/unit/services/test_queue_metric_builders.py` | unit | 26 | observability_or_readiness |
 | 29 | `tests/unit/services/test_twr_inspection_service.py` | unit | 26 | analytics_domain |
@@ -86,7 +86,7 @@ The AST inventory counts test function definitions, while `pytest --collect-only
 pytest items including parametrized cases. The two values are intentionally different and
 complementary: collected tests show execution breadth, while this report shows source test-module
 and test-function distribution. The current suite has meaningful API/runtime and
-contract/governance coverage, but 1220 test functions remain uncategorized by the first-wave
+contract/governance coverage, but 1221 test functions remain uncategorized by the first-wave
 taxonomy and should be reviewed before turning taxonomy into a blocking gate.
 
 ## Gate Posture

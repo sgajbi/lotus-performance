@@ -1060,7 +1060,14 @@ class StatefulInputService:
             snapshots=snapshot_batch,
         )
 
-        return 200, {
+        return 200, self._build_position_chunk_payload(accumulator=accumulator)
+
+    def _build_position_chunk_payload(
+        self,
+        *,
+        accumulator: _PositionChunkAccumulator,
+    ) -> dict[str, Any]:
+        return {
             "rows": self._merge_dedup_records_by_fields(
                 records=accumulator.rows,
                 key_fields=("valuation_date", "position_id"),

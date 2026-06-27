@@ -1234,6 +1234,9 @@ LP-CR-1478 isolated runtime-retention manifest read, validation, invalid-manifes
 unavailable snapshot projection from the public runtime-retention history snapshot builder. The
 measured max cyclomatic complexity remains `5`, high-complexity functions remain `0`, and average
 maintainability index measured `54.95`.
+LP-CR-1479 isolated stateful position chunk response projection from the paginated position
+chunk retrieval path. The measured max cyclomatic complexity remains `5`, high-complexity
+functions remain `0`, and average maintainability index measured `54.95`.
 
 Maintainability index values should be treated as directional hotspot evidence because generated
 schemas, persistence-style modules, and dense orchestration files can score poorly even when tests
