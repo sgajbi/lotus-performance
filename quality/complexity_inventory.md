@@ -62,7 +62,7 @@ must stay at `0`.
 | 22 | `_ensure_payload_lease_columns` | method | `app/services/lineage_metadata_store.py:1121` | 5 | A |
 | 23 | `_load_payload_details` | function | `app/services/lineage_metadata_store.py:1261` | 5 | A |
 | 24 | `evaluate_mandate_performance_health_context` | function | `app/services/mandate_health_context_service.py:16` | 5 | A |
-| 25 | `_stringify_decimal_collection` | function | `app/services/mwr_calculation_service.py:141` | 5 | A |
+| 25 | `_stringify_decimal_collection` | function | `app/services/mwr_calculation_service.py:194` | 5 | A |
 
 ## Lowest Maintainability Index
 
@@ -1176,6 +1176,10 @@ high-complexity functions remain `0`, and average maintainability index measured
 LP-CR-1459 isolated stateful portfolio chunk page accumulation from the paginated chunk fetcher.
 The measured max cyclomatic complexity remains `5`, high-complexity functions remain `0`, and
 average maintainability index measured `55.15`.
+LP-CR-1460 isolated MWR response supportability construction, solver/supportability metric
+emission, and endpoint payload projection from the public MWR response builder. The measured max
+cyclomatic complexity remains `5`, high-complexity functions remain `0`, and average
+maintainability index measured `55.15`.
 
 Maintainability index values should be treated as directional hotspot evidence because generated
 schemas, persistence-style modules, and dense orchestration files can score poorly even when tests
