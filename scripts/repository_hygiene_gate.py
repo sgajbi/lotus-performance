@@ -70,7 +70,7 @@ def find_repository_hygiene_violations(tracked_paths: list[str]) -> list[str]:
         parts = set(normalised.split("/"))
         suffixes = Path(normalised).suffixes
 
-        if normalised in PROHIBITED_EXACT_PATHS or name.startswith(".coverage."):
+        if name in PROHIBITED_EXACT_PATHS or name.startswith(".coverage."):
             violations.append(f"{normalised}: generated or local-only artifact must not be tracked")
             continue
         if name == "pyvenv.cfg":
