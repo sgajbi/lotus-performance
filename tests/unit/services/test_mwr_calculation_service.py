@@ -17,6 +17,7 @@ from app.services.mwr_calculation_service import (
     _mwr_reporting_currency,
     _mwr_requested_window,
     _record_mwr_response_metrics,
+    _register_mwr_execution,
     _resolve_mwr_execution_request,
     _stringify_decimals,
     build_mwr_response,
@@ -107,6 +108,44 @@ def test_mwr_requested_window_uses_stateful_window_start_date():
     )
 
     assert _mwr_requested_window(request) == {"as_of": "2025-12-31", "start_date": "2025-02-01"}
+
+
+def test_register_mwr_execution_materializes_identity_and_marks_running(mocker):
+    request = MoneyWeightedReturnAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "MWR-SERVICE-REGISTER",
+            "begin_mv": 100.0,
+            "end_mv": 130.0,
+            "as_of": "2025-12-31",
+            "start_date": "2025-01-01",
+            "cash_flows": [{"amount": 10.0, "date": "2025-06-30"}],
+            "mwr_method": "DIETZ",
+        }
+    )
+    settings = type("Settings", (), {"APP_VERSION": "registration-version"})()
+    mocker.patch("app.services.mwr_calculation_service.get_settings", return_value=settings)
+    mocker.patch(
+        "app.services.mwr_calculation_service.generate_request_fingerprint",
+        return_value=("registered-fingerprint", "registered-hash"),
+    )
+    register_sync = mocker.patch("app.services.mwr_calculation_service.register_sync_execution_or_raise")
+    mark_running = mocker.patch("app.services.mwr_calculation_service.execution_registry.mark_running")
+
+    registered_execution = _register_mwr_execution(request)
+
+    assert registered_execution.active_settings is settings
+    assert registered_execution.input_fingerprint == "registered-fingerprint"
+    assert registered_execution.calculation_hash == "registered-hash"
+    register_sync.assert_called_once_with(
+        calculation_id=request.calculation_id,
+        analytics_type=ANALYTICS_WORKFLOW_MWR,
+        portfolio_id="MWR-SERVICE-REGISTER",
+        requested_window={"as_of": "2025-12-31", "start_date": "2025-01-01"},
+        input_fingerprint="registered-fingerprint",
+        calculation_hash="registered-hash",
+    )
+    mark_running.assert_called_once_with(request.calculation_id)
 
 
 def test_build_mwr_response_preserves_endpoint_payload_contract(mocker):

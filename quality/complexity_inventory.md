@@ -62,7 +62,7 @@ must stay at `0`.
 | 22 | `_ensure_payload_lease_columns` | method | `app/services/lineage_metadata_store.py:1070` | 5 | A |
 | 23 | `_load_payload_details` | function | `app/services/lineage_metadata_store.py:1238` | 5 | A |
 | 24 | `evaluate_mandate_performance_health_context` | function | `app/services/mandate_health_context_service.py:16` | 5 | A |
-| 25 | `_stringify_decimal_collection` | function | `app/services/mwr_calculation_service.py:200` | 5 | A |
+| 25 | `_stringify_decimal_collection` | function | `app/services/mwr_calculation_service.py:207` | 5 | A |
 
 ## Lowest Maintainability Index
 
@@ -1268,6 +1268,9 @@ smoothing evidence builder. The measured max cyclomatic complexity remains `5`,
 high-complexity functions remain `0`, and average maintainability index measured `54.93`.
 LP-CR-1489 isolated retained-calculation TWR inspection input materialization from the subject
 inspection input resolver. The measured max cyclomatic complexity remains `5`,
+high-complexity functions remain `0`, and average maintainability index measured `54.93`.
+LP-CR-1490 isolated MWR execution registration and initial identity materialization from the public
+MWR calculation workflow. The measured max cyclomatic complexity remains `5`,
 high-complexity functions remain `0`, and average maintainability index measured `54.93`.
 
 Maintainability index values should be treated as directional hotspot evidence because generated
