@@ -35,6 +35,7 @@ from app.services.workspace_summary_service import (
     _build_workspace_active_block,
     _build_workspace_benchmark_and_active_blocks,
     _build_workspace_benchmark_daily_df,
+    _build_workspace_period_summary_result,
     _build_workspace_results_by_period,
     _date_from_boundary,
     _decimal_or_zero,
@@ -876,6 +877,102 @@ def test_build_workspace_results_by_period_skips_empty_periods_and_projects_summ
     assert results["1D"].active is None
     assert results["1D"].money_weighted_return is mwr_summary
     assert performance_builder.call_count == 2
+
+
+def test_build_workspace_period_summary_result_projects_period_blocks(mocker):
+    request = WorkspaceSummaryRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT-1",
+            "report_end_date": "2026-01-03",
+            "performance_start_date": "2026-01-01",
+            "input_mode": "stateless",
+            "stateless_input": {
+                "valuation_points": [
+                    {"perf_date": "2026-01-01", "begin_mv": 100.0, "end_mv": 101.0},
+                    {"perf_date": "2026-01-02", "begin_mv": 101.0, "end_mv": 102.0},
+                ]
+            },
+            "periods": [{"period": "1D", "frequencies": ["daily"]}],
+        }
+    )
+    return_value = WorkspaceReturnValue(base=1.0)
+    performance_block = WorkspacePerformanceBlock(
+        summary=WorkspaceEconomicReturnSummary(
+            economics=WorkspaceEconomicContext(
+                begin_market_value=100.0,
+                end_market_value=102.0,
+                beginning_cash_flow=0.0,
+                ending_cash_flow=0.0,
+                fees=0.0,
+                net_cash_flow=0.0,
+                flow_adjusted_end_market_value=102.0,
+            ),
+            period_return=return_value,
+            cumulative_return=return_value,
+            annualized_return=return_value,
+        ),
+        breakdowns={},
+    )
+    mwr_summary = WorkspaceMoneyWeightedReturnSummary(
+        input_mode="stateless",
+        method="XIRR",
+        period_return=1.0,
+        cumulative_return=1.0,
+        annualized_return=1.0,
+        economics=performance_block.summary.economics,
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 2),
+        notes=[],
+    )
+    performance_builder = mocker.patch(
+        "app.services.workspace_summary_service._build_workspace_performance_block",
+        return_value=performance_block,
+    )
+    benchmark_builder = mocker.patch(
+        "app.services.workspace_summary_service._build_workspace_benchmark_and_active_blocks",
+        return_value=(None, None),
+    )
+    mwr_builder = mocker.patch(
+        "app.services.workspace_summary_service._build_workspace_mwr_summary",
+        return_value=mwr_summary,
+    )
+    resolved_period = ResolvedWorkspacePeriod(name="1D", start_date=date(2026, 1, 1), end_date=date(2026, 1, 2))
+
+    result = _build_workspace_period_summary_result(
+        request=request,
+        resolved_period=resolved_period,
+        portfolio_input=SimpleNamespace(input_mode="stateless"),
+        portfolio_slice=pd.DataFrame(
+            [
+                {"perf_date": date(2026, 1, 1), "begin_mv": 100.0, "end_mv": 101.0},
+                {"perf_date": date(2026, 1, 2), "begin_mv": 101.0, "end_mv": 102.0},
+            ]
+        ),
+        net_daily_results_df=pd.DataFrame({"perf_date": [date(2026, 1, 1), date(2026, 1, 2), date(2026, 1, 3)]}),
+        gross_daily_results_df=pd.DataFrame({"perf_date": [date(2026, 1, 1), date(2026, 1, 2), date(2026, 1, 3)]}),
+        benchmark_input=None,
+        benchmark_daily_df=None,
+        frequencies=[],
+    )
+
+    assert result.portfolio_twr.net is performance_block
+    assert result.portfolio_twr.gross is performance_block
+    assert result.benchmark is None
+    assert result.active is None
+    assert result.money_weighted_return is mwr_summary
+    assert performance_builder.call_count == 2
+    assert [call.kwargs["period_daily_slice"]["perf_date"].tolist() for call in performance_builder.call_args_list] == [
+        [date(2026, 1, 1), date(2026, 1, 2)],
+        [date(2026, 1, 1), date(2026, 1, 2)],
+    ]
+    benchmark_builder.assert_called_once()
+    mwr_builder.assert_called_once()
+    mwr_kwargs = mwr_builder.call_args.kwargs
+    assert mwr_kwargs["period"] is resolved_period
+    assert mwr_kwargs["input_mode"] == "stateless"
+    assert mwr_kwargs["request"] is request
+    assert mwr_kwargs["period_slice"]["perf_date"].tolist() == [date(2026, 1, 1), date(2026, 1, 2)]
 
 
 def test_resolve_stateful_portfolio_start_date_rejects_missing_open_date(mocker):
