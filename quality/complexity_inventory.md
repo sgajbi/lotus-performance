@@ -1213,6 +1213,10 @@ and average maintainability index measured `55.14`.
 LP-CR-1472 isolated runtime-recoveries query metadata from the FastAPI dependency signature. The
 measured max cyclomatic complexity remains `5`, high-complexity functions remain `0`, and average
 maintainability index measured `54.97`.
+LP-CR-1473 isolated shared contribution period frame, methodology-context, and average-weight audit
+preparation from the flat and hierarchy contribution period builders. The measured max cyclomatic
+complexity remains `5`, high-complexity functions remain `0`, and average maintainability index
+measured `54.97`.
 
 Maintainability index values should be treated as directional hotspot evidence because generated
 schemas, persistence-style modules, and dense orchestration files can score poorly even when tests

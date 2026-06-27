@@ -119,6 +119,13 @@ class _ContributionPeriodSupportability:
 
 
 @dataclass(frozen=True)
+class _ContributionPeriodPreparation:
+    period_slice_df: Any
+    portfolio_period_slice_df: Any
+    period_methodology_context: ContributionPeriodMethodologyContext
+
+
+@dataclass(frozen=True)
 class _ContributionResponseEvidence:
     diagnostics: Any
     audit: Audit
@@ -413,27 +420,14 @@ def _build_flat_period_contribution_result(
     reset_aware_average_weight_mode: str,
     average_weight_audit_state: AverageWeightShadowAuditState,
 ) -> _ContributionPeriodResult | None:
-    period_frames = _slice_contribution_period_frames(
+    period_preparation = _prepare_contribution_period(
         daily_contributions_df=daily_contributions_df,
         portfolio_results_df=portfolio_results_df,
-        start_date=period.start_date,
-        end_date=period.end_date,
-    )
-    period_slice_df = period_frames.period_slice_df
-
-    if period_slice_df.empty:
-        return None
-
-    portfolio_period_slice_df = period_frames.portfolio_period_slice_df
-
-    period_methodology_context = _build_contribution_period_methodology_context(
-        period_slice_df=period_slice_df,
-        portfolio_period_slice_df=portfolio_period_slice_df,
-    )
-    _record_average_weight_shadow_observation(
+        period=period,
         average_weight_audit_state=average_weight_audit_state,
-        period_methodology_context=period_methodology_context,
     )
+    if period_preparation is None:
+        return None
 
     total_portfolio_return = _calculate_reset_aware_period_portfolio_return(
         request,
@@ -444,21 +438,21 @@ def _build_flat_period_contribution_result(
     position_assembly = _build_flat_contribution_position_assembly(
         request=request,
         period=period,
-        period_slice_df=period_slice_df,
-        period_methodology_context=period_methodology_context,
+        period_slice_df=period_preparation.period_slice_df,
+        period_methodology_context=period_preparation.period_methodology_context,
         reset_aware_average_weight_mode=reset_aware_average_weight_mode,
         total_portfolio_return=total_portfolio_return,
     )
     supportability = _build_contribution_period_supportability(
-        period_slice_df=period_slice_df,
-        portfolio_period_slice_df=portfolio_period_slice_df,
+        period_slice_df=period_preparation.period_slice_df,
+        portfolio_period_slice_df=period_preparation.portfolio_period_slice_df,
         position_contributions=position_assembly.position_contributions,
         daily_series=position_assembly.daily_series,
         total_portfolio_return=total_portfolio_return,
         smoothing_method=request.smoothing.method,
         residual_allocation_applied=position_assembly.residual_allocation_applied,
         residual_allocation_basis=position_assembly.selected_average_weight_column,
-        period_methodology_context=period_methodology_context,
+        period_methodology_context=period_preparation.period_methodology_context,
         average_weight_audit_state=average_weight_audit_state,
         is_promoted=position_assembly.use_reset_aware_average_weight,
     )
@@ -480,16 +474,14 @@ def _build_hierarchy_period_contribution_result(
     portfolio_results_df: Any,
     average_weight_audit_state: AverageWeightShadowAuditState,
 ) -> _ContributionPeriodResult | None:
-    period_frames = _slice_contribution_period_frames(
+    period_preparation = _prepare_contribution_period(
         daily_contributions_df=daily_contributions_df,
         portfolio_results_df=portfolio_results_df,
-        start_date=period.start_date,
-        end_date=period.end_date,
+        period=period,
+        average_weight_audit_state=average_weight_audit_state,
+        require_portfolio_slice=True,
     )
-    period_slice_df = period_frames.period_slice_df
-    portfolio_period_slice_df = period_frames.portfolio_period_slice_df
-
-    if period_slice_df.empty or portfolio_period_slice_df.empty:
+    if period_preparation is None:
         return None
 
     total_portfolio_return = _calculate_reset_aware_period_portfolio_return(
@@ -498,32 +490,23 @@ def _build_hierarchy_period_contribution_result(
         period.end_date,
         period.name,
     )
-    period_methodology_context = _build_contribution_period_methodology_context(
-        period_slice_df=period_slice_df,
-        portfolio_period_slice_df=portfolio_period_slice_df,
-    )
-    _record_average_weight_shadow_observation(
-        average_weight_audit_state=average_weight_audit_state,
-        period_methodology_context=period_methodology_context,
-    )
-
     position_assembly = _build_hierarchy_contribution_position_assembly(
         request=request,
         period=period,
-        period_slice_df=period_slice_df,
-        period_methodology_context=period_methodology_context,
+        period_slice_df=period_preparation.period_slice_df,
+        period_methodology_context=period_preparation.period_methodology_context,
         total_portfolio_return=total_portfolio_return,
     )
     supportability = _build_contribution_period_supportability(
-        period_slice_df=period_slice_df,
-        portfolio_period_slice_df=portfolio_period_slice_df,
+        period_slice_df=period_preparation.period_slice_df,
+        portfolio_period_slice_df=period_preparation.portfolio_period_slice_df,
         position_contributions=position_assembly.position_contributions,
         daily_series=position_assembly.daily_series,
         total_portfolio_return=total_portfolio_return,
         smoothing_method=request.smoothing.method,
         residual_allocation_applied=position_assembly.residual_allocation_applied,
         residual_allocation_basis="average_weight",
-        period_methodology_context=period_methodology_context,
+        period_methodology_context=period_preparation.period_methodology_context,
         average_weight_audit_state=average_weight_audit_state,
     )
     return _build_contribution_period_result(
@@ -534,6 +517,41 @@ def _build_hierarchy_period_contribution_result(
         daily_series=position_assembly.daily_series,
         emitted_position_series=position_assembly.emitted_position_series,
         hierarchy_results=position_assembly.hierarchy_results,
+    )
+
+
+def _prepare_contribution_period(
+    *,
+    daily_contributions_df: Any,
+    portfolio_results_df: Any,
+    period: Any,
+    average_weight_audit_state: AverageWeightShadowAuditState,
+    require_portfolio_slice: bool = False,
+) -> _ContributionPeriodPreparation | None:
+    period_frames = _slice_contribution_period_frames(
+        daily_contributions_df=daily_contributions_df,
+        portfolio_results_df=portfolio_results_df,
+        start_date=period.start_date,
+        end_date=period.end_date,
+    )
+    period_slice_df = period_frames.period_slice_df
+    portfolio_period_slice_df = period_frames.portfolio_period_slice_df
+
+    if period_slice_df.empty or (require_portfolio_slice and portfolio_period_slice_df.empty):
+        return None
+
+    period_methodology_context = _build_contribution_period_methodology_context(
+        period_slice_df=period_slice_df,
+        portfolio_period_slice_df=portfolio_period_slice_df,
+    )
+    _record_average_weight_shadow_observation(
+        average_weight_audit_state=average_weight_audit_state,
+        period_methodology_context=period_methodology_context,
+    )
+    return _ContributionPeriodPreparation(
+        period_slice_df=period_slice_df,
+        portfolio_period_slice_df=portfolio_period_slice_df,
+        period_methodology_context=period_methodology_context,
     )
 
 

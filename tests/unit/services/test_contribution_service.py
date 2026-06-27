@@ -508,6 +508,101 @@ def test_record_average_weight_shadow_observation_projects_methodology_deltas():
     assert audit_state.delta_sum_bp == 175
 
 
+def test_prepare_contribution_period_projects_frames_methodology_and_audit(monkeypatch):
+    period_slice_df = pd.DataFrame({"position_id": ["A"], "smoothed_contribution": [0.01]})
+    portfolio_period_slice_df = pd.DataFrame({"portfolio_id": ["P"]})
+    methodology_context = ContributionPeriodMethodologyContext(
+        average_weight_shadow_df=pd.DataFrame({"position_id": ["A"], "average_weight": [0.5]}),
+        delta_positions=2,
+        max_shadow_delta_bp=50,
+        sum_shadow_delta_bp=75,
+        position_reset_dates=set(),
+        portfolio_reset_dates=set(),
+        position_flow_balance_counts={"position_flow_residual_days": 0},
+    )
+    period = SimpleNamespace(name="QTD", start_date=date(2026, 1, 1), end_date=date(2026, 3, 31))
+    audit_state = AverageWeightShadowAuditState()
+    daily_contributions_df = pd.DataFrame()
+    portfolio_results_df = pd.DataFrame()
+    slice_calls: list[dict[str, object]] = []
+    context_calls: list[dict[str, object]] = []
+
+    def slice_period_frames(**kwargs):
+        slice_calls.append(kwargs)
+        return SimpleNamespace(
+            period_slice_df=period_slice_df,
+            portfolio_period_slice_df=portfolio_period_slice_df,
+        )
+
+    def build_methodology_context(**kwargs):
+        context_calls.append(kwargs)
+        return methodology_context
+
+    monkeypatch.setattr(contribution_service, "_slice_contribution_period_frames", slice_period_frames)
+    monkeypatch.setattr(
+        contribution_service,
+        "_build_contribution_period_methodology_context",
+        build_methodology_context,
+    )
+
+    preparation = contribution_service._prepare_contribution_period(
+        daily_contributions_df=daily_contributions_df,
+        portfolio_results_df=portfolio_results_df,
+        period=period,
+        average_weight_audit_state=audit_state,
+    )
+
+    assert preparation is not None
+    assert preparation.period_slice_df is period_slice_df
+    assert preparation.portfolio_period_slice_df is portfolio_period_slice_df
+    assert preparation.period_methodology_context is methodology_context
+    assert audit_state.delta_positions == 2
+    assert audit_state.delta_max_bp == 50
+    assert audit_state.delta_sum_bp == 75
+    assert len(slice_calls) == 1
+    assert slice_calls[0]["daily_contributions_df"] is daily_contributions_df
+    assert slice_calls[0]["portfolio_results_df"] is portfolio_results_df
+    assert slice_calls[0]["start_date"] == date(2026, 1, 1)
+    assert slice_calls[0]["end_date"] == date(2026, 3, 31)
+    assert context_calls == [
+        {
+            "period_slice_df": period_slice_df,
+            "portfolio_period_slice_df": portfolio_period_slice_df,
+        }
+    ]
+
+
+def test_prepare_contribution_period_requires_portfolio_slice_when_requested(monkeypatch):
+    period_slice_df = pd.DataFrame({"position_id": ["A"], "smoothed_contribution": [0.01]})
+    period = SimpleNamespace(name="ITD", start_date=date(2026, 1, 1), end_date=date(2026, 3, 31))
+    audit_state = AverageWeightShadowAuditState()
+
+    monkeypatch.setattr(
+        contribution_service,
+        "_slice_contribution_period_frames",
+        lambda **_kwargs: SimpleNamespace(
+            period_slice_df=period_slice_df,
+            portfolio_period_slice_df=pd.DataFrame(),
+        ),
+    )
+    monkeypatch.setattr(
+        contribution_service,
+        "_build_contribution_period_methodology_context",
+        lambda **_kwargs: pytest.fail("empty hierarchy portfolio slice should stop before methodology context"),
+    )
+
+    preparation = contribution_service._prepare_contribution_period(
+        daily_contributions_df=pd.DataFrame(),
+        portfolio_results_df=pd.DataFrame(),
+        period=period,
+        average_weight_audit_state=audit_state,
+        require_portfolio_slice=True,
+    )
+
+    assert preparation is None
+    assert audit_state.delta_positions == 0
+
+
 def test_build_contribution_period_supportability_preserves_evidence_inputs(monkeypatch):
     period_slice_df = pd.DataFrame({"position_id": ["A"], "smoothed_contribution": [0.01]})
     portfolio_period_slice_df = pd.DataFrame({"portfolio_id": ["P"]})
