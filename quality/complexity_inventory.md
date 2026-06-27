@@ -1253,6 +1253,9 @@ functions remain `0`, and average maintainability index measured `54.94`.
 LP-CR-1484 isolated stateful returns-series portfolio, benchmark, and risk-free source retrieval
 from the public stateful returns-series resolver. The measured max cyclomatic complexity remains
 `5`, high-complexity functions remain `0`, and average maintainability index measured `54.94`.
+LP-CR-1485 isolated stateful attribution normalization input policy validation from the stateful
+attribution input builder. The measured max cyclomatic complexity remains `5`, high-complexity
+functions remain `0`, and average maintainability index measured `54.94`.
 
 Maintainability index values should be treated as directional hotspot evidence because generated
 schemas, persistence-style modules, and dense orchestration files can score poorly even when tests
