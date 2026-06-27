@@ -25,11 +25,18 @@ PROHIBITED_PATH_PARTS = {
 }
 PROHIBITED_SUFFIXES = {
     ".db",
+    ".db-shm",
+    ".db-wal",
     ".egg-info",
     ".log",
     ".pyc",
     ".pyo",
     ".sqlite",
+    ".sqlite-shm",
+    ".sqlite-wal",
+    ".sqlite3",
+    ".sqlite3-shm",
+    ".sqlite3-wal",
 }
 
 
