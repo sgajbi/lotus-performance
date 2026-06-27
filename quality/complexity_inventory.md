@@ -1192,6 +1192,9 @@ filtering. The measured max cyclomatic complexity remains `5`, high-complexity f
 LP-CR-1464 isolated source-economics artifact payload section projection from the aggregate
 artifact payload builder. The measured max cyclomatic complexity remains `5`, high-complexity
 functions remain `0`, and average maintainability index measured `55.15`.
+LP-CR-1465 isolated resolved promoted stateful returns-series execution-window and payload
+projection from the promoted workflow helper. The measured max cyclomatic complexity remains `5`,
+high-complexity functions remain `0`, and average maintainability index measured `55.15`.
 
 Maintainability index values should be treated as directional hotspot evidence because generated
 schemas, persistence-style modules, and dense orchestration files can score poorly even when tests
