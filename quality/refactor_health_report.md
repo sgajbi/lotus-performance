@@ -43,7 +43,7 @@ link the commit, command, or CI artifact that proves the change.
 | Max cyclomatic complexity | unknown | 5 | enforced | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py`; `make quality-complexity-gate` |
 | High-complexity functions | unknown | 0 | enforced | rank D-F functions in `quality/complexity_inventory.md`; `make quality-complexity-gate` |
 | Average maintainability index | unknown | 55.15 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
-| Largest functions by LOC | unknown | 72 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; LP-CR-1456 moved `calculate_mwr_response(...)` to `65` lines, so the largest production function is now `_resolve_stateful_returns_series_benchmark_source(...)` at `72` lines |
+| Largest functions by LOC | unknown | 71 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; LP-CR-1457 moved `_resolve_stateful_returns_series_benchmark_source(...)` to `44` lines, so the largest production functions are now `retrieve_stateful_attribution_source_input(...)` and `StatefulInputService._fetch_portfolio_chunk(...)` at `71` lines |
 
 ## Architecture
 

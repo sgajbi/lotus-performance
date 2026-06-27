@@ -36,7 +36,7 @@ metrics in each section are updated with each meaningful slice.
 | Max cyclomatic complexity | unknown | 5 | n/a | enforced | `quality/complexity_inventory.md`; `quality/refactor_health_report.md`; `make quality-complexity-gate` |
 | High-complexity functions (D-F) | unknown | 0 | n/a | enforced | `quality/complexity_inventory.md`; `quality/refactor_health_report.md`; `make quality-complexity-gate` |
 | Average maintainability index | unknown | 55.15 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
-| Largest functions by LOC | unknown | 72 | n/a | measured | `quality/function_size_inventory.md`; `quality/refactor_health_report.md`; LP-CR-1456 moved `calculate_mwr_response(...)` to `65` lines, so the largest production function is now `_resolve_stateful_returns_series_benchmark_source(...)` at `72` lines |
+| Largest functions by LOC | unknown | 71 | n/a | measured | `quality/function_size_inventory.md`; `quality/refactor_health_report.md`; LP-CR-1457 moved `_resolve_stateful_returns_series_benchmark_source(...)` to `44` lines, so the largest production functions are now `retrieve_stateful_attribution_source_input(...)` and `StatefulInputService._fetch_portfolio_chunk(...)` at `71` lines |
 
 ### Architecture
 

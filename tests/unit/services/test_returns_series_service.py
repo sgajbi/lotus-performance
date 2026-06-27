@@ -10,7 +10,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.models.benchmark_analytics_requests import BenchmarkReturnSource
-from app.models.benchmark_requests import BenchmarkComponentObservation
+from app.models.benchmark_requests import BenchmarkComponentObservation, BenchmarkReturnPoint
 from app.models.returns_series import (
     CalendarPolicy,
     DataPolicy,
@@ -1640,6 +1640,43 @@ async def test_resolve_stateful_returns_series_benchmark_source_builds_calculate
     assert resolution.benchmark_source_details == {
         "benchmark_components": 1,
         "component_observations": 2,
+        "benchmark_points": 2,
+    }
+    assert resolution.benchmark_work_units == 2
+
+
+@pytest.mark.asyncio
+async def test_resolve_stateful_normalized_benchmark_source_projects_return_points(monkeypatch):
+    request = _build_stateful_request(benchmark={"benchmark_id": "BMK", "return_source": "calculated"})
+    resolved_window = returns_series_service.resolve_window(request)
+
+    async def _build_benchmark(**kwargs):  # noqa: ARG001
+        return StatefulBenchmarkNormalizedInput(
+            benchmark_currency="USD",
+            component_observations=[],
+            benchmark_return_points=[
+                BenchmarkReturnPoint(perf_date="2026-02-23", benchmark_return=0.001),
+                BenchmarkReturnPoint(perf_date="2026-02-24", benchmark_return=0.002),
+            ],
+            source_details={"benchmark_return_points": 2},
+        )
+
+    monkeypatch.setattr(returns_series_service, "build_stateful_benchmark_input", _build_benchmark)
+
+    resolution = await returns_series_service._resolve_stateful_normalized_benchmark_source(
+        request=request,
+        stateful_input_service=object(),
+        resolved_window=resolved_window,
+        benchmark_id="BMK",
+        resolved_benchmark_return_source=BenchmarkReturnSource.VENDOR_SERIES,
+    )
+
+    assert resolution.benchmark_id == "BMK"
+    assert resolution.benchmark_points is None
+    assert resolution.benchmark_df is not None
+    assert [value.date().isoformat() for value in resolution.benchmark_df["date"]] == ["2026-02-23", "2026-02-24"]
+    assert resolution.benchmark_source_details == {
+        "benchmark_return_points": 2,
         "benchmark_points": 2,
     }
     assert resolution.benchmark_work_units == 2
