@@ -86,7 +86,7 @@ must stay at `0`.
 | 16 | `app/services/inspection/source_quality.py` | 16.49 | B |
 | 17 | `app/services/twr_mode_service.py` | 17.66 | B |
 | 18 | `app/workers/compute_executor_worker.py` | 18.15 | B |
-| 19 | `app/services/inspection/twr_inspection_service.py` | 19.65 | A |
+| 19 | `app/services/inspection/twr_inspection_service.py` | 19.20 | A |
 | 20 | `app/models/runtime_status.py` | 19.66 | A |
 | 21 | `app/services/inspection/calculation_consistency.py` | 19.69 | A |
 | 22 | `app/models/returns_series.py` | 19.70 | A |
@@ -1265,6 +1265,9 @@ remains `5`, high-complexity functions remain `0`, and average maintainability i
 `54.93`.
 LP-CR-1488 isolated no-contribution-row smoothing evidence projection from the contribution
 smoothing evidence builder. The measured max cyclomatic complexity remains `5`,
+high-complexity functions remain `0`, and average maintainability index measured `54.93`.
+LP-CR-1489 isolated retained-calculation TWR inspection input materialization from the subject
+inspection input resolver. The measured max cyclomatic complexity remains `5`,
 high-complexity functions remain `0`, and average maintainability index measured `54.93`.
 
 Maintainability index values should be treated as directional hotspot evidence because generated
