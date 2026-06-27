@@ -1,4 +1,4 @@
-from dataclasses import asdict, is_dataclass
+from dataclasses import asdict, dataclass, is_dataclass
 from decimal import Decimal
 from typing import Any, cast
 
@@ -24,6 +24,13 @@ from app.services.submission_fencing_service import register_sync_execution_or_r
 from core.envelope import Audit, Diagnostics, Meta
 from engine.mwr import calculate_money_weighted_return
 from engine.mwr_types import MWRResult
+
+
+@dataclass(frozen=True)
+class _ResolvedMWRExecution:
+    resolved_request: ResolvedMWRRequest
+    input_fingerprint: str
+    calculation_hash: str
 
 
 def calculate_mwr_result(request: MoneyWeightedReturnRequest) -> MWRResult:
@@ -178,18 +185,14 @@ async def calculate_mwr_response(
     lineage_stage_started = False
 
     try:
-        resolved_request = await resolve_mwr_request(request, settings=active_settings)
+        resolved_execution = await _resolve_mwr_execution_request(
+            request=request,
+            active_settings=active_settings,
+            input_fingerprint=input_fingerprint,
+            calculation_hash=calculation_hash,
+        )
+        resolved_request = resolved_execution.resolved_request
         mwr_request = resolved_request.mwr_request
-        if resolved_request.input_mode == MWRInputMode.STATEFUL:
-            input_fingerprint, calculation_hash = generate_request_fingerprint(
-                mwr_request,
-                active_settings.APP_VERSION,
-            )
-            execution_registry.update_execution_identity(
-                request.calculation_id,
-                input_fingerprint=input_fingerprint,
-                calculation_hash=calculation_hash,
-            )
         execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_EXECUTION)
         execution_stage_started = True
         mwr_result = calculate_mwr_result(mwr_request)
@@ -197,8 +200,8 @@ async def calculate_mwr_response(
             request=request,
             resolved_request=resolved_request,
             mwr_result=mwr_result,
-            input_fingerprint=input_fingerprint,
-            calculation_hash=calculation_hash,
+            input_fingerprint=resolved_execution.input_fingerprint,
+            calculation_hash=resolved_execution.calculation_hash,
             engine_version=active_settings.APP_VERSION,
         )
     except HTTPException:
@@ -221,6 +224,52 @@ async def calculate_mwr_response(
             detail=f"An unexpected error occurred during MWR calculation: {str(e)}",
         )
 
+    _complete_mwr_execution(
+        request=request,
+        mwr_request=mwr_request,
+        response_model=response_model,
+    )
+
+    return response_model
+
+
+async def _resolve_mwr_execution_request(
+    *,
+    request: MoneyWeightedReturnAnalyticsRequest,
+    active_settings: Any,
+    input_fingerprint: str,
+    calculation_hash: str,
+) -> _ResolvedMWRExecution:
+    resolved_request = await resolve_mwr_request(request, settings=active_settings)
+    if resolved_request.input_mode != MWRInputMode.STATEFUL:
+        return _ResolvedMWRExecution(
+            resolved_request=resolved_request,
+            input_fingerprint=input_fingerprint,
+            calculation_hash=calculation_hash,
+        )
+
+    stateful_fingerprint, stateful_hash = generate_request_fingerprint(
+        resolved_request.mwr_request,
+        active_settings.APP_VERSION,
+    )
+    execution_registry.update_execution_identity(
+        request.calculation_id,
+        input_fingerprint=stateful_fingerprint,
+        calculation_hash=stateful_hash,
+    )
+    return _ResolvedMWRExecution(
+        resolved_request=resolved_request,
+        input_fingerprint=stateful_fingerprint,
+        calculation_hash=stateful_hash,
+    )
+
+
+def _complete_mwr_execution(
+    *,
+    request: MoneyWeightedReturnAnalyticsRequest,
+    mwr_request: MoneyWeightedReturnRequest,
+    response_model: MoneyWeightedReturnResponse,
+) -> None:
     complete_execution_with_lineage(
         calculation_id=request.calculation_id,
         calculation_type=ANALYTICS_WORKFLOW_MWR,
@@ -229,8 +278,6 @@ async def calculate_mwr_response(
         execution_details={"cashflows": len(mwr_request.cash_flows)},
         calculation_details={"mwr_cashflow_schedule.csv": _build_mwr_lineage_dataframe(mwr_request)},
     )
-
-    return response_model
 
 
 def _mwr_requested_window(request: MoneyWeightedReturnAnalyticsRequest) -> dict[str, str | None]:

@@ -32,7 +32,7 @@ must stay at `0`.
 | --- | ---: |
 | Max cyclomatic complexity | 5 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.16 |
+| Average maintainability index | 55.15 |
 
 ## Highest Cyclomatic Complexity
 
@@ -1164,6 +1164,9 @@ high-complexity functions remain `0`, and average maintainability index measured
 LP-CR-1455 isolated shared contribution period response projection from the flat and hierarchy
 period builders. The measured max cyclomatic complexity remains `5`, high-complexity functions
 remain `0`, and average maintainability index measured `55.16`.
+LP-CR-1456 isolated stateful MWR identity resolution and MWR lineage completion from the public MWR
+calculation orchestrator. The measured max cyclomatic complexity remains `5`, high-complexity
+functions remain `0`, and average maintainability index measured `55.15`.
 
 Maintainability index values should be treated as directional hotspot evidence because generated
 schemas, persistence-style modules, and dense orchestration files can score poorly even when tests
