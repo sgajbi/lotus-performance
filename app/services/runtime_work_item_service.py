@@ -87,6 +87,33 @@ def build_runtime_work_item_snapshot(
             durable_metadata_store=durability_status,
         )
 
+    return _available_runtime_work_item_snapshot(
+        generated_at=generated_at,
+        queue_filter=queue_filter,
+        status_filter=status_filter,
+        limit=limit,
+        offset=offset,
+        min_age_seconds=min_age_seconds,
+        compute_analytics_type=compute_analytics_type,
+        lineage_calculation_type=lineage_calculation_type,
+        calculation_id_contains=calculation_id_contains,
+        durable_metadata_store=durability_status,
+    )
+
+
+def _available_runtime_work_item_snapshot(
+    *,
+    generated_at: datetime,
+    queue_filter: str,
+    status_filter: str,
+    limit: int,
+    offset: int,
+    min_age_seconds: float,
+    compute_analytics_type: str | None,
+    lineage_calculation_type: str | None,
+    calculation_id_contains: str | None,
+    durable_metadata_store: DurabilityHealthStatus,
+) -> RuntimeWorkItemSnapshot:
     include_compute = queue_filter in {"both", "compute"}
     include_lineage = queue_filter in {"both", "lineage"}
     list_request = _RuntimeWorkItemListRequest(
@@ -119,7 +146,7 @@ def build_runtime_work_item_snapshot(
         compute_analytics_type=compute_analytics_type,
         lineage_calculation_type=lineage_calculation_type,
         calculation_id_contains=calculation_id_contains,
-        durable_metadata_store=durability_status,
+        durable_metadata_store=durable_metadata_store,
         compute_queue=compute_queue_state,
         lineage_queue=lineage_queue_state,
         compute_items=compute_items,

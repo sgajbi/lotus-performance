@@ -4,6 +4,7 @@ from app.services.compute_job_store import ComputeQueueInspectionItem, ComputeQu
 from app.services.durability_health_service import DurabilityHealthStatus
 from app.services.lineage_metadata_store import LineageQueueInspectionItem
 from app.services.runtime_work_item_service import (
+    _available_runtime_work_item_snapshot,
     _unavailable_runtime_work_item_snapshot,
     build_runtime_work_item_snapshot,
 )
@@ -127,6 +128,71 @@ def test_unavailable_runtime_work_item_snapshot_preserves_filters_and_store_reas
     assert snapshot.lineage_queue.reason == "missing_tables: compute_jobs"
     assert snapshot.compute_items == []
     assert snapshot.lineage_items == []
+
+
+def test_available_runtime_work_item_snapshot_preserves_filters_and_queue_results(mocker):
+    generated_at = datetime(2026, 3, 14, tzinfo=UTC)
+    durability_status = DurabilityHealthStatus(is_ready=True, status="ready", reason=None)
+    compute_item = ComputeQueueInspectionItem(
+        calculation_id="calc-2",
+        analytics_type="Contribution",
+        status="failed",
+        active_since_utc="2026-03-14T00:00:00Z",
+        age_seconds=90.0,
+        attempt_count=2,
+        max_attempts=3,
+        error_type="RuntimeError",
+        error_message="boom",
+    )
+    lineage_item = LineageQueueInspectionItem(
+        calculation_id="calc-1",
+        calculation_type="TWR",
+        status="pending",
+        active_since_utc="2026-03-14T00:00:00Z",
+        age_seconds=30.0,
+        attempt_count=0,
+        error_message=None,
+    )
+    mocker.patch(
+        "app.services.runtime_work_item_service.compute_job_store.list_inspection_items",
+        return_value=ComputeQueueInspectionPage(total_count=2, next_offset=8, items=[compute_item]),
+    )
+    mocker.patch(
+        "app.services.runtime_work_item_service.lineage_metadata_store.list_inspection_items",
+        return_value=type("LineagePage", (), {"total_count": 1, "next_offset": None, "items": [lineage_item]})(),
+    )
+
+    snapshot = _available_runtime_work_item_snapshot(
+        generated_at=generated_at,
+        queue_filter="both",
+        status_filter="failed",
+        limit=5,
+        offset=3,
+        min_age_seconds=60.0,
+        compute_analytics_type="Contribution",
+        lineage_calculation_type="TWR",
+        calculation_id_contains="calc",
+        durable_metadata_store=durability_status,
+    )
+
+    assert snapshot.generated_at == generated_at
+    assert snapshot.queue_filter == "both"
+    assert snapshot.status_filter == "failed"
+    assert snapshot.limit == 5
+    assert snapshot.offset == 3
+    assert snapshot.min_age_seconds == 60.0
+    assert snapshot.compute_analytics_type == "Contribution"
+    assert snapshot.lineage_calculation_type == "TWR"
+    assert snapshot.calculation_id_contains == "calc"
+    assert snapshot.durable_metadata_store == durability_status
+    assert snapshot.compute_queue.status == "available"
+    assert snapshot.compute_queue.total_count == 2
+    assert snapshot.compute_queue.returned_count == 1
+    assert snapshot.compute_queue.next_offset == 8
+    assert snapshot.lineage_queue.status == "available"
+    assert snapshot.lineage_queue.total_count == 1
+    assert snapshot.compute_items == [compute_item]
+    assert snapshot.lineage_items == [lineage_item]
 
 
 def test_runtime_work_item_snapshot_excludes_unselected_queue(mocker):
