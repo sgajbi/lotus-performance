@@ -9,6 +9,7 @@ from common.enums import WeightingScheme
 from engine.config import EngineConfig, PeriodType, PrecisionMode
 from engine.contribution import (
     _apply_carino_residual_allocation,
+    _apply_position_fx_capital_conversion,
     _build_contribution_fx_rates_frame,
     _build_contribution_twr_config,
     _build_hierarchical_response_levels,
@@ -404,6 +405,49 @@ def test_calculate_daily_contributions_zero_portfolio_capital_forces_zero_weight
     assert row["raw_fx_contribution"] == 0.0
 
 
+def test_calculate_daily_contributions_uses_precomputed_capital_for_non_bod_weighting():
+    instruments_df = pd.DataFrame(
+        [
+            {
+                "perf_date": pd.Timestamp("2025-01-01"),
+                "position_id": "P1",
+                "begin_mv": 50.0,
+                "bod_cf": 0.0,
+                "capital_inst": 25.0,
+                "capital_port": 100.0,
+                "daily_ror": 8.0,
+                "local_ror": 5.0,
+                "fx_ror": 3.0,
+            }
+        ]
+    )
+    portfolio_df = pd.DataFrame(
+        [
+            {
+                "perf_date": pd.Timestamp("2025-01-01"),
+                "begin_mv": 200.0,
+                "bod_cf": 0.0,
+                "daily_ror": 8.0,
+                "nip": 0,
+                "perf_reset": 0,
+            }
+        ]
+    )
+
+    result_df = _calculate_daily_instrument_contributions(
+        instruments_df,
+        portfolio_df,
+        WeightingScheme.AVG_CAPITAL,
+        Smoothing(method="NONE"),
+    )
+
+    row = result_df.iloc[0]
+    assert row["daily_weight"] == pytest.approx(0.25)
+    assert row["raw_contribution"] == pytest.approx(0.02)
+    assert row["raw_local_contribution"] == pytest.approx(0.0125)
+    assert row["raw_fx_contribution"] == pytest.approx(0.0075)
+
+
 def test_calculate_daily_contributions_uses_raw_fallback_when_carino_domain_breaks():
     """Reset-heavy broken-capital episodes should not emit invalid Carino adjustments."""
     instruments_df = pd.DataFrame(
@@ -439,6 +483,73 @@ def test_calculate_daily_contributions_uses_raw_fallback_when_carino_domain_brea
     row = result_df.iloc[0]
     assert row["raw_contribution"] == pytest.approx(-1.5)
     assert row["smoothed_contribution"] == pytest.approx(row["raw_contribution"])
+
+
+def test_apply_position_fx_capital_conversion_uses_prior_day_rate(hierarchical_request_fixture):
+    request = hierarchical_request_fixture.model_copy(update={"currency_mode": "BOTH", "report_ccy": "USD"})
+    position_results_df = pd.DataFrame(
+        [
+            {
+                "perf_date": pd.Timestamp("2025-01-02"),
+                "begin_mv": 100.0,
+                "bod_cf": 5.0,
+            }
+        ]
+    )
+    fx_rates_df = pd.DataFrame(
+        [
+            {"date": pd.Timestamp("2025-01-01"), "ccy": "EUR", "rate": 1.2},
+            {"date": pd.Timestamp("2025-01-02"), "ccy": "EUR", "rate": 1.4},
+        ]
+    )
+
+    converted_df = _apply_position_fx_capital_conversion(
+        position_results_df=position_results_df,
+        request=request,
+        position_ccy="EUR",
+        fx_rates_df=fx_rates_df,
+    )
+
+    row = converted_df.iloc[0]
+    assert "_position_fx_conversion_rate" not in converted_df.columns
+    assert row["begin_mv"] == pytest.approx(120.0)
+    assert row["bod_cf"] == pytest.approx(6.0)
+
+
+def test_apply_position_fx_capital_conversion_preserves_metadata_rate_columns(
+    hierarchical_request_fixture,
+):
+    request = hierarchical_request_fixture.model_copy(update={"currency_mode": "BOTH", "report_ccy": "USD"})
+    position_results_df = pd.DataFrame(
+        [
+            {
+                "perf_date": pd.Timestamp("2025-01-02"),
+                "begin_mv": 100.0,
+                "bod_cf": 5.0,
+                "fx_rate": 99.0,
+                "_position_fx_conversion_rate": 88.0,
+            }
+        ]
+    )
+    fx_rates_df = pd.DataFrame(
+        [
+            {"date": pd.Timestamp("2025-01-01"), "ccy": "EUR", "rate": 1.2},
+            {"date": pd.Timestamp("2025-01-02"), "ccy": "EUR", "rate": 1.4},
+        ]
+    )
+
+    converted_df = _apply_position_fx_capital_conversion(
+        position_results_df=position_results_df,
+        request=request,
+        position_ccy="EUR",
+        fx_rates_df=fx_rates_df,
+    )
+
+    row = converted_df.iloc[0]
+    assert row["fx_rate"] == pytest.approx(99.0)
+    assert row["_position_fx_conversion_rate"] == pytest.approx(88.0)
+    assert row["begin_mv"] == pytest.approx(120.0)
+    assert row["bod_cf"] == pytest.approx(6.0)
 
 
 def test_prepare_hierarchical_data_returns_empty_instruments_when_positions_missing(happy_path_payload):
@@ -508,6 +619,62 @@ def test_build_hierarchical_contribution_result_empty_daily_data_preserves_curre
     }
 
 
+def test_build_hierarchical_contribution_result_empty_daily_data_omits_currency_breakout_for_base_only(
+    hierarchical_request_fixture,
+):
+    result = build_hierarchical_contribution_result(
+        pd.DataFrame(),
+        hierarchical_request_fixture,
+        total_portfolio_return=0.0,
+    )
+
+    assert result == {
+        "summary": {
+            "portfolio_contribution": 0.0,
+            "coverage_mv_pct": 100.0,
+            "weighting_scheme": hierarchical_request_fixture.weighting_scheme.value,
+        },
+        "levels": [],
+    }
+
+
+def test_build_hierarchical_contribution_result_base_only_summary_omits_currency_breakout(
+    hierarchical_request_fixture,
+):
+    request = hierarchical_request_fixture.model_copy(update={"hierarchy": None})
+    daily_contributions_df = pd.DataFrame(
+        [
+            {
+                "position_id": "P1",
+                "daily_weight": 0.4,
+                "smoothed_contribution": 0.01,
+                "smoothed_local_contribution": 0.006,
+                "smoothed_fx_contribution": 0.004,
+            },
+            {
+                "position_id": "P2",
+                "daily_weight": 0.6,
+                "smoothed_contribution": 0.02,
+                "smoothed_local_contribution": 0.014,
+                "smoothed_fx_contribution": 0.006,
+            },
+        ]
+    )
+
+    result = build_hierarchical_contribution_result(
+        daily_contributions_df,
+        request,
+        total_portfolio_return=0.03,
+    )
+
+    assert result["summary"] == {
+        "portfolio_contribution": pytest.approx(3.0),
+        "coverage_mv_pct": 100.0,
+        "weighting_scheme": request.weighting_scheme.value,
+    }
+    assert result["levels"] == []
+
+
 def test_build_hierarchical_response_levels_projects_parent_and_currency_rows():
     aggregated_df = pd.DataFrame(
         [
@@ -553,6 +720,41 @@ def test_build_hierarchical_response_levels_projects_parent_and_currency_rows():
     ]
 
 
+def test_build_hierarchical_response_levels_omits_currency_rows_for_base_only():
+    aggregated_df = pd.DataFrame(
+        [
+            {
+                "sector": "Tech",
+                "contribution": 0.01,
+                "local_contribution": 0.006,
+                "fx_contribution": 0.004,
+                "weight_avg": 0.6,
+            }
+        ]
+    )
+
+    levels = _build_hierarchical_response_levels(
+        aggregated_df=aggregated_df,
+        hierarchy=["sector"],
+        currency_mode="BASE_ONLY",
+    )
+
+    assert levels == [
+        {
+            "level": 1,
+            "name": "sector",
+            "parent": None,
+            "rows": [
+                {
+                    "key": {"sector": "Tech"},
+                    "contribution": pytest.approx(1.0),
+                    "weight_avg": pytest.approx(60.0),
+                }
+            ],
+        }
+    ]
+
+
 def test_apply_carino_residual_allocation_distributes_total_local_and_fx_residuals():
     totals = pd.DataFrame(
         [
@@ -567,6 +769,20 @@ def test_apply_carino_residual_allocation_distributes_total_local_and_fx_residua
     assert totals["local_contribution"].sum() == pytest.approx(0.0625)
     assert totals["fx_contribution"].sum() == pytest.approx(0.0375)
     assert totals["weight_proportion"].tolist() == pytest.approx([0.75, 0.25])
+
+
+def test_apply_carino_residual_allocation_noops_for_non_carino_method():
+    totals = pd.DataFrame(
+        [
+            {"contribution": 0.06, "local_contribution": 0.04, "fx_contribution": 0.02, "weight_avg": 0.75},
+            {"contribution": 0.02, "local_contribution": 0.01, "fx_contribution": 0.01, "weight_avg": 0.25},
+        ]
+    )
+    original = totals.copy(deep=True)
+
+    _apply_carino_residual_allocation(totals, total_portfolio_return=0.1, smoothing_method="NONE")
+
+    pd.testing.assert_frame_equal(totals, original)
 
 
 def test_base_only_engine_config_preserves_non_currency_settings():
