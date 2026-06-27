@@ -430,10 +430,9 @@ def _build_flat_period_contribution_result(
         period_slice_df=period_slice_df,
         portfolio_period_slice_df=portfolio_period_slice_df,
     )
-    average_weight_audit_state.record_shadow_observation(
-        delta_positions=period_methodology_context.delta_positions,
-        max_shadow_delta_bp=period_methodology_context.max_shadow_delta_bp,
-        sum_shadow_delta_bp=period_methodology_context.sum_shadow_delta_bp,
+    _record_average_weight_shadow_observation(
+        average_weight_audit_state=average_weight_audit_state,
+        period_methodology_context=period_methodology_context,
     )
 
     total_portfolio_return = _calculate_reset_aware_period_portfolio_return(
@@ -503,10 +502,9 @@ def _build_hierarchy_period_contribution_result(
         period_slice_df=period_slice_df,
         portfolio_period_slice_df=portfolio_period_slice_df,
     )
-    average_weight_audit_state.record_shadow_observation(
-        delta_positions=period_methodology_context.delta_positions,
-        max_shadow_delta_bp=period_methodology_context.max_shadow_delta_bp,
-        sum_shadow_delta_bp=period_methodology_context.sum_shadow_delta_bp,
+    _record_average_weight_shadow_observation(
+        average_weight_audit_state=average_weight_audit_state,
+        period_methodology_context=period_methodology_context,
     )
 
     position_assembly = _build_hierarchy_contribution_position_assembly(
@@ -536,6 +534,18 @@ def _build_hierarchy_period_contribution_result(
         daily_series=position_assembly.daily_series,
         emitted_position_series=position_assembly.emitted_position_series,
         hierarchy_results=position_assembly.hierarchy_results,
+    )
+
+
+def _record_average_weight_shadow_observation(
+    *,
+    average_weight_audit_state: AverageWeightShadowAuditState,
+    period_methodology_context: ContributionPeriodMethodologyContext,
+) -> None:
+    average_weight_audit_state.record_shadow_observation(
+        delta_positions=period_methodology_context.delta_positions,
+        max_shadow_delta_bp=period_methodology_context.max_shadow_delta_bp,
+        sum_shadow_delta_bp=period_methodology_context.sum_shadow_delta_bp,
     )
 
 
