@@ -24,6 +24,15 @@ class RetrievalMetadata:
     page_count: int
 
 
+@dataclass
+class _PortfolioChunkAccumulator:
+    observations: list[dict[str, Any]]
+    portfolio_open_date: str | None = None
+    portfolio_currency: str | None = None
+    reporting_currency: str | None = None
+    page_count: int = 0
+
+
 @dataclass(frozen=True)
 class _PortfolioReferenceRequest:
     portfolio_id: str
@@ -885,13 +894,9 @@ class StatefulInputService:
         calculation_id: UUID | None = None,
     ) -> tuple[int, dict[str, Any]]:
         page_token: str | None = None
-        merged_observations: list[dict[str, Any]] = []
-        portfolio_open_date: str | None = None
-        portfolio_currency: str | None = None
-        effective_reporting_currency: str | None = None
+        chunk_accumulator = _PortfolioChunkAccumulator(observations=[])
         snapshot_batch: list[dict[str, Any]] = []
         existing_snapshot_ids = self._existing_snapshot_ids(calculation_id)
-        page_count = 0
 
         while True:
             status_code, payload, request_payload = await self._fetch_portfolio_timeseries_page(
@@ -917,15 +922,7 @@ class StatefulInputService:
                     snapshots=snapshot_batch,
                 )
                 return status_code, payload
-            page_count += 1
-
-            portfolio_open_date, portfolio_currency, effective_reporting_currency = _portfolio_identity_from_payload(
-                payload=payload,
-                portfolio_open_date=portfolio_open_date,
-                portfolio_currency=portfolio_currency,
-                reporting_currency=effective_reporting_currency,
-            )
-            merged_observations.extend(_portfolio_observations_from_payload(payload))
+            _record_portfolio_chunk_payload(accumulator=chunk_accumulator, payload=payload)
 
             page_token = self._next_page_token(payload)
             if not page_token:
@@ -937,12 +934,14 @@ class StatefulInputService:
         )
 
         return 200, {
-            "portfolio_open_date": portfolio_open_date,
-            "portfolio_currency": portfolio_currency,
-            "reporting_currency": effective_reporting_currency,
-            "observations": self._merge_dedup_records(records=merged_observations, date_key="valuation_date"),
+            "portfolio_open_date": chunk_accumulator.portfolio_open_date,
+            "portfolio_currency": chunk_accumulator.portfolio_currency,
+            "reporting_currency": chunk_accumulator.reporting_currency,
+            "observations": self._merge_dedup_records(
+                records=chunk_accumulator.observations, date_key="valuation_date"
+            ),
             "retrieval_metadata": {
-                "page_count": page_count,
+                "page_count": chunk_accumulator.page_count,
             },
         }
 
@@ -1569,6 +1568,25 @@ def _portfolio_identity_from_payload(
             current_value=reporting_currency,
         ),
     )
+
+
+def _record_portfolio_chunk_payload(
+    *,
+    accumulator: _PortfolioChunkAccumulator,
+    payload: dict[str, Any],
+) -> None:
+    (
+        accumulator.portfolio_open_date,
+        accumulator.portfolio_currency,
+        accumulator.reporting_currency,
+    ) = _portfolio_identity_from_payload(
+        payload=payload,
+        portfolio_open_date=accumulator.portfolio_open_date,
+        portfolio_currency=accumulator.portfolio_currency,
+        reporting_currency=accumulator.reporting_currency,
+    )
+    accumulator.observations.extend(_portfolio_observations_from_payload(payload))
+    accumulator.page_count += 1
 
 
 def _payload_string_identity_value(
