@@ -55,6 +55,7 @@ from app.services.stateful_attribution_input_service import (
     _stateful_position_currencies,
     _summarize_benchmark_classification,
     _summarize_position_classification,
+    _validate_stateful_attribution_normalization_inputs,
     _validate_stateful_both_currency_support,
     _validate_stateful_group_by,
     _validate_stateful_portfolio_position_alignment,
@@ -699,6 +700,49 @@ def test_build_stateful_attribution_input_builds_instruments_and_benchmark_group
         "classified_component_count": 2,
         "unclassified_component_count": 0,
     }
+
+
+def test_validate_stateful_attribution_normalization_inputs_defaults_currency_mode():
+    source_input = StatefulAttributionSourceInput(
+        portfolio_input=StatefulPortfolioInput(
+            performance_start_date=date(2025, 1, 1),
+            observations=[
+                {
+                    "valuation_date": "2025-01-01",
+                    "beginning_market_value": "900",
+                    "ending_market_value": "909",
+                }
+            ],
+        ),
+        position_rows=[
+            {
+                "position_id": "POS_1",
+                "security_id": "SEC_1",
+                "valuation_date": "2025-01-01",
+                "beginning_market_value_reporting_currency": "900",
+                "ending_market_value_reporting_currency": "909",
+                "cash_flows": [],
+                "dimensions": {"sector": "Tech"},
+            }
+        ],
+        position_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
+        benchmark_id="BMK_1",
+        benchmark_component_observations=[],
+        benchmark_source_details={},
+        benchmark_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
+        index_records=[],
+        index_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
+    )
+
+    normalized_currency_mode = _validate_stateful_attribution_normalization_inputs(
+        source_input=source_input,
+        mode="by_instrument",
+        currency_mode=None,
+        fx=None,
+        reporting_currency="USD",
+    )
+
+    assert normalized_currency_mode == "BASE_ONLY"
 
 
 def test_summarize_benchmark_classification_reports_partial_classification():

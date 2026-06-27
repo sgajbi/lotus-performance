@@ -361,26 +361,13 @@ def build_stateful_attribution_input(
     fx: object,
     reporting_currency: str | None,
 ) -> StatefulAttributionNormalizedInput:
-    if mode != "by_instrument":
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail="Stateful attribution currently supports mode=by_instrument only.",
-        )
-
-    _validate_stateful_position_inception_support(rows=source_input.position_rows)
-    _validate_stateful_portfolio_position_alignment(
-        portfolio_observations=source_input.portfolio_input.observations,
-        position_rows=source_input.position_rows,
+    normalized_currency_mode = _validate_stateful_attribution_normalization_inputs(
+        source_input=source_input,
+        mode=mode,
+        currency_mode=currency_mode,
+        fx=fx,
         reporting_currency=reporting_currency,
     )
-
-    normalized_currency_mode = currency_mode or "BASE_ONLY"
-    if normalized_currency_mode == "BOTH":
-        _validate_stateful_both_currency_support(
-            rows=source_input.position_rows,
-            reporting_currency=reporting_currency,
-            fx=fx,
-        )
 
     portfolio_data = AttributionPortfolioData.model_validate(
         {
@@ -414,6 +401,38 @@ def build_stateful_attribution_input(
         benchmark_groups_data=benchmark_groups_data,
         source_alignment_evidence=source_alignment_evidence,
     )
+
+
+def _validate_stateful_attribution_normalization_inputs(
+    *,
+    source_input: StatefulAttributionSourceInput,
+    mode: str,
+    currency_mode: str | None,
+    fx: object,
+    reporting_currency: str | None,
+) -> str:
+    if mode != "by_instrument":
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Stateful attribution currently supports mode=by_instrument only.",
+        )
+
+    _validate_stateful_position_inception_support(rows=source_input.position_rows)
+    _validate_stateful_portfolio_position_alignment(
+        portfolio_observations=source_input.portfolio_input.observations,
+        position_rows=source_input.position_rows,
+        reporting_currency=reporting_currency,
+    )
+
+    normalized_currency_mode = currency_mode or "BASE_ONLY"
+    if normalized_currency_mode == "BOTH":
+        _validate_stateful_both_currency_support(
+            rows=source_input.position_rows,
+            reporting_currency=reporting_currency,
+            fx=fx,
+        )
+
+    return normalized_currency_mode
 
 
 def build_stateful_attribution_source_alignment_evidence(
