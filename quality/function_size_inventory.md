@@ -20,18 +20,18 @@ python scripts/python_function_size_inventory.py --limit 25
 
 | Rank | Function | File | Lines |
 | ---: | --- | --- | ---: |
-| 1 | `StatefulInputService._fetch_position_chunk` | `app/services/stateful_input_service.py:1001` | 68 |
-| 2 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:547` | 68 |
-| 3 | `build_benchmark_exposure_context` | `app/services/benchmark_exposure_context_service.py:39` | 67 |
-| 4 | `resolve_contribution_request` | `app/services/contribution_mode_service.py:34` | 67 |
-| 5 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:407` | 67 |
-| 6 | `build_runtime_work_item_snapshot` | `app/services/runtime_work_item_service.py:62` | 66 |
-| 7 | `build_runtime_recoveries_query` | `app/api/dependencies/runtime_recoveries.py:11` | 65 |
-| 8 | `_calculate_promoted_stateful_benchmark_workflow` | `app/services/benchmark_calculation_workflow_service.py:146` | 65 |
-| 9 | `run_source_quality_checks` | `app/services/inspection/source_quality.py:146` | 65 |
-| 10 | `calculate_mwr_response` | `app/services/mwr_calculation_service.py:215` | 65 |
-| 11 | `resolve_mwr_request` | `app/services/mwr_mode_service.py:26` | 65 |
-| 12 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:91` | 65 |
+| 1 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:547` | 68 |
+| 2 | `build_benchmark_exposure_context` | `app/services/benchmark_exposure_context_service.py:39` | 67 |
+| 3 | `resolve_contribution_request` | `app/services/contribution_mode_service.py:34` | 67 |
+| 4 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:407` | 67 |
+| 5 | `build_runtime_work_item_snapshot` | `app/services/runtime_work_item_service.py:62` | 66 |
+| 6 | `build_runtime_recoveries_query` | `app/api/dependencies/runtime_recoveries.py:11` | 65 |
+| 7 | `_calculate_promoted_stateful_benchmark_workflow` | `app/services/benchmark_calculation_workflow_service.py:146` | 65 |
+| 8 | `run_source_quality_checks` | `app/services/inspection/source_quality.py:146` | 65 |
+| 9 | `calculate_mwr_response` | `app/services/mwr_calculation_service.py:215` | 65 |
+| 10 | `resolve_mwr_request` | `app/services/mwr_mode_service.py:26` | 65 |
+| 11 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:91` | 65 |
+| 12 | `StatefulInputService._fetch_position_chunk` | `app/services/stateful_input_service.py:1007` | 65 |
 | 13 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:38` | 64 |
 | 14 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:476` | 64 |
 | 15 | `LineageMetadataStore._build_pending_payload_stats_statement` | `app/services/lineage_metadata_store.py:576` | 64 |
@@ -189,6 +189,11 @@ LP-CR-1465 isolated resolved promoted stateful returns-series execution-window p
 request-payload projection, and finalization dispatch into focused helpers. The promoted stateful
 workflow helper dropped out of the top-25 table, duplicate hotspots remain `0`, and the largest
 production functions now measure `68` lines.
+LP-CR-1466 isolated stateful position chunk row and page-count accumulation into
+`_PositionChunkAccumulator` and `_record_position_chunk_payload(...)`, mirroring the portfolio
+chunk accumulation boundary. `StatefulInputService._fetch_position_chunk(...)` moved from `68` to
+`65` lines, duplicate hotspots remain `0`, and the largest production function is now
+`_build_workspace_summary_response(...)` at `68` lines.
 LP-CR-1411 isolated runtime-status degradation policy response projection into focused helpers.
 `build_runtime_status_response` moved from `113` to `91` lines, and the largest production
 functions moved to the contribution period result builders at `102` lines.
