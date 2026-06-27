@@ -21,7 +21,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 273 |
-| Test functions inventoried | 3020 |
+| Test functions inventoried | 3021 |
 | Integration/API/runtime test functions | 598 |
 | Contract/governance test functions | 108 |
 
@@ -32,7 +32,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | benchmarks | 9 | 17 |
 | e2e | 1 | 21 |
 | integration | 24 | 300 |
-| unit | 239 | 2682 |
+| unit | 239 | 2683 |
 
 ## Test Functions By Family
 
@@ -43,7 +43,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | contract_or_governance | 108 |
 | observability_or_readiness | 185 |
 | quality_or_security | 104 |
-| uncategorized | 1215 |
+| uncategorized | 1216 |
 
 ## Largest Test Modules
 
@@ -66,7 +66,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | 15 | `tests/unit/services/test_compute_executor_worker.py` | unit | 38 | uncategorized |
 | 16 | `tests/unit/services/test_lineage_metadata_store.py` | unit | 38 | uncategorized |
 | 17 | `tests/unit/services/test_twr_mode_service.py` | unit | 38 | analytics_domain |
-| 18 | `tests/unit/services/test_workspace_summary_service.py` | unit | 37 | uncategorized |
+| 18 | `tests/unit/services/test_workspace_summary_service.py` | unit | 38 | uncategorized |
 | 19 | `tests/unit/engine/test_mwr.py` | unit | 32 | analytics_domain |
 | 20 | `tests/unit/models/test_twr_requests.py` | unit | 32 | analytics_domain |
 | 21 | `tests/unit/services/test_benchmark_exposure_context_service.py` | unit | 32 | uncategorized |
@@ -86,7 +86,7 @@ The AST inventory counts test function definitions, while `pytest --collect-only
 pytest items including parametrized cases. The two values are intentionally different and
 complementary: collected tests show execution breadth, while this report shows source test-module
 and test-function distribution. The current suite has meaningful API/runtime and
-contract/governance coverage, but 1215 test functions remain uncategorized by the first-wave
+contract/governance coverage, but 1216 test functions remain uncategorized by the first-wave
 taxonomy and should be reviewed before turning taxonomy into a blocking gate.
 
 ## Gate Posture

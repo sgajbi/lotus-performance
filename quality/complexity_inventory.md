@@ -76,7 +76,7 @@ must stay at `0`.
 | 6 | `app/services/stateful_input_service.py` | 0.00 | C |
 | 7 | `app/services/twr_service.py` | 5.69 | C |
 | 8 | `app/services/stateful_benchmark_input_service.py` | 8.73 | C |
-| 9 | `app/services/workspace_summary_service.py` | 10.13 | B |
+| 9 | `app/services/workspace_summary_service.py` | 10.08 | B |
 | 10 | `app/services/execution_registry.py` | 11.12 | B |
 | 11 | `app/services/operator_action_lease_service.py` | 13.14 | B |
 | 12 | `engine/attribution.py` | 13.19 | B |
@@ -1198,6 +1198,9 @@ high-complexity functions remain `0`, and average maintainability index measured
 LP-CR-1466 isolated stateful position chunk row/page accumulation from the paginated position chunk
 fetcher. The measured max cyclomatic complexity remains `5`, high-complexity functions remain `0`,
 and average maintainability index measured `55.15`.
+LP-CR-1467 isolated workspace summary metadata projection from the response assembly helper. The
+measured max cyclomatic complexity remains `5`, high-complexity functions remain `0`, and average
+maintainability index measured `55.15`.
 
 Maintainability index values should be treated as directional hotspot evidence because generated
 schemas, persistence-style modules, and dense orchestration files can score poorly even when tests
