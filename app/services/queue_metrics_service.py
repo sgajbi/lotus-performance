@@ -273,30 +273,22 @@ def _load_durable_queue_metric_sources(settings) -> _DurableQueueMetricSources:
         lambda: build_recovery_drill_history_snapshot(limit=1),
         source_name="recovery drill history snapshot",
     )
-    recovery_drill_action_snapshot, _ = _load_metric_source(
-        lambda: build_operator_action_lease_snapshot(
-            artifact_directory=getattr(
-                settings,
-                "RECOVERY_DRILL_ARTIFACT_PATH",
-                Path("artifacts/durable-recovery-drill"),
-            ),
-            action_name="recovery_drill",
-        ),
+    recovery_drill_action_snapshot = _load_operator_action_lease_metric_source(
+        settings,
+        artifact_path_attribute="RECOVERY_DRILL_ARTIFACT_PATH",
+        default_artifact_path=Path("artifacts/durable-recovery-drill"),
+        action_name="recovery_drill",
         source_name="recovery drill action lease snapshot",
     )
     runtime_retention_snapshot, runtime_retention_available = _load_metric_source(
         lambda: build_runtime_retention_history_snapshot(limit=1),
         source_name="runtime retention history snapshot",
     )
-    runtime_retention_action_snapshot, _ = _load_metric_source(
-        lambda: build_operator_action_lease_snapshot(
-            artifact_directory=getattr(
-                settings,
-                "RUNTIME_RETENTION_ARTIFACT_PATH",
-                Path("artifacts/runtime-retention-cleanup"),
-            ),
-            action_name="runtime_retention_cleanup",
-        ),
+    runtime_retention_action_snapshot = _load_operator_action_lease_metric_source(
+        settings,
+        artifact_path_attribute="RUNTIME_RETENTION_ARTIFACT_PATH",
+        default_artifact_path=Path("artifacts/runtime-retention-cleanup"),
+        action_name="runtime_retention_cleanup",
         source_name="runtime retention action lease snapshot",
     )
     runtime_retention_preview, runtime_retention_preview_available = _load_metric_source(
@@ -319,6 +311,24 @@ def _load_durable_queue_metric_sources(settings) -> _DurableQueueMetricSources:
         runtime_retention_preview=runtime_retention_preview,
         runtime_retention_preview_available=runtime_retention_preview_available,
     )
+
+
+def _load_operator_action_lease_metric_source(
+    settings,
+    *,
+    artifact_path_attribute: str,
+    default_artifact_path: Path,
+    action_name: str,
+    source_name: str,
+) -> Any | None:
+    snapshot, _ = _load_metric_source(
+        lambda: build_operator_action_lease_snapshot(
+            artifact_directory=getattr(settings, artifact_path_attribute, default_artifact_path),
+            action_name=action_name,
+        ),
+        source_name=source_name,
+    )
+    return snapshot
 
 
 def _availability_and_preview_metrics(sources: _DurableQueueMetricSources) -> tuple[GaugeMetricFamily, ...]:

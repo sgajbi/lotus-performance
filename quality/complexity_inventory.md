@@ -1247,6 +1247,9 @@ LP-CR-1482 isolated source-economics flow-date, cash-flow quality, and cash-flow
 recording from the taxonomy-sample collector orchestrator. The measured max cyclomatic complexity
 remains `5`, high-complexity functions remain `0`, and average maintainability index measured
 `54.94`.
+LP-CR-1483 isolated governed operator-action lease metric source loading from the durable queue
+metric source loader. The measured max cyclomatic complexity remains `5`, high-complexity
+functions remain `0`, and average maintainability index measured `54.94`.
 
 Maintainability index values should be treated as directional hotspot evidence because generated
 schemas, persistence-style modules, and dense orchestration files can score poorly even when tests

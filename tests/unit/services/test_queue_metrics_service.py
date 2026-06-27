@@ -10,6 +10,7 @@ from app.services.queue_metrics_service import (
     _lifecycle_history_metrics,
     _load_durable_queue_metric_sources,
     _load_metric_source,
+    _load_operator_action_lease_metric_source,
 )
 from app.services.runtime_status_domain import (
     ComputeQueueDegradationPolicy,
@@ -146,6 +147,29 @@ def test_load_durable_queue_metric_sources_captures_availability_and_action_path
         {"artifact_directory": Path("custom-recovery"), "action_name": "recovery_drill"},
         {"artifact_directory": Path("custom-retention"), "action_name": "runtime_retention_cleanup"},
     ]
+
+
+def test_load_operator_action_lease_metric_source_uses_default_artifact_path(monkeypatch):
+    lease_calls: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        "app.services.queue_metrics_service.build_operator_action_lease_snapshot",
+        lambda **kwargs: lease_calls.append(kwargs) or {"status": "available", **kwargs},
+    )
+
+    snapshot = _load_operator_action_lease_metric_source(
+        type("Settings", (), {})(),
+        artifact_path_attribute="MISSING_ARTIFACT_PATH",
+        default_artifact_path=Path("artifacts/default-action"),
+        action_name="governed_action",
+        source_name="governed action lease snapshot",
+    )
+
+    assert snapshot == {
+        "status": "available",
+        "artifact_directory": Path("artifacts/default-action"),
+        "action_name": "governed_action",
+    }
+    assert lease_calls == [{"artifact_directory": Path("artifacts/default-action"), "action_name": "governed_action"}]
 
 
 def test_core_queue_and_storage_metrics_emit_compute_lineage_and_storage_families():
