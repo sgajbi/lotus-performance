@@ -21,7 +21,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 274 |
-| Test functions inventoried | 3052 |
+| Test functions inventoried | 3053 |
 | Integration/API/runtime test functions | 600 |
 | Contract/governance test functions | 108 |
 
@@ -32,13 +32,13 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | benchmarks | 9 | 17 |
 | e2e | 1 | 21 |
 | integration | 24 | 300 |
-| unit | 240 | 2714 |
+| unit | 240 | 2715 |
 
 ## Test Functions By Family
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 1056 |
+| analytics_domain | 1057 |
 | api_or_runtime | 600 |
 | contract_or_governance | 108 |
 | observability_or_readiness | 186 |
@@ -68,7 +68,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | 17 | `tests/unit/services/test_twr_mode_service.py` | unit | 38 | analytics_domain |
 | 18 | `tests/unit/services/test_workspace_summary_service.py` | unit | 38 | uncategorized |
 | 19 | `tests/unit/services/test_benchmark_exposure_context_service.py` | unit | 34 | uncategorized |
-| 20 | `tests/unit/engine/test_mwr.py` | unit | 32 | analytics_domain |
+| 20 | `tests/unit/engine/test_mwr.py` | unit | 33 | analytics_domain |
 | 21 | `tests/unit/models/test_twr_requests.py` | unit | 32 | analytics_domain |
 | 22 | `tests/unit/models/test_workspace_summary_models.py` | unit | 31 | uncategorized |
 | 23 | `tests/unit/services/test_stateful_input_service.py` | unit | 31 | uncategorized |

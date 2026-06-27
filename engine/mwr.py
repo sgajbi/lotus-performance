@@ -7,7 +7,7 @@ from typing import Callable, Literal, Sequence
 import numpy as np
 
 from core.envelope import Annualization
-from engine.mwr_types import CashFlowLike, MWRConvergence, MWRResult
+from engine.mwr_types import CashFlowLike, MWRConvergence, MWRResult, Number
 
 
 def _day_count_denominator(annualization: Annualization) -> float:
@@ -346,6 +346,14 @@ class _DietzFallbackMetadata:
 
 
 @dataclass(frozen=True)
+class _DietzReturnComponents:
+    method: Literal["MODIFIED_DIETZ", "DIETZ"]
+    denominator: Number
+    numerator: Number
+    periodic_rate: Number | None
+
+
+@dataclass(frozen=True)
 class _MWRPeriodBounds:
     start_date: date
     end_date: date
@@ -446,20 +454,19 @@ def _calculate_dietz_mwr_result(
     notes: list[str],
     xirr_fallback_reason_code: str | None = None,
 ) -> MWRResult:
-    net_cash_flow = sum(cf.amount for cf in cash_flows)
-    dietz_method = _dietz_method_for_calculation(calculation_method)
-    denominator = _dietz_denominator(
+    components = _dietz_return_components(
         begin_mv=begin_mv,
+        end_mv=end_mv,
         cash_flows=cash_flows,
+        calculation_method=calculation_method,
         start_date=start_date,
         end_date=end_date,
-        method=dietz_method,
     )
-    if denominator == 0:
+    if components.periodic_rate is None:
         notes.append("Calculation resulted in a zero denominator.")
         return MWRResult(
             mwr=0.0,
-            method=dietz_method,
+            method=components.method,
             start_date=start_date,
             end_date=end_date,
             notes=notes,
@@ -467,32 +474,57 @@ def _calculate_dietz_mwr_result(
             reason_codes=["ZERO_DENOMINATOR"],
         )
 
-    numerator = end_mv - begin_mv - net_cash_flow
-    periodic_rate = numerator / denominator
-
     fallback_metadata = _dietz_fallback_metadata(
         calculation_method=calculation_method,
         xirr_fallback_reason_code=xirr_fallback_reason_code,
     )
     return MWRResult(
-        mwr=periodic_rate * 100,
+        mwr=components.periodic_rate * 100,
         mwr_annualized=_annualized_dietz_rate(
-            periodic_rate=periodic_rate,
+            periodic_rate=components.periodic_rate,
             annualization=annualization,
             period_days=period_days,
         ),
-        method=dietz_method,
+        method=components.method,
         start_date=start_date,
         end_date=end_date,
         notes=notes,
         status=fallback_metadata.status,
         reason_codes=fallback_metadata.reason_codes,
         warnings=fallback_metadata.warnings,
-        holding_period_return=periodic_rate * 100,
+        holding_period_return=components.periodic_rate * 100,
         is_annualized_primary=False,
         fallback_from=fallback_metadata.fallback_from,
         fallback_reason=fallback_metadata.fallback_reason,
         is_approximation=True,
+    )
+
+
+def _dietz_return_components(
+    *,
+    begin_mv: float,
+    end_mv: float,
+    cash_flows: Sequence[CashFlowLike],
+    calculation_method: Literal["XIRR", "MODIFIED_DIETZ", "DIETZ"],
+    start_date: date,
+    end_date: date,
+) -> _DietzReturnComponents:
+    net_cash_flow = sum(cf.amount for cf in cash_flows)
+    method = _dietz_method_for_calculation(calculation_method)
+    denominator = _dietz_denominator(
+        begin_mv=begin_mv,
+        cash_flows=cash_flows,
+        start_date=start_date,
+        end_date=end_date,
+        method=method,
+    )
+    numerator = end_mv - begin_mv - net_cash_flow
+    periodic_rate = None if denominator == 0 else numerator / denominator
+    return _DietzReturnComponents(
+        method=method,
+        denominator=denominator,
+        numerator=numerator,
+        periodic_rate=periodic_rate,
     )
 
 

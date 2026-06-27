@@ -86,13 +86,13 @@ must stay at `0`.
 | 16 | `app/services/inspection/source_quality.py` | 16.49 | B |
 | 17 | `app/services/twr_mode_service.py` | 17.66 | B |
 | 18 | `app/workers/compute_executor_worker.py` | 18.15 | B |
-| 19 | `app/services/inspection/twr_inspection_service.py` | 19.20 | A |
+| 19 | `app/services/inspection/twr_inspection_service.py` | 18.95 | B |
 | 20 | `app/models/runtime_status.py` | 19.66 | A |
 | 21 | `app/services/inspection/calculation_consistency.py` | 19.69 | A |
 | 22 | `app/models/returns_series.py` | 19.70 | A |
 | 23 | `engine/composites.py` | 20.75 | A |
-| 24 | `app/services/stateful_mwr_input_service.py` | 21.57 | A |
-| 25 | `engine/mwr.py` | 22.11 | A |
+| 24 | `engine/mwr.py` | 21.26 | A |
+| 25 | `app/services/stateful_mwr_input_service.py` | 21.57 | A |
 
 ## Interpretation
 
