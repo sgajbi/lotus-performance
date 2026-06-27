@@ -33,7 +33,7 @@ class BranchCoverageSnapshot:
     covered_lines: int
     missing_lines: int
     total_statements: int
-    line_coverage_percent: Decimal
+    line_coverage_percent: Decimal | None
     covered_branches: int
     missing_branches: int
     partial_branches: int
@@ -53,6 +53,12 @@ def _int(value: Any) -> int:
 
 def _decimal(value: Any) -> Decimal:
     return Decimal(str(value or "0"))
+
+
+def _percent(numerator: int, denominator: int) -> Decimal | None:
+    if not denominator:
+        return None
+    return (Decimal(numerator) / Decimal(denominator)) * Decimal("100")
 
 
 def _git_value(args: tuple[str, ...], *, root: Path = ROOT) -> str:
@@ -111,7 +117,7 @@ def load_branch_coverage_snapshot(
         covered_lines=_int(totals.get("covered_lines")),
         missing_lines=_int(totals.get("missing_lines")),
         total_statements=_int(totals.get("num_statements")),
-        line_coverage_percent=_decimal(totals.get("percent_covered")),
+        line_coverage_percent=_percent(_int(totals.get("covered_lines")), _int(totals.get("num_statements"))),
         covered_branches=_int(totals.get("covered_branches")),
         missing_branches=_int(totals.get("missing_branches")),
         partial_branches=_int(totals.get("num_partial_branches")),
@@ -157,7 +163,7 @@ make branch-coverage-baseline
 | Metric | Value | Evidence |
 | --- | ---: | --- |
 | Branch coverage collection | {branch_status} | `pytest --cov-branch` in `make branch-coverage-baseline` |
-| Combined line coverage under branch run | {_format_percent(snapshot.line_coverage_percent)} | `coverage json` totals from `output/branch-coverage/coverage.json` |
+| Combined line coverage under branch run | {_format_percent(snapshot.line_coverage_percent)} | `covered_lines / num_statements` from `output/branch-coverage/coverage.json` |
 | Covered lines | {snapshot.covered_lines} | coverage.py `{snapshot.coverage_version}` JSON totals |
 | Missing lines | {snapshot.missing_lines} | coverage.py `{snapshot.coverage_version}` JSON totals |
 | Statements | {snapshot.total_statements} | coverage.py `{snapshot.coverage_version}` JSON totals |

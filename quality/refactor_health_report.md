@@ -147,7 +147,7 @@ Latest branch-coverage baseline evidence on `feature/branch-coverage-baseline`:
 
 1. `make branch-coverage-baseline` passed with `2,915` unit tests, `308` integration tests, and
    `21` e2e tests under `pytest --cov-branch`.
-2. The generated `quality/coverage_inventory.md` records combined line coverage at `98.58%`,
+2. The generated `quality/coverage_inventory.md` records combined line coverage at `99.19%`,
    branch coverage at `95.67%`, `4,408` total branches, `191` missing branches, and `177` partial
    branches.
 3. Branch coverage remains report-only; no fail-under threshold or GitHub blocking lane is added in
