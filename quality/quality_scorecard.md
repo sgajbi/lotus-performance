@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Quality Scorecard
 
 Report date: 2026-06-27
-Branch: `lp-cr-1445-repository-hygiene-gate`
+Branch: `lp-cr-1446-runtime-retention-query-boundary`
 Baseline source: `quality/baseline_report.md`
 Current source: `quality/refactor_health_report.md`
 Mode: phase-zero scorecard; static-quality enforcement includes complexity, architecture,
@@ -19,13 +19,13 @@ metrics in each section are updated with each meaningful slice.
 
 | Metric | Baseline | Current | Delta | Status | Evidence |
 | --- | ---: | ---: | ---: | --- | --- |
-| Python files | 480 | 562 | 82 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python files | 480 | 563 | 83 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Python package markers | 18 | 18 | 0 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Python LOC | 104,454 | 163,730 | 59,276 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python LOC | 104,454 | 142,867 | 38,413 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest Python file LOC | 2,399 | 2,503 | 104 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Largest production file LOC | 1,156 | 1,688 | 532 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
-| Python test modules | 228 | 270 | 42 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Collected tests | 2,035 | 3,191 | 1,156 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Largest production file LOC | 1,156 | 1,503 | 347 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
+| Python test modules | 228 | 271 | 43 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Collected tests | 2,035 | 3,193 | 1,158 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Duplicate code hotspots | 0 | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `quality/refactor_health_report.md`; `make quality-duplicate-code-gate` |
 | Tracked local byproduct findings | unknown | 0 | n/a | enforced | `scripts/repository_hygiene_gate.py`; `make repository-hygiene-gate`; `quality/refactor_health_report.md` |
 
@@ -35,8 +35,8 @@ metrics in each section are updated with each meaningful slice.
 | --- | ---: | ---: | ---: | --- | --- |
 | Max cyclomatic complexity | unknown | 5 | n/a | enforced | `quality/complexity_inventory.md`; `quality/refactor_health_report.md`; `make quality-complexity-gate` |
 | High-complexity functions (D-F) | unknown | 0 | n/a | enforced | `quality/complexity_inventory.md`; `quality/refactor_health_report.md`; `make quality-complexity-gate` |
-| Average maintainability index | unknown | 55.05 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
-| Largest functions by LOC | unknown | 74 | n/a | measured | `quality/function_size_inventory.md`; `quality/refactor_health_report.md`; LP-CR-1445 changed CI hygiene enforcement without changing production application modules, so the largest production functions remain four functions tied at `74` lines |
+| Average maintainability index | unknown | 54.88 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
+| Largest functions by LOC | unknown | 74 | n/a | measured | `quality/function_size_inventory.md`; `quality/refactor_health_report.md`; LP-CR-1446 moved `build_runtime_retention_history_query(...)` out of the top-25 table, so the largest production functions are now three functions tied at `74` lines |
 
 ### Architecture
 
@@ -96,7 +96,7 @@ metrics in each section are updated with each meaningful slice.
 | README markers required | unknown | 8 | n/a | measured | `quality/documentation_inventory.md`; `quality/refactor_health_report.md` |
 | Missing README markers | unknown | 0 | n/a | measured | `quality/documentation_inventory.md`; `quality/refactor_health_report.md` |
 | Wiki pages | unknown | 20 | n/a | measured | `quality/documentation_inventory.md`; `quality/refactor_health_report.md` |
-| Public definition docstring coverage | unknown | 11.59 | n/a | measured | `quality/documentation_inventory.md`; `quality/refactor_health_report.md` |
+| Public definition docstring coverage | unknown | 11.55 | n/a | measured | `quality/documentation_inventory.md`; `quality/refactor_health_report.md` |
 
 ## Current Improvement Signal
 
