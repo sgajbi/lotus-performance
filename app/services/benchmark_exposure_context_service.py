@@ -42,20 +42,10 @@ async def build_benchmark_exposure_context(
     stateful_input_service: StatefulInputService,
 ) -> BenchmarkExposureContextResponse:
     benchmark_id = await _resolve_benchmark_id(request=request, stateful_input_service=stateful_input_service)
-    market_status, market_payload = await stateful_input_service.get_benchmark_market_series(
-        calculation_id=request.calculation_id,
+    component_series, market_payload = await _retrieve_benchmark_component_series(
+        request=request,
         benchmark_id=benchmark_id,
-        as_of_date=request.as_of_date,
-        start_date=request.window.start_date,
-        end_date=request.window.end_date,
-        frequency=request.frequency.value.lower(),
-        target_currency=request.reporting_currency,
-        series_fields=["component_weight"],
-    )
-    component_series = _component_series_from_market_response(
-        benchmark_id=benchmark_id,
-        market_status=market_status,
-        market_payload=market_payload,
+        stateful_input_service=stateful_input_service,
     )
     classification_map = await _classification_map_for_request(
         request=request,
@@ -97,6 +87,30 @@ async def build_benchmark_exposure_context(
             index_catalog_count=index_catalog_count,
         ),
     )
+
+
+async def _retrieve_benchmark_component_series(
+    *,
+    request: BenchmarkExposureContextRequest,
+    benchmark_id: str,
+    stateful_input_service: StatefulInputService,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    market_status, market_payload = await stateful_input_service.get_benchmark_market_series(
+        calculation_id=request.calculation_id,
+        benchmark_id=benchmark_id,
+        as_of_date=request.as_of_date,
+        start_date=request.window.start_date,
+        end_date=request.window.end_date,
+        frequency=request.frequency.value.lower(),
+        target_currency=request.reporting_currency,
+        series_fields=["component_weight"],
+    )
+    component_series = _component_series_from_market_response(
+        benchmark_id=benchmark_id,
+        market_status=market_status,
+        market_payload=market_payload,
+    )
+    return component_series, market_payload
 
 
 def _benchmark_exposure_metadata(
