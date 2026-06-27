@@ -215,7 +215,11 @@ def test_lineage_service_uses_injected_execution_store_for_stage_completion(tmp_
     )
 
     assert success is True
-    execution_store.complete_stage.assert_called_once()
+    execution_store.complete_stage.assert_called_once_with(
+        payload.calculation_id,
+        EXECUTION_STAGE_LINEAGE_MATERIALIZATION,
+        details={"artifact_names": ["details.csv", "request.json", "response.json"]},
+    )
 
 
 def test_lineage_service_materialize_artifact_files_returns_written_artifact_names(tmp_path):

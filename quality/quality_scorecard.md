@@ -36,7 +36,7 @@ metrics in each section are updated with each meaningful slice.
 | Max cyclomatic complexity | unknown | 5 | n/a | enforced | `quality/complexity_inventory.md`; `quality/refactor_health_report.md`; `make quality-complexity-gate` |
 | High-complexity functions (D-F) | unknown | 0 | n/a | enforced | `quality/complexity_inventory.md`; `quality/refactor_health_report.md`; `make quality-complexity-gate` |
 | Average maintainability index | unknown | 54.92 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
-| Largest functions by LOC | unknown | 61 | n/a | measured | `quality/function_size_inventory.md`; `quality/refactor_health_report.md`; LP-CR-1494 moved `_run_subject_assessments(...)` out of the top-25 table, and the largest production functions continue to measure `61` lines |
+| Largest functions by LOC | unknown | 61 | n/a | measured | `quality/function_size_inventory.md`; `quality/refactor_health_report.md`; LP-CR-1495 moved `LineageService.materialize_payload(...)` out of the top-25 table, and the largest production functions continue to measure `61` lines |
 
 ### Architecture
 
