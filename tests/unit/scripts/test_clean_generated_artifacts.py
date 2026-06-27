@@ -28,6 +28,21 @@ def test_build_cleanup_plan_prunes_git_venv_and_node_modules(tmp_path) -> None:
     assert build_cleanup_plan(tmp_path).files == ()
 
 
+def test_build_cleanup_plan_prunes_local_path_without_resolving_target(tmp_path) -> None:
+    outside_target = tmp_path.parent / "outside-venv-target"
+    outside_target.mkdir()
+    local_venv = tmp_path / ".venv"
+    try:
+        local_venv.symlink_to(outside_target, target_is_directory=True)
+    except OSError:
+        local_venv.mkdir()
+
+    cache_dir = local_venv / "__pycache__"
+    cache_dir.mkdir(exist_ok=True)
+
+    assert build_cleanup_plan(tmp_path).directories == ()
+
+
 def test_clean_generated_artifacts_removes_only_planned_artifacts(tmp_path) -> None:
     cache_dir = tmp_path / "tests" / "__pycache__"
     cache_dir.mkdir(parents=True)

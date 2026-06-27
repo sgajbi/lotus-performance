@@ -83,6 +83,7 @@ def test_repository_hygiene_gate_blocks_build_outputs_and_local_databases() -> N
             "build/lib/app.py",
             "dist/lotus_performance.whl",
             "htmlcov/index.html",
+            "lotus_performance.egg-info/PKG-INFO",
             "local/dev.sqlite",
             "local/service.db",
             "logs/runtime.log",
@@ -96,4 +97,5 @@ def test_repository_hygiene_gate_blocks_build_outputs_and_local_databases() -> N
         "local/dev.sqlite: generated or local-only file type must not be tracked",
         "local/service.db: generated or local-only file type must not be tracked",
         "logs/runtime.log: generated or local-only file type must not be tracked",
+        "lotus_performance.egg-info/PKG-INFO: generated or dependency directory content must not be tracked",
     ]

@@ -47,6 +47,10 @@ def _normalise(path: str) -> str:
     return path.replace("\\", "/").strip("/")
 
 
+def _has_prohibited_path_part(parts: set[str]) -> bool:
+    return bool(parts & PROHIBITED_PATH_PARTS) or any(part.endswith(".egg-info") for part in parts)
+
+
 def find_repository_hygiene_violations(tracked_paths: list[str]) -> list[str]:
     violations: list[str] = []
     for tracked_path in tracked_paths:
@@ -58,7 +62,7 @@ def find_repository_hygiene_violations(tracked_paths: list[str]) -> list[str]:
         if normalised in PROHIBITED_EXACT_PATHS or name.startswith(".coverage."):
             violations.append(f"{normalised}: generated or local-only artifact must not be tracked")
             continue
-        if parts & PROHIBITED_PATH_PARTS:
+        if _has_prohibited_path_part(parts):
             violations.append(f"{normalised}: generated or dependency directory content must not be tracked")
             continue
         if any(suffix in PROHIBITED_SUFFIXES for suffix in suffixes):

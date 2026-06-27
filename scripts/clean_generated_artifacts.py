@@ -46,7 +46,7 @@ class CleanupPlan:
 
 
 def _is_pruned(path: Path, root: Path) -> bool:
-    relative_parts = path.resolve().relative_to(root).parts
+    relative_parts = path.relative_to(root).parts
     return bool(set(relative_parts) & PRUNED_DIR_NAMES)
 
 
