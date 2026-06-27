@@ -8,6 +8,7 @@ from app.services.runtime_retention_history_service import (
     RUNTIME_RETENTION_ARTIFACT_DIRECTORY_MISSING_REASON,
     RUNTIME_RETENTION_MANIFEST_INVALID_REASON,
     RUNTIME_RETENTION_MANIFEST_UNREADABLE_REASON,
+    _available_runtime_retention_history_snapshot_from_manifest,
     _runtime_retention_history_entries_from_manifest,
     _runtime_retention_manifest_entry_payload,
     _validate_manifest_entry,
@@ -362,6 +363,96 @@ def test_runtime_retention_history_entries_from_manifest_projects_entry_model():
     assert entry.prunable_async_result_count == 3
     assert entry.prunable_lineage_record_count == 4
     assert entry.prunable_lineage_artifact_count == 5
+
+
+def test_available_runtime_retention_history_snapshot_from_manifest_filters_and_pages(tmp_path):
+    manifest_payload = {
+        "latest_file_name": "2026-03-15t00-00-00z.json",
+        "retained_file_names": [
+            "2026-03-15t00-00-00z.json",
+            "2026-03-14t00-00-00z.json",
+            "2026-03-13t00-00-00z.json",
+        ],
+        "retention_limit": 30,
+        "retention_max_age_days": 90,
+        "entries": [
+            {
+                "evidence_file_name": "2026-03-15t00-00-00z.json",
+                "generated_at_utc": "2026-03-15T00:00:00Z",
+                "operator_id": "ops-user",
+                "tenant_id": "tenant-a",
+                "correlation_id": "corr-1",
+                "trigger_mode": "scheduled",
+                "job_id": "retention-nightly",
+                "cleanup_mode": "apply",
+                "status": "applied",
+                "retention_days": 45,
+                "prunable_execution_count": 1,
+                "prunable_compute_job_count": 2,
+                "prunable_async_result_count": 3,
+                "prunable_lineage_record_count": 4,
+                "prunable_lineage_artifact_count": 5,
+            },
+            {
+                "evidence_file_name": "2026-03-14t00-00-00z.json",
+                "generated_at_utc": "2026-03-14T00:00:00Z",
+                "operator_id": "ops-user",
+                "tenant_id": "tenant-a",
+                "correlation_id": "corr-2",
+                "trigger_mode": "scheduled",
+                "job_id": "retention-nightly",
+                "cleanup_mode": "apply",
+                "status": "applied",
+                "retention_days": 45,
+                "prunable_execution_count": 6,
+                "prunable_compute_job_count": 7,
+                "prunable_async_result_count": 8,
+                "prunable_lineage_record_count": 9,
+                "prunable_lineage_artifact_count": 10,
+            },
+            {
+                "evidence_file_name": "2026-03-13t00-00-00z.json",
+                "generated_at_utc": "2026-03-13T00:00:00Z",
+                "operator_id": "ops-batch",
+                "tenant_id": "tenant-b",
+                "correlation_id": "corr-3",
+                "trigger_mode": "manual",
+                "job_id": None,
+                "cleanup_mode": "dry_run",
+                "status": "planned",
+                "retention_days": 30,
+                "prunable_execution_count": 11,
+                "prunable_compute_job_count": 12,
+                "prunable_async_result_count": 13,
+                "prunable_lineage_record_count": 14,
+                "prunable_lineage_artifact_count": 15,
+            },
+        ],
+    }
+
+    snapshot = _available_runtime_retention_history_snapshot_from_manifest(
+        directory=tmp_path,
+        manifest_payload=manifest_payload,
+        applied_filters={"limit": 1, "offset": 1, "operator_id": "ops-user"},
+        limit=1,
+        offset=1,
+        operator_id="ops-user",
+        trigger_mode="scheduled",
+        job_id="retention-nightly",
+        cleanup_mode="apply",
+        status_filter="applied",
+        generated_after=None,
+        generated_before=None,
+    )
+
+    assert snapshot.status == "available"
+    assert snapshot.artifact_directory == str(tmp_path)
+    assert snapshot.total_entries == 3
+    assert snapshot.matched_entries == 2
+    assert snapshot.returned_entries == 1
+    assert snapshot.next_offset is None
+    assert snapshot.applied_filters == {"limit": 1, "offset": 1, "operator_id": "ops-user"}
+    assert snapshot.entries[0].evidence_file_name == "2026-03-14t00-00-00z.json"
 
 
 def test_runtime_retention_history_applies_generated_before_and_offset_filters(tmp_path):

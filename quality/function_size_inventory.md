@@ -1,7 +1,7 @@
 # Lotus Performance Function Size Inventory
 
-Report date: 2026-06-21
-Branch: `lp-cr-1438-portfolio-timeseries-page-helper`
+Report date: 2026-06-27
+Branch: `lp-cr-1439-runtime-retention-history-snapshot-boundary`
 Mode: report-only function-size inventory; this artifact introduces no new blocking CI gate.
 
 ## Purpose
@@ -20,31 +20,31 @@ python scripts/python_function_size_inventory.py --limit 25
 
 | Rank | Function | File | Lines |
 | ---: | --- | --- | ---: |
-| 1 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:91` | 78 |
-| 2 | `resolve_contribution_request` | `app/services/contribution_mode_service.py:32` | 77 |
-| 3 | `LineageMetadataStore._lease_pending_payloads_postgresql` | `app/services/lineage_metadata_store.py:1009` | 77 |
-| 4 | `_build_stateful_calculated_benchmark_input` | `app/services/stateful_benchmark_input_service.py:94` | 75 |
-| 5 | `build_runtime_retention_history_query` | `app/api/dependencies/runtime_retention_history.py:11` | 74 |
-| 6 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:33` | 74 |
-| 7 | `_build_portfolio_engine_diagnostics` | `app/services/contribution_diagnostics.py:62` | 74 |
-| 8 | `calculate_contribution` | `app/services/contribution_service.py:773` | 74 |
-| 9 | `build_runtime_work_item_snapshot` | `app/services/runtime_work_item_service.py:62` | 74 |
-| 10 | `_build_workspace_benchmark_and_active_blocks` | `app/services/workspace_summary_service.py:717` | 74 |
-| 11 | `calculate_attribution` | `app/services/attribution_service.py:313` | 73 |
-| 12 | `_build_attribution_supportability_reasons` | `engine/attribution_supportability.py:174` | 73 |
-| 13 | `run_recovery_drill` | `app/api/endpoints/recovery_drill_history.py:115` | 72 |
-| 14 | `calculate_benchmark_response` | `app/services/benchmark_service.py:14` | 72 |
-| 15 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:399` | 72 |
-| 16 | `calculate_mwr_response` | `app/services/mwr_calculation_service.py:162` | 72 |
-| 17 | `_resolve_stateful_returns_series_benchmark_source` | `app/services/returns_series_service.py:1096` | 72 |
-| 18 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:87` | 71 |
-| 19 | `StatefulInputService._fetch_portfolio_chunk` | `app/services/stateful_input_service.py:877` | 71 |
-| 20 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:473` | 70 |
-| 21 | `build_mwr_response` | `app/services/mwr_calculation_service.py:42` | 70 |
-| 22 | `_build_workspace_results_by_period` | `app/services/workspace_summary_service.py:632` | 70 |
-| 23 | `_process_pending_jobs` | `app/workers/compute_executor_worker.py:109` | 70 |
-| 24 | `AverageWeightShadowAuditState._rollout_posture_notes` | `app/services/contribution_audit.py:125` | 69 |
-| 25 | `_build_artifact_payload` | `app/services/inspection/source_economics.py:413` | 69 |
+| 1 | `resolve_contribution_request` | `app/services/contribution_mode_service.py:32` | 77 |
+| 2 | `LineageMetadataStore._lease_pending_payloads_postgresql` | `app/services/lineage_metadata_store.py:1009` | 77 |
+| 3 | `_build_stateful_calculated_benchmark_input` | `app/services/stateful_benchmark_input_service.py:94` | 75 |
+| 4 | `build_runtime_retention_history_query` | `app/api/dependencies/runtime_retention_history.py:11` | 74 |
+| 5 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:33` | 74 |
+| 6 | `_build_portfolio_engine_diagnostics` | `app/services/contribution_diagnostics.py:62` | 74 |
+| 7 | `calculate_contribution` | `app/services/contribution_service.py:773` | 74 |
+| 8 | `build_runtime_work_item_snapshot` | `app/services/runtime_work_item_service.py:62` | 74 |
+| 9 | `_build_workspace_benchmark_and_active_blocks` | `app/services/workspace_summary_service.py:717` | 74 |
+| 10 | `calculate_attribution` | `app/services/attribution_service.py:313` | 73 |
+| 11 | `_build_attribution_supportability_reasons` | `engine/attribution_supportability.py:174` | 73 |
+| 12 | `run_recovery_drill` | `app/api/endpoints/recovery_drill_history.py:115` | 72 |
+| 13 | `calculate_benchmark_response` | `app/services/benchmark_service.py:14` | 72 |
+| 14 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:399` | 72 |
+| 15 | `calculate_mwr_response` | `app/services/mwr_calculation_service.py:162` | 72 |
+| 16 | `_resolve_stateful_returns_series_benchmark_source` | `app/services/returns_series_service.py:1096` | 72 |
+| 17 | `retrieve_stateful_attribution_source_input` | `app/services/stateful_attribution_input_service.py:87` | 71 |
+| 18 | `StatefulInputService._fetch_portfolio_chunk` | `app/services/stateful_input_service.py:877` | 71 |
+| 19 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:473` | 70 |
+| 20 | `build_mwr_response` | `app/services/mwr_calculation_service.py:42` | 70 |
+| 21 | `_build_workspace_results_by_period` | `app/services/workspace_summary_service.py:632` | 70 |
+| 22 | `_process_pending_jobs` | `app/workers/compute_executor_worker.py:113` | 70 |
+| 23 | `AverageWeightShadowAuditState._rollout_posture_notes` | `app/services/contribution_audit.py:125` | 69 |
+| 24 | `_build_artifact_payload` | `app/services/inspection/source_economics.py:413` | 69 |
+| 25 | `_calculate_promoted_stateful_returns_series` | `app/services/returns_series_calculation_workflow_service.py:136` | 69 |
 
 ## Interpretation
 
@@ -71,6 +71,14 @@ LP-CR-1438 isolated portfolio timeseries page retrieval and request-payload proj
 timeseries page-helper boundary. `_fetch_portfolio_chunk(...)` moved from `79` to `71` lines, and
 the largest production function is now `build_runtime_retention_history_snapshot(...)` at `78`
 lines.
+LP-CR-1439 isolated validated runtime-retention manifest projection into
+`_available_runtime_retention_history_snapshot_from_manifest(...)`. The public
+`build_runtime_retention_history_snapshot(...)` path now owns artifact-directory resolution,
+applied-filter construction, manifest read, validation, and unavailable snapshots while the helper
+owns entry projection, exact filters, time-window filters, pagination, and available snapshot
+assembly. `build_runtime_retention_history_snapshot(...)` dropped out of the top-25 table; the
+largest production functions are now `resolve_contribution_request(...)` and
+`LineageMetadataStore._lease_pending_payloads_postgresql(...)` at `77` lines each.
 LP-CR-1411 isolated runtime-status degradation policy response projection into focused helpers.
 `build_runtime_status_response` moved from `113` to `91` lines, and the largest production
 functions moved to the contribution period result builders at `102` lines.

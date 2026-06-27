@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Quality Scorecard
 
-Report date: 2026-06-21
-Branch: `lp-cr-1438-portfolio-timeseries-page-helper`
+Report date: 2026-06-27
+Branch: `lp-cr-1439-runtime-retention-history-snapshot-boundary`
 Baseline source: `quality/baseline_report.md`
 Current source: `quality/refactor_health_report.md`
 Mode: phase-zero scorecard; static-quality enforcement includes complexity, architecture,
@@ -21,11 +21,11 @@ metrics in each section are updated with each meaningful slice.
 | --- | ---: | ---: | ---: | --- | --- |
 | Python files | 480 | 558 | 78 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Python package markers | 18 | 18 | 0 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Python LOC | 104,454 | 162,576 | 58,122 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Largest Python file LOC | 2,399 | 2,503 | 104 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Largest production file LOC | 1,156 | 1,688 | 532 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
+| Python LOC | 104,454 | 142,155 | 37,701 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Largest Python file LOC | 2,399 | 2,399 | 0 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Largest production file LOC | 1,156 | 1,503 | 347 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
 | Python test modules | 228 | 268 | 40 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Collected tests | 2,035 | 3,165 | 1,130 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Collected tests | 2,035 | 3,169 | 1,134 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Duplicate code hotspots | 0 | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `quality/refactor_health_report.md`; `make quality-duplicate-code-gate` |
 
 ### Complexity And Maintainability
@@ -34,8 +34,8 @@ metrics in each section are updated with each meaningful slice.
 | --- | ---: | ---: | ---: | --- | --- |
 | Max cyclomatic complexity | unknown | 5 | n/a | enforced | `quality/complexity_inventory.md`; `quality/refactor_health_report.md`; `make quality-complexity-gate` |
 | High-complexity functions (D-F) | unknown | 0 | n/a | enforced | `quality/complexity_inventory.md`; `quality/refactor_health_report.md`; `make quality-complexity-gate` |
-| Average maintainability index | unknown | 55.08 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
-| Largest functions by LOC | unknown | 78 | n/a | measured | `quality/function_size_inventory.md`; `quality/refactor_health_report.md`; LP-CR-1438 moved `StatefulInputService._fetch_portfolio_chunk(...)` from `79` to `71` lines by isolating portfolio timeseries page retrieval and request-payload projection; the largest production function is now `build_runtime_retention_history_snapshot(...)` at `78` lines |
+| Average maintainability index | unknown | 55.06 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
+| Largest functions by LOC | unknown | 77 | n/a | measured | `quality/function_size_inventory.md`; `quality/refactor_health_report.md`; LP-CR-1439 moved `build_runtime_retention_history_snapshot(...)` out of the top-25 table by isolating validated manifest projection, filtering, pagination, and available snapshot assembly; the largest production functions are now `resolve_contribution_request(...)` and `LineageMetadataStore._lease_pending_payloads_postgresql(...)` at `77` lines each |
 
 ### Architecture
 
@@ -44,7 +44,7 @@ metrics in each section are updated with each meaningful slice.
 | Import-boundary findings | unknown | 0 | n/a | enforced | `quality/architecture_boundary_inventory.md`; `quality/refactor_health_report.md`; `make quality-architecture-gate` |
 | Routers with infrastructure imports | unknown | 0 | n/a | enforced | `quality/architecture_boundary_inventory.md`; `quality/refactor_health_report.md`; `make quality-architecture-gate` |
 | Domain/application with infra/framework imports | unknown | 0 | n/a | enforced | `quality/architecture_boundary_inventory.md`; `quality/refactor_health_report.md`; `make quality-architecture-gate` |
-| Large production service hotspots (LOC > 1000) | 3 | 3 | 0 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
+| Large production service hotspots (LOC > 1000) | 3 | 7 | 4 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
 | Router/middleware oversized function findings (`--threshold 80`) | unknown | 0 | n/a | enforced | `quality/router_middleware_thinness_inventory.md`; `quality/refactor_health_report.md`; `make quality-router-thinness-gate` |
 
 ### API Quality

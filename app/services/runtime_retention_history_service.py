@@ -139,6 +139,37 @@ def build_runtime_retention_history_snapshot(
             reason=RUNTIME_RETENTION_MANIFEST_INVALID_REASON,
         )
 
+    return _available_runtime_retention_history_snapshot_from_manifest(
+        directory=directory,
+        manifest_payload=manifest_payload,
+        applied_filters=applied_filters,
+        limit=limit,
+        offset=offset,
+        operator_id=operator_id,
+        trigger_mode=trigger_mode,
+        job_id=job_id,
+        cleanup_mode=cleanup_mode,
+        status_filter=status_filter,
+        generated_after=generated_after,
+        generated_before=generated_before,
+    )
+
+
+def _available_runtime_retention_history_snapshot_from_manifest(
+    *,
+    directory: Path,
+    manifest_payload: dict[str, Any],
+    applied_filters: dict[str, str | int],
+    limit: int | None,
+    offset: int,
+    operator_id: str | None,
+    trigger_mode: str | None,
+    job_id: str | None,
+    cleanup_mode: str | None,
+    status_filter: str | None,
+    generated_after: str | None,
+    generated_before: str | None,
+) -> RuntimeRetentionHistorySnapshot:
     all_entries = _runtime_retention_history_entries_from_manifest(manifest_payload)
     filtered_entries = filter_history_entries(
         entries=all_entries,
