@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-06-27
-Branch: `lp-cr-1451-attribution-supportability-reasons`
+Branch: `lp-cr-1452-recovery-drill-run-service`
 Mode: report-only test taxonomy inventory; no blocking CI gate is introduced by this artifact.
 
 ## Purpose
@@ -20,8 +20,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 271 |
-| Test functions inventoried | 3000 |
+| Test modules inventoried | 272 |
+| Test functions inventoried | 3001 |
 | Integration/API/runtime test functions | 597 |
 | Contract/governance test functions | 108 |
 
@@ -32,7 +32,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | benchmarks | 9 | 17 |
 | e2e | 1 | 21 |
 | integration | 24 | 300 |
-| unit | 237 | 2662 |
+| unit | 238 | 2663 |
 
 ## Test Functions By Family
 
@@ -43,7 +43,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | contract_or_governance | 108 |
 | observability_or_readiness | 185 |
 | quality_or_security | 101 |
-| uncategorized | 1207 |
+| uncategorized | 1208 |
 
 ## Largest Test Modules
 

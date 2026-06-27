@@ -1,15 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from fastapi import HTTPException, Request
 
-
-@dataclass(frozen=True)
-class OperatorRequestContext:
-    operator_id: str
-    tenant_id: str | None
-    correlation_id: str | None
+from app.services.operator_request_context import OperatorRequestContext
 
 
 def _trimmed_request_header(request: Request, header_name: str) -> str:
