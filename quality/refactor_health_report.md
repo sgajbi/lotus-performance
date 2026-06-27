@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Health Report
 
 Report date: 2026-06-28
-Branch: `feature/attribution-branch-coverage-hardening`
+Branch: `feature/ror-branch-coverage-hardening`
 Baseline source: `quality/baseline_report.md`
 Report mode: phase-zero scorecard; complexity, architecture, duplicate-code, repository hygiene,
 router-thinness, observability-readiness, and Python security posture are enforced separately by CI.
@@ -72,9 +72,9 @@ link the commit, command, or CI artifact that proves the change.
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
 | Test modules | 228 | 275 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 3,302 | measured | `python -m pytest --collect-only -q` |
-| Line coverage | unknown | 99.38% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`2,956` unit, `308` integration, and `21` e2e tests under branch coverage; `21,112` covered lines of `21,244` statements) |
-| Branch coverage | unknown | 96.76% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`2,956` unit, `308` integration, and `21` e2e tests under branch coverage; `4,265` covered branches of `4,408`, `143` missing branches, `141` partial branches) |
+| Collected tests | 2,035 | 3,313 | measured | `python -m pytest --collect-only -q` |
+| Line coverage | unknown | 99.39% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`2,967` unit, `308` integration, and `21` e2e tests under branch coverage; `21,115` covered lines of `21,244` statements) |
+| Branch coverage | unknown | 96.91% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`2,967` unit, `308` integration, and `21` e2e tests under branch coverage; `4,272` covered branches of `4,408`, `136` missing branches, `134` partial branches) |
 | Integration/API/runtime test functions | unknown | 600 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |
 | Contract/governance test functions | unknown | 108 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |
 
@@ -197,6 +197,26 @@ Latest attribution branch-coverage hardening evidence on `feature/attribution-br
    sparse resampling without return-presence flags, partial effect-column linking, direct
    currency-attribution requirement fail-fast behavior, unsupported model no-op fallback, and
    by-instrument orchestration through `run_attribution_calculations`.
+5. Branch coverage remains report-only; no fail-under threshold or GitHub blocking lane is added in
+   this slice. README, wiki, repository context, platform context, skills, and agent context did not
+   need updates because this slice changed test evidence only and did not change commands, API
+   contracts, runtime topology, operator workflow, or cross-repo ownership.
+6. PR-grade local validation passed: `make lint`, `make check`, `make ci`, `git diff --check`,
+   stranded-truth reconciliation, and `Sync-RepoWikis.ps1 -CheckOnly -Repository lotus-performance`
+   (`DiffCount 0`).
+
+Latest ROR branch-coverage hardening evidence on `feature/ror-branch-coverage-hardening`:
+
+1. `python -m pytest tests\unit\engine\test_ror.py --cov=engine.ror --cov-branch --cov-report=term-missing --cov-report=json:output\ror-branch-coverage.json` passed with `25` focused tests and `100%` focused branch coverage for `engine/ror.py`.
+2. `make branch-coverage-baseline` passed with `2,967` unit tests, `308` integration tests, and
+   `21` e2e tests under `pytest --cov-branch`.
+3. The generated `quality/coverage_inventory.md` records combined line coverage at `99.39%`,
+   branch coverage at `96.91%`, `4,408` total branches, `136` missing branches, and `134` partial
+   branches.
+4. `engine/ror.py` dropped out of the top branch-gap table after focused tests covered decimal
+   gross return no-op division, forced currency-decomposition guardrails, short-leg compounding,
+   empty compounding blocks, FX configuration failure behavior, non-currency-dimensional FX rate
+   series, empty hedge series, cumulative local/FX component projection, and NIP carry-forward.
 5. Branch coverage remains report-only; no fail-under threshold or GitHub blocking lane is added in
    this slice. README, wiki, repository context, platform context, skills, and agent context did not
    need updates because this slice changed test evidence only and did not change commands, API
