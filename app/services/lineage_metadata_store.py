@@ -574,65 +574,23 @@ class LineageMetadataStore:
             raise ValueError(f"Unsupported status filter: {status_filter}") from None
 
     def _build_pending_payload_stats_statement(self, *, now: datetime):
+        pending_payload_filter = _pending_lineage_payload_filter()
+        active_lease_filter = _active_pending_payload_lease_filter(now)
+        retry_backlog_filter = _retry_pending_payload_filter()
+        reclaimable_filter = _reclaimable_pending_payload_filter(now)
         return (
             select(
-                func.sum(case((LineageRecordModel.status == LineageStatus.PENDING.value, 1), else_=0)).label(
-                    "pending_payload_count"
-                ),
-                func.sum(
-                    case(
-                        (
-                            (LineageRecordModel.status == LineageStatus.PENDING.value)
-                            & (LineagePayloadModel.leased_at_utc.is_not(None))
-                            & (
-                                LineagePayloadModel.lease_expires_at_utc.is_(None)
-                                | (LineagePayloadModel.lease_expires_at_utc >= now)
-                            ),
-                            1,
-                        ),
-                        else_=0,
-                    )
-                ).label("leased_payload_count"),
-                func.sum(
-                    case(
-                        (
-                            (LineageRecordModel.status == LineageStatus.PENDING.value)
-                            & (LineagePayloadModel.attempt_count > 0),
-                            1,
-                        ),
-                        else_=0,
-                    )
-                ).label("retry_backlog_count"),
-                func.sum(
-                    case(
-                        (
-                            (LineageRecordModel.status == LineageStatus.PENDING.value)
-                            & LineagePayloadModel.lease_expires_at_utc.is_not(None)
-                            & (LineagePayloadModel.lease_expires_at_utc < now),
-                            1,
-                        ),
-                        else_=0,
-                    )
-                ).label("reclaimable_count"),
+                func.sum(case((pending_payload_filter, 1), else_=0)).label("pending_payload_count"),
+                func.sum(case((active_lease_filter, 1), else_=0)).label("leased_payload_count"),
+                func.sum(case((retry_backlog_filter, 1), else_=0)).label("retry_backlog_count"),
+                func.sum(case((reclaimable_filter, 1), else_=0)).label("reclaimable_count"),
                 func.sum(case((LineageRecordModel.status == LineageStatus.FAILED.value, 1), else_=0)).label(
                     "terminal_failure_count"
                 ),
-                func.min(
-                    case((LineageRecordModel.status == LineageStatus.PENDING.value, LineagePayloadModel.created_at_utc))
-                ).label("oldest_pending_created_at"),
-                func.min(
-                    case(
-                        (
-                            (LineageRecordModel.status == LineageStatus.PENDING.value)
-                            & (LineagePayloadModel.leased_at_utc.is_not(None))
-                            & (
-                                LineagePayloadModel.lease_expires_at_utc.is_(None)
-                                | (LineagePayloadModel.lease_expires_at_utc >= now)
-                            ),
-                            LineagePayloadModel.leased_at_utc,
-                        )
-                    )
-                ).label("oldest_leased_at"),
+                func.min(case((pending_payload_filter, LineagePayloadModel.created_at_utc))).label(
+                    "oldest_pending_created_at"
+                ),
+                func.min(case((active_lease_filter, LineagePayloadModel.leased_at_utc))).label("oldest_leased_at"),
             )
             .select_from(LineagePayloadModel)
             .join(LineageRecordModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
@@ -650,14 +608,7 @@ class LineageMetadataStore:
         leased_lookup = (
             select(LineagePayloadModel.calculation_id)
             .join(LineageRecordModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
-            .where(
-                (LineageRecordModel.status == LineageStatus.PENDING.value)
-                & (LineagePayloadModel.leased_at_utc.is_not(None))
-                & (
-                    LineagePayloadModel.lease_expires_at_utc.is_(None)
-                    | (LineagePayloadModel.lease_expires_at_utc >= now)
-                )
-            )
+            .where(_active_pending_payload_lease_filter(now))
             .order_by(LineagePayloadModel.leased_at_utc.asc(), LineagePayloadModel.created_at_utc.asc())
             .limit(1)
             .scalar_subquery()
@@ -676,9 +627,7 @@ class LineageMetadataStore:
             (
                 select(LineageRecordModel.calculation_id)
                 .join(LineagePayloadModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
-                .where(
-                    (LineageRecordModel.status == LineageStatus.PENDING.value) & (LineagePayloadModel.attempt_count > 0)
-                )
+                .where(_retry_pending_payload_filter())
                 .order_by(LineageRecordModel.timestamp_utc.desc())
                 .limit(1)
                 .scalar_subquery()
@@ -700,7 +649,7 @@ class LineageMetadataStore:
         statement = (
             select(LineageRecordModel, LineagePayloadModel)
             .join(LineagePayloadModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
-            .where((LineageRecordModel.status == LineageStatus.PENDING.value) & (LineagePayloadModel.attempt_count > 0))
+            .where(_retry_pending_payload_filter())
             .order_by(LineageRecordModel.timestamp_utc.desc(), LineageRecordModel.calculation_id.desc())
             .offset(offset)
             .limit(limit)
@@ -731,7 +680,7 @@ class LineageMetadataStore:
             select(func.count())
             .select_from(LineageRecordModel)
             .join(LineagePayloadModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
-            .where((LineageRecordModel.status == LineageStatus.PENDING.value) & (LineagePayloadModel.attempt_count > 0))
+            .where(_retry_pending_payload_filter())
         )
         return self._apply_recovery_time_filters(
             self._apply_calculation_filters(
@@ -1158,6 +1107,34 @@ def _payload_has_active_lease(payload: LineagePayloadModel, *, now: datetime) ->
     lease_expires_at = payload.lease_expires_at_utc
     normalized_lease_expires_at = None if lease_expires_at is None else coerce_utc_datetime(lease_expires_at)
     return normalized_lease_expires_at is None or normalized_lease_expires_at >= now
+
+
+def _pending_lineage_payload_filter():
+    return LineageRecordModel.status == LineageStatus.PENDING.value
+
+
+def _payload_lease_active_filter(now: datetime):
+    return LineagePayloadModel.lease_expires_at_utc.is_(None) | (LineagePayloadModel.lease_expires_at_utc >= now)
+
+
+def _active_pending_payload_lease_filter(now: datetime):
+    return (
+        _pending_lineage_payload_filter()
+        & LineagePayloadModel.leased_at_utc.is_not(None)
+        & _payload_lease_active_filter(now)
+    )
+
+
+def _retry_pending_payload_filter():
+    return _pending_lineage_payload_filter() & (LineagePayloadModel.attempt_count > 0)
+
+
+def _reclaimable_pending_payload_filter(now: datetime):
+    return (
+        _pending_lineage_payload_filter()
+        & LineagePayloadModel.lease_expires_at_utc.is_not(None)
+        & (LineagePayloadModel.lease_expires_at_utc < now)
+    )
 
 
 def _lineage_queue_stats_from_aggregate_row(*, aggregate_row: object, stats_now: datetime) -> LineageQueueStats:

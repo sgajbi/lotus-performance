@@ -903,6 +903,30 @@ def test_lineage_metadata_store_get_pending_payload_stats_uses_single_aggregate_
     assert len(select_statements) == 1
 
 
+def test_lineage_metadata_store_pending_payload_stats_statement_preserves_queue_predicates(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    now = datetime(2026, 3, 15, 12, 0, tzinfo=timezone.utc)
+
+    statement = store._build_pending_payload_stats_statement(now=now)
+    compiled = str(statement.compile(compile_kwargs={"literal_binds": True}))
+
+    for aggregate_label in (
+        "pending_payload_count",
+        "leased_payload_count",
+        "retry_backlog_count",
+        "reclaimable_count",
+        "terminal_failure_count",
+        "oldest_pending_created_at",
+        "oldest_leased_at",
+    ):
+        assert f"AS {aggregate_label}" in compiled
+    assert "lineage_payloads.leased_at_utc IS NOT NULL" in compiled
+    assert "lineage_payloads.lease_expires_at_utc IS NULL" in compiled
+    assert "lineage_payloads.lease_expires_at_utc >=" in compiled
+    assert "lineage_payloads.lease_expires_at_utc <" in compiled
+    assert "lineage_payloads.attempt_count > 0" in compiled
+
+
 def test_lineage_metadata_store_create_schema_migrates_existing_payload_table(tmp_path):
     database_path = tmp_path / "lineage_legacy.db"
     store = LineageMetadataStore(f"sqlite:///{database_path}")

@@ -42,11 +42,11 @@ must stay at `0`.
 | 2 | `_record_external_source_signals` | method | `app/services/inspection/source_economics_collector.py:280` | 5 | A |
 | 3 | `_external_explicit_mixed_timing_sample` | function | `app/services/inspection/source_economics_collector.py:361` | 5 | A |
 | 4 | `_expected_external_total` | function | `app/services/inspection/source_economics_collector.py:423` | 5 | A |
-| 5 | `_append_stale_run_if_needed` | function | `app/services/inspection/source_quality.py:335` | 5 | A |
-| 6 | `_assess_return_concentration` | function | `app/services/inspection/source_quality.py:470` | 5 | A |
-| 7 | `_find_repeated_move_runs` | function | `app/services/inspection/source_quality.py:529` | 5 | A |
-| 8 | `_monthly_day_dominance` | function | `app/services/inspection/source_quality.py:630` | 5 | A |
-| 9 | `_find_missing_business_dates` | function | `app/services/inspection/source_quality.py:750` | 5 | A |
+| 5 | `_append_stale_run_if_needed` | function | `app/services/inspection/source_quality.py:346` | 5 | A |
+| 6 | `_assess_return_concentration` | function | `app/services/inspection/source_quality.py:481` | 5 | A |
+| 7 | `_find_repeated_move_runs` | function | `app/services/inspection/source_quality.py:540` | 5 | A |
+| 8 | `_monthly_day_dominance` | function | `app/services/inspection/source_quality.py:641` | 5 | A |
+| 9 | `_find_missing_business_dates` | function | `app/services/inspection/source_quality.py:761` | 5 | A |
 | 10 | `load_existing_twr_calculation_artifacts` | function | `app/services/inspection/subject_materialization.py:40` | 5 | A |
 | 11 | `extract_performance_request_from_payload` | function | `app/services/inspection/subject_materialization.py:98` | 5 | A |
 | 12 | `resolve_twr_inspection_subject` | function | `app/services/inspection/subject_resolution.py:20` | 5 | A |
@@ -57,12 +57,12 @@ must stay at `0`.
 | 17 | `get_record` | method | `app/services/lineage_metadata_store.py:249` | 5 | A |
 | 18 | `lease_pending_payloads` | method | `app/services/lineage_metadata_store.py:360` | 5 | A |
 | 19 | `list_recent_recoveries` | method | `app/services/lineage_metadata_store.py:435` | 5 | A |
-| 20 | `_apply_recovery_time_filters` | method | `app/services/lineage_metadata_store.py:749` | 5 | A |
-| 21 | `_inspection_timing` | method | `app/services/lineage_metadata_store.py:1095` | 5 | A |
-| 22 | `_ensure_payload_lease_columns` | method | `app/services/lineage_metadata_store.py:1121` | 5 | A |
-| 23 | `_load_payload_details` | function | `app/services/lineage_metadata_store.py:1261` | 5 | A |
+| 20 | `_apply_recovery_time_filters` | method | `app/services/lineage_metadata_store.py:698` | 5 | A |
+| 21 | `_inspection_timing` | method | `app/services/lineage_metadata_store.py:1044` | 5 | A |
+| 22 | `_ensure_payload_lease_columns` | method | `app/services/lineage_metadata_store.py:1070` | 5 | A |
+| 23 | `_load_payload_details` | function | `app/services/lineage_metadata_store.py:1238` | 5 | A |
 | 24 | `evaluate_mandate_performance_health_context` | function | `app/services/mandate_health_context_service.py:16` | 5 | A |
-| 25 | `_stringify_decimal_collection` | function | `app/services/mwr_calculation_service.py:194` | 5 | A |
+| 25 | `_stringify_decimal_collection` | function | `app/services/mwr_calculation_service.py:200` | 5 | A |
 
 ## Lowest Maintainability Index
 
@@ -1240,6 +1240,9 @@ functions remain `0`, and average maintainability index measured `54.95`.
 LP-CR-1480 isolated stateless and resolved stateful attribution request projection from the public
 attribution mode resolver. The measured max cyclomatic complexity remains `5`, high-complexity
 functions remain `0`, and average maintainability index measured `54.95`.
+LP-CR-1481 isolated lineage pending-payload stats predicates from the stats and inspection query
+builders. The measured max cyclomatic complexity remains `5`, high-complexity functions remain
+`0`, and average maintainability index measured `54.95`.
 
 Maintainability index values should be treated as directional hotspot evidence because generated
 schemas, persistence-style modules, and dense orchestration files can score poorly even when tests
