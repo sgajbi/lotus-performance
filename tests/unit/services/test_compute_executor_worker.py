@@ -152,6 +152,48 @@ def test_compute_executor_worker_runtime_builder_preserves_explicit_overrides(tm
     assert runtime.execution_context.contribution_calculator is _calculator
 
 
+def test_compute_executor_worker_process_leased_job_records_success_before_completion(monkeypatch):
+    calculation_id = uuid4()
+    job = _compute_job_record(
+        calculation_id=calculation_id,
+        analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES,
+        request_payload={"portfolio_id": "P1"},
+    )
+    response_payload = {"calculation_id": str(calculation_id), "portfolio_id": "P1"}
+    response = SimpleNamespace(model_dump=lambda mode="json": response_payload)
+    calls: list[tuple[str, object, object | None, object | None]] = []
+
+    class _JobStore:
+        def mark_running(self, calculation_id_arg, *, worker_id, lease_seconds):
+            calls.append(("mark_running", calculation_id_arg, worker_id, lease_seconds))
+
+        def mark_complete(self, calculation_id_arg, *, response_payload):
+            calls.append(("mark_complete", calculation_id_arg, response_payload, None))
+
+    class _ResultStore:
+        def record_success(self, *, calculation_id, analytics_type, response_payload):
+            calls.append(("record_success", calculation_id, analytics_type, response_payload))
+
+    runtime = compute_executor_worker._ComputeJobRuntime(
+        job_store=_JobStore(),
+        execution_store=SimpleNamespace(),
+        result_store=_ResultStore(),
+        worker_id="worker-test",
+        lease_seconds=30,
+        batch_size=1,
+        execution_context=SimpleNamespace(),
+    )
+    monkeypatch.setattr(compute_executor_worker, "_execute_compute_job", lambda _job, _context: response)
+
+    compute_executor_worker._process_leased_compute_job(job, runtime)
+
+    assert calls == [
+        ("mark_running", calculation_id, "worker-test", 30),
+        ("record_success", calculation_id, ANALYTICS_WORKFLOW_RETURNS_SERIES, response_payload),
+        ("mark_complete", calculation_id, response_payload, None),
+    ]
+
+
 def test_compute_executor_worker_runtime_options_use_settings_defaults(tmp_path):
     job_store = ComputeJobStore(f"sqlite:///{tmp_path / 'jobs.db'}")
     execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")

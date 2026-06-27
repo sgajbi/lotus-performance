@@ -143,13 +143,7 @@ def _process_pending_jobs(
         inspection_calculator=inspection_calculator,
         settings=settings,
     )
-    reconciled = runtime.job_store.reconcile_stale_jobs()
-    for reconciled_job in reconciled:
-        _handle_reconciled_stale_job(
-            reconciled_job,
-            result_store=runtime.result_store,
-            execution_store=runtime.execution_store,
-        )
+    _reconcile_stale_compute_jobs(runtime)
     pending = runtime.job_store.lease_pending_jobs(
         worker_id=runtime.worker_id,
         limit=runtime.batch_size,
@@ -157,29 +151,43 @@ def _process_pending_jobs(
     )
     processed = 0
     for job in pending:
-        runtime.job_store.mark_running(
-            job.calculation_id,
-            worker_id=runtime.worker_id,
-            lease_seconds=runtime.lease_seconds,
-        )
-        try:
-            response = _execute_compute_job(job, runtime.execution_context)
-            runtime.result_store.record_success(
-                calculation_id=job.calculation_id,
-                analytics_type=job.analytics_type,
-                response_payload=response.model_dump(mode="json"),
-            )
-            runtime.job_store.mark_complete(job.calculation_id, response_payload=response.model_dump(mode="json"))
-        except Exception as exc:
-            _handle_compute_job_failure(
-                job,
-                exc,
-                job_store=runtime.job_store,
-                result_store=runtime.result_store,
-                execution_store=runtime.execution_store,
-            )
+        _process_leased_compute_job(job, runtime)
         processed += 1
     return processed
+
+
+def _reconcile_stale_compute_jobs(runtime: _ComputeJobRuntime) -> None:
+    for reconciled_job in runtime.job_store.reconcile_stale_jobs():
+        _handle_reconciled_stale_job(
+            reconciled_job,
+            result_store=runtime.result_store,
+            execution_store=runtime.execution_store,
+        )
+
+
+def _process_leased_compute_job(job: ComputeJobRecord, runtime: _ComputeJobRuntime) -> None:
+    runtime.job_store.mark_running(
+        job.calculation_id,
+        worker_id=runtime.worker_id,
+        lease_seconds=runtime.lease_seconds,
+    )
+    try:
+        response = _execute_compute_job(job, runtime.execution_context)
+        response_payload = response.model_dump(mode="json")
+        runtime.result_store.record_success(
+            calculation_id=job.calculation_id,
+            analytics_type=job.analytics_type,
+            response_payload=response_payload,
+        )
+        runtime.job_store.mark_complete(job.calculation_id, response_payload=response_payload)
+    except Exception as exc:
+        _handle_compute_job_failure(
+            job,
+            exc,
+            job_store=runtime.job_store,
+            result_store=runtime.result_store,
+            execution_store=runtime.execution_store,
+        )
 
 
 def _build_compute_job_runtime(

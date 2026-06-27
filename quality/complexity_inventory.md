@@ -85,7 +85,7 @@ must stay at `0`.
 | 15 | `app/services/inspection/source_economics_collector.py` | 16.34 | B |
 | 16 | `app/services/inspection/source_quality.py` | 16.55 | B |
 | 17 | `app/services/twr_mode_service.py` | 17.66 | B |
-| 18 | `app/workers/compute_executor_worker.py` | 18.27 | B |
+| 18 | `app/workers/compute_executor_worker.py` | 18.15 | B |
 | 19 | `app/services/inspection/twr_inspection_service.py` | 19.65 | A |
 | 20 | `app/models/runtime_status.py` | 19.66 | A |
 | 21 | `app/services/inspection/calculation_consistency.py` | 19.69 | A |
