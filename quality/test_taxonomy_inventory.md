@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-06-27
-Branch: `lp-cr-1446-runtime-retention-query-boundary`
+Branch: `lp-cr-1447-contribution-diagnostics-boundary`
 Mode: report-only test taxonomy inventory; no blocking CI gate is introduced by this artifact.
 
 ## Purpose
@@ -21,8 +21,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 271 |
-| Test functions inventoried | 2993 |
-| Integration/API/runtime test functions | 596 |
+| Test functions inventoried | 2994 |
+| Integration/API/runtime test functions | 597 |
 | Contract/governance test functions | 108 |
 
 ## Test Functions By Suite
@@ -32,14 +32,14 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | benchmarks | 9 | 17 |
 | e2e | 1 | 21 |
 | integration | 24 | 300 |
-| unit | 237 | 2655 |
+| unit | 237 | 2656 |
 
 ## Test Functions By Family
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 1024 |
-| api_or_runtime | 596 |
+| analytics_domain | 1025 |
+| api_or_runtime | 597 |
 | contract_or_governance | 108 |
 | observability_or_readiness | 185 |
 | quality_or_security | 101 |
@@ -55,8 +55,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | 4 | `tests/unit/app/test_openapi_enrichment.py` | unit | 59 | api_or_runtime |
 | 5 | `tests/unit/services/test_twr_inspection_source_economics.py` | unit | 55 | analytics_domain |
 | 6 | `tests/unit/services/test_compute_job_store.py` | unit | 50 | uncategorized |
-| 7 | `tests/unit/services/test_twr_inspection_calculation_consistency.py` | unit | 49 | analytics_domain |
-| 8 | `tests/unit/app/test_contribution_endpoint_helpers.py` | unit | 48 | analytics_domain, api_or_runtime |
+| 7 | `tests/unit/app/test_contribution_endpoint_helpers.py` | unit | 49 | analytics_domain, api_or_runtime |
+| 8 | `tests/unit/services/test_twr_inspection_calculation_consistency.py` | unit | 49 | analytics_domain |
 | 9 | `tests/unit/docs/test_public_docs_contract.py` | unit | 48 | contract_or_governance |
 | 10 | `tests/unit/engine/test_attribution.py` | unit | 48 | analytics_domain |
 | 11 | `tests/unit/services/test_stateful_benchmark_input_service.py` | unit | 43 | uncategorized |

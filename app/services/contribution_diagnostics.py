@@ -59,6 +59,23 @@ def _calculate_reset_characterization_counts(
     )
 
 
+def _candidate_canonical_reset_mask(portfolio_results_df: pd.DataFrame) -> pd.Series:
+    perf_reset_series = _numeric_series_or_default(portfolio_results_df, PortfolioColumns.PERF_RESET.value)
+    return (
+        perf_reset_series.eq(1)
+        | _numeric_series_or_default(portfolio_results_df, PortfolioColumns.ACCOUNT_RESET.value).eq(1)
+        | _numeric_series_or_default(portfolio_results_df, PortfolioColumns.SOD_RESET.value).eq(1)
+    )
+
+
+def _calculate_candidate_reset_counts(portfolio_results_df: pd.DataFrame) -> tuple[int, int]:
+    if portfolio_results_df.empty:
+        return 0, 0
+    active_reset_mask = _numeric_series_or_default(portfolio_results_df, PortfolioColumns.PERF_RESET.value).eq(1)
+    candidate_reset_mask = _candidate_canonical_reset_mask(portfolio_results_df)
+    return int(candidate_reset_mask.sum()), int((candidate_reset_mask != active_reset_mask).sum())
+
+
 def _build_portfolio_engine_diagnostics(portfolio_results_df: pd.DataFrame, effective_period_start) -> Diagnostics:
     """Maps portfolio-engine state already present in contribution inputs into shared diagnostics."""
     if portfolio_results_df.empty:
@@ -77,23 +94,7 @@ def _build_portfolio_engine_diagnostics(portfolio_results_df: pd.DataFrame, effe
         shadow_only_candidate_reset_days,
         active_reset_with_shadow_days,
     ) = _calculate_reset_characterization_counts(portfolio_results_df)
-    candidate_canonical_reset_days = int(
-        (
-            perf_reset_series.eq(1)
-            | _numeric_series_or_default(portfolio_results_df, PortfolioColumns.ACCOUNT_RESET.value).eq(1)
-            | _numeric_series_or_default(portfolio_results_df, PortfolioColumns.SOD_RESET.value).eq(1)
-        ).sum()
-    )
-    reset_delta_days = int(
-        (
-            (
-                perf_reset_series.eq(1)
-                | _numeric_series_or_default(portfolio_results_df, PortfolioColumns.ACCOUNT_RESET.value).eq(1)
-                | _numeric_series_or_default(portfolio_results_df, PortfolioColumns.SOD_RESET.value).eq(1)
-            )
-            != perf_reset_series.eq(1)
-        ).sum()
-    )
+    candidate_canonical_reset_days, reset_delta_days = _calculate_candidate_reset_counts(portfolio_results_df)
     nip_days_since_last_reset, valid_days_since_last_reset = _calculate_reset_relative_day_counts(portfolio_results_df)
 
     diagnostics = EngineDiagnostics(
