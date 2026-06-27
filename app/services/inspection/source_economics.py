@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal, InvalidOperation
 from numbers import Real
-from typing import TypeGuard
+from typing import TypeGuard, cast
 
 from app.core.config import Settings, get_settings
 from app.models.inspection_responses import TWRInspectionFinding
@@ -20,6 +20,47 @@ from app.services.portfolio_source_service import build_stateful_input_service
 from app.services.source_cashflow_taxonomy import CashflowTypeClassification, classify_cashflow_type
 
 _SAMPLE_LIMIT = 25
+_CountedSampleProjection = tuple[str, str, str]
+_FEE_CASHFLOW_SAMPLE_PROJECTIONS: tuple[_CountedSampleProjection, ...] = (
+    ("fee_normalization_gap_count", "fee_normalization_gap_samples", "fee_normalization_samples"),
+    ("duplicate_fee_signal_count", "duplicate_fee_signal_samples", "duplicate_fee_signal_samples"),
+    ("fee_source_mismatch_count", "fee_source_mismatch_samples", "fee_source_mismatch_samples"),
+    ("positive_fee_signal_count", "positive_fee_signal_samples", "positive_fee_signal_samples"),
+    ("fee_timing_bucket_anomaly_count", "fee_timing_bucket_samples", "fee_timing_bucket_samples"),
+    ("fee_cashflow_mixed_timing_date_count", "fee_cashflow_mixed_timing_samples", "fee_mixed_timing_samples"),
+)
+_EXTERNAL_CASHFLOW_SAMPLE_PROJECTIONS: tuple[_CountedSampleProjection, ...] = (
+    (
+        "external_cashflow_normalization_gap_count",
+        "external_cashflow_normalization_gap_samples",
+        "external_normalization_samples",
+    ),
+    (
+        "duplicate_external_cashflow_signal_count",
+        "duplicate_external_cashflow_signal_samples",
+        "duplicate_external_signal_samples",
+    ),
+    (
+        "external_cashflow_source_mismatch_count",
+        "external_cashflow_source_mismatch_samples",
+        "external_source_mismatch_samples",
+    ),
+    (
+        "external_cashflow_timing_contradiction_count",
+        "external_cashflow_timing_contradiction_samples",
+        "external_timing_contradiction_samples",
+    ),
+    (
+        "external_cashflow_mixed_timing_date_count",
+        "external_cashflow_mixed_timing_samples",
+        "external_mixed_timing_samples",
+    ),
+    (
+        "external_cashflow_explicit_mixed_timing_date_count",
+        "external_cashflow_explicit_mixed_timing_samples",
+        "external_explicit_mixed_timing_samples",
+    ),
+)
 
 
 def _decimal_to_artifact(value: Decimal) -> str:
@@ -419,40 +460,51 @@ def _build_artifact_payload(
     return {
         "portfolio_id": portfolio_id,
         "portfolio_observation_count": len(observations),
+        **_observation_date_artifact_payload(samples),
+        **_fee_cashflow_artifact_payload(samples),
+        **_external_cashflow_artifact_payload(samples),
+        **_cashflow_quality_artifact_payload(samples),
+        **_cashflow_taxonomy_artifact_payload(samples),
+    }
+
+
+def _observation_date_artifact_payload(samples: SourceEconomicsSamples) -> dict[str, object]:
+    return {
         "invalid_observation_date_count": len(samples.invalid_observation_date_samples),
         "invalid_observation_date_samples": samples.invalid_observation_date_samples[:_SAMPLE_LIMIT],
+    }
+
+
+def _counted_sample_artifact_payload(
+    samples: SourceEconomicsSamples,
+    projections: tuple[_CountedSampleProjection, ...],
+) -> dict[str, object]:
+    payload: dict[str, object] = {}
+    for count_field, samples_field, sample_attribute in projections:
+        rows = cast(list[dict[str, object]], getattr(samples, sample_attribute))
+        payload[count_field] = len(rows)
+        payload[samples_field] = rows[:_SAMPLE_LIMIT]
+    return payload
+
+
+def _fee_cashflow_artifact_payload(samples: SourceEconomicsSamples) -> dict[str, object]:
+    return {
         "fee_cashflow_dates": samples.fee_flow_dates,
-        "external_cashflow_dates": samples.external_flow_dates,
         "fee_cashflow_date_count": len(samples.fee_flow_dates),
+        **_counted_sample_artifact_payload(samples, _FEE_CASHFLOW_SAMPLE_PROJECTIONS),
+    }
+
+
+def _external_cashflow_artifact_payload(samples: SourceEconomicsSamples) -> dict[str, object]:
+    return {
+        "external_cashflow_dates": samples.external_flow_dates,
         "external_cashflow_date_count": len(samples.external_flow_dates),
-        "fee_normalization_gap_count": len(samples.fee_normalization_samples),
-        "fee_normalization_gap_samples": samples.fee_normalization_samples[:_SAMPLE_LIMIT],
-        "duplicate_fee_signal_count": len(samples.duplicate_fee_signal_samples),
-        "duplicate_fee_signal_samples": samples.duplicate_fee_signal_samples[:_SAMPLE_LIMIT],
-        "fee_source_mismatch_count": len(samples.fee_source_mismatch_samples),
-        "fee_source_mismatch_samples": samples.fee_source_mismatch_samples[:_SAMPLE_LIMIT],
-        "positive_fee_signal_count": len(samples.positive_fee_signal_samples),
-        "positive_fee_signal_samples": samples.positive_fee_signal_samples[:_SAMPLE_LIMIT],
-        "fee_timing_bucket_anomaly_count": len(samples.fee_timing_bucket_samples),
-        "fee_timing_bucket_samples": samples.fee_timing_bucket_samples[:_SAMPLE_LIMIT],
-        "fee_cashflow_mixed_timing_date_count": len(samples.fee_mixed_timing_samples),
-        "fee_cashflow_mixed_timing_samples": samples.fee_mixed_timing_samples[:_SAMPLE_LIMIT],
-        "external_cashflow_normalization_gap_count": len(samples.external_normalization_samples),
-        "external_cashflow_normalization_gap_samples": samples.external_normalization_samples[:_SAMPLE_LIMIT],
-        "duplicate_external_cashflow_signal_count": len(samples.duplicate_external_signal_samples),
-        "duplicate_external_cashflow_signal_samples": samples.duplicate_external_signal_samples[:_SAMPLE_LIMIT],
-        "external_cashflow_source_mismatch_count": len(samples.external_source_mismatch_samples),
-        "external_cashflow_source_mismatch_samples": samples.external_source_mismatch_samples[:_SAMPLE_LIMIT],
-        "external_cashflow_timing_contradiction_count": len(samples.external_timing_contradiction_samples),
-        "external_cashflow_timing_contradiction_samples": (
-            samples.external_timing_contradiction_samples[:_SAMPLE_LIMIT]
-        ),
-        "external_cashflow_mixed_timing_date_count": len(samples.external_mixed_timing_samples),
-        "external_cashflow_mixed_timing_samples": samples.external_mixed_timing_samples[:_SAMPLE_LIMIT],
-        "external_cashflow_explicit_mixed_timing_date_count": len(samples.external_explicit_mixed_timing_samples),
-        "external_cashflow_explicit_mixed_timing_samples": (
-            samples.external_explicit_mixed_timing_samples[:_SAMPLE_LIMIT]
-        ),
+        **_counted_sample_artifact_payload(samples, _EXTERNAL_CASHFLOW_SAMPLE_PROJECTIONS),
+    }
+
+
+def _cashflow_quality_artifact_payload(samples: SourceEconomicsSamples) -> dict[str, object]:
+    return {
         "conflicting_explicit_source_amount_date_count": len(samples.conflicting_explicit_amount_samples),
         "conflicting_explicit_source_amount_samples": samples.conflicting_explicit_amount_samples[:_SAMPLE_LIMIT],
         "invalid_explicit_source_amount_date_count": len(samples.invalid_explicit_amount_samples),
@@ -465,6 +517,11 @@ def _build_artifact_payload(
         "invalid_cashflow_amount_samples": samples.invalid_amount_samples[:_SAMPLE_LIMIT],
         "invalid_cashflow_timing_date_count": len(samples.invalid_timing_samples),
         "invalid_cashflow_timing_samples": samples.invalid_timing_samples[:_SAMPLE_LIMIT],
+    }
+
+
+def _cashflow_taxonomy_artifact_payload(samples: SourceEconomicsSamples) -> dict[str, object]:
+    return {
         "missing_cashflow_type_date_count": len(samples.missing_cashflow_type_samples),
         "missing_cashflow_type_samples": samples.missing_cashflow_type_samples[:_SAMPLE_LIMIT],
         "noncanonical_cashflow_type_date_count": len(samples.noncanonical_cashflow_type_samples),

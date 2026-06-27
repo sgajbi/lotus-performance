@@ -80,8 +80,8 @@ must stay at `0`.
 | 10 | `app/services/execution_registry.py` | 11.12 | B |
 | 11 | `app/services/operator_action_lease_service.py` | 13.14 | B |
 | 12 | `engine/attribution.py` | 13.19 | B |
-| 13 | `app/services/inspection/reconciliation.py` | 14.26 | B |
-| 14 | `app/services/inspection/source_economics.py` | 14.85 | B |
+| 13 | `app/services/inspection/source_economics.py` | 14.06 | B |
+| 14 | `app/services/inspection/reconciliation.py` | 14.26 | B |
 | 15 | `app/services/inspection/source_economics_collector.py` | 16.34 | B |
 | 16 | `app/services/inspection/source_quality.py` | 16.55 | B |
 | 17 | `app/services/twr_mode_service.py` | 17.66 | B |
@@ -1183,6 +1183,15 @@ maintainability index measured `55.15`.
 LP-CR-1461 isolated workspace-summary single-period response assembly from the period-results
 mapper. The measured max cyclomatic complexity remains `5`, high-complexity functions remain `0`,
 and average maintainability index measured `55.15`.
+LP-CR-1462 isolated stale-job reconciliation and single leased-job execution/persistence from the
+compute worker polling path. The measured max cyclomatic complexity remains `5`, high-complexity
+functions remain `0`, and average maintainability index measured `55.15`.
+LP-CR-1463 isolated reset-aware average-weight rollout note specification from positive-count
+filtering. The measured max cyclomatic complexity remains `5`, high-complexity functions remain
+`0`, and average maintainability index measured `55.15`.
+LP-CR-1464 isolated source-economics artifact payload section projection from the aggregate
+artifact payload builder. The measured max cyclomatic complexity remains `5`, high-complexity
+functions remain `0`, and average maintainability index measured `55.15`.
 
 Maintainability index values should be treated as directional hotspot evidence because generated
 schemas, persistence-style modules, and dense orchestration files can score poorly even when tests
