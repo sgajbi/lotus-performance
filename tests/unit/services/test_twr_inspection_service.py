@@ -674,6 +674,47 @@ def test_build_twr_inspection_response_adds_no_check_finding_and_support_brief(m
     assert "support_brief.md" in synthesis.response.artifacts
 
 
+def test_build_twr_inspection_response_model_preserves_lineage_and_artifact_links():
+    calculation_id = uuid4()
+    inspection_id = uuid4()
+    finding = _inspection_finding(severity="warning")
+    request = TWRInspectionRequest(
+        inspection_id=inspection_id,
+        subject_type=TWRInspectionSubjectType.TWR_CALCULATION,
+        subject_calculation_id=calculation_id,
+        inspection_profile=TWRInspectionProfile.CANONICAL_VALIDATION,
+    )
+
+    response = service._build_twr_inspection_response_model(
+        request=request,
+        subject_calculation_id=calculation_id,
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        findings_context=service._InspectionFindingsContext(
+            findings=[finding],
+            pending_check_families=["cashflow_classification"],
+            evidence_summary={"artifact_queue_enabled": True},
+        ),
+        completed_check_families=["calculation_consistency", "source_quality"],
+        verdict=TWRInspectionVerdict.SUPPORTABLE_WITH_WARNINGS,
+        artifact_payloads={"source_quality_summary.json": "{}"},
+    )
+
+    assert response.inspection_id == inspection_id
+    assert response.subject_calculation_id == calculation_id
+    assert response.portfolio_id == "PB_SG_GLOBAL_BAL_001"
+    assert response.verdict == TWRInspectionVerdict.SUPPORTABLE_WITH_WARNINGS
+    assert response.findings == [finding]
+    assert response.owner_summary.primary_owner_repo == "lotus-performance"
+    assert response.evidence_summary == {"artifact_queue_enabled": True}
+    assert response.check_coverage.completed_check_families == ["calculation_consistency", "source_quality"]
+    assert response.check_coverage.pending_check_families == ["cashflow_classification"]
+    assert response.related_lineage.calculation_id == calculation_id
+    assert response.related_lineage.lineage_path == f"/performance/lineage/{calculation_id}"
+    assert response.artifacts["source_quality_summary.json"].endswith("/artifacts/source_quality_summary.json")
+    assert response.workflow_pack_run is None
+    assert response.generated_at_utc
+
+
 def test_attach_support_brief_to_inspection_response_preserves_workflow_pack_evidence(monkeypatch):
     inspection_id = uuid4()
     workflow_pack_run = TWRInspectionWorkflowPackRun(
