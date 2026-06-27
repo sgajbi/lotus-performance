@@ -10,6 +10,7 @@ from app.models.mwr_analytics_requests import MoneyWeightedReturnAnalyticsReques
 from app.models.mwr_requests import CashFlow, MoneyWeightedReturnRequest
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_MWR
 from app.services.mwr_calculation_service import (
+    _calculate_resolved_mwr_response,
     _complete_mwr_execution,
     _mwr_calculation_supportability,
     _mwr_currency_evidence_payload,
@@ -419,6 +420,42 @@ def test_complete_mwr_execution_records_cashflow_lineage(mocker):
     assert capture["execution_details"] == {"cashflows": 1}
     cashflow_schedule = capture["calculation_details"]["mwr_cashflow_schedule.csv"]
     assert cashflow_schedule["type"].tolist() == ["begin_mv", "cash_flow", "end_mv"]
+
+
+def test_calculate_resolved_mwr_response_preserves_identity_and_response_payload():
+    request = MoneyWeightedReturnAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "MWR-RESOLVED-HELPER",
+            "begin_mv": 1000.0,
+            "end_mv": 1125.0,
+            "as_of": "2025-12-31",
+            "cash_flows": [{"amount": 25.0, "date": "2025-06-30"}],
+            "mwr_method": "DIETZ",
+        }
+    )
+    mwr_request = request.to_stateless_mwr_request()
+    resolved_request = ResolvedMWRRequest(
+        mwr_request=mwr_request,
+        input_mode=MWRInputMode.STATELESS,
+        currency_evidence=None,
+    )
+
+    completed = _calculate_resolved_mwr_response(
+        request=request,
+        resolved_request=resolved_request,
+        input_fingerprint="resolved-fingerprint",
+        calculation_hash="resolved-hash",
+        engine_version="runtime-version",
+    )
+
+    assert completed.mwr_request is mwr_request
+    assert completed.response_model.portfolio_id == "MWR-RESOLVED-HELPER"
+    assert completed.response_model.method == "DIETZ"
+    assert completed.response_model.meta.input_fingerprint == "resolved-fingerprint"
+    assert completed.response_model.meta.calculation_hash == "resolved-hash"
+    assert completed.response_model.meta.engine_version == "runtime-version"
+    assert completed.response_model.audit.counts == {"cashflows": 1}
 
 
 @pytest.mark.asyncio
