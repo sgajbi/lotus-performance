@@ -1130,6 +1130,23 @@ async def _resolve_stateful_returns_series_benchmark_source(
             benchmark_work_units=benchmark_source.benchmark_work_units,
         )
 
+    return await _resolve_stateful_normalized_benchmark_source(
+        request=request,
+        stateful_input_service=stateful_input_service,
+        resolved_window=resolved_window,
+        benchmark_id=benchmark_id,
+        resolved_benchmark_return_source=resolved_benchmark_return_source,
+    )
+
+
+async def _resolve_stateful_normalized_benchmark_source(
+    *,
+    request: ReturnsSeriesRequest,
+    stateful_input_service: Any,
+    resolved_window: ResolvedWindow,
+    benchmark_id: str,
+    resolved_benchmark_return_source: BenchmarkReturnSource,
+) -> _StatefulBenchmarkResolution:
     normalized_benchmark_input = await build_stateful_benchmark_input(
         stateful_input_service=stateful_input_service,
         calculation_id=request.calculation_id,
