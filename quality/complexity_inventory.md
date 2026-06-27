@@ -32,7 +32,7 @@ must stay at `0`.
 | --- | ---: |
 | Max cyclomatic complexity | 5 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.15 |
+| Average maintainability index | 55.14 |
 
 ## Highest Cyclomatic Complexity
 
@@ -1201,6 +1201,9 @@ and average maintainability index measured `55.15`.
 LP-CR-1467 isolated workspace summary metadata projection from the response assembly helper. The
 measured max cyclomatic complexity remains `5`, high-complexity functions remain `0`, and average
 maintainability index measured `55.15`.
+LP-CR-1469 isolated stateless contribution request envelope projection from the contribution mode
+resolver. The measured max cyclomatic complexity remains `5`, high-complexity functions remain
+`0`, and average maintainability index measured `55.14`.
 
 Maintainability index values should be treated as directional hotspot evidence because generated
 schemas, persistence-style modules, and dense orchestration files can score poorly even when tests
