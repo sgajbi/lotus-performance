@@ -32,7 +32,7 @@ must stay at `0`.
 | --- | ---: |
 | Max cyclomatic complexity | 5 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 54.92 |
+| Average maintainability index | 54.91 |
 
 ## Highest Cyclomatic Complexity
 
@@ -91,7 +91,7 @@ must stay at `0`.
 | 21 | `app/services/inspection/calculation_consistency.py` | 19.69 | A |
 | 22 | `app/models/returns_series.py` | 19.70 | A |
 | 23 | `engine/composites.py` | 20.75 | A |
-| 24 | `engine/mwr.py` | 21.26 | A |
+| 24 | `engine/mwr.py` | 21.09 | A |
 | 25 | `app/services/stateful_mwr_input_service.py` | 21.57 | A |
 
 ## Interpretation

@@ -4,6 +4,7 @@ from datetime import date
 import numpy as np
 import pytest
 
+import engine.mwr as mwr_module
 from app.models.mwr_requests import CashFlow
 from core.envelope import Annualization
 from engine.mwr import (
@@ -11,6 +12,7 @@ from engine.mwr import (
     _build_xirr_base_convergence,
     _calculate_dietz_mwr_result,
     _calculate_xirr_mwr_attempt,
+    _calculate_xirr_solver_result,
     _dietz_denominator,
     _dietz_fallback_metadata,
     _dietz_method_for_calculation,
@@ -282,6 +284,49 @@ def test_calculate_xirr_mwr_attempt_maps_no_economic_content_to_not_applicable()
     assert attempt.result is not None
     assert attempt.result.status == "NOT_APPLICABLE"
     assert attempt.result.reason_codes == ["NO_ECONOMIC_CONTENT"]
+
+
+def test_calculate_xirr_solver_result_projects_signed_cash_flow_vector(monkeypatch):
+    captured = {}
+
+    class Solver:
+        rate_lower_bound = -0.5
+        rate_upper_bound = 5.0
+        root_scan_steps = 64
+        tolerance = 1e-8
+        max_iter = 25
+
+    def capture_xirr(values, dates, **kwargs):
+        captured["values"] = values.tolist()
+        captured["dates"] = dates.tolist()
+        captured["kwargs"] = kwargs
+        return {
+            "rate": 0.1,
+            "converged": True,
+            "notes": "XIRR calculation successful.",
+            "convergence": {},
+        }
+
+    monkeypatch.setattr(mwr_module, "_xirr", capture_xirr)
+
+    result = _calculate_xirr_solver_result(
+        begin_mv=1000.0,
+        end_mv=1200.0,
+        cash_flows=[CashFlow(amount=50.0, date=date(2026, 3, 1))],
+        annualization=Annualization(enabled=False, basis="ACT/365"),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 12, 31),
+        solver=Solver(),
+    )
+
+    assert result["rate"] == pytest.approx(0.1)
+    assert captured["values"] == [-1000.0, -50.0, 1200.0]
+    assert captured["dates"] == [date(2026, 1, 1), date(2026, 3, 1), date(2026, 12, 31)]
+    assert captured["kwargs"]["rate_lower_bound"] == pytest.approx(-0.5)
+    assert captured["kwargs"]["rate_upper_bound"] == pytest.approx(5.0)
+    assert captured["kwargs"]["root_scan_steps"] == 64
+    assert captured["kwargs"]["tolerance"] == pytest.approx(1e-8)
+    assert captured["kwargs"]["max_iter"] == 25
 
 
 def test_successful_xirr_mwr_result_projects_annualized_and_holding_period_returns():
