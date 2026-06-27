@@ -165,6 +165,8 @@ source-economics or reconciliation regressions.
   `make ci-local`
 - full test and coverage run
   `make test-all`
+- report-only branch coverage baseline
+  `make branch-coverage-baseline`
 - migration and recovery smoke
   `make migration-smoke`
 - retention smoke
@@ -216,6 +218,10 @@ The local mapping is:
   governance, migration smoke, security audit, unit, integration, e2e, coverage, and Docker build
 - `make ci-local`
   local Docker-parity proof with full coverage and dependency checks
+- `make branch-coverage-baseline`
+  report-only branch coverage measurement. It runs unit, integration, and e2e suites with
+  `pytest --cov-branch`, writes raw coverage JSON under `output/branch-coverage/`, and refreshes
+  `quality/coverage_inventory.md`. It does not add or enforce a branch-coverage threshold.
 - `make quality-baseline`
   report-only baseline refresh for the enterprise refactor scorecard. It updates the durable
   `quality/baseline_report.md` and writes raw scanner snapshots under

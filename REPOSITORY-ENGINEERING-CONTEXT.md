@@ -130,6 +130,8 @@ Use these commands as the primary local contract:
    `make quality-observability-readiness-gate`
 11. repo-native repository hygiene gate
    `make repository-hygiene-gate`
+12. report-only branch coverage baseline
+   `make branch-coverage-baseline`
 
 ## Validation And CI Expectations
 
@@ -174,6 +176,11 @@ Important validation expectations:
    markers through `scripts/python_observability_readiness_inventory.py --max-missing 0`. Broader
    observability maturity scoring remains measured in `quality/observability_readiness_inventory.md`
    rather than claimed as complete.
+12. `make branch-coverage-baseline` is the report-only branch coverage measurement path. It runs
+    unit, integration, and e2e suites with `pytest --cov-branch`, writes raw JSON under
+    `output/branch-coverage/`, and refreshes `quality/coverage_inventory.md`. The current baseline
+    is measured but not enforced; branch-coverage threshold, exception policy, and CI lane placement
+    require separate governance before promotion.
 
 ## Standards And RFCs That Govern This Repository
 

@@ -70,7 +70,8 @@ No gate should move from one phase to the next until it has:
 | Unit tests | Blocking in feature, PR, and main lanes | Keep blocking; add focused tests when refactoring hotspots. |
 | Integration and e2e tests | Blocking in PR and main lanes | Keep blocking at merge/release lanes; use targeted local subsets during slices. |
 | Test taxonomy | Measured in `quality/test_taxonomy_inventory.md` through `scripts/python_test_taxonomy_inventory.py`; current AST inventory shows 274 modules, 3,058 source test functions, 600 integration/API/runtime test functions, and 108 contract/governance test functions | Keep report-only until taxonomy labels and uncategorized-test policy are stable. |
-| Combined line coverage | Blocking at 99 percent in PR and main lanes; locally measured in `quality/coverage_inventory.md` through `make test-coverage` | Keep blocking and preserve the local coverage inventory as scorecard evidence; capture branch-coverage posture before adding a stricter branch gate. |
+| Combined line coverage | Blocking at 99 percent in PR and main lanes; locally measured in `quality/coverage_inventory.md` through `make test-coverage` and preserved by `make branch-coverage-baseline` evidence | Keep blocking and preserve the local coverage inventory as scorecard evidence. |
+| Branch coverage | Measured report-only in `quality/coverage_inventory.md` through `make branch-coverage-baseline`; current baseline is 95.67 percent across 4,408 branches, with 191 missing and 177 partial branches | Keep report-only until repeated runs, exception policy, remediation guidance, and CI lane placement are agreed. Review the top branch gaps before proposing any threshold. |
 | Dependency verification | Blocking through `python -m pip check` and dependency-health scripts | Keep blocking; preserve project-scoped dependency-health evidence. |
 | Dependency vulnerabilities | `pip-audit` is available, security audit is already blocking through repo script, and report-only output is captured in `quality/dependency_security_report.md` | Keep the report current when dependency pins, audit tooling, or exception policy changes. |
 | OpenAPI quality | Blocking through `scripts/openapi_quality_gate.py`; measured further through `quality/api_completeness_inventory.md`; clean API completeness inventory is guarded by `tests/unit/scripts/test_openapi_completeness_inventory.py` | Keep the blocking gate and unit-level clean-inventory guard; only add a separate workflow gate if the report remains stable and adds value beyond existing OpenAPI checks. |
@@ -124,7 +125,7 @@ The next hardening commits should stay small and add proof in this order:
 2. reduce measured architecture-boundary findings through bounded router/domain extraction slices,
 3. keep reducing measured complexity, function-size, and reviewed dead-code hotspots through bounded slices,
 4. review runtime-only dependency declarations before removing or allowlisting them,
-5. measure branch-coverage posture before proposing a stricter branch gate.
+5. review branch-coverage gap posture before proposing a stricter branch gate.
 
 ## Non-Goals For This Slice
 
