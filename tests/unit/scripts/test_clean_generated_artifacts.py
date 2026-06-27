@@ -50,6 +50,14 @@ def test_build_cleanup_plan_prunes_dependency_trees_before_descent(tmp_path) -> 
     assert build_cleanup_plan(tmp_path).directories == ()
 
 
+def test_build_cleanup_plan_prunes_marker_backed_virtualenv_before_descent(tmp_path) -> None:
+    env_dir = tmp_path / "env"
+    (env_dir / "Lib" / "site-packages" / "__pycache__").mkdir(parents=True)
+    (env_dir / "pyvenv.cfg").write_text("home = C:/Python313", encoding="utf-8")
+
+    assert build_cleanup_plan(tmp_path).directories == ()
+
+
 def test_clean_generated_artifacts_removes_only_planned_artifacts(tmp_path) -> None:
     cache_dir = tmp_path / "tests" / "__pycache__"
     cache_dir.mkdir(parents=True)

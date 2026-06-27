@@ -25,6 +25,7 @@ PROHIBITED_PATH_PARTS = {
 }
 PROHIBITED_SUFFIXES = {
     ".db",
+    ".db-journal",
     ".db-shm",
     ".db-wal",
     ".egg-info",
@@ -32,9 +33,11 @@ PROHIBITED_SUFFIXES = {
     ".pyc",
     ".pyo",
     ".sqlite",
+    ".sqlite-journal",
     ".sqlite-shm",
     ".sqlite-wal",
     ".sqlite3",
+    ".sqlite3-journal",
     ".sqlite3-shm",
     ".sqlite3-wal",
 }

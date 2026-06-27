@@ -91,21 +91,29 @@ def test_repository_hygiene_gate_blocks_build_outputs_and_local_databases() -> N
             "local/dev.sqlite",
             "local/dev.sqlite3",
             "local/service.db",
+            "local/service.db-journal",
             "local/service.db-wal",
+            "local/service.sqlite-journal",
+            "local/service.sqlite3-journal",
             "local/service.sqlite3-shm",
             "logs/runtime.log",
         ]
     )
 
-    assert violations == [
-        "build/lib/app.py: generated or dependency directory content must not be tracked",
-        "dist/lotus_performance.whl: generated or dependency directory content must not be tracked",
-        "htmlcov/index.html: generated or dependency directory content must not be tracked",
-        "local/dev.sqlite3: generated or local-only file type must not be tracked",
-        "local/dev.sqlite: generated or local-only file type must not be tracked",
-        "local/service.db-wal: generated or local-only file type must not be tracked",
-        "local/service.db: generated or local-only file type must not be tracked",
-        "local/service.sqlite3-shm: generated or local-only file type must not be tracked",
-        "logs/runtime.log: generated or local-only file type must not be tracked",
-        "lotus_performance.egg-info/PKG-INFO: generated or dependency directory content must not be tracked",
-    ]
+    assert violations == sorted(
+        [
+            "build/lib/app.py: generated or dependency directory content must not be tracked",
+            "dist/lotus_performance.whl: generated or dependency directory content must not be tracked",
+            "htmlcov/index.html: generated or dependency directory content must not be tracked",
+            "local/dev.sqlite3: generated or local-only file type must not be tracked",
+            "local/dev.sqlite: generated or local-only file type must not be tracked",
+            "local/service.db-journal: generated or local-only file type must not be tracked",
+            "local/service.db-wal: generated or local-only file type must not be tracked",
+            "local/service.db: generated or local-only file type must not be tracked",
+            "local/service.sqlite-journal: generated or local-only file type must not be tracked",
+            "local/service.sqlite3-journal: generated or local-only file type must not be tracked",
+            "local/service.sqlite3-shm: generated or local-only file type must not be tracked",
+            "logs/runtime.log: generated or local-only file type must not be tracked",
+            "lotus_performance.egg-info/PKG-INFO: generated or dependency directory content must not be tracked",
+        ]
+    )
