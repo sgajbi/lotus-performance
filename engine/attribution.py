@@ -502,6 +502,67 @@ def _attribution_group_observation_records(
     return all_obs
 
 
+def _first_row_preserving_missing(series: pd.Series):
+    if series.empty:
+        return None
+    first_value = series.iloc[0]
+    return None if pd.isna(first_value) else float(first_value)
+
+
+def _link_period_returns(series: pd.Series):
+    numeric_returns = pd.to_numeric(series, errors="coerce").dropna()
+    if numeric_returns.empty:
+        return None
+    return float((1 + numeric_returns).prod() - 1)
+
+
+def _resampled_attribution_return_data(
+    *,
+    panel: pd.DataFrame,
+    wide_panel: pd.DataFrame,
+    freq_code: str,
+) -> dict[str, pd.DataFrame]:
+    resampled_returns: dict[str, pd.DataFrame] = {}
+    for col in ["return_base", "return_local", "return_fx"]:
+        if col in wide_panel.columns.get_level_values(0) and panel[col].notna().any():
+            resampled_returns[f"r_{col.split('_')[1]}"] = (
+                wide_panel[col]
+                .resample(freq_code)
+                .agg(_link_period_returns)
+                .apply(pd.to_numeric, errors="coerce")
+                .fillna(0.0)
+            )
+    return resampled_returns
+
+
+def _resample_attribution_panel(panel: pd.DataFrame, group_by: Sequence[str], freq_code: str) -> pd.DataFrame:
+    wide_panel = panel.unstack(level=group_by).sort_index()
+    weights = (
+        wide_panel["weight_bop"]
+        .resample(freq_code)
+        .agg(_first_row_preserving_missing)
+        .apply(pd.to_numeric, errors="coerce")
+        .fillna(0.0)
+    )
+    resampled_data = {"w": weights}
+    resampled_data.update(
+        _resampled_attribution_return_data(
+            panel=panel,
+            wide_panel=wide_panel,
+            freq_code=freq_code,
+        )
+    )
+    if "has_return_base" in wide_panel.columns.get_level_values(0):
+        resampled_data["has_base_return"] = (
+            wide_panel["has_return_base"].resample(freq_code).max().where(lambda series: series.notna(), False)
+        )
+    return pd.concat(
+        [df.stack(group_by, future_stack=True) for df in resampled_data.values()],
+        axis=1,
+        keys=resampled_data.keys(),
+    )
+
+
 def _align_and_prepare_data(
     request: AttributionRequestLike,
     portfolio_groups_data: Sequence[AttributionObservationGroupLike],
@@ -517,51 +578,8 @@ def _align_and_prepare_data(
     freq_map = {"daily": "D", "monthly": "ME", "quarterly": "QE", "yearly": "YE"}
     freq_code = freq_map.get(request.frequency.value, "ME")
 
-    return_cols = ["return_base", "return_local", "return_fx"]
-
-    def first_row_preserving_missing(series: pd.Series) -> float | None:
-        if series.empty:
-            return None
-        first_value = series.iloc[0]
-        return None if pd.isna(first_value) else float(first_value)
-
-    def link_period_returns(series: pd.Series) -> float | None:
-        numeric_returns = pd.to_numeric(series, errors="coerce").dropna()
-        if numeric_returns.empty:
-            return None
-        return float((1 + numeric_returns).prod() - 1)
-
-    def resample_panel(panel):
-        wide_panel = panel.unstack(level=group_by).sort_index()
-        weights = (
-            wide_panel["weight_bop"]
-            .resample(freq_code)
-            .agg(first_row_preserving_missing)
-            .apply(pd.to_numeric, errors="coerce")
-            .fillna(0.0)
-        )
-        resampled_data = {"w": weights}
-        for col in return_cols:
-            if col in wide_panel.columns.get_level_values(0) and panel[col].notna().any():
-                resampled_data[f"r_{col.split('_')[1]}"] = (
-                    wide_panel[col]
-                    .resample(freq_code)
-                    .agg(link_period_returns)
-                    .apply(pd.to_numeric, errors="coerce")
-                    .fillna(0.0)
-                )
-        if "has_return_base" in wide_panel.columns.get_level_values(0):
-            resampled_data["has_base_return"] = (
-                wide_panel["has_return_base"].resample(freq_code).max().where(lambda series: series.notna(), False)
-            )
-        return pd.concat(
-            [df.stack(group_by, future_stack=True) for df in resampled_data.values()],
-            axis=1,
-            keys=resampled_data.keys(),
-        )
-
-    df_p = resample_panel(portfolio_panel)
-    df_b = resample_panel(benchmark_panel)
+    df_p = _resample_attribution_panel(portfolio_panel, group_by, freq_code)
+    df_b = _resample_attribution_panel(benchmark_panel, group_by, freq_code)
 
     aligned_df = pd.merge(df_p, df_b, left_index=True, right_index=True, how="outer", suffixes=("_p", "_b"))
     return _finalize_aligned_attribution_frame(aligned_df, group_by)

@@ -78,8 +78,8 @@ must stay at `0`.
 | 8 | `app/services/stateful_benchmark_input_service.py` | 8.73 | C |
 | 9 | `app/services/workspace_summary_service.py` | 10.08 | B |
 | 10 | `app/services/execution_registry.py` | 11.12 | B |
-| 11 | `app/services/operator_action_lease_service.py` | 13.14 | B |
-| 12 | `engine/attribution.py` | 13.19 | B |
+| 11 | `engine/attribution.py` | 11.94 | B |
+| 12 | `app/services/operator_action_lease_service.py` | 13.14 | B |
 | 13 | `app/services/inspection/source_economics.py` | 14.06 | B |
 | 14 | `app/services/inspection/reconciliation.py` | 14.26 | B |
 | 15 | `app/services/inspection/source_economics_collector.py` | 15.66 | B |
@@ -1255,6 +1255,9 @@ from the public stateful returns-series resolver. The measured max cyclomatic co
 `5`, high-complexity functions remain `0`, and average maintainability index measured `54.94`.
 LP-CR-1485 isolated stateful attribution normalization input policy validation from the stateful
 attribution input builder. The measured max cyclomatic complexity remains `5`, high-complexity
+functions remain `0`, and average maintainability index measured `54.94`.
+LP-CR-1486 isolated attribution panel resampling and linked-return projection from the attribution
+alignment orchestrator. The measured max cyclomatic complexity remains `5`, high-complexity
 functions remain `0`, and average maintainability index measured `54.94`.
 
 Maintainability index values should be treated as directional hotspot evidence because generated
