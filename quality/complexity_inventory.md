@@ -32,7 +32,7 @@ must stay at `0`.
 | --- | ---: |
 | Max cyclomatic complexity | 5 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 54.93 |
+| Average maintainability index | 54.92 |
 
 ## Highest Cyclomatic Complexity
 
@@ -52,8 +52,8 @@ must stay at `0`.
 | 12 | `resolve_twr_inspection_subject` | function | `app/services/inspection/subject_resolution.py:20` | 5 | A |
 | 13 | `_completed_support_brief_markdown` | function | `app/services/inspection/support_brief_workflow_pack.py:78` | 5 | A |
 | 14 | `_map_workflow_pack_run_finding` | function | `app/services/inspection/support_brief_workflow_pack.py:192` | 5 | A |
-| 15 | `_synthesize_verdict` | function | `app/services/inspection/twr_inspection_service.py:601` | 5 | A |
-| 16 | `_scope_request_to_response_master_window` | function | `app/services/inspection/twr_inspection_service.py:717` | 5 | A |
+| 15 | `_synthesize_verdict` | function | `app/services/inspection/twr_inspection_service.py:615` | 5 | A |
+| 16 | `_scope_request_to_response_master_window` | function | `app/services/inspection/twr_inspection_service.py:731` | 5 | A |
 | 17 | `get_record` | method | `app/services/lineage_metadata_store.py:249` | 5 | A |
 | 18 | `lease_pending_payloads` | method | `app/services/lineage_metadata_store.py:360` | 5 | A |
 | 19 | `list_recent_recoveries` | method | `app/services/lineage_metadata_store.py:435` | 5 | A |
@@ -1275,6 +1275,9 @@ high-complexity functions remain `0`, and average maintainability index measured
 LP-CR-1491 isolated stateful MWR market-value evidence projection from the stateful MWR input
 builder. The measured max cyclomatic complexity remains `5`, high-complexity functions remain `0`,
 and average maintainability index measured `54.93`.
+LP-CR-1492 isolated benchmark market-series retrieval and component-series response mapping from
+the benchmark exposure context builder. The measured max cyclomatic complexity remains `5`,
+high-complexity functions remain `0`, and average maintainability index measured `54.92`.
 
 Maintainability index values should be treated as directional hotspot evidence because generated
 schemas, persistence-style modules, and dense orchestration files can score poorly even when tests

@@ -32,6 +32,7 @@ from app.services.benchmark_exposure_context_service import (
     _normalized_classification_labels,
     _page_rows,
     _requires_index_catalog,
+    _retrieve_benchmark_component_series,
     build_benchmark_exposure_context,
 )
 
@@ -197,6 +198,32 @@ def test_benchmark_exposure_metadata_projects_retrieval_counters_and_correlation
         "benchmark_market_series_page_count": 3,
         "index_catalog_page_count": 1,
     }
+
+
+@pytest.mark.asyncio
+async def test_retrieve_benchmark_component_series_projects_market_series_request_shape() -> None:
+    service = _StatefulInputServiceStub()
+    request = _request(reporting_currency="CHF")
+
+    component_series, market_payload = await _retrieve_benchmark_component_series(
+        request=request,
+        benchmark_id="BMK_GLOBAL_60_40",
+        stateful_input_service=service,
+    )
+
+    assert component_series == market_payload["component_series"]
+    assert service.market_series_calls == [
+        {
+            "calculation_id": request.calculation_id,
+            "benchmark_id": "BMK_GLOBAL_60_40",
+            "as_of_date": date(2026, 1, 3),
+            "start_date": date(2026, 1, 2),
+            "end_date": date(2026, 1, 3),
+            "frequency": "daily",
+            "target_currency": "CHF",
+            "series_fields": ["component_weight"],
+        }
+    ]
 
 
 @pytest.mark.asyncio
