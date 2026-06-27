@@ -651,54 +651,76 @@ def _build_workspace_results_by_period(
         )
         if portfolio_slice.empty:
             continue
-        frequencies = requested_frequencies.get(resolved_period.name, [])
-        net_summary = _build_workspace_performance_block(
+        results_by_period[resolved_period.name] = _build_workspace_period_summary_result(
+            request=request,
+            resolved_period=resolved_period,
+            portfolio_input=portfolio_input,
             portfolio_slice=portfolio_slice,
-            period_daily_slice=_slice_by_date(
-                net_daily_results_df,
-                date_column=PortfolioColumns.PERF_DATE.value,
-                start_date=resolved_period.start_date,
-                end_date=resolved_period.end_date,
-            ),
-            full_daily_df=net_daily_results_df,
-            frequencies=frequencies,
-            annualization=request.annualization,
-        )
-        gross_summary = _build_workspace_performance_block(
-            portfolio_slice=portfolio_slice,
-            period_daily_slice=_slice_by_date(
-                gross_daily_results_df,
-                date_column=PortfolioColumns.PERF_DATE.value,
-                start_date=resolved_period.start_date,
-                end_date=resolved_period.end_date,
-            ),
-            full_daily_df=gross_daily_results_df,
-            frequencies=frequencies,
-            annualization=request.annualization,
-        )
-
-        benchmark_block, active_block = _build_workspace_benchmark_and_active_blocks(
+            net_daily_results_df=net_daily_results_df,
+            gross_daily_results_df=gross_daily_results_df,
             benchmark_input=benchmark_input,
             benchmark_daily_df=benchmark_daily_df,
-            resolved_period=resolved_period,
-            frequencies=frequencies,
-            annualization=request.annualization,
-            net_summary=net_summary,
-            gross_summary=gross_summary,
-        )
-
-        results_by_period[resolved_period.name] = WorkspacePeriodSummaryResult(
-            portfolio_twr=WorkspaceBasisPair(net=net_summary, gross=gross_summary),
-            benchmark=benchmark_block,
-            active=active_block,
-            money_weighted_return=_build_workspace_mwr_summary(
-                period_slice=portfolio_slice,
-                period=resolved_period,
-                input_mode=portfolio_input.input_mode,
-                request=request,
-            ),
+            frequencies=requested_frequencies.get(resolved_period.name, []),
         )
     return results_by_period
+
+
+def _build_workspace_period_summary_result(
+    *,
+    request: WorkspaceSummaryRequest,
+    resolved_period: ResolvedWorkspacePeriod,
+    portfolio_input: ResolvedWorkspacePortfolioInput,
+    portfolio_slice: pd.DataFrame,
+    net_daily_results_df: pd.DataFrame,
+    gross_daily_results_df: pd.DataFrame,
+    benchmark_input: ResolvedWorkspaceBenchmarkInput | None,
+    benchmark_daily_df: pd.DataFrame | None,
+    frequencies: list[Frequency],
+) -> WorkspacePeriodSummaryResult:
+    net_summary = _build_workspace_performance_block(
+        portfolio_slice=portfolio_slice,
+        period_daily_slice=_slice_by_date(
+            net_daily_results_df,
+            date_column=PortfolioColumns.PERF_DATE.value,
+            start_date=resolved_period.start_date,
+            end_date=resolved_period.end_date,
+        ),
+        full_daily_df=net_daily_results_df,
+        frequencies=frequencies,
+        annualization=request.annualization,
+    )
+    gross_summary = _build_workspace_performance_block(
+        portfolio_slice=portfolio_slice,
+        period_daily_slice=_slice_by_date(
+            gross_daily_results_df,
+            date_column=PortfolioColumns.PERF_DATE.value,
+            start_date=resolved_period.start_date,
+            end_date=resolved_period.end_date,
+        ),
+        full_daily_df=gross_daily_results_df,
+        frequencies=frequencies,
+        annualization=request.annualization,
+    )
+    benchmark_block, active_block = _build_workspace_benchmark_and_active_blocks(
+        benchmark_input=benchmark_input,
+        benchmark_daily_df=benchmark_daily_df,
+        resolved_period=resolved_period,
+        frequencies=frequencies,
+        annualization=request.annualization,
+        net_summary=net_summary,
+        gross_summary=gross_summary,
+    )
+    return WorkspacePeriodSummaryResult(
+        portfolio_twr=WorkspaceBasisPair(net=net_summary, gross=gross_summary),
+        benchmark=benchmark_block,
+        active=active_block,
+        money_weighted_return=_build_workspace_mwr_summary(
+            period_slice=portfolio_slice,
+            period=resolved_period,
+            input_mode=portfolio_input.input_mode,
+            request=request,
+        ),
+    )
 
 
 def _workspace_summary_diagnostics_notes(
