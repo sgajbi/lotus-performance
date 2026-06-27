@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-27
-Branch: `lp-cr-1450-attribution-response-boundary`
+Branch: `lp-cr-1451-attribution-supportability-reasons`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose

@@ -1,5 +1,5 @@
 Report date: 2026-06-27
-Branch: `lp-cr-1450-attribution-response-boundary`
+Branch: `lp-cr-1451-attribution-supportability-reasons`
 Command: `python scripts/python_duplicate_code_inventory.py --min-lines 12 --limit 40 --max-groups 0`
 Mode: enforced first-party duplicate function-body hotspot regression gate.
 
