@@ -6,7 +6,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from enum import StrEnum
-from typing import Iterator
+from typing import Iterator, Mapping, cast
 from uuid import UUID
 
 from sqlalchemy import DateTime, Index, Integer, String, Text, case, create_engine, exists, func, inspect, select, text
@@ -1015,73 +1015,22 @@ class LineageMetadataStore:
         worker_id: str,
         limit: int,
     ) -> list[LineagePayload]:
-        statement = text(
-            """
-            UPDATE lineage_payloads AS payload
-            SET worker_id = :worker_id,
-                leased_at_utc = :leased_at_utc,
-                lease_expires_at_utc = :lease_expires_at_utc,
-                attempt_count = payload.attempt_count + 1
-            FROM (
-                SELECT payload.calculation_id
-                FROM lineage_payloads AS payload
-                WHERE EXISTS (
-                    SELECT 1
-                    FROM lineage_records AS record
-                    WHERE record.calculation_id = payload.calculation_id
-                      AND record.status = :pending_status
-                )
-                  AND (
-                    payload.lease_expires_at_utc IS NULL
-                    OR payload.lease_expires_at_utc < :leased_at_utc
-                  )
-                ORDER BY payload.created_at_utc ASC, payload.calculation_id ASC
-                FOR UPDATE OF payload SKIP LOCKED
-                LIMIT :limit
-            ) AS claimable
-            WHERE payload.calculation_id = claimable.calculation_id
-            RETURNING
-                payload.calculation_id,
-                payload.calculation_type,
-                payload.request_json,
-                payload.response_json,
-                payload.details_json,
-                payload.attempt_count,
-                payload.worker_id,
-                payload.leased_at_utc,
-                payload.lease_expires_at_utc
-            """
-        )
         rows = session.execute(
-            statement,
-            {
-                "worker_id": worker_id,
-                "leased_at_utc": now,
-                "lease_expires_at_utc": lease_expiry,
-                "pending_status": LineageStatus.PENDING.value,
-                "limit": limit,
-            },
+            _postgresql_pending_payload_lease_statement(),
+            _postgresql_pending_payload_lease_params(
+                worker_id=worker_id,
+                leased_at_utc=now,
+                lease_expires_at_utc=lease_expiry,
+                limit=limit,
+            ),
         ).mappings()
         leased: list[LineagePayload] = []
         for row in rows:
-            calculation_id = str(row["calculation_id"])
-            details = _load_payload_details(str(row["details_json"]), calculation_id=calculation_id)
-            if details is None:
+            calculation_id, payload = _postgresql_pending_payload_from_row(row)
+            if payload is None:
                 _mark_invalid_payload_details(session, calculation_id, now=now)
                 continue
-            leased.append(
-                LineagePayload(
-                    calculation_id=UUID(str(row["calculation_id"])),
-                    calculation_type=str(row["calculation_type"]),
-                    request_json=str(row["request_json"]),
-                    response_json=str(row["response_json"]),
-                    details=details,
-                    attempt_count=int(row["attempt_count"]),
-                    worker_id=None if row["worker_id"] is None else str(row["worker_id"]),
-                    leased_at_utc=format_timestamp(row["leased_at_utc"]),
-                    lease_expires_at_utc=format_timestamp(row["lease_expires_at_utc"]),
-                )
-            )
+            leased.append(payload)
         return leased
 
     def _to_payload(self, payload: LineagePayloadModel, *, details: dict[str, str] | None = None) -> LineagePayload:
@@ -1228,6 +1177,85 @@ def _lineage_queue_stats_from_aggregate_row(*, aggregate_row: object, stats_now:
 
 def _aggregate_int(aggregate_row: object, field_name: str) -> int:
     return int(getattr(aggregate_row, field_name) or 0)
+
+
+def _postgresql_pending_payload_lease_statement():
+    return text(
+        """
+        UPDATE lineage_payloads AS payload
+        SET worker_id = :worker_id,
+            leased_at_utc = :leased_at_utc,
+            lease_expires_at_utc = :lease_expires_at_utc,
+            attempt_count = payload.attempt_count + 1
+        FROM (
+            SELECT payload.calculation_id
+            FROM lineage_payloads AS payload
+            WHERE EXISTS (
+                SELECT 1
+                FROM lineage_records AS record
+                WHERE record.calculation_id = payload.calculation_id
+                  AND record.status = :pending_status
+            )
+              AND (
+                payload.lease_expires_at_utc IS NULL
+                OR payload.lease_expires_at_utc < :leased_at_utc
+              )
+            ORDER BY payload.created_at_utc ASC, payload.calculation_id ASC
+            FOR UPDATE OF payload SKIP LOCKED
+            LIMIT :limit
+        ) AS claimable
+        WHERE payload.calculation_id = claimable.calculation_id
+        RETURNING
+            payload.calculation_id,
+            payload.calculation_type,
+            payload.request_json,
+            payload.response_json,
+            payload.details_json,
+            payload.attempt_count,
+            payload.worker_id,
+            payload.leased_at_utc,
+            payload.lease_expires_at_utc
+        """
+    )
+
+
+def _postgresql_pending_payload_lease_params(
+    *,
+    worker_id: str,
+    leased_at_utc: datetime,
+    lease_expires_at_utc: datetime,
+    limit: int,
+) -> dict[str, object]:
+    return {
+        "worker_id": worker_id,
+        "leased_at_utc": leased_at_utc,
+        "lease_expires_at_utc": lease_expires_at_utc,
+        "pending_status": LineageStatus.PENDING.value,
+        "limit": limit,
+    }
+
+
+def _postgresql_pending_payload_from_row(row: Mapping[str, object]) -> tuple[str, LineagePayload | None]:
+    calculation_id = str(row["calculation_id"])
+    details = _load_payload_details(str(row["details_json"]), calculation_id=calculation_id)
+    if details is None:
+        return calculation_id, None
+    leased_at_utc = cast(datetime | None, row["leased_at_utc"])
+    lease_expires_at_utc = cast(datetime | None, row["lease_expires_at_utc"])
+    return (
+        calculation_id,
+        LineagePayload(
+            calculation_id=UUID(calculation_id),
+            calculation_type=str(row["calculation_type"]),
+            request_json=str(row["request_json"]),
+            response_json=str(row["response_json"]),
+            details=details,
+            attempt_count=int(str(row["attempt_count"])),
+            worker_id=None if row["worker_id"] is None else str(row["worker_id"]),
+            leased_at_utc=format_timestamp(leased_at_utc),
+            lease_expires_at_utc=format_timestamp(lease_expires_at_utc),
+        ),
+    )
 
 
 def _load_payload_details(details_json: str, *, calculation_id: str) -> dict[str, str] | None:
