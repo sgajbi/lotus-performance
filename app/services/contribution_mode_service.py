@@ -37,12 +37,7 @@ async def resolve_contribution_request(
     settings: Settings,
 ) -> ResolvedContributionRequest:
     if request.input_mode == ContributionInputMode.STATELESS:
-        contribution_request = request.to_stateless_contribution_request()
-        return ResolvedContributionRequest(
-            contribution_request=contribution_request,
-            input_mode=ContributionInputMode.STATELESS,
-            position_count=len(contribution_request.positions_data),
-        )
+        return _resolved_stateless_contribution_request(request)
 
     stateful_input = require_stateful_input(request.stateful_input)
 
@@ -97,6 +92,17 @@ async def resolve_contribution_request(
         ),
         input_mode=ContributionInputMode.STATEFUL,
         position_count=len(normalized_input.positions_data),
+    )
+
+
+def _resolved_stateless_contribution_request(
+    request: ContributionAnalyticsRequest,
+) -> ResolvedContributionRequest:
+    contribution_request = request.to_stateless_contribution_request()
+    return ResolvedContributionRequest(
+        contribution_request=contribution_request,
+        input_mode=ContributionInputMode.STATELESS,
+        position_count=len(contribution_request.positions_data),
     )
 
 

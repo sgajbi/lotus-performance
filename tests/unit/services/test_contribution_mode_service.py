@@ -8,6 +8,7 @@ from app.models.contribution_analytics_requests import ContributionAnalyticsRequ
 from app.services.contribution_mode_service import (
     _contribution_normalization_stage_details,
     _contribution_retrieval_stage_details,
+    _resolved_stateless_contribution_request,
     resolve_contribution_request,
 )
 from app.services.execution_registry import execution_registry
@@ -64,6 +65,39 @@ async def test_resolve_contribution_request_passthroughs_stateless_mode():
 
     assert resolved.input_mode.value == "stateless"
     assert resolved.contribution_request.portfolio_data.metric_basis == "NET"
+
+
+def test_resolved_stateless_contribution_request_projects_request_envelope():
+    request = ContributionAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "CONTRIB_1",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "portfolio_data": {
+                "metric_basis": "NET",
+                "valuation_points": [
+                    {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+                ],
+            },
+            "positions_data": [
+                {
+                    "position_id": "SEC_1",
+                    "security_id": "SEC_1",
+                    "valuation_points": [
+                        {"perf_date": "2025-01-01", "begin_mv": 600, "end_mv": 606},
+                    ],
+                }
+            ],
+        }
+    )
+
+    resolved = _resolved_stateless_contribution_request(request)
+
+    assert resolved.input_mode.value == "stateless"
+    assert resolved.contribution_request.portfolio_data.metric_basis == "NET"
+    assert resolved.position_count == 1
 
 
 @pytest.mark.asyncio
