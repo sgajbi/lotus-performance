@@ -14,6 +14,7 @@ from app.models.benchmark_exposure_context import (
 from app.observability import correlation_id_var
 from app.services.benchmark_exposure_context_service import (
     _accumulate_exposure_point,
+    _benchmark_exposure_metadata,
     _benchmark_id_from_assignment_payload,
     _benchmark_id_from_assignment_response,
     _build_exposure_rows,
@@ -170,6 +171,32 @@ async def test_build_benchmark_exposure_context_groups_and_aligns_weights() -> N
     assert service.assignment_calls[0]["portfolio_id"] == "PB_SG_GLOBAL_BAL_001"
     assert service.market_series_calls[0]["series_fields"] == ["component_weight"]
     assert service.market_series_calls[0]["target_currency"] == "USD"
+
+
+def test_benchmark_exposure_metadata_projects_retrieval_counters_and_correlation() -> None:
+    request = _request()
+
+    correlation_token = correlation_id_var.set("corr-benchmark-exposure-metadata")
+    try:
+        metadata = _benchmark_exposure_metadata(
+            request=request,
+            market_payload={"retrieval_metadata": {"chunk_count": 2, "page_count": 3}},
+            index_catalog_count=1,
+        )
+    finally:
+        correlation_id_var.reset(correlation_token)
+
+    assert metadata.source_system == "lotus-core"
+    assert metadata.served_by == "lotus-performance"
+    assert metadata.calculation_run_id == request.calculation_id
+    assert metadata.contract_version == "v1"
+    assert metadata.correlation_id == "corr-benchmark-exposure-metadata"
+    assert metadata.generated_at.tzinfo is not None
+    assert metadata.retrieval_metadata == {
+        "benchmark_market_series_chunk_count": 2,
+        "benchmark_market_series_page_count": 3,
+        "index_catalog_page_count": 1,
+    }
 
 
 @pytest.mark.asyncio

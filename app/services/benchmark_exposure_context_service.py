@@ -78,7 +78,6 @@ async def build_benchmark_exposure_context(
         page_size=request.page.page_size,
         page_token=request.page.page_token,
     )
-    market_retrieval = parse_zero_default_retrieval_metadata(market_payload)
     index_catalog_count = 1 if classification_map else 0
 
     return BenchmarkExposureContextResponse(
@@ -92,16 +91,30 @@ async def build_benchmark_exposure_context(
         reporting_currency=request.reporting_currency,
         rows=paged_rows,
         page=BenchmarkExposurePageResponse(next_page_token=next_page_token),
-        metadata=BenchmarkExposureMetadata(
-            calculation_run_id=request.calculation_id,
-            correlation_id=source_product_correlation_id(),
-            generated_at=datetime.now(UTC),
-            retrieval_metadata={
-                "benchmark_market_series_chunk_count": market_retrieval.chunk_count,
-                "benchmark_market_series_page_count": market_retrieval.page_count,
-                "index_catalog_page_count": index_catalog_count,
-            },
+        metadata=_benchmark_exposure_metadata(
+            request=request,
+            market_payload=market_payload,
+            index_catalog_count=index_catalog_count,
         ),
+    )
+
+
+def _benchmark_exposure_metadata(
+    *,
+    request: BenchmarkExposureContextRequest,
+    market_payload: dict[str, Any],
+    index_catalog_count: int,
+) -> BenchmarkExposureMetadata:
+    market_retrieval = parse_zero_default_retrieval_metadata(market_payload)
+    return BenchmarkExposureMetadata(
+        calculation_run_id=request.calculation_id,
+        correlation_id=source_product_correlation_id(),
+        generated_at=datetime.now(UTC),
+        retrieval_metadata={
+            "benchmark_market_series_chunk_count": market_retrieval.chunk_count,
+            "benchmark_market_series_page_count": market_retrieval.page_count,
+            "index_catalog_page_count": index_catalog_count,
+        },
     )
 
 
