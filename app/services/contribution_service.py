@@ -463,18 +463,13 @@ def _build_flat_period_contribution_result(
         average_weight_audit_state=average_weight_audit_state,
         is_promoted=position_assembly.use_reset_aware_average_weight,
     )
-    return _ContributionPeriodResult(
+    return _build_contribution_period_result(
         period_name=period.name,
-        average_weight_sum_residual_bp=supportability.average_weight_sum_residual_bp,
-        result=SinglePeriodContributionResult(
-            total_portfolio_return=total_portfolio_return * 100,
-            total_contribution=supportability.total_contribution,
-            position_contributions=position_assembly.position_contributions,
-            timeseries=position_assembly.daily_series,
-            by_position_timeseries=position_assembly.emitted_position_series,
-            average_weight_methodology_status=supportability.average_weight_methodology_status,
-            smoothing_evidence=supportability.smoothing_evidence,
-        ),
+        total_portfolio_return=total_portfolio_return,
+        supportability=supportability,
+        position_contributions=position_assembly.position_contributions,
+        daily_series=position_assembly.daily_series,
+        emitted_position_series=position_assembly.emitted_position_series,
     )
 
 
@@ -533,20 +528,44 @@ def _build_hierarchy_period_contribution_result(
         period_methodology_context=period_methodology_context,
         average_weight_audit_state=average_weight_audit_state,
     )
-    return _ContributionPeriodResult(
+    return _build_contribution_period_result(
         period_name=period.name,
+        total_portfolio_return=total_portfolio_return,
+        supportability=supportability,
+        position_contributions=position_assembly.position_contributions,
+        daily_series=position_assembly.daily_series,
+        emitted_position_series=position_assembly.emitted_position_series,
+        hierarchy_results=position_assembly.hierarchy_results,
+    )
+
+
+def _build_contribution_period_result(
+    *,
+    period_name: str,
+    total_portfolio_return: Any,
+    supportability: _ContributionPeriodSupportability,
+    position_contributions: list[PositionContribution],
+    daily_series: list[DailyContribution] | None,
+    emitted_position_series: list[PositionContributionSeries] | None,
+    hierarchy_results: dict[str, Any] | None = None,
+) -> _ContributionPeriodResult:
+    result_payload: dict[str, Any] = {
+        "total_portfolio_return": total_portfolio_return * 100,
+        "total_contribution": supportability.total_contribution,
+        "position_contributions": position_contributions,
+        "timeseries": daily_series,
+        "by_position_timeseries": emitted_position_series,
+        "average_weight_methodology_status": supportability.average_weight_methodology_status,
+        "smoothing_evidence": supportability.smoothing_evidence,
+    }
+    if hierarchy_results is not None:
+        result_payload["summary"] = hierarchy_results.get("summary")
+        result_payload["levels"] = hierarchy_results.get("levels")
+
+    return _ContributionPeriodResult(
+        period_name=period_name,
         average_weight_sum_residual_bp=supportability.average_weight_sum_residual_bp,
-        result=SinglePeriodContributionResult(
-            total_portfolio_return=total_portfolio_return * 100,
-            total_contribution=supportability.total_contribution,
-            position_contributions=position_assembly.position_contributions,
-            timeseries=position_assembly.daily_series,
-            by_position_timeseries=position_assembly.emitted_position_series,
-            average_weight_methodology_status=supportability.average_weight_methodology_status,
-            smoothing_evidence=supportability.smoothing_evidence,
-            summary=position_assembly.hierarchy_results.get("summary"),
-            levels=position_assembly.hierarchy_results.get("levels"),
-        ),
+        result=SinglePeriodContributionResult(**result_payload),
     )
 
 

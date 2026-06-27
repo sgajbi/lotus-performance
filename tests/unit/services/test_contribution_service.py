@@ -17,6 +17,74 @@ from app.services.contribution_periods import ContributionPeriodMethodologyConte
 from engine.schema import PortfolioColumns
 
 
+def test_build_contribution_period_result_projects_flat_and_hierarchy_outputs():
+    methodology_status = AverageWeightMethodologyStatus(
+        status="PROMOTED",
+        max_shadow_delta_bp=25,
+        is_material_shadow=False,
+        is_cutover_candidate=True,
+        is_promoted=True,
+    )
+    supportability = contribution_service._ContributionPeriodSupportability(
+        average_weight_sum_residual_bp=7,
+        total_contribution=3.25,
+        smoothing_evidence=None,
+        average_weight_methodology_status=methodology_status,
+    )
+    position_contributions = [
+        PositionContribution(
+            position_id="SEC_A",
+            total_contribution=3.25,
+            average_weight=100.0,
+            total_return=3.25,
+        )
+    ]
+
+    flat_result = contribution_service._build_contribution_period_result(
+        period_name="ITD",
+        total_portfolio_return=0.0325,
+        supportability=supportability,
+        position_contributions=position_contributions,
+        daily_series=None,
+        emitted_position_series=None,
+    )
+    hierarchy_result = contribution_service._build_contribution_period_result(
+        period_name="ITD",
+        total_portfolio_return=0.0325,
+        supportability=supportability,
+        position_contributions=position_contributions,
+        daily_series=None,
+        emitted_position_series=None,
+        hierarchy_results={
+            "summary": {
+                "portfolio_contribution": 3.25,
+                "coverage_mv_pct": 100.0,
+                "weighting_scheme": "average_weight",
+            },
+            "levels": [
+                {
+                    "level": 1,
+                    "name": "sector",
+                    "rows": [{"key": {"sector": "Technology"}, "contribution": 3.25}],
+                }
+            ],
+        },
+    )
+
+    assert flat_result.period_name == "ITD"
+    assert flat_result.average_weight_sum_residual_bp == 7
+    assert flat_result.result.total_portfolio_return == pytest.approx(3.25)
+    assert flat_result.result.total_contribution == pytest.approx(3.25)
+    assert flat_result.result.position_contributions == position_contributions
+    assert flat_result.result.average_weight_methodology_status == methodology_status
+    assert flat_result.result.summary is None
+    assert flat_result.result.levels is None
+    assert hierarchy_result.result.summary is not None
+    assert hierarchy_result.result.summary.portfolio_contribution == pytest.approx(3.25)
+    assert hierarchy_result.result.levels is not None
+    assert hierarchy_result.result.levels[0].rows[0].key == {"sector": "Technology"}
+
+
 def test_prepare_contribution_engine_inputs_resolves_master_window_and_normalizes_dates(monkeypatch):
     periods = [
         SimpleNamespace(name="JAN", start_date=date(2026, 1, 1), end_date=date(2026, 1, 31)),

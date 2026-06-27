@@ -43,7 +43,7 @@ link the commit, command, or CI artifact that proves the change.
 | Max cyclomatic complexity | unknown | 5 | enforced | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py`; `make quality-complexity-gate` |
 | High-complexity functions | unknown | 0 | enforced | rank D-F functions in `quality/complexity_inventory.md`; `make quality-complexity-gate` |
 | Average maintainability index | unknown | 55.16 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
-| Largest functions by LOC | unknown | 72 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; LP-CR-1454 moved `calculate_benchmark_response(...)` out of the top-25 table, so the largest production functions are now three functions tied at `72` lines |
+| Largest functions by LOC | unknown | 72 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; LP-CR-1455 moved the contribution period result builders down to `67` and `64` lines, so the largest production functions are now two functions tied at `72` lines |
 
 ## Architecture
 
