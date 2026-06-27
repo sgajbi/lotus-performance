@@ -743,49 +743,45 @@ def _build_workspace_benchmark_and_active_blocks(
         annualization=annualization,
         benchmark_input=benchmark_input,
     )
-    return (
-        benchmark_block,
-        WorkspaceActiveBlock(
-            net=WorkspaceReturnSummary(
-                period_return=_to_workspace_return_value(
-                    _build_relative_return_value(
-                        net_summary.summary.period_return,
-                        benchmark_block.summary.period_return,
-                    )
-                ),
-                cumulative_return=_to_workspace_return_value(
-                    _build_relative_return_value(
-                        net_summary.summary.cumulative_return,
-                        benchmark_block.summary.cumulative_return,
-                    )
-                ),
-                annualized_return=_to_workspace_return_value(
-                    _build_relative_return_value(
-                        net_summary.summary.annualized_return,
-                        benchmark_block.summary.annualized_return,
-                    )
-                ),
-            ),
-            gross=WorkspaceReturnSummary(
-                period_return=_to_workspace_return_value(
-                    _build_relative_return_value(
-                        gross_summary.summary.period_return,
-                        benchmark_block.summary.period_return,
-                    )
-                ),
-                cumulative_return=_to_workspace_return_value(
-                    _build_relative_return_value(
-                        gross_summary.summary.cumulative_return,
-                        benchmark_block.summary.cumulative_return,
-                    )
-                ),
-                annualized_return=_to_workspace_return_value(
-                    _build_relative_return_value(
-                        gross_summary.summary.annualized_return,
-                        benchmark_block.summary.annualized_return,
-                    )
-                ),
-            ),
+    return benchmark_block, _build_workspace_active_block(
+        benchmark_block=benchmark_block,
+        net_summary=net_summary,
+        gross_summary=gross_summary,
+    )
+
+
+def _build_workspace_active_block(
+    *,
+    benchmark_block: WorkspaceBenchmarkBlock,
+    net_summary: WorkspacePerformanceBlock,
+    gross_summary: WorkspacePerformanceBlock,
+) -> WorkspaceActiveBlock:
+    return WorkspaceActiveBlock(
+        net=_build_workspace_active_return_summary(
+            portfolio_summary=net_summary.summary,
+            benchmark_summary=benchmark_block.summary,
+        ),
+        gross=_build_workspace_active_return_summary(
+            portfolio_summary=gross_summary.summary,
+            benchmark_summary=benchmark_block.summary,
+        ),
+    )
+
+
+def _build_workspace_active_return_summary(
+    *,
+    portfolio_summary: WorkspaceReturnSummary,
+    benchmark_summary: WorkspaceReturnSummary,
+) -> WorkspaceReturnSummary:
+    return WorkspaceReturnSummary(
+        period_return=_to_workspace_return_value(
+            _build_relative_return_value(portfolio_summary.period_return, benchmark_summary.period_return)
+        ),
+        cumulative_return=_to_workspace_return_value(
+            _build_relative_return_value(portfolio_summary.cumulative_return, benchmark_summary.cumulative_return)
+        ),
+        annualized_return=_to_workspace_return_value(
+            _build_relative_return_value(portfolio_summary.annualized_return, benchmark_summary.annualized_return)
         ),
     )
 
