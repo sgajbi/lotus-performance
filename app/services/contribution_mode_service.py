@@ -16,6 +16,8 @@ from app.services.input_mode_validation import require_stateful_input
 from app.services.portfolio_source_service import build_stateful_input_service
 from app.services.service_identity import LOTUS_PERFORMANCE_CONSUMER_SYSTEM
 from app.services.stateful_contribution_input_service import (
+    StatefulContributionNormalizedInput,
+    StatefulContributionSourceInput,
     build_stateful_contribution_input,
     retrieve_stateful_contribution_source_input,
 )
@@ -64,14 +66,7 @@ async def resolve_contribution_request(
         execution_registry.complete_stage(
             request.calculation_id,
             EXECUTION_STAGE_RETRIEVAL,
-            details={
-                "portfolio_observations": len(source_input.portfolio_input.observations),
-                "position_rows": len(source_input.position_rows),
-                "portfolio_chunk_count": _portfolio_retrieval_metadata(source_input).chunk_count,
-                "portfolio_page_count": _portfolio_retrieval_metadata(source_input).page_count,
-                "position_chunk_count": _position_retrieval_metadata(source_input).chunk_count,
-                "position_page_count": _position_retrieval_metadata(source_input).page_count,
-            },
+            details=_contribution_retrieval_stage_details(source_input),
         )
     except HTTPException as exc:
         execution_registry.fail_stage(request.calculation_id, EXECUTION_STAGE_RETRIEVAL, str(exc.detail))
@@ -89,10 +84,7 @@ async def resolve_contribution_request(
         execution_registry.complete_stage(
             request.calculation_id,
             EXECUTION_STAGE_NORMALIZATION,
-            details={
-                "portfolio_points": len(normalized_input.portfolio_data.valuation_points),
-                "positions": len(normalized_input.positions_data),
-            },
+            details=_contribution_normalization_stage_details(normalized_input),
         )
     except Exception as exc:
         execution_registry.fail_stage(request.calculation_id, EXECUTION_STAGE_NORMALIZATION, str(exc))
@@ -106,6 +98,28 @@ async def resolve_contribution_request(
         input_mode=ContributionInputMode.STATEFUL,
         position_count=len(normalized_input.positions_data),
     )
+
+
+def _contribution_retrieval_stage_details(source_input: StatefulContributionSourceInput) -> dict[str, int]:
+    portfolio_metadata = _portfolio_retrieval_metadata(source_input)
+    position_metadata = _position_retrieval_metadata(source_input)
+    return {
+        "portfolio_observations": len(source_input.portfolio_input.observations),
+        "position_rows": len(source_input.position_rows),
+        "portfolio_chunk_count": portfolio_metadata.chunk_count,
+        "portfolio_page_count": portfolio_metadata.page_count,
+        "position_chunk_count": position_metadata.chunk_count,
+        "position_page_count": position_metadata.page_count,
+    }
+
+
+def _contribution_normalization_stage_details(
+    normalized_input: StatefulContributionNormalizedInput,
+) -> dict[str, int]:
+    return {
+        "portfolio_points": len(normalized_input.portfolio_data.valuation_points),
+        "positions": len(normalized_input.positions_data),
+    }
 
 
 def _portfolio_retrieval_metadata(source_input: object) -> RetrievalMetadata:

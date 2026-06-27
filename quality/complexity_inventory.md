@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-27
-Branch: `lp-cr-1439-runtime-retention-history-snapshot-boundary`
+Branch: `lp-cr-1440-contribution-request-resolution-boundary`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
@@ -32,7 +32,7 @@ must stay at `0`.
 | --- | ---: |
 | Max cyclomatic complexity | 5 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.06 |
+| Average maintainability index | 55.05 |
 
 ## Highest Cyclomatic Complexity
 
@@ -61,7 +61,7 @@ must stay at `0`.
 | 21 | `_inspection_timing` | method | `app/services/lineage_metadata_store.py:1146` | 5 | A |
 | 22 | `_ensure_payload_lease_columns` | method | `app/services/lineage_metadata_store.py:1172` | 5 | A |
 | 23 | `_load_payload_details` | function | `app/services/lineage_metadata_store.py:1233` | 5 | A |
-| 24 | `evaluate_mandate_performance_health_context` | function | `app/services/mandate_health_context_service.py:15` | 5 | A |
+| 24 | `evaluate_mandate_performance_health_context` | function | `app/services/mandate_health_context_service.py:16` | 5 | A |
 | 25 | `_stringify_decimal_collection` | function | `app/services/mwr_calculation_service.py:141` | 5 | A |
 
 ## Lowest Maintainability Index
