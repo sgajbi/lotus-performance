@@ -345,7 +345,32 @@ def _build_twr_inspection_response(
         failed_check_families=failed_check_families,
         pending_check_families=findings_context.pending_check_families,
     )
-    response = TWRInspectionResponse(
+    response = _build_twr_inspection_response_model(
+        request=request,
+        subject_calculation_id=subject_calculation_id,
+        portfolio_id=portfolio_id,
+        findings_context=findings_context,
+        completed_check_families=completed_check_families,
+        verdict=verdict,
+        artifact_payloads=artifact_payloads,
+    )
+    return _attach_support_brief_to_inspection_response(
+        response=response,
+        artifact_payloads=artifact_payloads,
+    )
+
+
+def _build_twr_inspection_response_model(
+    *,
+    request: TWRInspectionRequest,
+    subject_calculation_id: UUID | None,
+    portfolio_id: str | None,
+    findings_context: _InspectionFindingsContext,
+    completed_check_families: list[str],
+    verdict: TWRInspectionVerdict,
+    artifact_payloads: dict[str, str],
+) -> TWRInspectionResponse:
+    return TWRInspectionResponse(
         inspection_id=request.inspection_id,
         subject_type=request.subject_type,
         inspection_profile=request.inspection_profile,
@@ -372,10 +397,6 @@ def _build_twr_inspection_response(
         ),
         workflow_pack_run=None,
         generated_at_utc=format_timestamp(datetime.now(UTC)) or "",
-    )
-    return _attach_support_brief_to_inspection_response(
-        response=response,
-        artifact_payloads=artifact_payloads,
     )
 
 
