@@ -35,6 +35,7 @@ from app.services.returns_series_calculation_workflow_service import (
     should_offload_returns_series,
 )
 from app.services.returns_series_service import (
+    ResolvedStatefulReturnsSeriesRequest,
     core_points_to_dataframe,
     date_range_count,
     detect_gaps,
@@ -400,6 +401,51 @@ def test_build_returns_series_execution_window_projects_optional_metadata():
         "benchmark_work_units": 0,
     }
     assert "benchmark_id" not in requested_window
+
+
+def test_resolved_returns_series_execution_projection_uses_resolved_identity():
+    request = ReturnsSeriesRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "as_of_date": "2026-02-27",
+            "window": {"mode": "EXPLICIT", "from_date": "2026-02-24", "to_date": "2026-02-27"},
+            "input_mode": "stateful",
+            "stateful_input": {},
+        }
+    )
+    resolved = ResolvedStatefulReturnsSeriesRequest(
+        request=request,
+        identity_payload={"portfolio_id": "P1", "resolved": True},
+        input_count=7,
+        resolved_benchmark_id="BMK1",
+        resolved_benchmark_return_source="linked_assignment",
+        benchmark_work_units=2,
+    )
+
+    requested_window = returns_series_calculation_workflow_service._resolved_returns_series_execution_window(
+        request,
+        source_request_fingerprint="source-fingerprint",
+        resolved=resolved,
+    )
+    payload = returns_series_calculation_workflow_service._resolved_returns_series_async_request_payload(resolved)
+
+    assert requested_window == {
+        "mode": "EXPLICIT",
+        "from_date": "2026-02-24",
+        "to_date": "2026-02-27",
+        "period": None,
+        "year": None,
+        "input_mode": "stateful",
+        "source_request_fingerprint": "source-fingerprint",
+        "input_count": 7,
+        "benchmark_id": "BMK1",
+        "benchmark_return_source": "linked_assignment",
+        "benchmark_work_units": 2,
+    }
+    assert payload["source_input_mode"] == "stateful"
+    assert payload["resolved_benchmark_id"] == "BMK1"
+    assert payload["resolved_benchmark_return_source"] == "linked_assignment"
+    assert payload["resolved_request"]["portfolio_id"] == "P1"
 
 
 def test_execution_failure_message_prefers_coded_detail_message():
