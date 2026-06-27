@@ -1,7 +1,7 @@
 # Lotus Performance Coverage Inventory
 
 Report date: 2026-06-28
-Branch: `feature/branch-coverage-baseline`
+Branch: `feature/lineage-branch-coverage-hardening`
 Mode: report-only local coverage evidence; the blocking line-coverage gate remains unchanged.
 
 ## Purpose
@@ -23,13 +23,13 @@ make branch-coverage-baseline
 | Metric | Value | Evidence |
 | --- | ---: | --- |
 | Branch coverage collection | enabled | `pytest --cov-branch` in `make branch-coverage-baseline` |
-| Combined line coverage under branch run | 99.19% | `covered_lines / num_statements` from `output/branch-coverage/coverage.json` |
-| Covered lines | 21071 | coverage.py `7.14.3` JSON totals |
-| Missing lines | 173 | coverage.py `7.14.3` JSON totals |
+| Combined line coverage under branch run | 99.23% | `covered_lines / num_statements` from `output/branch-coverage/coverage.json` |
+| Covered lines | 21081 | coverage.py `7.14.3` JSON totals |
+| Missing lines | 163 | coverage.py `7.14.3` JSON totals |
 | Statements | 21244 | coverage.py `7.14.3` JSON totals |
-| Combined branch coverage | 95.67% | 4217 covered branches of 4408 total branches |
-| Missing branches | 191 | coverage.py `7.14.3` JSON totals |
-| Partial branches | 177 | coverage.py `7.14.3` JSON totals |
+| Combined branch coverage | 95.96% | 4230 covered branches of 4408 total branches |
+| Missing branches | 178 | coverage.py `7.14.3` JSON totals |
+| Partial branches | 164 | coverage.py `7.14.3` JSON totals |
 | Branch-coverage gate | not configured | Report-only baseline; no fail-under threshold is applied. |
 | Existing line-coverage gate | unchanged | `make test-coverage` still enforces `coverage report --fail-under=99`. |
 
@@ -37,7 +37,6 @@ make branch-coverage-baseline
 
 | File | Covered branches | Missing branches | Partial branches | Total branches |
 | --- | ---: | ---: | ---: | ---: |
-| `app/services/lineage_metadata_store.py` | 73 | 13 | 13 | 86 |
 | `app/observability.py` | 17 | 13 | 3 | 30 |
 | `app/services/inspection/support_brief_workflow_pack.py` | 30 | 12 | 10 | 42 |
 | `engine/attribution.py` | 114 | 10 | 10 | 124 |
@@ -47,6 +46,7 @@ make branch-coverage-baseline
 | `engine/policies.py` | 40 | 6 | 6 | 46 |
 | `engine/contribution.py` | 28 | 6 | 6 | 34 |
 | `app/services/workspace_summary_service.py` | 69 | 5 | 5 | 74 |
+| `engine/mwr.py` | 63 | 5 | 5 | 68 |
 
 ## CI Alignment
 

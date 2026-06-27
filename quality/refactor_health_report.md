@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Health Report
 
 Report date: 2026-06-28
-Branch: `feature/enterprise-backend-refactor-baseline`
+Branch: `feature/lineage-branch-coverage-hardening`
 Baseline source: `quality/baseline_report.md`
 Report mode: phase-zero scorecard; complexity, architecture, duplicate-code, repository hygiene,
 router-thinness, observability-readiness, and Python security posture are enforced separately by CI.
@@ -71,10 +71,10 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Test modules | 228 | 274 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 3,258 | measured | `python -m pytest --collect-only -q` |
-| Line coverage | unknown | 99% | measured | `quality/coverage_inventory.md` via `make ci` coverage gate (`2,912` unit, `308` integration, and `21` e2e tests under coverage; `TOTAL 21244 statements, 173 missed`) |
-| Branch coverage | unknown | 95.67% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`2,915` unit, `308` integration, and `21` e2e tests under branch coverage; `4,217` covered branches of `4,408`, `191` missing branches, `177` partial branches) |
+| Test modules | 228 | 275 | measured | `rg --files tests -g 'test_*.py'` |
+| Collected tests | 2,035 | 3,275 | measured | `python -m pytest --collect-only -q` |
+| Line coverage | unknown | 99.23% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`2,929` unit, `308` integration, and `21` e2e tests under branch coverage; `21,081` covered lines of `21,244` statements) |
+| Branch coverage | unknown | 95.96% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`2,929` unit, `308` integration, and `21` e2e tests under branch coverage; `4,230` covered branches of `4,408`, `178` missing branches, `164` partial branches) |
 | Integration/API/runtime test functions | unknown | 600 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |
 | Contract/governance test functions | unknown | 108 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |
 
@@ -143,14 +143,18 @@ Latest validation on `feature/enterprise-backend-refactor-baseline`:
    repo-authored wiki source. Publish the wiki after this branch is merged to `main`; do not
    publish unmerged branch truth.
 
-Latest branch-coverage baseline evidence on `feature/branch-coverage-baseline`:
+Latest branch-coverage hardening evidence on `feature/lineage-branch-coverage-hardening`:
 
-1. `make branch-coverage-baseline` passed with `2,915` unit tests, `308` integration tests, and
+1. `make branch-coverage-baseline` passed with `2,929` unit tests, `308` integration tests, and
    `21` e2e tests under `pytest --cov-branch`.
-2. The generated `quality/coverage_inventory.md` records combined line coverage at `99.19%`,
-   branch coverage at `95.67%`, `4,408` total branches, `191` missing branches, and `177` partial
+2. The generated `quality/coverage_inventory.md` records combined line coverage at `99.23%`,
+   branch coverage at `95.96%`, `4,408` total branches, `178` missing branches, and `164` partial
    branches.
-3. Branch coverage remains report-only; no fail-under threshold or GitHub blocking lane is added in
+3. `app/services/lineage_metadata_store.py` dropped out of the top branch-gap table after focused
+   operator-supportability tests covered cleanup no-ops, invalid lineage-payload quarantine,
+   recovery seek-cursor filtering, pending inspection projection, legacy schema no-op migration,
+   PostgreSQL returned-row validation, and runtime-store cache resolution.
+4. Branch coverage remains report-only; no fail-under threshold or GitHub blocking lane is added in
    this slice.
 
 ## Next Updates

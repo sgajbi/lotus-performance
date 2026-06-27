@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from uuid import uuid4
 
-from sqlalchemy import event, inspect
+from sqlalchemy import event, inspect, select
 from sqlalchemy.dialects import postgresql
 
 from app.services.lineage_metadata_store import (
@@ -14,9 +14,11 @@ from app.services.lineage_metadata_store import (
     LineageStatus,
     _lineage_queue_stats_from_aggregate_row,
     _lineage_recovery_event_page,
+    _mark_invalid_payload_details,
     _payload_has_active_lease,
     _postgresql_pending_payload_from_row,
     _postgresql_pending_payload_lease_params,
+    get_lineage_metadata_store,
 )
 
 
@@ -42,6 +44,26 @@ def test_lineage_metadata_store_pending_complete_and_failed(tmp_path):
     assert failed is not None
     assert failed.status == LineageStatus.FAILED
     assert failed.error_message == "write failed"
+
+
+def test_lineage_metadata_store_clear_all_records_removes_payloads(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    store.create_schema()
+    calculation_id = uuid4()
+
+    store.enqueue_lineage_payload(
+        calculation_id=calculation_id,
+        calculation_type="TWR",
+        request_json="{}",
+        response_json="{}",
+        details={"details.json": "{}"},
+    )
+
+    store.clear_all_records()
+
+    assert store.get_record(calculation_id) is None
+    assert store.get_payload(calculation_id) is None
+    assert store.list_pending_payloads(limit=10) == []
 
 
 def test_lineage_metadata_store_updates_record_timestamp_on_status_transitions(tmp_path):
@@ -254,6 +276,34 @@ def test_lineage_metadata_store_marks_non_string_payload_details_failed_during_l
     assert f"calculation_id={calculation_id}" in caplog.text
 
 
+def test_lineage_metadata_store_marks_invalid_payload_details_failed_during_pending_list(tmp_path, caplog):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    store.create_schema()
+    calculation_id = uuid4()
+
+    store.enqueue_lineage_payload(
+        calculation_id=calculation_id,
+        calculation_type="TWR",
+        request_json="{}",
+        response_json="{}",
+        details={"details.json": "{}"},
+    )
+    with store._session() as session:
+        payload = session.get(LineagePayloadModel, str(calculation_id))
+        assert payload is not None
+        payload.details_json = "{not-json"
+
+    with caplog.at_level("WARNING", logger="app.services.lineage_metadata_store"):
+        pending = store.list_pending_payloads(limit=10)
+
+    assert pending == []
+    record = store.get_record(calculation_id)
+    assert record is not None
+    assert record.status == LineageStatus.FAILED
+    assert record.error_message == INVALID_LINEAGE_PAYLOAD_DETAILS_MESSAGE
+    assert f"calculation_id={calculation_id}" in caplog.text
+
+
 def test_lineage_metadata_store_raises_when_incrementing_missing_payload(tmp_path):
     store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
     store.create_schema()
@@ -264,6 +314,34 @@ def test_lineage_metadata_store_raises_when_incrementing_missing_payload(tmp_pat
         assert "Lineage payload not found" in str(exc)
     else:
         raise AssertionError("Expected increment_attempt_count to raise KeyError")
+
+
+def test_lineage_metadata_store_raises_when_marking_missing_record_pending(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    store.create_schema()
+
+    try:
+        store.mark_pending(uuid4())
+    except KeyError as exc:
+        assert "Lineage record not found" in str(exc)
+    else:
+        raise AssertionError("Expected mark_pending to raise KeyError")
+
+
+def test_lineage_metadata_store_delete_calculation_ids_noops_for_empty_input(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    store.create_schema()
+
+    assert store.delete_calculation_ids([]) == 0
+
+
+def test_lineage_metadata_store_delete_missing_payload_noops(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    store.create_schema()
+
+    store.delete_payload(uuid4())
+
+    assert store.list_pending_payloads(limit=10) == []
 
 
 def test_lineage_metadata_store_pending_payload_stats(tmp_path):
@@ -610,6 +688,23 @@ def test_lineage_metadata_store_lists_recent_recoveries_with_seek_cursor(tmp_pat
     assert [item.calculation_id for item in second_page.items] == [str(ids[1])]
 
 
+def test_lineage_metadata_store_recovery_time_filter_supports_timestamp_only_seek_cursor(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    now = datetime(2026, 3, 15, 12, 0, tzinfo=timezone.utc)
+
+    statement = store._apply_recovery_time_filters(
+        select(LineageRecordModel),
+        recovered_after=None,
+        recovered_before=None,
+        cursor_recovered_before=now,
+        cursor_calculation_id_before=None,
+    )
+    compiled = str(statement.compile(compile_kwargs={"literal_binds": True}))
+
+    assert "lineage_records.timestamp_utc <" in compiled
+    assert "lineage_records.calculation_id <" not in compiled
+
+
 def test_lineage_recovery_event_page_projects_offset_and_seek_cursor():
     event = LineageRecoveryEvent(
         calculation_id="calc-1",
@@ -626,6 +721,28 @@ def test_lineage_recovery_event_page_projects_offset_and_seek_cursor():
     assert page.next_cursor_recovered_before == "2026-03-14T12:00:00Z"
     assert page.next_cursor_calculation_id_before == "calc-1"
     assert page.items == [event]
+
+
+def test_lineage_metadata_store_skips_recovery_event_without_recovered_timestamp(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    record = LineageRecordModel(
+        calculation_id=str(uuid4()),
+        calculation_type="TWR",
+        status=LineageStatus.FAILED.value,
+        timestamp_utc=None,
+        artifact_names="",
+    )
+    payload = LineagePayloadModel(
+        calculation_id=record.calculation_id,
+        calculation_type="TWR",
+        request_json="{}",
+        response_json="{}",
+        details_json='{"details.json": "{}"}',
+        created_at_utc=datetime(2026, 3, 15, 12, 0, tzinfo=timezone.utc),
+        attempt_count=1,
+    )
+
+    assert store._recovery_events_from_rows([(record, payload)]) == []
 
 
 def test_lineage_metadata_store_lists_active_and_failed_inspection_items(tmp_path):
@@ -678,6 +795,52 @@ def test_lineage_metadata_store_lists_active_and_failed_inspection_items(tmp_pat
     assert failed_page.items[0].age_seconds == 10.0
     assert stale_page.total_count == 1
     assert [item.calculation_id for item in stale_page.items] == [str(pending_id)]
+
+
+def test_lineage_metadata_store_projects_pending_inspection_item_without_payload(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    now = datetime(2026, 3, 15, 12, 0, tzinfo=timezone.utc)
+    record = LineageRecordModel(
+        calculation_id=str(uuid4()),
+        calculation_type="TWR",
+        status=LineageStatus.PENDING.value,
+        timestamp_utc=now - timedelta(seconds=30),
+        artifact_names="",
+    )
+
+    item = store._to_inspection_item(record, None, now=now)
+
+    assert item.status == LineageStatus.PENDING.value
+    assert item.attempt_count == 0
+    assert item.active_since_utc == "2026-03-15T11:59:30Z"
+    assert item.age_seconds == 30.0
+
+
+def test_lineage_metadata_store_projects_inspection_item_without_active_since(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    now = datetime(2026, 3, 15, 12, 0, tzinfo=timezone.utc)
+    record = LineageRecordModel(
+        calculation_id=str(uuid4()),
+        calculation_type="TWR",
+        status=LineageStatus.PENDING.value,
+        timestamp_utc=now,
+        artifact_names="",
+    )
+    payload = LineagePayloadModel(
+        calculation_id=record.calculation_id,
+        calculation_type="TWR",
+        request_json="{}",
+        response_json="{}",
+        details_json='{"details.json": "{}"}',
+        created_at_utc=None,
+        attempt_count=1,
+    )
+
+    item = store._to_inspection_item(record, payload, now=now)
+
+    assert item.status == LineageStatus.PENDING.value
+    assert item.active_since_utc is None
+    assert item.age_seconds is None
 
 
 def test_lineage_metadata_store_filters_inspection_items_by_type_and_calculation_substring(tmp_path):
@@ -989,6 +1152,14 @@ def test_lineage_metadata_store_create_schema_migrates_existing_payload_table(tm
     assert payload_indexes["ix_lineage_payloads_lease_expires_at"] == ("lease_expires_at_utc",)
 
 
+def test_lineage_metadata_store_payload_lease_column_migration_noops_without_payload_table(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage_legacy.db'}")
+
+    store._ensure_payload_lease_columns()
+
+    assert "lineage_payloads" not in inspect(store._engine).get_table_names()
+
+
 def test_lineage_metadata_store_builds_postgres_pending_lease_statement_without_join(tmp_path):
     store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
     now = datetime(2026, 3, 15, 12, 0, tzinfo=timezone.utc)
@@ -1093,6 +1264,29 @@ def test_postgresql_pending_payload_from_row_projects_lease_payload():
     assert payload.lease_expires_at_utc == "2026-03-15T12:01:00Z"
 
 
+def test_postgresql_pending_payload_from_row_rejects_invalid_details(caplog):
+    calculation_id = uuid4()
+
+    with caplog.at_level("WARNING", logger="app.services.lineage_metadata_store"):
+        row_calculation_id, payload = _postgresql_pending_payload_from_row(
+            {
+                "calculation_id": str(calculation_id),
+                "calculation_type": "TWR",
+                "request_json": "{}",
+                "response_json": '{"ok": true}',
+                "details_json": "{not-json",
+                "attempt_count": 2,
+                "worker_id": None,
+                "leased_at_utc": None,
+                "lease_expires_at_utc": None,
+            }
+        )
+
+    assert row_calculation_id == str(calculation_id)
+    assert payload is None
+    assert f"calculation_id={calculation_id}" in caplog.text
+
+
 def test_lineage_metadata_store_postgres_claim_helper_normalizes_returned_rows(tmp_path):
     store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
     now = datetime(2026, 3, 15, 12, 0, tzinfo=timezone.utc)
@@ -1140,3 +1334,69 @@ def test_lineage_metadata_store_postgres_claim_helper_normalizes_returned_rows(t
     assert "UPDATE lineage_payloads AS payload" in str(executed_statement)
     assert executed_params["pending_status"] == LineageStatus.PENDING.value
     assert executed_params["limit"] == 10
+
+
+def test_lineage_metadata_store_postgres_claim_helper_quarantines_invalid_returned_rows(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    now = datetime(2026, 3, 15, 12, 0, tzinfo=timezone.utc)
+    calculation_id = uuid4()
+    returned_row = {
+        "calculation_id": str(calculation_id),
+        "calculation_type": "TWR",
+        "request_json": "{}",
+        "response_json": '{"ok": true}',
+        "details_json": "{not-json",
+        "attempt_count": 2,
+        "worker_id": "postgres-lineage-a",
+        "leased_at_utc": now,
+        "lease_expires_at_utc": now + timedelta(seconds=60),
+    }
+
+    class _MappingsResult:
+        def mappings(self):
+            return [returned_row]
+
+    class _Session:
+        def __init__(self):
+            self.calls: list[tuple[object, dict[str, object]]] = []
+
+        def execute(self, statement, params):
+            self.calls.append((statement, params))
+            return _MappingsResult()
+
+        def get(self, _model, _calculation_id):
+            return None
+
+    session = _Session()
+
+    leased = store._lease_pending_payloads_postgresql(
+        session=session,  # type: ignore[arg-type]
+        now=now,
+        lease_expiry=now + timedelta(seconds=60),
+        worker_id="postgres-lineage-a",
+        limit=10,
+    )
+
+    assert leased == []
+    assert len(session.calls) == 1
+
+
+def test_mark_invalid_payload_details_noops_for_missing_record_or_payload(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    store.create_schema()
+    calculation_id = uuid4()
+    now = datetime(2026, 3, 15, 12, 0, tzinfo=timezone.utc)
+
+    with store._session() as session:
+        _mark_invalid_payload_details(session, str(calculation_id), now=now)
+
+    assert store.get_record(calculation_id) is None
+
+
+def test_get_lineage_metadata_store_uses_database_url_cache(tmp_path):
+    database_url = f"sqlite:///{tmp_path / 'lineage.db'}"
+
+    first = get_lineage_metadata_store(database_url=database_url)
+    second = get_lineage_metadata_store(database_url=database_url)
+
+    assert first is second
