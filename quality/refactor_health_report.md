@@ -28,9 +28,9 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | Python files | 480 | 558 | measured | `rg --files -g '*.py'` |
 | Python package markers | 18 | 18 | measured | recursive `__init__.py` count |
-| Python LOC | 104,454 | 142,155 | measured | `rg --files -g '*.py'` plus PowerShell line count on this branch |
-| Largest Python file LOC | 2,399 | 2,399 | measured | largest-file inventory on this branch |
-| Largest production file LOC | 1,156 | 1,503 | measured | `app/services/returns_series_service.py` |
+| Python LOC | 104,454 | 162,935 | measured | `rg --files -g '*.py'` plus PowerShell line count on this branch |
+| Largest Python file LOC | 2,399 | 2,503 | measured | largest-file inventory on this branch |
+| Largest production file LOC | 1,156 | 1,688 | measured | `app/services/returns_series_service.py` |
 | Duplicate code hotspots | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `make quality-duplicate-code-gate` with `--min-lines 12 --max-groups 0`; duplicated LOC reduced from `24` to `0` in LP-CR-1407 |
 | Dead-code candidates at 60% confidence | unknown | 438 | measured | `quality/dead_code_inventory.md` via `scripts/python_dead_code_inventory.py` |
 | Dead-code candidates at 80% confidence | unknown | 0 | measured | `quality/dead_code_inventory.md` via `scripts/python_dead_code_inventory.py` |
@@ -51,7 +51,7 @@ link the commit, command, or CI artifact that proves the change.
 | Import boundary violations | unknown | 0 | enforced | `quality/architecture_boundary_inventory.md`; `make quality-architecture-gate` |
 | Routers importing infrastructure directly | unknown | 0 | enforced | `ROUTER_DIRECT_BOUNDARY_IMPORT` absent from `quality/architecture_boundary_inventory.md`; `make quality-architecture-gate` |
 | Domain/application importing framework or infra code | unknown | 0 | enforced | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` absent from `quality/architecture_boundary_inventory.md`; `make quality-architecture-gate` |
-| Large production service hotspots | 3 | 7 | measured | `returns_series_service.py`, `stateful_input_service.py`, `compute_job_store.py`, `lineage_metadata_store.py`, `twr_service.py`, `stateful_attribution_input_service.py`, and `workspace_summary_service.py` exceed 1,000 LOC |
+| Large production service hotspots | 3 | 8 | measured | `returns_series_service.py`, `stateful_input_service.py`, `compute_job_store.py`, `twr_service.py`, `stateful_attribution_input_service.py`, `lineage_metadata_store.py`, `workspace_summary_service.py`, and `calculation_consistency.py` exceed 1,000 LOC |
 | Router/middleware oversized function findings (`--threshold 80`) | unknown | 0 | enforced | `quality/router_middleware_thinness_inventory.md`; `make quality-router-thinness-gate` |
 
 ## API Quality

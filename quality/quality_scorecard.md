@@ -21,9 +21,9 @@ metrics in each section are updated with each meaningful slice.
 | --- | ---: | ---: | ---: | --- | --- |
 | Python files | 480 | 558 | 78 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Python package markers | 18 | 18 | 0 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Python LOC | 104,454 | 142,155 | 37,701 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Largest Python file LOC | 2,399 | 2,399 | 0 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Largest production file LOC | 1,156 | 1,503 | 347 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
+| Python LOC | 104,454 | 162,935 | 58,481 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Largest Python file LOC | 2,399 | 2,503 | 104 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Largest production file LOC | 1,156 | 1,688 | 532 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
 | Python test modules | 228 | 268 | 40 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Collected tests | 2,035 | 3,169 | 1,134 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Duplicate code hotspots | 0 | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `quality/refactor_health_report.md`; `make quality-duplicate-code-gate` |
@@ -44,7 +44,7 @@ metrics in each section are updated with each meaningful slice.
 | Import-boundary findings | unknown | 0 | n/a | enforced | `quality/architecture_boundary_inventory.md`; `quality/refactor_health_report.md`; `make quality-architecture-gate` |
 | Routers with infrastructure imports | unknown | 0 | n/a | enforced | `quality/architecture_boundary_inventory.md`; `quality/refactor_health_report.md`; `make quality-architecture-gate` |
 | Domain/application with infra/framework imports | unknown | 0 | n/a | enforced | `quality/architecture_boundary_inventory.md`; `quality/refactor_health_report.md`; `make quality-architecture-gate` |
-| Large production service hotspots (LOC > 1000) | 3 | 7 | 4 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
+| Large production service hotspots (LOC > 1000) | 3 | 8 | 5 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
 | Router/middleware oversized function findings (`--threshold 80`) | unknown | 0 | n/a | enforced | `quality/router_middleware_thinness_inventory.md`; `quality/refactor_health_report.md`; `make quality-router-thinness-gate` |
 
 ### API Quality
