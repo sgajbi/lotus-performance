@@ -169,6 +169,8 @@ source-economics or reconciliation regressions.
   `make migration-smoke`
 - retention smoke
   `make runtime-retention-smoke`
+- quality baseline reports
+  `make quality-baseline`
 - demo API certification
   `make demo-api-certification`
 - observability readiness marker gate
@@ -214,6 +216,11 @@ The local mapping is:
   governance, migration smoke, security audit, unit, integration, e2e, coverage, and Docker build
 - `make ci-local`
   local Docker-parity proof with full coverage and dependency checks
+- `make quality-baseline`
+  report-only baseline refresh for the enterprise refactor scorecard. It updates the durable
+  `quality/baseline_report.md` and writes raw scanner snapshots under
+  `output/quality-baseline/`. The Quality Baseline Snapshot workflow uses the same target so local
+  and GitHub evidence are generated from one command surface.
 - `make demo-api-certification`
   one request-level demo certification sweep covering health/readiness, integration capabilities,
   TWR, MWR, benchmark, returns-series, contribution, attribution, workspace summary, mandate health

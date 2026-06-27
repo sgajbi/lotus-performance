@@ -33,19 +33,7 @@ jobs:
       - name: Install
         run: make install-ci
       - name: Generate quality inventories
-        run: |
-          python scripts/python_function_size_inventory.py --limit 15 > quality/function_size_inventory.md
-          python scripts/python_complexity_inventory.py --limit 15 > quality/complexity_inventory.md
-          python scripts/python_dead_code_inventory.py --limit 30 --min-confidence 60 > quality/dead_code_inventory.md
-          python scripts/python_dependency_hygiene_inventory.py --limit 30 > quality/dependency_hygiene_report.md
-          python scripts/python_duplicate_code_inventory.py --min-lines 12 --limit 40 > quality/duplicate_code_inventory.md
-          python scripts/python_architecture_boundary_inventory.py --limit 40 > quality/architecture_boundary_inventory.md
-          python scripts/python_security_inventory.py --limit 30 > quality/python_security_inventory.md
-          python scripts/openapi_completeness_inventory.py --limit 80 > quality/api_completeness_inventory.md
-          python scripts/python_test_taxonomy_inventory.py --limit 30 > quality/test_taxonomy_inventory.md
-          python scripts/python_observability_readiness_inventory.py --limit 30 > quality/observability_readiness_inventory.md
-          python scripts/python_documentation_inventory.py --limit 40 > quality/documentation_inventory.md
-          python scripts/python_router_middleware_thinness_inventory.py --threshold 80 --limit 50 > quality/router_middleware_thinness_inventory.md
+        run: make quality-baseline
       - name: Run demo API certification (report-only)
         continue-on-error: true
         run: make demo-api-certification
@@ -53,7 +41,9 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: quality-baseline-reports
-          path: quality/*.md
+          path: |
+            quality/*.md
+            output/quality-baseline/*.md
       - name: Upload demo API certification evidence
         if: always()
         uses: actions/upload-artifact@v7
