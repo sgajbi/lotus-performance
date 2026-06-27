@@ -15,6 +15,8 @@ from app.models.requests import DailyInputData
 from app.services.attribution_mode_service import (
     _attribution_normalization_stage_details,
     _attribution_retrieval_stage_details,
+    _resolve_stateless_attribution_request,
+    _resolved_stateful_attribution_request,
     _retrieve_attribution_source_input,
     resolve_attribution_request,
 )
@@ -51,6 +53,45 @@ async def test_resolve_attribution_request_passthroughs_stateless_mode():
 
     assert resolved.input_mode == AttributionInputMode.STATELESS
     assert resolved.attribution_request.group_by == ["sector"]
+
+
+def test_resolve_stateless_attribution_request_projects_input_count():
+    request = AttributionAnalyticsRequest.model_validate(
+        {
+            "portfolio_id": "ATTRIB_STATELESS",
+            "mode": "by_group",
+            "group_by": ["sector"],
+            "linking": "none",
+            "frequency": "daily",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-01",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "portfolio_data": {
+                "metric_basis": "NET",
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 100.0, "end_mv": 101.0}],
+            },
+            "instruments_data": [
+                {
+                    "instrument_id": "SEC_1",
+                    "meta": {"sector": "Tech"},
+                    "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 100.0, "end_mv": 101.0}],
+                }
+            ],
+            "benchmark_groups_data": [
+                {
+                    "key": {"sector": "Tech"},
+                    "observations": [{"date": "2025-01-01", "return_base": 0.01, "weight_bop": 1.0}],
+                }
+            ],
+        }
+    )
+
+    resolved = _resolve_stateless_attribution_request(request)
+
+    assert resolved.input_mode == AttributionInputMode.STATELESS
+    assert resolved.input_count == 2
+    assert resolved.attribution_request.instruments_data is not None
+    assert resolved.attribution_request.benchmark_groups_data is not None
 
 
 @pytest.mark.asyncio
@@ -340,3 +381,80 @@ def test_attribution_normalization_stage_details_preserve_alignment_evidence():
         "benchmark_groups": 1,
         "source_alignment": {"position_classification": {"missing": 0}},
     }
+
+
+def test_resolved_stateful_attribution_request_projects_normalized_payload_and_source_identity():
+    request = AttributionAnalyticsRequest.model_validate(
+        {
+            "portfolio_id": "PB_SG_GLOBAL_BAL_001",
+            "mode": "by_instrument",
+            "group_by": ["sector"],
+            "linking": "none",
+            "frequency": "daily",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-01",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "stateful_input": {},
+        }
+    )
+    source_input = StatefulAttributionSourceInput(
+        portfolio_input=StatefulPortfolioInput(
+            performance_start_date=date(2025, 1, 1),
+            observations=[{"valuation_date": "2025-01-01"}],
+        ),
+        position_rows=[],
+        position_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
+        benchmark_id="BMK_PRIVATE_BANKING_BALANCED",
+        benchmark_component_observations=[],
+        benchmark_source_details={},
+        benchmark_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
+        index_records=[],
+        index_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
+    )
+    normalized_input = StatefulAttributionNormalizedInput(
+        portfolio_data=AttributionPortfolioData(
+            metric_basis="NET",
+            valuation_points=[
+                DailyInputData(
+                    perf_date=date(2025, 1, 1),
+                    begin_mv=100.0,
+                    end_mv=101.0,
+                )
+            ],
+        ),
+        instruments_data=[
+            InstrumentData(
+                instrument_id="SEC_1",
+                meta={"sector": "Technology"},
+                valuation_points=[
+                    DailyInputData(
+                        perf_date=date(2025, 1, 1),
+                        begin_mv=100.0,
+                        end_mv=101.0,
+                    )
+                ],
+            )
+        ],
+        benchmark_groups_data=[
+            BenchmarkGroup(
+                key={"sector": "Technology"},
+                observations=[{"date": date(2025, 1, 1), "weight_bop": 1.0, "return_base": 0.01}],
+            )
+        ],
+        source_alignment_evidence={"position_classification": {"missing": 0}},
+    )
+
+    resolved = _resolved_stateful_attribution_request(
+        request=request,
+        source_input=source_input,
+        normalized_input=normalized_input,
+    )
+
+    assert resolved.input_mode == AttributionInputMode.STATEFUL
+    assert resolved.input_count == 2
+    assert resolved.resolved_benchmark_id == "BMK_PRIVATE_BANKING_BALANCED"
+    assert resolved.resolved_benchmark_return_source == "calculated"
+    assert resolved.attribution_request.portfolio_data == normalized_input.portfolio_data
+    assert resolved.attribution_request.instruments_data == normalized_input.instruments_data
+    assert resolved.attribution_request.benchmark_groups_data == normalized_input.benchmark_groups_data

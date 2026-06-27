@@ -41,12 +41,7 @@ async def resolve_attribution_request(
     settings: Settings,
 ) -> ResolvedAttributionRequest:
     if request.input_mode == AttributionInputMode.STATELESS:
-        attribution_request = request.to_stateless_attribution_request()
-        return ResolvedAttributionRequest(
-            attribution_request=attribution_request,
-            input_mode=AttributionInputMode.STATELESS,
-            input_count=_resolved_attribution_input_count(attribution_request),
-        )
+        return _resolve_stateless_attribution_request(request)
 
     stateful_input = require_stateful_input(request.stateful_input)
 
@@ -88,6 +83,30 @@ async def resolve_attribution_request(
         execution_registry.fail_stage(request.calculation_id, EXECUTION_STAGE_NORMALIZATION, str(exc))
         raise
 
+    return _resolved_stateful_attribution_request(
+        request=request,
+        source_input=source_input,
+        normalized_input=normalized_input,
+    )
+
+
+def _resolve_stateless_attribution_request(
+    request: AttributionAnalyticsRequest,
+) -> ResolvedAttributionRequest:
+    attribution_request = request.to_stateless_attribution_request()
+    return ResolvedAttributionRequest(
+        attribution_request=attribution_request,
+        input_mode=AttributionInputMode.STATELESS,
+        input_count=_resolved_attribution_input_count(attribution_request),
+    )
+
+
+def _resolved_stateful_attribution_request(
+    *,
+    request: AttributionAnalyticsRequest,
+    source_input: StatefulAttributionSourceInput,
+    normalized_input: StatefulAttributionNormalizedInput,
+) -> ResolvedAttributionRequest:
     return ResolvedAttributionRequest(
         attribution_request=request.to_stateless_attribution_request(
             portfolio_data=normalized_input.portfolio_data,
