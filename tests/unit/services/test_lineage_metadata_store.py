@@ -10,8 +10,10 @@ from app.services.lineage_metadata_store import (
     LineageMetadataStore,
     LineagePayloadModel,
     LineageRecordModel,
+    LineageRecoveryEvent,
     LineageStatus,
     _lineage_queue_stats_from_aggregate_row,
+    _lineage_recovery_event_page,
     _payload_has_active_lease,
     _postgresql_pending_payload_from_row,
     _postgresql_pending_payload_lease_params,
@@ -606,6 +608,24 @@ def test_lineage_metadata_store_lists_recent_recoveries_with_seek_cursor(tmp_pat
 
     assert [item.calculation_id for item in first_page.items] == [str(ids[2])]
     assert [item.calculation_id for item in second_page.items] == [str(ids[1])]
+
+
+def test_lineage_recovery_event_page_projects_offset_and_seek_cursor():
+    event = LineageRecoveryEvent(
+        calculation_id="calc-1",
+        calculation_type="TWR",
+        recovery_kind="retryable_materialization_failure",
+        recovered_at_utc="2026-03-14T12:00:00Z",
+        attempt_count=2,
+    )
+
+    page = _lineage_recovery_event_page(offset=0, events=[event], total_count=2)
+
+    assert page.total_count == 2
+    assert page.next_offset == 1
+    assert page.next_cursor_recovered_before == "2026-03-14T12:00:00Z"
+    assert page.next_cursor_calculation_id_before == "calc-1"
+    assert page.items == [event]
 
 
 def test_lineage_metadata_store_lists_active_and_failed_inspection_items(tmp_path):

@@ -54,15 +54,15 @@ must stay at `0`.
 | 14 | `_map_workflow_pack_run_finding` | function | `app/services/inspection/support_brief_workflow_pack.py:192` | 5 | A |
 | 15 | `_synthesize_verdict` | function | `app/services/inspection/twr_inspection_service.py:643` | 5 | A |
 | 16 | `_scope_request_to_response_master_window` | function | `app/services/inspection/twr_inspection_service.py:759` | 5 | A |
-| 17 | `get_record` | method | `app/services/lineage_metadata_store.py:249` | 5 | A |
-| 18 | `lease_pending_payloads` | method | `app/services/lineage_metadata_store.py:360` | 5 | A |
-| 19 | `list_recent_recoveries` | method | `app/services/lineage_metadata_store.py:435` | 5 | A |
-| 20 | `_apply_recovery_time_filters` | method | `app/services/lineage_metadata_store.py:698` | 5 | A |
-| 21 | `_inspection_timing` | method | `app/services/lineage_metadata_store.py:1044` | 5 | A |
-| 22 | `_ensure_payload_lease_columns` | method | `app/services/lineage_metadata_store.py:1070` | 5 | A |
-| 23 | `_load_payload_details` | function | `app/services/lineage_metadata_store.py:1238` | 5 | A |
-| 24 | `evaluate_mandate_performance_health_context` | function | `app/services/mandate_health_context_service.py:16` | 5 | A |
-| 25 | `_stringify_decimal_collection` | function | `app/services/mwr_calculation_service.py:207` | 5 | A |
+| 17 | `get_record` | method | `app/services/lineage_metadata_store.py:256` | 5 | A |
+| 18 | `lease_pending_payloads` | method | `app/services/lineage_metadata_store.py:367` | 5 | A |
+| 19 | `_apply_recovery_time_filters` | method | `app/services/lineage_metadata_store.py:694` | 5 | A |
+| 20 | `_inspection_timing` | method | `app/services/lineage_metadata_store.py:1052` | 5 | A |
+| 21 | `_ensure_payload_lease_columns` | method | `app/services/lineage_metadata_store.py:1078` | 5 | A |
+| 22 | `_load_payload_details` | function | `app/services/lineage_metadata_store.py:1277` | 5 | A |
+| 23 | `evaluate_mandate_performance_health_context` | function | `app/services/mandate_health_context_service.py:16` | 5 | A |
+| 24 | `_stringify_decimal_collection` | function | `app/services/mwr_calculation_service.py:207` | 5 | A |
+| 25 | `_validate_component` | function | `app/services/mwr_fx_evidence_service.py:195` | 5 | A |
 
 ## Lowest Maintainability Index
 
