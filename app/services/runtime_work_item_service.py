@@ -74,11 +74,7 @@ def build_runtime_work_item_snapshot(
     durability_status = check_durable_metadata_schema_ready()
 
     if not durability_status.is_ready:
-        unavailable_queue = _queue_state(
-            status="unavailable",
-            reason=durable_metadata_unavailable_reason(durability_status),
-        )
-        return RuntimeWorkItemSnapshot(
+        return _unavailable_runtime_work_item_snapshot(
             generated_at=generated_at,
             queue_filter=queue_filter,
             status_filter=status_filter,
@@ -89,10 +85,6 @@ def build_runtime_work_item_snapshot(
             lineage_calculation_type=lineage_calculation_type,
             calculation_id_contains=calculation_id_contains,
             durable_metadata_store=durability_status,
-            compute_queue=unavailable_queue,
-            lineage_queue=unavailable_queue,
-            compute_items=[],
-            lineage_items=[],
         )
 
     include_compute = queue_filter in {"both", "compute"}
@@ -132,6 +124,41 @@ def build_runtime_work_item_snapshot(
         lineage_queue=lineage_queue_state,
         compute_items=compute_items,
         lineage_items=lineage_items,
+    )
+
+
+def _unavailable_runtime_work_item_snapshot(
+    *,
+    generated_at: datetime,
+    queue_filter: str,
+    status_filter: str,
+    limit: int,
+    offset: int,
+    min_age_seconds: float,
+    compute_analytics_type: str | None,
+    lineage_calculation_type: str | None,
+    calculation_id_contains: str | None,
+    durable_metadata_store: DurabilityHealthStatus,
+) -> RuntimeWorkItemSnapshot:
+    unavailable_queue = _queue_state(
+        status="unavailable",
+        reason=durable_metadata_unavailable_reason(durable_metadata_store),
+    )
+    return RuntimeWorkItemSnapshot(
+        generated_at=generated_at,
+        queue_filter=queue_filter,
+        status_filter=status_filter,
+        limit=limit,
+        offset=offset,
+        min_age_seconds=min_age_seconds,
+        compute_analytics_type=compute_analytics_type,
+        lineage_calculation_type=lineage_calculation_type,
+        calculation_id_contains=calculation_id_contains,
+        durable_metadata_store=durable_metadata_store,
+        compute_queue=unavailable_queue,
+        lineage_queue=unavailable_queue,
+        compute_items=[],
+        lineage_items=[],
     )
 
 
