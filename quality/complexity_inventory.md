@@ -1263,6 +1263,9 @@ LP-CR-1487 isolated stateful contribution source retrieval, normalization, and r
 projection from the contribution input-mode resolver. The measured max cyclomatic complexity
 remains `5`, high-complexity functions remain `0`, and average maintainability index measured
 `54.93`.
+LP-CR-1488 isolated no-contribution-row smoothing evidence projection from the contribution
+smoothing evidence builder. The measured max cyclomatic complexity remains `5`,
+high-complexity functions remain `0`, and average maintainability index measured `54.93`.
 
 Maintainability index values should be treated as directional hotspot evidence because generated
 schemas, persistence-style modules, and dense orchestration files can score poorly even when tests

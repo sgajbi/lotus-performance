@@ -83,6 +83,7 @@ from app.services.contribution_smoothing import (
     _contribution_smoothing_residual_reason_codes,
     _contribution_smoothing_status_and_reasons,
     _count_carino_invalid_domain_days,
+    _empty_contribution_smoothing_evidence,
     _is_reconciled_carino_smoothing,
 )
 from common.enums import PeriodType
@@ -158,6 +159,27 @@ def test_is_reconciled_carino_smoothing_requires_valid_carino_within_tolerance(
         )
         is expected
     )
+
+
+def test_empty_contribution_smoothing_evidence_projects_support_safe_residuals():
+    evidence = _empty_contribution_smoothing_evidence(
+        smoothing_method="CARINO",
+        linked_return=0.0125,
+        final_contribution=0.01,
+    )
+
+    assert evidence.status == "NO_CONTRIBUTION_ROWS"
+    assert evidence.reason_codes == ["NO_CONTRIBUTION_ROWS"]
+    assert evidence.linked_return == 1.25
+    assert evidence.raw_contribution == 0.0
+    assert evidence.smoothed_contribution == 0.0
+    assert evidence.final_contribution == 1.0
+    assert evidence.raw_residual == 1.25
+    assert evidence.smoothing_residual == 1.25
+    assert evidence.post_allocation_residual == pytest.approx(0.25)
+    assert evidence.residual_allocation_applied is False
+    assert evidence.residual_allocation_basis is None
+    assert evidence.invalid_domain_days == 0
 
 
 def test_average_weight_shadow_audit_state_records_counts_and_diagnostic_notes():

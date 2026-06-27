@@ -93,6 +93,29 @@ def _carino_factor_range(period_slice_df: pd.DataFrame) -> tuple[Any, Any]:
     return _as_numeric(factors.min(), default=None), _as_numeric(factors.max(), default=None)
 
 
+def _empty_contribution_smoothing_evidence(
+    *,
+    smoothing_method: str,
+    linked_return,
+    final_contribution,
+) -> ContributionSmoothingEvidence:
+    return ContributionSmoothingEvidence(
+        smoothing_method=smoothing_method,
+        status="NO_CONTRIBUTION_ROWS",
+        reason_codes=["NO_CONTRIBUTION_ROWS"],
+        linked_return=linked_return * 100,
+        raw_contribution=0.0,
+        smoothed_contribution=0.0,
+        final_contribution=final_contribution * 100,
+        raw_residual=linked_return * 100,
+        smoothing_residual=linked_return * 100,
+        post_allocation_residual=(linked_return - final_contribution) * 100,
+        residual_allocation_applied=False,
+        residual_allocation_basis=None,
+        invalid_domain_days=0,
+    )
+
+
 def _build_contribution_smoothing_evidence(
     *,
     period_slice_df: pd.DataFrame,
@@ -105,20 +128,10 @@ def _build_contribution_smoothing_evidence(
 ) -> ContributionSmoothingEvidence:
     """Builds support-safe raw/smoothed contribution evidence for one resolved period."""
     if period_slice_df.empty:
-        return ContributionSmoothingEvidence(
+        return _empty_contribution_smoothing_evidence(
             smoothing_method=smoothing_method,
-            status="NO_CONTRIBUTION_ROWS",
-            reason_codes=["NO_CONTRIBUTION_ROWS"],
-            linked_return=linked_return * 100,
-            raw_contribution=0.0,
-            smoothed_contribution=0.0,
-            final_contribution=final_contribution * 100,
-            raw_residual=linked_return * 100,
-            smoothing_residual=linked_return * 100,
-            post_allocation_residual=(linked_return - final_contribution) * 100,
-            residual_allocation_applied=False,
-            residual_allocation_basis=None,
-            invalid_domain_days=0,
+            linked_return=linked_return,
+            final_contribution=final_contribution,
         )
 
     raw_contribution = _as_numeric(period_slice_df.get("raw_contribution", pd.Series()).sum())
