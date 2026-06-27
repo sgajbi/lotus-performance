@@ -266,16 +266,16 @@ def _apply_position_fx_capital_conversion(
         fx_rates_df=fx_rates_df,
     ):
         return position_results_df
-    pos_fx_lookup = fx_rates_df[fx_rates_df["ccy"] == position_ccy][["date", "rate"]].rename(
-        columns={"rate": "fx_rate"}
+    pos_fx_lookup = (
+        fx_rates_df[fx_rates_df["ccy"] == position_ccy][["date", "rate"]]
+        .drop_duplicates(subset=["date"], keep="last")
+        .set_index("date")["rate"]
     )
-    position_results_df["prior_date"] = position_results_df[PortfolioColumns.PERF_DATE.value] - pd.Timedelta(days=1)
-    converted_df = pd.merge(
-        position_results_df, pos_fx_lookup, left_on="prior_date", right_on="date", how="left"
-    ).ffill()
-    if "fx_rate" in converted_df.columns:
-        for col in [PortfolioColumns.BEGIN_MV.value, PortfolioColumns.BOD_CF.value]:
-            converted_df[col] *= converted_df["fx_rate"]
+    converted_df = position_results_df.copy()
+    converted_df["prior_date"] = converted_df[PortfolioColumns.PERF_DATE.value] - pd.Timedelta(days=1)
+    conversion_rates = converted_df["prior_date"].map(pos_fx_lookup).ffill()
+    for col in [PortfolioColumns.BEGIN_MV.value, PortfolioColumns.BOD_CF.value]:
+        converted_df[col] *= conversion_rates
     return converted_df
 
 

@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-06-28
-Branch: `feature/policies-branch-hardening`
+Branch: `feature/contribution-branch-hardening`
 Mode: report-only test taxonomy inventory; no blocking CI gate is introduced by this artifact.
 
 ## Purpose
@@ -21,7 +21,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 275 |
-| Test functions inventoried | 3129 |
+| Test functions inventoried | 3136 |
 | Integration/API/runtime test functions | 600 |
 | Contract/governance test functions | 108 |
 
@@ -32,13 +32,13 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | benchmarks | 9 | 17 |
 | e2e | 1 | 21 |
 | integration | 24 | 300 |
-| unit | 241 | 2791 |
+| unit | 241 | 2798 |
 
 ## Test Functions By Family
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 1082 |
+| analytics_domain | 1089 |
 | api_or_runtime | 600 |
 | contract_or_governance | 108 |
 | observability_or_readiness | 186 |
@@ -70,15 +70,15 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | 19 | `tests/unit/engine/test_mwr.py` | unit | 34 | analytics_domain |
 | 20 | `tests/unit/services/test_benchmark_exposure_context_service.py` | unit | 34 | uncategorized |
 | 21 | `tests/unit/models/test_twr_requests.py` | unit | 32 | analytics_domain |
-| 22 | `tests/unit/models/test_workspace_summary_models.py` | unit | 31 | uncategorized |
-| 23 | `tests/unit/services/test_stateful_input_service.py` | unit | 31 | uncategorized |
-| 24 | `tests/unit/services/test_twr_inspection_reconciliation.py` | unit | 31 | analytics_domain |
-| 25 | `tests/unit/test_observability.py` | unit | 31 | uncategorized |
-| 26 | `tests/unit/engine/test_composites.py` | unit | 29 | analytics_domain |
-| 27 | `tests/unit/services/test_operator_action_replay_service.py` | unit | 29 | uncategorized |
-| 28 | `tests/unit/services/test_twr_inspection_service.py` | unit | 29 | analytics_domain |
-| 29 | `tests/integration/test_returns_series_api.py` | integration | 26 | api_or_runtime |
-| 30 | `tests/unit/services/test_queue_metric_builders.py` | unit | 26 | observability_or_readiness |
+| 22 | `tests/unit/engine/test_contribution.py` | unit | 31 | analytics_domain |
+| 23 | `tests/unit/models/test_workspace_summary_models.py` | unit | 31 | uncategorized |
+| 24 | `tests/unit/services/test_stateful_input_service.py` | unit | 31 | uncategorized |
+| 25 | `tests/unit/services/test_twr_inspection_reconciliation.py` | unit | 31 | analytics_domain |
+| 26 | `tests/unit/test_observability.py` | unit | 31 | uncategorized |
+| 27 | `tests/unit/engine/test_composites.py` | unit | 29 | analytics_domain |
+| 28 | `tests/unit/services/test_operator_action_replay_service.py` | unit | 29 | uncategorized |
+| 29 | `tests/unit/services/test_twr_inspection_service.py` | unit | 29 | analytics_domain |
+| 30 | `tests/integration/test_returns_series_api.py` | integration | 26 | api_or_runtime |
 
 ## Interpretation
 

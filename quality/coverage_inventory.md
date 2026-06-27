@@ -1,7 +1,7 @@
 # Lotus Performance Coverage Inventory
 
 Report date: 2026-06-28
-Branch: `feature/policies-branch-hardening`
+Branch: `feature/contribution-branch-hardening`
 Mode: report-only local coverage evidence; the blocking line-coverage gate remains unchanged.
 
 ## Purpose
@@ -23,13 +23,13 @@ make branch-coverage-baseline
 | Metric | Value | Evidence |
 | --- | ---: | --- |
 | Branch coverage collection | enabled | `pytest --cov-branch` in `make branch-coverage-baseline` |
-| Combined line coverage under branch run | 99.49% | `covered_lines / num_statements` from `output/branch-coverage/coverage.json` |
-| Covered lines | 21136 | coverage.py `7.14.3` JSON totals |
-| Missing lines | 108 | coverage.py `7.14.3` JSON totals |
+| Combined line coverage under branch run | 99.50% | `covered_lines / num_statements` from `output/branch-coverage/coverage.json` |
+| Covered lines | 21137 | coverage.py `7.14.3` JSON totals |
+| Missing lines | 107 | coverage.py `7.14.3` JSON totals |
 | Statements | 21244 | coverage.py `7.14.3` JSON totals |
-| Combined branch coverage | 97.35% | 4291 covered branches of 4408 total branches |
-| Missing branches | 117 | coverage.py `7.14.3` JSON totals |
-| Partial branches | 117 | coverage.py `7.14.3` JSON totals |
+| Combined branch coverage | 97.48% | 4295 covered branches of 4406 total branches |
+| Missing branches | 111 | coverage.py `7.14.3` JSON totals |
+| Partial branches | 111 | coverage.py `7.14.3` JSON totals |
 | Branch-coverage gate | not configured | Report-only baseline; no fail-under threshold is applied. |
 | Existing line-coverage gate | unchanged | `make test-coverage` still enforces `coverage report --fail-under=99`. |
 
@@ -37,7 +37,6 @@ make branch-coverage-baseline
 
 | File | Covered branches | Missing branches | Partial branches | Total branches |
 | --- | ---: | ---: | ---: | ---: |
-| `engine/contribution.py` | 28 | 6 | 6 | 34 |
 | `app/services/workspace_summary_service.py` | 69 | 5 | 5 | 74 |
 | `engine/mwr.py` | 63 | 5 | 5 | 68 |
 | `app/services/twr_mode_service.py` | 55 | 5 | 5 | 60 |
@@ -47,6 +46,7 @@ make branch-coverage-baseline
 | `app/services/twr_service.py` | 114 | 4 | 4 | 118 |
 | `app/services/inspection/reconciliation.py` | 96 | 4 | 4 | 100 |
 | `app/services/inspection/source_economics.py` | 58 | 4 | 4 | 62 |
+| `app/workers/compute_executor_worker.py` | 40 | 4 | 4 | 44 |
 
 ## CI Alignment
 
