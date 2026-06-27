@@ -45,6 +45,7 @@ from app.services.workspace_summary_service import (
     _resolve_workspace_portfolio_input,
     _workspace_observation_in_master_window,
     _workspace_summary_audit_counts,
+    _workspace_summary_diagnostics,
     _workspace_summary_diagnostics_notes,
     _workspace_summary_meta,
     calculate_workspace_summary,
@@ -1260,6 +1261,19 @@ def test_workspace_summary_diagnostics_notes_preserve_base_notes_and_benchmark_c
         diagnostics=diagnostics,
         benchmark_input=benchmark_input,
     ) == [
+        "source note",
+        "Benchmark summary uses stateless benchmark input with vendor_series returns.",
+    ]
+
+    projected = _workspace_summary_diagnostics(
+        net_artifacts=WorkspaceTWRArtifacts(daily_results_df=pd.DataFrame(), diagnostics=diagnostics),
+        benchmark_input=benchmark_input,
+    )
+
+    assert projected.nip_days == 0
+    assert projected.reset_days == 0
+    assert projected.effective_period_start == date(2026, 3, 30)
+    assert projected.notes == [
         "source note",
         "Benchmark summary uses stateless benchmark input with vendor_series returns.",
     ]

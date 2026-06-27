@@ -576,13 +576,6 @@ def _build_workspace_summary_response(
         requested_frequencies=requested_frequencies,
     )
 
-    diagnostics = Diagnostics(
-        **net_artifacts.diagnostics.model_dump(mode="python", exclude={"notes"}),
-        notes=_workspace_summary_diagnostics_notes(
-            diagnostics=net_artifacts.diagnostics,
-            benchmark_input=benchmark_input,
-        ),
-    )
     return WorkspaceSummaryResponse(
         calculation_id=request.calculation_id,
         portfolio_id=request.portfolio_id,
@@ -595,13 +588,30 @@ def _build_workspace_summary_response(
             input_fingerprint=input_fingerprint,
             calculation_hash=calculation_hash,
         ),
-        diagnostics=diagnostics,
+        diagnostics=_workspace_summary_diagnostics(
+            net_artifacts=net_artifacts,
+            benchmark_input=benchmark_input,
+        ),
         audit=Audit(
             counts=_workspace_summary_audit_counts(
                 portfolio_input=portfolio_input,
                 benchmark_input=benchmark_input,
                 results_by_period=results_by_period,
             )
+        ),
+    )
+
+
+def _workspace_summary_diagnostics(
+    *,
+    net_artifacts: WorkspaceTWRArtifacts,
+    benchmark_input: ResolvedWorkspaceBenchmarkInput | None,
+) -> Diagnostics:
+    return Diagnostics(
+        **net_artifacts.diagnostics.model_dump(mode="python", exclude={"notes"}),
+        notes=_workspace_summary_diagnostics_notes(
+            diagnostics=net_artifacts.diagnostics,
+            benchmark_input=benchmark_input,
         ),
     )
 
