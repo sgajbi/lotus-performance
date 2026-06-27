@@ -79,6 +79,27 @@ def test_apply_override_group_counts_matching_fields_only(sample_policy_df):
     assert sample_policy_df.loc[1, PortfolioColumns.END_MV.value] == 600.0
 
 
+def test_apply_robustness_policies_records_no_notes_when_policy_matches_nothing(sample_policy_df):
+    original_df = sample_policy_df.copy(deep=True)
+    policy = DataPolicy.model_validate(
+        {
+            "overrides": {
+                "market_values": [{"perf_date": "2025-03-20", "position_id": "P1", "end_mv": 999.0}],
+                "cash_flows": [{"perf_date": "2025-03-20", "position_id": "P1", "bod_cf": -50.0}],
+            },
+            "ignore_days": [{"entity_type": "POSITION", "entity_id": "P1", "dates": ["2025-03-20"]}],
+        }
+    )
+
+    result_df, diags = apply_robustness_policies(sample_policy_df, policy)
+
+    pd.testing.assert_frame_equal(result_df, original_df)
+    assert diags.policy.overrides.applied_mv_count == 0
+    assert diags.policy.overrides.applied_cf_count == 0
+    assert diags.policy.ignored_days_count == 0
+    assert diags.notes == []
+
+
 def test_apply_ignore_days(sample_policy_df):
     """Tests that an ignored day carries forward the previous day's state."""
     policy = DataPolicy.model_validate(
@@ -102,6 +123,16 @@ def test_apply_ignored_day_carries_forward_previous_day_state(sample_policy_df):
     assert indexed.loc[pd.Timestamp("2025-03-15"), PortfolioColumns.BOD_CF.value] == 0.0
     assert indexed.loc[pd.Timestamp("2025-03-15"), PortfolioColumns.EOD_CF.value] == 0.0
     assert indexed.loc[pd.Timestamp("2025-03-15"), PortfolioColumns.MGMT_FEES.value] == 0.0
+
+
+def test_apply_ignored_day_rejects_first_row_without_mutating(sample_policy_df):
+    indexed = sample_policy_df.set_index(PortfolioColumns.PERF_DATE.value)
+    original_indexed = indexed.copy(deep=True)
+
+    applied_count = _apply_ignored_day(indexed, pd.Timestamp("2025-03-14"))
+
+    assert applied_count == 0
+    pd.testing.assert_frame_equal(indexed, original_indexed)
 
 
 def test_apply_robustness_policies_preserves_original_df_when_mutating(sample_policy_df):
@@ -163,6 +194,20 @@ def test_record_outlier_samples_uses_lower_bound_for_negative_returns():
     assert diagnostics.samples.outliers[0].threshold == -0.08
 
 
+def test_record_outlier_samples_noops_when_no_rows_are_flagged(sample_policy_df):
+    diagnostics = EngineDiagnostics()
+
+    _record_outlier_samples(
+        df=sample_policy_df,
+        outliers=pd.Series([False, False, False], index=sample_policy_df.index),
+        upper_bound=pd.Series([0.10, 0.10, 0.10], index=sample_policy_df.index),
+        lower_bound=pd.Series([-0.05, -0.05, -0.05], index=sample_policy_df.index),
+        diagnostics=diagnostics,
+    )
+
+    assert diagnostics.samples.outliers == []
+
+
 def test_outlier_mask_and_bounds_excludes_ignored_dates():
     df = pd.DataFrame(
         {
@@ -190,6 +235,17 @@ def test_no_policy_does_nothing(sample_policy_df):
     pd.testing.assert_frame_equal(original_df, result_df)
     assert diags.policy.overrides.applied_mv_count == 0
     assert diags.policy.ignored_days_count == 0
+
+
+def test_apply_robustness_policies_returns_early_for_outlier_only_policy(sample_policy_df):
+    policy = DataPolicy.model_validate({"outliers": {"enabled": True, "action": "FLAG"}})
+
+    result_df, diags = apply_robustness_policies(sample_policy_df, policy)
+
+    assert result_df is sample_policy_df
+    assert diags.policy.overrides.applied_mv_count == 0
+    assert diags.policy.ignored_days_count == 0
+    assert diags.samples.outliers == []
 
 
 def test_flag_outliers_returns_early_when_disabled(sample_policy_df):
