@@ -16,9 +16,11 @@ from app.services.stateful_input_service import (
     _portfolio_identity_from_payload,
     _portfolio_observations_from_payload,
     _portfolio_timeseries_request_payload,
+    _PortfolioChunkAccumulator,
     _position_rows_from_payload,
     _position_timeseries_request_payload,
     _record_key_by_fields,
+    _record_portfolio_chunk_payload,
 )
 
 
@@ -347,6 +349,35 @@ def test_portfolio_chunk_helper_contracts_preserve_request_identity_and_payload_
         {"valuation_date": "2026-01-01"}
     ]
     assert _portfolio_observations_from_payload({"observations": "bad"}) == []
+
+
+def test_record_portfolio_chunk_payload_accumulates_identity_observations_and_page_count():
+    accumulator = _PortfolioChunkAccumulator(observations=[])
+
+    _record_portfolio_chunk_payload(
+        accumulator=accumulator,
+        payload={
+            "portfolio_open_date": "2025-12-31",
+            "portfolio_currency": "EUR",
+            "reporting_currency": "USD",
+            "observations": [{"valuation_date": "2026-01-01"}, "bad-row"],
+        },
+    )
+    _record_portfolio_chunk_payload(
+        accumulator=accumulator,
+        payload={
+            "portfolio_open_date": "2024-01-01",
+            "portfolio_currency": "GBP",
+            "reporting_currency": "CHF",
+            "observations": [{"valuation_date": "2026-01-02"}],
+        },
+    )
+
+    assert accumulator.portfolio_open_date == "2025-12-31"
+    assert accumulator.portfolio_currency == "EUR"
+    assert accumulator.reporting_currency == "USD"
+    assert accumulator.observations == [{"valuation_date": "2026-01-01"}, {"valuation_date": "2026-01-02"}]
+    assert accumulator.page_count == 2
 
 
 def test_build_portfolio_timeseries_payload_normalizes_chunk_responses():

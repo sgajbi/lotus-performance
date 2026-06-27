@@ -20,31 +20,31 @@ python scripts/python_function_size_inventory.py --limit 25
 
 | Rank | Function | File | Lines |
 | ---: | --- | --- | ---: |
-| 1 | `StatefulInputService._fetch_portfolio_chunk` | `app/services/stateful_input_service.py:877` | 71 |
-| 2 | `build_mwr_response` | `app/services/mwr_calculation_service.py:49` | 70 |
-| 3 | `_build_workspace_results_by_period` | `app/services/workspace_summary_service.py:632` | 70 |
-| 4 | `_process_pending_jobs` | `app/workers/compute_executor_worker.py:113` | 70 |
-| 5 | `AverageWeightShadowAuditState._rollout_posture_notes` | `app/services/contribution_audit.py:125` | 69 |
-| 6 | `_build_artifact_payload` | `app/services/inspection/source_economics.py:413` | 69 |
-| 7 | `_calculate_promoted_stateful_returns_series` | `app/services/returns_series_calculation_workflow_service.py:136` | 69 |
-| 8 | `StatefulInputService._fetch_position_chunk` | `app/services/stateful_input_service.py:1002` | 68 |
-| 9 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:547` | 68 |
-| 10 | `build_benchmark_exposure_context` | `app/services/benchmark_exposure_context_service.py:39` | 67 |
-| 11 | `resolve_contribution_request` | `app/services/contribution_mode_service.py:34` | 67 |
-| 12 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:407` | 67 |
-| 13 | `build_runtime_work_item_snapshot` | `app/services/runtime_work_item_service.py:62` | 66 |
-| 14 | `build_runtime_recoveries_query` | `app/api/dependencies/runtime_recoveries.py:11` | 65 |
-| 15 | `_calculate_promoted_stateful_benchmark_workflow` | `app/services/benchmark_calculation_workflow_service.py:146` | 65 |
-| 16 | `run_source_quality_checks` | `app/services/inspection/source_quality.py:146` | 65 |
-| 17 | `calculate_mwr_response` | `app/services/mwr_calculation_service.py:169` | 65 |
-| 18 | `resolve_mwr_request` | `app/services/mwr_mode_service.py:26` | 65 |
-| 19 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:91` | 65 |
-| 20 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:38` | 64 |
-| 21 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:476` | 64 |
-| 22 | `LineageMetadataStore._build_pending_payload_stats_statement` | `app/services/lineage_metadata_store.py:576` | 64 |
-| 23 | `_SourceEconomicsSampleCollector._record_taxonomy_samples` | `app/services/inspection/source_economics_collector.py:111` | 63 |
-| 24 | `_load_durable_queue_metric_sources` | `app/services/queue_metrics_service.py:259` | 63 |
-| 25 | `resolve_stateful_returns_series_request` | `app/services/returns_series_service.py:1594` | 63 |
+| 1 | `build_mwr_response` | `app/services/mwr_calculation_service.py:49` | 70 |
+| 2 | `_build_workspace_results_by_period` | `app/services/workspace_summary_service.py:632` | 70 |
+| 3 | `_process_pending_jobs` | `app/workers/compute_executor_worker.py:113` | 70 |
+| 4 | `AverageWeightShadowAuditState._rollout_posture_notes` | `app/services/contribution_audit.py:125` | 69 |
+| 5 | `_build_artifact_payload` | `app/services/inspection/source_economics.py:413` | 69 |
+| 6 | `_calculate_promoted_stateful_returns_series` | `app/services/returns_series_calculation_workflow_service.py:136` | 69 |
+| 7 | `StatefulInputService._fetch_position_chunk` | `app/services/stateful_input_service.py:1001` | 68 |
+| 8 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:547` | 68 |
+| 9 | `build_benchmark_exposure_context` | `app/services/benchmark_exposure_context_service.py:39` | 67 |
+| 10 | `resolve_contribution_request` | `app/services/contribution_mode_service.py:34` | 67 |
+| 11 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:407` | 67 |
+| 12 | `build_runtime_work_item_snapshot` | `app/services/runtime_work_item_service.py:62` | 66 |
+| 13 | `build_runtime_recoveries_query` | `app/api/dependencies/runtime_recoveries.py:11` | 65 |
+| 14 | `_calculate_promoted_stateful_benchmark_workflow` | `app/services/benchmark_calculation_workflow_service.py:146` | 65 |
+| 15 | `run_source_quality_checks` | `app/services/inspection/source_quality.py:146` | 65 |
+| 16 | `calculate_mwr_response` | `app/services/mwr_calculation_service.py:169` | 65 |
+| 17 | `resolve_mwr_request` | `app/services/mwr_mode_service.py:26` | 65 |
+| 18 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:91` | 65 |
+| 19 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:38` | 64 |
+| 20 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:476` | 64 |
+| 21 | `LineageMetadataStore._build_pending_payload_stats_statement` | `app/services/lineage_metadata_store.py:576` | 64 |
+| 22 | `_SourceEconomicsSampleCollector._record_taxonomy_samples` | `app/services/inspection/source_economics_collector.py:111` | 63 |
+| 23 | `_load_durable_queue_metric_sources` | `app/services/queue_metrics_service.py:259` | 63 |
+| 24 | `resolve_stateful_returns_series_request` | `app/services/returns_series_service.py:1594` | 63 |
+| 25 | `build_stateful_attribution_input` | `app/services/stateful_attribution_input_service.py:354` | 63 |
 
 ## Interpretation
 
@@ -157,6 +157,11 @@ LP-CR-1458 isolated stateful attribution portfolio, position, and benchmark retr
 from `71` to `49` lines, the extracted helper measures `55` lines, duplicate hotspots remain `0`,
 and the largest production function is now `StatefulInputService._fetch_portfolio_chunk(...)` at
 `71` lines.
+LP-CR-1459 isolated stateful portfolio chunk page accumulation into
+`_PortfolioChunkAccumulator` and `_record_portfolio_chunk_payload(...)`.
+`StatefulInputService._fetch_portfolio_chunk(...)` moved from `71` to `61` lines, the extracted
+helper measures `17` lines, duplicate hotspots remain `0`, and the largest production functions are
+now three functions tied at `70` lines.
 LP-CR-1411 isolated runtime-status degradation policy response projection into focused helpers.
 `build_runtime_status_response` moved from `113` to `91` lines, and the largest production
 functions moved to the contribution period result builders at `102` lines.
