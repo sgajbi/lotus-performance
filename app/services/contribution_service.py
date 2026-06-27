@@ -127,6 +127,14 @@ class _ContributionResponseEvidence:
 
 
 @dataclass(frozen=True)
+class _ContributionCalculationRun:
+    engine_inputs: _ContributionEngineInputs
+    results_by_period: dict[str, SinglePeriodContributionResult]
+    average_weight_audit_state: AverageWeightShadowAuditState
+    average_weight_sum_residual_bp: int
+
+
+@dataclass(frozen=True)
 class _FlatContributionPositionAssembly:
     selected_average_weight_column: str
     use_reset_aware_average_weight: bool
@@ -770,40 +778,28 @@ def _complete_contribution_execution(
     )
 
 
-def calculate_contribution(
+def _run_contribution_calculation(
     request: ContributionRequest,
     *,
-    input_fingerprint: str,
-    calculation_hash: str,
-    input_mode: ContributionInputMode = ContributionInputMode.STATELESS,
-) -> ContributionResponse:
-    active_settings = get_settings()
-    reset_aware_average_weight_mode = _normalize_reset_aware_average_weight_mode(
-        getattr(active_settings, "CONTRIBUTION_RESET_AWARE_AVERAGE_WEIGHT_MODE", RESET_AWARE_AVERAGE_WEIGHT_MODE_OFF)
-    )
-    execution_registry.mark_running(request.calculation_id)
-    execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_EXECUTION)
-
+    reset_aware_average_weight_mode: str,
+) -> _ContributionCalculationRun:
     try:
         engine_inputs = _prepare_contribution_engine_inputs(request)
-        periods_to_resolve = engine_inputs.periods_to_resolve
-        resolved_periods = engine_inputs.resolved_periods
-        master_start_date = engine_inputs.master_start_date
-        master_end_date = engine_inputs.master_end_date
-        instruments_df = engine_inputs.instruments_df
-        portfolio_results_df = engine_inputs.portfolio_results_df
-        daily_contributions_df = engine_inputs.daily_contributions_df
         average_weight_audit_state = AverageWeightShadowAuditState()
         period_results = _build_contribution_results_by_period(
             request=request,
-            resolved_periods=resolved_periods,
-            daily_contributions_df=daily_contributions_df,
-            portfolio_results_df=portfolio_results_df,
+            resolved_periods=engine_inputs.resolved_periods,
+            daily_contributions_df=engine_inputs.daily_contributions_df,
+            portfolio_results_df=engine_inputs.portfolio_results_df,
             reset_aware_average_weight_mode=reset_aware_average_weight_mode,
             average_weight_audit_state=average_weight_audit_state,
         )
-        results_by_period = period_results.results_by_period
-        average_weight_sum_residual_bp = period_results.average_weight_sum_residual_bp
+        return _ContributionCalculationRun(
+            engine_inputs=engine_inputs,
+            results_by_period=period_results.results_by_period,
+            average_weight_audit_state=average_weight_audit_state,
+            average_weight_sum_residual_bp=period_results.average_weight_sum_residual_bp,
+        )
     except HTTPException as exc:
         record_execution_failure(
             calculation_id=request.calculation_id,
@@ -822,25 +818,46 @@ def calculate_contribution(
             detail=f"An unexpected error occurred during contribution calculation: {str(exc)}",
         ) from exc
 
+
+def calculate_contribution(
+    request: ContributionRequest,
+    *,
+    input_fingerprint: str,
+    calculation_hash: str,
+    input_mode: ContributionInputMode = ContributionInputMode.STATELESS,
+) -> ContributionResponse:
+    active_settings = get_settings()
+    reset_aware_average_weight_mode = _normalize_reset_aware_average_weight_mode(
+        getattr(active_settings, "CONTRIBUTION_RESET_AWARE_AVERAGE_WEIGHT_MODE", RESET_AWARE_AVERAGE_WEIGHT_MODE_OFF)
+    )
+    execution_registry.mark_running(request.calculation_id)
+    execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_EXECUTION)
+
+    calculation_run = _run_contribution_calculation(
+        request,
+        reset_aware_average_weight_mode=reset_aware_average_weight_mode,
+    )
+    engine_inputs = calculation_run.engine_inputs
+
     response_model = _build_contribution_response(
         request=request,
         input_mode=input_mode,
         input_fingerprint=input_fingerprint,
         calculation_hash=calculation_hash,
         engine_version=active_settings.APP_VERSION,
-        periods_to_resolve=periods_to_resolve,
-        master_start_date=master_start_date,
-        master_end_date=master_end_date,
-        instruments_df=instruments_df,
-        portfolio_results_df=portfolio_results_df,
-        results_by_period=results_by_period,
-        average_weight_audit_state=average_weight_audit_state,
-        average_weight_sum_residual_bp=average_weight_sum_residual_bp,
+        periods_to_resolve=engine_inputs.periods_to_resolve,
+        master_start_date=engine_inputs.master_start_date,
+        master_end_date=engine_inputs.master_end_date,
+        instruments_df=engine_inputs.instruments_df,
+        portfolio_results_df=engine_inputs.portfolio_results_df,
+        results_by_period=calculation_run.results_by_period,
+        average_weight_audit_state=calculation_run.average_weight_audit_state,
+        average_weight_sum_residual_bp=calculation_run.average_weight_sum_residual_bp,
     )
     _complete_contribution_execution(
         request=request,
         response_model=response_model,
-        portfolio_results_df=portfolio_results_df,
-        daily_contributions_df=daily_contributions_df,
+        portfolio_results_df=engine_inputs.portfolio_results_df,
+        daily_contributions_df=engine_inputs.daily_contributions_df,
     )
     return response_model
