@@ -1,7 +1,7 @@
 # Lotus Performance Function Size Inventory
 
 Report date: 2026-06-27
-Branch: `lp-cr-1444-attribution-source-retrieval-boundary`
+Branch: `lp-cr-1445-repository-hygiene-gate`
 Mode: report-only function-size inventory; this artifact introduces no new blocking CI gate.
 
 ## Purpose
@@ -102,6 +102,9 @@ LP-CR-1444 isolated stateful attribution source-retrieval request projection int
 `_retrieve_attribution_source_input(...)`. `resolve_attribution_request(...)` moved from `74` to
 `64` lines and dropped out of the top-25 table; the extracted helper measures `25` lines, and the
 largest production functions are now four functions tied at `74` lines.
+LP-CR-1445 promoted repository hygiene into a blocking lint gate and added a tested cleanup utility.
+It did not change production application modules, so the top-25 production function-size table
+remains unchanged.
 LP-CR-1411 isolated runtime-status degradation policy response projection into focused helpers.
 `build_runtime_status_response` moved from `113` to `91` lines, and the largest production
 functions moved to the contribution period result builders at `102` lines.

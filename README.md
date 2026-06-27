@@ -58,6 +58,10 @@ service, not as a calculation demo. The current bank-readiness evidence includes
 - release evidence:
   `make check`, `make ci`, and `make ci-local` map local proof to the Lotus multi-lane delivery
   model
+- repository hygiene:
+  `make repository-hygiene-gate` blocks tracked local byproducts such as Python caches, virtual
+  environments, local coverage files, build outputs, logs, and local databases; `make clean`
+  delegates to the tested cleanup utility in `scripts/clean_generated_artifacts.py`
 - observability guardrails:
   `make quality-observability-readiness-gate` blocks missing health/metrics, correlation,
   structured logging, metrics, and readiness markers before feature branches can degrade runtime
@@ -169,6 +173,8 @@ source-economics or reconciliation regressions.
   `make demo-api-certification`
 - observability readiness marker gate
   `make quality-observability-readiness-gate`
+- repository hygiene gate
+  `make repository-hygiene-gate`
 - Docker image proof
   `make docker-build`
 
@@ -202,8 +208,8 @@ front-office product surfaces.
 The local mapping is:
 
 - `make check`
-  lint, static quality gates including observability-readiness markers, no-alias gate, typecheck,
-  OpenAPI gate, API vocabulary gate, and unit tests
+  lint, repository hygiene, static quality gates including observability-readiness markers,
+  no-alias gate, typecheck, OpenAPI gate, API vocabulary gate, and unit tests
 - `make ci`
   governance, migration smoke, security audit, unit, integration, e2e, coverage, and Docker build
 - `make ci-local`

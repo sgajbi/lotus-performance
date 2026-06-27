@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-27
-Branch: `lp-cr-1444-attribution-source-retrieval-boundary`
+Branch: `lp-cr-1445-repository-hygiene-gate`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
