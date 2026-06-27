@@ -88,36 +88,18 @@ class LineageService:
                 calculation_details=calculation_details,
             )
             completion_timestamp = datetime.now(timezone.utc)
-            self._write_text_atomic(
-                os.path.join(target_dir, "manifest.json"),
-                json.dumps(
-                    {
-                        "calculation_type": calculation_type,
-                        "timestamp_utc": format_timestamp(completion_timestamp) or "",
-                        "status": "complete",
-                        "artifact_names": sorted(artifact_names),
-                    },
-                    indent=2,
-                ),
-            )
-
-            self._metadata_store.mark_complete(
-                calculation_id=calculation_id,
+            self._write_manifest(
+                target_dir=target_dir,
+                calculation_type=calculation_type,
                 artifact_names=artifact_names,
-                timestamp_utc=completion_timestamp,
+                completion_timestamp=completion_timestamp,
             )
-            try:
-                self._execution_store.complete_stage(
-                    calculation_id,
-                    resolve_artifact_stage_name(calculation_type=calculation_type),
-                    details={"artifact_names": sorted(artifact_names)},
-                )
-            except Exception:
-                logger.warning(
-                    "Execution stage unavailable while marking lineage materialization complete: %s",
-                    calculation_id,
-                    exc_info=True,
-                )
+            self._record_materialization_complete(
+                calculation_id=calculation_id,
+                calculation_type=calculation_type,
+                artifact_names=artifact_names,
+                completion_timestamp=completion_timestamp,
+            )
 
             logger.info("Successfully captured lineage data for calculation_id: %s", calculation_id)
             return True
@@ -152,6 +134,66 @@ class LineageService:
             detail_artifact_names.append(safe_filename)
 
         return target_dir, ["request.json", "response.json", *detail_artifact_names]
+
+    def _write_manifest(
+        self,
+        *,
+        target_dir: str,
+        calculation_type: str,
+        artifact_names: list[str],
+        completion_timestamp: datetime,
+    ) -> None:
+        self._write_text_atomic(
+            os.path.join(target_dir, "manifest.json"),
+            json.dumps(
+                {
+                    "calculation_type": calculation_type,
+                    "timestamp_utc": format_timestamp(completion_timestamp) or "",
+                    "status": "complete",
+                    "artifact_names": sorted(artifact_names),
+                },
+                indent=2,
+            ),
+        )
+
+    def _record_materialization_complete(
+        self,
+        *,
+        calculation_id: UUID,
+        calculation_type: str,
+        artifact_names: list[str],
+        completion_timestamp: datetime,
+    ) -> None:
+        self._metadata_store.mark_complete(
+            calculation_id=calculation_id,
+            artifact_names=artifact_names,
+            timestamp_utc=completion_timestamp,
+        )
+        self._complete_execution_stage(
+            calculation_id=calculation_id,
+            calculation_type=calculation_type,
+            artifact_names=artifact_names,
+        )
+
+    def _complete_execution_stage(
+        self,
+        *,
+        calculation_id: UUID,
+        calculation_type: str,
+        artifact_names: list[str],
+    ) -> None:
+        try:
+            self._execution_store.complete_stage(
+                calculation_id,
+                resolve_artifact_stage_name(calculation_type=calculation_type),
+                details={"artifact_names": sorted(artifact_names)},
+            )
+        except Exception:
+            logger.warning(
+                "Execution stage unavailable while marking lineage materialization complete: %s",
+                calculation_id,
+                exc_info=True,
+            )
 
     def _serialize_details(self, calculation_details: dict[str, pd.DataFrame]) -> dict[str, str]:
         serialized: dict[str, str] = {}

@@ -43,7 +43,7 @@ link the commit, command, or CI artifact that proves the change.
 | Max cyclomatic complexity | unknown | 5 | enforced | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py`; `make quality-complexity-gate` |
 | High-complexity functions | unknown | 0 | enforced | rank D-F functions in `quality/complexity_inventory.md`; `make quality-complexity-gate` |
 | Average maintainability index | unknown | 54.92 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
-| Largest functions by LOC | unknown | 61 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; LP-CR-1494 moved `_run_subject_assessments(...)` out of the top-25 table, and the largest production functions continue to measure `61` lines |
+| Largest functions by LOC | unknown | 61 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; LP-CR-1495 moved `LineageService.materialize_payload(...)` out of the top-25 table, and the largest production functions continue to measure `61` lines |
 
 ## Architecture
 
