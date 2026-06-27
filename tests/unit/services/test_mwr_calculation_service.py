@@ -10,9 +10,11 @@ from app.models.mwr_analytics_requests import MoneyWeightedReturnAnalyticsReques
 from app.models.mwr_requests import CashFlow, MoneyWeightedReturnRequest
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_MWR
 from app.services.mwr_calculation_service import (
+    _complete_mwr_execution,
     _mwr_currency_evidence_payload,
     _mwr_reporting_currency,
     _mwr_requested_window,
+    _resolve_mwr_execution_request,
     _stringify_decimals,
     build_mwr_response,
     calculate_mwr_response,
@@ -253,6 +255,104 @@ def test_stringify_decimals_preserves_nested_payload_shape():
         "cashflows": {"net": "-10.50"},
         "status": "complete",
     }
+
+
+@pytest.mark.asyncio
+async def test_resolve_mwr_execution_request_updates_stateful_identity(mocker):
+    request = MoneyWeightedReturnAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "MWR-STATEFUL-HELPER",
+            "as_of": "2025-12-31",
+            "stateful_input": {"window_start_date": "2025-01-01"},
+            "mwr_method": "DIETZ",
+            "input_mode": "stateful",
+        }
+    )
+    resolved_request = ResolvedMWRRequest(
+        mwr_request=request.to_stateless_mwr_request(
+            begin_mv=1000.0,
+            end_mv=1100.0,
+            cash_flows=[CashFlow(amount=25.0, date=date(2025, 6, 30))],
+        ),
+        input_mode=MWRInputMode.STATEFUL,
+        currency_evidence=None,
+    )
+
+    async def resolve_request(*_, **__) -> ResolvedMWRRequest:
+        return resolved_request
+
+    mocker.patch(
+        "app.services.mwr_calculation_service.resolve_mwr_request",
+        side_effect=resolve_request,
+    )
+    mocker.patch(
+        "app.services.mwr_calculation_service.generate_request_fingerprint",
+        return_value=("stateful-fingerprint", "stateful-hash"),
+    )
+    update_identity = mocker.patch("app.services.mwr_calculation_service.execution_registry.update_execution_identity")
+
+    resolved_execution = await _resolve_mwr_execution_request(
+        request=request,
+        active_settings=type("Settings", (), {"APP_VERSION": "runtime-version"})(),
+        input_fingerprint="request-fingerprint",
+        calculation_hash="request-hash",
+    )
+
+    assert resolved_execution.resolved_request is resolved_request
+    assert resolved_execution.input_fingerprint == "stateful-fingerprint"
+    assert resolved_execution.calculation_hash == "stateful-hash"
+    update_identity.assert_called_once_with(
+        request.calculation_id,
+        input_fingerprint="stateful-fingerprint",
+        calculation_hash="stateful-hash",
+    )
+
+
+def test_complete_mwr_execution_records_cashflow_lineage(mocker):
+    request = MoneyWeightedReturnAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "MWR-LINEAGE-HELPER",
+            "begin_mv": 1000.0,
+            "end_mv": 1100.0,
+            "as_of": "2025-12-31",
+            "cash_flows": [{"amount": 25.0, "date": "2025-06-30"}],
+            "mwr_method": "DIETZ",
+        }
+    )
+    mwr_request = request.to_stateless_mwr_request()
+    resolved_request = ResolvedMWRRequest(
+        mwr_request=mwr_request,
+        input_mode=MWRInputMode.STATELESS,
+        currency_evidence=None,
+    )
+    response_model = build_mwr_response(
+        request=request,
+        resolved_request=resolved_request,
+        mwr_result=calculate_mwr_result(mwr_request),
+        input_fingerprint="fingerprint",
+        calculation_hash="hash",
+        engine_version="runtime-version",
+    )
+    capture: dict[str, object] = {}
+    mocker.patch(
+        "app.services.mwr_calculation_service.complete_execution_with_lineage",
+        side_effect=lambda **kwargs: capture.update(kwargs),
+    )
+
+    _complete_mwr_execution(
+        request=request,
+        mwr_request=mwr_request,
+        response_model=response_model,
+    )
+
+    assert capture["calculation_type"] == ANALYTICS_WORKFLOW_MWR
+    assert capture["request_model"] is request
+    assert capture["response_model"] is response_model
+    assert capture["execution_details"] == {"cashflows": 1}
+    cashflow_schedule = capture["calculation_details"]["mwr_cashflow_schedule.csv"]
+    assert cashflow_schedule["type"].tolist() == ["begin_mv", "cash_flow", "end_mv"]
 
 
 @pytest.mark.asyncio
