@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-06-27
-Branch: `lp-cr-1445-repository-hygiene-gate`
+Branch: `lp-cr-1446-runtime-retention-query-boundary`
 Mode: report-only test taxonomy inventory; no blocking CI gate is introduced by this artifact.
 
 ## Purpose
@@ -20,8 +20,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 270 |
-| Test functions inventoried | 2991 |
+| Test modules inventoried | 271 |
+| Test functions inventoried | 2993 |
 | Integration/API/runtime test functions | 596 |
 | Contract/governance test functions | 108 |
 
@@ -32,7 +32,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | benchmarks | 9 | 17 |
 | e2e | 1 | 21 |
 | integration | 24 | 300 |
-| unit | 236 | 2653 |
+| unit | 237 | 2655 |
 
 ## Test Functions By Family
 
@@ -42,7 +42,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | api_or_runtime | 596 |
 | contract_or_governance | 108 |
 | observability_or_readiness | 185 |
-| quality_or_security | 99 |
+| quality_or_security | 101 |
 | uncategorized | 1206 |
 
 ## Largest Test Modules

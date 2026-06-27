@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-27
-Branch: `lp-cr-1445-repository-hygiene-gate`
+Branch: `lp-cr-1446-runtime-retention-query-boundary`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
@@ -32,7 +32,7 @@ must stay at `0`.
 | --- | ---: |
 | Max cyclomatic complexity | 5 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.05 |
+| Average maintainability index | 54.88 |
 
 ## Highest Cyclomatic Complexity
 
@@ -1116,6 +1116,9 @@ LP-CR-1438 isolated portfolio timeseries page retrieval and request-payload proj
 `StatefulInputService._fetch_portfolio_timeseries_page(...)`. The measured repository maximum
 remains `5`, high-complexity functions remain `0`, and average maintainability index remains
 `55.08`.
+LP-CR-1446 isolated runtime-retention history query metadata from dependency assembly. The measured
+repository maximum remains `5`, high-complexity functions remain `0`, and average maintainability
+index measures `54.88`.
 The runtime work-item safe listing extraction did not change the max cyclomatic complexity posture;
 the measured repository maximum remains `5`.
 The stateful timeseries snapshot append extraction did not change the max cyclomatic complexity

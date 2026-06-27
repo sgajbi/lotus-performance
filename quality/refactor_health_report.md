@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Health Report
 
 Report date: 2026-06-27
-Branch: `lp-cr-1445-repository-hygiene-gate`
+Branch: `lp-cr-1446-runtime-retention-query-boundary`
 Baseline source: `quality/baseline_report.md`
 Report mode: phase-zero scorecard; complexity, architecture, duplicate-code, repository hygiene,
 router-thinness, observability-readiness, and Python security posture are enforced separately by CI.
@@ -26,11 +26,11 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Python files | 480 | 562 | measured | `rg --files -g '*.py'` |
+| Python files | 480 | 563 | measured | `rg --files -g '*.py'` |
 | Python package markers | 18 | 18 | measured | recursive `__init__.py` count |
-| Python LOC | 104,454 | 163,730 | measured | `rg --files -g '*.py'` plus Python line count on this branch |
+| Python LOC | 104,454 | 142,867 | measured | `rg --files -g '*.py'` plus Python line count on this branch |
 | Largest Python file LOC | 2,399 | 2,503 | measured | largest-file inventory on this branch |
-| Largest production file LOC | 1,156 | 1,688 | measured | `app/services/returns_series_service.py` |
+| Largest production file LOC | 1,156 | 1,503 | measured | `app/services/returns_series_service.py` |
 | Duplicate code hotspots | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `make quality-duplicate-code-gate` with `--min-lines 12 --max-groups 0`; duplicated LOC reduced from `24` to `0` in LP-CR-1407 |
 | Tracked local byproduct findings | unknown | 0 | enforced | `scripts/repository_hygiene_gate.py`; `make repository-hygiene-gate`; blocking through `make lint` |
 | Dead-code candidates at 60% confidence | unknown | 438 | measured | `quality/dead_code_inventory.md` via `scripts/python_dead_code_inventory.py` |
@@ -42,8 +42,8 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | Max cyclomatic complexity | unknown | 5 | enforced | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py`; `make quality-complexity-gate` |
 | High-complexity functions | unknown | 0 | enforced | rank D-F functions in `quality/complexity_inventory.md`; `make quality-complexity-gate` |
-| Average maintainability index | unknown | 55.05 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
-| Largest functions by LOC | unknown | 74 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; LP-CR-1445 changed CI hygiene enforcement without changing production application modules, so the largest production functions remain four functions tied at `74` lines |
+| Average maintainability index | unknown | 54.88 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
+| Largest functions by LOC | unknown | 74 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; LP-CR-1446 moved `build_runtime_retention_history_query(...)` out of the top-25 table, so the largest production functions are now three functions tied at `74` lines |
 
 ## Architecture
 
@@ -71,8 +71,8 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Test modules | 228 | 270 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 3,191 | measured | `python -m pytest --collect-only -q` |
+| Test modules | 228 | 271 | measured | `rg --files tests -g 'test_*.py'` |
+| Collected tests | 2,035 | 3,193 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99% | measured | `quality/coverage_inventory.md` via `make test-coverage` |
 | Branch coverage | unknown | not configured | not-yet-measured | `quality/coverage_inventory.md`; branch coverage is not configured in pytest-cov or coverage.py |
 | Integration/API/runtime test functions | unknown | 596 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |
@@ -113,8 +113,8 @@ link the commit, command, or CI artifact that proves the change.
 | Endpoint certification docs | unknown | 20 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
 | API catalog files | unknown | 4 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
 | Docs regression test functions | unknown | 57 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
-| Public definitions missing docstrings | unknown | 1,083 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
-| Public definition docstring coverage percent | unknown | 11.59 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
+| Public definitions missing docstrings | unknown | 1,087 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
+| Public definition docstring coverage percent | unknown | 11.55 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
 
 ## Phase-Zero Interpretation
 

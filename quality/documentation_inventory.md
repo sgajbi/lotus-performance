@@ -9,9 +9,9 @@
 | API catalog files present | 4 |
 | API catalog files expected | 4 |
 | Docs regression test functions | 57 |
-| Public definitions scanned | 1225 |
-| Public definitions missing docstrings | 1083 |
-| Public definition docstring coverage percent | 11.59 |
+| Public definitions scanned | 1229 |
+| Public definitions missing docstrings | 1087 |
+| Public definition docstring coverage percent | 11.55 |
 
 ## Markdown Files By Family
 
@@ -28,7 +28,7 @@
 | Rank | File | Line | Kind | Name |
 | ---: | --- | ---: | --- | --- |
 | 1 | `app/api/dependencies/runtime_recoveries.py` | 11 | `FunctionDef` | `build_runtime_recoveries_query` |
-| 2 | `app/api/dependencies/runtime_retention_history.py` | 11 | `FunctionDef` | `build_runtime_retention_history_query` |
+| 2 | `app/api/dependencies/runtime_retention_history.py` | 72 | `FunctionDef` | `build_runtime_retention_history_query` |
 | 3 | `app/api/endpoints/composites.py` | 136 | `FunctionDef` | `calculate_composite_twr` |
 | 4 | `app/api/endpoints/composites.py` | 184 | `FunctionDef` | `inspect_composite_twr` |
 | 5 | `app/api/endpoints/contribution.py` | 40 | `AsyncFunctionDef` | `calculate_contribution_endpoint` |
@@ -37,12 +37,12 @@
 | 8 | `app/api/endpoints/inspections.py` | 95 | `FunctionDef` | `submit_twr_inspection` |
 | 9 | `app/api/endpoints/inspections.py` | 132 | `FunctionDef` | `get_twr_inspection` |
 | 10 | `app/api/endpoints/inspections.py` | 180 | `FunctionDef` | `get_twr_inspection_artifact` |
-| 11 | `app/api/endpoints/integration_capabilities.py` | 364 | `ClassDef` | `FeatureCapability` |
-| 12 | `app/api/endpoints/integration_capabilities.py` | 371 | `ClassDef` | `WorkflowCapability` |
-| 13 | `app/api/endpoints/integration_capabilities.py` | 393 | `ClassDef` | `AnalyticsSurfaceOptionCapability` |
-| 14 | `app/api/endpoints/integration_capabilities.py` | 415 | `ClassDef` | `AnalyticsSurfaceCapability` |
-| 15 | `app/api/endpoints/integration_capabilities.py` | 458 | `ClassDef` | `IntegrationCapabilitiesResponse` |
-| 16 | `app/api/endpoints/integration_capabilities.py` | 489 | `AsyncFunctionDef` | `get_integration_capabilities` |
+| 11 | `app/api/endpoints/integration_capabilities.py` | 365 | `ClassDef` | `FeatureCapability` |
+| 12 | `app/api/endpoints/integration_capabilities.py` | 372 | `ClassDef` | `WorkflowCapability` |
+| 13 | `app/api/endpoints/integration_capabilities.py` | 394 | `ClassDef` | `AnalyticsSurfaceOptionCapability` |
+| 14 | `app/api/endpoints/integration_capabilities.py` | 416 | `ClassDef` | `AnalyticsSurfaceCapability` |
+| 15 | `app/api/endpoints/integration_capabilities.py` | 459 | `ClassDef` | `IntegrationCapabilitiesResponse` |
+| 16 | `app/api/endpoints/integration_capabilities.py` | 491 | `AsyncFunctionDef` | `get_integration_capabilities` |
 | 17 | `app/api/endpoints/lineage.py` | 187 | `AsyncFunctionDef` | `get_lineage_data` |
 | 18 | `app/api/endpoints/lineage.py` | 240 | `AsyncFunctionDef` | `get_lineage_artifact` |
 | 19 | `app/api/endpoints/mandate_health_context.py` | 28 | `FunctionDef` | `evaluate_mandate_performance_health_context_endpoint` |
