@@ -11,9 +11,11 @@ from app.models.mwr_requests import CashFlow, MoneyWeightedReturnRequest
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_MWR
 from app.services.mwr_calculation_service import (
     _complete_mwr_execution,
+    _mwr_calculation_supportability,
     _mwr_currency_evidence_payload,
     _mwr_reporting_currency,
     _mwr_requested_window,
+    _record_mwr_response_metrics,
     _resolve_mwr_execution_request,
     _stringify_decimals,
     build_mwr_response,
@@ -149,6 +151,70 @@ def test_build_mwr_response_preserves_endpoint_payload_contract(mocker):
     assert response.calculation_supportability.resolved_period_count == 1
     supportability_metric.assert_called_once()
     solver_metric.assert_called_once()
+
+
+def test_mwr_calculation_supportability_counts_cashflow_schedule_inputs():
+    analytics_request = MoneyWeightedReturnAnalyticsRequest.model_validate(
+        {
+            "portfolio_id": "MWR-SERVICE-SUPPORTABILITY",
+            "begin_mv": 100.0,
+            "end_mv": 130.0,
+            "as_of": "2025-12-31",
+            "cash_flows": [
+                {"amount": 10.0, "date": "2025-06-30"},
+                {"amount": -5.0, "date": "2025-09-30"},
+            ],
+            "mwr_method": "DIETZ",
+        }
+    )
+    mwr_request = analytics_request.to_stateless_mwr_request()
+
+    supportability = _mwr_calculation_supportability(
+        mwr_request=mwr_request,
+        mwr_result=calculate_mwr_result(mwr_request),
+    )
+
+    assert supportability.state == "ready"
+    assert supportability.reason == "calculation_complete"
+    assert supportability.input_row_count == 4
+    assert supportability.resolved_period_count == 1
+    assert supportability.benchmark_row_count == 0
+
+
+def test_record_mwr_response_metrics_emits_supportability_and_solver_labels(mocker):
+    analytics_request = MoneyWeightedReturnAnalyticsRequest.model_validate(
+        {
+            "portfolio_id": "MWR-SERVICE-METRICS",
+            "begin_mv": 100.0,
+            "end_mv": 130.0,
+            "as_of": "2025-12-31",
+            "cash_flows": [{"amount": 10.0, "date": "2025-06-30"}],
+            "mwr_method": "DIETZ",
+        }
+    )
+    mwr_request = analytics_request.to_stateless_mwr_request()
+    mwr_result = calculate_mwr_result(mwr_request)
+    supportability = _mwr_calculation_supportability(
+        mwr_request=mwr_request,
+        mwr_result=mwr_result,
+    )
+    supportability_metric = mocker.patch("app.services.mwr_calculation_service.record_supportability_metric")
+    solver_metric = mocker.patch("app.services.mwr_calculation_service.record_mwr_solver_outcome")
+
+    _record_mwr_response_metrics(
+        request=analytics_request,
+        mwr_result=mwr_result,
+        calculation_supportability=supportability,
+    )
+
+    supportability_metric.assert_called_once_with(operation="mwr", supportability=supportability)
+    solver_metric.assert_called_once_with(
+        input_mode="stateless",
+        method=mwr_result.method,
+        status=mwr_result.status,
+        reason_codes=mwr_result.reason_codes,
+        fallback_used=mwr_result.fallback_from is not None or bool(mwr_result.is_approximation),
+    )
 
 
 def test_mwr_reporting_currency_prefers_currency_evidence_then_request_fallback():
