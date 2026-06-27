@@ -21,7 +21,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 274 |
-| Test functions inventoried | 3037 |
+| Test functions inventoried | 3038 |
 | Integration/API/runtime test functions | 599 |
 | Contract/governance test functions | 108 |
 
@@ -32,7 +32,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | benchmarks | 9 | 17 |
 | e2e | 1 | 21 |
 | integration | 24 | 300 |
-| unit | 240 | 2699 |
+| unit | 240 | 2700 |
 
 ## Test Functions By Family
 
@@ -43,7 +43,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | contract_or_governance | 108 |
 | observability_or_readiness | 185 |
 | quality_or_security | 107 |
-| uncategorized | 1221 |
+| uncategorized | 1222 |
 
 ## Largest Test Modules
 
@@ -61,10 +61,10 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | 10 | `tests/unit/engine/test_attribution.py` | unit | 48 | analytics_domain |
 | 11 | `tests/unit/services/test_stateful_benchmark_input_service.py` | unit | 43 | uncategorized |
 | 12 | `tests/integration/test_contribution_api.py` | integration | 40 | analytics_domain, api_or_runtime |
-| 13 | `tests/unit/services/test_operator_action_lease_service.py` | unit | 39 | uncategorized |
-| 14 | `tests/integration/test_performance_api.py` | integration | 38 | api_or_runtime |
-| 15 | `tests/unit/services/test_compute_executor_worker.py` | unit | 38 | uncategorized |
-| 16 | `tests/unit/services/test_lineage_metadata_store.py` | unit | 38 | uncategorized |
+| 13 | `tests/unit/services/test_lineage_metadata_store.py` | unit | 39 | uncategorized |
+| 14 | `tests/unit/services/test_operator_action_lease_service.py` | unit | 39 | uncategorized |
+| 15 | `tests/integration/test_performance_api.py` | integration | 38 | api_or_runtime |
+| 16 | `tests/unit/services/test_compute_executor_worker.py` | unit | 38 | uncategorized |
 | 17 | `tests/unit/services/test_twr_mode_service.py` | unit | 38 | analytics_domain |
 | 18 | `tests/unit/services/test_workspace_summary_service.py` | unit | 38 | uncategorized |
 | 19 | `tests/unit/services/test_benchmark_exposure_context_service.py` | unit | 33 | uncategorized |
@@ -86,7 +86,7 @@ The AST inventory counts test function definitions, while `pytest --collect-only
 pytest items including parametrized cases. The two values are intentionally different and
 complementary: collected tests show execution breadth, while this report shows source test-module
 and test-function distribution. The current suite has meaningful API/runtime and
-contract/governance coverage, but 1221 test functions remain uncategorized by the first-wave
+contract/governance coverage, but 1222 test functions remain uncategorized by the first-wave
 taxonomy and should be reviewed before turning taxonomy into a blocking gate.
 
 ## Gate Posture
