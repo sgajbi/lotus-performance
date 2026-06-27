@@ -7,6 +7,7 @@ from sqlalchemy import event, inspect
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import IntegrityError
 
+import app.services.compute_job_store as compute_job_store_module
 from app.services.compute_job_store import (
     INVALID_COMPUTE_JOB_REQUEST_PAYLOAD_ERROR_TYPE,
     INVALID_COMPUTE_JOB_REQUEST_PAYLOAD_MESSAGE,
@@ -20,13 +21,16 @@ from app.services.compute_job_store import (
     _compute_job_has_conflicting_worker_lease,
     _compute_job_inspection_active_since,
     _compute_job_payload_failure,
+    _compute_job_record_payload_state,
     _compute_job_registration_result_for_integrity_conflict,
     _compute_job_request_identity_json,
+    _compute_job_request_identity_json_from_json,
     _ensure_compute_job_can_mark_running,
     _matches_existing_compute_job_registration,
     _queue_stats_from_aggregate_row,
     _recovery_seek_cursor_filter,
     _stale_job_reconciliation_outcome,
+    get_compute_job_store,
 )
 from app.services.durable_store_inspection import build_inspection_query_context
 
@@ -102,6 +106,20 @@ def test_compute_job_inspection_active_since_defaults_to_created_timestamp():
     assert _compute_job_inspection_active_since(row) == created_at
 
 
+def test_compute_job_inspection_item_handles_missing_active_timestamp(tmp_path):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
+    row = _compute_job_model_for_inspection(
+        job_status=ComputeJobStatus.LEASED,
+        created_at_utc=datetime(2026, 3, 14, 9, 0, tzinfo=timezone.utc),
+    )
+    row.created_at_utc = None
+
+    item = store._to_inspection_item(row, now=datetime(2026, 3, 14, 9, 5, tzinfo=timezone.utc))
+
+    assert item.active_since_utc is None
+    assert item.age_seconds is None
+
+
 def test_compute_job_payload_failure_fails_closed_on_missing_request_payload():
     row = _compute_job_model_for_inspection(
         job_status=ComputeJobStatus.COMPLETE,
@@ -132,6 +150,17 @@ def test_compute_job_payload_failure_preserves_existing_response_error_details()
     assert failure.request_payload is request_payload
     assert failure.error_message == "stored error"
     assert failure.error_type == "StoredError"
+
+
+def test_compute_job_record_payload_state_raises_when_request_payload_remains_unresolved(monkeypatch):
+    row = _compute_job_model_for_inspection(
+        job_status=ComputeJobStatus.COMPLETE,
+        created_at_utc=datetime(2026, 3, 14, 9, 0, tzinfo=timezone.utc),
+    )
+    monkeypatch.setattr(compute_job_store_module, "_compute_job_payload_failure", lambda *args, **kwargs: None)
+
+    with pytest.raises(RuntimeError, match="Compute job request payload resolution failed"):
+        _compute_job_record_payload_state(row, request_payload=None, response_payload=None)
 
 
 def test_compute_job_store_lifecycle(tmp_path):
@@ -358,6 +387,34 @@ def test_compute_job_store_failure_and_filters(tmp_path):
     assert store.get_job(calc_one) is None
     with pytest.raises(KeyError):
         store.mark_running(calc_one, worker_id="worker-a")
+
+
+def test_compute_job_store_lists_pending_jobs_without_analytics_filter(tmp_path):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
+    store.create_schema()
+    first_id = uuid4()
+    second_id = uuid4()
+
+    store.enqueue_job(calculation_id=first_id, analytics_type="ReturnsSeries", request_payload={"p": "1"})
+    store.enqueue_job(calculation_id=second_id, analytics_type="Attribution", request_payload={"p": "2"})
+
+    pending = store.list_pending_jobs(limit=10)
+
+    assert [job.calculation_id for job in pending] == [first_id, second_id]
+
+
+def test_compute_job_store_lists_pending_jobs_with_analytics_filter(tmp_path):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
+    store.create_schema()
+    first_id = uuid4()
+    second_id = uuid4()
+
+    store.enqueue_job(calculation_id=first_id, analytics_type="ReturnsSeries", request_payload={"p": "1"})
+    store.enqueue_job(calculation_id=second_id, analytics_type="Attribution", request_payload={"p": "2"})
+
+    pending = store.list_pending_jobs(analytics_type="Attribution", limit=10)
+
+    assert [job.calculation_id for job in pending] == [second_id]
 
 
 def test_compute_job_store_retry_and_expired_lease_reclaim(tmp_path):
@@ -1217,6 +1274,17 @@ def test_compute_job_store_register_job_ignores_transient_observability_context_
     assert stored_job.request_payload["observability_context"] == {"correlation_id": "corr-first"}
 
 
+@pytest.mark.parametrize(
+    "stored_request_json",
+    [
+        "{not-json",
+        "[1, 2, 3]",
+    ],
+)
+def test_compute_job_request_identity_falls_back_to_stored_json_when_payload_is_not_object(stored_request_json):
+    assert _compute_job_request_identity_json_from_json(stored_request_json) == stored_request_json
+
+
 def test_matches_existing_compute_job_registration_requires_same_request_and_attempt_policy():
     existing = ComputeJobModel(
         calculation_id=str(uuid4()),
@@ -1394,3 +1462,12 @@ def test_compute_job_store_get_queue_stats_uses_single_aggregate_query(tmp_path)
     assert stats.pending_count == 1
     select_statements = [statement for statement in statements if statement.lstrip().upper().startswith("SELECT")]
     assert len(select_statements) == 1
+
+
+def test_get_compute_job_store_resolves_explicit_database_url(tmp_path):
+    database_url = f"sqlite:///{tmp_path / 'explicit-compute.db'}"
+
+    store = get_compute_job_store(database_url=database_url)
+
+    assert isinstance(store, ComputeJobStore)
+    assert str(store._engine.url) == database_url
