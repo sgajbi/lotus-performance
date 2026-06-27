@@ -59,6 +59,39 @@ def test_source_quality_evidence_builders_project_summary_and_artifacts():
     assert artifact["extreme_daily_moves"] == [{"perf_date": "2026-04-03", "return_pct": 12.0}]
 
 
+def test_assess_source_quality_evidence_context_projects_source_signals():
+    performance_request = PerformanceRequest(
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        performance_start_date=date(2026, 4, 3),
+        metric_basis="NET",
+        report_end_date=date(2026, 4, 6),
+        analyses=[Analysis(period="YTD", frequencies=["daily"])],
+        valuation_points=[
+            DailyInputData(perf_date=date(2026, 4, 6), begin_mv=100.0, end_mv=103.0),
+            DailyInputData(perf_date=date(2026, 4, 3), begin_mv=100.0, end_mv=100.0),
+            DailyInputData(perf_date=date(2026, 4, 4), begin_mv=100.0, end_mv=112.0),
+        ],
+    )
+
+    context = source_quality._assess_source_quality_evidence_context(
+        performance_request=performance_request,
+        inspection_profile=TWRInspectionProfile.CANONICAL_VALIDATION,
+    )
+
+    assert context.valuation_point_count == 3
+    assert context.weekend_dates == ["2026-04-04"]
+    assert context.extreme_move_threshold_pct == 10.0
+    assert context.largest_abs_daily_move_pct == pytest.approx(12.0)
+    assert [move.to_artifact() for move in context.extreme_moves] == [
+        {"perf_date": "2026-04-04", "return_pct": pytest.approx(12.0)}
+    ]
+    assert context.mandate_profile == source_quality.MandateDailyMoveProfile(
+        name="canonical_balanced_private_banking",
+        threshold_pct=2.0,
+    )
+    assert [move.perf_date for move in context.mandate_outliers] == ["2026-04-06"]
+
+
 def test_is_unobserved_business_date_detects_missing_weekday_only():
     observed_dates = {"2026-04-03"}
 

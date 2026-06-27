@@ -148,8 +148,43 @@ def run_source_quality_checks(
     performance_request: PerformanceRequest,
     inspection_profile: TWRInspectionProfile,
 ) -> SourceQualityCheckResult:
-    valuation_points = sorted(performance_request.valuation_points, key=lambda point: point.perf_date)
+    evidence_context = _assess_source_quality_evidence_context(
+        performance_request=performance_request,
+        inspection_profile=inspection_profile,
+    )
 
+    findings = [
+        *_build_weekend_findings(evidence_context.weekend_dates),
+        *_build_business_gap_findings(evidence_context.missing_business_dates),
+        *_build_stale_series_findings(evidence_context.stale_runs),
+        *_build_nonpositive_capital_base_findings(evidence_context.invalid_capital_bases),
+        *_build_mandate_daily_move_findings(
+            mandate_profile=evidence_context.mandate_profile,
+            mandate_outliers=evidence_context.mandate_outliers,
+        ),
+        *_build_return_concentration_findings(evidence_context.return_concentration),
+        *_build_repeated_move_pattern_findings(evidence_context.repeated_move_runs),
+        *_build_monthly_day_dominance_findings(evidence_context.monthly_day_dominance),
+        *_build_extreme_move_findings(
+            inspection_profile=inspection_profile,
+            threshold=evidence_context.extreme_move_threshold_pct,
+            extreme_moves=evidence_context.extreme_moves,
+        ),
+    ]
+
+    return SourceQualityCheckResult(
+        findings=findings,
+        evidence_summary=_build_source_quality_evidence_summary(evidence_context),
+        artifact_payload=_build_source_quality_artifact_payload(evidence_context),
+    )
+
+
+def _assess_source_quality_evidence_context(
+    *,
+    performance_request: PerformanceRequest,
+    inspection_profile: TWRInspectionProfile,
+) -> _SourceQualityEvidenceContext:
+    valuation_points = sorted(performance_request.valuation_points, key=lambda point: point.perf_date)
     weekend_dates = _find_weekend_dates(valuation_points)
     missing_business_dates = _find_missing_business_dates(valuation_points)
     stale_runs = _find_stale_series_runs(valuation_points)
@@ -169,26 +204,7 @@ def run_source_quality_checks(
     repeated_move_runs = _find_repeated_move_runs(daily_moves)
     monthly_day_dominance = _find_monthly_day_dominance(daily_moves)
 
-    findings = [
-        *_build_weekend_findings(weekend_dates),
-        *_build_business_gap_findings(missing_business_dates),
-        *_build_stale_series_findings(stale_runs),
-        *_build_nonpositive_capital_base_findings(invalid_capital_bases),
-        *_build_mandate_daily_move_findings(
-            mandate_profile=mandate_profile,
-            mandate_outliers=mandate_outliers,
-        ),
-        *_build_return_concentration_findings(return_concentration),
-        *_build_repeated_move_pattern_findings(repeated_move_runs),
-        *_build_monthly_day_dominance_findings(monthly_day_dominance),
-        *_build_extreme_move_findings(
-            inspection_profile=inspection_profile,
-            threshold=threshold,
-            extreme_moves=extreme_moves,
-        ),
-    ]
-
-    evidence_context = _SourceQualityEvidenceContext(
+    return _SourceQualityEvidenceContext(
         valuation_point_count=len(valuation_points),
         weekend_dates=weekend_dates,
         missing_business_dates=missing_business_dates,
@@ -202,11 +218,6 @@ def run_source_quality_checks(
         return_concentration=return_concentration,
         repeated_move_runs=repeated_move_runs,
         monthly_day_dominance=monthly_day_dominance,
-    )
-    return SourceQualityCheckResult(
-        findings=findings,
-        evidence_summary=_build_source_quality_evidence_summary(evidence_context),
-        artifact_payload=_build_source_quality_artifact_payload(evidence_context),
     )
 
 
