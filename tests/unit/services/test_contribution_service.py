@@ -180,6 +180,108 @@ def test_build_contribution_results_by_period_routes_hierarchy_periods(monkeypat
     assert result.average_weight_sum_residual_bp == 11
 
 
+def test_run_contribution_calculation_prepares_engine_inputs_and_period_results(monkeypatch):
+    request = SimpleNamespace(calculation_id="contribution-calc-1")
+    periods = [SimpleNamespace(name="ITD")]
+    portfolio_results_df = pd.DataFrame({"portfolio_id": ["P-1"]})
+    daily_contributions_df = pd.DataFrame({PortfolioColumns.PERF_DATE.value: [date(2026, 1, 31)]})
+    engine_inputs = contribution_service._ContributionEngineInputs(
+        periods_to_resolve=["ITD"],
+        resolved_periods=periods,
+        master_start_date=date(2026, 1, 1),
+        master_end_date=date(2026, 1, 31),
+        instruments_df=pd.DataFrame({"instrument_id": ["A"]}),
+        portfolio_results_df=portfolio_results_df,
+        daily_contributions_df=daily_contributions_df,
+    )
+    period_result = SinglePeriodContributionResult(total_portfolio_return=0.02, total_contribution=0.02)
+    period_calls: list[dict[str, object]] = []
+
+    def build_period_results(**kwargs):
+        period_calls.append(kwargs)
+        return contribution_service._ContributionPeriodResults(
+            results_by_period={"ITD": period_result},
+            average_weight_sum_residual_bp=9,
+        )
+
+    monkeypatch.setattr(contribution_service, "_prepare_contribution_engine_inputs", lambda _request: engine_inputs)
+    monkeypatch.setattr(contribution_service, "_build_contribution_results_by_period", build_period_results)
+
+    result = contribution_service._run_contribution_calculation(
+        request,
+        reset_aware_average_weight_mode="candidate_periods",
+    )
+
+    assert result.engine_inputs is engine_inputs
+    assert result.results_by_period == {"ITD": period_result}
+    assert isinstance(result.average_weight_audit_state, AverageWeightShadowAuditState)
+    assert result.average_weight_sum_residual_bp == 9
+    assert period_calls == [
+        {
+            "request": request,
+            "resolved_periods": periods,
+            "daily_contributions_df": daily_contributions_df,
+            "portfolio_results_df": portfolio_results_df,
+            "reset_aware_average_weight_mode": "candidate_periods",
+            "average_weight_audit_state": result.average_weight_audit_state,
+        }
+    ]
+
+
+def test_run_contribution_calculation_records_http_failure(monkeypatch):
+    request = SimpleNamespace(calculation_id="contribution-calc-1")
+    failures: list[dict[str, object]] = []
+    source_error = HTTPException(status_code=400, detail="No valid periods could be resolved.")
+
+    def prepare_engine_inputs(_request):
+        raise source_error
+
+    monkeypatch.setattr(contribution_service, "_prepare_contribution_engine_inputs", prepare_engine_inputs)
+    monkeypatch.setattr(contribution_service, "record_execution_failure", lambda **kwargs: failures.append(kwargs))
+
+    with pytest.raises(HTTPException) as exc_info:
+        contribution_service._run_contribution_calculation(
+            request,
+            reset_aware_average_weight_mode="off",
+        )
+
+    assert exc_info.value is source_error
+    assert failures == [
+        {
+            "calculation_id": "contribution-calc-1",
+            "message": "No valid periods could be resolved.",
+            "execution_stage_started": True,
+        }
+    ]
+
+
+def test_run_contribution_calculation_maps_unexpected_failure(monkeypatch):
+    request = SimpleNamespace(calculation_id="contribution-calc-1")
+    failures: list[dict[str, object]] = []
+
+    def prepare_engine_inputs(_request):
+        raise RuntimeError("engine unavailable")
+
+    monkeypatch.setattr(contribution_service, "_prepare_contribution_engine_inputs", prepare_engine_inputs)
+    monkeypatch.setattr(contribution_service, "record_execution_failure", lambda **kwargs: failures.append(kwargs))
+
+    with pytest.raises(HTTPException) as exc_info:
+        contribution_service._run_contribution_calculation(
+            request,
+            reset_aware_average_weight_mode="off",
+        )
+
+    assert exc_info.value.status_code == 500
+    assert exc_info.value.detail == "An unexpected error occurred during contribution calculation: engine unavailable"
+    assert failures == [
+        {
+            "calculation_id": "contribution-calc-1",
+            "message": "An unexpected error occurred during contribution calculation: engine unavailable",
+            "execution_stage_started": True,
+        }
+    ]
+
+
 def test_build_contribution_response_evidence_preserves_audit_supportability_and_source_inputs(monkeypatch):
     request = SimpleNamespace(
         calculation_id="contribution-calc-1",
