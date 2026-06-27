@@ -5,9 +5,11 @@ import pytest
 from fastapi import HTTPException
 
 from app.models.contribution_analytics_requests import ContributionAnalyticsRequest
+from app.models.contribution_requests import PortfolioData, PositionData
 from app.services.contribution_mode_service import (
     _contribution_normalization_stage_details,
     _contribution_retrieval_stage_details,
+    _resolved_stateful_contribution_request,
     _resolved_stateless_contribution_request,
     resolve_contribution_request,
 )
@@ -98,6 +100,49 @@ def test_resolved_stateless_contribution_request_projects_request_envelope():
     assert resolved.input_mode.value == "stateless"
     assert resolved.contribution_request.portfolio_data.metric_basis == "NET"
     assert resolved.position_count == 1
+
+
+def test_resolved_stateful_contribution_request_projects_normalized_inputs():
+    request = ContributionAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "CONTRIB_1",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "stateful_input": {},
+        }
+    )
+    normalized_input = SimpleNamespace(
+        portfolio_data=PortfolioData.model_validate(
+            {
+                "metric_basis": "NET",
+                "valuation_points": [
+                    {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+                ],
+            }
+        ),
+        positions_data=[
+            PositionData.model_validate(
+                {
+                    "position_id": "SEC_1",
+                    "security_id": "SEC_1",
+                    "valuation_points": [
+                        {"perf_date": "2025-01-01", "begin_mv": 600, "end_mv": 606},
+                    ],
+                    "meta": {"sector": "Technology"},
+                }
+            )
+        ],
+    )
+
+    resolved = _resolved_stateful_contribution_request(request, normalized_input)
+
+    assert resolved.input_mode.value == "stateful"
+    assert resolved.position_count == 1
+    assert resolved.contribution_request.portfolio_data.metric_basis == "NET"
+    assert resolved.contribution_request.positions_data[0].meta["sector"] == "Technology"
 
 
 @pytest.mark.asyncio
