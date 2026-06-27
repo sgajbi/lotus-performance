@@ -1,7 +1,7 @@
 # Lotus Performance Progressive CI Quality Gates
 
 Report date: 2026-06-27
-Branch: `lp-cr-1452-recovery-drill-run-service`
+Branch: `feature/enterprise-backend-refactor-baseline`
 Baseline sources: `quality/baseline_report.md`, `quality/refactor_health_report.md`, `quality/quality_scorecard.md`
 Mode: progressive gate map; remediated complexity, architecture-boundary, router-thinness,
 duplicate-code, repository hygiene, observability-readiness, and Python security posture is now
@@ -75,7 +75,7 @@ No gate should move from one phase to the next until it has:
 | Dependency vulnerabilities | `pip-audit` is available, security audit is already blocking through repo script, and report-only output is captured in `quality/dependency_security_report.md` | Keep the report current when dependency pins, audit tooling, or exception policy changes. |
 | OpenAPI quality | Blocking through `scripts/openapi_quality_gate.py`; measured further through `quality/api_completeness_inventory.md`; clean API completeness inventory is guarded by `tests/unit/scripts/test_openapi_completeness_inventory.py` | Keep the blocking gate and unit-level clean-inventory guard; only add a separate workflow gate if the report remains stable and adds value beyond existing OpenAPI checks. |
 | API vocabulary and no-alias governance | Blocking in feature, PR, and main lanes | Keep blocking and preserve RFC-0067 vocabulary discipline. |
-| Quality baseline snapshot workflow | Non-blocking report run in `.github/workflows/quality-baseline.yml`; generates and uploads all quality-family inventory artifacts plus report-only demo API certification evidence | Keep as a reporting aid while quality targets and thresholds are stabilized. |
+| Quality baseline snapshot workflow | Non-blocking report run in `.github/workflows/quality-baseline.yml`; calls `make quality-baseline` to generate ignored raw inventory snapshots under `output/quality-baseline/`, upload those snapshots with curated `quality/*.md` source reports, and attach report-only demo API certification evidence | Keep as a reporting aid while quality targets and thresholds are stabilized. |
 | Migration smoke | Blocking in PR and main lanes | Keep blocking outside feature lane unless a migration-heavy slice needs earlier proof. |
 | Docker build | Blocking in PR and main lanes | Keep blocking; no new Docker gate is needed for report-only quality artifacts. |
 | Domain data product validation | Blocking locally through `make check` and repo-native command | Confirm whether GitHub workflows should include this explicitly before changing CI. |

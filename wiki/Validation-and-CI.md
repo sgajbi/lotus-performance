@@ -26,6 +26,9 @@
   local Docker-parity coverage run
 - `make test-all`
   full local pytest plus coverage gate
+- `make quality-baseline`
+  report-only baseline refresh that writes raw scanner snapshots under `output/quality-baseline/`
+  and refreshes the baseline report used by the enterprise refactor evidence trail
 
 ## Why the gates matter here
 
@@ -63,6 +66,19 @@ enabled capability publication, and writes JSON evidence to
 The Quality Baseline Snapshot workflow uploads this evidence as report-only CI output. It is not a
 blocking readiness gate until CI-enforcement governance proves the signal is deterministic,
 low-noise, policy-backed, and stable in the intended lane.
+
+## Quality baseline evidence
+
+For enterprise refactor planning and before/after scorecard refreshes, run:
+
+```bash
+make quality-baseline
+```
+
+The command is report-only. It refreshes `quality/baseline_report.md`, while writing raw scanner
+snapshots to ignored `output/quality-baseline/`. The curated health report and scorecard remain
+source documents updated by meaningful refactor slices. The Quality Baseline Snapshot workflow uses
+the same target so local and GitHub evidence stay aligned.
 
 ## References
 

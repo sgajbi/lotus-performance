@@ -122,11 +122,13 @@ Use these commands as the primary local contract:
    `make run`
 7. repo-native domain-product declaration validation
    `make domain-product-validate`
-8. demo API certification
+8. report-only enterprise refactor quality baseline refresh
+   `make quality-baseline`
+9. demo API certification
    `make demo-api-certification`
-9. repo-native observability-readiness marker gate
+10. repo-native observability-readiness marker gate
    `make quality-observability-readiness-gate`
-10. repo-native repository hygiene gate
+11. repo-native repository hygiene gate
    `make repository-hygiene-gate`
 
 ## Validation And CI Expectations
@@ -154,14 +156,20 @@ Important validation expectations:
    as Python caches, virtual environments, local coverage files, build outputs, logs, and local
    database files. `make clean` delegates to `scripts/clean_generated_artifacts.py` so cleanup
    behavior remains reviewable and test-backed.
-9. `make demo-api-certification` is the single local demo-readiness API sweep. It calls the
+9. `make quality-baseline` is the single local report-only baseline refresh command for the
+   enterprise refactor stream. It runs `scripts/generate_quality_baseline.py --write`, writes raw
+   scanner snapshots under ignored `output/quality-baseline/`, and refreshes
+   `quality/baseline_report.md`. The Quality Baseline Snapshot workflow calls this same target so
+   local and GitHub evidence stay aligned, while `quality/refactor_health_report.md` and
+   `quality/quality_scorecard.md` remain curated source reports updated by meaningful slices.
+10. `make demo-api-certification` is the single local demo-readiness API sweep. It calls the
    supported demo-critical calculation and integration APIs with deterministic synthetic data,
    seeds composite persisted-fact data repeatably, validates expected figures and capability
    publication, and writes reviewed evidence under `output/demo-api-certification/`. The Quality
    Baseline Snapshot workflow runs it as report-only CI evidence and uploads the JSON artifact; it
    is not yet a blocking readiness gate. The audience-facing evidence review guide is
    `docs/guides/demo_readiness.md`.
-10. `make quality-observability-readiness-gate` blocks missing health/metrics endpoint,
+11. `make quality-observability-readiness-gate` blocks missing health/metrics endpoint,
    correlation propagation, structured logging, metrics, and health/readiness implementation
    markers through `scripts/python_observability_readiness_inventory.py --max-missing 0`. Broader
    observability maturity scoring remains measured in `quality/observability_readiness_inventory.md`

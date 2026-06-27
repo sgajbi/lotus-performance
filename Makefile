@@ -1,4 +1,4 @@
-.PHONY: install install-ci verify-dependencies check check-all test test-unit test-integration test-e2e test-all test-coverage coverage-gate ci ci-local ci-local-docker ci-local-docker-down typecheck lint quality-complexity-gate quality-architecture-gate quality-router-thinness-gate quality-duplicate-code-gate quality-observability-readiness-gate python-security-gate github-action-runtime-guard monetary-float-guard repository-hygiene-gate demo-api-certification format clean run check-deps security-audit openapi-gate api-vocabulary-gate no-alias-gate domain-product-validate migration-smoke migration-apply recovery-drill-smoke runtime-retention-smoke performance-characterization performance-characterization-postgres pre-commit docker-up docker-down docker-build
+.PHONY: install install-ci verify-dependencies check check-all test test-unit test-integration test-e2e test-all test-coverage coverage-gate ci ci-local ci-local-docker ci-local-docker-down typecheck lint quality-baseline quality-complexity-gate quality-architecture-gate quality-router-thinness-gate quality-duplicate-code-gate quality-observability-readiness-gate python-security-gate github-action-runtime-guard monetary-float-guard repository-hygiene-gate demo-api-certification format clean run check-deps security-audit openapi-gate api-vocabulary-gate no-alias-gate domain-product-validate migration-smoke migration-apply recovery-drill-smoke runtime-retention-smoke performance-characterization performance-characterization-postgres pre-commit docker-up docker-down docker-build
 
 install:
 	pip install -r requirements.txt
@@ -104,6 +104,9 @@ lint:
 	$(MAKE) github-action-runtime-guard
 	$(MAKE) monetary-float-guard
 	$(MAKE) repository-hygiene-gate
+
+quality-baseline:
+	python scripts/generate_quality_baseline.py --write
 
 quality-complexity-gate:
 	python scripts/python_complexity_inventory.py --limit 25 --max-cc 8 --max-high-complexity 0
