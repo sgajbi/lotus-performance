@@ -21,6 +21,7 @@ PROHIBITED_PATH_PARTS = {
     "dist",
     "htmlcov",
     "node_modules",
+    "venv",
 }
 PROHIBITED_SUFFIXES = {
     ".db",
@@ -61,6 +62,9 @@ def find_repository_hygiene_violations(tracked_paths: list[str]) -> list[str]:
 
         if normalised in PROHIBITED_EXACT_PATHS or name.startswith(".coverage."):
             violations.append(f"{normalised}: generated or local-only artifact must not be tracked")
+            continue
+        if name == "pyvenv.cfg":
+            violations.append(f"{normalised}: virtual environment marker must not be tracked")
             continue
         if _has_prohibited_path_part(parts):
             violations.append(f"{normalised}: generated or dependency directory content must not be tracked")
