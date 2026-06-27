@@ -6,7 +6,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from enum import StrEnum
-from typing import Iterator, Mapping, cast
+from typing import Iterable, Iterator, Mapping, cast
 from uuid import UUID
 
 from sqlalchemy import DateTime, Index, Integer, String, Text, case, create_engine, exists, func, inspect, select, text
@@ -165,6 +165,13 @@ class LineageRecoveryEventPage:
     next_cursor_recovered_before: str | None
     next_cursor_calculation_id_before: str | None
     items: list[LineageRecoveryEvent]
+
+
+@dataclass(frozen=True)
+class _LineageRecoveryTimeFilters:
+    recovered_after: datetime | None
+    recovered_before: datetime | None
+    cursor_recovered_before: datetime | None
 
 
 class LineageMetadataStore:
@@ -446,10 +453,10 @@ class LineageMetadataStore:
     ) -> LineageRecoveryEventPage:
         with self._session() as session:
             dialect_name = session.bind.dialect.name if session.bind is not None else ""
-            normalized_recovered_after = normalize_filter_datetime(recovered_after, dialect_name=dialect_name)
-            normalized_recovered_before = normalize_filter_datetime(recovered_before, dialect_name=dialect_name)
-            normalized_cursor_recovered_before = normalize_filter_datetime(
-                cursor_recovered_before,
+            recovery_time_filters = _normalize_lineage_recovery_time_filters(
+                recovered_after=recovered_after,
+                recovered_before=recovered_before,
+                cursor_recovered_before=cursor_recovered_before,
                 dialect_name=dialect_name,
             )
             rows = session.execute(
@@ -458,40 +465,29 @@ class LineageMetadataStore:
                     offset=offset,
                     calculation_type=calculation_type,
                     calculation_id_contains=calculation_id_contains,
-                    recovered_after=normalized_recovered_after,
-                    recovered_before=normalized_recovered_before,
-                    cursor_recovered_before=normalized_cursor_recovered_before,
+                    recovered_after=recovery_time_filters.recovered_after,
+                    recovered_before=recovery_time_filters.recovered_before,
+                    cursor_recovered_before=recovery_time_filters.cursor_recovered_before,
                     cursor_calculation_id_before=cursor_calculation_id_before,
                 )
             ).all()
-            events: list[LineageRecoveryEvent] = []
-            for record, payload in rows:
-                event = self._to_recovery_event(record=record, payload=payload)
-                if event is None:
-                    continue
-                events.append(event)
+            events = self._recovery_events_from_rows(
+                cast(Iterable[tuple[LineageRecordModel, LineagePayloadModel]], rows)
+            )
             total_count = int(
                 session.execute(
                     self._build_recent_recoveries_count_statement(
                         calculation_type=calculation_type,
                         calculation_id_contains=calculation_id_contains,
-                        recovered_after=normalized_recovered_after,
-                        recovered_before=normalized_recovered_before,
-                        cursor_recovered_before=normalized_cursor_recovered_before,
+                        recovered_after=recovery_time_filters.recovered_after,
+                        recovered_before=recovery_time_filters.recovered_before,
+                        cursor_recovered_before=recovery_time_filters.cursor_recovered_before,
                         cursor_calculation_id_before=cursor_calculation_id_before,
                     )
                 ).scalar_one()
                 or 0
             )
-            next_offset = next_offset_or_none(offset=offset, item_count=len(events), total_count=total_count)
-            cursor = recovery_cursor_or_none(next_offset=next_offset, items=events)
-            return LineageRecoveryEventPage(
-                total_count=total_count,
-                next_offset=next_offset,
-                next_cursor_recovered_before=cursor.recovered_before,
-                next_cursor_calculation_id_before=cursor.calculation_id_before,
-                items=events,
-            )
+            return _lineage_recovery_event_page(offset=offset, events=events, total_count=total_count)
 
     def list_inspection_items(
         self,
@@ -1017,6 +1013,18 @@ class LineageMetadataStore:
             attempt_count=payload.attempt_count,
         )
 
+    def _recovery_events_from_rows(
+        self,
+        rows: Iterable[tuple[LineageRecordModel, LineagePayloadModel]],
+    ) -> list[LineageRecoveryEvent]:
+        events: list[LineageRecoveryEvent] = []
+        for record, payload in rows:
+            event = self._to_recovery_event(record=record, payload=payload)
+            if event is None:
+                continue
+            events.append(event)
+        return events
+
     def _to_inspection_item(
         self,
         record: LineageRecordModel,
@@ -1099,6 +1107,37 @@ def get_lineage_metadata_store(*, database_url: str | None = None) -> LineageMet
 
 
 lineage_metadata_store = RuntimeStoreProxy(get_lineage_metadata_store)
+
+
+def _normalize_lineage_recovery_time_filters(
+    *,
+    recovered_after: datetime | None,
+    recovered_before: datetime | None,
+    cursor_recovered_before: datetime | None,
+    dialect_name: str,
+) -> _LineageRecoveryTimeFilters:
+    return _LineageRecoveryTimeFilters(
+        recovered_after=normalize_filter_datetime(recovered_after, dialect_name=dialect_name),
+        recovered_before=normalize_filter_datetime(recovered_before, dialect_name=dialect_name),
+        cursor_recovered_before=normalize_filter_datetime(cursor_recovered_before, dialect_name=dialect_name),
+    )
+
+
+def _lineage_recovery_event_page(
+    *,
+    offset: int,
+    events: list[LineageRecoveryEvent],
+    total_count: int,
+) -> LineageRecoveryEventPage:
+    next_offset = next_offset_or_none(offset=offset, item_count=len(events), total_count=total_count)
+    cursor = recovery_cursor_or_none(next_offset=next_offset, items=events)
+    return LineageRecoveryEventPage(
+        total_count=total_count,
+        next_offset=next_offset,
+        next_cursor_recovered_before=cursor.recovered_before,
+        next_cursor_calculation_id_before=cursor.calculation_id_before,
+        items=events,
+    )
 
 
 def _payload_has_active_lease(payload: LineagePayloadModel, *, now: datetime) -> bool:
