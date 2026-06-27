@@ -1402,6 +1402,29 @@ def test_record_position_chunk_payload_accumulates_valid_rows_and_page_count():
     assert accumulator.page_count == 3
 
 
+def test_stateful_input_service_builds_position_chunk_payload_from_accumulator():
+    service = StatefulInputService(core_service=_CoreServiceStub())
+    accumulator = _PositionChunkAccumulator(
+        rows=[
+            {"valuation_date": "2026-01-01", "position_id": "POS_1", "value": 1},
+            {"valuation_date": "2026-01-01", "position_id": "POS_1", "value": 2},
+            {"valuation_date": "2026-01-02", "position_id": "POS_2", "value": 3},
+            {"valuation_date": "2026-01-03", "position_id": None, "value": 4},
+        ],
+        page_count=3,
+    )
+
+    payload = service._build_position_chunk_payload(accumulator=accumulator)
+
+    assert payload == {
+        "rows": [
+            {"valuation_date": "2026-01-01", "position_id": "POS_1", "value": 2},
+            {"valuation_date": "2026-01-02", "position_id": "POS_2", "value": 3},
+        ],
+        "retrieval_metadata": {"page_count": 3},
+    }
+
+
 def test_stateful_input_service_helper_contracts_cover_page_tokens_failures_and_snapshot_identity():
     service = StatefulInputService(core_service=_CoreServiceStub())
     calculation_id = UUID("00000000-0000-0000-0000-000000000001")
