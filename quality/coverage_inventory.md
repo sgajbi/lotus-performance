@@ -1,7 +1,7 @@
 # Lotus Performance Coverage Inventory
 
 Report date: 2026-06-28
-Branch: `feature/observability-branch-coverage-hardening`
+Branch: `feature/support-brief-branch-coverage-hardening`
 Mode: report-only local coverage evidence; the blocking line-coverage gate remains unchanged.
 
 ## Purpose
@@ -23,13 +23,13 @@ make branch-coverage-baseline
 | Metric | Value | Evidence |
 | --- | ---: | --- |
 | Branch coverage collection | enabled | `pytest --cov-branch` in `make branch-coverage-baseline` |
-| Combined line coverage under branch run | 99.31% | `covered_lines / num_statements` from `output/branch-coverage/coverage.json` |
-| Covered lines | 21097 | coverage.py `7.14.3` JSON totals |
-| Missing lines | 147 | coverage.py `7.14.3` JSON totals |
-| Statements | 21244 | coverage.py `7.14.3` JSON totals |
-| Combined branch coverage | 96.26% | 4243 covered branches of 4408 total branches |
-| Missing branches | 165 | coverage.py `7.14.3` JSON totals |
-| Partial branches | 161 | coverage.py `7.14.3` JSON totals |
+| Combined line coverage under branch run | 99.36% | `covered_lines / num_statements` from `output/branch-coverage/coverage.json` |
+| Covered lines | 21108 | coverage.py `7.10.6` JSON totals |
+| Missing lines | 136 | coverage.py `7.10.6` JSON totals |
+| Statements | 21244 | coverage.py `7.10.6` JSON totals |
+| Combined branch coverage | 96.53% | 4255 covered branches of 4408 total branches |
+| Missing branches | 153 | coverage.py `7.10.6` JSON totals |
+| Partial branches | 151 | coverage.py `7.10.6` JSON totals |
 | Branch-coverage gate | not configured | Report-only baseline; no fail-under threshold is applied. |
 | Existing line-coverage gate | unchanged | `make test-coverage` still enforces `coverage report --fail-under=99`. |
 
@@ -37,7 +37,6 @@ make branch-coverage-baseline
 
 | File | Covered branches | Missing branches | Partial branches | Total branches |
 | --- | ---: | ---: | ---: | ---: |
-| `app/services/inspection/support_brief_workflow_pack.py` | 30 | 12 | 10 | 42 |
 | `engine/attribution.py` | 114 | 10 | 10 | 124 |
 | `engine/ror.py` | 43 | 7 | 7 | 50 |
 | `app/services/compute_job_store.py` | 67 | 7 | 5 | 74 |
@@ -47,6 +46,7 @@ make branch-coverage-baseline
 | `app/services/workspace_summary_service.py` | 69 | 5 | 5 | 74 |
 | `engine/mwr.py` | 63 | 5 | 5 | 68 |
 | `app/services/twr_mode_service.py` | 55 | 5 | 5 | 60 |
+| `app/openapi_enrichment.py` | 216 | 4 | 4 | 220 |
 
 ## CI Alignment
 

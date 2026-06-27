@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Health Report
 
 Report date: 2026-06-28
-Branch: `feature/observability-branch-coverage-hardening`
+Branch: `feature/support-brief-branch-coverage-hardening`
 Baseline source: `quality/baseline_report.md`
 Report mode: phase-zero scorecard; complexity, architecture, duplicate-code, repository hygiene,
 router-thinness, observability-readiness, and Python security posture are enforced separately by CI.
@@ -72,9 +72,9 @@ link the commit, command, or CI artifact that proves the change.
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
 | Test modules | 228 | 275 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 3,288 | measured | `python -m pytest --collect-only -q` |
-| Line coverage | unknown | 99.31% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`2,942` unit, `308` integration, and `21` e2e tests under branch coverage; `21,097` covered lines of `21,244` statements) |
-| Branch coverage | unknown | 96.26% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`2,942` unit, `308` integration, and `21` e2e tests under branch coverage; `4,243` covered branches of `4,408`, `165` missing branches, `161` partial branches) |
+| Collected tests | 2,035 | 3,294 | measured | `python -m pytest --collect-only -q` |
+| Line coverage | unknown | 99.36% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`2,948` unit, `308` integration, and `21` e2e tests under branch coverage; `21,108` covered lines of `21,244` statements) |
+| Branch coverage | unknown | 96.53% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`2,948` unit, `308` integration, and `21` e2e tests under branch coverage; `4,255` covered branches of `4,408`, `153` missing branches, `151` partial branches) |
 | Integration/API/runtime test functions | unknown | 600 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |
 | Contract/governance test functions | unknown | 108 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |
 
@@ -169,6 +169,18 @@ Latest observability branch-coverage hardening evidence on `feature/observabilit
    logging setup, source-product correlation fallback, request middleware propagation and reset,
    supportability/freshness counters, durable queue collector idempotency, instrumentator route
    resolver patching, included-router fallback, effective-candidate matching, and non-route objects.
+5. Branch coverage remains report-only; no fail-under threshold or GitHub blocking lane is added in
+   this slice.
+
+Latest support-brief workflow-pack branch-coverage hardening evidence on `feature/support-brief-branch-coverage-hardening`:
+
+1. `python -m pytest tests\unit\services\test_support_brief_workflow_pack.py --cov=app.services.inspection.support_brief_workflow_pack --cov-branch --cov-report=term-missing --cov-report=json:output\support-brief-branch-coverage.json` passed with `13` focused tests and `100%` focused branch coverage for `app/services/inspection/support_brief_workflow_pack.py`.
+2. `make branch-coverage-baseline` passed with `2,948` unit tests, `308` integration tests, and
+   `21` e2e tests under `pytest --cov-branch`.
+3. The generated `quality/coverage_inventory.md` records combined line coverage at `99.36%`,
+   branch coverage at `96.53%`, `4,408` total branches, `153` missing branches, and `151` partial
+   branches.
+4. `app/services/inspection/support_brief_workflow_pack.py` dropped out of the top branch-gap table after focused tests covered non-200 Lotus AI responses, malformed execution payloads, unavailable fallback without a valid run, optional source-reference projection, invalid workflow-pack run payload rejection, non-list action/finding payloads, and ready/default summary-note posture.
 5. Branch coverage remains report-only; no fail-under threshold or GitHub blocking lane is added in
    this slice.
 
