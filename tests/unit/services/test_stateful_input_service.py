@@ -19,8 +19,10 @@ from app.services.stateful_input_service import (
     _PortfolioChunkAccumulator,
     _position_rows_from_payload,
     _position_timeseries_request_payload,
+    _PositionChunkAccumulator,
     _record_key_by_fields,
     _record_portfolio_chunk_payload,
+    _record_position_chunk_payload,
 )
 
 
@@ -1378,6 +1380,26 @@ async def test_stateful_input_service_fetches_position_timeseries_page_with_requ
         filters={"asset_class": "Equity"},
         page_token="page-2",
     )
+
+
+def test_record_position_chunk_payload_accumulates_valid_rows_and_page_count():
+    accumulator = _PositionChunkAccumulator(rows=[])
+
+    _record_position_chunk_payload(
+        accumulator=accumulator,
+        payload={"rows": [{"valuation_date": "2026-01-01", "position_id": "POS_1"}, "bad-row"]},
+    )
+    _record_position_chunk_payload(
+        accumulator=accumulator,
+        payload={"rows": [{"valuation_date": "2026-01-02", "position_id": "POS_1"}]},
+    )
+    _record_position_chunk_payload(accumulator=accumulator, payload={"rows": "bad-shape"})
+
+    assert accumulator.rows == [
+        {"valuation_date": "2026-01-01", "position_id": "POS_1"},
+        {"valuation_date": "2026-01-02", "position_id": "POS_1"},
+    ]
+    assert accumulator.page_count == 3
 
 
 def test_stateful_input_service_helper_contracts_cover_page_tokens_failures_and_snapshot_identity():

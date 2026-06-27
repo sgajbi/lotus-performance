@@ -33,6 +33,12 @@ class _PortfolioChunkAccumulator:
     page_count: int = 0
 
 
+@dataclass
+class _PositionChunkAccumulator:
+    rows: list[dict[str, Any]]
+    page_count: int = 0
+
+
 @dataclass(frozen=True)
 class _PortfolioReferenceRequest:
     portfolio_id: str
@@ -1012,10 +1018,9 @@ class StatefulInputService:
         calculation_id: UUID | None = None,
     ) -> tuple[int, dict[str, Any]]:
         page_token: str | None = None
-        merged_rows: list[dict[str, Any]] = []
+        accumulator = _PositionChunkAccumulator(rows=[])
         snapshot_batch: list[dict[str, Any]] = []
         existing_snapshot_ids = self._existing_snapshot_ids(calculation_id)
-        page_count = 0
 
         while True:
             status_code, payload, request_payload = await self._fetch_position_timeseries_page(
@@ -1044,9 +1049,7 @@ class StatefulInputService:
                     snapshots=snapshot_batch,
                 )
                 return status_code, payload
-            page_count += 1
-
-            merged_rows.extend(_position_rows_from_payload(payload))
+            _record_position_chunk_payload(accumulator=accumulator, payload=payload)
 
             page_token = self._next_page_token(payload)
             if not page_token:
@@ -1059,11 +1062,11 @@ class StatefulInputService:
 
         return 200, {
             "rows": self._merge_dedup_records_by_fields(
-                records=merged_rows,
+                records=accumulator.rows,
                 key_fields=("valuation_date", "position_id"),
             ),
             "retrieval_metadata": {
-                "page_count": page_count,
+                "page_count": accumulator.page_count,
             },
         }
 
@@ -1505,6 +1508,15 @@ def _position_rows_from_payload(payload: dict[str, Any]) -> list[dict[str, Any]]
     if not isinstance(rows, list):
         return []
     return [row for row in rows if isinstance(row, dict)]
+
+
+def _record_position_chunk_payload(
+    *,
+    accumulator: _PositionChunkAccumulator,
+    payload: dict[str, Any],
+) -> None:
+    accumulator.rows.extend(_position_rows_from_payload(payload))
+    accumulator.page_count += 1
 
 
 def _component_index_points(component: Any) -> tuple[str, list[dict[str, Any]]] | None:
