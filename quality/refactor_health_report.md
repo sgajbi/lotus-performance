@@ -43,7 +43,7 @@ link the commit, command, or CI artifact that proves the change.
 | Max cyclomatic complexity | unknown | 5 | enforced | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py`; `make quality-complexity-gate` |
 | High-complexity functions | unknown | 0 | enforced | rank D-F functions in `quality/complexity_inventory.md`; `make quality-complexity-gate` |
 | Average maintainability index | unknown | 54.96 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
-| Largest functions by LOC | unknown | 65 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; LP-CR-1476 moved `calculate_mwr_response(...)` from `65` to `62` lines, while the largest production functions continue to measure `65` lines |
+| Largest functions by LOC | unknown | 65 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; LP-CR-1477 moved `resolve_mwr_request(...)` from `65` to `20` lines and out of the top-25 table, while the largest production functions continue to measure `65` lines |
 
 ## Architecture
 

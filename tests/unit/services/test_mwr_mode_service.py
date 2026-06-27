@@ -533,8 +533,12 @@ async def test_resolve_mwr_request_uses_stateful_portfolio_window(monkeypatch):
         "app.services.mwr_mode_service.retrieve_stateful_portfolio_input",
         _mock_retrieve_stateful_portfolio_input,
     )
+    completed: list[tuple[tuple, dict]] = []
     monkeypatch.setattr("app.services.mwr_mode_service.execution_registry.start_stage", lambda *args, **kwargs: None)
-    monkeypatch.setattr("app.services.mwr_mode_service.execution_registry.complete_stage", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        "app.services.mwr_mode_service.execution_registry.complete_stage",
+        lambda *args, **kwargs: completed.append((args, kwargs)),
+    )
     monkeypatch.setattr("app.services.mwr_mode_service.execution_registry.fail_stage", lambda *args, **kwargs: None)
 
     request = MoneyWeightedReturnAnalyticsRequest.model_validate(
@@ -560,6 +564,14 @@ async def test_resolve_mwr_request_uses_stateful_portfolio_window(monkeypatch):
     assert len(resolved.mwr_request.cash_flows) == 1
     assert resolved.currency_evidence is not None
     assert resolved.currency_evidence.reporting_currency == "USD"
+    assert completed[0][0][1] == "retrieval"
+    assert completed[0][1]["details"] == {
+        "portfolio_observations": 2,
+        "portfolio_chunk_count": 1,
+        "portfolio_page_count": 1,
+    }
+    assert completed[1][0][1] == "normalization"
+    assert completed[1][1]["details"] == {"cashflows": 1}
 
 
 @pytest.mark.asyncio
@@ -581,6 +593,7 @@ async def test_resolve_mwr_request_passthroughs_stateless_mode():
 
     assert resolved.input_mode == MWRInputMode.STATELESS
     assert resolved.mwr_request.begin_mv == 1000
+    assert resolved.currency_evidence is None
 
 
 @pytest.mark.asyncio
