@@ -66,7 +66,10 @@ async def retrieve_stateful_portfolio_input(
         source_label="stateful portfolio timeseries source",
         upstream_status=upstream_status,
     )
+    return _stateful_portfolio_input_from_payload(upstream_payload)
 
+
+def _stateful_portfolio_input_from_payload(upstream_payload: dict[str, object]) -> StatefulPortfolioInput:
     try:
         portfolio_source = parse_stateful_portfolio_timeseries_payload(
             upstream_payload,

@@ -5,10 +5,14 @@ from typing import Any, cast
 from uuid import uuid4
 
 import pytest
+from fastapi import HTTPException
 
 from app.core.config import Settings
 from app.services.stateful_input_service import StatefulInputService
-from app.services.stateful_performance_input_service import _retrieve_portfolio_timeseries_response
+from app.services.stateful_performance_input_service import (
+    _retrieve_portfolio_timeseries_response,
+    _stateful_portfolio_input_from_payload,
+)
 
 
 @pytest.mark.asyncio
@@ -101,3 +105,38 @@ async def test_retrieve_portfolio_timeseries_response_uses_injected_service(monk
             "consumer_system": "lotus-performance",
         }
     ]
+
+
+def test_stateful_portfolio_input_from_payload_projects_source_identity_and_retrieval_metadata():
+    source_input = _stateful_portfolio_input_from_payload(
+        {
+            "portfolio_open_date": "2026-01-15",
+            "portfolio_currency": "USD",
+            "reporting_currency": "CHF",
+            "retrieval_metadata": {"chunk_count": 2, "page_count": 3},
+            "observations": [
+                {"valuation_date": "2026-01-15", "market_value": 100},
+                "invalid-observation",
+            ],
+        }
+    )
+
+    assert source_input.performance_start_date == date(2026, 1, 15)
+    assert source_input.portfolio_currency == "USD"
+    assert source_input.reporting_currency == "CHF"
+    assert source_input.observations == [{"valuation_date": "2026-01-15", "market_value": 100}]
+    assert source_input.retrieval_metadata.chunk_count == 2
+    assert source_input.retrieval_metadata.page_count == 3
+
+
+def test_stateful_portfolio_input_from_payload_maps_invalid_source_contract_to_422():
+    with pytest.raises(HTTPException) as exc:
+        _stateful_portfolio_input_from_payload(
+            {
+                "portfolio_open_date": "bad-date",
+                "observations": [{"valuation_date": "2026-01-15", "market_value": 100}],
+            }
+        )
+
+    assert exc.value.status_code == 422
+    assert exc.value.detail == "Invalid portfolio_open_date from stateful source."
