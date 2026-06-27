@@ -63,7 +63,7 @@ metrics in each section are updated with each meaningful slice.
 | Metric | Baseline | Current | Delta | Status | Evidence |
 | --- | ---: | ---: | ---: | --- | --- |
 | Line coverage | unknown | 99% | n/a | measured | `quality/coverage_inventory.md`; `quality/refactor_health_report.md` |
-| Branch coverage | unknown | not configured | n/a | not-yet-measured | `quality/coverage_inventory.md`; `quality/refactor_health_report.md` |
+| Branch coverage | unknown | 95.67% | n/a | measured | `quality/coverage_inventory.md`; `quality/refactor_health_report.md`; `make branch-coverage-baseline` |
 | Integration/API/runtime test functions | unknown | 600 | n/a | measured | `quality/test_taxonomy_inventory.md`; `quality/refactor_health_report.md` |
 | Contract/governance test functions | unknown | 108 | n/a | measured | `quality/test_taxonomy_inventory.md`; `quality/refactor_health_report.md` |
 
@@ -102,13 +102,14 @@ metrics in each section are updated with each meaningful slice.
 
 | Signal | Value | Note |
 | --- | ---: | --- |
-| Total metrics tracked | 43 | All metrics in this file are measured or explicitly called out as not-yet-measured. |
-| Measured metrics | 42 | Eleven measured metrics are now also enforced through blocking static-quality or security gates. Remaining gaps are primarily branch coverage and a few baseline historical values remain for future slices. |
-| Not-yet-measured metrics | 1 | Branch coverage remains unconfigured and untracked on this stream. |
+| Total metrics tracked | 43 | All metrics in this file are now measured, with selected zero-finding signals enforced separately. |
+| Measured metrics | 43 | Eleven measured metrics are now also enforced through blocking static-quality or security gates. Branch coverage is measured report-only and is not promoted to a gate. |
+| Not-yet-measured metrics | 0 | The scorecard no longer carries an unmeasured branch-coverage entry. OpenAPI Spectral and public-docstring gate decisions remain outside this scorecard until scoped separately. |
 
 ## Method Note
 
 - Values are intentionally conservative and map to artifacts already generated from
   repository-native scripts; selected zero-finding signals are now blocking gates.
 - `n/a` indicates that a comparable historical pre-baseline value is not yet available in-repo.
-- The next slice should replace `not-yet-measured` entries first and add explicit trend deltas.
+- The next slice should review the branch-coverage gap profile before proposing any threshold,
+  exception policy, or CI lane placement.

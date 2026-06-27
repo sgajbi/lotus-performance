@@ -17,6 +17,7 @@ make test-unit
 make test-integration
 make test-e2e
 make repository-hygiene-gate
+make branch-coverage-baseline
 make check
 make ci
 ```

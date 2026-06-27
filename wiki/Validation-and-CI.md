@@ -26,6 +26,10 @@
   local Docker-parity coverage run
 - `make test-all`
   full local pytest plus coverage gate
+- `make branch-coverage-baseline`
+  report-only branch coverage baseline. It runs unit, integration, and e2e suites with
+  `pytest --cov-branch`, writes raw JSON under `output/branch-coverage/`, and refreshes
+  `quality/coverage_inventory.md` without enforcing a branch threshold
 - `make quality-baseline`
   report-only baseline refresh that writes raw scanner snapshots under `output/quality-baseline/`
   and refreshes the baseline report used by the enterprise refactor evidence trail
@@ -79,6 +83,19 @@ The command is report-only. It refreshes `quality/baseline_report.md`, while wri
 snapshots to ignored `output/quality-baseline/`. The curated health report and scorecard remain
 source documents updated by meaningful refactor slices. The Quality Baseline Snapshot workflow uses
 the same target so local and GitHub evidence stay aligned.
+
+## Branch coverage evidence
+
+For branch coverage planning, run:
+
+```bash
+make branch-coverage-baseline
+```
+
+The command is report-only. It measures branch coverage with `pytest --cov-branch`, refreshes
+`quality/coverage_inventory.md`, and keeps raw JSON under ignored `output/branch-coverage/`. It does
+not replace the 99% line-coverage gate and does not promote a branch threshold until repeated
+evidence, false-positive policy, remediation guidance, and lane placement are agreed.
 
 ## References
 

@@ -1,4 +1,4 @@
-.PHONY: install install-ci verify-dependencies check check-all test test-unit test-integration test-e2e test-all test-coverage coverage-gate ci ci-local ci-local-docker ci-local-docker-down typecheck lint quality-baseline quality-complexity-gate quality-architecture-gate quality-router-thinness-gate quality-duplicate-code-gate quality-observability-readiness-gate python-security-gate github-action-runtime-guard monetary-float-guard repository-hygiene-gate demo-api-certification format clean run check-deps security-audit openapi-gate api-vocabulary-gate no-alias-gate domain-product-validate migration-smoke migration-apply recovery-drill-smoke runtime-retention-smoke performance-characterization performance-characterization-postgres pre-commit docker-up docker-down docker-build
+.PHONY: install install-ci verify-dependencies check check-all test test-unit test-integration test-e2e test-all test-coverage branch-coverage-baseline coverage-gate ci ci-local ci-local-docker ci-local-docker-down typecheck lint quality-baseline quality-complexity-gate quality-architecture-gate quality-router-thinness-gate quality-duplicate-code-gate quality-observability-readiness-gate python-security-gate github-action-runtime-guard monetary-float-guard repository-hygiene-gate demo-api-certification format clean run check-deps security-audit openapi-gate api-vocabulary-gate no-alias-gate domain-product-validate migration-smoke migration-apply recovery-drill-smoke runtime-retention-smoke performance-characterization performance-characterization-postgres pre-commit docker-up docker-down docker-build
 
 install:
 	pip install -r requirements.txt
@@ -24,6 +24,15 @@ test-coverage:
 	COVERAGE_FILE=.coverage.e2e python -m pytest tests/e2e --cov=app --cov=engine --cov=core --cov=adapters --cov-report=
 	python -m coverage combine .coverage.unit .coverage.integration .coverage.e2e
 	python -m coverage report --fail-under=99
+
+branch-coverage-baseline:
+	COVERAGE_FILE=.coverage.branch.unit python -m pytest tests/unit --cov=app --cov=engine --cov=core --cov=adapters --cov-branch --cov-report=
+	COVERAGE_FILE=.coverage.branch.integration python -m pytest tests/integration --cov=app --cov=engine --cov=core --cov=adapters --cov-branch --cov-report=
+	COVERAGE_FILE=.coverage.branch.e2e python -m pytest tests/e2e --cov=app --cov=engine --cov=core --cov=adapters --cov-branch --cov-report=
+	python -m coverage combine .coverage.branch.unit .coverage.branch.integration .coverage.branch.e2e
+	python -c "from pathlib import Path; Path('output/branch-coverage').mkdir(parents=True, exist_ok=True)"
+	python -m coverage json -o output/branch-coverage/coverage.json
+	python scripts/python_branch_coverage_inventory.py --coverage-json output/branch-coverage/coverage.json --write
 
 coverage-gate: test-coverage
 

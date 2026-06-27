@@ -74,7 +74,7 @@ link the commit, command, or CI artifact that proves the change.
 | Test modules | 228 | 274 | measured | `rg --files tests -g 'test_*.py'` |
 | Collected tests | 2,035 | 3,258 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99% | measured | `quality/coverage_inventory.md` via `make ci` coverage gate (`2,912` unit, `308` integration, and `21` e2e tests under coverage; `TOTAL 21244 statements, 173 missed`) |
-| Branch coverage | unknown | not configured | not-yet-measured | `quality/coverage_inventory.md`; branch coverage is not configured in pytest-cov or coverage.py |
+| Branch coverage | unknown | 95.67% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`2,915` unit, `308` integration, and `21` e2e tests under branch coverage; `4,217` covered branches of `4,408`, `191` missing branches, `177` partial branches) |
 | Integration/API/runtime test functions | unknown | 600 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |
 | Contract/governance test functions | unknown | 108 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |
 
@@ -142,6 +142,16 @@ Latest validation on `feature/enterprise-backend-refactor-baseline`:
    detected expected publication drift for `Validation-and-CI.md` because this branch changes the
    repo-authored wiki source. Publish the wiki after this branch is merged to `main`; do not
    publish unmerged branch truth.
+
+Latest branch-coverage baseline evidence on `feature/branch-coverage-baseline`:
+
+1. `make branch-coverage-baseline` passed with `2,915` unit tests, `308` integration tests, and
+   `21` e2e tests under `pytest --cov-branch`.
+2. The generated `quality/coverage_inventory.md` records combined line coverage at `98.58%`,
+   branch coverage at `95.67%`, `4,408` total branches, `191` missing branches, and `177` partial
+   branches.
+3. Branch coverage remains report-only; no fail-under threshold or GitHub blocking lane is added in
+   this slice.
 
 ## Next Updates
 
