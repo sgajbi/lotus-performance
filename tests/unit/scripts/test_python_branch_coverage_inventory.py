@@ -17,7 +17,7 @@ def _coverage_json(path: Path) -> Path:
             "covered_lines": 95,
             "missing_lines": 5,
             "num_statements": 100,
-            "percent_covered": 90.0,
+            "percent_covered": 88.0,
             "covered_branches": 45,
             "missing_branches": 5,
             "num_partial_branches": 2,
@@ -55,7 +55,7 @@ def test_load_branch_coverage_snapshot_reads_totals_and_top_gaps(tmp_path: Path)
 
     assert snapshot.branch_coverage_enabled is True
     assert snapshot.covered_lines == 95
-    assert snapshot.line_coverage_percent == Decimal("90.0")
+    assert snapshot.line_coverage_percent == Decimal("95.00")
     assert snapshot.branch_coverage_percent == Decimal("90.0")
     assert snapshot.top_branch_gaps[0].path == "app/services/b.py"
 
@@ -69,7 +69,7 @@ def test_render_branch_coverage_inventory_is_report_only_and_names_command() -> 
         covered_lines=95,
         missing_lines=5,
         total_statements=100,
-        line_coverage_percent=Decimal("90.0"),
+        line_coverage_percent=Decimal("95.0"),
         covered_branches=45,
         missing_branches=5,
         partial_branches=2,
@@ -94,7 +94,7 @@ def test_write_or_check_report_detects_stale_inventory(tmp_path: Path) -> None:
         covered_lines=95,
         missing_lines=5,
         total_statements=100,
-        line_coverage_percent=Decimal("90.0"),
+        line_coverage_percent=Decimal("95.0"),
         covered_branches=45,
         missing_branches=5,
         partial_branches=2,

@@ -23,7 +23,7 @@ make branch-coverage-baseline
 | Metric | Value | Evidence |
 | --- | ---: | --- |
 | Branch coverage collection | enabled | `pytest --cov-branch` in `make branch-coverage-baseline` |
-| Combined line coverage under branch run | 98.58% | `coverage json` totals from `output/branch-coverage/coverage.json` |
+| Combined line coverage under branch run | 99.19% | `covered_lines / num_statements` from `output/branch-coverage/coverage.json` |
 | Covered lines | 21071 | coverage.py `7.14.3` JSON totals |
 | Missing lines | 173 | coverage.py `7.14.3` JSON totals |
 | Statements | 21244 | coverage.py `7.14.3` JSON totals |
