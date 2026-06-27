@@ -1,7 +1,12 @@
+from datetime import UTC, datetime
+
 from app.services.compute_job_store import ComputeQueueInspectionItem, ComputeQueueInspectionPage
 from app.services.durability_health_service import DurabilityHealthStatus
 from app.services.lineage_metadata_store import LineageQueueInspectionItem
-from app.services.runtime_work_item_service import build_runtime_work_item_snapshot
+from app.services.runtime_work_item_service import (
+    _unavailable_runtime_work_item_snapshot,
+    build_runtime_work_item_snapshot,
+)
 
 
 def test_runtime_work_item_snapshot_reports_partial_queue_failure(mocker):
@@ -81,6 +86,45 @@ def test_runtime_work_item_snapshot_reports_unavailable_when_durable_store_is_do
     assert snapshot.durable_metadata_store.status == "unavailable"
     assert snapshot.compute_queue.status == "unavailable"
     assert snapshot.lineage_queue.status == "unavailable"
+    assert snapshot.compute_items == []
+    assert snapshot.lineage_items == []
+
+
+def test_unavailable_runtime_work_item_snapshot_preserves_filters_and_store_reason():
+    generated_at = datetime(2026, 3, 14, tzinfo=UTC)
+    durability_status = DurabilityHealthStatus(
+        is_ready=False,
+        status="schema_incomplete",
+        reason="missing_tables: compute_jobs",
+    )
+
+    snapshot = _unavailable_runtime_work_item_snapshot(
+        generated_at=generated_at,
+        queue_filter="compute",
+        status_filter="reclaimable",
+        limit=17,
+        offset=4,
+        min_age_seconds=120.0,
+        compute_analytics_type="Attribution",
+        lineage_calculation_type="TWR",
+        calculation_id_contains="calc-",
+        durable_metadata_store=durability_status,
+    )
+
+    assert snapshot.generated_at == generated_at
+    assert snapshot.queue_filter == "compute"
+    assert snapshot.status_filter == "reclaimable"
+    assert snapshot.limit == 17
+    assert snapshot.offset == 4
+    assert snapshot.min_age_seconds == 120.0
+    assert snapshot.compute_analytics_type == "Attribution"
+    assert snapshot.lineage_calculation_type == "TWR"
+    assert snapshot.calculation_id_contains == "calc-"
+    assert snapshot.durable_metadata_store == durability_status
+    assert snapshot.compute_queue.status == "unavailable"
+    assert snapshot.lineage_queue.status == "unavailable"
+    assert snapshot.compute_queue.reason == "missing_tables: compute_jobs"
+    assert snapshot.lineage_queue.reason == "missing_tables: compute_jobs"
     assert snapshot.compute_items == []
     assert snapshot.lineage_items == []
 
