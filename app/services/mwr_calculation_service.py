@@ -35,6 +35,13 @@ class _ResolvedMWRExecution:
 
 
 @dataclass(frozen=True)
+class _RegisteredMWRExecution:
+    active_settings: Any
+    input_fingerprint: str
+    calculation_hash: str
+
+
+@dataclass(frozen=True)
 class _CompletedMWRCalculation:
     mwr_request: MoneyWeightedReturnRequest
     response_model: MoneyWeightedReturnResponse
@@ -222,26 +229,16 @@ async def calculate_mwr_response(
     request: MoneyWeightedReturnAnalyticsRequest,
 ) -> MoneyWeightedReturnResponse:
     """Calculate MWR and emit execution-lineage artifacts for sync workflow execution."""
-    active_settings = get_settings()
-    input_fingerprint, calculation_hash = generate_request_fingerprint(request, active_settings.APP_VERSION)
-    register_sync_execution_or_raise(
-        calculation_id=request.calculation_id,
-        analytics_type=ANALYTICS_WORKFLOW_MWR,
-        portfolio_id=request.portfolio_id,
-        requested_window=_mwr_requested_window(request),
-        input_fingerprint=input_fingerprint,
-        calculation_hash=calculation_hash,
-    )
-    execution_registry.mark_running(request.calculation_id)
+    registered_execution = _register_mwr_execution(request)
     execution_stage_started = False
     lineage_stage_started = False
 
     try:
         resolved_execution = await _resolve_mwr_execution_request(
             request=request,
-            active_settings=active_settings,
-            input_fingerprint=input_fingerprint,
-            calculation_hash=calculation_hash,
+            active_settings=registered_execution.active_settings,
+            input_fingerprint=registered_execution.input_fingerprint,
+            calculation_hash=registered_execution.calculation_hash,
         )
         resolved_request = resolved_execution.resolved_request
         execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_EXECUTION)
@@ -250,7 +247,7 @@ async def calculate_mwr_response(
             request=request,
             input_fingerprint=resolved_execution.input_fingerprint,
             calculation_hash=resolved_execution.calculation_hash,
-            engine_version=active_settings.APP_VERSION,
+            engine_version=registered_execution.active_settings.APP_VERSION,
             resolved_request=resolved_request,
         )
     except HTTPException:
@@ -280,6 +277,25 @@ async def calculate_mwr_response(
     )
 
     return completed_calculation.response_model
+
+
+def _register_mwr_execution(request: MoneyWeightedReturnAnalyticsRequest) -> _RegisteredMWRExecution:
+    active_settings = get_settings()
+    input_fingerprint, calculation_hash = generate_request_fingerprint(request, active_settings.APP_VERSION)
+    register_sync_execution_or_raise(
+        calculation_id=request.calculation_id,
+        analytics_type=ANALYTICS_WORKFLOW_MWR,
+        portfolio_id=request.portfolio_id,
+        requested_window=_mwr_requested_window(request),
+        input_fingerprint=input_fingerprint,
+        calculation_hash=calculation_hash,
+    )
+    execution_registry.mark_running(request.calculation_id)
+    return _RegisteredMWRExecution(
+        active_settings=active_settings,
+        input_fingerprint=input_fingerprint,
+        calculation_hash=calculation_hash,
+    )
 
 
 def _calculate_resolved_mwr_response(
