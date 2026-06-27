@@ -19,9 +19,12 @@ from engine.attribution import (
     _build_instrument_attribution_panel,
     _calculate_currency_attribution_effects,
     _calculate_group_context_metrics,
+    _calculate_linked_return,
     _calculate_single_period_effects,
+    _currency_attribution_requirements_met,
     _currency_attribution_status,
     _finalize_aligned_attribution_frame,
+    _first_row_preserving_missing,
     _instrument_attribution_panels,
     _instrument_bop_mv_series,
     _instrument_group_observations,
@@ -213,6 +216,14 @@ def test_calculate_single_period_effects_matches_exact_brinson_hood_beebower_for
     assert row["allocation"] == pytest.approx((0.60 - 0.50) * 0.04)
     assert row["selection"] == pytest.approx(0.60 * (0.05 - 0.04))
     assert row["interaction"] == pytest.approx((0.60 - 0.50) * (0.05 - 0.04))
+
+
+def test_calculate_single_period_effects_preserves_frame_for_unsupported_model():
+    df = pd.DataFrame({"w_p": [0.60], "w_b": [0.50], "r_base_p": [0.05], "r_base_b": [0.04]})
+
+    result_df = _calculate_single_period_effects(df.copy(), object())
+
+    pd.testing.assert_frame_equal(result_df, df)
 
 
 def test_run_attribution_calculations_and_aggregation(by_group_request_data):
@@ -606,6 +617,10 @@ def test_base_weight_record_from_point_projects_date_and_capital():
     assert _base_weight_record_from_point({"perf_date": "2025-01-01"}) is None
 
 
+def test_build_base_weight_series_ignores_invalid_points_and_returns_none_when_empty():
+    assert _build_base_weight_series({"base_weight_points": [{"perf_date": "2025-01-01"}, "bad"]}) is None
+
+
 def test_build_base_weight_series_keeps_latest_duplicate_date_record():
     series = _build_base_weight_series(
         {
@@ -728,6 +743,25 @@ def test_backfill_same_currency_return_columns_projects_local_and_zero_fx_return
     ]
 
 
+def test_backfill_same_currency_return_columns_preserves_source_local_and_fx_returns():
+    instrument_results = pd.DataFrame({"return_base": [2.5], "return_local": [2.0], "return_fx": [0.5]})
+
+    _backfill_same_currency_return_columns(
+        instrument_results,
+        currency_mode="BOTH",
+        instrument_currency="USD",
+        report_ccy="USD",
+    )
+
+    assert instrument_results.to_dict(orient="records") == [
+        {
+            "return_base": 2.5,
+            "return_local": 2.0,
+            "return_fx": 0.5,
+        }
+    ]
+
+
 def test_instrument_group_observations_projects_available_return_columns():
     group_df = pd.DataFrame(
         {
@@ -819,6 +853,11 @@ def test_attribution_group_context_helpers_cover_empty_and_scalar_group_keys():
         "portfolio_return",
         "benchmark_return",
     ]
+
+
+def test_attribution_return_helpers_preserve_empty_series_policy():
+    assert _calculate_linked_return(pd.Series([None])) == 0.0
+    assert _first_row_preserving_missing(pd.Series(dtype="float64")) is None
 
 
 def test_prepare_data_from_instruments_populates_same_currency_local_and_fx_columns():
@@ -966,6 +1005,24 @@ def test_resample_attribution_panel_links_period_returns_and_preserves_start_wei
     assert bool(result.loc[period_key, "has_base_return"]) is True
 
 
+def test_resample_attribution_panel_works_without_return_presence_flag():
+    panel = pd.DataFrame(
+        {
+            "date": [pd.Timestamp("2025-01-01")],
+            "sector": ["Tech"],
+            "weight_bop": [0.6],
+            "return_base": [0.02],
+        }
+    ).set_index(["date", "sector"])
+
+    result = _resample_attribution_panel(panel, ["sector"], "ME")
+
+    period_key = (pd.Timestamp("2025-01-31"), "Tech")
+    assert result.loc[period_key, "w"] == pytest.approx(0.6)
+    assert result.loc[period_key, "r_base"] == pytest.approx(0.02)
+    assert "has_base_return" not in result.columns
+
+
 def test_link_effects_top_down_noop_when_arithmetic_total_zero():
     effects_df = pd.DataFrame({"allocation": [0.1], "selection": [0.2], "interaction": [-0.3]})
     result = _link_effects_top_down(effects_df, geometric_total_ar=0.05, arithmetic_total_ar=0.0)
@@ -988,6 +1045,14 @@ def test_link_effects_top_down_scales_only_effect_columns():
     assert result["selection"].tolist() == pytest.approx([0.025, 0.075])
     assert result["interaction"].tolist() == pytest.approx([0.01, 0.015])
     assert result["sector"].tolist() == ["Tech", "Health"]
+
+
+def test_link_effects_top_down_preserves_missing_effect_columns():
+    effects_df = pd.DataFrame({"allocation": [0.10], "sector": ["Tech"]})
+
+    result = _link_effects_top_down(effects_df, geometric_total_ar=0.25, arithmetic_total_ar=0.50)
+
+    assert result.to_dict(orient="records") == [{"allocation": 0.05, "sector": "Tech"}]
 
 
 def test_calculate_currency_attribution_effects_matches_exact_formulas():
@@ -1045,6 +1110,16 @@ def test_currency_attribution_status_reports_not_requested_complete_and_unavaila
             SimpleNamespace(currency_mode="BOTH", group_by=["currency"]),
         )
         == "unavailable"
+    )
+
+
+def test_currency_attribution_requirements_fail_fast_when_not_requested():
+    assert (
+        _currency_attribution_requirements_met(
+            pd.DataFrame(),
+            SimpleNamespace(currency_mode=None, group_by=["currency"]),
+        )
+        is False
     )
 
 
@@ -1161,6 +1236,45 @@ def test_run_attribution_calculations_invalid_mode_raises_value_error():
 
     with pytest.raises(ValueError, match="Invalid attribution mode specified"):
         run_attribution_calculations(_UnsupportedRequest())
+
+
+def test_run_attribution_calculations_by_instrument_projects_group_effects():
+    request = AttributionRequest.model_validate(
+        {
+            "portfolio_id": "ATTR_BY_INSTRUMENT_ORCHESTRATOR",
+            "mode": "by_instrument",
+            "group_by": ["sector"],
+            "linking": "none",
+            "frequency": "daily",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-01",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "portfolio_data": {
+                "metric_basis": "NET",
+                "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1020}],
+            },
+            "instruments_data": [
+                {
+                    "instrument_id": "AAPL",
+                    "meta": {"sector": "Tech"},
+                    "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1020}],
+                }
+            ],
+            "benchmark_groups_data": [
+                {
+                    "key": {"sector": "Tech"},
+                    "observations": [{"date": "2025-01-01", "return_base": 0.01, "weight_bop": 1.0}],
+                }
+            ],
+        }
+    )
+
+    effects_df, lineage = run_attribution_calculations(request)
+
+    assert not effects_df.empty
+    assert effects_df.loc[(pd.Timestamp("2025-01-01"), "Tech"), "selection"] == pytest.approx(0.01)
+    assert "aligned_panel.csv" in lineage
+    assert "single_period_effects.csv" in lineage
 
 
 def test_run_attribution_calculations_returns_empty_when_aligned_panel_empty(by_group_request_data):

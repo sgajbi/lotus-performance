@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-06-28
-Branch: `feature/support-brief-branch-coverage-hardening`
+Branch: `feature/attribution-branch-coverage-hardening`
 Mode: report-only test taxonomy inventory; no blocking CI gate is introduced by this artifact.
 
 ## Purpose
@@ -21,7 +21,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 275 |
-| Test functions inventoried | 3094 |
+| Test functions inventoried | 3102 |
 | Integration/API/runtime test functions | 600 |
 | Contract/governance test functions | 108 |
 
@@ -32,13 +32,13 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | benchmarks | 9 | 17 |
 | e2e | 1 | 21 |
 | integration | 24 | 300 |
-| unit | 241 | 2756 |
+| unit | 241 | 2764 |
 
 ## Test Functions By Family
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 1059 |
+| analytics_domain | 1067 |
 | api_or_runtime | 600 |
 | contract_or_governance | 108 |
 | observability_or_readiness | 186 |
@@ -53,11 +53,11 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | 2 | `tests/unit/services/test_returns_series_service.py` | unit | 69 | uncategorized |
 | 3 | `tests/unit/services/test_stateful_attribution_input_service.py` | unit | 65 | analytics_domain |
 | 4 | `tests/unit/app/test_openapi_enrichment.py` | unit | 59 | api_or_runtime |
-| 5 | `tests/unit/services/test_twr_inspection_source_economics.py` | unit | 57 | analytics_domain |
-| 6 | `tests/unit/services/test_lineage_metadata_store.py` | unit | 54 | uncategorized |
-| 7 | `tests/unit/app/test_contribution_endpoint_helpers.py` | unit | 50 | analytics_domain, api_or_runtime |
-| 8 | `tests/unit/services/test_compute_job_store.py` | unit | 50 | uncategorized |
-| 9 | `tests/unit/engine/test_attribution.py` | unit | 49 | analytics_domain |
+| 5 | `tests/unit/engine/test_attribution.py` | unit | 57 | analytics_domain |
+| 6 | `tests/unit/services/test_twr_inspection_source_economics.py` | unit | 57 | analytics_domain |
+| 7 | `tests/unit/services/test_lineage_metadata_store.py` | unit | 54 | uncategorized |
+| 8 | `tests/unit/app/test_contribution_endpoint_helpers.py` | unit | 50 | analytics_domain, api_or_runtime |
+| 9 | `tests/unit/services/test_compute_job_store.py` | unit | 50 | uncategorized |
 | 10 | `tests/unit/services/test_twr_inspection_calculation_consistency.py` | unit | 49 | analytics_domain |
 | 11 | `tests/unit/docs/test_public_docs_contract.py` | unit | 48 | contract_or_governance |
 | 12 | `tests/unit/services/test_stateful_benchmark_input_service.py` | unit | 43 | uncategorized |
