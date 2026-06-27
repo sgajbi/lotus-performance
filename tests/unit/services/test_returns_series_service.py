@@ -1325,6 +1325,84 @@ def test_stateful_returns_series_resolution_context_requires_stateful_input():
 
 
 @pytest.mark.asyncio
+async def test_retrieve_stateful_returns_series_sources_completes_retrieval_stage(monkeypatch, tmp_path):
+    request = _build_stateful_request(
+        reporting_currency="USD",
+        series_selection={"include_portfolio": True, "include_benchmark": True, "include_risk_free": True},
+    )
+    store = _seed_execution(monkeypatch, tmp_path, request)
+    resolved_window = returns_series_service.resolve_window(request)
+    portfolio_source = returns_series_service.StatefulPortfolioInput(
+        performance_start_date=pd.Timestamp("2026-02-23").date(),
+        observations=[{"valuation_date": "2026-02-23"}, {"valuation_date": "2026-02-24"}],
+        retrieval_metadata=stateful_input_service.RetrievalMetadata(chunk_count=2, page_count=3),
+    )
+    benchmark_resolution = returns_series_service._StatefulBenchmarkResolution(
+        benchmark_id="BMK_CORE",
+        benchmark_points=[{"series_date": "2026-02-23"}],
+        benchmark_df=None,
+        benchmark_source_details={"benchmark_chunk_count": 4, "benchmark_page_count": 5},
+        benchmark_work_units=1,
+    )
+
+    async def _portfolio_source(**kwargs):  # noqa: ARG001
+        return portfolio_source
+
+    async def _benchmark_source(**kwargs):  # noqa: ARG001
+        return benchmark_resolution
+
+    async def _risk_free_source(**kwargs):  # noqa: ARG001
+        return [{"series_date": "2026-02-23"}], {"retrieval_metadata": {"chunk_count": 6, "page_count": 7}}
+
+    monkeypatch.setattr(
+        returns_series_service,
+        "_retrieve_stateful_returns_series_portfolio_source",
+        _portfolio_source,
+    )
+    monkeypatch.setattr(
+        returns_series_service,
+        "_resolve_stateful_returns_series_benchmark_source",
+        _benchmark_source,
+    )
+    monkeypatch.setattr(
+        returns_series_service,
+        "_retrieve_stateful_returns_series_risk_free",
+        _risk_free_source,
+    )
+
+    sources = await returns_series_service._retrieve_stateful_returns_series_sources(
+        request=request,
+        context=returns_series_service._StatefulReturnsSeriesResolutionContext(
+            active_settings=object(),
+            resolved_window=resolved_window,
+            stateful_input_service=object(),
+        ),
+    )
+
+    assert sources.portfolio_source is portfolio_source
+    assert sources.benchmark_resolution is benchmark_resolution
+    assert sources.risk_free_points == [{"series_date": "2026-02-23"}]
+    assert sources.resolved_benchmark_return_source == BenchmarkReturnSource.CALCULATED
+    execution = store.get_execution(request.calculation_id)
+    assert execution is not None
+    retrieval_stage = next(
+        stage for stage in execution.stages if stage.stage_name == returns_series_service.EXECUTION_STAGE_RETRIEVAL
+    )
+    assert retrieval_stage.status.value == "complete"
+    assert retrieval_stage.details == {
+        "portfolio_observations": 2,
+        "benchmark_points": 1,
+        "benchmark_work_units": 1,
+        "risk_free_points": 1,
+        "portfolio_chunk_count": 2,
+        "portfolio_page_count": 3,
+        "benchmark_chunk_count": 4,
+        "benchmark_page_count": 5,
+        "risk_free_chunk_count": 6,
+    }
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("upstream_status", "mapped_status", "mapped_code"),
     [(503, 503, "SOURCE_UNAVAILABLE"), (404, 422, "INSUFFICIENT_DATA")],

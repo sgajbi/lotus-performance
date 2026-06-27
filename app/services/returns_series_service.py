@@ -152,6 +152,14 @@ class _StatefulReturnsSeriesResolvedRequest:
 
 
 @dataclass(frozen=True)
+class _StatefulReturnsSeriesSources:
+    portfolio_source: StatefulPortfolioInput
+    benchmark_resolution: _StatefulBenchmarkResolution
+    risk_free_points: list[dict[str, Any]] | None
+    resolved_benchmark_return_source: BenchmarkReturnSource
+
+
+@dataclass(frozen=True)
 class _StatefulReturnsSeriesResolutionContext:
     active_settings: Any
     resolved_window: ResolvedWindow
@@ -1595,57 +1603,24 @@ async def resolve_stateful_returns_series_request(
     request: ReturnsSeriesRequest,
 ) -> ResolvedStatefulReturnsSeriesRequest:
     context = _stateful_returns_series_resolution_context(request)
+    sources = await _retrieve_stateful_returns_series_sources(request=request, context=context)
 
-    execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_RETRIEVAL)
-    portfolio_source = await _retrieve_stateful_returns_series_portfolio_source(
-        active_settings=context.active_settings,
-        stateful_input_service=context.stateful_input_service,
-        request=request,
-        resolved_window=context.resolved_window,
-    )
-
-    observations = portfolio_source.observations
-    resolved_benchmark_id: str | None = request.benchmark.benchmark_id if request.benchmark else None
-    resolved_benchmark_return_source = _get_requested_benchmark_return_source(request)
-    benchmark_resolution = await _resolve_stateful_returns_series_benchmark_source(
-        request=request,
-        stateful_input_service=context.stateful_input_service,
-        resolved_window=context.resolved_window,
-        resolved_benchmark_id=resolved_benchmark_id,
-        resolved_benchmark_return_source=resolved_benchmark_return_source,
-    )
+    observations = sources.portfolio_source.observations
+    benchmark_resolution = sources.benchmark_resolution
     resolved_benchmark_id = benchmark_resolution.benchmark_id
-
-    risk_free_points, risk_free_payload = await _retrieve_stateful_returns_series_risk_free(
-        request=request,
-        stateful_input_service=context.stateful_input_service,
-        resolved_window=context.resolved_window,
-    )
-
-    execution_registry.complete_stage(
-        request.calculation_id,
-        EXECUTION_STAGE_RETRIEVAL,
-        details=_stateful_returns_retrieval_stage_details(
-            observations=observations,
-            portfolio_source=portfolio_source,
-            benchmark_resolution=benchmark_resolution,
-            risk_free_points=risk_free_points,
-            risk_free_payload=risk_free_payload,
-        ),
-    )
-
+    resolved_benchmark_return_source = sources.resolved_benchmark_return_source
     execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_NORMALIZATION)
     resolved_stateful_request = _build_resolved_stateful_returns_series_request(
         request=request,
         resolved_window=context.resolved_window,
         observations=observations,
-        portfolio_performance_start_date=portfolio_source.performance_start_date,
+        portfolio_performance_start_date=sources.portfolio_source.performance_start_date,
         benchmark_resolution=benchmark_resolution,
-        risk_free_points=risk_free_points,
+        risk_free_points=sources.risk_free_points,
         resolved_benchmark_id=resolved_benchmark_id,
         resolved_benchmark_return_source=resolved_benchmark_return_source,
     )
-    input_count = len(observations) + benchmark_resolution.benchmark_work_units + len(risk_free_points or [])
+    input_count = len(observations) + benchmark_resolution.benchmark_work_units + len(sources.risk_free_points or [])
     return ResolvedStatefulReturnsSeriesRequest(
         request=resolved_stateful_request.request,
         identity_payload=resolved_stateful_request.identity_payload,
@@ -1653,6 +1628,50 @@ async def resolve_stateful_returns_series_request(
         resolved_benchmark_id=resolved_benchmark_id,
         resolved_benchmark_return_source=(resolved_benchmark_return_source.value if resolved_benchmark_id else None),
         benchmark_work_units=benchmark_resolution.benchmark_work_units,
+    )
+
+
+async def _retrieve_stateful_returns_series_sources(
+    *,
+    request: ReturnsSeriesRequest,
+    context: _StatefulReturnsSeriesResolutionContext,
+) -> _StatefulReturnsSeriesSources:
+    execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_RETRIEVAL)
+    portfolio_source = await _retrieve_stateful_returns_series_portfolio_source(
+        active_settings=context.active_settings,
+        stateful_input_service=context.stateful_input_service,
+        request=request,
+        resolved_window=context.resolved_window,
+    )
+    resolved_benchmark_return_source = _get_requested_benchmark_return_source(request)
+    benchmark_resolution = await _resolve_stateful_returns_series_benchmark_source(
+        request=request,
+        stateful_input_service=context.stateful_input_service,
+        resolved_window=context.resolved_window,
+        resolved_benchmark_id=request.benchmark.benchmark_id if request.benchmark else None,
+        resolved_benchmark_return_source=resolved_benchmark_return_source,
+    )
+    risk_free_points, risk_free_payload = await _retrieve_stateful_returns_series_risk_free(
+        request=request,
+        stateful_input_service=context.stateful_input_service,
+        resolved_window=context.resolved_window,
+    )
+    execution_registry.complete_stage(
+        request.calculation_id,
+        EXECUTION_STAGE_RETRIEVAL,
+        details=_stateful_returns_retrieval_stage_details(
+            observations=portfolio_source.observations,
+            portfolio_source=portfolio_source,
+            benchmark_resolution=benchmark_resolution,
+            risk_free_points=risk_free_points,
+            risk_free_payload=risk_free_payload,
+        ),
+    )
+    return _StatefulReturnsSeriesSources(
+        portfolio_source=portfolio_source,
+        benchmark_resolution=benchmark_resolution,
+        risk_free_points=risk_free_points,
+        resolved_benchmark_return_source=resolved_benchmark_return_source,
     )
 
 

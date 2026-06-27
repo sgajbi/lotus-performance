@@ -82,8 +82,8 @@ must stay at `0`.
 | 12 | `engine/attribution.py` | 13.19 | B |
 | 13 | `app/services/inspection/source_economics.py` | 14.06 | B |
 | 14 | `app/services/inspection/reconciliation.py` | 14.26 | B |
-| 15 | `app/services/inspection/source_economics_collector.py` | 16.34 | B |
-| 16 | `app/services/inspection/source_quality.py` | 16.55 | B |
+| 15 | `app/services/inspection/source_economics_collector.py` | 15.66 | B |
+| 16 | `app/services/inspection/source_quality.py` | 16.49 | B |
 | 17 | `app/services/twr_mode_service.py` | 17.66 | B |
 | 18 | `app/workers/compute_executor_worker.py` | 18.15 | B |
 | 19 | `app/services/inspection/twr_inspection_service.py` | 19.65 | A |
@@ -1250,6 +1250,9 @@ remains `5`, high-complexity functions remain `0`, and average maintainability i
 LP-CR-1483 isolated governed operator-action lease metric source loading from the durable queue
 metric source loader. The measured max cyclomatic complexity remains `5`, high-complexity
 functions remain `0`, and average maintainability index measured `54.94`.
+LP-CR-1484 isolated stateful returns-series portfolio, benchmark, and risk-free source retrieval
+from the public stateful returns-series resolver. The measured max cyclomatic complexity remains
+`5`, high-complexity functions remain `0`, and average maintainability index measured `54.94`.
 
 Maintainability index values should be treated as directional hotspot evidence because generated
 schemas, persistence-style modules, and dense orchestration files can score poorly even when tests
