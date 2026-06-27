@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-06-27
-Branch: `lp-cr-1452-recovery-drill-run-service`
+Branch: `feature/enterprise-backend-refactor-baseline`
 Mode: report-only test taxonomy inventory; no blocking CI gate is introduced by this artifact.
 
 ## Purpose
@@ -20,8 +20,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 272 |
-| Test functions inventoried | 3002 |
+| Test modules inventoried | 273 |
+| Test functions inventoried | 3016 |
 | Integration/API/runtime test functions | 597 |
 | Contract/governance test functions | 108 |
 
@@ -32,26 +32,26 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | benchmarks | 9 | 17 |
 | e2e | 1 | 21 |
 | integration | 24 | 300 |
-| unit | 238 | 2664 |
+| unit | 239 | 2678 |
 
 ## Test Functions By Family
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 1030 |
+| analytics_domain | 1036 |
 | api_or_runtime | 597 |
 | contract_or_governance | 108 |
 | observability_or_readiness | 185 |
-| quality_or_security | 101 |
-| uncategorized | 1209 |
+| quality_or_security | 104 |
+| uncategorized | 1214 |
 
 ## Largest Test Modules
 
 | Rank | Module | Suite | Test functions | Families |
 | ---: | --- | --- | ---: | --- |
 | 1 | `tests/unit/app/test_enterprise_readiness_additional.py` | unit | 80 | observability_or_readiness |
-| 2 | `tests/unit/services/test_returns_series_service.py` | unit | 67 | uncategorized |
-| 3 | `tests/unit/services/test_stateful_attribution_input_service.py` | unit | 63 | analytics_domain |
+| 2 | `tests/unit/services/test_returns_series_service.py` | unit | 68 | uncategorized |
+| 3 | `tests/unit/services/test_stateful_attribution_input_service.py` | unit | 64 | analytics_domain |
 | 4 | `tests/unit/app/test_openapi_enrichment.py` | unit | 59 | api_or_runtime |
 | 5 | `tests/unit/services/test_twr_inspection_source_economics.py` | unit | 55 | analytics_domain |
 | 6 | `tests/unit/services/test_compute_job_store.py` | unit | 50 | uncategorized |
@@ -63,10 +63,10 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | 12 | `tests/integration/test_contribution_api.py` | integration | 40 | analytics_domain, api_or_runtime |
 | 13 | `tests/unit/services/test_operator_action_lease_service.py` | unit | 39 | uncategorized |
 | 14 | `tests/integration/test_performance_api.py` | integration | 38 | api_or_runtime |
-| 15 | `tests/unit/services/test_lineage_metadata_store.py` | unit | 38 | uncategorized |
-| 16 | `tests/unit/services/test_twr_mode_service.py` | unit | 38 | analytics_domain |
-| 17 | `tests/unit/services/test_compute_executor_worker.py` | unit | 37 | uncategorized |
-| 18 | `tests/unit/services/test_workspace_summary_service.py` | unit | 36 | uncategorized |
+| 15 | `tests/unit/services/test_compute_executor_worker.py` | unit | 38 | uncategorized |
+| 16 | `tests/unit/services/test_lineage_metadata_store.py` | unit | 38 | uncategorized |
+| 17 | `tests/unit/services/test_twr_mode_service.py` | unit | 38 | analytics_domain |
+| 18 | `tests/unit/services/test_workspace_summary_service.py` | unit | 37 | uncategorized |
 | 19 | `tests/unit/engine/test_mwr.py` | unit | 32 | analytics_domain |
 | 20 | `tests/unit/models/test_twr_requests.py` | unit | 32 | analytics_domain |
 | 21 | `tests/unit/services/test_benchmark_exposure_context_service.py` | unit | 32 | uncategorized |
@@ -86,7 +86,7 @@ The AST inventory counts test function definitions, while `pytest --collect-only
 pytest items including parametrized cases. The two values are intentionally different and
 complementary: collected tests show execution breadth, while this report shows source test-module
 and test-function distribution. The current suite has meaningful API/runtime and
-contract/governance coverage, but 1207 test functions remain uncategorized by the first-wave
+contract/governance coverage, but 1214 test functions remain uncategorized by the first-wave
 taxonomy and should be reviewed before turning taxonomy into a blocking gate.
 
 ## Gate Posture
