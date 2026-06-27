@@ -21,6 +21,8 @@ PROHIBITED_PATH_PARTS = {
     "dist",
     "htmlcov",
     "node_modules",
+    "artifacts",
+    "output",
     "venv",
 }
 PROHIBITED_SUFFIXES = {

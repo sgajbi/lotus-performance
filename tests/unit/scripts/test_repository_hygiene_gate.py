@@ -100,6 +100,20 @@ def test_repository_hygiene_gate_blocks_nested_local_artifact_names() -> None:
     ]
 
 
+def test_repository_hygiene_gate_blocks_runtime_evidence_roots() -> None:
+    violations = find_repository_hygiene_violations(
+        [
+            "output/demo-api-certification/latest.json",
+            "artifacts/recovery-drill-smoke/latest.json",
+        ]
+    )
+
+    assert violations == [
+        "artifacts/recovery-drill-smoke/latest.json: generated or dependency directory content must not be tracked",
+        "output/demo-api-certification/latest.json: generated or dependency directory content must not be tracked",
+    ]
+
+
 def test_repository_hygiene_gate_blocks_build_outputs_and_local_databases() -> None:
     violations = find_repository_hygiene_violations(
         [
