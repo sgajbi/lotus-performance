@@ -13,6 +13,8 @@ from app.services.lineage_metadata_store import (
     LineageStatus,
     _lineage_queue_stats_from_aggregate_row,
     _payload_has_active_lease,
+    _postgresql_pending_payload_from_row,
+    _postgresql_pending_payload_lease_params,
 )
 
 
@@ -996,6 +998,55 @@ def test_lineage_metadata_store_leases_pending_payloads_via_postgres_claim_helpe
 
     assert leased == [leased_payload]
     helper.assert_called_once()
+
+
+def test_postgresql_pending_payload_lease_params_preserve_claim_inputs():
+    now = datetime(2026, 3, 15, 12, 0, tzinfo=timezone.utc)
+    lease_expiry = now + timedelta(seconds=60)
+
+    params = _postgresql_pending_payload_lease_params(
+        worker_id="postgres-lineage-a",
+        leased_at_utc=now,
+        lease_expires_at_utc=lease_expiry,
+        limit=10,
+    )
+
+    assert params == {
+        "worker_id": "postgres-lineage-a",
+        "leased_at_utc": now,
+        "lease_expires_at_utc": lease_expiry,
+        "pending_status": LineageStatus.PENDING.value,
+        "limit": 10,
+    }
+
+
+def test_postgresql_pending_payload_from_row_projects_lease_payload():
+    now = datetime(2026, 3, 15, 12, 0, tzinfo=timezone.utc)
+    calculation_id = uuid4()
+
+    row_calculation_id, payload = _postgresql_pending_payload_from_row(
+        {
+            "calculation_id": str(calculation_id),
+            "calculation_type": "TWR",
+            "request_json": "{}",
+            "response_json": '{"ok": true}',
+            "details_json": '{"row_index": "1"}',
+            "attempt_count": 2,
+            "worker_id": "postgres-lineage-a",
+            "leased_at_utc": now,
+            "lease_expires_at_utc": now + timedelta(seconds=60),
+        }
+    )
+
+    assert row_calculation_id == str(calculation_id)
+    assert payload is not None
+    assert payload.calculation_id == calculation_id
+    assert payload.calculation_type == "TWR"
+    assert payload.details == {"row_index": "1"}
+    assert payload.attempt_count == 2
+    assert payload.worker_id == "postgres-lineage-a"
+    assert payload.leased_at_utc == "2026-03-15T12:00:00Z"
+    assert payload.lease_expires_at_utc == "2026-03-15T12:01:00Z"
 
 
 def test_lineage_metadata_store_postgres_claim_helper_normalizes_returned_rows(tmp_path):
