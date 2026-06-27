@@ -3,6 +3,7 @@ from app.services.contribution_audit import (
     _contribution_methodology_notes,
     _has_reset_alignment_methodology_pressure,
     _position_flow_balance_notes,
+    _present_rollout_notes,
 )
 
 
@@ -115,6 +116,17 @@ def test_rollout_posture_notes_preserve_order_and_wording():
         "Some material reset-aware average-weight periods were kept shadow-only because emitted "
         "daily contribution series still drifted from the residual-adjusted period total.",
     ]
+
+
+def test_present_rollout_notes_filters_zero_counts_and_preserves_order():
+    assert _present_rollout_notes(
+        [
+            (0, "suppressed"),
+            (2, "first"),
+            (0, "also suppressed"),
+            (1, "second"),
+        ]
+    ) == ["first", "second"]
 
 
 def test_contribution_methodology_notes_report_residual_smoothing_and_alignment():
