@@ -1220,6 +1220,9 @@ measured `54.97`.
 LP-CR-1474 isolated promoted stateful benchmark finalization from the promoted benchmark workflow.
 The measured max cyclomatic complexity remains `5`, high-complexity functions remain `0`, and
 average maintainability index measured `54.97`.
+LP-CR-1475 isolated source-quality evidence-context assessment from the source-quality check
+orchestrator. The measured max cyclomatic complexity remains `5`, high-complexity functions remain
+`0`, and average maintainability index measured `54.97`.
 
 Maintainability index values should be treated as directional hotspot evidence because generated
 schemas, persistence-style modules, and dense orchestration files can score poorly even when tests
