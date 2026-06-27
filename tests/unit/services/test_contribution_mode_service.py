@@ -5,8 +5,13 @@ import pytest
 from fastapi import HTTPException
 
 from app.models.contribution_analytics_requests import ContributionAnalyticsRequest
-from app.services.contribution_mode_service import resolve_contribution_request
+from app.services.contribution_mode_service import (
+    _contribution_normalization_stage_details,
+    _contribution_retrieval_stage_details,
+    resolve_contribution_request,
+)
 from app.services.execution_registry import execution_registry
+from app.services.stateful_input_service import RetrievalMetadata
 
 
 def _settings():
@@ -129,6 +134,38 @@ async def test_resolve_contribution_request_sources_stateful_payload(monkeypatch
     assert len(resolved.contribution_request.portfolio_data.valuation_points) == 2
     assert len(resolved.contribution_request.positions_data) == 1
     assert resolved.contribution_request.positions_data[0].meta["sector"] == "Technology"
+
+
+def test_contribution_retrieval_stage_details_projects_source_counts():
+    source_input = SimpleNamespace(
+        portfolio_input=SimpleNamespace(
+            observations=[{"valuation_date": "2025-01-01"}, {"valuation_date": "2025-01-02"}],
+            retrieval_metadata=RetrievalMetadata(chunk_count=3, page_count=4),
+        ),
+        position_rows=[{"position_id": "SEC_1"}, {"position_id": "SEC_2"}, {"position_id": "SEC_3"}],
+        position_retrieval_metadata=RetrievalMetadata(chunk_count=5, page_count=6),
+    )
+
+    assert _contribution_retrieval_stage_details(source_input) == {
+        "portfolio_observations": 2,
+        "position_rows": 3,
+        "portfolio_chunk_count": 3,
+        "portfolio_page_count": 4,
+        "position_chunk_count": 5,
+        "position_page_count": 6,
+    }
+
+
+def test_contribution_normalization_stage_details_projects_output_counts():
+    normalized_input = SimpleNamespace(
+        portfolio_data=SimpleNamespace(valuation_points=[object(), object()]),
+        positions_data=[object(), object(), object()],
+    )
+
+    assert _contribution_normalization_stage_details(normalized_input) == {
+        "portfolio_points": 2,
+        "positions": 3,
+    }
 
 
 @pytest.mark.asyncio
