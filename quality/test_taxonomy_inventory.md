@@ -21,7 +21,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 273 |
-| Test functions inventoried | 3017 |
+| Test functions inventoried | 3018 |
 | Integration/API/runtime test functions | 597 |
 | Contract/governance test functions | 108 |
 
@@ -32,13 +32,13 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | benchmarks | 9 | 17 |
 | e2e | 1 | 21 |
 | integration | 24 | 300 |
-| unit | 239 | 2679 |
+| unit | 239 | 2680 |
 
 ## Test Functions By Family
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 1037 |
+| analytics_domain | 1038 |
 | api_or_runtime | 597 |
 | contract_or_governance | 108 |
 | observability_or_readiness | 185 |
@@ -53,7 +53,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | 2 | `tests/unit/services/test_returns_series_service.py` | unit | 68 | uncategorized |
 | 3 | `tests/unit/services/test_stateful_attribution_input_service.py` | unit | 64 | analytics_domain |
 | 4 | `tests/unit/app/test_openapi_enrichment.py` | unit | 59 | api_or_runtime |
-| 5 | `tests/unit/services/test_twr_inspection_source_economics.py` | unit | 55 | analytics_domain |
+| 5 | `tests/unit/services/test_twr_inspection_source_economics.py` | unit | 56 | analytics_domain |
 | 6 | `tests/unit/services/test_compute_job_store.py` | unit | 50 | uncategorized |
 | 7 | `tests/unit/app/test_contribution_endpoint_helpers.py` | unit | 49 | analytics_domain, api_or_runtime |
 | 8 | `tests/unit/services/test_twr_inspection_calculation_consistency.py` | unit | 49 | analytics_domain |
@@ -74,7 +74,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | 23 | `tests/unit/services/test_twr_inspection_reconciliation.py` | unit | 31 | analytics_domain |
 | 24 | `tests/unit/engine/test_composites.py` | unit | 29 | analytics_domain |
 | 25 | `tests/unit/services/test_operator_action_replay_service.py` | unit | 29 | uncategorized |
-| 26 | `tests/unit/services/test_stateful_input_service.py` | unit | 27 | uncategorized |
+| 26 | `tests/unit/services/test_stateful_input_service.py` | unit | 28 | uncategorized |
 | 27 | `tests/integration/test_returns_series_api.py` | integration | 26 | api_or_runtime |
 | 28 | `tests/unit/services/test_queue_metric_builders.py` | unit | 26 | observability_or_readiness |
 | 29 | `tests/unit/services/test_twr_inspection_service.py` | unit | 26 | analytics_domain |

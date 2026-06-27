@@ -1,10 +1,11 @@
+from dataclasses import fields
 from datetime import date
 from decimal import Decimal
 
 from app.models.requests import Analysis, DailyInputData, PerformanceRequest
 from app.services.inspection import source_economics, source_economics_collector
 from app.services.inspection.source_economics import ObservationSourceEconomics, analyze_source_economics
-from app.services.inspection.source_economics_collector import collect_source_economics_samples
+from app.services.inspection.source_economics_collector import SourceEconomicsSamples, collect_source_economics_samples
 
 
 def _source_economics_point(**overrides: object) -> ObservationSourceEconomics:
@@ -34,6 +35,12 @@ def _source_economics_point(**overrides: object) -> ObservationSourceEconomics:
     }
     values.update(overrides)
     return ObservationSourceEconomics(**values)
+
+
+def _source_economics_samples(**overrides: list[dict[str, object]] | list[str]) -> SourceEconomicsSamples:
+    values: dict[str, object] = {field.name: [] for field in fields(SourceEconomicsSamples)}
+    values.update(overrides)
+    return SourceEconomicsSamples(**values)
 
 
 def test_external_mixed_timing_sample_requires_detailed_bod_and_eod_flows():
@@ -207,6 +214,29 @@ def test_collect_noncanonical_cashflow_types_deduplicates_valid_sample_types():
             {},
         ]
     ) == ["deposit", "dividend", "withdrawal"]
+
+
+def test_cashflow_taxonomy_artifact_payload_projects_counts_samples_and_type_summaries():
+    samples = _source_economics_samples(
+        missing_cashflow_type_samples=[{"valuation_date": "2026-03-24"}],
+        noncanonical_cashflow_type_samples=[
+            {"cash_flow_types": ["dividend", "deposit"]},
+            {"cash_flow_types": ["dividend"]},
+        ],
+        unsupported_cashflow_type_samples=[{"cash_flow_types": ["dividend"]}],
+        governed_alias_cashflow_type_samples=[{"cash_flow_types": ["deposit"]}],
+    )
+
+    payload = source_economics._cashflow_taxonomy_artifact_payload(samples)
+
+    assert payload["missing_cashflow_type_date_count"] == 1
+    assert payload["missing_cashflow_type_samples"] == [{"valuation_date": "2026-03-24"}]
+    assert payload["noncanonical_cashflow_type_date_count"] == 2
+    assert payload["noncanonical_cashflow_types"] == ["deposit", "dividend"]
+    assert payload["unsupported_cashflow_type_date_count"] == 1
+    assert payload["unsupported_cashflow_types"] == ["dividend"]
+    assert payload["governed_alias_cashflow_type_date_count"] == 1
+    assert payload["governed_alias_cashflow_types"] == ["deposit"]
 
 
 def test_cashflow_type_strings_from_sample_rejects_non_list_and_non_string_values():
