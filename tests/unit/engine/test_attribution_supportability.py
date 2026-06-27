@@ -3,6 +3,8 @@ from types import SimpleNamespace
 import pandas as pd
 
 from engine.attribution_supportability import (
+    _append_count_based_supportability_reasons,
+    _AttributionSupportabilityCounts,
     _build_attribution_reason,
     _determine_attribution_supportability_status,
     _has_attribution_coverage_gap,
@@ -24,6 +26,40 @@ def test_attribution_supportability_status_prioritizes_coverage_gaps_over_warnin
     assert _determine_attribution_supportability_status([coverage_reason, residual_warning]) == "partial"
     assert _determine_attribution_supportability_status([residual_warning]) == "warning"
     assert _determine_attribution_supportability_status([]) == "valid"
+
+
+def test_count_based_supportability_reasons_preserve_governed_order_and_severity():
+    reasons = []
+
+    _append_count_based_supportability_reasons(
+        reasons,
+        _AttributionSupportabilityCounts(
+            portfolio_only_group_count=2,
+            benchmark_only_group_count=1,
+            unclassified_group_count=3,
+            missing_benchmark_return_count=4,
+            negative_weight_count=5,
+            zero_portfolio_exposure_count=6,
+        ),
+    )
+
+    assert [reason.code for reason in reasons] == [
+        "off_benchmark_exposure",
+        "benchmark_only_exposure",
+        "unclassified_segment",
+        "missing_benchmark_return",
+        "negative_weight",
+        "zero_portfolio_exposure",
+    ]
+    assert [reason.severity for reason in reasons] == [
+        "warning",
+        "warning",
+        "warning",
+        "warning",
+        "warning",
+        "info",
+    ]
+    assert [reason.affected_group_count for reason in reasons] == [2, 1, 3, 4, 5, 6]
 
 
 def test_attribution_supportability_handles_empty_evidence_as_unavailable():

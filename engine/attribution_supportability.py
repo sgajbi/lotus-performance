@@ -179,6 +179,20 @@ def _build_attribution_supportability_reasons(
     residual_materiality: AttributionResidualMateriality,
 ) -> list[AttributionReason]:
     reasons: list[AttributionReason] = []
+    _append_count_based_supportability_reasons(reasons, counts)
+    _append_status_based_supportability_reasons(
+        reasons,
+        currency_attribution_status=currency_attribution_status,
+        linking_status=linking_status,
+        residual_materiality=residual_materiality,
+    )
+    return reasons
+
+
+def _append_count_based_supportability_reasons(
+    reasons: list[AttributionReason],
+    counts: _AttributionSupportabilityCounts,
+) -> None:
     _append_count_reason(
         reasons,
         count=counts.portfolio_only_group_count,
@@ -221,6 +235,15 @@ def _build_attribution_supportability_reasons(
         severity="info",
         message="Rows with no portfolio or benchmark exposure were retained as alignment evidence.",
     )
+
+
+def _append_status_based_supportability_reasons(
+    reasons: list[AttributionReason],
+    *,
+    currency_attribution_status: str,
+    linking_status: str,
+    residual_materiality: AttributionResidualMateriality,
+) -> None:
     _append_status_reason(
         reasons,
         actual_status=currency_attribution_status,
@@ -243,7 +266,6 @@ def _build_attribution_supportability_reasons(
         message="Multi-period linking was requested but one or more portfolio or benchmark period returns were less than or equal to -100%.",
     )
     _append_residual_materiality_reason(reasons, residual_materiality)
-    return reasons
 
 
 def _append_count_reason(
