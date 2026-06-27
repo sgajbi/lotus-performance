@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-27
-Branch: `lp-cr-1446-runtime-retention-query-boundary`
+Branch: `lp-cr-1447-contribution-diagnostics-boundary`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
@@ -32,7 +32,7 @@ must stay at `0`.
 | --- | ---: |
 | Max cyclomatic complexity | 5 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 54.88 |
+| Average maintainability index | 54.87 |
 
 ## Highest Cyclomatic Complexity
 
@@ -1149,6 +1149,9 @@ high-complexity functions remain `0`, and average maintainability index measured
 LP-CR-1412 isolated contribution period supportability evidence assembly from the flat and
 hierarchy contribution period result builders. The measured max cyclomatic complexity remains `5`,
 high-complexity functions remain `0`, and average maintainability index measured `55.13`.
+LP-CR-1447 isolated contribution diagnostics candidate canonical reset counting from the portfolio
+engine diagnostics mapper. The measured max cyclomatic complexity remains `5`, high-complexity
+functions remain `0`, and average maintainability index measured `54.87`.
 
 Maintainability index values should be treated as directional hotspot evidence because generated
 schemas, persistence-style modules, and dense orchestration files can score poorly even when tests

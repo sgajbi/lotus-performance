@@ -18,6 +18,7 @@ from app.services.contribution_calculation_workflow_service import (
 )
 from app.services.contribution_diagnostics import (
     _build_portfolio_engine_diagnostics,
+    _calculate_candidate_reset_counts,
     _calculate_grouped_return_reset_alignment_counts,
     _calculate_position_flow_balance_counts,
     _calculate_reset_characterization_counts,
@@ -950,6 +951,18 @@ def test_build_portfolio_engine_diagnostics_maps_reset_and_nip_characterization_
     assert diagnostics.reset_delta_days == 2
     assert diagnostics.nip_days_since_last_reset == 1
     assert diagnostics.valid_days_since_last_reset == 1
+
+
+def test_calculate_candidate_reset_counts_compares_active_and_shadow_reset_days():
+    portfolio_results_df = pd.DataFrame(
+        {
+            "perf_reset": [1, 0, 0, 1],
+            "account_reset": [0, 1, 0, 1],
+            "sod_reset": [0, 0, 1, 1],
+        }
+    )
+
+    assert _calculate_candidate_reset_counts(portfolio_results_df) == (4, 2)
 
 
 def test_calculate_grouped_return_reset_alignment_counts_detects_misaligned_reset_dates():
