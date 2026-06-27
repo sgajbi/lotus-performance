@@ -91,6 +91,74 @@ def test_daily_return_percentage_to_ratio_uses_shared_numeric_fallback():
     assert returns_series_service._daily_return_percentage_to_ratio("not-a-number") is None
 
 
+def test_daily_ror_from_portfolio_timeseries_rejects_empty_engine_results(monkeypatch):
+    class _FakePerformanceRequest:
+        @staticmethod
+        def model_validate(payload):
+            return payload
+
+    monkeypatch.setattr(returns_series_service, "PerformanceRequest", _FakePerformanceRequest)
+    monkeypatch.setattr(
+        returns_series_service,
+        "portfolio_timeseries_to_valuation_points",
+        lambda *, observations: [{"valuation_date": "2026-02-23"}],
+    )
+    monkeypatch.setattr(returns_series_service, "create_engine_config", lambda *args: object())
+    monkeypatch.setattr(returns_series_service, "create_engine_dataframe", lambda points: pd.DataFrame(points))
+    monkeypatch.setattr(returns_series_service, "run_calculations", lambda *args: (pd.DataFrame(), None))
+
+    with pytest.raises(HTTPException) as exc:
+        returns_series_service.daily_ror_from_portfolio_timeseries(
+            observations=[{"valuation_date": "2026-02-23"}],
+            performance_start_date=date(2026, 2, 23),
+            resolved_window=returns_series_service.ResolvedWindow(
+                start_date=date(2026, 2, 23),
+                end_date=date(2026, 2, 24),
+            ),
+            metric_basis="NET",
+        )
+
+    assert exc.value.status_code == 422
+    assert exc.value.detail["message"] == "No portfolio return observations in resolved window."
+
+
+def test_daily_ror_from_portfolio_timeseries_rejects_invalid_engine_returns(monkeypatch):
+    class _FakePerformanceRequest:
+        @staticmethod
+        def model_validate(payload):
+            return payload
+
+    daily_results_df = pd.DataFrame(
+        {
+            returns_series_service.PortfolioColumns.PERF_DATE.value: ["2026-02-23"],
+            returns_series_service.PortfolioColumns.DAILY_ROR.value: ["not-a-number"],
+        }
+    )
+    monkeypatch.setattr(returns_series_service, "PerformanceRequest", _FakePerformanceRequest)
+    monkeypatch.setattr(
+        returns_series_service,
+        "portfolio_timeseries_to_valuation_points",
+        lambda *, observations: [{"valuation_date": "2026-02-23"}],
+    )
+    monkeypatch.setattr(returns_series_service, "create_engine_config", lambda *args: object())
+    monkeypatch.setattr(returns_series_service, "create_engine_dataframe", lambda points: pd.DataFrame(points))
+    monkeypatch.setattr(returns_series_service, "run_calculations", lambda *args: (daily_results_df, None))
+
+    with pytest.raises(HTTPException) as exc:
+        returns_series_service.daily_ror_from_portfolio_timeseries(
+            observations=[{"valuation_date": "2026-02-23"}],
+            performance_start_date=date(2026, 2, 23),
+            resolved_window=returns_series_service.ResolvedWindow(
+                start_date=date(2026, 2, 23),
+                end_date=date(2026, 2, 24),
+            ),
+            metric_basis="NET",
+        )
+
+    assert exc.value.status_code == 422
+    assert exc.value.detail["message"] == "No valid portfolio return observations after normalization."
+
+
 def test_to_dataframe_normalizes_mixed_date_like_return_points_to_timestamps():
     df = returns_series_service.to_dataframe(
         [
@@ -116,6 +184,31 @@ def test_benchmark_daily_returns_to_dataframe_preserves_index_during_timestamp_n
 
     assert [value.date().isoformat() for value in benchmark_df["date"]] == ["2026-02-23", "2026-02-24"]
     assert benchmark_df["return_value"].tolist() == [Decimal("0.001"), Decimal("0.002")]
+
+
+def test_benchmark_daily_returns_to_dataframe_rejects_empty_source():
+    source_df = pd.DataFrame(columns=["date", "benchmark_return"])
+
+    with pytest.raises(HTTPException) as exc:
+        returns_series_service._benchmark_daily_returns_to_dataframe(source_df)
+
+    assert exc.value.status_code == 422
+    assert exc.value.detail["message"] == "Benchmark series is empty."
+
+
+def test_benchmark_daily_returns_to_dataframe_rejects_duplicate_dates():
+    source_df = pd.DataFrame(
+        {
+            "date": ["2026-02-23", "2026-02-23"],
+            "benchmark_return": [Decimal("0.001"), Decimal("0.002")],
+        }
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        returns_series_service._benchmark_daily_returns_to_dataframe(source_df)
+
+    assert exc.value.status_code == 400
+    assert exc.value.detail["message"] == "benchmark series contains duplicate dates."
 
 
 def test_period_start_resolves_calendar_trailing_inception_and_year_policies():
@@ -191,6 +284,24 @@ def test_aligned_cumulative_portfolio_benchmark_returns_df_requires_benchmark_an
         )
         is None
     )
+    assert (
+        returns_series_service._aligned_cumulative_portfolio_benchmark_returns_df(
+            portfolio_df=portfolio_df,
+            benchmark_df=benchmark_df,
+        )
+        is None
+    )
+
+
+def test_aligned_cumulative_portfolio_benchmark_returns_df_rejects_empty_selected_series():
+    portfolio_df = pd.DataFrame({"date": pd.to_datetime([]), "return_value": []})
+    benchmark_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-23"]),
+            "return_value": [Decimal("0.0010")],
+        }
+    )
+
     assert (
         returns_series_service._aligned_cumulative_portfolio_benchmark_returns_df(
             portfolio_df=portfolio_df,
@@ -917,6 +1028,39 @@ def test_strict_intersection_policy_includes_risk_free_dates():
     assert list(aligned_benchmark["date"].dt.date) == [pd.Timestamp("2026-02-25").date()]
     assert aligned_risk_free is not None
     assert list(aligned_risk_free["date"].dt.date) == [pd.Timestamp("2026-02-25").date()]
+
+
+def test_strict_intersection_policy_allows_unselected_benchmark():
+    portfolio_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-24", "2026-02-25", "2026-02-26"]),
+            "return_value": [Decimal("0.0100"), Decimal("0.0200"), Decimal("0.0300")],
+        }
+    )
+    risk_free_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-25", "2026-02-26"]),
+            "return_value": [Decimal("0.0001"), Decimal("0.0002")],
+        }
+    )
+
+    aligned_portfolio, aligned_benchmark, aligned_risk_free = returns_series_service._apply_strict_intersection_policy(
+        portfolio_df=portfolio_df,
+        benchmark_df=None,
+        risk_free_df=risk_free_df,
+        missing_data_policy=MissingDataPolicy.STRICT_INTERSECTION,
+    )
+
+    assert list(aligned_portfolio["date"].dt.date) == [
+        pd.Timestamp("2026-02-25").date(),
+        pd.Timestamp("2026-02-26").date(),
+    ]
+    assert aligned_benchmark is None
+    assert aligned_risk_free is not None
+    assert list(aligned_risk_free["date"].dt.date) == [
+        pd.Timestamp("2026-02-25").date(),
+        pd.Timestamp("2026-02-26").date(),
+    ]
 
 
 def test_strict_intersection_policy_rejects_no_overlap():
