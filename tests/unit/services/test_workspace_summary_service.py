@@ -32,6 +32,7 @@ from app.services.workspace_summary_service import (
     _build_stateful_workspace_portfolio_input,
     _build_stateless_workspace_benchmark_input,
     _build_stateless_workspace_portfolio_input,
+    _build_workspace_active_block,
     _build_workspace_benchmark_and_active_blocks,
     _build_workspace_benchmark_daily_df,
     _build_workspace_results_by_period,
@@ -1019,6 +1020,44 @@ def test_build_workspace_benchmark_and_active_blocks_projects_relative_returns(m
     assert resolved_benchmark is benchmark_block
     assert active.net.period_return.base == 8.0
     assert active.gross.annualized_return.base == 8.0
+
+
+def test_build_workspace_active_block_projects_net_and_gross_relative_returns():
+    benchmark_return = WorkspaceReturnValue(base=2.0)
+    benchmark_block = SimpleNamespace(
+        summary=WorkspaceReturnSummary(
+            period_return=benchmark_return,
+            cumulative_return=WorkspaceReturnValue(base=3.0),
+            annualized_return=WorkspaceReturnValue(base=4.0),
+        )
+    )
+    net_summary = SimpleNamespace(
+        summary=WorkspaceReturnSummary(
+            period_return=WorkspaceReturnValue(base=10.0),
+            cumulative_return=WorkspaceReturnValue(base=11.0),
+            annualized_return=WorkspaceReturnValue(base=12.0),
+        )
+    )
+    gross_summary = SimpleNamespace(
+        summary=WorkspaceReturnSummary(
+            period_return=WorkspaceReturnValue(base=13.0),
+            cumulative_return=WorkspaceReturnValue(base=14.0),
+            annualized_return=WorkspaceReturnValue(base=15.0),
+        )
+    )
+
+    active = _build_workspace_active_block(
+        benchmark_block=benchmark_block,
+        net_summary=net_summary,
+        gross_summary=gross_summary,
+    )
+
+    assert active.net.period_return.base == 8.0
+    assert active.net.cumulative_return.base == 8.0
+    assert active.net.annualized_return.base == 8.0
+    assert active.gross.period_return.base == 11.0
+    assert active.gross.cumulative_return.base == 11.0
+    assert active.gross.annualized_return.base == 11.0
 
 
 def test_build_workspace_benchmark_daily_df_uses_observation_date_series():

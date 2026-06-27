@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-27
-Branch: `lp-cr-1448-contribution-posture-boundary`
+Branch: `lp-cr-1449-workspace-active-boundary`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
@@ -76,7 +76,7 @@ must stay at `0`.
 | 6 | `app/services/stateful_input_service.py` | 0.00 | C |
 | 7 | `app/services/twr_service.py` | 5.69 | C |
 | 8 | `app/services/stateful_benchmark_input_service.py` | 8.73 | C |
-| 9 | `app/services/workspace_summary_service.py` | 10.26 | B |
+| 9 | `app/services/workspace_summary_service.py` | 10.15 | B |
 | 10 | `app/services/execution_registry.py` | 11.12 | B |
 | 11 | `app/services/operator_action_lease_service.py` | 13.14 | B |
 | 12 | `engine/attribution.py` | 13.19 | B |
