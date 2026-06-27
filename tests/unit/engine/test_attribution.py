@@ -30,6 +30,7 @@ from engine.attribution import (
     _normalize_instrument_return_columns,
     _prepare_data_from_instruments,
     _prepare_panel_from_groups,
+    _resample_attribution_panel,
     aggregate_attribution_results,
     run_attribution_calculations,
 )
@@ -937,6 +938,32 @@ def test_align_and_prepare_data_uses_period_start_weights_for_sparse_groups():
     assert aligned_df.loc[(period_date, "existing"), "w_p"] == pytest.approx(1.0)
     assert aligned_df.loc[(period_date, "acquired_mid_period"), "w_p"] == pytest.approx(0.0)
     assert aligned_df.groupby(level="date")["w_p"].sum().loc[period_date] == pytest.approx(1.0)
+
+
+def test_resample_attribution_panel_links_period_returns_and_preserves_start_weight():
+    panel = pd.DataFrame(
+        {
+            "date": [
+                pd.Timestamp("2025-01-01"),
+                pd.Timestamp("2025-01-31"),
+            ],
+            "sector": ["Tech", "Tech"],
+            "weight_bop": [0.6, 0.7],
+            "return_base": [0.02, 0.03],
+            "return_local": [0.015, 0.025],
+            "return_fx": [0.005, 0.004],
+            "has_return_base": [True, True],
+        }
+    ).set_index(["date", "sector"])
+
+    result = _resample_attribution_panel(panel, ["sector"], "ME")
+
+    period_key = (pd.Timestamp("2025-01-31"), "Tech")
+    assert result.loc[period_key, "w"] == pytest.approx(0.6)
+    assert result.loc[period_key, "r_base"] == pytest.approx((1.02 * 1.03) - 1)
+    assert result.loc[period_key, "r_local"] == pytest.approx((1.015 * 1.025) - 1)
+    assert result.loc[period_key, "r_fx"] == pytest.approx((1.005 * 1.004) - 1)
+    assert bool(result.loc[period_key, "has_base_return"]) is True
 
 
 def test_link_effects_top_down_noop_when_arithmetic_total_zero():

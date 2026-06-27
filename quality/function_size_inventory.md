@@ -20,31 +20,31 @@ python scripts/python_function_size_inventory.py --limit 25
 
 | Rank | Function | File | Lines |
 | ---: | --- | --- | ---: |
-| 1 | `_align_and_prepare_data` | `engine/attribution.py:505` | 63 |
-| 2 | `resolve_contribution_request` | `app/services/contribution_mode_service.py:34` | 62 |
-| 3 | `_build_contribution_smoothing_evidence` | `app/services/contribution_smoothing.py:96` | 62 |
-| 4 | `_resolve_subject_inspection_inputs` | `app/services/inspection/twr_inspection_service.py:220` | 62 |
-| 5 | `calculate_mwr_response` | `app/services/mwr_calculation_service.py:221` | 62 |
-| 6 | `build_stateful_mwr_input_for_window` | `app/services/stateful_mwr_input_service.py:112` | 62 |
-| 7 | `build_benchmark_exposure_context` | `app/services/benchmark_exposure_context_service.py:39` | 61 |
-| 8 | `_build_twr_inspection_response` | `app/services/inspection/twr_inspection_service.py:305` | 61 |
-| 9 | `_run_subject_assessments` | `app/services/inspection/twr_inspection_service.py:157` | 61 |
-| 10 | `LineageService.materialize_payload` | `app/services/lineage_service.py:72` | 61 |
-| 11 | `StatefulInputService._fetch_portfolio_chunk` | `app/services/stateful_input_service.py:892` | 61 |
-| 12 | `_calculate_dietz_mwr_result` | `engine/mwr.py:436` | 61 |
-| 13 | `LineageMetadataStore.list_recent_recoveries` | `app/services/lineage_metadata_store.py:435` | 60 |
-| 14 | `retrieve_stateful_portfolio_input` | `app/services/stateful_performance_input_service.py:42` | 60 |
-| 15 | `resolve_twr_request` | `app/services/twr_mode_service.py:80` | 60 |
-| 16 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:547` | 60 |
-| 17 | `_calculate_xirr_mwr_attempt` | `engine/mwr.py:355` | 60 |
-| 18 | `get_recovery_drill_history` | `app/api/endpoints/recovery_drill_history.py:33` | 59 |
-| 19 | `get_runtime_work_items` | `app/api/endpoints/runtime_work_items.py:25` | 59 |
-| 20 | `ComputeJobStore._build_queue_stats_statement` | `app/services/compute_job_store.py:863` | 59 |
-| 21 | `ComputeJobStore.list_recent_recoveries` | `app/services/compute_job_store.py:715` | 59 |
-| 22 | `_build_stateful_calculated_benchmark_input` | `app/services/stateful_benchmark_input_service.py:94` | 59 |
-| 23 | `_assemble_completed_twr_response` | `app/services/twr_service.py:1184` | 59 |
-| 24 | `calculate_twr_response` | `app/services/twr_service.py:1245` | 59 |
-| 25 | `build_attribution_supportability_evidence` | `engine/attribution_supportability.py:63` | 59 |
+| 1 | `resolve_contribution_request` | `app/services/contribution_mode_service.py:34` | 62 |
+| 2 | `_build_contribution_smoothing_evidence` | `app/services/contribution_smoothing.py:96` | 62 |
+| 3 | `_resolve_subject_inspection_inputs` | `app/services/inspection/twr_inspection_service.py:220` | 62 |
+| 4 | `calculate_mwr_response` | `app/services/mwr_calculation_service.py:221` | 62 |
+| 5 | `build_stateful_mwr_input_for_window` | `app/services/stateful_mwr_input_service.py:112` | 62 |
+| 6 | `build_benchmark_exposure_context` | `app/services/benchmark_exposure_context_service.py:39` | 61 |
+| 7 | `_build_twr_inspection_response` | `app/services/inspection/twr_inspection_service.py:305` | 61 |
+| 8 | `_run_subject_assessments` | `app/services/inspection/twr_inspection_service.py:157` | 61 |
+| 9 | `LineageService.materialize_payload` | `app/services/lineage_service.py:72` | 61 |
+| 10 | `StatefulInputService._fetch_portfolio_chunk` | `app/services/stateful_input_service.py:892` | 61 |
+| 11 | `_calculate_dietz_mwr_result` | `engine/mwr.py:436` | 61 |
+| 12 | `LineageMetadataStore.list_recent_recoveries` | `app/services/lineage_metadata_store.py:435` | 60 |
+| 13 | `retrieve_stateful_portfolio_input` | `app/services/stateful_performance_input_service.py:42` | 60 |
+| 14 | `resolve_twr_request` | `app/services/twr_mode_service.py:80` | 60 |
+| 15 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:547` | 60 |
+| 16 | `_calculate_xirr_mwr_attempt` | `engine/mwr.py:355` | 60 |
+| 17 | `get_recovery_drill_history` | `app/api/endpoints/recovery_drill_history.py:33` | 59 |
+| 18 | `get_runtime_work_items` | `app/api/endpoints/runtime_work_items.py:25` | 59 |
+| 19 | `ComputeJobStore._build_queue_stats_statement` | `app/services/compute_job_store.py:863` | 59 |
+| 20 | `ComputeJobStore.list_recent_recoveries` | `app/services/compute_job_store.py:715` | 59 |
+| 21 | `_build_stateful_calculated_benchmark_input` | `app/services/stateful_benchmark_input_service.py:94` | 59 |
+| 22 | `_assemble_completed_twr_response` | `app/services/twr_service.py:1184` | 59 |
+| 23 | `calculate_twr_response` | `app/services/twr_service.py:1245` | 59 |
+| 24 | `build_attribution_supportability_evidence` | `engine/attribution_supportability.py:63` | 59 |
+| 25 | `_build_portfolio_engine_diagnostics` | `app/services/contribution_diagnostics.py:79` | 58 |
 
 ## Interpretation
 
@@ -274,6 +274,9 @@ LP-CR-1485 isolated stateful attribution normalization input policy validation f
 `build_stateful_attribution_input(...)`. The stateful attribution input builder dropped out of the
 top-25 table, duplicate hotspots remain `0`, and the largest production functions continue to
 measure `63` lines.
+LP-CR-1486 isolated attribution panel resampling and linked-return projection from
+`_align_and_prepare_data(...)`. The attribution alignment orchestrator dropped out of the top-25
+table, duplicate hotspots remain `0`, and the largest production functions now measure `62` lines.
 LP-CR-1411 isolated runtime-status degradation policy response projection into focused helpers.
 `build_runtime_status_response` moved from `113` to `91` lines, and the largest production
 functions moved to the contribution period result builders at `102` lines.
