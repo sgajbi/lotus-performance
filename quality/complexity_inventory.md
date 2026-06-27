@@ -1226,6 +1226,10 @@ orchestrator. The measured max cyclomatic complexity remains `5`, high-complexit
 LP-CR-1476 isolated resolved MWR engine execution and response assembly from the public MWR
 calculation workflow. The measured max cyclomatic complexity remains `5`, high-complexity functions
 remain `0`, and average maintainability index measured `54.96`.
+LP-CR-1477 isolated stateless MWR resolution, stateful source retrieval, stateful normalization,
+and resolved stateful request projection from the public MWR mode resolver. The measured max
+cyclomatic complexity remains `5`, high-complexity functions remain `0`, and average
+maintainability index measured `54.96`.
 
 Maintainability index values should be treated as directional hotspot evidence because generated
 schemas, persistence-style modules, and dense orchestration files can score poorly even when tests

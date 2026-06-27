@@ -36,7 +36,7 @@ metrics in each section are updated with each meaningful slice.
 | Max cyclomatic complexity | unknown | 5 | n/a | enforced | `quality/complexity_inventory.md`; `quality/refactor_health_report.md`; `make quality-complexity-gate` |
 | High-complexity functions (D-F) | unknown | 0 | n/a | enforced | `quality/complexity_inventory.md`; `quality/refactor_health_report.md`; `make quality-complexity-gate` |
 | Average maintainability index | unknown | 54.96 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
-| Largest functions by LOC | unknown | 65 | n/a | measured | `quality/function_size_inventory.md`; `quality/refactor_health_report.md`; LP-CR-1476 moved `calculate_mwr_response(...)` from `65` to `62` lines, while the largest production functions continue to measure `65` lines |
+| Largest functions by LOC | unknown | 65 | n/a | measured | `quality/function_size_inventory.md`; `quality/refactor_health_report.md`; LP-CR-1477 moved `resolve_mwr_request(...)` from `65` to `20` lines and out of the top-25 table, while the largest production functions continue to measure `65` lines |
 
 ### Architecture
 
