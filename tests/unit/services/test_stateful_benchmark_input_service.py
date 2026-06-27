@@ -22,6 +22,7 @@ from app.services.stateful_benchmark_input_service import (
     _fx_rate_map_from_payload,
     _fx_rate_point_from_payload_point,
     _load_benchmark_definition_currency,
+    _load_calculated_benchmark_composition,
     _load_component_price_series,
     _load_fx_maps_for_components,
     _normalize_price_to_benchmark_currency,
@@ -234,6 +235,55 @@ async def test_stateful_calculated_benchmark_input_projects_source_details():
         "fx_chunk_count": 3,
         "fx_page_count": 5,
     }
+
+
+@pytest.mark.asyncio
+async def test_load_calculated_benchmark_composition_projects_currency_and_segments():
+    benchmark_currency, segments = await _load_calculated_benchmark_composition(
+        stateful_input_service=_StatefulInputServiceStub(),
+        calculation_id=uuid4(),
+        benchmark_id="BMK_1",
+        start_date=date(2026, 1, 2),
+        end_date=date(2026, 1, 3),
+    )
+
+    assert benchmark_currency == "USD"
+    assert [(segment.index_id, segment.composition_effective_from) for segment in segments] == [
+        ("IDX_EUR", date(2026, 1, 1)),
+        ("IDX_USD", date(2026, 1, 1)),
+        ("IDX_EUR", date(2026, 1, 3)),
+        ("IDX_GBP", date(2026, 1, 3)),
+        ("IDX_USD", date(2026, 1, 3)),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_load_calculated_benchmark_composition_maps_source_failures():
+    class _MissingCompositionStub(_StatefulInputServiceStub):
+        async def get_benchmark_composition_window(self, **kwargs):  # noqa: ARG002
+            return 404, {"detail": "missing"}
+
+    class _UnavailableCompositionStub(_StatefulInputServiceStub):
+        async def get_benchmark_composition_window(self, **kwargs):  # noqa: ARG002
+            return 503, {"detail": "unavailable"}
+
+    with pytest.raises(HTTPException, match="No benchmark composition window found"):
+        await _load_calculated_benchmark_composition(
+            stateful_input_service=_MissingCompositionStub(),
+            calculation_id=uuid4(),
+            benchmark_id="BMK_1",
+            start_date=date(2026, 1, 2),
+            end_date=date(2026, 1, 3),
+        )
+
+    with pytest.raises(HTTPException, match="composition-window source unavailable"):
+        await _load_calculated_benchmark_composition(
+            stateful_input_service=_UnavailableCompositionStub(),
+            calculation_id=uuid4(),
+            benchmark_id="BMK_1",
+            start_date=date(2026, 1, 2),
+            end_date=date(2026, 1, 3),
+        )
 
 
 @pytest.mark.asyncio
