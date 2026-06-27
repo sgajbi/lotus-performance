@@ -939,15 +939,23 @@ class StatefulInputService:
             snapshots=snapshot_batch,
         )
 
-        return 200, {
-            "portfolio_open_date": chunk_accumulator.portfolio_open_date,
-            "portfolio_currency": chunk_accumulator.portfolio_currency,
-            "reporting_currency": chunk_accumulator.reporting_currency,
+        return 200, self._build_portfolio_chunk_payload(accumulator=chunk_accumulator)
+
+    def _build_portfolio_chunk_payload(
+        self,
+        *,
+        accumulator: _PortfolioChunkAccumulator,
+    ) -> dict[str, Any]:
+        return {
+            "portfolio_open_date": accumulator.portfolio_open_date,
+            "portfolio_currency": accumulator.portfolio_currency,
+            "reporting_currency": accumulator.reporting_currency,
             "observations": self._merge_dedup_records(
-                records=chunk_accumulator.observations, date_key="valuation_date"
+                records=accumulator.observations,
+                date_key="valuation_date",
             ),
             "retrieval_metadata": {
-                "page_count": chunk_accumulator.page_count,
+                "page_count": accumulator.page_count,
             },
         }
 
