@@ -49,7 +49,7 @@ class CleanupPlan:
 
 def _is_pruned(path: Path, root: Path) -> bool:
     relative_parts = path.relative_to(root).parts
-    return bool(set(relative_parts) & PRUNED_DIR_NAMES)
+    return bool(set(relative_parts) & PRUNED_DIR_NAMES) or (path / "pyvenv.cfg").is_file()
 
 
 def build_cleanup_plan(root: Path = ROOT) -> CleanupPlan:
