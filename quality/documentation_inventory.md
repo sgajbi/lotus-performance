@@ -9,9 +9,9 @@
 | API catalog files present | 4 |
 | API catalog files expected | 4 |
 | Docs regression test functions | 57 |
-| Public definitions scanned | 1229 |
-| Public definitions missing docstrings | 1087 |
-| Public definition docstring coverage percent | 11.55 |
+| Public definitions scanned | 1232 |
+| Public definitions missing docstrings | 1086 |
+| Public definition docstring coverage percent | 11.85 |
 
 ## Markdown Files By Family
 

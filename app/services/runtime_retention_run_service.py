@@ -19,6 +19,7 @@ from app.services.operator_action_lease_service import (
     operator_action_lease,
 )
 from app.services.operator_action_replay_service import ActionReplayResult, resolve_runtime_retention_manual_replay
+from app.services.operator_run_response_projection import build_operator_run_response_from_evidence
 from app.services.runtime_retention_execution_service import (
     RuntimeRetentionCleanupEvidence,
     execute_runtime_retention_cleanup,
@@ -38,24 +39,9 @@ class RuntimeRetentionCleanupRunResult:
 def _runtime_retention_cleanup_response_from_evidence(
     evidence: RuntimeRetentionCleanupEvidence,
 ) -> RuntimeRetentionCleanupRunResponse:
-    return build_runtime_retention_cleanup_run_response(
-        cleanup_name=evidence.cleanup_name,
-        generated_at_utc=evidence.generated_at_utc,
-        evidence_file_name=evidence.evidence_file_name,
-        operator_id=evidence.operator_id,
-        tenant_id=evidence.tenant_id,
-        correlation_id=evidence.correlation_id,
-        trigger_mode=evidence.trigger_mode,
-        job_id=evidence.job_id,
-        cleanup_mode=evidence.cleanup_mode,
-        status=evidence.status,
-        retention_days=evidence.retention_days,
-        cutoff_utc=evidence.cutoff_utc,
-        prunable_execution_count=evidence.prunable_execution_count,
-        prunable_compute_job_count=evidence.prunable_compute_job_count,
-        prunable_async_result_count=evidence.prunable_async_result_count,
-        prunable_lineage_record_count=evidence.prunable_lineage_record_count,
-        prunable_lineage_artifact_count=evidence.prunable_lineage_artifact_count,
+    return build_operator_run_response_from_evidence(
+        build_runtime_retention_cleanup_run_response,
+        evidence,
     )
 
 

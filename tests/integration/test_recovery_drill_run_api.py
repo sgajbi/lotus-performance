@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
 from main import app
+from scripts.durable_recovery_drill import RecoveryDrillEvidence
 
 
 def test_recovery_drill_run_api_rejects_missing_operator_identity():
@@ -57,9 +58,9 @@ def test_recovery_drill_run_api_persists_enterprise_context(tmp_path, monkeypatc
             "status": "passed",
         }
         (output_dir / "2026-03-14t00-00-00.json").write_text(__import__("json").dumps(payload), encoding="utf-8")
-        return type("Evidence", (), payload)()
+        return RecoveryDrillEvidence(**payload)
 
-    monkeypatch.setattr("app.api.endpoints.recovery_drill_history.execute_recovery_drill", _fake_run_recovery_drill)
+    monkeypatch.setattr("app.services.recovery_drill_run_service.execute_recovery_drill", _fake_run_recovery_drill)
 
     with TestClient(app) as client:
         response = client.post(
@@ -160,9 +161,9 @@ def test_recovery_drill_run_api_rejects_immediate_manual_replay(tmp_path, monkey
         (output_dir / payload["evidence_file_name"]).write_text(json.dumps(payload), encoding="utf-8")
         (output_dir / "latest.json").write_text(json.dumps(payload), encoding="utf-8")
         (output_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
-        return type("Evidence", (), payload)()
+        return RecoveryDrillEvidence(**payload)
 
-    monkeypatch.setattr("app.api.endpoints.recovery_drill_history.execute_recovery_drill", _fake_run_recovery_drill)
+    monkeypatch.setattr("app.services.recovery_drill_run_service.execute_recovery_drill", _fake_run_recovery_drill)
 
     with TestClient(app) as client:
         first = client.post(
@@ -234,9 +235,9 @@ def test_recovery_drill_run_api_replays_same_correlation_request(tmp_path, monke
         (output_dir / payload["evidence_file_name"]).write_text(json.dumps(payload), encoding="utf-8")
         (output_dir / "latest.json").write_text(json.dumps(payload), encoding="utf-8")
         (output_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
-        return type("Evidence", (), payload)()
+        return RecoveryDrillEvidence(**payload)
 
-    monkeypatch.setattr("app.api.endpoints.recovery_drill_history.execute_recovery_drill", _fake_run_recovery_drill)
+    monkeypatch.setattr("app.services.recovery_drill_run_service.execute_recovery_drill", _fake_run_recovery_drill)
 
     headers = {
         "X-Actor-Id": "ops-user",
@@ -334,9 +335,9 @@ def test_recovery_drill_run_api_allows_immediate_different_backup_identifier(tmp
         (output_dir / evidence_file_name).write_text(json.dumps(payload), encoding="utf-8")
         (output_dir / "latest.json").write_text(json.dumps(payload), encoding="utf-8")
         (output_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
-        return type("Evidence", (), payload)()
+        return RecoveryDrillEvidence(**payload)
 
-    monkeypatch.setattr("app.api.endpoints.recovery_drill_history.execute_recovery_drill", _fake_run_recovery_drill)
+    monkeypatch.setattr("app.services.recovery_drill_run_service.execute_recovery_drill", _fake_run_recovery_drill)
 
     with TestClient(app) as client:
         first = client.post(
@@ -428,9 +429,9 @@ def test_recovery_drill_run_api_does_not_replay_other_operator_correlation(tmp_p
         (output_dir / evidence_file_name).write_text(json.dumps(payload), encoding="utf-8")
         (output_dir / "latest.json").write_text(json.dumps(payload), encoding="utf-8")
         (output_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
-        return type("Evidence", (), payload)()
+        return RecoveryDrillEvidence(**payload)
 
-    monkeypatch.setattr("app.api.endpoints.recovery_drill_history.execute_recovery_drill", _fake_run_recovery_drill)
+    monkeypatch.setattr("app.services.recovery_drill_run_service.execute_recovery_drill", _fake_run_recovery_drill)
 
     with TestClient(app) as client:
         first = client.post(
@@ -513,9 +514,9 @@ def test_recovery_drill_run_api_reclaims_stale_action_lease(tmp_path, monkeypatc
             "materialized_artifact_exists": True,
             "status": "passed",
         }
-        return type("Evidence", (), payload)()
+        return RecoveryDrillEvidence(**payload)
 
-    monkeypatch.setattr("app.api.endpoints.recovery_drill_history.execute_recovery_drill", _fake_run_recovery_drill)
+    monkeypatch.setattr("app.services.recovery_drill_run_service.execute_recovery_drill", _fake_run_recovery_drill)
 
     with TestClient(app) as client:
         response = client.post(
