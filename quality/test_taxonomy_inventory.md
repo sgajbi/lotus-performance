@@ -21,7 +21,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 274 |
-| Test functions inventoried | 3050 |
+| Test functions inventoried | 3051 |
 | Integration/API/runtime test functions | 600 |
 | Contract/governance test functions | 108 |
 
@@ -32,13 +32,13 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | benchmarks | 9 | 17 |
 | e2e | 1 | 21 |
 | integration | 24 | 300 |
-| unit | 240 | 2712 |
+| unit | 240 | 2713 |
 
 ## Test Functions By Family
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 1055 |
+| analytics_domain | 1056 |
 | api_or_runtime | 600 |
 | contract_or_governance | 108 |
 | observability_or_readiness | 186 |
@@ -75,7 +75,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | 24 | `tests/unit/services/test_stateful_input_service.py` | unit | 30 | uncategorized |
 | 25 | `tests/unit/engine/test_composites.py` | unit | 29 | analytics_domain |
 | 26 | `tests/unit/services/test_operator_action_replay_service.py` | unit | 29 | uncategorized |
-| 27 | `tests/unit/services/test_twr_inspection_service.py` | unit | 28 | analytics_domain |
+| 27 | `tests/unit/services/test_twr_inspection_service.py` | unit | 29 | analytics_domain |
 | 28 | `tests/integration/test_returns_series_api.py` | integration | 26 | api_or_runtime |
 | 29 | `tests/unit/services/test_queue_metric_builders.py` | unit | 26 | observability_or_readiness |
 | 30 | `tests/unit/app/test_performance_endpoint_helpers.py` | unit | 25 | api_or_runtime |

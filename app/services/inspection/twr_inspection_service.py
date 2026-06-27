@@ -96,6 +96,20 @@ class _SubjectAssessmentOutputs:
     artifact_payloads: dict[str, str]
 
 
+@dataclass
+class _SubjectAssessmentAggregation:
+    completed_check_families: list[str]
+    failed_check_families: list[str]
+    evidence_summary: dict[str, object]
+    artifact_payloads: dict[str, str]
+
+    def merge(self, outputs: _InspectionStageOutputs) -> None:
+        self.completed_check_families.extend(outputs.completed_check_families)
+        self.failed_check_families.extend(outputs.failed_check_families)
+        self.evidence_summary.update(outputs.evidence_summary)
+        self.artifact_payloads.update(outputs.artifact_payloads)
+
+
 def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
     execution_registry.mark_running(request.inspection_id)
     subject = _resolve_inspection_subject(request)
@@ -161,10 +175,12 @@ def _run_subject_assessments(
     subject_inputs: _SubjectInspectionInputs,
     base_evidence_summary: dict[str, object],
 ) -> _SubjectAssessmentOutputs:
-    completed_check_families = list(subject_inputs.completed_check_families)
-    failed_check_families = list(subject_inputs.failed_check_families)
-    evidence_summary = dict(base_evidence_summary)
-    artifact_payloads: dict[str, str] = {}
+    aggregation = _SubjectAssessmentAggregation(
+        completed_check_families=list(subject_inputs.completed_check_families),
+        failed_check_families=list(subject_inputs.failed_check_families),
+        evidence_summary=dict(base_evidence_summary),
+        artifact_payloads={},
+    )
 
     source_quality_findings: list[TWRInspectionFinding] = []
     if subject_inputs.performance_request is not None:
@@ -174,10 +190,7 @@ def _run_subject_assessments(
             inspection_profile=request.inspection_profile,
         )
         source_quality_findings = source_quality_outputs.findings
-        completed_check_families.extend(source_quality_outputs.completed_check_families)
-        failed_check_families.extend(source_quality_outputs.failed_check_families)
-        evidence_summary.update(source_quality_outputs.evidence_summary)
-        artifact_payloads.update(source_quality_outputs.artifact_payloads)
+        aggregation.merge(source_quality_outputs)
 
     reconciliation_findings: list[TWRInspectionFinding] = []
     source_economics_findings: list[TWRInspectionFinding] = []
@@ -190,10 +203,7 @@ def _run_subject_assessments(
             inspection_profile=request.inspection_profile,
         )
         reconciliation_findings = reconciliation_outputs.findings
-        completed_check_families.extend(reconciliation_outputs.completed_check_families)
-        failed_check_families.extend(reconciliation_outputs.failed_check_families)
-        evidence_summary.update(reconciliation_outputs.evidence_summary)
-        artifact_payloads.update(reconciliation_outputs.artifact_payloads)
+        aggregation.merge(reconciliation_outputs)
 
         source_economics_outputs = _run_source_economics_assessment(
             inspection_id=request.inspection_id,
@@ -201,19 +211,16 @@ def _run_subject_assessments(
             portfolio_id=subject.portfolio_id,
         )
         source_economics_findings = source_economics_outputs.findings
-        completed_check_families.extend(source_economics_outputs.completed_check_families)
-        failed_check_families.extend(source_economics_outputs.failed_check_families)
-        evidence_summary.update(source_economics_outputs.evidence_summary)
-        artifact_payloads.update(source_economics_outputs.artifact_payloads)
+        aggregation.merge(source_economics_outputs)
 
     return _SubjectAssessmentOutputs(
         source_quality_findings=source_quality_findings,
         reconciliation_findings=reconciliation_findings,
         source_economics_findings=source_economics_findings,
-        completed_check_families=completed_check_families,
-        failed_check_families=failed_check_families,
-        evidence_summary=evidence_summary,
-        artifact_payloads=artifact_payloads,
+        completed_check_families=aggregation.completed_check_families,
+        failed_check_families=aggregation.failed_check_families,
+        evidence_summary=aggregation.evidence_summary,
+        artifact_payloads=aggregation.artifact_payloads,
     )
 
 
