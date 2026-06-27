@@ -42,7 +42,10 @@ def run_governed_recovery_drill(
     """Run or replay a governed recovery drill under cooldown and lease controls."""
 
     active_settings = settings or get_settings()
-    history_snapshot = build_recovery_drill_history_snapshot(limit=10)
+    history_snapshot = build_recovery_drill_history_snapshot(
+        artifact_directory=active_settings.RECOVERY_DRILL_ARTIFACT_PATH,
+        limit=10,
+    )
     replay = resolve_recovery_drill_manual_replay(
         history_snapshot,
         artifact_directory=active_settings.RECOVERY_DRILL_ARTIFACT_PATH,
