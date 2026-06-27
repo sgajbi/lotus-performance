@@ -142,6 +142,60 @@ def test_resolve_subject_inspection_inputs_uses_direct_request_payload_without_m
     assert not fake_registry.failed_stages
 
 
+def test_existing_calculation_subject_inspection_inputs_projects_scoped_artifacts(monkeypatch):
+    calculation_id = uuid4()
+    performance_request = _build_performance_request()
+    scoped_performance_request = _build_performance_request()
+    resolved_request = SimpleNamespace(portfolio=performance_request)
+    scoped_resolved_request = SimpleNamespace(portfolio=scoped_performance_request)
+    response_model = object()
+    finding = _inspection_finding(severity="warning")
+    subject = ResolvedTWRInspectionSubject(
+        subject_type=TWRInspectionSubjectType.TWR_CALCULATION,
+        subject_calculation_id=calculation_id,
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        related_execution=None,
+        request_payload=None,
+    )
+    monkeypatch.setattr(
+        service,
+        "load_existing_twr_calculation_artifacts",
+        lambda loaded_calculation_id: SimpleNamespace(
+            request_payload={"calculation_id": str(loaded_calculation_id)},
+            response_model=response_model,
+        ),
+    )
+    monkeypatch.setattr(service, "extract_resolved_execution_request_from_payload", lambda _payload: resolved_request)
+    monkeypatch.setattr(service, "extract_performance_request_from_payload", lambda _payload: performance_request)
+    monkeypatch.setattr(
+        service,
+        "run_twr_calculation_consistency_checks",
+        lambda loaded_response: CalculationConsistencyCheckResult(
+            findings=[finding],
+            evidence_summary={"period_count": 1, "response_id": id(loaded_response)},
+        ),
+    )
+    monkeypatch.setattr(
+        service,
+        "_scope_request_to_response_master_window",
+        lambda request, loaded_response: scoped_performance_request,
+    )
+    monkeypatch.setattr(
+        service,
+        "_scope_resolved_request_to_response_master_window",
+        lambda request, loaded_response: scoped_resolved_request,
+    )
+
+    inputs = service._existing_calculation_subject_inspection_inputs(subject)
+
+    assert inputs.consistency_findings == [finding]
+    assert inputs.completed_check_families == ["calculation_consistency"]
+    assert inputs.failed_check_families == []
+    assert inputs.evidence_summary == {"period_count": 1, "response_id": id(response_model)}
+    assert inputs.performance_request is scoped_performance_request
+    assert inputs.resolved_execution_request is scoped_resolved_request
+
+
 def test_run_source_quality_assessment_preserves_failure_outputs(fake_registry, monkeypatch):
     def raise_source_quality_failure(**_kwargs):
         raise RuntimeError("source quality dependency unavailable")

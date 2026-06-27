@@ -223,31 +223,13 @@ def _resolve_subject_inspection_inputs(
     subject: ResolvedTWRInspectionSubject,
 ) -> _SubjectInspectionInputs:
     if subject.subject_calculation_id is None:
-        return _SubjectInspectionInputs(
-            consistency_findings=[],
-            completed_check_families=[],
-            failed_check_families=[],
-            evidence_summary={},
-            performance_request=extract_performance_request_from_payload(subject.request_payload),
-            resolved_execution_request=None,
-        )
+        return _request_subject_inspection_inputs(subject)
 
     consistency_findings: list[TWRInspectionFinding] = []
     failed_check_families: list[str] = []
     execution_registry.start_stage(request.inspection_id, EXECUTION_STAGE_MATH_RECONCILIATION)
     try:
-        existing_artifacts = load_existing_twr_calculation_artifacts(subject.subject_calculation_id)
-        resolved_execution_request = extract_resolved_execution_request_from_payload(existing_artifacts.request_payload)
-        performance_request = extract_performance_request_from_payload(existing_artifacts.request_payload)
-        consistency_result = run_twr_calculation_consistency_checks(existing_artifacts.response_model)
-        performance_request = _scope_request_to_response_master_window(
-            performance_request,
-            existing_artifacts.response_model,
-        )
-        resolved_execution_request = _scope_resolved_request_to_response_master_window(
-            resolved_execution_request,
-            existing_artifacts.response_model,
-        )
+        subject_inputs = _existing_calculation_subject_inspection_inputs(subject)
     except Exception as exc:
         _record_check_failure(
             inspection_id=request.inspection_id,
@@ -269,7 +251,39 @@ def _resolve_subject_inspection_inputs(
     execution_registry.complete_stage(
         request.inspection_id,
         EXECUTION_STAGE_MATH_RECONCILIATION,
-        details=consistency_result.evidence_summary,
+        details=subject_inputs.evidence_summary,
+    )
+    return subject_inputs
+
+
+def _request_subject_inspection_inputs(subject: ResolvedTWRInspectionSubject) -> _SubjectInspectionInputs:
+    return _SubjectInspectionInputs(
+        consistency_findings=[],
+        completed_check_families=[],
+        failed_check_families=[],
+        evidence_summary={},
+        performance_request=extract_performance_request_from_payload(subject.request_payload),
+        resolved_execution_request=None,
+    )
+
+
+def _existing_calculation_subject_inspection_inputs(
+    subject: ResolvedTWRInspectionSubject,
+) -> _SubjectInspectionInputs:
+    if subject.subject_calculation_id is None:
+        return _request_subject_inspection_inputs(subject)
+
+    existing_artifacts = load_existing_twr_calculation_artifacts(subject.subject_calculation_id)
+    resolved_execution_request = extract_resolved_execution_request_from_payload(existing_artifacts.request_payload)
+    performance_request = extract_performance_request_from_payload(existing_artifacts.request_payload)
+    consistency_result = run_twr_calculation_consistency_checks(existing_artifacts.response_model)
+    performance_request = _scope_request_to_response_master_window(
+        performance_request,
+        existing_artifacts.response_model,
+    )
+    resolved_execution_request = _scope_resolved_request_to_response_master_window(
+        resolved_execution_request,
+        existing_artifacts.response_model,
     )
     return _SubjectInspectionInputs(
         consistency_findings=consistency_result.findings,
