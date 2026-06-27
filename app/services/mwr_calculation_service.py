@@ -34,6 +34,12 @@ class _ResolvedMWRExecution:
     calculation_hash: str
 
 
+@dataclass(frozen=True)
+class _CompletedMWRCalculation:
+    mwr_request: MoneyWeightedReturnRequest
+    response_model: MoneyWeightedReturnResponse
+
+
 def calculate_mwr_result(request: MoneyWeightedReturnRequest) -> MWRResult:
     return calculate_money_weighted_return(
         begin_mv=request.begin_mv,
@@ -238,17 +244,14 @@ async def calculate_mwr_response(
             calculation_hash=calculation_hash,
         )
         resolved_request = resolved_execution.resolved_request
-        mwr_request = resolved_request.mwr_request
         execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_EXECUTION)
         execution_stage_started = True
-        mwr_result = calculate_mwr_result(mwr_request)
-        response_model = build_mwr_response(
+        completed_calculation = _calculate_resolved_mwr_response(
             request=request,
-            resolved_request=resolved_request,
-            mwr_result=mwr_result,
             input_fingerprint=resolved_execution.input_fingerprint,
             calculation_hash=resolved_execution.calculation_hash,
             engine_version=active_settings.APP_VERSION,
+            resolved_request=resolved_request,
         )
     except HTTPException:
         record_execution_failure(
@@ -272,11 +275,35 @@ async def calculate_mwr_response(
 
     _complete_mwr_execution(
         request=request,
+        mwr_request=completed_calculation.mwr_request,
+        response_model=completed_calculation.response_model,
+    )
+
+    return completed_calculation.response_model
+
+
+def _calculate_resolved_mwr_response(
+    *,
+    request: MoneyWeightedReturnAnalyticsRequest,
+    resolved_request: ResolvedMWRRequest,
+    input_fingerprint: str,
+    calculation_hash: str,
+    engine_version: str,
+) -> _CompletedMWRCalculation:
+    mwr_request = resolved_request.mwr_request
+    mwr_result = calculate_mwr_result(mwr_request)
+    response_model = build_mwr_response(
+        request=request,
+        resolved_request=resolved_request,
+        mwr_result=mwr_result,
+        input_fingerprint=input_fingerprint,
+        calculation_hash=calculation_hash,
+        engine_version=engine_version,
+    )
+    return _CompletedMWRCalculation(
         mwr_request=mwr_request,
         response_model=response_model,
     )
-
-    return response_model
 
 
 async def _resolve_mwr_execution_request(
