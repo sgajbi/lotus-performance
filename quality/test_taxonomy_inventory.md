@@ -21,7 +21,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 274 |
-| Test functions inventoried | 3040 |
+| Test functions inventoried | 3041 |
 | Integration/API/runtime test functions | 599 |
 | Contract/governance test functions | 108 |
 
@@ -32,7 +32,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | benchmarks | 9 | 17 |
 | e2e | 1 | 21 |
 | integration | 24 | 300 |
-| unit | 240 | 2702 |
+| unit | 240 | 2703 |
 
 ## Test Functions By Family
 
@@ -43,14 +43,14 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | contract_or_governance | 108 |
 | observability_or_readiness | 186 |
 | quality_or_security | 107 |
-| uncategorized | 1222 |
+| uncategorized | 1223 |
 
 ## Largest Test Modules
 
 | Rank | Module | Suite | Test functions | Families |
 | ---: | --- | --- | ---: | --- |
 | 1 | `tests/unit/app/test_enterprise_readiness_additional.py` | unit | 80 | observability_or_readiness |
-| 2 | `tests/unit/services/test_returns_series_service.py` | unit | 68 | uncategorized |
+| 2 | `tests/unit/services/test_returns_series_service.py` | unit | 69 | uncategorized |
 | 3 | `tests/unit/services/test_stateful_attribution_input_service.py` | unit | 64 | analytics_domain |
 | 4 | `tests/unit/app/test_openapi_enrichment.py` | unit | 59 | api_or_runtime |
 | 5 | `tests/unit/services/test_twr_inspection_source_economics.py` | unit | 57 | analytics_domain |
@@ -86,7 +86,7 @@ The AST inventory counts test function definitions, while `pytest --collect-only
 pytest items including parametrized cases. The two values are intentionally different and
 complementary: collected tests show execution breadth, while this report shows source test-module
 and test-function distribution. The current suite has meaningful API/runtime and
-contract/governance coverage, but 1222 test functions remain uncategorized by the first-wave
+contract/governance coverage, but 1223 test functions remain uncategorized by the first-wave
 taxonomy and should be reviewed before turning taxonomy into a blocking gate.
 
 ## Gate Posture
