@@ -81,6 +81,25 @@ def test_repository_hygiene_gate_blocks_local_environment_and_coverage_artifacts
     ]
 
 
+def test_repository_hygiene_gate_blocks_nested_local_artifact_names() -> None:
+    violations = find_repository_hygiene_violations(
+        [
+            "app/.env",
+            "reports/.coverage",
+            "services/foo/.coverage.integration",
+            "services/foo/coverage.xml",
+            "docs/.env.example",
+        ]
+    )
+
+    assert violations == [
+        "app/.env: generated or local-only artifact must not be tracked",
+        "reports/.coverage: generated or local-only artifact must not be tracked",
+        "services/foo/.coverage.integration: generated or local-only artifact must not be tracked",
+        "services/foo/coverage.xml: generated or local-only artifact must not be tracked",
+    ]
+
+
 def test_repository_hygiene_gate_blocks_build_outputs_and_local_databases() -> None:
     violations = find_repository_hygiene_violations(
         [
