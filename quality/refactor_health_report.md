@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Health Report
 
 Report date: 2026-06-28
-Branch: `feature/returns-series-branch-hardening`
+Branch: `feature/policies-branch-hardening`
 Baseline source: `quality/baseline_report.md`
 Report mode: phase-zero scorecard; complexity, architecture, duplicate-code, repository hygiene,
 router-thinness, observability-readiness, and Python security posture are enforced separately by CI.
@@ -72,9 +72,9 @@ link the commit, command, or CI artifact that proves the change.
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
 | Test modules | 228 | 275 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 3,326 | measured | `python -m pytest --collect-only -q` |
-| Line coverage | unknown | 99.47% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`2,980` unit, `308` integration, and `21` e2e tests under branch coverage; `21,132` covered lines of `21,244` statements) |
-| Branch coverage | unknown | 97.21% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`2,980` unit, `308` integration, and `21` e2e tests under branch coverage; `4,285` covered branches of `4,408`, `123` missing branches, `123` partial branches) |
+| Collected tests | 2,035 | 3,330 | measured | `python -m pytest --collect-only -q` |
+| Line coverage | unknown | 99.49% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`2,984` unit, `308` integration, and `21` e2e tests under branch coverage; `21,136` covered lines of `21,244` statements) |
+| Branch coverage | unknown | 97.35% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`2,984` unit, `308` integration, and `21` e2e tests under branch coverage; `4,291` covered branches of `4,408`, `117` missing branches, `117` partial branches) |
 | Integration/API/runtime test functions | unknown | 600 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |
 | Contract/governance test functions | unknown | 108 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |
 
@@ -261,6 +261,29 @@ Latest returns-series branch-coverage hardening evidence on `feature/returns-ser
    warning, stranded-truth reconciliation found no unmerged remote branches, and
    `Sync-RepoWikis.ps1 -CheckOnly -Repository lotus-performance` reported `DiffCount 0`.
 6. Branch coverage remains report-only; no fail-under threshold or GitHub blocking lane is added in
+   this slice. README, wiki, repository context, platform context, skills, and agent context did not
+   need updates because this slice changed test evidence only and did not change commands, API
+   contracts, runtime topology, operator workflow, or cross-repo ownership.
+
+Latest data-policy branch-coverage hardening evidence on `feature/policies-branch-hardening`:
+
+1. `python -m pytest tests\unit\engine\test_policies.py --cov=engine.policies --cov-branch --cov-report=term-missing --cov-report=json:output\policies-branch-coverage.json` passed with `25` focused tests and `100%` focused branch coverage for `engine/policies.py`.
+2. `make branch-coverage-baseline` passed with `2,984` unit tests, `308` integration tests, and
+   `21` e2e tests under `pytest --cov-branch`.
+3. The generated `quality/coverage_inventory.md` records combined line coverage at `99.49%`,
+   branch coverage at `97.35%`, `4,408` total branches, `117` missing branches, and `117` partial
+   branches.
+4. `engine/policies.py` reached `100%` combined branch coverage after focused tests covered
+   no-op market-value and cash-flow overrides, ignored-day requests that match no valuation date,
+   first-row ignored-day protection, empty outlier-sample handling, and outlier-only policy
+   pass-through behavior.
+5. `make check` passed with static quality, architecture-boundary, duplicate-code,
+   observability-readiness, no-alias, OpenAPI, API vocabulary, domain-product, first-party security,
+   mypy, and `2,984` unit tests.
+6. `make ci` passed with migration and durable-schema gates, dependency health with `0` known
+   vulnerabilities, first-party security with `0` Bandit findings, `2,984` unit tests, `308`
+   integration tests, `21` e2e tests, 99% blocking line coverage, and Docker build.
+7. Branch coverage remains report-only; no fail-under threshold or GitHub blocking lane is added in
    this slice. README, wiki, repository context, platform context, skills, and agent context did not
    need updates because this slice changed test evidence only and did not change commands, API
    contracts, runtime topology, operator workflow, or cross-repo ownership.
