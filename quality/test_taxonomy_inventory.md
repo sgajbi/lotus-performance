@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-06-28
-Branch: `feature/attribution-branch-coverage-hardening`
+Branch: `feature/ror-branch-coverage-hardening`
 Mode: report-only test taxonomy inventory; no blocking CI gate is introduced by this artifact.
 
 ## Purpose
@@ -21,7 +21,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 275 |
-| Test functions inventoried | 3102 |
+| Test functions inventoried | 3113 |
 | Integration/API/runtime test functions | 600 |
 | Contract/governance test functions | 108 |
 
@@ -32,13 +32,13 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | benchmarks | 9 | 17 |
 | e2e | 1 | 21 |
 | integration | 24 | 300 |
-| unit | 241 | 2764 |
+| unit | 241 | 2775 |
 
 ## Test Functions By Family
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 1067 |
+| analytics_domain | 1078 |
 | api_or_runtime | 600 |
 | contract_or_governance | 108 |
 | observability_or_readiness | 186 |
