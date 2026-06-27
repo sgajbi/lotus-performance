@@ -52,8 +52,8 @@ must stay at `0`.
 | 12 | `resolve_twr_inspection_subject` | function | `app/services/inspection/subject_resolution.py:20` | 5 | A |
 | 13 | `_completed_support_brief_markdown` | function | `app/services/inspection/support_brief_workflow_pack.py:78` | 5 | A |
 | 14 | `_map_workflow_pack_run_finding` | function | `app/services/inspection/support_brief_workflow_pack.py:192` | 5 | A |
-| 15 | `_synthesize_verdict` | function | `app/services/inspection/twr_inspection_service.py:636` | 5 | A |
-| 16 | `_scope_request_to_response_master_window` | function | `app/services/inspection/twr_inspection_service.py:752` | 5 | A |
+| 15 | `_synthesize_verdict` | function | `app/services/inspection/twr_inspection_service.py:643` | 5 | A |
+| 16 | `_scope_request_to_response_master_window` | function | `app/services/inspection/twr_inspection_service.py:759` | 5 | A |
 | 17 | `get_record` | method | `app/services/lineage_metadata_store.py:249` | 5 | A |
 | 18 | `lease_pending_payloads` | method | `app/services/lineage_metadata_store.py:360` | 5 | A |
 | 19 | `list_recent_recoveries` | method | `app/services/lineage_metadata_store.py:435` | 5 | A |

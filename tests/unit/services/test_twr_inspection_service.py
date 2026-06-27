@@ -400,6 +400,37 @@ def test_run_subject_assessments_merges_all_available_subject_outputs(monkeypatc
     assert base_evidence == {"artifact_queue_enabled": True, "period_count": 1}
 
 
+def test_subject_assessment_aggregation_extends_stage_evidence_and_artifacts():
+    aggregation = service._SubjectAssessmentAggregation(
+        completed_check_families=["calculation_consistency"],
+        failed_check_families=["math_warning"],
+        evidence_summary={"artifact_queue_enabled": True},
+        artifact_payloads={"inspection_summary.json": "{}"},
+    )
+
+    aggregation.merge(
+        service._InspectionStageOutputs(
+            findings=[],
+            completed_check_families=["source_quality", "economic_plausibility"],
+            failed_check_families=["source_quality_warning"],
+            evidence_summary={"invalid_capital_base_count": 0},
+            artifact_payloads={"source_quality_summary.json": "{}"},
+        )
+    )
+
+    assert aggregation.completed_check_families == [
+        "calculation_consistency",
+        "source_quality",
+        "economic_plausibility",
+    ]
+    assert aggregation.failed_check_families == ["math_warning", "source_quality_warning"]
+    assert aggregation.evidence_summary == {"artifact_queue_enabled": True, "invalid_capital_base_count": 0}
+    assert aggregation.artifact_payloads == {
+        "inspection_summary.json": "{}",
+        "source_quality_summary.json": "{}",
+    }
+
+
 def test_twr_inspection_preserves_runtime_finding_when_only_check_family_fails(fake_registry, monkeypatch):
     def raise_source_quality_failure(**_kwargs):
         raise RuntimeError("source quality dependency unavailable")
