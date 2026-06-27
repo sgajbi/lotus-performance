@@ -73,7 +73,7 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | Test modules | 228 | 274 | measured | `rg --files tests -g 'test_*.py'` |
 | Collected tests | 2,035 | 3,258 | measured | `python -m pytest --collect-only -q` |
-| Line coverage | unknown | 99% | measured | `quality/coverage_inventory.md` via `make test-coverage` |
+| Line coverage | unknown | 99% | measured | `quality/coverage_inventory.md` via `make ci` coverage gate (`2,912` unit, `308` integration, and `21` e2e tests under coverage; `TOTAL 21244 statements, 173 missed`) |
 | Branch coverage | unknown | not configured | not-yet-measured | `quality/coverage_inventory.md`; branch coverage is not configured in pytest-cov or coverage.py |
 | Integration/API/runtime test functions | unknown | 600 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |
 | Contract/governance test functions | unknown | 108 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |
@@ -99,7 +99,7 @@ link the commit, command, or CI artifact that proves the change.
 | Metrics markers | unknown | 6 | measured | `metrics` family in `quality/observability_readiness_inventory.md` |
 | Health/readiness markers | unknown | 6 | measured | `health_readiness` family in `quality/observability_readiness_inventory.md` |
 | Health/metrics endpoint markers | unknown | 4 | measured | `health_metrics_endpoints` family in `quality/observability_readiness_inventory.md` |
-| Mapped observability/readiness test functions | unknown | 357 | measured | family-mapped test-function count in `quality/observability_readiness_inventory.md`; counts can overlap across families |
+| Mapped observability/readiness test functions | unknown | 358 | measured | family-mapped test-function count in `quality/observability_readiness_inventory.md`; counts can overlap across families |
 | Demo API certification command | unknown | 1 | measured | `make demo-api-certification` runs `scripts/demo_api_certification.py` and writes reviewed JSON evidence under `output/demo-api-certification/latest.json` |
 
 ## Documentation
@@ -122,6 +122,26 @@ The measured baseline proves that the repository already has a substantial test 
 production/runtime footprint. It does not yet prove enterprise-readiness completion. The immediate
 quality-program gap is not lack of aspiration; it is that several requested dimensions are not yet
 repeatably measured or expressed as progressive gates.
+
+## Latest Local PR-Gate Evidence
+
+Latest validation on `feature/enterprise-backend-refactor-baseline`:
+
+1. `git fetch origin --prune`; `git branch -r --no-merged origin/main`
+   produced no unmerged remote branches, so no durable governance truth was stranded on remote
+   branches during this pre-merge pass.
+2. `make check` passed, including ruff, format check, static quality gates, OpenAPI quality,
+   API vocabulary, domain-product validation, first-party Python security inventory, mypy, and
+   `2,912` unit tests.
+3. `make ci` passed, including the same static and contract/security gates, migration smoke,
+   durable recovery drill, dependency audit with `0` known vulnerabilities, `2,912` unit tests,
+   `308` integration tests, `21` e2e tests, combined line coverage at `99%`, and Docker image
+   build for `lotus-performance:ci`.
+4. `git diff --check` passed.
+5. `../lotus-platform/automation/Sync-RepoWikis.ps1 -CheckOnly -Repository lotus-performance`
+   detected expected publication drift for `Validation-and-CI.md` because this branch changes the
+   repo-authored wiki source. Publish the wiki after this branch is merged to `main`; do not
+   publish unmerged branch truth.
 
 ## Next Updates
 
