@@ -21,8 +21,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 274 |
-| Test functions inventoried | 3029 |
-| Integration/API/runtime test functions | 598 |
+| Test functions inventoried | 3030 |
+| Integration/API/runtime test functions | 599 |
 | Contract/governance test functions | 108 |
 
 ## Test Functions By Suite
@@ -32,14 +32,14 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | benchmarks | 9 | 17 |
 | e2e | 1 | 21 |
 | integration | 24 | 300 |
-| unit | 240 | 2691 |
+| unit | 240 | 2692 |
 
 ## Test Functions By Family
 
 | Family | Test functions |
 | --- | ---: |
 | analytics_domain | 1042 |
-| api_or_runtime | 598 |
+| api_or_runtime | 599 |
 | contract_or_governance | 108 |
 | observability_or_readiness | 185 |
 | quality_or_security | 106 |

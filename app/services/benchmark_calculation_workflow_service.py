@@ -178,23 +178,10 @@ async def _calculate_promoted_stateful_benchmark_workflow(
             input_fingerprint=input_fingerprint,
             calculation_hash=calculation_hash,
         )
-        accepted_response = finalize_resolved_stateful_execution(
-            calculation_id=request.calculation_id,
-            analytics_type=ANALYTICS_WORKFLOW_BENCHMARK,
-            requested_window=build_benchmark_execution_window(
-                request,
-                source_request_fingerprint=source_request_fingerprint,
-                input_count=resolved_context.resolved_request.input_count,
-            ),
-            input_fingerprint=resolved_context.input_fingerprint,
-            calculation_hash=resolved_context.calculation_hash,
-            resolved_request_payload={
-                "resolved_request": resolved_context.benchmark_request.model_dump(mode="json"),
-                "source_input_mode": BenchmarkInputMode.STATEFUL.value,
-            },
-            should_offload=should_offload_resolved_benchmark(resolved_context.resolved_request.input_count),
-            offload_reason="large_resolved_stateful_benchmark",
-            accepted_response_factory=accepted_benchmark_response,
+        accepted_response = _finalize_promoted_stateful_benchmark_execution(
+            request=request,
+            source_request_fingerprint=source_request_fingerprint,
+            resolved_context=resolved_context,
         )
         if accepted_response is not None:
             return accepted_response
@@ -208,6 +195,32 @@ async def _calculate_promoted_stateful_benchmark_workflow(
         )
     except Exception as exc:
         _raise_benchmark_workflow_failure(request, exc)
+
+
+def _finalize_promoted_stateful_benchmark_execution(
+    *,
+    request: BenchmarkAnalyticsRequest,
+    source_request_fingerprint: str,
+    resolved_context: _ResolvedBenchmarkExecutionContext,
+) -> BenchmarkAcceptedResponse | None:
+    return finalize_resolved_stateful_execution(
+        calculation_id=request.calculation_id,
+        analytics_type=ANALYTICS_WORKFLOW_BENCHMARK,
+        requested_window=build_benchmark_execution_window(
+            request,
+            source_request_fingerprint=source_request_fingerprint,
+            input_count=resolved_context.resolved_request.input_count,
+        ),
+        input_fingerprint=resolved_context.input_fingerprint,
+        calculation_hash=resolved_context.calculation_hash,
+        resolved_request_payload={
+            "resolved_request": resolved_context.benchmark_request.model_dump(mode="json"),
+            "source_input_mode": BenchmarkInputMode.STATEFUL.value,
+        },
+        should_offload=should_offload_resolved_benchmark(resolved_context.resolved_request.input_count),
+        offload_reason="large_resolved_stateful_benchmark",
+        accepted_response_factory=accepted_benchmark_response,
+    )
 
 
 def _initial_benchmark_async_submission(
