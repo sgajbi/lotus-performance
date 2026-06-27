@@ -5,7 +5,11 @@ from dataclasses import dataclass
 from fastapi import HTTPException
 
 from app.core.config import Settings
-from app.models.attribution_analytics_requests import AttributionAnalyticsRequest, AttributionInputMode
+from app.models.attribution_analytics_requests import (
+    AttributionAnalyticsRequest,
+    AttributionInputMode,
+    AttributionStatefulInput,
+)
 from app.models.attribution_requests import AttributionRequest
 from app.models.benchmark_analytics_requests import BenchmarkReturnSource
 from app.services.execution_registry import execution_registry
@@ -19,6 +23,7 @@ from app.services.stateful_attribution_input_service import (
     build_stateful_attribution_input,
     retrieve_stateful_attribution_source_input,
 )
+from app.services.stateful_input_service import StatefulInputService
 
 
 @dataclass(frozen=True)
@@ -48,21 +53,11 @@ async def resolve_attribution_request(
     stateful_input_service = build_stateful_input_service(settings=settings)
     execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_RETRIEVAL)
     try:
-        source_input = await retrieve_stateful_attribution_source_input(
+        source_input = await _retrieve_attribution_source_input(
+            request=request,
+            stateful_input=stateful_input,
             settings=settings,
             stateful_input_service=stateful_input_service,
-            calculation_id=request.calculation_id,
-            portfolio_id=request.portfolio_id,
-            as_of_date=request.report_end_date,
-            report_start_date=request.report_start_date,
-            report_end_date=request.report_end_date,
-            reporting_currency=request.report_ccy,
-            consumer_system=LOTUS_PERFORMANCE_CONSUMER_SYSTEM,
-            group_by=request.group_by,
-            dimensions=list(stateful_input.dimensions),
-            include_cash_flows=stateful_input.include_cash_flows,
-            filters=stateful_input.filters.model_dump(mode="python"),
-            benchmark_id_override=stateful_input.benchmark_id,
         )
         execution_registry.complete_stage(
             request.calculation_id,
@@ -103,6 +98,31 @@ async def resolve_attribution_request(
         input_count=(len(normalized_input.instruments_data) + len(normalized_input.benchmark_groups_data)),
         resolved_benchmark_id=source_input.benchmark_id,
         resolved_benchmark_return_source=BenchmarkReturnSource.CALCULATED.value,
+    )
+
+
+async def _retrieve_attribution_source_input(
+    *,
+    request: AttributionAnalyticsRequest,
+    stateful_input: AttributionStatefulInput,
+    settings: Settings,
+    stateful_input_service: StatefulInputService,
+) -> StatefulAttributionSourceInput:
+    return await retrieve_stateful_attribution_source_input(
+        settings=settings,
+        stateful_input_service=stateful_input_service,
+        calculation_id=request.calculation_id,
+        portfolio_id=request.portfolio_id,
+        as_of_date=request.report_end_date,
+        report_start_date=request.report_start_date,
+        report_end_date=request.report_end_date,
+        reporting_currency=request.report_ccy,
+        consumer_system=LOTUS_PERFORMANCE_CONSUMER_SYSTEM,
+        group_by=request.group_by,
+        dimensions=list(stateful_input.dimensions),
+        include_cash_flows=stateful_input.include_cash_flows,
+        filters=stateful_input.filters.model_dump(mode="python"),
+        benchmark_id_override=stateful_input.benchmark_id,
     )
 
 

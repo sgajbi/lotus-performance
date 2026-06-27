@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from datetime import date
+from typing import cast
 from uuid import uuid4
 
 import pytest
 from fastapi import HTTPException
 
+from app.core.config import Settings
 from app.models.attribution_analytics_requests import AttributionAnalyticsRequest, AttributionInputMode
 from app.models.attribution_requests import AttributionPortfolioData, BenchmarkGroup, InstrumentData
 from app.models.benchmark_requests import BenchmarkComponentObservation
@@ -13,13 +15,14 @@ from app.models.requests import DailyInputData
 from app.services.attribution_mode_service import (
     _attribution_normalization_stage_details,
     _attribution_retrieval_stage_details,
+    _retrieve_attribution_source_input,
     resolve_attribution_request,
 )
 from app.services.stateful_attribution_input_service import (
     StatefulAttributionNormalizedInput,
     StatefulAttributionSourceInput,
 )
-from app.services.stateful_input_service import RetrievalMetadata
+from app.services.stateful_input_service import RetrievalMetadata, StatefulInputService
 from app.services.stateful_performance_input_service import StatefulPortfolioInput
 
 
@@ -219,6 +222,82 @@ def test_attribution_retrieval_stage_details_preserve_source_counts():
         "fx_page_count": 8,
         "index_request_count": 12,
     }
+
+
+@pytest.mark.asyncio
+async def test_retrieve_attribution_source_input_forwards_stateful_request_contract(monkeypatch):
+    source_input = StatefulAttributionSourceInput(
+        portfolio_input=StatefulPortfolioInput(
+            performance_start_date=date(2025, 1, 1),
+            observations=[{"valuation_date": "2025-01-01"}],
+        ),
+        position_rows=[],
+        position_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
+        benchmark_id="BMK_PRIVATE_BANKING_BALANCED",
+        benchmark_component_observations=[],
+        benchmark_source_details={},
+        benchmark_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
+        index_records=[],
+        index_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
+    )
+    captured: dict[str, object] = {}
+
+    async def _capture_source_input(**kwargs):
+        captured.update(kwargs)
+        return source_input
+
+    monkeypatch.setattr(
+        "app.services.attribution_mode_service.retrieve_stateful_attribution_source_input",
+        _capture_source_input,
+    )
+    calculation_id = str(uuid4())
+    request = AttributionAnalyticsRequest.model_validate(
+        {
+            "calculation_id": calculation_id,
+            "portfolio_id": "PB_SG_GLOBAL_BAL_001",
+            "mode": "by_instrument",
+            "group_by": ["asset_class", "sector"],
+            "linking": "none",
+            "frequency": "daily",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-31",
+            "report_ccy": "USD",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "stateful_input": {
+                "benchmark_id": "BMK_PRIVATE_BANKING_BALANCED",
+                "dimensions": ["asset_class", "sector"],
+                "include_cash_flows": False,
+                "filters": {"security_ids": ["SEC_PRIVATE_BANKING_EQ_01"]},
+            },
+        }
+    )
+
+    assert request.stateful_input is not None
+    result = await _retrieve_attribution_source_input(
+        request=request,
+        stateful_input=request.stateful_input,
+        settings=cast(Settings, object()),
+        stateful_input_service=cast(StatefulInputService, object()),
+    )
+
+    assert result is source_input
+    assert str(captured["calculation_id"]) == calculation_id
+    assert captured["portfolio_id"] == "PB_SG_GLOBAL_BAL_001"
+    assert captured["as_of_date"] == date(2025, 1, 31)
+    assert captured["report_start_date"] == date(2025, 1, 1)
+    assert captured["report_end_date"] == date(2025, 1, 31)
+    assert captured["reporting_currency"] == "USD"
+    assert captured["consumer_system"] == "lotus-performance"
+    assert captured["group_by"] == ["asset_class", "sector"]
+    assert captured["dimensions"] == ["asset_class", "sector"]
+    assert captured["include_cash_flows"] is False
+    assert captured["filters"] == {
+        "security_ids": ["SEC_PRIVATE_BANKING_EQ_01"],
+        "position_ids": [],
+        "dimension_filters": [],
+    }
+    assert captured["benchmark_id_override"] == "BMK_PRIVATE_BANKING_BALANCED"
 
 
 def test_attribution_normalization_stage_details_preserve_alignment_evidence():
