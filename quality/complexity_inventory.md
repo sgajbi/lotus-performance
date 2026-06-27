@@ -1,6 +1,6 @@
 # Lotus Performance Complexity Inventory
 
-Report date: 2026-06-27
+Report date: 2026-06-28
 Branch: `feature/enterprise-backend-refactor-baseline`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
@@ -91,7 +91,7 @@ must stay at `0`.
 | 21 | `app/services/inspection/calculation_consistency.py` | 19.69 | A |
 | 22 | `app/models/returns_series.py` | 19.70 | A |
 | 23 | `engine/composites.py` | 20.75 | A |
-| 24 | `app/services/stateful_mwr_input_service.py` | 21.59 | A |
+| 24 | `app/services/stateful_mwr_input_service.py` | 21.57 | A |
 | 25 | `engine/mwr.py` | 22.11 | A |
 
 ## Interpretation
@@ -1272,6 +1272,9 @@ high-complexity functions remain `0`, and average maintainability index measured
 LP-CR-1490 isolated MWR execution registration and initial identity materialization from the public
 MWR calculation workflow. The measured max cyclomatic complexity remains `5`,
 high-complexity functions remain `0`, and average maintainability index measured `54.93`.
+LP-CR-1491 isolated stateful MWR market-value evidence projection from the stateful MWR input
+builder. The measured max cyclomatic complexity remains `5`, high-complexity functions remain `0`,
+and average maintainability index measured `54.93`.
 
 Maintainability index values should be treated as directional hotspot evidence because generated
 schemas, persistence-style modules, and dense orchestration files can score poorly even when tests
