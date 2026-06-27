@@ -100,26 +100,10 @@ async def _build_stateful_calculated_benchmark_input(
     start_date: date,
     end_date: date,
 ) -> StatefulBenchmarkNormalizedInput:
-    composition_status, composition_payload = await stateful_input_service.get_benchmark_composition_window(
-        benchmark_id=benchmark_id,
-        start_date=start_date,
-        end_date=end_date,
+    benchmark_currency, component_segments = await _load_calculated_benchmark_composition(
+        stateful_input_service=stateful_input_service,
         calculation_id=calculation_id,
-    )
-    if composition_status == status.HTTP_404_NOT_FOUND:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No benchmark composition window found for benchmark_id={benchmark_id}.",
-        )
-    if composition_status >= status.HTTP_400_BAD_REQUEST:
-        raise_for_stateful_source_unavailable(
-            source_label="benchmark composition-window",
-            upstream_status=composition_status,
-        )
-
-    benchmark_currency, component_segments = _parse_composition_window(
         benchmark_id=benchmark_id,
-        composition_window=composition_payload,
         start_date=start_date,
         end_date=end_date,
     )
@@ -166,6 +150,40 @@ async def _build_stateful_calculated_benchmark_input(
             "fx_page_count": fx_retrieval_metadata.page_count,
         },
     )
+
+
+async def _load_calculated_benchmark_composition(
+    *,
+    stateful_input_service: StatefulInputService,
+    calculation_id: UUID,
+    benchmark_id: str,
+    start_date: date,
+    end_date: date,
+) -> tuple[str, list[BenchmarkCompositionSegment]]:
+    composition_status, composition_payload = await stateful_input_service.get_benchmark_composition_window(
+        benchmark_id=benchmark_id,
+        start_date=start_date,
+        end_date=end_date,
+        calculation_id=calculation_id,
+    )
+    if composition_status == status.HTTP_404_NOT_FOUND:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No benchmark composition window found for benchmark_id={benchmark_id}.",
+        )
+    if composition_status >= status.HTTP_400_BAD_REQUEST:
+        raise_for_stateful_source_unavailable(
+            source_label="benchmark composition-window",
+            upstream_status=composition_status,
+        )
+
+    benchmark_currency, component_segments = _parse_composition_window(
+        benchmark_id=benchmark_id,
+        composition_window=composition_payload,
+        start_date=start_date,
+        end_date=end_date,
+    )
+    return benchmark_currency, component_segments
 
 
 async def _load_benchmark_definition_currency(
