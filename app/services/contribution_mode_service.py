@@ -8,6 +8,7 @@ from app.core.config import Settings
 from app.models.contribution_analytics_requests import (
     ContributionAnalyticsRequest,
     ContributionInputMode,
+    ContributionStatefulInput,
 )
 from app.models.contribution_requests import ContributionRequest
 from app.services.execution_registry import execution_registry
@@ -40,7 +41,25 @@ async def resolve_contribution_request(
         return _resolved_stateless_contribution_request(request)
 
     stateful_input = require_stateful_input(request.stateful_input)
+    source_input = await _retrieve_stateful_contribution_source_input(
+        request=request,
+        stateful_input=stateful_input,
+        settings=settings,
+    )
+    normalized_input = _normalize_stateful_contribution_input(
+        request=request,
+        stateful_input=stateful_input,
+        source_input=source_input,
+    )
+    return _resolved_stateful_contribution_request(request, normalized_input)
 
+
+async def _retrieve_stateful_contribution_source_input(
+    *,
+    request: ContributionAnalyticsRequest,
+    stateful_input: ContributionStatefulInput,
+    settings: Settings,
+) -> StatefulContributionSourceInput:
     stateful_input_service = build_stateful_input_service(settings=settings)
     execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_RETRIEVAL)
     try:
@@ -66,7 +85,15 @@ async def resolve_contribution_request(
     except HTTPException as exc:
         execution_registry.fail_stage(request.calculation_id, EXECUTION_STAGE_RETRIEVAL, str(exc.detail))
         raise
+    return source_input
 
+
+def _normalize_stateful_contribution_input(
+    *,
+    request: ContributionAnalyticsRequest,
+    stateful_input: ContributionStatefulInput,
+    source_input: StatefulContributionSourceInput,
+) -> StatefulContributionNormalizedInput:
     execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_NORMALIZATION)
     try:
         normalized_input = build_stateful_contribution_input(
@@ -84,7 +111,13 @@ async def resolve_contribution_request(
     except Exception as exc:
         execution_registry.fail_stage(request.calculation_id, EXECUTION_STAGE_NORMALIZATION, str(exc))
         raise
+    return normalized_input
 
+
+def _resolved_stateful_contribution_request(
+    request: ContributionAnalyticsRequest,
+    normalized_input: StatefulContributionNormalizedInput,
+) -> ResolvedContributionRequest:
     return ResolvedContributionRequest(
         contribution_request=request.to_stateless_contribution_request(
             portfolio_data=normalized_input.portfolio_data,

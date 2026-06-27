@@ -32,7 +32,7 @@ must stay at `0`.
 | --- | ---: |
 | Max cyclomatic complexity | 5 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 54.94 |
+| Average maintainability index | 54.93 |
 
 ## Highest Cyclomatic Complexity
 
@@ -1259,6 +1259,10 @@ functions remain `0`, and average maintainability index measured `54.94`.
 LP-CR-1486 isolated attribution panel resampling and linked-return projection from the attribution
 alignment orchestrator. The measured max cyclomatic complexity remains `5`, high-complexity
 functions remain `0`, and average maintainability index measured `54.94`.
+LP-CR-1487 isolated stateful contribution source retrieval, normalization, and resolved-request
+projection from the contribution input-mode resolver. The measured max cyclomatic complexity
+remains `5`, high-complexity functions remain `0`, and average maintainability index measured
+`54.93`.
 
 Maintainability index values should be treated as directional hotspot evidence because generated
 schemas, persistence-style modules, and dense orchestration files can score poorly even when tests
