@@ -46,6 +46,7 @@ from app.services.workspace_summary_service import (
     _workspace_observation_in_master_window,
     _workspace_summary_audit_counts,
     _workspace_summary_diagnostics_notes,
+    _workspace_summary_meta,
     calculate_workspace_summary,
     workspace_longest_requested_window_days,
 )
@@ -790,6 +791,48 @@ def test_workspace_summary_audit_counts_projects_benchmark_chunk_count():
         "portfolio_page_count": 0,
         "benchmark_chunk_count": 5,
     }
+
+
+def test_workspace_summary_meta_projects_request_identity_and_master_window():
+    request = WorkspaceSummaryRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT-1",
+            "report_end_date": "2026-06-30",
+            "report_ccy": "USD",
+            "input_mode": "stateful",
+            "stateful_input": {},
+            "periods": [
+                {"period": "1M", "frequencies": ["daily"]},
+                {"period": "YTD", "frequencies": ["monthly"]},
+            ],
+        }
+    )
+
+    meta = _workspace_summary_meta(
+        request=request,
+        settings=SimpleNamespace(APP_VERSION="test-version"),
+        resolved_periods=[
+            ResolvedWorkspacePeriod(name="1M", start_date=date(2026, 6, 1), end_date=date(2026, 6, 30)),
+            ResolvedWorkspacePeriod(name="YTD", start_date=date(2026, 1, 1), end_date=date(2026, 6, 30)),
+        ],
+        input_fingerprint="input-fingerprint",
+        calculation_hash="calculation-hash",
+    )
+
+    assert meta.calculation_id == request.calculation_id
+    assert meta.engine_version == "test-version"
+    assert meta.precision_mode == request.precision_mode
+    assert meta.annualization == request.annualization
+    assert meta.calendar == request.calendar
+    assert meta.periods == {
+        "requested": ["1M", "YTD"],
+        "master_start": "2026-01-01",
+        "master_end": "2026-06-30",
+    }
+    assert meta.input_fingerprint == "input-fingerprint"
+    assert meta.calculation_hash == "calculation-hash"
+    assert meta.report_ccy == "USD"
 
 
 def test_build_workspace_results_by_period_skips_empty_periods_and_projects_summaries(mocker):

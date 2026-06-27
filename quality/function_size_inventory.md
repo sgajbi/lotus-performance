@@ -20,31 +20,31 @@ python scripts/python_function_size_inventory.py --limit 25
 
 | Rank | Function | File | Lines |
 | ---: | --- | --- | ---: |
-| 1 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:547` | 68 |
-| 2 | `build_benchmark_exposure_context` | `app/services/benchmark_exposure_context_service.py:39` | 67 |
-| 3 | `resolve_contribution_request` | `app/services/contribution_mode_service.py:34` | 67 |
-| 4 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:407` | 67 |
-| 5 | `build_runtime_work_item_snapshot` | `app/services/runtime_work_item_service.py:62` | 66 |
-| 6 | `build_runtime_recoveries_query` | `app/api/dependencies/runtime_recoveries.py:11` | 65 |
-| 7 | `_calculate_promoted_stateful_benchmark_workflow` | `app/services/benchmark_calculation_workflow_service.py:146` | 65 |
-| 8 | `run_source_quality_checks` | `app/services/inspection/source_quality.py:146` | 65 |
-| 9 | `calculate_mwr_response` | `app/services/mwr_calculation_service.py:215` | 65 |
-| 10 | `resolve_mwr_request` | `app/services/mwr_mode_service.py:26` | 65 |
-| 11 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:91` | 65 |
-| 12 | `StatefulInputService._fetch_position_chunk` | `app/services/stateful_input_service.py:1007` | 65 |
-| 13 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:38` | 64 |
-| 14 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:476` | 64 |
-| 15 | `LineageMetadataStore._build_pending_payload_stats_statement` | `app/services/lineage_metadata_store.py:576` | 64 |
-| 16 | `_SourceEconomicsSampleCollector._record_taxonomy_samples` | `app/services/inspection/source_economics_collector.py:111` | 63 |
-| 17 | `_load_durable_queue_metric_sources` | `app/services/queue_metrics_service.py:259` | 63 |
-| 18 | `resolve_stateful_returns_series_request` | `app/services/returns_series_service.py:1594` | 63 |
-| 19 | `build_stateful_attribution_input` | `app/services/stateful_attribution_input_service.py:354` | 63 |
-| 20 | `_align_and_prepare_data` | `engine/attribution.py:505` | 63 |
-| 21 | `_build_contribution_smoothing_evidence` | `app/services/contribution_smoothing.py:96` | 62 |
-| 22 | `_resolve_subject_inspection_inputs` | `app/services/inspection/twr_inspection_service.py:220` | 62 |
-| 23 | `build_stateful_mwr_input_for_window` | `app/services/stateful_mwr_input_service.py:112` | 62 |
-| 24 | `_build_twr_inspection_response` | `app/services/inspection/twr_inspection_service.py:305` | 61 |
-| 25 | `_run_subject_assessments` | `app/services/inspection/twr_inspection_service.py:157` | 61 |
+| 1 | `build_benchmark_exposure_context` | `app/services/benchmark_exposure_context_service.py:39` | 67 |
+| 2 | `resolve_contribution_request` | `app/services/contribution_mode_service.py:34` | 67 |
+| 3 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:407` | 67 |
+| 4 | `build_runtime_work_item_snapshot` | `app/services/runtime_work_item_service.py:62` | 66 |
+| 5 | `build_runtime_recoveries_query` | `app/api/dependencies/runtime_recoveries.py:11` | 65 |
+| 6 | `_calculate_promoted_stateful_benchmark_workflow` | `app/services/benchmark_calculation_workflow_service.py:146` | 65 |
+| 7 | `run_source_quality_checks` | `app/services/inspection/source_quality.py:146` | 65 |
+| 8 | `calculate_mwr_response` | `app/services/mwr_calculation_service.py:215` | 65 |
+| 9 | `resolve_mwr_request` | `app/services/mwr_mode_service.py:26` | 65 |
+| 10 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:91` | 65 |
+| 11 | `StatefulInputService._fetch_position_chunk` | `app/services/stateful_input_service.py:1007` | 65 |
+| 12 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:38` | 64 |
+| 13 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:476` | 64 |
+| 14 | `LineageMetadataStore._build_pending_payload_stats_statement` | `app/services/lineage_metadata_store.py:576` | 64 |
+| 15 | `_SourceEconomicsSampleCollector._record_taxonomy_samples` | `app/services/inspection/source_economics_collector.py:111` | 63 |
+| 16 | `_load_durable_queue_metric_sources` | `app/services/queue_metrics_service.py:259` | 63 |
+| 17 | `resolve_stateful_returns_series_request` | `app/services/returns_series_service.py:1594` | 63 |
+| 18 | `build_stateful_attribution_input` | `app/services/stateful_attribution_input_service.py:354` | 63 |
+| 19 | `_align_and_prepare_data` | `engine/attribution.py:505` | 63 |
+| 20 | `_build_contribution_smoothing_evidence` | `app/services/contribution_smoothing.py:96` | 62 |
+| 21 | `_resolve_subject_inspection_inputs` | `app/services/inspection/twr_inspection_service.py:220` | 62 |
+| 22 | `build_stateful_mwr_input_for_window` | `app/services/stateful_mwr_input_service.py:112` | 62 |
+| 23 | `_build_twr_inspection_response` | `app/services/inspection/twr_inspection_service.py:305` | 61 |
+| 24 | `_run_subject_assessments` | `app/services/inspection/twr_inspection_service.py:157` | 61 |
+| 25 | `LineageService.materialize_payload` | `app/services/lineage_service.py:72` | 61 |
 
 ## Interpretation
 
@@ -194,6 +194,9 @@ LP-CR-1466 isolated stateful position chunk row and page-count accumulation into
 chunk accumulation boundary. `StatefulInputService._fetch_position_chunk(...)` moved from `68` to
 `65` lines, duplicate hotspots remain `0`, and the largest production function is now
 `_build_workspace_summary_response(...)` at `68` lines.
+LP-CR-1467 isolated workspace summary response metadata projection into
+`_workspace_summary_meta(...)`. `_build_workspace_summary_response(...)` dropped out of the top-25
+table, duplicate hotspots remain `0`, and the largest production functions now measure `67` lines.
 LP-CR-1411 isolated runtime-status degradation policy response projection into focused helpers.
 `build_runtime_status_response` moved from `113` to `91` lines, and the largest production
 functions moved to the contribution period result builders at `102` lines.

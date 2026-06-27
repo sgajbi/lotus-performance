@@ -588,20 +588,12 @@ def _build_workspace_summary_response(
         portfolio_id=request.portfolio_id,
         input_mode=request.input_mode,
         results_by_period=results_by_period,
-        meta=Meta(
-            calculation_id=request.calculation_id,
-            engine_version=settings.APP_VERSION,
-            precision_mode=request.precision_mode,
-            annualization=request.annualization,
-            calendar=request.calendar,
-            periods={
-                "requested": [item.period.value for item in request.periods],
-                "master_start": str(min(period.start_date for period in resolved_periods)),
-                "master_end": str(request.report_end_date),
-            },
+        meta=_workspace_summary_meta(
+            request=request,
+            settings=settings,
+            resolved_periods=resolved_periods,
             input_fingerprint=input_fingerprint,
             calculation_hash=calculation_hash,
-            report_ccy=request.report_ccy,
         ),
         diagnostics=diagnostics,
         audit=Audit(
@@ -611,6 +603,31 @@ def _build_workspace_summary_response(
                 results_by_period=results_by_period,
             )
         ),
+    )
+
+
+def _workspace_summary_meta(
+    *,
+    request: WorkspaceSummaryRequest,
+    settings: Settings,
+    resolved_periods: list[ResolvedWorkspacePeriod],
+    input_fingerprint: str,
+    calculation_hash: str,
+) -> Meta:
+    return Meta(
+        calculation_id=request.calculation_id,
+        engine_version=settings.APP_VERSION,
+        precision_mode=request.precision_mode,
+        annualization=request.annualization,
+        calendar=request.calendar,
+        periods={
+            "requested": [item.period.value for item in request.periods],
+            "master_start": str(min(period.start_date for period in resolved_periods)),
+            "master_end": str(request.report_end_date),
+        },
+        input_fingerprint=input_fingerprint,
+        calculation_hash=calculation_hash,
+        report_ccy=request.report_ccy,
     )
 
 
