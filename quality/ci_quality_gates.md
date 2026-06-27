@@ -1,10 +1,11 @@
 # Lotus Performance Progressive CI Quality Gates
 
 Report date: 2026-06-27
-Branch: `lp-cr-1444-attribution-source-retrieval-boundary`
+Branch: `lp-cr-1445-repository-hygiene-gate`
 Baseline sources: `quality/baseline_report.md`, `quality/refactor_health_report.md`, `quality/quality_scorecard.md`
 Mode: progressive gate map; remediated complexity, architecture-boundary, router-thinness,
-duplicate-code, observability-readiness, and Python security posture is now enforced in CI.
+duplicate-code, repository hygiene, observability-readiness, and Python security posture is now
+enforced in CI.
 
 ## Purpose
 
@@ -24,8 +25,9 @@ developers or GitHub Actions.
 | PR Auto Merge | Pull request lifecycle events | queues rebase auto-merge and branch deletion after required checks pass; this is release automation, not an independent quality gate |
 
 `Static Quality Gates` verifies installed dependencies, Ruff lint/format, monetary-float safety,
-complexity regression, architecture-boundary regression, router/middleware thinness, duplicate-code regression, no-alias governance,
-observability-readiness marker regression, and mypy type safety. `Contract Security Gates` verifies
+repository hygiene, complexity regression, architecture-boundary regression, router/middleware
+thinness, duplicate-code regression, no-alias governance, observability-readiness marker
+regression, and mypy type safety. `Contract Security Gates` verifies
 OpenAPI quality, API vocabulary governance, migration smoke where the lane requires it, and
 dependency security plus first-party Python static security. These jobs run in parallel before test execution to reduce CI wall-clock time
 without dropping any gate.
@@ -63,6 +65,7 @@ No gate should move from one phase to the next until it has:
 | --- | --- | --- |
 | Ruff lint and format | Blocking in all quality lanes through `make lint` | Keep blocking; use as the style and simple-correctness baseline. |
 | Monetary float guard | Blocking through `make lint` | Keep blocking for finance-domain numeric safety. |
+| Repository hygiene | Blocking through `make lint` via `make repository-hygiene-gate`; current baseline has 0 tracked local byproduct findings across Git-tracked paths | Keep blocking. Exceptions should be avoided; if a generated artifact must become durable source truth, move it under a governed docs/contracts/evidence path and document why it is source-owned. |
 | mypy typecheck | Blocking in feature, PR, and main lanes | Keep blocking; expand typed boundary cleanup through normal refactor slices. |
 | Unit tests | Blocking in feature, PR, and main lanes | Keep blocking; add focused tests when refactoring hotspots. |
 | Integration and e2e tests | Blocking in PR and main lanes | Keep blocking at merge/release lanes; use targeted local subsets during slices. |
@@ -77,7 +80,7 @@ No gate should move from one phase to the next until it has:
 | Docker build | Blocking in PR and main lanes | Keep blocking; no new Docker gate is needed for report-only quality artifacts. |
 | Domain data product validation | Blocking locally through `make check` and repo-native command | Confirm whether GitHub workflows should include this explicitly before changing CI. |
 | Complexity and maintainability | Max cyclomatic complexity and D-F function count are blocking through `make quality-complexity-gate`; maintainability index remains measured in `quality/complexity_inventory.md` through `scripts/python_complexity_inventory.py` and `radon` | Keep max CC at `8` and D-F count at `0`; keep MI report-only until a stable remediation threshold and exception policy exist. |
-| Function-size hotspots | Measured in `quality/function_size_inventory.md` through a repo-native standard-library scanner; largest production functions are now four functions tied at `74` lines after LP-CR-1444 moved `resolve_attribution_request(...)` from `74` to `64` lines and out of the top-25 table by isolating stateful attribution source-retrieval request projection | Use as refactor-planning evidence; do not block CI until stable thresholds and exclusions are agreed. |
+| Function-size hotspots | Measured in `quality/function_size_inventory.md` through a repo-native standard-library scanner; largest production functions remain four functions tied at `74` lines after LP-CR-1445 because the slice added CI hygiene enforcement without changing production application modules | Use as refactor-planning evidence; do not block CI until stable thresholds and exclusions are agreed. |
 | Duplicate code hotspots | Blocking through `make quality-duplicate-code-gate`; current report shows 0 duplicate hotspot groups at `--min-lines 12` with `--max-groups 0` | Keep blocking at zero accepted first-party duplicate function-body hotspot groups; future increases require a documented reason and a better reusable abstraction decision. |
 | Dead-code detection | Measured in `quality/dead_code_inventory.md` through `scripts/python_dead_code_inventory.py` and `vulture`; 60% findings are dominated by framework/model false positives, while 80% findings are zero | Add reviewed allowlist before considering any regression-blocking gate. |
 | Dependency hygiene | Measured in `quality/dependency_hygiene_report.md` through `scripts/python_dependency_hygiene_inventory.py` and `deptry`; direct imported transitive dependencies are closed, and reviewed runtime-only DEP002 declarations are explicitly allowlisted in the repo scanner | Keep report-only until the allowlist policy and CI placement are stable. |
@@ -90,6 +93,18 @@ No gate should move from one phase to the next until it has:
 | RFC 7807 error consistency | Measured report-only through `scripts/openapi_completeness_inventory.py`; current inventory shows 0 error responses missing named problem/error schemas | Keep the report-only inventory clean while separately planning any runtime migration from legacy string-detail errors to full RFC 7807 payloads. |
 | Observability and operational contracts | Blocking through `make quality-observability-readiness-gate`, which runs `scripts/python_observability_readiness_inventory.py --limit 30 --max-missing 0`; current report shows 28/28 expected implementation markers, 0 missing markers, and 355 family-mapped readiness test functions | Keep the zero-missing marker gate blocking in feature, PR, and main static quality lanes. Broader maturity scoring and overlap-aware test counting remain report-only planning evidence. |
 | Demo API certification | Repository-native command through `make demo-api-certification`; `.github/workflows/quality-baseline.yml` runs it as report-only evidence with `continue-on-error` and uploads `output/demo-api-certification/*.json`; it calls demo-critical health/readiness, capabilities, calculation, returns, workspace, mandate, and composite TWR APIs with deterministic data | Keep report-only until repeated runs prove low noise, GitHub lane placement is agreed, seeded-data isolation is reviewed, and an exception/remediation policy exists. |
+
+## LP-CR-1445 Gate Promotion Intake
+
+| Intake item | Decision |
+| --- | --- |
+| Baseline | `git ls-files` scan has 0 tracked local byproduct findings on `lp-cr-1445-repository-hygiene-gate`. |
+| Failure mode blocked | Agents and local runs must not commit Python caches, virtual environments, coverage files, build output, logs, or local database files as source truth. |
+| Determinism | The scanner reads only `git ls-files` output and static path rules; it does not inspect untracked local residue or rewrite artifacts. |
+| Lane placement | Blocking through `make lint`, and therefore through `make check`, `make ci`, Feature Lane, PR Merge Gate, and Main Releasability static quality jobs. |
+| Exception policy | Do not allow local byproducts. If evidence must be durable, place it under governed docs/contracts/quality/wiki source and cite it explicitly. |
+| Focused tests | `tests/unit/scripts/test_repository_hygiene_gate.py` covers pass behavior, cache artifacts, coverage/env artifacts, build/log/database artifacts, and Makefile wiring; `tests/unit/scripts/test_clean_generated_artifacts.py` covers cleanup planning, prune safety, and deletion scope. |
+| Scorecard and ledger truth | `quality/refactor_health_report.md`, `quality/quality_scorecard.md`, and `docs/architecture/CODEBASE-REVIEW-LEDGER.md` record the new enforced signal. |
 
 ## Recommended Lane Placement For New Gates
 

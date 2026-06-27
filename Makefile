@@ -1,4 +1,4 @@
-.PHONY: install install-ci verify-dependencies check check-all test test-unit test-integration test-e2e test-all test-coverage coverage-gate ci ci-local ci-local-docker ci-local-docker-down typecheck lint quality-complexity-gate quality-architecture-gate quality-router-thinness-gate quality-duplicate-code-gate quality-observability-readiness-gate python-security-gate github-action-runtime-guard monetary-float-guard demo-api-certification format clean run check-deps security-audit openapi-gate api-vocabulary-gate no-alias-gate domain-product-validate migration-smoke migration-apply recovery-drill-smoke runtime-retention-smoke performance-characterization performance-characterization-postgres pre-commit docker-up docker-down docker-build
+.PHONY: install install-ci verify-dependencies check check-all test test-unit test-integration test-e2e test-all test-coverage coverage-gate ci ci-local ci-local-docker ci-local-docker-down typecheck lint quality-complexity-gate quality-architecture-gate quality-router-thinness-gate quality-duplicate-code-gate quality-observability-readiness-gate python-security-gate github-action-runtime-guard monetary-float-guard repository-hygiene-gate demo-api-certification format clean run check-deps security-audit openapi-gate api-vocabulary-gate no-alias-gate domain-product-validate migration-smoke migration-apply recovery-drill-smoke runtime-retention-smoke performance-characterization performance-characterization-postgres pre-commit docker-up docker-down docker-build
 
 install:
 	pip install -r requirements.txt
@@ -103,6 +103,7 @@ lint:
 	python -m ruff format --check .
 	$(MAKE) github-action-runtime-guard
 	$(MAKE) monetary-float-guard
+	$(MAKE) repository-hygiene-gate
 
 quality-complexity-gate:
 	python scripts/python_complexity_inventory.py --limit 25 --max-cc 8 --max-high-complexity 0
@@ -128,6 +129,9 @@ github-action-runtime-guard:
 monetary-float-guard:
 	python scripts/check_monetary_float_usage.py
 
+repository-hygiene-gate:
+	python scripts/repository_hygiene_gate.py
+
 demo-api-certification:
 	python scripts/demo_api_certification.py
 
@@ -135,7 +139,7 @@ format:
 	python -m ruff format .
 
 clean:
-	python -c "import shutil, pathlib; [shutil.rmtree(p, ignore_errors=True) for p in ['__pycache__', '.pytest_cache', 'htmlcov', '.ruff_cache', '.mypy_cache']]; [pathlib.Path(p).unlink(missing_ok=True) for p in ['.coverage', '.coverage.unit', '.coverage.integration', '.coverage.e2e']]"
+	python scripts/clean_generated_artifacts.py
 
 run:
 	uvicorn main:app --reload --port 8000

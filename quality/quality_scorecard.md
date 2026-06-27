@@ -1,11 +1,11 @@
 # Lotus Performance Refactor Quality Scorecard
 
 Report date: 2026-06-27
-Branch: `lp-cr-1444-attribution-source-retrieval-boundary`
+Branch: `lp-cr-1445-repository-hygiene-gate`
 Baseline source: `quality/baseline_report.md`
 Current source: `quality/refactor_health_report.md`
 Mode: phase-zero scorecard; static-quality enforcement includes complexity, architecture,
-router-thinness, duplicate-code, and observability-readiness gates.
+router-thinness, duplicate-code, repository hygiene, and observability-readiness gates.
 
 ## Purpose
 
@@ -19,14 +19,15 @@ metrics in each section are updated with each meaningful slice.
 
 | Metric | Baseline | Current | Delta | Status | Evidence |
 | --- | ---: | ---: | ---: | --- | --- |
-| Python files | 480 | 558 | 78 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python files | 480 | 562 | 82 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Python package markers | 18 | 18 | 0 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Python LOC | 104,454 | 163,303 | 58,849 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python LOC | 104,454 | 163,615 | 59,161 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest Python file LOC | 2,399 | 2,503 | 104 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest production file LOC | 1,156 | 1,688 | 532 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
-| Python test modules | 228 | 268 | 40 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Collected tests | 2,035 | 3,177 | 1,142 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python test modules | 228 | 270 | 42 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Collected tests | 2,035 | 3,186 | 1,151 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Duplicate code hotspots | 0 | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `quality/refactor_health_report.md`; `make quality-duplicate-code-gate` |
+| Tracked local byproduct findings | unknown | 0 | n/a | enforced | `scripts/repository_hygiene_gate.py`; `make repository-hygiene-gate`; `quality/refactor_health_report.md` |
 
 ### Complexity And Maintainability
 
@@ -35,7 +36,7 @@ metrics in each section are updated with each meaningful slice.
 | Max cyclomatic complexity | unknown | 5 | n/a | enforced | `quality/complexity_inventory.md`; `quality/refactor_health_report.md`; `make quality-complexity-gate` |
 | High-complexity functions (D-F) | unknown | 0 | n/a | enforced | `quality/complexity_inventory.md`; `quality/refactor_health_report.md`; `make quality-complexity-gate` |
 | Average maintainability index | unknown | 55.05 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
-| Largest functions by LOC | unknown | 74 | n/a | measured | `quality/function_size_inventory.md`; `quality/refactor_health_report.md`; LP-CR-1444 moved `resolve_attribution_request(...)` from `74` to `64` lines and out of the top-25 table by isolating stateful attribution source-retrieval request projection; the largest production functions are now four functions tied at `74` lines |
+| Largest functions by LOC | unknown | 74 | n/a | measured | `quality/function_size_inventory.md`; `quality/refactor_health_report.md`; LP-CR-1445 changed CI hygiene enforcement without changing production application modules, so the largest production functions remain four functions tied at `74` lines |
 
 ### Architecture
 
@@ -63,8 +64,8 @@ metrics in each section are updated with each meaningful slice.
 | --- | ---: | ---: | ---: | --- | --- |
 | Line coverage | unknown | 99% | n/a | measured | `quality/coverage_inventory.md`; `quality/refactor_health_report.md` |
 | Branch coverage | unknown | not configured | n/a | not-yet-measured | `quality/coverage_inventory.md`; `quality/refactor_health_report.md` |
-| Integration/API/runtime test functions | unknown | 592 | n/a | measured | `quality/test_taxonomy_inventory.md`; `quality/refactor_health_report.md` |
-| Contract/governance test functions | unknown | 107 | n/a | measured | `quality/test_taxonomy_inventory.md`; `quality/refactor_health_report.md` |
+| Integration/API/runtime test functions | unknown | 596 | n/a | measured | `quality/test_taxonomy_inventory.md`; `quality/refactor_health_report.md` |
+| Contract/governance test functions | unknown | 108 | n/a | measured | `quality/test_taxonomy_inventory.md`; `quality/refactor_health_report.md` |
 
 ### Security and Dependencies
 
@@ -101,8 +102,8 @@ metrics in each section are updated with each meaningful slice.
 
 | Signal | Value | Note |
 | --- | ---: | --- |
-| Total metrics tracked | 42 | All metrics in this file are measured or explicitly called out as not-yet-measured. |
-| Measured metrics | 41 | Ten measured metrics are now also enforced through blocking static-quality or security gates. Remaining gaps are primarily branch coverage and a few baseline historical values remain for future slices. |
+| Total metrics tracked | 43 | All metrics in this file are measured or explicitly called out as not-yet-measured. |
+| Measured metrics | 42 | Eleven measured metrics are now also enforced through blocking static-quality or security gates. Remaining gaps are primarily branch coverage and a few baseline historical values remain for future slices. |
 | Not-yet-measured metrics | 1 | Branch coverage remains unconfigured and untracked on this stream. |
 
 ## Method Note

@@ -11,8 +11,11 @@
 ## Local command mapping
 
 - `make check`
-  fast engineering proof: lint, static quality gates, no-alias gate, typecheck, OpenAPI gate, API
-  vocabulary gate, unit tests
+  fast engineering proof: lint, repository hygiene, static quality gates, no-alias gate, typecheck,
+  OpenAPI gate, API vocabulary gate, unit tests
+- `make repository-hygiene-gate`
+  tracked-source hygiene proof that local Python caches, virtual environments, coverage files,
+  build outputs, logs, and local databases were not committed
 - `make quality-observability-readiness-gate`
   static quality proof that health/metrics endpoint, correlation propagation, structured logging,
   metrics, and readiness implementation markers have no missing entries
@@ -30,6 +33,8 @@
 - contract drift breaks gateway and operator consumers
 - runtime-control surfaces are part of supportability, not optional extras
 - observability-readiness drift can make an API appear healthy while losing operational evidence
+- repository-hygiene drift turns local agent byproducts into source truth and makes future
+  reviews noisier than necessary
 - public docs are regression-tested and should stay aligned to shipped behavior
 
 ## Documentation contract proof
