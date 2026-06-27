@@ -152,25 +152,47 @@ def build_stateful_mwr_input_for_window(
             conversion_evidence_reason_codes=_stateful_currency_reason_codes(
                 single_currency_inputs=single_currency_inputs,
             ),
-            market_values_used=[
-                MWRMarketValueEvidence(
-                    valuation_date=_parse_observation_date(first_observation),
-                    amount=begin_mv,
-                    currency=reporting_currency,
-                    value_role="beginning_market_value",
-                    conversion_status=("no_conversion_required" if single_currency_inputs else "upstream_preconverted"),
-                ),
-                MWRMarketValueEvidence(
-                    valuation_date=_parse_observation_date(last_observation),
-                    amount=end_mv,
-                    currency=reporting_currency,
-                    value_role="ending_market_value",
-                    conversion_status=("no_conversion_required" if single_currency_inputs else "upstream_preconverted"),
-                ),
-            ],
+            market_values_used=_stateful_mwr_market_value_evidence(
+                first_observation=first_observation,
+                last_observation=last_observation,
+                begin_mv=begin_mv,
+                end_mv=end_mv,
+                reporting_currency=reporting_currency,
+                single_currency_inputs=single_currency_inputs,
+            ),
             cashflow_evidence=cash_flow_projection.cashflow_evidence,
         ),
     )
+
+
+def _stateful_mwr_market_value_evidence(
+    *,
+    first_observation: dict[str, object],
+    last_observation: dict[str, object],
+    begin_mv: Decimal,
+    end_mv: Decimal,
+    reporting_currency: str | None,
+    single_currency_inputs: bool,
+) -> list[MWRMarketValueEvidence]:
+    conversion_status: Literal["upstream_preconverted", "no_conversion_required"] = (
+        "no_conversion_required" if single_currency_inputs else "upstream_preconverted"
+    )
+    return [
+        MWRMarketValueEvidence(
+            valuation_date=_parse_observation_date(first_observation),
+            amount=begin_mv,
+            currency=reporting_currency,
+            value_role="beginning_market_value",
+            conversion_status=conversion_status,
+        ),
+        MWRMarketValueEvidence(
+            valuation_date=_parse_observation_date(last_observation),
+            amount=end_mv,
+            currency=reporting_currency,
+            value_role="ending_market_value",
+            conversion_status=conversion_status,
+        ),
+    ]
 
 
 def _stateful_mwr_cash_flow_projection(

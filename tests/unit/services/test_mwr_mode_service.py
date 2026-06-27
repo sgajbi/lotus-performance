@@ -17,6 +17,7 @@ from app.services.stateful_mwr_input_service import (
     _portfolio_currency_matches_reporting,
     _source_mwr_cash_flow_component,
     _stateful_mwr_cash_flow_projection,
+    _stateful_mwr_market_value_evidence,
     _StatefulMWRCashFlowCollection,
     build_stateful_mwr_input,
     build_stateful_mwr_input_for_window,
@@ -174,6 +175,40 @@ def test_build_stateful_mwr_input_keeps_fx_metadata_gap_when_cash_flow_currency_
         "upstream_preconverted_missing_per_input_fx_metadata"
     )
     assert [item.conversion_status for item in normalized.currency_evidence.market_values_used] == [
+        "upstream_preconverted",
+        "upstream_preconverted",
+    ]
+
+
+def test_stateful_mwr_market_value_evidence_projects_boundary_values_and_conversion_status():
+    evidence = _stateful_mwr_market_value_evidence(
+        first_observation={"valuation_date": "2025-01-01"},
+        last_observation={"valuation_date": "2025-12-31"},
+        begin_mv=Decimal("1000.25"),
+        end_mv=Decimal("1125.50"),
+        reporting_currency="CHF",
+        single_currency_inputs=True,
+    )
+
+    assert [item.valuation_date for item in evidence] == [date(2025, 1, 1), date(2025, 12, 31)]
+    assert [item.amount for item in evidence] == [Decimal("1000.25"), Decimal("1125.50")]
+    assert [item.currency for item in evidence] == ["CHF", "CHF"]
+    assert [item.value_role for item in evidence] == ["beginning_market_value", "ending_market_value"]
+    assert [item.conversion_status for item in evidence] == [
+        "no_conversion_required",
+        "no_conversion_required",
+    ]
+
+    preconverted = _stateful_mwr_market_value_evidence(
+        first_observation={"valuation_date": "2025-01-01"},
+        last_observation={"valuation_date": "2025-12-31"},
+        begin_mv=Decimal("1000.25"),
+        end_mv=Decimal("1125.50"),
+        reporting_currency="CHF",
+        single_currency_inputs=False,
+    )
+
+    assert [item.conversion_status for item in preconverted] == [
         "upstream_preconverted",
         "upstream_preconverted",
     ]
