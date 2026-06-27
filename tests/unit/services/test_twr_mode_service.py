@@ -22,6 +22,7 @@ from app.services.twr_mode_service import (
     _resolve_benchmark_start_date_from_request,
     _resolve_default_stateful_benchmark_input,
     _resolve_stateless_twr_benchmark_request,
+    _resolve_stateless_twr_request,
     _resolve_stateless_valuation_start_date,
     _resolve_twr_portfolio_source_input,
     _resolve_twr_portfolio_start_date,
@@ -155,6 +156,37 @@ def test_resolve_benchmark_start_date_from_request_uses_report_end_without_reque
     )
 
     assert _resolve_benchmark_start_date_from_request(request) == date(2025, 1, 2)
+
+
+def test_resolve_stateless_twr_request_projects_benchmark_identity_and_mode():
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_1",
+            "performance_start_date": "2025-01-01",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "valuation_points": [{"perf_date": "2025-01-02", "begin_mv": 1000, "end_mv": 1010}],
+            "benchmark": {
+                "benchmark_id": "BM_GLOBAL_EQ",
+                "input_mode": "stateless",
+                "return_source": "vendor_series",
+                "stateless_input": {
+                    "benchmark_currency": "USD",
+                    "benchmark_return_points": [{"perf_date": "2025-01-02", "benchmark_return": 0.01}],
+                },
+            },
+        }
+    )
+
+    resolved = _resolve_stateless_twr_request(request)
+
+    assert resolved.input_mode.value == "stateless"
+    assert resolved.benchmark_input_mode == BenchmarkInputMode.STATELESS
+    assert resolved.resolved_benchmark_id == "BM_GLOBAL_EQ"
+    assert resolved.benchmark_request is not None
+    assert resolved.benchmark_request.benchmark_id == "BM_GLOBAL_EQ"
 
 
 @pytest.fixture(autouse=True)

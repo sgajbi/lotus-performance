@@ -83,21 +83,54 @@ async def resolve_twr_request(
     settings: Settings,
 ) -> ResolvedTWRRequest:
     if not _twr_request_needs_retrieval(request):
-        benchmark_start_date = _resolve_benchmark_start_date_from_request(request)
-        return ResolvedTWRRequest(
-            performance_request=request.to_stateless_performance_request(),
-            input_mode=TWRInputMode.STATELESS,
-            benchmark_request=_resolve_stateless_twr_benchmark_request(
-                request,
-                benchmark_start_date=benchmark_start_date,
-            ),
-            benchmark_input_mode=_get_requested_benchmark_mode(request),
-            resolved_benchmark_id=_get_requested_benchmark_id(request),
-        )
+        return _resolve_stateless_twr_request(request)
 
-    execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_RETRIEVAL)
+    return await _resolve_stateful_twr_request(request=request, settings=settings)
+
+
+def _resolve_stateless_twr_request(request: TWRAnalyticsRequest) -> ResolvedTWRRequest:
+    benchmark_start_date = _resolve_benchmark_start_date_from_request(request)
+    return ResolvedTWRRequest(
+        performance_request=request.to_stateless_performance_request(),
+        input_mode=TWRInputMode.STATELESS,
+        benchmark_request=_resolve_stateless_twr_benchmark_request(
+            request,
+            benchmark_start_date=benchmark_start_date,
+        ),
+        benchmark_input_mode=_get_requested_benchmark_mode(request),
+        resolved_benchmark_id=_get_requested_benchmark_id(request),
+    )
+
+
+async def _resolve_stateful_twr_request(
+    *,
+    request: TWRAnalyticsRequest,
+    settings: Settings,
+) -> ResolvedTWRRequest:
     stateful_input_service = build_stateful_input_service(settings=settings)
+    retrieval_resolution = await _resolve_twr_retrieval_stage(
+        request=request,
+        settings=settings,
+        stateful_input_service=stateful_input_service,
+    )
+    normalization_resolution = _resolve_twr_normalization_stage(
+        request=request,
+        retrieval_resolution=retrieval_resolution,
+    )
+    return _build_resolved_twr_request(
+        request=request,
+        retrieval_resolution=retrieval_resolution,
+        normalization_resolution=normalization_resolution,
+    )
 
+
+async def _resolve_twr_retrieval_stage(
+    *,
+    request: TWRAnalyticsRequest,
+    settings: Settings,
+    stateful_input_service: StatefulInputService,
+) -> _TWRRetrievalResolution:
+    execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_RETRIEVAL)
     try:
         retrieval_resolution = await _resolve_twr_retrieval_inputs(
             request=request,
@@ -112,7 +145,14 @@ async def resolve_twr_request(
     except HTTPException as exc:
         execution_registry.fail_stage(request.calculation_id, EXECUTION_STAGE_RETRIEVAL, str(exc.detail))
         raise
+    return retrieval_resolution
 
+
+def _resolve_twr_normalization_stage(
+    *,
+    request: TWRAnalyticsRequest,
+    retrieval_resolution: _TWRRetrievalResolution,
+) -> _TWRNormalizationResolution:
     execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_NORMALIZATION)
     try:
         normalization_resolution = _build_twr_normalization_resolution(
@@ -131,12 +171,7 @@ async def resolve_twr_request(
             str(exc),
         )
         raise
-
-    return _build_resolved_twr_request(
-        request=request,
-        retrieval_resolution=retrieval_resolution,
-        normalization_resolution=normalization_resolution,
-    )
+    return normalization_resolution
 
 
 def _twr_request_needs_retrieval(request: TWRAnalyticsRequest) -> bool:
