@@ -154,6 +154,56 @@ async def test_promoted_stateful_benchmark_workflow_replays_without_registering(
     register_sync.assert_not_called()
 
 
+def test_finalize_promoted_stateful_benchmark_execution_projects_resolved_payload(mocker):
+    request = BenchmarkAnalyticsRequest.model_validate(_stateful_benchmark_payload())
+    resolved_request = _resolved_benchmark_request()
+    accepted_response = benchmark_calculation_workflow_service.accepted_benchmark_response(request.calculation_id)
+    resolved_context = benchmark_calculation_workflow_service._ResolvedBenchmarkExecutionContext(
+        resolved_request=ResolvedBenchmarkRequest(
+            benchmark_request=resolved_request,
+            input_mode=BenchmarkInputMode.STATEFUL,
+            source_details={"component_observations": 3},
+            input_count=3,
+        ),
+        benchmark_request=resolved_request,
+        request_model_for_lineage=resolved_request,
+        input_fingerprint="resolved-fingerprint",
+        calculation_hash="resolved-hash",
+        should_persist_request=True,
+    )
+    mocker.patch(
+        "app.services.benchmark_calculation_workflow_service.should_offload_resolved_benchmark",
+        return_value=True,
+    )
+    finalize_resolved = mocker.patch(
+        "app.services.benchmark_calculation_workflow_service.finalize_resolved_stateful_execution",
+        return_value=accepted_response,
+    )
+
+    response = benchmark_calculation_workflow_service._finalize_promoted_stateful_benchmark_execution(
+        request=request,
+        source_request_fingerprint="source-fingerprint",
+        resolved_context=resolved_context,
+    )
+
+    assert response == accepted_response
+    assert finalize_resolved.call_args.kwargs["calculation_id"] == request.calculation_id
+    assert finalize_resolved.call_args.kwargs["analytics_type"] == ANALYTICS_WORKFLOW_BENCHMARK
+    assert finalize_resolved.call_args.kwargs["requested_window"]["source_request_fingerprint"] == "source-fingerprint"
+    assert finalize_resolved.call_args.kwargs["requested_window"]["input_count"] == 3
+    assert finalize_resolved.call_args.kwargs["input_fingerprint"] == "resolved-fingerprint"
+    assert finalize_resolved.call_args.kwargs["calculation_hash"] == "resolved-hash"
+    assert finalize_resolved.call_args.kwargs["resolved_request_payload"] == {
+        "resolved_request": resolved_request.model_dump(mode="json"),
+        "source_input_mode": BenchmarkInputMode.STATEFUL.value,
+    }
+    assert finalize_resolved.call_args.kwargs["should_offload"] is True
+    assert finalize_resolved.call_args.kwargs["offload_reason"] == "large_resolved_stateful_benchmark"
+    assert finalize_resolved.call_args.kwargs["accepted_response_factory"] is (
+        benchmark_calculation_workflow_service.accepted_benchmark_response
+    )
+
+
 @pytest.mark.asyncio
 async def test_benchmark_endpoint_returns_accepted_response_when_resolved_stateful_request_is_offloaded(mocker):
     request = BenchmarkAnalyticsRequest.model_validate(_stateful_benchmark_payload())
