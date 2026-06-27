@@ -14,6 +14,7 @@ from engine.mwr import (
     _dietz_denominator,
     _dietz_fallback_metadata,
     _dietz_method_for_calculation,
+    _dietz_return_components,
     _mwr_no_economic_content_result,
     _net_cash_flow_amounts_by_date,
     _net_same_day_flows,
@@ -368,6 +369,22 @@ def test_dietz_policy_helpers_preserve_method_and_fallback_metadata():
     assert fallback_metadata.warnings == ["FALLBACK_METHOD_USED"]
     assert fallback_metadata.fallback_from == "XIRR"
     assert fallback_metadata.fallback_reason == "MULTIPLE_IRR_ROOTS_DETECTED"
+
+
+def test_dietz_return_components_project_capital_base_and_periodic_rate():
+    components = _dietz_return_components(
+        begin_mv=1000.0,
+        end_mv=1125.0,
+        cash_flows=[CashFlow(amount=100.0, date=date(2026, 4, 1))],
+        calculation_method="XIRR",
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 7, 1),
+    )
+
+    assert components.method == "MODIFIED_DIETZ"
+    assert components.numerator == pytest.approx(25.0)
+    assert components.denominator == pytest.approx(1000.0 + (100.0 * 91 / 181))
+    assert components.periodic_rate == pytest.approx(components.numerator / components.denominator)
 
 
 def test_simple_dietz_denominator_uses_average_cash_flows():
