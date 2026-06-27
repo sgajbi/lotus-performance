@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-27
-Branch: `lp-cr-1452-recovery-drill-run-service`
+Branch: `feature/enterprise-backend-refactor-baseline`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
@@ -32,7 +32,7 @@ must stay at `0`.
 | --- | ---: |
 | Max cyclomatic complexity | 5 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.17 |
+| Average maintainability index | 55.16 |
 
 ## Highest Cyclomatic Complexity
 
@@ -1158,6 +1158,9 @@ completion. The measured max cyclomatic complexity remains `5`, high-complexity 
 LP-CR-1452 isolated recovery-drill run orchestration from the API route while sharing operator-run
 evidence response projection with runtime retention. The measured max cyclomatic complexity remains
 `5`, high-complexity functions remain `0`, and average maintainability index measured `55.17`.
+LP-CR-1454 isolated completed benchmark response assembly and benchmark lineage completion from the
+public benchmark calculation orchestrator. The measured max cyclomatic complexity remains `5`,
+high-complexity functions remain `0`, and average maintainability index measured `55.16`.
 
 Maintainability index values should be treated as directional hotspot evidence because generated
 schemas, persistence-style modules, and dense orchestration files can score poorly even when tests

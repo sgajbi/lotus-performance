@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Quality Scorecard
 
 Report date: 2026-06-27
-Branch: `lp-cr-1452-recovery-drill-run-service`
+Branch: `feature/enterprise-backend-refactor-baseline`
 Baseline source: `quality/baseline_report.md`
 Current source: `quality/refactor_health_report.md`
 Mode: phase-zero scorecard; static-quality enforcement includes complexity, architecture,
@@ -35,8 +35,8 @@ metrics in each section are updated with each meaningful slice.
 | --- | ---: | ---: | ---: | --- | --- |
 | Max cyclomatic complexity | unknown | 5 | n/a | enforced | `quality/complexity_inventory.md`; `quality/refactor_health_report.md`; `make quality-complexity-gate` |
 | High-complexity functions (D-F) | unknown | 0 | n/a | enforced | `quality/complexity_inventory.md`; `quality/refactor_health_report.md`; `make quality-complexity-gate` |
-| Average maintainability index | unknown | 55.17 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
-| Largest functions by LOC | unknown | 72 | n/a | measured | `quality/function_size_inventory.md`; `quality/refactor_health_report.md`; LP-CR-1452 moved `run_recovery_drill(...)` out of the top-25 table, so the largest production functions are now four functions tied at `72` lines |
+| Average maintainability index | unknown | 55.16 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
+| Largest functions by LOC | unknown | 72 | n/a | measured | `quality/function_size_inventory.md`; `quality/refactor_health_report.md`; LP-CR-1454 moved `calculate_benchmark_response(...)` out of the top-25 table, so the largest production functions are now three functions tied at `72` lines |
 
 ### Architecture
 

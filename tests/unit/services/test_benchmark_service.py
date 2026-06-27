@@ -11,6 +11,7 @@ from app.models.benchmark_analytics_requests import BenchmarkInputMode
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.services import benchmark_service
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_BENCHMARK
+from app.services.benchmark_calculation_service import BenchmarkCalculationArtifacts
 
 
 @dataclass
@@ -96,6 +97,47 @@ def _results_by_period() -> dict[str, object]:
             ],
         }
     }
+
+
+def test_build_completed_benchmark_response_preserves_metadata_diagnostics_and_audit():
+    request = _benchmark_request()
+    artifacts = BenchmarkCalculationArtifacts(
+        results_by_period=_results_by_period(),
+        effective_period_start=date(2025, 1, 1),
+        notes=["all good"],
+        daily_returns_df=pd.DataFrame([{"date": "2025-01-01"}, {"date": "2025-01-02"}]),
+        component_contributions_df=pd.DataFrame([{"component_id": "IDX_1"}]),
+        max_weight_sum_deviation=0.0025,
+    )
+
+    response = benchmark_service._build_completed_benchmark_response(
+        benchmark_request=request,
+        benchmark_artifacts=artifacts,
+        input_fingerprint="fingerprint",
+        calculation_hash="hash",
+        input_mode=BenchmarkInputMode.STATELESS,
+        engine_version="runtime-version",
+    )
+
+    assert response.calculation_id == request.calculation_id
+    assert response.return_source == request.return_source
+    assert response.results_by_period["ITD"].benchmark.benchmark_id == "BMK_1"
+    assert response.results_by_period["ITD"].benchmark.benchmark_currency == "USD"
+    assert response.meta.periods == {
+        "requested": ["ITD"],
+        "master_start": "2025-01-01",
+        "master_end": "2025-01-02",
+    }
+    assert response.meta.input_fingerprint == "fingerprint"
+    assert response.meta.calculation_hash == "hash"
+    assert response.diagnostics.effective_period_start == date(2025, 1, 1)
+    assert response.diagnostics.notes == ["all good"]
+    assert response.audit.counts == {
+        "component_observations": 1,
+        "benchmark_return_points": 0,
+        "daily_returns": 2,
+    }
+    assert response.audit.residual_applied_bp == pytest.approx(25.0)
 
 
 def test_calculate_benchmark_response_builds_response_and_records_lineage(mocker):
