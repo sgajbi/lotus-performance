@@ -2,30 +2,42 @@ import json
 import logging
 
 from fastapi import APIRouter, FastAPI, Request
+from fastapi.testclient import TestClient
 from prometheus_client import REGISTRY, generate_latest
 from starlette.routing import Match
 
+import app.observability as observability
 from app.observability import (
     JsonFormatter,
     _bounded_metric_label,
     _bounded_mwr_solver_outcome_labels,
     _bounded_mwr_solver_reason_codes,
+    _included_router_route_name,
     _instrumentator_route_name,
     _json_log_payload,
     _log_context_fields,
     _matched_route_name,
+    _matching_effective_candidate_path,
+    _patch_instrumentator_route_name_resolution,
     _propagation_correlation_id,
     _propagation_request_id,
     _propagation_trace_id,
+    _register_queue_collector_once,
+    _route_matches,
     _trace_id_from_traceparent,
     build_access_log_fields,
     correlation_id_var,
     propagation_headers,
+    record_analytics_freshness_bucket,
+    record_calculation_supportability,
     record_mwr_solver_outcome,
     request_id_var,
     resolve_correlation_id,
     resolve_request_id,
     resolve_trace_id,
+    setup_logging,
+    setup_observability,
+    source_product_correlation_id,
     trace_id_var,
 )
 
@@ -109,6 +121,30 @@ def test_propagation_id_helpers_apply_override_context_and_generated_fallbacks()
     assert len(_propagation_trace_id()) == 32
 
 
+def test_source_product_correlation_id_uses_current_context_value():
+    correlation_id_var.set(" corr-source ")
+
+    assert source_product_correlation_id() == "corr-source"
+
+
+def test_setup_logging_replaces_existing_handlers_with_json_formatter():
+    root_logger = logging.getLogger()
+    root_logger.addHandler(logging.NullHandler())
+
+    setup_logging("warning")
+
+    assert root_logger.level == logging.WARNING
+    assert len(root_logger.handlers) == 1
+    assert isinstance(root_logger.handlers[0].formatter, JsonFormatter)
+
+    root_logger.handlers.clear()
+    setup_logging("info")
+
+    assert root_logger.level == logging.INFO
+    assert len(root_logger.handlers) == 1
+    assert isinstance(root_logger.handlers[0].formatter, JsonFormatter)
+
+
 def test_json_formatter_includes_standard_and_extra_fields(monkeypatch):
     monkeypatch.setenv("SERVICE_NAME", "lotus-performance-test")
     monkeypatch.setenv("ENVIRONMENT", "test")
@@ -187,6 +223,56 @@ def test_build_access_log_fields_contains_platform_duration_and_legacy_latency()
     assert fields["latency_ms"] == 10.5
 
 
+def test_setup_observability_adds_request_headers_and_resets_context(monkeypatch):
+    class InstrumentatorStub:
+        def instrument(self, app):
+            return self
+
+        def expose(self, app):
+            return self
+
+    monkeypatch.setattr(observability, "Instrumentator", InstrumentatorStub)
+    monkeypatch.setattr(observability, "_register_queue_collector_once", lambda: None)
+
+    app = FastAPI()
+    setup_observability(app)
+
+    @app.get("/health")
+    async def health() -> dict[str, str]:
+        return {
+            "correlation_id": correlation_id_var.get(),
+            "request_id": request_id_var.get(),
+            "trace_id": trace_id_var.get(),
+        }
+
+    correlation_id_var.set("outer-correlation")
+    request_id_var.set("outer-request")
+    trace_id_var.set("outer-trace")
+
+    response = TestClient(app).get(
+        "/health",
+        headers={
+            "X-Correlation-Id": "corr-inbound",
+            "X-Request-Id": "req-inbound",
+            "traceparent": "00-0123456789abcdef0123456789abcdef-0000000000000001-01",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "correlation_id": "corr-inbound",
+        "request_id": "req-inbound",
+        "trace_id": "0123456789abcdef0123456789abcdef",
+    }
+    assert response.headers["X-Correlation-Id"] == "corr-inbound"
+    assert response.headers["X-Request-Id"] == "req-inbound"
+    assert response.headers["X-Trace-Id"] == "0123456789abcdef0123456789abcdef"
+    assert response.headers["traceparent"] == "00-0123456789abcdef0123456789abcdef-0000000000000001-01"
+    assert correlation_id_var.get() == "outer-correlation"
+    assert request_id_var.get() == "outer-request"
+    assert trace_id_var.get() == "outer-trace"
+
+
 def test_instrumentator_route_name_resolves_fastapi_included_router_context():
     router = APIRouter()
 
@@ -215,6 +301,38 @@ def test_instrumentator_route_name_resolves_fastapi_included_router_context():
     assert _instrumentator_route_name(request) == "/api/items/{item_id}"
 
 
+def test_instrumentator_route_name_falls_back_when_original_resolver_rejects_request(monkeypatch):
+    def broken_resolver(request):
+        raise AttributeError("included router candidate does not expose path")
+
+    router = APIRouter()
+
+    @router.get("/items/{item_id}")
+    async def read_item(item_id: str) -> dict[str, str]:
+        return {"item_id": item_id}
+
+    app = FastAPI()
+    app.include_router(router, prefix="/api")
+    request = Request(
+        {
+            "type": "http",
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/api/items/123",
+            "root_path": "",
+            "query_string": b"",
+            "headers": [],
+            "client": ("testclient", 50000),
+            "server": ("testserver", 80),
+            "app": app,
+        }
+    )
+    monkeypatch.setattr(observability, "_ORIGINAL_INSTRUMENTATOR_ROUTE_NAME_RESOLVER", broken_resolver)
+
+    assert _instrumentator_route_name(request) == "/api/items/{item_id}"
+
+
 def test_matched_route_name_returns_route_path_only_for_full_matches():
     class RouteStub:
         path = "/api/items/{item_id}"
@@ -227,6 +345,110 @@ def test_matched_route_name_returns_route_path_only_for_full_matches():
 
     assert _matched_route_name(RouteStub(Match.FULL), {"path": "/api/items/123"}) == "/api/items/{item_id}"
     assert _matched_route_name(RouteStub(Match.PARTIAL), {"path": "/api/items/123"}) is None
+
+
+def test_included_router_route_name_returns_none_when_no_routes_match():
+    app = FastAPI()
+    request = Request(
+        {
+            "type": "http",
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/missing",
+            "root_path": "",
+            "query_string": b"",
+            "headers": [],
+            "client": ("testclient", 50000),
+            "server": ("testserver", 80),
+            "app": app,
+        }
+    )
+
+    assert _included_router_route_name(request) is None
+
+
+def test_matched_route_name_uses_matching_effective_candidate_path():
+    class CandidateStub:
+        path = "/api/items/{item_id}"
+
+        def __init__(self, match_result):
+            self.match_result = match_result
+
+        def matches(self, scope):
+            return self.match_result, scope
+
+    class RouteStub:
+        path = None
+        path_format = None
+
+        def matches(self, scope):
+            return Match.FULL, scope
+
+        def effective_candidates(self):
+            return [CandidateStub(Match.PARTIAL), CandidateStub(Match.FULL)]
+
+    assert _matched_route_name(RouteStub(), {"path": "/api/items/123"}) == "/api/items/{item_id}"
+
+
+def test_matching_effective_candidate_path_returns_none_without_callable_candidates():
+    class RouteStub:
+        effective_candidates = ["not-callable"]
+
+    assert _matching_effective_candidate_path(RouteStub(), {"path": "/api/items/123"}) is None
+
+
+def test_matching_effective_candidate_path_returns_none_without_full_candidate_match():
+    class CandidateStub:
+        path = "/api/items/{item_id}"
+
+        def matches(self, scope):
+            return Match.PARTIAL, scope
+
+    class RouteStub:
+        def effective_candidates(self):
+            return [CandidateStub()]
+
+    assert _matching_effective_candidate_path(RouteStub(), {"path": "/api/items/123"}) is None
+
+
+def test_route_matches_returns_none_for_non_route_objects():
+    assert _route_matches(object(), {"path": "/api/items/123"}) == Match.NONE
+
+
+def test_patch_instrumentator_route_name_resolution_installs_safe_resolver():
+    _patch_instrumentator_route_name_resolution()
+
+    assert observability.instrumentator_routing.get_route_name is _instrumentator_route_name
+
+
+def test_register_queue_collector_once_skips_existing_collector(monkeypatch):
+    class RegistryStub:
+        _collector_to_names = {observability.DurableQueueCollector(): []}
+
+        def register(self, collector):
+            raise AssertionError("collector should already be registered")
+
+    monkeypatch.setattr(observability, "REGISTRY", RegistryStub())
+
+    _register_queue_collector_once()
+
+
+def test_register_queue_collector_once_registers_when_missing(monkeypatch):
+    registered = []
+
+    class RegistryStub:
+        _collector_to_names = {}
+
+        def register(self, collector):
+            registered.append(collector)
+
+    monkeypatch.setattr(observability, "REGISTRY", RegistryStub())
+
+    _register_queue_collector_once()
+
+    assert len(registered) == 1
+    assert isinstance(registered[0], observability.DurableQueueCollector)
 
 
 def test_bounded_mwr_solver_reason_codes_defaults_and_filters_unsafe_values():
@@ -257,6 +479,31 @@ def test_bounded_mwr_solver_outcome_labels_filter_unsafe_values():
         "reason_code": "OTHER",
         "fallback_used": "true",
     }
+
+
+def test_record_calculation_supportability_and_freshness_metrics_use_bounded_label_families():
+    record_calculation_supportability(
+        operation="twr_calculation",
+        supportability_state="supported",
+        reason="fresh",
+        freshness_bucket="fresh",
+    )
+    record_analytics_freshness_bucket(
+        operation="returns_series",
+        supportability_state="degraded",
+        freshness_bucket="stale",
+    )
+
+    metrics_text = generate_latest(REGISTRY).decode("utf-8")
+
+    assert (
+        'lotus_performance_calculation_supportability_total{freshness_bucket="fresh",operation="twr_calculation",'
+        'reason="fresh",supportability_state="supported"}' in metrics_text
+    )
+    assert (
+        'lotus_analytics_freshness_bucket_total{freshness_bucket="stale",operation="returns_series",'
+        'service="lotus-performance",supportability_state="degraded"}' in metrics_text
+    )
 
 
 def test_record_mwr_solver_outcome_uses_bounded_support_safe_labels():

@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-06-28
-Branch: `feature/lineage-branch-coverage-hardening`
+Branch: `feature/observability-branch-coverage-hardening`
 Mode: report-only test taxonomy inventory; no blocking CI gate is introduced by this artifact.
 
 ## Purpose
@@ -21,7 +21,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 275 |
-| Test functions inventoried | 3075 |
+| Test functions inventoried | 3088 |
 | Integration/API/runtime test functions | 600 |
 | Contract/governance test functions | 108 |
 
@@ -32,7 +32,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | benchmarks | 9 | 17 |
 | e2e | 1 | 21 |
 | integration | 24 | 300 |
-| unit | 241 | 2737 |
+| unit | 241 | 2750 |
 
 ## Test Functions By Family
 
@@ -43,7 +43,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | contract_or_governance | 108 |
 | observability_or_readiness | 186 |
 | quality_or_security | 110 |
-| uncategorized | 1242 |
+| uncategorized | 1255 |
 
 ## Largest Test Modules
 
@@ -73,12 +73,12 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | 22 | `tests/unit/models/test_workspace_summary_models.py` | unit | 31 | uncategorized |
 | 23 | `tests/unit/services/test_stateful_input_service.py` | unit | 31 | uncategorized |
 | 24 | `tests/unit/services/test_twr_inspection_reconciliation.py` | unit | 31 | analytics_domain |
-| 25 | `tests/unit/engine/test_composites.py` | unit | 29 | analytics_domain |
-| 26 | `tests/unit/services/test_operator_action_replay_service.py` | unit | 29 | uncategorized |
-| 27 | `tests/unit/services/test_twr_inspection_service.py` | unit | 29 | analytics_domain |
-| 28 | `tests/integration/test_returns_series_api.py` | integration | 26 | api_or_runtime |
-| 29 | `tests/unit/services/test_queue_metric_builders.py` | unit | 26 | observability_or_readiness |
-| 30 | `tests/unit/app/test_performance_endpoint_helpers.py` | unit | 25 | api_or_runtime |
+| 25 | `tests/unit/test_observability.py` | unit | 31 | uncategorized |
+| 26 | `tests/unit/engine/test_composites.py` | unit | 29 | analytics_domain |
+| 27 | `tests/unit/services/test_operator_action_replay_service.py` | unit | 29 | uncategorized |
+| 28 | `tests/unit/services/test_twr_inspection_service.py` | unit | 29 | analytics_domain |
+| 29 | `tests/integration/test_returns_series_api.py` | integration | 26 | api_or_runtime |
+| 30 | `tests/unit/services/test_queue_metric_builders.py` | unit | 26 | observability_or_readiness |
 
 ## Interpretation
 
@@ -86,7 +86,7 @@ The AST inventory counts test function definitions, while `pytest --collect-only
 pytest items including parametrized cases. The two values are intentionally different and
 complementary: collected tests show execution breadth, while this report shows source test-module
 and test-function distribution. The current suite has meaningful API/runtime and
-contract/governance coverage, but 1242 test functions remain uncategorized by the first-wave
+contract/governance coverage, but 1255 test functions remain uncategorized by the first-wave
 taxonomy and should be reviewed before turning taxonomy into a blocking gate.
 
 ## Gate Posture

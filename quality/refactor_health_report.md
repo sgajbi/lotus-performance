@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Health Report
 
 Report date: 2026-06-28
-Branch: `feature/lineage-branch-coverage-hardening`
+Branch: `feature/observability-branch-coverage-hardening`
 Baseline source: `quality/baseline_report.md`
 Report mode: phase-zero scorecard; complexity, architecture, duplicate-code, repository hygiene,
 router-thinness, observability-readiness, and Python security posture are enforced separately by CI.
@@ -72,9 +72,9 @@ link the commit, command, or CI artifact that proves the change.
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
 | Test modules | 228 | 275 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 3,275 | measured | `python -m pytest --collect-only -q` |
-| Line coverage | unknown | 99.23% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`2,929` unit, `308` integration, and `21` e2e tests under branch coverage; `21,081` covered lines of `21,244` statements) |
-| Branch coverage | unknown | 95.96% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`2,929` unit, `308` integration, and `21` e2e tests under branch coverage; `4,230` covered branches of `4,408`, `178` missing branches, `164` partial branches) |
+| Collected tests | 2,035 | 3,288 | measured | `python -m pytest --collect-only -q` |
+| Line coverage | unknown | 99.31% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`2,942` unit, `308` integration, and `21` e2e tests under branch coverage; `21,097` covered lines of `21,244` statements) |
+| Branch coverage | unknown | 96.26% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`2,942` unit, `308` integration, and `21` e2e tests under branch coverage; `4,243` covered branches of `4,408`, `165` missing branches, `161` partial branches) |
 | Integration/API/runtime test functions | unknown | 600 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |
 | Contract/governance test functions | unknown | 108 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |
 
@@ -99,7 +99,7 @@ link the commit, command, or CI artifact that proves the change.
 | Metrics markers | unknown | 6 | measured | `metrics` family in `quality/observability_readiness_inventory.md` |
 | Health/readiness markers | unknown | 6 | measured | `health_readiness` family in `quality/observability_readiness_inventory.md` |
 | Health/metrics endpoint markers | unknown | 4 | measured | `health_metrics_endpoints` family in `quality/observability_readiness_inventory.md` |
-| Mapped observability/readiness test functions | unknown | 358 | measured | family-mapped test-function count in `quality/observability_readiness_inventory.md`; counts can overlap across families |
+| Mapped observability/readiness test functions | unknown | 366 | measured | family-mapped test-function count in `quality/observability_readiness_inventory.md`; counts can overlap across families |
 | Demo API certification command | unknown | 1 | measured | `make demo-api-certification` runs `scripts/demo_api_certification.py` and writes reviewed JSON evidence under `output/demo-api-certification/latest.json` |
 
 ## Documentation
@@ -155,6 +155,21 @@ Latest branch-coverage hardening evidence on `feature/lineage-branch-coverage-ha
    recovery seek-cursor filtering, pending inspection projection, legacy schema no-op migration,
    PostgreSQL returned-row validation, and runtime-store cache resolution.
 4. Branch coverage remains report-only; no fail-under threshold or GitHub blocking lane is added in
+   this slice.
+
+Latest observability branch-coverage hardening evidence on `feature/observability-branch-coverage-hardening`:
+
+1. `python -m pytest tests\unit\test_observability.py --cov=app.observability --cov-branch --cov-report=term-missing --cov-report=json:output\observability-branch-coverage.json` passed with `31` focused tests and `100%` focused branch coverage for `app/observability.py`.
+2. `make branch-coverage-baseline` passed with `2,942` unit tests, `308` integration tests, and
+   `21` e2e tests under `pytest --cov-branch`.
+3. The generated `quality/coverage_inventory.md` records combined line coverage at `99.31%`,
+   branch coverage at `96.26%`, `4,408` total branches, `165` missing branches, and `161` partial
+   branches.
+4. `app/observability.py` dropped out of the top branch-gap table after focused tests covered
+   logging setup, source-product correlation fallback, request middleware propagation and reset,
+   supportability/freshness counters, durable queue collector idempotency, instrumentator route
+   resolver patching, included-router fallback, effective-candidate matching, and non-route objects.
+5. Branch coverage remains report-only; no fail-under threshold or GitHub blocking lane is added in
    this slice.
 
 ## Next Updates
