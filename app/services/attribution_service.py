@@ -223,6 +223,64 @@ def _attribution_benchmark_context(
     }
 
 
+def _build_completed_attribution_response(
+    *,
+    request: AttributionRequest,
+    input_mode: AttributionInputMode,
+    results_by_period: dict[str, Any],
+    execution_window: _AttributionExecutionWindow,
+    app_version: str,
+    input_fingerprint: str,
+    calculation_hash: str,
+    resolved_benchmark_id: str | None,
+    resolved_benchmark_return_source: str | None,
+) -> AttributionResponse:
+    meta = _build_attribution_meta(
+        request=request,
+        app_version=app_version,
+        periods_to_resolve=execution_window.periods_to_resolve,
+        master_start_date=execution_window.master_start_date,
+        master_end_date=execution_window.master_end_date,
+        input_fingerprint=input_fingerprint,
+        calculation_hash=calculation_hash,
+    )
+    calculation_supportability = _build_attribution_supportability(
+        request,
+        resolved_period_count=len(results_by_period),
+    )
+
+    return AttributionResponse(
+        calculation_id=request.calculation_id,
+        portfolio_id=request.portfolio_id,
+        input_mode=input_mode,
+        model=request.model,
+        linking=request.linking,
+        results_by_period=results_by_period,
+        benchmark_context=_attribution_benchmark_context(
+            resolved_benchmark_id=resolved_benchmark_id,
+            resolved_benchmark_return_source=resolved_benchmark_return_source,
+        ),
+        calculation_supportability=calculation_supportability,
+        meta=meta,
+    )
+
+
+def _complete_attribution_execution(
+    *,
+    request: AttributionRequest,
+    response_model: AttributionResponse,
+    lineage_data: dict[str, Any],
+) -> None:
+    complete_execution_with_lineage(
+        calculation_id=request.calculation_id,
+        calculation_type="Attribution",
+        request_model=request,
+        response_model=response_model,
+        execution_details={"period_count": len(response_model.results_by_period)},
+        calculation_details=lineage_data,
+    )
+
+
 def _resolve_attribution_execution_window(request: AttributionRequest) -> _AttributionExecutionWindow:
     periods_to_resolve = [analysis.period for analysis in request.analyses]
     resolved_periods = resolve_periods(
@@ -338,42 +396,22 @@ def calculate_attribution(
             lineage_data=lineage_data,
         )
 
-        meta = _build_attribution_meta(
+        response_model = _build_completed_attribution_response(
             request=request,
+            input_mode=input_mode,
+            results_by_period=results_by_period,
+            execution_window=execution_window,
             app_version=active_settings.APP_VERSION,
-            periods_to_resolve=execution_window.periods_to_resolve,
-            master_start_date=execution_window.master_start_date,
-            master_end_date=execution_window.master_end_date,
             input_fingerprint=input_fingerprint,
             calculation_hash=calculation_hash,
-        )
-        calculation_supportability = _build_attribution_supportability(
-            request,
-            resolved_period_count=len(results_by_period),
+            resolved_benchmark_id=resolved_benchmark_id,
+            resolved_benchmark_return_source=resolved_benchmark_return_source,
         )
 
-        response_model = AttributionResponse(
-            calculation_id=request.calculation_id,
-            portfolio_id=request.portfolio_id,
-            input_mode=input_mode,
-            model=request.model,
-            linking=request.linking,
-            results_by_period=results_by_period,
-            benchmark_context=_attribution_benchmark_context(
-                resolved_benchmark_id=resolved_benchmark_id,
-                resolved_benchmark_return_source=resolved_benchmark_return_source,
-            ),
-            calculation_supportability=calculation_supportability,
-            meta=meta,
-        )
-
-        complete_execution_with_lineage(
-            calculation_id=request.calculation_id,
-            calculation_type="Attribution",
-            request_model=request,
+        _complete_attribution_execution(
+            request=request,
             response_model=response_model,
-            execution_details={"period_count": len(results_by_period)},
-            calculation_details=lineage_data,
+            lineage_data=lineage_data,
         )
         return response_model
     except Exception as exc:

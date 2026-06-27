@@ -348,3 +348,100 @@ def test_attribution_response_support_helpers_preserve_meta_supportability_and_b
         )
         is None
     )
+
+
+def test_completed_attribution_response_and_lineage_completion_preserve_execution_payload(monkeypatch):
+    request = AttributionRequest.model_validate(
+        {
+            "portfolio_id": "ATTRIB_001",
+            "report_start_date": "2025-01-01",
+            "report_end_date": "2025-01-31",
+            "analyses": [{"period": "EXPLICIT", "frequencies": ["monthly"]}],
+            "mode": "by_group",
+            "group_by": ["assetClass"],
+            "portfolio_groups_data": [
+                {
+                    "key": {"assetClass": "Equity"},
+                    "observations": [{"date": "2025-01-31", "weight_bop": 1.0, "return_base": 0.01}],
+                }
+            ],
+            "benchmark_groups_data": [
+                {
+                    "key": {"assetClass": "Equity"},
+                    "observations": [{"date": "2025-01-31", "return_base": 0.02, "weight_bop": 1.0}],
+                }
+            ],
+        }
+    )
+    execution_window = SimpleNamespace(
+        periods_to_resolve=[PeriodType.EXPLICIT],
+        master_start_date=pd.Timestamp("2025-01-01").date(),
+        master_end_date=pd.Timestamp("2025-01-31").date(),
+    )
+    results_by_period = {
+        "EXPLICIT": {
+            "supportability_evidence": {
+                "portfolio_only_group_count": 0,
+                "benchmark_only_group_count": 0,
+                "unclassified_group_count": 0,
+                "missing_benchmark_return_count": 0,
+                "negative_weight_count": 0,
+                "zero_portfolio_exposure_count": 0,
+                "currency_attribution_status": "not_requested",
+                "linking_status": "not_requested",
+            },
+            "levels": [],
+            "reconciliation": {
+                "total_active_return": 0.0,
+                "sum_of_effects": 0.0,
+                "residual": 0.0,
+                "residual_materiality": {
+                    "classification": "immaterial",
+                    "treatment": "no_action",
+                    "absolute_residual": 0.0,
+                    "warning_threshold": 0.001,
+                    "material_threshold": 0.01,
+                },
+            },
+        }
+    }
+    completed_payload: dict[str, object] = {}
+    monkeypatch.setattr(
+        attribution_service,
+        "complete_execution_with_lineage",
+        lambda **kwargs: completed_payload.update(kwargs),
+    )
+
+    response = attribution_service._build_completed_attribution_response(
+        request=request,
+        input_mode=attribution_service.AttributionInputMode.STATEFUL,
+        results_by_period=results_by_period,
+        execution_window=execution_window,
+        app_version="9.9.9-test",
+        input_fingerprint="fingerprint-1",
+        calculation_hash="hash-1",
+        resolved_benchmark_id="BMK_1",
+        resolved_benchmark_return_source="stateful_benchmark",
+    )
+    lineage_data = {"engine": "complete"}
+    attribution_service._complete_attribution_execution(
+        request=request,
+        response_model=response,
+        lineage_data=lineage_data,
+    )
+
+    assert response.portfolio_id == "ATTRIB_001"
+    assert response.input_mode == attribution_service.AttributionInputMode.STATEFUL
+    assert response.benchmark_context is not None
+    assert response.benchmark_context.benchmark_id == "BMK_1"
+    assert response.benchmark_context.return_source == "stateful_benchmark"
+    assert response.meta.engine_version == "9.9.9-test"
+    assert response.meta.input_fingerprint == "fingerprint-1"
+    assert response.meta.calculation_hash == "hash-1"
+    assert response.calculation_supportability.input_row_count == 2
+    assert response.calculation_supportability.resolved_period_count == 1
+    assert completed_payload["calculation_id"] == request.calculation_id
+    assert completed_payload["calculation_type"] == "Attribution"
+    assert completed_payload["response_model"] is response
+    assert completed_payload["execution_details"] == {"period_count": 1}
+    assert completed_payload["calculation_details"] is lineage_data
