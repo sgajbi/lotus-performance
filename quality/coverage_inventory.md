@@ -1,7 +1,7 @@
 # Lotus Performance Coverage Inventory
 
-Report date: 2026-06-05
-Branch: `feat/performance-hardening-wave-12`
+Report date: 2026-06-28
+Branch: `feature/enterprise-backend-refactor-baseline`
 Mode: report-only local coverage evidence; the blocking coverage gate already exists in PR and main lanes.
 
 ## Purpose
@@ -14,17 +14,17 @@ exist.
 ## Command
 
 ```powershell
-make test-coverage
+make ci
 ```
 
 ## Coverage Gate Posture
 
 | Metric | Value | Evidence |
 | --- | ---: | --- |
-| Unit tests under coverage | 1,871 passed | `COVERAGE_FILE=.coverage.unit python -m pytest tests/unit --cov=app --cov=engine --cov=core --cov=adapters --cov-report=` |
-| Integration tests under coverage | 306 passed | `COVERAGE_FILE=.coverage.integration python -m pytest tests/integration --cov=app --cov=engine --cov=core --cov=adapters --cov-report=` |
+| Unit tests under coverage | 2,912 passed | `COVERAGE_FILE=.coverage.unit python -m pytest tests/unit --cov=app --cov=engine --cov=core --cov=adapters --cov-report=` |
+| Integration tests under coverage | 308 passed | `COVERAGE_FILE=.coverage.integration python -m pytest tests/integration --cov=app --cov=engine --cov=core --cov=adapters --cov-report=` |
 | E2E tests under coverage | 21 passed | `COVERAGE_FILE=.coverage.e2e python -m pytest tests/e2e --cov=app --cov=engine --cov=core --cov=adapters --cov-report=` |
-| Combined line coverage | 99% | `python -m coverage combine .coverage.unit .coverage.integration .coverage.e2e`; `python -m coverage report --fail-under=99` |
+| Combined line coverage | 99% | `python -m coverage combine .coverage.unit .coverage.integration .coverage.e2e`; `python -m coverage report --fail-under=99` (`TOTAL 21244 statements, 173 missed`) |
 | Combined line-coverage gate | passed | `coverage report --fail-under=99` completed successfully |
 | Branch coverage | not configured | No `[tool.coverage]` branch setting is present and CI invokes `pytest --cov` without branch coverage. |
 
