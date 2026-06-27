@@ -372,18 +372,14 @@ def _calculate_xirr_mwr_attempt(
     solver=None,
 ) -> _MWRXirrAttempt:
     xirr_start_date = start_date
-    dates = [xirr_start_date] + [cf.date for cf in cash_flows] + [end_date]
-    values = [-begin_mv] + [-cf.amount for cf in cash_flows] + [end_mv]
-
-    xirr_result = _xirr(
-        np.array(values),
-        np.array(dates),
+    xirr_result = _calculate_xirr_solver_result(
+        begin_mv=begin_mv,
+        end_mv=end_mv,
+        cash_flows=cash_flows,
         annualization=annualization,
-        rate_lower_bound=getattr(solver, "rate_lower_bound", -0.999999999),
-        rate_upper_bound=getattr(solver, "rate_upper_bound", 1000.0),
-        root_scan_steps=getattr(solver, "root_scan_steps", 512),
-        tolerance=getattr(solver, "tolerance", 1e-10),
-        max_iter=getattr(solver, "max_iter", 200),
+        start_date=xirr_start_date,
+        end_date=end_date,
+        solver=solver,
     )
     convergence = MWRConvergence(**xirr_result.get("convergence", {}))
     notes = [xirr_result["notes"]]
@@ -420,6 +416,31 @@ def _calculate_xirr_mwr_attempt(
 
     notes.append("XIRR failed, falling back to Modified Dietz.")
     return _MWRXirrAttempt(result=None, notes=notes, reason_code=reason_code)
+
+
+def _calculate_xirr_solver_result(
+    *,
+    begin_mv: Number,
+    end_mv: Number,
+    cash_flows: Sequence[CashFlowLike],
+    annualization: Annualization,
+    start_date: date,
+    end_date: date,
+    solver=None,
+):
+    dates = [start_date] + [cf.date for cf in cash_flows] + [end_date]
+    values = [-begin_mv] + [-cf.amount for cf in cash_flows] + [end_mv]
+
+    return _xirr(
+        np.array(values),
+        np.array(dates),
+        annualization=annualization,
+        rate_lower_bound=getattr(solver, "rate_lower_bound", -0.999999999),
+        rate_upper_bound=getattr(solver, "rate_upper_bound", 1000.0),
+        root_scan_steps=getattr(solver, "root_scan_steps", 512),
+        tolerance=getattr(solver, "tolerance", 1e-10),
+        max_iter=getattr(solver, "max_iter", 200),
+    )
 
 
 def _successful_xirr_mwr_result(*, rate, annualization, start_date, end_date, period_days, notes, convergence):
