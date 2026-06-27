@@ -382,6 +382,34 @@ def test_record_portfolio_chunk_payload_accumulates_identity_observations_and_pa
     assert accumulator.page_count == 2
 
 
+def test_build_portfolio_chunk_payload_projects_identity_observations_and_page_count():
+    service = StatefulInputService(core_service=_CoreServiceStub())
+    accumulator = _PortfolioChunkAccumulator(
+        observations=[
+            {"valuation_date": "2026-01-02", "ending_market_value": "stale"},
+            {"valuation_date": "2026-01-01", "ending_market_value": "101"},
+            {"valuation_date": "2026-01-02", "ending_market_value": "102"},
+        ],
+        portfolio_open_date="2025-12-31",
+        portfolio_currency="EUR",
+        reporting_currency="USD",
+        page_count=3,
+    )
+
+    payload = service._build_portfolio_chunk_payload(accumulator=accumulator)
+
+    assert payload == {
+        "portfolio_open_date": "2025-12-31",
+        "portfolio_currency": "EUR",
+        "reporting_currency": "USD",
+        "observations": [
+            {"valuation_date": "2026-01-01", "ending_market_value": "101"},
+            {"valuation_date": "2026-01-02", "ending_market_value": "102"},
+        ],
+        "retrieval_metadata": {"page_count": 3},
+    }
+
+
 def test_build_portfolio_timeseries_payload_normalizes_chunk_responses():
     service = StatefulInputService(core_service=_CoreServiceStub())
 
