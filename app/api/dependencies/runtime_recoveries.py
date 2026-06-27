@@ -1,65 +1,86 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal, TypeAlias
 
 from fastapi import Query
 
 from app.models.runtime_recoveries import RuntimeRecoveriesQueryParams
 
-
-def build_runtime_recoveries_query(
-    queue: Literal["both", "compute", "lineage"] = Query(
-        default="both",
-        description="Queue scope for runtime recovery inspection.",
-    ),
-    limit: int = Query(
-        default=10,
-        ge=1,
-        le=100,
-        description="Maximum number of recovery events to return per queue.",
-    ),
-    offset: int = Query(
-        default=0,
+_RuntimeRecoveriesQueueQuery: TypeAlias = Annotated[
+    Literal["both", "compute", "lineage"],
+    Query(description="Queue scope for runtime recovery inspection."),
+]
+_RuntimeRecoveriesLimitQuery: TypeAlias = Annotated[
+    int,
+    Query(ge=1, le=100, description="Maximum number of recovery events to return per queue."),
+]
+_RuntimeRecoveriesOffsetQuery: TypeAlias = Annotated[
+    int,
+    Query(
         ge=0,
         description="Zero-based page offset applied to each selected queue before limiting results.",
     ),
-    recovered_after: datetime | None = Query(
-        default=None,
-        description="Optional inclusive lower UTC timestamp bound applied to recovery-event timestamps.",
-    ),
-    recovered_before: datetime | None = Query(
-        default=None,
-        description="Optional inclusive upper UTC timestamp bound applied to recovery-event timestamps.",
-    ),
-    cursor_recovered_before: datetime | None = Query(
-        default=None,
+]
+_RuntimeRecoveriesRecoveredAfterQuery: TypeAlias = Annotated[
+    datetime | None,
+    Query(description="Optional inclusive lower UTC timestamp bound applied to recovery-event timestamps."),
+]
+_RuntimeRecoveriesRecoveredBeforeQuery: TypeAlias = Annotated[
+    datetime | None,
+    Query(description="Optional inclusive upper UTC timestamp bound applied to recovery-event timestamps."),
+]
+_RuntimeRecoveriesCursorRecoveredBeforeQuery: TypeAlias = Annotated[
+    datetime | None,
+    Query(
         description="Optional cursor recovery timestamp used for deterministic seek pagination of older matching events.",
     ),
-    cursor_calculation_id_before: str | None = Query(
-        default=None,
+]
+_RuntimeRecoveriesCursorCalculationIdQuery: TypeAlias = Annotated[
+    str | None,
+    Query(
         min_length=1,
         pattern=r".*\S.*",
         description="Optional cursor calculation handle paired with the cursor recovery timestamp for seek pagination.",
     ),
-    compute_analytics_type: str | None = Query(
-        default=None,
+]
+_RuntimeRecoveriesComputeAnalyticsTypeQuery: TypeAlias = Annotated[
+    str | None,
+    Query(
         min_length=1,
         pattern=r".*\S.*",
         description="Optional compute analytics-type filter, such as ReturnsSeries or Attribution.",
     ),
-    lineage_calculation_type: str | None = Query(
-        default=None,
+]
+_RuntimeRecoveriesLineageCalculationTypeQuery: TypeAlias = Annotated[
+    str | None,
+    Query(
         min_length=1,
         pattern=r".*\S.*",
         description="Optional lineage calculation-type filter, such as TWR or Attribution.",
     ),
-    calculation_id_contains: str | None = Query(
-        default=None,
+]
+_RuntimeRecoveriesCalculationIdContainsQuery: TypeAlias = Annotated[
+    str | None,
+    Query(
         min_length=1,
         pattern=r".*\S.*",
         description="Optional substring filter applied to calculation identifiers in the selected queues.",
     ),
+]
+
+
+def build_runtime_recoveries_query(
+    queue: _RuntimeRecoveriesQueueQuery = "both",
+    limit: _RuntimeRecoveriesLimitQuery = 10,
+    offset: _RuntimeRecoveriesOffsetQuery = 0,
+    recovered_after: _RuntimeRecoveriesRecoveredAfterQuery = None,
+    recovered_before: _RuntimeRecoveriesRecoveredBeforeQuery = None,
+    cursor_recovered_before: _RuntimeRecoveriesCursorRecoveredBeforeQuery = None,
+    cursor_calculation_id_before: _RuntimeRecoveriesCursorCalculationIdQuery = None,
+    compute_analytics_type: _RuntimeRecoveriesComputeAnalyticsTypeQuery = None,
+    lineage_calculation_type: _RuntimeRecoveriesLineageCalculationTypeQuery = None,
+    calculation_id_contains: _RuntimeRecoveriesCalculationIdContainsQuery = None,
 ) -> RuntimeRecoveriesQueryParams:
     return RuntimeRecoveriesQueryParams(
         queue=queue,

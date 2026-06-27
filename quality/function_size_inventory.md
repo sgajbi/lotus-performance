@@ -21,30 +21,30 @@ python scripts/python_function_size_inventory.py --limit 25
 | Rank | Function | File | Lines |
 | ---: | --- | --- | ---: |
 | 1 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:407` | 66 |
-| 2 | `build_runtime_recoveries_query` | `app/api/dependencies/runtime_recoveries.py:11` | 65 |
-| 3 | `_calculate_promoted_stateful_benchmark_workflow` | `app/services/benchmark_calculation_workflow_service.py:146` | 65 |
-| 4 | `run_source_quality_checks` | `app/services/inspection/source_quality.py:146` | 65 |
-| 5 | `calculate_mwr_response` | `app/services/mwr_calculation_service.py:215` | 65 |
-| 6 | `resolve_mwr_request` | `app/services/mwr_mode_service.py:26` | 65 |
-| 7 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:91` | 65 |
-| 8 | `StatefulInputService._fetch_position_chunk` | `app/services/stateful_input_service.py:1007` | 65 |
-| 9 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:38` | 64 |
-| 10 | `LineageMetadataStore._build_pending_payload_stats_statement` | `app/services/lineage_metadata_store.py:576` | 64 |
-| 11 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:475` | 63 |
-| 12 | `_SourceEconomicsSampleCollector._record_taxonomy_samples` | `app/services/inspection/source_economics_collector.py:111` | 63 |
-| 13 | `_load_durable_queue_metric_sources` | `app/services/queue_metrics_service.py:259` | 63 |
-| 14 | `resolve_stateful_returns_series_request` | `app/services/returns_series_service.py:1594` | 63 |
-| 15 | `build_stateful_attribution_input` | `app/services/stateful_attribution_input_service.py:354` | 63 |
-| 16 | `_align_and_prepare_data` | `engine/attribution.py:505` | 63 |
-| 17 | `resolve_contribution_request` | `app/services/contribution_mode_service.py:34` | 62 |
-| 18 | `_build_contribution_smoothing_evidence` | `app/services/contribution_smoothing.py:96` | 62 |
-| 19 | `_resolve_subject_inspection_inputs` | `app/services/inspection/twr_inspection_service.py:220` | 62 |
-| 20 | `build_stateful_mwr_input_for_window` | `app/services/stateful_mwr_input_service.py:112` | 62 |
-| 21 | `build_benchmark_exposure_context` | `app/services/benchmark_exposure_context_service.py:39` | 61 |
-| 22 | `_build_twr_inspection_response` | `app/services/inspection/twr_inspection_service.py:305` | 61 |
-| 23 | `_run_subject_assessments` | `app/services/inspection/twr_inspection_service.py:157` | 61 |
-| 24 | `LineageService.materialize_payload` | `app/services/lineage_service.py:72` | 61 |
-| 25 | `StatefulInputService._fetch_portfolio_chunk` | `app/services/stateful_input_service.py:892` | 61 |
+| 2 | `_calculate_promoted_stateful_benchmark_workflow` | `app/services/benchmark_calculation_workflow_service.py:146` | 65 |
+| 3 | `run_source_quality_checks` | `app/services/inspection/source_quality.py:146` | 65 |
+| 4 | `calculate_mwr_response` | `app/services/mwr_calculation_service.py:215` | 65 |
+| 5 | `resolve_mwr_request` | `app/services/mwr_mode_service.py:26` | 65 |
+| 6 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:91` | 65 |
+| 7 | `StatefulInputService._fetch_position_chunk` | `app/services/stateful_input_service.py:1007` | 65 |
+| 8 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:38` | 64 |
+| 9 | `LineageMetadataStore._build_pending_payload_stats_statement` | `app/services/lineage_metadata_store.py:576` | 64 |
+| 10 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:475` | 63 |
+| 11 | `_SourceEconomicsSampleCollector._record_taxonomy_samples` | `app/services/inspection/source_economics_collector.py:111` | 63 |
+| 12 | `_load_durable_queue_metric_sources` | `app/services/queue_metrics_service.py:259` | 63 |
+| 13 | `resolve_stateful_returns_series_request` | `app/services/returns_series_service.py:1594` | 63 |
+| 14 | `build_stateful_attribution_input` | `app/services/stateful_attribution_input_service.py:354` | 63 |
+| 15 | `_align_and_prepare_data` | `engine/attribution.py:505` | 63 |
+| 16 | `resolve_contribution_request` | `app/services/contribution_mode_service.py:34` | 62 |
+| 17 | `_build_contribution_smoothing_evidence` | `app/services/contribution_smoothing.py:96` | 62 |
+| 18 | `_resolve_subject_inspection_inputs` | `app/services/inspection/twr_inspection_service.py:220` | 62 |
+| 19 | `build_stateful_mwr_input_for_window` | `app/services/stateful_mwr_input_service.py:112` | 62 |
+| 20 | `build_benchmark_exposure_context` | `app/services/benchmark_exposure_context_service.py:39` | 61 |
+| 21 | `_build_twr_inspection_response` | `app/services/inspection/twr_inspection_service.py:305` | 61 |
+| 22 | `_run_subject_assessments` | `app/services/inspection/twr_inspection_service.py:157` | 61 |
+| 23 | `LineageService.materialize_payload` | `app/services/lineage_service.py:72` | 61 |
+| 24 | `StatefulInputService._fetch_portfolio_chunk` | `app/services/stateful_input_service.py:892` | 61 |
+| 25 | `_calculate_dietz_mwr_result` | `engine/mwr.py:436` | 61 |
 
 ## Interpretation
 
@@ -214,6 +214,10 @@ LP-CR-1471 isolated available runtime work-item snapshot assembly into
 `_available_runtime_work_item_snapshot(...)`. `build_runtime_work_item_snapshot(...)` dropped out
 of the top-25 table, duplicate hotspots remain `0`, and the largest production function remains
 `_build_flat_period_contribution_result(...)` at `66` lines.
+LP-CR-1472 isolated runtime-recoveries FastAPI query metadata into named `TypeAlias` boundaries.
+`build_runtime_recoveries_query(...)` dropped out of the top-25 table, duplicate hotspots remain
+`0`, and the largest production function remains `_build_flat_period_contribution_result(...)` at
+`66` lines.
 LP-CR-1411 isolated runtime-status degradation policy response projection into focused helpers.
 `build_runtime_status_response` moved from `113` to `91` lines, and the largest production
 functions moved to the contribution period result builders at `102` lines.
