@@ -32,7 +32,7 @@ must stay at `0`.
 | --- | ---: |
 | Max cyclomatic complexity | 5 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 54.96 |
+| Average maintainability index | 54.95 |
 
 ## Highest Cyclomatic Complexity
 
@@ -1230,6 +1230,10 @@ LP-CR-1477 isolated stateless MWR resolution, stateful source retrieval, statefu
 and resolved stateful request projection from the public MWR mode resolver. The measured max
 cyclomatic complexity remains `5`, high-complexity functions remain `0`, and average
 maintainability index measured `54.96`.
+LP-CR-1478 isolated runtime-retention manifest read, validation, invalid-manifest logging, and
+unavailable snapshot projection from the public runtime-retention history snapshot builder. The
+measured max cyclomatic complexity remains `5`, high-complexity functions remain `0`, and average
+maintainability index measured `54.95`.
 
 Maintainability index values should be treated as directional hotspot evidence because generated
 schemas, persistence-style modules, and dense orchestration files can score poorly even when tests

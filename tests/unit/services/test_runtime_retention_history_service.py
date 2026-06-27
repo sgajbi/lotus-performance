@@ -9,6 +9,7 @@ from app.services.runtime_retention_history_service import (
     RUNTIME_RETENTION_MANIFEST_INVALID_REASON,
     RUNTIME_RETENTION_MANIFEST_UNREADABLE_REASON,
     _available_runtime_retention_history_snapshot_from_manifest,
+    _resolve_runtime_retention_manifest,
     _runtime_retention_history_entries_from_manifest,
     _runtime_retention_manifest_entry_payload,
     _validate_manifest_entry,
@@ -77,6 +78,58 @@ def test_runtime_retention_history_reports_unavailable_when_manifest_unreadable(
 
     assert snapshot.status == "unavailable"
     assert snapshot.reason == RUNTIME_RETENTION_MANIFEST_UNREADABLE_REASON
+
+
+def test_resolve_runtime_retention_manifest_returns_validated_payload(tmp_path):
+    artifact_dir = tmp_path / "artifacts" / "runtime-retention-cleanup"
+    artifact_dir.mkdir(parents=True)
+    manifest = {
+        "latest_file_name": "2026-03-15t00-00-00z.json",
+        "retained_file_names": ["2026-03-15t00-00-00z.json"],
+        "retention_limit": 30,
+        "retention_max_age_days": 90,
+        "entries": [
+            {
+                "evidence_file_name": "2026-03-15t00-00-00z.json",
+                "generated_at_utc": "2026-03-15T00:00:00Z",
+                "operator_id": " ops-user ",
+                "cleanup_mode": " apply ",
+                "status": " applied ",
+                "retention_days": 45,
+                "prunable_execution_count": 1,
+                "prunable_compute_job_count": 2,
+                "prunable_async_result_count": 3,
+                "prunable_lineage_record_count": 4,
+                "prunable_lineage_artifact_count": 5,
+            }
+        ],
+    }
+    (artifact_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+    resolution = _resolve_runtime_retention_manifest(
+        directory=artifact_dir,
+        applied_filters={"operator_id": "ops-user"},
+    )
+
+    assert resolution.unavailable_snapshot is None
+    assert resolution.manifest_payload is not None
+    assert resolution.manifest_payload["entries"][0]["operator_id"] == "ops-user"
+    assert resolution.manifest_payload["entries"][0]["trigger_mode"] == "manual"
+    assert resolution.manifest_payload["entries"][0]["cleanup_mode"] == "apply"
+    assert resolution.manifest_payload["entries"][0]["status"] == "applied"
+
+
+def test_resolve_runtime_retention_manifest_preserves_unavailable_filter_context(tmp_path):
+    resolution = _resolve_runtime_retention_manifest(
+        directory=tmp_path / "missing",
+        applied_filters={"limit": 1, "operator_id": "ops-user"},
+    )
+
+    assert resolution.manifest_payload is None
+    assert resolution.unavailable_snapshot is not None
+    assert resolution.unavailable_snapshot.status == "unavailable"
+    assert resolution.unavailable_snapshot.reason == RUNTIME_RETENTION_ARTIFACT_DIRECTORY_MISSING_REASON
+    assert resolution.unavailable_snapshot.applied_filters == {"limit": 1, "operator_id": "ops-user"}
 
 
 def test_runtime_retention_history_applies_filters_and_paging(tmp_path):
