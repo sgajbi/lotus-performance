@@ -1207,6 +1207,9 @@ resolver. The measured max cyclomatic complexity remains `5`, high-complexity fu
 LP-CR-1470 isolated contribution average-weight shadow audit observation from the flat and
 hierarchy period builders. The measured max cyclomatic complexity remains `5`, high-complexity
 functions remain `0`, and average maintainability index measured `55.14`.
+LP-CR-1471 isolated available runtime work-item snapshot assembly from the durable metadata-ready
+path. The measured max cyclomatic complexity remains `5`, high-complexity functions remain `0`,
+and average maintainability index measured `55.14`.
 
 Maintainability index values should be treated as directional hotspot evidence because generated
 schemas, persistence-style modules, and dense orchestration files can score poorly even when tests
