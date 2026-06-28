@@ -947,6 +947,59 @@ def test_compute_job_store_builds_reclaimable_inspection_statements_with_context
     ]
 
 
+def test_compute_job_store_builds_standard_inspection_statements_with_context(tmp_path, monkeypatch):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
+    inspection_now = datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc)
+    context = build_inspection_query_context(
+        status_filter="active",
+        min_age_seconds=45.0,
+        now=inspection_now,
+    )
+    calls = []
+
+    def count_builder(**kwargs):
+        calls.append(("count", kwargs))
+        return "count-statement"
+
+    def items_builder(**kwargs):
+        calls.append(("items", kwargs))
+        return "items-statement"
+
+    monkeypatch.setattr(store, "_build_active_inspection_count_statement", count_builder)
+    monkeypatch.setattr(store, "_build_active_inspection_items_statement", items_builder)
+
+    statements = store._build_inspection_statements(
+        inspection_context=context,
+        limit=15,
+        offset=30,
+        analytics_type="Attribution",
+        calculation_id_contains="def",
+    )
+
+    assert statements.count_statement == "count-statement"
+    assert statements.items_statement == "items-statement"
+    assert calls == [
+        (
+            "count",
+            {
+                "analytics_type": "Attribution",
+                "calculation_id_contains": "def",
+                "min_age_threshold": inspection_now - timedelta(seconds=45),
+            },
+        ),
+        (
+            "items",
+            {
+                "limit": 15,
+                "offset": 30,
+                "analytics_type": "Attribution",
+                "calculation_id_contains": "def",
+                "min_age_threshold": inspection_now - timedelta(seconds=45),
+            },
+        ),
+    ]
+
+
 def test_compute_job_store_queue_stats_include_reclaimable_count(tmp_path):
     store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
     store.create_schema()
