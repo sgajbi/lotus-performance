@@ -5,6 +5,63 @@ from app.models.inspection_requests import TWRInspectionProfile
 from app.models.requests import Analysis, DailyInputData, PerformanceRequest
 from app.services.inspection import reconciliation
 from app.services.inspection.reconciliation import analyze_portfolio_position_reconciliation
+from app.services.inspection.reconciliation_result import (
+    PositionReconciliationEvidenceInputs,
+    build_position_reconciliation_result,
+)
+
+
+def test_build_position_reconciliation_result_projects_supportability_evidence():
+    duplicate_samples = [
+        {"valuation_date": "2026-01-01", "position_id": "SEC_1"},
+        {"valuation_date": "2026-01-01", "position_id": "SEC_1"},
+        {"valuation_date": "2026-01-02", "position_id": "SEC_2"},
+    ]
+    gap_samples = [{"valuation_date": f"2026-02-{day:02d}", "gap_amount": str(day)} for day in range(1, 31)]
+    continuity_samples = [{"valuation_date": f"2026-03-{day:02d}", "position_id": "SEC_1"} for day in range(1, 31)]
+
+    result = build_position_reconciliation_result(
+        PositionReconciliationEvidenceInputs(
+            portfolio_id="PB_SG_GLOBAL_BAL_001",
+            findings=[],
+            overlapping_dates=["2026-01-01", "2026-01-02"],
+            position_rows=[{"position_id": "SEC_1"}, {"position_id": "SEC_2"}, {"position_id": "SEC_3"}],
+            selected_position_rows=[{"position_id": "SEC_1"}, {"position_id": "SEC_2"}],
+            mixed_epoch_dates=["2026-01-01"],
+            duplicate_snapshot_samples=duplicate_samples,
+            invalid_epoch_samples=[
+                {"valuation_date": "2026-01-03", "position_id": "SEC_3"},
+                {"valuation_date": "2026-01-03", "position_id": "SEC_4"},
+            ],
+            invalid_position_value_samples=[
+                {"valuation_date": "2026-01-04", "position_id": "SEC_5"},
+            ],
+            gap_details=gap_samples,
+            max_abs_gap_amount=Decimal("123.4500"),
+            position_continuity_gap_samples=continuity_samples,
+        )
+    )
+
+    assert result.evidence_summary == {
+        "reconciliation_dates_checked": 2,
+        "position_row_count": 3,
+        "selected_position_row_count": 2,
+        "mixed_epoch_date_count": 1,
+        "duplicate_snapshot_date_count": 2,
+        "duplicate_snapshot_row_count": 3,
+        "invalid_position_epoch_date_count": 1,
+        "invalid_position_epoch_row_count": 2,
+        "invalid_position_value_date_count": 1,
+        "invalid_position_value_row_count": 1,
+        "reconciliation_gap_date_count": 30,
+        "reconciliation_max_gap_amount": "123.4500",
+        "position_continuity_gap_count": 30,
+    }
+    assert result.artifact_payload["portfolio_id"] == "PB_SG_GLOBAL_BAL_001"
+    assert result.artifact_payload["duplicate_snapshot_samples"] == duplicate_samples
+    assert result.artifact_payload["max_gap_amount"] == "123.4500"
+    assert len(result.artifact_payload["gap_samples"]) == 25
+    assert len(result.artifact_payload["position_continuity_gap_samples"]) == 25
 
 
 def test_append_reconciliation_finding_when_present_is_lazy_for_empty_evidence():

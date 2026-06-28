@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-28
-Branch: `feature/runtime-retention-evidence-projection`
+Branch: `feature/inspection-reconciliation-evidence-boundary`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
@@ -32,7 +32,7 @@ must stay at `0`.
 | --- | ---: |
 | Max cyclomatic complexity | 5 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 54.87 |
+| Average maintainability index | 55.05 |
 
 ## Highest Cyclomatic Complexity
 
@@ -81,7 +81,7 @@ must stay at `0`.
 | 11 | `engine/attribution.py` | 11.94 | B |
 | 12 | `app/services/operator_action_lease_service.py` | 13.14 | B |
 | 13 | `app/services/inspection/source_economics.py` | 14.06 | B |
-| 14 | `app/services/inspection/reconciliation.py` | 14.26 | B |
+| 14 | `app/services/inspection/reconciliation.py` | 15.12 | B |
 | 15 | `app/services/inspection/source_economics_collector.py` | 15.66 | B |
 | 16 | `app/services/inspection/source_quality.py` | 16.49 | B |
 | 17 | `app/services/twr_mode_service.py` | 17.31 | B |
@@ -108,6 +108,9 @@ component-status helper. `build_portfolio_source_quality_evidence` also dropped 
 unsupported cashflow taxonomy traversal was split into a dedicated count helper.
 `_collect_stateful_mwr_cash_flows` also dropped out after source-flow eligibility and evidence
 component projection were split into a dedicated helper.
+LP-CR-1531 isolated position-reconciliation evidence summary and artifact projection into
+`app/services/inspection/reconciliation_result.py`. The measured max cyclomatic complexity remains
+`5`, high-complexity functions remain `0`, and average maintainability index improved to `55.05`.
 `get_effective_period_start_dates` also dropped out after calendar-period, explicit-period,
 fixed-year, and constant-start policies were split into named helpers.
 `_calculate_local_daily_return` also dropped out after local numerator, denominator, safe-mask,
