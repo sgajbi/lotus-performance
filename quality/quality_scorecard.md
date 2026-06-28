@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Quality Scorecard
 
 Report date: 2026-06-28
-Branch: `feature/twr-period-consistency-boundary`
+Branch: `feature/runtime-retention-status-boundary`
 Baseline source: `quality/baseline_report.md`
 Current source: `quality/refactor_health_report.md`
 Mode: phase-zero scorecard; static-quality and evaluation enforcement includes complexity,
@@ -20,13 +20,13 @@ metrics in each section are updated with each meaningful slice.
 
 | Metric | Baseline | Current | Delta | Status | Evidence |
 | --- | ---: | ---: | ---: | --- | --- |
-| Python files | 480 | 581 | 101 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python files | 480 | 582 | 102 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Python package markers | 18 | 18 | 0 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Python LOC | 104,454 | 172,706 | 68,252 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python LOC | 104,454 | 172,878 | 68,424 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest Python file LOC | 2,399 | 2,503 | 104 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest production file LOC | 1,156 | 1,910 | 754 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
-| Python test modules | 228 | 279 | 51 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Collected tests | 2,035 | 3,406 | 1,371 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python test modules | 228 | 280 | 52 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Collected tests | 2,035 | 3,408 | 1,373 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Duplicate code hotspots | 0 | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `quality/refactor_health_report.md`; `make quality-duplicate-code-gate` |
 | Tracked local byproduct findings | unknown | 0 | n/a | enforced | `scripts/repository_hygiene_gate.py`; `make repository-hygiene-gate`; `quality/refactor_health_report.md` |
 
@@ -37,7 +37,7 @@ metrics in each section are updated with each meaningful slice.
 | Max cyclomatic complexity | unknown | 5 | n/a | enforced | `quality/complexity_inventory.md`; `quality/refactor_health_report.md`; `make quality-complexity-gate` |
 | High-complexity functions (D-F) | unknown | 0 | n/a | enforced | `quality/complexity_inventory.md`; `quality/refactor_health_report.md`; `make quality-complexity-gate` |
 | Average maintainability index | unknown | 55.23 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
-| Largest functions by LOC | unknown | 57 | n/a | measured | `quality/function_size_inventory.md`; `quality/refactor_health_report.md`; current largest production functions are five functions tied at `57` lines, led by `runtime_retention_status_from_snapshot(...)` |
+| Largest functions by LOC | unknown | 57 | n/a | measured | `quality/function_size_inventory.md`; `quality/refactor_health_report.md`; current largest production functions are four functions tied at `57` lines, led by `build_stateful_contribution_input(...)` |
 
 ### Architecture
 
@@ -108,7 +108,7 @@ metrics in each section are updated with each meaningful slice.
 | Total metrics tracked | 46 | All metrics in this file are now measured, with selected zero-finding and breadth signals enforced separately. |
 | Measured metrics | 46 | Selected measured metrics are now also enforced through blocking static-quality, security, deterministic API evaluation, or test-taxonomy gates. Branch coverage is measured report-only and is not promoted to a gate. |
 | Not-yet-measured metrics | 0 | The scorecard no longer carries an unmeasured branch-coverage entry. OpenAPI Spectral and public-docstring gate decisions remain outside this scorecard until scoped separately. |
-| Latest architecture signal | 1 | `_check_period_calculation_consistency(...)` dropped out of the top-30 function-size inventory after period-level relative-performance and linked-block consistency logic moved behind focused helper boundaries; architecture-boundary and taxonomy gates remain clean. |
+| Latest architecture signal | 1 | `runtime_retention_status_from_snapshot(...)` dropped out of the top-30 function-size inventory after snapshot routing and latest-history status assembly moved behind focused helper boundaries; architecture-boundary and taxonomy gates remain clean. |
 
 ## Method Note
 

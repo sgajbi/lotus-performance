@@ -203,19 +203,9 @@ def runtime_retention_status_from_snapshot(
     preview_summary: RuntimeRetentionCleanupSummary | None,
 ) -> RuntimeRetentionStatus:
     if snapshot.status != "available":
-        if snapshot.reason in {
-            RUNTIME_RETENTION_ARTIFACT_DIRECTORY_MISSING_REASON,
-            RUNTIME_RETENTION_MANIFEST_MISSING_REASON,
-        }:
-            return missing_runtime_retention_status(
-                threshold=policy.max_age_seconds,
-                active_run_status=active_run_status,
-                preview_status=preview_status,
-                preview_reason=preview_reason,
-                preview_summary=preview_summary,
-            )
-        return unavailable_runtime_retention_status(
-            reason=snapshot.reason or snapshot.status,
+        return _runtime_retention_status_from_unavailable_history(
+            snapshot=snapshot,
+            policy=policy,
             active_run_status=active_run_status,
             preview_status=preview_status,
             preview_reason=preview_reason,
@@ -231,7 +221,54 @@ def runtime_retention_status_from_snapshot(
             preview_summary=preview_summary,
         )
 
-    latest = snapshot.entries[0]
+    return _runtime_retention_status_from_latest_history(
+        latest=snapshot.entries[0],
+        policy=policy,
+        active_run_status=active_run_status,
+        preview_status=preview_status,
+        preview_reason=preview_reason,
+        preview_summary=preview_summary,
+    )
+
+
+def _runtime_retention_status_from_unavailable_history(
+    *,
+    snapshot: RuntimeRetentionHistorySnapshot,
+    policy: RuntimeRetentionDegradationPolicy,
+    active_run_status: OperatorActionStatus,
+    preview_status: str,
+    preview_reason: str | None,
+    preview_summary: RuntimeRetentionCleanupSummary | None,
+) -> RuntimeRetentionStatus:
+    if snapshot.reason in {
+        RUNTIME_RETENTION_ARTIFACT_DIRECTORY_MISSING_REASON,
+        RUNTIME_RETENTION_MANIFEST_MISSING_REASON,
+    }:
+        return missing_runtime_retention_status(
+            threshold=policy.max_age_seconds,
+            active_run_status=active_run_status,
+            preview_status=preview_status,
+            preview_reason=preview_reason,
+            preview_summary=preview_summary,
+        )
+    return unavailable_runtime_retention_status(
+        reason=snapshot.reason or snapshot.status,
+        active_run_status=active_run_status,
+        preview_status=preview_status,
+        preview_reason=preview_reason,
+        preview_summary=preview_summary,
+    )
+
+
+def _runtime_retention_status_from_latest_history(
+    *,
+    latest: RuntimeRetentionHistoryEntry,
+    policy: RuntimeRetentionDegradationPolicy,
+    active_run_status: OperatorActionStatus,
+    preview_status: str,
+    preview_reason: str | None,
+    preview_summary: RuntimeRetentionCleanupSummary | None,
+) -> RuntimeRetentionStatus:
     latest_age_seconds = age_seconds_since(latest.generated_at_utc)
     degradation_details = runtime_retention_degradation_details(
         latest=latest,

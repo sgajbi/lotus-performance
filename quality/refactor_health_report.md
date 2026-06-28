@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Health Report
 
 Report date: 2026-06-28
-Branch: `feature/twr-period-consistency-boundary`
+Branch: `feature/runtime-retention-status-boundary`
 Baseline source: `quality/baseline_report.md`
 Report mode: phase-zero scorecard; complexity, architecture, duplicate-code, repository hygiene,
 router-thinness, observability-readiness, domain-product validation, deterministic API evaluation,
@@ -27,9 +27,9 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Python files | 480 | 581 | measured | `rg --files -g '*.py'` |
+| Python files | 480 | 582 | measured | `rg --files -g '*.py'` |
 | Python package markers | 18 | 18 | measured | recursive `__init__.py` count |
-| Python LOC | 104,454 | 172,706 | measured | `rg --files -g '*.py'` plus Python line count on this branch |
+| Python LOC | 104,454 | 172,878 | measured | `rg --files -g '*.py'` plus Python line count on this branch |
 | Largest Python file LOC | 2,399 | 2,503 | measured | largest-file inventory on this branch |
 | Largest production file LOC | 1,156 | 1,910 | measured | `app/services/stateful_input_service.py` |
 | Duplicate code hotspots | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `make quality-duplicate-code-gate` with `--min-lines 12 --max-groups 0`; duplicated LOC reduced from `24` to `0` in LP-CR-1407 |
@@ -44,7 +44,7 @@ link the commit, command, or CI artifact that proves the change.
 | Max cyclomatic complexity | unknown | 5 | enforced | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py`; `make quality-complexity-gate` |
 | High-complexity functions | unknown | 0 | enforced | rank D-F functions in `quality/complexity_inventory.md`; `make quality-complexity-gate` |
 | Average maintainability index | unknown | 55.23 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
-| Largest functions by LOC | unknown | 57 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; the current largest production functions are five functions tied at `57` lines, led by `runtime_retention_status_from_snapshot(...)` |
+| Largest functions by LOC | unknown | 57 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; the current largest production functions are four functions tied at `57` lines, led by `build_stateful_contribution_input(...)` |
 
 ## Architecture
 
@@ -72,8 +72,8 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Test modules | 228 | 279 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 3,406 | measured | `python -m pytest --collect-only -q` |
+| Test modules | 228 | 280 | measured | `rg --files tests -g 'test_*.py'` |
+| Collected tests | 2,035 | 3,408 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
 | Integration/API/runtime test functions | unknown | 608 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
@@ -101,7 +101,7 @@ link the commit, command, or CI artifact that proves the change.
 | Metrics markers | unknown | 6 | measured | `metrics` family in `quality/observability_readiness_inventory.md` |
 | Health/readiness markers | unknown | 6 | measured | `health_readiness` family in `quality/observability_readiness_inventory.md` |
 | Health/metrics endpoint markers | unknown | 4 | measured | `health_metrics_endpoints` family in `quality/observability_readiness_inventory.md` |
-| Mapped observability/readiness test functions | unknown | 367 | measured | family-mapped test-function count in `quality/observability_readiness_inventory.md`; counts can overlap across families |
+| Mapped observability/readiness test functions | unknown | 369 | measured | family-mapped test-function count in `quality/observability_readiness_inventory.md`; counts can overlap across families |
 | Demo API certification command | unknown | 1 | enforced | `make quality-evaluation-gate` delegates to `make demo-api-certification`, which runs `scripts/demo_api_certification.py` and writes reviewed JSON evidence under ignored `output/demo-api-certification/latest.json` |
 | Test taxonomy gate | unknown | 1 | enforced | `make quality-evaluation-gate` delegates to `make quality-test-taxonomy-gate`, which blocks API/runtime and contract/governance test breadth regressions and uncategorized-test growth |
 
@@ -127,6 +127,42 @@ quality-program gap is not lack of aspiration; it is that several requested dime
 repeatably measured or expressed as progressive gates.
 
 ## Latest Local PR-Gate Evidence
+
+Latest runtime-retention status lifecycle boundary evidence on
+`feature/runtime-retention-status-boundary`:
+
+1. Split runtime-retention status snapshot routing into
+   `_runtime_retention_status_from_unavailable_history(...)` and
+   `_runtime_retention_status_from_latest_history(...)`. The public snapshot helper now
+   coordinates stable status assembly while focused helpers own missing/unavailable history
+   semantics and latest retained-cleanup degradation projection.
+2. Preserved operator/runtime behavior and supportability signals: missing artifact and manifest
+   reasons still map to missing-history status, other unavailable reasons remain unavailable,
+   preview status/reason/summary fields remain intact, active governed-action context is preserved,
+   latest retained cleanup fields remain explicit, and degradation reasons/details keep the same
+   response shape.
+3. Added direct observability/readiness tests for the two helper boundaries. The focused runtime
+   status lifecycle unit suites report `24 passed`.
+4. Measured proof: `runtime_retention_status_from_snapshot(...)` dropped out of the top-30
+   function-size inventory; the largest production functions are now four functions tied at `57`
+   lines led by `build_stateful_contribution_input(...)`; max cyclomatic complexity remains `5`;
+   high-complexity functions remain `0`; average maintainability index remains `55.23`;
+   architecture-boundary findings remain `0`; pytest collection reports `3,408` tests; taxonomy
+   reports `608` API/runtime test functions, `111` contract/governance test functions, `189`
+   observability/readiness test functions, and `1294` uncategorized test functions.
+5. Validation passed: focused runtime-status lifecycle tests (`24 passed`), focused
+   runtime-status unit/integration tests (`67 passed`), ruff check, ruff format check, mypy for
+   touched files, function-size inventory, complexity inventory, architecture-boundary inventory,
+   test-taxonomy gate, pytest collection, `make quality-baseline`, `make check` (`3,062` unit
+   tests passed after static quality, contract, deterministic API, security, type, readiness, and
+   taxonomy gates), `git diff --check` (passed with the existing baseline line-ending warning),
+   stranded-truth reconciliation (no unmerged remote branches), and wiki check (`DiffCount 0`).
+6. Conscious domain/API/edge-case/operations/docs review: this is an internal design-modularity
+   and operational-readiness slice. It deliberately adds no runtime microservice or worker
+   boundary because workload, failure-isolation, ownership, deployment, security, and operability
+   evidence do not justify one here. Public API/OpenAPI/operator/runtime truth, README, wiki
+   source, repository context, platform context, skills, and agent context remain unchanged;
+   quality docs and the review ledger record the implementation-backed truth change.
 
 Latest TWR period calculation-consistency boundary evidence on
 `feature/twr-period-consistency-boundary`:
