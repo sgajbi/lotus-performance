@@ -1,11 +1,12 @@
 # Lotus Performance Progressive CI Quality Gates
 
 Report date: 2026-06-28
-Branch: `feature/performance-diagnostics-projection-boundary`
+Branch: `feature/ci-evaluation-quality-gates`
 Baseline sources: `quality/baseline_report.md`, `quality/refactor_health_report.md`, `quality/quality_scorecard.md`
 Mode: progressive gate map; remediated complexity, architecture-boundary, router-thinness,
 duplicate-code, repository hygiene, observability-readiness, domain-product validation,
-deterministic API evaluation, and Python security posture are now enforced in CI.
+deterministic API evaluation, test taxonomy breadth, and Python security posture are now enforced
+in CI.
 
 ## Purpose
 
@@ -19,9 +20,9 @@ developers or GitHub Actions.
 
 | Lane | Trigger | Current blocking checks |
 | --- | --- | --- |
-| Remote Feature Lane | Pushes to non-`main` branches and manual dispatch | workflow lint, static quality gates, contract/security gates, domain-product validation, deterministic API evaluation, unit tests |
-| Pull Request Merge Gate | Pull requests targeting `main` and manual dispatch | workflow lint, static quality gates, contract/security gates, domain-product validation, deterministic API evaluation, compatibility `Lint Typecheck Security` aggregate, migration smoke, unit, integration, and e2e tests, combined coverage floor at 99 percent, Docker build |
-| Main Releasability Gate | Pushes to `main` and manual dispatch | workflow lint, static quality gates, contract/security gates, domain-product validation, deterministic API evaluation, migration smoke, unit, integration, and e2e tests, combined coverage floor at 99 percent, coverage artifact publication, Docker build |
+| Remote Feature Lane | Pushes to non-`main` branches and manual dispatch | workflow lint, static quality gates, contract/security gates, domain-product validation, deterministic API evaluation, test taxonomy breadth, unit tests |
+| Pull Request Merge Gate | Pull requests targeting `main` and manual dispatch | workflow lint, static quality gates, contract/security gates, domain-product validation, deterministic API evaluation, test taxonomy breadth, compatibility `Lint Typecheck Security` aggregate, migration smoke, unit, integration, and e2e tests, combined coverage floor at 99 percent, Docker build |
+| Main Releasability Gate | Pushes to `main` and manual dispatch | workflow lint, static quality gates, contract/security gates, domain-product validation, deterministic API evaluation, test taxonomy breadth, migration smoke, unit, integration, and e2e tests, combined coverage floor at 99 percent, coverage artifact publication, Docker build |
 | PR Auto Merge | Pull request lifecycle events | queues rebase auto-merge and branch deletion after required checks pass; this is release automation, not an independent quality gate |
 
 `Static Quality Gates` verifies installed dependencies, Ruff lint/format, monetary-float safety,
@@ -29,9 +30,9 @@ repository hygiene, complexity regression, architecture-boundary regression, rou
 thinness, duplicate-code regression, no-alias governance, observability-readiness marker
 regression, and mypy type safety. `Contract Security Gates` verifies OpenAPI quality, API
 vocabulary governance, domain-product contract validation, deterministic demo-critical API
-evaluation, migration smoke where the lane requires it, and dependency security plus first-party
-Python static security. These jobs run in parallel before test execution to reduce CI wall-clock
-time without dropping any gate.
+evaluation, test taxonomy breadth, migration smoke where the lane requires it, and dependency
+security plus first-party Python static security. These jobs run in parallel before test execution
+to reduce CI wall-clock time without dropping any gate.
 
 The PR lane also publishes `PR Merge Gate / Lint Typecheck Security` as a lightweight aggregate over
 the split static-quality and contract-security jobs. It exists to satisfy the current GitHub
@@ -70,14 +71,14 @@ No gate should move from one phase to the next until it has:
 | mypy typecheck | Blocking in feature, PR, and main lanes | Keep blocking; expand typed boundary cleanup through normal refactor slices. |
 | Unit tests | Blocking in feature, PR, and main lanes | Keep blocking; add focused tests when refactoring hotspots. |
 | Integration and e2e tests | Blocking in PR and main lanes | Keep blocking at merge/release lanes; use targeted local subsets during slices. |
-| Test taxonomy | Measured in `quality/test_taxonomy_inventory.md` through `scripts/python_test_taxonomy_inventory.py`; current AST inventory shows 278 modules, 3,199 source test functions, 607 integration/API/runtime test functions, and 111 contract/governance test functions | Keep report-only until taxonomy labels and uncategorized-test policy are stable. |
+| Test taxonomy | Blocking through `make quality-test-taxonomy-gate`, which runs `scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 607 --min-contract-governance-tests 111 --max-uncategorized-tests 1294`; current AST inventory shows 278 modules, 3,202 source test functions, 607 integration/API/runtime test functions, 111 contract/governance test functions, and 1,294 uncategorized test functions | Keep the breadth floor blocking. Reduce uncategorized tests through normal refactor slices before tightening the ceiling. |
 | Combined line coverage | Blocking at 99 percent in PR and main lanes; locally measured in `quality/coverage_inventory.md` through `make test-coverage` and preserved by `make branch-coverage-baseline` evidence | Keep blocking and preserve the local coverage inventory as scorecard evidence. |
 | Branch coverage | Measured report-only in `quality/coverage_inventory.md` through `make branch-coverage-baseline`; current baseline is 98.00 percent across 4,406 branches, with 88 missing and 88 partial branches | Keep report-only until repeated runs, exception policy, remediation guidance, and CI lane placement are agreed. Review the top branch gaps before proposing any threshold. |
 | Dependency verification | Blocking through `python -m pip check` and dependency-health scripts | Keep blocking; preserve project-scoped dependency-health evidence. |
 | Dependency vulnerabilities | `pip-audit` is available, security audit is already blocking through repo script, and report-only output is captured in `quality/dependency_security_report.md` | Keep the report current when dependency pins, audit tooling, or exception policy changes. |
 | OpenAPI quality | Blocking through `scripts/openapi_quality_gate.py`; measured further through `quality/api_completeness_inventory.md`; clean API completeness inventory is guarded by `tests/unit/scripts/test_openapi_completeness_inventory.py` | Keep the blocking gate and unit-level clean-inventory guard; only add a separate workflow gate if the report remains stable and adds value beyond existing OpenAPI checks. |
 | API vocabulary and no-alias governance | Blocking in feature, PR, and main lanes | Keep blocking and preserve RFC-0067 vocabulary discipline. |
-| Quality baseline snapshot workflow | Report run in `.github/workflows/quality-baseline.yml`; calls `make quality-baseline` to generate ignored raw inventory snapshots under `output/quality-baseline/`, uploads those snapshots with curated `quality/*.md` source reports, and now runs `make quality-evaluation-gate` without `continue-on-error` | Keep as a reporting aid for baseline artifacts while preserving hard failure for the deterministic API evaluation command. |
+| Quality baseline snapshot workflow | Report run in `.github/workflows/quality-baseline.yml`; calls `make quality-baseline` to generate ignored raw inventory snapshots under `output/quality-baseline/`, uploads those snapshots with curated `quality/*.md` source reports, and runs `make quality-evaluation-gate` without `continue-on-error` | Keep as a reporting aid for baseline artifacts while preserving hard failure for deterministic API evaluation and test taxonomy regression. |
 | Migration smoke | Blocking in PR and main lanes | Keep blocking outside feature lane unless a migration-heavy slice needs earlier proof. |
 | Docker build | Blocking in PR and main lanes | Keep blocking; no new Docker gate is needed for report-only quality artifacts. |
 | Domain data product validation | Blocking locally through `make check` and `make ci`; blocking in Feature, PR Merge, and Main Releasability contract/security jobs through `make domain-product-validate`; CI checks out `sgajbi/lotus-platform` under `.lotus-platform` so governed platform contract truth is available without relying on a local sibling checkout | Keep blocking wherever API contract and runtime supportability claims are evaluated. |
@@ -94,7 +95,19 @@ No gate should move from one phase to the next until it has:
 | Router and middleware thinness | Blocking through `make quality-router-thinness-gate`; current snapshot shows 0 router findings and 0 middleware findings at `--threshold 80` with `--max-findings 0` | Keep blocking for the current router/middleware function-size threshold; revisit only with documented exceptions and tests. |
 | RFC 7807 error consistency | Measured report-only through `scripts/openapi_completeness_inventory.py`; current inventory shows 0 error responses missing named problem/error schemas | Keep the report-only inventory clean while separately planning any runtime migration from legacy string-detail errors to full RFC 7807 payloads. |
 | Observability and operational contracts | Blocking through `make quality-observability-readiness-gate`, which runs `scripts/python_observability_readiness_inventory.py --limit 30 --max-missing 0`; current report shows 28/28 expected implementation markers, 0 missing markers, and 367 family-mapped readiness test functions | Keep the zero-missing marker gate blocking in feature, PR, and main static quality lanes. Broader maturity scoring and overlap-aware test counting remain report-only planning evidence. |
-| Deterministic API evaluation | Blocking through `make quality-evaluation-gate`, which delegates to `make demo-api-certification`; Feature, PR Merge, Main Releasability, and Quality Baseline workflows run it without `continue-on-error`. It calls demo-critical health/readiness, capabilities, calculation, returns, workspace, mandate, and composite TWR APIs with deterministic data and writes ignored JSON evidence under `output/demo-api-certification/*.json`; `.dockerignore` excludes generated `output`, `lineage_data`, and local SQLite database artifacts from Docker build contexts | Keep blocking while the seeded data remains deterministic and isolated. Any future exception must be explicit, time-boxed, and tracked as a product-readiness defect instead of soft-failing CI. |
+| Deterministic API evaluation | Blocking through `make quality-evaluation-gate`, which delegates to `make demo-api-certification` and `make quality-test-taxonomy-gate`; Feature, PR Merge, Main Releasability, and Quality Baseline workflows run it without `continue-on-error`. It calls demo-critical health/readiness, capabilities, calculation, returns, workspace, mandate, and composite TWR APIs with deterministic data, writes ignored JSON evidence under `output/demo-api-certification/*.json`, and blocks test-taxonomy breadth regression; `.dockerignore` excludes generated `output`, `lineage_data`, and local SQLite database artifacts from Docker build contexts | Keep blocking while the seeded data remains deterministic and isolated. Any future exception must be explicit, time-boxed, and tracked as a product-readiness or quality-governance defect instead of soft-failing CI. |
+
+## LP-CR-1540 Gate Promotion Intake
+
+| Intake item | Decision |
+| --- | --- |
+| Baseline | `quality/test_taxonomy_inventory.md` records 278 test modules, 3,202 source test functions, 607 API/runtime test functions, 111 contract/governance test functions, and 1,294 uncategorized test functions. |
+| Failure mode blocked | Agents must not reduce API/runtime or contract/governance test breadth, or add unclassified tests that increase the uncategorized backlog, while still passing deterministic API certification and static checks. |
+| Determinism | The scanner uses standard-library AST parsing over tracked test source and stable path/name taxonomy rules; it does not execute tests or depend on local services. |
+| Lane placement | Blocking through `make quality-evaluation-gate`, and therefore local `make check`, local `make ci`, Feature Lane, PR Merge Gate, Main Releasability, and Quality Baseline workflow. |
+| Exception policy | Do not soft-fail this gate. Intentional threshold changes require same-PR updates to the taxonomy inventory, CI gate map, scorecard, and review ledger with a clear reason. |
+| Focused tests | `tests/unit/scripts/test_python_test_taxonomy_inventory.py` proves threshold pass/fail behavior; `tests/unit/scripts/test_ci_quality_gate_wiring.py` proves Makefile wiring and threshold arguments. |
+| Scorecard and ledger truth | `quality/test_taxonomy_inventory.md`, `quality/refactor_health_report.md`, `quality/quality_scorecard.md`, and `docs/architecture/CODEBASE-REVIEW-LEDGER.md` record the promoted signal. |
 
 ## LP-CR-1536 Gate Promotion Intake
 

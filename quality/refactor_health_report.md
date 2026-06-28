@@ -1,11 +1,11 @@
 # Lotus Performance Refactor Health Report
 
 Report date: 2026-06-28
-Branch: `feature/performance-diagnostics-projection-boundary`
+Branch: `feature/ci-evaluation-quality-gates`
 Baseline source: `quality/baseline_report.md`
 Report mode: phase-zero scorecard; complexity, architecture, duplicate-code, repository hygiene,
 router-thinness, observability-readiness, domain-product validation, deterministic API evaluation,
-and Python security posture are enforced separately by CI.
+test taxonomy breadth, and Python security posture are enforced separately by CI.
 
 ## Purpose
 
@@ -29,7 +29,7 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | Python files | 480 | 579 | measured | `rg --files -g '*.py'` |
 | Python package markers | 18 | 18 | measured | recursive `__init__.py` count |
-| Python LOC | 104,454 | 172,331 | measured | `rg --files -g '*.py'` plus Python line count on this branch |
+| Python LOC | 104,454 | 172,518 | measured | `rg --files -g '*.py'` plus Python line count on this branch |
 | Largest Python file LOC | 2,399 | 2,503 | measured | largest-file inventory on this branch |
 | Largest production file LOC | 1,156 | 1,910 | measured | `app/services/stateful_input_service.py` |
 | Duplicate code hotspots | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `make quality-duplicate-code-gate` with `--min-lines 12 --max-groups 0`; duplicated LOC reduced from `24` to `0` in LP-CR-1407 |
@@ -73,11 +73,12 @@ link the commit, command, or CI artifact that proves the change.
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
 | Test modules | 228 | 278 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 3,400 | measured | `python -m pytest --collect-only -q` |
+| Collected tests | 2,035 | 3,403 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
-| Integration/API/runtime test functions | unknown | 607 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |
-| Contract/governance test functions | unknown | 111 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |
+| Integration/API/runtime test functions | unknown | 607 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
+| Contract/governance test functions | unknown | 111 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
+| Uncategorized test functions | unknown | 1294 | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
 
 ## Security And Dependencies
 
@@ -102,6 +103,7 @@ link the commit, command, or CI artifact that proves the change.
 | Health/metrics endpoint markers | unknown | 4 | measured | `health_metrics_endpoints` family in `quality/observability_readiness_inventory.md` |
 | Mapped observability/readiness test functions | unknown | 367 | measured | family-mapped test-function count in `quality/observability_readiness_inventory.md`; counts can overlap across families |
 | Demo API certification command | unknown | 1 | enforced | `make quality-evaluation-gate` delegates to `make demo-api-certification`, which runs `scripts/demo_api_certification.py` and writes reviewed JSON evidence under ignored `output/demo-api-certification/latest.json` |
+| Test taxonomy gate | unknown | 1 | enforced | `make quality-evaluation-gate` delegates to `make quality-test-taxonomy-gate`, which blocks API/runtime and contract/governance test breadth regressions and uncategorized-test growth |
 
 ## Documentation
 
@@ -125,6 +127,36 @@ quality-program gap is not lack of aspiration; it is that several requested dime
 repeatably measured or expressed as progressive gates.
 
 ## Latest Local PR-Gate Evidence
+
+Latest CI test-taxonomy gate enforcement evidence on `feature/ci-evaluation-quality-gates`:
+
+1. Promoted `scripts/python_test_taxonomy_inventory.py` from report-only inventory to an optional
+   threshold gate with `--min-api-runtime-tests`, `--min-contract-governance-tests`, and
+   `--max-uncategorized-tests`.
+2. Added `make quality-test-taxonomy-gate` with the current measured floors: `607` API/runtime test
+   functions, `111` contract/governance test functions, and an uncategorized-test ceiling of
+   `1294`. `make quality-evaluation-gate` now runs both deterministic demo API certification and
+   this taxonomy gate, so existing local and GitHub CI lanes enforce it without duplicating
+   workflow YAML.
+3. Added focused tests proving threshold pass/fail behavior and Makefile wiring. The refreshed
+   taxonomy inventory reports `3,202` source test functions, `607` API/runtime test functions,
+   `111` contract/governance test functions, `121` quality/security test functions, and `1294`
+   uncategorized test functions. `make quality-baseline` refreshed collected tests to `3,403`.
+4. Validation passed: `python -m pytest
+   tests\unit\scripts\test_python_test_taxonomy_inventory.py
+   tests\unit\scripts\test_ci_quality_gate_wiring.py -q` (`8 passed`), `make
+   quality-test-taxonomy-gate`, `make quality-evaluation-gate`, ruff check, ruff format check,
+   mypy for touched files, `make quality-baseline`, `make check` (`3,057` unit tests passed after
+   static quality, OpenAPI, vocabulary, domain-product, deterministic API certification,
+   test-taxonomy, Python security, and mypy gates), `git diff --check`, stranded-truth
+   reconciliation, and `Sync-RepoWikis.ps1 -CheckOnly -Repository lotus-performance`
+   (`DiffCount 0`).
+5. Conscious domain/API/edge-case/operations/docs review: this is a CI/evaluation enforcement
+   slice, not a runtime or API behavior change. It improves anti-slop controls by preventing test
+   breadth regression while preserving API/OpenAPI shape, performance-domain calculations, runtime
+   topology, commands other than the added Make target, README, wiki source, repository context,
+   platform context, skills, and agent context. No README/wiki/context/skill update is needed;
+   source quality docs and the review ledger record the truth change.
 
 Latest performance diagnostics projection-boundary evidence on
 `feature/performance-diagnostics-projection-boundary`:

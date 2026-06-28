@@ -1,8 +1,9 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-06-28
-Branch: `feature/performance-diagnostics-projection-boundary`
-Mode: report-only test taxonomy inventory; no blocking CI gate is introduced by this artifact.
+Branch: `feature/ci-evaluation-quality-gates`
+Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
+minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
 ## Purpose
 
@@ -14,6 +15,7 @@ and quality family without executing tests or requiring coverage data.
 
 ```powershell
 python scripts/python_test_taxonomy_inventory.py --limit 30
+python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 607 --min-contract-governance-tests 111 --max-uncategorized-tests 1294
 ```
 
 ## Summary
@@ -21,7 +23,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 278 |
-| Test functions inventoried | 3199 |
+| Test functions inventoried | 3202 |
 | Integration/API/runtime test functions | 607 |
 | Contract/governance test functions | 111 |
 
@@ -32,7 +34,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | benchmarks | 9 | 17 |
 | e2e | 1 | 21 |
 | integration | 24 | 300 |
-| unit | 244 | 2861 |
+| unit | 244 | 2864 |
 
 ## Test Functions By Family
 
@@ -42,7 +44,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | api_or_runtime | 607 |
 | contract_or_governance | 111 |
 | observability_or_readiness | 187 |
-| quality_or_security | 118 |
+| quality_or_security | 121 |
 | uncategorized | 1294 |
 
 ## Largest Test Modules
@@ -87,21 +89,20 @@ pytest items including parametrized cases. The two values are intentionally diff
 complementary: collected tests show execution breadth, while this report shows source test-module
 and test-function distribution. The current suite has meaningful API/runtime and
 contract/governance coverage, but 1294 test functions remain uncategorized by the first-wave
-taxonomy and should be reviewed before turning taxonomy into a blocking gate.
-This slice added three service-boundary tests for execution polling: one proves the application
-service reads execution, compute-job, and async-result metadata once for an existing calculation,
-one proves missing execution records return `None` without querying optional async stores, and one
-pins the legacy not-found detail as named execution polling error vocabulary. It preserves the
-public execution polling route, OpenAPI schemas, and legacy typed 404 error payload while moving
-durable-record projection out of the API model module.
-The same branch also added six CI/domain-product/Docker-context gate tests that prove deterministic API
-evaluation is wired into `make check`, `make ci`, Feature Lane, PR Merge Gate, Main Releasability,
-platform-contract checkout, domain-product platform-root resolution, Docker build context exclusion
-for generated demo/runtime state, and the Quality Baseline workflow without a soft-fail escape
-hatch.
+taxonomy and should be reduced through normal refactor slices rather than allowed to grow.
+
+This slice promotes the stable part of the taxonomy from report-only measurement to a
+regression-blocking evaluation gate. `make quality-test-taxonomy-gate` fails if API/runtime tests
+drop below `607`, contract/governance tests drop below `111`, or uncategorized tests rise above
+`1294`. `make quality-evaluation-gate` now runs both deterministic demo API certification and this
+taxonomy gate, so existing Feature Lane, PR Merge Gate, Main Releasability, local `make check`,
+local `make ci`, and Quality Baseline workflow enforcement pick it up without duplicating workflow
+logic.
 
 ## Gate Posture
 
-This is a Phase 1 report-only quality measurement. It does not introduce a CI threshold, branch
-failure, or exception policy. Promotion to a blocking gate should wait until the taxonomy labels and
-uncategorized-test policy are stable.
+This is a Phase 2 regression-blocking quality gate for stable taxonomy breadth. It is intentionally
+not a strict maturity score: branch coverage, uncategorized-test remediation, and finer taxonomy
+labels remain planned improvements. Exceptions should not be soft-failed in CI; if a supported API
+or governance test category is intentionally removed, update the gate threshold, scorecard, and
+review ledger in the same PR with explicit rationale.
