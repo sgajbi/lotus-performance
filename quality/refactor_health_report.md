@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Health Report
 
 Report date: 2026-06-28
-Branch: `feature/benchmark-exposure-context-execution-boundary`
+Branch: `feature/twr-period-consistency-boundary`
 Baseline source: `quality/baseline_report.md`
 Report mode: phase-zero scorecard; complexity, architecture, duplicate-code, repository hygiene,
 router-thinness, observability-readiness, domain-product validation, deterministic API evaluation,
@@ -29,7 +29,7 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | Python files | 480 | 581 | measured | `rg --files -g '*.py'` |
 | Python package markers | 18 | 18 | measured | recursive `__init__.py` count |
-| Python LOC | 104,454 | 172,597 | measured | `rg --files -g '*.py'` plus Python line count on this branch |
+| Python LOC | 104,454 | 172,706 | measured | `rg --files -g '*.py'` plus Python line count on this branch |
 | Largest Python file LOC | 2,399 | 2,503 | measured | largest-file inventory on this branch |
 | Largest production file LOC | 1,156 | 1,910 | measured | `app/services/stateful_input_service.py` |
 | Duplicate code hotspots | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `make quality-duplicate-code-gate` with `--min-lines 12 --max-groups 0`; duplicated LOC reduced from `24` to `0` in LP-CR-1407 |
@@ -44,7 +44,7 @@ link the commit, command, or CI artifact that proves the change.
 | Max cyclomatic complexity | unknown | 5 | enforced | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py`; `make quality-complexity-gate` |
 | High-complexity functions | unknown | 0 | enforced | rank D-F functions in `quality/complexity_inventory.md`; `make quality-complexity-gate` |
 | Average maintainability index | unknown | 55.23 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
-| Largest functions by LOC | unknown | 57 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; the current largest production functions are six functions tied at `57` lines, led by `_check_period_calculation_consistency(...)` |
+| Largest functions by LOC | unknown | 57 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; the current largest production functions are five functions tied at `57` lines, led by `runtime_retention_status_from_snapshot(...)` |
 
 ## Architecture
 
@@ -73,7 +73,7 @@ link the commit, command, or CI artifact that proves the change.
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
 | Test modules | 228 | 279 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 3,404 | measured | `python -m pytest --collect-only -q` |
+| Collected tests | 2,035 | 3,406 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
 | Integration/API/runtime test functions | unknown | 608 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
@@ -127,6 +127,39 @@ quality-program gap is not lack of aspiration; it is that several requested dime
 repeatably measured or expressed as progressive gates.
 
 ## Latest Local PR-Gate Evidence
+
+Latest TWR period calculation-consistency boundary evidence on
+`feature/twr-period-consistency-boundary`:
+
+1. Split period-level TWR calculation-consistency orchestration into
+   `_check_period_relative_consistency(...)` and `_check_period_linked_block_consistency(...)`.
+   The public helper now coordinates stable result aggregation while focused helpers own
+   relative-performance pairing/arithmetic and portfolio/benchmark linked-block plus daily
+   calculation evidence accounting.
+2. Preserved inspection behavior and supportability signals: finding ordering, finding codes,
+   evidence payload shape, relative row counts, linked-block counts, and daily evidence row counts
+   remain explicit and test-backed.
+3. Added direct analytics-domain tests for the two helper boundaries. The focused TWR
+   calculation-consistency unit suite now reports `51 passed`.
+4. Measured proof: `_check_period_calculation_consistency(...)` dropped out of the top-30
+   function-size inventory; the largest production functions are now five functions tied at `57`
+   lines led by `runtime_retention_status_from_snapshot(...)`; max cyclomatic complexity remains
+   `5`; high-complexity functions remain `0`; average maintainability index remains `55.23`;
+   architecture-boundary findings remain `0`; pytest collection reports `3,406` tests; taxonomy
+   reports `608` API/runtime test functions, `111` contract/governance test functions, and `1294`
+   uncategorized test functions.
+5. Validation passed: focused TWR inspection unit/integration tests (`93 passed`), ruff check,
+   ruff format check, mypy for touched files, function-size inventory, complexity inventory,
+   architecture-boundary inventory, test-taxonomy gate, pytest collection, `make
+   quality-baseline`, `make check` (`3,060` unit tests plus static, contract, security,
+   deterministic API, and taxonomy gates), `git diff --check`, stranded-truth reconciliation, and
+   wiki check (`DiffCount 0`).
+6. Conscious domain/API/edge-case/operations/docs review: this is an internal design-modularity
+   and inspection-domain supportability slice. It deliberately adds no runtime microservice or
+   worker boundary because workload, failure-isolation, ownership, deployment, security, and
+   operability evidence do not justify one here. Public API/OpenAPI/operator/runtime truth,
+   README, wiki source, repository context, platform context, skills, and agent context remain
+   unchanged; quality docs and the review ledger record the implementation-backed truth change.
 
 Latest benchmark exposure context execution-boundary evidence on
 `feature/benchmark-exposure-context-execution-boundary`:

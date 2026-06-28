@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-28
-Branch: `feature/benchmark-exposure-context-execution-boundary`
+Branch: `feature/twr-period-consistency-boundary`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
@@ -34,10 +34,10 @@ must stay at `0`.
 | High-complexity functions (rank D-F) | 0 |
 | Average maintainability index | 55.23 |
 
-The endpoint lifecycle extraction preserves the enforced complexity posture: max cyclomatic
-complexity remains `5`, high-complexity functions remain `0`, and average maintainability index
-now measures `55.23` after moving benchmark exposure context execution orchestration out of the
-router and into the application service boundary.
+The period calculation-consistency extraction preserves the enforced complexity posture: max
+cyclomatic complexity remains `5`, high-complexity functions remain `0`, and average
+maintainability index measures `55.23` after splitting TWR inspection period relative and linked
+block consistency checks into focused helpers.
 
 ## Highest Cyclomatic Complexity
 
@@ -92,8 +92,8 @@ router and into the application service boundary.
 | 17 | `app/services/twr_mode_service.py` | 17.31 | B |
 | 18 | `app/workers/compute_executor_worker.py` | 18.15 | B |
 | 19 | `app/services/inspection/twr_inspection_service.py` | 18.95 | B |
-| 20 | `app/models/runtime_status.py` | 19.66 | A |
-| 21 | `app/services/inspection/calculation_consistency.py` | 19.69 | A |
+| 20 | `app/services/inspection/calculation_consistency.py` | 19.07 | A |
+| 21 | `app/models/runtime_status.py` | 19.66 | A |
 | 22 | `app/models/returns_series.py` | 19.70 | A |
 | 23 | `app/services/contribution_source_economics.py` | 20.23 | A |
 | 24 | `engine/composites.py` | 20.75 | A |
@@ -113,6 +113,10 @@ component-status helper. `build_portfolio_source_quality_evidence` also dropped 
 unsupported cashflow taxonomy traversal was split into a dedicated count helper.
 `_collect_stateful_mwr_cash_flows` also dropped out after source-flow eligibility and evidence
 component projection were split into a dedicated helper.
+LP-CR-1542 isolated TWR period calculation consistency into relative-performance and linked-block
+helper boundaries. The measured max cyclomatic complexity remains `5`, high-complexity functions
+remain `0`, and average maintainability index remains `55.23`; local maintainability for
+`app/services/inspection/calculation_consistency.py` now measures `19.07` after helper extraction.
 LP-CR-1535 isolated execution polling response projection into an application service boundary and
 left the API model module schema-only. The measured max cyclomatic complexity remains `5`,
 high-complexity functions remain `0`, and average maintainability index improves to `55.09`.

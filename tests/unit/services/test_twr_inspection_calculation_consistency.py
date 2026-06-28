@@ -19,6 +19,8 @@ from app.services.inspection.calculation_consistency import (
     _check_benchmark_relative_pairing,
     _check_daily_breakdown_calculation_evidence,
     _check_period_calculation_consistency,
+    _check_period_linked_block_consistency,
+    _check_period_relative_consistency,
     _check_relative_breakdown_frequency,
     _comparative_return_component_mismatch,
     _comparative_return_components_match,
@@ -121,6 +123,67 @@ def test_period_calculation_consistency_projects_relative_pairing_findings_and_c
         "benchmark_present": False,
         "relative_performance_present": True,
     }
+
+
+def test_period_relative_consistency_counts_relative_rows_when_blocks_are_pairable():
+    result = _check_period_relative_consistency(
+        period_name="YTD",
+        portfolio_block=_analytics_block(
+            period="2026-03",
+            period_start=date(2026, 3, 1),
+            period_end=date(2026, 3, 31),
+            period_return=2.0,
+        ),
+        benchmark_block=_analytics_block(
+            period="2026-03",
+            period_start=date(2026, 3, 1),
+            period_end=date(2026, 3, 31),
+            period_return=1.0,
+        ),
+        relative_block=_analytics_block(
+            period="2026-03",
+            period_start=date(2026, 3, 1),
+            period_end=date(2026, 3, 31),
+            period_return=1.0,
+        ),
+    )
+
+    assert result.findings == []
+    assert result.relative_rows_checked == 1
+
+
+def test_period_linked_block_consistency_counts_linked_blocks_and_daily_evidence():
+    result = _check_period_linked_block_consistency(
+        period_name="YTD",
+        portfolio_block=_daily_evidence_block(
+            evidence=TWRDailyCalculationEvidence(
+                begin_mv=1000.0,
+                end_mv=1013.0,
+                bod_cf=0.0,
+                eod_cf=0.0,
+                external_inflows=0.0,
+                external_outflows=0.0,
+                management_fees=0.0,
+                signed_adjusted_capital=1000.0,
+                adjusted_capital=1000.0,
+                performance_pnl=13.0,
+                daily_return=1.3,
+                status="calculated",
+                reason_codes=["FLOW_NEUTRALIZED_DAILY_RETURN"],
+                warnings=[],
+            )
+        ),
+        benchmark_block=_analytics_block(
+            period="2026-03",
+            period_start=date(2026, 3, 1),
+            period_end=date(2026, 3, 31),
+            period_return=1.0,
+        ),
+    )
+
+    assert result.findings == []
+    assert result.linked_blocks_checked == 2
+    assert result.daily_evidence_rows_checked == 1
 
 
 def test_benchmark_relative_pairing_policy_projects_presence_contracts():

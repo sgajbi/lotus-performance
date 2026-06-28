@@ -32,6 +32,19 @@ class PeriodCalculationConsistencyResult:
 
 
 @dataclass(frozen=True)
+class PeriodRelativeConsistencyResult:
+    findings: list[TWRInspectionFinding]
+    relative_rows_checked: int
+
+
+@dataclass(frozen=True)
+class PeriodLinkedBlockConsistencyResult:
+    findings: list[TWRInspectionFinding]
+    linked_blocks_checked: int
+    daily_evidence_rows_checked: int
+
+
+@dataclass(frozen=True)
 class RelativePairingFindingContract:
     code: str
     scope: str
@@ -115,38 +128,72 @@ def _check_period_calculation_consistency(
     benchmark_block: ComparativeAnalyticsBlock | None,
     relative_block: ComparativeAnalyticsBlock | None,
 ) -> PeriodCalculationConsistencyResult:
+    relative_consistency = _check_period_relative_consistency(
+        period_name=period_name,
+        portfolio_block=portfolio_block,
+        benchmark_block=benchmark_block,
+        relative_block=relative_block,
+    )
+    linked_block_consistency = _check_period_linked_block_consistency(
+        period_name=period_name,
+        portfolio_block=portfolio_block,
+        benchmark_block=benchmark_block,
+    )
+
+    return PeriodCalculationConsistencyResult(
+        findings=[*relative_consistency.findings, *linked_block_consistency.findings],
+        linked_blocks_checked=linked_block_consistency.linked_blocks_checked,
+        relative_rows_checked=relative_consistency.relative_rows_checked,
+        daily_evidence_rows_checked=linked_block_consistency.daily_evidence_rows_checked,
+    )
+
+
+def _check_period_relative_consistency(
+    *,
+    period_name: str,
+    portfolio_block: ComparativeAnalyticsBlock,
+    benchmark_block: ComparativeAnalyticsBlock | None,
+    relative_block: ComparativeAnalyticsBlock | None,
+) -> PeriodRelativeConsistencyResult:
     findings = _check_benchmark_relative_pairing(
         period_name=period_name,
         benchmark_block=benchmark_block,
         relative_block=relative_block,
     )
-    linked_blocks_checked = 1
-    relative_rows_checked = 0
-
-    if benchmark_block is not None and relative_block is not None:
-        relative_rows_checked = _count_breakdown_rows(relative_block)
-        findings.extend(
-            _check_relative_block(
+    if benchmark_block is None or relative_block is None:
+        return PeriodRelativeConsistencyResult(findings=findings, relative_rows_checked=0)
+    return PeriodRelativeConsistencyResult(
+        findings=[
+            *findings,
+            *_check_relative_block(
                 period_name=period_name,
                 portfolio_block=portfolio_block,
                 benchmark_block=benchmark_block,
                 relative_block=relative_block,
-            )
-        )
+            ),
+        ],
+        relative_rows_checked=_count_breakdown_rows(relative_block),
+    )
 
-    findings.extend(
-        _check_block_linking(
-            period_name=period_name,
-            block_name="portfolio",
-            owner_repo="lotus-performance",
-            analytics_block=portfolio_block,
-        )
+
+def _check_period_linked_block_consistency(
+    *,
+    period_name: str,
+    portfolio_block: ComparativeAnalyticsBlock,
+    benchmark_block: ComparativeAnalyticsBlock | None,
+) -> PeriodLinkedBlockConsistencyResult:
+    findings = _check_block_linking(
+        period_name=period_name,
+        block_name="portfolio",
+        owner_repo="lotus-performance",
+        analytics_block=portfolio_block,
     )
     evidence_rows_checked, evidence_findings = _check_portfolio_daily_calculation_evidence(
         period_name=period_name,
         portfolio_block=portfolio_block,
     )
     findings.extend(evidence_findings)
+    linked_blocks_checked = 1
 
     if benchmark_block is not None:
         linked_blocks_checked += 1
@@ -159,10 +206,9 @@ def _check_period_calculation_consistency(
             )
         )
 
-    return PeriodCalculationConsistencyResult(
+    return PeriodLinkedBlockConsistencyResult(
         findings=findings,
         linked_blocks_checked=linked_blocks_checked,
-        relative_rows_checked=relative_rows_checked,
         daily_evidence_rows_checked=evidence_rows_checked,
     )
 
