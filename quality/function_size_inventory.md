@@ -1,7 +1,7 @@
 # Lotus Performance Function Size Inventory
 
 Report date: 2026-06-28
-Branch: `feature/performance-diagnostics-projection-boundary`
+Branch: `feature/benchmark-exposure-context-execution-boundary`
 Mode: report-only function-size inventory; this artifact introduces no new blocking CI gate.
 
 ## Purpose
@@ -44,12 +44,12 @@ python scripts/python_function_size_inventory.py --limit 30
 | 22 | `_build_stateful_workspace_benchmark_input` | `app/services/workspace_summary_service.py:379` | 55 |
 | 23 | `_build_methodology_shadow_samples` | `engine/compute.py:319` | 55 |
 | 24 | `calculate_money_weighted_return` | `engine/mwr.py:631` | 55 |
-| 25 | `get_benchmark_exposure_context` | `app/api/endpoints/benchmark_exposure_context.py:28` | 54 |
-| 26 | `_run_subject_assessments` | `app/services/inspection/twr_inspection_service.py:171` | 54 |
-| 27 | `_build_workflow_capabilities` | `app/services/integration_capabilities_service.py:222` | 54 |
-| 28 | `run_runtime_retention_cleanup` | `app/services/runtime_retention_run_service.py:150` | 54 |
-| 29 | `lineage_queue_degradation_details` | `app/services/runtime_status_degradation.py:75` | 54 |
-| 30 | `build_stateful_mwr_input_for_window` | `app/services/stateful_mwr_input_service.py:112` | 54 |
+| 25 | `_run_subject_assessments` | `app/services/inspection/twr_inspection_service.py:171` | 54 |
+| 26 | `_build_workflow_capabilities` | `app/services/integration_capabilities_service.py:222` | 54 |
+| 27 | `run_runtime_retention_cleanup` | `app/services/runtime_retention_run_service.py:150` | 54 |
+| 28 | `lineage_queue_degradation_details` | `app/services/runtime_status_degradation.py:75` | 54 |
+| 29 | `build_stateful_mwr_input_for_window` | `app/services/stateful_mwr_input_service.py:112` | 54 |
+| 30 | `run_calculations` | `engine/compute.py:26` | 54 |
 
 ## Interpretation
 
@@ -62,6 +62,13 @@ after lineage queue response mapping was isolated. Attribution orchestration rem
 table but moved from `142` to `133` lines after per-period result assembly was isolated, then moved
 from `133` to `120` lines after response meta, supportability, and benchmark-context assembly were
 isolated.
+LP-CR-1541 isolated benchmark exposure context execution lifecycle orchestration into
+`app/services/benchmark_exposure_context_workflow_service.py`, leaving the FastAPI route as a thin
+API boundary that delegates to an application service. `get_benchmark_exposure_context(...)`
+dropped out of the top-30 table while preserving sync execution registration, execution-stage
+lifecycle, row-count completion metadata, HTTP exception propagation, unexpected-failure mapping,
+OpenAPI shape, benchmark exposure sourcing semantics, and legacy error-detail behavior. This is a
+design-modularity and API/error-ownership slice only; it adds no runtime microservice boundary.
 LP-CR-1539 isolated performance diagnostics response projection from the API model package into
 `app/services/performance_diagnostics_projection.py`, leaving `app/models` as schema-oriented API
 contract ownership and moving engine-to-envelope mapping into the application service boundary.
