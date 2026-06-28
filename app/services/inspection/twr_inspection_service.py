@@ -114,25 +114,55 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
     execution_registry.mark_running(request.inspection_id)
     subject = _resolve_inspection_subject(request)
     subject_inputs = _resolve_subject_inspection_inputs(request=request, subject=subject)
-    consistency_findings = subject_inputs.consistency_findings
+    subject_assessments = _run_subject_assessments(
+        request=request,
+        subject=subject,
+        subject_inputs=subject_inputs,
+        base_evidence_summary=_base_inspection_evidence_summary(
+            subject=subject,
+            subject_inputs=subject_inputs,
+        ),
+    )
+    response_synthesis = _complete_twr_inspection_response(
+        request=request,
+        subject=subject,
+        subject_inputs=subject_inputs,
+        subject_assessments=subject_assessments,
+    )
+    _materialize_twr_inspection_artifacts(
+        request=request,
+        response_synthesis=response_synthesis,
+    )
+    execution_registry.mark_complete(request.inspection_id)
+    return response_synthesis.response
+
+
+def _base_inspection_evidence_summary(
+    *,
+    subject: ResolvedTWRInspectionSubject,
+    subject_inputs: _SubjectInspectionInputs,
+) -> dict[str, object]:
     evidence_summary: dict[str, object] = {
         "artifact_queue_enabled": True,
         "related_execution_found": subject.related_execution is not None,
     }
     evidence_summary.update(subject_inputs.evidence_summary)
-    subject_assessments = _run_subject_assessments(
-        request=request,
-        subject=subject,
-        subject_inputs=subject_inputs,
-        base_evidence_summary=evidence_summary,
-    )
+    return evidence_summary
 
+
+def _complete_twr_inspection_response(
+    *,
+    request: TWRInspectionRequest,
+    subject: ResolvedTWRInspectionSubject,
+    subject_inputs: _SubjectInspectionInputs,
+    subject_assessments: _SubjectAssessmentOutputs,
+) -> _InspectionResponseSynthesis:
     execution_registry.start_stage(request.inspection_id, EXECUTION_STAGE_FINDING_SYNTHESIS)
     response_synthesis = _build_twr_inspection_response(
         request=request,
         subject_calculation_id=subject.subject_calculation_id,
         portfolio_id=subject.portfolio_id,
-        consistency_findings=consistency_findings,
+        consistency_findings=subject_inputs.consistency_findings,
         source_quality_findings=subject_assessments.source_quality_findings,
         reconciliation_findings=subject_assessments.reconciliation_findings,
         source_economics_findings=subject_assessments.source_economics_findings,
@@ -142,7 +172,6 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
         artifact_payloads=subject_assessments.artifact_payloads,
     )
     response = response_synthesis.response
-    artifact_payloads = response_synthesis.artifact_payloads
     execution_registry.complete_stage(
         request.inspection_id,
         EXECUTION_STAGE_FINDING_SYNTHESIS,
@@ -152,7 +181,16 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
             "support_brief_generation_status": response_synthesis.support_brief_generation_status,
         },
     )
+    return response_synthesis
 
+
+def _materialize_twr_inspection_artifacts(
+    *,
+    request: TWRInspectionRequest,
+    response_synthesis: _InspectionResponseSynthesis,
+) -> None:
+    response = response_synthesis.response
+    artifact_payloads = response_synthesis.artifact_payloads
     execution_registry.start_stage(request.inspection_id, EXECUTION_STAGE_ARTIFACT_MATERIALIZATION)
     try:
         enqueue_twr_inspection_artifacts(
@@ -164,8 +202,6 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
     except Exception as exc:
         execution_registry.fail_stage(request.inspection_id, EXECUTION_STAGE_ARTIFACT_MATERIALIZATION, str(exc))
         raise
-    execution_registry.mark_complete(request.inspection_id)
-    return response
 
 
 def _run_subject_assessments(

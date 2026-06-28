@@ -26,6 +26,7 @@ from app.models.requests import Analysis, DailyInputData, PerformanceRequest
 from app.models.twr_requests import TWRAnalyticsRequest
 from app.services.execution_stage_names import (
     EXECUTION_STAGE_ARTIFACT_MATERIALIZATION,
+    EXECUTION_STAGE_FINDING_SYNTHESIS,
     EXECUTION_STAGE_MATH_RECONCILIATION,
     EXECUTION_STAGE_SOURCE_ECONOMICS_ASSESSMENT,
     EXECUTION_STAGE_SOURCE_QUALITY_ASSESSMENT,
@@ -41,18 +42,21 @@ from common.enums import Frequency, PeriodType
 class _FakeExecutionRegistry:
     failed_stages: list[tuple[str, str]]
     completed_stages: list[str]
+    completed_stage_details: list[tuple[str, dict[str, object] | None]]
+    started_stages: list[str]
 
     def mark_running(self, _inspection_id):
         return None
 
-    def start_stage(self, _inspection_id, _stage_name):
-        return None
+    def start_stage(self, _inspection_id, stage_name):
+        self.started_stages.append(stage_name)
 
     def fail_stage(self, _inspection_id, stage_name, message):
         self.failed_stages.append((stage_name, message))
 
     def complete_stage(self, _inspection_id, stage_name, details=None):
         self.completed_stages.append(stage_name)
+        self.completed_stage_details.append((stage_name, details))
 
     def mark_complete(self, _inspection_id):
         return None
@@ -60,7 +64,12 @@ class _FakeExecutionRegistry:
 
 @pytest.fixture()
 def fake_registry(monkeypatch) -> _FakeExecutionRegistry:
-    registry = _FakeExecutionRegistry(failed_stages=[], completed_stages=[])
+    registry = _FakeExecutionRegistry(
+        failed_stages=[],
+        completed_stages=[],
+        completed_stage_details=[],
+        started_stages=[],
+    )
     monkeypatch.setattr(service, "execution_registry", registry)
     monkeypatch.setattr(service, "enqueue_twr_inspection_artifacts", lambda **_kwargs: None)
     return registry
@@ -429,6 +438,105 @@ def test_subject_assessment_aggregation_extends_stage_evidence_and_artifacts():
         "inspection_summary.json": "{}",
         "source_quality_summary.json": "{}",
     }
+
+
+def test_complete_twr_inspection_response_records_finding_synthesis_stage(fake_registry, monkeypatch):
+    calculation_id = uuid4()
+    finding = _inspection_finding(severity="warning")
+    request = TWRInspectionRequest(
+        subject_type=TWRInspectionSubjectType.TWR_CALCULATION,
+        subject_calculation_id=calculation_id,
+    )
+    subject = ResolvedTWRInspectionSubject(
+        subject_type=TWRInspectionSubjectType.TWR_CALCULATION,
+        subject_calculation_id=calculation_id,
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        related_execution=None,
+        request_payload=None,
+    )
+    subject_inputs = service._SubjectInspectionInputs(
+        consistency_findings=[finding],
+        completed_check_families=["calculation_consistency"],
+        failed_check_families=[],
+        evidence_summary={"period_count": 1},
+        performance_request=None,
+        resolved_execution_request=None,
+    )
+    subject_assessments = service._SubjectAssessmentOutputs(
+        source_quality_findings=[],
+        reconciliation_findings=[],
+        source_economics_findings=[],
+        completed_check_families=["calculation_consistency"],
+        failed_check_families=[],
+        evidence_summary={"artifact_queue_enabled": True},
+        artifact_payloads={"inspection_summary.json": "{}"},
+    )
+    response = _inspection_response(
+        inspection_id=request.inspection_id,
+        subject_calculation_id=calculation_id,
+        verdict=TWRInspectionVerdict.SUPPORTABLE_WITH_WARNINGS,
+        findings=[finding],
+    )
+    monkeypatch.setattr(
+        service,
+        "_build_twr_inspection_response",
+        lambda **_kwargs: service._InspectionResponseSynthesis(
+            response=response,
+            artifact_payloads={"inspection_summary.json": "{}"},
+            support_brief_generation_status="generated",
+        ),
+    )
+
+    synthesis = service._complete_twr_inspection_response(
+        request=request,
+        subject=subject,
+        subject_inputs=subject_inputs,
+        subject_assessments=subject_assessments,
+    )
+
+    assert synthesis.response is response
+    assert (
+        EXECUTION_STAGE_FINDING_SYNTHESIS,
+        {
+            "verdict": "supportable_with_warnings",
+            "finding_count": 1,
+            "support_brief_generation_status": "generated",
+        },
+    ) in fake_registry.completed_stage_details
+
+
+def test_materialize_twr_inspection_artifacts_forwards_response_and_payloads(fake_registry, monkeypatch):
+    request = TWRInspectionRequest(
+        subject_type=TWRInspectionSubjectType.TWR_REQUEST,
+        request=_build_twr_request(),
+    )
+    response = _inspection_response(
+        inspection_id=request.inspection_id,
+        subject_calculation_id=None,
+        verdict=TWRInspectionVerdict.SUPPORTABLE,
+        findings=[],
+    )
+    captured: dict[str, object] = {}
+    monkeypatch.setattr(
+        service,
+        "enqueue_twr_inspection_artifacts",
+        lambda **kwargs: captured.update(kwargs),
+    )
+    synthesis = service._InspectionResponseSynthesis(
+        response=response,
+        artifact_payloads={"source_quality_summary.json": "{}"},
+        support_brief_generation_status="not_configured",
+    )
+
+    service._materialize_twr_inspection_artifacts(request=request, response_synthesis=synthesis)
+
+    assert captured == {
+        "inspection_id": request.inspection_id,
+        "request_model": request,
+        "response_model": response,
+        "artifact_payloads": {"source_quality_summary.json": "{}"},
+    }
+    assert EXECUTION_STAGE_ARTIFACT_MATERIALIZATION in fake_registry.started_stages
 
 
 def test_twr_inspection_preserves_runtime_finding_when_only_check_family_fails(fake_registry, monkeypatch):
@@ -991,6 +1099,40 @@ def _valuation_points() -> list[DailyInputData]:
             end_mv=1005.0,
         )
     ]
+
+
+def _inspection_response(
+    *,
+    inspection_id,
+    subject_calculation_id,
+    verdict: TWRInspectionVerdict,
+    findings: list[TWRInspectionFinding],
+) -> TWRInspectionResponse:
+    return TWRInspectionResponse(
+        inspection_id=inspection_id,
+        subject_type=TWRInspectionSubjectType.TWR_CALCULATION
+        if subject_calculation_id is not None
+        else TWRInspectionSubjectType.TWR_REQUEST,
+        inspection_profile=TWRInspectionProfile.CANONICAL_VALIDATION,
+        subject_calculation_id=subject_calculation_id,
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        status="complete",
+        verdict=verdict,
+        findings=findings,
+        owner_summary=TWRInspectionOwnerSummary(primary_owner_repo="lotus-performance"),
+        evidence_summary={"artifact_queue_enabled": True},
+        check_coverage=TWRInspectionCheckCoverage(
+            completed_check_families=[],
+            pending_check_families=[],
+        ),
+        related_lineage=TWRInspectionRelatedLineage(calculation_id=subject_calculation_id),
+        artifacts=service._build_twr_inspection_artifact_links(
+            inspection_id=inspection_id,
+            artifact_payloads={},
+        ),
+        workflow_pack_run=None,
+        generated_at_utc="2026-06-28T00:00:00Z",
+    )
 
 
 def _inspection_finding(*, severity: str) -> TWRInspectionFinding:
