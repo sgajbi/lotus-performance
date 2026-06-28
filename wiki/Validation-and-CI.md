@@ -1,5 +1,8 @@
 # Validation and CI
 
+Use this page to map local proof, PR proof, and main-branch releasability evidence. The goal is to
+make quality measurable and repeatable, not to treat CI as a ceremonial final step.
+
 ## Lane model
 
 `lotus-performance` follows the Lotus multi-lane validation posture:
@@ -44,6 +47,17 @@
   reviews noisier than necessary
 - public docs are regression-tested and should stay aligned to shipped behavior
 
+## Quality signal map
+
+| Signal | Local command or workflow | What it protects |
+| --- | --- | --- |
+| Static quality | `make check`, Static Quality Gates | lint, format, typecheck, complexity, architecture boundaries, duplicate-code hotspots, observability markers, no-alias governance |
+| API contract quality | `make check`, Contract Security Gates | OpenAPI quality, API vocabulary, domain data-product contracts, migration smoke, security scans |
+| Runtime behavior | `make ci`, unit/integration/e2e lanes | calculation behavior, API behavior, async/runtime flows, coverage floor |
+| Docker parity | `make ci`, `make ci-local`, Validate Docker Build | image buildability and local-runtime parity for release confidence |
+| Documentation contract | docs regression tests, wiki source check | public contract language, command accuracy, source wiki publication readiness |
+| Baseline evidence | `make quality-baseline`, Quality Baseline Snapshot | before/after scorecard data for the enterprise refactor program |
+
 ## Documentation contract proof
 
 When a slice changes `README.md` or public guides, run:
@@ -53,6 +67,18 @@ python -m pytest tests/unit/docs/test_public_docs_contract.py -q
 ```
 
 That pack protects the shipped public contract language and examples, not just formatting.
+
+When a slice changes repo-local `wiki/`, also run the governed platform wiki check before merge:
+
+```powershell
+..\lotus-platform\automation\Sync-RepoWikis.ps1 -CheckOnly -Repository lotus-performance
+```
+
+After the PR merges to `main`, publish the wiki source with:
+
+```powershell
+..\lotus-platform\automation\Sync-RepoWikis.ps1 -Publish -Repository lotus-performance
+```
 
 ## Demo API certification
 

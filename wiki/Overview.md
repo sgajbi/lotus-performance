@@ -21,6 +21,15 @@ For demo preparation, run `make demo-api-certification` and review the generated
 request-level API sweep, expected calculation assertions, report-only CI posture, and boundaries
 between backend API proof and broader Gateway or Workbench product-surface proof.
 
+## Reader map
+
+| Reader | What this repo proves | Where to continue |
+| --- | --- | --- |
+| Business and product | Which performance analytics are implemented, where supportability evidence appears, and which claims are not yet supported. | [Supported Features](Supported-Features), [Roadmap](Roadmap) |
+| Sales and demo teams | Which stories can be presented with repeatable backend evidence and which require Gateway or Workbench proof. | [Supported Features](Supported-Features), [docs/guides/demo_readiness.md](../docs/guides/demo_readiness.md) |
+| Operations and support | Which runtime surfaces show readiness, execution state, lineage, recovery, retention, and degraded posture. | [Operations Runbook](Operations-Runbook), [Troubleshooting](Troubleshooting) |
+| Engineers and agents | Which contracts, routers, tests, quality gates, and docs must move together when implementation truth changes. | [API Surface](API-Surface), [Validation and CI](Validation-and-CI), [Development Workflow](Development-Workflow) |
+
 ## Ownership boundaries
 
 This repo owns:
@@ -42,6 +51,8 @@ This repo does not own:
 - Stateful sourcing from `lotus-core` is a governed shipped path under RFC-0082.
 - The service already enforces OpenAPI, vocabulary, migration, and security gates.
 - Async compute offload and lineage capture are contract features.
+- README, wiki, API, scorecard, and repo-context truth should change in the same slice as the
+  implementation when public behavior or operating posture changes.
 
 ## Related pages
 

@@ -1170,6 +1170,26 @@ Latest contribution branch-coverage hardening evidence on `feature/contribution-
    updates because this slice did not change commands, API contracts, runtime topology, operator
    workflow, cross-repo ownership, or reusable agent guidance.
 
+Latest wiki documentation and reusable skill guidance evidence on
+`feature/wiki-professional-docs-polish`:
+
+1. Upgraded the repo-local wiki entry and support pages so `Home`, `_Sidebar`, `Overview`,
+   `Validation and CI`, `Operations Runbook`, and `Troubleshooting` provide reader-specific
+   navigation, an explicit evidence standard, grouped sidebar sections, quality-signal mapping,
+   first-response operations triage, and demo-certification troubleshooting.
+2. Promoted the reusable lesson into the platform-owned `lotus-readme-wiki-governance` skill source
+   so future agents treat professional wiki finish, grouped navigation, concise tables,
+   implementation-backed claims, and no-overclaim language as delivery quality.
+3. API behavior, runtime topology, public routes, supported-feature scope, README command truth,
+   repository context, central context, and code metrics are unchanged.
+4. `python -m pytest tests\unit\docs\test_public_docs_contract.py -q` passed with `48` docs
+   contract tests.
+5. The platform skill source validated with
+   `python C:\Users\Sandeep\.codex\skills\.system\skill-creator\scripts\quick_validate.py C:\Users\Sandeep\projects\lotus-platform\codex\skills\lotus-readme-wiki-governance`.
+6. `Sync-RepoWikis.ps1 -CheckOnly -Repository lotus-performance` reported expected
+   pre-publication drift for the edited wiki pages. After merge to `main`, publish the repo-local
+   wiki source and rerun the check to confirm `DiffCount 0`.
+
 ## Next Updates
 
 Future commits should update this report when they:
