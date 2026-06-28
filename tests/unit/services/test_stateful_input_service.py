@@ -13,6 +13,8 @@ from app.services.stateful_input_service import (
     _component_index_points,
     _component_point_records,
     _non_empty_string,
+    _performance_component_economics_supportability_state_reason,
+    _PerformanceComponentEconomicsAccumulator,
     _portfolio_identity_from_payload,
     _portfolio_observations_from_payload,
     _portfolio_timeseries_request_payload,
@@ -1171,6 +1173,51 @@ async def test_get_performance_component_economics_chunks_merges_coverage_and_re
     ]
     assert len(component_snapshots) == 2
     assert component_snapshots[0].paging_metadata["security_ids"] == ["SEC_1", "SEC_2"]
+
+
+def test_performance_component_economics_supportability_policy_requires_every_chunk_ready():
+    accumulator = _PerformanceComponentEconomicsAccumulator(
+        observed_component_families={"fee", "income"},
+        supported_component_families={"fee", "income", "tax"},
+        missing_component_families={"tax"},
+        ready_chunk_count=1,
+        unavailable_chunk_count=1,
+    )
+
+    assert _performance_component_economics_supportability_state_reason(
+        accumulator=accumulator,
+        chunk_count=2,
+    ) == ("UNAVAILABLE", "PERFORMANCE_COMPONENT_ECONOMICS_PARTIAL")
+
+
+def test_performance_component_economics_supportability_policy_marks_complete_window_ready():
+    accumulator = _PerformanceComponentEconomicsAccumulator(
+        observed_component_families={"fee", "income"},
+        supported_component_families={"fee", "income"},
+        missing_component_families=set(),
+        ready_chunk_count=2,
+        unavailable_chunk_count=0,
+    )
+
+    assert _performance_component_economics_supportability_state_reason(
+        accumulator=accumulator,
+        chunk_count=2,
+    ) == ("READY", "PERFORMANCE_COMPONENT_ECONOMICS_READY")
+
+
+def test_performance_component_economics_supportability_policy_marks_no_ready_chunks_unavailable():
+    accumulator = _PerformanceComponentEconomicsAccumulator(
+        observed_component_families=set(),
+        supported_component_families={"fee", "income"},
+        missing_component_families={"fee", "income"},
+        ready_chunk_count=0,
+        unavailable_chunk_count=2,
+    )
+
+    assert _performance_component_economics_supportability_state_reason(
+        accumulator=accumulator,
+        chunk_count=2,
+    ) == ("UNAVAILABLE", "PERFORMANCE_COMPONENT_ECONOMICS_UNAVAILABLE")
 
 
 @pytest.mark.asyncio

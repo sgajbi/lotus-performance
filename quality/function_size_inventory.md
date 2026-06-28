@@ -1,7 +1,7 @@
 # Lotus Performance Function Size Inventory
 
 Report date: 2026-06-28
-Branch: `feature/enterprise-backend-refactor-baseline`
+Branch: `feature/component-economics-supportability-policy`
 Mode: report-only function-size inventory; this artifact introduces no new blocking CI gate.
 
 ## Purpose
@@ -20,31 +20,31 @@ python scripts/python_function_size_inventory.py --limit 25
 
 | Rank | Function | File | Lines |
 | ---: | --- | --- | ---: |
-| 1 | `get_recovery_drill_history` | `app/api/endpoints/recovery_drill_history.py:33` | 59 |
-| 2 | `get_runtime_work_items` | `app/api/endpoints/runtime_work_items.py:25` | 59 |
-| 3 | `ComputeJobStore._build_queue_stats_statement` | `app/services/compute_job_store.py:863` | 59 |
-| 4 | `ComputeJobStore.list_recent_recoveries` | `app/services/compute_job_store.py:715` | 59 |
-| 5 | `_build_stateful_calculated_benchmark_input` | `app/services/stateful_benchmark_input_service.py:94` | 59 |
-| 6 | `_assemble_completed_twr_response` | `app/services/twr_service.py:1184` | 59 |
-| 7 | `calculate_twr_response` | `app/services/twr_service.py:1245` | 59 |
-| 8 | `build_attribution_supportability_evidence` | `engine/attribution_supportability.py:63` | 59 |
-| 9 | `_build_portfolio_engine_diagnostics` | `app/services/contribution_diagnostics.py:79` | 58 |
-| 10 | `_build_position_reconciliation_result` | `app/services/inspection/reconciliation.py:439` | 58 |
-| 11 | `_lifecycle_history_metrics` | `app/services/queue_metrics_service.py:442` | 58 |
-| 12 | `build_recovery_drill_history_snapshot` | `app/services/recovery_drill_history_service.py:66` | 58 |
-| 13 | `execute_runtime_retention_cleanup` | `app/services/runtime_retention_execution_service.py:94` | 58 |
-| 14 | `build_execution_response` | `app/models/execution_polling.py:239` | 57 |
-| 15 | `build_performance_diagnostics` | `app/models/performance_diagnostics.py:8` | 57 |
-| 16 | `_check_period_calculation_consistency` | `app/services/inspection/calculation_consistency.py:111` | 57 |
-| 17 | `runtime_retention_status_from_snapshot` | `app/services/runtime_status_lifecycle.py:196` | 57 |
-| 18 | `StatefulInputService._fetch_position_chunk` | `app/services/stateful_input_service.py:1015` | 57 |
-| 19 | `build_hierarchical_contribution_result` | `engine/contribution.py:311` | 57 |
-| 20 | `_calculate_dietz_mwr_result` | `engine/mwr.py:465` | 57 |
-| 21 | `ComputeJobStore._build_inspection_statements` | `app/services/compute_job_store.py:806` | 56 |
-| 22 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:113` | 56 |
-| 23 | `build_source_preconverted_mwr_currency_evidence` | `app/services/mwr_fx_evidence_service.py:26` | 56 |
-| 24 | `_build_workspace_performance_breakdowns` | `app/services/workspace_summary_service.py:872` | 56 |
-| 25 | `_build_workspace_period_summary_result` | `app/services/workspace_summary_service.py:695` | 56 |
+| 1 | `retrieve_stateful_contribution_source_input` | `app/services/stateful_contribution_input_service.py:61` | 63 |
+| 2 | `get_recovery_drill_history` | `app/api/endpoints/recovery_drill_history.py:33` | 59 |
+| 3 | `get_runtime_work_items` | `app/api/endpoints/runtime_work_items.py:25` | 59 |
+| 4 | `ComputeJobStore._build_queue_stats_statement` | `app/services/compute_job_store.py:863` | 59 |
+| 5 | `ComputeJobStore.list_recent_recoveries` | `app/services/compute_job_store.py:715` | 59 |
+| 6 | `_build_stateful_calculated_benchmark_input` | `app/services/stateful_benchmark_input_service.py:94` | 59 |
+| 7 | `_assemble_completed_twr_response` | `app/services/twr_service.py:1184` | 59 |
+| 8 | `calculate_twr_response` | `app/services/twr_service.py:1245` | 59 |
+| 9 | `build_attribution_supportability_evidence` | `engine/attribution_supportability.py:63` | 59 |
+| 10 | `_build_portfolio_engine_diagnostics` | `app/services/contribution_diagnostics.py:79` | 58 |
+| 11 | `_build_position_reconciliation_result` | `app/services/inspection/reconciliation.py:439` | 58 |
+| 12 | `_lifecycle_history_metrics` | `app/services/queue_metrics_service.py:442` | 58 |
+| 13 | `build_recovery_drill_history_snapshot` | `app/services/recovery_drill_history_service.py:66` | 58 |
+| 14 | `execute_runtime_retention_cleanup` | `app/services/runtime_retention_execution_service.py:94` | 58 |
+| 15 | `build_execution_response` | `app/models/execution_polling.py:239` | 57 |
+| 16 | `build_performance_diagnostics` | `app/models/performance_diagnostics.py:8` | 57 |
+| 17 | `_check_period_calculation_consistency` | `app/services/inspection/calculation_consistency.py:111` | 57 |
+| 18 | `runtime_retention_status_from_snapshot` | `app/services/runtime_status_lifecycle.py:196` | 57 |
+| 19 | `build_stateful_contribution_input` | `app/services/stateful_contribution_input_service.py:126` | 57 |
+| 20 | `StatefulInputService._fetch_position_chunk` | `app/services/stateful_input_service.py:1075` | 57 |
+| 21 | `build_hierarchical_contribution_result` | `engine/contribution.py:311` | 57 |
+| 22 | `_calculate_dietz_mwr_result` | `engine/mwr.py:465` | 57 |
+| 23 | `ComputeJobStore._build_inspection_statements` | `app/services/compute_job_store.py:806` | 56 |
+| 24 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:113` | 56 |
+| 25 | `build_source_preconverted_mwr_currency_evidence` | `app/services/mwr_fx_evidence_service.py:26` | 56 |
 
 ## Interpretation
 
@@ -57,6 +57,11 @@ after lineage queue response mapping was isolated. Attribution orchestration rem
 table but moved from `142` to `133` lines after per-period result assembly was isolated, then moved
 from `133` to `120` lines after response meta, supportability, and benchmark-context assembly were
 isolated.
+LP-CR-1519 isolated performance component-economics aggregate supportability policy from payload
+assembly into focused state/reason and missing-family helpers. Function-size posture is unchanged;
+the current largest production function is `retrieve_stateful_contribution_source_input(...)` at
+`63` lines, while `_build_performance_component_economics_payload(...)` no longer appears in the
+top-25 complexity inventory.
 LP-CR-1436 isolated lineage inspection status-filter statement dispatch into a focused helper.
 `LineageMetadataStore._build_inspection_query_statements(...)` dropped out of the top-25 table, and
 the largest production functions are now `_build_twr_inspection_response(...)` and

@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-06-28
-Branch: `feature/stateful-attribution-branch-hardening`
+Branch: `feature/component-economics-supportability-policy`
 Mode: report-only test taxonomy inventory; no blocking CI gate is introduced by this artifact.
 
 ## Purpose
@@ -21,7 +21,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 275 |
-| Test functions inventoried | 3158 |
+| Test functions inventoried | 3167 |
 | Integration/API/runtime test functions | 602 |
 | Contract/governance test functions | 108 |
 
@@ -32,18 +32,18 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | benchmarks | 9 | 17 |
 | e2e | 1 | 21 |
 | integration | 24 | 300 |
-| unit | 241 | 2820 |
+| unit | 241 | 2829 |
 
 ## Test Functions By Family
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 1102 |
+| analytics_domain | 1105 |
 | api_or_runtime | 602 |
 | contract_or_governance | 108 |
 | observability_or_readiness | 186 |
 | quality_or_security | 110 |
-| uncategorized | 1280 |
+| uncategorized | 1286 |
 
 ## Largest Test Modules
 
@@ -68,11 +68,11 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | 17 | `tests/integration/test_performance_api.py` | integration | 38 | api_or_runtime |
 | 18 | `tests/unit/engine/test_mwr.py` | unit | 38 | analytics_domain |
 | 19 | `tests/unit/services/test_compute_executor_worker.py` | unit | 38 | uncategorized |
-| 20 | `tests/unit/services/test_benchmark_exposure_context_service.py` | unit | 34 | uncategorized |
-| 21 | `tests/unit/models/test_twr_requests.py` | unit | 32 | analytics_domain |
-| 22 | `tests/unit/engine/test_contribution.py` | unit | 31 | analytics_domain |
-| 23 | `tests/unit/models/test_workspace_summary_models.py` | unit | 31 | uncategorized |
-| 24 | `tests/unit/services/test_stateful_input_service.py` | unit | 31 | uncategorized |
+| 20 | `tests/unit/services/test_stateful_input_service.py` | unit | 36 | uncategorized |
+| 21 | `tests/unit/services/test_benchmark_exposure_context_service.py` | unit | 34 | uncategorized |
+| 22 | `tests/unit/models/test_twr_requests.py` | unit | 32 | analytics_domain |
+| 23 | `tests/unit/engine/test_contribution.py` | unit | 31 | analytics_domain |
+| 24 | `tests/unit/models/test_workspace_summary_models.py` | unit | 31 | uncategorized |
 | 25 | `tests/unit/services/test_twr_inspection_reconciliation.py` | unit | 31 | analytics_domain |
 | 26 | `tests/unit/test_observability.py` | unit | 31 | uncategorized |
 | 27 | `tests/unit/engine/test_composites.py` | unit | 29 | analytics_domain |
@@ -86,7 +86,7 @@ The AST inventory counts test function definitions, while `pytest --collect-only
 pytest items including parametrized cases. The two values are intentionally different and
 complementary: collected tests show execution breadth, while this report shows source test-module
 and test-function distribution. The current suite has meaningful API/runtime and
-contract/governance coverage, but 1280 test functions remain uncategorized by the first-wave
+contract/governance coverage, but 1286 test functions remain uncategorized by the first-wave
 taxonomy and should be reviewed before turning taxonomy into a blocking gate.
 
 ## Gate Posture
