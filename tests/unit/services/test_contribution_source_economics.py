@@ -196,6 +196,40 @@ def test_source_economics_evidence_degrades_unavailable_core_performance_compone
     assert "income_pnl" in evidence.unsupported_economics
 
 
+def test_source_economics_evidence_does_not_use_partial_component_coverage_as_source_backed():
+    request = _request_with_position_meta(
+        {
+            "_source_economics": {
+                "performance_component_economics": {
+                    "source_contract": "PerformanceComponentEconomics:v1",
+                    "retrieval_status": 200,
+                    "supportability_state": "UNAVAILABLE",
+                    "supportability_reason": "PERFORMANCE_COMPONENT_ECONOMICS_PARTIAL",
+                    "source_row_count": 2,
+                    "observed_component_families": ["fee", "income", "tax"],
+                    "missing_component_families": ["tax"],
+                    "supported_component_families": ["fee", "income", "tax"],
+                }
+            },
+        }
+    )
+
+    evidence = build_contribution_source_economics_evidence(
+        request=request,
+        input_mode=ContributionInputMode.STATEFUL,
+        upstream_snapshots=[_snapshot("performance_component_economics")],
+    )
+
+    assert evidence.status == "SOURCE_LIMITED"
+    assert "performance_component_economics_unavailable" in evidence.degraded_economics
+    assert "source_component_income" not in evidence.available_economics
+    assert "source_component_fees" not in evidence.available_economics
+    assert "source_component_tax" not in evidence.available_economics
+    assert "income_pnl" in evidence.unsupported_economics
+    assert "fee_pnl" in evidence.unsupported_economics
+    assert "tax_pnl" in evidence.unsupported_economics
+
+
 def test_stateful_source_economics_evidence_reports_source_backed_contract_when_complete():
     request = _request_with_position_meta(
         {

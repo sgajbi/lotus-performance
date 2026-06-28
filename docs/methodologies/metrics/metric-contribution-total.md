@@ -157,10 +157,10 @@ Source-economics evidence fields:
 - `status`, `source_owner`, `source_contracts`, and `reason_codes`
 - `available_economics`, including market values, external flows, internal trade flows, fees, FX
   rates, classification dimensions, and observed `PerformanceComponentEconomics:v1` component
-  families where available
+  families where the full requested Core component-economics window is ready
 - `unsupported_economics`, including component-P&L families that are not source-authored
 - `degraded_economics`, including unsupported cash-flow types, missing classification, unavailable
-  component-economics enrichment, or missing embedded snapshot evidence
+  or partial component-economics enrichment, or missing embedded snapshot evidence
 - `cash_flow_type_counts`, `source_snapshot_count`, and `source_snapshot_endpoints`
 
 Hierarchical path fields:

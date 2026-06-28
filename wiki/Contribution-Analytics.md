@@ -140,7 +140,8 @@ Evidence expectations:
 - lineage required;
 - source contract evidence retained;
 - bounded source-economics status and reason codes;
-- observed Core component-economics families represented as available source evidence;
+- observed Core component-economics families represented as available source evidence only when
+  every requested component-economics chunk is `READY`;
 - unsupported component-P&L families represented explicitly instead of inferred downstream;
 - Gateway and Workbench preserve producer-owned evidence.
 
