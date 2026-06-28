@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-06-28
-Branch: `feature/mwr-branch-hardening`
+Branch: `feature/twr-mode-branch-hardening`
 Mode: report-only test taxonomy inventory; no blocking CI gate is introduced by this artifact.
 
 ## Purpose
@@ -21,7 +21,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 275 |
-| Test functions inventoried | 3147 |
+| Test functions inventoried | 3153 |
 | Integration/API/runtime test functions | 600 |
 | Contract/governance test functions | 108 |
 
@@ -32,13 +32,13 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | benchmarks | 9 | 17 |
 | e2e | 1 | 21 |
 | integration | 24 | 300 |
-| unit | 241 | 2809 |
+| unit | 241 | 2815 |
 
 ## Test Functions By Family
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 1093 |
+| analytics_domain | 1099 |
 | api_or_runtime | 600 |
 | contract_or_governance | 108 |
 | observability_or_readiness | 186 |
@@ -60,11 +60,11 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | 9 | `tests/unit/app/test_contribution_endpoint_helpers.py` | unit | 50 | analytics_domain, api_or_runtime |
 | 10 | `tests/unit/services/test_twr_inspection_calculation_consistency.py` | unit | 49 | analytics_domain |
 | 11 | `tests/unit/docs/test_public_docs_contract.py` | unit | 48 | contract_or_governance |
-| 12 | `tests/unit/services/test_workspace_summary_service.py` | unit | 45 | uncategorized |
-| 13 | `tests/unit/services/test_stateful_benchmark_input_service.py` | unit | 43 | uncategorized |
-| 14 | `tests/integration/test_contribution_api.py` | integration | 40 | analytics_domain, api_or_runtime |
-| 15 | `tests/unit/services/test_operator_action_lease_service.py` | unit | 39 | uncategorized |
-| 16 | `tests/unit/services/test_twr_mode_service.py` | unit | 39 | analytics_domain |
+| 12 | `tests/unit/services/test_twr_mode_service.py` | unit | 45 | analytics_domain |
+| 13 | `tests/unit/services/test_workspace_summary_service.py` | unit | 45 | uncategorized |
+| 14 | `tests/unit/services/test_stateful_benchmark_input_service.py` | unit | 43 | uncategorized |
+| 15 | `tests/integration/test_contribution_api.py` | integration | 40 | analytics_domain, api_or_runtime |
+| 16 | `tests/unit/services/test_operator_action_lease_service.py` | unit | 39 | uncategorized |
 | 17 | `tests/integration/test_performance_api.py` | integration | 38 | api_or_runtime |
 | 18 | `tests/unit/engine/test_mwr.py` | unit | 38 | analytics_domain |
 | 19 | `tests/unit/services/test_compute_executor_worker.py` | unit | 38 | uncategorized |
