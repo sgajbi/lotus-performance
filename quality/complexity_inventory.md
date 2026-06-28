@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-29
-Branch: `feature/stateful-contribution-source-request-boundary`
+Branch: `feature/runtime-retention-history-snapshot-boundary`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
@@ -32,12 +32,12 @@ must stay at `0`.
 | --- | ---: |
 | Max cyclomatic complexity | 5 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.21 |
+| Average maintainability index | 55.20 |
 
-The stateful contribution source request boundary preserves the enforced complexity posture: max
+The runtime-retention history query boundary preserves the enforced complexity posture: max
 cyclomatic complexity remains `5`, high-complexity functions remain `0`, and average
-maintainability index measures `55.21` after moving repeated Core source-retrieval arguments behind
-a typed private request carrier.
+maintainability index measures `55.20` after moving repeated operator-history query and
+applied-filter arguments behind a typed private query carrier.
 
 ## Highest Cyclomatic Complexity
 
@@ -117,6 +117,11 @@ LP-CR-1546 isolated hierarchical contribution result aggregation into focused he
 The measured max cyclomatic complexity remains `5`, high-complexity functions remain `0`, and
 average maintainability index remains `55.23`; the slice preserves the existing enforced
 complexity posture while improving contribution-engine result assembly scanability.
+LP-CR-1553 isolated runtime-retention history filtering, pagination, and applied-filter projection
+behind `_RuntimeRetentionHistoryQuery`. The measured max cyclomatic complexity remains `5`,
+high-complexity functions remain `0`, and average maintainability index measures `55.20`; the slice
+preserves the existing enforced complexity posture while improving operator-history snapshot
+scanability.
 LP-CR-1545 isolated stateful position page fetch and source-lineage snapshot recording behind
 `_fetch_and_record_position_page(...)`. The measured max cyclomatic complexity remains `5`,
 high-complexity functions remain `0`, and average maintainability index remains `55.23`; the slice

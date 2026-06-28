@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
-Report date: 2026-06-28
-Branch: `feature/compute-job-inspection-statement-boundary`
+Report date: 2026-06-29
+Branch: `feature/runtime-retention-history-snapshot-boundary`
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -23,7 +23,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 281 |
-| Test functions inventoried | 3213 |
+| Test functions inventoried | 3217 |
 | Integration/API/runtime test functions | 608 |
 | Contract/governance test functions | 111 |
 
@@ -34,13 +34,13 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 17 |
 | e2e | 1 | 21 |
 | integration | 24 | 300 |
-| unit | 247 | 2875 |
+| unit | 247 | 2879 |
 
 ## Test Functions By Family
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 1121 |
+| analytics_domain | 1125 |
 | api_or_runtime | 608 |
 | contract_or_governance | 111 |
 | observability_or_readiness | 248 |
@@ -91,13 +91,10 @@ and test-function distribution. The current suite has meaningful API/runtime and
 contract/governance coverage, but 1236 test functions remain uncategorized by the first-wave
 taxonomy and should be reduced through normal refactor slices rather than allowed to grow.
 
-The compute-job inspection statement boundary slice keeps the promoted gate stable while adding one
-observability/readiness unit test for standard inspection statement routing. It also classifies
-`tests/unit/services/test_compute_job_store.py` as observability/readiness coverage because the
-module protects durable compute-queue persistence, inspection, recovery, and operator supportability
-behavior.
+The runtime-retention history query-boundary slice keeps the promoted gate stable while strengthening
+operator-history filter proof in `tests/unit/services/test_runtime_retention_history_service.py`.
 Current measured breadth is `608` API/runtime test functions, `111` contract/governance test
-functions, `248` observability/readiness test functions, `1121` analytics-domain test functions,
+functions, `248` observability/readiness test functions, `1125` analytics-domain test functions,
 and `1236` uncategorized test functions. The enforced command remains at the accepted regression
 floor of `607` API/runtime tests and the existing uncategorized ceiling of `1294`; intentional
 threshold changes should remain separate, rationale-backed gate-governance work.

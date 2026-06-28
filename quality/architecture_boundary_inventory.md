@@ -1,7 +1,7 @@
 # Lotus Performance Architecture Boundary Inventory
 
-Report date: 2026-06-04
-Branch: `lp-cr-1388-source-economics-raw-sampling`
+Report date: 2026-06-29
+Branch: `feature/runtime-retention-history-snapshot-boundary`
 Mode: enforced architecture-boundary inventory; zero findings are blocked by CI.
 
 ## Purpose

@@ -14,6 +14,7 @@ from app.services.runtime_retention_history_service import (
     RUNTIME_RETENTION_MANIFEST_UNREADABLE_REASON,
     _available_runtime_retention_history_snapshot_from_manifest,
     _runtime_retention_history_entries_from_manifest,
+    _runtime_retention_history_query,
     _runtime_retention_manifest_entry_payload,
     _validate_manifest_entry,
     build_runtime_retention_history_snapshot,
@@ -128,12 +129,29 @@ def test_resolve_runtime_retention_manifest_preserves_unavailable_filter_context
     snapshot = build_runtime_retention_history_snapshot(
         artifact_directory=tmp_path / "missing",
         limit=1,
+        offset=2,
         operator_id="ops-user",
+        trigger_mode="scheduled",
+        job_id="retention-nightly",
+        cleanup_mode="apply",
+        status_filter="applied",
+        generated_after="2026-03-13T00:00:00Z",
+        generated_before="2026-03-15T00:00:00Z",
     )
 
     assert snapshot.status == "unavailable"
     assert snapshot.reason == RUNTIME_RETENTION_ARTIFACT_DIRECTORY_MISSING_REASON
-    assert snapshot.applied_filters == {"limit": 1, "operator_id": "ops-user"}
+    assert snapshot.applied_filters == {
+        "limit": 1,
+        "offset": 2,
+        "operator_id": "ops-user",
+        "trigger_mode": "scheduled",
+        "job_id": "retention-nightly",
+        "cleanup_mode": "apply",
+        "status": "applied",
+        "generated_after": "2026-03-13T00:00:00Z",
+        "generated_before": "2026-03-15T00:00:00Z",
+    }
 
 
 def test_runtime_retention_history_applies_filters_and_paging(tmp_path):
@@ -490,16 +508,17 @@ def test_available_runtime_retention_history_snapshot_from_manifest_filters_and_
     snapshot = _available_runtime_retention_history_snapshot_from_manifest(
         directory=tmp_path,
         manifest_payload=manifest_payload,
-        applied_filters={"limit": 1, "offset": 1, "operator_id": "ops-user"},
-        limit=1,
-        offset=1,
-        operator_id="ops-user",
-        trigger_mode="scheduled",
-        job_id="retention-nightly",
-        cleanup_mode="apply",
-        status_filter="applied",
-        generated_after=None,
-        generated_before=None,
+        query=_runtime_retention_history_query(
+            limit=1,
+            offset=1,
+            operator_id="ops-user",
+            trigger_mode="scheduled",
+            job_id="retention-nightly",
+            cleanup_mode="apply",
+            status_filter="applied",
+            generated_after=None,
+            generated_before=None,
+        ),
     )
 
     assert snapshot.status == "available"
@@ -508,7 +527,15 @@ def test_available_runtime_retention_history_snapshot_from_manifest_filters_and_
     assert snapshot.matched_entries == 2
     assert snapshot.returned_entries == 1
     assert snapshot.next_offset is None
-    assert snapshot.applied_filters == {"limit": 1, "offset": 1, "operator_id": "ops-user"}
+    assert snapshot.applied_filters == {
+        "limit": 1,
+        "offset": 1,
+        "operator_id": "ops-user",
+        "trigger_mode": "scheduled",
+        "job_id": "retention-nightly",
+        "cleanup_mode": "apply",
+        "status": "applied",
+    }
     assert snapshot.entries[0].evidence_file_name == "2026-03-14t00-00-00z.json"
 
 

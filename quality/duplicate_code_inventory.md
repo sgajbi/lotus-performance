@@ -1,5 +1,5 @@
-Report date: 2026-06-27
-Branch: `feature/enterprise-backend-refactor-baseline`
+Report date: 2026-06-29
+Branch: `feature/runtime-retention-history-snapshot-boundary`
 Command: `python scripts/python_duplicate_code_inventory.py --min-lines 12 --limit 40 --max-groups 0`
 Mode: enforced first-party duplicate function-body hotspot regression gate.
 
