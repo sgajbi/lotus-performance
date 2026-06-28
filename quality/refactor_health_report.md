@@ -1178,8 +1178,9 @@ Latest wiki documentation and reusable skill guidance evidence on
    navigation, an explicit evidence standard, grouped sidebar sections, quality-signal mapping,
    first-response operations triage, and demo-certification troubleshooting.
 2. Promoted the reusable lesson into the platform-owned `lotus-readme-wiki-governance` skill source
-   so future agents treat professional wiki finish, grouped navigation, concise tables,
-   implementation-backed claims, and no-overclaim language as delivery quality.
+   through `lotus-platform` PR #456, commit `45631d1`, so future agents treat professional wiki
+   finish, grouped navigation, concise tables, implementation-backed claims, and no-overclaim
+   language as delivery quality.
 3. API behavior, runtime topology, public routes, supported-feature scope, README command truth,
    repository context, central context, and code metrics are unchanged.
 4. `python -m pytest tests\unit\docs\test_public_docs_contract.py -q` passed with `48` docs
