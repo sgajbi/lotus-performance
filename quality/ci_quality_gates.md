@@ -1,7 +1,7 @@
 # Lotus Performance Progressive CI Quality Gates
 
 Report date: 2026-06-28
-Branch: `feature/execution-polling-response-boundary`
+Branch: `feature/performance-diagnostics-projection-boundary`
 Baseline sources: `quality/baseline_report.md`, `quality/refactor_health_report.md`, `quality/quality_scorecard.md`
 Mode: progressive gate map; remediated complexity, architecture-boundary, router-thinness,
 duplicate-code, repository hygiene, observability-readiness, domain-product validation,

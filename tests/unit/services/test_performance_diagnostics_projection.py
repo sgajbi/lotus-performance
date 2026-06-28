@@ -2,7 +2,7 @@ from datetime import date
 
 import pytest
 
-from app.models.performance_diagnostics import (
+from app.services.performance_diagnostics_projection import (
     build_performance_diagnostics,
     build_reset_events,
 )
