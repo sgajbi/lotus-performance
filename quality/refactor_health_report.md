@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Health Report
 
 Report date: 2026-06-28
-Branch: `feature/contribution-source-retrieval-boundary`
+Branch: `feature/recovery-drill-history-query-boundary`
 Baseline source: `quality/baseline_report.md`
 Report mode: phase-zero scorecard; complexity, architecture, duplicate-code, repository hygiene,
 router-thinness, observability-readiness, and Python security posture are enforced separately by CI.
@@ -42,8 +42,8 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | Max cyclomatic complexity | unknown | 5 | enforced | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py`; `make quality-complexity-gate` |
 | High-complexity functions | unknown | 0 | enforced | rank D-F functions in `quality/complexity_inventory.md`; `make quality-complexity-gate` |
-| Average maintainability index | unknown | 54.85 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
-| Largest functions by LOC | unknown | 59 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; the current largest production functions are eight functions tied at `59` lines |
+| Average maintainability index | unknown | 54.86 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
+| Largest functions by LOC | unknown | 59 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; the current largest production functions are seven functions tied at `59` lines |
 
 ## Architecture
 
@@ -71,8 +71,8 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Test modules | 228 | 275 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 3,372 | measured | `python -m pytest --collect-only -q` |
+| Test modules | 228 | 276 | measured | `rg --files tests -g 'test_*.py'` |
+| Collected tests | 2,035 | 3,375 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
 | Integration/API/runtime test functions | unknown | 602 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |
@@ -125,7 +125,34 @@ repeatably measured or expressed as progressive gates.
 
 ## Latest Local PR-Gate Evidence
 
-Latest contribution source retrieval-boundary evidence on `feature/contribution-source-retrieval-boundary`:
+Latest recovery-drill history query-boundary evidence on `feature/recovery-drill-history-query-boundary`:
+
+1. Isolated recovery-drill history query parameter projection into
+   `app/api/dependencies/recovery_drill_history.py`, matching the existing runtime-retention and
+   runtime-recoveries query dependency pattern. Behavior is unchanged: the operator API still
+   exposes the same filters, validates UTC timestamp windows, and returns the same
+   `RecoveryDrillHistoryResponse` contract.
+2. Added direct dependency coverage proving filter projection, default unfiltered first-page
+   behavior, and inverted timestamp-window rejection. Existing integration tests continue to prove
+   missing/invalid manifest handling, blank string query rejection, retained manifest responses,
+   filter application, limit/offset behavior, and time-window behavior through the API.
+3. Refreshed complexity, function-size, and test-taxonomy evidence. Max cyclomatic complexity
+   remains `5`, high-complexity functions remain `0`, average maintainability index improved from
+   `54.85` to `54.86`, `get_recovery_drill_history(...)` dropped out of the top-25 function-size
+   table, and the largest production functions are now seven functions tied at `59` lines.
+4. Validation passed: focused recovery-drill query/API tests (`11 passed`), ruff check, ruff format
+   check, and mypy for the touched Python files. Test taxonomy reported `3,174` inventoried test
+   functions, `602` integration/API/runtime, and `108` contract/governance; `pytest
+   --collect-only` collected `3,375` tests. `make check` passed with static quality, OpenAPI
+   quality, API vocabulary, domain-product validation, first-party Python security, mypy, and
+   `3,029` unit tests. Wiki source publication check reported `DiffCount 0`.
+5. Conscious domain/API/operations/docs review: this slice preserves recovery-drill API response
+   shape, OpenAPI truth, domain-product contracts, runtime topology, observability surface,
+   commands, cross-repo ownership, README, wiki source, repository context, platform context,
+   skills, and agent context. It improves operator API modularity and query-validation test
+   coverage without promoting any new public capability claim.
+
+Previous contribution source retrieval-boundary evidence on `feature/contribution-source-retrieval-boundary`:
 
 1. Isolated stateful contribution position-timeseries retrieval and Core component-economics
    retrieval into focused private source-boundary helpers. Behavior is unchanged:

@@ -6,6 +6,46 @@ from app.models.operator_run_response import build_lotus_performance_operator_ru
 from app.services.recovery_drill_history_service import RecoveryDrillHistorySnapshot
 
 
+class RecoveryDrillHistoryQueryParams(BaseModel):
+    limit: int | None = Field(
+        default=None,
+        ge=1,
+        le=100,
+        description="Maximum number of retained recovery-drill entries to return.",
+    )
+    offset: int = Field(
+        default=0,
+        ge=0,
+        description="Zero-based offset into the filtered retained recovery-drill history.",
+    )
+    operator_id: str | None = Field(
+        default=None,
+        min_length=1,
+        pattern=r".*\S.*",
+        description="Operator or automation identity filter.",
+    )
+    backup_identifier: str | None = Field(
+        default=None,
+        min_length=1,
+        pattern=r".*\S.*",
+        description="Backup or restore-set identifier filter.",
+    )
+    status: str | None = Field(
+        default=None,
+        min_length=1,
+        pattern=r".*\S.*",
+        description="Recovery-drill outcome status filter.",
+    )
+    generated_after: str | None = Field(
+        default=None,
+        description="Filter to entries generated at or after this UTC timestamp.",
+    )
+    generated_before: str | None = Field(
+        default=None,
+        description="Filter to entries generated at or before this UTC timestamp.",
+    )
+
+
 class RecoveryDrillHistoryEntryResponse(BaseModel):
     evidence_file_name: str = Field(description="Timestamped recovery-drill evidence artifact file name.")
     generated_at_utc: str = Field(description="UTC timestamp when this recovery drill evidence was generated.")
