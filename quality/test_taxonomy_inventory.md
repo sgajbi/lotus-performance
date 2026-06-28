@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-06-28
-Branch: `feature/openapi-enrichment-branch-hardening`
+Branch: `feature/stateful-attribution-branch-hardening`
 Mode: report-only test taxonomy inventory; no blocking CI gate is introduced by this artifact.
 
 ## Purpose
@@ -21,7 +21,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 275 |
-| Test functions inventoried | 3155 |
+| Test functions inventoried | 3158 |
 | Integration/API/runtime test functions | 602 |
 | Contract/governance test functions | 108 |
 
@@ -32,13 +32,13 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | benchmarks | 9 | 17 |
 | e2e | 1 | 21 |
 | integration | 24 | 300 |
-| unit | 241 | 2817 |
+| unit | 241 | 2820 |
 
 ## Test Functions By Family
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 1099 |
+| analytics_domain | 1102 |
 | api_or_runtime | 602 |
 | contract_or_governance | 108 |
 | observability_or_readiness | 186 |
@@ -51,7 +51,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | ---: | --- | --- | ---: | --- |
 | 1 | `tests/unit/app/test_enterprise_readiness_additional.py` | unit | 80 | observability_or_readiness |
 | 2 | `tests/unit/services/test_returns_series_service.py` | unit | 75 | uncategorized |
-| 3 | `tests/unit/services/test_stateful_attribution_input_service.py` | unit | 65 | analytics_domain |
+| 3 | `tests/unit/services/test_stateful_attribution_input_service.py` | unit | 68 | analytics_domain |
 | 4 | `tests/unit/app/test_openapi_enrichment.py` | unit | 61 | api_or_runtime |
 | 5 | `tests/unit/engine/test_attribution.py` | unit | 57 | analytics_domain |
 | 6 | `tests/unit/services/test_twr_inspection_source_economics.py` | unit | 57 | analytics_domain |
