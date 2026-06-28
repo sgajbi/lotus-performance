@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Health Report
 
-Report date: 2026-06-28
-Branch: `feature/twr-inspection-orchestration-boundary`
+Report date: 2026-06-29
+Branch: `feature/mwr-fx-evidence-assembly-boundary`
 Baseline source: `quality/baseline_report.md`
 Report mode: phase-zero scorecard; complexity, architecture, duplicate-code, repository hygiene,
 router-thinness, observability-readiness, domain-product validation, deterministic API evaluation,
@@ -29,7 +29,7 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | Python files | 480 | 583 | measured | `rg --files -g '*.py'` |
 | Python package markers | 18 | 18 | measured | recursive `__init__.py` count |
-| Python LOC | 104,454 | 173,464 | measured | `rg --files -g '*.py'` plus Python line count on this branch |
+| Python LOC | 104,454 | 173,525 | measured | `rg --files -g '*.py'` plus Python line count on this branch |
 | Largest Python file LOC | 2,399 | 2,503 | measured | largest-file inventory on this branch |
 | Largest production file LOC | 1,156 | 1,948 | measured | `app/services/stateful_input_service.py` |
 | Duplicate code hotspots | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `make quality-duplicate-code-gate` with `--min-lines 12 --max-groups 0`; duplicated LOC reduced from `24` to `0` in LP-CR-1407 |
@@ -43,8 +43,8 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | Max cyclomatic complexity | unknown | 5 | enforced | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py`; `make quality-complexity-gate` |
 | High-complexity functions | unknown | 0 | enforced | rank D-F functions in `quality/complexity_inventory.md`; `make quality-complexity-gate` |
-| Average maintainability index | unknown | 55.23 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
-| Largest functions by LOC | unknown | 56 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; `run_twr_inspection(...)` dropped out of the top-30 table after orchestration moved behind response-synthesis and artifact-materialization helpers |
+| Average maintainability index | unknown | 55.22 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
+| Largest functions by LOC | unknown | 56 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; `build_source_preconverted_mwr_currency_evidence(...)` dropped out of the top-35 table after validation and market-value response assembly moved behind focused helper boundaries |
 
 ## Architecture
 
@@ -73,7 +73,7 @@ link the commit, command, or CI artifact that proves the change.
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
 | Test modules | 228 | 281 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 3,416 | measured | `python -m pytest --collect-only -q` |
+| Collected tests | 2,035 | 3,418 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
 | Integration/API/runtime test functions | unknown | 608 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
@@ -127,6 +127,44 @@ quality-program gap is not lack of aspiration; it is that several requested dime
 repeatably measured or expressed as progressive gates.
 
 ## Latest Local PR-Gate Evidence
+
+Latest MWR source-preconverted FX evidence assembly-boundary evidence on
+`feature/mwr-fx-evidence-assembly-boundary`:
+
+1. Split stateless source-preconverted MWR FX evidence handling into
+   `_validated_source_preconverted_fx_inputs(...)` and
+   `_market_value_response_evidence_items(...)`. The public
+   `build_source_preconverted_mwr_currency_evidence(...)` helper now coordinates null-evidence
+   passthrough and final `MWRCurrencyEvidence` assembly while typed helper boundaries own input
+   validation, cash-flow indexing, beginning/ending market-value selection, valuation-date
+   projection, and FX provenance projection.
+2. Preserved MWR API and domain behavior: request `report_ccy` fallback to portfolio currency,
+   beginning and ending market-value amount validation, one evidence record per cash-flow index,
+   cash-flow date matching, same-currency FX-rate guardrails, required FX provenance text fields,
+   source/reporting amount projection, conversion fingerprints, and the
+   `SOURCE_PRECONVERTED_WITH_FX_EVIDENCE` response posture remain unchanged.
+3. Measured proof: `build_source_preconverted_mwr_currency_evidence(...)` dropped out of the
+   top-35 function-size table; largest production functions still measure `56` lines; max
+   cyclomatic complexity remains `5`; high-complexity functions remain `0`; average
+   maintainability index measures `55.22`; architecture-boundary findings remain `0`; duplicate
+   hotspot groups remain `0`; taxonomy reports `608` API/runtime test functions, `111`
+   contract/governance test functions, `248` observability/readiness test functions, `1125`
+   analytics-domain test functions, and `1236` uncategorized test functions; pytest collection
+   reports `3,418` collected tests.
+4. Validation passed: focused MWR FX evidence unit tests (`15 passed`), focused MWR API integration
+   tests (`9 passed`), ruff check, ruff format check, mypy for touched files, function-size
+   inventory, complexity inventory, architecture-boundary inventory, duplicate-code inventory,
+   test-taxonomy gate, pytest collection, `make quality-baseline`, docs contract tests
+   (`48 passed`), wiki check (`DiffCount 0`), `git diff --check`, and `make check`
+   (`3,072` unit tests passed after static quality, contract, deterministic API, security, type,
+   readiness, demo-certification, and taxonomy gates).
+5. Conscious domain/API/edge-case/operations/docs/skill review: this is an internal
+   design-modularity and API-helper maintainability slice. It deliberately adds no runtime
+   microservice or worker boundary because workload, failure-isolation, ownership, deployment,
+   security, and operability evidence do not justify one here. Public API/OpenAPI/error-model,
+   operator/runtime behavior, README, wiki source, repository context, central platform context,
+   skills, and agent context remain unchanged; this report, the scorecard, and the review ledger
+   record the implementation-backed truth change.
 
 Latest compute-job inspection statement-boundary evidence on
 `feature/compute-job-inspection-statement-boundary`:

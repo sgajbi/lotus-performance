@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any, Literal
 
@@ -9,6 +10,7 @@ from app.models.mwr_requests import (
     MoneyWeightedReturnRequest,
     MWRMarketValueFXEvidence,
     MWRSourcePreconvertedFXComponent,
+    MWRSourcePreconvertedFXEvidence,
 )
 from app.services.stateful_mwr_input_service import (
     MWRCashFlowEvidence,
@@ -23,6 +25,14 @@ FX_EVIDENCE_COMPLETE_REASON_CODES = [
 ]
 
 
+@dataclass(frozen=True)
+class _SourcePreconvertedMWRFXEvidenceInputs:
+    reporting_currency: str
+    beginning_market_value: MWRMarketValueFXEvidence
+    ending_market_value: MWRMarketValueFXEvidence
+    cash_flows_by_index: dict[int, MWRSourcePreconvertedFXComponent]
+
+
 def build_source_preconverted_mwr_currency_evidence(
     request: MoneyWeightedReturnRequest,
 ) -> MWRCurrencyEvidence | None:
@@ -32,6 +42,27 @@ def build_source_preconverted_mwr_currency_evidence(
     if evidence is None:
         return None
 
+    validated_inputs = _validated_source_preconverted_fx_inputs(request=request, evidence=evidence)
+    return MWRCurrencyEvidence(
+        reporting_currency=validated_inputs.reporting_currency,
+        portfolio_currency=request.currency,
+        currency_mode="SOURCE_PRECONVERTED_WITH_FX_EVIDENCE",
+        conversion_evidence_status="complete_source_preconverted_fx_metadata",
+        conversion_evidence_reason_codes=FX_EVIDENCE_COMPLETE_REASON_CODES,
+        market_values_used=_market_value_response_evidence_items(request=request, validated_inputs=validated_inputs),
+        cashflow_evidence=_build_cashflow_response_evidence(
+            request_cash_flows=request.cash_flows,
+            cash_flows_by_index=validated_inputs.cash_flows_by_index,
+            reporting_currency=validated_inputs.reporting_currency,
+        ),
+    )
+
+
+def _validated_source_preconverted_fx_inputs(
+    *,
+    request: MoneyWeightedReturnRequest,
+    evidence: MWRSourcePreconvertedFXEvidence,
+) -> _SourcePreconvertedMWRFXEvidenceInputs:
     reporting_currency = request.report_ccy or request.currency
     beginning_evidence, ending_evidence = _validated_market_value_evidence(evidence.market_values)
     cash_flows_by_index = _validated_cash_flow_evidence_by_index(
@@ -50,35 +81,35 @@ def build_source_preconverted_mwr_currency_evidence(
         reporting_currency=reporting_currency,
         location="source_preconverted_fx_evidence.market_values[ending_market_value]",
     )
-
-    return MWRCurrencyEvidence(
+    return _SourcePreconvertedMWRFXEvidenceInputs(
         reporting_currency=reporting_currency,
-        portfolio_currency=request.currency,
-        currency_mode="SOURCE_PRECONVERTED_WITH_FX_EVIDENCE",
-        conversion_evidence_status="complete_source_preconverted_fx_metadata",
-        conversion_evidence_reason_codes=FX_EVIDENCE_COMPLETE_REASON_CODES,
-        market_values_used=[
-            _market_value_response_evidence(
-                beginning_evidence,
-                reporting_amount=_decimal(request.begin_mv),
-                reporting_currency=reporting_currency,
-                value_role="beginning_market_value",
-                valuation_date=request.start_date or request.as_of,
-            ),
-            _market_value_response_evidence(
-                ending_evidence,
-                reporting_amount=_decimal(request.end_mv),
-                reporting_currency=reporting_currency,
-                value_role="ending_market_value",
-                valuation_date=request.as_of,
-            ),
-        ],
-        cashflow_evidence=_build_cashflow_response_evidence(
-            request_cash_flows=request.cash_flows,
-            cash_flows_by_index=cash_flows_by_index,
-            reporting_currency=reporting_currency,
-        ),
+        beginning_market_value=beginning_evidence,
+        ending_market_value=ending_evidence,
+        cash_flows_by_index=cash_flows_by_index,
     )
+
+
+def _market_value_response_evidence_items(
+    *,
+    request: MoneyWeightedReturnRequest,
+    validated_inputs: _SourcePreconvertedMWRFXEvidenceInputs,
+) -> list[MWRMarketValueEvidence]:
+    return [
+        _market_value_response_evidence(
+            validated_inputs.beginning_market_value,
+            reporting_amount=_decimal(request.begin_mv),
+            reporting_currency=validated_inputs.reporting_currency,
+            value_role="beginning_market_value",
+            valuation_date=request.start_date or request.as_of,
+        ),
+        _market_value_response_evidence(
+            validated_inputs.ending_market_value,
+            reporting_amount=_decimal(request.end_mv),
+            reporting_currency=validated_inputs.reporting_currency,
+            value_role="ending_market_value",
+            valuation_date=request.as_of,
+        ),
+    ]
 
 
 def _validated_market_value_evidence(
