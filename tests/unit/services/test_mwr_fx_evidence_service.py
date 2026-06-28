@@ -6,8 +6,10 @@ from fastapi import HTTPException
 from app.models.mwr_requests import MoneyWeightedReturnRequest
 from app.services.mwr_fx_evidence_service import (
     _build_cashflow_response_evidence,
+    _market_value_response_evidence_items,
     _validate_component_required_text_fields,
     _validated_cash_flow_evidence_by_index,
+    _validated_source_preconverted_fx_inputs,
     build_source_preconverted_mwr_currency_evidence,
 )
 
@@ -117,6 +119,34 @@ def test_cashflow_response_evidence_helpers_preserve_source_conversion_metadata(
     assert cashflow_evidence[0].source_amount == 5000
     assert cashflow_evidence[0].source_currency == "EUR"
     assert cashflow_evidence[0].conversion_fingerprint == "fx-cashflow"
+
+
+def test_validated_source_preconverted_fx_inputs_indexes_domain_evidence():
+    request = _request_with_evidence()
+    source_evidence = request.source_preconverted_fx_evidence
+    assert source_evidence is not None
+
+    validated_inputs = _validated_source_preconverted_fx_inputs(request=request, evidence=source_evidence)
+
+    assert validated_inputs.reporting_currency == "USD"
+    assert validated_inputs.beginning_market_value.value_role == "beginning_market_value"
+    assert validated_inputs.ending_market_value.value_role == "ending_market_value"
+    assert list(validated_inputs.cash_flows_by_index) == [0]
+    assert validated_inputs.cash_flows_by_index[0].conversion_fingerprint == "fx-cashflow"
+
+
+def test_market_value_response_evidence_items_preserve_valuation_dates_and_fx_provenance():
+    request = _request_with_evidence()
+    source_evidence = request.source_preconverted_fx_evidence
+    assert source_evidence is not None
+    validated_inputs = _validated_source_preconverted_fx_inputs(request=request, evidence=source_evidence)
+
+    market_values = _market_value_response_evidence_items(request=request, validated_inputs=validated_inputs)
+
+    assert [item.value_role for item in market_values] == ["beginning_market_value", "ending_market_value"]
+    assert [item.valuation_date.isoformat() for item in market_values] == ["2025-01-01", "2025-12-31"]
+    assert [item.conversion_fingerprint for item in market_values] == ["fx-begin", "fx-end"]
+    assert {item.reporting_currency for item in market_values} == {"USD"}
 
 
 def test_validate_component_required_text_fields_reports_missing_fields():
