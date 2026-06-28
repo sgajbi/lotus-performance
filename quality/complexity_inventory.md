@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
-Report date: 2026-06-28
-Branch: `feature/compute-job-inspection-statement-boundary`
+Report date: 2026-06-29
+Branch: `feature/stateful-contribution-source-request-boundary`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
@@ -32,12 +32,12 @@ must stay at `0`.
 | --- | ---: |
 | Max cyclomatic complexity | 5 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.23 |
+| Average maintainability index | 55.21 |
 
-The Dietz MWR result boundary extraction preserves the enforced complexity posture: max cyclomatic
-complexity remains `5`, high-complexity functions remain `0`, and average maintainability index
-measures `55.23` after isolating zero-denominator and calculated Dietz result assembly into focused
-helpers.
+The stateful contribution source request boundary preserves the enforced complexity posture: max
+cyclomatic complexity remains `5`, high-complexity functions remain `0`, and average
+maintainability index measures `55.21` after moving repeated Core source-retrieval arguments behind
+a typed private request carrier.
 
 ## Highest Cyclomatic Complexity
 

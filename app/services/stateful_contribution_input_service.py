@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 from decimal import Decimal
 from typing import TypeGuard
+from uuid import UUID
 
 from app.core.config import Settings
 from app.models.contribution_requests import PortfolioData, PositionData
@@ -53,6 +55,22 @@ class _StatefulContributionComponentEconomicsSource:
 
 
 @dataclass(frozen=True)
+class _StatefulContributionSourceRequest:
+    settings: Settings
+    stateful_input_service: StatefulInputService
+    calculation_id: UUID | None
+    portfolio_id: str
+    as_of_date: date
+    report_start_date: date
+    report_end_date: date
+    reporting_currency: str | None
+    consumer_system: str
+    dimensions: list[str]
+    include_cash_flows: bool
+    filters: dict[str, object]
+
+
+@dataclass(frozen=True)
 class StatefulContributionNormalizedInput:
     portfolio_data: PortfolioData
     positions_data: list[PositionData]
@@ -86,19 +104,8 @@ async def retrieve_stateful_contribution_source_input(
     include_cash_flows: bool,
     filters: dict[str, object],
 ) -> StatefulContributionSourceInput:
-    portfolio_input = await retrieve_stateful_portfolio_input(
+    source_request = _StatefulContributionSourceRequest(
         settings=settings,
-        stateful_input_service=stateful_input_service,
-        calculation_id=calculation_id,
-        portfolio_id=portfolio_id,
-        as_of_date=as_of_date,
-        start_date=report_start_date,
-        end_date=report_end_date,
-        reporting_currency=reporting_currency,
-        consumer_system=consumer_system,
-    )
-
-    position_source = await _retrieve_stateful_contribution_position_source(
         stateful_input_service=stateful_input_service,
         calculation_id=calculation_id,
         portfolio_id=portfolio_id,
@@ -111,15 +118,10 @@ async def retrieve_stateful_contribution_source_input(
         include_cash_flows=include_cash_flows,
         filters=filters,
     )
-    component_economics_source = await _retrieve_performance_component_economics_source(
-        stateful_input_service=stateful_input_service,
-        calculation_id=calculation_id,
-        portfolio_id=portfolio_id,
-        as_of_date=as_of_date,
-        report_start_date=report_start_date,
-        report_end_date=report_end_date,
-        filters=filters,
-    )
+
+    portfolio_input = await _retrieve_stateful_contribution_portfolio_input(source_request)
+    position_source = await _retrieve_stateful_contribution_position_source(source_request)
+    component_economics_source = await _retrieve_performance_component_economics_source(source_request)
     return StatefulContributionSourceInput(
         portfolio_input=portfolio_input,
         position_rows=position_source.rows,
@@ -129,31 +131,36 @@ async def retrieve_stateful_contribution_source_input(
     )
 
 
+async def _retrieve_stateful_contribution_portfolio_input(
+    source_request: _StatefulContributionSourceRequest,
+) -> StatefulPortfolioInput:
+    return await retrieve_stateful_portfolio_input(
+        settings=source_request.settings,
+        stateful_input_service=source_request.stateful_input_service,
+        calculation_id=source_request.calculation_id,
+        portfolio_id=source_request.portfolio_id,
+        as_of_date=source_request.as_of_date,
+        start_date=source_request.report_start_date,
+        end_date=source_request.report_end_date,
+        reporting_currency=source_request.reporting_currency,
+        consumer_system=source_request.consumer_system,
+    )
+
+
 async def _retrieve_stateful_contribution_position_source(
-    *,
-    stateful_input_service: StatefulInputService,
-    calculation_id,
-    portfolio_id: str,
-    as_of_date,
-    report_start_date,
-    report_end_date,
-    reporting_currency: str | None,
-    consumer_system: str,
-    dimensions: list[str],
-    include_cash_flows: bool,
-    filters: dict[str, object],
+    source_request: _StatefulContributionSourceRequest,
 ) -> _StatefulContributionPositionSource:
-    upstream_status, upstream_payload = await stateful_input_service.get_position_timeseries(
-        calculation_id=calculation_id,
-        portfolio_id=portfolio_id,
-        as_of_date=as_of_date,
-        start_date=report_start_date,
-        end_date=report_end_date,
-        reporting_currency=reporting_currency,
-        consumer_system=consumer_system,
-        dimensions=dimensions,
-        include_cash_flows=include_cash_flows,
-        filters=filters,
+    upstream_status, upstream_payload = await source_request.stateful_input_service.get_position_timeseries(
+        calculation_id=source_request.calculation_id,
+        portfolio_id=source_request.portfolio_id,
+        as_of_date=source_request.as_of_date,
+        start_date=source_request.report_start_date,
+        end_date=source_request.report_end_date,
+        reporting_currency=source_request.reporting_currency,
+        consumer_system=source_request.consumer_system,
+        dimensions=source_request.dimensions,
+        include_cash_flows=source_request.include_cash_flows,
+        filters=source_request.filters,
     )
     raise_for_stateful_control_plane_unavailable(
         source_label="stateful position timeseries source",
@@ -168,22 +175,15 @@ async def _retrieve_stateful_contribution_position_source(
 
 
 async def _retrieve_performance_component_economics_source(
-    *,
-    stateful_input_service: StatefulInputService,
-    calculation_id,
-    portfolio_id: str,
-    as_of_date,
-    report_start_date,
-    report_end_date,
-    filters: dict[str, object],
+    source_request: _StatefulContributionSourceRequest,
 ) -> _StatefulContributionComponentEconomicsSource:
-    status_code, payload = await stateful_input_service.get_performance_component_economics(
-        calculation_id=calculation_id,
-        portfolio_id=portfolio_id,
-        as_of_date=as_of_date,
-        start_date=report_start_date,
-        end_date=report_end_date,
-        security_ids=_security_ids_filter(filters),
+    status_code, payload = await source_request.stateful_input_service.get_performance_component_economics(
+        calculation_id=source_request.calculation_id,
+        portfolio_id=source_request.portfolio_id,
+        as_of_date=source_request.as_of_date,
+        start_date=source_request.report_start_date,
+        end_date=source_request.report_end_date,
+        security_ids=_security_ids_filter(source_request.filters),
     )
     return _StatefulContributionComponentEconomicsSource(
         status_code=status_code,
