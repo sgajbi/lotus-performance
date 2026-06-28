@@ -1386,37 +1386,16 @@ class StatefulInputService:
         chunk_count: int,
     ) -> dict[str, Any]:
         accumulator = _performance_component_economics_accumulator(responses)
-        observed_families = sorted(accumulator.observed_component_families)
-        supported_families = sorted(accumulator.supported_component_families)
-        missing_families = sorted(accumulator.supported_component_families - accumulator.observed_component_families)
-        if not supported_families:
-            missing_families = sorted(accumulator.missing_component_families)
-        is_ready = chunk_count > 0 and accumulator.ready_chunk_count == chunk_count
-        supportability_reason = "PERFORMANCE_COMPONENT_ECONOMICS_READY"
-        if not is_ready:
-            supportability_reason = (
-                "PERFORMANCE_COMPONENT_ECONOMICS_PARTIAL"
-                if accumulator.ready_chunk_count > 0
-                else "PERFORMANCE_COMPONENT_ECONOMICS_UNAVAILABLE"
-            )
         return {
             "product_name": "PerformanceComponentEconomics",
             "product_version": "v1",
             "portfolio_id": portfolio_id,
             "as_of_date": str(as_of_date),
             "window": {"start_date": str(start_date), "end_date": str(end_date)},
-            "supportability": {
-                "state": "READY" if is_ready else "UNAVAILABLE",
-                "reason": supportability_reason,
-                "source_owner": "lotus-core",
-                "downstream_consumer": "lotus-performance",
-                "source_row_count": accumulator.source_row_count,
-                "ready_chunk_count": accumulator.ready_chunk_count,
-                "unavailable_chunk_count": accumulator.unavailable_chunk_count,
-                "supported_component_families": supported_families,
-                "observed_component_families": observed_families,
-                "missing_component_families": missing_families,
-            },
+            "supportability": _performance_component_economics_supportability(
+                accumulator=accumulator,
+                chunk_count=chunk_count,
+            ),
             "retrieval_metadata": {
                 "chunk_count": chunk_count,
                 "page_count": len(responses),
@@ -1727,6 +1706,49 @@ def _performance_component_economics_accumulator(
         )
         accumulator.missing_component_families.update(_string_list(supportability.get("missing_component_families")))
     return accumulator
+
+
+def _performance_component_economics_supportability(
+    *,
+    accumulator: _PerformanceComponentEconomicsAccumulator,
+    chunk_count: int,
+) -> dict[str, Any]:
+    state, reason = _performance_component_economics_supportability_state_reason(
+        accumulator=accumulator,
+        chunk_count=chunk_count,
+    )
+    return {
+        "state": state,
+        "reason": reason,
+        "source_owner": "lotus-core",
+        "downstream_consumer": "lotus-performance",
+        "source_row_count": accumulator.source_row_count,
+        "ready_chunk_count": accumulator.ready_chunk_count,
+        "unavailable_chunk_count": accumulator.unavailable_chunk_count,
+        "supported_component_families": sorted(accumulator.supported_component_families),
+        "observed_component_families": sorted(accumulator.observed_component_families),
+        "missing_component_families": _performance_component_economics_missing_families(accumulator),
+    }
+
+
+def _performance_component_economics_supportability_state_reason(
+    *,
+    accumulator: _PerformanceComponentEconomicsAccumulator,
+    chunk_count: int,
+) -> tuple[str, str]:
+    if chunk_count > 0 and accumulator.ready_chunk_count == chunk_count:
+        return "READY", "PERFORMANCE_COMPONENT_ECONOMICS_READY"
+    if accumulator.ready_chunk_count > 0:
+        return "UNAVAILABLE", "PERFORMANCE_COMPONENT_ECONOMICS_PARTIAL"
+    return "UNAVAILABLE", "PERFORMANCE_COMPONENT_ECONOMICS_UNAVAILABLE"
+
+
+def _performance_component_economics_missing_families(
+    accumulator: _PerformanceComponentEconomicsAccumulator,
+) -> list[str]:
+    if accumulator.supported_component_families:
+        return sorted(accumulator.supported_component_families - accumulator.observed_component_families)
+    return sorted(accumulator.missing_component_families)
 
 
 def _string_list(value: Any) -> list[str]:
