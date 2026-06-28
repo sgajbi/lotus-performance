@@ -78,6 +78,23 @@ def test_attribution_supportability_handles_empty_evidence_as_unavailable():
     assert lineage.empty
 
 
+def test_attribution_supportability_empty_projection_preserves_source_context_statuses():
+    status, reason_codes, reasons, evidence, lineage = build_attribution_supportability_evidence(
+        pd.DataFrame(),
+        _request(),
+        currency_attribution_status="unavailable",
+        linking_status="invalid_return_chain",
+        residual_materiality=classify_attribution_residual(0.0),
+    )
+
+    assert status == "unavailable"
+    assert reason_codes == ["missing_benchmark_data"]
+    assert [reason.severity for reason in reasons] == ["error"]
+    assert evidence.currency_attribution_status == "unavailable"
+    assert evidence.linking_status == "invalid_return_chain"
+    assert lineage.empty
+
+
 def test_attribution_supportability_falls_back_when_return_presence_flag_is_absent():
     effects_df = pd.DataFrame(
         {
@@ -103,6 +120,33 @@ def test_attribution_supportability_falls_back_when_return_presence_flag_is_abse
     assert lineage["missing_benchmark_return"].tolist() == [True]
 
 
+def test_attribution_supportability_uses_return_presence_flag_for_benchmark_gap():
+    effects_df = pd.DataFrame(
+        {
+            "w_p": [0.0],
+            "w_b": [0.4],
+            "r_base_b": [0.0],
+            "has_base_return_b": [False],
+        },
+        index=pd.MultiIndex.from_tuples([(pd.Timestamp("2025-01-01"), "Emerging Debt")], names=["date", "sector"]),
+    )
+
+    status, reason_codes, _, evidence, lineage = build_attribution_supportability_evidence(
+        effects_df,
+        _request(),
+        currency_attribution_status="not_requested",
+        linking_status="not_requested",
+        residual_materiality=classify_attribution_residual(0.0),
+    )
+
+    assert status == "partial"
+    assert set(reason_codes) >= {"benchmark_only_exposure", "missing_benchmark_return"}
+    assert evidence.benchmark_only_group_count == 1
+    assert evidence.missing_benchmark_return_count == 1
+    assert lineage["benchmark_only"].tolist() == [True]
+    assert lineage["missing_benchmark_return"].tolist() == [True]
+
+
 def test_attribution_supportability_reports_zero_exposure_and_residual_watch_without_degrading_status():
     effects_df = pd.DataFrame(
         {
@@ -115,7 +159,7 @@ def test_attribution_supportability_reports_zero_exposure_and_residual_watch_wit
         index=pd.MultiIndex.from_tuples([(pd.Timestamp("2025-01-01"), "Cash")], names=["date", "sector"]),
     )
 
-    status, reason_codes, reasons, evidence, _ = build_attribution_supportability_evidence(
+    status, reason_codes, reasons, evidence, lineage = build_attribution_supportability_evidence(
         effects_df,
         _request(),
         currency_attribution_status="not_requested",
@@ -127,6 +171,9 @@ def test_attribution_supportability_reports_zero_exposure_and_residual_watch_wit
     assert reason_codes == ["zero_portfolio_exposure", "residual_watch"]
     assert [reason.severity for reason in reasons] == ["info", "info"]
     assert evidence.zero_portfolio_exposure_count == 1
+    assert lineage["portfolio_only"].tolist() == [False]
+    assert lineage["benchmark_only"].tolist() == [False]
+    assert lineage["missing_benchmark_return"].tolist() == [False]
 
 
 def test_attribution_supportability_warns_for_material_residual_without_coverage_gap():

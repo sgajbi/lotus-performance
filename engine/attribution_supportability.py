@@ -11,6 +11,14 @@ from engine.attribution_types import (
     AttributionSupportabilityEvidence,
 )
 
+AttributionSupportabilityResult = tuple[
+    str,
+    list[str],
+    list[AttributionReason],
+    AttributionSupportabilityEvidence,
+    pd.DataFrame,
+]
+
 ATTRIBUTION_RESIDUAL_WARNING_THRESHOLD_PCT = 0.001
 ATTRIBUTION_RESIDUAL_MATERIAL_THRESHOLD_PCT = 0.01
 
@@ -40,6 +48,24 @@ class _AttributionSupportabilityCounts:
     zero_portfolio_exposure_count: int
 
 
+@dataclass(frozen=True)
+class _AttributionSupportabilityProjection:
+    status: str
+    reason_codes: list[str]
+    reasons: list[AttributionReason]
+    evidence: AttributionSupportabilityEvidence
+    lineage: pd.DataFrame
+
+    def as_result(self) -> AttributionSupportabilityResult:
+        return (
+            self.status,
+            self.reason_codes,
+            self.reasons,
+            self.evidence,
+            self.lineage,
+        )
+
+
 def classify_attribution_residual(residual: float) -> AttributionResidualMateriality:
     absolute_residual = abs(float(residual))
     if absolute_residual >= ATTRIBUTION_RESIDUAL_MATERIAL_THRESHOLD_PCT:
@@ -67,24 +93,30 @@ def build_attribution_supportability_evidence(
     currency_attribution_status: str,
     linking_status: str,
     residual_materiality: AttributionResidualMateriality,
-) -> tuple[str, list[str], list[AttributionReason], AttributionSupportabilityEvidence, pd.DataFrame]:
+) -> AttributionSupportabilityResult:
+    return _build_attribution_supportability_projection(
+        effects_df=effects_df,
+        request=request,
+        currency_attribution_status=currency_attribution_status,
+        linking_status=linking_status,
+        residual_materiality=residual_materiality,
+    ).as_result()
+
+
+def _build_attribution_supportability_projection(
+    *,
+    effects_df: pd.DataFrame,
+    request: AttributionSupportabilityRequestLike,
+    currency_attribution_status: str,
+    linking_status: str,
+    residual_materiality: AttributionResidualMateriality,
+) -> _AttributionSupportabilityProjection:
     effects_reset = effects_df.reset_index()
     if effects_reset.empty:
-        reason = _build_attribution_reason(
-            "missing_benchmark_data",
-            "error",
-            "No aligned portfolio and benchmark attribution observations were available for this period.",
-            0,
-        )
-        return (
-            "unavailable",
-            [reason.code],
-            [reason],
-            AttributionSupportabilityEvidence(
-                currency_attribution_status=currency_attribution_status,
-                linking_status=linking_status,
-            ),
-            effects_reset,
+        return _build_empty_attribution_supportability_projection(
+            effects_reset=effects_reset,
+            currency_attribution_status=currency_attribution_status,
+            linking_status=linking_status,
         )
 
     group_by = request.group_by
@@ -100,9 +132,50 @@ def build_attribution_supportability_evidence(
         linking_status=linking_status,
         residual_materiality=residual_materiality,
     )
-    reason_codes = [reason.code for reason in reasons]
+    return _AttributionSupportabilityProjection(
+        status=_determine_attribution_supportability_status(reasons),
+        reason_codes=[reason.code for reason in reasons],
+        reasons=reasons,
+        evidence=_build_attribution_supportability_evidence(
+            counts=counts,
+            currency_attribution_status=currency_attribution_status,
+            linking_status=linking_status,
+        ),
+        lineage=_append_attribution_supportability_lineage_flags(effects_reset, masks),
+    )
 
-    evidence = AttributionSupportabilityEvidence(
+
+def _build_empty_attribution_supportability_projection(
+    *,
+    effects_reset: pd.DataFrame,
+    currency_attribution_status: str,
+    linking_status: str,
+) -> _AttributionSupportabilityProjection:
+    reason = _build_attribution_reason(
+        "missing_benchmark_data",
+        "error",
+        "No aligned portfolio and benchmark attribution observations were available for this period.",
+        0,
+    )
+    return _AttributionSupportabilityProjection(
+        status="unavailable",
+        reason_codes=[reason.code],
+        reasons=[reason],
+        evidence=AttributionSupportabilityEvidence(
+            currency_attribution_status=currency_attribution_status,
+            linking_status=linking_status,
+        ),
+        lineage=effects_reset,
+    )
+
+
+def _build_attribution_supportability_evidence(
+    *,
+    counts: _AttributionSupportabilityCounts,
+    currency_attribution_status: str,
+    linking_status: str,
+) -> AttributionSupportabilityEvidence:
+    return AttributionSupportabilityEvidence(
         portfolio_only_group_count=counts.portfolio_only_group_count,
         benchmark_only_group_count=counts.benchmark_only_group_count,
         unclassified_group_count=counts.unclassified_group_count,
@@ -111,13 +184,6 @@ def build_attribution_supportability_evidence(
         zero_portfolio_exposure_count=counts.zero_portfolio_exposure_count,
         currency_attribution_status=currency_attribution_status,
         linking_status=linking_status,
-    )
-    return (
-        _determine_attribution_supportability_status(reasons),
-        reason_codes,
-        reasons,
-        evidence,
-        _append_attribution_supportability_lineage_flags(effects_reset, masks),
     )
 
 
