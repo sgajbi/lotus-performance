@@ -75,7 +75,10 @@ async def test_retrieve_stateful_contribution_source_input_returns_rows_and_meta
         ],
     )
 
+    portfolio_calls: list[dict[str, object]] = []
+
     async def _mock_retrieve_stateful_portfolio_input(**kwargs):  # noqa: ARG001
+        portfolio_calls.append(kwargs)
         return portfolio_input
 
     monkeypatch.setattr(
@@ -113,12 +116,25 @@ async def test_retrieve_stateful_contribution_source_input_returns_rows_and_meta
     )
 
     assert result.portfolio_input is portfolio_input
+    assert portfolio_calls[0]["portfolio_id"] == "P1"
+    assert portfolio_calls[0]["start_date"] == date(2025, 1, 1)
+    assert portfolio_calls[0]["end_date"] == date(2025, 1, 1)
+    assert portfolio_calls[0]["reporting_currency"] == "USD"
+    assert portfolio_calls[0]["consumer_system"] == "lotus-performance"
     assert len(result.position_rows) == 1
     assert result.position_retrieval_metadata == RetrievalMetadata(chunk_count=2, page_count=3)
+    assert service.calls[0]["portfolio_id"] == "P1"
+    assert service.calls[0]["start_date"] == date(2025, 1, 1)
+    assert service.calls[0]["end_date"] == date(2025, 1, 1)
+    assert service.calls[0]["reporting_currency"] == "USD"
+    assert service.calls[0]["consumer_system"] == "lotus-performance"
     assert service.calls[0]["dimensions"] == ["sector"]
     assert service.calls[0]["include_cash_flows"] is False
     assert result.performance_component_economics_status == 200
     assert result.performance_component_economics_payload is service.component_payload
+    assert service.component_calls[0]["portfolio_id"] == "P1"
+    assert service.component_calls[0]["start_date"] == date(2025, 1, 1)
+    assert service.component_calls[0]["end_date"] == date(2025, 1, 1)
     assert service.component_calls[0]["security_ids"] == ["SEC_1"]
 
 

@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Health Report
 
 Report date: 2026-06-29
-Branch: `feature/mwr-fx-evidence-assembly-boundary`
+Branch: `feature/stateful-contribution-source-request-boundary`
 Baseline source: `quality/baseline_report.md`
 Report mode: phase-zero scorecard; complexity, architecture, duplicate-code, repository hygiene,
 router-thinness, observability-readiness, domain-product validation, deterministic API evaluation,
@@ -29,7 +29,7 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | Python files | 480 | 583 | measured | `rg --files -g '*.py'` |
 | Python package markers | 18 | 18 | measured | recursive `__init__.py` count |
-| Python LOC | 104,454 | 173,525 | measured | `rg --files -g '*.py'` plus Python line count on this branch |
+| Python LOC | 104,454 | 173,541 | measured | `rg --files -g '*.py'` plus Python line count on this branch |
 | Largest Python file LOC | 2,399 | 2,503 | measured | largest-file inventory on this branch |
 | Largest production file LOC | 1,156 | 1,948 | measured | `app/services/stateful_input_service.py` |
 | Duplicate code hotspots | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `make quality-duplicate-code-gate` with `--min-lines 12 --max-groups 0`; duplicated LOC reduced from `24` to `0` in LP-CR-1407 |
@@ -43,8 +43,8 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | Max cyclomatic complexity | unknown | 5 | enforced | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py`; `make quality-complexity-gate` |
 | High-complexity functions | unknown | 0 | enforced | rank D-F functions in `quality/complexity_inventory.md`; `make quality-complexity-gate` |
-| Average maintainability index | unknown | 55.22 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
-| Largest functions by LOC | unknown | 56 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; `build_source_preconverted_mwr_currency_evidence(...)` dropped out of the top-35 table after validation and market-value response assembly moved behind focused helper boundaries |
+| Average maintainability index | unknown | 55.21 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
+| Largest functions by LOC | unknown | 56 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; `retrieve_stateful_contribution_source_input(...)` dropped out of the top-35 table after repeated Core source-retrieval arguments moved behind a typed private request carrier |
 
 ## Architecture
 
@@ -127,6 +127,37 @@ quality-program gap is not lack of aspiration; it is that several requested dime
 repeatably measured or expressed as progressive gates.
 
 ## Latest Local PR-Gate Evidence
+
+Latest stateful contribution source request-boundary evidence on
+`feature/stateful-contribution-source-request-boundary`:
+
+1. Introduced `_StatefulContributionSourceRequest` so portfolio input, Core position-timeseries,
+   and optional `PerformanceComponentEconomics:v1` retrieval share one private source request
+   carrying portfolio id, date window, reporting currency, consumer system, dimensions,
+   cash-flow inclusion, and source filters.
+2. Preserved stateful contribution behavior: required `PositionTimeseriesInput:v1` remains
+   fail-closed, optional `PerformanceComponentEconomics:v1` remains degraded supportability rather
+   than a calculation blocker, source `security_ids` filtering remains deduplicated and non-empty,
+   and the public `StatefulContributionSourceInput` shape is unchanged.
+3. Measured proof: `retrieve_stateful_contribution_source_input(...)` dropped out of the top-35
+   function-size table; largest production functions still measure `56` lines; max cyclomatic
+   complexity remains `5`; high-complexity functions remain `0`; average maintainability index
+   measures `55.21`; architecture-boundary findings remain `0`; duplicate hotspot groups remain
+   `0`; taxonomy reports `608` API/runtime test functions, `111` contract/governance test
+   functions, `248` observability/readiness test functions, `1125` analytics-domain test
+   functions, and `1236` uncategorized test functions; pytest collection reports `3,418`
+   collected tests.
+4. Validation passed: focused stateful contribution source input tests (`26 passed`), ruff check,
+   ruff format check, mypy for touched files, function-size inventory, complexity inventory,
+   architecture-boundary inventory, duplicate-code inventory, test-taxonomy gate, pytest
+   collection, and `make quality-baseline`.
+5. Conscious domain/API/edge-case/operations/docs/skill review: this is an internal
+   design-modularity and Core source-boundary maintainability slice. It deliberately adds no
+   runtime microservice or worker boundary because workload, failure-isolation, ownership,
+   deployment, security, and operability evidence do not justify one here. Public
+   API/OpenAPI/error-model/operator/runtime truth, README, wiki source, repository context, central
+   platform context, skills, and agent context remain unchanged; this report, the scorecard, and
+   the review ledger record the implementation-backed truth change.
 
 Latest MWR source-preconverted FX evidence assembly-boundary evidence on
 `feature/mwr-fx-evidence-assembly-boundary`:
