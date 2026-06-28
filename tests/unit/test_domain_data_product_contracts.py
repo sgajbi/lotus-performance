@@ -5,6 +5,7 @@ import pytest
 from scripts.validate_domain_data_product_contracts import (
     LOCAL_DECLARATION_DIR,
     _collect_required_upstream_product_paths,
+    _resolve_platform_root,
     platform_validation_dependencies_available,
     validate_repo_native_contracts,
 )
@@ -36,6 +37,28 @@ def test_repo_native_declaration_readme_documents_local_validation_path() -> Non
     assert "python scripts/validate_domain_data_product_contracts.py" in readme
     assert "make domain-product-validate" in readme
     assert "docs/technical/RFC-0082-upstream-contract-family-map.md" in readme
+
+
+def test_platform_root_resolution_prefers_explicit_environment(monkeypatch, tmp_path) -> None:
+    platform_root = tmp_path / "platform"
+    (platform_root / "platform-contracts").mkdir(parents=True)
+
+    monkeypatch.setenv("LOTUS_PLATFORM_ROOT", str(platform_root))
+
+    assert _resolve_platform_root() == platform_root.resolve()
+
+
+def test_platform_root_resolution_supports_nested_ci_checkout(monkeypatch, tmp_path) -> None:
+    import scripts.validate_domain_data_product_contracts as validator
+
+    repo_root = tmp_path / "lotus-performance"
+    platform_root = repo_root / ".lotus-platform"
+    (platform_root / "platform-contracts").mkdir(parents=True)
+
+    monkeypatch.delenv("LOTUS_PLATFORM_ROOT", raising=False)
+    monkeypatch.setattr(validator, "ROOT", repo_root)
+
+    assert validator._resolve_platform_root() == platform_root.resolve()
 
 
 def test_repo_native_validation_script_stages_upstream_core_products() -> None:

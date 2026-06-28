@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import shutil
 import sys
 import tempfile
@@ -9,7 +10,30 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 LOCAL_DECLARATION_DIR = ROOT / "contracts" / "domain-data-products"
-PLATFORM_ROOT = ROOT.parent / "lotus-platform"
+
+
+def _resolve_platform_root() -> Path:
+    configured_root = os.environ.get("LOTUS_PLATFORM_ROOT")
+    candidates = []
+    if configured_root:
+        candidates.append(Path(configured_root))
+    candidates.extend(
+        [
+            ROOT.parent / "lotus-platform",
+            ROOT / ".lotus-platform",
+            ROOT / "lotus-platform",
+        ]
+    )
+
+    for candidate in candidates:
+        resolved = candidate.expanduser().resolve()
+        if (resolved / "platform-contracts").exists():
+            return resolved
+
+    return candidates[0].expanduser().resolve()
+
+
+PLATFORM_ROOT = _resolve_platform_root()
 PLATFORM_DECLARATION_DIR = PLATFORM_ROOT / "platform-contracts" / "domain-data-products"
 PLATFORM_VOCABULARY_DIR = PLATFORM_ROOT / "platform-contracts" / "domain-vocabulary"
 PLATFORM_VALIDATOR_PATH = PLATFORM_DECLARATION_DIR / "validate_domain_data_product_contracts.py"
@@ -22,7 +46,8 @@ def _load_platform_validator():
     if not PLATFORM_VALIDATOR_PATH.exists():
         raise FileNotFoundError(
             f"Platform validator not found at {PLATFORM_VALIDATOR_PATH}. "
-            "Ensure the sibling lotus-platform repository is available."
+            "Ensure lotus-platform is available as a sibling checkout, under this repository, "
+            "or through LOTUS_PLATFORM_ROOT."
         )
 
     spec = importlib.util.spec_from_file_location("lotus_platform_domain_product_validator", PLATFORM_VALIDATOR_PATH)

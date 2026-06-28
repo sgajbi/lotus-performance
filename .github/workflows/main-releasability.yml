@@ -78,6 +78,11 @@ jobs:
         run: make openapi-gate
       - name: API Vocabulary Gate
         run: make api-vocabulary-gate
+      - name: Checkout Lotus Platform Contracts
+        uses: actions/checkout@v6
+        with:
+          repository: sgajbi/lotus-platform
+          path: .lotus-platform
       - name: Domain Product Validation
         run: make domain-product-validate
       - name: Quality Evaluation Gate
