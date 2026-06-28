@@ -1,7 +1,7 @@
 # Lotus Performance Function Size Inventory
 
 Report date: 2026-06-28
-Branch: `feature/component-economics-supportability-policy`
+Branch: `feature/contribution-source-reason-policy`
 Mode: report-only function-size inventory; this artifact introduces no new blocking CI gate.
 
 ## Purpose
@@ -62,6 +62,10 @@ assembly into focused state/reason and missing-family helpers. Function-size pos
 the current largest production function is `retrieve_stateful_contribution_source_input(...)` at
 `63` lines, while `_build_performance_component_economics_payload(...)` no longer appears in the
 top-25 complexity inventory.
+LP-CR-1520 isolated stateful contribution source-economics reason-code projection into focused
+source-context and degraded-economics helpers. Function-size posture is unchanged; the current
+largest production function remains `retrieve_stateful_contribution_source_input(...)` at `63`
+lines, while `_stateful_reason_codes(...)` no longer appears in the top-25 complexity inventory.
 LP-CR-1436 isolated lineage inspection status-filter statement dispatch into a focused helper.
 `LineageMetadataStore._build_inspection_query_statements(...)` dropped out of the top-25 table, and
 the largest production functions are now `_build_twr_inspection_response(...)` and

@@ -37,6 +37,11 @@ _PERFORMANCE_COMPONENT_PNL_FIELD_SUPPORT = {
     "income": "income_pnl",
     "tax": "tax_pnl",
 }
+_DEGRADED_STATEFUL_ECONOMICS_REASON_CODES = {
+    "performance_component_economics_unavailable": "PERFORMANCE_COMPONENT_ECONOMICS_UNAVAILABLE",
+    "unsupported_cash_flow_types": "UNSUPPORTED_SOURCE_CASH_FLOW_TYPES_PRESENT",
+    "missing_classification": "UNCLASSIFIED_POSITION_ECONOMICS_PRESENT",
+}
 
 
 def build_contribution_source_economics_evidence(
@@ -232,19 +237,40 @@ def _stateful_reason_codes(
     upstream_snapshots: list[UpstreamSnapshotRecord],
     component_contexts: list[dict[str, Any]] | None = None,
 ) -> list[str]:
-    reason_codes = ["LOTUS_CORE_ANALYTICS_INPUTS_USED"]
+    reason_codes = [
+        *_stateful_source_reason_codes(
+            unsupported_economics=unsupported_economics,
+            upstream_snapshots=upstream_snapshots,
+            component_contexts=component_contexts,
+        ),
+        *_degraded_stateful_economics_reason_codes(degraded_economics),
+    ]
+    return sorted(set(reason_codes))
+
+
+def _stateful_source_reason_codes(
+    *,
+    unsupported_economics: list[str],
+    upstream_snapshots: list[UpstreamSnapshotRecord],
+    component_contexts: list[dict[str, Any]] | None = None,
+) -> list[str]:
+    reason_codes = [
+        "LOTUS_CORE_ANALYTICS_INPUTS_USED",
+        _upstream_snapshot_lineage_reason_code(upstream_snapshots),
+    ]
     if component_contexts:
         reason_codes.append("PERFORMANCE_COMPONENT_ECONOMICS_SOURCE_USED")
     if unsupported_economics:
         reason_codes.append("COMPONENT_PNL_NOT_SOURCE_AUTHORED")
-    if "performance_component_economics_unavailable" in degraded_economics:
-        reason_codes.append("PERFORMANCE_COMPONENT_ECONOMICS_UNAVAILABLE")
-    if "unsupported_cash_flow_types" in degraded_economics:
-        reason_codes.append("UNSUPPORTED_SOURCE_CASH_FLOW_TYPES_PRESENT")
-    if "missing_classification" in degraded_economics:
-        reason_codes.append("UNCLASSIFIED_POSITION_ECONOMICS_PRESENT")
-    reason_codes.append(_upstream_snapshot_lineage_reason_code(upstream_snapshots))
-    return sorted(set(reason_codes))
+    return reason_codes
+
+
+def _degraded_stateful_economics_reason_codes(degraded_economics: list[str]) -> list[str]:
+    return [
+        reason_code
+        for degraded_economics_code, reason_code in _DEGRADED_STATEFUL_ECONOMICS_REASON_CODES.items()
+        if degraded_economics_code in degraded_economics
+    ]
 
 
 def _upstream_snapshot_lineage_reason_code(upstream_snapshots: list[UpstreamSnapshotRecord]) -> str:
