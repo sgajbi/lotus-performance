@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Health Report
 
 Report date: 2026-06-28
-Branch: `feature/execution-polling-response-boundary`
+Branch: `feature/performance-diagnostics-projection-boundary`
 Baseline source: `quality/baseline_report.md`
 Report mode: phase-zero scorecard; complexity, architecture, duplicate-code, repository hygiene,
 router-thinness, observability-readiness, domain-product validation, deterministic API evaluation,
@@ -29,7 +29,7 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | Python files | 480 | 579 | measured | `rg --files -g '*.py'` |
 | Python package markers | 18 | 18 | measured | recursive `__init__.py` count |
-| Python LOC | 104,454 | 172,307 | measured | `rg --files -g '*.py'` plus Python line count on this branch |
+| Python LOC | 104,454 | 172,331 | measured | `rg --files -g '*.py'` plus Python line count on this branch |
 | Largest Python file LOC | 2,399 | 2,503 | measured | largest-file inventory on this branch |
 | Largest production file LOC | 1,156 | 1,910 | measured | `app/services/stateful_input_service.py` |
 | Duplicate code hotspots | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `make quality-duplicate-code-gate` with `--min-lines 12 --max-groups 0`; duplicated LOC reduced from `24` to `0` in LP-CR-1407 |
@@ -43,8 +43,8 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | Max cyclomatic complexity | unknown | 5 | enforced | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py`; `make quality-complexity-gate` |
 | High-complexity functions | unknown | 0 | enforced | rank D-F functions in `quality/complexity_inventory.md`; `make quality-complexity-gate` |
-| Average maintainability index | unknown | 55.09 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
-| Largest functions by LOC | unknown | 57 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; the current largest production functions are seven functions tied at `57` lines, led by `build_performance_diagnostics(...)` |
+| Average maintainability index | unknown | 55.06 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
+| Largest functions by LOC | unknown | 57 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; the current largest production functions are six functions tied at `57` lines, led by `_check_period_calculation_consistency(...)` |
 
 ## Architecture
 
@@ -125,6 +125,35 @@ quality-program gap is not lack of aspiration; it is that several requested dime
 repeatably measured or expressed as progressive gates.
 
 ## Latest Local PR-Gate Evidence
+
+Latest performance diagnostics projection-boundary evidence on
+`feature/performance-diagnostics-projection-boundary`:
+
+1. Isolated performance diagnostics response projection into
+   `app/services/performance_diagnostics_projection.py` and removed
+   `app/models/performance_diagnostics.py`, so API model ownership is no longer coupled to engine
+   diagnostics internals. TWR and workspace summary service call sites now consume the service
+   projection boundary directly.
+2. Moved the focused diagnostics mapping tests from model tests into service tests while preserving
+   the public `Diagnostics` envelope, reset-event projection, policy override counts, outlier
+   samples, methodology-shadow samples, and the existing `effective_period_start` fail-fast error.
+3. Refreshed baseline, function-size, complexity, and architecture evidence. Max cyclomatic
+   complexity remains `5`, high-complexity functions remain `0`, average maintainability index
+   measures `55.06`, `build_performance_diagnostics(...)` dropped out of the top-30 function-size
+   table, architecture boundary findings remain `0`, Python LOC measures `172,331`, and pytest
+   collection remains `3,400` tests.
+4. Validation passed: `tests\unit\services\test_performance_diagnostics_projection.py`,
+   `tests\unit\services\test_twr_calculation_service.py`, and
+   `tests\unit\services\test_workspace_summary_service.py` (`61 passed`), ruff check, ruff format
+   check, mypy for touched service/test files, function-size inventory, complexity inventory,
+   architecture-boundary inventory, and `make quality-baseline`.
+5. Conscious domain/API/edge-case/operations/docs review: this is an internal design-modularity and
+   domain-ownership hardening slice. It deliberately adds no runtime microservice or worker
+   boundary because workload, failure-isolation, ownership, deployment, security, and operability
+   evidence do not justify one here. It preserves API/OpenAPI behavior, diagnostics vocabulary,
+   reset-event semantics, runtime topology, commands, README, wiki source, repository context,
+   platform context, skills, and agent context. No README/wiki/context/skill update is needed
+   because public/operator/runtime truth did not change; wiki check is still required before merge.
 
 Latest CI evaluation-gate enforcement evidence on
 `feature/execution-polling-response-boundary`:

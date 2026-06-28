@@ -12,7 +12,6 @@ from fastapi import HTTPException
 from adapters.api_adapter import create_engine_config, create_engine_dataframe
 from app.models.benchmark_analytics_requests import BenchmarkInputMode, BenchmarkReturnSource
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
-from app.models.performance_diagnostics import build_performance_diagnostics, build_reset_events
 from app.models.requests import PerformanceRequest
 from app.models.responses import (
     ComparativeAnalyticsBlock,
@@ -43,6 +42,7 @@ from app.services.calculation_supportability_service import (
 from app.services.execution_lifecycle_service import complete_execution_with_lineage
 from app.services.execution_registry import execution_registry
 from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
+from app.services.performance_diagnostics_projection import build_performance_diagnostics, build_reset_events
 from common.enums import Frequency
 from core.envelope import Audit, Diagnostics, Meta
 from core.periods import ResolvedPeriod, resolve_periods

@@ -16,7 +16,6 @@ from app.models.benchmark_analytics_requests import BenchmarkInputMode, Benchmar
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.models.mwr_analytics_requests import MWRInputMode
 from app.models.mwr_requests import CashFlow
-from app.models.performance_diagnostics import build_performance_diagnostics
 from app.models.requests import DailyInputData, PerformanceRequest
 from app.models.twr_requests import TWRInputMode
 from app.models.workspace_summary_requests import WorkspaceBenchmarkRequest, WorkspaceSummaryRequest
@@ -41,6 +40,7 @@ from app.services.benchmark_assignment_service import resolve_benchmark_identity
 from app.services.execution_lifecycle_service import complete_execution_with_lineage
 from app.services.execution_registry import execution_registry
 from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
+from app.services.performance_diagnostics_projection import build_performance_diagnostics
 from app.services.portfolio_source_service import build_stateful_input_service
 from app.services.service_identity import LOTUS_PERFORMANCE_CONSUMER_SYSTEM
 from app.services.stateful_benchmark_input_service import build_stateful_benchmark_input

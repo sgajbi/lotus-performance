@@ -257,8 +257,8 @@ Status values:
 - Evidence:
   - `engine/rules.py` implements `NCTRL_1..4` and `NIP`, but `PERF_RESET` currently aggregates only `NCTRL_1..4`.
   - `engine/compute.py` now records `candidate_canonical_reset_days`, `reset_delta_days`, `nip_days_since_last_reset`, and `valid_days_since_last_reset`.
-  - `engine/diagnostics.py`, `core/envelope.py`, `app/models/performance_diagnostics.py`
-  - `tests/unit/engine/test_compute.py`, `tests/unit/models/test_performance_diagnostics_models.py`, `tests/integration/test_performance_api.py`
+  - `engine/diagnostics.py`, `core/envelope.py`, `app/services/performance_diagnostics_projection.py`
+  - `tests/unit/engine/test_compute.py`, `tests/unit/services/test_performance_diagnostics_projection.py`, `tests/integration/test_performance_api.py`
 - Proposed action: Keep the characterization signals stable and use them as rollout evidence.
 
 ### RFC-043-D02

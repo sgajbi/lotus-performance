@@ -1,7 +1,7 @@
 # Lotus Performance Function Size Inventory
 
 Report date: 2026-06-28
-Branch: `feature/execution-polling-response-boundary`
+Branch: `feature/performance-diagnostics-projection-boundary`
 Mode: report-only function-size inventory; this artifact introduces no new blocking CI gate.
 
 ## Purpose
@@ -20,36 +20,36 @@ python scripts/python_function_size_inventory.py --limit 30
 
 | Rank | Function | File | Lines |
 | ---: | --- | --- | ---: |
-| 1 | `build_performance_diagnostics` | `app/models/performance_diagnostics.py:8` | 57 |
-| 2 | `_check_period_calculation_consistency` | `app/services/inspection/calculation_consistency.py:111` | 57 |
-| 3 | `runtime_retention_status_from_snapshot` | `app/services/runtime_status_lifecycle.py:196` | 57 |
-| 4 | `build_stateful_contribution_input` | `app/services/stateful_contribution_input_service.py:194` | 57 |
-| 5 | `StatefulInputService._fetch_position_chunk` | `app/services/stateful_input_service.py:1075` | 57 |
-| 6 | `build_hierarchical_contribution_result` | `engine/contribution.py:311` | 57 |
-| 7 | `_calculate_dietz_mwr_result` | `engine/mwr.py:465` | 57 |
-| 8 | `ComputeJobStore._build_inspection_statements` | `app/services/compute_job_store.py:914` | 56 |
-| 9 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:113` | 56 |
-| 10 | `build_source_preconverted_mwr_currency_evidence` | `app/services/mwr_fx_evidence_service.py:26` | 56 |
-| 11 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:89` | 56 |
-| 12 | `retrieve_stateful_contribution_source_input` | `app/services/stateful_contribution_input_service.py:74` | 56 |
-| 13 | `_build_workspace_performance_breakdowns` | `app/services/workspace_summary_service.py:872` | 56 |
-| 14 | `_build_workspace_period_summary_result` | `app/services/workspace_summary_service.py:695` | 56 |
-| 15 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:547` | 56 |
-| 16 | `_calculate_xirr_mwr_attempt` | `engine/mwr.py:363` | 56 |
-| 17 | `_load_durable_queue_metric_sources` | `app/services/queue_metrics_service.py:285` | 55 |
-| 18 | `_build_returns_series_execution_result` | `app/services/returns_series_service.py:1494` | 55 |
-| 19 | `build_runtime_recovery_snapshot` | `app/services/runtime_recovery_service.py:101` | 55 |
-| 20 | `_retrieve_stateful_attribution_sources` | `app/services/stateful_attribution_input_service.py:145` | 55 |
-| 21 | `StatefulInputService.get_benchmark_market_series` | `app/services/stateful_input_service.py:500` | 55 |
-| 22 | `calculate_twr_workflow` | `app/services/twr_calculation_service.py:279` | 55 |
-| 23 | `_build_stateful_workspace_benchmark_input` | `app/services/workspace_summary_service.py:379` | 55 |
-| 24 | `_build_methodology_shadow_samples` | `engine/compute.py:319` | 55 |
-| 25 | `calculate_money_weighted_return` | `engine/mwr.py:631` | 55 |
-| 26 | `get_benchmark_exposure_context` | `app/api/endpoints/benchmark_exposure_context.py:28` | 54 |
-| 27 | `_run_subject_assessments` | `app/services/inspection/twr_inspection_service.py:171` | 54 |
-| 28 | `_build_workflow_capabilities` | `app/services/integration_capabilities_service.py:222` | 54 |
-| 29 | `run_runtime_retention_cleanup` | `app/services/runtime_retention_run_service.py:150` | 54 |
-| 30 | `lineage_queue_degradation_details` | `app/services/runtime_status_degradation.py:75` | 54 |
+| 1 | `_check_period_calculation_consistency` | `app/services/inspection/calculation_consistency.py:111` | 57 |
+| 2 | `runtime_retention_status_from_snapshot` | `app/services/runtime_status_lifecycle.py:196` | 57 |
+| 3 | `build_stateful_contribution_input` | `app/services/stateful_contribution_input_service.py:194` | 57 |
+| 4 | `StatefulInputService._fetch_position_chunk` | `app/services/stateful_input_service.py:1075` | 57 |
+| 5 | `build_hierarchical_contribution_result` | `engine/contribution.py:311` | 57 |
+| 6 | `_calculate_dietz_mwr_result` | `engine/mwr.py:465` | 57 |
+| 7 | `ComputeJobStore._build_inspection_statements` | `app/services/compute_job_store.py:914` | 56 |
+| 8 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:113` | 56 |
+| 9 | `build_source_preconverted_mwr_currency_evidence` | `app/services/mwr_fx_evidence_service.py:26` | 56 |
+| 10 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:89` | 56 |
+| 11 | `retrieve_stateful_contribution_source_input` | `app/services/stateful_contribution_input_service.py:74` | 56 |
+| 12 | `_build_workspace_performance_breakdowns` | `app/services/workspace_summary_service.py:872` | 56 |
+| 13 | `_build_workspace_period_summary_result` | `app/services/workspace_summary_service.py:695` | 56 |
+| 14 | `_build_workspace_summary_response` | `app/services/workspace_summary_service.py:547` | 56 |
+| 15 | `_calculate_xirr_mwr_attempt` | `engine/mwr.py:363` | 56 |
+| 16 | `_load_durable_queue_metric_sources` | `app/services/queue_metrics_service.py:285` | 55 |
+| 17 | `_build_returns_series_execution_result` | `app/services/returns_series_service.py:1494` | 55 |
+| 18 | `build_runtime_recovery_snapshot` | `app/services/runtime_recovery_service.py:101` | 55 |
+| 19 | `_retrieve_stateful_attribution_sources` | `app/services/stateful_attribution_input_service.py:145` | 55 |
+| 20 | `StatefulInputService.get_benchmark_market_series` | `app/services/stateful_input_service.py:500` | 55 |
+| 21 | `calculate_twr_workflow` | `app/services/twr_calculation_service.py:279` | 55 |
+| 22 | `_build_stateful_workspace_benchmark_input` | `app/services/workspace_summary_service.py:379` | 55 |
+| 23 | `_build_methodology_shadow_samples` | `engine/compute.py:319` | 55 |
+| 24 | `calculate_money_weighted_return` | `engine/mwr.py:631` | 55 |
+| 25 | `get_benchmark_exposure_context` | `app/api/endpoints/benchmark_exposure_context.py:28` | 54 |
+| 26 | `_run_subject_assessments` | `app/services/inspection/twr_inspection_service.py:171` | 54 |
+| 27 | `_build_workflow_capabilities` | `app/services/integration_capabilities_service.py:222` | 54 |
+| 28 | `run_runtime_retention_cleanup` | `app/services/runtime_retention_run_service.py:150` | 54 |
+| 29 | `lineage_queue_degradation_details` | `app/services/runtime_status_degradation.py:75` | 54 |
+| 30 | `build_stateful_mwr_input_for_window` | `app/services/stateful_mwr_input_service.py:112` | 54 |
 
 ## Interpretation
 
@@ -62,12 +62,21 @@ after lineage queue response mapping was isolated. Attribution orchestration rem
 table but moved from `142` to `133` lines after per-period result assembly was isolated, then moved
 from `133` to `120` lines after response meta, supportability, and benchmark-context assembly were
 isolated.
+LP-CR-1539 isolated performance diagnostics response projection from the API model package into
+`app/services/performance_diagnostics_projection.py`, leaving `app/models` as schema-oriented API
+contract ownership and moving engine-to-envelope mapping into the application service boundary.
+`build_performance_diagnostics(...)` dropped out of the top-30 table, and the largest production
+functions are now six functions tied at `57` lines, led by
+`_check_period_calculation_consistency(...)`. Behavior is unchanged: TWR and workspace summary
+responses still preserve engine diagnostics, policy counts, outlier samples, methodology-shadow
+samples, reset events, OpenAPI schemas, and existing effective-period fail-fast behavior. This is a
+design-modularity and domain-ownership slice only; it adds no runtime service boundary.
 LP-CR-1535 isolated execution polling retrieval and durable-record response projection into
 `app/services/execution_polling_service.py`, leaving `app/models/execution_polling.py` as
 schema-only API contract models and reducing the router to endpoint lookup plus legacy 404 error
 mapping. `build_execution_response(...)` dropped out of the top-30 table, and the largest
-production functions are now seven functions tied at `57` lines, led by
-`build_performance_diagnostics(...)`. Behavior is unchanged: execution polling still preserves
+production functions are now seven functions tied at `57` lines, led by the former
+`build_performance_diagnostics(...)` hotspot. Behavior is unchanged: execution polling still preserves
 execution identity, stages, upstream snapshots, compute-job metadata, async-result metadata,
 OpenAPI response schemas, and the typed legacy `ErrorDetailResponse` 404 contract. This is a
 design-modularity and API/error-contract ownership slice only; it adds no runtime service boundary.
