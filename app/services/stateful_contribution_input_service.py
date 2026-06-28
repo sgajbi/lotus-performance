@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal
+from typing import TypeGuard
 
 from app.core.config import Settings
 from app.models.contribution_requests import PortfolioData, PositionData
@@ -342,18 +343,8 @@ def _position_source_economics_from_row(
     performance_component_economics_payload: dict[str, object] | None = None,
     performance_component_economics_status: int | None = None,
 ) -> dict[str, object]:
-    cash_flow_type_counts: dict[str, int] = {}
-    cash_flows_raw = row.get("cash_flows")
-    if isinstance(cash_flows_raw, list):
-        for flow in cash_flows_raw:
-            if not isinstance(flow, dict):
-                continue
-            classification = classify_cashflow_type(flow.get("cash_flow_type"))
-            key = classification.normalized_value or "missing"
-            cash_flow_type_counts[key] = cash_flow_type_counts.get(key, 0) + 1
-
     source_economics: dict[str, object] = {
-        "cash_flow_type_counts": dict(sorted(cash_flow_type_counts.items())),
+        "cash_flow_type_counts": _source_cash_flow_type_counts(row.get("cash_flows")),
         "valuation_status": row.get("valuation_status"),
         "source_contract": "PositionTimeseriesInput:v1",
     }
@@ -363,6 +354,20 @@ def _position_source_economics_from_row(
             status_code=performance_component_economics_status,
         )
     return source_economics
+
+
+def _source_cash_flow_type_counts(cash_flows_raw: object) -> dict[str, int]:
+    if not isinstance(cash_flows_raw, list):
+        return {}
+
+    cash_flow_type_counts: dict[str, int] = {}
+    for flow in cash_flows_raw:
+        if not isinstance(flow, dict):
+            continue
+        classification = classify_cashflow_type(flow.get("cash_flow_type"))
+        key = classification.normalized_value or "missing"
+        cash_flow_type_counts[key] = cash_flow_type_counts.get(key, 0) + 1
+    return dict(sorted(cash_flow_type_counts.items()))
 
 
 def _performance_component_economics_context(
@@ -385,11 +390,18 @@ def _performance_component_economics_context(
 
 
 def _security_ids_filter(filters: dict[str, object]) -> list[str] | None:
-    security_ids = filters.get("security_ids")
-    if not isinstance(security_ids, list):
+    return _source_security_ids_filter(filters.get("security_ids"))
+
+
+def _source_security_ids_filter(security_ids_raw: object) -> list[str] | None:
+    if not isinstance(security_ids_raw, list):
         return None
-    normalized = sorted({security_id for security_id in security_ids if isinstance(security_id, str) and security_id})
+    normalized = sorted(set(filter(_is_non_empty_string, security_ids_raw)))
     return normalized or None
+
+
+def _is_non_empty_string(value: object) -> TypeGuard[str]:
+    return isinstance(value, str) and bool(value)
 
 
 def _string_values(value: object) -> list[str]:

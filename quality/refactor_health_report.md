@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Health Report
 
 Report date: 2026-06-28
-Branch: `feature/contribution-source-reason-policy`
+Branch: `feature/contribution-source-filter-policy`
 Baseline source: `quality/baseline_report.md`
 Report mode: phase-zero scorecard; complexity, architecture, duplicate-code, repository hygiene,
 router-thinness, observability-readiness, and Python security posture are enforced separately by CI.
@@ -40,7 +40,7 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Max cyclomatic complexity | unknown | 6 | enforced | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py`; `make quality-complexity-gate` |
+| Max cyclomatic complexity | unknown | 5 | enforced | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py`; `make quality-complexity-gate` |
 | High-complexity functions | unknown | 0 | enforced | rank D-F functions in `quality/complexity_inventory.md`; `make quality-complexity-gate` |
 | Average maintainability index | unknown | 54.85 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
 | Largest functions by LOC | unknown | 63 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; the current largest production function is `retrieve_stateful_contribution_source_input(...)` at `63` lines |
@@ -72,7 +72,7 @@ link the commit, command, or CI artifact that proves the change.
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
 | Test modules | 228 | 275 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 3,369 | measured | `python -m pytest --collect-only -q` |
+| Collected tests | 2,035 | 3,371 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
 | Integration/API/runtime test functions | unknown | 602 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |
@@ -124,6 +124,35 @@ quality-program gap is not lack of aspiration; it is that several requested dime
 repeatably measured or expressed as progressive gates.
 
 ## Latest Local PR-Gate Evidence
+
+Latest stateful contribution source-filter policy evidence on `feature/contribution-source-filter-policy`:
+
+1. Isolated stateful contribution source cash-flow taxonomy counting and Core component-economics
+   `security_ids` filtering into focused helpers. Behavior is unchanged: stateful contribution
+   still projects Core `PositionTimeseriesInput:v1` source-economics metadata, classifies cash-flow
+   type values through the governed source-cashflow taxonomy, deduplicates non-empty source security
+   identifiers for optional `PerformanceComponentEconomics:v1` retrieval, and treats malformed
+   source rows defensively.
+2. Added direct edge-case coverage for private-banking source evidence where cash-flow types include
+   canonical fee, governed fee-like alias, unsupported income-like flow, missing labels, unknown
+   labels, and malformed entries, plus coverage proving source security-id filters deduplicate
+   valid identifiers while rejecting empty, non-string, or malformed filter values.
+3. Refreshed complexity, function-size, and test-taxonomy evidence. Max cyclomatic complexity
+   dropped from `6` to `5`, high-complexity functions remain `0`, average maintainability index
+   remains `54.85`, and `_position_source_economics_from_row(...)` plus
+   `_security_ids_filter(...)` no longer appear in the top-25 complexity table. Function-size
+   posture is unchanged with the current largest function at `63` lines.
+4. Validation passed: focused stateful contribution input tests (`23 passed`), ruff check, ruff
+   format check, and mypy for the touched Python files. Test taxonomy reported `3,170`
+   inventoried test functions, `602` integration/API/runtime, and `108` contract/governance;
+   `pytest --collect-only` collected `3,371` tests. `make check` passed with static quality,
+   OpenAPI quality, API vocabulary, domain-product validation, first-party Python security, mypy,
+   and `3,025` unit tests.
+5. Conscious domain/API/operations/docs review: this slice preserves contribution API response
+   shape, OpenAPI truth, domain-product contracts, runtime topology, observability surface,
+   commands, cross-repo ownership, README, wiki source, repository context, platform context,
+   skills, and agent context. It improves internal source-evidence policy readability and test
+   coverage without promoting any new public capability claim.
 
 Latest contribution source-economics reason-policy evidence on `feature/contribution-source-reason-policy`:
 
