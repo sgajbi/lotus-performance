@@ -1,7 +1,7 @@
 # Lotus Performance Function Size Inventory
 
 Report date: 2026-06-28
-Branch: `feature/queue-lifecycle-metrics-boundary`
+Branch: `feature/recovery-drill-history-manifest-boundary`
 Mode: report-only function-size inventory; this artifact introduces no new blocking CI gate.
 
 ## Purpose
@@ -20,18 +20,18 @@ python scripts/python_function_size_inventory.py --limit 30
 
 | Rank | Function | File | Lines |
 | ---: | --- | --- | ---: |
-| 1 | `build_recovery_drill_history_snapshot` | `app/services/recovery_drill_history_service.py:66` | 58 |
-| 2 | `build_execution_response` | `app/models/execution_polling.py:239` | 57 |
-| 3 | `build_performance_diagnostics` | `app/models/performance_diagnostics.py:8` | 57 |
-| 4 | `_check_period_calculation_consistency` | `app/services/inspection/calculation_consistency.py:111` | 57 |
-| 5 | `runtime_retention_status_from_snapshot` | `app/services/runtime_status_lifecycle.py:196` | 57 |
-| 6 | `build_stateful_contribution_input` | `app/services/stateful_contribution_input_service.py:194` | 57 |
-| 7 | `StatefulInputService._fetch_position_chunk` | `app/services/stateful_input_service.py:1075` | 57 |
-| 8 | `build_hierarchical_contribution_result` | `engine/contribution.py:311` | 57 |
-| 9 | `_calculate_dietz_mwr_result` | `engine/mwr.py:465` | 57 |
-| 10 | `ComputeJobStore._build_inspection_statements` | `app/services/compute_job_store.py:914` | 56 |
-| 11 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:113` | 56 |
-| 12 | `build_source_preconverted_mwr_currency_evidence` | `app/services/mwr_fx_evidence_service.py:26` | 56 |
+| 1 | `build_execution_response` | `app/models/execution_polling.py:239` | 57 |
+| 2 | `build_performance_diagnostics` | `app/models/performance_diagnostics.py:8` | 57 |
+| 3 | `_check_period_calculation_consistency` | `app/services/inspection/calculation_consistency.py:111` | 57 |
+| 4 | `runtime_retention_status_from_snapshot` | `app/services/runtime_status_lifecycle.py:196` | 57 |
+| 5 | `build_stateful_contribution_input` | `app/services/stateful_contribution_input_service.py:194` | 57 |
+| 6 | `StatefulInputService._fetch_position_chunk` | `app/services/stateful_input_service.py:1075` | 57 |
+| 7 | `build_hierarchical_contribution_result` | `engine/contribution.py:311` | 57 |
+| 8 | `_calculate_dietz_mwr_result` | `engine/mwr.py:465` | 57 |
+| 9 | `ComputeJobStore._build_inspection_statements` | `app/services/compute_job_store.py:914` | 56 |
+| 10 | `run_twr_inspection` | `app/services/inspection/twr_inspection_service.py:113` | 56 |
+| 11 | `build_source_preconverted_mwr_currency_evidence` | `app/services/mwr_fx_evidence_service.py:26` | 56 |
+| 12 | `build_runtime_retention_history_snapshot` | `app/services/runtime_retention_history_service.py:89` | 56 |
 | 13 | `retrieve_stateful_contribution_source_input` | `app/services/stateful_contribution_input_service.py:74` | 56 |
 | 14 | `_build_workspace_performance_breakdowns` | `app/services/workspace_summary_service.py:872` | 56 |
 | 15 | `_build_workspace_period_summary_result` | `app/services/workspace_summary_service.py:695` | 56 |
@@ -62,6 +62,14 @@ after lineage queue response mapping was isolated. Attribution orchestration rem
 table but moved from `142` to `133` lines after per-period result assembly was isolated, then moved
 from `133` to `120` lines after response meta, supportability, and benchmark-context assembly were
 isolated.
+LP-CR-1534 isolated shared operator-action history manifest resolution into
+`HistoryManifestResolution` and `resolve_history_manifest_payload(...)`, then routed recovery-drill
+and runtime-retention history through it. `build_recovery_drill_history_snapshot(...)` dropped out
+of the top-30 table, and the largest production functions are now eight functions tied at `57`
+lines. Behavior is unchanged: operator history snapshots still preserve manifest-read failure
+reasons, invalid-manifest logging, entry validation, applied filters, pagination, retention
+metadata, and unavailable-snapshot diagnostics. This is a design-modularity slice only; it adds no
+runtime service boundary.
 LP-CR-1533 isolated queue lifecycle history metric projection into a shared
 `_LifecycleHistoryMetricSpec` and `_lifecycle_history_metric_group(...)` boundary.
 `_lifecycle_history_metrics(...)` dropped out of the top-30 table, and the largest production

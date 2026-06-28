@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from app.core.config import get_settings
 from app.services.operator_action_history_filters import (
@@ -11,11 +11,9 @@ from app.services.operator_action_history_filters import (
 )
 from app.services.operator_action_history_manifest import (
     HistoryManifestReadReasons,
-    log_invalid_history_manifest_payload,
-    read_history_manifest_payload,
+    resolve_history_manifest_payload,
     validate_history_entry_generated_at_utc,
     validate_history_entry_strings,
-    validate_history_manifest_payload,
 )
 from app.services.operator_action_history_pagination import paginate_history_entries
 from app.services.operator_action_history_snapshot import (
@@ -87,28 +85,20 @@ def build_recovery_drill_history_snapshot(
         generated_before=generated_before,
     )
 
-    manifest_read = read_history_manifest_payload(directory=directory, reasons=RECOVERY_DRILL_MANIFEST_READ_REASONS)
-    if manifest_read.reason is not None:
+    manifest_resolution = resolve_history_manifest_payload(
+        directory=directory,
+        reasons=RECOVERY_DRILL_MANIFEST_READ_REASONS,
+        validate_entry=_validate_manifest_entry,
+        history_name="Recovery drill",
+    )
+    if manifest_resolution.reason is not None:
         return _unavailable_snapshot(
             directory=directory,
             applied_filters=applied_filters,
-            reason=manifest_read.reason,
+            reason=manifest_resolution.reason,
         )
 
-    manifest_payload = validate_history_manifest_payload(
-        manifest_read.payload,
-        validate_entry=_validate_manifest_entry,
-    )
-    if manifest_payload is None:
-        log_invalid_history_manifest_payload(
-            manifest_path=directory / "manifest.json",
-            history_name="Recovery drill",
-        )
-        return _unavailable_snapshot(
-            directory=directory,
-            applied_filters=applied_filters,
-            reason=RECOVERY_DRILL_MANIFEST_INVALID_REASON,
-        )
+    manifest_payload = cast(dict[str, Any], manifest_resolution.manifest_payload)
     return _available_snapshot_from_manifest(
         directory=directory,
         manifest_payload=manifest_payload,

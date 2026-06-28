@@ -232,6 +232,35 @@ def test_recovery_drill_history_snapshot_reports_missing_manifest(tmp_path):
     assert snapshot.entries == []
 
 
+def test_recovery_drill_history_snapshot_preserves_filters_when_manifest_unavailable(tmp_path):
+    artifact_dir = tmp_path / "artifacts" / "durable-recovery-drill"
+    artifact_dir.mkdir(parents=True)
+
+    snapshot = build_recovery_drill_history_snapshot(
+        artifact_directory=artifact_dir,
+        limit=25,
+        offset=50,
+        operator_id="ops-user",
+        backup_identifier="backup-123",
+        status_filter="failed",
+        generated_after="2026-03-13T00:00:00Z",
+        generated_before="2026-03-14T00:00:00Z",
+    )
+
+    assert snapshot.status == "unavailable"
+    assert snapshot.reason == RECOVERY_DRILL_MANIFEST_MISSING_REASON
+    assert snapshot.applied_filters == {
+        "limit": 25,
+        "offset": 50,
+        "operator_id": "ops-user",
+        "backup_identifier": "backup-123",
+        "status": "failed",
+        "generated_after": "2026-03-13T00:00:00Z",
+        "generated_before": "2026-03-14T00:00:00Z",
+    }
+    assert snapshot.entries == []
+
+
 def test_recovery_drill_history_snapshot_reports_unreadable_manifest(tmp_path, mocker):
     artifact_dir = tmp_path / "artifacts" / "durable-recovery-drill"
     artifact_dir.mkdir(parents=True)

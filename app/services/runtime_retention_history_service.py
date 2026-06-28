@@ -12,11 +12,9 @@ from app.services.operator_action_history_filters import (
 )
 from app.services.operator_action_history_manifest import (
     HistoryManifestReadReasons,
-    log_invalid_history_manifest_payload,
-    read_history_manifest_payload,
+    resolve_history_manifest_payload,
     validate_history_entry_generated_at_utc,
     validate_history_entry_strings,
-    validate_history_manifest_payload,
 )
 from app.services.operator_action_history_pagination import paginate_history_entries
 from app.services.operator_action_history_snapshot import (
@@ -88,12 +86,6 @@ class RuntimeRetentionHistorySnapshot:
     reason: str | None = None
 
 
-@dataclass(frozen=True)
-class _RuntimeRetentionManifestResolution:
-    manifest_payload: dict[str, Any] | None
-    unavailable_snapshot: RuntimeRetentionHistorySnapshot | None
-
-
 def build_runtime_retention_history_snapshot(
     *,
     artifact_directory: Path | None = None,
@@ -122,12 +114,18 @@ def build_runtime_retention_history_snapshot(
         generated_before=generated_before,
     )
 
-    manifest_resolution = _resolve_runtime_retention_manifest(
+    manifest_resolution = resolve_history_manifest_payload(
         directory=directory,
-        applied_filters=applied_filters,
+        reasons=RUNTIME_RETENTION_MANIFEST_READ_REASONS,
+        validate_entry=_validate_manifest_entry,
+        history_name="Runtime retention",
     )
-    if manifest_resolution.unavailable_snapshot is not None:
-        return manifest_resolution.unavailable_snapshot
+    if manifest_resolution.reason is not None:
+        return _unavailable_snapshot(
+            directory=directory,
+            applied_filters=applied_filters,
+            reason=manifest_resolution.reason,
+        )
 
     manifest_payload = cast(dict[str, Any], manifest_resolution.manifest_payload)
     return _available_runtime_retention_history_snapshot_from_manifest(
@@ -143,46 +141,6 @@ def build_runtime_retention_history_snapshot(
         status_filter=status_filter,
         generated_after=generated_after,
         generated_before=generated_before,
-    )
-
-
-def _resolve_runtime_retention_manifest(
-    *,
-    directory: Path,
-    applied_filters: dict[str, str | int],
-) -> _RuntimeRetentionManifestResolution:
-    manifest_read = read_history_manifest_payload(directory=directory, reasons=RUNTIME_RETENTION_MANIFEST_READ_REASONS)
-    if manifest_read.reason is not None:
-        return _RuntimeRetentionManifestResolution(
-            manifest_payload=None,
-            unavailable_snapshot=_unavailable_snapshot(
-                directory=directory,
-                applied_filters=applied_filters,
-                reason=manifest_read.reason,
-            ),
-        )
-
-    manifest_payload = validate_history_manifest_payload(
-        manifest_read.payload,
-        validate_entry=_validate_manifest_entry,
-    )
-    if manifest_payload is not None:
-        return _RuntimeRetentionManifestResolution(
-            manifest_payload=manifest_payload,
-            unavailable_snapshot=None,
-        )
-
-    log_invalid_history_manifest_payload(
-        manifest_path=directory / "manifest.json",
-        history_name="Runtime retention",
-    )
-    return _RuntimeRetentionManifestResolution(
-        manifest_payload=None,
-        unavailable_snapshot=_unavailable_snapshot(
-            directory=directory,
-            applied_filters=applied_filters,
-            reason=RUNTIME_RETENTION_MANIFEST_INVALID_REASON,
-        ),
     )
 
 
