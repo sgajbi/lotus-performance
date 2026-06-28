@@ -1,37 +1,30 @@
-[Home](Home)
+# lotus-performance
 
-[Overview](Overview)
+- [Home](Home)
+- [Overview](Overview)
+- [Supported Features](Supported-Features)
+- [Roadmap](Roadmap)
 
-[Architecture](Architecture)
+## Product Capabilities
 
-[API Surface](API-Surface)
-
-[Time-Weighted Return](Time-Weighted-Return)
-
-[Contribution Analytics](Contribution-Analytics)
-
-[Attribution Analytics](Attribution-Analytics)
-
-[Composite Performance](Composite-Performance)
-
-[Supported Features](Supported-Features)
-
-[Getting Started](Getting-Started)
-
-[Development Workflow](Development-Workflow)
-
-[Validation and CI](Validation-and-CI)
-
-[Operations Runbook](Operations-Runbook)
-
-[Integrations](Integrations)
-
-[Security and Governance](Security-and-Governance)
-
-[RFC Index](RFC-Index)
-
-[Roadmap](Roadmap)
-
-[Troubleshooting](Troubleshooting)
-
+- [Time-Weighted Return](Time-Weighted-Return)
+- [Contribution Analytics](Contribution-Analytics)
+- [Attribution Analytics](Attribution-Analytics)
+- [Composite Performance](Composite-Performance)
 - [Mesh Data Products](Mesh-Data-Products)
+
+## Engineering
+
+- [Architecture](Architecture)
+- [API Surface](API-Surface)
+- [Integrations](Integrations)
+- [Getting Started](Getting-Started)
+- [Development Workflow](Development-Workflow)
+
+## Operations And Governance
+
+- [Validation and CI](Validation-and-CI)
+- [Operations Runbook](Operations-Runbook)
+- [Troubleshooting](Troubleshooting)
+- [Security and Governance](Security-and-Governance)
+- [RFC Index](RFC-Index)

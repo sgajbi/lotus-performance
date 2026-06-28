@@ -1,5 +1,9 @@
 # Operations Runbook
 
+This page is the first stop for production-support orientation. It summarizes the runtime surfaces
+that operators can use to distinguish application health, durable execution progress, lineage
+availability, recovery posture, and retention posture.
+
 ## Operator surface summary
 
 Primary runtime surfaces:
@@ -19,6 +23,16 @@ Primary runtime surfaces:
 - `GET /performance/lineage/{calculation_id}`
 - `POST /performance/inspections/twr`
 - `GET /performance/inspections/{inspection_id}`
+
+## First-response decision tree
+
+| Symptom | First checks | Escalate with |
+| --- | --- | --- |
+| API is unavailable | `GET /health`, service logs, container status | failing health response, deployment revision, recent config changes |
+| Readiness is false | `GET /health/ready`, `GET /integration/runtime-status`, database reachability | readiness payload, runtime-status snapshot, metadata database state |
+| Async calculation is slow or stuck | `GET /performance/executions/{calculation_id}`, `GET /integration/runtime-work-items` | calculation id, execution state, work-item age, queue metrics |
+| Completed calculation lacks expected evidence | `GET /performance/lineage/{calculation_id}`, endpoint result route, inspection route where applicable | request fingerprint, response supportability block, lineage metadata, artifact names |
+| Recovery or retention looks degraded | runtime recoveries, recovery drills, retention cleanup history | recovery id or cleanup id, trigger source, terminal status, error summary |
 
 ## Calculation supportability metric
 
@@ -115,3 +129,4 @@ Threshold policy and compose overlays live in:
 
 - [Architecture](Architecture)
 - [Troubleshooting](Troubleshooting)
+- [Validation and CI](Validation-and-CI)
