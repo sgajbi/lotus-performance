@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-06-28
-Branch: `feature/twr-completed-response-boundary`
+Branch: `feature/attribution-supportability-evidence-boundary`
 Mode: report-only test taxonomy inventory; no blocking CI gate is introduced by this artifact.
 
 ## Purpose
@@ -21,7 +21,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 277 |
-| Test functions inventoried | 3182 |
+| Test functions inventoried | 3184 |
 | Integration/API/runtime test functions | 605 |
 | Contract/governance test functions | 108 |
 
@@ -32,13 +32,13 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | benchmarks | 9 | 17 |
 | e2e | 1 | 21 |
 | integration | 24 | 300 |
-| unit | 243 | 2844 |
+| unit | 243 | 2846 |
 
 ## Test Functions By Family
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 1109 |
+| analytics_domain | 1111 |
 | api_or_runtime | 605 |
 | contract_or_governance | 108 |
 | observability_or_readiness | 186 |
@@ -88,8 +88,9 @@ complementary: collected tests show execution breadth, while this report shows s
 and test-function distribution. The current suite has meaningful API/runtime and
 contract/governance coverage, but 1289 test functions remain uncategorized by the first-wave
 taxonomy and should be reviewed before turning taxonomy into a blocking gate.
-This slice added three API/runtime helper tests for TWR response supportability projection,
-benchmark return-source normalization, and execution-stage failure recording.
+This slice added two analytics-domain unit tests for attribution supportability projection:
+empty-period context preservation and benchmark return-presence gap classification. It also
+strengthened zero-exposure lineage assertions without changing API behavior.
 
 ## Gate Posture
 

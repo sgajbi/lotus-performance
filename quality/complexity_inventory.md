@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-28
-Branch: `feature/twr-completed-response-boundary`
+Branch: `feature/attribution-supportability-evidence-boundary`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
@@ -32,7 +32,7 @@ must stay at `0`.
 | --- | ---: |
 | Max cyclomatic complexity | 5 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 54.88 |
+| Average maintainability index | 54.87 |
 
 ## Highest Cyclomatic Complexity
 
@@ -138,6 +138,10 @@ out of the function-size hotspot table after supportability/benchmark projection
 lifecycle, benchmark return-source normalization, and period-result projection were split into
 focused helpers. The measured repository maximum remains `5`, high-complexity functions remain
 `0`, and average maintainability index remains `54.88`.
+The attribution supportability evidence builder also dropped out of the function-size hotspot table
+after supportability result projection, empty-period failure evidence, and count-to-evidence
+construction were split into named helpers. The measured repository maximum remains `5`,
+high-complexity functions remain `0`, and average maintainability index measures `54.87`.
 `get_benchmark_return_series` also dropped out after benchmark, index-price, and risk-free reference
 series response point merging was routed through a shared helper.
 `get_fx_rates` also dropped out after FX-rate response-to-point projection and date-key
