@@ -9,10 +9,12 @@ from app.models.mwr_requests import CashFlow
 from core.envelope import Annualization
 from engine.mwr import (
     _annualized_dietz_rate,
+    _bisect_root,
     _build_xirr_base_convergence,
     _calculate_dietz_mwr_result,
     _calculate_xirr_mwr_attempt,
     _calculate_xirr_solver_result,
+    _day_count_denominator,
     _dietz_denominator,
     _dietz_fallback_metadata,
     _dietz_method_for_calculation,
@@ -163,6 +165,27 @@ def test_net_same_day_flows_sorts_dates_and_drops_zero_net_dates():
     assert dates.tolist() == [date(2026, 1, 1), date(2026, 1, 3)]
 
 
+def test_day_count_denominator_prefers_explicit_period_frequency_and_act_act_basis():
+    assert _day_count_denominator(Annualization(enabled=True, basis="ACT/365", periods_per_year=12)) == pytest.approx(
+        12.0
+    )
+    assert _day_count_denominator(Annualization(enabled=True, basis="ACT/ACT")) == pytest.approx(365.25)
+
+
+def test_bisect_root_returns_midpoint_after_iteration_budget_is_exhausted():
+    root, iterations = _bisect_root(
+        lambda candidate: candidate - 0.25,
+        0.0,
+        1.0,
+        value_tolerance=0.0,
+        rate_tolerance=0.0,
+        max_iter=1,
+    )
+
+    assert root == pytest.approx(0.25)
+    assert iterations == 1
+
+
 def test_scan_xirr_roots_returns_single_residual_for_bracketed_schedule():
     values = np.array([-100.0, 110.0])
     dates = np.array([date(2026, 1, 1), date(2027, 1, 1)])
@@ -192,6 +215,26 @@ def test_scan_xirr_roots_returns_single_residual_for_bracketed_schedule():
     assert root_rate == pytest.approx(0.1, abs=1e-8)
     assert iterations > 0
     assert residual == pytest.approx(0.0, abs=1e-6)
+
+
+def test_scan_xirr_roots_suppresses_duplicate_grid_root_candidates(monkeypatch):
+    monkeypatch.setattr(mwr_module, "_xirr_root_candidate", lambda **_kwargs: (0.1, 3))
+
+    roots = _scan_xirr_roots(
+        values=np.array([-100.0, 100.0]),
+        time_diffs=np.array([0.0, 1.0]),
+        lower_bound=0.0,
+        upper_bound=0.5,
+        root_scan_steps=32,
+        tolerance=1e-10,
+        max_iter=10,
+        gross_cash_flow_scale=200.0,
+        log_npv=lambda _log_rate: 0.0,
+    )
+
+    assert len(roots) == 1
+    assert roots[0][0] == pytest.approx(0.1)
+    assert roots[0][1] == 3
 
 
 def test_xirr_root_candidate_ignores_non_finite_intervals():
@@ -718,3 +761,14 @@ def test_xirr_reports_no_root_for_unbracketed_domain():
     assert result["converged"] is False
     assert result["rate"] is None
     assert result["reason_code"] == "NO_ROOT_FOUND"
+
+
+def test_xirr_raises_when_anchor_date_is_missing_after_preflight(monkeypatch):
+    monkeypatch.setattr(mwr_module, "_xirr_initial_failure", lambda **_kwargs: None)
+
+    with pytest.raises(ValueError, match="XIRR anchor date is required"):
+        _xirr(
+            values=np.array([100.0, -100.0]),
+            dates=np.array([date(2026, 1, 1), date(2026, 1, 1)]),
+            annualization=Annualization(enabled=False, basis="ACT/365"),
+        )
