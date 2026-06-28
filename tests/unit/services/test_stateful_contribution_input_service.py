@@ -121,6 +121,77 @@ async def test_retrieve_stateful_contribution_source_input_returns_rows_and_meta
 
 
 @pytest.mark.asyncio
+async def test_retrieve_stateful_contribution_source_input_preserves_degraded_component_economics(
+    monkeypatch,
+):
+    portfolio_input = StatefulPortfolioInput(
+        performance_start_date=date(2025, 1, 1),
+        observations=[
+            {
+                "valuation_date": "2025-01-01",
+                "beginning_market_value": "1000",
+                "ending_market_value": "1010",
+            }
+        ],
+    )
+
+    async def _mock_retrieve_stateful_portfolio_input(**kwargs):  # noqa: ARG001
+        return portfolio_input
+
+    monkeypatch.setattr(
+        "app.services.stateful_contribution_input_service.retrieve_stateful_portfolio_input",
+        _mock_retrieve_stateful_portfolio_input,
+    )
+    degraded_component_payload = {
+        "supportability": {
+            "state": "UNAVAILABLE",
+            "reason": "PERFORMANCE_COMPONENT_ECONOMICS_UNAVAILABLE",
+            "source_row_count": 0,
+            "observed_component_families": [],
+            "missing_component_families": ["fee", "income", "tax", "realized_fx_pnl"],
+            "supported_component_families": [],
+        }
+    }
+    service = _ContributionInputServiceStub(
+        payload={
+            "rows": [
+                {
+                    "position_id": "POS_1",
+                    "security_id": "SEC_1",
+                    "valuation_date": "2025-01-01",
+                    "beginning_market_value_portfolio_currency": "1000",
+                    "ending_market_value_portfolio_currency": "1010",
+                }
+            ],
+            "retrieval_metadata": {"chunk_count": 1, "page_count": 1},
+        },
+        component_status_code=503,
+        component_payload=degraded_component_payload,
+    )
+
+    result = await retrieve_stateful_contribution_source_input(
+        settings=object(),
+        stateful_input_service=service,
+        calculation_id=uuid4(),
+        portfolio_id="P1",
+        as_of_date=date(2025, 1, 1),
+        report_start_date=date(2025, 1, 1),
+        report_end_date=date(2025, 1, 1),
+        reporting_currency="USD",
+        consumer_system="lotus-performance",
+        dimensions=[],
+        include_cash_flows=True,
+        filters={"security_ids": ["SEC_1", ""]},
+    )
+
+    assert result.position_rows[0]["position_id"] == "POS_1"
+    assert result.position_retrieval_metadata == RetrievalMetadata(chunk_count=1, page_count=1)
+    assert result.performance_component_economics_status == 503
+    assert result.performance_component_economics_payload is degraded_component_payload
+    assert service.component_calls[0]["security_ids"] == ["SEC_1"]
+
+
+@pytest.mark.asyncio
 async def test_retrieve_stateful_contribution_source_input_raises_on_upstream_error(monkeypatch):
     portfolio_input = StatefulPortfolioInput(
         performance_start_date=date(2025, 1, 1),

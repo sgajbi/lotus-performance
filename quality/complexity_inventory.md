@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-28
-Branch: `feature/contribution-source-filter-policy`
+Branch: `feature/contribution-source-retrieval-boundary`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
