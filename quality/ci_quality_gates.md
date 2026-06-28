@@ -1,7 +1,7 @@
 # Lotus Performance Progressive CI Quality Gates
 
 Report date: 2026-06-28
-Branch: `feature/twr-mode-branch-hardening`
+Branch: `feature/openapi-enrichment-branch-hardening`
 Baseline sources: `quality/baseline_report.md`, `quality/refactor_health_report.md`, `quality/quality_scorecard.md`
 Mode: progressive gate map; remediated complexity, architecture-boundary, router-thinness,
 duplicate-code, repository hygiene, observability-readiness, and Python security posture is now
@@ -69,9 +69,9 @@ No gate should move from one phase to the next until it has:
 | mypy typecheck | Blocking in feature, PR, and main lanes | Keep blocking; expand typed boundary cleanup through normal refactor slices. |
 | Unit tests | Blocking in feature, PR, and main lanes | Keep blocking; add focused tests when refactoring hotspots. |
 | Integration and e2e tests | Blocking in PR and main lanes | Keep blocking at merge/release lanes; use targeted local subsets during slices. |
-| Test taxonomy | Measured in `quality/test_taxonomy_inventory.md` through `scripts/python_test_taxonomy_inventory.py`; current AST inventory shows 275 modules, 3,153 source test functions, 600 integration/API/runtime test functions, and 108 contract/governance test functions | Keep report-only until taxonomy labels and uncategorized-test policy are stable. |
+| Test taxonomy | Measured in `quality/test_taxonomy_inventory.md` through `scripts/python_test_taxonomy_inventory.py`; current AST inventory shows 275 modules, 3,155 source test functions, 602 integration/API/runtime test functions, and 108 contract/governance test functions | Keep report-only until taxonomy labels and uncategorized-test policy are stable. |
 | Combined line coverage | Blocking at 99 percent in PR and main lanes; locally measured in `quality/coverage_inventory.md` through `make test-coverage` and preserved by `make branch-coverage-baseline` evidence | Keep blocking and preserve the local coverage inventory as scorecard evidence. |
-| Branch coverage | Measured report-only in `quality/coverage_inventory.md` through `make branch-coverage-baseline`; current baseline is 97.82 percent across 4,406 branches, with 96 missing and 96 partial branches | Keep report-only until repeated runs, exception policy, remediation guidance, and CI lane placement are agreed. Review the top branch gaps before proposing any threshold. |
+| Branch coverage | Measured report-only in `quality/coverage_inventory.md` through `make branch-coverage-baseline`; current baseline is 97.91 percent across 4,406 branches, with 92 missing and 92 partial branches | Keep report-only until repeated runs, exception policy, remediation guidance, and CI lane placement are agreed. Review the top branch gaps before proposing any threshold. |
 | Dependency verification | Blocking through `python -m pip check` and dependency-health scripts | Keep blocking; preserve project-scoped dependency-health evidence. |
 | Dependency vulnerabilities | `pip-audit` is available, security audit is already blocking through repo script, and report-only output is captured in `quality/dependency_security_report.md` | Keep the report current when dependency pins, audit tooling, or exception policy changes. |
 | OpenAPI quality | Blocking through `scripts/openapi_quality_gate.py`; measured further through `quality/api_completeness_inventory.md`; clean API completeness inventory is guarded by `tests/unit/scripts/test_openapi_completeness_inventory.py` | Keep the blocking gate and unit-level clean-inventory guard; only add a separate workflow gate if the report remains stable and adds value beyond existing OpenAPI checks. |

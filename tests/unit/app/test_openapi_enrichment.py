@@ -237,6 +237,20 @@ def test_schema_example_helpers_cover_explicit_composed_object_and_array_shapes(
     ) == ["VALUE"]
 
 
+def test_object_schema_example_ignores_malformed_property_schemas():
+    assert _object_schema_example(
+        {
+            "type": "object",
+            "properties": {
+                "portfolio_id": {"type": "string"},
+                "ignored": "not-a-schema",
+            },
+        },
+        components={"schemas": {}},
+        seen_refs=set(),
+    ) == {"portfolio_id": "DEMO_DPM_EUR_001"}
+
+
 def test_named_schema_example_extracts_first_named_value():
     assert _named_schema_example({"documented": {"value": {"status": "complete"}}}) == {"status": "complete"}
     assert _named_schema_example({"documented": {"summary": "missing value"}}) is None
@@ -529,6 +543,13 @@ def test_validation_error_json_content_selects_undocumented_http_validation_sche
     assert json_content is response["content"]["application/json"]
     assert _validation_error_json_content(documented_response) is None
     assert _validation_error_json_content({"content": {"text/plain": {"schema": {"type": "string"}}}}) is None
+    assert _validation_error_json_content({"content": {"application/json": {"schema": "not-a-schema"}}}) is None
+    assert (
+        _validation_error_json_content(
+            {"content": {"application/json": {"schema": {"$ref": "#/components/schemas/DomainError"}}}}
+        )
+        is None
+    )
 
 
 def test_json_content_has_authored_example_detects_example_forms():
@@ -693,6 +714,21 @@ def test_ensure_documentable_operation_documentation_updates_metadata_request_an
     assert operation["tags"] == ["Custom"]
     assert operation["requestBody"]["content"]["application/json"]["example"] == {"portfolio_id": "DEMO_DPM_EUR_001"}
     assert operation["responses"]["default"]["content"]["application/problem+json"]["example"]["status"] == 500
+
+
+def test_ensure_documentable_operation_documentation_handles_operations_without_response_maps():
+    operation = {"responses": "not-a-response-map"}
+
+    _ensure_documentable_operation_documentation(
+        path="/custom/workflow",
+        method="post",
+        operation=operation,
+        components={"schemas": {}},
+    )
+
+    assert operation["summary"] == "POST /custom/workflow"
+    assert operation["tags"] == ["Custom"]
+    assert operation["responses"] == "not-a-response-map"
 
 
 def test_enrich_openapi_schema_fills_operation_schema_and_examples():

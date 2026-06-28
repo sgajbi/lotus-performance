@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Health Report
 
 Report date: 2026-06-28
-Branch: `feature/twr-mode-branch-hardening`
+Branch: `feature/openapi-enrichment-branch-hardening`
 Baseline source: `quality/baseline_report.md`
 Report mode: phase-zero scorecard; complexity, architecture, duplicate-code, repository hygiene,
 router-thinness, observability-readiness, and Python security posture are enforced separately by CI.
@@ -72,10 +72,10 @@ link the commit, command, or CI artifact that proves the change.
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
 | Test modules | 228 | 275 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 3,354 | measured | `python -m pytest --collect-only -q` |
-| Line coverage | unknown | 99.56% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,008` unit, `308` integration, and `21` e2e tests under branch coverage; `21,151` covered lines of `21,244` statements) |
-| Branch coverage | unknown | 97.82% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,008` unit, `308` integration, and `21` e2e tests under branch coverage; `4,310` covered branches of `4,406`, `96` missing branches, `96` partial branches) |
-| Integration/API/runtime test functions | unknown | 600 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |
+| Collected tests | 2,035 | 3,356 | measured | `python -m pytest --collect-only -q` |
+| Line coverage | unknown | 99.57% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,010` unit, `308` integration, and `21` e2e tests under branch coverage; `21,153` covered lines of `21,244` statements) |
+| Branch coverage | unknown | 97.91% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,010` unit, `308` integration, and `21` e2e tests under branch coverage; `4,314` covered branches of `4,406`, `92` missing branches, `92` partial branches) |
+| Integration/API/runtime test functions | unknown | 602 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |
 | Contract/governance test functions | unknown | 108 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |
 
 ## Security And Dependencies
@@ -142,6 +142,17 @@ Latest validation on `feature/enterprise-backend-refactor-baseline`:
    detected expected publication drift for `Validation-and-CI.md` because this branch changes the
    repo-authored wiki source. Publish the wiki after this branch is merged to `main`; do not
    publish unmerged branch truth.
+
+Latest OpenAPI enrichment branch-coverage hardening evidence on `feature/openapi-enrichment-branch-hardening`:
+
+1. `python -m pytest tests\unit\app\test_openapi_enrichment.py --cov=app.openapi_enrichment --cov-branch --cov-report=term-missing --cov-report=json:output\openapi-enrichment-branch-coverage.json` passed with `61` focused tests and `100%` focused statement and branch coverage for `app/openapi_enrichment.py`.
+2. The OpenAPI contract edge-case proof now covers malformed object-property schemas, non-dict validation-error schemas, non-HTTP-validation error schemas, and operations whose `responses` member is malformed or absent.
+3. `make branch-coverage-baseline` passed with `3,010` unit tests, `308` integration tests, and `21` e2e tests under `pytest --cov-branch`.
+4. The generated `quality/coverage_inventory.md` records combined line coverage at `99.57%`, branch coverage at `97.91%`, `4,406` total branches, `92` missing branches, and `92` partial branches.
+5. `app/openapi_enrichment.py` reached `100%` statement and branch coverage and dropped out of the top branch-gap table. The next measured branch-coverage candidates are now `app/services/stateful_attribution_input_service.py`, `app/services/stateful_input_service.py`, and `app/services/twr_service.py`.
+6. Branch coverage remains report-only; no fail-under threshold or GitHub blocking lane is added in this slice. README, wiki, repository context, platform context, skills, and agent context did not need updates because this slice changed test evidence only and did not change commands, API shapes, runtime topology, operator workflow, cross-repo ownership, or reusable agent guidance.
+7. Conscious cross-repo ownership review: current evidence supports keeping `lotus-core` as the source-data and analytics-input authority while `lotus-performance` owns performance conclusions and OpenAPI enrichment for its own API surface. Any future migration should be a separate architecture audit for Core implementations that compute performance conclusions rather than source inputs.
+8. `make lint`, `make check`, and `make ci` passed. The full local CI path included durable-schema migration checks, durable recovery smoke, dependency audit with `0` known vulnerabilities, first-party Python security with `0` Bandit findings, `3,010` unit tests, `308` integration tests, `21` e2e tests, the blocking `99%` line-coverage gate, and Docker image build for `lotus-performance:ci`.
 
 Latest TWR mode branch-coverage hardening evidence on `feature/twr-mode-branch-hardening`:
 
