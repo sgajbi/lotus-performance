@@ -16,6 +16,7 @@ from app.services.operator_action_lease_service import build_operator_action_lea
 from app.services.queue_metric_builders import (
     RECOVERY_DRILL_ACTION_METRICS,
     RUNTIME_RETENTION_ACTION_METRICS,
+    OperatorActionMetricSpec,
     availability_metric,
     compute_queue_degradation_breach_metric,
     compute_queue_failure_pressure_metric,
@@ -80,6 +81,15 @@ class _DurableQueueMetricDescriptor:
         if self.labels:
             return GaugeMetricFamily(self.name, self.description, labels=list(self.labels))
         return GaugeMetricFamily(self.name, self.description)
+
+
+@dataclass(frozen=True)
+class _LifecycleHistoryMetricSpec:
+    policy_metric_name: str
+    policy_metric_description: str
+    action_metric_spec: OperatorActionMetricSpec
+    latest_age_metric: Callable[..., GaugeMetricFamily]
+    degradation_breach_metric: Callable[..., GaugeMetricFamily]
 
 
 _DURABLE_QUEUE_METRIC_DESCRIPTORS = (
@@ -241,6 +251,22 @@ _DURABLE_QUEUE_METRIC_DESCRIPTORS = (
         "Current runtime-retention items that would be pruned by a dry-run cleanup.",
         ("category",),
     ),
+)
+
+_RECOVERY_DRILL_LIFECYCLE_METRICS = _LifecycleHistoryMetricSpec(
+    policy_metric_name="lotus_performance_recovery_drill_policy_threshold",
+    policy_metric_description="Configured recovery-drill degradation thresholds.",
+    action_metric_spec=RECOVERY_DRILL_ACTION_METRICS,
+    latest_age_metric=recovery_drill_latest_age_metric,
+    degradation_breach_metric=recovery_drill_degradation_breach_metric,
+)
+
+_RUNTIME_RETENTION_LIFECYCLE_METRICS = _LifecycleHistoryMetricSpec(
+    policy_metric_name="lotus_performance_runtime_retention_policy_threshold",
+    policy_metric_description="Configured runtime-retention degradation thresholds.",
+    action_metric_spec=RUNTIME_RETENTION_ACTION_METRICS,
+    latest_age_metric=runtime_retention_latest_age_metric,
+    degradation_breach_metric=runtime_retention_degradation_breach_metric,
 )
 
 
@@ -445,55 +471,55 @@ def _lifecycle_history_metrics(
     recovery_drill_policy: Any,
     runtime_retention_policy: Any,
 ) -> tuple[GaugeMetricFamily, ...]:
+    return (
+        *_lifecycle_history_metric_group(
+            snapshot=sources.recovery_drill_snapshot,
+            action_snapshot=sources.recovery_drill_action_snapshot,
+            policy=recovery_drill_policy,
+            spec=_RECOVERY_DRILL_LIFECYCLE_METRICS,
+        ),
+        *_lifecycle_history_metric_group(
+            snapshot=sources.runtime_retention_snapshot,
+            action_snapshot=sources.runtime_retention_action_snapshot,
+            policy=runtime_retention_policy,
+            spec=_RUNTIME_RETENTION_LIFECYCLE_METRICS,
+        ),
+    )
+
+
+def _lifecycle_history_metric_group(
+    *,
+    snapshot: Any | None,
+    action_snapshot: Any | None,
+    policy: Any,
+    spec: _LifecycleHistoryMetricSpec,
+) -> tuple[GaugeMetricFamily, ...]:
     metrics = [
         policy_threshold_metric(
-            metric_name="lotus_performance_recovery_drill_policy_threshold",
-            description="Configured recovery-drill degradation thresholds.",
-            max_age_seconds=recovery_drill_policy.max_age_seconds,
-            active_run_age_seconds=recovery_drill_policy.active_run_age_seconds,
-            reclaim_count=recovery_drill_policy.reclaim_count,
+            metric_name=spec.policy_metric_name,
+            description=spec.policy_metric_description,
+            max_age_seconds=policy.max_age_seconds,
+            active_run_age_seconds=policy.active_run_age_seconds,
+            reclaim_count=policy.reclaim_count,
         ),
         *operator_action_lease_metrics(
-            snapshot=sources.recovery_drill_action_snapshot,
-            spec=RECOVERY_DRILL_ACTION_METRICS,
-        ),
-        policy_threshold_metric(
-            metric_name="lotus_performance_runtime_retention_policy_threshold",
-            description="Configured runtime-retention degradation thresholds.",
-            max_age_seconds=runtime_retention_policy.max_age_seconds,
-            active_run_age_seconds=runtime_retention_policy.active_run_age_seconds,
-            reclaim_count=runtime_retention_policy.reclaim_count,
-        ),
-        *operator_action_lease_metrics(
-            snapshot=sources.runtime_retention_action_snapshot,
-            spec=RUNTIME_RETENTION_ACTION_METRICS,
+            snapshot=action_snapshot,
+            spec=spec.action_metric_spec,
         ),
     ]
-    recovery_drill_snapshot = sources.recovery_drill_snapshot
-    if recovery_drill_snapshot is not None and _snapshot_has_entries(recovery_drill_snapshot):
-        latest = recovery_drill_snapshot.entries[0]
-        latest_age_seconds = age_seconds_since(latest.generated_at_utc)
-        metrics.append(recovery_drill_latest_age_metric(latest_age_seconds=latest_age_seconds))
-        metrics.append(
-            recovery_drill_degradation_breach_metric(
-                latest=latest,
-                latest_age_seconds=latest_age_seconds,
-                action_snapshot=sources.recovery_drill_action_snapshot,
-                policy=recovery_drill_policy,
-            )
-        )
 
-    runtime_retention_snapshot = sources.runtime_retention_snapshot
-    if runtime_retention_snapshot is not None and _snapshot_has_entries(runtime_retention_snapshot):
-        latest = runtime_retention_snapshot.entries[0]
+    if _snapshot_has_entries(snapshot):
+        if snapshot is None:
+            return tuple(metrics)
+        latest = snapshot.entries[0]
         latest_age_seconds = age_seconds_since(latest.generated_at_utc)
-        metrics.append(runtime_retention_latest_age_metric(latest_age_seconds=latest_age_seconds))
+        metrics.append(spec.latest_age_metric(latest_age_seconds=latest_age_seconds))
         metrics.append(
-            runtime_retention_degradation_breach_metric(
+            spec.degradation_breach_metric(
                 latest=latest,
                 latest_age_seconds=latest_age_seconds,
-                action_snapshot=sources.runtime_retention_action_snapshot,
-                policy=runtime_retention_policy,
+                action_snapshot=action_snapshot,
+                policy=policy,
             )
         )
     return tuple(metrics)

@@ -3,10 +3,12 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from app.services.queue_metrics_service import (
+    _RECOVERY_DRILL_LIFECYCLE_METRICS,
     DurableQueueCollector,
     _availability_and_preview_metrics,
     _core_queue_and_storage_metrics,
     _DurableQueueMetricSources,
+    _lifecycle_history_metric_group,
     _lifecycle_history_metrics,
     _load_durable_queue_metric_sources,
     _load_metric_source,
@@ -383,6 +385,38 @@ def test_lifecycle_history_metrics_omit_latest_history_metrics_when_snapshots_un
     assert "lotus_performance_recovery_drill_degradation_breach" not in metric_names
     assert "lotus_performance_runtime_retention_latest_age_seconds" not in metric_names
     assert "lotus_performance_runtime_retention_degradation_breach" not in metric_names
+
+
+def test_lifecycle_history_metric_group_keeps_history_metrics_when_action_snapshot_unavailable(monkeypatch):
+    monkeypatch.setattr("app.services.queue_metrics_service.age_seconds_since", lambda timestamp_utc: 45.0)
+
+    metrics = _lifecycle_history_metric_group(
+        snapshot=SimpleNamespace(
+            status="available",
+            entries=(SimpleNamespace(generated_at_utc="2026-03-15T00:00:00Z", status="failed"),),
+        ),
+        action_snapshot=None,
+        policy=RecoveryDrillDegradationPolicy(
+            max_age_seconds=30.0,
+            active_run_age_seconds=1800.0,
+            reclaim_count=2,
+        ),
+        spec=_RECOVERY_DRILL_LIFECYCLE_METRICS,
+    )
+
+    metric_names = [metric.name for metric in metrics]
+    assert metric_names == [
+        "lotus_performance_recovery_drill_policy_threshold",
+        "lotus_performance_recovery_drill_latest_age_seconds",
+        "lotus_performance_recovery_drill_degradation_breach",
+    ]
+    latest_age_samples = {sample.name: sample.value for sample in metrics[1].samples}
+    assert latest_age_samples["lotus_performance_recovery_drill_latest_age_seconds"] == 45.0
+    breach_samples = {sample.labels["reason"]: sample.value for sample in metrics[2].samples}
+    assert breach_samples["recovery_drill_latest_not_passed"] == 1
+    assert breach_samples["recovery_drill_age_exceeded"] == 1
+    assert breach_samples["recovery_drill_active_run_age_exceeded"] == 0
+    assert breach_samples["recovery_drill_reclaim_pressure_exceeded"] == 0
 
 
 def test_queue_metrics_collector_emits_compute_and_lineage_metrics(monkeypatch):
