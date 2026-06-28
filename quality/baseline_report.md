@@ -1,7 +1,7 @@
 # Lotus Performance Enterprise Backend Refactor Baseline
 
 Baseline date: 2026-06-28
-Branch: `feature/stateful-contribution-normalized-input-boundary`
+Branch: `feature/stateful-position-chunk-boundary`
 Mode: report-only baseline; no new blocking quality gate is introduced by this artifact.
 
 ## Purpose
@@ -16,11 +16,11 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 
 | Area | Current value | Evidence |
 | --- | ---: | --- |
-| Python files | 582 | `rg --files -g '*.py'` equivalent excluding local caches |
+| Python files | 583 | `rg --files -g '*.py'` equivalent excluding local caches |
 | Python package markers | 18 | recursive `__init__.py` count |
-| Python LOC | 172,957 | recursive `.py` line count |
-| Test modules | 280 | `tests/**/test_*.py` |
-| Collected tests | 3410 tests | `python -m pytest --collect-only -q` |
+| Python LOC | 173,072 | recursive `.py` line count |
+| Test modules | 281 | `tests/**/test_*.py` |
+| Collected tests | 3411 tests | `python -m pytest --collect-only -q` |
 | Configured CI workflows | 5 | `.github/workflows/*.yml` |
 | Repo-native baseline command | 1 | `make quality-baseline` |
 
@@ -34,7 +34,7 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 | 4 | `tests/unit/services/test_stateful_attribution_input_service.py` | 2069 |
 | 5 | `tests/integration/test_performance_api.py` | 1999 |
 | 6 | `tests/unit/services/test_twr_inspection_source_economics.py` | 1992 |
-| 7 | `app/services/stateful_input_service.py` | 1910 |
+| 7 | `app/services/stateful_input_service.py` | 1948 |
 | 8 | `tests/integration/test_contribution_api.py` | 1897 |
 | 9 | `tests/unit/services/test_compute_executor_worker.py` | 1879 |
 | 10 | `tests/unit/services/test_stateful_input_service.py` | 1777 |
