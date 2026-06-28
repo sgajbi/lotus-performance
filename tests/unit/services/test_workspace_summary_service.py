@@ -36,6 +36,7 @@ from app.services.workspace_summary_service import (
     _build_workspace_benchmark_and_active_blocks,
     _build_workspace_benchmark_daily_df,
     _build_workspace_period_summary_result,
+    _build_workspace_period_twr_pair,
     _build_workspace_results_by_period,
     _date_from_boundary,
     _decimal_or_zero,
@@ -1021,6 +1022,59 @@ def test_build_workspace_period_summary_result_projects_period_blocks(mocker):
     assert mwr_kwargs["input_mode"] == "stateless"
     assert mwr_kwargs["request"] is request
     assert mwr_kwargs["period_slice"]["perf_date"].tolist() == [date(2026, 1, 1), date(2026, 1, 2)]
+
+
+def test_build_workspace_period_twr_pair_slices_net_and_gross_daily_results(mocker):
+    return_value = WorkspaceReturnValue(base=1.0)
+    net_block = WorkspacePerformanceBlock(
+        summary=WorkspaceEconomicReturnSummary(
+            economics=WorkspaceEconomicContext(
+                begin_market_value=100.0,
+                end_market_value=102.0,
+                beginning_cash_flow=0.0,
+                ending_cash_flow=0.0,
+                fees=0.0,
+                net_cash_flow=0.0,
+                flow_adjusted_end_market_value=102.0,
+            ),
+            period_return=return_value,
+            cumulative_return=return_value,
+            annualized_return=return_value,
+        ),
+        breakdowns={},
+    )
+    gross_block = net_block.model_copy(deep=True)
+    performance_builder = mocker.patch(
+        "app.services.workspace_summary_service._build_workspace_performance_block",
+        side_effect=[net_block, gross_block],
+    )
+    portfolio_slice = pd.DataFrame(
+        [
+            {"perf_date": date(2026, 1, 1), "begin_mv": 100.0, "end_mv": 101.0},
+            {"perf_date": date(2026, 1, 2), "begin_mv": 101.0, "end_mv": 102.0},
+        ]
+    )
+    net_daily_results_df = pd.DataFrame({"perf_date": [date(2026, 1, 1), date(2026, 1, 2), date(2026, 1, 3)]})
+    gross_daily_results_df = pd.DataFrame({"perf_date": [date(2026, 1, 1), date(2026, 1, 2), date(2026, 1, 3)]})
+
+    result = _build_workspace_period_twr_pair(
+        resolved_period=ResolvedWorkspacePeriod(name="1D", start_date=date(2026, 1, 1), end_date=date(2026, 1, 2)),
+        portfolio_slice=portfolio_slice,
+        net_daily_results_df=net_daily_results_df,
+        gross_daily_results_df=gross_daily_results_df,
+        frequencies=[],
+        annualization=SimpleNamespace(),
+    )
+
+    assert result.net is net_block
+    assert result.gross is gross_block
+    assert performance_builder.call_count == 2
+    assert [call.kwargs["period_daily_slice"]["perf_date"].tolist() for call in performance_builder.call_args_list] == [
+        [date(2026, 1, 1), date(2026, 1, 2)],
+        [date(2026, 1, 1), date(2026, 1, 2)],
+    ]
+    assert performance_builder.call_args_list[0].kwargs["full_daily_df"] is net_daily_results_df
+    assert performance_builder.call_args_list[1].kwargs["full_daily_df"] is gross_daily_results_df
 
 
 def test_resolve_stateful_portfolio_start_date_rejects_missing_open_date(mocker):

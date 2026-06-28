@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Quality Scorecard
 
 Report date: 2026-06-29
-Branch: `feature/runtime-retention-history-snapshot-boundary`
+Branch: `feature/workspace-period-summary-boundary`
 Baseline source: `quality/baseline_report.md`
 Current source: `quality/refactor_health_report.md`
 Mode: phase-zero scorecard; static-quality and evaluation enforcement includes complexity,
@@ -22,11 +22,11 @@ metrics in each section are updated with each meaningful slice.
 | --- | ---: | ---: | ---: | --- | --- |
 | Python files | 480 | 583 | 103 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Python package markers | 18 | 18 | 0 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Python LOC | 104,454 | 173,601 | 69,147 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python LOC | 104,454 | 173,688 | 69,234 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest Python file LOC | 2,399 | 2,503 | 104 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest production file LOC | 1,156 | 1,948 | 792 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
 | Python test modules | 228 | 281 | 53 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Collected tests | 2,035 | 3,418 | 1,383 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Collected tests | 2,035 | 3,419 | 1,384 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Duplicate code hotspots | 0 | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `quality/refactor_health_report.md`; `make quality-duplicate-code-gate` |
 | Tracked local byproduct findings | unknown | 0 | n/a | enforced | `scripts/repository_hygiene_gate.py`; `make repository-hygiene-gate`; `quality/refactor_health_report.md` |
 
@@ -37,7 +37,7 @@ metrics in each section are updated with each meaningful slice.
 | Max cyclomatic complexity | unknown | 5 | n/a | enforced | `quality/complexity_inventory.md`; `quality/refactor_health_report.md`; `make quality-complexity-gate` |
 | High-complexity functions (D-F) | unknown | 0 | n/a | enforced | `quality/complexity_inventory.md`; `quality/refactor_health_report.md`; `make quality-complexity-gate` |
 | Average maintainability index | unknown | 55.20 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
-| Largest functions by LOC | unknown | 56 | n/a | measured | `quality/function_size_inventory.md`; `quality/refactor_health_report.md`; `build_runtime_retention_history_snapshot(...)` dropped out of the top-35 table after runtime-retention history query intent moved behind a typed private query carrier |
+| Largest functions by LOC | unknown | 56 | n/a | measured | `quality/function_size_inventory.md`; `quality/refactor_health_report.md`; `_build_workspace_period_summary_result(...)` dropped out of the top-35 table after workspace period TWR block assembly moved behind a named period-performance boundary |
 
 ### Architecture
 
@@ -67,7 +67,7 @@ metrics in each section are updated with each meaningful slice.
 | Branch coverage | unknown | 98.00% | n/a | measured | `quality/coverage_inventory.md`; `quality/refactor_health_report.md`; `make branch-coverage-baseline` |
 | Integration/API/runtime test functions | unknown | 608 | n/a | enforced | `quality/test_taxonomy_inventory.md`; `quality/refactor_health_report.md`; `make quality-test-taxonomy-gate` |
 | Contract/governance test functions | unknown | 111 | n/a | enforced | `quality/test_taxonomy_inventory.md`; `quality/refactor_health_report.md`; `make quality-test-taxonomy-gate` |
-| Uncategorized test functions | unknown | 1236 | n/a | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
+| Uncategorized test functions | unknown | 1237 | n/a | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
 
 ### Security and Dependencies
 
@@ -108,7 +108,7 @@ metrics in each section are updated with each meaningful slice.
 | Total metrics tracked | 46 | All metrics in this file are now measured, with selected zero-finding and breadth signals enforced separately. |
 | Measured metrics | 46 | Selected measured metrics are now also enforced through blocking static-quality, security, deterministic API evaluation, or test-taxonomy gates. Branch coverage is measured report-only and is not promoted to a gate. |
 | Not-yet-measured metrics | 0 | The scorecard no longer carries an unmeasured branch-coverage entry. OpenAPI Spectral and public-docstring gate decisions remain outside this scorecard until scoped separately. |
-| Latest architecture signal | 1 | `build_runtime_retention_history_snapshot(...)` dropped out of the top-35 function-size inventory after runtime-retention history filtering, pagination, and applied-filter projection moved behind `_RuntimeRetentionHistoryQuery`; architecture-boundary, duplicate-code, complexity, and taxonomy gates remain clean. |
+| Latest architecture signal | 1 | `_build_workspace_period_summary_result(...)` dropped out of the top-35 function-size inventory after workspace period net/gross TWR block assembly moved behind `_build_workspace_period_twr_pair(...)`; architecture-boundary, duplicate-code, complexity, and taxonomy gates remain clean. |
 
 ## Method Note
 
