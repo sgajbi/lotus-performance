@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Health Report
 
 Report date: 2026-06-28
-Branch: `feature/runtime-work-items-query-boundary`
+Branch: `feature/compute-queue-stats-statement-boundary`
 Baseline source: `quality/baseline_report.md`
 Report mode: phase-zero scorecard; complexity, architecture, duplicate-code, repository hygiene,
 router-thinness, observability-readiness, and Python security posture are enforced separately by CI.
@@ -43,7 +43,7 @@ link the commit, command, or CI artifact that proves the change.
 | Max cyclomatic complexity | unknown | 5 | enforced | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py`; `make quality-complexity-gate` |
 | High-complexity functions | unknown | 0 | enforced | rank D-F functions in `quality/complexity_inventory.md`; `make quality-complexity-gate` |
 | Average maintainability index | unknown | 54.88 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
-| Largest functions by LOC | unknown | 59 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; the current largest production functions are six functions tied at `59` lines |
+| Largest functions by LOC | unknown | 59 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; the current largest production functions are five functions tied at `59` lines |
 
 ## Architecture
 
@@ -72,7 +72,7 @@ link the commit, command, or CI artifact that proves the change.
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
 | Test modules | 228 | 277 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 3,377 | measured | `python -m pytest --collect-only -q` |
+| Collected tests | 2,035 | 3,378 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
 | Integration/API/runtime test functions | unknown | 602 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |
@@ -124,6 +124,32 @@ quality-program gap is not lack of aspiration; it is that several requested dime
 repeatably measured or expressed as progressive gates.
 
 ## Latest Local PR-Gate Evidence
+
+Latest compute queue stats statement-boundary evidence on `feature/compute-queue-stats-statement-boundary`:
+
+1. Isolated compute queue stats aggregate SQL column construction into
+   `_compute_queue_stats_columns(...)` and focused helpers. Behavior is unchanged: runtime status
+   and operator metrics still use the same `ComputeQueueStats` projection and one aggregate query.
+2. Added direct contract-style proof for aggregate labels and key predicates covering pending
+   status, retry backlog, lease-expired, reclaimable leased/running work, and terminal failure
+   classification. This aligns the slice with API testing and certification guidance while keeping
+   the public API/OpenAPI surface unchanged.
+3. Refreshed complexity, function-size, test-taxonomy, and baseline evidence. Max cyclomatic
+   complexity remains `5`, high-complexity functions remain `0`, average maintainability index
+   remains `54.88`, `ComputeJobStore._build_queue_stats_statement(...)` dropped out of the top-25
+   function-size table, and the largest production functions are now five functions tied at `59`
+   lines.
+4. Validation passed: compute job store tests (`63 passed`), ruff check, ruff format after
+   formatting, and mypy for the touched Python files. Test taxonomy reported `3,177` inventoried
+   test functions, `602` integration/API/runtime, and `108` contract/governance; `pytest
+   --collect-only` collected `3,378` tests. `make check` passed with static quality, OpenAPI
+   quality, API vocabulary, domain-product validation, first-party Python security, mypy, and
+   `3,032` unit tests. Wiki source publication check reported `DiffCount 0`.
+5. Conscious domain/API/operations/docs review: this is a runtime/operator observability path. It
+   preserves API/OpenAPI contracts, domain-product contracts, runtime topology, observability
+   surface, commands, cross-repo ownership, README, wiki source, repository context, platform
+   context, skills, and agent context. It improves production operability by naming the aggregate
+   metric contract and retaining single-query efficiency.
 
 Latest runtime work-items query-boundary evidence on `feature/runtime-work-items-query-boundary`:
 

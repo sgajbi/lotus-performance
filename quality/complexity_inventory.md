@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-28
-Branch: `feature/runtime-work-items-query-boundary`
+Branch: `feature/compute-queue-stats-statement-boundary`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
@@ -125,6 +125,10 @@ named helpers, lowering the measured max cyclomatic complexity from `6` to `5`.
 metadata and query-object projection were split into a dedicated dependency boundary. The measured
 repository maximum remains `5`, high-complexity functions remain `0`, and average maintainability
 index measures `54.88`.
+`ComputeJobStore._build_queue_stats_statement` also dropped out of the function-size hotspot table
+after aggregate SQL column construction was split into named helpers. The measured repository
+maximum remains `5`, high-complexity functions remain `0`, and average maintainability index
+remains `54.88`.
 `get_benchmark_return_series` also dropped out after benchmark, index-price, and risk-free reference
 series response point merging was routed through a shared helper.
 `get_fx_rates` also dropped out after FX-rate response-to-point projection and date-key
