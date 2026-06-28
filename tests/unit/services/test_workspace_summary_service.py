@@ -39,10 +39,14 @@ from app.services.workspace_summary_service import (
     _build_workspace_results_by_period,
     _date_from_boundary,
     _decimal_or_zero,
+    _is_missing_decimal_value,
     _longest_workspace_period_days,
+    _normalize_workspace_daily_results_df,
     _resolve_stateful_portfolio_start_date,
     _resolve_workspace_benchmark_input,
+    _resolve_workspace_inputs,
     _resolve_workspace_portfolio_input,
+    _sum_decimal_column,
     _workspace_observation_in_master_window,
     _workspace_summary_audit_counts,
     _workspace_summary_diagnostics,
@@ -1097,6 +1101,20 @@ def test_annualize_percentage_returns_original_value_when_elapsed_measure_is_non
     )
 
 
+def test_annualize_percentage_projects_elapsed_positive_multi_year_return():
+    annualization = SimpleNamespace(periods_per_year=365, basis="CAL/365")
+
+    annualized = _annualize_percentage(
+        Decimal("12.5"),
+        start_date=date(2025, 1, 1),
+        end_date=date(2026, 2, 4),
+        annualization=annualization,
+        business_day_count=286,
+    )
+
+    assert annualized == Decimal("11.34652730611459486863045300")
+
+
 def test_annualization_periods_and_elapsed_measure_uses_business_day_basis_defaults():
     assert _annualization_periods_and_elapsed_measure(
         annualization=SimpleNamespace(periods_per_year=None, basis="BUS/252"),
@@ -1277,3 +1295,94 @@ def test_workspace_summary_diagnostics_notes_preserve_base_notes_and_benchmark_c
         "source note",
         "Benchmark summary uses stateless benchmark input with vendor_series returns.",
     ]
+
+
+def test_resolve_workspace_inputs_rejects_empty_resolved_periods(mocker):
+    request = WorkspaceSummaryRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT-1",
+            "report_end_date": "2026-01-02",
+            "performance_start_date": "2026-01-01",
+            "input_mode": "stateless",
+            "stateless_input": {
+                "valuation_points": [
+                    {"perf_date": "2026-01-01", "begin_mv": 100.0, "end_mv": 101.0},
+                    {"perf_date": "2026-01-02", "begin_mv": 101.0, "end_mv": 102.0},
+                ]
+            },
+            "periods": [{"period": "1D", "frequencies": ["daily"]}],
+        }
+    )
+    mocker.patch(
+        "app.services.workspace_summary_service._resolve_workspace_portfolio_input",
+        return_value=ResolvedWorkspacePortfolioInput(
+            input_mode="stateless",
+            performance_start_date=date(2026, 1, 1),
+            valuation_points=[],
+            observations=[],
+            source_details={},
+        ),
+    )
+    mocker.patch("app.services.workspace_summary_service.resolve_workspace_periods", return_value=[])
+
+    with pytest.raises(HTTPException, match="No valid workspace periods"):
+        _resolve_workspace_inputs(request=request, settings=SimpleNamespace())
+
+
+def test_build_workspace_benchmark_and_active_blocks_skips_empty_period_slice():
+    return_value = WorkspaceReturnValue(base=1.0)
+    portfolio_summary = SimpleNamespace(
+        summary=WorkspaceReturnSummary(
+            period_return=return_value,
+            cumulative_return=return_value,
+            annualized_return=return_value,
+        )
+    )
+
+    benchmark_block, active_block = _build_workspace_benchmark_and_active_blocks(
+        benchmark_input=SimpleNamespace(),
+        benchmark_daily_df=pd.DataFrame({"date": [date(2026, 1, 1)], "benchmark_return": [0.01]}),
+        resolved_period=ResolvedWorkspacePeriod(
+            name="1D",
+            start_date=date(2026, 1, 2),
+            end_date=date(2026, 1, 2),
+        ),
+        frequencies=[],
+        annualization=SimpleNamespace(),
+        net_summary=portfolio_summary,
+        gross_summary=portfolio_summary,
+    )
+
+    assert benchmark_block is None
+    assert active_block is None
+
+
+def test_build_workspace_benchmark_daily_df_preserves_empty_vendor_series():
+    benchmark_input = SimpleNamespace(
+        benchmark_request=SimpleNamespace(return_source="vendor_series", benchmark_return_points=[])
+    )
+
+    daily_df = _build_workspace_benchmark_daily_df(benchmark_input)
+
+    assert daily_df is not None
+    assert daily_df.empty
+
+
+def test_normalize_workspace_daily_results_df_preserves_empty_frame():
+    empty_df = pd.DataFrame()
+
+    normalized_df = _normalize_workspace_daily_results_df(empty_df)
+
+    assert normalized_df.empty
+    assert list(normalized_df.columns) == []
+
+
+def test_sum_decimal_column_returns_zero_for_missing_economic_column():
+    frame = pd.DataFrame({"begin_mv": [100.0]})
+
+    assert _sum_decimal_column(frame, "mgmt_fees") == Decimal("0")
+
+
+def test_is_missing_decimal_value_treats_ambiguous_pandas_values_as_present():
+    assert _is_missing_decimal_value([None, 1]) is False

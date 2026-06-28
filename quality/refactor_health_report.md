@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Health Report
 
 Report date: 2026-06-28
-Branch: `feature/contribution-branch-hardening`
+Branch: `feature/workspace-summary-branch-hardening`
 Baseline source: `quality/baseline_report.md`
 Report mode: phase-zero scorecard; complexity, architecture, duplicate-code, repository hygiene,
 router-thinness, observability-readiness, and Python security posture are enforced separately by CI.
@@ -72,9 +72,9 @@ link the commit, command, or CI artifact that proves the change.
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
 | Test modules | 228 | 275 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 3,337 | measured | `python -m pytest --collect-only -q` |
-| Line coverage | unknown | 99.50% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`2,991` unit, `308` integration, and `21` e2e tests under branch coverage; `21,137` covered lines of `21,244` statements) |
-| Branch coverage | unknown | 97.48% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`2,991` unit, `308` integration, and `21` e2e tests under branch coverage; `4,295` covered branches of `4,406`, `111` missing branches, `111` partial branches) |
+| Collected tests | 2,035 | 3,344 | measured | `python -m pytest --collect-only -q` |
+| Line coverage | unknown | 99.52% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`2,998` unit, `308` integration, and `21` e2e tests under branch coverage; `21,142` covered lines of `21,244` statements) |
+| Branch coverage | unknown | 97.59% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`2,998` unit, `308` integration, and `21` e2e tests under branch coverage; `4,300` covered branches of `4,406`, `106` missing branches, `106` partial branches) |
 | Integration/API/runtime test functions | unknown | 600 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |
 | Contract/governance test functions | unknown | 108 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |
 
@@ -287,6 +287,26 @@ Latest data-policy branch-coverage hardening evidence on `feature/policies-branc
    this slice. README, wiki, repository context, platform context, skills, and agent context did not
    need updates because this slice changed test evidence only and did not change commands, API
    contracts, runtime topology, operator workflow, or cross-repo ownership.
+
+Latest workspace-summary branch-coverage hardening evidence on `feature/workspace-summary-branch-hardening`:
+
+1. `python -m pytest tests\unit\services\test_workspace_summary_service.py --cov=app.services.workspace_summary_service --cov-branch --cov-report=term-missing --cov-report=json:output\workspace-summary-branch-coverage.json` passed with `45` focused tests and `100%` focused branch coverage for `app/services/workspace_summary_service.py`.
+2. The slice added focused tests for empty resolved workspace periods, empty benchmark period
+   slices, empty vendor benchmark daily-return series, empty normalized workspace daily result
+   frames, missing economic columns, ambiguous pandas missing-value values, and positive
+   multi-year annualization.
+3. `make branch-coverage-baseline` passed with `2,998` unit tests, `308` integration tests, and
+   `21` e2e tests under `pytest --cov-branch`.
+4. The generated `quality/coverage_inventory.md` records combined line coverage at `99.52%`,
+   branch coverage at `97.59%`, `4,406` total branches, `106` missing branches, and `106` partial
+   branches.
+5. `app/services/workspace_summary_service.py` dropped out of the top branch-gap table after
+   previously recording `5` missing and `5` partial branches in the combined branch inventory.
+   Branch coverage remains report-only; no fail-under threshold or GitHub blocking lane is added in
+   this slice.
+6. README, wiki, repository context, platform context, skills, and agent context did not need
+   updates because this slice changed test evidence only and did not change commands, API
+   contracts, runtime topology, operator workflow, cross-repo ownership, or reusable agent guidance.
 
 Latest contribution branch-coverage hardening evidence on `feature/contribution-branch-hardening`:
 
