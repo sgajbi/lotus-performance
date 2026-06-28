@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-28
-Branch: `feature/recovery-drill-history-manifest-boundary`
+Branch: `feature/execution-polling-response-boundary`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
@@ -32,7 +32,7 @@ must stay at `0`.
 | --- | ---: |
 | Max cyclomatic complexity | 5 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.06 |
+| Average maintainability index | 55.09 |
 
 ## Highest Cyclomatic Complexity
 
@@ -108,6 +108,9 @@ component-status helper. `build_portfolio_source_quality_evidence` also dropped 
 unsupported cashflow taxonomy traversal was split into a dedicated count helper.
 `_collect_stateful_mwr_cash_flows` also dropped out after source-flow eligibility and evidence
 component projection were split into a dedicated helper.
+LP-CR-1535 isolated execution polling response projection into an application service boundary and
+left the API model module schema-only. The measured max cyclomatic complexity remains `5`,
+high-complexity functions remain `0`, and average maintainability index improves to `55.09`.
 LP-CR-1534 isolated shared operator-action history manifest resolution into a focused helper and
 result carrier. The measured max cyclomatic complexity remains `5`, high-complexity functions
 remain `0`, and average maintainability index measures `55.06`.

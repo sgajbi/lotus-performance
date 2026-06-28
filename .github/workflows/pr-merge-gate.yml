@@ -78,6 +78,10 @@ jobs:
         run: make openapi-gate
       - name: API Vocabulary Gate
         run: make api-vocabulary-gate
+      - name: Domain Product Validation
+        run: make domain-product-validate
+      - name: Quality Evaluation Gate
+        run: make quality-evaluation-gate
       - name: Migration Contract Smoke
         run: make migration-smoke
       - name: Security Audit

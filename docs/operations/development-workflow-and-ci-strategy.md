@@ -13,16 +13,23 @@ Canonical standard:
 5. Merge only with green required checks.
 6. Always finish with `local = remote = main`.
 
-## Repository-specific static quality gates
+## Repository-specific quality gates
 
-`make check`, `make ci`, and the GitHub static-quality lanes enforce the repo-native quality gates.
-In addition to lint, typecheck, OpenAPI, API vocabulary, no-alias, duplicate-code, architecture, and
+`make check`, `make ci`, and the GitHub quality lanes enforce the repo-native quality gates. In
+addition to lint, typecheck, OpenAPI, API vocabulary, no-alias, duplicate-code, architecture, and
 router-thinness checks, `lotus-performance` now enforces:
 
 ```bash
 make quality-observability-readiness-gate
+make domain-product-validate
+make quality-evaluation-gate
 ```
 
-That gate fails when health/metrics endpoint, correlation propagation, structured logging, metrics,
-or health/readiness implementation markers have any missing entries. Broader observability maturity
-scoring remains report-only in `quality/observability_readiness_inventory.md`.
+The observability-readiness gate fails when health/metrics endpoint, correlation propagation,
+structured logging, metrics, or health/readiness implementation markers have any missing entries.
+The domain-product validator keeps governed product contracts aligned with implementation truth. The
+quality evaluation gate delegates to `make demo-api-certification`, which exercises deterministic
+demo-critical API behavior and must not be soft-failed with `continue-on-error`.
+
+Broader observability maturity scoring remains report-only in
+`quality/observability_readiness_inventory.md`.
