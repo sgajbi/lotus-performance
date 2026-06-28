@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-06-28
-Branch: `feature/attribution-supportability-evidence-boundary`
+Branch: `feature/runtime-retention-evidence-projection`
 Mode: report-only test taxonomy inventory; no blocking CI gate is introduced by this artifact.
 
 ## Purpose
@@ -21,7 +21,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 277 |
-| Test functions inventoried | 3184 |
+| Test functions inventoried | 3185 |
 | Integration/API/runtime test functions | 605 |
 | Contract/governance test functions | 108 |
 
@@ -32,7 +32,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | benchmarks | 9 | 17 |
 | e2e | 1 | 21 |
 | integration | 24 | 300 |
-| unit | 243 | 2846 |
+| unit | 243 | 2847 |
 
 ## Test Functions By Family
 
@@ -43,7 +43,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | contract_or_governance | 108 |
 | observability_or_readiness | 186 |
 | quality_or_security | 115 |
-| uncategorized | 1289 |
+| uncategorized | 1290 |
 
 ## Largest Test Modules
 

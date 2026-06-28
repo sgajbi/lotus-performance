@@ -19,6 +19,7 @@ from app.services.operator_action_evidence_strings import (
     required_evidence_string,
 )
 from app.services.runtime_retention_service import (
+    RuntimeRetentionCleanupSummary,
     run_runtime_retention_cleanup,
 )
 from app.services.runtime_status_time import parse_utc_datetime
@@ -122,8 +123,29 @@ def execute_runtime_retention_cleanup(
         retention_days=retention_days,
         dry_run=not apply,
     )
-    generated_at_utc = datetime.now(UTC).isoformat()
-    evidence = RuntimeRetentionCleanupEvidence(
+    evidence = _runtime_retention_cleanup_evidence(
+        apply=apply,
+        generated_at_utc=datetime.now(UTC).isoformat(),
+        identity=identity,
+        summary=summary,
+    )
+    _persist_evidence_history(
+        output_dir=history_policy.output_dir,
+        evidence=evidence,
+        retention_limit=history_policy.retention_limit,
+        retention_max_age_days=history_policy.retention_max_age_days,
+    )
+    return evidence
+
+
+def _runtime_retention_cleanup_evidence(
+    *,
+    apply: bool,
+    generated_at_utc: str,
+    identity: _RuntimeRetentionExecutionIdentity,
+    summary: RuntimeRetentionCleanupSummary,
+) -> RuntimeRetentionCleanupEvidence:
+    return RuntimeRetentionCleanupEvidence(
         cleanup_name="runtime_retention_cleanup",
         generated_at_utc=generated_at_utc,
         evidence_file_name=_build_evidence_file_name(generated_at_utc),
@@ -142,13 +164,6 @@ def execute_runtime_retention_cleanup(
         prunable_lineage_record_count=summary.prunable_lineage_record_count,
         prunable_lineage_artifact_count=summary.prunable_lineage_artifact_count,
     )
-    _persist_evidence_history(
-        output_dir=history_policy.output_dir,
-        evidence=evidence,
-        retention_limit=history_policy.retention_limit,
-        retention_max_age_days=history_policy.retention_max_age_days,
-    )
-    return evidence
 
 
 def _runtime_retention_execution_identity(
