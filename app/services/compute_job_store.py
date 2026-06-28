@@ -921,23 +921,68 @@ class ComputeJobStore:
         calculation_id_contains: str | None,
     ) -> _ComputeInspectionStatements:
         if inspection_context.status_filter == INSPECTION_STATUS_RECLAIMABLE:
-            return _ComputeInspectionStatements(
-                count_statement=self._build_reclaimable_inspection_count_statement(
-                    analytics_type=analytics_type,
-                    calculation_id_contains=calculation_id_contains,
-                    now=inspection_context.now,
-                    min_age_threshold=inspection_context.min_age_threshold,
-                ),
-                items_statement=self._build_reclaimable_inspection_items_statement(
-                    limit=limit,
-                    offset=offset,
-                    analytics_type=analytics_type,
-                    calculation_id_contains=calculation_id_contains,
-                    now=inspection_context.now,
-                    min_age_threshold=inspection_context.min_age_threshold,
-                ),
+            return self._build_reclaimable_inspection_statements(
+                inspection_context=inspection_context,
+                limit=limit,
+                offset=offset,
+                analytics_type=analytics_type,
+                calculation_id_contains=calculation_id_contains,
             )
+        return self._build_standard_inspection_statements(
+            inspection_context=inspection_context,
+            limit=limit,
+            offset=offset,
+            analytics_type=analytics_type,
+            calculation_id_contains=calculation_id_contains,
+        )
 
+    def _build_reclaimable_inspection_statements(
+        self,
+        *,
+        inspection_context: InspectionQueryContext,
+        limit: int,
+        offset: int,
+        analytics_type: str | None,
+        calculation_id_contains: str | None,
+    ) -> _ComputeInspectionStatements:
+        return _ComputeInspectionStatements(
+            count_statement=self._build_reclaimable_inspection_count_statement(
+                analytics_type=analytics_type,
+                calculation_id_contains=calculation_id_contains,
+                now=inspection_context.now,
+                min_age_threshold=inspection_context.min_age_threshold,
+            ),
+            items_statement=self._build_reclaimable_inspection_items_statement(
+                limit=limit,
+                offset=offset,
+                analytics_type=analytics_type,
+                calculation_id_contains=calculation_id_contains,
+                now=inspection_context.now,
+                min_age_threshold=inspection_context.min_age_threshold,
+            ),
+        )
+
+    def _build_standard_inspection_statements(
+        self,
+        *,
+        inspection_context: InspectionQueryContext,
+        limit: int,
+        offset: int,
+        analytics_type: str | None,
+        calculation_id_contains: str | None,
+    ) -> _ComputeInspectionStatements:
+        count_builder, items_builder = self._standard_inspection_statement_builders(inspection_context.status_filter)
+        statement_arguments = {
+            "analytics_type": analytics_type,
+            "calculation_id_contains": calculation_id_contains,
+            "min_age_threshold": inspection_context.min_age_threshold,
+        }
+        return _ComputeInspectionStatements(
+            count_statement=count_builder(**statement_arguments),
+            items_statement=items_builder(limit=limit, offset=offset, **statement_arguments),
+        )
+
+    def _standard_inspection_statement_builders(self, status_filter: str):
         statement_builders = {
             INSPECTION_STATUS_ACTIVE: (
                 self._build_active_inspection_count_statement,
@@ -952,21 +997,7 @@ class ComputeJobStore:
                 self._build_all_inspection_items_statement,
             ),
         }
-        count_builder, items_builder = statement_builders[inspection_context.status_filter]
-        return _ComputeInspectionStatements(
-            count_statement=count_builder(
-                analytics_type=analytics_type,
-                calculation_id_contains=calculation_id_contains,
-                min_age_threshold=inspection_context.min_age_threshold,
-            ),
-            items_statement=items_builder(
-                limit=limit,
-                offset=offset,
-                analytics_type=analytics_type,
-                calculation_id_contains=calculation_id_contains,
-                min_age_threshold=inspection_context.min_age_threshold,
-            ),
-        )
+        return statement_builders[status_filter]
 
     def _build_queue_stats_statement(self, *, now: datetime):
         return select(*_compute_queue_stats_columns(now=now))

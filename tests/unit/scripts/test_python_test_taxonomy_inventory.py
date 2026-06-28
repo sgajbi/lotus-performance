@@ -15,6 +15,8 @@ def test_collect_test_modules_counts_functions_and_classifies_families(tmp_path:
     api_dir.mkdir(parents=True)
     contract_dir = tests_root / "unit" / "app"
     contract_dir.mkdir(parents=True)
+    service_dir = tests_root / "unit" / "services"
+    service_dir.mkdir(parents=True)
     api_file = api_dir / "test_returns_api.py"
     api_file.write_text(
         """
@@ -35,14 +37,24 @@ class TestContract:
 """,
         encoding="utf-8",
     )
+    compute_store_file = service_dir / "test_compute_job_store.py"
+    compute_store_file.write_text(
+        """
+def test_compute_queue_inspection_supportability():
+    pass
+""",
+        encoding="utf-8",
+    )
 
     modules = collect_test_modules((str(tests_root),))
 
-    assert [module.test_count for module in modules] == [2, 1]
+    assert [module.test_count for module in modules] == [2, 1, 1]
     assert modules[0].suite == "integration"
     assert "api_or_runtime" in modules[0].families
     assert modules[1].suite == "unit"
     assert "contract_or_governance" in modules[1].families
+    assert modules[2].suite == "unit"
+    assert "observability_or_readiness" in modules[2].families
 
 
 def test_render_markdown_summarizes_test_taxonomy() -> None:
