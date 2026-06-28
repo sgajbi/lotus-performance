@@ -169,6 +169,16 @@ class _ComputeInspectionStatements:
 
 
 @dataclass(frozen=True)
+class _ComputeRecoveryQueryFilters:
+    analytics_type: str | None
+    calculation_id_contains: str | None
+    recovered_after: datetime | None
+    recovered_before: datetime | None
+    cursor_recovered_before: datetime | None
+    cursor_calculation_id_before: str | None
+
+
+@dataclass(frozen=True)
 class ComputeQueueStats:
     pending_count: int
     leased_count: int
@@ -436,6 +446,43 @@ def _recovery_seek_cursor_filter(
             & (ComputeJobModel.calculation_id < cursor_calculation_id_before)
         )
     return cursor_filter
+
+
+def _compute_recovery_query_filters(
+    *,
+    dialect_name: str,
+    analytics_type: str | None,
+    calculation_id_contains: str | None,
+    recovered_after: datetime | None,
+    recovered_before: datetime | None,
+    cursor_recovered_before: datetime | None,
+    cursor_calculation_id_before: str | None,
+) -> _ComputeRecoveryQueryFilters:
+    return _ComputeRecoveryQueryFilters(
+        analytics_type=analytics_type,
+        calculation_id_contains=calculation_id_contains,
+        recovered_after=normalize_filter_datetime(recovered_after, dialect_name=dialect_name),
+        recovered_before=normalize_filter_datetime(recovered_before, dialect_name=dialect_name),
+        cursor_recovered_before=normalize_filter_datetime(cursor_recovered_before, dialect_name=dialect_name),
+        cursor_calculation_id_before=cursor_calculation_id_before,
+    )
+
+
+def _compute_recovery_event_page(
+    *,
+    events: list[ComputeRecoveryEvent],
+    total_count: int,
+    offset: int,
+) -> ComputeRecoveryEventPage:
+    next_offset = next_offset_or_none(offset=offset, item_count=len(events), total_count=total_count)
+    cursor = recovery_cursor_or_none(next_offset=next_offset, items=events)
+    return ComputeRecoveryEventPage(
+        total_count=total_count,
+        next_offset=next_offset,
+        next_cursor_recovered_before=cursor.recovered_before,
+        next_cursor_calculation_id_before=cursor.calculation_id_before,
+        items=events,
+    )
 
 
 def _ensure_compute_job_can_mark_running(
@@ -802,23 +849,21 @@ class ComputeJobStore:
     ) -> ComputeRecoveryEventPage:
         with self._session() as session:
             dialect_name = session.bind.dialect.name if session.bind is not None else ""
-            normalized_recovered_after = normalize_filter_datetime(recovered_after, dialect_name=dialect_name)
-            normalized_recovered_before = normalize_filter_datetime(recovered_before, dialect_name=dialect_name)
-            normalized_cursor_recovered_before = normalize_filter_datetime(
-                cursor_recovered_before,
+            filters = _compute_recovery_query_filters(
                 dialect_name=dialect_name,
+                analytics_type=analytics_type,
+                calculation_id_contains=calculation_id_contains,
+                recovered_after=recovered_after,
+                recovered_before=recovered_before,
+                cursor_recovered_before=cursor_recovered_before,
+                cursor_calculation_id_before=cursor_calculation_id_before,
             )
             rows = (
                 session.execute(
                     self._build_recent_recoveries_statement(
                         limit=limit,
                         offset=offset,
-                        analytics_type=analytics_type,
-                        calculation_id_contains=calculation_id_contains,
-                        recovered_after=normalized_recovered_after,
-                        recovered_before=normalized_recovered_before,
-                        cursor_recovered_before=normalized_cursor_recovered_before,
-                        cursor_calculation_id_before=cursor_calculation_id_before,
+                        filters=filters,
                     )
                 )
                 .scalars()
@@ -828,25 +873,12 @@ class ComputeJobStore:
             total_count = int(
                 session.execute(
                     self._build_recent_recoveries_count_statement(
-                        analytics_type=analytics_type,
-                        calculation_id_contains=calculation_id_contains,
-                        recovered_after=normalized_recovered_after,
-                        recovered_before=normalized_recovered_before,
-                        cursor_recovered_before=normalized_cursor_recovered_before,
-                        cursor_calculation_id_before=cursor_calculation_id_before,
+                        filters=filters,
                     )
                 ).scalar_one()
                 or 0
             )
-            next_offset = next_offset_or_none(offset=offset, item_count=len(events), total_count=total_count)
-            cursor = recovery_cursor_or_none(next_offset=next_offset, items=events)
-            return ComputeRecoveryEventPage(
-                total_count=total_count,
-                next_offset=next_offset,
-                next_cursor_recovered_before=cursor.recovered_before,
-                next_cursor_calculation_id_before=cursor.calculation_id_before,
-                items=events,
-            )
+            return _compute_recovery_event_page(events=events, total_count=total_count, offset=offset)
 
     def list_inspection_items(
         self,
@@ -997,20 +1029,17 @@ class ComputeJobStore:
     def _apply_recovery_time_filters(
         statement,
         *,
-        recovered_after: datetime | None,
-        recovered_before: datetime | None,
-        cursor_recovered_before: datetime | None,
-        cursor_calculation_id_before: str | None,
+        filters: _ComputeRecoveryQueryFilters,
     ):
-        if recovered_after is not None:
-            statement = statement.where(ComputeJobModel.last_error_at_utc >= recovered_after)
-        if recovered_before is not None:
-            statement = statement.where(ComputeJobModel.last_error_at_utc <= recovered_before)
-        if cursor_recovered_before is not None:
+        if filters.recovered_after is not None:
+            statement = statement.where(ComputeJobModel.last_error_at_utc >= filters.recovered_after)
+        if filters.recovered_before is not None:
+            statement = statement.where(ComputeJobModel.last_error_at_utc <= filters.recovered_before)
+        if filters.cursor_recovered_before is not None:
             statement = statement.where(
                 _recovery_seek_cursor_filter(
-                    cursor_recovered_before=cursor_recovered_before,
-                    cursor_calculation_id_before=cursor_calculation_id_before,
+                    cursor_recovered_before=filters.cursor_recovered_before,
+                    cursor_calculation_id_before=filters.cursor_calculation_id_before,
                 )
             )
         return statement
@@ -1020,12 +1049,7 @@ class ComputeJobStore:
         *,
         limit: int,
         offset: int,
-        analytics_type: str | None,
-        calculation_id_contains: str | None,
-        recovered_after: datetime | None,
-        recovered_before: datetime | None,
-        cursor_recovered_before: datetime | None,
-        cursor_calculation_id_before: str | None,
+        filters: _ComputeRecoveryQueryFilters,
     ):
         statement = (
             select(ComputeJobModel)
@@ -1041,24 +1065,16 @@ class ComputeJobStore:
         return self._apply_recovery_time_filters(
             self._apply_calculation_filters(
                 statement,
-                analytics_type=analytics_type,
-                calculation_id_contains=calculation_id_contains,
+                analytics_type=filters.analytics_type,
+                calculation_id_contains=filters.calculation_id_contains,
             ),
-            recovered_after=recovered_after,
-            recovered_before=recovered_before,
-            cursor_recovered_before=cursor_recovered_before,
-            cursor_calculation_id_before=cursor_calculation_id_before,
+            filters=filters,
         )
 
     def _build_recent_recoveries_count_statement(
         self,
         *,
-        analytics_type: str | None,
-        calculation_id_contains: str | None,
-        recovered_after: datetime | None,
-        recovered_before: datetime | None,
-        cursor_recovered_before: datetime | None,
-        cursor_calculation_id_before: str | None,
+        filters: _ComputeRecoveryQueryFilters,
     ):
         statement = (
             select(func.count())
@@ -1072,13 +1088,10 @@ class ComputeJobStore:
         return self._apply_recovery_time_filters(
             self._apply_calculation_filters(
                 statement,
-                analytics_type=analytics_type,
-                calculation_id_contains=calculation_id_contains,
+                analytics_type=filters.analytics_type,
+                calculation_id_contains=filters.calculation_id_contains,
             ),
-            recovered_after=recovered_after,
-            recovered_before=recovered_before,
-            cursor_recovered_before=cursor_recovered_before,
-            cursor_calculation_id_before=cursor_calculation_id_before,
+            filters=filters,
         )
 
     @staticmethod

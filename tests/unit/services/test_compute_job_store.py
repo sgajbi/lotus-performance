@@ -26,6 +26,7 @@ from app.services.compute_job_store import (
     _compute_job_request_identity_json,
     _compute_job_request_identity_json_from_json,
     _compute_queue_stats_columns,
+    _compute_recovery_query_filters,
     _ensure_compute_job_can_mark_running,
     _matches_existing_compute_job_registration,
     _queue_stats_from_aggregate_row,
@@ -1150,6 +1151,25 @@ def test_compute_job_store_formats_sqlite_recovery_timestamps_as_utc(tmp_path):
     page = store.list_recent_recoveries(limit=1)
 
     assert page.items[0].recovered_at_utc == "2026-03-14T12:00:00Z"
+
+
+def test_compute_recovery_query_filters_normalize_sqlite_utc_and_preserve_operator_filters():
+    filters = _compute_recovery_query_filters(
+        dialect_name="sqlite",
+        analytics_type="ReturnsSeries",
+        calculation_id_contains="calc-",
+        recovered_after=datetime(2026, 3, 14, 20, 0, tzinfo=timezone(timedelta(hours=8))),
+        recovered_before=datetime(2026, 3, 14, 13, 0, tzinfo=timezone.utc),
+        cursor_recovered_before=datetime(2026, 3, 14, 12, 30, tzinfo=timezone.utc),
+        cursor_calculation_id_before="calc-b",
+    )
+
+    assert filters.analytics_type == "ReturnsSeries"
+    assert filters.calculation_id_contains == "calc-"
+    assert filters.recovered_after == datetime(2026, 3, 14, 12, 0)
+    assert filters.recovered_before == datetime(2026, 3, 14, 13, 0)
+    assert filters.cursor_recovered_before == datetime(2026, 3, 14, 12, 30)
+    assert filters.cursor_calculation_id_before == "calc-b"
 
 
 def test_recovery_events_from_rows_suppresses_rows_without_recovery_timestamp(tmp_path):
