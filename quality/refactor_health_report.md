@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Health Report
 
 Report date: 2026-06-28
-Branch: `feature/ci-evaluation-quality-gates`
+Branch: `feature/benchmark-exposure-context-execution-boundary`
 Baseline source: `quality/baseline_report.md`
 Report mode: phase-zero scorecard; complexity, architecture, duplicate-code, repository hygiene,
 router-thinness, observability-readiness, domain-product validation, deterministic API evaluation,
@@ -27,9 +27,9 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Python files | 480 | 579 | measured | `rg --files -g '*.py'` |
+| Python files | 480 | 581 | measured | `rg --files -g '*.py'` |
 | Python package markers | 18 | 18 | measured | recursive `__init__.py` count |
-| Python LOC | 104,454 | 172,518 | measured | `rg --files -g '*.py'` plus Python line count on this branch |
+| Python LOC | 104,454 | 172,597 | measured | `rg --files -g '*.py'` plus Python line count on this branch |
 | Largest Python file LOC | 2,399 | 2,503 | measured | largest-file inventory on this branch |
 | Largest production file LOC | 1,156 | 1,910 | measured | `app/services/stateful_input_service.py` |
 | Duplicate code hotspots | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `make quality-duplicate-code-gate` with `--min-lines 12 --max-groups 0`; duplicated LOC reduced from `24` to `0` in LP-CR-1407 |
@@ -43,7 +43,7 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | Max cyclomatic complexity | unknown | 5 | enforced | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py`; `make quality-complexity-gate` |
 | High-complexity functions | unknown | 0 | enforced | rank D-F functions in `quality/complexity_inventory.md`; `make quality-complexity-gate` |
-| Average maintainability index | unknown | 55.06 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
+| Average maintainability index | unknown | 55.23 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
 | Largest functions by LOC | unknown | 57 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; the current largest production functions are six functions tied at `57` lines, led by `_check_period_calculation_consistency(...)` |
 
 ## Architecture
@@ -72,11 +72,11 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Test modules | 228 | 278 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 3,403 | measured | `python -m pytest --collect-only -q` |
+| Test modules | 228 | 279 | measured | `rg --files tests -g 'test_*.py'` |
+| Collected tests | 2,035 | 3,404 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
-| Integration/API/runtime test functions | unknown | 607 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
+| Integration/API/runtime test functions | unknown | 608 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
 | Contract/governance test functions | unknown | 111 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
 | Uncategorized test functions | unknown | 1294 | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
 
@@ -127,6 +127,39 @@ quality-program gap is not lack of aspiration; it is that several requested dime
 repeatably measured or expressed as progressive gates.
 
 ## Latest Local PR-Gate Evidence
+
+Latest benchmark exposure context execution-boundary evidence on
+`feature/benchmark-exposure-context-execution-boundary`:
+
+1. Added `app/services/benchmark_exposure_context_workflow_service.py` as the application-service
+   owner for synchronous benchmark exposure context execution. The service owns stateful input
+   service construction, sync execution registration, running/stage lifecycle, row-count completion
+   metadata, HTTP exception failure recording, and unexpected-failure wrapping.
+2. Reduced `app/api/endpoints/benchmark_exposure_context.py` to API contract ownership and a
+   single service delegation while preserving the `POST /integration/benchmarks/exposure-context`
+   request/response model, OpenAPI documentation, benchmark exposure fallback semantics,
+   lotus-core market-series source behavior, issuer/grouping logic, pagination, metadata, and
+   legacy error-detail strings.
+3. Moved lifecycle proof into `tests/unit/services/test_benchmark_exposure_context_api_workflow_service.py`
+   and left the endpoint unit test as a delegation contract. Integration tests now patch the
+   workflow service boundary instead of the router internals.
+4. Measured proof: `get_benchmark_exposure_context(...)` dropped out of the top-30 function-size
+   inventory; router/middleware oversized findings remain `0`; architecture-boundary findings
+   remain `0`; OpenAPI completeness findings remain `0`; max cyclomatic complexity remains `5`;
+   high-complexity functions remain `0`; average maintainability index measures `55.23`; pytest
+   collection reports `3,404` tests; taxonomy reports `608` API/runtime test functions, `111`
+   contract/governance test functions, and `1294` uncategorized test functions.
+5. Validation passed: focused benchmark exposure unit/integration/OpenAPI tests (`46 passed`),
+   ruff check, ruff format check, mypy for touched files, function-size inventory, router-thinness
+   inventory, complexity inventory, architecture-boundary inventory, OpenAPI completeness
+   inventory, OpenAPI quality gate, test-taxonomy gate, pytest collection, and `make
+   quality-baseline`.
+6. Conscious domain/API/edge-case/operations/docs review: this is an internal design-modularity and
+   API/error-model ownership slice. It deliberately adds no runtime microservice or worker
+   boundary because workload, failure-isolation, ownership, deployment, security, and operability
+   evidence do not justify one here. Public/operator/runtime truth, README, wiki source,
+   repository context, platform context, skills, and agent context remain unchanged; quality docs
+   and the review ledger record the implementation-backed truth change.
 
 Latest CI test-taxonomy gate enforcement evidence on `feature/ci-evaluation-quality-gates`:
 

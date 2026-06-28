@@ -64,7 +64,7 @@ class _RecordingStatefulInputService:
 def test_benchmark_exposure_context_api_returns_performance_aligned_view(monkeypatch):
     stateful_service = _RecordingStatefulInputService()
     monkeypatch.setattr(
-        "app.api.endpoints.benchmark_exposure_context.build_stateful_input_service",
+        "app.services.benchmark_exposure_context_workflow_service.build_stateful_input_service",
         lambda *, settings: stateful_service,
     )
 
@@ -146,7 +146,7 @@ def test_benchmark_exposure_context_api_returns_performance_aligned_view(monkeyp
 def test_benchmark_exposure_context_api_returns_issuer_groups(monkeypatch) -> None:
     stateful_service = _RecordingStatefulInputService()
     monkeypatch.setattr(
-        "app.api.endpoints.benchmark_exposure_context.build_stateful_input_service",
+        "app.services.benchmark_exposure_context_workflow_service.build_stateful_input_service",
         lambda *, settings: stateful_service,
     )
     payload = {

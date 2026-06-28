@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-28
-Branch: `feature/performance-diagnostics-projection-boundary`
+Branch: `feature/benchmark-exposure-context-execution-boundary`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
@@ -32,7 +32,12 @@ must stay at `0`.
 | --- | ---: |
 | Max cyclomatic complexity | 5 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.06 |
+| Average maintainability index | 55.23 |
+
+The endpoint lifecycle extraction preserves the enforced complexity posture: max cyclomatic
+complexity remains `5`, high-complexity functions remain `0`, and average maintainability index
+now measures `55.23` after moving benchmark exposure context execution orchestration out of the
+router and into the application service boundary.
 
 ## Highest Cyclomatic Complexity
 
