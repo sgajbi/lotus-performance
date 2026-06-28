@@ -41,6 +41,18 @@ class StatefulContributionSourceInput:
 
 
 @dataclass(frozen=True)
+class _StatefulContributionPositionSource:
+    rows: list[dict[str, object]]
+    retrieval_metadata: RetrievalMetadata
+
+
+@dataclass(frozen=True)
+class _StatefulContributionComponentEconomicsSource:
+    status_code: int | None
+    payload: dict[str, object] | None
+
+
+@dataclass(frozen=True)
 class StatefulContributionNormalizedInput:
     portfolio_data: PortfolioData
     positions_data: list[PositionData]
@@ -86,6 +98,51 @@ async def retrieve_stateful_contribution_source_input(
         consumer_system=consumer_system,
     )
 
+    position_source = await _retrieve_stateful_contribution_position_source(
+        stateful_input_service=stateful_input_service,
+        calculation_id=calculation_id,
+        portfolio_id=portfolio_id,
+        as_of_date=as_of_date,
+        report_start_date=report_start_date,
+        report_end_date=report_end_date,
+        reporting_currency=reporting_currency,
+        consumer_system=consumer_system,
+        dimensions=dimensions,
+        include_cash_flows=include_cash_flows,
+        filters=filters,
+    )
+    component_economics_source = await _retrieve_performance_component_economics_source(
+        stateful_input_service=stateful_input_service,
+        calculation_id=calculation_id,
+        portfolio_id=portfolio_id,
+        as_of_date=as_of_date,
+        report_start_date=report_start_date,
+        report_end_date=report_end_date,
+        filters=filters,
+    )
+    return StatefulContributionSourceInput(
+        portfolio_input=portfolio_input,
+        position_rows=position_source.rows,
+        position_retrieval_metadata=position_source.retrieval_metadata,
+        performance_component_economics_payload=component_economics_source.payload,
+        performance_component_economics_status=component_economics_source.status_code,
+    )
+
+
+async def _retrieve_stateful_contribution_position_source(
+    *,
+    stateful_input_service: StatefulInputService,
+    calculation_id,
+    portfolio_id: str,
+    as_of_date,
+    report_start_date,
+    report_end_date,
+    reporting_currency: str | None,
+    consumer_system: str,
+    dimensions: list[str],
+    include_cash_flows: bool,
+    filters: dict[str, object],
+) -> _StatefulContributionPositionSource:
     upstream_status, upstream_payload = await stateful_input_service.get_position_timeseries(
         calculation_id=calculation_id,
         portfolio_id=portfolio_id,
@@ -104,10 +161,23 @@ async def retrieve_stateful_contribution_source_input(
     )
 
     position_source = parse_stateful_position_timeseries_payload(upstream_payload)
-    (
-        component_economics_status,
-        component_economics_payload,
-    ) = await stateful_input_service.get_performance_component_economics(
+    return _StatefulContributionPositionSource(
+        rows=position_source.rows,
+        retrieval_metadata=parse_retrieval_metadata(upstream_payload),
+    )
+
+
+async def _retrieve_performance_component_economics_source(
+    *,
+    stateful_input_service: StatefulInputService,
+    calculation_id,
+    portfolio_id: str,
+    as_of_date,
+    report_start_date,
+    report_end_date,
+    filters: dict[str, object],
+) -> _StatefulContributionComponentEconomicsSource:
+    status_code, payload = await stateful_input_service.get_performance_component_economics(
         calculation_id=calculation_id,
         portfolio_id=portfolio_id,
         as_of_date=as_of_date,
@@ -115,12 +185,9 @@ async def retrieve_stateful_contribution_source_input(
         end_date=report_end_date,
         security_ids=_security_ids_filter(filters),
     )
-    return StatefulContributionSourceInput(
-        portfolio_input=portfolio_input,
-        position_rows=position_source.rows,
-        position_retrieval_metadata=parse_retrieval_metadata(upstream_payload),
-        performance_component_economics_payload=component_economics_payload,
-        performance_component_economics_status=component_economics_status,
+    return _StatefulContributionComponentEconomicsSource(
+        status_code=status_code,
+        payload=payload,
     )
 
 
