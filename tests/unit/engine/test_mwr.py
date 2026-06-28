@@ -14,6 +14,7 @@ from engine.mwr import (
     _calculate_dietz_mwr_result,
     _calculate_xirr_mwr_attempt,
     _calculate_xirr_solver_result,
+    _calculated_dietz_mwr_result,
     _day_count_denominator,
     _dietz_denominator,
     _dietz_fallback_metadata,
@@ -33,6 +34,7 @@ from engine.mwr import (
     _xirr_result_from_roots,
     _xirr_root_candidate,
     _xirr_time_diffs,
+    _zero_denominator_dietz_mwr_result,
     calculate_money_weighted_return,
 )
 
@@ -434,6 +436,54 @@ def test_calculate_dietz_mwr_result_preserves_xirr_fallback_metadata():
     assert result.warnings == ["FALLBACK_METHOD_USED"]
     assert result.fallback_from == "XIRR"
     assert result.fallback_reason == "NO_POSITIVE_AND_NEGATIVE_CASH_FLOW"
+
+
+def test_zero_denominator_dietz_mwr_result_preserves_not_calculable_contract():
+    components = _dietz_return_components(
+        begin_mv=-50.0,
+        end_mv=50.0,
+        cash_flows=[CashFlow(amount=100.0, date=date(2025, 1, 1))],
+        calculation_method="DIETZ",
+        start_date=date(2025, 1, 1),
+        end_date=date(2025, 12, 31),
+    )
+    notes: list[str] = []
+
+    result = _zero_denominator_dietz_mwr_result(
+        components=components,
+        start_date=date(2025, 1, 1),
+        end_date=date(2025, 12, 31),
+        notes=notes,
+    )
+
+    assert result.method == "DIETZ"
+    assert result.status == "NOT_CALCULABLE"
+    assert result.reason_codes == ["ZERO_DENOMINATOR"]
+    assert result.mwr == 0.0
+    assert result.notes == ["Calculation resulted in a zero denominator."]
+    assert notes is result.notes
+
+
+def test_calculated_dietz_mwr_result_requires_periodic_rate():
+    components = _dietz_return_components(
+        begin_mv=-50.0,
+        end_mv=50.0,
+        cash_flows=[CashFlow(amount=100.0, date=date(2025, 1, 1))],
+        calculation_method="DIETZ",
+        start_date=date(2025, 1, 1),
+        end_date=date(2025, 12, 31),
+    )
+
+    with pytest.raises(ValueError, match="Dietz periodic rate is required"):
+        _calculated_dietz_mwr_result(
+            components=components,
+            fallback_metadata=_dietz_fallback_metadata(calculation_method="DIETZ"),
+            annualization=Annualization(enabled=False),
+            start_date=date(2025, 1, 1),
+            end_date=date(2025, 12, 31),
+            period_days=364,
+            notes=[],
+        )
 
 
 def test_dietz_policy_helpers_preserve_method_and_fallback_metadata():

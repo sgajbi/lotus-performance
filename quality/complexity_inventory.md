@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-28
-Branch: `feature/hierarchical-contribution-result-boundary`
+Branch: `feature/mwr-dietz-result-boundary`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
@@ -34,10 +34,10 @@ must stay at `0`.
 | High-complexity functions (rank D-F) | 0 |
 | Average maintainability index | 55.23 |
 
-The hierarchical contribution result boundary extraction preserves the enforced complexity posture:
-max cyclomatic complexity remains `5`, high-complexity functions remain `0`, and average
-maintainability index measures `55.23` after isolating contribution summary, per-position totals,
-and hierarchy metadata projection into focused helpers.
+The Dietz MWR result boundary extraction preserves the enforced complexity posture: max cyclomatic
+complexity remains `5`, high-complexity functions remain `0`, and average maintainability index
+measures `55.23` after isolating zero-denominator and calculated Dietz result assembly into focused
+helpers.
 
 ## Highest Cyclomatic Complexity
 
