@@ -54,6 +54,16 @@ class _NormalizedComponentPricePoint:
     is_requested_date: bool
 
 
+@dataclass(frozen=True)
+class _CalculatedBenchmarkSourceBundle:
+    benchmark_currency: str
+    component_segments: list[BenchmarkCompositionSegment]
+    component_price_series: dict[str, dict[str, Any]]
+    benchmark_retrieval_metadata: RetrievalMetadata
+    fx_map_by_pair: dict[tuple[str, str], dict[date, Decimal]]
+    fx_retrieval_metadata: RetrievalMetadata
+
+
 async def build_stateful_benchmark_input(
     *,
     stateful_input_service: StatefulInputService,
@@ -100,6 +110,45 @@ async def _build_stateful_calculated_benchmark_input(
     start_date: date,
     end_date: date,
 ) -> StatefulBenchmarkNormalizedInput:
+    source_bundle = await _load_calculated_benchmark_sources(
+        stateful_input_service=stateful_input_service,
+        calculation_id=calculation_id,
+        benchmark_id=benchmark_id,
+        start_date=start_date,
+        end_date=end_date,
+        as_of_date=as_of_date,
+    )
+
+    component_observations = _build_component_observations(
+        benchmark_id=benchmark_id,
+        component_price_series=source_bundle.component_price_series,
+        component_segments=source_bundle.component_segments,
+        benchmark_currency=source_bundle.benchmark_currency,
+        fx_map_by_pair=source_bundle.fx_map_by_pair,
+        requested_start_date=start_date,
+        requested_end_date=end_date,
+    )
+
+    return StatefulBenchmarkNormalizedInput(
+        benchmark_currency=source_bundle.benchmark_currency,
+        component_observations=component_observations,
+        benchmark_return_points=[],
+        source_details=_calculated_benchmark_source_details(
+            source_bundle=source_bundle,
+            component_observation_count=len(component_observations),
+        ),
+    )
+
+
+async def _load_calculated_benchmark_sources(
+    *,
+    stateful_input_service: StatefulInputService,
+    calculation_id: UUID,
+    benchmark_id: str,
+    start_date: date,
+    end_date: date,
+    as_of_date: date,
+) -> _CalculatedBenchmarkSourceBundle:
     benchmark_currency, component_segments = await _load_calculated_benchmark_composition(
         stateful_input_service=stateful_input_service,
         calculation_id=calculation_id,
@@ -107,7 +156,7 @@ async def _build_stateful_calculated_benchmark_input(
         start_date=start_date,
         end_date=end_date,
     )
-    component_price_series, retrieval_metadata = await _load_component_price_series(
+    component_price_series, benchmark_retrieval_metadata = await _load_component_price_series(
         stateful_input_service=stateful_input_service,
         calculation_id=calculation_id,
         benchmark_id=benchmark_id,
@@ -124,32 +173,31 @@ async def _build_stateful_calculated_benchmark_input(
         stateful_input_service=stateful_input_service,
         calculation_id=calculation_id,
     )
-
-    component_observations = _build_component_observations(
-        benchmark_id=benchmark_id,
-        component_price_series=component_price_series,
+    return _CalculatedBenchmarkSourceBundle(
+        benchmark_currency=benchmark_currency,
         component_segments=component_segments,
-        benchmark_currency=benchmark_currency,
+        component_price_series=component_price_series,
+        benchmark_retrieval_metadata=benchmark_retrieval_metadata,
         fx_map_by_pair=fx_map_by_pair,
-        requested_start_date=start_date,
-        requested_end_date=end_date,
+        fx_retrieval_metadata=fx_retrieval_metadata,
     )
 
-    return StatefulBenchmarkNormalizedInput(
-        benchmark_currency=benchmark_currency,
-        component_observations=component_observations,
-        benchmark_return_points=[],
-        source_details={
-            "benchmark_components": len(component_price_series),
-            "benchmark_segments": len(component_segments),
-            "component_observations": len(component_observations),
-            "benchmark_chunk_count": retrieval_metadata.chunk_count,
-            "benchmark_page_count": retrieval_metadata.page_count,
-            "fx_pair_count": len(fx_map_by_pair),
-            "fx_chunk_count": fx_retrieval_metadata.chunk_count,
-            "fx_page_count": fx_retrieval_metadata.page_count,
-        },
-    )
+
+def _calculated_benchmark_source_details(
+    *,
+    source_bundle: _CalculatedBenchmarkSourceBundle,
+    component_observation_count: int,
+) -> dict[str, int]:
+    return {
+        "benchmark_components": len(source_bundle.component_price_series),
+        "benchmark_segments": len(source_bundle.component_segments),
+        "component_observations": component_observation_count,
+        "benchmark_chunk_count": source_bundle.benchmark_retrieval_metadata.chunk_count,
+        "benchmark_page_count": source_bundle.benchmark_retrieval_metadata.page_count,
+        "fx_pair_count": len(source_bundle.fx_map_by_pair),
+        "fx_chunk_count": source_bundle.fx_retrieval_metadata.chunk_count,
+        "fx_page_count": source_bundle.fx_retrieval_metadata.page_count,
+    }
 
 
 async def _load_calculated_benchmark_composition(
