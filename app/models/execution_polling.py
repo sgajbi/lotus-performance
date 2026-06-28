@@ -5,10 +5,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from app.services.async_result_store import AsyncResultRecord
-from app.services.compute_job_store import ComputeJobRecord
-from app.services.execution_registry import ExecutionRecord
-
 
 class ExecutionStageResponse(BaseModel):
     stage_name: str = Field(
@@ -233,82 +229,4 @@ class ExecutionResponse(BaseModel):
     async_result: AsyncResultResponse | None = Field(
         default=None,
         description="Endpoint-specific async result metadata when a durable result record exists.",
-    )
-
-
-def build_execution_response(
-    *,
-    record: ExecutionRecord,
-    job: ComputeJobRecord | None,
-    async_result: AsyncResultRecord | None,
-) -> ExecutionResponse:
-    return ExecutionResponse(
-        calculation_id=record.calculation_id,
-        analytics_type=record.analytics_type,
-        portfolio_id=record.portfolio_id,
-        execution_mode=record.execution_mode,
-        status=record.status.value,
-        requested_window=record.requested_window,
-        input_fingerprint=record.input_fingerprint,
-        calculation_hash=record.calculation_hash,
-        error_message=record.error_message,
-        created_at_utc=record.created_at_utc,
-        started_at_utc=record.started_at_utc,
-        completed_at_utc=record.completed_at_utc,
-        stages=[
-            ExecutionStageResponse(
-                stage_name=stage.stage_name,
-                status=stage.status.value,
-                started_at_utc=stage.started_at_utc,
-                completed_at_utc=stage.completed_at_utc,
-                details=stage.details,
-                error_message=stage.error_message,
-            )
-            for stage in record.stages
-        ],
-        upstream_snapshots=[
-            UpstreamSnapshotResponse(
-                snapshot_id=snapshot.snapshot_id,
-                upstream_endpoint=snapshot.upstream_endpoint,
-                source_identifier=snapshot.source_identifier,
-                as_of_date=snapshot.as_of_date,
-                request_fingerprint=snapshot.request_fingerprint,
-                response_fingerprint=snapshot.response_fingerprint,
-                retrieval_status=snapshot.retrieval_status,
-                paging_metadata=snapshot.paging_metadata,
-                created_at_utc=snapshot.created_at_utc,
-            )
-            for snapshot in record.upstream_snapshots
-        ],
-        compute_job=_compute_job_response(job),
-        async_result=(
-            None
-            if async_result is None
-            else AsyncResultResponse(
-                result_status=async_result.result_status.value,
-                error_message=async_result.error_message,
-                error_type=async_result.error_type,
-                created_at_utc=async_result.created_at_utc,
-                updated_at_utc=async_result.updated_at_utc,
-            )
-        ),
-    )
-
-
-def _compute_job_response(job: ComputeJobRecord | None) -> ComputeJobResponse | None:
-    if job is None:
-        return None
-    return ComputeJobResponse(
-        job_status=job.job_status.value,
-        attempt_count=job.attempt_count,
-        max_attempts=job.max_attempts,
-        worker_id=job.worker_id,
-        error_message=job.error_message,
-        error_type=job.error_type,
-        leased_at_utc=job.leased_at_utc,
-        lease_expires_at_utc=job.lease_expires_at_utc,
-        last_error_at_utc=job.last_error_at_utc,
-        created_at_utc=job.created_at_utc,
-        started_at_utc=job.started_at_utc,
-        completed_at_utc=job.completed_at_utc,
     )

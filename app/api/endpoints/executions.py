@@ -4,11 +4,9 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Path, status
 
-from app.models.execution_polling import ExecutionResponse, build_execution_response
+from app.models.execution_polling import ExecutionResponse
 from app.models.platform_surfaces import ErrorDetailResponse
-from app.services.async_result_store import async_result_store
-from app.services.compute_job_store import compute_job_store
-from app.services.execution_registry import execution_registry
+from app.services.execution_polling_service import EXECUTION_POLLING_NOT_FOUND_DETAIL, get_execution_polling_response
 
 router = APIRouter(tags=["Performance"])
 
@@ -27,9 +25,7 @@ router = APIRouter(tags=["Performance"])
         404: {
             "model": ErrorDetailResponse,
             "description": "No durable execution record exists for the supplied calculation_id.",
-            "content": {
-                "application/json": {"example": {"detail": "Execution data not found for the given calculation_id."}}
-            },
+            "content": {"application/json": {"example": {"detail": EXECUTION_POLLING_NOT_FOUND_DETAIL}}},
         }
     },
 )
@@ -39,17 +35,11 @@ async def get_execution(
         examples=["2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e"],
     ),
 ) -> ExecutionResponse:
-    record = execution_registry.get_execution(calculation_id)
-    if record is None:
+    response = get_execution_polling_response(calculation_id)
+    if response is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Execution data not found for the given calculation_id.",
+            detail=EXECUTION_POLLING_NOT_FOUND_DETAIL,
         )
 
-    job = compute_job_store.get_job(calculation_id)
-    async_result = async_result_store.get_result(calculation_id)
-    return build_execution_response(
-        record=record,
-        job=job,
-        async_result=async_result,
-    )
+    return response
