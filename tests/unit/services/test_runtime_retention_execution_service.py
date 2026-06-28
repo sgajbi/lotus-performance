@@ -12,12 +12,14 @@ from app.services.runtime_retention_execution_service import (
     _prune_evidence_path_if_stale,
     _prune_old_evidence,
     _retained_evidence_paths,
+    _runtime_retention_cleanup_evidence,
     _runtime_retention_evidence_generated_at,
     _runtime_retention_execution_identity,
     _runtime_retention_history_policy,
     _write_text_atomic,
     execute_runtime_retention_cleanup,
 )
+from app.services.runtime_retention_service import RuntimeRetentionCleanupSummary
 
 
 def test_execute_runtime_retention_cleanup_persists_scheduled_evidence(tmp_path, monkeypatch):
@@ -214,6 +216,51 @@ def test_runtime_retention_history_policy_uses_settings_defaults(tmp_path):
     assert policy.output_dir == default_output_dir
     assert policy.retention_limit == 30
     assert policy.retention_max_age_days == 90
+
+
+def test_runtime_retention_cleanup_evidence_projects_apply_summary_and_operator_identity():
+    identity = _runtime_retention_execution_identity(
+        operator_id="runtime-retention-operator",
+        tenant_id="tenant-a",
+        correlation_id="corr-123",
+        trigger_mode="manual",
+        job_id="runtime-retention-job-1",
+    )
+    summary = RuntimeRetentionCleanupSummary(
+        retention_days=45,
+        cutoff_utc="2026-05-14T00:00:00Z",
+        dry_run=False,
+        prunable_execution_count=8,
+        prunable_compute_job_count=7,
+        prunable_async_result_count=6,
+        prunable_lineage_record_count=5,
+        prunable_lineage_artifact_count=4,
+    )
+
+    evidence = _runtime_retention_cleanup_evidence(
+        apply=True,
+        generated_at_utc="2026-06-28T09:30:00+00:00",
+        identity=identity,
+        summary=summary,
+    )
+
+    assert evidence.cleanup_name == "runtime_retention_cleanup"
+    assert evidence.generated_at_utc == "2026-06-28T09:30:00+00:00"
+    assert evidence.evidence_file_name == "2026-06-28t09-30-00-00-00.json"
+    assert evidence.operator_id == "runtime-retention-operator"
+    assert evidence.tenant_id == "tenant-a"
+    assert evidence.correlation_id == "corr-123"
+    assert evidence.trigger_mode == "manual"
+    assert evidence.job_id == "runtime-retention-job-1"
+    assert evidence.cleanup_mode == "apply"
+    assert evidence.status == "applied"
+    assert evidence.retention_days == 45
+    assert evidence.cutoff_utc == "2026-05-14T00:00:00Z"
+    assert evidence.prunable_execution_count == 8
+    assert evidence.prunable_compute_job_count == 7
+    assert evidence.prunable_async_result_count == 6
+    assert evidence.prunable_lineage_record_count == 5
+    assert evidence.prunable_lineage_artifact_count == 4
 
 
 def test_retained_evidence_paths_excludes_control_files_and_sorts_newest_first(tmp_path):

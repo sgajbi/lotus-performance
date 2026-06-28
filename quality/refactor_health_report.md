@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Health Report
 
 Report date: 2026-06-28
-Branch: `feature/attribution-supportability-evidence-boundary`
+Branch: `feature/runtime-retention-evidence-projection`
 Baseline source: `quality/baseline_report.md`
 Report mode: phase-zero scorecard; complexity, architecture, duplicate-code, repository hygiene,
 router-thinness, observability-readiness, and Python security posture are enforced separately by CI.
@@ -43,7 +43,7 @@ link the commit, command, or CI artifact that proves the change.
 | Max cyclomatic complexity | unknown | 5 | enforced | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py`; `make quality-complexity-gate` |
 | High-complexity functions | unknown | 0 | enforced | rank D-F functions in `quality/complexity_inventory.md`; `make quality-complexity-gate` |
 | Average maintainability index | unknown | 54.87 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
-| Largest functions by LOC | unknown | 58 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; the current largest production functions are five functions tied at `58` lines |
+| Largest functions by LOC | unknown | 58 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; the current largest production functions are four functions tied at `58` lines |
 
 ## Architecture
 
@@ -72,7 +72,7 @@ link the commit, command, or CI artifact that proves the change.
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
 | Test modules | 228 | 277 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 3,385 | measured | `python -m pytest --collect-only -q` |
+| Collected tests | 2,035 | 3,386 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
 | Integration/API/runtime test functions | unknown | 605 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |
@@ -99,7 +99,7 @@ link the commit, command, or CI artifact that proves the change.
 | Metrics markers | unknown | 6 | measured | `metrics` family in `quality/observability_readiness_inventory.md` |
 | Health/readiness markers | unknown | 6 | measured | `health_readiness` family in `quality/observability_readiness_inventory.md` |
 | Health/metrics endpoint markers | unknown | 4 | measured | `health_metrics_endpoints` family in `quality/observability_readiness_inventory.md` |
-| Mapped observability/readiness test functions | unknown | 366 | measured | family-mapped test-function count in `quality/observability_readiness_inventory.md`; counts can overlap across families |
+| Mapped observability/readiness test functions | unknown | 367 | measured | family-mapped test-function count in `quality/observability_readiness_inventory.md`; counts can overlap across families |
 | Demo API certification command | unknown | 1 | measured | `make demo-api-certification` runs `scripts/demo_api_certification.py` and writes reviewed JSON evidence under `output/demo-api-certification/latest.json` |
 
 ## Documentation
@@ -125,34 +125,32 @@ repeatably measured or expressed as progressive gates.
 
 ## Latest Local PR-Gate Evidence
 
-Latest attribution supportability evidence-boundary evidence on `feature/attribution-supportability-evidence-boundary`:
+Latest runtime-retention evidence-projection evidence on `feature/runtime-retention-evidence-projection`:
 
-1. Isolated attribution supportability result assembly into `_AttributionSupportabilityProjection`,
-   `_build_attribution_supportability_projection(...)`,
-   `_build_empty_attribution_supportability_projection(...)`, and
-   `_build_attribution_supportability_evidence(...)`. Behavior is unchanged: attribution results
-   still preserve benchmark coverage gaps, unclassified segment evidence, missing benchmark return
-   classification, negative/zero exposure evidence, Karnosky-Singer currency-attribution status,
-   linking status, residual materiality, reason ordering, and supportability lineage flags.
-2. Added focused analytics-domain proof for empty-period fail-closed status context, benchmark
-   return-presence gap classification, and zero-exposure lineage flags that remain valid support
-   evidence rather than degrading the calculation.
-3. Refreshed complexity, function-size, test-taxonomy, and baseline evidence. Max cyclomatic
+1. Isolated runtime-retention cleanup evidence assembly into
+   `_runtime_retention_cleanup_evidence(...)`. Behavior is unchanged:
+   `execute_runtime_retention_cleanup(...)` still validates operator evidence identity before
+   cleanup execution, runs the same retention cleanup dry-run/apply path, persists the same
+   evidence history, and returns the same `RuntimeRetentionCleanupEvidence` contract.
+2. Added focused operator-evidence proof for the apply path, including generated evidence file
+   naming, operator/tenant/correlation/job identity preservation, cleanup status semantics,
+   retention window projection, and prunable execution/compute/async/lineage counts.
+3. Refreshed baseline, complexity, function-size, and test-taxonomy evidence. Max cyclomatic
    complexity remains `5`, high-complexity functions remain `0`, average maintainability index
-   measures `54.87`, `build_attribution_supportability_evidence(...)` dropped out of the top-30
-   function-size table, and the largest production functions are now five functions tied at `58`
+   measures `54.87`, `execute_runtime_retention_cleanup(...)` dropped out of the top-30
+   function-size table, and the largest production functions are now four functions tied at `58`
    lines.
-4. Validation passed: attribution supportability and attribution engine tests (`66 passed`), ruff
-   check, ruff format check, and mypy for the touched production file. Test taxonomy reported
-   `3,184` inventoried test functions, `605` integration/API/runtime, and `108`
-   contract/governance.
-5. Conscious domain/API/edge-case/operations/docs review: this is an internal attribution engine
-   supportability path backing API-facing results. It preserves private-banking attribution
-   methodology, Karnosky-Singer currency-attribution supportability vocabulary, API/OpenAPI shape,
-   domain-product contracts, runtime topology, observability labels, commands, cross-repo
-   ownership, README, wiki source, repository context, platform context, skills, and agent context.
-   No README/wiki/context/skill update is needed because the slice changes internal modularity and
-   tests only; wiki check is still required before merge.
+4. Validation passed: `tests\unit\services\test_runtime_retention_execution_service.py`
+   (`21 passed`), ruff check, ruff format check, and mypy for the touched service/test files. Test
+   taxonomy reported `3,185` inventoried test functions, `605` integration/API/runtime, and `108`
+   contract/governance. Pytest collection reported `3,386` collected tests.
+5. Conscious domain/API/edge-case/operations/docs review: this is an internal operator
+   supportability evidence projection path. It preserves runtime-retention cleanup API behavior,
+   operator-action semantics, evidence identity normalization, retention history persistence,
+   OpenAPI/API shape, domain-product contracts, runtime topology, observability labels, commands,
+   cross-repo ownership, README, wiki source, repository context, platform context, skills, and
+   agent context. No README/wiki/context/skill update is needed because the slice changes internal
+   modularity and tests only; wiki check is still required before merge.
 
 Latest TWR completed-response boundary evidence on `feature/twr-completed-response-boundary`:
 

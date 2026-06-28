@@ -1,7 +1,7 @@
 # Lotus Performance Enterprise Backend Refactor Baseline
 
 Baseline date: 2026-06-28
-Branch: `feature/attribution-supportability-evidence-boundary`
+Branch: `feature/runtime-retention-evidence-projection`
 Mode: report-only baseline; no new blocking quality gate is introduced by this artifact.
 
 ## Purpose
@@ -18,9 +18,9 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 | --- | ---: | --- |
 | Python files | 576 | `rg --files -g '*.py'` equivalent excluding local caches |
 | Python package markers | 18 | recursive `__init__.py` count |
-| Python LOC | 171,765 | recursive `.py` line count |
+| Python LOC | 171,827 | recursive `.py` line count |
 | Test modules | 277 | `tests/**/test_*.py` |
-| Collected tests | 3385 tests | `python -m pytest --collect-only -q` |
+| Collected tests | 3386 tests | `python -m pytest --collect-only -q` |
 | Configured CI workflows | 5 | `.github/workflows/*.yml` |
 | Repo-native baseline command | 1 | `make quality-baseline` |
 
