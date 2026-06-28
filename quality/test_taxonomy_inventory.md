@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-06-28
-Branch: `feature/hierarchical-contribution-result-boundary`
+Branch: `feature/mwr-dietz-result-boundary`
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -23,7 +23,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 281 |
-| Test functions inventoried | 3210 |
+| Test functions inventoried | 3212 |
 | Integration/API/runtime test functions | 608 |
 | Contract/governance test functions | 111 |
 
@@ -34,13 +34,13 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 17 |
 | e2e | 1 | 21 |
 | integration | 24 | 300 |
-| unit | 247 | 2872 |
+| unit | 247 | 2874 |
 
 ## Test Functions By Family
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 1119 |
+| analytics_domain | 1121 |
 | api_or_runtime | 608 |
 | contract_or_governance | 111 |
 | observability_or_readiness | 189 |
@@ -66,9 +66,9 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | 13 | `tests/unit/services/test_workspace_summary_service.py` | unit | 45 | uncategorized |
 | 14 | `tests/unit/services/test_stateful_benchmark_input_service.py` | unit | 44 | uncategorized |
 | 15 | `tests/integration/test_contribution_api.py` | integration | 40 | analytics_domain, api_or_runtime |
-| 16 | `tests/unit/services/test_operator_action_lease_service.py` | unit | 39 | uncategorized |
-| 17 | `tests/integration/test_performance_api.py` | integration | 38 | api_or_runtime |
-| 18 | `tests/unit/engine/test_mwr.py` | unit | 38 | analytics_domain |
+| 16 | `tests/unit/engine/test_mwr.py` | unit | 40 | analytics_domain |
+| 17 | `tests/unit/services/test_operator_action_lease_service.py` | unit | 39 | uncategorized |
+| 18 | `tests/integration/test_performance_api.py` | integration | 38 | api_or_runtime |
 | 19 | `tests/unit/services/test_compute_executor_worker.py` | unit | 38 | uncategorized |
 | 20 | `tests/unit/services/test_stateful_input_service.py` | unit | 36 | uncategorized |
 | 21 | `tests/unit/services/test_benchmark_exposure_context_service.py` | unit | 34 | uncategorized |
@@ -91,12 +91,10 @@ and test-function distribution. The current suite has meaningful API/runtime and
 contract/governance coverage, but 1294 test functions remain uncategorized by the first-wave
 taxonomy and should be reduced through normal refactor slices rather than allowed to grow.
 
-The hierarchical contribution result boundary slice keeps the promoted gate stable without adding
-new test functions because existing contribution engine tests already cover empty base-only and
-local/FX summaries, non-empty base-only summary projection, hierarchy row projection, and Carino
-residual allocation behavior for the extracted helper boundaries.
+The Dietz MWR result boundary slice keeps the promoted gate stable while adding two analytics-domain
+unit tests for the extracted zero-denominator and calculated Dietz result boundaries.
 Current measured breadth is `608` API/runtime test functions, `111` contract/governance test
-functions, `189` observability/readiness test functions, `1119` analytics-domain test functions,
+functions, `189` observability/readiness test functions, `1121` analytics-domain test functions,
 and `1294` uncategorized test functions. The enforced command remains at the accepted regression
 floor of `607` API/runtime tests and the existing uncategorized ceiling of `1294`; intentional
 threshold changes should remain separate, rationale-backed gate-governance work.

@@ -484,21 +484,59 @@ def _calculate_dietz_mwr_result(
         end_date=end_date,
     )
     if components.periodic_rate is None:
-        notes.append("Calculation resulted in a zero denominator.")
-        return MWRResult(
-            mwr=0.0,
-            method=components.method,
+        return _zero_denominator_dietz_mwr_result(
+            components=components,
             start_date=start_date,
             end_date=end_date,
             notes=notes,
-            status="NOT_CALCULABLE",
-            reason_codes=["ZERO_DENOMINATOR"],
         )
 
     fallback_metadata = _dietz_fallback_metadata(
         calculation_method=calculation_method,
         xirr_fallback_reason_code=xirr_fallback_reason_code,
     )
+    return _calculated_dietz_mwr_result(
+        components=components,
+        fallback_metadata=fallback_metadata,
+        annualization=annualization,
+        start_date=start_date,
+        end_date=end_date,
+        period_days=period_days,
+        notes=notes,
+    )
+
+
+def _zero_denominator_dietz_mwr_result(
+    *,
+    components: _DietzReturnComponents,
+    start_date: date,
+    end_date: date,
+    notes: list[str],
+) -> MWRResult:
+    notes.append("Calculation resulted in a zero denominator.")
+    return MWRResult(
+        mwr=0.0,
+        method=components.method,
+        start_date=start_date,
+        end_date=end_date,
+        notes=notes,
+        status="NOT_CALCULABLE",
+        reason_codes=["ZERO_DENOMINATOR"],
+    )
+
+
+def _calculated_dietz_mwr_result(
+    *,
+    components: _DietzReturnComponents,
+    fallback_metadata: _DietzFallbackMetadata,
+    annualization: Annualization,
+    start_date: date,
+    end_date: date,
+    period_days: int,
+    notes: list[str],
+) -> MWRResult:
+    if components.periodic_rate is None:
+        raise ValueError("Dietz periodic rate is required for calculated MWR result.")
     return MWRResult(
         mwr=components.periodic_rate * 100,
         mwr_annualized=_annualized_dietz_rate(
