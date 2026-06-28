@@ -15,6 +15,7 @@ from app.services.stateful_benchmark_input_service import (
     _build_component_observations,
     _build_normalized_component_series,
     _build_stateful_calculated_benchmark_input,
+    _calculated_benchmark_source_details,
     _component_price_point_date_in_scope,
     _component_price_series_points,
     _composition_segment_overlaps_window,
@@ -23,6 +24,7 @@ from app.services.stateful_benchmark_input_service import (
     _fx_rate_point_from_payload_point,
     _load_benchmark_definition_currency,
     _load_calculated_benchmark_composition,
+    _load_calculated_benchmark_sources,
     _load_component_price_series,
     _load_fx_maps_for_components,
     _normalize_price_to_benchmark_currency,
@@ -226,6 +228,47 @@ async def test_stateful_calculated_benchmark_input_projects_source_details():
     assert result.benchmark_return_points == []
     assert len(result.component_observations) == 5
     assert result.source_details == {
+        "benchmark_components": 3,
+        "benchmark_segments": 5,
+        "component_observations": 5,
+        "benchmark_chunk_count": 3,
+        "benchmark_page_count": 3,
+        "fx_pair_count": 2,
+        "fx_chunk_count": 3,
+        "fx_page_count": 5,
+    }
+
+
+@pytest.mark.asyncio
+async def test_load_calculated_benchmark_sources_preserves_sorted_component_retrieval_and_metadata():
+    class _RecordingStatefulInputServiceStub(_StatefulInputServiceStub):
+        def __init__(self):
+            self.requested_component_ids: list[str] = []
+
+        async def get_index_price_series(self, **kwargs):  # noqa: ARG002
+            self.requested_component_ids.append(kwargs["index_id"])
+            return await super().get_index_price_series(**kwargs)
+
+    stateful_input_service = _RecordingStatefulInputServiceStub()
+
+    source_bundle = await _load_calculated_benchmark_sources(
+        stateful_input_service=stateful_input_service,
+        calculation_id=uuid4(),
+        benchmark_id="BMK_1",
+        as_of_date=date(2026, 1, 3),
+        start_date=date(2026, 1, 2),
+        end_date=date(2026, 1, 3),
+    )
+
+    assert stateful_input_service.requested_component_ids == ["IDX_EUR", "IDX_GBP", "IDX_USD"]
+    assert source_bundle.benchmark_currency == "USD"
+    assert list(source_bundle.component_price_series) == ["IDX_EUR", "IDX_GBP", "IDX_USD"]
+    assert source_bundle.benchmark_retrieval_metadata == RetrievalMetadata(chunk_count=3, page_count=3)
+    assert source_bundle.fx_retrieval_metadata == RetrievalMetadata(chunk_count=3, page_count=5)
+    assert _calculated_benchmark_source_details(
+        source_bundle=source_bundle,
+        component_observation_count=5,
+    ) == {
         "benchmark_components": 3,
         "benchmark_segments": 5,
         "component_observations": 5,

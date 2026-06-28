@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-28
-Branch: `feature/compute-recoveries-query-boundary`
+Branch: `feature/stateful-benchmark-input-boundary`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
@@ -75,7 +75,7 @@ must stay at `0`.
 | 5 | `app/services/stateful_attribution_input_service.py` | 0.00 | C |
 | 6 | `app/services/stateful_input_service.py` | 0.00 | C |
 | 7 | `app/services/twr_service.py` | 5.69 | C |
-| 8 | `app/services/stateful_benchmark_input_service.py` | 8.73 | C |
+| 8 | `app/services/stateful_benchmark_input_service.py` | 8.25 | C |
 | 9 | `app/services/workspace_summary_service.py` | 10.05 | B |
 | 10 | `app/services/execution_registry.py` | 11.12 | B |
 | 11 | `engine/attribution.py` | 11.94 | B |
