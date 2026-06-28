@@ -316,17 +316,47 @@ def build_hierarchical_contribution_result(
 ) -> Dict:
     """Aggregates hierarchical contribution output for a single period slice."""
     if daily_contributions_df.empty:
-        summary = {
-            "portfolio_contribution": 0.0,
-            "coverage_mv_pct": 100.0,
-            "weighting_scheme": request.weighting_scheme.value,
-        }
-        if request.currency_mode == "BOTH":
-            summary["local_contribution"] = 0.0
-            summary["fx_contribution"] = 0.0
-        return {"summary": summary, "levels": []}
+        return {"summary": _empty_hierarchical_contribution_summary(request), "levels": []}
 
-    totals = (
+    totals = _position_contribution_totals(daily_contributions_df)
+    _apply_carino_residual_allocation(
+        totals,
+        total_portfolio_return=total_portfolio_return,
+        smoothing_method=request.smoothing.method,
+    )
+
+    hierarchy = list(request.hierarchy or [])
+    aggregated_df = _merge_hierarchy_metadata(
+        daily_contributions_df=daily_contributions_df,
+        totals=totals,
+        hierarchy=hierarchy,
+    )
+    response_levels = _build_hierarchical_response_levels(
+        aggregated_df=aggregated_df,
+        hierarchy=hierarchy,
+        currency_mode=request.currency_mode,
+    )
+
+    return {
+        "summary": _hierarchical_contribution_summary(aggregated_df, request),
+        "levels": response_levels,
+    }
+
+
+def _empty_hierarchical_contribution_summary(request: ContributionRequestLike) -> dict[str, Any]:
+    summary = {
+        "portfolio_contribution": 0.0,
+        "coverage_mv_pct": 100.0,
+        "weighting_scheme": request.weighting_scheme.value,
+    }
+    if request.currency_mode == "BOTH":
+        summary["local_contribution"] = 0.0
+        summary["fx_contribution"] = 0.0
+    return summary
+
+
+def _position_contribution_totals(daily_contributions_df: pd.DataFrame) -> pd.DataFrame:
+    return (
         daily_contributions_df.groupby("position_id")
         .agg(
             contribution=("smoothed_contribution", "sum"),
@@ -337,34 +367,31 @@ def build_hierarchical_contribution_result(
         .reset_index()
     )
 
-    _apply_carino_residual_allocation(
-        totals,
-        total_portfolio_return=total_portfolio_return,
-        smoothing_method=request.smoothing.method,
-    )
 
-    hierarchy = list(request.hierarchy or [])
-    temp_meta_cols = ["position_id"] + hierarchy
-    metadata_cols = list(dict.fromkeys(temp_meta_cols))
+def _merge_hierarchy_metadata(
+    *,
+    daily_contributions_df: pd.DataFrame,
+    totals: pd.DataFrame,
+    hierarchy: list[str],
+) -> pd.DataFrame:
+    metadata_cols = list(dict.fromkeys(["position_id", *hierarchy]))
     unique_meta = daily_contributions_df[metadata_cols].drop_duplicates()
-    aggregated_df = pd.merge(totals, unique_meta, on="position_id")
-    response_levels = _build_hierarchical_response_levels(
-        aggregated_df=aggregated_df,
-        hierarchy=hierarchy,
-        currency_mode=request.currency_mode,
-    )
+    return pd.merge(totals, unique_meta, on="position_id")
 
-    portfolio_contribution = aggregated_df["contribution"].sum()
+
+def _hierarchical_contribution_summary(
+    aggregated_df: pd.DataFrame,
+    request: ContributionRequestLike,
+) -> dict[str, Any]:
     summary = {
-        "portfolio_contribution": portfolio_contribution * 100,
+        "portfolio_contribution": aggregated_df["contribution"].sum() * 100,
         "coverage_mv_pct": 100.0,
         "weighting_scheme": request.weighting_scheme.value,
     }
     if request.currency_mode == "BOTH":
         summary["local_contribution"] = aggregated_df["local_contribution"].sum() * 100
         summary["fx_contribution"] = aggregated_df["fx_contribution"].sum() * 100
-
-    return {"summary": summary, "levels": response_levels}
+    return summary
 
 
 def _build_hierarchical_response_levels(

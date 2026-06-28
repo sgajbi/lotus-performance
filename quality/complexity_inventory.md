@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-28
-Branch: `feature/stateful-position-chunk-boundary`
+Branch: `feature/hierarchical-contribution-result-boundary`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
@@ -34,10 +34,10 @@ must stay at `0`.
 | High-complexity functions (rank D-F) | 0 |
 | Average maintainability index | 55.23 |
 
-The stateful position chunk boundary extraction preserves the enforced complexity posture: max
-cyclomatic complexity remains `5`, high-complexity functions remain `0`, and average
-maintainability index measures `55.23` after isolating position page fetching and source-lineage
-snapshot recording into a focused helper.
+The hierarchical contribution result boundary extraction preserves the enforced complexity posture:
+max cyclomatic complexity remains `5`, high-complexity functions remain `0`, and average
+maintainability index measures `55.23` after isolating contribution summary, per-position totals,
+and hierarchy metadata projection into focused helpers.
 
 ## Highest Cyclomatic Complexity
 
@@ -113,6 +113,10 @@ component-status helper. `build_portfolio_source_quality_evidence` also dropped 
 unsupported cashflow taxonomy traversal was split into a dedicated count helper.
 `_collect_stateful_mwr_cash_flows` also dropped out after source-flow eligibility and evidence
 component projection were split into a dedicated helper.
+LP-CR-1546 isolated hierarchical contribution result aggregation into focused helper boundaries.
+The measured max cyclomatic complexity remains `5`, high-complexity functions remain `0`, and
+average maintainability index remains `55.23`; the slice preserves the existing enforced
+complexity posture while improving contribution-engine result assembly scanability.
 LP-CR-1545 isolated stateful position page fetch and source-lineage snapshot recording behind
 `_fetch_and_record_position_page(...)`. The measured max cyclomatic complexity remains `5`,
 high-complexity functions remain `0`, and average maintainability index remains `55.23`; the slice
