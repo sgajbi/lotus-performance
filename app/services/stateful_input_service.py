@@ -39,6 +39,12 @@ class _PositionChunkAccumulator:
     page_count: int = 0
 
 
+@dataclass(frozen=True)
+class _PositionChunkPageResult:
+    status_code: int
+    payload: dict[str, Any]
+
+
 @dataclass
 class _PerformanceComponentEconomicsAccumulator:
     observed_component_families: set[str]
@@ -1091,7 +1097,7 @@ class StatefulInputService:
         existing_snapshot_ids = self._existing_snapshot_ids(calculation_id)
 
         while True:
-            status_code, payload, request_payload = await self._fetch_position_timeseries_page(
+            page_result = await self._fetch_and_record_position_page(
                 portfolio_id=portfolio_id,
                 as_of_date=as_of_date,
                 chunk=chunk,
@@ -1101,25 +1107,19 @@ class StatefulInputService:
                 include_cash_flows=include_cash_flows,
                 filters=filters,
                 page_token=page_token,
-            )
-            self._append_position_timeseries_snapshot_if_new(
                 calculation_id=calculation_id,
-                portfolio_id=portfolio_id,
-                as_of_date=as_of_date,
-                request_payload=request_payload,
-                response=(status_code, payload),
                 snapshot_batch=snapshot_batch,
                 existing_snapshot_ids=existing_snapshot_ids,
             )
-            if status_code >= 400:
+            if page_result.status_code >= 400:
                 self._record_upstream_snapshot_batch(
                     calculation_id=calculation_id,
                     snapshots=snapshot_batch,
                 )
-                return status_code, payload
-            _record_position_chunk_payload(accumulator=accumulator, payload=payload)
+                return page_result.status_code, page_result.payload
+            _record_position_chunk_payload(accumulator=accumulator, payload=page_result.payload)
 
-            page_token = self._next_page_token(payload)
+            page_token = self._next_page_token(page_result.payload)
             if not page_token:
                 break
 
@@ -1129,6 +1129,44 @@ class StatefulInputService:
         )
 
         return 200, self._build_position_chunk_payload(accumulator=accumulator)
+
+    async def _fetch_and_record_position_page(
+        self,
+        *,
+        portfolio_id: str,
+        as_of_date: date,
+        chunk: DateChunk,
+        reporting_currency: str | None,
+        consumer_system: str,
+        dimensions: list[str],
+        include_cash_flows: bool,
+        filters: dict[str, Any],
+        page_token: str | None,
+        calculation_id: UUID | None,
+        snapshot_batch: list[dict[str, Any]],
+        existing_snapshot_ids: set[str],
+    ) -> _PositionChunkPageResult:
+        status_code, payload, request_payload = await self._fetch_position_timeseries_page(
+            portfolio_id=portfolio_id,
+            as_of_date=as_of_date,
+            chunk=chunk,
+            reporting_currency=reporting_currency,
+            consumer_system=consumer_system,
+            dimensions=dimensions,
+            include_cash_flows=include_cash_flows,
+            filters=filters,
+            page_token=page_token,
+        )
+        self._append_position_timeseries_snapshot_if_new(
+            calculation_id=calculation_id,
+            portfolio_id=portfolio_id,
+            as_of_date=as_of_date,
+            request_payload=request_payload,
+            response=(status_code, payload),
+            snapshot_batch=snapshot_batch,
+            existing_snapshot_ids=existing_snapshot_ids,
+        )
+        return _PositionChunkPageResult(status_code=status_code, payload=payload)
 
     def _build_position_chunk_payload(
         self,

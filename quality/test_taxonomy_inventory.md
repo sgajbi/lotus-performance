@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-06-28
-Branch: `feature/stateful-contribution-normalized-input-boundary`
+Branch: `feature/stateful-position-chunk-boundary`
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -22,8 +22,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 280 |
-| Test functions inventoried | 3209 |
+| Test modules inventoried | 281 |
+| Test functions inventoried | 3210 |
 | Integration/API/runtime test functions | 608 |
 | Contract/governance test functions | 111 |
 
@@ -34,13 +34,13 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 17 |
 | e2e | 1 | 21 |
 | integration | 24 | 300 |
-| unit | 246 | 2871 |
+| unit | 247 | 2872 |
 
 ## Test Functions By Family
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 1118 |
+| analytics_domain | 1119 |
 | api_or_runtime | 608 |
 | contract_or_governance | 111 |
 | observability_or_readiness | 189 |
@@ -91,10 +91,10 @@ and test-function distribution. The current suite has meaningful API/runtime and
 contract/governance coverage, but 1294 test functions remain uncategorized by the first-wave
 taxonomy and should be reduced through normal refactor slices rather than allowed to grow.
 
-The stateful contribution normalized input boundary slice keeps the promoted gate stable while
-adding two analytics-domain tests for the extracted portfolio and position projection helpers.
+The stateful position chunk boundary slice keeps the promoted gate stable while adding one
+analytics-domain test for the extracted position page source-lineage helper.
 Current measured breadth is `608` API/runtime test functions, `111` contract/governance test
-functions, `189` observability/readiness test functions, `1118` analytics-domain test functions,
+functions, `189` observability/readiness test functions, `1119` analytics-domain test functions,
 and `1294` uncategorized test functions. The enforced command remains at the accepted regression
 floor of `607` API/runtime tests and the existing uncategorized ceiling of `1294`; intentional
 threshold changes should remain separate, rationale-backed gate-governance work.
