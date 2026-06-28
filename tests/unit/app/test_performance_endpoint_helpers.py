@@ -15,14 +15,17 @@ from app.models.responses import (
     SinglePeriodPerformanceResult,
 )
 from app.models.twr_requests import TWRInputMode
+from app.observability_contracts import PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_TWR
 from app.services.benchmark_calculation_service import BenchmarkCalculationArtifacts
+from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
 from app.services.twr_service import (
     _as_numeric,
     _assemble_completed_twr_response,
     _benchmark_context_input_mode_value,
     _build_twr_benchmark_period_block,
     _build_twr_benchmark_period_blocks,
+    _build_twr_completed_response_projection,
     _build_twr_lineage_details,
     _build_twr_period_result,
     _build_twr_portfolio_period_block,
@@ -31,9 +34,11 @@ from app.services.twr_service import (
     _calculate_total_return_from_slice,
     _complete_twr_execution_with_lineage,
     _get_total_cum_ror,
+    _normalize_benchmark_return_source,
     _rebased_cumulative_ror,
     _resolve_twr_execution_period_scope,
     _resolve_twr_supportability,
+    _run_twr_execution_stage,
     _twr_benchmark_period_returns,
     _twr_execution_master_window,
     _twr_period_reset_events,
@@ -92,6 +97,29 @@ def _daily_twr_results_df() -> pd.DataFrame:
             },
         ]
     )
+
+
+def test_normalize_benchmark_return_source_accepts_enum_and_legacy_string():
+    assert (
+        _normalize_benchmark_return_source(BenchmarkReturnSource.VENDOR_SERIES) == BenchmarkReturnSource.VENDOR_SERIES
+    )
+    assert _normalize_benchmark_return_source("vendor_series") == BenchmarkReturnSource.VENDOR_SERIES
+
+
+def test_run_twr_execution_stage_marks_execution_failure_and_reraises(mocker):
+    request = _twr_request()
+    start_stage = mocker.patch("app.services.twr_service.execution_registry.start_stage")
+    fail_stage = mocker.patch("app.services.twr_service.execution_registry.fail_stage")
+    mocker.patch("app.services.twr_service._run_twr_execution_calculation", side_effect=RuntimeError("pricing gap"))
+
+    with pytest.raises(RuntimeError, match="pricing gap"):
+        _run_twr_execution_stage(
+            performance_request=request,
+            benchmark_request=None,
+        )
+
+    start_stage.assert_called_once_with(request.calculation_id, EXECUTION_STAGE_EXECUTION)
+    fail_stage.assert_called_once_with(request.calculation_id, EXECUTION_STAGE_EXECUTION, "pricing gap")
 
 
 def test_resolve_twr_execution_period_scope_projects_periods_frequencies_and_master_window():
@@ -518,6 +546,51 @@ def test_complete_twr_execution_with_lineage_delegates_twr_lineage_payload(mocke
         "daily_rows": 2,
     }
     assert kwargs["calculation_details"] == {"daily_results.csv": daily_results_df}
+
+
+def test_build_twr_completed_response_projection_preserves_no_benchmark_supportability(mocker):
+    request = _twr_request()
+    resolved_period = ResolvedPeriod(name="ITD", start_date=date(2025, 1, 1), end_date=date(2025, 1, 2))
+    daily_results_df = _daily_twr_results_df()
+    calculation = _TWRExecutionCalculation(
+        resolved_periods=[resolved_period],
+        freqs_by_period={"ITD": [Frequency.DAILY]},
+        master_start_date=resolved_period.start_date,
+        master_end_date=resolved_period.end_date,
+        daily_results_df=daily_results_df,
+        engine_diagnostics=EngineDiagnostics(effective_period_start=date(2025, 1, 1)),
+        benchmark_artifacts=None,
+    )
+    results_by_period = _build_twr_results_by_period(
+        performance_request=request,
+        resolved_periods=calculation.resolved_periods,
+        freqs_by_period=calculation.freqs_by_period,
+        daily_results_df=daily_results_df,
+        engine_diagnostics=calculation.engine_diagnostics,
+        benchmark_artifacts=None,
+        benchmark_request=None,
+        benchmark_input_mode=None,
+        resolved_benchmark_id=None,
+        benchmark_return_source=BenchmarkReturnSource.CALCULATED,
+        master_start_date=calculation.master_start_date,
+    )
+    supportability_metric = mocker.patch("app.services.twr_service.record_supportability_metric")
+
+    projection = _build_twr_completed_response_projection(
+        performance_request=request,
+        calculation=calculation,
+        results_by_period=results_by_period,
+        benchmark_request=None,
+        benchmark_input_mode=None,
+        resolved_benchmark_id=None,
+        benchmark_return_source=BenchmarkReturnSource.CALCULATED,
+    )
+
+    assert projection.benchmark_context is None
+    assert projection.calculation_supportability.benchmark_row_count == 0
+    assert projection.calculation_supportability.resolved_period_count == 1
+    assert projection.calculation_supportability.metric_labels == PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS
+    supportability_metric.assert_called_once_with(operation="twr", supportability=projection.calculation_supportability)
 
 
 def test_assemble_completed_twr_response_preserves_supportability_benchmark_context_and_lineage(mocker):

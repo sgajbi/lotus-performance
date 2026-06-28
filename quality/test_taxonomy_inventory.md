@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-06-28
-Branch: `feature/stateful-benchmark-input-boundary`
+Branch: `feature/twr-completed-response-boundary`
 Mode: report-only test taxonomy inventory; no blocking CI gate is introduced by this artifact.
 
 ## Purpose
@@ -21,8 +21,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 277 |
-| Test functions inventoried | 3179 |
-| Integration/API/runtime test functions | 602 |
+| Test functions inventoried | 3182 |
+| Integration/API/runtime test functions | 605 |
 | Contract/governance test functions | 108 |
 
 ## Test Functions By Suite
@@ -32,14 +32,14 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | benchmarks | 9 | 17 |
 | e2e | 1 | 21 |
 | integration | 24 | 300 |
-| unit | 243 | 2841 |
+| unit | 243 | 2844 |
 
 ## Test Functions By Family
 
 | Family | Test functions |
 | --- | ---: |
 | analytics_domain | 1109 |
-| api_or_runtime | 602 |
+| api_or_runtime | 605 |
 | contract_or_governance | 108 |
 | observability_or_readiness | 186 |
 | quality_or_security | 115 |
@@ -78,7 +78,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | 27 | `tests/unit/engine/test_composites.py` | unit | 29 | analytics_domain |
 | 28 | `tests/unit/services/test_operator_action_replay_service.py` | unit | 29 | uncategorized |
 | 29 | `tests/unit/services/test_twr_inspection_service.py` | unit | 29 | analytics_domain |
-| 30 | `tests/integration/test_returns_series_api.py` | integration | 26 | api_or_runtime |
+| 30 | `tests/unit/app/test_performance_endpoint_helpers.py` | unit | 28 | api_or_runtime |
 
 ## Interpretation
 
@@ -88,6 +88,8 @@ complementary: collected tests show execution breadth, while this report shows s
 and test-function distribution. The current suite has meaningful API/runtime and
 contract/governance coverage, but 1289 test functions remain uncategorized by the first-wave
 taxonomy and should be reviewed before turning taxonomy into a blocking gate.
+This slice added three API/runtime helper tests for TWR response supportability projection,
+benchmark return-source normalization, and execution-stage failure recording.
 
 ## Gate Posture
 
