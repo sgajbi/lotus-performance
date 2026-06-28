@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Health Report
 
 Report date: 2026-06-28
-Branch: `feature/mwr-branch-hardening`
+Branch: `feature/twr-mode-branch-hardening`
 Baseline source: `quality/baseline_report.md`
 Report mode: phase-zero scorecard; complexity, architecture, duplicate-code, repository hygiene,
 router-thinness, observability-readiness, and Python security posture are enforced separately by CI.
@@ -72,9 +72,9 @@ link the commit, command, or CI artifact that proves the change.
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
 | Test modules | 228 | 275 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 3,348 | measured | `python -m pytest --collect-only -q` |
-| Line coverage | unknown | 99.54% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,002` unit, `308` integration, and `21` e2e tests under branch coverage; `21,146` covered lines of `21,244` statements) |
-| Branch coverage | unknown | 97.71% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,002` unit, `308` integration, and `21` e2e tests under branch coverage; `4,305` covered branches of `4,406`, `101` missing branches, `101` partial branches) |
+| Collected tests | 2,035 | 3,354 | measured | `python -m pytest --collect-only -q` |
+| Line coverage | unknown | 99.56% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,008` unit, `308` integration, and `21` e2e tests under branch coverage; `21,151` covered lines of `21,244` statements) |
+| Branch coverage | unknown | 97.82% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,008` unit, `308` integration, and `21` e2e tests under branch coverage; `4,310` covered branches of `4,406`, `96` missing branches, `96` partial branches) |
 | Integration/API/runtime test functions | unknown | 600 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |
 | Contract/governance test functions | unknown | 108 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |
 
@@ -142,6 +142,16 @@ Latest validation on `feature/enterprise-backend-refactor-baseline`:
    detected expected publication drift for `Validation-and-CI.md` because this branch changes the
    repo-authored wiki source. Publish the wiki after this branch is merged to `main`; do not
    publish unmerged branch truth.
+
+Latest TWR mode branch-coverage hardening evidence on `feature/twr-mode-branch-hardening`:
+
+1. `python -m pytest tests\unit\services\test_twr_mode_service.py --cov=app.services.twr_mode_service --cov-branch --cov-report=term-missing --cov-report=json:output\twr-mode-branch-coverage.json` passed with `45` focused tests and `100%` focused branch coverage for `app/services/twr_mode_service.py`.
+2. The TWR mode edge-case proof now covers private-banking analytics input governance and edge behavior: missing stateful portfolio input fail-fast behavior, unresolved derived performance-start-date handling, stateless benchmark configuration validation, empty stateless valuation-point fallback, and benchmark-source no-op behavior when benchmark retrieval is not requested.
+3. `make branch-coverage-baseline` passed with `3,008` unit tests, `308` integration tests, and `21` e2e tests under `pytest --cov-branch`.
+4. The generated `quality/coverage_inventory.md` records combined line coverage at `99.56%`, branch coverage at `97.82%`, `4,406` total branches, `96` missing branches, and `96` partial branches.
+5. `app/services/twr_mode_service.py` reached `100%` statement and branch coverage and dropped out of the top branch-gap table. The next measured branch-coverage candidates are now `app/openapi_enrichment.py`, `app/services/stateful_attribution_input_service.py`, and `app/services/stateful_input_service.py`.
+6. `make lint`, `make check`, and `make ci` passed. The full local CI path included migration smoke, durable recovery smoke, dependency audit with `0` known vulnerabilities, first-party Python security with `0` Bandit findings, `3,008` unit tests, `308` integration tests, `21` e2e tests, `99%` blocking line coverage, and Docker image build for `lotus-performance:ci`.
+7. Branch coverage remains report-only; no fail-under threshold or GitHub blocking lane is added in this slice. README, wiki, repository context, platform context, skills, and agent context did not need updates because this slice changed test evidence only and did not change commands, API contracts, runtime topology, operator workflow, cross-repo ownership, or reusable agent guidance.
 
 Latest MWR branch-coverage hardening evidence on `feature/mwr-branch-hardening`:
 

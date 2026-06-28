@@ -1,5 +1,6 @@
 from datetime import date
 from types import SimpleNamespace
+from typing import cast
 from uuid import uuid4
 
 import pytest
@@ -8,7 +9,7 @@ from pydantic import ValidationError
 
 from app.models.benchmark_analytics_requests import BenchmarkInputMode, BenchmarkStatefulInput
 from app.models.benchmark_requests import BenchmarkReturnPoint
-from app.models.twr_requests import TWRAnalyticsRequest
+from app.models.twr_requests import TWRAnalyticsRequest, TWRBenchmarkRequest, TWRInputMode
 from app.services.execution_registry import execution_registry
 from app.services.execution_stage_names import EXECUTION_STAGE_NORMALIZATION
 from app.services.stateful_benchmark_input_service import StatefulBenchmarkNormalizedInput
@@ -21,9 +22,11 @@ from app.services.twr_mode_service import (
     _requested_stateful_twr_benchmark_input,
     _resolve_benchmark_start_date_from_request,
     _resolve_default_stateful_benchmark_input,
+    _resolve_stateless_twr_benchmark_input,
     _resolve_stateless_twr_benchmark_request,
     _resolve_stateless_twr_request,
     _resolve_stateless_valuation_start_date,
+    _resolve_twr_benchmark_source_input,
     _resolve_twr_portfolio_source_input,
     _resolve_twr_portfolio_start_date,
     _resolve_twr_retrieval_inputs,
@@ -803,6 +806,28 @@ async def test_resolve_twr_portfolio_start_date_uses_upstream_open_date_when_mis
 
 
 @pytest.mark.asyncio
+async def test_resolve_twr_portfolio_source_input_rejects_missing_stateful_input():
+    request = TWRAnalyticsRequest.model_construct(
+        calculation_id=uuid4(),
+        portfolio_id="PORT_1",
+        metric_basis="NET",
+        report_end_date=date(2025, 1, 2),
+        analyses=[],
+        input_mode=TWRInputMode.STATEFUL,
+        stateful_input=None,
+    )
+
+    with pytest.raises(HTTPException, match="stateful_input is required when input_mode=stateful") as exc:
+        await _resolve_twr_portfolio_source_input(
+            request=request,
+            settings=_settings(),
+            stateful_input_service=object(),
+        )
+
+    assert exc.value.status_code == 400
+
+
+@pytest.mark.asyncio
 async def test_resolve_twr_portfolio_start_date_rejects_missing_derived_start():
     class _StatefulPortfolioStub:
         async def get_portfolio_reference(self, **kwargs):  # noqa: ARG002
@@ -825,6 +850,36 @@ async def test_resolve_twr_portfolio_start_date_rejects_missing_derived_start():
             request=request,
             stateful_input_service=_StatefulPortfolioStub(),
         )
+
+
+@pytest.mark.asyncio
+async def test_resolve_twr_portfolio_start_date_rejects_unresolved_derived_start(monkeypatch):
+    async def _mock_resolve_stateful_portfolio_start_date(**kwargs):  # noqa: ARG001
+        return None
+
+    monkeypatch.setattr(
+        "app.services.twr_mode_service._resolve_stateful_portfolio_start_date",
+        _mock_resolve_stateful_portfolio_start_date,
+    )
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_1",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "stateful_input": {},
+        }
+    )
+
+    with pytest.raises(HTTPException, match="Unable to derive a performance_start_date") as exc:
+        await _resolve_twr_portfolio_start_date(
+            request=request,
+            stateful_input_service=object(),
+        )
+
+    assert exc.value.status_code == 422
 
 
 @pytest.mark.asyncio
@@ -1435,6 +1490,31 @@ def test_requested_stateful_twr_benchmark_input_uses_default_stateful_input():
     assert _requested_stateful_twr_benchmark_input(request) == BenchmarkStatefulInput()
 
 
+@pytest.mark.asyncio
+async def test_resolve_twr_benchmark_source_input_skips_when_benchmark_not_requested():
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT_1",
+            "performance_start_date": "2024-12-31",
+            "metric_basis": "NET",
+            "report_end_date": "2025-01-02",
+            "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "stateful_input": {},
+        }
+    )
+
+    assert (
+        await _resolve_twr_benchmark_source_input(
+            request=request,
+            stateful_input_service=object(),
+            benchmark_start_date=date(2024, 12, 31),
+        )
+        is None
+    )
+
+
 def test_twr_benchmark_helpers_reject_stateless_benchmark_without_required_payload():
     with pytest.raises(ValidationError, match="benchmark.stateless_input is required"):
         TWRAnalyticsRequest.model_validate(
@@ -1455,6 +1535,36 @@ def test_twr_benchmark_helpers_reject_stateless_benchmark_without_required_paylo
                 },
             }
         )
+
+
+def test_resolve_stateless_twr_benchmark_input_rejects_missing_benchmark_configuration():
+    with pytest.raises(HTTPException, match="benchmark configuration is required"):
+        _resolve_stateless_twr_benchmark_input(None)
+
+
+def test_resolve_stateless_twr_benchmark_input_rejects_missing_stateless_payload_or_identifier():
+    benchmark = cast(
+        TWRBenchmarkRequest,
+        SimpleNamespace(
+            benchmark_id=None,
+            stateless_input=object(),
+        ),
+    )
+
+    with pytest.raises(HTTPException, match="requires benchmark_id and stateless_input"):
+        _resolve_stateless_twr_benchmark_input(benchmark)
+
+
+def test_resolve_stateless_valuation_start_date_returns_none_for_empty_stateless_points():
+    request = cast(
+        TWRAnalyticsRequest,
+        SimpleNamespace(
+            input_mode=TWRInputMode.STATELESS,
+            to_stateless_performance_request=lambda: SimpleNamespace(valuation_points=[]),
+        ),
+    )
+
+    assert _resolve_stateless_valuation_start_date(request) is None
 
 
 def test_build_resolved_twr_benchmark_request_passthroughs_resolution():
