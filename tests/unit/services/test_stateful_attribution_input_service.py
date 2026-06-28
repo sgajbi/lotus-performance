@@ -11,13 +11,17 @@ from fastapi import HTTPException
 from app.models.benchmark_requests import BenchmarkComponentObservation
 from app.services.stateful_attribution_input_service import (
     StatefulAttributionSourceInput,
+    _add_benchmark_group_row,
     _benchmark_currency_group_value,
     _benchmark_group_dimension_value,
     _benchmark_group_key_from_row,
+    _benchmark_group_observation,
     _benchmark_groups_from_buckets,
+    _benchmark_labels_by_index,
     _build_benchmark_groups,
     _build_group_key,
     _build_instruments_data,
+    _classification_labels_by_index,
     _distinct_source_currencies,
     _first_rows_by_position,
     _has_unsupported_position_inception_row,
@@ -122,6 +126,17 @@ def test_labels_have_required_dimensions_requires_non_blank_string_values():
     assert not _labels_have_required_dimensions(labels={"sector": "Technology", "region": "  "}, dimensions=["region"])
     assert not _labels_have_required_dimensions(labels={"sector": "Technology"}, dimensions=["region"])
     assert not _labels_have_required_dimensions(labels={"sector": 123}, dimensions=["sector"])
+
+
+def test_stateful_attribution_index_label_maps_ignore_malformed_catalog_records():
+    records = [
+        {"index_id": "IDX_1", "classification_labels": {"sector": "Technology"}},
+        {"index_id": 123, "classification_labels": {"sector": "Healthcare"}},
+        {"index_id": "IDX_2", "classification_labels": "not-labels"},
+    ]
+
+    assert _classification_labels_by_index(records) == {"IDX_1": {"sector": "Technology"}}
+    assert _benchmark_labels_by_index(records) == {"IDX_1": {"sector": "Technology"}}
 
 
 @pytest.mark.asyncio
@@ -1944,6 +1959,65 @@ def test_stateful_attribution_record_instrument_position_row_projects_point_and_
             "bod_cf": Decimal("5"),
         }
     ]
+
+
+def test_stateful_attribution_record_instrument_row_allows_local_point_without_base_weight():
+    positions_by_id: dict[str, list[dict[str, object]]] = {}
+    instrument_meta: dict[str, dict[str, object]] = {}
+
+    recorded = _record_instrument_position_row(
+        row={
+            "position_id": "POS_LOCAL",
+            "valuation_date": "2025-01-01",
+            "position_currency": "EUR",
+            "beginning_market_value_position_currency": "90",
+            "ending_market_value_position_currency": "95",
+            "cash_flows": [],
+        },
+        positions_by_id=positions_by_id,
+        instrument_meta=instrument_meta,
+        currency_mode="LOCAL_ONLY",
+        reporting_currency=None,
+    )
+
+    assert recorded is True
+    assert positions_by_id["POS_LOCAL"][0]["begin_mv"] == Decimal("90")
+    assert "base_weight_points" not in instrument_meta["POS_LOCAL"]
+
+
+def test_stateful_attribution_benchmark_group_helpers_handle_empty_decomposition_and_zero_weight():
+    grouped = {}
+    _add_benchmark_group_row(
+        grouped=grouped,
+        labels_by_index={},
+        group_by=["currency"],
+        row=pd.Series(
+            {
+                "component_id": "IDX_ZERO",
+                "component_currency": "USD",
+                "date": date(2025, 1, 1),
+                "weight_bop": "0",
+                "contribution": "0",
+                "component_return_local": pd.NA,
+                "component_return_fx": pd.NA,
+            }
+        ),
+    )
+
+    date_bucket = grouped[(("currency", "usd"),)]["2025-01-01"]
+    assert date_bucket == {
+        "weight_sum": Decimal("0"),
+        "weighted_return_sum": Decimal("0"),
+        "weighted_local_return_sum": Decimal("0"),
+        "weighted_fx_return_sum": Decimal("0"),
+    }
+    assert _benchmark_group_observation(series_date="2025-01-01", date_bucket=date_bucket) == {
+        "date": "2025-01-01",
+        "weight_bop": Decimal("0"),
+        "return_base": Decimal("0"),
+        "return_local": Decimal("0"),
+        "return_fx": Decimal("0"),
+    }
 
 
 def test_stateful_attribution_both_currency_validation_errors_are_explicit():
