@@ -49,6 +49,27 @@
       }
     },
     {
+      "product_name": "PerformanceComponentEconomics",
+      "producer_repository": "lotus-core",
+      "required_product_version": "v1",
+      "consumption_mode": "chunked_api_read",
+      "business_purpose": "Enrich stateful contribution source-economics evidence with core-authored cashflow, fee, income, tax, realized P&L, and FX-context component-family supportability without moving contribution methodology out of lotus-performance.",
+      "validation_lanes": [
+        "feature",
+        "pr-merge"
+      ],
+      "failure_posture": "degrade_to_partial",
+      "required_trust_metadata": [
+        "generated_at",
+        "as_of_date",
+        "data_quality_status",
+        "correlation_id"
+      ],
+      "migration_posture": {
+        "status": "current"
+      }
+    },
+    {
       "product_name": "PortfolioAnalyticsReference",
       "producer_repository": "lotus-core",
       "required_product_version": "v1",

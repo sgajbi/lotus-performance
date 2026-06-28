@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Health Report
 
 Report date: 2026-06-28
-Branch: `feature/stateful-attribution-branch-hardening`
+Branch: `feature/performance-component-economics-consumption`
 Baseline source: `quality/baseline_report.md`
 Report mode: phase-zero scorecard; complexity, architecture, duplicate-code, repository hygiene,
 router-thinness, observability-readiness, and Python security posture are enforced separately by CI.
@@ -40,9 +40,9 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Max cyclomatic complexity | unknown | 5 | enforced | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py`; `make quality-complexity-gate` |
+| Max cyclomatic complexity | unknown | 6 | enforced | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py`; `make quality-complexity-gate` |
 | High-complexity functions | unknown | 0 | enforced | rank D-F functions in `quality/complexity_inventory.md`; `make quality-complexity-gate` |
-| Average maintainability index | unknown | 54.91 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
+| Average maintainability index | unknown | 54.85 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
 | Largest functions by LOC | unknown | 59 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; LP-CR-1502 moved `_build_workspace_summary_response(...)` out of the top-25 table, and the largest production functions now measure `59` lines |
 
 ## Architecture
@@ -72,7 +72,7 @@ link the commit, command, or CI artifact that proves the change.
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
 | Test modules | 228 | 275 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 3,359 | measured | `python -m pytest --collect-only -q` |
+| Collected tests | 2,035 | 3,363 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
 | Integration/API/runtime test functions | unknown | 602 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |
@@ -124,6 +124,28 @@ quality-program gap is not lack of aspiration; it is that several requested dime
 repeatably measured or expressed as progressive gates.
 
 ## Latest Local PR-Gate Evidence
+
+Latest performance component economics consumption evidence on `feature/performance-component-economics-consumption`:
+
+1. Stateful contribution now consumes `lotus-core:PerformanceComponentEconomics:v1` as optional
+   source-economics evidence. Required portfolio and position timeseries remain fail-closed, while
+   non-200 or unavailable component-economics responses degrade `source_economics_evidence`
+   instead of blocking calculations that can still run without fabricated economics.
+2. `CoreIntegrationService` posts the producer contract payload to
+   `/integration/portfolios/{portfolio_id}/performance-component-economics`. `StatefulInputService`
+   chunks windows at the Core contract limit, records `performance_component_economics` upstream
+   snapshots, and merges only supportability coverage rather than locally aggregating source
+   financial amounts.
+3. Contribution source-economics evidence now includes `PerformanceComponentEconomics:v1` when
+   retrieved, exposes observed source component families as available economics, removes only exact
+   observed fee/income/tax unsupported flags, and keeps broader price P&L, FX attribution,
+   corporate-action, derivative, cash, and residual P&L unsupported unless a precise source
+   contract supplies them.
+4. Documentation, wiki source, consumer contract, and repository context were updated because API
+   evidence truth and cross-repo source responsibility changed. Platform context, skills, and agent
+   context did not need updates because routing, commands, CI policy, and reusable agent guidance
+   did not change.
+5. Validation passed: `python -m pytest tests\unit\services\test_core_integration_service.py tests\unit\services\test_stateful_input_service.py tests\unit\services\test_stateful_contribution_input_service.py tests\unit\services\test_contribution_source_economics.py tests\integration\test_contribution_api.py -q` (`130 passed`); `python -m ruff check --no-cache ...` (`All checks passed!`); `python -m ruff format --check --no-cache ...` (`9 files already formatted`); `python -m mypy app\services\core_integration_service.py app\services\stateful_input_service.py app\services\stateful_contribution_input_service.py app\services\contribution_source_economics.py tests\unit\services\test_core_integration_service.py tests\unit\services\test_stateful_input_service.py tests\unit\services\test_stateful_contribution_input_service.py tests\unit\services\test_contribution_source_economics.py` (`Success: no issues found in 8 source files`; existing unused mypy config sections remain); `make domain-product-validate` passed; `python scripts\python_test_taxonomy_inventory.py --limit 30` reported `3,162` inventoried test functions, `602` integration/API/runtime, and `108` contract/governance; `python -m pytest --collect-only -q` collected `3,363` tests; `make check` passed with static quality, OpenAPI, API vocabulary, domain-product validation, Python security, mypy, and `3,017` unit tests; `make ci` passed with migration and durable recovery checks, dependency vulnerabilities `0`, Bandit findings `0`, `3,017` unit tests, `308` integration tests, `21` e2e tests, `99%` coverage (`21,392` statements, `99` missed), and Docker image build for `lotus-performance:ci`.
 
 Latest validation on `feature/enterprise-backend-refactor-baseline`:
 

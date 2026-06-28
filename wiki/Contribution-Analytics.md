@@ -16,7 +16,7 @@ contribution totals, source-economics quality, or Carino smoothing state.
 | Hierarchy contribution | Optional `hierarchy` groups position contribution by dimensions such as `asset_class`, `sector`, `country`, `currency`, and `position_id`. Missing classification is emitted as `Unclassified`; top-N bucketing can emit `Other`. |
 | Stateful source input | `input_mode="stateful"` sources portfolio and position analytics inputs from `lotus-core` and normalizes them into the same calculation contract used by stateless requests. |
 | Carino smoothing | Default `CARINO` smoothing uses `F_t = k_t / K` and emits period-level `smoothing_evidence` with raw, smoothed, final, linked-return, residual, factor, status, and reason-code fields. |
-| Source economics evidence | Top-level `source_economics_evidence` states whether inputs are caller supplied or lotus-core sourced, which source contracts were used, which economics are available, and which component-P&L families remain unsupported or degraded. |
+| Source economics evidence | Top-level `source_economics_evidence` states whether inputs are caller supplied or lotus-core sourced, which source contracts were used, which economics are available, and which component-P&L families remain unsupported or degraded. Stateful contribution includes `PerformanceComponentEconomics:v1` when Core component-economics evidence was retrieved. |
 | Async and lineage | Contribution can return `202 Accepted`, exposes execution status, supports result polling, and emits lineage artifacts for reproducibility and support. |
 | Downstream realization | Gateway preserves source-owned contribution return, smoothing evidence, and source-economics evidence. Workbench renders exact source-economics and smoothing statuses in Performance Drivers. |
 
@@ -59,6 +59,7 @@ sequenceDiagram
     GW->>PERF: POST /performance/contribution
     PERF->>CORE: PortfolioTimeseriesInput:v1
     PERF->>CORE: PositionTimeseriesInput:v1
+    PERF->>CORE: PerformanceComponentEconomics:v1 evidence
     PERF->>PERF: Calculate raw contribution
     PERF->>PERF: Apply Carino smoothing
     PERF->>OBS: Store execution, artifacts, and metrics
@@ -69,7 +70,7 @@ sequenceDiagram
 
 | Integration | Direction | Contract posture |
 | --- | --- | --- |
-| `lotus-core` | upstream source | Provides portfolio and position timeseries; component P&L economics are not fully source-authored, so contribution reports `SOURCE_LIMITED`. |
+| `lotus-core` | upstream source | Provides portfolio and position timeseries as required inputs, plus optional `PerformanceComponentEconomics:v1` evidence for source-authored cashflow, fee, income, tax, realized P&L, and FX-context component-family coverage. |
 | `lotus-performance` | producer | Owns contribution calculation, smoothing evidence, source economics evidence, lineage, supportability, and data-product truth. |
 | `lotus-gateway` | downstream experience API | Preserves source-owned contribution totals and evidence without recomputing or overwriting them. |
 | `lotus-workbench` | downstream product surface | Displays contribution ranking and evidence statuses in Performance Drivers and participates in canonical live validation. |
@@ -100,8 +101,9 @@ private-banking portfolios. The strongest demo path is:
    calculation downstream.
 
 The correct sales message is not "all possible component economics are available." The correct
-message is that Lotus makes the calculation, method, lineage, and source limitations visible, which
-is the safer enterprise behavior for private-banking support and client conversations.
+message is that Lotus uses Core-authored component-economics evidence where available, keeps
+contribution methodology in `lotus-performance`, and makes remaining source limitations visible,
+which is the safer enterprise behavior for private-banking support and client conversations.
 
 ## Edge-Case Semantics
 
@@ -126,6 +128,7 @@ Source dependencies:
 
 - `lotus-core:PortfolioTimeseriesInput:v1`
 - `lotus-core:PositionTimeseriesInput:v1`
+- `lotus-core:PerformanceComponentEconomics:v1` for optional source-economics enrichment
 
 Approved consumer:
 
@@ -137,6 +140,7 @@ Evidence expectations:
 - lineage required;
 - source contract evidence retained;
 - bounded source-economics status and reason codes;
+- observed Core component-economics families represented as available source evidence;
 - unsupported component-P&L families represented explicitly instead of inferred downstream;
 - Gateway and Workbench preserve producer-owned evidence.
 

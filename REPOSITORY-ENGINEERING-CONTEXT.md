@@ -64,6 +64,11 @@ Current repository posture:
     active-return threshold posture, methodology posture, request fingerprint, and reason codes;
     it does not create mandate actions, rebalance waves, client communications, orders, OMS
     actions, or execution instructions.
+12. stateful contribution consumes `lotus-core:PerformanceComponentEconomics:v1` as optional
+    source-economics evidence for cashflow, fee, income, tax, realized P&L, and FX-context
+    component-family supportability. `lotus-performance` still owns contribution methodology and
+    treats non-200 or unavailable component-economics responses as degraded evidence rather than
+    as a required-input failure.
 
 ## Architecture And Module Map
 
@@ -102,7 +107,10 @@ Boundary rules:
 2. gateway and UI should consume governed outputs rather than reimplement analytics logic,
 3. async and lineage behavior are contract features and should remain explicit,
 4. benchmark and stateful integration behavior must remain truthful and documented,
-5. `lotus-core` must be consumed as a governed source-data and analytics-input authority, not as a provider of performance conclusions.
+5. `lotus-core` must be consumed as a governed source-data and analytics-input authority, not as a provider of performance conclusions,
+6. `PerformanceComponentEconomics:v1` evidence may improve contribution source-economics coverage
+   but must not be relabeled as contribution analytics, attribution analytics, performance returns,
+   or full price/FX attribution.
 
 ## Repo-Native Commands
 

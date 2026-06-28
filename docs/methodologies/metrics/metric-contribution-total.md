@@ -34,11 +34,13 @@ Position Total Contribution (`position_contributions[].total_contribution`)
 - `lotus-performance` remains the contribution methodology owner; lotus-core supplies analytics
   inputs and source metadata, not contribution conclusions.
 - Current lotus-core stateful contracts supply the essential market-value, cash-flow, FX,
-  classification, paging, and lineage fields required by this contribution methodology. They do
-  not publish source-authored component P&L buckets for price, income, tax, FX P&L,
-  corporate-action, derivative, cash, or residual contribution. lotus-performance therefore
-  reports those families through `source_economics_evidence.unsupported_economics` instead of
-  reconstructing them.
+  classification, paging, and lineage fields required by this contribution methodology.
+  `PerformanceComponentEconomics:v1` is additionally consumed as optional source-economics
+  evidence for core-authored cashflow, fee, income, tax, realized P&L, and FX-context component
+  families. `lotus-performance` uses that product to improve `source_economics_evidence`; it does
+  not treat the product as contribution analytics or as a full price/FX attribution source.
+  Broader price, FX attribution, corporate-action, derivative, cash, and residual P&L families
+  remain in `unsupported_economics` unless a precise source contract supplies them.
 
 ## Unit Conventions
 - Daily contribution math in engine uses decimal form.
@@ -99,7 +101,8 @@ Position Total Contribution (`position_contributions[].total_contribution`)
 ## Step-by-Step Computation
 1. Resolve mode-specific inputs. In stateful mode retrieve lotus-core portfolio and position
    timeseries, normalize source rows into `portfolio_data` and `positions_data`, preserve source
-   dimensions in position metadata, and convert source cash-flow rows into BOD, EOD, and fee fields.
+   dimensions in position metadata, convert source cash-flow rows into BOD, EOD, and fee fields,
+   and retrieve `PerformanceComponentEconomics:v1` as optional source-economics evidence.
 2. Resolve requested periods.
 3. Run TWR engine for portfolio and each position to obtain daily returns.
 4. Merge position rows with portfolio capital columns by date.
@@ -153,10 +156,11 @@ Smoothing evidence fields:
 Source-economics evidence fields:
 - `status`, `source_owner`, `source_contracts`, and `reason_codes`
 - `available_economics`, including market values, external flows, internal trade flows, fees, FX
-  rates, and classification dimensions where available
+  rates, classification dimensions, and observed `PerformanceComponentEconomics:v1` component
+  families where available
 - `unsupported_economics`, including component-P&L families that are not source-authored
-- `degraded_economics`, including unsupported cash-flow types, missing classification, or missing
-  embedded snapshot evidence
+- `degraded_economics`, including unsupported cash-flow types, missing classification, unavailable
+  component-economics enrichment, or missing embedded snapshot evidence
 - `cash_flow_type_counts`, `source_snapshot_count`, and `source_snapshot_endpoints`
 
 Hierarchical path fields:

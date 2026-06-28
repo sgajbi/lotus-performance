@@ -35,6 +35,7 @@ class _CoreServiceStub:
         self.fx_calls: list[dict] = []
         self.index_price_calls: list[dict] = []
         self.risk_free_calls: list[dict] = []
+        self.performance_component_economics_calls: list[dict] = []
 
     async def get_portfolio_analytics_timeseries(self, **kwargs):
         self.portfolio_calls.append(kwargs)
@@ -147,6 +148,22 @@ class _CoreServiceStub:
                         "ending_market_value_portfolio_currency": "103",
                     },
                 ]
+            },
+        )
+
+    async def get_performance_component_economics(self, **kwargs):
+        self.performance_component_economics_calls.append(kwargs)
+        return (
+            200,
+            {
+                "supportability": {
+                    "state": "READY",
+                    "reason": "PERFORMANCE_COMPONENT_ECONOMICS_READY",
+                    "source_row_count": 2,
+                    "supported_component_families": ["fee", "income", "tax", "realized_fx_pnl"],
+                    "observed_component_families": ["fee", "income"],
+                    "missing_component_families": ["tax", "realized_fx_pnl"],
+                }
             },
         )
 
@@ -1114,6 +1131,46 @@ async def test_get_position_timeseries_reports_chunk_and_page_counts():
         "2026-01-03",
     ]
     assert payload["retrieval_metadata"] == {"chunk_count": 2, "page_count": 3}
+
+
+@pytest.mark.asyncio
+async def test_get_performance_component_economics_chunks_merges_coverage_and_records_snapshots(tmp_path):
+    core_service = _CoreServiceStub()
+    execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    execution_store.create_schema()
+    calculation_id = uuid4()
+    execution_store.create_execution(
+        calculation_id=calculation_id,
+        analytics_type="Contribution",
+        portfolio_id="PORT_1",
+    )
+    service = StatefulInputService(core_service=core_service, execution_store=execution_store)
+
+    status_code, payload = await service.get_performance_component_economics(
+        portfolio_id="PORT_1",
+        as_of_date=date(2027, 1, 1),
+        start_date=date(2025, 12, 31),
+        end_date=date(2027, 1, 1),
+        security_ids=["SEC_2", "SEC_1", "SEC_1"],
+        calculation_id=calculation_id,
+    )
+
+    assert status_code == 200
+    assert payload["supportability"]["state"] == "READY"
+    assert payload["supportability"]["source_row_count"] == 4
+    assert payload["supportability"]["observed_component_families"] == ["fee", "income"]
+    assert payload["retrieval_metadata"] == {"chunk_count": 2, "page_count": 2}
+    assert [call["start_date"] for call in core_service.performance_component_economics_calls] == [
+        date(2025, 12, 31),
+        date(2027, 1, 1),
+    ]
+
+    snapshots = execution_store.list_upstream_snapshots(calculation_id)
+    component_snapshots = [
+        snapshot for snapshot in snapshots if snapshot.upstream_endpoint == "performance_component_economics"
+    ]
+    assert len(component_snapshots) == 2
+    assert component_snapshots[0].paging_metadata["security_ids"] == ["SEC_1", "SEC_2"]
 
 
 @pytest.mark.asyncio

@@ -26,14 +26,36 @@ from app.services.stateful_performance_input_service import StatefulPortfolioInp
 
 
 class _ContributionInputServiceStub:
-    def __init__(self, status_code: int = 200, payload: dict[str, object] | None = None) -> None:
+    def __init__(
+        self,
+        status_code: int = 200,
+        payload: dict[str, object] | None = None,
+        component_status_code: int = 200,
+        component_payload: dict[str, object] | None = None,
+    ) -> None:
         self.status_code = status_code
         self.payload = payload or {"rows": []}
+        self.component_status_code = component_status_code
+        self.component_payload = component_payload or {
+            "supportability": {
+                "state": "UNAVAILABLE",
+                "reason": "PERFORMANCE_COMPONENT_ECONOMICS_UNAVAILABLE",
+                "source_row_count": 0,
+                "observed_component_families": [],
+                "missing_component_families": [],
+                "supported_component_families": [],
+            }
+        }
         self.calls: list[dict[str, object]] = []
+        self.component_calls: list[dict[str, object]] = []
 
     async def get_position_timeseries(self, **kwargs):
         self.calls.append(kwargs)
         return self.status_code, self.payload
+
+    async def get_performance_component_economics(self, **kwargs):
+        self.component_calls.append(kwargs)
+        return self.component_status_code, self.component_payload
 
 
 @pytest.mark.asyncio
@@ -91,6 +113,9 @@ async def test_retrieve_stateful_contribution_source_input_returns_rows_and_meta
     assert result.position_retrieval_metadata == RetrievalMetadata(chunk_count=2, page_count=3)
     assert service.calls[0]["dimensions"] == ["sector"]
     assert service.calls[0]["include_cash_flows"] is False
+    assert result.performance_component_economics_status == 200
+    assert result.performance_component_economics_payload is service.component_payload
+    assert service.component_calls[0]["security_ids"] == ["SEC_1"]
 
 
 @pytest.mark.asyncio
@@ -166,6 +191,17 @@ def test_build_stateful_contribution_input_builds_positions_and_currency_selecti
             },
         ],
         position_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
+        performance_component_economics_payload={
+            "supportability": {
+                "state": "READY",
+                "reason": "PERFORMANCE_COMPONENT_ECONOMICS_READY",
+                "source_row_count": 3,
+                "observed_component_families": ["income", "tax", "fee", "realized_fx_pnl"],
+                "missing_component_families": ["realized_capital_pnl"],
+                "supported_component_families": ["fee", "income", "tax", "realized_fx_pnl"],
+            }
+        },
+        performance_component_economics_status=200,
     )
 
     normalized = build_stateful_contribution_input(
@@ -185,6 +221,10 @@ def test_build_stateful_contribution_input_builds_positions_and_currency_selecti
     assert point.eod_cf == Decimal("-2")
     assert point.mgmt_fees == Decimal("-1")
     assert normalized.positions_data[0].meta["sector"] == "Tech"
+    component_context = normalized.positions_data[0].meta["_source_economics"]["performance_component_economics"]
+    assert component_context["source_contract"] == "PerformanceComponentEconomics:v1"
+    assert component_context["supportability_state"] == "READY"
+    assert component_context["observed_component_families"] == ["fee", "income", "realized_fx_pnl", "tax"]
 
 
 def test_build_stateful_contribution_input_allows_currency_mode_both_for_same_currency_positions():
