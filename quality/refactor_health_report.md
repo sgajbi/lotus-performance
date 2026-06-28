@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Health Report
 
 Report date: 2026-06-28
-Branch: `feature/component-economics-supportability-policy`
+Branch: `feature/contribution-source-reason-policy`
 Baseline source: `quality/baseline_report.md`
 Report mode: phase-zero scorecard; complexity, architecture, duplicate-code, repository hygiene,
 router-thinness, observability-readiness, and Python security posture are enforced separately by CI.
@@ -72,7 +72,7 @@ link the commit, command, or CI artifact that proves the change.
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
 | Test modules | 228 | 275 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 3,368 | measured | `python -m pytest --collect-only -q` |
+| Collected tests | 2,035 | 3,369 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
 | Integration/API/runtime test functions | unknown | 602 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |
@@ -124,6 +124,36 @@ quality-program gap is not lack of aspiration; it is that several requested dime
 repeatably measured or expressed as progressive gates.
 
 ## Latest Local PR-Gate Evidence
+
+Latest contribution source-economics reason-policy evidence on `feature/contribution-source-reason-policy`:
+
+1. Isolated stateful contribution source-economics reason-code projection into focused helpers for
+   source-context reason codes and degraded-economics reason codes. Behavior is unchanged:
+   contribution source-economics evidence still reports Lotus Core analytics-input usage, upstream
+   snapshot lineage posture, unsupported component P&L posture, degraded Core
+   `PerformanceComponentEconomics:v1` posture, unsupported source cash-flow types, and
+   unclassified position economics.
+2. Added direct reason-code coverage for the private-banking edge case where Core component
+   economics are present but degraded while classification and source cash-flow taxonomy are also
+   limited. This prevents future refactors from dropping supportability reason codes that downstream
+   operators and product surfaces rely on to distinguish partial source evidence from methodology
+   failure.
+3. Refreshed complexity, function-size, and test-taxonomy evidence. Max cyclomatic complexity
+   remains `6`, high-complexity functions remain `0`, average maintainability index remains
+   `54.85`, `_stateful_reason_codes(...)` no longer appears in the top-25 complexity table, and
+   `app/services/contribution_source_economics.py` maintainability improved from `19.93` to
+   `20.23`.
+4. Validation passed: focused contribution source-economics tests (`23 passed`), ruff check, ruff
+   format check, and mypy for the touched Python files. Function-size posture is unchanged with the
+   current largest function at `63` lines. Test taxonomy reported `3,168` inventoried test
+   functions, `602` integration/API/runtime, and `108` contract/governance; `pytest
+   --collect-only` collected `3,369` tests. `make check` passed with static quality, OpenAPI
+   quality, API vocabulary, domain-product validation, first-party Python security, mypy, and
+   `3,023` unit tests.
+5. Conscious domain/API/operations/docs review: this slice preserves source-economics API response
+   semantics and does not change route shape, OpenAPI truth, domain-product contracts, runtime
+   topology, observability surface, commands, cross-repo ownership, README, wiki source, repository
+   context, platform context, skills, or agent context.
 
 Latest component economics supportability policy evidence on `feature/component-economics-supportability-policy`:
 

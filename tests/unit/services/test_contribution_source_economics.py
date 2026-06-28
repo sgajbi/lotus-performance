@@ -282,6 +282,32 @@ def test_stateful_reason_codes_project_snapshot_lineage_policy():
     ]
 
 
+def test_stateful_reason_codes_project_degraded_source_economics_policy():
+    assert _stateful_reason_codes(
+        unsupported_economics=["price_pnl", "fx_pnl"],
+        degraded_economics=[
+            "missing_classification",
+            "performance_component_economics_unavailable",
+            "unsupported_cash_flow_types",
+        ],
+        upstream_snapshots=[_snapshot("portfolio_timeseries")],
+        component_contexts=[
+            {
+                "retrieval_status": 503,
+                "supportability_state": "UNAVAILABLE",
+            }
+        ],
+    ) == [
+        "COMPONENT_PNL_NOT_SOURCE_AUTHORED",
+        "LOTUS_CORE_ANALYTICS_INPUTS_USED",
+        "PERFORMANCE_COMPONENT_ECONOMICS_SOURCE_USED",
+        "PERFORMANCE_COMPONENT_ECONOMICS_UNAVAILABLE",
+        "UNCLASSIFIED_POSITION_ECONOMICS_PRESENT",
+        "UNSUPPORTED_SOURCE_CASH_FLOW_TYPES_PRESENT",
+        "UPSTREAM_SNAPSHOT_LINEAGE_AVAILABLE",
+    ]
+
+
 def test_stateful_cash_flow_economics_projects_supported_source_flow_families():
     economics = _stateful_cash_flow_economics(
         {
