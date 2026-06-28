@@ -1,4 +1,4 @@
-.PHONY: install install-ci verify-dependencies check check-all test test-unit test-integration test-e2e test-all test-coverage branch-coverage-baseline coverage-gate ci ci-local ci-local-docker ci-local-docker-down typecheck lint quality-baseline quality-complexity-gate quality-architecture-gate quality-router-thinness-gate quality-duplicate-code-gate quality-observability-readiness-gate python-security-gate github-action-runtime-guard monetary-float-guard repository-hygiene-gate demo-api-certification format clean run check-deps security-audit openapi-gate api-vocabulary-gate no-alias-gate domain-product-validate migration-smoke migration-apply recovery-drill-smoke runtime-retention-smoke performance-characterization performance-characterization-postgres pre-commit docker-up docker-down docker-build
+.PHONY: install install-ci verify-dependencies check check-all test test-unit test-integration test-e2e test-all test-coverage branch-coverage-baseline coverage-gate ci ci-local ci-local-docker ci-local-docker-down typecheck lint quality-baseline quality-complexity-gate quality-architecture-gate quality-router-thinness-gate quality-duplicate-code-gate quality-observability-readiness-gate quality-evaluation-gate python-security-gate github-action-runtime-guard monetary-float-guard repository-hygiene-gate demo-api-certification format clean run check-deps security-audit openapi-gate api-vocabulary-gate no-alias-gate domain-product-validate migration-smoke migration-apply recovery-drill-smoke runtime-retention-smoke performance-characterization performance-characterization-postgres pre-commit docker-up docker-down docker-build
 
 install:
 	pip install -r requirements.txt
@@ -16,7 +16,7 @@ verify-dependencies:
 pre-commit:
 	pre-commit run --all-files
 
-check: lint quality-complexity-gate quality-architecture-gate quality-router-thinness-gate quality-duplicate-code-gate quality-observability-readiness-gate no-alias-gate typecheck openapi-gate api-vocabulary-gate domain-product-validate python-security-gate test
+check: lint quality-complexity-gate quality-architecture-gate quality-router-thinness-gate quality-duplicate-code-gate quality-observability-readiness-gate no-alias-gate typecheck openapi-gate api-vocabulary-gate domain-product-validate quality-evaluation-gate python-security-gate test
 
 test-coverage:
 	COVERAGE_FILE=.coverage.unit python -m pytest tests/unit --cov=app --cov=engine --cov=core --cov=adapters --cov-report=
@@ -36,7 +36,7 @@ branch-coverage-baseline:
 
 coverage-gate: test-coverage
 
-ci: lint quality-complexity-gate quality-architecture-gate quality-router-thinness-gate quality-duplicate-code-gate quality-observability-readiness-gate no-alias-gate typecheck openapi-gate api-vocabulary-gate domain-product-validate migration-smoke security-audit python-security-gate test-unit test-integration test-e2e coverage-gate docker-build
+ci: lint quality-complexity-gate quality-architecture-gate quality-router-thinness-gate quality-duplicate-code-gate quality-observability-readiness-gate no-alias-gate typecheck openapi-gate api-vocabulary-gate domain-product-validate quality-evaluation-gate migration-smoke security-audit python-security-gate test-unit test-integration test-e2e coverage-gate docker-build
 
 test:
 	$(MAKE) test-unit
@@ -131,6 +131,9 @@ quality-duplicate-code-gate:
 
 quality-observability-readiness-gate:
 	python scripts/python_observability_readiness_inventory.py --limit 30 --max-missing 0
+
+quality-evaluation-gate:
+	$(MAKE) demo-api-certification
 
 python-security-gate:
 	python scripts/python_security_inventory.py --limit 30 --max-high 0 --max-medium 0 --max-low 0

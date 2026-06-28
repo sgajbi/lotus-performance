@@ -1,11 +1,12 @@
 # Lotus Performance Refactor Quality Scorecard
 
 Report date: 2026-06-28
-Branch: `feature/recovery-drill-history-manifest-boundary`
+Branch: `feature/execution-polling-response-boundary`
 Baseline source: `quality/baseline_report.md`
 Current source: `quality/refactor_health_report.md`
-Mode: phase-zero scorecard; static-quality enforcement includes complexity, architecture,
-router-thinness, duplicate-code, repository hygiene, and observability-readiness gates.
+Mode: phase-zero scorecard; static-quality and evaluation enforcement includes complexity,
+architecture, router-thinness, duplicate-code, repository hygiene, observability-readiness,
+domain-product validation, and deterministic API evaluation gates.
 
 ## Purpose
 
@@ -19,13 +20,13 @@ metrics in each section are updated with each meaningful slice.
 
 | Metric | Baseline | Current | Delta | Status | Evidence |
 | --- | ---: | ---: | ---: | --- | --- |
-| Python files | 480 | 577 | 97 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python files | 480 | 579 | 99 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Python package markers | 18 | 18 | 0 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Python LOC | 104,454 | 172,087 | 67,633 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python LOC | 104,454 | 172,242 | 67,788 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest Python file LOC | 2,399 | 2,503 | 104 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest production file LOC | 1,156 | 1,910 | 754 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
-| Python test modules | 228 | 277 | 49 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Collected tests | 2,035 | 3,391 | 1,356 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python test modules | 228 | 278 | 50 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Collected tests | 2,035 | 3,397 | 1,362 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Duplicate code hotspots | 0 | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `quality/refactor_health_report.md`; `make quality-duplicate-code-gate` |
 | Tracked local byproduct findings | unknown | 0 | n/a | enforced | `scripts/repository_hygiene_gate.py`; `make repository-hygiene-gate`; `quality/refactor_health_report.md` |
 
@@ -35,8 +36,8 @@ metrics in each section are updated with each meaningful slice.
 | --- | ---: | ---: | ---: | --- | --- |
 | Max cyclomatic complexity | unknown | 5 | n/a | enforced | `quality/complexity_inventory.md`; `quality/refactor_health_report.md`; `make quality-complexity-gate` |
 | High-complexity functions (D-F) | unknown | 0 | n/a | enforced | `quality/complexity_inventory.md`; `quality/refactor_health_report.md`; `make quality-complexity-gate` |
-| Average maintainability index | unknown | 55.06 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
-| Largest functions by LOC | unknown | 57 | n/a | measured | `quality/function_size_inventory.md`; `quality/refactor_health_report.md`; current largest production functions are eight functions tied at `57` lines, led by `build_execution_response(...)` |
+| Average maintainability index | unknown | 55.09 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
+| Largest functions by LOC | unknown | 57 | n/a | measured | `quality/function_size_inventory.md`; `quality/refactor_health_report.md`; current largest production functions are seven functions tied at `57` lines, led by `build_performance_diagnostics(...)` |
 
 ### Architecture
 
@@ -87,7 +88,7 @@ metrics in each section are updated with each meaningful slice.
 | Structured logging markers | unknown | 6 | n/a | measured | `quality/observability_readiness_inventory.md`; `quality/refactor_health_report.md` |
 | Metrics markers | unknown | 6 | n/a | measured | `quality/observability_readiness_inventory.md`; `quality/refactor_health_report.md` |
 | Health/readiness markers | unknown | 6 | n/a | measured | `quality/observability_readiness_inventory.md`; `quality/refactor_health_report.md` |
-| Demo API certification command | unknown | 1 | n/a | measured | `make demo-api-certification`; `quality/refactor_health_report.md` |
+| Demo API certification command | unknown | 1 | n/a | enforced | `make quality-evaluation-gate`; `make demo-api-certification`; `quality/refactor_health_report.md` |
 
 ### Documentation
 
@@ -103,13 +104,14 @@ metrics in each section are updated with each meaningful slice.
 | Signal | Value | Note |
 | --- | ---: | --- |
 | Total metrics tracked | 43 | All metrics in this file are now measured, with selected zero-finding signals enforced separately. |
-| Measured metrics | 43 | Eleven measured metrics are now also enforced through blocking static-quality or security gates. Branch coverage is measured report-only and is not promoted to a gate. |
+| Measured metrics | 43 | Twelve measured metrics are now also enforced through blocking static-quality, security, or deterministic API evaluation gates. Branch coverage is measured report-only and is not promoted to a gate. |
 | Not-yet-measured metrics | 0 | The scorecard no longer carries an unmeasured branch-coverage entry. OpenAPI Spectral and public-docstring gate decisions remain outside this scorecard until scoped separately. |
 
 ## Method Note
 
 - Values are intentionally conservative and map to artifacts already generated from
-  repository-native scripts; selected zero-finding signals are now blocking gates.
+  repository-native scripts; selected zero-finding and deterministic API evaluation signals are now
+  blocking gates.
 - `n/a` indicates that a comparable historical pre-baseline value is not yet available in-repo.
 - The next slice should review the branch-coverage gap profile before proposing any threshold,
   exception policy, or CI lane placement.

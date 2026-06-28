@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-06-28
-Branch: `feature/recovery-drill-history-manifest-boundary`
+Branch: `feature/execution-polling-response-boundary`
 Mode: report-only test taxonomy inventory; no blocking CI gate is introduced by this artifact.
 
 ## Purpose
@@ -20,8 +20,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 277 |
-| Test functions inventoried | 3190 |
+| Test modules inventoried | 278 |
+| Test functions inventoried | 3196 |
 | Integration/API/runtime test functions | 607 |
 | Contract/governance test functions | 108 |
 
@@ -32,7 +32,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | benchmarks | 9 | 17 |
 | e2e | 1 | 21 |
 | integration | 24 | 300 |
-| unit | 243 | 2852 |
+| unit | 244 | 2858 |
 
 ## Test Functions By Family
 
@@ -43,7 +43,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | contract_or_governance | 108 |
 | observability_or_readiness | 187 |
 | quality_or_security | 115 |
-| uncategorized | 1291 |
+| uncategorized | 1294 |
 
 ## Largest Test Modules
 
@@ -86,12 +86,17 @@ The AST inventory counts test function definitions, while `pytest --collect-only
 pytest items including parametrized cases. The two values are intentionally different and
 complementary: collected tests show execution breadth, while this report shows source test-module
 and test-function distribution. The current suite has meaningful API/runtime and
-contract/governance coverage, but 1291 test functions remain uncategorized by the first-wave
+contract/governance coverage, but 1294 test functions remain uncategorized by the first-wave
 taxonomy and should be reviewed before turning taxonomy into a blocking gate.
-This slice added one observability/readiness unit test for queue lifecycle metrics, proving that an
-available recovery-drill history snapshot still emits latest-age and degradation-breach metrics
-when the governed action lease snapshot is unavailable. It preserves public metric names, bounded
-reason labels, and operator degraded-state behavior without changing API behavior.
+This slice added three service-boundary tests for execution polling: one proves the application
+service reads execution, compute-job, and async-result metadata once for an existing calculation,
+one proves missing execution records return `None` without querying optional async stores, and one
+pins the legacy not-found detail as named execution polling error vocabulary. It preserves the
+public execution polling route, OpenAPI schemas, and legacy typed 404 error payload while moving
+durable-record projection out of the API model module.
+The same branch also added three CI gate-wiring tests that prove deterministic API evaluation is
+wired into `make check`, `make ci`, Feature Lane, PR Merge Gate, Main Releasability, and the Quality
+Baseline workflow without a soft-fail escape hatch.
 
 ## Gate Posture
 

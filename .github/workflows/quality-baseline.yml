@@ -34,9 +34,8 @@ jobs:
         run: make install-ci
       - name: Generate quality inventories
         run: make quality-baseline
-      - name: Run demo API certification (report-only)
-        continue-on-error: true
-        run: make demo-api-certification
+      - name: Run quality evaluation gate
+        run: make quality-evaluation-gate
       - name: Upload quality baseline artifacts
         uses: actions/upload-artifact@v7
         with:

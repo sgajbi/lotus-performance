@@ -1,11 +1,11 @@
 # Lotus Performance Progressive CI Quality Gates
 
 Report date: 2026-06-28
-Branch: `feature/recovery-drill-history-manifest-boundary`
+Branch: `feature/execution-polling-response-boundary`
 Baseline sources: `quality/baseline_report.md`, `quality/refactor_health_report.md`, `quality/quality_scorecard.md`
 Mode: progressive gate map; remediated complexity, architecture-boundary, router-thinness,
-duplicate-code, repository hygiene, observability-readiness, and Python security posture is now
-enforced in CI.
+duplicate-code, repository hygiene, observability-readiness, domain-product validation,
+deterministic API evaluation, and Python security posture are now enforced in CI.
 
 ## Purpose
 
@@ -19,18 +19,19 @@ developers or GitHub Actions.
 
 | Lane | Trigger | Current blocking checks |
 | --- | --- | --- |
-| Remote Feature Lane | Pushes to non-`main` branches and manual dispatch | workflow lint, static quality gates, contract/security gates, unit tests |
-| Pull Request Merge Gate | Pull requests targeting `main` and manual dispatch | workflow lint, static quality gates, contract/security gates, compatibility `Lint Typecheck Security` aggregate, migration smoke, unit, integration, and e2e tests, combined coverage floor at 99 percent, Docker build |
-| Main Releasability Gate | Pushes to `main` and manual dispatch | workflow lint, static quality gates, contract/security gates, migration smoke, unit, integration, and e2e tests, combined coverage floor at 99 percent, coverage artifact publication, Docker build |
+| Remote Feature Lane | Pushes to non-`main` branches and manual dispatch | workflow lint, static quality gates, contract/security gates, domain-product validation, deterministic API evaluation, unit tests |
+| Pull Request Merge Gate | Pull requests targeting `main` and manual dispatch | workflow lint, static quality gates, contract/security gates, domain-product validation, deterministic API evaluation, compatibility `Lint Typecheck Security` aggregate, migration smoke, unit, integration, and e2e tests, combined coverage floor at 99 percent, Docker build |
+| Main Releasability Gate | Pushes to `main` and manual dispatch | workflow lint, static quality gates, contract/security gates, domain-product validation, deterministic API evaluation, migration smoke, unit, integration, and e2e tests, combined coverage floor at 99 percent, coverage artifact publication, Docker build |
 | PR Auto Merge | Pull request lifecycle events | queues rebase auto-merge and branch deletion after required checks pass; this is release automation, not an independent quality gate |
 
 `Static Quality Gates` verifies installed dependencies, Ruff lint/format, monetary-float safety,
 repository hygiene, complexity regression, architecture-boundary regression, router/middleware
 thinness, duplicate-code regression, no-alias governance, observability-readiness marker
-regression, and mypy type safety. `Contract Security Gates` verifies
-OpenAPI quality, API vocabulary governance, migration smoke where the lane requires it, and
-dependency security plus first-party Python static security. These jobs run in parallel before test execution to reduce CI wall-clock time
-without dropping any gate.
+regression, and mypy type safety. `Contract Security Gates` verifies OpenAPI quality, API
+vocabulary governance, domain-product contract validation, deterministic demo-critical API
+evaluation, migration smoke where the lane requires it, and dependency security plus first-party
+Python static security. These jobs run in parallel before test execution to reduce CI wall-clock
+time without dropping any gate.
 
 The PR lane also publishes `PR Merge Gate / Lint Typecheck Security` as a lightweight aggregate over
 the split static-quality and contract-security jobs. It exists to satisfy the current GitHub
@@ -69,19 +70,19 @@ No gate should move from one phase to the next until it has:
 | mypy typecheck | Blocking in feature, PR, and main lanes | Keep blocking; expand typed boundary cleanup through normal refactor slices. |
 | Unit tests | Blocking in feature, PR, and main lanes | Keep blocking; add focused tests when refactoring hotspots. |
 | Integration and e2e tests | Blocking in PR and main lanes | Keep blocking at merge/release lanes; use targeted local subsets during slices. |
-| Test taxonomy | Measured in `quality/test_taxonomy_inventory.md` through `scripts/python_test_taxonomy_inventory.py`; current AST inventory shows 277 modules, 3,190 source test functions, 607 integration/API/runtime test functions, and 108 contract/governance test functions | Keep report-only until taxonomy labels and uncategorized-test policy are stable. |
+| Test taxonomy | Measured in `quality/test_taxonomy_inventory.md` through `scripts/python_test_taxonomy_inventory.py`; current AST inventory shows 278 modules, 3,196 source test functions, 607 integration/API/runtime test functions, and 108 contract/governance test functions | Keep report-only until taxonomy labels and uncategorized-test policy are stable. |
 | Combined line coverage | Blocking at 99 percent in PR and main lanes; locally measured in `quality/coverage_inventory.md` through `make test-coverage` and preserved by `make branch-coverage-baseline` evidence | Keep blocking and preserve the local coverage inventory as scorecard evidence. |
 | Branch coverage | Measured report-only in `quality/coverage_inventory.md` through `make branch-coverage-baseline`; current baseline is 98.00 percent across 4,406 branches, with 88 missing and 88 partial branches | Keep report-only until repeated runs, exception policy, remediation guidance, and CI lane placement are agreed. Review the top branch gaps before proposing any threshold. |
 | Dependency verification | Blocking through `python -m pip check` and dependency-health scripts | Keep blocking; preserve project-scoped dependency-health evidence. |
 | Dependency vulnerabilities | `pip-audit` is available, security audit is already blocking through repo script, and report-only output is captured in `quality/dependency_security_report.md` | Keep the report current when dependency pins, audit tooling, or exception policy changes. |
 | OpenAPI quality | Blocking through `scripts/openapi_quality_gate.py`; measured further through `quality/api_completeness_inventory.md`; clean API completeness inventory is guarded by `tests/unit/scripts/test_openapi_completeness_inventory.py` | Keep the blocking gate and unit-level clean-inventory guard; only add a separate workflow gate if the report remains stable and adds value beyond existing OpenAPI checks. |
 | API vocabulary and no-alias governance | Blocking in feature, PR, and main lanes | Keep blocking and preserve RFC-0067 vocabulary discipline. |
-| Quality baseline snapshot workflow | Non-blocking report run in `.github/workflows/quality-baseline.yml`; calls `make quality-baseline` to generate ignored raw inventory snapshots under `output/quality-baseline/`, upload those snapshots with curated `quality/*.md` source reports, and attach report-only demo API certification evidence | Keep as a reporting aid while quality targets and thresholds are stabilized. |
+| Quality baseline snapshot workflow | Report run in `.github/workflows/quality-baseline.yml`; calls `make quality-baseline` to generate ignored raw inventory snapshots under `output/quality-baseline/`, uploads those snapshots with curated `quality/*.md` source reports, and now runs `make quality-evaluation-gate` without `continue-on-error` | Keep as a reporting aid for baseline artifacts while preserving hard failure for the deterministic API evaluation command. |
 | Migration smoke | Blocking in PR and main lanes | Keep blocking outside feature lane unless a migration-heavy slice needs earlier proof. |
 | Docker build | Blocking in PR and main lanes | Keep blocking; no new Docker gate is needed for report-only quality artifacts. |
-| Domain data product validation | Blocking locally through `make check` and repo-native command | Confirm whether GitHub workflows should include this explicitly before changing CI. |
+| Domain data product validation | Blocking locally through `make check` and `make ci`; blocking in Feature, PR Merge, and Main Releasability contract/security jobs through `make domain-product-validate` | Keep blocking wherever API contract and runtime supportability claims are evaluated. |
 | Complexity and maintainability | Max cyclomatic complexity and D-F function count are blocking through `make quality-complexity-gate`; maintainability index remains measured in `quality/complexity_inventory.md` through `scripts/python_complexity_inventory.py` and `radon` | Keep max CC at `8` and D-F count at `0`; keep MI report-only until a stable remediation threshold and exception policy exist. |
-| Function-size hotspots | Measured in `quality/function_size_inventory.md` through a repo-native standard-library scanner; largest production functions now measure `57` lines after LP-CR-1534 moved `build_recovery_drill_history_snapshot(...)` out of the top-30 table | Use as refactor-planning evidence; do not block CI until stable thresholds and exclusions are agreed. |
+| Function-size hotspots | Measured in `quality/function_size_inventory.md` through a repo-native standard-library scanner; largest production functions now measure `57` lines after LP-CR-1535 moved `build_execution_response(...)` out of the top-30 table and left execution polling API models schema-only | Use as refactor-planning evidence; do not block CI until stable thresholds and exclusions are agreed. |
 | Duplicate code hotspots | Blocking through `make quality-duplicate-code-gate`; current report shows 0 duplicate hotspot groups at `--min-lines 12` with `--max-groups 0` | Keep blocking at zero accepted first-party duplicate function-body hotspot groups; future increases require a documented reason and a better reusable abstraction decision. |
 | Dead-code detection | Measured in `quality/dead_code_inventory.md` through `scripts/python_dead_code_inventory.py` and `vulture`; 60% findings are dominated by framework/model false positives, while 80% findings are zero | Add reviewed allowlist before considering any regression-blocking gate. |
 | Dependency hygiene | Measured in `quality/dependency_hygiene_report.md` through `scripts/python_dependency_hygiene_inventory.py` and `deptry`; direct imported transitive dependencies are closed, and reviewed runtime-only DEP002 declarations are explicitly allowlisted in the repo scanner | Keep report-only until the allowlist policy and CI placement are stable. |
@@ -93,7 +94,19 @@ No gate should move from one phase to the next until it has:
 | Router and middleware thinness | Blocking through `make quality-router-thinness-gate`; current snapshot shows 0 router findings and 0 middleware findings at `--threshold 80` with `--max-findings 0` | Keep blocking for the current router/middleware function-size threshold; revisit only with documented exceptions and tests. |
 | RFC 7807 error consistency | Measured report-only through `scripts/openapi_completeness_inventory.py`; current inventory shows 0 error responses missing named problem/error schemas | Keep the report-only inventory clean while separately planning any runtime migration from legacy string-detail errors to full RFC 7807 payloads. |
 | Observability and operational contracts | Blocking through `make quality-observability-readiness-gate`, which runs `scripts/python_observability_readiness_inventory.py --limit 30 --max-missing 0`; current report shows 28/28 expected implementation markers, 0 missing markers, and 367 family-mapped readiness test functions | Keep the zero-missing marker gate blocking in feature, PR, and main static quality lanes. Broader maturity scoring and overlap-aware test counting remain report-only planning evidence. |
-| Demo API certification | Repository-native command through `make demo-api-certification`; `.github/workflows/quality-baseline.yml` runs it as report-only evidence with `continue-on-error` and uploads `output/demo-api-certification/*.json`; it calls demo-critical health/readiness, capabilities, calculation, returns, workspace, mandate, and composite TWR APIs with deterministic data | Keep report-only until repeated runs prove low noise, GitHub lane placement is agreed, seeded-data isolation is reviewed, and an exception/remediation policy exists. |
+| Deterministic API evaluation | Blocking through `make quality-evaluation-gate`, which delegates to `make demo-api-certification`; Feature, PR Merge, Main Releasability, and Quality Baseline workflows run it without `continue-on-error`. It calls demo-critical health/readiness, capabilities, calculation, returns, workspace, mandate, and composite TWR APIs with deterministic data and writes ignored JSON evidence under `output/demo-api-certification/*.json`. | Keep blocking while the seeded data remains deterministic and isolated. Any future exception must be explicit, time-boxed, and tracked as a product-readiness defect instead of soft-failing CI. |
+
+## LP-CR-1536 Gate Promotion Intake
+
+| Intake item | Decision |
+| --- | --- |
+| Baseline | `make demo-api-certification` has repeated green local and CI evidence in the ledger, with deterministic checks over 12 demo-critical API calls and generated JSON evidence under ignored `output/demo-api-certification/`. |
+| Failure mode blocked | Agents must not ship plausible code that breaks health/readiness, capability publication, calculation outputs, workspace summary, mandate context, returns, or composite TWR demo-critical API behavior while still passing static checks. |
+| Determinism | The command prepares its local runtime, seeds deterministic fixture data, validates fixed API outputs and capability enablement, and keeps generated evidence out of tracked source through repository hygiene rules. |
+| Lane placement | Blocking through `make check`, `make ci`, Feature Lane, PR Merge Gate, Main Releasability, and the Quality Baseline workflow via `make quality-evaluation-gate`. |
+| Exception policy | Do not use `continue-on-error` for deterministic API evaluation. A broken certification is a product-readiness defect unless the failing surface is explicitly removed from supported-feature truth in the same PR. |
+| Focused tests | `tests/unit/scripts/test_ci_quality_gate_wiring.py` proves Makefile aggregate wiring, GitHub workflow placement, and absence of quality-baseline soft-fail posture. Existing `tests/unit/scripts/test_demo_api_certification.py` and integration certification tests cover command behavior. |
+| Scorecard and ledger truth | `quality/refactor_health_report.md`, `quality/quality_scorecard.md`, `quality/ci_quality_gates.md`, and `docs/architecture/CODEBASE-REVIEW-LEDGER.md` record the promoted signal. |
 
 ## LP-CR-1445 Gate Promotion Intake
 
