@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Health Report
 
 Report date: 2026-06-28
-Branch: `feature/stateful-benchmark-input-boundary`
+Branch: `feature/twr-completed-response-boundary`
 Baseline source: `quality/baseline_report.md`
 Report mode: phase-zero scorecard; complexity, architecture, duplicate-code, repository hygiene,
 router-thinness, observability-readiness, and Python security posture are enforced separately by CI.
@@ -28,7 +28,7 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | Python files | 480 | 576 | measured | `rg --files -g '*.py'` |
 | Python package markers | 18 | 18 | measured | recursive `__init__.py` count |
-| Python LOC | 104,454 | 171,516 | measured | `rg --files -g '*.py'` plus Python line count on this branch |
+| Python LOC | 104,454 | 171,652 | measured | `rg --files -g '*.py'` plus Python line count on this branch |
 | Largest Python file LOC | 2,399 | 2,503 | measured | largest-file inventory on this branch |
 | Largest production file LOC | 1,156 | 1,910 | measured | `app/services/stateful_input_service.py` |
 | Duplicate code hotspots | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `make quality-duplicate-code-gate` with `--min-lines 12 --max-groups 0`; duplicated LOC reduced from `24` to `0` in LP-CR-1407 |
@@ -43,7 +43,7 @@ link the commit, command, or CI artifact that proves the change.
 | Max cyclomatic complexity | unknown | 5 | enforced | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py`; `make quality-complexity-gate` |
 | High-complexity functions | unknown | 0 | enforced | rank D-F functions in `quality/complexity_inventory.md`; `make quality-complexity-gate` |
 | Average maintainability index | unknown | 54.88 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
-| Largest functions by LOC | unknown | 59 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; the current largest production functions are three functions tied at `59` lines |
+| Largest functions by LOC | unknown | 59 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; the current largest production function is `build_attribution_supportability_evidence(...)` at `59` lines |
 
 ## Architecture
 
@@ -72,10 +72,10 @@ link the commit, command, or CI artifact that proves the change.
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
 | Test modules | 228 | 277 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 3,380 | measured | `python -m pytest --collect-only -q` |
+| Collected tests | 2,035 | 3,383 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
-| Integration/API/runtime test functions | unknown | 602 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |
+| Integration/API/runtime test functions | unknown | 605 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |
 | Contract/governance test functions | unknown | 108 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |
 
 ## Security And Dependencies
@@ -124,6 +124,39 @@ quality-program gap is not lack of aspiration; it is that several requested dime
 repeatably measured or expressed as progressive gates.
 
 ## Latest Local PR-Gate Evidence
+
+Latest TWR completed-response boundary evidence on `feature/twr-completed-response-boundary`:
+
+1. Isolated completed TWR supportability and benchmark-context projection into
+   `_build_twr_completed_response_projection(...)`, with `_TWRCompletedResponseProjection` naming
+   the exact response assembly inputs. Behavior is unchanged: completed TWR responses still
+   preserve supportability, bounded metric labels, benchmark context, period results, response
+   metadata, diagnostics, audit counts, and lineage completion.
+2. Split public TWR response orchestration into `_normalize_benchmark_return_source(...)`,
+   `_run_twr_execution_stage(...)`, and `_build_twr_execution_period_results(...)`. Behavior is
+   unchanged: enum and string benchmark return-source inputs normalize the same way, execution
+   stage failures still record `fail_stage(...)`, and period-result construction still receives the
+   same benchmark request, input mode, resolved benchmark id, return source, and master window.
+3. Added focused API/runtime proof for the no-benchmark supportability edge case, bounded
+   supportability metric labels, legacy/string benchmark return-source normalization, and
+   execution-stage failure recording. Existing assembly proof continues to cover stateful benchmark
+   context, supportability metric emission, and lineage payload preservation.
+4. Refreshed complexity, function-size, test-taxonomy, and baseline evidence. Max cyclomatic
+   complexity remains `5`, high-complexity functions remain `0`, average maintainability index
+   remains `54.88`, `_assemble_completed_twr_response(...)` and `calculate_twr_response(...)`
+   dropped out of the top-30 function-size table, and the largest production function is now
+   `build_attribution_supportability_evidence(...)` at `59` lines.
+5. Validation passed: TWR endpoint-helper tests (`28 passed`), ruff check, ruff format check, and
+   mypy for the touched Python files. Test taxonomy reported `3,182` inventoried test functions,
+   `605` integration/API/runtime, and `108` contract/governance; `pytest --collect-only`
+   collected `3,383` tests.
+6. Conscious domain/API/edge-case/operations/docs review: this is an API-facing TWR performance
+   analytics response path. It preserves private-banking TWR calculation semantics, benchmark
+   analytics context, calculation supportability, OpenAPI/API shape, domain-product contracts,
+   runtime topology, observability labels, commands, cross-repo ownership, README, wiki source,
+   repository context, platform context, skills, and agent context. No README/wiki/context/skill
+   update is needed because the slice changes internal modularity and tests only; wiki check is
+   still required before merge.
 
 Latest stateful benchmark calculated-source boundary evidence on `feature/stateful-benchmark-input-boundary`:
 

@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-28
-Branch: `feature/stateful-benchmark-input-boundary`
+Branch: `feature/twr-completed-response-boundary`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
@@ -74,7 +74,7 @@ must stay at `0`.
 | 4 | `app/services/returns_series_service.py` | 0.00 | C |
 | 5 | `app/services/stateful_attribution_input_service.py` | 0.00 | C |
 | 6 | `app/services/stateful_input_service.py` | 0.00 | C |
-| 7 | `app/services/twr_service.py` | 5.69 | C |
+| 7 | `app/services/twr_service.py` | 5.25 | C |
 | 8 | `app/services/stateful_benchmark_input_service.py` | 8.25 | C |
 | 9 | `app/services/workspace_summary_service.py` | 10.05 | B |
 | 10 | `app/services/execution_registry.py` | 11.12 | B |
@@ -133,6 +133,11 @@ remains `54.88`.
 recovery query filter normalization and page construction were split into focused helpers. The
 measured repository maximum remains `5`, high-complexity functions remain `0`, and average
 maintainability index remains `54.88`.
+The completed TWR response and public TWR calculation response orchestration helpers also dropped
+out of the function-size hotspot table after supportability/benchmark projection, execution-stage
+lifecycle, benchmark return-source normalization, and period-result projection were split into
+focused helpers. The measured repository maximum remains `5`, high-complexity functions remain
+`0`, and average maintainability index remains `54.88`.
 `get_benchmark_return_series` also dropped out after benchmark, index-price, and risk-free reference
 series response point merging was routed through a shared helper.
 `get_fx_rates` also dropped out after FX-rate response-to-point projection and date-key

@@ -230,6 +230,12 @@ class _TWRBenchmarkPeriodContext:
     master_start_date: date
 
 
+@dataclass(frozen=True)
+class _TWRCompletedResponseProjection:
+    calculation_supportability: PerformanceCalculationSupportability
+    benchmark_context: TWRBenchmarkContext | None
+
+
 def _daily_calculation_evidence_inputs(
     row: pd.Series,
     *,
@@ -1181,22 +1187,16 @@ def _complete_twr_execution_with_lineage(
     )
 
 
-def _assemble_completed_twr_response(
+def _build_twr_completed_response_projection(
     *,
     performance_request: PerformanceRequest,
-    portfolio_id: str,
-    input_mode: TWRInputMode,
-    input_fingerprint: str,
-    calculation_hash: str,
-    engine_version: str,
-    request_artifact_model: Any,
     calculation: _TWRExecutionCalculation,
     results_by_period: dict[str, SinglePeriodPerformanceResult],
     benchmark_request: BenchmarkPerformanceRequest | None,
     benchmark_input_mode: BenchmarkInputMode | None,
     resolved_benchmark_id: str | None,
     benchmark_return_source: BenchmarkReturnSource,
-) -> PerformanceResponse:
+) -> _TWRCompletedResponseProjection:
     calculation_supportability = _resolve_twr_supportability(
         performance_request=performance_request,
         results_by_period=results_by_period,
@@ -1218,6 +1218,37 @@ def _assemble_completed_twr_response(
         benchmark_return_source=benchmark_return_source,
         daily_results_df=calculation.daily_results_df,
     )
+    return _TWRCompletedResponseProjection(
+        calculation_supportability=calculation_supportability,
+        benchmark_context=benchmark_context,
+    )
+
+
+def _assemble_completed_twr_response(
+    *,
+    performance_request: PerformanceRequest,
+    portfolio_id: str,
+    input_mode: TWRInputMode,
+    input_fingerprint: str,
+    calculation_hash: str,
+    engine_version: str,
+    request_artifact_model: Any,
+    calculation: _TWRExecutionCalculation,
+    results_by_period: dict[str, SinglePeriodPerformanceResult],
+    benchmark_request: BenchmarkPerformanceRequest | None,
+    benchmark_input_mode: BenchmarkInputMode | None,
+    resolved_benchmark_id: str | None,
+    benchmark_return_source: BenchmarkReturnSource,
+) -> PerformanceResponse:
+    projection = _build_twr_completed_response_projection(
+        performance_request=performance_request,
+        calculation=calculation,
+        results_by_period=results_by_period,
+        benchmark_request=benchmark_request,
+        benchmark_input_mode=benchmark_input_mode,
+        resolved_benchmark_id=resolved_benchmark_id,
+        benchmark_return_source=benchmark_return_source,
+    )
     response_model = _build_twr_response_model(
         performance_request=performance_request,
         portfolio_id=portfolio_id,
@@ -1227,8 +1258,8 @@ def _assemble_completed_twr_response(
         engine_version=engine_version,
         calculation=calculation,
         results_by_period=results_by_period,
-        benchmark_context=benchmark_context,
-        calculation_supportability=calculation_supportability,
+        benchmark_context=projection.benchmark_context,
+        calculation_supportability=projection.calculation_supportability,
     )
 
     _complete_twr_execution_with_lineage(
@@ -1240,6 +1271,54 @@ def _assemble_completed_twr_response(
         benchmark_artifacts=calculation.benchmark_artifacts,
     )
     return response_model
+
+
+def _normalize_benchmark_return_source(
+    benchmark_return_source: BenchmarkReturnSource | str,
+) -> BenchmarkReturnSource:
+    if isinstance(benchmark_return_source, BenchmarkReturnSource):
+        return benchmark_return_source
+    return BenchmarkReturnSource(str(benchmark_return_source))
+
+
+def _run_twr_execution_stage(
+    *,
+    performance_request: PerformanceRequest,
+    benchmark_request: BenchmarkPerformanceRequest | None,
+) -> _TWRExecutionCalculation:
+    execution_registry.start_stage(performance_request.calculation_id, EXECUTION_STAGE_EXECUTION)
+    try:
+        return _run_twr_execution_calculation(
+            performance_request=performance_request,
+            benchmark_request=benchmark_request,
+        )
+    except Exception as exc:
+        execution_registry.fail_stage(performance_request.calculation_id, EXECUTION_STAGE_EXECUTION, str(exc))
+        raise
+
+
+def _build_twr_execution_period_results(
+    *,
+    performance_request: PerformanceRequest,
+    calculation: _TWRExecutionCalculation,
+    benchmark_request: BenchmarkPerformanceRequest | None,
+    benchmark_input_mode: BenchmarkInputMode | None,
+    resolved_benchmark_id: str | None,
+    benchmark_return_source: BenchmarkReturnSource,
+) -> dict[str, SinglePeriodPerformanceResult]:
+    return _build_twr_results_by_period(
+        performance_request=performance_request,
+        resolved_periods=calculation.resolved_periods,
+        freqs_by_period=calculation.freqs_by_period,
+        daily_results_df=calculation.daily_results_df,
+        engine_diagnostics=calculation.engine_diagnostics,
+        benchmark_artifacts=calculation.benchmark_artifacts,
+        benchmark_request=benchmark_request,
+        benchmark_input_mode=benchmark_input_mode,
+        resolved_benchmark_id=resolved_benchmark_id,
+        benchmark_return_source=benchmark_return_source,
+        master_start_date=calculation.master_start_date,
+    )
 
 
 def calculate_twr_response(
@@ -1256,34 +1335,18 @@ def calculate_twr_response(
     resolved_benchmark_id: str | None = None,
     benchmark_return_source: BenchmarkReturnSource | str = BenchmarkReturnSource.CALCULATED,
 ) -> PerformanceResponse:
-    normalized_benchmark_return_source = (
-        benchmark_return_source
-        if isinstance(benchmark_return_source, BenchmarkReturnSource)
-        else BenchmarkReturnSource(str(benchmark_return_source))
-    )
-    execution_registry.start_stage(performance_request.calculation_id, EXECUTION_STAGE_EXECUTION)
-
-    try:
-        calculation = _run_twr_execution_calculation(
-            performance_request=performance_request,
-            benchmark_request=benchmark_request,
-        )
-    except Exception as exc:
-        execution_registry.fail_stage(performance_request.calculation_id, EXECUTION_STAGE_EXECUTION, str(exc))
-        raise
-
-    results_by_period = _build_twr_results_by_period(
+    normalized_benchmark_return_source = _normalize_benchmark_return_source(benchmark_return_source)
+    calculation = _run_twr_execution_stage(
         performance_request=performance_request,
-        resolved_periods=calculation.resolved_periods,
-        freqs_by_period=calculation.freqs_by_period,
-        daily_results_df=calculation.daily_results_df,
-        engine_diagnostics=calculation.engine_diagnostics,
-        benchmark_artifacts=calculation.benchmark_artifacts,
+        benchmark_request=benchmark_request,
+    )
+    results_by_period = _build_twr_execution_period_results(
+        performance_request=performance_request,
+        calculation=calculation,
         benchmark_request=benchmark_request,
         benchmark_input_mode=benchmark_input_mode,
         resolved_benchmark_id=resolved_benchmark_id,
         benchmark_return_source=normalized_benchmark_return_source,
-        master_start_date=calculation.master_start_date,
     )
 
     return _assemble_completed_twr_response(
