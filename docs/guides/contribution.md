@@ -282,12 +282,13 @@ Use this block to understand what the contribution result was actually sourced f
   tax, realized capital P&L, realized FX P&L, realized total P&L, cashflows, and FX context
 - `unsupported_economics`: component-P&L families that are not source-authored in the current
   contract; observed `PerformanceComponentEconomics:v1` fee, income, and tax families remove the
-  corresponding `fee_pnl`, `income_pnl`, and `tax_pnl` unsupported flags, while broader price,
-  FX attribution, corporate-action, derivative, cash, and residual P&L buckets remain unsupported
-  unless a precise source contract supplies them
+  corresponding `fee_pnl`, `income_pnl`, and `tax_pnl` unsupported flags only when every requested
+  Core component-economics chunk is `READY`, while broader price, FX attribution,
+  corporate-action, derivative, cash, and residual P&L buckets remain unsupported unless a precise
+  source contract supplies them
 - `degraded_economics`: degraded signals such as unsupported source cash-flow types, missing
-  classification, unavailable component-economics enrichment, or execution-only upstream snapshot
-  lineage
+  classification, unavailable or partial component-economics enrichment, or execution-only upstream
+  snapshot lineage
 - `cash_flow_type_counts`: source cash-flow labels observed on stateful position rows
 - `source_snapshot_count` and `source_snapshot_endpoints`: execution-registry lineage coverage
 

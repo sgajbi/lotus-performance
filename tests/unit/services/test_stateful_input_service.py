@@ -1174,6 +1174,49 @@ async def test_get_performance_component_economics_chunks_merges_coverage_and_re
 
 
 @pytest.mark.asyncio
+async def test_get_performance_component_economics_degrades_when_any_chunk_is_unavailable(tmp_path):
+    class _PartiallyUnavailablePerformanceComponentCoreService(_CoreServiceStub):
+        async def get_performance_component_economics(self, **kwargs):
+            self.performance_component_economics_calls.append(kwargs)
+            if kwargs["start_date"] == date(2027, 1, 1):
+                return (
+                    200,
+                    {
+                        "supportability": {
+                            "state": "UNAVAILABLE",
+                            "reason": "PERFORMANCE_COMPONENT_ECONOMICS_UNAVAILABLE",
+                            "source_row_count": 0,
+                            "supported_component_families": ["fee", "income", "tax"],
+                            "observed_component_families": [],
+                            "missing_component_families": ["fee", "income", "tax"],
+                        }
+                    },
+                )
+            return await super().get_performance_component_economics(**kwargs)
+
+    core_service = _PartiallyUnavailablePerformanceComponentCoreService()
+    execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    execution_store.create_schema()
+    service = StatefulInputService(core_service=core_service, execution_store=execution_store)
+
+    status_code, payload = await service.get_performance_component_economics(
+        portfolio_id="PORT_1",
+        as_of_date=date(2027, 1, 1),
+        start_date=date(2025, 12, 31),
+        end_date=date(2027, 1, 1),
+    )
+
+    assert status_code == 200
+    assert payload["supportability"]["state"] == "UNAVAILABLE"
+    assert payload["supportability"]["reason"] == "PERFORMANCE_COMPONENT_ECONOMICS_PARTIAL"
+    assert payload["supportability"]["ready_chunk_count"] == 1
+    assert payload["supportability"]["unavailable_chunk_count"] == 1
+    assert payload["supportability"]["source_row_count"] == 2
+    assert payload["supportability"]["observed_component_families"] == ["fee", "income"]
+    assert payload["supportability"]["missing_component_families"] == ["realized_fx_pnl", "tax"]
+
+
+@pytest.mark.asyncio
 async def test_stateful_input_service_skips_duplicate_snapshot_builds_for_existing_calculation(tmp_path, mocker):
     core_service = _CoreServiceStub()
     execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")

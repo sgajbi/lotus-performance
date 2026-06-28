@@ -129,8 +129,9 @@ Latest performance component economics consumption evidence on `feature/performa
 
 1. Stateful contribution now consumes `lotus-core:PerformanceComponentEconomics:v1` as optional
    source-economics evidence. Required portfolio and position timeseries remain fail-closed, while
-   non-200 or unavailable component-economics responses degrade `source_economics_evidence`
-   instead of blocking calculations that can still run without fabricated economics.
+   non-200, unavailable, or partial multi-chunk component-economics responses degrade
+   `source_economics_evidence` instead of blocking calculations that can still run without
+   fabricated economics.
 2. `CoreIntegrationService` posts the producer contract payload to
    `/integration/portfolios/{portfolio_id}/performance-component-economics`. `StatefulInputService`
    chunks windows at the Core contract limit, records `performance_component_economics` upstream
@@ -138,14 +139,14 @@ Latest performance component economics consumption evidence on `feature/performa
    financial amounts.
 3. Contribution source-economics evidence now includes `PerformanceComponentEconomics:v1` when
    retrieved, exposes observed source component families as available economics, removes only exact
-   observed fee/income/tax unsupported flags, and keeps broader price P&L, FX attribution,
-   corporate-action, derivative, cash, and residual P&L unsupported unless a precise source
-   contract supplies them.
+   observed fee/income/tax unsupported flags when every requested component-economics chunk is
+   `READY`, and keeps broader price P&L, FX attribution, corporate-action, derivative, cash, and
+   residual P&L unsupported unless a precise source contract supplies them.
 4. Documentation, wiki source, consumer contract, and repository context were updated because API
    evidence truth and cross-repo source responsibility changed. Platform context, skills, and agent
    context did not need updates because routing, commands, CI policy, and reusable agent guidance
    did not change.
-5. Validation passed: `python -m pytest tests\unit\services\test_core_integration_service.py tests\unit\services\test_stateful_input_service.py tests\unit\services\test_stateful_contribution_input_service.py tests\unit\services\test_contribution_source_economics.py tests\integration\test_contribution_api.py -q` (`130 passed`); `python -m ruff check --no-cache ...` (`All checks passed!`); `python -m ruff format --check --no-cache ...` (`9 files already formatted`); `python -m mypy app\services\core_integration_service.py app\services\stateful_input_service.py app\services\stateful_contribution_input_service.py app\services\contribution_source_economics.py tests\unit\services\test_core_integration_service.py tests\unit\services\test_stateful_input_service.py tests\unit\services\test_stateful_contribution_input_service.py tests\unit\services\test_contribution_source_economics.py` (`Success: no issues found in 8 source files`; existing unused mypy config sections remain); `make domain-product-validate` passed; `python scripts\python_test_taxonomy_inventory.py --limit 30` reported `3,162` inventoried test functions, `602` integration/API/runtime, and `108` contract/governance; `python -m pytest --collect-only -q` collected `3,363` tests; `make check` passed with static quality, OpenAPI, API vocabulary, domain-product validation, Python security, mypy, and `3,017` unit tests; `make ci` passed with migration and durable recovery checks, dependency vulnerabilities `0`, Bandit findings `0`, `3,017` unit tests, `308` integration tests, `21` e2e tests, `99%` coverage (`21,392` statements, `99` missed), and Docker image build for `lotus-performance:ci`.
+5. Validation passed: `python -m pytest tests\unit\services\test_core_integration_service.py tests\unit\services\test_stateful_input_service.py tests\unit\services\test_stateful_contribution_input_service.py tests\unit\services\test_contribution_source_economics.py tests\integration\test_contribution_api.py -q` (`132 passed`); `python -m pytest tests\unit\docs\test_public_docs_contract.py tests\unit\test_domain_data_product_contracts.py -q` (`54 passed`); `python -m ruff check --no-cache ...` (`All checks passed!`); `python -m ruff format --check --no-cache ...` (`3 files already formatted` for the review-fix scope; `571 files already formatted` under `make check`); `python -m mypy app\services\stateful_input_service.py tests\unit\services\test_stateful_input_service.py tests\unit\services\test_contribution_source_economics.py` (`Success: no issues found in 3 source files`; existing unused mypy config sections remain); `make domain-product-validate` passed; `python scripts\python_test_taxonomy_inventory.py --limit 30` reported `3,164` inventoried test functions, `602` integration/API/runtime, and `108` contract/governance; `python -m pytest --collect-only -q` collected `3,365` tests; `make check` passed with static quality, OpenAPI, API vocabulary, domain-product validation, Python security, mypy, and `3,019` unit tests; `make ci` passed before the review-fix commit with migration and durable recovery checks, dependency vulnerabilities `0`, Bandit findings `0`, `3,017` unit tests, `308` integration tests, `21` e2e tests, `99%` coverage (`21,392` statements, `99` missed), and Docker image build for `lotus-performance:ci`.
 
 Latest validation on `feature/enterprise-backend-refactor-baseline`:
 
