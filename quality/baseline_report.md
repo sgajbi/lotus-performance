@@ -1,7 +1,7 @@
 # Lotus Performance Enterprise Backend Refactor Baseline
 
 Baseline date: 2026-06-28
-Branch: `feature/inspection-reconciliation-evidence-boundary`
+Branch: `feature/contribution-diagnostics-projection-boundary`
 Mode: report-only baseline; no new blocking quality gate is introduced by this artifact.
 
 ## Purpose
@@ -18,9 +18,9 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 | --- | ---: | --- |
 | Python files | 577 | `rg --files -g '*.py'` equivalent excluding local caches |
 | Python package markers | 18 | recursive `__init__.py` count |
-| Python LOC | 171,935 | recursive `.py` line count |
+| Python LOC | 172,009 | recursive `.py` line count |
 | Test modules | 277 | `tests/**/test_*.py` |
-| Collected tests | 3387 tests | `python -m pytest --collect-only -q` |
+| Collected tests | 3389 tests | `python -m pytest --collect-only -q` |
 | Configured CI workflows | 5 | `.github/workflows/*.yml` |
 | Repo-native baseline command | 1 | `make quality-baseline` |
 
@@ -40,8 +40,8 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 | 10 | `tests/unit/services/test_stateful_input_service.py` | 1777 |
 | 11 | `tests/integration/test_attribution_api.py` | 1757 |
 | 12 | `app/services/returns_series_service.py` | 1724 |
-| 13 | `tests/unit/services/test_twr_mode_service.py` | 1594 |
-| 14 | `tests/unit/app/test_contribution_endpoint_helpers.py` | 1581 |
+| 13 | `tests/unit/app/test_contribution_endpoint_helpers.py` | 1643 |
+| 14 | `tests/unit/services/test_twr_mode_service.py` | 1594 |
 | 15 | `tests/unit/services/test_compute_job_store.py` | 1529 |
 
 ## Required Inventory Outputs

@@ -76,11 +76,10 @@ def _calculate_candidate_reset_counts(portfolio_results_df: pd.DataFrame) -> tup
     return int(candidate_reset_mask.sum()), int((candidate_reset_mask != active_reset_mask).sum())
 
 
-def _build_portfolio_engine_diagnostics(portfolio_results_df: pd.DataFrame, effective_period_start) -> Diagnostics:
-    """Maps portfolio-engine state already present in contribution inputs into shared diagnostics."""
-    if portfolio_results_df.empty:
-        return Diagnostics(nip_days=0, reset_days=0, effective_period_start=effective_period_start, notes=[])
-
+def _build_portfolio_engine_diagnostic_state(
+    portfolio_results_df: pd.DataFrame,
+    effective_period_start,
+) -> EngineDiagnostics:
     nip_series = _numeric_series_or_default(portfolio_results_df, PortfolioColumns.NIP.value)
     nip_v1_series = _numeric_series_or_default(portfolio_results_df, "nip_rule_v1_shadow")
     nip_v2_series = _numeric_series_or_default(portfolio_results_df, "nip_rule_v2_shadow")
@@ -97,7 +96,7 @@ def _build_portfolio_engine_diagnostics(portfolio_results_df: pd.DataFrame, effe
     candidate_canonical_reset_days, reset_delta_days = _calculate_candidate_reset_counts(portfolio_results_df)
     nip_days_since_last_reset, valid_days_since_last_reset = _calculate_reset_relative_day_counts(portfolio_results_df)
 
-    diagnostics = EngineDiagnostics(
+    return EngineDiagnostics(
         nip_days=int(nip_series.sum()),
         nip_rule_delta_days=int((nip_v1_series != nip_v2_series).sum()),
         reset_days=int(perf_reset_series.sum()),
@@ -114,6 +113,9 @@ def _build_portfolio_engine_diagnostics(portfolio_results_df: pd.DataFrame, effe
         valid_days_since_last_reset=valid_days_since_last_reset,
         effective_period_start=effective_period_start,
     )
+
+
+def _portfolio_engine_diagnostics_envelope(diagnostics: EngineDiagnostics) -> Diagnostics:
     return Diagnostics.model_validate(
         {
             "nip_days": diagnostics.nip_days,
@@ -130,9 +132,19 @@ def _build_portfolio_engine_diagnostics(portfolio_results_df: pd.DataFrame, effe
             "reset_delta_days": diagnostics.reset_delta_days,
             "nip_days_since_last_reset": diagnostics.nip_days_since_last_reset,
             "valid_days_since_last_reset": diagnostics.valid_days_since_last_reset,
-            "effective_period_start": effective_period_start,
+            "effective_period_start": diagnostics.effective_period_start,
             "notes": [],
         }
+    )
+
+
+def _build_portfolio_engine_diagnostics(portfolio_results_df: pd.DataFrame, effective_period_start) -> Diagnostics:
+    """Maps portfolio-engine state already present in contribution inputs into shared diagnostics."""
+    if portfolio_results_df.empty:
+        return Diagnostics(nip_days=0, reset_days=0, effective_period_start=effective_period_start, notes=[])
+
+    return _portfolio_engine_diagnostics_envelope(
+        _build_portfolio_engine_diagnostic_state(portfolio_results_df, effective_period_start)
     )
 
 
