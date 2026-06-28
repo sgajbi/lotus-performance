@@ -29,7 +29,7 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | Python files | 480 | 579 | measured | `rg --files -g '*.py'` |
 | Python package markers | 18 | 18 | measured | recursive `__init__.py` count |
-| Python LOC | 104,454 | 172,292 | measured | `rg --files -g '*.py'` plus Python line count on this branch |
+| Python LOC | 104,454 | 172,307 | measured | `rg --files -g '*.py'` plus Python line count on this branch |
 | Largest Python file LOC | 2,399 | 2,503 | measured | largest-file inventory on this branch |
 | Largest production file LOC | 1,156 | 1,910 | measured | `app/services/stateful_input_service.py` |
 | Duplicate code hotspots | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `make quality-duplicate-code-gate` with `--min-lines 12 --max-groups 0`; duplicated LOC reduced from `24` to `0` in LP-CR-1407 |
@@ -73,11 +73,11 @@ link the commit, command, or CI artifact that proves the change.
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
 | Test modules | 228 | 278 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 3,399 | measured | `python -m pytest --collect-only -q` |
+| Collected tests | 2,035 | 3,400 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
 | Integration/API/runtime test functions | unknown | 607 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |
-| Contract/governance test functions | unknown | 110 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |
+| Contract/governance test functions | unknown | 111 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |
 
 ## Security And Dependencies
 
@@ -143,6 +143,9 @@ Latest CI evaluation-gate enforcement evidence on
 4. This is a CI/evaluation enforcement slice, not an API behavior change. It hardens the path that
    catches broken health/readiness, capability publication, calculation outputs, returns, workspace,
    mandate, and composite TWR demo-critical APIs before merge.
+5. Docker build context hygiene now excludes generated demo/runtime state (`output`,
+   `lineage_data`, and local SQLite database artifacts), with a unit contract test protecting the
+   `.dockerignore` entries before local `make ci` reaches `docker-build`.
 
 Latest execution polling response-boundary evidence on
 `feature/execution-polling-response-boundary`:
@@ -170,7 +173,7 @@ Latest execution polling response-boundary evidence on
    `tests\integration\test_execution_api.py::test_execution_api_returns_404_for_missing_calculation`
    (`8 passed`), ruff check, ruff format check, mypy for touched API/model/service/test files,
    duplicate-code inventory with `0` hotspot groups, architecture-boundary inventory with `0`
-   findings, test taxonomy with `3,198` inventoried functions, and pytest collection with `3,399`
+   findings, test taxonomy with `3,199` inventoried functions, and pytest collection with `3,400`
    tests.
 6. Conscious domain/API/edge-case/operations/docs review: this is an internal design-modularity,
    domain-ownership, and API/error-model polish slice. It deliberately adds no runtime microservice
