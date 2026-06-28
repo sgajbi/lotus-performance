@@ -25,6 +25,7 @@ from app.services.compute_job_store import (
     _compute_job_registration_result_for_integrity_conflict,
     _compute_job_request_identity_json,
     _compute_job_request_identity_json_from_json,
+    _compute_queue_stats_columns,
     _ensure_compute_job_can_mark_running,
     _matches_existing_compute_job_registration,
     _queue_stats_from_aggregate_row,
@@ -670,6 +671,41 @@ def test_compute_job_store_queue_stats(tmp_path):
     assert stats.oldest_pending_age_seconds == 120.0
     assert stats.oldest_leased_age_seconds == 10.0
     assert stats.oldest_running_age_seconds == 15.0
+
+
+def test_compute_queue_stats_columns_preserve_operator_metric_contract():
+    now = datetime(2026, 3, 13, 12, 0, tzinfo=timezone.utc)
+    columns = _compute_queue_stats_columns(now=now)
+
+    assert [column.name for column in columns] == [
+        "pending_count",
+        "leased_count",
+        "running_count",
+        "failed_count",
+        "complete_count",
+        "retry_backlog_count",
+        "lease_expired_count",
+        "reclaimable_count",
+        "terminal_failure_count",
+        "oldest_pending_created_at",
+        "oldest_leased_at",
+        "oldest_running_at",
+    ]
+    compiled = str(
+        ComputeJobStore("sqlite://")
+        ._build_queue_stats_statement(now=now)
+        .compile(
+            dialect=postgresql.dialect(),
+            compile_kwargs={"literal_binds": True},
+        )
+    )
+
+    assert "analytics_compute_job.job_status = 'pending'" in compiled
+    assert "analytics_compute_job.attempt_count > 0" in compiled
+    assert "analytics_compute_job.error_type = 'LeaseExpired'" in compiled
+    assert "analytics_compute_job.job_status IN ('leased', 'running')" in compiled
+    assert "analytics_compute_job.lease_expires_at_utc <" in compiled
+    assert "analytics_compute_job.error_type != 'LeaseExpired'" in compiled
 
 
 def test_queue_stats_from_aggregate_row_defaults_counts_and_projects_ages():

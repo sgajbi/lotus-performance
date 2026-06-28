@@ -211,6 +211,82 @@ def _aggregate_row_count(aggregate_row: Any, field_name: str) -> int:
     return int(getattr(aggregate_row, field_name) or 0)
 
 
+def _compute_job_status_count_column(*, status: ComputeJobStatus, label: str) -> Any:
+    return func.sum(case((ComputeJobModel.job_status == status.value, 1), else_=0)).label(label)
+
+
+def _compute_job_retry_backlog_count_column() -> Any:
+    return func.sum(
+        case(
+            (
+                (ComputeJobModel.job_status == ComputeJobStatus.PENDING.value) & (ComputeJobModel.attempt_count > 0),
+                1,
+            ),
+            else_=0,
+        )
+    ).label("retry_backlog_count")
+
+
+def _compute_job_reclaimable_count_column(*, now: datetime) -> Any:
+    return func.sum(
+        case(
+            (
+                ComputeJobModel.job_status.in_([ComputeJobStatus.LEASED.value, ComputeJobStatus.RUNNING.value])
+                & ComputeJobModel.lease_expires_at_utc.is_not(None)
+                & (ComputeJobModel.lease_expires_at_utc < now),
+                1,
+            ),
+            else_=0,
+        )
+    ).label("reclaimable_count")
+
+
+def _compute_job_terminal_failure_count_column() -> Any:
+    return func.sum(
+        case(
+            (
+                (ComputeJobModel.job_status == ComputeJobStatus.FAILED.value)
+                & (ComputeJobModel.error_type != "LeaseExpired"),
+                1,
+            ),
+            else_=0,
+        )
+    ).label("terminal_failure_count")
+
+
+def _compute_job_oldest_timestamp_column(*, status: ComputeJobStatus, timestamp_field: Any, label: str) -> Any:
+    return func.min(case((ComputeJobModel.job_status == status.value, timestamp_field))).label(label)
+
+
+def _compute_queue_stats_columns(*, now: datetime) -> tuple[Any, ...]:
+    return (
+        _compute_job_status_count_column(status=ComputeJobStatus.PENDING, label="pending_count"),
+        _compute_job_status_count_column(status=ComputeJobStatus.LEASED, label="leased_count"),
+        _compute_job_status_count_column(status=ComputeJobStatus.RUNNING, label="running_count"),
+        _compute_job_status_count_column(status=ComputeJobStatus.FAILED, label="failed_count"),
+        _compute_job_status_count_column(status=ComputeJobStatus.COMPLETE, label="complete_count"),
+        _compute_job_retry_backlog_count_column(),
+        func.sum(case((ComputeJobModel.error_type == "LeaseExpired", 1), else_=0)).label("lease_expired_count"),
+        _compute_job_reclaimable_count_column(now=now),
+        _compute_job_terminal_failure_count_column(),
+        _compute_job_oldest_timestamp_column(
+            status=ComputeJobStatus.PENDING,
+            timestamp_field=ComputeJobModel.created_at_utc,
+            label="oldest_pending_created_at",
+        ),
+        _compute_job_oldest_timestamp_column(
+            status=ComputeJobStatus.LEASED,
+            timestamp_field=ComputeJobModel.leased_at_utc,
+            label="oldest_leased_at",
+        ),
+        _compute_job_oldest_timestamp_column(
+            status=ComputeJobStatus.RUNNING,
+            timestamp_field=ComputeJobModel.started_at_utc,
+            label="oldest_running_at",
+        ),
+    )
+
+
 def _queue_stats_from_aggregate_row(*, aggregate_row: Any, stats_now: datetime) -> ComputeQueueStats:
     return ComputeQueueStats(
         pending_count=_aggregate_row_count(aggregate_row, "pending_count"),
@@ -861,64 +937,7 @@ class ComputeJobStore:
         )
 
     def _build_queue_stats_statement(self, *, now: datetime):
-        return select(
-            func.sum(case((ComputeJobModel.job_status == ComputeJobStatus.PENDING.value, 1), else_=0)).label(
-                "pending_count"
-            ),
-            func.sum(case((ComputeJobModel.job_status == ComputeJobStatus.LEASED.value, 1), else_=0)).label(
-                "leased_count"
-            ),
-            func.sum(case((ComputeJobModel.job_status == ComputeJobStatus.RUNNING.value, 1), else_=0)).label(
-                "running_count"
-            ),
-            func.sum(case((ComputeJobModel.job_status == ComputeJobStatus.FAILED.value, 1), else_=0)).label(
-                "failed_count"
-            ),
-            func.sum(case((ComputeJobModel.job_status == ComputeJobStatus.COMPLETE.value, 1), else_=0)).label(
-                "complete_count"
-            ),
-            func.sum(
-                case(
-                    (
-                        (ComputeJobModel.job_status == ComputeJobStatus.PENDING.value)
-                        & (ComputeJobModel.attempt_count > 0),
-                        1,
-                    ),
-                    else_=0,
-                )
-            ).label("retry_backlog_count"),
-            func.sum(case((ComputeJobModel.error_type == "LeaseExpired", 1), else_=0)).label("lease_expired_count"),
-            func.sum(
-                case(
-                    (
-                        ComputeJobModel.job_status.in_([ComputeJobStatus.LEASED.value, ComputeJobStatus.RUNNING.value])
-                        & ComputeJobModel.lease_expires_at_utc.is_not(None)
-                        & (ComputeJobModel.lease_expires_at_utc < now),
-                        1,
-                    ),
-                    else_=0,
-                )
-            ).label("reclaimable_count"),
-            func.sum(
-                case(
-                    (
-                        (ComputeJobModel.job_status == ComputeJobStatus.FAILED.value)
-                        & (ComputeJobModel.error_type != "LeaseExpired"),
-                        1,
-                    ),
-                    else_=0,
-                )
-            ).label("terminal_failure_count"),
-            func.min(
-                case((ComputeJobModel.job_status == ComputeJobStatus.PENDING.value, ComputeJobModel.created_at_utc))
-            ).label("oldest_pending_created_at"),
-            func.min(
-                case((ComputeJobModel.job_status == ComputeJobStatus.LEASED.value, ComputeJobModel.leased_at_utc))
-            ).label("oldest_leased_at"),
-            func.min(
-                case((ComputeJobModel.job_status == ComputeJobStatus.RUNNING.value, ComputeJobModel.started_at_utc))
-            ).label("oldest_running_at"),
-        )
+        return select(*_compute_queue_stats_columns(now=now))
 
     def _build_queue_inspection_anchors_statement(self):
         return select(

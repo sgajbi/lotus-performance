@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-06-28
-Branch: `feature/runtime-work-items-query-boundary`
+Branch: `feature/compute-queue-stats-statement-boundary`
 Mode: report-only test taxonomy inventory; no blocking CI gate is introduced by this artifact.
 
 ## Purpose
@@ -21,7 +21,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 277 |
-| Test functions inventoried | 3176 |
+| Test functions inventoried | 3177 |
 | Integration/API/runtime test functions | 602 |
 | Contract/governance test functions | 108 |
 
@@ -32,7 +32,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | benchmarks | 9 | 17 |
 | e2e | 1 | 21 |
 | integration | 24 | 300 |
-| unit | 243 | 2838 |
+| unit | 243 | 2839 |
 
 ## Test Functions By Family
 
@@ -43,7 +43,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | contract_or_governance | 108 |
 | observability_or_readiness | 186 |
 | quality_or_security | 115 |
-| uncategorized | 1286 |
+| uncategorized | 1287 |
 
 ## Largest Test Modules
 
@@ -54,8 +54,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | 3 | `tests/unit/services/test_stateful_attribution_input_service.py` | unit | 68 | analytics_domain |
 | 4 | `tests/unit/app/test_openapi_enrichment.py` | unit | 61 | api_or_runtime |
 | 5 | `tests/unit/engine/test_attribution.py` | unit | 57 | analytics_domain |
-| 6 | `tests/unit/services/test_twr_inspection_source_economics.py` | unit | 57 | analytics_domain |
-| 7 | `tests/unit/services/test_compute_job_store.py` | unit | 56 | uncategorized |
+| 6 | `tests/unit/services/test_compute_job_store.py` | unit | 57 | uncategorized |
+| 7 | `tests/unit/services/test_twr_inspection_source_economics.py` | unit | 57 | analytics_domain |
 | 8 | `tests/unit/services/test_lineage_metadata_store.py` | unit | 54 | uncategorized |
 | 9 | `tests/unit/app/test_contribution_endpoint_helpers.py` | unit | 50 | analytics_domain, api_or_runtime |
 | 10 | `tests/unit/services/test_twr_inspection_calculation_consistency.py` | unit | 49 | analytics_domain |
@@ -86,7 +86,7 @@ The AST inventory counts test function definitions, while `pytest --collect-only
 pytest items including parametrized cases. The two values are intentionally different and
 complementary: collected tests show execution breadth, while this report shows source test-module
 and test-function distribution. The current suite has meaningful API/runtime and
-contract/governance coverage, but 1286 test functions remain uncategorized by the first-wave
+contract/governance coverage, but 1287 test functions remain uncategorized by the first-wave
 taxonomy and should be reviewed before turning taxonomy into a blocking gate.
 
 ## Gate Posture
