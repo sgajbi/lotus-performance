@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-28
-Branch: `feature/inspection-reconciliation-evidence-boundary`
+Branch: `feature/contribution-diagnostics-projection-boundary`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
@@ -108,6 +108,9 @@ component-status helper. `build_portfolio_source_quality_evidence` also dropped 
 unsupported cashflow taxonomy traversal was split into a dedicated count helper.
 `_collect_stateful_mwr_cash_flows` also dropped out after source-flow eligibility and evidence
 component projection were split into a dedicated helper.
+LP-CR-1532 isolated contribution portfolio-engine diagnostic state construction and public
+diagnostics envelope projection into focused helpers. The measured max cyclomatic complexity remains
+`5`, high-complexity functions remain `0`, and average maintainability index remains `55.05`.
 LP-CR-1531 isolated position-reconciliation evidence summary and artifact projection into
 `app/services/inspection/reconciliation_result.py`. The measured max cyclomatic complexity remains
 `5`, high-complexity functions remain `0`, and average maintainability index improved to `55.05`.

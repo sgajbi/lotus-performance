@@ -17,12 +17,14 @@ from app.services.contribution_calculation_workflow_service import (
     should_preemptively_offload_stateful_contribution,
 )
 from app.services.contribution_diagnostics import (
+    _build_portfolio_engine_diagnostic_state,
     _build_portfolio_engine_diagnostics,
     _calculate_candidate_reset_counts,
     _calculate_grouped_return_reset_alignment_counts,
     _calculate_position_flow_balance_counts,
     _calculate_reset_characterization_counts,
     _calculate_reset_relative_day_counts,
+    _portfolio_engine_diagnostics_envelope,
     _position_flow_counts_without_portfolio_flow,
     _position_flow_residual_counts,
 )
@@ -973,6 +975,66 @@ def test_build_portfolio_engine_diagnostics_maps_reset_and_nip_characterization_
     assert diagnostics.reset_delta_days == 2
     assert diagnostics.nip_days_since_last_reset == 1
     assert diagnostics.valid_days_since_last_reset == 1
+
+
+def test_portfolio_engine_diagnostic_state_preserves_reset_and_nip_counts():
+    portfolio_results_df = pd.DataFrame(
+        {
+            "perf_date": ["2025-01-01", "2025-01-02", "2025-01-03", "2025-01-04"],
+            "nip": [0, 1, 0, 1],
+            "nip_rule_v1_shadow": [0, 1, 1, 0],
+            "nip_rule_v2_shadow": [0, 0, 1, 1],
+            "perf_reset": [0, 1, 0, 0],
+            "nctrl_4": [0, 1, 1, 0],
+            "account_reset": [0, 0, 1, 0],
+            "sod_reset": [0, 1, 1, 0],
+        }
+    )
+
+    state = _build_portfolio_engine_diagnostic_state(
+        portfolio_results_df,
+        pd.Timestamp("2025-01-01").date(),
+    )
+
+    assert state.nip_days == 2
+    assert state.nip_rule_delta_days == 2
+    assert state.reset_days == 1
+    assert state.nctrl4_reset_days == 2
+    assert state.shadow_reset_overlap_days == 1
+    assert state.candidate_canonical_reset_days == 2
+    assert state.reset_delta_days == 1
+    assert state.nip_days_since_last_reset == 2
+    assert state.valid_days_since_last_reset == 1
+
+
+def test_portfolio_engine_diagnostics_envelope_projects_public_fields_without_extra_payloads():
+    state = _build_portfolio_engine_diagnostic_state(
+        pd.DataFrame(
+            {
+                "perf_date": ["2025-01-01"],
+                "nip": [0],
+                "nip_rule_v1_shadow": [0],
+                "nip_rule_v2_shadow": [0],
+                "perf_reset": [1],
+                "nctrl_4": [1],
+                "account_reset": [1],
+                "sod_reset": [1],
+            }
+        ),
+        pd.Timestamp("2025-01-01").date(),
+    )
+
+    envelope = _portfolio_engine_diagnostics_envelope(state)
+
+    assert envelope.nip_days == 0
+    assert envelope.reset_days == 1
+    assert envelope.nctrl4_reset_days == 1
+    assert envelope.account_reset_shadow_days == 1
+    assert envelope.sod_reset_shadow_days == 1
+    assert envelope.effective_period_start == pd.Timestamp("2025-01-01").date()
+    assert envelope.notes == []
+    assert envelope.policy is None
+    assert envelope.samples is None
 
 
 def test_calculate_candidate_reset_counts_compares_active_and_shadow_reset_days():

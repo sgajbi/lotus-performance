@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-06-28
-Branch: `feature/inspection-reconciliation-evidence-boundary`
+Branch: `feature/contribution-diagnostics-projection-boundary`
 Mode: report-only test taxonomy inventory; no blocking CI gate is introduced by this artifact.
 
 ## Purpose
@@ -21,8 +21,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 277 |
-| Test functions inventoried | 3186 |
-| Integration/API/runtime test functions | 605 |
+| Test functions inventoried | 3188 |
+| Integration/API/runtime test functions | 607 |
 | Contract/governance test functions | 108 |
 
 ## Test Functions By Suite
@@ -32,14 +32,14 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | benchmarks | 9 | 17 |
 | e2e | 1 | 21 |
 | integration | 24 | 300 |
-| unit | 243 | 2848 |
+| unit | 243 | 2850 |
 
 ## Test Functions By Family
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 1112 |
-| api_or_runtime | 605 |
+| analytics_domain | 1114 |
+| api_or_runtime | 607 |
 | contract_or_governance | 108 |
 | observability_or_readiness | 186 |
 | quality_or_security | 115 |
@@ -57,7 +57,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | 6 | `tests/unit/engine/test_attribution.py` | unit | 57 | analytics_domain |
 | 7 | `tests/unit/services/test_twr_inspection_source_economics.py` | unit | 57 | analytics_domain |
 | 8 | `tests/unit/services/test_lineage_metadata_store.py` | unit | 54 | uncategorized |
-| 9 | `tests/unit/app/test_contribution_endpoint_helpers.py` | unit | 50 | analytics_domain, api_or_runtime |
+| 9 | `tests/unit/app/test_contribution_endpoint_helpers.py` | unit | 52 | analytics_domain, api_or_runtime |
 | 10 | `tests/unit/services/test_twr_inspection_calculation_consistency.py` | unit | 49 | analytics_domain |
 | 11 | `tests/unit/docs/test_public_docs_contract.py` | unit | 48 | contract_or_governance |
 | 12 | `tests/unit/services/test_twr_mode_service.py` | unit | 45 | analytics_domain |
