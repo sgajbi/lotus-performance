@@ -1,12 +1,12 @@
 # Lotus Performance Refactor Quality Scorecard
 
 Report date: 2026-06-28
-Branch: `feature/performance-diagnostics-projection-boundary`
+Branch: `feature/ci-evaluation-quality-gates`
 Baseline source: `quality/baseline_report.md`
 Current source: `quality/refactor_health_report.md`
 Mode: phase-zero scorecard; static-quality and evaluation enforcement includes complexity,
 architecture, router-thinness, duplicate-code, repository hygiene, observability-readiness,
-domain-product validation, and deterministic API evaluation gates.
+domain-product validation, deterministic API evaluation, and test taxonomy breadth gates.
 
 ## Purpose
 
@@ -22,11 +22,11 @@ metrics in each section are updated with each meaningful slice.
 | --- | ---: | ---: | ---: | --- | --- |
 | Python files | 480 | 579 | 99 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Python package markers | 18 | 18 | 0 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Python LOC | 104,454 | 172,331 | 67,877 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python LOC | 104,454 | 172,518 | 68,064 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest Python file LOC | 2,399 | 2,503 | 104 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest production file LOC | 1,156 | 1,910 | 754 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
 | Python test modules | 228 | 278 | 50 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Collected tests | 2,035 | 3,400 | 1,365 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Collected tests | 2,035 | 3,403 | 1,368 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Duplicate code hotspots | 0 | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `quality/refactor_health_report.md`; `make quality-duplicate-code-gate` |
 | Tracked local byproduct findings | unknown | 0 | n/a | enforced | `scripts/repository_hygiene_gate.py`; `make repository-hygiene-gate`; `quality/refactor_health_report.md` |
 
@@ -65,8 +65,9 @@ metrics in each section are updated with each meaningful slice.
 | --- | ---: | ---: | ---: | --- | --- |
 | Line coverage | unknown | 99.58% | n/a | measured | `quality/coverage_inventory.md`; `quality/refactor_health_report.md` |
 | Branch coverage | unknown | 98.00% | n/a | measured | `quality/coverage_inventory.md`; `quality/refactor_health_report.md`; `make branch-coverage-baseline` |
-| Integration/API/runtime test functions | unknown | 607 | n/a | measured | `quality/test_taxonomy_inventory.md`; `quality/refactor_health_report.md` |
-| Contract/governance test functions | unknown | 111 | n/a | measured | `quality/test_taxonomy_inventory.md`; `quality/refactor_health_report.md` |
+| Integration/API/runtime test functions | unknown | 607 | n/a | enforced | `quality/test_taxonomy_inventory.md`; `quality/refactor_health_report.md`; `make quality-test-taxonomy-gate` |
+| Contract/governance test functions | unknown | 111 | n/a | enforced | `quality/test_taxonomy_inventory.md`; `quality/refactor_health_report.md`; `make quality-test-taxonomy-gate` |
+| Uncategorized test functions | unknown | 1294 | n/a | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
 
 ### Security and Dependencies
 
@@ -89,6 +90,7 @@ metrics in each section are updated with each meaningful slice.
 | Metrics markers | unknown | 6 | n/a | measured | `quality/observability_readiness_inventory.md`; `quality/refactor_health_report.md` |
 | Health/readiness markers | unknown | 6 | n/a | measured | `quality/observability_readiness_inventory.md`; `quality/refactor_health_report.md` |
 | Demo API certification command | unknown | 1 | n/a | enforced | `make quality-evaluation-gate`; `make demo-api-certification`; `quality/refactor_health_report.md` |
+| Test taxonomy gate | unknown | 1 | n/a | enforced | `make quality-evaluation-gate`; `make quality-test-taxonomy-gate`; `quality/test_taxonomy_inventory.md` |
 
 ### Documentation
 
@@ -103,15 +105,15 @@ metrics in each section are updated with each meaningful slice.
 
 | Signal | Value | Note |
 | --- | ---: | --- |
-| Total metrics tracked | 43 | All metrics in this file are now measured, with selected zero-finding signals enforced separately. |
-| Measured metrics | 43 | Twelve measured metrics are now also enforced through blocking static-quality, security, or deterministic API evaluation gates. Branch coverage is measured report-only and is not promoted to a gate. |
+| Total metrics tracked | 45 | All metrics in this file are now measured, with selected zero-finding and breadth signals enforced separately. |
+| Measured metrics | 45 | Selected measured metrics are now also enforced through blocking static-quality, security, deterministic API evaluation, or test-taxonomy gates. Branch coverage is measured report-only and is not promoted to a gate. |
 | Not-yet-measured metrics | 0 | The scorecard no longer carries an unmeasured branch-coverage entry. OpenAPI Spectral and public-docstring gate decisions remain outside this scorecard until scoped separately. |
 
 ## Method Note
 
 - Values are intentionally conservative and map to artifacts already generated from
-  repository-native scripts; selected zero-finding and deterministic API evaluation signals are now
-  blocking gates.
+  repository-native scripts; selected zero-finding, deterministic API evaluation, and
+  test-taxonomy breadth signals are now blocking gates.
 - `n/a` indicates that a comparable historical pre-baseline value is not yet available in-repo.
 - The next slice should review the branch-coverage gap profile before proposing any threshold,
   exception policy, or CI lane placement.

@@ -1,6 +1,12 @@
 from pathlib import Path
 
-from scripts.python_test_taxonomy_inventory import collect_test_modules, render_markdown
+from scripts.python_test_taxonomy_inventory import (
+    TestModuleInventory,
+    collect_test_modules,
+    evaluate_taxonomy_thresholds,
+    render_markdown,
+    summarize_test_taxonomy,
+)
 
 
 def test_collect_test_modules_counts_functions_and_classifies_families(tmp_path: Path) -> None:
@@ -45,7 +51,78 @@ def test_render_markdown_summarizes_test_taxonomy() -> None:
     output = render_markdown(modules, limit=1)
 
     assert "| Test modules inventoried | 1 |" in output
-    assert "| Test functions inventoried | 2 |" in output
-    assert "| unit | 1 | 2 |" in output
-    assert "| quality_or_security | 2 |" in output
+    assert "| Test functions inventoried | 4 |" in output
+    assert "| unit | 1 | 4 |" in output
+    assert "| quality_or_security | 4 |" in output
     assert "`tests/unit/scripts/test_python_test_taxonomy_inventory.py`" in output
+
+
+def test_evaluate_taxonomy_thresholds_passes_at_current_summary() -> None:
+    summary = summarize_test_taxonomy(
+        [
+            TestModuleInventory(
+                path="tests/integration/test_performance_api.py",
+                suite="integration",
+                test_count=607,
+                families=("api_or_runtime",),
+            ),
+            TestModuleInventory(
+                path="tests/unit/docs/test_public_docs_contract.py",
+                suite="unit",
+                test_count=111,
+                families=("contract_or_governance",),
+            ),
+            TestModuleInventory(
+                path="tests/unit/services/test_existing_service.py",
+                suite="unit",
+                test_count=1294,
+                families=("uncategorized",),
+            ),
+        ]
+    )
+
+    assert (
+        evaluate_taxonomy_thresholds(
+            summary,
+            min_api_runtime_tests=607,
+            min_contract_governance_tests=111,
+            max_uncategorized_tests=1294,
+        )
+        == []
+    )
+
+
+def test_evaluate_taxonomy_thresholds_fails_on_weaker_quality_signal() -> None:
+    summary = summarize_test_taxonomy(
+        [
+            TestModuleInventory(
+                path="tests/integration/test_performance_api.py",
+                suite="integration",
+                test_count=606,
+                families=("api_or_runtime",),
+            ),
+            TestModuleInventory(
+                path="tests/unit/docs/test_public_docs_contract.py",
+                suite="unit",
+                test_count=110,
+                families=("contract_or_governance",),
+            ),
+            TestModuleInventory(
+                path="tests/unit/services/test_new_unclassified_service.py",
+                suite="unit",
+                test_count=1295,
+                families=("uncategorized",),
+            ),
+        ]
+    )
+
+    assert evaluate_taxonomy_thresholds(
+        summary,
+        min_api_runtime_tests=607,
+        min_contract_governance_tests=111,
+        max_uncategorized_tests=1294,
+    ) == [
+        "Integration/API/runtime test functions 606 below required floor 607.",
+        "Contract/governance test functions 110 below required floor 111.",
+        "Uncategorized test functions 1295 above allowed ceiling 1294.",
+    ]

@@ -1,4 +1,4 @@
-.PHONY: install install-ci verify-dependencies check check-all test test-unit test-integration test-e2e test-all test-coverage branch-coverage-baseline coverage-gate ci ci-local ci-local-docker ci-local-docker-down typecheck lint quality-baseline quality-complexity-gate quality-architecture-gate quality-router-thinness-gate quality-duplicate-code-gate quality-observability-readiness-gate quality-evaluation-gate python-security-gate github-action-runtime-guard monetary-float-guard repository-hygiene-gate demo-api-certification format clean run check-deps security-audit openapi-gate api-vocabulary-gate no-alias-gate domain-product-validate migration-smoke migration-apply recovery-drill-smoke runtime-retention-smoke performance-characterization performance-characterization-postgres pre-commit docker-up docker-down docker-build
+.PHONY: install install-ci verify-dependencies check check-all test test-unit test-integration test-e2e test-all test-coverage branch-coverage-baseline coverage-gate ci ci-local ci-local-docker ci-local-docker-down typecheck lint quality-baseline quality-complexity-gate quality-architecture-gate quality-router-thinness-gate quality-duplicate-code-gate quality-observability-readiness-gate quality-test-taxonomy-gate quality-evaluation-gate python-security-gate github-action-runtime-guard monetary-float-guard repository-hygiene-gate demo-api-certification format clean run check-deps security-audit openapi-gate api-vocabulary-gate no-alias-gate domain-product-validate migration-smoke migration-apply recovery-drill-smoke runtime-retention-smoke performance-characterization performance-characterization-postgres pre-commit docker-up docker-down docker-build
 
 install:
 	pip install -r requirements.txt
@@ -132,8 +132,12 @@ quality-duplicate-code-gate:
 quality-observability-readiness-gate:
 	python scripts/python_observability_readiness_inventory.py --limit 30 --max-missing 0
 
+quality-test-taxonomy-gate:
+	python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 607 --min-contract-governance-tests 111 --max-uncategorized-tests 1294
+
 quality-evaluation-gate:
 	$(MAKE) demo-api-certification
+	$(MAKE) quality-test-taxonomy-gate
 
 python-security-gate:
 	python scripts/python_security_inventory.py --limit 30 --max-high 0 --max-medium 0 --max-low 0

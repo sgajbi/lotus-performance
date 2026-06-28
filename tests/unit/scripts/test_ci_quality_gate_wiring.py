@@ -25,6 +25,16 @@ def test_quality_evaluation_gate_is_repo_native_blocking_target() -> None:
     assert "quality-evaluation-gate" in _makefile_target_definition("check")
     assert "quality-evaluation-gate" in _makefile_target_definition("ci")
     assert "$(MAKE) demo-api-certification" in _makefile_target_definition("quality-evaluation-gate")
+    assert "$(MAKE) quality-test-taxonomy-gate" in _makefile_target_definition("quality-evaluation-gate")
+
+
+def test_test_taxonomy_quality_gate_has_ci_thresholds() -> None:
+    target = _makefile_target_definition("quality-test-taxonomy-gate")
+
+    assert "scripts/python_test_taxonomy_inventory.py" in target
+    assert "--min-api-runtime-tests 607" in target
+    assert "--min-contract-governance-tests 111" in target
+    assert "--max-uncategorized-tests 1294" in target
 
 
 def test_contract_security_workflows_enforce_domain_and_evaluation_gates() -> None:
