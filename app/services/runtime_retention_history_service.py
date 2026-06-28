@@ -86,6 +86,20 @@ class RuntimeRetentionHistorySnapshot:
     reason: str | None = None
 
 
+@dataclass(frozen=True)
+class _RuntimeRetentionHistoryQuery:
+    limit: int | None
+    offset: int
+    operator_id: str | None
+    trigger_mode: str | None
+    job_id: str | None
+    cleanup_mode: str | None
+    status_filter: str | None
+    generated_after: str | None
+    generated_before: str | None
+    applied_filters: dict[str, str | int]
+
+
 def build_runtime_retention_history_snapshot(
     *,
     artifact_directory: Path | None = None,
@@ -100,16 +114,14 @@ def build_runtime_retention_history_snapshot(
     generated_before: str | None = None,
 ) -> RuntimeRetentionHistorySnapshot:
     directory = artifact_directory or get_settings().RUNTIME_RETENTION_ARTIFACT_PATH
-    applied_filters = build_applied_history_filters(
+    query = _runtime_retention_history_query(
         limit=limit,
         offset=offset,
-        optional_filters=(
-            ("operator_id", operator_id),
-            ("trigger_mode", trigger_mode),
-            ("job_id", job_id),
-            ("cleanup_mode", cleanup_mode),
-            ("status", status_filter),
-        ),
+        operator_id=operator_id,
+        trigger_mode=trigger_mode,
+        job_id=job_id,
+        cleanup_mode=cleanup_mode,
+        status_filter=status_filter,
         generated_after=generated_after,
         generated_before=generated_before,
     )
@@ -123,7 +135,7 @@ def build_runtime_retention_history_snapshot(
     if manifest_resolution.reason is not None:
         return _unavailable_snapshot(
             directory=directory,
-            applied_filters=applied_filters,
+            applied_filters=query.applied_filters,
             reason=manifest_resolution.reason,
         )
 
@@ -131,24 +143,12 @@ def build_runtime_retention_history_snapshot(
     return _available_runtime_retention_history_snapshot_from_manifest(
         directory=directory,
         manifest_payload=manifest_payload,
-        applied_filters=applied_filters,
-        limit=limit,
-        offset=offset,
-        operator_id=operator_id,
-        trigger_mode=trigger_mode,
-        job_id=job_id,
-        cleanup_mode=cleanup_mode,
-        status_filter=status_filter,
-        generated_after=generated_after,
-        generated_before=generated_before,
+        query=query,
     )
 
 
-def _available_runtime_retention_history_snapshot_from_manifest(
+def _runtime_retention_history_query(
     *,
-    directory: Path,
-    manifest_payload: dict[str, Any],
-    applied_filters: dict[str, str | int],
     limit: int | None,
     offset: int,
     operator_id: str | None,
@@ -158,22 +158,55 @@ def _available_runtime_retention_history_snapshot_from_manifest(
     status_filter: str | None,
     generated_after: str | None,
     generated_before: str | None,
+) -> _RuntimeRetentionHistoryQuery:
+    applied_filters = build_applied_history_filters(
+        limit=limit,
+        offset=offset,
+        optional_filters=(
+            ("operator_id", operator_id),
+            ("trigger_mode", trigger_mode),
+            ("job_id", job_id),
+            ("cleanup_mode", cleanup_mode),
+            ("status", status_filter),
+        ),
+        generated_after=generated_after,
+        generated_before=generated_before,
+    )
+    return _RuntimeRetentionHistoryQuery(
+        limit=limit,
+        offset=offset,
+        operator_id=operator_id,
+        trigger_mode=trigger_mode,
+        job_id=job_id,
+        cleanup_mode=cleanup_mode,
+        status_filter=status_filter,
+        generated_after=generated_after,
+        generated_before=generated_before,
+        applied_filters=applied_filters,
+    )
+
+
+def _available_runtime_retention_history_snapshot_from_manifest(
+    *,
+    directory: Path,
+    manifest_payload: dict[str, Any],
+    query: _RuntimeRetentionHistoryQuery,
 ) -> RuntimeRetentionHistorySnapshot:
     all_entries = _runtime_retention_history_entries_from_manifest(manifest_payload)
     filtered_entries = filter_history_entries(
         entries=all_entries,
         exact_filters=(
-            (operator_id, lambda entry: entry.operator_id),
-            (trigger_mode, lambda entry: entry.trigger_mode),
-            (job_id, lambda entry: entry.job_id),
-            (cleanup_mode, lambda entry: entry.cleanup_mode),
-            (status_filter, lambda entry: entry.status),
+            (query.operator_id, lambda entry: entry.operator_id),
+            (query.trigger_mode, lambda entry: entry.trigger_mode),
+            (query.job_id, lambda entry: entry.job_id),
+            (query.cleanup_mode, lambda entry: entry.cleanup_mode),
+            (query.status_filter, lambda entry: entry.status),
         ),
-        generated_after=generated_after,
-        generated_before=generated_before,
+        generated_after=query.generated_after,
+        generated_before=query.generated_before,
         get_generated_at_utc=lambda entry: entry.generated_at_utc,
     )
-    page = paginate_history_entries(filtered_entries, limit=limit, offset=offset)
+    page = paginate_history_entries(filtered_entries, limit=query.limit, offset=query.offset)
 
     return build_available_history_snapshot(
         RuntimeRetentionHistorySnapshot,
@@ -184,7 +217,7 @@ def _available_runtime_retention_history_snapshot_from_manifest(
         matched_entries=len(filtered_entries),
         returned_entries=len(page.entries),
         next_offset=page.next_offset,
-        applied_filters=applied_filters,
+        applied_filters=query.applied_filters,
     )
 
 
