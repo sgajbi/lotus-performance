@@ -31,7 +31,9 @@ The domain-product validator keeps governed product contracts aligned with imple
 validator resolves `lotus-platform` through `LOTUS_PLATFORM_ROOT`, a sibling checkout, or the
 `.lotus-platform` checkout used by GitHub Actions contract/security jobs. The quality evaluation
 gate delegates to `make demo-api-certification`, which exercises deterministic demo-critical API
-behavior and must not be soft-failed with `continue-on-error`.
+behavior and must not be soft-failed with `continue-on-error`. Because local `make ci` runs that
+evaluation before `docker-build`, `.dockerignore` excludes generated `output`, `lineage_data`, and
+local SQLite database artifacts from the Docker build context.
 
 Broader observability maturity scoring remains report-only in
 `quality/observability_readiness_inventory.md`.
