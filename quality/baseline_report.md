@@ -1,7 +1,7 @@
 # Lotus Performance Enterprise Backend Refactor Baseline
 
 Baseline date: 2026-06-28
-Branch: `feature/compute-job-inspection-statement-boundary`
+Branch: `feature/twr-inspection-orchestration-boundary`
 Mode: report-only baseline; no new blocking quality gate is introduced by this artifact.
 
 ## Purpose
@@ -18,9 +18,9 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 | --- | ---: | --- |
 | Python files | 583 | `rg --files -g '*.py'` equivalent excluding local caches |
 | Python package markers | 18 | recursive `__init__.py` count |
-| Python LOC | 173,284 | recursive `.py` line count |
+| Python LOC | 173,464 | recursive `.py` line count |
 | Test modules | 281 | `tests/**/test_*.py` |
-| Collected tests | 3414 tests | `python -m pytest --collect-only -q` |
+| Collected tests | 3416 tests | `python -m pytest --collect-only -q` |
 | Configured CI workflows | 5 | `.github/workflows/*.yml` |
 | Repo-native baseline command | 1 | `make quality-baseline` |
 
