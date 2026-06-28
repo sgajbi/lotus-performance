@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Health Report
 
 Report date: 2026-06-28
-Branch: `feature/contribution-diagnostics-projection-boundary`
+Branch: `feature/queue-lifecycle-metrics-boundary`
 Baseline source: `quality/baseline_report.md`
 Report mode: phase-zero scorecard; complexity, architecture, duplicate-code, repository hygiene,
 router-thinness, observability-readiness, and Python security posture are enforced separately by CI.
@@ -28,7 +28,7 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | Python files | 480 | 577 | measured | `rg --files -g '*.py'` |
 | Python package markers | 18 | 18 | measured | recursive `__init__.py` count |
-| Python LOC | 104,454 | 172,009 | measured | `rg --files -g '*.py'` plus Python line count on this branch |
+| Python LOC | 104,454 | 172,067 | measured | `rg --files -g '*.py'` plus Python line count on this branch |
 | Largest Python file LOC | 2,399 | 2,503 | measured | largest-file inventory on this branch |
 | Largest production file LOC | 1,156 | 1,910 | measured | `app/services/stateful_input_service.py` |
 | Duplicate code hotspots | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `make quality-duplicate-code-gate` with `--min-lines 12 --max-groups 0`; duplicated LOC reduced from `24` to `0` in LP-CR-1407 |
@@ -43,7 +43,7 @@ link the commit, command, or CI artifact that proves the change.
 | Max cyclomatic complexity | unknown | 5 | enforced | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py`; `make quality-complexity-gate` |
 | High-complexity functions | unknown | 0 | enforced | rank D-F functions in `quality/complexity_inventory.md`; `make quality-complexity-gate` |
 | Average maintainability index | unknown | 55.05 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
-| Largest functions by LOC | unknown | 58 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; the current largest production functions are two functions tied at `58` lines |
+| Largest functions by LOC | unknown | 58 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; the current largest production function is `build_recovery_drill_history_snapshot(...)` at `58` lines |
 
 ## Architecture
 
@@ -72,7 +72,7 @@ link the commit, command, or CI artifact that proves the change.
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
 | Test modules | 228 | 277 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 3,389 | measured | `python -m pytest --collect-only -q` |
+| Collected tests | 2,035 | 3,390 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
 | Integration/API/runtime test functions | unknown | 607 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |
@@ -124,6 +124,33 @@ quality-program gap is not lack of aspiration; it is that several requested dime
 repeatably measured or expressed as progressive gates.
 
 ## Latest Local PR-Gate Evidence
+
+Latest queue lifecycle metrics boundary evidence on `feature/queue-lifecycle-metrics-boundary`:
+
+1. Isolated queue lifecycle history metric projection into `_LifecycleHistoryMetricSpec` and
+   `_lifecycle_history_metric_group(...)`. Behavior is unchanged: durable queue metrics still
+   preserve recovery-drill and runtime-retention policy thresholds, governed action lease metrics,
+   latest-history age metrics, degradation-breach reason labels, and available-snapshot gating.
+2. Added focused observability/readiness proof that available recovery-drill history still emits
+   latest-age and degradation-breach metrics when the governed action lease snapshot is unavailable,
+   including fail-state, age-threshold, active-run, and reclaim-pressure reason labels.
+3. Refreshed baseline, function-size, complexity, and test-taxonomy evidence. Max cyclomatic
+   complexity remains `5`, high-complexity functions remain `0`, average maintainability index
+   remains `55.05`, `_lifecycle_history_metrics(...)` dropped out of the top-30 function-size
+   table, and the largest production function is now `build_recovery_drill_history_snapshot(...)`
+   at `58` lines.
+4. Validation passed: `tests\unit\services\test_queue_metrics_service.py` (`19 passed`), ruff
+   check, ruff format check, and mypy for the touched service/test files. Test taxonomy reported
+   `3,189` inventoried test functions, `607` integration/API/runtime, and `108`
+   contract/governance. Pytest collection reported `3,390` collected tests.
+5. Conscious domain/API/edge-case/operations/docs review: this is an internal design-modularity
+   slice in the operator observability path. It deliberately adds no runtime microservice or worker
+   boundary because workload, failure-isolation, ownership, and operability evidence do not justify
+   one here. It preserves metric names, bounded labels, queue/recovery/runtime-retention API
+   behavior, OpenAPI/API shape, domain-product contracts, runtime topology, commands, cross-repo
+   ownership, README, wiki source, repository context, platform context, skills, and agent context.
+   No README/wiki/context/skill update is needed because public/operator/runtime truth did not
+   change; wiki check is still required before merge.
 
 Latest contribution diagnostics projection-boundary evidence on
 `feature/contribution-diagnostics-projection-boundary`:
