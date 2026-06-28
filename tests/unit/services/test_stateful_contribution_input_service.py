@@ -13,8 +13,10 @@ from app.services.stateful_contribution_input_service import (
     _position_contract_meta_from_row,
     _position_meta_from_row,
     _position_row_to_daily_point,
+    _position_source_economics_from_row,
     _position_value_inputs,
     _reporting_position_value_pair,
+    _security_ids_filter,
     _stateful_both_currency_requires_fx,
     _stateful_contribution_position_series,
     _stateful_position_currencies,
@@ -446,6 +448,50 @@ def test_position_meta_from_row_preserves_source_metadata():
             "source_contract": "PositionTimeseriesInput:v1",
         },
     }
+
+
+def test_position_source_economics_counts_governed_cash_flow_taxonomy_edges():
+    assert _position_source_economics_from_row(
+        {
+            "valuation_status": "READY",
+            "cash_flows": [
+                {"cash_flow_type": "fee"},
+                {"cash_flow_type": " Management_Fee "},
+                {"cash_flow_type": "coupon"},
+                {"cash_flow_type": None},
+                {"cash_flow_type": ""},
+                {"cash_flow_type": "mystery_flow"},
+                "ignored",
+            ],
+        }
+    ) == {
+        "cash_flow_type_counts": {
+            "coupon": 1,
+            "fee": 1,
+            "management_fee": 1,
+            "missing": 2,
+            "mystery_flow": 1,
+        },
+        "valuation_status": "READY",
+        "source_contract": "PositionTimeseriesInput:v1",
+    }
+
+
+def test_security_ids_filter_deduplicates_non_empty_source_security_ids():
+    assert _security_ids_filter(
+        {
+            "security_ids": [
+                "SEC_2",
+                "",
+                "SEC_1",
+                None,
+                "SEC_1",
+                42,
+            ]
+        }
+    ) == ["SEC_1", "SEC_2"]
+    assert _security_ids_filter({"security_ids": ["", None, 42]}) is None
+    assert _security_ids_filter({"security_ids": "SEC_1"}) is None
 
 
 def test_position_contract_meta_from_row_normalizes_supported_source_fields():
