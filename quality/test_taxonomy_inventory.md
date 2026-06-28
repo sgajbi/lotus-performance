@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-06-28
-Branch: `feature/stateful-position-chunk-boundary`
+Branch: `feature/hierarchical-contribution-result-boundary`
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -91,8 +91,10 @@ and test-function distribution. The current suite has meaningful API/runtime and
 contract/governance coverage, but 1294 test functions remain uncategorized by the first-wave
 taxonomy and should be reduced through normal refactor slices rather than allowed to grow.
 
-The stateful position chunk boundary slice keeps the promoted gate stable while adding one
-analytics-domain test for the extracted position page source-lineage helper.
+The hierarchical contribution result boundary slice keeps the promoted gate stable without adding
+new test functions because existing contribution engine tests already cover empty base-only and
+local/FX summaries, non-empty base-only summary projection, hierarchy row projection, and Carino
+residual allocation behavior for the extracted helper boundaries.
 Current measured breadth is `608` API/runtime test functions, `111` contract/governance test
 functions, `189` observability/readiness test functions, `1119` analytics-domain test functions,
 and `1294` uncategorized test functions. The enforced command remains at the accepted regression
