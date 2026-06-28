@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-28
-Branch: `feature/recovery-drill-history-query-boundary`
+Branch: `feature/runtime-work-items-query-boundary`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
@@ -32,7 +32,7 @@ must stay at `0`.
 | --- | ---: |
 | Max cyclomatic complexity | 5 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 54.86 |
+| Average maintainability index | 54.88 |
 
 ## Highest Cyclomatic Complexity
 
@@ -121,6 +121,10 @@ point payload fallback projection were split into named helpers.
 `_position_source_economics_from_row` and `_security_ids_filter` also dropped out after source
 cash-flow taxonomy counting and Core component-economics `security_ids` filtering were split into
 named helpers, lowering the measured max cyclomatic complexity from `6` to `5`.
+`get_runtime_work_items` also dropped out of the function-size hotspot table after FastAPI query
+metadata and query-object projection were split into a dedicated dependency boundary. The measured
+repository maximum remains `5`, high-complexity functions remain `0`, and average maintainability
+index measures `54.88`.
 `get_benchmark_return_series` also dropped out after benchmark, index-price, and risk-free reference
 series response point merging was routed through a shared helper.
 `get_fx_rates` also dropped out after FX-rate response-to-point projection and date-key

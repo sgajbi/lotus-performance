@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Health Report
 
 Report date: 2026-06-28
-Branch: `feature/recovery-drill-history-query-boundary`
+Branch: `feature/runtime-work-items-query-boundary`
 Baseline source: `quality/baseline_report.md`
 Report mode: phase-zero scorecard; complexity, architecture, duplicate-code, repository hygiene,
 router-thinness, observability-readiness, and Python security posture are enforced separately by CI.
@@ -26,7 +26,7 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Python files | 480 | 567 | measured | `rg --files -g '*.py'` |
+| Python files | 480 | 576 | measured | `rg --files -g '*.py'` |
 | Python package markers | 18 | 18 | measured | recursive `__init__.py` count |
 | Python LOC | 104,454 | 143,274 | measured | `rg --files -g '*.py'` plus Python line count on this branch |
 | Largest Python file LOC | 2,399 | 2,503 | measured | largest-file inventory on this branch |
@@ -42,8 +42,8 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | Max cyclomatic complexity | unknown | 5 | enforced | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py`; `make quality-complexity-gate` |
 | High-complexity functions | unknown | 0 | enforced | rank D-F functions in `quality/complexity_inventory.md`; `make quality-complexity-gate` |
-| Average maintainability index | unknown | 54.86 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
-| Largest functions by LOC | unknown | 59 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; the current largest production functions are seven functions tied at `59` lines |
+| Average maintainability index | unknown | 54.88 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
+| Largest functions by LOC | unknown | 59 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; the current largest production functions are six functions tied at `59` lines |
 
 ## Architecture
 
@@ -71,8 +71,8 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Test modules | 228 | 276 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 3,375 | measured | `python -m pytest --collect-only -q` |
+| Test modules | 228 | 277 | measured | `rg --files tests -g 'test_*.py'` |
+| Collected tests | 2,035 | 3,377 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
 | Integration/API/runtime test functions | unknown | 602 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |
@@ -124,6 +124,36 @@ quality-program gap is not lack of aspiration; it is that several requested dime
 repeatably measured or expressed as progressive gates.
 
 ## Latest Local PR-Gate Evidence
+
+Latest runtime work-items query-boundary evidence on `feature/runtime-work-items-query-boundary`:
+
+1. Isolated runtime work-item query parameter projection into
+   `app/api/dependencies/runtime_work_items.py`, matching the existing runtime-recoveries and
+   recovery-drill history query dependency pattern. Behavior is unchanged: the operator API still
+   exposes the same queue, lifecycle, bounded paging, stale-item, analytics-family, and
+   calculation-handle filters and returns the same `RuntimeWorkItemsResponse` contract.
+2. Added direct dependency coverage proving full filter projection and default active/both-queue
+   first-page behavior. Existing API and OpenAPI contract tests continue to prove runtime
+   work-item response shape, query parameter documentation, filter handling, partial queue
+   unavailability, paging, reclaimable lifecycle behavior, and operator navigation links.
+3. Refreshed complexity, function-size, test-taxonomy, and baseline evidence. Max cyclomatic
+   complexity remains `5`, high-complexity functions remain `0`, average maintainability index
+   improved from `54.86` to `54.88`, `get_runtime_work_items(...)` dropped out of the top-25
+   function-size table, and the largest production functions are now six functions tied at `59`
+   lines.
+4. Validation passed: focused runtime work-item query/API/OpenAPI tests (`14 passed`), ruff check,
+   ruff format check after formatting, and mypy for the touched Python files. Test taxonomy
+   reported `3,176` inventoried test functions, `602` integration/API/runtime, and `108`
+   contract/governance; `pytest --collect-only` collected `3,377` tests. `make check` passed with
+   static quality, OpenAPI quality, API vocabulary, domain-product validation, first-party Python
+   security, mypy, and `3,031` unit tests. Wiki source publication check reported `DiffCount 0`.
+5. Conscious domain/API/operations/docs review: this slice aligns with the API testing and
+   certification guidance by preserving request validation and OpenAPI contract proof while moving
+   query projection out of the route. It preserves runtime work-item API response shape, OpenAPI
+   truth, domain-product contracts, runtime topology, observability surface, commands, cross-repo
+   ownership, README, wiki source, repository context, platform context, skills, and agent context.
+   It improves operator API modularity and request-query test coverage without promoting any new
+   public capability claim.
 
 Latest recovery-drill history query-boundary evidence on `feature/recovery-drill-history-query-boundary`:
 

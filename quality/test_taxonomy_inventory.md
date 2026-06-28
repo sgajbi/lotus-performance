@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-06-28
-Branch: `feature/recovery-drill-history-query-boundary`
+Branch: `feature/runtime-work-items-query-boundary`
 Mode: report-only test taxonomy inventory; no blocking CI gate is introduced by this artifact.
 
 ## Purpose
@@ -20,8 +20,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 276 |
-| Test functions inventoried | 3174 |
+| Test modules inventoried | 277 |
+| Test functions inventoried | 3176 |
 | Integration/API/runtime test functions | 602 |
 | Contract/governance test functions | 108 |
 
@@ -32,7 +32,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | benchmarks | 9 | 17 |
 | e2e | 1 | 21 |
 | integration | 24 | 300 |
-| unit | 242 | 2836 |
+| unit | 243 | 2838 |
 
 ## Test Functions By Family
 
@@ -42,7 +42,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | api_or_runtime | 602 |
 | contract_or_governance | 108 |
 | observability_or_readiness | 186 |
-| quality_or_security | 113 |
+| quality_or_security | 115 |
 | uncategorized | 1286 |
 
 ## Largest Test Modules
