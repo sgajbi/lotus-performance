@@ -3,13 +3,16 @@ import logging
 
 import pytest
 
-from app.services.operator_action_history_manifest import validate_history_manifest_payload
+from app.services.operator_action_history_manifest import (
+    resolve_history_manifest_payload,
+    validate_history_manifest_payload,
+)
 from app.services.runtime_retention_history_service import (
     RUNTIME_RETENTION_ARTIFACT_DIRECTORY_MISSING_REASON,
     RUNTIME_RETENTION_MANIFEST_INVALID_REASON,
+    RUNTIME_RETENTION_MANIFEST_READ_REASONS,
     RUNTIME_RETENTION_MANIFEST_UNREADABLE_REASON,
     _available_runtime_retention_history_snapshot_from_manifest,
-    _resolve_runtime_retention_manifest,
     _runtime_retention_history_entries_from_manifest,
     _runtime_retention_manifest_entry_payload,
     _validate_manifest_entry,
@@ -106,12 +109,14 @@ def test_resolve_runtime_retention_manifest_returns_validated_payload(tmp_path):
     }
     (artifact_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
 
-    resolution = _resolve_runtime_retention_manifest(
+    resolution = resolve_history_manifest_payload(
         directory=artifact_dir,
-        applied_filters={"operator_id": "ops-user"},
+        reasons=RUNTIME_RETENTION_MANIFEST_READ_REASONS,
+        validate_entry=_validate_manifest_entry,
+        history_name="Runtime retention",
     )
 
-    assert resolution.unavailable_snapshot is None
+    assert resolution.reason is None
     assert resolution.manifest_payload is not None
     assert resolution.manifest_payload["entries"][0]["operator_id"] == "ops-user"
     assert resolution.manifest_payload["entries"][0]["trigger_mode"] == "manual"
@@ -120,16 +125,15 @@ def test_resolve_runtime_retention_manifest_returns_validated_payload(tmp_path):
 
 
 def test_resolve_runtime_retention_manifest_preserves_unavailable_filter_context(tmp_path):
-    resolution = _resolve_runtime_retention_manifest(
-        directory=tmp_path / "missing",
-        applied_filters={"limit": 1, "operator_id": "ops-user"},
+    snapshot = build_runtime_retention_history_snapshot(
+        artifact_directory=tmp_path / "missing",
+        limit=1,
+        operator_id="ops-user",
     )
 
-    assert resolution.manifest_payload is None
-    assert resolution.unavailable_snapshot is not None
-    assert resolution.unavailable_snapshot.status == "unavailable"
-    assert resolution.unavailable_snapshot.reason == RUNTIME_RETENTION_ARTIFACT_DIRECTORY_MISSING_REASON
-    assert resolution.unavailable_snapshot.applied_filters == {"limit": 1, "operator_id": "ops-user"}
+    assert snapshot.status == "unavailable"
+    assert snapshot.reason == RUNTIME_RETENTION_ARTIFACT_DIRECTORY_MISSING_REASON
+    assert snapshot.applied_filters == {"limit": 1, "operator_id": "ops-user"}
 
 
 def test_runtime_retention_history_applies_filters_and_paging(tmp_path):

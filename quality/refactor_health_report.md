@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Health Report
 
 Report date: 2026-06-28
-Branch: `feature/queue-lifecycle-metrics-boundary`
+Branch: `feature/recovery-drill-history-manifest-boundary`
 Baseline source: `quality/baseline_report.md`
 Report mode: phase-zero scorecard; complexity, architecture, duplicate-code, repository hygiene,
 router-thinness, observability-readiness, and Python security posture are enforced separately by CI.
@@ -28,7 +28,7 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | Python files | 480 | 577 | measured | `rg --files -g '*.py'` |
 | Python package markers | 18 | 18 | measured | recursive `__init__.py` count |
-| Python LOC | 104,454 | 172,067 | measured | `rg --files -g '*.py'` plus Python line count on this branch |
+| Python LOC | 104,454 | 172,087 | measured | `rg --files -g '*.py'` plus Python line count on this branch |
 | Largest Python file LOC | 2,399 | 2,503 | measured | largest-file inventory on this branch |
 | Largest production file LOC | 1,156 | 1,910 | measured | `app/services/stateful_input_service.py` |
 | Duplicate code hotspots | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `make quality-duplicate-code-gate` with `--min-lines 12 --max-groups 0`; duplicated LOC reduced from `24` to `0` in LP-CR-1407 |
@@ -42,8 +42,8 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | Max cyclomatic complexity | unknown | 5 | enforced | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py`; `make quality-complexity-gate` |
 | High-complexity functions | unknown | 0 | enforced | rank D-F functions in `quality/complexity_inventory.md`; `make quality-complexity-gate` |
-| Average maintainability index | unknown | 55.05 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
-| Largest functions by LOC | unknown | 58 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; the current largest production function is `build_recovery_drill_history_snapshot(...)` at `58` lines |
+| Average maintainability index | unknown | 55.06 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
+| Largest functions by LOC | unknown | 57 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; the current largest production functions are eight functions tied at `57` lines, led by `build_execution_response(...)` |
 
 ## Architecture
 
@@ -72,7 +72,7 @@ link the commit, command, or CI artifact that proves the change.
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
 | Test modules | 228 | 277 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 3,390 | measured | `python -m pytest --collect-only -q` |
+| Collected tests | 2,035 | 3,391 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
 | Integration/API/runtime test functions | unknown | 607 | measured | `quality/test_taxonomy_inventory.md` via `scripts/python_test_taxonomy_inventory.py` |
@@ -124,6 +124,38 @@ quality-program gap is not lack of aspiration; it is that several requested dime
 repeatably measured or expressed as progressive gates.
 
 ## Latest Local PR-Gate Evidence
+
+Latest recovery drill history manifest-boundary evidence on
+`feature/recovery-drill-history-manifest-boundary`:
+
+1. Isolated shared operator-action history manifest resolution into `HistoryManifestResolution` and
+   `resolve_history_manifest_payload(...)`, then routed recovery-drill and runtime-retention history
+   through it. Behavior is unchanged: both operator-history paths still preserve manifest-read
+   failure reasons, invalid-manifest logging, entry validation, applied filters, pagination,
+   retention metadata, and unavailable-snapshot diagnostics.
+2. Added focused operator-supportability proof that applied filters survive unavailable manifest
+   snapshots, including limit, offset, operator, backup identifier, status, and generated-time
+   window filters.
+3. Refreshed baseline, function-size, complexity, and test-taxonomy evidence. Max cyclomatic
+   complexity remains `5`, high-complexity functions remain `0`, average maintainability index
+   measures `55.06`, `build_recovery_drill_history_snapshot(...)` dropped out of the top-30
+   function-size table, and the largest production functions are now eight functions tied at `57`
+   lines.
+4. Validation passed: `tests\unit\services\test_recovery_drill_history_service.py`,
+   `tests\unit\services\test_runtime_retention_history_service.py`, and
+   `tests\unit\services\test_operator_action_history_manifest.py` (`77 passed`), ruff check, ruff
+   format check, mypy for the touched service/test files, and duplicate-code inventory with `0`
+   hotspot groups. Test taxonomy reported `3,190` inventoried test functions, `607`
+   integration/API/runtime, and `108` contract/governance. Pytest collection reported `3,391`
+   collected tests.
+5. Conscious domain/API/edge-case/operations/docs review: this is an internal design-modularity
+   slice in the operator recovery-drill history path. It deliberately adds no runtime microservice
+   or worker boundary because workload, failure-isolation, ownership, deployment, security, and
+   operability evidence do not justify one here. It preserves API/OpenAPI behavior, operator
+   history response shape, runtime topology, commands, cross-repo ownership, README, wiki source,
+   repository context, platform context, skills, and agent context. No README/wiki/context/skill
+   update is needed because public/operator/runtime truth did not change; wiki check is still
+   required before merge.
 
 Latest queue lifecycle metrics boundary evidence on `feature/queue-lifecycle-metrics-boundary`:
 

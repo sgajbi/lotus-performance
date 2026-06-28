@@ -48,6 +48,12 @@ class HistoryManifestReadResult:
     reason: str | None = None
 
 
+@dataclass(frozen=True)
+class HistoryManifestResolution:
+    manifest_payload: dict[str, Any] | None
+    reason: str | None = None
+
+
 HistoryEntryStrings = dict[str, str | None]
 HistoryManifestPayload = dict[str, Any]
 HistoryEntryValidator = Callable[[Any], dict[str, Any] | None]
@@ -175,6 +181,37 @@ def validate_history_manifest_payload(
 
 def log_invalid_history_manifest_payload(*, manifest_path: Path, history_name: str) -> None:
     logger.warning("%s history manifest payload invalid at %s.", history_name, manifest_path)
+
+
+def resolve_history_manifest_payload(
+    *,
+    directory: Path,
+    reasons: HistoryManifestReadReasons,
+    validate_entry: HistoryEntryValidator,
+    history_name: str,
+) -> HistoryManifestResolution:
+    manifest_read = read_history_manifest_payload(directory=directory, reasons=reasons)
+    if manifest_read.reason is not None:
+        return HistoryManifestResolution(
+            manifest_payload=None,
+            reason=manifest_read.reason,
+        )
+
+    manifest_payload = validate_history_manifest_payload(
+        manifest_read.payload,
+        validate_entry=validate_entry,
+    )
+    if manifest_payload is not None:
+        return HistoryManifestResolution(manifest_payload=manifest_payload)
+
+    log_invalid_history_manifest_payload(
+        manifest_path=directory / "manifest.json",
+        history_name=history_name,
+    )
+    return HistoryManifestResolution(
+        manifest_payload=None,
+        reason=reasons.manifest_invalid,
+    )
 
 
 def _history_entry_required_strings(
