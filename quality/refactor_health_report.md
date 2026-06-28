@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Health Report
 
 Report date: 2026-06-28
-Branch: `feature/runtime-retention-status-boundary`
+Branch: `feature/stateful-contribution-normalized-input-boundary`
 Baseline source: `quality/baseline_report.md`
 Report mode: phase-zero scorecard; complexity, architecture, duplicate-code, repository hygiene,
 router-thinness, observability-readiness, domain-product validation, deterministic API evaluation,
@@ -29,7 +29,7 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | Python files | 480 | 582 | measured | `rg --files -g '*.py'` |
 | Python package markers | 18 | 18 | measured | recursive `__init__.py` count |
-| Python LOC | 104,454 | 172,878 | measured | `rg --files -g '*.py'` plus Python line count on this branch |
+| Python LOC | 104,454 | 172,957 | measured | `rg --files -g '*.py'` plus Python line count on this branch |
 | Largest Python file LOC | 2,399 | 2,503 | measured | largest-file inventory on this branch |
 | Largest production file LOC | 1,156 | 1,910 | measured | `app/services/stateful_input_service.py` |
 | Duplicate code hotspots | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `make quality-duplicate-code-gate` with `--min-lines 12 --max-groups 0`; duplicated LOC reduced from `24` to `0` in LP-CR-1407 |
@@ -44,7 +44,7 @@ link the commit, command, or CI artifact that proves the change.
 | Max cyclomatic complexity | unknown | 5 | enforced | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py`; `make quality-complexity-gate` |
 | High-complexity functions | unknown | 0 | enforced | rank D-F functions in `quality/complexity_inventory.md`; `make quality-complexity-gate` |
 | Average maintainability index | unknown | 55.23 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
-| Largest functions by LOC | unknown | 57 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; the current largest production functions are four functions tied at `57` lines, led by `build_stateful_contribution_input(...)` |
+| Largest functions by LOC | unknown | 57 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; the current largest production functions are three functions tied at `57` lines, led by `StatefulInputService._fetch_position_chunk(...)` |
 
 ## Architecture
 
@@ -73,7 +73,7 @@ link the commit, command, or CI artifact that proves the change.
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
 | Test modules | 228 | 280 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 3,408 | measured | `python -m pytest --collect-only -q` |
+| Collected tests | 2,035 | 3,410 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
 | Integration/API/runtime test functions | unknown | 608 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
@@ -127,6 +127,41 @@ quality-program gap is not lack of aspiration; it is that several requested dime
 repeatably measured or expressed as progressive gates.
 
 ## Latest Local PR-Gate Evidence
+
+Latest stateful contribution normalized input boundary evidence on
+`feature/stateful-contribution-normalized-input-boundary`:
+
+1. Split stateful contribution normalized input assembly into
+   `_stateful_contribution_portfolio_data(...)` and
+   `_stateful_contribution_positions_data(...)`. The public normalizer now coordinates currency
+   support validation and source-series construction while focused helpers own portfolio valuation
+   projection and sorted position response projection.
+2. Preserved contribution behavior and supportability signals: portfolio metric-basis propagation,
+   valuation points, BOD/EOD cash-flow classification, sorted position identity, latest position
+   metadata, source-economics metadata, currency-mode validation, and normalized contribution
+   request shape remain intact.
+3. Added direct analytics-domain tests for the two helper boundaries. The focused stateful
+   contribution unit suite reports `26 passed`.
+4. Measured proof: `build_stateful_contribution_input(...)` dropped out of the top-30
+   function-size inventory; the largest production functions are now three functions tied at `57`
+   lines led by `StatefulInputService._fetch_position_chunk(...)`; max cyclomatic complexity
+   remains `5`; high-complexity functions remain `0`; average maintainability index remains
+   `55.23`; architecture-boundary findings remain `0`; pytest collection reports `3,410` tests;
+   taxonomy reports `608` API/runtime test functions, `111` contract/governance test functions,
+   `1118` analytics-domain test functions, and `1294` uncategorized test functions.
+5. Validation passed: focused stateful contribution input tests (`26 passed`), focused
+   contribution unit/integration tests (`75 passed`), ruff check, ruff format check, mypy for
+   touched files, function-size inventory, complexity inventory, architecture-boundary inventory,
+   test-taxonomy gate, pytest collection, `make quality-baseline`, `make check` (`3,064` unit
+   tests passed after static quality, contract, deterministic API, security, type, readiness, and
+   taxonomy gates), `git diff --check` (passed with the existing baseline line-ending warning),
+   stranded-truth reconciliation (no unmerged remote branches), and wiki check (`DiffCount 0`).
+6. Conscious domain/API/edge-case/operations/docs review: this is an internal design-modularity
+   and contribution source-boundary slice. It deliberately adds no runtime microservice or worker
+   boundary because workload, failure-isolation, ownership, deployment, security, and operability
+   evidence do not justify one here. Public API/OpenAPI/operator/runtime truth, README, wiki
+   source, repository context, platform context, skills, and agent context remain unchanged;
+   quality docs and the review ledger record the implementation-backed truth change.
 
 Latest runtime-retention status lifecycle boundary evidence on
 `feature/runtime-retention-status-boundary`:

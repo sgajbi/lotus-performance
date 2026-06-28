@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-28
-Branch: `feature/runtime-retention-status-boundary`
+Branch: `feature/stateful-contribution-normalized-input-boundary`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
@@ -34,10 +34,10 @@ must stay at `0`.
 | High-complexity functions (rank D-F) | 0 |
 | Average maintainability index | 55.23 |
 
-The runtime-retention status lifecycle extraction preserves the enforced complexity posture: max
-cyclomatic complexity remains `5`, high-complexity functions remain `0`, and average
-maintainability index measures `55.23` after splitting missing/unavailable history routing and
-latest retained-cleanup status projection into focused helpers.
+The stateful contribution normalized input extraction preserves the enforced complexity posture:
+max cyclomatic complexity remains `5`, high-complexity functions remain `0`, and average
+maintainability index measures `55.23` after splitting portfolio valuation projection and sorted
+position response projection into focused helpers.
 
 ## Highest Cyclomatic Complexity
 
@@ -113,14 +113,18 @@ component-status helper. `build_portfolio_source_quality_evidence` also dropped 
 unsupported cashflow taxonomy traversal was split into a dedicated count helper.
 `_collect_stateful_mwr_cash_flows` also dropped out after source-flow eligibility and evidence
 component projection were split into a dedicated helper.
-LP-CR-1542 isolated TWR period calculation consistency into relative-performance and linked-block
-helper boundaries. The measured max cyclomatic complexity remains `5`, high-complexity functions
-remain `0`, and average maintainability index remains `55.23`; local maintainability for
-`app/services/inspection/calculation_consistency.py` now measures `19.07` after helper extraction.
+LP-CR-1544 isolated stateful contribution normalized input assembly into portfolio and position
+projection helper boundaries. The measured max cyclomatic complexity remains `5`, high-complexity
+functions remain `0`, and average maintainability index remains `55.23`; the slice preserves the
+existing enforced complexity posture while improving contribution source-boundary scanability.
 LP-CR-1543 isolated runtime-retention status lifecycle snapshot routing into unavailable-history
 and latest-history helper boundaries. The measured max cyclomatic complexity remains `5`,
 high-complexity functions remain `0`, and average maintainability index remains `55.23`; the slice
 preserves the existing enforced complexity posture while improving status-response scanability.
+LP-CR-1542 isolated TWR period calculation consistency into relative-performance and linked-block
+helper boundaries. The measured max cyclomatic complexity remains `5`, high-complexity functions
+remain `0`, and average maintainability index remains `55.23`; local maintainability for
+`app/services/inspection/calculation_consistency.py` now measures `19.07` after helper extraction.
 LP-CR-1535 isolated execution polling response projection into an application service boundary and
 left the API model module schema-only. The measured max cyclomatic complexity remains `5`,
 high-complexity functions remain `0`, and average maintainability index improves to `55.09`.

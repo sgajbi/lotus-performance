@@ -207,16 +207,6 @@ def build_stateful_contribution_input(
             fx=fx,
         )
 
-    portfolio_valuation_points = portfolio_timeseries_to_valuation_points(
-        observations=source_input.portfolio_input.observations
-    )
-    portfolio_data = PortfolioData.model_validate(
-        {
-            "metric_basis": metric_basis,
-            "valuation_points": portfolio_valuation_points,
-        }
-    )
-
     position_series = _stateful_contribution_position_series(
         rows=source_input.position_rows,
         currency_mode=normalized_currency_mode,
@@ -233,7 +223,34 @@ def build_stateful_contribution_input(
         ),
     )
 
-    positions_data = [
+    return StatefulContributionNormalizedInput(
+        portfolio_data=_stateful_contribution_portfolio_data(
+            source_input=source_input,
+            metric_basis=metric_basis,
+        ),
+        positions_data=_stateful_contribution_positions_data(position_series),
+    )
+
+
+def _stateful_contribution_portfolio_data(
+    *,
+    source_input: StatefulContributionSourceInput,
+    metric_basis: str,
+) -> PortfolioData:
+    return PortfolioData.model_validate(
+        {
+            "metric_basis": metric_basis,
+            "valuation_points": portfolio_timeseries_to_valuation_points(
+                observations=source_input.portfolio_input.observations
+            ),
+        }
+    )
+
+
+def _stateful_contribution_positions_data(
+    position_series: _StatefulContributionPositionSeries,
+) -> list[PositionData]:
+    return [
         PositionData.model_validate(
             {
                 "position_id": position_id,
@@ -243,11 +260,6 @@ def build_stateful_contribution_input(
         )
         for position_id, valuation_points in sorted(position_series.valuation_points_by_position_id.items())
     ]
-
-    return StatefulContributionNormalizedInput(
-        portfolio_data=portfolio_data,
-        positions_data=positions_data,
-    )
 
 
 def _stateful_contribution_position_series(

@@ -18,7 +18,9 @@ from app.services.stateful_contribution_input_service import (
     _reporting_position_value_pair,
     _security_ids_filter,
     _stateful_both_currency_requires_fx,
+    _stateful_contribution_portfolio_data,
     _stateful_contribution_position_series,
+    _stateful_contribution_positions_data,
     _stateful_position_currencies,
     build_stateful_contribution_input,
     retrieve_stateful_contribution_source_input,
@@ -298,6 +300,71 @@ def test_build_stateful_contribution_input_builds_positions_and_currency_selecti
     assert component_context["source_contract"] == "PerformanceComponentEconomics:v1"
     assert component_context["supportability_state"] == "READY"
     assert component_context["observed_component_families"] == ["fee", "income", "realized_fx_pnl", "tax"]
+
+
+def test_stateful_contribution_portfolio_data_preserves_metric_basis_and_valuation_points():
+    source_input = StatefulContributionSourceInput(
+        portfolio_input=StatefulPortfolioInput(
+            performance_start_date=date(2025, 1, 1),
+            observations=[
+                {
+                    "valuation_date": "2025-01-01",
+                    "beginning_market_value": "1000",
+                    "ending_market_value": "1010",
+                    "cash_flows": [
+                        {"amount": "5", "timing": "bod"},
+                        {"amount": "-2", "timing": "eod"},
+                    ],
+                }
+            ],
+        ),
+        position_rows=[],
+        position_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
+    )
+
+    portfolio_data = _stateful_contribution_portfolio_data(
+        source_input=source_input,
+        metric_basis="GROSS",
+    )
+
+    assert portfolio_data.metric_basis == "GROSS"
+    assert portfolio_data.valuation_points[0].begin_mv == Decimal("1000")
+    assert portfolio_data.valuation_points[0].end_mv == Decimal("1010")
+    assert portfolio_data.valuation_points[0].bod_cf == Decimal("5")
+    assert portfolio_data.valuation_points[0].eod_cf == Decimal("-2")
+
+
+def test_stateful_contribution_positions_data_sorts_positions_and_preserves_meta():
+    position_series = _stateful_contribution_position_series(
+        rows=[
+            {
+                "position_id": "POS_B",
+                "security_id": "SEC_B",
+                "valuation_date": "2025-01-01",
+                "beginning_market_value_reporting_currency": "200",
+                "ending_market_value_reporting_currency": "210",
+                "dimensions": {"sector": "Healthcare"},
+            },
+            {
+                "position_id": "POS_A",
+                "security_id": "SEC_A",
+                "valuation_date": "2025-01-01",
+                "beginning_market_value_reporting_currency": "100",
+                "ending_market_value_reporting_currency": "105",
+                "dimensions": {"sector": "Technology"},
+            },
+        ],
+        currency_mode="BASE_ONLY",
+        reporting_currency="USD",
+    )
+
+    positions_data = _stateful_contribution_positions_data(position_series)
+
+    assert [position.position_id for position in positions_data] == ["POS_A", "POS_B"]
+    assert positions_data[0].meta["sector"] == "Technology"
+    assert positions_data[1].meta["sector"] == "Healthcare"
+    assert positions_data[0].valuation_points[0].begin_mv == Decimal("100")
+    assert positions_data[1].valuation_points[0].end_mv == Decimal("210")
 
 
 def test_build_stateful_contribution_input_allows_currency_mode_both_for_same_currency_positions():
