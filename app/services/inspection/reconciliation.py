@@ -9,6 +9,11 @@ from app.core.config import Settings, get_settings
 from app.models.inspection_requests import TWRInspectionProfile
 from app.models.inspection_responses import TWRInspectionFinding
 from app.models.requests import PerformanceRequest
+from app.services.inspection.reconciliation_result import (
+    PositionReconciliationEvidenceInputs,
+    ReconciliationCheckResult,
+    build_position_reconciliation_result,
+)
 from app.services.inspection.stateful_timeseries_fetch import fetch_inspection_stateful_timeseries
 from app.services.portfolio_source_service import build_stateful_input_service
 
@@ -16,7 +21,6 @@ _ABSOLUTE_GAP_TOLERANCE = Decimal("0.01")
 _RELATIVE_GAP_TOLERANCE = Decimal("0.0001")
 _TRANSITION_ACTIVITY_FIELD_TOKENS = ("cashflow", "cash_flow", "trade", "quantity_delta")
 _FINDING_SAMPLE_LIMIT = 10
-_RECONCILIATION_SAMPLE_LIMIT = 25
 _PositionRowSelection = dict[tuple[str, str], tuple[int, dict[str, object]]]
 _PositionContinuityPair = tuple[str, dict[str, object], dict[str, object]]
 _DuplicateSnapshotKey = tuple[str, str, int]
@@ -82,13 +86,6 @@ class _PositionSampleFindingSpec:
     date_key: str
     count_key: str
     samples_key: str
-
-
-@dataclass(frozen=True)
-class ReconciliationCheckResult:
-    findings: list[TWRInspectionFinding]
-    evidence_summary: dict[str, object]
-    artifact_payload: dict[str, object]
 
 
 @dataclass(frozen=True)
@@ -272,19 +269,21 @@ def analyze_portfolio_position_reconciliation(
         max_abs_gap_amount=max_abs_gap_amount,
         position_continuity_gap_samples=position_continuity_gap_samples,
     )
-    return _build_position_reconciliation_result(
-        portfolio_id=portfolio_id,
-        findings=findings,
-        overlapping_dates=overlapping_dates,
-        position_rows=position_rows,
-        selected_position_rows=selected_position_rows,
-        mixed_epoch_dates=mixed_epoch_dates,
-        duplicate_snapshot_samples=duplicate_snapshot_samples,
-        invalid_epoch_samples=invalid_epoch_samples,
-        invalid_position_value_samples=invalid_position_value_samples,
-        gap_details=gap_details,
-        max_abs_gap_amount=max_abs_gap_amount,
-        position_continuity_gap_samples=position_continuity_gap_samples,
+    return build_position_reconciliation_result(
+        PositionReconciliationEvidenceInputs(
+            portfolio_id=portfolio_id,
+            findings=findings,
+            overlapping_dates=overlapping_dates,
+            position_rows=position_rows,
+            selected_position_rows=selected_position_rows,
+            mixed_epoch_dates=mixed_epoch_dates,
+            duplicate_snapshot_samples=duplicate_snapshot_samples,
+            invalid_epoch_samples=invalid_epoch_samples,
+            invalid_position_value_samples=invalid_position_value_samples,
+            gap_details=gap_details,
+            max_abs_gap_amount=max_abs_gap_amount,
+            position_continuity_gap_samples=position_continuity_gap_samples,
+        )
     )
 
 
@@ -433,66 +432,6 @@ def _position_continuity_gap_finding(
         portfolio_id=portfolio_id,
         samples=position_continuity_gap_samples,
         spec=_POSITION_CONTINUITY_GAP_FINDING,
-    )
-
-
-def _build_position_reconciliation_result(
-    *,
-    portfolio_id: str,
-    findings: list[TWRInspectionFinding],
-    overlapping_dates: list[str],
-    position_rows: list[dict[str, object]],
-    selected_position_rows: list[dict[str, object]],
-    mixed_epoch_dates: list[str],
-    duplicate_snapshot_samples: list[dict[str, object]],
-    invalid_epoch_samples: list[dict[str, object]],
-    invalid_position_value_samples: list[dict[str, object]],
-    gap_details: list[dict[str, object]],
-    max_abs_gap_amount: Decimal,
-    position_continuity_gap_samples: list[dict[str, object]],
-) -> ReconciliationCheckResult:
-    duplicate_snapshot_dates = {sample["valuation_date"] for sample in duplicate_snapshot_samples}
-    invalid_position_epoch_dates = {sample["valuation_date"] for sample in invalid_epoch_samples}
-    invalid_position_value_dates = {sample["valuation_date"] for sample in invalid_position_value_samples}
-    return ReconciliationCheckResult(
-        findings=findings,
-        evidence_summary={
-            "reconciliation_dates_checked": len(overlapping_dates),
-            "position_row_count": len(position_rows),
-            "selected_position_row_count": len(selected_position_rows),
-            "mixed_epoch_date_count": len(mixed_epoch_dates),
-            "duplicate_snapshot_date_count": len(duplicate_snapshot_dates),
-            "duplicate_snapshot_row_count": len(duplicate_snapshot_samples),
-            "invalid_position_epoch_date_count": len(invalid_position_epoch_dates),
-            "invalid_position_epoch_row_count": len(invalid_epoch_samples),
-            "invalid_position_value_date_count": len(invalid_position_value_dates),
-            "invalid_position_value_row_count": len(invalid_position_value_samples),
-            "reconciliation_gap_date_count": len(gap_details),
-            "reconciliation_max_gap_amount": _decimal_to_artifact(max_abs_gap_amount),
-            "position_continuity_gap_count": len(position_continuity_gap_samples),
-        },
-        artifact_payload={
-            "portfolio_id": portfolio_id,
-            "reconciliation_dates_checked": len(overlapping_dates),
-            "position_row_count": len(position_rows),
-            "selected_position_row_count": len(selected_position_rows),
-            "mixed_epoch_dates": mixed_epoch_dates,
-            "mixed_epoch_date_count": len(mixed_epoch_dates),
-            "duplicate_snapshot_date_count": len(duplicate_snapshot_dates),
-            "duplicate_snapshot_row_count": len(duplicate_snapshot_samples),
-            "duplicate_snapshot_samples": duplicate_snapshot_samples[:25],
-            "invalid_position_epoch_date_count": len(invalid_position_epoch_dates),
-            "invalid_position_epoch_row_count": len(invalid_epoch_samples),
-            "invalid_position_epoch_samples": invalid_epoch_samples[:25],
-            "invalid_position_value_date_count": len(invalid_position_value_dates),
-            "invalid_position_value_row_count": len(invalid_position_value_samples),
-            "invalid_position_value_samples": invalid_position_value_samples[:25],
-            "reconciliation_gap_date_count": len(gap_details),
-            "max_gap_amount": _decimal_to_artifact(max_abs_gap_amount),
-            "gap_samples": gap_details[:_RECONCILIATION_SAMPLE_LIMIT],
-            "position_continuity_gap_count": len(position_continuity_gap_samples),
-            "position_continuity_gap_samples": position_continuity_gap_samples[:_RECONCILIATION_SAMPLE_LIMIT],
-        },
     )
 
 
