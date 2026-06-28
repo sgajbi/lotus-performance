@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -9,6 +10,54 @@ from app.services.compute_job_store import ComputeQueueInspectionItem
 from app.services.lineage_metadata_store import LineageQueueInspectionItem
 from app.services.operator_navigation_service import build_operator_navigation_links
 from app.services.runtime_work_item_service import RuntimeWorkItemSnapshot
+
+
+class RuntimeWorkItemsQueryParams(BaseModel):
+    queue: Literal["both", "compute", "lineage"] = Field(
+        default="both",
+        description="Queue scope for operator work-item inspection.",
+    )
+    status: Literal["active", "failed", "all", "reclaimable"] = Field(
+        default="active",
+        description=(
+            "Work-item lifecycle filter applied to both compute and lineage queues. "
+            "`reclaimable` returns work whose durable worker lease already expired and is eligible for recovery."
+        ),
+    )
+    limit: int = Field(
+        default=10,
+        ge=1,
+        le=100,
+        description="Maximum number of work items to return per queue.",
+    )
+    offset: int = Field(
+        default=0,
+        ge=0,
+        description="Zero-based page offset applied to each selected queue before limiting.",
+    )
+    min_age_seconds: float = Field(
+        default=0.0,
+        ge=0.0,
+        description="Optional minimum work-item age filter, in seconds, for stale-item triage.",
+    )
+    compute_analytics_type: str | None = Field(
+        default=None,
+        min_length=1,
+        pattern=r".*\S.*",
+        description="Optional compute analytics-type filter, such as ReturnsSeries or Attribution.",
+    )
+    lineage_calculation_type: str | None = Field(
+        default=None,
+        min_length=1,
+        pattern=r".*\S.*",
+        description="Optional lineage calculation-type filter, such as TWR or Attribution.",
+    )
+    calculation_id_contains: str | None = Field(
+        default=None,
+        min_length=1,
+        pattern=r".*\S.*",
+        description="Optional substring filter applied to calculation identifiers in the selected queues.",
+    )
 
 
 class ComputeRuntimeWorkItemResponse(BaseModel):
