@@ -153,6 +153,34 @@ async def test_get_position_analytics_timeseries_posts_contract_payload():
 
 
 @pytest.mark.asyncio
+async def test_get_performance_component_economics_posts_contract_payload():
+    service = CoreIntegrationService(base_url="http://core-control", timeout_seconds=2.0)
+    _FakeAsyncClient.queue_json(200, {"product_name": "PerformanceComponentEconomics"})
+
+    status_code, payload = await service.get_performance_component_economics(
+        portfolio_id="PORT-6",
+        as_of_date=date(2026, 2, 24),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 2, 24),
+        security_ids=["SEC_1"],
+        transaction_types=["DIVIDEND"],
+    )
+
+    assert status_code == 200
+    assert payload["product_name"] == "PerformanceComponentEconomics"
+    assert (
+        _FakeAsyncClient.calls[0]["url"]
+        == "http://core-control/integration/portfolios/PORT-6/performance-component-economics"
+    )
+    assert _FakeAsyncClient.calls[0]["json"] == {
+        "as_of_date": "2026-02-24",
+        "window": {"start_date": "2026-01-01", "end_date": "2026-02-24"},
+        "security_ids": ["SEC_1"],
+        "transaction_types": ["DIVIDEND"],
+    }
+
+
+@pytest.mark.asyncio
 async def test_get_benchmark_definition_posts_contract_payload():
     service = CoreIntegrationService(base_url="http://core", timeout_seconds=2.0)
     _FakeAsyncClient.queue_json(200, {"benchmark_id": "BMK_2"})

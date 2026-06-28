@@ -99,6 +99,29 @@ class CoreIntegrationService:
             payload=payload,
         )
 
+    async def get_performance_component_economics(
+        self,
+        *,
+        portfolio_id: str,
+        as_of_date: date,
+        start_date: date,
+        end_date: date,
+        security_ids: list[str] | None = None,
+        transaction_types: list[str] | None = None,
+    ) -> tuple[int, dict[str, Any]]:
+        payload: dict[str, Any] = {
+            "as_of_date": str(as_of_date),
+            "window": {"start_date": str(start_date), "end_date": str(end_date)},
+        }
+        if security_ids:
+            payload["security_ids"] = security_ids
+        if transaction_types:
+            payload["transaction_types"] = transaction_types
+        return await self._post_json(
+            path=f"/integration/portfolios/{portfolio_id}/performance-component-economics",
+            payload=payload,
+        )
+
     async def get_benchmark_assignment(
         self,
         *,

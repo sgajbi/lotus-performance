@@ -35,6 +35,8 @@ class StatefulContributionSourceInput:
     portfolio_input: StatefulPortfolioInput
     position_rows: list[dict[str, object]]
     position_retrieval_metadata: RetrievalMetadata
+    performance_component_economics_payload: dict[str, object] | None = None
+    performance_component_economics_status: int | None = None
 
 
 @dataclass(frozen=True)
@@ -101,10 +103,23 @@ async def retrieve_stateful_contribution_source_input(
     )
 
     position_source = parse_stateful_position_timeseries_payload(upstream_payload)
+    (
+        component_economics_status,
+        component_economics_payload,
+    ) = await stateful_input_service.get_performance_component_economics(
+        calculation_id=calculation_id,
+        portfolio_id=portfolio_id,
+        as_of_date=as_of_date,
+        start_date=report_start_date,
+        end_date=report_end_date,
+        security_ids=_security_ids_filter(filters),
+    )
     return StatefulContributionSourceInput(
         portfolio_input=portfolio_input,
         position_rows=position_source.rows,
         position_retrieval_metadata=parse_retrieval_metadata(upstream_payload),
+        performance_component_economics_payload=component_economics_payload,
+        performance_component_economics_status=component_economics_status,
     )
 
 
@@ -138,6 +153,16 @@ def build_stateful_contribution_input(
         rows=source_input.position_rows,
         currency_mode=normalized_currency_mode,
         reporting_currency=reporting_currency,
+        performance_component_economics_payload=getattr(
+            source_input,
+            "performance_component_economics_payload",
+            None,
+        ),
+        performance_component_economics_status=getattr(
+            source_input,
+            "performance_component_economics_status",
+            None,
+        ),
     )
 
     positions_data = [
@@ -162,6 +187,8 @@ def _stateful_contribution_position_series(
     rows: list[dict[str, object]],
     currency_mode: str,
     reporting_currency: str | None,
+    performance_component_economics_payload: dict[str, object] | None = None,
+    performance_component_economics_status: int | None = None,
 ) -> _StatefulContributionPositionSeries:
     positions_by_id: dict[str, list[dict[str, object]]] = {}
     position_meta: dict[str, dict[str, object]] = {}
@@ -178,7 +205,11 @@ def _stateful_contribution_position_series(
         if point is None:
             continue
         positions_by_id.setdefault(position_id_raw, []).append(point)
-        position_meta[position_id_raw] = _position_meta_from_row(row)
+        position_meta[position_id_raw] = _position_meta_from_row(
+            row,
+            performance_component_economics_payload=performance_component_economics_payload,
+            performance_component_economics_status=performance_component_economics_status,
+        )
     return _StatefulContributionPositionSeries(
         valuation_points_by_position_id=positions_by_id,
         meta_by_position_id=position_meta,
@@ -255,14 +286,23 @@ def _reporting_position_value_pair(row: dict[str, object]) -> tuple[object, obje
     return begin_value, end_value
 
 
-def _position_meta_from_row(row: dict[str, object]) -> dict[str, object]:
+def _position_meta_from_row(
+    row: dict[str, object],
+    *,
+    performance_component_economics_payload: dict[str, object] | None = None,
+    performance_component_economics_status: int | None = None,
+) -> dict[str, object]:
     meta = _position_contract_meta_from_row(row)
     dimensions_raw = row.get("dimensions")
     if isinstance(dimensions_raw, dict):
         for key, value in dimensions_raw.items():
             if isinstance(key, str) and value is not None:
                 meta[key] = value
-    meta["_source_economics"] = _position_source_economics_from_row(row)
+    meta["_source_economics"] = _position_source_economics_from_row(
+        row,
+        performance_component_economics_payload=performance_component_economics_payload,
+        performance_component_economics_status=performance_component_economics_status,
+    )
     return meta
 
 
@@ -296,7 +336,12 @@ def _position_contract_fx_rate_meta(row: dict[str, object]) -> dict[str, object]
     return meta
 
 
-def _position_source_economics_from_row(row: dict[str, object]) -> dict[str, object]:
+def _position_source_economics_from_row(
+    row: dict[str, object],
+    *,
+    performance_component_economics_payload: dict[str, object] | None = None,
+    performance_component_economics_status: int | None = None,
+) -> dict[str, object]:
     cash_flow_type_counts: dict[str, int] = {}
     cash_flows_raw = row.get("cash_flows")
     if isinstance(cash_flows_raw, list):
@@ -307,11 +352,62 @@ def _position_source_economics_from_row(row: dict[str, object]) -> dict[str, obj
             key = classification.normalized_value or "missing"
             cash_flow_type_counts[key] = cash_flow_type_counts.get(key, 0) + 1
 
-    return {
+    source_economics: dict[str, object] = {
         "cash_flow_type_counts": dict(sorted(cash_flow_type_counts.items())),
         "valuation_status": row.get("valuation_status"),
         "source_contract": "PositionTimeseriesInput:v1",
     }
+    if performance_component_economics_payload is not None:
+        source_economics["performance_component_economics"] = _performance_component_economics_context(
+            payload=performance_component_economics_payload,
+            status_code=performance_component_economics_status,
+        )
+    return source_economics
+
+
+def _performance_component_economics_context(
+    *,
+    payload: dict[str, object],
+    status_code: int | None,
+) -> dict[str, object]:
+    supportability_raw = payload.get("supportability")
+    supportability = supportability_raw if isinstance(supportability_raw, dict) else {}
+    return {
+        "source_contract": "PerformanceComponentEconomics:v1",
+        "retrieval_status": status_code,
+        "supportability_state": _string_value(supportability.get("state")),
+        "supportability_reason": _string_value(supportability.get("reason")),
+        "source_row_count": _non_negative_int(supportability.get("source_row_count")),
+        "observed_component_families": _string_values(supportability.get("observed_component_families")),
+        "missing_component_families": _string_values(supportability.get("missing_component_families")),
+        "supported_component_families": _string_values(supportability.get("supported_component_families")),
+    }
+
+
+def _security_ids_filter(filters: dict[str, object]) -> list[str] | None:
+    security_ids = filters.get("security_ids")
+    if not isinstance(security_ids, list):
+        return None
+    normalized = sorted({security_id for security_id in security_ids if isinstance(security_id, str) and security_id})
+    return normalized or None
+
+
+def _string_values(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return sorted({item for item in value if isinstance(item, str) and item})
+
+
+def _string_value(value: object) -> str | None:
+    if isinstance(value, str) and value:
+        return value
+    return None
+
+
+def _non_negative_int(value: object) -> int:
+    if type(value) is int and value > 0:
+        return value
+    return 0
 
 
 def _validate_stateful_both_currency_support(

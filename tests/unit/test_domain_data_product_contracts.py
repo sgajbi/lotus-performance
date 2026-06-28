@@ -121,6 +121,7 @@ def test_repo_native_consumer_declarations_keep_watchlist_dependencies_docs_only
     assert dependency_names == [
         "PortfolioTimeseriesInput",
         "PositionTimeseriesInput",
+        "PerformanceComponentEconomics",
         "PortfolioAnalyticsReference",
         "BenchmarkAssignment",
         "MarketDataWindow",

@@ -106,6 +106,96 @@ def test_source_economics_evidence_preserves_source_rich_stateful_contract():
     assert "income_pnl" in evidence.unsupported_economics
 
 
+def test_source_economics_evidence_consumes_core_performance_component_economics_coverage():
+    request = _request_with_position_meta(
+        {
+            "asset_class": "Equity",
+            "_source_economics": {
+                "cash_flow_type_counts": {
+                    "external_flow": 1,
+                },
+                "performance_component_economics": {
+                    "source_contract": "PerformanceComponentEconomics:v1",
+                    "retrieval_status": 200,
+                    "supportability_state": "READY",
+                    "supportability_reason": "PERFORMANCE_COMPONENT_ECONOMICS_READY",
+                    "source_row_count": 4,
+                    "observed_component_families": [
+                        "income",
+                        "tax",
+                        "fee",
+                        "realized_capital_pnl",
+                        "realized_fx_pnl",
+                    ],
+                    "missing_component_families": ["cashflow"],
+                    "supported_component_families": [
+                        "cashflow",
+                        "fee",
+                        "income",
+                        "tax",
+                        "realized_capital_pnl",
+                        "realized_fx_pnl",
+                    ],
+                },
+            },
+        }
+    )
+
+    evidence = build_contribution_source_economics_evidence(
+        request=request,
+        input_mode=ContributionInputMode.STATEFUL,
+        upstream_snapshots=[
+            _snapshot("portfolio_timeseries"),
+            _snapshot("position_timeseries"),
+            _snapshot("performance_component_economics"),
+        ],
+    )
+
+    assert "PerformanceComponentEconomics:v1" in evidence.source_contracts
+    assert "PERFORMANCE_COMPONENT_ECONOMICS_SOURCE_USED" in evidence.reason_codes
+    assert "source_component_income" in evidence.available_economics
+    assert "source_component_fees" in evidence.available_economics
+    assert "source_component_tax" in evidence.available_economics
+    assert "source_realized_capital_pnl" in evidence.available_economics
+    assert "source_realized_fx_pnl" in evidence.available_economics
+    assert "income_pnl" not in evidence.unsupported_economics
+    assert "fee_pnl" not in evidence.unsupported_economics
+    assert "tax_pnl" not in evidence.unsupported_economics
+    assert "price_pnl" in evidence.unsupported_economics
+    assert "fx_pnl" in evidence.unsupported_economics
+
+
+def test_source_economics_evidence_degrades_unavailable_core_performance_component_economics():
+    request = _request_with_position_meta(
+        {
+            "_source_economics": {
+                "performance_component_economics": {
+                    "source_contract": "PerformanceComponentEconomics:v1",
+                    "retrieval_status": 503,
+                    "supportability_state": "UNAVAILABLE",
+                    "supportability_reason": "PERFORMANCE_COMPONENT_ECONOMICS_UNAVAILABLE",
+                    "source_row_count": 0,
+                    "observed_component_families": [],
+                    "missing_component_families": ["fee", "income", "tax"],
+                    "supported_component_families": ["fee", "income", "tax"],
+                }
+            },
+        }
+    )
+
+    evidence = build_contribution_source_economics_evidence(
+        request=request,
+        input_mode=ContributionInputMode.STATEFUL,
+        upstream_snapshots=[_snapshot("performance_component_economics")],
+    )
+
+    assert evidence.status == "SOURCE_LIMITED"
+    assert "performance_component_economics_unavailable" in evidence.degraded_economics
+    assert "PERFORMANCE_COMPONENT_ECONOMICS_UNAVAILABLE" in evidence.reason_codes
+    assert "source_component_income" not in evidence.available_economics
+    assert "income_pnl" in evidence.unsupported_economics
+
+
 def test_stateful_source_economics_evidence_reports_source_backed_contract_when_complete():
     request = _request_with_position_meta(
         {

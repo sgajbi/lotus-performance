@@ -141,8 +141,12 @@ whether final residual allocation was needed.
 The top-level `source_economics_evidence` block explains whether contribution used caller-supplied
 stateless inputs or lotus-core stateful analytics inputs, which source contracts were used, which
 cash-flow families and classification dimensions were present, which component-P&L families are not
-source-authored, and where upstream snapshot lineage is retained. Downstream consumers must preserve
-this block instead of inferring source quality from rounded contribution totals.
+source-authored, and where upstream snapshot lineage is retained. Stateful contribution now consumes
+`PerformanceComponentEconomics:v1` as optional Core source evidence for cashflow, fee, income, tax,
+realized P&L, and FX-context component families. Non-200 or unavailable component-economics
+responses degrade `source_economics_evidence` rather than blocking calculations that can still run
+from portfolio and position timeseries. Downstream consumers must preserve this block instead of
+inferring source quality from rounded contribution totals.
 
 ## Data Product And Mesh Posture
 
@@ -157,8 +161,9 @@ declaration lives in `contracts/domain-data-products/lotus-performance-products.
 - lineage: required, customer-consumable lineage summary posture;
 - trust metadata: product identity, generation/as-of dates, correlation and request fingerprints,
   source services, upstream fingerprints, data-quality status, coverage status, and coverage ratio;
-- source dependencies: `lotus-core` `PortfolioTimeseriesInput:v1` and
-  `PositionTimeseriesInput:v1`.
+- source dependencies: `lotus-core` `PortfolioTimeseriesInput:v1`,
+  `PositionTimeseriesInput:v1`, and optional `PerformanceComponentEconomics:v1` evidence
+  enrichment.
 
 Repo-local trust telemetry is stored at
 `contracts/trust-telemetry/contribution-analytics.telemetry.v1.json`. Platform SLO, access, and

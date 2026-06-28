@@ -44,6 +44,9 @@ Inside the current contract:
 - stateful mode preserves source-economics posture in `source_economics_evidence`, including
   source contracts, cash-flow type counts, available economics, unsupported component-P&L families,
   and upstream snapshot posture
+- stateful mode consumes `lotus-core:PerformanceComponentEconomics:v1` when available to enrich
+  source-economics evidence for source-authored cashflow, fee, income, tax, realized P&L, and
+  FX-context component families without moving contribution methodology out of `lotus-performance`
 - `lookthrough` is accepted as a compatibility request block only; lotus-performance does not
   decompose fund or structured-product holdings and expects lotus-core to provide already-visible
   position rows for the requested scope
@@ -270,19 +273,28 @@ Use this block to understand what the contribution result was actually sourced f
 - `source_owner`: `lotus-core` for stateful analytics inputs, `caller` for stateless payloads
 - `status`: `SOURCE_BACKED`, `SOURCE_LIMITED`, or `CALLER_SUPPLIED`
 - `source_contracts`: source contracts used, such as `PortfolioTimeseriesInput:v1` and
-  `PositionTimeseriesInput:v1`
+  `PositionTimeseriesInput:v1`; stateful contribution also includes
+  `PerformanceComponentEconomics:v1` when the Core component-economics source product was
+  retrieved for evidence enrichment
 - `available_economics`: source-backed inputs such as market values, external flows, internal
-  trade flows, fees, FX rates, and classification dimensions
+  trade flows, fees, FX rates, classification dimensions, and observed
+  `PerformanceComponentEconomics:v1` component families such as source component income, fees,
+  tax, realized capital P&L, realized FX P&L, realized total P&L, cashflows, and FX context
 - `unsupported_economics`: component-P&L families that are not source-authored in the current
-  contract, such as income, tax, corporate-action, derivative, cash, and residual P&L buckets
+  contract; observed `PerformanceComponentEconomics:v1` fee, income, and tax families remove the
+  corresponding `fee_pnl`, `income_pnl`, and `tax_pnl` unsupported flags, while broader price,
+  FX attribution, corporate-action, derivative, cash, and residual P&L buckets remain unsupported
+  unless a precise source contract supplies them
 - `degraded_economics`: degraded signals such as unsupported source cash-flow types, missing
-  classification, or execution-only upstream snapshot lineage
+  classification, unavailable component-economics enrichment, or execution-only upstream snapshot
+  lineage
 - `cash_flow_type_counts`: source cash-flow labels observed on stateful position rows
 - `source_snapshot_count` and `source_snapshot_endpoints`: execution-registry lineage coverage
 
 Lotus does not guess unavailable income, tax, FX P&L, corporate-action, derivative, loan, cash, or
-liability economics. Those fields remain explicit unsupported or degraded evidence until a
-source-owned contract publishes them.
+liability economics. Core-authored component evidence is consumed when
+`PerformanceComponentEconomics:v1` publishes it, but Lotus still avoids overclaiming broader P&L or
+attribution buckets that the source product does not explicitly support.
 
 ## Source-Document Edge Semantics
 

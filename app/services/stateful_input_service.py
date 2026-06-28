@@ -39,6 +39,15 @@ class _PositionChunkAccumulator:
     page_count: int = 0
 
 
+@dataclass
+class _PerformanceComponentEconomicsAccumulator:
+    observed_component_families: set[str]
+    supported_component_families: set[str]
+    missing_component_families: set[str]
+    source_row_count: int = 0
+    ready_chunk_count: int = 0
+
+
 @dataclass(frozen=True)
 class _PortfolioReferenceRequest:
     portfolio_id: str
@@ -173,6 +182,56 @@ class StatefulInputService:
 
         return 200, self._build_position_timeseries_payload(
             responses=responses,
+            chunk_count=len(chunks),
+        )
+
+    async def get_performance_component_economics(
+        self,
+        *,
+        portfolio_id: str,
+        as_of_date: date,
+        start_date: date,
+        end_date: date,
+        security_ids: list[str] | None = None,
+        transaction_types: list[str] | None = None,
+        calculation_id: UUID | None = None,
+    ) -> tuple[int, dict[str, Any]]:
+        existing_snapshot_ids = self._existing_snapshot_ids(calculation_id)
+        chunks = self.plan_chunks(
+            start_date=start_date,
+            end_date=end_date,
+            chunk_days=366,
+        )
+        responses = await self._gather_chunked(
+            chunks=chunks,
+            fetcher=lambda chunk: self._fetch_performance_component_economics_chunk(
+                portfolio_id=portfolio_id,
+                as_of_date=as_of_date,
+                chunk=chunk,
+                security_ids=security_ids,
+                transaction_types=transaction_types,
+            ),
+        )
+        self._record_performance_component_economics_snapshots(
+            calculation_id=calculation_id,
+            portfolio_id=portfolio_id,
+            as_of_date=as_of_date,
+            chunks=chunks,
+            security_ids=security_ids,
+            transaction_types=transaction_types,
+            responses=responses,
+            existing_snapshot_ids=existing_snapshot_ids,
+        )
+        failure = self._first_failure(responses)
+        if failure is not None:
+            return failure
+
+        return 200, self._build_performance_component_economics_payload(
+            responses=responses,
+            portfolio_id=portfolio_id,
+            as_of_date=as_of_date,
+            start_date=start_date,
+            end_date=end_date,
             chunk_count=len(chunks),
         )
 
@@ -1125,6 +1184,61 @@ class StatefulInputService:
             ),
         )
 
+    async def _fetch_performance_component_economics_chunk(
+        self,
+        *,
+        portfolio_id: str,
+        as_of_date: date,
+        chunk: DateChunk,
+        security_ids: list[str] | None,
+        transaction_types: list[str] | None,
+    ) -> tuple[int, dict[str, Any]]:
+        return await self._core_service.get_performance_component_economics(
+            portfolio_id=portfolio_id,
+            as_of_date=as_of_date,
+            start_date=chunk.start_date,
+            end_date=chunk.end_date,
+            security_ids=security_ids,
+            transaction_types=transaction_types,
+        )
+
+    def _record_performance_component_economics_snapshots(
+        self,
+        *,
+        calculation_id: UUID | None,
+        portfolio_id: str,
+        as_of_date: date,
+        chunks: list[DateChunk],
+        security_ids: list[str] | None,
+        transaction_types: list[str] | None,
+        responses: list[tuple[int, dict[str, Any]]],
+        existing_snapshot_ids: set[str],
+    ) -> None:
+        if calculation_id is None:
+            return
+        snapshot_batch: list[dict[str, Any]] = []
+        for chunk, response in zip(chunks, responses):
+            request_payload = _performance_component_economics_request_payload(
+                portfolio_id=portfolio_id,
+                chunk=chunk,
+                security_ids=security_ids,
+                transaction_types=transaction_types,
+            )
+            self._append_timeseries_snapshot_if_new(
+                calculation_id=calculation_id,
+                upstream_endpoint="performance_component_economics",
+                source_identifier=portfolio_id,
+                as_of_date=as_of_date,
+                request_payload=request_payload,
+                response=response,
+                snapshot_batch=snapshot_batch,
+                existing_snapshot_ids=existing_snapshot_ids,
+            )
+        self._record_upstream_snapshot_batch(
+            calculation_id=calculation_id,
+            snapshots=snapshot_batch,
+        )
+
     def _record_upstream_snapshot_batch(
         self,
         *,
@@ -1257,6 +1371,48 @@ class StatefulInputService:
             "retrieval_metadata": {
                 "chunk_count": chunk_count,
                 "page_count": self._total_retrieval_page_count(responses),
+            },
+        }
+
+    def _build_performance_component_economics_payload(
+        self,
+        *,
+        responses: list[tuple[int, dict[str, Any]]],
+        portfolio_id: str,
+        as_of_date: date,
+        start_date: date,
+        end_date: date,
+        chunk_count: int,
+    ) -> dict[str, Any]:
+        accumulator = _performance_component_economics_accumulator(responses)
+        observed_families = sorted(accumulator.observed_component_families)
+        supported_families = sorted(accumulator.supported_component_families)
+        missing_families = sorted(accumulator.supported_component_families - accumulator.observed_component_families)
+        if not supported_families:
+            missing_families = sorted(accumulator.missing_component_families)
+        return {
+            "product_name": "PerformanceComponentEconomics",
+            "product_version": "v1",
+            "portfolio_id": portfolio_id,
+            "as_of_date": str(as_of_date),
+            "window": {"start_date": str(start_date), "end_date": str(end_date)},
+            "supportability": {
+                "state": "READY" if accumulator.ready_chunk_count > 0 else "UNAVAILABLE",
+                "reason": (
+                    "PERFORMANCE_COMPONENT_ECONOMICS_READY"
+                    if accumulator.ready_chunk_count > 0
+                    else "PERFORMANCE_COMPONENT_ECONOMICS_UNAVAILABLE"
+                ),
+                "source_owner": "lotus-core",
+                "downstream_consumer": "lotus-performance",
+                "source_row_count": accumulator.source_row_count,
+                "supported_component_families": supported_families,
+                "observed_component_families": observed_families,
+                "missing_component_families": missing_families,
+            },
+            "retrieval_metadata": {
+                "chunk_count": chunk_count,
+                "page_count": len(responses),
             },
         }
 
@@ -1516,6 +1672,57 @@ def _position_timeseries_request_payload(
         "filters": filters,
         "page_token": page_token,
     }
+
+
+def _performance_component_economics_request_payload(
+    *,
+    portfolio_id: str,
+    chunk: DateChunk,
+    security_ids: list[str] | None,
+    transaction_types: list[str] | None,
+) -> dict[str, Any]:
+    return {
+        "portfolio_id": portfolio_id,
+        "start_date": str(chunk.start_date),
+        "end_date": str(chunk.end_date),
+        "security_ids": sorted(set(security_ids or [])),
+        "transaction_types": sorted(set(transaction_types or [])),
+    }
+
+
+def _performance_component_economics_accumulator(
+    responses: list[tuple[int, dict[str, Any]]],
+) -> _PerformanceComponentEconomicsAccumulator:
+    accumulator = _PerformanceComponentEconomicsAccumulator(
+        observed_component_families=set(),
+        supported_component_families=set(),
+        missing_component_families=set(),
+    )
+    for _, payload in responses:
+        supportability = payload.get("supportability")
+        if not isinstance(supportability, dict):
+            continue
+        if supportability.get("state") == "READY":
+            accumulator.ready_chunk_count += 1
+        accumulator.source_row_count += _non_negative_int(supportability.get("source_row_count"))
+        accumulator.observed_component_families.update(_string_list(supportability.get("observed_component_families")))
+        accumulator.supported_component_families.update(
+            _string_list(supportability.get("supported_component_families"))
+        )
+        accumulator.missing_component_families.update(_string_list(supportability.get("missing_component_families")))
+    return accumulator
+
+
+def _string_list(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, str) and item]
+
+
+def _non_negative_int(value: Any) -> int:
+    if type(value) is int and value > 0:
+        return value
+    return 0
 
 
 def _position_rows_from_payload(payload: dict[str, Any]) -> list[dict[str, Any]]:

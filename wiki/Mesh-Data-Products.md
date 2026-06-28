@@ -64,7 +64,9 @@
   `contracts/trust-telemetry/contribution-analytics.telemetry.v1.json`, and approved for
   `lotus-gateway` consumption. Gateway and Workbench may display contribution product evidence,
   but must not reconstruct contribution totals, source-quality posture, or Carino smoothing state
-  downstream. Source inputs are portfolio and position analytics inputs from `lotus-core`; missing
+  downstream. Source inputs are portfolio and position analytics inputs from `lotus-core`, with
+  optional `PerformanceComponentEconomics:v1` evidence for Core-authored cashflow, fee, income,
+  tax, realized P&L, and FX-context component-family supportability. Missing or broader
   component-P&L families remain explicit unsupported/degraded evidence rather than inferred facts.
   RFC-047 also proves source-document edge semantics for external deposits, internal trade flows,
   income assignment, fee drag, missing classifications, short-sleeve sign behavior, and

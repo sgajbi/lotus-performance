@@ -21,6 +21,22 @@ _COMPONENT_PNL_FIELDS = (
     "residual_pnl",
 )
 _CLASSIFICATION_DIMENSIONS = ("asset_class", "sector", "country", "currency")
+_PERFORMANCE_COMPONENT_ECONOMICS_CONTRACT = "PerformanceComponentEconomics:v1"
+_PERFORMANCE_COMPONENT_AVAILABLE_ECONOMICS = {
+    "cashflow": "source_component_cashflows",
+    "fee": "source_component_fees",
+    "income": "source_component_income",
+    "tax": "source_component_tax",
+    "realized_capital_pnl": "source_realized_capital_pnl",
+    "realized_fx_pnl": "source_realized_fx_pnl",
+    "realized_total_pnl": "source_realized_total_pnl",
+    "fx_context": "source_fx_context",
+}
+_PERFORMANCE_COMPONENT_PNL_FIELD_SUPPORT = {
+    "fee": "fee_pnl",
+    "income": "income_pnl",
+    "tax": "tax_pnl",
+}
 
 
 def build_contribution_source_economics_evidence(
@@ -59,17 +75,27 @@ def _stateful_source_economics_evidence(
     upstream_snapshots: list[UpstreamSnapshotRecord],
 ) -> ContributionSourceEconomicsEvidence:
     cash_flow_type_counts = _cash_flow_type_counts(request)
-    available_economics = _available_stateful_economics(request, cash_flow_type_counts)
-    unsupported_economics = _unsupported_component_pnl_fields(request)
+    component_contexts = _performance_component_economics_contexts(request)
+    available_economics = _available_stateful_economics(
+        request,
+        cash_flow_type_counts,
+        component_contexts=component_contexts,
+    )
+    unsupported_economics = _unsupported_component_pnl_fields(
+        request,
+        component_contexts=component_contexts,
+    )
     degraded_economics = _degraded_stateful_economics(
         request=request,
         cash_flow_type_counts=cash_flow_type_counts,
         upstream_snapshots=upstream_snapshots,
+        component_contexts=component_contexts,
     )
     reason_codes = _stateful_reason_codes(
         unsupported_economics=unsupported_economics,
         degraded_economics=degraded_economics,
         upstream_snapshots=upstream_snapshots,
+        component_contexts=component_contexts,
     )
     status: Literal["SOURCE_BACKED", "SOURCE_LIMITED"]
     status = "SOURCE_LIMITED" if degraded_economics or unsupported_economics else "SOURCE_BACKED"
@@ -78,7 +104,7 @@ def _stateful_source_economics_evidence(
         source_owner="lotus-core",
         status=status,
         reason_codes=reason_codes,
-        source_contracts=["PortfolioTimeseriesInput:v1", "PositionTimeseriesInput:v1"],
+        source_contracts=_stateful_source_contracts(component_contexts),
         available_economics=available_economics,
         unsupported_economics=unsupported_economics,
         degraded_economics=degraded_economics,
@@ -117,10 +143,13 @@ def _has_position_currency_metadata(request: ContributionRequest) -> bool:
 def _available_stateful_economics(
     request: ContributionRequest,
     cash_flow_type_counts: Counter[str],
+    *,
+    component_contexts: list[dict[str, Any]] | None = None,
 ) -> list[str]:
     available = ["portfolio_market_values", "position_market_values"]
     available.extend(_stateful_cash_flow_economics(cash_flow_type_counts))
     available.extend(_stateful_metadata_economics(request))
+    available.extend(_performance_component_available_economics(component_contexts or []))
     return sorted(set(available))
 
 
@@ -148,8 +177,12 @@ def _stateful_metadata_economics(request: ContributionRequest) -> list[str]:
     return available
 
 
-def _unsupported_component_pnl_fields(request: ContributionRequest) -> list[str]:
+def _unsupported_component_pnl_fields(
+    request: ContributionRequest,
+    component_contexts: list[dict[str, Any]] | None = None,
+) -> list[str]:
     present_component_fields = _present_component_pnl_fields(request)
+    present_component_fields.update(_component_pnl_fields_from_performance_economics(component_contexts or []))
     return [field_name for field_name in _COMPONENT_PNL_FIELDS if field_name not in present_component_fields]
 
 
@@ -167,6 +200,7 @@ def _degraded_stateful_economics(
     request: ContributionRequest,
     cash_flow_type_counts: Counter[str],
     upstream_snapshots: list[UpstreamSnapshotRecord],
+    component_contexts: list[dict[str, Any]],
 ) -> list[str]:
     degraded: set[str] = set()
     if _has_unsupported_cash_flow_types(cash_flow_type_counts):
@@ -175,6 +209,8 @@ def _degraded_stateful_economics(
         degraded.add("missing_classification")
     if not upstream_snapshots:
         degraded.add("upstream_snapshot_lineage_not_embedded")
+    if _has_degraded_performance_component_economics(component_contexts):
+        degraded.add("performance_component_economics_unavailable")
     return sorted(degraded)
 
 
@@ -194,10 +230,15 @@ def _stateful_reason_codes(
     unsupported_economics: list[str],
     degraded_economics: list[str],
     upstream_snapshots: list[UpstreamSnapshotRecord],
+    component_contexts: list[dict[str, Any]] | None = None,
 ) -> list[str]:
     reason_codes = ["LOTUS_CORE_ANALYTICS_INPUTS_USED"]
+    if component_contexts:
+        reason_codes.append("PERFORMANCE_COMPONENT_ECONOMICS_SOURCE_USED")
     if unsupported_economics:
         reason_codes.append("COMPONENT_PNL_NOT_SOURCE_AUTHORED")
+    if "performance_component_economics_unavailable" in degraded_economics:
+        reason_codes.append("PERFORMANCE_COMPONENT_ECONOMICS_UNAVAILABLE")
     if "unsupported_cash_flow_types" in degraded_economics:
         reason_codes.append("UNSUPPORTED_SOURCE_CASH_FLOW_TYPES_PRESENT")
     if "missing_classification" in degraded_economics:
@@ -229,6 +270,77 @@ def _source_cash_flow_type_counts(meta: dict[str, Any]) -> Counter[str]:
         if _is_valid_source_cash_flow_type_count(key, value):
             counts[key] += value
     return counts
+
+
+def _stateful_source_contracts(component_contexts: list[dict[str, Any]]) -> list[str]:
+    contracts = ["PortfolioTimeseriesInput:v1", "PositionTimeseriesInput:v1"]
+    if component_contexts:
+        contracts.append(_PERFORMANCE_COMPONENT_ECONOMICS_CONTRACT)
+    return contracts
+
+
+def _performance_component_economics_contexts(request: ContributionRequest) -> list[dict[str, Any]]:
+    contexts: list[dict[str, Any]] = []
+    seen: set[tuple[Any, ...]] = set()
+    for position in request.positions_data:
+        source_economics = position.meta.get("_source_economics")
+        if not isinstance(source_economics, dict):
+            continue
+        context = source_economics.get("performance_component_economics")
+        if not isinstance(context, dict):
+            continue
+        key = (
+            context.get("retrieval_status"),
+            context.get("supportability_state"),
+            tuple(_source_string_list(context.get("observed_component_families"))),
+            tuple(_source_string_list(context.get("missing_component_families"))),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        contexts.append(context)
+    return contexts
+
+
+def _performance_component_available_economics(component_contexts: list[dict[str, Any]]) -> list[str]:
+    return [
+        _PERFORMANCE_COMPONENT_AVAILABLE_ECONOMICS[family]
+        for family in sorted(_observed_performance_component_families(component_contexts))
+        if family in _PERFORMANCE_COMPONENT_AVAILABLE_ECONOMICS
+    ]
+
+
+def _component_pnl_fields_from_performance_economics(component_contexts: list[dict[str, Any]]) -> set[str]:
+    return {
+        _PERFORMANCE_COMPONENT_PNL_FIELD_SUPPORT[family]
+        for family in _observed_performance_component_families(component_contexts)
+        if family in _PERFORMANCE_COMPONENT_PNL_FIELD_SUPPORT
+    }
+
+
+def _observed_performance_component_families(component_contexts: list[dict[str, Any]]) -> set[str]:
+    observed: set[str] = set()
+    for context in component_contexts:
+        if context.get("supportability_state") != "READY":
+            continue
+        observed.update(_source_string_list(context.get("observed_component_families")))
+    return observed
+
+
+def _has_degraded_performance_component_economics(component_contexts: list[dict[str, Any]]) -> bool:
+    for context in component_contexts:
+        retrieval_status = context.get("retrieval_status")
+        if not isinstance(retrieval_status, int) or retrieval_status >= 400:
+            return True
+        if context.get("supportability_state") != "READY":
+            return True
+    return False
+
+
+def _source_string_list(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return sorted({item for item in value if isinstance(item, str) and item})
 
 
 def _raw_source_cash_flow_type_counts(meta: dict[str, Any]) -> dict[Any, Any] | None:
