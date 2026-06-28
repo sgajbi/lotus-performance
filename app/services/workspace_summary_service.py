@@ -704,27 +704,11 @@ def _build_workspace_period_summary_result(
     benchmark_daily_df: pd.DataFrame | None,
     frequencies: list[Frequency],
 ) -> WorkspacePeriodSummaryResult:
-    net_summary = _build_workspace_performance_block(
+    portfolio_twr = _build_workspace_period_twr_pair(
+        resolved_period=resolved_period,
         portfolio_slice=portfolio_slice,
-        period_daily_slice=_slice_by_date(
-            net_daily_results_df,
-            date_column=PortfolioColumns.PERF_DATE.value,
-            start_date=resolved_period.start_date,
-            end_date=resolved_period.end_date,
-        ),
-        full_daily_df=net_daily_results_df,
-        frequencies=frequencies,
-        annualization=request.annualization,
-    )
-    gross_summary = _build_workspace_performance_block(
-        portfolio_slice=portfolio_slice,
-        period_daily_slice=_slice_by_date(
-            gross_daily_results_df,
-            date_column=PortfolioColumns.PERF_DATE.value,
-            start_date=resolved_period.start_date,
-            end_date=resolved_period.end_date,
-        ),
-        full_daily_df=gross_daily_results_df,
+        net_daily_results_df=net_daily_results_df,
+        gross_daily_results_df=gross_daily_results_df,
         frequencies=frequencies,
         annualization=request.annualization,
     )
@@ -734,11 +718,11 @@ def _build_workspace_period_summary_result(
         resolved_period=resolved_period,
         frequencies=frequencies,
         annualization=request.annualization,
-        net_summary=net_summary,
-        gross_summary=gross_summary,
+        net_summary=portfolio_twr.net,
+        gross_summary=portfolio_twr.gross,
     )
     return WorkspacePeriodSummaryResult(
-        portfolio_twr=WorkspaceBasisPair(net=net_summary, gross=gross_summary),
+        portfolio_twr=portfolio_twr,
         benchmark=benchmark_block,
         active=active_block,
         money_weighted_return=_build_workspace_mwr_summary(
@@ -747,6 +731,55 @@ def _build_workspace_period_summary_result(
             input_mode=portfolio_input.input_mode,
             request=request,
         ),
+    )
+
+
+def _build_workspace_period_twr_pair(
+    *,
+    resolved_period: ResolvedWorkspacePeriod,
+    portfolio_slice: pd.DataFrame,
+    net_daily_results_df: pd.DataFrame,
+    gross_daily_results_df: pd.DataFrame,
+    frequencies: list[Frequency],
+    annualization: Any,
+) -> WorkspaceBasisPair:
+    return WorkspaceBasisPair(
+        net=_build_workspace_period_performance_block(
+            resolved_period=resolved_period,
+            portfolio_slice=portfolio_slice,
+            daily_results_df=net_daily_results_df,
+            frequencies=frequencies,
+            annualization=annualization,
+        ),
+        gross=_build_workspace_period_performance_block(
+            resolved_period=resolved_period,
+            portfolio_slice=portfolio_slice,
+            daily_results_df=gross_daily_results_df,
+            frequencies=frequencies,
+            annualization=annualization,
+        ),
+    )
+
+
+def _build_workspace_period_performance_block(
+    *,
+    resolved_period: ResolvedWorkspacePeriod,
+    portfolio_slice: pd.DataFrame,
+    daily_results_df: pd.DataFrame,
+    frequencies: list[Frequency],
+    annualization: Any,
+) -> WorkspacePerformanceBlock:
+    return _build_workspace_performance_block(
+        portfolio_slice=portfolio_slice,
+        period_daily_slice=_slice_by_date(
+            daily_results_df,
+            date_column=PortfolioColumns.PERF_DATE.value,
+            start_date=resolved_period.start_date,
+            end_date=resolved_period.end_date,
+        ),
+        full_daily_df=daily_results_df,
+        frequencies=frequencies,
+        annualization=annualization,
     )
 
 

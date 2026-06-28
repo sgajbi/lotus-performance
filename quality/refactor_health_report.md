@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Health Report
 
 Report date: 2026-06-29
-Branch: `feature/runtime-retention-history-snapshot-boundary`
+Branch: `feature/workspace-period-summary-boundary`
 Baseline source: `quality/baseline_report.md`
 Report mode: phase-zero scorecard; complexity, architecture, duplicate-code, repository hygiene,
 router-thinness, observability-readiness, domain-product validation, deterministic API evaluation,
@@ -29,7 +29,7 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | Python files | 480 | 583 | measured | `rg --files -g '*.py'` |
 | Python package markers | 18 | 18 | measured | recursive `__init__.py` count |
-| Python LOC | 104,454 | 173,601 | measured | `rg --files -g '*.py'` plus Python line count on this branch |
+| Python LOC | 104,454 | 173,688 | measured | `rg --files -g '*.py'` plus Python line count on this branch |
 | Largest Python file LOC | 2,399 | 2,503 | measured | largest-file inventory on this branch |
 | Largest production file LOC | 1,156 | 1,948 | measured | `app/services/stateful_input_service.py` |
 | Duplicate code hotspots | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `make quality-duplicate-code-gate` with `--min-lines 12 --max-groups 0`; duplicated LOC reduced from `24` to `0` in LP-CR-1407 |
@@ -44,7 +44,7 @@ link the commit, command, or CI artifact that proves the change.
 | Max cyclomatic complexity | unknown | 5 | enforced | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py`; `make quality-complexity-gate` |
 | High-complexity functions | unknown | 0 | enforced | rank D-F functions in `quality/complexity_inventory.md`; `make quality-complexity-gate` |
 | Average maintainability index | unknown | 55.20 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
-| Largest functions by LOC | unknown | 56 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; `build_runtime_retention_history_snapshot(...)` dropped out of the top-35 table after runtime-retention history query intent moved behind a typed private query carrier |
+| Largest functions by LOC | unknown | 56 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; `_build_workspace_period_summary_result(...)` dropped out of the top-35 table after workspace period TWR block assembly moved behind a named period-performance boundary |
 
 ## Architecture
 
@@ -73,12 +73,12 @@ link the commit, command, or CI artifact that proves the change.
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
 | Test modules | 228 | 281 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 3,418 | measured | `python -m pytest --collect-only -q` |
+| Collected tests | 2,035 | 3,419 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
 | Integration/API/runtime test functions | unknown | 608 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
 | Contract/governance test functions | unknown | 111 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
-| Uncategorized test functions | unknown | 1236 | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
+| Uncategorized test functions | unknown | 1237 | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
 
 ## Security And Dependencies
 
@@ -128,37 +128,36 @@ repeatably measured or expressed as progressive gates.
 
 ## Latest Local PR-Gate Evidence
 
-Latest runtime-retention history query-boundary evidence on
-`feature/runtime-retention-history-snapshot-boundary`:
+Latest workspace period summary boundary evidence on
+`feature/workspace-period-summary-boundary`:
 
-1. Introduced `_RuntimeRetentionHistoryQuery` so runtime-retention history filter intent,
-   pagination intent, and applied-filter projection are carried through one private query boundary
-   instead of repeated argument plumbing across unavailable-manifest and available-manifest snapshot
-   paths.
-2. Preserved operator/runtime behavior: missing artifact directories still produce unavailable
-   snapshots with the same reason code, all supported filters still appear in `applied_filters`,
-   manifest-backed filtering still honors operator id, trigger mode, job id, cleanup mode, status,
-   generated-after, generated-before, limit, and offset, and pagination metadata remains unchanged.
-3. Measured proof: `build_runtime_retention_history_snapshot(...)` dropped out of the top-35
+1. Introduced `_build_workspace_period_twr_pair(...)` and
+   `_build_workspace_period_performance_block(...)` so workspace period net/gross TWR block
+   assembly owns period slicing, basis projection, and performance-block dispatch behind one named
+   period-performance boundary.
+2. Preserved workspace behavior: period-level net and gross TWR summaries still use the same
+   resolved period slice, benchmark and active-return construction still consume the same net/gross
+   blocks, and money-weighted return assembly still receives the original period slice, period
+   identity, input mode, and request.
+3. Measured proof: `_build_workspace_period_summary_result(...)` dropped out of the top-35
    function-size table; largest production functions still measure `56` lines; max cyclomatic
    complexity remains `5`; high-complexity functions remain `0`; average maintainability index
    measures `55.20`; architecture-boundary findings remain `0`; duplicate hotspot groups remain
    `0`; taxonomy reports `608` API/runtime test functions, `111` contract/governance test
    functions, `248` observability/readiness test functions, `1125` analytics-domain test
-   functions, and `1236` uncategorized test functions; pytest collection reports `3,418`
+   functions, and `1237` uncategorized test functions; pytest collection reports `3,419`
    collected tests.
-4. Validation passed: focused runtime-retention/operator-history tests (`53 passed`), ruff check,
-   ruff format check, mypy for touched files, function-size inventory, complexity inventory,
+4. Validation passed: focused workspace summary service tests (`46 passed`), ruff check, ruff
+   format check, mypy for the touched service file, function-size inventory, complexity inventory,
    architecture-boundary inventory, duplicate-code inventory, test-taxonomy gate, pytest
    collection, and `make quality-baseline`.
-5. Conscious domain/API/edge-case/operations/docs/skill review: this is an internal
-   design-modularity and operator-history maintainability slice. It deliberately adds no runtime
+5. Conscious domain/API/error-model/operations/docs/skill review: this is an internal
+   design-modularity and workspace-summary maintainability slice. It deliberately adds no runtime
    microservice or worker boundary because workload, failure-isolation, ownership, deployment,
    security, and operability evidence do not justify one here. Public API/OpenAPI/error-model,
-   README, wiki source, repository context, and central platform context remain unchanged. The
-   reusable agent lesson did warrant a skill update: `lotus-platform` commit `0eaf900` tightened
-   `lotus-codebase-review-ledger` so future refactor agents record measured design-modularity
-   movement and explicit design-vs-runtime boundary decisions in ledger evidence.
+   README, wiki source, repository context, central platform context, and skills remain unchanged;
+   the latest platform skill improvement is already merged as `lotus-platform` commit `efb8ba0`,
+   which hardened professional wiki polish checks for future agents.
 
 Latest stateful contribution source request-boundary evidence on
 `feature/stateful-contribution-source-request-boundary`:
