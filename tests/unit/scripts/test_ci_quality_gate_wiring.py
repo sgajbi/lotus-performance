@@ -31,6 +31,8 @@ def test_contract_security_workflows_enforce_domain_and_evaluation_gates() -> No
     for workflow_name in ["feature-lane.yml", "pr-merge-gate.yml", "main-releasability.yml"]:
         workflow = _workflow_text(workflow_name)
 
+        assert "repository: sgajbi/lotus-platform" in workflow
+        assert "path: .lotus-platform" in workflow
         assert "run: make domain-product-validate" in workflow
         assert "run: make quality-evaluation-gate" in workflow
 

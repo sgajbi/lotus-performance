@@ -21,9 +21,9 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 278 |
-| Test functions inventoried | 3196 |
+| Test functions inventoried | 3198 |
 | Integration/API/runtime test functions | 607 |
-| Contract/governance test functions | 108 |
+| Contract/governance test functions | 110 |
 
 ## Test Functions By Suite
 
@@ -32,7 +32,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | benchmarks | 9 | 17 |
 | e2e | 1 | 21 |
 | integration | 24 | 300 |
-| unit | 244 | 2858 |
+| unit | 244 | 2860 |
 
 ## Test Functions By Family
 
@@ -40,9 +40,9 @@ python scripts/python_test_taxonomy_inventory.py --limit 30
 | --- | ---: |
 | analytics_domain | 1114 |
 | api_or_runtime | 607 |
-| contract_or_governance | 108 |
+| contract_or_governance | 110 |
 | observability_or_readiness | 187 |
-| quality_or_security | 115 |
+| quality_or_security | 118 |
 | uncategorized | 1294 |
 
 ## Largest Test Modules
@@ -94,9 +94,10 @@ one proves missing execution records return `None` without querying optional asy
 pins the legacy not-found detail as named execution polling error vocabulary. It preserves the
 public execution polling route, OpenAPI schemas, and legacy typed 404 error payload while moving
 durable-record projection out of the API model module.
-The same branch also added three CI gate-wiring tests that prove deterministic API evaluation is
-wired into `make check`, `make ci`, Feature Lane, PR Merge Gate, Main Releasability, and the Quality
-Baseline workflow without a soft-fail escape hatch.
+The same branch also added five CI/domain-product gate tests that prove deterministic API
+evaluation is wired into `make check`, `make ci`, Feature Lane, PR Merge Gate, Main Releasability,
+platform-contract checkout, domain-product platform-root resolution, and the Quality Baseline
+workflow without a soft-fail escape hatch.
 
 ## Gate Posture
 

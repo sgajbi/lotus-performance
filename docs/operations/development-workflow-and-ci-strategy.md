@@ -28,8 +28,10 @@ make quality-evaluation-gate
 The observability-readiness gate fails when health/metrics endpoint, correlation propagation,
 structured logging, metrics, or health/readiness implementation markers have any missing entries.
 The domain-product validator keeps governed product contracts aligned with implementation truth. The
-quality evaluation gate delegates to `make demo-api-certification`, which exercises deterministic
-demo-critical API behavior and must not be soft-failed with `continue-on-error`.
+validator resolves `lotus-platform` through `LOTUS_PLATFORM_ROOT`, a sibling checkout, or the
+`.lotus-platform` checkout used by GitHub Actions contract/security jobs. The quality evaluation
+gate delegates to `make demo-api-certification`, which exercises deterministic demo-critical API
+behavior and must not be soft-failed with `continue-on-error`.
 
 Broader observability maturity scoring remains report-only in
 `quality/observability_readiness_inventory.md`.
