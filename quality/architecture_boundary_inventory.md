@@ -1,7 +1,7 @@
 # Lotus Performance Architecture Boundary Inventory
 
 Report date: 2026-06-29
-Branch: `feature/workspace-period-summary-boundary`
+Branch: `feature/workspace-breakdown-window-boundary`
 Mode: enforced architecture-boundary inventory; zero findings are blocked by CI.
 
 ## Purpose

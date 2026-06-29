@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-29
-Branch: `feature/workspace-period-summary-boundary`
+Branch: `feature/workspace-breakdown-window-boundary`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
@@ -34,9 +34,10 @@ must stay at `0`.
 | High-complexity functions (rank D-F) | 0 |
 | Average maintainability index | 55.20 |
 
-The workspace period summary TWR boundary preserves the enforced complexity posture: max cyclomatic
-complexity remains `5`, high-complexity functions remain `0`, and average maintainability index
-measures `55.20` after moving period net/gross TWR block assembly behind a named private boundary.
+The workspace performance breakdown window boundary preserves the enforced complexity posture: max
+cyclomatic complexity remains `5`, high-complexity functions remain `0`, and average
+maintainability index measures `55.20` after moving per-breakdown bucket and cumulative return
+assembly behind named private helpers.
 
 ## Highest Cyclomatic Complexity
 
