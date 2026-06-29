@@ -35,6 +35,7 @@ from app.services.workspace_summary_service import (
     _build_workspace_active_block,
     _build_workspace_benchmark_and_active_blocks,
     _build_workspace_benchmark_daily_df,
+    _build_workspace_performance_breakdowns,
     _build_workspace_period_summary_result,
     _build_workspace_period_twr_pair,
     _build_workspace_results_by_period,
@@ -56,6 +57,7 @@ from app.services.workspace_summary_service import (
     calculate_workspace_summary,
     workspace_longest_requested_window_days,
 )
+from common.enums import Frequency
 from core.envelope import Diagnostics
 from core.workspace_periods import ResolvedWorkspacePeriod
 
@@ -1075,6 +1077,78 @@ def test_build_workspace_period_twr_pair_slices_net_and_gross_daily_results(mock
     ]
     assert performance_builder.call_args_list[0].kwargs["full_daily_df"] is net_daily_results_df
     assert performance_builder.call_args_list[1].kwargs["full_daily_df"] is gross_daily_results_df
+
+
+def test_build_workspace_performance_breakdowns_uses_period_and_cumulative_windows(mocker):
+    valuation_df = pd.DataFrame(
+        [
+            {
+                "perf_date": date(2026, 1, 1),
+                "begin_mv": Decimal("100"),
+                "end_mv": Decimal("101"),
+                "bod_cf": Decimal("0"),
+                "eod_cf": Decimal("0"),
+                "mgmt_fees": Decimal("0"),
+            },
+            {
+                "perf_date": date(2026, 1, 2),
+                "begin_mv": Decimal("101"),
+                "end_mv": Decimal("103"),
+                "bod_cf": Decimal("0"),
+                "eod_cf": Decimal("1"),
+                "mgmt_fees": Decimal("0.25"),
+            },
+            {
+                "perf_date": date(2026, 1, 3),
+                "begin_mv": Decimal("103"),
+                "end_mv": Decimal("104"),
+                "bod_cf": Decimal("0"),
+                "eod_cf": Decimal("0"),
+                "mgmt_fees": Decimal("0"),
+            },
+        ]
+    )
+    period_daily_slice = pd.DataFrame({"perf_date": [date(2026, 1, 1), date(2026, 1, 2)]})
+    full_daily_df = pd.DataFrame({"perf_date": [date(2026, 1, 1), date(2026, 1, 2), date(2026, 1, 3)]})
+    return_calculator = mocker.patch(
+        "app.services.workspace_summary_service._calculate_total_return_from_slice",
+        side_effect=["period-decomposition", "cumulative-decomposition"],
+    )
+    mocker.patch(
+        "app.services.workspace_summary_service._build_return_value_from_decomposition",
+        side_effect=[
+            SimpleNamespace(base=Decimal("2.0"), local=None, fx=None),
+            SimpleNamespace(base=Decimal("3.0"), local=None, fx=None),
+        ],
+    )
+    mocker.patch(
+        "app.services.workspace_summary_service._iter_frequency_windows",
+        return_value=[("2026-01-02", date(2026, 1, 2), date(2026, 1, 2), valuation_df.iloc[[1]])],
+    )
+
+    breakdowns = _build_workspace_performance_breakdowns(
+        portfolio_slice=valuation_df,
+        period_daily_slice=period_daily_slice,
+        full_daily_df=full_daily_df,
+        frequencies=[Frequency.DAILY],
+        annualization=SimpleNamespace(),
+    )
+
+    item = breakdowns[Frequency.DAILY][0]
+    assert item.period == "2026-01-02"
+    assert item.period_start == date(2026, 1, 2)
+    assert item.period_end == date(2026, 1, 2)
+    assert item.economics.end_market_value == Decimal("103")
+    assert item.period_return.base == Decimal("2.0")
+    assert item.cumulative_return.base == Decimal("3.0")
+    assert item.annualized_return.base == Decimal("3.0")
+    assert return_calculator.call_args_list[0].args[0]["perf_date"].tolist() == [date(2026, 1, 2)]
+    assert return_calculator.call_args_list[1].args[0]["perf_date"].tolist() == [
+        date(2026, 1, 1),
+        date(2026, 1, 2),
+    ]
+    assert return_calculator.call_args_list[0].args[1] is full_daily_df
+    assert return_calculator.call_args_list[1].args[1] is full_daily_df
 
 
 def test_resolve_stateful_portfolio_start_date_rejects_missing_open_date(mocker):

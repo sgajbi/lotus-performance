@@ -90,6 +90,16 @@ class WorkspaceTWRArtifacts:
     diagnostics: Diagnostics
 
 
+@dataclass(frozen=True)
+class _WorkspacePerformanceBreakdownWindow:
+    label: str
+    start_date: date
+    end_date: date
+    valuation_window: pd.DataFrame
+    period_daily_slice: pd.DataFrame
+    cumulative_daily_df: pd.DataFrame
+
+
 def workspace_longest_requested_window_days(request: WorkspaceSummaryRequest) -> int:
     if request.input_mode != TWRInputMode.STATEFUL:
         return 0
@@ -911,6 +921,7 @@ def _build_workspace_performance_breakdowns(
     annualization,
 ) -> dict[Frequency, list[WorkspaceBreakdownItem]]:
     breakdowns: dict[Frequency, list[WorkspaceBreakdownItem]] = {}
+    portfolio_start_date = _date_from_boundary(portfolio_slice[PortfolioColumns.PERF_DATE.value].min())
     for frequency in frequencies:
         items: list[WorkspaceBreakdownItem] = []
         for label, start_date, end_date, valuation_window in _iter_frequency_windows(
@@ -918,46 +929,84 @@ def _build_workspace_performance_breakdowns(
             date_column=PortfolioColumns.PERF_DATE.value,
             frequency=frequency,
         ):
-            window_start_date = _date_from_boundary(start_date)
-            window_end_date = _date_from_boundary(end_date)
-            period_return = _to_workspace_return_value(
-                _build_return_value_from_decomposition(
-                    _calculate_total_return_from_slice(
-                        _slice_by_date(
-                            period_daily_slice,
-                            date_column=PortfolioColumns.PERF_DATE.value,
-                            start_date=window_start_date,
-                            end_date=window_end_date,
-                        ),
-                        full_daily_df,
-                    )
-                )
-            )
-            cumulative_daily = full_daily_df[full_daily_df[PortfolioColumns.PERF_DATE.value] <= window_end_date].copy()
-            cumulative_return = _to_workspace_return_value(
-                _build_return_value_from_decomposition(
-                    _calculate_total_return_from_slice(cumulative_daily, full_daily_df)
-                )
+            window = _build_workspace_performance_breakdown_window(
+                label=label,
+                start_date=start_date,
+                end_date=end_date,
+                valuation_window=valuation_window,
+                period_daily_slice=period_daily_slice,
+                full_daily_df=full_daily_df,
             )
             items.append(
-                WorkspaceBreakdownItem(
-                    period=label,
-                    period_start=window_start_date,
-                    period_end=window_end_date,
-                    economics=_build_economic_context(valuation_window),
-                    period_return=period_return,
-                    cumulative_return=cumulative_return,
-                    annualized_return=_annualize_return_value(
-                        cumulative_return,
-                        start_date=_date_from_boundary(portfolio_slice[PortfolioColumns.PERF_DATE.value].min()),
-                        end_date=window_end_date,
-                        annualization=annualization,
-                        business_day_count=len(cumulative_daily),
-                    ),
+                _build_workspace_performance_breakdown_item(
+                    window=window,
+                    full_daily_df=full_daily_df,
+                    portfolio_start_date=portfolio_start_date,
+                    annualization=annualization,
                 )
             )
         breakdowns[frequency] = items
     return breakdowns
+
+
+def _build_workspace_performance_breakdown_window(
+    *,
+    label: str,
+    start_date: object,
+    end_date: object,
+    valuation_window: pd.DataFrame,
+    period_daily_slice: pd.DataFrame,
+    full_daily_df: pd.DataFrame,
+) -> _WorkspacePerformanceBreakdownWindow:
+    window_start_date = _date_from_boundary(start_date)
+    window_end_date = _date_from_boundary(end_date)
+    return _WorkspacePerformanceBreakdownWindow(
+        label=label,
+        start_date=window_start_date,
+        end_date=window_end_date,
+        valuation_window=valuation_window,
+        period_daily_slice=_slice_by_date(
+            period_daily_slice,
+            date_column=PortfolioColumns.PERF_DATE.value,
+            start_date=window_start_date,
+            end_date=window_end_date,
+        ),
+        cumulative_daily_df=full_daily_df[full_daily_df[PortfolioColumns.PERF_DATE.value] <= window_end_date].copy(),
+    )
+
+
+def _build_workspace_performance_breakdown_item(
+    *,
+    window: _WorkspacePerformanceBreakdownWindow,
+    full_daily_df: pd.DataFrame,
+    portfolio_start_date: date,
+    annualization,
+) -> WorkspaceBreakdownItem:
+    period_return = _to_workspace_return_value(
+        _build_return_value_from_decomposition(
+            _calculate_total_return_from_slice(window.period_daily_slice, full_daily_df)
+        )
+    )
+    cumulative_return = _to_workspace_return_value(
+        _build_return_value_from_decomposition(
+            _calculate_total_return_from_slice(window.cumulative_daily_df, full_daily_df)
+        )
+    )
+    return WorkspaceBreakdownItem(
+        period=window.label,
+        period_start=window.start_date,
+        period_end=window.end_date,
+        economics=_build_economic_context(window.valuation_window),
+        period_return=period_return,
+        cumulative_return=cumulative_return,
+        annualized_return=_annualize_return_value(
+            cumulative_return,
+            start_date=portfolio_start_date,
+            end_date=window.end_date,
+            annualization=annualization,
+            business_day_count=len(window.cumulative_daily_df),
+        ),
+    )
 
 
 def _build_workspace_benchmark_block(
