@@ -331,6 +331,36 @@ def test_calculate_xirr_mwr_attempt_maps_no_economic_content_to_not_applicable()
     assert attempt.result.reason_codes == ["NO_ECONOMIC_CONTENT"]
 
 
+def test_calculate_xirr_mwr_attempt_projects_solver_failure_for_dietz_fallback(monkeypatch):
+    def solver_failure(**_kwargs):
+        return {
+            "rate": None,
+            "converged": False,
+            "notes": "No XIRR root found in configured bounds.",
+            "reason_code": "NO_ROOT_FOUND",
+            "convergence": {"root_count_detected": 0},
+        }
+
+    monkeypatch.setattr(mwr_module, "_calculate_xirr_solver_result", solver_failure)
+
+    attempt = _calculate_xirr_mwr_attempt(
+        begin_mv=1000.0,
+        end_mv=-100.0,
+        cash_flows=[CashFlow(amount=50.0, date=date(2026, 3, 1))],
+        annualization=Annualization(enabled=False, basis="ACT/365"),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 12, 31),
+        period_days=364,
+    )
+
+    assert attempt.result is None
+    assert attempt.reason_code == "NO_ROOT_FOUND"
+    assert attempt.notes == [
+        "No XIRR root found in configured bounds.",
+        "XIRR failed, falling back to Modified Dietz.",
+    ]
+
+
 def test_calculate_xirr_solver_result_projects_signed_cash_flow_vector(monkeypatch):
     captured = {}
 

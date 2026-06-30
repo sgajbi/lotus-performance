@@ -1,7 +1,7 @@
 # Lotus Performance Architecture Boundary Inventory
 
 Report date: 2026-06-30
-Branch: `feature/workspace-summary-response-projection`
+Branch: `feature/xirr-mwr-attempt-boundary`
 Mode: enforced architecture-boundary inventory; zero findings are blocked by CI.
 
 ## Purpose
@@ -13,7 +13,7 @@ hardening stream from relying on subjective architecture claims.
 ## Command
 
 ```powershell
-python scripts/python_architecture_boundary_inventory.py --limit 40 --max-findings 0
+python scripts/python_architecture_boundary_inventory.py --limit 45 --max-findings 0
 ```
 
 ## Summary

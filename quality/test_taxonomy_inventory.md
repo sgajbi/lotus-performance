@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-06-30
-Branch: `feature/workspace-summary-response-projection`
+Branch: `feature/xirr-mwr-attempt-boundary`
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -24,7 +24,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 281 |
-| Test functions inventoried | 3220 |
+| Test functions inventoried | 3221 |
 | Integration/API/runtime test functions | 608 |
 | Contract/governance test functions | 111 |
 
@@ -35,13 +35,13 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 17 |
 | e2e | 1 | 21 |
 | integration | 24 | 300 |
-| unit | 247 | 2882 |
+| unit | 247 | 2883 |
 
 ## Test Functions By Family
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 1125 |
+| analytics_domain | 1126 |
 | api_or_runtime | 608 |
 | contract_or_governance | 111 |
 | observability_or_readiness | 248 |
@@ -66,8 +66,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | 12 | `tests/unit/services/test_workspace_summary_service.py` | unit | 48 | uncategorized |
 | 13 | `tests/unit/services/test_twr_mode_service.py` | unit | 45 | analytics_domain |
 | 14 | `tests/unit/services/test_stateful_benchmark_input_service.py` | unit | 44 | uncategorized |
-| 15 | `tests/integration/test_contribution_api.py` | integration | 40 | analytics_domain, api_or_runtime |
-| 16 | `tests/unit/engine/test_mwr.py` | unit | 40 | analytics_domain |
+| 15 | `tests/unit/engine/test_mwr.py` | unit | 41 | analytics_domain |
+| 16 | `tests/integration/test_contribution_api.py` | integration | 40 | analytics_domain, api_or_runtime |
 | 17 | `tests/unit/services/test_operator_action_lease_service.py` | unit | 39 | uncategorized |
 | 18 | `tests/integration/test_performance_api.py` | integration | 38 | api_or_runtime |
 | 19 | `tests/unit/services/test_compute_executor_worker.py` | unit | 38 | uncategorized |
@@ -92,11 +92,10 @@ and test-function distribution. The current suite has meaningful API/runtime and
 contract/governance coverage, but 1239 test functions remain uncategorized by the first-wave
 taxonomy and should be reduced through normal refactor slices rather than allowed to grow.
 
-The workspace summary response projection boundary slice keeps the promoted gate stable while
-strengthening response projection and audit-count proof in
-`tests/unit/services/test_workspace_summary_service.py`.
+The XIRR attempt result-projection boundary slice keeps the promoted gate stable while strengthening
+solver-failure fallback proof in `tests/unit/engine/test_mwr.py`.
 Current measured breadth is `608` API/runtime test functions, `111` contract/governance test
-functions, `248` observability/readiness test functions, `1125` analytics-domain test functions,
+functions, `248` observability/readiness test functions, `1126` analytics-domain test functions,
 and `1239` uncategorized test functions. The enforced command remains at the accepted regression
 floor of `607` API/runtime tests and the existing uncategorized ceiling of `1294`; this slice also
 passed the tighter local preservation command with `608` API/runtime tests and `1239`

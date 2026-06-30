@@ -360,6 +360,63 @@ class _MWRPeriodBounds:
     period_days: int
 
 
+def _xirr_attempt_convergence(xirr_result: dict) -> MWRConvergence:
+    return MWRConvergence(**xirr_result.get("convergence", {}))
+
+
+def _successful_xirr_mwr_attempt(
+    *,
+    xirr_result: dict,
+    annualization: Annualization,
+    start_date: date,
+    end_date: date,
+    period_days: int,
+    convergence: MWRConvergence,
+) -> _MWRXirrAttempt:
+    notes = [xirr_result["notes"]]
+    return _MWRXirrAttempt(
+        result=_successful_xirr_mwr_result(
+            rate=xirr_result["rate"],
+            annualization=annualization,
+            start_date=start_date,
+            end_date=end_date,
+            period_days=period_days,
+            notes=notes,
+            convergence=convergence,
+        ),
+        notes=notes,
+    )
+
+
+def _not_applicable_xirr_mwr_attempt(
+    *,
+    reason_code: str,
+    start_date: date,
+    end_date: date,
+    notes: list[str],
+    convergence: MWRConvergence,
+) -> _MWRXirrAttempt:
+    return _MWRXirrAttempt(
+        result=MWRResult(
+            mwr=0.0,
+            method="DIETZ",
+            start_date=start_date,
+            end_date=end_date,
+            notes=notes,
+            convergence=convergence,
+            status="NOT_APPLICABLE",
+            reason_codes=[reason_code],
+        ),
+        notes=notes,
+        reason_code=reason_code,
+    )
+
+
+def _fallback_xirr_mwr_attempt(*, reason_code: str, notes: list[str]) -> _MWRXirrAttempt:
+    notes.append("XIRR failed, falling back to Modified Dietz.")
+    return _MWRXirrAttempt(result=None, notes=notes, reason_code=reason_code)
+
+
 def _calculate_xirr_mwr_attempt(
     *,
     begin_mv: float,
@@ -381,41 +438,29 @@ def _calculate_xirr_mwr_attempt(
         end_date=end_date,
         solver=solver,
     )
-    convergence = MWRConvergence(**xirr_result.get("convergence", {}))
-    notes = [xirr_result["notes"]]
+    convergence = _xirr_attempt_convergence(xirr_result)
     if xirr_result["converged"]:
-        return _MWRXirrAttempt(
-            result=_successful_xirr_mwr_result(
-                rate=xirr_result["rate"],
-                annualization=annualization,
-                start_date=xirr_start_date,
-                end_date=end_date,
-                period_days=period_days,
-                notes=notes,
-                convergence=convergence,
-            ),
-            notes=notes,
+        return _successful_xirr_mwr_attempt(
+            xirr_result=xirr_result,
+            annualization=annualization,
+            start_date=xirr_start_date,
+            end_date=end_date,
+            period_days=period_days,
+            convergence=convergence,
         )
 
+    notes = [xirr_result["notes"]]
     reason_code = xirr_result.get("reason_code", "SOLVER_DID_NOT_CONVERGE")
     if reason_code == "NO_ECONOMIC_CONTENT":
-        return _MWRXirrAttempt(
-            result=MWRResult(
-                mwr=0.0,
-                method="DIETZ",
-                start_date=start_date,
-                end_date=end_date,
-                notes=notes,
-                convergence=convergence,
-                status="NOT_APPLICABLE",
-                reason_codes=[reason_code],
-            ),
-            notes=notes,
+        return _not_applicable_xirr_mwr_attempt(
             reason_code=reason_code,
+            start_date=start_date,
+            end_date=end_date,
+            notes=notes,
+            convergence=convergence,
         )
 
-    notes.append("XIRR failed, falling back to Modified Dietz.")
-    return _MWRXirrAttempt(result=None, notes=notes, reason_code=reason_code)
+    return _fallback_xirr_mwr_attempt(reason_code=reason_code, notes=notes)
 
 
 def _calculate_xirr_solver_result(
