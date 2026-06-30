@@ -2,10 +2,21 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import status
-
-from app.api.http_status import HTTP_422_UNPROCESSABLE
 from app.observability import correlation_id_var, request_id_var
+from core.errors import (
+    HTTP_400_BAD_REQUEST,
+    HTTP_401_UNAUTHORIZED,
+    HTTP_403_FORBIDDEN,
+    HTTP_404_NOT_FOUND,
+    HTTP_408_REQUEST_TIMEOUT,
+    HTTP_409_CONFLICT,
+    HTTP_422_UNPROCESSABLE,
+    HTTP_429_TOO_MANY_REQUESTS,
+    HTTP_500_INTERNAL_SERVER_ERROR,
+    HTTP_502_BAD_GATEWAY,
+    HTTP_503_SERVICE_UNAVAILABLE,
+    HTTP_504_GATEWAY_TIMEOUT,
+)
 
 _SOURCE_UNAVAILABLE_CODE = "SOURCE_UNAVAILABLE"
 _RESOURCE_NOT_FOUND_CODE = "RESOURCE_NOT_FOUND"
@@ -22,27 +33,27 @@ _LOTUS_PERFORMANCE_SOURCE = "lotus-performance"
 _PUBLIC_INTERNAL_ERROR_MESSAGE = "The service encountered an internal error. Use the correlation_id for support."
 
 _ERROR_CODE_BY_STATUS = {
-    status.HTTP_400_BAD_REQUEST: _INVALID_REQUEST_CODE,
-    status.HTTP_401_UNAUTHORIZED: _UNAUTHORIZED_CODE,
-    status.HTTP_403_FORBIDDEN: _FORBIDDEN_CODE,
-    status.HTTP_404_NOT_FOUND: _RESOURCE_NOT_FOUND_CODE,
-    status.HTTP_409_CONFLICT: _CONFLICT_CODE,
+    HTTP_400_BAD_REQUEST: _INVALID_REQUEST_CODE,
+    HTTP_401_UNAUTHORIZED: _UNAUTHORIZED_CODE,
+    HTTP_403_FORBIDDEN: _FORBIDDEN_CODE,
+    HTTP_404_NOT_FOUND: _RESOURCE_NOT_FOUND_CODE,
+    HTTP_409_CONFLICT: _CONFLICT_CODE,
     HTTP_422_UNPROCESSABLE: _INVALID_REQUEST_CODE,
-    status.HTTP_429_TOO_MANY_REQUESTS: _RATE_LIMITED_CODE,
-    status.HTTP_500_INTERNAL_SERVER_ERROR: _INTERNAL_ERROR_CODE,
-    status.HTTP_502_BAD_GATEWAY: _SOURCE_UNAVAILABLE_CODE,
-    status.HTTP_503_SERVICE_UNAVAILABLE: _SOURCE_UNAVAILABLE_CODE,
-    status.HTTP_504_GATEWAY_TIMEOUT: _SOURCE_UNAVAILABLE_CODE,
+    HTTP_429_TOO_MANY_REQUESTS: _RATE_LIMITED_CODE,
+    HTTP_500_INTERNAL_SERVER_ERROR: _INTERNAL_ERROR_CODE,
+    HTTP_502_BAD_GATEWAY: _SOURCE_UNAVAILABLE_CODE,
+    HTTP_503_SERVICE_UNAVAILABLE: _SOURCE_UNAVAILABLE_CODE,
+    HTTP_504_GATEWAY_TIMEOUT: _SOURCE_UNAVAILABLE_CODE,
 }
 
 _RETRYABLE_STATUSES = frozenset(
     {
-        status.HTTP_408_REQUEST_TIMEOUT,
-        status.HTTP_429_TOO_MANY_REQUESTS,
-        status.HTTP_500_INTERNAL_SERVER_ERROR,
-        status.HTTP_502_BAD_GATEWAY,
-        status.HTTP_503_SERVICE_UNAVAILABLE,
-        status.HTTP_504_GATEWAY_TIMEOUT,
+        HTTP_408_REQUEST_TIMEOUT,
+        HTTP_429_TOO_MANY_REQUESTS,
+        HTTP_500_INTERNAL_SERVER_ERROR,
+        HTTP_502_BAD_GATEWAY,
+        HTTP_503_SERVICE_UNAVAILABLE,
+        HTTP_504_GATEWAY_TIMEOUT,
     }
 )
 
@@ -133,13 +144,13 @@ def validation_error_envelope(errors: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def _safe_public_message(*, detail: Any, status_code: int, message: str | None) -> str:
-    if status_code >= status.HTTP_500_INTERNAL_SERVER_ERROR:
+    if status_code >= HTTP_500_INTERNAL_SERVER_ERROR:
         return message or _optional_str_detail(detail, "message") or _PUBLIC_INTERNAL_ERROR_MESSAGE
     return message or _detail_message(detail) or _default_client_error_message(status_code)
 
 
 def _legacy_detail(*, detail: Any, status_code: int, message: str) -> Any:
-    if status_code >= status.HTTP_500_INTERNAL_SERVER_ERROR:
+    if status_code >= HTTP_500_INTERNAL_SERVER_ERROR:
         return message
     return detail if detail is not None else message
 
@@ -200,11 +211,11 @@ def _nonblank_context_value(value: str | None) -> str | None:
 
 def _default_client_error_message(status_code: int) -> str:
     return {
-        status.HTTP_400_BAD_REQUEST: "The request is invalid.",
-        status.HTTP_401_UNAUTHORIZED: "Authentication is required.",
-        status.HTTP_403_FORBIDDEN: "The caller is not authorized for this operation.",
-        status.HTTP_404_NOT_FOUND: "The requested resource was not found.",
-        status.HTTP_409_CONFLICT: "The request conflicts with current resource state.",
+        HTTP_400_BAD_REQUEST: "The request is invalid.",
+        HTTP_401_UNAUTHORIZED: "Authentication is required.",
+        HTTP_403_FORBIDDEN: "The caller is not authorized for this operation.",
+        HTTP_404_NOT_FOUND: "The requested resource was not found.",
+        HTTP_409_CONFLICT: "The request conflicts with current resource state.",
         HTTP_422_UNPROCESSABLE: "The request could not be processed.",
-        status.HTTP_429_TOO_MANY_REQUESTS: "The request rate limit was exceeded.",
+        HTTP_429_TOO_MANY_REQUESTS: "The request rate limit was exceeded.",
     }.get(status_code, "The request failed.")
