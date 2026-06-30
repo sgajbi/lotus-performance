@@ -43,7 +43,7 @@ Current coverage boundary:
 1. this directory covers the currently governed `TimeWeightedReturnAnalytics`,
    `MoneyWeightedReturnAnalytics`, `ContributionAnalytics`, `AttributionAnalytics`,
    `ReturnsSeriesBundle`,
-   `BenchmarkExposureContext`, and `CompositePerformanceAnalytics`
+   `MandatePerformanceHealthContext`, `BenchmarkExposureContext`, and `CompositePerformanceAnalytics`
    products
    plus the first-wave `lotus-core` dependency declarations already aligned under RFC-0084,
 2. benchmark-definition, benchmark-composition, vendor-return, index-catalog, index-price-series, and

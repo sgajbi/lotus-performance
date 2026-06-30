@@ -13,8 +13,19 @@ The current snapshots are:
    Runtime trust proof for `lotus-performance:ContributionAnalytics:v1`.
 4. `attribution-analytics.telemetry.v1.json`
    Runtime trust proof for `lotus-performance:AttributionAnalytics:v1`.
-5. `composite-performance-analytics.telemetry.v1.json`
+5. `money-weighted-return-analytics.telemetry.v1.json`
+   Runtime trust proof for `lotus-performance:MoneyWeightedReturnAnalytics:v1`.
+6. `mandate-performance-health-context.telemetry.v1.json`
+   Runtime trust proof for `lotus-performance:MandatePerformanceHealthContext:v1`.
+7. `benchmark-exposure-context.telemetry.v1.json`
+   Runtime trust proof for `lotus-performance:BenchmarkExposureContext:v1`.
+8. `composite-performance-analytics.telemetry.v1.json`
    Runtime trust proof for `lotus-performance:CompositePerformanceAnalytics:v1`.
+
+Every active product in `contracts/domain-data-products/lotus-performance-products.v1.json` must
+have one repo-owned telemetry snapshot or an explicit machine-readable exception policy. The unit
+test suite derives expected coverage from the active producer declaration so newly promoted products
+cannot be declared as governed without trust telemetry evidence.
 
 Validate locally with:
 

@@ -187,11 +187,19 @@ selection, interaction, residual materiality, linked-return posture, or period s
 detailed in [Attribution Analytics](Attribution-Analytics).
 
 `MandatePerformanceHealthContext:v1` is a governed `lotus-performance` data product. It is declared
-in `contracts/domain-data-products/lotus-performance-products.v1.json`, uses daily freshness
-semantics, requires lineage posture, and is approved for Gateway and Manage consumption. Downstream
-consumers may preserve the emitted active-return health posture, threshold posture, methodology
-posture, request fingerprint, and reason codes; they must not treat it as a mandate decision,
-client communication, trade recommendation, order, OMS action, or execution instruction.
+in `contracts/domain-data-products/lotus-performance-products.v1.json`, has repo-local trust
+telemetry at `contracts/trust-telemetry/mandate-performance-health-context.telemetry.v1.json`, uses
+daily freshness semantics, requires lineage posture, and is approved for Gateway and Manage
+consumption. Downstream consumers may preserve the emitted active-return health posture, threshold
+posture, methodology posture, request fingerprint, and reason codes; they must not treat it as a
+mandate decision, client communication, trade recommendation, order, OMS action, or execution
+instruction.
+
+`MoneyWeightedReturnAnalytics:v1` and `BenchmarkExposureContext:v1` also have repo-local trust
+telemetry at `contracts/trust-telemetry/money-weighted-return-analytics.telemetry.v1.json` and
+`contracts/trust-telemetry/benchmark-exposure-context.telemetry.v1.json`. Every active product in
+`contracts/domain-data-products/lotus-performance-products.v1.json` must have a matching
+repo-owned trust telemetry snapshot or a machine-readable exception policy.
 
 ## References
 
