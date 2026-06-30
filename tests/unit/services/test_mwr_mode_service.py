@@ -80,6 +80,10 @@ def test_build_stateful_mwr_input_aggregates_cash_flows():
     assert normalized.currency_evidence.cashflow_evidence[0].source_components[0].source_classification == (
         "CONTRIBUTION"
     )
+    assert normalized.currency_evidence.source_cashflow_quality is not None
+    assert normalized.currency_evidence.source_cashflow_quality.observed_source_row_count == 3
+    assert normalized.currency_evidence.source_cashflow_quality.included_source_row_count == 3
+    assert normalized.currency_evidence.source_cashflow_quality.excluded_source_row_count == 0
 
 
 def test_build_stateful_mwr_input_for_window_uses_requested_window_start():
@@ -469,6 +473,19 @@ def test_collect_stateful_mwr_cash_flows_excludes_fee_and_unsupported_economics(
 
     assert collection.cash_flows_by_date == {date(2025, 1, 1): Decimal("100")}
     assert len(collection.cash_flow_components_by_date[date(2025, 1, 1)]) == 1
+    assert collection.source_cashflow_quality.observed_source_row_count == 3
+    assert collection.source_cashflow_quality.included_source_row_count == 1
+    assert collection.source_cashflow_quality.excluded_source_row_count == 2
+    assert collection.source_cashflow_quality.observed_economics_role_counts == {
+        "external": 1,
+        "fee": 1,
+        "unsupported": 1,
+    }
+    assert collection.source_cashflow_quality.exclusion_counts == {
+        "fee_or_operational": 1,
+        "unsupported_or_income_like": 1,
+    }
+    assert "SOURCE_CASHFLOW_ROWS_EXCLUDED" in collection.source_cashflow_quality.reason_codes
 
 
 def test_source_mwr_cash_flow_component_projects_eligible_source_flow():
@@ -488,6 +505,7 @@ def test_source_mwr_cash_flow_component_projects_eligible_source_flow():
     assert component.cash_flow_type == "external_flow"
     assert component.flow_scope == "external"
     assert component.source_classification == "official"
+    assert component.lifecycle_identity_status == "not_supplied_by_source"
     numeric_metadata_component = _source_mwr_cash_flow_component(
         {
             "amount": "25",
@@ -500,6 +518,78 @@ def test_source_mwr_cash_flow_component_projects_eligible_source_flow():
     assert numeric_metadata_component.flow_scope == "123"
     assert numeric_metadata_component.source_classification is None
     assert _source_mwr_cash_flow_component({"amount": "-3", "cash_flow_type": "fee"}, reporting_currency="USD") is None
+
+
+def test_source_mwr_cash_flow_component_preserves_source_lifecycle_identity():
+    component = _source_mwr_cash_flow_component(
+        {
+            "amount": "100",
+            "cash_flow_type": "external_flow",
+            "transaction_id": "TXN-001",
+            "event_id": "EVT-001",
+            "lifecycle_status": "corrected",
+            "correction_id": "CORR-001",
+            "reversal_id": "REV-001",
+            "cancellation_id": "CAN-001",
+            "trade_date": "2025-01-02",
+            "settlement_date": "2025-01-04",
+            "effective_date": "2025-01-01",
+            "posting_date": "2025-01-03",
+        },
+        reporting_currency="USD",
+    )
+
+    assert component is not None
+    assert component.source_transaction_id == "TXN-001"
+    assert component.source_event_id == "EVT-001"
+    assert component.lifecycle_status == "corrected"
+    assert component.correction_reference_id == "CORR-001"
+    assert component.reversal_reference_id == "REV-001"
+    assert component.cancellation_reference_id == "CAN-001"
+    assert component.trade_date == date(2025, 1, 2)
+    assert component.settlement_date == date(2025, 1, 4)
+    assert component.effective_date == date(2025, 1, 1)
+    assert component.posting_date == date(2025, 1, 3)
+    assert component.lifecycle_identity_status == "available"
+
+
+def test_stateful_mwr_cash_flow_projection_aggregates_same_date_but_keeps_source_components():
+    collection = _collect_stateful_mwr_cash_flows(
+        observations=[
+            {
+                "valuation_date": "2025-01-01",
+                "beginning_market_value": "1000",
+                "ending_market_value": "1010",
+                "cash_flows": [
+                    {
+                        "amount": "100",
+                        "cash_flow_type": "external_flow",
+                        "transaction_id": "TXN-001",
+                        "event_id": "EVT-001",
+                    },
+                    {
+                        "amount": "-25",
+                        "cash_flow_type": "external_flow",
+                        "transaction_id": "TXN-002",
+                        "event_id": "EVT-002",
+                        "lifecycle_status": "reversal",
+                        "reversal_id": "TXN-001",
+                    },
+                ],
+            }
+        ],
+        reporting_currency="USD",
+    )
+    projection = _stateful_mwr_cash_flow_projection(
+        cash_flow_collection=collection,
+        reporting_currency="USD",
+    )
+
+    assert [(cash_flow.date, cash_flow.amount) for cash_flow in projection.cash_flows] == [(date(2025, 1, 1), 75.0)]
+    components = projection.cashflow_evidence[0].source_components
+    assert [component.source_transaction_id for component in components] == ["TXN-001", "TXN-002"]
+    assert components[1].reversal_reference_id == "TXN-001"
+    assert collection.source_cashflow_quality.included_source_row_count == 2
 
 
 def test_build_stateful_mwr_input_skips_invalid_cash_flow_rows():
@@ -530,6 +620,12 @@ def test_build_stateful_mwr_input_skips_invalid_cash_flow_rows():
     normalized = build_stateful_mwr_input(source_input=source_input)
 
     assert normalized.cash_flows == []
+    assert normalized.currency_evidence.source_cashflow_quality is not None
+    assert normalized.currency_evidence.source_cashflow_quality.exclusion_counts == {
+        "invalid_cash_flow_collection": 1,
+        "invalid_observation_date": 1,
+        "missing_amount": 1,
+    }
 
 
 def test_parse_decimal_handles_none_and_invalid_values():

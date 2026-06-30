@@ -169,9 +169,11 @@ remain in structured logs and durable evidence under the same correlation contex
   - stateful mode sources portfolio timeseries from lotus-core query-control-plane via `CORE_CONTROL_PLANE_BASE_URL` and normalizes them into canonical `begin_mv`, `end_mv`, `cash_flows`, and authoritative `start_date` before engine execution
   - stateful MWR includes explicit external source cash flows and cross-observation capital carry-forward adjustments in the MWR cash-flow schedule
   - operational fees remain performance drag; they are not treated as investor deposits or withdrawals
+  - MWR cash-flow dates must fit the resolved measurement window; invalid schedules fail with `MWR_CASH_FLOW_OUT_OF_WINDOW`
   - `emit_cashflows_used=true` returns the signed cash-flow schedule used by the calculation
   - stateless callers may supply complete `source_preconverted_fx_evidence`; lotus-performance validates it against the reporting-currency MWR inputs and emits `currency_evidence.currency_mode="SOURCE_PRECONVERTED_WITH_FX_EVIDENCE"`
-  - responses expose `reporting_currency`; stateful responses expose `currency_evidence` with `market_values_used`, `cashflow_evidence`, and `currency_mode="SINGLE_REPORTING_CURRENCY"`
+  - responses expose `reporting_currency`; stateful responses expose `currency_evidence` with `market_values_used`, `cashflow_evidence`, `source_cashflow_quality`, and `currency_mode="SINGLE_REPORTING_CURRENCY"`
+  - stateful source components preserve upstream `source_transaction_id`, `source_event_id`, lifecycle status, correction/reversal/cancellation references, and source dates when lotus-core supplies them
   - stateful single-currency MWR emits `currency_evidence.conversion_evidence_status="not_required_single_currency_inputs"` when source and reporting currencies match
   - stateful cross-currency MWR keeps `currency_evidence.conversion_evidence_status="upstream_preconverted_missing_per_input_fx_metadata"`, so consumers must not infer per-input FX rates, conversion policy, or conversion fingerprints when those fields are absent
   - XIRR responses expose `status`, `reason_codes`, `warnings`, `holding_period_return`, `is_annualized_primary`, `fallback_from`, `fallback_reason`, and `is_approximation`

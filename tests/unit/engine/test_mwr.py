@@ -15,6 +15,7 @@ from engine.mwr import (
     _calculate_xirr_mwr_attempt,
     _calculate_xirr_solver_result,
     _calculated_dietz_mwr_result,
+    _cash_flows_outside_bounds,
     _day_count_denominator,
     _dietz_denominator,
     _dietz_fallback_metadata,
@@ -171,6 +172,7 @@ def test_day_count_denominator_prefers_explicit_period_frequency_and_act_act_bas
     assert _day_count_denominator(Annualization(enabled=True, basis="ACT/365", periods_per_year=12)) == pytest.approx(
         12.0
     )
+    assert _day_count_denominator(Annualization(enabled=True, basis="BUS/252")) == pytest.approx(252.0)
     assert _day_count_denominator(Annualization(enabled=True, basis="ACT/ACT")) == pytest.approx(365.25)
 
 
@@ -615,6 +617,16 @@ def test_annualized_dietz_rate_uses_governed_day_count_basis():
         annualization=Annualization(enabled=True, basis="ACT/ACT"),
         period_days=182,
     )
+    bus_252_rate = _annualized_dietz_rate(
+        periodic_rate=0.01,
+        annualization=Annualization(enabled=True, basis="BUS/252"),
+        period_days=126,
+    )
+    explicit_periods_rate = _annualized_dietz_rate(
+        periodic_rate=0.01,
+        annualization=Annualization(enabled=True, basis="ACT/365", periods_per_year=12),
+        period_days=1,
+    )
 
     assert (
         _annualized_dietz_rate(
@@ -634,6 +646,32 @@ def test_annualized_dietz_rate_uses_governed_day_count_basis():
     )
     assert act_365_rate == pytest.approx(((1.01) ** (365.0 / 182) - 1) * 100)
     assert act_act_rate == pytest.approx(((1.01) ** (365.25 / 182) - 1) * 100)
+    assert bus_252_rate == pytest.approx(((1.01) ** (252.0 / 126) - 1) * 100)
+    assert explicit_periods_rate == pytest.approx(((1.01) ** 12 - 1) * 100)
+
+
+def test_calculate_mwr_rejects_cash_flows_outside_resolved_window_before_dietz_weights():
+    cash_flows = [
+        CashFlow(amount=10.0, date=date(2025, 12, 31)),
+        CashFlow(amount=20.0, date=date(2027, 1, 1)),
+    ]
+    out_of_window = _cash_flows_outside_bounds(
+        cash_flows=cash_flows,
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 12, 31),
+    )
+
+    assert [cash_flow.date for cash_flow in out_of_window] == [date(2025, 12, 31), date(2027, 1, 1)]
+    with pytest.raises(ValueError, match="outside the resolved measurement window"):
+        calculate_money_weighted_return(
+            begin_mv=1000.0,
+            end_mv=1100.0,
+            cash_flows=cash_flows,
+            calculation_method="MODIFIED_DIETZ",
+            annualization=Annualization(enabled=False),
+            as_of=date(2026, 12, 31),
+            start_date=date(2026, 1, 1),
+        )
 
 
 def test_calculate_mwr_xirr_fallback_to_dietz():

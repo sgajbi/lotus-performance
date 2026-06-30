@@ -176,7 +176,9 @@ async def get_twr_result(calculation_id: UUID, request: Request) -> PerformanceR
         'Use `input_mode="stateful"` for lotus-core-sourced portfolio analytics input; '
         "lotus-performance reads the query-control-plane portfolio timeseries, normalizes explicit external "
         "cash flows and cross-observation carry-forward capital breaks into canonical MWR inputs, keeps "
-        "operational fees as performance drag rather than investor cash movement, and then runs the requested "
+        "operational fees as performance drag rather than investor cash movement, exposes source cash-flow "
+        "quality counts for included and excluded upstream rows, preserves source lifecycle identity when "
+        "supplied, and then runs the requested "
         "`mwr_method`. `XIRR` returns the annual IRR solved from irregular cash-flow dates; "
         "`MODIFIED_DIETZ` returns a period return using dated cash-flow weights; `DIETZ` returns "
         "the midpoint Dietz period return."

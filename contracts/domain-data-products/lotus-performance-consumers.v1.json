@@ -22,6 +22,24 @@
         "data_quality_status",
         "correlation_id"
       ],
+      "optional_source_fields": [
+        "cash_flows[].source_transaction_id",
+        "cash_flows[].transaction_id",
+        "cash_flows[].source_event_id",
+        "cash_flows[].event_id",
+        "cash_flows[].lifecycle_status",
+        "cash_flows[].correction_reference_id",
+        "cash_flows[].correction_id",
+        "cash_flows[].reversal_reference_id",
+        "cash_flows[].reversal_id",
+        "cash_flows[].cancellation_reference_id",
+        "cash_flows[].cancellation_id",
+        "cash_flows[].trade_date",
+        "cash_flows[].settlement_date",
+        "cash_flows[].effective_date",
+        "cash_flows[].posting_date"
+      ],
+      "optional_source_field_posture": "Preserved in stateful MWR cash-flow evidence when supplied by lotus-core; reported as not_supplied_by_source when absent so lifecycle lineage is not invented.",
       "migration_posture": {
         "status": "current"
       }

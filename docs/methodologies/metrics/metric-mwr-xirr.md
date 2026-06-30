@@ -80,6 +80,9 @@ Money-Weighted Return via XIRR (`money_weighted_return` when method resolves to 
 - `S` is the resolved measurement start date. In stateful mode it is the requested
   `stateful_input.window_start_date`; in stateless mode it is explicit `start_date`, the earliest
   cash-flow date, or `as_of` when no cash flows exist.
+- Every cash-flow date must satisfy `S <= d_i <= T` before the solver vector is built. Invalid
+  schedules fail with `MWR_CASH_FLOW_OUT_OF_WINDOW` at the application boundary and are rejected by
+  the engine guard if called directly.
 - `dates = [S] + [d_i] + [T]`
 - `values = [-BV] + [-CF_i] + [EV]`
 - This means the engine treats a positive external contribution as a negative solver cash flow,
@@ -124,8 +127,14 @@ Money-Weighted Return via XIRR (`money_weighted_return` when method resolves to 
   fails through the retrieval or normalization stage when lotus-core source data cannot produce a
   valid resolved MWR input.
 - Source fee rows are preserved as performance drag by the upstream analytics input and are not
-  included as investor cash flows; unsupported or invalid source cash-flow rows are skipped during
-  normalization rather than guessed.
+  included as investor cash flows. Stateful responses expose `source_cashflow_quality` with
+  observed, included, and excluded source-row counts plus bounded exclusion reason counts for fee,
+  internal, unsupported or income-like, missing amount, invalid amount, invalid source row, invalid
+  observation date, and invalid cash-flow collection cases.
+- Stateful source components preserve source transaction/event lifecycle identity, correction,
+  reversal, cancellation, trade, settlement, effective, and posting date fields when upstream
+  supplies them. When those identifiers are absent, the component explicitly reports
+  `lifecycle_identity_status="not_supplied_by_source"`.
 - Mixed source-currency schedules are not converted by the current XIRR path. FX-aware MWR remains
   gated by `docs/technical/mwr-fx-contract-design.md` for stateful upstream conversion. Stateless
   source-preconverted schedules may include complete `source_preconverted_fx_evidence`; incomplete

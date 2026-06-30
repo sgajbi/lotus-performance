@@ -13,6 +13,8 @@ from engine.mwr_types import CashFlowLike, MWRConvergence, MWRResult, Number
 def _day_count_denominator(annualization: Annualization) -> float:
     if annualization.periods_per_year:
         return float(annualization.periods_per_year)
+    if annualization.basis == "BUS/252":
+        return 252.0
     if annualization.basis == "ACT/ACT":
         return 365.25
     return 365.0
@@ -648,7 +650,7 @@ def _annualized_dietz_rate(
 ) -> float | None:
     if not annualization.enabled or period_days <= 0:
         return None
-    ppy = 365.25 if annualization.basis == "ACT/ACT" else 365.0
+    ppy = _day_count_denominator(annualization)
     scale = ppy / period_days
     return ((1 + periodic_rate) ** scale - 1) * 100
 
@@ -691,6 +693,26 @@ def _resolve_mwr_period_bounds(
     return _MWRPeriodBounds(start_date=resolved_start_date, end_date=as_of, period_days=period_days)
 
 
+def _cash_flows_outside_bounds(
+    *,
+    cash_flows: Sequence[CashFlowLike],
+    start_date: date,
+    end_date: date,
+) -> list[CashFlowLike]:
+    return [cash_flow for cash_flow in cash_flows if cash_flow.date < start_date or cash_flow.date > end_date]
+
+
+def _validate_mwr_cash_flow_bounds(*, cash_flows: Sequence[CashFlowLike], bounds: _MWRPeriodBounds) -> None:
+    outside_bounds = _cash_flows_outside_bounds(
+        cash_flows=cash_flows,
+        start_date=bounds.start_date,
+        end_date=bounds.end_date,
+    )
+    if outside_bounds:
+        dates = ", ".join(str(cash_flow.date) for cash_flow in outside_bounds)
+        raise ValueError(f"MWR cash-flow dates outside the resolved measurement window: {dates}")
+
+
 def _mwr_no_economic_content_result(
     *,
     begin_mv,
@@ -727,6 +749,7 @@ def calculate_money_weighted_return(
     """
     notes = []
     bounds = _resolve_mwr_period_bounds(cash_flows=cash_flows, as_of=as_of, start_date=start_date)
+    _validate_mwr_cash_flow_bounds(cash_flows=cash_flows, bounds=bounds)
     reason_code: str | None = None
 
     no_economic_content_result = _mwr_no_economic_content_result(

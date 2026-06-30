@@ -11,6 +11,7 @@ from app.models.mwr_requests import MoneyWeightedReturnRequest
 from app.services.execution_registry import execution_registry
 from app.services.execution_stage_names import EXECUTION_STAGE_NORMALIZATION, EXECUTION_STAGE_RETRIEVAL
 from app.services.input_mode_validation import require_stateful_input
+from app.services.mwr_cash_flow_window_validation import validate_mwr_cash_flow_window
 from app.services.mwr_fx_evidence_service import build_source_preconverted_mwr_currency_evidence
 from app.services.service_identity import LOTUS_PERFORMANCE_CONSUMER_SYSTEM
 from app.services.stateful_mwr_input_service import (
@@ -52,6 +53,7 @@ async def resolve_mwr_request(
 
 def _resolve_stateless_mwr_request(request: MoneyWeightedReturnAnalyticsRequest) -> ResolvedMWRRequest:
     mwr_request = request.to_stateless_mwr_request()
+    _validate_resolved_mwr_request_window(mwr_request)
     return ResolvedMWRRequest(
         mwr_request=mwr_request,
         input_mode=MWRInputMode.STATELESS,
@@ -120,13 +122,27 @@ def _resolved_stateful_mwr_request(
     request: MoneyWeightedReturnAnalyticsRequest,
     normalized_input: StatefulMWRInput,
 ) -> ResolvedMWRRequest:
+    mwr_request = request.to_stateless_mwr_request(
+        begin_mv=float(normalized_input.begin_mv),
+        end_mv=float(normalized_input.end_mv),
+        cash_flows=normalized_input.cash_flows,
+        start_date=normalized_input.start_date,
+    )
+    _validate_resolved_mwr_request_window(mwr_request)
     return ResolvedMWRRequest(
-        mwr_request=request.to_stateless_mwr_request(
-            begin_mv=float(normalized_input.begin_mv),
-            end_mv=float(normalized_input.end_mv),
-            cash_flows=normalized_input.cash_flows,
-            start_date=normalized_input.start_date,
-        ),
+        mwr_request=mwr_request,
         input_mode=MWRInputMode.STATEFUL,
         currency_evidence=normalized_input.currency_evidence,
+    )
+
+
+def _validate_resolved_mwr_request_window(mwr_request: MoneyWeightedReturnRequest) -> None:
+    resolved_start_date = mwr_request.start_date
+    if resolved_start_date is None:
+        cash_flow_dates = [cash_flow.date for cash_flow in mwr_request.cash_flows]
+        resolved_start_date = min(cash_flow_dates) if cash_flow_dates else mwr_request.as_of
+    validate_mwr_cash_flow_window(
+        cash_flows=mwr_request.cash_flows,
+        start_date=resolved_start_date,
+        end_date=mwr_request.as_of,
     )

@@ -142,6 +142,38 @@ class MWRCashFlowEvidenceComponent(BaseModel):
         default=None,
         description="Underlying source classification that produced the cash-flow component.",
     )
+    source_transaction_id: Optional[str] = Field(
+        default=None,
+        description="Upstream transaction identifier when supplied by the source product.",
+    )
+    source_event_id: Optional[str] = Field(
+        default=None,
+        description="Upstream event identifier when supplied by the source product.",
+    )
+    lifecycle_status: Optional[str] = Field(
+        default=None,
+        description="Source lifecycle status such as original, corrected, reversed, cancelled, or restated.",
+    )
+    correction_reference_id: Optional[str] = Field(
+        default=None,
+        description="Source correction reference when supplied by the upstream product.",
+    )
+    reversal_reference_id: Optional[str] = Field(
+        default=None,
+        description="Source reversal reference when supplied by the upstream product.",
+    )
+    cancellation_reference_id: Optional[str] = Field(
+        default=None,
+        description="Source cancellation reference when supplied by the upstream product.",
+    )
+    trade_date: Optional[Date] = Field(default=None, description="Source trade date when applicable.")
+    settlement_date: Optional[Date] = Field(default=None, description="Source settlement date when applicable.")
+    effective_date: Optional[Date] = Field(default=None, description="Source effective date when applicable.")
+    posting_date: Optional[Date] = Field(default=None, description="Source posting date when applicable.")
+    lifecycle_identity_status: Literal["available", "not_supplied_by_source"] = Field(
+        default="not_supplied_by_source",
+        description="Whether source transaction or event lifecycle identity was supplied for this component.",
+    )
 
 
 class MWRCashFlowEvidence(BaseModel):
@@ -214,6 +246,37 @@ class MWRMarketValueEvidence(BaseModel):
     )
 
 
+class MWRSourceCashFlowQuality(BaseModel):
+    source_product: Literal["PortfolioTimeseriesInput"] = Field(
+        default="PortfolioTimeseriesInput",
+        description="Upstream source product observed during stateful MWR cash-flow normalization.",
+    )
+    observed_source_row_count: int = Field(
+        default=0,
+        description="Number of source cash-flow rows observed before investor-flow filtering.",
+    )
+    included_source_row_count: int = Field(
+        default=0,
+        description="Number of source rows included in the investor capital-flow schedule.",
+    )
+    excluded_source_row_count: int = Field(
+        default=0,
+        description="Number of source rows excluded from the investor capital-flow schedule.",
+    )
+    observed_economics_role_counts: dict[str, int] = Field(
+        default_factory=dict,
+        description="Observed source cash-flow economics-role counts after governed type classification.",
+    )
+    exclusion_counts: dict[str, int] = Field(
+        default_factory=dict,
+        description="Bounded exclusion reason counts for source cash-flow rows not used as investor capital flows.",
+    )
+    reason_codes: List[str] = Field(
+        default_factory=list,
+        description="Machine-readable source-quality reason codes for stateful MWR normalization.",
+    )
+
+
 class MWRCurrencyEvidence(BaseModel):
     reporting_currency: Optional[str] = Field(
         default=None,
@@ -242,4 +305,11 @@ class MWRCurrencyEvidence(BaseModel):
     cashflow_evidence: List[MWRCashFlowEvidence] = Field(
         default_factory=list,
         description="MWR cash-flow schedule with source component evidence.",
+    )
+    source_cashflow_quality: Optional[MWRSourceCashFlowQuality] = Field(
+        default=None,
+        description=(
+            "Stateful source-cash-flow normalization evidence distinguishing observed upstream rows, "
+            "included investor capital flows, and excluded fee/internal/unsupported/invalid rows."
+        ),
     )

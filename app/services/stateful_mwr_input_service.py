@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date as Date
 from datetime import datetime as DateTime
 from decimal import Decimal, InvalidOperation
@@ -19,6 +19,28 @@ class MWRCashFlowEvidenceComponent:
     cash_flow_type: str | None = None
     flow_scope: str | None = None
     source_classification: str | None = None
+    source_transaction_id: str | None = None
+    source_event_id: str | None = None
+    lifecycle_status: str | None = None
+    correction_reference_id: str | None = None
+    reversal_reference_id: str | None = None
+    cancellation_reference_id: str | None = None
+    trade_date: Date | None = None
+    settlement_date: Date | None = None
+    effective_date: Date | None = None
+    posting_date: Date | None = None
+    lifecycle_identity_status: Literal["available", "not_supplied_by_source"] = "not_supplied_by_source"
+
+
+@dataclass(frozen=True)
+class MWRSourceCashFlowQuality:
+    source_product: Literal["PortfolioTimeseriesInput"] = "PortfolioTimeseriesInput"
+    observed_source_row_count: int = 0
+    included_source_row_count: int = 0
+    excluded_source_row_count: int = 0
+    observed_economics_role_counts: dict[str, int] = field(default_factory=dict)
+    exclusion_counts: dict[str, int] = field(default_factory=dict)
+    reason_codes: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -78,6 +100,7 @@ class MWRCurrencyEvidence:
     conversion_evidence_reason_codes: list[str]
     market_values_used: list[MWRMarketValueEvidence]
     cashflow_evidence: list[MWRCashFlowEvidence]
+    source_cashflow_quality: MWRSourceCashFlowQuality | None = None
 
 
 @dataclass(frozen=True)
@@ -94,6 +117,7 @@ class StatefulMWRInput:
 class _StatefulMWRCashFlowCollection:
     cash_flows_by_date: dict[Date, Decimal]
     cash_flow_components_by_date: dict[Date, list[MWRCashFlowEvidenceComponent]]
+    source_cashflow_quality: MWRSourceCashFlowQuality = field(default_factory=MWRSourceCashFlowQuality)
 
 
 @dataclass(frozen=True)
@@ -161,6 +185,7 @@ def build_stateful_mwr_input_for_window(
                 single_currency_inputs=single_currency_inputs,
             ),
             cashflow_evidence=cash_flow_projection.cashflow_evidence,
+            source_cashflow_quality=cash_flow_collection.source_cashflow_quality,
         ),
     )
 
@@ -226,10 +251,12 @@ def _collect_stateful_mwr_cash_flows(
 ) -> _StatefulMWRCashFlowCollection:
     cash_flows_by_date: dict[Date, Decimal] = {}
     cash_flow_components_by_date: dict[Date, list[MWRCashFlowEvidenceComponent]] = {}
+    source_quality = _StatefulMWRSourceCashFlowQualityAccumulator()
     previous_ending_market_value: Decimal | None = None
     for observation in observations:
         valuation_date_raw = observation.get("valuation_date")
         if not isinstance(valuation_date_raw, str):
+            _record_invalid_observation_cash_flows(source_quality=source_quality, observation=observation)
             previous_ending_market_value = None
             continue
         valuation_date = Date.fromisoformat(valuation_date_raw)
@@ -248,6 +275,7 @@ def _collect_stateful_mwr_cash_flows(
             )
         flows_raw = observation.get("cash_flows", [])
         if not isinstance(flows_raw, list):
+            source_quality.exclude("invalid_cash_flow_collection")
             previous_ending_market_value = _parse_decimal(observation.get("ending_market_value"))
             continue
         _collect_stateful_mwr_source_flow_components(
@@ -256,12 +284,14 @@ def _collect_stateful_mwr_cash_flows(
             valuation_date=valuation_date,
             flows=flows_raw,
             reporting_currency=reporting_currency,
+            source_quality=source_quality,
         )
         previous_ending_market_value = _parse_decimal(observation.get("ending_market_value"))
 
     return _StatefulMWRCashFlowCollection(
         cash_flows_by_date=cash_flows_by_date,
         cash_flow_components_by_date=cash_flow_components_by_date,
+        source_cashflow_quality=source_quality.to_evidence(),
     )
 
 
@@ -290,9 +320,14 @@ def _collect_stateful_mwr_source_flow_components(
     valuation_date: Date,
     flows: list[object],
     reporting_currency: str | None,
+    source_quality: "_StatefulMWRSourceCashFlowQualityAccumulator",
 ) -> None:
     for flow in flows:
-        component = _source_mwr_cash_flow_component(flow, reporting_currency=reporting_currency)
+        component = _source_mwr_cash_flow_component(
+            flow,
+            reporting_currency=reporting_currency,
+            source_quality=source_quality,
+        )
         if component is None:
             continue
         _add_stateful_mwr_cash_flow_component(
@@ -319,19 +354,168 @@ def _source_mwr_cash_flow_component(
     flow: object,
     *,
     reporting_currency: str | None,
+    source_quality: "_StatefulMWRSourceCashFlowQualityAccumulator | None" = None,
 ) -> MWRCashFlowEvidenceComponent | None:
-    if not isinstance(flow, dict) or flow.get("amount") is None:
+    source_quality = source_quality or _StatefulMWRSourceCashFlowQualityAccumulator()
+    source_quality.observe(flow)
+    if not isinstance(flow, dict):
+        source_quality.exclude("invalid_source_row_shape")
         return None
-    if classify_cashflow_type(flow.get("cash_flow_type")).economics_role not in {"external", "missing"}:
+    amount = _parse_decimal(flow.get("amount"))
+    if flow.get("amount") is None:
+        source_quality.exclude("missing_amount")
         return None
+    if amount is None:
+        source_quality.exclude("invalid_amount")
+        return None
+    classification = classify_cashflow_type(flow.get("cash_flow_type"))
+    source_quality.observe_role(classification.economics_role)
+    if classification.economics_role not in {"external", "missing"}:
+        source_quality.exclude(_mwr_source_exclusion_reason(classification.economics_role))
+        return None
+    source_quality.include()
+    if not _has_source_lifecycle_identity(flow):
+        source_quality.record_missing_lifecycle_identity()
     return MWRCashFlowEvidenceComponent(
         component_type="source_cash_flow",
-        amount=Decimal(str(flow["amount"])),
+        amount=amount,
         currency=reporting_currency,
         cash_flow_type=_optional_source_flow_string(flow=flow, field_name="cash_flow_type"),
         flow_scope=_optional_source_flow_string(flow=flow, field_name="flow_scope"),
         source_classification=_optional_source_flow_string(flow=flow, field_name="source_classification"),
+        source_transaction_id=_optional_source_flow_string_from_any(
+            flow=flow,
+            field_names=("source_transaction_id", "transaction_id"),
+        ),
+        source_event_id=_optional_source_flow_string_from_any(
+            flow=flow,
+            field_names=("source_event_id", "event_id"),
+        ),
+        lifecycle_status=_optional_source_flow_string_from_any(
+            flow=flow,
+            field_names=("lifecycle_status", "status"),
+        ),
+        correction_reference_id=_optional_source_flow_string_from_any(
+            flow=flow,
+            field_names=("correction_reference_id", "correction_id"),
+        ),
+        reversal_reference_id=_optional_source_flow_string_from_any(
+            flow=flow,
+            field_names=("reversal_reference_id", "reversal_id"),
+        ),
+        cancellation_reference_id=_optional_source_flow_string_from_any(
+            flow=flow,
+            field_names=("cancellation_reference_id", "cancellation_id"),
+        ),
+        trade_date=_optional_source_flow_date(flow=flow, field_name="trade_date"),
+        settlement_date=_optional_source_flow_date(flow=flow, field_name="settlement_date"),
+        effective_date=_optional_source_flow_date(flow=flow, field_name="effective_date"),
+        posting_date=_optional_source_flow_date(flow=flow, field_name="posting_date"),
+        lifecycle_identity_status="available" if _has_source_lifecycle_identity(flow) else "not_supplied_by_source",
     )
+
+
+class _StatefulMWRSourceCashFlowQualityAccumulator:
+    def __init__(self) -> None:
+        self.observed_source_row_count = 0
+        self.included_source_row_count = 0
+        self.exclusion_counts: dict[str, int] = {}
+        self.observed_economics_role_counts: dict[str, int] = {}
+        self.missing_lifecycle_identity_count = 0
+
+    def observe(self, flow: object) -> None:
+        self.observed_source_row_count += 1
+
+    def observe_role(self, role: str) -> None:
+        self.observed_economics_role_counts[role] = self.observed_economics_role_counts.get(role, 0) + 1
+
+    def include(self) -> None:
+        self.included_source_row_count += 1
+
+    def record_missing_lifecycle_identity(self) -> None:
+        self.missing_lifecycle_identity_count += 1
+
+    def exclude(self, reason: str) -> None:
+        self.exclusion_counts[reason] = self.exclusion_counts.get(reason, 0) + 1
+
+    def to_evidence(self) -> MWRSourceCashFlowQuality:
+        excluded_source_row_count = sum(self.exclusion_counts.values())
+        return MWRSourceCashFlowQuality(
+            observed_source_row_count=self.observed_source_row_count,
+            included_source_row_count=self.included_source_row_count,
+            excluded_source_row_count=excluded_source_row_count,
+            observed_economics_role_counts=dict(sorted(self.observed_economics_role_counts.items())),
+            exclusion_counts=dict(sorted(self.exclusion_counts.items())),
+            reason_codes=_source_cashflow_quality_reason_codes(
+                excluded_source_row_count=excluded_source_row_count,
+                missing_lifecycle_identity_count=self.missing_lifecycle_identity_count,
+            ),
+        )
+
+
+def _record_invalid_observation_cash_flows(
+    *,
+    source_quality: _StatefulMWRSourceCashFlowQualityAccumulator,
+    observation: dict[str, object],
+) -> None:
+    flows_raw = observation.get("cash_flows", [])
+    if not isinstance(flows_raw, list):
+        return
+    for flow in flows_raw:
+        source_quality.observe(flow)
+        source_quality.exclude("invalid_observation_date")
+
+
+def _mwr_source_exclusion_reason(role: str) -> str:
+    return {
+        "fee": "fee_or_operational",
+        "internal": "internal_flow",
+        "unsupported": "unsupported_or_income_like",
+    }.get(role, "unsupported_or_income_like")
+
+
+def _source_cashflow_quality_reason_codes(
+    *,
+    excluded_source_row_count: int,
+    missing_lifecycle_identity_count: int,
+) -> list[str]:
+    reason_codes = ["SOURCE_CASHFLOW_NORMALIZATION_RECORDED"]
+    if excluded_source_row_count:
+        reason_codes.append("SOURCE_CASHFLOW_ROWS_EXCLUDED")
+    if missing_lifecycle_identity_count:
+        reason_codes.append("SOURCE_LIFECYCLE_IDENTITY_NOT_SUPPLIED_BY_UPSTREAM")
+    return reason_codes
+
+
+def _has_source_lifecycle_identity(flow: dict[object, object]) -> bool:
+    return any(
+        _optional_source_flow_string_from_any(flow=flow, field_names=field_names)
+        for field_names in (
+            ("source_transaction_id", "transaction_id"),
+            ("source_event_id", "event_id"),
+            ("correction_reference_id", "correction_id"),
+            ("reversal_reference_id", "reversal_id"),
+            ("cancellation_reference_id", "cancellation_id"),
+        )
+    )
+
+
+def _optional_source_flow_string_from_any(*, flow: dict[object, object], field_names: tuple[str, ...]) -> str | None:
+    for field_name in field_names:
+        value = _optional_source_flow_string(flow=flow, field_name=field_name)
+        if value is not None:
+            return value
+    return None
+
+
+def _optional_source_flow_date(*, flow: dict[object, object], field_name: str) -> Date | None:
+    value = flow.get(field_name)
+    if not isinstance(value, str):
+        return None
+    try:
+        return Date.fromisoformat(value)
+    except ValueError:
+        return None
 
 
 def _optional_source_flow_string(*, flow: dict[object, object], field_name: str) -> str | None:

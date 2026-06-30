@@ -41,6 +41,13 @@ dated client capital movement for the period calculation rather than as investme
 TWR inspector remains the support tool for diagnosing whether those adjustments are expected source
 behavior or upstream data-quality issues.
 
+The service validates resolved MWR cash-flow dates before the engine runs. Stateless requests with
+explicit `start_date` reject cash flows before `start_date` or after `as_of` with
+`error_code="MWR_CASH_FLOW_OUT_OF_WINDOW"`. When stateless callers omit `start_date`, the current
+compatibility policy remains: the earliest cash-flow date becomes the opening date, but cash flows
+after `as_of` are still rejected. Stateful requests use `stateful_input.window_start_date` as the
+opening boundary.
+
 Optional controls include:
 
 - `start_date`
@@ -107,7 +114,8 @@ consumers do not treat the value as an ordinary calculated zero return.
 ### Annualization
 
 If annualization is enabled, the Dietz-family result is annualized from the measured period length
-using the requested annualization basis.
+using the requested annualization basis. `annualization.periods_per_year` overrides the basis when
+supplied; otherwise `BUS/252` uses `252`, `ACT/365` uses `365`, and `ACT/ACT` uses `365.25`.
 
 ## Current response shape
 
@@ -147,6 +155,14 @@ sourcing truth:
   the engine
 - `cashflow_evidence[]` with the source cash-flow and carry-forward components aggregated into each
   MWR cash-flow date
+- `source_cashflow_quality` with observed source-row count, included investor-flow count, excluded
+  source-row count, bounded exclusion counts such as `fee_or_operational`, `internal_flow`,
+  `unsupported_or_income_like`, `missing_amount`, and `invalid_amount`, and reason codes such as
+  `SOURCE_CASHFLOW_ROWS_EXCLUDED`
+- per-source component lifecycle fields, when supplied upstream, including `source_transaction_id`,
+  `source_event_id`, `lifecycle_status`, correction/reversal/cancellation references, and
+  trade/settlement/effective/posting dates; when absent,
+  `lifecycle_identity_status="not_supplied_by_source"` is explicit
 - `conversion_evidence_status="not_required_single_currency_inputs"` when source and reporting
   currencies match and no per-input FX conversion is required
 - `conversion_evidence_status="upstream_preconverted_missing_per_input_fx_metadata"` for
