@@ -1,7 +1,7 @@
 # app/api/endpoints/performance.py
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 
 from app.api.async_openapi import async_result_responses, async_submission_responses
@@ -187,7 +187,10 @@ def calculate_workspace_summary_endpoint(
         failed_detail="Async workspace summary execution failed.",
     ),
 )
-async def get_workspace_summary_result(calculation_id: UUID) -> WorkspaceSummaryResponse | JSONResponse:
+async def get_workspace_summary_result(
+    calculation_id: UUID,
+    request: Request,
+) -> WorkspaceSummaryResponse | JSONResponse:
     return resolve_async_result(
         calculation_id=calculation_id,
         expected_analytics_type=ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY,
@@ -195,6 +198,7 @@ async def get_workspace_summary_result(calculation_id: UUID) -> WorkspaceSummary
         accepted_response_factory=_accepted_workspace_summary_response,
         not_found_detail="Async workspace summary result not found for the given calculation_id.",
         failed_detail="Async workspace summary execution failed.",
+        request_headers=request.headers,
     )
 
 
@@ -241,7 +245,7 @@ async def calculate_twr_endpoint(request: TWRAnalyticsRequest) -> PerformanceRes
         failed_detail="Async TWR execution failed.",
     ),
 )
-async def get_twr_result(calculation_id: UUID) -> PerformanceResponse | JSONResponse:
+async def get_twr_result(calculation_id: UUID, request: Request) -> PerformanceResponse | JSONResponse:
     return resolve_async_result(
         calculation_id=calculation_id,
         expected_analytics_type=ANALYTICS_WORKFLOW_TWR,
@@ -249,6 +253,7 @@ async def get_twr_result(calculation_id: UUID) -> PerformanceResponse | JSONResp
         accepted_response_factory=_accepted_twr_response,
         not_found_detail="Async TWR result not found for the given calculation_id.",
         failed_detail="Async TWR execution failed.",
+        request_headers=request.headers,
     )
 
 
@@ -396,7 +401,7 @@ async def calculate_attribution_endpoint(request: AttributionAnalyticsRequest) -
         },
     },
 )
-async def get_attribution_result(calculation_id: UUID) -> AttributionResponse | JSONResponse:
+async def get_attribution_result(calculation_id: UUID, request: Request) -> AttributionResponse | JSONResponse:
     return resolve_async_result(
         calculation_id=calculation_id,
         expected_analytics_type=ANALYTICS_WORKFLOW_ATTRIBUTION,
@@ -404,4 +409,5 @@ async def get_attribution_result(calculation_id: UUID) -> AttributionResponse | 
         accepted_response_factory=_accepted_attribution_response,
         not_found_detail="Async attribution result not found for the given calculation_id.",
         failed_detail="Async attribution execution failed.",
+        request_headers=request.headers,
     )

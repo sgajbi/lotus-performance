@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Any, TypeVar
 from uuid import UUID
 
@@ -10,7 +10,9 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ValidationError
 
 from app.services.async_result_store import AsyncResultRecord, AsyncResultStatus, async_result_store
+from app.services.calculation_result_access import authorize_calculation_result_access
 from app.services.compute_job_store import ComputeJobRecord, ComputeJobStatus, compute_job_store
+from app.services.execution_registry import execution_registry
 
 ResponseModelT = TypeVar("ResponseModelT", bound=BaseModel)
 AcceptedModelT = TypeVar("AcceptedModelT", bound=BaseModel)
@@ -167,7 +169,16 @@ def resolve_async_result(
     accepted_response_factory: Callable[[UUID], AcceptedModelT],
     not_found_detail: str,
     failed_detail: str,
+    request_headers: Mapping[str, Any] | None = None,
 ) -> ResponseModelT | JSONResponse:
+    access_denial = _authorize_async_result_access(
+        calculation_id=calculation_id,
+        request_headers=request_headers,
+        not_found_detail=not_found_detail,
+    )
+    if access_denial is not None:
+        return access_denial
+
     async_result = async_result_store.get_result(calculation_id)
     if async_result is not None:
         return _resolve_stored_async_result(
@@ -187,3 +198,17 @@ def resolve_async_result(
         not_found_detail=not_found_detail,
         failed_detail=failed_detail,
     )
+
+
+def _authorize_async_result_access(
+    *,
+    calculation_id: UUID,
+    request_headers: Mapping[str, Any] | None,
+    not_found_detail: str,
+) -> JSONResponse | None:
+    if request_headers is None:
+        return None
+    execution = execution_registry.get_execution(calculation_id)
+    if execution is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=not_found_detail)
+    return authorize_calculation_result_access(execution=execution, headers=request_headers)

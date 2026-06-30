@@ -1,7 +1,7 @@
 # app/api/endpoints/contribution.py
 from uuid import UUID
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
 from app.api.async_openapi import async_result_responses, async_submission_responses
@@ -68,7 +68,7 @@ async def calculate_contribution_endpoint(
         failed_detail="Async contribution execution failed.",
     ),
 )
-async def get_contribution_result(calculation_id: UUID) -> ContributionResponse | JSONResponse:
+async def get_contribution_result(calculation_id: UUID, request: Request) -> ContributionResponse | JSONResponse:
     return resolve_async_result(
         calculation_id=calculation_id,
         expected_analytics_type=ANALYTICS_WORKFLOW_CONTRIBUTION,
@@ -76,4 +76,5 @@ async def get_contribution_result(calculation_id: UUID) -> ContributionResponse 
         accepted_response_factory=accepted_contribution_response,
         not_found_detail="Async contribution result not found for the given calculation_id.",
         failed_detail="Async contribution execution failed.",
+        request_headers=request.headers,
     )

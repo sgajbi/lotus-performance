@@ -1252,6 +1252,7 @@ def test_runtime_alert_runbook_covers_breach_gauges():
 def test_enterprise_readiness_covers_privileged_operator_reads():
     enterprise = _read("docs/standards/enterprise-readiness.md")
     api_reference = _read("docs/guides/api_reference.md")
+    execution_certification = _read("docs/technical/execution-polling-endpoint-certification.md")
     wiki_security = _read("wiki/Security-and-Governance.md")
 
     assert "Privileged operator read surfaces are protected" in enterprise
@@ -1262,6 +1263,8 @@ def test_enterprise_readiness_covers_privileged_operator_reads():
     assert "ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ" in api_reference
     assert "/performance/lineage/{calculation_id}" in api_reference
     assert "/performance/lineage/{calculation_id}/artifacts/{artifact_name}" in api_reference
+    assert "X-Portfolio-Id" in api_reference
+    assert "authorization_policy_denied" in execution_certification
     assert "operations.runtime.read" in api_reference
     assert "operations.runtime.manage" in api_reference
     assert "governed surface and required-capability metadata" in api_reference

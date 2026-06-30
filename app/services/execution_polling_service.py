@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from uuid import UUID
 
+from fastapi.responses import JSONResponse
+
 from app.models.execution_polling import (
     AsyncResultResponse,
     ComputeJobResponse,
@@ -10,6 +12,7 @@ from app.models.execution_polling import (
     UpstreamSnapshotResponse,
 )
 from app.services.async_result_store import AsyncResultRecord, async_result_store
+from app.services.calculation_result_access import authorize_calculation_result_access
 from app.services.compute_job_store import ComputeJobRecord, compute_job_store
 from app.services.execution_registry import (
     ExecutionRecord,
@@ -21,10 +24,15 @@ from app.services.execution_registry import (
 EXECUTION_POLLING_NOT_FOUND_DETAIL = "Execution data not found for the given calculation_id."
 
 
-def get_execution_polling_response(calculation_id: UUID) -> ExecutionResponse | None:
+def get_execution_polling_response(
+    calculation_id: UUID, *, request_headers=None
+) -> ExecutionResponse | JSONResponse | None:
     record = execution_registry.get_execution(calculation_id)
     if record is None:
         return None
+    access_denial = authorize_calculation_result_access(execution=record, headers=request_headers)
+    if access_denial is not None:
+        return access_denial
     return build_execution_response(
         record=record,
         job=compute_job_store.get_job(calculation_id),

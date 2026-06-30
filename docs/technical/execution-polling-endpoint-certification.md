@@ -27,7 +27,13 @@ Error behavior:
 | Status | Meaning |
 | --- | --- |
 | `200` | A durable execution record exists and lifecycle metadata is returned. |
+| `403` | Enterprise privileged-read authorization is enabled and the caller has neither `operations.runtime.read` nor a matching `X-Portfolio-Id` entitlement for the durable execution `portfolio_id`. |
 | `404` | No durable execution record exists for the supplied calculation id. |
+
+When `ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ=true`, callers must send the normal enterprise
+identity headers and either `X-Capabilities: operations.runtime.read` for privileged
+operator/support access or `X-Portfolio-Id` matching the durable execution `portfolio_id` for
+same-portfolio delegated access. A bare calculation id is not sufficient authority.
 
 ## Output Contract
 
@@ -70,6 +76,8 @@ Certified behavior:
   and a pending job state while retry budget remains;
 - terminal compute failures expose failed top-level execution state and failed `async_result`
   metadata;
+- privileged-read enforcement denies UUID-only or cross-portfolio polling attempts with the
+  standard `authorization_policy_denied` envelope while preserving `404` for unknown ids;
 - unknown calculation ids return `404` without fabricating a lifecycle record.
 
 ## Upstream Integration
@@ -125,7 +133,7 @@ Swagger now documents:
 | Layer | Coverage | Assessment |
 | --- | --- | --- |
 | Model/schema | `tests/unit/models/test_execution_polling_models.py` proves translation from durable records into typed polling responses. | Strong for response assembly. |
-| Integration route tests | `tests/integration/test_execution_api.py` covers sync, async, stateful stages, retryable compute failure, terminal failure, result availability, and 404 behavior. | Strong for endpoint behavior. |
+| Integration route tests | `tests/integration/test_execution_api.py` covers sync, async, stateful stages, retryable compute failure, terminal failure, result availability, portfolio/privileged-read authorization, and 404 behavior. | Strong for endpoint behavior. |
 | Docs/OpenAPI | `tests/unit/app/test_execution_openapi_contract.py` checks operation purpose, 404 behavior, path parameter docs, and nested response field descriptions. | Strong after this pass. |
 | Downstream | `lotus-risk` polling client tests cover accepted payload validation, pending polling, failure surfacing, and polling-budget exhaustion. | Adequate with no migration issue required. |
 | Live proof | Existing integration tests exercise the endpoint through real TestClient requests and worker drain paths. | Adequate for this durable-store polling endpoint. |

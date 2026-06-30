@@ -534,15 +534,17 @@ async def test_contribution_endpoint_reraises_sync_http_exceptions(mocker):
 async def test_get_contribution_result_delegates_to_async_result_service(mocker):
     calculation_id = uuid4()
     expected_response = {"status": "ok"}
+    request = SimpleNamespace(headers={"x-portfolio-id": "P1"})
     resolve_async_result = mocker.patch(
         "app.api.endpoints.contribution.resolve_async_result",
         return_value=expected_response,
     )
 
-    response = await contribution_endpoint.get_contribution_result(calculation_id)
+    response = await contribution_endpoint.get_contribution_result(calculation_id, request)
 
     assert response == expected_response
     resolve_async_result.assert_called_once()
+    assert resolve_async_result.call_args.kwargs["request_headers"] is request.headers
 
 
 def test_contribution_endpoint_numeric_and_stateful_window_helpers_cover_stateful_shape(mocker):

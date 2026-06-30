@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Path, status
+from fastapi import APIRouter, HTTPException, Path, Request, status
+from fastapi.responses import JSONResponse
 
 from app.models.execution_polling import ExecutionResponse
 from app.models.platform_surfaces import ErrorDetailResponse
@@ -30,12 +31,13 @@ router = APIRouter(tags=["Performance"])
     },
 )
 async def get_execution(
+    request: Request,
     calculation_id: UUID = Path(
         description="Durable calculation identifier returned by an analytics endpoint.",
         examples=["2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e"],
     ),
-) -> ExecutionResponse:
-    response = get_execution_polling_response(calculation_id)
+) -> ExecutionResponse | JSONResponse:
+    response = get_execution_polling_response(calculation_id, request_headers=request.headers)
     if response is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

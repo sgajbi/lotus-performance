@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
 from app.api.async_openapi import async_result_responses, async_submission_responses
@@ -74,7 +74,7 @@ async def calculate_benchmark_endpoint(
         failed_detail="Async benchmark execution failed.",
     ),
 )
-async def get_benchmark_result(calculation_id: UUID) -> BenchmarkPerformanceResponse | JSONResponse:
+async def get_benchmark_result(calculation_id: UUID, request: Request) -> BenchmarkPerformanceResponse | JSONResponse:
     """Return a completed async benchmark calculation or its accepted/failed status."""
     return resolve_async_result(
         calculation_id=calculation_id,
@@ -83,4 +83,5 @@ async def get_benchmark_result(calculation_id: UUID) -> BenchmarkPerformanceResp
         accepted_response_factory=accepted_benchmark_response,
         not_found_detail="Async benchmark result not found for the given calculation_id.",
         failed_detail="Async benchmark execution failed.",
+        request_headers=request.headers,
     )
