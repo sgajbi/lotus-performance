@@ -40,6 +40,10 @@ API and background-worker logs use the same JSON logging contract. For async cal
 start with `calculation_id`, then join the API acceptance log, durable execution lifecycle,
 compute-worker event, lineage-worker event, and result-polling log by `calculation_id` plus
 `correlation_id` or `trace_id` when the accepted request propagated those values.
+This applies consistently to returns-series, contribution, attribution, benchmark, TWR,
+workspace-summary, and TWR-inspection async submissions. The transient `observability_context`
+field is ignored for replay and conflict identity, so retries from the same business request do not
+become different jobs only because correlation values changed.
 
 Expected worker fields:
 

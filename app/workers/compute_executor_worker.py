@@ -39,6 +39,7 @@ from app.services.analytics_workflow_types import (
     ANALYTICS_WORKFLOW_TWR_INSPECTION,
     ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY,
 )
+from app.services.async_observability_context import ASYNC_OBSERVABILITY_CONTEXT_FIELD
 from app.services.async_result_store import AsyncResultStore, async_result_store
 from app.services.attribution_mode_service import resolve_attribution_request
 from app.services.attribution_service import calculate_attribution
@@ -60,7 +61,6 @@ from engine.exceptions import EngineCalculationError, InvalidEngineInputError
 
 logger = logging.getLogger(__name__)
 
-ASYNC_OBSERVABILITY_CONTEXT_FIELD = "observability_context"
 _WORKER_NAME = "compute_executor_worker"
 _QUEUE_NAME = "compute"
 
@@ -331,7 +331,8 @@ def _resolve_compute_job_calculators(
 
 def _execute_compute_job(job: ComputeJobRecord, context: _ComputeJobExecutionContext) -> Any:
     executor = _compute_job_executor_for(job.analytics_type)
-    return executor(job, context)
+    with _restored_async_observability_context(job.request_payload):
+        return executor(job, context)
 
 
 def _compute_job_executor_for(analytics_type: str) -> _ComputeJobExecutor:
@@ -349,18 +350,17 @@ def _execute_returns_series_job(job: ComputeJobRecord, context: _ComputeJobExecu
         resolved_benchmark_return_source_override,
         risk_free_source_quality_override,
     ) = _resolve_async_returns_series_job_request(job.request_payload)
-    with _restored_async_observability_context(job.request_payload):
-        if source_input_mode == request.input_mode:
-            return asyncio.run(context.returns_series_calculator(request))
-        return asyncio.run(
-            context.returns_series_calculator(
-                request,
-                source_input_mode=source_input_mode,
-                resolved_benchmark_id_override=resolved_benchmark_id_override,
-                resolved_benchmark_return_source_override=resolved_benchmark_return_source_override,
-                risk_free_source_quality_override=risk_free_source_quality_override,
-            )
+    if source_input_mode == request.input_mode:
+        return asyncio.run(context.returns_series_calculator(request))
+    return asyncio.run(
+        context.returns_series_calculator(
+            request,
+            source_input_mode=source_input_mode,
+            resolved_benchmark_id_override=resolved_benchmark_id_override,
+            resolved_benchmark_return_source_override=resolved_benchmark_return_source_override,
+            risk_free_source_quality_override=risk_free_source_quality_override,
         )
+    )
 
 
 def _nonblank_context_value(value: object) -> str | None:
@@ -504,13 +504,17 @@ def _execute_twr_job(job: ComputeJobRecord, context: _ComputeJobExecutionContext
 
 
 def _execute_workspace_summary_job(job: ComputeJobRecord, context: _ComputeJobExecutionContext) -> Any:
-    workspace_request = WorkspaceSummaryRequest.model_validate(job.request_payload)
+    workspace_request = WorkspaceSummaryRequest.model_validate(
+        _payload_without_async_observability_context(job.request_payload)
+    )
     _update_execution_identity(job, context, workspace_request)
     return context.workspace_summary_calculator(workspace_request, settings=context.settings)
 
 
 def _execute_twr_inspection_job(job: ComputeJobRecord, context: _ComputeJobExecutionContext) -> Any:
-    inspection_request = TWRInspectionRequest.model_validate(job.request_payload)
+    inspection_request = TWRInspectionRequest.model_validate(
+        _payload_without_async_observability_context(job.request_payload)
+    )
     _update_execution_identity(job, context, inspection_request)
     return context.inspection_calculator(inspection_request)
 
@@ -642,6 +646,7 @@ def _resolve_async_contribution_job_request(
     *,
     settings,
 ) -> tuple[ContributionRequest, ContributionInputMode]:
+    payload = _payload_without_async_observability_context(payload)
     try:
         request = ContributionRequest.model_validate(payload)
     except ValidationError:
@@ -679,6 +684,7 @@ def _resolve_async_attribution_job_request(
     *,
     settings,
 ) -> tuple[AttributionRequest, AttributionInputMode, str | None, str | None]:
+    payload = _payload_without_async_observability_context(payload)
     resolved_job_request = _resolved_async_attribution_job_request_from_payload(payload)
     if resolved_job_request is not None:
         return resolved_job_request
@@ -719,6 +725,7 @@ def _resolve_async_benchmark_job_request(
     *,
     settings,
 ) -> tuple[BenchmarkPerformanceRequest, BenchmarkInputMode]:
+    payload = _payload_without_async_observability_context(payload)
     resolved_request_payload = payload.get("resolved_request")
     source_input_mode = payload.get("source_input_mode")
     if isinstance(resolved_request_payload, dict) and isinstance(source_input_mode, str):
@@ -748,6 +755,7 @@ def _resolve_async_twr_job_request(
     str,
     bool,
 ]:
+    payload = _payload_without_async_observability_context(payload)
     resolved_request_payload = payload.get("resolved_request")
     source_input_mode = payload.get("source_input_mode")
     if isinstance(resolved_request_payload, dict) and isinstance(source_input_mode, str):

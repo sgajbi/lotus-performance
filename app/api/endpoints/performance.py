@@ -21,6 +21,7 @@ from app.services.analytics_workflow_types import (
     ANALYTICS_WORKFLOW_TWR,
     ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY,
 )
+from app.services.async_observability_context import async_observability_request_payload
 from app.services.async_result_service import resolve_async_result
 from app.services.attribution_calculation_workflow_service import (
     accepted_attribution_response as _accepted_attribution_response,
@@ -141,7 +142,7 @@ def calculate_workspace_summary_endpoint(
             requested_window=requested_window,
             input_fingerprint=input_fingerprint,
             calculation_hash=calculation_hash,
-            request_payload=request.model_dump(mode="json"),
+            request_payload=async_observability_request_payload(request.model_dump(mode="json")),
             offload_reason=_workspace_offload_reason(request),
             accepted_response_factory=_accepted_workspace_summary_response,
         )

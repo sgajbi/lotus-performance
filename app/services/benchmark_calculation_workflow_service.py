@@ -10,6 +10,7 @@ from app.models.benchmark_analytics_requests import BenchmarkAnalyticsRequest, B
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.models.benchmark_responses import BenchmarkAcceptedResponse, BenchmarkPerformanceResponse
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_BENCHMARK
+from app.services.async_observability_context import async_observability_request_payload
 from app.services.benchmark_mode_service import ResolvedBenchmarkRequest, resolve_benchmark_request
 from app.services.benchmark_service import calculate_benchmark_response
 from app.services.execution_lifecycle_service import record_execution_failure
@@ -213,10 +214,12 @@ def _finalize_promoted_stateful_benchmark_execution(
         ),
         input_fingerprint=resolved_context.input_fingerprint,
         calculation_hash=resolved_context.calculation_hash,
-        resolved_request_payload={
-            "resolved_request": resolved_context.benchmark_request.model_dump(mode="json"),
-            "source_input_mode": BenchmarkInputMode.STATEFUL.value,
-        },
+        resolved_request_payload=async_observability_request_payload(
+            {
+                "resolved_request": resolved_context.benchmark_request.model_dump(mode="json"),
+                "source_input_mode": BenchmarkInputMode.STATEFUL.value,
+            }
+        ),
         should_offload=should_offload_resolved_benchmark(resolved_context.resolved_request.input_count),
         offload_reason="large_resolved_stateful_benchmark",
         accepted_response_factory=accepted_benchmark_response,
@@ -238,7 +241,7 @@ def _initial_benchmark_async_submission(
         requested_window=build_benchmark_execution_window(request),
         input_fingerprint=source_request_fingerprint,
         calculation_hash=source_request_hash,
-        request_payload=request.model_dump(mode="json"),
+        request_payload=async_observability_request_payload(request.model_dump(mode="json")),
         offload_reason=(
             "long_window_stateful_benchmark"
             if request.input_mode == BenchmarkInputMode.STATEFUL

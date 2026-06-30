@@ -12,6 +12,7 @@ from app.models.contribution_analytics_requests import (
 from app.models.contribution_requests import ContributionRequest
 from app.models.contribution_responses import ContributionAcceptedResponse, ContributionResponse
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_CONTRIBUTION
+from app.services.async_observability_context import async_observability_request_payload
 from app.services.contribution_mode_service import resolve_contribution_request
 from app.services.contribution_service import calculate_contribution
 from app.services.execution_lifecycle_service import record_execution_failure
@@ -156,7 +157,7 @@ async def _resolve_promoted_stateful_contribution_response(
             requested_window=resolved_window,
             input_fingerprint=resolved_input_fingerprint,
             calculation_hash=resolved_calculation_hash,
-            resolved_request_payload=resolved_request.model_dump(mode="json"),
+            resolved_request_payload=async_observability_request_payload(resolved_request.model_dump(mode="json")),
             should_offload=should_offload_resolved_contribution(resolved.position_count),
             offload_reason="large_resolved_stateful_contribution",
             accepted_response_factory=accepted_contribution_response,
@@ -226,7 +227,7 @@ def _initial_contribution_async_submission(
         requested_window=build_contribution_execution_window(request),
         input_fingerprint=input_fingerprint,
         calculation_hash=calculation_hash,
-        request_payload=request.model_dump(mode="json"),
+        request_payload=async_observability_request_payload(request.model_dump(mode="json")),
         offload_reason=offload_reason,
         accepted_response_factory=accepted_contribution_response,
     )

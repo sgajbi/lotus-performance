@@ -9,6 +9,7 @@ from fastapi import HTTPException
 from app.api.endpoints import contribution as contribution_endpoint
 from app.models.contribution_analytics_requests import ContributionAnalyticsRequest, ContributionInputMode
 from app.models.contribution_requests import ContributionRequest
+from app.observability import correlation_id_var, request_id_var, trace_id_var
 from app.services import contribution_calculation_workflow_service
 from app.services.contribution_mode_service import ResolvedContributionRequest
 
@@ -343,12 +344,20 @@ def test_initial_contribution_async_submission_preserves_stateful_submission_con
         "app.services.contribution_calculation_workflow_service.register_async_submission_or_raise",
         return_value=accepted_response,
     )
+    correlation_token = correlation_id_var.set(" corr-contribution ")
+    request_token = request_id_var.set(" req-contribution ")
+    trace_token = trace_id_var.set(" trace-contribution ")
 
-    response = contribution_calculation_workflow_service._initial_contribution_async_submission(
-        request=request,
-        input_fingerprint="input-fingerprint",
-        calculation_hash="calculation-hash",
-    )
+    try:
+        response = contribution_calculation_workflow_service._initial_contribution_async_submission(
+            request=request,
+            input_fingerprint="input-fingerprint",
+            calculation_hash="calculation-hash",
+        )
+    finally:
+        correlation_id_var.reset(correlation_token)
+        request_id_var.reset(request_token)
+        trace_id_var.reset(trace_token)
 
     assert response == accepted_response
     register_async.assert_called_once()
@@ -361,6 +370,11 @@ def test_initial_contribution_async_submission_preserves_stateful_submission_con
     assert call_kwargs["offload_reason"] == "long_window_stateful_contribution"
     assert call_kwargs["requested_window"]["input_mode"] == "stateful"
     assert call_kwargs["request_payload"]["input_mode"] == "stateful"
+    assert call_kwargs["request_payload"]["observability_context"] == {
+        "correlation_id": "corr-contribution",
+        "request_id": "req-contribution",
+        "trace_id": "trace-contribution",
+    }
     assert (
         call_kwargs["accepted_response_factory"]
         is contribution_calculation_workflow_service.accepted_contribution_response
