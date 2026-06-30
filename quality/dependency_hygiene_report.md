@@ -1,7 +1,7 @@
 # Lotus Performance Dependency Hygiene Report
 
-Report date: 2026-06-02
-Branch: `feat/performance-hardening-wave-9`
+Report date: 2026-06-30
+Branch: `batch/defect-backlog-post-pr383`
 Mode: report-only dependency hygiene inventory; no blocking CI gate is introduced by this artifact.
 
 ## Purpose
@@ -47,11 +47,14 @@ python scripts/python_dependency_hygiene_inventory.py --limit 30
 
 ## Interpretation
 
-The earlier `DEP003` findings are closed: production imports of `numpy`, `httpx`,
-`prometheus_client`, and `orjson` now have direct runtime declarations. The reviewed runtime-only
+The earlier `DEP003` findings are closed: production imports of `numpy`, `httpx`, and
+`prometheus_client` now have direct runtime declarations. The reviewed runtime-only
 `DEP002` declarations are explicitly allowlisted in `scripts/python_dependency_hygiene_inventory.py`:
 `uvicorn` is the service process entrypoint, and `psycopg` supports optional PostgreSQL
 runtime/benchmark proof.
+
+The obsolete `orjson` runtime declaration was removed when the global null-stripping response
+renderer was removed; dependency hygiene remains at zero findings.
 
 Future slices should revisit these allowlisted declarations if the Docker entrypoint, PostgreSQL
 runtime posture, or benchmark proof changes.

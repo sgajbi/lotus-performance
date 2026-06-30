@@ -87,6 +87,30 @@ def test_execution_api_returns_404_for_missing_calculation(client):
     assert response.json()["detail"] == "Execution data not found for the given calculation_id."
 
 
+def test_execution_api_preserves_nullable_contract_fields(client):
+    calculation_id = uuid4()
+    execution_registry.create_execution(
+        calculation_id=calculation_id,
+        analytics_type="TWR",
+        portfolio_id=None,
+        execution_mode="sync",
+        requested_window={},
+    )
+
+    response = client.get(f"/performance/executions/{calculation_id}")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["portfolio_id"] is None
+    assert body["input_fingerprint"] is None
+    assert body["calculation_hash"] is None
+    assert body["error_message"] is None
+    assert body["started_at_utc"] is None
+    assert body["completed_at_utc"] is None
+    assert body["compute_job"] is None
+    assert body["async_result"] is None
+
+
 def test_execution_api_enforces_result_access_when_privileged_read_authz_enabled(client, monkeypatch):
     monkeypatch.setenv("ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ", "true")
     calculation_id = uuid4()
@@ -1109,7 +1133,7 @@ def test_execution_api_exposes_retryable_compute_job_metadata(client, monkeypatc
         assert job["error_type"] == "HTTPException"
         assert job["last_error_at_utc"] is not None
         assert job.get("lease_expires_at_utc") is None
-        assert "async_result" not in body
+        assert body["async_result"] is None
     finally:
         settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS = original_threshold
         settings.COMPUTE_EXECUTOR_MAX_ATTEMPTS = original_attempts

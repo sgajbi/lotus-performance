@@ -2,12 +2,9 @@
 from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator
 
-import orjson
 from fastapi import FastAPI, HTTPException
-from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.openapi.utils import get_openapi
-from fastapi.responses import JSONResponse
 
 from app.api.endpoints import (
     benchmark,
@@ -48,58 +45,6 @@ from app.services.execution_registry import execution_registry
 from app.services.lineage_metadata_store import lineage_metadata_store
 from core.errors import APIError
 
-
-# --- FIX START: Create a robust custom JSON response class ---
-def _clean_none_from_dict(d: dict) -> dict:
-    """Recursively removes keys with None values from a dictionary."""
-    out = {}
-    for k, v in d.items():
-        if v is not None:
-            if isinstance(v, dict):
-                out[k] = _clean_none_from_dict(v)
-            elif isinstance(v, list):
-                out[k] = _clean_none_from_list(v)
-            else:
-                out[k] = v
-    return out
-
-
-def _clean_none_from_list(items: list) -> list:
-    """Recursively removes None values from lists and dicts within lists."""
-    out = []
-    for v in items:
-        if v is not None:
-            if isinstance(v, dict):
-                out.append(_clean_none_from_dict(v))
-            elif isinstance(v, list):
-                out.append(_clean_none_from_list(v))
-            else:
-                out.append(v)
-    return out
-
-
-class ORJSONResponseExcludeNull(JSONResponse):
-    def render(self, content: Any) -> bytes:
-        """
-        Serializes content to JSON using orjson, after removing null values.
-        """
-        # jsonable_encoder handles Pydantic models, datetimes, etc.
-        encoded_content = jsonable_encoder(content)
-
-        # Recursively remove None values
-        if isinstance(encoded_content, dict):
-            cleaned_content = _clean_none_from_dict(encoded_content)
-        elif isinstance(encoded_content, list):
-            cleaned_content = _clean_none_from_list(encoded_content)
-        else:
-            cleaned_content = encoded_content
-
-        return orjson.dumps(cleaned_content)
-
-
-# --- FIX END ---
-
-
 settings = get_settings()
 
 
@@ -130,7 +75,6 @@ app = FastAPI(
             "description": "Capabilities and cross-service integration metadata.",
         },
     ],
-    default_response_class=ORJSONResponseExcludeNull,  # Set as the default for the app
     lifespan=_app_lifespan,
 )
 

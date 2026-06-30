@@ -63,6 +63,13 @@ Nested output families:
 | `compute_job` | Async executor job state, attempt count, lease state, worker identity, and retry or failure details. |
 | `async_result` | Endpoint-specific result materialization state and terminal error details. |
 
+Nullable contract fields are serialized as explicit JSON `null` values when the durable lifecycle
+record has no value yet or the field is intentionally absent for that execution. This includes
+`portfolio_id`, `input_fingerprint`, `calculation_hash`, `error_message`, `started_at_utc`,
+`completed_at_utc`, `compute_job`, and `async_result`. Global null stripping is not part of the API
+contract; sparse omission is allowed only for route-specific behavior that is explicitly documented
+and reflected in OpenAPI.
+
 ## Behavior And Feature Checks
 
 Certified behavior:
@@ -76,6 +83,8 @@ Certified behavior:
   and a pending job state while retry budget remains;
 - terminal compute failures expose failed top-level execution state and failed `async_result`
   metadata;
+- pending or no-result executions preserve nullable contract fields as explicit `null` members
+  instead of deleting advertised response fields;
 - privileged-read enforcement denies UUID-only or cross-portfolio polling attempts with the
   standard `authorization_policy_denied` envelope while preserving `404` for unknown ids;
 - unknown calculation ids return `404` without fabricating a lifecycle record.
