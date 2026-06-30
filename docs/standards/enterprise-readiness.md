@@ -26,6 +26,10 @@
   or an unset runtime profile with the authz switches disabled.
 - Privileged operator read surfaces are protected with capability-gated enterprise authz in
   production-like profiles.
+- Controlled lineage evidence reads are protected with the same privileged-read capability:
+  `GET /performance/lineage/{calculation_id}` and
+  `GET /performance/lineage/{calculation_id}/artifacts/{artifact_name}` require
+  `operations.runtime.read` when privileged-read authz is enabled.
 - Allowed privileged operator reads also emit audit metadata describing the governed surface and required capability.
 - Sensitive operator write surfaces require governed runtime-management capability in
   production-like profiles, including `POST /integration/runtime-retention-cleanups/run`.

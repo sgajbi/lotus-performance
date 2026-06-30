@@ -20,6 +20,7 @@ from app.enterprise_readiness import (
     _HTTP_STATUS_PAYLOAD_TOO_LARGE,
     _MISSING_POLICY_VERSION_ISSUE,
     _MISSING_PRIMARY_KEY_ID_ISSUE,
+    _PATH_PERFORMANCE_LINEAGE,
     _PAYLOAD_TOO_LARGE_DETAIL,
     _PRODUCTION_PRIVILEGED_READ_AUTHZ_DISABLED_ISSUE,
     _PRODUCTION_RUNTIME_CONFIG_ENFORCEMENT_DISABLED_ISSUE,
@@ -320,6 +321,35 @@ def test_production_runtime_read_surface_requires_runtime_read_capability(monkey
     assert denied_reason == "missing_capability:operations.runtime.read"
 
 
+def test_lineage_evidence_read_surfaces_require_runtime_read_capability(monkeypatch):
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ, "true")
+    headers = {
+        "X-Actor-Id": "a1",
+        "X-Tenant-Id": "t1",
+        "X-Role": "operator",
+        "X-Correlation-Id": "c1",
+        "X-Service-Identity": "lotus-performance",
+        "X-Capabilities": "operations.runtime.manage",
+    }
+
+    for path in {
+        f"{_PATH_PERFORMANCE_LINEAGE}/06d61089-cee1-455e-b31e-2df6f6a2da2e",
+        f"{_PATH_PERFORMANCE_LINEAGE}/06d61089-cee1-455e-b31e-2df6f6a2da2e/artifacts/request.json",
+    }:
+        denied, denied_reason = authorize_privileged_read_request("GET", path, headers)
+        assert denied is False
+        assert denied_reason == "missing_capability:operations.runtime.read"
+
+    headers["X-Capabilities"] = "operations.runtime.manage,operations.runtime.read"
+    allowed, allowed_reason = authorize_privileged_read_request(
+        "GET",
+        f"{_PATH_PERFORMANCE_LINEAGE}/06d61089-cee1-455e-b31e-2df6f6a2da2e/artifacts/request.json",
+        headers,
+    )
+    assert allowed is True
+    assert allowed_reason is None
+
+
 def test_enterprise_policy_version_trims_configured_value(monkeypatch):
     monkeypatch.setenv(_ENV_ENTERPRISE_POLICY_VERSION, " 2.0.0 ")
     assert enterprise_policy_version() == "2.0.0"
@@ -466,7 +496,7 @@ async def test_middleware_denies_privileged_read_without_identity_headers(monkey
     scope = {
         "type": "http",
         "method": "GET",
-        "path": "/integration/runtime-status",
+        "path": f"{_PATH_PERFORMANCE_LINEAGE}/06d61089-cee1-455e-b31e-2df6f6a2da2e/artifacts/request.json",
         "headers": [],
     }
     request = Request(scope)

@@ -74,6 +74,7 @@ from app.enterprise_readiness import (
     _MISSING_HEADERS_REASON,
     _MISSING_POLICY_VERSION_ISSUE,
     _MISSING_PRIMARY_KEY_ID_ISSUE,
+    _PATH_PERFORMANCE_LINEAGE,
     _PATH_RUNTIME_RETENTION_CLEANUP_RUN,
     _PATH_RUNTIME_STATUS,
     _PAYLOAD_TOO_LARGE_DETAIL,
@@ -85,6 +86,7 @@ from app.enterprise_readiness import (
     _RESPONSE_DETAIL_KEY,
     _RESPONSE_REASON_KEY,
     _ROLE_HEADER,
+    _RULE_PERFORMANCE_LINEAGE_READ,
     _RULE_RECOVERY_DRILL_RUN_WRITE,
     _RULE_RUNTIME_RETENTION_CLEANUP_RUN_WRITE,
     _RULE_RUNTIME_STATUS_READ,
@@ -146,6 +148,7 @@ from app.enterprise_readiness import (
     _request_action,
     _required_capability,
     _required_capability_from_rules,
+    _required_privileged_read_capability,
     _runtime_config_enforcement_enabled,
     _runtime_config_invalid_message,
     _runtime_config_issues_should_raise,
@@ -990,7 +993,26 @@ def test_load_privileged_read_rules_merges_defaults_and_env(monkeypatch):
     )
     rules = load_privileged_read_rules()
     assert rules["GET /integration/runtime-status"] == _CAPABILITY_OPERATIONS_RUNTIME_READ
+    assert rules[_RULE_PERFORMANCE_LINEAGE_READ] == _CAPABILITY_OPERATIONS_RUNTIME_READ
     assert rules["GET /integration/custom-status"] == "operations.custom.read"
+
+
+def test_required_privileged_read_capability_covers_lineage_child_paths():
+    assert (
+        _required_privileged_read_capability(
+            "GET",
+            f"{_PATH_PERFORMANCE_LINEAGE}/06d61089-cee1-455e-b31e-2df6f6a2da2e",
+        )
+        == _CAPABILITY_OPERATIONS_RUNTIME_READ
+    )
+    assert (
+        _required_privileged_read_capability(
+            "GET",
+            f"{_PATH_PERFORMANCE_LINEAGE}/06d61089-cee1-455e-b31e-2df6f6a2da2e/artifacts/request.json",
+        )
+        == _CAPABILITY_OPERATIONS_RUNTIME_READ
+    )
+    assert _required_privileged_read_capability("GET", "/performance/lineage-extra") is None
 
 
 def test_load_capability_rule_family_preserves_defaults_and_valid_overrides(monkeypatch):

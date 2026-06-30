@@ -1260,6 +1260,8 @@ def test_enterprise_readiness_covers_privileged_operator_reads():
     assert "Allowed privileged write operations also emit audit metadata" in enterprise
     assert "Allowed privileged operator reads also emit audit metadata" in enterprise
     assert "ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ" in api_reference
+    assert "/performance/lineage/{calculation_id}" in api_reference
+    assert "/performance/lineage/{calculation_id}/artifacts/{artifact_name}" in api_reference
     assert "operations.runtime.read" in api_reference
     assert "operations.runtime.manage" in api_reference
     assert "governed surface and required-capability metadata" in api_reference
