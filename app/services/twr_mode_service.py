@@ -3,8 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
-from fastapi import HTTPException, status
-
 from app.core.config import Settings
 from app.models.benchmark_analytics_requests import (
     BenchmarkInputMode,
@@ -17,6 +15,7 @@ from app.models.requests import PerformanceRequest
 from app.models.twr_requests import TWRAnalyticsRequest, TWRBenchmarkRequest, TWRInputMode
 from app.services.benchmark_assignment_service import resolve_benchmark_identity
 from app.services.execution_registry import execution_registry
+from app.services.execution_stage_errors import execution_stage_failure_detail
 from app.services.execution_stage_names import EXECUTION_STAGE_NORMALIZATION, EXECUTION_STAGE_RETRIEVAL
 from app.services.portfolio_source_service import build_stateful_input_service
 from app.services.service_identity import LOTUS_PERFORMANCE_CONSUMER_SYSTEM
@@ -33,7 +32,7 @@ from app.services.stateful_performance_input_service import (
 )
 from app.services.stateful_upstream_errors import raise_for_stateful_control_plane_unavailable
 from app.services.stateless_benchmark_input_service import normalize_stateless_component_observations
-from core.errors import HTTP_422_UNPROCESSABLE
+from core.errors import APIBadRequestError, APIUnprocessableEntityError
 
 
 @dataclass(frozen=True)
@@ -142,8 +141,12 @@ async def _resolve_twr_retrieval_stage(
             EXECUTION_STAGE_RETRIEVAL,
             details=retrieval_resolution.retrieval_details,
         )
-    except HTTPException as exc:
-        execution_registry.fail_stage(request.calculation_id, EXECUTION_STAGE_RETRIEVAL, str(exc.detail))
+    except Exception as exc:
+        execution_registry.fail_stage(
+            request.calculation_id,
+            EXECUTION_STAGE_RETRIEVAL,
+            execution_stage_failure_detail(exc),
+        )
         raise
     return retrieval_resolution
 
@@ -358,10 +361,7 @@ async def _resolve_twr_portfolio_source_input(
 ) -> _ResolvedTWRPortfolioSourceInput:
     stateful_input = request.stateful_input
     if stateful_input is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="stateful_input is required when input_mode=stateful",
-        )
+        raise APIBadRequestError("stateful_input is required when input_mode=stateful")
     resolved_start_date = await _resolve_twr_portfolio_start_date(
         request=request,
         stateful_input_service=stateful_input_service,
@@ -401,10 +401,7 @@ async def _resolve_twr_portfolio_start_date(
         stateful_input_service=stateful_input_service,
     )
     if derived_start_date is None:
-        raise HTTPException(
-            status_code=HTTP_422_UNPROCESSABLE,
-            detail="Unable to derive a performance_start_date for the stateful TWR request.",
-        )
+        raise APIUnprocessableEntityError("Unable to derive a performance_start_date for the stateful TWR request.")
     return derived_start_date
 
 
@@ -440,16 +437,10 @@ def _resolve_stateless_twr_benchmark_input(
     benchmark: TWRBenchmarkRequest | None,
 ) -> _StatelessTWRBenchmarkInput:
     if benchmark is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="benchmark configuration is required when include_benchmark=true in stateless mode.",
-        )
+        raise APIBadRequestError("benchmark configuration is required when include_benchmark=true in stateless mode.")
     stateless_input = benchmark.stateless_input
     if stateless_input is None or benchmark.benchmark_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="benchmark stateless mode requires benchmark_id and stateless_input.",
-        )
+        raise APIBadRequestError("benchmark stateless mode requires benchmark_id and stateless_input.")
     return _StatelessTWRBenchmarkInput(
         benchmark_id=benchmark.benchmark_id,
         stateless_input=stateless_input,
@@ -513,17 +504,11 @@ async def _resolve_stateful_portfolio_start_date(
     )
     portfolio_open_date = upstream_payload.get("portfolio_open_date")
     if not isinstance(portfolio_open_date, str):
-        raise HTTPException(
-            status_code=HTTP_422_UNPROCESSABLE,
-            detail="Stateful source missing portfolio_open_date.",
-        )
+        raise APIUnprocessableEntityError("Stateful source missing portfolio_open_date.")
     try:
         return date.fromisoformat(portfolio_open_date)
     except ValueError as exc:
-        raise HTTPException(
-            status_code=HTTP_422_UNPROCESSABLE,
-            detail="Invalid portfolio_open_date from stateful source.",
-        ) from exc
+        raise APIUnprocessableEntityError("Invalid portfolio_open_date from stateful source.") from exc
 
 
 @dataclass(frozen=True)
@@ -647,10 +632,7 @@ def _get_requested_benchmark_return_source(request: TWRAnalyticsRequest) -> Benc
 def _resolve_default_stateful_benchmark_input(request: TWRAnalyticsRequest) -> BenchmarkStatefulInput:
     stateful_input = request.stateful_input
     if stateful_input is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="stateful_input is required when include_benchmark=true in stateful mode",
-        )
+        raise APIBadRequestError("stateful_input is required when include_benchmark=true in stateful mode")
     return BenchmarkStatefulInput()
 
 
