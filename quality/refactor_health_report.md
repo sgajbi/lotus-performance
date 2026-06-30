@@ -133,6 +133,31 @@ repeatably measured or expressed as progressive gates.
 
 ## Latest Local PR-Gate Evidence
 
+Latest TWR workflow submission boundary evidence on `refactor/twr-workflow-boundary`:
+
+1. Introduced `_TWRWorkflowSubmissionContext`,
+   `_build_twr_workflow_submission_context(...)`, `_register_pre_resolution_twr_submission(...)`,
+   and `_register_twr_sync_submission(...)` so TWR request fingerprinting, requested-window
+   projection, pre-resolution async offload, promoted stateful replay, and sync submission fencing
+   move through named in-process boundaries.
+2. Preserved behavior: public TWR API shape, OpenAPI truth, async accepted response paths,
+   stateful replay behavior, source-resolution behavior, execution lifecycle registration, error
+   mapping, observability payloads, and runtime topology are unchanged.
+3. Measured proof: `calculate_twr_workflow(...)` moved from `55` to `36` lines and dropped out of
+   the live top-45 function-size table; max cyclomatic complexity remains within the enforced
+   threshold at `8`, high-complexity functions remain `0`, average maintainability index measures
+   `55.49`, architecture-boundary findings remain `0`, and duplicate-code groups remain `0`.
+4. Validation passed: `python -m pytest tests\unit\services\test_twr_calculation_service.py -q`
+   (`15 passed`); targeted Ruff check; targeted Ruff format check; targeted mypy; function-size
+   inventory; complexity inventory; architecture-boundary inventory; and duplicate-code inventory.
+5. Conscious domain/API/error-model/operations/docs/skill review: this is an internal TWR workflow
+   design-modularity slice. It deliberately adds no runtime microservice or worker boundary because
+   workload, failure-isolation, ownership, deployment, security, and operability evidence do not
+   justify one here. README, repo-local wiki source, repository context, central platform context,
+   supported-features material, API inventories, OpenAPI snapshots, runbooks, platform skills, and
+   agent context do not need source updates because no public contract, command, runtime topology,
+   operator workflow, cross-repo ownership, reusable guidance, or documentation truth changed.
+
 Latest stateful benchmark market-series boundary evidence on
 `feature/stateful-benchmark-market-series-boundary`:
 

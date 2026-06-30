@@ -1,7 +1,7 @@
 # Lotus Performance Enterprise Backend Refactor Baseline
 
 Baseline date: 2026-06-30
-Branch: `feature/stateful-benchmark-market-series-boundary`
+Branch: `refactor/twr-workflow-boundary`
 Mode: report-only baseline; no new blocking quality gate is introduced by this artifact.
 
 ## Purpose
@@ -16,11 +16,11 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 
 | Area | Current value | Evidence |
 | --- | ---: | --- |
-| Python files | 583 | `rg --files -g '*.py'` equivalent excluding local caches |
+| Python files | 605 | `rg --files -g '*.py'` equivalent excluding local caches |
 | Python package markers | 18 | recursive `__init__.py` count |
-| Python LOC | 174,478 | recursive `.py` line count |
-| Test modules | 281 | `tests/**/test_*.py` |
-| Collected tests | 3427 tests | `python -m pytest --collect-only -q` |
+| Python LOC | 183,675 | recursive `.py` line count |
+| Test modules | 288 | `tests/**/test_*.py` |
+| Collected tests | 3596 tests | `python -m pytest --collect-only -q` |
 | Configured CI workflows | 5 | `.github/workflows/*.yml` |
 | Repo-native baseline command | 1 | `make quality-baseline` |
 
@@ -28,21 +28,21 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 
 | Rank | File | Lines |
 | ---: | --- | ---: |
-| 1 | `tests/unit/services/test_runtime_status_service.py` | 2503 |
-| 2 | `tests/unit/services/test_returns_series_service.py` | 2376 |
-| 3 | `tests/unit/app/test_request_path_runtime_settings.py` | 2276 |
-| 4 | `tests/unit/services/test_stateful_attribution_input_service.py` | 2089 |
-| 5 | `tests/integration/test_performance_api.py` | 1999 |
-| 6 | `tests/unit/services/test_twr_inspection_source_economics.py` | 1992 |
-| 7 | `app/services/stateful_input_service.py` | 1991 |
-| 8 | `tests/integration/test_contribution_api.py` | 1897 |
-| 9 | `tests/unit/services/test_compute_executor_worker.py` | 1879 |
-| 10 | `tests/unit/services/test_stateful_input_service.py` | 1825 |
-| 11 | `app/services/returns_series_service.py` | 1757 |
-| 12 | `tests/integration/test_attribution_api.py` | 1757 |
-| 13 | `tests/unit/app/test_contribution_endpoint_helpers.py` | 1643 |
-| 14 | `tests/unit/services/test_workspace_summary_service.py` | 1641 |
-| 15 | `tests/unit/services/test_twr_mode_service.py` | 1594 |
+| 1 | `tests/unit/services/test_runtime_status_service.py` | 2637 |
+| 2 | `tests/unit/services/test_returns_series_service.py` | 2494 |
+| 3 | `app/services/stateful_input_service.py` | 2380 |
+| 4 | `tests/unit/services/test_compute_executor_worker.py` | 2348 |
+| 5 | `tests/unit/app/test_request_path_runtime_settings.py` | 2276 |
+| 6 | `tests/unit/services/test_stateful_attribution_input_service.py` | 2152 |
+| 7 | `tests/unit/services/test_stateful_input_service.py` | 2092 |
+| 8 | `tests/integration/test_performance_api.py` | 2048 |
+| 9 | `tests/integration/test_contribution_api.py` | 2013 |
+| 10 | `tests/unit/services/test_twr_inspection_source_economics.py` | 1992 |
+| 11 | `app/services/returns_series_service.py` | 1809 |
+| 12 | `tests/integration/test_attribution_api.py` | 1758 |
+| 13 | `tests/unit/services/test_compute_job_store.py` | 1682 |
+| 14 | `tests/unit/services/test_workspace_summary_service.py` | 1679 |
+| 15 | `tests/unit/app/test_contribution_endpoint_helpers.py` | 1643 |
 
 ## Required Inventory Outputs
 

@@ -172,6 +172,62 @@ def test_twr_pre_resolution_offload_reason_names_stateful_and_large_input_paths(
     assert twr_calculation_service._twr_pre_resolution_offload_reason(stateless_request) == "large_twr_input_set"
 
 
+def test_build_twr_workflow_submission_context_projects_hashes_and_window():
+    request = TWRAnalyticsRequest.model_validate(
+        {
+            **_stateful_twr_payload(),
+            "include_benchmark": True,
+        }
+    )
+
+    context = twr_calculation_service._build_twr_workflow_submission_context(
+        request,
+        engine_version="runtime-version",
+    )
+
+    assert context.input_fingerprint
+    assert context.calculation_hash
+    assert context.source_request_fingerprint == context.input_fingerprint
+    assert context.requested_window == {
+        "performance_start_date": "2025-01-01",
+        "report_start_date": None,
+        "report_end_date": "2025-01-02",
+        "requested_periods": ["ITD"],
+        "input_mode": "stateful",
+        "include_benchmark": True,
+        "input_count": 0,
+        "benchmark_input_mode": "stateful",
+        "benchmark_return_source": "calculated",
+    }
+
+
+def test_register_twr_sync_submission_registers_enriched_stateful_window(mocker):
+    request = TWRAnalyticsRequest.model_validate(_stateful_twr_payload())
+    submission_context = twr_calculation_service._TWRWorkflowSubmissionContext(
+        input_fingerprint="input-fingerprint",
+        calculation_hash="calculation-hash",
+        source_request_fingerprint="source-fingerprint",
+        requested_window={"input_count": 0},
+    )
+    mocker.patch(
+        "app.services.twr_calculation_service.replay_promoted_stateful_async_execution",
+        return_value=None,
+    )
+    register_sync = mocker.patch("app.services.twr_calculation_service.register_sync_execution_or_raise")
+
+    replay_response = twr_calculation_service._register_twr_sync_submission(
+        request=request,
+        submission_context=submission_context,
+    )
+
+    assert replay_response is None
+    register_sync.assert_called_once()
+    assert register_sync.call_args.kwargs["analytics_type"] == ANALYTICS_WORKFLOW_TWR
+    assert register_sync.call_args.kwargs["input_fingerprint"] == "input-fingerprint"
+    assert register_sync.call_args.kwargs["calculation_hash"] == "calculation-hash"
+    assert register_sync.call_args.kwargs["requested_window"]["source_request_fingerprint"] == "source-fingerprint"
+
+
 def test_finalize_twr_resolved_execution_identity_preserves_stateful_payload(mocker):
     request = TWRAnalyticsRequest.model_validate(_stateful_twr_payload())
     performance_request = _performance_request(request.calculation_id)

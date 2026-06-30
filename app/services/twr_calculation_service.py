@@ -36,6 +36,14 @@ class _TWRSyncExecutionStart:
     replay_response: ApplicationHttpResponse | None
 
 
+@dataclass(frozen=True)
+class _TWRWorkflowSubmissionContext:
+    input_fingerprint: str
+    calculation_hash: str
+    source_request_fingerprint: str
+    requested_window: dict[str, object]
+
+
 def accepted_twr_response(calculation_id) -> TWRAcceptedResponse:
     return TWRAcceptedResponse(
         calculation_id=calculation_id,
@@ -283,51 +291,32 @@ def _twr_execution_window_benchmark_id(
 async def calculate_twr_workflow(request: TWRAnalyticsRequest) -> PerformanceResponse | ApplicationHttpResponse:
     """Resolve, fence, execute, and map errors for one TWR analytics request."""
     settings = get_settings()
-    input_fingerprint, calculation_hash = generate_twr_request_hashes(request, engine_version=settings.APP_VERSION)
-    source_request_fingerprint = input_fingerprint
-    requested_window = build_twr_execution_window(
+    submission_context = _build_twr_workflow_submission_context(
         request,
-        input_count=twr_requested_input_count(request),
+        engine_version=settings.APP_VERSION,
     )
-    if should_offload_twr(request):
-        return register_async_submission_or_raise(
-            calculation_id=request.calculation_id,
-            analytics_type=ANALYTICS_WORKFLOW_TWR,
-            portfolio_id=request.portfolio_id,
-            requested_window=requested_window,
-            input_fingerprint=input_fingerprint,
-            calculation_hash=calculation_hash,
-            request_payload=async_observability_request_payload(request.model_dump(mode="json")),
-            offload_reason=_twr_pre_resolution_offload_reason(request),
-            accepted_response_factory=accepted_twr_response,
-        )
-
-    sync_start = _prepare_twr_sync_execution_start(
+    pre_resolution_response = _register_pre_resolution_twr_submission(
         request=request,
-        requested_window=requested_window,
-        source_request_fingerprint=source_request_fingerprint,
+        submission_context=submission_context,
     )
-    if sync_start.replay_response is not None:
-        return sync_start.replay_response
-    requested_window = sync_start.requested_window
+    if pre_resolution_response is not None:
+        return pre_resolution_response
 
-    register_sync_execution_or_raise(
-        calculation_id=request.calculation_id,
-        analytics_type=ANALYTICS_WORKFLOW_TWR,
-        portfolio_id=request.portfolio_id,
-        requested_window=requested_window,
-        input_fingerprint=input_fingerprint,
-        calculation_hash=calculation_hash,
+    replay_response = _register_twr_sync_submission(
+        request=request,
+        submission_context=submission_context,
     )
+    if replay_response is not None:
+        return replay_response
 
     try:
         resolved_request = await resolve_twr_request(request, settings=settings)
         return _calculate_twr_resolved_response(
             request=request,
             resolved_request=resolved_request,
-            source_request_fingerprint=source_request_fingerprint,
-            input_fingerprint=input_fingerprint,
-            calculation_hash=calculation_hash,
+            source_request_fingerprint=submission_context.source_request_fingerprint,
+            input_fingerprint=submission_context.input_fingerprint,
+            calculation_hash=submission_context.calculation_hash,
             engine_version=settings.APP_VERSION,
         )
     except Exception as exc:
@@ -335,6 +324,67 @@ async def calculate_twr_workflow(request: TWRAnalyticsRequest) -> PerformanceRes
             calculation_id=request.calculation_id,
             exc=exc,
         )
+
+
+def _build_twr_workflow_submission_context(
+    request: TWRAnalyticsRequest,
+    *,
+    engine_version: str,
+) -> _TWRWorkflowSubmissionContext:
+    input_fingerprint, calculation_hash = generate_twr_request_hashes(request, engine_version=engine_version)
+    return _TWRWorkflowSubmissionContext(
+        input_fingerprint=input_fingerprint,
+        calculation_hash=calculation_hash,
+        source_request_fingerprint=input_fingerprint,
+        requested_window=build_twr_execution_window(
+            request,
+            input_count=twr_requested_input_count(request),
+        ),
+    )
+
+
+def _register_pre_resolution_twr_submission(
+    *,
+    request: TWRAnalyticsRequest,
+    submission_context: _TWRWorkflowSubmissionContext,
+) -> ApplicationHttpResponse | None:
+    if not should_offload_twr(request):
+        return None
+    return register_async_submission_or_raise(
+        calculation_id=request.calculation_id,
+        analytics_type=ANALYTICS_WORKFLOW_TWR,
+        portfolio_id=request.portfolio_id,
+        requested_window=submission_context.requested_window,
+        input_fingerprint=submission_context.input_fingerprint,
+        calculation_hash=submission_context.calculation_hash,
+        request_payload=async_observability_request_payload(request.model_dump(mode="json")),
+        offload_reason=_twr_pre_resolution_offload_reason(request),
+        accepted_response_factory=accepted_twr_response,
+    )
+
+
+def _register_twr_sync_submission(
+    *,
+    request: TWRAnalyticsRequest,
+    submission_context: _TWRWorkflowSubmissionContext,
+) -> ApplicationHttpResponse | None:
+    sync_start = _prepare_twr_sync_execution_start(
+        request=request,
+        requested_window=submission_context.requested_window,
+        source_request_fingerprint=submission_context.source_request_fingerprint,
+    )
+    if sync_start.replay_response is not None:
+        return sync_start.replay_response
+
+    register_sync_execution_or_raise(
+        calculation_id=request.calculation_id,
+        analytics_type=ANALYTICS_WORKFLOW_TWR,
+        portfolio_id=request.portfolio_id,
+        requested_window=sync_start.requested_window,
+        input_fingerprint=submission_context.input_fingerprint,
+        calculation_hash=submission_context.calculation_hash,
+    )
+    return None
 
 
 def _raise_twr_workflow_http_error(*, calculation_id, exc: Exception) -> NoReturn:
