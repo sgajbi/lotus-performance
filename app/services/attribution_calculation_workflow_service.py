@@ -4,6 +4,7 @@ from typing import Protocol, cast
 
 from fastapi import HTTPException, status
 
+from app.core.application_responses import ApplicationHttpResponse
 from app.core.config import Settings, get_settings
 from app.models.attribution_analytics_requests import AttributionAnalyticsRequest, AttributionInputMode
 from app.models.attribution_requests import AttributionRequest
@@ -118,7 +119,7 @@ def _finalize_resolved_stateful_attribution_execution(
     *,
     active_settings: _AttributionWorkflowSettings,
     source_request_fingerprint: str,
-) -> tuple[str, str, AttributionAcceptedResponse | None]:
+) -> tuple[str, str, ApplicationHttpResponse | None]:
     input_fingerprint, calculation_hash = generate_request_fingerprint(
         resolved.attribution_request,
         active_settings.APP_VERSION,
@@ -157,7 +158,7 @@ def _initial_attribution_async_submission(
     requested_window: dict[str, object],
     input_fingerprint: str,
     calculation_hash: str,
-) -> AttributionAcceptedResponse | None:
+) -> ApplicationHttpResponse | None:
     if not should_offload_attribution(request):
         return None
     offload_reason = (
@@ -183,7 +184,7 @@ def _stateful_attribution_replay_or_sync_window(
     *,
     source_request_fingerprint: str,
     requested_window: dict[str, object],
-) -> tuple[AttributionAcceptedResponse | None, dict[str, object]]:
+) -> tuple[ApplicationHttpResponse | None, dict[str, object]]:
     if request.input_mode != AttributionInputMode.STATEFUL:
         return None, requested_window
 
@@ -211,7 +212,7 @@ def _calculate_resolved_attribution_response(
     source_request_fingerprint: str,
     input_fingerprint: str,
     calculation_hash: str,
-) -> AttributionResponse | AttributionAcceptedResponse:
+) -> AttributionResponse | ApplicationHttpResponse:
     if resolved.input_mode == AttributionInputMode.STATEFUL:
         input_fingerprint, calculation_hash, accepted_response = _finalize_resolved_stateful_attribution_execution(
             request,
@@ -233,7 +234,7 @@ def _calculate_resolved_attribution_response(
 
 async def calculate_attribution_workflow(
     request: AttributionAnalyticsRequest,
-) -> AttributionResponse | AttributionAcceptedResponse:
+) -> AttributionResponse | ApplicationHttpResponse:
     """Resolve, fence, execute, and map errors for one attribution analytics request."""
     active_settings = get_settings()
     input_fingerprint, calculation_hash = generate_request_fingerprint(request, active_settings.APP_VERSION)
@@ -299,7 +300,7 @@ async def _resolve_and_calculate_attribution_response(
     source_request_fingerprint: str,
     input_fingerprint: str,
     calculation_hash: str,
-) -> AttributionResponse | AttributionAcceptedResponse:
+) -> AttributionResponse | ApplicationHttpResponse:
     try:
         resolved = await resolve_attribution_request(request, settings=cast(Settings, active_settings))
         return _calculate_resolved_attribution_response(

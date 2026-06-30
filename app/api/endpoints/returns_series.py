@@ -6,6 +6,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
 from app.api.async_openapi import async_result_responses, async_submission_responses
+from app.api.http_response_adapter import to_fastapi_response
 from app.models.returns_series import (
     ReturnsSeriesAcceptedResponse,
     ReturnsSeriesRequest,
@@ -36,7 +37,7 @@ router = APIRouter(tags=["Integration"])
     ),
 )
 async def get_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeriesResponse | JSONResponse:
-    return await calculate_returns_series_workflow(request)
+    return to_fastapi_response(await calculate_returns_series_workflow(request))
 
 
 @router.get(
@@ -53,12 +54,14 @@ async def get_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeriesResp
     ),
 )
 async def get_returns_series_result(calculation_id: UUID, request: Request) -> ReturnsSeriesResponse | JSONResponse:
-    return resolve_async_result(
-        calculation_id=calculation_id,
-        expected_analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES,
-        response_model=ReturnsSeriesResponse,
-        accepted_response_factory=accepted_returns_series_response,
-        not_found_detail="Async returns-series result not found for the given calculation_id.",
-        failed_detail="Async returns-series execution failed.",
-        request_headers=request.headers,
+    return to_fastapi_response(
+        resolve_async_result(
+            calculation_id=calculation_id,
+            expected_analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES,
+            response_model=ReturnsSeriesResponse,
+            accepted_response_factory=accepted_returns_series_response,
+            not_found_detail="Async returns-series result not found for the given calculation_id.",
+            failed_detail="Async returns-series execution failed.",
+            request_headers=request.headers,
+        )
     )

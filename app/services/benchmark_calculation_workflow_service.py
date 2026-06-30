@@ -5,6 +5,7 @@ from typing import NoReturn
 
 from fastapi import HTTPException, status
 
+from app.core.application_responses import ApplicationHttpResponse
 from app.core.config import get_settings
 from app.models.benchmark_analytics_requests import BenchmarkAnalyticsRequest, BenchmarkInputMode
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
@@ -151,7 +152,7 @@ async def _calculate_promoted_stateful_benchmark_workflow(
     source_request_fingerprint: str,
     input_fingerprint: str,
     calculation_hash: str,
-) -> BenchmarkPerformanceResponse | BenchmarkAcceptedResponse:
+) -> BenchmarkPerformanceResponse | ApplicationHttpResponse:
     replay_response = replay_promoted_stateful_async_execution(
         calculation_id=request.calculation_id,
         analytics_type=ANALYTICS_WORKFLOW_BENCHMARK,
@@ -203,7 +204,7 @@ def _finalize_promoted_stateful_benchmark_execution(
     request: BenchmarkAnalyticsRequest,
     source_request_fingerprint: str,
     resolved_context: _ResolvedBenchmarkExecutionContext,
-) -> BenchmarkAcceptedResponse | None:
+) -> ApplicationHttpResponse | None:
     return finalize_resolved_stateful_execution(
         calculation_id=request.calculation_id,
         analytics_type=ANALYTICS_WORKFLOW_BENCHMARK,
@@ -231,7 +232,7 @@ def _initial_benchmark_async_submission(
     *,
     source_request_fingerprint: str,
     source_request_hash: str,
-) -> BenchmarkAcceptedResponse | None:
+) -> ApplicationHttpResponse | None:
     if not should_offload_benchmark(request):
         return None
     return register_async_submission_or_raise(
@@ -293,7 +294,7 @@ async def _calculate_initial_sync_benchmark_workflow(
 
 async def calculate_benchmark_workflow(
     request: BenchmarkAnalyticsRequest,
-) -> BenchmarkPerformanceResponse | BenchmarkAcceptedResponse:
+) -> BenchmarkPerformanceResponse | ApplicationHttpResponse:
     """Resolve, fence, execute, and map errors for one benchmark analytics request."""
     settings = get_settings()
     source_request_fingerprint, source_request_hash = generate_request_fingerprint(request, settings.APP_VERSION)

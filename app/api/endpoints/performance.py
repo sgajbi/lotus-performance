@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 
 from app.api.async_openapi import async_result_responses, async_submission_responses
+from app.api.http_response_adapter import to_fastapi_response
 from app.core.config import get_settings
 from app.models.attribution_analytics_requests import AttributionAnalyticsRequest
 from app.models.attribution_responses import AttributionAcceptedResponse, AttributionResponse
@@ -135,16 +136,18 @@ def calculate_workspace_summary_endpoint(
     input_fingerprint, calculation_hash = generate_request_fingerprint(request, settings.APP_VERSION)
     requested_window = _workspace_requested_window(request)
     if _should_offload_workspace_summary(request):
-        return register_async_submission_or_raise(
-            calculation_id=request.calculation_id,
-            analytics_type=ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY,
-            portfolio_id=request.portfolio_id,
-            requested_window=requested_window,
-            input_fingerprint=input_fingerprint,
-            calculation_hash=calculation_hash,
-            request_payload=async_observability_request_payload(request.model_dump(mode="json")),
-            offload_reason=_workspace_offload_reason(request),
-            accepted_response_factory=_accepted_workspace_summary_response,
+        return to_fastapi_response(
+            register_async_submission_or_raise(
+                calculation_id=request.calculation_id,
+                analytics_type=ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY,
+                portfolio_id=request.portfolio_id,
+                requested_window=requested_window,
+                input_fingerprint=input_fingerprint,
+                calculation_hash=calculation_hash,
+                request_payload=async_observability_request_payload(request.model_dump(mode="json")),
+                offload_reason=_workspace_offload_reason(request),
+                accepted_response_factory=_accepted_workspace_summary_response,
+            )
         )
     register_sync_execution_or_raise(
         calculation_id=request.calculation_id,
@@ -191,14 +194,16 @@ async def get_workspace_summary_result(
     calculation_id: UUID,
     request: Request,
 ) -> WorkspaceSummaryResponse | JSONResponse:
-    return resolve_async_result(
-        calculation_id=calculation_id,
-        expected_analytics_type=ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY,
-        response_model=WorkspaceSummaryResponse,
-        accepted_response_factory=_accepted_workspace_summary_response,
-        not_found_detail="Async workspace summary result not found for the given calculation_id.",
-        failed_detail="Async workspace summary execution failed.",
-        request_headers=request.headers,
+    return to_fastapi_response(
+        resolve_async_result(
+            calculation_id=calculation_id,
+            expected_analytics_type=ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY,
+            response_model=WorkspaceSummaryResponse,
+            accepted_response_factory=_accepted_workspace_summary_response,
+            not_found_detail="Async workspace summary result not found for the given calculation_id.",
+            failed_detail="Async workspace summary execution failed.",
+            request_headers=request.headers,
+        )
     )
 
 
@@ -225,7 +230,7 @@ async def calculate_twr_endpoint(request: TWRAnalyticsRequest) -> PerformanceRes
     Calculates time-weighted return (TWR) for one or more requested periods
     and provides performance breakdowns by requested frequencies.
     """
-    return await calculate_twr_workflow(request)
+    return to_fastapi_response(await calculate_twr_workflow(request))
 
 
 @router.get(
@@ -246,14 +251,16 @@ async def calculate_twr_endpoint(request: TWRAnalyticsRequest) -> PerformanceRes
     ),
 )
 async def get_twr_result(calculation_id: UUID, request: Request) -> PerformanceResponse | JSONResponse:
-    return resolve_async_result(
-        calculation_id=calculation_id,
-        expected_analytics_type=ANALYTICS_WORKFLOW_TWR,
-        response_model=PerformanceResponse,
-        accepted_response_factory=_accepted_twr_response,
-        not_found_detail="Async TWR result not found for the given calculation_id.",
-        failed_detail="Async TWR execution failed.",
-        request_headers=request.headers,
+    return to_fastapi_response(
+        resolve_async_result(
+            calculation_id=calculation_id,
+            expected_analytics_type=ANALYTICS_WORKFLOW_TWR,
+            response_model=PerformanceResponse,
+            accepted_response_factory=_accepted_twr_response,
+            not_found_detail="Async TWR result not found for the given calculation_id.",
+            failed_detail="Async TWR execution failed.",
+            request_headers=request.headers,
+        )
     )
 
 
@@ -368,7 +375,7 @@ async def calculate_attribution_endpoint(request: AttributionAnalyticsRequest) -
     Calculates multi-level, Brinson-style performance attribution, decomposing
     active return into allocation, selection, and interaction effects.
     """
-    return await calculate_attribution_workflow(request)
+    return to_fastapi_response(await calculate_attribution_workflow(request))
 
 
 @router.get(
@@ -402,12 +409,14 @@ async def calculate_attribution_endpoint(request: AttributionAnalyticsRequest) -
     },
 )
 async def get_attribution_result(calculation_id: UUID, request: Request) -> AttributionResponse | JSONResponse:
-    return resolve_async_result(
-        calculation_id=calculation_id,
-        expected_analytics_type=ANALYTICS_WORKFLOW_ATTRIBUTION,
-        response_model=AttributionResponse,
-        accepted_response_factory=_accepted_attribution_response,
-        not_found_detail="Async attribution result not found for the given calculation_id.",
-        failed_detail="Async attribution execution failed.",
-        request_headers=request.headers,
+    return to_fastapi_response(
+        resolve_async_result(
+            calculation_id=calculation_id,
+            expected_analytics_type=ANALYTICS_WORKFLOW_ATTRIBUTION,
+            response_model=AttributionResponse,
+            accepted_response_factory=_accepted_attribution_response,
+            not_found_detail="Async attribution result not found for the given calculation_id.",
+            failed_detail="Async attribution execution failed.",
+            request_headers=request.headers,
+        )
     )

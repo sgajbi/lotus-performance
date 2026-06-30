@@ -4,6 +4,7 @@ from typing import Any
 
 from fastapi import HTTPException, status
 
+from app.core.application_responses import ApplicationHttpResponse
 from app.core.config import get_settings
 from app.models.contribution_analytics_requests import (
     ContributionAnalyticsRequest,
@@ -110,7 +111,7 @@ def _prepare_promoted_stateful_contribution_sync_execution(
     request: ContributionAnalyticsRequest,
     input_fingerprint: str,
     calculation_hash: str,
-) -> ContributionAcceptedResponse | None:
+) -> ApplicationHttpResponse | None:
     replay_response = replay_promoted_stateful_async_execution(
         calculation_id=request.calculation_id,
         analytics_type=ANALYTICS_WORKFLOW_CONTRIBUTION,
@@ -138,7 +139,7 @@ async def _resolve_promoted_stateful_contribution_response(
     request: ContributionAnalyticsRequest,
     active_settings: Any,
     source_request_fingerprint: str,
-) -> ContributionResponse | ContributionAcceptedResponse:
+) -> ContributionResponse | ApplicationHttpResponse:
     try:
         resolved = await resolve_contribution_request(request, settings=active_settings)
         resolved_request = resolved.contribution_request
@@ -194,7 +195,7 @@ async def _calculate_promoted_stateful_contribution(
     active_settings: Any,
     input_fingerprint: str,
     calculation_hash: str,
-) -> ContributionResponse | ContributionAcceptedResponse:
+) -> ContributionResponse | ApplicationHttpResponse:
     replay_response = _prepare_promoted_stateful_contribution_sync_execution(
         request=request,
         input_fingerprint=input_fingerprint,
@@ -214,7 +215,7 @@ def _initial_contribution_async_submission(
     request: ContributionAnalyticsRequest,
     input_fingerprint: str,
     calculation_hash: str,
-) -> ContributionAcceptedResponse:
+) -> ApplicationHttpResponse:
     offload_reason = (
         "long_window_stateful_contribution"
         if request.input_mode == ContributionInputMode.STATEFUL
@@ -275,7 +276,7 @@ async def _calculate_initial_sync_contribution(
 
 async def calculate_contribution_workflow(
     request: ContributionAnalyticsRequest,
-) -> ContributionResponse | ContributionAcceptedResponse:
+) -> ContributionResponse | ApplicationHttpResponse:
     """Resolve, fence, execute, and map errors for one contribution analytics request."""
     active_settings = get_settings()
     input_fingerprint, calculation_hash = generate_request_fingerprint(request, active_settings.APP_VERSION)

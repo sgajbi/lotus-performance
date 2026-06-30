@@ -5,14 +5,14 @@ from collections.abc import Callable, Mapping
 from typing import Any, TypeVar
 from uuid import UUID
 
-from fastapi import HTTPException, status
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ValidationError
 
+from app.core.application_responses import ApplicationHttpResponse, accepted_application_response
 from app.services.async_result_store import AsyncResultRecord, AsyncResultStatus, async_result_store
 from app.services.calculation_result_access import authorize_calculation_result_access
 from app.services.compute_job_store import ComputeJobRecord, ComputeJobStatus, compute_job_store
 from app.services.execution_registry import execution_registry
+from core.errors import APIConflictError, APINotFoundError
 
 ResponseModelT = TypeVar("ResponseModelT", bound=BaseModel)
 AcceptedModelT = TypeVar("AcceptedModelT", bound=BaseModel)
@@ -50,10 +50,7 @@ def _resolve_stored_async_result(
         source="async_result_store",
     )
     if async_result.result_status == AsyncResultStatus.FAILED:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=async_result.error_message or failed_detail,
-        )
+        raise APIConflictError(async_result.error_message or failed_detail)
     return _validate_response_payload(
         calculation_id=async_result.calculation_id,
         response_model=response_model,
@@ -71,7 +68,7 @@ def _resolve_compute_job_result(
     accepted_response_factory: Callable[[UUID], AcceptedModelT],
     not_found_detail: str,
     failed_detail: str,
-) -> ResponseModelT | JSONResponse:
+) -> ResponseModelT | ApplicationHttpResponse:
     job = _require_compute_job(job, not_found_detail=not_found_detail)
     _ensure_expected_analytics_type(
         calculation_id=calculation_id,
@@ -81,13 +78,9 @@ def _resolve_compute_job_result(
         source="compute_job_store",
     )
     if _is_active_async_job_status(job.job_status):
-        accepted = accepted_response_factory(calculation_id)
-        return JSONResponse(status_code=status.HTTP_202_ACCEPTED, content=accepted.model_dump(mode="json"))
+        return accepted_application_response(accepted_response_factory(calculation_id))
     if job.job_status == ComputeJobStatus.FAILED:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=job.error_message or failed_detail,
-        )
+        raise APIConflictError(job.error_message or failed_detail)
     return _validate_response_payload(
         calculation_id=calculation_id,
         response_model=response_model,
@@ -116,10 +109,7 @@ def _ensure_expected_analytics_type(
             "reason": ASYNC_RESULT_ANALYTICS_TYPE_MISMATCH_REASON,
         },
     )
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail=not_found_detail,
-    ) from None
+    raise APINotFoundError(not_found_detail) from None
 
 
 def _validate_response_payload(
@@ -142,10 +132,7 @@ def _validate_response_payload(
                 "validation_error_count": exc.error_count(),
             },
         )
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=ASYNC_RESULT_RESPONSE_SCHEMA_INVALID_DETAIL,
-        ) from None
+        raise APIConflictError(ASYNC_RESULT_RESPONSE_SCHEMA_INVALID_DETAIL) from None
 
 
 def _require_compute_job(
@@ -154,10 +141,7 @@ def _require_compute_job(
     not_found_detail: str,
 ) -> ComputeJobRecord:
     if job is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=not_found_detail,
-        )
+        raise APINotFoundError(not_found_detail)
     return job
 
 
@@ -170,7 +154,7 @@ def resolve_async_result(
     not_found_detail: str,
     failed_detail: str,
     request_headers: Mapping[str, Any] | None = None,
-) -> ResponseModelT | JSONResponse:
+) -> ResponseModelT | ApplicationHttpResponse:
     access_denial = _authorize_async_result_access(
         calculation_id=calculation_id,
         request_headers=request_headers,
@@ -205,10 +189,10 @@ def _authorize_async_result_access(
     calculation_id: UUID,
     request_headers: Mapping[str, Any] | None,
     not_found_detail: str,
-) -> JSONResponse | None:
+) -> ApplicationHttpResponse | None:
     if request_headers is None:
         return None
     execution = execution_registry.get_execution(calculation_id)
     if execution is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=not_found_detail)
+        raise APINotFoundError(not_found_detail)
     return authorize_calculation_result_access(execution=execution, headers=request_headers)

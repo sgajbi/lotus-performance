@@ -1,4 +1,3 @@
-import json
 from uuid import uuid4
 
 from app.enterprise_response_envelopes import (
@@ -45,7 +44,7 @@ def _identity_headers(**extra_headers: str) -> dict[str, str]:
 
 
 def _response_body(response) -> dict[str, str | None]:
-    return json.loads(response.body)
+    return response.content
 
 
 def test_calculation_result_access_is_relaxed_when_privileged_read_authz_disabled(monkeypatch):

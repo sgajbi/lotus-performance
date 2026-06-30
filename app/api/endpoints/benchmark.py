@@ -6,6 +6,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
 from app.api.async_openapi import async_result_responses, async_submission_responses
+from app.api.http_response_adapter import to_fastapi_response
 from app.models.benchmark_analytics_requests import BenchmarkAnalyticsRequest
 from app.models.benchmark_responses import (
     BenchmarkAcceptedResponse,
@@ -58,7 +59,7 @@ async def calculate_benchmark_endpoint(
     request: BenchmarkAnalyticsRequest,
 ) -> BenchmarkPerformanceResponse | JSONResponse:
     """Calculate or enqueue benchmark performance using stateless or stateful inputs."""
-    return await calculate_benchmark_workflow(request)
+    return to_fastapi_response(await calculate_benchmark_workflow(request))
 
 
 @router.get(
@@ -76,12 +77,14 @@ async def calculate_benchmark_endpoint(
 )
 async def get_benchmark_result(calculation_id: UUID, request: Request) -> BenchmarkPerformanceResponse | JSONResponse:
     """Return a completed async benchmark calculation or its accepted/failed status."""
-    return resolve_async_result(
-        calculation_id=calculation_id,
-        expected_analytics_type=ANALYTICS_WORKFLOW_BENCHMARK,
-        response_model=BenchmarkPerformanceResponse,
-        accepted_response_factory=accepted_benchmark_response,
-        not_found_detail="Async benchmark result not found for the given calculation_id.",
-        failed_detail="Async benchmark execution failed.",
-        request_headers=request.headers,
+    return to_fastapi_response(
+        resolve_async_result(
+            calculation_id=calculation_id,
+            expected_analytics_type=ANALYTICS_WORKFLOW_BENCHMARK,
+            response_model=BenchmarkPerformanceResponse,
+            accepted_response_factory=accepted_benchmark_response,
+            not_found_detail="Async benchmark result not found for the given calculation_id.",
+            failed_detail="Async benchmark execution failed.",
+            request_headers=request.headers,
+        )
     )

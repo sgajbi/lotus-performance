@@ -3,8 +3,7 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
-from fastapi.responses import JSONResponse
-
+from app.core.application_responses import ApplicationHttpResponse
 from app.core.config import get_settings
 from app.models.returns_series import (
     InputMode,
@@ -150,7 +149,7 @@ def _finalize_resolved_returns_series_execution(
     resolved: ResolvedStatefulReturnsSeriesRequest,
     input_fingerprint: str,
     calculation_hash: str,
-) -> JSONResponse | None:
+) -> ApplicationHttpResponse | None:
     return finalize_resolved_stateful_execution(
         calculation_id=request.calculation_id,
         analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES,
@@ -173,7 +172,7 @@ async def _calculate_promoted_stateful_returns_series(
     request: ReturnsSeriesRequest,
     input_fingerprint: str,
     calculation_hash: str,
-) -> ReturnsSeriesResponse | ReturnsSeriesAcceptedResponse | JSONResponse:
+) -> ReturnsSeriesResponse | ReturnsSeriesAcceptedResponse | ApplicationHttpResponse:
     replay_response = replay_promoted_stateful_async_execution(
         calculation_id=request.calculation_id,
         analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES,
@@ -224,7 +223,7 @@ async def _calculate_promoted_stateful_returns_series(
 
 async def calculate_returns_series_workflow(
     request: ReturnsSeriesRequest,
-) -> ReturnsSeriesResponse | ReturnsSeriesAcceptedResponse | JSONResponse:
+) -> ReturnsSeriesResponse | ReturnsSeriesAcceptedResponse | ApplicationHttpResponse:
     """Resolve, fence, execute, and enqueue one returns-series request."""
     input_fingerprint, calculation_hash = generate_request_fingerprint(request, "returns-series-v1")
     if request.input_mode == InputMode.STATEFUL and not should_offload_returns_series(request):
