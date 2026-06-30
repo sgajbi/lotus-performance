@@ -7,12 +7,10 @@ FASTAPI_SERVICE_BOUNDARY_ALLOWLIST = frozenset(
         "app/services/attribution_service.py",
         "app/services/benchmark_exposure_context_service.py",
         "app/services/contribution_service.py",
-        "app/services/mwr_calculation_service.py",
         "app/services/returns_series_calculation_workflow_service.py",
         "app/services/returns_series_service.py",
         "app/services/stateful_attribution_input_service.py",
         "app/services/stateful_benchmark_input_service.py",
-        "app/services/twr_calculation_service.py",
         "app/services/twr_mode_service.py",
         "app/services/twr_service.py",
         "app/services/workspace_summary_service.py",
@@ -46,8 +44,10 @@ MIGRATED_FRAMEWORK_NEUTRAL_MODULES = frozenset(
         "app/services/benchmark_exposure_context_workflow_service.py",
         "app/services/contribution_calculation_workflow_service.py",
         "app/services/error_details.py",
+        "app/services/mwr_calculation_service.py",
         "app/services/operator_action_guard_service.py",
         "app/services/operator_action_lease_service.py",
+        "app/services/twr_calculation_service.py",
         "app/workers/compute_executor_worker.py",
     }
 )

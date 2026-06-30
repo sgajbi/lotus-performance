@@ -27,6 +27,7 @@ from app.services.mwr_calculation_service import (
 )
 from app.services.mwr_mode_service import ResolvedMWRRequest
 from app.services.stateful_mwr_input_service import MWRCurrencyEvidence, MWRSourceCashFlowQuality
+from core.errors import APIError
 from engine.mwr import calculate_money_weighted_return
 
 
@@ -705,7 +706,7 @@ async def test_calculate_mwr_response_updates_identity_for_stateful_resolved_req
 
 
 @pytest.mark.asyncio
-async def test_calculate_mwr_response_preserves_http_exceptions(mocker):
+async def test_calculate_mwr_response_maps_legacy_http_shaped_errors(mocker):
     async def _raise_http_exception(*_: object, **__: object) -> ResolvedMWRRequest:
         raise HTTPException(status_code=422, detail="bad mwr payload")
 
@@ -745,11 +746,12 @@ async def test_calculate_mwr_response_preserves_http_exceptions(mocker):
         side_effect=lambda **kwargs: capture.update({"message": str(kwargs["message"])}),
     )
 
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(APIError) as exc:
         await calculate_mwr_response(request)
 
     assert exc.value.status_code == 422
-    assert capture["message"] == "HTTPException raised during MWR execution."
+    assert exc.value.detail == "bad mwr payload"
+    assert capture["message"] == "Mapped application error raised during MWR execution."
 
 
 @pytest.mark.asyncio
@@ -804,7 +806,7 @@ async def test_calculate_mwr_response_maps_unexpected_errors_to_http_500(mocker)
         side_effect=lambda **kwargs: capture.update({"message": str(kwargs["message"])}),
     )
 
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(APIError) as exc:
         await calculate_mwr_response(request)
 
     assert exc.value.status_code == 500

@@ -1,8 +1,6 @@
 from dataclasses import dataclass
 from typing import NoReturn
 
-from fastapi import HTTPException, status
-
 from app.core.application_responses import ApplicationHttpResponse
 from app.core.config import get_settings
 from app.models.benchmark_analytics_requests import (
@@ -17,6 +15,7 @@ from app.services.async_observability_context import async_observability_request
 from app.services.engine_exception_mapping_service import map_engine_exception_to_http_error
 from app.services.execution_lifecycle_service import record_execution_failure
 from app.services.execution_registry import execution_registry
+from app.services.execution_stage_errors import is_mappable_application_error
 from app.services.reproducibility_service import generate_request_fingerprint, generate_value_fingerprint
 from app.services.stateful_execution_policy_service import (
     finalize_resolved_stateful_execution,
@@ -28,6 +27,7 @@ from app.services.submission_fencing_service import (
 )
 from app.services.twr_mode_service import resolve_twr_request
 from app.services.twr_service import calculate_twr_response
+from core.errors import APIError, APIInternalServerError
 
 
 @dataclass(frozen=True)
@@ -338,12 +338,23 @@ async def calculate_twr_workflow(request: TWRAnalyticsRequest) -> PerformanceRes
 
 
 def _raise_twr_workflow_http_error(*, calculation_id, exc: Exception) -> NoReturn:
-    if isinstance(exc, HTTPException):
+    if isinstance(exc, APIError):
         record_execution_failure(
             calculation_id=calculation_id,
             message=str(exc.detail),
         )
-        raise exc
+        raise
+
+    if is_mappable_application_error(exc):
+        detail = getattr(exc, "detail")
+        record_execution_failure(
+            calculation_id=calculation_id,
+            message=str(detail),
+        )
+        raise APIError(
+            status_code=int(getattr(exc, "status_code")),
+            detail=detail,
+        ) from exc
 
     mapped_engine_error = map_engine_exception_to_http_error(exc)
     if mapped_engine_error is not None:
@@ -351,17 +362,14 @@ def _raise_twr_workflow_http_error(*, calculation_id, exc: Exception) -> NoRetur
             calculation_id=calculation_id,
             message=mapped_engine_error.failure_message,
         )
-        raise HTTPException(status_code=mapped_engine_error.status_code, detail=mapped_engine_error.detail) from exc
+        raise APIError(status_code=mapped_engine_error.status_code, detail=mapped_engine_error.detail) from exc
 
     detail = f"An unexpected server error occurred: {str(exc)}"
     record_execution_failure(
         calculation_id=calculation_id,
         message=detail,
     )
-    raise HTTPException(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        detail=detail,
-    ) from exc
+    raise APIInternalServerError(detail) from exc
 
 
 def _twr_pre_resolution_offload_reason(request: TWRAnalyticsRequest) -> str:

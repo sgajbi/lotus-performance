@@ -3,7 +3,6 @@ from decimal import Decimal
 from typing import Any, cast
 
 import pandas as pd
-from fastapi import HTTPException, status
 
 from app.core.config import get_settings
 from app.models.mwr_analytics_requests import MoneyWeightedReturnAnalyticsRequest, MWRInputMode
@@ -18,12 +17,13 @@ from app.services.calculation_supportability_service import (
 )
 from app.services.execution_lifecycle_service import complete_execution_with_lineage, record_execution_failure
 from app.services.execution_registry import execution_registry
+from app.services.execution_stage_errors import is_mappable_application_error
 from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
 from app.services.mwr_mode_service import ResolvedMWRRequest, resolve_mwr_request
 from app.services.reproducibility_service import generate_request_fingerprint
 from app.services.submission_fencing_service import register_sync_execution_or_raise
 from core.envelope import Audit, Diagnostics, Meta
-from core.errors import APIError
+from core.errors import APIError, APIInternalServerError
 from engine.mwr import calculate_money_weighted_return
 from engine.mwr_types import MWRResult
 
@@ -291,33 +291,35 @@ async def calculate_mwr_response(
             engine_version=registered_execution.active_settings.APP_VERSION,
             resolved_request=resolved_request,
         )
-    except HTTPException:
+    except Exception as exc:
+        if isinstance(exc, APIError):
+            record_execution_failure(
+                calculation_id=request.calculation_id,
+                message="Mapped application error raised during MWR execution.",
+                execution_stage_started=execution_stage_started,
+                lineage_stage_started=lineage_stage_started,
+            )
+            raise
+        if is_mappable_application_error(exc):
+            mapped_error = APIError(
+                status_code=int(getattr(exc, "status_code")),
+                detail=getattr(exc, "detail"),
+            )
+            record_execution_failure(
+                calculation_id=request.calculation_id,
+                message="Mapped application error raised during MWR execution.",
+                execution_stage_started=execution_stage_started,
+                lineage_stage_started=lineage_stage_started,
+            )
+            raise mapped_error from exc
+        detail = f"An unexpected error occurred during MWR calculation: {str(exc)}"
         record_execution_failure(
             calculation_id=request.calculation_id,
-            message="HTTPException raised during MWR execution.",
+            message=detail,
             execution_stage_started=execution_stage_started,
             lineage_stage_started=lineage_stage_started,
         )
-        raise
-    except APIError:
-        record_execution_failure(
-            calculation_id=request.calculation_id,
-            message="Mapped application error raised during MWR execution.",
-            execution_stage_started=execution_stage_started,
-            lineage_stage_started=lineage_stage_started,
-        )
-        raise
-    except Exception as e:
-        record_execution_failure(
-            calculation_id=request.calculation_id,
-            message=f"An unexpected error occurred during MWR calculation: {str(e)}",
-            execution_stage_started=execution_stage_started,
-            lineage_stage_started=lineage_stage_started,
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"An unexpected error occurred during MWR calculation: {str(e)}",
-        )
+        raise APIInternalServerError(detail) from exc
 
     _complete_mwr_execution(
         request=request,

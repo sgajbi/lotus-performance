@@ -11,6 +11,7 @@ from app.models.twr_requests import TWRAnalyticsRequest, TWRInputMode
 from app.services import twr_calculation_service
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_TWR
 from app.services.twr_mode_service import ResolvedTWRRequest
+from core.errors import APIError
 
 
 def _stateful_twr_payload() -> dict[str, object]:
@@ -279,10 +280,10 @@ def test_prepare_twr_sync_execution_start_enriches_stateful_window_when_no_repla
     replay_promoted.assert_called_once()
 
 
-def test_raise_twr_workflow_http_error_records_existing_http_exception(mocker):
+def test_raise_twr_workflow_http_error_maps_legacy_http_shaped_exception(mocker):
     record_failure = mocker.patch("app.services.twr_calculation_service.record_execution_failure")
 
-    with pytest.raises(HTTPException) as raised:
+    with pytest.raises(APIError) as raised:
         twr_calculation_service._raise_twr_workflow_http_error(
             calculation_id="calculation-1",
             exc=HTTPException(status_code=422, detail="invalid request"),
@@ -307,7 +308,7 @@ def test_raise_twr_workflow_http_error_records_mapped_engine_error(mocker):
         ),
     )
 
-    with pytest.raises(HTTPException) as raised:
+    with pytest.raises(APIError) as raised:
         twr_calculation_service._raise_twr_workflow_http_error(
             calculation_id="calculation-1",
             exc=ValueError("engine rejected request"),
@@ -325,7 +326,7 @@ def test_raise_twr_workflow_http_error_records_unexpected_error(mocker):
     record_failure = mocker.patch("app.services.twr_calculation_service.record_execution_failure")
     mocker.patch("app.services.twr_calculation_service.map_engine_exception_to_http_error", return_value=None)
 
-    with pytest.raises(HTTPException) as raised:
+    with pytest.raises(APIError) as raised:
         twr_calculation_service._raise_twr_workflow_http_error(
             calculation_id="calculation-1",
             exc=RuntimeError("boom"),
