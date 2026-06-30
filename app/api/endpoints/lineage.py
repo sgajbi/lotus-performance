@@ -12,15 +12,15 @@ from pydantic import ValidationError
 from app.core.config import get_settings
 from app.models.lineage_responses import ArtifactLink, LineageManifest, LineageResponse
 from app.models.platform_surfaces import ErrorDetailResponse
+from app.services.artifact_filename_policy import validate_artifact_filename
 from app.services.durable_store_json import read_json_file
 from app.services.lineage_metadata_store import LineageRecord, LineageStatus, lineage_metadata_store
-from app.services.lineage_service import LineageService
 
 router = APIRouter(tags=["Performance"])
 
 
 def _resolve_lineage_artifact_path(*, calculation_id: UUID, artifact_name: str) -> str:
-    safe_artifact_name = LineageService._validate_artifact_filename(artifact_name)
+    safe_artifact_name = validate_artifact_filename(artifact_name, artifact_kind="lineage artifact")
     lineage_dir = os.path.join(get_settings().LINEAGE_STORAGE_PATH, str(calculation_id))
     return os.path.join(lineage_dir, safe_artifact_name)
 

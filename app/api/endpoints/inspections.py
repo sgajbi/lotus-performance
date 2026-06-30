@@ -11,6 +11,7 @@ from app.models.inspection_requests import TWRInspectionRequest
 from app.models.inspection_responses import TWRInspectionAcceptedResponse, TWRInspectionResponse
 from app.models.platform_surfaces import ErrorDetailResponse
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_TWR_INSPECTION
+from app.services.artifact_filename_policy import validate_artifact_filename
 from app.services.async_result_service import resolve_async_result
 from app.services.execution_registry import execution_registry
 from app.services.lineage_metadata_store import LineagePayload, LineageRecord, LineageStatus, lineage_metadata_store
@@ -32,7 +33,17 @@ def _inspection_storage_path(*, inspection_id: UUID, artifact_name: str | None =
     base_path = os.path.join(get_settings().LINEAGE_STORAGE_PATH, str(inspection_id))
     if artifact_name is None:
         return base_path
-    return os.path.join(base_path, artifact_name)
+    safe_artifact_name = _safe_inspection_artifact_name(artifact_name)
+    if safe_artifact_name is None:
+        raise ValueError(f"Unsafe TWR inspection artifact filename: {artifact_name}")
+    return os.path.join(base_path, safe_artifact_name)
+
+
+def _safe_inspection_artifact_name(artifact_name: str) -> str | None:
+    try:
+        return validate_artifact_filename(artifact_name, artifact_kind="TWR inspection artifact")
+    except ValueError:
+        return None
 
 
 def _is_completed_twr_inspection_record(record: LineageRecord | None) -> bool:
@@ -46,17 +57,24 @@ def _is_completed_twr_inspection_record(record: LineageRecord | None) -> bool:
 def _is_available_twr_inspection_artifact(record: LineageRecord | None, artifact_name: str) -> bool:
     if record is None:
         return False
-    return _is_completed_twr_inspection_record(record) and artifact_name in record.artifact_names
+    safe_artifact_name = _safe_inspection_artifact_name(artifact_name)
+    if safe_artifact_name is None:
+        return False
+    safe_record_artifact_names = {
+        safe_name for candidate in record.artifact_names if (safe_name := _safe_inspection_artifact_name(candidate))
+    }
+    return _is_completed_twr_inspection_record(record) and safe_artifact_name in safe_record_artifact_names
 
 
 def _retained_inspection_artifact_response(*, payload: LineagePayload | None, artifact_name: str) -> Response | None:
-    if payload is None or artifact_name not in payload.details:
+    safe_artifact_name = _safe_inspection_artifact_name(artifact_name)
+    if safe_artifact_name is None or payload is None or safe_artifact_name not in payload.details:
         return None
-    media_type = "text/markdown" if artifact_name.endswith(".md") else "application/json"
+    media_type = "text/markdown" if safe_artifact_name.endswith(".md") else "application/json"
     return Response(
-        content=payload.details[artifact_name],
+        content=payload.details[safe_artifact_name],
         media_type=media_type,
-        headers={"Content-Disposition": f'attachment; filename="{artifact_name}"'},
+        headers={"Content-Disposition": f'attachment; filename="{safe_artifact_name}"'},
     )
 
 

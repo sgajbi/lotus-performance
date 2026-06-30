@@ -78,10 +78,16 @@ Current artifact names:
 - `reconciliation_summary.json`
 - `source_economics_summary.json`
 
-The artifact route is part of the public supportability contract and is documented in Swagger. Unknown
-artifact names return `404`; durable metadata that declares a missing artifact returns `503`.
-When `support_brief.md` is retained only in durable metadata details, the fallback artifact response is
-served as `text/markdown` rather than JSON.
+The artifact route is part of the public supportability contract and is documented in Swagger. It
+accepts single file names only, not arbitrary paths. Path-like values using `..`, `/`, `\`, absolute
+paths, empty names, or control characters return `404` before storage paths are resolved. The same
+filename policy is applied to durable metadata names and retained-payload fallback responses, so
+corrupted metadata cannot force a file read outside the inspection artifact directory or emit an
+unsafe `Content-Disposition` filename.
+
+Unknown artifact names return `404`; durable metadata that declares a missing safe artifact returns
+`503`. When `support_brief.md` is retained only in durable metadata details, the fallback artifact
+response is served as `text/markdown` rather than JSON.
 
 The inspection result may also include `workflow_pack_run` when Lotus AI support-brief generation is
 configured. That bounded run posture is additive supportability evidence for the derived brief only; it

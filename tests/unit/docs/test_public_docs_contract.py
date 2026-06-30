@@ -1101,6 +1101,9 @@ def test_twr_inspection_checks_guide_lists_current_check_inventory():
     assert "--require-support-brief" in guide
     assert "technical/twr-inspection-endpoint-certification.md" in readme
     assert "docs/technical/twr-inspection-endpoint-certification.md" in complete_reference
+    assert "single file names only" in certification
+    assert "unsafe `Content-Disposition` filename" in certification
+    assert "artifact names are validated as single file names" in api_reference
     assert "inspection_summary.json" in guide
     assert "findings.json" in guide
     assert "support_brief.md" in guide

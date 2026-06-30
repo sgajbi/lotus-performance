@@ -13,6 +13,7 @@ from pydantic import BaseModel
 
 from app.core.config import get_settings
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_TWR_INSPECTION
+from app.services.artifact_filename_policy import is_unsafe_artifact_filename, validate_artifact_filename
 from app.services.durable_store_time import format_timestamp
 from app.services.execution_registry import ExecutionRegistry, execution_registry
 from app.services.execution_stage_names import (
@@ -222,11 +223,7 @@ class LineageService:
 
     @staticmethod
     def _validate_artifact_filename(filename: str) -> str:
-        candidate = filename.strip()
-        path = PurePath(candidate)
-        if _is_unsafe_artifact_filename(candidate=candidate, path=path):
-            raise ValueError(f"Unsafe lineage artifact filename: {filename}")
-        return candidate
+        return validate_artifact_filename(filename, artifact_kind="lineage artifact")
 
     def create_pending_record(self, calculation_id: UUID, calculation_type: str) -> None:
         self._metadata_store.create_pending_record(calculation_id=calculation_id, calculation_type=calculation_type)
@@ -236,15 +233,7 @@ lineage_service = LineageService()
 
 
 def _is_unsafe_artifact_filename(*, candidate: str, path: PurePath) -> bool:
-    return any(
-        (
-            not candidate,
-            candidate in {".", ".."},
-            path.is_absolute(),
-            path.name != candidate,
-            _contains_parent_path_segment(path),
-        )
-    )
+    return is_unsafe_artifact_filename(candidate)
 
 
 def _contains_parent_path_segment(path: PurePath) -> bool:
