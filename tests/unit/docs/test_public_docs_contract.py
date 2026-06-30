@@ -1079,6 +1079,10 @@ def test_complete_service_reference_covers_endpoint_surface_and_config_inventory
     assert "LINEAGE_STORAGE_PATH" in guide
     assert "CORE_CONTROL_PLANE_BASE_URL" in guide
     assert "CORE_QUERY_BASE_URL" in guide
+    assert "transient HTTP statuses `429`, `502`, `503`" in guide
+    assert "and `504`" in guide
+    assert "safe" in guide and "`Retry-After` values" in guide and "up to five seconds" in guide
+    assert "`400`, `401`, `403`, `404`, `409`, or `422`" in guide
     assert "STATEFUL_INPUT_MAX_PAGES_PER_CHUNK" in guide
     assert "stateful_upstream_page_limit_exceeded" in guide
     assert "stateful_upstream_repeated_page_token" in guide
@@ -1301,6 +1305,7 @@ def test_runtime_threshold_profiles_cover_controlled_settings():
     assert "runtime-threshold-profiles.md" in api_reference
     assert "runtime-threshold-profiles.md" in runtime_topology
     assert "runtime-threshold-profiles.md" in scalability
+    assert "transient upstream HTTP statuses `429`, `502`, `503`" in scalability
     assert "runtime-threshold-profiles.md" in enterprise
 
 
