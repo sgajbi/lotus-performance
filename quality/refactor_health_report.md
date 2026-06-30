@@ -5,7 +5,8 @@ Branch: `feature/stateful-benchmark-market-series-boundary`
 Baseline source: `quality/baseline_report.md`
 Report mode: phase-zero scorecard; complexity, architecture, duplicate-code, repository hygiene,
 router-thinness, observability-readiness, domain-product validation, deterministic API evaluation,
-test taxonomy breadth, and Python security posture are enforced separately by CI.
+test taxonomy breadth, Python security posture, and container supply-chain evidence are enforced or
+produced separately by CI.
 
 ## Purpose
 
@@ -89,6 +90,10 @@ link the commit, command, or CI artifact that proves the change.
 | Bandit low findings | unknown | 0 | enforced | `quality/python_security_inventory.md`; `make python-security-gate` |
 | Dependency vulnerabilities | unknown | 0 | measured | `quality/dependency_security_report.md` via repo-native dependency-health audit |
 | Dependency hygiene findings | unknown | 0 | measured | `quality/dependency_hygiene_report.md` via `scripts/python_dependency_hygiene_inventory.py` |
+| Container SBOM artifact | unknown | 1 | measured | `quality/container_supply_chain_report.md`; `make container-supply-chain-evidence`; PR/Main artifact upload |
+| Container vulnerability report artifact | unknown | 1 | measured | `quality/container_supply_chain_report.md`; `make container-supply-chain-evidence`; PR/Main artifact upload |
+| Container vulnerability strict gate | unknown | 0 | planned-gate | `make container-vulnerability-gate`; promote after first PR/main artifact baseline and documented high/critical exception policy |
+| SBOM provenance attestation | unknown | 1 | measured | `quality/container_supply_chain_report.md`; Main Releasability `actions/attest-build-provenance@v3` |
 
 ## Operational Readiness
 

@@ -6,7 +6,8 @@ Baseline source: `quality/baseline_report.md`
 Current source: `quality/refactor_health_report.md`
 Mode: phase-zero scorecard; static-quality and evaluation enforcement includes complexity,
 architecture, router-thinness, duplicate-code, repository hygiene, observability-readiness,
-domain-product validation, deterministic API evaluation, and test taxonomy breadth gates.
+domain-product validation, deterministic API evaluation, test taxonomy breadth gates, and
+container supply-chain evidence.
 
 ## Purpose
 
@@ -78,6 +79,10 @@ metrics in each section are updated with each meaningful slice.
 | Bandit low findings | unknown | 0 | n/a | enforced | `quality/python_security_inventory.md`; `quality/refactor_health_report.md`; `make python-security-gate` |
 | Dependency vulnerability findings | unknown | 0 | n/a | measured | `quality/dependency_security_report.md`; `quality/refactor_health_report.md` |
 | Dependency hygiene findings | unknown | 0 | n/a | measured | `quality/dependency_hygiene_report.md`; `quality/refactor_health_report.md` |
+| Container SBOM artifact | unknown | 1 | n/a | measured | `quality/container_supply_chain_report.md`; `make container-supply-chain-evidence`; PR/Main artifact upload |
+| Container vulnerability report artifact | unknown | 1 | n/a | measured | `quality/container_supply_chain_report.md`; `make container-supply-chain-evidence`; PR/Main artifact upload |
+| Container vulnerability gate | unknown | 0 | n/a | planned-gate | `make container-vulnerability-gate`; promote after first PR/main baseline review and documented exceptions |
+| SBOM provenance attestation | unknown | 1 | n/a | measured | `quality/container_supply_chain_report.md`; Main Releasability `actions/attest-build-provenance@v3` |
 
 ### Operational Readiness
 
@@ -105,9 +110,10 @@ metrics in each section are updated with each meaningful slice.
 
 | Signal | Value | Note |
 | --- | ---: | --- |
-| Total metrics tracked | 46 | All metrics in this file are now measured, with selected zero-finding and breadth signals enforced separately. |
-| Measured metrics | 46 | Selected measured metrics are now also enforced through blocking static-quality, security, deterministic API evaluation, or test-taxonomy gates. Branch coverage is measured report-only and is not promoted to a gate. |
+| Total metrics tracked | 50 | All metrics in this file are now measured or explicitly staged, with selected zero-finding, breadth, and release-evidence signals enforced or produced separately. |
+| Measured metrics | 49 | Selected measured metrics are now also enforced or produced through blocking static-quality, security, deterministic API evaluation, test-taxonomy, or container evidence lanes. Branch coverage and container vulnerability output are measured report-only and are not promoted to strict gates yet. |
 | Not-yet-measured metrics | 0 | The scorecard no longer carries an unmeasured branch-coverage entry. OpenAPI Spectral and public-docstring gate decisions remain outside this scorecard until scoped separately. |
+| Planned gates | 1 | `make container-vulnerability-gate` exists but remains unpromoted until first PR/main container artifacts establish a reviewed high/critical image vulnerability baseline and exception policy. |
 | Latest architecture signal | 1 | `StatefulInputService.get_benchmark_market_series(...)` dropped out of the top-45 function-size inventory after benchmark market-series retrieval moved behind `_BenchmarkMarketSeriesRequest`, chunk-fetch, response-projection, and snapshot-payload helper boundaries; largest production functions still measure `55` lines, architecture-boundary and duplicate-code findings remain `0`, max CC remains `5`, and test-taxonomy posture improved with uncategorized tests reduced to `1,098`. |
 
 ## Method Note

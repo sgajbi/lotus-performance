@@ -78,6 +78,38 @@ def test_test_and_coverage_workflows_use_repo_native_make_targets() -> None:
     assert "run: python -m coverage" not in governed_workflow_text
 
 
+def test_container_supply_chain_evidence_is_repo_native_and_published() -> None:
+    docker_build_target = _makefile_target_definition("docker-build")
+    evidence_target = _makefile_target_definition("container-supply-chain-evidence")
+    sbom_target = _makefile_target_definition("container-sbom")
+    vulnerability_report_target = _makefile_target_definition("container-vulnerability-report")
+    vulnerability_gate_target = _makefile_target_definition("container-vulnerability-gate")
+
+    assert "$(CONTAINER_IMAGE)" in docker_build_target
+    assert "docker-build container-sbom container-vulnerability-report" in evidence_target
+    assert "aquasec/trivy:0.71.2" in (ROOT / "Makefile").read_text(encoding="utf-8")
+    assert "--format cyclonedx" in sbom_target
+    assert "lotus-performance-image-sbom.cdx.json" in sbom_target
+    assert "--format json" in vulnerability_report_target
+    assert "lotus-performance-image-vulnerabilities.json" in vulnerability_report_target
+    assert "--exit-code 0" in vulnerability_report_target
+    assert "--exit-code 1" in vulnerability_gate_target
+
+    for workflow_name in ["pr-merge-gate.yml", "main-releasability.yml"]:
+        workflow = _workflow_text(workflow_name)
+
+        assert "run: make container-supply-chain-evidence" in workflow
+        assert "uses: actions/upload-artifact@v7" in workflow
+        assert "path: output/container-security/*.json" in workflow
+        assert "run: make docker-build" not in workflow
+
+    main_releasability = _workflow_text("main-releasability.yml")
+    assert "attestations: write" in main_releasability
+    assert "id-token: write" in main_releasability
+    assert "uses: actions/attest-build-provenance@v3" in main_releasability
+    assert "subject-path: output/container-security/lotus-performance-image-sbom.cdx.json" in main_releasability
+
+
 def test_auto_merge_uses_governed_merge_actor_token() -> None:
     workflow = _workflow_text("pr-auto-merge.yml")
 

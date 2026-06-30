@@ -35,8 +35,8 @@ does not delegate performance conclusions to `lotus-core`.
 4. Time-weighted return, money-weighted return, contribution, attribution, composite performance,
    returns-series, and benchmark exposure context are declared as governed data products under
    `contracts/domain-data-products/`.
-5. OpenAPI, API vocabulary, domain-product validation, migration, security, and Docker parity are
-   part of the real merge gate.
+5. OpenAPI, API vocabulary, domain-product validation, migration, security, Docker parity, and
+   container supply-chain evidence are part of the real merge gate.
 
 ## Enterprise Readiness Evidence
 
@@ -58,6 +58,9 @@ service, not as a calculation demo. The current bank-readiness evidence includes
 - release evidence:
   `make check`, `make ci`, and `make ci-local` map local proof to the Lotus multi-lane delivery
   model
+- container supply-chain evidence:
+  PR/Main release lanes generate a CycloneDX SBOM and high/critical image vulnerability report for
+  `lotus-performance:ci`; Main Releasability also attests SBOM provenance
 - repository hygiene:
   `make repository-hygiene-gate` blocks tracked local byproducts such as Python caches, virtual
   environments, local coverage files, build outputs, logs, and local databases; `make clean`
@@ -187,6 +190,8 @@ source-economics or reconciliation regressions.
   `make repository-hygiene-gate`
 - Docker image proof
   `make docker-build`
+- container supply-chain evidence
+  `make container-supply-chain-evidence`
 
 ## Demo Readiness
 
@@ -221,7 +226,8 @@ The local mapping is:
   lint, repository hygiene, static quality gates including observability-readiness markers,
   no-alias gate, typecheck, OpenAPI gate, API vocabulary gate, and unit tests
 - `make ci`
-  governance, migration smoke, security audit, unit, integration, e2e, coverage, and Docker build
+  governance, migration smoke, security audit, unit, integration, e2e, coverage, Docker build, and
+  container supply-chain evidence
 - `make ci-local`
   local Docker-parity proof with full coverage and dependency checks
 - `make branch-coverage-baseline`
@@ -241,6 +247,13 @@ The local mapping is:
   `output/demo-api-certification/latest.json`. The Quality Baseline Snapshot workflow also runs
   this command as report-only CI evidence and uploads the JSON artifact; it is not yet a blocking
   readiness gate.
+- `make container-supply-chain-evidence`
+  release-image evidence for `lotus-performance:ci`. It builds the image, writes a CycloneDX SBOM
+  and high/critical Trivy vulnerability report under `output/container-security/`, and is published
+  by PR/Main workflows. Main Releasability also attests the SBOM artifact. The vulnerability report
+  is report-only until the first PR/main baseline is reviewed; promotion to strict blocking uses
+  `make container-vulnerability-gate` and the exception policy in
+  [quality/container_supply_chain_report.md](quality/container_supply_chain_report.md).
 
 When a slice changes `README.md` or public guides, also run:
 

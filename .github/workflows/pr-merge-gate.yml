@@ -175,14 +175,20 @@ jobs:
       - name: Enforce coverage floor
         run: make coverage-combine-gate COVERAGE_INPUTS=coverage-data COVERAGE_FAIL_UNDER=${{ env.COVERAGE_FAIL_UNDER }}
 
-  docker-build:
-    name: PR Merge Gate / Validate Docker Build
+  container-supply-chain-evidence:
+    name: PR Merge Gate / Container Supply Chain Evidence
     needs: [coverage-gate]
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
     steps:
       - name: Configure Git Default Branch
         run: git config --global init.defaultBranch main
       - uses: actions/checkout@v6
-      - name: Build Docker image
-        run: make docker-build
+      - name: Build image and generate container evidence
+        run: make container-supply-chain-evidence
+      - name: Upload container supply-chain evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: pr-merge-container-supply-chain-evidence
+          path: output/container-security/*.json
+          if-no-files-found: error

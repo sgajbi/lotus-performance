@@ -43,6 +43,27 @@ def test_readme_enterprise_readiness_evidence_is_grounded():
     assert "target deployment, entitlement model, SLOs" in readme_flat
 
 
+def test_public_docs_record_container_supply_chain_evidence_posture():
+    readme = _read("README.md")
+    workflow_strategy = _read("docs/operations/development-workflow-and-ci-strategy.md")
+    ci_gates = _read("quality/ci_quality_gates.md")
+    supply_chain_report = _read("quality/container_supply_chain_report.md")
+    wiki_validation = _read("wiki/Validation-and-CI.md")
+
+    for document in (readme, workflow_strategy, ci_gates, supply_chain_report, wiki_validation):
+        assert "make container-supply-chain-evidence" in document
+        assert "CycloneDX SBOM" in document
+        assert "high/critical" in document
+
+    assert "actions/attest-build-provenance@v3" in ci_gates
+    assert "actions/attest-build-provenance@v3" in supply_chain_report
+    assert "make container-vulnerability-gate" in workflow_strategy
+    assert "make container-vulnerability-gate" in wiki_validation
+    assert "report-only" in supply_chain_report
+    assert "Dependabot alerts/security updates are disabled" in supply_chain_report
+    assert "CodeQL analysis still\nneeds a separate" in supply_chain_report
+
+
 def test_demo_readiness_guide_is_linked_bounded_and_evidence_driven():
     readme = _read("README.md")
     guide = _read("docs/guides/demo_readiness.md")

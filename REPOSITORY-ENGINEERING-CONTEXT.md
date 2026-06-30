@@ -35,7 +35,8 @@ Current repository posture:
 
 1. `lotus-performance` is the authoritative performance analytics engine consumed by `lotus-gateway`,
 2. stateful integration with `lotus-core` is active and classified under the RFC-0082 upstream contract-family map,
-3. the service already operates with enterprise-grade CI posture including security, migration, and Docker gates,
+3. the service already operates with enterprise-grade CI posture including security, migration,
+   Docker gates, and container supply-chain evidence,
 4. async execution, lineage capture, and benchmark-aware workflows are real parts of the contract, not future placeholders,
 5. repo-native domain-product producer and consumer declarations now live under `contracts/domain-data-products/`
    with local validation through `make domain-product-validate`,
@@ -175,7 +176,8 @@ Important validation expectations:
 
 1. OpenAPI and API vocabulary governance are active,
 2. migration smoke and project-scoped dependency health are required,
-3. unit, integration, e2e, coverage, and Docker build are part of the real merge contract,
+3. unit, integration, e2e, coverage, Docker build, and container supply-chain evidence are part of
+   the real merge contract,
 4. analytics quality and runtime characterization matter because downstream product surfaces depend on the truthfulness of these results,
 5. repo-native domain-product declaration validation is part of local ownership proof for RFC-0086 rollout,
 6. public documentation is regression-tested and README or guide reshaping should preserve governed
@@ -218,46 +220,52 @@ Important validation expectations:
 14. PR Merge Gate and Main Releasability route matrix test coverage through
     `make test-coverage-shard` and combined coverage enforcement through `make coverage-combine-gate`
     so workflow YAML does not become a second source of truth for pytest or coverage behavior.
-15. `PR Auto Merge` must use `LOTUS_AUTOMERGE_TOKEN` as the merge actor. If that governed token is
+15. `make container-supply-chain-evidence` is the repo-native container release-evidence command.
+    It builds `lotus-performance:ci`, writes a CycloneDX SBOM and high/critical Trivy vulnerability
+    report under ignored `output/container-security/`, and is published by PR Merge Gate and Main
+    Releasability. Main Releasability also attests SBOM provenance. `make
+    container-vulnerability-gate` exists for later strict promotion after the first PR/main image
+    baseline and high/critical exception policy are reviewed.
+16. `PR Auto Merge` must use `LOTUS_AUTOMERGE_TOKEN` as the merge actor. If that governed token is
     absent, the workflow skips with a warning instead of merging with `GITHUB_TOKEN`, so the merged
     mainline commit can receive normal Main Releasability evidence from an authorized merge actor.
-16. `ENTERPRISE_RUNTIME_PROFILE=production`, `prod`, or `staging` is production-like and fails
+17. `ENTERPRISE_RUNTIME_PROFILE=production`, `prod`, or `staging` is production-like and fails
     startup when enterprise write authz, privileged-read authz, runtime-config enforcement, or
     `ENTERPRISE_PRIMARY_KEY_ID` is missing. Local relaxed mode remains explicit through
     `ENTERPRISE_RUNTIME_PROFILE=local` or an unset runtime profile with disabled authz switches.
-17. Lineage inventory and artifact download endpoints are controlled evidence-access surfaces.
+18. Lineage inventory and artifact download endpoints are controlled evidence-access surfaces.
     When privileged-read authz is enabled, `/performance/lineage/{calculation_id}` and child
     artifact routes require `operations.runtime.read` through the central enterprise capability
     rule map.
-18. Execution polling and endpoint-specific async result retrieval use the shared
+19. Execution polling and endpoint-specific async result retrieval use the shared
     `app.services.calculation_result_access` policy. When privileged-read authz is enabled,
     callers need enterprise identity plus either `operations.runtime.read` or `X-Portfolio-Id`
     matching the durable execution `portfolio_id`; a calculation id alone is not an authorization
     boundary.
-19. Compute-worker success finalization is recoverable. The worker publishes the successful async
+20. Compute-worker success finalization is recoverable. The worker publishes the successful async
     result before marking the compute job complete, never treats a post-success job-completion
     failure as a calculation failure, and reconciles stale compute jobs with an existing successful
     async result to `complete` instead of overwriting the result with a terminal failure.
-20. Durable worker and operator-action finalization is ownership-aware. Compute-job finalization,
+21. Durable worker and operator-action finalization is ownership-aware. Compute-job finalization,
     lineage payload completion/deletion, and governed operator-action lock release must compare the
     active lease owner or acquisition token before mutating terminal state, deleting work, or
     exposing async/lineage success evidence after stale reclaim.
-21. Runtime-retention cleanup is a database-native durable-store workflow. Async-result and
+22. Runtime-retention cleanup is a database-native durable-store workflow. Async-result and
     compute-job preview/apply paths use count and set-based delete operations, execution and
     lineage paths enumerate calculation ids only where child rows or artifact directories require
     deterministic cleanup, and durable schema creation repairs the retention indexes for existing
     runtime stores.
-22. Lineage inspection list queries are query-plan governed operator paths. Active, failed, all,
+23. Lineage inspection list queries are query-plan governed operator paths. Active, failed, all,
     and reclaimable inspection statements must keep `calculation_type` filters index-backed through
     lineage-record and lineage-payload composite indexes; PostgreSQL plan-contract tests cover the
     active, failed, all, and reclaimable statements, allowing derived-order sorts only where the
     view orders by computed active-since age.
-23. Upstream lotus-core and Lotus AI HTTP calls use the shared resilience layer and, under the
+24. Upstream lotus-core and Lotus AI HTTP calls use the shared resilience layer and, under the
     FastAPI lifespan, a managed `httpx.AsyncClient` pool keyed by timeout. Stateful chunked
     retrieval should tune `STATEFUL_INPUT_MAX_CONCURRENT_CHUNKS` together with
     `UPSTREAM_HTTP_MAX_CONNECTIONS`, `UPSTREAM_HTTP_MAX_KEEPALIVE_CONNECTIONS`, and
     `UPSTREAM_HTTP_KEEPALIVE_EXPIRY_SECONDS` before proposing a runtime transport split.
-24. Application services should use framework-neutral `core.errors.APIError` subclasses for
+25. Application services should use framework-neutral `core.errors.APIError` subclasses for
     validation, source-unavailable, not-found, conflict, and retryability semantics. FastAPI
     `HTTPException`, `status`, and `JSONResponse` belong at the API adapter boundary. When a
     service must express an explicit HTTP outcome such as `202 Accepted` or authorization denial,
@@ -270,28 +278,28 @@ Important validation expectations:
     TWR-inspection artifact service now follow this pattern, and
     `tests/unit/services/test_service_framework_boundary_inventory.py` prevents new service-level
     FastAPI coupling while the remaining #331 debt is migrated in smaller slices.
-25. API routers should not own analytics workflow orchestration. Routers own HTTP route metadata,
+26. API routers should not own analytics workflow orchestration. Routers own HTTP route metadata,
     request/response DTO mapping, auth dependency extraction, and API adapter conversion. Offload
     threshold decisions, durable requested-window projection, request hashing, submission fencing,
     execution lifecycle transitions, failure recording, and accepted-response factory ownership
     belong in named application workflow services. `workspace_summary_calculation_workflow_service`
     and `inspection/twr_inspection_workflow_service.py` are the current pattern for behavior-
     preserving design modularity without introducing a separately scalable runtime service.
-26. API routers should not import durable stores directly for lineage, inspection, execution, or
+27. API routers should not import durable stores directly for lineage, inspection, execution, or
     async-result supportability policy. Durable metadata lookup, manifest consistency checks,
     declared-artifact eligibility, retained-payload fallback, and missing-storage degradation
     decisions belong in application services such as `lineage_artifact_service.py` and
     `inspection/twr_inspection_artifact_service.py`. Routers may construct route URLs and convert
     typed artifact references into `FileResponse` or `Response`, while explicit public 5xx details
     remain an API-boundary mapping concern.
-27. Calculation-methodology and source-contract defects must be fixed across all owned input modes,
+28. Calculation-methodology and source-contract defects must be fixed across all owned input modes,
     fallback paths, and evidence surfaces in the same slice when practical. For MWR this means
     stateless validation, stateful source normalization, direct engine guards, Modified Dietz/XIRR
     fallback behavior, supportability/audit evidence, OpenAPI models, domain data-product
     declarations, methodology docs, API guides, and repo-authored wiki source. Do not aggregate
     away lifecycle identity, source exclusions, or measurement-window failures when downstream
     operators need that evidence to explain private-banking performance results.
-28. Runtime operator and status surfaces should degrade per source or component, not per endpoint.
+29. Runtime operator and status surfaces should degrade per source or component, not per endpoint.
     Work-item and recovery reads for compute and lineage queues must keep the healthy queue usable
     when the other queue fails. Runtime status must mark only the failed component unavailable when
     queue, history, preview, or governed-action snapshot reads fail. Public reasons must be stable
