@@ -1233,6 +1233,8 @@ def _annualize_percentage(
     annualization,
     business_day_count: int,
 ) -> Decimal:
+    if not getattr(annualization, "enabled", True):
+        return value_pct
     elapsed_days = max((end_date - start_date).days + 1, 1)
     if elapsed_days <= 365:
         return value_pct

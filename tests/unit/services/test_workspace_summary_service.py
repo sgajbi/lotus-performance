@@ -28,6 +28,7 @@ from app.services.workspace_summary_service import (
     WorkspaceTWRArtifacts,
     _annualization_periods_and_elapsed_measure,
     _annualize_percentage,
+    _annualize_return_value,
     _build_economic_context,
     _build_mwr_cash_flows,
     _build_stateful_workspace_benchmark_input,
@@ -1340,7 +1341,7 @@ def test_build_mwr_cash_flows_includes_carry_forward_capital_breaks():
 
 
 def test_annualize_percentage_returns_original_value_when_elapsed_measure_is_non_positive():
-    annualization = SimpleNamespace(periods_per_year=None, basis="BUS/252")
+    annualization = SimpleNamespace(enabled=True, periods_per_year=None, basis="BUS/252")
 
     assert (
         _annualize_percentage(
@@ -1354,8 +1355,39 @@ def test_annualize_percentage_returns_original_value_when_elapsed_measure_is_non
     )
 
 
+def test_annualize_percentage_returns_original_value_when_annualization_is_disabled():
+    annualization = SimpleNamespace(enabled=False, periods_per_year=252, basis="BUS/252")
+
+    annualized = _annualize_percentage(
+        Decimal("21.0"),
+        start_date=date(2025, 1, 1),
+        end_date=date(2026, 12, 31),
+        annualization=annualization,
+        business_day_count=522,
+    )
+
+    assert annualized == Decimal("21.0")
+
+
+def test_annualize_return_value_preserves_components_when_annualization_is_disabled():
+    annualization = SimpleNamespace(enabled=False, periods_per_year=365, basis="ACT/365")
+    measured_return = WorkspaceReturnValue(base=Decimal("21.0"), local=Decimal("20.0"), fx=Decimal("1.0"))
+
+    annualized = _annualize_return_value(
+        measured_return,
+        start_date=date(2025, 1, 1),
+        end_date=date(2026, 12, 31),
+        annualization=annualization,
+        business_day_count=522,
+    )
+
+    assert annualized.base == Decimal("21.0")
+    assert annualized.local == Decimal("20.0")
+    assert annualized.fx == Decimal("1.0")
+
+
 def test_annualize_percentage_projects_elapsed_positive_multi_year_return():
-    annualization = SimpleNamespace(periods_per_year=365, basis="CAL/365")
+    annualization = SimpleNamespace(enabled=True, periods_per_year=365, basis="CAL/365")
 
     annualized = _annualize_percentage(
         Decimal("12.5"),

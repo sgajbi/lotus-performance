@@ -237,7 +237,7 @@ class WorkspaceReturnSummary(BaseModel):
         description="Cumulative linked return for the resolved window in percentage-point output units."
     )
     annualized_return: WorkspaceReturnValue = Field(
-        description="Annualized return for the resolved window in percentage-point output units. For periods up to one year this equals cumulative_return."
+        description="Annualized return for the resolved window in percentage-point output units. For periods up to one year, or when annualization is disabled, this equals cumulative_return."
     )
 
 
@@ -260,7 +260,7 @@ class WorkspaceBreakdownItem(BaseModel):
         description="Cumulative linked return through the end of this bucket in percentage-point output units."
     )
     annualized_return: WorkspaceReturnValue = Field(
-        description="Annualized return through the end of this bucket in percentage-point output units. For periods up to one year this equals cumulative_return."
+        description="Annualized return through the end of this bucket in percentage-point output units. For periods up to one year, or when annualization is disabled, this equals cumulative_return."
     )
 
 

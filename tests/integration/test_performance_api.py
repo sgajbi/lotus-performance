@@ -396,6 +396,54 @@ def test_workspace_summary_endpoint_annualizes_periods_longer_than_one_year(clie
     assert annualized == pytest.approx(expected_annualized, rel=1e-3)
 
 
+def test_workspace_summary_endpoint_honors_disabled_annualization_for_multi_year_returns(client):
+    payload = {
+        "portfolio_id": "WORKSPACE_SUMMARY_2Y_ANNUALIZATION_DISABLED",
+        "report_end_date": "2026-12-31",
+        "performance_start_date": "2024-12-31",
+        "input_mode": "stateless",
+        "stateless_input": {
+            "valuation_points": [
+                {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1000.0},
+                {"perf_date": "2026-12-31", "begin_mv": 1000.0, "end_mv": 1210.0},
+            ]
+        },
+        "periods": [{"period": "2Y", "frequencies": ["yearly"]}],
+        "annualization": {"enabled": False, "basis": "ACT/365"},
+        "include_benchmark": True,
+        "benchmark": {
+            "benchmark_id": "BMK_WORKSPACE_ANNUALIZATION_DISABLED",
+            "input_mode": "stateless",
+            "return_source": "vendor_series",
+            "stateless_input": {
+                "benchmark_currency": "USD",
+                "benchmark_return_points": [
+                    {"perf_date": "2025-01-01", "benchmark_return": 0.05},
+                    {"perf_date": "2026-12-31", "benchmark_return": 0.05},
+                ],
+            },
+        },
+    }
+
+    response = client.post("/performance/workspace-summary", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+
+    assert data["meta"]["annualization"]["enabled"] is False
+    period = data["results_by_period"]["2Y"]
+    portfolio_summary = period["portfolio_twr"]["net"]["summary"]
+    benchmark_summary = period["benchmark"]["summary"]
+    active_summary = period["active"]["net"]
+
+    assert portfolio_summary["annualized_return"]["base"] == pytest.approx(
+        portfolio_summary["cumulative_return"]["base"]
+    )
+    assert benchmark_summary["annualized_return"]["base"] == pytest.approx(
+        benchmark_summary["cumulative_return"]["base"]
+    )
+    assert active_summary["annualized_return"]["base"] == pytest.approx(active_summary["cumulative_return"]["base"])
+
+
 def test_workspace_summary_endpoint_returns_async_accepted_when_threshold_exceeded(client):
     settings = get_settings()
     original_threshold = settings.WORKSPACE_SUMMARY_EXECUTOR_INPUT_COUNT

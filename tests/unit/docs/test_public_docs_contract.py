@@ -747,6 +747,7 @@ def test_api_reference_documents_endpoint_level_capabilities_contract():
     assert "GET /performance/workspace-summary/results/{calculation_id}" in api_reference
     assert "app.models.workspace_summary_requests.WorkspaceSummaryRequest" in api_reference
     assert "annualized return is always present" in api_reference
+    assert "when `annualization.enabled=false`, `annualized_return` remains present" in api_reference
     assert "summary blocks emit `period_return`, `cumulative_return`, and `annualized_return`" in api_reference
     assert "benchmark blocks do not fabricate market-value economics" in api_reference
     assert "retrieves only the longest required portfolio window" in api_reference
@@ -982,8 +983,10 @@ def test_workspace_summary_guide_documents_explicit_return_vocabulary():
     assert "benchmark.summary.period_return" in guide
     assert "money_weighted_return.period_return" in guide
     assert "active.net.period_return" in guide
+    assert "when annualization is disabled it also equals `cumulative_return`" in guide
     assert "summary blocks should emit `period_return`, `cumulative_return`, and `annualized_return`" in rfc
     assert "breakdown rows should emit `period_return`, `cumulative_return`, and `annualized_return`" in rfc
+    assert "when `annualization.enabled=false`, `annualized_return` should remain present" in rfc
     assert "it should not fabricate pseudo market values or pseudo cash flows" in rfc
 
 

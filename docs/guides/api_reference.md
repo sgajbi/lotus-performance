@@ -326,6 +326,8 @@ Return semantics for the workspace surface are now explicit rather than inferred
 - summary blocks emit `period_return`, `cumulative_return`, and `annualized_return`
 - breakdown rows emit `period_return`, `cumulative_return`, and `annualized_return`
 - for periods up to one year, `annualized_return` intentionally equals `cumulative_return`
+- when `annualization.enabled=false`, `annualized_return` remains present and intentionally equals
+  `cumulative_return`
 - benchmark and active blocks follow the same vocabulary so downstream apps do not need a
   surface-specific mapping layer
 - benchmark blocks do not fabricate market-value economics when the benchmark source only owns

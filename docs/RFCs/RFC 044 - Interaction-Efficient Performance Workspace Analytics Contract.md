@@ -368,10 +368,12 @@ The workspace-summary contract should directly support:
 Annualization rule:
 
 1. for periods longer than one year, the response must include an annualized return derived from
-   the corresponding cumulative return over that period,
+   the corresponding cumulative return over that period when annualization is enabled,
 2. for periods at or below one year, `annualized_return` should still be present to keep the API
    surface consistent,
-3. for those sub-one-year periods, `annualized_return` should equal `cumulative_return`.
+3. for those sub-one-year periods, `annualized_return` should equal `cumulative_return`,
+4. when `annualization.enabled=false`, `annualized_return` should remain present and equal
+   `cumulative_return`.
 
 This keeps the response model uniform and removes downstream conditional field handling.
 
