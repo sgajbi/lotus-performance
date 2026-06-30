@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
-Report date: 2026-06-29
-Branch: `feature/workspace-breakdown-window-boundary`
+Report date: 2026-06-30
+Branch: `feature/workspace-summary-response-projection`
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -16,6 +16,7 @@ and quality family without executing tests or requiring coverage data.
 ```powershell
 python scripts/python_test_taxonomy_inventory.py --limit 30
 python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 607 --min-contract-governance-tests 111 --max-uncategorized-tests 1294
+python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 608 --min-contract-governance-tests 111 --max-uncategorized-tests 1239
 ```
 
 ## Summary
@@ -23,7 +24,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 281 |
-| Test functions inventoried | 3219 |
+| Test functions inventoried | 3220 |
 | Integration/API/runtime test functions | 608 |
 | Contract/governance test functions | 111 |
 
@@ -34,7 +35,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 17 |
 | e2e | 1 | 21 |
 | integration | 24 | 300 |
-| unit | 247 | 2881 |
+| unit | 247 | 2882 |
 
 ## Test Functions By Family
 
@@ -45,7 +46,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | contract_or_governance | 111 |
 | observability_or_readiness | 248 |
 | quality_or_security | 121 |
-| uncategorized | 1238 |
+| uncategorized | 1239 |
 
 ## Largest Test Modules
 
@@ -62,7 +63,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | 9 | `tests/unit/app/test_contribution_endpoint_helpers.py` | unit | 52 | analytics_domain, api_or_runtime |
 | 10 | `tests/unit/services/test_twr_inspection_calculation_consistency.py` | unit | 51 | analytics_domain |
 | 11 | `tests/unit/docs/test_public_docs_contract.py` | unit | 48 | contract_or_governance |
-| 12 | `tests/unit/services/test_workspace_summary_service.py` | unit | 47 | uncategorized |
+| 12 | `tests/unit/services/test_workspace_summary_service.py` | unit | 48 | uncategorized |
 | 13 | `tests/unit/services/test_twr_mode_service.py` | unit | 45 | analytics_domain |
 | 14 | `tests/unit/services/test_stateful_benchmark_input_service.py` | unit | 44 | uncategorized |
 | 15 | `tests/integration/test_contribution_api.py` | integration | 40 | analytics_domain, api_or_runtime |
@@ -76,10 +77,10 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | 23 | `tests/unit/services/test_twr_inspection_reconciliation.py` | unit | 32 | analytics_domain |
 | 24 | `tests/unit/engine/test_contribution.py` | unit | 31 | analytics_domain |
 | 25 | `tests/unit/models/test_workspace_summary_models.py` | unit | 31 | uncategorized |
-| 26 | `tests/unit/test_observability.py` | unit | 31 | uncategorized |
-| 27 | `tests/unit/engine/test_composites.py` | unit | 29 | analytics_domain |
-| 28 | `tests/unit/services/test_operator_action_replay_service.py` | unit | 29 | uncategorized |
-| 29 | `tests/unit/services/test_twr_inspection_service.py` | unit | 29 | analytics_domain |
+| 26 | `tests/unit/services/test_twr_inspection_service.py` | unit | 31 | analytics_domain |
+| 27 | `tests/unit/test_observability.py` | unit | 31 | uncategorized |
+| 28 | `tests/unit/engine/test_composites.py` | unit | 29 | analytics_domain |
+| 29 | `tests/unit/services/test_operator_action_replay_service.py` | unit | 29 | uncategorized |
 | 30 | `tests/unit/app/test_performance_endpoint_helpers.py` | unit | 28 | api_or_runtime |
 
 ## Interpretation
@@ -88,17 +89,19 @@ The AST inventory counts test function definitions, while `pytest --collect-only
 pytest items including parametrized cases. The two values are intentionally different and
 complementary: collected tests show execution breadth, while this report shows source test-module
 and test-function distribution. The current suite has meaningful API/runtime and
-contract/governance coverage, but 1238 test functions remain uncategorized by the first-wave
+contract/governance coverage, but 1239 test functions remain uncategorized by the first-wave
 taxonomy and should be reduced through normal refactor slices rather than allowed to grow.
 
-The workspace performance breakdown window boundary slice keeps the promoted gate stable while
-strengthening period and cumulative TWR breakdown-window proof in
+The workspace summary response projection boundary slice keeps the promoted gate stable while
+strengthening response projection and audit-count proof in
 `tests/unit/services/test_workspace_summary_service.py`.
 Current measured breadth is `608` API/runtime test functions, `111` contract/governance test
 functions, `248` observability/readiness test functions, `1125` analytics-domain test functions,
-and `1238` uncategorized test functions. The enforced command remains at the accepted regression
-floor of `607` API/runtime tests and the existing uncategorized ceiling of `1294`; intentional
-threshold changes should remain separate, rationale-backed gate-governance work.
+and `1239` uncategorized test functions. The enforced command remains at the accepted regression
+floor of `607` API/runtime tests and the existing uncategorized ceiling of `1294`; this slice also
+passed the tighter local preservation command with `608` API/runtime tests and `1239`
+uncategorized tests. Intentional threshold changes should remain separate, rationale-backed
+gate-governance work.
 
 This slice promotes the stable part of the taxonomy from report-only measurement to a
 regression-blocking evaluation gate. `make quality-test-taxonomy-gate` fails if API/runtime tests

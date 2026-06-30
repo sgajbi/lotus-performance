@@ -1,7 +1,7 @@
 # Lotus Performance Enterprise Backend Refactor Baseline
 
-Baseline date: 2026-06-29
-Branch: `feature/workspace-breakdown-window-boundary`
+Baseline date: 2026-06-30
+Branch: `feature/workspace-summary-response-projection`
 Mode: report-only baseline; no new blocking quality gate is introduced by this artifact.
 
 ## Purpose
@@ -18,9 +18,9 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 | --- | ---: | --- |
 | Python files | 583 | `rg --files -g '*.py'` equivalent excluding local caches |
 | Python package markers | 18 | recursive `__init__.py` count |
-| Python LOC | 173,811 | recursive `.py` line count |
+| Python LOC | 173,957 | recursive `.py` line count |
 | Test modules | 281 | `tests/**/test_*.py` |
-| Collected tests | 3420 tests | `python -m pytest --collect-only -q` |
+| Collected tests | 3421 tests | `python -m pytest --collect-only -q` |
 | Configured CI workflows | 5 | `.github/workflows/*.yml` |
 | Repo-native baseline command | 1 | `make quality-baseline` |
 
@@ -41,8 +41,8 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 | 11 | `tests/integration/test_attribution_api.py` | 1757 |
 | 12 | `app/services/returns_series_service.py` | 1724 |
 | 13 | `tests/unit/app/test_contribution_endpoint_helpers.py` | 1643 |
-| 14 | `tests/unit/services/test_twr_mode_service.py` | 1594 |
-| 15 | `tests/unit/services/test_compute_job_store.py` | 1582 |
+| 14 | `tests/unit/services/test_workspace_summary_service.py` | 1641 |
+| 15 | `tests/unit/services/test_twr_mode_service.py` | 1594 |
 
 ## Required Inventory Outputs
 

@@ -12,10 +12,12 @@ from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.models.requests import DailyInputData
 from app.models.workspace_summary_requests import WorkspaceSummaryRequest
 from app.models.workspace_summary_responses import (
+    WorkspaceBasisPair,
     WorkspaceEconomicContext,
     WorkspaceEconomicReturnSummary,
     WorkspaceMoneyWeightedReturnSummary,
     WorkspacePerformanceBlock,
+    WorkspacePeriodSummaryResult,
     WorkspaceReturnSummary,
     WorkspaceReturnValue,
 )
@@ -39,6 +41,7 @@ from app.services.workspace_summary_service import (
     _build_workspace_period_summary_result,
     _build_workspace_period_twr_pair,
     _build_workspace_results_by_period,
+    _build_workspace_summary_response,
     _date_from_boundary,
     _decimal_or_zero,
     _is_missing_decimal_value,
@@ -841,6 +844,128 @@ def test_workspace_summary_meta_projects_request_identity_and_master_window():
     assert meta.input_fingerprint == "input-fingerprint"
     assert meta.calculation_hash == "calculation-hash"
     assert meta.report_ccy == "USD"
+
+
+def test_build_workspace_summary_response_projects_summary_inputs_and_audit_counts(mocker):
+    request = WorkspaceSummaryRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "PORT-1",
+            "report_end_date": "2026-01-02",
+            "performance_start_date": "2026-01-01",
+            "input_mode": "stateless",
+            "stateless_input": {
+                "valuation_points": [
+                    {"perf_date": "2026-01-01", "begin_mv": 100.0, "end_mv": 101.0},
+                    {"perf_date": "2026-01-02", "begin_mv": 101.0, "end_mv": 103.0},
+                ]
+            },
+            "periods": [{"period": "1D", "frequencies": ["daily", "monthly"]}],
+        }
+    )
+    portfolio_input = ResolvedWorkspacePortfolioInput(
+        input_mode="stateless",
+        performance_start_date=date(2026, 1, 1),
+        valuation_points=[
+            DailyInputData.model_validate({"perf_date": "2026-01-01", "begin_mv": 100.0, "end_mv": 101.0}),
+            DailyInputData.model_validate({"perf_date": "2026-01-02", "begin_mv": 101.0, "end_mv": 103.0}),
+        ],
+        observations=[],
+        source_details={"portfolio_chunk_count": 2, "portfolio_page_count": 1},
+    )
+    return_value = WorkspaceReturnValue(base=1.0)
+    economics = WorkspaceEconomicContext(
+        begin_market_value=100.0,
+        end_market_value=103.0,
+        beginning_cash_flow=0.0,
+        ending_cash_flow=0.0,
+        fees=0.0,
+        net_cash_flow=0.0,
+        flow_adjusted_end_market_value=103.0,
+    )
+    performance_block = WorkspacePerformanceBlock(
+        summary=WorkspaceEconomicReturnSummary(
+            economics=economics,
+            period_return=return_value,
+            cumulative_return=return_value,
+            annualized_return=return_value,
+        ),
+        breakdowns={},
+    )
+    period_result = WorkspacePeriodSummaryResult(
+        portfolio_twr=WorkspaceBasisPair(net=performance_block, gross=performance_block),
+        benchmark=None,
+        active=None,
+        money_weighted_return=WorkspaceMoneyWeightedReturnSummary(
+            input_mode="stateless",
+            method="XIRR",
+            period_return=1.0,
+            cumulative_return=1.0,
+            annualized_return=1.0,
+            economics=economics,
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 2),
+            notes=[],
+        ),
+    )
+    period_builder = mocker.patch(
+        "app.services.workspace_summary_service._build_workspace_results_by_period",
+        return_value={"1D": period_result},
+    )
+    resolved_period = ResolvedWorkspacePeriod(name="1D", start_date=date(2026, 1, 1), end_date=date(2026, 1, 2))
+
+    response = _build_workspace_summary_response(
+        request=request,
+        settings=SimpleNamespace(APP_VERSION="test-version"),
+        input_fingerprint="input-fingerprint",
+        calculation_hash="calculation-hash",
+        resolved_periods=[resolved_period],
+        portfolio_input=portfolio_input,
+        benchmark_input=None,
+        net_artifacts=WorkspaceTWRArtifacts(
+            daily_results_df=pd.DataFrame({"perf_date": ["2026-01-01", "2026-01-02"]}),
+            diagnostics=Diagnostics(
+                nip_days=0,
+                reset_days=0,
+                effective_period_start=date(2026, 1, 1),
+                notes=["net-note"],
+            ),
+        ),
+        gross_artifacts=WorkspaceTWRArtifacts(
+            daily_results_df=pd.DataFrame({"perf_date": ["2026-01-01", "2026-01-02"]}),
+            diagnostics=Diagnostics(
+                nip_days=0,
+                reset_days=0,
+                effective_period_start=date(2026, 1, 1),
+                notes=["gross-note"],
+            ),
+        ),
+    )
+
+    assert response.calculation_id == request.calculation_id
+    assert response.portfolio_id == "PORT-1"
+    assert response.input_mode == request.input_mode
+    assert response.results_by_period == {"1D": period_result}
+    assert response.meta.input_fingerprint == "input-fingerprint"
+    assert response.meta.calculation_hash == "calculation-hash"
+    assert response.diagnostics.notes == ["net-note"]
+    assert response.audit.counts == {
+        "input_rows": 2,
+        "periods_resolved": 1,
+        "portfolio_chunk_count": 2,
+        "portfolio_page_count": 1,
+        "benchmark_chunk_count": 0,
+    }
+    period_kwargs = period_builder.call_args.kwargs
+    assert period_kwargs["request"] is request
+    assert period_kwargs["resolved_periods"] == [resolved_period]
+    assert period_kwargs["portfolio_input"] is portfolio_input
+    assert period_kwargs["benchmark_input"] is None
+    assert period_kwargs["benchmark_daily_df"] is None
+    assert period_kwargs["requested_frequencies"] == {"1D": [Frequency.DAILY, Frequency.MONTHLY]}
+    assert period_kwargs["valuation_df"]["perf_date"].tolist() == [date(2026, 1, 1), date(2026, 1, 2)]
+    assert period_kwargs["net_daily_results_df"]["perf_date"].tolist() == [date(2026, 1, 1), date(2026, 1, 2)]
+    assert period_kwargs["gross_daily_results_df"]["perf_date"].tolist() == [date(2026, 1, 1), date(2026, 1, 2)]
 
 
 def test_build_workspace_results_by_period_skips_empty_periods_and_projects_summaries(mocker):
