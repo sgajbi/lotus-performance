@@ -124,6 +124,8 @@ descriptions and examples are maintained in the generated OpenAPI contract.
   - `reconciliation_summary.json` when stateful reconciliation runs
   - `source_economics_summary.json` when stateful source-economics checks run
 - error behavior:
+  - artifact names are validated as single file names before storage paths are resolved; path-like
+    values using `..`, `/`, `\`, absolute paths, empty names, or control characters return `404`
   - `404` when the inspection record is missing, incomplete, not a TWR inspection, or the artifact name is not recorded for that inspection
   - `503` when durable metadata declares the artifact but the artifact content is missing from storage
 - support-facing check inventory lives in:

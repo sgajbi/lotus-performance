@@ -749,6 +749,28 @@ def test_twr_inspection_artifact_serves_pending_payload_when_file_not_materializ
     assert response.headers["content-disposition"] == 'attachment; filename="inspection_summary.json"'
 
 
+def test_twr_inspection_artifact_rejects_unsafe_metadata_filename_before_fallback(client):
+    inspection_id = uuid4()
+    unsafe_artifact_name = r"..\outside.json"
+    lineage_metadata_store.enqueue_lineage_payload(
+        calculation_id=inspection_id,
+        calculation_type="TWR_INSPECTION",
+        request_json="{}",
+        response_json="{}",
+        details={unsafe_artifact_name: '{"unsafe": true}'},
+    )
+    lineage_metadata_store.mark_complete(
+        inspection_id,
+        artifact_names=[unsafe_artifact_name],
+    )
+
+    response = client.get(f"/performance/inspections/{inspection_id}/artifacts/..%5Coutside.json")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Inspection artifact not found."
+    assert "content-disposition" not in response.headers
+
+
 def test_twr_inspection_artifact_reports_missing_record_and_missing_storage(client):
     missing_id = uuid4()
     missing_response = client.get(f"/performance/inspections/{missing_id}/artifacts/inspection_summary.json")
