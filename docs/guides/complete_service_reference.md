@@ -1268,6 +1268,7 @@ Certification evidence:
 Purpose:
 
 - inspect retained durable recovery-drill evidence, filters, paging, and assurance status
+- omitted `limit` defaults to `10`; `next_offset` is emitted when more retained entries remain
 
 Sample response:
 
@@ -1287,6 +1288,7 @@ Sample response:
   "matched_entries": 1,
   "returned_entries": 1,
   "applied_filters": {
+    "limit": 10,
     "status": "passed"
   },
   "entries": [
@@ -1359,6 +1361,7 @@ Certification evidence:
 Purpose:
 
 - inspect retained runtime-retention cleanup evidence, filters, paging, and prunable counts
+- omitted `limit` defaults to `10`; `next_offset` is emitted when more retained entries remain
 
 Sample response:
 
@@ -1378,6 +1381,7 @@ Sample response:
   "matched_entries": 1,
   "returned_entries": 1,
   "applied_filters": {
+    "limit": 10,
     "cleanup_mode": "dry_run"
   },
   "entries": [

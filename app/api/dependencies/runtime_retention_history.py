@@ -6,10 +6,18 @@ from fastapi import Query
 
 from app.api.time_query_validation import validate_utc_query_timestamp_window
 from app.models.runtime_retention_history import RuntimeRetentionHistoryQueryParams
+from app.services.operator_action_history_pagination import OPERATOR_ACTION_HISTORY_DEFAULT_LIMIT
 
 _RuntimeRetentionLimitQuery: TypeAlias = Annotated[
     int | None,
-    Query(ge=1, le=100, description="Maximum number of retained runtime-retention cleanup entries to return."),
+    Query(
+        ge=1,
+        le=100,
+        description=(
+            "Maximum number of retained runtime-retention cleanup entries to return. "
+            "Defaults to 10 when omitted."
+        ),
+    ),
 ]
 _RuntimeRetentionOffsetQuery: TypeAlias = Annotated[
     int,
@@ -70,7 +78,7 @@ _RuntimeRetentionGeneratedBeforeQuery: TypeAlias = Annotated[
 
 
 def build_runtime_retention_history_query(
-    limit: _RuntimeRetentionLimitQuery = None,
+    limit: _RuntimeRetentionLimitQuery = OPERATOR_ACTION_HISTORY_DEFAULT_LIMIT,
     offset: _RuntimeRetentionOffsetQuery = 0,
     operator_id: _RuntimeRetentionOperatorQuery = None,
     trigger_mode: _RuntimeRetentionTriggerQuery = None,

@@ -23,7 +23,7 @@ Supported history query options:
 
 | Option | Default | Meaning |
 | --- | --- | --- |
-| `limit` | omitted | Maximum retained drill entries to return; bounded from `1` to `100`. |
+| `limit` | `10` | Maximum retained drill entries to return; bounded from `1` to `100`; `next_offset` is emitted when more retained entries remain. |
 | `offset` | `0` | Offset into the filtered retained history. |
 | `operator_id` | omitted | Filter by operator or automation identity. |
 | `backup_identifier` | omitted | Filter by backup or restore-set identifier. |

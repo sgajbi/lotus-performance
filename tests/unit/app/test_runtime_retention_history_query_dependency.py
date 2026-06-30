@@ -30,6 +30,22 @@ def test_build_runtime_retention_history_query_projects_filters_and_validates_ti
     }
 
 
+def test_build_runtime_retention_history_query_defaults_to_bounded_first_page():
+    query = build_runtime_retention_history_query()
+
+    assert query.model_dump() == {
+        "limit": 10,
+        "offset": 0,
+        "operator_id": None,
+        "trigger_mode": None,
+        "job_id": None,
+        "cleanup_mode": None,
+        "status": None,
+        "generated_after": None,
+        "generated_before": None,
+    }
+
+
 def test_build_runtime_retention_history_query_rejects_inverted_timestamp_window():
     with pytest.raises(HTTPException) as exc_info:
         build_runtime_retention_history_query(

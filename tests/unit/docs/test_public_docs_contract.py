@@ -1384,6 +1384,7 @@ def test_runtime_retention_cleanup_runbook_is_governed():
     assert "docs/runbooks/runtime-retention-cleanup.md" in api_reference
     assert "/integration/runtime-retention-cleanups" in api_reference
     assert "/integration/runtime-retention-cleanups/run" in api_reference
+    assert "default pagination limit `10` when `limit` is omitted" in api_reference
     assert "trigger_mode" in api_reference
     assert "tenant_id" in api_reference
     assert "correlation_id" in api_reference
@@ -1394,6 +1395,7 @@ def test_recovery_drill_control_plane_is_governed():
 
     assert "GET /integration/recovery-drills" in api_reference
     assert "POST /integration/recovery-drills/run" in api_reference
+    assert "default pagination limit `10` when `limit` is omitted" in api_reference
     assert "backup_identifier" in api_reference
     assert "tenant_id" in api_reference
     assert "correlation_id" in api_reference

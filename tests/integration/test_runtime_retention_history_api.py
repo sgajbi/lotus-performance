@@ -158,3 +158,49 @@ def test_runtime_retention_history_api_returns_filtered_manifest(tmp_path, monke
             "prunable_lineage_artifact_count": 2,
         }
     ]
+
+
+def test_runtime_retention_history_api_defaults_to_bounded_page(tmp_path, monkeypatch):
+    artifact_dir = tmp_path / "artifacts" / "runtime-retention-cleanup"
+    artifact_dir.mkdir(parents=True)
+    entries = [
+        {
+            "evidence_file_name": f"2026-03-{day:02d}t00-00-00z.json",
+            "generated_at_utc": f"2026-03-{day:02d}T00:00:00Z",
+            "operator_id": "ops-user",
+            "trigger_mode": "scheduled",
+            "job_id": "retention-nightly",
+            "cleanup_mode": "apply",
+            "status": "applied",
+            "retention_days": 45,
+            "prunable_execution_count": day,
+            "prunable_compute_job_count": day,
+            "prunable_async_result_count": day,
+            "prunable_lineage_record_count": day,
+            "prunable_lineage_artifact_count": day,
+        }
+        for day in range(20, 9, -1)
+    ]
+    manifest = {
+        "latest_file_name": "2026-03-20t00-00-00z.json",
+        "retained_file_names": [entry["evidence_file_name"] for entry in entries],
+        "retention_limit": 30,
+        "retention_max_age_days": 90,
+        "entries": entries,
+    }
+    (artifact_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    monkeypatch.setattr(get_settings(), "RUNTIME_RETENTION_ARTIFACT_PATH", artifact_dir)
+
+    with TestClient(app) as client:
+        response = client.get("/integration/runtime-retention-cleanups")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total_entries"] == 11
+    assert body["matched_entries"] == 11
+    assert body["returned_entries"] == 10
+    assert body["next_offset"] == 10
+    assert body["applied_filters"] == {"limit": 10}
+    assert [entry["evidence_file_name"] for entry in body["entries"]] == [
+        entry["evidence_file_name"] for entry in entries[:10]
+    ]
