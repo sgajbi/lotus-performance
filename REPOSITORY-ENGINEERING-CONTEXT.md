@@ -73,6 +73,9 @@ Current repository posture:
     host allow-listing, `CORS_ALLOWED_ORIGINS` controls explicit browser origins, standard security
     headers are emitted on success and error responses, and `HTTP_SECURITY_HSTS_ENABLED` is used
     only when the service owns the HTTPS boundary rather than delegating TLS to ingress.
+14. API runtime serialization uses standard FastAPI/Pydantic response-model behavior. Do not add
+    global null stripping: OpenAPI nullable fields must be returned as explicit JSON `null` values
+    unless a route explicitly documents sparse `response_model_exclude_none=True` behavior.
 
 ## Architecture And Module Map
 

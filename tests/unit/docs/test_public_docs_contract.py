@@ -1137,6 +1137,19 @@ def test_complete_service_reference_covers_endpoint_surface_and_config_inventory
     assert "docs/technical/twr-endpoint-certification.md" in readme
 
 
+def test_public_docs_document_nullable_response_contract():
+    api_reference = _read("docs/guides/api_reference.md")
+    certification = _read("docs/technical/execution-polling-endpoint-certification.md")
+    repo_context = _read("REPOSITORY-ENGINEERING-CONTEXT.md")
+
+    assert "explicit JSON `null` values" in api_reference
+    assert "not a global response behavior" in api_reference
+    assert "Nullable contract fields" in certification
+    assert "Global null stripping is not part of the API" in certification
+    assert "contract; sparse omission is allowed only for route-specific behavior" in certification
+    assert "global null stripping" in repo_context
+
+
 def test_twr_inspection_checks_guide_lists_current_check_inventory():
     guide = _read("docs/guides/twr_inspection_checks.md")
     readme = _read("README.md")
