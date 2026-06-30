@@ -144,6 +144,7 @@ def test_attribution_endpoint_by_instrument_happy_path(client):
         "input_row_count": 5,
         "resolved_period_count": 1,
         "benchmark_row_count": 2,
+        "source_quality_evidence": None,
         "metric_labels": _EXPECTED_SUPPORTABILITY_METRIC_LABELS,
     }
     response_data = body["results_by_period"]["ITD"]

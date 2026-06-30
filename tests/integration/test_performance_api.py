@@ -82,6 +82,7 @@ def test_twr_reports_reset_events_when_requested(client):
         "input_row_count": 4,
         "resolved_period_count": 1,
         "benchmark_row_count": 0,
+        "source_quality_evidence": None,
         "metric_labels": _EXPECTED_SUPPORTABILITY_METRIC_LABELS,
     }
 
