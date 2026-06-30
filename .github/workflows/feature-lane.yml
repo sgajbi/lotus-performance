@@ -22,6 +22,7 @@ jobs:
   workflow-lint:
     name: Feature Lane / Workflow Lint
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Configure Git Default Branch
         run: git config --global init.defaultBranch main
@@ -31,6 +32,7 @@ jobs:
   static-quality-gates:
     name: Feature Lane / Static Quality Gates
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Configure Git Default Branch
         run: git config --global init.defaultBranch main
@@ -63,6 +65,7 @@ jobs:
   contract-security-gates:
     name: Feature Lane / Contract Security Gates
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Configure Git Default Branch
         run: git config --global init.defaultBranch main
@@ -95,6 +98,7 @@ jobs:
     name: Feature Lane / Tests (unit)
     needs: [static-quality-gates, contract-security-gates]
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Configure Git Default Branch
         run: git config --global init.defaultBranch main

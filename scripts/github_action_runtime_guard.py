@@ -13,6 +13,8 @@ ARTIFACT_ACTION_MINIMUM_MAJOR = {
     "actions/download-artifact": 8,
 }
 ARTIFACT_ACTION_PATTERN = re.compile(r"uses:\s*(?P<action>actions/(?:upload|download)-artifact)@(?P<ref>[^\s#]+)")
+WORKFLOW_JOB_PATTERN = re.compile(r"^  (?P<job>[A-Za-z0-9_-]+):\s*(?:#.*)?$")
+WORKFLOW_JOB_TIMEOUT_PATTERN = re.compile(r"^    timeout-minutes:\s*(?P<minutes>\d+)\s*(?:#.*)?$")
 
 
 @dataclass(frozen=True)
@@ -30,10 +32,27 @@ class GitHubActionRuntimeFinding:
         )
 
 
+@dataclass(frozen=True)
+class WorkflowJobTimeoutFinding:
+    path: str
+    line: int
+    job: str
+
+    def format(self) -> str:
+        return f"{self.path}:{self.line}: workflow job {self.job} must declare timeout-minutes"
+
+
 def validate_artifact_action_versions(workflow_dir: Path = DEFAULT_WORKFLOW_DIR) -> list[GitHubActionRuntimeFinding]:
     findings: list[GitHubActionRuntimeFinding] = []
     for path in sorted(workflow_dir.glob("*.yml")):
         findings.extend(_artifact_action_findings(path=path, root=workflow_dir.parents[1]))
+    return findings
+
+
+def validate_workflow_job_timeouts(workflow_dir: Path = DEFAULT_WORKFLOW_DIR) -> list[WorkflowJobTimeoutFinding]:
+    findings: list[WorkflowJobTimeoutFinding] = []
+    for path in sorted(workflow_dir.glob("*.yml")):
+        findings.extend(_job_timeout_findings(path=path, root=workflow_dir.parents[1]))
     return findings
 
 
@@ -59,6 +78,50 @@ def _artifact_action_findings(path: Path, root: Path) -> list[GitHubActionRuntim
     return findings
 
 
+def _job_timeout_findings(path: Path, root: Path) -> list[WorkflowJobTimeoutFinding]:
+    findings: list[WorkflowJobTimeoutFinding] = []
+    in_jobs_section = False
+    current_job: str | None = None
+    current_job_line = 0
+    current_job_has_timeout = False
+
+    def close_current_job() -> None:
+        nonlocal current_job, current_job_line, current_job_has_timeout
+        if current_job is not None and not current_job_has_timeout:
+            findings.append(
+                WorkflowJobTimeoutFinding(
+                    path=path.relative_to(root).as_posix(),
+                    line=current_job_line,
+                    job=current_job,
+                )
+            )
+        current_job = None
+        current_job_line = 0
+        current_job_has_timeout = False
+
+    for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        if line == "jobs:":
+            in_jobs_section = True
+            continue
+        if not in_jobs_section:
+            continue
+        if line and not line.startswith((" ", "\t")):
+            close_current_job()
+            in_jobs_section = False
+            continue
+        job_match = WORKFLOW_JOB_PATTERN.match(line)
+        if job_match is not None:
+            close_current_job()
+            current_job = job_match.group("job")
+            current_job_line = line_number
+            continue
+        if current_job is not None and WORKFLOW_JOB_TIMEOUT_PATTERN.match(line) is not None:
+            current_job_has_timeout = True
+
+    close_current_job()
+    return findings
+
+
 def _major_version(ref: str) -> int:
     match = re.fullmatch(r"v(?P<major>\d+)(?:\.\d+){0,2}", ref)
     if match is None:
@@ -67,7 +130,9 @@ def _major_version(ref: str) -> int:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Fail when GitHub artifact actions use Node 20-era major versions.")
+    parser = argparse.ArgumentParser(
+        description="Fail when GitHub workflows miss runtime guardrails or use stale artifact actions."
+    )
     parser.add_argument(
         "--workflow-dir",
         type=Path,
@@ -76,12 +141,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    findings = validate_artifact_action_versions(args.workflow_dir)
-    if findings:
-        for finding in findings:
-            print(finding.format())
+    formatted_findings = [finding.format() for finding in validate_artifact_action_versions(args.workflow_dir)]
+    formatted_findings.extend(finding.format() for finding in validate_workflow_job_timeouts(args.workflow_dir))
+    if formatted_findings:
+        for finding in formatted_findings:
+            print(finding)
         return 1
-    print("GitHub artifact action runtime guard passed.")
+    print("GitHub Actions runtime guard passed.")
     return 0
 
 

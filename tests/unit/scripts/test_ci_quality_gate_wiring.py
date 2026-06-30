@@ -52,3 +52,9 @@ def test_quality_baseline_snapshot_does_not_soft_fail_evaluation() -> None:
 
     assert "run: make quality-evaluation-gate" in workflow
     assert "continue-on-error" not in workflow
+
+
+def test_lint_gate_enforces_github_action_runtime_guard() -> None:
+    lint_target = _makefile_target_definition("lint")
+
+    assert "$(MAKE) github-action-runtime-guard" in lint_target

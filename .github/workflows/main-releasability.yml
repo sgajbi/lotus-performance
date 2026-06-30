@@ -23,6 +23,7 @@ jobs:
   workflow-lint:
     name: Main Releasability / Workflow Lint
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Configure Git Default Branch
         run: git config --global init.defaultBranch main
@@ -32,6 +33,7 @@ jobs:
   static-quality-gates:
     name: Main Releasability / Static Quality Gates
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Configure Git Default Branch
         run: git config --global init.defaultBranch main
@@ -64,6 +66,7 @@ jobs:
   contract-security-gates:
     name: Main Releasability / Contract Security Gates
     runs-on: ubuntu-latest
+    timeout-minutes: 35
     steps:
       - name: Configure Git Default Branch
         run: git config --global init.defaultBranch main
@@ -98,6 +101,7 @@ jobs:
     name: Main Releasability / Tests (${{ matrix.suite }})
     needs: [static-quality-gates, contract-security-gates]
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -134,6 +138,7 @@ jobs:
     name: Main Releasability / Coverage Gate (Combined)
     needs: [test-suites]
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - name: Configure Git Default Branch
         run: git config --global init.defaultBranch main
@@ -168,6 +173,7 @@ jobs:
     name: Main Releasability / Validate Docker Build
     needs: [coverage-gate]
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - name: Configure Git Default Branch
         run: git config --global init.defaultBranch main
