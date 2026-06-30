@@ -101,6 +101,7 @@ def _families_for_path(path: str) -> tuple[str, ...]:
             "returns_series",
             "attribution",
             "contribution",
+            "benchmark",
         )
     ):
         families.add("analytics_domain")
