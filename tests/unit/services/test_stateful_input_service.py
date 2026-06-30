@@ -8,7 +8,7 @@ import pytest
 from app.services.execution_registry import ExecutionRegistry
 from app.services.stateful_input_service import (
     STATEFUL_UPSTREAM_PAGE_LIMIT_EXCEEDED_REASON,
-    STATEFUL_UPSTREAM_REPEATED_PAGE_TOKEN_REASON,
+    STATEFUL_UPSTREAM_REPEATED_PAGE_CURSOR_REASON,
     DateChunk,
     StatefulInputService,
     _benchmark_market_series_request_payload,
@@ -590,7 +590,7 @@ async def test_get_portfolio_timeseries_rejects_repeated_page_tokens():
     )
 
     assert status_code == 503
-    assert payload["reason"] == STATEFUL_UPSTREAM_REPEATED_PAGE_TOKEN_REASON
+    assert payload["reason"] == STATEFUL_UPSTREAM_REPEATED_PAGE_CURSOR_REASON
     assert payload["retrieval_metadata"]["page_count"] == 2
     assert len(core_service.portfolio_calls) == 2
 
@@ -626,12 +626,12 @@ async def test_get_portfolio_timeseries_records_pagination_failure_snapshot(tmp_
     failure_snapshots = [snapshot for snapshot in snapshots if snapshot.retrieval_status == "503"]
 
     assert status_code == 503
-    assert payload["reason"] == STATEFUL_UPSTREAM_REPEATED_PAGE_TOKEN_REASON
+    assert payload["reason"] == STATEFUL_UPSTREAM_REPEATED_PAGE_CURSOR_REASON
     assert len(failure_snapshots) == 1
     assert failure_snapshots[0].upstream_endpoint == "portfolio_timeseries"
     assert failure_snapshots[0].paging_metadata["page_token"] == "loop"
     assert failure_snapshots[0].paging_metadata["pagination_guard_reason"] == (
-        STATEFUL_UPSTREAM_REPEATED_PAGE_TOKEN_REASON
+        STATEFUL_UPSTREAM_REPEATED_PAGE_CURSOR_REASON
     )
 
 
@@ -1745,7 +1745,7 @@ async def test_get_position_timeseries_rejects_repeated_page_tokens():
     )
 
     assert status_code == 503
-    assert payload["reason"] == STATEFUL_UPSTREAM_REPEATED_PAGE_TOKEN_REASON
+    assert payload["reason"] == STATEFUL_UPSTREAM_REPEATED_PAGE_CURSOR_REASON
     assert payload["retrieval_metadata"]["page_count"] == 2
     assert len(core_service.position_calls) == 2
 

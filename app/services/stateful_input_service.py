@@ -12,7 +12,7 @@ from app.services.core_integration_service import CoreIntegrationService
 from app.services.execution_registry import ExecutionRegistry, execution_registry
 
 STATEFUL_UPSTREAM_PAGE_LIMIT_EXCEEDED_REASON = "stateful_upstream_page_limit_exceeded"
-STATEFUL_UPSTREAM_REPEATED_PAGE_TOKEN_REASON = "stateful_upstream_repeated_page_token"
+STATEFUL_UPSTREAM_REPEATED_PAGE_CURSOR_REASON = "stateful_upstream_repeated_page_cursor"
 
 
 @dataclass(frozen=True)
@@ -1558,7 +1558,7 @@ class StatefulInputService:
         seen_page_tokens: set[str],
     ) -> dict[str, Any] | None:
         if next_page_token in seen_page_tokens:
-            reason = STATEFUL_UPSTREAM_REPEATED_PAGE_TOKEN_REASON
+            reason = STATEFUL_UPSTREAM_REPEATED_PAGE_CURSOR_REASON
         elif page_count >= self._max_pages_per_chunk:
             reason = STATEFUL_UPSTREAM_PAGE_LIMIT_EXCEEDED_REASON
         else:
