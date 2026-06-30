@@ -47,6 +47,7 @@ from app.services.returns_series_service import (
     resolve_window,
     to_dataframe,
 )
+from core.errors import APIError, APIUnprocessableEntityError
 
 
 @pytest.fixture(autouse=True)
@@ -115,9 +116,13 @@ def test_resolve_window_relative_success_and_missing_period_error():
         stateless_input=StatelessInput.model_construct(portfolio_returns=[]),
         stateful_input=None,
     )
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(APIError) as exc:
         resolve_window(invalid_request)
     assert exc.value.status_code == 400
+    assert exc.value.detail == {
+        "code": "INVALID_REQUEST",
+        "message": "window.period is required when mode=RELATIVE",
+    }
 
 
 def test_returns_window_normalizes_legacy_relative_period_aliases():
@@ -131,13 +136,17 @@ def test_returns_window_normalizes_legacy_relative_period_aliases():
 
 
 def test_dataframe_and_window_helpers_handle_error_paths():
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(APIError) as exc:
         to_dataframe([], series_type="portfolio")
     assert exc.value.status_code == 422
+    assert exc.value.detail == {
+        "code": "INSUFFICIENT_DATA",
+        "message": "portfolio series is empty.",
+    }
 
 
 def test_core_points_to_dataframe_skips_invalid_points_and_bad_values():
-    with pytest.raises(HTTPException):
+    with pytest.raises(APIError) as exc:
         core_points_to_dataframe(
             points=[
                 {"series_date": None, "benchmark_return": "0.01"},
@@ -147,6 +156,8 @@ def test_core_points_to_dataframe_skips_invalid_points_and_bad_values():
             value_key="benchmark_return",
             series_type="benchmark",
         )
+    assert exc.value.status_code == 422
+    assert exc.value.detail["code"] == "INSUFFICIENT_DATA"
 
     df = core_points_to_dataframe(
         points=[
@@ -183,10 +194,11 @@ def test_portfolio_timeseries_to_valuation_points_handles_cashflow_variants():
     assert points[1]["eod_cf"] == Decimal("0.3")
     assert points[1]["mgmt_fees"] == Decimal("-0.1")
 
-    with pytest.raises(HTTPException):
+    with pytest.raises(APIUnprocessableEntityError) as exc:
         portfolio_timeseries_to_valuation_points(observations=[{"valuation_date": None}])
+    assert exc.value.status_code == 422
 
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(APIError) as exc:
         to_dataframe(
             [
                 ReturnPoint(date=date(2026, 2, 24), return_value=Decimal("0.001")),
@@ -205,7 +217,7 @@ def test_portfolio_timeseries_to_valuation_points_handles_cashflow_variants():
     )
     assert list(df["date"].dt.date) == [date(2026, 2, 24), date(2026, 2, 25)]
 
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(APIError) as exc:
         filter_window(
             df,
             resolved_window=ResolvedWindow(start_date=date(2026, 3, 1), end_date=date(2026, 3, 2)),
@@ -266,9 +278,10 @@ async def test_get_returns_series_guards_stateless_mode_without_input():
         stateless_input=None,
         stateful_input=StatefulInput.model_construct(),
     )
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(APIError) as exc:
         await calculate_returns_series_workflow(request)
     assert exc.value.status_code == 400
+    assert exc.value.detail["code"] == "INVALID_REQUEST"
 
 
 @pytest.mark.asyncio
@@ -292,9 +305,10 @@ async def test_get_returns_series_guards_stateful_mode_without_input():
         stateless_input=StatelessInput.model_construct(portfolio_returns=[]),
         stateful_input=None,
     )
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(APIError) as exc:
         await calculate_returns_series_workflow(request)
     assert exc.value.status_code == 400
+    assert exc.value.detail["code"] == "INVALID_REQUEST"
 
 
 def test_should_offload_returns_series_uses_runtime_settings(mocker):

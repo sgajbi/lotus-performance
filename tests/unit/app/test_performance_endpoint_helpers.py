@@ -3,7 +3,6 @@ from typing import cast
 
 import pandas as pd
 import pytest
-from fastapi import HTTPException
 
 from app.models.benchmark_analytics_requests import BenchmarkInputMode, BenchmarkReturnSource
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
@@ -46,6 +45,7 @@ from app.services.twr_service import (
     _TWRExecutionCalculation,
 )
 from common.enums import Frequency
+from core.errors import APIBadRequestError
 from core.periods import ResolvedPeriod
 from engine.diagnostics import EngineDiagnostics, EngineResetEvent
 from engine.schema import PortfolioColumns
@@ -134,7 +134,7 @@ def test_resolve_twr_execution_period_scope_projects_periods_frequencies_and_mas
 def test_resolve_twr_execution_period_scope_rejects_unresolved_periods(mocker):
     mocker.patch("app.services.twr_service.resolve_periods", return_value=[])
 
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(APIBadRequestError) as exc_info:
         _resolve_twr_execution_period_scope(_twr_request())
 
     assert exc_info.value.status_code == 400

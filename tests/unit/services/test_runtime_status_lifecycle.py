@@ -232,9 +232,9 @@ def test_build_recovery_drill_status_returns_unavailable_when_history_read_fails
         status = build_recovery_drill_status(settings=type("Settings", (), {})(), policy=_recovery_drill_policy())
 
     assert status.status == "unavailable"
-    assert status.reason == "RuntimeError"
+    assert status.reason == "recovery_drill_history_read_failed"
     assert status.active_run_count == 1
-    assert "Runtime status recovery-drill history snapshot unavailable." in caplog.text
+    assert "Runtime status read degraded." in caplog.text
 
 
 def test_recovery_drill_status_from_snapshot_projects_missing_artifact_history():
@@ -372,11 +372,11 @@ def test_build_runtime_retention_status_returns_unavailable_when_history_read_fa
         status = build_runtime_retention_status(settings=type("Settings", (), {})(), policy=_runtime_retention_policy())
 
     assert status.status == "unavailable"
-    assert status.reason == "RuntimeError"
+    assert status.reason == "runtime_retention_history_read_failed"
     assert status.active_run_count == 1
     assert status.preview_status == "unavailable"
     assert status.preview_reason == RUNTIME_RETENTION_PREVIEW_UNAVAILABLE_REASON
-    assert "Runtime status runtime-retention history snapshot unavailable." in caplog.text
+    assert "Runtime status read degraded." in caplog.text
 
 
 def test_runtime_retention_status_from_snapshot_projects_missing_artifact_history():
