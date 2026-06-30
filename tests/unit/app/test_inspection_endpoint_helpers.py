@@ -1,11 +1,9 @@
-from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
 
+from app.api.endpoints import inspections as inspections_endpoint
 from app.api.endpoints.inspections import (
-    _inspection_portfolio_id,
-    _inspection_requested_window,
     _inspection_storage_path,
     _is_available_twr_inspection_artifact,
     _is_completed_twr_inspection_record,
@@ -141,23 +139,28 @@ def test_retained_inspection_artifact_response_rejects_unsafe_content_dispositio
     assert _retained_inspection_artifact_response(payload=payload, artifact_name=artifact_name) is None
 
 
-def test_inspection_submission_helpers_project_request_subject_metadata(mocker):
-    subject_calculation_id = uuid4()
+def test_submit_twr_inspection_endpoint_delegates_to_workflow(mocker):
     request = TWRInspectionRequest.model_validate(
         {
-            "subject_type": "twr_calculation",
-            "subject_calculation_id": str(subject_calculation_id),
-            "inspection_profile": "deep_reconciliation",
+            "subject_type": "twr_request",
+            "inspection_profile": "support_triage",
+            "request": {
+                "portfolio_id": "PB_SG_GLOBAL_BAL_001",
+                "performance_start_date": "2026-01-01",
+                "metric_basis": "NET",
+                "report_end_date": "2026-01-02",
+                "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+                "valuation_points": [{"perf_date": "2026-01-02", "begin_mv": 1000.0, "end_mv": 1001.0}],
+            },
         }
     )
-    mocker.patch(
-        "app.api.endpoints.inspections.execution_registry.get_execution",
-        return_value=SimpleNamespace(portfolio_id="PORTFOLIO_001"),
+    expected_response = object()
+    workflow = mocker.patch(
+        "app.api.endpoints.inspections.submit_twr_inspection_workflow",
+        return_value=expected_response,
     )
 
-    assert _inspection_portfolio_id(request) == "PORTFOLIO_001"
-    assert _inspection_requested_window(request) == {
-        "subject_type": "twr_calculation",
-        "inspection_profile": "deep_reconciliation",
-        "subject_calculation_id": str(subject_calculation_id),
-    }
+    response = inspections_endpoint.submit_twr_inspection(request)
+
+    workflow.assert_called_once_with(request)
+    assert response is expected_response

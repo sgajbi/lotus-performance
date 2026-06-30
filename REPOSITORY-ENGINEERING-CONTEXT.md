@@ -254,10 +254,17 @@ Important validation expectations:
     `app.api.http_response_adapter.to_fastapi_response(...)`. The shared stateful source helpers,
     input-mode helper, benchmark-assignment helper, stateful position-currency helper, compute
     executor, async-result resolver, calculation-result access policy, execution polling service,
-    stateful execution policy service, submission fencing service, and returns-series workflow now
-    follow this pattern, and `tests/unit/services/test_service_framework_boundary_inventory.py`
-    prevents new service-level FastAPI coupling while the remaining #331 debt is migrated in
-    smaller slices.
+    stateful execution policy service, submission fencing service, returns-series workflow,
+    workspace-summary workflow, and TWR-inspection submission workflow now follow this pattern, and
+    `tests/unit/services/test_service_framework_boundary_inventory.py` prevents new service-level
+    FastAPI coupling while the remaining #331 debt is migrated in smaller slices.
+25. API routers should not own analytics workflow orchestration. Routers own HTTP route metadata,
+    request/response DTO mapping, auth dependency extraction, and API adapter conversion. Offload
+    threshold decisions, durable requested-window projection, request hashing, submission fencing,
+    execution lifecycle transitions, failure recording, and accepted-response factory ownership
+    belong in named application workflow services. `workspace_summary_calculation_workflow_service`
+    and `inspection/twr_inspection_workflow_service.py` are the current pattern for behavior-
+    preserving design modularity without introducing a separately scalable runtime service.
 
 ## Standards And RFCs That Govern This Repository
 
