@@ -1,20 +1,18 @@
 # app/api/endpoints/performance.py
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
 from app.api.async_openapi import async_result_responses, async_submission_responses
 from app.api.http_response_adapter import to_fastapi_response
-from app.core.config import get_settings
 from app.models.attribution_analytics_requests import AttributionAnalyticsRequest
 from app.models.attribution_responses import AttributionAcceptedResponse, AttributionResponse
-from app.models.benchmark_analytics_requests import BenchmarkInputMode, benchmark_stateless_work_units
 from app.models.mwr_analytics_requests import MoneyWeightedReturnAnalyticsRequest
 from app.models.mwr_responses import MoneyWeightedReturnResponse
 from app.models.platform_surfaces import ErrorDetailResponse
 from app.models.responses import PerformanceResponse, TWRAcceptedResponse
-from app.models.twr_requests import TWRAnalyticsRequest, TWRInputMode
+from app.models.twr_requests import TWRAnalyticsRequest
 from app.models.workspace_summary_requests import WorkspaceSummaryRequest
 from app.models.workspace_summary_responses import WorkspaceSummaryAcceptedResponse, WorkspaceSummaryResponse
 from app.services.analytics_workflow_types import (
@@ -22,7 +20,6 @@ from app.services.analytics_workflow_types import (
     ANALYTICS_WORKFLOW_TWR,
     ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY,
 )
-from app.services.async_observability_context import async_observability_request_payload
 from app.services.async_result_service import resolve_async_result
 from app.services.attribution_calculation_workflow_service import (
     accepted_attribution_response as _accepted_attribution_response,
@@ -30,82 +27,21 @@ from app.services.attribution_calculation_workflow_service import (
 from app.services.attribution_calculation_workflow_service import (
     calculate_attribution_workflow,
 )
-from app.services.execution_lifecycle_service import (
-    record_execution_failure,
-)
-from app.services.execution_registry import execution_registry
 from app.services.mwr_calculation_service import calculate_mwr_response
-from app.services.reproducibility_service import generate_request_fingerprint
-from app.services.submission_fencing_service import (
-    register_async_submission_or_raise,
-    register_sync_execution_or_raise,
-)
 from app.services.twr_calculation_service import (
     accepted_twr_response as _accepted_twr_response,
 )
 from app.services.twr_calculation_service import (
     calculate_twr_workflow,
 )
-from app.services.workspace_summary_service import (
-    calculate_workspace_summary,
-    workspace_longest_requested_window_days,
+from app.services.workspace_summary_calculation_workflow_service import (
+    accepted_workspace_summary_response as _accepted_workspace_summary_response,
+)
+from app.services.workspace_summary_calculation_workflow_service import (
+    calculate_workspace_summary_workflow,
 )
 
 router = APIRouter(tags=["Performance"])
-
-
-def _accepted_workspace_summary_response(calculation_id) -> WorkspaceSummaryAcceptedResponse:
-    return WorkspaceSummaryAcceptedResponse(
-        calculation_id=calculation_id,
-        poll_path=f"/performance/executions/{calculation_id}",
-        result_path=f"/performance/workspace-summary/results/{calculation_id}",
-    )
-
-
-def _workspace_requested_benchmark_work_units(request: WorkspaceSummaryRequest) -> int:
-    benchmark = request.benchmark
-    if benchmark is None or benchmark.input_mode != BenchmarkInputMode.STATELESS or benchmark.stateless_input is None:
-        return 0
-    return benchmark_stateless_work_units(
-        stateless_input=benchmark.stateless_input,
-        return_source=benchmark.return_source,
-    )
-
-
-def _workspace_requested_input_count(request: WorkspaceSummaryRequest) -> int:
-    valuation_points = (
-        len(request.resolved_stateless_valuation_points()) if request.input_mode == TWRInputMode.STATELESS else 0
-    )
-    return valuation_points + _workspace_requested_benchmark_work_units(request)
-
-
-def _workspace_longest_requested_window_days(request: WorkspaceSummaryRequest) -> int:
-    return workspace_longest_requested_window_days(request)
-
-
-def _should_offload_workspace_summary(request: WorkspaceSummaryRequest) -> bool:
-    settings = get_settings()
-    return (
-        request.input_mode == TWRInputMode.STATEFUL
-        and _workspace_longest_requested_window_days(request) >= settings.WORKSPACE_SUMMARY_EXECUTOR_WINDOW_DAYS
-    ) or (_workspace_requested_input_count(request) >= settings.WORKSPACE_SUMMARY_EXECUTOR_INPUT_COUNT)
-
-
-def _workspace_requested_window(request: WorkspaceSummaryRequest) -> dict[str, object]:
-    return {
-        "report_end_date": str(request.report_end_date),
-        "requested_periods": [item.period.value for item in request.periods],
-        "input_mode": request.input_mode.value,
-        "include_benchmark": request.include_benchmark,
-        "input_count": _workspace_requested_input_count(request),
-        "longest_window_days": _workspace_longest_requested_window_days(request),
-    }
-
-
-def _workspace_offload_reason(request: WorkspaceSummaryRequest) -> str:
-    if request.input_mode == TWRInputMode.STATEFUL:
-        return "long_window_stateful_workspace_summary"
-    return "large_workspace_summary_input_set"
 
 
 @router.post(
@@ -132,46 +68,7 @@ def calculate_workspace_summary_endpoint(
     request: WorkspaceSummaryRequest,
 ) -> WorkspaceSummaryResponse | JSONResponse:
     """Calculates multi-horizon workspace summary analytics in one source-owned response."""
-    settings = get_settings()
-    input_fingerprint, calculation_hash = generate_request_fingerprint(request, settings.APP_VERSION)
-    requested_window = _workspace_requested_window(request)
-    if _should_offload_workspace_summary(request):
-        return to_fastapi_response(
-            register_async_submission_or_raise(
-                calculation_id=request.calculation_id,
-                analytics_type=ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY,
-                portfolio_id=request.portfolio_id,
-                requested_window=requested_window,
-                input_fingerprint=input_fingerprint,
-                calculation_hash=calculation_hash,
-                request_payload=async_observability_request_payload(request.model_dump(mode="json")),
-                offload_reason=_workspace_offload_reason(request),
-                accepted_response_factory=_accepted_workspace_summary_response,
-            )
-        )
-    register_sync_execution_or_raise(
-        calculation_id=request.calculation_id,
-        analytics_type=ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY,
-        portfolio_id=request.portfolio_id,
-        requested_window=requested_window,
-        input_fingerprint=input_fingerprint,
-        calculation_hash=calculation_hash,
-    )
-    execution_registry.mark_running(request.calculation_id)
-    try:
-        return calculate_workspace_summary(request, settings=settings)
-    except HTTPException as exc:
-        record_execution_failure(calculation_id=request.calculation_id, message=str(exc.detail))
-        raise
-    except Exception as exc:
-        record_execution_failure(
-            calculation_id=request.calculation_id,
-            message=f"An unexpected server error occurred while calculating workspace summary: {exc}",
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"An unexpected server error occurred while calculating workspace summary: {exc}",
-        ) from exc
+    return to_fastapi_response(calculate_workspace_summary_workflow(request))
 
 
 @router.get(

@@ -13,6 +13,7 @@ from app.models.twr_requests import TWRAnalyticsRequest
 from app.models.workspace_summary_requests import WorkspaceSummaryRequest
 from app.observability import correlation_id_var, request_id_var, trace_id_var
 from app.services import attribution_calculation_workflow_service
+from app.services import workspace_summary_calculation_workflow_service as workspace_summary_workflow_service
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY
 from app.services.attribution_mode_service import ResolvedAttributionRequest
 from app.services.twr_calculation_service import twr_requested_benchmark_work_units
@@ -43,6 +44,28 @@ async def test_twr_endpoint_delegates_to_twr_workflow(mocker):
     response = await performance_endpoint.calculate_twr_endpoint(request)
 
     calculate_twr.assert_called_once_with(request)
+    assert response is expected_response
+
+
+def test_workspace_summary_endpoint_delegates_to_workspace_summary_workflow(mocker):
+    request = WorkspaceSummaryRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "report_end_date": "2025-01-02",
+            "periods": [{"period": "SI", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "stateful_input": {},
+        }
+    )
+    expected_response = object()
+    calculate_workspace_summary = mocker.patch(
+        "app.api.endpoints.performance.calculate_workspace_summary_workflow",
+        return_value=expected_response,
+    )
+
+    response = performance_endpoint.calculate_workspace_summary_endpoint(request)
+
+    calculate_workspace_summary.assert_called_once_with(request)
     assert response is expected_response
 
 
@@ -92,8 +115,8 @@ def test_twr_workspace_helper_paths_cover_optional_benchmark_shapes():
     workspace_request.benchmark.stateless_input.component_price_points = []
 
     assert twr_requested_benchmark_work_units(twr_request) == 0
-    assert performance_endpoint._workspace_requested_benchmark_work_units(workspace_request) == 0
-    assert performance_endpoint._workspace_longest_requested_window_days(workspace_request) == 10_000
+    assert workspace_summary_workflow_service.workspace_requested_benchmark_work_units(workspace_request) == 0
+    assert workspace_summary_workflow_service.workspace_longest_requested_window_days(workspace_request) == 10_000
 
 
 def test_workspace_benchmark_work_units_count_calculated_observations():
@@ -132,7 +155,7 @@ def test_workspace_benchmark_work_units_count_calculated_observations():
         }
     )
 
-    assert performance_endpoint._workspace_requested_benchmark_work_units(request) == 2
+    assert workspace_summary_workflow_service.workspace_requested_benchmark_work_units(request) == 2
 
 
 def test_workspace_submission_helpers_project_window_and_offload_reason():
@@ -146,7 +169,7 @@ def test_workspace_submission_helpers_project_window_and_offload_reason():
         }
     )
 
-    assert performance_endpoint._workspace_requested_window(request) == {
+    assert workspace_summary_workflow_service.workspace_requested_window(request) == {
         "report_end_date": "2025-01-02",
         "requested_periods": ["SI"],
         "input_mode": "stateful",
@@ -154,7 +177,9 @@ def test_workspace_submission_helpers_project_window_and_offload_reason():
         "input_count": 0,
         "longest_window_days": 10_000,
     }
-    assert performance_endpoint._workspace_offload_reason(request) == "long_window_stateful_workspace_summary"
+    assert (
+        workspace_summary_workflow_service.workspace_offload_reason(request) == "long_window_stateful_workspace_summary"
+    )
 
 
 def test_workspace_summary_async_submission_captures_observability_context(mocker):
@@ -168,9 +193,9 @@ def test_workspace_summary_async_submission_captures_observability_context(mocke
             "stateful_input": {},
         }
     )
-    accepted_response = performance_endpoint._accepted_workspace_summary_response(request.calculation_id)
+    accepted_response = workspace_summary_workflow_service.accepted_workspace_summary_response(request.calculation_id)
     mocker.patch(
-        "app.api.endpoints.performance.get_settings",
+        "app.services.workspace_summary_calculation_workflow_service.get_settings",
         return_value=type(
             "Settings",
             (),
@@ -182,7 +207,7 @@ def test_workspace_summary_async_submission_captures_observability_context(mocke
         )(),
     )
     register_async = mocker.patch(
-        "app.api.endpoints.performance.register_async_submission_or_raise",
+        "app.services.workspace_summary_calculation_workflow_service.register_async_submission_or_raise",
         return_value=accepted_response,
     )
     correlation_token = correlation_id_var.set("corr-workspace")
@@ -190,7 +215,7 @@ def test_workspace_summary_async_submission_captures_observability_context(mocke
     trace_token = trace_id_var.set("trace-workspace")
 
     try:
-        response = performance_endpoint.calculate_workspace_summary_endpoint(request)
+        response = workspace_summary_workflow_service.calculate_workspace_summary_workflow(request)
     finally:
         correlation_id_var.reset(correlation_token)
         request_id_var.reset(request_token)
@@ -206,7 +231,7 @@ def test_workspace_summary_async_submission_captures_observability_context(mocke
 
 
 @pytest.mark.asyncio
-async def test_workspace_summary_endpoint_records_http_exception_detail(mocker):
+async def test_workspace_summary_workflow_records_http_exception_detail(mocker):
     request = WorkspaceSummaryRequest.model_validate(
         {
             "calculation_id": str(uuid4()),
@@ -222,7 +247,7 @@ async def test_workspace_summary_endpoint_records_http_exception_detail(mocker):
     )
     failure_capture: dict[str, object] = {}
     mocker.patch(
-        "app.api.endpoints.performance.get_settings",
+        "app.services.workspace_summary_calculation_workflow_service.get_settings",
         return_value=type(
             "Settings",
             (),
@@ -233,19 +258,21 @@ async def test_workspace_summary_endpoint_records_http_exception_detail(mocker):
             },
         )(),
     )
-    register_sync = mocker.patch("app.api.endpoints.performance.register_sync_execution_or_raise")
-    mocker.patch("app.api.endpoints.performance.execution_registry.mark_running")
+    register_sync = mocker.patch(
+        "app.services.workspace_summary_calculation_workflow_service.register_sync_execution_or_raise"
+    )
+    mocker.patch("app.services.workspace_summary_calculation_workflow_service.execution_registry.mark_running")
     mocker.patch(
-        "app.api.endpoints.performance.calculate_workspace_summary",
+        "app.services.workspace_summary_calculation_workflow_service.calculate_workspace_summary",
         side_effect=HTTPException(status_code=422, detail="bad workspace"),
     )
     mocker.patch(
-        "app.api.endpoints.performance.record_execution_failure",
+        "app.services.workspace_summary_calculation_workflow_service.record_execution_failure",
         side_effect=lambda **kwargs: failure_capture.update(kwargs),
     )
 
     with pytest.raises(HTTPException) as exc_info:
-        performance_endpoint.calculate_workspace_summary_endpoint(request)
+        workspace_summary_workflow_service.calculate_workspace_summary_workflow(request)
 
     assert exc_info.value.status_code == 422
     assert register_sync.call_args.kwargs["analytics_type"] == ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY
