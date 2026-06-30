@@ -1081,6 +1081,8 @@ def test_complete_service_reference_covers_endpoint_surface_and_config_inventory
     assert "STATEFUL_INPUT_MAX_PAGES_PER_CHUNK" in guide
     assert "stateful_upstream_page_limit_exceeded" in guide
     assert "stateful_upstream_repeated_page_token" in guide
+    assert "OpenAPI contract declares the `202 Accepted` accepted-envelope schema" in guide
+    assert "governed `404` unknown-calculation and `409` failed-calculation error responses" in guide
     assert "Async result payload failed response contract validation." in guide
     assert "async_result_response_schema_invalid" in guide
     assert "async_result_store" in guide
