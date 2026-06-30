@@ -68,6 +68,17 @@ class _BenchmarkDefinitionRequest:
 
 
 @dataclass(frozen=True)
+class _BenchmarkMarketSeriesRequest:
+    benchmark_id: str
+    as_of_date: date
+    start_date: date
+    end_date: date
+    frequency: str
+    target_currency: str | None
+    series_fields: list[str]
+
+
+@dataclass(frozen=True)
 class _IndexPriceSeriesRequest:
     index_id: str
     as_of_date: date
@@ -515,31 +526,36 @@ class StatefulInputService:
         series_fields: list[str] | None = None,
         calculation_id: UUID | None = None,
     ) -> tuple[int, dict[str, Any]]:
-        existing_snapshot_ids = self._existing_snapshot_ids(calculation_id)
-        chunks = self.plan_chunks(
+        request = _BenchmarkMarketSeriesRequest(
+            benchmark_id=benchmark_id,
+            as_of_date=as_of_date,
             start_date=start_date,
             end_date=end_date,
+            frequency=frequency,
+            target_currency=target_currency,
+            series_fields=series_fields or ["index_return", "component_weight"],
+        )
+        return await self._get_benchmark_market_series(request=request, calculation_id=calculation_id)
+
+    async def _get_benchmark_market_series(
+        self,
+        *,
+        request: _BenchmarkMarketSeriesRequest,
+        calculation_id: UUID | None,
+    ) -> tuple[int, dict[str, Any]]:
+        existing_snapshot_ids = self._existing_snapshot_ids(calculation_id)
+        chunks = self.plan_chunks(
+            start_date=request.start_date,
+            end_date=request.end_date,
             chunk_days=self._reference_chunk_days,
         )
         responses = await self._gather_chunked(
             chunks=chunks,
-            fetcher=lambda chunk: self._core_service.get_benchmark_market_series(
-                benchmark_id=benchmark_id,
-                as_of_date=as_of_date,
-                start_date=chunk.start_date,
-                end_date=chunk.end_date,
-                frequency=frequency,
-                target_currency=target_currency,
-                series_fields=series_fields or ["index_return", "component_weight"],
-            ),
+            fetcher=lambda chunk: self._fetch_benchmark_market_series_chunk(request=request, chunk=chunk),
         )
         self._record_benchmark_market_series_snapshots(
             calculation_id=calculation_id,
-            benchmark_id=benchmark_id,
-            as_of_date=as_of_date,
-            frequency=frequency,
-            target_currency=target_currency,
-            series_fields=series_fields,
+            request=request,
             chunks=chunks,
             responses=responses,
             existing_snapshot_ids=existing_snapshot_ids,
@@ -548,6 +564,30 @@ class StatefulInputService:
         if failure is not None:
             return failure
 
+        return self._benchmark_market_series_response_payload(chunks=chunks, responses=responses)
+
+    async def _fetch_benchmark_market_series_chunk(
+        self,
+        *,
+        request: _BenchmarkMarketSeriesRequest,
+        chunk: DateChunk,
+    ) -> tuple[int, dict[str, Any]]:
+        return await self._core_service.get_benchmark_market_series(
+            benchmark_id=request.benchmark_id,
+            as_of_date=request.as_of_date,
+            start_date=chunk.start_date,
+            end_date=chunk.end_date,
+            frequency=request.frequency,
+            target_currency=request.target_currency,
+            series_fields=request.series_fields,
+        )
+
+    def _benchmark_market_series_response_payload(
+        self,
+        *,
+        chunks: list[DateChunk],
+        responses: list[tuple[int, dict[str, Any]]],
+    ) -> tuple[int, dict[str, Any]]:
         component_series = self._merge_component_series(
             payloads=[payload for _, payload in responses if isinstance(payload, dict)]
         )
@@ -563,11 +603,7 @@ class StatefulInputService:
         self,
         *,
         calculation_id: UUID | None,
-        benchmark_id: str,
-        as_of_date: date,
-        frequency: str,
-        target_currency: str | None,
-        series_fields: list[str] | None,
+        request: _BenchmarkMarketSeriesRequest,
         chunks: list[DateChunk],
         responses: list[tuple[int, dict[str, Any]]],
         existing_snapshot_ids: set[str],
@@ -575,20 +611,12 @@ class StatefulInputService:
         if calculation_id is None:
             return
         snapshot_batch: list[dict[str, Any]] = []
-        resolved_series_fields = series_fields or ["index_return", "component_weight"]
         for chunk, response in zip(chunks, responses):
-            request_payload = {
-                "benchmark_id": benchmark_id,
-                "start_date": str(chunk.start_date),
-                "end_date": str(chunk.end_date),
-                "frequency": frequency,
-                "target_currency": target_currency,
-                "series_fields": resolved_series_fields,
-            }
+            request_payload = _benchmark_market_series_request_payload(request=request, chunk=chunk)
             snapshot_id, request_fingerprint = self._build_snapshot_identity(
                 calculation_id=calculation_id,
                 upstream_endpoint="benchmark_market_series",
-                source_identifier=benchmark_id,
+                source_identifier=request.benchmark_id,
                 request_payload=request_payload,
             )
             if snapshot_id in existing_snapshot_ids:
@@ -597,8 +625,8 @@ class StatefulInputService:
                 self._build_snapshot(
                     calculation_id=calculation_id,
                     upstream_endpoint="benchmark_market_series",
-                    source_identifier=benchmark_id,
-                    as_of_date=as_of_date,
+                    source_identifier=request.benchmark_id,
+                    as_of_date=request.as_of_date,
                     request_payload=request_payload,
                     response=response,
                     snapshot_id=snapshot_id,
@@ -1655,6 +1683,21 @@ def _index_price_series_request_payload(
         "end_date": str(chunk.end_date),
         "frequency": frequency,
         "target_currency": target_currency,
+    }
+
+
+def _benchmark_market_series_request_payload(
+    *,
+    request: _BenchmarkMarketSeriesRequest,
+    chunk: DateChunk,
+) -> dict[str, Any]:
+    return {
+        "benchmark_id": request.benchmark_id,
+        "start_date": str(chunk.start_date),
+        "end_date": str(chunk.end_date),
+        "frequency": request.frequency,
+        "target_currency": request.target_currency,
+        "series_fields": request.series_fields,
     }
 
 

@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Health Report
 
 Report date: 2026-06-30
-Branch: `feature/stateful-attribution-source-results-boundary`
+Branch: `feature/stateful-benchmark-market-series-boundary`
 Baseline source: `quality/baseline_report.md`
 Report mode: phase-zero scorecard; complexity, architecture, duplicate-code, repository hygiene,
 router-thinness, observability-readiness, domain-product validation, deterministic API evaluation,
@@ -29,9 +29,9 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | Python files | 480 | 583 | measured | `rg --files -g '*.py'` |
 | Python package markers | 18 | 18 | measured | recursive `__init__.py` count |
-| Python LOC | 104,454 | 174,386 | measured | `rg --files -g '*.py'` plus Python line count on this branch |
+| Python LOC | 104,454 | 174,478 | measured | `rg --files -g '*.py'` plus Python line count on this branch |
 | Largest Python file LOC | 2,399 | 2,503 | measured | largest-file inventory on this branch |
-| Largest production file LOC | 1,156 | 1,948 | measured | `app/services/stateful_input_service.py` |
+| Largest production file LOC | 1,156 | 1,991 | measured | `app/services/stateful_input_service.py` |
 | Duplicate code hotspots | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `make quality-duplicate-code-gate` with `--min-lines 12 --max-groups 0`; duplicated LOC reduced from `24` to `0` in LP-CR-1407 |
 | Tracked local byproduct findings | unknown | 0 | enforced | `scripts/repository_hygiene_gate.py`; `make repository-hygiene-gate`; blocking through `make lint` |
 | Dead-code candidates at 60% confidence | unknown | 438 | measured | `quality/dead_code_inventory.md` via `scripts/python_dead_code_inventory.py` |
@@ -44,7 +44,7 @@ link the commit, command, or CI artifact that proves the change.
 | Max cyclomatic complexity | unknown | 5 | enforced | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py`; `make quality-complexity-gate` |
 | High-complexity functions | unknown | 0 | enforced | rank D-F functions in `quality/complexity_inventory.md`; `make quality-complexity-gate` |
 | Average maintainability index | unknown | 55.18 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
-| Largest functions by LOC | unknown | 55 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; `_retrieve_stateful_attribution_sources(...)` dropped out of the top-45 table after source retrieval moved behind a typed request boundary and public DTO projection helper |
+| Largest functions by LOC | unknown | 55 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; `StatefulInputService.get_benchmark_market_series(...)` dropped out of the top-45 table after benchmark market-series retrieval moved behind a typed request boundary, chunk-fetch helper, response projection helper, and snapshot payload builder |
 
 ## Architecture
 
@@ -73,12 +73,12 @@ link the commit, command, or CI artifact that proves the change.
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
 | Test modules | 228 | 281 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 3,426 | measured | `python -m pytest --collect-only -q` |
+| Collected tests | 2,035 | 3,427 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
 | Integration/API/runtime test functions | unknown | 608 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
 | Contract/governance test functions | unknown | 111 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
-| Uncategorized test functions | unknown | 1138 | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
+| Uncategorized test functions | unknown | 1098 | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; `stateful_input` tests are now classified as analytics-domain coverage |
 
 ## Security And Dependencies
 
@@ -127,6 +127,55 @@ quality-program gap is not lack of aspiration; it is that several requested dime
 repeatably measured or expressed as progressive gates.
 
 ## Latest Local PR-Gate Evidence
+
+Latest stateful benchmark market-series boundary evidence on
+`feature/stateful-benchmark-market-series-boundary`:
+
+1. Introduced `_BenchmarkMarketSeriesRequest` so benchmark id, date window, frequency, target
+   currency, and resolved market-series fields move through one private source request instead of
+   repeated helper arguments.
+2. Added `_fetch_benchmark_market_series_chunk(...)`,
+   `_benchmark_market_series_response_payload(...)`, and
+   `_benchmark_market_series_request_payload(...)` so lotus-core chunk calls, public response
+   projection, and source-lineage snapshot payload shape have named boundaries.
+3. Preserved behavior: lotus-core benchmark market-series source authority, date chunking,
+   default `series_fields`, target-currency forwarding, first-failure propagation, source snapshot
+   identity, request fingerprints, retrieval metadata, API/OpenAPI truth, error-model truth,
+   observability surface, and runtime topology remain unchanged.
+4. Strengthened proof taxonomy: `test_stateful_input_service.py` is now classified as
+   analytics-domain coverage because it validates stateful portfolio, benchmark, FX, index, and
+   source-lineage input behavior. The test-taxonomy gate reports `1,305` analytics-domain test
+   functions and uncategorized tests reduced to `1,098`.
+5. Measured proof: `StatefulInputService.get_benchmark_market_series(...)` dropped out of the
+   top-45 function-size table; largest production functions still measure `55` lines; max
+   cyclomatic complexity remains `5`; high-complexity functions remain `0`; average
+   maintainability index measures `55.18`; architecture-boundary findings remain `0`; duplicate
+   hotspot groups remain `0`; pytest collection reports `3,427` collected tests.
+6. Validation passed: `python -m pytest tests\unit\services\test_stateful_input_service.py -q`
+   (`37 passed`); `python -m pytest tests\unit\services\test_stateful_input_service.py tests\unit\scripts\test_python_test_taxonomy_inventory.py -q`
+   (`41 passed`); targeted Ruff check and format check; targeted mypy; function-size inventory;
+   complexity inventory; architecture-boundary inventory; duplicate-code inventory; test-taxonomy
+   inventory; `make quality-baseline`; `make lint`; `make quality-evaluation-gate`; and
+   `make check` (`3,081 passed` after static quality, OpenAPI, API vocabulary, domain-product
+   validation, deterministic API evaluation, demo API certification, Python security, mypy,
+   taxonomy, and unit-test gates).
+7. Conscious domain/API/error-model/operations/docs/skill review: this is an internal stateful
+   benchmark source-boundary slice. It deliberately adds no runtime microservice or worker boundary
+   because workload, failure-isolation, ownership, deployment, security, and operability evidence
+   do not justify one here. README, repo-local wiki source, repository context, central platform
+   context, supported-features material, API inventories, OpenAPI snapshots, runbooks, platform
+   skills, and agent context do not need source updates because no public contract, command,
+   runtime topology, operator workflow, cross-repo ownership, reusable guidance, or documentation
+   truth changed.
+8. GitHub issue review: `gh issue list --repo sgajbi/lotus-performance --state open --limit 100`
+   now reports nine open issues: `#338` source cash-flow exclusions in stateful MWR
+   supportability evidence; `#337` workspace-summary router orchestration; `#336` safe
+   machine-readable API error envelopes; `#335` async result retention indexing; `#334` explicit
+   position grain in stateful position time series; `#333` secure HTTP boundary middleware; `#332`
+   managed upstream HTTP clients for chunked stateful analytics calls; `#331` FastAPI
+   `HTTPException` decoupling; and `#250` lotus-core component economics for contribution
+   analytics. After this branch, prioritize issue-backed work, with `#336`/`#331` the closest
+   match to the API/error-model polish objective unless a higher production-risk issue is selected.
 
 Latest stateful attribution source-results boundary evidence on
 `feature/stateful-attribution-source-results-boundary`:

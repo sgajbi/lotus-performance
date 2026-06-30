@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
 Report date: 2026-06-30
-Branch: `feature/runtime-recovery-queue-result-boundary`
+Branch: `feature/stateful-benchmark-market-series-boundary`
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -16,7 +16,7 @@ and quality family without executing tests or requiring coverage data.
 ```powershell
 python scripts/python_test_taxonomy_inventory.py --limit 30
 python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 607 --min-contract-governance-tests 111 --max-uncategorized-tests 1148
-python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 608 --min-contract-governance-tests 111 --max-uncategorized-tests 1138
+python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 608 --min-contract-governance-tests 111 --max-uncategorized-tests 1098
 ```
 
 ## Summary
@@ -24,7 +24,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 281 |
-| Test functions inventoried | 3225 |
+| Test functions inventoried | 3226 |
 | Integration/API/runtime test functions | 608 |
 | Contract/governance test functions | 111 |
 
@@ -35,18 +35,18 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 17 |
 | e2e | 1 | 21 |
 | integration | 24 | 300 |
-| unit | 247 | 2887 |
+| unit | 247 | 2888 |
 
 ## Test Functions By Family
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 1264 |
+| analytics_domain | 1305 |
 | api_or_runtime | 608 |
 | contract_or_governance | 111 |
 | observability_or_readiness | 261 |
 | quality_or_security | 121 |
-| uncategorized | 1138 |
+| uncategorized | 1098 |
 
 ## Largest Test Modules
 
@@ -71,7 +71,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | 17 | `tests/unit/services/test_operator_action_lease_service.py` | unit | 39 | uncategorized |
 | 18 | `tests/integration/test_performance_api.py` | integration | 38 | api_or_runtime |
 | 19 | `tests/unit/services/test_compute_executor_worker.py` | unit | 38 | uncategorized |
-| 20 | `tests/unit/services/test_stateful_input_service.py` | unit | 36 | uncategorized |
+| 20 | `tests/unit/services/test_stateful_input_service.py` | unit | 37 | analytics_domain |
 | 21 | `tests/unit/services/test_benchmark_exposure_context_service.py` | unit | 34 | uncategorized |
 | 22 | `tests/unit/models/test_twr_requests.py` | unit | 32 | analytics_domain |
 | 23 | `tests/unit/services/test_twr_inspection_reconciliation.py` | unit | 32 | analytics_domain |
@@ -89,18 +89,20 @@ The AST inventory counts test function definitions, while `pytest --collect-only
 pytest items including parametrized cases. The two values are intentionally different and
 complementary: collected tests show execution breadth, while this report shows source test-module
 and test-function distribution. The current suite has meaningful API/runtime and
-contract/governance coverage, but 1138 test functions remain uncategorized by the first-wave
+contract/governance coverage, but 1098 test functions remain uncategorized by the first-wave
 taxonomy and should be reduced through normal refactor slices rather than allowed to grow.
 
-The runtime recovery queue-result boundary slice keeps the promoted gate stable by classifying
+The runtime recovery queue-result boundary slice kept the promoted gate stable by classifying
 `tests/unit/services/test_runtime_recovery_service.py` as observability/readiness coverage. The
-added test protects operator queue-result filter forwarding for compute and lineage recovery
-evidence while reducing uncategorized backlog instead of raising the ceiling.
+stateful benchmark market-series boundary slice now classifies
+`tests/unit/services/test_stateful_input_service.py` as analytics-domain coverage because that suite
+protects stateful performance input sourcing, benchmark market-series retrieval, FX/index inputs,
+and source-lineage snapshots.
 Current measured breadth is `608` API/runtime test functions, `111` contract/governance test
-functions, `261` observability/readiness test functions, `1264` analytics-domain test functions,
-and `1138` uncategorized test functions. The enforced command remains at the accepted regression
-floor of `607` API/runtime tests and ceiling `1148`; this slice also passed the tighter local
-preservation command with `608` API/runtime tests and `1138`
+functions, `261` observability/readiness test functions, `1305` analytics-domain test functions,
+and `1098` uncategorized test functions. The enforced command remains at the accepted regression
+floor of `607` API/runtime tests and ceiling `1148`; this slice also passed a tighter local
+preservation command with `608` API/runtime tests and `1098`
 uncategorized tests. Intentional threshold changes should remain separate, rationale-backed
 gate-governance work.
 
