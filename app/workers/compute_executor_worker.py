@@ -584,12 +584,16 @@ def _handle_compute_job_failure(
     error_message = str(exc)
     error_type = type(exc).__name__
     if _is_retryable_exception(exc):
-        will_retry = job_store.mark_retryable_failure(
-            job.calculation_id,
-            error_message=error_message,
-            error_type=error_type,
-            worker_id=job.worker_id,
-        )
+        try:
+            will_retry = job_store.mark_retryable_failure(
+                job.calculation_id,
+                error_message=error_message,
+                error_type=error_type,
+                worker_id=job.worker_id,
+            )
+        except ComputeJobLeaseOwnershipError as ownership_exc:
+            _log_stale_compute_failure_finalization_skipped(job, exc, ownership_exc, retryable=True)
+            return
         if will_retry:
             logger.warning(
                 "Retrying compute job after retryable failure",
@@ -616,12 +620,16 @@ def _handle_compute_job_failure(
             execution_store=execution_store,
         )
         return
-    job_store.mark_failed(
-        job.calculation_id,
-        error_message=error_message,
-        error_type=error_type,
-        worker_id=job.worker_id,
-    )
+    try:
+        job_store.mark_failed(
+            job.calculation_id,
+            error_message=error_message,
+            error_type=error_type,
+            worker_id=job.worker_id,
+        )
+    except ComputeJobLeaseOwnershipError as ownership_exc:
+        _log_stale_compute_failure_finalization_skipped(job, exc, ownership_exc, retryable=False)
+        return
     _record_terminal_failure(
         calculation_id=job.calculation_id,
         analytics_type=job.analytics_type,
@@ -668,6 +676,30 @@ def _log_stale_compute_success_publication_skipped(job: ComputeJobRecord, exc: E
             job,
             exc,
             failure_classification="stale_owner_success_publication_skipped",
+        ),
+    )
+
+
+def _log_stale_compute_failure_finalization_skipped(
+    job: ComputeJobRecord,
+    original_exc: Exception,
+    ownership_exc: ComputeJobLeaseOwnershipError,
+    *,
+    retryable: bool,
+) -> None:
+    logger.warning(
+        "Skipped compute job failure finalization because worker no longer owns the active lease.",
+        extra=worker_log_extra(
+            worker_name=_WORKER_NAME,
+            queue=_QUEUE_NAME,
+            calculation_id=str(job.calculation_id),
+            analytics_type=job.analytics_type,
+            error_type=type(original_exc).__name__,
+            ownership_error_type=type(ownership_exc).__name__,
+            failure_classification="stale_owner_failure_finalization_skipped",
+            retryable=retryable,
+            attempt_count=getattr(job, "attempt_count", None),
+            max_attempts=getattr(job, "max_attempts", None),
         ),
     )
 
