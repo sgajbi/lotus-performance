@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import inspect
+from sqlalchemy import event, inspect
 
 from app.services.execution_registry import (
     AnalyticsExecutionModel,
@@ -520,6 +520,18 @@ def test_execution_registry_declares_upstream_snapshot_ordering_index(tmp_path):
     assert "ix_analytics_upstream_snapshot_calculation_id" not in indexes
 
 
+def test_execution_registry_declares_retention_index(tmp_path):
+    registry = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    registry.create_schema()
+
+    indexes = {
+        index["name"]: tuple(index["column_names"])
+        for index in inspect(registry._engine).get_indexes("analytics_execution")
+    }
+
+    assert indexes["ix_execution_terminal_retention"] == ("status", "completed_at_utc", "created_at_utc")
+
+
 def test_execution_registry_formats_sqlite_timestamps_as_utc(tmp_path):
     registry = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
     registry.create_schema()
@@ -574,6 +586,45 @@ def test_execution_registry_lists_and_deletes_terminal_executions_older_than_cut
     assert registry.delete_executions([str(old_id)]) == 1
     assert registry.get_execution(old_id) is None
     assert registry.get_execution(recent_id) is not None
+
+
+def test_execution_registry_delete_executions_uses_set_based_child_and_parent_deletes(tmp_path):
+    registry = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    registry.create_schema()
+    calculation_id = uuid4()
+    registry.create_execution(
+        calculation_id=calculation_id,
+        analytics_type="TWR",
+        portfolio_id="PORT-RETENTION",
+    )
+    registry.start_stage(calculation_id, "execution")
+    registry.record_upstream_snapshots(
+        calculation_id=calculation_id,
+        snapshots=[
+            {
+                "snapshot_id": "snapshot-1",
+                "upstream_endpoint": "portfolio_timeseries",
+                "source_identifier": "PORT-RETENTION",
+                "as_of_date": "2026-03-14",
+                "request_fingerprint": "request",
+                "response_fingerprint": "response",
+                "retrieval_status": "complete",
+            }
+        ],
+    )
+
+    statements: list[str] = []
+
+    @event.listens_for(registry._engine, "before_cursor_execute")
+    def _capture_statement(_conn, _cursor, statement, _parameters, _context, _executemany):
+        statements.append(statement.lower())
+
+    assert registry.delete_executions([str(calculation_id)]) == 1
+
+    assert any(statement.lstrip().startswith("delete from analytics_upstream_snapshot") for statement in statements)
+    assert any(statement.lstrip().startswith("delete from analytics_execution_stage") for statement in statements)
+    assert any(statement.lstrip().startswith("delete from analytics_execution") for statement in statements)
+    assert not any("requested_window_json" in statement for statement in statements)
 
 
 def test_execution_registry_delete_executions_returns_zero_for_empty_input(tmp_path):

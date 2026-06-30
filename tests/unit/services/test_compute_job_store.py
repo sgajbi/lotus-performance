@@ -1363,6 +1363,42 @@ def test_compute_job_store_prunes_terminal_jobs_older_than_cutoff(tmp_path):
     assert store.get_job(recent_id) is not None
 
 
+def test_compute_job_store_prune_uses_count_and_set_based_delete(tmp_path):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
+    store.create_schema()
+    old_id = uuid4()
+    recent_id = uuid4()
+
+    for calculation_id in (old_id, recent_id):
+        store.enqueue_job(
+            calculation_id=calculation_id,
+            analytics_type="ReturnsSeries",
+            request_payload={"calculation_id": str(calculation_id)},
+        )
+        store.mark_complete(calculation_id, response_payload={"ok": True})
+
+    with store._session() as session:
+        old_row = store._get_model(session, old_id)
+        recent_row = store._get_model(session, recent_id)
+        old_row.completed_at_utc = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        recent_row.completed_at_utc = datetime(2026, 3, 10, tzinfo=timezone.utc)
+
+    statements: list[str] = []
+
+    @event.listens_for(store._engine, "before_cursor_execute")
+    def _capture_statement(_conn, _cursor, statement, _parameters, _context, _executemany):
+        statements.append(statement.lower())
+
+    cutoff = datetime(2026, 2, 1, tzinfo=timezone.utc)
+
+    assert store.prune_terminal_jobs_older_than(cutoff, dry_run=True) == 1
+    assert store.prune_terminal_jobs_older_than(cutoff, dry_run=False) == 1
+
+    assert any("count" in statement and "analytics_compute_job" in statement for statement in statements)
+    assert any(statement.lstrip().startswith("delete from analytics_compute_job") for statement in statements)
+    assert not any("request_json" in statement or "response_json" in statement for statement in statements)
+
+
 def test_compute_job_store_declares_hot_path_indexes(tmp_path):
     store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
     store.create_schema()
@@ -1379,6 +1415,11 @@ def test_compute_job_store_declares_hot_path_indexes(tmp_path):
         "created_at_utc",
     )
     assert indexes["ix_compute_job_status_lease_expiry"] == ("job_status", "lease_expires_at_utc")
+    assert indexes["ix_compute_job_terminal_retention"] == (
+        "job_status",
+        "completed_at_utc",
+        "created_at_utc",
+    )
 
 
 def test_compute_job_store_register_job_distinguishes_create_replay_and_conflict(tmp_path):

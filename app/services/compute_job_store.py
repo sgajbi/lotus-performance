@@ -6,10 +6,10 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from enum import StrEnum
-from typing import Any, Iterable, Iterator
+from typing import Any, Iterable, Iterator, cast
 from uuid import UUID
 
-from sqlalchemy import DateTime, Index, Integer, String, Text, case, create_engine, func, select
+from sqlalchemy import DateTime, Index, Integer, String, Text, case, create_engine, delete, func, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
@@ -90,6 +90,7 @@ class ComputeJobModel(Base):
         Index("ix_compute_job_status_created_at", "job_status", "created_at_utc"),
         Index("ix_compute_job_status_analytics_type_created_at", "job_status", "analytics_type", "created_at_utc"),
         Index("ix_compute_job_status_lease_expiry", "job_status", "lease_expires_at_utc"),
+        Index("ix_compute_job_terminal_retention", "job_status", "completed_at_utc", "created_at_utc"),
     )
 
     calculation_id: Mapped[str] = mapped_column(String(36), primary_key=True)
@@ -270,6 +271,14 @@ def _compute_job_terminal_failure_count_column() -> Any:
 
 def _compute_job_oldest_timestamp_column(*, status: ComputeJobStatus, timestamp_field: Any, label: str) -> Any:
     return func.min(case((ComputeJobModel.job_status == status.value, timestamp_field))).label(label)
+
+
+def _compute_job_terminal_retention_filter(cutoff: datetime) -> Any:
+    return (
+        ComputeJobModel.job_status.in_(COMPUTE_TERMINAL_JOB_STATUSES)
+        & ComputeJobModel.completed_at_utc.is_not(None)
+        & (ComputeJobModel.completed_at_utc <= cutoff)
+    )
 
 
 def _compute_queue_stats_columns(*, now: datetime) -> tuple[Any, ...]:
@@ -541,6 +550,7 @@ class ComputeJobStore:
 
     def create_schema(self) -> None:
         Base.metadata.create_all(self._engine)
+        self._ensure_runtime_indexes()
 
     @contextmanager
     def _session(self) -> Iterator[Session]:
@@ -560,25 +570,28 @@ class ComputeJobStore:
 
     def prune_terminal_jobs_older_than(self, older_than: datetime, *, dry_run: bool = False) -> int:
         with self._session() as session:
-            cutoff = normalize_filter_datetime(
-                older_than,
-                dialect_name=session.bind.dialect.name if session.bind is not None else "",
+            cutoff = cast(
+                datetime,
+                normalize_filter_datetime(
+                    older_than,
+                    dialect_name=session.bind.dialect.name if session.bind is not None else "",
+                ),
             )
-            rows = (
-                session.execute(
-                    select(ComputeJobModel)
-                    .where(ComputeJobModel.job_status.in_(COMPUTE_TERMINAL_JOB_STATUSES))
-                    .where(ComputeJobModel.completed_at_utc.is_not(None))
-                    .where(ComputeJobModel.completed_at_utc <= cutoff)
-                )
-                .scalars()
-                .all()
-            )
+            retention_filter = _compute_job_terminal_retention_filter(cutoff)
             if dry_run:
-                return len(rows)
-            for row in rows:
-                session.delete(row)
-            return len(rows)
+                statement = select(func.count()).select_from(ComputeJobModel).where(retention_filter)
+                return int(session.execute(statement).scalar_one())
+            result = session.execute(delete(ComputeJobModel).where(retention_filter))
+            return int(result.rowcount or 0)
+
+    def _ensure_runtime_indexes(self) -> None:
+        with self._engine.begin() as connection:
+            connection.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_compute_job_terminal_retention "
+                    "ON analytics_compute_job (job_status, completed_at_utc, created_at_utc)"
+                )
+            )
 
     def enqueue_job(
         self,

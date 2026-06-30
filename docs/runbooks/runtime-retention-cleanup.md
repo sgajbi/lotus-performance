@@ -25,6 +25,25 @@ The cleanup covers records older than the selected retention cutoff in:
 - `lineage_records` and `lineage_payloads` for terminal lineage entries
 - matching lineage artifact directories under `LINEAGE_STORAGE_PATH`
 
+## Storage And Query Posture
+
+Runtime retention is designed for production-volume cleanup, not ad hoc row walking.
+
+- dry-run counts use database-native count queries where calculation ids are not needed;
+- apply cleanup uses set-based deletion for async results, compute jobs, execution children, and
+  lineage metadata rows;
+- execution and lineage cleanup still enumerate calculation ids because lineage artifact
+  directories must be counted or deleted deterministically;
+- runtime schema creation repairs retention indexes for existing durable stores with
+  `CREATE INDEX IF NOT EXISTS`.
+
+Expected retention indexes:
+
+- `analytics_async_result(updated_at_utc)`
+- `analytics_compute_job(job_status, completed_at_utc, created_at_utc)`
+- `analytics_execution(status, completed_at_utc, created_at_utc)`
+- `lineage_records(status, timestamp_utc, calculation_id)`
+
 ## Default Retention Policy
 
 - Default setting: `RUNTIME_RETENTION_DAYS`

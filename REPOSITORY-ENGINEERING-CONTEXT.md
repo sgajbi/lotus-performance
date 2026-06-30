@@ -231,6 +231,11 @@ Important validation expectations:
     lineage payload completion/deletion, and governed operator-action lock release must compare the
     active lease owner or acquisition token before mutating terminal state, deleting work, or
     exposing async/lineage success evidence after stale reclaim.
+21. Runtime-retention cleanup is a database-native durable-store workflow. Async-result and
+    compute-job preview/apply paths use count and set-based delete operations, execution and
+    lineage paths enumerate calculation ids only where child rows or artifact directories require
+    deterministic cleanup, and durable schema creation repairs the retention indexes for existing
+    runtime stores.
 
 ## Standards And RFCs That Govern This Repository
 

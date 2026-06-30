@@ -1,6 +1,8 @@
 from datetime import datetime, timezone
 from uuid import uuid4
 
+from sqlalchemy import event, inspect
+
 from app.services.async_result_store import (
     INVALID_ASYNC_RESULT_PAYLOAD_ERROR_TYPE,
     INVALID_ASYNC_RESULT_PAYLOAD_MESSAGE,
@@ -231,3 +233,52 @@ def test_async_result_store_prunes_results_older_than_cutoff(tmp_path):
     assert store.prune_results_older_than(cutoff, dry_run=False) == 1
     assert store.get_result(old_id) is None
     assert store.get_result(recent_id) is not None
+
+
+def test_async_result_store_declares_retention_index(tmp_path):
+    store = AsyncResultStore(f"sqlite:///{tmp_path / 'async_results.db'}")
+    store.create_schema()
+
+    indexes = {
+        index["name"]: tuple(index["column_names"])
+        for index in inspect(store._engine).get_indexes("analytics_async_result")
+    }
+
+    assert indexes["ix_async_result_updated_at"] == ("updated_at_utc",)
+
+
+def test_async_result_store_prune_uses_count_and_set_based_delete(tmp_path):
+    store = AsyncResultStore(f"sqlite:///{tmp_path / 'async_results.db'}")
+    store.create_schema()
+    old_id = uuid4()
+    recent_id = uuid4()
+
+    for calculation_id in (old_id, recent_id):
+        store.record_success(
+            calculation_id=calculation_id,
+            analytics_type="ReturnsSeries",
+            response_payload={"calculation_id": str(calculation_id)},
+        )
+
+    with store._session() as session:
+        old_row = session.get(AsyncResultModel, str(old_id))
+        recent_row = session.get(AsyncResultModel, str(recent_id))
+        assert old_row is not None
+        assert recent_row is not None
+        old_row.updated_at_utc = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        recent_row.updated_at_utc = datetime(2026, 3, 10, tzinfo=timezone.utc)
+
+    statements: list[str] = []
+
+    @event.listens_for(store._engine, "before_cursor_execute")
+    def _capture_statement(_conn, _cursor, statement, _parameters, _context, _executemany):
+        statements.append(statement.lower())
+
+    cutoff = datetime(2026, 2, 1, tzinfo=timezone.utc)
+
+    assert store.prune_results_older_than(cutoff, dry_run=True) == 1
+    assert store.prune_results_older_than(cutoff, dry_run=False) == 1
+
+    assert any("count" in statement and "analytics_async_result" in statement for statement in statements)
+    assert any(statement.lstrip().startswith("delete from analytics_async_result") for statement in statements)
+    assert not any("response_json" in statement for statement in statements)
