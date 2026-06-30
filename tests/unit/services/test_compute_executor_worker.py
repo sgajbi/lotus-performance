@@ -554,6 +554,47 @@ def test_compute_executor_worker_processes_resolved_stateful_returns_series_job(
     assert result.response_payload["provenance"]["input_mode"] == "stateful"
 
 
+def test_resolve_async_returns_series_job_request_preserves_risk_free_source_quality():
+    resolved_request = ReturnsSeriesRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "as_of_date": "2026-02-25",
+            "window": {"mode": "EXPLICIT", "from_date": "2026-02-23", "to_date": "2026-02-25"},
+            "frequency": "DAILY",
+            "metric_basis": "NET",
+            "input_mode": "stateless",
+            "series_selection": {"include_portfolio": True, "include_benchmark": False, "include_risk_free": True},
+            "stateless_input": {
+                "portfolio_returns": [
+                    {"date": "2026-02-23", "return_value": "0.01"},
+                    {"date": "2026-02-24", "return_value": "0.02"},
+                    {"date": "2026-02-25", "return_value": "0.03"},
+                ],
+                "risk_free_returns": [
+                    {"date": "2026-02-23", "return_value": "0.0001"},
+                    {"date": "2026-02-24", "return_value": "0.0001"},
+                    {"date": "2026-02-25", "return_value": "0.0001"},
+                ],
+            },
+        }
+    )
+
+    request, source_input_mode, _, _, quality = compute_executor_worker._resolve_async_returns_series_job_request(
+        {
+            "resolved_request": resolved_request.model_dump(mode="json"),
+            "source_input_mode": "stateful",
+            "risk_free_source_quality": {"raw_points": 5, "normalized_points": 3, "skipped_points": 2},
+        }
+    )
+
+    assert request == resolved_request
+    assert source_input_mode.value == "stateful"
+    assert quality is not None
+    assert quality.raw_points == 5
+    assert quality.normalized_points == 3
+    assert quality.skipped_points == 2
+
+
 def test_compute_executor_worker_processes_resolved_benchmark_job(tmp_path, monkeypatch):
     execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
     execution_store.create_schema()

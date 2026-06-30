@@ -72,6 +72,10 @@ Primary metric field:
 Diagnostics impact:
 - risk-free gaps contribute to `diagnostics.gaps[]`
 - fill/alignment policies can change returned points
+- when risk-free data is requested, `diagnostics.risk_free_source_quality` reports raw,
+  normalized, and skipped source-row counts
+- malformed stateful risk-free source rows are skipped resiliently but remain auditable through
+  `diagnostics.risk_free_source_quality.skipped_points`
 
 ## Worked Example
 Daily risk-free points:

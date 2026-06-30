@@ -822,6 +822,8 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - `series.*_returns` values are decimal ratios, not percentages; `0.0012` means `0.12%`
   - stateful risk-free points carrying `value_convention="annualized_rate"` are converted to
     period returns using the supplied day-count convention before being returned or linked
+  - when risk-free data is requested, `diagnostics.risk_free_source_quality` reports raw,
+    normalized, and skipped source-row counts so malformed optional reference rows are auditable
   - `calendar_policy=BUSINESS` filters daily output to weekdays before coverage diagnostics;
     `MARKET` currently applies the same weekday approximation and emits a warning
   - downstream certification and figure tie-outs are recorded in

@@ -340,6 +340,8 @@ def test_returns_series_stateful_fetches_benchmark_and_risk_free(monkeypatch):
                         "value_convention": "annualized_rate",
                         "day_count_convention": "ACT_360",
                     },
+                    {"series_date": "not-a-date", "value": "0.036"},
+                    {"series_date": "2026-02-28"},
                 ]
             },
         )
@@ -389,6 +391,11 @@ def test_returns_series_stateful_fetches_benchmark_and_risk_free(monkeypatch):
     assert len(body["series"]["risk_free_returns"]) == 5
     assert len(body["series"]["cumulative_risk_free_returns"]) == 5
     assert body["series"]["risk_free_returns"][0]["return_value"] == "0.000100000000"
+    assert body["diagnostics"]["risk_free_source_quality"] == {
+        "raw_points": 7,
+        "normalized_points": 5,
+        "skipped_points": 2,
+    }
     assert len(body["series"]["active_returns"]) == 5
     assert len(body["series"]["cumulative_active_returns"]) == 5
     assert body["series"]["active_returns"][0]["return_value"] == "0.009000000000"
