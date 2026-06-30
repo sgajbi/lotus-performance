@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-30
-Branch: `feature/xirr-mwr-attempt-boundary`
+Branch: `feature/durable-queue-source-loading-boundary`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
@@ -14,7 +14,7 @@ threshold and exception policy exist.
 ## Command
 
 ```powershell
-python scripts/python_complexity_inventory.py --limit 25 --max-cc 8 --max-high-complexity 0
+python scripts/python_complexity_inventory.py --limit 45 --max-cc 8 --max-high-complexity 0
 ```
 
 Blocking CI command:
@@ -32,12 +32,12 @@ must stay at `0`.
 | --- | ---: |
 | Max cyclomatic complexity | 5 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.20 |
+| Average maintainability index | 55.18 |
 
-The XIRR attempt result-projection boundary preserves the enforced complexity posture: max
+The durable queue metric source-loading boundary preserves the enforced complexity posture: max
 cyclomatic complexity remains `5`, high-complexity functions remain `0`, and average
-maintainability index measures `55.20` after moving XIRR success, not-applicable, and fallback
-attempt projection behind named private helpers.
+maintainability index measures `55.18` after moving core queue, recovery-drill, and
+runtime-retention metric source loading behind named private helpers.
 
 ## Highest Cyclomatic Complexity
 
@@ -61,13 +61,33 @@ attempt projection behind named private helpers.
 | 16 | `resolve_twr_inspection_subject` | function | `app/services/inspection/subject_resolution.py:20` | 5 | A |
 | 17 | `_completed_support_brief_markdown` | function | `app/services/inspection/support_brief_workflow_pack.py:78` | 5 | A |
 | 18 | `_map_workflow_pack_run_finding` | function | `app/services/inspection/support_brief_workflow_pack.py:192` | 5 | A |
-| 19 | `_synthesize_verdict` | function | `app/services/inspection/twr_inspection_service.py:643` | 5 | A |
-| 20 | `_scope_request_to_response_master_window` | function | `app/services/inspection/twr_inspection_service.py:759` | 5 | A |
+| 19 | `_synthesize_verdict` | function | `app/services/inspection/twr_inspection_service.py:679` | 5 | A |
+| 20 | `_scope_request_to_response_master_window` | function | `app/services/inspection/twr_inspection_service.py:795` | 5 | A |
 | 21 | `get_record` | method | `app/services/lineage_metadata_store.py:256` | 5 | A |
 | 22 | `lease_pending_payloads` | method | `app/services/lineage_metadata_store.py:367` | 5 | A |
 | 23 | `_apply_recovery_time_filters` | method | `app/services/lineage_metadata_store.py:694` | 5 | A |
 | 24 | `_inspection_timing` | method | `app/services/lineage_metadata_store.py:1052` | 5 | A |
 | 25 | `_ensure_payload_lease_columns` | method | `app/services/lineage_metadata_store.py:1078` | 5 | A |
+| 26 | `_load_payload_details` | function | `app/services/lineage_metadata_store.py:1277` | 5 | A |
+| 27 | `evaluate_mandate_performance_health_context` | function | `app/services/mandate_health_context_service.py:16` | 5 | A |
+| 28 | `_stringify_decimal_collection` | function | `app/services/mwr_calculation_service.py:207` | 5 | A |
+| 29 | `_validate_component` | function | `app/services/mwr_fx_evidence_service.py:226` | 5 | A |
+| 30 | `enforce_runtime_retention_apply_preview` | function | `app/services/operator_action_guard_service.py:54` | 5 | A |
+| 31 | `_manual_action_retry_after_seconds` | function | `app/services/operator_action_guard_service.py:222` | 5 | A |
+| 32 | `GeneratedAtBounds` | class | `app/services/operator_action_history_filters.py:18` | 5 | A |
+| 33 | `contains` | method | `app/services/operator_action_history_filters.py:26` | 5 | A |
+| 34 | `build_applied_history_filters` | function | `app/services/operator_action_history_filters.py:56` | 5 | A |
+| 35 | `_apply_exact_history_filters` | function | `app/services/operator_action_history_filters.py:109` | 5 | A |
+| 36 | `_safe_manifest_file_name` | function | `app/services/operator_action_history_manifest.py:62` | 5 | A |
+| 37 | `_history_manifest_file_names` | function | `app/services/operator_action_history_manifest.py:89` | 5 | A |
+| 38 | `read_history_manifest_payload` | function | `app/services/operator_action_history_manifest.py:114` | 5 | A |
+| 39 | `validate_history_manifest_header` | function | `app/services/operator_action_history_manifest.py:138` | 5 | A |
+| 40 | `validate_history_entry_strings` | function | `app/services/operator_action_history_manifest.py:243` | 5 | A |
+| 41 | `_read_reclaimed_lease_snapshot_events` | function | `app/services/operator_action_lease_service.py:221` | 5 | A |
+| 42 | `_read_matching_active_operator_action_leases` | function | `app/services/operator_action_lease_service.py:273` | 5 | A |
+| 43 | `_matching_active_operator_action_lease` | function | `app/services/operator_action_lease_service.py:294` | 5 | A |
+| 44 | `_active_lease_required_string_fields` | function | `app/services/operator_action_lease_service.py:379` | 5 | A |
+| 45 | `_recent_reclaimed_lease_events_from_payload` | function | `app/services/operator_action_lease_service.py:454` | 5 | A |
 
 ## Lowest Maintainability Index
 
@@ -125,6 +145,11 @@ LP-CR-1557 isolated XIRR attempt result projection into focused helper boundarie
 cyclomatic complexity remains `5`, high-complexity functions remain `0`, and average
 maintainability index measures `55.20`; the slice preserves the enforced complexity posture while
 improving MWR-engine fallback and success-path scanability.
+LP-CR-1558 isolated durable queue metric source loading into core queue, recovery-drill, and
+runtime-retention helper boundaries. The measured max cyclomatic complexity remains `5`,
+high-complexity functions remain `0`, and average maintainability index measures `55.18`; the slice
+preserves the enforced complexity posture while improving Prometheus collector source-loading
+scanability.
 LP-CR-1553 isolated runtime-retention history filtering, pagination, and applied-filter projection
 behind `_RuntimeRetentionHistoryQuery`. The measured max cyclomatic complexity remains `5`,
 high-complexity functions remain `0`, and average maintainability index measures `55.20`; the slice

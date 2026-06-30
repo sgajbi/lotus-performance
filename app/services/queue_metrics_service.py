@@ -72,6 +72,32 @@ class _DurableQueueMetricSources:
 
 
 @dataclass(frozen=True)
+class _CoreQueueMetricSources:
+    compute_stats: Any | None
+    compute_available: bool
+    lineage_stats: Any | None
+    lineage_available: bool
+    lineage_storage_capacity: Any | None
+    lineage_storage_capacity_available: bool
+
+
+@dataclass(frozen=True)
+class _RecoveryDrillMetricSources:
+    snapshot: Any | None
+    available: bool
+    action_snapshot: Any | None
+
+
+@dataclass(frozen=True)
+class _RuntimeRetentionMetricSources:
+    snapshot: Any | None
+    available: bool
+    action_snapshot: Any | None
+    preview: Any | None
+    preview_available: bool
+
+
+@dataclass(frozen=True)
 class _DurableQueueMetricDescriptor:
     name: str
     description: str
@@ -283,6 +309,28 @@ def _load_metric_source(
 
 
 def _load_durable_queue_metric_sources(settings) -> _DurableQueueMetricSources:
+    core_sources = _load_core_queue_metric_sources()
+    recovery_drill_sources = _load_recovery_drill_metric_sources(settings)
+    runtime_retention_sources = _load_runtime_retention_metric_sources(settings)
+    return _DurableQueueMetricSources(
+        compute_stats=core_sources.compute_stats,
+        compute_available=core_sources.compute_available,
+        lineage_stats=core_sources.lineage_stats,
+        lineage_available=core_sources.lineage_available,
+        lineage_storage_capacity=core_sources.lineage_storage_capacity,
+        lineage_storage_capacity_available=core_sources.lineage_storage_capacity_available,
+        recovery_drill_snapshot=recovery_drill_sources.snapshot,
+        recovery_drill_available=recovery_drill_sources.available,
+        recovery_drill_action_snapshot=recovery_drill_sources.action_snapshot,
+        runtime_retention_snapshot=runtime_retention_sources.snapshot,
+        runtime_retention_available=runtime_retention_sources.available,
+        runtime_retention_action_snapshot=runtime_retention_sources.action_snapshot,
+        runtime_retention_preview=runtime_retention_sources.preview,
+        runtime_retention_preview_available=runtime_retention_sources.preview_available,
+    )
+
+
+def _load_core_queue_metric_sources() -> _CoreQueueMetricSources:
     compute_stats, compute_available = _load_metric_source(
         compute_job_store.get_queue_stats,
         source_name="compute queue stats",
@@ -295,6 +343,17 @@ def _load_durable_queue_metric_sources(settings) -> _DurableQueueMetricSources:
         get_lineage_storage_capacity,
         source_name="lineage storage capacity",
     )
+    return _CoreQueueMetricSources(
+        compute_stats=compute_stats,
+        compute_available=compute_available,
+        lineage_stats=lineage_stats,
+        lineage_available=lineage_available,
+        lineage_storage_capacity=lineage_storage_capacity,
+        lineage_storage_capacity_available=lineage_storage_capacity_available,
+    )
+
+
+def _load_recovery_drill_metric_sources(settings) -> _RecoveryDrillMetricSources:
     recovery_drill_snapshot, recovery_drill_available = _load_metric_source(
         lambda: build_recovery_drill_history_snapshot(limit=1),
         source_name="recovery drill history snapshot",
@@ -306,6 +365,14 @@ def _load_durable_queue_metric_sources(settings) -> _DurableQueueMetricSources:
         action_name="recovery_drill",
         source_name="recovery drill action lease snapshot",
     )
+    return _RecoveryDrillMetricSources(
+        snapshot=recovery_drill_snapshot,
+        available=recovery_drill_available,
+        action_snapshot=recovery_drill_action_snapshot,
+    )
+
+
+def _load_runtime_retention_metric_sources(settings) -> _RuntimeRetentionMetricSources:
     runtime_retention_snapshot, runtime_retention_available = _load_metric_source(
         lambda: build_runtime_retention_history_snapshot(limit=1),
         source_name="runtime retention history snapshot",
@@ -321,21 +388,12 @@ def _load_durable_queue_metric_sources(settings) -> _DurableQueueMetricSources:
         lambda: run_runtime_retention_cleanup(dry_run=True),
         source_name="runtime retention cleanup preview",
     )
-    return _DurableQueueMetricSources(
-        compute_stats=compute_stats,
-        compute_available=compute_available,
-        lineage_stats=lineage_stats,
-        lineage_available=lineage_available,
-        lineage_storage_capacity=lineage_storage_capacity,
-        lineage_storage_capacity_available=lineage_storage_capacity_available,
-        recovery_drill_snapshot=recovery_drill_snapshot,
-        recovery_drill_available=recovery_drill_available,
-        recovery_drill_action_snapshot=recovery_drill_action_snapshot,
-        runtime_retention_snapshot=runtime_retention_snapshot,
-        runtime_retention_available=runtime_retention_available,
-        runtime_retention_action_snapshot=runtime_retention_action_snapshot,
-        runtime_retention_preview=runtime_retention_preview,
-        runtime_retention_preview_available=runtime_retention_preview_available,
+    return _RuntimeRetentionMetricSources(
+        snapshot=runtime_retention_snapshot,
+        available=runtime_retention_available,
+        action_snapshot=runtime_retention_action_snapshot,
+        preview=runtime_retention_preview,
+        preview_available=runtime_retention_preview_available,
     )
 
 

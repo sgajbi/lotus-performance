@@ -10,9 +10,11 @@ from app.services.queue_metrics_service import (
     _DurableQueueMetricSources,
     _lifecycle_history_metric_group,
     _lifecycle_history_metrics,
+    _load_core_queue_metric_sources,
     _load_durable_queue_metric_sources,
     _load_metric_source,
     _load_operator_action_lease_metric_source,
+    _load_runtime_retention_metric_sources,
 )
 from app.services.runtime_status_domain import (
     ComputeQueueDegradationPolicy,
@@ -172,6 +174,59 @@ def test_load_operator_action_lease_metric_source_uses_default_artifact_path(mon
         "action_name": "governed_action",
     }
     assert lease_calls == [{"artifact_directory": Path("artifacts/default-action"), "action_name": "governed_action"}]
+
+
+def test_load_core_queue_metric_sources_preserves_source_availability(monkeypatch):
+    monkeypatch.setattr("app.services.queue_metrics_service.compute_job_store.get_queue_stats", lambda: "compute")
+    monkeypatch.setattr(
+        "app.services.queue_metrics_service.lineage_metadata_store.get_pending_payload_stats",
+        lambda: (_ for _ in ()).throw(RuntimeError("lineage unavailable")),
+    )
+    monkeypatch.setattr("app.services.queue_metrics_service.get_lineage_storage_capacity", lambda: "capacity")
+
+    sources = _load_core_queue_metric_sources()
+
+    assert sources.compute_stats == "compute"
+    assert sources.compute_available is True
+    assert sources.lineage_stats is None
+    assert sources.lineage_available is False
+    assert sources.lineage_storage_capacity == "capacity"
+    assert sources.lineage_storage_capacity_available is True
+
+
+def test_load_runtime_retention_metric_sources_preserves_preview_degradation(monkeypatch):
+    lease_calls: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        "app.services.queue_metrics_service.build_runtime_retention_history_snapshot",
+        lambda limit=1: {"limit": limit},
+    )
+    monkeypatch.setattr(
+        "app.services.queue_metrics_service.build_operator_action_lease_snapshot",
+        lambda **kwargs: lease_calls.append(kwargs) or {"status": "available", **kwargs},
+    )
+    monkeypatch.setattr(
+        "app.services.queue_metrics_service.run_runtime_retention_cleanup",
+        lambda dry_run=True: (_ for _ in ()).throw(RuntimeError("preview unavailable")),
+    )
+
+    sources = _load_runtime_retention_metric_sources(
+        type(
+            "Settings",
+            (),
+            {"RUNTIME_RETENTION_ARTIFACT_PATH": Path("custom-retention")},
+        )()
+    )
+
+    assert sources.snapshot == {"limit": 1}
+    assert sources.available is True
+    assert sources.action_snapshot == {
+        "status": "available",
+        "artifact_directory": Path("custom-retention"),
+        "action_name": "runtime_retention_cleanup",
+    }
+    assert sources.preview is None
+    assert sources.preview_available is False
+    assert lease_calls == [{"artifact_directory": Path("custom-retention"), "action_name": "runtime_retention_cleanup"}]
 
 
 def test_core_queue_and_storage_metrics_emit_compute_lineage_and_storage_families():

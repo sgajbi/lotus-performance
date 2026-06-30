@@ -1,7 +1,7 @@
 # Lotus Performance Architecture Boundary Inventory
 
 Report date: 2026-06-30
-Branch: `feature/xirr-mwr-attempt-boundary`
+Branch: `feature/durable-queue-source-loading-boundary`
 Mode: enforced architecture-boundary inventory; zero findings are blocked by CI.
 
 ## Purpose
