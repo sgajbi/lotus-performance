@@ -1617,8 +1617,8 @@ Operational boundary:
 | `CORE_CONTROL_PLANE_BASE_URL` | `http://core-control.dev.lotus` | lotus-core query-control-plane base URL for stateful analytics-input contracts |
 | `CORE_QUERY_BASE_URL` | unset | deprecated compatibility fallback when `CORE_CONTROL_PLANE_BASE_URL` is unset |
 | `CORE_TIMEOUT_SECONDS` | `10.0` | upstream request timeout |
-| `CORE_MAX_RETRIES` | `2` | upstream retry count |
-| `CORE_RETRY_BACKOFF_SECONDS` | `0.2` | upstream retry backoff |
+| `CORE_MAX_RETRIES` | `2` | upstream retry count for transport exceptions and transient HTTP statuses |
+| `CORE_RETRY_BACKOFF_SECONDS` | `0.2` | upstream retry backoff when `Retry-After` is absent, invalid, or excessive |
 | `STATEFUL_INPUT_PORTFOLIO_CHUNK_DAYS` | `90` | portfolio retrieval chunk size |
 | `STATEFUL_INPUT_REFERENCE_CHUNK_DAYS` | `365` | reference retrieval chunk size |
 | `STATEFUL_INPUT_MAX_CONCURRENT_CHUNKS` | `4` | concurrent chunk retrieval bound |
@@ -1628,6 +1628,12 @@ Stateful portfolio and position retrieval also rejects repeated lotus-core `next
 with `stateful_upstream_repeated_page_token`. Both pagination failures return controlled upstream
 failure payloads with bounded chunk and page-count metadata, preserving normal multi-page traversal
 when tokens advance and terminate correctly.
+
+The shared upstream resilience layer retries bounded transient HTTP statuses `429`, `502`, `503`,
+and `504` for lotus-core and Lotus AI calls within the configured retry budget. It honors safe
+`Retry-After` values up to five seconds, falls back to `CORE_RETRY_BACKOFF_SECONDS` or the
+caller-specific Lotus AI backoff when the header is invalid or excessive, and does not retry
+domain/client statuses such as `400`, `401`, `403`, `404`, `409`, or `422`.
 
 ### Compute executor
 
