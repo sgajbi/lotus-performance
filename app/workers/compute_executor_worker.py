@@ -23,7 +23,13 @@ from app.models.inspection_requests import TWRInspectionRequest
 from app.models.returns_series import InputMode, ReturnsSeriesRequest, RiskFreeSourceQuality
 from app.models.twr_requests import TWRAnalyticsRequest, TWRInputMode, TWRResolvedExecutionRequest
 from app.models.workspace_summary_requests import WorkspaceSummaryRequest
-from app.observability import correlation_id_var, request_id_var, trace_id_var
+from app.observability import (
+    correlation_id_var,
+    request_id_var,
+    setup_worker_logging,
+    trace_id_var,
+    worker_log_extra,
+)
 from app.services.analytics_workflow_types import (
     ANALYTICS_WORKFLOW_ATTRIBUTION,
     ANALYTICS_WORKFLOW_BENCHMARK,
@@ -55,6 +61,8 @@ from engine.exceptions import EngineCalculationError, InvalidEngineInputError
 logger = logging.getLogger(__name__)
 
 ASYNC_OBSERVABILITY_CONTEXT_FIELD = "observability_context"
+_WORKER_NAME = "compute_executor_worker"
+_QUEUE_NAME = "compute"
 
 
 @dataclass(frozen=True)
@@ -535,7 +543,20 @@ def _handle_compute_job_failure(
             error_type=error_type,
         )
         if will_retry:
-            logger.warning("Retrying compute job %s after %s", job.calculation_id, error_type)
+            logger.warning(
+                "Retrying compute job after retryable failure",
+                extra=worker_log_extra(
+                    worker_name=_WORKER_NAME,
+                    queue=_QUEUE_NAME,
+                    calculation_id=str(job.calculation_id),
+                    analytics_type=job.analytics_type,
+                    error_type=error_type,
+                    failure_classification="retryable_compute_failure",
+                    retryable=True,
+                    attempt_count=getattr(job, "attempt_count", None),
+                    max_attempts=getattr(job, "max_attempts", None),
+                ),
+            )
             return
         _record_terminal_failure(
             calculation_id=job.calculation_id,
@@ -581,9 +602,20 @@ def _handle_reconciled_stale_job(
         )
         return
     logger.warning(
-        "Requeued stale compute job %s after expired %s lease",
-        reconciled_job.calculation_id,
-        reconciled_job.previous_status.value,
+        "Requeued stale compute job after expired lease",
+        extra=worker_log_extra(
+            worker_name=_WORKER_NAME,
+            queue=_QUEUE_NAME,
+            calculation_id=str(reconciled_job.calculation_id),
+            analytics_type=reconciled_job.analytics_type,
+            previous_status=reconciled_job.previous_status.value,
+            reconciled_status=reconciled_job.reconciled_status.value,
+            failure_classification="stale_compute_lease_requeued",
+            retryable=True,
+            attempt_count=reconciled_job.attempt_count,
+            max_attempts=reconciled_job.max_attempts,
+            error_type=reconciled_job.error_type,
+        ),
     )
 
 
@@ -815,13 +847,32 @@ def _record_terminal_failure(
         active_execution_store.fail_in_progress_stages(calculation_id, error_message)
         active_execution_store.mark_failed(calculation_id, error_message)
     except KeyError:
-        logger.exception(missing_execution_log_message, calculation_id)
+        logger.exception(
+            missing_execution_log_message,
+            calculation_id,
+            extra=worker_log_extra(
+                worker_name=_WORKER_NAME,
+                queue=_QUEUE_NAME,
+                calculation_id=str(calculation_id),
+                analytics_type=analytics_type,
+                error_type=error_type,
+                failure_classification="terminal_compute_failure",
+                retryable=False,
+            ),
+        )
 
 
 def run_forever(*, stop_event: Event | None = None, settings=None) -> None:
     active_settings = settings or get_settings()
-    logging.basicConfig(level=getattr(logging, active_settings.LOG_LEVEL.upper(), logging.INFO))
-    logger.info("Starting compute executor poller")
+    setup_worker_logging(active_settings.LOG_LEVEL)
+    logger.info(
+        "Starting compute executor poller",
+        extra=worker_log_extra(
+            worker_name=_WORKER_NAME,
+            worker_id=active_settings.COMPUTE_EXECUTOR_WORKER_ID,
+            queue=_QUEUE_NAME,
+        ),
+    )
     bootstrap_durable_metadata_stores(
         execution_store=execution_registry,
         compute_store=compute_job_store,

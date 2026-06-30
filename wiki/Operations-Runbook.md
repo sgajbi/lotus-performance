@@ -34,6 +34,22 @@ Primary runtime surfaces:
 | Completed calculation lacks expected evidence | `GET /performance/lineage/{calculation_id}`, endpoint result route, inspection route where applicable | request fingerprint, response supportability block, lineage metadata, artifact names |
 | Recovery or retention looks degraded | runtime recoveries, recovery drills, retention cleanup history | recovery id or cleanup id, trigger source, terminal status, error summary |
 
+## Async worker diagnostics
+
+API and background-worker logs use the same JSON logging contract. For async calculation incidents,
+start with `calculation_id`, then join the API acceptance log, durable execution lifecycle,
+compute-worker event, lineage-worker event, and result-polling log by `calculation_id` plus
+`correlation_id` or `trace_id` when the accepted request propagated those values.
+
+Expected worker fields:
+
+- compute executor: `worker_name=compute_executor_worker`, `queue=compute`, `calculation_id`,
+  `analytics_type`, retryability, attempt counts, and failure classification
+- lineage worker: `worker_name=lineage_worker`, `queue=lineage`, `calculation_id`,
+  `calculation_type`, `lineage_stage`, and materialization-failure classification
+- runtime-retention worker: `worker_name=runtime_retention_worker`, `queue=runtime_retention`,
+  cleanup mode, cleanup status, trigger mode, operator id, job id, and prunable execution count
+
 ## Calculation supportability metric
 
 Completed TWR, MWR, contribution, and attribution responses emit a bounded calculation

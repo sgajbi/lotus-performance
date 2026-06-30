@@ -52,6 +52,7 @@ def test_runtime_retention_worker_run_cleanup_cycle_uses_scheduled_identity(monk
 
 def test_runtime_retention_worker_run_forever_bootstraps_and_sleeps(monkeypatch):
     calls: list[str] = []
+    info_logs: list[tuple[tuple, dict]] = []
     settings = _worker_settings(RUNTIME_RETENTION_WORKER_POLL_SECONDS=15.0)
 
     monkeypatch.setattr(
@@ -80,6 +81,9 @@ def test_runtime_retention_worker_run_forever_bootstraps_and_sleeps(monkeypatch)
         raise RuntimeError("stop loop")
 
     monkeypatch.setattr(runtime_retention_worker.time, "sleep", _sleep)
+    monkeypatch.setattr(
+        runtime_retention_worker.logger, "info", lambda *args, **kwargs: info_logs.append((args, kwargs))
+    )
 
     with pytest.raises(RuntimeError, match="stop loop"):
         runtime_retention_worker.run_forever(settings=settings)
@@ -92,6 +96,15 @@ def test_runtime_retention_worker_run_forever_bootstraps_and_sleeps(monkeypatch)
         "cleanup",
         "sleep:15.0",
     ]
+    completion_fields = info_logs[1][1]["extra"]["extra_fields"]
+    assert completion_fields["worker_name"] == "runtime_retention_worker"
+    assert completion_fields["worker_id"] == "retention-nightly"
+    assert completion_fields["queue"] == "runtime_retention"
+    assert completion_fields["operator_id"] == "runtime-retention-automation"
+    assert completion_fields["cleanup_mode"] == "dry_run"
+    assert completion_fields["cleanup_status"] == "planned"
+    assert completion_fields["prunable_execution_count"] == 0
+    assert completion_fields["trigger_mode"] == "scheduled"
 
 
 def test_runtime_retention_worker_run_forever_honors_pre_set_stop_event(monkeypatch):

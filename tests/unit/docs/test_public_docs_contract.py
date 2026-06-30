@@ -1204,6 +1204,12 @@ def test_runtime_alert_runbook_covers_breach_gauges():
     assert "durable_metadata_readiness_timeout" in wiki_operations
     assert "docs/runbooks/runtime-alerts.md" in api_reference
     assert "runtime-alerts.md" in runtime_topology
+    assert "Worker logging and correlation model" in runtime_topology
+    assert "compute_executor_worker" in runtime_topology
+    assert "lineage_worker" in runtime_topology
+    assert "runtime_retention_worker" in runtime_topology
+    assert "failure classification" in wiki_operations
+    assert "prunable execution count" in wiki_operations
 
 
 def test_enterprise_readiness_covers_privileged_operator_reads():

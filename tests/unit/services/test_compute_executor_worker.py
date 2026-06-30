@@ -1449,8 +1449,10 @@ def test_compute_executor_worker_records_terminal_failure_when_execution_missing
     monkeypatch.setattr(compute_executor_worker, "execution_registry", execution_store)
 
     calculation_id = uuid4()
-    logged: list[str] = []
-    monkeypatch.setattr(compute_executor_worker.logger, "exception", lambda *args, **kwargs: logged.append("logged"))
+    logged: list[tuple[tuple, dict]] = []
+    monkeypatch.setattr(
+        compute_executor_worker.logger, "exception", lambda *args, **kwargs: logged.append((args, kwargs))
+    )
 
     compute_executor_worker._record_terminal_failure(
         calculation_id=calculation_id,
@@ -1464,7 +1466,14 @@ def test_compute_executor_worker_records_terminal_failure_when_execution_missing
     assert result is not None
     assert result.result_status == AsyncResultStatus.FAILED
     assert result.error_type == "RuntimeError"
-    assert logged == ["logged"]
+    assert logged
+    extra_fields = logged[0][1]["extra"]["extra_fields"]
+    assert extra_fields["worker_name"] == "compute_executor_worker"
+    assert extra_fields["queue"] == "compute"
+    assert extra_fields["calculation_id"] == str(calculation_id)
+    assert extra_fields["analytics_type"] == ANALYTICS_WORKFLOW_RETURNS_SERIES
+    assert extra_fields["failure_classification"] == "terminal_compute_failure"
+    assert extra_fields["retryable"] is False
 
 
 def test_compute_executor_worker_run_forever_bootstraps_and_sleeps(monkeypatch):
@@ -1568,8 +1577,11 @@ def test_compute_executor_worker_logs_requeued_stale_job(monkeypatch):
             self.analytics_type = "ReturnsSeries"
             self.reconciled_status = type("Status", (), {"value": "pending"})()
             self.previous_status = type("Status", (), {"value": "running"})()
+            self.attempt_count = 1
+            self.max_attempts = 2
+            self.error_type = "LeaseExpired"
 
-    warnings: list[tuple] = []
+    warnings: list[tuple[tuple, dict]] = []
     job_store = type(
         "JobStore",
         (),
@@ -1578,7 +1590,9 @@ def test_compute_executor_worker_logs_requeued_stale_job(monkeypatch):
             "lease_pending_jobs": lambda self, **kwargs: [],
         },
     )()
-    monkeypatch.setattr(compute_executor_worker.logger, "warning", lambda *args, **kwargs: warnings.append(args))
+    monkeypatch.setattr(
+        compute_executor_worker.logger, "warning", lambda *args, **kwargs: warnings.append((args, kwargs))
+    )
 
     processed = compute_executor_worker._process_pending_jobs(
         job_store=job_store,
@@ -1588,12 +1602,20 @@ def test_compute_executor_worker_logs_requeued_stale_job(monkeypatch):
     )
 
     assert processed == 0
-    assert warnings and "Requeued stale compute job %s after expired %s lease" in warnings[0][0]
+    assert warnings and warnings[0][0] == ("Requeued stale compute job after expired lease",)
+    extra_fields = warnings[0][1]["extra"]["extra_fields"]
+    assert extra_fields["worker_name"] == "compute_executor_worker"
+    assert extra_fields["queue"] == "compute"
+    assert extra_fields["analytics_type"] == "ReturnsSeries"
+    assert extra_fields["previous_status"] == "running"
+    assert extra_fields["failure_classification"] == "stale_compute_lease_requeued"
 
 
 def test_compute_executor_worker_handles_reconciled_stale_requeue(monkeypatch):
-    warnings: list[tuple] = []
-    monkeypatch.setattr(compute_executor_worker.logger, "warning", lambda *args, **kwargs: warnings.append(args))
+    warnings: list[tuple[tuple, dict]] = []
+    monkeypatch.setattr(
+        compute_executor_worker.logger, "warning", lambda *args, **kwargs: warnings.append((args, kwargs))
+    )
     reconciled_job = ReconciledJobRecord(
         calculation_id=uuid4(),
         analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES,
@@ -1611,13 +1633,15 @@ def test_compute_executor_worker_handles_reconciled_stale_requeue(monkeypatch):
         execution_store=compute_executor_worker.execution_registry,
     )
 
-    assert warnings == [
-        (
-            "Requeued stale compute job %s after expired %s lease",
-            reconciled_job.calculation_id,
-            "running",
-        )
-    ]
+    assert warnings and warnings[0][0] == ("Requeued stale compute job after expired lease",)
+    extra_fields = warnings[0][1]["extra"]["extra_fields"]
+    assert extra_fields["calculation_id"] == str(reconciled_job.calculation_id)
+    assert extra_fields["analytics_type"] == ANALYTICS_WORKFLOW_RETURNS_SERIES
+    assert extra_fields["previous_status"] == "running"
+    assert extra_fields["reconciled_status"] == "pending"
+    assert extra_fields["failure_classification"] == "stale_compute_lease_requeued"
+    assert extra_fields["attempt_count"] == 1
+    assert extra_fields["max_attempts"] == 2
 
 
 def test_compute_executor_worker_handles_reconciled_stale_terminal_failure(tmp_path):
@@ -1661,8 +1685,10 @@ def test_compute_executor_worker_handles_reconciled_stale_terminal_failure(tmp_p
 
 def test_compute_executor_worker_handles_retryable_failure_with_remaining_budget(tmp_path, monkeypatch):
     job_store, execution_store, result_store, job = _running_compute_job(tmp_path, max_attempts=2)
-    warnings: list[tuple] = []
-    monkeypatch.setattr(compute_executor_worker.logger, "warning", lambda *args, **kwargs: warnings.append(args))
+    warnings: list[tuple[tuple, dict]] = []
+    monkeypatch.setattr(
+        compute_executor_worker.logger, "warning", lambda *args, **kwargs: warnings.append((args, kwargs))
+    )
 
     compute_executor_worker._handle_compute_job_failure(
         job,
@@ -1680,7 +1706,15 @@ def test_compute_executor_worker_handles_retryable_failure_with_remaining_budget
     execution = execution_store.get_execution(job.calculation_id)
     assert execution is not None
     assert execution.status.value == "pending"
-    assert warnings == [("Retrying compute job %s after %s", job.calculation_id, "RuntimeError")]
+    assert warnings and warnings[0][0] == ("Retrying compute job after retryable failure",)
+    extra_fields = warnings[0][1]["extra"]["extra_fields"]
+    assert extra_fields["worker_name"] == "compute_executor_worker"
+    assert extra_fields["queue"] == "compute"
+    assert extra_fields["calculation_id"] == str(job.calculation_id)
+    assert extra_fields["analytics_type"] == ANALYTICS_WORKFLOW_RETURNS_SERIES
+    assert extra_fields["error_type"] == "RuntimeError"
+    assert extra_fields["failure_classification"] == "retryable_compute_failure"
+    assert extra_fields["retryable"] is True
 
 
 def test_compute_executor_worker_handles_retryable_failure_after_exhausted_budget(tmp_path):
