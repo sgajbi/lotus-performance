@@ -1,7 +1,7 @@
 # Lotus Performance Enterprise Backend Refactor Baseline
 
 Baseline date: 2026-06-30
-Branch: `feature/workspace-summary-response-projection`
+Branch: `feature/xirr-mwr-attempt-boundary`
 Mode: report-only baseline; no new blocking quality gate is introduced by this artifact.
 
 ## Purpose
@@ -18,9 +18,9 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 | --- | ---: | --- |
 | Python files | 583 | `rg --files -g '*.py'` equivalent excluding local caches |
 | Python package markers | 18 | recursive `__init__.py` count |
-| Python LOC | 173,957 | recursive `.py` line count |
+| Python LOC | 174,032 | recursive `.py` line count |
 | Test modules | 281 | `tests/**/test_*.py` |
-| Collected tests | 3421 tests | `python -m pytest --collect-only -q` |
+| Collected tests | 3422 tests | `python -m pytest --collect-only -q` |
 | Configured CI workflows | 5 | `.github/workflows/*.yml` |
 | Repo-native baseline command | 1 | `make quality-baseline` |
 

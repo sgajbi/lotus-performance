@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-30
-Branch: `feature/workspace-summary-response-projection`
+Branch: `feature/xirr-mwr-attempt-boundary`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
@@ -34,10 +34,10 @@ must stay at `0`.
 | High-complexity functions (rank D-F) | 0 |
 | Average maintainability index | 55.20 |
 
-The workspace summary response projection boundary preserves the enforced complexity posture: max
+The XIRR attempt result-projection boundary preserves the enforced complexity posture: max
 cyclomatic complexity remains `5`, high-complexity functions remain `0`, and average
-maintainability index measures `55.20` after moving response projection preparation behind a named
-private helper.
+maintainability index measures `55.20` after moving XIRR success, not-applicable, and fallback
+attempt projection behind named private helpers.
 
 ## Highest Cyclomatic Complexity
 
@@ -95,9 +95,9 @@ private helper.
 | 20 | `app/services/inspection/calculation_consistency.py` | 19.07 | A |
 | 21 | `app/models/runtime_status.py` | 19.66 | A |
 | 22 | `app/models/returns_series.py` | 19.70 | A |
-| 23 | `app/services/contribution_source_economics.py` | 20.23 | A |
-| 24 | `engine/composites.py` | 20.75 | A |
-| 25 | `engine/mwr.py` | 21.09 | A |
+| 23 | `engine/mwr.py` | 20.08 | A |
+| 24 | `app/services/contribution_source_economics.py` | 20.23 | A |
+| 25 | `engine/composites.py` | 20.75 | A |
 
 ## Interpretation
 
@@ -121,6 +121,10 @@ LP-CR-1556 isolated workspace summary response projection preparation behind
 `_build_workspace_summary_projection(...)`. The measured max cyclomatic complexity remains `5`,
 high-complexity functions remain `0`, and average maintainability index measures `55.20`; the slice
 preserves the enforced complexity posture while improving workspace-summary response scanability.
+LP-CR-1557 isolated XIRR attempt result projection into focused helper boundaries. The measured max
+cyclomatic complexity remains `5`, high-complexity functions remain `0`, and average
+maintainability index measures `55.20`; the slice preserves the enforced complexity posture while
+improving MWR-engine fallback and success-path scanability.
 LP-CR-1553 isolated runtime-retention history filtering, pagination, and applied-filter projection
 behind `_RuntimeRetentionHistoryQuery`. The measured max cyclomatic complexity remains `5`,
 high-complexity functions remain `0`, and average maintainability index measures `55.20`; the slice
