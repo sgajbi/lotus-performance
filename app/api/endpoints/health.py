@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request, Response, status
 
 from app.models.platform_surfaces import HealthStatusResponse
-from app.services.durability_health_service import DurabilityHealthStatus, check_durable_metadata_store_ready
+from app.services.durability_health_service import DurabilityHealthStatus, check_durable_metadata_store_ready_async
 from app.services.remediation_hint_service import get_remediation_hint
 
 router = APIRouter(tags=["Health"])
@@ -55,7 +55,7 @@ async def health_ready(request: Request, response: Response) -> HealthStatusResp
     if bool(getattr(request.app.state, "is_draining", False)):
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
         return HealthStatusResponse(status="draining")
-    durability_status = check_durable_metadata_store_ready()
+    durability_status = await check_durable_metadata_store_ready_async()
     if not durability_status.is_ready:
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
         return _readiness_failure_response(durability_status)

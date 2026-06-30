@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import shutil
@@ -19,6 +20,9 @@ REQUIRED_DURABLE_TABLES = (
     "lineage_records",
     "lineage_payloads",
 )
+DEFAULT_DURABLE_READINESS_TIMEOUT_SECONDS = 2.0
+DURABLE_METADATA_READINESS_TIMEOUT_REASON = "durable_metadata_readiness_timeout"
+LINEAGE_STORAGE_READINESS_TIMEOUT_REASON = "lineage_storage_readiness_timeout"
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +51,55 @@ def check_durable_metadata_store_ready() -> DurabilityHealthStatus:
     if not lineage_storage_status.is_ready:
         return lineage_storage_status
     return _ready_status()
+
+
+async def check_durable_metadata_store_ready_async(
+    *,
+    timeout_seconds: float | None = None,
+) -> DurabilityHealthStatus:
+    timeout = _durable_readiness_timeout_seconds(timeout_seconds)
+    metadata_store_status = await _bounded_readiness_probe(
+        check_durable_metadata_schema_ready,
+        timeout_seconds=timeout,
+        timeout_reason=DURABLE_METADATA_READINESS_TIMEOUT_REASON,
+    )
+    if not metadata_store_status.is_ready:
+        return metadata_store_status
+    lineage_storage_status = await _bounded_readiness_probe(
+        check_lineage_storage_ready,
+        timeout_seconds=timeout,
+        timeout_reason=LINEAGE_STORAGE_READINESS_TIMEOUT_REASON,
+    )
+    if not lineage_storage_status.is_ready:
+        return lineage_storage_status
+    return _ready_status()
+
+
+async def _bounded_readiness_probe(
+    probe: Callable[[], DurabilityHealthStatus],
+    *,
+    timeout_seconds: float,
+    timeout_reason: str,
+) -> DurabilityHealthStatus:
+    try:
+        return await asyncio.wait_for(asyncio.to_thread(probe), timeout=timeout_seconds)
+    except TimeoutError:
+        logger.warning(
+            "Durable readiness probe timed out.",
+            extra={"timeout_seconds": timeout_seconds, "reason": timeout_reason},
+        )
+        return _unavailable_status(timeout_reason)
+
+
+def _durable_readiness_timeout_seconds(timeout_seconds: float | None = None) -> float:
+    configured_timeout = (
+        timeout_seconds
+        if timeout_seconds is not None
+        else getattr(get_settings(), "DURABLE_READINESS_TIMEOUT_SECONDS", DEFAULT_DURABLE_READINESS_TIMEOUT_SECONDS)
+    )
+    if configured_timeout <= 0:
+        return DEFAULT_DURABLE_READINESS_TIMEOUT_SECONDS
+    return float(configured_timeout)
 
 
 def check_durable_metadata_schema_ready() -> DurabilityHealthStatus:

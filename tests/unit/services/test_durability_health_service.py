@@ -1,4 +1,8 @@
+import asyncio
 import logging
+import threading
+
+import pytest
 
 from app.services import durability_health_service
 
@@ -126,6 +130,59 @@ def test_durability_health_service_reports_unavailable_when_lineage_storage_is_m
     assert status.is_ready is False
     assert status.status == "unavailable"
     assert status.reason == "lineage_storage_path_missing"
+
+
+@pytest.mark.asyncio
+async def test_async_durable_metadata_readiness_times_out_without_blocking_event_loop(monkeypatch):
+    probe_started = threading.Event()
+    release_probe = threading.Event()
+
+    def _slow_schema_probe():
+        probe_started.set()
+        release_probe.wait(timeout=1)
+        return durability_health_service.DurabilityHealthStatus(is_ready=True, status="ready", reason=None)
+
+    monkeypatch.setattr(durability_health_service, "check_durable_metadata_schema_ready", _slow_schema_probe)
+
+    probe_task = asyncio.create_task(
+        durability_health_service.check_durable_metadata_store_ready_async(timeout_seconds=0.01)
+    )
+    await asyncio.to_thread(probe_started.wait, 0.2)
+
+    marker = []
+
+    async def _event_loop_marker():
+        marker.append("event-loop-progress")
+
+    await _event_loop_marker()
+    status = await probe_task
+    release_probe.set()
+
+    assert marker == ["event-loop-progress"]
+    assert status.is_ready is False
+    assert status.status == "unavailable"
+    assert status.reason == durability_health_service.DURABLE_METADATA_READINESS_TIMEOUT_REASON
+
+
+@pytest.mark.asyncio
+async def test_async_lineage_storage_readiness_times_out_after_metadata_ready(monkeypatch):
+    monkeypatch.setattr(
+        durability_health_service,
+        "check_durable_metadata_schema_ready",
+        lambda: durability_health_service.DurabilityHealthStatus(is_ready=True, status="ready", reason=None),
+    )
+
+    def _slow_lineage_probe():
+        threading.Event().wait(timeout=1)
+        return durability_health_service.DurabilityHealthStatus(is_ready=True, status="ready", reason=None)
+
+    monkeypatch.setattr(durability_health_service, "check_lineage_storage_ready", _slow_lineage_probe)
+
+    status = await durability_health_service.check_durable_metadata_store_ready_async(timeout_seconds=0.01)
+
+    assert status.is_ready is False
+    assert status.status == "unavailable"
+    assert status.reason == durability_health_service.LINEAGE_STORAGE_READINESS_TIMEOUT_REASON
 
 
 def test_lineage_storage_health_reports_write_probe_failure(monkeypatch, tmp_path):

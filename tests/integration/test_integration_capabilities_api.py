@@ -330,13 +330,16 @@ def test_health_ready_returns_503_when_draining():
 
 
 def test_health_ready_returns_503_when_durable_metadata_store_is_unavailable(mocker):
-    mocker.patch(
-        "app.api.endpoints.health.check_durable_metadata_store_ready",
-        return_value=DurabilityHealthStatus(
+    async def _unavailable_readiness():
+        return DurabilityHealthStatus(
             is_ready=False,
             status="unavailable",
             reason="durable_metadata_store_unreachable",
-        ),
+        )
+
+    mocker.patch(
+        "app.api.endpoints.health.check_durable_metadata_store_ready_async",
+        side_effect=_unavailable_readiness,
     )
 
     with TestClient(app) as client:
@@ -349,13 +352,16 @@ def test_health_ready_returns_503_when_durable_metadata_store_is_unavailable(moc
 
 
 def test_health_ready_returns_503_when_lineage_storage_is_unavailable(mocker):
-    mocker.patch(
-        "app.api.endpoints.health.check_durable_metadata_store_ready",
-        return_value=DurabilityHealthStatus(
+    async def _unavailable_readiness():
+        return DurabilityHealthStatus(
             is_ready=False,
             status="unavailable",
             reason="lineage_storage_path_missing",
-        ),
+        )
+
+    mocker.patch(
+        "app.api.endpoints.health.check_durable_metadata_store_ready_async",
+        side_effect=_unavailable_readiness,
     )
 
     with TestClient(app) as client:
@@ -373,13 +379,16 @@ def test_health_ready_returns_503_when_lineage_storage_is_unavailable(mocker):
 
 
 def test_health_ready_returns_hint_when_lineage_write_probe_fails(mocker):
-    mocker.patch(
-        "app.api.endpoints.health.check_durable_metadata_store_ready",
-        return_value=DurabilityHealthStatus(
+    async def _unavailable_readiness():
+        return DurabilityHealthStatus(
             is_ready=False,
             status="unavailable",
             reason="lineage_storage_write_probe_failed",
-        ),
+        )
+
+    mocker.patch(
+        "app.api.endpoints.health.check_durable_metadata_store_ready_async",
+        side_effect=_unavailable_readiness,
     )
 
     with TestClient(app) as client:
@@ -388,6 +397,27 @@ def test_health_ready_returns_hint_when_lineage_write_probe_fails(mocker):
     assert response.status_code == 503
     assert response.json()["reason"] == "lineage_storage_write_probe_failed"
     assert "write/delete probe" in response.json()["remediation_hint"]
+
+
+def test_health_ready_returns_503_when_durable_readiness_times_out(mocker):
+    async def _timed_out_readiness():
+        return DurabilityHealthStatus(
+            is_ready=False,
+            status="unavailable",
+            reason="durable_metadata_readiness_timeout",
+        )
+
+    mocker.patch(
+        "app.api.endpoints.health.check_durable_metadata_store_ready_async",
+        side_effect=_timed_out_readiness,
+    )
+
+    with TestClient(app) as client:
+        response = client.get("/health/ready")
+
+    assert response.status_code == 503
+    assert response.json()["reason"] == "durable_metadata_readiness_timeout"
+    assert "readiness probe exceeded" in response.json()["remediation_hint"]
 
 
 def test_metrics_include_durable_queue_pressure_signals():

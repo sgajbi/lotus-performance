@@ -39,6 +39,12 @@ Do not treat a missing breach sample as healthy if the corresponding availabilit
 5. If recovery-drill policy is degraded, inspect `GET /integration/recovery-drills` and compare the latest retained drill against the configured age policy.
 6. If runtime-retention policy is degraded, inspect `GET /integration/runtime-retention-cleanups` and compare the latest retained cleanup against the configured age policy and apply-mode expectation.
 
+Readiness timeout handling:
+
+- `durable_metadata_readiness_timeout` means the database ping or table-discovery probe exceeded `DURABLE_READINESS_TIMEOUT_SECONDS`; inspect database latency, connectivity, and catalog responsiveness before accepting traffic.
+- `lineage_storage_readiness_timeout` means the lineage storage path or write/fsync probe exceeded `DURABLE_READINESS_TIMEOUT_SECONDS`; inspect mount latency, filesystem health, and write behavior before restarting workers.
+- A readiness timeout is a dependency health signal, not a reason to disable durable readiness checks.
+
 ## Queue Breach Guidance
 
 ### Compute Queue

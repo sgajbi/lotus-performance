@@ -11,6 +11,10 @@ _REMEDIATION_HINTS: dict[str, str] = {
         "Run the durable schema bootstrap or migration flow so all required execution and lineage tables exist "
         "before accepting traffic."
     ),
+    "durable_metadata_readiness_timeout": (
+        "The durable metadata readiness probe exceeded its configured time budget; inspect database latency, "
+        "connectivity, and catalog responsiveness before accepting traffic."
+    ),
     "lineage_storage_path_missing": (
         "Create or remount the configured lineage storage directory, then confirm the service is pointing at the "
         "expected path."
@@ -24,6 +28,10 @@ _REMEDIATION_HINTS: dict[str, str] = {
     "lineage_storage_write_probe_failed": (
         "Check free space, mount health, and write permissions on the lineage storage directory; the service could "
         "not complete a write/delete probe."
+    ),
+    "lineage_storage_readiness_timeout": (
+        "The lineage storage readiness probe exceeded its configured time budget; inspect mount latency, write/fsync "
+        "behavior, and filesystem health before accepting traffic."
     ),
     LINEAGE_STORAGE_CAPACITY_UNREADABLE_REASON: (
         "Inspect the lineage storage mount and filesystem health; the service could not read storage-capacity "
