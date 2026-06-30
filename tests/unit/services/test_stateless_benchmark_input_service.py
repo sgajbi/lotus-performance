@@ -1,7 +1,6 @@
 from datetime import date
 
 import pytest
-from fastapi import HTTPException
 
 from app.models.benchmark_analytics_requests import BenchmarkComponentPricePointInput, BenchmarkStatelessInput
 from app.services.stateless_benchmark_input_service import (
@@ -12,6 +11,7 @@ from app.services.stateless_benchmark_input_service import (
     _price_point_return_components,
     normalize_stateless_component_observations,
 )
+from core.errors import APIUnprocessableEntityError
 
 
 def test_normalize_stateless_component_observations_accepts_existing_component_observations():
@@ -178,7 +178,7 @@ def test_aligned_component_return_dates_sets_and_preserves_expected_coverage():
 
 
 def test_aligned_component_return_dates_rejects_peer_coverage_mismatch():
-    with pytest.raises(HTTPException, match="same derived return-date set"):
+    with pytest.raises(APIUnprocessableEntityError, match="same derived return-date set"):
         _aligned_component_return_dates(
             component_id="IDX_B",
             component_dates={date(2026, 1, 3)},
@@ -276,7 +276,7 @@ def test_cross_currency_price_point_return_components_project_fx_decomposition()
 
 
 def test_cross_currency_price_point_return_components_requires_fx_rates():
-    with pytest.raises(HTTPException, match="require fx_rate_to_benchmark"):
+    with pytest.raises(APIUnprocessableEntityError, match="require fx_rate_to_benchmark"):
         _cross_currency_price_point_return_components(
             component_id="IDX_EUR",
             component_currency="EUR",
@@ -324,7 +324,7 @@ def test_normalize_stateless_component_observations_rejects_cross_currency_price
         }
     )
 
-    with pytest.raises(HTTPException, match="require fx_rate_to_benchmark"):
+    with pytest.raises(APIUnprocessableEntityError, match="require fx_rate_to_benchmark"):
         normalize_stateless_component_observations(
             benchmark_currency="USD",
             stateless_input=stateless_input,
@@ -364,7 +364,7 @@ def test_normalize_stateless_component_observations_rejects_misaligned_component
         }
     )
 
-    with pytest.raises(HTTPException, match="same derived return-date set"):
+    with pytest.raises(APIUnprocessableEntityError, match="same derived return-date set"):
         normalize_stateless_component_observations(
             benchmark_currency="USD",
             stateless_input=stateless_input,
@@ -404,7 +404,7 @@ def test_normalize_stateless_component_observations_rejects_duplicate_component_
         }
     )
 
-    with pytest.raises(HTTPException, match="strictly increasing unique dates"):
+    with pytest.raises(APIUnprocessableEntityError, match="strictly increasing unique dates"):
         normalize_stateless_component_observations(
             benchmark_currency="USD",
             stateless_input=stateless_input,
@@ -414,7 +414,10 @@ def test_normalize_stateless_component_observations_rejects_duplicate_component_
 def test_normalize_stateless_component_observations_requires_any_calculated_input():
     stateless_input = BenchmarkStatelessInput.model_validate({"benchmark_currency": "USD"})
 
-    with pytest.raises(HTTPException, match="requires either component_observations or component_price_points"):
+    with pytest.raises(
+        APIUnprocessableEntityError,
+        match="requires either component_observations or component_price_points",
+    ):
         normalize_stateless_component_observations(
             benchmark_currency="USD",
             stateless_input=stateless_input,
@@ -455,13 +458,13 @@ def test_normalize_stateless_component_observations_rejects_zero_prior_price_and
         }
     )
 
-    with pytest.raises(HTTPException, match="require non-zero prior price"):
+    with pytest.raises(APIUnprocessableEntityError, match="require non-zero prior price"):
         normalize_stateless_component_observations(
             benchmark_currency="USD",
             stateless_input=zero_price_input,
         )
 
-    with pytest.raises(HTTPException, match="at least two price points per component are required"):
+    with pytest.raises(APIUnprocessableEntityError, match="at least two price points per component are required"):
         normalize_stateless_component_observations(
             benchmark_currency="USD",
             stateless_input=single_point_input,

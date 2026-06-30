@@ -4,14 +4,12 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date
 
-from fastapi import HTTPException
-
 from app.models.benchmark_analytics_requests import (
     BenchmarkComponentPricePointInput,
     BenchmarkStatelessInput,
 )
 from app.models.benchmark_requests import BenchmarkComponentObservation
-from core.errors import HTTP_422_UNPROCESSABLE
+from core.errors import APIUnprocessableEntityError
 
 _RatioNumber = float
 
@@ -39,11 +37,8 @@ def normalize_stateless_component_observations(
                 stateless_input=stateless_input,
             )
         ]
-    raise HTTPException(
-        status_code=HTTP_422_UNPROCESSABLE,
-        detail=(
-            "stateless benchmark calculated mode requires either component_observations or component_price_points."
-        ),
+    raise APIUnprocessableEntityError(
+        ("stateless benchmark calculated mode requires either component_observations or component_price_points."),
     )
 
 
@@ -72,9 +67,8 @@ def _build_component_observations_from_price_points(
         )
 
     if not observations:
-        raise HTTPException(
-            status_code=HTTP_422_UNPROCESSABLE,
-            detail=(
+        raise APIUnprocessableEntityError(
+            (
                 "stateless benchmark component_price_points did not yield any benchmark return observations; "
                 "at least two price points per component are required."
             ),
@@ -91,9 +85,8 @@ def _aligned_component_return_dates(
     if expected_component_dates is None:
         return component_dates
     if component_dates != expected_component_dates:
-        raise HTTPException(
-            status_code=HTTP_422_UNPROCESSABLE,
-            detail=(
+        raise APIUnprocessableEntityError(
+            (
                 "stateless benchmark component_price_points must yield the same derived return-date "
                 f"set for every component; component_id={component_id} does not match peer coverage."
             ),
@@ -132,9 +125,8 @@ def _build_price_point_observation(
     previous_date = previous_point.perf_date
     current_date = current_point.perf_date
     if current_date <= previous_date:
-        raise HTTPException(
-            status_code=HTTP_422_UNPROCESSABLE,
-            detail=(
+        raise APIUnprocessableEntityError(
+            (
                 "stateless benchmark component_price_points require strictly increasing unique dates "
                 f"per component; component_id={component_id} contains duplicate or non-monotonic "
                 f"date {current_date}."
@@ -143,9 +135,8 @@ def _build_price_point_observation(
     previous_price = float(previous_point.index_price)
     current_price = float(current_point.index_price)
     if previous_price == 0:
-        raise HTTPException(
-            status_code=HTTP_422_UNPROCESSABLE,
-            detail=(
+        raise APIUnprocessableEntityError(
+            (
                 f"stateless benchmark component_price_points require non-zero prior price "
                 f"for component_id={component_id} on {previous_date}."
             ),
@@ -212,9 +203,8 @@ def _cross_currency_price_point_return_components(
     current_fx = current_point.fx_rate_to_benchmark
     previous_fx = previous_point.fx_rate_to_benchmark
     if current_fx is None or previous_fx is None:
-        raise HTTPException(
-            status_code=HTTP_422_UNPROCESSABLE,
-            detail=(
+        raise APIUnprocessableEntityError(
+            (
                 f"stateless benchmark component_price_points require fx_rate_to_benchmark "
                 f"for cross-currency component_id={component_id} on {current_point.perf_date}."
             ),
