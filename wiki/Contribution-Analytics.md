@@ -117,6 +117,8 @@ The RFC-047 QA pack proves these contribution semantics:
 - short positions preserve signed average weight and inverse contribution sign behavior;
 - mixed-currency stateful contribution fails closed with HTTP `422` when required FX rates are not
   supplied;
+- local plus FX contribution reconciles to total contribution after residual allocation, including
+  zero-net and near-zero pre-allocation contribution cases;
 - invalid Carino domains fall back with explicit status and reason codes;
 - clean reset-aware average-weight candidate periods promote the same denominator into position and
   hierarchy weights only when the governed rollout mode is enabled;

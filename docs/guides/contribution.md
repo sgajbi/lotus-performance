@@ -136,6 +136,10 @@ Residual handling and event treatment are aligned with the underlying portfolio 
 - no-investment periods do not create artificial contribution
 - reset behavior remains consistent with portfolio-level return logic
 - small residuals are tracked and distributed so the final result reconciles
+- in `currency_mode="BOTH"`, residual allocation preserves the invariant that local contribution
+  plus FX contribution reconciles to total contribution; when the pre-allocation contribution
+  denominator is zero or effectively zero, the residual split falls back to absolute local/FX
+  component activity rather than silently leaving the decomposition unreconciled
 
 ### 6. Average-weight methodology characterization
 

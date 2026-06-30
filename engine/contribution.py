@@ -27,6 +27,8 @@ __all__ = [
     "calculate_hierarchical_contribution",
 ]
 
+_RESIDUAL_DENOMINATOR_TOLERANCE = 1e-12
+
 
 class ModelDumpLike(Protocol):
     def model_dump(self) -> dict[str, Any]: ...
@@ -457,9 +459,32 @@ def _apply_carino_residual_allocation(
     totals["weight_proportion"] = totals["weight_avg"] / total_avg_weight
     sum_of_contributions = totals["contribution"].sum()
     residual = total_portfolio_return - sum_of_contributions
-    local_prop = totals["local_contribution"].sum() / sum_of_contributions if sum_of_contributions != 0 else 0
-    fx_prop = totals["fx_contribution"].sum() / sum_of_contributions if sum_of_contributions != 0 else 0
+    local_prop, fx_prop = _local_fx_residual_proportions(
+        local_contribution_sum=totals["local_contribution"].sum(),
+        fx_contribution_sum=totals["fx_contribution"].sum(),
+        total_contribution_sum=sum_of_contributions,
+    )
 
     totals["contribution"] += residual * totals["weight_proportion"]
     totals["local_contribution"] += residual * local_prop * totals["weight_proportion"]
     totals["fx_contribution"] += residual * fx_prop * totals["weight_proportion"]
+
+
+def _local_fx_residual_proportions(
+    *,
+    local_contribution_sum: float,
+    fx_contribution_sum: float,
+    total_contribution_sum: float,
+) -> tuple[float, float]:
+    if abs(total_contribution_sum) > _RESIDUAL_DENOMINATOR_TOLERANCE:
+        return (
+            local_contribution_sum / total_contribution_sum,
+            fx_contribution_sum / total_contribution_sum,
+        )
+
+    absolute_component_sum = abs(local_contribution_sum) + abs(fx_contribution_sum)
+    if absolute_component_sum <= _RESIDUAL_DENOMINATOR_TOLERANCE:
+        return 1.0, 0.0
+
+    local_share = abs(local_contribution_sum) / absolute_component_sum
+    return local_share, 1.0 - local_share
