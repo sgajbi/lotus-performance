@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from typing import Protocol, cast
 
-from fastapi import HTTPException, status
-
 from app.core.application_responses import ApplicationHttpResponse
 from app.core.config import Settings, get_settings
 from app.models.attribution_analytics_requests import AttributionAnalyticsRequest, AttributionInputMode
@@ -14,6 +12,7 @@ from app.services.async_observability_context import async_observability_request
 from app.services.attribution_mode_service import ResolvedAttributionRequest, resolve_attribution_request
 from app.services.attribution_service import calculate_attribution
 from app.services.execution_lifecycle_service import record_execution_failure
+from app.services.execution_stage_errors import execution_stage_failure_detail, is_mappable_application_error
 from app.services.reproducibility_service import generate_request_fingerprint
 from app.services.stateful_execution_policy_service import (
     finalize_resolved_stateful_execution,
@@ -23,6 +22,7 @@ from app.services.submission_fencing_service import (
     register_async_submission_or_raise,
     register_sync_execution_or_raise,
 )
+from core.errors import APIInternalServerError
 
 
 class _AttributionWorkflowSettings(Protocol):
@@ -311,18 +311,20 @@ async def _resolve_and_calculate_attribution_response(
             input_fingerprint=input_fingerprint,
             calculation_hash=calculation_hash,
         )
-    except HTTPException as exc:
-        record_execution_failure(
-            calculation_id=request.calculation_id,
-            message=str(exc.detail),
-        )
-        raise
     except Exception as exc:
+        if is_mappable_application_error(exc):
+            record_execution_failure(
+                calculation_id=request.calculation_id,
+                message=execution_stage_failure_detail(exc),
+            )
+            raise
+        failure_detail = _unexpected_attribution_resolution_failure_detail(exc)
         record_execution_failure(
             calculation_id=request.calculation_id,
-            message=f"An unexpected error occurred during attribution request resolution: {exc}",
+            message=failure_detail,
         )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"An unexpected error occurred during attribution request resolution: {exc}",
-        ) from exc
+        raise APIInternalServerError(failure_detail) from exc
+
+
+def _unexpected_attribution_resolution_failure_detail(exc: Exception) -> str:
+    return f"An unexpected error occurred during attribution request resolution: {exc}"

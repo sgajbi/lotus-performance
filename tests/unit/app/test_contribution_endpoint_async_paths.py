@@ -12,6 +12,7 @@ from app.models.contribution_requests import ContributionRequest
 from app.observability import correlation_id_var, request_id_var, trace_id_var
 from app.services import contribution_calculation_workflow_service
 from app.services.contribution_mode_service import ResolvedContributionRequest
+from core.errors import APIError
 
 
 def _stateful_contribution_payload() -> dict[str, object]:
@@ -283,7 +284,7 @@ async def test_contribution_endpoint_maps_stateful_resolution_errors_to_http_500
         side_effect=lambda **kwargs: failure_capture.update(kwargs),
     )
 
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(APIError) as exc_info:
         await contribution_calculation_workflow_service.calculate_contribution_workflow(request)
 
     assert exc_info.value.status_code == 500
@@ -423,7 +424,7 @@ async def test_contribution_endpoint_maps_sync_resolution_errors_to_http_500(moc
         side_effect=lambda **kwargs: failure_capture.update(kwargs),
     )
 
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(APIError) as exc_info:
         await contribution_calculation_workflow_service.calculate_contribution_workflow(request)
 
     assert exc_info.value.status_code == 500

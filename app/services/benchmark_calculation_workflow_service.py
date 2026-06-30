@@ -3,8 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import NoReturn
 
-from fastapi import HTTPException, status
-
 from app.core.application_responses import ApplicationHttpResponse
 from app.core.config import get_settings
 from app.models.benchmark_analytics_requests import BenchmarkAnalyticsRequest, BenchmarkInputMode
@@ -16,6 +14,7 @@ from app.services.benchmark_mode_service import ResolvedBenchmarkRequest, resolv
 from app.services.benchmark_service import calculate_benchmark_response
 from app.services.execution_lifecycle_service import record_execution_failure
 from app.services.execution_registry import execution_registry
+from app.services.execution_stage_errors import execution_stage_failure_detail, is_mappable_application_error
 from app.services.reproducibility_service import generate_request_fingerprint
 from app.services.stateful_execution_policy_service import (
     finalize_resolved_stateful_execution,
@@ -25,6 +24,7 @@ from app.services.submission_fencing_service import (
     register_async_submission_or_raise,
     register_sync_execution_or_raise,
 )
+from core.errors import APIInternalServerError
 
 
 @dataclass(frozen=True)
@@ -129,20 +129,18 @@ async def _resolve_benchmark_execution_context(
 
 
 def _raise_benchmark_workflow_failure(request: BenchmarkAnalyticsRequest, exc: Exception) -> NoReturn:
-    if isinstance(exc, HTTPException):
+    if is_mappable_application_error(exc):
         record_execution_failure(
             calculation_id=request.calculation_id,
-            message=str(exc.detail),
+            message=execution_stage_failure_detail(exc),
         )
         raise exc
+    failure_detail = f"An unexpected server error occurred: {exc}"
     record_execution_failure(
         calculation_id=request.calculation_id,
-        message=f"An unexpected server error occurred: {exc}",
+        message=failure_detail,
     )
-    raise HTTPException(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        detail=f"An unexpected server error occurred: {exc}",
-    ) from exc
+    raise APIInternalServerError(failure_detail) from exc
 
 
 async def _calculate_promoted_stateful_benchmark_workflow(

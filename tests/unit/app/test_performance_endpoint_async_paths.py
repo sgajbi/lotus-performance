@@ -17,6 +17,7 @@ from app.services import workspace_summary_calculation_workflow_service as works
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY
 from app.services.attribution_mode_service import ResolvedAttributionRequest
 from app.services.twr_calculation_service import twr_requested_benchmark_work_units
+from core.errors import APIError
 
 
 def _stateful_twr_payload() -> dict[str, object]:
@@ -345,7 +346,7 @@ async def test_attribution_endpoint_maps_unexpected_resolution_errors_to_http_50
         side_effect=lambda **kwargs: failure_capture.update(kwargs),
     )
 
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(APIError) as exc_info:
         await attribution_calculation_workflow_service.calculate_attribution_workflow(request)
 
     assert exc_info.value.status_code == 500
