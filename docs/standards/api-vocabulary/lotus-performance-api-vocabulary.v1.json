@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-06-30T08:08:29.917950+00:00",
+  "generatedAt": "2026-06-30T16:04:18.501582+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.access_classification",
@@ -1446,7 +1446,18 @@
                 "currency": "USD",
                 "cash_flow_type": "example_cash_flow_type",
                 "flow_scope": "example_flow_scope",
-                "source_classification": "example_source_classification"
+                "source_classification": "example_source_classification",
+                "source_transaction_id": "SOURCE_TRANSACTION_001",
+                "source_event_id": "SOURCE_EVENT_001",
+                "lifecycle_status": "example_lifecycle_status",
+                "correction_reference_id": "CORRECTION_REFERENCE_001",
+                "reversal_reference_id": "REVERSAL_REFERENCE_001",
+                "cancellation_reference_id": "CANCELLATION_REFERENCE_001",
+                "trade_date": "2026-02-27",
+                "settlement_date": "2026-02-27",
+                "effective_date": "2026-02-27",
+                "posting_date": "2026-02-27",
+                "lifecycle_identity_status": "available"
               }
             ],
             "source_amount": "example_source_amount",
@@ -1462,7 +1473,22 @@
             "conversion_timestamp": "2026-02-27T10:30:00Z",
             "conversion_fingerprint": "example_conversion_fingerprint"
           }
-        ]
+        ],
+        "source_cashflow_quality": {
+          "source_product": "example_source_product",
+          "observed_source_row_count": 1,
+          "included_source_row_count": 1,
+          "excluded_source_row_count": 1,
+          "observed_economics_role_counts": {
+            "key": "value"
+          },
+          "exclusion_counts": {
+            "key": "value"
+          },
+          "reason_codes": [
+            "example_reason_codes_item"
+          ]
+        }
       },
       "type": "object",
       "locations": [
