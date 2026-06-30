@@ -19,11 +19,8 @@ def test_runtime_status_operator_action_status_handles_exceptions_and_unavailabl
             action_name="runtime_retention_cleanup",
         )
     assert unavailable.status == "unavailable"
-    assert unavailable.reason == "RuntimeError"
-    assert (
-        "Runtime status operator-action lease snapshot unavailable for action_name=runtime_retention_cleanup."
-        in caplog.text
-    )
+    assert unavailable.reason == "runtime_retention_operator_action_read_failed"
+    assert "Runtime status read degraded." in caplog.text
 
     mocker.patch(
         "app.services.runtime_status_operator_action.build_operator_action_lease_snapshot",

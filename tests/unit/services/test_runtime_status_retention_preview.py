@@ -59,6 +59,6 @@ def test_runtime_status_runtime_retention_preview_reports_unavailable_dependency
         status, reason, summary = runtime_status_retention_preview.build_runtime_retention_preview()
 
     assert status == "unavailable"
-    assert reason == "RuntimeError"
+    assert reason == "runtime_retention_preview_read_failed"
     assert summary is None
-    assert "Runtime retention preview unavailable while running dry-run cleanup." in caplog.text
+    assert "Runtime status read degraded." in caplog.text
