@@ -284,6 +284,26 @@ def test_build_stateful_contribution_input_builds_positions_and_currency_selecti
         ],
         position_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
         performance_component_economics_payload={
+            "rows": [
+                {
+                    "transaction_id": "TXN_FEE_1",
+                    "security_id": "SEC_1",
+                    "transaction_date": "2025-01-01",
+                    "trade_fee_components": [{"currency": "USD", "amount": "1", "evidence_count": 1}],
+                    "source_lineage": {"contract_version": "performance_component_economics_v1"},
+                },
+                {
+                    "transaction_id": "TXN_OTHER_1",
+                    "security_id": "SEC_2",
+                    "transaction_date": "2025-01-01",
+                    "trade_fee_components": [{"currency": "USD", "amount": "1", "evidence_count": 1}],
+                    "source_lineage": {"contract_version": "performance_component_economics_v1"},
+                },
+            ],
+            "component_totals_scope": "consumed_pages",
+            "lineage": {"source_system": "transactions", "contract_version": "performance_component_economics_v1"},
+            "request_fingerprints": ["fingerprint-1"],
+            "retrieval_metadata": {"chunk_count": 1, "page_count": 1},
             "supportability": {
                 "state": "READY",
                 "reason": "PERFORMANCE_COMPONENT_ECONOMICS_READY",
@@ -291,7 +311,7 @@ def test_build_stateful_contribution_input_builds_positions_and_currency_selecti
                 "observed_component_families": ["income", "tax", "fee", "realized_fx_pnl"],
                 "missing_component_families": ["realized_capital_pnl"],
                 "supported_component_families": ["fee", "income", "tax", "realized_fx_pnl"],
-            }
+            },
         },
         performance_component_economics_status=200,
     )
@@ -317,6 +337,12 @@ def test_build_stateful_contribution_input_builds_positions_and_currency_selecti
     assert component_context["source_contract"] == "PerformanceComponentEconomics:v1"
     assert component_context["supportability_state"] == "READY"
     assert component_context["observed_component_families"] == ["fee", "income", "realized_fx_pnl", "tax"]
+    assert component_context["position_source_row_count"] == 1
+    assert component_context["source_rows"][0]["transaction_id"] == "TXN_FEE_1"
+    assert component_context["component_totals_scope"] == "consumed_pages"
+    assert component_context["lineage"]["contract_version"] == "performance_component_economics_v1"
+    assert component_context["request_fingerprints"] == ["fingerprint-1"]
+    assert component_context["retrieval_metadata"] == {"chunk_count": 1, "page_count": 1}
 
 
 def test_stateful_contribution_portfolio_data_preserves_metric_basis_and_valuation_points():

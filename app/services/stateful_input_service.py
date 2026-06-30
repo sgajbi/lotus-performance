@@ -4,7 +4,9 @@ import asyncio
 import hashlib
 import json
 from dataclasses import dataclass
+from dataclasses import field as dataclass_field
 from datetime import date, timedelta
+from decimal import Decimal, InvalidOperation
 from typing import Any, Awaitable, Callable, TypeGuard
 from uuid import UUID
 
@@ -64,9 +66,14 @@ class _PerformanceComponentEconomicsAccumulator:
     observed_component_families: set[str]
     supported_component_families: set[str]
     missing_component_families: set[str]
+    rows: list[dict[str, Any]] = dataclass_field(default_factory=list)
+    component_totals: list[dict[str, Any]] = dataclass_field(default_factory=list)
+    lineage_values: list[dict[str, Any]] = dataclass_field(default_factory=list)
+    request_fingerprints: list[str] = dataclass_field(default_factory=list)
     source_row_count: int = 0
     ready_chunk_count: int = 0
     unavailable_chunk_count: int = 0
+    page_count: int = 0
 
 
 @dataclass(frozen=True)
@@ -1341,13 +1348,47 @@ class StatefulInputService:
         security_ids: list[str] | None,
         transaction_types: list[str] | None,
     ) -> tuple[int, dict[str, Any]]:
-        return await self._core_service.get_performance_component_economics(
+        page_token: str | None = None
+        seen_page_tokens: set[str] = set()
+        accumulator = _PerformanceComponentEconomicsAccumulator(
+            observed_component_families=set(),
+            supported_component_families=set(),
+            missing_component_families=set(),
+            rows=[],
+            component_totals=[],
+        )
+        while True:
+            status_code, payload = await self._core_service.get_performance_component_economics(
+                portfolio_id=portfolio_id,
+                as_of_date=as_of_date,
+                start_date=chunk.start_date,
+                end_date=chunk.end_date,
+                security_ids=security_ids,
+                transaction_types=transaction_types,
+                page_token=page_token,
+            )
+            if status_code >= 400:
+                return status_code, payload
+            _record_performance_component_economics_payload(accumulator=accumulator, payload=payload)
+
+            page_token = self._next_page_token(payload)
+            if not page_token:
+                break
+            pagination_failure = self._page_traversal_failure_payload(
+                chunk=chunk,
+                page_count=accumulator.page_count,
+                next_page_token=page_token,
+                seen_page_tokens=seen_page_tokens,
+            )
+            if pagination_failure is not None:
+                return 503, pagination_failure
+            seen_page_tokens.add(page_token)
+
+        return 200, _build_performance_component_economics_chunk_payload(
+            accumulator=accumulator,
             portfolio_id=portfolio_id,
             as_of_date=as_of_date,
-            start_date=chunk.start_date,
-            end_date=chunk.end_date,
-            security_ids=security_ids,
-            transaction_types=transaction_types,
+            chunk=chunk,
         )
 
     def _record_performance_component_economics_snapshots(
@@ -1539,13 +1580,21 @@ class StatefulInputService:
             "portfolio_id": portfolio_id,
             "as_of_date": str(as_of_date),
             "window": {"start_date": str(start_date), "end_date": str(end_date)},
+            "rows": self._merge_dedup_records_by_fields(
+                records=_performance_component_economics_rows_from_responses(responses),
+                key_fields=("security_id", "transaction_date", "transaction_id"),
+            ),
+            "component_totals": _performance_component_economics_component_totals_from_responses(responses),
+            "component_totals_scope": "consumed_pages",
             "supportability": _performance_component_economics_supportability(
                 accumulator=accumulator,
                 chunk_count=chunk_count,
             ),
+            "lineage": _performance_component_economics_lineage_from_responses(responses),
+            "request_fingerprints": _performance_component_economics_request_fingerprints(responses),
             "retrieval_metadata": {
                 "chunk_count": chunk_count,
-                "page_count": len(responses),
+                "page_count": self._total_retrieval_page_count(responses),
             },
         }
 
@@ -1863,6 +1912,74 @@ def _performance_component_economics_request_payload(
     }
 
 
+def _build_performance_component_economics_chunk_payload(
+    *,
+    accumulator: _PerformanceComponentEconomicsAccumulator,
+    portfolio_id: str,
+    as_of_date: date,
+    chunk: DateChunk,
+) -> dict[str, Any]:
+    state, reason = _performance_component_economics_chunk_state_reason(accumulator)
+    return {
+        "product_name": "PerformanceComponentEconomics",
+        "product_version": "v1",
+        "portfolio_id": portfolio_id,
+        "as_of_date": str(as_of_date),
+        "window": {"start_date": str(chunk.start_date), "end_date": str(chunk.end_date)},
+        "rows": _dedup_performance_component_economics_rows(accumulator.rows),
+        "component_totals": _merge_performance_component_economics_totals(accumulator.component_totals),
+        "component_totals_scope": "consumed_pages",
+        "lineage": _merge_performance_component_economics_lineage(accumulator.lineage_values),
+        "request_fingerprints": sorted(set(accumulator.request_fingerprints)),
+        "supportability": {
+            "state": state,
+            "reason": reason,
+            "source_owner": "lotus-core",
+            "downstream_consumer": "lotus-performance",
+            "source_row_count": accumulator.source_row_count,
+            "ready_chunk_count": 1 if state == "READY" else 0,
+            "unavailable_chunk_count": 0 if state == "READY" else 1,
+            "supported_component_families": sorted(accumulator.supported_component_families),
+            "observed_component_families": sorted(accumulator.observed_component_families),
+            "missing_component_families": _performance_component_economics_missing_families(accumulator),
+        },
+        "retrieval_metadata": {"page_count": accumulator.page_count},
+    }
+
+
+def _performance_component_economics_chunk_state_reason(
+    accumulator: _PerformanceComponentEconomicsAccumulator,
+) -> tuple[str, str]:
+    if accumulator.source_row_count > 0:
+        return "READY", "PERFORMANCE_COMPONENT_ECONOMICS_READY"
+    return "UNAVAILABLE", "PERFORMANCE_COMPONENT_ECONOMICS_UNAVAILABLE"
+
+
+def _record_performance_component_economics_payload(
+    *,
+    accumulator: _PerformanceComponentEconomicsAccumulator,
+    payload: dict[str, Any],
+) -> None:
+    accumulator.page_count += 1
+    rows = _dict_list_payload_items_from_payload(payload, "rows")
+    accumulator.rows.extend(rows)
+    accumulator.component_totals.extend(_dict_list_payload_items_from_payload(payload, "component_totals"))
+    lineage = payload.get("lineage")
+    if isinstance(lineage, dict):
+        accumulator.lineage_values.append(lineage)
+    request_fingerprint = _string_or_none(payload.get("request_fingerprint"))
+    if request_fingerprint is not None:
+        accumulator.request_fingerprints.append(request_fingerprint)
+    supportability = payload.get("supportability")
+    if not isinstance(supportability, dict):
+        accumulator.unavailable_chunk_count += 1
+        return
+    accumulator.source_row_count += len(rows)
+    accumulator.observed_component_families.update(_string_list(supportability.get("observed_component_families")))
+    accumulator.supported_component_families.update(_string_list(supportability.get("supported_component_families")))
+    accumulator.missing_component_families.update(_string_list(supportability.get("missing_component_families")))
+
+
 def _performance_component_economics_accumulator(
     responses: list[tuple[int, dict[str, Any]]],
 ) -> _PerformanceComponentEconomicsAccumulator:
@@ -1892,6 +2009,9 @@ def _performance_component_economics_accumulator(
             _string_list(supportability.get("supported_component_families"))
         )
         accumulator.missing_component_families.update(_string_list(supportability.get("missing_component_families")))
+        accumulator.rows.extend(_dict_list_payload_items_from_payload(payload, "rows"))
+        accumulator.component_totals.extend(_dict_list_payload_items_from_payload(payload, "component_totals"))
+        accumulator.page_count += _retrieval_page_count(payload)
     return accumulator
 
 
@@ -1948,6 +2068,136 @@ def _non_negative_int(value: Any) -> int:
     if type(value) is int and value > 0:
         return value
     return 0
+
+
+def _performance_component_economics_rows_from_responses(
+    responses: list[tuple[int, dict[str, Any]]],
+) -> list[dict[str, Any]]:
+    return [
+        row
+        for status_code, payload in responses
+        if status_code == 200
+        for row in _dict_list_payload_items_from_payload(payload, "rows")
+    ]
+
+
+def _performance_component_economics_component_totals_from_responses(
+    responses: list[tuple[int, dict[str, Any]]],
+) -> list[dict[str, Any]]:
+    return _merge_performance_component_economics_totals(
+        [
+            total
+            for status_code, payload in responses
+            if status_code == 200
+            for total in _dict_list_payload_items_from_payload(payload, "component_totals")
+        ]
+    )
+
+
+def _performance_component_economics_lineage_from_responses(
+    responses: list[tuple[int, dict[str, Any]]],
+) -> dict[str, Any]:
+    lineage_values = [
+        payload["lineage"]
+        for status_code, payload in responses
+        if status_code == 200 and isinstance(payload.get("lineage"), dict)
+    ]
+    return _merge_performance_component_economics_lineage(lineage_values)
+
+
+def _merge_performance_component_economics_lineage(lineage_values: list[dict[str, Any]]) -> dict[str, Any]:
+    if not lineage_values:
+        return {}
+    merged: dict[str, set[str]] = {}
+    for lineage in lineage_values:
+        for key, value in _lineage_string_items(lineage):
+            merged.setdefault(key, set()).add(value)
+    return {key: ",".join(sorted(values)) for key, values in sorted(merged.items())}
+
+
+def _lineage_string_items(lineage: dict[str, Any]) -> list[tuple[str, str]]:
+    return [(key, value) for key, value in lineage.items() if isinstance(key, str) and isinstance(value, str) and value]
+
+
+def _performance_component_economics_request_fingerprints(
+    responses: list[tuple[int, dict[str, Any]]],
+) -> list[str]:
+    return sorted(
+        {
+            fingerprint
+            for status_code, payload in responses
+            if status_code == 200
+            for fingerprint in [
+                *_string_list(payload.get("request_fingerprints")),
+                *[_string_or_none(payload.get("request_fingerprint"))],
+            ]
+            if fingerprint is not None
+        }
+    )
+
+
+def _dedup_performance_component_economics_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    deduped: dict[tuple[str, str, str], dict[str, Any]] = {}
+    for row in rows:
+        key = _performance_component_economics_row_key(row)
+        if key is not None:
+            deduped[key] = row
+    return [deduped[key] for key in sorted(deduped)]
+
+
+def _performance_component_economics_row_key(row: dict[str, Any]) -> tuple[str, str, str] | None:
+    security_id = _string_or_none(row.get("security_id"))
+    transaction_date = _string_or_none(row.get("transaction_date"))
+    transaction_id = _string_or_none(row.get("transaction_id"))
+    if security_id is None or transaction_date is None or transaction_id is None:
+        return None
+    return security_id, transaction_date, transaction_id
+
+
+def _merge_performance_component_economics_totals(totals: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    grouped: dict[tuple[str, str], dict[str, Any]] = {}
+    for total in totals:
+        family = _string_or_none(total.get("component_family"))
+        currency = _string_or_none(total.get("currency"))
+        amount = _decimal_or_none(total.get("amount"))
+        if family is None or currency is None or amount is None:
+            continue
+        key = (family, currency)
+        current = grouped.setdefault(
+            key,
+            {"component_family": family, "currency": currency, "amount": Decimal("0"), "evidence_count": 0},
+        )
+        current["amount"] += amount
+        current["evidence_count"] += _non_negative_int(total.get("evidence_count"))
+    return [
+        {
+            "component_family": total["component_family"],
+            "currency": total["currency"],
+            "amount": str(total["amount"]),
+            "evidence_count": total["evidence_count"],
+        }
+        for _, total in sorted(grouped.items())
+    ]
+
+
+def _dict_list_payload_items_from_payload(payload: dict[str, Any], field_name: str) -> list[dict[str, Any]]:
+    items = payload.get(field_name, [])
+    if not isinstance(items, list):
+        return []
+    return [item for item in items if isinstance(item, dict)]
+
+
+def _decimal_or_none(value: Any) -> Decimal | None:
+    try:
+        return Decimal(str(value))
+    except (InvalidOperation, TypeError, ValueError):
+        return None
+
+
+def _string_or_none(value: Any) -> str | None:
+    if isinstance(value, str) and value:
+        return value
+    return None
 
 
 def _position_rows_from_payload(payload: dict[str, Any]) -> list[dict[str, Any]]:

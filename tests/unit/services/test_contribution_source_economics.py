@@ -136,6 +136,16 @@ def test_source_economics_evidence_consumes_core_performance_component_economics
                         "realized_capital_pnl",
                         "realized_fx_pnl",
                     ],
+                    "source_rows": [
+                        {
+                            "transaction_id": "TXN_DIV_1",
+                            "security_id": "SEC_1",
+                            "transaction_date": "2025-01-01",
+                            "net_interest_amount": "2.00",
+                            "withholding_tax_amount": "0.30",
+                            "trade_fee_components": [{"currency": "USD", "amount": "0.10", "evidence_count": 1}],
+                        }
+                    ],
                 },
             },
         }
@@ -163,6 +173,39 @@ def test_source_economics_evidence_consumes_core_performance_component_economics
     assert "tax_pnl" not in evidence.unsupported_economics
     assert "price_pnl" in evidence.unsupported_economics
     assert "fx_pnl" in evidence.unsupported_economics
+
+
+def test_source_economics_evidence_requires_core_component_rows_for_component_promotion():
+    request = _request_with_position_meta(
+        {
+            "asset_class": "Equity",
+            "_source_economics": {
+                "cash_flow_type_counts": {"external_flow": 1},
+                "performance_component_economics": {
+                    "source_contract": "PerformanceComponentEconomics:v1",
+                    "retrieval_status": 200,
+                    "supportability_state": "READY",
+                    "supportability_reason": "PERFORMANCE_COMPONENT_ECONOMICS_READY",
+                    "source_row_count": 4,
+                    "observed_component_families": ["income", "tax", "fee"],
+                    "missing_component_families": [],
+                    "supported_component_families": ["cashflow", "fee", "income", "tax"],
+                    "source_rows": [],
+                },
+            },
+        }
+    )
+
+    evidence = build_contribution_source_economics_evidence(
+        request=request,
+        input_mode=ContributionInputMode.STATEFUL,
+        upstream_snapshots=[_snapshot("performance_component_economics")],
+    )
+
+    assert evidence.status == "SOURCE_LIMITED"
+    assert "performance_component_economics_unavailable" in evidence.degraded_economics
+    assert "source_component_income" not in evidence.available_economics
+    assert "income_pnl" in evidence.unsupported_economics
 
 
 def test_source_economics_evidence_degrades_unavailable_core_performance_component_economics():

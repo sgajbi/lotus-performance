@@ -222,6 +222,7 @@ async def test_get_performance_component_economics_posts_contract_payload():
     assert _FakeAsyncClient.calls[0]["json"] == {
         "as_of_date": "2026-02-24",
         "window": {"start_date": "2026-01-01", "end_date": "2026-02-24"},
+        "page": {"page_size": 5000, "page_token": None},
         "security_ids": ["SEC_1"],
         "transaction_types": ["DIVIDEND"],
     }

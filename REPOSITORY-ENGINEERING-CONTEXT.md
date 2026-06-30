@@ -67,9 +67,12 @@ Current repository posture:
     actions, or execution instructions.
 12. stateful contribution consumes `lotus-core:PerformanceComponentEconomics:v1` as optional
     source-economics evidence for cashflow, fee, income, tax, realized P&L, and FX-context
-    component-family supportability. `lotus-performance` still owns contribution methodology and
-    treats non-200 or unavailable component-economics responses as degraded evidence rather than
-    as a required-input failure.
+    component-family supportability. The consumer must traverse Core component-economics pages,
+    preserve source rows, lineage, request fingerprints, retrieval metadata, and consumed-page
+    totals, and use observed component families for source-backed contribution evidence only when
+    the relevant position context contains actual Core-authored `source_rows`.
+    `lotus-performance` still owns contribution methodology and treats non-200 or unavailable
+    component-economics responses as degraded evidence rather than as a required-input failure.
 13. HTTP boundary hardening is centralized in `app.http_security`: `HTTP_ALLOWED_HOSTS` controls
     host allow-listing, `CORS_ALLOWED_ORIGINS` controls explicit browser origins, standard security
     headers are emitted on success and error responses, and `HTTP_SECURITY_HSTS_ENABLED` is used
@@ -124,8 +127,10 @@ Boundary rules:
 4. benchmark and stateful integration behavior must remain truthful and documented,
 5. `lotus-core` must be consumed as a governed source-data and analytics-input authority, not as a provider of performance conclusions,
 6. `PerformanceComponentEconomics:v1` evidence may improve contribution source-economics coverage
-   but must not be relabeled as contribution analytics, attribution analytics, performance returns,
-   or full price/FX attribution.
+   only from complete, row-level Core evidence. Aggregate supportability family names without
+   preserved source rows must not clear unsupported contribution economics, and the product must
+   not be relabeled as contribution analytics, attribution analytics, performance returns, or full
+   price/FX attribution.
 7. MWR methodology, source cash-flow normalization, supportability evidence, and lifecycle identity
    projection remain design modules inside the existing performance service. Do not split them into
    a separate runtime service unless there is concrete evidence for independent scaling, failure

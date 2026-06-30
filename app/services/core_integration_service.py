@@ -108,10 +108,13 @@ class CoreIntegrationService:
         end_date: date,
         security_ids: list[str] | None = None,
         transaction_types: list[str] | None = None,
+        page_size: int = 5000,
+        page_token: str | None = None,
     ) -> tuple[int, dict[str, Any]]:
         payload: dict[str, Any] = {
             "as_of_date": str(as_of_date),
             "window": {"start_date": str(start_date), "end_date": str(end_date)},
+            "page": {"page_size": page_size, "page_token": page_token},
         }
         if security_ids:
             payload["security_ids"] = security_ids

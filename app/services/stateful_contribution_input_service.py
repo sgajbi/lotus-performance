@@ -474,6 +474,7 @@ def _position_source_economics_from_row(
     }
     if performance_component_economics_payload is not None:
         source_economics["performance_component_economics"] = _performance_component_economics_context(
+            row=row,
             payload=performance_component_economics_payload,
             status_code=performance_component_economics_status,
         )
@@ -496,21 +497,74 @@ def _source_cash_flow_type_counts(cash_flows_raw: object) -> dict[str, int]:
 
 def _performance_component_economics_context(
     *,
+    row: dict[str, object] | None = None,
     payload: dict[str, object],
     status_code: int | None,
 ) -> dict[str, object]:
     supportability_raw = payload.get("supportability")
     supportability = supportability_raw if isinstance(supportability_raw, dict) else {}
+    source_rows = _performance_component_economics_source_rows_for_position(row=row, payload=payload)
     return {
         "source_contract": "PerformanceComponentEconomics:v1",
         "retrieval_status": status_code,
         "supportability_state": _string_value(supportability.get("state")),
         "supportability_reason": _string_value(supportability.get("reason")),
         "source_row_count": _non_negative_int(supportability.get("source_row_count")),
+        "position_source_row_count": len(source_rows),
+        "source_rows": source_rows,
+        "component_totals_scope": _string_value(payload.get("component_totals_scope")),
+        "lineage": payload.get("lineage") if isinstance(payload.get("lineage"), dict) else {},
+        "request_fingerprints": _string_values(payload.get("request_fingerprints")),
+        "retrieval_metadata": payload.get("retrieval_metadata")
+        if isinstance(payload.get("retrieval_metadata"), dict)
+        else {},
         "observed_component_families": _string_values(supportability.get("observed_component_families")),
         "missing_component_families": _string_values(supportability.get("missing_component_families")),
         "supported_component_families": _string_values(supportability.get("supported_component_families")),
     }
+
+
+def _performance_component_economics_source_rows_for_position(
+    *,
+    row: dict[str, object] | None,
+    payload: dict[str, object],
+) -> list[dict[str, object]]:
+    rows = payload.get("rows")
+    if not isinstance(rows, list):
+        return []
+    security_id = _position_security_id(row)
+    source_rows = [
+        source_row
+        for source_row in rows
+        if _is_performance_component_economics_source_row(source_row, security_id=security_id)
+    ]
+    return sorted(source_rows, key=_performance_component_economics_source_row_sort_key)
+
+
+def _position_security_id(row: dict[str, object] | None) -> str | None:
+    if row is None:
+        return None
+    return _string_value(row.get("security_id"))
+
+
+def _is_performance_component_economics_source_row(
+    value: object,
+    *,
+    security_id: str | None,
+) -> TypeGuard[dict[str, object]]:
+    if not isinstance(value, dict):
+        return False
+    return security_id is None or _string_value(value.get("security_id")) == security_id
+
+
+def _performance_component_economics_source_row_sort_key(
+    source_row: dict[str, object],
+) -> tuple[str, str, str]:
+    return (
+        _string_value(source_row.get("security_id")) or "",
+        _string_value(source_row.get("transaction_date")) or "",
+        _string_value(source_row.get("transaction_id")) or "",
+    )
 
 
 def _security_ids_filter(filters: dict[str, object]) -> list[str] | None:

@@ -159,9 +159,36 @@ class _CoreServiceStub:
 
     async def get_performance_component_economics(self, **kwargs):
         self.performance_component_economics_calls.append(kwargs)
+        transaction_date = str(kwargs["start_date"])
         return (
             200,
             {
+                "product_name": "PerformanceComponentEconomics",
+                "product_version": "v1",
+                "rows": [
+                    {
+                        "transaction_id": f"TXN-{transaction_date}-1",
+                        "security_id": "SEC_1",
+                        "transaction_date": transaction_date,
+                        "trade_fee_components": [{"currency": "USD", "amount": "1.25", "evidence_count": 1}],
+                        "net_interest_amount": "2.00",
+                        "source_lineage": {"contract_version": "performance_component_economics_v1"},
+                    },
+                    {
+                        "transaction_id": f"TXN-{transaction_date}-2",
+                        "security_id": "SEC_2",
+                        "transaction_date": transaction_date,
+                        "trade_fee_components": [{"currency": "USD", "amount": "1.25", "evidence_count": 1}],
+                        "net_interest_amount": "3.00",
+                        "source_lineage": {"contract_version": "performance_component_economics_v1"},
+                    },
+                ],
+                "component_totals": [
+                    {"component_family": "fee", "currency": "USD", "amount": "2.50", "evidence_count": 2},
+                    {"component_family": "income", "currency": "USD", "amount": "5.00", "evidence_count": 2},
+                ],
+                "component_totals_scope": "returned_page",
+                "request_fingerprint": f"fingerprint-{transaction_date}",
                 "supportability": {
                     "state": "READY",
                     "reason": "PERFORMANCE_COMPONENT_ECONOMICS_READY",
@@ -169,7 +196,11 @@ class _CoreServiceStub:
                     "supported_component_families": ["fee", "income", "tax", "realized_fx_pnl"],
                     "observed_component_families": ["fee", "income"],
                     "missing_component_families": ["tax", "realized_fx_pnl"],
-                }
+                },
+                "lineage": {
+                    "source_system": "transactions",
+                    "contract_version": "performance_component_economics_v1",
+                },
             },
         )
 
@@ -1331,6 +1362,16 @@ async def test_get_performance_component_economics_chunks_merges_coverage_and_re
     assert payload["supportability"]["state"] == "READY"
     assert payload["supportability"]["source_row_count"] == 4
     assert payload["supportability"]["observed_component_families"] == ["fee", "income"]
+    assert len(payload["rows"]) == 4
+    assert payload["component_totals"] == [
+        {"component_family": "fee", "currency": "USD", "amount": "5.00", "evidence_count": 4},
+        {"component_family": "income", "currency": "USD", "amount": "10.00", "evidence_count": 4},
+    ]
+    assert payload["lineage"] == {
+        "contract_version": "performance_component_economics_v1",
+        "source_system": "transactions",
+    }
+    assert payload["request_fingerprints"] == ["fingerprint-2025-12-31", "fingerprint-2027-01-01"]
     assert payload["retrieval_metadata"] == {"chunk_count": 2, "page_count": 2}
     assert [call["start_date"] for call in core_service.performance_component_economics_calls] == [
         date(2025, 12, 31),
