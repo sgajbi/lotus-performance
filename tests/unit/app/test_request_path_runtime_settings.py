@@ -5,9 +5,7 @@ from uuid import uuid4
 
 import pandas as pd
 import pytest
-from fastapi import HTTPException
 
-from app.api.endpoints.performance import _should_offload_workspace_summary
 from app.models.attribution_analytics_requests import AttributionAnalyticsRequest
 from app.models.attribution_requests import AttributionRequest
 from app.models.attribution_responses import SinglePeriodAttributionResult
@@ -18,7 +16,9 @@ from app.services import attribution_service, contribution_service
 from app.services.attribution_calculation_workflow_service import should_offload_attribution
 from app.services.attribution_service import _slice_attribution_effects_by_period
 from app.services.contribution_calculation_workflow_service import should_offload_contribution
+from app.services.workspace_summary_calculation_workflow_service import should_offload_workspace_summary
 from common.enums import AttributionModel, LinkingMethod, PeriodType
+from core.errors import APIError
 
 
 def test_should_offload_contribution_uses_runtime_settings(mocker):
@@ -124,7 +124,7 @@ def test_should_offload_workspace_summary_uses_runtime_window_settings(mocker):
         }
     )
     mocker.patch(
-        "app.api.endpoints.performance.get_settings",
+        "app.services.workspace_summary_calculation_workflow_service.get_settings",
         return_value=type(
             "Settings",
             (),
@@ -135,7 +135,7 @@ def test_should_offload_workspace_summary_uses_runtime_window_settings(mocker):
         )(),
     )
 
-    assert _should_offload_workspace_summary(request) is True
+    assert should_offload_workspace_summary(request) is True
 
 
 def test_should_offload_workspace_summary_uses_runtime_input_count_settings(mocker):
@@ -155,7 +155,7 @@ def test_should_offload_workspace_summary_uses_runtime_input_count_settings(mock
         }
     )
     mocker.patch(
-        "app.api.endpoints.performance.get_settings",
+        "app.services.workspace_summary_calculation_workflow_service.get_settings",
         return_value=type(
             "Settings",
             (),
@@ -166,7 +166,7 @@ def test_should_offload_workspace_summary_uses_runtime_input_count_settings(mock
         )(),
     )
 
-    assert _should_offload_workspace_summary(request) is True
+    assert should_offload_workspace_summary(request) is True
 
 
 def test_contribution_service_uses_runtime_app_version(mocker):
@@ -282,7 +282,7 @@ def test_contribution_service_raises_when_no_periods_resolve(mocker):
         }
     )
 
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(APIError) as exc_info:
         contribution_service.calculate_contribution(
             request,
             input_fingerprint="fingerprint",
