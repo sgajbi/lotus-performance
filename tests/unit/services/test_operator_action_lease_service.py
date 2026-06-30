@@ -26,6 +26,7 @@ from app.services.operator_action_lease_service import (
     _recent_reclaimed_lease_events_from_payload,
     _reclaim_stale_lock,
     _reclaimed_event_timestamps_valid,
+    _release_lock_if_owned,
     _stale_lock_reclaim_candidate,
     _write_latest_reclaimed_lease,
     build_operator_action_lease_snapshot,
@@ -158,13 +159,13 @@ def test_operator_action_lease_normalizes_written_metadata(tmp_path):
         lock_path = artifact_dir / ".action-locks" / "recovery-drill-ops-user-backup-123.lock"
         payload = json.loads(lock_path.read_text(encoding="utf-8"))
 
-    assert payload == {
-        "action_name": "recovery_drill",
-        "operator_id": "ops-user",
-        "tenant_id": None,
-        "governed_target": "backup-123",
-        "acquired_at_utc": "2026-03-15T00:00:00Z",
-    }
+    assert payload["action_name"] == "recovery_drill"
+    assert payload["operator_id"] == "ops-user"
+    assert payload["tenant_id"] is None
+    assert payload["governed_target"] == "backup-123"
+    assert payload["acquired_at_utc"] == "2026-03-15T00:00:00Z"
+    assert isinstance(payload["lease_token"], str)
+    assert payload["lease_token"]
 
 
 def test_operator_action_lease_rejects_blank_metadata_before_writing(tmp_path):
@@ -235,6 +236,57 @@ def test_operator_action_lease_reclaims_stale_lock(tmp_path):
     assert latest_reclaim["governed_target"] == "backup-123"
     assert latest_reclaim["stale_after_seconds"] == 300.0
     assert latest_reclaim["reclaim_count"] == 1
+
+
+def test_operator_action_release_does_not_remove_replacement_owner_lock(tmp_path):
+    artifact_dir = tmp_path / "artifacts"
+    locks_dir = artifact_dir / ".action-locks"
+    locks_dir.mkdir(parents=True, exist_ok=True)
+    action_key = build_recovery_drill_action_key(
+        operator_id="ops-user",
+        tenant_id="tenant-a",
+        backup_identifier="backup-123",
+    )
+    lock_path = locks_dir / f"{action_key}.lock"
+    stale_payload = {
+        "action_name": "recovery_drill",
+        "operator_id": "ops-user",
+        "tenant_id": "tenant-a",
+        "governed_target": "backup-123",
+        "acquired_at_utc": (datetime.now(UTC) - timedelta(hours=2)).isoformat(),
+        "lease_token": "lease-a",
+    }
+    replacement_payload = {
+        **stale_payload,
+        "operator_id": "ops-user-2",
+        "acquired_at_utc": datetime.now(UTC).isoformat(),
+        "lease_token": "lease-b",
+    }
+    lock_path.write_text(json.dumps(replacement_payload), encoding="utf-8")
+
+    released = _release_lock_if_owned(lock_path=lock_path, expected_payload=stale_payload)
+
+    assert released is False
+    assert lock_path.exists()
+    assert json.loads(lock_path.read_text(encoding="utf-8"))["lease_token"] == "lease-b"
+    metadata = OperatorActionLeaseMetadata(
+        action_name="recovery_drill",
+        operator_id="ops-user-3",
+        tenant_id="tenant-a",
+        governed_target="backup-123",
+        acquired_at_utc=datetime.now(UTC).isoformat(),
+    )
+    with pytest.raises(HTTPException) as exc_info:
+        with operator_action_lease(
+            artifact_directory=artifact_dir,
+            action_key=action_key,
+            metadata=metadata,
+            stale_after_seconds=3600.0,
+        ):
+            pass
+
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.detail["active_operator_id"] == "ops-user-2"
 
 
 def test_operator_action_lease_snapshot_reports_available_when_lock_directory_is_missing(tmp_path):

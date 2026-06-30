@@ -13,6 +13,7 @@ from app.services.compute_job_store import (
     INVALID_COMPUTE_JOB_REQUEST_PAYLOAD_MESSAGE,
     INVALID_COMPUTE_JOB_RESPONSE_PAYLOAD_ERROR_TYPE,
     INVALID_COMPUTE_JOB_RESPONSE_PAYLOAD_MESSAGE,
+    ComputeJobLeaseOwnershipError,
     ComputeJobModel,
     ComputeJobRegistrationStatus,
     ComputeJobStatus,
@@ -190,7 +191,11 @@ def test_compute_job_store_lifecycle(tmp_path):
     assert running.attempt_count == 1
     assert running.worker_id == "worker-a"
 
-    store.mark_complete(calculation_id, response_payload={"calculation_id": str(calculation_id)})
+    store.mark_complete(
+        calculation_id,
+        response_payload={"calculation_id": str(calculation_id)},
+        worker_id="worker-a",
+    )
     complete = store.get_job(calculation_id)
     assert complete is not None
     assert complete.job_status == ComputeJobStatus.COMPLETE
@@ -439,6 +444,7 @@ def test_compute_job_store_retry_and_expired_lease_reclaim(tmp_path):
         calculation_id,
         error_message="temporary boom",
         error_type="RuntimeError",
+        worker_id="worker-a",
     )
     assert will_retry is True
     pending_again = store.get_job(calculation_id)
@@ -456,6 +462,7 @@ def test_compute_job_store_retry_and_expired_lease_reclaim(tmp_path):
         calculation_id,
         error_message="still broken",
         error_type="RuntimeError",
+        worker_id="worker-b",
     )
     assert will_retry is False
     failed = store.get_job(calculation_id)
@@ -521,6 +528,58 @@ def test_compute_job_store_reconciles_stale_running_job(tmp_path):
     assert failed is not None
     assert failed.job_status == ComputeJobStatus.FAILED
     assert failed.error_message == "Compute job execution lease expired after exhausting retry budget."
+
+
+def test_compute_job_store_rejects_finalization_from_stale_worker_after_reclaim(tmp_path):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
+    store.create_schema()
+    calculation_id = uuid4()
+
+    store.enqueue_job(
+        calculation_id=calculation_id,
+        analytics_type="ReturnsSeries",
+        request_payload={"portfolio_id": "P1"},
+        max_attempts=3,
+    )
+    store.lease_pending_jobs(worker_id="worker-a", limit=10, lease_seconds=30)
+    store.mark_running(calculation_id, worker_id="worker-a", lease_seconds=30)
+    with store._session() as session:
+        row = store._get_model(session, calculation_id)
+        row.lease_expires_at_utc = datetime.now(timezone.utc) - timedelta(seconds=1)
+
+    reconciled = store.reconcile_stale_jobs()
+    assert len(reconciled) == 1
+    store.lease_pending_jobs(worker_id="worker-b", limit=10, lease_seconds=30)
+    store.mark_running(calculation_id, worker_id="worker-b", lease_seconds=30)
+
+    with pytest.raises(ComputeJobLeaseOwnershipError, match="lease owner mismatch"):
+        store.mark_complete(
+            calculation_id,
+            response_payload={"calculation_id": str(calculation_id), "stale": True},
+            worker_id="worker-a",
+        )
+    with pytest.raises(ComputeJobLeaseOwnershipError, match="lease owner mismatch"):
+        store.mark_failed(
+            calculation_id,
+            error_message="stale failure",
+            error_type="RuntimeError",
+            worker_id="worker-a",
+        )
+    with pytest.raises(ComputeJobLeaseOwnershipError, match="lease owner mismatch"):
+        store.mark_retryable_failure(
+            calculation_id,
+            error_message="stale retry",
+            error_type="RuntimeError",
+            worker_id="worker-a",
+        )
+
+    running = store.get_job(calculation_id)
+    assert running is not None
+    assert running.job_status == ComputeJobStatus.RUNNING
+    assert running.worker_id == "worker-b"
+    assert running.response_payload is None
+    assert running.error_message is None
+    assert running.error_type is None
 
 
 def test_stale_job_reconciliation_outcome_only_exhausts_running_jobs() -> None:

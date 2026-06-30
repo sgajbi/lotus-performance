@@ -32,6 +32,8 @@ Source of truth for the local topology is [docker-compose.yml](/C:/Users/Sandeep
 - records durable success/failure results and retry state
 - publishes successful async results before marking the compute job complete, so clients never see
   completed compute-job state without a retrievable result payload
+- checks active lease ownership before publishing success, failure, or retry finalization so stale
+  workers cannot mutate jobs after another worker reclaims the lease
 - recovers stale jobs whose successful async result was already persisted by marking the compute job
   complete from that result instead of converting the calculation to a failure
 - supports explicit quiescence via a worker stop signal instead of relying on process kill semantics
@@ -41,6 +43,8 @@ Source of truth for the local topology is [docker-compose.yml](/C:/Users/Sandeep
 - polls durable lineage payload metadata
 - materializes artifact files asynchronously
 - updates durable lineage status for polling and retrieval
+- checks active payload lease ownership before metadata completion or payload deletion so stale
+  lineage workers cannot finalize another worker's reclaimed payload
 - retries failed lineage materialization within a bounded attempt budget before marking terminal failure
 - supports explicit quiescence via a worker stop signal instead of relying on process kill semantics
 
@@ -192,6 +196,13 @@ operator-action instability without querying the filesystem directly.
 - retryable executor failures are requeued within bounded retry policy
 - a stale compute job with an already persisted successful async result is reconciled to
   `complete` from that result instead of writing a terminal failure
+- stale compute workers that no longer own the active lease skip success publication with
+  `stale_owner_success_publication_skipped` instead of exposing stale async results
+- stale lineage workers that no longer own the active payload lease skip finalization with
+  `stale_owner_lineage_finalization_skipped` instead of marking metadata complete or deleting
+  another worker's payload
+- governed operator-action lock release is compare-and-delete: a stale owner does not remove a
+  replacement owner's lock after stale reclaim
 - late failure writes do not overwrite an existing successful async result for the same calculation
 - terminal failures are persisted in both execution state and async result state
 - lineage failures remain visible through durable metadata instead of being lost in worker-local logs

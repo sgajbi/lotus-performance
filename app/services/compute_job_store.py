@@ -41,6 +41,10 @@ INVALID_COMPUTE_JOB_RESPONSE_PAYLOAD_ERROR_TYPE = "InvalidComputeJobResponsePayl
 INVALID_COMPUTE_JOB_RESPONSE_PAYLOAD_MESSAGE = "Stored compute job response payload is invalid."
 
 
+class ComputeJobLeaseOwnershipError(ValueError):
+    """Raised when a worker tries to finalize a job it no longer owns."""
+
+
 class ComputeJobStatus(StrEnum):
     PENDING = "pending"
     LEASED = "leased"
@@ -408,6 +412,36 @@ def _compute_job_has_conflicting_worker_lease(
     return requested_worker_id is not None and current_worker_id not in {None, requested_worker_id}
 
 
+def _utc_aware_timestamp(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
+def _ensure_compute_job_active_lease_owner(
+    row: ComputeJobModel,
+    *,
+    calculation_id: UUID,
+    worker_id: str | None,
+    transition: str,
+    now: datetime,
+) -> None:
+    if worker_id is None:
+        return
+    if row.job_status not in {ComputeJobStatus.LEASED.value, ComputeJobStatus.RUNNING.value}:
+        raise ComputeJobLeaseOwnershipError(
+            f"Cannot {transition} compute job without an active lease: {calculation_id}"
+        )
+    if row.worker_id != worker_id:
+        raise ComputeJobLeaseOwnershipError(
+            f"Compute job lease owner mismatch while trying to {transition}: {calculation_id}"
+        )
+    if row.lease_expires_at_utc is None:
+        raise ComputeJobLeaseOwnershipError(f"Cannot {transition} compute job without a lease expiry: {calculation_id}")
+    if _utc_aware_timestamp(row.lease_expires_at_utc) < now:
+        raise ComputeJobLeaseOwnershipError(f"Cannot {transition} compute job after lease expiry: {calculation_id}")
+
+
 def _compute_job_registration_result_for_integrity_conflict(
     existing: ComputeJobModel | None,
     *,
@@ -685,10 +719,30 @@ class ComputeJobStore:
             )
             row.completed_at_utc = None
 
-    def mark_complete(self, calculation_id: UUID, *, response_payload: dict[str, Any]) -> None:
+    def ensure_active_lease_owner(self, calculation_id: UUID, *, worker_id: str | None) -> None:
+        with self._session() as session:
+            row = self._get_model(session, calculation_id)
+            _ensure_compute_job_active_lease_owner(
+                row,
+                calculation_id=calculation_id,
+                worker_id=worker_id,
+                transition="publish success for",
+                now=datetime.now(timezone.utc),
+            )
+
+    def mark_complete(
+        self, calculation_id: UUID, *, response_payload: dict[str, Any], worker_id: str | None = None
+    ) -> None:
         with self._session() as session:
             row = self._get_model(session, calculation_id)
             now = datetime.now(timezone.utc)
+            _ensure_compute_job_active_lease_owner(
+                row,
+                calculation_id=calculation_id,
+                worker_id=worker_id,
+                transition="mark complete",
+                now=now,
+            )
             row.job_status = ComputeJobStatus.COMPLETE.value
             row.response_json = json.dumps(response_payload, sort_keys=True)
             row.error_message = None
@@ -704,10 +758,18 @@ class ComputeJobStore:
         *,
         error_message: str,
         error_type: str | None = None,
+        worker_id: str | None = None,
     ) -> None:
         with self._session() as session:
             row = self._get_model(session, calculation_id)
             now = datetime.now(timezone.utc)
+            _ensure_compute_job_active_lease_owner(
+                row,
+                calculation_id=calculation_id,
+                worker_id=worker_id,
+                transition="mark failed",
+                now=now,
+            )
             row.job_status = ComputeJobStatus.FAILED.value
             row.error_message = error_message
             row.error_type = error_type
@@ -723,10 +785,18 @@ class ComputeJobStore:
         *,
         error_message: str,
         error_type: str | None = None,
+        worker_id: str | None = None,
     ) -> bool:
         with self._session() as session:
             row = self._get_model(session, calculation_id)
             now = datetime.now(timezone.utc)
+            _ensure_compute_job_active_lease_owner(
+                row,
+                calculation_id=calculation_id,
+                worker_id=worker_id,
+                transition="mark retryable failure for",
+                now=now,
+            )
             row.error_message = error_message
             row.error_type = error_type
             row.last_error_at_utc = now

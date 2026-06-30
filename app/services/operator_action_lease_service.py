@@ -8,7 +8,8 @@ from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Iterator, cast
+from typing import Any, Iterator, NoReturn, cast
+from uuid import uuid4
 
 from fastapi import HTTPException, status
 
@@ -87,6 +88,7 @@ class _ReclaimedLeaseSnapshotEvents:
 @dataclass(frozen=True)
 class _StaleLockReclaimCandidate:
     active_lease: ActiveOperatorActionLease
+    lock_payload: dict[str, Any]
     current_time: datetime
 
 
@@ -154,7 +156,8 @@ def operator_action_lease(
     locks_dir = artifact_directory / ".action-locks"
     locks_dir.mkdir(parents=True, exist_ok=True)
     lock_path = locks_dir / f"{normalized_action_key}.lock"
-    payload = json.dumps(asdict(normalized_metadata), indent=2)
+    lock_payload = {**asdict(normalized_metadata), "lease_token": str(uuid4())}
+    payload = json.dumps(lock_payload, indent=2)
     flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY
 
     try:
@@ -166,23 +169,20 @@ def operator_action_lease(
             action_key=normalized_action_key,
             now_utc=now_utc,
         ):
-            fd = os.open(str(lock_path), flags)
+            try:
+                fd = os.open(str(lock_path), flags)
+            except FileExistsError:
+                _raise_operator_action_already_running(
+                    lock_path=lock_path,
+                    action_key=normalized_action_key,
+                    metadata=normalized_metadata,
+                )
         else:
-            detail: dict[str, object] = {
-                "code": f"{normalized_metadata.action_name}_already_running",
-                "message": (
-                    f"A governed {normalized_metadata.action_name} for this same risk unit is already running. "
-                    "Wait for the active action to complete before retrying."
-                ),
-                "action_key": normalized_action_key,
-            }
-            active_lease = _read_active_operator_action_lease(lock_path=lock_path)
-            if isinstance(active_lease, ActiveOperatorActionLease):
-                detail["active_operator_id"] = active_lease.operator_id
-                detail["active_tenant_id"] = active_lease.tenant_id
-                detail["governed_target"] = active_lease.governed_target
-                detail["active_acquired_at_utc"] = active_lease.acquired_at_utc
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detail) from None
+            _raise_operator_action_already_running(
+                lock_path=lock_path,
+                action_key=normalized_action_key,
+                metadata=normalized_metadata,
+            )
 
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as handle:
@@ -191,7 +191,7 @@ def operator_action_lease(
             os.fsync(handle.fileno())
         yield
     finally:
-        lock_path.unlink(missing_ok=True)
+        _release_lock_if_owned(lock_path=lock_path, expected_payload=lock_payload)
 
 
 def build_operator_action_lease_snapshot(
@@ -331,6 +331,29 @@ def _normalize_lease_metadata(metadata: OperatorActionLeaseMetadata) -> Operator
         ),
         acquired_at_utc=acquired_at_utc,
     )
+
+
+def _raise_operator_action_already_running(
+    *,
+    lock_path: Path,
+    action_key: str,
+    metadata: OperatorActionLeaseMetadata,
+) -> NoReturn:
+    detail: dict[str, object] = {
+        "code": f"{metadata.action_name}_already_running",
+        "message": (
+            f"A governed {metadata.action_name} for this same risk unit is already running. "
+            "Wait for the active action to complete before retrying."
+        ),
+        "action_key": action_key,
+    }
+    active_lease = _read_active_operator_action_lease(lock_path=lock_path)
+    if isinstance(active_lease, ActiveOperatorActionLease):
+        detail["active_operator_id"] = active_lease.operator_id
+        detail["active_tenant_id"] = active_lease.tenant_id
+        detail["governed_target"] = active_lease.governed_target
+        detail["active_acquired_at_utc"] = active_lease.acquired_at_utc
+    raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detail) from None
 
 
 def _read_active_operator_action_lease(*, lock_path: Path) -> ActiveOperatorActionLease | _InvalidLease | None:
@@ -585,6 +608,20 @@ def _has_required_reclaimed_event_strings(payload: dict[str, object]) -> bool:
     return all(is_required_evidence_string(payload.get(key)) for key in required_keys)
 
 
+def _lock_payload_matches(lock_path: Path, *, expected_payload: dict[str, Any]) -> bool:
+    current_payload = _read_json_payload(lock_path)
+    return isinstance(current_payload, dict) and current_payload == expected_payload
+
+
+def _release_lock_if_owned(*, lock_path: Path, expected_payload: dict[str, Any]) -> bool:
+    if not lock_path.exists():
+        return False
+    if not _lock_payload_matches(lock_path, expected_payload=expected_payload):
+        return False
+    lock_path.unlink(missing_ok=True)
+    return True
+
+
 def _reclaim_stale_lock(
     *,
     lock_path: Path,
@@ -602,7 +639,8 @@ def _reclaim_stale_lock(
 
     active_lease = reclaim_candidate.active_lease
     current_time = reclaim_candidate.current_time
-    lock_path.unlink(missing_ok=True)
+    if not _release_lock_if_owned(lock_path=lock_path, expected_payload=reclaim_candidate.lock_payload):
+        return False
     try:
         _write_latest_reclaimed_lease(
             locks_dir=lock_path.parent,
@@ -635,6 +673,9 @@ def _stale_lock_reclaim_candidate(
 ) -> _StaleLockReclaimCandidate | None:
     if stale_after_seconds <= 0:
         return None
+    lock_payload = _read_json_payload(lock_path)
+    if not isinstance(lock_payload, dict):
+        return None
     active_lease = _read_active_operator_action_lease(lock_path=lock_path)
     if not isinstance(active_lease, ActiveOperatorActionLease):
         return None
@@ -642,4 +683,8 @@ def _stale_lock_reclaim_candidate(
     acquired_at = parse_utc_datetime(active_lease.acquired_at_utc)
     if elapsed_seconds_since(current_time, acquired_at) <= stale_after_seconds:
         return None
-    return _StaleLockReclaimCandidate(active_lease=active_lease, current_time=current_time)
+    return _StaleLockReclaimCandidate(
+        active_lease=active_lease,
+        lock_payload=lock_payload,
+        current_time=current_time,
+    )

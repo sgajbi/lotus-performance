@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta, timezone
 from threading import Event
 from types import SimpleNamespace
 from uuid import uuid4
@@ -209,8 +210,11 @@ def test_compute_executor_worker_process_leased_job_records_success_before_compl
         def mark_running(self, calculation_id_arg, *, worker_id, lease_seconds):
             calls.append(("mark_running", calculation_id_arg, worker_id, lease_seconds))
 
-        def mark_complete(self, calculation_id_arg, *, response_payload):
-            calls.append(("mark_complete", calculation_id_arg, response_payload, None))
+        def ensure_active_lease_owner(self, calculation_id_arg, *, worker_id):
+            calls.append(("ensure_active_lease_owner", calculation_id_arg, worker_id, None))
+
+        def mark_complete(self, calculation_id_arg, *, response_payload, worker_id):
+            calls.append(("mark_complete", calculation_id_arg, response_payload, worker_id))
 
     class _ResultStore:
         def record_success(self, *, calculation_id, analytics_type, response_payload):
@@ -231,8 +235,9 @@ def test_compute_executor_worker_process_leased_job_records_success_before_compl
 
     assert calls == [
         ("mark_running", calculation_id, "worker-test", 30),
+        ("ensure_active_lease_owner", calculation_id, "worker-test", None),
         ("record_success", calculation_id, ANALYTICS_WORKFLOW_RETURNS_SERIES, response_payload),
-        ("mark_complete", calculation_id, response_payload, None),
+        ("mark_complete", calculation_id, response_payload, "worker-test"),
     ]
 
 
@@ -252,8 +257,11 @@ def test_compute_executor_worker_preserves_success_result_when_completion_fails(
         def mark_running(self, calculation_id_arg, *, worker_id, lease_seconds):
             calls.append(("mark_running", calculation_id_arg, worker_id, lease_seconds))
 
-        def mark_complete(self, calculation_id_arg, *, response_payload):
-            calls.append(("mark_complete", calculation_id_arg, response_payload, None))
+        def ensure_active_lease_owner(self, calculation_id_arg, *, worker_id):
+            calls.append(("ensure_active_lease_owner", calculation_id_arg, worker_id, None))
+
+        def mark_complete(self, calculation_id_arg, *, response_payload, worker_id):
+            calls.append(("mark_complete", calculation_id_arg, response_payload, worker_id))
             raise RuntimeError("job completion store outage")
 
         def mark_retryable_failure(self, *args, **kwargs):  # noqa: ANN002, ANN003
@@ -289,12 +297,75 @@ def test_compute_executor_worker_preserves_success_result_when_completion_fails(
 
     assert calls == [
         ("mark_running", calculation_id, "worker-test", 30),
+        ("ensure_active_lease_owner", calculation_id, "worker-test", None),
         ("record_success", calculation_id, ANALYTICS_WORKFLOW_RETURNS_SERIES, response_payload),
-        ("mark_complete", calculation_id, response_payload, None),
+        ("mark_complete", calculation_id, response_payload, "worker-test"),
     ]
     assert exceptions and exceptions[0][0] == ("Compute job success finalization failed after result publication.",)
     extra_fields = exceptions[0][1]["extra"]["extra_fields"]
     assert extra_fields["failure_classification"] == "success_finalization_failed"
+
+
+def test_compute_executor_worker_skips_stale_owner_success_after_reclaim(tmp_path, monkeypatch):
+    job_store = ComputeJobStore(f"sqlite:///{tmp_path / 'jobs.db'}")
+    job_store.create_schema()
+    result_store = AsyncResultStore(f"sqlite:///{tmp_path / 'results.db'}")
+    result_store.create_schema()
+    calculation_id = uuid4()
+    response_payload = {"calculation_id": str(calculation_id), "portfolio_id": "P1"}
+    response = SimpleNamespace(model_dump=lambda mode="json": response_payload)
+
+    job_store.enqueue_job(
+        calculation_id=calculation_id,
+        analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES,
+        request_payload={"portfolio_id": "P1"},
+        max_attempts=2,
+    )
+    leased = job_store.lease_pending_jobs(worker_id="worker-a", limit=1, lease_seconds=30)
+    assert len(leased) == 1
+
+    def _execute_and_reclaim(_job, _context):
+        with job_store._session() as session:
+            row = job_store._get_model(session, calculation_id)
+            row.lease_expires_at_utc = datetime.now(timezone.utc) - timedelta(seconds=1)
+        reconciled = job_store.reconcile_stale_jobs()
+        assert len(reconciled) == 1
+        assert reconciled[0].reconciled_status == ComputeJobStatus.PENDING
+        reclaimed = job_store.lease_pending_jobs(worker_id="worker-b", limit=1, lease_seconds=30)
+        assert len(reclaimed) == 1
+        job_store.mark_running(calculation_id, worker_id="worker-b", lease_seconds=30)
+        return response
+
+    warnings: list[tuple[tuple, dict]] = []
+    runtime = compute_executor_worker._ComputeJobRuntime(
+        job_store=job_store,
+        execution_store=SimpleNamespace(),
+        result_store=result_store,
+        worker_id="worker-a",
+        lease_seconds=30,
+        batch_size=1,
+        execution_context=SimpleNamespace(),
+    )
+    monkeypatch.setattr(compute_executor_worker, "_execute_compute_job", _execute_and_reclaim)
+    monkeypatch.setattr(
+        compute_executor_worker.logger,
+        "warning",
+        lambda *args, **kwargs: warnings.append((args, kwargs)),
+    )
+
+    compute_executor_worker._process_leased_compute_job(leased[0], runtime)
+
+    assert result_store.get_result(calculation_id) is None
+    current_job = job_store.get_job(calculation_id)
+    assert current_job is not None
+    assert current_job.job_status == ComputeJobStatus.RUNNING
+    assert current_job.worker_id == "worker-b"
+    assert current_job.response_payload is None
+    assert warnings and warnings[0][0] == (
+        "Skipped compute job success publication because worker no longer owns the active lease.",
+    )
+    extra_fields = warnings[0][1]["extra"]["extra_fields"]
+    assert extra_fields["failure_classification"] == "stale_owner_success_publication_skipped"
 
 
 def test_compute_executor_worker_does_not_complete_job_when_success_result_publication_fails(monkeypatch):
@@ -314,11 +385,15 @@ def test_compute_executor_worker_does_not_complete_job_when_success_result_publi
         def mark_running(self, calculation_id_arg, *, worker_id, lease_seconds):
             calls.append(("mark_running", calculation_id_arg, worker_id))
 
+        def ensure_active_lease_owner(self, calculation_id_arg, *, worker_id):
+            calls.append(("ensure_active_lease_owner", calculation_id_arg, worker_id))
+
         def mark_complete(self, *args, **kwargs):  # noqa: ANN002, ANN003
             raise AssertionError("job must not complete without a persisted result")
 
-        def mark_retryable_failure(self, calculation_id_arg, *, error_message, error_type):
+        def mark_retryable_failure(self, calculation_id_arg, *, error_message, error_type, worker_id):
             calls.append(("mark_retryable_failure", calculation_id_arg, error_type))
+            assert worker_id == "worker-test"
             return True
 
     class _ResultStore:
@@ -350,6 +425,7 @@ def test_compute_executor_worker_does_not_complete_job_when_success_result_publi
 
     assert calls == [
         ("mark_running", calculation_id, "worker-test"),
+        ("ensure_active_lease_owner", calculation_id, "worker-test"),
         ("record_success", calculation_id, ANALYTICS_WORKFLOW_RETURNS_SERIES),
         ("mark_retryable_failure", calculation_id, "RuntimeError"),
     ]

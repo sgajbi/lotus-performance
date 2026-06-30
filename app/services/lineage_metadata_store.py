@@ -36,6 +36,10 @@ logger = logging.getLogger(__name__)
 INVALID_LINEAGE_PAYLOAD_DETAILS_MESSAGE = "Stored lineage payload details are invalid."
 
 
+class LineagePayloadLeaseOwnershipError(ValueError):
+    """Raised when a worker tries to finalize a lineage payload it no longer owns."""
+
+
 class LineageStatus(StrEnum):
     PENDING = "pending"
     COMPLETE = "complete"
@@ -215,11 +219,20 @@ class LineageMetadataStore:
         artifact_names: list[str],
         *,
         timestamp_utc: datetime | None = None,
+        worker_id: str | None = None,
     ) -> None:
         with self._session() as session:
             record = session.get(LineageRecordModel, str(calculation_id))
             if record is None:
                 raise KeyError(f"Lineage record not found: {calculation_id}")
+            payload = session.get(LineagePayloadModel, str(calculation_id))
+            _ensure_lineage_payload_active_lease_owner(
+                payload,
+                calculation_id=calculation_id,
+                worker_id=worker_id,
+                transition="mark complete",
+                now=datetime.now(timezone.utc),
+            )
             record.timestamp_utc = timestamp_utc or datetime.now(timezone.utc)
             record.status = LineageStatus.COMPLETE.value
             record.artifact_names = "\n".join(sorted(artifact_names))
@@ -414,10 +427,28 @@ class LineageMetadataStore:
                 return None
             return self._to_payload(payload, details=details)
 
-    def delete_payload(self, calculation_id: UUID) -> None:
+    def ensure_active_payload_lease_owner(self, calculation_id: UUID, *, worker_id: str | None) -> None:
+        with self._session() as session:
+            payload = session.get(LineagePayloadModel, str(calculation_id))
+            _ensure_lineage_payload_active_lease_owner(
+                payload,
+                calculation_id=calculation_id,
+                worker_id=worker_id,
+                transition="materialize",
+                now=datetime.now(timezone.utc),
+            )
+
+    def delete_payload(self, calculation_id: UUID, *, worker_id: str | None = None) -> None:
         with self._session() as session:
             payload = session.get(LineagePayloadModel, str(calculation_id))
             if payload is not None:
+                _ensure_lineage_payload_active_lease_owner(
+                    payload,
+                    calculation_id=calculation_id,
+                    worker_id=worker_id,
+                    transition="delete",
+                    now=datetime.now(timezone.utc),
+                )
                 session.delete(payload)
 
     def get_pending_payload_stats(self, *, now: datetime | None = None) -> LineageQueueStats:
@@ -1146,6 +1177,30 @@ def _payload_has_active_lease(payload: LineagePayloadModel, *, now: datetime) ->
     lease_expires_at = payload.lease_expires_at_utc
     normalized_lease_expires_at = None if lease_expires_at is None else coerce_utc_datetime(lease_expires_at)
     return normalized_lease_expires_at is None or normalized_lease_expires_at >= now
+
+
+def _ensure_lineage_payload_active_lease_owner(
+    payload: LineagePayloadModel | None,
+    *,
+    calculation_id: UUID,
+    worker_id: str | None,
+    transition: str,
+    now: datetime,
+) -> None:
+    if worker_id is None:
+        return
+    if payload is None:
+        raise LineagePayloadLeaseOwnershipError(
+            f"Cannot {transition} lineage payload without an active lease: {calculation_id}"
+        )
+    if payload.worker_id != worker_id:
+        raise LineagePayloadLeaseOwnershipError(
+            f"Lineage payload lease owner mismatch while trying to {transition}: {calculation_id}"
+        )
+    if not _payload_has_active_lease(payload, now=now):
+        raise LineagePayloadLeaseOwnershipError(
+            f"Cannot {transition} lineage payload after lease expiry: {calculation_id}"
+        )
 
 
 def _pending_lineage_payload_filter():
