@@ -17,6 +17,10 @@ from app.models.runtime_status import (
 from app.services.compute_job_store import ComputeQueueInspectionAnchors, ComputeQueueStats, ComputeRecoveryEvent
 from app.services.durability_health_service import DurabilityHealthStatus, LineageStorageCapacitySnapshot
 from app.services.lineage_metadata_store import LineageQueueInspectionAnchors, LineageQueueStats, LineageRecoveryEvent
+from app.services.runtime_status_diagnostics import (
+    COMPUTE_QUEUE_STATUS_READ_FAILED,
+    RUNTIME_RETENTION_PREVIEW_READ_FAILED,
+)
 from app.services.runtime_status_domain import (
     ComputeQueueDegradationPolicy,
     LineageQueueDegradationPolicy,
@@ -92,7 +96,7 @@ def test_compute_queue_response_omits_optional_fields_when_stats_are_unavailable
     response = _compute_queue_response(
         RuntimeQueueStatus(
             status="unavailable",
-            reason="RuntimeError",
+            reason=COMPUTE_QUEUE_STATUS_READ_FAILED,
             degradation_reasons=(),
             degradation_details=(),
             stats=None,
@@ -102,7 +106,7 @@ def test_compute_queue_response_omits_optional_fields_when_stats_are_unavailable
     )
 
     assert response.status == "unavailable"
-    assert response.reason == "RuntimeError"
+    assert response.reason == COMPUTE_QUEUE_STATUS_READ_FAILED
     assert response.pending_jobs is None
     assert response.inspection_anchors is None
     assert response.recent_recoveries == []
@@ -747,13 +751,13 @@ def test_build_runtime_status_response_handles_unavailable_queue_without_stats()
     snapshot = RuntimeStatusSnapshot(
         generated_at=datetime(2026, 3, 14, 0, 0, tzinfo=UTC),
         runtime_status="degraded",
-        runtime_degradation_reasons=("compute_queue:RuntimeError",),
+        runtime_degradation_reasons=(f"compute_queue:{COMPUTE_QUEUE_STATUS_READ_FAILED}",),
         runtime_degradation_details=(),
         draining=False,
         durable_metadata_store=DurabilityHealthStatus(is_ready=True, status="ready", reason=None),
         compute_queue=RuntimeQueueStatus(
             status="unavailable",
-            reason="RuntimeError",
+            reason=COMPUTE_QUEUE_STATUS_READ_FAILED,
             degradation_reasons=(),
             degradation_details=(),
             stats=None,
@@ -816,7 +820,7 @@ def test_build_runtime_status_response_handles_unavailable_queue_without_stats()
             reclaimed_run_count=0,
             recent_reclaimed_runs=(),
             preview_status="unavailable",
-            preview_reason="RuntimeError",
+            preview_reason=RUNTIME_RETENTION_PREVIEW_READ_FAILED,
             current_cutoff_utc=None,
             current_retention_days=None,
             current_prunable_execution_count=None,
@@ -866,7 +870,7 @@ def test_build_runtime_status_response_handles_unavailable_queue_without_stats()
     response = build_runtime_status_response(snapshot)
 
     assert response.compute_queue.status == "unavailable"
-    assert response.compute_queue.reason == "RuntimeError"
+    assert response.compute_queue.reason == COMPUTE_QUEUE_STATUS_READ_FAILED
     assert response.compute_queue.pending_jobs is None
     assert response.lineage_queue.pending_payloads is None
     assert response.recovery_drill.status == "available"
@@ -875,5 +879,5 @@ def test_build_runtime_status_response_handles_unavailable_queue_without_stats()
     assert response.runtime_retention.status == "available"
     assert response.runtime_retention.active_run_status == "available"
     assert response.runtime_retention.preview_status == "unavailable"
-    assert response.runtime_retention.preview_reason == "RuntimeError"
+    assert response.runtime_retention.preview_reason == RUNTIME_RETENTION_PREVIEW_READ_FAILED
     assert response.runtime_retention.latest_status is None

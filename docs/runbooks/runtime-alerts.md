@@ -57,6 +57,18 @@ Readiness timeout handling:
 - `lineage_storage_readiness_timeout` means the lineage storage path or write/fsync probe exceeded `DURABLE_READINESS_TIMEOUT_SECONDS`; inspect mount latency, filesystem health, and write behavior before restarting workers.
 - A readiness timeout is a dependency health signal, not a reason to disable durable readiness checks.
 
+Runtime-status unexpected-read handling:
+
+- Reason codes such as `compute_queue_status_read_failed`,
+  `lineage_queue_status_read_failed`, `recovery_drill_history_read_failed`,
+  `runtime_retention_history_read_failed`, `runtime_retention_preview_read_failed`,
+  `recovery_drill_operator_action_read_failed`, or
+  `runtime_retention_operator_action_read_failed` indicate the status snapshot could not read one
+  component, not that the component necessarily breached its configured policy.
+- Join the response reason to structured log event `runtime_status_read_degraded`; use the logged
+  component, operation, exception class, correlation id, and request id to identify the failing
+  store, filesystem evidence path, or governed-action lease snapshot.
+
 ## Queue Breach Guidance
 
 ### Compute Queue

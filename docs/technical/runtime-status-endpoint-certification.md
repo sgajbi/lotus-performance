@@ -42,6 +42,7 @@ Implementation ownership is split so support-critical semantics have one reviewa
 | `app.services.runtime_status_service` | Snapshot orchestration across durable metadata, queue components, lifecycle components, and response policy objects. |
 | `app.services.runtime_status_queue` | Compute and lineage queue component assembly, queue unavailable-state projection, queue degradation-state projection, inspection anchors, storage capacity evidence, and bounded recent recovery evidence. |
 | `app.services.runtime_status_lifecycle` | Recovery-drill and runtime-retention component assembly, action sources, missing/unavailable fallbacks, success projections, and lifecycle-specific degradation rules. |
+| `app.services.runtime_status_diagnostics` | Stable runtime-status component-read reason codes and structured support-safe diagnostics for unexpected component read failures. |
 | `app.services.runtime_status_degradation` | Shared threshold-breach helpers, aggregate runtime status projection, aggregate degradation reasons, and detailed degradation evidence collection. |
 | `app.services.runtime_status_policy` | Live policy-threshold extraction for compute queue, lineage queue, recovery-drill, and runtime-retention response fields. |
 
@@ -80,7 +81,23 @@ Certified behavior:
 - exposes bounded recent recovery and stale governed-action reclaim lists so operators can
   understand short recent sequences without querying the database or filesystem directly;
 - exposes active policy thresholds in the same payload so operators can interpret breaches against
-  live configuration.
+  live configuration;
+- returns stable runtime-status component-read reason codes instead of raw Python exception class
+  names when an unexpected queue, history, preview, or governed-action snapshot read fails.
+
+Stable unexpected-read reason codes include:
+
+- `compute_queue_status_read_failed`
+- `lineage_queue_status_read_failed`
+- `recovery_drill_history_read_failed`
+- `runtime_retention_history_read_failed`
+- `runtime_retention_preview_read_failed`
+- `recovery_drill_operator_action_read_failed`
+- `runtime_retention_operator_action_read_failed`
+
+Each unexpected-read failure also emits structured log event `runtime_status_read_degraded` with
+component, operation, stable reason, and exception class. The log event is support-facing evidence;
+the public API reason remains the stable operational code.
 
 ## Upstream Integration
 
