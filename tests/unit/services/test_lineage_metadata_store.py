@@ -1125,8 +1125,28 @@ def test_lineage_metadata_store_declares_hot_path_indexes(tmp_path):
         "timestamp_utc",
         "calculation_id",
     )
+    assert record_indexes["ix_lineage_records_status_type_timestamp"] == (
+        "status",
+        "calculation_type",
+        "timestamp_utc",
+        "calculation_id",
+    )
+    assert record_indexes["ix_lineage_records_type_timestamp"] == (
+        "calculation_type",
+        "timestamp_utc",
+        "calculation_id",
+    )
     assert payload_indexes["ix_lineage_payloads_created_at"] == ("created_at_utc",)
     assert payload_indexes["ix_lineage_payloads_lease_expires_at"] == ("lease_expires_at_utc",)
+    assert payload_indexes["ix_lineage_payloads_calculation_created_at"] == (
+        "calculation_id",
+        "created_at_utc",
+    )
+    assert payload_indexes["ix_lineage_payloads_lease_expires_created_at"] == (
+        "lease_expires_at_utc",
+        "created_at_utc",
+        "calculation_id",
+    )
 
 
 def test_lineage_metadata_store_get_pending_payload_stats_uses_single_aggregate_query(tmp_path):

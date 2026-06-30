@@ -236,6 +236,11 @@ Important validation expectations:
     lineage paths enumerate calculation ids only where child rows or artifact directories require
     deterministic cleanup, and durable schema creation repairs the retention indexes for existing
     runtime stores.
+22. Lineage inspection list queries are query-plan governed operator paths. Active, failed, all,
+    and reclaimable inspection statements must keep `calculation_type` filters index-backed through
+    lineage-record and lineage-payload composite indexes; PostgreSQL plan-contract tests cover the
+    active, failed, all, and reclaimable statements, allowing derived-order sorts only where the
+    view orders by computed active-since age.
 
 ## Standards And RFCs That Govern This Repository
 
