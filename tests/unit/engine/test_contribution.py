@@ -771,6 +771,49 @@ def test_apply_carino_residual_allocation_distributes_total_local_and_fx_residua
     assert totals["weight_proportion"].tolist() == pytest.approx([0.75, 0.25])
 
 
+def test_apply_carino_residual_allocation_preserves_zero_net_local_fx_reconciliation():
+    totals = pd.DataFrame(
+        [
+            {"contribution": 0.02, "local_contribution": 0.03, "fx_contribution": -0.01, "weight_avg": 0.6},
+            {"contribution": -0.02, "local_contribution": -0.01, "fx_contribution": -0.01, "weight_avg": 0.4},
+        ]
+    )
+
+    _apply_carino_residual_allocation(totals, total_portfolio_return=0.01, smoothing_method="CARINO")
+
+    assert totals["contribution"].sum() == pytest.approx(0.01)
+    assert totals["local_contribution"].sum() + totals["fx_contribution"].sum() == pytest.approx(
+        totals["contribution"].sum()
+    )
+    assert (totals["local_contribution"] + totals["fx_contribution"]).tolist() == pytest.approx(
+        totals["contribution"].tolist()
+    )
+
+
+def test_apply_carino_residual_allocation_preserves_near_zero_local_fx_reconciliation():
+    totals = pd.DataFrame(
+        [
+            {
+                "contribution": 0.0100000000001,
+                "local_contribution": 0.02,
+                "fx_contribution": -0.0099999999999,
+                "weight_avg": 0.55,
+            },
+            {"contribution": -0.01, "local_contribution": -0.005, "fx_contribution": -0.005, "weight_avg": 0.45},
+        ]
+    )
+
+    _apply_carino_residual_allocation(totals, total_portfolio_return=0.005, smoothing_method="CARINO")
+
+    assert totals["contribution"].sum() == pytest.approx(0.005)
+    assert totals["local_contribution"].sum() + totals["fx_contribution"].sum() == pytest.approx(
+        totals["contribution"].sum()
+    )
+    assert (totals["local_contribution"] + totals["fx_contribution"]).tolist() == pytest.approx(
+        totals["contribution"].tolist()
+    )
+
+
 def test_apply_carino_residual_allocation_noops_for_non_carino_method():
     totals = pd.DataFrame(
         [

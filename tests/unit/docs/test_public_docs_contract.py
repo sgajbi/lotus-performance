@@ -774,6 +774,7 @@ def test_contribution_guide_uses_current_request_shape():
     guide_flat = " ".join(guide.split())
     api_reference = _read("docs/guides/api_reference.md")
     certification = _read("docs/technical/contribution-endpoint-certification.md")
+    certification_flat = " ".join(certification.split())
     wiki = _read("wiki/Contribution-Analytics.md")
     readme = _read("README.md")
 
@@ -787,6 +788,7 @@ def test_contribution_guide_uses_current_request_shape():
     assert "levels[].rows[].weight_avg" in guide
     assert "same selected denominator" in guide
     assert "missing FX coverage is rejected with HTTP `422` before contribution calculation starts" in guide_flat
+    assert "local contribution plus FX contribution reconciles to total contribution" in guide_flat
     assert "CONTRIBUTION_RESET_AWARE_AVERAGE_WEIGHT_MODE=CANDIDATE_PERIODS" in guide
     assert "position_contributions` remains the first-class output" in guide
     assert "`lookthrough` is accepted as a compatibility request block only" in guide
@@ -805,8 +807,10 @@ def test_contribution_guide_uses_current_request_shape():
     assert (
         'mixed-currency stateful contribution in `currency_mode="BOTH"` fails closed with HTTP `422`' in certification
     )
+    assert "zero-net and near-zero pre-allocation contribution cases" in certification_flat
     assert "Hierarchy `weight_avg` uses the same active or reset-aware promoted denominator" in wiki
     assert "mixed-currency stateful contribution fails closed with HTTP `422`" in wiki
+    assert "zero-net and near-zero pre-allocation contribution cases" in wiki
     assert "fund or structured-product decomposition is not performed inside lotus-performance" in api_reference
     assert 'input_mode: "stateless" | "stateful"' in readme
     assert "lotus-performance stamps source consumer identity server-side" in readme

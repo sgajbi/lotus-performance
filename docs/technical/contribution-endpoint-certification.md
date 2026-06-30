@@ -76,6 +76,9 @@ Every certified contribution response must satisfy these invariants for each res
 - `smoothing_evidence.raw_residual`, `smoothing_residual`, and `post_allocation_residual` explain
   raw arithmetic mismatch, Carino smoothing residual, and final residual allocation posture without
   hidden recomputation.
+- in `currency_mode="BOTH"`, local contribution plus FX contribution reconciles to total
+  contribution after residual allocation, including zero-net and near-zero pre-allocation
+  contribution cases.
 
 The hierarchy path now builds rows from the same residual-adjusted daily position series used for
 position output. This prevents hierarchy rows from drifting away from first-class position
