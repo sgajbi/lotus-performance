@@ -2,12 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-FASTAPI_SERVICE_BOUNDARY_ALLOWLIST = frozenset(
-    {
-        "app/services/returns_series_calculation_workflow_service.py",
-        "app/services/returns_series_service.py",
-    }
-)
+FASTAPI_SERVICE_BOUNDARY_ALLOWLIST = frozenset()
 
 MIGRATED_FRAMEWORK_NEUTRAL_MODULES = frozenset(
     {
@@ -30,6 +25,7 @@ MIGRATED_FRAMEWORK_NEUTRAL_MODULES = frozenset(
         "app/services/mwr_mode_service.py",
         "app/services/mwr_fx_evidence_service.py",
         "app/services/offset_pagination.py",
+        "app/services/returns_series_service.py",
         "app/services/stateless_benchmark_input_service.py",
         "app/services/stateful_attribution_input_service.py",
         "app/services/stateful_benchmark_input_service.py",

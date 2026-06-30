@@ -151,6 +151,8 @@ def _safe_public_message(*, detail: Any, status_code: int, message: str | None) 
 
 def _legacy_detail(*, detail: Any, status_code: int, message: str) -> Any:
     if status_code >= HTTP_500_INTERNAL_SERVER_ERROR:
+        if isinstance(detail, dict) and "code" in detail and "message" in detail:
+            return detail
         return message
     return detail if detail is not None else message
 
