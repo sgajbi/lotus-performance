@@ -8,7 +8,6 @@ from uuid import uuid4
 
 import pandas as pd
 import pytest
-from fastapi import HTTPException
 
 from app.models.benchmark_analytics_requests import BenchmarkReturnSource
 from app.models.benchmark_requests import BenchmarkComponentObservation, BenchmarkReturnPoint
@@ -30,6 +29,7 @@ from app.models.returns_series import (
 from app.services import portfolio_source_service, returns_series_service, stateful_input_service
 from app.services.execution_registry import ExecutionRegistry
 from app.services.stateful_benchmark_input_service import StatefulBenchmarkNormalizedInput
+from core.errors import APIError
 from core.repro import generate_canonical_hash
 
 
@@ -108,7 +108,7 @@ def test_daily_ror_from_portfolio_timeseries_rejects_empty_engine_results(monkey
     monkeypatch.setattr(returns_series_service, "create_engine_dataframe", lambda points: pd.DataFrame(points))
     monkeypatch.setattr(returns_series_service, "run_calculations", lambda *args: (pd.DataFrame(), None))
 
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(APIError) as exc:
         returns_series_service.daily_ror_from_portfolio_timeseries(
             observations=[{"valuation_date": "2026-02-23"}],
             performance_start_date=date(2026, 2, 23),
@@ -145,7 +145,7 @@ def test_daily_ror_from_portfolio_timeseries_rejects_invalid_engine_returns(monk
     monkeypatch.setattr(returns_series_service, "create_engine_dataframe", lambda points: pd.DataFrame(points))
     monkeypatch.setattr(returns_series_service, "run_calculations", lambda *args: (daily_results_df, None))
 
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(APIError) as exc:
         returns_series_service.daily_ror_from_portfolio_timeseries(
             observations=[{"valuation_date": "2026-02-23"}],
             performance_start_date=date(2026, 2, 23),
@@ -178,7 +178,7 @@ def test_to_dataframe_rejects_duplicate_dates_after_timestamp_normalization():
         cast(ReturnPoint, SimpleNamespace(date=pd.Timestamp("2026-02-23"), return_value=Decimal("0.002"))),
     ]
 
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(APIError) as exc:
         returns_series_service.to_dataframe(points, series_type="portfolio")
 
     assert exc.value.status_code == 400
@@ -203,7 +203,7 @@ def test_benchmark_daily_returns_to_dataframe_preserves_index_during_timestamp_n
 def test_benchmark_daily_returns_to_dataframe_rejects_empty_source():
     source_df = pd.DataFrame(columns=["date", "benchmark_return"])
 
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(APIError) as exc:
         returns_series_service._benchmark_daily_returns_to_dataframe(source_df)
 
     assert exc.value.status_code == 422
@@ -218,7 +218,7 @@ def test_benchmark_daily_returns_to_dataframe_rejects_duplicate_dates():
         }
     )
 
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(APIError) as exc:
         returns_series_service._benchmark_daily_returns_to_dataframe(source_df)
 
     assert exc.value.status_code == 400
@@ -233,7 +233,7 @@ def test_benchmark_daily_returns_to_dataframe_rejects_normalized_duplicate_dates
         }
     )
 
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(APIError) as exc:
         returns_series_service._benchmark_daily_returns_to_dataframe(source_df)
 
     assert exc.value.status_code == 400
@@ -948,7 +948,7 @@ def test_build_returns_series_diagnostics_enforces_fail_fast_missing_points():
         }
     )
 
-    with pytest.raises(HTTPException, match="Missing 2 required points under FAIL_FAST policy"):
+    with pytest.raises(APIError, match="Missing 2 required points under FAIL_FAST policy"):
         returns_series_service._build_returns_series_diagnostics(
             request=request,
             resolved_window=resolved_window,
@@ -1043,7 +1043,7 @@ def test_risk_free_source_quality_from_points_reports_skipped_malformed_rows():
 
 
 def test_risk_free_points_to_dataframe_rejects_duplicate_dates():
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(APIError) as exc:
         returns_series_service.risk_free_points_to_dataframe(
             points=[
                 {"series_date": "2026-04-10", "value": "0.0001"},
@@ -1224,7 +1224,7 @@ def test_strict_intersection_policy_rejects_no_overlap():
     portfolio_df = pd.DataFrame({"date": pd.to_datetime(["2026-02-24"]), "return_value": [Decimal("0.0100")]})
     benchmark_df = pd.DataFrame({"date": pd.to_datetime(["2026-02-25"]), "return_value": [Decimal("0.0010")]})
 
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(APIError) as exc:
         returns_series_service._apply_strict_intersection_policy(
             portfolio_df=portfolio_df,
             benchmark_df=benchmark_df,
@@ -1381,7 +1381,7 @@ def test_prepare_stateless_returns_series_dataframes_requires_stateless_input():
     )
     resolved_window = returns_series_service.resolve_window(request)
 
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(APIError) as exc:
         returns_series_service._prepare_stateless_returns_series_dataframes(
             request=request,
             resolved_window=resolved_window,
@@ -1619,7 +1619,7 @@ def test_stateful_returns_series_resolution_context_requires_stateful_mode():
 def test_stateful_returns_series_resolution_context_requires_stateful_input():
     request = _build_stateful_request().model_copy(update={"stateful_input": None})
 
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(APIError) as exc:
         returns_series_service._stateful_returns_series_resolution_context(request)
 
     assert exc.value.status_code == 400
@@ -1718,7 +1718,7 @@ async def test_retrieve_stateful_returns_series_portfolio_source_maps_upstream_e
     resolved_window = returns_series_service.resolve_window(request)
 
     async def _retrieve_stateful_portfolio_input(**kwargs):  # noqa: ARG001
-        raise HTTPException(status_code=upstream_status, detail={"message": "portfolio source unavailable"})
+        raise APIError(status_code=upstream_status, detail={"message": "portfolio source unavailable"})
 
     monkeypatch.setattr(
         returns_series_service,
@@ -1726,7 +1726,7 @@ async def test_retrieve_stateful_returns_series_portfolio_source_maps_upstream_e
         _retrieve_stateful_portfolio_input,
     )
 
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(APIError) as exc:
         await returns_series_service._retrieve_stateful_returns_series_portfolio_source(
             active_settings=object(),
             stateful_input_service=object(),
@@ -1764,7 +1764,7 @@ async def test_resolve_stateful_returns_series_benchmark_id_rejects_missing_assi
         async def get_benchmark_assignment(self, **kwargs):  # noqa: ARG002
             return 404, {}
 
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(APIError) as exc:
         await returns_series_service._resolve_stateful_returns_series_benchmark_id(
             request=request,
             stateful_input_service=Service(),
@@ -1782,7 +1782,7 @@ async def test_resolve_stateful_returns_series_benchmark_id_rejects_invalid_payl
         async def get_benchmark_assignment(self, **kwargs):  # noqa: ARG002
             return 200, {"benchmark_id": None}
 
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(APIError) as exc:
         await returns_series_service._resolve_stateful_returns_series_benchmark_id(
             request=request,
             stateful_input_service=Service(),
@@ -1793,7 +1793,7 @@ async def test_resolve_stateful_returns_series_benchmark_id_rejects_invalid_payl
 
 
 def test_benchmark_id_from_assignment_payload_rejects_blank_benchmark_id():
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(APIError) as exc:
         returns_series_service._benchmark_id_from_assignment_payload({"benchmark_id": ""})
 
     assert exc.value.status_code == 422
@@ -1829,7 +1829,7 @@ async def test_retrieve_stateful_returns_series_risk_free_requires_reporting_cur
     )
     resolved_window = returns_series_service.resolve_window(request)
 
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(APIError) as exc:
         await returns_series_service._retrieve_stateful_returns_series_risk_free(
             request=request,
             stateful_input_service=object(),
@@ -1846,7 +1846,7 @@ def test_risk_free_points_from_payload_accepts_points_list():
 
 
 def test_risk_free_points_from_payload_rejects_missing_points_list():
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(APIError) as exc:
         returns_series_service._risk_free_points_from_payload({"points": None})
 
     assert exc.value.status_code == 422
@@ -1865,7 +1865,7 @@ async def test_retrieve_stateful_returns_series_risk_free_rejects_invalid_payloa
         async def get_risk_free_series(self, **kwargs):  # noqa: ARG002
             return 200, {"points": None}
 
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(APIError) as exc:
         await returns_series_service._retrieve_stateful_returns_series_risk_free(
             request=request,
             stateful_input_service=Service(),
@@ -1909,7 +1909,7 @@ async def test_retrieve_stateful_returns_series_vendor_benchmark_maps_source_err
         async def get_benchmark_return_series(self, **kwargs):  # noqa: ARG002
             return 404, {}
 
-    with pytest.raises(HTTPException) as exc_missing:
+    with pytest.raises(APIError) as exc_missing:
         await returns_series_service._retrieve_stateful_returns_series_vendor_benchmark(
             request=request,
             stateful_input_service=MissingService(),
@@ -1922,7 +1922,7 @@ async def test_retrieve_stateful_returns_series_vendor_benchmark_maps_source_err
         async def get_benchmark_return_series(self, **kwargs):  # noqa: ARG002
             return 503, {}
 
-    with pytest.raises(HTTPException) as exc_unavailable:
+    with pytest.raises(APIError) as exc_unavailable:
         await returns_series_service._retrieve_stateful_returns_series_vendor_benchmark(
             request=request,
             stateful_input_service=UnavailableService(),
@@ -1941,7 +1941,7 @@ async def test_retrieve_stateful_returns_series_vendor_benchmark_rejects_invalid
         async def get_benchmark_return_series(self, **kwargs):  # noqa: ARG002
             return 200, {"points": None}
 
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(APIError) as exc:
         await returns_series_service._retrieve_stateful_returns_series_vendor_benchmark(
             request=request,
             stateful_input_service=Service(),
@@ -2108,7 +2108,7 @@ async def test_calculate_returns_series_requires_open_date(monkeypatch, tmp_path
         portfolio_source_service.CoreIntegrationService, "get_portfolio_analytics_timeseries", _portfolio
     )
 
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(APIError) as exc:
         await returns_series_service.calculate_returns_series(request)
     assert exc.value.status_code == 422
     assert exc.value.detail["message"] == "Stateful source missing portfolio_open_date."
@@ -2135,7 +2135,7 @@ async def test_calculate_returns_series_maps_assignment_source_unavailable(monke
     )
     monkeypatch.setattr(portfolio_source_service.CoreIntegrationService, "get_benchmark_assignment", _assignment)
 
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(APIError) as exc:
         await returns_series_service.calculate_returns_series(request)
     assert exc.value.status_code == 503
     assert "Benchmark assignment source unavailable" in exc.value.detail["message"]
@@ -2165,7 +2165,7 @@ async def test_calculate_returns_series_requires_benchmark_id_and_points(monkeyp
         portfolio_source_service.CoreIntegrationService, "get_benchmark_assignment", _missing_assignment
     )
 
-    with pytest.raises(HTTPException) as exc_missing_id:
+    with pytest.raises(APIError) as exc_missing_id:
         await returns_series_service.calculate_returns_series(request)
     assert exc_missing_id.value.status_code == 422
 
@@ -2178,7 +2178,7 @@ async def test_calculate_returns_series_requires_benchmark_id_and_points(monkeyp
     monkeypatch.setattr(portfolio_source_service.CoreIntegrationService, "get_benchmark_assignment", _assignment)
     monkeypatch.setattr(portfolio_source_service.CoreIntegrationService, "get_benchmark_return_series", _bad_points)
 
-    with pytest.raises(HTTPException) as exc_bad_points:
+    with pytest.raises(APIError) as exc_bad_points:
         await returns_series_service.calculate_returns_series(request)
     assert exc_bad_points.value.status_code == 422
     assert "benchmark series is empty" in exc_bad_points.value.detail["message"]
@@ -2214,7 +2214,7 @@ async def test_calculate_returns_series_maps_benchmark_and_risk_free_errors(monk
         return 404, {}
 
     monkeypatch.setattr(portfolio_source_service.CoreIntegrationService, "get_benchmark_return_series", _benchmark_404)
-    with pytest.raises(HTTPException) as exc_bmk_404:
+    with pytest.raises(APIError) as exc_bmk_404:
         await returns_series_service.calculate_returns_series(request)
     assert exc_bmk_404.value.status_code == 404
 
@@ -2222,7 +2222,7 @@ async def test_calculate_returns_series_maps_benchmark_and_risk_free_errors(monk
         return 503, {}
 
     monkeypatch.setattr(portfolio_source_service.CoreIntegrationService, "get_benchmark_return_series", _benchmark_503)
-    with pytest.raises(HTTPException) as exc_bmk_503:
+    with pytest.raises(APIError) as exc_bmk_503:
         await returns_series_service.calculate_returns_series(request)
     assert exc_bmk_503.value.status_code == 503
 
@@ -2234,7 +2234,7 @@ async def test_calculate_returns_series_maps_benchmark_and_risk_free_errors(monk
 
     monkeypatch.setattr(portfolio_source_service.CoreIntegrationService, "get_benchmark_return_series", _benchmark_ok)
     monkeypatch.setattr(portfolio_source_service.CoreIntegrationService, "get_risk_free_series", _risk_free_404)
-    with pytest.raises(HTTPException) as exc_rf_404:
+    with pytest.raises(APIError) as exc_rf_404:
         await returns_series_service.calculate_returns_series(request)
     assert exc_rf_404.value.status_code == 404
 
@@ -2242,7 +2242,7 @@ async def test_calculate_returns_series_maps_benchmark_and_risk_free_errors(monk
         return 503, {}
 
     monkeypatch.setattr(portfolio_source_service.CoreIntegrationService, "get_risk_free_series", _risk_free_503)
-    with pytest.raises(HTTPException) as exc_rf_503:
+    with pytest.raises(APIError) as exc_rf_503:
         await returns_series_service.calculate_returns_series(request)
     assert exc_rf_503.value.status_code == 503
 

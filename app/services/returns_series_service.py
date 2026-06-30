@@ -6,7 +6,6 @@ from decimal import Decimal, localcontext
 from typing import Any, Iterable
 
 import pandas as pd
-from fastapi import HTTPException, status
 
 from adapters.api_adapter import create_engine_config, create_engine_dataframe
 from app.core.config import get_settings
@@ -57,7 +56,13 @@ from app.services.stateful_performance_input_service import StatefulPortfolioInp
 from app.services.stateful_retrieval_metadata import parse_zero_default_retrieval_metadata
 from app.services.valuation_points_service import portfolio_timeseries_to_valuation_points
 from common.enums import Frequency, PeriodType
-from core.errors import HTTP_422_UNPROCESSABLE
+from core.errors import (
+    HTTP_400_BAD_REQUEST,
+    HTTP_404_NOT_FOUND,
+    HTTP_422_UNPROCESSABLE,
+    HTTP_503_SERVICE_UNAVAILABLE,
+    APIError,
+)
 from core.repro import generate_canonical_hash
 from engine.benchmarks import benchmark_return_points_to_dataframe, calculate_benchmark_returns
 from engine.compute import run_calculations
@@ -188,6 +193,10 @@ _TRAILING_PERIOD_YEARS: dict[ReturnsRelativePeriod, int] = {
 }
 
 
+def _returns_series_api_error(*, status_code: int, detail: Any) -> APIError:
+    return APIError(status_code=status_code, detail=detail)
+
+
 def _resolved_relative_period_start(as_of: pd.Timestamp, period: ReturnsRelativePeriod) -> date | None:
     calendar_frequency = _CALENDAR_PERIOD_START_FREQUENCIES.get(period)
     if calendar_frequency is not None:
@@ -223,8 +232,8 @@ def resolve_window(request: ReturnsSeriesRequest) -> ResolvedWindow:
             resolved_period_label=None,
         )
     if request.window.period is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+        raise _returns_series_api_error(
+            status_code=HTTP_400_BAD_REQUEST,
             detail=invalid_request_detail("window.period is required when mode=RELATIVE"),
         )
     start_date = period_start(request.as_of_date, request.window.period, request.window.year)
@@ -239,7 +248,7 @@ def to_dataframe(points: Iterable[ReturnPoint], *, series_type: str) -> pd.DataF
     data = [{"date": p.date, "return_value": Decimal(str(p.return_value))} for p in points]
     df = pd.DataFrame(data)
     if df.empty:
-        raise HTTPException(
+        raise _returns_series_api_error(
             status_code=HTTP_422_UNPROCESSABLE,
             detail=insufficient_data_detail(f"{series_type} series is empty."),
         )
@@ -250,8 +259,8 @@ def to_dataframe(points: Iterable[ReturnPoint], *, series_type: str) -> pd.DataF
 
 def _raise_duplicate_return_dates(df: pd.DataFrame, *, series_type: str) -> None:
     if df["date"].duplicated().any():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+        raise _returns_series_api_error(
+            status_code=HTTP_400_BAD_REQUEST,
             detail=invalid_request_detail(f"{series_type} series contains duplicate dates."),
         )
 
@@ -271,7 +280,7 @@ def filter_window(df: pd.DataFrame, *, resolved_window: ResolvedWindow) -> pd.Da
     mask = (df["date"].dt.date >= resolved_window.start_date) & (df["date"].dt.date <= resolved_window.end_date)
     window_df = df[mask].copy()
     if window_df.empty:
-        raise HTTPException(
+        raise _returns_series_api_error(
             status_code=HTTP_422_UNPROCESSABLE,
             detail=insufficient_data_detail("No observations in resolved window."),
         )
@@ -514,7 +523,7 @@ def daily_ror_from_portfolio_timeseries(
     engine_df = create_engine_dataframe([point for point in valuation_points])
     daily_results_df, _ = run_calculations(engine_df, config)
     if daily_results_df.empty:
-        raise HTTPException(
+        raise _returns_series_api_error(
             status_code=HTTP_422_UNPROCESSABLE,
             detail=insufficient_data_detail("No portfolio return observations in resolved window."),
         )
@@ -528,7 +537,7 @@ def daily_ror_from_portfolio_timeseries(
     )
     output_df = output_df.dropna(subset=["return_value"]).sort_values("date")
     if output_df.empty:
-        raise HTTPException(
+        raise _returns_series_api_error(
             status_code=HTTP_422_UNPROCESSABLE,
             detail=insufficient_data_detail("No valid portfolio return observations after normalization."),
         )
@@ -602,7 +611,7 @@ def _get_requested_benchmark_return_source(request: ReturnsSeriesRequest) -> Ben
 
 def _benchmark_daily_returns_to_dataframe(daily_returns_df: pd.DataFrame) -> pd.DataFrame:
     if daily_returns_df.empty:
-        raise HTTPException(
+        raise _returns_series_api_error(
             status_code=HTTP_422_UNPROCESSABLE,
             detail=insufficient_data_detail("Benchmark series is empty."),
         )
@@ -697,7 +706,7 @@ def _apply_strict_intersection_policy(
         risk_free_df=risk_free_df,
     )
     if not common_dates:
-        raise HTTPException(
+        raise _returns_series_api_error(
             status_code=HTTP_422_UNPROCESSABLE,
             detail=insufficient_data_detail("No overlapping dates across selected series."),
         )
@@ -775,8 +784,8 @@ def _prepare_stateless_returns_series_dataframes(
 ) -> tuple[pd.DataFrame, pd.DataFrame | None, pd.DataFrame | None]:
     stateless_input = request.stateless_input
     if stateless_input is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+        raise _returns_series_api_error(
+            status_code=HTTP_400_BAD_REQUEST,
             detail=invalid_request_detail("stateless_input is required in stateless mode."),
         )
 
@@ -997,7 +1006,7 @@ def _benchmark_id_from_assignment_payload(assignment_payload: dict[str, Any]) ->
     benchmark_id_raw = assignment_payload.get("benchmark_id")
     benchmark_id = str(benchmark_id_raw) if benchmark_id_raw else None
     if not benchmark_id:
-        raise HTTPException(
+        raise _returns_series_api_error(
             status_code=HTTP_422_UNPROCESSABLE,
             detail=upstream_contract_violation_detail("Benchmark assignment payload missing benchmark_id."),
         )
@@ -1018,14 +1027,14 @@ async def _resolve_stateful_returns_series_benchmark_id(
         as_of_date=request.as_of_date,
         reporting_currency=request.reporting_currency,
     )
-    if assignment_status == status.HTTP_404_NOT_FOUND:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+    if assignment_status == HTTP_404_NOT_FOUND:
+        raise _returns_series_api_error(
+            status_code=HTTP_404_NOT_FOUND,
             detail=resource_not_found_detail("No benchmark assignment found for portfolio."),
         )
-    if assignment_status >= status.HTTP_400_BAD_REQUEST:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+    if assignment_status >= HTTP_400_BAD_REQUEST:
+        raise _returns_series_api_error(
+            status_code=HTTP_503_SERVICE_UNAVAILABLE,
             detail=source_unavailable_detail(f"Benchmark assignment source unavailable ({assignment_status})."),
         )
     return _benchmark_id_from_assignment_payload(assignment_payload)
@@ -1040,8 +1049,8 @@ async def _retrieve_stateful_returns_series_risk_free(
     if not request.series_selection.include_risk_free:
         return None, None
     if not request.reporting_currency:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+        raise _returns_series_api_error(
+            status_code=HTTP_400_BAD_REQUEST,
             detail=invalid_request_detail("reporting_currency is required for risk-free series in stateful mode."),
         )
 
@@ -1054,14 +1063,14 @@ async def _retrieve_stateful_returns_series_risk_free(
         series_mode="return_series",
         calculation_id=request.calculation_id,
     )
-    if risk_free_status == status.HTTP_404_NOT_FOUND:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+    if risk_free_status == HTTP_404_NOT_FOUND:
+        raise _returns_series_api_error(
+            status_code=HTTP_404_NOT_FOUND,
             detail=resource_not_found_detail(f"No risk-free series found for {request.reporting_currency}."),
         )
-    if risk_free_status >= status.HTTP_400_BAD_REQUEST:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+    if risk_free_status >= HTTP_400_BAD_REQUEST:
+        raise _returns_series_api_error(
+            status_code=HTTP_503_SERVICE_UNAVAILABLE,
             detail=source_unavailable_detail(f"Risk-free series source unavailable ({risk_free_status})."),
         )
 
@@ -1072,7 +1081,7 @@ async def _retrieve_stateful_returns_series_risk_free(
 def _risk_free_points_from_payload(risk_free_payload: dict[str, Any]) -> list[dict[str, Any]]:
     risk_free_points = risk_free_payload.get("points")
     if not isinstance(risk_free_points, list):
-        raise HTTPException(
+        raise _returns_series_api_error(
             status_code=HTTP_422_UNPROCESSABLE,
             detail=upstream_contract_violation_detail("Risk-free series payload missing points list."),
         )
@@ -1094,19 +1103,19 @@ async def _retrieve_stateful_returns_series_vendor_benchmark(
         frequency=core_frequency_label(request.frequency),
         calculation_id=request.calculation_id,
     )
-    if benchmark_status == status.HTTP_404_NOT_FOUND:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+    if benchmark_status == HTTP_404_NOT_FOUND:
+        raise _returns_series_api_error(
+            status_code=HTTP_404_NOT_FOUND,
             detail=resource_not_found_detail(f"No benchmark return series for {benchmark_id}."),
         )
-    if benchmark_status >= status.HTTP_400_BAD_REQUEST:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+    if benchmark_status >= HTTP_400_BAD_REQUEST:
+        raise _returns_series_api_error(
+            status_code=HTTP_503_SERVICE_UNAVAILABLE,
             detail=source_unavailable_detail(f"Benchmark return-series source unavailable ({benchmark_status})."),
         )
     benchmark_points = benchmark_payload.get("points")
     if not isinstance(benchmark_points, list):
-        raise HTTPException(
+        raise _returns_series_api_error(
             status_code=HTTP_422_UNPROCESSABLE,
             detail=upstream_contract_violation_detail("Benchmark return-series payload missing points list."),
         )
@@ -1278,7 +1287,7 @@ def _build_returns_series_diagnostics(
     returned_points = len(portfolio_df)
     missing_points = max(requested_points - returned_points, 0)
     if request.data_policy.missing_data_policy == MissingDataPolicy.FAIL_FAST and missing_points > 0:
-        raise HTTPException(
+        raise _returns_series_api_error(
             status_code=HTTP_422_UNPROCESSABLE,
             detail=insufficient_data_detail(f"Missing {missing_points} required points under FAIL_FAST policy."),
         )
@@ -1661,7 +1670,7 @@ async def _calculate_returns_series(
         )
         execution_registry.mark_complete(request.calculation_id)
         return result.response
-    except HTTPException as exc:
+    except APIError as exc:
         message = exc.detail["message"] if isinstance(exc.detail, dict) and "message" in exc.detail else str(exc.detail)
         fail_execution(calculation_id=request.calculation_id, message=message, active_stage=active_stage)
         raise
@@ -1757,8 +1766,8 @@ def _stateful_returns_series_resolution_context(
     if request.input_mode != InputMode.STATEFUL:
         raise ValueError("resolve_stateful_returns_series_request only supports stateful requests")
     if request.stateful_input is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+        raise _returns_series_api_error(
+            status_code=HTTP_400_BAD_REQUEST,
             detail=invalid_request_detail("stateful_input is required in stateful mode."),
         )
     active_settings = get_settings()
@@ -1788,13 +1797,13 @@ async def _retrieve_stateful_returns_series_portfolio_source(
             reporting_currency=request.reporting_currency,
             consumer_system=LOTUS_PERFORMANCE_CONSUMER_SYSTEM,
         )
-    except HTTPException as exc:
-        if exc.status_code == status.HTTP_503_SERVICE_UNAVAILABLE:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+    except APIError as exc:
+        if exc.status_code == HTTP_503_SERVICE_UNAVAILABLE:
+            raise _returns_series_api_error(
+                status_code=HTTP_503_SERVICE_UNAVAILABLE,
                 detail=source_unavailable_detail(str(exc.detail)),
             ) from exc
-        raise HTTPException(
+        raise _returns_series_api_error(
             status_code=HTTP_422_UNPROCESSABLE,
             detail=insufficient_data_detail(str(exc.detail)),
         ) from exc

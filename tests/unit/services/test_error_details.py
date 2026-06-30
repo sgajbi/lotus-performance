@@ -73,6 +73,11 @@ def test_safe_error_envelope_preserves_client_details_and_masks_server_details()
     assert client_envelope["message"] == "No benchmark assignment found."
     assert client_envelope["retryable"] is False
     assert retryable_envelope["error_code"] == "SOURCE_UNAVAILABLE"
+    assert retryable_envelope["detail"] == {
+        "code": "SOURCE_UNAVAILABLE",
+        "message": "Benchmark source unavailable.",
+        "retryable": True,
+    }
     assert retryable_envelope["message"] == "Benchmark source unavailable."
     assert retryable_envelope["retryable"] is True
     assert server_envelope["detail"] == (
