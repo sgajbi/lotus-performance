@@ -31,6 +31,11 @@ Supported history query options:
 | `generated_after` | omitted | Inclusive lower ISO-8601 timestamp bound. |
 | `generated_before` | omitted | Inclusive upper ISO-8601 timestamp bound. |
 
+History ordering is normalized newest-first by parsed `generated_at_utc`, with evidence file name as
+the deterministic tie-breaker. The same normalized history snapshot feeds runtime-status recovery
+drill readiness and Prometheus recovery-drill age/degradation metrics, so those operator surfaces
+evaluate the newest retained drill rather than the oldest retained artifact.
+
 Run:
 
 ```text

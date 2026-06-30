@@ -182,6 +182,7 @@ def test_recovery_drills_docs_reflect_certified_operator_contract():
     assert '"materialized_artifact_exists": true' in complete_reference
     assert "Downstream Consumers" in certification
     assert "Test Pyramid Assessment" in certification
+    assert "normalized newest-first by parsed `generated_at_utc`" in certification
     assert "No duplicate lotus-performance recovery-drill endpoint" in certification
     assert "app.services.operator_action_history_manifest" in certification
     assert "app.services.operator_action_history_filters" in certification
