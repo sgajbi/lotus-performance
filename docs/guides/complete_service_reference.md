@@ -1601,6 +1601,12 @@ Operational boundary:
 | `STATEFUL_INPUT_PORTFOLIO_CHUNK_DAYS` | `90` | portfolio retrieval chunk size |
 | `STATEFUL_INPUT_REFERENCE_CHUNK_DAYS` | `365` | reference retrieval chunk size |
 | `STATEFUL_INPUT_MAX_CONCURRENT_CHUNKS` | `4` | concurrent chunk retrieval bound |
+| `STATEFUL_INPUT_MAX_PAGES_PER_CHUNK` | `25` | maximum lotus-core portfolio/position pages accepted per stateful retrieval chunk before returning `stateful_upstream_page_limit_exceeded` |
+
+Stateful portfolio and position retrieval also rejects repeated lotus-core `next_page_token` values
+with `stateful_upstream_repeated_page_token`. Both pagination failures return controlled upstream
+failure payloads with bounded chunk and page-count metadata, preserving normal multi-page traversal
+when tokens advance and terminate correctly.
 
 ### Compute executor
 
