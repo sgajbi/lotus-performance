@@ -65,6 +65,7 @@ def test_contribution_endpoint_happy_path_and_envelope(client, happy_path_payloa
         "input_row_count": 4,
         "resolved_period_count": 1,
         "benchmark_row_count": 0,
+        "source_quality_evidence": None,
         "metric_labels": _EXPECTED_SUPPORTABILITY_METRIC_LABELS,
     }
     smoothing_evidence = response_data["results_by_period"]["ITD"]["smoothing_evidence"]
@@ -1041,6 +1042,121 @@ def test_contribution_endpoint_promotes_reset_aware_average_weight_for_clean_can
     assert any(
         "strong candidates for a future denominator cutover study" in note for note in body["diagnostics"]["notes"]
     )
+
+
+def test_contribution_endpoint_promotes_reset_aware_average_weight_for_hierarchy_candidate_periods(
+    client,
+):
+    """Proves hierarchy rows use the same promoted denominator as position contribution details."""
+    payload = {
+        "portfolio_id": "RESET_AWARE_WEIGHT_HIERARCHY_PROMOTION",
+        "report_start_date": "2025-01-01",
+        "report_end_date": "2025-01-03",
+        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "hierarchy": ["sector"],
+        "portfolio_data": {
+            "metric_basis": "NET",
+            "valuation_points": [
+                {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
+                {"perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1020},
+                {"perf_date": "2025-01-03", "begin_mv": 1020, "end_mv": 1030},
+            ],
+        },
+        "positions_data": [
+            {"position_id": "A", "valuation_points": []},
+            {"position_id": "B", "valuation_points": []},
+        ],
+        "emit": {"threshold_weight": 0.0},
+    }
+    from app.services import contribution_service
+
+    original_prepare = contribution_service._prepare_hierarchical_data
+    original_daily = contribution_service._calculate_daily_instrument_contributions
+
+    def _mock_prepare(_request):
+        instruments_df = pd.DataFrame(
+            {
+                "position_id": ["A", "A", "A", "B", "B", "B"],
+                "perf_date": [
+                    pd.Timestamp("2025-01-01").date(),
+                    pd.Timestamp("2025-01-02").date(),
+                    pd.Timestamp("2025-01-03").date(),
+                    pd.Timestamp("2025-01-01").date(),
+                    pd.Timestamp("2025-01-02").date(),
+                    pd.Timestamp("2025-01-03").date(),
+                ],
+                "perf_reset": [0, 1, 0, 0, 1, 0],
+                "bod_cf": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                "eod_cf": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                "sector": ["Technology", "Technology", "Technology", "Health Care", "Health Care", "Health Care"],
+            }
+        )
+        portfolio_df = pd.DataFrame(
+            {
+                "perf_date": [
+                    pd.Timestamp("2025-01-01").date(),
+                    pd.Timestamp("2025-01-02").date(),
+                    pd.Timestamp("2025-01-03").date(),
+                ],
+                "begin_mv": [1000.0, 1005.0, 1010.0],
+                "bod_cf": [0.0, 0.0, 0.0],
+                "daily_ror": [1.0, 1.0, 1.0],
+                "perf_reset": [0, 1, 0],
+                "nip": [0, 0, 0],
+                "nctrl_4": [0, 0, 0],
+                "account_reset": [0, 0, 0],
+                "sod_reset": [0, 0, 0],
+                "nip_rule_v1_shadow": [0, 0, 0],
+                "nip_rule_v2_shadow": [0, 0, 0],
+            }
+        )
+        return instruments_df, portfolio_df
+
+    def _mock_daily(_instruments_df, _portfolio_df, _weighting_scheme, _smoothing):
+        return pd.DataFrame(
+            {
+                "perf_date": [
+                    pd.Timestamp("2025-01-01").date(),
+                    pd.Timestamp("2025-01-02").date(),
+                    pd.Timestamp("2025-01-03").date(),
+                    pd.Timestamp("2025-01-01").date(),
+                    pd.Timestamp("2025-01-02").date(),
+                    pd.Timestamp("2025-01-03").date(),
+                ],
+                "position_id": ["A", "A", "A", "B", "B", "B"],
+                "sector": ["Technology", "Technology", "Technology", "Health Care", "Health Care", "Health Care"],
+                "smoothed_contribution": [0.01, 0.01, 0.01, 0.02, 0.02, 0.02],
+                "smoothed_local_contribution": [0.01, 0.01, 0.01, 0.02, 0.02, 0.02],
+                "daily_weight": [0.10, 0.95, 0.95, 0.90, 0.05, 0.05],
+                "perf_reset": [0, 1, 0, 0, 1, 0],
+            }
+        )
+
+    original_mode = settings.CONTRIBUTION_RESET_AWARE_AVERAGE_WEIGHT_MODE
+    settings.CONTRIBUTION_RESET_AWARE_AVERAGE_WEIGHT_MODE = "CANDIDATE_PERIODS"
+    contribution_service._prepare_hierarchical_data = _mock_prepare  # type: ignore[assignment]
+    contribution_service._calculate_daily_instrument_contributions = _mock_daily  # type: ignore[assignment]
+    try:
+        response = client.post("/performance/contribution", json=payload)
+    finally:
+        contribution_service._prepare_hierarchical_data = original_prepare  # type: ignore[assignment]
+        contribution_service._calculate_daily_instrument_contributions = original_daily  # type: ignore[assignment]
+        settings.CONTRIBUTION_RESET_AWARE_AVERAGE_WEIGHT_MODE = original_mode
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["audit"]["counts"]["average_weight_shadow_cutover_candidate_periods"] == 1
+    assert body["audit"]["counts"]["average_weight_shadow_promoted_periods"] == 1
+    period = body["results_by_period"]["ITD"]
+    assert period["average_weight_methodology_status"]["status"] == "PROMOTED"
+    assert period["average_weight_methodology_status"]["is_promoted"] is True
+    positions_by_id = {row["position_id"]: row for row in period["position_contributions"]}
+    assert positions_by_id["A"]["average_weight"] == pytest.approx(95.0)
+    assert positions_by_id["B"]["average_weight"] == pytest.approx(5.0)
+    hierarchy_rows = period["levels"][0]["rows"]
+    hierarchy_rows_by_sector = {row["key"]["sector"]: row for row in hierarchy_rows}
+    assert hierarchy_rows_by_sector["Technology"]["weight_avg"] == pytest.approx(95.0)
+    assert hierarchy_rows_by_sector["Health Care"]["weight_avg"] == pytest.approx(5.0)
 
 
 def test_contribution_async_result_retrieval(client, happy_path_payload):

@@ -68,8 +68,9 @@ Every certified contribution response must satisfy these invariants for each res
   `total_contribution`;
 - when `hierarchy` is requested, `summary.portfolio_contribution` and summed first-level
   `levels[].rows[].contribution` reconcile to `total_contribution`;
-- hierarchy row `weight_avg` values are average portfolio weights in percentage units, and first
-  level rows should reconcile to 100% when the requested visible scope covers the full portfolio.
+- hierarchy row `weight_avg` values are average portfolio weights in percentage units, use the same
+  selected active or promoted denominator as `position_contributions[].average_weight`, and first
+  level rows should reconcile to 100% when the requested visible scope covers the full portfolio;
 - `smoothing_evidence.linked_return` reconciles to `total_portfolio_return`;
 - `smoothing_evidence.final_contribution` reconciles to `total_contribution`;
 - `smoothing_evidence.raw_residual`, `smoothing_residual`, and `post_allocation_residual` explain
@@ -79,7 +80,9 @@ Every certified contribution response must satisfy these invariants for each res
 The hierarchy path now builds rows from the same residual-adjusted daily position series used for
 position output. This prevents hierarchy rows from drifting away from first-class position
 contribution and avoids double-counting a position's weight when grouping metadata changes across
-the period.
+the period. When `CONTRIBUTION_RESET_AWARE_AVERAGE_WEIGHT_MODE=CANDIDATE_PERIODS` promotes a clean
+reset-aware denominator, the same selected denominator drives residual allocation, emitted position
+average weights, hierarchy `weight_avg`, and `average_weight_methodology_status`.
 
 ## Upstream Integration
 
@@ -99,6 +102,9 @@ Stateful normalization maps lotus-core position rows into canonical contribution
 - position dimensions become grouping metadata;
 - source cash-flow type counts, selected FX metadata, and selected classification dimensions are
   preserved into `source_economics_evidence`;
+- mixed-currency stateful contribution in `currency_mode="BOTH"` fails closed with HTTP `422` when
+  sourced positions include currencies different from `report_ccy` and the request does not supply
+  `fx.rates`;
 - `include_cash_flows=false` is a scoped-source option that can intentionally remove cash-flow
   rows from the position story, and diagnostics should be read carefully when this creates
   non-flow-neutral slices.
@@ -185,7 +191,7 @@ contribution-output defect was found during this pass.
 | --- | --- | --- |
 | Model and validation tests | Request-mode exclusivity, stateless and stateful payload validation, extra-field rejection, and emitted schema descriptions. | Good, with Swagger operation text hardened in this pass. |
 | Engine and service tests | Position return, contribution linking, hierarchy aggregation, residual allocation, reset-aware shadow methodology, source-economics evidence, currency behavior, and async execution. | Strong for core contribution behavior. |
-| Integration tests | `/performance/contribution`, async result retrieval, stateful resolution, source-economics evidence, hierarchy, series emission, lineage, duplicate submission fencing, and reset-heavy tie-out. | Strong after the source-economics and hierarchy tie-out regression tests added in this pass. |
+| Integration tests | `/performance/contribution`, async result retrieval, stateful resolution, source-economics evidence, hierarchy, series emission, lineage, duplicate submission fencing, reset-heavy tie-out, mixed-currency FX validation, and reset-aware hierarchy denominator promotion. | Strong after the source-economics, hierarchy tie-out, mixed-currency validation, and hierarchy denominator regression tests added in this pass. |
 | Documentation and OpenAPI tests | Public guide plus OpenAPI quality and vocabulary gates. | Adequate; this certification note records the endpoint-level invariants and consumer posture. |
 | Cross-repo consumer tests | Gateway upstream client and performance workspace tests cover the known direct consumer; Workbench tests prove evidence status display. | Strong for known downstream consumers after RFC-047 Slice 7. |
 | Live canonical probes | Stateful option matrix for `PB_SG_GLOBAL_BAL_001` across NET/GROSS, dimensions, hierarchy, cash-flow inclusion, top-N Other bucketing, and series emission. | Passed on rebuilt local service. |

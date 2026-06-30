@@ -278,6 +278,9 @@ Important validation expectations:
     TWR-inspection artifact service now follow this pattern, and
     `tests/unit/services/test_service_framework_boundary_inventory.py` prevents new service-level
     FastAPI coupling while the remaining #331 debt is migrated in smaller slices.
+    Contribution workflow services must preserve framework-neutral `APIError` subclasses through
+    execution-failure recording so stateful validation defects such as missing mixed-currency FX
+    coverage return governed `422` responses instead of broad unexpected `500` envelopes.
 26. API routers should not own analytics workflow orchestration. Routers own HTTP route metadata,
     request/response DTO mapping, auth dependency extraction, and API adapter conversion. Offload
     threshold decisions, durable requested-window projection, request hashing, submission fencing,
@@ -299,7 +302,13 @@ Important validation expectations:
     declarations, methodology docs, API guides, and repo-authored wiki source. Do not aggregate
     away lifecycle identity, source exclusions, or measurement-window failures when downstream
     operators need that evidence to explain private-banking performance results.
-29. Runtime operator and status surfaces should degrade per source or component, not per endpoint.
+29. Contribution average-weight methodology must remain consistent across flat and hierarchy
+    outputs. When reset-aware average-weight promotion is enabled for a clean candidate period, the
+    selected denominator must drive residual allocation, `position_contributions[].average_weight`,
+    hierarchy `levels[].rows[].weight_avg`, and `average_weight_methodology_status` together. If a
+    period is blocked, keep the legacy denominator and expose blocker reason codes instead of
+    silently mixing denominators across surfaces.
+30. Runtime operator and status surfaces should degrade per source or component, not per endpoint.
     Work-item and recovery reads for compute and lineage queues must keep the healthy queue usable
     when the other queue fails. Runtime status must mark only the failed component unavailable when
     queue, history, preview, or governed-action snapshot reads fail. Public reasons must be stable

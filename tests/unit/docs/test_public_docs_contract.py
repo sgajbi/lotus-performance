@@ -773,6 +773,8 @@ def test_contribution_guide_uses_current_request_shape():
     guide = _read("docs/guides/contribution.md")
     guide_flat = " ".join(guide.split())
     api_reference = _read("docs/guides/api_reference.md")
+    certification = _read("docs/technical/contribution-endpoint-certification.md")
+    wiki = _read("wiki/Contribution-Analytics.md")
     readme = _read("README.md")
 
     assert 'input_mode: "stateless" | "stateful"' in guide
@@ -783,6 +785,9 @@ def test_contribution_guide_uses_current_request_shape():
     assert "one hierarchy result under each `results_by_period.<period>` key" in guide
     assert "position_contributions[].average_weight" in guide
     assert "levels[].rows[].weight_avg" in guide
+    assert "same selected denominator" in guide
+    assert "missing FX coverage is rejected with HTTP `422` before contribution calculation starts" in guide_flat
+    assert "CONTRIBUTION_RESET_AWARE_AVERAGE_WEIGHT_MODE=CANDIDATE_PERIODS" in guide
     assert "position_contributions` remains the first-class output" in guide
     assert "`lookthrough` is accepted as a compatibility request block only" in guide
     assert "does not decompose fund or structured-product holdings" in guide_flat
@@ -793,6 +798,15 @@ def test_contribution_guide_uses_current_request_shape():
     assert (
         "position-level `average_weight` and grouped `weight_avg` are both emitted in percentage units" in api_reference
     )
+    assert "share the same active or reset-aware promoted denominator" in api_reference
+    assert "`currency_mode=BOTH` requires `fx.rates`" in api_reference
+    assert "selected active or promoted denominator" in certification
+    assert "same selected denominator drives residual allocation" in certification
+    assert (
+        'mixed-currency stateful contribution in `currency_mode="BOTH"` fails closed with HTTP `422`' in certification
+    )
+    assert "Hierarchy `weight_avg` uses the same active or reset-aware promoted denominator" in wiki
+    assert "mixed-currency stateful contribution fails closed with HTTP `422`" in wiki
     assert "fund or structured-product decomposition is not performed inside lotus-performance" in api_reference
     assert 'input_mode: "stateless" | "stateful"' in readme
     assert "lotus-performance stamps source consumer identity server-side" in readme

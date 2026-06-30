@@ -47,6 +47,9 @@ Inside the current contract:
 - stateful mode consumes `lotus-core:PerformanceComponentEconomics:v1` when available to enrich
   source-economics evidence for source-authored cashflow, fee, income, tax, realized P&L, and
   FX-context component families without moving contribution methodology out of `lotus-performance`
+- stateful `currency_mode="BOTH"` requires `report_ccy`, source position currencies, and
+  `fx.rates` when any sourced position currency differs from `report_ccy`; missing FX coverage is
+  rejected with HTTP `422` before contribution calculation starts
 - `lookthrough` is accepted as a compatibility request block only; lotus-performance does not
   decompose fund or structured-product holdings and expects lotus-core to provide already-visible
   position rows for the requested scope
@@ -65,7 +68,9 @@ Key `emit` controls:
 When `hierarchy` is supplied, hierarchy level output remains enabled for existing clients even if
 `emit.by_level` is omitted. The hierarchy rows are built from the same residual-adjusted daily
 position contribution series used for position output, so position rows, daily series, and hierarchy
-rows tell the same contribution story.
+rows tell the same contribution story. In reset-aware average-weight rollout mode, hierarchy
+`levels[].rows[].weight_avg` uses the same selected denominator as
+`position_contributions[].average_weight`.
 
 ## Async execution
 
@@ -134,8 +139,10 @@ Residual handling and event treatment are aligned with the underlying portfolio 
 
 ### 6. Average-weight methodology characterization
 
-The current public `average_weight` output still uses the simple arithmetic mean of `daily_weight`
-across the period slice.
+By default, public `average_weight` output uses the simple arithmetic mean of `daily_weight` across
+the period slice. When `CONTRIBUTION_RESET_AWARE_AVERAGE_WEIGHT_MODE=CANDIDATE_PERIODS`, clean
+cutover-candidate periods promote the reset-aware denominator into emitted
+`position_contributions[].average_weight` and hierarchy `levels[].rows[].weight_avg`.
 
 At the same time, the service now computes a reset-aware shadow denominator for characterization:
 
@@ -144,19 +151,21 @@ At the same time, the service now computes a reset-aware shadow denominator for 
 - missing position rows on valid portfolio days are treated as zero weight rather than shrinking the
   denominator
 
-This shadow method does not change the public response yet. Instead, the response can surface:
+When a period is not promoted, the shadow method remains characterization evidence. The response can
+surface:
 
 - diagnostic notes when the reset-aware shadow differs from the active `average_weight`
 - audit counts for how many position-period rows would change under the reset-aware denominator
 - audit counts for whether position-level reset days and portfolio-level reset days diverge
 
-This keeps contribution behavior stable while we verify the methodology against TWR and the RFC-043
-acceptance criteria.
+This keeps default contribution behavior stable while allowing explicitly controlled promotion for
+periods whose residual, flow-balance, reset-alignment, and emitted-series checks are clean.
 
 Current working decision:
 
-- keep the simple mean active for now
-- keep the reset-aware denominator as a shadow methodology
+- keep the simple mean active by default
+- promote the reset-aware denominator only in `CANDIDATE_PERIODS` mode and only for clean candidate
+  periods
 - use the shadow delta note and audit count to identify where a future cutover would actually
   change the contribution story
 
@@ -218,7 +227,8 @@ The audit block now also quantifies the size of that disagreement:
 - `average_weight_shadow_promotion_ready_rate_bp`: share of material-shadow periods that are
   currently promotion-ready, expressed in basis points of the material-shadow population
 - `average_weight_shadow_promoted_periods`: periods where the controlled rollout actually promoted
-  the reset-aware denominator into the emitted `average_weight` output
+  the reset-aware denominator into emitted position `average_weight` and hierarchy `weight_avg`
+  output
 - `average_weight_shadow_blocked_periods`: material-shadow periods that stayed shadow-only because
   one or more rollout guardrails were not yet clean
 - `average_weight_shadow_blocked_by_weight_residual_periods`: material-shadow periods that stayed
@@ -564,7 +574,8 @@ Depending on the request, each period result can include:
 Weight-unit contract:
 
 - `position_contributions[].average_weight` is emitted in percentage units
-- `levels[].rows[].weight_avg` is also emitted in percentage units
+- `levels[].rows[].weight_avg` is also emitted in percentage units and uses the same active or
+  promoted denominator as position average weight
 - both surfaces therefore use the same public unit convention: `25.0` means `25%`, not `0.25`
 
 For front-office ranking surfaces, `position_contributions` remains the first-class output because
