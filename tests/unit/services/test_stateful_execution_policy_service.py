@@ -1,8 +1,8 @@
 from uuid import uuid4
 
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from app.core.application_responses import accepted_application_response
 from app.services.execution_registry import (
     ExecutionRecord,
     ExecutionStatus,
@@ -96,10 +96,7 @@ def test_finalize_resolved_stateful_execution_promotes_async_when_requested(mock
     update_identity = mocker.patch(
         "app.services.stateful_execution_policy_service.execution_registry.update_execution_identity"
     )
-    accepted_response = JSONResponse(
-        status_code=202,
-        content=_accepted_response_factory(calculation_id).model_dump(mode="json"),
-    )
+    accepted_response = accepted_application_response(_accepted_response_factory(calculation_id))
     promote = mocker.patch(
         "app.services.stateful_execution_policy_service.promote_existing_execution_to_async_submission_or_raise",
         return_value=accepted_response,
@@ -230,4 +227,4 @@ def test_replay_promoted_stateful_async_execution_returns_accepted_response_for_
 
     assert response is not None
     assert response.status_code == 202
-    assert response.body
+    assert response.content

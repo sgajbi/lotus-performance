@@ -2,8 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi.responses import JSONResponse
-
+from app.core.application_responses import ApplicationHttpResponse
 from app.models.execution_polling import (
     AsyncResultResponse,
     ComputeJobResponse,
@@ -26,7 +25,7 @@ EXECUTION_POLLING_NOT_FOUND_DETAIL = "Execution data not found for the given cal
 
 def get_execution_polling_response(
     calculation_id: UUID, *, request_headers=None
-) -> ExecutionResponse | JSONResponse | None:
+) -> ExecutionResponse | ApplicationHttpResponse | None:
     record = execution_registry.get_execution(calculation_id)
     if record is None:
         return None

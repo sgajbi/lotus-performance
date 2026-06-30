@@ -3,6 +3,7 @@ from typing import NoReturn
 
 from fastapi import HTTPException, status
 
+from app.core.application_responses import ApplicationHttpResponse
 from app.core.config import get_settings
 from app.models.benchmark_analytics_requests import (
     BenchmarkInputMode,
@@ -32,7 +33,7 @@ from app.services.twr_service import calculate_twr_response
 @dataclass(frozen=True)
 class _TWRSyncExecutionStart:
     requested_window: dict[str, object]
-    replay_response: TWRAcceptedResponse | None
+    replay_response: ApplicationHttpResponse | None
 
 
 def accepted_twr_response(calculation_id) -> TWRAcceptedResponse:
@@ -145,7 +146,7 @@ def finalize_twr_resolved_execution_identity(
     resolved_input_count: int,
     benchmark_work_units: int,
     engine_version: str,
-) -> tuple[str, str, TWRAcceptedResponse | None]:
+) -> tuple[str, str, ApplicationHttpResponse | None]:
     input_fingerprint, calculation_hash = generate_value_fingerprint(
         resolved_twr_identity_payload,
         engine_version,
@@ -279,7 +280,7 @@ def _twr_execution_window_benchmark_id(
     return None
 
 
-async def calculate_twr_workflow(request: TWRAnalyticsRequest) -> PerformanceResponse | TWRAcceptedResponse:
+async def calculate_twr_workflow(request: TWRAnalyticsRequest) -> PerformanceResponse | ApplicationHttpResponse:
     """Resolve, fence, execute, and map errors for one TWR analytics request."""
     settings = get_settings()
     input_fingerprint, calculation_hash = generate_twr_request_hashes(request, engine_version=settings.APP_VERSION)
@@ -377,7 +378,7 @@ def _calculate_twr_resolved_response(
     input_fingerprint: str,
     calculation_hash: str,
     engine_version: str,
-) -> PerformanceResponse | TWRAcceptedResponse:
+) -> PerformanceResponse | ApplicationHttpResponse:
     performance_request = resolved_request.performance_request
     resolved_twr_identity_payload = build_resolved_twr_identity_payload(
         performance_request=performance_request,

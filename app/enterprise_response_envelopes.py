@@ -1,5 +1,7 @@
 from fastapi.responses import JSONResponse
 
+from app.core.application_responses import ApplicationHttpResponse
+
 _RESPONSE_DETAIL_KEY = "detail"
 _RESPONSE_REASON_KEY = "reason"
 _AUTHORIZATION_POLICY_DENIED_DETAIL = "authorization_policy_denied"
@@ -18,8 +20,19 @@ def _payload_too_large_response() -> JSONResponse:
 def _authorization_denied_response_envelope(reason: str | None) -> JSONResponse:
     return JSONResponse(
         status_code=_HTTP_STATUS_FORBIDDEN,
-        content={
-            _RESPONSE_DETAIL_KEY: _AUTHORIZATION_POLICY_DENIED_DETAIL,
-            _RESPONSE_REASON_KEY: reason,
-        },
+        content=_authorization_denied_response_content(reason),
     )
+
+
+def _authorization_denied_application_response(reason: str | None) -> ApplicationHttpResponse:
+    return ApplicationHttpResponse(
+        status_code=_HTTP_STATUS_FORBIDDEN,
+        content=_authorization_denied_response_content(reason),
+    )
+
+
+def _authorization_denied_response_content(reason: str | None) -> dict[str, str | None]:
+    return {
+        _RESPONSE_DETAIL_KEY: _AUTHORIZATION_POLICY_DENIED_DETAIL,
+        _RESPONSE_REASON_KEY: reason,
+    }

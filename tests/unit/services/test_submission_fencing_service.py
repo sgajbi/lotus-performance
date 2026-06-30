@@ -2,7 +2,6 @@ import logging
 from uuid import uuid4
 
 import pytest
-from fastapi import HTTPException
 from pydantic import BaseModel
 
 from app.services.compute_job_store import ComputeJobRegistrationResult, ComputeJobRegistrationStatus
@@ -15,6 +14,7 @@ from app.services.submission_fencing_service import (
     promote_existing_execution_to_async_submission_or_raise,
     register_async_submission_or_raise,
 )
+from core.errors import APIError
 
 
 class _AcceptedResponse(BaseModel):
@@ -152,7 +152,7 @@ def test_register_async_submission_conflict_on_job_payload_drift_raises_409(mock
         return_value=ComputeJobRegistrationResult(status=ComputeJobRegistrationStatus.CONFLICT),
     )
 
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(APIError) as exc_info:
         register_async_submission_or_raise(
             calculation_id=calculation_id,
             analytics_type="Contribution",
@@ -177,7 +177,7 @@ def test_register_async_compute_job_conflict_does_not_delete_replayed_execution(
     )
     delete_execution = mocker.patch("app.services.submission_fencing_service.execution_registry.delete_execution")
 
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(APIError) as exc_info:
         _register_async_compute_job_or_rollback_execution(
             calculation_id=calculation_id,
             analytics_type="Contribution",
@@ -203,7 +203,7 @@ def test_register_async_submission_cleans_up_new_execution_on_job_conflict(mocke
         return_value=ComputeJobRegistrationResult(status=ComputeJobRegistrationStatus.CONFLICT),
     )
 
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(APIError) as exc_info:
         register_async_submission_or_raise(
             calculation_id=calculation_id,
             analytics_type="Contribution",
@@ -416,7 +416,7 @@ def test_promote_existing_execution_leaves_execution_unchanged_on_job_conflict(m
     start_stage = mocker.patch("app.services.submission_fencing_service.execution_registry.start_stage")
     complete_stage = mocker.patch("app.services.submission_fencing_service.execution_registry.complete_stage")
 
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(APIError) as exc_info:
         promote_existing_execution_to_async_submission_or_raise(
             calculation_id=calculation_id,
             analytics_type="Contribution",

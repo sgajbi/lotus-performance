@@ -248,11 +248,16 @@ Important validation expectations:
     `UPSTREAM_HTTP_KEEPALIVE_EXPIRY_SECONDS` before proposing a runtime transport split.
 24. Application services should use framework-neutral `core.errors.APIError` subclasses for
     validation, source-unavailable, not-found, conflict, and retryability semantics. FastAPI
-    `HTTPException`, `status`, and `JSONResponse` belong at the API adapter boundary. The shared
-    stateful source helpers, input-mode helper, benchmark-assignment helper, stateful
-    position-currency helper, and compute executor now follow this pattern, and
-    `tests/unit/services/test_service_framework_boundary_inventory.py` prevents new service-level
-    FastAPI coupling while the remaining #331 debt is migrated in smaller slices.
+    `HTTPException`, `status`, and `JSONResponse` belong at the API adapter boundary. When a
+    service must express an explicit HTTP outcome such as `202 Accepted` or authorization denial,
+    return `app.core.application_responses.ApplicationHttpResponse` and let endpoint adapters call
+    `app.api.http_response_adapter.to_fastapi_response(...)`. The shared stateful source helpers,
+    input-mode helper, benchmark-assignment helper, stateful position-currency helper, compute
+    executor, async-result resolver, calculation-result access policy, execution polling service,
+    stateful execution policy service, submission fencing service, and returns-series workflow now
+    follow this pattern, and `tests/unit/services/test_service_framework_boundary_inventory.py`
+    prevents new service-level FastAPI coupling while the remaining #331 debt is migrated in
+    smaller slices.
 
 ## Standards And RFCs That Govern This Repository
 

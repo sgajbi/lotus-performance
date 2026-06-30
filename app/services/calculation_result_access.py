@@ -3,8 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from fastapi.responses import JSONResponse
-
+from app.core.application_responses import ApplicationHttpResponse
 from app.enterprise_authorization import _missing_headers_reason
 from app.enterprise_capability_rules import _CAPABILITY_OPERATIONS_RUNTIME_READ
 from app.enterprise_request_context import (
@@ -13,7 +12,7 @@ from app.enterprise_request_context import (
     _missing_required_headers,
     _normalized_headers,
 )
-from app.enterprise_response_envelopes import _authorization_denied_response_envelope
+from app.enterprise_response_envelopes import _authorization_denied_application_response
 from app.enterprise_runtime_config import _privileged_read_authz_enabled
 from app.services.execution_registry import ExecutionRecord
 
@@ -25,21 +24,21 @@ def authorize_calculation_result_access(
     *,
     execution: ExecutionRecord,
     headers: Mapping[str, Any] | None,
-) -> JSONResponse | None:
+) -> ApplicationHttpResponse | None:
     if headers is None or not _privileged_read_authz_enabled():
         return None
     normalized_headers = _normalized_headers(headers)
     missing_headers = _missing_required_headers(normalized_headers)
     if missing_headers:
-        return _authorization_denied_response_envelope(_missing_headers_reason(missing_headers))
+        return _authorization_denied_application_response(_missing_headers_reason(missing_headers))
     if not _has_service_identity(normalized_headers):
-        return _authorization_denied_response_envelope("missing_service_identity")
+        return _authorization_denied_application_response("missing_service_identity")
     if _has_privileged_result_read(normalized_headers) or _has_matching_portfolio_entitlement(
         execution=execution,
         normalized_headers=normalized_headers,
     ):
         return None
-    return _authorization_denied_response_envelope(_RESULT_ACCESS_DENIED_REASON)
+    return _authorization_denied_application_response(_RESULT_ACCESS_DENIED_REASON)
 
 
 def _has_privileged_result_read(normalized_headers: Mapping[str, str]) -> bool:

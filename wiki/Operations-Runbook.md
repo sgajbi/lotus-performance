@@ -52,6 +52,10 @@ adapter boundary. When a background worker records `APIServiceUnavailableError`,
 retryable source/dependency outage rather than a web-framework failure. The public HTTP envelope is
 still produced by the central FastAPI exception handler.
 
+For explicit non-error HTTP outcomes, services return `ApplicationHttpResponse` and API endpoints
+convert it with `to_fastapi_response(...)`; this keeps async `202 Accepted` and authorization-denied
+responses consistent without importing FastAPI response classes into application services.
+
 ## HTTP boundary controls
 
 `lotus-performance` registers explicit HTTP boundary hardening in `app.http_security`.

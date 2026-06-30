@@ -1,10 +1,8 @@
-import json
 import logging
 from typing import Any
 from uuid import UUID, uuid4
 
 import pytest
-from fastapi import HTTPException
 from pydantic import BaseModel
 
 from app.services import async_result_service
@@ -20,6 +18,7 @@ from app.services.async_result_service import (
 from app.services.async_result_store import AsyncResultRecord, AsyncResultStatus
 from app.services.compute_job_store import ComputeJobRecord, ComputeJobStatus
 from app.services.execution_registry import ExecutionRecord, ExecutionStatus
+from core.errors import APIError
 
 
 class _AsyncResponse(BaseModel):
@@ -145,7 +144,7 @@ def test_active_async_job_status_policy_covers_in_flight_statuses():
 
 
 def test_resolve_compute_job_result_raises_not_found_for_missing_job():
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(APIError) as exc_info:
         _resolve_compute_job_result(
             calculation_id=uuid4(),
             job=None,
@@ -168,7 +167,7 @@ def test_require_compute_job_returns_existing_job():
 
 
 def test_require_compute_job_raises_not_found_for_missing_job():
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(APIError) as exc_info:
         _require_compute_job(None, not_found_detail="not found")
 
     assert exc_info.value.status_code == 404
@@ -179,7 +178,7 @@ def test_resolve_compute_job_result_raises_conflict_for_failed_job():
     calculation_id = uuid4()
     job = _job_record(calculation_id, job_status=ComputeJobStatus.FAILED, error_message="worker failed")
 
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(APIError) as exc_info:
         _resolve_compute_job_result(
             calculation_id=calculation_id,
             job=job,
@@ -213,7 +212,7 @@ def test_resolve_async_result_returns_accepted_for_active_compute_job(monkeypatc
     )
 
     assert response.status_code == 202
-    assert json.loads(response.body) == {
+    assert response.content == {
         "calculation_id": str(calculation_id),
         "status": "accepted",
     }
@@ -235,7 +234,7 @@ def test_resolve_async_result_hides_existing_result_when_execution_identity_miss
         ),
     )
 
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(APIError) as exc_info:
         resolve_async_result(
             calculation_id=calculation_id,
             expected_analytics_type="ReturnsSeries",
@@ -350,7 +349,7 @@ def test_resolve_async_result_hides_wrong_type_stored_payload_from_endpoint(monk
     )
 
     with caplog.at_level(logging.WARNING, logger="app.services.async_result_service"):
-        with pytest.raises(HTTPException) as exc_info:
+        with pytest.raises(APIError) as exc_info:
             resolve_async_result(
                 calculation_id=calculation_id,
                 expected_analytics_type="ReturnsSeries",
@@ -386,7 +385,7 @@ def test_resolve_async_result_maps_schema_invalid_stored_payload_to_conflict(mon
     )
 
     with caplog.at_level(logging.WARNING, logger="app.services.async_result_service"):
-        with pytest.raises(HTTPException) as exc_info:
+        with pytest.raises(APIError) as exc_info:
             resolve_async_result(
                 calculation_id=calculation_id,
                 expected_analytics_type="ReturnsSeries",
@@ -421,7 +420,7 @@ def test_resolve_async_result_raises_conflict_for_failed_stored_async_result(mon
         ),
     )
 
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(APIError) as exc_info:
         resolve_async_result(
             calculation_id=calculation_id,
             expected_analytics_type="ReturnsSeries",
@@ -479,7 +478,7 @@ def test_resolve_async_result_hides_wrong_type_compute_job_from_endpoint(monkeyp
     )
 
     with caplog.at_level(logging.WARNING, logger="app.services.async_result_service"):
-        with pytest.raises(HTTPException) as exc_info:
+        with pytest.raises(APIError) as exc_info:
             resolve_async_result(
                 calculation_id=calculation_id,
                 expected_analytics_type="ReturnsSeries",
@@ -514,7 +513,7 @@ def test_resolve_async_result_maps_schema_invalid_compute_job_payload_to_conflic
     )
 
     with caplog.at_level(logging.WARNING, logger="app.services.async_result_service"):
-        with pytest.raises(HTTPException) as exc_info:
+        with pytest.raises(APIError) as exc_info:
             resolve_async_result(
                 calculation_id=calculation_id,
                 expected_analytics_type="ReturnsSeries",

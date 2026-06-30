@@ -5,6 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException, Path, Request, status
 from fastapi.responses import JSONResponse
 
+from app.api.http_response_adapter import to_fastapi_response
 from app.models.execution_polling import ExecutionResponse
 from app.models.platform_surfaces import ErrorDetailResponse
 from app.services.execution_polling_service import EXECUTION_POLLING_NOT_FOUND_DETAIL, get_execution_polling_response
@@ -44,4 +45,4 @@ async def get_execution(
             detail=EXECUTION_POLLING_NOT_FOUND_DETAIL,
         )
 
-    return response
+    return to_fastapi_response(response)
