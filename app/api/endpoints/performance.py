@@ -4,6 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import JSONResponse
 
+from app.api.async_openapi import async_result_responses, async_submission_responses
 from app.core.config import get_settings
 from app.models.attribution_analytics_requests import AttributionAnalyticsRequest
 from app.models.attribution_responses import AttributionAcceptedResponse, AttributionResponse
@@ -117,6 +118,11 @@ def _workspace_offload_reason(request: WorkspaceSummaryRequest) -> str:
         "governed upstream contracts. Large stateful or large-input requests may return 202 with "
         "poll_path and result_path."
     ),
+    responses=async_submission_responses(
+        accepted_model=WorkspaceSummaryAcceptedResponse,
+        analytics_name="workspace-summary",
+        result_path_template="/performance/workspace-summary/results/{calculation_id}",
+    ),
 )
 def calculate_workspace_summary_endpoint(
     request: WorkspaceSummaryRequest,
@@ -170,6 +176,13 @@ def calculate_workspace_summary_endpoint(
         "Retrieves the completed workspace-summary response for an async request, or returns the "
         "accepted envelope while execution remains pending."
     ),
+    responses=async_result_responses(
+        accepted_model=WorkspaceSummaryAcceptedResponse,
+        analytics_name="workspace-summary",
+        result_path_template="/performance/workspace-summary/results/{calculation_id}",
+        not_found_detail="Async workspace summary result not found for the given calculation_id.",
+        failed_detail="Async workspace summary execution failed.",
+    ),
 )
 async def get_workspace_summary_result(calculation_id: UUID) -> WorkspaceSummaryResponse | JSONResponse:
     return resolve_async_result(
@@ -193,15 +206,11 @@ async def get_workspace_summary_result(calculation_id: UUID) -> WorkspaceSummary
         "analysis periods. Smaller requests return the completed TWR response immediately; "
         "large or long-window stateful requests can return 202 with poll_path and result_path."
     ),
-    responses={
-        202: {
-            "model": TWRAcceptedResponse,
-            "description": (
-                "Accepted for asynchronous TWR execution. Poll poll_path for execution status "
-                "or result_path for the completed TWR response."
-            ),
-        }
-    },
+    responses=async_submission_responses(
+        accepted_model=TWRAcceptedResponse,
+        analytics_name="TWR",
+        result_path_template="/performance/twr/results/{calculation_id}",
+    ),
 )
 async def calculate_twr_endpoint(request: TWRAnalyticsRequest) -> PerformanceResponse | JSONResponse:
     """
@@ -220,19 +229,13 @@ async def calculate_twr_endpoint(request: TWRAnalyticsRequest) -> PerformanceRes
         "Returns the completed PerformanceResponse when execution is complete, or the "
         "accepted envelope while the durable calculation is still pending."
     ),
-    responses={
-        202: {
-            "model": TWRAcceptedResponse,
-            "description": "The async TWR calculation is still pending.",
-        },
-        404: {
-            "model": ErrorDetailResponse,
-            "description": "No async TWR result exists for the supplied calculation_id.",
-            "content": {
-                "application/json": {"example": {"detail": "Async TWR result not found for the given calculation_id."}}
-            },
-        },
-    },
+    responses=async_result_responses(
+        accepted_model=TWRAcceptedResponse,
+        analytics_name="TWR",
+        result_path_template="/performance/twr/results/{calculation_id}",
+        not_found_detail="Async TWR result not found for the given calculation_id.",
+        failed_detail="Async TWR execution failed.",
+    ),
 )
 async def get_twr_result(calculation_id: UUID) -> PerformanceResponse | JSONResponse:
     return resolve_async_result(

@@ -1541,6 +1541,11 @@ Async-capable endpoints use one shared pattern:
 3. poll `GET /performance/executions/{calculation_id}`
 4. retrieve the endpoint-specific result path
 
+The OpenAPI contract declares the `202 Accepted` accepted-envelope schema for every async-capable
+submission route and every endpoint-specific result route. Endpoint-specific result routes also
+publish governed `404` unknown-calculation and `409` failed-calculation error responses so SDK,
+Gateway, Workbench, and API catalog consumers can model all runtime branches.
+
 Current endpoint-specific async result routes:
 
 - `/performance/twr/results/{calculation_id}`

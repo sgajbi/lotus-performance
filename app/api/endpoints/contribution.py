@@ -4,6 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
+from app.api.async_openapi import async_result_responses, async_submission_responses
 from app.models.contribution_analytics_requests import ContributionAnalyticsRequest
 from app.models.contribution_responses import (
     ContributionAcceptedResponse,
@@ -36,6 +37,11 @@ def _as_numeric(value: object, default=0):
         "normalize them into the same calculation engine. Large requests may return 202 with poll and "
         "result paths; retrieve the completed result from `/performance/contribution/results/{calculation_id}`."
     ),
+    responses=async_submission_responses(
+        accepted_model=ContributionAcceptedResponse,
+        analytics_name="contribution",
+        result_path_template="/performance/contribution/results/{calculation_id}",
+    ),
 )
 async def calculate_contribution_endpoint(
     request: ContributionAnalyticsRequest,
@@ -52,6 +58,13 @@ async def calculate_contribution_endpoint(
         "`result_path` returned by `POST /performance/contribution` after polling the execution status. "
         "The endpoint returns 202 while the calculation is still pending, 200 when complete, 404 when "
         "the calculation_id is unknown, and 409 when the asynchronous calculation failed."
+    ),
+    responses=async_result_responses(
+        accepted_model=ContributionAcceptedResponse,
+        analytics_name="contribution",
+        result_path_template="/performance/contribution/results/{calculation_id}",
+        not_found_detail="Async contribution result not found for the given calculation_id.",
+        failed_detail="Async contribution execution failed.",
     ),
 )
 async def get_contribution_result(calculation_id: UUID) -> ContributionResponse | JSONResponse:

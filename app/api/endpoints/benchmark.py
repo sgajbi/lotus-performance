@@ -5,6 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
+from app.api.async_openapi import async_result_responses, async_submission_responses
 from app.models.benchmark_analytics_requests import BenchmarkAnalyticsRequest
 from app.models.benchmark_responses import (
     BenchmarkAcceptedResponse,
@@ -46,6 +47,11 @@ completed benchmark payload.
     response_model=BenchmarkPerformanceResponse | BenchmarkAcceptedResponse,
     summary="Calculate benchmark performance",
     description=BENCHMARK_ENDPOINT_DESCRIPTION,
+    responses=async_submission_responses(
+        accepted_model=BenchmarkAcceptedResponse,
+        analytics_name="benchmark performance",
+        result_path_template="/performance/benchmark/results/{calculation_id}",
+    ),
 )
 async def calculate_benchmark_endpoint(
     request: BenchmarkAnalyticsRequest,
@@ -59,6 +65,13 @@ async def calculate_benchmark_endpoint(
     response_model=BenchmarkPerformanceResponse | BenchmarkAcceptedResponse,
     summary="Retrieve async benchmark result",
     description=BENCHMARK_RESULT_ENDPOINT_DESCRIPTION,
+    responses=async_result_responses(
+        accepted_model=BenchmarkAcceptedResponse,
+        analytics_name="benchmark performance",
+        result_path_template="/performance/benchmark/results/{calculation_id}",
+        not_found_detail="Async benchmark result not found for the given calculation_id.",
+        failed_detail="Async benchmark execution failed.",
+    ),
 )
 async def get_benchmark_result(calculation_id: UUID) -> BenchmarkPerformanceResponse | JSONResponse:
     """Return a completed async benchmark calculation or its accepted/failed status."""
