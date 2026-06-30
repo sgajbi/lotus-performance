@@ -1,5 +1,5 @@
 Report date: 2026-06-30
-Branch: `feature/durable-queue-source-loading-boundary`
+Branch: `feature/returns-series-execution-result-boundary`
 Command: `python scripts/python_duplicate_code_inventory.py --min-lines 12 --limit 45 --max-groups 0`
 Mode: enforced first-party duplicate function-body hotspot regression gate.
 

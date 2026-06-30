@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Health Report
 
 Report date: 2026-06-30
-Branch: `feature/durable-queue-source-loading-boundary`
+Branch: `feature/returns-series-execution-result-boundary`
 Baseline source: `quality/baseline_report.md`
 Report mode: phase-zero scorecard; complexity, architecture, duplicate-code, repository hygiene,
 router-thinness, observability-readiness, domain-product validation, deterministic API evaluation,
@@ -29,7 +29,7 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | Python files | 480 | 583 | measured | `rg --files -g '*.py'` |
 | Python package markers | 18 | 18 | measured | recursive `__init__.py` count |
-| Python LOC | 104,454 | 174,145 | measured | `rg --files -g '*.py'` plus Python line count on this branch |
+| Python LOC | 104,454 | 174,241 | measured | `rg --files -g '*.py'` plus Python line count on this branch |
 | Largest Python file LOC | 2,399 | 2,503 | measured | largest-file inventory on this branch |
 | Largest production file LOC | 1,156 | 1,948 | measured | `app/services/stateful_input_service.py` |
 | Duplicate code hotspots | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `make quality-duplicate-code-gate` with `--min-lines 12 --max-groups 0`; duplicated LOC reduced from `24` to `0` in LP-CR-1407 |
@@ -44,7 +44,7 @@ link the commit, command, or CI artifact that proves the change.
 | Max cyclomatic complexity | unknown | 5 | enforced | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py`; `make quality-complexity-gate` |
 | High-complexity functions | unknown | 0 | enforced | rank D-F functions in `quality/complexity_inventory.md`; `make quality-complexity-gate` |
 | Average maintainability index | unknown | 55.18 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
-| Largest functions by LOC | unknown | 55 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; `_load_durable_queue_metric_sources(...)` dropped out of the top-45 table after durable queue, recovery-drill, and runtime-retention source loading moved behind named private helpers |
+| Largest functions by LOC | unknown | 55 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; `_build_returns_series_execution_result(...)` dropped out of the top-45 table after frame normalization and stage-detail projection moved behind named private helpers |
 
 ## Architecture
 
@@ -73,12 +73,12 @@ link the commit, command, or CI artifact that proves the change.
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
 | Test modules | 228 | 281 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 3,424 | measured | `python -m pytest --collect-only -q` |
+| Collected tests | 2,035 | 3,425 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
 | Integration/API/runtime test functions | unknown | 608 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
 | Contract/governance test functions | unknown | 111 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
-| Uncategorized test functions | unknown | 1239 | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
+| Uncategorized test functions | unknown | 1148 | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
 
 ## Security And Dependencies
 
@@ -128,33 +128,37 @@ repeatably measured or expressed as progressive gates.
 
 ## Latest Local PR-Gate Evidence
 
-Latest durable queue metric source-loading evidence on
-`feature/durable-queue-source-loading-boundary`:
+Latest returns-series execution frame-normalization evidence on
+`feature/returns-series-execution-result-boundary`:
 
-1. Introduced `_CoreQueueMetricSources`, `_RecoveryDrillMetricSources`, and
-   `_RuntimeRetentionMetricSources` plus focused source-loading helpers so
-   `_load_durable_queue_metric_sources(...)` coordinates source groups while private helpers own
-   core queue, recovery-drill, and runtime-retention source retrieval.
-2. Preserved observability behavior: Prometheus metric names, labels, source availability flags,
-   compute queue stats, lineage pending-payload stats, lineage storage-capacity stats,
-   recovery-drill history and lease snapshots, runtime-retention history and lease snapshots, and
-   runtime-retention cleanup-preview degradation behavior remain unchanged.
-3. Measured proof: `_load_durable_queue_metric_sources(...)` dropped out of the top-45 function-size
-   table; largest production functions still measure `55` lines; max cyclomatic complexity remains
-   `5`; high-complexity functions remain `0`; average maintainability index measures `55.18`;
-   architecture-boundary findings remain `0`; duplicate hotspot groups remain `0`; taxonomy reports
-   `608` API/runtime test functions, `111` contract/governance test functions, `250`
-   observability/readiness test functions, `1126` analytics-domain test functions, and `1239`
-   uncategorized test functions; pytest collection reports `3,424` collected tests.
-4. Validation passed: focused queue metrics service tests (`21 passed`), ruff check, ruff format
-   check, mypy for the touched service and test files, function-size inventory, complexity
-   inventory, architecture-boundary inventory, duplicate-code inventory, test-taxonomy gate,
-   `pytest --collect-only`, `make quality-baseline`, docs contract tests (`48 passed`), wiki
-   check-only (`DiffCount 0`), `git diff --check`, and `make check` (`3,078` unit tests passed
-   after static quality, OpenAPI, API vocabulary, domain-product validation, deterministic API
-   evaluation, demo API certification, Python security, mypy, and taxonomy gates).
-5. Conscious domain/API/error-model/operations/docs/skill review: this is an internal
-   design-modularity and observability collector maintainability slice. It deliberately adds no
+1. Introduced `_ReturnsSeriesNormalizedFrames`,
+   `_normalize_returns_series_execution_frames(...)`, and
+   `_returns_series_execution_stage_details(...)` so returns-series execution separates request
+   data-policy normalization from point projection, identity finalization, diagnostics, response
+   assembly, and execution-stage evidence.
+2. Preserved returns-series behavior: strict intersection, selected fill policy, benchmark context,
+   risk-free projection, provenance hashes, diagnostics coverage, stage details, API/OpenAPI truth,
+   error model, observability surface, operator workflow, and runtime topology remain unchanged.
+3. Strengthened quality enforcement by classifying `returns_series` test modules as
+   analytics-domain coverage and tightening `make quality-test-taxonomy-gate` from `1294` to `1148`
+   maximum uncategorized test functions.
+4. Measured proof: `_build_returns_series_execution_result(...)` dropped out of the top-45
+   function-size table; largest production functions still measure `55` lines; max cyclomatic
+   complexity remains `5`; high-complexity functions remain `0`; average maintainability index
+   measures `55.18`; architecture-boundary findings remain `0`; duplicate hotspot groups remain
+   `0`; taxonomy reports `608` API/runtime test functions, `111` contract/governance test
+   functions, `250` observability/readiness test functions, `1264` analytics-domain test functions,
+   and `1148` uncategorized test functions; pytest collection reports `3,425` collected tests.
+5. Validation passed: focused returns-series, taxonomy, CI-wiring, and docs-contract tests
+   (`133 passed`), returns-series service tests (`77 passed`), ruff check, ruff format check, mypy
+   for the touched Python files, function-size inventory, complexity inventory, architecture-boundary
+   inventory, duplicate-code inventory, tightened test-taxonomy gate, `pytest --collect-only`,
+   `make quality-baseline`, wiki check-only (`DiffCount 0`), `git diff --check`, and `make check`
+   (`3,079` unit tests passed after static quality, OpenAPI, API vocabulary, domain-product
+   validation, deterministic API evaluation, demo API certification, Python security, mypy, and
+   taxonomy gates).
+6. Conscious domain/API/error-model/operations/docs/skill review: this is an internal
+   returns-series design-modularity and CI taxonomy-enforcement slice. It deliberately adds no
    runtime microservice or worker boundary because workload, failure-isolation, ownership,
    deployment, security, and operability evidence do not justify one here. README, repo-local wiki
    source, repository context, central platform context, supported-features material, API
