@@ -7,6 +7,7 @@ from fastapi import HTTPException
 from app.models.attribution_requests import AttributionRequest
 from app.services import attribution_service
 from common.enums import PeriodType
+from core.errors import APIError
 from engine.exceptions import EngineCalculationError, InvalidEngineInputError
 
 
@@ -259,7 +260,7 @@ def test_resolve_attribution_execution_window_rejects_empty_resolved_periods(mon
     )
     monkeypatch.setattr(attribution_service, "resolve_periods", lambda *args, **kwargs: [])
 
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(APIError) as exc_info:
         attribution_service._resolve_attribution_execution_window(request)
 
     assert exc_info.value.status_code == 400
@@ -277,8 +278,8 @@ def test_resolve_attribution_execution_window_rejects_empty_resolved_periods(mon
         (RuntimeError("boom"), 500, "An unexpected server error occurred: boom"),
     ],
 )
-def test_attribution_failure_http_exception_preserves_status_and_detail(error, expected_status, expected_detail):
-    mapped = attribution_service._attribution_failure_http_exception(error)
+def test_attribution_failure_api_error_preserves_status_and_detail(error, expected_status, expected_detail):
+    mapped = attribution_service._attribution_failure_api_error(error)
 
     assert mapped.status_code == expected_status
     assert mapped.detail == expected_detail
