@@ -30,7 +30,7 @@ def test_build_recovery_drill_history_query_defaults_to_unfiltered_first_page():
     query = build_recovery_drill_history_query()
 
     assert query.model_dump() == {
-        "limit": None,
+        "limit": 10,
         "offset": 0,
         "operator_id": None,
         "backup_identifier": None,

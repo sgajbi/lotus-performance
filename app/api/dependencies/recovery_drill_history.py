@@ -6,10 +6,15 @@ from fastapi import Query
 
 from app.api.time_query_validation import validate_utc_query_timestamp_window
 from app.models.recovery_drill_history import RecoveryDrillHistoryQueryParams
+from app.services.operator_action_history_pagination import OPERATOR_ACTION_HISTORY_DEFAULT_LIMIT
 
 _RecoveryDrillLimitQuery: TypeAlias = Annotated[
     int | None,
-    Query(ge=1, le=100, description="Maximum number of retained recovery-drill entries to return."),
+    Query(
+        ge=1,
+        le=100,
+        description="Maximum number of retained recovery-drill entries to return. Defaults to 10 when omitted.",
+    ),
 ]
 _RecoveryDrillOffsetQuery: TypeAlias = Annotated[
     int,
@@ -54,7 +59,7 @@ _RecoveryDrillGeneratedBeforeQuery: TypeAlias = Annotated[
 
 
 def build_recovery_drill_history_query(
-    limit: _RecoveryDrillLimitQuery = None,
+    limit: _RecoveryDrillLimitQuery = OPERATOR_ACTION_HISTORY_DEFAULT_LIMIT,
     offset: _RecoveryDrillOffsetQuery = 0,
     operator_id: _RecoveryDrillOperatorQuery = None,
     backup_identifier: _RecoveryDrillBackupQuery = None,

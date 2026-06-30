@@ -123,7 +123,7 @@ def test_recovery_drill_history_api_returns_retained_manifest(tmp_path, monkeypa
     assert body["total_entries"] == 2
     assert body["matched_entries"] == 2
     assert body["returned_entries"] == 2
-    assert body["applied_filters"] == {}
+    assert body["applied_filters"] == {"limit": 10}
     assert body["entries"] == [
         {
             "evidence_file_name": "2026-03-14t00-00-00.json",
@@ -139,6 +139,44 @@ def test_recovery_drill_history_api_returns_retained_manifest(tmp_path, monkeypa
             "backup_identifier": "backup-123",
             "status": "failed",
         },
+    ]
+
+
+def test_recovery_drill_history_api_defaults_to_bounded_page(tmp_path, monkeypatch):
+    artifact_dir = tmp_path / "artifacts" / "durable-recovery-drill"
+    artifact_dir.mkdir(parents=True)
+    entries = [
+        {
+            "evidence_file_name": f"2026-03-{day:02d}t00-00-00.json",
+            "generated_at_utc": f"2026-03-{day:02d}T00:00:00Z",
+            "operator_id": "ops-user",
+            "backup_identifier": "backup-123",
+            "status": "passed",
+        }
+        for day in range(20, 9, -1)
+    ]
+    manifest = {
+        "latest_file_name": "2026-03-20t00-00-00.json",
+        "retained_file_names": [entry["evidence_file_name"] for entry in entries],
+        "retention_limit": 30,
+        "retention_max_age_days": 90,
+        "entries": entries,
+    }
+    (artifact_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    monkeypatch.setattr(get_settings(), "RECOVERY_DRILL_ARTIFACT_PATH", artifact_dir)
+
+    with TestClient(app) as client:
+        response = client.get("/integration/recovery-drills")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total_entries"] == 11
+    assert body["matched_entries"] == 11
+    assert body["returned_entries"] == 10
+    assert body["next_offset"] == 10
+    assert body["applied_filters"] == {"limit": 10}
+    assert [entry["evidence_file_name"] for entry in body["entries"]] == [
+        entry["evidence_file_name"] for entry in entries[:10]
     ]
 
 

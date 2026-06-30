@@ -6,6 +6,7 @@ from typing import Generic, TypeVar
 from app.services.durable_store_pagination import next_offset_or_none
 
 EntryT = TypeVar("EntryT")
+OPERATOR_ACTION_HISTORY_DEFAULT_LIMIT = 10
 
 
 @dataclass(frozen=True)

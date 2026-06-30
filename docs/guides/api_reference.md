@@ -724,6 +724,7 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - retained recovery-drill evidence artifacts
   - latest retained drill summary
   - filtering by operator, backup identifier, status, and bounded time window
+  - default pagination limit `10` when `limit` is omitted; maximum `100`; `next_offset` appears when more retained entries remain
   - retained enterprise request context when available:
     - `tenant_id`
     - `correlation_id`
@@ -762,6 +763,7 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - retained cleanup evidence artifacts
   - latest retained cleanup summary
   - filtering by operator, trigger mode, job identity, cleanup mode, status, and bounded time window
+  - default pagination limit `10` when `limit` is omitted; maximum `100`; `next_offset` appears when more retained entries remain
   - retained enterprise request context when available:
     - `tenant_id`
     - `correlation_id`

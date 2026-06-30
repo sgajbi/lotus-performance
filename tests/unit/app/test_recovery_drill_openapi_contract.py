@@ -27,6 +27,8 @@ def test_recovery_drill_history_openapi_documents_operator_evidence_contract():
     limit_integer_schema = parameters["limit"]["schema"]["anyOf"][0]
     assert limit_integer_schema["minimum"] == 1
     assert limit_integer_schema["maximum"] == 100
+    assert parameters["limit"]["schema"]["default"] == 10
+    assert "Defaults to 10" in parameters["limit"]["description"]
     assert "ISO-8601" in parameters["generated_after"]["description"]
 
 
