@@ -54,6 +54,7 @@ def test_twr_response_attributes_tie_to_deterministic_stateless_inputs(client):
         "portfolio_id",
         "input_mode",
         "results_by_period",
+        "benchmark_context",
         "calculation_supportability",
         "meta",
         "diagnostics",
@@ -61,10 +62,11 @@ def test_twr_response_attributes_tie_to_deterministic_stateless_inputs(client):
     }
     assert body["portfolio_id"] == "ATTR_TWR_001"
     assert body["input_mode"] == "stateless"
+    assert body["benchmark_context"] is None
     assert body["calculation_id"] == body["meta"]["calculation_id"]
     assert body["meta"]["engine_version"]
     assert body["meta"]["precision_mode"] == "FLOAT64"
-    assert body["meta"]["annualization"] == {"enabled": False, "basis": "ACT/365"}
+    assert body["meta"]["annualization"] == {"enabled": False, "basis": "ACT/365", "periods_per_year": None}
     assert body["meta"]["calendar"] == {"type": "BUSINESS", "trading_calendar": "NYSE"}
     assert body["meta"]["periods"] == {
         "requested": ["EXPLICIT"],
@@ -81,6 +83,7 @@ def test_twr_response_attributes_tie_to_deterministic_stateless_inputs(client):
         "input_row_count": 3,
         "resolved_period_count": 1,
         "benchmark_row_count": 0,
+        "source_quality_evidence": None,
         "metric_labels": _EXPECTED_SUPPORTABILITY_METRIC_LABELS,
     }
     assert body["audit"]["residual_applied_bp"] == 0.0
@@ -91,9 +94,23 @@ def test_twr_response_attributes_tie_to_deterministic_stateless_inputs(client):
     assert body["diagnostics"]["notes"] == []
 
     explicit = body["results_by_period"]["EXPLICIT"]
-    assert set(explicit) == {"portfolio"}
+    assert set(explicit) == {"portfolio", "benchmark", "relative_performance", "reset_events"}
+    assert explicit["benchmark"] is None
+    assert explicit["relative_performance"] is None
+    assert explicit["reset_events"] is None
     portfolio = explicit["portfolio"]
-    assert set(portfolio) == {"summary", "breakdowns"}
+    assert set(portfolio) == {
+        "summary",
+        "breakdowns",
+        "benchmark_id",
+        "benchmark_currency",
+        "input_mode",
+        "return_source",
+    }
+    assert portfolio["benchmark_id"] is None
+    assert portfolio["benchmark_currency"] is None
+    assert portfolio["input_mode"] is None
+    assert portfolio["return_source"] is None
     assert set(portfolio["summary"]) == {"period_return", "cumulative_return"}
     daily = portfolio["breakdowns"]["daily"]
     assert [item["period"] for item in daily] == ["2026-01-01", "2026-01-02", "2026-01-03"]
@@ -120,8 +137,8 @@ def test_twr_response_attributes_tie_to_deterministic_stateless_inputs(client):
         assert item["calculation_evidence"]["calculation_method"] == "flow_neutralized_daily_twr"
         assert item["calculation_evidence"]["adjusted_capital"] > 0
         assert item["calculation_evidence"]["status"] == "calculated"
-        assert "annualized_return" not in item
-        assert "daily_data" not in item
+        assert item["annualized_return"] is None
+        assert item["daily_data"] is None
 
     assert portfolio["summary"]["period_return"]["base"] == pytest.approx(cumulative_day3)
     assert portfolio["summary"]["cumulative_return"]["base"] == pytest.approx(cumulative_day3)
@@ -158,10 +175,15 @@ def test_mwr_response_attributes_tie_to_deterministic_stateless_inputs(client):
         "reason_codes",
         "warnings",
         "holding_period_return",
+        "mwr_annualized",
         "is_annualized_primary",
         "is_approximation",
+        "convergence",
+        "fallback_from",
+        "fallback_reason",
         "cashflows_used",
         "reporting_currency",
+        "currency_evidence",
         "start_date",
         "end_date",
         "notes",
@@ -176,9 +198,14 @@ def test_mwr_response_attributes_tie_to_deterministic_stateless_inputs(client):
     assert body["status"] == "CALCULATED"
     assert body["reason_codes"] == []
     assert body["warnings"] == []
+    assert body["mwr_annualized"] is None
     assert body["is_annualized_primary"] is False
     assert body["is_approximation"] is True
+    assert body["convergence"] is None
+    assert body["fallback_from"] is None
+    assert body["fallback_reason"] is None
     assert body["reporting_currency"] == "USD"
+    assert body["currency_evidence"] is None
     assert body["start_date"] == "2026-01-02"
     assert body["end_date"] == "2026-01-03"
     assert body["notes"] == []
@@ -189,6 +216,7 @@ def test_mwr_response_attributes_tie_to_deterministic_stateless_inputs(client):
         "input_row_count": 4,
         "resolved_period_count": 1,
         "benchmark_row_count": 0,
+        "source_quality_evidence": None,
         "metric_labels": _EXPECTED_SUPPORTABILITY_METRIC_LABELS,
     }
     assert body["cashflows_used"] == [
@@ -198,23 +226,39 @@ def test_mwr_response_attributes_tie_to_deterministic_stateless_inputs(client):
     expected_mwr = ((1120.0 - 1000.0 - 80.0) / (1000.0 + 80.0 / 2.0)) * 100
     assert body["money_weighted_return"] == pytest.approx(expected_mwr)
     assert body["holding_period_return"] == pytest.approx(expected_mwr)
-    assert "mwr_annualized" not in body
-    assert "convergence" not in body
     assert body["calculation_id"] == body["meta"]["calculation_id"]
     assert body["meta"]["engine_version"]
     assert body["meta"]["precision_mode"] == "FLOAT64"
-    assert body["meta"]["annualization"] == {"enabled": False, "basis": "ACT/365"}
+    assert body["meta"]["annualization"] == {"enabled": False, "basis": "ACT/365", "periods_per_year": None}
     assert body["meta"]["calendar"] == {"type": "BUSINESS", "trading_calendar": "NYSE"}
     assert body["meta"]["periods"] == {"type": "EXPLICIT", "start": "2026-01-02", "end": "2026-01-03"}
     assert body["meta"]["input_fingerprint"].startswith("sha256:")
     assert body["meta"]["calculation_hash"].startswith("sha256:")
     assert body["diagnostics"] == {
+        "account_reset_shadow_days": None,
+        "active_reset_with_shadow_days": None,
+        "candidate_canonical_reset_days": None,
         "nip_days": 0,
+        "nip_days_since_last_reset": None,
+        "nip_rule_delta_days": None,
+        "nctrl4_exclusive_reset_days": None,
+        "nctrl4_reset_days": None,
+        "policy": None,
         "reset_days": 0,
+        "reset_delta_days": None,
         "effective_period_start": "2026-01-02",
         "notes": [],
+        "samples": None,
+        "shadow_only_candidate_reset_days": None,
+        "shadow_reset_overlap_days": None,
+        "sod_reset_shadow_days": None,
+        "valid_days_since_last_reset": None,
     }
-    assert body["audit"] == {"counts": {"cashflows": 2}}
+    assert body["audit"] == {
+        "counts": {"cashflows": 2},
+        "residual_applied_bp": None,
+        "sum_of_parts_vs_total_bp": None,
+    }
 
 
 def test_mwr_emit_cashflows_used_false_omits_cashflow_echo(client):
@@ -235,8 +279,12 @@ def test_mwr_emit_cashflows_used_false_omits_cashflow_echo(client):
 
     assert response.status_code == 200
     body = response.json()
-    assert "cashflows_used" not in body
-    assert body["audit"] == {"counts": {"cashflows": 1}}
+    assert body["cashflows_used"] is None
+    assert body["audit"] == {
+        "counts": {"cashflows": 1},
+        "residual_applied_bp": None,
+        "sum_of_parts_vs_total_bp": None,
+    }
 
 
 def test_workspace_summary_does_not_drift_from_direct_twr_and_mwr_endpoints(client):

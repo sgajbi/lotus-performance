@@ -18,6 +18,17 @@ from main import app
 settings = get_settings()
 
 
+def _assert_validation_error_field(body: dict, field: str) -> None:
+    assert body["detail"] == "Request validation failed."
+    assert body["error_code"] == "VALIDATION_ERROR"
+    assert body["message"] == "Request validation failed."
+    assert body["source"] == "lotus-performance"
+    assert body["retryable"] is False
+    assert body["correlation_id"]
+    assert body["request_id"]
+    assert body["validation_errors"][0]["loc"] == ["query", field]
+
+
 @pytest.fixture()
 def client():
     if os.path.exists(settings.LINEAGE_STORAGE_PATH):
@@ -252,8 +263,7 @@ def test_integration_capabilities_rejects_blank_tenant_scope():
         response = client.get("/integration/capabilities?consumer_system=lotus-gateway&tenant_id=%20%20")
 
     assert response.status_code == 422
-    detail = response.json()["detail"][0]
-    assert detail["loc"] == ["query", "tenant_id"]
+    _assert_validation_error_field(response.json(), "tenant_id")
 
 
 def test_integration_capabilities_limit_guardrails():
@@ -312,9 +322,9 @@ def test_health_and_metrics_endpoints_available(client):
     assert health.status_code == 200
     assert live.status_code == 200
     assert ready.status_code == 200
-    assert health.json() == {"status": "ok"}
-    assert live.json() == {"status": "live"}
-    assert ready.json() == {"status": "ready"}
+    assert health.json() == {"status": "ok", "reason": None, "remediation_hint": None}
+    assert live.json() == {"status": "live", "reason": None, "remediation_hint": None}
+    assert ready.json() == {"status": "ready", "reason": None, "remediation_hint": None}
     assert metrics.status_code == 200
     assert "http_requests_total" in metrics.text or "http_request_duration" in metrics.text
 
@@ -326,7 +336,7 @@ def test_health_ready_returns_503_when_draining():
     app.state.is_draining = False
 
     assert response.status_code == 503
-    assert response.json() == {"status": "draining"}
+    assert response.json() == {"status": "draining", "reason": None, "remediation_hint": None}
 
 
 def test_health_ready_returns_503_when_durable_metadata_store_is_unavailable(mocker):

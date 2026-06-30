@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from numbers import Real
 from typing import Any
 
 from app.observability import correlation_id_var, request_id_var
@@ -139,8 +140,22 @@ def validation_error_envelope(errors: list[dict[str, Any]]) -> dict[str, Any]:
         message="Request validation failed.",
         retryable=False,
     )
-    envelope["validation_errors"] = errors
+    envelope["validation_errors"] = _json_safe_validation_errors(errors)
     return envelope
+
+
+def _json_safe_validation_errors(errors: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [{str(key): _json_safe_validation_value(value) for key, value in error.items()} for error in errors]
+
+
+def _json_safe_validation_value(value: Any) -> Any:
+    if value is None or isinstance(value, str | bool | Real):
+        return value
+    if isinstance(value, dict):
+        return {str(key): _json_safe_validation_value(item) for key, item in value.items()}
+    if isinstance(value, list | tuple):
+        return [_json_safe_validation_value(item) for item in value]
+    return str(value)
 
 
 def _safe_public_message(*, detail: Any, status_code: int, message: str | None) -> str:

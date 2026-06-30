@@ -1839,7 +1839,7 @@ def test_compute_executor_worker_logs_requeued_stale_job(monkeypatch):
     processed = compute_executor_worker._process_pending_jobs(
         job_store=job_store,
         execution_store=compute_executor_worker.execution_registry,
-        result_store=compute_executor_worker.async_result_store,
+        result_store=SimpleNamespace(get_result=lambda calculation_id: None),
         settings=_worker_settings(),
     )
 
@@ -1872,7 +1872,7 @@ def test_compute_executor_worker_handles_reconciled_stale_requeue(monkeypatch):
     compute_executor_worker._handle_reconciled_stale_job(
         reconciled_job,
         job_store=SimpleNamespace(mark_complete=lambda *args, **kwargs: None),
-        result_store=compute_executor_worker.async_result_store,
+        result_store=SimpleNamespace(get_result=lambda calculation_id: None),
         execution_store=compute_executor_worker.execution_registry,
     )
 

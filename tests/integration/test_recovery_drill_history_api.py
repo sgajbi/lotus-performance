@@ -6,6 +6,17 @@ from app.core.config import get_settings
 from main import app
 
 
+def _validation_error_fields(body: dict) -> set[str]:
+    assert body["detail"] == "Request validation failed."
+    assert body["error_code"] == "VALIDATION_ERROR"
+    assert body["message"] == "Request validation failed."
+    assert body["source"] == "lotus-performance"
+    assert body["retryable"] is False
+    assert body["correlation_id"]
+    assert body["request_id"]
+    return {item["loc"][-1] for item in body["validation_errors"]}
+
+
 def test_recovery_drill_history_api_reports_unavailable_when_manifest_missing(tmp_path, monkeypatch):
     monkeypatch.setattr(get_settings(), "RECOVERY_DRILL_ARTIFACT_PATH", tmp_path / "missing")
 
@@ -42,7 +53,7 @@ def test_recovery_drill_history_api_rejects_blank_string_filters():
         )
 
     assert response.status_code == 422
-    fields = {item["loc"][-1] for item in response.json()["detail"]}
+    fields = _validation_error_fields(response.json())
     assert {"operator_id", "backup_identifier", "status"} <= fields
 
 
@@ -96,6 +107,8 @@ def test_recovery_drill_history_api_returns_retained_manifest(tmp_path, monkeypa
                 "evidence_file_name": "2026-03-14t00-00-00.json",
                 "generated_at_utc": "2026-03-14T00:00:00Z",
                 "operator_id": "ops-user",
+                "tenant_id": None,
+                "correlation_id": None,
                 "backup_identifier": "backup-123",
                 "status": "passed",
             },
@@ -103,6 +116,8 @@ def test_recovery_drill_history_api_returns_retained_manifest(tmp_path, monkeypa
                 "evidence_file_name": "2026-03-13t00-00-00.json",
                 "generated_at_utc": "2026-03-13T00:00:00Z",
                 "operator_id": "ops-user",
+                "tenant_id": None,
+                "correlation_id": None,
                 "backup_identifier": "backup-123",
                 "status": "failed",
             },
@@ -129,6 +144,8 @@ def test_recovery_drill_history_api_returns_retained_manifest(tmp_path, monkeypa
             "evidence_file_name": "2026-03-14t00-00-00.json",
             "generated_at_utc": "2026-03-14T00:00:00Z",
             "operator_id": "ops-user",
+            "tenant_id": None,
+            "correlation_id": None,
             "backup_identifier": "backup-123",
             "status": "passed",
         },
@@ -136,6 +153,8 @@ def test_recovery_drill_history_api_returns_retained_manifest(tmp_path, monkeypa
             "evidence_file_name": "2026-03-13t00-00-00.json",
             "generated_at_utc": "2026-03-13T00:00:00Z",
             "operator_id": "ops-user",
+            "tenant_id": None,
+            "correlation_id": None,
             "backup_identifier": "backup-123",
             "status": "failed",
         },
@@ -292,7 +311,7 @@ def test_recovery_drill_history_api_applies_filters_and_limit(tmp_path, monkeypa
     assert body["total_entries"] == 3
     assert body["matched_entries"] == 1
     assert body["returned_entries"] == 1
-    assert "next_offset" not in body
+    assert body["next_offset"] is None
     assert body["applied_filters"] == {
         "limit": 1,
         "operator_id": "ops-user",
@@ -304,6 +323,8 @@ def test_recovery_drill_history_api_applies_filters_and_limit(tmp_path, monkeypa
             "evidence_file_name": "2026-03-14t00-00-00.json",
             "generated_at_utc": "2026-03-14T00:00:00Z",
             "operator_id": "ops-user",
+            "tenant_id": None,
+            "correlation_id": None,
             "backup_identifier": "backup-123",
             "status": "passed",
         }
@@ -379,6 +400,8 @@ def test_recovery_drill_history_api_applies_offset_and_time_window(tmp_path, mon
             "evidence_file_name": "2026-03-13t00-00-00.json",
             "generated_at_utc": "2026-03-13T00:00:00Z",
             "operator_id": "ops-user",
+            "tenant_id": None,
+            "correlation_id": None,
             "backup_identifier": "backup-123",
             "status": "passed",
         }

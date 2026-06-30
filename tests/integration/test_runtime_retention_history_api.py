@@ -6,6 +6,17 @@ from app.core.config import get_settings
 from main import app
 
 
+def _validation_error_fields(body: dict) -> set[str]:
+    assert body["detail"] == "Request validation failed."
+    assert body["error_code"] == "VALIDATION_ERROR"
+    assert body["message"] == "Request validation failed."
+    assert body["source"] == "lotus-performance"
+    assert body["retryable"] is False
+    assert body["correlation_id"]
+    assert body["request_id"]
+    return {item["loc"][-1] for item in body["validation_errors"]}
+
+
 def test_runtime_retention_history_api_reports_unavailable_when_manifest_missing(tmp_path, monkeypatch):
     monkeypatch.setattr(get_settings(), "RUNTIME_RETENTION_ARTIFACT_PATH", tmp_path / "missing")
 
@@ -65,7 +76,7 @@ def test_runtime_retention_history_api_rejects_blank_string_filters():
         )
 
     assert response.status_code == 422
-    fields = {item["loc"][-1] for item in response.json()["detail"]}
+    fields = _validation_error_fields(response.json())
     assert {"operator_id", "trigger_mode", "job_id", "cleanup_mode", "status"} <= fields
 
 
@@ -85,6 +96,8 @@ def test_runtime_retention_history_api_returns_filtered_manifest(tmp_path, monke
                 "evidence_file_name": "2026-03-15t00-00-00z.json",
                 "generated_at_utc": "2026-03-15T00:00:00Z",
                 "operator_id": "ops-user",
+                "tenant_id": None,
+                "correlation_id": None,
                 "trigger_mode": "scheduled",
                 "job_id": "retention-nightly",
                 "cleanup_mode": "apply",
@@ -146,6 +159,8 @@ def test_runtime_retention_history_api_returns_filtered_manifest(tmp_path, monke
             "evidence_file_name": "2026-03-15t00-00-00z.json",
             "generated_at_utc": "2026-03-15T00:00:00Z",
             "operator_id": "ops-user",
+            "tenant_id": None,
+            "correlation_id": None,
             "trigger_mode": "scheduled",
             "job_id": "retention-nightly",
             "cleanup_mode": "apply",

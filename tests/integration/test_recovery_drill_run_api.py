@@ -8,6 +8,27 @@ from main import app
 from scripts.durable_recovery_drill import RecoveryDrillEvidence
 
 
+def _assert_invalid_request_envelope(body: dict, detail: str) -> None:
+    assert body["detail"] == detail
+    assert body["error_code"] == "INVALID_REQUEST"
+    assert body["message"] == detail
+    assert body["source"] == "lotus-performance"
+    assert body["retryable"] is False
+    assert body["correlation_id"]
+    assert body["request_id"]
+
+
+def _assert_validation_error_field(body: dict, field: str) -> None:
+    assert body["detail"] == "Request validation failed."
+    assert body["error_code"] == "VALIDATION_ERROR"
+    assert body["message"] == "Request validation failed."
+    assert body["source"] == "lotus-performance"
+    assert body["retryable"] is False
+    assert body["correlation_id"]
+    assert body["request_id"]
+    assert body["validation_errors"][0]["loc"] == ["body", field]
+
+
 def test_recovery_drill_run_api_rejects_missing_operator_identity():
     with TestClient(app) as client:
         response = client.post(
@@ -16,7 +37,7 @@ def test_recovery_drill_run_api_rejects_missing_operator_identity():
         )
 
     assert response.status_code == 400
-    assert response.json() == {"detail": "missing_operator_identity"}
+    _assert_invalid_request_envelope(response.json(), "missing_operator_identity")
 
 
 @pytest.mark.parametrize("backup_identifier", ["", "   "])
@@ -28,7 +49,7 @@ def test_recovery_drill_run_api_rejects_blank_backup_identifier(backup_identifie
         )
 
     assert response.status_code == 422
-    assert response.json()["detail"][0]["loc"] == ["body", "backup_identifier"]
+    _assert_validation_error_field(response.json(), "backup_identifier")
 
 
 def test_recovery_drill_run_api_persists_enterprise_context(tmp_path, monkeypatch):

@@ -7,6 +7,7 @@ from app.services.error_details import (
     safe_error_envelope,
     source_unavailable_detail,
     upstream_contract_violation_detail,
+    validation_error_envelope,
 )
 from core.errors import (
     HTTP_404_NOT_FOUND,
@@ -86,3 +87,31 @@ def test_safe_error_envelope_preserves_client_details_and_masks_server_details()
     assert server_envelope["message"] == (
         "The service encountered an internal error. Use the correlation_id for support."
     )
+
+
+def test_validation_error_envelope_sanitizes_non_json_safe_context_values():
+    envelope = validation_error_envelope(
+        [
+            {
+                "type": "value_error",
+                "loc": ("body", "analyses"),
+                "msg": "Value error, analyses list cannot be empty",
+                "input": [],
+                "ctx": {"error": ValueError("analyses list cannot be empty")},
+            }
+        ]
+    )
+
+    assert envelope["detail"] == "Request validation failed."
+    assert envelope["error_code"] == "VALIDATION_ERROR"
+    assert envelope["message"] == "Request validation failed."
+    assert envelope["retryable"] is False
+    assert envelope["validation_errors"] == [
+        {
+            "type": "value_error",
+            "loc": ["body", "analyses"],
+            "msg": "Value error, analyses list cannot be empty",
+            "input": [],
+            "ctx": {"error": "analyses list cannot be empty"},
+        }
+    ]
