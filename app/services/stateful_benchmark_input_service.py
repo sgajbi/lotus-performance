@@ -7,8 +7,6 @@ from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
-from fastapi import HTTPException, status
-
 from app.models.benchmark_analytics_requests import BenchmarkReturnSource
 from app.models.benchmark_requests import BenchmarkComponentObservation, BenchmarkReturnPoint
 from app.services.stateful_input_service import RetrievalMetadata, StatefulInputService
@@ -17,7 +15,14 @@ from app.services.stateful_retrieval_metadata import (
     parse_zero_default_retrieval_metadata,
 )
 from app.services.stateful_upstream_errors import raise_for_stateful_source_unavailable
-from core.errors import HTTP_422_UNPROCESSABLE
+from core.errors import (
+    HTTP_400_BAD_REQUEST,
+    HTTP_404_NOT_FOUND,
+    HTTP_422_UNPROCESSABLE,
+    APIError,
+    APINotFoundError,
+    APIUnprocessableEntityError,
+)
 
 
 @dataclass(frozen=True)
@@ -62,6 +67,14 @@ class _CalculatedBenchmarkSourceBundle:
     benchmark_retrieval_metadata: RetrievalMetadata
     fx_map_by_pair: dict[tuple[str, str], dict[date, Decimal]]
     fx_retrieval_metadata: RetrievalMetadata
+
+
+def _stateful_benchmark_input_error(*, status_code: int, detail: Any) -> APIError:
+    if status_code == HTTP_404_NOT_FOUND:
+        return APINotFoundError(detail)
+    if status_code == HTTP_422_UNPROCESSABLE:
+        return APIUnprocessableEntityError(detail)
+    return APIError(status_code=status_code, detail=detail)
 
 
 async def build_stateful_benchmark_input(
@@ -214,12 +227,12 @@ async def _load_calculated_benchmark_composition(
         end_date=end_date,
         calculation_id=calculation_id,
     )
-    if composition_status == status.HTTP_404_NOT_FOUND:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+    if composition_status == HTTP_404_NOT_FOUND:
+        raise _stateful_benchmark_input_error(
+            status_code=HTTP_404_NOT_FOUND,
             detail=f"No benchmark composition window found for benchmark_id={benchmark_id}.",
         )
-    if composition_status >= status.HTTP_400_BAD_REQUEST:
+    if composition_status >= HTTP_400_BAD_REQUEST:
         raise_for_stateful_source_unavailable(
             source_label="benchmark composition-window",
             upstream_status=composition_status,
@@ -246,12 +259,12 @@ async def _load_benchmark_definition_currency(
         as_of_date=as_of_date,
         calculation_id=calculation_id,
     )
-    if definition_status == status.HTTP_404_NOT_FOUND:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+    if definition_status == HTTP_404_NOT_FOUND:
+        raise _stateful_benchmark_input_error(
+            status_code=HTTP_404_NOT_FOUND,
             detail=f"No benchmark definition found for benchmark_id={benchmark_id}.",
         )
-    if definition_status >= status.HTTP_400_BAD_REQUEST:
+    if definition_status >= HTTP_400_BAD_REQUEST:
         raise_for_stateful_source_unavailable(
             source_label="benchmark definition",
             upstream_status=definition_status,
@@ -259,7 +272,7 @@ async def _load_benchmark_definition_currency(
 
     benchmark_currency_raw = definition_payload.get("benchmark_currency")
     if not isinstance(benchmark_currency_raw, str) or not benchmark_currency_raw:
-        raise HTTPException(
+        raise _stateful_benchmark_input_error(
             status_code=HTTP_422_UNPROCESSABLE,
             detail="benchmark definition payload missing benchmark_currency.",
         )
@@ -284,12 +297,12 @@ async def _build_stateful_vendor_series_input(
         frequency="daily",
         calculation_id=calculation_id,
     )
-    if return_status == status.HTTP_404_NOT_FOUND:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+    if return_status == HTTP_404_NOT_FOUND:
+        raise _stateful_benchmark_input_error(
+            status_code=HTTP_404_NOT_FOUND,
             detail=f"No benchmark return series found for benchmark_id={benchmark_id}.",
         )
-    if return_status >= status.HTTP_400_BAD_REQUEST:
+    if return_status >= HTTP_400_BAD_REQUEST:
         raise_for_stateful_source_unavailable(
             source_label="benchmark return-series",
             upstream_status=return_status,
@@ -312,7 +325,7 @@ async def _build_stateful_vendor_series_input(
 def _benchmark_return_points_from_payload(return_payload: dict[str, Any]) -> list[BenchmarkReturnPoint]:
     points_raw = return_payload.get("points")
     if not isinstance(points_raw, list):
-        raise HTTPException(
+        raise _stateful_benchmark_input_error(
             status_code=HTTP_422_UNPROCESSABLE,
             detail="benchmark return-series payload missing points list.",
         )
@@ -358,7 +371,7 @@ def _parse_composition_window(
     )
 
     if not segments:
-        raise HTTPException(
+        raise _stateful_benchmark_input_error(
             status_code=HTTP_422_UNPROCESSABLE,
             detail=f"Benchmark composition window missing usable segments for benchmark_id={benchmark_id}.",
         )
@@ -378,7 +391,7 @@ def _parse_composition_window(
 def _composition_window_currency(composition_window: dict[str, Any]) -> str:
     benchmark_currency = composition_window.get("benchmark_currency")
     if not isinstance(benchmark_currency, str) or not benchmark_currency:
-        raise HTTPException(
+        raise _stateful_benchmark_input_error(
             status_code=HTTP_422_UNPROCESSABLE,
             detail="benchmark composition-window payload missing benchmark_currency.",
         )
@@ -392,7 +405,7 @@ def _composition_window_segments_raw(
 ) -> list[Any]:
     segments_raw = composition_window.get("segments")
     if not isinstance(segments_raw, list) or not segments_raw:
-        raise HTTPException(
+        raise _stateful_benchmark_input_error(
             status_code=HTTP_422_UNPROCESSABLE,
             detail=f"Benchmark composition window missing segments for benchmark_id={benchmark_id}.",
         )
@@ -449,7 +462,7 @@ def _composition_segment_required_fields(segment: dict[str, Any]) -> tuple[str, 
     composition_weight = segment.get("composition_weight")
     effective_from_raw = segment.get("composition_effective_from")
     if not isinstance(index_id, str) or composition_weight is None or not isinstance(effective_from_raw, str):
-        raise HTTPException(
+        raise _stateful_benchmark_input_error(
             status_code=HTTP_422_UNPROCESSABLE,
             detail=(
                 "benchmark composition-window payload missing index_id, "
@@ -482,7 +495,7 @@ def _validate_composition_window_coverage(
 ) -> None:
     for point_date in _iter_requested_dates(start_date=start_date, end_date=end_date):
         if not any(_segment_is_active(segment, point_date) for segment in segments):
-            raise HTTPException(
+            raise _stateful_benchmark_input_error(
                 status_code=HTTP_422_UNPROCESSABLE,
                 detail=(
                     f"Benchmark composition window does not cover requested date {point_date} "
@@ -550,12 +563,12 @@ def _component_price_series_from_response(
     series_status: int,
     series_payload: dict[str, Any],
 ) -> dict[str, Any]:
-    if series_status == status.HTTP_404_NOT_FOUND:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+    if series_status == HTTP_404_NOT_FOUND:
+        raise _stateful_benchmark_input_error(
+            status_code=HTTP_404_NOT_FOUND,
             detail=f"No index price series found for benchmark component {index_id}.",
         )
-    if series_status >= status.HTTP_400_BAD_REQUEST:
+    if series_status >= HTTP_400_BAD_REQUEST:
         raise_for_stateful_source_unavailable(
             source_label="index price-series",
             upstream_status=series_status,
@@ -571,13 +584,13 @@ def _component_price_series_from_response(
 def _component_price_series_points(*, index_id: str, series_payload: dict[str, Any]) -> list[dict[str, Any]]:
     points_raw = series_payload.get("points")
     if not isinstance(points_raw, list):
-        raise HTTPException(
+        raise _stateful_benchmark_input_error(
             status_code=HTTP_422_UNPROCESSABLE,
             detail=f"index price-series payload missing points for benchmark component {index_id}.",
         )
     series_points = [point for point in points_raw if isinstance(point, dict)]
     if not series_points:
-        raise HTTPException(
+        raise _stateful_benchmark_input_error(
             status_code=HTTP_422_UNPROCESSABLE,
             detail=f"index price-series payload empty for benchmark component {index_id}.",
         )
@@ -591,7 +604,7 @@ def _infer_series_currency(*, index_id: str, points: list[dict[str, Any]]) -> st
         if isinstance(point.get("series_currency"), str) and point["series_currency"]
     }
     if len(currencies) != 1:
-        raise HTTPException(
+        raise _stateful_benchmark_input_error(
             status_code=HTTP_422_UNPROCESSABLE,
             detail=f"index price-series payload must expose exactly one series_currency for component {index_id}.",
         )
@@ -622,7 +635,7 @@ async def _load_fx_maps_for_components(
             end_date=end_date,
             calculation_id=calculation_id,
         )
-        if fx_status >= status.HTTP_400_BAD_REQUEST:
+        if fx_status >= HTTP_400_BAD_REQUEST:
             raise_for_stateful_source_unavailable(
                 source_label="fx rate",
                 upstream_status=fx_status,
@@ -645,7 +658,7 @@ def _fx_rate_map_from_payload(
 ) -> dict[date, Decimal]:
     points_raw = fx_payload.get("points")
     if not isinstance(points_raw, list):
-        raise HTTPException(
+        raise _stateful_benchmark_input_error(
             status_code=HTTP_422_UNPROCESSABLE,
             detail=f"fx rate payload missing points for {from_currency}/{to_currency}.",
         )
@@ -717,7 +730,7 @@ def _build_component_observations(
             )
 
     if not observations:
-        raise HTTPException(
+        raise _stateful_benchmark_input_error(
             status_code=HTTP_422_UNPROCESSABLE,
             detail=f"No normalized benchmark observations available for benchmark_id={benchmark_id}.",
         )
@@ -731,7 +744,7 @@ def _active_component_segments_for_date(
 ) -> list[BenchmarkCompositionSegment]:
     active_segments = [segment for segment in component_segments if _segment_is_active(segment, point_date)]
     if not active_segments:
-        raise HTTPException(
+        raise _stateful_benchmark_input_error(
             status_code=HTTP_422_UNPROCESSABLE,
             detail=f"Benchmark composition window missing active segments for {point_date}.",
         )
@@ -780,7 +793,7 @@ def _component_observation_prices(
 ) -> _ComponentObservationPrices:
     series_payload = normalized_component_series.get(component_id)
     if series_payload is None:
-        raise HTTPException(
+        raise _stateful_benchmark_input_error(
             status_code=HTTP_422_UNPROCESSABLE,
             detail=f"Missing index price-series payload for benchmark component {component_id}.",
         )
@@ -789,7 +802,7 @@ def _component_observation_prices(
     previous_prices = series_payload["previous_prices"]
     component_currency = series_payload["series_currency"]
     if point_date not in normalized_prices or point_date not in local_prices:
-        raise HTTPException(
+        raise _stateful_benchmark_input_error(
             status_code=HTTP_422_UNPROCESSABLE,
             detail=(
                 f"Benchmark market-series coverage is incomplete for benchmark_id={benchmark_id}; "
@@ -819,7 +832,7 @@ def _previous_normalized_component_price_for_date(
 ) -> tuple[date, Decimal]:
     previous_price = previous_prices.get(point_date)
     if previous_price is None:
-        raise HTTPException(
+        raise _stateful_benchmark_input_error(
             status_code=HTTP_422_UNPROCESSABLE,
             detail=(
                 f"Benchmark calculated mode requires a prior normalized price before {point_date} "
@@ -828,7 +841,7 @@ def _previous_normalized_component_price_for_date(
         )
     previous_date, previous_price_value = previous_price
     if previous_price_value == 0:
-        raise HTTPException(
+        raise _stateful_benchmark_input_error(
             status_code=HTTP_422_UNPROCESSABLE,
             detail=f"Normalized benchmark price is zero for component {component_id} on {previous_date}.",
         )
@@ -873,7 +886,7 @@ def _build_normalized_component_series(
         if expected_dates is None:
             expected_dates = component_dates
         elif component_dates != expected_dates:
-            raise HTTPException(
+            raise _stateful_benchmark_input_error(
                 status_code=HTTP_422_UNPROCESSABLE,
                 detail=(
                     f"Benchmark market-series coverage is incomplete for benchmark_id={benchmark_id}; "
@@ -940,7 +953,7 @@ def _normalized_component_price_point_from_payload(
         return None
     index_price_raw = point.get("index_price")
     if index_price_raw is None:
-        raise HTTPException(
+        raise _stateful_benchmark_input_error(
             status_code=HTTP_422_UNPROCESSABLE,
             detail=(
                 f"Index price-series payload missing index_price for benchmark component {index_id} on {point_date}."
@@ -991,7 +1004,7 @@ def _normalize_price_to_benchmark_currency(
     pair = (component_currency, benchmark_currency)
     fx_map = fx_map_by_pair.get(pair)
     if fx_map is None or price_date not in fx_map:
-        raise HTTPException(
+        raise _stateful_benchmark_input_error(
             status_code=HTTP_422_UNPROCESSABLE,
             detail=f"Missing FX rate for {component_currency}/{benchmark_currency} on {price_date}.",
         )

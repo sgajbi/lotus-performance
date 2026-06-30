@@ -3,7 +3,6 @@ from decimal import Decimal
 from uuid import uuid4
 
 import pytest
-from fastapi import HTTPException
 
 from app.models.benchmark_analytics_requests import BenchmarkReturnSource
 from app.services.stateful_benchmark_input_service import (
@@ -311,7 +310,7 @@ async def test_load_calculated_benchmark_composition_maps_source_failures():
         async def get_benchmark_composition_window(self, **kwargs):  # noqa: ARG002
             return 503, {"detail": "unavailable"}
 
-    with pytest.raises((HTTPException, APIError), match="No benchmark composition window found"):
+    with pytest.raises(APIError, match="No benchmark composition window found"):
         await _load_calculated_benchmark_composition(
             stateful_input_service=_MissingCompositionStub(),
             calculation_id=uuid4(),
@@ -320,7 +319,7 @@ async def test_load_calculated_benchmark_composition_maps_source_failures():
             end_date=date(2026, 1, 3),
         )
 
-    with pytest.raises((HTTPException, APIError), match="composition-window source unavailable"):
+    with pytest.raises(APIError, match="composition-window source unavailable"):
         await _load_calculated_benchmark_composition(
             stateful_input_service=_UnavailableCompositionStub(),
             calculation_id=uuid4(),
@@ -379,7 +378,7 @@ def test_benchmark_return_point_from_payload_point_projects_valid_point_only():
 
 
 def test_benchmark_return_points_from_payload_requires_points_list():
-    with pytest.raises((HTTPException, APIError), match="missing points list"):
+    with pytest.raises(APIError, match="missing points list"):
         _benchmark_return_points_from_payload({"points": None})
 
 
@@ -393,7 +392,7 @@ async def test_build_stateful_benchmark_input_rejects_uncovered_composition_date
             ]
             return status_code, payload
 
-    with pytest.raises((HTTPException, APIError), match="does not cover requested date 2026-01-03"):
+    with pytest.raises(APIError, match="does not cover requested date 2026-01-03"):
         await build_stateful_benchmark_input(
             stateful_input_service=_InvalidCompositionStub(),
             calculation_id=uuid4(),
@@ -442,7 +441,7 @@ async def test_build_stateful_benchmark_input_requires_benchmark_currency_for_ve
         async def get_benchmark_definition(self, **kwargs):  # noqa: ARG002
             return 200, {"benchmark_id": "BMK_1", "benchmark_currency": ""}
 
-    with pytest.raises((HTTPException, APIError), match="missing benchmark_currency"):
+    with pytest.raises(APIError, match="missing benchmark_currency"):
         await build_stateful_benchmark_input(
             stateful_input_service=_MissingCurrencyDefinitionStub(),
             calculation_id=uuid4(),
@@ -460,7 +459,7 @@ async def test_load_benchmark_definition_currency_maps_upstream_failure_to_sourc
         async def get_benchmark_definition(self, **kwargs):  # noqa: ARG002
             return 503, {"detail": "unavailable"}
 
-    with pytest.raises((HTTPException, APIError)) as exc:
+    with pytest.raises(APIError) as exc:
         await _load_benchmark_definition_currency(
             stateful_input_service=_UnavailableDefinitionStub(),
             calculation_id=uuid4(),
@@ -490,7 +489,7 @@ async def test_build_stateful_benchmark_input_requires_consistent_component_curr
                 },
             )
 
-    with pytest.raises((HTTPException, APIError), match="exactly one series_currency"):
+    with pytest.raises(APIError, match="exactly one series_currency"):
         await build_stateful_benchmark_input(
             stateful_input_service=_MixedCurrencyIndexStub(),
             calculation_id=uuid4(),
@@ -510,7 +509,7 @@ async def test_build_stateful_benchmark_input_requires_fx_for_non_benchmark_curr
             payload["points"] = [point for point in payload["points"] if point["series_date"] != "2026-01-03"]
             return status_code, payload
 
-    with pytest.raises((HTTPException, APIError), match="Missing FX rate for EUR/USD on 2026-01-03"):
+    with pytest.raises(APIError, match="Missing FX rate for EUR/USD on 2026-01-03"):
         await build_stateful_benchmark_input(
             stateful_input_service=_MissingFxPointStub(),
             calculation_id=uuid4(),
@@ -540,7 +539,7 @@ async def test_build_stateful_benchmark_input_requires_non_zero_previous_normali
                 },
             )
 
-    with pytest.raises((HTTPException, APIError), match="Normalized benchmark price is zero for component IDX_USD"):
+    with pytest.raises(APIError, match="Normalized benchmark price is zero for component IDX_USD"):
         await build_stateful_benchmark_input(
             stateful_input_service=_ZeroPreviousPriceStub(),
             calculation_id=uuid4(),
@@ -574,7 +573,7 @@ async def test_build_stateful_benchmark_input_surfaces_missing_vendor_definition
         async def get_benchmark_return_series(self, **kwargs):  # noqa: ARG002
             return 200, {"retrieval_metadata": {"chunk_count": 1, "page_count": 1}}
 
-    with pytest.raises((HTTPException, APIError), match="No benchmark definition found"):
+    with pytest.raises(APIError, match="No benchmark definition found"):
         await build_stateful_benchmark_input(
             stateful_input_service=_MissingVendorDefinitionStub(),
             calculation_id=uuid4(),
@@ -585,7 +584,7 @@ async def test_build_stateful_benchmark_input_surfaces_missing_vendor_definition
             return_source=BenchmarkReturnSource.VENDOR_SERIES,
         )
 
-    with pytest.raises((HTTPException, APIError), match="definition source unavailable"):
+    with pytest.raises(APIError, match="definition source unavailable"):
         await build_stateful_benchmark_input(
             stateful_input_service=_UnavailableVendorDefinitionStub(),
             calculation_id=uuid4(),
@@ -596,7 +595,7 @@ async def test_build_stateful_benchmark_input_surfaces_missing_vendor_definition
             return_source=BenchmarkReturnSource.VENDOR_SERIES,
         )
 
-    with pytest.raises((HTTPException, APIError), match="No benchmark return series found"):
+    with pytest.raises(APIError, match="No benchmark return series found"):
         await build_stateful_benchmark_input(
             stateful_input_service=_MissingVendorSeriesStub(),
             calculation_id=uuid4(),
@@ -607,7 +606,7 @@ async def test_build_stateful_benchmark_input_surfaces_missing_vendor_definition
             return_source=BenchmarkReturnSource.VENDOR_SERIES,
         )
 
-    with pytest.raises((HTTPException, APIError), match="return-series source unavailable"):
+    with pytest.raises(APIError, match="return-series source unavailable"):
         await build_stateful_benchmark_input(
             stateful_input_service=_UnavailableVendorSeriesStub(),
             calculation_id=uuid4(),
@@ -618,7 +617,7 @@ async def test_build_stateful_benchmark_input_surfaces_missing_vendor_definition
             return_source=BenchmarkReturnSource.VENDOR_SERIES,
         )
 
-    with pytest.raises((HTTPException, APIError), match="missing points list"):
+    with pytest.raises(APIError, match="missing points list"):
         await build_stateful_benchmark_input(
             stateful_input_service=_MissingVendorPointsStub(),
             calculation_id=uuid4(),
@@ -644,7 +643,7 @@ async def test_build_stateful_benchmark_input_surfaces_missing_composition_and_i
         async def get_index_price_series(self, **kwargs):  # noqa: ARG002
             return 200, {"retrieval_metadata": {"chunk_count": 1, "page_count": 1}}
 
-    with pytest.raises((HTTPException, APIError), match="No benchmark composition window found"):
+    with pytest.raises(APIError, match="No benchmark composition window found"):
         await build_stateful_benchmark_input(
             stateful_input_service=_MissingCompositionStub(),
             calculation_id=uuid4(),
@@ -655,7 +654,7 @@ async def test_build_stateful_benchmark_input_surfaces_missing_composition_and_i
             return_source=BenchmarkReturnSource.CALCULATED,
         )
 
-    with pytest.raises((HTTPException, APIError), match="composition-window source unavailable"):
+    with pytest.raises(APIError, match="composition-window source unavailable"):
         await build_stateful_benchmark_input(
             stateful_input_service=_UnavailableCompositionStub(),
             calculation_id=uuid4(),
@@ -666,7 +665,7 @@ async def test_build_stateful_benchmark_input_surfaces_missing_composition_and_i
             return_source=BenchmarkReturnSource.CALCULATED,
         )
 
-    with pytest.raises((HTTPException, APIError), match="payload missing points for benchmark component IDX_EUR"):
+    with pytest.raises(APIError, match="payload missing points for benchmark component IDX_EUR"):
         await build_stateful_benchmark_input(
             stateful_input_service=_MissingIndexPayloadStub(),
             calculation_id=uuid4(),
@@ -693,7 +692,7 @@ async def test_build_stateful_benchmark_input_rejects_component_series_without_p
                 payload["points"] = [point for point in payload["points"] if point["series_date"] != "2026-01-03"]
             return status_code, payload
 
-    with pytest.raises((HTTPException, APIError), match="requires a prior normalized price before 2026-01-02"):
+    with pytest.raises(APIError, match="requires a prior normalized price before 2026-01-02"):
         await build_stateful_benchmark_input(
             stateful_input_service=_MissingPriorDateStub(),
             calculation_id=uuid4(),
@@ -704,7 +703,7 @@ async def test_build_stateful_benchmark_input_rejects_component_series_without_p
             return_source=BenchmarkReturnSource.CALCULATED,
         )
 
-    with pytest.raises((HTTPException, APIError), match="does not cover the same date set as peer components"):
+    with pytest.raises(APIError, match="does not cover the same date set as peer components"):
         await build_stateful_benchmark_input(
             stateful_input_service=_MismatchedCoverageStub(),
             calculation_id=uuid4(),
@@ -717,7 +716,7 @@ async def test_build_stateful_benchmark_input_rejects_component_series_without_p
 
 
 def test_parse_composition_window_requires_currency_and_usable_segments():
-    with pytest.raises((HTTPException, APIError), match="missing benchmark_currency"):
+    with pytest.raises(APIError, match="missing benchmark_currency"):
         _parse_composition_window(
             benchmark_id="BMK_1",
             composition_window={"benchmark_currency": "", "segments": []},
@@ -725,7 +724,7 @@ def test_parse_composition_window_requires_currency_and_usable_segments():
             end_date=date(2026, 1, 3),
         )
 
-    with pytest.raises((HTTPException, APIError), match="missing segments"):
+    with pytest.raises(APIError, match="missing segments"):
         _parse_composition_window(
             benchmark_id="BMK_1",
             composition_window={"benchmark_currency": "USD", "segments": []},
@@ -733,9 +732,7 @@ def test_parse_composition_window_requires_currency_and_usable_segments():
             end_date=date(2026, 1, 3),
         )
 
-    with pytest.raises(
-        (HTTPException, APIError), match="missing index_id, composition_weight, or composition_effective_from"
-    ):
+    with pytest.raises(APIError, match="missing index_id, composition_weight, or composition_effective_from"):
         _parse_composition_window(
             benchmark_id="BMK_1",
             composition_window={
@@ -751,7 +748,7 @@ def test_parse_composition_window_requires_currency_and_usable_segments():
             end_date=date(2026, 1, 3),
         )
 
-    with pytest.raises((HTTPException, APIError), match="missing usable segments"):
+    with pytest.raises(APIError, match="missing usable segments"):
         _parse_composition_window(
             benchmark_id="BMK_1",
             composition_window={
@@ -816,18 +813,14 @@ def test_composition_segment_required_fields_project_values_and_reject_missing_f
         }
     ) == ("IDX_A", "0.6", "2026-01-01")
 
-    with pytest.raises(
-        (HTTPException, APIError), match="missing index_id, composition_weight, or composition_effective_from"
-    ):
+    with pytest.raises(APIError, match="missing index_id, composition_weight, or composition_effective_from"):
         _composition_segment_required_fields(
             {
                 "index_id": "IDX_A",
                 "composition_effective_from": "2026-01-01",
             }
         )
-    with pytest.raises(
-        (HTTPException, APIError), match="missing index_id, composition_weight, or composition_effective_from"
-    ):
+    with pytest.raises(APIError, match="missing index_id, composition_weight, or composition_effective_from"):
         _composition_segment_required_fields(
             {
                 "index_id": 123,
@@ -885,10 +878,10 @@ def test_component_price_series_points_filters_dict_points_and_rejects_missing_o
         series_payload={"points": [{"series_date": "2026-01-01"}, "bad"]},
     ) == [{"series_date": "2026-01-01"}]
 
-    with pytest.raises((HTTPException, APIError), match="payload missing points"):
+    with pytest.raises(APIError, match="payload missing points"):
         _component_price_series_points(index_id="IDX_USD", series_payload={})
 
-    with pytest.raises((HTTPException, APIError), match="payload empty"):
+    with pytest.raises(APIError, match="payload empty"):
         _component_price_series_points(index_id="IDX_USD", series_payload={"points": ["bad"]})
 
 
@@ -910,7 +903,7 @@ async def test_load_component_price_series_surfaces_404_503_and_empty_payloads()
         async def get_index_price_series(self, **kwargs):  # noqa: ARG002
             return 200, {"retrieval_metadata": {"chunk_count": 1, "page_count": 1}}
 
-    with pytest.raises((HTTPException, APIError), match="No index price series found"):
+    with pytest.raises(APIError, match="No index price series found"):
         await _load_component_price_series(
             stateful_input_service=_MissingSeriesStub(),
             calculation_id=uuid4(),
@@ -921,7 +914,7 @@ async def test_load_component_price_series_surfaces_404_503_and_empty_payloads()
             end_date=date(2026, 1, 3),
         )
 
-    with pytest.raises((HTTPException, APIError), match="source unavailable"):
+    with pytest.raises(APIError, match="source unavailable"):
         await _load_component_price_series(
             stateful_input_service=_UnavailableSeriesStub(),
             calculation_id=uuid4(),
@@ -932,7 +925,7 @@ async def test_load_component_price_series_surfaces_404_503_and_empty_payloads()
             end_date=date(2026, 1, 3),
         )
 
-    with pytest.raises((HTTPException, APIError), match="payload empty"):
+    with pytest.raises(APIError, match="payload empty"):
         await _load_component_price_series(
             stateful_input_service=_EmptySeriesStub(),
             calculation_id=uuid4(),
@@ -943,7 +936,7 @@ async def test_load_component_price_series_surfaces_404_503_and_empty_payloads()
             end_date=date(2026, 1, 3),
         )
 
-    with pytest.raises((HTTPException, APIError), match="payload missing points"):
+    with pytest.raises(APIError, match="payload missing points"):
         await _load_component_price_series(
             stateful_input_service=_MissingPointsSeriesStub(),
             calculation_id=uuid4(),
@@ -991,7 +984,7 @@ async def test_load_fx_maps_for_components_handles_empty_pairs_and_payload_error
         }
     }
 
-    with pytest.raises((HTTPException, APIError), match="fx rate source unavailable"):
+    with pytest.raises(APIError, match="fx rate source unavailable"):
         await _load_fx_maps_for_components(
             stateful_input_service=_UnavailableFxStub(),
             calculation_id=uuid4(),
@@ -1001,7 +994,7 @@ async def test_load_fx_maps_for_components_handles_empty_pairs_and_payload_error
             end_date=date(2026, 1, 3),
         )
 
-    with pytest.raises((HTTPException, APIError), match="fx rate payload missing points"):
+    with pytest.raises(APIError, match="fx rate payload missing points"):
         await _load_fx_maps_for_components(
             stateful_input_service=_MissingFxPointsStub(),
             calculation_id=uuid4(),
@@ -1042,7 +1035,7 @@ def test_fx_rate_point_from_payload_point_projects_valid_point_only():
 
 
 def test_fx_rate_map_from_payload_requires_points_list():
-    with pytest.raises((HTTPException, APIError), match="fx rate payload missing points for EUR/USD"):
+    with pytest.raises(APIError, match="fx rate payload missing points for EUR/USD"):
         _fx_rate_map_from_payload(
             fx_payload={"points": None},
             from_currency="EUR",
@@ -1074,7 +1067,7 @@ def test_active_component_segments_for_date_sorts_active_segments_and_rejects_ga
         )
     ] == ["IDX_A", "IDX_B"]
 
-    with pytest.raises((HTTPException, APIError), match="missing active segments for 2025-12-31"):
+    with pytest.raises(APIError, match="missing active segments for 2025-12-31"):
         _active_component_segments_for_date(
             component_segments=segments,
             point_date=date(2025, 12, 31),
@@ -1092,7 +1085,7 @@ def test_build_component_observations_surfaces_missing_active_segments_and_paylo
         }
     }
 
-    with pytest.raises((HTTPException, APIError), match="missing active segments"):
+    with pytest.raises(APIError, match="missing active segments"):
         _build_component_observations(
             benchmark_id="BMK_1",
             component_price_series=normalized_component_series,
@@ -1103,7 +1096,7 @@ def test_build_component_observations_surfaces_missing_active_segments_and_paylo
             requested_end_date=date(2026, 1, 2),
         )
 
-    with pytest.raises((HTTPException, APIError), match="Missing index price-series payload"):
+    with pytest.raises(APIError, match="Missing index price-series payload"):
         _build_component_observations(
             benchmark_id="BMK_1",
             component_price_series=normalized_component_series,
@@ -1133,7 +1126,7 @@ def test_build_component_observations_detects_incomplete_market_coverage_and_emp
         }
     }
 
-    with pytest.raises((HTTPException, APIError), match="missing 2026-01-03"):
+    with pytest.raises(APIError, match="missing 2026-01-03"):
         _build_component_observations(
             benchmark_id="BMK_1",
             component_price_series=component_price_series,
@@ -1151,7 +1144,7 @@ def test_build_component_observations_detects_incomplete_market_coverage_and_emp
             requested_end_date=date(2026, 1, 3),
         )
 
-    with pytest.raises((HTTPException, APIError), match="No normalized benchmark observations available"):
+    with pytest.raises(APIError, match="No normalized benchmark observations available"):
         _build_component_observations(
             benchmark_id="BMK_1",
             component_price_series=component_price_series,
@@ -1266,14 +1259,14 @@ def test_previous_normalized_component_price_selects_latest_prior_price():
 
 
 def test_previous_normalized_component_price_rejects_missing_or_zero_prior_price():
-    with pytest.raises((HTTPException, APIError), match="requires a prior normalized price"):
+    with pytest.raises(APIError, match="requires a prior normalized price"):
         _previous_normalized_component_price_for_date(
             component_id="IDX_USD",
             point_date=date(2026, 1, 2),
             previous_prices={},
         )
 
-    with pytest.raises((HTTPException, APIError), match="Normalized benchmark price is zero"):
+    with pytest.raises(APIError, match="Normalized benchmark price is zero"):
         _previous_normalized_component_price_for_date(
             component_id="IDX_USD",
             point_date=date(2026, 1, 2),
@@ -1287,7 +1280,7 @@ def test_previous_normalized_component_price_rejects_missing_or_zero_prior_price
 
 
 def test_build_normalized_component_series_skips_invalid_points_and_rejects_missing_prices():
-    with pytest.raises((HTTPException, APIError), match="missing index_price"):
+    with pytest.raises(APIError, match="missing index_price"):
         _build_normalized_component_series(
             benchmark_id="BMK_1",
             component_price_series={
@@ -1428,7 +1421,7 @@ def test_normalized_component_price_point_from_payload_skips_invalid_or_out_of_w
 
 
 def test_normalized_component_price_point_from_payload_rejects_missing_index_price():
-    with pytest.raises((HTTPException, APIError), match="missing index_price"):
+    with pytest.raises(APIError, match="missing index_price"):
         _normalized_component_price_point_from_payload(
             index_id="IDX_EUR",
             point={"series_date": "2026-01-02", "index_price": None},
@@ -1452,7 +1445,7 @@ def test_normalization_and_metadata_helpers_cover_direct_contracts():
         == 10
     )
 
-    with pytest.raises((HTTPException, APIError), match="Missing FX rate for EUR/USD"):
+    with pytest.raises(APIError, match="Missing FX rate for EUR/USD"):
         _normalize_price_to_benchmark_currency(
             component_currency="EUR",
             benchmark_currency="USD",
