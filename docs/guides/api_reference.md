@@ -707,6 +707,10 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - echoed targeted filters for operator auditability
   - filtered compute work items with calculation handle, direct execution/lineage drill-down paths, optional async `result_path`, lifecycle state, age, attempts, and failure context
   - filtered lineage work items with calculation handle, direct execution/lineage drill-down paths, optional async `result_path`, lifecycle state, age, attempts, and failure context
+- partial queue read failures keep the other queue usable and emit stable queue-state reasons:
+  `compute_work_item_read_failed` or `lineage_work_item_read_failed`; use `correlation_id` and
+  structured log event `runtime_operator_read_degraded` to inspect the safe filter context and
+  exception class
 - `result_path` can now point directly to async result routes for `TWR`, `BENCHMARK`, `ReturnsSeries`, `Contribution`, and `Attribution` when that workflow exposes a stable endpoint-specific result surface
 - use this when runtime-status tells you there is pressure, and you need the actual work items behind it without querying the database directly
 - `next_offset` is queue-local and only appears when additional filtered work items remain for that queue
@@ -737,6 +741,10 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - queue-specific `total_count`, `returned_count`, `next_offset`, `next_cursor_recovered_before`, and `next_cursor_calculation_id_before`
   - filtered compute recovery events with calculation handle, direct execution/lineage drill-down paths, optional async `result_path`, analytics type, recovery kind, recovery timestamp, attempt count, and last durable error type
   - filtered lineage recovery events with calculation handle, direct execution/lineage drill-down paths, optional async `result_path`, calculation type, recovery kind, recovery timestamp, and attempt count
+- partial queue read failures keep the other queue usable and emit stable queue-state reasons:
+  `compute_recovery_read_failed` or `lineage_recovery_read_failed`; use `correlation_id` and
+  structured log event `runtime_operator_read_degraded` to inspect the safe filter context and
+  exception class
 - `result_path` can now point directly to async result routes for `TWR`, `BENCHMARK`, `ReturnsSeries`, `Contribution`, and `Attribution` when that workflow exposes a stable endpoint-specific result surface
 - use this when runtime-status shows recent recovery activity and you need the concrete event stream behind the bounded status snapshot without querying the database directly
 - `next_offset` is queue-local and only appears when additional filtered events remain for that queue

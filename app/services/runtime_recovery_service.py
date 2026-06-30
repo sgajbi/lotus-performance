@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Callable, Protocol, TypedDict, TypeVar
@@ -10,9 +11,14 @@ from app.services.durability_health_service import (
     check_durable_metadata_schema_ready,
 )
 from app.services.lineage_metadata_store import LineageRecoveryEvent, lineage_metadata_store
+from app.services.runtime_operator_diagnostics import (
+    RuntimeOperatorReadSource,
+    log_runtime_operator_read_failure,
+)
 from app.services.runtime_unavailability import durable_metadata_unavailable_reason
 
 RecoveryEventT = TypeVar("RecoveryEventT")
+logger = logging.getLogger(__name__)
 
 
 class _RecoveryEventPage(Protocol[RecoveryEventT]):
@@ -232,7 +238,13 @@ def _safe_compute_recoveries(
 ) -> tuple[RuntimeRecoveryQueueState, list[ComputeRecoveryEvent]]:
     return _safe_recoveries(
         include_queue=include_queue,
+        source="compute",
         filters=filters,
+        safe_filters=_runtime_recovery_safe_filters(
+            filters=filters,
+            compute_analytics_type=compute_analytics_type,
+            lineage_calculation_type=None,
+        ),
         load_page=lambda filters: compute_job_store.list_recent_recoveries(
             **filters.common_kwargs,
             analytics_type=compute_analytics_type,
@@ -248,7 +260,13 @@ def _safe_lineage_recoveries(
 ) -> tuple[RuntimeRecoveryQueueState, list[LineageRecoveryEvent]]:
     return _safe_recoveries(
         include_queue=include_queue,
+        source="lineage",
         filters=filters,
+        safe_filters=_runtime_recovery_safe_filters(
+            filters=filters,
+            compute_analytics_type=None,
+            lineage_calculation_type=lineage_calculation_type,
+        ),
         load_page=lambda filters: lineage_metadata_store.list_recent_recoveries(
             **filters.common_kwargs,
             calculation_type=lineage_calculation_type,
@@ -282,7 +300,9 @@ class _RecoveryListFilters:
 def _safe_recoveries(
     *,
     include_queue: bool,
+    source: RuntimeOperatorReadSource,
     filters: _RecoveryListFilters,
+    safe_filters: dict[str, object],
     load_page: Callable[[_RecoveryListFilters], _RecoveryEventPage[RecoveryEventT]],
 ) -> tuple[RuntimeRecoveryQueueState, list[RecoveryEventT]]:
     if not include_queue:
@@ -291,7 +311,37 @@ def _safe_recoveries(
         page = load_page(filters)
         return _queue_state_from_recovery_page(page), page.items
     except Exception as exc:
-        return _queue_state(status="unavailable", reason=type(exc).__name__), []
+        reason = log_runtime_operator_read_failure(
+            logger=logger,
+            source=source,
+            operation="recovery",
+            exception=exc,
+            safe_filters=safe_filters,
+        )
+        return _queue_state(status="unavailable", reason=reason), []
+
+
+def _runtime_recovery_safe_filters(
+    *,
+    filters: _RecoveryListFilters,
+    compute_analytics_type: str | None,
+    lineage_calculation_type: str | None,
+) -> dict[str, object]:
+    return {
+        "limit": filters.limit,
+        "offset": filters.offset,
+        "recovered_after": _datetime_log_value(filters.recovered_after),
+        "recovered_before": _datetime_log_value(filters.recovered_before),
+        "cursor_recovered_before": _datetime_log_value(filters.cursor_recovered_before),
+        "cursor_calculation_id_before_present": filters.cursor_calculation_id_before is not None,
+        "calculation_id_filter_present": filters.calculation_id_contains is not None,
+        "compute_analytics_type": compute_analytics_type,
+        "lineage_calculation_type": lineage_calculation_type,
+    }
+
+
+def _datetime_log_value(value: datetime | None) -> str | None:
+    return value.isoformat() if value is not None else None
 
 
 def _queue_state_from_recovery_page(page: _RecoveryEventPage[RecoveryEventT]) -> RuntimeRecoveryQueueState:

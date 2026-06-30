@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -11,9 +12,14 @@ from app.services.durability_health_service import (
     check_durable_metadata_schema_ready,
 )
 from app.services.lineage_metadata_store import LineageQueueInspectionItem, lineage_metadata_store
+from app.services.runtime_operator_diagnostics import (
+    RuntimeOperatorReadSource,
+    log_runtime_operator_read_failure,
+)
 from app.services.runtime_unavailability import durable_metadata_unavailable_reason
 
 _RuntimeWorkItemT = TypeVar("_RuntimeWorkItemT")
+logger = logging.getLogger(__name__)
 
 
 class _RuntimeWorkItemPage(Protocol[_RuntimeWorkItemT]):
@@ -197,6 +203,12 @@ def _safe_compute_items(
 ) -> tuple[RuntimeWorkItemQueueState, list[ComputeQueueInspectionItem]]:
     return _safe_runtime_work_items(
         include_queue=include_queue,
+        source="compute",
+        safe_filters=_runtime_work_item_safe_filters(
+            list_request=list_request,
+            compute_analytics_type=compute_analytics_type,
+            lineage_calculation_type=None,
+        ),
         load_page=lambda: compute_job_store.list_inspection_items(
             **_runtime_work_item_page_kwargs(list_request),
             analytics_type=compute_analytics_type,
@@ -212,6 +224,12 @@ def _safe_lineage_items(
 ) -> tuple[RuntimeWorkItemQueueState, list[LineageQueueInspectionItem]]:
     return _safe_runtime_work_items(
         include_queue=include_queue,
+        source="lineage",
+        safe_filters=_runtime_work_item_safe_filters(
+            list_request=list_request,
+            compute_analytics_type=None,
+            lineage_calculation_type=lineage_calculation_type,
+        ),
         load_page=lambda: lineage_metadata_store.list_inspection_items(
             **_runtime_work_item_page_kwargs(list_request),
             calculation_type=lineage_calculation_type,
@@ -233,6 +251,8 @@ def _runtime_work_item_page_kwargs(list_request: _RuntimeWorkItemListRequest) ->
 def _safe_runtime_work_items(
     *,
     include_queue: bool,
+    source: RuntimeOperatorReadSource,
+    safe_filters: dict[str, object],
     load_page: Callable[[], _RuntimeWorkItemPage[_RuntimeWorkItemT]],
 ) -> tuple[RuntimeWorkItemQueueState, list[_RuntimeWorkItemT]]:
     if not include_queue:
@@ -249,7 +269,31 @@ def _safe_runtime_work_items(
             page.items,
         )
     except Exception as exc:
-        return _queue_state(status="unavailable", reason=type(exc).__name__), []
+        reason = log_runtime_operator_read_failure(
+            logger=logger,
+            source=source,
+            operation="work_item",
+            exception=exc,
+            safe_filters=safe_filters,
+        )
+        return _queue_state(status="unavailable", reason=reason), []
+
+
+def _runtime_work_item_safe_filters(
+    *,
+    list_request: _RuntimeWorkItemListRequest,
+    compute_analytics_type: str | None,
+    lineage_calculation_type: str | None,
+) -> dict[str, object]:
+    return {
+        "status_filter": list_request.status_filter,
+        "limit": list_request.limit,
+        "offset": list_request.offset,
+        "min_age_seconds": list_request.min_age_seconds,
+        "calculation_id_filter_present": list_request.calculation_id_contains is not None,
+        "compute_analytics_type": compute_analytics_type,
+        "lineage_calculation_type": lineage_calculation_type,
+    }
 
 
 def _queue_state(

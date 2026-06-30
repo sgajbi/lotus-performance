@@ -1,8 +1,10 @@
+import logging
 from datetime import UTC, datetime
 
 from app.services.compute_job_store import ComputeQueueInspectionItem, ComputeQueueInspectionPage
 from app.services.durability_health_service import DurabilityHealthStatus
 from app.services.lineage_metadata_store import LineageQueueInspectionItem
+from app.services.runtime_operator_diagnostics import COMPUTE_WORK_ITEM_READ_FAILED, LINEAGE_WORK_ITEM_READ_FAILED
 from app.services.runtime_work_item_service import (
     _available_runtime_work_item_snapshot,
     _unavailable_runtime_work_item_snapshot,
@@ -10,7 +12,8 @@ from app.services.runtime_work_item_service import (
 )
 
 
-def test_runtime_work_item_snapshot_reports_partial_queue_failure(mocker):
+def test_runtime_work_item_snapshot_reports_partial_queue_failure(mocker, caplog):
+    caplog.set_level(logging.WARNING, logger="app.services.runtime_work_item_service")
     mocker.patch(
         "app.services.runtime_work_item_service.check_durable_metadata_schema_ready",
         return_value=DurabilityHealthStatus(is_ready=True, status="ready", reason=None),
@@ -50,17 +53,26 @@ def test_runtime_work_item_snapshot_reports_partial_queue_failure(mocker):
         min_age_seconds=0.0,
         compute_analytics_type=None,
         lineage_calculation_type=None,
-        calculation_id_contains=None,
+        calculation_id_contains="calc-sensitive-fragment",
     )
 
     assert snapshot.compute_queue.status == "unavailable"
-    assert snapshot.compute_queue.reason == "RuntimeError"
+    assert snapshot.compute_queue.reason == COMPUTE_WORK_ITEM_READ_FAILED
     assert snapshot.compute_queue.total_count == 0
     assert snapshot.compute_items == []
     assert snapshot.lineage_queue.status == "available"
     assert snapshot.lineage_queue.total_count == 1
     assert snapshot.lineage_queue.returned_count == 1
     assert len(snapshot.lineage_items) == 1
+    warning = next(record for record in caplog.records if record.message == "Runtime operator read degraded.")
+    extra_fields = warning.extra_fields
+    assert extra_fields["event_name"] == "runtime_operator_read_degraded"
+    assert extra_fields["source"] == "compute"
+    assert extra_fields["operation"] == "work_item"
+    assert extra_fields["reason"] == COMPUTE_WORK_ITEM_READ_FAILED
+    assert extra_fields["exception_class"] == "RuntimeError"
+    assert extra_fields["calculation_id_filter_present"] is True
+    assert "calc-sensitive-fragment" not in extra_fields.values()
 
 
 def test_runtime_work_item_snapshot_reports_unavailable_when_durable_store_is_down(mocker):
@@ -407,4 +419,4 @@ def test_runtime_work_item_snapshot_reports_lineage_queue_failure(mocker):
     )
 
     assert snapshot.lineage_queue.status == "unavailable"
-    assert snapshot.lineage_queue.reason == "RuntimeError"
+    assert snapshot.lineage_queue.reason == LINEAGE_WORK_ITEM_READ_FAILED

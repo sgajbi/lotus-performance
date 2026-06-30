@@ -54,6 +54,8 @@ def test_runtime_recoveries_response_schema_documents_all_output_families():
     assert "Filtered lineage recovery events" in response_properties["lineage_recoveries"]["description"]
 
     queue_properties = _schema("RuntimeRecoveriesQueueStatusResponse")["properties"]
+    assert "compute_recovery_read_failed" in queue_properties["reason"]["description"]
+    assert "lineage_recovery_read_failed" in queue_properties["reason"]["description"]
     assert "additional matching recovery events remain" in queue_properties["next_offset"]["description"]
     assert "deterministic seek pagination" in queue_properties["next_cursor_recovered_before"]["description"]
 

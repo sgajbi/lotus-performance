@@ -52,6 +52,8 @@ def test_runtime_work_items_response_schema_documents_all_output_families():
     assert "Filtered lineage work items" in response_properties["lineage_items"]["description"]
 
     queue_properties = schemas["RuntimeWorkItemQueueStatusResponse"]["properties"]
+    assert "compute_work_item_read_failed" in queue_properties["reason"]["description"]
+    assert "lineage_work_item_read_failed" in queue_properties["reason"]["description"]
     assert "additional matching work items remain" in queue_properties["next_offset"]["description"]
 
     compute_properties = schemas["ComputeRuntimeWorkItemResponse"]["properties"]

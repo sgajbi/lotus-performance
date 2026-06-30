@@ -38,6 +38,13 @@ Check:
 - `GET /integration/runtime-recoveries`
 - `GET /performance/executions/{calculation_id}`
 
+If `runtime-work-items` or `runtime-recoveries` returns one queue as `unavailable` while the other
+queue remains `available`, triage it as a partial operator-read failure. Queue-state reasons use
+stable operational codes such as `compute_work_item_read_failed`,
+`lineage_work_item_read_failed`, `compute_recovery_read_failed`, or
+`lineage_recovery_read_failed`; the matching structured log event is
+`runtime_operator_read_degraded`.
+
 Escalate with:
 
 - `calculation_id`
