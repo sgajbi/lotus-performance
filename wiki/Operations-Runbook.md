@@ -101,6 +101,13 @@ lineage records plus payload calculation and lease-expiry indexes, so support dr
 bounded as lineage history grows. Active and all-item views may sort on a derived active-since
 expression; failed and reclaimable views should stay index-backed without avoidable sort work.
 
+Stateful lotus-core fan-out uses the shared upstream resilience layer and a lifecycle-managed
+`httpx.AsyncClient` pool under the FastAPI lifespan. Tune `STATEFUL_INPUT_MAX_CONCURRENT_CHUNKS`
+together with `UPSTREAM_HTTP_MAX_CONNECTIONS`, `UPSTREAM_HTTP_MAX_KEEPALIVE_CONNECTIONS`, and
+`UPSTREAM_HTTP_KEEPALIVE_EXPIRY_SECONDS` when stateful analytics show connection pressure or
+upstream keep-alive churn; do not create a separate runtime service for this class of issue without
+workload-isolation evidence.
+
 For compute executor incidents, distinguish calculation failure from durable success-finalization
 failure. A `success_result_publication_failed` event means the calculation completed but the async
 result write failed, so the job must not be marked complete until a retrievable result exists. A

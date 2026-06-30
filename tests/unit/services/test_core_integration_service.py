@@ -4,20 +4,28 @@ import httpx
 import pytest
 
 from app.services.core_integration_service import CoreIntegrationService, _index_catalog_filter_payload
+from app.services.http_resilience import close_upstream_http_client_pool, configure_upstream_http_client_pool
 
 
 class _FakeAsyncClient:
     responses: list[httpx.Response] = []
     calls: list[dict] = []
+    instances: list["_FakeAsyncClient"] = []
 
-    def __init__(self, timeout: float):
+    def __init__(self, timeout: float, limits=None):
         self.timeout = timeout
+        self.limits = limits
+        self.is_closed = False
+        self.instances.append(self)
 
     async def __aenter__(self):
         return self
 
     async def __aexit__(self, exc_type, exc, tb):
         return False
+
+    async def aclose(self):
+        self.is_closed = True
 
     async def post(self, url, json=None, headers=None):
         self.calls.append({"url": url, "json": json or {}, "headers": headers or {}})
@@ -43,7 +51,46 @@ class _FakeAsyncClient:
 def _patch_async_client(monkeypatch):
     _FakeAsyncClient.responses = []
     _FakeAsyncClient.calls = []
+    _FakeAsyncClient.instances = []
     monkeypatch.setattr("app.services.http_resilience.httpx.AsyncClient", _FakeAsyncClient)
+
+
+@pytest.mark.asyncio
+async def test_core_service_reuses_managed_client_for_stateful_chunk_requests():
+    service = CoreIntegrationService(base_url="http://core-control", timeout_seconds=2.0)
+    _FakeAsyncClient.queue_json(200, {"observations": []})
+    _FakeAsyncClient.queue_json(200, {"rows": []})
+    configure_upstream_http_client_pool(
+        max_connections=8,
+        max_keepalive_connections=4,
+        keepalive_expiry_seconds=20.0,
+    )
+
+    try:
+        await service.get_portfolio_analytics_timeseries(
+            portfolio_id="PORT-1",
+            as_of_date=date(2026, 2, 24),
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 31),
+            reporting_currency="USD",
+            consumer_system="lotus-performance",
+            page_token=None,
+        )
+        await service.get_position_analytics_timeseries(
+            portfolio_id="PORT-1",
+            as_of_date=date(2026, 2, 24),
+            start_date=date(2026, 2, 1),
+            end_date=date(2026, 2, 24),
+            reporting_currency="USD",
+            consumer_system="lotus-performance",
+            page_token="page-2",
+        )
+    finally:
+        await close_upstream_http_client_pool()
+
+    assert len(_FakeAsyncClient.instances) == 1
+    assert _FakeAsyncClient.instances[0].is_closed is True
+    assert len(_FakeAsyncClient.calls) == 2
 
 
 @pytest.mark.asyncio
