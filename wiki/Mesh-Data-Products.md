@@ -26,6 +26,9 @@
   source-owned performance threshold posture without downstream methodology reconstruction
 - Product ID: `lotus-performance:ReturnsSeriesBundle:v1`
 - Product role: governed return-series and performance evidence consumed by risk, advisory, reporting, gateway, and Workbench discovery flows
+- Product ID: `lotus-performance:BenchmarkExposureContext:v1`
+- Product role: governed benchmark exposure context that preserves benchmark composition and
+  resolved exposure posture for risk and idea consumers
 - Source declaration: `contracts/domain-data-products/`
 - Trust telemetry: `contracts/trust-telemetry/`
 - TWR product evidence: `POST /performance/twr` emits portfolio TWR, benchmark-aware TWR,
@@ -44,9 +47,11 @@
   those fields, but must not reinterpret ambiguous XIRR roots, rebuild investor cash-flow schedules
   outside the producer, or infer per-input FX provenance from pre-converted source amounts.
   It is now declared as `MoneyWeightedReturnAnalytics` in
-  `contracts/domain-data-products/lotus-performance-products.v1.json`. Current MWR is a single
-  reporting-currency product with explicit source-component evidence. Stateless callers may supply
-  complete `source_preconverted_fx_evidence`; consumers should preserve the emitted
+  `contracts/domain-data-products/lotus-performance-products.v1.json`, backed by
+  `contracts/trust-telemetry/money-weighted-return-analytics.telemetry.v1.json`, and approved for
+  `lotus-gateway` consumption. Current MWR is a single reporting-currency product with explicit
+  source-component evidence. Stateless callers may supply complete `source_preconverted_fx_evidence`;
+  consumers should preserve the emitted
   `currency_evidence` and must not reconstruct FX conversion locally. Cash-flow dates are
   producer-validated against the resolved measurement window and rejected with
   `MWR_CASH_FLOW_OUT_OF_WINDOW` when outside the supported period. Stateful responses also carry
@@ -108,10 +113,18 @@
   source-owned active-return threshold posture, methodology posture, request fingerprint, and
   reason codes for DPM supportability consumers such as `lotus-manage`. The governed product is
   declared as `MandatePerformanceHealthContext` in
-  `contracts/domain-data-products/lotus-performance-products.v1.json` and approved for Gateway and
-  Manage consumption. Downstream consumers may preserve this evidence, but must not reconstruct
-  active return, reinterpret TWR methodology, create mandate actions, create rebalance waves,
-  contact clients, place orders, or imply OMS/execution behavior.
+  `contracts/domain-data-products/lotus-performance-products.v1.json`, backed by
+  `contracts/trust-telemetry/mandate-performance-health-context.telemetry.v1.json`, and approved
+  for Gateway and Manage consumption. Downstream consumers may preserve this evidence, but must not
+  reconstruct active return, reinterpret TWR methodology, create mandate actions, create rebalance
+  waves, contact clients, place orders, or imply OMS/execution behavior.
+- Benchmark exposure product evidence preserves benchmark exposure context for downstream risk and
+  idea workflows. The governed product is declared as `BenchmarkExposureContext` in
+  `contracts/domain-data-products/lotus-performance-products.v1.json`, backed by
+  `contracts/trust-telemetry/benchmark-exposure-context.telemetry.v1.json`, and approved for
+  `lotus-risk` and `lotus-idea` consumption. Downstream consumers may use the emitted exposure
+  context as source-owned evidence, but must not redefine benchmark composition or valuation-date
+  alignment outside the performance product contract.
 
 ## Platform relationship
 

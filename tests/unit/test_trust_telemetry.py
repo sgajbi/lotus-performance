@@ -33,6 +33,65 @@ def _load_platform_validator():
     return importlib.import_module("validate_trust_telemetry")
 
 
+def _active_product_declarations() -> dict[str, dict[str, Any]]:
+    declaration = _load_json(DECLARATION_PATH)
+    return {
+        product["product_name"]: product
+        for product in declaration["products"]
+        if product.get("lifecycle_status") == "active"
+    }
+
+
+def _trust_telemetry_snapshots() -> dict[str, dict[str, Any]]:
+    return {
+        snapshot["product_name"]: snapshot
+        for snapshot in (
+            _load_json(snapshot_path) for snapshot_path in sorted(TELEMETRY_DIR.glob("*.telemetry.v1.json"))
+        )
+    }
+
+
+def _assert_snapshot_matches_declaration(
+    snapshot: dict[str, Any],
+    declared_product: dict[str, Any],
+    *,
+    producer_repository: str,
+) -> None:
+    product_name = declared_product["product_name"]
+
+    assert snapshot["product_id"] == f"{producer_repository}:{product_name}:{declared_product['product_version']}"
+    assert snapshot["producer_repository"] == producer_repository
+    assert snapshot["product_name"] == product_name
+    assert snapshot["product_version"] == declared_product["product_version"]
+    assert snapshot["freshness"]["freshness_class"] == declared_product["freshness_policy"]["freshness_class"]
+    assert set(snapshot["observed_trust_metadata"]) == set(declared_product["required_trust_metadata"])
+    assert snapshot["lineage"]["lineage_materialized"] is True
+    assert (
+        snapshot["lineage"]["evidence_access_class"] == declared_product["lineage_policy"]["evidence_access_class_ref"]
+    )
+    assert snapshot["blocking"]["blocked"] is False
+
+
+def test_every_active_governed_product_has_repo_trust_telemetry_snapshot() -> None:
+    declared_products = _active_product_declarations()
+    snapshots = _trust_telemetry_snapshots()
+
+    assert set(snapshots) == set(declared_products)
+
+
+def test_active_governed_trust_telemetry_snapshots_are_tied_to_repo_declarations() -> None:
+    declaration = _load_json(DECLARATION_PATH)
+    declared_products = _active_product_declarations()
+    snapshots = _trust_telemetry_snapshots()
+
+    for product_name, declared_product in declared_products.items():
+        _assert_snapshot_matches_declaration(
+            snapshots[product_name],
+            declared_product,
+            producer_repository=declaration["producer_repository"],
+        )
+
+
 def test_returns_series_bundle_trust_telemetry_validates_with_platform_contract() -> None:
     validator = _load_platform_validator()
 
