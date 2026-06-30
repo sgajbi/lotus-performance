@@ -1258,8 +1258,14 @@ def test_runtime_alert_runbook_covers_breach_gauges():
     assert "returns-series, contribution, attribution, benchmark, TWR" in runtime_topology
     assert "ignored for replay and conflict identity" in runtime_topology
     assert "success-finalization recovery events" in runtime_topology
+    assert "stale_owner_success_publication_skipped" in runtime_topology
+    assert "stale_owner_lineage_finalization_skipped" in runtime_topology
+    assert "operator-action lock release is compare-and-delete" in runtime_topology
     assert "Late failure writes must not replace" in wiki_operations
     assert "success_finalization_recovered" in wiki_operations
+    assert "stale_owner_success_publication_skipped" in wiki_operations
+    assert "stale_owner_lineage_finalization_skipped" in wiki_operations
+    assert "released by acquisition token" in wiki_operations
     assert "failure classification" in wiki_operations
     assert "prunable execution count" in wiki_operations
     assert "workspace-summary, and TWR-inspection async submissions" in wiki_operations

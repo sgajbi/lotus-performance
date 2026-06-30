@@ -20,7 +20,11 @@ from app.services.execution_stage_names import (
     EXECUTION_STAGE_ARTIFACT_MATERIALIZATION,
     EXECUTION_STAGE_LINEAGE_MATERIALIZATION,
 )
-from app.services.lineage_metadata_store import LineageMetadataStore, lineage_metadata_store
+from app.services.lineage_metadata_store import (
+    LineageMetadataStore,
+    LineagePayloadLeaseOwnershipError,
+    lineage_metadata_store,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -78,9 +82,11 @@ class LineageService:
         request_json: str,
         response_json: str,
         calculation_details: dict[str, str],
+        worker_id: str | None = None,
     ) -> bool:
         """Materializes lineage artifacts from a previously enqueued payload."""
         try:
+            self._metadata_store.ensure_active_payload_lease_owner(calculation_id, worker_id=worker_id)
             self._ensure_storage_directory()
             target_dir, artifact_names = self._materialize_artifact_files(
                 calculation_id=calculation_id,
@@ -100,11 +106,14 @@ class LineageService:
                 calculation_type=calculation_type,
                 artifact_names=artifact_names,
                 completion_timestamp=completion_timestamp,
+                worker_id=worker_id,
             )
 
             logger.info("Successfully captured lineage data for calculation_id: %s", calculation_id)
             return True
 
+        except LineagePayloadLeaseOwnershipError:
+            raise
         except Exception as e:
             logger.error(
                 "FATAL: Failed to capture lineage data for calculation_id: %s. Reason: %s",
@@ -164,11 +173,13 @@ class LineageService:
         calculation_type: str,
         artifact_names: list[str],
         completion_timestamp: datetime,
+        worker_id: str | None = None,
     ) -> None:
         self._metadata_store.mark_complete(
             calculation_id=calculation_id,
             artifact_names=artifact_names,
             timestamp_utc=completion_timestamp,
+            worker_id=worker_id,
         )
         self._complete_execution_stage(
             calculation_id=calculation_id,

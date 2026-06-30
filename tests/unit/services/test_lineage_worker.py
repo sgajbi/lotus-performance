@@ -5,7 +5,12 @@ import pandas as pd
 import pytest
 from pydantic import BaseModel
 
-from app.services.lineage_metadata_store import LineageMetadataStore, LineagePayload, LineageStatus
+from app.services.lineage_metadata_store import (
+    LineageMetadataStore,
+    LineagePayload,
+    LineagePayloadLeaseOwnershipError,
+    LineageStatus,
+)
 from app.services.lineage_service import LineageService
 from app.workers import lineage_worker
 
@@ -116,7 +121,8 @@ def test_materialize_leased_payload_ignores_stale_missing_payload():
             return False
 
     class _LineageStore:
-        def delete_payload(self, calculation_id):
+        def delete_payload(self, calculation_id, *, worker_id=None):
+            assert worker_id is None
             calls.append(f"delete:{calculation_id}")
 
         def get_payload(self, calculation_id):
@@ -146,6 +152,62 @@ def test_materialize_leased_payload_ignores_stale_missing_payload():
         f"materialize:{calculation_id}",
         f"get:{calculation_id}",
     ]
+
+
+def test_materialize_leased_payload_skips_stale_owner_without_retry(monkeypatch):
+    calculation_id = uuid4()
+    payload = LineagePayload(
+        calculation_id=calculation_id,
+        calculation_type="TWR",
+        request_json='{"key":"request"}',
+        response_json='{"key":"response"}',
+        details={},
+        attempt_count=2,
+        worker_id="lineage-worker-a",
+    )
+    calls: list[str] = []
+    warnings: list[tuple[tuple, dict]] = []
+
+    class _LineageService:
+        def materialize_payload(self, **kwargs):
+            calls.append(f"materialize:{kwargs['calculation_id']}:{kwargs['worker_id']}")
+            raise LineagePayloadLeaseOwnershipError("lease owner mismatch")
+
+    class _LineageStore:
+        def delete_payload(self, *args, **kwargs):
+            raise AssertionError("stale owner must not delete active payload")
+
+        def get_payload(self, calculation_id):
+            calls.append(f"get:{calculation_id}")
+            raise AssertionError("stale owner must not enter retry handling")
+
+        def mark_pending(self, calculation_id):
+            raise AssertionError("stale owner must not clear replacement lease")
+
+        def mark_failed(self, *, calculation_id, error_message):
+            raise AssertionError("stale owner must not mark lineage failed")
+
+    monkeypatch.setattr(
+        lineage_worker.logger,
+        "warning",
+        lambda *args, **kwargs: warnings.append((args, kwargs)),
+    )
+
+    processed = lineage_worker._materialize_leased_payload(
+        payload=payload,
+        lineage_store=_LineageStore(),
+        lineage_service_=_LineageService(),
+        execution_store=object(),
+        max_attempts=3,
+    )
+
+    assert processed is False
+    assert calls == [f"materialize:{calculation_id}:lineage-worker-a"]
+    assert warnings and warnings[0][0] == (
+        "Skipped lineage payload finalization because worker no longer owns the active lease.",
+    )
+    extra_fields = warnings[0][1]["extra"]["extra_fields"]
+    assert extra_fields["failure_classification"] == "stale_owner_lineage_finalization_skipped"
 
 
 def test_lineage_worker_runtime_prefers_explicit_overrides():

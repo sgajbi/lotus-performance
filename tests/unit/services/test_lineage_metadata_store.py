@@ -2,12 +2,14 @@ from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from uuid import uuid4
 
+import pytest
 from sqlalchemy import event, inspect, select
 from sqlalchemy.dialects import postgresql
 
 from app.services.lineage_metadata_store import (
     INVALID_LINEAGE_PAYLOAD_DETAILS_MESSAGE,
     LineageMetadataStore,
+    LineagePayloadLeaseOwnershipError,
     LineagePayloadModel,
     LineageRecordModel,
     LineageRecoveryEvent,
@@ -423,6 +425,45 @@ def test_lineage_metadata_store_leases_pending_payloads_once_until_expiry(tmp_pa
     assert len(reclaimed) == 1
     assert reclaimed[0].worker_id == "lineage-worker-2"
     assert reclaimed[0].attempt_count == 2
+
+
+def test_lineage_metadata_store_rejects_stale_owner_finalization_after_reclaim(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    store.create_schema()
+    calculation_id = uuid4()
+
+    store.enqueue_lineage_payload(
+        calculation_id=calculation_id,
+        calculation_type="TWR",
+        request_json="{}",
+        response_json="{}",
+        details={"details.json": "{}"},
+    )
+    first_claim = store.lease_pending_payloads(worker_id="lineage-worker-1", limit=10, lease_seconds=60)
+    assert len(first_claim) == 1
+    with store._session() as session:
+        payload = session.get(LineagePayloadModel, str(calculation_id))
+        assert payload is not None
+        payload.lease_expires_at_utc = datetime.now(timezone.utc) - timedelta(seconds=1)
+
+    reclaimed = store.lease_pending_payloads(worker_id="lineage-worker-2", limit=10, lease_seconds=60)
+    assert len(reclaimed) == 1
+
+    with pytest.raises(LineagePayloadLeaseOwnershipError, match="lease owner mismatch"):
+        store.mark_complete(
+            calculation_id,
+            artifact_names=["request.json"],
+            worker_id="lineage-worker-1",
+        )
+    with pytest.raises(LineagePayloadLeaseOwnershipError, match="lease owner mismatch"):
+        store.delete_payload(calculation_id, worker_id="lineage-worker-1")
+
+    record = store.get_record(calculation_id)
+    assert record is not None
+    assert record.status == LineageStatus.PENDING
+    payload = store.get_payload(calculation_id)
+    assert payload is not None
+    assert payload.worker_id == "lineage-worker-2"
 
 
 def test_lineage_metadata_store_pending_payload_stats_include_active_leases(tmp_path):

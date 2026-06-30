@@ -45,7 +45,13 @@ from app.services.attribution_mode_service import resolve_attribution_request
 from app.services.attribution_service import calculate_attribution
 from app.services.benchmark_mode_service import resolve_benchmark_request
 from app.services.benchmark_service import calculate_benchmark_response
-from app.services.compute_job_store import ComputeJobRecord, ComputeJobStore, ReconciledJobRecord, compute_job_store
+from app.services.compute_job_store import (
+    ComputeJobLeaseOwnershipError,
+    ComputeJobRecord,
+    ComputeJobStore,
+    ReconciledJobRecord,
+    compute_job_store,
+)
 from app.services.contribution_mode_service import resolve_contribution_request
 from app.services.contribution_service import calculate_contribution
 from app.services.durable_metadata_bootstrap import bootstrap_durable_metadata_stores
@@ -203,6 +209,12 @@ def _publish_compute_job_success(
     response_payload: dict[str, Any],
 ) -> None:
     try:
+        runtime.job_store.ensure_active_lease_owner(job.calculation_id, worker_id=runtime.worker_id)
+    except ComputeJobLeaseOwnershipError as exc:
+        _log_stale_compute_success_publication_skipped(job, exc)
+        return
+
+    try:
         runtime.result_store.record_success(
             calculation_id=job.calculation_id,
             analytics_type=job.analytics_type,
@@ -219,7 +231,11 @@ def _publish_compute_job_success(
         return
 
     try:
-        runtime.job_store.mark_complete(job.calculation_id, response_payload=response_payload)
+        runtime.job_store.mark_complete(
+            job.calculation_id,
+            response_payload=response_payload,
+            worker_id=runtime.worker_id,
+        )
     except Exception as exc:
         _log_compute_success_finalization_failure(job, exc)
 
@@ -572,6 +588,7 @@ def _handle_compute_job_failure(
             job.calculation_id,
             error_message=error_message,
             error_type=error_type,
+            worker_id=job.worker_id,
         )
         if will_retry:
             logger.warning(
@@ -603,6 +620,7 @@ def _handle_compute_job_failure(
         job.calculation_id,
         error_message=error_message,
         error_type=error_type,
+        worker_id=job.worker_id,
     )
     _record_terminal_failure(
         calculation_id=job.calculation_id,
@@ -625,17 +643,7 @@ def _handle_compute_success_result_publication_failure(
 ) -> None:
     logger.exception(
         "Compute job success result publication failed after calculation completed.",
-        extra=worker_log_extra(
-            worker_name=_WORKER_NAME,
-            queue=_QUEUE_NAME,
-            calculation_id=str(job.calculation_id),
-            analytics_type=job.analytics_type,
-            error_type=type(exc).__name__,
-            failure_classification="success_result_publication_failed",
-            retryable=True,
-            attempt_count=getattr(job, "attempt_count", None),
-            max_attempts=getattr(job, "max_attempts", None),
-        ),
+        extra=_compute_success_log_extra(job, exc, failure_classification="success_result_publication_failed"),
     )
     _handle_compute_job_failure(
         job,
@@ -649,17 +657,32 @@ def _handle_compute_success_result_publication_failure(
 def _log_compute_success_finalization_failure(job: ComputeJobRecord, exc: Exception) -> None:
     logger.exception(
         "Compute job success finalization failed after result publication.",
-        extra=worker_log_extra(
-            worker_name=_WORKER_NAME,
-            queue=_QUEUE_NAME,
-            calculation_id=str(job.calculation_id),
-            analytics_type=job.analytics_type,
-            error_type=type(exc).__name__,
-            failure_classification="success_finalization_failed",
-            retryable=True,
-            attempt_count=getattr(job, "attempt_count", None),
-            max_attempts=getattr(job, "max_attempts", None),
+        extra=_compute_success_log_extra(job, exc, failure_classification="success_finalization_failed"),
+    )
+
+
+def _log_stale_compute_success_publication_skipped(job: ComputeJobRecord, exc: Exception) -> None:
+    logger.warning(
+        "Skipped compute job success publication because worker no longer owns the active lease.",
+        extra=_compute_success_log_extra(
+            job,
+            exc,
+            failure_classification="stale_owner_success_publication_skipped",
         ),
+    )
+
+
+def _compute_success_log_extra(job: ComputeJobRecord, exc: Exception, *, failure_classification: str):
+    return worker_log_extra(
+        worker_name=_WORKER_NAME,
+        queue=_QUEUE_NAME,
+        calculation_id=str(job.calculation_id),
+        analytics_type=job.analytics_type,
+        error_type=type(exc).__name__,
+        failure_classification=failure_classification,
+        retryable=True,
+        attempt_count=getattr(job, "attempt_count", None),
+        max_attempts=getattr(job, "max_attempts", None),
     )
 
 

@@ -98,6 +98,14 @@ failed; stale-job reconciliation should then emit `success_finalization_recovere
 compute job complete from the persisted result. Late failure writes must not replace an existing
 successful async result for the same calculation id.
 
+Stale-owner finalization is intentionally a no-op. A `stale_owner_success_publication_skipped`
+event means a compute worker finished after another worker reclaimed the calculation lease; it must
+not publish the stale async result or mark the compute job complete. A
+`stale_owner_lineage_finalization_skipped` event means a lineage worker no longer owns the active
+payload lease; it must not mark lineage metadata complete or delete the replacement worker's
+payload. Governed operator-action locks are also released by acquisition token, so a stale runtime
+retention or recovery-drill run cannot remove a newer owner's lock after stale reclaim.
+
 ## Calculation supportability metric
 
 Completed TWR, MWR, contribution, and attribution responses emit a bounded calculation

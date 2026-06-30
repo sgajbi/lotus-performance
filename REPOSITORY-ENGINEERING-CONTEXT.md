@@ -227,6 +227,10 @@ Important validation expectations:
     result before marking the compute job complete, never treats a post-success job-completion
     failure as a calculation failure, and reconciles stale compute jobs with an existing successful
     async result to `complete` instead of overwriting the result with a terminal failure.
+20. Durable worker and operator-action finalization is ownership-aware. Compute-job finalization,
+    lineage payload completion/deletion, and governed operator-action lock release must compare the
+    active lease owner or acquisition token before mutating terminal state, deleting work, or
+    exposing async/lineage success evidence after stale reclaim.
 
 ## Standards And RFCs That Govern This Repository
 

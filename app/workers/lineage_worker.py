@@ -12,7 +12,12 @@ from app.observability import setup_worker_logging, worker_log_extra
 from app.services.durable_metadata_bootstrap import bootstrap_durable_metadata_stores
 from app.services.durable_store_runtime import RuntimeStoreProxy
 from app.services.execution_registry import ExecutionRegistry, execution_registry
-from app.services.lineage_metadata_store import LineageMetadataStore, LineagePayload, lineage_metadata_store
+from app.services.lineage_metadata_store import (
+    LineageMetadataStore,
+    LineagePayload,
+    LineagePayloadLeaseOwnershipError,
+    lineage_metadata_store,
+)
 from app.services.lineage_service import LineageService, lineage_service, resolve_artifact_stage_name
 
 logger = logging.getLogger(__name__)
@@ -144,15 +149,24 @@ def _materialize_leased_payload(
     execution_store: ExecutionRegistry | RuntimeStoreProxy[ExecutionRegistry],
     max_attempts: int,
 ) -> bool:
-    success = lineage_service_.materialize_payload(
-        calculation_id=payload.calculation_id,
-        calculation_type=payload.calculation_type,
-        request_json=payload.request_json,
-        response_json=payload.response_json,
-        calculation_details=payload.details,
-    )
+    try:
+        success = lineage_service_.materialize_payload(
+            calculation_id=payload.calculation_id,
+            calculation_type=payload.calculation_type,
+            request_json=payload.request_json,
+            response_json=payload.response_json,
+            calculation_details=payload.details,
+            worker_id=payload.worker_id,
+        )
+    except LineagePayloadLeaseOwnershipError as exc:
+        _log_stale_lineage_payload_finalization_skipped(payload, exc)
+        return False
     if success:
-        lineage_store.delete_payload(payload.calculation_id)
+        try:
+            lineage_store.delete_payload(payload.calculation_id, worker_id=payload.worker_id)
+        except LineagePayloadLeaseOwnershipError as exc:
+            _log_stale_lineage_payload_finalization_skipped(payload, exc)
+            return False
         return True
 
     _handle_lineage_materialization_retry(
@@ -162,6 +176,22 @@ def _materialize_leased_payload(
         max_attempts=max_attempts,
     )
     return False
+
+
+def _log_stale_lineage_payload_finalization_skipped(payload: LineagePayload, exc: Exception) -> None:
+    logger.warning(
+        "Skipped lineage payload finalization because worker no longer owns the active lease.",
+        extra=worker_log_extra(
+            worker_name=_WORKER_NAME,
+            queue=_QUEUE_NAME,
+            calculation_id=str(payload.calculation_id),
+            calculation_type=payload.calculation_type,
+            error_type=type(exc).__name__,
+            failure_classification="stale_owner_lineage_finalization_skipped",
+            retryable=True,
+            attempt_count=payload.attempt_count,
+        ),
+    )
 
 
 def _handle_lineage_materialization_retry(
