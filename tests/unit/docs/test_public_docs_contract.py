@@ -1072,6 +1072,9 @@ def test_complete_service_reference_covers_endpoint_surface_and_config_inventory
     assert '"return_value": 0.7' not in guide
     assert "CONTRIBUTION_RESET_AWARE_AVERAGE_WEIGHT_MODE" in guide
     assert "WORKSPACE_SUMMARY_EXECUTOR_WINDOW_DAYS" in guide
+    assert "ENTERPRISE_MAX_WRITE_PAYLOAD_BYTES" in guide
+    assert "malformed length headers are enforced by counting streamed ASGI body bytes" in guide
+    assert "set ingress or API gateway request-size limits" in guide
     assert "LINEAGE_STORAGE_PATH" in guide
     assert "CORE_CONTROL_PLANE_BASE_URL" in guide
     assert "CORE_QUERY_BASE_URL" in guide
@@ -1174,6 +1177,7 @@ def test_runtime_alert_runbook_covers_breach_gauges():
 def test_enterprise_readiness_covers_privileged_operator_reads():
     enterprise = _read("docs/standards/enterprise-readiness.md")
     api_reference = _read("docs/guides/api_reference.md")
+    wiki_security = _read("wiki/Security-and-Governance.md")
 
     assert "Privileged operator read surfaces can be protected" in enterprise
     assert "Allowed privileged write operations also emit audit metadata" in enterprise
@@ -1183,6 +1187,10 @@ def test_enterprise_readiness_covers_privileged_operator_reads():
     assert "operations.runtime.manage" in api_reference
     assert "governed surface and required-capability metadata" in api_reference
     assert "/integration/recovery-drills/run" in enterprise
+    assert "Write request bodies are bounded by `ENTERPRISE_MAX_WRITE_PAYLOAD_BYTES`" in enterprise
+    assert "missing or malformed length headers are treated as untrusted" in enterprise
+    assert "service-level stream guard retained as the final enforcement boundary" in enterprise
+    assert "service-owned streamed body-byte counting" in wiki_security
 
 
 def test_runtime_alert_templates_cover_exported_breach_gauges():

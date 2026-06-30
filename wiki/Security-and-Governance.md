@@ -26,5 +26,7 @@ The most relevant current governance for this repo includes:
 
 - emitted figures are product-facing and must stay auditably correct
 - privileged operator read and write surfaces are governed, not ad hoc
+- write request payload limits are enforced by both trusted `Content-Length` rejection and
+  service-owned streamed body-byte counting when length headers are missing or malformed
 - async execution and lineage behavior must remain durable and observable
 - benchmark and stateful integration wording must stay truthful to shipped behavior

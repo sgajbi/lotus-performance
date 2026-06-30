@@ -11,7 +11,12 @@ from app.enterprise_authorization import (
     _denied_request_action,
     _request_action,
 )
-from app.enterprise_payload_limits import _payload_too_large_response, _write_payload_too_large
+from app.enterprise_payload_limits import (
+    PayloadTooLargeError,
+    _payload_too_large_response,
+    _write_payload_limited_request,
+    _write_payload_too_large,
+)
 from app.enterprise_request_context import _audit_identity_from_headers
 from app.enterprise_response_envelopes import _authorization_denied_response_envelope
 from app.enterprise_runtime_config import _max_write_payload_bytes
@@ -67,10 +72,11 @@ def build_enterprise_audit_middleware(
 ) -> Callable[[Request, Callable[[Request], Awaitable[Response]]], Awaitable[Response]]:
     # Enforce enterprise audit and authorization policy on governed surfaces.
     async def middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
+        max_write_payload_bytes = _max_write_payload_bytes()
         if _write_payload_too_large(
             method=request.method,
             headers=request.headers,
-            max_write_payload_bytes=_max_write_payload_bytes(),
+            max_write_payload_bytes=max_write_payload_bytes,
         ):
             return _payload_too_large_response()
 
@@ -89,7 +95,14 @@ def build_enterprise_audit_middleware(
                 emit_audit_event=emit_audit_event,
             )
 
-        response = await call_next(request)
+        limited_request = _write_payload_limited_request(
+            request=request,
+            max_write_payload_bytes=max_write_payload_bytes,
+        )
+        try:
+            response = await call_next(limited_request)
+        except PayloadTooLargeError:
+            return _payload_too_large_response()
         _apply_enterprise_policy_header(response)
         allowed_audit_metadata = _allowed_audit_metadata(
             method=request.method,
