@@ -200,6 +200,9 @@ Important validation expectations:
 14. PR Merge Gate and Main Releasability route matrix test coverage through
     `make test-coverage-shard` and combined coverage enforcement through `make coverage-combine-gate`
     so workflow YAML does not become a second source of truth for pytest or coverage behavior.
+15. `PR Auto Merge` must use `LOTUS_AUTOMERGE_TOKEN` as the merge actor. If that governed token is
+    absent, the workflow skips with a warning instead of merging with `GITHUB_TOKEN`, so the merged
+    mainline commit can receive normal Main Releasability evidence from an authorized merge actor.
 
 ## Standards And RFCs That Govern This Repository
 

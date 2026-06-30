@@ -76,3 +76,14 @@ def test_test_and_coverage_workflows_use_repo_native_make_targets() -> None:
     governed_workflow_text = "\n".join([feature_lane, pr_merge_gate, main_releasability])
     assert "run: python -m pytest" not in governed_workflow_text
     assert "run: python -m coverage" not in governed_workflow_text
+
+
+def test_auto_merge_uses_governed_merge_actor_token() -> None:
+    workflow = _workflow_text("pr-auto-merge.yml")
+
+    assert "GH_TOKEN: ${{ secrets.LOTUS_AUTOMERGE_TOKEN }}" in workflow
+    assert "LOTUS_AUTOMERGE_TOKEN is not configured" in workflow
+    assert "github.token" not in workflow
+    assert "contents: write" not in workflow
+    assert "pull-requests: write" not in workflow
+    assert "gh pr merge" in workflow

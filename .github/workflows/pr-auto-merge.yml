@@ -5,8 +5,8 @@ on:
     types: [opened, reopened, synchronize, ready_for_review]
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
+  pull-requests: read
 
 jobs:
   queue-auto-merge:
@@ -21,9 +21,13 @@ jobs:
     steps:
       - name: Enable auto-merge queue (rebase)
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.LOTUS_AUTOMERGE_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::warning::LOTUS_AUTOMERGE_TOKEN is not configured; skipping automatic merge so a governed merge actor can preserve Main Releasability evidence."
+            exit 0
+          fi
           set +e
           output=$(gh pr merge "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --auto --rebase --delete-branch 2>&1)
           code=$?
