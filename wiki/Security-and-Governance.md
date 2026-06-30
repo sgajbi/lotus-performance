@@ -36,6 +36,9 @@ Governed operator write surfaces such as `POST /integration/recovery-drills/run`
 `POST /integration/runtime-retention-cleanups/run` require enterprise identity plus
 `operations.runtime.manage`. Governed operator read surfaces such as
 `GET /integration/runtime-status` require enterprise identity plus `operations.runtime.read`.
+Execution polling and endpoint-specific async result routes are not readable by calculation id
+alone when privileged-read authz is enabled; callers need enterprise identity plus either
+`operations.runtime.read` or `X-Portfolio-Id` matching the durable execution `portfolio_id`.
 Local relaxed mode remains explicit through `ENTERPRISE_RUNTIME_PROFILE=local` or an unset runtime
 profile with the authz switches disabled.
 

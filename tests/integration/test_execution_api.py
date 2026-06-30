@@ -87,6 +87,57 @@ def test_execution_api_returns_404_for_missing_calculation(client):
     assert response.json()["detail"] == "Execution data not found for the given calculation_id."
 
 
+def test_execution_api_enforces_result_access_when_privileged_read_authz_enabled(client, monkeypatch):
+    monkeypatch.setenv("ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ", "true")
+    calculation_id = uuid4()
+    execution_registry.create_execution(
+        calculation_id=calculation_id,
+        analytics_type="TWR",
+        portfolio_id="PORT-A",
+        execution_mode="async",
+    )
+    identity_headers = {
+        "X-Actor-Id": "advisor-1",
+        "X-Tenant-Id": "tenant-private-bank",
+        "X-Role": "advisor",
+        "X-Correlation-Id": "corr-1",
+        "X-Service-Identity": "lotus-gateway",
+    }
+
+    missing_identity_response = client.get(f"/performance/executions/{calculation_id}")
+    assert missing_identity_response.status_code == 403
+    assert missing_identity_response.json()["detail"] == "authorization_policy_denied"
+
+    denied_response = client.get(
+        f"/performance/executions/{calculation_id}",
+        headers={**identity_headers, "X-Portfolio-Id": "PORT-B"},
+    )
+    assert denied_response.status_code == 403
+    assert denied_response.json() == {
+        "detail": "authorization_policy_denied",
+        "reason": "missing_result_access:operations.runtime.read_or_matching_portfolio_id",
+    }
+
+    same_portfolio_response = client.get(
+        f"/performance/executions/{calculation_id}",
+        headers={**identity_headers, "X-Portfolio-Id": "PORT-A"},
+    )
+    assert same_portfolio_response.status_code == 200
+    assert same_portfolio_response.json()["portfolio_id"] == "PORT-A"
+
+    privileged_response = client.get(
+        f"/performance/executions/{calculation_id}",
+        headers={**identity_headers, "X-Capabilities": "operations.runtime.read"},
+    )
+    assert privileged_response.status_code == 200
+
+    unknown_response = client.get(
+        f"/performance/executions/{uuid4()}",
+        headers={**identity_headers, "X-Capabilities": "operations.runtime.read"},
+    )
+    assert unknown_response.status_code == 404
+
+
 def test_execution_api_tracks_returns_series_stateful_stages(client, monkeypatch):
     async def _mock_get_portfolio_analytics_timeseries(self, **kwargs):  # noqa: ARG001
         return (

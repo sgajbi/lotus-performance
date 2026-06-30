@@ -690,15 +690,17 @@ async def test_benchmark_endpoint_maps_sync_resolution_errors_to_http_500(mocker
 async def test_get_benchmark_result_delegates_to_async_result_service(mocker):
     calculation_id = uuid4()
     expected_response = {"status": "ok"}
+    request = SimpleNamespace(headers={"x-portfolio-id": "P1"})
     resolve_async_result = mocker.patch(
         "app.api.endpoints.benchmark.resolve_async_result",
         return_value=expected_response,
     )
 
-    response = await benchmark_endpoint.get_benchmark_result(calculation_id)
+    response = await benchmark_endpoint.get_benchmark_result(calculation_id, request)
 
     assert response == expected_response
     resolve_async_result.assert_called_once()
+    assert resolve_async_result.call_args.kwargs["request_headers"] is request.headers
 
 
 def test_benchmark_endpoint_helpers_cover_missing_stateless_input_and_sync_async_thresholds(mocker):

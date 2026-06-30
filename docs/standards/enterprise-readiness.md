@@ -30,6 +30,9 @@
   `GET /performance/lineage/{calculation_id}` and
   `GET /performance/lineage/{calculation_id}/artifacts/{artifact_name}` require
   `operations.runtime.read` when privileged-read authz is enabled.
+- Execution polling and endpoint-specific async result routes are protected by result-access
+  authorization when privileged-read authz is enabled: callers need enterprise identity plus either
+  `operations.runtime.read` or `X-Portfolio-Id` matching the durable execution `portfolio_id`.
 - Allowed privileged operator reads also emit audit metadata describing the governed surface and required capability.
 - Sensitive operator write surfaces require governed runtime-management capability in
   production-like profiles, including `POST /integration/runtime-retention-cleanups/run`.

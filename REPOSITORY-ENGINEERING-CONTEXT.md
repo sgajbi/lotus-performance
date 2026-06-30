@@ -215,6 +215,11 @@ Important validation expectations:
     When privileged-read authz is enabled, `/performance/lineage/{calculation_id}` and child
     artifact routes require `operations.runtime.read` through the central enterprise capability
     rule map.
+18. Execution polling and endpoint-specific async result retrieval use the shared
+    `app.services.calculation_result_access` policy. When privileged-read authz is enabled,
+    callers need enterprise identity plus either `operations.runtime.read` or `X-Portfolio-Id`
+    matching the durable execution `portfolio_id`; a calculation id alone is not an authorization
+    boundary.
 
 ## Standards And RFCs That Govern This Repository
 

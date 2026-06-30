@@ -3,8 +3,8 @@ from __future__ import annotations
 import os
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Path, status
-from fastapi.responses import FileResponse, Response
+from fastapi import APIRouter, HTTPException, Path, Request, status
+from fastapi.responses import FileResponse, JSONResponse, Response
 
 from app.core.config import get_settings
 from app.models.inspection_requests import TWRInspectionRequest
@@ -148,7 +148,9 @@ def submit_twr_inspection(request: TWRInspectionRequest):
         },
     },
 )
-def get_twr_inspection(inspection_id: UUID):
+def get_twr_inspection(
+    inspection_id: UUID, request: Request
+) -> TWRInspectionResponse | TWRInspectionAcceptedResponse | JSONResponse:
     return resolve_async_result(
         calculation_id=inspection_id,
         expected_analytics_type=ANALYTICS_WORKFLOW_TWR_INSPECTION,
@@ -156,6 +158,7 @@ def get_twr_inspection(inspection_id: UUID):
         accepted_response_factory=_accepted_response,
         not_found_detail="Inspection result not found for the given inspection_id.",
         failed_detail="Inspection execution failed.",
+        request_headers=request.headers,
     )
 
 

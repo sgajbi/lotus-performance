@@ -19,6 +19,7 @@ from app.services.async_result_service import (
 )
 from app.services.async_result_store import AsyncResultRecord, AsyncResultStatus
 from app.services.compute_job_store import ComputeJobRecord, ComputeJobStatus
+from app.services.execution_registry import ExecutionRecord, ExecutionStatus
 
 
 class _AsyncResponse(BaseModel):
@@ -42,6 +43,15 @@ class _JobStore:
     def get_job(self, calculation_id: UUID) -> ComputeJobRecord:
         del calculation_id
         return self._job
+
+
+class _ExecutionStore:
+    def __init__(self, execution: ExecutionRecord | None = None) -> None:
+        self._execution = execution
+
+    def get_execution(self, calculation_id: UUID) -> ExecutionRecord | None:
+        del calculation_id
+        return self._execution
 
 
 def _job_record(
@@ -94,6 +104,36 @@ def _async_result_record(
 
 def _accepted_response(calculation_id: UUID) -> _AsyncResponse:
     return _AsyncResponse(calculation_id=calculation_id, status="accepted")
+
+
+def _execution_record(calculation_id: UUID, *, portfolio_id: str | None = "PORT-1") -> ExecutionRecord:
+    return ExecutionRecord(
+        calculation_id=calculation_id,
+        analytics_type="ReturnsSeries",
+        portfolio_id=portfolio_id,
+        execution_mode="async",
+        status=ExecutionStatus.COMPLETE,
+        requested_window={},
+        input_fingerprint=None,
+        calculation_hash=None,
+        error_message=None,
+        created_at_utc="2026-06-13T00:00:00Z",
+        started_at_utc=None,
+        completed_at_utc=None,
+        stages=[],
+        upstream_snapshots=[],
+    )
+
+
+def _identity_headers(**extra_headers: str) -> dict[str, str]:
+    return {
+        "X-Actor-Id": "advisor-1",
+        "X-Tenant-Id": "tenant-private-bank",
+        "X-Role": "advisor",
+        "X-Correlation-Id": "corr-1",
+        "X-Service-Identity": "lotus-gateway",
+        **extra_headers,
+    }
 
 
 def test_active_async_job_status_policy_covers_in_flight_statuses():
@@ -177,6 +217,95 @@ def test_resolve_async_result_returns_accepted_for_active_compute_job(monkeypatc
         "calculation_id": str(calculation_id),
         "status": "accepted",
     }
+
+
+def test_resolve_async_result_hides_existing_result_when_execution_identity_missing(monkeypatch):
+    calculation_id = uuid4()
+    monkeypatch.setenv("ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ", "true")
+    monkeypatch.setattr(async_result_service, "execution_registry", _ExecutionStore(None))
+    monkeypatch.setattr(
+        async_result_service,
+        "async_result_store",
+        _ResultStore(
+            _async_result_record(
+                calculation_id,
+                result_status=AsyncResultStatus.COMPLETE,
+                response_payload={"calculation_id": str(calculation_id), "status": "complete"},
+            )
+        ),
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        resolve_async_result(
+            calculation_id=calculation_id,
+            expected_analytics_type="ReturnsSeries",
+            response_model=_AsyncResponse,
+            accepted_response_factory=_accepted_response,
+            not_found_detail="not found",
+            failed_detail="failed",
+            request_headers=_identity_headers(**{"X-Capabilities": "operations.runtime.read"}),
+        )
+
+    assert exc_info.value.status_code == 404
+    assert exc_info.value.detail == "not found"
+
+
+def test_resolve_async_result_denies_cross_portfolio_access(monkeypatch):
+    calculation_id = uuid4()
+    monkeypatch.setenv("ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ", "true")
+    monkeypatch.setattr(async_result_service, "execution_registry", _ExecutionStore(_execution_record(calculation_id)))
+    monkeypatch.setattr(
+        async_result_service,
+        "async_result_store",
+        _ResultStore(
+            _async_result_record(
+                calculation_id,
+                result_status=AsyncResultStatus.COMPLETE,
+                response_payload={"calculation_id": str(calculation_id), "status": "complete"},
+            )
+        ),
+    )
+
+    response = resolve_async_result(
+        calculation_id=calculation_id,
+        expected_analytics_type="ReturnsSeries",
+        response_model=_AsyncResponse,
+        accepted_response_factory=_accepted_response,
+        not_found_detail="not found",
+        failed_detail="failed",
+        request_headers=_identity_headers(**{"X-Portfolio-Id": "PORT-2"}),
+    )
+
+    assert response.status_code == 403
+
+
+def test_resolve_async_result_allows_same_portfolio_access(monkeypatch):
+    calculation_id = uuid4()
+    monkeypatch.setenv("ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ", "true")
+    monkeypatch.setattr(async_result_service, "execution_registry", _ExecutionStore(_execution_record(calculation_id)))
+    monkeypatch.setattr(
+        async_result_service,
+        "async_result_store",
+        _ResultStore(
+            _async_result_record(
+                calculation_id,
+                result_status=AsyncResultStatus.COMPLETE,
+                response_payload={"calculation_id": str(calculation_id), "status": "complete"},
+            )
+        ),
+    )
+
+    response = resolve_async_result(
+        calculation_id=calculation_id,
+        expected_analytics_type="ReturnsSeries",
+        response_model=_AsyncResponse,
+        accepted_response_factory=_accepted_response,
+        not_found_detail="not found",
+        failed_detail="failed",
+        request_headers=_identity_headers(**{"X-Portfolio-Id": "PORT-1"}),
+    )
+
+    assert response == _AsyncResponse(calculation_id=calculation_id, status="complete")
 
 
 def test_resolve_async_result_validates_stored_async_result_payload(monkeypatch):
