@@ -13,6 +13,7 @@ from app.observability import correlation_id_var, request_id_var, trace_id_var
 from app.services import benchmark_calculation_workflow_service
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_BENCHMARK
 from app.services.benchmark_mode_service import ResolvedBenchmarkRequest
+from core.errors import APIError
 
 
 def _stateful_benchmark_payload() -> dict[str, object]:
@@ -578,7 +579,7 @@ async def test_benchmark_endpoint_maps_stateful_resolution_errors_to_http_500(mo
         side_effect=lambda **kwargs: failure_capture.update(kwargs),
     )
 
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(APIError) as exc_info:
         await benchmark_calculation_workflow_service.calculate_benchmark_workflow(request)
 
     assert exc_info.value.status_code == 500
@@ -678,7 +679,7 @@ async def test_benchmark_endpoint_maps_sync_resolution_errors_to_http_500(mocker
         side_effect=lambda **kwargs: failure_capture.update(kwargs),
     )
 
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(APIError) as exc_info:
         await benchmark_calculation_workflow_service.calculate_benchmark_workflow(request)
 
     assert exc_info.value.status_code == 500

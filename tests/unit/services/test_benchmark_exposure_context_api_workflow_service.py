@@ -9,6 +9,7 @@ from app.models.benchmark_exposure_context import BenchmarkExposureContextReques
 from app.services import benchmark_exposure_context_workflow_service as workflow_service
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_BENCHMARK_EXPOSURE_CONTEXT
 from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
+from core.errors import APIError
 
 
 def _request() -> BenchmarkExposureContextRequest:
@@ -123,7 +124,7 @@ async def test_benchmark_exposure_context_workflow_wraps_unexpected_failures(moc
         side_effect=RuntimeError("boom"),
     )
 
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(APIError) as exc_info:
         await workflow_service.calculate_benchmark_exposure_context_response(request)
 
     assert exc_info.value.status_code == 500
