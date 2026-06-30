@@ -78,7 +78,16 @@ def _families_for_path(path: str) -> tuple[str, ...]:
         families.add("quality_or_security")
     if any(
         token in lower_path
-        for token in ("metric", "metrics", "logging", "correlation", "health", "readiness", "compute_job_store")
+        for token in (
+            "metric",
+            "metrics",
+            "logging",
+            "correlation",
+            "health",
+            "readiness",
+            "compute_job_store",
+            "runtime_recovery",
+        )
     ):
         families.add("observability_or_readiness")
     if any(

@@ -98,6 +98,14 @@ class _RuntimeRecoverySnapshotRequest:
         )
 
 
+@dataclass(frozen=True)
+class _RuntimeRecoveryQueueResults:
+    compute_queue: RuntimeRecoveryQueueState
+    lineage_queue: RuntimeRecoveryQueueState
+    compute_recoveries: list[ComputeRecoveryEvent]
+    lineage_recoveries: list[LineageRecoveryEvent]
+
+
 def build_runtime_recovery_snapshot(
     *,
     queue_filter: str,
@@ -133,6 +141,20 @@ def build_runtime_recovery_snapshot(
             durability_status=durability_status,
         )
 
+    queue_results = _runtime_recovery_queue_results(request)
+
+    return _runtime_recovery_snapshot_from_request(
+        generated_at=generated_at,
+        request=request,
+        durability_status=durability_status,
+        compute_queue=queue_results.compute_queue,
+        lineage_queue=queue_results.lineage_queue,
+        compute_recoveries=queue_results.compute_recoveries,
+        lineage_recoveries=queue_results.lineage_recoveries,
+    )
+
+
+def _runtime_recovery_queue_results(request: _RuntimeRecoverySnapshotRequest) -> _RuntimeRecoveryQueueResults:
     compute_queue, compute_recoveries = _safe_compute_recoveries(
         include_queue=request.include_compute,
         filters=request.recovery_filters,
@@ -143,11 +165,7 @@ def build_runtime_recovery_snapshot(
         filters=request.recovery_filters,
         lineage_calculation_type=request.lineage_calculation_type,
     )
-
-    return _runtime_recovery_snapshot_from_request(
-        generated_at=generated_at,
-        request=request,
-        durability_status=durability_status,
+    return _RuntimeRecoveryQueueResults(
         compute_queue=compute_queue,
         lineage_queue=lineage_queue,
         compute_recoveries=compute_recoveries,
