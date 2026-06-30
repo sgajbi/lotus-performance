@@ -91,6 +91,7 @@ def _compute_job_record(
     calculation_id,
     analytics_type: str,
     request_payload: dict,
+    max_attempts: int = 1,
 ) -> ComputeJobRecord:
     return ComputeJobRecord(
         calculation_id=calculation_id,
@@ -101,7 +102,7 @@ def _compute_job_record(
         error_message=None,
         error_type=None,
         attempt_count=0,
-        max_attempts=1,
+        max_attempts=max_attempts,
         worker_id="worker-test",
         leased_at_utc=None,
         lease_expires_at_utc=None,
@@ -233,6 +234,130 @@ def test_compute_executor_worker_process_leased_job_records_success_before_compl
         ("record_success", calculation_id, ANALYTICS_WORKFLOW_RETURNS_SERIES, response_payload),
         ("mark_complete", calculation_id, response_payload, None),
     ]
+
+
+def test_compute_executor_worker_preserves_success_result_when_completion_fails(monkeypatch):
+    calculation_id = uuid4()
+    job = _compute_job_record(
+        calculation_id=calculation_id,
+        analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES,
+        request_payload={"portfolio_id": "P1"},
+    )
+    response_payload = {"calculation_id": str(calculation_id), "portfolio_id": "P1"}
+    response = SimpleNamespace(model_dump=lambda mode="json": response_payload)
+    calls: list[tuple[str, object, object | None, object | None]] = []
+    exceptions: list[tuple[tuple, dict]] = []
+
+    class _JobStore:
+        def mark_running(self, calculation_id_arg, *, worker_id, lease_seconds):
+            calls.append(("mark_running", calculation_id_arg, worker_id, lease_seconds))
+
+        def mark_complete(self, calculation_id_arg, *, response_payload):
+            calls.append(("mark_complete", calculation_id_arg, response_payload, None))
+            raise RuntimeError("job completion store outage")
+
+        def mark_retryable_failure(self, *args, **kwargs):  # noqa: ANN002, ANN003
+            raise AssertionError("success finalization must not mark retryable failure")
+
+        def mark_failed(self, *args, **kwargs):  # noqa: ANN002, ANN003
+            raise AssertionError("success finalization must not mark failed")
+
+    class _ResultStore:
+        def record_success(self, *, calculation_id, analytics_type, response_payload):
+            calls.append(("record_success", calculation_id, analytics_type, response_payload))
+
+        def record_failure(self, *args, **kwargs):  # noqa: ANN002, ANN003
+            raise AssertionError("success finalization must not overwrite the result with failure")
+
+    runtime = compute_executor_worker._ComputeJobRuntime(
+        job_store=_JobStore(),
+        execution_store=SimpleNamespace(),
+        result_store=_ResultStore(),
+        worker_id="worker-test",
+        lease_seconds=30,
+        batch_size=1,
+        execution_context=SimpleNamespace(),
+    )
+    monkeypatch.setattr(compute_executor_worker, "_execute_compute_job", lambda _job, _context: response)
+    monkeypatch.setattr(
+        compute_executor_worker.logger,
+        "exception",
+        lambda *args, **kwargs: exceptions.append((args, kwargs)),
+    )
+
+    compute_executor_worker._process_leased_compute_job(job, runtime)
+
+    assert calls == [
+        ("mark_running", calculation_id, "worker-test", 30),
+        ("record_success", calculation_id, ANALYTICS_WORKFLOW_RETURNS_SERIES, response_payload),
+        ("mark_complete", calculation_id, response_payload, None),
+    ]
+    assert exceptions and exceptions[0][0] == ("Compute job success finalization failed after result publication.",)
+    extra_fields = exceptions[0][1]["extra"]["extra_fields"]
+    assert extra_fields["failure_classification"] == "success_finalization_failed"
+
+
+def test_compute_executor_worker_does_not_complete_job_when_success_result_publication_fails(monkeypatch):
+    calculation_id = uuid4()
+    job = _compute_job_record(
+        calculation_id=calculation_id,
+        analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES,
+        request_payload={"portfolio_id": "P1"},
+        max_attempts=2,
+    )
+    response_payload = {"calculation_id": str(calculation_id), "portfolio_id": "P1"}
+    response = SimpleNamespace(model_dump=lambda mode="json": response_payload)
+    calls: list[tuple[str, object, object | None]] = []
+    exceptions: list[tuple[tuple, dict]] = []
+
+    class _JobStore:
+        def mark_running(self, calculation_id_arg, *, worker_id, lease_seconds):
+            calls.append(("mark_running", calculation_id_arg, worker_id))
+
+        def mark_complete(self, *args, **kwargs):  # noqa: ANN002, ANN003
+            raise AssertionError("job must not complete without a persisted result")
+
+        def mark_retryable_failure(self, calculation_id_arg, *, error_message, error_type):
+            calls.append(("mark_retryable_failure", calculation_id_arg, error_type))
+            return True
+
+    class _ResultStore:
+        def record_success(self, *, calculation_id, analytics_type, response_payload):  # noqa: ARG002
+            calls.append(("record_success", calculation_id, analytics_type))
+            raise RuntimeError("result store outage")
+
+        def record_failure(self, *args, **kwargs):  # noqa: ANN002, ANN003
+            raise AssertionError("retryable result publication failure must not write terminal failure")
+
+    runtime = compute_executor_worker._ComputeJobRuntime(
+        job_store=_JobStore(),
+        execution_store=SimpleNamespace(),
+        result_store=_ResultStore(),
+        worker_id="worker-test",
+        lease_seconds=30,
+        batch_size=1,
+        execution_context=SimpleNamespace(),
+    )
+    monkeypatch.setattr(compute_executor_worker, "_execute_compute_job", lambda _job, _context: response)
+    monkeypatch.setattr(
+        compute_executor_worker.logger,
+        "exception",
+        lambda *args, **kwargs: exceptions.append((args, kwargs)),
+    )
+    monkeypatch.setattr(compute_executor_worker.logger, "warning", lambda *args, **kwargs: None)
+
+    compute_executor_worker._process_leased_compute_job(job, runtime)
+
+    assert calls == [
+        ("mark_running", calculation_id, "worker-test"),
+        ("record_success", calculation_id, ANALYTICS_WORKFLOW_RETURNS_SERIES),
+        ("mark_retryable_failure", calculation_id, "RuntimeError"),
+    ]
+    assert exceptions and exceptions[0][0] == (
+        "Compute job success result publication failed after calculation completed.",
+    )
+    extra_fields = exceptions[0][1]["extra"]["extra_fields"]
+    assert extra_fields["failure_classification"] == "success_result_publication_failed"
 
 
 def test_compute_executor_worker_runtime_options_use_settings_defaults(tmp_path):
@@ -1670,6 +1795,7 @@ def test_compute_executor_worker_handles_reconciled_stale_requeue(monkeypatch):
 
     compute_executor_worker._handle_reconciled_stale_job(
         reconciled_job,
+        job_store=SimpleNamespace(mark_complete=lambda *args, **kwargs: None),
         result_store=compute_executor_worker.async_result_store,
         execution_store=compute_executor_worker.execution_registry,
     )
@@ -1711,6 +1837,7 @@ def test_compute_executor_worker_handles_reconciled_stale_terminal_failure(tmp_p
 
     compute_executor_worker._handle_reconciled_stale_job(
         reconciled_job,
+        job_store=SimpleNamespace(mark_complete=lambda *args, **kwargs: None),
         result_store=result_store,
         execution_store=execution_store,
     )
@@ -1722,6 +1849,52 @@ def test_compute_executor_worker_handles_reconciled_stale_terminal_failure(tmp_p
     execution = execution_store.get_execution(calculation_id)
     assert execution is not None
     assert execution.status.value == "failed"
+
+
+def test_compute_executor_worker_recovers_reconciled_job_from_persisted_success_result(tmp_path, monkeypatch):
+    job_store, execution_store, result_store, job = _running_compute_job(tmp_path, max_attempts=1)
+    response_payload = {"calculation_id": str(job.calculation_id), "portfolio_id": "P1"}
+    result_store.record_success(
+        calculation_id=job.calculation_id,
+        analytics_type=job.analytics_type,
+        response_payload=response_payload,
+    )
+    reconciled_job = ReconciledJobRecord(
+        calculation_id=job.calculation_id,
+        analytics_type=job.analytics_type,
+        previous_status=ComputeJobStatus.RUNNING,
+        reconciled_status=ComputeJobStatus.FAILED,
+        attempt_count=1,
+        max_attempts=1,
+        error_message="lease expired after retry budget",
+        error_type="LeaseExpired",
+    )
+    warnings: list[tuple[tuple, dict]] = []
+    monkeypatch.setattr(
+        compute_executor_worker.logger, "warning", lambda *args, **kwargs: warnings.append((args, kwargs))
+    )
+
+    compute_executor_worker._handle_reconciled_stale_job(
+        reconciled_job,
+        job_store=job_store,
+        result_store=result_store,
+        execution_store=execution_store,
+    )
+
+    updated_job = job_store.get_job(job.calculation_id)
+    assert updated_job is not None
+    assert updated_job.job_status == ComputeJobStatus.COMPLETE
+    assert updated_job.response_payload == response_payload
+    result = result_store.get_result(job.calculation_id)
+    assert result is not None
+    assert result.result_status == AsyncResultStatus.COMPLETE
+    execution = execution_store.get_execution(job.calculation_id)
+    assert execution is not None
+    assert execution.status.value != "failed"
+    assert warnings and warnings[0][0] == ("Recovered compute job completion from persisted success result.",)
+    extra_fields = warnings[0][1]["extra"]["extra_fields"]
+    assert extra_fields["failure_classification"] == "success_finalization_recovered"
+    assert extra_fields["reconciled_status"] == "complete"
 
 
 def test_compute_executor_worker_handles_retryable_failure_with_remaining_budget(tmp_path, monkeypatch):

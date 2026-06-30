@@ -220,6 +220,10 @@ Important validation expectations:
     callers need enterprise identity plus either `operations.runtime.read` or `X-Portfolio-Id`
     matching the durable execution `portfolio_id`; a calculation id alone is not an authorization
     boundary.
+19. Compute-worker success finalization is recoverable. The worker publishes the successful async
+    result before marking the compute job complete, never treats a post-success job-completion
+    failure as a calculation failure, and reconciles stale compute jobs with an existing successful
+    async result to `complete` instead of overwriting the result with a terminal failure.
 
 ## Standards And RFCs That Govern This Repository
 

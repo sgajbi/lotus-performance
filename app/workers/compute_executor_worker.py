@@ -40,7 +40,7 @@ from app.services.analytics_workflow_types import (
     ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY,
 )
 from app.services.async_observability_context import ASYNC_OBSERVABILITY_CONTEXT_FIELD
-from app.services.async_result_store import AsyncResultStore, async_result_store
+from app.services.async_result_store import AsyncResultStatus, AsyncResultStore, async_result_store
 from app.services.attribution_mode_service import resolve_attribution_request
 from app.services.attribution_service import calculate_attribution
 from app.services.benchmark_mode_service import resolve_benchmark_request
@@ -168,6 +168,7 @@ def _reconcile_stale_compute_jobs(runtime: _ComputeJobRuntime) -> None:
     for reconciled_job in runtime.job_store.reconcile_stale_jobs():
         _handle_reconciled_stale_job(
             reconciled_job,
+            job_store=runtime.job_store,
             result_store=runtime.result_store,
             execution_store=runtime.execution_store,
         )
@@ -181,13 +182,6 @@ def _process_leased_compute_job(job: ComputeJobRecord, runtime: _ComputeJobRunti
     )
     try:
         response = _execute_compute_job(job, runtime.execution_context)
-        response_payload = response.model_dump(mode="json")
-        runtime.result_store.record_success(
-            calculation_id=job.calculation_id,
-            analytics_type=job.analytics_type,
-            response_payload=response_payload,
-        )
-        runtime.job_store.mark_complete(job.calculation_id, response_payload=response_payload)
     except Exception as exc:
         _handle_compute_job_failure(
             job,
@@ -196,6 +190,38 @@ def _process_leased_compute_job(job: ComputeJobRecord, runtime: _ComputeJobRunti
             result_store=runtime.result_store,
             execution_store=runtime.execution_store,
         )
+        return
+
+    response_payload = response.model_dump(mode="json")
+    _publish_compute_job_success(job, runtime=runtime, response_payload=response_payload)
+
+
+def _publish_compute_job_success(
+    job: ComputeJobRecord,
+    *,
+    runtime: _ComputeJobRuntime,
+    response_payload: dict[str, Any],
+) -> None:
+    try:
+        runtime.result_store.record_success(
+            calculation_id=job.calculation_id,
+            analytics_type=job.analytics_type,
+            response_payload=response_payload,
+        )
+    except Exception as exc:
+        _handle_compute_success_result_publication_failure(
+            job,
+            exc,
+            job_store=runtime.job_store,
+            result_store=runtime.result_store,
+            execution_store=runtime.execution_store,
+        )
+        return
+
+    try:
+        runtime.job_store.mark_complete(job.calculation_id, response_payload=response_payload)
+    except Exception as exc:
+        _log_compute_success_finalization_failure(job, exc)
 
 
 def _build_compute_job_runtime(
@@ -589,12 +615,67 @@ def _handle_compute_job_failure(
     )
 
 
-def _handle_reconciled_stale_job(
-    reconciled_job: ReconciledJobRecord,
+def _handle_compute_success_result_publication_failure(
+    job: ComputeJobRecord,
+    exc: Exception,
     *,
+    job_store: ComputeJobStore | RuntimeStoreProxy[ComputeJobStore],
     result_store: AsyncResultStore | RuntimeStoreProxy[AsyncResultStore],
     execution_store: ExecutionRegistry | RuntimeStoreProxy[ExecutionRegistry],
 ) -> None:
+    logger.exception(
+        "Compute job success result publication failed after calculation completed.",
+        extra=worker_log_extra(
+            worker_name=_WORKER_NAME,
+            queue=_QUEUE_NAME,
+            calculation_id=str(job.calculation_id),
+            analytics_type=job.analytics_type,
+            error_type=type(exc).__name__,
+            failure_classification="success_result_publication_failed",
+            retryable=True,
+            attempt_count=getattr(job, "attempt_count", None),
+            max_attempts=getattr(job, "max_attempts", None),
+        ),
+    )
+    _handle_compute_job_failure(
+        job,
+        exc,
+        job_store=job_store,
+        result_store=result_store,
+        execution_store=execution_store,
+    )
+
+
+def _log_compute_success_finalization_failure(job: ComputeJobRecord, exc: Exception) -> None:
+    logger.exception(
+        "Compute job success finalization failed after result publication.",
+        extra=worker_log_extra(
+            worker_name=_WORKER_NAME,
+            queue=_QUEUE_NAME,
+            calculation_id=str(job.calculation_id),
+            analytics_type=job.analytics_type,
+            error_type=type(exc).__name__,
+            failure_classification="success_finalization_failed",
+            retryable=True,
+            attempt_count=getattr(job, "attempt_count", None),
+            max_attempts=getattr(job, "max_attempts", None),
+        ),
+    )
+
+
+def _handle_reconciled_stale_job(
+    reconciled_job: ReconciledJobRecord,
+    *,
+    job_store: ComputeJobStore | RuntimeStoreProxy[ComputeJobStore],
+    result_store: AsyncResultStore | RuntimeStoreProxy[AsyncResultStore],
+    execution_store: ExecutionRegistry | RuntimeStoreProxy[ExecutionRegistry],
+) -> None:
+    if _recover_reconciled_job_from_success_result(
+        reconciled_job,
+        job_store=job_store,
+        result_store=result_store,
+    ):
+        return
     if reconciled_job.reconciled_status.value == "failed":
         _record_terminal_failure(
             calculation_id=reconciled_job.calculation_id,
@@ -622,6 +703,41 @@ def _handle_reconciled_stale_job(
             error_type=reconciled_job.error_type,
         ),
     )
+
+
+def _recover_reconciled_job_from_success_result(
+    reconciled_job: ReconciledJobRecord,
+    *,
+    job_store: ComputeJobStore | RuntimeStoreProxy[ComputeJobStore],
+    result_store: AsyncResultStore | RuntimeStoreProxy[AsyncResultStore],
+) -> bool:
+    result = result_store.get_result(reconciled_job.calculation_id)
+    if (
+        result is None
+        or result.result_status != AsyncResultStatus.COMPLETE
+        or result.analytics_type != reconciled_job.analytics_type
+        or result.response_payload is None
+    ):
+        return False
+
+    job_store.mark_complete(reconciled_job.calculation_id, response_payload=result.response_payload)
+    logger.warning(
+        "Recovered compute job completion from persisted success result.",
+        extra=worker_log_extra(
+            worker_name=_WORKER_NAME,
+            queue=_QUEUE_NAME,
+            calculation_id=str(reconciled_job.calculation_id),
+            analytics_type=reconciled_job.analytics_type,
+            previous_status=reconciled_job.previous_status.value,
+            reconciled_status="complete",
+            failure_classification="success_finalization_recovered",
+            retryable=False,
+            attempt_count=reconciled_job.attempt_count,
+            max_attempts=reconciled_job.max_attempts,
+            error_type=reconciled_job.error_type,
+        ),
+    )
+    return True
 
 
 def _is_retryable_exception(exc: Exception) -> bool:
