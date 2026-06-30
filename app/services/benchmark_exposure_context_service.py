@@ -5,8 +5,6 @@ from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from fastapi import HTTPException, status
-
 from app.models.benchmark_exposure_context import (
     BenchmarkExposureContextRequest,
     BenchmarkExposureContextResponse,
@@ -20,7 +18,13 @@ from app.services.offset_pagination import slice_offset_page
 from app.services.stateful_input_service import StatefulInputService
 from app.services.stateful_retrieval_metadata import parse_zero_default_retrieval_metadata
 from app.services.stateful_upstream_errors import raise_for_stateful_source_unavailable
-from core.errors import HTTP_422_UNPROCESSABLE
+from core.errors import (
+    HTTP_400_BAD_REQUEST,
+    HTTP_404_NOT_FOUND,
+    APINotFoundError,
+    APIServiceUnavailableError,
+    APIUnprocessableEntityError,
+)
 
 _INVALID_OFFSET_PAGE_DETAIL = "page.page_token must be a numeric offset token returned by lotus-performance."
 _NEGATIVE_OFFSET_PAGE_DETAIL = "page.page_token must be non-negative."
@@ -30,9 +34,8 @@ def _as_decimal(value: Any, *, field_name: str) -> Decimal:
     try:
         return Decimal(str(value))
     except (InvalidOperation, ValueError) as exc:
-        raise HTTPException(
-            status_code=HTTP_422_UNPROCESSABLE,
-            detail=f"benchmark exposure context payload has invalid {field_name}: {value}",
+        raise APIUnprocessableEntityError(
+            f"benchmark exposure context payload has invalid {field_name}: {value}"
         ) from exc
 
 
@@ -58,9 +61,8 @@ async def build_benchmark_exposure_context(
         classification_map=classification_map,
     )
     if not rows:
-        raise HTTPException(
-            status_code=HTTP_422_UNPROCESSABLE,
-            detail=f"No usable benchmark exposure rows returned for benchmark_id={benchmark_id}.",
+        raise APIUnprocessableEntityError(
+            f"No usable benchmark exposure rows returned for benchmark_id={benchmark_id}."
         )
 
     paged_rows, next_page_token = _page_rows(
@@ -138,12 +140,9 @@ def _component_series_from_market_response(
     market_status: int,
     market_payload: dict[str, Any],
 ) -> list[dict[str, Any]]:
-    if market_status == status.HTTP_404_NOT_FOUND:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No benchmark market-series found for benchmark_id={benchmark_id}.",
-        )
-    if market_status >= status.HTTP_400_BAD_REQUEST:
+    if market_status == HTTP_404_NOT_FOUND:
+        raise APINotFoundError(f"No benchmark market-series found for benchmark_id={benchmark_id}.")
+    if market_status >= HTTP_400_BAD_REQUEST:
         raise_for_stateful_source_unavailable(source_label="benchmark market-series", upstream_status=market_status)
     return _parse_component_series(market_payload)
 
@@ -154,22 +153,18 @@ def _benchmark_id_from_assignment_response(*, assignment_status: int, assignment
 
 
 def _raise_for_unusable_assignment_response_status(assignment_status: int) -> None:
-    if assignment_status == status.HTTP_404_NOT_FOUND:
-        raise HTTPException(
-            status_code=HTTP_422_UNPROCESSABLE,
-            detail="benchmark exposure context requires a benchmark assignment or explicit benchmark_id.",
+    if assignment_status == HTTP_404_NOT_FOUND:
+        raise APIUnprocessableEntityError(
+            "benchmark exposure context requires a benchmark assignment or explicit benchmark_id."
         )
-    if assignment_status >= status.HTTP_400_BAD_REQUEST:
+    if assignment_status >= HTTP_400_BAD_REQUEST:
         raise_for_stateful_source_unavailable(source_label="benchmark assignment", upstream_status=assignment_status)
 
 
 def _benchmark_id_from_assignment_payload(assignment_payload: dict[str, Any]) -> str:
     benchmark_id = assignment_payload.get("benchmark_id")
     if not isinstance(benchmark_id, str) or not benchmark_id:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="benchmark assignment payload missing benchmark_id.",
-        )
+        raise APIServiceUnavailableError("benchmark assignment payload missing benchmark_id.")
     return benchmark_id
 
 
@@ -208,7 +203,7 @@ async def _classification_map_for_request(
         as_of_date=request.as_of_date,
         index_ids=index_ids,
     )
-    if catalog_status >= status.HTTP_400_BAD_REQUEST:
+    if catalog_status >= HTTP_400_BAD_REQUEST:
         raise_for_stateful_source_unavailable(source_label="index catalog", upstream_status=catalog_status)
     return _classification_map_from_catalog_payload(catalog_payload)
 
@@ -216,10 +211,7 @@ async def _classification_map_for_request(
 def _classification_map_from_catalog_payload(catalog_payload: dict[str, Any]) -> dict[str, dict[str, str]]:
     records = catalog_payload.get("records")
     if not isinstance(records, list):
-        raise HTTPException(
-            status_code=HTTP_422_UNPROCESSABLE,
-            detail="index catalog payload missing records list.",
-        )
+        raise APIUnprocessableEntityError("index catalog payload missing records list.")
     return _classification_map_from_catalog_records(records)
 
 
@@ -266,10 +258,7 @@ def _classification_labels_from_catalog_record(record: Any) -> tuple[str, dict[s
 def _parse_component_series(payload: dict[str, Any]) -> list[dict[str, Any]]:
     component_series = payload.get("component_series")
     if not isinstance(component_series, list):
-        raise HTTPException(
-            status_code=HTTP_422_UNPROCESSABLE,
-            detail="benchmark market-series payload missing component_series list.",
-        )
+        raise APIUnprocessableEntityError("benchmark market-series payload missing component_series list.")
     return [component for component in component_series if isinstance(component, dict)]
 
 
@@ -382,9 +371,8 @@ def _group_identity(
         )
     if grouping_dimension == BenchmarkExposureGroupingDimension.ISSUER:
         return _issuer_group_identity(index_id=index_id, classification_map=classification_map)
-    raise HTTPException(
-        status_code=HTTP_422_UNPROCESSABLE,
-        detail=f"benchmark exposure context does not yet support grouping_dimension={grouping_dimension.value}",
+    raise APIUnprocessableEntityError(
+        f"benchmark exposure context does not yet support grouping_dimension={grouping_dimension.value}"
     )
 
 

@@ -3,7 +3,6 @@ from decimal import Decimal
 from uuid import uuid4
 
 import pytest
-from fastapi import HTTPException
 
 from app.models.benchmark_exposure_context import (
     BenchmarkExposureContextRequest,
@@ -264,7 +263,7 @@ async def test_build_benchmark_exposure_context_rejects_bad_upstream_shapes() ->
         async def get_benchmark_market_series(self, **kwargs):  # noqa: ARG002
             return 200, {"component_series": "bad"}
 
-    with pytest.raises((HTTPException, APIError), match="component_series list"):
+    with pytest.raises(APIError, match="component_series list"):
         await build_benchmark_exposure_context(
             request=_request(grouping_dimensions=[BenchmarkExposureGroupingDimension.POSITION]),
             stateful_input_service=_BadMarketSeriesService(),
@@ -351,7 +350,7 @@ def test_classification_map_from_catalog_payload_validates_records_shape() -> No
         }
     ) == {"IDX_A": {"sector": "Technology", "rank": "1"}}
 
-    with pytest.raises((HTTPException, APIError), match="records list") as exc_info:
+    with pytest.raises(APIError, match="records list") as exc_info:
         _classification_map_from_catalog_payload({"records": "bad"})
 
     assert exc_info.value.status_code == 422
@@ -375,7 +374,7 @@ def test_benchmark_id_from_assignment_payload_extracts_valid_identity() -> None:
 def test_benchmark_exposure_assignment_response_rejects_unusable_identity(
     assignment_payload: dict[str, object],
 ) -> None:
-    with pytest.raises((HTTPException, APIError), match="payload missing benchmark_id") as exc_info:
+    with pytest.raises(APIError, match="payload missing benchmark_id") as exc_info:
         _benchmark_id_from_assignment_response(
             assignment_status=200,
             assignment_payload=assignment_payload,
@@ -388,7 +387,7 @@ def test_benchmark_exposure_assignment_response_rejects_unusable_identity(
 def test_benchmark_id_from_assignment_payload_rejects_unusable_identity(
     assignment_payload: dict[str, object],
 ) -> None:
-    with pytest.raises((HTTPException, APIError), match="payload missing benchmark_id") as exc_info:
+    with pytest.raises(APIError, match="payload missing benchmark_id") as exc_info:
         _benchmark_id_from_assignment_payload(assignment_payload)
 
     assert exc_info.value.status_code == 503
@@ -406,7 +405,7 @@ def test_component_series_from_market_response_maps_status_and_payload_shape() -
         == payload["component_series"]
     )
 
-    with pytest.raises((HTTPException, APIError), match="No benchmark market-series found") as not_found:
+    with pytest.raises(APIError, match="No benchmark market-series found") as not_found:
         _component_series_from_market_response(
             benchmark_id="BMK",
             market_status=404,
@@ -414,14 +413,14 @@ def test_component_series_from_market_response_maps_status_and_payload_shape() -
         )
     assert not_found.value.status_code == 404
 
-    with pytest.raises((HTTPException, APIError), match="market-series source unavailable"):
+    with pytest.raises(APIError, match="market-series source unavailable"):
         _component_series_from_market_response(
             benchmark_id="BMK",
             market_status=503,
             market_payload={},
         )
 
-    with pytest.raises((HTTPException, APIError), match="component_series list"):
+    with pytest.raises(APIError, match="component_series list"):
         _component_series_from_market_response(
             benchmark_id="BMK",
             market_status=200,
@@ -435,7 +434,7 @@ async def test_build_benchmark_exposure_context_rejects_missing_assignment() -> 
         async def get_benchmark_assignment(self, **kwargs):  # noqa: ARG002
             return 404, {}
 
-    with pytest.raises((HTTPException, APIError), match="requires a benchmark assignment"):
+    with pytest.raises(APIError, match="requires a benchmark assignment"):
         await build_benchmark_exposure_context(
             request=_request(grouping_dimensions=[BenchmarkExposureGroupingDimension.POSITION]),
             stateful_input_service=_NoAssignmentService(),
@@ -448,7 +447,7 @@ async def test_build_benchmark_exposure_context_rejects_assignment_source_failur
         async def get_benchmark_assignment(self, **kwargs):  # noqa: ARG002
             return 503, {}
 
-    with pytest.raises((HTTPException, APIError), match="assignment source unavailable"):
+    with pytest.raises(APIError, match="assignment source unavailable"):
         await build_benchmark_exposure_context(
             request=_request(grouping_dimensions=[BenchmarkExposureGroupingDimension.POSITION]),
             stateful_input_service=_AssignmentSourceFailureService(),
@@ -461,7 +460,7 @@ async def test_build_benchmark_exposure_context_rejects_assignment_payload_witho
         async def get_benchmark_assignment(self, **kwargs):  # noqa: ARG002
             return 200, {"benchmark_id": ""}
 
-    with pytest.raises((HTTPException, APIError), match="payload missing benchmark_id"):
+    with pytest.raises(APIError, match="payload missing benchmark_id"):
         await build_benchmark_exposure_context(
             request=_request(grouping_dimensions=[BenchmarkExposureGroupingDimension.POSITION]),
             stateful_input_service=_MissingAssignmentBenchmarkService(),
@@ -474,7 +473,7 @@ async def test_build_benchmark_exposure_context_rejects_catalog_source_failure()
         async def get_index_catalog(self, **kwargs):  # noqa: ARG002
             return 503, {}
 
-    with pytest.raises((HTTPException, APIError), match="index catalog source unavailable"):
+    with pytest.raises(APIError, match="index catalog source unavailable"):
         await build_benchmark_exposure_context(
             request=_request(), stateful_input_service=_CatalogSourceFailureService()
         )
@@ -486,7 +485,7 @@ async def test_build_benchmark_exposure_context_rejects_catalog_without_records_
         async def get_index_catalog(self, **kwargs):  # noqa: ARG002
             return 200, {"records": "bad"}
 
-    with pytest.raises((HTTPException, APIError), match="records list"):
+    with pytest.raises(APIError, match="records list"):
         await build_benchmark_exposure_context(request=_request(), stateful_input_service=_CatalogShapeFailureService())
 
 
@@ -496,7 +495,7 @@ async def test_build_benchmark_exposure_context_maps_market_series_404_to_not_fo
         async def get_benchmark_market_series(self, **kwargs):  # noqa: ARG002
             return 404, {}
 
-    with pytest.raises((HTTPException, APIError), match="No benchmark market-series found"):
+    with pytest.raises(APIError, match="No benchmark market-series found"):
         await build_benchmark_exposure_context(
             request=_request(grouping_dimensions=[BenchmarkExposureGroupingDimension.POSITION]),
             stateful_input_service=_MissingMarketSeriesService(),
@@ -509,7 +508,7 @@ async def test_build_benchmark_exposure_context_maps_market_series_source_failur
         async def get_benchmark_market_series(self, **kwargs):  # noqa: ARG002
             return 503, {}
 
-    with pytest.raises((HTTPException, APIError), match="market-series source unavailable"):
+    with pytest.raises(APIError, match="market-series source unavailable"):
         await build_benchmark_exposure_context(
             request=_request(grouping_dimensions=[BenchmarkExposureGroupingDimension.POSITION]),
             stateful_input_service=_MarketSeriesSourceFailureService(),
@@ -522,7 +521,7 @@ async def test_build_benchmark_exposure_context_rejects_empty_usable_rows() -> N
         async def get_benchmark_market_series(self, **kwargs):  # noqa: ARG002
             return 200, {"component_series": [{"index_id": "", "points": "bad"}]}
 
-    with pytest.raises((HTTPException, APIError), match="No usable benchmark exposure rows returned"):
+    with pytest.raises(APIError, match="No usable benchmark exposure rows returned"):
         await build_benchmark_exposure_context(
             request=_request(grouping_dimensions=[BenchmarkExposureGroupingDimension.POSITION]),
             stateful_input_service=_NoUsableRowsService(),
@@ -548,7 +547,7 @@ def test_build_exposure_rows_skips_invalid_component_shapes_and_rejects_invalid_
     assert rows[0].group_key == "IDX"
     assert rows[0].weight == Decimal("0.10")
 
-    with pytest.raises((HTTPException, APIError), match="invalid component_weight"):
+    with pytest.raises(APIError, match="invalid component_weight"):
         _build_exposure_rows(
             component_series=[
                 {"index_id": "IDX", "points": [{"series_date": "2026-01-02", "component_weight": "not-a-number"}]}
@@ -627,7 +626,7 @@ def test_exposure_point_series_date_and_weight_qualifies_point_facts() -> None:
     assert _exposure_point_series_date_and_weight({"series_date": None, "component_weight": "0.25"}) is None
     assert _exposure_point_series_date_and_weight({"series_date": "2026-01-02"}) is None
 
-    with pytest.raises((HTTPException, APIError), match="invalid component_weight"):
+    with pytest.raises(APIError, match="invalid component_weight"):
         _exposure_point_series_date_and_weight({"series_date": "2026-01-02", "component_weight": "not-a-number"})
 
 
@@ -698,10 +697,10 @@ def test_page_rows_rejects_invalid_page_token_inputs() -> None:
         )
     ]
 
-    with pytest.raises((HTTPException, APIError), match="numeric offset token"):
+    with pytest.raises(APIError, match="numeric offset token"):
         _page_rows(rows=rows, page_size=10, page_token="bad")
 
-    with pytest.raises((HTTPException, APIError), match="must be non-negative"):
+    with pytest.raises(APIError, match="must be non-negative"):
         _page_rows(rows=rows, page_size=10, page_token="-1")
 
 
