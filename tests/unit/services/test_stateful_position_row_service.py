@@ -1,7 +1,6 @@
 from decimal import Decimal
 
 import pytest
-from fastapi import HTTPException
 
 from app.services.source_cashflow_taxonomy import classify_cashflow_type
 from app.services.stateful_position_row_service import (
@@ -12,6 +11,7 @@ from app.services.stateful_position_row_service import (
     _position_cash_flow_projection,
     split_position_cash_flows_in_value_basis,
 )
+from core.errors import APIError
 
 
 def test_split_position_cash_flows_in_value_basis_converts_to_portfolio_and_reporting():
@@ -46,7 +46,7 @@ def test_split_position_cash_flows_in_value_basis_converts_to_portfolio_and_repo
 
 
 def test_split_position_cash_flows_in_value_basis_rejects_unsupported_cash_flow_currency_mismatch():
-    with pytest.raises(HTTPException, match="cash_flow_currency must match position_currency"):
+    with pytest.raises(APIError, match="cash_flow_currency must match position_currency") as exc:
         split_position_cash_flows_in_value_basis(
             cash_flows_raw=[{"amount": "5", "timing": "bod"}],
             row={
@@ -57,6 +57,8 @@ def test_split_position_cash_flows_in_value_basis_rejects_unsupported_cash_flow_
             },
             value_basis="portfolio",
         )
+
+    assert exc.value.status_code == 422
 
 
 def test_split_position_cash_flows_in_value_basis_ignores_non_list_and_non_usable_flows():

@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from fastapi import HTTPException
-
 from app.core.config import Settings
 from app.models.attribution_analytics_requests import (
     AttributionAnalyticsRequest,
@@ -13,6 +11,7 @@ from app.models.attribution_analytics_requests import (
 from app.models.attribution_requests import AttributionRequest
 from app.models.benchmark_analytics_requests import BenchmarkReturnSource
 from app.services.execution_registry import execution_registry
+from app.services.execution_stage_errors import execution_stage_failure_detail
 from app.services.execution_stage_names import EXECUTION_STAGE_NORMALIZATION, EXECUTION_STAGE_RETRIEVAL
 from app.services.input_mode_validation import require_stateful_input
 from app.services.portfolio_source_service import build_stateful_input_service
@@ -59,8 +58,12 @@ async def resolve_attribution_request(
             EXECUTION_STAGE_RETRIEVAL,
             details=_attribution_retrieval_stage_details(source_input),
         )
-    except HTTPException as exc:
-        execution_registry.fail_stage(request.calculation_id, EXECUTION_STAGE_RETRIEVAL, str(exc.detail))
+    except Exception as exc:
+        execution_registry.fail_stage(
+            request.calculation_id,
+            EXECUTION_STAGE_RETRIEVAL,
+            execution_stage_failure_detail(exc),
+        )
         raise
 
     execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_NORMALIZATION)

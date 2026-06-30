@@ -4,8 +4,6 @@ from dataclasses import dataclass, field
 from datetime import date
 from uuid import UUID
 
-from fastapi import HTTPException
-
 from app.core.config import Settings
 from app.models.source_quality import PerformanceSourceQualityEvidence
 from app.services.portfolio_source_service import (
@@ -17,7 +15,7 @@ from app.services.stateful_input_service import RetrievalMetadata, StatefulInput
 from app.services.stateful_retrieval_metadata import parse_retrieval_metadata
 from app.services.stateful_upstream_errors import raise_for_stateful_control_plane_unavailable
 from app.services.valuation_points_service import portfolio_timeseries_to_valuation_points
-from core.errors import HTTP_422_UNPROCESSABLE
+from core.errors import APIUnprocessableEntityError
 
 
 @dataclass(frozen=True)
@@ -76,24 +74,15 @@ def _stateful_portfolio_input_from_payload(upstream_payload: dict[str, object]) 
             require_open_date=True,
         )
     except ValueError as exc:
-        raise HTTPException(
-            status_code=HTTP_422_UNPROCESSABLE,
-            detail=str(exc),
-        ) from exc
+        raise APIUnprocessableEntityError(str(exc)) from exc
 
     if not portfolio_source.observations:
-        raise HTTPException(
-            status_code=HTTP_422_UNPROCESSABLE,
-            detail="Stateful source returned no observations.",
-        )
+        raise APIUnprocessableEntityError("Stateful source returned no observations.")
 
     try:
         performance_start_date = date.fromisoformat(portfolio_source.portfolio_open_date or "")
     except ValueError as exc:
-        raise HTTPException(
-            status_code=HTTP_422_UNPROCESSABLE,
-            detail="Invalid portfolio_open_date from stateful source.",
-        ) from exc
+        raise APIUnprocessableEntityError("Invalid portfolio_open_date from stateful source.") from exc
 
     return StatefulPortfolioInput(
         performance_start_date=performance_start_date,
