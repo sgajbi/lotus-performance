@@ -386,6 +386,7 @@ def _write_manifest(
         entry = _load_manifest_entry(evidence_path)
         if entry is not None:
             entries.append(entry)
+    entries = _newest_first_manifest_entries(entries)
     manifest = RecoveryDrillManifest(
         latest_file_name=latest_file_name,
         retained_file_names=[entry.evidence_file_name for entry in entries],
@@ -394,6 +395,19 @@ def _write_manifest(
         entries=entries,
     )
     _write_text_atomic(output_dir / "manifest.json", json.dumps(asdict(manifest), indent=2))
+
+
+def _newest_first_manifest_entries(
+    entries: list[RecoveryDrillManifestEntry],
+) -> list[RecoveryDrillManifestEntry]:
+    return sorted(
+        entries,
+        key=lambda entry: (
+            datetime.fromisoformat(entry.generated_at_utc.replace("Z", "+00:00")),
+            entry.evidence_file_name,
+        ),
+        reverse=True,
+    )
 
 
 def _write_text_atomic(path: Path, content: str) -> None:

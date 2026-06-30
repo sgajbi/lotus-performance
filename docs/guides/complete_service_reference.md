@@ -1268,6 +1268,7 @@ Certification evidence:
 Purpose:
 
 - inspect retained durable recovery-drill evidence, filters, paging, and assurance status
+- retained file names and returned entries are normalized newest-first by parsed `generated_at_utc`, with evidence file name as the deterministic tie-breaker
 - omitted `limit` defaults to `10`; `next_offset` is emitted when more retained entries remain
 
 Sample response:

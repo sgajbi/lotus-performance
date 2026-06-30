@@ -1,3 +1,4 @@
+import json
 import os
 import shutil
 from datetime import datetime, timedelta, timezone
@@ -10,7 +11,13 @@ from app.core.config import get_settings
 from app.services.compute_job_store import compute_job_store
 from app.services.durability_health_service import DurabilityHealthStatus
 from app.services.lineage_metadata_store import LineagePayloadModel, lineage_metadata_store
-from app.services.recovery_drill_history_service import RecoveryDrillHistoryEntry, RecoveryDrillHistorySnapshot
+from app.services.recovery_drill_history_service import (
+    RecoveryDrillHistoryEntry,
+    RecoveryDrillHistorySnapshot,
+)
+from app.services.recovery_drill_history_service import (
+    build_recovery_drill_history_snapshot as build_real_recovery_drill_history_snapshot,
+)
 from app.services.runtime_retention_history_service import RuntimeRetentionHistoryEntry, RuntimeRetentionHistorySnapshot
 from app.services.runtime_retention_service import RuntimeRetentionCleanupSummary
 from main import app
@@ -1110,3 +1117,55 @@ def test_runtime_status_reports_recovery_drill_failure_and_age_policy(mocker):
         assert body["recovery_drill_policy"]["max_age_seconds"] == 300.0
     finally:
         settings.RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS = original_threshold
+
+
+def test_runtime_status_uses_newest_recovery_drill_history_entry(tmp_path, monkeypatch, mocker):
+    artifact_dir = tmp_path / "artifacts" / "durable-recovery-drill"
+    artifact_dir.mkdir(parents=True)
+    generated_at = datetime.now(timezone.utc)
+    entries = [
+        {
+            "evidence_file_name": "recovery-drill-oldest.json",
+            "generated_at_utc": (generated_at - timedelta(minutes=20)).isoformat().replace("+00:00", "Z"),
+            "operator_id": "ops-user-oldest",
+            "backup_identifier": "backup-oldest",
+            "status": "failed",
+        },
+        {
+            "evidence_file_name": "recovery-drill-newest.json",
+            "generated_at_utc": generated_at.isoformat().replace("+00:00", "Z"),
+            "operator_id": "ops-user-newest",
+            "backup_identifier": "backup-newest",
+            "status": "passed",
+        },
+        {
+            "evidence_file_name": "recovery-drill-middle.json",
+            "generated_at_utc": (generated_at - timedelta(minutes=10)).isoformat().replace("+00:00", "Z"),
+            "operator_id": "ops-user-middle",
+            "backup_identifier": "backup-middle",
+            "status": "failed",
+        },
+    ]
+    manifest = {
+        "latest_file_name": "recovery-drill-oldest.json",
+        "retained_file_names": [entry["evidence_file_name"] for entry in entries],
+        "retention_limit": 30,
+        "retention_max_age_days": 90,
+        "entries": entries,
+    }
+    (artifact_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    monkeypatch.setattr(get_settings(), "RECOVERY_DRILL_ARTIFACT_PATH", artifact_dir)
+    mocker.patch(
+        "app.services.runtime_status_lifecycle.build_recovery_drill_history_snapshot",
+        side_effect=lambda **kwargs: build_real_recovery_drill_history_snapshot(**kwargs),
+    )
+
+    with TestClient(app) as client:
+        response = client.get("/integration/runtime-status")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["recovery_drill"]["latest_status"] == "passed"
+    assert body["recovery_drill"]["latest_operator_id"] == "ops-user-newest"
+    assert body["recovery_drill"]["latest_backup_identifier"] == "backup-newest"
+    assert "recovery_drill_latest_not_passed" not in body["recovery_drill"]["degradation_reasons"]

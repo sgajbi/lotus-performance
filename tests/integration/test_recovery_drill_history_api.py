@@ -142,6 +142,63 @@ def test_recovery_drill_history_api_returns_retained_manifest(tmp_path, monkeypa
     ]
 
 
+def test_recovery_drill_history_api_normalizes_retained_entries_newest_first(tmp_path, monkeypatch):
+    artifact_dir = tmp_path / "artifacts" / "durable-recovery-drill"
+    artifact_dir.mkdir(parents=True)
+    manifest = {
+        "latest_file_name": "2026-03-13t00-00-00.json",
+        "retained_file_names": [
+            "2026-03-13t00-00-00.json",
+            "2026-03-15t00-00-00.json",
+            "2026-03-14t00-00-00.json",
+        ],
+        "retention_limit": 30,
+        "retention_max_age_days": 90,
+        "entries": [
+            {
+                "evidence_file_name": "2026-03-13t00-00-00.json",
+                "generated_at_utc": "2026-03-13T00:00:00Z",
+                "operator_id": "ops-user",
+                "backup_identifier": "backup-123",
+                "status": "failed",
+            },
+            {
+                "evidence_file_name": "2026-03-15t00-00-00.json",
+                "generated_at_utc": "2026-03-15T00:00:00Z",
+                "operator_id": "ops-user",
+                "backup_identifier": "backup-123",
+                "status": "passed",
+            },
+            {
+                "evidence_file_name": "2026-03-14t00-00-00.json",
+                "generated_at_utc": "2026-03-14T00:00:00Z",
+                "operator_id": "ops-user",
+                "backup_identifier": "backup-123",
+                "status": "failed",
+            },
+        ],
+    }
+    (artifact_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    monkeypatch.setattr(get_settings(), "RECOVERY_DRILL_ARTIFACT_PATH", artifact_dir)
+
+    with TestClient(app) as client:
+        response = client.get("/integration/recovery-drills", params={"limit": 3})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["latest_file_name"] == "2026-03-15t00-00-00.json"
+    assert body["retained_file_names"] == [
+        "2026-03-15t00-00-00.json",
+        "2026-03-14t00-00-00.json",
+        "2026-03-13t00-00-00.json",
+    ]
+    assert [entry["evidence_file_name"] for entry in body["entries"]] == [
+        "2026-03-15t00-00-00.json",
+        "2026-03-14t00-00-00.json",
+        "2026-03-13t00-00-00.json",
+    ]
+
+
 def test_recovery_drill_history_api_defaults_to_bounded_page(tmp_path, monkeypatch):
     artifact_dir = tmp_path / "artifacts" / "durable-recovery-drill"
     artifact_dir.mkdir(parents=True)

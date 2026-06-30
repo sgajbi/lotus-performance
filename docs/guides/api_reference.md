@@ -723,6 +723,7 @@ Return semantics for the workspace surface are now explicit rather than inferred
 - response includes:
   - retained recovery-drill evidence artifacts
   - latest retained drill summary
+  - retained file names and returned entries normalized newest-first by parsed `generated_at_utc`, with evidence file name as the deterministic tie-breaker
   - filtering by operator, backup identifier, status, and bounded time window
   - default pagination limit `10` when `limit` is omitted; maximum `100`; `next_offset` appears when more retained entries remain
   - retained enterprise request context when available:

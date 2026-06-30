@@ -120,7 +120,11 @@ def test_run_recovery_drill_prunes_history_to_retention_limit(tmp_path):
     assert retained == sorted([second.evidence_file_name, third.evidence_file_name])
     assert manifest["retention_limit"] == 2
     assert manifest["retention_max_age_days"] == 30
-    assert manifest["retained_file_names"] == sorted([second.evidence_file_name, third.evidence_file_name])
+    assert manifest["retained_file_names"] == [third.evidence_file_name, second.evidence_file_name]
+    assert [entry["evidence_file_name"] for entry in manifest["entries"]] == [
+        third.evidence_file_name,
+        second.evidence_file_name,
+    ]
     assert latest["evidence_file_name"] == third.evidence_file_name
 
 

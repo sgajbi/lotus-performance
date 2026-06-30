@@ -20,6 +20,7 @@ from app.services.operator_action_history_snapshot import (
     build_available_history_snapshot,
     build_unavailable_history_snapshot,
 )
+from app.services.runtime_status_time import parse_utc_datetime
 
 RECOVERY_DRILL_ARTIFACT_DIRECTORY_MISSING_REASON = "recovery_drill_artifact_directory_missing"
 RECOVERY_DRILL_MANIFEST_INVALID_REASON = "recovery_drill_manifest_invalid"
@@ -126,7 +127,13 @@ def _available_snapshot_from_manifest(
     generated_after: str | None,
     generated_before: str | None,
 ) -> RecoveryDrillHistorySnapshot:
-    all_entries = _recovery_drill_history_entries_from_manifest(manifest_payload)
+    all_entries = _newest_first_recovery_drill_history_entries(
+        _recovery_drill_history_entries_from_manifest(manifest_payload)
+    )
+    normalized_manifest_payload = _newest_first_manifest_payload(
+        manifest_payload=manifest_payload,
+        entries=all_entries,
+    )
     filtered_entries = _filtered_recovery_drill_history_entries(
         entries=all_entries,
         operator_id=operator_id,
@@ -139,7 +146,7 @@ def _available_snapshot_from_manifest(
     return build_available_history_snapshot(
         RecoveryDrillHistorySnapshot,
         directory=directory,
-        manifest_payload=manifest_payload,
+        manifest_payload=normalized_manifest_payload,
         entries=page.entries,
         total_entries=len(all_entries),
         matched_entries=len(filtered_entries),
@@ -164,6 +171,27 @@ def _recovery_drill_history_entries_from_manifest(
         )
         for entry in manifest_payload["entries"]
     ]
+
+
+def _newest_first_recovery_drill_history_entries(
+    entries: list[RecoveryDrillHistoryEntry],
+) -> list[RecoveryDrillHistoryEntry]:
+    return sorted(
+        entries,
+        key=lambda entry: (parse_utc_datetime(entry.generated_at_utc), entry.evidence_file_name),
+        reverse=True,
+    )
+
+
+def _newest_first_manifest_payload(
+    *,
+    manifest_payload: dict[str, Any],
+    entries: list[RecoveryDrillHistoryEntry],
+) -> dict[str, Any]:
+    normalized_payload = dict(manifest_payload)
+    normalized_payload["latest_file_name"] = entries[0].evidence_file_name if entries else None
+    normalized_payload["retained_file_names"] = [entry.evidence_file_name for entry in entries]
+    return normalized_payload
 
 
 def _filtered_recovery_drill_history_entries(

@@ -1,7 +1,9 @@
+import json
 import logging
 from pathlib import Path
 from types import SimpleNamespace
 
+from app.core.config import get_settings
 from app.services.queue_metrics_service import (
     _RECOVERY_DRILL_LIFECYCLE_METRICS,
     DurableQueueCollector,
@@ -14,6 +16,7 @@ from app.services.queue_metrics_service import (
     _load_durable_queue_metric_sources,
     _load_metric_source,
     _load_operator_action_lease_metric_source,
+    _load_recovery_drill_metric_sources,
     _load_runtime_retention_metric_sources,
 )
 from app.services.runtime_status_domain import (
@@ -472,6 +475,65 @@ def test_lifecycle_history_metric_group_keeps_history_metrics_when_action_snapsh
     assert breach_samples["recovery_drill_age_exceeded"] == 1
     assert breach_samples["recovery_drill_active_run_age_exceeded"] == 0
     assert breach_samples["recovery_drill_reclaim_pressure_exceeded"] == 0
+
+
+def test_recovery_drill_metrics_use_newest_history_entry(tmp_path, monkeypatch):
+    artifact_dir = tmp_path / "artifacts" / "durable-recovery-drill"
+    artifact_dir.mkdir(parents=True)
+    entries = [
+        {
+            "evidence_file_name": "recovery-drill-oldest.json",
+            "generated_at_utc": "2099-03-13T00:00:00Z",
+            "operator_id": "ops-user-oldest",
+            "backup_identifier": "backup-oldest",
+            "status": "failed",
+        },
+        {
+            "evidence_file_name": "recovery-drill-newest.json",
+            "generated_at_utc": "2099-03-15T00:00:00Z",
+            "operator_id": "ops-user-newest",
+            "backup_identifier": "backup-newest",
+            "status": "passed",
+        },
+        {
+            "evidence_file_name": "recovery-drill-middle.json",
+            "generated_at_utc": "2099-03-14T00:00:00Z",
+            "operator_id": "ops-user-middle",
+            "backup_identifier": "backup-middle",
+            "status": "failed",
+        },
+    ]
+    manifest = {
+        "latest_file_name": "recovery-drill-oldest.json",
+        "retained_file_names": [entry["evidence_file_name"] for entry in entries],
+        "retention_limit": 30,
+        "retention_max_age_days": 90,
+        "entries": entries,
+    }
+    (artifact_dir / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    settings = get_settings()
+    monkeypatch.setattr(settings, "RECOVERY_DRILL_ARTIFACT_PATH", artifact_dir)
+    monkeypatch.setattr("app.services.queue_metrics_service.age_seconds_since", lambda timestamp_utc: 0.0)
+
+    sources = _load_recovery_drill_metric_sources(settings)
+    metrics = _lifecycle_history_metric_group(
+        snapshot=sources.snapshot,
+        action_snapshot=SimpleNamespace(status="available", active_leases=(), latest_reclaimed_lease=None),
+        policy=RecoveryDrillDegradationPolicy(
+            max_age_seconds=60.0,
+            active_run_age_seconds=1800.0,
+            reclaim_count=2,
+        ),
+        spec=_RECOVERY_DRILL_LIFECYCLE_METRICS,
+    )
+
+    assert sources.snapshot.entries[0].evidence_file_name == "recovery-drill-newest.json"
+    recovery_metric = next(
+        metric for metric in metrics if metric.name == "lotus_performance_recovery_drill_degradation_breach"
+    )
+    recovery_samples = {sample.labels["reason"]: sample.value for sample in recovery_metric.samples}
+    assert recovery_samples["recovery_drill_latest_not_passed"] == 0
+    assert recovery_samples["recovery_drill_age_exceeded"] == 0
 
 
 def test_queue_metrics_collector_emits_compute_and_lineage_metrics(monkeypatch):
