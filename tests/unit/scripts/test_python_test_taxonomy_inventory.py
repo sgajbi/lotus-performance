@@ -69,17 +69,26 @@ def test_stateful_benchmark_market_series_source_boundary():
 """,
         encoding="utf-8",
     )
+    benchmark_file = service_dir / "test_benchmark_exposure_context_service.py"
+    benchmark_file.write_text(
+        """
+def test_benchmark_exposure_source_boundary():
+    pass
+""",
+        encoding="utf-8",
+    )
 
     modules = collect_test_modules((str(tests_root),))
     modules_by_path = {module.path: module for module in modules}
 
-    assert [module.test_count for module in modules] == [2, 1, 1, 1, 1, 1]
+    assert [module.test_count for module in modules] == [2, 1, 1, 1, 1, 1, 1]
     api_module = modules_by_path["tests/integration/test_returns_api.py"]
     contract_module = modules_by_path["tests/unit/app/test_openapi_contract.py"]
     compute_store_module = modules_by_path["tests/unit/services/test_compute_job_store.py"]
     returns_series_module = modules_by_path["tests/unit/services/test_returns_series_service.py"]
     runtime_recovery_module = modules_by_path["tests/unit/services/test_runtime_recovery_service.py"]
     stateful_input_module = modules_by_path["tests/unit/services/test_stateful_input_service.py"]
+    benchmark_module = modules_by_path["tests/unit/services/test_benchmark_exposure_context_service.py"]
     assert api_module.suite == "integration"
     assert "api_or_runtime" in api_module.families
     assert contract_module.suite == "unit"
@@ -92,6 +101,8 @@ def test_stateful_benchmark_market_series_source_boundary():
     assert "analytics_domain" in returns_series_module.families
     assert stateful_input_module.suite == "unit"
     assert "analytics_domain" in stateful_input_module.families
+    assert benchmark_module.suite == "unit"
+    assert "analytics_domain" in benchmark_module.families
 
 
 def test_render_markdown_summarizes_test_taxonomy() -> None:
