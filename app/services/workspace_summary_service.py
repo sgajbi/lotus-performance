@@ -100,6 +100,11 @@ class _WorkspacePerformanceBreakdownWindow:
     cumulative_daily_df: pd.DataFrame
 
 
+@dataclass(frozen=True)
+class _WorkspaceSummaryProjection:
+    results_by_period: dict[str, WorkspacePeriodSummaryResult]
+
+
 def workspace_longest_requested_window_days(request: WorkspaceSummaryRequest) -> int:
     if request.input_mode != TWRInputMode.STATEFUL:
         return 0
@@ -566,31 +571,19 @@ def _build_workspace_summary_response(
     net_artifacts: WorkspaceTWRArtifacts,
     gross_artifacts: WorkspaceTWRArtifacts,
 ) -> WorkspaceSummaryResponse:
-    requested_frequencies = {item.period.value: item.frequencies for item in request.periods}
-    valuation_df = pd.DataFrame([point.model_dump(mode="python") for point in portfolio_input.valuation_points])
-    valuation_df[PortfolioColumns.PERF_DATE.value] = observation_date_series(
-        valuation_df[PortfolioColumns.PERF_DATE.value]
-    )
-    net_daily_results_df = _normalize_workspace_daily_results_df(net_artifacts.daily_results_df)
-    gross_daily_results_df = _normalize_workspace_daily_results_df(gross_artifacts.daily_results_df)
-    benchmark_daily_df = _build_workspace_benchmark_daily_df(benchmark_input)
-    results_by_period = _build_workspace_results_by_period(
+    projection = _build_workspace_summary_projection(
         request=request,
         resolved_periods=resolved_periods,
         portfolio_input=portfolio_input,
-        valuation_df=valuation_df,
-        net_daily_results_df=net_daily_results_df,
-        gross_daily_results_df=gross_daily_results_df,
+        net_artifacts=net_artifacts,
+        gross_artifacts=gross_artifacts,
         benchmark_input=benchmark_input,
-        benchmark_daily_df=benchmark_daily_df,
-        requested_frequencies=requested_frequencies,
     )
-
     return WorkspaceSummaryResponse(
         calculation_id=request.calculation_id,
         portfolio_id=request.portfolio_id,
         input_mode=request.input_mode,
-        results_by_period=results_by_period,
+        results_by_period=projection.results_by_period,
         meta=_workspace_summary_meta(
             request=request,
             settings=settings,
@@ -606,9 +599,37 @@ def _build_workspace_summary_response(
             counts=_workspace_summary_audit_counts(
                 portfolio_input=portfolio_input,
                 benchmark_input=benchmark_input,
-                results_by_period=results_by_period,
+                results_by_period=projection.results_by_period,
             )
         ),
+    )
+
+
+def _build_workspace_summary_projection(
+    *,
+    request: WorkspaceSummaryRequest,
+    resolved_periods: list[ResolvedWorkspacePeriod],
+    portfolio_input: ResolvedWorkspacePortfolioInput,
+    net_artifacts: WorkspaceTWRArtifacts,
+    gross_artifacts: WorkspaceTWRArtifacts,
+    benchmark_input: ResolvedWorkspaceBenchmarkInput | None,
+) -> _WorkspaceSummaryProjection:
+    valuation_df = pd.DataFrame([point.model_dump(mode="python") for point in portfolio_input.valuation_points])
+    valuation_df[PortfolioColumns.PERF_DATE.value] = observation_date_series(
+        valuation_df[PortfolioColumns.PERF_DATE.value]
+    )
+    return _WorkspaceSummaryProjection(
+        results_by_period=_build_workspace_results_by_period(
+            request=request,
+            resolved_periods=resolved_periods,
+            portfolio_input=portfolio_input,
+            valuation_df=valuation_df,
+            net_daily_results_df=_normalize_workspace_daily_results_df(net_artifacts.daily_results_df),
+            gross_daily_results_df=_normalize_workspace_daily_results_df(gross_artifacts.daily_results_df),
+            benchmark_input=benchmark_input,
+            benchmark_daily_df=_build_workspace_benchmark_daily_df(benchmark_input),
+            requested_frequencies={item.period.value: item.frequencies for item in request.periods},
+        )
     )
 
 

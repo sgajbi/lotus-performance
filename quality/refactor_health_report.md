@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Health Report
 
-Report date: 2026-06-29
-Branch: `feature/workspace-breakdown-window-boundary`
+Report date: 2026-06-30
+Branch: `feature/workspace-summary-response-projection`
 Baseline source: `quality/baseline_report.md`
 Report mode: phase-zero scorecard; complexity, architecture, duplicate-code, repository hygiene,
 router-thinness, observability-readiness, domain-product validation, deterministic API evaluation,
@@ -29,7 +29,7 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | Python files | 480 | 583 | measured | `rg --files -g '*.py'` |
 | Python package markers | 18 | 18 | measured | recursive `__init__.py` count |
-| Python LOC | 104,454 | 173,811 | measured | `rg --files -g '*.py'` plus Python line count on this branch |
+| Python LOC | 104,454 | 173,957 | measured | `rg --files -g '*.py'` plus Python line count on this branch |
 | Largest Python file LOC | 2,399 | 2,503 | measured | largest-file inventory on this branch |
 | Largest production file LOC | 1,156 | 1,948 | measured | `app/services/stateful_input_service.py` |
 | Duplicate code hotspots | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `make quality-duplicate-code-gate` with `--min-lines 12 --max-groups 0`; duplicated LOC reduced from `24` to `0` in LP-CR-1407 |
@@ -44,7 +44,7 @@ link the commit, command, or CI artifact that proves the change.
 | Max cyclomatic complexity | unknown | 5 | enforced | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py`; `make quality-complexity-gate` |
 | High-complexity functions | unknown | 0 | enforced | rank D-F functions in `quality/complexity_inventory.md`; `make quality-complexity-gate` |
 | Average maintainability index | unknown | 55.20 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
-| Largest functions by LOC | unknown | 56 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; `_build_workspace_performance_breakdowns(...)` dropped out of the top-40 table after workspace performance breakdown window assembly moved behind named private helpers |
+| Largest functions by LOC | unknown | 56 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; `_build_workspace_summary_response(...)` dropped out of the top-35 table after workspace summary projection preparation moved behind a named private helper |
 
 ## Architecture
 
@@ -73,12 +73,12 @@ link the commit, command, or CI artifact that proves the change.
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
 | Test modules | 228 | 281 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 3,420 | measured | `python -m pytest --collect-only -q` |
+| Collected tests | 2,035 | 3,421 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
 | Integration/API/runtime test functions | unknown | 608 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
 | Contract/governance test functions | unknown | 111 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
-| Uncategorized test functions | unknown | 1238 | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
+| Uncategorized test functions | unknown | 1239 | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
 
 ## Security And Dependencies
 
@@ -127,6 +127,43 @@ quality-program gap is not lack of aspiration; it is that several requested dime
 repeatably measured or expressed as progressive gates.
 
 ## Latest Local PR-Gate Evidence
+
+Latest workspace summary response projection evidence on
+`feature/workspace-summary-response-projection`:
+
+1. Introduced `_WorkspaceSummaryProjection` and `_build_workspace_summary_projection(...)` so
+   workspace summary response assembly delegates valuation-date normalization, net/gross
+   daily-result normalization, benchmark daily-frame projection, requested-frequency projection,
+   and period-result construction to a named private projection boundary.
+2. Preserved workspace behavior: response identity, metadata, diagnostics, audit counts,
+   period-result mapping, requested frequency mapping, benchmark absence handling, and normalized
+   observation-date handling remain unchanged. This slice changes internal response-projection
+   structure only; it does not change public API shape, OpenAPI, error-model, observability,
+   operator/runtime behavior, benchmark-aware analytics semantics, active-return semantics, or MWR
+   behavior.
+3. Measured proof: `_build_workspace_summary_response(...)` dropped out of the top-35
+   function-size table; largest production functions still measure `56` lines; max cyclomatic
+   complexity remains `5`; high-complexity functions remain `0`; average maintainability index
+   measures `55.20`; architecture-boundary findings remain `0`; duplicate hotspot groups remain
+   `0`; taxonomy reports `608` API/runtime test functions, `111` contract/governance test
+   functions, `248` observability/readiness test functions, `1125` analytics-domain test
+   functions, and `1239` uncategorized test functions; pytest collection reports `3,421`
+   collected tests.
+4. Validation passed: focused workspace summary service tests (`48 passed`), docs contract tests
+   (`48 passed`), ruff check, ruff format check, mypy for the touched service file,
+   function-size inventory, complexity inventory, architecture-boundary inventory, duplicate-code
+   inventory, test-taxonomy gate, pytest collection, `make quality-baseline`, wiki check-only
+   (`DiffCount 0`), `git diff --check`, and `make check` (`3,075` unit tests passed after static
+   quality, OpenAPI, API vocabulary, domain-product validation, deterministic API evaluation,
+   demo API certification, Python security, mypy, and taxonomy gates).
+5. Conscious domain/API/error-model/operations/docs/skill review: this is an internal
+   design-modularity and workspace-summary maintainability slice. It deliberately adds no runtime
+   microservice or worker boundary because workload, failure-isolation, ownership, deployment,
+   security, and operability evidence do not justify one here. README, repo-local wiki source,
+   repository context, central platform context, supported-features material, API inventories,
+   OpenAPI snapshots, runbooks, skills, and agent context do not need updates because no public
+   contract, command, runtime topology, operator workflow, cross-repo ownership, reusable guidance,
+   or documentation truth changed.
 
 Latest workspace performance breakdown window boundary evidence on
 `feature/workspace-breakdown-window-boundary`:

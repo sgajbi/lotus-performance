@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
-Report date: 2026-06-29
-Branch: `feature/workspace-breakdown-window-boundary`
+Report date: 2026-06-30
+Branch: `feature/workspace-summary-response-projection`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
@@ -34,10 +34,10 @@ must stay at `0`.
 | High-complexity functions (rank D-F) | 0 |
 | Average maintainability index | 55.20 |
 
-The workspace performance breakdown window boundary preserves the enforced complexity posture: max
+The workspace summary response projection boundary preserves the enforced complexity posture: max
 cyclomatic complexity remains `5`, high-complexity functions remain `0`, and average
-maintainability index measures `55.20` after moving per-breakdown bucket and cumulative return
-assembly behind named private helpers.
+maintainability index measures `55.20` after moving response projection preparation behind a named
+private helper.
 
 ## Highest Cyclomatic Complexity
 
@@ -81,7 +81,7 @@ assembly behind named private helpers.
 | 6 | `app/services/stateful_input_service.py` | 0.00 | C |
 | 7 | `app/services/twr_service.py` | 5.25 | C |
 | 8 | `app/services/stateful_benchmark_input_service.py` | 8.25 | C |
-| 9 | `app/services/workspace_summary_service.py` | 10.05 | B |
+| 9 | `app/services/workspace_summary_service.py` | 9.46 | B |
 | 10 | `app/services/execution_registry.py` | 11.12 | B |
 | 11 | `engine/attribution.py` | 11.94 | B |
 | 12 | `app/services/operator_action_lease_service.py` | 13.14 | B |
@@ -117,6 +117,10 @@ LP-CR-1546 isolated hierarchical contribution result aggregation into focused he
 The measured max cyclomatic complexity remains `5`, high-complexity functions remain `0`, and
 average maintainability index remains `55.23`; the slice preserves the existing enforced
 complexity posture while improving contribution-engine result assembly scanability.
+LP-CR-1556 isolated workspace summary response projection preparation behind
+`_build_workspace_summary_projection(...)`. The measured max cyclomatic complexity remains `5`,
+high-complexity functions remain `0`, and average maintainability index measures `55.20`; the slice
+preserves the enforced complexity posture while improving workspace-summary response scanability.
 LP-CR-1553 isolated runtime-retention history filtering, pagination, and applied-filter projection
 behind `_RuntimeRetentionHistoryQuery`. The measured max cyclomatic complexity remains `5`,
 high-complexity functions remain `0`, and average maintainability index measures `55.20`; the slice
