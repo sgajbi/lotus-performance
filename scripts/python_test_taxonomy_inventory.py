@@ -92,7 +92,16 @@ def _families_for_path(path: str) -> tuple[str, ...]:
         families.add("observability_or_readiness")
     if any(
         token in lower_path
-        for token in ("engine", "calculation", "twr", "mwr", "returns_series", "attribution", "contribution")
+        for token in (
+            "engine",
+            "calculation",
+            "twr",
+            "mwr",
+            "stateful_input",
+            "returns_series",
+            "attribution",
+            "contribution",
+        )
     ):
         families.add("analytics_domain")
     return tuple(sorted(families or {"uncategorized"}))

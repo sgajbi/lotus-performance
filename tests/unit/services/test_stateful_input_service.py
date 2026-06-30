@@ -9,6 +9,8 @@ from app.services.execution_registry import ExecutionRegistry
 from app.services.stateful_input_service import (
     DateChunk,
     StatefulInputService,
+    _benchmark_market_series_request_payload,
+    _BenchmarkMarketSeriesRequest,
     _component_index_id,
     _component_index_points,
     _component_point_records,
@@ -787,6 +789,26 @@ async def test_stateful_input_service_merges_chunked_market_series_and_fx_rates(
     ]
     assert len(core_service.benchmark_market_calls) == 2
     assert len(core_service.fx_calls) == 2
+    assert core_service.benchmark_market_calls == [
+        {
+            "benchmark_id": "BMK_1",
+            "as_of_date": date(2026, 1, 4),
+            "start_date": date(2026, 1, 1),
+            "end_date": date(2026, 1, 2),
+            "frequency": "daily",
+            "target_currency": "USD",
+            "series_fields": ["index_return"],
+        },
+        {
+            "benchmark_id": "BMK_1",
+            "as_of_date": date(2026, 1, 4),
+            "start_date": date(2026, 1, 3),
+            "end_date": date(2026, 1, 4),
+            "frequency": "daily",
+            "target_currency": "USD",
+            "series_fields": ["index_return"],
+        },
+    ]
 
 
 @pytest.mark.asyncio
@@ -894,6 +916,28 @@ def test_stateful_input_service_records_chunked_series_snapshots_once_per_reques
     assert {snapshot.paging_metadata["start_date"] for snapshot in snapshots} == {"2026-01-01", "2026-01-03"}
 
 
+def test_benchmark_market_series_request_payload_preserves_source_contract_fields():
+    request = _BenchmarkMarketSeriesRequest(
+        benchmark_id="BMK_1",
+        as_of_date=date(2026, 1, 4),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 4),
+        frequency="daily",
+        target_currency="USD",
+        series_fields=["component_weight"],
+    )
+    chunk = DateChunk(start_date=date(2026, 1, 1), end_date=date(2026, 1, 2))
+
+    assert _benchmark_market_series_request_payload(request=request, chunk=chunk) == {
+        "benchmark_id": "BMK_1",
+        "start_date": "2026-01-01",
+        "end_date": "2026-01-02",
+        "frequency": "daily",
+        "target_currency": "USD",
+        "series_fields": ["component_weight"],
+    }
+
+
 @pytest.mark.asyncio
 async def test_stateful_input_service_returns_first_failure_for_reference_chunks():
     class _FailingReferenceCoreService(_CoreServiceStub):
@@ -969,7 +1013,11 @@ async def test_stateful_input_service_records_reference_snapshots_even_when_chun
     assert status_code == 503
     assert payload == {"detail": "reference unavailable"}
     snapshots = execution_store.list_upstream_snapshots(calculation_id)
-    assert len([snapshot for snapshot in snapshots if snapshot.upstream_endpoint == "benchmark_market_series"]) == 2
+    market_snapshots = [snapshot for snapshot in snapshots if snapshot.upstream_endpoint == "benchmark_market_series"]
+    assert len(market_snapshots) == 2
+    assert {tuple(snapshot.paging_metadata["series_fields"]) for snapshot in market_snapshots} == {
+        ("index_return", "component_weight")
+    }
 
 
 @pytest.mark.asyncio
