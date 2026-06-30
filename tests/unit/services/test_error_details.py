@@ -19,6 +19,7 @@ def test_shared_error_detail_builders_preserve_governed_codes():
     assert source_unavailable_detail("Source down.") == {
         "code": "SOURCE_UNAVAILABLE",
         "message": "Source down.",
+        "retryable": True,
     }
     assert resource_not_found_detail("Missing source.") == {
         "code": "RESOURCE_NOT_FOUND",

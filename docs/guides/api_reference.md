@@ -8,6 +8,25 @@ Canonical machine-readable contract:
 This guide is a human-oriented map of the current endpoint surface. Model-level field
 descriptions and examples are maintained in the generated OpenAPI contract.
 
+## Error response contract
+
+Public API errors use a support-safe JSON envelope. The legacy `detail` field remains present for
+existing clients, but new Gateway, Workbench, reporting, operations, and agent consumers should map
+errors from these stable fields:
+
+- `error_code`: machine-readable error classification such as `INVALID_REQUEST`,
+  `RESOURCE_NOT_FOUND`, `SOURCE_UNAVAILABLE`, `CONFLICT`, `VALIDATION_ERROR`, or
+  `INTERNAL_SERVER_ERROR`
+- `message`: support-safe human-readable message
+- `correlation_id` and `request_id`: request diagnostics copied from the active request context
+- `source`: envelope author, currently `lotus-performance`
+- `retryable` and optional `retry_after_seconds`: retry and fallback guidance
+- `remediation_hint`: optional operator-facing resolution guidance
+- `validation_errors`: structured FastAPI validation details for malformed requests
+
+Unexpected `5xx` responses do not expose raw exception text in the public envelope. Internal details
+remain in structured logs and durable evidence under the same correlation context.
+
 ## Performance APIs
 
 ### `POST /performance/twr`

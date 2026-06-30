@@ -3,8 +3,9 @@ from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator
 
 import orjson
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
 
@@ -29,7 +30,12 @@ from app.api.endpoints import (
 )
 from app.core.config import get_settings
 from app.core.exceptions import PerformanceCalculatorError
-from app.core.handlers import core_api_error_exception_handler, performance_calculator_exception_handler
+from app.core.handlers import (
+    core_api_error_exception_handler,
+    http_exception_handler,
+    performance_calculator_exception_handler,
+    request_validation_exception_handler,
+)
 from app.enterprise_readiness import build_enterprise_audit_middleware, validate_enterprise_runtime_config
 from app.models.platform_surfaces import RootResponse
 from app.observability import setup_observability
@@ -151,6 +157,8 @@ app.middleware("http")(build_enterprise_audit_middleware())
 
 app.add_exception_handler(PerformanceCalculatorError, performance_calculator_exception_handler)
 app.add_exception_handler(APIError, core_api_error_exception_handler)
+app.add_exception_handler(HTTPException, http_exception_handler)
+app.add_exception_handler(RequestValidationError, request_validation_exception_handler)
 
 # Add a prefix to group performance-related endpoints
 app.include_router(performance.router, prefix="/performance")

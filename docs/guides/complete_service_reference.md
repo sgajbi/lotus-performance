@@ -21,6 +21,17 @@ Companion documents:
 - TWR inspection check inventory: [twr_inspection_checks.md](twr_inspection_checks.md)
 - methodology index: [../technical/methodology_index.md](../technical/methodology_index.md)
 
+## Error Response Contract
+
+`lotus-performance` returns support-safe public error envelopes. The legacy `detail` field remains
+available for compatibility, while downstream consumers should use `error_code`, `message`,
+`correlation_id`, `request_id`, `source`, `retryable`, optional `retry_after_seconds`, optional
+`remediation_hint`, and `validation_errors` for machine-readable handling.
+
+Raw exception text is not exposed in unexpected `5xx` responses. Operators should use
+`correlation_id` and `request_id` to join public failures with structured logs, durable execution
+state, lineage evidence, and runtime work-item diagnostics.
+
 ## Service Features
 
 `lotus-performance` currently owns these major capabilities:

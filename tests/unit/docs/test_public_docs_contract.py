@@ -83,6 +83,24 @@ def test_user_guide_documents_async_execution_surfaces():
     assert "/performance/lineage/{calculation_id}/artifacts/{artifact_name}" in guide
 
 
+def test_public_docs_document_safe_error_envelope_contract():
+    api_reference = _read("docs/guides/api_reference.md")
+    service_reference = _read("docs/guides/complete_service_reference.md")
+    operations_runbook = _read("wiki/Operations-Runbook.md")
+
+    for document in (api_reference, service_reference, operations_runbook):
+        assert "error_code" in document
+        assert "correlation_id" in document
+        assert "request_id" in document
+        assert "retryable" in document
+        assert "exception text" in document
+
+    assert "VALIDATION_ERROR" in api_reference
+    assert "INTERNAL_SERVER_ERROR" in api_reference
+    assert "legacy `detail` field remains" in service_reference
+    assert "Error response triage" in operations_runbook
+
+
 def test_lineage_docs_reflect_certified_artifact_contract():
     readme = _read("README.md")
     api_reference = _read("docs/guides/api_reference.md")
