@@ -5,7 +5,6 @@ from typing import Any, Iterator, NoReturn, Sequence
 from uuid import UUID
 
 import pandas as pd
-from fastapi import HTTPException, status
 
 from app.core.config import get_settings
 from app.models.attribution_analytics_requests import AttributionInputMode
@@ -22,8 +21,10 @@ from app.services.execution_lifecycle_service import (
     record_execution_failure,
 )
 from app.services.execution_registry import execution_registry
+from app.services.execution_stage_errors import is_mappable_application_error
 from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
 from core.envelope import Meta
+from core.errors import APIBadRequestError, APIError, APIInternalServerError
 from core.periods import resolve_periods
 from engine.attribution import aggregate_attribution_results, run_attribution_calculations
 from engine.exceptions import EngineCalculationError, InvalidEngineInputError
@@ -291,7 +292,7 @@ def _resolve_attribution_execution_window(request: AttributionRequest) -> _Attri
     )
 
     if not resolved_periods:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No valid periods could be resolved.")
+        raise APIBadRequestError("No valid periods could be resolved.")
 
     master_start_date, master_end_date, master_request = _attribution_master_request_for_resolved_periods(
         request,
@@ -335,20 +336,16 @@ def _record_attribution_execution_failure(
     )
 
 
-def _attribution_failure_http_exception(exc: Exception) -> HTTPException:
-    if isinstance(exc, HTTPException):
+def _attribution_failure_api_error(exc: Exception) -> APIError:
+    if isinstance(exc, APIError):
         return exc
+    if is_mappable_application_error(exc):
+        return APIError(status_code=int(getattr(exc, "status_code")), detail=getattr(exc, "detail"))
     if isinstance(exc, (InvalidEngineInputError, ValueError, NotImplementedError)):
-        return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+        return APIBadRequestError(str(exc))
     if isinstance(exc, EngineCalculationError):
-        return HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Calculation Error: {exc.message}",
-        )
-    return HTTPException(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        detail=f"An unexpected server error occurred: {str(exc)}",
-    )
+        return APIInternalServerError(f"Calculation Error: {exc.message}")
+    return APIInternalServerError(f"An unexpected server error occurred: {str(exc)}")
 
 
 def _raise_recorded_attribution_failure(
@@ -358,7 +355,7 @@ def _raise_recorded_attribution_failure(
     execution_stage_started: bool,
     lineage_stage_started: bool,
 ) -> NoReturn:
-    mapped_exc = _attribution_failure_http_exception(exc)
+    mapped_exc = _attribution_failure_api_error(exc)
     _record_attribution_execution_failure(
         calculation_id=calculation_id,
         message=str(mapped_exc.detail),
