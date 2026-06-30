@@ -22,6 +22,23 @@ The most relevant current governance for this repo includes:
 - runtime alerts:
   [docs/standards/runtime-alert-policy.md](../docs/standards/runtime-alert-policy.md)
 
+## Production runtime authorization
+
+Production-like profiles are explicit: `ENTERPRISE_RUNTIME_PROFILE=production`, `prod`, or
+`staging`. In those profiles the application fails closed at startup unless:
+
+- `ENTERPRISE_ENFORCE_AUTHZ=true`
+- `ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ=true`
+- `ENTERPRISE_ENFORCE_RUNTIME_CONFIG=true`
+- `ENTERPRISE_PRIMARY_KEY_ID` is configured
+
+Governed operator write surfaces such as `POST /integration/recovery-drills/run` and
+`POST /integration/runtime-retention-cleanups/run` require enterprise identity plus
+`operations.runtime.manage`. Governed operator read surfaces such as
+`GET /integration/runtime-status` require enterprise identity plus `operations.runtime.read`.
+Local relaxed mode remains explicit through `ENTERPRISE_RUNTIME_PROFILE=local` or an unset runtime
+profile with the authz switches disabled.
+
 ## Important cautions
 
 - emitted figures are product-facing and must stay auditably correct

@@ -141,6 +141,12 @@ For topology-parity local runs, the governed runtime overlays live in
 docker compose -f docker-compose.yml -f docs/examples/docker-compose.runtime-thresholds.production.yml up
 ```
 
+The production overlay also sets `ENTERPRISE_RUNTIME_PROFILE=production`,
+`ENTERPRISE_ENFORCE_AUTHZ=true`, `ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ=true`, and
+`ENTERPRISE_ENFORCE_RUNTIME_CONFIG=true`. Replace the sample `ENTERPRISE_PRIMARY_KEY_ID` before
+using the overlay outside local rehearsal; production-like profiles fail closed at startup when
+those controls are missing.
+
 Canonical stateful TWR inspection can be validated locally with:
 
 ```bash

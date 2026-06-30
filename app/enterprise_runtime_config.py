@@ -7,8 +7,12 @@ _MISSING_POLICY_VERSION_ISSUE = "missing_policy_version"
 # Issue code and environment variable name contain "secret" but do not carry credential material.
 _SECRET_ROTATION_DAYS_OUT_OF_RANGE_ISSUE = "secret_rotation_days_out_of_range"  # nosec B105
 _MISSING_PRIMARY_KEY_ID_ISSUE = "missing_primary_key_id"
+_PRODUCTION_WRITE_AUTHZ_DISABLED_ISSUE = "production_write_authz_disabled"
+_PRODUCTION_PRIVILEGED_READ_AUTHZ_DISABLED_ISSUE = "production_privileged_read_authz_disabled"
+_PRODUCTION_RUNTIME_CONFIG_ENFORCEMENT_DISABLED_ISSUE = "production_runtime_config_enforcement_disabled"
 _RUNTIME_CONFIG_INVALID_PREFIX = "enterprise_runtime_config_invalid"
 _DIAGNOSTIC_LIST_SEPARATOR = ","
+_ENV_ENTERPRISE_RUNTIME_PROFILE = "ENTERPRISE_RUNTIME_PROFILE"
 _ENV_ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ = "ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ"
 _ENV_ENTERPRISE_ENFORCE_AUTHZ = "ENTERPRISE_ENFORCE_AUTHZ"
 _ENV_ENTERPRISE_ENFORCE_RUNTIME_CONFIG = "ENTERPRISE_ENFORCE_RUNTIME_CONFIG"
@@ -21,6 +25,8 @@ _ENV_ENTERPRISE_CAPABILITY_RULES_JSON = "ENTERPRISE_CAPABILITY_RULES_JSON"
 _ENV_ENTERPRISE_PRIVILEGED_READ_RULES_JSON = "ENTERPRISE_PRIVILEGED_READ_RULES_JSON"
 _ENV_SWITCH_DISABLED_DEFAULT = "false"
 _ENV_ENABLED_VALUES = frozenset({"1", "true", "yes", "on"})
+_PRODUCTION_LIKE_RUNTIME_PROFILES = frozenset({"prod", "production", "staging"})
+_DEFAULT_RUNTIME_PROFILE = "local"
 _EMPTY_ENV_VALUE = ""
 _EMPTY_JSON_OBJECT = "{}"
 _DEFAULT_MAX_WRITE_PAYLOAD_BYTES = 1_048_576
@@ -33,6 +39,14 @@ def _env_value(name: str, default: str) -> str:
 
 def _env_enabled(name: str, default: str = "true") -> bool:
     return _env_value(name, default).strip().lower() in _ENV_ENABLED_VALUES
+
+
+def _runtime_profile() -> str:
+    return _env_value(_ENV_ENTERPRISE_RUNTIME_PROFILE, _DEFAULT_RUNTIME_PROFILE).strip().lower()
+
+
+def _production_like_runtime_profile_enabled() -> bool:
+    return _runtime_profile() in _PRODUCTION_LIKE_RUNTIME_PROFILES
 
 
 def _privileged_read_authz_enabled() -> bool:
@@ -99,6 +113,14 @@ def _write_authz_primary_key_config_valid() -> bool:
     return not _write_authz_enabled() or _primary_key_configured()
 
 
+def _production_primary_key_config_valid() -> bool:
+    return not _production_like_runtime_profile_enabled() or _primary_key_configured()
+
+
+def _runtime_config_issues_should_raise(issues: list[str]) -> bool:
+    return bool(issues) and (_runtime_config_enforcement_enabled() or _production_like_runtime_profile_enabled())
+
+
 def _enterprise_runtime_config_issues() -> list[str]:
     issues: list[str] = []
     if not _normalized_enterprise_policy_version():
@@ -111,6 +133,16 @@ def _enterprise_runtime_config_issues() -> list[str]:
     if not _write_authz_primary_key_config_valid():
         issues.append(_MISSING_PRIMARY_KEY_ID_ISSUE)
 
+    if _production_like_runtime_profile_enabled():
+        if not _write_authz_enabled():
+            issues.append(_PRODUCTION_WRITE_AUTHZ_DISABLED_ISSUE)
+        if not _privileged_read_authz_enabled():
+            issues.append(_PRODUCTION_PRIVILEGED_READ_AUTHZ_DISABLED_ISSUE)
+        if not _runtime_config_enforcement_enabled():
+            issues.append(_PRODUCTION_RUNTIME_CONFIG_ENFORCEMENT_DISABLED_ISSUE)
+        if not _production_primary_key_config_valid() and _MISSING_PRIMARY_KEY_ID_ISSUE not in issues:
+            issues.append(_MISSING_PRIMARY_KEY_ID_ISSUE)
+
     return issues
 
 
@@ -120,6 +152,6 @@ def _runtime_config_invalid_message(issues: list[str]) -> str:
 
 def validate_enterprise_runtime_config() -> list[str]:
     issues = _enterprise_runtime_config_issues()
-    if issues and _runtime_config_enforcement_enabled():
+    if _runtime_config_issues_should_raise(issues):
         raise RuntimeError(_runtime_config_invalid_message(issues))
     return issues

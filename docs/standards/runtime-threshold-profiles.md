@@ -131,3 +131,9 @@ Repo-owned example overlays are provided for direct adoption or adaptation:
 - `docs/examples/docker-compose.runtime-thresholds.development.yml`
 - `docs/examples/docker-compose.runtime-thresholds.staging.yml`
 - `docs/examples/docker-compose.runtime-thresholds.production.yml`
+
+The production examples also carry the enterprise runtime security contract:
+`ENTERPRISE_RUNTIME_PROFILE=production`, `ENTERPRISE_ENFORCE_AUTHZ=true`,
+`ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ=true`, `ENTERPRISE_ENFORCE_RUNTIME_CONFIG=true`, and a
+non-blank `ENTERPRISE_PRIMARY_KEY_ID`. Production-like profiles fail closed at startup when these
+controls are missing or disabled.
