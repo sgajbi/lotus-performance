@@ -23,6 +23,7 @@ jobs:
   workflow-lint:
     name: PR Merge Gate / Workflow Lint
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Configure Git Default Branch
         run: git config --global init.defaultBranch main
@@ -32,6 +33,7 @@ jobs:
   static-quality-gates:
     name: PR Merge Gate / Static Quality Gates
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Configure Git Default Branch
         run: git config --global init.defaultBranch main
@@ -64,6 +66,7 @@ jobs:
   contract-security-gates:
     name: PR Merge Gate / Contract Security Gates
     runs-on: ubuntu-latest
+    timeout-minutes: 35
     steps:
       - name: Configure Git Default Branch
         run: git config --global init.defaultBranch main
@@ -99,6 +102,7 @@ jobs:
     needs: [static-quality-gates, contract-security-gates]
     if: ${{ always() }}
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Verify split quality and security gates passed
         run: |
@@ -116,6 +120,7 @@ jobs:
     name: PR Merge Gate / Tests (${{ matrix.suite }})
     needs: [static-quality-gates, contract-security-gates]
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -152,6 +157,7 @@ jobs:
     name: PR Merge Gate / Coverage Gate (Combined)
     needs: [test-suites]
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Configure Git Default Branch
         run: git config --global init.defaultBranch main
@@ -177,6 +183,7 @@ jobs:
     name: PR Merge Gate / Validate Docker Build
     needs: [coverage-gate]
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - name: Configure Git Default Branch
         run: git config --global init.defaultBranch main

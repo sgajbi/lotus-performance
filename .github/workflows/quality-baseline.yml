@@ -22,6 +22,7 @@ jobs:
   quality-snapshot:
     name: Quality Baseline / Snapshot
     runs-on: ubuntu-latest
+    timeout-minutes: 35
     steps:
       - name: Configure Git Default Branch
         run: git config --global init.defaultBranch main

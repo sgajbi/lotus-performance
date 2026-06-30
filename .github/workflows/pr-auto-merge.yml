@@ -17,6 +17,7 @@ jobs:
       github.event.pull_request.base.ref == 'main' &&
       github.event.pull_request.head.repo.fork == false
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Enable auto-merge queue (rebase)
         env:

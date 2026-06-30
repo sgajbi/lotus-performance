@@ -68,6 +68,7 @@ No gate should move from one phase to the next until it has:
 | Ruff lint and format | Blocking in all quality lanes through `make lint` | Keep blocking; use as the style and simple-correctness baseline. |
 | Monetary float guard | Blocking through `make lint` | Keep blocking for finance-domain numeric safety. |
 | Repository hygiene | Blocking through `make lint` via `make repository-hygiene-gate`; current baseline has 0 tracked local byproduct findings across Git-tracked paths | Keep blocking. Exceptions should be avoided; if a generated artifact must become durable source truth, move it under a governed docs/contracts/evidence path and document why it is source-owned. |
+| GitHub Actions runtime guard | Blocking through `make lint` via `make github-action-runtime-guard`; every workflow job must declare a role-sized `timeout-minutes` value, and artifact upload/download actions must remain on Node 24-compatible major versions | Keep blocking. New workflow jobs must carry bounded execution budgets sized to their lane role instead of relying on GitHub's broad platform default timeout. |
 | mypy typecheck | Blocking in feature, PR, and main lanes | Keep blocking; expand typed boundary cleanup through normal refactor slices. |
 | Unit tests | Blocking in feature, PR, and main lanes | Keep blocking; add focused tests when refactoring hotspots. |
 | Integration and e2e tests | Blocking in PR and main lanes | Keep blocking at merge/release lanes; use targeted local subsets during slices. |
