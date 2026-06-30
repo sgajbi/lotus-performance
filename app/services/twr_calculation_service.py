@@ -12,6 +12,7 @@ from app.models.benchmark_analytics_requests import (
 from app.models.responses import PerformanceResponse, TWRAcceptedResponse
 from app.models.twr_requests import TWRAnalyticsRequest, TWRInputMode, TWRResolvedExecutionRequest
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_TWR
+from app.services.async_observability_context import async_observability_request_payload
 from app.services.engine_exception_mapping_service import map_engine_exception_to_http_error
 from app.services.execution_lifecycle_service import record_execution_failure
 from app.services.execution_registry import execution_registry
@@ -162,18 +163,20 @@ def finalize_twr_resolved_execution_identity(
             ),
             input_fingerprint=input_fingerprint,
             calculation_hash=calculation_hash,
-            resolved_request_payload={
-                "resolved_request": resolved_twr_identity_payload.model_dump(mode="json"),
-                "source_input_mode": resolved_request.input_mode.value,
-                "benchmark_input_mode": (
-                    resolved_request.benchmark_input_mode.value
-                    if resolved_request.benchmark_input_mode is not None
-                    else None
-                ),
-                "resolved_benchmark_id": resolved_request.resolved_benchmark_id,
-                "benchmark_return_source": twr_resolved_benchmark_return_source(request).value,
-                "portfolio_id": request.portfolio_id,
-            },
+            resolved_request_payload=async_observability_request_payload(
+                {
+                    "resolved_request": resolved_twr_identity_payload.model_dump(mode="json"),
+                    "source_input_mode": resolved_request.input_mode.value,
+                    "benchmark_input_mode": (
+                        resolved_request.benchmark_input_mode.value
+                        if resolved_request.benchmark_input_mode is not None
+                        else None
+                    ),
+                    "resolved_benchmark_id": resolved_request.resolved_benchmark_id,
+                    "benchmark_return_source": twr_resolved_benchmark_return_source(request).value,
+                    "portfolio_id": request.portfolio_id,
+                }
+            ),
             should_offload=should_offload_resolved_twr(resolved_input_count),
             offload_reason="large_resolved_stateful_twr",
             accepted_response_factory=accepted_twr_response,
@@ -293,7 +296,7 @@ async def calculate_twr_workflow(request: TWRAnalyticsRequest) -> PerformanceRes
             requested_window=requested_window,
             input_fingerprint=input_fingerprint,
             calculation_hash=calculation_hash,
-            request_payload=request.model_dump(mode="json"),
+            request_payload=async_observability_request_payload(request.model_dump(mode="json")),
             offload_reason=_twr_pre_resolution_offload_reason(request),
             accepted_response_factory=accepted_twr_response,
         )

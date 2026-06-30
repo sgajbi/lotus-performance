@@ -12,7 +12,7 @@ from app.models.contribution_requests import ContributionRequest
 from app.models.requests import PerformanceRequest
 from app.models.returns_series import ReturnsSeriesRequest
 from app.models.twr_requests import TWRInputMode, TWRResolvedExecutionRequest
-from app.observability import correlation_id_var
+from app.observability import correlation_id_var, request_id_var, trace_id_var
 from app.services import (
     attribution_service,
     benchmark_service,
@@ -110,6 +110,47 @@ def _compute_job_record(
         started_at_utc="2026-01-01T00:00:00+00:00",
         completed_at_utc=None,
     )
+
+
+def test_execute_compute_job_restores_async_context_for_any_executor(monkeypatch):
+    observed: dict[str, str] = {}
+
+    def _executor(job, context):  # noqa: ANN001, ANN202, ARG001
+        observed["correlation_id"] = correlation_id_var.get()
+        observed["request_id"] = request_id_var.get()
+        observed["trace_id"] = trace_id_var.get()
+        return "ok"
+
+    original_executors = dict(compute_executor_worker._COMPUTE_JOB_EXECUTORS)
+    monkeypatch.setitem(compute_executor_worker._COMPUTE_JOB_EXECUTORS, "AnyWorkflow", _executor)
+    job = SimpleNamespace(
+        analytics_type="AnyWorkflow",
+        request_payload={
+            "observability_context": {
+                "correlation_id": "corr-any-workflow",
+                "request_id": "req-any-workflow",
+                "trace_id": "trace-any-workflow",
+            }
+        },
+    )
+    correlation_token = correlation_id_var.set("corr-outside")
+    request_token = request_id_var.set("req-outside")
+    trace_token = trace_id_var.set("trace-outside")
+
+    try:
+        assert compute_executor_worker._execute_compute_job(job, SimpleNamespace()) == "ok"
+    finally:
+        correlation_id_var.reset(correlation_token)
+        request_id_var.reset(request_token)
+        trace_id_var.reset(trace_token)
+        compute_executor_worker._COMPUTE_JOB_EXECUTORS.clear()
+        compute_executor_worker._COMPUTE_JOB_EXECUTORS.update(original_executors)
+
+    assert observed == {
+        "correlation_id": "corr-any-workflow",
+        "request_id": "req-any-workflow",
+        "trace_id": "trace-any-workflow",
+    }
 
 
 def test_compute_executor_worker_runtime_builder_preserves_explicit_overrides(tmp_path):

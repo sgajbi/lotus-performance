@@ -92,6 +92,11 @@ workflow has to continue in the compute executor, so operators can join the API 
 durable execution state, compute-worker result, lineage-worker materialization, and result polling by
 `calculation_id` plus the propagated correlation or trace identifier when available.
 
+The propagated async context applies to returns-series, contribution, attribution, benchmark, TWR,
+workspace-summary, and TWR-inspection submissions. The transient `observability_context` field is
+ignored for replay and conflict identity so correlation differences do not create false duplicate
+submission conflicts.
+
 Worker logs include bounded operational fields instead of raw request or response payloads:
 
 - compute executor logs include `worker_name=compute_executor_worker`, `queue=compute`,

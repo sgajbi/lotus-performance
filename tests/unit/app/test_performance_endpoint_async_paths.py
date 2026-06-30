@@ -11,6 +11,7 @@ from app.models.attribution_requests import AttributionRequest
 from app.models.mwr_analytics_requests import MoneyWeightedReturnAnalyticsRequest
 from app.models.twr_requests import TWRAnalyticsRequest
 from app.models.workspace_summary_requests import WorkspaceSummaryRequest
+from app.observability import correlation_id_var, request_id_var, trace_id_var
 from app.services import attribution_calculation_workflow_service
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY
 from app.services.attribution_mode_service import ResolvedAttributionRequest
@@ -154,6 +155,54 @@ def test_workspace_submission_helpers_project_window_and_offload_reason():
         "longest_window_days": 10_000,
     }
     assert performance_endpoint._workspace_offload_reason(request) == "long_window_stateful_workspace_summary"
+
+
+def test_workspace_summary_async_submission_captures_observability_context(mocker):
+    request = WorkspaceSummaryRequest.model_validate(
+        {
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "P1",
+            "report_end_date": "2025-01-02",
+            "periods": [{"period": "SI", "frequencies": ["daily"]}],
+            "input_mode": "stateful",
+            "stateful_input": {},
+        }
+    )
+    accepted_response = performance_endpoint._accepted_workspace_summary_response(request.calculation_id)
+    mocker.patch(
+        "app.api.endpoints.performance.get_settings",
+        return_value=type(
+            "Settings",
+            (),
+            {
+                "APP_VERSION": "runtime-version",
+                "WORKSPACE_SUMMARY_EXECUTOR_WINDOW_DAYS": 30,
+                "WORKSPACE_SUMMARY_EXECUTOR_INPUT_COUNT": 50,
+            },
+        )(),
+    )
+    register_async = mocker.patch(
+        "app.api.endpoints.performance.register_async_submission_or_raise",
+        return_value=accepted_response,
+    )
+    correlation_token = correlation_id_var.set("corr-workspace")
+    request_token = request_id_var.set("req-workspace")
+    trace_token = trace_id_var.set("trace-workspace")
+
+    try:
+        response = performance_endpoint.calculate_workspace_summary_endpoint(request)
+    finally:
+        correlation_id_var.reset(correlation_token)
+        request_id_var.reset(request_token)
+        trace_id_var.reset(trace_token)
+
+    assert response == accepted_response
+    assert register_async.call_args.kwargs["analytics_type"] == ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY
+    assert register_async.call_args.kwargs["request_payload"]["observability_context"] == {
+        "correlation_id": "corr-workspace",
+        "request_id": "req-workspace",
+        "trace_id": "trace-workspace",
+    }
 
 
 @pytest.mark.asyncio

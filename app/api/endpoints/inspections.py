@@ -12,6 +12,7 @@ from app.models.inspection_responses import TWRInspectionAcceptedResponse, TWRIn
 from app.models.platform_surfaces import ErrorDetailResponse
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_TWR_INSPECTION
 from app.services.artifact_filename_policy import validate_artifact_filename
+from app.services.async_observability_context import async_observability_request_payload
 from app.services.async_result_service import resolve_async_result
 from app.services.execution_registry import execution_registry
 from app.services.lineage_metadata_store import LineagePayload, LineageRecord, LineageStatus, lineage_metadata_store
@@ -119,7 +120,7 @@ def submit_twr_inspection(request: TWRInspectionRequest):
         requested_window=_inspection_requested_window(request),
         input_fingerprint=input_fingerprint,
         calculation_hash=calculation_hash,
-        request_payload=request.model_dump(mode="json"),
+        request_payload=async_observability_request_payload(request.model_dump(mode="json")),
         offload_reason="inspection_runtime",
         accepted_response_factory=_accepted_response,
     )

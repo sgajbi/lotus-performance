@@ -9,6 +9,7 @@ from fastapi import HTTPException
 from app.api.endpoints import benchmark as benchmark_endpoint
 from app.models.benchmark_analytics_requests import BenchmarkAnalyticsRequest, BenchmarkInputMode
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
+from app.observability import correlation_id_var, request_id_var, trace_id_var
 from app.services import benchmark_calculation_workflow_service
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_BENCHMARK
 from app.services.benchmark_mode_service import ResolvedBenchmarkRequest
@@ -179,12 +180,20 @@ def test_finalize_promoted_stateful_benchmark_execution_projects_resolved_payloa
         "app.services.benchmark_calculation_workflow_service.finalize_resolved_stateful_execution",
         return_value=accepted_response,
     )
+    correlation_token = correlation_id_var.set(" corr-benchmark ")
+    request_token = request_id_var.set(" req-benchmark ")
+    trace_token = trace_id_var.set(" trace-benchmark ")
 
-    response = benchmark_calculation_workflow_service._finalize_promoted_stateful_benchmark_execution(
-        request=request,
-        source_request_fingerprint="source-fingerprint",
-        resolved_context=resolved_context,
-    )
+    try:
+        response = benchmark_calculation_workflow_service._finalize_promoted_stateful_benchmark_execution(
+            request=request,
+            source_request_fingerprint="source-fingerprint",
+            resolved_context=resolved_context,
+        )
+    finally:
+        correlation_id_var.reset(correlation_token)
+        request_id_var.reset(request_token)
+        trace_id_var.reset(trace_token)
 
     assert response == accepted_response
     assert finalize_resolved.call_args.kwargs["calculation_id"] == request.calculation_id
@@ -196,6 +205,11 @@ def test_finalize_promoted_stateful_benchmark_execution_projects_resolved_payloa
     assert finalize_resolved.call_args.kwargs["resolved_request_payload"] == {
         "resolved_request": resolved_request.model_dump(mode="json"),
         "source_input_mode": BenchmarkInputMode.STATEFUL.value,
+        "observability_context": {
+            "correlation_id": "corr-benchmark",
+            "request_id": "req-benchmark",
+            "trace_id": "trace-benchmark",
+        },
     }
     assert finalize_resolved.call_args.kwargs["should_offload"] is True
     assert finalize_resolved.call_args.kwargs["offload_reason"] == "large_resolved_stateful_benchmark"

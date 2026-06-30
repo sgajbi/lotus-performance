@@ -9,6 +9,7 @@ from app.models.attribution_analytics_requests import AttributionAnalyticsReques
 from app.models.attribution_requests import AttributionRequest
 from app.models.attribution_responses import AttributionAcceptedResponse, AttributionResponse
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_ATTRIBUTION
+from app.services.async_observability_context import async_observability_request_payload
 from app.services.attribution_mode_service import ResolvedAttributionRequest, resolve_attribution_request
 from app.services.attribution_service import calculate_attribution
 from app.services.execution_lifecycle_service import record_execution_failure
@@ -135,12 +136,14 @@ def _finalize_resolved_stateful_attribution_execution(
         requested_window=requested_window,
         input_fingerprint=input_fingerprint,
         calculation_hash=calculation_hash,
-        resolved_request_payload={
-            "resolved_request": resolved.attribution_request.model_dump(mode="json"),
-            "source_input_mode": resolved.input_mode.value,
-            "resolved_benchmark_id": resolved.resolved_benchmark_id,
-            "resolved_benchmark_return_source": resolved.resolved_benchmark_return_source,
-        },
+        resolved_request_payload=async_observability_request_payload(
+            {
+                "resolved_request": resolved.attribution_request.model_dump(mode="json"),
+                "source_input_mode": resolved.input_mode.value,
+                "resolved_benchmark_id": resolved.resolved_benchmark_id,
+                "resolved_benchmark_return_source": resolved.resolved_benchmark_return_source,
+            }
+        ),
         should_offload=should_offload_resolved_attribution(resolved.input_count),
         offload_reason="large_resolved_stateful_attribution",
         accepted_response_factory=accepted_attribution_response,
@@ -169,7 +172,7 @@ def _initial_attribution_async_submission(
         requested_window=requested_window,
         input_fingerprint=input_fingerprint,
         calculation_hash=calculation_hash,
-        request_payload=request.model_dump(mode="json"),
+        request_payload=async_observability_request_payload(request.model_dump(mode="json")),
         offload_reason=offload_reason,
         accepted_response_factory=accepted_attribution_response,
     )
