@@ -101,6 +101,22 @@ def test_public_docs_document_safe_error_envelope_contract():
     assert "Error response triage" in operations_runbook
 
 
+def test_public_docs_document_http_security_boundary_contract():
+    enterprise_readiness = _read("docs/standards/enterprise-readiness.md")
+    repository_context = _read("REPOSITORY-ENGINEERING-CONTEXT.md")
+    operations_runbook = _read("wiki/Operations-Runbook.md")
+
+    for document in (enterprise_readiness, repository_context, operations_runbook):
+        assert "HTTP_ALLOWED_HOSTS" in document
+        assert "CORS_ALLOWED_ORIGINS" in document
+        assert "HTTP_SECURITY_HSTS_ENABLED" in document
+        assert "app.http_security" in document
+
+    assert "X-Content-Type-Options" in enterprise_readiness
+    assert "Content-Security-Policy" in operations_runbook
+    assert "TLS" in operations_runbook
+
+
 def test_lineage_docs_reflect_certified_artifact_contract():
     readme = _read("README.md")
     api_reference = _read("docs/guides/api_reference.md")

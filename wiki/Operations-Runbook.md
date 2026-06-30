@@ -46,6 +46,21 @@ structured service logs, durable execution state, runtime work items, and lineag
 Unexpected `5xx` responses intentionally avoid raw exception text; inspect logs and durable
 evidence under the same correlation context when deeper diagnosis is needed.
 
+## HTTP boundary controls
+
+`lotus-performance` registers explicit HTTP boundary hardening in `app.http_security`.
+Operators should review these settings for each environment:
+
+- `HTTP_ALLOWED_HOSTS`: allowed Host header values for `TrustedHostMiddleware`
+- `CORS_ALLOWED_ORIGINS`: browser origins allowed to call the API
+- `HTTP_SECURITY_HSTS_ENABLED`: enable only when this service owns the HTTPS boundary
+- `HTTP_SECURITY_HSTS_MAX_AGE_SECONDS`: HSTS max-age when HSTS is enabled
+
+Every success and handled error response should include `X-Content-Type-Options`,
+`X-Frame-Options`, `Referrer-Policy`, and `Content-Security-Policy`. If TLS terminates at platform
+ingress, HSTS may be owned there instead of by the service process; keep that decision explicit in
+deployment configuration.
+
 ## Async worker diagnostics
 
 API and background-worker logs use the same JSON logging contract. For async calculation incidents,

@@ -69,6 +69,10 @@ Current repository posture:
     component-family supportability. `lotus-performance` still owns contribution methodology and
     treats non-200 or unavailable component-economics responses as degraded evidence rather than
     as a required-input failure.
+13. HTTP boundary hardening is centralized in `app.http_security`: `HTTP_ALLOWED_HOSTS` controls
+    host allow-listing, `CORS_ALLOWED_ORIGINS` controls explicit browser origins, standard security
+    headers are emitted on success and error responses, and `HTTP_SECURITY_HSTS_ENABLED` is used
+    only when the service owns the HTTPS boundary rather than delegating TLS to ingress.
 
 ## Architecture And Module Map
 
