@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
+from types import SimpleNamespace
 from typing import cast
 from uuid import uuid4
 
@@ -171,6 +172,19 @@ def test_to_dataframe_normalizes_mixed_date_like_return_points_to_timestamps():
     assert [value.date().isoformat() for value in df["date"]] == ["2026-02-23", "2026-02-24"]
 
 
+def test_to_dataframe_rejects_duplicate_dates_after_timestamp_normalization():
+    points = [
+        cast(ReturnPoint, SimpleNamespace(date="2026-02-23", return_value=Decimal("0.001"))),
+        cast(ReturnPoint, SimpleNamespace(date=pd.Timestamp("2026-02-23"), return_value=Decimal("0.002"))),
+    ]
+
+    with pytest.raises(HTTPException) as exc:
+        returns_series_service.to_dataframe(points, series_type="portfolio")
+
+    assert exc.value.status_code == 400
+    assert exc.value.detail["message"] == "portfolio series contains duplicate dates."
+
+
 def test_benchmark_daily_returns_to_dataframe_preserves_index_during_timestamp_normalization():
     source_df = pd.DataFrame(
         {
@@ -200,6 +214,21 @@ def test_benchmark_daily_returns_to_dataframe_rejects_duplicate_dates():
     source_df = pd.DataFrame(
         {
             "date": ["2026-02-23", "2026-02-23"],
+            "benchmark_return": [Decimal("0.001"), Decimal("0.002")],
+        }
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        returns_series_service._benchmark_daily_returns_to_dataframe(source_df)
+
+    assert exc.value.status_code == 400
+    assert exc.value.detail["message"] == "benchmark series contains duplicate dates."
+
+
+def test_benchmark_daily_returns_to_dataframe_rejects_normalized_duplicate_dates():
+    source_df = pd.DataFrame(
+        {
+            "date": ["2026-02-23", pd.Timestamp("2026-02-23")],
             "benchmark_return": [Decimal("0.001"), Decimal("0.002")],
         }
     )
@@ -946,6 +975,19 @@ def test_risk_free_points_to_dataframe_skips_malformed_points():
 
     assert [value.date().isoformat() for value in risk_free_df["date"]] == ["2026-04-10"]
     assert [str(value) for value in risk_free_df["return_value"]] == ["0.0001"]
+
+
+def test_risk_free_points_to_dataframe_rejects_duplicate_dates():
+    with pytest.raises(HTTPException) as exc:
+        returns_series_service.risk_free_points_to_dataframe(
+            points=[
+                {"series_date": "2026-04-10", "value": "0.0001"},
+                {"series_date": "2026-04-10", "value": "0.0002"},
+            ]
+        )
+
+    assert exc.value.status_code == 400
+    assert exc.value.detail["message"] == "risk_free series contains duplicate dates."
 
 
 def test_apply_calendar_policy_filters_daily_business_and_market_dates():

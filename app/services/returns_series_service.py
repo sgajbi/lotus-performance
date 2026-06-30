@@ -240,13 +240,17 @@ def to_dataframe(points: Iterable[ReturnPoint], *, series_type: str) -> pd.DataF
             status_code=HTTP_422_UNPROCESSABLE,
             detail=insufficient_data_detail(f"{series_type} series is empty."),
         )
+    df["date"] = _return_timestamp_series(df["date"])
+    _raise_duplicate_return_dates(df, series_type=series_type)
+    return df.sort_values("date")
+
+
+def _raise_duplicate_return_dates(df: pd.DataFrame, *, series_type: str) -> None:
     if df["date"].duplicated().any():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=invalid_request_detail(f"{series_type} series contains duplicate dates."),
         )
-    df["date"] = _return_timestamp_series(df["date"])
-    return df.sort_values("date")
 
 
 def _return_timestamp_series(values: Iterable[object]) -> pd.Series:
@@ -602,11 +606,7 @@ def _benchmark_daily_returns_to_dataframe(daily_returns_df: pd.DataFrame) -> pd.
     benchmark_df = daily_returns_df[["date", "benchmark_return"]].copy()
     benchmark_df["date"] = _return_timestamp_series(benchmark_df["date"])
     benchmark_df = benchmark_df.rename(columns={"benchmark_return": "return_value"}).sort_values("date")
-    if benchmark_df["date"].duplicated().any():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=invalid_request_detail("benchmark series contains duplicate dates."),
-        )
+    _raise_duplicate_return_dates(benchmark_df, series_type="benchmark")
     return benchmark_df
 
 
