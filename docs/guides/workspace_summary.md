@@ -68,8 +68,10 @@ The current workspace period family is:
 Annualization is always present in the response:
 
 - for periods up to one year, `annualized_return` intentionally equals `cumulative_return`
+- when `annualization.enabled=false`, `annualized_return` remains present and intentionally equals
+  `cumulative_return`
 - for periods longer than one year, `annualized_return` is derived from the cumulative return over
-  the resolved window
+  the resolved window only when annualization is enabled
 
 This keeps the workspace surface uniform across all requested periods.
 
@@ -78,7 +80,7 @@ Return semantics are now explicit across the workspace surface:
 - `period_return` is the return earned inside the current resolved summary window or breakdown bucket
 - `cumulative_return` is the return accumulated through the end of that summary window or bucket
 - `annualized_return` is always present; for periods up to one year it intentionally equals
-  `cumulative_return`
+  `cumulative_return`; when annualization is disabled it also equals `cumulative_return`
 
 ## Economic context returned
 
