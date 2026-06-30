@@ -5,7 +5,6 @@ from uuid import uuid4
 
 import pandas as pd
 import pytest
-from fastapi import HTTPException
 
 from app.models.benchmark_analytics_requests import BenchmarkInputMode
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
@@ -369,7 +368,7 @@ def test_resolve_stateful_portfolio_start_date_surfaces_upstream_service_errors(
         return_value=SimpleNamespace(get_portfolio_reference=_get_portfolio_reference),
     )
 
-    with pytest.raises((HTTPException, APIError), match="stateful portfolio reference source unavailable"):
+    with pytest.raises(APIError, match="stateful portfolio reference source unavailable"):
         _resolve_stateful_portfolio_start_date(request=request, settings=SimpleNamespace())
 
 
@@ -393,7 +392,7 @@ def test_resolve_stateful_portfolio_start_date_rejects_invalid_reference_payload
         return_value=SimpleNamespace(get_portfolio_reference=_get_portfolio_reference),
     )
 
-    with pytest.raises((HTTPException, APIError), match="Invalid portfolio_open_date"):
+    with pytest.raises(APIError, match="Invalid portfolio_open_date"):
         _resolve_stateful_portfolio_start_date(request=request, settings=SimpleNamespace())
 
 
@@ -425,7 +424,7 @@ def test_resolve_workspace_benchmark_input_rejects_missing_assignment(mocker):
         return_value=SimpleNamespace(get_benchmark_assignment=_get_benchmark_assignment),
     )
 
-    with pytest.raises((HTTPException, APIError), match="No benchmark assignment found"):
+    with pytest.raises(APIError, match="No benchmark assignment found"):
         _resolve_workspace_benchmark_input(
             request=request,
             settings=SimpleNamespace(),
@@ -455,7 +454,7 @@ def test_resolve_workspace_benchmark_input_rejects_assignment_payload_without_be
         return_value=SimpleNamespace(get_benchmark_assignment=_get_benchmark_assignment),
     )
 
-    with pytest.raises((HTTPException, APIError), match="benchmark assignment payload missing benchmark_id"):
+    with pytest.raises(APIError, match="benchmark assignment payload missing benchmark_id"):
         _resolve_workspace_benchmark_input(
             request=request,
             settings=SimpleNamespace(),
@@ -565,7 +564,7 @@ def test_resolve_workspace_benchmark_input_rejects_stateless_payload_missing_req
         fx=None,
     )
 
-    with pytest.raises((HTTPException, APIError), match="Stateless workspace benchmark requests require benchmark_id"):
+    with pytest.raises(APIError, match="Stateless workspace benchmark requests require benchmark_id"):
         _resolve_workspace_benchmark_input(
             request=request,
             settings=SimpleNamespace(),
@@ -650,9 +649,7 @@ def test_resolve_workspace_portfolio_input_rejects_stateless_request_without_per
         fx=None,
     )
 
-    with pytest.raises(
-        (HTTPException, APIError), match="performance_start_date is required for stateless workspace summary"
-    ):
+    with pytest.raises(APIError, match="performance_start_date is required for stateless workspace summary"):
         _resolve_workspace_portfolio_input(request=request, settings=SimpleNamespace())
 
 
@@ -1306,7 +1303,7 @@ def test_resolve_stateful_portfolio_start_date_rejects_missing_open_date(mocker)
         return_value=SimpleNamespace(get_portfolio_reference=_get_portfolio_reference),
     )
 
-    with pytest.raises((HTTPException, APIError), match="Stateful source missing portfolio_open_date"):
+    with pytest.raises(APIError, match="Stateful source missing portfolio_open_date"):
         _resolve_stateful_portfolio_start_date(request=request, settings=SimpleNamespace())
 
 
@@ -1620,7 +1617,7 @@ def test_resolve_workspace_inputs_rejects_empty_resolved_periods(mocker):
     )
     mocker.patch("app.services.workspace_summary_service.resolve_workspace_periods", return_value=[])
 
-    with pytest.raises((HTTPException, APIError), match="No valid workspace periods"):
+    with pytest.raises(APIError, match="No valid workspace periods"):
         _resolve_workspace_inputs(request=request, settings=SimpleNamespace())
 
 
