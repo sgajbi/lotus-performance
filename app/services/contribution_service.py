@@ -153,6 +153,8 @@ class _FlatContributionPositionAssembly:
 
 @dataclass(frozen=True)
 class _HierarchyContributionPositionAssembly:
+    selected_average_weight_column: str
+    use_reset_aware_average_weight: bool
     position_contributions: list[PositionContribution]
     daily_series: list[DailyContribution] | None
     emitted_position_series: list[PositionContributionSeries] | None
@@ -373,22 +375,28 @@ def _build_hierarchy_contribution_position_assembly(
     period: Any,
     period_slice_df: Any,
     period_methodology_context: ContributionPeriodMethodologyContext,
+    reset_aware_average_weight_mode: str,
     total_portfolio_return: Any,
 ) -> _HierarchyContributionPositionAssembly:
+    selected_average_weight_column, use_reset_aware_average_weight = _select_period_average_weight_column(
+        period_methodology_context=period_methodology_context,
+        reset_aware_average_weight_mode=reset_aware_average_weight_mode,
+    )
     position_totals_result = build_residual_adjusted_position_totals(
         period_slice_df=period_slice_df,
         average_weight_df=period_methodology_context.average_weight_shadow_df,
         total_portfolio_return=total_portfolio_return,
         smoothing_method=request.smoothing.method,
-        average_weight_columns=["average_weight"],
-        residual_allocation_weight_column="average_weight",
+        average_weight_columns=["average_weight", "reset_aware_average_weight_shadow"],
+        residual_allocation_weight_column="selected_average_weight",
+        selected_average_weight_source_column=selected_average_weight_column,
     )
     position_contributions = build_position_contributions(
         totals_df=position_totals_result.totals_df,
         request=request,
         period_start_date=period.start_date,
         period_end_date=period.end_date,
-        average_weight_column="average_weight",
+        average_weight_column="selected_average_weight",
     )
     position_series, daily_series, emitted_position_series = _build_period_contribution_series_outputs(
         period_slice_df=period_slice_df,
@@ -400,9 +408,12 @@ def _build_hierarchy_contribution_position_assembly(
     hierarchy_results = _build_hierarchy_from_adjusted_position_series(
         period_slice_df=period_slice_df,
         position_series=position_series,
+        position_average_weights=position_totals_result.totals_df[["position_id", "selected_average_weight"]],
         request=request,
     )
     return _HierarchyContributionPositionAssembly(
+        selected_average_weight_column=selected_average_weight_column,
+        use_reset_aware_average_weight=use_reset_aware_average_weight,
         position_contributions=position_contributions,
         daily_series=daily_series,
         emitted_position_series=emitted_position_series,
@@ -472,6 +483,7 @@ def _build_hierarchy_period_contribution_result(
     period: Any,
     daily_contributions_df: Any,
     portfolio_results_df: Any,
+    reset_aware_average_weight_mode: str,
     average_weight_audit_state: AverageWeightShadowAuditState,
 ) -> _ContributionPeriodResult | None:
     period_preparation = _prepare_contribution_period(
@@ -495,6 +507,7 @@ def _build_hierarchy_period_contribution_result(
         period=period,
         period_slice_df=period_preparation.period_slice_df,
         period_methodology_context=period_preparation.period_methodology_context,
+        reset_aware_average_weight_mode=reset_aware_average_weight_mode,
         total_portfolio_return=total_portfolio_return,
     )
     supportability = _build_contribution_period_supportability(
@@ -505,9 +518,10 @@ def _build_hierarchy_period_contribution_result(
         total_portfolio_return=total_portfolio_return,
         smoothing_method=request.smoothing.method,
         residual_allocation_applied=position_assembly.residual_allocation_applied,
-        residual_allocation_basis="average_weight",
+        residual_allocation_basis=position_assembly.selected_average_weight_column,
         period_methodology_context=period_preparation.period_methodology_context,
         average_weight_audit_state=average_weight_audit_state,
+        is_promoted=position_assembly.use_reset_aware_average_weight,
     )
     return _build_contribution_period_result(
         period_name=period.name,
@@ -669,6 +683,7 @@ def _build_contribution_results_by_period(
                 period=period,
                 daily_contributions_df=daily_contributions_df,
                 portfolio_results_df=portfolio_results_df,
+                reset_aware_average_weight_mode=reset_aware_average_weight_mode,
                 average_weight_audit_state=average_weight_audit_state,
             )
             if request.hierarchy

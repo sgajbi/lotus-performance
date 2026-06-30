@@ -418,6 +418,7 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - stateful mode sources portfolio and position timeseries from lotus-core query-control-plane via `CORE_CONTROL_PLANE_BASE_URL` and normalizes them into canonical contribution inputs before engine execution
   - lotus-performance stamps source consumer identity server-side for the stateful envelope
   - position-level `average_weight` and grouped `weight_avg` are both emitted in percentage units
+    and share the same active or reset-aware promoted denominator
   - `position_contributions` remains the primary ranking surface for top/bottom contributor views
   - optional `hierarchy` rows reconcile to the same residual-adjusted `total_contribution` as the position rows
   - `emit.timeseries` and `emit.by_position_timeseries` return daily ladders that reconcile to `total_contribution`

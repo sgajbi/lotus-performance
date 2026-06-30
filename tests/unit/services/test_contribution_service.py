@@ -884,8 +884,14 @@ def test_build_flat_contribution_position_assembly_preserves_reset_aware_weighti
 
 def test_build_hierarchy_contribution_position_assembly_preserves_hierarchy_projection(monkeypatch):
     period_slice_df = pd.DataFrame({"position_id": ["A"], "sector": ["Technology"], "smoothed_contribution": [0.01]})
-    totals_df = pd.DataFrame({"position_id": ["A"], "average_weight": [0.5]})
-    average_weight_shadow_df = pd.DataFrame({"position_id": ["A"], "average_weight": [0.5]})
+    totals_df = pd.DataFrame({"position_id": ["A"], "selected_average_weight": [0.5]})
+    average_weight_shadow_df = pd.DataFrame(
+        {
+            "position_id": ["A"],
+            "average_weight": [0.4],
+            "reset_aware_average_weight_shadow": [0.5],
+        }
+    )
     methodology_context = SimpleNamespace(average_weight_shadow_df=average_weight_shadow_df)
     period = SimpleNamespace(name="ITD", start_date=date(2026, 1, 1), end_date=date(2026, 3, 31))
     request = SimpleNamespace(
@@ -933,15 +939,23 @@ def test_build_hierarchy_contribution_position_assembly_preserves_hierarchy_proj
     monkeypatch.setattr(contribution_service, "build_position_contributions", build_position_contributions)
     monkeypatch.setattr(contribution_service, "_build_period_contribution_series_outputs", build_period_series_outputs)
     monkeypatch.setattr(contribution_service, "_build_hierarchy_from_adjusted_position_series", build_hierarchy)
+    monkeypatch.setattr(
+        contribution_service,
+        "_select_period_average_weight_column",
+        lambda **_kwargs: ("reset_aware_average_weight_shadow", True),
+    )
 
     result = contribution_service._build_hierarchy_contribution_position_assembly(
         request=request,
         period=period,
         period_slice_df=period_slice_df,
         period_methodology_context=methodology_context,
+        reset_aware_average_weight_mode="candidate_periods",
         total_portfolio_return=0.02,
     )
 
+    assert result.selected_average_weight_column == "reset_aware_average_weight_shadow"
+    assert result.use_reset_aware_average_weight is True
     assert result.position_contributions == position_contributions
     assert result.daily_series == ["daily-series"]
     assert result.emitted_position_series == ["emitted-position-series"]
@@ -949,22 +963,24 @@ def test_build_hierarchy_contribution_position_assembly_preserves_hierarchy_proj
     assert result.hierarchy_results["levels"][0]["name"] == "sector"
     assert result.residual_allocation_applied is True
     assert residual_calls[0]["average_weight_df"] is average_weight_shadow_df
-    assert residual_calls[0]["average_weight_columns"] == ["average_weight"]
-    assert residual_calls[0]["residual_allocation_weight_column"] == "average_weight"
+    assert residual_calls[0]["average_weight_columns"] == ["average_weight", "reset_aware_average_weight_shadow"]
+    assert residual_calls[0]["residual_allocation_weight_column"] == "selected_average_weight"
+    assert residual_calls[0]["selected_average_weight_source_column"] == "reset_aware_average_weight_shadow"
     assert contribution_calls[0]["totals_df"] is totals_df
     assert contribution_calls[0]["period_start_date"] == date(2026, 1, 1)
     assert contribution_calls[0]["period_end_date"] == date(2026, 3, 31)
-    assert contribution_calls[0]["average_weight_column"] == "average_weight"
+    assert contribution_calls[0]["average_weight_column"] == "selected_average_weight"
     assert series_calls[0]["force_position_series"] is True
     assert hierarchy_calls[0]["period_slice_df"] is period_slice_df
     assert hierarchy_calls[0]["position_series"] == ["position-series"]
+    pd.testing.assert_frame_equal(hierarchy_calls[0]["position_average_weights"], totals_df)
     assert hierarchy_calls[0]["request"] is request
 
 
 def test_build_hierarchy_period_contribution_result_preserves_hierarchy_outputs(monkeypatch):
     period_slice_df = pd.DataFrame({"position_id": ["A"], "smoothed_contribution": [0.01]})
     portfolio_period_slice_df = pd.DataFrame({"portfolio_id": ["P"]})
-    totals_df = pd.DataFrame({"position_id": ["A"], "average_weight": [0.5]})
+    totals_df = pd.DataFrame({"position_id": ["A"], "selected_average_weight": [0.5]})
     period = SimpleNamespace(name="ITD", start_date=date(2026, 1, 1), end_date=date(2026, 3, 31))
     request = SimpleNamespace(
         smoothing=SimpleNamespace(method="CARINO"),
@@ -975,6 +991,7 @@ def test_build_hierarchy_period_contribution_result_preserves_hierarchy_outputs(
     residual_calls: list[dict[str, object]] = []
     hierarchy_calls: list[dict[str, object]] = []
     smoothing_calls: list[dict[str, object]] = []
+    methodology_calls: list[dict[str, object]] = []
 
     monkeypatch.setattr(
         contribution_service,
@@ -991,13 +1008,24 @@ def test_build_hierarchy_period_contribution_result_preserves_hierarchy_outputs(
             delta_positions=1,
             max_shadow_delta_bp=25,
             sum_shadow_delta_bp=25,
-            average_weight_shadow_df=pd.DataFrame({"position_id": ["A"], "average_weight": [0.5]}),
+            average_weight_shadow_df=pd.DataFrame(
+                {
+                    "position_id": ["A"],
+                    "average_weight": [0.5],
+                    "reset_aware_average_weight_shadow": [0.5],
+                }
+            ),
             position_flow_balance_counts={"position_flow_residual_days": 0},
             portfolio_reset_without_position_reset_days=0,
             position_reset_without_portfolio_reset_days=0,
         ),
     )
     monkeypatch.setattr(contribution_service, "_calculate_reset_aware_period_portfolio_return", lambda *_args: 0.02)
+    monkeypatch.setattr(
+        contribution_service,
+        "_select_period_average_weight_column",
+        lambda **_kwargs: ("average_weight", False),
+    )
 
     def build_residual_adjusted_position_totals(**kwargs):
         residual_calls.append(kwargs)
@@ -1046,16 +1074,19 @@ def test_build_hierarchy_period_contribution_result_preserves_hierarchy_outputs(
 
     monkeypatch.setattr(contribution_service, "_build_contribution_smoothing_evidence", build_smoothing_evidence)
     monkeypatch.setattr(contribution_service, "_record_period_timeseries_total_delta", lambda **_kwargs: 0)
-    monkeypatch.setattr(
-        contribution_service,
-        "_build_period_average_weight_methodology_status",
-        lambda **_kwargs: AverageWeightMethodologyStatus(
+
+    def build_methodology_status(**kwargs):
+        methodology_calls.append(kwargs)
+        return AverageWeightMethodologyStatus(
             status="OK",
             max_shadow_delta_bp=25,
             is_material_shadow=False,
             is_cutover_candidate=False,
             is_promoted=False,
-        ),
+        )
+
+    monkeypatch.setattr(
+        contribution_service, "_build_period_average_weight_methodology_status", build_methodology_status
     )
 
     result = contribution_service._build_hierarchy_period_contribution_result(
@@ -1063,6 +1094,7 @@ def test_build_hierarchy_period_contribution_result_preserves_hierarchy_outputs(
         period=period,
         daily_contributions_df=pd.DataFrame(),
         portfolio_results_df=pd.DataFrame(),
+        reset_aware_average_weight_mode="candidate_periods",
         average_weight_audit_state=audit_state,
     )
 
@@ -1077,7 +1109,9 @@ def test_build_hierarchy_period_contribution_result_preserves_hierarchy_outputs(
     assert result.result.levels is not None
     assert result.result.levels[0].name == "sector"
     assert audit_state.delta_positions == 1
-    assert residual_calls[0]["average_weight_columns"] == ["average_weight"]
-    assert residual_calls[0]["residual_allocation_weight_column"] == "average_weight"
+    assert residual_calls[0]["average_weight_columns"] == ["average_weight", "reset_aware_average_weight_shadow"]
+    assert residual_calls[0]["residual_allocation_weight_column"] == "selected_average_weight"
+    assert residual_calls[0]["selected_average_weight_source_column"] == "average_weight"
     assert hierarchy_calls[0]["request"] is request
     assert smoothing_calls[0]["residual_allocation_basis"] == "average_weight"
+    assert methodology_calls[0]["is_promoted"] is False

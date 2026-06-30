@@ -26,6 +26,7 @@ from app.services.submission_fencing_service import (
     register_async_submission_or_raise,
     register_sync_execution_or_raise,
 )
+from core.errors import APIError
 
 
 def accepted_contribution_response(calculation_id) -> ContributionAcceptedResponse:
@@ -178,6 +179,12 @@ async def _resolve_promoted_stateful_contribution_response(
             message=str(exc.detail),
         )
         raise
+    except APIError as exc:
+        record_execution_failure(
+            calculation_id=request.calculation_id,
+            message=str(exc.detail),
+        )
+        raise
     except Exception as exc:
         record_execution_failure(
             calculation_id=request.calculation_id,
@@ -258,6 +265,12 @@ async def _calculate_initial_sync_contribution(
             input_mode=resolved.input_mode,
         )
     except HTTPException as exc:
+        record_execution_failure(
+            calculation_id=request.calculation_id,
+            message=str(exc.detail),
+        )
+        raise
+    except APIError as exc:
         record_execution_failure(
             calculation_id=request.calculation_id,
             message=str(exc.detail),

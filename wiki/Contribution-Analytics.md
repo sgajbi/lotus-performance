@@ -13,7 +13,7 @@ contribution totals, source-economics quality, or Carino smoothing state.
 | Capability | Implementation-backed behavior |
 | --- | --- |
 | Position contribution | `POST /performance/contribution` returns position-level contribution, average weight, local contribution, FX contribution, and position return where supported. |
-| Hierarchy contribution | Optional `hierarchy` groups position contribution by dimensions such as `asset_class`, `sector`, `country`, `currency`, and `position_id`. Missing classification is emitted as `Unclassified`; top-N bucketing can emit `Other`. |
+| Hierarchy contribution | Optional `hierarchy` groups position contribution by dimensions such as `asset_class`, `sector`, `country`, `currency`, and `position_id`. Missing classification is emitted as `Unclassified`; top-N bucketing can emit `Other`. Hierarchy `weight_avg` uses the same active or reset-aware promoted denominator as position `average_weight`. |
 | Stateful source input | `input_mode="stateful"` sources portfolio and position analytics inputs from `lotus-core` and normalizes them into the same calculation contract used by stateless requests. |
 | Carino smoothing | Default `CARINO` smoothing uses `F_t = k_t / K` and emits period-level `smoothing_evidence` with raw, smoothed, final, linked-return, residual, factor, status, and reason-code fields. |
 | Source economics evidence | Top-level `source_economics_evidence` states whether inputs are caller supplied or lotus-core sourced, which source contracts were used, which economics are available, and which component-P&L families remain unsupported or degraded. Stateful contribution includes `PerformanceComponentEconomics:v1` when Core component-economics evidence was retrieved. |
@@ -84,7 +84,7 @@ sequenceDiagram
 | Metrics | Prometheus metrics include contribution supportability and request counters, including success and validation-error classes. |
 | Logs | Structured access logs carry correlation, request, and trace identifiers across Gateway, performance, and upstream source calls. |
 | Lineage | Contribution executions expose retrieval, normalization, execution, and lineage materialization stages plus artifacts such as request, response, daily contribution, and portfolio TWR files. |
-| Error handling | Invalid request shapes and unsupported stateful currency combinations return bounded validation errors; unsupported source economics are not treated as fatal when contribution can still be safely calculated. |
+| Error handling | Invalid request shapes and unsupported stateful currency combinations return bounded validation errors. Mixed-currency stateful contribution in `currency_mode="BOTH"` requires `fx.rates` when sourced positions differ from `report_ccy`; unsupported source economics are not treated as fatal when contribution can still be safely calculated. |
 | Security posture | Downstream calls require governed caller context at Gateway; contribution evidence avoids exposing restricted customer data in public documentation. |
 
 ## Demo and Sales Narrative
@@ -115,7 +115,11 @@ The RFC-047 QA pack proves these contribution semantics:
 - net fee drag can be carried by an explicit fee bucket when source metadata supplies `fee_pnl`;
 - missing classification is emitted as `Unclassified`;
 - short positions preserve signed average weight and inverse contribution sign behavior;
+- mixed-currency stateful contribution fails closed with HTTP `422` when required FX rates are not
+  supplied;
 - invalid Carino domains fall back with explicit status and reason codes;
+- clean reset-aware average-weight candidate periods promote the same denominator into position and
+  hierarchy weights only when the governed rollout mode is enabled;
 - hierarchy, position rows, daily series, and by-position series reconcile to source-owned totals.
 
 ## Data Mesh Posture

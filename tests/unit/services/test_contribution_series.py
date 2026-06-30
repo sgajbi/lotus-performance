@@ -1,6 +1,7 @@
 from datetime import date
 
 import pandas as pd
+import pytest
 
 from app.models.contribution_requests import ContributionRequest
 from app.models.contribution_responses import (
@@ -140,6 +141,76 @@ def test_build_hierarchy_from_adjusted_position_series_uses_observation_date_ali
     assert hierarchy["levels"][0]["rows"] == [
         {"key": {"sector": "Technology"}, "contribution": 3.0, "weight_avg": 50.0}
     ]
+
+
+def test_build_hierarchy_from_adjusted_position_series_uses_selected_period_average_weights():
+    request = ContributionRequest.model_validate(
+        {
+            "portfolio_id": "PB_TEST",
+            "report_start_date": "2026-03-30",
+            "report_end_date": "2026-03-31",
+            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "hierarchy": ["sector"],
+            "emit": {"threshold_weight": 0.0},
+            "portfolio_data": {
+                "metric_basis": "NET",
+                "valuation_points": [
+                    {"perf_date": "2026-03-30", "begin_mv": 1000, "end_mv": 1010},
+                    {"perf_date": "2026-03-31", "begin_mv": 1010, "end_mv": 1020},
+                ],
+            },
+            "positions_data": [
+                {"position_id": "SEC_A", "valuation_points": []},
+                {"position_id": "SEC_B", "valuation_points": []},
+            ],
+        }
+    )
+    period_slice_df = pd.DataFrame(
+        {
+            "position_id": ["SEC_A", "SEC_A", "SEC_B", "SEC_B"],
+            PortfolioColumns.PERF_DATE.value: [
+                date(2026, 3, 30),
+                date(2026, 3, 31),
+                date(2026, 3, 30),
+                date(2026, 3, 31),
+            ],
+            "daily_weight": [0.10, 0.95, 0.90, 0.05],
+            "sector": ["Technology", "Technology", "Health Care", "Health Care"],
+        }
+    )
+    position_series = [
+        PositionContributionSeries(
+            position_id="SEC_A",
+            series=[
+                PositionDailyContribution(date=date(2026, 3, 30), contribution=1.0),
+                PositionDailyContribution(date=date(2026, 3, 31), contribution=1.0),
+            ],
+        ),
+        PositionContributionSeries(
+            position_id="SEC_B",
+            series=[
+                PositionDailyContribution(date=date(2026, 3, 30), contribution=2.0),
+                PositionDailyContribution(date=date(2026, 3, 31), contribution=2.0),
+            ],
+        ),
+    ]
+    selected_average_weights = pd.DataFrame(
+        {
+            "position_id": ["SEC_A", "SEC_B"],
+            "selected_average_weight": [0.95, 0.05],
+        }
+    )
+
+    hierarchy = _build_hierarchy_from_adjusted_position_series(
+        period_slice_df=period_slice_df,
+        position_series=position_series,
+        position_average_weights=selected_average_weights,
+        request=request,
+    )
+
+    rows_by_sector = {row["key"]["sector"]: row for row in hierarchy["levels"][0]["rows"]}
+    assert rows_by_sector["Technology"]["weight_avg"] == pytest.approx(95.0)
+    assert rows_by_sector["Health Care"]["weight_avg"] == pytest.approx(5.0)
 
 
 def test_hierarchy_metadata_helpers_align_dates_and_unclassified_policy():

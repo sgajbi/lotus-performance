@@ -189,6 +189,7 @@ def _build_hierarchy_from_adjusted_position_series(
     *,
     period_slice_df: pd.DataFrame,
     position_series: list[PositionContributionSeries],
+    position_average_weights: pd.DataFrame | None = None,
     request: ContributionRequest,
 ) -> dict[str, Any]:
     """Builds hierarchy rows from the same adjusted daily position series emitted to clients."""
@@ -203,6 +204,7 @@ def _build_hierarchy_from_adjusted_position_series(
     prepared_frames = _prepared_adjusted_hierarchy_frames(
         period_slice_df=period_slice_df,
         position_series=position_series,
+        position_average_weights=position_average_weights,
         request=request,
     )
     if prepared_frames is None:
@@ -230,6 +232,7 @@ def _prepared_adjusted_hierarchy_frames(
     *,
     period_slice_df: pd.DataFrame,
     position_series: list[PositionContributionSeries],
+    position_average_weights: pd.DataFrame | None = None,
     request: ContributionRequest,
 ) -> tuple[pd.DataFrame, pd.DataFrame] | None:
     adjusted_records = _adjusted_position_hierarchy_records(position_series)
@@ -237,7 +240,11 @@ def _prepared_adjusted_hierarchy_frames(
         return None
 
     adjusted_df = pd.DataFrame(adjusted_records)
-    daily_meta = _daily_hierarchy_metadata(period_slice_df, hierarchy_levels=request.hierarchy or [])
+    daily_meta = _daily_hierarchy_metadata(
+        period_slice_df,
+        hierarchy_levels=request.hierarchy or [],
+        position_average_weights=position_average_weights,
+    )
     merged_df = adjusted_df.merge(
         daily_meta,
         on=["position_id", PortfolioColumns.PERF_DATE.value],
@@ -277,13 +284,26 @@ def _adjusted_position_hierarchy_records(
     return records
 
 
-def _daily_hierarchy_metadata(period_slice_df: pd.DataFrame, *, hierarchy_levels: list[str]) -> pd.DataFrame:
+def _daily_hierarchy_metadata(
+    period_slice_df: pd.DataFrame,
+    *,
+    hierarchy_levels: list[str],
+    position_average_weights: pd.DataFrame | None = None,
+) -> pd.DataFrame:
     meta_columns = _hierarchy_metadata_columns(hierarchy_levels)
     daily_meta = period_slice_df.copy()
     for level_name in hierarchy_levels:
         if level_name not in daily_meta.columns:
             daily_meta[level_name] = None
     daily_meta[PortfolioColumns.PERF_DATE.value] = observation_date_series(daily_meta[PortfolioColumns.PERF_DATE.value])
+    if position_average_weights is not None and not position_average_weights.empty:
+        selected_weights = position_average_weights.rename(columns={"selected_average_weight": "daily_weight"})
+        daily_meta = daily_meta.drop(columns=["daily_weight"], errors="ignore").merge(
+            selected_weights[["position_id", "daily_weight"]],
+            on="position_id",
+            how="left",
+        )
+        daily_meta["daily_weight"] = numeric_series(daily_meta["daily_weight"], default=0.0)
     return daily_meta[meta_columns]
 
 
