@@ -18,7 +18,7 @@ from app.core.handlers import (
     request_validation_exception_handler,
 )
 from app.observability import correlation_id_var, request_id_var
-from core.errors import APIBadRequestError, APIServiceUnavailableError
+from core.errors import APIBadRequestError, APIConflictError, APIServiceUnavailableError
 
 
 def _response_json(response):
@@ -95,6 +95,23 @@ async def test_core_api_error_exception_handler_preserves_retryability_metadata(
     assert body["detail"] == "The service encountered an internal error. Use the correlation_id for support."
     assert body["error_code"] == "SOURCE_UNAVAILABLE"
     assert body["retryable"] is True
+
+
+@pytest.mark.asyncio
+async def test_core_api_error_exception_handler_preserves_response_headers():
+    mock_request = Request({"type": "http", "method": "POST", "url": "/mock-url"})
+    exc = APIConflictError(
+        {"code": "cooldown_active", "message": "Wait before retrying."},
+        headers={"Retry-After": "60"},
+    )
+
+    response = await core_api_error_exception_handler(mock_request, exc)
+
+    assert response.status_code == status.HTTP_409_CONFLICT
+    assert response.headers["retry-after"] == "60"
+    body = _response_json(response)
+    assert body["error_code"] == "cooldown_active"
+    assert body["retryable"] is False
 
 
 @pytest.mark.asyncio

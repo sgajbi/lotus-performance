@@ -1,7 +1,6 @@
 from datetime import UTC, datetime
 
 import pytest
-from fastapi import HTTPException
 
 from app.services.operator_action_guard_service import (
     _find_latest_recovery_drill_entry,
@@ -20,6 +19,7 @@ from app.services.runtime_retention_history_service import (
     RuntimeRetentionHistoryEntry,
     RuntimeRetentionHistorySnapshot,
 )
+from core.errors import APIConflictError
 
 
 def test_runtime_retention_manual_run_cooldown_raises_conflict_for_recent_manual_run():
@@ -54,7 +54,7 @@ def test_runtime_retention_manual_run_cooldown_raises_conflict_for_recent_manual
         applied_filters={"limit": 1, "trigger_mode": "manual"},
     )
 
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(APIConflictError) as exc_info:
         enforce_runtime_retention_manual_run_cooldown(
             snapshot,
             apply=False,
@@ -129,7 +129,7 @@ def test_recovery_drill_manual_run_cooldown_matches_canonicalized_backup_identif
         applied_filters={"limit": 1},
     )
 
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(APIConflictError) as exc_info:
         enforce_recovery_drill_manual_run_cooldown(
             snapshot,
             operator_id="ops-user",
@@ -222,7 +222,7 @@ def test_runtime_retention_manual_run_cooldown_matches_canonicalized_job_id():
         applied_filters={"limit": 1, "trigger_mode": "manual"},
     )
 
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(APIConflictError) as exc_info:
         enforce_runtime_retention_manual_run_cooldown(
             snapshot,
             apply=False,
@@ -272,7 +272,7 @@ def test_runtime_retention_manual_run_cooldown_clamps_future_evidence_age():
         applied_filters={"limit": 1, "trigger_mode": "manual"},
     )
 
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(APIConflictError) as exc_info:
         enforce_runtime_retention_manual_run_cooldown(
             snapshot,
             apply=False,
@@ -348,7 +348,7 @@ def test_runtime_retention_apply_preview_rejects_missing_matching_dry_run():
         applied_filters={"limit": 100, "trigger_mode": "manual"},
     )
 
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(APIConflictError) as exc_info:
         enforce_runtime_retention_apply_preview(
             snapshot,
             operator_id="ops-user",
@@ -458,7 +458,7 @@ def test_runtime_retention_apply_preview_rejects_stale_preview():
         applied_filters={},
     )
 
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(APIConflictError) as exc_info:
         enforce_runtime_retention_apply_preview(
             snapshot,
             operator_id="ops-user",

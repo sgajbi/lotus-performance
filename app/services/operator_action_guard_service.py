@@ -3,8 +3,6 @@ from __future__ import annotations
 import math
 from datetime import UTC, datetime
 
-from fastapi import HTTPException, status
-
 from app.services.durable_store_time import elapsed_seconds_since
 from app.services.operator_action_identity import (
     operator_action_actor_matches,
@@ -20,6 +18,7 @@ from app.services.runtime_retention_history_service import (
     RuntimeRetentionHistorySnapshot,
 )
 from app.services.runtime_status_time import parse_utc_datetime
+from core.errors import APIConflictError
 
 
 def enforce_runtime_retention_manual_run_cooldown(
@@ -73,9 +72,8 @@ def enforce_runtime_retention_apply_preview(
         job_id=job_id,
     )
     if preview_entry is None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail={
+        raise APIConflictError(
+            {
                 "code": "runtime_retention_apply_preview_required",
                 "message": ("A recent matching runtime-retention dry run is required before apply can execute."),
                 "required_cleanup_mode": "dry_run",
@@ -88,9 +86,8 @@ def enforce_runtime_retention_apply_preview(
     if elapsed_seconds <= preview_max_age_seconds:
         return
 
-    raise HTTPException(
-        status_code=status.HTTP_409_CONFLICT,
-        detail={
+    raise APIConflictError(
+        {
             "code": "runtime_retention_apply_preview_required",
             "message": ("A recent matching runtime-retention dry run is required before apply can execute."),
             "latest_preview_generated_at_utc": preview_entry.generated_at_utc,
@@ -203,9 +200,8 @@ def _enforce_manual_action_cooldown(
     if retry_after_seconds is None:
         return
 
-    raise HTTPException(
-        status_code=status.HTTP_409_CONFLICT,
-        detail={
+    raise APIConflictError(
+        {
             "code": detail_code,
             "message": (
                 f"A recent manual {action_name} already completed inside the governed cooldown window. "

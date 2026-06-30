@@ -32,10 +32,11 @@ def test_api_unprocessable_entity_error():
 def test_api_conflict_error():
     """Tests the APIConflictError custom exception."""
     try:
-        raise APIConflictError("Resource already exists")
+        raise APIConflictError("Resource already exists", headers={"Retry-After": "60"})
     except APIConflictError as e:
         assert e.status_code == HTTP_409_CONFLICT
         assert e.detail == "Resource already exists"
+        assert e.headers == {"Retry-After": "60"}
 
 
 def test_api_error_is_framework_neutral_value_error():
