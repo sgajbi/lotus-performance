@@ -7,6 +7,8 @@ import pytest
 
 from app.services.execution_registry import ExecutionRegistry
 from app.services.stateful_input_service import (
+    STATEFUL_UPSTREAM_PAGE_LIMIT_EXCEEDED_REASON,
+    STATEFUL_UPSTREAM_REPEATED_PAGE_TOKEN_REASON,
     DateChunk,
     StatefulInputService,
     _benchmark_market_series_request_payload,
@@ -288,6 +290,41 @@ class _CoreServiceStub:
         )
 
 
+class _LoopingStatefulPageCoreService(_CoreServiceStub):
+    async def get_portfolio_analytics_timeseries(self, **kwargs):
+        self.portfolio_calls.append(kwargs)
+        return (
+            200,
+            {
+                "observations": [
+                    {
+                        "valuation_date": "2026-01-01",
+                        "beginning_market_value": "100",
+                        "ending_market_value": "101",
+                    }
+                ],
+                "page": {"next_page_token": "loop"},
+            },
+        )
+
+    async def get_position_analytics_timeseries(self, **kwargs):
+        self.position_calls.append(kwargs)
+        return (
+            200,
+            {
+                "rows": [
+                    {
+                        "valuation_date": "2026-01-01",
+                        "position_id": "SEC_1",
+                        "beginning_market_value_portfolio_currency": "100",
+                        "ending_market_value_portfolio_currency": "101",
+                    }
+                ],
+                "page": {"next_page_token": "loop"},
+            },
+        )
+
+
 def test_plan_chunks_splits_window_deterministically():
     service = StatefulInputService(core_service=_CoreServiceStub(), portfolio_chunk_days=3)
     chunks = service.plan_chunks(
@@ -536,6 +573,91 @@ async def test_stateful_input_service_fetches_portfolio_timeseries_page_with_req
         consumer_system="lotus-performance",
         page_token="page-2",
     )
+
+
+@pytest.mark.asyncio
+async def test_get_portfolio_timeseries_rejects_repeated_page_tokens():
+    core_service = _LoopingStatefulPageCoreService()
+    service = StatefulInputService(core_service=core_service, max_pages_per_chunk=10)
+
+    status_code, payload = await service.get_portfolio_timeseries(
+        portfolio_id="PORT_1",
+        as_of_date=date(2026, 1, 3),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 1),
+        reporting_currency="USD",
+        consumer_system="lotus-performance",
+    )
+
+    assert status_code == 503
+    assert payload["reason"] == STATEFUL_UPSTREAM_REPEATED_PAGE_TOKEN_REASON
+    assert payload["retrieval_metadata"]["page_count"] == 2
+    assert len(core_service.portfolio_calls) == 2
+
+
+@pytest.mark.asyncio
+async def test_get_portfolio_timeseries_records_pagination_failure_snapshot(tmp_path):
+    core_service = _LoopingStatefulPageCoreService()
+    execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    execution_store.create_schema()
+    calculation_id = uuid4()
+    execution_store.create_execution(
+        calculation_id=calculation_id,
+        analytics_type="ReturnsSeries",
+        portfolio_id="PORT_1",
+    )
+    service = StatefulInputService(
+        core_service=core_service,
+        execution_store=execution_store,
+        max_pages_per_chunk=10,
+    )
+
+    status_code, payload = await service.get_portfolio_timeseries(
+        portfolio_id="PORT_1",
+        as_of_date=date(2026, 1, 3),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 1),
+        reporting_currency="USD",
+        consumer_system="lotus-performance",
+        calculation_id=calculation_id,
+    )
+
+    snapshots = execution_store.list_upstream_snapshots(calculation_id)
+    failure_snapshots = [snapshot for snapshot in snapshots if snapshot.retrieval_status == "503"]
+
+    assert status_code == 503
+    assert payload["reason"] == STATEFUL_UPSTREAM_REPEATED_PAGE_TOKEN_REASON
+    assert len(failure_snapshots) == 1
+    assert failure_snapshots[0].upstream_endpoint == "portfolio_timeseries"
+    assert failure_snapshots[0].paging_metadata["page_token"] == "loop"
+    assert failure_snapshots[0].paging_metadata["pagination_guard_reason"] == (
+        STATEFUL_UPSTREAM_REPEATED_PAGE_TOKEN_REASON
+    )
+
+
+@pytest.mark.asyncio
+async def test_get_portfolio_timeseries_rejects_page_limit_exhaustion():
+    core_service = _LoopingStatefulPageCoreService()
+    service = StatefulInputService(core_service=core_service, max_pages_per_chunk=1)
+
+    status_code, payload = await service.get_portfolio_timeseries(
+        portfolio_id="PORT_1",
+        as_of_date=date(2026, 1, 3),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 1),
+        reporting_currency="USD",
+        consumer_system="lotus-performance",
+    )
+
+    assert status_code == 503
+    assert payload["reason"] == STATEFUL_UPSTREAM_PAGE_LIMIT_EXCEEDED_REASON
+    assert payload["retrieval_metadata"] == {
+        "chunk_start_date": "2026-01-01",
+        "chunk_end_date": "2026-01-01",
+        "page_count": 1,
+        "max_pages_per_chunk": 1,
+    }
+    assert len(core_service.portfolio_calls) == 1
 
 
 @pytest.mark.asyncio
@@ -1603,6 +1725,52 @@ async def test_stateful_input_service_fetches_position_timeseries_page_with_requ
         filters={"asset_class": "Equity"},
         page_token="page-2",
     )
+
+
+@pytest.mark.asyncio
+async def test_get_position_timeseries_rejects_repeated_page_tokens():
+    core_service = _LoopingStatefulPageCoreService()
+    service = StatefulInputService(core_service=core_service, max_pages_per_chunk=10)
+
+    status_code, payload = await service.get_position_timeseries(
+        portfolio_id="PORT_1",
+        as_of_date=date(2026, 1, 3),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 1),
+        reporting_currency="USD",
+        consumer_system="lotus-performance",
+        dimensions=["asset_class"],
+        include_cash_flows=True,
+        filters={},
+    )
+
+    assert status_code == 503
+    assert payload["reason"] == STATEFUL_UPSTREAM_REPEATED_PAGE_TOKEN_REASON
+    assert payload["retrieval_metadata"]["page_count"] == 2
+    assert len(core_service.position_calls) == 2
+
+
+@pytest.mark.asyncio
+async def test_get_position_timeseries_rejects_page_limit_exhaustion():
+    core_service = _LoopingStatefulPageCoreService()
+    service = StatefulInputService(core_service=core_service, max_pages_per_chunk=1)
+
+    status_code, payload = await service.get_position_timeseries(
+        portfolio_id="PORT_1",
+        as_of_date=date(2026, 1, 3),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 1),
+        reporting_currency="USD",
+        consumer_system="lotus-performance",
+        dimensions=["asset_class"],
+        include_cash_flows=True,
+        filters={},
+    )
+
+    assert status_code == 503
+    assert payload["reason"] == STATEFUL_UPSTREAM_PAGE_LIMIT_EXCEEDED_REASON
+    assert payload["retrieval_metadata"]["max_pages_per_chunk"] == 1
+    assert len(core_service.position_calls) == 1
 
 
 def test_record_position_chunk_payload_accumulates_valid_rows_and_page_count():

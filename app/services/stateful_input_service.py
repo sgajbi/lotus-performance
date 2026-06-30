@@ -11,6 +11,9 @@ from uuid import UUID
 from app.services.core_integration_service import CoreIntegrationService
 from app.services.execution_registry import ExecutionRegistry, execution_registry
 
+STATEFUL_UPSTREAM_PAGE_LIMIT_EXCEEDED_REASON = "stateful_upstream_page_limit_exceeded"
+STATEFUL_UPSTREAM_REPEATED_PAGE_TOKEN_REASON = "stateful_upstream_repeated_page_token"
+
 
 @dataclass(frozen=True)
 class DateChunk:
@@ -107,12 +110,14 @@ class StatefulInputService:
         portfolio_chunk_days: int = 90,
         reference_chunk_days: int = 365,
         max_concurrent_chunks: int = 4,
+        max_pages_per_chunk: int = 25,
     ) -> None:
         self._core_service = core_service
         self._execution_store = execution_store or execution_registry
         self._portfolio_chunk_days = max(1, portfolio_chunk_days)
         self._reference_chunk_days = max(1, reference_chunk_days)
         self._max_concurrent_chunks = max(1, max_concurrent_chunks)
+        self._max_pages_per_chunk = max(1, max_pages_per_chunk)
         self._snapshot_id_cache: dict[UUID, set[str]] = {}
 
     def plan_chunks(self, *, start_date: date, end_date: date, chunk_days: int) -> list[DateChunk]:
@@ -994,6 +999,7 @@ class StatefulInputService:
         calculation_id: UUID | None = None,
     ) -> tuple[int, dict[str, Any]]:
         page_token: str | None = None
+        seen_page_tokens: set[str] = set()
         chunk_accumulator = _PortfolioChunkAccumulator(observations=[])
         snapshot_batch: list[dict[str, Any]] = []
         existing_snapshot_ids = self._existing_snapshot_ids(calculation_id)
@@ -1027,6 +1033,36 @@ class StatefulInputService:
             page_token = self._next_page_token(payload)
             if not page_token:
                 break
+            pagination_failure = self._page_traversal_failure_payload(
+                chunk=chunk,
+                page_count=chunk_accumulator.page_count,
+                next_page_token=page_token,
+                seen_page_tokens=seen_page_tokens,
+            )
+            if pagination_failure is not None:
+                failure_request_payload = _portfolio_timeseries_request_payload(
+                    portfolio_id=portfolio_id,
+                    chunk=chunk,
+                    reporting_currency=reporting_currency,
+                    consumer_system=consumer_system,
+                    page_token=page_token,
+                )
+                failure_request_payload["pagination_guard_reason"] = pagination_failure["reason"]
+                self._append_portfolio_timeseries_snapshot_if_new(
+                    calculation_id=calculation_id,
+                    portfolio_id=portfolio_id,
+                    as_of_date=as_of_date,
+                    request_payload=failure_request_payload,
+                    response=(503, pagination_failure),
+                    snapshot_batch=snapshot_batch,
+                    existing_snapshot_ids=existing_snapshot_ids,
+                )
+                self._record_upstream_snapshot_batch(
+                    calculation_id=calculation_id,
+                    snapshots=snapshot_batch,
+                )
+                return 503, pagination_failure
+            seen_page_tokens.add(page_token)
 
         self._record_upstream_snapshot_batch(
             calculation_id=calculation_id,
@@ -1120,6 +1156,7 @@ class StatefulInputService:
         calculation_id: UUID | None = None,
     ) -> tuple[int, dict[str, Any]]:
         page_token: str | None = None
+        seen_page_tokens: set[str] = set()
         accumulator = _PositionChunkAccumulator(rows=[])
         snapshot_batch: list[dict[str, Any]] = []
         existing_snapshot_ids = self._existing_snapshot_ids(calculation_id)
@@ -1150,6 +1187,39 @@ class StatefulInputService:
             page_token = self._next_page_token(page_result.payload)
             if not page_token:
                 break
+            pagination_failure = self._page_traversal_failure_payload(
+                chunk=chunk,
+                page_count=accumulator.page_count,
+                next_page_token=page_token,
+                seen_page_tokens=seen_page_tokens,
+            )
+            if pagination_failure is not None:
+                failure_request_payload = _position_timeseries_request_payload(
+                    portfolio_id=portfolio_id,
+                    chunk=chunk,
+                    reporting_currency=reporting_currency,
+                    consumer_system=consumer_system,
+                    dimensions=dimensions,
+                    include_cash_flows=include_cash_flows,
+                    filters=filters,
+                    page_token=page_token,
+                )
+                failure_request_payload["pagination_guard_reason"] = pagination_failure["reason"]
+                self._append_position_timeseries_snapshot_if_new(
+                    calculation_id=calculation_id,
+                    portfolio_id=portfolio_id,
+                    as_of_date=as_of_date,
+                    request_payload=failure_request_payload,
+                    response=(503, pagination_failure),
+                    snapshot_batch=snapshot_batch,
+                    existing_snapshot_ids=existing_snapshot_ids,
+                )
+                self._record_upstream_snapshot_batch(
+                    calculation_id=calculation_id,
+                    snapshots=snapshot_batch,
+                )
+                return 503, pagination_failure
+            seen_page_tokens.add(page_token)
 
         self._record_upstream_snapshot_batch(
             calculation_id=calculation_id,
@@ -1478,6 +1548,31 @@ class StatefulInputService:
             if _non_empty_string(nested_token):
                 return nested_token
         return None
+
+    def _page_traversal_failure_payload(
+        self,
+        *,
+        chunk: DateChunk,
+        page_count: int,
+        next_page_token: str,
+        seen_page_tokens: set[str],
+    ) -> dict[str, Any] | None:
+        if next_page_token in seen_page_tokens:
+            reason = STATEFUL_UPSTREAM_REPEATED_PAGE_TOKEN_REASON
+        elif page_count >= self._max_pages_per_chunk:
+            reason = STATEFUL_UPSTREAM_PAGE_LIMIT_EXCEEDED_REASON
+        else:
+            return None
+        return {
+            "error": "Stateful upstream pagination is unhealthy.",
+            "reason": reason,
+            "retrieval_metadata": {
+                "chunk_start_date": str(chunk.start_date),
+                "chunk_end_date": str(chunk.end_date),
+                "page_count": page_count,
+                "max_pages_per_chunk": self._max_pages_per_chunk,
+            },
+        }
 
     def _merge_dedup_records(self, *, records: list[dict[str, Any]], date_key: str) -> list[dict[str, Any]]:
         deduped: dict[str, dict[str, Any]] = {}
