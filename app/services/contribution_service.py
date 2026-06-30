@@ -4,8 +4,6 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
-from fastapi import HTTPException, status
-
 from app.core.config import get_settings
 from app.models.contribution_analytics_requests import ContributionInputMode
 from app.models.contribution_requests import ContributionRequest
@@ -68,8 +66,10 @@ from app.services.execution_lifecycle_service import (
     record_execution_failure,
 )
 from app.services.execution_registry import execution_registry
+from app.services.execution_stage_errors import is_mappable_application_error
 from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
 from core.envelope import Audit, Meta
+from core.errors import APIBadRequestError, APIError, APIInternalServerError
 from core.periods import resolve_periods
 from engine.contribution import (
     _calculate_daily_instrument_contributions,
@@ -640,7 +640,7 @@ def _resolve_contribution_periods(request: ContributionRequest) -> _Contribution
         explicit_start_date=request.report_start_date,
     )
     if not resolved_periods:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No valid periods could be resolved.")
+        raise APIBadRequestError("No valid periods could be resolved.")
 
     master_start_date, master_end_date = _contribution_master_window(resolved_periods)
     return _ContributionPeriodResolution(
@@ -862,7 +862,7 @@ def _run_contribution_calculation(
             average_weight_audit_state=average_weight_audit_state,
             average_weight_sum_residual_bp=period_results.average_weight_sum_residual_bp,
         )
-    except HTTPException as exc:
+    except APIError as exc:
         record_execution_failure(
             calculation_id=request.calculation_id,
             message=str(exc.detail),
@@ -870,14 +870,21 @@ def _run_contribution_calculation(
         )
         raise
     except Exception as exc:
+        if is_mappable_application_error(exc):
+            detail = getattr(exc, "detail")
+            record_execution_failure(
+                calculation_id=request.calculation_id,
+                message=str(detail),
+                execution_stage_started=True,
+            )
+            raise APIError(status_code=int(getattr(exc, "status_code")), detail=detail) from exc
         record_execution_failure(
             calculation_id=request.calculation_id,
             message=f"An unexpected error occurred during contribution calculation: {str(exc)}",
             execution_stage_started=True,
         )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"An unexpected error occurred during contribution calculation: {str(exc)}",
+        raise APIInternalServerError(
+            f"An unexpected error occurred during contribution calculation: {str(exc)}"
         ) from exc
 
 
