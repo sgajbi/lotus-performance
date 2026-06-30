@@ -1,7 +1,7 @@
 # Lotus Performance Enterprise Backend Refactor Baseline
 
 Baseline date: 2026-06-30
-Branch: `feature/runtime-recovery-queue-result-boundary`
+Branch: `feature/stateful-attribution-source-results-boundary`
 Mode: report-only baseline; no new blocking quality gate is introduced by this artifact.
 
 ## Purpose
@@ -18,7 +18,7 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 | --- | ---: | --- |
 | Python files | 583 | `rg --files -g '*.py'` equivalent excluding local caches |
 | Python package markers | 18 | recursive `__init__.py` count |
-| Python LOC | 174,353 | recursive `.py` line count |
+| Python LOC | 174,386 | recursive `.py` line count |
 | Test modules | 281 | `tests/**/test_*.py` |
 | Collected tests | 3426 tests | `python -m pytest --collect-only -q` |
 | Configured CI workflows | 5 | `.github/workflows/*.yml` |
@@ -31,7 +31,7 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 | 1 | `tests/unit/services/test_runtime_status_service.py` | 2503 |
 | 2 | `tests/unit/services/test_returns_series_service.py` | 2376 |
 | 3 | `tests/unit/app/test_request_path_runtime_settings.py` | 2276 |
-| 4 | `tests/unit/services/test_stateful_attribution_input_service.py` | 2069 |
+| 4 | `tests/unit/services/test_stateful_attribution_input_service.py` | 2089 |
 | 5 | `tests/integration/test_performance_api.py` | 1999 |
 | 6 | `tests/unit/services/test_twr_inspection_source_economics.py` | 1992 |
 | 7 | `app/services/stateful_input_service.py` | 1948 |
