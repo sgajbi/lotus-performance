@@ -2,6 +2,7 @@ import json
 
 import pytest
 from fastapi import Request
+from fastapi.responses import JSONResponse
 
 from app.enterprise_readiness import (
     _DEFAULT_ENTERPRISE_POLICY_VERSION,
@@ -28,6 +29,34 @@ from app.enterprise_readiness import (
     redact_sensitive,
     validate_enterprise_runtime_config,
 )
+
+
+def _request_with_body(
+    *,
+    method: str = "POST",
+    path: str = "/analytics",
+    headers: list[tuple[bytes, bytes]] | None = None,
+    body_chunks: list[bytes],
+) -> Request:
+    messages = [
+        {"type": "http.request", "body": chunk, "more_body": index < len(body_chunks) - 1}
+        for index, chunk in enumerate(body_chunks)
+    ] or [{"type": "http.request", "body": b"", "more_body": False}]
+
+    async def receive():
+        if messages:
+            return messages.pop(0)
+        return {"type": "http.request", "body": b"", "more_body": False}
+
+    return Request(
+        {
+            "type": "http",
+            "method": method,
+            "path": path,
+            "headers": headers or [],
+        },
+        receive,
+    )
 
 
 def test_feature_flags_resolution(monkeypatch):
@@ -229,6 +258,40 @@ async def test_middleware_blocks_oversized_payload(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_middleware_blocks_oversized_streamed_payload_without_content_length(monkeypatch):
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_AUTHZ, "false")
+    monkeypatch.setenv(_ENV_ENTERPRISE_MAX_WRITE_PAYLOAD_BYTES, "3")
+    middleware = build_enterprise_audit_middleware()
+    request = _request_with_body(body_chunks=[b"ab", b"cd"])
+
+    async def _call_next(body_request):
+        await body_request.body()
+        return JSONResponse({"ok": True}, status_code=200)  # pragma: no cover
+
+    response = await middleware(request, _call_next)
+
+    assert response.status_code == _HTTP_STATUS_PAYLOAD_TOO_LARGE
+    assert json.loads(response.body) == {_RESPONSE_DETAIL_KEY: _PAYLOAD_TOO_LARGE_DETAIL}
+
+
+@pytest.mark.asyncio
+async def test_middleware_blocks_oversized_streamed_payload_with_invalid_content_length(monkeypatch):
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_AUTHZ, "false")
+    monkeypatch.setenv(_ENV_ENTERPRISE_MAX_WRITE_PAYLOAD_BYTES, "3")
+    middleware = build_enterprise_audit_middleware()
+    request = _request_with_body(headers=[(b"content-length", b"not-a-number")], body_chunks=[b"abcd"])
+
+    async def _call_next(body_request):
+        await body_request.body()
+        return JSONResponse({"ok": True}, status_code=200)  # pragma: no cover
+
+    response = await middleware(request, _call_next)
+
+    assert response.status_code == _HTTP_STATUS_PAYLOAD_TOO_LARGE
+    assert json.loads(response.body) == {_RESPONSE_DETAIL_KEY: _PAYLOAD_TOO_LARGE_DETAIL}
+
+
+@pytest.mark.asyncio
 async def test_middleware_denies_missing_service_identity(monkeypatch):
     monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_AUTHZ, "true")
     middleware = build_enterprise_audit_middleware()
@@ -286,8 +349,6 @@ async def test_middleware_accepts_invalid_content_length_and_sets_policy_header(
     emit = mocker.patch("app.enterprise_readiness.emit_audit_event")
 
     async def _call_next(_request):
-        from fastapi.responses import JSONResponse
-
         return JSONResponse({"ok": True}, status_code=200)
 
     scope = {

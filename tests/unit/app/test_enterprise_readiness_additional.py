@@ -89,6 +89,7 @@ from app.enterprise_readiness import (
     _TENANT_ID_HEADER,
     _UNKNOWN_ACTOR_ID,
     _UNKNOWN_ROLE,
+    PayloadTooLargeError,
     _allowed_audit_metadata,
     _apply_enterprise_policy_header,
     _audit_correlation_id,
@@ -142,6 +143,8 @@ from app.enterprise_readiness import (
     _runtime_config_invalid_message,
     _should_redact_field,
     _write_authz_enabled,
+    _write_payload_limited_receive,
+    _write_payload_limited_request,
     _write_payload_too_large,
     authorize_privileged_read_request,
     authorize_write_request,
@@ -243,7 +246,10 @@ def test_enterprise_readiness_reexports_audit_redaction_boundary():
 
 def test_enterprise_readiness_reexports_payload_limits_boundary():
     assert _write_payload_too_large is enterprise_payload_limits._write_payload_too_large
+    assert _write_payload_limited_request is enterprise_payload_limits._write_payload_limited_request
+    assert _write_payload_limited_receive is enterprise_payload_limits._write_payload_limited_receive
     assert _payload_too_large_response is enterprise_payload_limits._payload_too_large_response
+    assert PayloadTooLargeError is enterprise_payload_limits.PayloadTooLargeError
 
 
 def test_enterprise_readiness_reexports_audit_events_boundary():
