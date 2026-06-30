@@ -241,6 +241,11 @@ Important validation expectations:
     lineage-record and lineage-payload composite indexes; PostgreSQL plan-contract tests cover the
     active, failed, all, and reclaimable statements, allowing derived-order sorts only where the
     view orders by computed active-since age.
+23. Upstream lotus-core and Lotus AI HTTP calls use the shared resilience layer and, under the
+    FastAPI lifespan, a managed `httpx.AsyncClient` pool keyed by timeout. Stateful chunked
+    retrieval should tune `STATEFUL_INPUT_MAX_CONCURRENT_CHUNKS` together with
+    `UPSTREAM_HTTP_MAX_CONNECTIONS`, `UPSTREAM_HTTP_MAX_KEEPALIVE_CONNECTIONS`, and
+    `UPSTREAM_HTTP_KEEPALIVE_EXPIRY_SECONDS` before proposing a runtime transport split.
 
 ## Standards And RFCs That Govern This Repository
 

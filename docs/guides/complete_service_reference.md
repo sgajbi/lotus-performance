@@ -1630,6 +1630,9 @@ Operational boundary:
 | `CORE_TIMEOUT_SECONDS` | `10.0` | upstream request timeout |
 | `CORE_MAX_RETRIES` | `2` | upstream retry count for transport exceptions and transient HTTP statuses |
 | `CORE_RETRY_BACKOFF_SECONDS` | `0.2` | upstream retry backoff when `Retry-After` is absent, invalid, or excessive |
+| `UPSTREAM_HTTP_MAX_CONNECTIONS` | `100` | maximum managed outbound HTTP connections reused across lotus-core and Lotus AI calls |
+| `UPSTREAM_HTTP_MAX_KEEPALIVE_CONNECTIONS` | `20` | maximum idle keep-alive connections retained by the managed outbound HTTP client pool |
+| `UPSTREAM_HTTP_KEEPALIVE_EXPIRY_SECONDS` | `30.0` | keep-alive expiry for managed outbound HTTP connections |
 | `STATEFUL_INPUT_PORTFOLIO_CHUNK_DAYS` | `90` | portfolio retrieval chunk size |
 | `STATEFUL_INPUT_REFERENCE_CHUNK_DAYS` | `365` | reference retrieval chunk size |
 | `STATEFUL_INPUT_MAX_CONCURRENT_CHUNKS` | `4` | concurrent chunk retrieval bound |
@@ -1644,7 +1647,10 @@ The shared upstream resilience layer retries bounded transient HTTP statuses `42
 and `504` for lotus-core and Lotus AI calls within the configured retry budget. It honors safe
 `Retry-After` values up to five seconds, falls back to `CORE_RETRY_BACKOFF_SECONDS` or the
 caller-specific Lotus AI backoff when the header is invalid or excessive, and does not retry
-domain/client statuses such as `400`, `401`, `403`, `404`, `409`, or `422`.
+domain/client statuses such as `400`, `401`, `403`, `404`, `409`, or `422`. Under the FastAPI
+lifespan, the same resilience layer uses a lifecycle-managed `httpx.AsyncClient` pool keyed by
+timeout so concurrent stateful chunk retrieval can reuse keep-alive connections instead of creating
+one outbound client per chunk or retry attempt.
 
 ### Compute executor
 

@@ -38,15 +38,19 @@ Current configured defaults:
 | `STATEFUL_INPUT_PORTFOLIO_CHUNK_DAYS` | `90` | Bounds portfolio and position analytics-input windows. |
 | `STATEFUL_INPUT_REFERENCE_CHUNK_DAYS` | `365` | Bounds benchmark, index, FX, and risk-free reference windows. |
 | `STATEFUL_INPUT_MAX_CONCURRENT_CHUNKS` | `4` | Caps concurrent upstream chunk retrieval. |
+| `UPSTREAM_HTTP_MAX_CONNECTIONS` | `100` | Caps the lifecycle-managed outbound HTTP connection pool used by lotus-core and Lotus AI calls. |
+| `UPSTREAM_HTTP_MAX_KEEPALIVE_CONNECTIONS` | `20` | Caps idle keep-alive connections retained for upstream fan-out. |
+| `UPSTREAM_HTTP_KEEPALIVE_EXPIRY_SECONDS` | `30.0` | Controls keep-alive expiry for managed upstream HTTP connections. |
 | portfolio/position `page_size` | `5000` | Requests large-but-bounded pages from `lotus-core` analytics-input contracts. |
 
 Current orchestration behavior:
 
 1. large windows are split into deterministic date chunks,
 2. chunk retrieval is bounded by a concurrency semaphore,
-3. paginated portfolio and position inputs are merged and deduplicated by stable keys,
-4. durable calculations record upstream request and response fingerprints,
-5. benchmark and reference inputs use larger chunks because their payloads are narrower than position-level datasets.
+3. outbound lotus-core calls use a lifecycle-managed `httpx.AsyncClient` pool under the FastAPI lifespan,
+4. paginated portfolio and position inputs are merged and deduplicated by stable keys,
+5. durable calculations record upstream request and response fingerprints,
+6. benchmark and reference inputs use larger chunks because their payloads are narrower than position-level datasets.
 
 ## Characterization Evidence
 
@@ -95,10 +99,11 @@ Future retrieval-performance work must use this order:
 2. tune `STATEFUL_INPUT_PORTFOLIO_CHUNK_DAYS`;
 3. tune `STATEFUL_INPUT_REFERENCE_CHUNK_DAYS`;
 4. tune `STATEFUL_INPUT_MAX_CONCURRENT_CHUNKS`;
-5. tune portfolio/position `page_size`;
-6. use the `lotus-core` analytics export job contract for bulk windows where polling many pages is the bottleneck;
-7. review upstream query plans and indexes in `lotus-core`;
-8. consider transport only after the prior steps produce evidence that serialization or HTTP request overhead is the dominant bottleneck.
+5. tune `UPSTREAM_HTTP_MAX_CONNECTIONS`, `UPSTREAM_HTTP_MAX_KEEPALIVE_CONNECTIONS`, and `UPSTREAM_HTTP_KEEPALIVE_EXPIRY_SECONDS`;
+6. tune portfolio/position `page_size`;
+7. use the `lotus-core` analytics export job contract for bulk windows where polling many pages is the bottleneck;
+8. review upstream query plans and indexes in `lotus-core`;
+9. consider transport only after the prior steps produce evidence that serialization or HTTP request overhead is the dominant bottleneck.
 
 ## gRPC Reconsideration Threshold
 

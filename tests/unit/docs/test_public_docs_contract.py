@@ -1093,6 +1093,7 @@ def test_workspace_summary_docs_publish_canonical_examples():
 def test_complete_service_reference_covers_endpoint_surface_and_config_inventory():
     guide = _read("docs/guides/complete_service_reference.md")
     readme = _read("README.md")
+    retrieval_hardening = _read("docs/technical/RFC-0082-retrieval-performance-hardening.md")
 
     assert "single consolidated reference for `lotus-performance`" in guide
     assert "POST /performance/twr" in guide
@@ -1135,6 +1136,16 @@ def test_complete_service_reference_covers_endpoint_surface_and_config_inventory
     assert "twr_inspection_checks.md" in guide
     assert "guides/complete_service_reference.md" in readme
     assert "docs/technical/twr-endpoint-certification.md" in readme
+    assert "UPSTREAM_HTTP_MAX_CONNECTIONS" in guide
+    assert "UPSTREAM_HTTP_MAX_KEEPALIVE_CONNECTIONS" in guide
+    assert "UPSTREAM_HTTP_KEEPALIVE_EXPIRY_SECONDS" in guide
+    assert "lifecycle-managed `httpx.AsyncClient` pool" in guide
+    assert "UPSTREAM_HTTP_MAX_CONNECTIONS" in retrieval_hardening
+    assert "lifecycle-managed `httpx.AsyncClient` pool" in retrieval_hardening
+    assert "UPSTREAM_HTTP_MAX_CONNECTIONS" in _read("REPOSITORY-ENGINEERING-CONTEXT.md")
+    assert "Stateful lotus-core fan-out uses the shared upstream resilience layer" in _read(
+        "wiki/Operations-Runbook.md"
+    )
 
 
 def test_public_docs_document_nullable_response_contract():

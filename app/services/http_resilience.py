@@ -1,6 +1,8 @@
 import asyncio
 import logging
 from collections.abc import Awaitable, Callable
+from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from email.utils import parsedate_to_datetime
@@ -12,6 +14,72 @@ _LOGGER = logging.getLogger(__name__)
 _RETRYABLE_STATUS_CODES = frozenset({429, 502, 503, 504})
 _RETRY_AFTER_HEADER = "Retry-After"
 _MAX_RETRY_AFTER_SECONDS = 5.0
+
+
+@dataclass(frozen=True)
+class UpstreamHttpClientPoolConfig:
+    max_connections: int
+    max_keepalive_connections: int
+    keepalive_expiry_seconds: float
+
+    def limits(self) -> httpx.Limits:
+        return httpx.Limits(
+            max_connections=self.max_connections,
+            max_keepalive_connections=self.max_keepalive_connections,
+            keepalive_expiry=self.keepalive_expiry_seconds,
+        )
+
+
+class UpstreamHttpClientPool:
+    def __init__(self, config: UpstreamHttpClientPoolConfig):
+        self._config = config
+        self._clients_by_timeout: dict[float, httpx.AsyncClient] = {}
+        self._lock = asyncio.Lock()
+
+    async def client(self, *, timeout_seconds: float) -> httpx.AsyncClient:
+        existing_client = self._clients_by_timeout.get(timeout_seconds)
+        if existing_client is not None and not existing_client.is_closed:
+            return existing_client
+        async with self._lock:
+            existing_client = self._clients_by_timeout.get(timeout_seconds)
+            if existing_client is not None and not existing_client.is_closed:
+                return existing_client
+            client = httpx.AsyncClient(timeout=timeout_seconds, limits=self._config.limits())
+            self._clients_by_timeout[timeout_seconds] = client
+            return client
+
+    async def aclose(self) -> None:
+        clients = list(self._clients_by_timeout.values())
+        self._clients_by_timeout.clear()
+        for client in clients:
+            await client.aclose()
+
+
+_managed_client_pool: UpstreamHttpClientPool | None = None
+
+
+def configure_upstream_http_client_pool(
+    *,
+    max_connections: int,
+    max_keepalive_connections: int,
+    keepalive_expiry_seconds: float,
+) -> None:
+    global _managed_client_pool
+    _managed_client_pool = UpstreamHttpClientPool(
+        UpstreamHttpClientPoolConfig(
+            max_connections=max_connections,
+            max_keepalive_connections=max_keepalive_connections,
+            keepalive_expiry_seconds=keepalive_expiry_seconds,
+        )
+    )
+
+
+async def close_upstream_http_client_pool() -> None:
+    global _managed_client_pool
+    pool = _managed_client_pool
+    _managed_client_pool = None
+    if pool is not None:
+        await pool.aclose()
 
 
 def response_payload(response: httpx.Response) -> dict[str, Any]:
@@ -67,7 +135,7 @@ async def _request_with_retry(
 ) -> tuple[int, dict[str, Any]]:
     for attempt in range(max_retries + 1):
         try:
-            async with httpx.AsyncClient(timeout=timeout_seconds) as client:
+            async with _request_client(timeout_seconds=timeout_seconds) as client:
                 response = await request(client)
             if _should_retry_response(response=response, attempt=attempt, max_retries=max_retries):
                 delay_seconds = _response_retry_delay_seconds(
@@ -101,6 +169,15 @@ async def _request_with_retry(
             await asyncio.sleep(delay_seconds)
 
     return 503, {"detail": "upstream communication failure: exhausted retries"}
+
+
+@asynccontextmanager
+async def _request_client(timeout_seconds: float):
+    if _managed_client_pool is None:
+        async with httpx.AsyncClient(timeout=timeout_seconds) as client:
+            yield client
+        return
+    yield await _managed_client_pool.client(timeout_seconds=timeout_seconds)
 
 
 def _should_retry_response(*, response: httpx.Response, attempt: int, max_retries: int) -> bool:

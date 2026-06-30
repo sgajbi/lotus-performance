@@ -4,7 +4,13 @@ import logging
 import httpx
 import pytest
 
-from app.services.http_resilience import get_with_retry, post_with_retry, response_payload
+from app.services.http_resilience import (
+    close_upstream_http_client_pool,
+    configure_upstream_http_client_pool,
+    get_with_retry,
+    post_with_retry,
+    response_payload,
+)
 
 
 async def _capture_sleep(delay_seconds: float) -> None:
@@ -329,3 +335,70 @@ async def test_post_with_retry_does_not_retry_non_retryable_status(monkeypatch):
     assert status == 422
     assert payload == {"detail": "invalid request"}
     assert _TransientStatusClient.attempts == 1
+
+
+class _ManagedPoolClient:
+    instances = []
+    responses: list[httpx.Response | Exception] = []
+
+    def __init__(self, timeout: float, limits=None):
+        self.timeout = timeout
+        self.limits = limits
+        self.calls = []
+        self.is_closed = False
+        _ManagedPoolClient.instances.append(self)
+
+    async def aclose(self):
+        self.is_closed = True
+
+    async def post(self, url, json=None, headers=None):
+        self.calls.append({"url": url, "json": json or {}, "headers": headers or {}})
+        response_or_exception = _ManagedPoolClient.responses.pop(0)
+        if isinstance(response_or_exception, Exception):
+            raise response_or_exception
+        return response_or_exception
+
+
+@pytest.mark.asyncio
+async def test_managed_upstream_client_pool_reuses_client_across_retries_and_requests(monkeypatch):
+    _ManagedPoolClient.instances = []
+    _ManagedPoolClient.responses = [
+        httpx.TimeoutException("timeout"),
+        _json_response(200, {"first": True}),
+        _json_response(200, {"second": True}),
+    ]
+    monkeypatch.setattr("app.services.http_resilience.httpx.AsyncClient", _ManagedPoolClient)
+    configure_upstream_http_client_pool(
+        max_connections=12,
+        max_keepalive_connections=6,
+        keepalive_expiry_seconds=15.0,
+    )
+
+    try:
+        first_status, first_payload = await post_with_retry(
+            url="http://core/integration/portfolios/P1/analytics/portfolio-timeseries",
+            timeout_seconds=2.5,
+            json_body={"page": {"page_token": None}},
+            headers={"X-Correlation-Id": "cid-1"},
+            max_retries=1,
+            backoff_seconds=0.0,
+        )
+        second_status, second_payload = await post_with_retry(
+            url="http://core/integration/portfolios/P1/analytics/position-timeseries",
+            timeout_seconds=2.5,
+            json_body={"page": {"page_token": "page-2"}},
+            headers={"X-Correlation-Id": "cid-2"},
+            max_retries=0,
+            backoff_seconds=0.0,
+        )
+    finally:
+        await close_upstream_http_client_pool()
+
+    assert first_status == 200
+    assert first_payload == {"first": True}
+    assert second_status == 200
+    assert second_payload == {"second": True}
+    assert len(_ManagedPoolClient.instances) == 1
+    assert _ManagedPoolClient.instances[0].timeout == 2.5
+    assert len(_ManagedPoolClient.instances[0].calls) == 3
+    assert _ManagedPoolClient.instances[0].is_closed is True
