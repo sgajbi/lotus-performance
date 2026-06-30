@@ -1,7 +1,7 @@
 # tests/unit/core/test_annualize.py
 import pytest
 
-from core.annualize import annualize_return
+from core.annualize import annualize_return, periods_per_year_for_basis
 from core.errors import APIBadRequestError
 
 
@@ -28,3 +28,15 @@ def test_annualize_return_invalid_inputs():
 
     with pytest.raises(APIBadRequestError, match="Periods per year for annualization must be positive"):
         annualize_return(0.05, 252, 0, "BUS/252")
+
+
+def test_periods_per_year_for_basis_uses_governed_defaults_and_explicit_override():
+    assert periods_per_year_for_basis(basis="BUS/252") == pytest.approx(252.0)
+    assert periods_per_year_for_basis(basis="ACT/365") == pytest.approx(365.0)
+    assert periods_per_year_for_basis(basis="ACT/ACT") == pytest.approx(365.25)
+    assert periods_per_year_for_basis(basis="ACT/ACT", periods_per_year=12) == pytest.approx(12.0)
+
+
+def test_periods_per_year_for_basis_rejects_non_positive_override():
+    with pytest.raises(APIBadRequestError, match="Periods per year for annualization must be positive"):
+        periods_per_year_for_basis(basis="BUS/252", periods_per_year=0)

@@ -6,18 +6,16 @@ from typing import Callable, Literal, Sequence
 
 import numpy as np
 
+from core.annualize import periods_per_year_for_basis
 from core.envelope import Annualization
 from engine.mwr_types import CashFlowLike, MWRConvergence, MWRResult, Number
 
 
 def _day_count_denominator(annualization: Annualization) -> float:
-    if annualization.periods_per_year:
-        return float(annualization.periods_per_year)
-    if annualization.basis == "BUS/252":
-        return 252.0
-    if annualization.basis == "ACT/ACT":
-        return 365.25
-    return 365.0
+    return periods_per_year_for_basis(
+        basis=annualization.basis,
+        periods_per_year=annualization.periods_per_year,
+    )
 
 
 def _net_same_day_flows(values: list[float], dates: list[date]) -> tuple[np.ndarray, np.ndarray]:

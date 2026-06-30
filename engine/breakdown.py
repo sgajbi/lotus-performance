@@ -5,7 +5,7 @@ import pandas as pd
 
 from common.enums import Frequency
 from common.precision_policy import quantize_performance
-from core.annualize import annualize_return
+from core.annualize import annualize_return, periods_per_year_for_basis
 from core.envelope import Annualization
 from engine.schema import PortfolioColumns
 
@@ -56,8 +56,9 @@ def _period_annualized_return_pct(
     days_in_period = (last_day[PortfolioColumns.PERF_DATE.value] - first_day[PortfolioColumns.PERF_DATE.value]).days + 1
     if days_in_period <= 0:
         return None
-    ppy = annualization.periods_per_year or (
-        252 if annualization.basis == "BUS/252" else 365.25 if annualization.basis == "ACT/ACT" else 365.0
+    ppy = periods_per_year_for_basis(
+        basis=annualization.basis,
+        periods_per_year=annualization.periods_per_year,
     )
     annualized_pct = annualize_return(period_ror, days_in_period, ppy, annualization.basis) * 100
     quantized = float(quantize_performance(annualized_pct))

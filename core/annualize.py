@@ -6,6 +6,18 @@ from .errors import APIBadRequestError
 BasisType = Literal["BUS/252", "ACT/365", "ACT/ACT"]
 
 
+def periods_per_year_for_basis(*, basis: BasisType, periods_per_year: float | None = None) -> float:
+    if periods_per_year is not None:
+        if periods_per_year <= 0:
+            raise APIBadRequestError("Periods per year for annualization must be positive.")
+        return periods_per_year
+    if basis == "BUS/252":
+        return 252.0
+    if basis == "ACT/ACT":
+        return 365.25
+    return 365.0
+
+
 def annualize_return(period_return: float, num_periods: int, periods_per_year: float, basis: BasisType) -> float:
     """
     Annualizes a period return using geometric compounding.
@@ -25,10 +37,5 @@ def annualize_return(period_return: float, num_periods: int, periods_per_year: f
     if periods_per_year <= 0:
         raise APIBadRequestError("Periods per year for annualization must be positive.")
 
-    # For ACT/ACT, the scale factor is simply 365.25 / actual days
-    if basis == "ACT/ACT":
-        scale = 365.25 / num_periods
-    else:
-        scale = periods_per_year / num_periods
-
+    scale = periods_per_year / num_periods
     return (1 + period_return) ** scale - 1
