@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-06-23T06:34:31.960490+00:00",
+  "generatedAt": "2026-06-30T08:08:29.917950+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.access_classification",
@@ -7664,7 +7664,7 @@
       "location": "query",
       "required": false,
       "type": "integer",
-      "description": "Maximum number of retained recovery-drill entries to return.",
+      "description": "Maximum number of retained recovery-drill entries to return. Defaults to 10 when omitted.",
       "example": 1,
       "allowedValues": [],
       "semanticId": "lotus.limit",
@@ -7748,7 +7748,7 @@
       "location": "query",
       "required": false,
       "type": "integer",
-      "description": "Maximum number of retained runtime-retention cleanup entries to return.",
+      "description": "Maximum number of retained runtime-retention cleanup entries to return. Defaults to 10 when omitted.",
       "example": 1,
       "allowedValues": [],
       "semanticId": "lotus.limit",
