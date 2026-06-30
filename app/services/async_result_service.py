@@ -1,18 +1,22 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
-from typing import TypeVar
+from typing import Any, TypeVar
 from uuid import UUID
 
 from fastapi import HTTPException, status
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from app.services.async_result_store import AsyncResultRecord, AsyncResultStatus, async_result_store
 from app.services.compute_job_store import ComputeJobRecord, ComputeJobStatus, compute_job_store
 
 ResponseModelT = TypeVar("ResponseModelT", bound=BaseModel)
 AcceptedModelT = TypeVar("AcceptedModelT", bound=BaseModel)
+ASYNC_RESULT_RESPONSE_SCHEMA_INVALID_DETAIL = "Async result payload failed response contract validation."
+ASYNC_RESULT_RESPONSE_SCHEMA_INVALID_REASON = "async_result_response_schema_invalid"
+logger = logging.getLogger(__name__)
 
 ACTIVE_ASYNC_JOB_STATUSES = frozenset(
     {
@@ -38,7 +42,12 @@ def _resolve_stored_async_result(
             status_code=status.HTTP_409_CONFLICT,
             detail=async_result.error_message or failed_detail,
         )
-    return response_model.model_validate(async_result.response_payload)
+    return _validate_response_payload(
+        calculation_id=async_result.calculation_id,
+        response_model=response_model,
+        response_payload=async_result.response_payload,
+        source="async_result_store",
+    )
 
 
 def _resolve_compute_job_result(
@@ -59,7 +68,38 @@ def _resolve_compute_job_result(
             status_code=status.HTTP_409_CONFLICT,
             detail=job.error_message or failed_detail,
         )
-    return response_model.model_validate(job.response_payload)
+    return _validate_response_payload(
+        calculation_id=calculation_id,
+        response_model=response_model,
+        response_payload=job.response_payload,
+        source="compute_job_store",
+    )
+
+
+def _validate_response_payload(
+    *,
+    calculation_id: UUID,
+    response_model: type[ResponseModelT],
+    response_payload: dict[str, Any] | None,
+    source: str,
+) -> ResponseModelT:
+    try:
+        return response_model.model_validate(response_payload)
+    except ValidationError as exc:
+        logger.warning(
+            "Async result response payload failed schema validation.",
+            extra={
+                "calculation_id": str(calculation_id),
+                "source": source,
+                "response_model": response_model.__name__,
+                "reason": ASYNC_RESULT_RESPONSE_SCHEMA_INVALID_REASON,
+                "validation_error_count": exc.error_count(),
+            },
+        )
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=ASYNC_RESULT_RESPONSE_SCHEMA_INVALID_DETAIL,
+        ) from None
 
 
 def _require_compute_job(
