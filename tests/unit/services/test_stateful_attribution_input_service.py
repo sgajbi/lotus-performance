@@ -57,6 +57,7 @@ from app.services.stateful_attribution_input_service import (
     _stateful_both_currency_requires_fx,
     _stateful_portfolio_position_alignment_mismatches,
     _stateful_position_currencies,
+    _StatefulAttributionSourceRetrievalRequest,
     _summarize_benchmark_classification,
     _summarize_position_classification,
     _validate_stateful_attribution_normalization_inputs,
@@ -93,6 +94,35 @@ class _AttributionInputServiceStub:
     async def get_index_catalog(self, **kwargs):
         self.index_catalog_calls.append(kwargs)
         return self.index_response
+
+
+def _stateful_attribution_source_request(
+    *,
+    calculation_id=None,
+    portfolio_id: str = "P1",
+    as_of_date: date = date(2025, 1, 31),
+    start_date: date = date(2025, 1, 1),
+    end_date: date = date(2025, 1, 31),
+    reporting_currency: str | None = "USD",
+    consumer_system: str = "lotus-performance",
+    dimensions: list[str] | None = None,
+    include_cash_flows: bool = True,
+    filters: dict[str, object] | None = None,
+    benchmark_id_override: str | None = None,
+) -> _StatefulAttributionSourceRetrievalRequest:
+    return _StatefulAttributionSourceRetrievalRequest(
+        calculation_id=calculation_id or uuid4(),
+        portfolio_id=portfolio_id,
+        as_of_date=as_of_date,
+        start_date=start_date,
+        end_date=end_date,
+        reporting_currency=reporting_currency,
+        consumer_system=consumer_system,
+        dimensions=dimensions or ["asset_class", "sector"],
+        include_cash_flows=include_cash_flows,
+        filters=filters or {},
+        benchmark_id_override=benchmark_id_override,
+    )
 
 
 def test_summarize_position_classification_counts_required_dimensions():
@@ -203,16 +233,11 @@ async def test_retrieve_stateful_attribution_position_source_projects_rows_metad
 
     source = await _retrieve_stateful_attribution_position_source(
         stateful_input_service=service,
-        calculation_id=calculation_id,
-        portfolio_id="P1",
-        as_of_date=date(2025, 1, 31),
-        start_date=date(2025, 1, 1),
-        end_date=date(2025, 1, 31),
-        reporting_currency="USD",
-        consumer_system="lotus-performance",
-        dimensions=["asset_class", "sector"],
-        include_cash_flows=True,
-        filters={"book": "managed"},
+        source_request=_stateful_attribution_source_request(
+            calculation_id=calculation_id,
+            dimensions=["asset_class", "sector"],
+            filters={"book": "managed"},
+        ),
     )
 
     assert source.rows == [{"position_id": "POS_1", "valuation_date": "2025-01-01"}]
@@ -283,17 +308,12 @@ async def test_retrieve_stateful_attribution_sources_projects_source_bundle(monk
     source_bundle = await _retrieve_stateful_attribution_sources(
         settings=object(),
         stateful_input_service=service,
-        calculation_id=calculation_id,
-        portfolio_id="P1",
-        as_of_date=date(2025, 1, 31),
-        start_date=date(2025, 1, 1),
-        end_date=date(2025, 1, 31),
-        reporting_currency="USD",
-        consumer_system="lotus-performance",
-        dimensions=["asset_class", "sector"],
-        include_cash_flows=True,
-        filters={"book": "managed"},
-        benchmark_id_override="BMK_OVERRIDE",
+        source_request=_stateful_attribution_source_request(
+            calculation_id=calculation_id,
+            dimensions=["asset_class", "sector"],
+            filters={"book": "managed"},
+            benchmark_id_override="BMK_OVERRIDE",
+        ),
     )
 
     assert source_bundle.portfolio_input is portfolio_input

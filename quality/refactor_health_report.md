@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Health Report
 
 Report date: 2026-06-30
-Branch: `feature/runtime-recovery-queue-result-boundary`
+Branch: `feature/stateful-attribution-source-results-boundary`
 Baseline source: `quality/baseline_report.md`
 Report mode: phase-zero scorecard; complexity, architecture, duplicate-code, repository hygiene,
 router-thinness, observability-readiness, domain-product validation, deterministic API evaluation,
@@ -29,7 +29,7 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | Python files | 480 | 583 | measured | `rg --files -g '*.py'` |
 | Python package markers | 18 | 18 | measured | recursive `__init__.py` count |
-| Python LOC | 104,454 | 174,353 | measured | `rg --files -g '*.py'` plus Python line count on this branch |
+| Python LOC | 104,454 | 174,386 | measured | `rg --files -g '*.py'` plus Python line count on this branch |
 | Largest Python file LOC | 2,399 | 2,503 | measured | largest-file inventory on this branch |
 | Largest production file LOC | 1,156 | 1,948 | measured | `app/services/stateful_input_service.py` |
 | Duplicate code hotspots | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `make quality-duplicate-code-gate` with `--min-lines 12 --max-groups 0`; duplicated LOC reduced from `24` to `0` in LP-CR-1407 |
@@ -44,7 +44,7 @@ link the commit, command, or CI artifact that proves the change.
 | Max cyclomatic complexity | unknown | 5 | enforced | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py`; `make quality-complexity-gate` |
 | High-complexity functions | unknown | 0 | enforced | rank D-F functions in `quality/complexity_inventory.md`; `make quality-complexity-gate` |
 | Average maintainability index | unknown | 55.18 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
-| Largest functions by LOC | unknown | 55 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; `build_runtime_recovery_snapshot(...)` dropped out of the top-45 table after compute/lineage queue loading moved behind a typed queue-results boundary |
+| Largest functions by LOC | unknown | 55 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; `_retrieve_stateful_attribution_sources(...)` dropped out of the top-45 table after source retrieval moved behind a typed request boundary and public DTO projection helper |
 
 ## Architecture
 
@@ -127,6 +127,44 @@ quality-program gap is not lack of aspiration; it is that several requested dime
 repeatably measured or expressed as progressive gates.
 
 ## Latest Local PR-Gate Evidence
+
+Latest stateful attribution source-results boundary evidence on
+`feature/stateful-attribution-source-results-boundary`:
+
+1. Introduced `_StatefulAttributionSourceRetrievalRequest` so portfolio, position, benchmark,
+   index-catalog, reporting-currency, date-window, dimension, cash-flow, filter, and benchmark
+   override inputs move through one private source-retrieval carrier instead of repeated helper
+   argument plumbing.
+2. Added `_stateful_attribution_source_input_from_bundle(...)` so public `StatefulAttributionSourceInput`
+   projection is owned by a named mapper while `retrieve_stateful_attribution_source_input(...)`
+   stays focused on group validation, source request construction, source retrieval, and projection.
+3. Preserved behavior: public attribution API shape, benchmark override behavior, benchmark
+   assignment fallback, position-timeseries request shape, benchmark/index source metadata,
+   upstream error mapping, OpenAPI truth, error-model truth, observability surface, and runtime
+   topology remain unchanged.
+4. Measured proof: `_retrieve_stateful_attribution_sources(...)` dropped out of the top-45
+   function-size table; largest production functions still measure `55` lines; max cyclomatic
+   complexity remains `5`; high-complexity functions remain `0`; average maintainability index
+   measures `55.18`; architecture-boundary findings remain `0`; duplicate hotspot groups remain
+   `0`; taxonomy reports remain above enforced floors with `608` API/runtime test functions,
+   `111` contract/governance test functions, and `1138` uncategorized test functions.
+5. Validation passed: `python -m pytest tests\unit\services\test_stateful_attribution_input_service.py`
+   (`68 passed`); `python -m pytest tests\unit\services\test_attribution_mode_service.py tests\unit\services\test_stateful_attribution_input_service.py`
+   (`76 passed`); `make lint`; function-size inventory; complexity inventory; architecture-boundary
+   inventory; duplicate-code inventory; test-taxonomy inventory; `python -m pytest --collect-only -q`
+   (`3,426 tests collected`); `make quality-baseline`; `make quality-evaluation-gate`; `make check`
+   (`3,080 passed` after static quality, OpenAPI, API vocabulary, domain-product validation,
+   deterministic API evaluation, demo API certification, Python security, mypy, taxonomy, and unit-test
+   gates); `Sync-RepoWikis.ps1 -CheckOnly -Repository lotus-performance` (`DiffCount 0`); and
+   `git diff --check` with the existing baseline line-ending normalization warning only.
+6. Conscious domain/API/error-model/operations/docs/skill review: this is an internal stateful
+   attribution design-modularity slice. It deliberately adds no runtime microservice or worker
+   boundary because workload, failure-isolation, ownership, deployment, security, and operability
+   evidence do not justify one here. README, repo-local wiki source, repository context, central
+   platform context, supported-features material, API inventories, OpenAPI snapshots, runbooks,
+   platform skills, and agent context do not need source updates because no public contract,
+   command, runtime topology, operator workflow, cross-repo ownership, reusable guidance, or
+   documentation truth changed.
 
 Latest runtime recovery queue-result boundary evidence on
 `feature/runtime-recovery-queue-result-boundary`:

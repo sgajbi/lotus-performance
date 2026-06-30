@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
+from datetime import date
 from decimal import Decimal
 from typing import cast
+from uuid import UUID
 
 import pandas as pd
 from fastapi import HTTPException, status
@@ -69,6 +71,21 @@ class StatefulAttributionNormalizedInput:
 
 
 @dataclass(frozen=True)
+class _StatefulAttributionSourceRetrievalRequest:
+    calculation_id: UUID
+    portfolio_id: str
+    as_of_date: date
+    start_date: date
+    end_date: date
+    reporting_currency: str | None
+    consumer_system: str
+    dimensions: list[str]
+    include_cash_flows: bool
+    filters: dict[str, object]
+    benchmark_id_override: str | None
+
+
+@dataclass(frozen=True)
 class _StatefulAttributionPositionSource:
     rows: list[dict[str, object]]
     retrieval_metadata: RetrievalMetadata
@@ -113,14 +130,12 @@ async def retrieve_stateful_attribution_source_input(
         group_by=group_by,
         dimensions=dimensions,
     )
-    source_bundle = await _retrieve_stateful_attribution_sources(
-        settings=settings,
-        stateful_input_service=stateful_input_service,
+    source_request = _stateful_attribution_source_retrieval_request(
         calculation_id=calculation_id,
         portfolio_id=portfolio_id,
         as_of_date=as_of_date,
-        start_date=report_start_date,
-        end_date=report_end_date,
+        report_start_date=report_start_date,
+        report_end_date=report_end_date,
         reporting_currency=reporting_currency,
         consumer_system=consumer_system,
         dimensions=requested_dimensions,
@@ -128,7 +143,17 @@ async def retrieve_stateful_attribution_source_input(
         filters=filters,
         benchmark_id_override=benchmark_id_override,
     )
+    source_bundle = await _retrieve_stateful_attribution_sources(
+        settings=settings,
+        stateful_input_service=stateful_input_service,
+        source_request=source_request,
+    )
+    return _stateful_attribution_source_input_from_bundle(source_bundle)
 
+
+def _stateful_attribution_source_input_from_bundle(
+    source_bundle: _StatefulAttributionSourceBundle,
+) -> StatefulAttributionSourceInput:
     return StatefulAttributionSourceInput(
         portfolio_input=source_bundle.portfolio_input,
         position_rows=source_bundle.position_source.rows,
@@ -142,55 +167,59 @@ async def retrieve_stateful_attribution_source_input(
     )
 
 
-async def _retrieve_stateful_attribution_sources(
+def _stateful_attribution_source_retrieval_request(
     *,
-    settings: Settings,
-    stateful_input_service: StatefulInputService,
-    calculation_id,
+    calculation_id: UUID,
     portfolio_id: str,
-    as_of_date,
-    start_date,
-    end_date,
+    as_of_date: date,
+    report_start_date: date,
+    report_end_date: date,
     reporting_currency: str | None,
     consumer_system: str,
     dimensions: list[str],
     include_cash_flows: bool,
     filters: dict[str, object],
     benchmark_id_override: str | None,
-) -> _StatefulAttributionSourceBundle:
-    portfolio_input = await retrieve_stateful_portfolio_input(
-        settings=settings,
-        stateful_input_service=stateful_input_service,
+) -> _StatefulAttributionSourceRetrievalRequest:
+    return _StatefulAttributionSourceRetrievalRequest(
         calculation_id=calculation_id,
         portfolio_id=portfolio_id,
         as_of_date=as_of_date,
-        start_date=start_date,
-        end_date=end_date,
-        reporting_currency=reporting_currency,
-        consumer_system=consumer_system,
-    )
-    position_source = await _retrieve_stateful_attribution_position_source(
-        stateful_input_service=stateful_input_service,
-        calculation_id=calculation_id,
-        portfolio_id=portfolio_id,
-        as_of_date=as_of_date,
-        start_date=start_date,
-        end_date=end_date,
+        start_date=report_start_date,
+        end_date=report_end_date,
         reporting_currency=reporting_currency,
         consumer_system=consumer_system,
         dimensions=dimensions,
         include_cash_flows=include_cash_flows,
         filters=filters,
+        benchmark_id_override=benchmark_id_override,
+    )
+
+
+async def _retrieve_stateful_attribution_sources(
+    *,
+    settings: Settings,
+    stateful_input_service: StatefulInputService,
+    source_request: _StatefulAttributionSourceRetrievalRequest,
+) -> _StatefulAttributionSourceBundle:
+    portfolio_input = await retrieve_stateful_portfolio_input(
+        settings=settings,
+        stateful_input_service=stateful_input_service,
+        calculation_id=source_request.calculation_id,
+        portfolio_id=source_request.portfolio_id,
+        as_of_date=source_request.as_of_date,
+        start_date=source_request.start_date,
+        end_date=source_request.end_date,
+        reporting_currency=source_request.reporting_currency,
+        consumer_system=source_request.consumer_system,
+    )
+    position_source = await _retrieve_stateful_attribution_position_source(
+        stateful_input_service=stateful_input_service,
+        source_request=source_request,
     )
     benchmark_source = await _retrieve_stateful_attribution_benchmark_source(
         stateful_input_service=stateful_input_service,
-        portfolio_id=portfolio_id,
-        as_of_date=as_of_date,
-        reporting_currency=reporting_currency,
-        calculation_id=calculation_id,
-        benchmark_id_override=benchmark_id_override,
-        start_date=start_date,
-        end_date=end_date,
+        source_request=source_request,
     )
     return _StatefulAttributionSourceBundle(
         portfolio_input=portfolio_input,
@@ -202,28 +231,19 @@ async def _retrieve_stateful_attribution_sources(
 async def _retrieve_stateful_attribution_position_source(
     *,
     stateful_input_service: StatefulInputService,
-    calculation_id,
-    portfolio_id: str,
-    as_of_date,
-    start_date,
-    end_date,
-    reporting_currency: str | None,
-    consumer_system: str,
-    dimensions: list[str],
-    include_cash_flows: bool,
-    filters: dict[str, object],
+    source_request: _StatefulAttributionSourceRetrievalRequest,
 ) -> _StatefulAttributionPositionSource:
     upstream_status, upstream_payload = await stateful_input_service.get_position_timeseries(
-        calculation_id=calculation_id,
-        portfolio_id=portfolio_id,
-        as_of_date=as_of_date,
-        start_date=start_date,
-        end_date=end_date,
-        reporting_currency=reporting_currency,
-        consumer_system=consumer_system,
-        dimensions=dimensions,
-        include_cash_flows=include_cash_flows,
-        filters=filters,
+        calculation_id=source_request.calculation_id,
+        portfolio_id=source_request.portfolio_id,
+        as_of_date=source_request.as_of_date,
+        start_date=source_request.start_date,
+        end_date=source_request.end_date,
+        reporting_currency=source_request.reporting_currency,
+        consumer_system=source_request.consumer_system,
+        dimensions=source_request.dimensions,
+        include_cash_flows=source_request.include_cash_flows,
+        filters=source_request.filters,
     )
     raise_for_stateful_control_plane_unavailable(
         source_label="stateful position timeseries source",
@@ -238,35 +258,29 @@ async def _retrieve_stateful_attribution_position_source(
 async def _retrieve_stateful_attribution_benchmark_source(
     *,
     stateful_input_service: StatefulInputService,
-    portfolio_id: str,
-    as_of_date,
-    reporting_currency: str | None,
-    calculation_id,
-    benchmark_id_override: str | None,
-    start_date,
-    end_date,
+    source_request: _StatefulAttributionSourceRetrievalRequest,
 ) -> _StatefulAttributionBenchmarkSource:
     benchmark_id = await _resolve_stateful_attribution_benchmark_id(
         stateful_input_service=stateful_input_service,
-        portfolio_id=portfolio_id,
-        as_of_date=as_of_date,
-        reporting_currency=reporting_currency,
-        calculation_id=calculation_id,
-        benchmark_id_override=benchmark_id_override,
+        portfolio_id=source_request.portfolio_id,
+        as_of_date=source_request.as_of_date,
+        reporting_currency=source_request.reporting_currency,
+        calculation_id=source_request.calculation_id,
+        benchmark_id_override=source_request.benchmark_id_override,
     )
     benchmark_input = await build_stateful_benchmark_input(
         stateful_input_service=stateful_input_service,
-        calculation_id=calculation_id,
+        calculation_id=source_request.calculation_id,
         benchmark_id=benchmark_id,
-        as_of_date=as_of_date,
-        start_date=start_date,
-        end_date=end_date,
+        as_of_date=source_request.as_of_date,
+        start_date=source_request.start_date,
+        end_date=source_request.end_date,
         return_source=BenchmarkReturnSource.CALCULATED,
     )
     index_records = await _retrieve_stateful_attribution_index_records(
         stateful_input_service=stateful_input_service,
-        calculation_id=calculation_id,
-        as_of_date=as_of_date,
+        calculation_id=source_request.calculation_id,
+        as_of_date=source_request.as_of_date,
         component_observations=benchmark_input.component_observations,
     )
     return _StatefulAttributionBenchmarkSource(
