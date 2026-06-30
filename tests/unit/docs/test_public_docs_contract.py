@@ -1277,6 +1277,14 @@ def test_runtime_alert_runbook_covers_breach_gauges():
     assert "analytics_execution(status, completed_at_utc, created_at_utc)" in retention_runbook
     assert "lineage_records(status, timestamp_utc, calculation_id)" in retention_runbook
     assert "workspace-summary, and TWR-inspection async submissions" in wiki_operations
+    assert "Lineage inspection list queries are query-plan governed" in runtime_topology
+    assert "Runtime work-item lineage inspection is also governed by query-plan evidence" in wiki_operations
+    repository_context = _read("REPOSITORY-ENGINEERING-CONTEXT.md")
+    lineage_store = _read("app/services/lineage_metadata_store.py")
+    assert "`calculation_type` filters index-backed" in repository_context
+    assert "active, failed, all, and reclaimable statements" in repository_context
+    assert "ix_lineage_records_status_type_timestamp" in lineage_store
+    assert "ix_lineage_payloads_lease_expires_created_at" in lineage_store
 
 
 def test_enterprise_readiness_covers_privileged_operator_reads():

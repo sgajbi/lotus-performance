@@ -75,6 +75,14 @@ class LineageRecordModel(Base):
     __table_args__ = (
         Index("ix_lineage_records_status", "status"),
         Index("ix_lineage_records_terminal_retention", "status", "timestamp_utc", "calculation_id"),
+        Index(
+            "ix_lineage_records_status_type_timestamp",
+            "status",
+            "calculation_type",
+            "timestamp_utc",
+            "calculation_id",
+        ),
+        Index("ix_lineage_records_type_timestamp", "calculation_type", "timestamp_utc", "calculation_id"),
     )
 
     calculation_id: Mapped[str] = mapped_column(String(36), primary_key=True)
@@ -90,6 +98,13 @@ class LineagePayloadModel(Base):
     __table_args__ = (
         Index("ix_lineage_payloads_created_at", "created_at_utc"),
         Index("ix_lineage_payloads_lease_expires_at", "lease_expires_at_utc"),
+        Index("ix_lineage_payloads_calculation_created_at", "calculation_id", "created_at_utc"),
+        Index(
+            "ix_lineage_payloads_lease_expires_created_at",
+            "lease_expires_at_utc",
+            "created_at_utc",
+            "calculation_id",
+        ),
     )
 
     calculation_id: Mapped[str] = mapped_column(String(36), primary_key=True)
@@ -1139,6 +1154,30 @@ class LineageMetadataStore:
                 text(
                     "CREATE INDEX IF NOT EXISTS ix_lineage_records_terminal_retention "
                     "ON lineage_records (status, timestamp_utc, calculation_id)"
+                )
+            )
+            connection.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_lineage_records_status_type_timestamp "
+                    "ON lineage_records (status, calculation_type, timestamp_utc, calculation_id)"
+                )
+            )
+            connection.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_lineage_records_type_timestamp "
+                    "ON lineage_records (calculation_type, timestamp_utc, calculation_id)"
+                )
+            )
+            connection.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_lineage_payloads_calculation_created_at "
+                    "ON lineage_payloads (calculation_id, created_at_utc)"
+                )
+            )
+            connection.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_lineage_payloads_lease_expires_created_at "
+                    "ON lineage_payloads (lease_expires_at_utc, created_at_utc, calculation_id)"
                 )
             )
 

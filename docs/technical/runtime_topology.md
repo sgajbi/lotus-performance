@@ -192,6 +192,15 @@ from logs. Runtime status now also carries a bounded recent reclaim event list f
 action lanes so support can distinguish an isolated stale-lease recovery from recurring
 operator-action instability without querying the filesystem directly.
 
+Lineage inspection list queries are query-plan governed in the same operator-control posture.
+The active, failed, all, and reclaimable inspection paths filter on `calculation_type` and use
+composite durable-store indexes over lineage status, calculation type, timestamp, calculation id,
+payload calculation id, and lease expiry so support drill-down does not degrade into avoidable
+full-table scans as lineage history grows. PostgreSQL plan-contract tests require index-backed
+access for those inspection statements. Active and all-item inspection views may still sort on
+their derived active-since ordering expression; failed and reclaimable views are expected to remain
+index-backed without an avoidable sort.
+
 ## Failure recovery model
 
 - expired compute leases are reconciled durably

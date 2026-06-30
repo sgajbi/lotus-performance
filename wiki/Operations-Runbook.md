@@ -95,6 +95,12 @@ database-native count/delete operations. Operators should not expect cleanup cos
 full ORM row materialization; execution and lineage paths still enumerate calculation ids only when
 artifact directories or child rows must be counted or deleted deterministically.
 
+Runtime work-item lineage inspection is also governed by query-plan evidence. The active, failed,
+all, and reclaimable lineage inspection views use `calculation_type`-aware composite indexes on
+lineage records plus payload calculation and lease-expiry indexes, so support drill-down remains
+bounded as lineage history grows. Active and all-item views may sort on a derived active-since
+expression; failed and reclaimable views should stay index-backed without avoidable sort work.
+
 For compute executor incidents, distinguish calculation failure from durable success-finalization
 failure. A `success_result_publication_failed` event means the calculation completed but the async
 result write failed, so the job must not be marked complete until a retrievable result exists. A
