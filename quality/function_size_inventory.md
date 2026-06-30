@@ -1,7 +1,7 @@
 # Lotus Performance Function Size Inventory
 
 Report date: 2026-06-30
-Branch: `feature/stateful-benchmark-market-series-boundary`
+Branch: `feature/dietz-mwr-annualization-contract`
 Mode: report-only function-size inventory; this artifact introduces no new blocking CI gate.
 
 ## Purpose
@@ -169,6 +169,12 @@ single private request carrier and a named public DTO projection boundary. The f
 production functions still start at `55` lines. This is an internal stateful attribution
 design-modularity slice only; it preserves portfolio, position, benchmark, index-catalog, metadata,
 API/OpenAPI, error-model, and runtime behavior and adds no runtime microservice or worker boundary.
+LP-CR-1563 resolves issue `#344` by moving annualization basis resolution into
+`core.annualize.periods_per_year_for_basis(...)` and routing Dietz MWR plus TWR breakdown
+annualization through the shared policy. This is a calculation-correctness and platform-pattern
+hardening slice rather than a function-size reduction slice; the largest production functions still
+start at `55` lines, max complexity remains `5`, and the public MWR API now has explicit `BUS/252`
+Dietz proof.
 LP-CR-1562 introduced `_BenchmarkMarketSeriesRequest`,
 `_fetch_benchmark_market_series_chunk(...)`, `_benchmark_market_series_response_payload(...)`, and
 `_benchmark_market_series_request_payload(...)` so stateful benchmark market-series retrieval has a

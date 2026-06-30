@@ -52,7 +52,8 @@ Money-Weighted Return via XIRR (`money_weighted_return` when method resolves to 
   earliest cash-flow date when no start date is supplied)
 - `T`: terminal valuation date `as_of`
 - `r`: XIRR annualized decimal rate
-- `D`: day-count denominator (`annualization.periods_per_year`, else `365.25` for `ACT/ACT`, else `365.0`)
+- `D`: day-count denominator (`annualization.periods_per_year`, else `252.0` for `BUS/252`,
+  `365.0` for `ACT/365`, or `365.25` for `ACT/ACT`)
 - `tau_j`: year fraction from anchor date using `(date_j - anchor).days / D`
 - `V_j`: signed value at position `j` in the solver vector after same-day netting
 - `NPV(r)`: discounted cash-flow sum used for root solving
@@ -142,9 +143,10 @@ Money-Weighted Return via XIRR (`money_weighted_return` when method resolves to 
 
 ## Configuration Options
 - `mwr_method`: must be `XIRR` to attempt this path.
-- `annualization.basis`: controls dated year fractions (`ACT/365` default behavior for current
-  MWR examples; `ACT/ACT` uses `365.25`).
-- `annualization.periods_per_year`: overrides day-count denominator when supplied.
+- `annualization.basis`: controls dated year fractions (`BUS/252` uses `252.0`, `ACT/365` uses
+  `365.0`, and `ACT/ACT` uses `365.25`).
+- `annualization.periods_per_year`: optional positive override that replaces the basis-derived
+  day-count denominator when supplied.
 - `solver.rate_lower_bound` and `solver.rate_upper_bound`: searched annual-rate bounds.
 - `solver.root_scan_steps`: number of log-rate scan points before bisection.
 - `solver.tolerance` and `solver.max_iter`: bisection termination controls.

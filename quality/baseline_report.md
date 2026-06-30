@@ -1,7 +1,7 @@
 # Lotus Performance Enterprise Backend Refactor Baseline
 
 Baseline date: 2026-06-30
-Branch: `feature/stateful-benchmark-market-series-boundary`
+Branch: `feature/dietz-mwr-annualization-contract`
 Mode: report-only baseline; no new blocking quality gate is introduced by this artifact.
 
 ## Purpose
@@ -18,9 +18,9 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 | --- | ---: | --- |
 | Python files | 583 | `rg --files -g '*.py'` equivalent excluding local caches |
 | Python package markers | 18 | recursive `__init__.py` count |
-| Python LOC | 174,478 | recursive `.py` line count |
+| Python LOC | 174,589 | recursive `.py` line count |
 | Test modules | 281 | `tests/**/test_*.py` |
-| Collected tests | 3427 tests | `python -m pytest --collect-only -q` |
+| Collected tests | 3431 tests | `python -m pytest --collect-only -q` |
 | Configured CI workflows | 5 | `.github/workflows/*.yml` |
 | Repo-native baseline command | 1 | `make quality-baseline` |
 

@@ -21,7 +21,8 @@ or `MODIFIED_DIETZ`)
 - `start_date` when supplied directly or resolved from stateful normalization
 - `as_of`
 - `annualization.enabled`
-- `annualization.basis` (`ACT/ACT` or other -> 365.0)
+- `annualization.basis` (`BUS/252`, `ACT/365`, or `ACT/ACT`)
+- `annualization.periods_per_year` optional explicit annualization-factor override
 
 ## Upstream Data Sources
 - Stateless mode has no runtime upstream dependency; all required values are supplied by the caller.
@@ -59,7 +60,8 @@ or `MODIFIED_DIETZ`)
 - `S`: resolved start date (`stateful_input.window_start_date`, explicit `start_date`, or the
   earliest cash-flow date when no start date is supplied)
 - `days`: `(as_of - start_date).days`
-- `ppy`: annualization factor (`365.25` for `ACT/ACT`, else `365.0`)
+- `ppy`: annualization factor (`annualization.periods_per_year`, else `252.0` for `BUS/252`,
+  `365.0` for `ACT/365`, or `365.25` for `ACT/ACT`)
 - `SRC_i`: optional source-currency amount supplied in `source_preconverted_fx_evidence`
 - `FX_i`: optional positive FX rate supplied in `source_preconverted_fx_evidence`
 - `RCY`: reporting currency for all MWR engine inputs
@@ -151,6 +153,8 @@ or `MODIFIED_DIETZ`)
   - `XIRR` can route to `MODIFIED_DIETZ` via labeled fallback.
 - `annualization.enabled`
 - `annualization.basis`
+- `annualization.periods_per_year`: optional positive override that replaces the basis-derived
+  annualization factor.
 
 ## Outputs
 Primary fields:

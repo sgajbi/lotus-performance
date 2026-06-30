@@ -65,6 +65,33 @@ def test_calculate_mwr_endpoint_xirr_happy_path(client):
     }
 
 
+def test_calculate_mwr_endpoint_dietz_honors_bus_252_annualization(client):
+    payload = {
+        "calculation_id": str(uuid4()),
+        "portfolio_id": "MWR_DIETZ_BUS252_TEST_01",
+        "begin_mv": 1000.0,
+        "end_mv": 1060.0,
+        "as_of": "2025-06-30",
+        "start_date": "2025-01-01",
+        "cash_flows": [{"amount": 50.0, "date": "2025-01-01"}],
+        "mwr_method": "DIETZ",
+        "annualization": {"enabled": True, "basis": "BUS/252"},
+    }
+    periodic_rate = 10.0 / 1025.0
+
+    response = client.post("/performance/mwr", json=payload)
+
+    assert response.status_code == 200
+    response_data = response.json()
+    assert response_data["portfolio_id"] == "MWR_DIETZ_BUS252_TEST_01"
+    assert response_data["method"] == "DIETZ"
+    assert response_data["status"] == "CALCULATED"
+    assert response_data["money_weighted_return"] == pytest.approx(periodic_rate * 100)
+    assert response_data["mwr_annualized"] == pytest.approx(((1 + periodic_rate) ** (252.0 / 180) - 1) * 100)
+    assert response_data["holding_period_return"] == pytest.approx(periodic_rate * 100)
+    assert response_data["is_annualized_primary"] is False
+
+
 def test_calculate_mwr_endpoint_emits_solver_outcome_metric(client):
     payload = {
         "calculation_id": str(uuid4()),

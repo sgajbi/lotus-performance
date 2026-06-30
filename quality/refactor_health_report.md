@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Health Report
 
 Report date: 2026-06-30
-Branch: `feature/stateful-benchmark-market-series-boundary`
+Branch: `feature/dietz-mwr-annualization-contract`
 Baseline source: `quality/baseline_report.md`
 Report mode: phase-zero scorecard; complexity, architecture, duplicate-code, repository hygiene,
 router-thinness, observability-readiness, domain-product validation, deterministic API evaluation,
@@ -29,7 +29,7 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | Python files | 480 | 583 | measured | `rg --files -g '*.py'` |
 | Python package markers | 18 | 18 | measured | recursive `__init__.py` count |
-| Python LOC | 104,454 | 174,478 | measured | `rg --files -g '*.py'` plus Python line count on this branch |
+| Python LOC | 104,454 | 174,589 | measured | `rg --files -g '*.py'` plus Python line count on this branch |
 | Largest Python file LOC | 2,399 | 2,503 | measured | largest-file inventory on this branch |
 | Largest production file LOC | 1,156 | 1,991 | measured | `app/services/stateful_input_service.py` |
 | Duplicate code hotspots | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `make quality-duplicate-code-gate` with `--min-lines 12 --max-groups 0`; duplicated LOC reduced from `24` to `0` in LP-CR-1407 |
@@ -73,12 +73,12 @@ link the commit, command, or CI artifact that proves the change.
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
 | Test modules | 228 | 281 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 3,427 | measured | `python -m pytest --collect-only -q` |
+| Collected tests | 2,035 | 3,431 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
-| Integration/API/runtime test functions | unknown | 608 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
+| Integration/API/runtime test functions | unknown | 609 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
 | Contract/governance test functions | unknown | 111 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
-| Uncategorized test functions | unknown | 1098 | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; `stateful_input` tests are now classified as analytics-domain coverage |
+| Uncategorized test functions | unknown | 1100 | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; current ceiling remains `1148` |
 
 ## Security And Dependencies
 
@@ -127,6 +127,41 @@ quality-program gap is not lack of aspiration; it is that several requested dime
 repeatably measured or expressed as progressive gates.
 
 ## Latest Local PR-Gate Evidence
+
+Latest Dietz MWR annualization contract evidence on
+`feature/dietz-mwr-annualization-contract`:
+
+1. Issue `#344` is treated as execution-backlog work and fixed as reusable platform-pattern
+   hardening: `core.annualize.periods_per_year_for_basis(...)` now owns the governed annualization
+   factor mapping and validates positive explicit overrides.
+2. Dietz MWR annualization now uses the shared policy through `_day_count_denominator(...)`, so
+   `annualization.periods_per_year` wins, `BUS/252` maps to `252.0`, `ACT/365` maps to `365.0`,
+   and `ACT/ACT` maps to `365.25`.
+3. TWR breakdown annualization now also uses the shared policy helper, reducing future drift between
+   MWR, TWR breakdown, and any new performance metric that consumes the annualization contract.
+4. Methodology documentation for Dietz MWR and XIRR MWR now describes `BUS/252`, `ACT/365`,
+   `ACT/ACT`, and explicit positive override semantics.
+5. Focused validation passed: `python -m pytest tests\unit\core\test_annualize.py tests\unit\engine\test_mwr.py tests\integration\test_mwr_api.py -q`
+   (`62 passed`); targeted Ruff check and format check; targeted mypy; `make quality-baseline`;
+   function-size inventory; complexity inventory; test-taxonomy inventory; and
+   `python -m pytest --collect-only -q` (`3,431 tests collected`). `make lint` passed after the
+   monetary-float guard rejected an unnecessary `float(...)` cast; `make quality-evaluation-gate`
+   passed demo API certification and taxonomy gates; `make check` passed static quality, OpenAPI,
+   API vocabulary, domain-product validation, deterministic API evaluation, demo API certification,
+   Python security, mypy, taxonomy, and unit-test gates (`3,084 passed`).
+6. Measured posture: largest production functions remain `55` lines, max cyclomatic complexity
+   remains `5`, high-complexity functions remain `0`, average maintainability index remains
+   `55.18`, API/runtime test functions move to `609`, analytics-domain test functions move to
+   `1,307`, and uncategorized tests move to `1,100`, still below the enforced `1,148` ceiling.
+7. Documentation/wiki/context review: methodology truth changed, so the MWR methodology docs were
+   updated in this branch. README, repo-local wiki source, repository context, central platform
+   context, supported-features material, API inventories, OpenAPI snapshots, runbooks, platform
+   skills, and agent context do not need source updates because no public endpoint shape, command,
+   runtime topology, operator workflow, cross-repo ownership, or reusable agent guidance changed.
+8. Current defect backlog intake after PR `#340` merge reports fourteen open lotus-performance
+   issues: `#344`, `#343`, `#342`, `#341`, `#339`, `#338`, `#337`, `#336`, `#335`, `#334`, `#333`,
+   `#332`, `#331`, and `#250`. Continue resolving that list in scoped slices that also harden
+   reusable platform patterns.
 
 Latest stateful benchmark market-series boundary evidence on
 `feature/stateful-benchmark-market-series-boundary`:

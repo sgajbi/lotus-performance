@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-30
-Branch: `feature/runtime-recovery-queue-result-boundary`
+Branch: `feature/dietz-mwr-annualization-contract`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
@@ -34,10 +34,10 @@ must stay at `0`.
 | High-complexity functions (rank D-F) | 0 |
 | Average maintainability index | 55.18 |
 
-The runtime recovery queue-result boundary preserves the enforced complexity posture: max
+The Dietz MWR annualization contract slice preserves the enforced complexity posture: max
 cyclomatic complexity remains `5`, high-complexity functions remain `0`, and average
-maintainability index measures `55.18` after moving compute and lineage recovery queue loading
-behind a named private result boundary.
+maintainability index measures `55.18` after moving annualization basis resolution into the shared
+`core.annualize.periods_per_year_for_basis(...)` policy helper.
 
 ## Highest Cyclomatic Complexity
 

@@ -167,10 +167,12 @@ def test_net_same_day_flows_sorts_dates_and_drops_zero_net_dates():
     assert dates.tolist() == [date(2026, 1, 1), date(2026, 1, 3)]
 
 
-def test_day_count_denominator_prefers_explicit_period_frequency_and_act_act_basis():
+def test_day_count_denominator_prefers_explicit_period_frequency_and_governed_basis_defaults():
     assert _day_count_denominator(Annualization(enabled=True, basis="ACT/365", periods_per_year=12)) == pytest.approx(
         12.0
     )
+    assert _day_count_denominator(Annualization(enabled=True, basis="BUS/252")) == pytest.approx(252.0)
+    assert _day_count_denominator(Annualization(enabled=True, basis="ACT/365")) == pytest.approx(365.0)
     assert _day_count_denominator(Annualization(enabled=True, basis="ACT/ACT")) == pytest.approx(365.25)
 
 
@@ -605,6 +607,11 @@ def test_mwr_preflight_resolves_bounds_and_no_economic_content_result():
 
 
 def test_annualized_dietz_rate_uses_governed_day_count_basis():
+    bus_252_rate = _annualized_dietz_rate(
+        periodic_rate=0.01,
+        annualization=Annualization(enabled=True, basis="BUS/252"),
+        period_days=182,
+    )
     act_365_rate = _annualized_dietz_rate(
         periodic_rate=0.01,
         annualization=Annualization(enabled=True, basis="ACT/365"),
@@ -613,6 +620,11 @@ def test_annualized_dietz_rate_uses_governed_day_count_basis():
     act_act_rate = _annualized_dietz_rate(
         periodic_rate=0.01,
         annualization=Annualization(enabled=True, basis="ACT/ACT"),
+        period_days=182,
+    )
+    explicit_period_rate = _annualized_dietz_rate(
+        periodic_rate=0.01,
+        annualization=Annualization(enabled=True, basis="ACT/ACT", periods_per_year=12),
         period_days=182,
     )
 
@@ -632,8 +644,10 @@ def test_annualized_dietz_rate_uses_governed_day_count_basis():
         )
         is None
     )
+    assert bus_252_rate == pytest.approx(((1.01) ** (252.0 / 182) - 1) * 100)
     assert act_365_rate == pytest.approx(((1.01) ** (365.0 / 182) - 1) * 100)
     assert act_act_rate == pytest.approx(((1.01) ** (365.25 / 182) - 1) * 100)
+    assert explicit_period_rate == pytest.approx(((1.01) ** (12.0 / 182) - 1) * 100)
 
 
 def test_calculate_mwr_xirr_fallback_to_dietz():
@@ -673,6 +687,36 @@ def test_calculate_mwr_dietz_annualization():
     assert result.method == "DIETZ"
     assert result.mwr == pytest.approx(0.9756, abs=1e-4)
     assert result.mwr_annualized == pytest.approx(1.9882, abs=1e-4)
+
+
+def test_calculate_mwr_dietz_annualization_honors_bus_252_and_explicit_periods():
+    start_date = date(2025, 1, 1)
+    end_date = date(2025, 6, 30)
+    periodic_rate = 10.0 / 1025.0
+
+    bus_252_result = calculate_money_weighted_return(
+        begin_mv=1000.0,
+        end_mv=1060.0,
+        cash_flows=[CashFlow(amount=50.0, date=start_date)],
+        calculation_method="DIETZ",
+        annualization=Annualization(enabled=True, basis="BUS/252"),
+        as_of=end_date,
+        start_date=start_date,
+    )
+    explicit_period_result = calculate_money_weighted_return(
+        begin_mv=1000.0,
+        end_mv=1060.0,
+        cash_flows=[CashFlow(amount=50.0, date=start_date)],
+        calculation_method="DIETZ",
+        annualization=Annualization(enabled=True, basis="ACT/365", periods_per_year=12),
+        as_of=end_date,
+        start_date=start_date,
+    )
+
+    assert bus_252_result.mwr == pytest.approx(periodic_rate * 100)
+    assert bus_252_result.mwr_annualized == pytest.approx(((1 + periodic_rate) ** (252.0 / 180) - 1) * 100)
+    assert explicit_period_result.mwr == pytest.approx(periodic_rate * 100)
+    assert explicit_period_result.mwr_annualized == pytest.approx(((1 + periodic_rate) ** (12.0 / 180) - 1) * 100)
 
 
 def test_calculate_mwr_modified_dietz_weights_cash_flows_by_time_remaining():
