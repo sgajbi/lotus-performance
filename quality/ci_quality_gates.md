@@ -5,8 +5,8 @@ Branch: `feature/runtime-recovery-queue-result-boundary`
 Baseline sources: `quality/baseline_report.md`, `quality/refactor_health_report.md`, `quality/quality_scorecard.md`
 Mode: progressive gate map; remediated complexity, architecture-boundary, router-thinness,
 duplicate-code, repository hygiene, observability-readiness, domain-product validation,
-deterministic API evaluation, test taxonomy breadth, and Python security posture are now enforced
-in CI.
+deterministic API evaluation, test taxonomy breadth, Python security posture, and container
+supply-chain evidence are now enforced or produced in CI.
 
 ## Purpose
 
@@ -21,8 +21,8 @@ developers or GitHub Actions.
 | Lane | Trigger | Current blocking checks |
 | --- | --- | --- |
 | Remote Feature Lane | Pushes to non-`main` branches and manual dispatch | workflow lint, static quality gates, contract/security gates, domain-product validation, deterministic API evaluation, test taxonomy breadth, unit tests |
-| Pull Request Merge Gate | Pull requests targeting `main` and manual dispatch | workflow lint, static quality gates, contract/security gates, domain-product validation, deterministic API evaluation, test taxonomy breadth, compatibility `Lint Typecheck Security` aggregate, migration smoke, unit, integration, and e2e tests, combined coverage floor at 99 percent, Docker build |
-| Main Releasability Gate | Pushes to `main` and manual dispatch | workflow lint, static quality gates, contract/security gates, domain-product validation, deterministic API evaluation, test taxonomy breadth, migration smoke, unit, integration, and e2e tests, combined coverage floor at 99 percent, coverage artifact publication, Docker build |
+| Pull Request Merge Gate | Pull requests targeting `main` and manual dispatch | workflow lint, static quality gates, contract/security gates, domain-product validation, deterministic API evaluation, test taxonomy breadth, compatibility `Lint Typecheck Security` aggregate, migration smoke, unit, integration, and e2e tests, combined coverage floor at 99 percent, Docker build, container SBOM and vulnerability-report artifact publication |
+| Main Releasability Gate | Pushes to `main` and manual dispatch | workflow lint, static quality gates, contract/security gates, domain-product validation, deterministic API evaluation, test taxonomy breadth, migration smoke, unit, integration, and e2e tests, combined coverage floor at 99 percent, coverage artifact publication, Docker build, container SBOM/vulnerability artifact publication, SBOM provenance attestation |
 | PR Auto Merge | Pull request lifecycle events | queues rebase auto-merge and branch deletion after required checks pass using `LOTUS_AUTOMERGE_TOKEN`; when the governed token is absent the helper skips with a warning so a human or release actor can merge without suppressing Main Releasability evidence |
 
 `Static Quality Gates` verifies installed dependencies, Ruff lint/format, monetary-float safety,
@@ -81,7 +81,8 @@ No gate should move from one phase to the next until it has:
 | API vocabulary and no-alias governance | Blocking in feature, PR, and main lanes | Keep blocking and preserve RFC-0067 vocabulary discipline. |
 | Quality baseline snapshot workflow | Report run in `.github/workflows/quality-baseline.yml`; calls `make quality-baseline` to generate ignored raw inventory snapshots under `output/quality-baseline/`, uploads those snapshots with curated `quality/*.md` source reports, and runs `make quality-evaluation-gate` without `continue-on-error` | Keep as a reporting aid for baseline artifacts while preserving hard failure for deterministic API evaluation and test taxonomy regression. |
 | Migration smoke | Blocking in PR and main lanes | Keep blocking outside feature lane unless a migration-heavy slice needs earlier proof. |
-| Docker build | Blocking in PR and main lanes | Keep blocking; no new Docker gate is needed for report-only quality artifacts. |
+| Docker build | Blocking in PR and main lanes through `make container-supply-chain-evidence`, which delegates to `make docker-build` before evidence generation | Keep blocking and keep generated runtime/demo state out of the build context. |
+| Container supply-chain evidence | Report-only artifact production in PR and main lanes through `make container-supply-chain-evidence`; writes a CycloneDX SBOM and high/critical Trivy vulnerability JSON under ignored `output/container-security/`; Main Releasability attests SBOM provenance with `actions/attest-build-provenance@v3` | Keep artifact publication mandatory. Promote `make container-vulnerability-gate` to blocking only after the first PR/main artifacts are reviewed and any accepted high/critical exceptions are owner-bound, time-bound, and documented in `quality/container_supply_chain_report.md`. |
 | Domain data product validation | Blocking locally through `make check` and `make ci`; blocking in Feature, PR Merge, and Main Releasability contract/security jobs through `make domain-product-validate`; CI checks out `sgajbi/lotus-platform` under `.lotus-platform` so governed platform contract truth is available without relying on a local sibling checkout | Keep blocking wherever API contract and runtime supportability claims are evaluated. |
 | Complexity and maintainability | Max cyclomatic complexity and D-F function count are blocking through `make quality-complexity-gate`; maintainability index remains measured in `quality/complexity_inventory.md` through `scripts/python_complexity_inventory.py` and `radon` | Keep max CC at `8` and D-F count at `0`; keep MI report-only until a stable remediation threshold and exception policy exist. |
 | Function-size hotspots | Measured in `quality/function_size_inventory.md` through a repo-native standard-library scanner; largest production functions now measure `55` lines after LP-CR-1560 split runtime recovery compute/lineage queue loading behind a typed queue-results boundary and left `build_runtime_recovery_snapshot(...)` outside the top-45 table | Use as refactor-planning evidence; do not block CI until stable thresholds and exclusions are agreed. |
@@ -97,6 +98,18 @@ No gate should move from one phase to the next until it has:
 | RFC 7807 error consistency | Measured report-only through `scripts/openapi_completeness_inventory.py`; current inventory shows 0 error responses missing named problem/error schemas | Keep the report-only inventory clean while separately planning any runtime migration from legacy string-detail errors to full RFC 7807 payloads. |
 | Observability and operational contracts | Blocking through `make quality-observability-readiness-gate`, which runs `scripts/python_observability_readiness_inventory.py --limit 30 --max-missing 0`; current report shows 28/28 expected implementation markers, 0 missing markers, and 370 family-mapped readiness test functions | Keep the zero-missing marker gate blocking in feature, PR, and main static quality lanes. Broader maturity scoring and overlap-aware test counting remain report-only planning evidence. |
 | Deterministic API evaluation | Blocking through `make quality-evaluation-gate`, which delegates to `make demo-api-certification` and `make quality-test-taxonomy-gate`; Feature, PR Merge, Main Releasability, and Quality Baseline workflows run it without `continue-on-error`. It calls demo-critical health/readiness, capabilities, calculation, returns, workspace, mandate, and composite TWR APIs with deterministic data, writes ignored JSON evidence under `output/demo-api-certification/*.json`, and blocks test-taxonomy breadth regression; `.dockerignore` excludes generated `output`, `lineage_data`, and local SQLite database artifacts from Docker build contexts | Keep blocking while the seeded data remains deterministic and isolated. Any future exception must be explicit, time-boxed, and tracked as a product-readiness or quality-governance defect instead of soft-failing CI. |
+
+## LP-CR-1603 Container Supply-Chain Intake
+
+| Intake item | Decision |
+| --- | --- |
+| Baseline | GitHub Security settings show secret scanning and push protection enabled, but Dependabot alerts/security updates are disabled and CodeQL has no analysis. Repo scans showed Docker build gates without SBOM, image vulnerability, or attestation evidence. |
+| Failure mode addressed | A release lane could prove only image buildability while leaving buyers and operators without package inventory, high/critical vulnerability evidence, or provenance for the container image. |
+| Determinism | `make container-supply-chain-evidence` builds the pinned CI image name and runs a pinned Trivy container image (`aquasec/trivy:0.71.2`) against Docker's local image store. Generated evidence is ignored source and uploaded as workflow artifacts. |
+| Lane placement | PR Merge Gate and Main Releasability after coverage, replacing raw `make docker-build` with `make container-supply-chain-evidence`. Main Releasability also attests the SBOM artifact. |
+| Exception policy | Vulnerability output is report-only until first PR/main artifacts are reviewed. Strict promotion uses `make container-vulnerability-gate`, no `continue-on-error`, and only narrow, owner-bound, time-bound high/critical exceptions. |
+| Focused tests | `tests/unit/scripts/test_ci_quality_gate_wiring.py` proves Make targets, workflow artifact publication, and Main Releasability attestation wiring. |
+| Scorecard and ledger truth | `quality/container_supply_chain_report.md`, this gate map, `docs/operations/development-workflow-and-ci-strategy.md`, repo-local wiki source, and the codebase review ledger record the security posture. |
 
 ## LP-CR-1540 Gate Promotion Intake
 

@@ -24,7 +24,10 @@ make quality measurable and repeatable, not to treat CI as a ceremonial final st
   metrics, and readiness implementation markers have no missing entries
 - `make ci`
   PR-grade proof: static quality gates, migration smoke, security audit, unit, integration, e2e,
-  coverage, Docker build
+  coverage, Docker build, and container supply-chain evidence
+- `make container-supply-chain-evidence`
+  image release evidence: builds `lotus-performance:ci`, writes a CycloneDX SBOM, and writes a
+  high/critical Trivy vulnerability report under `output/container-security/`
 - `make ci-local`
   local Docker-parity coverage run
 - `make test-all`
@@ -54,7 +57,7 @@ make quality measurable and repeatable, not to treat CI as a ceremonial final st
 | Static quality | `make check`, Static Quality Gates | lint, format, typecheck, complexity, architecture boundaries, duplicate-code hotspots, observability markers, no-alias governance |
 | API contract quality | `make check`, Contract Security Gates | OpenAPI quality, API vocabulary, domain data-product contracts, migration smoke, security scans |
 | Runtime behavior | `make ci`, unit/integration/e2e lanes | calculation behavior, API behavior, async/runtime flows, coverage floor |
-| Docker parity | `make ci`, `make ci-local`, Validate Docker Build | image buildability and local-runtime parity for release confidence |
+| Container supply-chain | `make container-supply-chain-evidence`, PR/Main container evidence jobs | image buildability, SBOM inventory, high/critical vulnerability evidence, and main-branch SBOM provenance attestation |
 | Documentation contract | docs regression tests, wiki source check | public contract language, command accuracy, source wiki publication readiness |
 | Baseline evidence | `make quality-baseline`, Quality Baseline Snapshot | before/after scorecard data for the enterprise refactor program |
 
@@ -122,6 +125,23 @@ The command is report-only. It measures branch coverage with `pytest --cov-branc
 `quality/coverage_inventory.md`, and keeps raw JSON under ignored `output/branch-coverage/`. It does
 not replace the 99% line-coverage gate and does not promote a branch threshold until repeated
 evidence, false-positive policy, remediation guidance, and lane placement are agreed.
+
+## Container supply-chain evidence
+
+For release-image evidence, run:
+
+```bash
+make container-supply-chain-evidence
+```
+
+The command builds the CI image, creates `output/container-security/lotus-performance-image-sbom.cdx.json`,
+and creates `output/container-security/lotus-performance-image-vulnerabilities.json`. PR Merge Gate
+and Main Releasability upload those artifacts. Main Releasability also attests SBOM provenance.
+
+The vulnerability report is currently report-only while the first artifacts are reviewed. Promote
+`make container-vulnerability-gate` to blocking only after high/critical findings are either zero
+or explicitly accepted with owner, expiry, advisory identity, affected version, and remediation
+path.
 
 ## References
 

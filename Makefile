@@ -1,9 +1,13 @@
-.PHONY: install install-ci verify-dependencies check check-all test test-unit test-integration test-e2e test-all test-coverage test-coverage-shard coverage-combine-gate branch-coverage-baseline coverage-gate ci ci-local ci-local-docker ci-local-docker-down typecheck lint quality-baseline quality-complexity-gate quality-architecture-gate quality-router-thinness-gate quality-duplicate-code-gate quality-observability-readiness-gate quality-test-taxonomy-gate quality-evaluation-gate python-security-gate github-action-runtime-guard monetary-float-guard repository-hygiene-gate demo-api-certification format clean run check-deps security-audit openapi-gate api-vocabulary-gate no-alias-gate domain-product-validate migration-smoke migration-apply recovery-drill-smoke runtime-retention-smoke performance-characterization performance-characterization-postgres pre-commit docker-up docker-down docker-build
+.PHONY: install install-ci verify-dependencies check check-all test test-unit test-integration test-e2e test-all test-coverage test-coverage-shard coverage-combine-gate branch-coverage-baseline coverage-gate ci ci-local ci-local-docker ci-local-docker-down typecheck lint quality-baseline quality-complexity-gate quality-architecture-gate quality-router-thinness-gate quality-duplicate-code-gate quality-observability-readiness-gate quality-test-taxonomy-gate quality-evaluation-gate python-security-gate github-action-runtime-guard monetary-float-guard repository-hygiene-gate demo-api-certification format clean run check-deps security-audit openapi-gate api-vocabulary-gate no-alias-gate domain-product-validate migration-smoke migration-apply recovery-drill-smoke runtime-retention-smoke performance-characterization performance-characterization-postgres pre-commit docker-up docker-down docker-build container-supply-chain-evidence container-sbom container-vulnerability-report container-vulnerability-gate
 
 SUITE ?= unit
 TEST_PATH ?= tests/unit
 COVERAGE_FAIL_UNDER ?= 99
 COVERAGE_INPUTS ?= .coverage.unit .coverage.integration .coverage.e2e
+CONTAINER_IMAGE ?= lotus-performance:ci
+CONTAINER_SECURITY_OUTPUT_DIR ?= output/container-security
+TRIVY_IMAGE ?= aquasec/trivy:0.71.2
+TRIVY_SEVERITY ?= HIGH,CRITICAL
 
 install:
 	pip install -r requirements.txt
@@ -188,4 +192,17 @@ docker-down:
 
 
 docker-build:
-	docker build -f Dockerfile -t lotus-performance:ci .
+	docker build -f Dockerfile -t $(CONTAINER_IMAGE) .
+
+container-supply-chain-evidence: docker-build container-sbom container-vulnerability-report
+
+container-sbom:
+	python -c "from pathlib import Path; Path('$(CONTAINER_SECURITY_OUTPUT_DIR)').mkdir(parents=True, exist_ok=True)"
+	docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$(CURDIR)/$(CONTAINER_SECURITY_OUTPUT_DIR):/output" $(TRIVY_IMAGE) image --scanners vuln --format cyclonedx --output /output/lotus-performance-image-sbom.cdx.json $(CONTAINER_IMAGE)
+
+container-vulnerability-report:
+	python -c "from pathlib import Path; Path('$(CONTAINER_SECURITY_OUTPUT_DIR)').mkdir(parents=True, exist_ok=True)"
+	docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$(CURDIR)/$(CONTAINER_SECURITY_OUTPUT_DIR):/output" $(TRIVY_IMAGE) image --scanners vuln --severity $(TRIVY_SEVERITY) --ignore-unfixed --format json --output /output/lotus-performance-image-vulnerabilities.json --exit-code 0 $(CONTAINER_IMAGE)
+
+container-vulnerability-gate:
+	docker run --rm -v /var/run/docker.sock:/var/run/docker.sock $(TRIVY_IMAGE) image --scanners vuln --severity $(TRIVY_SEVERITY) --ignore-unfixed --exit-code 1 $(CONTAINER_IMAGE)
