@@ -840,11 +840,20 @@ def _has_unsupported_position_inception_row(row: dict[str, object]) -> bool:
 
 def _first_rows_by_position(rows: list[dict[str, object]]) -> dict[str, dict[str, object]]:
     first_rows_by_position: dict[str, dict[str, object]] = {}
-    for row in sorted(rows, key=lambda item: (str(item.get("position_id", "")), str(item.get("valuation_date", "")))):
+    for row in sorted(
+        rows,
+        key=lambda item: (
+            _source_position_key_or_position_id(item, str(item.get("position_id", ""))),
+            str(item.get("valuation_date", "")),
+        ),
+    ):
         position_id = row.get("position_id")
-        if not isinstance(position_id, str) or position_id in first_rows_by_position:
+        if not isinstance(position_id, str):
             continue
-        first_rows_by_position[position_id] = row
+        normalized_position_id = _source_position_key_or_position_id(row, position_id)
+        if normalized_position_id in first_rows_by_position:
+            continue
+        first_rows_by_position[normalized_position_id] = row
     return first_rows_by_position
 
 
@@ -901,6 +910,7 @@ def _record_instrument_position_row(
     valuation_date = row.get("valuation_date")
     if not isinstance(position_id, str) or not isinstance(valuation_date, str):
         return False
+    normalized_position_id = _source_position_key_or_position_id(row, position_id)
     point = _position_row_to_daily_point(
         row=row,
         currency_mode=currency_mode,
@@ -908,8 +918,11 @@ def _record_instrument_position_row(
     )
     if point is None:
         return False
-    positions_by_id.setdefault(position_id, []).append(point)
-    meta = instrument_meta.setdefault(position_id, _position_meta_from_row(row))
+    positions_by_id.setdefault(normalized_position_id, []).append(point)
+    meta = instrument_meta.setdefault(
+        normalized_position_id,
+        _position_meta_from_row(row, normalized_position_id=normalized_position_id),
+    )
     base_weight_point = _position_row_to_base_weight_point(
         row=row,
         reporting_currency=reporting_currency,
@@ -1249,11 +1262,29 @@ def _position_cash_flow_amount(flow: object) -> tuple[str, Decimal] | None:
     return cast(str, timing), Decimal(str(amount))
 
 
-def _position_meta_from_row(row: dict[str, object]) -> dict[str, object]:
+def _position_meta_from_row(row: dict[str, object], *, normalized_position_id: str | None = None) -> dict[str, object]:
     meta = _position_meta_identity_fields(row)
+    source_position_key = row.get("source_position_key")
+    business_position_id = row.get("position_id")
+    if isinstance(source_position_key, str) and source_position_key:
+        meta["source_position_key"] = source_position_key
+    if (
+        normalized_position_id is not None
+        and isinstance(business_position_id, str)
+        and business_position_id
+        and business_position_id != normalized_position_id
+    ):
+        meta["business_position_id"] = business_position_id
     meta.update(_position_meta_fx_rate_fields(row))
     meta.update(_normalized_position_dimensions(row.get("dimensions")))
     return meta
+
+
+def _source_position_key_or_position_id(row: dict[str, object], position_id: str) -> str:
+    source_position_key = row.get("source_position_key")
+    if isinstance(source_position_key, str) and source_position_key:
+        return source_position_key
+    return position_id
 
 
 def _position_meta_identity_fields(row: dict[str, object]) -> dict[str, object]:

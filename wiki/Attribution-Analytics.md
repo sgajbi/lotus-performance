@@ -38,6 +38,10 @@ record count, classification completeness, currency/FX source posture, and sourc
 limitations. This evidence keeps private-banking attribution source-backed without moving
 attribution methodology into `lotus-core`.
 
+Stateful position rows preserve source grain through `source_position_key`. If source rows carry
+account, custody, book, sleeve, strategy, mandate, or tax-lot discriminators, Lotus treats them as
+distinct attribution instruments and carries the original business `position_id` as metadata.
+
 ## Business Flow
 
 ```mermaid
@@ -56,7 +60,7 @@ flowchart LR
 
 | System | Responsibility |
 | --- | --- |
-| `lotus-core` | Source authority for portfolio timeseries, position timeseries, benchmark assignment, benchmark components, classification labels, and FX source inputs. |
+| `lotus-core` | Source authority for portfolio timeseries, position timeseries including `source_position_key` grain, benchmark assignment, benchmark components, classification labels, and FX source inputs. |
 | `lotus-performance` | Attribution methodology authority. It normalizes source inputs, calculates effects, reconciles active return, emits supportability, and captures lineage. |
 | `lotus-gateway` | Experience API boundary. It preserves source-owned attribution totals and exposes Workbench-safe contracts. |
 | `lotus-workbench` | Front-office product surface. It renders attribution detail and attribution trend through Gateway/BFF only. |

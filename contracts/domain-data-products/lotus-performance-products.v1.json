@@ -183,6 +183,7 @@
       "identifier_refs": [
         "portfolio_id",
         "position_id",
+        "source_position_key",
         "calculation_id",
         "correlation_id"
       ],
@@ -248,6 +249,8 @@
       "identifier_refs": [
         "portfolio_id",
         "benchmark_id",
+        "position_id",
+        "source_position_key",
         "calculation_id",
         "correlation_id"
       ],

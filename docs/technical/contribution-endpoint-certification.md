@@ -99,6 +99,9 @@ The base URL must be `CORE_CONTROL_PLANE_BASE_URL`, not the lotus-core query-ser
 Stateful normalization maps lotus-core position rows into canonical contribution inputs:
 
 - position and portfolio market values become beginning and ending valuation points;
+- position source grain is preserved through `source_position_key`; account, custody, book,
+  sleeve, strategy, mandate, and tax-lot discriminators prevent same-date rows with the same
+  business `position_id` from overwriting each other;
 - canonical `cash_flow_type="external_flow"` and `cash_flow_type="internal_trade_flow"` rows
   become position cash-flow adjustments;
 - operational `cash_flow_type="fee"` rows remain fee drag;

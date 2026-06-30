@@ -277,6 +277,7 @@ def _stateful_contribution_position_series(
         valuation_date = row.get("valuation_date")
         if not isinstance(position_id_raw, str) or not isinstance(valuation_date, str):
             continue
+        normalized_position_id = _source_position_key_or_position_id(row, position_id_raw)
         point = _position_row_to_daily_point(
             row=row,
             currency_mode=currency_mode,
@@ -284,9 +285,10 @@ def _stateful_contribution_position_series(
         )
         if point is None:
             continue
-        positions_by_id.setdefault(position_id_raw, []).append(point)
-        position_meta[position_id_raw] = _position_meta_from_row(
+        positions_by_id.setdefault(normalized_position_id, []).append(point)
+        position_meta[normalized_position_id] = _position_meta_from_row(
             row,
+            normalized_position_id=normalized_position_id,
             performance_component_economics_payload=performance_component_economics_payload,
             performance_component_economics_status=performance_component_economics_status,
         )
@@ -369,21 +371,64 @@ def _reporting_position_value_pair(row: dict[str, object]) -> tuple[object, obje
 def _position_meta_from_row(
     row: dict[str, object],
     *,
+    normalized_position_id: str | None = None,
     performance_component_economics_payload: dict[str, object] | None = None,
     performance_component_economics_status: int | None = None,
 ) -> dict[str, object]:
     meta = _position_contract_meta_from_row(row)
-    dimensions_raw = row.get("dimensions")
-    if isinstance(dimensions_raw, dict):
-        for key, value in dimensions_raw.items():
-            if isinstance(key, str) and value is not None:
-                meta[key] = value
+    meta.update(_position_source_grain_meta(row, normalized_position_id=normalized_position_id))
+    meta.update(_normalized_position_dimensions(row.get("dimensions")))
     meta["_source_economics"] = _position_source_economics_from_row(
         row,
         performance_component_economics_payload=performance_component_economics_payload,
         performance_component_economics_status=performance_component_economics_status,
     )
     return meta
+
+
+def _source_position_key_or_position_id(row: dict[str, object], position_id: str) -> str:
+    source_position_key = row.get("source_position_key")
+    if isinstance(source_position_key, str) and source_position_key:
+        return source_position_key
+    return position_id
+
+
+def _position_source_grain_meta(
+    row: dict[str, object],
+    *,
+    normalized_position_id: str | None,
+) -> dict[str, object]:
+    meta: dict[str, object] = {}
+    source_position_key = row.get("source_position_key")
+    if isinstance(source_position_key, str) and source_position_key:
+        meta["source_position_key"] = source_position_key
+
+    business_position_id = row.get("position_id")
+    if _is_distinct_business_position_id(
+        business_position_id,
+        normalized_position_id=normalized_position_id,
+    ):
+        meta["business_position_id"] = business_position_id
+    return meta
+
+
+def _is_distinct_business_position_id(
+    business_position_id: object,
+    *,
+    normalized_position_id: str | None,
+) -> bool:
+    return (
+        normalized_position_id is not None
+        and isinstance(business_position_id, str)
+        and bool(business_position_id)
+        and business_position_id != normalized_position_id
+    )
+
+
+def _normalized_position_dimensions(dimensions_raw: object) -> dict[str, object]:
+    if not isinstance(dimensions_raw, dict):
+        return {}
+    return {key: value for key, value in dimensions_raw.items() if isinstance(key, str) and value is not None}
 
 
 def _position_contract_meta_from_row(row: dict[str, object]) -> dict[str, object]:

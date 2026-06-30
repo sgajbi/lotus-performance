@@ -302,13 +302,19 @@ Important validation expectations:
     declarations, methodology docs, API guides, and repo-authored wiki source. Do not aggregate
     away lifecycle identity, source exclusions, or measurement-window failures when downstream
     operators need that evidence to explain private-banking performance results.
-29. Contribution average-weight methodology must remain consistent across flat and hierarchy
+29. Stateful position-timeseries normalization must preserve source position grain. Deduplicate
+    source rows by `valuation_date`, business `position_id`, and `source_position_key`; derive that
+    key from source-provided account, custody, book, sleeve, strategy, mandate, or tax-lot
+    discriminators when upstream does not provide it. Contribution and attribution builders should
+    use `source_position_key` as the engine position/instrument identity and preserve the original
+    business `position_id` as metadata when source grain is more specific.
+30. Contribution average-weight methodology must remain consistent across flat and hierarchy
     outputs. When reset-aware average-weight promotion is enabled for a clean candidate period, the
     selected denominator must drive residual allocation, `position_contributions[].average_weight`,
     hierarchy `levels[].rows[].weight_avg`, and `average_weight_methodology_status` together. If a
     period is blocked, keep the legacy denominator and expose blocker reason codes instead of
     silently mixing denominators across surfaces.
-30. Runtime operator and status surfaces should degrade per source or component, not per endpoint.
+31. Runtime operator and status surfaces should degrade per source or component, not per endpoint.
     Work-item and recovery reads for compute and lineage queues must keep the healthy queue usable
     when the other queue fails. Runtime status must mark only the failed component unavailable when
     queue, history, preview, or governed-action snapshot reads fail. Public reasons must be stable

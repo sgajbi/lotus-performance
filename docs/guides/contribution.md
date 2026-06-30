@@ -41,6 +41,10 @@ Inside the current contract:
 - stateless `portfolio_data` contains `metric_basis` and `valuation_points`
 - each stateless entry in `positions_data` contains `position_id`, optional `meta`, and `valuation_points`
 - stateful mode sources canonical portfolio and position timeseries from lotus-core and normalizes them into the same stateless engine inputs used by direct requests
+- stateful position rows preserve the source position grain through `source_position_key`; when
+  lotus-core supplies account, custody, book, sleeve, strategy, mandate, or tax-lot discriminators,
+  Lotus treats those rows as distinct engine positions while preserving the original
+  `position_id` as `business_position_id` metadata
 - stateful mode preserves source-economics posture in `source_economics_evidence`, including
   source contracts, cash-flow type counts, available economics, unsupported component-P&L families,
   and upstream snapshot posture

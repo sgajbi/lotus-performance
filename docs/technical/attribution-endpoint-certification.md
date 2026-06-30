@@ -71,6 +71,11 @@ Benchmark assignment and benchmark component inputs are resolved through the sha
 sourcing path. lotus-core provides source data; lotus-performance owns attribution calculations,
 linking, reconciliation, lineage, and response semantics.
 
+Position source grain is preserved through `source_position_key`. Account, custody, book, sleeve,
+strategy, mandate, and tax-lot discriminators prevent same-date rows with the same business
+`position_id` from overwriting each other; attribution uses the source grain as the instrument
+identity while carrying the original business `position_id` as `business_position_id` metadata.
+
 Stateful normalization now records bounded source-alignment evidence during execution-stage
 normalization. The evidence covers portfolio observation count, position row count, resolved
 benchmark id, benchmark component observation count, index record count, classification completeness,

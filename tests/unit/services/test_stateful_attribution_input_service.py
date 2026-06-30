@@ -1330,6 +1330,35 @@ def test_first_rows_by_position_orders_by_position_and_valuation_date():
     assert first_rows["POS_B"]["marker"] == "b-first"
 
 
+def test_first_rows_by_position_preserves_source_position_grain():
+    rows = [
+        {
+            "position_id": "SEC_1",
+            "source_position_key": "position_id=SEC_1|account_id=ACC_B",
+            "valuation_date": "2025-01-02",
+            "marker": "b-late",
+        },
+        {
+            "position_id": "SEC_1",
+            "source_position_key": "position_id=SEC_1|account_id=ACC_A",
+            "valuation_date": "2025-01-01",
+            "marker": "a-first",
+        },
+        {
+            "position_id": "SEC_1",
+            "source_position_key": "position_id=SEC_1|account_id=ACC_B",
+            "valuation_date": "2025-01-01",
+            "marker": "b-first",
+        },
+    ]
+
+    first_rows = _first_rows_by_position(rows)
+
+    assert list(first_rows) == ["position_id=SEC_1|account_id=ACC_A", "position_id=SEC_1|account_id=ACC_B"]
+    assert first_rows["position_id=SEC_1|account_id=ACC_A"]["marker"] == "a-first"
+    assert first_rows["position_id=SEC_1|account_id=ACC_B"]["marker"] == "b-first"
+
+
 def test_stateful_portfolio_position_alignment_mismatches_allows_internal_transfer_timing_noise():
     mismatches = _stateful_portfolio_position_alignment_mismatches(
         portfolio_by_date={"2025-01-01": (Decimal("100"), Decimal("100"))},
@@ -1955,6 +1984,40 @@ def test_stateful_attribution_build_instruments_data_skips_invalid_rows_and_none
     assert len(instruments) == 1
     assert instruments[0].instrument_id == "POS_OK"
     assert instruments[0].valuation_points[0].begin_mv == Decimal("100")
+
+
+def test_stateful_attribution_build_instruments_data_preserves_source_position_grain():
+    instruments = _build_instruments_data(
+        rows=[
+            {
+                "position_id": "SEC_1",
+                "source_position_key": "position_id=SEC_1|account_id=ACC_A",
+                "valuation_date": "2025-01-01",
+                "security_id": "SEC_1",
+                "beginning_market_value_portfolio_currency": "100",
+                "ending_market_value_portfolio_currency": "101",
+                "cash_flows": [],
+            },
+            {
+                "position_id": "SEC_1",
+                "source_position_key": "position_id=SEC_1|account_id=ACC_B",
+                "valuation_date": "2025-01-01",
+                "security_id": "SEC_1",
+                "beginning_market_value_portfolio_currency": "200",
+                "ending_market_value_portfolio_currency": "202",
+                "cash_flows": [],
+            },
+        ],
+        currency_mode="BASE_ONLY",
+        reporting_currency=None,
+    )
+
+    assert [instrument.instrument_id for instrument in instruments] == [
+        "position_id=SEC_1|account_id=ACC_A",
+        "position_id=SEC_1|account_id=ACC_B",
+    ]
+    assert instruments[0].meta["business_position_id"] == "SEC_1"
+    assert instruments[0].meta["source_position_key"] == "position_id=SEC_1|account_id=ACC_A"
 
 
 def test_stateful_attribution_record_instrument_position_row_projects_point_and_base_weight_meta():

@@ -70,7 +70,7 @@ sequenceDiagram
 
 | Integration | Direction | Contract posture |
 | --- | --- | --- |
-| `lotus-core` | upstream source | Provides portfolio and position timeseries as required inputs, plus optional `PerformanceComponentEconomics:v1` evidence for source-authored cashflow, fee, income, tax, realized P&L, and FX-context component-family coverage. |
+| `lotus-core` | upstream source | Provides portfolio and position timeseries as required inputs, including `source_position_key` grain when account, custody, book, sleeve, strategy, mandate, or tax-lot discriminators are present, plus optional `PerformanceComponentEconomics:v1` evidence for source-authored cashflow, fee, income, tax, realized P&L, and FX-context component-family coverage. |
 | `lotus-performance` | producer | Owns contribution calculation, smoothing evidence, source economics evidence, lineage, supportability, and data-product truth. |
 | `lotus-gateway` | downstream experience API | Preserves source-owned contribution totals and evidence without recomputing or overwriting them. |
 | `lotus-workbench` | downstream product surface | Displays contribution ranking and evidence statuses in Performance Drivers and participates in canonical live validation. |
@@ -117,6 +117,8 @@ The RFC-047 QA pack proves these contribution semantics:
 - short positions preserve signed average weight and inverse contribution sign behavior;
 - mixed-currency stateful contribution fails closed with HTTP `422` when required FX rates are not
   supplied;
+- source position grain is preserved through `source_position_key`, while the original business
+  `position_id` remains available as metadata when source grain is more specific;
 - local plus FX contribution reconciles to total contribution after residual allocation, including
   zero-net and near-zero pre-allocation contribution cases;
 - invalid Carino domains fall back with explicit status and reason codes;
