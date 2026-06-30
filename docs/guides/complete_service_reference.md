@@ -1510,6 +1510,8 @@ Readiness semantics:
 
 - durable metadata and lineage-storage probes run outside the async request loop
 - `DURABLE_READINESS_TIMEOUT_SECONDS` bounds each durable dependency probe
+- durable metadata catalog discovery failures return `durable_metadata_schema_discovery_failed`
+- successful catalog discovery with missing required tables returns `durable_metadata_schema_incomplete`
 - timeout reason codes are `durable_metadata_readiness_timeout` and `lineage_storage_readiness_timeout`
 
 ### `GET /metrics`

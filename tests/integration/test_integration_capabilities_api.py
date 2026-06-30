@@ -351,6 +351,28 @@ def test_health_ready_returns_503_when_durable_metadata_store_is_unavailable(moc
     assert "database URL" in response.json()["remediation_hint"]
 
 
+def test_health_ready_returns_503_when_durable_schema_discovery_fails(mocker):
+    async def _unavailable_readiness():
+        return DurabilityHealthStatus(
+            is_ready=False,
+            status="unavailable",
+            reason="durable_metadata_schema_discovery_failed",
+        )
+
+    mocker.patch(
+        "app.api.endpoints.health.check_durable_metadata_store_ready_async",
+        side_effect=_unavailable_readiness,
+    )
+
+    with TestClient(app) as client:
+        response = client.get("/health/ready")
+
+    assert response.status_code == 503
+    assert response.json()["status"] == "unavailable"
+    assert response.json()["reason"] == "durable_metadata_schema_discovery_failed"
+    assert "could not list required durable tables" in response.json()["remediation_hint"]
+
+
 def test_health_ready_returns_503_when_lineage_storage_is_unavailable(mocker):
     async def _unavailable_readiness():
         return DurabilityHealthStatus(

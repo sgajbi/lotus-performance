@@ -82,6 +82,35 @@ def test_durability_health_service_reports_unavailable_on_ping_failure(monkeypat
     assert "RuntimeError: db down" in caplog.text
 
 
+def test_durability_health_service_reports_unavailable_on_table_discovery_failure(monkeypatch, caplog):
+    def _boom():
+        raise RuntimeError("catalog unavailable")
+
+    registry = type(
+        "Registry",
+        (),
+        {
+            "ping": staticmethod(lambda: None),
+            "list_table_names": staticmethod(_boom),
+        },
+    )()
+    monkeypatch.setattr(durability_health_service, "get_execution_registry", lambda: registry)
+    monkeypatch.setattr(
+        durability_health_service,
+        "check_lineage_storage_ready",
+        lambda: (_ for _ in ()).throw(AssertionError("lineage storage should not be consulted")),
+    )
+
+    with caplog.at_level(logging.WARNING, logger="app.services.durability_health_service"):
+        status = durability_health_service.check_durable_metadata_store_ready()
+
+    assert status.is_ready is False
+    assert status.status == "unavailable"
+    assert status.reason == durability_health_service.DURABLE_METADATA_SCHEMA_DISCOVERY_FAILED_REASON
+    assert "Durable metadata schema table discovery failed." in caplog.text
+    assert "RuntimeError: catalog unavailable" in caplog.text
+
+
 def test_durability_health_service_reports_unavailable_on_missing_required_schema(monkeypatch):
     registry = type(
         "Registry",

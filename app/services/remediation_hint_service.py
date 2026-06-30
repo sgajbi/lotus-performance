@@ -11,6 +11,10 @@ _REMEDIATION_HINTS: dict[str, str] = {
         "Run the durable schema bootstrap or migration flow so all required execution and lineage tables exist "
         "before accepting traffic."
     ),
+    "durable_metadata_schema_discovery_failed": (
+        "Inspect durable metadata catalog access, database permissions, and schema introspection latency; the "
+        "service could reach the database but could not list required durable tables."
+    ),
     "durable_metadata_readiness_timeout": (
         "The durable metadata readiness probe exceeded its configured time budget; inspect database latency, "
         "connectivity, and catalog responsiveness before accepting traffic."
