@@ -49,7 +49,12 @@ async def core_api_error_exception_handler(request: Request, exc: APIError):
     logger.warning("Core APIError caught: %s", exc.detail)
     return JSONResponse(
         status_code=exc.status_code,
-        content=safe_error_envelope(status_code=exc.status_code, detail=exc.detail),
+        content=safe_error_envelope(
+            status_code=exc.status_code,
+            detail=exc.detail,
+            error_code=exc.error_code,
+            retryable=exc.retryable,
+        ),
     )
 
 

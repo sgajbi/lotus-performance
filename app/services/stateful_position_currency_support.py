@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import HTTPException, status
+from core.errors import APIUnprocessableEntityError
 
 
 def validate_stateful_both_currency_support(
@@ -11,15 +11,13 @@ def validate_stateful_both_currency_support(
     workflow_name: str,
 ) -> None:
     if not reporting_currency:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        raise APIUnprocessableEntityError(
             detail=f"Stateful {workflow_name} input requires report_ccy when currency_mode=BOTH.",
         )
 
     position_currencies = stateful_position_currencies(rows)
     if not position_currencies:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        raise APIUnprocessableEntityError(
             detail=(
                 f"Stateful {workflow_name} input requires position_currency on "
                 "lotus-core position-timeseries rows when currency_mode=BOTH."
@@ -33,8 +31,7 @@ def validate_stateful_both_currency_support(
         )
         and fx is None
     ):
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        raise APIUnprocessableEntityError(
             detail=(
                 f"Stateful {workflow_name} input requires fx.rates when currency_mode=BOTH and "
                 "sourced positions include currencies different from report_ccy."

@@ -1101,9 +1101,9 @@ def test_execution_api_exposes_retryable_compute_job_metadata(client, monkeypatc
     settings.COMPUTE_EXECUTOR_MAX_ATTEMPTS = 2
 
     async def _boom(_request):
-        from fastapi import HTTPException
+        from core.errors import APIServiceUnavailableError
 
-        raise HTTPException(status_code=503, detail="temporary upstream issue")
+        raise APIServiceUnavailableError("temporary upstream issue")
 
     monkeypatch.setattr("app.workers.compute_executor_worker.calculate_returns_series", _boom)
 
@@ -1130,7 +1130,7 @@ def test_execution_api_exposes_retryable_compute_job_metadata(client, monkeypatc
         job = body["compute_job"]
         assert job["job_status"] == "pending"
         assert job["attempt_count"] == 1
-        assert job["error_type"] == "HTTPException"
+        assert job["error_type"] == "APIServiceUnavailableError"
         assert job["last_error_at_utc"] is not None
         assert job.get("lease_expires_at_utc") is None
         assert body["async_result"] is None

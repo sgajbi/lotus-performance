@@ -38,6 +38,7 @@ from app.services.twr_mode_service import (
     _TWRRetrievalResolution,
     resolve_twr_request,
 )
+from core.errors import APIError
 
 
 def _settings():
@@ -609,7 +610,7 @@ async def test_resolve_twr_request_raises_for_empty_stateful_observations(monkey
         portfolio_id=request.portfolio_id,
     )
 
-    with pytest.raises(HTTPException, match="Stateful source returned no observations"):
+    with pytest.raises((HTTPException, APIError), match="Stateful source returned no observations"):
         await resolve_twr_request(request, settings=_settings())
 
 
@@ -817,7 +818,7 @@ async def test_resolve_twr_portfolio_source_input_rejects_missing_stateful_input
         stateful_input=None,
     )
 
-    with pytest.raises(HTTPException, match="stateful_input is required when input_mode=stateful") as exc:
+    with pytest.raises((HTTPException, APIError), match="stateful_input is required when input_mode=stateful") as exc:
         await _resolve_twr_portfolio_source_input(
             request=request,
             settings=_settings(),
@@ -845,7 +846,7 @@ async def test_resolve_twr_portfolio_start_date_rejects_missing_derived_start():
         }
     )
 
-    with pytest.raises(HTTPException, match="Stateful source missing portfolio_open_date"):
+    with pytest.raises((HTTPException, APIError), match="Stateful source missing portfolio_open_date"):
         await _resolve_twr_portfolio_start_date(
             request=request,
             stateful_input_service=_StatefulPortfolioStub(),
@@ -873,7 +874,7 @@ async def test_resolve_twr_portfolio_start_date_rejects_unresolved_derived_start
         }
     )
 
-    with pytest.raises(HTTPException, match="Unable to derive a performance_start_date") as exc:
+    with pytest.raises((HTTPException, APIError), match="Unable to derive a performance_start_date") as exc:
         await _resolve_twr_portfolio_start_date(
             request=request,
             stateful_input_service=object(),
@@ -916,7 +917,7 @@ async def test_resolve_twr_request_fails_normalization_stage_for_invalid_observa
         portfolio_id=request.portfolio_id,
     )
 
-    with pytest.raises(HTTPException, match="No valid valuation observations"):
+    with pytest.raises((HTTPException, APIError), match="No valid valuation observations"):
         await resolve_twr_request(request, settings=_settings())
 
     execution = execution_registry.get_execution(request.calculation_id)
@@ -1268,7 +1269,7 @@ async def test_resolve_twr_request_fails_when_stateful_portfolio_reference_is_un
         portfolio_id=request.portfolio_id,
     )
 
-    with pytest.raises(HTTPException, match="portfolio reference source unavailable"):
+    with pytest.raises((HTTPException, APIError), match="portfolio reference source unavailable"):
         await resolve_twr_request(request, settings=_settings())
 
 
@@ -1300,7 +1301,7 @@ async def test_resolve_twr_request_404_reference_error_mentions_control_plane(mo
         portfolio_id=request.portfolio_id,
     )
 
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises((HTTPException, APIError)) as exc_info:
         await resolve_twr_request(request, settings=_settings())
 
     assert "CORE_CONTROL_PLANE_BASE_URL" in str(exc_info.value.detail)
@@ -1336,7 +1337,7 @@ async def test_resolve_twr_request_fails_when_stateful_portfolio_reference_date_
         portfolio_id=request.portfolio_id,
     )
 
-    with pytest.raises(HTTPException, match="Invalid portfolio_open_date"):
+    with pytest.raises((HTTPException, APIError), match="Invalid portfolio_open_date"):
         await resolve_twr_request(request, settings=_settings())
 
 
@@ -1375,7 +1376,7 @@ async def test_resolve_twr_request_fails_when_assignment_lookup_cannot_resolve_b
         portfolio_id=request.portfolio_id,
     )
 
-    with pytest.raises(HTTPException, match="benchmark assignment payload missing benchmark_id"):
+    with pytest.raises((HTTPException, APIError), match="benchmark assignment payload missing benchmark_id"):
         await resolve_twr_request(request, settings=_settings())
 
 
@@ -1414,7 +1415,7 @@ async def test_resolve_twr_request_fails_when_assignment_lookup_is_missing(monke
         portfolio_id=request.portfolio_id,
     )
 
-    with pytest.raises(HTTPException, match="No benchmark assignment found"):
+    with pytest.raises((HTTPException, APIError), match="No benchmark assignment found"):
         await resolve_twr_request(request, settings=_settings())
 
 
@@ -1444,7 +1445,9 @@ def test_twr_benchmark_helpers_reject_missing_stateless_and_stateful_benchmark_i
         include_benchmark=True,
         stateful_input=None,
     )
-    with pytest.raises(HTTPException, match="stateful_input is required when include_benchmark=true in stateful mode"):
+    with pytest.raises(
+        (HTTPException, APIError), match="stateful_input is required when include_benchmark=true in stateful mode"
+    ):
         _resolve_default_stateful_benchmark_input(request)
 
 
@@ -1538,7 +1541,7 @@ def test_twr_benchmark_helpers_reject_stateless_benchmark_without_required_paylo
 
 
 def test_resolve_stateless_twr_benchmark_input_rejects_missing_benchmark_configuration():
-    with pytest.raises(HTTPException, match="benchmark configuration is required"):
+    with pytest.raises((HTTPException, APIError), match="benchmark configuration is required"):
         _resolve_stateless_twr_benchmark_input(None)
 
 
@@ -1551,7 +1554,7 @@ def test_resolve_stateless_twr_benchmark_input_rejects_missing_stateless_payload
         ),
     )
 
-    with pytest.raises(HTTPException, match="requires benchmark_id and stateless_input"):
+    with pytest.raises((HTTPException, APIError), match="requires benchmark_id and stateless_input"):
         _resolve_stateless_twr_benchmark_input(benchmark)
 
 

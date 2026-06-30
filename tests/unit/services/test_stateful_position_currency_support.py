@@ -1,17 +1,17 @@
 from __future__ import annotations
 
 import pytest
-from fastapi import HTTPException
 
 from app.services.stateful_position_currency_support import (
     stateful_both_currency_requires_fx,
     stateful_position_currencies,
     validate_stateful_both_currency_support,
 )
+from core.errors import APIError
 
 
 def test_validate_stateful_both_currency_support_uses_workflow_specific_error_text() -> None:
-    with pytest.raises(HTTPException, match="Stateful contribution input requires report_ccy"):
+    with pytest.raises(APIError, match="Stateful contribution input requires report_ccy"):
         validate_stateful_both_currency_support(
             rows=[],
             reporting_currency=None,
@@ -19,7 +19,7 @@ def test_validate_stateful_both_currency_support_uses_workflow_specific_error_te
             workflow_name="contribution",
         )
 
-    with pytest.raises(HTTPException, match="Stateful attribution input requires position_currency"):
+    with pytest.raises(APIError, match="Stateful attribution input requires position_currency"):
         validate_stateful_both_currency_support(
             rows=[{"position_id": "POS_1"}],
             reporting_currency="USD",
@@ -27,7 +27,7 @@ def test_validate_stateful_both_currency_support_uses_workflow_specific_error_te
             workflow_name="attribution",
         )
 
-    with pytest.raises(HTTPException, match="Stateful attribution input requires fx.rates"):
+    with pytest.raises(APIError, match="Stateful attribution input requires fx.rates"):
         validate_stateful_both_currency_support(
             rows=[{"position_id": "POS_1", "position_currency": "EUR"}],
             reporting_currency="USD",

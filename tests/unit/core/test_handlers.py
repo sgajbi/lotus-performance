@@ -18,7 +18,7 @@ from app.core.handlers import (
     request_validation_exception_handler,
 )
 from app.observability import correlation_id_var, request_id_var
-from core.errors import APIBadRequestError
+from core.errors import APIBadRequestError, APIServiceUnavailableError
 
 
 def _response_json(response):
@@ -81,6 +81,20 @@ async def test_core_api_error_exception_handler_maps_status_and_detail():
     assert body["detail"] == "Invalid field value"
     assert body["message"] == "Invalid field value"
     assert body["error_code"] == "INVALID_REQUEST"
+
+
+@pytest.mark.asyncio
+async def test_core_api_error_exception_handler_preserves_retryability_metadata():
+    mock_request = Request({"type": "http", "method": "POST", "url": "/mock-url"})
+    exc = APIServiceUnavailableError("stateful source unavailable")
+
+    response = await core_api_error_exception_handler(mock_request, exc)
+
+    assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+    body = _response_json(response)
+    assert body["detail"] == "The service encountered an internal error. Use the correlation_id for support."
+    assert body["error_code"] == "SOURCE_UNAVAILABLE"
+    assert body["retryable"] is True
 
 
 @pytest.mark.asyncio

@@ -246,6 +246,13 @@ Important validation expectations:
     retrieval should tune `STATEFUL_INPUT_MAX_CONCURRENT_CHUNKS` together with
     `UPSTREAM_HTTP_MAX_CONNECTIONS`, `UPSTREAM_HTTP_MAX_KEEPALIVE_CONNECTIONS`, and
     `UPSTREAM_HTTP_KEEPALIVE_EXPIRY_SECONDS` before proposing a runtime transport split.
+24. Application services should use framework-neutral `core.errors.APIError` subclasses for
+    validation, source-unavailable, not-found, conflict, and retryability semantics. FastAPI
+    `HTTPException`, `status`, and `JSONResponse` belong at the API adapter boundary. The shared
+    stateful source helpers, input-mode helper, benchmark-assignment helper, stateful
+    position-currency helper, and compute executor now follow this pattern, and
+    `tests/unit/services/test_service_framework_boundary_inventory.py` prevents new service-level
+    FastAPI coupling while the remaining #331 debt is migrated in smaller slices.
 
 ## Standards And RFCs That Govern This Repository
 
