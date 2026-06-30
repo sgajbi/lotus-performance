@@ -3,7 +3,6 @@ from types import SimpleNamespace
 
 import pandas as pd
 import pytest
-from fastapi import HTTPException
 
 from app.models.contribution_analytics_requests import ContributionInputMode
 from app.models.contribution_responses import (
@@ -14,6 +13,7 @@ from app.models.contribution_responses import (
 from app.services import contribution_service
 from app.services.contribution_audit import AverageWeightShadowAuditState
 from app.services.contribution_periods import ContributionPeriodMethodologyContext
+from core.errors import APIBadRequestError, APIError
 from engine.schema import PortfolioColumns
 
 
@@ -140,13 +140,11 @@ def test_prepare_contribution_engine_inputs_rejects_unresolved_periods(monkeypat
     )
     monkeypatch.setattr(contribution_service, "resolve_periods", lambda *_args, **_kwargs: [])
 
-    try:
+    with pytest.raises(APIError) as exc_info:
         contribution_service._prepare_contribution_engine_inputs(request)
-    except HTTPException as exc:
-        assert exc.status_code == 400
-        assert exc.detail == "No valid periods could be resolved."
-    else:
-        raise AssertionError("Expected HTTPException for unresolved contribution periods.")
+
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "No valid periods could be resolved."
 
 
 def test_resolve_contribution_periods_uses_report_end_as_inception_without_valuations(monkeypatch):
@@ -299,7 +297,7 @@ def test_run_contribution_calculation_prepares_engine_inputs_and_period_results(
 def test_run_contribution_calculation_records_http_failure(monkeypatch):
     request = SimpleNamespace(calculation_id="contribution-calc-1")
     failures: list[dict[str, object]] = []
-    source_error = HTTPException(status_code=400, detail="No valid periods could be resolved.")
+    source_error = APIBadRequestError("No valid periods could be resolved.")
 
     def prepare_engine_inputs(_request):
         raise source_error
@@ -307,7 +305,7 @@ def test_run_contribution_calculation_records_http_failure(monkeypatch):
     monkeypatch.setattr(contribution_service, "_prepare_contribution_engine_inputs", prepare_engine_inputs)
     monkeypatch.setattr(contribution_service, "record_execution_failure", lambda **kwargs: failures.append(kwargs))
 
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(APIError) as exc_info:
         contribution_service._run_contribution_calculation(
             request,
             reset_aware_average_weight_mode="off",
@@ -333,7 +331,7 @@ def test_run_contribution_calculation_maps_unexpected_failure(monkeypatch):
     monkeypatch.setattr(contribution_service, "_prepare_contribution_engine_inputs", prepare_engine_inputs)
     monkeypatch.setattr(contribution_service, "record_execution_failure", lambda **kwargs: failures.append(kwargs))
 
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(APIError) as exc_info:
         contribution_service._run_contribution_calculation(
             request,
             reset_aware_average_weight_mode="off",
