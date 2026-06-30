@@ -1227,6 +1227,7 @@ def test_runtime_alert_runbook_covers_breach_gauges():
     complete_reference = _read("docs/guides/complete_service_reference.md")
     wiki_operations = _read("wiki/Operations-Runbook.md")
     runtime_topology = _read("docs/technical/runtime_topology.md")
+    retention_runbook = _read("docs/runbooks/runtime-retention-cleanup.md")
 
     assert "lotus_performance_compute_queue_degradation_breach" in runbook
     assert "lotus_performance_lineage_queue_degradation_breach" in runbook
@@ -1268,6 +1269,13 @@ def test_runtime_alert_runbook_covers_breach_gauges():
     assert "released by acquisition token" in wiki_operations
     assert "failure classification" in wiki_operations
     assert "prunable execution count" in wiki_operations
+    assert "retention-aligned durable-store indexes" in wiki_operations
+    assert "database-native count/delete operations" in wiki_operations
+    assert "does not need to materialize full terminal runtime rows in Python" in runtime_topology
+    assert "analytics_async_result(updated_at_utc)" in retention_runbook
+    assert "analytics_compute_job(job_status, completed_at_utc, created_at_utc)" in retention_runbook
+    assert "analytics_execution(status, completed_at_utc, created_at_utc)" in retention_runbook
+    assert "lineage_records(status, timestamp_utc, calculation_id)" in retention_runbook
     assert "workspace-summary, and TWR-inspection async submissions" in wiki_operations
 
 

@@ -9,7 +9,7 @@ from enum import StrEnum
 from typing import Any, Iterator
 from uuid import UUID
 
-from sqlalchemy import DateTime, String, Text, create_engine, select
+from sqlalchemy import DateTime, Index, String, Text, create_engine, delete, func, select, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from app.services.durable_store_json import load_json_object_or_none
@@ -33,6 +33,7 @@ class Base(DeclarativeBase):
 
 class AsyncResultModel(Base):
     __tablename__ = "analytics_async_result"
+    __table_args__ = (Index("ix_async_result_updated_at", "updated_at_utc"),)
 
     calculation_id: Mapped[str] = mapped_column(String(36), primary_key=True)
     analytics_type: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -72,6 +73,7 @@ class AsyncResultStore:
 
     def create_schema(self) -> None:
         Base.metadata.create_all(self._engine)
+        self._ensure_runtime_indexes()
 
     @contextmanager
     def _session(self) -> Iterator[Session]:
@@ -93,13 +95,13 @@ class AsyncResultStore:
         with self._session() as session:
             dialect_name = session.bind.dialect.name if session.bind is not None else ""
             cutoff = normalize_filter_datetime(older_than, dialect_name=dialect_name)
-            statement = select(AsyncResultModel).where(AsyncResultModel.updated_at_utc <= cutoff)
-            rows = session.execute(statement).scalars().all()
             if dry_run:
-                return len(rows)
-            for row in rows:
-                session.delete(row)
-            return len(rows)
+                statement = (
+                    select(func.count()).select_from(AsyncResultModel).where(AsyncResultModel.updated_at_utc <= cutoff)
+                )
+                return int(session.execute(statement).scalar_one())
+            result = session.execute(delete(AsyncResultModel).where(AsyncResultModel.updated_at_utc <= cutoff))
+            return int(result.rowcount or 0)
 
     def record_success(self, *, calculation_id: UUID, analytics_type: str, response_payload: dict[str, Any]) -> None:
         now = datetime.now(timezone.utc)
@@ -160,6 +162,12 @@ class AsyncResultStore:
             if row is None:
                 return None
             return _async_result_record_from_row(row)
+
+    def _ensure_runtime_indexes(self) -> None:
+        with self._engine.begin() as connection:
+            connection.execute(
+                text("CREATE INDEX IF NOT EXISTS ix_async_result_updated_at ON analytics_async_result (updated_at_utc)")
+            )
 
 
 def _load_response_payload(row: AsyncResultModel) -> dict[str, Any] | None:

@@ -9,7 +9,21 @@ from enum import StrEnum
 from typing import Iterable, Iterator, Mapping, cast
 from uuid import UUID
 
-from sqlalchemy import DateTime, Index, Integer, String, Text, case, create_engine, exists, func, inspect, select, text
+from sqlalchemy import (
+    DateTime,
+    Index,
+    Integer,
+    String,
+    Text,
+    case,
+    create_engine,
+    delete,
+    exists,
+    func,
+    inspect,
+    select,
+    text,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from app.services.durable_store_inspection import (
@@ -58,7 +72,10 @@ class Base(DeclarativeBase):
 
 class LineageRecordModel(Base):
     __tablename__ = "lineage_records"
-    __table_args__ = (Index("ix_lineage_records_status", "status"),)
+    __table_args__ = (
+        Index("ix_lineage_records_status", "status"),
+        Index("ix_lineage_records_terminal_retention", "status", "timestamp_utc", "calculation_id"),
+    )
 
     calculation_id: Mapped[str] = mapped_column(String(36), primary_key=True)
     calculation_type: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -304,25 +321,11 @@ class LineageMetadataStore:
         if not calculation_ids:
             return 0
         with self._session() as session:
-            payloads = (
-                session.execute(
-                    select(LineagePayloadModel).where(LineagePayloadModel.calculation_id.in_(calculation_ids))
-                )
-                .scalars()
-                .all()
+            session.execute(delete(LineagePayloadModel).where(LineagePayloadModel.calculation_id.in_(calculation_ids)))
+            result = session.execute(
+                delete(LineageRecordModel).where(LineageRecordModel.calculation_id.in_(calculation_ids))
             )
-            records = (
-                session.execute(
-                    select(LineageRecordModel).where(LineageRecordModel.calculation_id.in_(calculation_ids))
-                )
-                .scalars()
-                .all()
-            )
-            for payload in payloads:
-                session.delete(payload)
-            for record in records:
-                session.delete(record)
-            return len(records)
+            return int(result.rowcount or 0)
 
     def enqueue_lineage_payload(
         self,
@@ -1126,6 +1129,16 @@ class LineageMetadataStore:
                 text(
                     "CREATE INDEX IF NOT EXISTS ix_lineage_payloads_lease_expires_at "
                     "ON lineage_payloads (lease_expires_at_utc)"
+                )
+            )
+            connection.execute(
+                text("CREATE INDEX IF NOT EXISTS ix_lineage_payloads_created_at ON lineage_payloads (created_at_utc)")
+            )
+            connection.execute(text("CREATE INDEX IF NOT EXISTS ix_lineage_records_status ON lineage_records (status)"))
+            connection.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_lineage_records_terminal_retention "
+                    "ON lineage_records (status, timestamp_utc, calculation_id)"
                 )
             )
 

@@ -90,6 +90,11 @@ Expected worker fields:
 - runtime-retention worker: `worker_name=runtime_retention_worker`, `queue=runtime_retention`,
   cleanup mode, cleanup status, trigger mode, operator id, job id, and prunable execution count
 
+Runtime-retention previews and apply runs use retention-aligned durable-store indexes and
+database-native count/delete operations. Operators should not expect cleanup cost to scale with
+full ORM row materialization; execution and lineage paths still enumerate calculation ids only when
+artifact directories or child rows must be counted or deleted deterministically.
+
 For compute executor incidents, distinguish calculation failure from durable success-finalization
 failure. A `success_result_publication_failed` event means the calculation completed but the async
 result write failed, so the job must not be marked complete until a retrievable result exists. A

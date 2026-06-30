@@ -188,6 +188,32 @@ def test_lineage_metadata_store_lists_and_deletes_terminal_records_older_than_cu
     assert store.get_record(recent_id) is not None
 
 
+def test_lineage_metadata_store_delete_calculation_ids_uses_set_based_deletes(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    store.create_schema()
+    calculation_id = uuid4()
+    store.enqueue_lineage_payload(
+        calculation_id=calculation_id,
+        calculation_type="TWR",
+        request_json="{}",
+        response_json="{}",
+        details={"request.json": "{}"},
+    )
+    store.mark_complete(calculation_id, artifact_names=["request.json"])
+
+    statements: list[str] = []
+
+    @event.listens_for(store._engine, "before_cursor_execute")
+    def _capture_statement(_conn, _cursor, statement, _parameters, _context, _executemany):
+        statements.append(statement.lower())
+
+    assert store.delete_calculation_ids([str(calculation_id)]) == 1
+
+    assert any(statement.lstrip().startswith("delete from lineage_payloads") for statement in statements)
+    assert any(statement.lstrip().startswith("delete from lineage_records") for statement in statements)
+    assert not any("request_json" in statement or "response_json" in statement for statement in statements)
+
+
 def test_lineage_metadata_store_payload_queue_roundtrip(tmp_path):
     store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
     store.create_schema()
@@ -1094,6 +1120,11 @@ def test_lineage_metadata_store_declares_hot_path_indexes(tmp_path):
     }
 
     assert record_indexes["ix_lineage_records_status"] == ("status",)
+    assert record_indexes["ix_lineage_records_terminal_retention"] == (
+        "status",
+        "timestamp_utc",
+        "calculation_id",
+    )
     assert payload_indexes["ix_lineage_payloads_created_at"] == ("created_at_utc",)
     assert payload_indexes["ix_lineage_payloads_lease_expires_at"] == ("lease_expires_at_utc",)
 

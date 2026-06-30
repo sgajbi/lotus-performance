@@ -71,6 +71,8 @@ PostgreSQL aligned with retrievable artifact files after asynchronous materializ
 - executes the same governed cleanup path as `python scripts/runtime_retention_cleanup.py --scheduled`
 - persists retained cleanup evidence with scheduled automation identity and job id
 - defaults to dry-run mode unless `RUNTIME_RETENTION_WORKER_APPLY=true` is set explicitly
+- relies on retention-aligned durable-store indexes plus database-native count/delete operations so
+  scheduled cleanup does not need to materialize full terminal runtime rows in Python
 
 ## Readiness model
 

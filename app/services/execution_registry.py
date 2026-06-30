@@ -9,7 +9,7 @@ from enum import StrEnum
 from typing import Any, Iterator
 from uuid import UUID
 
-from sqlalchemy import DateTime, ForeignKey, Index, String, Text, create_engine, select, text
+from sqlalchemy import DateTime, ForeignKey, Index, String, Text, create_engine, delete, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, sessionmaker
 
@@ -48,6 +48,7 @@ class Base(DeclarativeBase):
 
 class AnalyticsExecutionModel(Base):
     __tablename__ = "analytics_execution"
+    __table_args__ = (Index("ix_execution_terminal_retention", "status", "completed_at_utc", "created_at_utc"),)
 
     calculation_id: Mapped[str] = mapped_column(String(36), primary_key=True)
     analytics_type: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -401,16 +402,20 @@ class ExecutionRegistry:
         if not calculation_ids:
             return 0
         with self._session() as session:
-            rows = (
-                session.execute(
-                    select(AnalyticsExecutionModel).where(AnalyticsExecutionModel.calculation_id.in_(calculation_ids))
+            session.execute(
+                delete(AnalyticsUpstreamSnapshotModel).where(
+                    AnalyticsUpstreamSnapshotModel.calculation_id.in_(calculation_ids)
                 )
-                .scalars()
-                .all()
             )
-            for row in rows:
-                session.delete(row)
-            return len(rows)
+            session.execute(
+                delete(AnalyticsExecutionStageModel).where(
+                    AnalyticsExecutionStageModel.calculation_id.in_(calculation_ids)
+                )
+            )
+            result = session.execute(
+                delete(AnalyticsExecutionModel).where(AnalyticsExecutionModel.calculation_id.in_(calculation_ids))
+            )
+            return int(result.rowcount or 0)
 
     def create_execution(
         self,
@@ -725,6 +730,12 @@ class ExecutionRegistry:
                 text(
                     "CREATE INDEX IF NOT EXISTS ix_upstream_snapshot_calculation_created_at "
                     "ON analytics_upstream_snapshot (calculation_id, created_at_utc)"
+                )
+            )
+            connection.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_execution_terminal_retention "
+                    "ON analytics_execution (status, completed_at_utc, created_at_utc)"
                 )
             )
 
