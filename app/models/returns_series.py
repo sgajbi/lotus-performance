@@ -480,10 +480,20 @@ class SeriesGap(BaseModel):
     gap_days: int = Field(description="Gap length in business dates after policy application.", examples=[3])
 
 
+class RiskFreeSourceQuality(BaseModel):
+    raw_points: int = Field(description="Risk-free source rows received before normalization.", examples=[5])
+    normalized_points: int = Field(description="Risk-free source rows accepted by normalization.", examples=[4])
+    skipped_points: int = Field(description="Risk-free source rows skipped as malformed or unusable.", examples=[1])
+
+
 class ReturnsDiagnostics(BaseModel):
     coverage: SeriesCoverage = Field(description="Coverage summary for the response series.")
     gaps: list[SeriesGap] = Field(default_factory=list, description="Explicit coverage gaps retained in diagnostics.")
     policy_applied: DataPolicy = Field(description="Resolved data-policy settings used for the request.")
+    risk_free_source_quality: RiskFreeSourceQuality | None = Field(
+        default=None,
+        description="Risk-free source-quality counts when risk-free data is requested.",
+    )
     warnings: list[str] = Field(default_factory=list, description="Non-fatal diagnostic warnings for the response.")
 
 

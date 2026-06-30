@@ -159,6 +159,11 @@ def _resolved_returns_series_async_request_payload(
             "source_input_mode": InputMode.STATEFUL.value,
             "resolved_benchmark_id": resolved.resolved_benchmark_id,
             "resolved_benchmark_return_source": resolved.resolved_benchmark_return_source,
+            "risk_free_source_quality": (
+                resolved.risk_free_source_quality.model_dump(mode="json")
+                if resolved.risk_free_source_quality is not None
+                else None
+            ),
         }
     )
 
@@ -233,6 +238,7 @@ async def _calculate_promoted_stateful_returns_series(
             source_input_mode=InputMode.STATEFUL,
             resolved_benchmark_id_override=resolved.resolved_benchmark_id,
             resolved_benchmark_return_source_override=resolved.resolved_benchmark_return_source,
+            risk_free_source_quality_override=resolved.risk_free_source_quality,
         )
     except Exception as exc:
         message = _execution_failure_message(exc)

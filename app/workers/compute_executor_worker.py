@@ -20,7 +20,7 @@ from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.models.contribution_analytics_requests import ContributionAnalyticsRequest, ContributionInputMode
 from app.models.contribution_requests import ContributionRequest
 from app.models.inspection_requests import TWRInspectionRequest
-from app.models.returns_series import InputMode, ReturnsSeriesRequest
+from app.models.returns_series import InputMode, ReturnsSeriesRequest, RiskFreeSourceQuality
 from app.models.twr_requests import TWRAnalyticsRequest, TWRInputMode, TWRResolvedExecutionRequest
 from app.models.workspace_summary_requests import WorkspaceSummaryRequest
 from app.observability import correlation_id_var, request_id_var, trace_id_var
@@ -339,6 +339,7 @@ def _execute_returns_series_job(job: ComputeJobRecord, context: _ComputeJobExecu
         source_input_mode,
         resolved_benchmark_id_override,
         resolved_benchmark_return_source_override,
+        risk_free_source_quality_override,
     ) = _resolve_async_returns_series_job_request(job.request_payload)
     with _restored_async_observability_context(job.request_payload):
         if source_input_mode == request.input_mode:
@@ -349,6 +350,7 @@ def _execute_returns_series_job(job: ComputeJobRecord, context: _ComputeJobExecu
                 source_input_mode=source_input_mode,
                 resolved_benchmark_id_override=resolved_benchmark_id_override,
                 resolved_benchmark_return_source_override=resolved_benchmark_return_source_override,
+                risk_free_source_quality_override=risk_free_source_quality_override,
             )
         )
 
@@ -619,21 +621,25 @@ def _resolve_async_contribution_job_request(
 
 def _resolve_async_returns_series_job_request(
     payload: dict[str, Any],
-) -> tuple[ReturnsSeriesRequest, InputMode, str | None, str | None]:
+) -> tuple[ReturnsSeriesRequest, InputMode, str | None, str | None, RiskFreeSourceQuality | None]:
     request_payload = _payload_without_async_observability_context(payload)
     resolved_request_payload = request_payload.get("resolved_request")
     source_input_mode = request_payload.get("source_input_mode")
     resolved_benchmark_id = request_payload.get("resolved_benchmark_id")
     resolved_benchmark_return_source = request_payload.get("resolved_benchmark_return_source")
+    risk_free_source_quality = request_payload.get("risk_free_source_quality")
     if isinstance(resolved_request_payload, dict) and isinstance(source_input_mode, str):
         return (
             ReturnsSeriesRequest.model_validate(resolved_request_payload),
             InputMode(source_input_mode),
             resolved_benchmark_id if isinstance(resolved_benchmark_id, str) else None,
             resolved_benchmark_return_source if isinstance(resolved_benchmark_return_source, str) else None,
+            RiskFreeSourceQuality.model_validate(risk_free_source_quality)
+            if isinstance(risk_free_source_quality, dict)
+            else None,
         )
     request = ReturnsSeriesRequest.model_validate(request_payload)
-    return request, request.input_mode, None, None
+    return request, request.input_mode, None, None, None
 
 
 def _resolve_async_attribution_job_request(

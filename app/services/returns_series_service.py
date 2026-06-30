@@ -28,6 +28,7 @@ from app.models.returns_series import (
     ReturnsSeriesPayload,
     ReturnsSeriesRequest,
     ReturnsSeriesResponse,
+    RiskFreeSourceQuality,
     SeriesCoverage,
     SeriesGap,
 )
@@ -78,6 +79,7 @@ class ResolvedStatefulReturnsSeriesRequest:
     resolved_benchmark_id: str | None
     resolved_benchmark_return_source: str | None
     benchmark_work_units: int
+    risk_free_source_quality: RiskFreeSourceQuality | None = None
 
 
 @dataclass(frozen=True)
@@ -114,6 +116,7 @@ class _ReturnsSeriesExecutionContext:
     calculation_hash: str
     resolved_benchmark_id: str | None
     resolved_benchmark_return_source: BenchmarkReturnSource
+    risk_free_source_quality: RiskFreeSourceQuality | None = None
 
 
 @dataclass(frozen=True)
@@ -652,6 +655,17 @@ def risk_free_points_to_dataframe(*, points: list[dict[str, Any]]) -> pd.DataFra
         if (normalized_point := _risk_free_return_point_from_source(point)) is not None
     ]
     return to_dataframe(normalized_points, series_type="risk_free")
+
+
+def risk_free_source_quality_from_points(points: list[dict[str, Any]] | None) -> RiskFreeSourceQuality | None:
+    if points is None:
+        return None
+    normalized_points = sum(1 for point in points if _risk_free_return_point_from_source(point) is not None)
+    return RiskFreeSourceQuality(
+        raw_points=len(points),
+        normalized_points=normalized_points,
+        skipped_points=len(points) - normalized_points,
+    )
 
 
 def _selected_series_common_dates(
@@ -1256,6 +1270,7 @@ def _build_returns_series_diagnostics(
     portfolio_df: pd.DataFrame,
     benchmark_df: pd.DataFrame | None,
     risk_free_df: pd.DataFrame | None,
+    risk_free_source_quality: RiskFreeSourceQuality | None = None,
 ) -> _ReturnsSeriesDiagnosticsResult:
     requested_points = date_range_count(
         resolved_window, frequency=request.frequency, calendar_policy=request.data_policy.calendar_policy
@@ -1293,9 +1308,26 @@ def _build_returns_series_diagnostics(
             ),
             gaps=gaps,
             policy_applied=request.data_policy,
+            risk_free_source_quality=(
+                (risk_free_source_quality or _stateless_risk_free_source_quality_from_request(request))
+                if request.series_selection.include_risk_free
+                else None
+            ),
             warnings=warnings,
         ),
     )
+
+
+def _stateless_risk_free_source_quality_from_request(
+    request: ReturnsSeriesRequest,
+) -> RiskFreeSourceQuality | None:
+    if not request.series_selection.include_risk_free or request.stateless_input is None:
+        return None
+    risk_free_returns = request.stateless_input.risk_free_returns
+    if risk_free_returns is None:
+        return None
+    point_count = len(risk_free_returns)
+    return RiskFreeSourceQuality(raw_points=point_count, normalized_points=point_count, skipped_points=0)
 
 
 def _update_resolved_stateful_returns_identity(
@@ -1417,12 +1449,14 @@ async def calculate_returns_series(
     source_input_mode: InputMode | None = None,
     resolved_benchmark_id_override: str | None = None,
     resolved_benchmark_return_source_override: str | None = None,
+    risk_free_source_quality_override: RiskFreeSourceQuality | None = None,
 ) -> ReturnsSeriesResponse:
     return await _calculate_returns_series(
         request,
         source_input_mode=source_input_mode,
         resolved_benchmark_id_override=resolved_benchmark_id_override,
         resolved_benchmark_return_source_override=resolved_benchmark_return_source_override,
+        risk_free_source_quality_override=risk_free_source_quality_override,
     )
 
 
@@ -1432,6 +1466,7 @@ def _requested_returns_series_execution_context(
     source_input_mode: InputMode | None,
     resolved_benchmark_id_override: str | None,
     resolved_benchmark_return_source_override: str | None,
+    risk_free_source_quality_override: RiskFreeSourceQuality | None = None,
 ) -> _ReturnsSeriesExecutionContext:
     input_fingerprint, calculation_hash = generate_canonical_hash(request, "returns-series-v1")
     resolved_benchmark_return_source = (
@@ -1448,6 +1483,7 @@ def _requested_returns_series_execution_context(
         resolved_benchmark_id=resolved_benchmark_id_override
         or (request.benchmark.benchmark_id if request.benchmark else None),
         resolved_benchmark_return_source=resolved_benchmark_return_source,
+        risk_free_source_quality=risk_free_source_quality_override,
     )
 
 
@@ -1457,12 +1493,14 @@ async def _resolve_returns_series_execution_context(
     source_input_mode: InputMode | None,
     resolved_benchmark_id_override: str | None,
     resolved_benchmark_return_source_override: str | None,
+    risk_free_source_quality_override: RiskFreeSourceQuality | None = None,
 ) -> _ReturnsSeriesExecutionContext:
     context = _requested_returns_series_execution_context(
         request=request,
         source_input_mode=source_input_mode,
         resolved_benchmark_id_override=resolved_benchmark_id_override,
         resolved_benchmark_return_source_override=resolved_benchmark_return_source_override,
+        risk_free_source_quality_override=risk_free_source_quality_override,
     )
     resolved_benchmark_id = context.resolved_benchmark_id
     resolved_benchmark_return_source = context.resolved_benchmark_return_source
@@ -1495,6 +1533,7 @@ async def _resolve_returns_series_execution_context(
         calculation_hash=calculation_hash,
         resolved_benchmark_id=resolved_benchmark_id,
         resolved_benchmark_return_source=resolved_benchmark_return_source,
+        risk_free_source_quality=resolved_stateful_request.risk_free_source_quality,
     )
 
 
@@ -1563,6 +1602,7 @@ def _build_returns_series_execution_result(
         portfolio_df=normalized_frames.portfolio_df,
         benchmark_df=normalized_frames.benchmark_df,
         risk_free_df=normalized_frames.risk_free_df,
+        risk_free_source_quality=context.risk_free_source_quality,
     )
     response = _build_returns_series_response(
         request=request,
@@ -1587,6 +1627,7 @@ async def _calculate_returns_series(
     source_input_mode: InputMode | None = None,
     resolved_benchmark_id_override: str | None = None,
     resolved_benchmark_return_source_override: str | None = None,
+    risk_free_source_quality_override: RiskFreeSourceQuality | None = None,
 ) -> ReturnsSeriesResponse:
     execution_registry.mark_running(request.calculation_id)
     active_stage: str | None = None
@@ -1596,6 +1637,7 @@ async def _calculate_returns_series(
             source_input_mode=source_input_mode,
             resolved_benchmark_id_override=resolved_benchmark_id_override,
             resolved_benchmark_return_source_override=resolved_benchmark_return_source_override,
+            risk_free_source_quality_override=risk_free_source_quality_override,
         )
         request = context.request
 
@@ -1661,6 +1703,7 @@ async def resolve_stateful_returns_series_request(
         resolved_benchmark_id=resolved_benchmark_id,
         resolved_benchmark_return_source=(resolved_benchmark_return_source.value if resolved_benchmark_id else None),
         benchmark_work_units=benchmark_resolution.benchmark_work_units,
+        risk_free_source_quality=risk_free_source_quality_from_points(sources.risk_free_points),
     )
 
 

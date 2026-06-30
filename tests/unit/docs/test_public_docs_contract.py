@@ -831,6 +831,8 @@ def test_returns_series_docs_reflect_benchmark_return_source_contract():
     api_reference = _read("docs/guides/api_reference.md")
     master_index = _read("docs/methodologies/metrics/master-index.md")
     active_methodology = _read("docs/methodologies/metrics/metric-returns-series-active.md")
+    risk_free_methodology = _read("docs/methodologies/metrics/metric-returns-series-risk-free.md")
+    certification = _read("docs/technical/returns-series-endpoint-certification.md")
 
     assert 'benchmark.return_source="vendor_series"' in readme
     assert "active_returns" in readme
@@ -842,6 +844,7 @@ def test_returns_series_docs_reflect_benchmark_return_source_contract():
     assert "active_returns" in api_reference
     assert "cumulative_active_returns" in api_reference
     assert "benchmark_context" in api_reference
+    assert "diagnostics.risk_free_source_quality" in api_reference
     assert (
         "stateful mode, benchmark sourcing defaults to the shared lotus-performance benchmark calculation path"
         in api_reference.lower()
@@ -850,6 +853,8 @@ def test_returns_series_docs_reflect_benchmark_return_source_contract():
     assert "Active Return Series" in master_index
     assert "series.active_returns" in active_methodology
     assert "series.cumulative_active_returns" in active_methodology
+    assert "malformed stateful risk-free source rows are skipped resiliently" in risk_free_methodology
+    assert "diagnostics.risk_free_source_quality" in certification
 
 
 def test_api_examples_recipes_match_current_dual_mode_contract():

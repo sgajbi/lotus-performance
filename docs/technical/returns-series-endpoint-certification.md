@@ -57,6 +57,7 @@ Every returned figure must satisfy these invariants:
 | `cumulative_active_returns` | Arithmetic cumulative excess: `cumulative_portfolio_return - cumulative_benchmark_return`. It is intentionally not a linked active-return series. |
 | `diagnostics.coverage` | Requested, returned, missing, and coverage-ratio values reconcile to the resolved window and calendar policy. |
 | `diagnostics.gaps` | Retained gaps identify series type, start, end, and gap length. BUSINESS/MARKET daily diagnostics do not flag normal weekends as data gaps. |
+| `diagnostics.risk_free_source_quality` | Present when risk-free data is requested; reports raw, normalized, and skipped source-row counts so malformed optional reference rows are auditable. |
 | `benchmark_context` | Present when benchmark was selected and includes resolved `benchmark_id` and `return_source`. |
 | `provenance` | Stateful executions hash the resolved immutable input payload, not only the original lookup request. |
 

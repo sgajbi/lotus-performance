@@ -847,6 +847,55 @@ def test_build_returns_series_diagnostics_reports_coverage_gaps_and_market_warni
     assert {gap.series_type for gap in result.diagnostics.gaps} == {"portfolio", "benchmark"}
 
 
+def test_build_returns_series_diagnostics_reports_stateless_risk_free_source_quality():
+    request = ReturnsSeriesRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "as_of_date": "2026-02-24",
+            "window": {"mode": "EXPLICIT", "from_date": "2026-02-23", "to_date": "2026-02-24"},
+            "frequency": "DAILY",
+            "series_selection": {"include_portfolio": True, "include_benchmark": False, "include_risk_free": True},
+            "input_mode": "stateless",
+            "stateless_input": {
+                "portfolio_returns": [
+                    {"date": "2026-02-23", "return_value": "0.0100"},
+                    {"date": "2026-02-24", "return_value": "0.0200"},
+                ],
+                "risk_free_returns": [
+                    {"date": "2026-02-23", "return_value": "0.0001"},
+                    {"date": "2026-02-24", "return_value": "0.0002"},
+                ],
+            },
+        }
+    )
+    resolved_window = returns_series_service.resolve_window(request)
+    portfolio_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-23", "2026-02-24"]),
+            "return_value": [Decimal("0.0100"), Decimal("0.0200")],
+        }
+    )
+    risk_free_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-23", "2026-02-24"]),
+            "return_value": [Decimal("0.0001"), Decimal("0.0002")],
+        }
+    )
+
+    result = returns_series_service._build_returns_series_diagnostics(
+        request=request,
+        resolved_window=resolved_window,
+        portfolio_df=portfolio_df,
+        benchmark_df=None,
+        risk_free_df=risk_free_df,
+    )
+
+    assert result.diagnostics.risk_free_source_quality is not None
+    assert result.diagnostics.risk_free_source_quality.raw_points == 2
+    assert result.diagnostics.risk_free_source_quality.normalized_points == 2
+    assert result.diagnostics.risk_free_source_quality.skipped_points == 0
+
+
 def test_returns_series_gaps_includes_selected_risk_free_series():
     portfolio_df = pd.DataFrame(
         {
@@ -975,6 +1024,22 @@ def test_risk_free_points_to_dataframe_skips_malformed_points():
 
     assert [value.date().isoformat() for value in risk_free_df["date"]] == ["2026-04-10"]
     assert [str(value) for value in risk_free_df["return_value"]] == ["0.0001"]
+
+
+def test_risk_free_source_quality_from_points_reports_skipped_malformed_rows():
+    quality = returns_series_service.risk_free_source_quality_from_points(
+        [
+            {"series_date": "2026-04-10", "value": "0.0001"},
+            {"series_date": "not-a-date", "value": "0.0002"},
+            {"series_date": "2026-04-11"},
+            {"value": "0.0003"},
+        ]
+    )
+
+    assert quality is not None
+    assert quality.raw_points == 4
+    assert quality.normalized_points == 1
+    assert quality.skipped_points == 3
 
 
 def test_risk_free_points_to_dataframe_rejects_duplicate_dates():
