@@ -9,7 +9,6 @@ from decimal import Decimal, localcontext
 from typing import Any, TypeVar, cast
 
 import pandas as pd
-from fastapi import HTTPException, status
 
 from adapters.api_adapter import create_engine_config, create_engine_dataframe
 from app.core.config import Settings, get_settings
@@ -60,7 +59,7 @@ from app.services.twr_service import (
 )
 from common.enums import Frequency
 from core.envelope import Audit, Diagnostics, Meta
-from core.errors import HTTP_422_UNPROCESSABLE
+from core.errors import APIBadRequestError, APIUnprocessableEntityError
 from core.repro import generate_canonical_hash
 from core.workspace_periods import ResolvedWorkspacePeriod, resolve_workspace_periods
 from engine.compute import run_calculations
@@ -234,9 +233,7 @@ async def _resolve_workspace_inputs_async(
         explicit_start_date=request.report_start_date,
     )
     if not resolved_periods:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="No valid workspace periods could be resolved."
-        )
+        raise APIBadRequestError("No valid workspace periods could be resolved.")
 
     master_start_date = min(period.start_date for period in resolved_periods)
     portfolio_input = _trim_portfolio_input_to_master_window(
@@ -329,10 +326,7 @@ async def _build_stateful_workspace_portfolio_input_async(
 def _build_stateless_workspace_portfolio_input(request: WorkspaceSummaryRequest) -> ResolvedWorkspacePortfolioInput:
     valuation_points = request.resolved_stateless_valuation_points()
     if request.performance_start_date is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="performance_start_date is required for stateless workspace summary requests.",
-        )
+        raise APIBadRequestError("performance_start_date is required for stateless workspace summary requests.")
     return ResolvedWorkspacePortfolioInput(
         input_mode=MWRInputMode.STATELESS,
         performance_start_date=request.performance_start_date,
@@ -528,10 +522,7 @@ def _build_stateless_workspace_benchmark_input(
     master_start_date: date,
 ) -> ResolvedWorkspaceBenchmarkInput:
     if benchmark.stateless_input is None or benchmark.benchmark_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Stateless workspace benchmark requests require benchmark_id and stateless_input.",
-        )
+        raise APIBadRequestError("Stateless workspace benchmark requests require benchmark_id and stateless_input.")
     resolved_request = BenchmarkPerformanceRequest.model_validate(
         {
             "calculation_id": request.calculation_id,
@@ -580,17 +571,11 @@ async def _resolve_stateful_portfolio_start_date_async(*, request: WorkspaceSumm
     )
     portfolio_open_date = upstream_payload.get("portfolio_open_date")
     if not isinstance(portfolio_open_date, str):
-        raise HTTPException(
-            status_code=HTTP_422_UNPROCESSABLE,
-            detail="Stateful source missing portfolio_open_date.",
-        )
+        raise APIUnprocessableEntityError("Stateful source missing portfolio_open_date.")
     try:
         return date.fromisoformat(portfolio_open_date)
     except ValueError as exc:
-        raise HTTPException(
-            status_code=HTTP_422_UNPROCESSABLE,
-            detail="Invalid portfolio_open_date from stateful source.",
-        ) from exc
+        raise APIUnprocessableEntityError("Invalid portfolio_open_date from stateful source.") from exc
 
 
 def _calculate_workspace_twr_artifacts(
