@@ -4,7 +4,6 @@ from pathlib import Path
 
 FASTAPI_SERVICE_BOUNDARY_ALLOWLIST = frozenset(
     {
-        "app/services/benchmark_exposure_context_service.py",
         "app/services/returns_series_calculation_workflow_service.py",
         "app/services/returns_series_service.py",
         "app/services/stateful_attribution_input_service.py",
@@ -38,6 +37,7 @@ MIGRATED_FRAMEWORK_NEUTRAL_MODULES = frozenset(
         "app/services/attribution_calculation_workflow_service.py",
         "app/services/attribution_service.py",
         "app/services/benchmark_calculation_workflow_service.py",
+        "app/services/benchmark_exposure_context_service.py",
         "app/services/benchmark_exposure_context_workflow_service.py",
         "app/services/contribution_calculation_workflow_service.py",
         "app/services/contribution_service.py",
