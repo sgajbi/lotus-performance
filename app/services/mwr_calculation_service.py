@@ -23,6 +23,7 @@ from app.services.mwr_mode_service import ResolvedMWRRequest, resolve_mwr_reques
 from app.services.reproducibility_service import generate_request_fingerprint
 from app.services.submission_fencing_service import register_sync_execution_or_raise
 from core.envelope import Audit, Diagnostics, Meta
+from core.errors import APIError
 from engine.mwr import calculate_money_weighted_return
 from engine.mwr_types import MWRResult
 
@@ -73,6 +74,7 @@ def build_mwr_response(
     calculation_supportability = _mwr_calculation_supportability(
         mwr_request=mwr_request,
         mwr_result=mwr_result,
+        resolved_request=resolved_request,
     )
     _record_mwr_response_metrics(
         request=request,
@@ -97,14 +99,29 @@ def _mwr_calculation_supportability(
     *,
     mwr_request: MoneyWeightedReturnRequest,
     mwr_result: MWRResult,
+    resolved_request: ResolvedMWRRequest,
 ) -> PerformanceCalculationSupportability:
     return build_calculation_supportability(
-        input_row_count=len(mwr_request.cash_flows) + 2,
+        input_row_count=_mwr_supportability_input_row_count(
+            mwr_request=mwr_request,
+            resolved_request=resolved_request,
+        ),
         resolved_period_count=1,
         latest_observation_date=mwr_result.end_date,
         report_end_date=mwr_request.as_of,
         minimum_input_row_count=2,
     )
+
+
+def _mwr_supportability_input_row_count(
+    *,
+    mwr_request: MoneyWeightedReturnRequest,
+    resolved_request: ResolvedMWRRequest,
+) -> int:
+    source_quality = _mwr_source_cashflow_quality(resolved_request=resolved_request)
+    if source_quality is None:
+        return len(mwr_request.cash_flows) + 2
+    return int(getattr(source_quality, "observed_source_row_count", 0)) + 2
 
 
 def _record_mwr_response_metrics(
@@ -173,7 +190,7 @@ def _build_mwr_response_payload(
             effective_period_start=mwr_result.start_date,
             notes=mwr_result.notes,
         ),
-        "audit": Audit(counts={"cashflows": len(mwr_request.cash_flows)}),
+        "audit": Audit(counts=_mwr_audit_counts(resolved_request=resolved_request, mwr_request=mwr_request)),
     }
 
 
@@ -188,6 +205,30 @@ def _mwr_currency_evidence_payload(*, resolved_request: ResolvedMWRRequest) -> o
     if resolved_request.currency_evidence is None:
         return None
     return _decimal_safe_dataclass_payload(resolved_request.currency_evidence)
+
+
+def _mwr_source_cashflow_quality(*, resolved_request: ResolvedMWRRequest) -> object | None:
+    if resolved_request.currency_evidence is None:
+        return None
+    return getattr(resolved_request.currency_evidence, "source_cashflow_quality", None)
+
+
+def _mwr_audit_counts(
+    *,
+    resolved_request: ResolvedMWRRequest,
+    mwr_request: MoneyWeightedReturnRequest,
+) -> dict[str, int]:
+    counts = {"cashflows": len(mwr_request.cash_flows)}
+    source_quality = _mwr_source_cashflow_quality(resolved_request=resolved_request)
+    if source_quality is not None:
+        counts.update(
+            {
+                "source_cashflow_rows": int(getattr(source_quality, "observed_source_row_count", 0)),
+                "source_cashflow_rows_included": int(getattr(source_quality, "included_source_row_count", 0)),
+                "source_cashflow_rows_excluded": int(getattr(source_quality, "excluded_source_row_count", 0)),
+            }
+        )
+    return counts
 
 
 def _decimal_safe_dataclass_payload(value: object) -> object:
@@ -254,6 +295,14 @@ async def calculate_mwr_response(
         record_execution_failure(
             calculation_id=request.calculation_id,
             message="HTTPException raised during MWR execution.",
+            execution_stage_started=execution_stage_started,
+            lineage_stage_started=lineage_stage_started,
+        )
+        raise
+    except APIError:
+        record_execution_failure(
+            calculation_id=request.calculation_id,
+            message="Mapped application error raised during MWR execution.",
             execution_stage_started=execution_stage_started,
             lineage_stage_started=lineage_stage_started,
         )

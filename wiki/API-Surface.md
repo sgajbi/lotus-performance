@@ -62,9 +62,14 @@ calculation-schedule echo. Stateless callers may supply complete
 `source_preconverted_fx_evidence`; lotus-performance validates it against the supplied
 reporting-currency schedule and emits `currency_evidence` with per-input FX provenance. Stateful
 responses also carry `reporting_currency` and `currency_evidence`, including beginning/ending
-market values and source cash-flow components. Single-currency stateful responses emit
-`not_required_single_currency_inputs` when source and reporting currencies match. Cross-currency
-stateful responses keep the explicit `upstream_preconverted_missing_per_input_fx_metadata` posture.
+market values, source cash-flow components, bounded `source_cashflow_quality` inclusion/exclusion
+counts, and source transaction/event lifecycle identity when supplied upstream. Cash-flow dates are
+validated against the resolved measurement window before calculation; out-of-window input is
+rejected with `MWR_CASH_FLOW_OUT_OF_WINDOW`. Dietz annualization honors explicit
+`periods_per_year` first and then the selected day-count convention, including `BUS/252`.
+Single-currency stateful responses emit `not_required_single_currency_inputs` when source and
+reporting currencies match. Cross-currency stateful responses keep the explicit
+`upstream_preconverted_missing_per_input_fx_metadata` posture.
 Stateful upstream FX-aware MWR is still contract-gated by
 [docs/technical/mwr-fx-contract-design.md](../docs/technical/mwr-fx-contract-design.md), and
 downstream consumers must not infer missing FX rates or conversion policy when those fields are

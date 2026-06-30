@@ -47,9 +47,14 @@
   `contracts/domain-data-products/lotus-performance-products.v1.json`. Current MWR is a single
   reporting-currency product with explicit source-component evidence. Stateless callers may supply
   complete `source_preconverted_fx_evidence`; consumers should preserve the emitted
-  `currency_evidence` and must not reconstruct FX conversion locally. Stateful single-currency MWR
-  emits `not_required_single_currency_inputs` when source and reporting currencies match. Stateful
-  upstream cross-currency FX-aware MWR remains gated by
+  `currency_evidence` and must not reconstruct FX conversion locally. Cash-flow dates are
+  producer-validated against the resolved measurement window and rejected with
+  `MWR_CASH_FLOW_OUT_OF_WINDOW` when outside the supported period. Stateful responses also carry
+  bounded `source_cashflow_quality` counts and source transaction/event lifecycle identity when
+  supplied by the upstream timeseries source, with absent lifecycle identity reported as explicit
+  supportability posture. Stateful single-currency MWR emits `not_required_single_currency_inputs`
+  when source and reporting currencies match. Stateful upstream cross-currency FX-aware MWR remains
+  gated by
   [docs/technical/mwr-fx-contract-design.md](../docs/technical/mwr-fx-contract-design.md).
   Production controls and review findings are maintained in
   [docs/guides/mwr-lotus-production-controls.md](../docs/guides/mwr-lotus-production-controls.md)

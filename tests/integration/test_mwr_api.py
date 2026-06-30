@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from app.core.config import get_settings
 from app.models.mwr_requests import MoneyWeightedReturnRequest
 from app.observability_contracts import PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS
+from app.services.mwr_cash_flow_window_validation import MWR_CASH_FLOW_OUT_OF_WINDOW
 from core.repro import generate_canonical_hash
 from main import app
 from tests.conftest import drain_lineage_queue
@@ -61,6 +62,7 @@ def test_calculate_mwr_endpoint_xirr_happy_path(client):
         "input_row_count": 4,
         "resolved_period_count": 1,
         "benchmark_row_count": 0,
+        "source_quality_evidence": None,
         "metric_labels": _EXPECTED_SUPPORTABILITY_METRIC_LABELS,
     }
 
@@ -98,6 +100,60 @@ def test_calculate_mwr_endpoint_emits_solver_outcome_metric(client):
     )
 
 
+def test_calculate_mwr_endpoint_rejects_out_of_window_cash_flows(client):
+    response = client.post(
+        "/performance/mwr",
+        json={
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "MWR_BAD_WINDOW",
+            "begin_mv": 100000.0,
+            "end_mv": 105000.0,
+            "as_of": "2025-12-31",
+            "start_date": "2025-01-01",
+            "cash_flows": [
+                {"amount": 1000.0, "date": "2024-12-31"},
+                {"amount": -500.0, "date": "2026-01-02"},
+            ],
+            "mwr_method": "MODIFIED_DIETZ",
+        },
+    )
+
+    assert response.status_code == 422
+    body = response.json()
+    assert body["error_code"] == MWR_CASH_FLOW_OUT_OF_WINDOW
+    assert body["detail"]["code"] == MWR_CASH_FLOW_OUT_OF_WINDOW
+    assert body["detail"]["measurement_window"] == {
+        "start_date": "2025-01-01",
+        "end_date": "2025-12-31",
+    }
+    assert body["detail"]["offending_cash_flow_count"] == 2
+    assert body["detail"]["before_start_dates"] == ["2024-12-31"]
+    assert body["detail"]["after_end_dates"] == ["2026-01-02"]
+
+
+def test_calculate_mwr_endpoint_honors_bus_252_dietz_annualization(client):
+    response = client.post(
+        "/performance/mwr",
+        json={
+            "calculation_id": str(uuid4()),
+            "portfolio_id": "MWR_BUS_252",
+            "begin_mv": 1000.0,
+            "end_mv": 1020.0,
+            "as_of": "2025-07-01",
+            "start_date": "2025-01-01",
+            "cash_flows": [],
+            "mwr_method": "DIETZ",
+            "annualization": {"enabled": True, "basis": "BUS/252"},
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["method"] == "DIETZ"
+    assert body["money_weighted_return"] == pytest.approx(2.0)
+    assert body["mwr_annualized"] == pytest.approx(((1.02) ** (252 / 181) - 1) * 100)
+
+
 def test_calculate_mwr_endpoint_supports_stateful_mode(client, monkeypatch):
     async def _mock_get_portfolio_timeseries(self, **kwargs):  # noqa: ARG001
         return (
@@ -119,7 +175,13 @@ def test_calculate_mwr_endpoint_supports_stateful_mode(client, monkeypatch):
                                 "cash_flow_type": "external_flow",
                                 "flow_scope": "external",
                                 "source_classification": "CONTRIBUTION",
-                            }
+                                "transaction_id": "TXN-100",
+                                "event_id": "EVT-100",
+                                "lifecycle_status": "original",
+                                "settlement_date": "2025-01-02",
+                            },
+                            {"amount": "-25", "timing": "eod", "cash_flow_type": "fee"},
+                            {"amount": "12", "timing": "eod", "cash_flow_type": "dividend"},
                         ],
                     },
                     {
@@ -157,6 +219,10 @@ def test_calculate_mwr_endpoint_supports_stateful_mode(client, monkeypatch):
     assert body["start_date"] == "2025-01-01"
     assert body["method"] == "DIETZ"
     assert body["audit"]["counts"]["cashflows"] == 1
+    assert body["audit"]["counts"]["source_cashflow_rows"] == 3
+    assert body["audit"]["counts"]["source_cashflow_rows_included"] == 1
+    assert body["audit"]["counts"]["source_cashflow_rows_excluded"] == 2
+    assert body["calculation_supportability"]["input_row_count"] == 5
     assert body["cashflows_used"] == [{"amount": 10000.0, "date": "2025-01-01"}]
     assert body["reporting_currency"] == "USD"
     assert body["currency_evidence"]["portfolio_currency"] == "EUR"
@@ -164,6 +230,22 @@ def test_calculate_mwr_endpoint_supports_stateful_mode(client, monkeypatch):
     assert body["currency_evidence"]["conversion_evidence_status"] == (
         "upstream_preconverted_missing_per_input_fx_metadata"
     )
+    assert {
+        "valuation_date": "2025-01-01",
+        "amount": "100000",
+        "currency": "USD",
+        "value_role": "beginning_market_value",
+        "source_product": "PortfolioTimeseriesInput",
+        "conversion_status": "upstream_preconverted",
+    }.items() <= body["currency_evidence"]["market_values_used"][0].items()
+    assert {
+        "valuation_date": "2025-01-03",
+        "amount": "111000",
+        "currency": "USD",
+        "value_role": "ending_market_value",
+        "source_product": "PortfolioTimeseriesInput",
+        "conversion_status": "upstream_preconverted",
+    }.items() <= body["currency_evidence"]["market_values_used"][1].items()
     assert body["currency_evidence"]["market_values_used"] == [
         {
             "valuation_date": "2025-01-01",
@@ -172,6 +254,18 @@ def test_calculate_mwr_endpoint_supports_stateful_mode(client, monkeypatch):
             "value_role": "beginning_market_value",
             "source_product": "PortfolioTimeseriesInput",
             "conversion_status": "upstream_preconverted",
+            "source_amount": None,
+            "source_currency": None,
+            "reporting_amount": None,
+            "reporting_currency": None,
+            "fx_rate": None,
+            "fx_pair": None,
+            "fx_rate_date": None,
+            "fx_rate_source": None,
+            "fx_rate_version": None,
+            "conversion_policy": None,
+            "conversion_timestamp": None,
+            "conversion_fingerprint": None,
         },
         {
             "valuation_date": "2025-01-03",
@@ -180,12 +274,49 @@ def test_calculate_mwr_endpoint_supports_stateful_mode(client, monkeypatch):
             "value_role": "ending_market_value",
             "source_product": "PortfolioTimeseriesInput",
             "conversion_status": "upstream_preconverted",
+            "source_amount": None,
+            "source_currency": None,
+            "reporting_amount": None,
+            "reporting_currency": None,
+            "fx_rate": None,
+            "fx_pair": None,
+            "fx_rate_date": None,
+            "fx_rate_source": None,
+            "fx_rate_version": None,
+            "conversion_policy": None,
+            "conversion_timestamp": None,
+            "conversion_fingerprint": None,
         },
     ]
     assert (
         body["currency_evidence"]["cashflow_evidence"][0]["source_components"][0]["source_classification"]
         == "CONTRIBUTION"
     )
+    component = body["currency_evidence"]["cashflow_evidence"][0]["source_components"][0]
+    assert component["source_transaction_id"] == "TXN-100"
+    assert component["source_event_id"] == "EVT-100"
+    assert component["lifecycle_status"] == "original"
+    assert component["settlement_date"] == "2025-01-02"
+    assert component["lifecycle_identity_status"] == "available"
+    assert body["currency_evidence"]["source_cashflow_quality"] == {
+        "source_product": "PortfolioTimeseriesInput",
+        "observed_source_row_count": 3,
+        "included_source_row_count": 1,
+        "excluded_source_row_count": 2,
+        "observed_economics_role_counts": {
+            "external": 1,
+            "fee": 1,
+            "unsupported": 1,
+        },
+        "exclusion_counts": {
+            "fee_or_operational": 1,
+            "unsupported_or_income_like": 1,
+        },
+        "reason_codes": [
+            "SOURCE_CASHFLOW_NORMALIZATION_RECORDED",
+            "SOURCE_CASHFLOW_ROWS_EXCLUDED",
+        ],
+    }
 
 
 def test_calculate_mwr_endpoint_marks_stateful_single_currency_fx_not_required(client, monkeypatch):
@@ -506,4 +637,4 @@ def test_calculate_mwr_endpoint_unexpected_error_returns_500(client, mocker):
     }
     response = client.post("/performance/mwr", json=payload)
     assert response.status_code == 500
-    assert "unexpected error occurred during MWR calculation" in response.json()["detail"]
+    assert response.json()["detail"] == "The service encountered an internal error. Use the correlation_id for support."

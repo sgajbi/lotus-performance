@@ -1,4 +1,6 @@
 # core/errors.py
+from typing import Any
+
 HTTP_400_BAD_REQUEST = 400
 HTTP_404_NOT_FOUND = 404
 HTTP_409_CONFLICT = 409
@@ -13,7 +15,7 @@ class APIError(ValueError):
     def __init__(
         self,
         status_code: int,
-        detail: str,
+        detail: Any,
         *,
         error_code: str | None = None,
         retryable: bool | None = None,
@@ -28,38 +30,39 @@ class APIError(ValueError):
 class APIBadRequestError(APIError):
     """To be used for 400 Bad Request errors (validation, schema issues)."""
 
-    def __init__(self, detail: str = "Bad Request"):
-        super().__init__(status_code=HTTP_400_BAD_REQUEST, detail=detail)
+    def __init__(self, detail: Any = "Bad Request", *, error_code: str | None = None):
+        super().__init__(status_code=HTTP_400_BAD_REQUEST, detail=detail, error_code=error_code)
 
 
 class APINotFoundError(APIError):
     """To be used for 404 Not Found errors."""
 
-    def __init__(self, detail: str = "Not Found"):
-        super().__init__(status_code=HTTP_404_NOT_FOUND, detail=detail)
+    def __init__(self, detail: Any = "Not Found", *, error_code: str | None = None):
+        super().__init__(status_code=HTTP_404_NOT_FOUND, detail=detail, error_code=error_code)
 
 
 class APIUnprocessableEntityError(APIError):
     """To be used for 422 Unprocessable Entity errors (valid request, but data is insufficient)."""
 
-    def __init__(self, detail: str = "Unprocessable Entity"):
-        super().__init__(status_code=HTTP_422_UNPROCESSABLE, detail=detail)
+    def __init__(self, detail: Any = "Unprocessable Entity", *, error_code: str | None = None):
+        super().__init__(status_code=HTTP_422_UNPROCESSABLE, detail=detail, error_code=error_code)
 
 
 class APIConflictError(APIError):
     """To be used for 409 Conflict errors (e.g., overlapping hierarchies)."""
 
-    def __init__(self, detail: str = "Conflict"):
-        super().__init__(status_code=HTTP_409_CONFLICT, detail=detail)
+    def __init__(self, detail: Any = "Conflict", *, error_code: str | None = None):
+        super().__init__(status_code=HTTP_409_CONFLICT, detail=detail, error_code=error_code)
 
 
 class APIInternalServerError(APIError):
     """To be used for unexpected service failures mapped at the API boundary."""
 
-    def __init__(self, detail: str = "Internal Server Error"):
+    def __init__(self, detail: Any = "Internal Server Error", *, error_code: str | None = None):
         super().__init__(
             status_code=HTTP_500_INTERNAL_SERVER_ERROR,
             detail=detail,
+            error_code=error_code,
             retryable=True,
         )
 
@@ -67,9 +70,10 @@ class APIInternalServerError(APIError):
 class APIServiceUnavailableError(APIError):
     """To be used for retryable upstream or dependency outages."""
 
-    def __init__(self, detail: str = "Service Unavailable"):
+    def __init__(self, detail: Any = "Service Unavailable", *, error_code: str | None = None):
         super().__init__(
             status_code=HTTP_503_SERVICE_UNAVAILABLE,
             detail=detail,
+            error_code=error_code,
             retryable=True,
         )

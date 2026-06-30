@@ -27,6 +27,11 @@ for that TWR lens.
 - `mwr_method="MODIFIED_DIETZ"` returns the period Modified Dietz return using dated cash-flow
   weights.
 - `mwr_method="DIETZ"` returns the period midpoint Dietz return.
+- cash-flow dates must fit the resolved measurement window; invalid stateless or stateful schedules
+  fail with `error_code="MWR_CASH_FLOW_OUT_OF_WINDOW"` before Modified Dietz weights or XIRR
+  solver vectors are built.
+- Dietz-family annualization honors `annualization.periods_per_year` first, then `BUS/252`,
+  `ACT/365`, and `ACT/ACT`.
 - `emit_cashflows_used=true` returns the exact signed cash-flow schedule used by the calculation.
 - `source_preconverted_fx_evidence` is optional for stateless requests whose inputs were converted
   upstream; when supplied, the endpoint validates complete per-input FX provenance and returns it
@@ -65,6 +70,18 @@ is capital timing, not portfolio investment performance. Operational fees remain
 and are not treated as investor deposits or withdrawals. The source-quality inspector remains the
 support tool for deciding whether a carry-forward adjustment represents expected source behavior or
 an upstream data-quality issue.
+
+Stateful MWR response evidence now distinguishes:
+
+- observed upstream source cash-flow rows,
+- rows included in the investor cash-flow schedule,
+- rows excluded as fee/operational, internal, unsupported or income-like, invalid, or missing
+  required values,
+- source transaction/event lifecycle identity when supplied by lotus-core.
+
+When source lifecycle identity is absent, components explicitly report
+`lifecycle_identity_status="not_supplied_by_source"` so downstream support tools do not invent
+transaction lineage.
 
 ## Downstream Consumers
 
@@ -172,6 +189,6 @@ independently recomputed Dietz math.
 
 ```bash
 python -m pytest tests/unit/app/test_mwr_openapi_contract.py tests/unit/docs/test_public_docs_contract.py tests/unit/services/test_mwr_mode_service.py tests/unit/services/test_workspace_summary_service.py tests/integration/test_mwr_api.py -q
-python -m ruff check app/api/endpoints/performance.py app/services/stateful_mwr_input_service.py app/services/workspace_summary_service.py tests/unit/app/test_mwr_openapi_contract.py tests/unit/docs/test_public_docs_contract.py tests/unit/services/test_mwr_mode_service.py tests/unit/services/test_workspace_summary_service.py tests/integration/test_mwr_api.py
-python -m ruff format --check app/api/endpoints/performance.py app/services/stateful_mwr_input_service.py app/services/workspace_summary_service.py tests/unit/app/test_mwr_openapi_contract.py tests/unit/docs/test_public_docs_contract.py tests/unit/services/test_mwr_mode_service.py tests/unit/services/test_workspace_summary_service.py tests/integration/test_mwr_api.py
+python -m ruff check app/api/endpoints/performance.py app/services/mwr_cash_flow_window_validation.py app/services/stateful_mwr_input_service.py app/services/mwr_mode_service.py app/services/mwr_calculation_service.py engine/mwr.py tests/unit/app/test_mwr_openapi_contract.py tests/unit/docs/test_public_docs_contract.py tests/unit/services/test_mwr_mode_service.py tests/unit/services/test_mwr_calculation_service.py tests/integration/test_mwr_api.py
+python -m ruff format --check app/api/endpoints/performance.py app/services/mwr_cash_flow_window_validation.py app/services/stateful_mwr_input_service.py app/services/mwr_mode_service.py app/services/mwr_calculation_service.py engine/mwr.py tests/unit/app/test_mwr_openapi_contract.py tests/unit/docs/test_public_docs_contract.py tests/unit/services/test_mwr_mode_service.py tests/unit/services/test_mwr_calculation_service.py tests/integration/test_mwr_api.py
 ```

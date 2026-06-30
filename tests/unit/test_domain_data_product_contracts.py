@@ -151,3 +151,15 @@ def test_repo_native_consumer_declarations_keep_watchlist_dependencies_docs_only
         "InstrumentReferenceBundle",
         "RiskFreeSeriesWindow",
     ]
+
+
+def test_portfolio_timeseries_consumer_documents_optional_mwr_lifecycle_identity_fields() -> None:
+    payload = _load_declaration("lotus-performance-consumers.v1.json")
+    portfolio_timeseries = payload["dependencies"][0]
+
+    assert portfolio_timeseries["product_name"] == "PortfolioTimeseriesInput"
+    assert "cash_flows[].source_transaction_id" in portfolio_timeseries["optional_source_fields"]
+    assert "cash_flows[].source_event_id" in portfolio_timeseries["optional_source_fields"]
+    assert "cash_flows[].reversal_reference_id" in portfolio_timeseries["optional_source_fields"]
+    assert "cash_flows[].settlement_date" in portfolio_timeseries["optional_source_fields"]
+    assert "not_supplied_by_source" in portfolio_timeseries["optional_source_field_posture"]

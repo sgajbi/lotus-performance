@@ -12,6 +12,7 @@ from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_MWR
 from app.services.mwr_calculation_service import (
     _calculate_resolved_mwr_response,
     _complete_mwr_execution,
+    _mwr_audit_counts,
     _mwr_calculation_supportability,
     _mwr_currency_evidence_payload,
     _mwr_reporting_currency,
@@ -25,7 +26,7 @@ from app.services.mwr_calculation_service import (
     calculate_mwr_result,
 )
 from app.services.mwr_mode_service import ResolvedMWRRequest
-from app.services.stateful_mwr_input_service import MWRCurrencyEvidence
+from app.services.stateful_mwr_input_service import MWRCurrencyEvidence, MWRSourceCashFlowQuality
 from engine.mwr import calculate_money_weighted_return
 
 
@@ -212,6 +213,11 @@ def test_mwr_calculation_supportability_counts_cashflow_schedule_inputs():
     supportability = _mwr_calculation_supportability(
         mwr_request=mwr_request,
         mwr_result=calculate_mwr_result(mwr_request),
+        resolved_request=ResolvedMWRRequest(
+            mwr_request=mwr_request,
+            input_mode=MWRInputMode.STATELESS,
+            currency_evidence=None,
+        ),
     )
 
     assert supportability.state == "ready"
@@ -237,6 +243,11 @@ def test_record_mwr_response_metrics_emits_supportability_and_solver_labels(mock
     supportability = _mwr_calculation_supportability(
         mwr_request=mwr_request,
         mwr_result=mwr_result,
+        resolved_request=ResolvedMWRRequest(
+            mwr_request=mwr_request,
+            input_mode=MWRInputMode.STATELESS,
+            currency_evidence=None,
+        ),
     )
     supportability_metric = mocker.patch("app.services.mwr_calculation_service.record_supportability_metric")
     solver_metric = mocker.patch("app.services.mwr_calculation_service.record_mwr_solver_outcome")
@@ -340,6 +351,57 @@ def test_mwr_currency_evidence_payload_serializes_dataclass_evidence():
         "conversion_evidence_reason_codes": ["single_currency"],
         "market_values_used": [],
         "cashflow_evidence": [],
+        "source_cashflow_quality": None,
+    }
+
+
+def test_mwr_supportability_and_audit_counts_preserve_source_cashflow_quality():
+    analytics_request = MoneyWeightedReturnAnalyticsRequest.model_validate(
+        {
+            "portfolio_id": "MWR-SERVICE-SOURCE-QUALITY",
+            "begin_mv": 100.0,
+            "end_mv": 130.0,
+            "as_of": "2025-12-31",
+            "cash_flows": [{"amount": 10.0, "date": "2025-06-30"}],
+            "mwr_method": "DIETZ",
+        }
+    )
+    mwr_request = analytics_request.to_stateless_mwr_request()
+    evidence = MWRCurrencyEvidence(
+        reporting_currency="USD",
+        portfolio_currency="USD",
+        currency_mode="SINGLE_REPORTING_CURRENCY",
+        conversion_evidence_status="not_required_single_currency_inputs",
+        conversion_evidence_reason_codes=[],
+        market_values_used=[],
+        cashflow_evidence=[],
+        source_cashflow_quality=MWRSourceCashFlowQuality(
+            observed_source_row_count=4,
+            included_source_row_count=1,
+            excluded_source_row_count=3,
+            observed_economics_role_counts={"external": 1, "fee": 1, "unsupported": 2},
+            exclusion_counts={"fee_or_operational": 1, "unsupported_or_income_like": 2},
+            reason_codes=["SOURCE_CASHFLOW_ROWS_EXCLUDED"],
+        ),
+    )
+    resolved_request = ResolvedMWRRequest(
+        mwr_request=mwr_request,
+        input_mode=MWRInputMode.STATEFUL,
+        currency_evidence=evidence,
+    )
+
+    supportability = _mwr_calculation_supportability(
+        mwr_request=mwr_request,
+        mwr_result=calculate_mwr_result(mwr_request),
+        resolved_request=resolved_request,
+    )
+
+    assert supportability.input_row_count == 6
+    assert _mwr_audit_counts(resolved_request=resolved_request, mwr_request=mwr_request) == {
+        "cashflows": 1,
+        "source_cashflow_rows": 4,
+        "source_cashflow_rows_included": 1,
+        "source_cashflow_rows_excluded": 3,
     }
 
 

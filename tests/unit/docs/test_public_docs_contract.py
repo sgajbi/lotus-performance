@@ -526,6 +526,11 @@ def test_mwr_guide_matches_current_method_reality():
     assert "emit_cashflows_used=true" in guide
     assert "cashflows_used" in guide
     assert "currency_evidence" in guide
+    assert "MWR_CASH_FLOW_OUT_OF_WINDOW" in guide
+    assert "source_cashflow_quality" in guide
+    assert "source_transaction_id" in guide
+    assert "lifecycle_identity_status" in guide
+    assert "`BUS/252` uses `252`" in guide
     assert "not_required_single_currency_inputs" in guide
     assert "upstream_preconverted_missing_per_input_fx_metadata" in guide
     assert "holding_period_return" in guide
@@ -536,12 +541,17 @@ def test_mwr_guide_matches_current_method_reality():
     assert "mwr-fx-contract-design.md" in guide
     assert "cashflows_used` proves the signed schedule" in guide
     assert "stateful single-currency MWR emits" in api_reference
+    assert "source_cashflow_quality" in api_reference
+    assert "source_transaction_id" in api_reference
     assert "stateful cross-currency MWR keeps" in api_reference
     assert "mwr-production-support-playbook.md" in guide
     assert "mwr-industry-review-findings.md" in guide
     assert "investor capital-timing lens" in certification
     assert "No-root and multiple-root cases are not silently interpreted" in certification
     assert "lotus_performance_mwr_solver_outcome_total" in certification
+    assert "MWR_CASH_FLOW_OUT_OF_WINDOW" in certification
+    assert "source transaction/event lifecycle identity" in certification
+    assert "BUS/252" in certification
     assert 'status="FALLBACK_USED"' in certification
     assert "CORE_CONTROL_PLANE_BASE_URL" in certification
     assert "lotus-gateway" in certification

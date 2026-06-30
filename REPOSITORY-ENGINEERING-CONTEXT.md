@@ -76,6 +76,13 @@ Current repository posture:
 14. API runtime serialization uses standard FastAPI/Pydantic response-model behavior. Do not add
     global null stripping: OpenAPI nullable fields must be returned as explicit JSON `null` values
     unless a route explicitly documents sparse `response_model_exclude_none=True` behavior.
+15. MWR cash-flow methodology is source-owned and window-bounded. Stateless MWR rejects cash-flow
+    dates outside the resolved measurement window with `MWR_CASH_FLOW_OUT_OF_WINDOW`; stateful MWR
+    uses the selected stateful input window, preserves source transaction/event lifecycle identity
+    when supplied by `lotus-core`, reports bounded `source_cashflow_quality` inclusion/exclusion
+    counts, and treats absent lifecycle identity as explicit supportability posture. Dietz
+    annualization honors explicit `periods_per_year` first, then day-count conventions including
+    `BUS/252`.
 
 ## Architecture And Module Map
 
@@ -118,6 +125,10 @@ Boundary rules:
 6. `PerformanceComponentEconomics:v1` evidence may improve contribution source-economics coverage
    but must not be relabeled as contribution analytics, attribution analytics, performance returns,
    or full price/FX attribution.
+7. MWR methodology, source cash-flow normalization, supportability evidence, and lifecycle identity
+   projection remain design modules inside the existing performance service. Do not split them into
+   a separate runtime service unless there is concrete evidence for independent scaling, failure
+   isolation, security ownership, deployment cadence, or operator lifecycle boundaries.
 
 ## Repo-Native Commands
 
@@ -273,6 +284,13 @@ Important validation expectations:
     `inspection/twr_inspection_artifact_service.py`. Routers may construct route URLs and convert
     typed artifact references into `FileResponse` or `Response`, while explicit public 5xx details
     remain an API-boundary mapping concern.
+27. Calculation-methodology and source-contract defects must be fixed across all owned input modes,
+    fallback paths, and evidence surfaces in the same slice when practical. For MWR this means
+    stateless validation, stateful source normalization, direct engine guards, Modified Dietz/XIRR
+    fallback behavior, supportability/audit evidence, OpenAPI models, domain data-product
+    declarations, methodology docs, API guides, and repo-authored wiki source. Do not aggregate
+    away lifecycle identity, source exclusions, or measurement-window failures when downstream
+    operators need that evidence to explain private-banking performance results.
 
 ## Standards And RFCs That Govern This Repository
 

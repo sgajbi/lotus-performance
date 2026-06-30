@@ -258,6 +258,8 @@ Purpose:
   external cash flows plus cross-observation capital carry-forward adjustments into the MWR cash-flow
   schedule
 - operational fees remain performance drag and are not treated as investor deposits or withdrawals
+- resolved MWR cash-flow dates must fit the measurement window; invalid schedules fail with
+  `MWR_CASH_FLOW_OUT_OF_WINDOW`
 
 Sample request:
 
@@ -311,7 +313,9 @@ Sample response:
 ```
 
 Stateful MWR responses populate `currency_evidence` with `market_values_used[]`,
-`cashflow_evidence[]`, and `currency_mode="SINGLE_REPORTING_CURRENCY"`. Single-currency stateful
+`cashflow_evidence[]`, `source_cashflow_quality`, and `currency_mode="SINGLE_REPORTING_CURRENCY"`.
+Source components preserve upstream transaction/event lifecycle identity, correction/reversal/
+cancellation references, and source dates when lotus-core supplies them. Single-currency stateful
 inputs emit `conversion_evidence_status="not_required_single_currency_inputs"` when source and
 reporting currencies match. Cross-currency stateful inputs keep
 `conversion_evidence_status="upstream_preconverted_missing_per_input_fx_metadata"`, which means
