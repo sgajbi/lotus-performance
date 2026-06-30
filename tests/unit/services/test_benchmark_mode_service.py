@@ -10,6 +10,7 @@ from app.models.benchmark_analytics_requests import BenchmarkAnalyticsRequest, B
 from app.models.benchmark_requests import BenchmarkComponentObservation, BenchmarkReturnPoint
 from app.services import benchmark_mode_service
 from app.services.stateful_benchmark_input_service import StatefulBenchmarkNormalizedInput
+from core.errors import APIError
 
 
 @pytest.mark.asyncio
@@ -26,7 +27,7 @@ async def test_resolve_benchmark_request_requires_stateless_input_for_stateless_
         stateful_input=None,
     )
 
-    with pytest.raises(HTTPException, match="stateless_input is required"):
+    with pytest.raises((HTTPException, APIError), match="stateless_input is required"):
         await benchmark_mode_service.resolve_benchmark_request(request, settings=object())
 
 
@@ -230,7 +231,7 @@ async def test_resolve_benchmark_request_fails_retrieval_stage_for_stateful_erro
         _raise_http_error,
     )
 
-    with pytest.raises(HTTPException, match="stateful benchmark unavailable"):
+    with pytest.raises((HTTPException, APIError), match="stateful benchmark unavailable"):
         await benchmark_mode_service.resolve_benchmark_request(request, settings=object())
 
     assert ("start", "retrieval") in stage_events

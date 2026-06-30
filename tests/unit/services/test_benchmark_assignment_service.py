@@ -2,13 +2,13 @@ from datetime import date
 from uuid import uuid4
 
 import pytest
-from fastapi import HTTPException
 
 from app.services.benchmark_assignment_service import (
     _benchmark_id_from_assignment_payload,
     _resolved_assignment_identity,
     resolve_benchmark_identity,
 )
+from core.errors import APIError
 
 
 class _BenchmarkAssignmentStub:
@@ -31,7 +31,7 @@ def test_resolved_assignment_identity_projects_evidence_and_rejects_empty_identi
     assert identity.benchmark_id == "BMK_ASSIGNED"
     assert identity.source_details == {"resolved_benchmark_assignment": 1}
 
-    with pytest.raises(HTTPException, match="payload missing benchmark_id"):
+    with pytest.raises(APIError, match="payload missing benchmark_id"):
         _resolved_assignment_identity(
             portfolio_id="PORT_1",
             assignment_status=200,
@@ -41,7 +41,7 @@ def test_resolved_assignment_identity_projects_evidence_and_rejects_empty_identi
 
 @pytest.mark.parametrize("payload", [{"benchmark_id": ""}, {"benchmark_id": 123}, {}])
 def test_benchmark_id_from_assignment_payload_rejects_unusable_identity(payload):
-    with pytest.raises(HTTPException, match="payload missing benchmark_id"):
+    with pytest.raises(APIError, match="payload missing benchmark_id"):
         _benchmark_id_from_assignment_payload(payload)
 
 
@@ -107,7 +107,7 @@ async def test_resolve_benchmark_identity_rejects_unusable_assignment(
     payload: dict[str, object],
     error_match: str,
 ):
-    with pytest.raises(HTTPException, match=error_match):
+    with pytest.raises(APIError, match=error_match):
         await resolve_benchmark_identity(
             stateful_input_service=_BenchmarkAssignmentStub(status_code, payload),
             portfolio_id="PORT_1",

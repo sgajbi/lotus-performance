@@ -72,6 +72,7 @@ from app.services.stateful_attribution_input_service import (
 from app.services.stateful_benchmark_input_service import StatefulBenchmarkNormalizedInput
 from app.services.stateful_input_service import RetrievalMetadata
 from app.services.stateful_performance_input_service import StatefulPortfolioInput
+from core.errors import APIError
 
 
 class _AttributionInputServiceStub:
@@ -206,7 +207,7 @@ async def test_resolve_stateful_attribution_benchmark_id_prefers_override_and_re
 def test_stateful_attribution_benchmark_id_from_assignment_payload_validates_assignment_shape():
     assert _stateful_attribution_benchmark_id_from_assignment_payload({"benchmark_id": "BMK_1"}) == "BMK_1"
 
-    with pytest.raises(HTTPException, match="payload missing benchmark_id"):
+    with pytest.raises((HTTPException, APIError), match="payload missing benchmark_id"):
         _stateful_attribution_benchmark_id_from_assignment_payload({"benchmark_id": ""})
 
 
@@ -509,7 +510,7 @@ async def test_retrieve_stateful_attribution_source_input_raises_for_upstream_fa
 
     service = _AttributionInputServiceStub()
     service.position_response = (503, {})
-    with pytest.raises(HTTPException, match="stateful position timeseries source unavailable"):
+    with pytest.raises((HTTPException, APIError), match="stateful position timeseries source unavailable"):
         await retrieve_stateful_attribution_source_input(
             settings=object(),
             stateful_input_service=service,
@@ -529,7 +530,7 @@ async def test_retrieve_stateful_attribution_source_input_raises_for_upstream_fa
 
     service = _AttributionInputServiceStub()
     service.assignment_response = (404, {})
-    with pytest.raises(HTTPException, match="requires a benchmark assignment"):
+    with pytest.raises((HTTPException, APIError), match="requires a benchmark assignment"):
         await retrieve_stateful_attribution_source_input(
             settings=object(),
             stateful_input_service=service,
@@ -595,7 +596,7 @@ async def test_retrieve_stateful_attribution_source_input_raises_for_assignment_
 
     service = _AttributionInputServiceStub()
     service.assignment_response = (200, {})
-    with pytest.raises(HTTPException, match="payload missing benchmark_id"):
+    with pytest.raises((HTTPException, APIError), match="payload missing benchmark_id"):
         await retrieve_stateful_attribution_source_input(
             settings=object(),
             stateful_input_service=service,
@@ -615,7 +616,7 @@ async def test_retrieve_stateful_attribution_source_input_raises_for_assignment_
 
     service = _AttributionInputServiceStub()
     service.assignment_response = (503, {})
-    with pytest.raises(HTTPException, match="benchmark assignment source unavailable"):
+    with pytest.raises((HTTPException, APIError), match="benchmark assignment source unavailable"):
         await retrieve_stateful_attribution_source_input(
             settings=object(),
             stateful_input_service=service,
@@ -635,7 +636,7 @@ async def test_retrieve_stateful_attribution_source_input_raises_for_assignment_
 
     service = _AttributionInputServiceStub()
     service.index_response = (503, {})
-    with pytest.raises(HTTPException, match="index catalog source unavailable"):
+    with pytest.raises((HTTPException, APIError), match="index catalog source unavailable"):
         await retrieve_stateful_attribution_source_input(
             settings=object(),
             stateful_input_service=service,
@@ -959,7 +960,7 @@ def test_build_stateful_attribution_input_rejects_missing_benchmark_observations
         index_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
     )
 
-    with pytest.raises(HTTPException, match="No normalized benchmark component observations"):
+    with pytest.raises((HTTPException, APIError), match="No normalized benchmark component observations"):
         build_stateful_attribution_input(
             source_input=source_input,
             mode="by_instrument",
@@ -993,7 +994,7 @@ def test_build_stateful_attribution_input_rejects_mode_fence():
         index_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
     )
 
-    with pytest.raises(HTTPException, match="mode=by_instrument only"):
+    with pytest.raises((HTTPException, APIError), match="mode=by_instrument only"):
         build_stateful_attribution_input(
             source_input=source_input,
             mode="by_group",
@@ -1112,7 +1113,9 @@ def test_build_stateful_attribution_input_rejects_portfolio_position_alignment_g
         index_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
     )
 
-    with pytest.raises(HTTPException, match="portfolio timeseries does not align with summed position timeseries"):
+    with pytest.raises(
+        (HTTPException, APIError), match="portfolio timeseries does not align with summed position timeseries"
+    ):
         build_stateful_attribution_input(
             source_input=source_input,
             mode="by_instrument",
@@ -1414,7 +1417,7 @@ def test_stateful_attribution_source_alignment_evidence_flags_unclassified_sourc
 
 
 def test_stateful_attribution_rejects_unsupported_position_inception_window():
-    with pytest.raises(HTTPException, match="cannot safely compute acquisition-day position returns"):
+    with pytest.raises((HTTPException, APIError), match="cannot safely compute acquisition-day position returns"):
         _validate_stateful_position_inception_support(
             rows=[
                 {
@@ -1465,15 +1468,17 @@ def test_has_unsupported_position_inception_row_honors_bod_cash_flow_support():
 
 
 def test_stateful_attribution_group_by_and_benchmark_validation_errors():
-    with pytest.raises(HTTPException, match="Unsupported: issuer"):
+    with pytest.raises((HTTPException, APIError), match="Unsupported: issuer"):
         _validate_stateful_group_by(["issuer"])
 
     assert _build_group_key(labels={"sector": ""}, group_by=["sector"], index_id="IDX_1") == (("sector", "unknown"),)
 
-    with pytest.raises(HTTPException, match="Benchmark component IDX_1 missing classification label for currency"):
+    with pytest.raises(
+        (HTTPException, APIError), match="Benchmark component IDX_1 missing classification label for currency"
+    ):
         _build_group_key(labels={}, group_by=["currency"], index_id="IDX_1")
 
-    with pytest.raises(HTTPException, match="missing classification labels"):
+    with pytest.raises((HTTPException, APIError), match="missing classification labels"):
         _build_benchmark_groups(
             group_by=["sector"],
             component_observations=[
@@ -1490,7 +1495,7 @@ def test_stateful_attribution_group_by_and_benchmark_validation_errors():
             index_records=[],
         )
 
-    with pytest.raises(HTTPException, match="No normalized benchmark component observations"):
+    with pytest.raises((HTTPException, APIError), match="No normalized benchmark component observations"):
         _build_benchmark_groups(
             group_by=["sector"],
             component_observations=[],
@@ -1527,7 +1532,7 @@ def test_stateful_attribution_benchmark_group_key_from_row_applies_label_guard_a
         group_by=["currency"],
     ) == (("currency", "usd"),)
 
-    with pytest.raises(HTTPException, match="missing classification labels"):
+    with pytest.raises((HTTPException, APIError), match="missing classification labels"):
         _benchmark_group_key_from_row(
             row=row,
             labels_by_index={},
@@ -1733,7 +1738,9 @@ def test_benchmark_group_dimension_value_normalizes_currency_component_source():
 def test_benchmark_currency_group_value_requires_component_currency():
     assert _benchmark_currency_group_value(index_id="IDX_1", component_currency="US Dollar") == "us_dollar"
 
-    with pytest.raises(HTTPException, match="Benchmark component IDX_1 missing classification label for currency"):
+    with pytest.raises(
+        (HTTPException, APIError), match="Benchmark component IDX_1 missing classification label for currency"
+    ):
         _benchmark_currency_group_value(index_id="IDX_1", component_currency=None)
 
 
@@ -2041,17 +2048,17 @@ def test_stateful_attribution_benchmark_group_helpers_handle_empty_decomposition
 
 
 def test_stateful_attribution_both_currency_validation_errors_are_explicit():
-    with pytest.raises(HTTPException, match="requires report_ccy when currency_mode=BOTH"):
+    with pytest.raises((HTTPException, APIError), match="requires report_ccy when currency_mode=BOTH"):
         _validate_stateful_both_currency_support(rows=[], reporting_currency=None, fx=None)
 
-    with pytest.raises(HTTPException, match="requires position_currency"):
+    with pytest.raises((HTTPException, APIError), match="requires position_currency"):
         _validate_stateful_both_currency_support(
             rows=[{"position_id": "POS_1"}],
             reporting_currency="USD",
             fx=None,
         )
 
-    with pytest.raises(HTTPException, match="requires fx.rates"):
+    with pytest.raises((HTTPException, APIError), match="requires fx.rates"):
         _validate_stateful_both_currency_support(
             rows=[{"position_id": "POS_1", "position_currency": "EUR"}],
             reporting_currency="USD",

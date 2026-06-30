@@ -4,7 +4,6 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
-from fastapi import HTTPException
 
 from app.models.attribution_requests import AttributionRequest
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
@@ -36,6 +35,7 @@ from app.services.execution_registry import ExecutionRegistry
 from app.services.lineage_metadata_store import LineageMetadataStore
 from app.services.lineage_service import LineageService
 from app.workers import compute_executor_worker
+from core.errors import APIServiceUnavailableError
 
 
 def _worker_settings(**overrides):
@@ -1552,7 +1552,7 @@ def test_compute_executor_worker_requeues_retryable_failure(tmp_path, monkeypatc
     )
 
     async def _retryable(_request):
-        raise HTTPException(status_code=503, detail="upstream unavailable")
+        raise APIServiceUnavailableError("upstream unavailable")
 
     monkeypatch.setattr(compute_executor_worker, "calculate_returns_series", _retryable)
 
@@ -1561,7 +1561,7 @@ def test_compute_executor_worker_requeues_retryable_failure(tmp_path, monkeypatc
     assert job is not None
     assert job.job_status == ComputeJobStatus.PENDING
     assert job.attempt_count == 1
-    assert job.error_type == "HTTPException"
+    assert job.error_type == "APIServiceUnavailableError"
     assert result_store.get_result(calculation_id) is None
 
 
@@ -1605,7 +1605,7 @@ def test_compute_executor_worker_marks_failed_after_retry_budget_exhausted(tmp_p
     )
 
     async def _retryable(_request):
-        raise HTTPException(status_code=503, detail="upstream unavailable")
+        raise APIServiceUnavailableError("upstream unavailable")
 
     monkeypatch.setattr(compute_executor_worker, "calculate_returns_series", _retryable)
 

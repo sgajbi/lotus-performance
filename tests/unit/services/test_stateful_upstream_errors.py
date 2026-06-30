@@ -1,11 +1,11 @@
 import pytest
-from fastapi import HTTPException
 
 from app.services.stateful_upstream_errors import (
     raise_for_stateful_control_plane_unavailable,
     raise_for_stateful_source_unavailable,
     stateful_control_plane_unavailable_detail,
 )
+from core.errors import APIError
 
 
 def test_stateful_control_plane_unavailable_detail_guides_404_base_url_misconfiguration():
@@ -30,7 +30,7 @@ def test_raise_for_stateful_control_plane_unavailable_ignores_success_status():
 
 
 def test_raise_for_stateful_control_plane_unavailable_maps_upstream_failure_to_503():
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(APIError) as exc:
         raise_for_stateful_control_plane_unavailable(
             source_label="stateful position timeseries source",
             upstream_status=503,
@@ -43,7 +43,7 @@ def test_raise_for_stateful_control_plane_unavailable_maps_upstream_failure_to_5
 def test_raise_for_stateful_source_unavailable_preserves_plain_source_outage_message():
     assert raise_for_stateful_source_unavailable(source_label="benchmark assignment", upstream_status=200) is None
 
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(APIError) as exc:
         raise_for_stateful_source_unavailable(source_label="benchmark assignment", upstream_status=404)
 
     assert exc.value.status_code == 503
@@ -52,7 +52,7 @@ def test_raise_for_stateful_source_unavailable_preserves_plain_source_outage_mes
 
 
 def test_raise_for_stateful_source_unavailable_preserves_context_suffix():
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(APIError) as exc:
         raise_for_stateful_source_unavailable(
             source_label="fx rate",
             upstream_status=503,

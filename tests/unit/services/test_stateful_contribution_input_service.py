@@ -27,6 +27,7 @@ from app.services.stateful_contribution_input_service import (
 )
 from app.services.stateful_input_service import RetrievalMetadata
 from app.services.stateful_performance_input_service import StatefulPortfolioInput
+from core.errors import APIError
 
 
 class _ContributionInputServiceStub:
@@ -231,7 +232,7 @@ async def test_retrieve_stateful_contribution_source_input_raises_on_upstream_er
     )
     service = _ContributionInputServiceStub(status_code=503, payload={"detail": "boom"})
 
-    with pytest.raises(HTTPException, match="stateful position timeseries source unavailable"):
+    with pytest.raises((HTTPException, APIError), match="stateful position timeseries source unavailable"):
         await retrieve_stateful_contribution_source_input(
             settings=object(),
             stateful_input_service=service,
@@ -448,7 +449,7 @@ def test_build_stateful_contribution_input_rejects_invalid_both_currency_request
         position_retrieval_metadata=RetrievalMetadata(chunk_count=1, page_count=1),
     )
 
-    with pytest.raises(HTTPException, match="requires report_ccy when currency_mode=BOTH"):
+    with pytest.raises((HTTPException, APIError), match="requires report_ccy when currency_mode=BOTH"):
         build_stateful_contribution_input(
             source_input=base_source_input,
             metric_basis="NET",
@@ -470,7 +471,7 @@ def test_build_stateful_contribution_input_rejects_invalid_both_currency_request
         ],
         position_retrieval_metadata=base_source_input.position_retrieval_metadata,
     )
-    with pytest.raises(HTTPException, match="requires position_currency"):
+    with pytest.raises((HTTPException, APIError), match="requires position_currency"):
         build_stateful_contribution_input(
             source_input=no_currency_rows,
             metric_basis="NET",
@@ -479,7 +480,7 @@ def test_build_stateful_contribution_input_rejects_invalid_both_currency_request
             fx=None,
         )
 
-    with pytest.raises(HTTPException, match="requires fx.rates"):
+    with pytest.raises((HTTPException, APIError), match="requires fx.rates"):
         build_stateful_contribution_input(
             source_input=base_source_input,
             metric_basis="NET",

@@ -15,6 +15,7 @@ from app.services.contribution_mode_service import (
 )
 from app.services.execution_registry import execution_registry
 from app.services.stateful_input_service import RetrievalMetadata
+from core.errors import APIError
 
 
 def _settings():
@@ -274,7 +275,7 @@ async def test_resolve_contribution_request_fails_retrieval_stage_on_source_erro
         portfolio_id=request.portfolio_id,
     )
 
-    with pytest.raises(HTTPException, match="stateful position timeseries source unavailable"):
+    with pytest.raises((HTTPException, APIError), match="stateful position timeseries source unavailable"):
         await resolve_contribution_request(request, settings=_settings())
 
     execution = execution_registry.get_execution(request.calculation_id)
@@ -401,7 +402,7 @@ async def test_resolve_contribution_request_rejects_currency_mode_both_without_f
         portfolio_id=request.portfolio_id,
     )
 
-    with pytest.raises(HTTPException, match="requires fx.rates"):
+    with pytest.raises((HTTPException, APIError), match="requires fx.rates"):
         await resolve_contribution_request(request, settings=_settings())
 
     execution = execution_registry.get_execution(request.calculation_id)

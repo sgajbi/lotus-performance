@@ -9,7 +9,6 @@ from threading import Event
 from typing import Any, Callable, Coroutine, Iterator
 from uuid import UUID
 
-from fastapi import HTTPException
 from pydantic import ValidationError
 
 from app.core.config import get_settings
@@ -62,6 +61,7 @@ from app.services.returns_series_service import calculate_returns_series
 from app.services.twr_mode_service import resolve_twr_request
 from app.services.twr_service import calculate_twr_response
 from app.services.workspace_summary_service import calculate_workspace_summary
+from core.errors import APIError
 from core.repro import generate_canonical_hash, generate_canonical_hash_from_value
 from engine.exceptions import EngineCalculationError, InvalidEngineInputError
 
@@ -764,6 +764,10 @@ def _recover_reconciled_job_from_success_result(
 
 
 def _is_retryable_exception(exc: Exception) -> bool:
+    if isinstance(exc, APIError):
+        if exc.retryable is not None:
+            return exc.retryable
+        return exc.status_code >= 500
     if isinstance(
         exc,
         (
@@ -776,8 +780,6 @@ def _is_retryable_exception(exc: Exception) -> bool:
         ),
     ):
         return False
-    if isinstance(exc, HTTPException):
-        return exc.status_code >= 500
     return True
 
 

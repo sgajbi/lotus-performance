@@ -46,6 +46,12 @@ structured service logs, durable execution state, runtime work items, and lineag
 Unexpected `5xx` responses intentionally avoid raw exception text; inspect logs and durable
 evidence under the same correlation context when deeper diagnosis is needed.
 
+Application services should raise Lotus framework-neutral API errors with explicit status,
+detail, and retryability metadata; FastAPI exception and response construction belongs at the API
+adapter boundary. When a background worker records `APIServiceUnavailableError`, treat it as a
+retryable source/dependency outage rather than a web-framework failure. The public HTTP envelope is
+still produced by the central FastAPI exception handler.
+
 ## HTTP boundary controls
 
 `lotus-performance` registers explicit HTTP boundary hardening in `app.http_security`.
