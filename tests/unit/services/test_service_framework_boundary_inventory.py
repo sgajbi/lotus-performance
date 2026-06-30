@@ -6,7 +6,6 @@ FASTAPI_SERVICE_BOUNDARY_ALLOWLIST = frozenset(
     {
         "app/services/returns_series_calculation_workflow_service.py",
         "app/services/returns_series_service.py",
-        "app/services/stateful_attribution_input_service.py",
         "app/services/stateful_benchmark_input_service.py",
     }
 )
@@ -33,6 +32,7 @@ MIGRATED_FRAMEWORK_NEUTRAL_MODULES = frozenset(
         "app/services/mwr_fx_evidence_service.py",
         "app/services/offset_pagination.py",
         "app/services/stateless_benchmark_input_service.py",
+        "app/services/stateful_attribution_input_service.py",
         "app/services/attribution_calculation_workflow_service.py",
         "app/services/attribution_service.py",
         "app/services/benchmark_calculation_workflow_service.py",

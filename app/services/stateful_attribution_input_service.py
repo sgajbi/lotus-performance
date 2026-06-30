@@ -8,7 +8,6 @@ from typing import cast
 from uuid import UUID
 
 import pandas as pd
-from fastapi import HTTPException, status
 
 from app.core.config import Settings
 from app.models.attribution_requests import AttributionPortfolioData, BenchmarkGroup, InstrumentData
@@ -41,6 +40,13 @@ from app.services.stateful_upstream_errors import (
     raise_for_stateful_source_unavailable,
 )
 from app.services.valuation_points_service import portfolio_timeseries_to_valuation_points
+from core.errors import (
+    HTTP_400_BAD_REQUEST,
+    HTTP_404_NOT_FOUND,
+    HTTP_503_SERVICE_UNAVAILABLE,
+    APIError,
+    APIUnprocessableEntityError,
+)
 from engine.benchmarks import calculate_benchmark_returns
 
 _SUPPORTED_ATTRIBUTION_GROUPS: set[str] = {"asset_class", "sector", "country", "currency"}
@@ -311,7 +317,7 @@ async def _retrieve_stateful_attribution_index_records(
         index_ids=benchmark_component_index_ids,
         calculation_id=calculation_id,
     )
-    if index_status >= status.HTTP_400_BAD_REQUEST:
+    if index_status >= HTTP_400_BAD_REQUEST:
         raise_for_stateful_source_unavailable(source_label="index catalog", upstream_status=index_status)
     return _parse_index_catalog(index_payload)
 
@@ -342,12 +348,11 @@ async def _resolve_stateful_attribution_benchmark_id(
         reporting_currency=reporting_currency,
         calculation_id=calculation_id,
     )
-    if assignment_status == status.HTTP_404_NOT_FOUND:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail="Stateful attribution input requires a benchmark assignment or explicit stateful_input.benchmark_id.",
+    if assignment_status == HTTP_404_NOT_FOUND:
+        raise APIUnprocessableEntityError(
+            "Stateful attribution input requires a benchmark assignment or explicit stateful_input.benchmark_id."
         )
-    if assignment_status >= status.HTTP_400_BAD_REQUEST:
+    if assignment_status >= HTTP_400_BAD_REQUEST:
         raise_for_stateful_source_unavailable(
             source_label="benchmark assignment",
             upstream_status=assignment_status,
@@ -358,11 +363,16 @@ async def _resolve_stateful_attribution_benchmark_id(
 def _stateful_attribution_benchmark_id_from_assignment_payload(assignment_payload: dict[str, object]) -> str:
     benchmark_id_raw = assignment_payload.get("benchmark_id")
     if not isinstance(benchmark_id_raw, str) or not benchmark_id_raw:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="benchmark assignment payload missing benchmark_id.",
-        )
+        raise _stateful_attribution_source_contract_error("benchmark assignment payload missing benchmark_id.")
     return benchmark_id_raw
+
+
+def _stateful_attribution_source_contract_error(detail: str) -> APIError:
+    return APIError(
+        status_code=HTTP_503_SERVICE_UNAVAILABLE,
+        detail={"message": detail, "retryable": True},
+        retryable=True,
+    )
 
 
 def build_stateful_attribution_input(
@@ -426,10 +436,7 @@ def _validate_stateful_attribution_normalization_inputs(
     reporting_currency: str | None,
 ) -> str:
     if mode != "by_instrument":
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail="Stateful attribution currently supports mode=by_instrument only.",
-        )
+        raise APIUnprocessableEntityError("Stateful attribution currently supports mode=by_instrument only.")
 
     _validate_stateful_position_inception_support(rows=source_input.position_rows)
     _validate_stateful_portfolio_position_alignment(
@@ -506,13 +513,10 @@ def _validate_stateful_portfolio_position_alignment(
         ),
     )
     if mismatched_dates:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=(
-                "Stateful attribution source inputs are inconsistent: lotus-core portfolio timeseries does not align "
-                "with summed position timeseries for one or more dates. "
-                f"Sample mismatches: {'; '.join(mismatched_dates[:3])}."
-            ),
+        raise _stateful_attribution_source_contract_error(
+            "Stateful attribution source inputs are inconsistent: lotus-core portfolio timeseries does not align "
+            "with summed position timeseries for one or more dates. "
+            f"Sample mismatches: {'; '.join(mismatched_dates[:3])}."
         )
 
 
@@ -818,14 +822,11 @@ def _validate_stateful_position_inception_support(*, rows: list[dict[str, object
 
     if unsupported_positions:
         sample_positions = ", ".join(unsupported_positions[:5])
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=(
-                "Stateful attribution cannot safely compute acquisition-day position returns when the requested window "
-                "starts a sourced position with zero beginning market value, positive ending market value, and no usable "
-                "beginning-of-day cash-flow semantics. "
-                f"Affected positions: {sample_positions}."
-            ),
+        raise APIUnprocessableEntityError(
+            "Stateful attribution cannot safely compute acquisition-day position returns when the requested window "
+            "starts a sourced position with zero beginning market value, positive ending market value, and no usable "
+            "beginning-of-day cash-flow semantics. "
+            f"Affected positions: {sample_positions}."
         )
 
 
@@ -860,12 +861,9 @@ def _first_rows_by_position(rows: list[dict[str, object]]) -> dict[str, dict[str
 def _validate_stateful_group_by(group_by: list[str]) -> None:
     unsupported = sorted({dimension for dimension in group_by if dimension not in _SUPPORTED_ATTRIBUTION_GROUPS})
     if unsupported:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=(
-                "Stateful attribution supports group_by only for canonical lotus-core attribution dimensions plus currency: "
-                f"{', '.join(sorted(_SUPPORTED_ATTRIBUTION_GROUPS))}. Unsupported: {', '.join(unsupported)}."
-            ),
+        raise APIUnprocessableEntityError(
+            "Stateful attribution supports group_by only for canonical lotus-core attribution dimensions plus currency: "
+            f"{', '.join(sorted(_SUPPORTED_ATTRIBUTION_GROUPS))}. Unsupported: {', '.join(unsupported)}."
         )
 
 
@@ -940,9 +938,8 @@ def _build_benchmark_groups(
     index_records: list[dict[str, object]],
 ) -> list[BenchmarkGroup]:
     if not component_observations:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail="No normalized benchmark component observations are available for stateful attribution.",
+        raise APIUnprocessableEntityError(
+            "No normalized benchmark component observations are available for stateful attribution."
         )
 
     labels_by_index = _benchmark_labels_by_index(index_records)
@@ -1035,9 +1032,8 @@ def _benchmark_group_key_from_row(
     labels = labels_by_index.get(index_id)
     component_currency = row.get("component_currency")
     if labels is None and "currency" not in group_by:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=f"Index catalog missing classification labels for benchmark component {index_id}.",
+        raise APIUnprocessableEntityError(
+            f"Index catalog missing classification labels for benchmark component {index_id}."
         )
     return _build_group_key(
         labels=labels or {},
@@ -1115,10 +1111,7 @@ def _benchmark_currency_group_value(
     component_currency: str | None,
 ) -> str:
     if not isinstance(component_currency, str) or not component_currency:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=f"Benchmark component {index_id} missing classification label for currency.",
-        )
+        raise APIUnprocessableEntityError(f"Benchmark component {index_id} missing classification label for currency.")
     return _normalize_group_value(component_currency)
 
 
