@@ -23,6 +23,22 @@ SECURITY_HEADERS = {
     "Content-Security-Policy": "frame-ancestors 'none'",
 }
 
+ENTERPRISE_CORS_ALLOWED_HEADERS = [
+    "Authorization",
+    "Content-Type",
+    "X-Actor-Id",
+    "X-Capabilities",
+    "X-Correlation-Id",
+    "X-Correlation-ID",
+    "X-Enterprise-Policy-Version",
+    "X-Portfolio-Id",
+    "X-Request-Id",
+    "X-Role",
+    "X-Service-Identity",
+    "X-Tenant-Id",
+    "X-Trace-Id",
+]
+
 
 def configure_http_security(app: FastAPI, *, settings: HttpSecuritySettings) -> None:
     app.add_middleware(
@@ -34,7 +50,7 @@ def configure_http_security(app: FastAPI, *, settings: HttpSecuritySettings) -> 
         allow_origins=csv_setting_values(settings.CORS_ALLOWED_ORIGINS),
         allow_credentials=False,
         allow_methods=["GET", "POST", "OPTIONS"],
-        allow_headers=["Authorization", "Content-Type", "X-Correlation-Id", "X-Request-Id", "X-Trace-Id"],
+        allow_headers=ENTERPRISE_CORS_ALLOWED_HEADERS,
     )
     app.middleware("http")(build_security_headers_middleware(settings=settings))
 

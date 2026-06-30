@@ -41,6 +41,40 @@ def test_cors_policy_allows_configured_local_origin(client):
     assert response.headers["Access-Control-Allow-Origin"] == "http://localhost:3000"
 
 
+def test_cors_preflight_allows_enterprise_browser_flow_headers(client):
+    requested_headers = [
+        "Authorization",
+        "Content-Type",
+        "X-Actor-Id",
+        "X-Tenant-Id",
+        "X-Role",
+        "X-Service-Identity",
+        "X-Capabilities",
+        "X-Portfolio-Id",
+        "X-Correlation-Id",
+        "X-Request-Id",
+        "X-Trace-Id",
+    ]
+
+    response = client.options(
+        "/performance/executions/00000000-0000-0000-0000-000000000000",
+        headers={
+            "Origin": "http://localhost:3000",
+            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": ", ".join(requested_headers),
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["Access-Control-Allow-Origin"] == "http://localhost:3000"
+    allowed_headers = {
+        header.strip().lower()
+        for header in response.headers["Access-Control-Allow-Headers"].split(",")
+        if header.strip()
+    }
+    assert {header.lower() for header in requested_headers} <= allowed_headers
+
+
 def test_trusted_host_policy_denies_unconfigured_host(client):
     response = client.get("/health", headers={"Host": "evil.example"})
 
