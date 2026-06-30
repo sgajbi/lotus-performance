@@ -592,7 +592,7 @@ def test_runtime_status_reports_unavailable_durable_store(mocker):
     assert body["durable_metadata_store"]["reason"] == "durable_metadata_store_unreachable"
     assert "database URL" in body["durable_metadata_store"]["remediation_hint"]
     assert body["compute_queue"]["status"] == "unavailable"
-    assert "pending_jobs" not in body["compute_queue"]
+    assert body["compute_queue"]["pending_jobs"] is None
     assert body["lineage_queue"]["status"] == "unavailable"
 
 
@@ -625,7 +625,7 @@ def test_runtime_status_reports_unavailable_recovery_history_snapshot(mocker):
     assert body["runtime_degradation_reasons"] == ["recovery_drill:artifact_directory_unreadable"]
     assert body["recovery_drill"]["status"] == "unavailable"
     assert body["recovery_drill"]["reason"] == "artifact_directory_unreadable"
-    assert "latest_status" not in body["recovery_drill"]
+    assert body["recovery_drill"]["latest_status"] is None
 
 
 def test_runtime_status_reports_unavailable_lineage_storage(mocker):
@@ -644,7 +644,7 @@ def test_runtime_status_reports_unavailable_lineage_storage(mocker):
     assert body["lineage_queue"]["status"] == "unavailable"
     assert body["lineage_queue"]["reason"] == "lineage_storage_path_missing"
     assert "configured lineage storage directory" in body["lineage_queue"]["remediation_hint"]
-    assert "pending_payloads" not in body["lineage_queue"]
+    assert body["lineage_queue"]["pending_payloads"] is None
 
 
 def test_runtime_status_reports_degraded_lineage_storage_capacity_pressure(mocker):

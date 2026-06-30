@@ -9,6 +9,10 @@ from app.services.operator_action_lease_service import (
     ReclaimedOperatorActionLeaseEvent,
     build_operator_action_lease_snapshot,
 )
+from app.services.runtime_status_diagnostics import (
+    log_runtime_status_read_failure,
+    operator_action_read_failed_reason,
+)
 from app.services.runtime_status_domain import OperatorActionStatus, RecentOperatorActionReclaim
 from app.services.runtime_status_time import age_seconds_since
 
@@ -72,12 +76,15 @@ def build_operator_action_status(*, artifact_directory: Path, action_name: str) 
             action_name=action_name,
         )
     except Exception as exc:
-        logger.warning(
-            "Runtime status operator-action lease snapshot unavailable for action_name=%s.",
-            action_name,
-            exc_info=True,
+        return _unavailable_operator_action_status(
+            reason=log_runtime_status_read_failure(
+                logger=logger,
+                component=action_name,
+                operation="operator_action_snapshot",
+                reason=operator_action_read_failed_reason(action_name),
+                exception=exc,
+            )
         )
-        return _unavailable_operator_action_status(reason=type(exc).__name__)
     if snapshot.status != "available":
         return _unavailable_operator_action_status(reason=snapshot.reason)
     latest_reclaimed_run = snapshot.latest_reclaimed_lease

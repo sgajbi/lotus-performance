@@ -120,6 +120,16 @@ structured `runtime_operator_read_degraded` log event to inspect source, operati
 and safe filter context. The log intentionally records filter presence and bounded type filters,
 not raw calculation-id fragments or cursor identifiers.
 
+Runtime status follows the same public-reason principle. Unexpected component read failures use
+stable reason codes such as `compute_queue_status_read_failed`,
+`lineage_queue_status_read_failed`, `recovery_drill_history_read_failed`,
+`runtime_retention_history_read_failed`, `runtime_retention_preview_read_failed`,
+`recovery_drill_operator_action_read_failed`, and
+`runtime_retention_operator_action_read_failed`. Join those response reasons to structured
+`runtime_status_read_degraded` logs for component, operation, exception class, correlation id, and
+request id. Do not treat raw Python exception class names as supported public runtime-status reason
+codes.
+
 Stateful lotus-core fan-out uses the shared upstream resilience layer and a lifecycle-managed
 `httpx.AsyncClient` pool under the FastAPI lifespan. Tune `STATEFUL_INPUT_MAX_CONCURRENT_CHUNKS`
 together with `UPSTREAM_HTTP_MAX_CONNECTIONS`, `UPSTREAM_HTTP_MAX_KEEPALIVE_CONNECTIONS`, and

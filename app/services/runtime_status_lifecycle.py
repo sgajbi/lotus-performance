@@ -27,6 +27,11 @@ from app.services.runtime_status_degradation import (
     lifecycle_status_from_degradation_details,
     missing_history_degradation,
 )
+from app.services.runtime_status_diagnostics import (
+    RECOVERY_DRILL_HISTORY_READ_FAILED,
+    RUNTIME_RETENTION_HISTORY_READ_FAILED,
+    log_runtime_status_read_failure,
+)
 from app.services.runtime_status_domain import (
     OperatorActionStatus,
     RecoveryDrillDegradationPolicy,
@@ -95,12 +100,14 @@ def build_recovery_drill_status(*, settings, policy: RecoveryDrillDegradationPol
     try:
         snapshot = build_recovery_drill_history_snapshot(limit=1)
     except Exception as exc:
-        logger.warning(
-            "Runtime status recovery-drill history snapshot unavailable.",
-            exc_info=True,
-        )
         return unavailable_recovery_drill_status(
-            reason=type(exc).__name__,
+            reason=log_runtime_status_read_failure(
+                logger=logger,
+                component="recovery_drill",
+                operation="history_snapshot",
+                reason=RECOVERY_DRILL_HISTORY_READ_FAILED,
+                exception=exc,
+            ),
             active_run_status=active_run_status,
         )
 
@@ -170,12 +177,14 @@ def build_runtime_retention_status(*, settings, policy: RuntimeRetentionDegradat
     try:
         snapshot = build_runtime_retention_history_snapshot(limit=1)
     except Exception as exc:
-        logger.warning(
-            "Runtime status runtime-retention history snapshot unavailable.",
-            exc_info=True,
-        )
         return unavailable_runtime_retention_status(
-            reason=type(exc).__name__,
+            reason=log_runtime_status_read_failure(
+                logger=logger,
+                component="runtime_retention",
+                operation="history_snapshot",
+                reason=RUNTIME_RETENTION_HISTORY_READ_FAILED,
+                exception=exc,
+            ),
             active_run_status=active_run_status,
             preview_status="unavailable",
             preview_reason=RUNTIME_RETENTION_PREVIEW_UNAVAILABLE_REASON,

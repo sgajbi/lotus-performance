@@ -22,6 +22,11 @@ from app.services.lineage_metadata_store import (
     lineage_metadata_store,
 )
 from app.services.runtime_status_degradation import compute_queue_degradation_details, lineage_queue_degradation_details
+from app.services.runtime_status_diagnostics import (
+    COMPUTE_QUEUE_STATUS_READ_FAILED,
+    LINEAGE_QUEUE_STATUS_READ_FAILED,
+    log_runtime_status_read_failure,
+)
 from app.services.runtime_status_domain import RuntimeDegradationDetail, RuntimeQueueStatus
 from app.services.runtime_unavailability import (
     LINEAGE_STORAGE_CAPACITY_UNREADABLE_REASON,
@@ -63,7 +68,15 @@ def build_compute_queue_status(durability_status: DurabilityHealthStatus, *, set
             degradation_details=degradation_details,
         )
     except Exception as exc:
-        return unavailable_runtime_queue_status(reason=type(exc).__name__)
+        return unavailable_runtime_queue_status(
+            reason=log_runtime_status_read_failure(
+                logger=logger,
+                component="compute_queue",
+                operation="status_snapshot",
+                reason=COMPUTE_QUEUE_STATUS_READ_FAILED,
+                exception=exc,
+            )
+        )
 
 
 def build_lineage_queue_status(durability_status: DurabilityHealthStatus, *, settings) -> RuntimeQueueStatus:
@@ -93,7 +106,15 @@ def build_lineage_queue_status(durability_status: DurabilityHealthStatus, *, set
             storage_capacity=storage_capacity,
         )
     except Exception as exc:
-        return unavailable_runtime_queue_status(reason=type(exc).__name__)
+        return unavailable_runtime_queue_status(
+            reason=log_runtime_status_read_failure(
+                logger=logger,
+                component="lineage_queue",
+                operation="status_snapshot",
+                reason=LINEAGE_QUEUE_STATUS_READ_FAILED,
+                exception=exc,
+            )
+        )
 
 
 def runtime_queue_status_from_degradation(

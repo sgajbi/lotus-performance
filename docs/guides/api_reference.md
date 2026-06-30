@@ -675,6 +675,17 @@ Return semantics for the workspace surface are now explicit rather than inferred
 - runtime can also report lineage-storage saturation pressure before writes fail:
   - `lineage_storage_free_bytes_below_threshold`
   - `lineage_storage_free_ratio_below_threshold`
+- unexpected runtime-status component read failures return stable reason codes instead of raw
+  exception class names:
+  - `compute_queue_status_read_failed`
+  - `lineage_queue_status_read_failed`
+  - `recovery_drill_history_read_failed`
+  - `runtime_retention_history_read_failed`
+  - `runtime_retention_preview_read_failed`
+  - `recovery_drill_operator_action_read_failed`
+  - `runtime_retention_operator_action_read_failed`
+- inspect structured log event `runtime_status_read_degraded` for component, operation, stable
+  reason, and exception class when one of those unexpected-read reason codes appears
 - lineage queue policy now exposes:
   - `storage_min_free_bytes`
   - `storage_min_free_ratio`

@@ -1,4 +1,6 @@
+import logging
 from datetime import UTC, datetime
+from pathlib import Path
 
 import pytest
 
@@ -12,6 +14,19 @@ from app.services.recovery_drill_history_service import (
 )
 from app.services.runtime_retention_history_service import RuntimeRetentionHistoryEntry, RuntimeRetentionHistorySnapshot
 from app.services.runtime_retention_service import RuntimeRetentionCleanupSummary
+from app.services.runtime_status_diagnostics import (
+    COMPUTE_QUEUE_STATUS_READ_FAILED,
+    LINEAGE_QUEUE_STATUS_READ_FAILED,
+    RECOVERY_DRILL_HISTORY_READ_FAILED,
+    RECOVERY_DRILL_OPERATOR_ACTION_READ_FAILED,
+    RUNTIME_RETENTION_HISTORY_READ_FAILED,
+    RUNTIME_RETENTION_OPERATOR_ACTION_READ_FAILED,
+    RUNTIME_RETENTION_PREVIEW_READ_FAILED,
+)
+from app.services.runtime_status_domain import RecoveryDrillDegradationPolicy, RuntimeRetentionDegradationPolicy
+from app.services.runtime_status_lifecycle import build_recovery_drill_status, build_runtime_retention_status
+from app.services.runtime_status_operator_action import build_operator_action_status
+from app.services.runtime_status_retention_preview import build_runtime_retention_preview
 from app.services.runtime_status_service import build_runtime_status_snapshot
 from app.services.runtime_unavailability import LINEAGE_STORAGE_CAPACITY_UNREADABLE_REASON
 
@@ -888,7 +903,8 @@ def test_runtime_status_snapshot_degrades_when_governed_active_run_age_accumulat
     assert "runtime_retention:runtime_retention_active_run_age_exceeded" in snapshot.runtime_degradation_reasons
 
 
-def test_runtime_status_snapshot_reports_unavailable_runtime_retention_preview(mocker):
+def test_runtime_status_snapshot_reports_unavailable_runtime_retention_preview(mocker, caplog):
+    caplog.set_level(logging.WARNING, logger="app.services.runtime_status_retention_preview")
     mocker.patch(
         "app.services.runtime_status_service.get_settings",
         return_value=type(
@@ -992,8 +1008,103 @@ def test_runtime_status_snapshot_reports_unavailable_runtime_retention_preview(m
     assert snapshot.runtime_status == "ready"
     assert snapshot.runtime_retention.status == "available"
     assert snapshot.runtime_retention.preview_status == "unavailable"
-    assert snapshot.runtime_retention.preview_reason == "RuntimeError"
+    assert snapshot.runtime_retention.preview_reason == RUNTIME_RETENTION_PREVIEW_READ_FAILED
     assert snapshot.runtime_retention.current_prunable_execution_count is None
+    warning = next(record for record in caplog.records if record.message == "Runtime status read degraded.")
+    extra_fields = warning.extra_fields
+    assert extra_fields["event_name"] == "runtime_status_read_degraded"
+    assert extra_fields["component"] == "runtime_retention"
+    assert extra_fields["operation"] == "current_preview"
+    assert extra_fields["reason"] == RUNTIME_RETENTION_PREVIEW_READ_FAILED
+    assert extra_fields["exception_class"] == "RuntimeError"
+
+
+def test_runtime_retention_preview_uses_stable_reason_when_dry_run_fails(mocker):
+    mocker.patch(
+        "app.services.runtime_status_retention_preview.run_runtime_retention_cleanup",
+        side_effect=RuntimeError("preview failed"),
+    )
+
+    preview_status, preview_reason, preview_summary = build_runtime_retention_preview()
+
+    assert preview_status == "unavailable"
+    assert preview_reason == RUNTIME_RETENTION_PREVIEW_READ_FAILED
+    assert preview_summary is None
+
+
+def test_recovery_drill_history_exception_uses_stable_reason(mocker, caplog):
+    caplog.set_level(logging.WARNING, logger="app.services.runtime_status_lifecycle")
+    mocker.patch(
+        "app.services.runtime_status_lifecycle.build_recovery_drill_history_snapshot",
+        side_effect=RuntimeError("history unavailable"),
+    )
+    settings = type("Settings", (), {"RECOVERY_DRILL_ARTIFACT_PATH": Path("artifacts/durable-recovery-drill")})()
+
+    status = build_recovery_drill_status(
+        settings=settings,
+        policy=RecoveryDrillDegradationPolicy(max_age_seconds=0.0, active_run_age_seconds=0.0, reclaim_count=0),
+    )
+
+    assert status.status == "unavailable"
+    assert status.reason == RECOVERY_DRILL_HISTORY_READ_FAILED
+    warning = next(record for record in caplog.records if record.message == "Runtime status read degraded.")
+    extra_fields = warning.extra_fields
+    assert extra_fields["component"] == "recovery_drill"
+    assert extra_fields["operation"] == "history_snapshot"
+    assert extra_fields["reason"] == RECOVERY_DRILL_HISTORY_READ_FAILED
+    assert extra_fields["exception_class"] == "RuntimeError"
+
+
+def test_runtime_retention_history_exception_uses_stable_reason(mocker, caplog):
+    caplog.set_level(logging.WARNING, logger="app.services.runtime_status_lifecycle")
+    mocker.patch(
+        "app.services.runtime_status_lifecycle.build_runtime_retention_history_snapshot",
+        side_effect=RuntimeError("history unavailable"),
+    )
+    settings = type("Settings", (), {"RUNTIME_RETENTION_ARTIFACT_PATH": Path("artifacts/runtime-retention-cleanup")})()
+
+    status = build_runtime_retention_status(
+        settings=settings,
+        policy=RuntimeRetentionDegradationPolicy(max_age_seconds=0.0, active_run_age_seconds=0.0, reclaim_count=0),
+    )
+
+    assert status.status == "unavailable"
+    assert status.reason == RUNTIME_RETENTION_HISTORY_READ_FAILED
+    assert status.preview_status == "unavailable"
+    assert status.preview_reason == "runtime_retention_preview_unavailable"
+    warning = next(record for record in caplog.records if record.message == "Runtime status read degraded.")
+    extra_fields = warning.extra_fields
+    assert extra_fields["component"] == "runtime_retention"
+    assert extra_fields["operation"] == "history_snapshot"
+    assert extra_fields["reason"] == RUNTIME_RETENTION_HISTORY_READ_FAILED
+    assert extra_fields["exception_class"] == "RuntimeError"
+
+
+@pytest.mark.parametrize(
+    ("action_name", "expected_reason"),
+    [
+        ("recovery_drill", RECOVERY_DRILL_OPERATOR_ACTION_READ_FAILED),
+        ("runtime_retention_cleanup", RUNTIME_RETENTION_OPERATOR_ACTION_READ_FAILED),
+    ],
+)
+def test_operator_action_snapshot_exception_uses_stable_reason(mocker, caplog, action_name, expected_reason):
+    caplog.set_level(logging.WARNING, logger="app.services.runtime_status_operator_action")
+    mocker.patch(
+        "app.services.runtime_status_operator_action.build_operator_action_lease_snapshot",
+        side_effect=RuntimeError("lease snapshot unavailable"),
+    )
+
+    status = build_operator_action_status(artifact_directory=Path("artifacts"), action_name=action_name)
+
+    assert status.status == "unavailable"
+    assert status.reason == expected_reason
+    assert status.active_run_count == 0
+    warning = next(record for record in caplog.records if record.message == "Runtime status read degraded.")
+    extra_fields = warning.extra_fields
+    assert extra_fields["component"] == action_name
+    assert extra_fields["operation"] == "operator_action_snapshot"
+    assert extra_fields["reason"] == expected_reason
+    assert extra_fields["exception_class"] == "RuntimeError"
 
 
 def test_runtime_status_snapshot_reports_unavailable_when_recovery_history_snapshot_is_unavailable(mocker):
@@ -1226,7 +1337,8 @@ def test_runtime_status_snapshot_reports_degraded_when_durable_store_is_unavaila
     assert snapshot.lineage_queue.stats is None
 
 
-def test_runtime_status_snapshot_reports_degraded_when_queue_read_fails(mocker):
+def test_runtime_status_snapshot_reports_degraded_when_queue_read_fails(mocker, caplog):
+    caplog.set_level(logging.WARNING, logger="app.services.runtime_status_queue")
     mocker.patch(
         "app.services.runtime_status_service.get_settings",
         return_value=type(
@@ -1274,12 +1386,19 @@ def test_runtime_status_snapshot_reports_degraded_when_queue_read_fails(mocker):
     snapshot = build_runtime_status_snapshot(is_draining=False)
 
     assert snapshot.runtime_status == "degraded"
-    assert snapshot.runtime_degradation_reasons == ("compute_queue:RuntimeError",)
+    assert snapshot.runtime_degradation_reasons == (f"compute_queue:{COMPUTE_QUEUE_STATUS_READ_FAILED}",)
     assert snapshot.runtime_degradation_details == ()
     assert snapshot.compute_queue.status == "unavailable"
-    assert snapshot.compute_queue.reason == "RuntimeError"
+    assert snapshot.compute_queue.reason == COMPUTE_QUEUE_STATUS_READ_FAILED
     assert snapshot.compute_queue.degradation_reasons == ()
     assert snapshot.lineage_queue.status == "available"
+    warning = next(record for record in caplog.records if record.message == "Runtime status read degraded.")
+    extra_fields = warning.extra_fields
+    assert extra_fields["event_name"] == "runtime_status_read_degraded"
+    assert extra_fields["component"] == "compute_queue"
+    assert extra_fields["operation"] == "status_snapshot"
+    assert extra_fields["reason"] == COMPUTE_QUEUE_STATUS_READ_FAILED
+    assert extra_fields["exception_class"] == "RuntimeError"
 
 
 def test_runtime_status_snapshot_reports_unavailable_when_lineage_storage_is_unavailable(mocker):
@@ -1545,7 +1664,8 @@ def test_runtime_status_snapshot_reports_unavailable_when_lineage_storage_capaci
     assert snapshot.lineage_queue.reason == LINEAGE_STORAGE_CAPACITY_UNREADABLE_REASON
 
 
-def test_runtime_status_snapshot_reports_unavailable_when_lineage_queue_read_fails(mocker):
+def test_runtime_status_snapshot_reports_unavailable_when_lineage_queue_read_fails(mocker, caplog):
+    caplog.set_level(logging.WARNING, logger="app.services.runtime_status_queue")
     mocker.patch(
         "app.services.runtime_status_service.get_settings",
         return_value=type(
@@ -1623,12 +1743,19 @@ def test_runtime_status_snapshot_reports_unavailable_when_lineage_queue_read_fai
     snapshot = build_runtime_status_snapshot(is_draining=False)
 
     assert snapshot.runtime_status == "degraded"
-    assert snapshot.runtime_degradation_reasons == ("lineage_queue:RuntimeError",)
+    assert snapshot.runtime_degradation_reasons == (f"lineage_queue:{LINEAGE_QUEUE_STATUS_READ_FAILED}",)
     assert snapshot.compute_queue.status == "available"
     assert snapshot.compute_queue.inspection_anchors is None
     assert snapshot.lineage_queue.status == "unavailable"
-    assert snapshot.lineage_queue.reason == "RuntimeError"
+    assert snapshot.lineage_queue.reason == LINEAGE_QUEUE_STATUS_READ_FAILED
     assert snapshot.lineage_queue.inspection_anchors is None
+    warning = next(record for record in caplog.records if record.message == "Runtime status read degraded.")
+    extra_fields = warning.extra_fields
+    assert extra_fields["event_name"] == "runtime_status_read_degraded"
+    assert extra_fields["component"] == "lineage_queue"
+    assert extra_fields["operation"] == "status_snapshot"
+    assert extra_fields["reason"] == LINEAGE_QUEUE_STATUS_READ_FAILED
+    assert extra_fields["exception_class"] == "RuntimeError"
 
 
 def test_runtime_status_snapshot_degrades_when_compute_age_threshold_is_exceeded(mocker):
@@ -2269,7 +2396,8 @@ def test_runtime_status_snapshot_degrades_when_latest_recovery_drill_failed(mock
     assert snapshot.recovery_drill.reason == "recovery_drill_latest_not_passed"
 
 
-def test_runtime_status_snapshot_reports_unavailable_when_recovery_history_read_raises(mocker):
+def test_runtime_status_snapshot_reports_unavailable_when_recovery_history_read_raises(mocker, caplog):
+    caplog.set_level(logging.WARNING, logger="app.services.runtime_status_lifecycle")
     mocker.patch(
         "app.services.runtime_status_service.get_settings",
         return_value=type(
@@ -2332,9 +2460,15 @@ def test_runtime_status_snapshot_reports_unavailable_when_recovery_history_read_
     snapshot = build_runtime_status_snapshot(is_draining=False)
 
     assert snapshot.runtime_status == "degraded"
-    assert snapshot.runtime_degradation_reasons == ("recovery_drill:RuntimeError",)
+    assert snapshot.runtime_degradation_reasons == (f"recovery_drill:{RECOVERY_DRILL_HISTORY_READ_FAILED}",)
     assert snapshot.recovery_drill.status == "unavailable"
-    assert snapshot.recovery_drill.reason == "RuntimeError"
+    assert snapshot.recovery_drill.reason == RECOVERY_DRILL_HISTORY_READ_FAILED
+    warning = next(record for record in caplog.records if record.message == "Runtime status read degraded.")
+    extra_fields = warning.extra_fields
+    assert extra_fields["component"] == "recovery_drill"
+    assert extra_fields["operation"] == "history_snapshot"
+    assert extra_fields["reason"] == RECOVERY_DRILL_HISTORY_READ_FAILED
+    assert extra_fields["exception_class"] == "RuntimeError"
 
 
 def test_runtime_status_snapshot_degrades_when_missing_recovery_history_exceeds_policy(mocker):

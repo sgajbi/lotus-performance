@@ -4,6 +4,10 @@ import logging
 from typing import Any
 
 from app.services.runtime_retention_service import RuntimeRetentionCleanupSummary, run_runtime_retention_cleanup
+from app.services.runtime_status_diagnostics import (
+    RUNTIME_RETENTION_PREVIEW_READ_FAILED,
+    log_runtime_status_read_failure,
+)
 from app.services.runtime_status_domain import RuntimeRetentionPreviewFields
 
 RuntimeRetentionPreviewResult = tuple[str, str | None, RuntimeRetentionCleanupSummary | None]
@@ -53,8 +57,11 @@ def build_runtime_retention_preview() -> RuntimeRetentionPreviewResult:
         summary = run_runtime_retention_cleanup(dry_run=True)
         return "available", None, summary
     except Exception as exc:
-        logger.warning(
-            "Runtime retention preview unavailable while running dry-run cleanup.",
-            exc_info=True,
+        reason = log_runtime_status_read_failure(
+            logger=logger,
+            component="runtime_retention",
+            operation="current_preview",
+            reason=RUNTIME_RETENTION_PREVIEW_READ_FAILED,
+            exception=exc,
         )
-        return "unavailable", type(exc).__name__, None
+        return "unavailable", reason, None

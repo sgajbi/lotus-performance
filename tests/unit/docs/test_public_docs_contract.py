@@ -155,6 +155,10 @@ def test_runtime_status_docs_reflect_certified_operator_contract():
     assert "No duplicate lotus-performance runtime-status endpoint" in certification
     assert "app.services.runtime_status_lifecycle" in certification
     assert "app.services.runtime_status_queue" in certification
+    assert "app.services.runtime_status_diagnostics" in certification
+    assert "compute_queue_status_read_failed" in api_reference
+    assert "runtime_retention_preview_read_failed" in certification
+    assert "runtime_status_read_degraded" in certification
     assert "Compute and lineage queue component assembly" in certification
     assert "Recovery-drill and runtime-retention component assembly" in certification
 

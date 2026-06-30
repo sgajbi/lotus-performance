@@ -291,11 +291,13 @@ Important validation expectations:
     declarations, methodology docs, API guides, and repo-authored wiki source. Do not aggregate
     away lifecycle identity, source exclusions, or measurement-window failures when downstream
     operators need that evidence to explain private-banking performance results.
-28. Runtime operator drill-down surfaces should degrade per source, not per endpoint. Work-item and
-    recovery reads for compute and lineage queues must keep the healthy queue usable when the other
-    queue fails, return stable operational reason codes rather than raw exception class names, and
-    emit structured support-safe diagnostics with source, operation, exception class, and safe filter
-    context. Do not log raw calculation-id fragments or cursor identifiers from operator filters.
+28. Runtime operator and status surfaces should degrade per source or component, not per endpoint.
+    Work-item and recovery reads for compute and lineage queues must keep the healthy queue usable
+    when the other queue fails. Runtime status must mark only the failed component unavailable when
+    queue, history, preview, or governed-action snapshot reads fail. Public reasons must be stable
+    operational codes rather than raw exception class names, and structured support-safe diagnostics
+    must include source/component, operation, stable reason, exception class, and safe context. Do
+    not log raw calculation-id fragments or cursor identifiers from operator filters.
 
 ## Standards And RFCs That Govern This Repository
 
