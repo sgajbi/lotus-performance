@@ -61,6 +61,15 @@ Every success and handled error response should include `X-Content-Type-Options`
 ingress, HSTS may be owned there instead of by the service process; keep that decision explicit in
 deployment configuration.
 
+## Privileged evidence access
+
+Lineage inventory and artifact downloads are controlled evidence-access surfaces. In
+production-like profiles with `ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ=true`, both
+`GET /performance/lineage/{calculation_id}` and
+`GET /performance/lineage/{calculation_id}/artifacts/{artifact_name}` require enterprise identity
+headers and capability `operations.runtime.read`. Missing identity or missing capability should
+return the standard authorization-denied envelope and emit deny audit metadata.
+
 ## Async worker diagnostics
 
 API and background-worker logs use the same JSON logging contract. For async calculation incidents,

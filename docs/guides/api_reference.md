@@ -526,6 +526,10 @@ Return semantics for the workspace surface are now explicit rather than inferred
 - response model: `app.models.lineage_responses.LineageResponse`
 - use this endpoint when support, operations, or front-office evidence workflows need to inspect
   whether calculation lineage has been materialized and which artifacts can be downloaded
+- privileged-read auth:
+  - in production-like profiles with `ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ=true`, lineage
+    evidence access requires enterprise identity headers plus capability `operations.runtime.read`
+  - the governed rule covers `/performance/lineage/{calculation_id}` and child artifact paths
 - response includes:
   - `calculation_id`, `calculation_type`, `timestamp_utc`, and durable lineage `status`
   - `artifacts` keyed by artifact filename, each containing a controlled service-owned `url`
@@ -541,6 +545,8 @@ Return semantics for the workspace surface are now explicit rather than inferred
 - purpose: download a specific lineage artifact through a controlled calculation/artifact route
 - Swagger status: documented in `/docs` because the route is part of the public reproducibility and supportability contract
 - execution mode: synchronous file retrieval
+- privileged-read auth:
+  - governed as controlled lineage evidence access under capability `operations.runtime.read`
 - contract note:
   - only artifacts listed in the lineage record are downloadable
   - unknown artifact names return `404`

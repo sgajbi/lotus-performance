@@ -211,6 +211,10 @@ Important validation expectations:
     startup when enterprise write authz, privileged-read authz, runtime-config enforcement, or
     `ENTERPRISE_PRIMARY_KEY_ID` is missing. Local relaxed mode remains explicit through
     `ENTERPRISE_RUNTIME_PROFILE=local` or an unset runtime profile with disabled authz switches.
+17. Lineage inventory and artifact download endpoints are controlled evidence-access surfaces.
+    When privileged-read authz is enabled, `/performance/lineage/{calculation_id}` and child
+    artifact routes require `operations.runtime.read` through the central enterprise capability
+    rule map.
 
 ## Standards And RFCs That Govern This Repository
 
