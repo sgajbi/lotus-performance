@@ -121,6 +121,22 @@ def _runtime_config_issues_should_raise(issues: list[str]) -> bool:
     return bool(issues) and (_runtime_config_enforcement_enabled() or _production_like_runtime_profile_enabled())
 
 
+def _production_runtime_profile_issues(existing_issues: list[str]) -> list[str]:
+    if not _production_like_runtime_profile_enabled():
+        return []
+
+    issues: list[str] = []
+    if not _write_authz_enabled():
+        issues.append(_PRODUCTION_WRITE_AUTHZ_DISABLED_ISSUE)
+    if not _privileged_read_authz_enabled():
+        issues.append(_PRODUCTION_PRIVILEGED_READ_AUTHZ_DISABLED_ISSUE)
+    if not _runtime_config_enforcement_enabled():
+        issues.append(_PRODUCTION_RUNTIME_CONFIG_ENFORCEMENT_DISABLED_ISSUE)
+    if not _production_primary_key_config_valid() and _MISSING_PRIMARY_KEY_ID_ISSUE not in existing_issues:
+        issues.append(_MISSING_PRIMARY_KEY_ID_ISSUE)
+    return issues
+
+
 def _enterprise_runtime_config_issues() -> list[str]:
     issues: list[str] = []
     if not _normalized_enterprise_policy_version():
@@ -133,16 +149,7 @@ def _enterprise_runtime_config_issues() -> list[str]:
     if not _write_authz_primary_key_config_valid():
         issues.append(_MISSING_PRIMARY_KEY_ID_ISSUE)
 
-    if _production_like_runtime_profile_enabled():
-        if not _write_authz_enabled():
-            issues.append(_PRODUCTION_WRITE_AUTHZ_DISABLED_ISSUE)
-        if not _privileged_read_authz_enabled():
-            issues.append(_PRODUCTION_PRIVILEGED_READ_AUTHZ_DISABLED_ISSUE)
-        if not _runtime_config_enforcement_enabled():
-            issues.append(_PRODUCTION_RUNTIME_CONFIG_ENFORCEMENT_DISABLED_ISSUE)
-        if not _production_primary_key_config_valid() and _MISSING_PRIMARY_KEY_ID_ISSUE not in issues:
-            issues.append(_MISSING_PRIMARY_KEY_ID_ISSUE)
-
+    issues.extend(_production_runtime_profile_issues(issues))
     return issues
 
 
