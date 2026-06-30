@@ -898,6 +898,8 @@ Return semantics for the workspace surface are now explicit rather than inferred
 - failure contract:
   - `503 {"status":"draining"}`
   - `503 {"status":"unavailable","reason":"durable_metadata_store_unreachable"}`
+  - `503 {"status":"unavailable","reason":"durable_metadata_schema_discovery_failed"}`
+  - `503 {"status":"unavailable","reason":"durable_metadata_schema_incomplete"}`
   - `503 {"status":"unavailable","reason":"durable_metadata_readiness_timeout"}`
   - `503 {"status":"unavailable","reason":"lineage_storage_path_missing"}`
   - `503 {"status":"unavailable","reason":"lineage_storage_write_probe_failed"}`

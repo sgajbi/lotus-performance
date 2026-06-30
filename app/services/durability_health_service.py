@@ -22,6 +22,7 @@ REQUIRED_DURABLE_TABLES = (
 )
 DEFAULT_DURABLE_READINESS_TIMEOUT_SECONDS = 2.0
 DURABLE_METADATA_READINESS_TIMEOUT_REASON = "durable_metadata_readiness_timeout"
+DURABLE_METADATA_SCHEMA_DISCOVERY_FAILED_REASON = "durable_metadata_schema_discovery_failed"
 LINEAGE_STORAGE_READINESS_TIMEOUT_REASON = "lineage_storage_readiness_timeout"
 
 logger = logging.getLogger(__name__)
@@ -109,7 +110,11 @@ def check_durable_metadata_schema_ready() -> DurabilityHealthStatus:
     except Exception:
         logger.warning("Durable metadata store readiness ping failed.", exc_info=True)
         return _unavailable_status("durable_metadata_store_unreachable")
-    available_tables = set(execution_registry.list_table_names())
+    try:
+        available_tables = set(execution_registry.list_table_names())
+    except Exception:
+        logger.warning("Durable metadata schema table discovery failed.", exc_info=True)
+        return _unavailable_status(DURABLE_METADATA_SCHEMA_DISCOVERY_FAILED_REASON)
     if any(table_name not in available_tables for table_name in REQUIRED_DURABLE_TABLES):
         return _unavailable_status("durable_metadata_schema_incomplete")
     return _ready_status()

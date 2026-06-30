@@ -1172,11 +1172,15 @@ def test_runtime_alert_runbook_covers_breach_gauges():
     assert "GET /integration/runtime-recoveries" in runbook
     assert "GET /integration/recovery-drills" in runbook
     assert "GET /integration/runtime-retention-cleanups" in runbook
+    assert "durable_metadata_schema_discovery_failed" in api_reference
+    assert "durable_metadata_schema_discovery_failed" in complete_reference
+    assert "durable_metadata_schema_discovery_failed" in runbook
     assert "durable_metadata_readiness_timeout" in runbook
     assert "lineage_storage_readiness_timeout" in runbook
     assert "DURABLE_READINESS_TIMEOUT_SECONDS" in api_reference
     assert "DURABLE_READINESS_TIMEOUT_SECONDS" in complete_reference
     assert "DURABLE_READINESS_TIMEOUT_SECONDS" in wiki_operations
+    assert "durable_metadata_schema_discovery_failed" in wiki_operations
     assert "durable_metadata_readiness_timeout" in wiki_operations
     assert "docs/runbooks/runtime-alerts.md" in api_reference
     assert "runtime-alerts.md" in runtime_topology

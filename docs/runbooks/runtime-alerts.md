@@ -41,6 +41,7 @@ Do not treat a missing breach sample as healthy if the corresponding availabilit
 
 Readiness timeout handling:
 
+- `durable_metadata_schema_discovery_failed` means the database ping succeeded but required-table discovery failed; inspect catalog permissions, schema visibility, database metadata responsiveness, and migration state.
 - `durable_metadata_readiness_timeout` means the database ping or table-discovery probe exceeded `DURABLE_READINESS_TIMEOUT_SECONDS`; inspect database latency, connectivity, and catalog responsiveness before accepting traffic.
 - `lineage_storage_readiness_timeout` means the lineage storage path or write/fsync probe exceeded `DURABLE_READINESS_TIMEOUT_SECONDS`; inspect mount latency, filesystem health, and write behavior before restarting workers.
 - A readiness timeout is a dependency health signal, not a reason to disable durable readiness checks.

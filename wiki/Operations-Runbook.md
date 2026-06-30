@@ -81,6 +81,10 @@ Durable readiness probes are isolated from the async request loop and bounded by
 catalog responsiveness signal, and treat `lineage_storage_readiness_timeout` as a lineage-storage
 mount, write, or fsync latency signal.
 
+If readiness returns `durable_metadata_schema_discovery_failed`, the database ping succeeded but the
+service could not list the required durable metadata tables. Check catalog permissions, schema
+visibility, metadata responsiveness, and migration state before accepting traffic.
+
 ## TWR inspection support workflow
 
 Use `POST /performance/inspections/twr` when support needs proof behind a portfolio-level TWR
