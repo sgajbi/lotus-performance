@@ -8,10 +8,18 @@
 
 - Audit middleware logs privileged write operations with actor/tenant/role context.
 - Allowed privileged write operations also emit audit metadata describing the governed surface and required capability when a governed write rule applies.
-- Privileged operator read surfaces can be protected with capability-gated enterprise authz.
+- `ENTERPRISE_RUNTIME_PROFILE=production`, `prod`, or `staging` is production-like and fails closed
+  at startup unless enterprise write authz, privileged-read authz, runtime-config enforcement, and
+  `ENTERPRISE_PRIMARY_KEY_ID` are configured.
+- Local and development relaxed mode remains explicit through `ENTERPRISE_RUNTIME_PROFILE=local`
+  or an unset runtime profile with the authz switches disabled.
+- Privileged operator read surfaces are protected with capability-gated enterprise authz in
+  production-like profiles.
 - Allowed privileged operator reads also emit audit metadata describing the governed surface and required capability.
-- Sensitive operator write surfaces can require governed runtime-management capability, including `POST /integration/runtime-retention-cleanups/run`.
-- Sensitive operator write surfaces can require governed runtime-management capability, including `POST /integration/recovery-drills/run`.
+- Sensitive operator write surfaces require governed runtime-management capability in
+  production-like profiles, including `POST /integration/runtime-retention-cleanups/run`.
+- Sensitive operator write surfaces require governed runtime-management capability in
+  production-like profiles, including `POST /integration/recovery-drills/run`.
 - Service-owned privileged actions should retain enterprise tenant and correlation context in durable evidence when that context exists at request time.
 - Governed remediation actions should fence accidental manual double-submit with a service-owned cooldown before executing the mutation.
 - Governed remediation actions should replay the original durable evidence for same-correlation retries of the same manual request instead of executing a duplicate mutation.
@@ -25,6 +33,7 @@
 
 Evidence:
 - `app/enterprise_readiness.py`
+- `app/enterprise_runtime_config.py`
 - `main.py`
 - `tests/unit/app/test_enterprise_readiness.py`
 

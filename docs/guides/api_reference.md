@@ -606,7 +606,8 @@ Return semantics for the workspace surface are now explicit rather than inferred
 - purpose: expose an operational snapshot of runtime state for support and platform operators
 - response model: `app.models.runtime_status.RuntimeStatusResponse`
 - privileged-read auth:
-  - when `ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ=true`, this route requires enterprise identity headers plus capability `operations.runtime.read`
+  - production-like profiles (`ENTERPRISE_RUNTIME_PROFILE=production`, `prod`, or `staging`) require `ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ=true`
+  - this route requires enterprise identity headers plus capability `operations.runtime.read`
   - allowed access is enterprise-audited with governed surface and required-capability metadata
 - response includes:
   - aggregate runtime status
@@ -659,7 +660,8 @@ Return semantics for the workspace surface are now explicit rather than inferred
 
 - purpose: return exact compute and lineage work items for operator drill-down
 - privileged-read auth:
-  - when `ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ=true`, this route requires enterprise identity headers plus capability `operations.runtime.read`
+  - production-like profiles require `ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ=true`
+  - this route requires enterprise identity headers plus capability `operations.runtime.read`
   - allowed access is enterprise-audited with governed surface and required-capability metadata
 - query parameters:
   - `queue`: `both`, `compute`, or `lineage`
@@ -688,7 +690,8 @@ Return semantics for the workspace surface are now explicit rather than inferred
 
 - purpose: return recent compute and lineage recovery events for operator drill-down
 - privileged-read auth:
-  - when `ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ=true`, this route requires enterprise identity headers plus capability `operations.runtime.read`
+  - production-like profiles require `ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ=true`
+  - this route requires enterprise identity headers plus capability `operations.runtime.read`
   - allowed access is enterprise-audited with governed surface and required-capability metadata
 - query parameters:
   - `queue`: `both`, `compute`, or `lineage`
@@ -718,7 +721,8 @@ Return semantics for the workspace surface are now explicit rather than inferred
 
 - purpose: inspect retained durable recovery-drill evidence and manifest state
 - privileged-read auth:
-  - when `ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ=true`, this route requires enterprise identity headers plus capability `operations.runtime.read`
+  - production-like profiles require `ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ=true`
+  - this route requires enterprise identity headers plus capability `operations.runtime.read`
   - allowed access is enterprise-audited with governed surface and required-capability metadata
 - response includes:
   - retained recovery-drill evidence artifacts
@@ -736,7 +740,8 @@ Return semantics for the workspace surface are now explicit rather than inferred
 
 - purpose: execute a governed durable recovery drill through the service-owned control plane
 - privileged-write auth:
-  - when `ENTERPRISE_ENFORCE_AUTHZ=true`, this route requires enterprise identity headers
+  - production-like profiles require `ENTERPRISE_ENFORCE_AUTHZ=true`
+  - this route requires enterprise identity headers
   - default governed capability: `operations.runtime.manage`
   - allowed access is enterprise-audited with governed surface and required-capability metadata
 - request includes:
@@ -758,7 +763,8 @@ Return semantics for the workspace surface are now explicit rather than inferred
 
 - purpose: inspect retained runtime-retention cleanup evidence and manifest state
 - privileged-read auth:
-  - when `ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ=true`, this route requires enterprise identity headers plus capability `operations.runtime.read`
+  - production-like profiles require `ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ=true`
+  - this route requires enterprise identity headers plus capability `operations.runtime.read`
   - allowed access is enterprise-audited with governed surface and required-capability metadata
 - response includes:
   - retained cleanup evidence artifacts
@@ -775,7 +781,8 @@ Return semantics for the workspace surface are now explicit rather than inferred
 
 - purpose: execute a governed runtime-retention dry run or apply action through the service-owned control plane
 - privileged-write auth:
-  - when `ENTERPRISE_ENFORCE_AUTHZ=true`, this route requires enterprise identity headers
+  - production-like profiles require `ENTERPRISE_ENFORCE_AUTHZ=true`
+  - this route requires enterprise identity headers
   - default governed capability: `operations.runtime.manage`
   - allowed access is enterprise-audited with governed surface and required-capability metadata
 - request includes:
@@ -993,7 +1000,8 @@ Return semantics for the workspace surface are now explicit rather than inferred
 
 - purpose: inspect retained runtime-retention cleanup evidence and history
 - privileged-read auth:
-  - when `ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ=true`, this route requires enterprise identity headers plus capability `operations.runtime.read`
+  - production-like profiles require `ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ=true`
+  - this route requires enterprise identity headers plus capability `operations.runtime.read`
   - allowed access is enterprise-audited with governed surface and required-capability metadata
 - response includes:
   - retained cleanup artifact directory

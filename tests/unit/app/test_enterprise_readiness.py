@@ -9,17 +9,23 @@ from app.enterprise_readiness import (
     _ENV_ENTERPRISE_CAPABILITY_RULES_JSON,
     _ENV_ENTERPRISE_ENFORCE_AUTHZ,
     _ENV_ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ,
+    _ENV_ENTERPRISE_ENFORCE_RUNTIME_CONFIG,
     _ENV_ENTERPRISE_FEATURE_FLAGS_JSON,
     _ENV_ENTERPRISE_MAX_WRITE_PAYLOAD_BYTES,
     _ENV_ENTERPRISE_POLICY_VERSION,
     _ENV_ENTERPRISE_PRIMARY_KEY_ID,
+    _ENV_ENTERPRISE_RUNTIME_PROFILE,
     _ENV_ENTERPRISE_SECRET_ROTATION_DAYS,
     _HTTP_STATUS_FORBIDDEN,
     _HTTP_STATUS_PAYLOAD_TOO_LARGE,
     _MISSING_POLICY_VERSION_ISSUE,
     _MISSING_PRIMARY_KEY_ID_ISSUE,
     _PAYLOAD_TOO_LARGE_DETAIL,
+    _PRODUCTION_PRIVILEGED_READ_AUTHZ_DISABLED_ISSUE,
+    _PRODUCTION_RUNTIME_CONFIG_ENFORCEMENT_DISABLED_ISSUE,
+    _PRODUCTION_WRITE_AUTHZ_DISABLED_ISSUE,
     _RESPONSE_DETAIL_KEY,
+    _RUNTIME_CONFIG_INVALID_PREFIX,
     _SECRET_ROTATION_DAYS_OUT_OF_RANGE_ISSUE,
     authorize_privileged_read_request,
     authorize_write_request,
@@ -233,6 +239,85 @@ def test_validate_runtime_config_flags_missing_policy_and_key(monkeypatch):
     assert _MISSING_POLICY_VERSION_ISSUE in issues
     assert _MISSING_PRIMARY_KEY_ID_ISSUE in issues
     assert enterprise_policy_version() == _DEFAULT_ENTERPRISE_POLICY_VERSION
+
+
+def test_validate_runtime_config_fails_closed_for_production_profile(monkeypatch):
+    monkeypatch.setenv(_ENV_ENTERPRISE_RUNTIME_PROFILE, "production")
+    monkeypatch.delenv(_ENV_ENTERPRISE_ENFORCE_AUTHZ, raising=False)
+    monkeypatch.delenv(_ENV_ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ, raising=False)
+    monkeypatch.delenv(_ENV_ENTERPRISE_ENFORCE_RUNTIME_CONFIG, raising=False)
+    monkeypatch.delenv(_ENV_ENTERPRISE_PRIMARY_KEY_ID, raising=False)
+
+    with pytest.raises(RuntimeError, match=_RUNTIME_CONFIG_INVALID_PREFIX) as exc_info:
+        validate_enterprise_runtime_config()
+
+    message = str(exc_info.value)
+    assert _PRODUCTION_WRITE_AUTHZ_DISABLED_ISSUE in message
+    assert _PRODUCTION_PRIVILEGED_READ_AUTHZ_DISABLED_ISSUE in message
+    assert _PRODUCTION_RUNTIME_CONFIG_ENFORCEMENT_DISABLED_ISSUE in message
+    assert _MISSING_PRIMARY_KEY_ID_ISSUE in message
+
+
+def test_validate_runtime_config_allows_explicit_local_relaxed_mode(monkeypatch):
+    monkeypatch.setenv(_ENV_ENTERPRISE_RUNTIME_PROFILE, "local")
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_AUTHZ, "false")
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ, "false")
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_RUNTIME_CONFIG, "false")
+    monkeypatch.delenv(_ENV_ENTERPRISE_PRIMARY_KEY_ID, raising=False)
+
+    assert validate_enterprise_runtime_config() == []
+
+
+def test_validate_runtime_config_accepts_production_authz_contract(monkeypatch):
+    monkeypatch.setenv(_ENV_ENTERPRISE_RUNTIME_PROFILE, "production")
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_AUTHZ, "true")
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ, "true")
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_RUNTIME_CONFIG, "true")
+    monkeypatch.setenv(_ENV_ENTERPRISE_PRIMARY_KEY_ID, "kms-key-1")
+
+    assert validate_enterprise_runtime_config() == []
+
+
+def test_production_operator_write_surfaces_require_runtime_manage_capability(monkeypatch):
+    monkeypatch.setenv(_ENV_ENTERPRISE_RUNTIME_PROFILE, "production")
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_AUTHZ, "true")
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ, "true")
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_RUNTIME_CONFIG, "true")
+    monkeypatch.setenv(_ENV_ENTERPRISE_PRIMARY_KEY_ID, "kms-key-1")
+    headers = {
+        "X-Actor-Id": "a1",
+        "X-Tenant-Id": "t1",
+        "X-Role": "operator",
+        "X-Correlation-Id": "c1",
+        "X-Service-Identity": "lotus-performance",
+        "X-Capabilities": "operations.runtime.read",
+    }
+
+    for path in {"/integration/recovery-drills/run", "/integration/runtime-retention-cleanups/run"}:
+        denied, denied_reason = authorize_write_request("POST", path, headers)
+        assert denied is False
+        assert denied_reason == "missing_capability:operations.runtime.manage"
+
+
+def test_production_runtime_read_surface_requires_runtime_read_capability(monkeypatch):
+    monkeypatch.setenv(_ENV_ENTERPRISE_RUNTIME_PROFILE, "production")
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_AUTHZ, "true")
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ, "true")
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_RUNTIME_CONFIG, "true")
+    monkeypatch.setenv(_ENV_ENTERPRISE_PRIMARY_KEY_ID, "kms-key-1")
+    headers = {
+        "X-Actor-Id": "a1",
+        "X-Tenant-Id": "t1",
+        "X-Role": "operator",
+        "X-Correlation-Id": "c1",
+        "X-Service-Identity": "lotus-performance",
+        "X-Capabilities": "operations.runtime.manage",
+    }
+
+    denied, denied_reason = authorize_privileged_read_request("GET", "/integration/runtime-status", headers)
+
+    assert denied is False
+    assert denied_reason == "missing_capability:operations.runtime.read"
 
 
 def test_enterprise_policy_version_trims_configured_value(monkeypatch):

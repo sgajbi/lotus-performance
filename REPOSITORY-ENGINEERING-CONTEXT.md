@@ -203,6 +203,10 @@ Important validation expectations:
 15. `PR Auto Merge` must use `LOTUS_AUTOMERGE_TOKEN` as the merge actor. If that governed token is
     absent, the workflow skips with a warning instead of merging with `GITHUB_TOKEN`, so the merged
     mainline commit can receive normal Main Releasability evidence from an authorized merge actor.
+16. `ENTERPRISE_RUNTIME_PROFILE=production`, `prod`, or `staging` is production-like and fails
+    startup when enterprise write authz, privileged-read authz, runtime-config enforcement, or
+    `ENTERPRISE_PRIMARY_KEY_ID` is missing. Local relaxed mode remains explicit through
+    `ENTERPRISE_RUNTIME_PROFILE=local` or an unset runtime profile with disabled authz switches.
 
 ## Standards And RFCs That Govern This Repository
 

@@ -26,9 +26,10 @@ operational assurance only.
 
 The endpoint has no query parameters or request body.
 
-When `ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ=true`, this privileged read route requires enterprise
-identity headers and capability `operations.runtime.read`. Allowed access is enterprise-audited with
-the governed surface and required capability metadata.
+Production-like profiles (`ENTERPRISE_RUNTIME_PROFILE=production`, `prod`, or `staging`) require
+`ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ=true` at startup. This privileged read route requires
+enterprise identity headers and capability `operations.runtime.read`. Allowed access is
+enterprise-audited with the governed surface and required capability metadata.
 
 ## Output Contract
 

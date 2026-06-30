@@ -33,8 +33,9 @@ Supported query options:
 | `lineage_calculation_type` | omitted | Lineage-only workflow filter, for example `TWR`, `BENCHMARK`, or `Attribution`. |
 | `calculation_id_contains` | omitted | Calculation-handle substring filter applied to selected queues. |
 
-When `ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ=true`, the route requires enterprise identity context
-and capability `operations.runtime.read`.
+Production-like profiles (`ENTERPRISE_RUNTIME_PROFILE=production`, `prod`, or `staging`) require
+`ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ=true` at startup. The route requires enterprise identity
+context and capability `operations.runtime.read`.
 
 ## Output Contract
 

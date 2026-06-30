@@ -51,7 +51,8 @@ Request body:
 ```
 
 The run endpoint requires `X-Actor-Id` or `X-Service-Identity`. It also captures optional
-`X-Tenant-Id` and `X-Correlation-Id`. When enterprise write authorization is enabled, it requires
+`X-Tenant-Id` and `X-Correlation-Id`. Production-like profiles (`ENTERPRISE_RUNTIME_PROFILE=production`,
+`prod`, or `staging`) require `ENTERPRISE_ENFORCE_AUTHZ=true` at startup, and this route requires
 the governed runtime-management capability configured for sensitive operator write surfaces.
 
 ## Output Contract

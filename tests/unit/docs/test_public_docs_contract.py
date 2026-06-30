@@ -1206,7 +1206,9 @@ def test_enterprise_readiness_covers_privileged_operator_reads():
     api_reference = _read("docs/guides/api_reference.md")
     wiki_security = _read("wiki/Security-and-Governance.md")
 
-    assert "Privileged operator read surfaces can be protected" in enterprise
+    assert "Privileged operator read surfaces are protected" in enterprise
+    assert "ENTERPRISE_RUNTIME_PROFILE=production" in enterprise
+    assert "fails closed" in enterprise
     assert "Allowed privileged write operations also emit audit metadata" in enterprise
     assert "Allowed privileged operator reads also emit audit metadata" in enterprise
     assert "ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ" in api_reference
@@ -1218,6 +1220,9 @@ def test_enterprise_readiness_covers_privileged_operator_reads():
     assert "missing or malformed length headers are treated as untrusted" in enterprise
     assert "service-level stream guard retained as the final enforcement boundary" in enterprise
     assert "service-owned streamed body-byte counting" in wiki_security
+    assert "Production-like profiles are explicit" in wiki_security
+    assert "operations.runtime.manage" in wiki_security
+    assert "operations.runtime.read" in wiki_security
 
 
 def test_runtime_alert_templates_cover_exported_breach_gauges():
@@ -1310,6 +1315,11 @@ def test_runtime_threshold_env_examples_match_profile_defaults():
     assert "docs/examples/runtime-thresholds.development.env" in profiles
     assert "docs/examples/runtime-thresholds.staging.env" in profiles
     assert "docs/examples/runtime-thresholds.production.env" in profiles
+    assert "ENTERPRISE_RUNTIME_PROFILE=production" in production
+    assert "ENTERPRISE_ENFORCE_AUTHZ=true" in production
+    assert "ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ=true" in production
+    assert "ENTERPRISE_ENFORCE_RUNTIME_CONFIG=true" in production
+    assert "ENTERPRISE_PRIMARY_KEY_ID=replace-with-production-key-id" in production
     assert "RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS=1800" in development
     assert "RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS=900" in staging
     assert "RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS=600" in production
@@ -1344,6 +1354,11 @@ def test_runtime_threshold_compose_overlays_match_profile_defaults():
     assert "docker-compose.runtime-thresholds.development.yml" in profiles
     assert "docker-compose.runtime-thresholds.staging.yml" in profiles
     assert "docker-compose.runtime-thresholds.production.yml" in profiles
+    assert 'ENTERPRISE_RUNTIME_PROFILE: "production"' in production
+    assert 'ENTERPRISE_ENFORCE_AUTHZ: "true"' in production
+    assert 'ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ: "true"' in production
+    assert 'ENTERPRISE_ENFORCE_RUNTIME_CONFIG: "true"' in production
+    assert 'ENTERPRISE_PRIMARY_KEY_ID: "replace-with-production-key-id"' in production
     assert 'RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS: "1800"' in development
     assert 'RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS: "900"' in staging
     assert 'RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS: "600"' in production

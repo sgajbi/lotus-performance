@@ -59,6 +59,7 @@ from app.enterprise_readiness import (
     _ENV_ENTERPRISE_POLICY_VERSION,
     _ENV_ENTERPRISE_PRIMARY_KEY_ID,
     _ENV_ENTERPRISE_PRIVILEGED_READ_RULES_JSON,
+    _ENV_ENTERPRISE_RUNTIME_PROFILE,
     _ENV_ENTERPRISE_SECRET_ROTATION_DAYS,
     _ENV_SWITCH_DISABLED_DEFAULT,
     _HEADER_CAPABILITY_SEPARATOR,
@@ -76,6 +77,10 @@ from app.enterprise_readiness import (
     _PATH_RUNTIME_RETENTION_CLEANUP_RUN,
     _PATH_RUNTIME_STATUS,
     _PAYLOAD_TOO_LARGE_DETAIL,
+    _PRODUCTION_LIKE_RUNTIME_PROFILES,
+    _PRODUCTION_PRIVILEGED_READ_AUTHZ_DISABLED_ISSUE,
+    _PRODUCTION_RUNTIME_CONFIG_ENFORCEMENT_DISABLED_ISSUE,
+    _PRODUCTION_WRITE_AUTHZ_DISABLED_ISSUE,
     _REDACTED_VALUE,
     _RESPONSE_DETAIL_KEY,
     _RESPONSE_REASON_KEY,
@@ -133,6 +138,8 @@ from app.enterprise_readiness import (
     _payload_too_large_response,
     _primary_key_configured,
     _privileged_read_authz_enabled,
+    _production_like_runtime_profile_enabled,
+    _production_primary_key_config_valid,
     _redacted_mapping,
     _redacted_mapping_value,
     _redacted_sequence,
@@ -141,6 +148,8 @@ from app.enterprise_readiness import (
     _required_capability_from_rules,
     _runtime_config_enforcement_enabled,
     _runtime_config_invalid_message,
+    _runtime_config_issues_should_raise,
+    _runtime_profile,
     _should_redact_field,
     _write_authz_enabled,
     _write_payload_limited_receive,
@@ -222,6 +231,8 @@ def test_env_value_uses_configured_value_or_default(monkeypatch):
 
 def test_enterprise_readiness_reexports_runtime_config_boundary():
     assert _env_value is enterprise_runtime_config._env_value
+    assert _runtime_profile is enterprise_runtime_config._runtime_profile
+    assert _production_like_runtime_profile_enabled is enterprise_runtime_config._production_like_runtime_profile_enabled
     assert validate_enterprise_runtime_config is enterprise_runtime_config.validate_enterprise_runtime_config
 
 
@@ -378,6 +389,22 @@ def test_runtime_config_enforcement_enabled_uses_governed_env_switch(monkeypatch
     monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_RUNTIME_CONFIG, configured)
 
     assert _runtime_config_enforcement_enabled() is expected
+
+
+@pytest.mark.parametrize(
+    ("configured", "expected"),
+    [
+        ("production", True),
+        ("PROD", True),
+        (" staging ", True),
+        ("local", False),
+        ("development", False),
+    ],
+)
+def test_production_like_runtime_profile_normalizes_profile(monkeypatch, configured, expected):
+    monkeypatch.setenv(_ENV_ENTERPRISE_RUNTIME_PROFILE, configured)
+
+    assert _production_like_runtime_profile_enabled() is expected
 
 
 @pytest.mark.parametrize(
@@ -861,6 +888,28 @@ def test_enterprise_runtime_config_issues_reports_policy_rotation_and_key(monkey
     ]
 
 
+def test_enterprise_runtime_config_issues_reports_production_authz_posture(monkeypatch):
+    monkeypatch.setenv(_ENV_ENTERPRISE_RUNTIME_PROFILE, "staging")
+    monkeypatch.delenv(_ENV_ENTERPRISE_ENFORCE_AUTHZ, raising=False)
+    monkeypatch.delenv(_ENV_ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ, raising=False)
+    monkeypatch.delenv(_ENV_ENTERPRISE_ENFORCE_RUNTIME_CONFIG, raising=False)
+    monkeypatch.delenv(_ENV_ENTERPRISE_PRIMARY_KEY_ID, raising=False)
+
+    assert _enterprise_runtime_config_issues() == [
+        _PRODUCTION_WRITE_AUTHZ_DISABLED_ISSUE,
+        _PRODUCTION_PRIVILEGED_READ_AUTHZ_DISABLED_ISSUE,
+        _PRODUCTION_RUNTIME_CONFIG_ENFORCEMENT_DISABLED_ISSUE,
+        _MISSING_PRIMARY_KEY_ID_ISSUE,
+    ]
+
+
+def test_runtime_config_issues_raise_for_production_profile_even_without_runtime_config_flag(monkeypatch):
+    monkeypatch.setenv(_ENV_ENTERPRISE_RUNTIME_PROFILE, "production")
+    monkeypatch.delenv(_ENV_ENTERPRISE_ENFORCE_RUNTIME_CONFIG, raising=False)
+
+    assert _runtime_config_issues_should_raise(["production_write_authz_disabled"])
+
+
 def test_enterprise_runtime_config_issues_uses_default_for_invalid_rotation_days(monkeypatch):
     monkeypatch.setenv(_ENV_ENTERPRISE_SECRET_ROTATION_DAYS, "invalid")
 
@@ -876,6 +925,10 @@ def test_enterprise_runtime_security_predicates_enforce_rotation_and_key_boundar
     monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_AUTHZ, "true")
     monkeypatch.delenv(_ENV_ENTERPRISE_PRIMARY_KEY_ID, raising=False)
     assert not enterprise_runtime_config._write_authz_primary_key_config_valid()
+
+    monkeypatch.setenv(_ENV_ENTERPRISE_RUNTIME_PROFILE, "production")
+    assert not _production_primary_key_config_valid()
+    assert _PRODUCTION_LIKE_RUNTIME_PROFILES == enterprise_runtime_config._PRODUCTION_LIKE_RUNTIME_PROFILES
 
 
 def test_authorize_enterprise_request_preserves_write_denial_precedence(monkeypatch):
