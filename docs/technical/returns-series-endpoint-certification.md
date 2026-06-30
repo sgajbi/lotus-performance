@@ -39,6 +39,7 @@ The endpoint returns simple returns as decimal ratios. For example, `0.0012` mea
 | `calendar_policy=BUSINESS` | Filters daily output to weekdays before coverage diagnostics and alignment. |
 | `calendar_policy=MARKET` | Uses the same weekday approximation as BUSINESS and emits a warning. |
 | `calendar_policy=CALENDAR` | Retains calendar-date daily observations. |
+| duplicate normalized dates | Rejects duplicate effective dates after request/model date normalization across portfolio, benchmark, and risk-free return series. |
 | async accepted response | Long stateful windows return `202` with `poll_path` and endpoint-specific `result_path`. |
 
 ## Figure Tie-Outs

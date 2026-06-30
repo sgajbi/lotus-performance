@@ -856,6 +856,7 @@ def test_returns_series_docs_reflect_benchmark_return_source_contract():
     assert "series.cumulative_active_returns" in active_methodology
     assert "malformed stateful risk-free source rows are skipped resiliently" in risk_free_methodology
     assert "diagnostics.risk_free_source_quality" in certification
+    assert "duplicate effective dates after request/model date normalization" in certification
 
 
 def test_api_examples_recipes_match_current_dual_mode_contract():

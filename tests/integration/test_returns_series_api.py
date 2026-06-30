@@ -216,6 +216,24 @@ def test_returns_series_rejects_duplicate_dates():
     assert response.json()["detail"]["code"] == "INVALID_REQUEST"
 
 
+def test_returns_series_rejects_duplicate_dates_after_request_date_normalization():
+    payload = _stateless_base_payload()
+    payload["window"] = {"mode": "EXPLICIT", "from_date": "2026-02-24", "to_date": "2026-02-24"}
+    payload["stateless_input"]["portfolio_returns"] = [
+        {"date": "2026-02-24", "return_value": "0.0010"},
+        {"date": "2026-02-24T00:00:00Z", "return_value": "0.0020"},
+    ]
+
+    with TestClient(app) as client:
+        response = client.post("/integration/returns/series", json=payload)
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == {
+        "code": "INVALID_REQUEST",
+        "message": "portfolio series contains duplicate dates.",
+    }
+
+
 def test_returns_series_sync_duplicate_submission_conflicts_on_reused_calculation_id():
     calculation_id = str(uuid4())
     payload = {
