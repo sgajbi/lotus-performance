@@ -1028,6 +1028,7 @@ Executor-backed endpoints use one common pattern:
 - reusing the same `calculation_id` with a different payload returns `409 Conflict`
 - synchronous endpoints require a fresh `calculation_id` for each new submission
 - OpenAPI declares the `202 Accepted` accepted-envelope schema for every async-capable submission route and every endpoint-specific result route; result routes also publish governed `404` unknown-calculation and `409` failed-calculation error responses
+- endpoint-specific result routes only serve calculation ids whose durable `analytics_type` matches that endpoint; a cross-endpoint handle returns the endpoint's governed `404` response and logs reason `async_result_analytics_type_mismatch`
 - completed endpoint-specific result routes return `409 Conflict` with detail `Async result payload failed response contract validation.` if durable state contains a JSON payload that cannot satisfy the endpoint response schema; diagnostics use reason `async_result_response_schema_invalid` and omit payload contents
 
 ## Contract guidance

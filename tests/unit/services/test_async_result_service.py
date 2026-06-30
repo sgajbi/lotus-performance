@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from app.services import async_result_service
 from app.services.async_result_service import (
+    ASYNC_RESULT_ANALYTICS_TYPE_MISMATCH_REASON,
     ASYNC_RESULT_RESPONSE_SCHEMA_INVALID_DETAIL,
     ASYNC_RESULT_RESPONSE_SCHEMA_INVALID_REASON,
     _is_active_async_job_status,
@@ -47,12 +48,13 @@ def _job_record(
     calculation_id: UUID,
     *,
     job_status: ComputeJobStatus,
+    analytics_type: str = "ReturnsSeries",
     response_payload: dict[str, Any] | None = None,
     error_message: str | None = None,
 ) -> ComputeJobRecord:
     return ComputeJobRecord(
         calculation_id=calculation_id,
-        analytics_type="ReturnsSeries",
+        analytics_type=analytics_type,
         job_status=job_status,
         request_payload={"calculation_id": str(calculation_id)},
         response_payload=response_payload,
@@ -74,12 +76,13 @@ def _async_result_record(
     calculation_id: UUID,
     *,
     result_status: AsyncResultStatus,
+    analytics_type: str = "ReturnsSeries",
     response_payload: dict[str, Any] | None = None,
     error_message: str | None = None,
 ) -> AsyncResultRecord:
     return AsyncResultRecord(
         calculation_id=calculation_id,
-        analytics_type="ReturnsSeries",
+        analytics_type=analytics_type,
         result_status=result_status,
         response_payload=response_payload,
         error_message=error_message,
@@ -106,6 +109,7 @@ def test_resolve_compute_job_result_raises_not_found_for_missing_job():
         _resolve_compute_job_result(
             calculation_id=uuid4(),
             job=None,
+            expected_analytics_type="ReturnsSeries",
             response_model=_AsyncResponse,
             accepted_response_factory=_accepted_response,
             not_found_detail="not found",
@@ -139,6 +143,7 @@ def test_resolve_compute_job_result_raises_conflict_for_failed_job():
         _resolve_compute_job_result(
             calculation_id=calculation_id,
             job=job,
+            expected_analytics_type="ReturnsSeries",
             response_model=_AsyncResponse,
             accepted_response_factory=_accepted_response,
             not_found_detail="not found",
@@ -160,6 +165,7 @@ def test_resolve_async_result_returns_accepted_for_active_compute_job(monkeypatc
 
     response = resolve_async_result(
         calculation_id=calculation_id,
+        expected_analytics_type="ReturnsSeries",
         response_model=_AsyncResponse,
         accepted_response_factory=_accepted_response,
         not_found_detail="not found",
@@ -189,6 +195,7 @@ def test_resolve_async_result_validates_stored_async_result_payload(monkeypatch)
 
     response = resolve_async_result(
         calculation_id=calculation_id,
+        expected_analytics_type="ReturnsSeries",
         response_model=_AsyncResponse,
         accepted_response_factory=_accepted_response,
         not_found_detail="not found",
@@ -196,6 +203,43 @@ def test_resolve_async_result_validates_stored_async_result_payload(monkeypatch)
     )
 
     assert response == _AsyncResponse(calculation_id=calculation_id, status="complete")
+
+
+def test_resolve_async_result_hides_wrong_type_stored_payload_from_endpoint(monkeypatch, caplog):
+    calculation_id = uuid4()
+    monkeypatch.setattr(
+        async_result_service,
+        "async_result_store",
+        _ResultStore(
+            _async_result_record(
+                calculation_id,
+                analytics_type="BENCHMARK",
+                result_status=AsyncResultStatus.COMPLETE,
+                response_payload={"secret_payload": "not logged"},
+            )
+        ),
+    )
+
+    with caplog.at_level(logging.WARNING, logger="app.services.async_result_service"):
+        with pytest.raises(HTTPException) as exc_info:
+            resolve_async_result(
+                calculation_id=calculation_id,
+                expected_analytics_type="ReturnsSeries",
+                response_model=_AsyncResponse,
+                accepted_response_factory=_accepted_response,
+                not_found_detail="not found",
+                failed_detail="failed",
+            )
+
+    assert exc_info.value.status_code == 404
+    assert exc_info.value.detail == "not found"
+    assert "Async result analytics type did not match endpoint." in caplog.text
+    assert caplog.records[0].calculation_id == str(calculation_id)
+    assert caplog.records[0].source == "async_result_store"
+    assert caplog.records[0].expected_analytics_type == "ReturnsSeries"
+    assert caplog.records[0].actual_analytics_type == "BENCHMARK"
+    assert caplog.records[0].reason == ASYNC_RESULT_ANALYTICS_TYPE_MISMATCH_REASON
+    assert "secret_payload" not in caplog.text
 
 
 def test_resolve_async_result_maps_schema_invalid_stored_payload_to_conflict(monkeypatch, caplog):
@@ -216,6 +260,7 @@ def test_resolve_async_result_maps_schema_invalid_stored_payload_to_conflict(mon
         with pytest.raises(HTTPException) as exc_info:
             resolve_async_result(
                 calculation_id=calculation_id,
+                expected_analytics_type="ReturnsSeries",
                 response_model=_AsyncResponse,
                 accepted_response_factory=_accepted_response,
                 not_found_detail="not found",
@@ -250,6 +295,7 @@ def test_resolve_async_result_raises_conflict_for_failed_stored_async_result(mon
     with pytest.raises(HTTPException) as exc_info:
         resolve_async_result(
             calculation_id=calculation_id,
+            expected_analytics_type="ReturnsSeries",
             response_model=_AsyncResponse,
             accepted_response_factory=_accepted_response,
             not_found_detail="not found",
@@ -277,6 +323,7 @@ def test_resolve_async_result_validates_completed_compute_job_payload(monkeypatc
 
     response = resolve_async_result(
         calculation_id=calculation_id,
+        expected_analytics_type="ReturnsSeries",
         response_model=_AsyncResponse,
         accepted_response_factory=_accepted_response,
         not_found_detail="not found",
@@ -284,6 +331,42 @@ def test_resolve_async_result_validates_completed_compute_job_payload(monkeypatc
     )
 
     assert response == _AsyncResponse(calculation_id=calculation_id, status="complete")
+
+
+def test_resolve_async_result_hides_wrong_type_compute_job_from_endpoint(monkeypatch, caplog):
+    calculation_id = uuid4()
+    monkeypatch.setattr(async_result_service, "async_result_store", _ResultStore())
+    monkeypatch.setattr(
+        async_result_service,
+        "compute_job_store",
+        _JobStore(
+            _job_record(
+                calculation_id,
+                analytics_type="BENCHMARK",
+                job_status=ComputeJobStatus.COMPLETE,
+                response_payload={"secret_payload": "not logged"},
+            )
+        ),
+    )
+
+    with caplog.at_level(logging.WARNING, logger="app.services.async_result_service"):
+        with pytest.raises(HTTPException) as exc_info:
+            resolve_async_result(
+                calculation_id=calculation_id,
+                expected_analytics_type="ReturnsSeries",
+                response_model=_AsyncResponse,
+                accepted_response_factory=_accepted_response,
+                not_found_detail="not found",
+                failed_detail="failed",
+            )
+
+    assert exc_info.value.status_code == 404
+    assert exc_info.value.detail == "not found"
+    assert caplog.records[0].source == "compute_job_store"
+    assert caplog.records[0].expected_analytics_type == "ReturnsSeries"
+    assert caplog.records[0].actual_analytics_type == "BENCHMARK"
+    assert caplog.records[0].reason == ASYNC_RESULT_ANALYTICS_TYPE_MISMATCH_REASON
+    assert "secret_payload" not in caplog.text
 
 
 def test_resolve_async_result_maps_schema_invalid_compute_job_payload_to_conflict(monkeypatch, caplog):
@@ -305,6 +388,7 @@ def test_resolve_async_result_maps_schema_invalid_compute_job_payload_to_conflic
         with pytest.raises(HTTPException) as exc_info:
             resolve_async_result(
                 calculation_id=calculation_id,
+                expected_analytics_type="ReturnsSeries",
                 response_model=_AsyncResponse,
                 accepted_response_factory=_accepted_response,
                 not_found_detail="not found",

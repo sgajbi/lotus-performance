@@ -11,6 +11,7 @@ from app.models.contribution_responses import (
     ContributionResponse,
 )
 from app.services.analytics_numeric import numeric_value
+from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_CONTRIBUTION
 from app.services.async_result_service import resolve_async_result
 from app.services.contribution_calculation_workflow_service import (
     accepted_contribution_response,
@@ -70,6 +71,7 @@ async def calculate_contribution_endpoint(
 async def get_contribution_result(calculation_id: UUID) -> ContributionResponse | JSONResponse:
     return resolve_async_result(
         calculation_id=calculation_id,
+        expected_analytics_type=ANALYTICS_WORKFLOW_CONTRIBUTION,
         response_model=ContributionResponse,
         accepted_response_factory=accepted_contribution_response,
         not_found_detail="Async contribution result not found for the given calculation_id.",

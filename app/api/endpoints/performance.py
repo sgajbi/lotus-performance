@@ -17,6 +17,8 @@ from app.models.twr_requests import TWRAnalyticsRequest, TWRInputMode
 from app.models.workspace_summary_requests import WorkspaceSummaryRequest
 from app.models.workspace_summary_responses import WorkspaceSummaryAcceptedResponse, WorkspaceSummaryResponse
 from app.services.analytics_workflow_types import (
+    ANALYTICS_WORKFLOW_ATTRIBUTION,
+    ANALYTICS_WORKFLOW_TWR,
     ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY,
 )
 from app.services.async_result_service import resolve_async_result
@@ -187,6 +189,7 @@ def calculate_workspace_summary_endpoint(
 async def get_workspace_summary_result(calculation_id: UUID) -> WorkspaceSummaryResponse | JSONResponse:
     return resolve_async_result(
         calculation_id=calculation_id,
+        expected_analytics_type=ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY,
         response_model=WorkspaceSummaryResponse,
         accepted_response_factory=_accepted_workspace_summary_response,
         not_found_detail="Async workspace summary result not found for the given calculation_id.",
@@ -240,6 +243,7 @@ async def calculate_twr_endpoint(request: TWRAnalyticsRequest) -> PerformanceRes
 async def get_twr_result(calculation_id: UUID) -> PerformanceResponse | JSONResponse:
     return resolve_async_result(
         calculation_id=calculation_id,
+        expected_analytics_type=ANALYTICS_WORKFLOW_TWR,
         response_model=PerformanceResponse,
         accepted_response_factory=_accepted_twr_response,
         not_found_detail="Async TWR result not found for the given calculation_id.",
@@ -394,6 +398,7 @@ async def calculate_attribution_endpoint(request: AttributionAnalyticsRequest) -
 async def get_attribution_result(calculation_id: UUID) -> AttributionResponse | JSONResponse:
     return resolve_async_result(
         calculation_id=calculation_id,
+        expected_analytics_type=ANALYTICS_WORKFLOW_ATTRIBUTION,
         response_model=AttributionResponse,
         accepted_response_factory=_accepted_attribution_response,
         not_found_detail="Async attribution result not found for the given calculation_id.",
