@@ -1244,6 +1244,9 @@ def test_runtime_alert_runbook_covers_breach_gauges():
     assert "runtime_retention_worker" in runtime_topology
     assert "returns-series, contribution, attribution, benchmark, TWR" in runtime_topology
     assert "ignored for replay and conflict identity" in runtime_topology
+    assert "success-finalization recovery events" in runtime_topology
+    assert "Late failure writes must not replace" in wiki_operations
+    assert "success_finalization_recovered" in wiki_operations
     assert "failure classification" in wiki_operations
     assert "prunable execution count" in wiki_operations
     assert "workspace-summary, and TWR-inspection async submissions" in wiki_operations

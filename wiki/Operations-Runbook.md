@@ -90,6 +90,14 @@ Expected worker fields:
 - runtime-retention worker: `worker_name=runtime_retention_worker`, `queue=runtime_retention`,
   cleanup mode, cleanup status, trigger mode, operator id, job id, and prunable execution count
 
+For compute executor incidents, distinguish calculation failure from durable success-finalization
+failure. A `success_result_publication_failed` event means the calculation completed but the async
+result write failed, so the job must not be marked complete until a retrievable result exists. A
+`success_finalization_failed` event means the success result was already written but job completion
+failed; stale-job reconciliation should then emit `success_finalization_recovered` and mark the
+compute job complete from the persisted result. Late failure writes must not replace an existing
+successful async result for the same calculation id.
+
 ## Calculation supportability metric
 
 Completed TWR, MWR, contribution, and attribution responses emit a bounded calculation

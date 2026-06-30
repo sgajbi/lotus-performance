@@ -30,6 +30,10 @@ Source of truth for the local topology is [docker-compose.yml](/C:/Users/Sandeep
 - leases work with PostgreSQL row-lock semantics
 - executes heavy returns-series, contribution, and attribution workloads
 - records durable success/failure results and retry state
+- publishes successful async results before marking the compute job complete, so clients never see
+  completed compute-job state without a retrievable result payload
+- recovers stale jobs whose successful async result was already persisted by marking the compute job
+  complete from that result instead of converting the calculation to a failure
 - supports explicit quiescence via a worker stop signal instead of relying on process kill semantics
 
 ### `performance-lineage-worker`
@@ -101,7 +105,8 @@ Worker logs include bounded operational fields instead of raw request or respons
 
 - compute executor logs include `worker_name=compute_executor_worker`, `queue=compute`,
   `calculation_id`, `analytics_type`, retryability, attempt counts, and failure classification for
-  retry, requeue, and terminal-failure events
+  retry, requeue, terminal-failure, success-result publication failure, success-finalization
+  failure, and success-finalization recovery events
 - lineage worker logs include `worker_name=lineage_worker`, `queue=lineage`, `calculation_id`,
   `calculation_type`, `lineage_stage`, and materialization-failure classification
 - runtime-retention worker logs include `worker_name=runtime_retention_worker`,
@@ -185,5 +190,8 @@ operator-action instability without querying the filesystem directly.
 
 - expired compute leases are reconciled durably
 - retryable executor failures are requeued within bounded retry policy
+- a stale compute job with an already persisted successful async result is reconciled to
+  `complete` from that result instead of writing a terminal failure
+- late failure writes do not overwrite an existing successful async result for the same calculation
 - terminal failures are persisted in both execution state and async result state
 - lineage failures remain visible through durable metadata instead of being lost in worker-local logs

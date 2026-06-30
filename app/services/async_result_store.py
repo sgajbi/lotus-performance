@@ -128,6 +128,18 @@ class AsyncResultStore:
         now = datetime.now(timezone.utc)
         with self._session() as session:
             existing = session.get(AsyncResultModel, str(calculation_id))
+            if existing is not None and existing.result_status == AsyncResultStatus.COMPLETE.value:
+                logger.warning(
+                    "Skipped async result failure write because a success result already exists.",
+                    extra={
+                        "calculation_id": str(calculation_id),
+                        "analytics_type": analytics_type,
+                        "existing_analytics_type": existing.analytics_type,
+                        "error_type": error_type,
+                        "failure_classification": "success_result_preserved",
+                    },
+                )
+                return
             created_at = existing.created_at_utc if existing is not None else now
             session.merge(
                 AsyncResultModel(

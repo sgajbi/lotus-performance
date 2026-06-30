@@ -15,30 +15,59 @@ from app.services.async_result_store import (
 def test_async_result_store_records_success_and_failure(tmp_path):
     store = AsyncResultStore(f"sqlite:///{tmp_path / 'async_results.db'}")
     store.create_schema()
-    calculation_id = uuid4()
+    success_calculation_id = uuid4()
+    failure_calculation_id = uuid4()
 
     store.record_success(
-        calculation_id=calculation_id,
+        calculation_id=success_calculation_id,
         analytics_type="ReturnsSeries",
-        response_payload={"calculation_id": str(calculation_id), "status": "ok"},
+        response_payload={"calculation_id": str(success_calculation_id), "status": "ok"},
     )
-    success = store.get_result(calculation_id)
+    success = store.get_result(success_calculation_id)
     assert success is not None
     assert success.result_status == AsyncResultStatus.COMPLETE
-    assert success.response_payload == {"calculation_id": str(calculation_id), "status": "ok"}
+    assert success.response_payload == {"calculation_id": str(success_calculation_id), "status": "ok"}
 
     store.record_failure(
-        calculation_id=calculation_id,
+        calculation_id=failure_calculation_id,
         analytics_type="ReturnsSeries",
         error_message="boom",
         error_type="RuntimeError",
     )
-    failure = store.get_result(calculation_id)
+    failure = store.get_result(failure_calculation_id)
     assert failure is not None
     assert failure.result_status == AsyncResultStatus.FAILED
     assert failure.response_payload is None
     assert failure.error_message == "boom"
     assert failure.error_type == "RuntimeError"
+
+
+def test_async_result_store_preserves_success_when_late_failure_is_recorded(tmp_path, caplog):
+    store = AsyncResultStore(f"sqlite:///{tmp_path / 'async_results.db'}")
+    store.create_schema()
+    calculation_id = uuid4()
+    response_payload = {"calculation_id": str(calculation_id), "status": "ok"}
+    store.record_success(
+        calculation_id=calculation_id,
+        analytics_type="ReturnsSeries",
+        response_payload=response_payload,
+    )
+
+    with caplog.at_level("WARNING", logger="app.services.async_result_store"):
+        store.record_failure(
+            calculation_id=calculation_id,
+            analytics_type="ReturnsSeries",
+            error_message="late finalization failure",
+            error_type="RuntimeError",
+        )
+
+    result = store.get_result(calculation_id)
+    assert result is not None
+    assert result.result_status == AsyncResultStatus.COMPLETE
+    assert result.response_payload == response_payload
+    assert result.error_message is None
+    assert result.error_type is None
+    assert "Skipped async result failure write because a success result already exists." in caplog.text
 
 
 def test_async_result_store_formats_sqlite_timestamps_as_utc(tmp_path):
