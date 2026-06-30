@@ -552,6 +552,56 @@ def test_build_returns_series_response_preserves_context_provenance_and_series_p
     assert response.diagnostics == diagnostics_result.diagnostics
 
 
+def test_normalize_returns_series_execution_frames_applies_request_policy():
+    request = ReturnsSeriesRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "as_of_date": "2026-02-25",
+            "window": {"mode": "EXPLICIT", "from_date": "2026-02-23", "to_date": "2026-02-25"},
+            "frequency": "DAILY",
+            "series_selection": {"include_portfolio": True, "include_benchmark": True, "include_risk_free": True},
+            "data_policy": {"missing_data_policy": "STRICT_INTERSECTION", "fill_method": "ZERO_FILL"},
+            "input_mode": "stateless",
+            "stateless_input": {
+                "portfolio_returns": [{"date": "2026-02-23", "return_value": "0.0100"}],
+                "benchmark_returns": [{"date": "2026-02-23", "return_value": "0.0050"}],
+                "risk_free_returns": [{"date": "2026-02-23", "return_value": "0.0001"}],
+            },
+        }
+    )
+    portfolio_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-23", "2026-02-24", "2026-02-25"]),
+            "return_value": [Decimal("0.0100"), Decimal("0.0200"), Decimal("0.0300")],
+        }
+    )
+    benchmark_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-24", "2026-02-25"]),
+            "return_value": [Decimal("0.0150"), Decimal("0.0300")],
+        }
+    )
+    risk_free_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-23", "2026-02-24"]),
+            "return_value": [Decimal("0.0001"), Decimal("0.0002")],
+        }
+    )
+
+    normalized_frames = returns_series_service._normalize_returns_series_execution_frames(
+        request=request,
+        portfolio_df=portfolio_df,
+        benchmark_df=benchmark_df,
+        risk_free_df=risk_free_df,
+    )
+
+    assert list(normalized_frames.portfolio_df["date"].dt.date) == [date(2026, 2, 24)]
+    assert normalized_frames.benchmark_df is not None
+    assert list(normalized_frames.benchmark_df["date"].dt.date) == [date(2026, 2, 24)]
+    assert normalized_frames.risk_free_df is not None
+    assert list(normalized_frames.risk_free_df["date"].dt.date) == [date(2026, 2, 24)]
+
+
 def test_build_returns_series_execution_result_preserves_policy_response_and_stage_details():
     request = ReturnsSeriesRequest.model_validate(
         {

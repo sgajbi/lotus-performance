@@ -117,6 +117,13 @@ class _ReturnsSeriesExecutionContext:
 
 
 @dataclass(frozen=True)
+class _ReturnsSeriesNormalizedFrames:
+    portfolio_df: pd.DataFrame
+    benchmark_df: pd.DataFrame | None
+    risk_free_df: pd.DataFrame | None
+
+
+@dataclass(frozen=True)
 class _ReturnsSeriesExecutionResult:
     response: ReturnsSeriesResponse
     stage_details: dict[str, int]
@@ -1491,14 +1498,13 @@ async def _resolve_returns_series_execution_context(
     )
 
 
-def _build_returns_series_execution_result(
+def _normalize_returns_series_execution_frames(
     *,
-    context: _ReturnsSeriesExecutionContext,
+    request: ReturnsSeriesRequest,
     portfolio_df: pd.DataFrame,
     benchmark_df: pd.DataFrame | None,
     risk_free_df: pd.DataFrame | None,
-) -> _ReturnsSeriesExecutionResult:
-    request = context.request
+) -> _ReturnsSeriesNormalizedFrames:
     portfolio_df, benchmark_df, risk_free_df = _apply_strict_intersection_policy(
         portfolio_df=portfolio_df,
         benchmark_df=benchmark_df,
@@ -1511,10 +1517,40 @@ def _build_returns_series_execution_result(
         risk_free_df=risk_free_df,
         fill_method=request.data_policy.fill_method,
     )
-    point_outputs = _build_returns_series_point_outputs(
+    return _ReturnsSeriesNormalizedFrames(
         portfolio_df=portfolio_df,
         benchmark_df=benchmark_df,
         risk_free_df=risk_free_df,
+    )
+
+
+def _returns_series_execution_stage_details(
+    diagnostics_result: _ReturnsSeriesDiagnosticsResult,
+) -> dict[str, int]:
+    return {
+        "requested_points": diagnostics_result.requested_points,
+        "returned_points": diagnostics_result.returned_points,
+    }
+
+
+def _build_returns_series_execution_result(
+    *,
+    context: _ReturnsSeriesExecutionContext,
+    portfolio_df: pd.DataFrame,
+    benchmark_df: pd.DataFrame | None,
+    risk_free_df: pd.DataFrame | None,
+) -> _ReturnsSeriesExecutionResult:
+    request = context.request
+    normalized_frames = _normalize_returns_series_execution_frames(
+        request=request,
+        portfolio_df=portfolio_df,
+        benchmark_df=benchmark_df,
+        risk_free_df=risk_free_df,
+    )
+    point_outputs = _build_returns_series_point_outputs(
+        portfolio_df=normalized_frames.portfolio_df,
+        benchmark_df=normalized_frames.benchmark_df,
+        risk_free_df=normalized_frames.risk_free_df,
     )
     resolved_identity = _final_returns_series_identity(
         request=request,
@@ -1524,9 +1560,9 @@ def _build_returns_series_execution_result(
     diagnostics_result = _build_returns_series_diagnostics(
         request=request,
         resolved_window=context.resolved_window,
-        portfolio_df=portfolio_df,
-        benchmark_df=benchmark_df,
-        risk_free_df=risk_free_df,
+        portfolio_df=normalized_frames.portfolio_df,
+        benchmark_df=normalized_frames.benchmark_df,
+        risk_free_df=normalized_frames.risk_free_df,
     )
     response = _build_returns_series_response(
         request=request,
@@ -1541,10 +1577,7 @@ def _build_returns_series_execution_result(
     )
     return _ReturnsSeriesExecutionResult(
         response=response,
-        stage_details={
-            "requested_points": diagnostics_result.requested_points,
-            "returned_points": diagnostics_result.returned_points,
-        },
+        stage_details=_returns_series_execution_stage_details(diagnostics_result),
     )
 
 
