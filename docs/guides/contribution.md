@@ -300,10 +300,12 @@ Use this block to understand what the contribution result was actually sourced f
   tax, realized capital P&L, realized FX P&L, realized total P&L, cashflows, and FX context
 - `unsupported_economics`: component-P&L families that are not source-authored in the current
   contract; observed `PerformanceComponentEconomics:v1` fee, income, and tax families remove the
-  corresponding `fee_pnl`, `income_pnl`, and `tax_pnl` unsupported flags only when every requested
-  Core component-economics chunk is `READY`, while broader price, FX attribution,
-  corporate-action, derivative, cash, and residual P&L buckets remain unsupported unless a precise
-  source contract supplies them
+  corresponding `fee_pnl`, `income_pnl`, and `tax_pnl` unsupported flags only when Core
+  component-economics retrieval has traversed every requested page, every requested chunk is
+  `READY`, and the position context preserves actual Core-authored `source_rows`. Aggregate
+  supportability family names alone are not enough to promote contribution evidence to
+  source-backed. Broader price, FX attribution, corporate-action, derivative, cash, and residual
+  P&L buckets remain unsupported unless a precise source contract supplies them.
 - `degraded_economics`: degraded signals such as unsupported source cash-flow types, missing
   classification, unavailable or partial component-economics enrichment, or execution-only upstream
   snapshot lineage
@@ -311,8 +313,9 @@ Use this block to understand what the contribution result was actually sourced f
 - `source_snapshot_count` and `source_snapshot_endpoints`: execution-registry lineage coverage
 
 Lotus does not guess unavailable income, tax, FX P&L, corporate-action, derivative, loan, cash, or
-liability economics. Core-authored component evidence is consumed when
-`PerformanceComponentEconomics:v1` publishes it, but Lotus still avoids overclaiming broader P&L or
+liability economics. Core-authored component evidence is consumed from
+`PerformanceComponentEconomics:v1` as row-level source evidence with lineage, request fingerprints,
+retrieval metadata, and consumed-page totals, but Lotus still avoids overclaiming broader P&L or
 attribution buckets that the source product does not explicitly support.
 
 ## Source-Document Edge Semantics

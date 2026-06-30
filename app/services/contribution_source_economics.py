@@ -349,6 +349,8 @@ def _observed_performance_component_families(component_contexts: list[dict[str, 
     for context in component_contexts:
         if context.get("supportability_state") != "READY":
             continue
+        if not _has_performance_component_source_rows(context):
+            continue
         observed.update(_source_string_list(context.get("observed_component_families")))
     return observed
 
@@ -360,7 +362,14 @@ def _has_degraded_performance_component_economics(component_contexts: list[dict[
             return True
         if context.get("supportability_state") != "READY":
             return True
+        if not _has_performance_component_source_rows(context):
+            return True
     return False
+
+
+def _has_performance_component_source_rows(context: dict[str, Any]) -> bool:
+    rows = context.get("source_rows")
+    return isinstance(rows, list) and any(isinstance(row, dict) for row in rows)
 
 
 def _source_string_list(value: Any) -> list[str]:

@@ -16,7 +16,7 @@ contribution totals, source-economics quality, or Carino smoothing state.
 | Hierarchy contribution | Optional `hierarchy` groups position contribution by dimensions such as `asset_class`, `sector`, `country`, `currency`, and `position_id`. Missing classification is emitted as `Unclassified`; top-N bucketing can emit `Other`. Hierarchy `weight_avg` uses the same active or reset-aware promoted denominator as position `average_weight`. |
 | Stateful source input | `input_mode="stateful"` sources portfolio and position analytics inputs from `lotus-core` and normalizes them into the same calculation contract used by stateless requests. |
 | Carino smoothing | Default `CARINO` smoothing uses `F_t = k_t / K` and emits period-level `smoothing_evidence` with raw, smoothed, final, linked-return, residual, factor, status, and reason-code fields. |
-| Source economics evidence | Top-level `source_economics_evidence` states whether inputs are caller supplied or lotus-core sourced, which source contracts were used, which economics are available, and which component-P&L families remain unsupported or degraded. Stateful contribution includes `PerformanceComponentEconomics:v1` when Core component-economics evidence was retrieved. |
+| Source economics evidence | Top-level `source_economics_evidence` states whether inputs are caller supplied or lotus-core sourced, which source contracts were used, which economics are available, and which component-P&L families remain unsupported or degraded. Stateful contribution includes `PerformanceComponentEconomics:v1` when Core component-economics evidence was retrieved and preserves row-level source evidence before promoting component economics. |
 | Async and lineage | Contribution can return `202 Accepted`, exposes execution status, supports result polling, and emits lineage artifacts for reproducibility and support. |
 | Downstream realization | Gateway preserves source-owned contribution return, smoothing evidence, and source-economics evidence. Workbench renders exact source-economics and smoothing statuses in Performance Drivers. |
 
@@ -70,7 +70,7 @@ sequenceDiagram
 
 | Integration | Direction | Contract posture |
 | --- | --- | --- |
-| `lotus-core` | upstream source | Provides portfolio and position timeseries as required inputs, including `source_position_key` grain when account, custody, book, sleeve, strategy, mandate, or tax-lot discriminators are present, plus optional `PerformanceComponentEconomics:v1` evidence for source-authored cashflow, fee, income, tax, realized P&L, and FX-context component-family coverage. |
+| `lotus-core` | upstream source | Provides portfolio and position timeseries as required inputs, including `source_position_key` grain when account, custody, book, sleeve, strategy, mandate, or tax-lot discriminators are present, plus optional `PerformanceComponentEconomics:v1` row-level evidence for source-authored cashflow, fee, income, tax, realized P&L, and FX-context component-family coverage. |
 | `lotus-performance` | producer | Owns contribution calculation, smoothing evidence, source economics evidence, lineage, supportability, and data-product truth. |
 | `lotus-gateway` | downstream experience API | Preserves source-owned contribution totals and evidence without recomputing or overwriting them. |
 | `lotus-workbench` | downstream product surface | Displays contribution ranking and evidence statuses in Performance Drivers and participates in canonical live validation. |
@@ -104,6 +104,12 @@ The correct sales message is not "all possible component economics are available
 message is that Lotus uses Core-authored component-economics evidence where available, keeps
 contribution methodology in `lotus-performance`, and makes remaining source limitations visible,
 which is the safer enterprise behavior for private-banking support and client conversations.
+
+Source-backed component-economics claims require more than aggregate coverage flags. Performance
+retrieves all Core component-economics pages for the requested date chunks, preserves source rows,
+lineage, request fingerprints, retrieval metadata, and consumed-page totals, and only uses observed
+component families to clear unsupported contribution economics when the relevant position context
+contains actual Core-authored `source_rows`.
 
 ## Edge-Case Semantics
 
@@ -149,7 +155,8 @@ Evidence expectations:
 - source contract evidence retained;
 - bounded source-economics status and reason codes;
 - observed Core component-economics families represented as available source evidence only when
-  every requested component-economics chunk is `READY`;
+  every requested component-economics chunk is `READY` and the position context contains actual
+  Core-authored `source_rows`;
 - unsupported component-P&L families represented explicitly instead of inferred downstream;
 - Gateway and Workbench preserve producer-owned evidence.
 
