@@ -140,6 +140,10 @@ Use these commands as the primary local contract:
    `make repository-hygiene-gate`
 12. report-only branch coverage baseline
    `make branch-coverage-baseline`
+13. CI coverage shard target
+   `make test-coverage-shard SUITE=<unit|integration|e2e> TEST_PATH=<tests/path>`
+14. CI coverage artifact combine gate
+   `make coverage-combine-gate COVERAGE_INPUTS=<coverage-paths> COVERAGE_FAIL_UNDER=99`
 
 ## Validation And CI Expectations
 
@@ -193,6 +197,9 @@ Important validation expectations:
     `output/branch-coverage/`, and refreshes `quality/coverage_inventory.md`. The current baseline
     is measured but not enforced; branch-coverage threshold, exception policy, and CI lane placement
     require separate governance before promotion.
+14. PR Merge Gate and Main Releasability route matrix test coverage through
+    `make test-coverage-shard` and combined coverage enforcement through `make coverage-combine-gate`
+    so workflow YAML does not become a second source of truth for pytest or coverage behavior.
 
 ## Standards And RFCs That Govern This Repository
 

@@ -58,3 +58,21 @@ def test_lint_gate_enforces_github_action_runtime_guard() -> None:
     lint_target = _makefile_target_definition("lint")
 
     assert "$(MAKE) github-action-runtime-guard" in lint_target
+
+
+def test_test_and_coverage_workflows_use_repo_native_make_targets() -> None:
+    feature_lane = _workflow_text("feature-lane.yml")
+    pr_merge_gate = _workflow_text("pr-merge-gate.yml")
+    main_releasability = _workflow_text("main-releasability.yml")
+
+    assert "run: make test-unit" in feature_lane
+    for workflow in (pr_merge_gate, main_releasability):
+        assert "run: make test-coverage-shard SUITE=${{ matrix.suite }} TEST_PATH=${{ matrix.path }}" in workflow
+        assert (
+            "run: make coverage-combine-gate COVERAGE_INPUTS=coverage-data "
+            "COVERAGE_FAIL_UNDER=${{ env.COVERAGE_FAIL_UNDER }}"
+        ) in workflow
+
+    governed_workflow_text = "\n".join([feature_lane, pr_merge_gate, main_releasability])
+    assert "run: python -m pytest" not in governed_workflow_text
+    assert "run: python -m coverage" not in governed_workflow_text
