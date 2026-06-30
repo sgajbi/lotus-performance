@@ -7,7 +7,6 @@ from decimal import Decimal
 from typing import Any, cast
 
 import pandas as pd
-from fastapi import HTTPException
 
 from adapters.api_adapter import create_engine_config, create_engine_dataframe
 from app.models.benchmark_analytics_requests import BenchmarkInputMode, BenchmarkReturnSource
@@ -45,6 +44,7 @@ from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
 from app.services.performance_diagnostics_projection import build_performance_diagnostics, build_reset_events
 from common.enums import Frequency
 from core.envelope import Audit, Diagnostics, Meta
+from core.errors import APIBadRequestError
 from core.periods import ResolvedPeriod, resolve_periods
 from engine.breakdown import generate_performance_breakdowns
 from engine.compute import run_calculations
@@ -825,7 +825,7 @@ def _resolve_twr_execution_period_scope(performance_request: PerformanceRequest)
         explicit_start_date=performance_request.report_start_date,
     )
     if not resolved_periods:
-        raise HTTPException(status_code=400, detail="No valid periods could be resolved.")
+        raise APIBadRequestError("No valid periods could be resolved.")
 
     master_start_date, master_end_date = _twr_execution_master_window(resolved_periods)
     return _TWRExecutionPeriodScope(
