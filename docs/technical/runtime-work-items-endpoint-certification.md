@@ -71,6 +71,11 @@ Certified behavior:
 - direct `execution_path`, `lineage_path`, and supported async `result_path` links are emitted
 - one queue can degrade to `unavailable` while the other queue remains usable
 - durable metadata store failure returns unavailable queue statuses rather than misleading empty data
+- partial compute read failure reports `reason="compute_work_item_read_failed"`
+- partial lineage read failure reports `reason="lineage_work_item_read_failed"`
+- partial read failures emit structured warning log event `runtime_operator_read_degraded` with
+  queue source, operation `work_item`, exception class, bounded filters, and calculation-handle
+  filter presence instead of raw calculation handles
 
 ## Upstream Integration
 
@@ -100,6 +105,17 @@ Open issue searches were run for `runtime-work-items`, `runtime work items`, and
 No downstream migration issue was created for this slice because there is no duplicate endpoint and
 no stale downstream caller was found during local source search. Gateway issue `#110` remains
 focused on execution and lineage evidence exposure, not this runtime-work-items contract.
+
+## Operator Partial-Failure Triage
+
+When `compute_queue.status` or `lineage_queue.status` is `unavailable`, use the stable queue-state
+`reason` first. `compute_work_item_read_failed` means compute work-item inspection could not read
+the compute durable queue; `lineage_work_item_read_failed` means lineage work-item inspection could
+not read lineage metadata. The endpoint intentionally keeps the other queue available when it can.
+Join the response `correlation_id` from the HTTP envelope/log context with structured service log
+event `runtime_operator_read_degraded`; the log includes queue source, operation, exception class,
+limit, offset, status filter, age filter, workflow-type filters, and whether a calculation-handle
+substring filter was present. The log does not emit the raw calculation-handle substring.
 
 ## Swagger Readiness
 

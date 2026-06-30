@@ -39,6 +39,17 @@ Do not treat a missing breach sample as healthy if the corresponding availabilit
 5. If recovery-drill policy is degraded, inspect `GET /integration/recovery-drills` and compare the latest retained drill against the configured age policy.
 6. If runtime-retention policy is degraded, inspect `GET /integration/runtime-retention-cleanups` and compare the latest retained cleanup against the configured age policy and apply-mode expectation.
 
+Partial operator-read handling:
+
+- If `runtime-work-items` or `runtime-recoveries` returns a failed compute queue but a healthy
+  lineage queue, use `compute_work_item_read_failed` or `compute_recovery_read_failed` as the
+  stable triage code and inspect the `runtime_operator_read_degraded` log event.
+- If the failed queue is lineage, use `lineage_work_item_read_failed` or
+  `lineage_recovery_read_failed` and inspect the same log event.
+- The log event carries source, operation, exception class, and safe filter context. It must not
+  carry raw calculation-id fragments, cursor calculation ids, request payloads, or response
+  payloads.
+
 Readiness timeout handling:
 
 - `durable_metadata_schema_discovery_failed` means the database ping succeeded but required-table discovery failed; inspect catalog permissions, schema visibility, database metadata responsiveness, and migration state.

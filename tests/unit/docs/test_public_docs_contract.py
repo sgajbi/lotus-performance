@@ -177,6 +177,10 @@ def test_runtime_work_items_docs_reflect_certified_operator_contract():
     assert "Downstream Consumers" in certification
     assert "Test Pyramid Assessment" in certification
     assert "No duplicate lotus-performance work-item endpoint" in certification
+    assert "compute_work_item_read_failed" in certification
+    assert "lineage_work_item_read_failed" in certification
+    assert "runtime_operator_read_degraded" in certification
+    assert "compute_work_item_read_failed" in api_reference
 
 
 def test_runtime_recoveries_docs_reflect_certified_operator_contract():
@@ -197,6 +201,10 @@ def test_runtime_recoveries_docs_reflect_certified_operator_contract():
     assert "Downstream Consumers" in certification
     assert "Test Pyramid Assessment" in certification
     assert "No duplicate lotus-performance recovery-event endpoint" in certification
+    assert "compute_recovery_read_failed" in certification
+    assert "lineage_recovery_read_failed" in certification
+    assert "runtime_operator_read_degraded" in certification
+    assert "compute_recovery_read_failed" in api_reference
 
 
 def test_recovery_drills_docs_reflect_certified_operator_contract():

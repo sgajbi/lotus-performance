@@ -119,7 +119,10 @@ class RuntimeWorkItemQueueStatusResponse(BaseModel):
     status: str = Field(description="Availability of the queue-specific work-item inspection surface.")
     reason: str | None = Field(
         default=None,
-        description="Concrete queue-specific unavailability reason when work-item inspection failed.",
+        description=(
+            "Stable queue-specific unavailability reason when work-item inspection failed, such as "
+            "compute_work_item_read_failed or lineage_work_item_read_failed."
+        ),
     )
     total_count: int = Field(description="Total durable work items that match the requested filters for this queue.")
     returned_count: int = Field(

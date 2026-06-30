@@ -102,7 +102,10 @@ class RuntimeRecoveriesQueueStatusResponse(BaseModel):
     status: str = Field(description="Availability of the queue-specific runtime recovery inspection surface.")
     reason: str | None = Field(
         default=None,
-        description="Concrete queue-specific unavailability reason when recovery inspection failed.",
+        description=(
+            "Stable queue-specific unavailability reason when recovery inspection failed, such as "
+            "compute_recovery_read_failed or lineage_recovery_read_failed."
+        ),
     )
     total_count: int = Field(
         description="Total durable recovery events that match the requested filters for this queue."

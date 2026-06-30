@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 
 from app.services.compute_job_store import compute_job_store
 from app.services.lineage_metadata_store import lineage_metadata_store
+from app.services.runtime_operator_diagnostics import COMPUTE_RECOVERY_READ_FAILED
 from main import app
 
 
@@ -56,8 +57,8 @@ def test_runtime_recoveries_returns_filtered_events():
         assert body["queue_filter"] == "both"
         assert body["compute_queue"]["total_count"] == 1
         assert body["lineage_queue"]["total_count"] == 1
-        assert "next_offset" not in body["compute_queue"]
-        assert "next_offset" not in body["lineage_queue"]
+        assert body["compute_queue"]["next_offset"] is None
+        assert body["lineage_queue"]["next_offset"] is None
         assert body["recovered_after"] is not None
         assert body["recovered_before"] is not None
         assert body["compute_recoveries"][0]["calculation_id"] == str(compute_id)
@@ -193,7 +194,7 @@ def test_runtime_recoveries_rejects_blank_string_filters():
         )
 
     assert response.status_code == 422
-    fields = {item["loc"][-1] for item in response.json()["detail"]}
+    fields = {item["loc"][-1] for item in response.json()["validation_errors"]}
     assert {"lineage_calculation_type", "cursor_calculation_id_before"} <= fields
 
 
@@ -264,3 +265,51 @@ def test_runtime_recoveries_supports_seek_cursor_pagination():
     finally:
         compute_job_store.clear_all_records()
         lineage_metadata_store.clear_all_records()
+
+
+def test_runtime_recoveries_reports_partial_queue_unavailability(mocker):
+    mocker.patch(
+        "app.services.runtime_recovery_service.compute_job_store.list_recent_recoveries",
+        side_effect=RuntimeError("compute unavailable"),
+    )
+    mocker.patch(
+        "app.services.runtime_recovery_service.lineage_metadata_store.list_recent_recoveries",
+        return_value=type(
+            "LineagePage",
+            (),
+            {
+                "total_count": 0,
+                "next_offset": None,
+                "next_cursor_recovered_before": None,
+                "next_cursor_calculation_id_before": None,
+                "items": [],
+            },
+        )(),
+    )
+
+    with TestClient(app) as client:
+        response = client.get("/integration/runtime-recoveries", params={"queue": "both", "limit": 5})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["durable_metadata_store"]["status"] == "ready"
+    assert body["compute_queue"] == {
+        "status": "unavailable",
+        "reason": COMPUTE_RECOVERY_READ_FAILED,
+        "total_count": 0,
+        "returned_count": 0,
+        "next_offset": None,
+        "next_cursor_recovered_before": None,
+        "next_cursor_calculation_id_before": None,
+    }
+    assert body["lineage_queue"] == {
+        "status": "available",
+        "reason": None,
+        "total_count": 0,
+        "returned_count": 0,
+        "next_offset": None,
+        "next_cursor_recovered_before": None,
+        "next_cursor_calculation_id_before": None,
+    }
+    assert body["compute_recoveries"] == []
+    assert body["lineage_recoveries"] == []

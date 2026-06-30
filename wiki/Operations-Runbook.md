@@ -111,6 +111,15 @@ lineage records plus payload calculation and lease-expiry indexes, so support dr
 bounded as lineage history grows. Active and all-item views may sort on a derived active-since
 expression; failed and reclaimable views should stay index-backed without avoidable sort work.
 
+Runtime work-item and recovery drill-downs degrade per queue source. If a compute read fails while
+lineage remains readable, or lineage fails while compute remains readable, the endpoint still
+returns the healthy queue and marks only the failed queue `unavailable`. Stable queue-state reasons
+are `compute_work_item_read_failed`, `lineage_work_item_read_failed`,
+`compute_recovery_read_failed`, and `lineage_recovery_read_failed`. Join those responses to the
+structured `runtime_operator_read_degraded` log event to inspect source, operation, exception class,
+and safe filter context. The log intentionally records filter presence and bounded type filters,
+not raw calculation-id fragments or cursor identifiers.
+
 Stateful lotus-core fan-out uses the shared upstream resilience layer and a lifecycle-managed
 `httpx.AsyncClient` pool under the FastAPI lifespan. Tune `STATEFUL_INPUT_MAX_CONCURRENT_CHUNKS`
 together with `UPSTREAM_HTTP_MAX_CONNECTIONS`, `UPSTREAM_HTTP_MAX_KEEPALIVE_CONNECTIONS`, and

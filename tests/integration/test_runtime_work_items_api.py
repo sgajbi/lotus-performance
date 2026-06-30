@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 
 from app.services.compute_job_store import ComputeJobStatus, compute_job_store
 from app.services.lineage_metadata_store import LineagePayloadModel, LineageRecordModel, lineage_metadata_store
+from app.services.runtime_operator_diagnostics import COMPUTE_WORK_ITEM_READ_FAILED
 from main import app
 
 
@@ -66,9 +67,9 @@ def test_runtime_work_items_reports_active_compute_and_lineage_items():
         assert body["limit"] == 10
         assert body["offset"] == 0
         assert body["min_age_seconds"] == 0.0
-        assert "compute_analytics_type" not in body
-        assert "lineage_calculation_type" not in body
-        assert "calculation_id_contains" not in body
+        assert body["compute_analytics_type"] is None
+        assert body["lineage_calculation_type"] is None
+        assert body["calculation_id_contains"] is None
         assert body["durable_metadata_store"]["status"] == "ready"
         assert body["compute_queue"]["status"] == "available"
         assert body["compute_queue"]["total_count"] == 2
@@ -261,11 +262,18 @@ def test_runtime_work_items_reports_partial_queue_unavailability(mocker):
     assert body["durable_metadata_store"]["status"] == "ready"
     assert body["compute_queue"] == {
         "status": "unavailable",
-        "reason": "RuntimeError",
+        "reason": COMPUTE_WORK_ITEM_READ_FAILED,
         "total_count": 0,
         "returned_count": 0,
+        "next_offset": None,
     }
-    assert body["lineage_queue"] == {"status": "available", "total_count": 0, "returned_count": 0}
+    assert body["lineage_queue"] == {
+        "status": "available",
+        "reason": None,
+        "total_count": 0,
+        "returned_count": 0,
+        "next_offset": None,
+    }
     assert body["compute_items"] == []
     assert body["lineage_items"] == []
 
@@ -303,9 +311,15 @@ def test_runtime_work_items_supports_queue_offset_and_age_filters():
         assert body["min_age_seconds"] == 120.0
         assert body["compute_queue"]["total_count"] == 2
         assert body["compute_queue"]["returned_count"] == 1
-        assert "next_offset" not in body["compute_queue"]
+        assert body["compute_queue"]["next_offset"] is None
         assert [item["calculation_id"] for item in body["compute_items"]] == [str(compute_ids[1])]
-        assert body["lineage_queue"] == {"status": "excluded", "total_count": 0, "returned_count": 0}
+        assert body["lineage_queue"] == {
+            "status": "excluded",
+            "reason": None,
+            "total_count": 0,
+            "returned_count": 0,
+            "next_offset": None,
+        }
         assert body["lineage_items"] == []
     finally:
         compute_job_store.clear_all_records()
@@ -386,7 +400,7 @@ def test_runtime_work_items_rejects_blank_string_filters():
         )
 
     assert response.status_code == 422
-    fields = {item["loc"][-1] for item in response.json()["detail"]}
+    fields = {item["loc"][-1] for item in response.json()["validation_errors"]}
     assert {"compute_analytics_type", "calculation_id_contains"} <= fields
 
 
@@ -451,8 +465,8 @@ def test_runtime_work_items_supports_reclaimable_filter():
         assert body["compute_queue"]["returned_count"] == 1
         assert body["lineage_queue"]["total_count"] == 1
         assert body["lineage_queue"]["returned_count"] == 1
-        assert "next_offset" not in body["compute_queue"]
-        assert "next_offset" not in body["lineage_queue"]
+        assert body["compute_queue"]["next_offset"] is None
+        assert body["lineage_queue"]["next_offset"] is None
         assert [item["calculation_id"] for item in body["compute_items"]] == [str(compute_reclaimable_id)]
         assert [item["calculation_id"] for item in body["lineage_items"]] == [str(lineage_reclaimable_id)]
         assert body["compute_items"][0]["status"] == "running"
@@ -490,7 +504,13 @@ def test_runtime_work_items_returns_next_offset_for_additional_matching_items():
         assert body["compute_queue"]["total_count"] == 3
         assert body["compute_queue"]["returned_count"] == 1
         assert body["compute_queue"]["next_offset"] == 1
-        assert body["lineage_queue"] == {"status": "excluded", "total_count": 0, "returned_count": 0}
+        assert body["lineage_queue"] == {
+            "status": "excluded",
+            "reason": None,
+            "total_count": 0,
+            "returned_count": 0,
+            "next_offset": None,
+        }
     finally:
         compute_job_store.clear_all_records()
         lineage_metadata_store.clear_all_records()
