@@ -243,6 +243,7 @@ def test_workspace_summary_stateful_linked_benchmark_resolves_assignment_once(mo
     mocker.patch("app.services.workspace_summary_service.execution_registry.start_stage")
     mocker.patch("app.services.workspace_summary_service.execution_registry.complete_stage")
     mocker.patch("app.services.workspace_summary_service.complete_execution_with_lineage")
+
     async def _resolve_portfolio_input(**_kwargs):
         return SimpleNamespace(
             input_mode="stateful",

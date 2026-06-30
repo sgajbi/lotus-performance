@@ -150,7 +150,13 @@ async def calculate_workspace_summary_async(
     active_settings = settings or get_settings()
     input_fingerprint, calculation_hash = generate_canonical_hash(request, active_settings.APP_VERSION)
     execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_EXECUTION)
-    resolved_periods, portfolio_input, benchmark_input, net_artifacts, gross_artifacts = await _resolve_workspace_inputs_async(
+    (
+        resolved_periods,
+        portfolio_input,
+        benchmark_input,
+        net_artifacts,
+        gross_artifacts,
+    ) = await _resolve_workspace_inputs_async(
         request=request,
         settings=active_settings,
     )

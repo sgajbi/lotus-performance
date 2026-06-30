@@ -2,6 +2,7 @@ import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
+from decimal import Decimal, InvalidOperation
 from email.utils import parsedate_to_datetime
 from typing import Any
 
@@ -116,27 +117,29 @@ def _exponential_backoff_seconds(*, backoff_seconds: float, attempt: int) -> flo
     return backoff_seconds * (2**attempt)
 
 
-def _safe_retry_after_seconds(raw_value: str | None) -> float | None:
-    if raw_value is None:
+def _safe_retry_after_seconds(raw_header: str | None) -> float | None:
+    if raw_header is None:
         return None
-    parsed_seconds = _retry_after_delta_seconds(raw_value.strip())
+    parsed_seconds = _retry_after_delta_seconds(raw_header.strip())
     if parsed_seconds is None or parsed_seconds < 0 or parsed_seconds > _MAX_RETRY_AFTER_SECONDS:
         return None
     return parsed_seconds
 
 
-def _retry_after_delta_seconds(raw_value: str) -> float | None:
-    if not raw_value:
+def _retry_after_delta_seconds(raw_header: str) -> float | None:
+    if not raw_header:
         return None
     try:
-        return float(raw_value)
-    except ValueError:
-        return _retry_after_http_date_seconds(raw_value)
+        parsed_seconds = Decimal(raw_header)
+    except InvalidOperation:
+        return _retry_after_http_date_seconds(raw_header)
+    parsed_delay = float(parsed_seconds)
+    return parsed_delay
 
 
-def _retry_after_http_date_seconds(raw_value: str) -> float | None:
+def _retry_after_http_date_seconds(raw_header: str) -> float | None:
     try:
-        retry_at = parsedate_to_datetime(raw_value)
+        retry_at = parsedate_to_datetime(raw_header)
     except (TypeError, ValueError):
         return None
     if retry_at.tzinfo is None:

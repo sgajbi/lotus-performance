@@ -6,7 +6,7 @@ import os
 import shutil
 import tempfile
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 from app.core.config import get_settings
 from app.services.execution_registry import get_execution_registry
@@ -100,7 +100,8 @@ def _durable_readiness_timeout_seconds(timeout_seconds: float | None = None) -> 
     )
     if configured_timeout <= 0:
         return DEFAULT_DURABLE_READINESS_TIMEOUT_SECONDS
-    return float(configured_timeout)
+    configured_timeout_float = cast(float, configured_timeout)
+    return configured_timeout_float
 
 
 def check_durable_metadata_schema_ready() -> DurabilityHealthStatus:

@@ -14,8 +14,7 @@ _RuntimeRetentionLimitQuery: TypeAlias = Annotated[
         ge=1,
         le=100,
         description=(
-            "Maximum number of retained runtime-retention cleanup entries to return. "
-            "Defaults to 10 when omitted."
+            "Maximum number of retained runtime-retention cleanup entries to return. Defaults to 10 when omitted."
         ),
     ),
 ]

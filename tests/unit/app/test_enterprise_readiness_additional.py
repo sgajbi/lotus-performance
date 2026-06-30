@@ -232,7 +232,9 @@ def test_env_value_uses_configured_value_or_default(monkeypatch):
 def test_enterprise_readiness_reexports_runtime_config_boundary():
     assert _env_value is enterprise_runtime_config._env_value
     assert _runtime_profile is enterprise_runtime_config._runtime_profile
-    assert _production_like_runtime_profile_enabled is enterprise_runtime_config._production_like_runtime_profile_enabled
+    assert (
+        _production_like_runtime_profile_enabled is enterprise_runtime_config._production_like_runtime_profile_enabled
+    )
     assert validate_enterprise_runtime_config is enterprise_runtime_config.validate_enterprise_runtime_config
 
 
