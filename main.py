@@ -37,6 +37,7 @@ from app.core.handlers import (
     request_validation_exception_handler,
 )
 from app.enterprise_readiness import build_enterprise_audit_middleware, validate_enterprise_runtime_config
+from app.http_security import configure_http_security
 from app.models.platform_surfaces import RootResponse
 from app.observability import setup_observability
 from app.openapi_enrichment import enrich_openapi_schema
@@ -152,6 +153,7 @@ def custom_openapi() -> dict[str, Any]:
 app.openapi = custom_openapi
 
 setup_observability(app, log_level=settings.LOG_LEVEL)
+configure_http_security(app, settings=settings)
 validate_enterprise_runtime_config()
 app.middleware("http")(build_enterprise_audit_middleware())
 

@@ -13,6 +13,12 @@ class Settings(BaseSettings):
     APP_DESCRIPTION: str = "API for calculating portfolio performance metrics."
     LOG_LEVEL: str = "INFO"
     decimal_precision: int = 28
+    HTTP_ALLOWED_HOSTS: str = "testserver,localhost,127.0.0.1,*.dev.lotus"
+    CORS_ALLOWED_ORIGINS: str = (
+        "http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173"
+    )
+    HTTP_SECURITY_HSTS_ENABLED: bool = False
+    HTTP_SECURITY_HSTS_MAX_AGE_SECONDS: int = 31536000
     LINEAGE_STORAGE_PATH: Path = Path("lineage_data")
     LINEAGE_STORAGE_HEALTHCHECK_WRITE_PROBE_ENABLED: bool = True
     DURABLE_READINESS_TIMEOUT_SECONDS: float = 2.0

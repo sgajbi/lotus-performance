@@ -6,6 +6,17 @@
 
 ## Security and IAM Baseline
 
+- HTTP boundary hardening is registered centrally through `app.http_security`.
+- Host allow-listing is governed by `HTTP_ALLOWED_HOSTS`; defaults are scoped to local test and
+  Lotus development hosts.
+- CORS is explicit through `CORS_ALLOWED_ORIGINS`; the service does not use wildcard browser
+  origins by default.
+- Standard security headers are emitted on success and error responses:
+  `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, and
+  `Content-Security-Policy`.
+- HSTS is configurable with `HTTP_SECURITY_HSTS_ENABLED` and
+  `HTTP_SECURITY_HSTS_MAX_AGE_SECONDS`; leave it disabled when TLS is terminated at upstream
+  ingress, and enable it when this service owns the HTTPS boundary.
 - Audit middleware logs privileged write operations with actor/tenant/role context.
 - Allowed privileged write operations also emit audit metadata describing the governed surface and required capability when a governed write rule applies.
 - `ENTERPRISE_RUNTIME_PROFILE=production`, `prod`, or `staging` is production-like and fails closed
@@ -32,9 +43,11 @@
 - Sensitive attributes are redacted before audit emission.
 
 Evidence:
+- `app/http_security.py`
 - `app/enterprise_readiness.py`
 - `app/enterprise_runtime_config.py`
 - `main.py`
+- `tests/integration/test_http_security_api.py`
 - `tests/unit/app/test_enterprise_readiness.py`
 
 ## API Governance Baseline
@@ -89,4 +102,3 @@ Evidence:
 ## Deviations
 
 - Any deviation requires ADR with rationale and expiry review date.
-
