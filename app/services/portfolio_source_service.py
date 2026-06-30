@@ -9,6 +9,8 @@ from app.core.config import Settings
 from app.services.core_integration_service import CoreIntegrationService
 from app.services.stateful_input_service import StatefulInputService
 
+_DEFAULT_STATEFUL_INPUT_MAX_PAGES_PER_CHUNK = 25
+
 
 @dataclass(frozen=True)
 class StatefulPortfolioTimeseries:
@@ -30,7 +32,9 @@ def build_stateful_input_service(*, settings: Settings) -> StatefulInputService:
         portfolio_chunk_days=settings.STATEFUL_INPUT_PORTFOLIO_CHUNK_DAYS,
         reference_chunk_days=settings.STATEFUL_INPUT_REFERENCE_CHUNK_DAYS,
         max_concurrent_chunks=settings.STATEFUL_INPUT_MAX_CONCURRENT_CHUNKS,
-        max_pages_per_chunk=settings.STATEFUL_INPUT_MAX_PAGES_PER_CHUNK,
+        max_pages_per_chunk=int(
+            getattr(settings, "STATEFUL_INPUT_MAX_PAGES_PER_CHUNK", _DEFAULT_STATEFUL_INPUT_MAX_PAGES_PER_CHUNK)
+        ),
     )
 
 

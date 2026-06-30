@@ -331,7 +331,8 @@ def _resolve_compute_job_calculators(
 
 def _execute_compute_job(job: ComputeJobRecord, context: _ComputeJobExecutionContext) -> Any:
     executor = _compute_job_executor_for(job.analytics_type)
-    with _restored_async_observability_context(job.request_payload):
+    request_payload = getattr(job, "request_payload", {})
+    with _restored_async_observability_context(request_payload):
         return executor(job, context)
 
 

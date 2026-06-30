@@ -2418,7 +2418,15 @@ async def test_calculate_returns_series_uses_runtime_stateful_settings(monkeypat
     captured: dict[str, object] = {}
 
     class _FakeStatefulInputService:
-        def __init__(self, *, core_service, portfolio_chunk_days, reference_chunk_days, max_concurrent_chunks):
+        def __init__(
+            self,
+            *,
+            core_service,
+            portfolio_chunk_days,
+            reference_chunk_days,
+            max_concurrent_chunks,
+            max_pages_per_chunk,
+        ):
             captured["core_init"] = {
                 "base_url": getattr(core_service, "_base_url"),
                 "timeout_seconds": getattr(core_service, "_timeout"),
@@ -2429,6 +2437,7 @@ async def test_calculate_returns_series_uses_runtime_stateful_settings(monkeypat
                 "portfolio_chunk_days": portfolio_chunk_days,
                 "reference_chunk_days": reference_chunk_days,
                 "max_concurrent_chunks": max_concurrent_chunks,
+                "max_pages_per_chunk": max_pages_per_chunk,
             }
 
         async def get_portfolio_timeseries(self, **kwargs):
@@ -2455,6 +2464,7 @@ async def test_calculate_returns_series_uses_runtime_stateful_settings(monkeypat
                 "STATEFUL_INPUT_PORTFOLIO_CHUNK_DAYS": 13,
                 "STATEFUL_INPUT_REFERENCE_CHUNK_DAYS": 29,
                 "STATEFUL_INPUT_MAX_CONCURRENT_CHUNKS": 7,
+                "STATEFUL_INPUT_MAX_PAGES_PER_CHUNK": 11,
             },
         )(),
     )
@@ -2479,5 +2489,6 @@ async def test_calculate_returns_series_uses_runtime_stateful_settings(monkeypat
         "portfolio_chunk_days": 13,
         "reference_chunk_days": 29,
         "max_concurrent_chunks": 7,
+        "max_pages_per_chunk": 11,
     }
     assert len(response.series.portfolio_returns) == 1
