@@ -1545,6 +1545,10 @@ The OpenAPI contract declares the `202 Accepted` accepted-envelope schema for ev
 submission route and every endpoint-specific result route. Endpoint-specific result routes also
 publish governed `404` unknown-calculation and `409` failed-calculation error responses so SDK,
 Gateway, Workbench, and API catalog consumers can model all runtime branches.
+Endpoint-specific result routes are type-scoped: a calculation id created for another
+`analytics_type` returns that endpoint's governed `404` response and logs reason
+`async_result_analytics_type_mismatch` with the expected and actual analytics type, without logging
+request or response payload contents.
 
 Current endpoint-specific async result routes:
 

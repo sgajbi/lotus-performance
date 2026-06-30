@@ -150,6 +150,7 @@ def submit_twr_inspection(request: TWRInspectionRequest):
 def get_twr_inspection(inspection_id: UUID):
     return resolve_async_result(
         calculation_id=inspection_id,
+        expected_analytics_type=ANALYTICS_WORKFLOW_TWR_INSPECTION,
         response_model=TWRInspectionResponse,
         accepted_response_factory=_accepted_response,
         not_found_detail="Inspection result not found for the given inspection_id.",

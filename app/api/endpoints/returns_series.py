@@ -11,6 +11,7 @@ from app.models.returns_series import (
     ReturnsSeriesRequest,
     ReturnsSeriesResponse,
 )
+from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_RETURNS_SERIES
 from app.services.async_result_service import resolve_async_result
 from app.services.returns_series_calculation_workflow_service import (
     accepted_returns_series_response,
@@ -54,6 +55,7 @@ async def get_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeriesResp
 async def get_returns_series_result(calculation_id: UUID) -> ReturnsSeriesResponse | JSONResponse:
     return resolve_async_result(
         calculation_id=calculation_id,
+        expected_analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES,
         response_model=ReturnsSeriesResponse,
         accepted_response_factory=accepted_returns_series_response,
         not_found_detail="Async returns-series result not found for the given calculation_id.",

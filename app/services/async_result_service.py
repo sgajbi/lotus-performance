@@ -16,6 +16,7 @@ ResponseModelT = TypeVar("ResponseModelT", bound=BaseModel)
 AcceptedModelT = TypeVar("AcceptedModelT", bound=BaseModel)
 ASYNC_RESULT_RESPONSE_SCHEMA_INVALID_DETAIL = "Async result payload failed response contract validation."
 ASYNC_RESULT_RESPONSE_SCHEMA_INVALID_REASON = "async_result_response_schema_invalid"
+ASYNC_RESULT_ANALYTICS_TYPE_MISMATCH_REASON = "async_result_analytics_type_mismatch"
 logger = logging.getLogger(__name__)
 
 ACTIVE_ASYNC_JOB_STATUSES = frozenset(
@@ -34,9 +35,18 @@ def _is_active_async_job_status(job_status: ComputeJobStatus) -> bool:
 def _resolve_stored_async_result(
     *,
     async_result: AsyncResultRecord,
+    expected_analytics_type: str,
     response_model: type[ResponseModelT],
+    not_found_detail: str,
     failed_detail: str,
 ) -> ResponseModelT:
+    _ensure_expected_analytics_type(
+        calculation_id=async_result.calculation_id,
+        actual_analytics_type=async_result.analytics_type,
+        expected_analytics_type=expected_analytics_type,
+        not_found_detail=not_found_detail,
+        source="async_result_store",
+    )
     if async_result.result_status == AsyncResultStatus.FAILED:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -54,12 +64,20 @@ def _resolve_compute_job_result(
     *,
     calculation_id: UUID,
     job: ComputeJobRecord | None,
+    expected_analytics_type: str,
     response_model: type[ResponseModelT],
     accepted_response_factory: Callable[[UUID], AcceptedModelT],
     not_found_detail: str,
     failed_detail: str,
 ) -> ResponseModelT | JSONResponse:
     job = _require_compute_job(job, not_found_detail=not_found_detail)
+    _ensure_expected_analytics_type(
+        calculation_id=calculation_id,
+        actual_analytics_type=job.analytics_type,
+        expected_analytics_type=expected_analytics_type,
+        not_found_detail=not_found_detail,
+        source="compute_job_store",
+    )
     if _is_active_async_job_status(job.job_status):
         accepted = accepted_response_factory(calculation_id)
         return JSONResponse(status_code=status.HTTP_202_ACCEPTED, content=accepted.model_dump(mode="json"))
@@ -74,6 +92,32 @@ def _resolve_compute_job_result(
         response_payload=job.response_payload,
         source="compute_job_store",
     )
+
+
+def _ensure_expected_analytics_type(
+    *,
+    calculation_id: UUID,
+    actual_analytics_type: str,
+    expected_analytics_type: str,
+    not_found_detail: str,
+    source: str,
+) -> None:
+    if actual_analytics_type == expected_analytics_type:
+        return
+    logger.warning(
+        "Async result analytics type did not match endpoint.",
+        extra={
+            "calculation_id": str(calculation_id),
+            "source": source,
+            "expected_analytics_type": expected_analytics_type,
+            "actual_analytics_type": actual_analytics_type,
+            "reason": ASYNC_RESULT_ANALYTICS_TYPE_MISMATCH_REASON,
+        },
+    )
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail=not_found_detail,
+    ) from None
 
 
 def _validate_response_payload(
@@ -118,6 +162,7 @@ def _require_compute_job(
 def resolve_async_result(
     *,
     calculation_id: UUID,
+    expected_analytics_type: str,
     response_model: type[ResponseModelT],
     accepted_response_factory: Callable[[UUID], AcceptedModelT],
     not_found_detail: str,
@@ -127,13 +172,16 @@ def resolve_async_result(
     if async_result is not None:
         return _resolve_stored_async_result(
             async_result=async_result,
+            expected_analytics_type=expected_analytics_type,
             response_model=response_model,
+            not_found_detail=not_found_detail,
             failed_detail=failed_detail,
         )
 
     return _resolve_compute_job_result(
         calculation_id=calculation_id,
         job=compute_job_store.get_job(calculation_id),
+        expected_analytics_type=expected_analytics_type,
         response_model=response_model,
         accepted_response_factory=accepted_response_factory,
         not_found_detail=not_found_detail,

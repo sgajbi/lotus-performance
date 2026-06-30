@@ -11,6 +11,7 @@ from app.models.benchmark_responses import (
     BenchmarkAcceptedResponse,
     BenchmarkPerformanceResponse,
 )
+from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_BENCHMARK
 from app.services.async_result_service import resolve_async_result
 from app.services.benchmark_calculation_workflow_service import (
     accepted_benchmark_response,
@@ -77,6 +78,7 @@ async def get_benchmark_result(calculation_id: UUID) -> BenchmarkPerformanceResp
     """Return a completed async benchmark calculation or its accepted/failed status."""
     return resolve_async_result(
         calculation_id=calculation_id,
+        expected_analytics_type=ANALYTICS_WORKFLOW_BENCHMARK,
         response_model=BenchmarkPerformanceResponse,
         accepted_response_factory=accepted_benchmark_response,
         not_found_detail="Async benchmark result not found for the given calculation_id.",

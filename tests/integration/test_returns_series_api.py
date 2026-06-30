@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from app.core.config import get_settings
 from app.models.benchmark_requests import BenchmarkComponentObservation
 from app.models.returns_series import InputMode, ReturnsSeriesRequest
+from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_BENCHMARK
 from app.services.async_result_store import async_result_store
 from app.services.returns_series_service import ResolvedStatefulReturnsSeriesRequest
 from app.services.stateful_benchmark_input_service import StatefulBenchmarkNormalizedInput
@@ -809,6 +810,31 @@ def test_returns_series_async_result_not_found_and_failed(monkeypatch):
             assert failed.json()["detail"] == "executor boom"
     finally:
         settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS = original_threshold
+
+
+def test_returns_series_result_hides_cross_endpoint_calculation_id():
+    from app.services.compute_job_store import compute_job_store
+
+    calculation_id = uuid4()
+    compute_job_store.create_schema()
+    compute_job_store.clear_all_records()
+    async_result_store.create_schema()
+    async_result_store.clear_all_records()
+    async_result_store.record_success(
+        calculation_id=calculation_id,
+        analytics_type=ANALYTICS_WORKFLOW_BENCHMARK,
+        response_payload={"secret_payload": "not a returns-series response"},
+    )
+
+    try:
+        with TestClient(app) as client:
+            response = client.get(f"/integration/returns/series/results/{calculation_id}")
+
+        assert response.status_code == 404
+        assert response.json()["detail"] == "Async returns-series result not found for the given calculation_id."
+    finally:
+        async_result_store.clear_all_records()
+        compute_job_store.clear_all_records()
 
 
 def test_returns_series_async_duplicate_submission_replays_same_request(monkeypatch):
