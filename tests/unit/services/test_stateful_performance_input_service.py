@@ -5,7 +5,6 @@ from typing import Any, cast
 from uuid import uuid4
 
 import pytest
-from fastapi import HTTPException
 
 from app.core.config import Settings
 from app.services.stateful_input_service import StatefulInputService
@@ -13,6 +12,7 @@ from app.services.stateful_performance_input_service import (
     _retrieve_portfolio_timeseries_response,
     _stateful_portfolio_input_from_payload,
 )
+from core.errors import APIError
 
 
 @pytest.mark.asyncio
@@ -130,7 +130,7 @@ def test_stateful_portfolio_input_from_payload_projects_source_identity_and_retr
 
 
 def test_stateful_portfolio_input_from_payload_maps_invalid_source_contract_to_422():
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(APIError) as exc:
         _stateful_portfolio_input_from_payload(
             {
                 "portfolio_open_date": "bad-date",

@@ -2,11 +2,9 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from fastapi import HTTPException
-
 from app.services.error_details import insufficient_data_detail
 from app.services.source_cashflow_taxonomy import classify_cashflow_type
-from core.errors import HTTP_422_UNPROCESSABLE
+from core.errors import APIUnprocessableEntityError
 
 
 def portfolio_timeseries_to_valuation_points(*, observations: list[dict[str, object]]) -> list[dict[str, object]]:
@@ -17,9 +15,8 @@ def portfolio_timeseries_to_valuation_points(*, observations: list[dict[str, obj
             continue
         valuation_points.append(valuation_point)
     if not valuation_points:
-        raise HTTPException(
-            status_code=HTTP_422_UNPROCESSABLE,
-            detail=insufficient_data_detail("No valid valuation observations after canonical normalization."),
+        raise APIUnprocessableEntityError(
+            insufficient_data_detail("No valid valuation observations after canonical normalization.")
         )
     return valuation_points
 

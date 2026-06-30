@@ -4,8 +4,6 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any, Literal
 
-from fastapi import HTTPException, status
-
 from app.models.mwr_requests import (
     MoneyWeightedReturnRequest,
     MWRMarketValueFXEvidence,
@@ -17,6 +15,7 @@ from app.services.stateful_mwr_input_service import (
     MWRCurrencyEvidence,
     MWRMarketValueEvidence,
 )
+from core.errors import APIUnprocessableEntityError
 
 FX_EVIDENCE_COMPLETE_REASON_CODES = [
     "SOURCE_PRECONVERTED_INPUTS_SUPPLIED",
@@ -259,7 +258,4 @@ def _decimal(value: object) -> Decimal:
 
 
 def _raise_fx_evidence_error(message: str) -> None:
-    raise HTTPException(
-        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-        detail=f"Invalid source_preconverted_fx_evidence: {message}",
-    )
+    raise APIUnprocessableEntityError(f"Invalid source_preconverted_fx_evidence: {message}")

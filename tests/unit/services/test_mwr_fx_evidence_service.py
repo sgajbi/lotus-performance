@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import pytest
-from fastapi import HTTPException
 
 from app.models.mwr_requests import MoneyWeightedReturnRequest
 from app.services.mwr_fx_evidence_service import (
@@ -12,6 +11,7 @@ from app.services.mwr_fx_evidence_service import (
     _validated_source_preconverted_fx_inputs,
     build_source_preconverted_mwr_currency_evidence,
 )
+from core.errors import APIError
 
 
 def _request_with_evidence(**overrides) -> MoneyWeightedReturnRequest:
@@ -161,8 +161,9 @@ def test_validate_component_required_text_fields_reports_missing_fields():
     )
     component = request.source_preconverted_fx_evidence.cash_flows[0]
 
-    with pytest.raises(HTTPException, match="fx_pair, conversion_fingerprint"):
+    with pytest.raises(APIError, match="fx_pair, conversion_fingerprint") as exc:
         _validate_component_required_text_fields(component, location="source_preconverted_fx_evidence.cash_flows[0]")
+    assert exc.value.status_code == 422
 
 
 @pytest.mark.parametrize(
@@ -216,8 +217,9 @@ def test_source_preconverted_mwr_currency_evidence_rejects_incomplete_collection
 ):
     request = _request_with_evidence(source_preconverted_fx_evidence=evidence_override)
 
-    with pytest.raises(HTTPException, match=expected_message):
+    with pytest.raises(APIError, match=expected_message) as exc:
         build_source_preconverted_mwr_currency_evidence(request)
+    assert exc.value.status_code == 422
 
 
 @pytest.mark.parametrize(
@@ -247,5 +249,6 @@ def test_source_preconverted_mwr_currency_evidence_rejects_inconsistent_componen
         }
     )
 
-    with pytest.raises(HTTPException, match=expected_message):
+    with pytest.raises(APIError, match=expected_message) as exc:
         build_source_preconverted_mwr_currency_evidence(request)
+    assert exc.value.status_code == 422

@@ -4,9 +4,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Generic, TypeVar
 
-from fastapi import HTTPException
-
-from core.errors import HTTP_422_UNPROCESSABLE
+from core.errors import APIUnprocessableEntityError
 
 T = TypeVar("T")
 
@@ -26,9 +24,9 @@ def parse_offset_page_token(
     try:
         start = int(page_token) if page_token else 0
     except ValueError as exc:
-        raise HTTPException(status_code=HTTP_422_UNPROCESSABLE, detail=invalid_detail) from exc
+        raise APIUnprocessableEntityError(invalid_detail) from exc
     if start < 0:
-        raise HTTPException(status_code=HTTP_422_UNPROCESSABLE, detail=negative_detail)
+        raise APIUnprocessableEntityError(negative_detail)
     return start
 
 

@@ -3,10 +3,8 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Literal
 
-from fastapi import HTTPException
-
 from app.services.source_cashflow_taxonomy import CashflowTypeClassification, classify_cashflow_type
-from core.errors import HTTP_422_UNPROCESSABLE
+from core.errors import APIUnprocessableEntityError
 
 PositionValueBasis = Literal["position", "portfolio", "reporting"]
 
@@ -78,9 +76,8 @@ def _cash_flow_conversion_factor(
         return Decimal("1")
 
     if _has_cash_flow_position_currency_mismatch(row):
-        raise HTTPException(
-            status_code=HTTP_422_UNPROCESSABLE,
-            detail=(
+        raise APIUnprocessableEntityError(
+            (
                 "Stateful position-timeseries cash_flow_currency must match position_currency when lotus-performance "
                 "normalizes contribution or attribution cash flows from position currency into portfolio/reporting currency."
             ),

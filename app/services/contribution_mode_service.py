@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from fastapi import HTTPException
-
 from app.core.config import Settings
 from app.models.contribution_analytics_requests import (
     ContributionAnalyticsRequest,
@@ -12,6 +10,7 @@ from app.models.contribution_analytics_requests import (
 )
 from app.models.contribution_requests import ContributionRequest
 from app.services.execution_registry import execution_registry
+from app.services.execution_stage_errors import execution_stage_failure_detail
 from app.services.execution_stage_names import EXECUTION_STAGE_NORMALIZATION, EXECUTION_STAGE_RETRIEVAL
 from app.services.input_mode_validation import require_stateful_input
 from app.services.portfolio_source_service import build_stateful_input_service
@@ -82,8 +81,12 @@ async def _retrieve_stateful_contribution_source_input(
             EXECUTION_STAGE_RETRIEVAL,
             details=_contribution_retrieval_stage_details(source_input),
         )
-    except HTTPException as exc:
-        execution_registry.fail_stage(request.calculation_id, EXECUTION_STAGE_RETRIEVAL, str(exc.detail))
+    except Exception as exc:
+        execution_registry.fail_stage(
+            request.calculation_id,
+            EXECUTION_STAGE_RETRIEVAL,
+            execution_stage_failure_detail(exc),
+        )
         raise
     return source_input
 

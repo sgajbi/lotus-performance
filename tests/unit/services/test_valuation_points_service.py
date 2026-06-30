@@ -1,7 +1,6 @@
 from decimal import Decimal
 
 import pytest
-from fastapi import HTTPException
 
 from app.services.valuation_points_service import (
     _valuation_cashflow_component_for_role,
@@ -10,6 +9,7 @@ from app.services.valuation_points_service import (
     _valuation_point_from_observation,
     portfolio_timeseries_to_valuation_points,
 )
+from core.errors import APIError
 
 
 def test_portfolio_timeseries_to_valuation_points_preserves_fee_cashflows_as_mgmt_fees():
@@ -88,7 +88,7 @@ def test_portfolio_timeseries_to_valuation_points_keeps_unlabeled_cashflows_as_e
 
 
 def test_portfolio_timeseries_to_valuation_points_rejects_empty_valid_observations():
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(APIError) as exc:
         portfolio_timeseries_to_valuation_points(observations=[{"valuation_date": None}])
 
     assert exc.value.status_code == 422

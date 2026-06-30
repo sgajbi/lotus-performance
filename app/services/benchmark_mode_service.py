@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from fastapi import HTTPException
-
 from app.core.config import Settings
 from app.models.benchmark_analytics_requests import (
     BenchmarkAnalyticsRequest,
@@ -13,6 +11,7 @@ from app.models.benchmark_analytics_requests import (
 )
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.services.execution_registry import execution_registry
+from app.services.execution_stage_errors import execution_stage_failure_detail
 from app.services.execution_stage_names import EXECUTION_STAGE_NORMALIZATION, EXECUTION_STAGE_RETRIEVAL
 from app.services.input_mode_validation import require_stateful_input, require_stateless_input
 from app.services.portfolio_source_service import build_stateful_input_service
@@ -112,8 +111,12 @@ async def resolve_benchmark_request(
             EXECUTION_STAGE_RETRIEVAL,
             details=normalized_input.source_details,
         )
-    except HTTPException as exc:
-        execution_registry.fail_stage(request.calculation_id, EXECUTION_STAGE_RETRIEVAL, str(exc.detail))
+    except Exception as exc:
+        execution_registry.fail_stage(
+            request.calculation_id,
+            EXECUTION_STAGE_RETRIEVAL,
+            execution_stage_failure_detail(exc),
+        )
         raise
 
     execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_NORMALIZATION)

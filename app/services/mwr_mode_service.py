@@ -3,12 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
-from fastapi import HTTPException
-
 from app.core.config import Settings
 from app.models.mwr_analytics_requests import MoneyWeightedReturnAnalyticsRequest, MWRInputMode
 from app.models.mwr_requests import MoneyWeightedReturnRequest
 from app.services.execution_registry import execution_registry
+from app.services.execution_stage_errors import execution_stage_failure_detail
 from app.services.execution_stage_names import EXECUTION_STAGE_NORMALIZATION, EXECUTION_STAGE_RETRIEVAL
 from app.services.input_mode_validation import require_stateful_input
 from app.services.mwr_cash_flow_window_validation import validate_mwr_cash_flow_window
@@ -88,8 +87,12 @@ async def _retrieve_stateful_mwr_source_input(
                 "portfolio_page_count": source_input.retrieval_metadata.page_count,
             },
         )
-    except HTTPException as exc:
-        execution_registry.fail_stage(request.calculation_id, EXECUTION_STAGE_RETRIEVAL, str(exc.detail))
+    except Exception as exc:
+        execution_registry.fail_stage(
+            request.calculation_id,
+            EXECUTION_STAGE_RETRIEVAL,
+            execution_stage_failure_detail(exc),
+        )
         raise
     return source_input
 
