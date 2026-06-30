@@ -59,6 +59,7 @@ from app.services.workspace_summary_service import (
     _workspace_summary_diagnostics_notes,
     _workspace_summary_meta,
     calculate_workspace_summary,
+    calculate_workspace_summary_async,
     workspace_longest_requested_window_days,
 )
 from common.enums import Frequency
@@ -129,7 +130,8 @@ def test_longest_workspace_period_days_uses_largest_resolved_window():
     )
 
 
-def test_workspace_summary_stateful_retrieval_uses_longest_requested_window(mocker):
+@pytest.mark.asyncio
+async def test_workspace_summary_async_stateful_retrieval_uses_longest_requested_window(mocker):
     captured: dict[str, object] = {}
     lineage_capture: dict[str, object] = {}
     mocker.patch(
@@ -214,7 +216,7 @@ def test_workspace_summary_stateful_retrieval_uses_longest_requested_window(mock
         }
     )
 
-    response = calculate_workspace_summary(request)
+    response = await calculate_workspace_summary_async(request)
 
     assert str(captured["start_date"]) == "2026-05-31"
     assert response.audit.counts["portfolio_chunk_count"] == 3
@@ -241,9 +243,8 @@ def test_workspace_summary_stateful_linked_benchmark_resolves_assignment_once(mo
     mocker.patch("app.services.workspace_summary_service.execution_registry.start_stage")
     mocker.patch("app.services.workspace_summary_service.execution_registry.complete_stage")
     mocker.patch("app.services.workspace_summary_service.complete_execution_with_lineage")
-    mocker.patch(
-        "app.services.workspace_summary_service._resolve_workspace_portfolio_input",
-        return_value=SimpleNamespace(
+    async def _resolve_portfolio_input(**_kwargs):
+        return SimpleNamespace(
             input_mode="stateful",
             performance_start_date=pd.Timestamp("2025-01-01").date(),
             valuation_points=[
@@ -260,7 +261,11 @@ def test_workspace_summary_stateful_linked_benchmark_resolves_assignment_once(mo
             ],
             observations=[{"perf_date": "2026-01-02"}],
             source_details={"portfolio_chunk_count": 2, "portfolio_page_count": 4},
-        ),
+        )
+
+    mocker.patch(
+        "app.services.workspace_summary_service._resolve_workspace_portfolio_input_async",
+        side_effect=_resolve_portfolio_input,
     )
 
     async def _get_benchmark_assignment(**kwargs):

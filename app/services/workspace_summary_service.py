@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Coroutine
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal, localcontext
-from typing import Any, cast
+from typing import Any, TypeVar, cast
 
 import pandas as pd
 from fastapi import HTTPException, status
@@ -65,6 +66,8 @@ from core.workspace_periods import ResolvedWorkspacePeriod, resolve_workspace_pe
 from engine.compute import run_calculations
 from engine.mwr import calculate_money_weighted_return
 from engine.schema import PortfolioColumns
+
+_T = TypeVar("_T")
 
 
 @dataclass(frozen=True)
@@ -136,10 +139,18 @@ def calculate_workspace_summary(
     *,
     settings: Settings | None = None,
 ) -> WorkspaceSummaryResponse:
+    return _run_sync_compat(calculate_workspace_summary_async(request, settings=settings))
+
+
+async def calculate_workspace_summary_async(
+    request: WorkspaceSummaryRequest,
+    *,
+    settings: Settings | None = None,
+) -> WorkspaceSummaryResponse:
     active_settings = settings or get_settings()
     input_fingerprint, calculation_hash = generate_canonical_hash(request, active_settings.APP_VERSION)
     execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_EXECUTION)
-    resolved_periods, portfolio_input, benchmark_input, net_artifacts, gross_artifacts = _resolve_workspace_inputs(
+    resolved_periods, portfolio_input, benchmark_input, net_artifacts, gross_artifacts = await _resolve_workspace_inputs_async(
         request=request,
         settings=active_settings,
     )
@@ -195,7 +206,21 @@ def _resolve_workspace_inputs(
     WorkspaceTWRArtifacts,
     WorkspaceTWRArtifacts,
 ]:
-    portfolio_input = _resolve_workspace_portfolio_input(request=request, settings=settings)
+    return _run_sync_compat(_resolve_workspace_inputs_async(request=request, settings=settings))
+
+
+async def _resolve_workspace_inputs_async(
+    *,
+    request: WorkspaceSummaryRequest,
+    settings: Settings,
+) -> tuple[
+    list[ResolvedWorkspacePeriod],
+    ResolvedWorkspacePortfolioInput,
+    ResolvedWorkspaceBenchmarkInput | None,
+    WorkspaceTWRArtifacts,
+    WorkspaceTWRArtifacts,
+]:
+    portfolio_input = await _resolve_workspace_portfolio_input_async(request=request, settings=settings)
     resolved_periods = resolve_workspace_periods(
         [item.period for item in request.periods],
         as_of=request.report_end_date,
@@ -213,7 +238,7 @@ def _resolve_workspace_inputs(
         master_start_date=master_start_date,
         report_end_date=request.report_end_date,
     )
-    benchmark_input = _resolve_workspace_benchmark_input(
+    benchmark_input = await _resolve_workspace_benchmark_input_async(
         request=request,
         settings=settings,
         master_start_date=master_start_date,
@@ -231,10 +256,18 @@ def _resolve_workspace_portfolio_input(
     request: WorkspaceSummaryRequest,
     settings: Settings,
 ) -> ResolvedWorkspacePortfolioInput:
+    return _run_sync_compat(_resolve_workspace_portfolio_input_async(request=request, settings=settings))
+
+
+async def _resolve_workspace_portfolio_input_async(
+    *,
+    request: WorkspaceSummaryRequest,
+    settings: Settings,
+) -> ResolvedWorkspacePortfolioInput:
     if request.input_mode == TWRInputMode.STATELESS:
         return _build_stateless_workspace_portfolio_input(request)
 
-    return _build_stateful_workspace_portfolio_input(request=request, settings=settings)
+    return await _build_stateful_workspace_portfolio_input_async(request=request, settings=settings)
 
 
 def _build_stateful_workspace_portfolio_input(
@@ -242,7 +275,15 @@ def _build_stateful_workspace_portfolio_input(
     request: WorkspaceSummaryRequest,
     settings: Settings,
 ) -> ResolvedWorkspacePortfolioInput:
-    performance_start_date = request.performance_start_date or _resolve_stateful_portfolio_start_date(
+    return _run_sync_compat(_build_stateful_workspace_portfolio_input_async(request=request, settings=settings))
+
+
+async def _build_stateful_workspace_portfolio_input_async(
+    *,
+    request: WorkspaceSummaryRequest,
+    settings: Settings,
+) -> ResolvedWorkspacePortfolioInput:
+    performance_start_date = request.performance_start_date or await _resolve_stateful_portfolio_start_date_async(
         request=request,
         settings=settings,
     )
@@ -253,17 +294,15 @@ def _build_stateful_workspace_portfolio_input(
         explicit_start_date=request.report_start_date,
     )
     master_start_date = min(period.start_date for period in resolved_periods)
-    source_input = _run_async(
-        retrieve_stateful_portfolio_input(
-            settings=settings,
-            calculation_id=request.calculation_id,
-            portfolio_id=request.portfolio_id,
-            as_of_date=request.report_end_date,
-            start_date=master_start_date,
-            end_date=request.report_end_date,
-            reporting_currency=request.report_ccy,
-            consumer_system=LOTUS_PERFORMANCE_CONSUMER_SYSTEM,
-        )
+    source_input = await retrieve_stateful_portfolio_input(
+        settings=settings,
+        calculation_id=request.calculation_id,
+        portfolio_id=request.portfolio_id,
+        as_of_date=request.report_end_date,
+        start_date=master_start_date,
+        end_date=request.report_end_date,
+        reporting_currency=request.report_ccy,
+        consumer_system=LOTUS_PERFORMANCE_CONSUMER_SYSTEM,
     )
     normalized = build_stateful_portfolio_valuation_input(
         source_input=source_input,
@@ -367,6 +406,21 @@ def _resolve_workspace_benchmark_input(
     settings: Settings,
     master_start_date: date,
 ) -> ResolvedWorkspaceBenchmarkInput | None:
+    return _run_sync_compat(
+        _resolve_workspace_benchmark_input_async(
+            request=request,
+            settings=settings,
+            master_start_date=master_start_date,
+        )
+    )
+
+
+async def _resolve_workspace_benchmark_input_async(
+    *,
+    request: WorkspaceSummaryRequest,
+    settings: Settings,
+    master_start_date: date,
+) -> ResolvedWorkspaceBenchmarkInput | None:
     if not request.include_benchmark:
         return None
 
@@ -383,7 +437,7 @@ def _resolve_workspace_benchmark_input(
             master_start_date=master_start_date,
         )
 
-    return _build_stateful_workspace_benchmark_input(
+    return await _build_stateful_workspace_benchmark_input_async(
         request=request,
         benchmark=benchmark,
         settings=settings,
@@ -398,28 +452,41 @@ def _build_stateful_workspace_benchmark_input(
     settings: Settings,
     master_start_date: date,
 ) -> ResolvedWorkspaceBenchmarkInput:
-    stateful_input_service = build_stateful_input_service(settings=settings)
-    identity = _run_async(
-        resolve_benchmark_identity(
-            stateful_input_service=stateful_input_service,
-            portfolio_id=request.portfolio_id,
-            as_of_date=request.report_end_date,
-            reporting_currency=request.report_ccy,
-            calculation_id=request.calculation_id,
-            benchmark_id=benchmark.benchmark_id,
+    return _run_sync_compat(
+        _build_stateful_workspace_benchmark_input_async(
+            request=request,
+            benchmark=benchmark,
+            settings=settings,
+            master_start_date=master_start_date,
         )
     )
 
-    normalized_input = _run_async(
-        build_stateful_benchmark_input(
-            stateful_input_service=stateful_input_service,
-            calculation_id=request.calculation_id,
-            benchmark_id=identity.benchmark_id,
-            as_of_date=request.report_end_date,
-            start_date=master_start_date,
-            end_date=request.report_end_date,
-            return_source=benchmark.return_source,
-        )
+
+async def _build_stateful_workspace_benchmark_input_async(
+    *,
+    request: WorkspaceSummaryRequest,
+    benchmark: WorkspaceBenchmarkRequest,
+    settings: Settings,
+    master_start_date: date,
+) -> ResolvedWorkspaceBenchmarkInput:
+    stateful_input_service = build_stateful_input_service(settings=settings)
+    identity = await resolve_benchmark_identity(
+        stateful_input_service=stateful_input_service,
+        portfolio_id=request.portfolio_id,
+        as_of_date=request.report_end_date,
+        reporting_currency=request.report_ccy,
+        calculation_id=request.calculation_id,
+        benchmark_id=benchmark.benchmark_id,
+    )
+
+    normalized_input = await build_stateful_benchmark_input(
+        stateful_input_service=stateful_input_service,
+        calculation_id=request.calculation_id,
+        benchmark_id=identity.benchmark_id,
+        as_of_date=request.report_end_date,
+        start_date=master_start_date,
+        end_date=request.report_end_date,
+        return_source=benchmark.return_source,
     )
     source_details = {**identity.source_details, **normalized_input.source_details}
     resolved_request = BenchmarkPerformanceRequest.model_validate(
@@ -491,13 +558,15 @@ def _build_stateless_workspace_benchmark_input(
 
 
 def _resolve_stateful_portfolio_start_date(*, request: WorkspaceSummaryRequest, settings: Settings) -> date:
+    return _run_sync_compat(_resolve_stateful_portfolio_start_date_async(request=request, settings=settings))
+
+
+async def _resolve_stateful_portfolio_start_date_async(*, request: WorkspaceSummaryRequest, settings: Settings) -> date:
     stateful_input_service = build_stateful_input_service(settings=settings)
-    upstream_status, upstream_payload = _run_async(
-        stateful_input_service.get_portfolio_reference(
-            calculation_id=request.calculation_id,
-            portfolio_id=request.portfolio_id,
-            as_of_date=request.report_end_date,
-        )
+    upstream_status, upstream_payload = await stateful_input_service.get_portfolio_reference(
+        calculation_id=request.calculation_id,
+        portfolio_id=request.portfolio_id,
+        as_of_date=request.report_end_date,
     )
     raise_for_stateful_control_plane_unavailable(
         source_label="stateful portfolio reference source",
@@ -1305,8 +1374,14 @@ def _slice_by_date(
     return df[(df[date_column] >= start_date) & (df[date_column] <= end_date)].copy()
 
 
-def _run_async(coroutine):
-    return asyncio.run(coroutine)
+def _run_sync_compat(coroutine: Coroutine[Any, Any, _T]) -> _T:
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coroutine)
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        return executor.submit(asyncio.run, coroutine).result()
 
 
 def _date_from_boundary(value: object) -> date:
