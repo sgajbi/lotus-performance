@@ -1,4 +1,5 @@
 import json
+import logging
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -8,6 +9,8 @@ from pydantic import BaseModel
 
 from app.services import async_result_service
 from app.services.async_result_service import (
+    ASYNC_RESULT_RESPONSE_SCHEMA_INVALID_DETAIL,
+    ASYNC_RESULT_RESPONSE_SCHEMA_INVALID_REASON,
     _is_active_async_job_status,
     _require_compute_job,
     _resolve_compute_job_result,
@@ -195,6 +198,41 @@ def test_resolve_async_result_validates_stored_async_result_payload(monkeypatch)
     assert response == _AsyncResponse(calculation_id=calculation_id, status="complete")
 
 
+def test_resolve_async_result_maps_schema_invalid_stored_payload_to_conflict(monkeypatch, caplog):
+    calculation_id = uuid4()
+    monkeypatch.setattr(
+        async_result_service,
+        "async_result_store",
+        _ResultStore(
+            _async_result_record(
+                calculation_id,
+                result_status=AsyncResultStatus.COMPLETE,
+                response_payload={"unexpected": "shape"},
+            )
+        ),
+    )
+
+    with caplog.at_level(logging.WARNING, logger="app.services.async_result_service"):
+        with pytest.raises(HTTPException) as exc_info:
+            resolve_async_result(
+                calculation_id=calculation_id,
+                response_model=_AsyncResponse,
+                accepted_response_factory=_accepted_response,
+                not_found_detail="not found",
+                failed_detail="failed",
+            )
+
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.detail == ASYNC_RESULT_RESPONSE_SCHEMA_INVALID_DETAIL
+    assert "Async result response payload failed schema validation." in caplog.text
+    assert caplog.records[0].calculation_id == str(calculation_id)
+    assert caplog.records[0].source == "async_result_store"
+    assert caplog.records[0].response_model == "_AsyncResponse"
+    assert caplog.records[0].reason == ASYNC_RESULT_RESPONSE_SCHEMA_INVALID_REASON
+    assert caplog.records[0].validation_error_count >= 1
+    assert "unexpected" not in caplog.text
+
+
 def test_resolve_async_result_raises_conflict_for_failed_stored_async_result(monkeypatch):
     calculation_id = uuid4()
     monkeypatch.setattr(
@@ -246,3 +284,35 @@ def test_resolve_async_result_validates_completed_compute_job_payload(monkeypatc
     )
 
     assert response == _AsyncResponse(calculation_id=calculation_id, status="complete")
+
+
+def test_resolve_async_result_maps_schema_invalid_compute_job_payload_to_conflict(monkeypatch, caplog):
+    calculation_id = uuid4()
+    monkeypatch.setattr(async_result_service, "async_result_store", _ResultStore())
+    monkeypatch.setattr(
+        async_result_service,
+        "compute_job_store",
+        _JobStore(
+            _job_record(
+                calculation_id,
+                job_status=ComputeJobStatus.COMPLETE,
+                response_payload={"unexpected": "shape"},
+            )
+        ),
+    )
+
+    with caplog.at_level(logging.WARNING, logger="app.services.async_result_service"):
+        with pytest.raises(HTTPException) as exc_info:
+            resolve_async_result(
+                calculation_id=calculation_id,
+                response_model=_AsyncResponse,
+                accepted_response_factory=_accepted_response,
+                not_found_detail="not found",
+                failed_detail="failed",
+            )
+
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.detail == ASYNC_RESULT_RESPONSE_SCHEMA_INVALID_DETAIL
+    assert caplog.records[0].source == "compute_job_store"
+    assert caplog.records[0].reason == ASYNC_RESULT_RESPONSE_SCHEMA_INVALID_REASON
+    assert "unexpected" not in caplog.text

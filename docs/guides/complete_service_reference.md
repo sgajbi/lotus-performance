@@ -1550,6 +1550,13 @@ Current endpoint-specific async result routes:
 - `/performance/attribution/results/{calculation_id}`
 - `/integration/returns/series/results/{calculation_id}`
 
+Completed async results are validated against the endpoint response model before being returned.
+If durable state contains a completed result whose JSON object no longer satisfies that response
+contract, the route returns `409 Conflict` with detail
+`Async result payload failed response contract validation.`. The warning diagnostic records the
+`calculation_id`, result source (`async_result_store` or `compute_job_store`), response model, reason
+`async_result_response_schema_invalid`, and validation-error count without logging payload contents.
+
 ## Configuration Reference
 
 All service configuration comes from `app.core.config.Settings`.

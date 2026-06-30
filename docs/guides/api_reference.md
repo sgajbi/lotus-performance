@@ -1027,6 +1027,7 @@ Executor-backed endpoints use one common pattern:
 - async endpoints treat an exact resubmission with the same `calculation_id` as an idempotent replay and return the same accepted handle
 - reusing the same `calculation_id` with a different payload returns `409 Conflict`
 - synchronous endpoints require a fresh `calculation_id` for each new submission
+- completed endpoint-specific result routes return `409 Conflict` with detail `Async result payload failed response contract validation.` if durable state contains a JSON payload that cannot satisfy the endpoint response schema; diagnostics use reason `async_result_response_schema_invalid` and omit payload contents
 
 ## Contract guidance
 
