@@ -25,12 +25,14 @@ class APIError(ValueError):
         *,
         error_code: str | None = None,
         retryable: bool | None = None,
+        headers: dict[str, str] | None = None,
     ):
         super().__init__(detail)
         self.status_code = status_code
         self.detail = detail
         self.error_code = error_code
         self.retryable = retryable
+        self.headers = headers
 
 
 class APIBadRequestError(APIError):
@@ -57,8 +59,19 @@ class APIUnprocessableEntityError(APIError):
 class APIConflictError(APIError):
     """To be used for 409 Conflict errors (e.g., overlapping hierarchies)."""
 
-    def __init__(self, detail: Any = "Conflict", *, error_code: str | None = None):
-        super().__init__(status_code=HTTP_409_CONFLICT, detail=detail, error_code=error_code)
+    def __init__(
+        self,
+        detail: Any = "Conflict",
+        *,
+        error_code: str | None = None,
+        headers: dict[str, str] | None = None,
+    ):
+        super().__init__(
+            status_code=HTTP_409_CONFLICT,
+            detail=detail,
+            error_code=error_code,
+            headers=headers,
+        )
 
 
 class APIInternalServerError(APIError):

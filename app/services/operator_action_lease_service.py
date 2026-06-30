@@ -11,8 +11,6 @@ from pathlib import Path
 from typing import Any, Iterator, NoReturn, cast
 from uuid import uuid4
 
-from fastapi import HTTPException, status
-
 from app.services.durable_store_json import read_json_file
 from app.services.durable_store_time import elapsed_seconds_since, format_timestamp
 from app.services.operator_action_evidence_strings import (
@@ -24,6 +22,7 @@ from app.services.operator_action_evidence_strings import (
     normalize_required_evidence_identifier,
 )
 from app.services.runtime_status_time import parse_utc_datetime
+from core.errors import APIConflictError
 
 OPERATOR_ACTION_LEASE_DIRECTORY_UNREADABLE_REASON = "operator_action_lease_directory_unreadable"
 OPERATOR_ACTION_LEASE_INVALID_REASON = "operator_action_lease_invalid"
@@ -353,7 +352,7 @@ def _raise_operator_action_already_running(
         detail["active_tenant_id"] = active_lease.tenant_id
         detail["governed_target"] = active_lease.governed_target
         detail["active_acquired_at_utc"] = active_lease.acquired_at_utc
-    raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detail) from None
+    raise APIConflictError(detail) from None
 
 
 def _read_active_operator_action_lease(*, lock_path: Path) -> ActiveOperatorActionLease | _InvalidLease | None:

@@ -4,7 +4,6 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
 import pytest
-from fastapi import HTTPException
 
 from app.services.operator_action_lease_service import (
     OPERATOR_ACTION_LEASE_DIRECTORY_UNREADABLE_REASON,
@@ -34,6 +33,7 @@ from app.services.operator_action_lease_service import (
     build_runtime_retention_action_key,
     operator_action_lease,
 )
+from core.errors import APIConflictError
 
 
 def test_operator_action_lease_rejects_concurrent_same_key(tmp_path):
@@ -59,7 +59,7 @@ def test_operator_action_lease_rejects_concurrent_same_key(tmp_path):
         metadata=metadata,
         stale_after_seconds=3600.0,
     ):
-        with pytest.raises(HTTPException) as exc_info:
+        with pytest.raises(APIConflictError) as exc_info:
             with operator_action_lease(
                 artifact_directory=artifact_dir,
                 action_key=action_key,
@@ -276,7 +276,7 @@ def test_operator_action_release_does_not_remove_replacement_owner_lock(tmp_path
         governed_target="backup-123",
         acquired_at_utc=datetime.now(UTC).isoformat(),
     )
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(APIConflictError) as exc_info:
         with operator_action_lease(
             artifact_directory=artifact_dir,
             action_key=action_key,
@@ -979,7 +979,7 @@ def test_operator_action_lease_rejects_running_action_when_lock_payload_is_unrea
         acquired_at_utc="2026-03-15T00:00:00Z",
     )
 
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(APIConflictError) as exc_info:
         with operator_action_lease(
             artifact_directory=artifact_dir,
             action_key=action_key,
