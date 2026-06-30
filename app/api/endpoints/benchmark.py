@@ -47,6 +47,7 @@ completed benchmark payload.
 @router.post(
     "/benchmark",
     response_model=BenchmarkPerformanceResponse | BenchmarkAcceptedResponse,
+    response_model_exclude_none=True,
     summary="Calculate benchmark performance",
     description=BENCHMARK_ENDPOINT_DESCRIPTION,
     responses=async_submission_responses(
@@ -65,6 +66,7 @@ async def calculate_benchmark_endpoint(
 @router.get(
     "/benchmark/results/{calculation_id}",
     response_model=BenchmarkPerformanceResponse | BenchmarkAcceptedResponse,
+    response_model_exclude_none=True,
     summary="Retrieve async benchmark result",
     description=BENCHMARK_RESULT_ENDPOINT_DESCRIPTION,
     responses=async_result_responses(
