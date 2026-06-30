@@ -34,6 +34,18 @@ Primary runtime surfaces:
 | Completed calculation lacks expected evidence | `GET /performance/lineage/{calculation_id}`, endpoint result route, inspection route where applicable | request fingerprint, response supportability block, lineage metadata, artifact names |
 | Recovery or retention looks degraded | runtime recoveries, recovery drills, retention cleanup history | recovery id or cleanup id, trigger source, terminal status, error summary |
 
+## Error response triage
+
+Public API errors include a support-safe envelope with a backward-compatible `detail` field plus
+machine-readable `error_code`, `message`, `correlation_id`, `request_id`, `source`, and
+`retryable`. Validation failures also include `validation_errors`; retryable upstream or throttling
+failures may include `retry_after_seconds` or `remediation_hint`.
+
+Use `correlation_id` and `request_id` as the primary join keys between client-visible failures,
+structured service logs, durable execution state, runtime work items, and lineage evidence.
+Unexpected `5xx` responses intentionally avoid raw exception text; inspect logs and durable
+evidence under the same correlation context when deeper diagnosis is needed.
+
 ## Async worker diagnostics
 
 API and background-worker logs use the same JSON logging contract. For async calculation incidents,

@@ -107,6 +107,12 @@ PROBLEM_DETAIL_EXAMPLE: dict[str, Any] = {
     "title": "Unexpected error response",
     "status": 500,
     "detail": "The service returned an unexpected error response.",
+    "error_code": "INTERNAL_SERVER_ERROR",
+    "message": "The service encountered an internal error. Use the correlation_id for support.",
+    "correlation_id": "corr_55956bbc6cb3",
+    "request_id": "req_0d19d1d768c1",
+    "source": "lotus-performance",
+    "retryable": True,
 }
 PROBLEM_DETAIL_SCHEMA: dict[str, Any] = {
     "type": "object",
@@ -132,8 +138,48 @@ PROBLEM_DETAIL_SCHEMA: dict[str, Any] = {
             "description": "Human-readable detail for the specific failure.",
             "example": "The service returned an unexpected error response.",
         },
+        "error_code": {
+            "type": "string",
+            "description": "Stable machine-readable error code from the lotus-performance governed error vocabulary.",
+            "example": "INTERNAL_SERVER_ERROR",
+        },
+        "message": {
+            "type": "string",
+            "description": "Support-safe human-readable message for downstream clients and operator surfaces.",
+            "example": "The service encountered an internal error. Use the correlation_id for support.",
+        },
+        "correlation_id": {
+            "type": "string",
+            "description": "Request correlation identifier for support and traceability.",
+            "example": "corr_55956bbc6cb3",
+        },
+        "request_id": {
+            "type": "string",
+            "description": "Request identifier for request-level diagnostics.",
+            "example": "req_0d19d1d768c1",
+        },
+        "source": {
+            "type": "string",
+            "description": "Service that authored the public error envelope.",
+            "example": "lotus-performance",
+        },
+        "retryable": {
+            "type": "boolean",
+            "description": "Whether the caller may retry without changing the request payload.",
+            "example": True,
+        },
+        "retry_after_seconds": {
+            "type": "integer",
+            "description": "Optional retry delay in seconds when the service can recommend one.",
+            "example": 30,
+        },
+        "remediation_hint": {
+            "type": "string",
+            "description": "Optional operator-facing hint for resolving the failure.",
+            "example": "Retry after the upstream source is healthy.",
+        },
     },
-    "required": ["type", "title", "status", "detail"],
+    "required": ["type", "title", "status", "detail", "error_code", "message", "source", "retryable"],
     "example": PROBLEM_DETAIL_EXAMPLE,
 }
 
