@@ -2,24 +2,18 @@ import json
 from uuid import uuid4
 
 import pytest
-from fastapi import HTTPException
-from starlette.datastructures import URL
 
-from app.api.endpoints.lineage import (
-    _downloadable_lineage_record,
-    _lineage_artifact_links,
-    _lineage_terminal_response,
-    _manifest_matches_record,
-    _read_lineage_manifest_payload,
-    _resolve_lineage_response,
-)
 from app.models.lineage_responses import LineageManifest
+from app.services.lineage_artifact_service import (
+    downloadable_lineage_record,
+    lineage_artifact_links,
+    lineage_terminal_response,
+    manifest_matches_record,
+    read_lineage_manifest_payload,
+    resolve_lineage_response,
+)
 from app.services.lineage_metadata_store import LineageRecord, LineageStatus
-
-
-class _RequestStub:
-    def url_for(self, name: str, **path_params: str) -> URL:
-        return URL(f"http://testserver/{name}/{path_params['calculation_id']}/{path_params['artifact_name']}")
+from core.errors import APIError
 
 
 def test_lineage_terminal_response_projects_pending_and_failed_records():
@@ -47,8 +41,8 @@ def test_lineage_terminal_response_projects_pending_and_failed_records():
         artifact_names=[],
     )
 
-    pending_response = _lineage_terminal_response(calculation_id=calculation_id, record=pending_record)
-    failed_response = _lineage_terminal_response(calculation_id=calculation_id, record=failed_record)
+    pending_response = lineage_terminal_response(calculation_id=calculation_id, record=pending_record)
+    failed_response = lineage_terminal_response(calculation_id=calculation_id, record=failed_record)
 
     assert pending_response is not None
     assert pending_response.status == LineageStatus.PENDING
@@ -57,7 +51,7 @@ def test_lineage_terminal_response_projects_pending_and_failed_records():
     assert failed_response is not None
     assert failed_response.status == LineageStatus.FAILED
     assert failed_response.error_message == "write failed"
-    assert _lineage_terminal_response(calculation_id=calculation_id, record=complete_record) is None
+    assert lineage_terminal_response(calculation_id=calculation_id, record=complete_record) is None
 
 
 def test_resolve_lineage_response_returns_terminal_record_without_storage_lookup(mocker):
@@ -69,12 +63,12 @@ def test_resolve_lineage_response_returns_terminal_record_without_storage_lookup
         timestamp_utc="2026-01-01T00:00:00Z",
         artifact_names=[],
     )
-    storage_exists = mocker.patch("app.api.endpoints.lineage.os.path.exists")
+    mocker.patch("app.services.lineage_artifact_service.lineage_metadata_store.get_record", return_value=record)
+    storage_exists = mocker.patch("app.services.lineage_artifact_service.os.path.exists")
 
-    response = _resolve_lineage_response(
-        request=_RequestStub(),
+    response = resolve_lineage_response(
         calculation_id=calculation_id,
-        record=record,
+        artifact_url_factory=lambda artifact_name: f"http://testserver/artifacts/{artifact_name}",
     )
 
     assert response.status == LineageStatus.PENDING
@@ -90,20 +84,21 @@ def test_downloadable_lineage_record_requires_complete_declared_artifact(mocker)
         timestamp_utc="2026-01-01T00:00:00Z",
         artifact_names=["request.json"],
     )
-    mocker.patch("app.api.endpoints.lineage.lineage_metadata_store.get_record", return_value=record)
+    mocker.patch("app.services.lineage_artifact_service.lineage_metadata_store.get_record", return_value=record)
 
-    assert _downloadable_lineage_record(calculation_id=calculation_id, artifact_name="request.json") is record
-    with pytest.raises(HTTPException, match="Lineage artifact not found"):
-        _downloadable_lineage_record(calculation_id=calculation_id, artifact_name="response.json")
+    assert downloadable_lineage_record(calculation_id=calculation_id, artifact_name="request.json") is record
+    with pytest.raises(APIError, match="Lineage artifact not found"):
+        downloadable_lineage_record(calculation_id=calculation_id, artifact_name="response.json")
 
 
 def test_lineage_artifact_links_skip_manifest_and_build_controlled_urls():
     calculation_id = uuid4()
 
-    links = _lineage_artifact_links(
-        request=_RequestStub(),
-        calculation_id=calculation_id,
+    links = lineage_artifact_links(
         artifact_names=["manifest.json", "request.json"],
+        artifact_url_factory=lambda artifact_name: (
+            f"http://testserver/lineage_artifact_file/{calculation_id}/{artifact_name}"
+        ),
     )
 
     assert list(links) == ["request.json"]
@@ -111,10 +106,10 @@ def test_lineage_artifact_links_skip_manifest_and_build_controlled_urls():
 
 
 def test_read_lineage_manifest_payload_maps_storage_errors_to_unavailable(mocker):
-    mocker.patch("app.api.endpoints.lineage.read_json_file", side_effect=OSError("permission denied"))
+    mocker.patch("app.services.lineage_artifact_service.read_json_file", side_effect=OSError("permission denied"))
 
-    with pytest.raises(HTTPException) as exc_info:
-        _read_lineage_manifest_payload("manifest.json")
+    with pytest.raises(APIError) as exc_info:
+        read_lineage_manifest_payload("manifest.json")
 
     assert exc_info.value.status_code == 503
     assert exc_info.value.detail == "Lineage manifest is unreadable."
@@ -122,12 +117,12 @@ def test_read_lineage_manifest_payload_maps_storage_errors_to_unavailable(mocker
 
 def test_read_lineage_manifest_payload_maps_invalid_json_to_unavailable(mocker):
     mocker.patch(
-        "app.api.endpoints.lineage.read_json_file",
+        "app.services.lineage_artifact_service.read_json_file",
         side_effect=json.JSONDecodeError("bad json", "", 0),
     )
 
-    with pytest.raises(HTTPException) as exc_info:
-        _read_lineage_manifest_payload("manifest.json")
+    with pytest.raises(APIError) as exc_info:
+        read_lineage_manifest_payload("manifest.json")
 
     assert exc_info.value.status_code == 503
     assert exc_info.value.detail == "Lineage manifest is invalid."
@@ -149,7 +144,7 @@ def test_manifest_matches_record_allows_sorted_artifact_equivalence_and_rejects_
         artifact_names=["request.json", "response.json"],
     )
 
-    assert _manifest_matches_record(manifest=manifest, record=record)
+    assert manifest_matches_record(manifest=manifest, record=record)
 
     mismatched_manifest = manifest.model_copy(update={"artifact_names": ["request.json"]})
-    assert not _manifest_matches_record(manifest=mismatched_manifest, record=record)
+    assert not manifest_matches_record(manifest=mismatched_manifest, record=record)

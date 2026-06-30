@@ -4,14 +4,18 @@ import pytest
 
 from app.api.endpoints import inspections as inspections_endpoint
 from app.api.endpoints.inspections import (
-    _inspection_storage_path,
-    _is_available_twr_inspection_artifact,
-    _is_completed_twr_inspection_record,
     _retained_inspection_artifact_response,
-    _safe_inspection_artifact_name,
 )
 from app.models.inspection_requests import TWRInspectionRequest
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_TWR_INSPECTION
+from app.services.inspection.twr_inspection_artifact_service import (
+    RetainedTWRInspectionArtifact,
+    inspection_storage_path,
+    is_available_twr_inspection_artifact,
+    is_completed_twr_inspection_record,
+    retained_inspection_artifact,
+    safe_inspection_artifact_name,
+)
 from app.services.lineage_metadata_store import LineagePayload, LineageRecord, LineageStatus
 
 
@@ -32,9 +36,9 @@ def test_is_completed_twr_inspection_record_requires_complete_twr_record():
         artifact_names=["inspection_summary.json"],
     )
 
-    assert _is_completed_twr_inspection_record(complete_record) is True
-    assert _is_completed_twr_inspection_record(pending_record) is False
-    assert _is_completed_twr_inspection_record(None) is False
+    assert is_completed_twr_inspection_record(complete_record) is True
+    assert is_completed_twr_inspection_record(pending_record) is False
+    assert is_completed_twr_inspection_record(None) is False
 
 
 def test_is_available_twr_inspection_artifact_requires_complete_record_and_artifact_name():
@@ -54,10 +58,10 @@ def test_is_available_twr_inspection_artifact_requires_complete_record_and_artif
         artifact_names=["inspection_summary.json"],
     )
 
-    assert _is_available_twr_inspection_artifact(complete_record, "inspection_summary.json") is True
-    assert _is_available_twr_inspection_artifact(complete_record, "support_brief.md") is False
-    assert _is_available_twr_inspection_artifact(pending_record, "inspection_summary.json") is False
-    assert _is_available_twr_inspection_artifact(None, "inspection_summary.json") is False
+    assert is_available_twr_inspection_artifact(complete_record, "inspection_summary.json") is True
+    assert is_available_twr_inspection_artifact(complete_record, "support_brief.md") is False
+    assert is_available_twr_inspection_artifact(pending_record, "inspection_summary.json") is False
+    assert is_available_twr_inspection_artifact(None, "inspection_summary.json") is False
 
 
 @pytest.mark.parametrize(
@@ -77,18 +81,18 @@ def test_is_available_twr_inspection_artifact_requires_complete_record_and_artif
     ],
 )
 def test_safe_inspection_artifact_name_rejects_path_like_values(artifact_name):
-    assert _safe_inspection_artifact_name(artifact_name) is None
+    assert safe_inspection_artifact_name(artifact_name) is None
 
 
 def test_safe_inspection_artifact_name_accepts_single_file_name():
-    assert _safe_inspection_artifact_name(" support_brief.md ") == "support_brief.md"
+    assert safe_inspection_artifact_name(" support_brief.md ") == "support_brief.md"
 
 
 def test_inspection_storage_path_rejects_unsafe_artifact_names():
     inspection_id = uuid4()
 
     with pytest.raises(ValueError, match="Unsafe TWR inspection artifact filename"):
-        _inspection_storage_path(inspection_id=inspection_id, artifact_name=r"..\outside.json")
+        inspection_storage_path(inspection_id=inspection_id, artifact_name=r"..\outside.json")
 
 
 def test_is_available_twr_inspection_artifact_ignores_unsafe_metadata_names():
@@ -101,8 +105,8 @@ def test_is_available_twr_inspection_artifact_ignores_unsafe_metadata_names():
         artifact_names=[r"..\outside.json", "inspection_summary.json"],
     )
 
-    assert _is_available_twr_inspection_artifact(complete_record, r"..\outside.json") is False
-    assert _is_available_twr_inspection_artifact(complete_record, "inspection_summary.json") is True
+    assert is_available_twr_inspection_artifact(complete_record, r"..\outside.json") is False
+    assert is_available_twr_inspection_artifact(complete_record, "inspection_summary.json") is True
 
 
 def test_retained_inspection_artifact_response_sets_markdown_media_type_and_attachment():
@@ -116,13 +120,15 @@ def test_retained_inspection_artifact_response_sets_markdown_media_type_and_atta
         attempt_count=0,
     )
 
-    response = _retained_inspection_artifact_response(payload=payload, artifact_name=artifact_name)
+    artifact = retained_inspection_artifact(payload=payload, artifact_name=artifact_name)
+    assert artifact is not None
+    response = _retained_inspection_artifact_response(artifact)
 
     assert response is not None
     assert response.media_type == "text/markdown"
     assert response.headers["content-disposition"] == f'attachment; filename="{artifact_name}"'
     assert response.body == b"# Support"
-    assert _retained_inspection_artifact_response(payload=payload, artifact_name="missing.json") is None
+    assert retained_inspection_artifact(payload=payload, artifact_name="missing.json") is None
 
 
 def test_retained_inspection_artifact_response_rejects_unsafe_content_disposition_filename():
@@ -136,7 +142,21 @@ def test_retained_inspection_artifact_response_rejects_unsafe_content_dispositio
         attempt_count=0,
     )
 
-    assert _retained_inspection_artifact_response(payload=payload, artifact_name=artifact_name) is None
+    assert retained_inspection_artifact(payload=payload, artifact_name=artifact_name) is None
+
+
+def test_retained_inspection_artifact_response_sets_content_disposition_from_reference():
+    response = _retained_inspection_artifact_response(
+        RetainedTWRInspectionArtifact(
+            content="# Support",
+            media_type="text/markdown",
+            filename="support_brief.md",
+        )
+    )
+
+    assert response.media_type == "text/markdown"
+    assert response.headers["content-disposition"] == 'attachment; filename="support_brief.md"'
+    assert response.body == b"# Support"
 
 
 def test_submit_twr_inspection_endpoint_delegates_to_workflow(mocker):
