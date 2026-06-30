@@ -110,4 +110,4 @@ jobs:
       - name: Install
         run: make install-ci
       - name: Run unit tests
-        run: python -m pytest tests/unit
+        run: make test-unit

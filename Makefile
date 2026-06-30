@@ -1,4 +1,9 @@
-.PHONY: install install-ci verify-dependencies check check-all test test-unit test-integration test-e2e test-all test-coverage branch-coverage-baseline coverage-gate ci ci-local ci-local-docker ci-local-docker-down typecheck lint quality-baseline quality-complexity-gate quality-architecture-gate quality-router-thinness-gate quality-duplicate-code-gate quality-observability-readiness-gate quality-test-taxonomy-gate quality-evaluation-gate python-security-gate github-action-runtime-guard monetary-float-guard repository-hygiene-gate demo-api-certification format clean run check-deps security-audit openapi-gate api-vocabulary-gate no-alias-gate domain-product-validate migration-smoke migration-apply recovery-drill-smoke runtime-retention-smoke performance-characterization performance-characterization-postgres pre-commit docker-up docker-down docker-build
+.PHONY: install install-ci verify-dependencies check check-all test test-unit test-integration test-e2e test-all test-coverage test-coverage-shard coverage-combine-gate branch-coverage-baseline coverage-gate ci ci-local ci-local-docker ci-local-docker-down typecheck lint quality-baseline quality-complexity-gate quality-architecture-gate quality-router-thinness-gate quality-duplicate-code-gate quality-observability-readiness-gate quality-test-taxonomy-gate quality-evaluation-gate python-security-gate github-action-runtime-guard monetary-float-guard repository-hygiene-gate demo-api-certification format clean run check-deps security-audit openapi-gate api-vocabulary-gate no-alias-gate domain-product-validate migration-smoke migration-apply recovery-drill-smoke runtime-retention-smoke performance-characterization performance-characterization-postgres pre-commit docker-up docker-down docker-build
+
+SUITE ?= unit
+TEST_PATH ?= tests/unit
+COVERAGE_FAIL_UNDER ?= 99
+COVERAGE_INPUTS ?= .coverage.unit .coverage.integration .coverage.e2e
 
 install:
 	pip install -r requirements.txt
@@ -19,11 +24,17 @@ pre-commit:
 check: lint quality-complexity-gate quality-architecture-gate quality-router-thinness-gate quality-duplicate-code-gate quality-observability-readiness-gate no-alias-gate typecheck openapi-gate api-vocabulary-gate domain-product-validate quality-evaluation-gate python-security-gate test
 
 test-coverage:
-	COVERAGE_FILE=.coverage.unit python -m pytest tests/unit --cov=app --cov=engine --cov=core --cov=adapters --cov-report=
-	COVERAGE_FILE=.coverage.integration python -m pytest tests/integration --cov=app --cov=engine --cov=core --cov=adapters --cov-report=
-	COVERAGE_FILE=.coverage.e2e python -m pytest tests/e2e --cov=app --cov=engine --cov=core --cov=adapters --cov-report=
-	python -m coverage combine .coverage.unit .coverage.integration .coverage.e2e
-	python -m coverage report --fail-under=99
+	$(MAKE) test-coverage-shard SUITE=unit TEST_PATH=tests/unit
+	$(MAKE) test-coverage-shard SUITE=integration TEST_PATH=tests/integration
+	$(MAKE) test-coverage-shard SUITE=e2e TEST_PATH=tests/e2e
+	$(MAKE) coverage-combine-gate COVERAGE_INPUTS=".coverage.unit .coverage.integration .coverage.e2e"
+
+test-coverage-shard:
+	COVERAGE_FILE=.coverage.$(SUITE) python -m pytest $(TEST_PATH) --cov=app --cov=engine --cov=core --cov=adapters --cov-report=
+
+coverage-combine-gate:
+	python -m coverage combine $(COVERAGE_INPUTS)
+	python -m coverage report --fail-under=$(COVERAGE_FAIL_UNDER)
 
 branch-coverage-baseline:
 	COVERAGE_FILE=.coverage.branch.unit python -m pytest tests/unit --cov=app --cov=engine --cov=core --cov=adapters --cov-branch --cov-report=
