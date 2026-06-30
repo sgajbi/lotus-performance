@@ -6,6 +6,7 @@ from app.services.lineage_metadata_store import LineageRecoveryEventPage
 from app.services.runtime_recovery_service import (
     RuntimeRecoveryQueueState,
     _queue_state_from_recovery_page,
+    _runtime_recovery_queue_results,
     _runtime_recovery_snapshot_from_request,
     _RuntimeRecoverySnapshotRequest,
     build_runtime_recovery_snapshot,
@@ -41,6 +42,74 @@ def test_runtime_recovery_snapshot_request_projects_queue_scope_and_filters():
         "cursor_calculation_id_before": "calc-25",
         "calculation_id_contains": "calc",
     }
+
+
+def test_runtime_recovery_queue_results_preserves_source_filters(mocker):
+    recovered_after = datetime(2026, 3, 14, 0, 0, tzinfo=UTC)
+    recovered_before = datetime(2026, 3, 14, 12, 0, tzinfo=UTC)
+    cursor_recovered_before = datetime(2026, 3, 14, 11, 0, tzinfo=UTC)
+    request = _RuntimeRecoverySnapshotRequest(
+        queue_filter="both",
+        limit=25,
+        offset=50,
+        recovered_after=recovered_after,
+        recovered_before=recovered_before,
+        cursor_recovered_before=cursor_recovered_before,
+        cursor_calculation_id_before="calc-25",
+        calculation_id_contains="calc",
+        compute_analytics_type="ReturnsSeries",
+        lineage_calculation_type="TWR",
+    )
+    compute_list = mocker.patch(
+        "app.services.runtime_recovery_service.compute_job_store.list_recent_recoveries",
+        return_value=ComputeRecoveryEventPage(
+            total_count=2,
+            next_offset=75,
+            next_cursor_recovered_before="2026-03-14T10:00:00Z",
+            next_cursor_calculation_id_before="calc-20",
+            items=[],
+        ),
+    )
+    lineage_list = mocker.patch(
+        "app.services.runtime_recovery_service.lineage_metadata_store.list_recent_recoveries",
+        return_value=LineageRecoveryEventPage(
+            total_count=1,
+            next_offset=None,
+            next_cursor_recovered_before=None,
+            next_cursor_calculation_id_before=None,
+            items=[],
+        ),
+    )
+
+    results = _runtime_recovery_queue_results(request)
+
+    compute_list.assert_called_once_with(
+        limit=25,
+        offset=50,
+        recovered_after=recovered_after,
+        recovered_before=recovered_before,
+        cursor_recovered_before=cursor_recovered_before,
+        cursor_calculation_id_before="calc-25",
+        calculation_id_contains="calc",
+        analytics_type="ReturnsSeries",
+    )
+    lineage_list.assert_called_once_with(
+        limit=25,
+        offset=50,
+        recovered_after=recovered_after,
+        recovered_before=recovered_before,
+        cursor_recovered_before=cursor_recovered_before,
+        cursor_calculation_id_before="calc-25",
+        calculation_id_contains="calc",
+        calculation_type="TWR",
+    )
+    assert results.compute_queue.status == "available"
+    assert results.compute_queue.total_count == 2
+    assert results.compute_queue.next_offset == 75
+    assert results.lineage_queue.status == "available"
+    assert results.lineage_queue.total_count == 1
+    assert results.compute_recoveries == []
+    assert results.lineage_recoveries == []
 
 
 def test_runtime_recovery_snapshot_from_request_preserves_request_and_queue_state():

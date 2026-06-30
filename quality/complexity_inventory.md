@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-30
-Branch: `feature/returns-series-execution-result-boundary`
+Branch: `feature/runtime-recovery-queue-result-boundary`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
@@ -34,10 +34,10 @@ must stay at `0`.
 | High-complexity functions (rank D-F) | 0 |
 | Average maintainability index | 55.18 |
 
-The durable queue metric source-loading boundary preserves the enforced complexity posture: max
+The runtime recovery queue-result boundary preserves the enforced complexity posture: max
 cyclomatic complexity remains `5`, high-complexity functions remain `0`, and average
-maintainability index measures `55.18` after moving core queue, recovery-drill, and
-runtime-retention metric source loading behind named private helpers.
+maintainability index measures `55.18` after moving compute and lineage recovery queue loading
+behind a named private result boundary.
 
 ## Highest Cyclomatic Complexity
 
@@ -111,7 +111,7 @@ runtime-retention metric source loading behind named private helpers.
 | 16 | `app/services/inspection/source_quality.py` | 16.49 | B |
 | 17 | `app/services/twr_mode_service.py` | 17.31 | B |
 | 18 | `app/workers/compute_executor_worker.py` | 18.15 | B |
-| 19 | `app/services/inspection/twr_inspection_service.py` | 18.95 | B |
+| 19 | `app/services/inspection/twr_inspection_service.py` | 18.75 | B |
 | 20 | `app/services/inspection/calculation_consistency.py` | 19.07 | A |
 | 21 | `app/models/runtime_status.py` | 19.66 | A |
 | 22 | `app/models/returns_series.py` | 19.70 | A |
@@ -150,6 +150,10 @@ runtime-retention helper boundaries. The measured max cyclomatic complexity rema
 high-complexity functions remain `0`, and average maintainability index measures `55.18`; the slice
 preserves the enforced complexity posture while improving Prometheus collector source-loading
 scanability.
+LP-CR-1560 isolated runtime recovery queue-result loading from the public snapshot builder. The
+measured max cyclomatic complexity remains `5`, high-complexity functions remain `0`, and average
+maintainability index measures `55.18`; the slice preserves the enforced complexity posture while
+improving operator recovery snapshot scanability.
 LP-CR-1553 isolated runtime-retention history filtering, pagination, and applied-filter projection
 behind `_RuntimeRetentionHistoryQuery`. The measured max cyclomatic complexity remains `5`,
 high-complexity functions remain `0`, and average maintainability index measures `55.20`; the slice

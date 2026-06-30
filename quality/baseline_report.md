@@ -1,7 +1,7 @@
 # Lotus Performance Enterprise Backend Refactor Baseline
 
 Baseline date: 2026-06-30
-Branch: `feature/returns-series-execution-result-boundary`
+Branch: `feature/runtime-recovery-queue-result-boundary`
 Mode: report-only baseline; no new blocking quality gate is introduced by this artifact.
 
 ## Purpose
@@ -18,9 +18,9 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 | --- | ---: | --- |
 | Python files | 583 | `rg --files -g '*.py'` equivalent excluding local caches |
 | Python package markers | 18 | recursive `__init__.py` count |
-| Python LOC | 174,241 | recursive `.py` line count |
+| Python LOC | 174,353 | recursive `.py` line count |
 | Test modules | 281 | `tests/**/test_*.py` |
-| Collected tests | 3425 tests | `python -m pytest --collect-only -q` |
+| Collected tests | 3426 tests | `python -m pytest --collect-only -q` |
 | Configured CI workflows | 5 | `.github/workflows/*.yml` |
 | Repo-native baseline command | 1 | `make quality-baseline` |
 

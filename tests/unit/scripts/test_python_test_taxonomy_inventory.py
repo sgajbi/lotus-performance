@@ -53,18 +53,34 @@ def test_returns_series_policy_boundary():
 """,
         encoding="utf-8",
     )
+    runtime_recovery_file = service_dir / "test_runtime_recovery_service.py"
+    runtime_recovery_file.write_text(
+        """
+def test_recovery_queue_filter_preserves_operator_supportability():
+    pass
+""",
+        encoding="utf-8",
+    )
 
     modules = collect_test_modules((str(tests_root),))
+    modules_by_path = {module.path: module for module in modules}
 
-    assert [module.test_count for module in modules] == [2, 1, 1, 1]
-    assert modules[0].suite == "integration"
-    assert "api_or_runtime" in modules[0].families
-    assert modules[1].suite == "unit"
-    assert "contract_or_governance" in modules[1].families
-    assert modules[2].suite == "unit"
-    assert "observability_or_readiness" in modules[2].families
-    assert modules[3].suite == "unit"
-    assert "analytics_domain" in modules[3].families
+    assert [module.test_count for module in modules] == [2, 1, 1, 1, 1]
+    api_module = modules_by_path["tests/integration/test_returns_api.py"]
+    contract_module = modules_by_path["tests/unit/app/test_openapi_contract.py"]
+    compute_store_module = modules_by_path["tests/unit/services/test_compute_job_store.py"]
+    returns_series_module = modules_by_path["tests/unit/services/test_returns_series_service.py"]
+    runtime_recovery_module = modules_by_path["tests/unit/services/test_runtime_recovery_service.py"]
+    assert api_module.suite == "integration"
+    assert "api_or_runtime" in api_module.families
+    assert contract_module.suite == "unit"
+    assert "contract_or_governance" in contract_module.families
+    assert compute_store_module.suite == "unit"
+    assert "observability_or_readiness" in compute_store_module.families
+    assert runtime_recovery_module.suite == "unit"
+    assert "observability_or_readiness" in runtime_recovery_module.families
+    assert returns_series_module.suite == "unit"
+    assert "analytics_domain" in returns_series_module.families
 
 
 def test_render_markdown_summarizes_test_taxonomy() -> None:
