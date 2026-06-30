@@ -1501,9 +1501,16 @@ Possible failure shape:
 ```json
 {
   "status": "unavailable",
-  "reason": "lineage_storage_write_probe_failed"
+  "reason": "durable_metadata_readiness_timeout",
+  "remediation_hint": "The durable metadata readiness probe exceeded its configured time budget; inspect database latency, connectivity, and catalog responsiveness before accepting traffic."
 }
 ```
+
+Readiness semantics:
+
+- durable metadata and lineage-storage probes run outside the async request loop
+- `DURABLE_READINESS_TIMEOUT_SECONDS` bounds each durable dependency probe
+- timeout reason codes are `durable_metadata_readiness_timeout` and `lineage_storage_readiness_timeout`
 
 ### `GET /metrics`
 
@@ -1572,6 +1579,7 @@ Operational boundary:
 | --- | --- | --- |
 | `LINEAGE_STORAGE_PATH` | `lineage_data` | artifact storage root |
 | `LINEAGE_STORAGE_HEALTHCHECK_WRITE_PROBE_ENABLED` | `true` | enable readiness write/delete probe |
+| `DURABLE_READINESS_TIMEOUT_SECONDS` | `2.0` | per-probe time budget for durable metadata and lineage-storage readiness checks |
 | `LINEAGE_METADATA_DATABASE_URL` | `sqlite:///./lineage_metadata.db` | durable lineage metadata database |
 | `LINEAGE_WORKER_POLL_SECONDS` | `1.0` | lineage worker poll interval |
 | `LINEAGE_WORKER_BATCH_SIZE` | `20` | lineage worker batch size |

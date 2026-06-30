@@ -1157,6 +1157,8 @@ def test_twr_inspection_checks_guide_lists_current_check_inventory():
 def test_runtime_alert_runbook_covers_breach_gauges():
     runbook = _read("docs/runbooks/runtime-alerts.md")
     api_reference = _read("docs/guides/api_reference.md")
+    complete_reference = _read("docs/guides/complete_service_reference.md")
+    wiki_operations = _read("wiki/Operations-Runbook.md")
     runtime_topology = _read("docs/technical/runtime_topology.md")
 
     assert "lotus_performance_compute_queue_degradation_breach" in runbook
@@ -1170,6 +1172,12 @@ def test_runtime_alert_runbook_covers_breach_gauges():
     assert "GET /integration/runtime-recoveries" in runbook
     assert "GET /integration/recovery-drills" in runbook
     assert "GET /integration/runtime-retention-cleanups" in runbook
+    assert "durable_metadata_readiness_timeout" in runbook
+    assert "lineage_storage_readiness_timeout" in runbook
+    assert "DURABLE_READINESS_TIMEOUT_SECONDS" in api_reference
+    assert "DURABLE_READINESS_TIMEOUT_SECONDS" in complete_reference
+    assert "DURABLE_READINESS_TIMEOUT_SECONDS" in wiki_operations
+    assert "durable_metadata_readiness_timeout" in wiki_operations
     assert "docs/runbooks/runtime-alerts.md" in api_reference
     assert "runtime-alerts.md" in runtime_topology
 

@@ -76,6 +76,11 @@ flowchart LR
 `/health/ready` is intentionally strict. It returns ready only when the API can support durable
 executor-backed and lineage-backed workflows.
 
+Durable readiness probes are isolated from the async request loop and bounded by
+`DURABLE_READINESS_TIMEOUT_SECONDS`. Treat `durable_metadata_readiness_timeout` as a database or
+catalog responsiveness signal, and treat `lineage_storage_readiness_timeout` as a lineage-storage
+mount, write, or fsync latency signal.
+
 ## TWR inspection support workflow
 
 Use `POST /performance/inspections/twr` when support needs proof behind a portfolio-level TWR

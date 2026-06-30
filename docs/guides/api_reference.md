@@ -894,11 +894,14 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - the durable metadata store is reachable
   - lineage storage is present and usable
 - lineage storage usability includes a real write/delete health probe by default, not just path existence checks
+- durable metadata and lineage-storage probes run outside the async request loop and are bounded by `DURABLE_READINESS_TIMEOUT_SECONDS`
 - failure contract:
   - `503 {"status":"draining"}`
   - `503 {"status":"unavailable","reason":"durable_metadata_store_unreachable"}`
+  - `503 {"status":"unavailable","reason":"durable_metadata_readiness_timeout"}`
   - `503 {"status":"unavailable","reason":"lineage_storage_path_missing"}`
   - `503 {"status":"unavailable","reason":"lineage_storage_write_probe_failed"}`
+  - `503 {"status":"unavailable","reason":"lineage_storage_readiness_timeout"}`
 - readiness failures may also include `remediation_hint` when the service has a concrete recovery recommendation
 - response model: `app.models.platform_surfaces.HealthStatusResponse`
 - certification evidence: `docs/technical/platform-surfaces-endpoint-certification.md`
