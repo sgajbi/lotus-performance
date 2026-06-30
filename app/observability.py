@@ -141,6 +141,24 @@ def setup_logging(log_level: str = "INFO") -> None:
     root_logger.addHandler(handler)
 
 
+def setup_worker_logging(log_level: str = "INFO") -> None:
+    setup_logging(log_level)
+
+
+def worker_log_extra(
+    *,
+    worker_name: str,
+    worker_id: str | None = None,
+    queue: str | None = None,
+    **fields: object,
+) -> dict[str, dict[str, object]]:
+    extra_fields: dict[str, object] = {"worker_name": worker_name}
+    for key, value in {"worker_id": worker_id, "queue": queue, **fields}.items():
+        if value is not None:
+            extra_fields[key] = value
+    return {"extra_fields": extra_fields}
+
+
 def resolve_correlation_id(request: Request) -> str:
     incoming = _nonblank_header(request, "X-Correlation-Id") or _nonblank_header(request, "X-Correlation-ID")
     return incoming if incoming else f"corr_{uuid4().hex[:12]}"

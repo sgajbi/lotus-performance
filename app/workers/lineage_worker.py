@@ -8,6 +8,7 @@ from typing import TypeVar, cast
 from uuid import UUID
 
 from app.core.config import get_settings
+from app.observability import setup_worker_logging, worker_log_extra
 from app.services.durable_metadata_bootstrap import bootstrap_durable_metadata_stores
 from app.services.durable_store_runtime import RuntimeStoreProxy
 from app.services.execution_registry import ExecutionRegistry, execution_registry
@@ -16,6 +17,8 @@ from app.services.lineage_service import LineageService, lineage_service, resolv
 
 logger = logging.getLogger(__name__)
 _T = TypeVar("_T")
+_WORKER_NAME = "lineage_worker"
+_QUEUE_NAME = "lineage"
 
 
 @dataclass(frozen=True)
@@ -103,8 +106,15 @@ def _explicit_or_default(explicit: _T | None, default: _T) -> _T:
 
 def run_forever(*, stop_event: Event | None = None, settings=None) -> None:
     active_settings = settings or get_settings()
-    logging.basicConfig(level=getattr(logging, active_settings.LOG_LEVEL.upper(), logging.INFO))
-    logger.info("Starting lineage worker poller")
+    setup_worker_logging(active_settings.LOG_LEVEL)
+    logger.info(
+        "Starting lineage worker poller",
+        extra=worker_log_extra(
+            worker_name=_WORKER_NAME,
+            worker_id=active_settings.LINEAGE_WORKER_ID,
+            queue=_QUEUE_NAME,
+        ),
+    )
     bootstrap_durable_metadata_stores(
         execution_store=execution_registry,
         lineage_store=lineage_metadata_store,
@@ -184,21 +194,42 @@ def _mark_lineage_materialization_failed(
     execution_store: ExecutionRegistry | RuntimeStoreProxy[ExecutionRegistry],
     error_message: str,
 ) -> None:
+    lineage_stage = resolve_artifact_stage_name(calculation_type=calculation_type)
     lineage_store.mark_failed(
         calculation_id=calculation_id,
         error_message=error_message,
     )
+    logger.warning(
+        "Lineage materialization failed after retry budget",
+        extra=worker_log_extra(
+            worker_name=_WORKER_NAME,
+            queue=_QUEUE_NAME,
+            calculation_id=str(calculation_id),
+            calculation_type=calculation_type,
+            lineage_stage=lineage_stage,
+            failure_classification="terminal_lineage_materialization_failure",
+            retryable=False,
+        ),
+    )
     try:
         execution_store.fail_stage(
             calculation_id,
-            resolve_artifact_stage_name(calculation_type=calculation_type),
+            lineage_stage,
             error_message,
         )
     except Exception:
         logger.warning(
-            "Execution stage unavailable while marking lineage materialization failed: %s",
-            calculation_id,
+            "Execution stage unavailable while marking lineage materialization failed",
             exc_info=True,
+            extra=worker_log_extra(
+                worker_name=_WORKER_NAME,
+                queue=_QUEUE_NAME,
+                calculation_id=str(calculation_id),
+                calculation_type=calculation_type,
+                lineage_stage=lineage_stage,
+                failure_classification="lineage_execution_stage_unavailable",
+                retryable=False,
+            ),
         )
 
 

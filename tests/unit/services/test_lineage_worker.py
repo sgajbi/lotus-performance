@@ -236,6 +236,49 @@ def test_lineage_worker_explicit_or_default_preserves_falsy_fallback_behavior():
     assert lineage_worker._explicit_or_default("explicit", "fallback") == "explicit"
 
 
+def test_mark_lineage_materialization_failed_logs_structured_stage_fields(monkeypatch):
+    calculation_id = uuid4()
+    warnings: list[tuple[tuple, dict]] = []
+    calls: list[str] = []
+
+    class _LineageStore:
+        def mark_failed(self, *, calculation_id, error_message):
+            calls.append(f"mark_failed:{calculation_id}:{error_message}")
+
+    class _ExecutionStore:
+        def fail_stage(self, *args):
+            raise KeyError("missing stage")
+
+    monkeypatch.setattr(lineage_worker.logger, "warning", lambda *args, **kwargs: warnings.append((args, kwargs)))
+
+    lineage_worker._mark_lineage_materialization_failed(
+        calculation_id=calculation_id,
+        calculation_type="TWR",
+        lineage_store=_LineageStore(),
+        execution_store=_ExecutionStore(),
+        error_message="Lineage materialization failed after exhausting retry budget.",
+    )
+
+    assert calls == [
+        f"mark_failed:{calculation_id}:Lineage materialization failed after exhausting retry budget.",
+    ]
+    assert [warning[0][0] for warning in warnings] == [
+        "Lineage materialization failed after retry budget",
+        "Execution stage unavailable while marking lineage materialization failed",
+    ]
+    terminal_fields = warnings[0][1]["extra"]["extra_fields"]
+    assert terminal_fields["worker_name"] == "lineage_worker"
+    assert terminal_fields["queue"] == "lineage"
+    assert terminal_fields["calculation_id"] == str(calculation_id)
+    assert terminal_fields["calculation_type"] == "TWR"
+    assert terminal_fields["lineage_stage"] == "lineage_materialization"
+    assert terminal_fields["failure_classification"] == "terminal_lineage_materialization_failure"
+    assert terminal_fields["retryable"] is False
+    stage_fields = warnings[1][1]["extra"]["extra_fields"]
+    assert stage_fields["failure_classification"] == "lineage_execution_stage_unavailable"
+    assert stage_fields["lineage_stage"] == "lineage_materialization"
+
+
 def test_run_forever_initializes_schema_and_sleeps_when_idle(monkeypatch):
     calls: list[str] = []
     settings = _worker_settings(LINEAGE_WORKER_POLL_SECONDS=11.0)

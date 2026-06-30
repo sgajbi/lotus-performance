@@ -37,8 +37,10 @@ from app.observability import (
     resolve_trace_id,
     setup_logging,
     setup_observability,
+    setup_worker_logging,
     source_product_correlation_id,
     trace_id_var,
+    worker_log_extra,
 )
 
 
@@ -145,6 +147,38 @@ def test_setup_logging_replaces_existing_handlers_with_json_formatter():
     assert isinstance(root_logger.handlers[0].formatter, JsonFormatter)
 
 
+def test_setup_worker_logging_uses_json_formatter():
+    root_logger = logging.getLogger()
+    root_logger.addHandler(logging.NullHandler())
+
+    setup_worker_logging("warning")
+
+    assert root_logger.level == logging.WARNING
+    assert len(root_logger.handlers) == 1
+    assert isinstance(root_logger.handlers[0].formatter, JsonFormatter)
+
+    root_logger.handlers.clear()
+
+
+def test_worker_log_extra_adds_worker_identity_and_omits_empty_fields():
+    extra = worker_log_extra(
+        worker_name="compute_executor_worker",
+        worker_id="worker-1",
+        queue="compute",
+        calculation_id="calc-1",
+        ignored=None,
+    )
+
+    assert extra == {
+        "extra_fields": {
+            "worker_name": "compute_executor_worker",
+            "worker_id": "worker-1",
+            "queue": "compute",
+            "calculation_id": "calc-1",
+        }
+    }
+
+
 def test_json_formatter_includes_standard_and_extra_fields(monkeypatch):
     monkeypatch.setenv("SERVICE_NAME", "lotus-performance-test")
     monkeypatch.setenv("ENVIRONMENT", "test")
@@ -169,6 +203,40 @@ def test_json_formatter_includes_standard_and_extra_fields(monkeypatch):
     assert payload["message"] == "log-message"
     assert payload["endpoint"] == "/health"
     assert payload["duration_ms"] == 12.3
+
+
+def test_json_formatter_includes_worker_log_fields(monkeypatch):
+    monkeypatch.setenv("SERVICE_NAME", "lotus-performance-test")
+    formatter = JsonFormatter()
+    record = logging.LogRecord(
+        name="app.workers.compute_executor_worker",
+        level=logging.WARNING,
+        pathname=__file__,
+        lineno=1,
+        msg="Retrying compute job after retryable failure",
+        args=(),
+        exc_info=None,
+    )
+    record.extra_fields = worker_log_extra(
+        worker_name="compute_executor_worker",
+        worker_id="worker-1",
+        queue="compute",
+        calculation_id="calc-1",
+        analytics_type="ReturnsSeries",
+        failure_classification="retryable_compute_failure",
+        retryable=True,
+    )["extra_fields"]
+
+    payload = json.loads(formatter.format(record))
+
+    assert payload["message"] == "Retrying compute job after retryable failure"
+    assert payload["worker_name"] == "compute_executor_worker"
+    assert payload["worker_id"] == "worker-1"
+    assert payload["queue"] == "compute"
+    assert payload["calculation_id"] == "calc-1"
+    assert payload["analytics_type"] == "ReturnsSeries"
+    assert payload["failure_classification"] == "retryable_compute_failure"
+    assert payload["retryable"] is True
 
 
 def test_log_context_fields_preserves_present_ids_and_normalizes_empty_ids():
