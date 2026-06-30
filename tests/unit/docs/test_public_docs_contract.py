@@ -425,7 +425,9 @@ def test_attribution_documentation_map_and_wiki_navigation_are_present():
     assert "material residual classification" in wiki_page
     assert "currency_attribution_totals" in wiki_page
     assert "portfolio-level Karnosky-Singer total" in wiki_page
+    assert "source_position_key" in wiki_page
     assert "weight-averaged local/FX" in wiki_page
+    assert "source_position_key" in certification
     assert "portfolio-level FX attribution" in certification
     assert "should consume these totals rather than reconstructing" in certification
     assert "does not sum granular sector" in certification
@@ -804,12 +806,15 @@ def test_contribution_guide_uses_current_request_shape():
     assert "`currency_mode=BOTH` requires `fx.rates`" in api_reference
     assert "selected active or promoted denominator" in certification
     assert "same selected denominator drives residual allocation" in certification
+    assert "source_position_key" in certification
+    assert "business_position_id" in guide
     assert (
         'mixed-currency stateful contribution in `currency_mode="BOTH"` fails closed with HTTP `422`' in certification
     )
     assert "zero-net and near-zero pre-allocation contribution cases" in certification_flat
     assert "Hierarchy `weight_avg` uses the same active or reset-aware promoted denominator" in wiki
     assert "mixed-currency stateful contribution fails closed with HTTP `422`" in wiki
+    assert "source_position_key" in wiki
     assert "zero-net and near-zero pre-allocation contribution cases" in wiki
     assert "fund or structured-product decomposition is not performed inside lotus-performance" in api_reference
     assert 'input_mode: "stateless" | "stateful"' in readme
@@ -912,6 +917,8 @@ def test_attribution_guide_uses_current_request_shape():
     assert "`group_by` includes the `currency` dimension" in guide
     assert "available for both stateless and stateful attribution inputs" in guide
     assert "benchmark engine sourcing path" in guide
+    assert "source_position_key" in guide
+    assert "business_position_id" in guide
     assert "benchmark_context" in guide
     assert "portfolio_weight_avg" in guide
     assert "benchmark_weight_avg" in guide

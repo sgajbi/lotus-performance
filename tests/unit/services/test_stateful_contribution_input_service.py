@@ -759,6 +759,43 @@ def test_stateful_contribution_position_series_groups_points_and_preserves_lates
     assert position_series.meta_by_position_id["POS_1"]["sector"] == "Software"
 
 
+def test_stateful_contribution_position_series_preserves_source_position_grain():
+    position_series = _stateful_contribution_position_series(
+        rows=[
+            {
+                "position_id": "SEC_1",
+                "source_position_key": "position_id=SEC_1|account_id=ACC_A|tax_lot_id=LOT_1",
+                "account_id": "ACC_A",
+                "tax_lot_id": "LOT_1",
+                "security_id": "SEC_1",
+                "valuation_date": "2025-01-01",
+                "beginning_market_value_portfolio_currency": "100",
+                "ending_market_value_portfolio_currency": "101",
+            },
+            {
+                "position_id": "SEC_1",
+                "source_position_key": "position_id=SEC_1|account_id=ACC_B|tax_lot_id=LOT_2",
+                "account_id": "ACC_B",
+                "tax_lot_id": "LOT_2",
+                "security_id": "SEC_1",
+                "valuation_date": "2025-01-01",
+                "beginning_market_value_portfolio_currency": "200",
+                "ending_market_value_portfolio_currency": "202",
+            },
+        ],
+        currency_mode="BASE_ONLY",
+        reporting_currency=None,
+    )
+
+    assert list(position_series.valuation_points_by_position_id) == [
+        "position_id=SEC_1|account_id=ACC_A|tax_lot_id=LOT_1",
+        "position_id=SEC_1|account_id=ACC_B|tax_lot_id=LOT_2",
+    ]
+    first_meta = position_series.meta_by_position_id["position_id=SEC_1|account_id=ACC_A|tax_lot_id=LOT_1"]
+    assert first_meta["business_position_id"] == "SEC_1"
+    assert first_meta["source_position_key"] == "position_id=SEC_1|account_id=ACC_A|tax_lot_id=LOT_1"
+
+
 def test_stateful_contribution_position_series_skips_invalid_or_unusable_rows():
     position_series = _stateful_contribution_position_series(
         rows=[

@@ -100,12 +100,14 @@ def test_repo_native_producer_declarations_cover_governed_first_wave_products_an
     ]
     assert "coverage_status" in contribution_product["required_trust_metadata"]
     assert "coverage_ratio" in contribution_product["required_trust_metadata"]
+    assert "source_position_key" in contribution_product["identifier_refs"]
     attribution_product = payload["products"][3]
     assert attribution_product["approved_consumers"] == ["lotus-gateway"]
     assert attribution_product["current_routes"] == [
         "/performance/attribution",
         "/performance/attribution/results/{calculation_id}",
     ]
+    assert "source_position_key" in attribution_product["identifier_refs"]
     assert "benchmark_context" in attribution_product["required_trust_metadata"]
     assert "reconciliation_status" in attribution_product["required_trust_metadata"]
     assert "coverage_status" in attribution_product["required_trust_metadata"]

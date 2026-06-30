@@ -1687,11 +1687,69 @@ def test_stateful_input_service_builds_position_timeseries_payload():
 
     assert payload == {
         "rows": [
-            {"valuation_date": "2026-01-01", "position_id": "POS_1", "value": 2},
-            {"valuation_date": "2026-01-02", "position_id": "POS_2", "value": 3},
+            {"valuation_date": "2026-01-01", "position_id": "POS_1", "source_position_key": "POS_1", "value": 2},
+            {"valuation_date": "2026-01-02", "position_id": "POS_2", "source_position_key": "POS_2", "value": 3},
         ],
         "retrieval_metadata": {"chunk_count": 2, "page_count": 3},
     }
+
+
+def test_stateful_input_service_preserves_source_position_grain_when_building_position_payload():
+    service = StatefulInputService(core_service=_CoreServiceStub())
+
+    payload = service._build_position_timeseries_payload(
+        responses=[
+            (
+                200,
+                {
+                    "rows": [
+                        {
+                            "valuation_date": "2026-01-01",
+                            "position_id": "SEC_1",
+                            "account_id": "ACC_A",
+                            "tax_lot_id": "LOT_1",
+                            "value": 100,
+                        },
+                        {
+                            "valuation_date": "2026-01-01",
+                            "position_id": "SEC_1",
+                            "account_id": "ACC_B",
+                            "tax_lot_id": "LOT_2",
+                            "value": 200,
+                        },
+                        {
+                            "valuation_date": "2026-01-01",
+                            "position_id": "SEC_1",
+                            "account_id": "ACC_A",
+                            "tax_lot_id": "LOT_1",
+                            "value": 101,
+                        },
+                    ],
+                    "retrieval_metadata": {"page_count": 1},
+                },
+            )
+        ],
+        chunk_count=1,
+    )
+
+    assert payload["rows"] == [
+        {
+            "valuation_date": "2026-01-01",
+            "position_id": "SEC_1",
+            "account_id": "ACC_A",
+            "tax_lot_id": "LOT_1",
+            "source_position_key": "position_id=SEC_1|account_id=ACC_A|tax_lot_id=LOT_1",
+            "value": 101,
+        },
+        {
+            "valuation_date": "2026-01-01",
+            "position_id": "SEC_1",
+            "account_id": "ACC_B",
+            "tax_lot_id": "LOT_2",
+            "source_position_key": "position_id=SEC_1|account_id=ACC_B|tax_lot_id=LOT_2",
+            "value": 200,
+        },
+    ]
 
 
 @pytest.mark.asyncio
@@ -1787,8 +1845,8 @@ def test_record_position_chunk_payload_accumulates_valid_rows_and_page_count():
     _record_position_chunk_payload(accumulator=accumulator, payload={"rows": "bad-shape"})
 
     assert accumulator.rows == [
-        {"valuation_date": "2026-01-01", "position_id": "POS_1"},
-        {"valuation_date": "2026-01-02", "position_id": "POS_1"},
+        {"valuation_date": "2026-01-01", "position_id": "POS_1", "source_position_key": "POS_1"},
+        {"valuation_date": "2026-01-02", "position_id": "POS_1", "source_position_key": "POS_1"},
     ]
     assert accumulator.page_count == 3
 
@@ -1809,8 +1867,8 @@ def test_stateful_input_service_builds_position_chunk_payload_from_accumulator()
 
     assert payload == {
         "rows": [
-            {"valuation_date": "2026-01-01", "position_id": "POS_1", "value": 2},
-            {"valuation_date": "2026-01-02", "position_id": "POS_2", "value": 3},
+            {"valuation_date": "2026-01-01", "position_id": "POS_1", "source_position_key": "POS_1", "value": 2},
+            {"valuation_date": "2026-01-02", "position_id": "POS_2", "source_position_key": "POS_2", "value": 3},
         ],
         "retrieval_metadata": {"page_count": 3},
     }
@@ -1884,7 +1942,7 @@ def test_stateful_input_service_helper_contracts_cover_page_tokens_failures_and_
     }
     assert _position_rows_from_payload(
         {"rows": [{"valuation_date": "2026-01-01", "position_id": "POS_1"}, "bad-row"]}
-    ) == [{"valuation_date": "2026-01-01", "position_id": "POS_1"}]
+    ) == [{"valuation_date": "2026-01-01", "position_id": "POS_1", "source_position_key": "POS_1"}]
     assert _position_rows_from_payload({"rows": "bad-shape"}) == []
 
     snapshot_id, request_fingerprint = service._build_snapshot_identity(

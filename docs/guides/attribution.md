@@ -38,6 +38,11 @@ resolves benchmark assignment when needed, resolves benchmark component inputs t
 benchmark engine sourcing path, and normalizes those upstream inputs into the same stateless engine
 request used by direct callers.
 
+Stateful position rows preserve the source position grain through `source_position_key`. When
+lotus-core supplies account, custody, book, sleeve, strategy, mandate, or tax-lot discriminators,
+Lotus treats those rows as distinct attribution instruments while preserving the original
+`position_id` as `business_position_id` metadata.
+
 The current stateful public contract is intentionally fenced to:
 
 - `mode="by_instrument"`

@@ -13,6 +13,17 @@ from app.services.execution_registry import ExecutionRegistry, execution_registr
 
 STATEFUL_UPSTREAM_PAGE_LIMIT_EXCEEDED_REASON = "stateful_upstream_page_limit_exceeded"
 STATEFUL_UPSTREAM_REPEATED_PAGE_CURSOR_REASON = "stateful_upstream_repeated_page_cursor"
+POSITION_SOURCE_GRAIN_FIELDS: tuple[str, ...] = (
+    "account_id",
+    "sub_account_id",
+    "custody_account_id",
+    "book_id",
+    "strategy_id",
+    "mandate_id",
+    "sleeve_id",
+    "tax_lot_id",
+    "lot_id",
+)
 
 
 @dataclass(frozen=True)
@@ -1273,8 +1284,8 @@ class StatefulInputService:
     ) -> dict[str, Any]:
         return {
             "rows": self._merge_dedup_records_by_fields(
-                records=accumulator.rows,
-                key_fields=("valuation_date", "position_id"),
+                records=_position_rows_with_source_keys(accumulator.rows),
+                key_fields=("valuation_date", "position_id", "source_position_key"),
             ),
             "retrieval_metadata": {
                 "page_count": accumulator.page_count,
@@ -1502,8 +1513,8 @@ class StatefulInputService:
     ) -> dict[str, Any]:
         return {
             "rows": self._merge_dedup_records_by_fields(
-                records=_dict_list_payload_items(responses=responses, field_name="rows"),
-                key_fields=("valuation_date", "position_id"),
+                records=_position_rows_from_responses(responses),
+                key_fields=("valuation_date", "position_id", "source_position_key"),
             ),
             "retrieval_metadata": {
                 "chunk_count": chunk_count,
@@ -1943,7 +1954,40 @@ def _position_rows_from_payload(payload: dict[str, Any]) -> list[dict[str, Any]]
     rows = payload.get("rows", [])
     if not isinstance(rows, list):
         return []
-    return [row for row in rows if isinstance(row, dict)]
+    return _position_rows_with_source_keys(rows)
+
+
+def _position_rows_from_responses(responses: list[tuple[int, dict[str, Any]]]) -> list[dict[str, Any]]:
+    return [row for _, payload in responses for row in _position_rows_from_payload(payload)]
+
+
+def _position_rows_with_source_keys(rows: list[Any]) -> list[dict[str, Any]]:
+    return [_position_row_with_source_key(row) for row in rows if isinstance(row, dict)]
+
+
+def _position_row_with_source_key(row: dict[str, Any]) -> dict[str, Any]:
+    source_position_key = _source_position_key(row)
+    if source_position_key is None or row.get("source_position_key") == source_position_key:
+        return row
+    return {**row, "source_position_key": source_position_key}
+
+
+def _source_position_key(row: dict[str, Any]) -> str | None:
+    explicit_source_key = row.get("source_position_key")
+    if _non_empty_string(explicit_source_key):
+        return explicit_source_key
+    position_grain_id = row.get("position_grain_id")
+    if _non_empty_string(position_grain_id):
+        return position_grain_id
+    position_id = row.get("position_id")
+    if not _non_empty_string(position_id):
+        return None
+    grain_parts = [
+        f"{field}={value}" for field in POSITION_SOURCE_GRAIN_FIELDS if _non_empty_string(value := row.get(field))
+    ]
+    if not grain_parts:
+        return position_id
+    return "|".join([f"position_id={position_id}", *grain_parts])
 
 
 def _record_position_chunk_payload(

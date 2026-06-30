@@ -416,6 +416,9 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - existing stateless callers can continue sending top-level `portfolio_data` and `positions_data`
   - new callers should prefer the Lotus-style envelope with `input_mode`, `stateless_input`, and `stateful_input`
   - stateful mode sources portfolio and position timeseries from lotus-core query-control-plane via `CORE_CONTROL_PLANE_BASE_URL` and normalizes them into canonical contribution inputs before engine execution
+  - stateful position rows preserve source grain through `source_position_key`; when that source
+    grain is more specific than `position_id`, the original business position remains available as
+    `business_position_id` metadata
   - lotus-performance stamps source consumer identity server-side for the stateful envelope
   - position-level `average_weight` and grouped `weight_avg` are both emitted in percentage units
     and share the same active or reset-aware promoted denominator
@@ -448,6 +451,9 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - `stateful`
   - new callers should prefer the Lotus-style envelope with `input_mode`, `stateless_input`, and `stateful_input`
   - stateful mode sources portfolio and position timeseries from lotus-core query-control-plane via `CORE_CONTROL_PLANE_BASE_URL` and derives benchmark group inputs from benchmark assignment plus the shared benchmark engine sourcing path
+  - stateful position rows preserve source grain through `source_position_key`; when that source
+    grain is more specific than `position_id`, the original business position remains available as
+    `business_position_id` metadata
   - lotus-performance stamps source consumer identity server-side for the stateful envelope
   - when a benchmark is resolved, the response also emits top-level `benchmark_context`
   - each attribution group row now includes average portfolio weight, average benchmark weight, portfolio return, and benchmark return alongside allocation, selection, interaction, and total effect
