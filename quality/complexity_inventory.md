@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
 Report date: 2026-06-30
-Branch: `feature/durable-queue-source-loading-boundary`
+Branch: `feature/returns-series-execution-result-boundary`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose

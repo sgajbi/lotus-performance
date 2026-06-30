@@ -1,7 +1,7 @@
 # Lotus Performance Architecture Boundary Inventory
 
 Report date: 2026-06-30
-Branch: `feature/durable-queue-source-loading-boundary`
+Branch: `feature/returns-series-execution-result-boundary`
 Mode: enforced architecture-boundary inventory; zero findings are blocked by CI.
 
 ## Purpose

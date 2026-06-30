@@ -45,16 +45,26 @@ def test_compute_queue_inspection_supportability():
 """,
         encoding="utf-8",
     )
+    returns_series_file = service_dir / "test_returns_series_service.py"
+    returns_series_file.write_text(
+        """
+def test_returns_series_policy_boundary():
+    pass
+""",
+        encoding="utf-8",
+    )
 
     modules = collect_test_modules((str(tests_root),))
 
-    assert [module.test_count for module in modules] == [2, 1, 1]
+    assert [module.test_count for module in modules] == [2, 1, 1, 1]
     assert modules[0].suite == "integration"
     assert "api_or_runtime" in modules[0].families
     assert modules[1].suite == "unit"
     assert "contract_or_governance" in modules[1].families
     assert modules[2].suite == "unit"
     assert "observability_or_readiness" in modules[2].families
+    assert modules[3].suite == "unit"
+    assert "analytics_domain" in modules[3].families
 
 
 def test_render_markdown_summarizes_test_taxonomy() -> None:

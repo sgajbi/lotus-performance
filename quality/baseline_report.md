@@ -1,7 +1,7 @@
 # Lotus Performance Enterprise Backend Refactor Baseline
 
 Baseline date: 2026-06-30
-Branch: `feature/durable-queue-source-loading-boundary`
+Branch: `feature/returns-series-execution-result-boundary`
 Mode: report-only baseline; no new blocking quality gate is introduced by this artifact.
 
 ## Purpose
@@ -18,9 +18,9 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 | --- | ---: | --- |
 | Python files | 583 | `rg --files -g '*.py'` equivalent excluding local caches |
 | Python package markers | 18 | recursive `__init__.py` count |
-| Python LOC | 174,145 | recursive `.py` line count |
+| Python LOC | 174,241 | recursive `.py` line count |
 | Test modules | 281 | `tests/**/test_*.py` |
-| Collected tests | 3424 tests | `python -m pytest --collect-only -q` |
+| Collected tests | 3425 tests | `python -m pytest --collect-only -q` |
 | Configured CI workflows | 5 | `.github/workflows/*.yml` |
 | Repo-native baseline command | 1 | `make quality-baseline` |
 
@@ -29,7 +29,7 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 | Rank | File | Lines |
 | ---: | --- | ---: |
 | 1 | `tests/unit/services/test_runtime_status_service.py` | 2503 |
-| 2 | `tests/unit/services/test_returns_series_service.py` | 2326 |
+| 2 | `tests/unit/services/test_returns_series_service.py` | 2376 |
 | 3 | `tests/unit/app/test_request_path_runtime_settings.py` | 2276 |
 | 4 | `tests/unit/services/test_stateful_attribution_input_service.py` | 2069 |
 | 5 | `tests/integration/test_performance_api.py` | 1999 |
@@ -38,8 +38,8 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 | 8 | `tests/integration/test_contribution_api.py` | 1897 |
 | 9 | `tests/unit/services/test_compute_executor_worker.py` | 1879 |
 | 10 | `tests/unit/services/test_stateful_input_service.py` | 1777 |
-| 11 | `tests/integration/test_attribution_api.py` | 1757 |
-| 12 | `app/services/returns_series_service.py` | 1724 |
+| 11 | `app/services/returns_series_service.py` | 1757 |
+| 12 | `tests/integration/test_attribution_api.py` | 1757 |
 | 13 | `tests/unit/app/test_contribution_endpoint_helpers.py` | 1643 |
 | 14 | `tests/unit/services/test_workspace_summary_service.py` | 1641 |
 | 15 | `tests/unit/services/test_twr_mode_service.py` | 1594 |
