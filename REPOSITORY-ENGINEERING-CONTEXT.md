@@ -255,7 +255,8 @@ Important validation expectations:
     input-mode helper, benchmark-assignment helper, stateful position-currency helper, compute
     executor, async-result resolver, calculation-result access policy, execution polling service,
     stateful execution policy service, submission fencing service, returns-series workflow,
-    workspace-summary workflow, and TWR-inspection submission workflow now follow this pattern, and
+    workspace-summary workflow, TWR-inspection submission workflow, lineage artifact service, and
+    TWR-inspection artifact service now follow this pattern, and
     `tests/unit/services/test_service_framework_boundary_inventory.py` prevents new service-level
     FastAPI coupling while the remaining #331 debt is migrated in smaller slices.
 25. API routers should not own analytics workflow orchestration. Routers own HTTP route metadata,
@@ -265,6 +266,13 @@ Important validation expectations:
     belong in named application workflow services. `workspace_summary_calculation_workflow_service`
     and `inspection/twr_inspection_workflow_service.py` are the current pattern for behavior-
     preserving design modularity without introducing a separately scalable runtime service.
+26. API routers should not import durable stores directly for lineage, inspection, execution, or
+    async-result supportability policy. Durable metadata lookup, manifest consistency checks,
+    declared-artifact eligibility, retained-payload fallback, and missing-storage degradation
+    decisions belong in application services such as `lineage_artifact_service.py` and
+    `inspection/twr_inspection_artifact_service.py`. Routers may construct route URLs and convert
+    typed artifact references into `FileResponse` or `Response`, while explicit public 5xx details
+    remain an API-boundary mapping concern.
 
 ## Standards And RFCs That Govern This Repository
 

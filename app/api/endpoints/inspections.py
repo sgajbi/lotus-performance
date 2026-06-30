@@ -1,74 +1,44 @@
 from __future__ import annotations
 
-import os
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Path, Request, status
 from fastapi.responses import FileResponse, JSONResponse, Response
 
 from app.api.http_response_adapter import to_fastapi_response
-from app.core.config import get_settings
 from app.models.inspection_requests import TWRInspectionRequest
 from app.models.inspection_responses import TWRInspectionAcceptedResponse, TWRInspectionResponse
 from app.models.platform_surfaces import ErrorDetailResponse
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_TWR_INSPECTION
-from app.services.artifact_filename_policy import validate_artifact_filename
 from app.services.async_result_service import resolve_async_result
+from app.services.inspection.twr_inspection_artifact_service import (
+    RetainedTWRInspectionArtifact,
+    TWRInspectionArtifactFileReference,
+    resolve_twr_inspection_artifact,
+)
 from app.services.inspection.twr_inspection_workflow_service import (
     accepted_twr_inspection_response,
     submit_twr_inspection_workflow,
 )
-from app.services.lineage_metadata_store import LineagePayload, LineageRecord, LineageStatus, lineage_metadata_store
 
 router = APIRouter(tags=["Performance"])
 
 
-def _inspection_storage_path(*, inspection_id: UUID, artifact_name: str | None = None) -> str:
-    base_path = os.path.join(get_settings().LINEAGE_STORAGE_PATH, str(inspection_id))
-    if artifact_name is None:
-        return base_path
-    safe_artifact_name = _safe_inspection_artifact_name(artifact_name)
-    if safe_artifact_name is None:
-        raise ValueError(f"Unsafe TWR inspection artifact filename: {artifact_name}")
-    return os.path.join(base_path, safe_artifact_name)
+def _is_application_http_error(exc: Exception) -> bool:
+    return hasattr(exc, "status_code") and hasattr(exc, "detail")
 
 
-def _safe_inspection_artifact_name(artifact_name: str) -> str | None:
-    try:
-        return validate_artifact_filename(artifact_name, artifact_kind="TWR inspection artifact")
-    except ValueError:
-        return None
+def _public_http_detail(*, status_code: int, detail: str):
+    if status_code >= status.HTTP_500_INTERNAL_SERVER_ERROR:
+        return {"message": detail}
+    return detail
 
 
-def _is_completed_twr_inspection_record(record: LineageRecord | None) -> bool:
-    return (
-        record is not None
-        and record.calculation_type == ANALYTICS_WORKFLOW_TWR_INSPECTION
-        and record.status == LineageStatus.COMPLETE
-    )
-
-
-def _is_available_twr_inspection_artifact(record: LineageRecord | None, artifact_name: str) -> bool:
-    if record is None:
-        return False
-    safe_artifact_name = _safe_inspection_artifact_name(artifact_name)
-    if safe_artifact_name is None:
-        return False
-    safe_record_artifact_names = {
-        safe_name for candidate in record.artifact_names if (safe_name := _safe_inspection_artifact_name(candidate))
-    }
-    return _is_completed_twr_inspection_record(record) and safe_artifact_name in safe_record_artifact_names
-
-
-def _retained_inspection_artifact_response(*, payload: LineagePayload | None, artifact_name: str) -> Response | None:
-    safe_artifact_name = _safe_inspection_artifact_name(artifact_name)
-    if safe_artifact_name is None or payload is None or safe_artifact_name not in payload.details:
-        return None
-    media_type = "text/markdown" if safe_artifact_name.endswith(".md") else "application/json"
+def _retained_inspection_artifact_response(artifact: RetainedTWRInspectionArtifact) -> Response:
     return Response(
-        content=payload.details[safe_artifact_name],
-        media_type=media_type,
-        headers={"Content-Disposition": f'attachment; filename="{safe_artifact_name}"'},
+        content=artifact.content,
+        media_type=artifact.media_type,
+        headers={"Content-Disposition": f'attachment; filename="{artifact.filename}"'},
     )
 
 
@@ -179,20 +149,20 @@ def get_twr_inspection_artifact(
         examples=["support_brief.md"],
     ),
 ):
-    record = lineage_metadata_store.get_record(inspection_id)
-    if not _is_available_twr_inspection_artifact(record, artifact_name):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Inspection artifact not found.")
-
-    artifact_path = _inspection_storage_path(inspection_id=inspection_id, artifact_name=artifact_name)
-    if not os.path.exists(artifact_path):
-        retained_response = _retained_inspection_artifact_response(
-            payload=lineage_metadata_store.get_payload(inspection_id),
-            artifact_name=artifact_name,
-        )
-        if retained_response is not None:
-            return retained_response
+    try:
+        artifact = resolve_twr_inspection_artifact(inspection_id=inspection_id, artifact_name=artifact_name)
+    except Exception as exc:
+        if not _is_application_http_error(exc):
+            raise
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Inspection artifact is missing from storage.",
+            status_code=getattr(exc, "status_code"),
+            detail=_public_http_detail(status_code=getattr(exc, "status_code"), detail=getattr(exc, "detail")),
+        ) from exc
+    if isinstance(artifact, RetainedTWRInspectionArtifact):
+        return _retained_inspection_artifact_response(artifact)
+    if isinstance(artifact, TWRInspectionArtifactFileReference):
+        return FileResponse(
+            path=artifact.path,
+            filename=artifact.filename,
         )
-    return FileResponse(path=artifact_path, filename=artifact_name)
+    raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Unsupported inspection artifact.")
