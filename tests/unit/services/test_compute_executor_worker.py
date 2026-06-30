@@ -30,7 +30,13 @@ from app.services.analytics_workflow_types import (
     ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY,
 )
 from app.services.async_result_store import AsyncResultStatus, AsyncResultStore
-from app.services.compute_job_store import ComputeJobRecord, ComputeJobStatus, ComputeJobStore, ReconciledJobRecord
+from app.services.compute_job_store import (
+    ComputeJobLeaseOwnershipError,
+    ComputeJobRecord,
+    ComputeJobStatus,
+    ComputeJobStore,
+    ReconciledJobRecord,
+)
 from app.services.execution_registry import ExecutionRegistry
 from app.services.lineage_metadata_store import LineageMetadataStore
 from app.services.lineage_service import LineageService
@@ -366,6 +372,104 @@ def test_compute_executor_worker_skips_stale_owner_success_after_reclaim(tmp_pat
     )
     extra_fields = warnings[0][1]["extra"]["extra_fields"]
     assert extra_fields["failure_classification"] == "stale_owner_success_publication_skipped"
+
+
+def test_compute_executor_worker_skips_stale_owner_retryable_failure_finalization(monkeypatch):
+    calculation_id = uuid4()
+    job = _compute_job_record(
+        calculation_id=calculation_id,
+        analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES,
+        request_payload={"portfolio_id": "P1"},
+        max_attempts=2,
+    )
+    warnings: list[tuple[tuple, dict]] = []
+
+    class _JobStore:
+        def mark_retryable_failure(self, calculation_id_arg, *, error_message, error_type, worker_id):
+            assert calculation_id_arg == calculation_id
+            assert error_message == "transient outage"
+            assert error_type == "RuntimeError"
+            assert worker_id == "worker-test"
+            raise ComputeJobLeaseOwnershipError("stale worker")
+
+        def mark_failed(self, *args, **kwargs):  # noqa: ANN002, ANN003
+            raise AssertionError("stale retryable failure must not mark terminal failure")
+
+    class _ResultStore:
+        def record_failure(self, *args, **kwargs):  # noqa: ANN002, ANN003
+            raise AssertionError("stale retryable failure must not write async result failure")
+
+    monkeypatch.setattr(
+        compute_executor_worker.logger,
+        "warning",
+        lambda *args, **kwargs: warnings.append((args, kwargs)),
+    )
+
+    compute_executor_worker._handle_compute_job_failure(
+        job,
+        RuntimeError("transient outage"),
+        job_store=_JobStore(),
+        result_store=_ResultStore(),
+        execution_store=SimpleNamespace(),
+    )
+
+    assert warnings and warnings[0][0] == (
+        "Skipped compute job failure finalization because worker no longer owns the active lease.",
+    )
+    extra_fields = warnings[0][1]["extra"]["extra_fields"]
+    assert extra_fields["failure_classification"] == "stale_owner_failure_finalization_skipped"
+    assert extra_fields["retryable"] is True
+    assert extra_fields["error_type"] == "RuntimeError"
+    assert extra_fields["ownership_error_type"] == "ComputeJobLeaseOwnershipError"
+
+
+def test_compute_executor_worker_skips_stale_owner_terminal_failure_finalization(monkeypatch):
+    calculation_id = uuid4()
+    job = _compute_job_record(
+        calculation_id=calculation_id,
+        analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES,
+        request_payload={"portfolio_id": "P1"},
+        max_attempts=1,
+    )
+    warnings: list[tuple[tuple, dict]] = []
+
+    class _JobStore:
+        def mark_retryable_failure(self, *args, **kwargs):  # noqa: ANN002, ANN003
+            raise AssertionError("non-retryable failure must not mark retryable failure")
+
+        def mark_failed(self, calculation_id_arg, *, error_message, error_type, worker_id):
+            assert calculation_id_arg == calculation_id
+            assert error_message == "bad input"
+            assert error_type == "ValueError"
+            assert worker_id == "worker-test"
+            raise ComputeJobLeaseOwnershipError("stale worker")
+
+    class _ResultStore:
+        def record_failure(self, *args, **kwargs):  # noqa: ANN002, ANN003
+            raise AssertionError("stale terminal failure must not write async result failure")
+
+    monkeypatch.setattr(
+        compute_executor_worker.logger,
+        "warning",
+        lambda *args, **kwargs: warnings.append((args, kwargs)),
+    )
+
+    compute_executor_worker._handle_compute_job_failure(
+        job,
+        ValueError("bad input"),
+        job_store=_JobStore(),
+        result_store=_ResultStore(),
+        execution_store=SimpleNamespace(),
+    )
+
+    assert warnings and warnings[0][0] == (
+        "Skipped compute job failure finalization because worker no longer owns the active lease.",
+    )
+    extra_fields = warnings[0][1]["extra"]["extra_fields"]
+    assert extra_fields["failure_classification"] == "stale_owner_failure_finalization_skipped"
+    assert extra_fields["retryable"] is False
+    assert extra_fields["error_type"] == "ValueError"
+    assert extra_fields["ownership_error_type"] == "ComputeJobLeaseOwnershipError"
 
 
 def test_compute_executor_worker_does_not_complete_job_when_success_result_publication_fails(monkeypatch):
