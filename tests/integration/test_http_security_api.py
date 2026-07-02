@@ -80,3 +80,10 @@ def test_trusted_host_policy_denies_unconfigured_host(client):
 
     assert response.status_code == 400
     assert "Invalid host header" in response.text
+
+
+def test_trusted_host_policy_allows_canonical_docker_host_alias(client):
+    response = client.get("/health", headers={"Host": "host.docker.internal:8002"})
+
+    assert response.status_code == 200
+    _assert_security_headers(response)

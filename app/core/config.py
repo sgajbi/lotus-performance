@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     APP_DESCRIPTION: str = "API for calculating portfolio performance metrics."
     LOG_LEVEL: str = "INFO"
     decimal_precision: int = 28
-    HTTP_ALLOWED_HOSTS: str = "testserver,localhost,127.0.0.1,*.dev.lotus"
+    HTTP_ALLOWED_HOSTS: str = "testserver,localhost,127.0.0.1,host.docker.internal,*.dev.lotus"
     CORS_ALLOWED_ORIGINS: str = (
         "http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173"
     )
