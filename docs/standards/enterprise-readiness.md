@@ -7,8 +7,8 @@
 ## Security and IAM Baseline
 
 - HTTP boundary hardening is registered centrally through `app.http_security`.
-- Host allow-listing is governed by `HTTP_ALLOWED_HOSTS`; defaults are scoped to local test and
-  Lotus development hosts.
+- Host allow-listing is governed by `HTTP_ALLOWED_HOSTS`; defaults are scoped to local test,
+  `host.docker.internal` Docker-to-host calls, and Lotus development hosts.
 - CORS is explicit through `CORS_ALLOWED_ORIGINS`; the service does not use wildcard browser
   origins by default.
 - Standard security headers are emitted on success and error responses:

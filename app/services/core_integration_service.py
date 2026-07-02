@@ -4,6 +4,8 @@ from typing import Any
 from app.observability import propagation_headers
 from app.services.http_resilience import get_with_retry, post_with_retry
 
+PERFORMANCE_COMPONENT_ECONOMICS_PAGE_SIZE = 1000
+
 
 class CoreIntegrationService:
     def __init__(
@@ -108,7 +110,7 @@ class CoreIntegrationService:
         end_date: date,
         security_ids: list[str] | None = None,
         transaction_types: list[str] | None = None,
-        page_size: int = 5000,
+        page_size: int = PERFORMANCE_COMPONENT_ECONOMICS_PAGE_SIZE,
         page_token: str | None = None,
     ) -> tuple[int, dict[str, Any]]:
         payload: dict[str, Any] = {

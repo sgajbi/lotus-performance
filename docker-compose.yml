@@ -19,6 +19,7 @@ services:
     container_name: performance-analytics
     environment:
       CORE_CONTROL_PLANE_BASE_URL: "${CORE_CONTROL_PLANE_BASE_URL:-http://host.docker.internal:8202}"
+      HTTP_ALLOWED_HOSTS: "${HTTP_ALLOWED_HOSTS:-testserver,localhost,127.0.0.1,host.docker.internal,*.dev.lotus}"
       LINEAGE_METADATA_DATABASE_URL: "${LINEAGE_METADATA_DATABASE_URL:-postgresql+psycopg://lotus:lotus@performance-lineage-db:5432/lotus_performance}"
     volumes:
       - performance-lineage-data:/app/lineage_data
@@ -36,6 +37,7 @@ services:
     command: ["python", "-m", "app.workers.lineage_worker"]
     environment:
       CORE_CONTROL_PLANE_BASE_URL: "${CORE_CONTROL_PLANE_BASE_URL:-http://host.docker.internal:8202}"
+      HTTP_ALLOWED_HOSTS: "${HTTP_ALLOWED_HOSTS:-testserver,localhost,127.0.0.1,host.docker.internal,*.dev.lotus}"
       LINEAGE_METADATA_DATABASE_URL: "${LINEAGE_METADATA_DATABASE_URL:-postgresql+psycopg://lotus:lotus@performance-lineage-db:5432/lotus_performance}"
     volumes:
       - performance-lineage-data:/app/lineage_data
@@ -51,6 +53,7 @@ services:
     command: ["python", "-m", "app.workers.compute_executor_worker"]
     environment:
       CORE_CONTROL_PLANE_BASE_URL: "${CORE_CONTROL_PLANE_BASE_URL:-http://host.docker.internal:8202}"
+      HTTP_ALLOWED_HOSTS: "${HTTP_ALLOWED_HOSTS:-testserver,localhost,127.0.0.1,host.docker.internal,*.dev.lotus}"
       LINEAGE_METADATA_DATABASE_URL: "${LINEAGE_METADATA_DATABASE_URL:-postgresql+psycopg://lotus:lotus@performance-lineage-db:5432/lotus_performance}"
     volumes:
       - performance-lineage-data:/app/lineage_data
@@ -67,6 +70,7 @@ services:
     profiles: ["ops"]
     environment:
       CORE_CONTROL_PLANE_BASE_URL: "${CORE_CONTROL_PLANE_BASE_URL:-http://host.docker.internal:8202}"
+      HTTP_ALLOWED_HOSTS: "${HTTP_ALLOWED_HOSTS:-testserver,localhost,127.0.0.1,host.docker.internal,*.dev.lotus}"
       LINEAGE_METADATA_DATABASE_URL: "${LINEAGE_METADATA_DATABASE_URL:-postgresql+psycopg://lotus:lotus@performance-lineage-db:5432/lotus_performance}"
       RUNTIME_RETENTION_WORKER_APPLY: "${RUNTIME_RETENTION_WORKER_APPLY:-false}"
     volumes:

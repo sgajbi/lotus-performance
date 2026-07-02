@@ -1386,6 +1386,29 @@ async def test_get_performance_component_economics_chunks_merges_coverage_and_re
     assert component_snapshots[0].paging_metadata["security_ids"] == ["SEC_1", "SEC_2"]
 
 
+@pytest.mark.asyncio
+async def test_get_performance_component_economics_uses_core_bounded_pages_for_canonical_window():
+    core_service = _CoreServiceStub()
+    service = StatefulInputService(core_service=core_service)
+
+    status_code, payload = await service.get_performance_component_economics(
+        portfolio_id="PB_SG_GLOBAL_BAL_001",
+        as_of_date=date(2026, 4, 10),
+        start_date=date(2025, 3, 31),
+        end_date=date(2026, 4, 10),
+    )
+
+    assert status_code == 200
+    assert payload["retrieval_metadata"] == {"chunk_count": 2, "page_count": 2}
+    assert [
+        (call["start_date"], call["end_date"], call.get("page_size"))
+        for call in core_service.performance_component_economics_calls
+    ] == [
+        (date(2025, 3, 31), date(2026, 3, 31), None),
+        (date(2026, 4, 1), date(2026, 4, 10), None),
+    ]
+
+
 def test_performance_component_economics_supportability_policy_requires_every_chunk_ready():
     accumulator = _PerformanceComponentEconomicsAccumulator(
         observed_component_families={"fee", "income"},

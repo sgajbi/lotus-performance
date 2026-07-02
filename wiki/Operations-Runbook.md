@@ -66,6 +66,10 @@ Operators should review these settings for each environment:
 - `HTTP_SECURITY_HSTS_ENABLED`: enable only when this service owns the HTTPS boundary
 - `HTTP_SECURITY_HSTS_MAX_AGE_SECONDS`: HSTS max-age when HSTS is enabled
 
+Local Docker deployments should keep `host.docker.internal` in `HTTP_ALLOWED_HOSTS` because
+`lotus-gateway` calls `lotus-performance` through that Docker-to-host alias in the canonical
+front-office stack.
+
 Every success and handled error response should include `X-Content-Type-Options`,
 `X-Frame-Options`, `Referrer-Policy`, and `Content-Security-Policy`. If TLS terminates at platform
 ingress, HSTS may be owned there instead of by the service process; keep that decision explicit in
