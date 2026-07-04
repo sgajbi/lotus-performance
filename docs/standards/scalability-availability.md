@@ -9,8 +9,9 @@ This repository adopts the platform-wide standard defined in lotus-platform/Scal
 - Stateless service behavior with externalized durable state.
 - Explicit timeout and bounded retry/backoff for inter-service communication where applicable.
 - Shared lotus-core and Lotus AI calls retry transient upstream HTTP statuses `429`, `502`, `503`,
-  and `504` within the configured retry budget, honoring safe bounded `Retry-After` values and
-  leaving domain/client errors non-retryable.
+  and `504` within the configured retry budget, honoring safe bounded `Retry-After` values,
+  applying bounded jitter to fallback exponential backoff, logging bounded retry-budget
+  diagnostics, and leaving domain/client errors non-retryable.
 - Health/liveness/readiness endpoints for runtime orchestration.
 - Observability instrumentation for latency/error/throughput diagnostics.
 - API pagination/filter guardrails through bounded query parameters (`featureLimit`, `workflowLimit`).
@@ -52,4 +53,3 @@ This repository adopts the platform-wide standard defined in lotus-platform/Scal
 ## Deviation Rule
 
 Any deviation from this standard requires ADR/RFC with remediation timeline.
-

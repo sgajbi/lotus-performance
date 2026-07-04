@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import random
 from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -14,6 +15,13 @@ _LOGGER = logging.getLogger(__name__)
 _RETRYABLE_STATUS_CODES = frozenset({429, 502, 503, 504})
 _RETRY_AFTER_HEADER = "Retry-After"
 _MAX_RETRY_AFTER_SECONDS = 5.0
+_FALLBACK_RETRY_JITTER_RATIO = 0.5
+
+
+@dataclass(frozen=True)
+class RetryDelay:
+    seconds: float
+    source: str
 
 
 @dataclass(frozen=True)
@@ -138,7 +146,7 @@ async def _request_with_retry(
             async with _request_client(timeout_seconds=timeout_seconds) as client:
                 response = await request(client)
             if _should_retry_response(response=response, attempt=attempt, max_retries=max_retries):
-                delay_seconds = _response_retry_delay_seconds(
+                retry_delay = _response_retry_delay(
                     response=response,
                     backoff_seconds=backoff_seconds,
                     attempt=attempt,
@@ -147,26 +155,28 @@ async def _request_with_retry(
                     reason="transient_http_status",
                     attempt=attempt,
                     max_retries=max_retries,
-                    delay_seconds=delay_seconds,
+                    delay_seconds=retry_delay.seconds,
+                    delay_source=retry_delay.source,
                     status_code=response.status_code,
                     exception_type=None,
                 )
-                await asyncio.sleep(delay_seconds)
+                await asyncio.sleep(retry_delay.seconds)
                 continue
             return response.status_code, response_payload(response)
         except (httpx.TimeoutException, httpx.NetworkError) as exc:
             if attempt >= max_retries:
                 return 503, {"detail": f"upstream communication failure: {exc.__class__.__name__}"}
-            delay_seconds = _exponential_backoff_seconds(backoff_seconds=backoff_seconds, attempt=attempt)
+            retry_delay = _fallback_retry_delay(backoff_seconds=backoff_seconds, attempt=attempt)
             _log_retry(
                 reason="transport_exception",
                 attempt=attempt,
                 max_retries=max_retries,
-                delay_seconds=delay_seconds,
+                delay_seconds=retry_delay.seconds,
+                delay_source=retry_delay.source,
                 status_code=None,
                 exception_type=exc.__class__.__name__,
             )
-            await asyncio.sleep(delay_seconds)
+            await asyncio.sleep(retry_delay.seconds)
 
     return 503, {"detail": "upstream communication failure: exhausted retries"}
 
@@ -184,10 +194,26 @@ def _should_retry_response(*, response: httpx.Response, attempt: int, max_retrie
     return response.status_code in _RETRYABLE_STATUS_CODES and attempt < max_retries
 
 
-def _response_retry_delay_seconds(*, response: httpx.Response, backoff_seconds: float, attempt: int) -> float:
-    fallback_seconds = _exponential_backoff_seconds(backoff_seconds=backoff_seconds, attempt=attempt)
+def _response_retry_delay(*, response: httpx.Response, backoff_seconds: float, attempt: int) -> RetryDelay:
     retry_after_seconds = _safe_retry_after_seconds(response.headers.get(_RETRY_AFTER_HEADER))
-    return retry_after_seconds if retry_after_seconds is not None else fallback_seconds
+    if retry_after_seconds is not None:
+        return RetryDelay(seconds=retry_after_seconds, source="retry_after")
+    return _fallback_retry_delay(backoff_seconds=backoff_seconds, attempt=attempt)
+
+
+def _fallback_retry_delay(*, backoff_seconds: float, attempt: int) -> RetryDelay:
+    return RetryDelay(
+        seconds=_jittered_exponential_backoff_seconds(backoff_seconds=backoff_seconds, attempt=attempt),
+        source="jittered_exponential_backoff",
+    )
+
+
+def _jittered_exponential_backoff_seconds(*, backoff_seconds: float, attempt: int) -> float:
+    base_delay = _exponential_backoff_seconds(backoff_seconds=backoff_seconds, attempt=attempt)
+    if base_delay <= 0:
+        return 0.0
+    jitter_fraction = min(max(random.random(), 0.0), 1.0)
+    return base_delay + (base_delay * _FALLBACK_RETRY_JITTER_RATIO * jitter_fraction)
 
 
 def _exponential_backoff_seconds(*, backoff_seconds: float, attempt: int) -> float:
@@ -230,6 +256,7 @@ def _log_retry(
     attempt: int,
     max_retries: int,
     delay_seconds: float,
+    delay_source: str,
     status_code: int | None,
     exception_type: str | None,
 ) -> None:
@@ -240,7 +267,9 @@ def _log_retry(
                 "retry_reason": reason,
                 "attempt": attempt + 1,
                 "max_retries": max_retries,
+                "remaining_retry_budget": max(max_retries - attempt - 1, 0),
                 "delay_seconds": delay_seconds,
+                "delay_source": delay_source,
                 "status_code": status_code,
                 "exception_type": exception_type,
             }
