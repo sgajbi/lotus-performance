@@ -52,11 +52,11 @@ Implementation entrypoints:
 | `get_portfolio_analytics_reference` | `POST /integration/portfolios/{portfolio_id}/analytics/reference` | Analytics input | Portfolio open date, reporting currency, and reference metadata for performance workflows |
 | `get_benchmark_assignment` | `POST /integration/portfolios/{portfolio_id}/benchmark-assignment` | Analytics input | Benchmark resolution for stateful benchmark-aware workflows |
 | `get_benchmark_definition` | `POST /integration/benchmarks/{benchmark_id}/definition` | Analytics input watchlist | Benchmark metadata sourcing; should remain source-data only |
-| `get_benchmark_composition_window` | `POST /integration/benchmarks/{benchmark_id}/composition-window` | Analytics input watchlist | Core-sourced benchmark composition windows for calculated benchmark performance |
+| `get_benchmark_composition_window` | `POST /integration/benchmarks/{benchmark_id}/composition-window` | Analytics input | Core-sourced `BenchmarkConstituentWindow:v1` windows for calculated benchmark performance |
 | `get_benchmark_market_series` | `POST /integration/benchmarks/{benchmark_id}/market-series` | Analytics input watchlist | Component weights and index returns for benchmark exposure context and benchmark calculation |
 | `get_benchmark_return_series` | `POST /integration/benchmarks/{benchmark_id}/return-series` | Analytics input | Explicit vendor-series benchmark return sourcing |
 | `get_index_catalog` | `POST /integration/indices/catalog` | Analytics input watchlist | Index lookup for benchmark exposure context |
-| `get_index_price_series` | `POST /integration/indices/{index_id}/price-series` | Analytics input watchlist | Component/index price sourcing for benchmark calculations |
+| `get_index_price_series` | `POST /integration/indices/{index_id}/price-series` | Analytics input | Core-sourced `IndexSeriesWindow:v1` price sourcing for benchmark calculations |
 | `get_risk_free_series` | `POST /integration/reference/risk-free-series` | Analytics input watchlist | Risk-free return/rate series for returns-series and benchmark-aware workflows |
 | `get_fx_rates` | `GET /fx-rates/` | Operational read | FX rate lookup for multi-currency stateful benchmark and performance workflows |
 
@@ -111,14 +111,18 @@ RFC-0086 repo-native declarations now live in:
 1. `contracts/domain-data-products/lotus-performance-products.v1.json`
 2. `contracts/domain-data-products/lotus-performance-consumers.v1.json`
 
-Current machine-readable dependency coverage matches the current first-wave governed dependencies:
+Current machine-readable dependency coverage matches the active governed dependencies:
 
 1. `PortfolioTimeseriesInput`
-2. `PortfolioAnalyticsReference`
-3. `BenchmarkAssignment`
-4. `MarketDataWindow`
-5. `InstrumentReferenceBundle`
-6. `RiskFreeSeriesWindow`
+2. `PositionTimeseriesInput`
+3. `PerformanceComponentEconomics`
+4. `PortfolioAnalyticsReference`
+5. `BenchmarkAssignment`
+6. `MarketDataWindow`
+7. `InstrumentReferenceBundle`
+8. `RiskFreeSeriesWindow`
+9. `BenchmarkConstituentWindow`
+10. `IndexSeriesWindow`
 
 ## Current Gap Register
 
@@ -126,14 +130,17 @@ Current machine-readable dependency coverage matches the current first-wave gove
    analytics-input contract. This is acceptable because it remains source-data retrieval, but any future
    analytics-specific FX semantics should be introduced as a governed analytics-input contract rather than
    expanding the operational read implicitly.
-2. Benchmark, index, risk-free, taxonomy, and enrichment routes are RFC-0082 watchlist areas. They should
-   not be broadened into performance conclusions or benchmark analytics that belong in `lotus-performance`.
+2. Remaining benchmark-definition, vendor-return, index-catalog, risk-free, taxonomy, and enrichment
+   routes are RFC-0082 watchlist areas until producer declarations exist. They should not be broadened
+   into performance conclusions or benchmark analytics that belong in `lotus-performance`.
 3. Transport optimization is deferred. Retrieval performance work should first profile chunk size, page size,
    export behavior, concurrency, retry policy, and upstream database/query shape before proposing gRPC.
    Current Slice 4 evidence is recorded in `docs/technical/RFC-0082-retrieval-performance-hardening.md`.
-4. benchmark definition, benchmark composition-window, benchmark vendor return-series, index catalog,
-   and index price-series dependencies still rely on this document for truth because corresponding
-   machine-readable upstream producer declarations are not yet available for repo-native consumer coverage.
+4. benchmark composition-window and index price-series dependencies are now governed by repo-native
+   `BenchmarkConstituentWindow:v1` and `IndexSeriesWindow:v1` consumer declarations. Benchmark
+   definition, benchmark vendor return-series, index catalog, and FX operational-read dependencies
+   still rely on this document for truth until corresponding machine-readable upstream producer
+   declarations are available for repo-native consumer coverage.
 
 ## Validation Lane
 

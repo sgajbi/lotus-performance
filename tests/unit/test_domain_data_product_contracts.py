@@ -137,10 +137,11 @@ def test_repo_native_producer_declarations_cover_governed_first_wave_products_an
     assert "lineage_version" in composite_product["required_trust_metadata"]
 
 
-def test_repo_native_consumer_declarations_keep_watchlist_dependencies_docs_only() -> None:
+def test_repo_native_consumer_declarations_include_active_upstream_dependencies() -> None:
     payload = _load_declaration("lotus-performance-consumers.v1.json")
 
     dependency_names = [dependency["product_name"] for dependency in payload["dependencies"]]
+    dependencies_by_name = {dependency["product_name"]: dependency for dependency in payload["dependencies"]}
 
     assert payload["consumer_repository"] == "lotus-performance"
     assert dependency_names == [
@@ -152,7 +153,16 @@ def test_repo_native_consumer_declarations_keep_watchlist_dependencies_docs_only
         "MarketDataWindow",
         "InstrumentReferenceBundle",
         "RiskFreeSeriesWindow",
+        "BenchmarkConstituentWindow",
+        "IndexSeriesWindow",
     ]
+    for product_name in ("BenchmarkConstituentWindow", "IndexSeriesWindow"):
+        dependency = dependencies_by_name[product_name]
+        assert dependency["producer_repository"] == "lotus-core"
+        assert dependency["required_product_version"] == "v1"
+        assert dependency["failure_posture"] == "fail_closed"
+        assert "source_batch_fingerprint" in dependency["required_trust_metadata"]
+        assert "correlation_id" in dependency["required_trust_metadata"]
 
 
 def test_portfolio_timeseries_consumer_documents_optional_mwr_lifecycle_identity_fields() -> None:
