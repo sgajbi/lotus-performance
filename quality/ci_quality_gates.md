@@ -144,7 +144,7 @@ No gate should move from one phase to the next until it has:
 | Determinism | The scanner reads only `git ls-files` output and static path rules; it does not inspect untracked local residue or rewrite artifacts. |
 | Lane placement | Blocking through `make lint`, and therefore through `make check`, `make ci`, Feature Lane, PR Merge Gate, and Main Releasability static quality jobs. |
 | Exception policy | Do not allow local byproducts. If evidence must be durable, place it under governed docs/contracts/quality/wiki source and cite it explicitly. |
-| Focused tests | `tests/unit/scripts/test_repository_hygiene_gate.py` covers pass behavior, cache artifacts, coverage/env artifacts, build/log/database artifacts, and Makefile wiring; `tests/unit/scripts/test_clean_generated_artifacts.py` covers cleanup planning, prune safety, and deletion scope. |
+| Focused tests | `tests/unit/scripts/test_repository_hygiene_gate.py` covers pass behavior, cache artifacts, coverage/env artifacts, build/log/database artifacts, and Makefile wiring; `tests/unit/scripts/test_clean_generated_artifacts.py` covers cleanup planning, generated runtime/evidence roots, local SQLite/log sidecars, source-truth preservation, prune safety, and deletion scope. |
 | Scorecard and ledger truth | `quality/refactor_health_report.md`, `quality/quality_scorecard.md`, and `docs/architecture/CODEBASE-REVIEW-LEDGER.md` record the new enforced signal. |
 
 ## Recommended Lane Placement For New Gates

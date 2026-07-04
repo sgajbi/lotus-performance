@@ -66,7 +66,10 @@ service, not as a calculation demo. The current bank-readiness evidence includes
 - repository hygiene:
   `make repository-hygiene-gate` blocks tracked local byproducts such as Python caches, virtual
   environments, local coverage files, build outputs, logs, and local databases; `make clean`
-  delegates to the tested cleanup utility in `scripts/clean_generated_artifacts.py`
+  delegates to the tested cleanup utility in `scripts/clean_generated_artifacts.py` and removes
+  ignored runtime/evidence roots such as `artifacts/`, `output/`, and `lineage_data/` plus local
+  SQLite/log sidecars while preserving source truth under `docs/`, `contracts/`, `wiki/`, and
+  `quality/`
 - observability guardrails:
   `make quality-observability-readiness-gate` blocks missing health/metrics, correlation,
   structured logging, metrics, readiness markers, deployable Prometheus alert rules, and
