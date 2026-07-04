@@ -23,11 +23,11 @@ metrics in each section are updated with each meaningful slice.
 | --- | ---: | ---: | ---: | --- | --- |
 | Python files | 480 | 606 | 126 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Python package markers | 18 | 18 | 0 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Python LOC | 104,454 | 184,892 | 80,438 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python LOC | 104,454 | 184,938 | 80,484 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest Python file LOC | 2,399 | 2,503 | 104 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest production file LOC | 1,156 | 1,991 | 835 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
 | Python test modules | 228 | 288 | 60 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Collected tests | 2,035 | 3,624 | 1,589 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Collected tests | 2,035 | 3,625 | 1,590 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Duplicate code hotspots | 0 | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `quality/refactor_health_report.md`; `make quality-duplicate-code-gate` |
 | Tracked local byproduct findings | unknown | 0 | n/a | enforced | `scripts/repository_hygiene_gate.py`; `make repository-hygiene-gate`; `quality/refactor_health_report.md` |
 
@@ -37,8 +37,8 @@ metrics in each section are updated with each meaningful slice.
 | --- | ---: | ---: | ---: | --- | --- |
 | Max cyclomatic complexity | unknown | 7 | n/a | enforced | `quality/complexity_inventory.md`; `quality/refactor_health_report.md`; `make quality-complexity-gate` |
 | High-complexity functions (D-F) | unknown | 0 | n/a | enforced | `quality/complexity_inventory.md`; `quality/refactor_health_report.md`; `make quality-complexity-gate` |
-| Average maintainability index | unknown | 55.53 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
-| Largest functions by LOC | unknown | 81 | n/a | measured | `quality/function_size_inventory.md`; `quality/refactor_health_report.md`; `StatefulInputService._fetch_position_chunk(...)` remains the largest production function at `81` lines, while `_source_mwr_cash_flow_component(...)` left the top-45 table after source cash-flow eligibility and projection were isolated |
+| Average maintainability index | unknown | 55.52 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
+| Largest functions by LOC | unknown | 81 | n/a | measured | `quality/function_size_inventory.md`; `quality/refactor_health_report.md`; `StatefulInputService._fetch_position_chunk(...)` remains the largest production function at `81` lines |
 
 ### Architecture
 
@@ -118,7 +118,7 @@ metrics in each section are updated with each meaningful slice.
 | Measured metrics | 52 | Selected measured metrics are now also enforced or produced through blocking static-quality, security, deterministic API evaluation, test-taxonomy, or container evidence lanes. Branch coverage and container vulnerability output are measured report-only and are not promoted to strict gates yet. |
 | Not-yet-measured metrics | 0 | The scorecard no longer carries an unmeasured branch-coverage entry. OpenAPI Spectral and public-docstring gate decisions remain outside this scorecard until scoped separately. |
 | Planned gates | 1 | `make container-vulnerability-gate` exists but remains unpromoted until first PR/main container artifacts establish a reviewed high/critical image vulnerability baseline and exception policy. |
-| Latest architecture signal | 1 | `calculate_twr_workflow(...)` moved from `55` to `36` lines and dropped out of the live top-45 function-size inventory after TWR request fingerprinting, requested-window projection, pre-resolution async offload, promoted stateful replay, and sync submission fencing moved behind `_TWRWorkflowSubmissionContext`, `_build_twr_workflow_submission_context(...)`, `_register_pre_resolution_twr_submission(...)`, and `_register_twr_sync_submission(...)`; architecture-boundary and duplicate-code findings remain `0`, max CC remains within the enforced threshold at `8`, high-complexity functions remain `0`, and the next measured function-size hotspot is stateful source chunk retrieval. |
+| Latest architecture signal | 1 | `authorize_calculation_result_access(...)` left the live top-45 complexity inventory after calculation-result access denial reason selection and final entitlement checks moved behind `_calculation_result_access_denial_reason(...)` and `_has_calculation_result_access(...)`; architecture-boundary and duplicate-code findings remain `0`, max CC measures `7` within the enforced threshold of `8`, high-complexity functions remain `0`, and the next measured complexity candidates are six CC `7` functions. |
 
 ## Method Note
 

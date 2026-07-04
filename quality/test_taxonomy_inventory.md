@@ -24,7 +24,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 288 |
-| Test functions inventoried | 3403 |
+| Test functions inventoried | 3404 |
 | Integration/API/runtime test functions | 643 |
 | Contract/governance test functions | 126 |
 
@@ -35,13 +35,13 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 18 |
 | e2e | 1 | 21 |
 | integration | 26 | 325 |
-| unit | 252 | 3039 |
+| unit | 252 | 3040 |
 
 ## Test Functions By Family
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 1531 |
+| analytics_domain | 1532 |
 | api_or_runtime | 643 |
 | contract_or_governance | 126 |
 | observability_or_readiness | 283 |
@@ -101,7 +101,7 @@ and source-lineage snapshots.
 The issue #387 evidence refresh keeps the blocking gate threshold posture unchanged while bringing
 the curated report back to measured source truth. Current measured breadth is `643` API/runtime test
 functions, `126` contract/governance test functions, `283` observability/readiness test functions,
-`1531` analytics-domain test functions, and `1019` uncategorized test functions. The enforced
+`1532` analytics-domain test functions, and `1019` uncategorized test functions. The enforced
 command remains at the accepted regression floor of `607` API/runtime tests and ceiling `1148`;
 this slice also passed a tighter local preservation command with `643` API/runtime tests, `126`
 contract/governance tests, and `1019` uncategorized tests. Intentional threshold changes should

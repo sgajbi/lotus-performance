@@ -28,17 +28,42 @@ def authorize_calculation_result_access(
     if headers is None or not _privileged_read_authz_enabled():
         return None
     normalized_headers = _normalized_headers(headers)
+    denial_reason = _calculation_result_access_denial_reason(
+        execution=execution,
+        normalized_headers=normalized_headers,
+    )
+    if denial_reason is None:
+        return None
+    return _authorization_denied_application_response(denial_reason)
+
+
+def _calculation_result_access_denial_reason(
+    *,
+    execution: ExecutionRecord,
+    normalized_headers: Mapping[str, str],
+) -> str | None:
     missing_headers = _missing_required_headers(normalized_headers)
     if missing_headers:
-        return _authorization_denied_application_response(_missing_headers_reason(missing_headers))
+        return _missing_headers_reason(missing_headers)
     if not _has_service_identity(normalized_headers):
-        return _authorization_denied_application_response("missing_service_identity")
-    if _has_privileged_result_read(normalized_headers) or _has_matching_portfolio_entitlement(
+        return "missing_service_identity"
+    if _has_calculation_result_access(
         execution=execution,
         normalized_headers=normalized_headers,
     ):
         return None
-    return _authorization_denied_application_response(_RESULT_ACCESS_DENIED_REASON)
+    return _RESULT_ACCESS_DENIED_REASON
+
+
+def _has_calculation_result_access(
+    *,
+    execution: ExecutionRecord,
+    normalized_headers: Mapping[str, str],
+) -> bool:
+    return _has_privileged_result_read(normalized_headers) or _has_matching_portfolio_entitlement(
+        execution=execution,
+        normalized_headers=normalized_headers,
+    )
 
 
 def _has_privileged_result_read(normalized_headers: Mapping[str, str]) -> bool:
