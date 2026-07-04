@@ -1422,6 +1422,8 @@ def test_runtime_alert_templates_cover_exported_breach_gauges():
     runbook = _read("docs/runbooks/runtime-alerts.md")
     api_reference = _read("docs/guides/api_reference.md")
     runtime_topology = _read("docs/technical/runtime_topology.md")
+    readme = _read("README.md")
+    wiki_operations = _read("wiki/Operations-Runbook.md")
 
     assert "lotus_performance_compute_queue_degradation_breach" in templates
     assert "lotus_performance_lineage_queue_degradation_breach" in templates
@@ -1435,10 +1437,18 @@ def test_runtime_alert_templates_cover_exported_breach_gauges():
     assert "lotus_performance_mwr_solver_outcome_total" in mwr_templates
     assert "lotus_performance_calculation_supportability_total" in mwr_templates
     assert "docs/operations/runtime-alert-rule-templates.md" in runbook
+    assert "monitoring/prometheus/lotus-performance-alerts.prometheusrule.json" in runbook
+    assert "monitoring/grafana/lotus-performance-operability-dashboard.json" in runbook
     assert "runtime-alert-rule-templates.md" in api_reference
     assert "mwr-alert-rule-templates.md" in api_reference
+    assert "lotus-performance-alerts.prometheusrule.json" in api_reference
+    assert "lotus-performance-operability-dashboard.json" in api_reference
     assert "runtime-alert-rule-templates.md" in runtime_topology
     assert "mwr-alert-rule-templates.md" in runtime_topology
+    assert "lotus-performance-alerts.prometheusrule.json" in runtime_topology
+    assert "lotus-performance-operability-dashboard.json" in runtime_topology
+    assert "monitoring/prometheus/lotus-performance-alerts.prometheusrule.json" in readme
+    assert "monitoring/grafana/lotus-performance-operability-dashboard.json" in wiki_operations
 
 
 def test_runtime_alert_policy_governs_severity_defaults():

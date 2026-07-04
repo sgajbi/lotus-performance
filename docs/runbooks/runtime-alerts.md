@@ -3,11 +3,17 @@
 - Service: `lotus-performance`
 - Scope: first-response handling for queue-pressure, recovery-assurance, runtime-retention, and lineage-storage alerts exported through `/metrics`
 - Related references:
+  - `monitoring/prometheus/lotus-performance-alerts.prometheusrule.json`
+  - `monitoring/grafana/lotus-performance-operability-dashboard.json`
   - `docs/guides/api_reference.md`
   - `docs/technical/runtime_topology.md`
   - `docs/runbooks/durable-metadata-recovery.md`
   - `docs/operations/runtime-alert-rule-templates.md`
   - `docs/standards/runtime-alert-policy.md`
+
+Deployable alert rules and dashboard panels live under `monitoring/` and are validated by
+`make quality-observability-readiness-gate`. The Markdown template pages explain the intent and
+operator response, but the JSON artifacts are the repo-owned adoption source.
 
 ## Primary Alert Gauges
 

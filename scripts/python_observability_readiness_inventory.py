@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import argparse
 import ast
+import json
+import re
 import sys
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
@@ -12,6 +14,12 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from app.observability_contracts import (  # noqa: E402
+    PERFORMANCE_ANALYTICS_FRESHNESS_METRIC_LABELS,
+    PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS,
+    PERFORMANCE_MWR_SOLVER_OUTCOME_METRIC_LABELS,
+)
+from app.services.queue_metrics_service import DurableQueueCollector  # noqa: E402
 from main import app  # noqa: E402
 
 
@@ -31,7 +39,54 @@ class ReadinessSurface:
     missing_markers: tuple[str, ...]
 
 
+@dataclass(frozen=True)
+class MonitoringArtifactValidation:
+    alert_rules: int
+    dashboard_panels: int
+    violations: tuple[str, ...]
+
+
 REQUIRED_ENDPOINTS = ("/health", "/health/live", "/health/ready", "/metrics")
+DEFAULT_ALERT_RULE_PATHS = (Path("monitoring/prometheus/lotus-performance-alerts.prometheusrule.json"),)
+DEFAULT_DASHBOARD_PATHS = (Path("monitoring/grafana/lotus-performance-operability-dashboard.json"),)
+EXPECTED_ALERT_NAMES = frozenset(
+    {
+        "LotusPerformanceComputeQueueDegraded",
+        "LotusPerformanceLineageQueueDegraded",
+        "LotusPerformanceLineageStoragePressure",
+        "LotusPerformanceRecoveryDrillPolicyBreached",
+        "LotusPerformanceRuntimeRetentionPolicyBreached",
+        "LotusPerformanceDurableQueueStoreUnavailable",
+        "LotusPerformanceLineageStorageCapacityUnavailable",
+        "LotusPerformanceRecoveryDrillHistoryUnavailable",
+        "LotusPerformanceRuntimeRetentionHistoryUnavailable",
+        "LotusPerformanceMWRFallbackRateElevated",
+        "LotusPerformanceMWRNoRootRateElevated",
+        "LotusPerformanceMWRMultipleRootRateElevated",
+        "LotusPerformanceMWRSourceDataRejectionRateElevated",
+    }
+)
+MIN_DASHBOARD_PANELS = 10
+PROMQL_METRIC_PATTERN = re.compile(r"\b(lotus_[a-zA-Z0-9_]+)\b")
+PROMQL_SELECTOR_PATTERN = re.compile(r"\b(?P<metric>lotus_[a-zA-Z0-9_]+)\s*\{(?P<labels>[^}]*)\}")
+PROMQL_LABEL_PATTERN = re.compile(r"\b(?P<label>[a-zA-Z_][a-zA-Z0-9_]*)\s*(?:=~|!~|!=|=)")
+SENSITIVE_LABEL_TOKENS = frozenset(
+    {
+        "account",
+        "actor",
+        "calculation",
+        "client",
+        "correlation",
+        "customer",
+        "portfolio",
+        "request",
+        "response",
+        "security",
+        "tenant",
+        "trace",
+        "user",
+    }
+)
 SURFACE_MARKERS: Mapping[str, tuple[RequiredMarker, ...]] = {
     "correlation_propagation": (
         RequiredMarker("app/observability.py", "correlation_id_var", "request context correlation store"),
@@ -160,11 +215,260 @@ def collect_readiness_surfaces(
     return surfaces
 
 
-def render_markdown(surfaces: Sequence[ReadinessSurface], *, limit: int) -> str:
+def _metric_label_catalog() -> dict[str, tuple[str, ...]]:
+    catalog = {
+        "lotus_performance_calculation_supportability_total": PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS,
+        "lotus_analytics_freshness_bucket_total": PERFORMANCE_ANALYTICS_FRESHNESS_METRIC_LABELS,
+        "lotus_performance_mwr_solver_outcome_total": PERFORMANCE_MWR_SOLVER_OUTCOME_METRIC_LABELS,
+    }
+    for metric in DurableQueueCollector().describe():
+        catalog[metric.name] = tuple(getattr(metric, "_labelnames", ()) or ())
+    return catalog
+
+
+def _load_json(path: Path) -> Any:
+    return json.loads((ROOT / path).read_text(encoding="utf-8"))
+
+
+def _referenced_metrics(expression: str) -> set[str]:
+    return set(PROMQL_METRIC_PATTERN.findall(expression))
+
+
+def _referenced_selector_labels(expression: str) -> dict[str, set[str]]:
+    labels_by_metric: dict[str, set[str]] = {}
+    for match in PROMQL_SELECTOR_PATTERN.finditer(expression):
+        labels_by_metric.setdefault(match.group("metric"), set()).update(
+            PROMQL_LABEL_PATTERN.findall(match.group("labels"))
+        )
+    return labels_by_metric
+
+
+def _is_sensitive_label(label: str) -> bool:
+    normalized = label.lower()
+    return any(token in normalized for token in SENSITIVE_LABEL_TOKENS)
+
+
+def _validate_expression(
+    expression: str,
+    *,
+    context: str,
+    metric_labels: Mapping[str, tuple[str, ...]],
+) -> list[str]:
+    violations: list[str] = []
+    for metric_name in sorted(_referenced_metrics(expression)):
+        if metric_name not in metric_labels:
+            violations.append(f"{context}: references unknown metric `{metric_name}`.")
+
+    for metric_name, selector_labels in sorted(_referenced_selector_labels(expression).items()):
+        known_labels = set(metric_labels.get(metric_name, ()))
+        for label in sorted(selector_labels):
+            if _is_sensitive_label(label):
+                violations.append(f"{context}: selector label `{label}` is sensitive or high-cardinality.")
+            if metric_name in metric_labels and label not in known_labels:
+                violations.append(f"{context}: selector label `{label}` is not exported by `{metric_name}`.")
+    return violations
+
+
+def _validate_local_link(path: str, *, context: str) -> list[str]:
+    if "://" in path or path.startswith("#"):
+        return []
+    if not path:
+        return [f"{context}: link is empty."]
+    target = (ROOT / path).resolve()
+    try:
+        target.relative_to(ROOT)
+    except ValueError:
+        return [f"{context}: link `{path}` leaves the repository."]
+    if not target.exists():
+        return [f"{context}: link `{path}` does not exist."]
+    return []
+
+
+def _validate_artifact_labels(labels: Mapping[str, Any], *, context: str) -> list[str]:
+    violations: list[str] = []
+    for label_name, label_value in labels.items():
+        if _is_sensitive_label(str(label_name)):
+            violations.append(f"{context}: alert label `{label_name}` is sensitive or high-cardinality.")
+        if not isinstance(label_value, str) or not label_value.strip():
+            violations.append(f"{context}: alert label `{label_name}` must be a non-empty string.")
+    return violations
+
+
+def _validate_prometheus_rule_artifact(
+    path: Path,
+    *,
+    metric_labels: Mapping[str, tuple[str, ...]],
+) -> tuple[int, list[str]]:
+    violations: list[str] = []
+    try:
+        payload = _load_json(path)
+    except Exception as exc:
+        return 0, [f"{path}: cannot parse JSON alert artifact: {exc}"]
+
+    if not isinstance(payload, Mapping):
+        return 0, [f"{path}: alert artifact must be a JSON object."]
+    if payload.get("kind") != "PrometheusRule":
+        violations.append(f"{path}: kind must be `PrometheusRule`.")
+
+    groups = (payload.get("spec") or {}).get("groups") if isinstance(payload.get("spec"), Mapping) else None
+    if not isinstance(groups, list) or not groups:
+        return 0, [*violations, f"{path}: spec.groups must be a non-empty list."]
+
+    alert_names: set[str] = set()
+    rule_count = 0
+    for group_index, group in enumerate(groups):
+        if not isinstance(group, Mapping):
+            violations.append(f"{path}: group {group_index} must be an object.")
+            continue
+        rules = group.get("rules")
+        if not isinstance(rules, list) or not rules:
+            violations.append(f"{path}: group {group_index} rules must be a non-empty list.")
+            continue
+        for rule_index, rule in enumerate(rules):
+            context = f"{path}: group {group_index} rule {rule_index}"
+            if not isinstance(rule, Mapping):
+                violations.append(f"{context}: rule must be an object.")
+                continue
+            rule_count += 1
+            alert_name = rule.get("alert")
+            expression = rule.get("expr")
+            duration = rule.get("for")
+            labels = rule.get("labels")
+            annotations = rule.get("annotations")
+            if not isinstance(alert_name, str) or not alert_name.strip():
+                violations.append(f"{context}: alert name is required.")
+            else:
+                alert_names.add(alert_name)
+                context = f"{path}: alert `{alert_name}`"
+            if not isinstance(expression, str) or not expression.strip():
+                violations.append(f"{context}: expr is required.")
+            else:
+                violations.extend(_validate_expression(expression, context=context, metric_labels=metric_labels))
+            if not isinstance(duration, str) or not duration.strip():
+                violations.append(f"{context}: for duration is required.")
+            if not isinstance(labels, Mapping):
+                violations.append(f"{context}: labels must be an object.")
+            else:
+                for required_label in ("severity", "service", "owner"):
+                    if not labels.get(required_label):
+                        violations.append(f"{context}: label `{required_label}` is required.")
+                if labels.get("service") != "lotus-performance":
+                    violations.append(f"{context}: label `service` must be `lotus-performance`.")
+                violations.extend(_validate_artifact_labels(labels, context=context))
+            if not isinstance(annotations, Mapping):
+                violations.append(f"{context}: annotations must be an object.")
+            else:
+                for required_annotation in ("summary", "description", "runbook", "dashboard"):
+                    if not annotations.get(required_annotation):
+                        violations.append(f"{context}: annotation `{required_annotation}` is required.")
+                for link_name in ("runbook", "dashboard"):
+                    link = annotations.get(link_name)
+                    if isinstance(link, str):
+                        violations.extend(_validate_local_link(link, context=f"{context}: annotation `{link_name}`"))
+
+    missing_alerts = sorted(EXPECTED_ALERT_NAMES - alert_names)
+    if missing_alerts:
+        violations.append(f"{path}: missing expected alert(s): {', '.join(missing_alerts)}.")
+    return rule_count, violations
+
+
+def _dashboard_targets(panel: Mapping[str, Any]) -> tuple[str, ...]:
+    targets = panel.get("targets")
+    if not isinstance(targets, list):
+        return ()
+    expressions: list[str] = []
+    for target in targets:
+        if isinstance(target, Mapping) and isinstance(target.get("expr"), str):
+            expressions.append(target["expr"])
+    return tuple(expressions)
+
+
+def _validate_dashboard_artifact(
+    path: Path,
+    *,
+    metric_labels: Mapping[str, tuple[str, ...]],
+) -> tuple[int, list[str]]:
+    violations: list[str] = []
+    try:
+        payload = _load_json(path)
+    except Exception as exc:
+        return 0, [f"{path}: cannot parse JSON dashboard artifact: {exc}"]
+
+    if not isinstance(payload, Mapping):
+        return 0, [f"{path}: dashboard artifact must be a JSON object."]
+    if payload.get("title") != "Lotus Performance Operability":
+        violations.append(f"{path}: dashboard title must be `Lotus Performance Operability`.")
+
+    panels = payload.get("panels")
+    if not isinstance(panels, list):
+        return 0, [*violations, f"{path}: panels must be a list."]
+    if len(panels) < MIN_DASHBOARD_PANELS:
+        violations.append(f"{path}: dashboard must include at least {MIN_DASHBOARD_PANELS} panels.")
+
+    for link_index, link in enumerate(payload.get("links") or []):
+        if isinstance(link, Mapping) and isinstance(link.get("url"), str):
+            violations.extend(_validate_local_link(link["url"], context=f"{path}: link {link_index}"))
+
+    panel_count = 0
+    for panel_index, panel in enumerate(panels):
+        context = f"{path}: panel {panel_index}"
+        if not isinstance(panel, Mapping):
+            violations.append(f"{context}: panel must be an object.")
+            continue
+        panel_count += 1
+        if not isinstance(panel.get("title"), str) or not panel["title"].strip():
+            violations.append(f"{context}: title is required.")
+        expressions = _dashboard_targets(panel)
+        if not expressions:
+            violations.append(f"{context}: at least one target expr is required.")
+            continue
+        for expression_index, expression in enumerate(expressions):
+            violations.extend(
+                _validate_expression(
+                    expression,
+                    context=f"{context} target {expression_index}",
+                    metric_labels=metric_labels,
+                )
+            )
+    return panel_count, violations
+
+
+def collect_monitoring_artifact_validation(
+    *,
+    alert_rule_paths: Sequence[Path] = DEFAULT_ALERT_RULE_PATHS,
+    dashboard_paths: Sequence[Path] = DEFAULT_DASHBOARD_PATHS,
+    metric_labels: Mapping[str, tuple[str, ...]] | None = None,
+) -> MonitoringArtifactValidation:
+    resolved_metric_labels = metric_labels or _metric_label_catalog()
+    alert_rules = 0
+    dashboard_panels = 0
+    violations: list[str] = []
+    for path in alert_rule_paths:
+        rule_count, artifact_violations = _validate_prometheus_rule_artifact(path, metric_labels=resolved_metric_labels)
+        alert_rules += rule_count
+        violations.extend(artifact_violations)
+    for path in dashboard_paths:
+        panel_count, artifact_violations = _validate_dashboard_artifact(path, metric_labels=resolved_metric_labels)
+        dashboard_panels += panel_count
+        violations.extend(artifact_violations)
+    return MonitoringArtifactValidation(
+        alert_rules=alert_rules,
+        dashboard_panels=dashboard_panels,
+        violations=tuple(violations),
+    )
+
+
+def render_markdown(
+    surfaces: Sequence[ReadinessSurface],
+    *,
+    limit: int,
+    monitoring_validation: MonitoringArtifactValidation | None = None,
+) -> str:
     expected = sum(surface.expected_markers for surface in surfaces)
     present = sum(surface.present_markers for surface in surfaces)
     missing = expected - present
     observed_tests = sum(surface.test_functions for surface in surfaces)
+    monitoring_validation = monitoring_validation or MonitoringArtifactValidation(0, 0, ())
 
     lines = [
         "## Summary",
@@ -176,6 +480,9 @@ def render_markdown(surfaces: Sequence[ReadinessSurface], *, limit: int) -> str:
         f"| Present implementation markers | {present} |",
         f"| Missing implementation markers | {missing} |",
         f"| Mapped observability/readiness test functions | {observed_tests} |",
+        f"| Deployable monitoring alert rules | {monitoring_validation.alert_rules} |",
+        f"| Deployable monitoring dashboard panels | {monitoring_validation.dashboard_panels} |",
+        f"| Monitoring artifact violations | {len(monitoring_validation.violations)} |",
         "",
         "Mapped test functions are counted per readiness family and can overlap when one test proves multiple operational contracts.",
         "",
@@ -202,6 +509,12 @@ def render_markdown(surfaces: Sequence[ReadinessSurface], *, limit: int) -> str:
             break
     if rendered == 0:
         lines.append("| none | none |")
+    lines.extend(["", "## Monitoring Artifact Violations", "", "| Finding |", "| --- |"])
+    if monitoring_validation.violations:
+        for violation in monitoring_validation.violations[:limit]:
+            lines.append(f"| `{violation}` |")
+    else:
+        lines.append("| none |")
     return "\n".join(lines)
 
 
@@ -236,8 +549,10 @@ def main() -> int:
 
     test_paths = tuple(args.test_paths or ("tests",))
     surfaces = collect_readiness_surfaces(schema=app.openapi(), test_paths=test_paths)
-    print(render_markdown(surfaces, limit=args.limit))
+    monitoring_validation = collect_monitoring_artifact_validation()
+    print(render_markdown(surfaces, limit=args.limit, monitoring_validation=monitoring_validation))
     violations = observability_threshold_violations(surfaces, max_missing=args.max_missing)
+    violations.extend(monitoring_validation.violations)
     for violation in violations:
         print(violation, file=sys.stderr)
     return 1 if violations else 0
