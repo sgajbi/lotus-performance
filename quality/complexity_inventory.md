@@ -1,7 +1,7 @@
 # Lotus Performance Complexity Inventory
 
-Report date: 2026-06-30
-Branch: `feature/runtime-recovery-queue-result-boundary`
+Report date: 2026-07-04
+Branch: `fix/issue-397-inspection-artifact-authz`
 Mode: measured complexity and maintainability inventory; max CC and D-F count are enforced by CI.
 
 ## Purpose
@@ -30,64 +30,64 @@ must stay at `0`.
 
 | Metric | Value |
 | --- | ---: |
-| Max cyclomatic complexity | 5 |
+| Max cyclomatic complexity | 8 |
 | High-complexity functions (rank D-F) | 0 |
-| Average maintainability index | 55.18 |
+| Average maintainability index | 55.53 |
 
-The runtime recovery queue-result boundary preserves the enforced complexity posture: max
-cyclomatic complexity remains `5`, high-complexity functions remain `0`, and average
-maintainability index measures `55.18` after moving compute and lineage recovery queue loading
-behind a named private result boundary.
+The current branch preserves the enforced complexity posture: max cyclomatic complexity remains at
+the configured gate ceiling of `8`, high-complexity functions remain `0`, and average
+maintainability index measures `55.53`. LP-CR-1638 did not change the top cyclomatic-complexity
+hotspot; it reduced design-time function-size pressure in stateful chunk traversal.
 
 ## Highest Cyclomatic Complexity
 
 | Rank | Symbol | Type | File | CC | Grade |
 | ---: | --- | --- | --- | ---: | --- |
-| 1 | `_degraded_stateful_economics` | function | `app/services/contribution_source_economics.py:203` | 5 | A |
-| 2 | `_performance_component_economics_contexts` | function | `app/services/contribution_source_economics.py:308` | 5 | A |
-| 3 | `_has_degraded_performance_component_economics` | function | `app/services/contribution_source_economics.py:356` | 5 | A |
-| 4 | `_source_string_list` | function | `app/services/contribution_source_economics.py:366` | 5 | A |
-| 5 | `_record_fee_source_consistency_sample` | method | `app/services/inspection/source_economics_collector.py:197` | 5 | A |
-| 6 | `_record_external_source_signals` | method | `app/services/inspection/source_economics_collector.py:269` | 5 | A |
-| 7 | `_external_explicit_mixed_timing_sample` | function | `app/services/inspection/source_economics_collector.py:350` | 5 | A |
-| 8 | `_expected_external_total` | function | `app/services/inspection/source_economics_collector.py:412` | 5 | A |
-| 9 | `_append_stale_run_if_needed` | function | `app/services/inspection/source_quality.py:346` | 5 | A |
-| 10 | `_assess_return_concentration` | function | `app/services/inspection/source_quality.py:481` | 5 | A |
-| 11 | `_find_repeated_move_runs` | function | `app/services/inspection/source_quality.py:540` | 5 | A |
-| 12 | `_monthly_day_dominance` | function | `app/services/inspection/source_quality.py:641` | 5 | A |
-| 13 | `_find_missing_business_dates` | function | `app/services/inspection/source_quality.py:761` | 5 | A |
-| 14 | `load_existing_twr_calculation_artifacts` | function | `app/services/inspection/subject_materialization.py:40` | 5 | A |
-| 15 | `extract_performance_request_from_payload` | function | `app/services/inspection/subject_materialization.py:98` | 5 | A |
-| 16 | `resolve_twr_inspection_subject` | function | `app/services/inspection/subject_resolution.py:20` | 5 | A |
-| 17 | `_completed_support_brief_markdown` | function | `app/services/inspection/support_brief_workflow_pack.py:78` | 5 | A |
-| 18 | `_map_workflow_pack_run_finding` | function | `app/services/inspection/support_brief_workflow_pack.py:192` | 5 | A |
-| 19 | `_synthesize_verdict` | function | `app/services/inspection/twr_inspection_service.py:679` | 5 | A |
-| 20 | `_scope_request_to_response_master_window` | function | `app/services/inspection/twr_inspection_service.py:795` | 5 | A |
-| 21 | `get_record` | method | `app/services/lineage_metadata_store.py:256` | 5 | A |
-| 22 | `lease_pending_payloads` | method | `app/services/lineage_metadata_store.py:367` | 5 | A |
-| 23 | `_apply_recovery_time_filters` | method | `app/services/lineage_metadata_store.py:694` | 5 | A |
-| 24 | `_inspection_timing` | method | `app/services/lineage_metadata_store.py:1052` | 5 | A |
-| 25 | `_ensure_payload_lease_columns` | method | `app/services/lineage_metadata_store.py:1078` | 5 | A |
-| 26 | `_load_payload_details` | function | `app/services/lineage_metadata_store.py:1277` | 5 | A |
-| 27 | `evaluate_mandate_performance_health_context` | function | `app/services/mandate_health_context_service.py:16` | 5 | A |
-| 28 | `_stringify_decimal_collection` | function | `app/services/mwr_calculation_service.py:207` | 5 | A |
-| 29 | `_validate_component` | function | `app/services/mwr_fx_evidence_service.py:226` | 5 | A |
-| 30 | `enforce_runtime_retention_apply_preview` | function | `app/services/operator_action_guard_service.py:54` | 5 | A |
-| 31 | `_manual_action_retry_after_seconds` | function | `app/services/operator_action_guard_service.py:222` | 5 | A |
-| 32 | `GeneratedAtBounds` | class | `app/services/operator_action_history_filters.py:18` | 5 | A |
-| 33 | `contains` | method | `app/services/operator_action_history_filters.py:26` | 5 | A |
-| 34 | `build_applied_history_filters` | function | `app/services/operator_action_history_filters.py:56` | 5 | A |
-| 35 | `_apply_exact_history_filters` | function | `app/services/operator_action_history_filters.py:109` | 5 | A |
-| 36 | `_safe_manifest_file_name` | function | `app/services/operator_action_history_manifest.py:62` | 5 | A |
-| 37 | `_history_manifest_file_names` | function | `app/services/operator_action_history_manifest.py:89` | 5 | A |
-| 38 | `read_history_manifest_payload` | function | `app/services/operator_action_history_manifest.py:114` | 5 | A |
-| 39 | `validate_history_manifest_header` | function | `app/services/operator_action_history_manifest.py:138` | 5 | A |
-| 40 | `validate_history_entry_strings` | function | `app/services/operator_action_history_manifest.py:243` | 5 | A |
-| 41 | `_read_reclaimed_lease_snapshot_events` | function | `app/services/operator_action_lease_service.py:221` | 5 | A |
-| 42 | `_read_matching_active_operator_action_leases` | function | `app/services/operator_action_lease_service.py:273` | 5 | A |
-| 43 | `_matching_active_operator_action_lease` | function | `app/services/operator_action_lease_service.py:294` | 5 | A |
-| 44 | `_active_lease_required_string_fields` | function | `app/services/operator_action_lease_service.py:379` | 5 | A |
-| 45 | `_recent_reclaimed_lease_events_from_payload` | function | `app/services/operator_action_lease_service.py:454` | 5 | A |
+| 1 | `_source_mwr_cash_flow_component` | function | `app/services/stateful_mwr_input_service.py:353` | 8 | B |
+| 2 | `_production_runtime_profile_issues` | function | `app/enterprise_runtime_config.py:124` | 7 | B |
+| 3 | `authorize_calculation_result_access` | function | `app/services/calculation_result_access.py:23` | 7 | B |
+| 4 | `_json_safe_validation_value` | function | `app/services/error_details.py:151` | 7 | B |
+| 5 | `mwr_cash_flow_window_issue` | function | `app/services/mwr_cash_flow_window_validation.py:49` | 7 | B |
+| 6 | `_build_returns_series_diagnostics` | function | `app/services/returns_series_service.py:1275` | 7 | B |
+| 7 | `_position_meta_from_row` | function | `app/services/stateful_attribution_input_service.py:1258` | 7 | B |
+| 8 | `_source_position_key` | function | `app/services/stateful_input_service.py:2245` | 7 | B |
+| 9 | `_ensure_compute_job_active_lease_owner` | function | `app/services/compute_job_store.py:430` | 6 | B |
+| 10 | `_has_degraded_performance_component_economics` | function | `app/services/contribution_source_economics.py:358` | 6 | B |
+| 11 | `_safe_public_message` | function | `app/services/error_details.py:161` | 6 | B |
+| 12 | `_legacy_detail` | function | `app/services/error_details.py:167` | 6 | B |
+| 13 | `is_available_twr_inspection_artifact` | function | `app/services/inspection/twr_inspection_artifact_service.py:55` | 6 | B |
+| 14 | `_stale_lock_reclaim_candidate` | function | `app/services/operator_action_lease_service.py:667` | 6 | B |
+| 15 | `_merge_performance_component_economics_totals` | function | `app/services/stateful_input_service.py:2177` | 6 | B |
+| 16 | `_resolve_async_returns_series_job_request` | function | `app/workers/compute_executor_worker.py:833` | 6 | B |
+| 17 | `get_twr_inspection_artifact` | function | `app/api/endpoints/inspections.py:138` | 5 | A |
+| 18 | `_attribution_failure_api_error` | function | `app/services/attribution_service.py:339` | 5 | A |
+| 19 | `_daily_hierarchy_metadata` | function | `app/services/contribution_series.py:287` | 5 | A |
+| 20 | `_degraded_stateful_economics` | function | `app/services/contribution_source_economics.py:203` | 5 | A |
+| 21 | `_performance_component_economics_contexts` | function | `app/services/contribution_source_economics.py:308` | 5 | A |
+| 22 | `_source_string_list` | function | `app/services/contribution_source_economics.py:375` | 5 | A |
+| 23 | `check_durable_metadata_schema_ready` | function | `app/services/durability_health_service.py:107` | 5 | A |
+| 24 | `safe_error_envelope` | function | `app/services/error_details.py:104` | 5 | A |
+| 25 | `client` | method | `app/services/http_resilience.py:48` | 5 | A |
+| 26 | `_request_with_retry` | function | `app/services/http_resilience.py:138` | 5 | A |
+| 27 | `_safe_retry_after_seconds` | function | `app/services/http_resilience.py:224` | 5 | A |
+| 28 | `_record_fee_source_consistency_sample` | method | `app/services/inspection/source_economics_collector.py:197` | 5 | A |
+| 29 | `_record_external_source_signals` | method | `app/services/inspection/source_economics_collector.py:269` | 5 | A |
+| 30 | `_external_explicit_mixed_timing_sample` | function | `app/services/inspection/source_economics_collector.py:350` | 5 | A |
+| 31 | `_expected_external_total` | function | `app/services/inspection/source_economics_collector.py:412` | 5 | A |
+| 32 | `_append_stale_run_if_needed` | function | `app/services/inspection/source_quality.py:346` | 5 | A |
+| 33 | `_assess_return_concentration` | function | `app/services/inspection/source_quality.py:481` | 5 | A |
+| 34 | `_find_repeated_move_runs` | function | `app/services/inspection/source_quality.py:540` | 5 | A |
+| 35 | `_monthly_day_dominance` | function | `app/services/inspection/source_quality.py:641` | 5 | A |
+| 36 | `_find_missing_business_dates` | function | `app/services/inspection/source_quality.py:761` | 5 | A |
+| 37 | `load_existing_twr_calculation_artifacts` | function | `app/services/inspection/subject_materialization.py:40` | 5 | A |
+| 38 | `extract_performance_request_from_payload` | function | `app/services/inspection/subject_materialization.py:98` | 5 | A |
+| 39 | `resolve_twr_inspection_subject` | function | `app/services/inspection/subject_resolution.py:20` | 5 | A |
+| 40 | `_completed_support_brief_markdown` | function | `app/services/inspection/support_brief_workflow_pack.py:78` | 5 | A |
+| 41 | `_map_workflow_pack_run_finding` | function | `app/services/inspection/support_brief_workflow_pack.py:192` | 5 | A |
+| 42 | `retained_inspection_artifact` | function | `app/services/inspection/twr_inspection_artifact_service.py:67` | 5 | A |
+| 43 | `_synthesize_verdict` | function | `app/services/inspection/twr_inspection_service.py:679` | 5 | A |
+| 44 | `_scope_request_to_response_master_window` | function | `app/services/inspection/twr_inspection_service.py:795` | 5 | A |
+| 45 | `get_record` | method | `app/services/lineage_metadata_store.py:301` | 5 | A |
 
 ## Lowest Maintainability Index
 
@@ -100,24 +100,24 @@ behind a named private result boundary.
 | 5 | `app/services/stateful_attribution_input_service.py` | 0.00 | C |
 | 6 | `app/services/stateful_input_service.py` | 0.00 | C |
 | 7 | `app/services/twr_service.py` | 5.25 | C |
-| 8 | `app/services/stateful_benchmark_input_service.py` | 8.25 | C |
-| 9 | `app/services/workspace_summary_service.py` | 9.46 | B |
-| 10 | `app/services/execution_registry.py` | 11.12 | B |
-| 11 | `engine/attribution.py` | 11.94 | B |
-| 12 | `app/services/operator_action_lease_service.py` | 13.14 | B |
+| 8 | `app/services/stateful_benchmark_input_service.py` | 7.78 | C |
+| 9 | `app/services/workspace_summary_service.py` | 8.64 | C |
+| 10 | `app/services/execution_registry.py` | 11.01 | B |
+| 11 | `app/services/operator_action_lease_service.py` | 11.46 | B |
+| 12 | `engine/attribution.py` | 11.94 | B |
 | 13 | `app/services/inspection/source_economics.py` | 14.06 | B |
-| 14 | `app/services/inspection/reconciliation.py` | 15.12 | B |
-| 15 | `app/services/inspection/source_economics_collector.py` | 15.66 | B |
-| 16 | `app/services/inspection/source_quality.py` | 16.49 | B |
-| 17 | `app/services/twr_mode_service.py` | 17.31 | B |
-| 18 | `app/workers/compute_executor_worker.py` | 18.15 | B |
-| 19 | `app/services/inspection/twr_inspection_service.py` | 18.75 | B |
-| 20 | `app/services/inspection/calculation_consistency.py` | 19.07 | A |
-| 21 | `app/models/runtime_status.py` | 19.66 | A |
-| 22 | `app/models/returns_series.py` | 19.70 | A |
-| 23 | `engine/mwr.py` | 20.08 | A |
-| 24 | `app/services/contribution_source_economics.py` | 20.23 | A |
-| 25 | `engine/composites.py` | 20.75 | A |
+| 14 | `app/services/stateful_mwr_input_service.py` | 14.24 | B |
+| 15 | `app/workers/compute_executor_worker.py` | 14.50 | B |
+| 16 | `app/services/inspection/reconciliation.py` | 15.12 | B |
+| 17 | `app/services/inspection/source_economics_collector.py` | 15.66 | B |
+| 18 | `app/services/inspection/source_quality.py` | 16.49 | B |
+| 19 | `app/services/stateful_contribution_input_service.py` | 17.08 | B |
+| 20 | `app/services/twr_mode_service.py` | 17.31 | B |
+| 21 | `app/services/inspection/twr_inspection_service.py` | 18.75 | B |
+| 22 | `app/services/inspection/calculation_consistency.py` | 19.07 | A |
+| 23 | `app/services/contribution_source_economics.py` | 19.16 | A |
+| 24 | `app/models/returns_series.py` | 19.38 | A |
+| 25 | `engine/mwr.py` | 19.53 | A |
 
 ## Interpretation
 

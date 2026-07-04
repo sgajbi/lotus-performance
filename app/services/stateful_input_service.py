@@ -1065,19 +1065,15 @@ class StatefulInputService:
                     consumer_system=consumer_system,
                     page_token=page_token,
                 )
-                failure_request_payload["pagination_guard_reason"] = pagination_failure["reason"]
-                self._append_portfolio_timeseries_snapshot_if_new(
+                self._record_pagination_failure_snapshot(
                     calculation_id=calculation_id,
-                    portfolio_id=portfolio_id,
+                    upstream_endpoint="portfolio_timeseries",
+                    source_identifier=portfolio_id,
                     as_of_date=as_of_date,
                     request_payload=failure_request_payload,
-                    response=(503, pagination_failure),
+                    pagination_failure=pagination_failure,
                     snapshot_batch=snapshot_batch,
                     existing_snapshot_ids=existing_snapshot_ids,
-                )
-                self._record_upstream_snapshot_batch(
-                    calculation_id=calculation_id,
-                    snapshots=snapshot_batch,
                 )
                 return 503, pagination_failure
             seen_page_tokens.add(page_token)
@@ -1222,19 +1218,15 @@ class StatefulInputService:
                     filters=filters,
                     page_token=page_token,
                 )
-                failure_request_payload["pagination_guard_reason"] = pagination_failure["reason"]
-                self._append_position_timeseries_snapshot_if_new(
+                self._record_pagination_failure_snapshot(
                     calculation_id=calculation_id,
-                    portfolio_id=portfolio_id,
+                    upstream_endpoint="position_timeseries",
+                    source_identifier=portfolio_id,
                     as_of_date=as_of_date,
                     request_payload=failure_request_payload,
-                    response=(503, pagination_failure),
+                    pagination_failure=pagination_failure,
                     snapshot_batch=snapshot_batch,
                     existing_snapshot_ids=existing_snapshot_ids,
-                )
-                self._record_upstream_snapshot_batch(
-                    calculation_id=calculation_id,
-                    snapshots=snapshot_batch,
                 )
                 return 503, pagination_failure
             seen_page_tokens.add(page_token)
@@ -1461,6 +1453,34 @@ class StatefulInputService:
             response=response,
             snapshot_batch=snapshot_batch,
             existing_snapshot_ids=existing_snapshot_ids,
+        )
+
+    def _record_pagination_failure_snapshot(
+        self,
+        *,
+        calculation_id: UUID | None,
+        upstream_endpoint: str,
+        source_identifier: str,
+        as_of_date: date,
+        request_payload: dict[str, Any],
+        pagination_failure: dict[str, Any],
+        snapshot_batch: list[dict[str, Any]],
+        existing_snapshot_ids: set[str],
+    ) -> None:
+        request_payload["pagination_guard_reason"] = pagination_failure["reason"]
+        self._append_timeseries_snapshot_if_new(
+            calculation_id=calculation_id,
+            upstream_endpoint=upstream_endpoint,
+            source_identifier=source_identifier,
+            as_of_date=as_of_date,
+            request_payload=request_payload,
+            response=(503, pagination_failure),
+            snapshot_batch=snapshot_batch,
+            existing_snapshot_ids=existing_snapshot_ids,
+        )
+        self._record_upstream_snapshot_batch(
+            calculation_id=calculation_id,
+            snapshots=snapshot_batch,
         )
 
     def _append_timeseries_snapshot_if_new(
