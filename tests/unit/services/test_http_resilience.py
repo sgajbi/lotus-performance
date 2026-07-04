@@ -1,3 +1,4 @@
+import asyncio
 import json as jsonlib
 import logging
 
@@ -5,6 +6,7 @@ import httpx
 import pytest
 
 from app.services.http_resilience import (
+    _jittered_exponential_backoff_seconds,
     close_upstream_http_client_pool,
     configure_upstream_http_client_pool,
     get_with_retry,
@@ -65,6 +67,8 @@ async def test_post_with_retry_retries_timeout(monkeypatch, caplog):
     assert _FlakyAsyncClient.attempts == 2
     assert caplog.records[0].extra_fields["retry_reason"] == "transport_exception"
     assert caplog.records[0].extra_fields["exception_type"] == "TimeoutException"
+    assert caplog.records[0].extra_fields["remaining_retry_budget"] == 1
+    assert caplog.records[0].extra_fields["delay_source"] == "jittered_exponential_backoff"
 
 
 class _AlwaysTimeoutClient:
@@ -264,10 +268,11 @@ async def test_post_with_retry_retries_transient_status_and_honors_safe_retry_af
     assert _CapturedSleep.delays == [1.0]
     assert caplog.records[0].extra_fields["retry_reason"] == "transient_http_status"
     assert caplog.records[0].extra_fields["status_code"] == 503
+    assert caplog.records[0].extra_fields["delay_source"] == "retry_after"
 
 
 @pytest.mark.asyncio
-async def test_post_with_retry_falls_back_when_retry_after_is_excessive(monkeypatch):
+async def test_post_with_retry_falls_back_to_jittered_backoff_when_retry_after_is_excessive(monkeypatch):
     _TransientStatusClient.attempts = 0
     _TransientStatusClient.responses = [
         _json_response(429, {"detail": "rate limited"}, headers={"Retry-After": "99"}),
@@ -276,6 +281,7 @@ async def test_post_with_retry_falls_back_when_retry_after_is_excessive(monkeypa
     _CapturedSleep.delays = []
     monkeypatch.setattr("httpx.AsyncClient", _TransientStatusClient)
     monkeypatch.setattr("app.services.http_resilience.asyncio.sleep", _capture_sleep)
+    monkeypatch.setattr("app.services.http_resilience.random.random", lambda: 0.4)
 
     status, payload = await post_with_retry(
         url="http://pas/integration",
@@ -288,7 +294,31 @@ async def test_post_with_retry_falls_back_when_retry_after_is_excessive(monkeypa
 
     assert status == 200
     assert payload == {"ok": True}
-    assert _CapturedSleep.delays == [0.25]
+    assert _CapturedSleep.delays == [0.3]
+
+
+def test_jittered_exponential_backoff_uses_bounded_additive_jitter(monkeypatch):
+    monkeypatch.setattr("app.services.http_resilience.random.random", lambda: 0.0)
+    assert _jittered_exponential_backoff_seconds(backoff_seconds=0.2, attempt=1) == 0.4
+
+    monkeypatch.setattr("app.services.http_resilience.random.random", lambda: 1.0)
+    assert _jittered_exponential_backoff_seconds(backoff_seconds=0.2, attempt=1) == pytest.approx(0.6)
+
+    monkeypatch.setattr("app.services.http_resilience.random.random", lambda: 0.5)
+    assert _jittered_exponential_backoff_seconds(backoff_seconds=0.0, attempt=1) == 0.0
+
+
+@pytest.mark.asyncio
+async def test_default_fallback_retry_policy_desynchronizes_concurrent_delay_paths(monkeypatch):
+    jitter_fractions = iter([0.0, 1.0])
+    monkeypatch.setattr("app.services.http_resilience.random.random", lambda: next(jitter_fractions))
+
+    delays = await asyncio.gather(
+        asyncio.to_thread(_jittered_exponential_backoff_seconds, backoff_seconds=0.2, attempt=0),
+        asyncio.to_thread(_jittered_exponential_backoff_seconds, backoff_seconds=0.2, attempt=0),
+    )
+
+    assert sorted(delays) == [0.2, 0.30000000000000004]
 
 
 @pytest.mark.asyncio

@@ -1633,7 +1633,7 @@ Operational boundary:
 | `CORE_QUERY_BASE_URL` | unset | deprecated compatibility fallback when `CORE_CONTROL_PLANE_BASE_URL` is unset |
 | `CORE_TIMEOUT_SECONDS` | `10.0` | upstream request timeout |
 | `CORE_MAX_RETRIES` | `2` | upstream retry count for transport exceptions and transient HTTP statuses |
-| `CORE_RETRY_BACKOFF_SECONDS` | `0.2` | upstream retry backoff when `Retry-After` is absent, invalid, or excessive |
+| `CORE_RETRY_BACKOFF_SECONDS` | `0.2` | minimum upstream retry backoff when `Retry-After` is absent, invalid, or excessive; fallback delays add bounded jitter |
 | `UPSTREAM_HTTP_MAX_CONNECTIONS` | `100` | maximum managed outbound HTTP connections reused across lotus-core and Lotus AI calls |
 | `UPSTREAM_HTTP_MAX_KEEPALIVE_CONNECTIONS` | `20` | maximum idle keep-alive connections retained by the managed outbound HTTP client pool |
 | `UPSTREAM_HTTP_KEEPALIVE_EXPIRY_SECONDS` | `30.0` | keep-alive expiry for managed outbound HTTP connections |
@@ -1649,9 +1649,13 @@ when tokens advance and terminate correctly.
 
 The shared upstream resilience layer retries bounded transient HTTP statuses `429`, `502`, `503`,
 and `504` for lotus-core and Lotus AI calls within the configured retry budget. It honors safe
-`Retry-After` values up to five seconds, falls back to `CORE_RETRY_BACKOFF_SECONDS` or the
-caller-specific Lotus AI backoff when the header is invalid or excessive, and does not retry
-domain/client statuses such as `400`, `401`, `403`, `404`, `409`, or `422`. Under the FastAPI
+`Retry-After` values up to five seconds without jitter, falls back to `CORE_RETRY_BACKOFF_SECONDS`
+or the caller-specific Lotus AI backoff when the header is invalid or excessive, and adds bounded
+jitter to fallback exponential backoff so concurrent chunk retries do not synchronize on the same
+delay. Retry logs include `retry_reason`, `attempt`, `max_retries`, `remaining_retry_budget`,
+`delay_seconds`, `delay_source`, `status_code`, and `exception_type`; these labels are bounded and
+do not include portfolio, account, client, request-body, or response-body values. The layer does not
+retry domain/client statuses such as `400`, `401`, `403`, `404`, `409`, or `422`. Under the FastAPI
 lifespan, the same resilience layer uses a lifecycle-managed `httpx.AsyncClient` pool keyed by
 timeout so concurrent stateful chunk retrieval can reuse keep-alive connections instead of creating
 one outbound client per chunk or retry attempt.
