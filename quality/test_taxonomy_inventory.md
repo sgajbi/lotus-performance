@@ -23,9 +23,9 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 288 |
-| Test functions inventoried | 3405 |
-| Integration/API/runtime test functions | 643 |
+| Test modules inventoried | 289 |
+| Test functions inventoried | 3406 |
+| Integration/API/runtime test functions | 644 |
 | Contract/governance test functions | 126 |
 
 ## Test Functions By Suite
@@ -35,14 +35,14 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 18 |
 | e2e | 1 | 21 |
 | integration | 26 | 325 |
-| unit | 252 | 3041 |
+| unit | 253 | 3042 |
 
 ## Test Functions By Family
 
 | Family | Test functions |
 | --- | ---: |
 | analytics_domain | 1532 |
-| api_or_runtime | 643 |
+| api_or_runtime | 644 |
 | contract_or_governance | 126 |
 | observability_or_readiness | 284 |
 | quality_or_security | 137 |
@@ -52,7 +52,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 
 | Rank | Module | Suite | Test functions | Families |
 | ---: | --- | --- | ---: | --- |
-| 1 | `tests/unit/app/test_enterprise_readiness_additional.py` | unit | 84 | observability_or_readiness |
+| 1 | `tests/unit/app/test_enterprise_readiness_additional.py` | unit | 85 | observability_or_readiness |
 | 2 | `tests/unit/services/test_returns_series_service.py` | unit | 81 | analytics_domain |
 | 3 | `tests/unit/services/test_stateful_attribution_input_service.py` | unit | 70 | analytics_domain |
 | 4 | `tests/unit/app/test_openapi_enrichment.py` | unit | 61 | api_or_runtime |
@@ -99,11 +99,11 @@ stateful benchmark market-series boundary slice now classifies
 protects stateful performance input sourcing, benchmark market-series retrieval, FX/index inputs,
 and source-lineage snapshots.
 The issue #387 evidence refresh keeps the blocking gate threshold posture unchanged while bringing
-the curated report back to measured source truth. Current measured breadth is `643` API/runtime test
+the curated report back to measured source truth. Current measured breadth is `644` API/runtime test
 functions, `126` contract/governance test functions, `284` observability/readiness test functions,
 `1532` analytics-domain test functions, and `1019` uncategorized test functions. The enforced
 command remains at the accepted regression floor of `607` API/runtime tests and ceiling `1148`;
-this slice also passed a tighter local preservation command with `643` API/runtime tests, `126`
+this slice also passed a tighter local preservation command requiring at least `643` API/runtime tests, `126`
 contract/governance tests, and `1019` uncategorized tests. Intentional threshold changes should
 remain separate, rationale-backed gate-governance work.
 

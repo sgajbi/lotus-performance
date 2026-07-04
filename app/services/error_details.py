@@ -149,13 +149,25 @@ def _json_safe_validation_errors(errors: list[dict[str, Any]]) -> list[dict[str,
 
 
 def _json_safe_validation_value(value: Any) -> Any:
-    if value is None or isinstance(value, str | bool | Real):
+    if _is_json_validation_scalar(value):
         return value
     if isinstance(value, dict):
-        return {str(key): _json_safe_validation_value(item) for key, item in value.items()}
+        return _json_safe_validation_dict(value)
     if isinstance(value, list | tuple):
-        return [_json_safe_validation_value(item) for item in value]
+        return _json_safe_validation_list(value)
     return str(value)
+
+
+def _is_json_validation_scalar(value: Any) -> bool:
+    return value is None or isinstance(value, str | bool | Real)
+
+
+def _json_safe_validation_dict(value: dict[Any, Any]) -> dict[str, Any]:
+    return {str(key): _json_safe_validation_value(item) for key, item in value.items()}
+
+
+def _json_safe_validation_list(value: list[Any] | tuple[Any, ...]) -> list[Any]:
+    return [_json_safe_validation_value(item) for item in value]
 
 
 def _safe_public_message(*, detail: Any, status_code: int, message: str | None) -> str:
