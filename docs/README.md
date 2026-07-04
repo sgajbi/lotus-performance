@@ -28,6 +28,7 @@ truth for `lotus-performance`.
 
 | Area | Use |
 | --- | --- |
+| `architecture/` | Review playbook, issue closure matrix, and codebase review ledger. |
 | `guides/` | Human-facing API and product guides. |
 | `methodologies/` | Calculation methodology and metric definitions. |
 | `operations/` | Operator playbooks, alert explanations, and support workflows. |
