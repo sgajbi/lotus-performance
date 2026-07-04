@@ -31,7 +31,8 @@ Stateful attribution is currently fenced to:
 - `mode="by_instrument"`
 - `group_by` values `asset_class`, `sector`, `country`, and `currency`
 - `currency_mode="BOTH"` only when `report_ccy` is supplied
-- mixed-currency sourced positions only when required FX rates are supplied
+- mixed-currency sourced positions only when required FX rates are supplied, using trimmed and
+  uppercased source `position_currency` and `report_ccy` codes for comparison
 
 ## Output Checks
 

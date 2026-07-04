@@ -60,12 +60,16 @@ Current repository posture:
     provenance for beginning market value, ending market value, and every cash flow, and emits
     `currency_evidence` while preserving the engine boundary that MWR calculates one
     reporting-currency schedule and does not perform in-engine FX conversion.
-11. `MandatePerformanceHealthContext:v1` is a bounded performance-owned data product at
+11. stateful contribution and attribution normalize source `position_currency`,
+    `cash_flow_currency`, and `report_ccy` values by trimming whitespace and uppercasing before
+    mixed-currency FX gating or cash-flow/position-currency comparison. Blank source currency
+    metadata is treated as missing, not as a synthetic currency code.
+12. `MandatePerformanceHealthContext:v1` is a bounded performance-owned data product at
     `POST /performance/mandate-health-context` for DPM supportability consumers. It emits
     active-return threshold posture, methodology posture, request fingerprint, and reason codes;
     it does not create mandate actions, rebalance waves, client communications, orders, OMS
     actions, or execution instructions.
-12. stateful contribution consumes `lotus-core:PerformanceComponentEconomics:v1` as optional
+13. stateful contribution consumes `lotus-core:PerformanceComponentEconomics:v1` as optional
     source-economics evidence for cashflow, fee, income, tax, realized P&L, and FX-context
     component-family supportability. The consumer must traverse Core component-economics pages,
     preserve source rows, lineage, request fingerprints, retrieval metadata, and consumed-page
@@ -73,16 +77,16 @@ Current repository posture:
     the relevant position context contains actual Core-authored `source_rows`.
     `lotus-performance` still owns contribution methodology and treats non-200 or unavailable
     component-economics responses as degraded evidence rather than as a required-input failure.
-13. HTTP boundary hardening is centralized in `app.http_security`: `HTTP_ALLOWED_HOSTS` controls
+14. HTTP boundary hardening is centralized in `app.http_security`: `HTTP_ALLOWED_HOSTS` controls
     host allow-listing, `CORS_ALLOWED_ORIGINS` controls explicit browser origins, standard security
     headers are emitted on success and error responses, and `HTTP_SECURITY_HSTS_ENABLED` is used
     only when the service owns the HTTPS boundary rather than delegating TLS to ingress. Local
     canonical Docker deployments must allow `host.docker.internal` because `lotus-gateway` reaches
     `lotus-performance` through that Docker-to-host alias.
-14. API runtime serialization uses standard FastAPI/Pydantic response-model behavior. Do not add
+15. API runtime serialization uses standard FastAPI/Pydantic response-model behavior. Do not add
     global null stripping: OpenAPI nullable fields must be returned as explicit JSON `null` values
     unless a route explicitly documents sparse `response_model_exclude_none=True` behavior.
-15. MWR cash-flow methodology is source-owned and window-bounded. Stateless MWR rejects cash-flow
+16. MWR cash-flow methodology is source-owned and window-bounded. Stateless MWR rejects cash-flow
     dates outside the resolved measurement window with `MWR_CASH_FLOW_OUT_OF_WINDOW`; stateful MWR
     uses the selected stateful input window, preserves source transaction/event lifecycle identity
     when supplied by `lotus-core`, reports bounded `source_cashflow_quality` inclusion/exclusion

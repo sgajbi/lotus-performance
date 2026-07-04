@@ -52,8 +52,9 @@ Inside the current contract:
   source-economics evidence for source-authored cashflow, fee, income, tax, realized P&L, and
   FX-context component families without moving contribution methodology out of `lotus-performance`
 - stateful `currency_mode="BOTH"` requires `report_ccy`, source position currencies, and
-  `fx.rates` when any sourced position currency differs from `report_ccy`; missing FX coverage is
-  rejected with HTTP `422` before contribution calculation starts
+  `fx.rates` when any sourced position currency differs from `report_ccy` after trimming and
+  uppercasing currency codes; missing source currency or missing FX coverage is rejected with HTTP
+  `422` before contribution calculation starts
 - `lookthrough` is accepted as a compatibility request block only; lotus-performance does not
   decompose fund or structured-product holdings and expects lotus-core to provide already-visible
   position rows for the requested scope

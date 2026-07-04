@@ -3,6 +3,7 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Literal
 
+from app.services.currency_code_normalization import normalized_currency_code
 from app.services.source_cashflow_taxonomy import CashflowTypeClassification, classify_cashflow_type
 from core.errors import APIUnprocessableEntityError
 
@@ -92,15 +93,9 @@ def _cash_flow_conversion_factor(
 
 
 def _has_cash_flow_position_currency_mismatch(row: dict[str, object]) -> bool:
-    cash_flow_currency = row.get("cash_flow_currency")
-    position_currency = row.get("position_currency")
-    return (
-        isinstance(cash_flow_currency, str)
-        and bool(cash_flow_currency)
-        and isinstance(position_currency, str)
-        and bool(position_currency)
-        and cash_flow_currency != position_currency
-    )
+    cash_flow_currency = normalized_currency_code(row.get("cash_flow_currency"))
+    position_currency = normalized_currency_code(row.get("position_currency"))
+    return cash_flow_currency is not None and position_currency is not None and cash_flow_currency != position_currency
 
 
 def _decimal_or_one(value: object) -> Decimal:

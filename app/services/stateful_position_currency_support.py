@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from app.services.currency_code_normalization import normalized_currency_code
 from core.errors import APIUnprocessableEntityError
 
 
@@ -44,13 +45,23 @@ def stateful_both_currency_requires_fx(
     position_currencies: set[str],
     reporting_currency: str,
 ) -> bool:
-    return any(position_currency != reporting_currency for position_currency in position_currencies)
+    normalized_reporting_currency = normalized_currency_code(reporting_currency)
+    normalized_position_currencies = {
+        normalized_position_currency
+        for position_currency in position_currencies
+        for normalized_position_currency in [normalized_currency_code(position_currency)]
+        if normalized_position_currency is not None
+    }
+    return any(
+        normalized_position_currency != normalized_reporting_currency
+        for normalized_position_currency in normalized_position_currencies
+    )
 
 
 def stateful_position_currencies(rows: list[dict[str, object]]) -> set[str]:
     return {
-        position_currency
+        normalized_position_currency
         for row in rows
-        for position_currency in [row.get("position_currency")]
-        if isinstance(position_currency, str) and position_currency
+        for normalized_position_currency in [normalized_currency_code(row.get("position_currency"))]
+        if normalized_position_currency is not None
     }
