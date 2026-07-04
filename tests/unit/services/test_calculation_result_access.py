@@ -64,6 +64,27 @@ def test_calculation_result_access_requires_enterprise_identity_headers(monkeypa
     assert _response_body(response)[_RESPONSE_REASON_KEY].startswith("missing_headers:")
 
 
+def test_calculation_result_access_requires_service_identity(monkeypatch):
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ, "true")
+
+    response = authorize_calculation_result_access(
+        execution=_execution_record(),
+        headers={
+            "X-Actor-Id": "advisor-1",
+            "X-Tenant-Id": "tenant-private-bank",
+            "X-Role": "advisor",
+            "X-Correlation-Id": "corr-1",
+        },
+    )
+
+    assert response is not None
+    assert response.status_code == 403
+    assert _response_body(response) == {
+        _RESPONSE_DETAIL_KEY: _AUTHORIZATION_POLICY_DENIED_DETAIL,
+        _RESPONSE_REASON_KEY: "missing_service_identity",
+    }
+
+
 def test_calculation_result_access_allows_matching_portfolio_entitlement(monkeypatch):
     monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ, "true")
 
