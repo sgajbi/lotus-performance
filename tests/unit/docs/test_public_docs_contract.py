@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+from scripts.python_test_taxonomy_inventory import collect_test_modules, summarize_test_taxonomy
+
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
@@ -87,6 +89,59 @@ def test_cleanup_scope_is_documented_for_generated_runtime_artifacts():
     assert "scripts/clean_generated_artifacts.py" in readme
     assert "scripts/clean_generated_artifacts.py" in repository_context
     assert "source-truth preservation" in ci_quality_gates
+
+
+def test_quality_reports_publish_current_test_taxonomy_counts():
+    summary = summarize_test_taxonomy(collect_test_modules(("tests",)))
+    uncategorized_tests = summary.family_counts["uncategorized"]
+    observability_tests = summary.family_counts["observability_or_readiness"]
+    analytics_tests = summary.family_counts["analytics_domain"]
+    current_count_summary = (
+        f"{summary.module_count} modules, {summary.test_count:,} source test functions, "
+        f"{summary.api_or_runtime_tests} integration/API/runtime test functions, "
+        f"{summary.contract_or_governance_tests} contract/governance test functions, "
+        f"{observability_tests} observability/readiness test functions, "
+        f"{analytics_tests:,} analytics-domain test functions, and "
+        f"{uncategorized_tests:,} uncategorized test functions"
+    )
+
+    taxonomy_inventory = _read("quality/test_taxonomy_inventory.md")
+    refactor_health = _read("quality/refactor_health_report.md")
+    quality_scorecard = _read("quality/quality_scorecard.md")
+    ci_quality_gates = _read("quality/ci_quality_gates.md")
+
+    assert f"| Test modules inventoried | {summary.module_count} |" in taxonomy_inventory
+    assert f"| Test functions inventoried | {summary.test_count} |" in taxonomy_inventory
+    assert f"| Integration/API/runtime test functions | {summary.api_or_runtime_tests} |" in taxonomy_inventory
+    assert f"| Contract/governance test functions | {summary.contract_or_governance_tests} |" in taxonomy_inventory
+    assert f"| observability_or_readiness | {observability_tests} |" in taxonomy_inventory
+    assert f"| analytics_domain | {analytics_tests} |" in taxonomy_inventory
+    assert f"| uncategorized | {uncategorized_tests} |" in taxonomy_inventory
+
+    assert f"| Test modules | 228 | {summary.module_count} | measured |" in refactor_health
+    assert f"| Integration/API/runtime test functions | unknown | {summary.api_or_runtime_tests} | enforced |" in (
+        refactor_health
+    )
+    assert f"| Contract/governance test functions | unknown | {summary.contract_or_governance_tests} | enforced |" in (
+        refactor_health
+    )
+    assert f"| Uncategorized test functions | unknown | {uncategorized_tests} | enforced ceiling |" in refactor_health
+
+    assert f"| Python test modules | 228 | {summary.module_count} |" in quality_scorecard
+    assert f"| Integration/API/runtime test functions | unknown | {summary.api_or_runtime_tests} |" in quality_scorecard
+    assert (
+        f"| Contract/governance test functions | unknown | {summary.contract_or_governance_tests} |"
+        in quality_scorecard
+    )
+    assert f"| Uncategorized test functions | unknown | {uncategorized_tests} |" in quality_scorecard
+
+    assert current_count_summary in ci_quality_gates
+    assert (
+        f"`quality/test_taxonomy_inventory.md` records {summary.module_count} test modules, "
+        f"{summary.test_count:,} source test functions, {summary.api_or_runtime_tests} API/runtime "
+        f"test functions, {summary.contract_or_governance_tests} contract/governance test functions, "
+        f"and {uncategorized_tests:,} uncategorized test functions."
+    ) in ci_quality_gates
 
 
 def test_repo_context_matches_trust_telemetry_coverage_boundary():
