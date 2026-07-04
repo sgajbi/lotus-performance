@@ -105,7 +105,7 @@ def test_attribution_endpoint_by_instrument_happy_path(client):
         "frequency": "daily",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-01",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "NET",
             "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1018.5}],
@@ -147,7 +147,7 @@ def test_attribution_endpoint_by_instrument_happy_path(client):
         "source_quality_evidence": None,
         "metric_labels": _EXPECTED_SUPPORTABILITY_METRIC_LABELS,
     }
-    response_data = body["results_by_period"]["ITD"]
+    response_data = body["results_by_period"]["SI"]
     assert response_data["status"] == "valid"
     assert response_data["reason_codes"] == []
     assert response_data["supportability_evidence"]["portfolio_only_group_count"] == 0
@@ -180,7 +180,7 @@ def test_attribution_lineage_flow(client):
         "frequency": "monthly",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-31",
-        "analyses": [{"period": "ITD", "frequencies": ["monthly"]}],
+        "analyses": [{"period": "SI", "frequencies": ["monthly"]}],
         "portfolio_groups_data": [
             {
                 "key": {"sector": "Tech"},
@@ -206,7 +206,7 @@ def test_attribution_lineage_flow(client):
     assert lineage_data["calculation_type"] == "Attribution"
     assert "aligned_panel.csv" in lineage_data["artifacts"]
     assert "single_period_effects.csv" in lineage_data["artifacts"]
-    assert "ITD_attribution_supportability_evidence.csv" in lineage_data["artifacts"]
+    assert "SI_attribution_supportability_evidence.csv" in lineage_data["artifacts"]
 
 
 def test_attribution_endpoint_emits_controlled_status_reason_and_supportability_evidence(client):
@@ -218,7 +218,7 @@ def test_attribution_endpoint_emits_controlled_status_reason_and_supportability_
         "frequency": "daily",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-01",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "portfolio_groups_data": [
             {
                 "key": {"sector": "Technology"},
@@ -245,7 +245,7 @@ def test_attribution_endpoint_emits_controlled_status_reason_and_supportability_
 
     assert response.status_code == 200
     body = response.json()
-    period = body["results_by_period"]["ITD"]
+    period = body["results_by_period"]["SI"]
     assert period["status"] == "partial"
     assert set(period["reason_codes"]) >= {
         "off_benchmark_exposure",
@@ -259,7 +259,7 @@ def test_attribution_endpoint_emits_controlled_status_reason_and_supportability_
 
     assert drain_lineage_queue() >= 1
     lineage = client.get(f"/performance/lineage/{body['calculation_id']}").json()
-    assert "ITD_attribution_supportability_evidence.csv" in lineage["artifacts"]
+    assert "SI_attribution_supportability_evidence.csv" in lineage["artifacts"]
 
 
 def test_attribution_endpoint_hierarchical(client):
@@ -272,7 +272,7 @@ def test_attribution_endpoint_hierarchical(client):
         "frequency": "daily",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-01",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "NET",
             "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1020}],
@@ -311,7 +311,7 @@ def test_attribution_endpoint_hierarchical(client):
     }
     response = client.post("/performance/attribution", json=payload)
     assert response.status_code == 200
-    data = response.json()["results_by_period"]["ITD"]
+    data = response.json()["results_by_period"]["SI"]
     assert len(data["levels"]) == 2
     level_ac = data["levels"][0]
     level_sector = data["levels"][1]
@@ -378,7 +378,7 @@ def test_attribution_endpoint_currency_attribution(client):
         "report_ccy": "USD",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-01",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "GROSS",
             "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 100.0, "end_mv": 103.02}],
@@ -415,7 +415,7 @@ def test_attribution_endpoint_currency_attribution(client):
     }
     response = client.post("/performance/attribution", json=payload)
     assert response.status_code == 200
-    data = response.json()["results_by_period"]["ITD"]
+    data = response.json()["results_by_period"]["SI"]
 
     assert "currency_attribution" in data
     assert data["currency_attribution"] is not None
@@ -439,7 +439,7 @@ def test_attribution_endpoint_currency_attribution(client):
     lineage_response = client.get(f"/performance/lineage/{calculation_id}")
     assert lineage_response.status_code == 200
     lineage_data = lineage_response.json()
-    assert "ITD_currency_attribution_effects.csv" in lineage_data["artifacts"]
+    assert "SI_currency_attribution_effects.csv" in lineage_data["artifacts"]
 
 
 @pytest.mark.parametrize(
@@ -469,7 +469,7 @@ def test_attribution_endpoint_error_handling(client, mocker, error_class, expect
         "frequency": "monthly",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-31",
-        "analyses": [{"period": "ITD", "frequencies": ["monthly"]}],
+        "analyses": [{"period": "SI", "frequencies": ["monthly"]}],
     }
     response = client.post("/performance/attribution", json=payload)
     assert response.status_code == expected_status
@@ -493,7 +493,7 @@ def test_attribution_endpoint_returns_400_when_no_resolved_periods(client, mocke
         "frequency": "monthly",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-31",
-        "analyses": [{"period": "ITD", "frequencies": ["monthly"]}],
+        "analyses": [{"period": "SI", "frequencies": ["monthly"]}],
     }
     response = client.post("/performance/attribution", json=payload)
     assert response.status_code == 400
@@ -505,7 +505,7 @@ def test_attribution_endpoint_skips_empty_period_slice(client, mocker):
     mocker.patch(
         "app.services.attribution_service.resolve_periods",
         return_value=[
-            ResolvedPeriod(name="ITD", start_date="2025-01-01", end_date="2025-01-31"),
+            ResolvedPeriod(name="SI", start_date="2025-01-01", end_date="2025-01-31"),
             ResolvedPeriod(name="MTD", start_date="2025-02-01", end_date="2025-02-28"),
         ],
     )
@@ -518,7 +518,7 @@ def test_attribution_endpoint_skips_empty_period_slice(client, mocker):
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-31",
         "analyses": [
-            {"period": "ITD", "frequencies": ["monthly"]},
+            {"period": "SI", "frequencies": ["monthly"]},
             {"period": "MTD", "frequencies": ["monthly"]},
         ],
         "portfolio_groups_data": [
@@ -537,7 +537,7 @@ def test_attribution_endpoint_skips_empty_period_slice(client, mocker):
     response = client.post("/performance/attribution", json=payload)
     assert response.status_code == 200
     results = response.json()["results_by_period"]
-    assert "ITD" in results
+    assert "SI" in results
     assert "MTD" not in results
 
 
@@ -552,7 +552,7 @@ def test_attribution_async_result_retrieval(client):
         "frequency": "daily",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-01",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "portfolio_groups_data": [
             {
                 "key": {"sector": "Tech"},
@@ -710,7 +710,7 @@ def test_attribution_supports_stateful_input_mode(client, monkeypatch):
         "frequency": "daily",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-02",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "input_mode": "stateful",
         "stateful_input": {},
     }
@@ -725,7 +725,7 @@ def test_attribution_supports_stateful_input_mode(client, monkeypatch):
         "benchmark_id": "BMK_1",
         "return_source": "calculated",
     }
-    itd = body["results_by_period"]["ITD"]
+    itd = body["results_by_period"]["SI"]
     assert itd["reconciliation"]["total_active_return"] == pytest.approx(1.0985232695139984)
     assert itd["reconciliation"]["sum_of_effects"] == pytest.approx(1.0985232695139984)
     assert itd["status"] == "partial"
@@ -831,7 +831,7 @@ def test_attribution_stateful_converts_non_base_cash_flows_using_explicit_fx_met
         "report_ccy": "USD",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-01",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "input_mode": "stateful",
         "stateful_input": {},
     }
@@ -839,7 +839,7 @@ def test_attribution_stateful_converts_non_base_cash_flows_using_explicit_fx_met
     response = client.post("/performance/attribution", json=payload)
 
     assert response.status_code == 200
-    itd = response.json()["results_by_period"]["ITD"]
+    itd = response.json()["results_by_period"]["SI"]
     assert itd["reconciliation"]["total_active_return"] == pytest.approx(0.0)
     assert itd["reconciliation"]["sum_of_effects"] == pytest.approx(0.0)
 
@@ -940,7 +940,7 @@ def test_attribution_stateful_rejects_acquisition_day_rows_without_cash_flow_sem
         "frequency": "daily",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-01",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "input_mode": "stateful",
         "stateful_input": {},
     }
@@ -1025,7 +1025,7 @@ def test_attribution_stateful_rejects_portfolio_position_alignment_mismatch(clie
         "frequency": "daily",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-01",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "input_mode": "stateful",
         "stateful_input": {},
     }
@@ -1173,7 +1173,7 @@ def test_attribution_stateful_offloads_on_resolved_input_count(client, monkeypat
         "frequency": "daily",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-02",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "input_mode": "stateful",
         "stateful_input": {},
     }
@@ -1341,7 +1341,7 @@ def test_attribution_stateful_promoted_async_replays_identical_retry(client, mon
         "frequency": "daily",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-02",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "input_mode": "stateful",
         "stateful_input": {},
     }
@@ -1476,7 +1476,7 @@ def test_attribution_stateful_currency_mode_both_supports_mixed_currency_decompo
         "report_ccy": "USD",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-01",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "fx": {
             "rates": [
                 {"date": "2024-12-31", "ccy": "EUR", "rate": 1.10},
@@ -1492,12 +1492,12 @@ def test_attribution_stateful_currency_mode_both_supports_mixed_currency_decompo
     assert response.status_code == 200
     body = response.json()
     assert body["input_mode"] == "stateful"
-    currency_results = body["results_by_period"]["ITD"]["currency_attribution"]
+    currency_results = body["results_by_period"]["SI"]["currency_attribution"]
     assert currency_results is not None
     by_currency = {entry["currency"]: entry for entry in currency_results}
     assert by_currency["eur"]["weight_portfolio_avg"] == pytest.approx(55.0)
     assert by_currency["usd"]["weight_portfolio_avg"] == pytest.approx(45.0)
-    assert body["results_by_period"]["ITD"]["currency_attribution_totals"]["currency_count"] == 2
+    assert body["results_by_period"]["SI"]["currency_attribution_totals"]["currency_count"] == 2
 
 
 def test_attribution_stateful_hashes_follow_resolved_inputs(client, monkeypatch):
@@ -1604,7 +1604,7 @@ def test_attribution_stateful_hashes_follow_resolved_inputs(client, monkeypatch)
         "frequency": "daily",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-02",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "input_mode": "stateful",
         "stateful_input": {},
     }
@@ -1645,7 +1645,7 @@ def test_attribution_async_result_not_found_and_failed(client, mocker):
         "frequency": "daily",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-01",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "portfolio_groups_data": [
             {
                 "key": {"sector": "Tech"},
@@ -1692,7 +1692,7 @@ def test_attribution_async_duplicate_submission_replays_same_request(client):
         "frequency": "daily",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-01",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "portfolio_groups_data": [
             {
                 "key": {"sector": "Tech"},
@@ -1732,7 +1732,7 @@ def test_attribution_async_duplicate_submission_conflicts_on_payload_drift(clien
         "frequency": "daily",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-01",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "portfolio_groups_data": [
             {
                 "key": {"sector": "Tech"},

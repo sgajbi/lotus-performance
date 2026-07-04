@@ -56,7 +56,7 @@ async def test_benchmark_stateful_orchestration_characterization_contract(tmp_pa
             "benchmark_id": "BMK-CHAR",
             "benchmark_start_date": str(STATEFUL_PORTFOLIO_WINDOW_START),
             "report_end_date": str(STATEFUL_PORTFOLIO_WINDOW_END),
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "input_mode": "stateful",
             "return_source": "calculated",
             "stateful_input": {},

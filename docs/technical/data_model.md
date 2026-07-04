@@ -49,7 +49,7 @@ An optional object that allows for on-the-fly data correction and flagging. See 
 ### Enums
 
   - **`Frequency`**: Defines the aggregation periods for TWR breakdowns: `daily`, `weekly`, `monthly`, `quarterly`, `yearly`.
-  - **`PeriodType`**: Defines how the reporting window is resolved: `MTD`, `QTD`, `YTD`, `ITD`, `1Y`, `3Y`, `5Y`, `EXPLICIT`.
+  - **`PeriodType`**: Defines how the reporting window is resolved: `MTD`, `QTD`, `YTD`, `SI`, `1Y`, `3Y`, `5Y`, `EXPLICIT`. Legacy `ITD` aliases normalize to `SI`.
   - **`MetricBasis`**: Defines whether returns are calculated before or after fees: `NET`, `GROSS`.
   - **`PrecisionMode`**: Defines the numerical precision used by the engine: `FLOAT64` (fast, default) or `DECIMAL_STRICT` (auditable).
 

@@ -146,7 +146,7 @@ are emitted for calculated mode.
   "report_end_date": "2026-01-03",
   "analyses": [
     {
-      "period": "ITD",
+      "period": "SI",
       "frequencies": ["daily"]
     }
   ],
@@ -184,7 +184,7 @@ are emitted for calculated mode.
   "report_end_date": "2026-01-03",
   "analyses": [
     {
-      "period": "ITD",
+      "period": "SI",
       "frequencies": ["daily"]
     }
   ],

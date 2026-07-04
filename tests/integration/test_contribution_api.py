@@ -57,7 +57,7 @@ def test_contribution_endpoint_happy_path_and_envelope(client, happy_path_payloa
     response_data = response.json()
     assert response_data["portfolio_id"] == "CONTRIB_TEST_01"
     assert "results_by_period" in response_data
-    assert "ITD" in response_data["results_by_period"]
+    assert "SI" in response_data["results_by_period"]
     assert response_data["calculation_supportability"] == {
         "state": "ready",
         "reason": "calculation_complete",
@@ -68,15 +68,15 @@ def test_contribution_endpoint_happy_path_and_envelope(client, happy_path_payloa
         "source_quality_evidence": None,
         "metric_labels": _EXPECTED_SUPPORTABILITY_METRIC_LABELS,
     }
-    smoothing_evidence = response_data["results_by_period"]["ITD"]["smoothing_evidence"]
+    smoothing_evidence = response_data["results_by_period"]["SI"]["smoothing_evidence"]
     assert smoothing_evidence["smoothing_method"] == "CARINO"
     assert smoothing_evidence["status"] == "APPLIED"
     assert "CARINO_FACTOR_APPLIED" in smoothing_evidence["reason_codes"]
     assert smoothing_evidence["linked_return"] == pytest.approx(
-        response_data["results_by_period"]["ITD"]["total_portfolio_return"]
+        response_data["results_by_period"]["SI"]["total_portfolio_return"]
     )
     assert smoothing_evidence["final_contribution"] == pytest.approx(
-        response_data["results_by_period"]["ITD"]["total_contribution"]
+        response_data["results_by_period"]["SI"]["total_contribution"]
     )
     assert smoothing_evidence["carino_factor_min"] is not None
     assert smoothing_evidence["carino_factor_max"] is not None
@@ -91,7 +91,7 @@ def test_contribution_endpoint_reports_zero_grouped_return_alignment_drift_for_s
         "portfolio_id": "CONTRIB_ALIGNED_RESETS",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-02",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "NET",
             "valuation_points": [
@@ -114,7 +114,7 @@ def test_contribution_endpoint_reports_zero_grouped_return_alignment_drift_for_s
 
     assert response.status_code == 200
     body = response.json()
-    period_status = body["results_by_period"]["ITD"]["average_weight_methodology_status"]
+    period_status = body["results_by_period"]["SI"]["average_weight_methodology_status"]
     assert period_status["status"] == "NO_MATERIAL_SHADOW"
     assert period_status["is_material_shadow"] is False
     assert period_status["blocker_reason_codes"] == []
@@ -210,7 +210,7 @@ def test_contribution_endpoint_multi_currency(client):
         "portfolio_id": "MULTI_CCY_CONTRIB_01",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-01",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "GROSS",
             "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 105.0, "end_mv": 110.16}],
@@ -233,7 +233,7 @@ def test_contribution_endpoint_multi_currency(client):
     }
     response = client.post("/performance/contribution", json=payload)
     assert response.status_code == 200
-    data = response.json()["results_by_period"]["ITD"]
+    data = response.json()["results_by_period"]["SI"]
     assert data["total_contribution"] == pytest.approx(4.91429, abs=1e-5)
 
 
@@ -257,7 +257,7 @@ def test_contribution_endpoint_no_smoothing(client, happy_path_payload):
     payload["smoothing"] = {"method": "NONE"}
     response = client.post("/performance/contribution", json=payload)
     assert response.status_code == 200
-    smoothing_evidence = response.json()["results_by_period"]["ITD"]["smoothing_evidence"]
+    smoothing_evidence = response.json()["results_by_period"]["SI"]["smoothing_evidence"]
     assert smoothing_evidence["status"] == "NOT_REQUESTED"
     assert "SMOOTHING_NOT_REQUESTED" in smoothing_evidence["reason_codes"]
 
@@ -267,7 +267,7 @@ def test_contribution_endpoint_smoothing_evidence_reports_invalid_carino_domain(
         "portfolio_id": "CONTRIB_INVALID_CARINO_EVIDENCE",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-01",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "NET",
             "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 100, "end_mv": -50}],
@@ -283,7 +283,7 @@ def test_contribution_endpoint_smoothing_evidence_reports_invalid_carino_domain(
     response = client.post("/performance/contribution", json=payload)
 
     assert response.status_code == 200
-    smoothing_evidence = response.json()["results_by_period"]["ITD"]["smoothing_evidence"]
+    smoothing_evidence = response.json()["results_by_period"]["SI"]["smoothing_evidence"]
     assert smoothing_evidence["status"] == "INVALID_DOMAIN_FALLBACK"
     assert smoothing_evidence["invalid_domain_days"] == 1
     assert "CARINO_INVALID_DAILY_LOG_DOMAIN" in smoothing_evidence["reason_codes"]
@@ -295,7 +295,7 @@ def test_contribution_endpoint_with_timeseries(client, happy_path_payload):
     payload["emit"] = {"timeseries": True, "by_position_timeseries": True}
     response = client.post("/performance/contribution", json=payload)
     assert response.status_code == 200
-    body = response.json()["results_by_period"]["ITD"]
+    body = response.json()["results_by_period"]["SI"]
     assert len(body["timeseries"]) == 2
     assert len(body["by_position_timeseries"]) == 1
     assert body["by_position_timeseries"][0]["position_id"] == "Stock_A"
@@ -318,7 +318,7 @@ def test_contribution_endpoint_hierarchy_happy_path(client, happy_path_payload):
     )
     response = client.post("/performance/contribution", json=payload)
     assert response.status_code == 200
-    data = response.json()["results_by_period"]["ITD"]
+    data = response.json()["results_by_period"]["SI"]
     assert "summary" in data
     assert data["summary"]["portfolio_contribution"] == pytest.approx(2.95327, abs=1e-5)
 
@@ -328,7 +328,7 @@ def test_contribution_endpoint_treats_external_deposit_as_non_performance(client
         "portfolio_id": "CONTRIB_EXTERNAL_DEPOSIT_NO_PERF",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-01",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "NET",
             "valuation_points": [
@@ -350,7 +350,7 @@ def test_contribution_endpoint_treats_external_deposit_as_non_performance(client
     response = client.post("/performance/contribution", json=payload)
 
     assert response.status_code == 200
-    period = response.json()["results_by_period"]["ITD"]
+    period = response.json()["results_by_period"]["SI"]
     assert period["total_portfolio_return"] == pytest.approx(0.0)
     assert period["total_contribution"] == pytest.approx(0.0)
     assert period["summary"]["portfolio_contribution"] == pytest.approx(0.0)
@@ -363,7 +363,7 @@ def test_contribution_endpoint_assigns_income_to_generating_asset(client):
         "portfolio_id": "CONTRIB_INCOME_GENERATING_ASSET",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-01",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "NET",
             "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1015}],
@@ -382,7 +382,7 @@ def test_contribution_endpoint_assigns_income_to_generating_asset(client):
 
     assert response.status_code == 200
     body = response.json()
-    period = body["results_by_period"]["ITD"]
+    period = body["results_by_period"]["SI"]
     row = period["levels"][0]["rows"][0]
     assert row["key"] == {"asset_class": "Fixed Income"}
     assert row["contribution"] == pytest.approx(period["total_contribution"])
@@ -395,7 +395,7 @@ def test_contribution_endpoint_assigns_net_fee_drag_to_fee_bucket(client):
         "portfolio_id": "CONTRIB_NET_FEE_BUCKET",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-01",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "NET",
             "valuation_points": [
@@ -418,7 +418,7 @@ def test_contribution_endpoint_assigns_net_fee_drag_to_fee_bucket(client):
 
     assert response.status_code == 200
     body = response.json()
-    period = body["results_by_period"]["ITD"]
+    period = body["results_by_period"]["SI"]
     row = period["levels"][0]["rows"][0]
     assert row["key"] == {"asset_class": "Fees"}
     assert row["contribution"] == pytest.approx(-1.0)
@@ -431,7 +431,7 @@ def test_contribution_endpoint_preserves_missing_classification_as_unclassified(
         "portfolio_id": "CONTRIB_UNCLASSIFIED",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-01",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "NET",
             "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
@@ -448,7 +448,7 @@ def test_contribution_endpoint_preserves_missing_classification_as_unclassified(
     response = client.post("/performance/contribution", json=payload)
 
     assert response.status_code == 200
-    period = response.json()["results_by_period"]["ITD"]
+    period = response.json()["results_by_period"]["SI"]
     assert period["levels"][0]["rows"][0]["key"] == {"asset_class": "Unclassified"}
     assert period["levels"][0]["rows"][0]["contribution"] == pytest.approx(1.0)
 
@@ -458,7 +458,7 @@ def test_contribution_endpoint_preserves_short_position_inverse_sign_behavior(cl
         "portfolio_id": "CONTRIB_SHORT_SIGN",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-01",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "NET",
             "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 990}],
@@ -481,7 +481,7 @@ def test_contribution_endpoint_preserves_short_position_inverse_sign_behavior(cl
     response = client.post("/performance/contribution", json=payload)
 
     assert response.status_code == 200
-    period = response.json()["results_by_period"]["ITD"]
+    period = response.json()["results_by_period"]["SI"]
     rows_by_asset_class = {row["key"]["asset_class"]: row for row in period["levels"][0]["rows"]}
     assert rows_by_asset_class["Short Equity"]["weight_avg"] == pytest.approx(-10.0)
     assert rows_by_asset_class["Short Equity"]["contribution"] < 0
@@ -493,7 +493,7 @@ def test_contribution_endpoint_weight_fields_use_percentage_units_for_position_a
         "portfolio_id": "CONTRIB_WEIGHT_UNITS",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-01",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "NET",
             "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1020}],
@@ -523,10 +523,10 @@ def test_contribution_endpoint_weight_fields_use_percentage_units_for_position_a
 
     position_rows = {
         row["position_id"]: row
-        for row in position_response.json()["results_by_period"]["ITD"]["position_contributions"]
+        for row in position_response.json()["results_by_period"]["SI"]["position_contributions"]
     }
     hierarchy_rows = {
-        row["key"]["sector"]: row for row in hierarchy_response.json()["results_by_period"]["ITD"]["levels"][0]["rows"]
+        row["key"]["sector"]: row for row in hierarchy_response.json()["results_by_period"]["SI"]["levels"][0]["rows"]
     }
 
     assert position_rows["Stock_A"]["average_weight"] == pytest.approx(60.0)
@@ -542,7 +542,7 @@ def test_contribution_endpoint_hierarchy_keeps_position_contribution_detail(clie
         "portfolio_id": "CONTRIB_HIER_POSITION_DETAIL",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-01",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "hierarchy": ["sector"],
         "emit": {"timeseries": True, "by_position_timeseries": True, "by_level": True},
         "portfolio_data": {
@@ -566,7 +566,7 @@ def test_contribution_endpoint_hierarchy_keeps_position_contribution_detail(clie
     response = client.post("/performance/contribution", json=payload)
 
     assert response.status_code == 200
-    result = response.json()["results_by_period"]["ITD"]
+    result = response.json()["results_by_period"]["SI"]
     position_rows = {row["position_id"]: row for row in result["position_contributions"]}
 
     assert result["total_portfolio_return"] == pytest.approx(2.0)
@@ -638,7 +638,7 @@ def test_contribution_hierarchy_level_rows_reconcile_after_position_residual_all
         "portfolio_id": "HIER_RECONCILES_WITH_RESIDUAL",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-02",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "hierarchy": ["sector"],
         "emit": {"timeseries": True, "by_position_timeseries": True, "by_level": True},
         "portfolio_data": {
@@ -671,7 +671,7 @@ def test_contribution_hierarchy_level_rows_reconcile_after_position_residual_all
     response = client.post("/performance/contribution", json=payload)
 
     assert response.status_code == 200
-    result = response.json()["results_by_period"]["ITD"]
+    result = response.json()["results_by_period"]["SI"]
     position_total = sum(row["total_contribution"] for row in result["position_contributions"])
     level_total = sum(row["contribution"] for row in result["levels"][0]["rows"])
     level_weight_total = sum(row["weight_avg"] for row in result["levels"][0]["rows"])
@@ -694,7 +694,7 @@ def test_contribution_hierarchy_top_n_rolls_excluded_rows_into_other(client):
         "portfolio_id": "HIER_TOP_N_OTHER",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-01",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "hierarchy": ["sector"],
         "emit": {"by_level": True, "top_n_per_level": 2, "threshold_weight": 0, "include_other": True},
         "portfolio_data": {
@@ -723,7 +723,7 @@ def test_contribution_hierarchy_top_n_rolls_excluded_rows_into_other(client):
     response = client.post("/performance/contribution", json=payload)
 
     assert response.status_code == 200
-    rows = response.json()["results_by_period"]["ITD"]["levels"][0]["rows"]
+    rows = response.json()["results_by_period"]["SI"]["levels"][0]["rows"]
     assert len(rows) == 3
     assert rows[-1]["is_other"] is True
     assert rows[-1]["children_count"] == 1
@@ -740,7 +740,7 @@ def test_contribution_endpoint_error_handling(client, mocker):
         "portfolio_id": "ERROR",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-02",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "NET",
             "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1025}],
@@ -836,7 +836,7 @@ def test_contribution_endpoint_emits_grouped_return_alignment_note_for_misaligne
         "portfolio_id": "MISALIGNED_GROUPED_RETURNS",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-03",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "NET",
             "valuation_points": [
@@ -935,7 +935,7 @@ def test_contribution_endpoint_promotes_reset_aware_average_weight_for_clean_can
         "portfolio_id": "RESET_AWARE_WEIGHT_PROMOTION",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-03",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "NET",
             "valuation_points": [
@@ -1026,13 +1026,13 @@ def test_contribution_endpoint_promotes_reset_aware_average_weight_for_clean_can
     body = response.json()
     assert body["audit"]["counts"]["average_weight_shadow_cutover_candidate_periods"] == 1
     assert body["audit"]["counts"]["average_weight_shadow_promoted_periods"] == 1
-    period_status = body["results_by_period"]["ITD"]["average_weight_methodology_status"]
+    period_status = body["results_by_period"]["SI"]["average_weight_methodology_status"]
     assert period_status["status"] == "PROMOTED"
     assert period_status["is_material_shadow"] is True
     assert period_status["is_cutover_candidate"] is True
     assert period_status["is_promoted"] is True
     assert period_status["blocker_reason_codes"] == []
-    position_contributions = body["results_by_period"]["ITD"]["position_contributions"]
+    position_contributions = body["results_by_period"]["SI"]["position_contributions"]
     position_contributions_by_id = {
         position_contribution["position_id"]: position_contribution for position_contribution in position_contributions
     }
@@ -1052,7 +1052,7 @@ def test_contribution_endpoint_promotes_reset_aware_average_weight_for_hierarchy
         "portfolio_id": "RESET_AWARE_WEIGHT_HIERARCHY_PROMOTION",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-03",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "hierarchy": ["sector"],
         "portfolio_data": {
             "metric_basis": "NET",
@@ -1147,7 +1147,7 @@ def test_contribution_endpoint_promotes_reset_aware_average_weight_for_hierarchy
     body = response.json()
     assert body["audit"]["counts"]["average_weight_shadow_cutover_candidate_periods"] == 1
     assert body["audit"]["counts"]["average_weight_shadow_promoted_periods"] == 1
-    period = body["results_by_period"]["ITD"]
+    period = body["results_by_period"]["SI"]
     assert period["average_weight_methodology_status"]["status"] == "PROMOTED"
     assert period["average_weight_methodology_status"]["is_promoted"] is True
     positions_by_id = {row["position_id"]: row for row in period["position_contributions"]}
@@ -1177,7 +1177,7 @@ def test_contribution_async_result_retrieval(client, happy_path_payload):
         assert complete.status_code == 200
         body = complete.json()
         assert body["calculation_id"] == calculation_id
-        assert "ITD" in body["results_by_period"]
+        assert "SI" in body["results_by_period"]
     finally:
         settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT = original_threshold
 
@@ -1232,7 +1232,7 @@ def test_contribution_supports_stateful_input_mode(client, monkeypatch):
         "portfolio_id": "CONTRIB_STATEFUL",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-02",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "input_mode": "stateful",
         "stateful_input": {},
     }
@@ -1243,7 +1243,7 @@ def test_contribution_supports_stateful_input_mode(client, monkeypatch):
     body = response.json()
     assert body["portfolio_id"] == "CONTRIB_STATEFUL"
     assert body["input_mode"] == "stateful"
-    assert "ITD" in body["results_by_period"]
+    assert "SI" in body["results_by_period"]
     source_economics = body["source_economics_evidence"]
     assert source_economics["source_owner"] == "lotus-core"
     assert source_economics["status"] == "SOURCE_LIMITED"
@@ -1395,7 +1395,7 @@ def test_contribution_stateful_converts_non_base_cash_flows_using_explicit_fx_me
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-01",
         "report_ccy": "USD",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "emit": {"timeseries": True, "by_position_timeseries": True},
         "input_mode": "stateful",
         "stateful_input": {},
@@ -1404,7 +1404,7 @@ def test_contribution_stateful_converts_non_base_cash_flows_using_explicit_fx_me
     response = client.post("/performance/contribution", json=payload)
 
     assert response.status_code == 200
-    itd = response.json()["results_by_period"]["ITD"]
+    itd = response.json()["results_by_period"]["SI"]
     assert itd["total_contribution"] == pytest.approx(0.0)
     assert itd["by_position_timeseries"][0]["series"][0]["contribution"] == pytest.approx(0.0)
 
@@ -1459,7 +1459,7 @@ def test_contribution_stateful_emit_timeseries_returns_series(client, monkeypatc
         "portfolio_id": "CONTRIB_STATEFUL_SERIES",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-02",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "emit": {"timeseries": True, "by_position_timeseries": True},
         "input_mode": "stateful",
         "stateful_input": {},
@@ -1468,7 +1468,7 @@ def test_contribution_stateful_emit_timeseries_returns_series(client, monkeypatc
     response = client.post("/performance/contribution", json=payload)
 
     assert response.status_code == 200
-    result = response.json()["results_by_period"]["ITD"]
+    result = response.json()["results_by_period"]["SI"]
     assert len(result["timeseries"]) == 2
     assert len(result["by_position_timeseries"]) == 1
     assert result["by_position_timeseries"][0]["position_id"] == "SEC_1"
@@ -1548,7 +1548,7 @@ def test_contribution_stateful_offloads_on_resolved_position_count(client, monke
         "portfolio_id": "CONTRIB_STATEFUL_ASYNC",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-02",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "input_mode": "stateful",
         "stateful_input": {},
     }
@@ -1643,7 +1643,7 @@ def test_contribution_stateful_promoted_async_replays_identical_retry(client, mo
         "portfolio_id": "CONTRIB_STATEFUL_ASYNC_REPLAY",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-02",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "input_mode": "stateful",
         "stateful_input": {},
     }
@@ -1711,7 +1711,7 @@ def test_contribution_stateful_hashes_follow_resolved_inputs(client, monkeypatch
         "portfolio_id": "CONTRIB_STATEFUL_HASH",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-02",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "input_mode": "stateful",
         "stateful_input": {},
     }
@@ -1726,7 +1726,7 @@ def test_contribution_stateful_hashes_follow_resolved_inputs(client, monkeypatch
             "portfolio_id": "CONTRIB_STATEFUL_HASH",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "portfolio_data": {
                 "metric_basis": "NET",
                 "valuation_points": [
@@ -1825,7 +1825,7 @@ def test_contribution_stateful_currency_mode_both_allows_same_currency_positions
         "portfolio_id": "CONTRIB_STATEFUL",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-01",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "currency_mode": "BOTH",
         "report_ccy": "USD",
         "input_mode": "stateful",
@@ -1836,7 +1836,7 @@ def test_contribution_stateful_currency_mode_both_allows_same_currency_positions
 
     assert response.status_code == 200
     body = response.json()
-    result = body["results_by_period"]["ITD"]
+    result = body["results_by_period"]["SI"]
     assert body["input_mode"] == "stateful"
     assert result["position_contributions"][0]["local_contribution"] == pytest.approx(1.0)
     assert result["position_contributions"][0]["fx_contribution"] == pytest.approx(0.0)
@@ -1881,7 +1881,7 @@ def test_contribution_stateful_currency_mode_both_requires_fx_for_mixed_currency
         "portfolio_id": "CONTRIB_STATEFUL",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-01",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "currency_mode": "BOTH",
         "report_ccy": "USD",
         "input_mode": "stateful",

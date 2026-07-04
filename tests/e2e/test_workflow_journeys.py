@@ -206,7 +206,7 @@ def test_e2e_performance_twr_and_mwr_workflow() -> None:
         "portfolio_id": "E2E_WORKFLOW_001",
         "performance_start_date": "2025-01-01",
         "report_end_date": "2025-01-03",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "metric_basis": "NET",
         "valuation_points": [
             {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
@@ -230,8 +230,8 @@ def test_e2e_performance_twr_and_mwr_workflow() -> None:
     assert mwr_response.status_code == 200
 
     twr_body = twr_response.json()
-    assert "ITD" in twr_body["results_by_period"]
-    assert twr_body["results_by_period"]["ITD"]["portfolio"]["summary"]["period_return"]["base"] > 0
+    assert "SI" in twr_body["results_by_period"]
+    assert twr_body["results_by_period"]["SI"]["portfolio"]["summary"]["period_return"]["base"] > 0
 
     mwr_body = mwr_response.json()
     assert mwr_body["portfolio_id"] == "E2E_WORKFLOW_001"
@@ -422,7 +422,7 @@ def test_e2e_stateful_analytics_workflow(monkeypatch) -> None:
         "portfolio_id": "E2E_STATEFUL_001",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-02",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "input_mode": "stateful",
         "stateful_input": {},
     }
@@ -430,7 +430,7 @@ def test_e2e_stateful_analytics_workflow(monkeypatch) -> None:
         "portfolio_id": "E2E_STATEFUL_001",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-02",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "mode": "by_instrument",
         "group_by": ["sector"],
         "frequency": "daily",
@@ -479,8 +479,8 @@ def test_e2e_stateful_analytics_workflow(monkeypatch) -> None:
 
     assert "YTD" in twr_response.json()["results_by_period"]
     assert mwr_response.json()["method"] == "DIETZ"
-    assert "ITD" in contribution_response.json()["results_by_period"]
-    assert "ITD" in attribution_response.json()["results_by_period"]
+    assert "SI" in contribution_response.json()["results_by_period"]
+    assert "SI" in attribution_response.json()["results_by_period"]
 
 
 def test_e2e_shared_stateful_benchmark_engine_stays_consistent_across_surfaces(monkeypatch) -> None:
@@ -654,7 +654,7 @@ def test_e2e_stateful_twr_returns_series_and_contribution_stay_consistent(monkey
         "portfolio_id": "E2E_SHARED_STORY",
         "report_start_date": "2026-02-23",
         "report_end_date": "2026-02-25",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "emit": {"timeseries": True, "by_position_timeseries": True},
         "input_mode": "stateful",
         "stateful_input": {},
@@ -674,7 +674,7 @@ def test_e2e_stateful_twr_returns_series_and_contribution_stay_consistent(monkey
     contribution_body = contribution_response.json()
 
     twr_ytd = twr_body["results_by_period"]["YTD"]
-    contribution_itd = contribution_body["results_by_period"]["ITD"]
+    contribution_itd = contribution_body["results_by_period"]["SI"]
     twr_portfolio_return = Decimal(str(twr_ytd["portfolio"]["summary"]["period_return"]["base"]))
     twr_benchmark_return = Decimal(str(twr_ytd["benchmark"]["summary"]["period_return"]["base"]))
     twr_relative_return = Decimal(str(twr_ytd["relative_performance"]["summary"]["period_return"]["base"]))
@@ -715,7 +715,7 @@ def test_e2e_contribution_attribution_and_lineage() -> None:
         "portfolio_id": "E2E_CONTRIB_001",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-01",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "NET",
             "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1015}],
@@ -736,7 +736,7 @@ def test_e2e_contribution_attribution_and_lineage() -> None:
         "frequency": "daily",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-01",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "portfolio_groups_data": [
             {
                 "key": {"sector": "Tech"},
@@ -795,7 +795,7 @@ def test_e2e_performance_contribution_and_attribution_tell_the_same_story() -> N
         "portfolio_id": "E2E_STORY_001",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-01",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "NET",
             "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1020.0}],
@@ -817,7 +817,7 @@ def test_e2e_performance_contribution_and_attribution_tell_the_same_story() -> N
         "frequency": "daily",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-01",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "portfolio_groups_data": [
             {
                 "key": {"sector": "technology"},
@@ -846,8 +846,8 @@ def test_e2e_performance_contribution_and_attribution_tell_the_same_story() -> N
     attribution_body = attribution_response.json()
 
     twr_itd = twr_body["results_by_period"]["YTD"]
-    contribution_itd = contribution_body["results_by_period"]["ITD"]
-    attribution_itd = attribution_body["results_by_period"]["ITD"]
+    contribution_itd = contribution_body["results_by_period"]["SI"]
+    attribution_itd = attribution_body["results_by_period"]["SI"]
 
     portfolio_return = twr_itd["portfolio"]["summary"]["period_return"]["base"]
     benchmark_return = twr_itd["benchmark"]["summary"]["period_return"]["base"]
@@ -884,7 +884,7 @@ def test_e2e_reset_heavy_contribution_and_daily_series_both_tie_to_twr() -> None
         "performance_start_date": "2024-12-31",
         "report_end_date": "2025-01-04",
         "metric_basis": "GROSS",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "valuation_points": [
             {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 500.0},
             {"perf_date": "2025-01-02", "begin_mv": 500.0, "end_mv": -50.0},
@@ -897,7 +897,7 @@ def test_e2e_reset_heavy_contribution_and_daily_series_both_tie_to_twr() -> None
         "portfolio_id": "E2E_RESET_ALIGNMENT_001",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-04",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "GROSS",
             "valuation_points": [
@@ -931,8 +931,8 @@ def test_e2e_reset_heavy_contribution_and_daily_series_both_tie_to_twr() -> None
     twr_body = twr_response.json()
     contribution_body = contribution_response.json()
 
-    twr_itd = twr_body["results_by_period"]["ITD"]
-    contribution_itd = contribution_body["results_by_period"]["ITD"]
+    twr_itd = twr_body["results_by_period"]["SI"]
+    contribution_itd = contribution_body["results_by_period"]["SI"]
 
     twr_portfolio_return = twr_itd["portfolio"]["summary"]["period_return"]["base"]
     contribution_total = contribution_itd["total_contribution"]
@@ -983,7 +983,7 @@ def test_e2e_multi_position_reset_heavy_contribution_keeps_tie_out_and_surfaces_
         "performance_start_date": "2024-12-31",
         "report_end_date": "2025-01-04",
         "metric_basis": "GROSS",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "valuation_points": [
             {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 500.0},
             {"perf_date": "2025-01-02", "begin_mv": 500.0, "end_mv": -50.0},
@@ -996,7 +996,7 @@ def test_e2e_multi_position_reset_heavy_contribution_keeps_tie_out_and_surfaces_
         "portfolio_id": "E2E_MULTI_RESET_ALIGNMENT_001",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-04",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "GROSS",
             "valuation_points": [
@@ -1038,9 +1038,9 @@ def test_e2e_multi_position_reset_heavy_contribution_keeps_tie_out_and_surfaces_
     assert twr_response.status_code == 200
     assert contribution_response.status_code == 200
 
-    twr_itd = twr_response.json()["results_by_period"]["ITD"]
+    twr_itd = twr_response.json()["results_by_period"]["SI"]
     contribution_body = contribution_response.json()
-    contribution_itd = contribution_body["results_by_period"]["ITD"]
+    contribution_itd = contribution_body["results_by_period"]["SI"]
 
     twr_portfolio_return = twr_itd["portfolio"]["summary"]["period_return"]["base"]
     contribution_total = contribution_itd["total_contribution"]
@@ -1093,7 +1093,7 @@ def test_e2e_asymmetric_reset_heavy_contribution_keeps_tie_out_while_exposing_we
         "portfolio_id": "E2E_ASYM_RESET_ALIGNMENT_001",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-04",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "GROSS",
             "valuation_points": [
@@ -1134,7 +1134,7 @@ def test_e2e_asymmetric_reset_heavy_contribution_keeps_tie_out_while_exposing_we
     assert contribution_response.status_code == 200
 
     contribution_body = contribution_response.json()
-    contribution_itd = contribution_body["results_by_period"]["ITD"]
+    contribution_itd = contribution_body["results_by_period"]["SI"]
     position_contributions_by_id = {
         contribution["position_id"]: contribution for contribution in contribution_itd["position_contributions"]
     }
@@ -1190,7 +1190,7 @@ def test_e2e_balanced_internal_position_flows_keep_flow_residual_silent() -> Non
         "portfolio_id": "E2E_BALANCED_INTERNAL_FLOWS_001",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-02",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "NET",
             "valuation_points": [
@@ -1225,7 +1225,7 @@ def test_e2e_balanced_internal_position_flows_keep_flow_residual_silent() -> Non
     assert contribution_response.status_code == 200
 
     contribution_body = contribution_response.json()
-    contribution_itd = contribution_body["results_by_period"]["ITD"]
+    contribution_itd = contribution_body["results_by_period"]["SI"]
 
     assert contribution_body["audit"]["counts"]["position_flow_residual_days"] == 0
     assert contribution_body["audit"]["counts"]["position_flow_residual_max_bp"] == 0
@@ -1244,7 +1244,7 @@ def test_e2e_material_position_flow_mismatch_emits_cancellation_break_note() -> 
         "portfolio_id": "E2E_MATERIAL_FLOW_MISMATCH_001",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-02",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "NET",
             "valuation_points": [
@@ -1303,7 +1303,7 @@ def test_e2e_contribution_lineage_roundtrip() -> None:
         "portfolio_id": "E2E_CONTRIB_002",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-01",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "NET",
             "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1015}],
@@ -1336,7 +1336,7 @@ def test_e2e_attribution_lineage_roundtrip() -> None:
         "frequency": "daily",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-01",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "portfolio_groups_data": [
             {
                 "key": {"sector": "Tech"},
@@ -1461,7 +1461,7 @@ def test_e2e_async_replay_uses_single_execution_handle() -> None:
         "portfolio_id": "E2E_CONTRIB_ASYNC_REPLAY",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-01",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "NET",
             "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1015}],

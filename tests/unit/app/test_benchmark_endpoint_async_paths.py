@@ -22,7 +22,7 @@ def _stateful_benchmark_payload() -> dict[str, object]:
         "benchmark_id": "BMK_1",
         "benchmark_start_date": "2025-01-01",
         "report_end_date": "2025-01-02",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "input_mode": "stateful",
         "stateful_input": {},
     }
@@ -35,7 +35,7 @@ def _resolved_benchmark_request() -> BenchmarkPerformanceRequest:
             "benchmark_id": "BMK_1",
             "benchmark_start_date": "2025-01-01",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "benchmark_currency": "USD",
             "return_source": "calculated",
             "component_observations": [
@@ -58,7 +58,7 @@ async def test_resolve_benchmark_execution_context_replaces_identity_for_persist
             "benchmark_id": "BMK_PRICE",
             "benchmark_start_date": "2025-01-01",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "input_mode": "stateless",
             "return_source": "calculated",
             "stateless_input": {
@@ -358,7 +358,7 @@ async def test_benchmark_endpoint_updates_execution_identity_for_persisted_sync_
             "benchmark_id": "BMK_PRICE",
             "benchmark_start_date": "2025-01-01",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "input_mode": "stateless",
             "return_source": "calculated",
             "stateless_input": {
@@ -416,7 +416,7 @@ async def test_benchmark_endpoint_offloads_large_requests(mocker):
             "benchmark_id": "BMK_VENDOR",
             "benchmark_start_date": "2025-01-01",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "input_mode": "stateless",
             "return_source": "vendor_series",
             "stateless_input": {
@@ -460,7 +460,7 @@ def test_initial_benchmark_async_submission_projects_large_input_payload(mocker)
             "benchmark_id": "BMK_VENDOR",
             "benchmark_start_date": "2025-01-01",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "input_mode": "stateless",
             "return_source": "vendor_series",
             "stateless_input": {
@@ -506,7 +506,7 @@ async def test_initial_sync_benchmark_workflow_preserves_source_identity_for_non
             "benchmark_id": "BMK_VENDOR",
             "benchmark_start_date": "2025-01-01",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "input_mode": "stateless",
             "return_source": "vendor_series",
             "stateless_input": {
@@ -595,7 +595,7 @@ async def test_benchmark_endpoint_reraises_sync_http_exceptions(mocker):
             "benchmark_id": "BMK_VENDOR",
             "benchmark_start_date": "2025-01-01",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "input_mode": "stateless",
             "return_source": "vendor_series",
             "stateless_input": {
@@ -645,7 +645,7 @@ async def test_benchmark_endpoint_maps_sync_resolution_errors_to_http_500(mocker
             "benchmark_id": "BMK_VENDOR",
             "benchmark_start_date": "2025-01-01",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "input_mode": "stateless",
             "return_source": "vendor_series",
             "stateless_input": {

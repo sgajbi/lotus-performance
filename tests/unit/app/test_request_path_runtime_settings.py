@@ -27,7 +27,7 @@ def test_should_offload_contribution_uses_runtime_settings(mocker):
             "portfolio_id": "P1",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "portfolio_data": {
                 "metric_basis": "NET",
                 "valuation_points": [
@@ -55,7 +55,7 @@ def test_should_offload_attribution_uses_runtime_settings(mocker):
             "frequency": "daily",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-01",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "portfolio_groups_data": [
                 {
                     "key": {"sector": "Tech"},
@@ -88,7 +88,7 @@ def test_should_offload_stateful_attribution_uses_window_runtime_settings(mocker
             "frequency": "daily",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-07-31",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "input_mode": "stateful",
             "stateful_input": {},
         }
@@ -185,10 +185,10 @@ def test_contribution_service_uses_runtime_app_version(mocker):
         "app.services.contribution_service.resolve_periods",
         return_value=[
             SimpleNamespace(
-                name="ITD",
+                name="SI",
                 start_date=pd.Timestamp("2025-01-01").date(),
                 end_date=pd.Timestamp("2025-01-02").date(),
-                value=PeriodType.ITD,
+                value=PeriodType.SI,
             )
         ],
     )
@@ -227,7 +227,7 @@ def test_contribution_service_uses_runtime_app_version(mocker):
             "portfolio_id": "P1",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "portfolio_data": {
                 "metric_basis": "NET",
                 "valuation_points": [
@@ -273,7 +273,7 @@ def test_contribution_service_raises_when_no_periods_resolve(mocker):
             "portfolio_id": "P1",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "portfolio_data": {
                 "metric_basis": "NET",
                 "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
@@ -312,13 +312,13 @@ def test_contribution_service_hierarchy_path_skips_empty_period_slices_and_retur
                 name="EMPTY",
                 start_date=pd.Timestamp("2024-12-01").date(),
                 end_date=pd.Timestamp("2024-12-31").date(),
-                value=PeriodType.ITD,
+                value=PeriodType.SI,
             ),
             SimpleNamespace(
-                name="ITD",
+                name="SI",
                 start_date=pd.Timestamp("2025-01-01").date(),
                 end_date=pd.Timestamp("2025-01-02").date(),
-                value=PeriodType.ITD,
+                value=PeriodType.SI,
             ),
         ],
     )
@@ -372,7 +372,7 @@ def test_contribution_service_hierarchy_path_skips_empty_period_slices_and_retur
             "portfolio_id": "P1",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "hierarchy": ["sector"],
             "portfolio_data": {
                 "metric_basis": "NET",
@@ -391,14 +391,14 @@ def test_contribution_service_hierarchy_path_skips_empty_period_slices_and_retur
         calculation_hash="hash",
     )
 
-    assert set(response.results_by_period) == {"ITD"}
-    assert response.results_by_period["ITD"].summary is not None
-    assert response.results_by_period["ITD"].summary.portfolio_contribution == 3.0
-    assert response.results_by_period["ITD"].summary.coverage_mv_pct == 100.0
-    assert response.results_by_period["ITD"].summary.weighting_scheme == "average_weight"
-    assert response.results_by_period["ITD"].levels is not None
-    assert response.results_by_period["ITD"].levels[0].level == 1
-    assert response.results_by_period["ITD"].levels[0].name == "sector"
+    assert set(response.results_by_period) == {"SI"}
+    assert response.results_by_period["SI"].summary is not None
+    assert response.results_by_period["SI"].summary.portfolio_contribution == 3.0
+    assert response.results_by_period["SI"].summary.coverage_mv_pct == 100.0
+    assert response.results_by_period["SI"].summary.weighting_scheme == "average_weight"
+    assert response.results_by_period["SI"].levels is not None
+    assert response.results_by_period["SI"].levels[0].level == 1
+    assert response.results_by_period["SI"].levels[0].name == "sector"
 
 
 def test_contribution_service_emits_average_weight_shadow_note_and_audit_count(mocker):
@@ -416,10 +416,10 @@ def test_contribution_service_emits_average_weight_shadow_note_and_audit_count(m
         "app.services.contribution_service.resolve_periods",
         return_value=[
             SimpleNamespace(
-                name="ITD",
+                name="SI",
                 start_date=pd.Timestamp("2025-01-01").date(),
                 end_date=pd.Timestamp("2025-01-04").date(),
-                value=PeriodType.ITD,
+                value=PeriodType.SI,
             )
         ],
     )
@@ -476,7 +476,7 @@ def test_contribution_service_emits_average_weight_shadow_note_and_audit_count(m
             "portfolio_id": "P1",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-04",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "portfolio_data": {
                 "metric_basis": "NET",
                 "valuation_points": [
@@ -496,7 +496,7 @@ def test_contribution_service_emits_average_weight_shadow_note_and_audit_count(m
         calculation_hash="hash",
     )
 
-    period_status = response.results_by_period["ITD"].average_weight_methodology_status
+    period_status = response.results_by_period["SI"].average_weight_methodology_status
     assert period_status is not None
     assert period_status.status == "BLOCKED"
     assert period_status.is_material_shadow is True
@@ -539,10 +539,10 @@ def test_contribution_service_omits_average_weight_shadow_note_when_shadow_match
         "app.services.contribution_service.resolve_periods",
         return_value=[
             SimpleNamespace(
-                name="ITD",
+                name="SI",
                 start_date=pd.Timestamp("2025-01-01").date(),
                 end_date=pd.Timestamp("2025-01-02").date(),
-                value=PeriodType.ITD,
+                value=PeriodType.SI,
             )
         ],
     )
@@ -588,7 +588,7 @@ def test_contribution_service_omits_average_weight_shadow_note_when_shadow_match
             "portfolio_id": "P1",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "portfolio_data": {
                 "metric_basis": "NET",
                 "valuation_points": [
@@ -606,7 +606,7 @@ def test_contribution_service_omits_average_weight_shadow_note_when_shadow_match
         calculation_hash="hash",
     )
 
-    period_status = response.results_by_period["ITD"].average_weight_methodology_status
+    period_status = response.results_by_period["SI"].average_weight_methodology_status
     assert period_status is not None
     assert period_status.status == "NO_MATERIAL_SHADOW"
     assert period_status.is_material_shadow is False
@@ -639,10 +639,10 @@ def test_contribution_service_soft_flags_non_material_average_weight_shadow_delt
         "app.services.contribution_service.resolve_periods",
         return_value=[
             SimpleNamespace(
-                name="ITD",
+                name="SI",
                 start_date=pd.Timestamp("2025-01-01").date(),
                 end_date=pd.Timestamp("2025-01-03").date(),
-                value=PeriodType.ITD,
+                value=PeriodType.SI,
             )
         ],
     )
@@ -696,7 +696,7 @@ def test_contribution_service_soft_flags_non_material_average_weight_shadow_delt
             "portfolio_id": "P1",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-03",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "portfolio_data": {
                 "metric_basis": "NET",
                 "valuation_points": [
@@ -715,7 +715,7 @@ def test_contribution_service_soft_flags_non_material_average_weight_shadow_delt
         calculation_hash="hash",
     )
 
-    period_status = response.results_by_period["ITD"].average_weight_methodology_status
+    period_status = response.results_by_period["SI"].average_weight_methodology_status
     assert period_status is not None
     assert period_status.status == "NO_MATERIAL_SHADOW"
     assert period_status.is_material_shadow is False
@@ -754,10 +754,10 @@ def test_contribution_service_counts_clean_material_shadow_period_as_cutover_can
         "app.services.contribution_service.resolve_periods",
         return_value=[
             SimpleNamespace(
-                name="ITD",
+                name="SI",
                 start_date=pd.Timestamp("2025-01-01").date(),
                 end_date=pd.Timestamp("2025-01-03").date(),
-                value=PeriodType.ITD,
+                value=PeriodType.SI,
             )
         ],
     )
@@ -832,7 +832,7 @@ def test_contribution_service_counts_clean_material_shadow_period_as_cutover_can
             "portfolio_id": "P1",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-03",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "portfolio_data": {
                 "metric_basis": "NET",
                 "valuation_points": [
@@ -855,7 +855,7 @@ def test_contribution_service_counts_clean_material_shadow_period_as_cutover_can
         calculation_hash="hash",
     )
 
-    period_status = response.results_by_period["ITD"].average_weight_methodology_status
+    period_status = response.results_by_period["SI"].average_weight_methodology_status
     assert period_status is not None
     assert period_status.status == "PROMOTION_READY"
     assert period_status.is_material_shadow is True
@@ -901,10 +901,10 @@ def test_contribution_service_promotes_reset_aware_average_weight_for_candidate_
         "app.services.contribution_service.resolve_periods",
         return_value=[
             SimpleNamespace(
-                name="ITD",
+                name="SI",
                 start_date=pd.Timestamp("2025-01-01").date(),
                 end_date=pd.Timestamp("2025-01-03").date(),
-                value=PeriodType.ITD,
+                value=PeriodType.SI,
             )
         ],
     )
@@ -979,7 +979,7 @@ def test_contribution_service_promotes_reset_aware_average_weight_for_candidate_
             "portfolio_id": "P1",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-03",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "portfolio_data": {
                 "metric_basis": "NET",
                 "valuation_points": [
@@ -1001,7 +1001,7 @@ def test_contribution_service_promotes_reset_aware_average_weight_for_candidate_
         calculation_hash="hash",
     )
 
-    period_status = response.results_by_period["ITD"].average_weight_methodology_status
+    period_status = response.results_by_period["SI"].average_weight_methodology_status
     assert period_status is not None
     assert period_status.status == "PROMOTED"
     assert period_status.is_material_shadow is True
@@ -1016,7 +1016,7 @@ def test_contribution_service_promotes_reset_aware_average_weight_for_candidate_
     assert response.audit.counts["average_weight_shadow_blocked_by_flow_balance_periods"] == 0
     assert response.audit.counts["average_weight_shadow_blocked_by_reset_alignment_periods"] == 0
     assert response.audit.counts["average_weight_shadow_blocked_by_timeseries_delta_periods"] == 0
-    position_contributions = response.results_by_period["ITD"].position_contributions
+    position_contributions = response.results_by_period["SI"].position_contributions
     assert position_contributions is not None
     position_contributions_by_id = {contribution.position_id: contribution for contribution in position_contributions}
     assert position_contributions_by_id["A"].average_weight == pytest.approx(95.0)
@@ -1049,10 +1049,10 @@ def test_contribution_service_classifies_flow_balance_as_cutover_blocker_for_mat
         "app.services.contribution_service.resolve_periods",
         return_value=[
             SimpleNamespace(
-                name="ITD",
+                name="SI",
                 start_date=pd.Timestamp("2025-01-01").date(),
                 end_date=pd.Timestamp("2025-01-03").date(),
-                value=PeriodType.ITD,
+                value=PeriodType.SI,
             )
         ],
     )
@@ -1129,7 +1129,7 @@ def test_contribution_service_classifies_flow_balance_as_cutover_blocker_for_mat
             "portfolio_id": "P1",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-03",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "portfolio_data": {
                 "metric_basis": "NET",
                 "valuation_points": [
@@ -1151,7 +1151,7 @@ def test_contribution_service_classifies_flow_balance_as_cutover_blocker_for_mat
         calculation_hash="hash",
     )
 
-    period_status = response.results_by_period["ITD"].average_weight_methodology_status
+    period_status = response.results_by_period["SI"].average_weight_methodology_status
     assert period_status is not None
     assert period_status.status == "BLOCKED"
     assert period_status.is_material_shadow is True
@@ -1189,10 +1189,10 @@ def test_contribution_service_emits_grouped_return_alignment_note_when_position_
         "app.services.contribution_service.resolve_periods",
         return_value=[
             SimpleNamespace(
-                name="ITD",
+                name="SI",
                 start_date=pd.Timestamp("2025-01-01").date(),
                 end_date=pd.Timestamp("2025-01-03").date(),
-                value=PeriodType.ITD,
+                value=PeriodType.SI,
             )
         ],
     )
@@ -1257,7 +1257,7 @@ def test_contribution_service_emits_grouped_return_alignment_note_when_position_
             "portfolio_id": "P1",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-03",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "portfolio_data": {
                 "metric_basis": "NET",
                 "valuation_points": [
@@ -1298,10 +1298,10 @@ def test_contribution_service_classifies_reset_alignment_as_cutover_blocker_for_
         "app.services.contribution_service.resolve_periods",
         return_value=[
             SimpleNamespace(
-                name="ITD",
+                name="SI",
                 start_date=pd.Timestamp("2025-01-01").date(),
                 end_date=pd.Timestamp("2025-01-03").date(),
-                value=PeriodType.ITD,
+                value=PeriodType.SI,
             )
         ],
     )
@@ -1376,7 +1376,7 @@ def test_contribution_service_classifies_reset_alignment_as_cutover_blocker_for_
             "portfolio_id": "P1",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-03",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "portfolio_data": {
                 "metric_basis": "NET",
                 "valuation_points": [
@@ -1398,7 +1398,7 @@ def test_contribution_service_classifies_reset_alignment_as_cutover_blocker_for_
         calculation_hash="hash",
     )
 
-    period_status = response.results_by_period["ITD"].average_weight_methodology_status
+    period_status = response.results_by_period["SI"].average_weight_methodology_status
     assert period_status is not None
     assert period_status.status == "BLOCKED"
     assert period_status.blocker_reason_codes == ["reset_alignment"]
@@ -1425,10 +1425,10 @@ def test_contribution_service_emits_carino_invalid_domain_note_for_broken_capita
         "app.services.contribution_service.resolve_periods",
         return_value=[
             SimpleNamespace(
-                name="ITD",
+                name="SI",
                 start_date=pd.Timestamp("2025-01-01").date(),
                 end_date=pd.Timestamp("2025-01-02").date(),
-                value=PeriodType.ITD,
+                value=PeriodType.SI,
             )
         ],
     )
@@ -1475,7 +1475,7 @@ def test_contribution_service_emits_carino_invalid_domain_note_for_broken_capita
             "portfolio_id": "P1",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "portfolio_data": {
                 "metric_basis": "GROSS",
                 "valuation_points": [
@@ -1515,7 +1515,7 @@ def test_contribution_service_reconciles_daily_series_to_residual_adjusted_perio
         "app.services.contribution_service.resolve_periods",
         return_value=[
             SimpleNamespace(
-                name="ITD",
+                name="SI",
                 start_date=pd.Timestamp("2025-01-01").date(),
                 end_date=pd.Timestamp("2025-01-02").date(),
             )
@@ -1568,7 +1568,7 @@ def test_contribution_service_reconciles_daily_series_to_residual_adjusted_perio
             "portfolio_id": "P1",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "portfolio_data": {
                 "metric_basis": "GROSS",
                 "valuation_points": [
@@ -1589,9 +1589,9 @@ def test_contribution_service_reconciles_daily_series_to_residual_adjusted_perio
 
     assert response.audit.counts["timeseries_total_delta_periods"] == 0
     assert not any("do not sum to the residual-adjusted period total" in note for note in response.diagnostics.notes)
-    assert response.results_by_period["ITD"].timeseries is not None
-    daily_total = sum(point.total_contribution for point in response.results_by_period["ITD"].timeseries)
-    assert daily_total == pytest.approx(response.results_by_period["ITD"].total_contribution)
+    assert response.results_by_period["SI"].timeseries is not None
+    daily_total = sum(point.total_contribution for point in response.results_by_period["SI"].timeseries)
+    assert daily_total == pytest.approx(response.results_by_period["SI"].total_contribution)
 
 
 def test_contribution_service_surfaces_position_flow_balance_residuals(mocker):
@@ -1609,10 +1609,10 @@ def test_contribution_service_surfaces_position_flow_balance_residuals(mocker):
         "app.services.contribution_service.resolve_periods",
         return_value=[
             SimpleNamespace(
-                name="ITD",
+                name="SI",
                 start_date=pd.Timestamp("2025-01-01").date(),
                 end_date=pd.Timestamp("2025-01-01").date(),
-                value=PeriodType.ITD,
+                value=PeriodType.SI,
             )
         ],
     )
@@ -1668,7 +1668,7 @@ def test_contribution_service_surfaces_position_flow_balance_residuals(mocker):
             "portfolio_id": "P1",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-01",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "portfolio_data": {
                 "metric_basis": "NET",
                 "valuation_points": [
@@ -1710,10 +1710,10 @@ def test_contribution_service_soft_flags_small_position_flow_residuals(mocker):
         "app.services.contribution_service.resolve_periods",
         return_value=[
             SimpleNamespace(
-                name="ITD",
+                name="SI",
                 start_date=pd.Timestamp("2025-01-01").date(),
                 end_date=pd.Timestamp("2025-01-01").date(),
-                value=PeriodType.ITD,
+                value=PeriodType.SI,
             )
         ],
     )
@@ -1769,7 +1769,7 @@ def test_contribution_service_soft_flags_small_position_flow_residuals(mocker):
             "portfolio_id": "P1",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-01",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "portfolio_data": {
                 "metric_basis": "NET",
                 "valuation_points": [
@@ -1963,10 +1963,10 @@ def test_contribution_service_classifies_timeseries_reconciliation_as_cutover_bl
         "app.services.contribution_service.resolve_periods",
         return_value=[
             SimpleNamespace(
-                name="ITD",
+                name="SI",
                 start_date=pd.Timestamp("2025-01-01").date(),
                 end_date=pd.Timestamp("2025-01-03").date(),
-                value=PeriodType.ITD,
+                value=PeriodType.SI,
             )
         ],
     )
@@ -2052,7 +2052,7 @@ def test_contribution_service_classifies_timeseries_reconciliation_as_cutover_bl
             "portfolio_id": "P1",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-03",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "portfolio_data": {
                 "metric_basis": "NET",
                 "valuation_points": [
@@ -2075,7 +2075,7 @@ def test_contribution_service_classifies_timeseries_reconciliation_as_cutover_bl
         calculation_hash="hash",
     )
 
-    period_status = response.results_by_period["ITD"].average_weight_methodology_status
+    period_status = response.results_by_period["SI"].average_weight_methodology_status
     assert period_status is not None
     assert period_status.status == "BLOCKED"
     assert period_status.blocker_reason_codes == ["timeseries_reconciliation"]
@@ -2105,10 +2105,10 @@ def test_attribution_service_uses_runtime_app_version(mocker):
         "app.services.attribution_service.resolve_periods",
         return_value=[
             SimpleNamespace(
-                name="ITD",
+                name="SI",
                 start_date=pd.Timestamp("2025-01-01").date(),
                 end_date=pd.Timestamp("2025-01-01").date(),
-                value=PeriodType.ITD,
+                value=PeriodType.SI,
             )
         ],
     )
@@ -2228,7 +2228,7 @@ def test_attribution_service_uses_runtime_app_version(mocker):
             "frequency": "daily",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-01",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "portfolio_groups_data": [
                 {
                     "key": {"sector": "Tech"},

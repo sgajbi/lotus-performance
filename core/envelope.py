@@ -3,7 +3,9 @@ from datetime import date
 from typing import Any, Dict, List, Literal, Optional
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+from common.enums import canonical_performance_period_code
 
 
 # --- NEW FX & Hedging Request Models ---
@@ -93,9 +95,14 @@ class RollingPeriod(BaseModel):
 
 
 class Periods(BaseModel):
-    type: Literal["YTD", "QTD", "MTD", "WTD", "1Y", "3Y", "5Y", "ITD", "ROLLING", "EXPLICIT"] = "EXPLICIT"
+    type: Literal["YTD", "QTD", "MTD", "WTD", "1Y", "3Y", "5Y", "SI", "ROLLING", "EXPLICIT"] = "EXPLICIT"
     explicit: Optional[ExplicitPeriod] = None
     rolling: Optional[RollingPeriod] = None
+
+    @field_validator("type", mode="before")
+    @classmethod
+    def normalize_period_aliases(cls, value):
+        return canonical_performance_period_code(value)
 
     @model_validator(mode="after")
     def check_conditional_fields(self) -> "Periods":

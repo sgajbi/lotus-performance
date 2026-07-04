@@ -3,6 +3,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.models.requests import PerformanceRequest
+from common.enums import PeriodType
 
 
 @pytest.fixture
@@ -25,6 +26,17 @@ def test_performance_request_with_analyses_passes(base_twr_payload):
         PerformanceRequest.model_validate(payload)
     except ValidationError as e:
         pytest.fail(f"Validation failed unexpectedly with 'analyses': {e}")
+
+
+@pytest.mark.parametrize("period_alias", ["ITD", "INCEPTION_TO_DATE", "SINCE_INCEPTION"])
+def test_performance_request_normalizes_since_inception_aliases_to_si(base_twr_payload, period_alias):
+    payload = base_twr_payload.copy()
+    payload["analyses"] = [{"period": period_alias, "frequencies": ["monthly"]}]
+
+    request = PerformanceRequest.model_validate(payload)
+
+    assert request.analyses[0].period == PeriodType.SI
+    assert request.analyses[0].period.value == "SI"
 
 
 def test_performance_request_with_empty_analyses_list_fails(base_twr_payload):

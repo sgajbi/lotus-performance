@@ -597,7 +597,7 @@ def test_run_calculations_counts_reset_relative_valid_days_from_last_active_rese
         performance_start_date=date(2025, 1, 1),
         report_end_date=date(2025, 1, 4),
         metric_basis="GROSS",
-        period_type=PeriodType.ITD,
+        period_type=PeriodType.SI,
     )
     df = _build_engine_input(
         {
@@ -696,7 +696,7 @@ def test_run_calculations_characterizes_liquidation_and_recapitalization_as_a_ne
         performance_start_date=date(2025, 1, 1),
         report_end_date=date(2025, 1, 4),
         metric_basis="GROSS",
-        period_type=PeriodType.ITD,
+        period_type=PeriodType.SI,
     )
     df = _build_engine_input(
         {
@@ -756,7 +756,7 @@ def test_run_calculations_characterizes_when_active_and_shadow_reset_reasons_des
         performance_start_date=date(2025, 1, 1),
         report_end_date=date(2025, 1, 2),
         metric_basis="GROSS",
-        period_type=PeriodType.ITD,
+        period_type=PeriodType.SI,
     )
     df = _build_engine_input(
         {

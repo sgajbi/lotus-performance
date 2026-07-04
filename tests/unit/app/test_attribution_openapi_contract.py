@@ -49,8 +49,8 @@ def test_attribution_openapi_documents_status_reason_and_supportability_fields()
     response_schema = schemas["AttributionResponse"]
     response_example = response_schema["examples"][0]
     assert response_example["portfolio_id"] == "PB_SG_GLOBAL_BAL_001"
-    assert response_example["results_by_period"]["ITD"]["status"] == "partial"
-    assert response_example["results_by_period"]["ITD"]["reason_codes"] == ["off_benchmark_exposure"]
+    assert response_example["results_by_period"]["SI"]["status"] == "partial"
+    assert response_example["results_by_period"]["SI"]["reason_codes"] == ["off_benchmark_exposure"]
 
     period_schema = schemas["SinglePeriodAttributionResult"]
     for field_name in (

@@ -434,7 +434,7 @@ def test_execution_api_tracks_contribution_stateful_stages(client, monkeypatch):
         "portfolio_id": "CONTRIB_STATEFUL_EXEC",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-02",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "input_mode": "stateful",
         "stateful_input": {},
     }
@@ -589,7 +589,7 @@ def test_execution_api_tracks_attribution_stateful_stages(client, monkeypatch):
         "frequency": "daily",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-02",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "input_mode": "stateful",
         "stateful_input": {},
     }
@@ -853,7 +853,7 @@ def test_execution_api_tracks_async_attribution_job_state(client):
         "frequency": "daily",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-01",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "portfolio_groups_data": [
             {
                 "key": {"sector": "Tech"},
@@ -909,7 +909,7 @@ def test_execution_api_tracks_async_benchmark_job_state(client, monkeypatch):
                     "benchmark_id": request.benchmark_id,
                     "benchmark_start_date": "2026-01-02",
                     "report_end_date": "2026-01-03",
-                    "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+                    "analyses": [{"period": "SI", "frequencies": ["daily"]}],
                     "return_source": "calculated",
                     "benchmark_currency": "USD",
                     "component_observations": [
@@ -954,7 +954,7 @@ def test_execution_api_tracks_async_benchmark_job_state(client, monkeypatch):
         "benchmark_id": "BMK_ASYNC_EXEC",
         "benchmark_start_date": "2026-01-02",
         "report_end_date": "2026-01-03",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "input_mode": "stateful",
         "return_source": "calculated",
         "stateful_input": {},

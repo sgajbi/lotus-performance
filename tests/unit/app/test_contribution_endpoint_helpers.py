@@ -339,7 +339,7 @@ def test_build_contribution_response_preserves_envelope_and_audit_evidence(mocke
             "portfolio_id": "P1",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "portfolio_data": {
                 "metric_basis": "NET",
                 "valuation_points": [
@@ -389,19 +389,19 @@ def test_build_contribution_response_preserves_envelope_and_audit_evidence(mocke
         input_fingerprint="fingerprint",
         calculation_hash="hash",
         engine_version="runtime-version",
-        periods_to_resolve=[PeriodType.ITD],
+        periods_to_resolve=[PeriodType.SI],
         master_start_date=pd.Timestamp("2025-01-01").date(),
         master_end_date=pd.Timestamp("2025-01-02").date(),
         instruments_df=instruments_df,
         portfolio_results_df=portfolio_results_df,
-        results_by_period={"ITD": SinglePeriodContributionResult(total_contribution=1.0)},
+        results_by_period={"SI": SinglePeriodContributionResult(total_contribution=1.0)},
         average_weight_audit_state=AverageWeightShadowAuditState(),
         average_weight_sum_residual_bp=0,
     )
 
     assert response.meta.engine_version == "runtime-version"
     assert response.meta.input_fingerprint == "fingerprint"
-    assert response.meta.periods["requested"] == ["ITD"]
+    assert response.meta.periods["requested"] == ["SI"]
     assert response.calculation_supportability.resolved_period_count == 1
     assert response.source_economics_evidence.status == "CALLER_SUPPLIED"
     assert response.audit.counts["input_positions"] == 1
@@ -689,7 +689,7 @@ def test_contribution_reset_helpers_cover_empty_and_zero_paths(mocker):
             "portfolio_id": "P1",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "portfolio_data": {
                 "metric_basis": "NET",
                 "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
@@ -705,7 +705,7 @@ def test_contribution_reset_helpers_cover_empty_and_zero_paths(mocker):
             request,
             pd.Timestamp("2025-02-01").date(),
             pd.Timestamp("2025-02-02").date(),
-            "ITD",
+            "SI",
         )
         == 0.0
     )
@@ -769,7 +769,7 @@ def test_period_engine_final_cum_ror_applies_scale_and_preserves_period_config(m
             "portfolio_id": "P1",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "currency_mode": "BOTH",
             "portfolio_data": {
                 "metric_basis": "NET",
@@ -788,13 +788,13 @@ def test_period_engine_final_cum_ror_applies_scale_and_preserves_period_config(m
         period_valuation_points=[{"perf_date": pd.Timestamp("2025-01-01").date()}],
         period_start_date=pd.Timestamp("2025-01-01").date(),
         period_end_date=pd.Timestamp("2025-01-02").date(),
-        period_type="ITD",
+        period_type="SI",
         result_scale=0.01,
     )
 
     assert result == pytest.approx(0.025)
     period_engine_config = run_engine.call_args.args[1]
-    assert period_engine_config.period_type == "ITD"
+    assert period_engine_config.period_type == "SI"
     assert run_engine.call_args.kwargs["force_base_only"] is True
 
 
@@ -1222,7 +1222,7 @@ def test_build_position_contributions_sorts_and_truncates_top_n(mocker):
             "portfolio_id": "P1",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "portfolio_data": {
                 "metric_basis": "NET",
                 "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
@@ -1511,7 +1511,7 @@ def test_build_hierarchy_from_adjusted_position_series_handles_empty_and_unclass
             "portfolio_id": "P1",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "currency_mode": "BOTH",
             "hierarchy": ["sector"],
             "portfolio_data": {
@@ -1565,7 +1565,7 @@ def test_contribution_endpoint_helpersbuild_contribution_execution_windows_and_o
             "portfolio_id": "P1",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "portfolio_data": {
                 "metric_basis": "NET",
                 "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
@@ -1581,7 +1581,7 @@ def test_contribution_endpoint_helpersbuild_contribution_execution_windows_and_o
             "portfolio_id": "P1",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-02-15",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "input_mode": "stateful",
             "stateful_input": {},
         }
@@ -1591,7 +1591,7 @@ def test_contribution_endpoint_helpersbuild_contribution_execution_windows_and_o
             "portfolio_id": "P1",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "input_mode": "stateless",
             "stateless_input": {
                 "portfolio_data": {

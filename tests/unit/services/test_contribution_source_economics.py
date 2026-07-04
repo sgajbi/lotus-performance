@@ -35,7 +35,7 @@ def _request_with_position_meta(meta: dict) -> ContributionRequest:
             "portfolio_id": "PB_SG_GLOBAL_BAL_001",
             "report_start_date": "2026-03-01",
             "report_end_date": "2026-03-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "portfolio_data": {
                 "metric_basis": "NET",
                 "valuation_points": [
@@ -503,7 +503,7 @@ def test_stateless_source_economics_predicates_detect_flows_and_currency():
             "portfolio_id": "PB_SG_GLOBAL_BAL_001",
             "report_start_date": "2026-03-01",
             "report_end_date": "2026-03-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "portfolio_data": {
                 "metric_basis": "NET",
                 "valuation_points": [

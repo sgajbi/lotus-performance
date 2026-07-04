@@ -39,7 +39,7 @@ async def test_resolve_attribution_request_passthroughs_stateless_mode():
             "frequency": "daily",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-01",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "benchmark_groups_data": [
                 {
                     "key": {"sector": "Tech"},
@@ -65,7 +65,7 @@ def test_resolve_stateless_attribution_request_projects_input_count():
             "frequency": "daily",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-01",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "portfolio_data": {
                 "metric_basis": "NET",
                 "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 100.0, "end_mv": 101.0}],
@@ -124,7 +124,7 @@ async def test_resolve_attribution_request_fails_retrieval_stage(monkeypatch):
             "frequency": "daily",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-01",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "input_mode": "stateful",
             "stateful_input": {},
         }
@@ -200,7 +200,7 @@ async def test_resolve_attribution_request_fails_normalization_stage(monkeypatch
             "frequency": "daily",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-01",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "input_mode": "stateful",
             "stateful_input": {},
         }
@@ -303,7 +303,7 @@ async def test_retrieve_attribution_source_input_forwards_stateful_request_contr
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-31",
             "report_ccy": "USD",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "input_mode": "stateful",
             "stateful_input": {
                 "benchmark_id": "BMK_PRIVATE_BANKING_BALANCED",
@@ -393,7 +393,7 @@ def test_resolved_stateful_attribution_request_projects_normalized_payload_and_s
             "frequency": "daily",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-01",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "input_mode": "stateful",
             "stateful_input": {},
         }

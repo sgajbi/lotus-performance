@@ -58,7 +58,7 @@ def _twr_request(*, emit_resets: bool = False) -> PerformanceRequest:
             "performance_start_date": "2025-01-01",
             "report_end_date": "2025-01-03",
             "metric_basis": "NET",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "valuation_points": [
                 {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
                 {"perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1030.2},
@@ -125,8 +125,8 @@ def test_run_twr_execution_stage_marks_execution_failure_and_reraises(mocker):
 def test_resolve_twr_execution_period_scope_projects_periods_frequencies_and_master_window():
     scope = _resolve_twr_execution_period_scope(_twr_request())
 
-    assert [period.name for period in scope.resolved_periods] == ["ITD"]
-    assert scope.freqs_by_period == {"ITD": [Frequency.DAILY]}
+    assert [period.name for period in scope.resolved_periods] == ["SI"]
+    assert scope.freqs_by_period == {"SI": [Frequency.DAILY]}
     assert scope.master_start_date == date(2025, 1, 1)
     assert scope.master_end_date == date(2025, 1, 3)
 
@@ -158,10 +158,10 @@ def test_build_twr_results_by_period_builds_portfolio_summary_and_skips_empty_pe
     results = _build_twr_results_by_period(
         performance_request=request,
         resolved_periods=[
-            ResolvedPeriod(name="ITD", start_date=date(2025, 1, 1), end_date=date(2025, 1, 2)),
+            ResolvedPeriod(name="SI", start_date=date(2025, 1, 1), end_date=date(2025, 1, 2)),
             ResolvedPeriod(name="YTD", start_date=date(2026, 1, 1), end_date=date(2026, 1, 2)),
         ],
-        freqs_by_period={"ITD": [Frequency.DAILY], "YTD": [Frequency.DAILY]},
+        freqs_by_period={"SI": [Frequency.DAILY], "YTD": [Frequency.DAILY]},
         daily_results_df=_daily_twr_results_df(),
         engine_diagnostics=EngineDiagnostics(),
         benchmark_artifacts=None,
@@ -172,17 +172,17 @@ def test_build_twr_results_by_period_builds_portfolio_summary_and_skips_empty_pe
         master_start_date=date(2025, 1, 1),
     )
 
-    assert list(results) == ["ITD"]
-    assert results["ITD"].portfolio.summary.period_return.base == pytest.approx(3.02)
-    assert len(results["ITD"].portfolio.breakdowns[Frequency.DAILY]) == 2
-    assert results["ITD"].benchmark is None
+    assert list(results) == ["SI"]
+    assert results["SI"].portfolio.summary.period_return.base == pytest.approx(3.02)
+    assert len(results["SI"].portfolio.breakdowns[Frequency.DAILY]) == 2
+    assert results["SI"].benchmark is None
 
 
 def test_build_twr_results_by_period_filters_reset_events_to_period_window():
     results = _build_twr_results_by_period(
         performance_request=_twr_request(emit_resets=True),
-        resolved_periods=[ResolvedPeriod(name="ITD", start_date=date(2025, 1, 1), end_date=date(2025, 1, 2))],
-        freqs_by_period={"ITD": [Frequency.DAILY]},
+        resolved_periods=[ResolvedPeriod(name="SI", start_date=date(2025, 1, 1), end_date=date(2025, 1, 2))],
+        freqs_by_period={"SI": [Frequency.DAILY]},
         daily_results_df=_daily_twr_results_df(),
         engine_diagnostics=EngineDiagnostics(
             resets=[
@@ -198,7 +198,7 @@ def test_build_twr_results_by_period_filters_reset_events_to_period_window():
         master_start_date=date(2025, 1, 1),
     )
 
-    reset_events = results["ITD"].reset_events
+    reset_events = results["SI"].reset_events
     assert reset_events is not None
     assert [event.reason for event in reset_events] == ["in_period"]
 
@@ -210,7 +210,7 @@ def test_twr_period_reset_events_respects_policy_and_period_window():
             EngineResetEvent(date=date(2025, 1, 3), reason="outside_period", impacted_rows=1),
         ]
     )
-    period = ResolvedPeriod(name="ITD", start_date=date(2025, 1, 1), end_date=date(2025, 1, 2))
+    period = ResolvedPeriod(name="SI", start_date=date(2025, 1, 1), end_date=date(2025, 1, 2))
 
     disabled = _twr_period_reset_events(
         performance_request=_twr_request(emit_resets=False),
@@ -244,7 +244,7 @@ def test_build_twr_period_result_skips_empty_period():
 def test_build_twr_period_result_preserves_reset_event_projection():
     result = _build_twr_period_result(
         performance_request=_twr_request(emit_resets=True),
-        period=ResolvedPeriod(name="ITD", start_date=date(2025, 1, 1), end_date=date(2025, 1, 2)),
+        period=ResolvedPeriod(name="SI", start_date=date(2025, 1, 1), end_date=date(2025, 1, 2)),
         requested_frequencies=[Frequency.DAILY],
         daily_results_df=_daily_twr_results_df(),
         engine_diagnostics=EngineDiagnostics(
@@ -265,7 +265,7 @@ def test_build_twr_period_result_preserves_reset_event_projection():
 def test_build_twr_portfolio_period_block_preserves_summary_and_breakdowns():
     request = _twr_request()
     daily_results_df = _daily_twr_results_df()
-    period = ResolvedPeriod(name="ITD", start_date=date(2025, 1, 1), end_date=date(2025, 1, 2))
+    period = ResolvedPeriod(name="SI", start_date=date(2025, 1, 1), end_date=date(2025, 1, 2))
 
     portfolio = _build_twr_portfolio_period_block(
         performance_request=request,
@@ -290,7 +290,7 @@ def test_build_twr_benchmark_period_blocks_projects_benchmark_identity_and_relat
             "report_end_date": "2025-01-02",
             "benchmark_currency": "USD",
             "return_source": "vendor_series",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "benchmark_return_points": [
                 {"perf_date": "2025-01-01", "benchmark_return": 0.01},
                 {"perf_date": "2025-01-02", "benchmark_return": 0.02},
@@ -324,7 +324,7 @@ def test_build_twr_benchmark_period_blocks_projects_benchmark_identity_and_relat
     )
 
     benchmark, relative = _build_twr_benchmark_period_blocks(
-        period=ResolvedPeriod(name="ITD", start_date=date(2025, 1, 1), end_date=date(2025, 1, 2)),
+        period=ResolvedPeriod(name="SI", start_date=date(2025, 1, 1), end_date=date(2025, 1, 2)),
         requested_frequencies=[],
         portfolio=portfolio,
         context=context,
@@ -366,7 +366,7 @@ def test_build_twr_benchmark_period_block_projects_metadata_fallbacks_and_cumula
             "report_end_date": "2025-01-02",
             "benchmark_currency": "USD",
             "return_source": "vendor_series",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "benchmark_return_points": [
                 {"perf_date": "2025-01-01", "benchmark_return": 0.01},
                 {"perf_date": "2025-01-02", "benchmark_return": 0.02},
@@ -396,7 +396,7 @@ def test_build_twr_benchmark_period_block_projects_metadata_fallbacks_and_cumula
     )
 
     benchmark = _build_twr_benchmark_period_block(
-        period=ResolvedPeriod(name="ITD", start_date=date(2025, 1, 2), end_date=date(2025, 1, 2)),
+        period=ResolvedPeriod(name="SI", start_date=date(2025, 1, 2), end_date=date(2025, 1, 2)),
         benchmark_period_return=ComparativeReturnValue(base=2.0),
         benchmark_breakdowns={},
         context=context,
@@ -416,11 +416,11 @@ def test_benchmark_context_input_mode_value_uses_explicit_mode_and_stateless_fal
 
 def test_build_twr_response_model_preserves_envelope_metadata_and_supportability():
     request = _twr_request()
-    resolved_period = ResolvedPeriod(name="ITD", start_date=date(2025, 1, 1), end_date=date(2025, 1, 2))
+    resolved_period = ResolvedPeriod(name="SI", start_date=date(2025, 1, 1), end_date=date(2025, 1, 2))
     daily_results_df = _daily_twr_results_df()
     calculation = _TWRExecutionCalculation(
         resolved_periods=[resolved_period],
-        freqs_by_period={"ITD": [Frequency.DAILY]},
+        freqs_by_period={"SI": [Frequency.DAILY]},
         master_start_date=resolved_period.start_date,
         master_end_date=resolved_period.end_date,
         daily_results_df=daily_results_df,
@@ -465,7 +465,7 @@ def test_build_twr_response_model_preserves_envelope_metadata_and_supportability
     assert response.calculation_supportability is supportability
     assert response.results_by_period == results_by_period
     assert response.meta.periods == {
-        "requested": ["ITD"],
+        "requested": ["SI"],
         "master_start": "2025-01-01",
         "master_end": "2025-01-02",
     }
@@ -504,7 +504,7 @@ def test_build_twr_lineage_details_includes_benchmark_artifacts():
 
     execution_details, calculation_details = _build_twr_lineage_details(
         daily_results_df=daily_results_df,
-        results_by_period=cast(dict[str, SinglePeriodPerformanceResult], {"ITD": object()}),
+        results_by_period=cast(dict[str, SinglePeriodPerformanceResult], {"SI": object()}),
         benchmark_artifacts=benchmark_artifacts,
     )
 
@@ -531,7 +531,7 @@ def test_complete_twr_execution_with_lineage_delegates_twr_lineage_payload(mocke
         request_artifact_model=request_artifact_model,
         response_model=response_model,
         daily_results_df=daily_results_df,
-        results_by_period=cast(dict[str, SinglePeriodPerformanceResult], {"ITD": object()}),
+        results_by_period=cast(dict[str, SinglePeriodPerformanceResult], {"SI": object()}),
         benchmark_artifacts=None,
     )
 
@@ -550,11 +550,11 @@ def test_complete_twr_execution_with_lineage_delegates_twr_lineage_payload(mocke
 
 def test_build_twr_completed_response_projection_preserves_no_benchmark_supportability(mocker):
     request = _twr_request()
-    resolved_period = ResolvedPeriod(name="ITD", start_date=date(2025, 1, 1), end_date=date(2025, 1, 2))
+    resolved_period = ResolvedPeriod(name="SI", start_date=date(2025, 1, 1), end_date=date(2025, 1, 2))
     daily_results_df = _daily_twr_results_df()
     calculation = _TWRExecutionCalculation(
         resolved_periods=[resolved_period],
-        freqs_by_period={"ITD": [Frequency.DAILY]},
+        freqs_by_period={"SI": [Frequency.DAILY]},
         master_start_date=resolved_period.start_date,
         master_end_date=resolved_period.end_date,
         daily_results_df=daily_results_df,
@@ -595,7 +595,7 @@ def test_build_twr_completed_response_projection_preserves_no_benchmark_supporta
 
 def test_assemble_completed_twr_response_preserves_supportability_benchmark_context_and_lineage(mocker):
     request = _twr_request()
-    resolved_period = ResolvedPeriod(name="ITD", start_date=date(2025, 1, 1), end_date=date(2025, 1, 2))
+    resolved_period = ResolvedPeriod(name="SI", start_date=date(2025, 1, 1), end_date=date(2025, 1, 2))
     daily_results_df = _daily_twr_results_df()
     benchmark_request = BenchmarkPerformanceRequest.model_validate(
         {
@@ -604,7 +604,7 @@ def test_assemble_completed_twr_response_preserves_supportability_benchmark_cont
             "report_end_date": "2025-01-02",
             "benchmark_currency": "USD",
             "return_source": "vendor_series",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "benchmark_return_points": [
                 {"perf_date": "2025-01-01", "benchmark_return": 0.01},
                 {"perf_date": "2025-01-02", "benchmark_return": 0.02},
@@ -630,7 +630,7 @@ def test_assemble_completed_twr_response_preserves_supportability_benchmark_cont
     )
     calculation = _TWRExecutionCalculation(
         resolved_periods=[resolved_period],
-        freqs_by_period={"ITD": [Frequency.DAILY]},
+        freqs_by_period={"SI": [Frequency.DAILY]},
         master_start_date=resolved_period.start_date,
         master_end_date=resolved_period.end_date,
         daily_results_df=daily_results_df,

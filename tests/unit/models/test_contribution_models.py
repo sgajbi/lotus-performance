@@ -25,7 +25,7 @@ def minimal_contribution_request_payload():
         "portfolio_id": "CONTRIB_001",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-31",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "NET",
             "valuation_points": [],
@@ -183,7 +183,7 @@ def test_contribution_analytics_request_requires_stateful_input_for_stateful_mod
         "portfolio_id": "CONTRIB_STATEFUL",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-31",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "input_mode": "stateful",
     }
 
@@ -196,7 +196,7 @@ def test_contribution_analytics_request_rejects_mixed_stateless_payload_shapes()
         "portfolio_id": "CONTRIB_STATELESS",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-31",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "input_mode": "stateless",
         "stateless_input": {
             "portfolio_data": {
@@ -221,7 +221,7 @@ def test_contribution_analytics_request_rejects_stateful_input_in_stateless_mode
         "portfolio_id": "CONTRIB_STATELESS",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-31",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "input_mode": "stateless",
         "stateful_input": {},
         "stateless_input": {
@@ -242,7 +242,7 @@ def test_contribution_analytics_request_rejects_missing_stateless_payload():
         "portfolio_id": "CONTRIB_STATELESS",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-31",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "input_mode": "stateless",
     }
 
@@ -284,7 +284,7 @@ def test_contribution_analytics_request_builds_legacy_stateless_request():
         "portfolio_id": "CONTRIB_LEGACY",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-31",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "NET",
             "valuation_points": [],
@@ -306,7 +306,7 @@ def test_contribution_analytics_request_builds_nested_stateless_request():
             "portfolio_id": "CONTRIB_NESTED",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-31",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "input_mode": "stateless",
             "stateless_input": {
                 "portfolio_data": {
@@ -329,7 +329,7 @@ def test_contribution_analytics_request_rejects_partial_legacy_stateless_payload
         "portfolio_id": "CONTRIB_PARTIAL",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-31",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "NET",
             "valuation_points": [],
@@ -345,7 +345,7 @@ def test_contribution_analytics_request_rejects_stateful_conflicts():
         "portfolio_id": "CONTRIB_STATEFUL",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-31",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "input_mode": "stateful",
         "stateful_input": {},
         "stateless_input": {
@@ -382,7 +382,7 @@ def test_contribution_analytics_request_to_stateless_prefers_override_payload():
             "portfolio_id": "CONTRIB_STATELESS",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-31",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "input_mode": "stateless",
             "stateless_input": {
                 "portfolio_data": {
@@ -409,7 +409,7 @@ def test_resolved_stateless_contribution_inputs_prefers_override_payload():
             "portfolio_id": "CONTRIB_STATELESS",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-31",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "input_mode": "stateless",
             "stateless_input": {
                 "portfolio_data": {
@@ -449,7 +449,7 @@ def test_nested_contribution_input_pair_projects_nested_payload():
             "portfolio_id": "CONTRIB_STATELESS",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-31",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "input_mode": "stateless",
             "stateless_input": {
                 "portfolio_data": {
@@ -476,7 +476,7 @@ def test_resolved_stateless_contribution_inputs_ignores_partial_override():
             "portfolio_id": "CONTRIB_STATELESS",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-31",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "input_mode": "stateless",
             "stateless_input": {
                 "portfolio_data": {
@@ -504,7 +504,7 @@ def test_resolved_stateless_contribution_inputs_uses_legacy_payload():
             "portfolio_id": "CONTRIB_LEGACY",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-31",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "portfolio_data": {
                 "metric_basis": "NET",
                 "valuation_points": [],
@@ -529,7 +529,7 @@ def test_contribution_analytics_request_to_stateless_fails_without_stateless_pay
             "portfolio_id": "CONTRIB_STATEFUL",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-31",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "input_mode": "stateful",
             "stateful_input": {},
         }

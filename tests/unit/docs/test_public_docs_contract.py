@@ -357,6 +357,27 @@ def test_twr_guide_uses_current_request_shape():
     assert "calculation is not part of the current `POST /performance/twr` contract" in guide
 
 
+def test_current_public_examples_use_canonical_since_inception_period_code():
+    current_example_paths = [
+        "docs/API Examples & Recipes.md",
+        "docs/guides/attribution.md",
+        "docs/guides/benchmark.md",
+        "docs/guides/contribution.md",
+        "docs/technical/benchmark-endpoint-certification.md",
+        "docs/technical/data_model.md",
+        "docs/technical/engine_config.md",
+        "docs/technical/twr-endpoint-certification.md",
+    ]
+    current_example_paths.extend(
+        str(path.relative_to(REPO_ROOT)) for path in (REPO_ROOT / "docs/examples").glob("*.json")
+    )
+
+    for relative_path in current_example_paths:
+        assert '"period": "ITD"' not in _read(relative_path)
+
+    assert "Legacy `ITD` aliases normalize to `SI`" in _read("docs/technical/data_model.md")
+
+
 def test_twr_documentation_map_and_wiki_navigation_are_present():
     map_doc = _read("docs/technical/twr-documentation-map.md")
     methodology_index = _read("docs/technical/methodology_index.md")

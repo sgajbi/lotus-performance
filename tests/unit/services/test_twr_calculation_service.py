@@ -21,7 +21,7 @@ def _stateful_twr_payload() -> dict[str, object]:
         "performance_start_date": "2025-01-01",
         "report_end_date": "2025-01-02",
         "metric_basis": "NET",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "input_mode": "stateful",
         "stateful_input": {},
     }
@@ -35,7 +35,7 @@ def _performance_request(calculation_id) -> PerformanceRequest:
             "performance_start_date": "2025-01-01",
             "report_end_date": "2025-01-02",
             "metric_basis": "NET",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "valuation_points": [
                 {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1001.0},
                 {"perf_date": "2025-01-02", "begin_mv": 1001.0, "end_mv": 1002.0},
@@ -51,7 +51,7 @@ def _benchmark_request(calculation_id) -> BenchmarkPerformanceRequest:
             "benchmark_id": "BMK_1",
             "benchmark_start_date": "2025-01-01",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "return_source": "vendor_series",
             "benchmark_currency": "USD",
             "benchmark_return_points": [
@@ -161,7 +161,7 @@ def test_twr_pre_resolution_offload_reason_names_stateful_and_large_input_paths(
             "performance_start_date": "2025-01-01",
             "report_end_date": "2025-01-02",
             "metric_basis": "NET",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "valuation_points": [
                 {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1001.0},
             ],
@@ -192,7 +192,7 @@ def test_build_twr_workflow_submission_context_projects_hashes_and_window():
         "performance_start_date": "2025-01-01",
         "report_start_date": None,
         "report_end_date": "2025-01-02",
-        "requested_periods": ["ITD"],
+        "requested_periods": ["SI"],
         "input_mode": "stateful",
         "include_benchmark": True,
         "input_count": 0,
@@ -432,7 +432,7 @@ async def test_calculate_twr_workflow_offloads_large_requests_before_resolution(
             "performance_start_date": "2025-01-01",
             "report_end_date": "2025-01-02",
             "metric_basis": "NET",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "valuation_points": [
                 {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1001.0},
                 {"perf_date": "2025-01-02", "begin_mv": 1001.0, "end_mv": 1002.0},

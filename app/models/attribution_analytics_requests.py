@@ -97,7 +97,7 @@ class AttributionAnalyticsRequest(AttributionRequest):
                     "portfolio_id": "PB_SG_GLOBAL_BAL_001",
                     "report_start_date": "2026-01-01",
                     "report_end_date": "2026-03-31",
-                    "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+                    "analyses": [{"period": "SI", "frequencies": ["daily"]}],
                     "mode": "by_instrument",
                     "frequency": "daily",
                     "group_by": ["asset_class", "sector"],

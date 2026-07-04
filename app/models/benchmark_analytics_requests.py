@@ -232,7 +232,7 @@ class BenchmarkAnalyticsRequest(BaseModel):
                     "benchmark_id": "BMK_GLOBAL_60_40",
                     "benchmark_start_date": "2026-01-02",
                     "report_end_date": "2026-01-03",
-                    "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+                    "analyses": [{"period": "SI", "frequencies": ["daily"]}],
                     "return_source": "calculated",
                     "output": {"include_timeseries": True},
                     "stateless_input": {

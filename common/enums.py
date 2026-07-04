@@ -18,11 +18,27 @@ class PeriodType(str, Enum):
     MTD = "MTD"
     QTD = "QTD"
     YTD = "YTD"
-    ITD = "ITD"
+    SI = "SI"
+    ITD = "SI"
     ONE_YEAR = "1Y"
     THREE_YEARS = "3Y"
     FIVE_YEARS = "5Y"
     EXPLICIT = "EXPLICIT"
+
+
+_PERIOD_ALIAS_TO_CANONICAL_CODE = {
+    "ITD": "SI",
+    "INCEPTION_TO_DATE": "SI",
+    "SINCE_INCEPTION": "SI",
+}
+
+
+def canonical_performance_period_code(value: object) -> object:
+    if isinstance(value, PeriodType):
+        return value.value
+    if not isinstance(value, str):
+        return value
+    return _PERIOD_ALIAS_TO_CANONICAL_CODE.get(value, value)
 
 
 class AttributionMode(str, Enum):

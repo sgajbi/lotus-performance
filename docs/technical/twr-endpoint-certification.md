@@ -33,7 +33,7 @@ Validated option families:
 - `input_mode="stateless"` with either top-level `valuation_points` or
   `stateless_input.valuation_points`;
 - `metric_basis="NET"` and `metric_basis="GROSS"`;
-- `period` values including `MTD`, `QTD`, `YTD`, `EXPLICIT`, `1Y`, and `ITD`;
+- `period` values including `MTD`, `QTD`, `YTD`, `EXPLICIT`, `1Y`, and canonical `SI`; legacy `ITD` aliases normalize to `SI`;
 - `frequencies` including `daily`, `weekly`, `monthly`, and `quarterly`;
 - multi-analysis requests, for example `YTD` plus `MTD` in one request;
 - `include_benchmark=true` with stateful benchmark assignment;
@@ -139,7 +139,7 @@ Live audit note - 2026-05-10:
 - log review for `performance-analytics` and `lotus-gateway` over the live-audit window found no
   `ERROR`, `CRITICAL`, traceback, or `5xx` entries.
 
-The same endpoint mechanically supports `1Y` and `ITD`, but long-window results are not front-office
+The same endpoint mechanically supports `1Y` and `SI`, but long-window results are not front-office
 safe for this canonical portfolio yet. Current source history produces nonpositive capital-base days
 and extreme daily moves in older 2025 data. The TWR inspector correctly reports `not_supportable`
 for that long-window calculation, including:
@@ -151,7 +151,7 @@ for that long-window calculation, including:
 
 Until the historical source economics are fixed or the UI gates long-window periods through the
 inspector, enable `YTD`, `MTD`, `QTD`, and clean explicit windows for `PB_SG_GLOBAL_BAL_001`; hide or
-guard `1Y`, `ITD`, `3Y`, and `5Y`.
+guard `1Y`, `SI`, `3Y`, and `5Y`.
 
 Certification caveat: long-window results are not front-office safe for this canonical portfolio
 without an inspector gate.
@@ -199,7 +199,7 @@ omission, and independently recomputed daily/cumulative return math.
 Current residual test gap:
 
 - long-window UI gating should be verified at the downstream product surface if Workbench exposes `1Y`,
-  `ITD`, `3Y`, or `5Y` for `PB_SG_GLOBAL_BAL_001`. The performance endpoint and inspector already
+  `SI`, `3Y`, or `5Y` for `PB_SG_GLOBAL_BAL_001`. The performance endpoint and inspector already
   expose the needed signals; the downstream UI must not present unsupported long-window results as
   clean front-office performance.
 

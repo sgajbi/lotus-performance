@@ -45,7 +45,7 @@ Validated option families:
   `stateless_input.benchmark_return_points`;
 - `input_mode="stateful"` with `return_source="calculated"` and `stateful_input={}`;
 - `input_mode="stateful"` with `return_source="vendor_series"` and `stateful_input={}`;
-- `analyses` including `ITD`, `YTD`, and `EXPLICIT`;
+- `analyses` including canonical `SI`, `YTD`, and `EXPLICIT`, with legacy `ITD` accepted only as a `SI` alias;
 - `frequencies` including daily, weekly, monthly, quarterly, and yearly;
 - `output.include_timeseries=true` and `false`;
 - caller-supplied or service-generated `calculation_id`;

@@ -787,7 +787,7 @@ def test_compute_executor_worker_dispatches_benchmark_job_and_updates_execution_
             "benchmark_id": "BMK_1",
             "benchmark_start_date": "2025-01-01",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "benchmark_currency": "USD",
             "return_source": "calculated",
             "component_observations": [
@@ -969,7 +969,7 @@ def test_compute_executor_worker_processes_resolved_benchmark_job(tmp_path, monk
             "benchmark_id": "BMK_1",
             "benchmark_start_date": "2026-01-02",
             "report_end_date": "2026-01-03",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "return_source": "calculated",
             "benchmark_currency": "USD",
             "component_observations": [
@@ -1126,7 +1126,7 @@ def test_compute_executor_worker_processes_pending_contribution_job(tmp_path, mo
             "portfolio_id": "P1",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "portfolio_data": {
                 "metric_basis": "NET",
                 "valuation_points": [
@@ -1284,7 +1284,7 @@ def test_compute_executor_worker_updates_identity_for_stateful_contribution_job(
             "portfolio_id": "P1",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "input_mode": "stateful",
             "stateful_input": {},
         }
@@ -1295,7 +1295,7 @@ def test_compute_executor_worker_updates_identity_for_stateful_contribution_job(
             "portfolio_id": "P1",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "portfolio_data": {
                 "metric_basis": "NET",
                 "valuation_points": [
@@ -1391,7 +1391,7 @@ def test_compute_executor_worker_processes_pending_attribution_job(tmp_path, mon
             "frequency": "daily",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-01",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "portfolio_groups_data": [
                 {
                     "key": {"sector": "Tech"},
@@ -1467,7 +1467,7 @@ def test_compute_executor_worker_processes_resolved_stateful_attribution_job(tmp
             "frequency": "daily",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-01",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "portfolio_groups_data": [
                 {
                     "key": {"sector": "Tech"},
@@ -1524,7 +1524,7 @@ def test_compute_executor_worker_resolves_attribution_job_from_resolved_payload(
             "frequency": "daily",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-01",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "portfolio_groups_data": [
                 {
                     "key": {"sector": "Tech"},
@@ -2199,7 +2199,7 @@ def test_compute_executor_worker_resolves_benchmark_jobs_from_persisted_stateful
             "benchmark_id": "BMK_1",
             "benchmark_start_date": "2025-01-01",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "benchmark_currency": "USD",
             "return_source": "calculated",
             "component_observations": [
@@ -2229,7 +2229,7 @@ def test_compute_executor_worker_resolves_twr_jobs_from_resolved_payload_and_raw
             "performance_start_date": "2025-01-01",
             "metric_basis": "NET",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1001.0}],
         },
         "benchmark": None,
@@ -2300,7 +2300,7 @@ def test_compute_executor_worker_resolves_twr_jobs_from_resolved_payload_and_raw
             "performance_start_date": "2025-01-01",
             "report_end_date": "2025-01-02",
             "metric_basis": "NET",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1001.0}],
         }
     )
@@ -2313,7 +2313,7 @@ def test_compute_executor_worker_resolves_twr_jobs_from_resolved_payload_and_raw
                     "performance_start_date": "2025-01-01",
                     "metric_basis": "NET",
                     "report_end_date": "2025-01-02",
-                    "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+                    "analyses": [{"period": "SI", "frequencies": ["daily"]}],
                     "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1001.0}],
                 }
             ),

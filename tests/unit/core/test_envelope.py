@@ -34,11 +34,20 @@ def test_periods_model_validation():
     Periods(type="ROLLING", rolling={"months": 12})
 
 
-@pytest.mark.parametrize("period_type", ["YTD", "QTD", "MTD", "WTD", "1Y", "3Y", "5Y", "ITD"])
+@pytest.mark.parametrize("period_type", ["YTD", "QTD", "MTD", "WTD", "1Y", "3Y", "5Y", "SI"])
 def test_periods_model_accepts_non_conditional_period_types(period_type):
     period = Periods(type=period_type)
 
     assert period.type == period_type
+    assert period.explicit is None
+    assert period.rolling is None
+
+
+@pytest.mark.parametrize("period_alias", ["ITD", "INCEPTION_TO_DATE", "SINCE_INCEPTION"])
+def test_periods_model_normalizes_since_inception_aliases(period_alias):
+    period = Periods(type=period_alias)
+
+    assert period.type == "SI"
     assert period.explicit is None
     assert period.rolling is None
 

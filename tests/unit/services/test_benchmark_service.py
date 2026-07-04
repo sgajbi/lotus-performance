@@ -31,7 +31,7 @@ def _benchmark_request() -> BenchmarkPerformanceRequest:
             "benchmark_id": "BMK_1",
             "benchmark_start_date": "2025-01-01",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "return_source": "calculated",
             "benchmark_currency": "USD",
             "component_observations": [
@@ -48,7 +48,7 @@ def _benchmark_request() -> BenchmarkPerformanceRequest:
 
 def _results_by_period() -> dict[str, object]:
     return {
-        "ITD": {
+        "SI": {
             "benchmark": {
                 "summary": {
                     "period_return": {"base": 1.0, "local": None, "fx": None},
@@ -121,10 +121,10 @@ def test_build_completed_benchmark_response_preserves_metadata_diagnostics_and_a
 
     assert response.calculation_id == request.calculation_id
     assert response.return_source == request.return_source
-    assert response.results_by_period["ITD"].benchmark.benchmark_id == "BMK_1"
-    assert response.results_by_period["ITD"].benchmark.benchmark_currency == "USD"
+    assert response.results_by_period["SI"].benchmark.benchmark_id == "BMK_1"
+    assert response.results_by_period["SI"].benchmark.benchmark_currency == "USD"
     assert response.meta.periods == {
-        "requested": ["ITD"],
+        "requested": ["SI"],
         "master_start": "2025-01-01",
         "master_end": "2025-01-02",
     }
