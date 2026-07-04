@@ -2,7 +2,9 @@
 
 Authoritative performance analytics service for the Lotus ecosystem.
 
-Repository-local engineering context: [REPOSITORY-ENGINEERING-CONTEXT.md](REPOSITORY-ENGINEERING-CONTEXT.md)
+Agent operating contract: [AGENTS.md](AGENTS.md) defines the governed reading order, skill-routing
+expectations, and wiki publication rule. Repository-local engineering context:
+[REPOSITORY-ENGINEERING-CONTEXT.md](REPOSITORY-ENGINEERING-CONTEXT.md).
 
 ## Purpose And Scope
 

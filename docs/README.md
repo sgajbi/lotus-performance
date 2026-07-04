@@ -14,11 +14,15 @@ truth for `lotus-performance`.
 
 ## Reading Order
 
-1. `../README.md`
-2. `../REPOSITORY-ENGINEERING-CONTEXT.md`
-3. `guides/api_reference.md`
-4. `technical/runtime_topology.md`
-5. the relevant methodology, runbook, RFC, or endpoint certification file for the slice
+1. `../AGENTS.md` for the governed operating contract, mandatory reading order, skill routing, and
+   wiki publication rule.
+2. `../README.md`
+3. `../REPOSITORY-ENGINEERING-CONTEXT.md`
+4. `guides/api_reference.md`
+5. `technical/runtime_topology.md`
+6. `../../lotus-platform/context/PROCEDURAL-MEMORY-INDEX.md` when the task is mainly about
+   execution method, PR loops, validation depth, or fix-forward work.
+7. the relevant methodology, runbook, RFC, or endpoint certification file for the slice
 
 ## Major Areas
 

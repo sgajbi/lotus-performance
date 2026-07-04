@@ -43,6 +43,28 @@ def test_readme_enterprise_readiness_evidence_is_grounded():
     assert "target deployment, entitlement model, SLOs" in readme_flat
 
 
+def test_agent_reading_order_is_discoverable_from_primary_context_surfaces():
+    readme = _read("README.md")
+    repository_context = _read("REPOSITORY-ENGINEERING-CONTEXT.md")
+    docs_index = _read("docs/README.md")
+    wiki_home = _read("wiki/Home.md")
+
+    for document in (readme, repository_context, docs_index, wiki_home):
+        assert "AGENTS.md" in document
+
+    assert "governed reading order" in readme
+    assert "skill-routing" in readme
+    assert "wiki publication rule" in readme
+    assert "Treat this file as step 4" in repository_context
+    assert "../lotus-platform/context/CONTEXT-REFERENCE-MAP.md" in repository_context
+    assert "../lotus-platform/context/PROCEDURAL-MEMORY-INDEX.md" in repository_context
+    assert "../lotus-platform/context/LOTUS-SKILL-ROUTING-MAP.md" in repository_context
+    assert "without loading broad context blindly" in repository_context
+    assert "../../lotus-platform/context/PROCEDURAL-MEMORY-INDEX.md" in docs_index
+    assert "Engineering and agent context" in wiki_home
+    assert "Follow the governed operating contract before repo-local context" in wiki_home
+
+
 def test_repo_context_matches_trust_telemetry_coverage_boundary():
     repository_context = _read("REPOSITORY-ENGINEERING-CONTEXT.md")
     trust_telemetry_readme = _read("contracts/trust-telemetry/README.md")
