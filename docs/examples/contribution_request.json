@@ -5,7 +5,7 @@
   "report_end_date": "2025-01-02",
   "analyses": [
     {
-      "period": "ITD",
+      "period": "SI",
       "frequencies": [
         "daily"
       ]

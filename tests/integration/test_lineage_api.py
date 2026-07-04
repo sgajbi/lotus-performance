@@ -92,7 +92,7 @@ def test_stateful_twr_lineage_captures_resolved_request(client, monkeypatch):
         "performance_start_date": "2024-12-31",
         "metric_basis": "NET",
         "report_end_date": "2025-01-02",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "input_mode": "stateful",
         "stateful_input": {},
     }
@@ -162,7 +162,7 @@ def test_benchmark_price_point_lineage_captures_resolved_request(client):
         "benchmark_id": "BMK_LINEAGE_PRICE_1",
         "benchmark_start_date": "2026-01-02",
         "report_end_date": "2026-01-02",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "input_mode": "stateless",
         "return_source": "calculated",
         "stateless_input": {

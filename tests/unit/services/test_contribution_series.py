@@ -31,7 +31,7 @@ def test_has_adjusted_hierarchy_inputs_requires_hierarchy_period_rows_and_positi
             "portfolio_id": "PB_TEST",
             "report_start_date": "2026-03-30",
             "report_end_date": "2026-03-31",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "hierarchy": ["sector"],
             "portfolio_data": {
                 "metric_basis": "NET",
@@ -92,7 +92,7 @@ def test_build_hierarchy_from_adjusted_position_series_uses_observation_date_ali
             "portfolio_id": "PB_TEST",
             "report_start_date": "2026-03-30",
             "report_end_date": "2026-03-31",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "hierarchy": ["sector"],
             "emit": {"threshold_weight": 0.0},
             "portfolio_data": {
@@ -149,7 +149,7 @@ def test_build_hierarchy_from_adjusted_position_series_uses_selected_period_aver
             "portfolio_id": "PB_TEST",
             "report_start_date": "2026-03-30",
             "report_end_date": "2026-03-31",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "hierarchy": ["sector"],
             "emit": {"threshold_weight": 0.0},
             "portfolio_data": {
@@ -219,7 +219,7 @@ def test_hierarchy_metadata_helpers_align_dates_and_unclassified_policy():
             "portfolio_id": "PB_TEST",
             "report_start_date": "2026-03-30",
             "report_end_date": "2026-03-31",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "hierarchy": ["sector", "region"],
             "emit": {"include_unclassified": True, "threshold_weight": 0.0},
             "portfolio_data": {

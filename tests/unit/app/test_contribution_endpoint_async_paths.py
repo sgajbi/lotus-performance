@@ -21,7 +21,7 @@ def _stateful_contribution_payload() -> dict[str, object]:
         "portfolio_id": "P1",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-02",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "input_mode": "stateful",
         "stateful_input": {},
     }
@@ -34,7 +34,7 @@ def _stateless_contribution_request() -> ContributionRequest:
             "portfolio_id": "P1",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "portfolio_data": {
                 "metric_basis": "NET",
                 "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
@@ -300,7 +300,7 @@ async def test_contribution_endpoint_offloads_large_sync_requests(mocker):
             "portfolio_id": "P1",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "input_mode": "stateless",
             "stateless_input": {
                 "portfolio_data": {
@@ -390,7 +390,7 @@ async def test_contribution_endpoint_maps_sync_resolution_errors_to_http_500(moc
             "portfolio_id": "P1",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "input_mode": "stateless",
             "stateless_input": {
                 "portfolio_data": {
@@ -440,7 +440,7 @@ async def test_initial_sync_contribution_registers_and_executes_resolved_request
             "portfolio_id": "P1",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "input_mode": "stateless",
             "stateless_input": {
                 "portfolio_data": {
@@ -489,7 +489,7 @@ async def test_contribution_endpoint_reraises_sync_http_exceptions(mocker):
             "portfolio_id": "P1",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "input_mode": "stateless",
             "stateless_input": {
                 "portfolio_data": {
@@ -563,7 +563,7 @@ def test_contribution_endpoint_numeric_and_stateful_window_helpers_cover_statefu
     ) == {
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-02",
-        "requested_periods": ["ITD"],
+        "requested_periods": ["SI"],
         "position_count": 0,
         "hierarchical": False,
         "input_mode": "stateful",

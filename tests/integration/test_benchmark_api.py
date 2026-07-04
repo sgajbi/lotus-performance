@@ -43,7 +43,7 @@ def test_calculate_benchmark_endpoint_supports_stateless_calculated_mode(client)
         "benchmark_id": "BMK_STATELESS_1",
         "benchmark_start_date": "2026-01-02",
         "report_end_date": "2026-01-03",
-        "analyses": [{"period": "ITD", "frequencies": ["daily", "monthly"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily", "monthly"]}],
         "input_mode": "stateless",
         "return_source": "calculated",
         "output": {"include_timeseries": True},
@@ -90,7 +90,7 @@ def test_calculate_benchmark_endpoint_supports_stateless_calculated_mode(client)
 
     assert response.status_code == 200
     body = response.json()
-    itd = body["results_by_period"]["ITD"]
+    itd = body["results_by_period"]["SI"]
     assert body["input_mode"] == "stateless"
     assert body["return_source"] == "calculated"
     assert body["benchmark_id"] == "BMK_STATELESS_1"
@@ -134,7 +134,7 @@ def test_calculate_benchmark_endpoint_supports_stateless_calculated_mode(client)
     assert first_component["local_contribution"] == pytest.approx(0.9)
     assert first_component["fx_contribution"] == pytest.approx(0.29556650244)
     assert body["meta"]["calculation_id"] == body["calculation_id"]
-    assert body["meta"]["periods"]["requested"] == ["ITD"]
+    assert body["meta"]["periods"]["requested"] == ["SI"]
     assert body["meta"]["periods"]["master_start"] == "2026-01-02"
     assert body["meta"]["periods"]["master_end"] == "2026-01-03"
     assert body["meta"]["report_ccy"] == "USD"
@@ -160,7 +160,7 @@ def test_calculate_benchmark_endpoint_supports_stateless_component_price_points(
         "benchmark_id": "BMK_STATELESS_PRICE_1",
         "benchmark_start_date": "2026-01-02",
         "report_end_date": "2026-01-02",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "input_mode": "stateless",
         "return_source": "calculated",
         "output": {"include_timeseries": True},
@@ -193,7 +193,7 @@ def test_calculate_benchmark_endpoint_supports_stateless_component_price_points(
 
     assert response.status_code == 200
     body = response.json()
-    itd = body["results_by_period"]["ITD"]
+    itd = body["results_by_period"]["SI"]
     raw_request = BenchmarkAnalyticsRequest.model_validate(payload)
     raw_input_fingerprint, _ = generate_canonical_hash(raw_request, get_settings().APP_VERSION)
     assert itd["benchmark"]["summary"]["period_return"]["base"] == pytest.approx(2.004)
@@ -323,7 +323,7 @@ def test_calculate_benchmark_endpoint_supports_stateful_calculated_mode(client, 
         "benchmark_id": "BMK_STATEFUL_1",
         "benchmark_start_date": "2026-01-02",
         "report_end_date": "2026-01-03",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "input_mode": "stateful",
         "return_source": "calculated",
         "output": {"include_timeseries": True},
@@ -334,7 +334,7 @@ def test_calculate_benchmark_endpoint_supports_stateful_calculated_mode(client, 
 
     assert response.status_code == 200
     body = response.json()
-    itd = body["results_by_period"]["ITD"]
+    itd = body["results_by_period"]["SI"]
     assert body["input_mode"] == "stateful"
     assert body["benchmark_currency"] == "USD"
     assert itd["benchmark"]["summary"]["period_return"]["base"] == pytest.approx(3.02506004, abs=1e-10)
@@ -350,7 +350,7 @@ def test_calculate_benchmark_endpoint_rejects_stateless_price_points_with_misali
         "benchmark_id": "BMK_STATELESS_PRICE_BAD_DATES",
         "benchmark_start_date": "2026-01-02",
         "report_end_date": "2026-01-03",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "input_mode": "stateless",
         "return_source": "calculated",
         "stateless_input": {
@@ -376,7 +376,7 @@ def test_calculate_benchmark_endpoint_rejects_stateless_price_points_with_duplic
         "benchmark_id": "BMK_STATELESS_PRICE_DUP_DATES",
         "benchmark_start_date": "2026-01-01",
         "report_end_date": "2026-01-02",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "input_mode": "stateless",
         "return_source": "calculated",
         "stateless_input": {
@@ -514,7 +514,7 @@ def test_calculate_benchmark_endpoint_records_http_failure_detail_in_execution_s
         "benchmark_id": "BMK_BAD_WINDOW",
         "benchmark_start_date": "2026-01-02",
         "report_end_date": "2026-01-03",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "input_mode": "stateful",
         "return_source": "calculated",
         "stateful_input": {},
@@ -579,7 +579,7 @@ def test_calculate_benchmark_endpoint_supports_explicit_vendor_series_mode(clien
         "benchmark_id": "BMK_VENDOR_1",
         "benchmark_start_date": "2026-01-02",
         "report_end_date": "2026-01-03",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "input_mode": "stateful",
         "return_source": "vendor_series",
         "output": {"include_timeseries": True},
@@ -590,7 +590,7 @@ def test_calculate_benchmark_endpoint_supports_explicit_vendor_series_mode(clien
 
     assert response.status_code == 200
     body = response.json()
-    itd = body["results_by_period"]["ITD"]
+    itd = body["results_by_period"]["SI"]
     assert body["return_source"] == "vendor_series"
     assert itd["benchmark"]["summary"]["period_return"]["base"] == pytest.approx(3.02)
     assert "component_contributions" not in itd
@@ -610,7 +610,7 @@ def test_calculate_benchmark_endpoint_promotes_stateful_benchmark_to_async_on_re
                 "benchmark_id": request.benchmark_id,
                 "benchmark_start_date": "2026-01-02",
                 "report_end_date": "2026-01-03",
-                "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+                "analyses": [{"period": "SI", "frequencies": ["daily"]}],
                 "return_source": "calculated",
                 "benchmark_currency": "USD",
                 "component_observations": [
@@ -637,7 +637,7 @@ def test_calculate_benchmark_endpoint_promotes_stateful_benchmark_to_async_on_re
         "benchmark_id": "BMK_STATEFUL_ASYNC",
         "benchmark_start_date": "2026-01-02",
         "report_end_date": "2026-01-03",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "input_mode": "stateful",
         "return_source": "calculated",
         "stateful_input": {},
@@ -670,7 +670,7 @@ def test_benchmark_endpoint_generates_calculation_id_for_async_stateful_request(
                 "benchmark_id": request.benchmark_id,
                 "benchmark_start_date": "2026-01-02",
                 "report_end_date": "2026-01-03",
-                "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+                "analyses": [{"period": "SI", "frequencies": ["daily"]}],
                 "return_source": "calculated",
                 "benchmark_currency": "USD",
                 "component_observations": [
@@ -696,7 +696,7 @@ def test_benchmark_endpoint_generates_calculation_id_for_async_stateful_request(
         "benchmark_id": "BMK_GENERATED_ASYNC",
         "benchmark_start_date": "2026-01-02",
         "report_end_date": "2026-01-03",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "input_mode": "stateful",
         "return_source": "calculated",
         "stateful_input": {},
@@ -725,7 +725,7 @@ def test_benchmark_endpoint_offloads_large_stateless_benchmark_requests(client):
         "benchmark_id": "BMK_STATELESS_ASYNC",
         "benchmark_start_date": "2026-01-02",
         "report_end_date": "2026-01-03",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "input_mode": "stateless",
         "return_source": "calculated",
         "output": {"include_timeseries": True},
@@ -759,7 +759,7 @@ def test_benchmark_endpoint_offloads_large_stateless_benchmark_requests(client):
         result_body = complete.json()
         assert result_body["input_mode"] == "stateless"
         assert result_body["benchmark_id"] == "BMK_STATELESS_ASYNC"
-        assert result_body["results_by_period"]["ITD"]["benchmark"]["summary"]["period_return"][
+        assert result_body["results_by_period"]["SI"]["benchmark"]["summary"]["period_return"][
             "base"
         ] == pytest.approx(2.4128)
     finally:
@@ -782,7 +782,7 @@ def test_benchmark_async_result_missing_and_failed_contracts(client, monkeypatch
         "benchmark_id": "BMK_ASYNC_FAIL",
         "benchmark_start_date": "2026-01-02",
         "report_end_date": "2026-01-03",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "input_mode": "stateful",
         "return_source": "calculated",
         "stateful_input": {},

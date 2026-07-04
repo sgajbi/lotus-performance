@@ -5,7 +5,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from common.enums import Frequency, PeriodType
+from common.enums import Frequency, PeriodType, canonical_performance_period_code
 from core.envelope import (
     Annualization,
     Calendar,
@@ -57,7 +57,11 @@ class Analysis(BaseModel):
 
     period: PeriodType = Field(
         ...,
-        description="Reporting period to resolve. Supported values: MTD, QTD, YTD, ITD, 1Y, 3Y, 5Y, EXPLICIT.",
+        description=(
+            "Reporting period to resolve. Supported canonical values: MTD, QTD, YTD, SI, 1Y, 3Y, 5Y, "
+            "EXPLICIT. Legacy aliases ITD, INCEPTION_TO_DATE, and SINCE_INCEPTION are accepted and "
+            "normalized to SI."
+        ),
     )
     frequencies: List[Frequency] = Field(
         ...,
@@ -70,6 +74,11 @@ class Analysis(BaseModel):
         if not v:
             raise ValueError("frequencies list cannot be empty for an analysis")
         return v
+
+    @field_validator("period", mode="before")
+    @classmethod
+    def normalize_period_aliases(cls, value):
+        return canonical_performance_period_code(value)
 
 
 class PerformanceRequestBase(BaseModel):

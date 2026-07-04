@@ -17,7 +17,7 @@ def _base_payload():
         "benchmark_id": "BMK_1",
         "benchmark_start_date": "2025-01-01",
         "report_end_date": "2025-01-31",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
     }
 
 
@@ -132,7 +132,7 @@ def test_benchmark_endpoint_helpers_build_execution_window_and_acceptance(mocker
     assert build_benchmark_execution_window(request, source_request_fingerprint="fp", input_count=5) == {
         "benchmark_start_date": "2025-01-01",
         "report_end_date": "2025-01-31",
-        "requested_periods": ["ITD"],
+        "requested_periods": ["SI"],
         "return_source": "vendor_series",
         "input_mode": "stateless",
         "input_count": 5,

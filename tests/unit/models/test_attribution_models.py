@@ -155,7 +155,7 @@ def test_single_period_attribution_result_schema_documents_status_reason_and_mat
 def test_attribution_analytics_request_rejects_stateful_and_legacy_conflicts(base_attribution_payload):
     payload = {
         **base_attribution_payload,
-        "analyses": [{"period": "ITD", "frequencies": ["monthly"]}],
+        "analyses": [{"period": "SI", "frequencies": ["monthly"]}],
         "input_mode": "stateful",
         "stateful_input": {},
         "portfolio_groups_data": [],
@@ -168,7 +168,7 @@ def test_attribution_analytics_request_rejects_stateful_and_legacy_conflicts(bas
         AttributionAnalyticsRequest.model_validate(
             {
                 **base_attribution_payload,
-                "analyses": [{"period": "ITD", "frequencies": ["monthly"]}],
+                "analyses": [{"period": "SI", "frequencies": ["monthly"]}],
                 "input_mode": "stateful",
                 "portfolio_groups_data": None,
                 "benchmark_groups_data": [],
@@ -181,7 +181,7 @@ def test_attribution_analytics_request_rejects_partial_legacy_by_instrument(base
         AttributionAnalyticsRequest.model_validate(
             {
                 **base_attribution_payload,
-                "analyses": [{"period": "ITD", "frequencies": ["monthly"]}],
+                "analyses": [{"period": "SI", "frequencies": ["monthly"]}],
                 "portfolio_groups_data": None,
                 "benchmark_groups_data": [],
                 "portfolio_data": {
@@ -196,7 +196,7 @@ def test_attribution_input_shape_classifies_legacy_payloads(base_attribution_pay
     by_instrument_request = AttributionAnalyticsRequest.model_validate(
         {
             **base_attribution_payload,
-            "analyses": [{"period": "ITD", "frequencies": ["monthly"]}],
+            "analyses": [{"period": "SI", "frequencies": ["monthly"]}],
             "mode": "by_instrument",
             "portfolio_groups_data": None,
             "portfolio_data": {"metric_basis": "NET", "valuation_points": []},
@@ -223,7 +223,7 @@ def test_attribution_analytics_request_rejects_stateful_input_in_stateless_mode(
         AttributionAnalyticsRequest.model_validate(
             {
                 **base_attribution_payload,
-                "analyses": [{"period": "ITD", "frequencies": ["monthly"]}],
+                "analyses": [{"period": "SI", "frequencies": ["monthly"]}],
                 "stateful_input": {},
             }
         )
@@ -238,7 +238,7 @@ def test_attribution_analytics_request_rejects_missing_stateless_payload():
                 "report_end_date": "2025-01-31",
                 "mode": "by_group",
                 "group_by": ["assetClass"],
-                "analyses": [{"period": "ITD", "frequencies": ["monthly"]}],
+                "analyses": [{"period": "SI", "frequencies": ["monthly"]}],
                 "benchmark_groups_data": [],
             }
         )
@@ -269,7 +269,7 @@ def test_attribution_analytics_request_rejects_mixed_stateless_shapes(base_attri
         AttributionAnalyticsRequest.model_validate(
             {
                 **base_attribution_payload,
-                "analyses": [{"period": "ITD", "frequencies": ["monthly"]}],
+                "analyses": [{"period": "SI", "frequencies": ["monthly"]}],
                 "stateless_input": {
                     "portfolio_groups_data": [],
                     "benchmark_groups_data": [
@@ -287,7 +287,7 @@ def test_attribution_analytics_request_to_stateless_prefers_explicit_override(ba
     request = AttributionAnalyticsRequest.model_validate(
         {
             **base_attribution_payload,
-            "analyses": [{"period": "ITD", "frequencies": ["monthly"]}],
+            "analyses": [{"period": "SI", "frequencies": ["monthly"]}],
         }
     )
 
@@ -312,7 +312,7 @@ def test_resolve_attribution_stateless_input_prefers_explicit_override(base_attr
     request = AttributionAnalyticsRequest.model_validate(
         {
             **base_attribution_payload,
-            "analyses": [{"period": "ITD", "frequencies": ["monthly"]}],
+            "analyses": [{"period": "SI", "frequencies": ["monthly"]}],
         }
     )
     override_benchmark_groups = [
@@ -343,7 +343,7 @@ def test_resolve_attribution_stateless_input_uses_nested_payload():
             "report_end_date": "2025-01-31",
             "mode": "by_group",
             "group_by": ["assetClass"],
-            "analyses": [{"period": "ITD", "frequencies": ["monthly"]}],
+            "analyses": [{"period": "SI", "frequencies": ["monthly"]}],
             "input_mode": "stateless",
             "stateless_input": {
                 "portfolio_groups_data": [{"key": {"assetClass": "Equity"}, "observations": []}],
@@ -369,7 +369,7 @@ def test_attribution_request_payload_serializes_resolved_groups_without_analytic
     request = AttributionAnalyticsRequest.model_validate(
         {
             **base_attribution_payload,
-            "analyses": [{"period": "ITD", "frequencies": ["monthly"]}],
+            "analyses": [{"period": "SI", "frequencies": ["monthly"]}],
         }
     )
     resolved = _resolve_attribution_stateless_input(request=request)
@@ -391,7 +391,7 @@ def test_attribution_analytics_request_builds_nested_stateless_request():
             "report_end_date": "2025-01-31",
             "mode": "by_group",
             "group_by": ["assetClass"],
-            "analyses": [{"period": "ITD", "frequencies": ["monthly"]}],
+            "analyses": [{"period": "SI", "frequencies": ["monthly"]}],
             "input_mode": "stateless",
             "stateless_input": {
                 "portfolio_groups_data": [{"key": {"assetClass": "Equity"}, "observations": []}],
@@ -420,7 +420,7 @@ def test_attribution_analytics_request_to_stateless_requires_benchmark_groups():
             "report_end_date": "2025-01-31",
             "mode": "by_group",
             "group_by": ["assetClass"],
-            "analyses": [{"period": "ITD", "frequencies": ["monthly"]}],
+            "analyses": [{"period": "SI", "frequencies": ["monthly"]}],
             "input_mode": "stateful",
             "stateful_input": {},
         }

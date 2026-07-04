@@ -25,12 +25,12 @@ def test_generate_request_fingerprint_matches_core_model_hash():
 
 
 def test_generate_request_fingerprint_matches_core_value_hash():
-    payload = {"portfolio_id": "P1", "periods": ["YTD", "ITD"]}
+    payload = {"portfolio_id": "P1", "periods": ["YTD", "SI"]}
 
     assert generate_request_fingerprint(payload, "v1.0.0") == generate_canonical_hash_from_value(payload, "v1.0.0")
 
 
 def test_generate_value_fingerprint_matches_core_value_hash():
-    payload = {"portfolio_id": "P1", "periods": ["YTD", "ITD"]}
+    payload = {"portfolio_id": "P1", "periods": ["YTD", "SI"]}
 
     assert generate_value_fingerprint(payload, "v1.0.0") == generate_canonical_hash_from_value(payload, "v1.0.0")

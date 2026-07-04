@@ -170,7 +170,7 @@ These characterize the control-plane query path behind:
 - Request shape:
   - `include_benchmark=true`
   - implicit benchmark assignment from lotus-core
-  - `ITD` request with monthly breakdown output
+  - `SI` request with monthly breakdown output
 - Metric: median wall-clock runtime across 5 runs after warm-up
 - Budget: `<= 8500ms`
 - Test owner: [test_twr_orchestration_performance.py](/C:/Users/Sandeep/projects/lotus-performance/tests/benchmarks/test_twr_orchestration_performance.py)

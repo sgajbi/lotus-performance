@@ -29,7 +29,7 @@ The performance engine's behavior is controlled by a comprehensive and immutable
 
 The `period_type` defines how the engine resolves the effective start date for calculations. This is handled by `core/periods.py`.
 -   **`MTD`/`QTD`/`YTD`**: Standard calendar month-to-date, quarter-to-date, and year-to-date.
--   **`ITD`**: Inception-to-date, starting from `performance_start_date`.
+-   **`SI`**: Since inception, starting from `performance_start_date`; legacy `ITD` aliases normalize to `SI`.
 -   **`Y1`/`Y3`/`Y5`**: Rolling 1, 3, or 5-year periods ending on `report_end_date`.
 -   **`EXPLICIT`**: Uses the `report_start_date` provided in the request.
 

@@ -41,7 +41,7 @@ def test_build_contribution_period_result_projects_flat_and_hierarchy_outputs():
     ]
 
     flat_result = contribution_service._build_contribution_period_result(
-        period_name="ITD",
+        period_name="SI",
         total_portfolio_return=0.0325,
         supportability=supportability,
         position_contributions=position_contributions,
@@ -49,7 +49,7 @@ def test_build_contribution_period_result_projects_flat_and_hierarchy_outputs():
         emitted_position_series=None,
     )
     hierarchy_result = contribution_service._build_contribution_period_result(
-        period_name="ITD",
+        period_name="SI",
         total_portfolio_return=0.0325,
         supportability=supportability,
         position_contributions=position_contributions,
@@ -71,7 +71,7 @@ def test_build_contribution_period_result_projects_flat_and_hierarchy_outputs():
         },
     )
 
-    assert flat_result.period_name == "ITD"
+    assert flat_result.period_name == "SI"
     assert flat_result.average_weight_sum_residual_bp == 7
     assert flat_result.result.total_portfolio_return == pytest.approx(3.25)
     assert flat_result.result.total_contribution == pytest.approx(3.25)
@@ -248,11 +248,11 @@ def test_build_contribution_results_by_period_routes_hierarchy_periods(monkeypat
 
 def test_run_contribution_calculation_prepares_engine_inputs_and_period_results(monkeypatch):
     request = SimpleNamespace(calculation_id="contribution-calc-1")
-    periods = [SimpleNamespace(name="ITD")]
+    periods = [SimpleNamespace(name="SI")]
     portfolio_results_df = pd.DataFrame({"portfolio_id": ["P-1"]})
     daily_contributions_df = pd.DataFrame({PortfolioColumns.PERF_DATE.value: [date(2026, 1, 31)]})
     engine_inputs = contribution_service._ContributionEngineInputs(
-        periods_to_resolve=["ITD"],
+        periods_to_resolve=["SI"],
         resolved_periods=periods,
         master_start_date=date(2026, 1, 1),
         master_end_date=date(2026, 1, 31),
@@ -266,7 +266,7 @@ def test_run_contribution_calculation_prepares_engine_inputs_and_period_results(
     def build_period_results(**kwargs):
         period_calls.append(kwargs)
         return contribution_service._ContributionPeriodResults(
-            results_by_period={"ITD": period_result},
+            results_by_period={"SI": period_result},
             average_weight_sum_residual_bp=9,
         )
 
@@ -279,7 +279,7 @@ def test_run_contribution_calculation_prepares_engine_inputs_and_period_results(
     )
 
     assert result.engine_inputs is engine_inputs
-    assert result.results_by_period == {"ITD": period_result}
+    assert result.results_by_period == {"SI": period_result}
     assert isinstance(result.average_weight_audit_state, AverageWeightShadowAuditState)
     assert result.average_weight_sum_residual_bp == 9
     assert period_calls == [
@@ -572,7 +572,7 @@ def test_prepare_contribution_period_projects_frames_methodology_and_audit(monke
 
 def test_prepare_contribution_period_requires_portfolio_slice_when_requested(monkeypatch):
     period_slice_df = pd.DataFrame({"position_id": ["A"], "smoothed_contribution": [0.01]})
-    period = SimpleNamespace(name="ITD", start_date=date(2026, 1, 1), end_date=date(2026, 3, 31))
+    period = SimpleNamespace(name="SI", start_date=date(2026, 1, 1), end_date=date(2026, 3, 31))
     audit_state = AverageWeightShadowAuditState()
 
     monkeypatch.setattr(
@@ -891,7 +891,7 @@ def test_build_hierarchy_contribution_position_assembly_preserves_hierarchy_proj
         }
     )
     methodology_context = SimpleNamespace(average_weight_shadow_df=average_weight_shadow_df)
-    period = SimpleNamespace(name="ITD", start_date=date(2026, 1, 1), end_date=date(2026, 3, 31))
+    period = SimpleNamespace(name="SI", start_date=date(2026, 1, 1), end_date=date(2026, 3, 31))
     request = SimpleNamespace(
         smoothing=SimpleNamespace(method="CARINO"),
         emit=SimpleNamespace(timeseries=True, by_position_timeseries=True),
@@ -979,7 +979,7 @@ def test_build_hierarchy_period_contribution_result_preserves_hierarchy_outputs(
     period_slice_df = pd.DataFrame({"position_id": ["A"], "smoothed_contribution": [0.01]})
     portfolio_period_slice_df = pd.DataFrame({"portfolio_id": ["P"]})
     totals_df = pd.DataFrame({"position_id": ["A"], "selected_average_weight": [0.5]})
-    period = SimpleNamespace(name="ITD", start_date=date(2026, 1, 1), end_date=date(2026, 3, 31))
+    period = SimpleNamespace(name="SI", start_date=date(2026, 1, 1), end_date=date(2026, 3, 31))
     request = SimpleNamespace(
         smoothing=SimpleNamespace(method="CARINO"),
         emit=SimpleNamespace(timeseries=True, by_position_timeseries=True),
@@ -1097,7 +1097,7 @@ def test_build_hierarchy_period_contribution_result_preserves_hierarchy_outputs(
     )
 
     assert result is not None
-    assert result.period_name == "ITD"
+    assert result.period_name == "SI"
     assert result.average_weight_sum_residual_bp == 3
     assert result.result.total_portfolio_return == pytest.approx(2.0)
     assert result.result.total_contribution == pytest.approx(2.0)

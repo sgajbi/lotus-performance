@@ -21,7 +21,7 @@ def _calculated_request(*, include_timeseries: bool = True) -> BenchmarkPerforma
             "benchmark_id": "BMK_1",
             "benchmark_start_date": "2025-01-01",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily", "monthly"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily", "monthly"]}],
             "return_source": "calculated",
             "benchmark_currency": "USD",
             "output": {"include_timeseries": include_timeseries},
@@ -54,7 +54,7 @@ def _vendor_request() -> BenchmarkPerformanceRequest:
             "benchmark_id": "BMK_VENDOR",
             "benchmark_start_date": "2025-01-01",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily", "monthly"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily", "monthly"]}],
             "return_source": "vendor_series",
             "benchmark_currency": "USD",
             "output": {"include_timeseries": True},
@@ -74,7 +74,7 @@ def test_calculate_benchmark_artifacts_builds_calculated_period_results_with_opt
     assert artifacts.effective_period_start == date(2025, 1, 1)
     assert artifacts.max_weight_sum_deviation == 0.0
     assert artifacts.notes == []
-    period_result = artifacts.results_by_period["ITD"]
+    period_result = artifacts.results_by_period["SI"]
     assert period_result.daily_returns is not None
     assert len(period_result.daily_returns) == 1
     assert period_result.component_contributions is not None
@@ -120,7 +120,7 @@ def test_calculate_benchmark_artifacts_normalizes_mixed_date_like_artifact_rows(
 
     assert list(artifacts.daily_returns_df["date"]) == [date(2025, 1, 1), date(2025, 1, 2)]
     assert list(artifacts.component_contributions_df["date"]) == [date(2025, 1, 1), date(2025, 1, 2)]
-    period_result = artifacts.results_by_period["ITD"]
+    period_result = artifacts.results_by_period["SI"]
     assert [row.date for row in period_result.daily_returns or []] == [date(2025, 1, 1), date(2025, 1, 2)]
     assert [row.date for row in period_result.component_contributions or []] == [
         date(2025, 1, 1),
@@ -133,7 +133,7 @@ def test_calculate_benchmark_artifacts_omits_timeseries_when_not_requested():
 
     artifacts = benchmark_calculation_service.calculate_benchmark_artifacts(request)
 
-    period_result = artifacts.results_by_period["ITD"]
+    period_result = artifacts.results_by_period["SI"]
     assert period_result.daily_returns is None
     assert period_result.component_contributions is None
 
@@ -147,7 +147,7 @@ def test_calculate_benchmark_artifacts_builds_vendor_series_results_and_skips_co
     assert artifacts.max_weight_sum_deviation == 0.0
     assert "vendor series" in artifacts.notes[0]
     assert artifacts.component_contributions_df.empty
-    period_result = artifacts.results_by_period["ITD"]
+    period_result = artifacts.results_by_period["SI"]
     assert period_result.component_contributions is None
     assert period_result.daily_returns is not None
     assert len(period_result.daily_returns) == 2
@@ -188,13 +188,13 @@ def test_calculate_benchmark_artifacts_skips_empty_period_slices(monkeypatch):
         "resolve_periods",
         lambda periods, report_end_date, benchmark_start_date, explicit_start_date=None: [
             type("Period", (), {"name": "EMPTY", "start_date": date(2024, 1, 1), "end_date": date(2024, 1, 2)})(),
-            type("Period", (), {"name": "ITD", "start_date": date(2025, 1, 1), "end_date": date(2025, 1, 2)})(),
+            type("Period", (), {"name": "SI", "start_date": date(2025, 1, 1), "end_date": date(2025, 1, 2)})(),
         ],
     )
 
     artifacts = benchmark_calculation_service.calculate_benchmark_artifacts(request)
 
-    assert set(artifacts.results_by_period) == {"ITD"}
+    assert set(artifacts.results_by_period) == {"SI"}
 
 
 def test_benchmark_results_by_period_skips_empty_slices_and_preserves_frequency_selection():
@@ -209,20 +209,20 @@ def test_benchmark_results_by_period_skips_empty_slices_and_preserves_frequency_
     results = benchmark_calculation_service._benchmark_results_by_period(
         resolved_periods=[
             ResolvedPeriod(name="EMPTY", start_date=date(2024, 1, 1), end_date=date(2024, 1, 2)),
-            ResolvedPeriod(name="ITD", start_date=date(2025, 1, 1), end_date=date(2025, 1, 2)),
+            ResolvedPeriod(name="SI", start_date=date(2025, 1, 1), end_date=date(2025, 1, 2)),
         ],
         daily_returns_df=daily_returns_df,
         component_contributions_df=pd.DataFrame(
             columns=["date", "component_id", "weight_bop", "component_return", "contribution"]
         ),
         benchmark_request=request,
-        requested_frequencies_by_period={"ITD": [Frequency.DAILY]},
+        requested_frequencies_by_period={"SI": [Frequency.DAILY]},
         input_mode="stateful",
     )
 
-    assert set(results) == {"ITD"}
-    assert results["ITD"].benchmark.input_mode == "stateful"
-    assert set(results["ITD"].benchmark.breakdowns) == {Frequency.DAILY}
+    assert set(results) == {"SI"}
+    assert results["SI"].benchmark.input_mode == "stateful"
+    assert set(results["SI"].benchmark.breakdowns) == {Frequency.DAILY}
 
 
 def test_benchmark_period_result_projects_timeseries_and_summary():
@@ -244,7 +244,7 @@ def test_benchmark_period_result_projects_timeseries_and_summary():
     )
 
     result = benchmark_calculation_service._benchmark_period_result(
-        period=ResolvedPeriod(name="ITD", start_date=date(2025, 1, 1), end_date=date(2025, 1, 2)),
+        period=ResolvedPeriod(name="SI", start_date=date(2025, 1, 1), end_date=date(2025, 1, 2)),
         daily_returns_df=daily_returns_df,
         component_contributions_df=component_contributions_df,
         benchmark_request=request,
@@ -323,7 +323,7 @@ def test_benchmark_period_daily_returns_sorts_links_and_suppresses_empty_windows
     )
 
     period_daily_df = benchmark_calculation_service._benchmark_period_daily_returns(
-        period=ResolvedPeriod(name="ITD", start_date=date(2025, 1, 1), end_date=date(2025, 1, 2)),
+        period=ResolvedPeriod(name="SI", start_date=date(2025, 1, 1), end_date=date(2025, 1, 2)),
         daily_returns_df=daily_returns_df,
     )
 

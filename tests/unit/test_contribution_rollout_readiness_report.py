@@ -20,7 +20,7 @@ def _write_response(tmp_path: Path, file_name: str, results_by_period: dict) -> 
             "precision_mode": "FLOAT64",
             "annualization": {"enabled": False, "basis": "BUS/252", "periods_per_year": None},
             "calendar": {"type": "BUSINESS", "trading_calendar": "NYSE"},
-            "periods": {"requested": ["ITD"], "master_start": "2025-01-01", "master_end": "2025-01-03"},
+            "periods": {"requested": ["SI"], "master_start": "2025-01-01", "master_end": "2025-01-03"},
         },
         "diagnostics": {
             "nip_days": 0,
@@ -40,7 +40,7 @@ def test_build_contribution_rollout_readiness_report_marks_ready_controlled_roll
         tmp_path,
         "ready.json",
         {
-            "ITD": {
+            "SI": {
                 "average_weight_methodology_status": {
                     "status": "PROMOTION_READY",
                     "max_shadow_delta_bp": 1200,
@@ -75,7 +75,7 @@ def test_build_contribution_rollout_readiness_report_marks_hold_when_flow_blocke
         tmp_path,
         "blocked.json",
         {
-            "ITD": {
+            "SI": {
                 "average_weight_methodology_status": {
                     "status": "BLOCKED",
                     "max_shadow_delta_bp": 1500,
@@ -108,7 +108,7 @@ def test_build_contribution_rollout_readiness_report_marks_mixed_readiness_for_b
         tmp_path,
         "ready.json",
         {
-            "ITD": {
+            "SI": {
                 "average_weight_methodology_status": {
                     "status": "PROMOTION_READY",
                     "max_shadow_delta_bp": 1100,
@@ -124,7 +124,7 @@ def test_build_contribution_rollout_readiness_report_marks_mixed_readiness_for_b
         tmp_path,
         "review.json",
         {
-            "ITD": {
+            "SI": {
                 "average_weight_methodology_status": {
                     "status": "UNDER_REVIEW",
                     "max_shadow_delta_bp": 900,
@@ -157,7 +157,7 @@ def test_build_contribution_rollout_readiness_report_marks_no_material_shadow_wh
         tmp_path,
         "noise.json",
         {
-            "ITD": {
+            "SI": {
                 "average_weight_methodology_status": {
                     "status": "NO_MATERIAL_SHADOW",
                     "max_shadow_delta_bp": 120,
@@ -185,7 +185,7 @@ def test_build_contribution_rollout_readiness_report_counts_methodology_blockers
         tmp_path,
         "blocked_reset.json",
         {
-            "ITD": {
+            "SI": {
                 "average_weight_methodology_status": {
                     "status": "BLOCKED",
                     "max_shadow_delta_bp": 1500,

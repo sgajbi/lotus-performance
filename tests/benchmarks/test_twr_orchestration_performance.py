@@ -77,7 +77,7 @@ async def test_twr_stateful_benchmark_orchestration_characterization_contract(tm
             "performance_start_date": str(STATEFUL_PORTFOLIO_WINDOW_START),
             "metric_basis": "NET",
             "report_end_date": str(STATEFUL_PORTFOLIO_WINDOW_END),
-            "analyses": [{"period": "ITD", "frequencies": ["monthly"]}],
+            "analyses": [{"period": "SI", "frequencies": ["monthly"]}],
             "input_mode": "stateful",
             "stateful_input": {},
             "include_benchmark": True,
@@ -165,9 +165,9 @@ async def test_twr_stateful_benchmark_orchestration_characterization_contract(tm
         execution_lifecycle_service.lineage_service = original_lineage_service
         twr_mode_service.build_stateful_input_service = original_builder
 
-    assert response.results_by_period["ITD"].benchmark is not None
-    assert response.results_by_period["ITD"].benchmark.benchmark_id == "BMK-CHAR"
-    assert response.results_by_period["ITD"].relative_performance is not None
+    assert response.results_by_period["SI"].benchmark is not None
+    assert response.results_by_period["SI"].benchmark.benchmark_id == "BMK-CHAR"
+    assert response.results_by_period["SI"].relative_performance is not None
 
     median_ms = median(timings)
     assert median_ms <= TWR_BENCHMARK_ORCHESTRATION_MEDIAN_MS_BUDGET, (

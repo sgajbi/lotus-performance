@@ -163,7 +163,7 @@ def _certify_twr_contribution_attribution(client: TestClient) -> CertificationCh
             "portfolio_id": portfolio_id,
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-01",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "portfolio_data": {
                 "metric_basis": "NET",
                 "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1020.0}],
@@ -190,7 +190,7 @@ def _certify_twr_contribution_attribution(client: TestClient) -> CertificationCh
             "frequency": "daily",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-01",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "portfolio_groups_data": [
                 {
                     "key": {"sector": "technology"},
@@ -206,8 +206,8 @@ def _certify_twr_contribution_attribution(client: TestClient) -> CertificationCh
         },
     )
     twr_period = twr["results_by_period"]["YTD"]
-    contribution_period = contribution["results_by_period"]["ITD"]
-    attribution_period = attribution["results_by_period"]["ITD"]
+    contribution_period = contribution["results_by_period"]["SI"]
+    attribution_period = attribution["results_by_period"]["SI"]
     portfolio_return = _close("portfolio return", twr_period["portfolio"]["summary"]["period_return"]["base"], 2.0)
     benchmark_return = _close("benchmark return", twr_period["benchmark"]["summary"]["period_return"]["base"], 1.5)
     active_return = _close("active return", twr_period["relative_performance"]["summary"]["period_return"]["base"], 0.5)
@@ -274,7 +274,7 @@ def _certify_benchmark(client: TestClient) -> CertificationCheck:
             "benchmark_id": "BMK_DEMO_API_CERT",
             "benchmark_start_date": "2026-01-02",
             "report_end_date": "2026-01-03",
-            "analyses": [{"period": "ITD", "frequencies": ["daily", "monthly"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily", "monthly"]}],
             "input_mode": "stateless",
             "return_source": "calculated",
             "output": {"include_timeseries": True},
@@ -289,7 +289,7 @@ def _certify_benchmark(client: TestClient) -> CertificationCheck:
             },
         },
     )
-    period = body["results_by_period"]["ITD"]
+    period = body["results_by_period"]["SI"]
     component_count = len(period["component_contributions"])
     if component_count != 4:
         raise AssertionError(f"Benchmark certification expected 4 component contribution rows, got {component_count}")

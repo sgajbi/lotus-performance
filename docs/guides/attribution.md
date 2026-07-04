@@ -220,7 +220,7 @@ view. The totals are produced by the attribution engine after the selected linki
   "report_end_date": "2025-01-01",
   "analyses": [
     {
-      "period": "ITD",
+      "period": "SI",
       "frequencies": ["daily"]
     }
   ],
@@ -276,7 +276,7 @@ view. The totals are produced by the attribution engine after the selected linki
   "model": "BF",
   "linking": "none",
   "results_by_period": {
-    "ITD": {
+    "SI": {
       "levels": [
         {
           "dimension": "sector",

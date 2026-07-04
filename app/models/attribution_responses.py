@@ -413,7 +413,7 @@ class AttributionResponse(BaseModel):
                     "model": "brinson_fachler",
                     "linking": "carino",
                     "results_by_period": {
-                        "ITD": {
+                        "SI": {
                             "status": "partial",
                             "reason_codes": ["off_benchmark_exposure"],
                             "reasons": [

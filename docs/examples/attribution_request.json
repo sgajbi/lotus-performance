@@ -11,7 +11,7 @@
   "report_end_date": "2025-01-01",
   "analyses": [
     {
-      "period": "ITD",
+      "period": "SI",
       "frequencies": [
         "daily"
       ]

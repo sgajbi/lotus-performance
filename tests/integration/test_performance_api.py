@@ -53,7 +53,7 @@ def test_twr_reports_reset_events_when_requested(client):
         "portfolio_id": "RESET_SCENARIO_TEST",
         "performance_start_date": "2024-12-31",
         "report_end_date": "2025-01-04",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "metric_basis": "GROSS",
         "valuation_points": [
             {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 500.0},
@@ -66,7 +66,7 @@ def test_twr_reports_reset_events_when_requested(client):
     response = client.post("/performance/twr", json=payload)
     assert response.status_code == 200
     data = response.json()
-    itd_results = data["results_by_period"]["ITD"]
+    itd_results = data["results_by_period"]["SI"]
 
     assert "reset_events" in itd_results
     assert itd_results["reset_events"] is not None
@@ -105,7 +105,7 @@ def test_twr_supportability_metric_labels_are_bounded_and_support_safe(client):
         "portfolio_id": "TWR_LABEL_BOUNDARY_TEST",
         "performance_start_date": "2025-01-01",
         "report_end_date": "2025-01-02",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "metric_basis": "NET",
         "valuation_points": [
             {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
@@ -692,7 +692,7 @@ def test_calculate_twr_endpoint_multi_currency(client):
         "performance_start_date": "2024-12-31",
         "metric_basis": "GROSS",
         "report_end_date": "2025-01-02",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "valuation_points": [
             {"perf_date": "2025-01-01", "begin_mv": 100.0, "end_mv": 102.0},
             {"perf_date": "2025-01-02", "begin_mv": 102.0, "end_mv": 103.02},
@@ -710,7 +710,7 @@ def test_calculate_twr_endpoint_multi_currency(client):
     response = client.post("/performance/twr", json=payload)
     assert response.status_code == 200
     data = response.json()
-    itd_result = data["results_by_period"]["ITD"]
+    itd_result = data["results_by_period"]["SI"]
 
     assert "portfolio" in itd_result
     assert itd_result["portfolio"]["summary"]["period_return"]["local"] == pytest.approx(3.02)
@@ -726,7 +726,7 @@ def test_calculate_twr_endpoint_with_data_policy(client):
         "performance_start_date": "2024-12-27",
         "metric_basis": "NET",
         "report_end_date": "2025-01-03",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "valuation_points": [
             {"perf_date": "2024-12-28", "begin_mv": 1000.0, "end_mv": 1001.0},
             {"perf_date": "2024-12-29", "begin_mv": 1001.0, "end_mv": 1002.0},
@@ -745,7 +745,7 @@ def test_calculate_twr_endpoint_with_data_policy(client):
     response = client.post("/performance/twr", json=payload)
     assert response.status_code == 200
     data = response.json()
-    itd_result = data["results_by_period"]["ITD"]
+    itd_result = data["results_by_period"]["SI"]
 
     daily_breakdown = itd_result["portfolio"]["breakdowns"]["daily"]
     assert daily_breakdown[4]["period_return"]["base"] == pytest.approx(0.099602, abs=1e-6)
@@ -1870,7 +1870,7 @@ def test_twr_stateful_hashes_follow_resolved_inputs(client, monkeypatch):
         "portfolio_id": "STATEFUL_TWR_HASH_TEST",
         "metric_basis": "NET",
         "report_end_date": "2025-01-02",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "input_mode": "stateful",
         "stateful_input": {},
     }
@@ -1902,7 +1902,7 @@ def test_twr_stateful_hashes_follow_resolved_inputs(client, monkeypatch):
             "performance_start_date": "2024-01-15",
             "metric_basis": "NET",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "valuation_points": [
                 {"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010},
                 {"perf_date": "2025-01-02", "begin_mv": 1010, "end_mv": 1020.1},
@@ -1942,7 +1942,7 @@ def test_twr_reset_scenario_has_correct_summary(client):
         "portfolio_id": "TWR_STRESS_TEST_03",
         "performance_start_date": "2024-12-31",
         "report_end_date": "2025-01-04",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "metric_basis": "GROSS",
         "valuation_points": [
             {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 500.0},
@@ -1955,7 +1955,7 @@ def test_twr_reset_scenario_has_correct_summary(client):
     response = client.post("/performance/twr", json=payload)
     assert response.status_code == 200
     data = response.json()
-    itd_result = data["results_by_period"]["ITD"]
+    itd_result = data["results_by_period"]["SI"]
 
     assert "portfolio" in itd_result
     assert itd_result["portfolio"]["summary"]["period_return"]["base"] == pytest.approx(21.578947, abs=1e-6)

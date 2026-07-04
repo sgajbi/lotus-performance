@@ -190,7 +190,7 @@ POST /performance/benchmark
   "report_end_date": "2026-01-02",
   "analyses": [
     {
-      "period": "ITD",
+      "period": "SI",
       "frequencies": ["daily"]
     }
   ],
@@ -273,7 +273,7 @@ POST /performance/benchmark
   "report_end_date": "2026-01-03",
   "analyses": [
     {
-      "period": "ITD",
+      "period": "SI",
       "frequencies": ["daily"]
     }
   ],
@@ -322,7 +322,7 @@ POST /performance/contribution
   "report_end_date": "2025-01-01",
   "analyses": [
     {
-      "period": "ITD",
+      "period": "SI",
       "frequencies": ["daily"]
     }
   ],
@@ -399,7 +399,7 @@ POST /performance/attribution
   "report_end_date": "2025-01-01",
   "analyses": [
     {
-      "period": "ITD",
+      "period": "SI",
       "frequencies": ["daily"]
     }
   ],

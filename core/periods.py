@@ -4,7 +4,7 @@ from datetime import date
 import pandas as pd
 from pydantic import BaseModel
 
-from common.enums import PeriodType
+from common.enums import PeriodType, canonical_performance_period_code
 from core.envelope import Periods
 from core.errors import APIBadRequestError
 
@@ -28,7 +28,7 @@ def resolve_period(period_model: Periods, as_of: date) -> tuple[date, date]:
     if period_type == "EXPLICIT":
         return _resolve_explicit_period(period_model)
 
-    if period_type == "ITD":
+    if period_type in {"SI", "ITD"}:
         # Cannot be resolved without a true inception date, signal this.
         # The caller (engine) will substitute the portfolio's actual start date.
         return date.min, as_of
@@ -112,12 +112,13 @@ def resolve_periods(
 
         # We wrap the enum in the legacy Periods model to reuse the existing logic.
         # This can be refactored later if the Periods model is fully removed.
-        period_model = Periods(type=period_enum.value)
+        period_name = str(canonical_performance_period_code(period_enum))
+        period_model = Periods(type=period_name)
         start_date, end_date = resolve_period(period_model, as_of)
 
-        # The legacy resolver uses date.min for ITD; we substitute the true inception here.
-        if period_enum == PeriodType.ITD:
+        # The resolver uses date.min for SI; we substitute the true inception here.
+        if period_name == PeriodType.SI.value:
             start_date = performance_start_date
 
-        resolved_list.append(ResolvedPeriod(name=period_enum.value, start_date=start_date, end_date=end_date))
+        resolved_list.append(ResolvedPeriod(name=period_name, start_date=start_date, end_date=end_date))
     return resolved_list

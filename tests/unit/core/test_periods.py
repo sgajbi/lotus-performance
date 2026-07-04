@@ -35,9 +35,10 @@ class ResolvedPeriod(BaseModel):
         ({"type": "5Y"}, "2025-08-31", date(2020, 9, 1), date(2025, 8, 31)),
         ({"type": "ROLLING", "rolling": {"months": 12}}, "2025-08-31", date(2024, 9, 1), date(2025, 8, 31)),
         ({"type": "ROLLING", "rolling": {"days": 63}}, "2025-08-31", date(2025, 6, 30), date(2025, 8, 31)),
+        ({"type": "SI"}, "2025-08-31", date.min, date(2025, 8, 31)),
         ({"type": "ITD"}, "2025-08-31", date.min, date(2025, 8, 31)),
     ],
-    ids=["EXPLICIT", "YTD", "QTD", "MTD", "WTD", "1Y", "3Y", "5Y", "ROLLING_M", "ROLLING_D", "ITD"],
+    ids=["EXPLICIT", "YTD", "QTD", "MTD", "WTD", "1Y", "3Y", "5Y", "ROLLING_M", "ROLLING_D", "SI", "ITD"],
 )
 def test_resolve_period(period_def, as_of, expected_start, expected_end):
     """Tests that all period types are resolved to the correct start and end dates."""
@@ -78,9 +79,9 @@ def test_resolve_periods_multi():
     assert ytd.start_date == date(2025, 1, 1)
     assert ytd.end_date == date(2025, 8, 15)
 
-    itd = next(p for p in resolved if p.name == PeriodType.ITD.value)
-    assert itd.start_date == inception
-    assert itd.end_date == date(2025, 8, 15)
+    si = next(p for p in resolved if p.name == PeriodType.SI.value)
+    assert si.start_date == inception
+    assert si.end_date == date(2025, 8, 15)
 
     y1 = next(p for p in resolved if p.name == PeriodType.ONE_YEAR.value)
     assert y1.start_date == date(2024, 8, 16)

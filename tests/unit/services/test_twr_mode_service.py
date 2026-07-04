@@ -62,7 +62,7 @@ def test_twr_request_needs_retrieval_for_stateful_portfolio_mode():
             "portfolio_id": "PORT_1",
             "metric_basis": "NET",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "input_mode": "stateful",
             "stateful_input": {},
         }
@@ -79,7 +79,7 @@ def test_twr_request_needs_retrieval_skips_plain_stateless_mode():
             "performance_start_date": "2025-01-01",
             "metric_basis": "NET",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "valuation_points": [{"perf_date": "2025-01-02", "begin_mv": 1000, "end_mv": 1010}],
         }
     )
@@ -95,7 +95,7 @@ def test_twr_request_needs_retrieval_for_stateful_benchmark_mode():
             "performance_start_date": "2025-01-01",
             "metric_basis": "NET",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "valuation_points": [{"perf_date": "2025-01-02", "begin_mv": 1000, "end_mv": 1010}],
             "benchmark": {
                 "input_mode": "stateful",
@@ -170,7 +170,7 @@ def test_resolve_stateless_twr_request_projects_benchmark_identity_and_mode():
             "performance_start_date": "2025-01-01",
             "metric_basis": "NET",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "valuation_points": [{"perf_date": "2025-01-02", "begin_mv": 1000, "end_mv": 1010}],
             "benchmark": {
                 "benchmark_id": "BM_GLOBAL_EQ",
@@ -284,7 +284,7 @@ def test_build_twr_normalization_resolution_projects_stateful_valuation_details(
             "portfolio_id": "PORT_1",
             "metric_basis": "NET",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "input_mode": "stateful",
             "stateful_input": {},
         }
@@ -322,7 +322,7 @@ def test_twr_normalization_details_projects_portfolio_and_benchmark_counts():
             "portfolio_id": "PORT_1",
             "metric_basis": "NET",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "input_mode": "stateful",
             "stateful_input": {},
             "benchmark": {
@@ -379,7 +379,7 @@ def test_twr_retrieval_details_merges_portfolio_and_benchmark_sources():
                     "performance_start_date": "2025-01-01",
                     "metric_basis": "NET",
                     "report_end_date": "2025-01-02",
-                    "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+                    "analyses": [{"period": "SI", "frequencies": ["daily"]}],
                     "valuation_points": [{"perf_date": "2025-01-02", "begin_mv": 1000, "end_mv": 1010}],
                     "benchmark": {
                         "benchmark_id": "BMK_1",
@@ -417,7 +417,7 @@ def test_build_resolved_twr_performance_input_projects_stateful_request_fields()
             "portfolio_id": "PORT_1",
             "metric_basis": "NET",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "input_mode": "stateful",
             "stateful_input": {},
             "include_benchmark": True,
@@ -639,7 +639,7 @@ async def test_resolve_twr_request_uses_upstream_open_date_over_request_start(mo
             "performance_start_date": "2024-12-31",
             "metric_basis": "NET",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "input_mode": "stateful",
             "stateful_input": {},
         }
@@ -687,7 +687,7 @@ async def test_resolve_twr_request_allows_missing_stateful_start_date(monkeypatc
             "portfolio_id": "PORT_1",
             "metric_basis": "NET",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "input_mode": "stateful",
             "stateful_input": {},
         }
@@ -740,7 +740,7 @@ async def test_resolve_twr_portfolio_source_input_reports_retrieval_details_from
             "portfolio_id": "PORT_1",
             "metric_basis": "NET",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "input_mode": "stateful",
             "stateful_input": {},
         }
@@ -794,7 +794,7 @@ async def test_resolve_twr_portfolio_start_date_uses_upstream_open_date_when_mis
             "portfolio_id": "PORT_1",
             "metric_basis": "NET",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "input_mode": "stateful",
             "stateful_input": {},
         }
@@ -840,7 +840,7 @@ async def test_resolve_twr_portfolio_start_date_rejects_missing_derived_start():
             "portfolio_id": "PORT_1",
             "metric_basis": "NET",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "input_mode": "stateful",
             "stateful_input": {},
         }
@@ -868,7 +868,7 @@ async def test_resolve_twr_portfolio_start_date_rejects_unresolved_derived_start
             "portfolio_id": "PORT_1",
             "metric_basis": "NET",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "input_mode": "stateful",
             "stateful_input": {},
         }
@@ -906,7 +906,7 @@ async def test_resolve_twr_request_fails_normalization_stage_for_invalid_observa
             "performance_start_date": "2024-12-31",
             "metric_basis": "NET",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "input_mode": "stateful",
             "stateful_input": {},
         }
@@ -1258,7 +1258,7 @@ async def test_resolve_twr_request_fails_when_stateful_portfolio_reference_is_un
             "portfolio_id": "PORT_1",
             "metric_basis": "NET",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "input_mode": "stateful",
             "stateful_input": {},
         }
@@ -1290,7 +1290,7 @@ async def test_resolve_twr_request_404_reference_error_mentions_control_plane(mo
             "portfolio_id": "PORT_1",
             "metric_basis": "NET",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "input_mode": "stateful",
             "stateful_input": {},
         }
@@ -1326,7 +1326,7 @@ async def test_resolve_twr_request_fails_when_stateful_portfolio_reference_date_
             "portfolio_id": "PORT_1",
             "metric_basis": "NET",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "input_mode": "stateful",
             "stateful_input": {},
         }

@@ -598,7 +598,7 @@ When `hierarchy` is present:
 
 - `summary.portfolio_contribution` is the hierarchy-mode top-line contribution for that resolved period
 - `levels[]` contains the bottom-up rollup for that same resolved period
-- multi-period requests return separate hierarchy summaries for `MTD`, `YTD`, `ITD`, and so on, when those periods resolve
+- multi-period requests return separate hierarchy summaries for `MTD`, `YTD`, `SI`, and so on, when those periods resolve
 
 Required reconciliation:
 
@@ -623,7 +623,7 @@ Endpoint certification details are maintained in
   "report_end_date": "2025-01-02",
   "analyses": [
     {
-      "period": "ITD",
+      "period": "SI",
       "frequencies": ["daily"]
     }
   ],
@@ -663,7 +663,7 @@ Endpoint certification details are maintained in
   "calculation_id": "2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e",
   "portfolio_id": "CONTRIB_EXAMPLE_01",
   "results_by_period": {
-    "ITD": {
+    "SI": {
       "summary": {
         "portfolio_contribution": 2.95327
       },

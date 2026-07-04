@@ -48,7 +48,7 @@ async def test_resolve_contribution_request_passthroughs_stateless_mode():
             "portfolio_id": "CONTRIB_1",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "portfolio_data": {
                 "metric_basis": "NET",
                 "valuation_points": [
@@ -77,7 +77,7 @@ def test_resolved_stateless_contribution_request_projects_request_envelope():
             "portfolio_id": "CONTRIB_1",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "portfolio_data": {
                 "metric_basis": "NET",
                 "valuation_points": [
@@ -110,7 +110,7 @@ def test_resolved_stateful_contribution_request_projects_normalized_inputs():
             "portfolio_id": "CONTRIB_1",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "input_mode": "stateful",
             "stateful_input": {},
         }
@@ -197,7 +197,7 @@ async def test_resolve_contribution_request_sources_stateful_payload(monkeypatch
             "portfolio_id": "CONTRIB_1",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "input_mode": "stateful",
             "stateful_input": {},
         }
@@ -264,7 +264,7 @@ async def test_resolve_contribution_request_fails_retrieval_stage_on_source_erro
             "portfolio_id": "CONTRIB_1",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "input_mode": "stateful",
             "stateful_input": {},
         }
@@ -324,7 +324,7 @@ async def test_resolve_contribution_request_allows_currency_mode_both_for_same_c
             "portfolio_id": "CONTRIB_1",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-01",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "currency_mode": "BOTH",
             "report_ccy": "USD",
             "input_mode": "stateful",
@@ -389,7 +389,7 @@ async def test_resolve_contribution_request_rejects_currency_mode_both_without_f
             "portfolio_id": "CONTRIB_1",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-01",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "currency_mode": "BOTH",
             "report_ccy": "USD",
             "input_mode": "stateful",

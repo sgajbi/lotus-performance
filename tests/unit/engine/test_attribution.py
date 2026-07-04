@@ -82,7 +82,7 @@ def by_group_request_data():
         "frequency": "monthly",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-02-28",
-        "analyses": [{"period": "ITD", "frequencies": ["monthly"]}],
+        "analyses": [{"period": "SI", "frequencies": ["monthly"]}],
         "portfolio_groups_data": [
             {
                 "key": {"sector": "Tech"},
@@ -305,7 +305,7 @@ def test_attribution_segment_union_and_order_independence_for_portfolio_and_benc
                 "frequency": "daily",
                 "report_start_date": "2025-01-01",
                 "report_end_date": "2025-01-01",
-                "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+                "analyses": [{"period": "SI", "frequencies": ["daily"]}],
                 "portfolio_groups_data": portfolio_groups,
                 "benchmark_groups_data": benchmark_groups,
             }
@@ -397,7 +397,7 @@ def test_prepare_data_from_instruments():
         "frequency": "daily",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-01",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "portfolio_data": {"metric_basis": "NET", "valuation_points": daily_data_p},
         "instruments_data": [
             {"instrument_id": "AAPL", "meta": {"sector": "Tech"}, "valuation_points": daily_data_aapl},
@@ -429,7 +429,7 @@ def test_prepare_data_from_instruments_missing_portfolio_data():
         "frequency": "daily",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-01",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
     }
     request = AttributionRequest.model_validate(request_data)
     with pytest.raises(ValueError, match="'portfolio_data' and 'instruments_data' are required"):
@@ -445,7 +445,7 @@ def test_prepare_data_from_instruments_returns_empty_when_all_inputs_empty():
         "frequency": "daily",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-01",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "NET",
             "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1000}],
@@ -466,7 +466,7 @@ def test_prepare_data_from_instruments_zero_portfolio_capital_forces_zero_group_
         "frequency": "daily",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-01",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "NET",
             "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 0, "bod_cf": 0, "end_mv": 0}],
@@ -499,7 +499,7 @@ def test_prepare_data_from_instruments_preserves_unclassified_weight():
         "frequency": "daily",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-01",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "NET",
             "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1015}],
@@ -536,7 +536,7 @@ def test_instrument_attribution_panels_skips_empty_instruments_and_keeps_valid_p
             "frequency": "daily",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-01",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "portfolio_data": {
                 "metric_basis": "NET",
                 "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
@@ -574,7 +574,7 @@ def test_build_instrument_attribution_panel_uses_base_weight_points():
             "frequency": "daily",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-01",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "portfolio_data": {
                 "metric_basis": "NET",
                 "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
@@ -676,7 +676,7 @@ def test_build_instrument_attribution_panel_backfills_same_currency_returns():
             "report_ccy": "USD",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-01",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "portfolio_data": {
                 "metric_basis": "NET",
                 "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
@@ -872,7 +872,7 @@ def test_prepare_data_from_instruments_populates_same_currency_local_and_fx_colu
             "report_ccy": "USD",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-01",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "portfolio_data": {
                 "metric_basis": "NET",
                 "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1010}],
@@ -941,7 +941,7 @@ def test_align_and_prepare_data_uses_period_start_weights_for_sparse_groups():
             "frequency": "monthly",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-31",
-            "analyses": [{"period": "ITD", "frequencies": ["monthly"]}],
+            "analyses": [{"period": "SI", "frequencies": ["monthly"]}],
             "portfolio_groups_data": [
                 {
                     "key": {"sector": "existing"},
@@ -1135,7 +1135,7 @@ def test_currency_attribution_totals_are_invariant_to_extra_grouping_dimensions(
             "report_ccy": "USD",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-01",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "portfolio_groups_data": [
                 {
                     "key": {"currency": "EUR", "sector": "Equity"},
@@ -1248,7 +1248,7 @@ def test_run_attribution_calculations_by_instrument_projects_group_effects():
             "frequency": "daily",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-01",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "portfolio_data": {
                 "metric_basis": "NET",
                 "valuation_points": [{"perf_date": "2025-01-01", "begin_mv": 1000, "end_mv": 1020}],
@@ -1310,7 +1310,7 @@ def test_attribution_supportability_evidence_flags_alignment_and_source_quality_
             "frequency": "daily",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-01",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "portfolio_groups_data": [
                 {
                     "key": {"sector": "Tech"},
@@ -1383,7 +1383,7 @@ def test_attribution_supportability_evidence_flags_currency_and_linking_gaps():
             "report_ccy": "USD",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "portfolio_groups_data": [
                 {
                     "key": {"currency": "USD"},
@@ -1427,7 +1427,7 @@ def test_currency_attribution_fails_closed_when_currency_grouping_is_absent():
             "report_ccy": "USD",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-01",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "portfolio_groups_data": [
                 {
                     "key": {"sector": "Global Equity"},
@@ -1480,7 +1480,7 @@ def test_attribution_linking_flags_invalid_return_chain_from_regression_pack():
             "frequency": "daily",
             "report_start_date": "2025-01-01",
             "report_end_date": "2025-01-02",
-            "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+            "analyses": [{"period": "SI", "frequencies": ["daily"]}],
             "portfolio_groups_data": [
                 {
                     "key": {"sector": "Equity"},

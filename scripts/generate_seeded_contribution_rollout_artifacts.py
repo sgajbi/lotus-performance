@@ -91,7 +91,7 @@ def _seed_no_material_shadow_response(client: TestClient) -> dict:
         "portfolio_id": "SEEDED_NO_MATERIAL",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-02",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "NET",
             "valuation_points": [
@@ -178,7 +178,7 @@ def _seed_promoted_candidate_response(client: TestClient) -> dict:
         "portfolio_id": "SEEDED_PROMOTED",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-03",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "NET",
             "valuation_points": [
@@ -207,7 +207,7 @@ def _seed_ready_candidate_shadow_only_response(client: TestClient) -> dict:
         "portfolio_id": "SEEDED_READY_CANDIDATE",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-03",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "NET",
             "valuation_points": [
@@ -250,7 +250,7 @@ def _seed_blocked_flow_response(client: TestClient) -> dict:
         "portfolio_id": "SEEDED_BLOCKED_FLOW",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-03",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "NET",
             "valuation_points": [
@@ -292,7 +292,7 @@ def _seed_blocked_reset_alignment_response(client: TestClient) -> dict:
         "portfolio_id": "SEEDED_BLOCKED_RESET_ALIGNMENT",
         "report_start_date": "2025-01-01",
         "report_end_date": "2025-01-03",
-        "analyses": [{"period": "ITD", "frequencies": ["daily"]}],
+        "analyses": [{"period": "SI", "frequencies": ["daily"]}],
         "portfolio_data": {
             "metric_basis": "NET",
             "valuation_points": [
