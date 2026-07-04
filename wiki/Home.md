@@ -11,7 +11,7 @@ repo, links to deeper evidence, and separates supported product claims from road
 | Need | Start with |
 | --- | --- |
 | Repository orientation | [README.md](../README.md), [Overview](Overview) |
-| Engineering context | [REPOSITORY-ENGINEERING-CONTEXT.md](../REPOSITORY-ENGINEERING-CONTEXT.md), [Development Workflow](Development-Workflow) |
+| Engineering and agent context | [AGENTS.md](../AGENTS.md), [REPOSITORY-ENGINEERING-CONTEXT.md](../REPOSITORY-ENGINEERING-CONTEXT.md), [Development Workflow](Development-Workflow) |
 | Repository pack indexes | [app](../app/README.md), [docs](../docs/README.md), [contracts](../contracts/README.md), [quality](../quality/README.md), [scripts](../scripts/README.md), [tests](../tests/README.md), [monitoring](../monitoring/README.md), [wiki source](../wiki/README.md) |
 | Runtime architecture | [Architecture](Architecture), [docs/technical/runtime_topology.md](../docs/technical/runtime_topology.md) |
 | API and contracts | [API Surface](API-Surface), [docs/guides/api_reference.md](../docs/guides/api_reference.md) |
@@ -73,7 +73,7 @@ make demo-api-certification
 | --- | --- | --- |
 | Business, sales, and demo teams | [Supported Features](Supported-Features), [Demo Readiness Guide](../docs/guides/demo_readiness.md) | Understand which analytics claims are implementation-backed and how to review repeatable demo evidence. |
 | Operators and support | [Operations Runbook](Operations-Runbook), [Troubleshooting](Troubleshooting), [Validation and CI](Validation-and-CI) | Review runtime posture, readiness, recovery, retention, metrics, and support triage paths. |
-| Engineers and agents | [API Surface](API-Surface), [Development Workflow](Development-Workflow), [REPOSITORY-ENGINEERING-CONTEXT.md](../REPOSITORY-ENGINEERING-CONTEXT.md) | Keep API contracts, docs, tests, and repo-native gates synchronized with implementation truth. |
+| Engineers and agents | [AGENTS.md](../AGENTS.md), [Development Workflow](Development-Workflow), [REPOSITORY-ENGINEERING-CONTEXT.md](../REPOSITORY-ENGINEERING-CONTEXT.md), [API Surface](API-Surface) | Follow the governed operating contract before repo-local context, then keep API contracts, docs, tests, and repo-native gates synchronized with implementation truth. |
 
 ## Repository pack indexes
 

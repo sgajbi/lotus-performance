@@ -2,11 +2,18 @@
 
 This file provides repository-local engineering context for `lotus-performance`.
 
-For platform-wide truth, read:
+Agent and engineer orientation:
 
-1. `../lotus-platform/context/LOTUS-QUICKSTART-CONTEXT.md`
-2. `../lotus-platform/context/LOTUS-ENGINEERING-CONTEXT.md`
-3. `../lotus-platform/context/CONTEXT-REFERENCE-MAP.md`
+1. Start with `AGENTS.md`; it is the governed operating contract and mandatory reading-order
+   source.
+2. Treat this file as step 4 in that sequence: repo-local implementation truth after platform
+   quickstart and engineering context are loaded.
+3. Use `../lotus-platform/context/CONTEXT-REFERENCE-MAP.md` to find relevant standards, RFCs,
+   runbooks, and registries without loading broad context blindly.
+4. Use `../lotus-platform/context/PROCEDURAL-MEMORY-INDEX.md` when the task is primarily about
+   execution method, PR loops, fix-forward work, validation depth, or long-running task handoff.
+5. Consult `../lotus-platform/context/LOTUS-SKILL-ROUTING-MAP.md` before choosing between
+   overlapping Lotus skills.
 
 ## Repository Role
 
