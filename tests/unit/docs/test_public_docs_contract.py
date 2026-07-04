@@ -67,6 +67,40 @@ def test_agent_reading_order_is_discoverable_from_primary_context_surfaces():
     assert "Follow the governed operating contract before repo-local context" in wiki_home
 
 
+def test_issue_fix_closure_matrix_is_discoverable_and_merge_gated():
+    docs_index = _read("docs/README.md")
+    review_playbook = _read("docs/architecture/CODEBASE-REVIEW-PLAYBOOK.md")
+    closure_matrix = _read("docs/architecture/ISSUE-FIX-CLOSURE-MATRIX.md")
+
+    assert "Review playbook, issue closure matrix, and codebase review ledger" in docs_index
+    assert "ISSUE-FIX-CLOSURE-MATRIX.md" in review_playbook
+    assert "before PR creation or issue closure" in review_playbook
+    assert "Actionable issues fixed locally | 13" in closure_matrix
+    assert "Issues safe to close now | 0" in closure_matrix
+    assert "merged to `main`" in closure_matrix
+    assert "No PR should be raised from this branch until the issue matrix remains complete" in closure_matrix
+
+    for issue_number in (
+        "#387",
+        "#388",
+        "#389",
+        "#390",
+        "#391",
+        "#392",
+        "#393",
+        "#396",
+        "#397",
+        "#398",
+        "#399",
+        "#400",
+        "#401",
+    ):
+        assert f"`{issue_number}`" in closure_matrix
+
+    assert "`#380` Lotus Performance Issue Discovery Ledger | Tracking ledger" in closure_matrix
+    assert "Keep open." in closure_matrix
+
+
 def test_cleanup_scope_is_documented_for_generated_runtime_artifacts():
     readme = _read("README.md")
     repository_context = _read("REPOSITORY-ENGINEERING-CONTEXT.md")

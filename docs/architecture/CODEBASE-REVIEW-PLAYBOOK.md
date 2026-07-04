@@ -15,6 +15,8 @@ The goal is not one cleanup pass. The goal is a durable review program with:
 The companion ledger is:
 
 - [CODEBASE-REVIEW-LEDGER.md](./CODEBASE-REVIEW-LEDGER.md)
+- [ISSUE-FIX-CLOSURE-MATRIX.md](./ISSUE-FIX-CLOSURE-MATRIX.md) for active GitHub issue batches
+  before PR creation or issue closure.
 
 ## Review principles
 

@@ -16,7 +16,7 @@ and quality family without executing tests or requiring coverage data.
 ```powershell
 python scripts/python_test_taxonomy_inventory.py --limit 30
 python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 607 --min-contract-governance-tests 111 --max-uncategorized-tests 1148
-python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 643 --min-contract-governance-tests 125 --max-uncategorized-tests 1019
+python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 643 --min-contract-governance-tests 126 --max-uncategorized-tests 1019
 ```
 
 ## Summary
@@ -24,9 +24,9 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 288 |
-| Test functions inventoried | 3400 |
+| Test functions inventoried | 3401 |
 | Integration/API/runtime test functions | 643 |
-| Contract/governance test functions | 125 |
+| Contract/governance test functions | 126 |
 
 ## Test Functions By Suite
 
@@ -35,7 +35,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 18 |
 | e2e | 1 | 21 |
 | integration | 26 | 325 |
-| unit | 252 | 3036 |
+| unit | 252 | 3037 |
 
 ## Test Functions By Family
 
@@ -43,7 +43,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | --- | ---: |
 | analytics_domain | 1529 |
 | api_or_runtime | 643 |
-| contract_or_governance | 125 |
+| contract_or_governance | 126 |
 | observability_or_readiness | 283 |
 | quality_or_security | 137 |
 | uncategorized | 1019 |
@@ -57,7 +57,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | 3 | `tests/unit/services/test_stateful_attribution_input_service.py` | unit | 70 | analytics_domain |
 | 4 | `tests/unit/app/test_openapi_enrichment.py` | unit | 61 | api_or_runtime |
 | 5 | `tests/unit/services/test_compute_job_store.py` | unit | 61 | observability_or_readiness |
-| 6 | `tests/unit/docs/test_public_docs_contract.py` | unit | 57 | contract_or_governance |
+| 6 | `tests/unit/docs/test_public_docs_contract.py` | unit | 58 | contract_or_governance |
 | 7 | `tests/unit/engine/test_attribution.py` | unit | 57 | analytics_domain |
 | 8 | `tests/unit/services/test_twr_inspection_source_economics.py` | unit | 57 | analytics_domain |
 | 9 | `tests/unit/services/test_lineage_metadata_store.py` | unit | 56 | uncategorized |
