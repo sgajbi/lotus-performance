@@ -81,16 +81,21 @@ Current repository posture:
     the relevant position context contains actual Core-authored `source_rows`.
     `lotus-performance` still owns contribution methodology and treats non-200 or unavailable
     component-economics responses as degraded evidence rather than as a required-input failure.
-15. HTTP boundary hardening is centralized in `app.http_security`: `HTTP_ALLOWED_HOSTS` controls
+15. Benchmark composition-window and index price-series dependencies are repo-native active
+    consumer declarations through `BenchmarkConstituentWindow:v1` and `IndexSeriesWindow:v1`.
+    Benchmark definition, benchmark vendor return-series, index catalog, and FX operational-read
+    dependencies remain governed by `docs/technical/RFC-0082-upstream-contract-family-map.md`
+    until matching upstream producer declarations are onboarded for repo-native consumer coverage.
+16. HTTP boundary hardening is centralized in `app.http_security`: `HTTP_ALLOWED_HOSTS` controls
     host allow-listing, `CORS_ALLOWED_ORIGINS` controls explicit browser origins, standard security
     headers are emitted on success and error responses, and `HTTP_SECURITY_HSTS_ENABLED` is used
     only when the service owns the HTTPS boundary rather than delegating TLS to ingress. Local
     canonical Docker deployments must allow `host.docker.internal` because `lotus-gateway` reaches
     `lotus-performance` through that Docker-to-host alias.
-16. API runtime serialization uses standard FastAPI/Pydantic response-model behavior. Do not add
+17. API runtime serialization uses standard FastAPI/Pydantic response-model behavior. Do not add
     global null stripping: OpenAPI nullable fields must be returned as explicit JSON `null` values
     unless a route explicitly documents sparse `response_model_exclude_none=True` behavior.
-17. MWR cash-flow methodology is source-owned and window-bounded. Stateless MWR rejects cash-flow
+18. MWR cash-flow methodology is source-owned and window-bounded. Stateless MWR rejects cash-flow
     dates outside the resolved measurement window with `MWR_CASH_FLOW_OUT_OF_WINDOW`; stateful MWR
     uses the selected stateful input window, preserves source transaction/event lifecycle identity
     when supplied by `lotus-core`, reports bounded `source_cashflow_quality` inclusion/exclusion

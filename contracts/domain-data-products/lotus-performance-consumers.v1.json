@@ -187,6 +187,54 @@
       "migration_posture": {
         "status": "current"
       }
+    },
+    {
+      "product_name": "BenchmarkConstituentWindow",
+      "producer_repository": "lotus-core",
+      "required_product_version": "v1",
+      "consumption_mode": "api_read",
+      "business_purpose": "Source benchmark constituent, effective-date, and weight windows for stateful calculated benchmark performance and benchmark-aware TWR workflows.",
+      "validation_lanes": [
+        "feature",
+        "pr-merge"
+      ],
+      "failure_posture": "fail_closed",
+      "required_trust_metadata": [
+        "generated_at",
+        "as_of_date",
+        "reconciliation_status",
+        "data_quality_status",
+        "latest_evidence_timestamp",
+        "source_batch_fingerprint",
+        "correlation_id"
+      ],
+      "migration_posture": {
+        "status": "current"
+      }
+    },
+    {
+      "product_name": "IndexSeriesWindow",
+      "producer_repository": "lotus-core",
+      "required_product_version": "v1",
+      "consumption_mode": "api_read",
+      "business_purpose": "Source canonical index price-series windows for stateful calculated benchmark performance and component return derivation.",
+      "validation_lanes": [
+        "feature",
+        "pr-merge"
+      ],
+      "failure_posture": "fail_closed",
+      "required_trust_metadata": [
+        "generated_at",
+        "as_of_date",
+        "reconciliation_status",
+        "data_quality_status",
+        "latest_evidence_timestamp",
+        "source_batch_fingerprint",
+        "correlation_id"
+      ],
+      "migration_posture": {
+        "status": "current"
+      }
     }
   ]
 }

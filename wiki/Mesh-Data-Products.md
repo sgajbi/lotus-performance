@@ -126,6 +126,23 @@
   context as source-owned evidence, but must not redefine benchmark composition or valuation-date
   alignment outside the performance product contract.
 
+## Governed upstream dependencies
+
+`lotus-performance` consumes active `lotus-core` data products through
+`contracts/domain-data-products/lotus-performance-consumers.v1.json`.
+
+Current benchmark and index consumer coverage includes:
+
+| Upstream product | Producer | Performance use | Failure posture |
+| --- | --- | --- | --- |
+| `BenchmarkConstituentWindow:v1` | `lotus-core` | Benchmark constituent, effective-date, and weight windows for stateful calculated benchmark performance and benchmark-aware TWR workflows. | Fail closed |
+| `IndexSeriesWindow:v1` | `lotus-core` | Canonical index price-series windows for calculated benchmark performance and component return derivation. | Fail closed |
+
+Benchmark definition, benchmark vendor return-series, index catalog, and FX operational-read
+dependencies remain governed by
+[docs/technical/RFC-0082-upstream-contract-family-map.md](../docs/technical/RFC-0082-upstream-contract-family-map.md)
+until matching upstream producer declarations are available for repo-native consumer coverage.
+
 ## Platform relationship
 
 `lotus-platform` aggregates the repo-native declaration, validates trust telemetry, applies mesh SLO/access/evidence policies, and includes this product in generated catalog, dependency graph, live certification, maturity matrix, evidence packs, and RFC-0092 operating reports.

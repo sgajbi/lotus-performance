@@ -46,7 +46,9 @@ Current coverage boundary:
    `MandatePerformanceHealthContext`, `BenchmarkExposureContext`, and `CompositePerformanceAnalytics`
    products
    plus the first-wave `lotus-core` dependency declarations already aligned under RFC-0084,
-2. benchmark-definition, benchmark-composition, vendor-return, index-catalog, index-price-series, and
-   FX operational-read dependencies remain documented in `docs/technical/RFC-0082-upstream-contract-family-map.md`
-   but are not yet machine-readable here because the corresponding upstream producer declarations have not
-   been onboarded yet.
+2. benchmark composition-window and index price-series dependencies are now machine-readable
+   `BenchmarkConstituentWindow:v1` and `IndexSeriesWindow:v1` consumer declarations because active
+   upstream producer declarations exist in `lotus-platform`.
+3. benchmark-definition, vendor-return, index-catalog, and FX operational-read dependencies remain
+   documented in `docs/technical/RFC-0082-upstream-contract-family-map.md` until corresponding
+   upstream producer declarations are onboarded for repo-native consumer coverage.
