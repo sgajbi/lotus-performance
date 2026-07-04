@@ -65,6 +65,30 @@ def test_agent_reading_order_is_discoverable_from_primary_context_surfaces():
     assert "Follow the governed operating contract before repo-local context" in wiki_home
 
 
+def test_cleanup_scope_is_documented_for_generated_runtime_artifacts():
+    readme = _read("README.md")
+    repository_context = _read("REPOSITORY-ENGINEERING-CONTEXT.md")
+    wiki_development = _read("wiki/Development-Workflow.md")
+    wiki_validation = _read("wiki/Validation-and-CI.md")
+    ci_quality_gates = _read("quality/ci_quality_gates.md")
+
+    for document in (readme, repository_context, wiki_development, wiki_validation):
+        document_flat = " ".join(document.split())
+        assert "make clean" in document
+        assert "artifacts/" in document
+        assert "output/" in document
+        assert "lineage_data/" in document
+        assert "SQLite/log sidecars" in document_flat
+        assert "docs/" in document
+        assert "contracts/" in document
+        assert "wiki/" in document
+        assert "quality/" in document
+
+    assert "scripts/clean_generated_artifacts.py" in readme
+    assert "scripts/clean_generated_artifacts.py" in repository_context
+    assert "source-truth preservation" in ci_quality_gates
+
+
 def test_repo_context_matches_trust_telemetry_coverage_boundary():
     repository_context = _read("REPOSITORY-ENGINEERING-CONTEXT.md")
     trust_telemetry_readme = _read("contracts/trust-telemetry/README.md")

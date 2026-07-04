@@ -19,6 +19,10 @@ make quality measurable and repeatable, not to treat CI as a ceremonial final st
 - `make repository-hygiene-gate`
   tracked-source hygiene proof that local Python caches, virtual environments, coverage files,
   build outputs, logs, and local databases were not committed
+- `make clean`
+  local cleanup for ignored `artifacts/`, `output/`, `lineage_data/`, SQLite/log sidecars, caches,
+  coverage files, and build outputs; durable source truth under `docs/`, `contracts/`, `wiki/`, and
+  `quality/` is preserved
 - `make quality-observability-readiness-gate`
   static quality proof that health/metrics endpoint, correlation propagation, structured logging,
   metrics, and readiness implementation markers have no missing entries

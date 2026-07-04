@@ -17,6 +17,7 @@ make test-unit
 make test-integration
 make test-e2e
 make repository-hygiene-gate
+make clean
 make branch-coverage-baseline
 make check
 make ci
@@ -26,6 +27,9 @@ make ci
 
 - preserve OpenAPI and vocabulary truth
 - keep local cache, coverage, build, log, virtual-environment, and database artifacts out of Git
+- use `make clean` to remove ignored `artifacts/`, `output/`, `lineage_data/`, local SQLite/log
+  sidecars, caches, and coverage byproducts without deleting durable source truth under `docs/`,
+  `contracts/`, `wiki/`, or `quality/`
 - treat async execution and lineage as contract behavior, not implementation detail
 - keep benchmark and stateful integration language aligned to RFC-0082
 - respect the docs regression pack when changing `README.md` or public guides

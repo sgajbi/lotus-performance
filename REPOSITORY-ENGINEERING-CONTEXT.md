@@ -219,8 +219,10 @@ Important validation expectations:
    rather than refreshing `docs/standards/monetary-float-allowlist.json` as incidental churn.
 8. `make lint` includes `make repository-hygiene-gate`, which blocks tracked local byproducts such
    as Python caches, virtual environments, local coverage files, build outputs, logs, and local
-   database files. `make clean` delegates to `scripts/clean_generated_artifacts.py` so cleanup
-   behavior remains reviewable and test-backed.
+   database files. `make clean` delegates to `scripts/clean_generated_artifacts.py` and removes
+   ignored runtime/evidence roots such as `artifacts/`, `output/`, and `lineage_data/` plus local
+   SQLite/log sidecars while preserving source truth under `docs/`, `contracts/`, `wiki/`, and
+   `quality/`, so cleanup behavior remains reviewable and test-backed.
 9. `make lint` includes `make github-action-runtime-guard`, which blocks stale GitHub artifact
    action majors and any workflow job missing a role-sized `timeout-minutes` value. New workflow
    jobs must declare bounded execution budgets rather than relying on GitHub's broad platform

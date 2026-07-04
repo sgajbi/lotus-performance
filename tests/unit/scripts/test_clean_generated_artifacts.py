@@ -17,6 +17,28 @@ def test_build_cleanup_plan_collects_known_local_artifacts(tmp_path) -> None:
     assert plan.files == (coverage_file,)
 
 
+def test_build_cleanup_plan_collects_runtime_roots_and_local_database_artifacts(tmp_path) -> None:
+    runtime_roots = [tmp_path / "artifacts", tmp_path / "output", tmp_path / "lineage_data"]
+    for runtime_root in runtime_roots:
+        runtime_root.mkdir()
+        (runtime_root / "latest.json").write_text("generated", encoding="utf-8")
+    database_files = [
+        tmp_path / "lineage_metadata.db",
+        tmp_path / "lineage_metadata.db-wal",
+        tmp_path / "runtime.sqlite",
+        tmp_path / "runtime.sqlite3-shm",
+        tmp_path / "local.log",
+        tmp_path / ".coverage.branch.unit",
+    ]
+    for database_file in database_files:
+        database_file.write_text("local", encoding="utf-8")
+
+    plan = build_cleanup_plan(tmp_path)
+
+    assert set(plan.directories) == set(runtime_roots)
+    assert set(plan.files) == set(database_files)
+
+
 def test_build_cleanup_plan_prunes_git_venv_and_node_modules(tmp_path) -> None:
     for pruned_root in [".git", ".venv", "venv", "node_modules"]:
         cache_dir = tmp_path / pruned_root / "__pycache__"
@@ -74,3 +96,30 @@ def test_clean_generated_artifacts_removes_only_planned_artifacts(tmp_path) -> N
     assert not cache_dir.exists()
     assert not coverage_file.exists()
     assert source_file.exists()
+
+
+def test_clean_generated_artifacts_removes_runtime_artifacts_without_source_truth(tmp_path) -> None:
+    runtime_root = tmp_path / "output"
+    runtime_file = runtime_root / "demo-api-certification" / "latest.json"
+    runtime_file.parent.mkdir(parents=True)
+    runtime_file.write_text("generated", encoding="utf-8")
+    database_file = tmp_path / "lineage_metadata.db"
+    database_file.write_text("local", encoding="utf-8")
+    protected_files = [
+        tmp_path / "docs" / "example.db",
+        tmp_path / "contracts" / "contract.sqlite",
+        tmp_path / "quality" / "quality.db",
+        tmp_path / "wiki" / "audit.log",
+    ]
+    for protected_file in protected_files:
+        protected_file.parent.mkdir(parents=True, exist_ok=True)
+        protected_file.write_text("source truth", encoding="utf-8")
+
+    plan = clean_generated_artifacts(tmp_path)
+
+    assert plan.directories == (runtime_root,)
+    assert plan.files == (database_file,)
+    assert not runtime_root.exists()
+    assert not database_file.exists()
+    for protected_file in protected_files:
+        assert protected_file.exists()
