@@ -908,6 +908,16 @@ def test_enterprise_runtime_config_issues_reports_production_authz_posture(monke
     ]
 
 
+def test_enterprise_runtime_config_issues_does_not_duplicate_primary_key_issue(monkeypatch):
+    monkeypatch.setenv(_ENV_ENTERPRISE_RUNTIME_PROFILE, "production")
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_AUTHZ, "true")
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ, "true")
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_RUNTIME_CONFIG, "true")
+    monkeypatch.delenv(_ENV_ENTERPRISE_PRIMARY_KEY_ID, raising=False)
+
+    assert _enterprise_runtime_config_issues() == [_MISSING_PRIMARY_KEY_ID_ISSUE]
+
+
 def test_runtime_config_issues_raise_for_production_profile_even_without_runtime_config_flag(monkeypatch):
     monkeypatch.setenv(_ENV_ENTERPRISE_RUNTIME_PROFILE, "production")
     monkeypatch.delenv(_ENV_ENTERPRISE_ENFORCE_RUNTIME_CONFIG, raising=False)
