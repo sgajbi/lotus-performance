@@ -181,7 +181,11 @@ def test_cash_flow_conversion_factor_allows_missing_or_same_currency_metadata():
 def test_has_cash_flow_position_currency_mismatch_requires_non_empty_string_values():
     assert _has_cash_flow_position_currency_mismatch({"cash_flow_currency": "USD", "position_currency": "EUR"})
     assert not _has_cash_flow_position_currency_mismatch({"cash_flow_currency": "USD", "position_currency": "USD"})
+    assert not _has_cash_flow_position_currency_mismatch({"cash_flow_currency": " usd ", "position_currency": "USD"})
+    assert not _has_cash_flow_position_currency_mismatch({"cash_flow_currency": "Usd", "position_currency": "usd"})
     assert not _has_cash_flow_position_currency_mismatch({"cash_flow_currency": "", "position_currency": "USD"})
+    assert not _has_cash_flow_position_currency_mismatch({"cash_flow_currency": " ", "position_currency": "USD"})
     assert not _has_cash_flow_position_currency_mismatch({"cash_flow_currency": "USD", "position_currency": ""})
+    assert not _has_cash_flow_position_currency_mismatch({"cash_flow_currency": "USD", "position_currency": " "})
     assert not _has_cash_flow_position_currency_mismatch({"cash_flow_currency": None, "position_currency": "USD"})
     assert not _has_cash_flow_position_currency_mismatch({"cash_flow_currency": "USD", "position_currency": 12})

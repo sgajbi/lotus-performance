@@ -2114,6 +2114,13 @@ def test_stateful_attribution_both_currency_validation_errors_are_explicit():
             fx=None,
         )
 
+    with pytest.raises(APIError, match="requires position_currency"):
+        _validate_stateful_both_currency_support(
+            rows=[{"position_id": "POS_1", "position_currency": " "}],
+            reporting_currency="USD",
+            fx=None,
+        )
+
     with pytest.raises(APIError, match="requires fx.rates"):
         _validate_stateful_both_currency_support(
             rows=[{"position_id": "POS_1", "position_currency": "EUR"}],
@@ -2125,28 +2132,28 @@ def test_stateful_attribution_both_currency_validation_errors_are_explicit():
 def test_stateful_both_currency_requires_fx_only_for_non_reporting_currencies():
     assert (
         _stateful_both_currency_requires_fx(
-            position_currencies={"USD"},
+            position_currencies={" usd ", "Usd"},
             reporting_currency="USD",
         )
         is False
     )
     assert (
         _stateful_both_currency_requires_fx(
-            position_currencies={"USD", "EUR"},
-            reporting_currency="USD",
+            position_currencies={"usd", "EUR"},
+            reporting_currency=" usd ",
         )
         is True
     )
 
 
-def test_stateful_position_currencies_preserves_non_empty_strings_and_ignores_missing_values():
+def test_stateful_position_currencies_normalizes_codes_and_ignores_blank_values():
     assert _stateful_position_currencies(
         [
-            {"position_id": "POS_1", "position_currency": "EUR"},
+            {"position_id": "POS_1", "position_currency": " eur "},
             {"position_id": "POS_2", "position_currency": " "},
             {"position_id": "POS_3", "position_currency": ""},
             {"position_id": "POS_4", "position_currency": None},
             {"position_id": "POS_5", "position_currency": 123},
-            {"position_id": "POS_6", "position_currency": "USD"},
+            {"position_id": "POS_6", "position_currency": "usd"},
         ]
-    ) == {" ", "EUR", "USD"}
+    ) == {"EUR", "USD"}

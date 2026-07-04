@@ -489,6 +489,7 @@ def test_build_stateful_contribution_input_rejects_invalid_both_currency_request
         position_rows=[
             {
                 "position_id": "POS_1",
+                "position_currency": " ",
                 "valuation_date": "2025-01-01",
                 "beginning_market_value_position_currency": "900",
                 "ending_market_value_position_currency": "909",
@@ -519,31 +520,31 @@ def test_build_stateful_contribution_input_rejects_invalid_both_currency_request
 def test_stateful_contribution_both_currency_requires_fx_only_for_non_reporting_currencies():
     assert (
         _stateful_both_currency_requires_fx(
-            position_currencies={"USD"},
+            position_currencies={" usd ", "Usd"},
             reporting_currency="USD",
         )
         is False
     )
     assert (
         _stateful_both_currency_requires_fx(
-            position_currencies={"USD", "EUR"},
-            reporting_currency="USD",
+            position_currencies={"usd", "EUR"},
+            reporting_currency=" usd ",
         )
         is True
     )
 
 
-def test_stateful_contribution_position_currencies_preserves_non_empty_strings_and_ignores_missing_values():
+def test_stateful_contribution_position_currencies_normalizes_codes_and_ignores_blank_values():
     assert _stateful_position_currencies(
         [
-            {"position_id": "POS_1", "position_currency": "EUR"},
+            {"position_id": "POS_1", "position_currency": " eur "},
             {"position_id": "POS_2", "position_currency": " "},
             {"position_id": "POS_3", "position_currency": ""},
             {"position_id": "POS_4", "position_currency": None},
             {"position_id": "POS_5", "position_currency": 123},
-            {"position_id": "POS_6", "position_currency": "USD"},
+            {"position_id": "POS_6", "position_currency": "usd"},
         ]
-    ) == {" ", "EUR", "USD"}
+    ) == {"EUR", "USD"}
 
 
 def test_position_row_to_daily_point_falls_back_to_portfolio_values_when_reporting_values_are_missing():

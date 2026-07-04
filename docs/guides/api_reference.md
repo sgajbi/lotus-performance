@@ -463,6 +463,7 @@ Return semantics for the workspace surface are now explicit rather than inferred
     - `mode=by_instrument` only
     - `group_by` limited to canonical lotus-core attribution dimensions plus `currency`: `asset_class`, `sector`, `country`, `currency`
     - `currency_mode=BOTH` requires `report_ccy`
+    - `currency_mode=BOTH` trims and uppercases source `position_currency` and `report_ccy` codes before mixed-currency gating
     - `currency_mode=BOTH` requires `fx.rates` when sourced positions include currencies different from `report_ccy`
 - execution mode:
   - synchronous for smaller stateless sets and smaller stateful windows

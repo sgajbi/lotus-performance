@@ -48,6 +48,8 @@ The current stateful public contract is intentionally fenced to:
 - `mode="by_instrument"`
 - `group_by` limited to `asset_class`, `sector`, `country`, or `currency`
 - `currency_mode="BOTH"` requires `report_ccy`
+- `currency_mode="BOTH"` requires source position currencies and compares them to `report_ccy`
+  after trimming and uppercasing currency codes
 - `currency_mode="BOTH"` requires `fx.rates` when sourced positions include currencies different from `report_ccy`
 
 Optional controls include:

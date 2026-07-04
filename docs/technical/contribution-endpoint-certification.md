@@ -109,8 +109,8 @@ Stateful normalization maps lotus-core position rows into canonical contribution
 - source cash-flow type counts, selected FX metadata, and selected classification dimensions are
   preserved into `source_economics_evidence`;
 - mixed-currency stateful contribution in `currency_mode="BOTH"` fails closed with HTTP `422` when
-  sourced positions include currencies different from `report_ccy` and the request does not supply
-  `fx.rates`;
+  sourced positions include currencies different from `report_ccy` after trimming and uppercasing
+  currency codes and the request does not supply `fx.rates`;
 - `include_cash_flows=false` is a scoped-source option that can intentionally remove cash-flow
   rows from the position story, and diagnostics should be read carefully when this creates
   non-flow-neutral slices.
