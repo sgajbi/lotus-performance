@@ -1,7 +1,7 @@
 # Lotus Performance Progressive CI Quality Gates
 
-Report date: 2026-06-30
-Branch: `feature/runtime-recovery-queue-result-boundary`
+Report date: 2026-07-04
+Branch: `fix/issue-397-inspection-artifact-authz`
 Baseline sources: `quality/baseline_report.md`, `quality/refactor_health_report.md`, `quality/quality_scorecard.md`
 Mode: progressive gate map; remediated complexity, architecture-boundary, router-thinness,
 duplicate-code, repository hygiene, observability-readiness, domain-product validation,
@@ -72,7 +72,7 @@ No gate should move from one phase to the next until it has:
 | mypy typecheck | Blocking in feature, PR, and main lanes | Keep blocking; expand typed boundary cleanup through normal refactor slices. |
 | Unit tests | Blocking in feature, PR, and main lanes | Keep blocking; add focused tests when refactoring hotspots. |
 | Integration and e2e tests | Blocking in PR and main lanes | Keep blocking at merge/release lanes; use targeted local subsets during slices. |
-| Test taxonomy | Blocking through `make quality-test-taxonomy-gate`, which runs `scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 607 --min-contract-governance-tests 111 --max-uncategorized-tests 1148`; current AST inventory shows 281 modules, 3,225 source test functions, 608 integration/API/runtime test functions, 111 contract/governance test functions, 261 observability/readiness test functions, 1,264 analytics-domain test functions, and 1,138 uncategorized test functions | Keep the accepted breadth floor and tightened uncategorized ceiling blocking. Classify domain tests through stable taxonomy rules instead of allowing uncategorized growth. |
+| Test taxonomy | Blocking through `make quality-test-taxonomy-gate`, which runs `scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 607 --min-contract-governance-tests 111 --max-uncategorized-tests 1148`; current AST inventory shows 288 modules, 3,400 source test functions, 643 integration/API/runtime test functions, 125 contract/governance test functions, 283 observability/readiness test functions, 1,529 analytics-domain test functions, and 1,019 uncategorized test functions | Keep the accepted breadth floor and tightened uncategorized ceiling blocking. Classify domain tests through stable taxonomy rules instead of allowing uncategorized growth. |
 | Combined line coverage | Blocking at 99 percent in PR and main lanes; local full coverage runs use `make test-coverage`, split CI test jobs use `make test-coverage-shard`, and artifact aggregation uses `make coverage-combine-gate`; branch coverage is preserved separately by `make branch-coverage-baseline` evidence | Keep blocking and preserve the local coverage inventory as scorecard evidence. Do not embed raw pytest or coverage commands in workflow YAML for governed test lanes. |
 | Branch coverage | Measured report-only in `quality/coverage_inventory.md` through `make branch-coverage-baseline`; current baseline is 98.00 percent across 4,406 branches, with 88 missing and 88 partial branches | Keep report-only until repeated runs, exception policy, remediation guidance, and CI lane placement are agreed. Review the top branch gaps before proposing any threshold. |
 | Dependency verification | Blocking through `python -m pip check` and dependency-health scripts | Keep blocking; preserve project-scoped dependency-health evidence. |
@@ -115,7 +115,7 @@ No gate should move from one phase to the next until it has:
 
 | Intake item | Decision |
 | --- | --- |
-| Baseline | `quality/test_taxonomy_inventory.md` records 278 test modules, 3,202 source test functions, 607 API/runtime test functions, 111 contract/governance test functions, and 1,294 uncategorized test functions. |
+| Baseline | `quality/test_taxonomy_inventory.md` records 288 test modules, 3,400 source test functions, 643 API/runtime test functions, 125 contract/governance test functions, and 1,019 uncategorized test functions. The enforced thresholds remain the established regression floor/ceiling rather than ratcheting automatically with this evidence refresh. |
 | Failure mode blocked | Agents must not reduce API/runtime or contract/governance test breadth, or add unclassified tests that increase the uncategorized backlog, while still passing deterministic API certification and static checks. |
 | Determinism | The scanner uses standard-library AST parsing over tracked test source and stable path/name taxonomy rules; it does not execute tests or depend on local services. |
 | Lane placement | Blocking through `make quality-evaluation-gate`, and therefore local `make check`, local `make ci`, Feature Lane, PR Merge Gate, Main Releasability, and Quality Baseline workflow. |
