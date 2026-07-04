@@ -1873,6 +1873,49 @@ async def test_get_position_timeseries_rejects_repeated_page_tokens():
 
 
 @pytest.mark.asyncio
+async def test_get_position_timeseries_records_pagination_failure_snapshot(tmp_path):
+    core_service = _LoopingStatefulPageCoreService()
+    execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    execution_store.create_schema()
+    calculation_id = uuid4()
+    execution_store.create_execution(
+        calculation_id=calculation_id,
+        analytics_type="Attribution",
+        portfolio_id="PORT_1",
+    )
+    service = StatefulInputService(
+        core_service=core_service,
+        execution_store=execution_store,
+        max_pages_per_chunk=10,
+    )
+
+    status_code, payload = await service.get_position_timeseries(
+        portfolio_id="PORT_1",
+        as_of_date=date(2026, 1, 3),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 1),
+        reporting_currency="USD",
+        consumer_system="lotus-performance",
+        dimensions=["asset_class"],
+        include_cash_flows=True,
+        filters={},
+        calculation_id=calculation_id,
+    )
+
+    snapshots = execution_store.list_upstream_snapshots(calculation_id)
+    failure_snapshots = [snapshot for snapshot in snapshots if snapshot.retrieval_status == "503"]
+
+    assert status_code == 503
+    assert payload["reason"] == STATEFUL_UPSTREAM_REPEATED_PAGE_CURSOR_REASON
+    assert len(failure_snapshots) == 1
+    assert failure_snapshots[0].upstream_endpoint == "position_timeseries"
+    assert failure_snapshots[0].paging_metadata["page_token"] == "loop"
+    assert failure_snapshots[0].paging_metadata["pagination_guard_reason"] == (
+        STATEFUL_UPSTREAM_REPEATED_PAGE_CURSOR_REASON
+    )
+
+
+@pytest.mark.asyncio
 async def test_get_position_timeseries_rejects_page_limit_exhaustion():
     core_service = _LoopingStatefulPageCoreService()
     service = StatefulInputService(core_service=core_service, max_pages_per_chunk=1)

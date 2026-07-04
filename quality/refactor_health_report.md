@@ -42,10 +42,10 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Max cyclomatic complexity | unknown | 5 | enforced | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py`; `make quality-complexity-gate` |
+| Max cyclomatic complexity | unknown | 8 | enforced | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py`; `make quality-complexity-gate` |
 | High-complexity functions | unknown | 0 | enforced | rank D-F functions in `quality/complexity_inventory.md`; `make quality-complexity-gate` |
-| Average maintainability index | unknown | 55.18 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
-| Largest functions by LOC | unknown | 55 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; `StatefulInputService.get_benchmark_market_series(...)` dropped out of the top-45 table after benchmark market-series retrieval moved behind a typed request boundary, chunk-fetch helper, response projection helper, and snapshot payload builder |
+| Average maintainability index | unknown | 55.53 | measured | `quality/complexity_inventory.md` via `scripts/python_complexity_inventory.py` |
+| Largest functions by LOC | unknown | 81 | measured | `quality/function_size_inventory.md` via `scripts/python_function_size_inventory.py`; `StatefulInputService._fetch_position_chunk(...)` moved from `85` to `81` lines and `_fetch_portfolio_chunk(...)` moved from `82` to `78` lines after shared pagination-failure snapshot recording was isolated |
 
 ## Architecture
 
@@ -74,7 +74,7 @@ link the commit, command, or CI artifact that proves the change.
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
 | Test modules | 228 | 288 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 3,622 | measured | `python -m pytest --collect-only -q` |
+| Collected tests | 2,035 | 3,623 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
 | Integration/API/runtime test functions | unknown | 643 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
