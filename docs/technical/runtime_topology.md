@@ -153,10 +153,17 @@ Queue-pressure metrics are exposed from the API process by reading durable store
 
 Operator first response for these breach gauges is governed in
 [runtime-alerts.md](/C:/Users/Sandeep/projects/lotus-performance/docs/runbooks/runtime-alerts.md).
-Prometheus-style rule templates for the same gauges are governed in
+Deployable alert rules for the same gauges are governed in
+[lotus-performance-alerts.prometheusrule.json](/C:/Users/Sandeep/projects/lotus-performance/monitoring/prometheus/lotus-performance-alerts.prometheusrule.json),
+with explanatory templates in
 [runtime-alert-rule-templates.md](/C:/Users/Sandeep/projects/lotus-performance/docs/operations/runtime-alert-rule-templates.md).
-MWR fallback, no-root, multiple-root, and source-data rejection alert templates are governed
-in [mwr-alert-rule-templates.md](/C:/Users/Sandeep/projects/lotus-performance/docs/operations/mwr-alert-rule-templates.md).
+MWR fallback, no-root, multiple-root, and source-data rejection alert and panel expressions are
+also included in the deployable alert artifact and
+[lotus-performance-operability-dashboard.json](/C:/Users/Sandeep/projects/lotus-performance/monitoring/grafana/lotus-performance-operability-dashboard.json),
+with explanatory notes in
+[mwr-alert-rule-templates.md](/C:/Users/Sandeep/projects/lotus-performance/docs/operations/mwr-alert-rule-templates.md).
+`make quality-observability-readiness-gate` validates the deployable monitoring artifacts against
+service-owned metrics, labels, links, and sensitive-label policy.
 Severity and response defaults for those rules are governed in
 [runtime-alert-policy.md](/C:/Users/Sandeep/projects/lotus-performance/docs/standards/runtime-alert-policy.md).
 Recommended dev, staging, and production threshold values are governed in

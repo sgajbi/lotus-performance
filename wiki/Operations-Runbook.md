@@ -239,6 +239,10 @@ allowed canonical data warnings.
 
 - alert handling:
   [docs/runbooks/runtime-alerts.md](../docs/runbooks/runtime-alerts.md)
+- deployable monitoring artifacts:
+  [monitoring/prometheus/lotus-performance-alerts.prometheusrule.json](../monitoring/prometheus/lotus-performance-alerts.prometheusrule.json)
+  and
+  [monitoring/grafana/lotus-performance-operability-dashboard.json](../monitoring/grafana/lotus-performance-operability-dashboard.json)
 - durable recovery:
   [docs/runbooks/durable-metadata-recovery.md](../docs/runbooks/durable-metadata-recovery.md)
 - retention cleanup:
@@ -248,6 +252,10 @@ allowed canonical data warnings.
   and `lotus_performance_mwr_solver_outcome_total` for fallback, no-root, and multiple-root rates.
 - MWR alert and dashboard templates:
   [docs/operations/mwr-alert-rule-templates.md](../docs/operations/mwr-alert-rule-templates.md)
+
+The `monitoring/` artifacts are the deployable adoption source. The Markdown alert-template pages
+explain the expressions and support response, and `make quality-observability-readiness-gate`
+validates artifact syntax, metric names, labels, links, and sensitive-label safety.
 
 ## Runtime thresholds and overlays
 

@@ -67,8 +67,8 @@ service, not as a calculation demo. The current bank-readiness evidence includes
   delegates to the tested cleanup utility in `scripts/clean_generated_artifacts.py`
 - observability guardrails:
   `make quality-observability-readiness-gate` blocks missing health/metrics, correlation,
-  structured logging, metrics, and readiness markers before feature branches can degrade runtime
-  supportability
+  structured logging, metrics, readiness markers, deployable Prometheus alert rules, and
+  Grafana-style dashboard panels before feature branches can degrade runtime supportability
 
 This is not a blanket production certification for every client environment. Final bank-buyable
 readiness still requires the target deployment, entitlement model, SLOs, observability integration,
@@ -375,6 +375,8 @@ The runtime is intentionally durable:
 
 Key operator and certification references:
 
+- [monitoring/prometheus/lotus-performance-alerts.prometheusrule.json](monitoring/prometheus/lotus-performance-alerts.prometheusrule.json)
+- [monitoring/grafana/lotus-performance-operability-dashboard.json](monitoring/grafana/lotus-performance-operability-dashboard.json)
 - [docs/runbooks/runtime-alerts.md](docs/runbooks/runtime-alerts.md)
 - [docs/operations/mwr-alert-rule-templates.md](docs/operations/mwr-alert-rule-templates.md)
 - [docs/runbooks/durable-metadata-recovery.md](docs/runbooks/durable-metadata-recovery.md)

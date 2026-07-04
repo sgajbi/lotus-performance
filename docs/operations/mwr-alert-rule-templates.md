@@ -4,12 +4,21 @@
 - Scope: Prometheus-style alert rules and dashboard panels for `/performance/mwr` solver ambiguity,
   fallback, and source-data rejection posture
 - Related references:
+  - `monitoring/prometheus/lotus-performance-alerts.prometheusrule.json`
+  - `monitoring/grafana/lotus-performance-operability-dashboard.json`
   - `docs/operations/mwr-production-support-playbook.md`
   - `docs/guides/mwr.md`
   - `docs/technical/mwr-endpoint-certification.md`
   - `docs/technical/mwr-industry-review-findings.md`
   - `docs/runbooks/runtime-alerts.md`
   - `docs/standards/runtime-alert-policy.md`
+
+The deployable alert source is
+`monitoring/prometheus/lotus-performance-alerts.prometheusrule.json`; the deployable dashboard
+source is `monitoring/grafana/lotus-performance-operability-dashboard.json`. This page remains the
+human-readable explanation of those alert and panel expressions. `make
+quality-observability-readiness-gate` validates the artifacts for metric names, labels, links, and
+sensitive-label safety.
 
 These templates use service-owned, bounded-label metrics. They must not introduce portfolio,
 client, tenant, account, calculation, trace, correlation, request, or response identifiers into

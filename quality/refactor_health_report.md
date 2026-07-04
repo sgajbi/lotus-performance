@@ -101,6 +101,8 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | Operational readiness implementation markers | unknown | 28 | enforced | `quality/observability_readiness_inventory.md`; `make quality-observability-readiness-gate` enforces `--max-missing 0` |
 | Missing operational readiness markers | unknown | 0 | enforced | `quality/observability_readiness_inventory.md`; `make quality-observability-readiness-gate` enforces `--max-missing 0` |
+| Deployable monitoring alert rules | unknown | 13 | enforced | `monitoring/prometheus/lotus-performance-alerts.prometheusrule.json`; `make quality-observability-readiness-gate` validates alert metric names, labels, links, and sensitive-label safety |
+| Deployable monitoring dashboard panels | unknown | 10 | enforced | `monitoring/grafana/lotus-performance-operability-dashboard.json`; `make quality-observability-readiness-gate` validates dashboard metric names, labels, links, and sensitive-label safety |
 | Correlation propagation markers | unknown | 6 | measured | `correlation_propagation` family in `quality/observability_readiness_inventory.md` |
 | Structured logging markers | unknown | 6 | measured | `structured_logging` family in `quality/observability_readiness_inventory.md` |
 | Metrics markers | unknown | 6 | measured | `metrics` family in `quality/observability_readiness_inventory.md` |

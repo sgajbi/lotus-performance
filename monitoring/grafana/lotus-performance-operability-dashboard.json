@@ -1,0 +1,122 @@
+{
+  "schemaVersion": 39,
+  "uid": "lotus-performance-operability",
+  "title": "Lotus Performance Operability",
+  "tags": ["lotus", "lotus-performance", "private-banking", "operability"],
+  "timezone": "browser",
+  "editable": false,
+  "links": [
+    {
+      "title": "Runtime alert runbook",
+      "type": "link",
+      "url": "docs/runbooks/runtime-alerts.md"
+    },
+    {
+      "title": "MWR production support playbook",
+      "type": "link",
+      "url": "docs/operations/mwr-production-support-playbook.md"
+    }
+  ],
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Compute queue degradation breaches",
+      "targets": [
+        {
+          "expr": "sum(lotus_performance_compute_queue_degradation_breach)"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Lineage queue degradation breaches",
+      "targets": [
+        {
+          "expr": "sum(lotus_performance_lineage_queue_degradation_breach)"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Lineage storage pressure breaches",
+      "targets": [
+        {
+          "expr": "sum(lotus_performance_lineage_storage_pressure_breach)"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Recovery drill policy breaches",
+      "targets": [
+        {
+          "expr": "sum(lotus_performance_recovery_drill_degradation_breach)"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Runtime retention policy breaches",
+      "targets": [
+        {
+          "expr": "sum(lotus_performance_runtime_retention_degradation_breach)"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "MWR request volume",
+      "targets": [
+        {
+          "expr": "sum(increase(lotus_performance_mwr_solver_outcome_total[30m]))"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "MWR fallback rate",
+      "targets": [
+        {
+          "expr": "sum(increase(lotus_performance_mwr_solver_outcome_total{fallback_used=\"true\"}[30m])) / clamp_min(sum(increase(lotus_performance_mwr_solver_outcome_total[30m])), 1)"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "MWR no-root rate",
+      "targets": [
+        {
+          "expr": "sum(increase(lotus_performance_mwr_solver_outcome_total{reason_code=\"NO_ROOT_FOUND\"}[30m])) / clamp_min(sum(increase(lotus_performance_mwr_solver_outcome_total[30m])), 1)"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "MWR multiple-root rate",
+      "targets": [
+        {
+          "expr": "sum(increase(lotus_performance_mwr_solver_outcome_total{reason_code=\"MULTIPLE_IRR_ROOTS_DETECTED\"}[30m])) / clamp_min(sum(increase(lotus_performance_mwr_solver_outcome_total[30m])), 1)"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "MWR source-data rejection rate",
+      "targets": [
+        {
+          "expr": "sum(increase(lotus_performance_calculation_supportability_total{operation=\"mwr\",supportability_state=~\"empty|stale\"}[30m])) / clamp_min(sum(increase(lotus_performance_calculation_supportability_total{operation=\"mwr\"}[30m])), 1)"
+        }
+      ]
+    }
+  ]
+}

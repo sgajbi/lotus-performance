@@ -3,16 +3,23 @@
 - Service: `lotus-performance`
 - Scope: Prometheus-style alert rule templates for runtime queue pressure, lineage storage pressure, recovery assurance, and retention lifecycle governance
 - Related references:
+  - `monitoring/prometheus/lotus-performance-alerts.prometheusrule.json`
+  - `monitoring/grafana/lotus-performance-operability-dashboard.json`
   - `docs/runbooks/runtime-alerts.md`
   - `docs/guides/api_reference.md`
   - `docs/technical/runtime_topology.md`
   - `docs/standards/runtime-alert-policy.md`
   - `docs/standards/runtime-threshold-profiles.md`
 
+The deployable source is
+`monitoring/prometheus/lotus-performance-alerts.prometheusrule.json`; this page remains the
+human-readable explanation of those alert expressions. The artifact and dashboard are validated by
+`make quality-observability-readiness-gate` for metric names, labels, runbook/dashboard links, and
+sensitive-label safety.
+
 These templates are intentionally metric-first and environment-neutral. They convert the
-service-owned breach gauges into alert expressions without re-encoding queue or storage
-policy logic outside the service. Severity defaults here follow
-`docs/standards/runtime-alert-policy.md`.
+service-owned breach gauges into alert expressions without re-encoding queue or storage policy
+logic outside the service. Severity defaults here follow `docs/standards/runtime-alert-policy.md`.
 
 ## Queue Degradation Alerts
 

@@ -983,8 +983,11 @@ Return semantics for the workspace surface are now explicit rather than inferred
 - operator runbook:
   - `docs/runbooks/runtime-alerts.md` is the governed first-response guide for queue, storage, and recovery-drill breach gauges
 - alert templates:
-  - `docs/operations/runtime-alert-rule-templates.md` provides Prometheus-style expressions for the breach and availability gauges exported here
-  - `docs/operations/mwr-alert-rule-templates.md` provides Prometheus-style expressions and dashboard panels for MWR fallback, no-root, multiple-root, and source-data rejection rates
+  - `monitoring/prometheus/lotus-performance-alerts.prometheusrule.json` is the deployable PrometheusRule artifact for runtime and MWR alerts
+  - `monitoring/grafana/lotus-performance-operability-dashboard.json` is the deployable dashboard artifact for runtime breach and MWR solver/source-data panels
+  - `docs/operations/runtime-alert-rule-templates.md` explains the Prometheus-style expressions for the breach and availability gauges exported here
+  - `docs/operations/mwr-alert-rule-templates.md` explains the MWR fallback, no-root, multiple-root, and source-data rejection alert and dashboard expressions
+  - `make quality-observability-readiness-gate` validates the alert/dashboard artifacts against service-owned metric names, labels, runbook/dashboard links, and sensitive-label policy
 - alert policy:
   - `docs/standards/runtime-alert-policy.md` defines the default severity and response class for these breach and availability gauges
 - threshold profiles:
