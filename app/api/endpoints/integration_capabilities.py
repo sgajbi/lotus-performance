@@ -63,6 +63,9 @@ INTEGRATION_CAPABILITIES_RESPONSE_EXAMPLES = [
                     "supports inspection of an existing TWR calculation or a proposed TWR request payload",
                     "inspection profiles expose bounded support_triage, canonical_validation, and deep_reconciliation behavior",
                     "artifact retrieval includes inspection_summary.json, findings.json, and source_quality_summary.json, plus reconciliation_summary.json and source_economics_summary.json when stateful source-economics checks run",
+                    "stateful reconciliation inspection covers portfolio-position tie-out and unexplained position begin-value carry-forward breaks",
+                    'stateful portfolio and position valuation normalization share the source cash-flow taxonomy used by inspection; operational expenses must arrive as canonical cash_flow_type="fee" with source_classification="EXPENSE"',
+                    "source-economics inspection now covers fee and external cash-flow classification and normalization mismatches, duplicate source signals, positive fee sign anomalies, fee or external source-total mismatches, external timing-bucket contradictions, governed alias cash_flow_type labels, unsupported cash_flow_type labels, and non-canonical cash_flow_type labels",
                 ],
                 "options": [
                     {
@@ -170,6 +173,8 @@ INTEGRATION_CAPABILITIES_RESPONSE_EXAMPLES = [
                 "enabled": True,
                 "supported_input_modes": ["persisted_member_facts"],
                 "supports_async": False,
+                "poll_path_template": None,
+                "result_path_template": None,
                 "stateful_restrictions": [],
                 "contract_notes": [
                     "calculates composite TWR only from persisted member-return facts",
@@ -188,7 +193,7 @@ INTEGRATION_CAPABILITIES_RESPONSE_EXAMPLES = [
                 "result_path_template": None,
                 "stateful_restrictions": [],
                 "contract_notes": [
-                    "emits bounded lotus-performance-owned active-return health posture for lotus-manage DPM supportability",
+                    "emits bounded lotus-performance-owned active-return health posture for lotus-manage DPM supportability.",
                     "does not create mandate actions, rebalance waves, client communications, orders, OMS, or execution instructions",
                 ],
                 "options": [],
