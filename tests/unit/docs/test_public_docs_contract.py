@@ -952,6 +952,12 @@ def test_api_reference_documents_endpoint_level_capabilities_contract():
     assert "consumer_system" in api_reference
     assert "tenant_id" in api_reference
     assert "lotus-gateway#109" in certification
+    assert "lotus-gateway#109` is closed" in certification
+    assert "commit `11d12d5`" in certification
+    assert "canonical `consumer_system` and `tenant_id` query parameters" in certification
+    assert "No fresh live cross-repo runtime proof was run in this slice" in certification
+    assert "currently sends camelCase query parameters" not in certification
+    assert "sends `consumerSystem` and" not in certification
     assert "Downstream Consumers" in certification
     assert "Test Pyramid Assessment" in certification
     assert "implemented TWR, MWR, contribution, and attribution calculation supportability posture" in certification
