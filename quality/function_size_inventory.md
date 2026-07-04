@@ -23,58 +23,57 @@ python scripts/python_function_size_inventory.py --limit 45
 | 1 | `StatefulInputService._fetch_position_chunk` | `app/services/stateful_input_service.py:1159` | 81 |
 | 2 | `StatefulInputService._fetch_portfolio_chunk` | `app/services/stateful_input_service.py:1009` | 78 |
 | 3 | `_handle_compute_job_failure` | `app/workers/compute_executor_worker.py:576` | 66 |
-| 4 | `_source_mwr_cash_flow_component` | `app/services/stateful_mwr_input_service.py:353` | 63 |
-| 5 | `calculate_mwr_response` | `app/services/mwr_calculation_service.py:269` | 62 |
-| 6 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:37` | 57 |
-| 7 | `calculate_workspace_summary_async` | `app/services/workspace_summary_service.py:144` | 57 |
-| 8 | `resolve_benchmark_request` | `app/services/benchmark_mode_service.py:87` | 56 |
-| 9 | `LineageMetadataStore._ensure_payload_lease_columns` | `app/services/lineage_metadata_store.py:1127` | 56 |
-| 10 | `calculate_money_weighted_return` | `engine/mwr.py:734` | 56 |
-| 11 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:480` | 55 |
-| 12 | `build_stateful_mwr_input_for_window` | `app/services/stateful_mwr_input_service.py:136` | 55 |
-| 13 | `_build_methodology_shadow_samples` | `engine/compute.py:319` | 55 |
-| 14 | `build_enterprise_audit_middleware` | `app/enterprise_audit_middleware.py:69` | 54 |
-| 15 | `_run_subject_assessments` | `app/services/inspection/twr_inspection_service.py:207` | 54 |
-| 16 | `_build_workflow_capabilities` | `app/services/integration_capabilities_service.py:222` | 54 |
-| 17 | `run_runtime_retention_cleanup` | `app/services/runtime_retention_run_service.py:150` | 54 |
-| 18 | `lineage_queue_degradation_details` | `app/services/runtime_status_degradation.py:75` | 54 |
-| 19 | `run_calculations` | `engine/compute.py:26` | 54 |
-| 20 | `_xirr` | `engine/mwr.py:260` | 54 |
-| 21 | `calculate_attribution` | `app/services/attribution_service.py:368` | 53 |
-| 22 | `_build_contribution_response` | `app/services/contribution_service.py:713` | 53 |
-| 23 | `_build_contribution_response_evidence` | `app/services/contribution_service.py:768` | 53 |
-| 24 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:425` | 53 |
-| 25 | `analyze_portfolio_position_reconciliation` | `app/services/inspection/reconciliation.py:235` | 53 |
-| 26 | `_build_explicit_amount_contract_findings` | `app/services/inspection/source_economics_findings.py:380` | 53 |
-| 27 | `compute_queue_degradation_breach_metric` | `app/services/queue_metric_builders.py:185` | 53 |
-| 28 | `_build_returns_series_diagnostics` | `app/services/returns_series_service.py:1275` | 53 |
-| 29 | `finalize_twr_resolved_execution_identity` | `app/services/twr_calculation_service.py:148` | 53 |
-| 30 | `calculate_cumulative_ror` | `engine/ror.py:183` | 53 |
-| 31 | `_calculate_promoted_stateful_benchmark_workflow` | `app/services/benchmark_calculation_workflow_service.py:146` | 52 |
-| 32 | `_build_contribution_smoothing_evidence` | `app/services/contribution_smoothing.py:119` | 52 |
-| 33 | `_build_workflow_pack_request` | `app/services/inspection/support_brief_workflow_pack.py:88` | 52 |
-| 34 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:448` | 52 |
-| 35 | `_build_mwr_response_payload` | `app/services/mwr_calculation_service.py:143` | 52 |
-| 36 | `_calculate_promoted_stateful_returns_series` | `app/services/returns_series_calculation_workflow_service.py:170` | 52 |
-| 37 | `_build_resolved_stateful_returns_series_request` | `app/services/returns_series_service.py:925` | 52 |
-| 38 | `_resolve_promoted_stateful_contribution_response` | `app/services/contribution_calculation_workflow_service.py:137` | 51 |
-| 39 | `_build_hierarchy_contribution_position_assembly` | `app/services/contribution_service.py:372` | 51 |
-| 40 | `_calculate_returns_series` | `app/services/returns_series_service.py:1633` | 51 |
-| 41 | `_available_runtime_work_item_snapshot` | `app/services/runtime_work_item_service.py:110` | 51 |
-| 42 | `StatefulInputService._fetch_performance_component_economics_chunk` | `app/services/stateful_input_service.py:1334` | 51 |
-| 43 | `_build_twr_period_result` | `app/services/twr_service.py:894` | 51 |
-| 44 | `_build_stateful_workspace_benchmark_input_async` | `app/services/workspace_summary_service.py:465` | 51 |
-| 45 | `_build_currency_attribution_projection` | `engine/attribution.py:781` | 51 |
+| 4 | `calculate_mwr_response` | `app/services/mwr_calculation_service.py:269` | 62 |
+| 5 | `resolve_attribution_request` | `app/services/attribution_mode_service.py:37` | 57 |
+| 6 | `calculate_workspace_summary_async` | `app/services/workspace_summary_service.py:144` | 57 |
+| 7 | `resolve_benchmark_request` | `app/services/benchmark_mode_service.py:87` | 56 |
+| 8 | `LineageMetadataStore._ensure_payload_lease_columns` | `app/services/lineage_metadata_store.py:1127` | 56 |
+| 9 | `calculate_money_weighted_return` | `engine/mwr.py:734` | 56 |
+| 10 | `_build_hierarchy_period_contribution_result` | `app/services/contribution_service.py:480` | 55 |
+| 11 | `build_stateful_mwr_input_for_window` | `app/services/stateful_mwr_input_service.py:136` | 55 |
+| 12 | `_build_methodology_shadow_samples` | `engine/compute.py:319` | 55 |
+| 13 | `build_enterprise_audit_middleware` | `app/enterprise_audit_middleware.py:69` | 54 |
+| 14 | `_run_subject_assessments` | `app/services/inspection/twr_inspection_service.py:207` | 54 |
+| 15 | `_build_workflow_capabilities` | `app/services/integration_capabilities_service.py:222` | 54 |
+| 16 | `run_runtime_retention_cleanup` | `app/services/runtime_retention_run_service.py:150` | 54 |
+| 17 | `lineage_queue_degradation_details` | `app/services/runtime_status_degradation.py:75` | 54 |
+| 18 | `run_calculations` | `engine/compute.py:26` | 54 |
+| 19 | `_xirr` | `engine/mwr.py:260` | 54 |
+| 20 | `calculate_attribution` | `app/services/attribution_service.py:368` | 53 |
+| 21 | `_build_contribution_response` | `app/services/contribution_service.py:713` | 53 |
+| 22 | `_build_contribution_response_evidence` | `app/services/contribution_service.py:768` | 53 |
+| 23 | `_build_flat_period_contribution_result` | `app/services/contribution_service.py:425` | 53 |
+| 24 | `analyze_portfolio_position_reconciliation` | `app/services/inspection/reconciliation.py:235` | 53 |
+| 25 | `_build_explicit_amount_contract_findings` | `app/services/inspection/source_economics_findings.py:380` | 53 |
+| 26 | `compute_queue_degradation_breach_metric` | `app/services/queue_metric_builders.py:185` | 53 |
+| 27 | `_build_returns_series_diagnostics` | `app/services/returns_series_service.py:1275` | 53 |
+| 28 | `finalize_twr_resolved_execution_identity` | `app/services/twr_calculation_service.py:148` | 53 |
+| 29 | `calculate_cumulative_ror` | `engine/ror.py:183` | 53 |
+| 30 | `_calculate_promoted_stateful_benchmark_workflow` | `app/services/benchmark_calculation_workflow_service.py:146` | 52 |
+| 31 | `_build_contribution_smoothing_evidence` | `app/services/contribution_smoothing.py:119` | 52 |
+| 32 | `_build_workflow_pack_request` | `app/services/inspection/support_brief_workflow_pack.py:88` | 52 |
+| 33 | `_build_analytics_surfaces` | `app/services/integration_capabilities_service.py:448` | 52 |
+| 34 | `_build_mwr_response_payload` | `app/services/mwr_calculation_service.py:143` | 52 |
+| 35 | `_calculate_promoted_stateful_returns_series` | `app/services/returns_series_calculation_workflow_service.py:170` | 52 |
+| 36 | `_build_resolved_stateful_returns_series_request` | `app/services/returns_series_service.py:925` | 52 |
+| 37 | `_resolve_promoted_stateful_contribution_response` | `app/services/contribution_calculation_workflow_service.py:137` | 51 |
+| 38 | `_build_hierarchy_contribution_position_assembly` | `app/services/contribution_service.py:372` | 51 |
+| 39 | `_calculate_returns_series` | `app/services/returns_series_service.py:1633` | 51 |
+| 40 | `_available_runtime_work_item_snapshot` | `app/services/runtime_work_item_service.py:110` | 51 |
+| 41 | `StatefulInputService._fetch_performance_component_economics_chunk` | `app/services/stateful_input_service.py:1334` | 51 |
+| 42 | `_build_twr_period_result` | `app/services/twr_service.py:894` | 51 |
+| 43 | `_build_stateful_workspace_benchmark_input_async` | `app/services/workspace_summary_service.py:465` | 51 |
+| 44 | `_build_currency_attribution_projection` | `engine/attribution.py:781` | 51 |
+| 45 | `build_benchmark_exposure_context` | `app/services/benchmark_exposure_context_service.py:42` | 50 |
 
 ## Interpretation
 
 This is not a cyclomatic-complexity score. It is a deterministic hotspot inventory for refactor
 planning. The largest current functions are concentrated in stateful source retrieval, compute
-worker failure handling, stateful MWR source projection, MWR response assembly, and mode-resolution
-helpers. LP-CR-1638 isolated shared pagination-failure snapshot recording from portfolio and
-position chunk traversal, moving `StatefulInputService._fetch_position_chunk(...)` from `85` to
-`81` lines and `_fetch_portfolio_chunk(...)` from `82` to `78` lines while preserving retrieval
-behavior and snapshot evidence.
+worker failure handling, MWR response assembly, and mode-resolution helpers. LP-CR-1639 isolated
+stateful MWR source cash-flow eligibility and row projection boundaries, moving
+`_source_mwr_cash_flow_component(...)` out of the top-45 function-size table while preserving
+source cash-flow evidence behavior and quality-reason recording.
 TWR workflow assembly has dropped out of the top-15 table after resolved identity finalization was isolated.
 Runtime-status response assembly remains in the top-15 table but moved from `173` to `131` lines
 after lineage queue response mapping was isolated. Attribution orchestration remains in the top-15

@@ -361,10 +361,30 @@ def _source_mwr_cash_flow_component(
     if not isinstance(flow, dict):
         source_quality.exclude("invalid_source_row_shape")
         return None
-    amount = _parse_decimal(flow.get("amount"))
+    amount = _eligible_source_mwr_cash_flow_amount(flow=flow, source_quality=source_quality)
+    if amount is None:
+        return None
+    source_quality.include()
+    lifecycle_identity_available = _has_source_lifecycle_identity(flow)
+    if not lifecycle_identity_available:
+        source_quality.record_missing_lifecycle_identity()
+    return _source_mwr_cash_flow_component_from_row(
+        flow=flow,
+        amount=amount,
+        reporting_currency=reporting_currency,
+        lifecycle_identity_available=lifecycle_identity_available,
+    )
+
+
+def _eligible_source_mwr_cash_flow_amount(
+    *,
+    flow: dict[object, object],
+    source_quality: "_StatefulMWRSourceCashFlowQualityAccumulator",
+) -> Decimal | None:
     if flow.get("amount") is None:
         source_quality.exclude("missing_amount")
         return None
+    amount = _parse_decimal(flow.get("amount"))
     if amount is None:
         source_quality.exclude("invalid_amount")
         return None
@@ -373,9 +393,16 @@ def _source_mwr_cash_flow_component(
     if classification.economics_role not in {"external", "missing"}:
         source_quality.exclude(_mwr_source_exclusion_reason(classification.economics_role))
         return None
-    source_quality.include()
-    if not _has_source_lifecycle_identity(flow):
-        source_quality.record_missing_lifecycle_identity()
+    return amount
+
+
+def _source_mwr_cash_flow_component_from_row(
+    *,
+    flow: dict[object, object],
+    amount: Decimal,
+    reporting_currency: str | None,
+    lifecycle_identity_available: bool,
+) -> MWRCashFlowEvidenceComponent:
     return MWRCashFlowEvidenceComponent(
         component_type="source_cash_flow",
         amount=amount,
@@ -411,7 +438,7 @@ def _source_mwr_cash_flow_component(
         settlement_date=_optional_source_flow_date(flow=flow, field_name="settlement_date"),
         effective_date=_optional_source_flow_date(flow=flow, field_name="effective_date"),
         posting_date=_optional_source_flow_date(flow=flow, field_name="posting_date"),
-        lifecycle_identity_status="available" if _has_source_lifecycle_identity(flow) else "not_supplied_by_source",
+        lifecycle_identity_status="available" if lifecycle_identity_available else "not_supplied_by_source",
     )
 
 

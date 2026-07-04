@@ -12,6 +12,7 @@ from app.services.stateful_mwr_input_service import (
     _add_stateful_mwr_cash_flow_component,
     _carry_forward_mwr_cash_flow_component,
     _collect_stateful_mwr_cash_flows,
+    _eligible_source_mwr_cash_flow_amount,
     _observation_cash_flow_currency_matches_reporting,
     _parse_decimal,
     _portfolio_currency_matches_reporting,
@@ -19,6 +20,7 @@ from app.services.stateful_mwr_input_service import (
     _stateful_mwr_cash_flow_projection,
     _stateful_mwr_market_value_evidence,
     _StatefulMWRCashFlowCollection,
+    _StatefulMWRSourceCashFlowQualityAccumulator,
     build_stateful_mwr_input,
     build_stateful_mwr_input_for_window,
 )
@@ -551,6 +553,46 @@ def test_source_mwr_cash_flow_component_preserves_source_lifecycle_identity():
     assert component.effective_date == date(2025, 1, 1)
     assert component.posting_date == date(2025, 1, 3)
     assert component.lifecycle_identity_status == "available"
+
+
+def test_eligible_source_mwr_cash_flow_amount_records_quality_reasons():
+    source_quality = _StatefulMWRSourceCashFlowQualityAccumulator()
+
+    assert _eligible_source_mwr_cash_flow_amount(
+        flow={"amount": "25.5", "cash_flow_type": "external_flow"},
+        source_quality=source_quality,
+    ) == Decimal("25.5")
+    assert (
+        _eligible_source_mwr_cash_flow_amount(
+            flow={"cash_flow_type": "external_flow"},
+            source_quality=source_quality,
+        )
+        is None
+    )
+    assert (
+        _eligible_source_mwr_cash_flow_amount(
+            flow={"amount": "bad", "cash_flow_type": "external_flow"},
+            source_quality=source_quality,
+        )
+        is None
+    )
+    assert (
+        _eligible_source_mwr_cash_flow_amount(
+            flow={"amount": "-3", "cash_flow_type": "fee"},
+            source_quality=source_quality,
+        )
+        is None
+    )
+
+    assert source_quality.to_evidence().observed_economics_role_counts == {
+        "external": 1,
+        "fee": 1,
+    }
+    assert source_quality.to_evidence().exclusion_counts == {
+        "fee_or_operational": 1,
+        "invalid_amount": 1,
+        "missing_amount": 1,
+    }
 
 
 def test_stateful_mwr_cash_flow_projection_aggregates_same_date_but_keeps_source_components():
