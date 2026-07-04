@@ -43,6 +43,31 @@ def test_readme_enterprise_readiness_evidence_is_grounded():
     assert "target deployment, entitlement model, SLOs" in readme_flat
 
 
+def test_repo_context_matches_trust_telemetry_coverage_boundary():
+    repository_context = _read("REPOSITORY-ENGINEERING-CONTEXT.md")
+    trust_telemetry_readme = _read("contracts/trust-telemetry/README.md")
+    producer_declaration = json.loads(_read("contracts/domain-data-products/lotus-performance-products.v1.json"))
+    active_product_names = {
+        product["product_name"]
+        for product in producer_declaration["products"]
+        if product.get("lifecycle_status") == "active"
+    }
+    snapshot_names = {
+        json.loads(path.read_text(encoding="utf-8"))["product_name"]
+        for path in (REPO_ROOT / "contracts" / "trust-telemetry").glob("*.telemetry.v1.json")
+    }
+    governed_coverage_rule = (
+        "Every active product in `contracts/domain-data-products/lotus-performance-products.v1.json` must"
+    )
+
+    assert snapshot_names == active_product_names
+    assert governed_coverage_rule in trust_telemetry_readme
+    assert "every active\n   governed producer product" in repository_context
+    assert "contracts/trust-telemetry/README.md" in repository_context
+    assert "tests/unit/test_trust_telemetry.py" in repository_context
+    assert "RFC-0087 trust telemetry proof for `ReturnsSeriesBundle`" not in repository_context
+
+
 def test_public_docs_record_container_supply_chain_evidence_posture():
     readme = _read("README.md")
     workflow_strategy = _read("docs/operations/development-workflow-and-ci-strategy.md")
