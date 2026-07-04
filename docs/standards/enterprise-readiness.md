@@ -30,6 +30,12 @@
   `GET /performance/lineage/{calculation_id}` and
   `GET /performance/lineage/{calculation_id}/artifacts/{artifact_name}` require
   `operations.runtime.read` when privileged-read authz is enabled.
+- Controlled TWR inspection support-evidence reads are protected with the same privileged-read
+  capability: `GET /performance/inspections/{inspection_id}` and
+  `GET /performance/inspections/{inspection_id}/artifacts/{artifact_name}` require
+  `operations.runtime.read` when privileged-read authz is enabled. Artifact downloads use strict
+  runtime-read capability rather than portfolio-owner fallback because inspection artifacts can
+  contain source-quality, source-economics, reconciliation, and operator diagnostic evidence.
 - Execution polling and endpoint-specific async result routes are protected by result-access
   authorization when privileged-read authz is enabled: callers need enterprise identity plus either
   `operations.runtime.read` or `X-Portfolio-Id` matching the durable execution `portfolio_id`.
