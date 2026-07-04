@@ -23,10 +23,10 @@ Current transport posture:
 
 Governed base-URL examples:
 
-1. `http://core-control.dev.lotus`
-2. `http://127.0.0.1:8202`
-3. `http://host.docker.internal:8202`
-4. `http://lotus-core-control:8002`
+1. [`core-control.dev.lotus`](http://core-control.dev.lotus)
+2. [`127.0.0.1:8202`](http://127.0.0.1:8202)
+3. [`host.docker.internal:8202`](http://host.docker.internal:8202)
+4. [`lotus-core-control:8002`](http://lotus-core-control:8002)
 
 ## Contract grouping
 

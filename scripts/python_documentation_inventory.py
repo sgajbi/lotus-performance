@@ -25,6 +25,20 @@ API_CATALOG_FILES = (
     "wiki/API-Surface.md",
     "quality/api_completeness_inventory.md",
 )
+MAJOR_PACK_READMES = (
+    "app/README.md",
+    "engine/README.md",
+    "core/README.md",
+    "adapters/README.md",
+    "common/README.md",
+    "docs/README.md",
+    "contracts/README.md",
+    "quality/README.md",
+    "scripts/README.md",
+    "tests/README.md",
+    "wiki/README.md",
+    "monitoring/README.md",
+)
 
 
 @dataclass(frozen=True)
@@ -40,6 +54,8 @@ class DocumentationInventory:
     certification_files: int
     api_catalog_files_present: int
     api_catalog_files_expected: int
+    major_pack_readmes_present: int
+    major_pack_readmes_expected: int
     docs_test_functions: int
     public_definitions: int
     public_definitions_missing_docstring: int
@@ -140,6 +156,7 @@ def collect_documentation_inventory() -> DocumentationInventory:
         if _relative(path).startswith("docs/technical/") and "certification" in path.name
     ]
     api_catalog_present = sum(1 for path_name in API_CATALOG_FILES if (ROOT / path_name).is_file())
+    major_pack_readmes_present = sum(1 for path_name in MAJOR_PACK_READMES if (ROOT / path_name).is_file())
     public_definitions = _public_definition_count()
     docstring_gaps = collect_public_docstring_gaps()
 
@@ -155,6 +172,8 @@ def collect_documentation_inventory() -> DocumentationInventory:
         certification_files=len(certification_files),
         api_catalog_files_present=api_catalog_present,
         api_catalog_files_expected=len(API_CATALOG_FILES),
+        major_pack_readmes_present=major_pack_readmes_present,
+        major_pack_readmes_expected=len(MAJOR_PACK_READMES),
         docs_test_functions=_docs_test_function_count(),
         public_definitions=public_definitions,
         public_definitions_missing_docstring=len(docstring_gaps),
@@ -185,6 +204,8 @@ def render_markdown(
         f"| Markdown documentation files | {inventory.markdown_files} |",
         f"| API catalog files present | {inventory.api_catalog_files_present} |",
         f"| API catalog files expected | {inventory.api_catalog_files_expected} |",
+        f"| Major pack README files present | {inventory.major_pack_readmes_present} |",
+        f"| Major pack README files expected | {inventory.major_pack_readmes_expected} |",
         f"| Docs regression test functions | {inventory.docs_test_functions} |",
         f"| Public definitions scanned | {inventory.public_definitions} |",
         f"| Public definitions missing docstrings | {inventory.public_definitions_missing_docstring} |",

@@ -107,19 +107,30 @@ Grouped public surfaces are derived from the router layout in [main.py](main.py)
 ## Repository Layout
 
 - `app/`
-  FastAPI application layer, models, services, and workers
+  FastAPI application layer, models, services, and workers; see [app/README.md](app/README.md)
 - `engine/`
-  analytics and orchestration logic
+  analytics and orchestration logic; see [engine/README.md](engine/README.md)
 - `core/`
-  shared calculation and support foundations
+  shared calculation and support foundations; see [core/README.md](core/README.md)
 - `adapters/`
-  storage and integration seams
+  storage and integration seams; see [adapters/README.md](adapters/README.md)
+- `contracts/`
+  domain data-product and trust-telemetry contracts; see
+  [contracts/README.md](contracts/README.md)
 - `docs/`
-  architecture, guides, runbooks, standards, RFCs, and certification evidence
+  architecture, guides, runbooks, standards, RFCs, and certification evidence; see
+  [docs/README.md](docs/README.md)
+- `monitoring/`
+  deployable alert and dashboard artifacts; see [monitoring/README.md](monitoring/README.md)
+- `quality/`
+  quality scorecards, inventories, and CI evidence; see [quality/README.md](quality/README.md)
 - `scripts/`
-  repo-native validation and operational tooling
+  repo-native validation and operational tooling; see [scripts/README.md](scripts/README.md)
 - `tests/`
-  unit, integration, e2e, benchmarks, and docs regression coverage
+  unit, integration, e2e, benchmarks, and docs regression coverage; see
+  [tests/README.md](tests/README.md)
+- `wiki/`
+  authored source for the GitHub wiki; see [wiki/README.md](wiki/README.md)
 
 ## Quick Start
 
