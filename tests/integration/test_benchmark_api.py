@@ -759,9 +759,9 @@ def test_benchmark_endpoint_offloads_large_stateless_benchmark_requests(client):
         result_body = complete.json()
         assert result_body["input_mode"] == "stateless"
         assert result_body["benchmark_id"] == "BMK_STATELESS_ASYNC"
-        assert result_body["results_by_period"]["SI"]["benchmark"]["summary"]["period_return"][
-            "base"
-        ] == pytest.approx(2.4128)
+        assert result_body["results_by_period"]["SI"]["benchmark"]["summary"]["period_return"]["base"] == pytest.approx(
+            2.4128
+        )
     finally:
         settings.BENCHMARK_EXECUTOR_INPUT_COUNT = original_input_threshold
 

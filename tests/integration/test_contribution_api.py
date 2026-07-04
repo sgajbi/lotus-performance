@@ -522,8 +522,7 @@ def test_contribution_endpoint_weight_fields_use_percentage_units_for_position_a
     assert hierarchy_response.status_code == 200
 
     position_rows = {
-        row["position_id"]: row
-        for row in position_response.json()["results_by_period"]["SI"]["position_contributions"]
+        row["position_id"]: row for row in position_response.json()["results_by_period"]["SI"]["position_contributions"]
     }
     hierarchy_rows = {
         row["key"]["sector"]: row for row in hierarchy_response.json()["results_by_period"]["SI"]["levels"][0]["rows"]
