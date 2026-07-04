@@ -125,16 +125,24 @@ def _production_runtime_profile_issues(existing_issues: list[str]) -> list[str]:
     if not _production_like_runtime_profile_enabled():
         return []
 
-    issues: list[str] = []
-    if not _write_authz_enabled():
-        issues.append(_PRODUCTION_WRITE_AUTHZ_DISABLED_ISSUE)
-    if not _privileged_read_authz_enabled():
-        issues.append(_PRODUCTION_PRIVILEGED_READ_AUTHZ_DISABLED_ISSUE)
-    if not _runtime_config_enforcement_enabled():
-        issues.append(_PRODUCTION_RUNTIME_CONFIG_ENFORCEMENT_DISABLED_ISSUE)
-    if not _production_primary_key_config_valid() and _MISSING_PRIMARY_KEY_ID_ISSUE not in existing_issues:
-        issues.append(_MISSING_PRIMARY_KEY_ID_ISSUE)
-    return issues
+    return [
+        issue
+        for issue, requirement_satisfied in _production_runtime_profile_requirements(existing_issues)
+        if not requirement_satisfied
+    ]
+
+
+def _production_runtime_profile_requirements(existing_issues: list[str]) -> tuple[tuple[str, bool], ...]:
+    return (
+        (_PRODUCTION_WRITE_AUTHZ_DISABLED_ISSUE, _write_authz_enabled()),
+        (_PRODUCTION_PRIVILEGED_READ_AUTHZ_DISABLED_ISSUE, _privileged_read_authz_enabled()),
+        (_PRODUCTION_RUNTIME_CONFIG_ENFORCEMENT_DISABLED_ISSUE, _runtime_config_enforcement_enabled()),
+        (_MISSING_PRIMARY_KEY_ID_ISSUE, not _production_primary_key_issue_needed(existing_issues)),
+    )
+
+
+def _production_primary_key_issue_needed(existing_issues: list[str]) -> bool:
+    return not _production_primary_key_config_valid() and _MISSING_PRIMARY_KEY_ID_ISSUE not in existing_issues
 
 
 def _enterprise_runtime_config_issues() -> list[str]:

@@ -23,11 +23,11 @@ metrics in each section are updated with each meaningful slice.
 | --- | ---: | ---: | ---: | --- | --- |
 | Python files | 480 | 606 | 126 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Python package markers | 18 | 18 | 0 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Python LOC | 104,454 | 184,938 | 80,484 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python LOC | 104,454 | 184,956 | 80,502 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest Python file LOC | 2,399 | 2,503 | 104 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest production file LOC | 1,156 | 1,991 | 835 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
 | Python test modules | 228 | 288 | 60 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Collected tests | 2,035 | 3,625 | 1,590 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Collected tests | 2,035 | 3,626 | 1,591 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Duplicate code hotspots | 0 | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `quality/refactor_health_report.md`; `make quality-duplicate-code-gate` |
 | Tracked local byproduct findings | unknown | 0 | n/a | enforced | `scripts/repository_hygiene_gate.py`; `make repository-hygiene-gate`; `quality/refactor_health_report.md` |
 
@@ -37,7 +37,7 @@ metrics in each section are updated with each meaningful slice.
 | --- | ---: | ---: | ---: | --- | --- |
 | Max cyclomatic complexity | unknown | 7 | n/a | enforced | `quality/complexity_inventory.md`; `quality/refactor_health_report.md`; `make quality-complexity-gate` |
 | High-complexity functions (D-F) | unknown | 0 | n/a | enforced | `quality/complexity_inventory.md`; `quality/refactor_health_report.md`; `make quality-complexity-gate` |
-| Average maintainability index | unknown | 55.52 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
+| Average maintainability index | unknown | 55.53 | n/a | measured | `quality/complexity_inventory.md`; `quality/refactor_health_report.md` |
 | Largest functions by LOC | unknown | 81 | n/a | measured | `quality/function_size_inventory.md`; `quality/refactor_health_report.md`; `StatefulInputService._fetch_position_chunk(...)` remains the largest production function at `81` lines |
 
 ### Architecture
@@ -118,7 +118,7 @@ metrics in each section are updated with each meaningful slice.
 | Measured metrics | 52 | Selected measured metrics are now also enforced or produced through blocking static-quality, security, deterministic API evaluation, test-taxonomy, or container evidence lanes. Branch coverage and container vulnerability output are measured report-only and are not promoted to strict gates yet. |
 | Not-yet-measured metrics | 0 | The scorecard no longer carries an unmeasured branch-coverage entry. OpenAPI Spectral and public-docstring gate decisions remain outside this scorecard until scoped separately. |
 | Planned gates | 1 | `make container-vulnerability-gate` exists but remains unpromoted until first PR/main container artifacts establish a reviewed high/critical image vulnerability baseline and exception policy. |
-| Latest architecture signal | 1 | `authorize_calculation_result_access(...)` left the live top-45 complexity inventory after calculation-result access denial reason selection and final entitlement checks moved behind `_calculation_result_access_denial_reason(...)` and `_has_calculation_result_access(...)`; architecture-boundary and duplicate-code findings remain `0`, max CC measures `7` within the enforced threshold of `8`, high-complexity functions remain `0`, and the next measured complexity candidates are six CC `7` functions. |
+| Latest architecture signal | 1 | `_production_runtime_profile_issues(...)` left the live top-45 complexity inventory after production runtime profile requirements moved behind `_production_runtime_profile_requirements(...)` and duplicate primary-key issue suppression moved behind `_production_primary_key_issue_needed(...)`; architecture-boundary and duplicate-code findings remain `0`, max CC measures `7` within the enforced threshold of `8`, high-complexity functions remain `0`, and the next measured complexity candidates are five CC `7` functions. |
 
 ## Method Note
 
