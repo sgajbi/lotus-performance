@@ -122,7 +122,7 @@ Known direct downstream consumer:
 
 | Consumer | Current behavior | Certification outcome |
 | --- | --- | --- |
-| `lotus-gateway` | `LotusAnalyticsClient.get_capabilities` calls `/integration/capabilities`. | Uses the correct endpoint, but currently sends camelCase query parameters. Issue `lotus-gateway#109` tracks migration to canonical `consumer_system` and `tenant_id`. |
+| `lotus-gateway` | `LotusAnalyticsClient.get_capabilities` calls `/integration/capabilities` with canonical `consumer_system` and `tenant_id` query parameters. | Source/test-level downstream evidence is current: `lotus-gateway` commit `11d12d5` closed `lotus-gateway#109`; local Gateway source shows `src/app/clients/lotus_analytics_client.py` builds `consumer_system` and `tenant_id`, and `tests/unit/test_upstream_clients.py` covers non-default `lotus-workbench` / `tenant-a` propagation. No fresh live cross-repo runtime proof was run in this slice. |
 
 Other Lotus apps expose their own `/integration/capabilities` endpoints or reference the pattern in
 docs, but no direct call from `lotus-risk`, `lotus-workbench`, `lotus-report`, `lotus-advise`, or
@@ -139,8 +139,9 @@ analytics-surface terms.
 Results:
 
 - no open lotus-performance issue was found for this endpoint;
-- downstream issue `lotus-gateway#109` was opened because gateway sends `consumerSystem` and
-  `tenantId`, which lotus-performance does not treat as canonical query controls.
+- downstream issue `lotus-gateway#109` is closed. The Gateway fix landed in commit `11d12d5` and
+  the current Gateway client sends canonical `consumer_system` and `tenant_id` query parameters.
+  Retain this note as source/test-level downstream evidence, not as a live cross-repo runtime proof.
 
 ## Swagger Readiness
 
@@ -160,7 +161,7 @@ Swagger now documents:
 | Model/schema | Pydantic response models define feature, workflow, surface, option, and top-level capability fields with examples. | Strong for Swagger consumers. |
 | Integration route tests | Default contract, env overrides, canonical query controls, limit guardrails, every advertised surface, headers, and feature/workflow slices. | Strong for endpoint behavior. |
 | Docs/OpenAPI | Public docs regression covers the example payload and this certification document; OpenAPI quality and vocabulary gates cover schema metadata. | Strong after this pass. |
-| Downstream | Gateway direct client was reviewed and a downstream conformance issue was opened. | Adequate with tracked follow-up. |
+| Downstream | Gateway direct client and unit-test evidence were reviewed after `lotus-gateway#109` closed. | Adequate source/test-level proof: current Gateway code sends canonical `consumer_system` and `tenant_id`; no new live cross-repo runtime proof was run in this slice. |
 | Live proof | A local TestClient proof showed canonical snake_case query controls apply non-default consumer/tenant values. | Adequate for this config-only endpoint. |
 
 ## Validation Commands
