@@ -78,12 +78,20 @@ Current artifact names:
 - `reconciliation_summary.json`
 - `source_economics_summary.json`
 
-The artifact route is part of the public supportability contract and is documented in Swagger. It
-accepts single file names only, not arbitrary paths. Path-like values using `..`, `/`, `\`, absolute
-paths, empty names, or control characters return `404` before storage paths are resolved. The same
-filename policy is applied to durable metadata names and retained-payload fallback responses, so
-corrupted metadata cannot force a file read outside the inspection artifact directory or emit an
-unsafe `Content-Disposition` filename.
+The artifact route is part of the public supportability contract and is documented in Swagger. It is
+also part of the controlled evidence-access surface. When
+`ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ=true`, both
+`GET /performance/inspections/{inspection_id}` and child artifact downloads require enterprise
+identity plus `operations.runtime.read` through the central privileged-read rule map. Artifact
+downloads intentionally use the strict runtime-read capability rather than portfolio-owner fallback
+because supportability artifacts can contain source-quality, source-economics, reconciliation, and
+operator diagnostic evidence behind the protected inspection result.
+
+The artifact route accepts single file names only, not arbitrary paths. Path-like values using `..`,
+`/`, `\`, absolute paths, empty names, or control characters return `404` before storage paths are
+resolved. The same filename policy is applied to durable metadata names and retained-payload
+fallback responses, so corrupted metadata cannot force a file read outside the inspection artifact
+directory or emit an unsafe `Content-Disposition` filename.
 
 Unknown artifact names return `404`; durable metadata that declares a missing safe artifact returns
 `503`. When `support_brief.md` is retained only in durable metadata details, the fallback artifact
@@ -189,6 +197,7 @@ Swagger now documents:
 | Model tests | Subject-mode validation rejects mixed or missing companion inputs. | Strong for request contract guardrails. |
 | Service tests | Runtime failure preservation, partial evidence behavior, verdict synthesis, owner summary, window scoping, and artifact materialization failures. | Strong for core orchestration behavior. |
 | Check-family unit tests | Source quality, calculation consistency, reconciliation, and source economics each have focused tests for domain-specific defect patterns. | Strong and domain-aware. |
+| Security tests | Privileged-read rule coverage proves inspection result and child artifact routes require `operations.runtime.read`; route-level integration coverage proves artifact download denies missing identity and non-privileged callers before artifact resolution. | Strong for controlled support-evidence access. |
 | Integration tests | Async submission, execution polling, completed result retrieval, artifact file retrieval, retained-payload artifact fallback, missing-artifact errors, existing-calculation lineage, stateful reconciliation, and source-economics artifacts. | Strong route-level coverage. |
 | Docs/OpenAPI tests | TWR OpenAPI contract and public docs tests now cover supportability purpose, result behavior, artifact route, schema examples, and check inventory documentation. | Strong after this pass. |
 | Live canonical validation | `scripts/validate_canonical_twr_inspection.py` validates `PB_SG_GLOBAL_BAL_001` as of `2026-04-10` against live performance and lotus-core control-plane services, and can optionally require workflow-pack-backed `support_brief.md` plus bounded `workflow_pack_run` posture. | Available as runtime proof; run before PR or release evidence when the local stack is up. |
@@ -203,11 +212,11 @@ not failures of the inspection contract itself.
 Focused validation for this certification slice:
 
 ```bash
-python -m pytest tests/unit/app/test_twr_openapi_contract.py tests/integration/test_inspections_api.py tests/unit/models/test_inspection_requests.py tests/unit/docs/test_public_docs_contract.py -q
+python -m pytest tests/unit/app/test_enterprise_readiness.py tests/integration/test_inspections_api.py tests/unit/app/test_twr_openapi_contract.py tests/unit/models/test_inspection_requests.py tests/unit/docs/test_public_docs_contract.py -q
 python scripts/openapi_quality_gate.py
 python scripts/api_vocabulary_inventory.py --validate-only
-python -m ruff check app/api/endpoints/inspections.py app/models/inspection_requests.py app/models/inspection_responses.py tests/unit/app/test_twr_openapi_contract.py
-python -m ruff format --check app/api/endpoints/inspections.py app/models/inspection_requests.py app/models/inspection_responses.py tests/unit/app/test_twr_openapi_contract.py
+python -m ruff check app/enterprise_capability_rules.py app/enterprise_readiness.py app/api/endpoints/inspections.py app/models/inspection_requests.py app/models/inspection_responses.py tests/unit/app/test_enterprise_readiness.py tests/unit/app/test_twr_openapi_contract.py
+python -m ruff format --check app/enterprise_capability_rules.py app/enterprise_readiness.py app/api/endpoints/inspections.py app/models/inspection_requests.py app/models/inspection_responses.py tests/unit/app/test_enterprise_readiness.py tests/unit/app/test_twr_openapi_contract.py
 ```
 
 Governed live proof with the optional Lotus AI support-brief seam enabled:

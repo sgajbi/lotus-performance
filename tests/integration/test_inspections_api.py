@@ -242,6 +242,42 @@ def test_twr_inspection_artifact_can_be_served_from_retained_payload(client):
     assert response.json() == {"fee_normalization_gap_count": 0}
 
 
+def test_twr_inspection_artifact_requires_privileged_read_identity_when_enabled(client, monkeypatch):
+    monkeypatch.setenv("ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ", "true")
+    inspection_id = uuid4()
+
+    missing_identity_response = client.get(
+        f"/performance/inspections/{inspection_id}/artifacts/inspection_summary.json"
+    )
+    assert missing_identity_response.status_code == 403
+    assert missing_identity_response.json()["detail"] == "authorization_policy_denied"
+    assert missing_identity_response.json()["reason"].startswith("missing_headers:")
+
+    identity_headers = {
+        "X-Actor-Id": "advisor-1",
+        "X-Tenant-Id": "tenant-private-bank",
+        "X-Role": "advisor",
+        "X-Correlation-Id": "corr-1",
+        "X-Service-Identity": "lotus-gateway",
+    }
+    denied_response = client.get(
+        f"/performance/inspections/{inspection_id}/artifacts/inspection_summary.json",
+        headers={**identity_headers, "X-Portfolio-Id": "OTHER-PORTFOLIO"},
+    )
+    assert denied_response.status_code == 403
+    assert denied_response.json() == {
+        "detail": "authorization_policy_denied",
+        "reason": "missing_capability:operations.runtime.read",
+    }
+
+    allowed_response = client.get(
+        f"/performance/inspections/{inspection_id}/artifacts/inspection_summary.json",
+        headers={**identity_headers, "X-Capabilities": "operations.runtime.read"},
+    )
+    assert allowed_response.status_code == 404
+    assert allowed_response.json()["detail"] == "Inspection artifact not found."
+
+
 def test_twr_inspection_existing_calculation_subject_links_back_to_twr_lineage(client):
     twr_payload = {
         "portfolio_id": "PB_SG_GLOBAL_BAL_001",
