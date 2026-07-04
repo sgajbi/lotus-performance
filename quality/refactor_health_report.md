@@ -108,7 +108,7 @@ link the commit, command, or CI artifact that proves the change.
 | Metrics markers | unknown | 6 | measured | `metrics` family in `quality/observability_readiness_inventory.md` |
 | Health/readiness markers | unknown | 6 | measured | `health_readiness` family in `quality/observability_readiness_inventory.md` |
 | Health/metrics endpoint markers | unknown | 4 | measured | `health_metrics_endpoints` family in `quality/observability_readiness_inventory.md` |
-| Mapped observability/readiness test functions | unknown | 370 | measured | family-mapped test-function count in `quality/observability_readiness_inventory.md`; counts can overlap across families |
+| Mapped observability/readiness test functions | unknown | 440 | measured | family-mapped test-function count in `quality/observability_readiness_inventory.md`; counts can overlap across families |
 | Demo API certification command | unknown | 1 | enforced | `make quality-evaluation-gate` delegates to `make demo-api-certification`, which runs `scripts/demo_api_certification.py` and writes reviewed JSON evidence under ignored `output/demo-api-certification/latest.json` |
 | Test taxonomy gate | unknown | 1 | enforced | `make quality-evaluation-gate` delegates to `make quality-test-taxonomy-gate`, which blocks API/runtime and contract/governance test breadth regressions and uncategorized-test growth |
 
@@ -118,13 +118,15 @@ link the commit, command, or CI artifact that proves the change.
 | --- | ---: | ---: | --- | --- |
 | README required markers | unknown | 8 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
 | Missing README required markers | unknown | 0 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
-| Wiki source pages | unknown | 20 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
-| Markdown documentation files | unknown | 232 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
+| Wiki source pages | unknown | 21 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
+| Markdown documentation files | unknown | 234 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
 | Endpoint certification docs | unknown | 20 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
 | API catalog files | unknown | 4 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
-| Docs regression test functions | unknown | 57 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
-| Public definitions missing docstrings | unknown | 1,086 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
-| Public definition docstring coverage percent | unknown | 11.85 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
+| Major pack README files | unknown | 12 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py`; required pack indexes are enforced by `tests/unit/scripts/test_python_documentation_inventory.py` |
+| Missing major pack README files | unknown | 0 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py`; required pack indexes are enforced by `tests/unit/scripts/test_python_documentation_inventory.py` |
+| Docs regression test functions | unknown | 62 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
+| Public definitions missing docstrings | unknown | 1,183 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
+| Public definition docstring coverage percent | unknown | 11.91 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
 
 ## Phase-Zero Interpretation
 

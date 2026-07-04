@@ -263,7 +263,7 @@ Threshold policy and compose overlays live in:
 
 - [docs/standards/runtime-alert-policy.md](../docs/standards/runtime-alert-policy.md)
 - [docs/standards/runtime-threshold-profiles.md](../docs/standards/runtime-threshold-profiles.md)
-- [docs/examples](../docs/examples)
+- [docs/examples](../docs/examples/)
 
 ## Related pages
 

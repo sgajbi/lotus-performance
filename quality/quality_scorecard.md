@@ -105,15 +105,17 @@ metrics in each section are updated with each meaningful slice.
 | --- | ---: | ---: | ---: | --- | --- |
 | README markers required | unknown | 8 | n/a | measured | `quality/documentation_inventory.md`; `quality/refactor_health_report.md` |
 | Missing README markers | unknown | 0 | n/a | measured | `quality/documentation_inventory.md`; `quality/refactor_health_report.md` |
-| Wiki pages | unknown | 20 | n/a | measured | `quality/documentation_inventory.md`; `quality/refactor_health_report.md` |
-| Public definition docstring coverage | unknown | 11.85 | n/a | measured | `quality/documentation_inventory.md`; `quality/refactor_health_report.md` |
+| Wiki pages | unknown | 21 | n/a | measured | `quality/documentation_inventory.md`; `quality/refactor_health_report.md` |
+| Major pack README files | unknown | 12 | n/a | measured | `quality/documentation_inventory.md`; `quality/refactor_health_report.md`; enforced by `tests/unit/scripts/test_python_documentation_inventory.py` |
+| Missing major pack README files | unknown | 0 | n/a | measured | `quality/documentation_inventory.md`; `quality/refactor_health_report.md`; enforced by `tests/unit/scripts/test_python_documentation_inventory.py` |
+| Public definition docstring coverage | unknown | 11.91 | n/a | measured | `quality/documentation_inventory.md`; `quality/refactor_health_report.md` |
 
 ## Current Improvement Signal
 
 | Signal | Value | Note |
 | --- | ---: | --- |
-| Total metrics tracked | 50 | All metrics in this file are now measured or explicitly staged, with selected zero-finding, breadth, and release-evidence signals enforced or produced separately. |
-| Measured metrics | 49 | Selected measured metrics are now also enforced or produced through blocking static-quality, security, deterministic API evaluation, test-taxonomy, or container evidence lanes. Branch coverage and container vulnerability output are measured report-only and are not promoted to strict gates yet. |
+| Total metrics tracked | 53 | All metrics in this file are now measured or explicitly staged, with selected zero-finding, breadth, and release-evidence signals enforced or produced separately. |
+| Measured metrics | 52 | Selected measured metrics are now also enforced or produced through blocking static-quality, security, deterministic API evaluation, test-taxonomy, or container evidence lanes. Branch coverage and container vulnerability output are measured report-only and are not promoted to strict gates yet. |
 | Not-yet-measured metrics | 0 | The scorecard no longer carries an unmeasured branch-coverage entry. OpenAPI Spectral and public-docstring gate decisions remain outside this scorecard until scoped separately. |
 | Planned gates | 1 | `make container-vulnerability-gate` exists but remains unpromoted until first PR/main container artifacts establish a reviewed high/critical image vulnerability baseline and exception policy. |
 | Latest architecture signal | 1 | `calculate_twr_workflow(...)` moved from `55` to `36` lines and dropped out of the live top-45 function-size inventory after TWR request fingerprinting, requested-window projection, pre-resolution async offload, promoted stateful replay, and sync submission fencing moved behind `_TWRWorkflowSubmissionContext`, `_build_twr_workflow_submission_context(...)`, `_register_pre_resolution_twr_submission(...)`, and `_register_twr_sync_submission(...)`; architecture-boundary and duplicate-code findings remain `0`, max CC remains within the enforced threshold at `8`, high-complexity functions remain `0`, and the next measured function-size hotspot is stateful source chunk retrieval. |
