@@ -281,7 +281,7 @@ async def test_post_with_retry_falls_back_to_jittered_backoff_when_retry_after_i
     _CapturedSleep.delays = []
     monkeypatch.setattr("httpx.AsyncClient", _TransientStatusClient)
     monkeypatch.setattr("app.services.http_resilience.asyncio.sleep", _capture_sleep)
-    monkeypatch.setattr("app.services.http_resilience.random.random", lambda: 0.4)
+    monkeypatch.setattr("app.services.http_resilience._JITTER_RANDOM.random", lambda: 0.4)
 
     status, payload = await post_with_retry(
         url="http://pas/integration",
@@ -298,20 +298,20 @@ async def test_post_with_retry_falls_back_to_jittered_backoff_when_retry_after_i
 
 
 def test_jittered_exponential_backoff_uses_bounded_additive_jitter(monkeypatch):
-    monkeypatch.setattr("app.services.http_resilience.random.random", lambda: 0.0)
+    monkeypatch.setattr("app.services.http_resilience._JITTER_RANDOM.random", lambda: 0.0)
     assert _jittered_exponential_backoff_seconds(backoff_seconds=0.2, attempt=1) == 0.4
 
-    monkeypatch.setattr("app.services.http_resilience.random.random", lambda: 1.0)
+    monkeypatch.setattr("app.services.http_resilience._JITTER_RANDOM.random", lambda: 1.0)
     assert _jittered_exponential_backoff_seconds(backoff_seconds=0.2, attempt=1) == pytest.approx(0.6)
 
-    monkeypatch.setattr("app.services.http_resilience.random.random", lambda: 0.5)
+    monkeypatch.setattr("app.services.http_resilience._JITTER_RANDOM.random", lambda: 0.5)
     assert _jittered_exponential_backoff_seconds(backoff_seconds=0.0, attempt=1) == 0.0
 
 
 @pytest.mark.asyncio
 async def test_default_fallback_retry_policy_desynchronizes_concurrent_delay_paths(monkeypatch):
     jitter_fractions = iter([0.0, 1.0])
-    monkeypatch.setattr("app.services.http_resilience.random.random", lambda: next(jitter_fractions))
+    monkeypatch.setattr("app.services.http_resilience._JITTER_RANDOM.random", lambda: next(jitter_fractions))
 
     delays = await asyncio.gather(
         asyncio.to_thread(_jittered_exponential_backoff_seconds, backoff_seconds=0.2, attempt=0),

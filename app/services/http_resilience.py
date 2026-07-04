@@ -1,6 +1,6 @@
 import asyncio
 import logging
-import random
+import secrets
 from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -16,6 +16,7 @@ _RETRYABLE_STATUS_CODES = frozenset({429, 502, 503, 504})
 _RETRY_AFTER_HEADER = "Retry-After"
 _MAX_RETRY_AFTER_SECONDS = 5.0
 _FALLBACK_RETRY_JITTER_RATIO = 0.5
+_JITTER_RANDOM = secrets.SystemRandom()
 
 
 @dataclass(frozen=True)
@@ -212,7 +213,7 @@ def _jittered_exponential_backoff_seconds(*, backoff_seconds: float, attempt: in
     base_delay = _exponential_backoff_seconds(backoff_seconds=backoff_seconds, attempt=attempt)
     if base_delay <= 0:
         return 0.0
-    jitter_fraction = min(max(random.random(), 0.0), 1.0)
+    jitter_fraction = min(max(_JITTER_RANDOM.random(), 0.0), 1.0)
     return base_delay + (base_delay * _FALLBACK_RETRY_JITTER_RATIO * jitter_fraction)
 
 
