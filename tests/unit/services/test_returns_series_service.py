@@ -953,6 +953,38 @@ def test_returns_series_freshness_uses_last_required_business_date() -> None:
     assert result.diagnostics.freshness == "current"
 
 
+@pytest.mark.asyncio
+async def test_calculate_returns_series_uses_raw_source_dates_for_weekly_freshness(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    request = ReturnsSeriesRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "as_of_date": "2026-04-10",
+            "window": {"mode": "EXPLICIT", "from_date": "2026-04-06", "to_date": "2026-04-10"},
+            "frequency": "WEEKLY",
+            "series_selection": {"include_portfolio": True, "include_benchmark": False, "include_risk_free": False},
+            "data_policy": {"missing_data_policy": "ALLOW_PARTIAL"},
+            "input_mode": "stateless",
+            "stateless_input": {
+                "portfolio_returns": [{"date": "2026-04-06", "return_value": "0.0100"}],
+            },
+        }
+    )
+    _seed_execution(monkeypatch, tmp_path, request)
+
+    result = await returns_series_service._calculate_returns_series(  # noqa: SLF001
+        request,
+        source_input_mode=InputMode.STATELESS,
+        resolved_benchmark_id_override=None,
+        resolved_benchmark_return_source_override=None,
+    )
+
+    assert [point.date for point in result.series.portfolio_returns] == [date(2026, 4, 10)]
+    assert result.diagnostics.freshness == "stale"
+
+
 def test_returns_diagnostics_accepts_legacy_payload_without_freshness() -> None:
     diagnostics = ReturnsDiagnostics.model_validate(
         {
