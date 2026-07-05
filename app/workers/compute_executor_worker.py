@@ -19,7 +19,7 @@ from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.models.contribution_analytics_requests import ContributionAnalyticsRequest, ContributionInputMode
 from app.models.contribution_requests import ContributionRequest
 from app.models.inspection_requests import TWRInspectionRequest
-from app.models.returns_series import InputMode, ReturnsSeriesRequest, RiskFreeSourceQuality
+from app.models.returns_series import InputMode, ReturnPoint, ReturnsSeriesRequest, RiskFreeSourceQuality
 from app.models.twr_requests import TWRAnalyticsRequest, TWRInputMode, TWRResolvedExecutionRequest
 from app.models.workspace_summary_requests import WorkspaceSummaryRequest
 from app.observability import (
@@ -57,7 +57,7 @@ from app.services.durable_metadata_bootstrap import bootstrap_durable_metadata_s
 from app.services.durable_store_runtime import RuntimeStoreProxy
 from app.services.execution_registry import ExecutionRegistry, execution_registry
 from app.services.inspection import run_twr_inspection
-from app.services.returns_series_service import calculate_returns_series
+from app.services.returns_series_service import calculate_returns_series, to_dataframe
 from app.services.twr_mode_service import resolve_twr_request
 from app.services.twr_service import calculate_twr_response
 from app.services.workspace_summary_service import calculate_workspace_summary
@@ -392,6 +392,9 @@ def _execute_returns_series_job(job: ComputeJobRecord, context: _ComputeJobExecu
         resolved_benchmark_id_override,
         resolved_benchmark_return_source_override,
         risk_free_source_quality_override,
+        freshness_portfolio_df_override,
+        freshness_benchmark_df_override,
+        freshness_risk_free_df_override,
     ) = _resolve_async_returns_series_job_request(job.request_payload)
     if source_input_mode == request.input_mode:
         return asyncio.run(context.returns_series_calculator(request))
@@ -402,6 +405,9 @@ def _execute_returns_series_job(job: ComputeJobRecord, context: _ComputeJobExecu
             resolved_benchmark_id_override=resolved_benchmark_id_override,
             resolved_benchmark_return_source_override=resolved_benchmark_return_source_override,
             risk_free_source_quality_override=risk_free_source_quality_override,
+            freshness_portfolio_df_override=freshness_portfolio_df_override,
+            freshness_benchmark_df_override=freshness_benchmark_df_override,
+            freshness_risk_free_df_override=freshness_risk_free_df_override,
         )
     )
 
@@ -832,7 +838,7 @@ def _resolve_async_contribution_job_request(
 
 def _resolve_async_returns_series_job_request(
     payload: dict[str, Any],
-) -> tuple[ReturnsSeriesRequest, InputMode, str | None, str | None, RiskFreeSourceQuality | None]:
+) -> tuple[ReturnsSeriesRequest, InputMode, str | None, str | None, RiskFreeSourceQuality | None, Any, Any, Any]:
     request_payload = _payload_without_async_observability_context(payload)
     resolved_request_payload = request_payload.get("resolved_request")
     source_input_mode = request_payload.get("source_input_mode")
@@ -848,9 +854,26 @@ def _resolve_async_returns_series_job_request(
             RiskFreeSourceQuality.model_validate(risk_free_source_quality)
             if isinstance(risk_free_source_quality, dict)
             else None,
+            _returns_series_freshness_dataframe(request_payload, "freshness_portfolio_returns", "portfolio"),
+            _returns_series_freshness_dataframe(request_payload, "freshness_benchmark_returns", "benchmark"),
+            _returns_series_freshness_dataframe(request_payload, "freshness_risk_free_returns", "risk_free"),
         )
     request = ReturnsSeriesRequest.model_validate(request_payload)
-    return request, request.input_mode, None, None, None
+    return request, request.input_mode, None, None, None, None, None, None
+
+
+def _returns_series_freshness_dataframe(
+    payload: dict[str, Any],
+    field_name: str,
+    series_type: str,
+) -> Any:
+    records = payload.get(field_name)
+    if records is None:
+        return None
+    if not isinstance(records, list):
+        return None
+    points = [ReturnPoint.model_validate(record) for record in records]
+    return to_dataframe(points, series_type=f"{series_type} freshness")
 
 
 def _resolve_async_attribution_job_request(

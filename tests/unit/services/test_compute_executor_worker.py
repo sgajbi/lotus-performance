@@ -925,10 +925,21 @@ def test_resolve_async_returns_series_job_request_preserves_risk_free_source_qua
         }
     )
 
-    request, source_input_mode, _, _, quality = compute_executor_worker._resolve_async_returns_series_job_request(
+    (
+        request,
+        source_input_mode,
+        _,
+        _,
+        quality,
+        freshness_portfolio_df,
+        freshness_benchmark_df,
+        freshness_risk_free_df,
+    ) = compute_executor_worker._resolve_async_returns_series_job_request(
         {
             "resolved_request": resolved_request.model_dump(mode="json"),
             "source_input_mode": "stateful",
+            "freshness_portfolio_returns": [{"date": "2026-02-24", "return_value": "0.0100"}],
+            "freshness_benchmark_returns": [{"date": "2026-02-25", "return_value": "0.0010"}],
             "risk_free_source_quality": {"raw_points": 5, "normalized_points": 3, "skipped_points": 2},
         }
     )
@@ -939,6 +950,11 @@ def test_resolve_async_returns_series_job_request_preserves_risk_free_source_qua
     assert quality.raw_points == 5
     assert quality.normalized_points == 3
     assert quality.skipped_points == 2
+    assert freshness_portfolio_df is not None
+    assert [value.date().isoformat() for value in freshness_portfolio_df["date"]] == ["2026-02-24"]
+    assert freshness_benchmark_df is not None
+    assert [value.date().isoformat() for value in freshness_benchmark_df["date"]] == ["2026-02-25"]
+    assert freshness_risk_free_df is None
 
 
 def test_compute_executor_worker_processes_resolved_benchmark_job(tmp_path, monkeypatch):

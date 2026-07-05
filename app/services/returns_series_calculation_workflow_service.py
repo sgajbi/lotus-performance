@@ -133,6 +133,9 @@ def _resolved_returns_series_async_request_payload(
             "source_input_mode": InputMode.STATEFUL.value,
             "resolved_benchmark_id": resolved.resolved_benchmark_id,
             "resolved_benchmark_return_source": resolved.resolved_benchmark_return_source,
+            "freshness_portfolio_returns": _freshness_return_records(resolved.freshness_portfolio_df),
+            "freshness_benchmark_returns": _freshness_return_records(resolved.freshness_benchmark_df),
+            "freshness_risk_free_returns": _freshness_return_records(resolved.freshness_risk_free_df),
             "risk_free_source_quality": (
                 resolved.risk_free_source_quality.model_dump(mode="json")
                 if resolved.risk_free_source_quality is not None
@@ -140,6 +143,21 @@ def _resolved_returns_series_async_request_payload(
             ),
         }
     )
+
+
+def _freshness_return_records(df: Any) -> list[dict[str, str]] | None:
+    if df is None:
+        return None
+    records: list[dict[str, str]] = []
+    for row in df[["date", "return_value"]].to_dict("records"):
+        date_value = row["date"]
+        records.append(
+            {
+                "date": date_value.date().isoformat() if hasattr(date_value, "date") else str(date_value),
+                "return_value": str(row["return_value"]),
+            }
+        )
+    return records
 
 
 def _finalize_resolved_returns_series_execution(
@@ -213,6 +231,9 @@ async def _calculate_promoted_stateful_returns_series(
             resolved_benchmark_id_override=resolved.resolved_benchmark_id,
             resolved_benchmark_return_source_override=resolved.resolved_benchmark_return_source,
             risk_free_source_quality_override=resolved.risk_free_source_quality,
+            freshness_portfolio_df_override=resolved.freshness_portfolio_df,
+            freshness_benchmark_df_override=resolved.freshness_benchmark_df,
+            freshness_risk_free_df_override=resolved.freshness_risk_free_df,
         )
     except Exception as exc:
         message = _execution_failure_message(exc)

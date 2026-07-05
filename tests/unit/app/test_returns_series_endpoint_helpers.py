@@ -434,6 +434,12 @@ def test_resolved_returns_series_execution_projection_uses_resolved_identity():
         resolved_benchmark_id="BMK1",
         resolved_benchmark_return_source="linked_assignment",
         benchmark_work_units=2,
+        freshness_portfolio_df=pd.DataFrame(
+            {"date": pd.to_datetime(["2026-02-24"]), "return_value": [Decimal("0.0100")]}
+        ),
+        freshness_benchmark_df=pd.DataFrame(
+            {"date": pd.to_datetime(["2026-02-25"]), "return_value": [Decimal("0.0010")]}
+        ),
     )
 
     requested_window = returns_series_calculation_workflow_service._resolved_returns_series_execution_window(
@@ -460,6 +466,9 @@ def test_resolved_returns_series_execution_projection_uses_resolved_identity():
     assert payload["resolved_benchmark_id"] == "BMK1"
     assert payload["resolved_benchmark_return_source"] == "linked_assignment"
     assert payload["resolved_request"]["portfolio_id"] == "P1"
+    assert payload["freshness_portfolio_returns"] == [{"date": "2026-02-24", "return_value": "0.0100"}]
+    assert payload["freshness_benchmark_returns"] == [{"date": "2026-02-25", "return_value": "0.0010"}]
+    assert payload["freshness_risk_free_returns"] is None
 
 
 def test_execution_failure_message_prefers_coded_detail_message():
@@ -507,3 +516,64 @@ async def test_promoted_stateful_returns_series_helper_returns_replay_without_re
     assert response == replay_response
     replay_promoted.assert_called_once()
     register_sync.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_promoted_stateful_returns_series_passes_raw_freshness_frames(mocker):
+    request = ReturnsSeriesRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "as_of_date": "2026-04-08",
+            "window": {"mode": "EXPLICIT", "from_date": "2026-04-01", "to_date": "2026-04-08"},
+            "frequency": "WEEKLY",
+            "input_mode": "stateful",
+            "stateful_input": {},
+        }
+    )
+    resolved_request = request.model_copy(
+        update={
+            "input_mode": InputMode.STATELESS,
+            "stateless_input": StatelessInput(
+                portfolio_returns=[ReturnPoint(date=date(2026, 4, 10), return_value=Decimal("0.0100"))]
+            ),
+            "stateful_input": None,
+        }
+    )
+    freshness_portfolio_df = pd.DataFrame({"date": pd.to_datetime(["2026-04-06"]), "return_value": [Decimal("0.0100")]})
+    resolved = ResolvedStatefulReturnsSeriesRequest(
+        request=resolved_request,
+        identity_payload={"portfolio_id": "P1", "resolved": True},
+        input_count=1,
+        resolved_benchmark_id=None,
+        resolved_benchmark_return_source=None,
+        benchmark_work_units=0,
+        freshness_portfolio_df=freshness_portfolio_df,
+    )
+    mocker.patch(
+        "app.services.returns_series_calculation_workflow_service.replay_promoted_stateful_async_execution",
+        return_value=None,
+    )
+    mocker.patch("app.services.returns_series_calculation_workflow_service.register_sync_execution_or_raise")
+    mocker.patch(
+        "app.services.returns_series_calculation_workflow_service.resolve_stateful_returns_series_request",
+        mocker.AsyncMock(return_value=resolved),
+    )
+    mocker.patch(
+        "app.services.returns_series_calculation_workflow_service._finalize_resolved_returns_series_execution",
+        return_value=None,
+    )
+    calculate = mocker.patch(
+        "app.services.returns_series_calculation_workflow_service.calculate_returns_series",
+        mocker.AsyncMock(return_value="response"),
+    )
+
+    response = await returns_series_calculation_workflow_service._calculate_promoted_stateful_returns_series(
+        request=request,
+        input_fingerprint="source-fingerprint",
+        calculation_hash="source-hash",
+    )
+
+    assert response == "response"
+    assert calculate.call_args.kwargs["freshness_portfolio_df_override"] is freshness_portfolio_df
+    assert calculate.call_args.kwargs["freshness_benchmark_df_override"] is None
+    assert calculate.call_args.kwargs["freshness_risk_free_df_override"] is None
