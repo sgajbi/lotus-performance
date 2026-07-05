@@ -19,6 +19,7 @@ from app.models.returns_series import (
     MetricBasis,
     MissingDataPolicy,
     ReturnPoint,
+    ReturnsDiagnostics,
     ReturnsFrequency,
     ReturnsRelativePeriod,
     ReturnsSeriesRequest,
@@ -843,22 +844,43 @@ def test_build_returns_series_diagnostics_reports_coverage_gaps_and_market_warni
     assert result.requested_points == 4
     assert result.returned_points == 2
     assert result.diagnostics.coverage.missing_points == 2
-    assert result.diagnostics.freshness == "current"
+    assert result.diagnostics.freshness == "stale"
     assert result.diagnostics.warnings == ["MARKET calendar policy currently uses business-day approximation."]
     assert {gap.series_type for gap in result.diagnostics.gaps} == {"portfolio", "benchmark"}
 
 
 def test_returns_series_freshness_marks_stale_source_warnings() -> None:
     assert (
-        returns_series_service._returns_series_freshness(["stale benchmark observation retained by source policy"])
+        returns_series_service._returns_series_freshness(
+            warnings=["stale benchmark observation retained by source policy"]
+        )
         == "stale"
     )
     assert (
         returns_series_service._returns_series_freshness(
-            ["MARKET calendar policy currently uses business-day approximation."]
+            warnings=["MARKET calendar policy currently uses business-day approximation."]
         )
         == "current"
     )
+
+
+def test_returns_diagnostics_accepts_legacy_payload_without_freshness() -> None:
+    diagnostics = ReturnsDiagnostics.model_validate(
+        {
+            "coverage": {
+                "requested_points": 2,
+                "returned_points": 2,
+                "missing_points": 0,
+                "coverage_ratio": "1",
+            },
+            "gaps": [],
+            "policy_applied": {},
+            "risk_free_source_quality": None,
+            "warnings": [],
+        }
+    )
+
+    assert diagnostics.freshness == "current"
 
 
 def test_build_returns_series_diagnostics_reports_stateless_risk_free_source_quality():

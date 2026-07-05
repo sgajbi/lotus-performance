@@ -489,6 +489,7 @@ class RiskFreeSourceQuality(BaseModel):
 class ReturnsDiagnostics(BaseModel):
     coverage: SeriesCoverage = Field(description="Coverage summary for the response series.")
     freshness: Literal["current", "stale"] = Field(
+        default="current",
         description=(
             "Source freshness for the generated returns-series evidence. Partial coverage remains "
             "represented by coverage diagnostics; freshness describes whether the source evidence is "

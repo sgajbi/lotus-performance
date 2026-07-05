@@ -1315,7 +1315,15 @@ def _build_returns_series_diagnostics(
                 if requested_points
                 else Decimal("1"),
             ),
-            freshness=_returns_series_freshness(warnings),
+            freshness=_returns_series_freshness(
+                warnings=warnings,
+                resolved_window=resolved_window,
+                portfolio_df=portfolio_df,
+                benchmark_df=benchmark_df,
+                risk_free_df=risk_free_df,
+                include_benchmark=request.series_selection.include_benchmark,
+                include_risk_free=request.series_selection.include_risk_free,
+            ),
             gaps=gaps,
             policy_applied=request.data_policy,
             risk_free_source_quality=(
@@ -1328,10 +1336,43 @@ def _build_returns_series_diagnostics(
     )
 
 
-def _returns_series_freshness(warnings: list[str]) -> Literal["current", "stale"]:
+def _returns_series_freshness(
+    warnings: list[str],
+    *,
+    resolved_window: ResolvedWindow | None = None,
+    portfolio_df: pd.DataFrame | None = None,
+    benchmark_df: pd.DataFrame | None = None,
+    risk_free_df: pd.DataFrame | None = None,
+    include_benchmark: bool = False,
+    include_risk_free: bool = False,
+) -> Literal["current", "stale"]:
     if any("stale" in warning.lower() for warning in warnings):
         return "stale"
+    if resolved_window is None:
+        return "current"
+    series_frames = [portfolio_df]
+    if include_benchmark:
+        series_frames.append(benchmark_df)
+    if include_risk_free:
+        series_frames.append(risk_free_df)
+    for frame in series_frames:
+        latest_date = _latest_series_date(frame)
+        if latest_date is not None and latest_date < resolved_window.end_date:
+            return "stale"
     return "current"
+
+
+def _latest_series_date(frame: pd.DataFrame | None) -> date | None:
+    if frame is None or frame.empty:
+        return None
+    latest = frame["date"].max()
+    if isinstance(latest, pd.Timestamp):
+        return latest.date()
+    if isinstance(latest, datetime):
+        return latest.date()
+    if isinstance(latest, date):
+        return latest
+    return pd.Timestamp(latest).date()
 
 
 def _stateless_risk_free_source_quality_from_request(
