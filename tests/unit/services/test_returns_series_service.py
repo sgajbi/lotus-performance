@@ -699,6 +699,60 @@ def test_build_returns_series_execution_result_preserves_policy_response_and_sta
     assert response.diagnostics.coverage.returned_points == 1
 
 
+def test_build_returns_series_execution_result_marks_filled_side_source_stale():
+    request = ReturnsSeriesRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "as_of_date": "2026-02-25",
+            "window": {"mode": "EXPLICIT", "from_date": "2026-02-23", "to_date": "2026-02-25"},
+            "frequency": "DAILY",
+            "series_selection": {"include_portfolio": True, "include_benchmark": True, "include_risk_free": False},
+            "data_policy": {"missing_data_policy": "ALLOW_PARTIAL", "fill_method": "FORWARD_FILL"},
+            "input_mode": "stateless",
+            "stateless_input": {
+                "portfolio_returns": [{"date": "2026-02-25", "return_value": "0.0200"}],
+                "benchmark_returns": [{"date": "2026-02-24", "return_value": "0.0010"}],
+            },
+        }
+    )
+    context = returns_series_service._ReturnsSeriesExecutionContext(
+        request=request,
+        resolved_window=returns_series_service.resolve_window(request),
+        effective_input_mode=InputMode.STATELESS,
+        input_fingerprint="input-fingerprint",
+        calculation_hash="calculation-hash",
+        resolved_benchmark_id="BMK_1",
+        resolved_benchmark_return_source=BenchmarkReturnSource.VENDOR_SERIES,
+    )
+    portfolio_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-23", "2026-02-24", "2026-02-25"]),
+            "return_value": [Decimal("0.0100"), Decimal("0.0150"), Decimal("0.0200")],
+        }
+    )
+    benchmark_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-23", "2026-02-24"]),
+            "return_value": [Decimal("0.0010"), Decimal("0.0020")],
+        }
+    )
+
+    result = returns_series_service._build_returns_series_execution_result(
+        context=context,
+        portfolio_df=portfolio_df,
+        benchmark_df=benchmark_df,
+        risk_free_df=None,
+    )
+
+    assert result.response.series.benchmark_returns is not None
+    assert [point.date for point in result.response.series.benchmark_returns] == [
+        date(2026, 2, 23),
+        date(2026, 2, 24),
+        date(2026, 2, 25),
+    ]
+    assert result.response.diagnostics.freshness == "stale"
+
+
 def test_returns_series_benchmark_context_requires_id_and_source():
     context = returns_series_service._returns_series_benchmark_context(
         resolved_benchmark_id="BMK_1",
@@ -862,6 +916,41 @@ def test_returns_series_freshness_marks_stale_source_warnings() -> None:
         )
         == "current"
     )
+
+
+def test_returns_series_freshness_uses_last_required_business_date() -> None:
+    request = ReturnsSeriesRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "as_of_date": "2026-04-12",
+            "window": {"mode": "EXPLICIT", "from_date": "2026-04-10", "to_date": "2026-04-12"},
+            "frequency": "DAILY",
+            "series_selection": {"include_portfolio": True, "include_benchmark": False, "include_risk_free": False},
+            "data_policy": {"calendar_policy": "BUSINESS"},
+            "input_mode": "stateless",
+            "stateless_input": {
+                "portfolio_returns": [{"date": "2026-04-10", "return_value": "0.0100"}],
+            },
+        }
+    )
+    resolved_window = returns_series_service.resolve_window(request)
+    portfolio_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-04-10"]),
+            "return_value": [Decimal("0.0100")],
+        }
+    )
+
+    result = returns_series_service._build_returns_series_diagnostics(
+        request=request,
+        resolved_window=resolved_window,
+        portfolio_df=portfolio_df,
+        benchmark_df=None,
+        risk_free_df=None,
+    )
+
+    assert result.requested_points == 1
+    assert result.diagnostics.freshness == "current"
 
 
 def test_returns_diagnostics_accepts_legacy_payload_without_freshness() -> None:
