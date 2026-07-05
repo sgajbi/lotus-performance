@@ -84,9 +84,9 @@ class ResolvedStatefulReturnsSeriesRequest:
     resolved_benchmark_id: str | None
     resolved_benchmark_return_source: str | None
     benchmark_work_units: int
-    freshness_portfolio_df: pd.DataFrame
-    freshness_benchmark_df: pd.DataFrame | None
-    freshness_risk_free_df: pd.DataFrame | None
+    freshness_portfolio_df: pd.DataFrame | None = None
+    freshness_benchmark_df: pd.DataFrame | None = None
+    freshness_risk_free_df: pd.DataFrame | None = None
     risk_free_source_quality: RiskFreeSourceQuality | None = None
 
 
