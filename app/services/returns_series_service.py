@@ -1305,9 +1305,7 @@ def _returns_series_coverage(
         requested_points=requested_points,
         returned_points=returned_points,
         missing_points=missing_points,
-        coverage_ratio=Decimal(str(round(returned_points / requested_points, 8)))
-        if requested_points
-        else Decimal("1"),
+        coverage_ratio=Decimal(str(round(returned_points / requested_points, 8))) if requested_points else Decimal("1"),
     )
 
 
