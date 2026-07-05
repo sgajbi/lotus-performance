@@ -84,6 +84,9 @@ class ResolvedStatefulReturnsSeriesRequest:
     resolved_benchmark_id: str | None
     resolved_benchmark_return_source: str | None
     benchmark_work_units: int
+    freshness_portfolio_df: pd.DataFrame
+    freshness_benchmark_df: pd.DataFrame | None
+    freshness_risk_free_df: pd.DataFrame | None
     risk_free_source_quality: RiskFreeSourceQuality | None = None
 
 
@@ -121,6 +124,9 @@ class _ReturnsSeriesExecutionContext:
     calculation_hash: str
     resolved_benchmark_id: str | None
     resolved_benchmark_return_source: BenchmarkReturnSource
+    freshness_portfolio_df: pd.DataFrame | None = None
+    freshness_benchmark_df: pd.DataFrame | None = None
+    freshness_risk_free_df: pd.DataFrame | None = None
     risk_free_source_quality: RiskFreeSourceQuality | None = None
 
 
@@ -149,6 +155,7 @@ class _StatefulBenchmarkResolution:
     benchmark_id: str | None
     benchmark_points: list[dict[str, Any]] | None
     benchmark_df: pd.DataFrame | None
+    freshness_benchmark_df: pd.DataFrame | None
     benchmark_source_details: dict[str, int]
     benchmark_work_units: int
 
@@ -158,12 +165,18 @@ class _StatefulReturnsSeriesFrames:
     portfolio_df: pd.DataFrame
     benchmark_df: pd.DataFrame | None
     risk_free_df: pd.DataFrame | None
+    freshness_portfolio_df: pd.DataFrame
+    freshness_benchmark_df: pd.DataFrame | None
+    freshness_risk_free_df: pd.DataFrame | None
 
 
 @dataclass(frozen=True)
 class _StatefulReturnsSeriesResolvedRequest:
     request: ReturnsSeriesRequest
     identity_payload: dict[str, Any]
+    freshness_portfolio_df: pd.DataFrame
+    freshness_benchmark_df: pd.DataFrame | None
+    freshness_risk_free_df: pd.DataFrame | None
 
 
 @dataclass(frozen=True)
@@ -925,45 +938,54 @@ def _build_stateful_returns_series_frames(
     portfolio_performance_start_date: date,
     benchmark_points: list[dict[str, Any]] | None,
     benchmark_df: pd.DataFrame | None,
+    freshness_benchmark_df: pd.DataFrame | None,
     risk_free_points: list[dict[str, Any]] | None,
 ) -> _StatefulReturnsSeriesFrames:
+    freshness_portfolio_df = daily_ror_from_portfolio_timeseries(
+        observations=observations,
+        performance_start_date=portfolio_performance_start_date,
+        resolved_window=resolved_window,
+        metric_basis=request.metric_basis.value,
+    )
     portfolio_df = resample_returns(
-        daily_ror_from_portfolio_timeseries(
-            observations=observations,
-            performance_start_date=portfolio_performance_start_date,
-            resolved_window=resolved_window,
-            metric_basis=request.metric_basis.value,
-        ),
+        freshness_portfolio_df,
         frequency=request.frequency,
     )
     resolved_benchmark_df = benchmark_df
+    resolved_freshness_benchmark_df = freshness_benchmark_df
     if benchmark_points is not None:
-        resolved_benchmark_df = resample_returns(
-            filter_window(
-                core_points_to_dataframe(
-                    points=benchmark_points,
-                    date_key="series_date",
-                    value_key="benchmark_return",
-                    series_type="benchmark",
-                ),
-                resolved_window=resolved_window,
+        resolved_freshness_benchmark_df = filter_window(
+            core_points_to_dataframe(
+                points=benchmark_points,
+                date_key="series_date",
+                value_key="benchmark_return",
+                series_type="benchmark",
             ),
+            resolved_window=resolved_window,
+        )
+        resolved_benchmark_df = resample_returns(
+            resolved_freshness_benchmark_df,
             frequency=request.frequency,
         )
 
     risk_free_df: pd.DataFrame | None = None
+    freshness_risk_free_df: pd.DataFrame | None = None
     if risk_free_points is not None:
+        freshness_risk_free_df = filter_window(
+            risk_free_points_to_dataframe(points=risk_free_points),
+            resolved_window=resolved_window,
+        )
         risk_free_df = resample_returns(
-            filter_window(
-                risk_free_points_to_dataframe(points=risk_free_points),
-                resolved_window=resolved_window,
-            ),
+            freshness_risk_free_df,
             frequency=request.frequency,
         )
     return _StatefulReturnsSeriesFrames(
         portfolio_df=portfolio_df,
         benchmark_df=resolved_benchmark_df,
         risk_free_df=risk_free_df,
+        freshness_portfolio_df=freshness_portfolio_df,
+        freshness_benchmark_df=resolved_freshness_benchmark_df,
+        freshness_risk_free_df=freshness_risk_free_df,
     )
 
 
@@ -1025,6 +1047,7 @@ def _build_resolved_stateful_returns_series_request(
         portfolio_performance_start_date=portfolio_performance_start_date,
         benchmark_points=benchmark_resolution.benchmark_points,
         benchmark_df=benchmark_resolution.benchmark_df,
+        freshness_benchmark_df=benchmark_resolution.freshness_benchmark_df,
         risk_free_points=risk_free_points,
     )
     portfolio_df = normalized_frames.portfolio_df
@@ -1058,6 +1081,9 @@ def _build_resolved_stateful_returns_series_request(
     return _StatefulReturnsSeriesResolvedRequest(
         request=resolved_request,
         identity_payload=identity_payload,
+        freshness_portfolio_df=normalized_frames.freshness_portfolio_df,
+        freshness_benchmark_df=normalized_frames.freshness_benchmark_df,
+        freshness_risk_free_df=normalized_frames.freshness_risk_free_df,
     )
 
 
@@ -1234,6 +1260,7 @@ async def _resolve_stateful_returns_series_benchmark_source(
             benchmark_id=benchmark_id,
             benchmark_points=None,
             benchmark_df=None,
+            freshness_benchmark_df=None,
             benchmark_source_details={},
             benchmark_work_units=0,
         )
@@ -1249,6 +1276,7 @@ async def _resolve_stateful_returns_series_benchmark_source(
             benchmark_id=benchmark_id,
             benchmark_points=benchmark_source.benchmark_points,
             benchmark_df=None,
+            freshness_benchmark_df=None,
             benchmark_source_details=benchmark_source.benchmark_source_details,
             benchmark_work_units=benchmark_source.benchmark_work_units,
         )
@@ -1284,11 +1312,12 @@ async def _resolve_stateful_normalized_benchmark_source(
         if resolved_benchmark_return_source == BenchmarkReturnSource.CALCULATED
         else benchmark_return_points_to_dataframe(normalized_benchmark_input.benchmark_return_points)
     )
+    freshness_benchmark_df = filter_window(
+        _benchmark_daily_returns_to_dataframe(benchmark_input_df),
+        resolved_window=resolved_window,
+    )
     benchmark_df = resample_returns(
-        filter_window(
-            _benchmark_daily_returns_to_dataframe(benchmark_input_df),
-            resolved_window=resolved_window,
-        ),
+        freshness_benchmark_df,
         frequency=request.frequency,
     )
     benchmark_source_details = {
@@ -1299,6 +1328,7 @@ async def _resolve_stateful_normalized_benchmark_source(
         benchmark_id=benchmark_id,
         benchmark_points=None,
         benchmark_df=benchmark_df,
+        freshness_benchmark_df=freshness_benchmark_df,
         benchmark_source_details=benchmark_source_details,
         benchmark_work_units=normalized_benchmark_input.source_details.get(
             "component_observations",
@@ -1723,6 +1753,9 @@ def _requested_returns_series_execution_context(
         resolved_benchmark_id=resolved_benchmark_id_override
         or (request.benchmark.benchmark_id if request.benchmark else None),
         resolved_benchmark_return_source=resolved_benchmark_return_source,
+        freshness_portfolio_df=None,
+        freshness_benchmark_df=None,
+        freshness_risk_free_df=None,
         risk_free_source_quality=risk_free_source_quality_override,
     )
 
@@ -1773,6 +1806,9 @@ async def _resolve_returns_series_execution_context(
         calculation_hash=calculation_hash,
         resolved_benchmark_id=resolved_benchmark_id,
         resolved_benchmark_return_source=resolved_benchmark_return_source,
+        freshness_portfolio_df=resolved_stateful_request.freshness_portfolio_df,
+        freshness_benchmark_df=resolved_stateful_request.freshness_benchmark_df,
+        freshness_risk_free_df=resolved_stateful_request.freshness_risk_free_df,
         risk_free_source_quality=resolved_stateful_request.risk_free_source_quality,
     )
 
@@ -1891,12 +1927,19 @@ async def _calculate_returns_series(
             request=request,
             resolved_window=context.resolved_window,
         )
-        freshness_portfolio_df, freshness_benchmark_df, freshness_risk_free_df = (
-            _prepare_stateless_returns_series_freshness_frames(
-                request=request,
-                resolved_window=context.resolved_window,
+        if context.freshness_portfolio_df is None:
+            freshness_portfolio_df, freshness_benchmark_df, freshness_risk_free_df = (
+                _prepare_stateless_returns_series_freshness_frames(
+                    request=request,
+                    resolved_window=context.resolved_window,
+                )
             )
-        )
+        else:
+            freshness_portfolio_df, freshness_benchmark_df, freshness_risk_free_df = (
+                context.freshness_portfolio_df,
+                context.freshness_benchmark_df,
+                context.freshness_risk_free_df,
+            )
 
         active_stage = EXECUTION_STAGE_EXECUTION
         execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_EXECUTION)
@@ -1958,6 +2001,9 @@ async def resolve_stateful_returns_series_request(
         resolved_benchmark_id=resolved_benchmark_id,
         resolved_benchmark_return_source=(resolved_benchmark_return_source.value if resolved_benchmark_id else None),
         benchmark_work_units=benchmark_resolution.benchmark_work_units,
+        freshness_portfolio_df=resolved_stateful_request.freshness_portfolio_df,
+        freshness_benchmark_df=resolved_stateful_request.freshness_benchmark_df,
+        freshness_risk_free_df=resolved_stateful_request.freshness_risk_free_df,
         risk_free_source_quality=risk_free_source_quality_from_points(sources.risk_free_points),
     )
 

@@ -1568,6 +1568,7 @@ def test_build_stateful_returns_series_frames_normalizes_vendor_benchmark_and_ri
             {"series_date": "2026-02-25", "benchmark_return": "0.003"},
         ],
         benchmark_df=None,
+        freshness_benchmark_df=None,
         risk_free_points=[
             {"series_date": "2026-02-24", "value": "0.0001"},
             {"series_date": "2026-02-25", "value": "0.0002"},
@@ -1578,9 +1579,45 @@ def test_build_stateful_returns_series_frames_normalizes_vendor_benchmark_and_ri
     assert frames.benchmark_df is not None
     assert [value.date().isoformat() for value in frames.benchmark_df["date"]] == ["2026-02-23", "2026-02-25"]
     assert [str(value) for value in frames.benchmark_df["return_value"]] == ["0.001", "0.003"]
+    assert frames.freshness_benchmark_df is not None
+    assert [value.date().isoformat() for value in frames.freshness_benchmark_df["date"]] == ["2026-02-23", "2026-02-25"]
     assert frames.risk_free_df is not None
     assert [value.date().isoformat() for value in frames.risk_free_df["date"]] == ["2026-02-24", "2026-02-25"]
     assert [str(value) for value in frames.risk_free_df["return_value"]] == ["0.0001", "0.0002"]
+    assert frames.freshness_risk_free_df is not None
+    assert [value.date().isoformat() for value in frames.freshness_risk_free_df["date"]] == ["2026-02-24", "2026-02-25"]
+
+
+def test_build_stateful_returns_series_frames_preserves_raw_weekly_freshness_dates():
+    request = _build_stateful_request(
+        as_of_date="2026-04-10",
+        window={"mode": "EXPLICIT", "from_date": "2026-04-06", "to_date": "2026-04-10"},
+        frequency="WEEKLY",
+        series_selection={"include_portfolio": True, "include_benchmark": True, "include_risk_free": False},
+    )
+    resolved_window = returns_series_service.resolve_window(request)
+
+    frames = returns_series_service._build_stateful_returns_series_frames(
+        request=request,
+        resolved_window=resolved_window,
+        observations=[
+            {"valuation_date": "2026-04-06", "beginning_market_value": "100", "ending_market_value": "101"},
+        ],
+        portfolio_performance_start_date=pd.Timestamp("2026-04-06").date(),
+        benchmark_points=[
+            {"series_date": "2026-04-06", "benchmark_return": "0.001"},
+        ],
+        benchmark_df=None,
+        freshness_benchmark_df=None,
+        risk_free_points=None,
+    )
+
+    assert [value.date().isoformat() for value in frames.portfolio_df["date"]] == ["2026-04-10"]
+    assert [value.date().isoformat() for value in frames.freshness_portfolio_df["date"]] == ["2026-04-06"]
+    assert frames.benchmark_df is not None
+    assert [value.date().isoformat() for value in frames.benchmark_df["date"]] == ["2026-04-10"]
+    assert frames.freshness_benchmark_df is not None
+    assert [value.date().isoformat() for value in frames.freshness_benchmark_df["date"]] == ["2026-04-06"]
 
 
 def test_build_stateful_returns_series_frames_preserves_calculated_benchmark_frame():
@@ -1603,10 +1640,12 @@ def test_build_stateful_returns_series_frames_preserves_calculated_benchmark_fra
         portfolio_performance_start_date=pd.Timestamp("2026-02-23").date(),
         benchmark_points=None,
         benchmark_df=benchmark_df,
+        freshness_benchmark_df=benchmark_df,
         risk_free_points=None,
     )
 
     assert frames.benchmark_df is benchmark_df
+    assert frames.freshness_benchmark_df is benchmark_df
     assert frames.risk_free_df is None
 
 
@@ -1620,6 +1659,7 @@ def test_stateful_returns_retrieval_stage_details_preserve_count_policy():
         benchmark_id="BMK1",
         benchmark_points=[{"series_date": "2026-02-23"}, {"series_date": "2026-02-24"}],
         benchmark_df=None,
+        freshness_benchmark_df=None,
         benchmark_source_details={"benchmark_chunk_count": 4, "benchmark_page_count": 5},
         benchmark_work_units=6,
     )
@@ -1685,6 +1725,7 @@ def test_build_resolved_stateful_returns_series_request_completes_normalization_
             benchmark_id=None,
             benchmark_points=None,
             benchmark_df=None,
+            freshness_benchmark_df=None,
             benchmark_source_details={},
             benchmark_work_units=0,
         ),
@@ -1799,6 +1840,7 @@ async def test_retrieve_stateful_returns_series_sources_completes_retrieval_stag
         benchmark_id="BMK_CORE",
         benchmark_points=[{"series_date": "2026-02-23"}],
         benchmark_df=None,
+        freshness_benchmark_df=None,
         benchmark_source_details={"benchmark_chunk_count": 4, "benchmark_page_count": 5},
         benchmark_work_units=1,
     )
