@@ -786,17 +786,31 @@ def _returns_series_input_dataframe(
     frequency: ReturnsFrequency,
     calendar_policy: CalendarPolicy,
 ) -> pd.DataFrame:
+    source_df = _returns_series_source_dataframe(
+        points=points,
+        series_type=series_type,
+        resolved_window=resolved_window,
+    )
     series_df = resample_returns(
-        filter_window(
-            to_dataframe(points, series_type=series_type),
-            resolved_window=resolved_window,
-        ),
+        source_df,
         frequency=frequency,
     )
     return apply_calendar_policy(
         series_df,
         frequency=frequency,
         calendar_policy=calendar_policy,
+    )
+
+
+def _returns_series_source_dataframe(
+    *,
+    points: list[ReturnPoint],
+    series_type: str,
+    resolved_window: ResolvedWindow,
+) -> pd.DataFrame:
+    return filter_window(
+        to_dataframe(points, series_type=series_type),
+        resolved_window=resolved_window,
     )
 
 
@@ -834,6 +848,54 @@ def _prepare_stateless_returns_series_dataframes(
         resolved_window=resolved_window,
     )
     return portfolio_df, benchmark_df, risk_free_df
+
+
+def _prepare_stateless_returns_series_freshness_frames(
+    *,
+    request: ReturnsSeriesRequest,
+    resolved_window: ResolvedWindow,
+) -> tuple[pd.DataFrame, pd.DataFrame | None, pd.DataFrame | None]:
+    stateless_input = request.stateless_input
+    if stateless_input is None:
+        raise _returns_series_api_error(
+            status_code=HTTP_400_BAD_REQUEST,
+            detail=invalid_request_detail("stateless_input is required in stateless mode."),
+        )
+
+    portfolio_df = _returns_series_source_dataframe(
+        points=stateless_input.portfolio_returns,
+        series_type="portfolio",
+        resolved_window=resolved_window,
+    )
+    benchmark_df = _optional_stateless_returns_series_freshness_frame(
+        selected=request.series_selection.include_benchmark,
+        points=stateless_input.benchmark_returns,
+        series_type="benchmark",
+        resolved_window=resolved_window,
+    )
+    risk_free_df = _optional_stateless_returns_series_freshness_frame(
+        selected=request.series_selection.include_risk_free,
+        points=stateless_input.risk_free_returns,
+        series_type="risk_free",
+        resolved_window=resolved_window,
+    )
+    return portfolio_df, benchmark_df, risk_free_df
+
+
+def _optional_stateless_returns_series_freshness_frame(
+    *,
+    selected: bool,
+    points: list[ReturnPoint] | None,
+    series_type: str,
+    resolved_window: ResolvedWindow,
+) -> pd.DataFrame | None:
+    if not selected:
+        return None
+    return _returns_series_source_dataframe(
+        points=points or [],
+        series_type=series_type,
+        resolved_window=resolved_window,
+    )
 
 
 def _optional_stateless_returns_series_dataframe(
@@ -1756,6 +1818,9 @@ def _build_returns_series_execution_result(
     portfolio_df: pd.DataFrame,
     benchmark_df: pd.DataFrame | None,
     risk_free_df: pd.DataFrame | None,
+    freshness_portfolio_df: pd.DataFrame | None = None,
+    freshness_benchmark_df: pd.DataFrame | None = None,
+    freshness_risk_free_df: pd.DataFrame | None = None,
 ) -> _ReturnsSeriesExecutionResult:
     request = context.request
     normalized_frames = _normalize_returns_series_execution_frames(
@@ -1780,9 +1845,9 @@ def _build_returns_series_execution_result(
         portfolio_df=normalized_frames.portfolio_df,
         benchmark_df=normalized_frames.benchmark_df,
         risk_free_df=normalized_frames.risk_free_df,
-        freshness_portfolio_df=portfolio_df,
-        freshness_benchmark_df=benchmark_df,
-        freshness_risk_free_df=risk_free_df,
+        freshness_portfolio_df=freshness_portfolio_df if freshness_portfolio_df is not None else portfolio_df,
+        freshness_benchmark_df=freshness_benchmark_df if freshness_benchmark_df is not None else benchmark_df,
+        freshness_risk_free_df=freshness_risk_free_df if freshness_risk_free_df is not None else risk_free_df,
         risk_free_source_quality=context.risk_free_source_quality,
     )
     response = _build_returns_series_response(
@@ -1826,6 +1891,12 @@ async def _calculate_returns_series(
             request=request,
             resolved_window=context.resolved_window,
         )
+        freshness_portfolio_df, freshness_benchmark_df, freshness_risk_free_df = (
+            _prepare_stateless_returns_series_freshness_frames(
+                request=request,
+                resolved_window=context.resolved_window,
+            )
+        )
 
         active_stage = EXECUTION_STAGE_EXECUTION
         execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_EXECUTION)
@@ -1834,6 +1905,9 @@ async def _calculate_returns_series(
             portfolio_df=portfolio_df,
             benchmark_df=benchmark_df,
             risk_free_df=risk_free_df,
+            freshness_portfolio_df=freshness_portfolio_df,
+            freshness_benchmark_df=freshness_benchmark_df,
+            freshness_risk_free_df=freshness_risk_free_df,
         )
         execution_registry.complete_stage(
             request.calculation_id,
