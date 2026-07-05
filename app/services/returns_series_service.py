@@ -1731,6 +1731,9 @@ async def calculate_returns_series(
     resolved_benchmark_id_override: str | None = None,
     resolved_benchmark_return_source_override: str | None = None,
     risk_free_source_quality_override: RiskFreeSourceQuality | None = None,
+    freshness_portfolio_df_override: pd.DataFrame | None = None,
+    freshness_benchmark_df_override: pd.DataFrame | None = None,
+    freshness_risk_free_df_override: pd.DataFrame | None = None,
 ) -> ReturnsSeriesResponse:
     return await _calculate_returns_series(
         request,
@@ -1738,6 +1741,9 @@ async def calculate_returns_series(
         resolved_benchmark_id_override=resolved_benchmark_id_override,
         resolved_benchmark_return_source_override=resolved_benchmark_return_source_override,
         risk_free_source_quality_override=risk_free_source_quality_override,
+        freshness_portfolio_df_override=freshness_portfolio_df_override,
+        freshness_benchmark_df_override=freshness_benchmark_df_override,
+        freshness_risk_free_df_override=freshness_risk_free_df_override,
     )
 
 
@@ -1921,6 +1927,9 @@ async def _calculate_returns_series(
     resolved_benchmark_id_override: str | None = None,
     resolved_benchmark_return_source_override: str | None = None,
     risk_free_source_quality_override: RiskFreeSourceQuality | None = None,
+    freshness_portfolio_df_override: pd.DataFrame | None = None,
+    freshness_benchmark_df_override: pd.DataFrame | None = None,
+    freshness_risk_free_df_override: pd.DataFrame | None = None,
 ) -> ReturnsSeriesResponse:
     execution_registry.mark_running(request.calculation_id)
     active_stage: str | None = None
@@ -1938,7 +1947,13 @@ async def _calculate_returns_series(
             request=request,
             resolved_window=context.resolved_window,
         )
-        if context.freshness_portfolio_df is None:
+        if freshness_portfolio_df_override is not None:
+            freshness_portfolio_df, freshness_benchmark_df, freshness_risk_free_df = (
+                freshness_portfolio_df_override,
+                freshness_benchmark_df_override,
+                freshness_risk_free_df_override,
+            )
+        elif context.freshness_portfolio_df is None:
             freshness_portfolio_df, freshness_benchmark_df, freshness_risk_free_df = (
                 _prepare_stateless_returns_series_freshness_frames(
                     request=request,
