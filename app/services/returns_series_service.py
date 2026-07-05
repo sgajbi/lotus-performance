@@ -323,6 +323,29 @@ def date_range_count(
     return len(pd.date_range(start, end, freq="ME"))
 
 
+def _last_required_observation_date(
+    resolved_window: ResolvedWindow,
+    *,
+    frequency: ReturnsFrequency,
+    calendar_policy: CalendarPolicy,
+) -> date:
+    start = pd.Timestamp(resolved_window.start_date)
+    end = pd.Timestamp(resolved_window.end_date)
+    if frequency == ReturnsFrequency.DAILY:
+        required_dates = (
+            pd.date_range(start, end, freq="D")
+            if calendar_policy == CalendarPolicy.CALENDAR
+            else pd.bdate_range(start, end)
+        )
+    elif frequency == ReturnsFrequency.WEEKLY:
+        required_dates = pd.date_range(start, end, freq="W-FRI")
+    else:
+        required_dates = pd.date_range(start, end, freq="ME")
+    if len(required_dates) == 0:
+        return resolved_window.end_date
+    return required_dates[-1].date()
+
+
 def _missing_return_gap_days(
     prev: date,
     curr: date,
@@ -1272,6 +1295,76 @@ def _returns_series_gaps(
     ]
 
 
+def _returns_series_coverage(
+    *,
+    requested_points: int,
+    returned_points: int,
+    missing_points: int,
+) -> SeriesCoverage:
+    return SeriesCoverage(
+        requested_points=requested_points,
+        returned_points=returned_points,
+        missing_points=missing_points,
+        coverage_ratio=Decimal(str(round(returned_points / requested_points, 8)))
+        if requested_points
+        else Decimal("1"),
+    )
+
+
+def _diagnostics_freshness_frame(
+    *,
+    returned_df: pd.DataFrame | None,
+    source_df: pd.DataFrame | None,
+) -> pd.DataFrame | None:
+    return source_df if source_df is not None else returned_df
+
+
+def _returns_series_freshness_state(
+    *,
+    request: ReturnsSeriesRequest,
+    resolved_window: ResolvedWindow,
+    warnings: list[str],
+    portfolio_df: pd.DataFrame,
+    benchmark_df: pd.DataFrame | None,
+    risk_free_df: pd.DataFrame | None,
+    freshness_portfolio_df: pd.DataFrame | None,
+    freshness_benchmark_df: pd.DataFrame | None,
+    freshness_risk_free_df: pd.DataFrame | None,
+) -> Literal["current", "stale"]:
+    return _returns_series_freshness(
+        warnings=warnings,
+        required_observation_date=_last_required_observation_date(
+            resolved_window,
+            frequency=request.frequency,
+            calendar_policy=request.data_policy.calendar_policy,
+        ),
+        portfolio_df=_diagnostics_freshness_frame(
+            returned_df=portfolio_df,
+            source_df=freshness_portfolio_df,
+        ),
+        benchmark_df=_diagnostics_freshness_frame(
+            returned_df=benchmark_df,
+            source_df=freshness_benchmark_df,
+        ),
+        risk_free_df=_diagnostics_freshness_frame(
+            returned_df=risk_free_df,
+            source_df=freshness_risk_free_df,
+        ),
+        include_benchmark=request.series_selection.include_benchmark,
+        include_risk_free=request.series_selection.include_risk_free,
+    )
+
+
+def _returns_series_risk_free_source_quality(
+    *,
+    request: ReturnsSeriesRequest,
+    risk_free_source_quality: RiskFreeSourceQuality | None,
+) -> RiskFreeSourceQuality | None:
+    if not request.series_selection.include_risk_free:
+        return None
+    return risk_free_source_quality or _stateless_risk_free_source_quality_from_request(request)
+
+
 def _build_returns_series_diagnostics(
     *,
     request: ReturnsSeriesRequest,
@@ -1279,6 +1372,9 @@ def _build_returns_series_diagnostics(
     portfolio_df: pd.DataFrame,
     benchmark_df: pd.DataFrame | None,
     risk_free_df: pd.DataFrame | None,
+    freshness_portfolio_df: pd.DataFrame | None = None,
+    freshness_benchmark_df: pd.DataFrame | None = None,
+    freshness_risk_free_df: pd.DataFrame | None = None,
     risk_free_source_quality: RiskFreeSourceQuality | None = None,
 ) -> _ReturnsSeriesDiagnosticsResult:
     requested_points = date_range_count(
@@ -1307,29 +1403,27 @@ def _build_returns_series_diagnostics(
         requested_points=requested_points,
         returned_points=returned_points,
         diagnostics=ReturnsDiagnostics(
-            coverage=SeriesCoverage(
+            coverage=_returns_series_coverage(
                 requested_points=requested_points,
                 returned_points=returned_points,
                 missing_points=missing_points,
-                coverage_ratio=Decimal(str(round(returned_points / requested_points, 8)))
-                if requested_points
-                else Decimal("1"),
             ),
-            freshness=_returns_series_freshness(
-                warnings=warnings,
+            freshness=_returns_series_freshness_state(
+                request=request,
                 resolved_window=resolved_window,
+                warnings=warnings,
                 portfolio_df=portfolio_df,
                 benchmark_df=benchmark_df,
                 risk_free_df=risk_free_df,
-                include_benchmark=request.series_selection.include_benchmark,
-                include_risk_free=request.series_selection.include_risk_free,
+                freshness_portfolio_df=freshness_portfolio_df,
+                freshness_benchmark_df=freshness_benchmark_df,
+                freshness_risk_free_df=freshness_risk_free_df,
             ),
             gaps=gaps,
             policy_applied=request.data_policy,
-            risk_free_source_quality=(
-                (risk_free_source_quality or _stateless_risk_free_source_quality_from_request(request))
-                if request.series_selection.include_risk_free
-                else None
+            risk_free_source_quality=_returns_series_risk_free_source_quality(
+                request=request,
+                risk_free_source_quality=risk_free_source_quality,
             ),
             warnings=warnings,
         ),
@@ -1339,7 +1433,7 @@ def _build_returns_series_diagnostics(
 def _returns_series_freshness(
     warnings: list[str],
     *,
-    resolved_window: ResolvedWindow | None = None,
+    required_observation_date: date | None = None,
     portfolio_df: pd.DataFrame | None = None,
     benchmark_df: pd.DataFrame | None = None,
     risk_free_df: pd.DataFrame | None = None,
@@ -1348,7 +1442,7 @@ def _returns_series_freshness(
 ) -> Literal["current", "stale"]:
     if any("stale" in warning.lower() for warning in warnings):
         return "stale"
-    if resolved_window is None:
+    if required_observation_date is None:
         return "current"
     if _has_stale_series_observation(
         _selected_returns_series_frames(
@@ -1358,7 +1452,7 @@ def _returns_series_freshness(
             include_benchmark=include_benchmark,
             include_risk_free=include_risk_free,
         ),
-        required_end_date=resolved_window.end_date,
+        required_observation_date=required_observation_date,
     ):
         return "stale"
     return "current"
@@ -1383,10 +1477,10 @@ def _selected_returns_series_frames(
 def _has_stale_series_observation(
     frames: Iterable[pd.DataFrame | None],
     *,
-    required_end_date: date,
+    required_observation_date: date,
 ) -> bool:
     return any(
-        latest_date is not None and latest_date < required_end_date
+        latest_date is not None and latest_date < required_observation_date
         for latest_date in (_latest_series_date(frame) for frame in frames)
     )
 
@@ -1688,6 +1782,9 @@ def _build_returns_series_execution_result(
         portfolio_df=normalized_frames.portfolio_df,
         benchmark_df=normalized_frames.benchmark_df,
         risk_free_df=normalized_frames.risk_free_df,
+        freshness_portfolio_df=portfolio_df,
+        freshness_benchmark_df=benchmark_df,
+        freshness_risk_free_df=risk_free_df,
         risk_free_source_quality=context.risk_free_source_quality,
     )
     response = _build_returns_series_response(
