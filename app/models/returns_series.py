@@ -488,6 +488,14 @@ class RiskFreeSourceQuality(BaseModel):
 
 class ReturnsDiagnostics(BaseModel):
     coverage: SeriesCoverage = Field(description="Coverage summary for the response series.")
+    freshness: Literal["current", "stale"] = Field(
+        description=(
+            "Source freshness for the generated returns-series evidence. Partial coverage remains "
+            "represented by coverage diagnostics; freshness describes whether the source evidence is "
+            "current enough for downstream consumers."
+        ),
+        examples=["current"],
+    )
     gaps: list[SeriesGap] = Field(default_factory=list, description="Explicit coverage gaps retained in diagnostics.")
     policy_applied: DataPolicy = Field(description="Resolved data-policy settings used for the request.")
     risk_free_source_quality: RiskFreeSourceQuality | None = Field(

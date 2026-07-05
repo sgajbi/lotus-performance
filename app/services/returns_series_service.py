@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal, localcontext
-from typing import Any, Iterable
+from typing import Any, Iterable, Literal
 
 import pandas as pd
 
@@ -1315,6 +1315,7 @@ def _build_returns_series_diagnostics(
                 if requested_points
                 else Decimal("1"),
             ),
+            freshness=_returns_series_freshness(warnings),
             gaps=gaps,
             policy_applied=request.data_policy,
             risk_free_source_quality=(
@@ -1325,6 +1326,12 @@ def _build_returns_series_diagnostics(
             warnings=warnings,
         ),
     )
+
+
+def _returns_series_freshness(warnings: list[str]) -> Literal["current", "stale"]:
+    if any("stale" in warning.lower() for warning in warnings):
+        return "stale"
+    return "current"
 
 
 def _stateless_risk_free_source_quality_from_request(
