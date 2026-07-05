@@ -65,6 +65,12 @@
   [docs/guides/mwr-lotus-production-controls.md](../docs/guides/mwr-lotus-production-controls.md)
   and
   [docs/technical/mwr-industry-review-findings.md](../docs/technical/mwr-industry-review-findings.md).
+- Returns-series product evidence: `POST /integration/returns/series` and
+  `GET /integration/returns/series/results/{calculation_id}` emit governed portfolio,
+  benchmark, and risk-free return observations with lineage, coverage diagnostics, and bounded
+  freshness diagnostics. `diagnostics.coverage` remains the coverage-quality signal;
+  `diagnostics.freshness` is the source-owned `current` or `stale` recency signal that downstream
+  risk and idea workflows must preserve instead of recomputing locally.
 - Contribution product evidence: `POST /performance/contribution` emits source-owned
   contribution totals, position rows, optional hierarchy rows, optional daily and by-position
   series, `smoothing_evidence`, `source_economics_evidence`, `calculation_supportability`,
