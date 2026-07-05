@@ -344,18 +344,29 @@ def _last_required_observation_date(
 ) -> date:
     start = pd.Timestamp(resolved_window.start_date)
     end = pd.Timestamp(resolved_window.end_date)
-    if frequency == ReturnsFrequency.DAILY:
-        required_dates = (
-            pd.date_range(start, end, freq="D")
-            if calendar_policy == CalendarPolicy.CALENDAR
-            else pd.bdate_range(start, end)
-        )
-    elif frequency == ReturnsFrequency.WEEKLY:
-        required_dates = pd.date_range(start, end, freq="W-FRI")
-    else:
-        required_dates = pd.date_range(start, end, freq="ME")
+    if frequency != ReturnsFrequency.DAILY:
+        return _last_required_source_observation_date(start=start, end=end, calendar_policy=calendar_policy)
+    required_dates = (
+        pd.date_range(start, end, freq="D")
+        if calendar_policy == CalendarPolicy.CALENDAR
+        else pd.bdate_range(start, end)
+    )
     if len(required_dates) == 0:
         return resolved_window.end_date
+    return required_dates[-1].date()
+
+
+def _last_required_source_observation_date(
+    *,
+    start: pd.Timestamp,
+    end: pd.Timestamp,
+    calendar_policy: CalendarPolicy,
+) -> date:
+    if calendar_policy == CalendarPolicy.CALENDAR:
+        return end.date()
+    required_dates = pd.bdate_range(start, end)
+    if len(required_dates) == 0:
+        return end.date()
     return required_dates[-1].date()
 
 
