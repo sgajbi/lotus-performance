@@ -99,6 +99,9 @@ This endpoint supports:
 Stateful mode retrieves source data from lotus-core, records upstream retrieval snapshots durably,
 and may offload longer windows to the compute executor.
 
+Responses expose `diagnostics.coverage` for observation coverage quality and
+`diagnostics.freshness` for the source-owned `current` or `stale` return-series recency signal.
+
 ## 4. Async execution and support flows
 
 Executor-backed requests should be handled using the durable polling surfaces:
