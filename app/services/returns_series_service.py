@@ -1350,16 +1350,45 @@ def _returns_series_freshness(
         return "stale"
     if resolved_window is None:
         return "current"
-    series_frames = [portfolio_df]
-    if include_benchmark:
-        series_frames.append(benchmark_df)
-    if include_risk_free:
-        series_frames.append(risk_free_df)
-    for frame in series_frames:
-        latest_date = _latest_series_date(frame)
-        if latest_date is not None and latest_date < resolved_window.end_date:
-            return "stale"
+    if _has_stale_series_observation(
+        _selected_returns_series_frames(
+            portfolio_df=portfolio_df,
+            benchmark_df=benchmark_df,
+            risk_free_df=risk_free_df,
+            include_benchmark=include_benchmark,
+            include_risk_free=include_risk_free,
+        ),
+        required_end_date=resolved_window.end_date,
+    ):
+        return "stale"
     return "current"
+
+
+def _selected_returns_series_frames(
+    *,
+    portfolio_df: pd.DataFrame | None,
+    benchmark_df: pd.DataFrame | None,
+    risk_free_df: pd.DataFrame | None,
+    include_benchmark: bool,
+    include_risk_free: bool,
+) -> tuple[pd.DataFrame | None, ...]:
+    frames: list[pd.DataFrame | None] = [portfolio_df]
+    if include_benchmark:
+        frames.append(benchmark_df)
+    if include_risk_free:
+        frames.append(risk_free_df)
+    return tuple(frames)
+
+
+def _has_stale_series_observation(
+    frames: Iterable[pd.DataFrame | None],
+    *,
+    required_end_date: date,
+) -> bool:
+    return any(
+        latest_date is not None and latest_date < required_end_date
+        for latest_date in (_latest_series_date(frame) for frame in frames)
+    )
 
 
 def _latest_series_date(frame: pd.DataFrame | None) -> date | None:
