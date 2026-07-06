@@ -8,6 +8,7 @@
   - `docs/guides/api_reference.md`
   - `docs/technical/runtime_topology.md`
   - `docs/runbooks/durable-metadata-recovery.md`
+  - `docs/runbooks/returns-series-operator-triage.md`
   - `docs/operations/runtime-alert-rule-templates.md`
   - `docs/standards/runtime-alert-policy.md`
 
@@ -24,6 +25,7 @@ Treat these as the first-class alert surfaces:
 - `lotus_performance_lineage_storage_pressure_breach{reason=...}`
 - `lotus_performance_recovery_drill_degradation_breach{reason=...}`
 - `lotus_performance_runtime_retention_degradation_breach{reason=...}`
+- `lotus_performance_calculation_supportability_total{operation="returns_series",supportability_state=...}`
 
 Always inspect the matching availability gauges first:
 
@@ -44,6 +46,7 @@ Do not treat a missing breach sample as healthy if the corresponding availabilit
 4. If lineage storage is degraded, validate filesystem availability and free capacity before restarting workers.
 5. If recovery-drill policy is degraded, inspect `GET /integration/recovery-drills` and compare the latest retained drill against the configured age policy.
 6. If runtime-retention policy is degraded, inspect `GET /integration/runtime-retention-cleanups` and compare the latest retained cleanup against the configured age policy and apply-mode expectation.
+7. If returns-series supportability is stale or degraded, follow `docs/runbooks/returns-series-operator-triage.md`.
 
 Partial operator-read handling:
 

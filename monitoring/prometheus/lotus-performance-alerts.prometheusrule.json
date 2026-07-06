@@ -230,6 +230,23 @@
               "runbook": "docs/operations/mwr-production-support-playbook.md",
               "dashboard": "monitoring/grafana/lotus-performance-operability-dashboard.json"
             }
+          },
+          {
+            "alert": "LotusPerformanceReturnsSeriesStaleOrDegradedRateElevated",
+            "expr": "(\n  sum(increase(lotus_performance_calculation_supportability_total{\n    operation=\"returns_series\",\n    supportability_state=~\"stale|degraded\"\n  }[30m]))\n  /\n  clamp_min(sum(increase(lotus_performance_calculation_supportability_total{operation=\"returns_series\"}[30m])), 1)\n) > 0.03\nand\nsum(increase(lotus_performance_calculation_supportability_total{operation=\"returns_series\"}[30m])) >= 20",
+            "for": "30m",
+            "labels": {
+              "severity": "ticket",
+              "service": "lotus-performance",
+              "owner": "performance-platform-operations",
+              "product": "returns-series"
+            },
+            "annotations": {
+              "summary": "lotus-performance returns-series stale or degraded rate elevated",
+              "description": "More than 3% of recent returns-series executions reported stale freshness or degraded source quality.",
+              "runbook": "docs/runbooks/returns-series-operator-triage.md",
+              "dashboard": "monitoring/grafana/lotus-performance-operability-dashboard.json"
+            }
           }
         ]
       }

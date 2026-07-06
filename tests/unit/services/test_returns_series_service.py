@@ -25,6 +25,8 @@ from app.models.returns_series import (
     ReturnsSeriesRequest,
     ReturnsWindow,
     ReturnsWindowMode,
+    RiskFreeSourceQuality,
+    SeriesCoverage,
     SeriesSelection,
 )
 from app.services import portfolio_source_service, returns_series_service, stateful_input_service
@@ -751,6 +753,103 @@ def test_build_returns_series_execution_result_marks_filled_side_source_stale():
         date(2026, 2, 25),
     ]
     assert result.response.diagnostics.freshness == "stale"
+
+
+def test_build_returns_series_execution_result_records_supportability_metrics(monkeypatch):
+    calculation_metrics: list[dict[str, str]] = []
+    freshness_metrics: list[dict[str, str]] = []
+    monkeypatch.setattr(
+        returns_series_service,
+        "record_calculation_supportability",
+        lambda **kwargs: calculation_metrics.append(kwargs),
+    )
+    monkeypatch.setattr(
+        returns_series_service,
+        "record_analytics_freshness_bucket",
+        lambda **kwargs: freshness_metrics.append(kwargs),
+    )
+    request = ReturnsSeriesRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "as_of_date": "2026-02-24",
+            "window": {"mode": "EXPLICIT", "from_date": "2026-02-23", "to_date": "2026-02-24"},
+            "frequency": "DAILY",
+            "series_selection": {"include_portfolio": True, "include_benchmark": False, "include_risk_free": False},
+            "input_mode": "stateless",
+            "stateless_input": {
+                "portfolio_returns": [
+                    {"date": "2026-02-23", "return_value": "0.0100"},
+                    {"date": "2026-02-24", "return_value": "0.0200"},
+                ],
+            },
+        }
+    )
+    context = returns_series_service._ReturnsSeriesExecutionContext(
+        request=request,
+        resolved_window=returns_series_service.resolve_window(request),
+        effective_input_mode=InputMode.STATELESS,
+        input_fingerprint="input-fingerprint",
+        calculation_hash="calculation-hash",
+        resolved_benchmark_id=None,
+        resolved_benchmark_return_source=BenchmarkReturnSource.CALCULATED,
+    )
+    portfolio_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-23", "2026-02-24"]),
+            "return_value": [Decimal("0.0100"), Decimal("0.0200")],
+        }
+    )
+
+    returns_series_service._build_returns_series_execution_result(
+        context=context,
+        portfolio_df=portfolio_df,
+        benchmark_df=None,
+        risk_free_df=None,
+    )
+
+    assert calculation_metrics == [
+        {
+            "operation": "returns_series",
+            "supportability_state": "ready",
+            "reason": "calculation_complete",
+            "freshness_bucket": "current",
+        }
+    ]
+    assert freshness_metrics == [
+        {
+            "operation": "returns_series",
+            "freshness_bucket": "current",
+            "supportability_state": "ready",
+        }
+    ]
+
+
+def test_returns_series_supportability_metrics_use_bounded_states():
+    base_diagnostics = {
+        "coverage": SeriesCoverage(
+            requested_points=2,
+            returned_points=2,
+            missing_points=0,
+            coverage_ratio=Decimal("1"),
+        ),
+        "gaps": [],
+        "policy_applied": DataPolicy(),
+        "warnings": [],
+    }
+
+    assert returns_series_service._returns_series_supportability_state_and_reason(
+        ReturnsDiagnostics(**base_diagnostics, freshness="current")
+    ) == ("ready", "calculation_complete")
+    assert returns_series_service._returns_series_supportability_state_and_reason(
+        ReturnsDiagnostics(**base_diagnostics, freshness="stale")
+    ) == ("stale", "stale_source_observations")
+    assert returns_series_service._returns_series_supportability_state_and_reason(
+        ReturnsDiagnostics(
+            **base_diagnostics,
+            freshness="current",
+            risk_free_source_quality=RiskFreeSourceQuality(raw_points=2, normalized_points=1, skipped_points=1),
+        )
+    ) == ("degraded", "calculation_quality_issue")
 
 
 def test_returns_series_benchmark_context_requires_id_and_source():

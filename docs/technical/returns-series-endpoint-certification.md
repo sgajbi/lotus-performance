@@ -63,6 +63,17 @@ Every returned figure must satisfy these invariants:
 | `benchmark_context` | Present when benchmark was selected and includes resolved `benchmark_id` and `return_source`. |
 | `provenance` | Stateful executions hash the resolved immutable input payload, not only the original lookup request. |
 
+Completed returns-series executions emit bounded supportability metrics with
+`operation="returns_series"`. `diagnostics.freshness="stale"` maps to
+`supportability_state="stale"` and `reason="stale_source_observations"`; partial coverage,
+retained gaps, warnings, or skipped risk-free source rows map to
+`supportability_state="degraded"` and `reason="calculation_quality_issue"`; fully current and
+complete responses map to `supportability_state="ready"` and `reason="calculation_complete"`.
+Metric labels must remain limited to `operation`, `supportability_state`, `reason`, and
+`freshness_bucket` and must not include portfolio, client, request, trace, or calculation
+identifiers. Operator triage for stale freshness, partial coverage, skipped risk-free source rows,
+and async failures is governed by `docs/runbooks/returns-series-operator-triage.md`.
+
 ## Upstream Integration
 
 Stateful portfolio series source reads must use the lotus-core query control plane analytics-input

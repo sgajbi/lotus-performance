@@ -6,10 +6,16 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from typing import Final
 
-CALCULATION_SUPPORTABILITY_SURFACE_KEYS: Final[tuple[str, ...]] = ("twr", "mwr", "contribution", "attribution")
+CALCULATION_SUPPORTABILITY_SURFACE_KEYS: Final[tuple[str, ...]] = (
+    "twr",
+    "mwr",
+    "contribution",
+    "attribution",
+    "returns_series",
+)
 CALCULATION_SUPPORTABILITY_DESCRIPTION: Final[str] = (
-    "Bounded TWR, MWR, contribution, and attribution calculation supportability response metadata "
-    "and Prometheus posture metrics."
+    "Bounded TWR, MWR, contribution, attribution, and returns-series calculation supportability "
+    "response metadata and Prometheus posture metrics."
 )
 OWNER_SERVICE: Final[str] = "lotus-performance"
 PERFORMANCE_EXECUTION_POLL_PATH_TEMPLATE: Final[str] = "/performance/executions/{calculation_id}"
@@ -87,6 +93,7 @@ def _calculation_supportability_enabled(flags: IntegrationCapabilityFlags) -> bo
         "mwr": flags.mwr_enabled,
         "contribution": flags.contribution_enabled,
         "attribution": flags.attribution_enabled,
+        "returns_series": flags.stateful_mode_enabled or flags.stateless_mode_enabled,
     }
     return any(
         calculation_supportability_surface_enabled[surface_key]
