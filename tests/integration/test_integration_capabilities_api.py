@@ -150,7 +150,7 @@ def test_integration_capabilities_default_contract():
     assert features["performance.observability.calculation_supportability"]["enabled"] is True
     assert (
         features["performance.observability.calculation_supportability"]["description"]
-        == "Bounded TWR, MWR, contribution, and attribution calculation supportability response metadata and Prometheus posture metrics."
+        == "Bounded TWR, MWR, contribution, attribution, and returns-series calculation supportability response metadata and Prometheus posture metrics."
     )
     assert "performance.execution.stateful" in features
     assert "performance.execution.stateless" in features
