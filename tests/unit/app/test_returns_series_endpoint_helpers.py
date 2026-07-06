@@ -31,6 +31,7 @@ from app.services.returns_series_calculation_workflow_service import (
     _execution_failure_message,
     build_returns_series_execution_window,
     calculate_returns_series_workflow,
+    returns_series_stateless_input_count,
     should_offload_resolved_returns_series,
     should_offload_returns_series,
 )
@@ -329,6 +330,37 @@ def test_should_offload_returns_series_uses_runtime_settings(mocker):
     assert should_offload_returns_series(request) is True
 
 
+def test_should_offload_returns_series_promotes_large_stateless_payloads(mocker):
+    request = ReturnsSeriesRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "as_of_date": "2026-02-27",
+            "window": {"mode": "EXPLICIT", "from_date": "2026-02-24", "to_date": "2026-02-27"},
+            "series_selection": {"include_portfolio": True, "include_benchmark": True, "include_risk_free": True},
+            "input_mode": "stateless",
+            "stateless_input": {
+                "portfolio_returns": [
+                    {"date": "2026-02-24", "return_value": "0.0010"},
+                    {"date": "2026-02-25", "return_value": "0.0011"},
+                ],
+                "benchmark_returns": [{"date": "2026-02-24", "return_value": "0.0009"}],
+                "risk_free_returns": [{"date": "2026-02-24", "return_value": "0.0001"}],
+            },
+        }
+    )
+    mocker.patch(
+        "app.services.returns_series_calculation_workflow_service.get_settings",
+        return_value=type(
+            "Settings",
+            (),
+            {"RETURNS_SERIES_EXECUTOR_WINDOW_DAYS": 180, "RETURNS_SERIES_EXECUTOR_INPUT_COUNT": 4},
+        )(),
+    )
+
+    assert returns_series_stateless_input_count(request) == 4
+    assert should_offload_returns_series(request) is True
+
+
 def test_should_offload_resolved_returns_series_uses_runtime_settings(mocker):
     mocker.patch(
         "app.services.returns_series_calculation_workflow_service.get_settings",
@@ -380,6 +412,50 @@ async def test_async_returns_series_submission_captures_observability_context(mo
         "request_id": "req-returns-series",
         "trace_id": "trace-returns-series",
     }
+
+
+@pytest.mark.asyncio
+async def test_async_returns_series_submission_captures_stateless_input_count(mocker):
+    request = ReturnsSeriesRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "as_of_date": "2026-02-27",
+            "window": {"mode": "EXPLICIT", "from_date": "2026-02-24", "to_date": "2026-02-27"},
+            "series_selection": {"include_portfolio": True, "include_benchmark": True, "include_risk_free": False},
+            "input_mode": "stateless",
+            "stateless_input": {
+                "portfolio_returns": [
+                    {"date": "2026-02-24", "return_value": "0.0010"},
+                    {"date": "2026-02-25", "return_value": "0.0011"},
+                ],
+                "benchmark_returns": [{"date": "2026-02-24", "return_value": "0.0009"}],
+            },
+        }
+    )
+    mocker.patch(
+        "app.services.returns_series_calculation_workflow_service.get_settings",
+        return_value=type(
+            "Settings",
+            (),
+            {"RETURNS_SERIES_EXECUTOR_WINDOW_DAYS": 180, "RETURNS_SERIES_EXECUTOR_INPUT_COUNT": 3},
+        )(),
+    )
+    captured: dict[str, Any] = {}
+
+    def _register_async_submission_or_raise(**kwargs):
+        captured.update(kwargs)
+        return returns_series_calculation_workflow_service.accepted_returns_series_response(request.calculation_id)
+
+    mocker.patch(
+        "app.services.returns_series_calculation_workflow_service.register_async_submission_or_raise",
+        side_effect=_register_async_submission_or_raise,
+    )
+
+    response = await calculate_returns_series_workflow(request)
+
+    assert response.calculation_id == request.calculation_id
+    assert captured["requested_window"]["input_count"] == 3
+    assert captured["offload_reason"] == "large_stateless_returns_series"
 
 
 def test_build_returns_series_execution_window_projects_optional_metadata():

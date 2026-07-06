@@ -70,7 +70,11 @@
   benchmark, and risk-free return observations with lineage, coverage diagnostics, and bounded
   freshness diagnostics. `diagnostics.coverage` remains the coverage-quality signal;
   `diagnostics.freshness` is the source-owned `current` or `stale` recency signal that downstream
-  risk and idea workflows must preserve instead of recomputing locally.
+  risk and idea workflows must preserve instead of recomputing locally. MARKET calendar requests
+  use the Lotus reference market trading calendar rather than a weekday approximation, retained
+  gaps can be bounded through `max_gap_days`, unsupported risk-free day-count conventions are
+  skipped as source-quality defects, and large stateless payloads use the same async offload
+  threshold family as stateful resolved workloads.
 - Contribution product evidence: `POST /performance/contribution` emits source-owned
   contribution totals, position rows, optional hierarchy rows, optional daily and by-position
   series, `smoothing_evidence`, `source_economics_evidence`, `calculation_supportability`,

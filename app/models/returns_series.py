@@ -232,7 +232,10 @@ class DataPolicy(BaseModel):
         default=None,
         ge=1,
         le=365,
-        description="Optional caller tolerance for retained gap diagnostics. Reserved for future enforcement.",
+        description=(
+            "Optional caller tolerance for retained coverage gaps. Returned diagnostics warn when retained gaps exceed "
+            "this value; FAIL_FAST requests reject gaps above the tolerance."
+        ),
         examples=[5],
     )
 

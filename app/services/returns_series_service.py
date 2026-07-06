@@ -74,6 +74,28 @@ _EXPECTED_RETURN_GAP_DAYS = {
     ReturnsFrequency.WEEKLY: 7,
     ReturnsFrequency.MONTHLY: 31,
 }
+_LOTUS_REFERENCE_MARKET_HOLIDAYS = frozenset(
+    {
+        date(2025, 1, 1),
+        date(2025, 4, 18),
+        date(2025, 12, 25),
+        date(2026, 1, 1),
+        date(2026, 4, 3),
+        date(2026, 12, 25),
+        date(2027, 1, 1),
+        date(2027, 3, 26),
+        date(2027, 12, 24),
+    }
+)
+_SUPPORTED_RISK_FREE_DAY_COUNT_DENOMINATORS = {
+    "ACT_365": Decimal("365"),
+    "ACT/365": Decimal("365"),
+    "ACT_360": Decimal("360"),
+    "ACT/360": Decimal("360"),
+    "30_360": Decimal("360"),
+    "30/360": Decimal("360"),
+    "THIRTY_360": Decimal("360"),
+}
 
 
 @dataclass(frozen=True)
@@ -319,6 +341,8 @@ def apply_calendar_policy(
 ) -> pd.DataFrame:
     if frequency != ReturnsFrequency.DAILY or calendar_policy == CalendarPolicy.CALENDAR:
         return df
+    if calendar_policy == CalendarPolicy.MARKET:
+        return df[df["date"].map(_is_lotus_reference_market_date)].copy()
     return df[df["date"].dt.weekday < 5].copy()
 
 
@@ -328,9 +352,7 @@ def date_range_count(
     start = pd.Timestamp(resolved_window.start_date)
     end = pd.Timestamp(resolved_window.end_date)
     if frequency == ReturnsFrequency.DAILY:
-        if calendar_policy == CalendarPolicy.CALENDAR:
-            return len(pd.date_range(start, end, freq="D"))
-        return len(pd.bdate_range(start, end))
+        return len(_daily_required_dates(start=start, end=end, calendar_policy=calendar_policy))
     if frequency == ReturnsFrequency.WEEKLY:
         return len(pd.date_range(start, end, freq="W-FRI"))
     return len(pd.date_range(start, end, freq="ME"))
@@ -346,11 +368,7 @@ def _last_required_observation_date(
     end = pd.Timestamp(resolved_window.end_date)
     if frequency != ReturnsFrequency.DAILY:
         return _last_required_source_observation_date(start=start, end=end, calendar_policy=calendar_policy)
-    required_dates = (
-        pd.date_range(start, end, freq="D")
-        if calendar_policy == CalendarPolicy.CALENDAR
-        else pd.bdate_range(start, end)
-    )
+    required_dates = _daily_required_dates(start=start, end=end, calendar_policy=calendar_policy)
     if len(required_dates) == 0:
         return resolved_window.end_date
     return required_dates[-1].date()
@@ -364,10 +382,29 @@ def _last_required_source_observation_date(
 ) -> date:
     if calendar_policy == CalendarPolicy.CALENDAR:
         return end.date()
-    required_dates = pd.bdate_range(start, end)
+    required_dates = _daily_required_dates(start=start, end=end, calendar_policy=calendar_policy)
     if len(required_dates) == 0:
         return end.date()
     return required_dates[-1].date()
+
+
+def _daily_required_dates(
+    *,
+    start: pd.Timestamp,
+    end: pd.Timestamp,
+    calendar_policy: CalendarPolicy,
+) -> pd.DatetimeIndex:
+    if calendar_policy == CalendarPolicy.CALENDAR:
+        return pd.date_range(start, end, freq="D")
+    business_dates = pd.bdate_range(start, end)
+    if calendar_policy == CalendarPolicy.MARKET:
+        return pd.DatetimeIndex([value for value in business_dates if _is_lotus_reference_market_date(value)])
+    return business_dates
+
+
+def _is_lotus_reference_market_date(value: Any) -> bool:
+    timestamp = pd.Timestamp(value)
+    return timestamp.weekday() < 5 and timestamp.date() not in _LOTUS_REFERENCE_MARKET_HOLIDAYS
 
 
 def _missing_return_gap_days(
@@ -377,8 +414,13 @@ def _missing_return_gap_days(
     frequency: ReturnsFrequency,
     calendar_policy: CalendarPolicy,
 ) -> int:
-    if frequency == ReturnsFrequency.DAILY and calendar_policy != CalendarPolicy.CALENDAR:
-        return max(len(pd.bdate_range(pd.Timestamp(prev), pd.Timestamp(curr))) - 2, 0)
+    if frequency == ReturnsFrequency.DAILY:
+        required_dates = _daily_required_dates(
+            start=pd.Timestamp(prev),
+            end=pd.Timestamp(curr),
+            calendar_policy=calendar_policy,
+        )
+        return max(len(required_dates) - 2, 0)
     delta = (curr - prev).days
     if delta <= _EXPECTED_RETURN_GAP_DAYS[frequency] + 1:
         return 0
@@ -669,13 +711,9 @@ def _benchmark_daily_returns_to_dataframe(daily_returns_df: pd.DataFrame) -> pd.
     return benchmark_df
 
 
-def _risk_free_day_count_denominator(day_count_convention: object) -> Decimal:
-    convention = str(day_count_convention or "ACT_360").upper()
-    if convention in {"ACT_365", "ACT/365"}:
-        return Decimal("365")
-    if convention in {"30_360", "30/360", "ACT_360", "ACT/360"}:
-        return Decimal("360")
-    return Decimal("360")
+def _risk_free_day_count_denominator(day_count_convention: object) -> Decimal | None:
+    convention = str(day_count_convention or "ACT_360").strip().upper()
+    return _SUPPORTED_RISK_FREE_DAY_COUNT_DENOMINATORS.get(convention)
 
 
 def _risk_free_return_point_from_source(point: dict[str, Any]) -> ReturnPoint | None:
@@ -698,7 +736,10 @@ def _risk_free_return_value_from_source(point: dict[str, Any]) -> Decimal | None
     try:
         return_value = Decimal(str(value_raw))
         if str(point.get("value_convention") or "").lower() == "annualized_rate":
-            return return_value / _risk_free_day_count_denominator(point.get("day_count_convention"))
+            denominator = _risk_free_day_count_denominator(point.get("day_count_convention"))
+            if denominator is None:
+                return None
+            return return_value / denominator
         return return_value
     except ArithmeticError:
         return None
@@ -1398,6 +1439,22 @@ def _returns_series_gaps(
     ]
 
 
+def _returns_series_gap_tolerance_warnings(
+    *,
+    gaps: list[SeriesGap],
+    max_gap_days: int | None,
+) -> list[str]:
+    if max_gap_days is None:
+        return []
+    excessive_gap_count = sum(1 for gap in gaps if gap.gap_days > max_gap_days)
+    if excessive_gap_count == 0:
+        return []
+    return [
+        f"RETURNS_SERIES_GAP_TOLERANCE_EXCEEDED: {excessive_gap_count} retained gaps exceed "
+        f"max_gap_days={max_gap_days}."
+    ]
+
+
 def _returns_series_coverage(
     *,
     requested_points: int,
@@ -1424,7 +1481,6 @@ def _returns_series_freshness_state(
     *,
     request: ReturnsSeriesRequest,
     resolved_window: ResolvedWindow,
-    warnings: list[str],
     portfolio_df: pd.DataFrame,
     benchmark_df: pd.DataFrame | None,
     risk_free_df: pd.DataFrame | None,
@@ -1433,7 +1489,6 @@ def _returns_series_freshness_state(
     freshness_risk_free_df: pd.DataFrame | None,
 ) -> Literal["current", "stale"]:
     return _returns_series_freshness(
-        warnings=warnings,
         required_observation_date=_last_required_observation_date(
             resolved_window,
             frequency=request.frequency,
@@ -1483,16 +1538,6 @@ def _build_returns_series_diagnostics(
     )
     returned_points = len(portfolio_df)
     missing_points = max(requested_points - returned_points, 0)
-    if request.data_policy.missing_data_policy == MissingDataPolicy.FAIL_FAST and missing_points > 0:
-        raise _returns_series_api_error(
-            status_code=HTTP_422_UNPROCESSABLE,
-            detail=insufficient_data_detail(f"Missing {missing_points} required points under FAIL_FAST policy."),
-        )
-
-    warnings: list[str] = []
-    if request.data_policy.calendar_policy == CalendarPolicy.MARKET:
-        warnings.append("MARKET calendar policy currently uses business-day approximation.")
-
     gaps = _returns_series_gaps(
         portfolio_df=portfolio_df,
         benchmark_df=benchmark_df,
@@ -1500,6 +1545,21 @@ def _build_returns_series_diagnostics(
         frequency=request.frequency,
         calendar_policy=request.data_policy.calendar_policy,
     )
+    gap_tolerance_warnings = _returns_series_gap_tolerance_warnings(
+        gaps=gaps,
+        max_gap_days=request.data_policy.max_gap_days,
+    )
+    if request.data_policy.missing_data_policy == MissingDataPolicy.FAIL_FAST and gap_tolerance_warnings:
+        raise _returns_series_api_error(
+            status_code=HTTP_422_UNPROCESSABLE,
+            detail=insufficient_data_detail(gap_tolerance_warnings[0]),
+        )
+    if request.data_policy.missing_data_policy == MissingDataPolicy.FAIL_FAST and missing_points > 0:
+        raise _returns_series_api_error(
+            status_code=HTTP_422_UNPROCESSABLE,
+            detail=insufficient_data_detail(f"Missing {missing_points} required points under FAIL_FAST policy."),
+        )
+    warnings: list[str] = gap_tolerance_warnings
     return _ReturnsSeriesDiagnosticsResult(
         requested_points=requested_points,
         returned_points=returned_points,
@@ -1512,7 +1572,6 @@ def _build_returns_series_diagnostics(
             freshness=_returns_series_freshness_state(
                 request=request,
                 resolved_window=resolved_window,
-                warnings=warnings,
                 portfolio_df=portfolio_df,
                 benchmark_df=benchmark_df,
                 risk_free_df=risk_free_df,
@@ -1532,7 +1591,6 @@ def _build_returns_series_diagnostics(
 
 
 def _returns_series_freshness(
-    warnings: list[str],
     *,
     required_observation_date: date | None = None,
     portfolio_df: pd.DataFrame | None = None,
@@ -1541,8 +1599,6 @@ def _returns_series_freshness(
     include_benchmark: bool = False,
     include_risk_free: bool = False,
 ) -> Literal["current", "stale"]:
-    if any("stale" in warning.lower() for warning in warnings):
-        return "stale"
     if required_observation_date is None:
         return "current"
     if _has_stale_series_observation(
