@@ -1,7 +1,7 @@
 # Lotus Performance Enterprise Backend Refactor Baseline
 
-Baseline date: 2026-07-05
-Branch: `feature/rfc0002-returns-series-freshness-diagnostics`
+Baseline date: 2026-07-06
+Branch: `feat/performance-enterprise-refactor-issues`
 Mode: report-only baseline; no new blocking quality gate is introduced by this artifact.
 
 ## Purpose
@@ -18,7 +18,7 @@ snapshots are written under ignored `output/quality-baseline/`; curated source r
 | --- | ---: | --- |
 | Python files | 607 | `rg --files -g '*.py'` equivalent excluding local caches |
 | Python package markers | 18 | recursive `__init__.py` count |
-| Python LOC | 185,691 | recursive `.py` line count |
+| Python LOC | 185,740 | recursive `.py` line count |
 | Test modules | 289 | `tests/**/test_*.py` |
 | Collected tests | 3635 tests | `python -m pytest --collect-only -q` |
 | Configured CI workflows | 5 | `.github/workflows/*.yml` |

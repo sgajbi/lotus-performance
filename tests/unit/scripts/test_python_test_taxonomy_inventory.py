@@ -61,6 +61,14 @@ def test_recovery_queue_filter_preserves_operator_supportability():
 """,
         encoding="utf-8",
     )
+    observability_file = tests_root / "unit" / "test_observability.py"
+    observability_file.write_text(
+        """
+def test_prometheus_supportability_metric_has_bounded_labels():
+    pass
+""",
+        encoding="utf-8",
+    )
     stateful_input_file = service_dir / "test_stateful_input_service.py"
     stateful_input_file.write_text(
         """
@@ -81,10 +89,11 @@ def test_benchmark_exposure_source_boundary():
     modules = collect_test_modules((str(tests_root),))
     modules_by_path = {module.path: module for module in modules}
 
-    assert [module.test_count for module in modules] == [2, 1, 1, 1, 1, 1, 1]
+    assert [module.test_count for module in modules] == [2, 1, 1, 1, 1, 1, 1, 1]
     api_module = modules_by_path["tests/integration/test_returns_api.py"]
     contract_module = modules_by_path["tests/unit/app/test_openapi_contract.py"]
     compute_store_module = modules_by_path["tests/unit/services/test_compute_job_store.py"]
+    observability_module = modules_by_path["tests/unit/test_observability.py"]
     returns_series_module = modules_by_path["tests/unit/services/test_returns_series_service.py"]
     runtime_recovery_module = modules_by_path["tests/unit/services/test_runtime_recovery_service.py"]
     stateful_input_module = modules_by_path["tests/unit/services/test_stateful_input_service.py"]
@@ -97,6 +106,8 @@ def test_benchmark_exposure_source_boundary():
     assert "observability_or_readiness" in compute_store_module.families
     assert runtime_recovery_module.suite == "unit"
     assert "observability_or_readiness" in runtime_recovery_module.families
+    assert observability_module.suite == "unit"
+    assert "observability_or_readiness" in observability_module.families
     assert returns_series_module.suite == "unit"
     assert "analytics_domain" in returns_series_module.families
     assert stateful_input_module.suite == "unit"
