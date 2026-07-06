@@ -159,8 +159,8 @@ retention or recovery-drill run cannot remove a newer owner's lock after stale r
 
 ## Calculation supportability metric
 
-Completed TWR, MWR, contribution, and attribution responses emit a bounded calculation
-supportability posture and increment:
+Completed TWR, MWR, contribution, attribution, and returns-series responses emit a bounded
+calculation supportability posture and increment:
 
 `lotus_performance_calculation_supportability_total{operation,supportability_state,reason,freshness_bucket}`
 
@@ -178,8 +178,10 @@ The same source-owned posture also increments the RFC-0108 cross-service freshne
 `lotus_analytics_freshness_bucket_total{service="lotus-performance",operation,freshness_bucket,supportability_state}`
 
 Use `supportability_state="stale"` or `supportability_state="empty"` as operator attention signals
-for front-office performance surfaces. Current operation labels are `twr`, `mwr`, `contribution`,
-and `attribution`. The labels are intentionally bounded and must not carry portfolio, client,
+for front-office performance surfaces. Use `supportability_state="stale"` or
+`supportability_state="degraded"` for `operation="returns_series"` source-quality triage. Current
+operation labels are `twr`, `mwr`, `contribution`, `attribution`, and `returns_series`. The labels
+are intentionally bounded and must not carry portfolio, client,
 tenant, account, benchmark, calculation, trace, correlation, request body, response body, or
 security identifiers.
 
@@ -247,6 +249,8 @@ allowed canonical data warnings.
   [docs/runbooks/durable-metadata-recovery.md](../docs/runbooks/durable-metadata-recovery.md)
 - retention cleanup:
   [docs/runbooks/runtime-retention-cleanup.md](../docs/runbooks/runtime-retention-cleanup.md)
+- returns-series source-quality triage:
+  [docs/runbooks/returns-series-operator-triage.md](../docs/runbooks/returns-series-operator-triage.md)
 - MWR support:
   [docs/operations/mwr-production-support-playbook.md](../docs/operations/mwr-production-support-playbook.md)
   and `lotus_performance_mwr_solver_outcome_total` for fallback, no-root, and multiple-root rates.

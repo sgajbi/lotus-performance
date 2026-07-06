@@ -31,7 +31,13 @@ from app.models.returns_series import (
     SeriesCoverage,
     SeriesGap,
 )
-from app.observability import correlation_id_var, request_id_var, trace_id_var
+from app.observability import (
+    correlation_id_var,
+    record_analytics_freshness_bucket,
+    record_calculation_supportability,
+    request_id_var,
+    trace_id_var,
+)
 from app.services.analytics_numeric import numeric_value
 from app.services.analytics_observation_dates import observation_timestamp_series
 from app.services.error_details import (
@@ -96,6 +102,7 @@ _SUPPORTED_RISK_FREE_DAY_COUNT_DENOMINATORS = {
     "30/360": Decimal("360"),
     "THIRTY_360": Decimal("360"),
 }
+_RETURNS_SERIES_SUPPORTABILITY_OPERATION = "returns_series"
 
 
 @dataclass(frozen=True)
@@ -1767,6 +1774,41 @@ def _build_returns_series_response(
     )
 
 
+def _returns_series_supportability_state_and_reason(
+    diagnostics: ReturnsDiagnostics,
+) -> tuple[str, str]:
+    if diagnostics.freshness == "stale":
+        return "stale", "stale_source_observations"
+    if _returns_series_has_degraded_source_posture(diagnostics):
+        return "degraded", "calculation_quality_issue"
+    return "ready", "calculation_complete"
+
+
+def _returns_series_has_degraded_source_posture(diagnostics: ReturnsDiagnostics) -> bool:
+    risk_free_quality = diagnostics.risk_free_source_quality
+    return (
+        diagnostics.coverage.missing_points > 0
+        or bool(diagnostics.gaps)
+        or bool(diagnostics.warnings)
+        or (risk_free_quality is not None and risk_free_quality.skipped_points > 0)
+    )
+
+
+def _record_returns_series_supportability_metrics(diagnostics: ReturnsDiagnostics) -> None:
+    supportability_state, reason = _returns_series_supportability_state_and_reason(diagnostics)
+    record_calculation_supportability(
+        operation=_RETURNS_SERIES_SUPPORTABILITY_OPERATION,
+        supportability_state=supportability_state,
+        reason=reason,
+        freshness_bucket=diagnostics.freshness,
+    )
+    record_analytics_freshness_bucket(
+        operation=_RETURNS_SERIES_SUPPORTABILITY_OPERATION,
+        freshness_bucket=diagnostics.freshness,
+        supportability_state=supportability_state,
+    )
+
+
 def _returns_series_benchmark_context(
     *,
     resolved_benchmark_id: str | None,
@@ -1970,6 +2012,7 @@ def _build_returns_series_execution_result(
         resolved_benchmark_id=context.resolved_benchmark_id,
         resolved_benchmark_return_source=context.resolved_benchmark_return_source,
     )
+    _record_returns_series_supportability_metrics(response.diagnostics)
     return _ReturnsSeriesExecutionResult(
         response=response,
         stage_details=_returns_series_execution_stage_details(diagnostics_result),

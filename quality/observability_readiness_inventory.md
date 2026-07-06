@@ -6,8 +6,8 @@
 | Expected implementation markers | 28 |
 | Present implementation markers | 28 |
 | Missing implementation markers | 0 |
-| Mapped observability/readiness test functions | 440 |
-| Deployable monitoring alert rules | 13 |
+| Mapped observability/readiness test functions | 443 |
+| Deployable monitoring alert rules | 14 |
 | Deployable monitoring dashboard panels | 10 |
 | Monitoring artifact violations | 0 |
 

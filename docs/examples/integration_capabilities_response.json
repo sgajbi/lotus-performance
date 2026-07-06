@@ -291,7 +291,7 @@
       "owner_service": "lotus-performance"
     },
     {
-      "description": "Bounded TWR, MWR, contribution, and attribution calculation supportability response metadata and Prometheus posture metrics.",
+      "description": "Bounded TWR, MWR, contribution, attribution, and returns-series calculation supportability response metadata and Prometheus posture metrics.",
       "enabled": true,
       "key": "performance.observability.calculation_supportability",
       "owner_service": "lotus-performance"

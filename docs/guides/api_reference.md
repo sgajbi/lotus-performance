@@ -868,8 +868,9 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - sync: `app.models.returns_series.ReturnsSeriesResponse`
   - async accepted: `app.models.returns_series.ReturnsSeriesAcceptedResponse`
 - execution mode:
-  - synchronous for stateless and smaller stateful windows
-  - `202 Accepted` for long-window stateful requests offloaded to the compute executor
+  - synchronous for smaller stateless payloads and smaller stateful windows
+  - `202 Accepted` for long-window stateful requests, large resolved stateful workloads, and large
+    stateless payloads offloaded to the compute executor
 - contract note:
   - stateless benchmark series are still caller-supplied via `stateless_input.benchmark_returns`
   - in stateful mode, benchmark sourcing defaults to the shared lotus-performance benchmark calculation path
@@ -891,7 +892,11 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - when risk-free data is requested, `diagnostics.risk_free_source_quality` reports raw,
     normalized, and skipped source-row counts so malformed optional reference rows are auditable
   - `calendar_policy=BUSINESS` filters daily output to weekdays before coverage diagnostics;
-    `MARKET` currently applies the same weekday approximation and emits a warning
+    `MARKET` uses the Lotus reference market trading calendar, including supported market holidays
+  - completed responses emit bounded `lotus_performance_calculation_supportability_total` and
+    `lotus_analytics_freshness_bucket_total` metrics with `operation="returns_series"`
+  - operator triage for stale freshness, partial coverage, skipped risk-free source rows, and async
+    result failures is governed by `docs/runbooks/returns-series-operator-triage.md`
   - downstream certification and figure tie-outs are recorded in
     `docs/technical/returns-series-endpoint-certification.md`
 

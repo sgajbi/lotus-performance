@@ -1049,7 +1049,10 @@ def test_api_reference_documents_endpoint_level_capabilities_contract():
     assert "sends `consumerSystem` and" not in certification
     assert "Downstream Consumers" in certification
     assert "Test Pyramid Assessment" in certification
-    assert "implemented TWR, MWR, contribution, and attribution calculation supportability posture" in certification
+    assert (
+        "implemented TWR, MWR, contribution, attribution, and returns-series supportability metric posture"
+        in certification
+    )
     assert {surface["key"] for surface in example["analytics_surfaces"]} == {
         "twr",
         "twr_inspection",
@@ -1123,6 +1126,9 @@ def test_returns_series_docs_reflect_benchmark_return_source_contract():
     active_methodology = _read("docs/methodologies/metrics/metric-returns-series-active.md")
     risk_free_methodology = _read("docs/methodologies/metrics/metric-returns-series-risk-free.md")
     certification = _read("docs/technical/returns-series-endpoint-certification.md")
+    operations_runbook = _read("wiki/Operations-Runbook.md")
+    returns_series_runbook = _read("docs/runbooks/returns-series-operator-triage.md")
+    runtime_alerts = _read("docs/runbooks/runtime-alerts.md")
 
     assert 'benchmark.return_source="vendor_series"' in readme
     assert "active_returns" in readme
@@ -1135,6 +1141,7 @@ def test_returns_series_docs_reflect_benchmark_return_source_contract():
     assert "cumulative_active_returns" in api_reference
     assert "benchmark_context" in api_reference
     assert "diagnostics.risk_free_source_quality" in api_reference
+    assert "docs/runbooks/returns-series-operator-triage.md" in api_reference
     assert (
         "stateful mode, benchmark sourcing defaults to the shared lotus-performance benchmark calculation path"
         in api_reference.lower()
@@ -1145,7 +1152,19 @@ def test_returns_series_docs_reflect_benchmark_return_source_contract():
     assert "series.cumulative_active_returns" in active_methodology
     assert "malformed stateful risk-free source rows are skipped resiliently" in risk_free_methodology
     assert "diagnostics.risk_free_source_quality" in certification
+    assert 'operation="returns_series"' in certification
+    assert "docs/runbooks/returns-series-operator-triage.md" in certification
     assert "duplicate effective dates after request/model date normalization" in certification
+    assert "returns-series source-quality triage" in operations_runbook
+    assert "diagnostics.freshness" in returns_series_runbook
+    assert "diagnostics.coverage" in returns_series_runbook
+    assert "diagnostics.gaps" in returns_series_runbook
+    assert "diagnostics.risk_free_source_quality" in returns_series_runbook
+    assert "calendar_policy=MARKET" in returns_series_runbook
+    assert 'operation="returns_series"' in returns_series_runbook
+    assert "lotus-core" in returns_series_runbook
+    assert "lotus-risk" in returns_series_runbook
+    assert "docs/runbooks/returns-series-operator-triage.md" in runtime_alerts
 
 
 def test_api_examples_recipes_match_current_dual_mode_contract():
@@ -1303,7 +1322,7 @@ def test_front_office_supportability_docs_cover_all_completed_calculation_surfac
     assert "`calculation_supportability`" in repo_context
     assert 'supportability_state="stale"' in runbook
     assert (
-        "Bounded TWR, MWR, contribution, and attribution calculation supportability response metadata and Prometheus posture metrics."
+        "Bounded TWR, MWR, contribution, attribution, and returns-series calculation supportability response metadata and Prometheus posture metrics."
         in _read("docs/examples/integration_capabilities_response.json")
     )
 

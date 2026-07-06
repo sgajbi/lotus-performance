@@ -64,6 +64,7 @@ EXPECTED_ALERT_NAMES = frozenset(
         "LotusPerformanceMWRNoRootRateElevated",
         "LotusPerformanceMWRMultipleRootRateElevated",
         "LotusPerformanceMWRSourceDataRejectionRateElevated",
+        "LotusPerformanceReturnsSeriesStaleOrDegradedRateElevated",
     }
 )
 MIN_DASHBOARD_PANELS = 10
