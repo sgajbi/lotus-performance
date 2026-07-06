@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
-Report date: 2026-07-04
-Branch: `fix/issue-397-inspection-artifact-authz`
+Report date: 2026-07-06
+Branch: `feat/performance-enterprise-refactor-issues`
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -16,7 +16,7 @@ and quality family without executing tests or requiring coverage data.
 ```powershell
 python scripts/python_test_taxonomy_inventory.py --limit 30
 python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 607 --min-contract-governance-tests 111 --max-uncategorized-tests 1148
-python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 643 --min-contract-governance-tests 126 --max-uncategorized-tests 1019
+python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 643 --min-contract-governance-tests 126 --max-uncategorized-tests 982
 ```
 
 ## Summary
@@ -44,9 +44,9 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | analytics_domain | 1540 |
 | api_or_runtime | 645 |
 | contract_or_governance | 126 |
-| observability_or_readiness | 284 |
+| observability_or_readiness | 322 |
 | quality_or_security | 137 |
-| uncategorized | 1019 |
+| uncategorized | 982 |
 
 ## Largest Test Modules
 
@@ -73,7 +73,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | 19 | `tests/unit/services/test_operator_action_lease_service.py` | unit | 40 | uncategorized |
 | 20 | `tests/integration/test_performance_api.py` | integration | 39 | api_or_runtime |
 | 21 | `tests/unit/services/test_benchmark_exposure_context_service.py` | unit | 34 | analytics_domain |
-| 22 | `tests/unit/test_observability.py` | unit | 34 | uncategorized |
+| 22 | `tests/unit/test_observability.py` | unit | 34 | observability_or_readiness |
 | 23 | `tests/unit/engine/test_contribution.py` | unit | 33 | analytics_domain |
 | 24 | `tests/unit/models/test_twr_requests.py` | unit | 32 | analytics_domain |
 | 25 | `tests/unit/services/test_twr_inspection_reconciliation.py` | unit | 32 | analytics_domain |
@@ -89,7 +89,7 @@ The AST inventory counts test function definitions, while `pytest --collect-only
 pytest items including parametrized cases. The two values are intentionally different and
 complementary: collected tests show execution breadth, while this report shows source test-module
 and test-function distribution. The current suite has meaningful API/runtime and
-contract/governance coverage, but 1019 test functions remain uncategorized by the first-wave
+contract/governance coverage, but 982 test functions remain uncategorized by the first-wave
 taxonomy and should be reduced through normal refactor slices rather than allowed to grow.
 
 The runtime recovery queue-result boundary slice kept the promoted gate stable by classifying
@@ -100,11 +100,11 @@ protects stateful performance input sourcing, benchmark market-series retrieval,
 and source-lineage snapshots.
 The issue #387 evidence refresh keeps the blocking gate threshold posture unchanged while bringing
 the curated report back to measured source truth. Current measured breadth is `645` API/runtime test
-functions, `126` contract/governance test functions, `284` observability/readiness test functions,
-`1540` analytics-domain test functions, and `1019` uncategorized test functions. The enforced
+functions, `126` contract/governance test functions, `322` observability/readiness test functions,
+`1540` analytics-domain test functions, and `982` uncategorized test functions. The enforced
 command remains at the accepted regression floor of `607` API/runtime tests and ceiling `1148`;
 this slice also passed a tighter local preservation command requiring at least `643` API/runtime tests, `126`
-contract/governance tests, and `1019` uncategorized tests. Intentional threshold changes should
+contract/governance tests, and `982` uncategorized tests. Intentional threshold changes should
 remain separate, rationale-backed gate-governance work.
 
 This slice promotes the stable part of the taxonomy from report-only measurement to a

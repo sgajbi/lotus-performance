@@ -69,7 +69,7 @@ def test_async_result_routes_document_pending_and_terminal_error_contracts() -> 
         _assert_accepted_example(responses["202"], result_path_prefix)
         for status_code in ("404", "409"):
             assert _response_schema_name(responses[status_code]) == "ErrorDetailResponse"
-            assert responses[status_code]["content"]["application/json"]["example"]["detail"]
+            _assert_error_detail_example(responses[status_code], expected_retryable=False)
 
 
 def _response_schema_name(response: dict[str, Any]) -> str:
@@ -86,3 +86,15 @@ def _assert_accepted_example(response: dict[str, Any], result_path_prefix: str) 
     assert example["calculation_id"] in example["result_path"]
     if "status" in example:
         assert example["status"] == "pending"
+
+
+def _assert_error_detail_example(response: dict[str, Any], *, expected_retryable: bool) -> None:
+    example = response["content"]["application/json"]["example"]
+    assert example["detail"]
+    assert example["error_code"]
+    assert example["message"]
+    assert example["source"] == "lotus-performance"
+    assert example["retryable"] is expected_retryable
+    assert example["correlation_id"].startswith("corr_")
+    assert example["request_id"].startswith("req_")
+    assert "remediation_hint" in example

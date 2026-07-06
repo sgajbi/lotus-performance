@@ -81,6 +81,7 @@ def _families_for_path(path: str) -> tuple[str, ...]:
         for token in (
             "metric",
             "metrics",
+            "observability",
             "logging",
             "correlation",
             "health",

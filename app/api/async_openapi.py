@@ -44,12 +44,30 @@ def async_result_responses(
         404: {
             "model": ErrorDetailResponse,
             "description": f"No async {analytics_name} result exists for the supplied calculation_id.",
-            "content": {"application/json": {"example": {"detail": not_found_detail}}},
+            "content": {
+                "application/json": {
+                    "example": _error_detail_example(
+                        detail=not_found_detail,
+                        error_code="RESOURCE_NOT_FOUND",
+                        message=not_found_detail,
+                        retryable=False,
+                    )
+                }
+            },
         },
         409: {
             "model": ErrorDetailResponse,
             "description": f"The async {analytics_name} execution failed and no completed result is available.",
-            "content": {"application/json": {"example": {"detail": failed_detail}}},
+            "content": {
+                "application/json": {
+                    "example": _error_detail_example(
+                        detail=failed_detail,
+                        error_code="ASYNC_EXECUTION_FAILED",
+                        message=failed_detail,
+                        retryable=False,
+                    )
+                }
+            },
         },
     }
 
@@ -68,3 +86,23 @@ def _accepted_example(
         if field is not None and field.default is not None:
             example[field_name] = str(field.default)
     return example
+
+
+def _error_detail_example(
+    *,
+    detail: str,
+    error_code: str,
+    message: str,
+    retryable: bool,
+) -> dict[str, str | bool | None]:
+    return {
+        "detail": detail,
+        "error_code": error_code,
+        "message": message,
+        "correlation_id": "corr_55956bbc6cb3",
+        "request_id": "req_0d19d1d768c1",
+        "source": "lotus-performance",
+        "retryable": retryable,
+        "retry_after_seconds": None,
+        "remediation_hint": "Use the async status endpoint to inspect execution posture before retrying.",
+    }

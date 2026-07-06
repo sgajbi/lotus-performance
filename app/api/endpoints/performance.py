@@ -286,26 +286,13 @@ async def calculate_attribution_endpoint(request: AttributionAnalyticsRequest) -
         "for asynchronous execution, or returns the accepted envelope while the calculation is "
         "still pending. Use this route with result_path from the 202 response."
     ),
-    responses={
-        202: {
-            "model": AttributionAcceptedResponse,
-            "description": "Attribution execution is still pending or running.",
-        },
-        404: {
-            "model": ErrorDetailResponse,
-            "description": "No async attribution execution exists for the supplied calculation id.",
-            "content": {
-                "application/json": {
-                    "example": {"detail": "Async attribution result not found for the given calculation_id."}
-                }
-            },
-        },
-        409: {
-            "model": ErrorDetailResponse,
-            "description": "The async attribution execution failed and no completed result is available.",
-            "content": {"application/json": {"example": {"detail": "Async attribution execution failed."}}},
-        },
-    },
+    responses=async_result_responses(
+        accepted_model=AttributionAcceptedResponse,
+        analytics_name="attribution",
+        result_path_template="/performance/attribution/results/{calculation_id}",
+        not_found_detail="Async attribution result not found for the given calculation_id.",
+        failed_detail="Async attribution execution failed.",
+    ),
 )
 async def get_attribution_result(calculation_id: UUID, request: Request) -> AttributionResponse | JSONResponse:
     return to_fastapi_response(
