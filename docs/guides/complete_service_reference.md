@@ -1730,7 +1730,7 @@ one outbound client per chunk or retry attempt.
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `RETURNS_SERIES_EXECUTOR_WINDOW_DAYS` | `180` | returns-series async threshold by window |
-| `RETURNS_SERIES_EXECUTOR_INPUT_COUNT` | `250` | returns-series async threshold by input size |
+| `RETURNS_SERIES_EXECUTOR_INPUT_COUNT` | `250` | returns-series async threshold by resolved stateful or stateless input size |
 | `TWR_EXECUTOR_WINDOW_DAYS` | `180` | TWR async threshold by window |
 | `TWR_EXECUTOR_INPUT_COUNT` | `250` | TWR async threshold by input size |
 | `WORKSPACE_SUMMARY_EXECUTOR_WINDOW_DAYS` | `180` | workspace-summary async threshold by window |

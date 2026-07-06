@@ -1286,14 +1286,13 @@ def test_returns_series_stateless_fail_fast_rejects_missing_points():
     assert response.json()["detail"]["code"] == "INSUFFICIENT_DATA"
 
 
-def test_returns_series_stateless_market_calendar_emits_warning():
+def test_returns_series_stateless_market_calendar_uses_reference_market_holidays():
     payload = _stateless_base_payload()
-    payload["window"] = {"mode": "EXPLICIT", "from_date": "2026-02-24", "to_date": "2026-02-27"}
+    payload["window"] = {"mode": "EXPLICIT", "from_date": "2026-04-02", "to_date": "2026-04-06"}
     payload["stateless_input"]["portfolio_returns"] = [
-        {"date": "2026-02-24", "return_value": "0.0010"},
-        {"date": "2026-02-25", "return_value": "0.0012"},
-        {"date": "2026-02-26", "return_value": "0.0014"},
-        {"date": "2026-02-27", "return_value": "0.0016"},
+        {"date": "2026-04-02", "return_value": "0.0010"},
+        {"date": "2026-04-03", "return_value": "0.0012"},
+        {"date": "2026-04-06", "return_value": "0.0014"},
     ]
     payload["data_policy"] = {
         "missing_data_policy": "ALLOW_PARTIAL",
@@ -1303,7 +1302,7 @@ def test_returns_series_stateless_market_calendar_emits_warning():
     with TestClient(app) as client:
         response = client.post("/integration/returns/series", json=payload)
     assert response.status_code == 200
-    assert (
-        "MARKET calendar policy currently uses business-day approximation."
-        in response.json()["diagnostics"]["warnings"]
-    )
+    body = response.json()
+    assert body["diagnostics"]["coverage"]["requested_points"] == 2
+    assert body["diagnostics"]["warnings"] == []
+    assert [point["date"] for point in body["series"]["portfolio_returns"]] == ["2026-04-02", "2026-04-06"]

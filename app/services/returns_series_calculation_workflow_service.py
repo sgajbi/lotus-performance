@@ -41,12 +41,26 @@ def accepted_returns_series_response(calculation_id: UUID) -> ReturnsSeriesAccep
 
 def should_offload_returns_series(request: ReturnsSeriesRequest) -> bool:
     active_settings = get_settings()
-    if request.input_mode.value != "stateful":
-        return False
+    if request.input_mode == InputMode.STATELESS:
+        return returns_series_stateless_input_count(request) >= active_settings.RETURNS_SERIES_EXECUTOR_INPUT_COUNT
     resolved_window = resolve_window(request)
     return (
         resolved_window.end_date - resolved_window.start_date
     ).days >= active_settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS
+
+
+def returns_series_stateless_input_count(request: ReturnsSeriesRequest) -> int:
+    stateless_input = request.stateless_input
+    if request.input_mode != InputMode.STATELESS or stateless_input is None:
+        return 0
+    return sum(
+        len(points or [])
+        for points in (
+            stateless_input.portfolio_returns,
+            stateless_input.benchmark_returns,
+            stateless_input.risk_free_returns,
+        )
+    )
 
 
 def should_offload_resolved_returns_series(input_count: int) -> bool:
@@ -247,23 +261,31 @@ async def calculate_returns_series_workflow(
 ) -> ReturnsSeriesResponse | ReturnsSeriesAcceptedResponse | ApplicationHttpResponse:
     """Resolve, fence, execute, and enqueue one returns-series request."""
     input_fingerprint, calculation_hash = generate_request_fingerprint(request, "returns-series-v1")
-    if request.input_mode == InputMode.STATEFUL and not should_offload_returns_series(request):
+    should_offload = should_offload_returns_series(request)
+    if request.input_mode == InputMode.STATEFUL and not should_offload:
         return await _calculate_promoted_stateful_returns_series(
             request=request,
             input_fingerprint=input_fingerprint,
             calculation_hash=calculation_hash,
         )
-    execution_mode = "async" if should_offload_returns_series(request) else "sync"
+    execution_mode = "async" if should_offload else "sync"
+    stateless_input_count = (
+        returns_series_stateless_input_count(request) if request.input_mode == InputMode.STATELESS else None
+    )
     if execution_mode == "async":
         return register_async_submission_or_raise(
             calculation_id=request.calculation_id,
             analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES,
             portfolio_id=request.portfolio_id,
-            requested_window=build_returns_series_execution_window(request),
+            requested_window=build_returns_series_execution_window(request, input_count=stateless_input_count),
             input_fingerprint=input_fingerprint,
             calculation_hash=calculation_hash,
             request_payload=async_observability_request_payload(request.model_dump(mode="json")),
-            offload_reason="long_window_stateful_returns_series",
+            offload_reason=(
+                "large_stateless_returns_series"
+                if request.input_mode == InputMode.STATELESS
+                else "long_window_stateful_returns_series"
+            ),
             accepted_response_factory=accepted_returns_series_response,
         )
 
@@ -271,7 +293,7 @@ async def calculate_returns_series_workflow(
         calculation_id=request.calculation_id,
         analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES,
         portfolio_id=request.portfolio_id,
-        requested_window=build_returns_series_execution_window(request),
+        requested_window=build_returns_series_execution_window(request, input_count=stateless_input_count),
         input_fingerprint=input_fingerprint,
         calculation_hash=calculation_hash,
     )

@@ -21,6 +21,9 @@ Canonical Risk-Free Return Series (`series.risk_free_returns`)
 
 ## Unit Conventions
 - Risk-free series values are decimal returns.
+- Stateful `value_convention="annualized_rate"` points are converted to one-day decimal returns
+  only when the source day-count convention is supported: `ACT_360`, `ACT/360`, `ACT_365`,
+  `ACT/365`, `30_360`, `30/360`, or `THIRTY_360`.
 - Frequency aggregation uses geometric linking in decimal form.
 
 ## Variable Dictionary
@@ -58,6 +61,8 @@ Canonical Risk-Free Return Series (`series.risk_free_returns`)
 - Stateful source unavailable: HTTP 503.
 - Upstream payload missing points list: HTTP 422 (`CONTRACT_VIOLATION_UPSTREAM`).
 - No observations in resolved window: HTTP 422 (`INSUFFICIENT_DATA`).
+- Unsupported stateful annualized-rate day-count conventions are not defaulted. The source row is
+  skipped and counted in `diagnostics.risk_free_source_quality.skipped_points`.
 
 ## Configuration Options
 - `series_selection.include_risk_free`

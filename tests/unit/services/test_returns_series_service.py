@@ -851,7 +851,7 @@ async def test_resolve_returns_series_execution_context_preserves_stateless_over
     assert context.resolved_benchmark_return_source == BenchmarkReturnSource.VENDOR_SERIES
 
 
-def test_build_returns_series_diagnostics_reports_coverage_gaps_and_market_warning():
+def test_build_returns_series_diagnostics_reports_coverage_gaps_with_market_calendar():
     request = ReturnsSeriesRequest.model_validate(
         {
             "portfolio_id": "P1",
@@ -899,20 +899,35 @@ def test_build_returns_series_diagnostics_reports_coverage_gaps_and_market_warni
     assert result.returned_points == 2
     assert result.diagnostics.coverage.missing_points == 2
     assert result.diagnostics.freshness == "stale"
-    assert result.diagnostics.warnings == ["MARKET calendar policy currently uses business-day approximation."]
+    assert result.diagnostics.warnings == []
     assert {gap.series_type for gap in result.diagnostics.gaps} == {"portfolio", "benchmark"}
 
 
-def test_returns_series_freshness_marks_stale_source_warnings() -> None:
+def test_returns_series_freshness_ignores_warning_text_and_uses_source_dates() -> None:
+    stale_source_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-04-09"]),
+            "return_value": [Decimal("0.0100")],
+        }
+    )
+    current_source_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-04-10"]),
+            "return_value": [Decimal("0.0100")],
+        }
+    )
+
     assert (
         returns_series_service._returns_series_freshness(
-            warnings=["stale benchmark observation retained by source policy"]
+            required_observation_date=date(2026, 4, 10),
+            portfolio_df=stale_source_df,
         )
         == "stale"
     )
     assert (
         returns_series_service._returns_series_freshness(
-            warnings=["MARKET calendar policy currently uses business-day approximation."]
+            required_observation_date=date(2026, 4, 10),
+            portfolio_df=current_source_df,
         )
         == "current"
     )
@@ -1147,6 +1162,89 @@ def test_build_returns_series_diagnostics_enforces_fail_fast_missing_points():
         )
 
 
+def test_build_returns_series_diagnostics_warns_when_gap_tolerance_is_exceeded():
+    request = ReturnsSeriesRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "as_of_date": "2026-02-26",
+            "window": {"mode": "EXPLICIT", "from_date": "2026-02-23", "to_date": "2026-02-26"},
+            "frequency": "DAILY",
+            "series_selection": {"include_portfolio": True, "include_benchmark": False, "include_risk_free": False},
+            "input_mode": "stateless",
+            "stateless_input": {
+                "portfolio_returns": [
+                    {"date": "2026-02-23", "return_value": "0.0100"},
+                    {"date": "2026-02-26", "return_value": "0.0200"},
+                ],
+            },
+            "data_policy": {
+                "missing_data_policy": "ALLOW_PARTIAL",
+                "calendar_policy": "BUSINESS",
+                "max_gap_days": 1,
+            },
+        }
+    )
+    resolved_window = returns_series_service.resolve_window(request)
+    portfolio_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-23", "2026-02-26"]),
+            "return_value": [Decimal("0.0100"), Decimal("0.0200")],
+        }
+    )
+
+    result = returns_series_service._build_returns_series_diagnostics(
+        request=request,
+        resolved_window=resolved_window,
+        portfolio_df=portfolio_df,
+        benchmark_df=None,
+        risk_free_df=None,
+    )
+
+    assert result.diagnostics.warnings == [
+        "RETURNS_SERIES_GAP_TOLERANCE_EXCEEDED: 1 retained gaps exceed max_gap_days=1."
+    ]
+
+
+def test_build_returns_series_diagnostics_rejects_fail_fast_gap_tolerance_exceeded():
+    request = ReturnsSeriesRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "as_of_date": "2026-02-26",
+            "window": {"mode": "EXPLICIT", "from_date": "2026-02-23", "to_date": "2026-02-26"},
+            "frequency": "DAILY",
+            "series_selection": {"include_portfolio": True, "include_benchmark": False, "include_risk_free": False},
+            "input_mode": "stateless",
+            "stateless_input": {
+                "portfolio_returns": [
+                    {"date": "2026-02-23", "return_value": "0.0100"},
+                    {"date": "2026-02-26", "return_value": "0.0200"},
+                ],
+            },
+            "data_policy": {
+                "missing_data_policy": "FAIL_FAST",
+                "calendar_policy": "BUSINESS",
+                "max_gap_days": 1,
+            },
+        }
+    )
+    resolved_window = returns_series_service.resolve_window(request)
+    portfolio_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-23", "2026-02-26"]),
+            "return_value": [Decimal("0.0100"), Decimal("0.0200")],
+        }
+    )
+
+    with pytest.raises(APIError, match="RETURNS_SERIES_GAP_TOLERANCE_EXCEEDED"):
+        returns_series_service._build_returns_series_diagnostics(
+            request=request,
+            resolved_window=resolved_window,
+            portfolio_df=portfolio_df,
+            benchmark_df=None,
+            risk_free_df=None,
+        )
+
+
 def test_risk_free_points_to_dataframe_converts_annualized_rates_to_daily_returns():
     risk_free_df = returns_series_service.risk_free_points_to_dataframe(
         points=[
@@ -1185,13 +1283,16 @@ def test_risk_free_return_value_from_source_normalizes_annualized_and_period_ret
             "day_count_convention": "ACT_360",
         }
     ) == Decimal("0.0001")
-    assert returns_series_service._risk_free_return_value_from_source(
-        {
-            "value": "0.036",
-            "value_convention": "annualized_rate",
-            "day_count_convention": "unknown",
-        }
-    ) == Decimal("0.0001")
+    assert (
+        returns_series_service._risk_free_return_value_from_source(
+            {
+                "value": "0.036",
+                "value_convention": "annualized_rate",
+                "day_count_convention": "unknown",
+            }
+        )
+        is None
+    )
     assert returns_series_service._risk_free_return_value_from_source({"value": "0.0002"}) == Decimal("0.0002")
 
 
@@ -1231,6 +1332,30 @@ def test_risk_free_source_quality_from_points_reports_skipped_malformed_rows():
     assert quality.skipped_points == 3
 
 
+def test_risk_free_source_quality_counts_unsupported_day_count_as_skipped():
+    quality = returns_series_service.risk_free_source_quality_from_points(
+        [
+            {
+                "series_date": "2026-04-10",
+                "value": "0.036",
+                "value_convention": "annualized_rate",
+                "day_count_convention": "UNSUPPORTED",
+            },
+            {
+                "series_date": "2026-04-11",
+                "value": "0.036",
+                "value_convention": "annualized_rate",
+                "day_count_convention": "ACT_360",
+            },
+        ]
+    )
+
+    assert quality is not None
+    assert quality.raw_points == 2
+    assert quality.normalized_points == 1
+    assert quality.skipped_points == 1
+
+
 def test_risk_free_points_to_dataframe_rejects_duplicate_dates():
     with pytest.raises(APIError) as exc:
         returns_series_service.risk_free_points_to_dataframe(
@@ -1247,7 +1372,7 @@ def test_risk_free_points_to_dataframe_rejects_duplicate_dates():
 def test_apply_calendar_policy_filters_daily_business_and_market_dates():
     df = pd.DataFrame(
         {
-            "date": pd.to_datetime(["2026-04-10", "2026-04-11", "2026-04-12", "2026-04-13"]),
+            "date": pd.to_datetime(["2026-04-03", "2026-04-06", "2026-04-11", "2026-04-12"]),
             "return_value": [Decimal("0.001"), Decimal("0.002"), Decimal("0.003"), Decimal("0.004")],
         }
     )
@@ -1268,8 +1393,8 @@ def test_apply_calendar_policy_filters_daily_business_and_market_dates():
         calendar_policy=CalendarPolicy.CALENDAR,
     )
 
-    assert [value.isoformat() for value in business_df["date"].dt.date] == ["2026-04-10", "2026-04-13"]
-    assert [value.isoformat() for value in market_df["date"].dt.date] == ["2026-04-10", "2026-04-13"]
+    assert [value.isoformat() for value in business_df["date"].dt.date] == ["2026-04-03", "2026-04-06"]
+    assert [value.isoformat() for value in market_df["date"].dt.date] == ["2026-04-06"]
     assert len(calendar_df) == 4
 
 
@@ -1295,7 +1420,7 @@ def test_detect_gaps_does_not_flag_weekends_under_business_calendar():
     )
 
     assert [gap.gap_days for gap in business_gaps] == [1]
-    assert [gap.gap_days for gap in calendar_gaps] == [2]
+    assert [gap.gap_days for gap in calendar_gaps] == [2, 1]
 
 
 def test_detect_gaps_applies_weekly_interval_threshold():

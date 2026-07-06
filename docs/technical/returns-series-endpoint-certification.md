@@ -1,6 +1,6 @@
 # Returns-Series Endpoint Certification
 
-Last reviewed: 2026-04-15
+Last reviewed: 2026-07-06
 
 Endpoint:
 
@@ -37,10 +37,11 @@ The endpoint returns simple returns as decimal ratios. For example, `0.0012` mea
 | `fill_method=FORWARD_FILL` | Forward-fills selected side series before alignment. |
 | `fill_method=ZERO_FILL` | Zero-fills selected side series before alignment. |
 | `calendar_policy=BUSINESS` | Filters daily output to weekdays before coverage diagnostics and alignment. |
-| `calendar_policy=MARKET` | Uses the same weekday approximation as BUSINESS and emits a warning. |
+| `calendar_policy=MARKET` | Filters daily output to the Lotus reference market trading calendar, including supported market holidays such as Good Friday. |
 | `calendar_policy=CALENDAR` | Retains calendar-date daily observations. |
+| `max_gap_days` | Emits a bounded `RETURNS_SERIES_GAP_TOLERANCE_EXCEEDED` warning when retained gaps exceed the caller tolerance; rejects under `FAIL_FAST`. |
 | duplicate normalized dates | Rejects duplicate effective dates after request/model date normalization across portfolio, benchmark, and risk-free return series. |
-| async accepted response | Long stateful windows return `202` with `poll_path` and endpoint-specific `result_path`. |
+| async accepted response | Long stateful windows, large resolved stateful workloads, and large stateless payloads return `202` with `poll_path` and endpoint-specific `result_path`. |
 
 ## Figure Tie-Outs
 
@@ -57,7 +58,7 @@ Every returned figure must satisfy these invariants:
 | `active_returns` | Arithmetic pointwise excess: `portfolio_return - benchmark_return` on aligned dates. |
 | `cumulative_active_returns` | Arithmetic cumulative excess: `cumulative_portfolio_return - cumulative_benchmark_return`. It is intentionally not a linked active-return series. |
 | `diagnostics.coverage` | Requested, returned, missing, and coverage-ratio values reconcile to the resolved window and calendar policy. |
-| `diagnostics.gaps` | Retained gaps identify series type, start, end, and gap length. BUSINESS/MARKET daily diagnostics do not flag normal weekends as data gaps. |
+| `diagnostics.gaps` | Retained gaps identify series type, start, end, and gap length. BUSINESS and MARKET daily diagnostics do not flag normal weekends as data gaps; MARKET also excludes the Lotus reference market holiday set. |
 | `diagnostics.risk_free_source_quality` | Present when risk-free data is requested; reports raw, normalized, and skipped source-row counts so malformed optional reference rows are auditable. |
 | `benchmark_context` | Present when benchmark was selected and includes resolved `benchmark_id` and `return_source`. |
 | `provenance` | Stateful executions hash the resolved immutable input payload, not only the original lookup request. |
@@ -77,8 +78,11 @@ requested.
 Risk-free source points are normalized by their `value_convention`. If lotus-core emits
 `value_convention="annualized_rate"`, lotus-performance converts the annualized rate to a one-day
 period return using the supplied day-count convention before any weekly or monthly geometric
-linking. This keeps `risk_free_returns` contractually aligned with the rest of the endpoint:
-all returned series values are period returns as decimal ratios.
+linking. Supported day-count conventions are `ACT_360`, `ACT/360`, `ACT_365`, `ACT/365`,
+`30_360`, `30/360`, and `THIRTY_360`; unsupported conventions are skipped and counted in
+`diagnostics.risk_free_source_quality.skipped_points` instead of defaulting to `ACT_360`. This keeps
+`risk_free_returns` contractually aligned with the rest of the endpoint: all returned series values
+are period returns as decimal ratios.
 
 Risk-free sourcing is currently available through stateful returns-series, but some downstream risk
 paths still call lotus-core risk-free coverage and risk-free series directly when they need coverage
@@ -110,7 +114,8 @@ contract rather than reconstructing returns from TWR, MWR, or benchmark endpoint
 
 Focused certification covers:
 
-- unit helpers for window resolution, resampling, gap detection, async offload thresholds, and stateful settings;
+- unit helpers for window resolution, resampling, market-calendar filtering, gap detection,
+  max-gap tolerance, risk-free source normalization, async offload thresholds, and stateful settings;
 - model validation for stateless/stateful envelopes and stateful-only benchmark overrides;
 - integration tests for stateless figure tie-outs, stateful portfolio/benchmark/risk-free sourcing,
   vendor-series override, async accepted/result behavior, duplicate submission fencing, and policy behavior;
