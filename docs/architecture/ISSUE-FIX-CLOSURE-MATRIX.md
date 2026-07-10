@@ -21,7 +21,7 @@ Until then, the local status can be `Fixed locally` while the GitHub issue remai
 
 Latest local pre-PR verification for this batch:
 
-- Local `make test-unit`: passed with `3410 passed`.
+- Local `make check`: passed, including `3416 passed` in `make test-unit`.
 - `make quality-test-taxonomy-gate`: passed with 305 modules, 3,524 source test functions, 689
   API/runtime test functions, 149 contract/governance test functions, and 953 uncategorized test
   functions under the unchanged 969 ceiling.
@@ -33,7 +33,7 @@ Latest local pre-PR verification for this batch:
   observability/readiness tests, 14 deployable alert rules, 12 dashboard panels, and 0 monitoring
   artifact violations.
 - `make openapi-gate` and `python scripts/api_vocabulary_inventory.py --validate-only`: passed.
-- `python -m pytest --collect-only -q`: collected `3,806` tests.
+- `python -m pytest --collect-only -q`: collected `3,807` tests.
 - Wiki check-only: expected unpublished branch drift where repo-authored wiki source changed; publish
   with the governed wiki automation after merge to `main`.
 
