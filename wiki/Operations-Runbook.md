@@ -4,6 +4,15 @@ This page is the first stop for production-support orientation. It summarizes th
 that operators can use to distinguish application health, durable execution progress, lineage
 availability, recovery posture, and retention posture.
 
+## Current scope and evidence
+
+This runbook covers the current `lotus-performance` service runtime: health and readiness checks,
+Prometheus metrics, async execution polling, lineage and inspection access, durable recovery drills,
+runtime retention cleanup, and upstream lotus-core or Lotus AI resilience controls. Supported
+claims are backed by repo-native checks including `make check`, API/docs contract tests, runtime
+status tests, resilience tests, and wiki source synchronization checks. Wiki source is authored in
+this repository and published after merge; unpublished drift is expected on feature branches.
+
 ## Operator surface summary
 
 Primary runtime surfaces:
