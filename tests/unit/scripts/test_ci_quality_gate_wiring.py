@@ -37,6 +37,12 @@ def test_test_taxonomy_quality_gate_has_ci_thresholds() -> None:
     assert "--max-uncategorized-tests 969" in target
 
 
+def test_license_compliance_gate_is_repo_native_blocking_target() -> None:
+    assert "license-compliance-gate" in _makefile_target_definition("check")
+    assert "license-compliance-gate" in _makefile_target_definition("ci")
+    assert "scripts/license_compliance_inventory.py --check" in _makefile_target_definition("license-compliance-gate")
+
+
 def test_contract_security_workflows_enforce_domain_and_evaluation_gates() -> None:
     for workflow_name in ["feature-lane.yml", "pr-merge-gate.yml", "main-releasability.yml"]:
         workflow = _workflow_text(workflow_name)

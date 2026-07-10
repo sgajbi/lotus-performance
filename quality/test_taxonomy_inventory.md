@@ -22,8 +22,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 298 |
-| Test functions inventoried | 3468 |
+| Test modules inventoried | 299 |
+| Test functions inventoried | 3473 |
 | Integration/API/runtime test functions | 663 |
 | Contract/governance test functions | 136 |
 
@@ -34,7 +34,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 18 |
 | e2e | 1 | 21 |
 | integration | 28 | 336 |
-| unit | 260 | 3093 |
+| unit | 261 | 3098 |
 
 ## Test Functions By Family
 
@@ -44,7 +44,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | api_or_runtime | 663 |
 | contract_or_governance | 136 |
 | observability_or_readiness | 350 |
-| quality_or_security | 145 |
+| quality_or_security | 150 |
 | uncategorized | 963 |
 
 ## Largest Test Modules
@@ -54,8 +54,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | 1 | `tests/unit/services/test_returns_series_service.py` | unit | 94 | analytics_domain |
 | 2 | `tests/unit/app/test_enterprise_readiness_additional.py` | unit | 85 | observability_or_readiness |
 | 3 | `tests/unit/services/test_stateful_attribution_input_service.py` | unit | 70 | analytics_domain |
-| 4 | `tests/unit/app/test_openapi_enrichment.py` | unit | 61 | api_or_runtime |
-| 5 | `tests/unit/docs/test_public_docs_contract.py` | unit | 61 | contract_or_governance |
+| 4 | `tests/unit/docs/test_public_docs_contract.py` | unit | 62 | contract_or_governance |
+| 5 | `tests/unit/app/test_openapi_enrichment.py` | unit | 61 | api_or_runtime |
 | 6 | `tests/unit/services/test_compute_job_store.py` | unit | 61 | observability_or_readiness |
 | 7 | `tests/unit/engine/test_attribution.py` | unit | 57 | analytics_domain |
 | 8 | `tests/unit/services/test_twr_inspection_source_economics.py` | unit | 57 | analytics_domain |
@@ -80,7 +80,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | 27 | `tests/unit/services/test_twr_inspection_service.py` | unit | 31 | analytics_domain |
 | 28 | `tests/integration/test_returns_series_api.py` | integration | 30 | analytics_domain, api_or_runtime |
 | 29 | `tests/unit/app/test_enterprise_readiness.py` | unit | 30 | observability_or_readiness |
-| 30 | `tests/unit/engine/test_composites.py` | unit | 29 | analytics_domain |
+| 30 | `tests/unit/services/test_operator_action_replay_service.py` | unit | 30 | uncategorized |
 
 ## Interpretation
 
@@ -141,7 +141,9 @@ source test functions to `3465` and uncategorized tests to `963` while preservin
 contract, raising source test functions to `3466` and contract/governance tests to `134` without
 growing the uncategorized backlog. Issue #441 added upstream dependency inventory contract tests,
 raising source test functions to `3468` and contract/governance tests to `136` without growing the
-uncategorized backlog.
+uncategorized backlog. Issue #440 added first-party and third-party license compliance gate tests,
+raising source test functions to `3473` and quality/security tests to `150` without growing the
+uncategorized backlog or contract/governance floor.
 
 This slice promotes the stable part of the taxonomy from report-only measurement to a
 regression-blocking evaluation gate. `make quality-test-taxonomy-gate` fails if API/runtime tests

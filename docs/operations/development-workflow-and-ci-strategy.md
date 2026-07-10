@@ -24,6 +24,7 @@ make quality-observability-readiness-gate
 make domain-product-validate
 make quality-evaluation-gate
 make quality-test-taxonomy-gate
+make license-compliance-gate
 make container-supply-chain-evidence
 ```
 
@@ -38,6 +39,13 @@ API/runtime and contract/governance test breadth floors and blocks growth in unc
 These gates must not be soft-failed with `continue-on-error`. Because local `make ci` runs that
 evaluation before `docker-build`, `.dockerignore` excludes generated `output`, `lineage_data`, and
 local SQLite database artifacts from the Docker build context.
+
+License compliance is a blocking release-readiness gate. `make license-compliance-gate` validates
+the repo MIT license declaration, `contracts/license-compliance-policy.v1.json`, and the generated
+`quality/license_compliance_inventory.md`. After any runtime or development dependency change,
+regenerate the inventory with `python scripts/license_compliance_inventory.py --write`, review new
+license families, and keep review-required package exceptions owner-bound and time-bound before
+release.
 
 Container supply-chain evidence is produced in the PR Merge Gate and Main Releasability Gate after
 coverage passes. `make container-supply-chain-evidence` builds `lotus-performance:ci` with

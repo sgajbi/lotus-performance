@@ -5,8 +5,8 @@ Branch: `feat/performance-architecture-boundary-refactor`
 Baseline source: `quality/baseline_report.md`
 Report mode: phase-zero scorecard; complexity, architecture, duplicate-code, repository hygiene,
 router-thinness, observability-readiness, domain-product validation, deterministic API evaluation,
-test taxonomy breadth, Python security posture, and container supply-chain evidence are enforced or
-produced separately by CI.
+test taxonomy breadth, Python security posture, license compliance, and container supply-chain
+evidence are enforced or produced separately by CI.
 
 ## Purpose
 
@@ -75,7 +75,7 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Test modules | 228 | 298 | measured | `rg --files tests -g 'test_*.py'` |
+| Test modules | 228 | 299 | measured | `rg --files tests -g 'test_*.py'` |
 | Collected tests | 2,035 | 3,700 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
@@ -92,6 +92,9 @@ link the commit, command, or CI artifact that proves the change.
 | Bandit low findings | unknown | 0 | enforced | `quality/python_security_inventory.md`; `make python-security-gate` |
 | Dependency vulnerabilities | unknown | 0 | measured | `quality/dependency_security_report.md` via repo-native dependency-health audit |
 | Dependency hygiene findings | unknown | 0 | measured | `quality/dependency_hygiene_report.md` via `scripts/python_dependency_hygiene_inventory.py` |
+| Third-party packages inventoried | unknown | 49 | enforced | `quality/license_compliance_inventory.md`; `make license-compliance-gate` |
+| Review-required license exceptions | unknown | 2 | enforced | `contracts/license-compliance-policy.v1.json`; `quality/license_compliance_inventory.md` |
+| Blocked or missing-exception license findings | unknown | 0 | enforced | `make license-compliance-gate` |
 | Container SBOM artifact | unknown | 1 | measured | `quality/container_supply_chain_report.md`; `make container-supply-chain-evidence`; PR/Main artifact upload |
 | Container vulnerability report artifact | unknown | 1 | measured | `quality/container_supply_chain_report.md`; `make container-supply-chain-evidence`; PR/Main artifact upload |
 | Container vulnerability strict gate | unknown | 0 | planned-gate | `make container-vulnerability-gate`; promote after first PR/main artifact baseline and documented high/critical exception policy |
@@ -159,6 +162,9 @@ Latest test-taxonomy gate posture evidence on `feat/performance-architecture-bou
    functions to `3,466` and ratcheting the contract/governance floor to `134`.
    Issue #441 added upstream dependency inventory contract coverage, raising measured source test
    functions to `3,468` and ratcheting the contract/governance floor to `136`.
+   Issue #440 added first-party and third-party license compliance gate coverage, raising measured
+   source test functions to `3,473` and quality/security tests to `150` without changing the
+   contract/governance floor or uncategorized ceiling.
 2. Updated the CI wiring test, taxonomy inventory, CI gate map, scorecard, health report,
    repository context, and review ledger so measured current values and enforced thresholds no
    longer contradict each other.

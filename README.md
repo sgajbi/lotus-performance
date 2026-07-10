@@ -65,6 +65,12 @@ service, not as a calculation demo. The current bank-readiness evidence includes
   repository URL, CI run id, and image-digest metadata fields, generate a CycloneDX SBOM and
   high/critical image vulnerability report, and Main Releasability also attests SBOM provenance.
   Runtime `GET /version` exposes the same support-safe identity fields for release audit.
+- license and IP compliance:
+  repo metadata and `LICENSE` declare MIT, while `make license-compliance-gate` validates
+  `contracts/license-compliance-policy.v1.json` against the generated
+  `quality/license_compliance_inventory.md`; regenerate the inventory with
+  `python scripts/license_compliance_inventory.py --write` after dependency changes and review
+  owner-bound/time-bound exceptions before release
 - repository hygiene:
   `make repository-hygiene-gate` blocks tracked local byproducts such as Python caches, virtual
   environments, local coverage files, build outputs, logs, and local databases; `make clean`
@@ -212,6 +218,8 @@ source-economics or reconciliation regressions.
   `make docker-build`
 - container supply-chain evidence
   `make container-supply-chain-evidence`
+- license compliance evidence
+  `make license-compliance-gate`
 
 ## Demo Readiness
 
@@ -277,6 +285,12 @@ The local mapping is:
   first PR/main baseline is reviewed; promotion to strict blocking uses
   `make container-vulnerability-gate` and the exception policy in
   [quality/container_supply_chain_report.md](quality/container_supply_chain_report.md).
+- `make license-compliance-gate`
+  validates that `LICENSE`, dependency license policy, and generated first-/third-party inventory
+  remain aligned before release. Run `python scripts/license_compliance_inventory.py --write` after
+  editing `requirements.txt` or `requirements-dev.txt`, review new license families, and keep any
+  review-required package exception owner-bound and time-bound in
+  [contracts/license-compliance-policy.v1.json](contracts/license-compliance-policy.v1.json).
 
 When a slice changes `README.md` or public guides, also run:
 
