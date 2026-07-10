@@ -19,7 +19,10 @@ from app.services.operator_action_lease_service import (
     operator_action_lease,
 )
 from app.services.operator_action_replay_service import ActionReplayResult, resolve_runtime_retention_manual_replay
-from app.services.operator_run_response_projection import build_operator_run_response_from_evidence
+from app.services.operator_run_response_projection import (
+    build_operator_run_response_from_evidence,
+    build_operator_run_response_from_mapping,
+)
 from app.services.runtime_retention_execution_service import (
     RuntimeRetentionCleanupEvidence,
     execute_runtime_retention_cleanup,
@@ -80,7 +83,7 @@ def _runtime_retention_replay_run_result(replay: ActionReplayResult | None) -> R
     if replay is None:
         return None
     return RuntimeRetentionCleanupRunResult(
-        response=build_runtime_retention_cleanup_run_response(**replay.payload),
+        response=build_operator_run_response_from_mapping(build_runtime_retention_cleanup_run_response, replay.payload),
         is_replay=True,
     )
 

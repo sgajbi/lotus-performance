@@ -23,7 +23,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 298 |
-| Test functions inventoried | 3461 |
+| Test functions inventoried | 3465 |
 | Integration/API/runtime test functions | 663 |
 | Contract/governance test functions | 133 |
 
@@ -34,7 +34,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 18 |
 | e2e | 1 | 21 |
 | integration | 28 | 336 |
-| unit | 260 | 3086 |
+| unit | 260 | 3090 |
 
 ## Test Functions By Family
 
@@ -45,7 +45,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | contract_or_governance | 133 |
 | observability_or_readiness | 350 |
 | quality_or_security | 145 |
-| uncategorized | 959 |
+| uncategorized | 963 |
 
 ## Largest Test Modules
 
@@ -88,7 +88,7 @@ The AST inventory counts test function definitions, while `pytest --collect-only
 pytest items including parametrized cases. The two values are intentionally different and
 complementary: collected tests show execution breadth, while this report shows source test-module
 and test-function distribution. The current suite has meaningful API/runtime and
-contract/governance coverage, but 959 test functions remain uncategorized by the first-wave
+contract/governance coverage, but 963 test functions remain uncategorized by the first-wave
 taxonomy and should be reduced through normal refactor slices rather than allowed to grow.
 
 The runtime recovery queue-result boundary slice kept the promoted gate stable by classifying
@@ -135,6 +135,9 @@ observability/readiness, quality/security, and uncategorized counts unchanged. I
 lineage artifact classification/minimization route and service coverage, raising source test
 functions to `3461`, API/runtime tests to `663`, and uncategorized tests to `959` while preserving
 the existing `969` uncategorized ceiling.
+Issue #444 added runtime-retention restart-safety, failure-resume, and failed-replay tests, raising
+source test functions to `3465` and uncategorized tests to `963` while preserving the existing
+`969` uncategorized ceiling.
 
 This slice promotes the stable part of the taxonomy from report-only measurement to a
 regression-blocking evaluation gate. `make quality-test-taxonomy-gate` fails if API/runtime tests

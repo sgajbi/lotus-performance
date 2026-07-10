@@ -5,7 +5,7 @@ import logging
 import os
 import re
 import tempfile
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -19,6 +19,7 @@ from app.services.operator_action_evidence_strings import (
     required_evidence_string,
 )
 from app.services.runtime_retention_service import (
+    RuntimeRetentionCleanupFailed,
     RuntimeRetentionCleanupSummary,
     run_runtime_retention_cleanup,
 )
@@ -46,6 +47,10 @@ class RuntimeRetentionCleanupEvidence:
     prunable_async_result_count: int
     prunable_lineage_record_count: int
     prunable_lineage_artifact_count: int
+    cleanup_run_id: str | None = None
+    target_manifest: dict[str, Any] = field(default_factory=dict)
+    phase_results: list[dict[str, Any]] = field(default_factory=list)
+    failure_message: str | None = None
 
 
 @dataclass(frozen=True)
@@ -119,16 +124,50 @@ def execute_runtime_retention_cleanup(
         retention_limit=retention_limit,
         retention_max_age_days=retention_max_age_days,
     )
-    summary = run_runtime_retention_cleanup(
-        retention_days=retention_days,
-        dry_run=not apply,
-    )
-    evidence = _runtime_retention_cleanup_evidence(
-        apply=apply,
-        generated_at_utc=datetime.now(UTC).isoformat(),
-        identity=identity,
-        summary=summary,
-    )
+    generated_at_utc = datetime.now(UTC).isoformat()
+
+    def _persist_apply_start(summary: RuntimeRetentionCleanupSummary) -> None:
+        started_evidence = _runtime_retention_cleanup_evidence(
+            apply=apply,
+            generated_at_utc=generated_at_utc,
+            identity=identity,
+            summary=summary,
+            status="in_progress",
+        )
+        _persist_evidence_history(
+            output_dir=history_policy.output_dir,
+            evidence=started_evidence,
+            retention_limit=history_policy.retention_limit,
+            retention_max_age_days=history_policy.retention_max_age_days,
+        )
+
+    try:
+        summary = run_runtime_retention_cleanup(
+            retention_days=retention_days,
+            dry_run=not apply,
+            before_apply=_persist_apply_start if apply else None,
+        )
+        evidence = _runtime_retention_cleanup_evidence(
+            apply=apply,
+            generated_at_utc=generated_at_utc,
+            identity=identity,
+            summary=summary,
+        )
+    except RuntimeRetentionCleanupFailed as exc:
+        evidence = _runtime_retention_cleanup_evidence(
+            apply=apply,
+            generated_at_utc=generated_at_utc,
+            identity=identity,
+            summary=exc.summary,
+            status="failed",
+        )
+        _persist_evidence_history(
+            output_dir=history_policy.output_dir,
+            evidence=evidence,
+            retention_limit=history_policy.retention_limit,
+            retention_max_age_days=history_policy.retention_max_age_days,
+        )
+        raise
     _persist_evidence_history(
         output_dir=history_policy.output_dir,
         evidence=evidence,
@@ -144,7 +183,9 @@ def _runtime_retention_cleanup_evidence(
     generated_at_utc: str,
     identity: _RuntimeRetentionExecutionIdentity,
     summary: RuntimeRetentionCleanupSummary,
+    status: str | None = None,
 ) -> RuntimeRetentionCleanupEvidence:
+    cleanup_status = status or ("applied" if apply else "planned")
     return RuntimeRetentionCleanupEvidence(
         cleanup_name="runtime_retention_cleanup",
         generated_at_utc=generated_at_utc,
@@ -155,7 +196,7 @@ def _runtime_retention_cleanup_evidence(
         trigger_mode=identity.trigger_mode,
         job_id=identity.job_id,
         cleanup_mode="apply" if apply else "dry_run",
-        status="applied" if apply else "planned",
+        status=cleanup_status,
         retention_days=summary.retention_days,
         cutoff_utc=summary.cutoff_utc,
         prunable_execution_count=summary.prunable_execution_count,
@@ -163,6 +204,10 @@ def _runtime_retention_cleanup_evidence(
         prunable_async_result_count=summary.prunable_async_result_count,
         prunable_lineage_record_count=summary.prunable_lineage_record_count,
         prunable_lineage_artifact_count=summary.prunable_lineage_artifact_count,
+        cleanup_run_id=_build_evidence_file_name(generated_at_utc).removesuffix(".json"),
+        target_manifest=asdict(summary.target_manifest) if summary.target_manifest is not None else {},
+        phase_results=[asdict(phase_result) for phase_result in summary.phase_results],
+        failure_message=summary.failure_message,
     )
 
 

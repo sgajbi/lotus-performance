@@ -44,6 +44,24 @@ Expected retention indexes:
 - `analytics_execution(status, completed_at_utc, created_at_utc)`
 - `lineage_records(status, timestamp_utc, calculation_id)`
 
+## Restart Safety And Evidence
+
+Apply mode writes durable evidence before destructive deletion starts. The initial evidence status is
+`in_progress` and includes:
+
+- cleanup run id, operator identity, tenant/correlation context, trigger mode, and job id;
+- retention window and cutoff;
+- selected execution ids and lineage ids;
+- selected lineage artifact paths;
+- selected compute-job and async-result counts.
+
+The same evidence file is rewritten after cleanup with `applied` or `failed` status. Apply evidence
+records per-phase target, deleted, skipped, and failed counts for compute jobs, async results,
+lineage artifacts, lineage records, and executions. If a phase fails, operators should correct the
+cause and rerun the same governed cleanup path; already-deleted database rows and missing artifact
+directories are reconciled idempotently instead of being treated as new failures. Failed or
+in-progress evidence is not treated as a successful idempotent replay.
+
 ## Default Retention Policy
 
 - Default setting: `RUNTIME_RETENTION_DAYS`
@@ -61,6 +79,7 @@ Override the default only with an explicit operator or environment-level reason.
    - `prunable_async_result_count`
    - `prunable_lineage_record_count`
    - `prunable_lineage_artifact_count`
+   - for apply evidence, `target_manifest` and `phase_results`
 3. If the counts are expected, apply the cleanup:
    - `python scripts/runtime_retention_cleanup.py --apply`
 4. If a non-default window is required, use:
@@ -103,4 +122,5 @@ Override the default only with an explicit operator or environment-level reason.
 - retention window used
 - dry-run summary
 - apply summary
+- apply target manifest and per-phase results
 - any reason for deviating from the default retention window

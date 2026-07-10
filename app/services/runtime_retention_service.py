@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import logging
 import shutil
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -17,6 +18,26 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
+class RuntimeRetentionCleanupPhaseResult:
+    phase: str
+    status: str
+    target_count: int
+    deleted_count: int
+    skipped_count: int = 0
+    failed_count: int = 0
+    failure_message: str | None = None
+
+
+@dataclass(frozen=True)
+class RuntimeRetentionCleanupTargetManifest:
+    execution_ids: list[str]
+    lineage_ids: list[str]
+    lineage_artifact_paths: list[str]
+    compute_job_count: int
+    async_result_count: int
+
+
+@dataclass(frozen=True)
 class RuntimeRetentionCleanupSummary:
     retention_days: int
     cutoff_utc: str
@@ -26,6 +47,9 @@ class RuntimeRetentionCleanupSummary:
     prunable_async_result_count: int
     prunable_lineage_record_count: int
     prunable_lineage_artifact_count: int
+    target_manifest: RuntimeRetentionCleanupTargetManifest | None = None
+    phase_results: list[RuntimeRetentionCleanupPhaseResult] = field(default_factory=list)
+    failure_message: str | None = None
 
 
 @dataclass(frozen=True)
@@ -37,11 +61,27 @@ class RuntimeRetentionPrunableItems:
     lineage_artifact_count: int
 
 
+class RuntimeRetentionCleanupFailed(RuntimeError):
+    def __init__(self, summary: RuntimeRetentionCleanupSummary, message: str):
+        super().__init__(message)
+        self.summary = summary
+
+
+class _RuntimeRetentionPhaseFailed(RuntimeError):
+    def __init__(self, phase_results: list[RuntimeRetentionCleanupPhaseResult], message: str):
+        super().__init__(message)
+        self.phase_results = phase_results
+
+
+ApplyStartCallback = Callable[[RuntimeRetentionCleanupSummary], None]
+
+
 def run_runtime_retention_cleanup(
     *,
     retention_days: int | None = None,
     now: datetime | None = None,
     dry_run: bool = False,
+    before_apply: ApplyStartCallback | None = None,
 ) -> RuntimeRetentionCleanupSummary:
     settings = get_settings()
     effective_retention_days = retention_days if retention_days is not None else settings.RUNTIME_RETENTION_DAYS
@@ -51,7 +91,35 @@ def run_runtime_retention_cleanup(
     prunable_items = _collect_prunable_items(cutoff=cutoff)
 
     if not dry_run:
-        _delete_prunable_items(cutoff=cutoff, prunable_items=prunable_items)
+        planned_summary = _build_cleanup_summary(
+            retention_days=effective_retention_days,
+            cutoff=cutoff,
+            dry_run=dry_run,
+            prunable_items=prunable_items,
+        )
+        if before_apply is not None:
+            before_apply(planned_summary)
+        try:
+            phase_results = _delete_prunable_items(cutoff=cutoff, prunable_items=prunable_items)
+        except _RuntimeRetentionPhaseFailed as exc:
+            failed_summary = _build_cleanup_summary(
+                retention_days=effective_retention_days,
+                cutoff=cutoff,
+                dry_run=dry_run,
+                prunable_items=prunable_items,
+                phase_results=exc.phase_results,
+                failure_message=str(exc),
+                target_manifest=planned_summary.target_manifest,
+            )
+            raise RuntimeRetentionCleanupFailed(failed_summary, str(exc)) from exc
+        return _build_cleanup_summary(
+            retention_days=effective_retention_days,
+            cutoff=cutoff,
+            dry_run=dry_run,
+            prunable_items=prunable_items,
+            phase_results=phase_results,
+            target_manifest=planned_summary.target_manifest,
+        )
 
     return _build_cleanup_summary(
         retention_days=effective_retention_days,
@@ -67,6 +135,9 @@ def _build_cleanup_summary(
     cutoff: datetime,
     dry_run: bool,
     prunable_items: RuntimeRetentionPrunableItems,
+    phase_results: list[RuntimeRetentionCleanupPhaseResult] | None = None,
+    failure_message: str | None = None,
+    target_manifest: RuntimeRetentionCleanupTargetManifest | None = None,
 ) -> RuntimeRetentionCleanupSummary:
     return RuntimeRetentionCleanupSummary(
         retention_days=retention_days,
@@ -77,6 +148,19 @@ def _build_cleanup_summary(
         prunable_async_result_count=prunable_items.async_result_count,
         prunable_lineage_record_count=len(prunable_items.lineage_ids),
         prunable_lineage_artifact_count=prunable_items.lineage_artifact_count,
+        target_manifest=target_manifest or _build_target_manifest(prunable_items),
+        phase_results=list(phase_results or []),
+        failure_message=failure_message,
+    )
+
+
+def _build_target_manifest(prunable_items: RuntimeRetentionPrunableItems) -> RuntimeRetentionCleanupTargetManifest:
+    return RuntimeRetentionCleanupTargetManifest(
+        execution_ids=sorted(prunable_items.execution_ids),
+        lineage_ids=sorted(prunable_items.lineage_ids),
+        lineage_artifact_paths=sorted(_lineage_artifact_paths(prunable_items.lineage_ids)),
+        compute_job_count=prunable_items.compute_job_count,
+        async_result_count=prunable_items.async_result_count,
     )
 
 
@@ -92,12 +176,112 @@ def _collect_prunable_items(*, cutoff: datetime) -> RuntimeRetentionPrunableItem
     )
 
 
-def _delete_prunable_items(*, cutoff: datetime, prunable_items: RuntimeRetentionPrunableItems) -> None:
-    compute_job_store.prune_terminal_jobs_older_than(cutoff, dry_run=False)
-    async_result_store.prune_results_older_than(cutoff, dry_run=False)
-    _delete_lineage_artifact_directories(prunable_items.lineage_ids)
-    lineage_metadata_store.delete_calculation_ids(prunable_items.lineage_ids)
-    execution_registry.delete_executions(prunable_items.execution_ids)
+def _delete_prunable_items(
+    *, cutoff: datetime, prunable_items: RuntimeRetentionPrunableItems
+) -> list[RuntimeRetentionCleanupPhaseResult]:
+    phase_results: list[RuntimeRetentionCleanupPhaseResult] = []
+    _append_count_phase_result(
+        phase_results,
+        phase="compute_jobs",
+        target_count=prunable_items.compute_job_count,
+        delete=lambda: compute_job_store.prune_terminal_jobs_older_than(cutoff, dry_run=False),
+    )
+    _append_count_phase_result(
+        phase_results,
+        phase="async_results",
+        target_count=prunable_items.async_result_count,
+        delete=lambda: async_result_store.prune_results_older_than(cutoff, dry_run=False),
+    )
+    _append_artifact_phase_result(phase_results, prunable_items.lineage_ids)
+    _append_count_phase_result(
+        phase_results,
+        phase="lineage_records",
+        target_count=len(prunable_items.lineage_ids),
+        delete=lambda: lineage_metadata_store.delete_calculation_ids(prunable_items.lineage_ids),
+    )
+    _append_count_phase_result(
+        phase_results,
+        phase="executions",
+        target_count=len(prunable_items.execution_ids),
+        delete=lambda: execution_registry.delete_executions(prunable_items.execution_ids),
+    )
+    return phase_results
+
+
+def _append_count_phase_result(
+    phase_results: list[RuntimeRetentionCleanupPhaseResult],
+    *,
+    phase: str,
+    target_count: int,
+    delete: Callable[[], int],
+) -> None:
+    try:
+        deleted_count = delete()
+    except Exception as exc:
+        failure_message = f"{phase} phase failed"
+        phase_results.append(
+            RuntimeRetentionCleanupPhaseResult(
+                phase=phase,
+                status="failed",
+                target_count=target_count,
+                deleted_count=0,
+                skipped_count=0,
+                failed_count=target_count,
+                failure_message=failure_message,
+            )
+        )
+        raise _RuntimeRetentionPhaseFailed(phase_results, failure_message) from exc
+    phase_results.append(
+        RuntimeRetentionCleanupPhaseResult(
+            phase=phase,
+            status="applied",
+            target_count=target_count,
+            deleted_count=deleted_count,
+            skipped_count=max(target_count - deleted_count, 0),
+        )
+    )
+
+
+@dataclass(frozen=True)
+class _LineageArtifactDeletionResult:
+    deleted_count: int
+    skipped_count: int
+
+
+class _LineageArtifactDeletionFailed(RuntimeError):
+    def __init__(self, result: _LineageArtifactDeletionResult, message: str):
+        super().__init__(message)
+        self.result = result
+
+
+def _append_artifact_phase_result(
+    phase_results: list[RuntimeRetentionCleanupPhaseResult], lineage_ids: list[str]
+) -> None:
+    target_count = len(lineage_ids)
+    try:
+        result = _delete_lineage_artifact_directories_result(lineage_ids)
+    except _LineageArtifactDeletionFailed as exc:
+        phase_results.append(
+            RuntimeRetentionCleanupPhaseResult(
+                phase="lineage_artifacts",
+                status="failed",
+                target_count=target_count,
+                deleted_count=exc.result.deleted_count,
+                skipped_count=exc.result.skipped_count,
+                failed_count=max(target_count - exc.result.deleted_count - exc.result.skipped_count, 1),
+                failure_message="lineage_artifacts phase failed",
+            )
+        )
+        raise _RuntimeRetentionPhaseFailed(phase_results, "lineage_artifacts phase failed") from exc
+    phase_results.append(
+        RuntimeRetentionCleanupPhaseResult(
+            phase="lineage_artifacts",
+            status="applied",
+            target_count=target_count,
+            deleted_count=result.deleted_count,
+            skipped_count=result.skipped_count,
+        )
+    )
 
 
 def _count_lineage_artifact_directories(calculation_ids: list[str]) -> int:
@@ -109,13 +293,35 @@ def _count_lineage_artifact_directories(calculation_ids: list[str]) -> int:
 
 
 def _delete_lineage_artifact_directories(calculation_ids: list[str]) -> int:
+    return _delete_lineage_artifact_directories_result(calculation_ids).deleted_count
+
+
+def _delete_lineage_artifact_directories_result(calculation_ids: list[str]) -> _LineageArtifactDeletionResult:
     deleted_count = 0
+    skipped_count = 0
+    for calculation_id in calculation_ids:
+        directory = _lineage_artifact_directory(calculation_id)
+        if directory is None or not directory.is_dir():
+            skipped_count += 1
+            continue
+        try:
+            shutil.rmtree(directory)
+        except Exception as exc:
+            raise _LineageArtifactDeletionFailed(
+                _LineageArtifactDeletionResult(deleted_count=deleted_count, skipped_count=skipped_count),
+                "lineage_artifacts phase failed",
+            ) from exc
+        deleted_count += 1
+    return _LineageArtifactDeletionResult(deleted_count=deleted_count, skipped_count=skipped_count)
+
+
+def _lineage_artifact_paths(calculation_ids: list[str]) -> list[str]:
+    paths: list[str] = []
     for calculation_id in calculation_ids:
         directory = _lineage_artifact_directory(calculation_id)
         if directory is not None and directory.is_dir():
-            shutil.rmtree(directory)
-            deleted_count += 1
-    return deleted_count
+            paths.append(str(directory))
+    return paths
 
 
 def _lineage_artifact_directory(calculation_id: str) -> Path | None:

@@ -81,7 +81,7 @@ link the commit, command, or CI artifact that proves the change.
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
 | Integration/API/runtime test functions | unknown | 663 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
 | Contract/governance test functions | unknown | 133 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
-| Uncategorized test functions | unknown | 959 | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; issue #446 added lineage artifact classification coverage while preserving the `969` blocking ceiling |
+| Uncategorized test functions | unknown | 963 | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; issue #444 added runtime-retention restart-safety and failed-replay tests while preserving the `969` blocking ceiling |
 
 ## Security And Dependencies
 
@@ -152,7 +152,9 @@ Latest test-taxonomy gate posture evidence on `feat/performance-architecture-bou
    raising measured source test functions to `3,458` and analytics-domain tests to `1,556` without
    growing the uncategorized backlog. Issue #446 added lineage artifact classification and
    minimization coverage, raising measured source test functions to `3,461`, API/runtime tests to
-   `663`, and uncategorized tests to `959` while preserving the existing ceiling.
+   `663`, and uncategorized tests to `959` while preserving the existing ceiling. Issue #444 added
+   runtime-retention restart-safety and failed-replay coverage, raising measured source test
+   functions to `3,465` and uncategorized tests to `963` while preserving the existing ceiling.
 2. Updated the CI wiring test, taxonomy inventory, CI gate map, scorecard, health report,
    repository context, and review ledger so measured current values and enforced thresholds no
    longer contradict each other.
