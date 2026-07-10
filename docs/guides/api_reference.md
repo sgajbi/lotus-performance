@@ -956,7 +956,11 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - when risk-free data is requested, `diagnostics.risk_free_source_quality` reports raw,
     normalized, and skipped source-row counts so malformed optional reference rows are auditable
   - `calendar_policy=BUSINESS` filters daily output to weekdays before coverage diagnostics;
-    `MARKET` uses the Lotus reference market trading calendar, including supported market holidays
+    `MARKET` uses `lotus-reference-market-holidays.v1`, a versioned Lotus reference market
+    calendar generated for 1970-01-01 through 2099-12-31 with Good Friday, New Year, Christmas,
+    and observed weekday holidays; requests outside that horizon fail closed with `INVALID_REQUEST`
+  - `diagnostics.calendar_source` reports MARKET calendar source id, version, supported horizon,
+    and holiday count when `calendar_policy=MARKET`
   - completed responses emit bounded `lotus_performance_calculation_supportability_total` and
     `lotus_analytics_freshness_bucket_total` metrics with `operation="returns_series"`
   - operator triage for stale freshness, partial coverage, skipped risk-free source rows, and async

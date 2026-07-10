@@ -108,8 +108,8 @@ def test_issue_fix_closure_matrix_is_discoverable_and_merge_gated():
     assert "Review playbook, issue closure matrix, and codebase review ledger" in docs_index
     assert "ISSUE-FIX-CLOSURE-MATRIX.md" in review_playbook
     assert "before PR creation or issue closure" in review_playbook
-    assert "Actionable issues fixed locally | 30" in closure_matrix
-    assert "Actionable issues remaining | 10" in closure_matrix
+    assert "Actionable issues fixed locally | 31" in closure_matrix
+    assert "Actionable issues remaining | 9" in closure_matrix
     assert "Issues safe to close now | 0" in closure_matrix
     assert "merged to `main`" in closure_matrix
     assert "No PR should be raised from this branch until the issue matrix remains complete" in closure_matrix
@@ -1392,6 +1392,8 @@ def test_returns_series_docs_reflect_benchmark_return_source_contract():
     assert "cumulative_active_returns" in api_reference
     assert "benchmark_context" in api_reference
     assert "diagnostics.fill_evidence" in api_reference
+    assert "diagnostics.calendar_source" in api_reference
+    assert "lotus-reference-market-holidays.v1" in api_reference
     assert "diagnostics.risk_free_source_quality" in api_reference
     assert "docs/runbooks/returns-series-operator-triage.md" in api_reference
     assert (
@@ -1405,6 +1407,8 @@ def test_returns_series_docs_reflect_benchmark_return_source_contract():
     assert "malformed stateful risk-free source rows are skipped resiliently" in risk_free_methodology
     assert "diagnostics.risk_free_source_quality" in certification
     assert "diagnostics.fill_evidence" in certification
+    assert "diagnostics.calendar_source" in certification
+    assert "1970-01-01 through 2099-12-31" in certification
     assert 'operation="returns_series"' in certification
     assert "docs/runbooks/returns-series-operator-triage.md" in certification
     assert "duplicate effective dates after request/model date normalization" in certification
@@ -1414,6 +1418,8 @@ def test_returns_series_docs_reflect_benchmark_return_source_contract():
     assert "diagnostics.gaps" in returns_series_runbook
     assert "diagnostics.fill_evidence" in returns_series_runbook
     assert "diagnostics.risk_free_source_quality" in returns_series_runbook
+    assert "diagnostics.calendar_source" in returns_series_runbook
+    assert "lotus-reference-market-holidays.v1" in returns_series_runbook
     assert "calendar_policy=MARKET" in returns_series_runbook
     assert 'operation="returns_series"' in returns_series_runbook
     assert "lotus-core" in returns_series_runbook

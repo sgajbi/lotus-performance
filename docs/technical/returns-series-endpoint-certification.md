@@ -42,7 +42,7 @@ local/FX/base decomposition.
 | `fill_method=FORWARD_FILL` | Forward-fills selected benchmark/risk-free side series to portfolio dates before strict-intersection alignment. Leading side-series dates that cannot be filled remain absent. |
 | `fill_method=ZERO_FILL` | Zero-fills selected benchmark/risk-free side series to portfolio dates before strict-intersection alignment. |
 | `calendar_policy=BUSINESS` | Filters daily output to weekdays before coverage diagnostics and alignment. |
-| `calendar_policy=MARKET` | Filters daily output to the Lotus reference market trading calendar, including supported market holidays such as Good Friday. |
+| `calendar_policy=MARKET` | Filters daily output to `lotus-reference-market-holidays.v1`, a generated Lotus reference market calendar for 1970-01-01 through 2099-12-31 with Good Friday, New Year, Christmas, and observed weekday holidays. Requests outside the certified horizon fail closed with `INVALID_REQUEST`. |
 | `calendar_policy=CALENDAR` | Retains calendar-date daily observations. |
 | `max_gap_days` | Emits a bounded `RETURNS_SERIES_GAP_TOLERANCE_EXCEEDED` warning when retained gaps exceed the caller tolerance; rejects under `FAIL_FAST`. |
 | duplicate normalized dates | Rejects duplicate effective dates after request/model date normalization across portfolio, benchmark, and risk-free return series. |
@@ -63,7 +63,8 @@ Every returned figure must satisfy these invariants:
 | `active_returns` | Arithmetic pointwise excess: `portfolio_return - benchmark_return` on aligned dates. |
 | `cumulative_active_returns` | Arithmetic cumulative excess: `cumulative_portfolio_return - cumulative_benchmark_return`. It is intentionally not a linked active-return series. |
 | `diagnostics.coverage` | Requested, returned, missing, and coverage-ratio values reconcile to the resolved window and calendar policy. |
-| `diagnostics.gaps` | Retained gaps identify series type, start, end, and gap length. BUSINESS and MARKET daily diagnostics do not flag normal weekends as data gaps; MARKET also excludes the Lotus reference market holiday set. |
+| `diagnostics.gaps` | Retained gaps identify series type, start, end, and gap length. BUSINESS and MARKET daily diagnostics do not flag normal weekends as data gaps; MARKET also excludes the governed Lotus reference market holiday set. |
+| `diagnostics.calendar_source` | MARKET responses expose the calendar source id, version, supported horizon, and holiday count so downstream consumers can distinguish certified market-calendar evidence from weekday-only behavior. |
 | `diagnostics.fill_evidence` | Lists benchmark/risk-free dates synthesized by `FORWARD_FILL` or `ZERO_FILL` so filled side-series points are distinguishable from source-observed points. |
 | `diagnostics.risk_free_source_quality` | Present when risk-free data is requested; reports raw, normalized, and skipped source-row counts so malformed optional reference rows are auditable. |
 | `benchmark_context` | Present when benchmark was selected and includes resolved `benchmark_id` and `return_source`. |

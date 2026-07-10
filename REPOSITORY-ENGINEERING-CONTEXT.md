@@ -106,7 +106,10 @@ Current repository posture:
     consumers. `diagnostics.coverage` remains the coverage-quality signal, while
     `diagnostics.freshness` is the bounded freshness signal (`current` or `stale`) derived from
     source warnings so consumers such as `lotus-risk` and `lotus-idea` can preserve Performance
-    evidence without reinterpreting return-series recency locally.
+    evidence without reinterpreting return-series recency locally. MARKET calendar requests use
+    the governed `lotus-reference-market-holidays.v1` source over the certified 1970-01-01 through
+    2099-12-31 horizon, expose `diagnostics.calendar_source`, and fail closed outside that horizon
+    rather than silently falling back to weekday-only behavior.
 16. Active `lotus-core` route-level dependency coverage is governed by
     `contracts/domain-data-products/lotus-performance-upstream-dependency-inventory.v1.json` and
     validated by `make domain-product-validate`. Benchmark composition-window, benchmark

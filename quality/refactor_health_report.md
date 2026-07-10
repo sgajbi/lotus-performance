@@ -76,12 +76,12 @@ link the commit, command, or CI artifact that proves the change.
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
 | Test modules | 228 | 301 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 3,724 | measured | `python -m pytest --collect-only -q` |
+| Collected tests | 2,035 | 3,727 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
-| Integration/API/runtime test functions | unknown | 663 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
+| Integration/API/runtime test functions | unknown | 664 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
 | Contract/governance test functions | unknown | 140 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
-| Uncategorized test functions | unknown | 966 | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; issue #436 added runtime-retention legal-hold coverage while preserving the `969` blocking ceiling |
+| Uncategorized test functions | unknown | 966 | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; issue #435 added governed MARKET calendar coverage while preserving the `969` blocking ceiling |
 
 ## Security And Dependencies
 
@@ -175,6 +175,10 @@ Latest test-taxonomy gate posture evidence on `feat/performance-architecture-bou
    Issue #436 added runtime-retention legal-hold parser and exclusion coverage, raising measured
    source test functions to `3,485`, contract/governance tests to `140`, and uncategorized tests to
    `966` while preserving the existing ceiling.
+   Issue #435 added governed MARKET calendar source, future-holiday, diagnostics metadata, and
+   out-of-horizon rejection coverage, raising measured source test functions to `3,488`,
+   API/runtime tests to `664`, and analytics-domain tests to `1,563` while preserving the existing
+   uncategorized ceiling.
 2. Updated the CI wiring test, taxonomy inventory, CI gate map, scorecard, health report,
    repository context, and review ledger so measured current values and enforced thresholds no
    longer contradict each other.
