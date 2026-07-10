@@ -79,8 +79,8 @@ link the commit, command, or CI artifact that proves the change.
 | Collected tests | 2,035 | 3,676 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
-| Integration/API/runtime test functions | unknown | 655 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
-| Contract/governance test functions | unknown | 129 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
+| Integration/API/runtime test functions | unknown | 656 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
+| Contract/governance test functions | unknown | 130 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
 | Uncategorized test functions | unknown | 969 | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; issue #423 classified config/resilience tests and ratcheted the gate to the current measured preservation baseline |
 
 ## Security And Dependencies
@@ -142,7 +142,7 @@ repeatably measured or expressed as progressive gates.
 Latest test-taxonomy gate posture evidence on `feat/performance-architecture-boundary-refactor`:
 
 1. Ratcheted `make quality-test-taxonomy-gate` from older accepted floors to the current measured
-   preservation baseline: `655` API/runtime test functions, `129` contract/governance test
+   preservation baseline: `656` API/runtime test functions, `130` contract/governance test
    functions, and `969` uncategorized test functions as the enforced ceiling.
 2. Updated the CI wiring test, taxonomy inventory, CI gate map, scorecard, health report,
    repository context, and review ledger so measured current values and enforced thresholds no

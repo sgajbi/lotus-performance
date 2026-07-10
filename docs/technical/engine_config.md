@@ -71,7 +71,12 @@ These parameters are part of the unified API envelope and influence engine behav
 
 ### Flags
 
--   **`fail_fast`**: When `true`, instructs the engine to raise an error on soft warnings instead of continuing.
+-   **`fail_fast`**: When `true`, completed TWR, MWR, Contribution, and Attribution responses
+    that contain governed warning, fallback, diagnostic-note, degraded supportability, or
+    supportability-reason evidence return HTTP `422` with `error_code=FAIL_FAST_SOFT_WARNING`
+    instead of returning a `200` degraded result. The same request returns the degraded response
+    when `fail_fast=false`. Initial async `202 Accepted` envelopes are not rejected before the
+    calculation has completed.
 
 ---
 

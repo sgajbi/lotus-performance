@@ -70,14 +70,23 @@ Status values:
 - Proposed action: Build phase-1 exposure endpoint with clear namespace.
 
 ### RFC-014-D01
-- Status: `open`
+- Status: `closed`
 - Priority: P1
 - Source RFC: `RFC-014`
 - Delta: Enforce consistent `flags.fail_fast` behavior across TWR/MWR/Contribution/Attribution.
-- Why still relevant: Contract field exists, but uniform runtime behavior is not fully explicit.
+- Closure: TWR, MWR, Contribution, and Attribution completed responses now share one application
+  fail-fast policy. When `flags.fail_fast=true`, governed warning, fallback, diagnostic-note,
+  degraded supportability, or supportability-reason evidence is rejected with HTTP `422` and
+  `FAIL_FAST_SOFT_WARNING`; the same degraded response still returns `200` when
+  `flags.fail_fast=false`. Initial async `202 Accepted` envelopes remain accepted because warning
+  posture is only known after completion.
 - Evidence:
-  - Shared envelope includes `flags.fail_fast`, but endpoint parity is incomplete.
-- Proposed action: Define strict fail-fast policy and implement endpoint-wide.
+  - `app/services/fail_fast_policy.py`
+  - `app/services/twr_service.py`
+  - `app/services/mwr_calculation_service.py`
+  - `app/services/contribution_service.py`
+  - `app/services/attribution_service.py`
+  - `tests/integration/test_core_analytics_footer_contract.py`
 
 ### RFC-014-D02
 - Status: `closed`

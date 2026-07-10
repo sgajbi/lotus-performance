@@ -68,6 +68,7 @@ from app.services.execution_lifecycle_service import (
 from app.services.execution_registry import execution_registry
 from app.services.execution_stage_errors import is_mappable_application_error
 from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
+from app.services.fail_fast_policy import enforce_core_analytics_fail_fast
 from core.envelope import Audit, Meta
 from core.errors import APIBadRequestError, APIError, APIInternalServerError
 from core.periods import resolve_periods
@@ -923,6 +924,7 @@ def calculate_contribution(
         average_weight_audit_state=calculation_run.average_weight_audit_state,
         average_weight_sum_residual_bp=calculation_run.average_weight_sum_residual_bp,
     )
+    enforce_core_analytics_fail_fast(operation="contribution", request=request, response=response_model)
     _complete_contribution_execution(
         request=request,
         response_model=response_model,

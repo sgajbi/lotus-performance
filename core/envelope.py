@@ -136,7 +136,15 @@ class Output(BaseModel):
 
 
 class Flags(BaseModel):
-    fail_fast: bool = False
+    fail_fast: bool = Field(
+        default=False,
+        description=(
+            "When true, completed TWR, MWR, Contribution, and Attribution responses that contain governed "
+            "warning, fallback, diagnostic-note, degraded supportability, or supportability-reason evidence "
+            "are rejected with HTTP 422 and error_code FAIL_FAST_SOFT_WARNING instead of returning a 200 "
+            "degraded result. Async 202 Accepted envelopes are not rejected before execution completes."
+        ),
+    )
 
 
 class BaseRequest(BaseModel):
