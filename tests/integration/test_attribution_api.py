@@ -13,6 +13,7 @@ from app.models.benchmark_requests import BenchmarkComponentObservation
 from app.observability_contracts import PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS
 from app.services.async_result_store import async_result_store
 from app.services.attribution_mode_service import resolve_attribution_request
+from app.services.calculation_engine_version import calculation_engine_version
 from app.services.compute_job_store import compute_job_store
 from app.services.execution_registry import execution_registry
 from app.services.lineage_metadata_store import lineage_metadata_store
@@ -1658,7 +1659,8 @@ def test_attribution_stateful_hashes_follow_resolved_inputs(client, monkeypatch)
         )
     )
     expected_input_fingerprint, expected_calculation_hash = generate_canonical_hash(
-        resolved.attribution_request, settings.APP_VERSION
+        resolved.attribution_request,
+        calculation_engine_version(settings),
     )
 
     assert body["meta"]["input_fingerprint"] == expected_input_fingerprint
@@ -1706,7 +1708,9 @@ def test_attribution_async_result_not_found_and_failed(client, mocker):
 
         failed = client.get(f"/performance/attribution/results/{calculation_id}")
         assert failed.status_code == 409
-        assert failed.json()["detail"] == "explode"
+        assert (
+            failed.json()["detail"] == "Compute job execution failed unexpectedly. Use the correlation_id for support."
+        )
     finally:
         settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT = original_threshold
         settings.COMPUTE_EXECUTOR_MAX_ATTEMPTS = original_attempts

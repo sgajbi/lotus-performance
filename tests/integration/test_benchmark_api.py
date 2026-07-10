@@ -10,6 +10,7 @@ from app.models.benchmark_analytics_requests import BenchmarkAnalyticsRequest, B
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.services.async_result_store import async_result_store
 from app.services.benchmark_mode_service import ResolvedBenchmarkRequest
+from app.services.calculation_engine_version import calculation_engine_version
 from app.services.compute_job_store import compute_job_store
 from app.services.execution_registry import execution_registry
 from app.services.lineage_metadata_store import lineage_metadata_store
@@ -195,7 +196,7 @@ def test_calculate_benchmark_endpoint_supports_stateless_component_price_points(
     body = response.json()
     itd = body["results_by_period"]["SI"]
     raw_request = BenchmarkAnalyticsRequest.model_validate(payload)
-    raw_input_fingerprint, _ = generate_canonical_hash(raw_request, get_settings().APP_VERSION)
+    raw_input_fingerprint, _ = generate_canonical_hash(raw_request, calculation_engine_version(get_settings()))
     assert itd["benchmark"]["summary"]["period_return"]["base"] == pytest.approx(2.004)
     assert itd["daily_returns"][0]["benchmark_return_local"] == pytest.approx(1.6)
     assert itd["daily_returns"][0]["benchmark_return_fx"] == pytest.approx(0.4)

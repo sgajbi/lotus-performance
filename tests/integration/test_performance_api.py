@@ -15,6 +15,7 @@ from app.observability_contracts import (
     PERFORMANCE_ANALYTICS_FRESHNESS_METRIC_LABELS,
     PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS,
 )
+from app.services.calculation_engine_version import calculation_engine_version
 from app.services.twr_calculation_service import generate_twr_request_hashes
 from app.services.twr_mode_service import ResolvedTWRRequest
 from core.repro import generate_canonical_hash_from_value
@@ -1798,7 +1799,7 @@ def test_twr_hashes_include_resolved_benchmark_request(client):
                 }
             ),
         ),
-        get_settings().APP_VERSION,
+        calculation_engine_version(get_settings()),
     )
     assert body["meta"]["input_fingerprint"] == expected_input_fingerprint
     assert body["meta"]["calculation_hash"] == expected_calculation_hash
@@ -1880,10 +1881,13 @@ def test_twr_stateful_hashes_follow_resolved_inputs(client, monkeypatch):
 
     first_request = TWRAnalyticsRequest.model_validate(first_payload)
     second_request = TWRAnalyticsRequest.model_validate(second_payload)
-    first_pre_resolution_hashes = generate_twr_request_hashes(first_request, engine_version=get_settings().APP_VERSION)
+    first_pre_resolution_hashes = generate_twr_request_hashes(
+        first_request,
+        engine_version=calculation_engine_version(get_settings()),
+    )
     second_pre_resolution_hashes = generate_twr_request_hashes(
         second_request,
-        engine_version=get_settings().APP_VERSION,
+        engine_version=calculation_engine_version(get_settings()),
     )
 
     assert first_pre_resolution_hashes == second_pre_resolution_hashes
@@ -1926,7 +1930,7 @@ def test_twr_stateful_hashes_follow_resolved_inputs(client, monkeypatch):
     )
     expected_input_fingerprint, expected_calculation_hash = generate_canonical_hash_from_value(
         TWRResolvedExecutionRequest(portfolio=expected_request, benchmark=None),
-        get_settings().APP_VERSION,
+        calculation_engine_version(get_settings()),
     )
 
     assert first.json()["meta"]["input_fingerprint"] == expected_input_fingerprint

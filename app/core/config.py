@@ -7,10 +7,13 @@ from pathlib import Path
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.services.calculation_engine_version import CALCULATION_ENGINE_VERSION
+
 
 class Settings(BaseSettings):
     APP_NAME: str = "Portfolio Performance Analytics API"
     APP_VERSION: str = "0.1.0"
+    CALCULATION_ENGINE_VERSION: str = CALCULATION_ENGINE_VERSION
     APP_DESCRIPTION: str = "API for calculating portfolio performance metrics."
     APP_GIT_COMMIT_SHA: str = "local"
     APP_GIT_BRANCH: str = "local"

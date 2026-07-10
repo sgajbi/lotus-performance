@@ -108,8 +108,8 @@ def test_issue_fix_closure_matrix_is_discoverable_and_merge_gated():
     assert "Review playbook, issue closure matrix, and codebase review ledger" in docs_index
     assert "ISSUE-FIX-CLOSURE-MATRIX.md" in review_playbook
     assert "before PR creation or issue closure" in review_playbook
-    assert "Actionable issues fixed locally | 34" in closure_matrix
-    assert "Actionable issues remaining | 6" in closure_matrix
+    assert "Actionable issues fixed locally | 35" in closure_matrix
+    assert "Actionable issues remaining | 5" in closure_matrix
     assert "Issues safe to close now | 0" in closure_matrix
     assert "merged to `main`" in closure_matrix
     assert "No PR should be raised from this branch until the issue matrix remains complete" in closure_matrix
@@ -132,6 +132,7 @@ def test_issue_fix_closure_matrix_is_discoverable_and_merge_gated():
         "#417",
         "#424",
         "#425",
+        "#431",
         "#432",
         "#433",
         "#434",
@@ -156,6 +157,22 @@ def test_issue_fix_closure_matrix_is_discoverable_and_merge_gated():
 
     assert "`#380` Lotus Performance Issue Discovery Ledger | Tracking ledger" in closure_matrix
     assert "Keep open." in closure_matrix
+
+
+def test_reproducibility_docs_govern_calculation_engine_version_identity():
+    reproducibility = _read("docs/guides/reproducibility.md")
+    service_reference = _read("docs/guides/complete_service_reference.md")
+    ci_quality_gates = _read("quality/ci_quality_gates.md")
+    wiki_validation = _read("wiki/Validation-and-CI.md")
+
+    for document in (reproducibility, service_reference, ci_quality_gates, wiki_validation):
+        assert "CALCULATION_ENGINE_VERSION" in document
+
+    assert "lotus-performance-calculation-engine.v1" in reproducibility
+    assert "not the deployable build version" in reproducibility
+    assert "make calculation-engine-version-gate" in reproducibility
+    assert "APP_VERSION" in reproducibility
+    assert "legacy per-family literals" in ci_quality_gates
 
 
 def test_api_reference_endpoint_headings_are_unique():

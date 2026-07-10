@@ -17,6 +17,7 @@ from app.models.contribution_responses import (
     SinglePeriodContributionResult,
 )
 from app.services.analytics_observation_dates import observation_date_series
+from app.services.calculation_engine_version import calculation_engine_version
 from app.services.calculation_supportability_service import (
     build_calculation_supportability,
     record_supportability_metric,
@@ -913,7 +914,7 @@ def calculate_contribution(
         input_mode=input_mode,
         input_fingerprint=input_fingerprint,
         calculation_hash=calculation_hash,
-        engine_version=active_settings.APP_VERSION,
+        engine_version=calculation_engine_version(active_settings),
         periods_to_resolve=engine_inputs.periods_to_resolve,
         master_start_date=engine_inputs.master_start_date,
         master_end_date=engine_inputs.master_end_date,

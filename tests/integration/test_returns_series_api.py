@@ -8,6 +8,7 @@ from app.models.benchmark_requests import BenchmarkComponentObservation
 from app.models.returns_series import InputMode, ReturnsSeriesRequest
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_BENCHMARK
 from app.services.async_result_store import async_result_store
+from app.services.calculation_engine_version import calculation_engine_version
 from app.services.returns_series_service import ResolvedStatefulReturnsSeriesRequest
 from app.services.stateful_benchmark_input_service import StatefulBenchmarkNormalizedInput
 from core.repro import generate_canonical_hash
@@ -490,7 +491,10 @@ def test_returns_series_stateful_provenance_uses_resolved_series_identity(monkey
         "input_mode": "stateful",
         "stateful_input": {},
     }
-    initial_input_fingerprint, initial_calculation_hash = generate_canonical_hash(payload, "returns-series-v1")
+    initial_input_fingerprint, initial_calculation_hash = generate_canonical_hash(
+        payload,
+        calculation_engine_version(settings),
+    )
 
     with TestClient(app) as client:
         response = client.post("/integration/returns/series", json=payload)

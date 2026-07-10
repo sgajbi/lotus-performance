@@ -23,6 +23,10 @@ make quality measurable and repeatable, not to treat CI as a ceremonial final st
 - `make repository-hygiene-gate`
   tracked-source hygiene proof that local Python caches, virtual environments, coverage files,
   build outputs, logs, and local databases were not committed
+- `make calculation-engine-version-gate`
+  reproducibility proof that production calculation code uses the governed
+  `CALCULATION_ENGINE_VERSION` token for calculation hashes instead of deployable build identity or
+  legacy per-family literals
 - `make clean`
   local cleanup for ignored `artifacts/`, `output/`, `lineage_data/`, SQLite/log sidecars, caches,
   coverage files, and build outputs; durable source truth under `docs/`, `contracts/`, `wiki/`, and
@@ -69,6 +73,7 @@ make quality measurable and repeatable, not to treat CI as a ceremonial final st
 | Signal | Local command or workflow | What it protects |
 | --- | --- | --- |
 | Static quality | `make check`, Static Quality Gates | lint, format, typecheck, complexity, architecture boundaries, duplicate-code hotspots, observability markers, no-alias governance |
+| Reproducibility identity | `make calculation-engine-version-gate`, `make lint` | calculation hashes are governed by `CALCULATION_ENGINE_VERSION`, not `APP_VERSION`, image labels, or legacy literal tokens |
 | API contract quality | `make check`, Contract Security Gates | OpenAPI quality, API vocabulary, domain data-product contracts, migration smoke, security scans |
 | Runtime behavior | `make ci`, unit/integration/e2e lanes | calculation behavior, API behavior, async/runtime flows, coverage floor |
 | Container supply-chain | `make container-supply-chain-evidence`, PR/Main container evidence jobs, `GET /version` | production runtime image buildability, non-root/runtime-dependency posture, API and worker healthchecks, runtime-to-image build identity, SBOM inventory, high/critical vulnerability evidence, and main-branch SBOM provenance attestation |

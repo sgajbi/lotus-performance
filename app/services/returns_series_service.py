@@ -42,6 +42,7 @@ from app.observability import (
 )
 from app.services.analytics_numeric import numeric_value
 from app.services.analytics_observation_dates import observation_timestamp_series
+from app.services.calculation_engine_version import calculation_engine_version
 from app.services.error_details import (
     insufficient_data_detail,
     invalid_request_detail,
@@ -1774,7 +1775,7 @@ def _update_resolved_stateful_returns_identity(
     )
     input_fingerprint, calculation_hash = generate_canonical_hash(
         resolved_stateful_payload,
-        "returns-series-v1",
+        calculation_engine_version(),
     )
     execution_registry.update_execution_identity(
         request.calculation_id,
@@ -1934,7 +1935,7 @@ def _requested_returns_series_execution_context(
     resolved_benchmark_return_source_override: str | None,
     risk_free_source_quality_override: RiskFreeSourceQuality | None = None,
 ) -> _ReturnsSeriesExecutionContext:
-    input_fingerprint, calculation_hash = generate_canonical_hash(request, "returns-series-v1")
+    input_fingerprint, calculation_hash = generate_canonical_hash(request, calculation_engine_version())
     resolved_benchmark_return_source = (
         BenchmarkReturnSource(resolved_benchmark_return_source_override)
         if resolved_benchmark_return_source_override is not None
@@ -1986,7 +1987,7 @@ async def _resolve_returns_series_execution_context(
         )
     input_fingerprint, calculation_hash = generate_canonical_hash(
         resolved_stateful_request.identity_payload,
-        "returns-series-v1",
+        calculation_engine_version(),
     )
     execution_registry.update_execution_identity(
         request.calculation_id,

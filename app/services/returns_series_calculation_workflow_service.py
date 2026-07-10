@@ -15,6 +15,7 @@ from app.models.returns_series import (
 from app.services.analytics_workflow_commands import ReturnsSeriesWorkflowCommand, workflow_request
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_RETURNS_SERIES
 from app.services.async_observability_context import async_observability_request_payload
+from app.services.calculation_engine_version import calculation_engine_version
 from app.services.execution_registry import execution_registry
 from app.services.reproducibility_service import generate_request_fingerprint
 from app.services.returns_series_service import (
@@ -231,7 +232,7 @@ async def _calculate_promoted_stateful_returns_series(
         resolved = await resolve_stateful_returns_series_request(request)
         resolved_input_fingerprint, resolved_calculation_hash = generate_request_fingerprint(
             resolved.identity_payload,
-            "returns-series-v1",
+            calculation_engine_version(),
         )
         accepted_response = _finalize_resolved_returns_series_execution(
             request=request,
@@ -264,7 +265,7 @@ async def calculate_returns_series_workflow(
 ) -> ReturnsSeriesResponse | ReturnsSeriesAcceptedResponse | ApplicationHttpResponse:
     """Resolve, fence, execute, and enqueue one returns-series request."""
     request = workflow_request(command, ReturnsSeriesRequest)
-    input_fingerprint, calculation_hash = generate_request_fingerprint(request, "returns-series-v1")
+    input_fingerprint, calculation_hash = generate_request_fingerprint(request, calculation_engine_version())
     should_offload = should_offload_returns_series(request)
     if request.input_mode == InputMode.STATEFUL and not should_offload:
         return await _calculate_promoted_stateful_returns_series(

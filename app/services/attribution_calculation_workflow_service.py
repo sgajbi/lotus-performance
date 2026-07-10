@@ -12,6 +12,7 @@ from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_ATTRIBUTION
 from app.services.async_observability_context import async_observability_request_payload
 from app.services.attribution_mode_service import ResolvedAttributionRequest, resolve_attribution_request
 from app.services.attribution_service import calculate_attribution
+from app.services.calculation_engine_version import calculation_engine_version
 from app.services.execution_lifecycle_service import record_execution_failure
 from app.services.execution_stage_errors import (
     execution_stage_failure_detail,
@@ -31,7 +32,7 @@ from core.errors import APIInternalServerError
 
 
 class _AttributionWorkflowSettings(Protocol):
-    APP_VERSION: str
+    CALCULATION_ENGINE_VERSION: str
 
 
 def accepted_attribution_response(calculation_id) -> AttributionAcceptedResponse:
@@ -128,7 +129,7 @@ def _finalize_resolved_stateful_attribution_execution(
 ) -> tuple[str, str, ApplicationHttpResponse | None]:
     input_fingerprint, calculation_hash = generate_request_fingerprint(
         resolved.attribution_request,
-        active_settings.APP_VERSION,
+        calculation_engine_version(active_settings),
     )
     requested_window = build_attribution_execution_window(
         request,
@@ -243,7 +244,10 @@ async def calculate_attribution_workflow(
 ) -> AttributionResponse | ApplicationHttpResponse:
     """Resolve, fence, execute, and map errors for one attribution analytics request."""
     active_settings = get_settings()
-    input_fingerprint, calculation_hash = generate_request_fingerprint(request, active_settings.APP_VERSION)
+    input_fingerprint, calculation_hash = generate_request_fingerprint(
+        request,
+        calculation_engine_version(active_settings),
+    )
     source_request_fingerprint = input_fingerprint
     requested_window = build_attribution_execution_window(
         request,
