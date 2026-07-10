@@ -18,7 +18,7 @@ def test_build_runtime_recoveries_query_projects_filters():
         cursor_calculation_id_before="calc-123",
         compute_analytics_type="ReturnsSeries",
         lineage_calculation_type="TWR",
-        calculation_id_contains="calc",
+        calculation_id_contains="ABCDEF12",
     )
 
     assert query.model_dump() == {
@@ -31,7 +31,7 @@ def test_build_runtime_recoveries_query_projects_filters():
         "cursor_calculation_id_before": "calc-123",
         "compute_analytics_type": "ReturnsSeries",
         "lineage_calculation_type": "TWR",
-        "calculation_id_contains": "calc",
+        "calculation_id_contains": "abcdef12",
     }
 
 

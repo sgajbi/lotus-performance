@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-07-10T10:36:57.726543+00:00",
+  "generatedAt": "2026-07-10T12:00:47.998680+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.access_classification",
@@ -7696,7 +7696,7 @@
       "location": "query",
       "required": false,
       "type": "string",
-      "description": "Optional substring filter applied to calculation identifiers in the selected queues.",
+      "description": "Optional governed calculation-id prefix or full UUID lookup. Use at least the first eight characters from the start of the calculation UUID; arbitrary substring search is not supported on operator list paths.",
       "example": "STANDARD_VALUE",
       "allowedValues": [],
       "semanticId": "lotus.calculation_id_contains",
@@ -7820,7 +7820,7 @@
       "location": "query",
       "required": false,
       "type": "string",
-      "description": "Optional substring filter applied to calculation identifiers in the selected queues.",
+      "description": "Optional governed calculation-id prefix or full UUID lookup. Use at least the first eight characters from the start of the calculation UUID; arbitrary substring search is not supported on operator list paths.",
       "example": "STANDARD_VALUE",
       "allowedValues": [],
       "semanticId": "lotus.calculation_id_contains",

@@ -903,7 +903,7 @@ def test_compute_job_store_lists_active_and_failed_inspection_items(tmp_path):
     assert [item.calculation_id for item in stale_page.items] == [str(pending_id)]
 
 
-def test_compute_job_store_filters_inspection_items_by_analytics_type_and_calculation_substring(tmp_path):
+def test_compute_job_store_filters_inspection_items_by_analytics_type_and_calculation_prefix(tmp_path):
     store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
     store.create_schema()
     ids = [uuid4() for _ in range(3)]

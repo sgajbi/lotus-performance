@@ -404,6 +404,22 @@ def test_runtime_work_items_rejects_blank_string_filters():
     assert {"compute_analytics_type", "calculation_id_contains"} <= fields
 
 
+def test_runtime_work_items_rejects_ungoverned_calculation_id_filters():
+    with TestClient(app) as client:
+        short_response = client.get("/integration/runtime-work-items", params={"calculation_id_contains": "a"})
+        invalid_shape_response = client.get(
+            "/integration/runtime-work-items",
+            params={"calculation_id_contains": "calc-1234"},
+        )
+
+    assert short_response.status_code == 422
+    assert invalid_shape_response.status_code == 422
+    assert {item["loc"][-1] for item in short_response.json()["validation_errors"]} == {"calculation_id_contains"}
+    assert {item["loc"][-1] for item in invalid_shape_response.json()["validation_errors"]} == {
+        "calculation_id_contains"
+    }
+
+
 def test_runtime_work_items_supports_reclaimable_filter():
     compute_job_store.create_schema()
     lineage_metadata_store.create_schema()

@@ -35,6 +35,14 @@ def test_runtime_recoveries_openapi_documents_operator_recovery_contract():
     assert parameters["limit"]["schema"]["minimum"] == 1
     assert parameters["limit"]["schema"]["maximum"] == 100
     assert "deterministic seek pagination" in parameters["cursor_recovered_before"]["description"]
+    calculation_filter = parameters["calculation_id_contains"]
+    calculation_filter_schema = next(
+        schema for schema in calculation_filter["schema"]["anyOf"] if schema.get("type") == "string"
+    )
+    assert calculation_filter_schema["minLength"] == 8
+    assert calculation_filter_schema["maxLength"] == 36
+    assert calculation_filter_schema["pattern"].startswith("^[0-9a-fA-F]{8}")
+    assert "arbitrary substring search is not supported" in calculation_filter["description"]
 
 
 def test_runtime_recoveries_response_schema_documents_all_output_families():

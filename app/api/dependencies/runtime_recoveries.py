@@ -6,6 +6,13 @@ from typing import Annotated, Literal, TypeAlias
 from fastapi import Query
 
 from app.models.runtime_recoveries import RuntimeRecoveriesQueryParams
+from app.services.calculation_id_filtering import (
+    CALCULATION_ID_PREFIX_DESCRIPTION,
+    CALCULATION_ID_PREFIX_MAX_LENGTH,
+    CALCULATION_ID_PREFIX_MIN_LENGTH,
+    CALCULATION_ID_PREFIX_PATTERN,
+    normalize_calculation_id_prefix,
+)
 
 _RuntimeRecoveriesQueueQuery: TypeAlias = Annotated[
     Literal["both", "compute", "lineage"],
@@ -63,9 +70,10 @@ _RuntimeRecoveriesLineageCalculationTypeQuery: TypeAlias = Annotated[
 _RuntimeRecoveriesCalculationIdContainsQuery: TypeAlias = Annotated[
     str | None,
     Query(
-        min_length=1,
-        pattern=r".*\S.*",
-        description="Optional substring filter applied to calculation identifiers in the selected queues.",
+        min_length=CALCULATION_ID_PREFIX_MIN_LENGTH,
+        max_length=CALCULATION_ID_PREFIX_MAX_LENGTH,
+        pattern=CALCULATION_ID_PREFIX_PATTERN,
+        description=CALCULATION_ID_PREFIX_DESCRIPTION,
     ),
 ]
 
@@ -90,7 +98,7 @@ def build_runtime_recoveries_query(
         recovered_before=recovered_before,
         cursor_recovered_before=cursor_recovered_before,
         cursor_calculation_id_before=cursor_calculation_id_before,
-        calculation_id_contains=calculation_id_contains,
+        calculation_id_contains=normalize_calculation_id_prefix(calculation_id_contains),
         compute_analytics_type=compute_analytics_type,
         lineage_calculation_type=lineage_calculation_type,
     )

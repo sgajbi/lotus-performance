@@ -22,9 +22,9 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 297 |
-| Test functions inventoried | 3450 |
-| Integration/API/runtime test functions | 658 |
+| Test modules inventoried | 298 |
+| Test functions inventoried | 3455 |
+| Integration/API/runtime test functions | 661 |
 | Contract/governance test functions | 133 |
 
 ## Test Functions By Suite
@@ -33,15 +33,15 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | --- | ---: | ---: |
 | benchmarks | 9 | 18 |
 | e2e | 1 | 21 |
-| integration | 28 | 331 |
-| unit | 259 | 3080 |
+| integration | 28 | 334 |
+| unit | 260 | 3082 |
 
 ## Test Functions By Family
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 1552 |
-| api_or_runtime | 658 |
+| analytics_domain | 1554 |
+| api_or_runtime | 661 |
 | contract_or_governance | 133 |
 | observability_or_readiness | 338 |
 | quality_or_security | 145 |
@@ -123,7 +123,10 @@ API/runtime count to `658` and analytics-domain count to `1552` without growing 
 Issue #452 added docs-contract coverage for the RFC-020 endpoint-specific multi-currency support
 matrix, raising the measured contract/governance count to `132` without changing enforced floors.
 Issue #451 added docs-contract coverage for the RFC-021 gross/net support baseline, raising the
-measured contract/governance count to `133` without changing enforced floors.
+measured contract/governance count to `133` without changing enforced floors. Issue #449 added
+operator calculation-id prefix validation, OpenAPI, integration, and adapter-guard coverage,
+raising the measured API/runtime count to `661` and analytics-domain count to `1554` while keeping
+the uncategorized backlog flat.
 
 This slice promotes the stable part of the taxonomy from report-only measurement to a
 regression-blocking evaluation gate. `make quality-test-taxonomy-gate` fails if API/runtime tests

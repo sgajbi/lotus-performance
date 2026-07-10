@@ -10,7 +10,7 @@ def test_build_runtime_work_items_query_projects_filters():
         min_age_seconds=120.5,
         compute_analytics_type="ReturnsSeries",
         lineage_calculation_type="TWR",
-        calculation_id_contains="calc",
+        calculation_id_contains="ABCDEF12",
     )
 
     assert query.model_dump() == {
@@ -21,7 +21,7 @@ def test_build_runtime_work_items_query_projects_filters():
         "min_age_seconds": 120.5,
         "compute_analytics_type": "ReturnsSeries",
         "lineage_calculation_type": "TWR",
-        "calculation_id_contains": "calc",
+        "calculation_id_contains": "abcdef12",
     }
 
 

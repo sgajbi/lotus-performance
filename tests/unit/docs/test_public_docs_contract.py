@@ -108,7 +108,7 @@ def test_issue_fix_closure_matrix_is_discoverable_and_merge_gated():
     assert "Review playbook, issue closure matrix, and codebase review ledger" in docs_index
     assert "ISSUE-FIX-CLOSURE-MATRIX.md" in review_playbook
     assert "before PR creation or issue closure" in review_playbook
-    assert "Actionable issues fixed locally | 23" in closure_matrix
+    assert "Actionable issues fixed locally | 24" in closure_matrix
     assert "Issues safe to close now | 0" in closure_matrix
     assert "merged to `main`" in closure_matrix
     assert "No PR should be raised from this branch until the issue matrix remains complete" in closure_matrix
@@ -131,6 +131,7 @@ def test_issue_fix_closure_matrix_is_discoverable_and_merge_gated():
         "#417",
         "#424",
         "#425",
+        "#449",
         "#451",
         "#450",
         "#442",
@@ -433,6 +434,9 @@ def test_runtime_work_items_docs_reflect_certified_operator_contract():
     assert "compute_work_item_read_failed" in certification
     assert "lineage_work_item_read_failed" in certification
     assert "runtime_operator_read_degraded" in certification
+    assert "minimum prefix length is 8" in certification
+    assert "arbitrary substring search is rejected" in certification
+    assert "minimum prefix length is 8" in api_reference
     assert "compute_work_item_read_failed" in api_reference
 
 
@@ -457,6 +461,9 @@ def test_runtime_recoveries_docs_reflect_certified_operator_contract():
     assert "compute_recovery_read_failed" in certification
     assert "lineage_recovery_read_failed" in certification
     assert "runtime_operator_read_degraded" in certification
+    assert "minimum prefix length is 8" in certification
+    assert "arbitrary substring search is rejected" in certification
+    assert "minimum prefix length is 8" in api_reference
     assert "compute_recovery_read_failed" in api_reference
 
 
