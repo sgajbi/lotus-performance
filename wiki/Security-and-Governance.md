@@ -21,6 +21,9 @@ The most relevant current governance for this repo includes:
   [docs/standards/migration-contract.md](../docs/standards/migration-contract.md)
 - runtime alerts:
   [docs/standards/runtime-alert-policy.md](../docs/standards/runtime-alert-policy.md)
+- license compliance:
+  [contracts/license-compliance-policy.v1.json](../contracts/license-compliance-policy.v1.json)
+  and [quality/license_compliance_inventory.md](../quality/license_compliance_inventory.md)
 
 ## Production runtime authorization
 
@@ -53,4 +56,8 @@ profile with the authz switches disabled.
 - async execution and lineage behavior must remain durable and observable
 - `make migration-apply` must remain executable schema apply/verify evidence, not a prose-only
   contract check
+- `make license-compliance-gate` must pass before release; after dependency changes regenerate
+  `quality/license_compliance_inventory.md` with
+  `python scripts/license_compliance_inventory.py --write` and review owner-bound/time-bound
+  license exceptions in `contracts/license-compliance-policy.v1.json`
 - benchmark and stateful integration wording must stay truthful to shipped behavior

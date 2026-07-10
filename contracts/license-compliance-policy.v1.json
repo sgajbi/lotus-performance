@@ -1,0 +1,51 @@
+{
+  "contract_id": "license-compliance-policy",
+  "contract_version": "1.0.0",
+  "repository": "lotus-performance",
+  "first_party_license": "MIT",
+  "allowed_license_tokens": [
+    "0BSD",
+    "Apache Software License",
+    "Apache-2.0",
+    "BSD 3-Clause",
+    "BSD License",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "CC0-1.0",
+    "ISC",
+    "MIT",
+    "MIT License",
+    "PSF-2.0",
+    "Python Software Foundation License",
+    "Zlib"
+  ],
+  "review_required_license_tokens": [
+    "LGPL-3.0-only",
+    "MPL-2.0",
+    "Mozilla Public License 2.0"
+  ],
+  "blocked_license_tokens": [
+    "AGPL",
+    "BUSL",
+    "GPL",
+    "Proprietary",
+    "SSPL",
+    "UNKNOWN"
+  ],
+  "exceptions": [
+    {
+      "package": "certifi",
+      "license_token": "MPL-2.0",
+      "owner": "platform-security",
+      "expires_on": "2027-01-31",
+      "rationale": "CA bundle dependency used for TLS certificate validation; MPL obligations are review-required and tracked until legal review records a permanent posture."
+    },
+    {
+      "package": "psycopg",
+      "license_token": "LGPL-3.0-only",
+      "owner": "platform-security",
+      "expires_on": "2027-01-31",
+      "rationale": "PostgreSQL client dependency for durable metadata stores; LGPL obligations are review-required and tracked until legal review records a permanent posture."
+    }
+  ]
+}

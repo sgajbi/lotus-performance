@@ -6,8 +6,8 @@ Baseline source: `quality/baseline_report.md`
 Current source: `quality/refactor_health_report.md`
 Mode: phase-zero scorecard; static-quality and evaluation enforcement includes complexity,
 architecture, router-thinness, duplicate-code, repository hygiene, observability-readiness,
-domain-product validation, deterministic API evaluation, test taxonomy breadth gates, and
-container supply-chain evidence.
+domain-product validation, deterministic API evaluation, test taxonomy breadth gates, license
+compliance, and container supply-chain evidence.
 
 ## Purpose
 
@@ -26,7 +26,7 @@ metrics in each section are updated with each meaningful slice.
 | Python LOC | 104,454 | 185,003 | 80,549 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest Python file LOC | 2,399 | 2,503 | 104 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest production file LOC | 1,156 | 1,991 | 835 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
-| Python test modules | 228 | 298 | 70 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python test modules | 228 | 299 | 71 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Collected tests | 2,035 | 3,700 | 1,665 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Duplicate code hotspots | 0 | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `quality/refactor_health_report.md`; `make quality-duplicate-code-gate` |
 | Tracked local byproduct findings | unknown | 0 | n/a | enforced | `scripts/repository_hygiene_gate.py`; `make repository-hygiene-gate`; `quality/refactor_health_report.md` |
@@ -81,6 +81,9 @@ metrics in each section are updated with each meaningful slice.
 | Bandit low findings | unknown | 0 | n/a | enforced | `quality/python_security_inventory.md`; `quality/refactor_health_report.md`; `make python-security-gate` |
 | Dependency vulnerability findings | unknown | 0 | n/a | measured | `quality/dependency_security_report.md`; `quality/refactor_health_report.md` |
 | Dependency hygiene findings | unknown | 0 | n/a | measured | `quality/dependency_hygiene_report.md`; `quality/refactor_health_report.md` |
+| Third-party packages inventoried | unknown | 49 | n/a | enforced | `quality/license_compliance_inventory.md`; `make license-compliance-gate` |
+| Review-required license exceptions | unknown | 2 | n/a | enforced | `contracts/license-compliance-policy.v1.json`; `quality/license_compliance_inventory.md` |
+| Blocked or missing-exception license findings | unknown | 0 | n/a | enforced | `make license-compliance-gate` |
 | Container SBOM artifact | unknown | 1 | n/a | measured | `quality/container_supply_chain_report.md`; `make container-supply-chain-evidence`; PR/Main artifact upload |
 | Container vulnerability report artifact | unknown | 1 | n/a | measured | `quality/container_supply_chain_report.md`; `make container-supply-chain-evidence`; PR/Main artifact upload |
 | Container vulnerability gate | unknown | 0 | n/a | planned-gate | `make container-vulnerability-gate`; promote after first PR/main baseline review and documented exceptions |
