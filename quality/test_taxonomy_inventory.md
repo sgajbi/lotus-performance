@@ -15,8 +15,7 @@ and quality family without executing tests or requiring coverage data.
 
 ```powershell
 python scripts/python_test_taxonomy_inventory.py --limit 30
-python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 607 --min-contract-governance-tests 111 --max-uncategorized-tests 1148
-python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 643 --min-contract-governance-tests 126 --max-uncategorized-tests 982
+python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 648 --min-contract-governance-tests 126 --max-uncategorized-tests 982
 ```
 
 ## Summary
@@ -98,19 +97,17 @@ stateful benchmark market-series boundary slice now classifies
 `tests/unit/services/test_stateful_input_service.py` as analytics-domain coverage because that suite
 protects stateful performance input sourcing, benchmark market-series retrieval, FX/index inputs,
 and source-lineage snapshots.
-The issue #387 evidence refresh keeps the blocking gate threshold posture unchanged while bringing
-the curated report back to measured source truth. Current measured breadth is `648` API/runtime test
-functions, `126` contract/governance test functions, `322` observability/readiness test functions,
-`1547` analytics-domain test functions, and `982` uncategorized test functions. The enforced
-command remains at the accepted regression floor of `607` API/runtime tests and ceiling `1148`;
-this slice also passed a tighter local preservation command requiring at least `647` API/runtime tests, `126`
-contract/governance tests, and `982` uncategorized tests. Intentional threshold changes should
-remain separate, rationale-backed gate-governance work.
+The issue #387 evidence refresh brought the curated report back to measured source truth. Issue
+#420 then ratcheted the blocking gate to the current measured preservation baseline: `648`
+API/runtime test functions, `126` contract/governance test functions, and an uncategorized-test
+ceiling of `982`. The measured taxonomy also records `322` observability/readiness test functions
+and `1547` analytics-domain test functions. Intentional threshold changes should remain separate,
+rationale-backed gate-governance work.
 
 This slice promotes the stable part of the taxonomy from report-only measurement to a
 regression-blocking evaluation gate. `make quality-test-taxonomy-gate` fails if API/runtime tests
-drop below `607`, contract/governance tests drop below `111`, or uncategorized tests rise above
-`1148`. `make quality-evaluation-gate` now runs both deterministic demo API certification and this
+drop below `648`, contract/governance tests drop below `126`, or uncategorized tests rise above
+`982`. `make quality-evaluation-gate` now runs both deterministic demo API certification and this
 taxonomy gate, so existing Feature Lane, PR Merge Gate, Main Releasability, local `make check`,
 local `make ci`, and Quality Baseline workflow enforcement pick it up without duplicating workflow
 logic.
