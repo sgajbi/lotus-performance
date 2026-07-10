@@ -33,7 +33,7 @@ def test_test_taxonomy_quality_gate_has_ci_thresholds() -> None:
 
     assert "scripts/python_test_taxonomy_inventory.py" in target
     assert "--min-api-runtime-tests 656" in target
-    assert "--min-contract-governance-tests 134" in target
+    assert "--min-contract-governance-tests 136" in target
     assert "--max-uncategorized-tests 969" in target
 
 

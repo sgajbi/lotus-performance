@@ -140,7 +140,9 @@
 ## Governed upstream dependencies
 
 `lotus-performance` consumes active `lotus-core` data products through
-`contracts/domain-data-products/lotus-performance-consumers.v1.json`.
+`contracts/domain-data-products/lotus-performance-consumers.v1.json`. Route-level dependency
+coverage and time-bound exceptions are governed by
+`contracts/domain-data-products/lotus-performance-upstream-dependency-inventory.v1.json`.
 
 Current benchmark and index consumer coverage includes:
 
@@ -149,10 +151,12 @@ Current benchmark and index consumer coverage includes:
 | `BenchmarkConstituentWindow:v1` | `lotus-core` | Benchmark constituent, effective-date, and weight windows for stateful calculated benchmark performance and benchmark-aware TWR workflows. | Fail closed |
 | `IndexSeriesWindow:v1` | `lotus-core` | Canonical index price-series windows for calculated benchmark performance and component return derivation. | Fail closed |
 
-Benchmark definition, benchmark vendor return-series, index catalog, and FX operational-read
-dependencies remain governed by
-[docs/technical/RFC-0082-upstream-contract-family-map.md](../docs/technical/RFC-0082-upstream-contract-family-map.md)
-until matching upstream producer declarations are available for repo-native consumer coverage.
+Benchmark definition, benchmark vendor return-series, and FX operational-read dependencies currently
+carry time-bound exception records rather than invented product declarations. Index catalog,
+benchmark market-series, risk-free series, benchmark composition-window, and index price-series
+routes map to repo-native consumer declarations through the inventory. Validation fails if a new
+active `CoreIntegrationService.get_*` route is added without either declared coverage or an
+exception record.
 
 ## Platform relationship
 

@@ -110,6 +110,7 @@ RFC-0086 repo-native declarations now live in:
 
 1. `contracts/domain-data-products/lotus-performance-products.v1.json`
 2. `contracts/domain-data-products/lotus-performance-consumers.v1.json`
+3. `contracts/domain-data-products/lotus-performance-upstream-dependency-inventory.v1.json`
 
 Current machine-readable dependency coverage matches the active governed dependencies:
 
@@ -124,23 +125,27 @@ Current machine-readable dependency coverage matches the active governed depende
 9. `BenchmarkConstituentWindow`
 10. `IndexSeriesWindow`
 
+The route-level upstream dependency inventory must cover every active `CoreIntegrationService.get_*`
+method. Entries either map the route to one of the consumer products above or carry a time-bound
+exception record with owner, route/contract posture, freshness/trust metadata, failure posture,
+validation lane, allowed interpretation, promotion condition, and evidence tests.
+
 ## Current Gap Register
 
 1. `GET /fx-rates/` is currently an operational read rather than an `/integration/reference/*`
-   analytics-input contract. This is acceptable because it remains source-data retrieval, but any future
-   analytics-specific FX semantics should be introduced as a governed analytics-input contract rather than
-   expanding the operational read implicitly.
-2. Remaining benchmark-definition, vendor-return, index-catalog, risk-free, taxonomy, and enrichment
-   routes are RFC-0082 watchlist areas until producer declarations exist. They should not be broadened
-   into performance conclusions or benchmark analytics that belong in `lotus-performance`.
+   analytics-input contract. This is recorded as a time-bound exception in the upstream dependency
+   inventory. Any future analytics-specific FX semantics should be introduced as a governed
+   analytics-input contract rather than expanding the operational read implicitly.
+2. Benchmark definition and benchmark vendor return-series routes are RFC-0082 watchlist areas with
+   time-bound exception records until producer declarations exist. They should not be broadened into
+   performance conclusions or benchmark analytics that belong in `lotus-performance`.
 3. Transport optimization is deferred. Retrieval performance work should first profile chunk size, page size,
    export behavior, concurrency, retry policy, and upstream database/query shape before proposing gRPC.
    Current Slice 4 evidence is recorded in `docs/technical/RFC-0082-retrieval-performance-hardening.md`.
-4. benchmark composition-window and index price-series dependencies are now governed by repo-native
-   `BenchmarkConstituentWindow:v1` and `IndexSeriesWindow:v1` consumer declarations. Benchmark
-   definition, benchmark vendor return-series, index catalog, and FX operational-read dependencies
-   still rely on this document for truth until corresponding machine-readable upstream producer
-   declarations are available for repo-native consumer coverage.
+4. Benchmark composition-window, benchmark market-series, index catalog, index price-series, and
+   risk-free dependencies are now tied to repo-native consumer declarations through the route-level
+   inventory. If a new `CoreIntegrationService.get_*` route is added, validation fails until it is
+   declared or explicitly excepted.
 
 ## Validation Lane
 

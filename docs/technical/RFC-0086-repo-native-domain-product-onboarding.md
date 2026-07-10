@@ -24,10 +24,16 @@ instead of copying those registries into `lotus-performance`.
 
 Current repo-native producer declarations cover:
 
-1. `ReturnsSeriesBundle`
-2. `BenchmarkExposureContext`
+1. `TimeWeightedReturnAnalytics`
+2. `MoneyWeightedReturnAnalytics`
+3. `ContributionAnalytics`
+4. `AttributionAnalytics`
+5. `MandatePerformanceHealthContext`
+6. `ReturnsSeriesBundle`
+7. `BenchmarkExposureContext`
+8. `CompositePerformanceAnalytics`
 
-These are the strongest current performance-owned governed products because they already have:
+Each declared performance-owned governed product must retain:
 
 1. stable route surfaces,
 2. explicit upstream source dependencies,
@@ -36,15 +42,19 @@ These are the strongest current performance-owned governed products because they
 
 ## Current Consumer Coverage
 
-Current repo-native consumer declarations cover the first-wave `lotus-core` dependencies already
-aligned under RFC-0084:
+Current repo-native consumer declarations cover the `lotus-core` dependencies already aligned under
+RFC-0084/RFC-0082:
 
 1. `PortfolioTimeseriesInput`
-2. `PortfolioAnalyticsReference`
-3. `BenchmarkAssignment`
-4. `MarketDataWindow`
-5. `InstrumentReferenceBundle`
-6. `RiskFreeSeriesWindow`
+2. `PositionTimeseriesInput`
+3. `PerformanceComponentEconomics`
+4. `PortfolioAnalyticsReference`
+5. `BenchmarkAssignment`
+6. `MarketDataWindow`
+7. `InstrumentReferenceBundle`
+8. `RiskFreeSeriesWindow`
+9. `BenchmarkConstituentWindow`
+10. `IndexSeriesWindow`
 
 ## Local Validation Path
 
@@ -60,31 +70,34 @@ Repo-native make target:
 make domain-product-validate
 ```
 
-The wrapper stages:
+The wrapper validates:
 
 1. local repo-native declarations from `contracts/domain-data-products/`,
-2. platform-owned vocabulary from `../lotus-platform/platform-contracts/domain-vocabulary/`,
-3. required upstream producer declarations from `../lotus-platform/platform-contracts/domain-data-products/`
+2. the route-level upstream dependency inventory in
+   `contracts/domain-data-products/lotus-performance-upstream-dependency-inventory.v1.json`,
+3. platform-owned vocabulary from `../lotus-platform/platform-contracts/domain-vocabulary/`,
+4. required upstream producer declarations from `../lotus-platform/platform-contracts/domain-data-products/`
    until federated aggregation replaces the transitional platform copies.
 
 That keeps local ownership real without forking the shared trust vocabulary or validator semantics.
 
-## Docs-Only Dependency Coverage Still Missing
+## Route-Level Exception Coverage
 
-The current RFC-0082 upstream contract-family map still contains documented dependencies that are
-not yet covered by machine-readable declarations because corresponding upstream producer
-declarations are not yet available:
+The current RFC-0082 upstream contract-family map still contains active routes where the upstream
+producer declaration is not yet available or where the route is explicitly operational-read only.
+Those are no longer docs-only gaps: they are recorded in
+`lotus-performance-upstream-dependency-inventory.v1.json` with owner, expiry, route/contract
+posture, freshness/trust metadata, failure posture, validation lane, allowed downstream
+interpretation, promotion condition, and evidence tests.
+
+Current time-bound exceptions:
 
 1. benchmark definition sourcing,
-2. benchmark composition-window sourcing,
-3. benchmark vendor return-series sourcing,
-4. index catalog sourcing,
-5. index price-series sourcing,
-6. FX operational-read sourcing.
+2. benchmark vendor return-series sourcing,
+3. FX operational-read sourcing.
 
-These dependencies should not be declared locally with invented product semantics. They need
-upstream producer onboarding or an explicit platform decision on whether each route belongs in the
-governed product family.
+These dependencies should not be promoted with invented product semantics. They need upstream
+producer onboarding or an explicit owner-approved renewal before the exception expiry.
 
 ## RFC-0087 First-Wave Telemetry Candidates
 
