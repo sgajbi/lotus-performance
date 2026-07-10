@@ -9,6 +9,7 @@ from app.services.lineage_artifact_service import (
     downloadable_lineage_record,
     lineage_artifact_links,
     lineage_terminal_response,
+    load_and_validate_manifest,
     manifest_matches_record,
     read_lineage_manifest_payload,
     resolve_lineage_response,
@@ -153,3 +154,31 @@ def test_manifest_matches_record_allows_sorted_artifact_equivalence_and_rejects_
 
     mismatched_manifest = manifest.model_copy(update={"artifact_names": ["request.json"]})
     assert not manifest_matches_record(manifest=mismatched_manifest, record=record)
+
+
+def test_load_and_validate_manifest_classifies_legacy_artifact_names(tmp_path):
+    calculation_id = uuid4()
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "calculation_type": "TWR",
+                "timestamp_utc": "2026-01-01T00:00:00Z",
+                "status": "complete",
+                "artifact_names": ["request.json", "daily_results.csv"],
+            }
+        ),
+        encoding="utf-8",
+    )
+    record = LineageRecord(
+        calculation_id=calculation_id,
+        calculation_type="TWR",
+        status=LineageStatus.COMPLETE,
+        timestamp_utc="2026-01-01T00:00:00Z",
+        artifact_names=["daily_results.csv", "request.json"],
+    )
+
+    manifest = load_and_validate_manifest(manifest_path=str(manifest_path), record=record)
+
+    assert manifest.artifacts["request.json"].sensitivity == "raw_sensitive_payload"
+    assert manifest.artifacts["daily_results.csv"].sensitivity == "derived_evidence"

@@ -303,7 +303,7 @@ def test_get_lineage_invalid_manifest_returns_503(client):
     assert response.json()["detail"] == "Lineage manifest is invalid."
 
 
-def test_get_lineage_manifest_missing_artifact_metadata_returns_503(client):
+def test_get_lineage_legacy_manifest_missing_artifact_metadata_remains_readable(client):
     calculation_id = uuid4()
     completion_timestamp = datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc)
     lineage_metadata_store.create_pending_record(calculation_id=calculation_id, calculation_type="TWR")
@@ -330,8 +330,11 @@ def test_get_lineage_manifest_missing_artifact_metadata_returns_503(client):
 
     response = client.get(f"/performance/lineage/{calculation_id}")
 
-    assert response.status_code == 503
-    assert response.json()["detail"] == "Lineage manifest is invalid."
+    assert response.status_code == 200
+    artifacts = response.json()["artifacts"]
+    assert artifacts["request.json"]["access_classification"] == "operator_only"
+    assert artifacts["request.json"]["sensitivity"] == "raw_sensitive_payload"
+    assert artifacts["request.json"]["redaction_required_before_external_sharing"] is True
 
 
 def test_get_lineage_manifest_unknown_artifact_classification_returns_503(client):
