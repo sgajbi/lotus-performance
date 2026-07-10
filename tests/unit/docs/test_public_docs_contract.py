@@ -108,7 +108,7 @@ def test_issue_fix_closure_matrix_is_discoverable_and_merge_gated():
     assert "Review playbook, issue closure matrix, and codebase review ledger" in docs_index
     assert "ISSUE-FIX-CLOSURE-MATRIX.md" in review_playbook
     assert "before PR creation or issue closure" in review_playbook
-    assert "Actionable issues fixed locally | 21" in closure_matrix
+    assert "Actionable issues fixed locally | 22" in closure_matrix
     assert "Issues safe to close now | 0" in closure_matrix
     assert "merged to `main`" in closure_matrix
     assert "No PR should be raised from this branch until the issue matrix remains complete" in closure_matrix
@@ -131,6 +131,7 @@ def test_issue_fix_closure_matrix_is_discoverable_and_merge_gated():
         "#417",
         "#424",
         "#425",
+        "#451",
         "#442",
         "#452",
         "#453",
@@ -1001,6 +1002,62 @@ def test_rfc_020_currency_support_matrix_governs_endpoint_specific_semantics():
     ]
     for linked_doc in linked_docs:
         assert "rfc-020-multi-currency-support-matrix.md" in _read(linked_doc)
+
+
+def test_rfc_021_gross_net_baseline_does_not_overstate_cost_bridge_support():
+    baseline = _read("docs/technical/rfc-021-gross-net-support-baseline.md")
+    rfc_021 = _read("docs/RFCs/RFC 021 - Gross-to-Net Return Decomposition.md")
+    rfc_index = _read("docs/RFCs/RFC-INDEX.md")
+    api_reference = _read("docs/guides/api_reference.md")
+    twr_guide = _read("docs/guides/twr.md")
+    twr_methodology = _read("docs/methodologies/metrics/metric-twr-base-return.md")
+    twr_certification = _read("docs/technical/twr-endpoint-certification.md")
+    workspace_certification = _read("docs/technical/workspace-summary-endpoint-certification.md")
+    wiki_rfc_index = _read("wiki/RFC-Index.md")
+
+    rows = _markdown_table_rows_by_first_cell(baseline)
+    assert "`metric_basis` fee treatment" in baseline
+    assert "Shared request `costs` block" in rows
+    assert "Top-level response `gross_net` bridge" in rows
+    assert "`engine/costs.py` cost engine" in rows
+    assert "Performance fee HWM/hurdle state machine" in rows
+    assert "Unsupported" in " | ".join(rows["Shared request `costs` block"])
+    assert "Unsupported" in " | ".join(rows["Top-level response `gross_net` bridge"])
+    assert "Unsupported" in " | ".join(rows["`engine/costs.py` cost engine"])
+
+    assert "**Status:** Rebaseline Required" in rfc_021
+    assert "This RFC is not current implementation truth" in rfc_021
+    assert "rfc-021-gross-net-support-baseline.md" in rfc_021
+    assert "Partially implemented fee-basis only" in rfc_index
+    assert "no shared `costs` DTO" in rfc_index
+    assert "no response-level `gross_net` bridge" in rfc_index
+
+    for linked_doc in (
+        api_reference,
+        twr_guide,
+        twr_certification,
+        workspace_certification,
+    ):
+        assert "rfc-021-gross-net-support-baseline.md" in linked_doc
+
+    for public_doc in (
+        api_reference,
+        twr_guide,
+        twr_methodology,
+        twr_certification,
+        workspace_certification,
+        wiki_rfc_index,
+    ):
+        flattened = " ".join(public_doc.split())
+        assert "metric_basis=NET" in flattened or "`NET`" in flattened
+        assert "metric_basis=GROSS" in flattened or "`GROSS`" in flattened
+        assert (
+            "not implemented" in flattened
+            or "not current public API contracts" in flattened
+            or "remain future" in flattened
+            or "does not consume a shared `costs` request block" in flattened
+            or "does not emit a shared `costs` request model" in flattened
+        )
 
 
 def test_twr_mwr_response_attribute_certification_documents_field_level_checks():

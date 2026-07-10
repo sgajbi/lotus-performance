@@ -44,6 +44,12 @@ Validated option families:
   stateless benchmark configuration, empty frequencies, unsupported extra inputs, and missing
   explicit-window start dates.
 
+Gross/net support is limited to the current RFC-021 fee-basis contract: `NET` includes management
+fees in the daily numerator and `GROSS` excludes them. The shared `costs` request block,
+response-level `gross_net` bridge, `engine/costs.py`, and performance-fee HWM/hurdle state machine
+are not implemented for `POST /performance/twr`; see
+[`docs/technical/rfc-021-gross-net-support-baseline.md`](./rfc-021-gross-net-support-baseline.md).
+
 ## Supportability and Observability
 
 `POST /performance/twr` now emits source-owned supportability posture on successful synchronous

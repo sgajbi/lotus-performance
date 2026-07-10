@@ -1,9 +1,23 @@
-# RFC 021: Gross-to-Net Return Decomposition (Final)
+# RFC 021: Gross-to-Net Return Decomposition (Rebaseline Required)
 
-**Status:** Final (For Approval)
+**Status:** Rebaseline Required
 **Owner:** Senior Architect
 **Reviewers:** Perf Engine, Risk, PMs, Compliance
 **Related:** All core analytics endpoints, RFC-025 (Reproducibility)
+
+## Current Implementation Baseline
+
+This RFC is not current implementation truth. The supported production contract is documented in
+[`docs/technical/rfc-021-gross-net-support-baseline.md`](../technical/rfc-021-gross-net-support-baseline.md).
+
+Current lotus-performance support covers `metric_basis=NET` and `metric_basis=GROSS` fee-basis
+treatment. TWR `NET` includes `mgmt_fees` in the daily return numerator and `GROSS` excludes those
+management fees; workspace summary derives its net/gross TWR blocks from the same TWR behavior.
+
+The broader RFC-021 `costs` request block, response-level `gross_net` bridge, `engine/costs.py`
+module, performance-fee HWM/hurdle engine, and cost-component allocation across contribution or
+attribution are not implemented. Treat the remainder of this document as future backlog design
+unless a later issue or RFC slice implements the missing code, OpenAPI contract, docs, and tests.
 
 ## 1\. Executive Summary
 

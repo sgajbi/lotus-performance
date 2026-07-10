@@ -13,6 +13,12 @@ Currency and FX vocabulary is endpoint-specific. Use
 as the canonical support matrix before assuming `currency_mode`, `report_ccy`,
 `reporting_currency`, or FX evidence parity across endpoints.
 
+Gross/net vocabulary is also endpoint-specific. Use
+[`docs/technical/rfc-021-gross-net-support-baseline.md`](../technical/rfc-021-gross-net-support-baseline.md)
+as the canonical current support baseline: `metric_basis=NET` and `metric_basis=GROSS` are
+implemented, while shared `costs` request blocks and top-level `gross_net` response bridges are not
+current public API contracts.
+
 ## Async polling contract
 
 Analytics routes that return `202 Accepted` include machine-readable polling guidance in both the
