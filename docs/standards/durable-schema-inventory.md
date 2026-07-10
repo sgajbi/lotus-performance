@@ -1,8 +1,8 @@
 # Durable Schema Inventory
 
 - Service: `lotus-performance`
-- Scope: durable operational metadata owned by RFC-041 runtime components
-- Persistence class: control-plane metadata, async execution state, lineage metadata
+- Scope: durable operational metadata owned by RFC-041 runtime components and composite persisted-fact metadata
+- Persistence class: control-plane metadata, async execution state, lineage metadata, composite persisted facts
 - Change control: RFC/ADR required for schema ownership changes; see `docs/standards/migration-contract.md`
 
 ## Owned Tables
@@ -49,6 +49,24 @@
 - Purpose: durable lineage materialization queue with attempt count and lease metadata
 - Recovery role: replay-safe lineage worker claiming and materialization recovery
 
+### `composite_definitions`
+
+- Owner: `app/services/composite_metadata_store.py`
+- Purpose: durable composite definition metadata for persisted composite performance facts
+- Recovery role: supports composite performance reconstruction without reclassifying source-owned portfolio facts
+
+### `composite_memberships`
+
+- Owner: `app/services/composite_metadata_store.py`
+- Purpose: durable effective-dated composite membership metadata
+- Recovery role: supports composite member selection and period reconstruction after restart or restore
+
+### `composite_member_return_facts`
+
+- Owner: `app/services/composite_metadata_store.py`
+- Purpose: durable member-level return facts, source fingerprints, restatement identity, and reason-code evidence
+- Recovery role: source of persisted-fact evidence for composite TWR calculations and inspections
+
 ## Upgrade Rules
 
 - Upgrades must be **additive upgrade** changes by default.
@@ -68,5 +86,7 @@
 
 ## Validation
 
+- `python scripts/durable_schema_apply.py`
+- `make migration-apply`
 - `python scripts/durable_schema_inventory_check.py`
 - `make migration-smoke`

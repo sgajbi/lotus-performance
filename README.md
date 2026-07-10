@@ -196,6 +196,8 @@ source-economics or reconciliation regressions.
   `make branch-coverage-baseline`
 - migration and recovery smoke
   `make migration-smoke`
+- durable schema apply/verify
+  `make migration-apply`
 - retention smoke
   `make runtime-retention-smoke`
 - quality baseline reports

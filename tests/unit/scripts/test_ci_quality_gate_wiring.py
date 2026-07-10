@@ -60,6 +60,13 @@ def test_lint_gate_enforces_github_action_runtime_guard() -> None:
     assert "$(MAKE) github-action-runtime-guard" in lint_target
 
 
+def test_migration_apply_uses_executable_schema_apply_not_prose_only() -> None:
+    migration_apply_target = _makefile_target_definition("migration-apply")
+
+    assert "scripts/durable_schema_apply.py" in migration_apply_target
+    assert "scripts/migration_contract_check.py" not in migration_apply_target
+
+
 def test_test_and_coverage_workflows_use_repo_native_make_targets() -> None:
     feature_lane = _workflow_text("feature-lane.yml")
     pr_merge_gate = _workflow_text("pr-merge-gate.yml")

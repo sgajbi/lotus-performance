@@ -33,6 +33,10 @@ make quality measurable and repeatable, not to treat CI as a ceremonial final st
 - `make ci`
   PR-grade proof: static quality gates, migration smoke, security audit, unit, integration, e2e,
   coverage, Docker build, and container supply-chain evidence
+- `make migration-apply`
+  operator schema apply/verify proof: runs the shared durable metadata bootstrap against the
+  configured metadata database and writes structured evidence under
+  `artifacts/durable-schema-apply/`
 - `make container-supply-chain-evidence`
   image release evidence: builds `lotus-performance:ci` with support-safe Git/build metadata,
   writes a CycloneDX SBOM, and writes a high/critical Trivy vulnerability report under

@@ -1,7 +1,7 @@
 # Durable Metadata Recovery Runbook
 
 - Service: `lotus-performance`
-- Scope: recovery of durable operational metadata backing execution polling, async results, and lineage status
+- Scope: recovery of durable operational metadata backing execution polling, async results, lineage status, and composite persisted facts
 - Related standards:
   - `docs/standards/migration-contract.md`
   - `docs/standards/durable-schema-inventory.md`
@@ -27,6 +27,9 @@ Recovery must include:
 - `analytics_async_result`
 - `lineage_records`
 - `lineage_payloads`
+- `composite_definitions`
+- `composite_memberships`
+- `composite_member_return_facts`
 
 ## Backup and Restore Order
 
@@ -48,6 +51,9 @@ Recovery must include:
 ## Post-Restore Validation
 
 - `make migration-smoke`
+- `make migration-apply`
+  - verify the emitted evidence shows `status="passed"` and no `missing_owned_tables`
+  - verify `artifacts/durable-schema-apply/latest.json` records the applied bootstrap stores and additive column checks
 - `python scripts/durable_recovery_drill.py --operator-id <operator> --backup-identifier <backup-id>`
   - verify the emitted evidence shows both `compute_async_result_status="complete"` and lineage artifact materialization success
   - verify `artifacts/durable-recovery-drill/` contains a timestamped evidence file, refreshed `latest.json`, and `manifest.json`
