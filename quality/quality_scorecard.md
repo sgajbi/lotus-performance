@@ -26,8 +26,8 @@ metrics in each section are updated with each meaningful slice.
 | Python LOC | 104,454 | 185,003 | 80,549 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest Python file LOC | 2,399 | 2,503 | 104 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest production file LOC | 1,156 | 1,991 | 835 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
-| Python test modules | 228 | 289 | 61 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Collected tests | 2,035 | 3,627 | 1,592 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python test modules | 228 | 290 | 62 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Collected tests | 2,035 | 3,645 | 1,610 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Duplicate code hotspots | 0 | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `quality/refactor_health_report.md`; `make quality-duplicate-code-gate` |
 | Tracked local byproduct findings | unknown | 0 | n/a | enforced | `scripts/repository_hygiene_gate.py`; `make repository-hygiene-gate`; `quality/refactor_health_report.md` |
 
@@ -47,6 +47,7 @@ metrics in each section are updated with each meaningful slice.
 | Enforced import-boundary findings | unknown | 0 | n/a | enforced | `quality/architecture_boundary_inventory.md`; `quality/refactor_health_report.md`; `make quality-architecture-gate` |
 | Routers with infrastructure imports | unknown | 0 | n/a | enforced | `quality/architecture_boundary_inventory.md`; `quality/refactor_health_report.md`; `make quality-architecture-gate` |
 | Engine/core infra/framework imports | unknown | 0 | n/a | enforced | `quality/architecture_boundary_inventory.md`; `quality/refactor_health_report.md`; `make quality-architecture-gate` |
+| Route workflow direct DTO calls | unknown | 0 | n/a | enforced | `quality/architecture_boundary_inventory.md`; `scripts/python_architecture_boundary_inventory.py`; `make quality-architecture-gate` |
 | Application-service concrete-store imports | unknown | 63 | n/a | measured | `quality/architecture_boundary_inventory.md`; `scripts/python_architecture_boundary_inventory.py`; execution polling pilot moved behind `ExecutionPollingStore` |
 | Large production service hotspots (LOC > 1000) | 3 | 8 | 5 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
 | Router/middleware oversized function findings (`--threshold 80`) | unknown | 0 | n/a | enforced | `quality/router_middleware_thinness_inventory.md`; `quality/refactor_health_report.md`; `make quality-router-thinness-gate` |
@@ -67,7 +68,7 @@ metrics in each section are updated with each meaningful slice.
 | --- | ---: | ---: | ---: | --- | --- |
 | Line coverage | unknown | 99.58% | n/a | measured | `quality/coverage_inventory.md`; `quality/refactor_health_report.md` |
 | Branch coverage | unknown | 98.00% | n/a | measured | `quality/coverage_inventory.md`; `quality/refactor_health_report.md`; `make branch-coverage-baseline` |
-| Integration/API/runtime test functions | unknown | 647 | n/a | enforced | `quality/test_taxonomy_inventory.md`; `quality/refactor_health_report.md`; `make quality-test-taxonomy-gate` |
+| Integration/API/runtime test functions | unknown | 648 | n/a | enforced | `quality/test_taxonomy_inventory.md`; `quality/refactor_health_report.md`; `make quality-test-taxonomy-gate` |
 | Contract/governance test functions | unknown | 126 | n/a | enforced | `quality/test_taxonomy_inventory.md`; `quality/refactor_health_report.md`; `make quality-test-taxonomy-gate` |
 | Uncategorized test functions | unknown | 982 | n/a | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; issue #411 corrected observability test classification without loosening thresholds |
 
@@ -115,11 +116,11 @@ metrics in each section are updated with each meaningful slice.
 
 | Signal | Value | Note |
 | --- | ---: | --- |
-| Total metrics tracked | 53 | All metrics in this file are now measured or explicitly staged, with selected zero-finding, breadth, and release-evidence signals enforced or produced separately. |
-| Measured metrics | 52 | Selected measured metrics are now also enforced or produced through blocking static-quality, security, deterministic API evaluation, test-taxonomy, or container evidence lanes. Branch coverage and container vulnerability output are measured report-only and are not promoted to strict gates yet. |
+| Total metrics tracked | 54 | All metrics in this file are now measured or explicitly staged, with selected zero-finding, breadth, and release-evidence signals enforced or produced separately. |
+| Measured metrics | 53 | Selected measured metrics are now also enforced or produced through blocking static-quality, security, deterministic API evaluation, test-taxonomy, or container evidence lanes. Branch coverage and container vulnerability output are measured report-only and are not promoted to strict gates yet. |
 | Not-yet-measured metrics | 0 | The scorecard no longer carries an unmeasured branch-coverage entry. OpenAPI Spectral and public-docstring gate decisions remain outside this scorecard until scoped separately. |
 | Planned gates | 1 | `make container-vulnerability-gate` exists but remains unpromoted until first PR/main container artifacts establish a reviewed high/critical image vulnerability baseline and exception policy. |
-| Latest architecture signal | 1 | `_production_runtime_profile_issues(...)` left the live top-45 complexity inventory after production runtime profile requirements moved behind `_production_runtime_profile_requirements(...)` and duplicate primary-key issue suppression moved behind `_production_primary_key_issue_needed(...)`; architecture-boundary and duplicate-code findings remain `0`, max CC measures `7` within the enforced threshold of `8`, high-complexity functions remain `0`, and the next measured complexity candidates are five CC `7` functions. |
+| Latest architecture signal | 1 | API routes for TWR, workspace-summary, contribution, benchmark, and returns-series now map request DTOs into workflow command objects before application workflow entry points. `ROUTE_WORKFLOW_DTO_DIRECT_CALL` is enforced at `0`; application-service concrete-store imports remain visible as `63` report-only findings. |
 
 ## Method Note
 

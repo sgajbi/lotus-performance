@@ -10,6 +10,7 @@ from app.models.benchmark_analytics_requests import (
 )
 from app.models.responses import PerformanceResponse, TWRAcceptedResponse
 from app.models.twr_requests import TWRAnalyticsRequest, TWRInputMode, TWRResolvedExecutionRequest
+from app.services.analytics_workflow_commands import TWRWorkflowCommand, workflow_request
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_TWR
 from app.services.async_observability_context import async_observability_request_payload
 from app.services.engine_exception_mapping_service import map_engine_exception_to_http_error
@@ -288,8 +289,9 @@ def _twr_execution_window_benchmark_id(
     return None
 
 
-async def calculate_twr_workflow(request: TWRAnalyticsRequest) -> PerformanceResponse | ApplicationHttpResponse:
+async def calculate_twr_workflow(command: TWRWorkflowCommand) -> PerformanceResponse | ApplicationHttpResponse:
     """Resolve, fence, execute, and map errors for one TWR analytics request."""
+    request = workflow_request(command, TWRAnalyticsRequest)
     settings = get_settings()
     submission_context = _build_twr_workflow_submission_context(
         request,

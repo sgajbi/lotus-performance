@@ -8,6 +8,7 @@ from app.models.benchmark_analytics_requests import BenchmarkInputMode, benchmar
 from app.models.twr_requests import TWRInputMode
 from app.models.workspace_summary_requests import WorkspaceSummaryRequest
 from app.models.workspace_summary_responses import WorkspaceSummaryAcceptedResponse, WorkspaceSummaryResponse
+from app.services.analytics_workflow_commands import WorkspaceSummaryWorkflowCommand, workflow_request
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY
 from app.services.async_observability_context import async_observability_request_payload
 from app.services.execution_lifecycle_service import record_execution_failure
@@ -75,9 +76,10 @@ def workspace_offload_reason(request: WorkspaceSummaryRequest) -> str:
 
 
 def calculate_workspace_summary_workflow(
-    request: WorkspaceSummaryRequest,
+    command: WorkspaceSummaryWorkflowCommand,
 ) -> WorkspaceSummaryResponse | ApplicationHttpResponse:
     """Fence, execute, and map errors for one workspace-summary analytics request."""
+    request = workflow_request(command, WorkspaceSummaryRequest)
     settings = get_settings()
     input_fingerprint, calculation_hash = generate_request_fingerprint(request, settings.APP_VERSION)
     requested_window = workspace_requested_window(request)

@@ -2,8 +2,9 @@
 
 Report date: 2026-07-10
 Branch: `feat/performance-architecture-boundary-refactor`
-Mode: mixed architecture-rule definition; router/core rules are enforced, application-service
-port-boundary findings are report-only until the migration baseline is burned down.
+Mode: mixed architecture-rule definition; router/core and route-workflow command-boundary rules
+are enforced, while application-service port-boundary findings are report-only until the migration
+baseline is burned down.
 
 ## Purpose
 
@@ -18,6 +19,7 @@ regression gates after the inventory reached zero findings and the scanner gaine
 | --- | --- | --- |
 | `ROUTER_DIRECT_BOUNDARY_IMPORT` | API routers should route through app services/use cases instead of direct domain, engine, or infrastructure imports. | Enforced by `make quality-architecture-gate` with `--max-findings 0`. |
 | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` | Engine/core modules should stay independent from application DTOs, adapters, and web framework imports. | Enforced by `make quality-architecture-gate` with `--max-findings 0`. |
+| `ROUTE_WORKFLOW_DTO_DIRECT_CALL` | API routes should map validated request DTOs into application workflow commands before calling TWR, workspace-summary, contribution, benchmark, or returns-series workflows. | Enforced by `make quality-architecture-gate` with `--max-findings 0`; current findings `0`. |
 | `APPLICATION_SERVICE_CONCRETE_STORE_IMPORT` | Application services should depend on ports/interfaces instead of concrete durable store modules. | Report-only. Current baseline is `63` findings after the execution-polling pilot seam moved behind `ExecutionPollingStore`. |
 
 ## Developer Command
@@ -36,6 +38,6 @@ rule file and backed by focused tests before the gate is relaxed.
 
 ## Non-Goals
 
-This rule set does not yet cover import-linter contracts, DTO persistence leakage, dependency
-injection shape, middleware thinness, downstream error mapping, or full domain purity. Request DTO
-mapper/use-case command leakage remains a separate issue-driven architecture slice.
+This rule set does not yet cover import-linter contracts, DTO persistence leakage below the
+workflow command shell, dependency injection shape, middleware thinness, downstream error mapping,
+or full domain purity.

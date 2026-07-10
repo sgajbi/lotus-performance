@@ -6,6 +6,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.api.endpoints import performance as performance_endpoint
+from app.api.mappers.analytics_workflow_requests import map_twr_request, map_workspace_summary_request
 from app.models.attribution_analytics_requests import AttributionInputMode
 from app.models.attribution_requests import AttributionRequest
 from app.models.mwr_analytics_requests import MoneyWeightedReturnAnalyticsRequest
@@ -44,7 +45,7 @@ async def test_twr_endpoint_delegates_to_twr_workflow(mocker):
 
     response = await performance_endpoint.calculate_twr_endpoint(request)
 
-    calculate_twr.assert_called_once_with(request)
+    calculate_twr.assert_called_once_with(map_twr_request(request))
     assert response is expected_response
 
 
@@ -66,7 +67,7 @@ def test_workspace_summary_endpoint_delegates_to_workspace_summary_workflow(mock
 
     response = performance_endpoint.calculate_workspace_summary_endpoint(request)
 
-    calculate_workspace_summary.assert_called_once_with(request)
+    calculate_workspace_summary.assert_called_once_with(map_workspace_summary_request(request))
     assert response is expected_response
 
 

@@ -11,6 +11,7 @@ from app.models.returns_series import (
     ReturnsSeriesRequest,
     ReturnsSeriesResponse,
 )
+from app.services.analytics_workflow_commands import ReturnsSeriesWorkflowCommand, workflow_request
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_RETURNS_SERIES
 from app.services.async_observability_context import async_observability_request_payload
 from app.services.execution_registry import execution_registry
@@ -257,9 +258,10 @@ async def _calculate_promoted_stateful_returns_series(
 
 
 async def calculate_returns_series_workflow(
-    request: ReturnsSeriesRequest,
+    command: ReturnsSeriesWorkflowCommand,
 ) -> ReturnsSeriesResponse | ReturnsSeriesAcceptedResponse | ApplicationHttpResponse:
     """Resolve, fence, execute, and enqueue one returns-series request."""
+    request = workflow_request(command, ReturnsSeriesRequest)
     input_fingerprint, calculation_hash = generate_request_fingerprint(request, "returns-series-v1")
     should_offload = should_offload_returns_series(request)
     if request.input_mode == InputMode.STATEFUL and not should_offload:

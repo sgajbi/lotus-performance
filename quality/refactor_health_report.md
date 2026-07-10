@@ -54,6 +54,7 @@ link the commit, command, or CI artifact that proves the change.
 | Enforced import boundary violations | unknown | 0 | enforced | `quality/architecture_boundary_inventory.md`; `make quality-architecture-gate` |
 | Routers importing infrastructure directly | unknown | 0 | enforced | `ROUTER_DIRECT_BOUNDARY_IMPORT` absent from `quality/architecture_boundary_inventory.md`; `make quality-architecture-gate` |
 | Engine/core importing framework or infra code | unknown | 0 | enforced | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` absent from `quality/architecture_boundary_inventory.md`; `make quality-architecture-gate` |
+| Route workflow direct DTO calls | unknown | 0 | enforced | `ROUTE_WORKFLOW_DTO_DIRECT_CALL` absent from `quality/architecture_boundary_inventory.md`; `make quality-architecture-gate` |
 | Application-service concrete-store imports | unknown | 63 | measured | `APPLICATION_SERVICE_CONCRETE_STORE_IMPORT` in `quality/architecture_boundary_inventory.md`; report-only after execution polling pilot moved behind `ExecutionPollingStore` |
 | Large production service hotspots | 3 | 8 | measured | `returns_series_service.py`, `stateful_input_service.py`, `compute_job_store.py`, `twr_service.py`, `stateful_attribution_input_service.py`, `lineage_metadata_store.py`, `workspace_summary_service.py`, and `calculation_consistency.py` exceed 1,000 LOC |
 | Router/middleware oversized function findings (`--threshold 80`) | unknown | 0 | enforced | `quality/router_middleware_thinness_inventory.md`; `make quality-router-thinness-gate` |
@@ -74,11 +75,11 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Test modules | 228 | 289 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 3,627 | measured | `python -m pytest --collect-only -q` |
+| Test modules | 228 | 290 | measured | `rg --files tests -g 'test_*.py'` |
+| Collected tests | 2,035 | 3,645 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
-| Integration/API/runtime test functions | unknown | 647 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
+| Integration/API/runtime test functions | unknown | 648 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
 | Contract/governance test functions | unknown | 126 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
 | Uncategorized test functions | unknown | 982 | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; issue #411 corrected observability test classification without loosening thresholds |
 
@@ -137,6 +138,30 @@ quality-program gap is not lack of aspiration; it is that several requested dime
 repeatably measured or expressed as progressive gates.
 
 ## Latest Local PR-Gate Evidence
+
+Latest route-to-workflow command boundary evidence on
+`feat/performance-architecture-boundary-refactor`:
+
+1. Added explicit API request mappers in `app.api.mappers.analytics_workflow_requests` and typed
+   workflow command carriers for TWR, workspace-summary, contribution, benchmark, and
+   returns-series workflows.
+2. Updated the five API routes so external request DTOs are mapped before entering application
+   workflow services. Workflow entry points now accept command objects while retaining a
+   compatibility helper for lower-level tests that still exercise validated request DTOs directly.
+3. Added enforced `ROUTE_WORKFLOW_DTO_DIRECT_CALL` architecture inventory coverage so governed
+   routes cannot reintroduce direct `calculate_*_workflow(request)` calls. Current architecture
+   posture remains `0` enforced findings and `63` report-only application-service concrete-store
+   imports.
+4. Validation passed: `python -m pytest tests/unit/app/test_performance_endpoint_async_paths.py tests/unit/app/test_benchmark_endpoint_async_paths.py tests/unit/app/test_contribution_endpoint_async_paths.py tests/unit/app/test_returns_series_endpoint_helpers.py tests/unit/services/test_twr_calculation_service.py tests/unit/api/test_analytics_workflow_request_mappers.py tests/unit/scripts/test_python_architecture_boundary_inventory.py -q`
+   (`102 passed`); targeted Ruff check and format check; targeted mypy; architecture inventory
+   with `--max-findings 0`; taxonomy inventory with `648` API/runtime tests and unchanged
+   uncategorized ceiling.
+5. Documentation/wiki/skill review: repo context, quality evidence, and the review ledger changed
+   because the boundary rule and measured counts changed. Repo-local wiki source did not need a
+   change because no operator-facing route, command, or support flow changed. Platform skills did
+   not need a change because existing backend-delivery and issue-loop guidance already requires
+   mapper/use-case boundaries, deterministic guards, same-pattern scans, and explicit no-change
+   decisions.
 
 Latest TWR workflow submission boundary evidence on `refactor/twr-workflow-boundary`:
 

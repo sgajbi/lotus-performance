@@ -23,9 +23,9 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 289 |
-| Test functions inventoried | 3422 |
-| Integration/API/runtime test functions | 647 |
+| Test modules inventoried | 290 |
+| Test functions inventoried | 3424 |
+| Integration/API/runtime test functions | 648 |
 | Contract/governance test functions | 126 |
 
 ## Test Functions By Suite
@@ -35,17 +35,17 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 18 |
 | e2e | 1 | 21 |
 | integration | 26 | 325 |
-| unit | 253 | 3058 |
+| unit | 254 | 3060 |
 
 ## Test Functions By Family
 
 | Family | Test functions |
 | --- | ---: |
 | analytics_domain | 1547 |
-| api_or_runtime | 647 |
+| api_or_runtime | 648 |
 | contract_or_governance | 126 |
 | observability_or_readiness | 322 |
-| quality_or_security | 138 |
+| quality_or_security | 139 |
 | uncategorized | 982 |
 
 ## Largest Test Modules
@@ -99,11 +99,11 @@ stateful benchmark market-series boundary slice now classifies
 protects stateful performance input sourcing, benchmark market-series retrieval, FX/index inputs,
 and source-lineage snapshots.
 The issue #387 evidence refresh keeps the blocking gate threshold posture unchanged while bringing
-the curated report back to measured source truth. Current measured breadth is `647` API/runtime test
+the curated report back to measured source truth. Current measured breadth is `648` API/runtime test
 functions, `126` contract/governance test functions, `322` observability/readiness test functions,
 `1547` analytics-domain test functions, and `982` uncategorized test functions. The enforced
 command remains at the accepted regression floor of `607` API/runtime tests and ceiling `1148`;
-this slice also passed a tighter local preservation command requiring at least `643` API/runtime tests, `126`
+this slice also passed a tighter local preservation command requiring at least `647` API/runtime tests, `126`
 contract/governance tests, and `982` uncategorized tests. Intentional threshold changes should
 remain separate, rationale-backed gate-governance work.
 

@@ -2,15 +2,16 @@
 
 Report date: 2026-07-10
 Branch: `feat/performance-architecture-boundary-refactor`
-Mode: mixed architecture-boundary inventory; zero enforced findings are blocked by CI, while
-application-service concrete-store imports are measured report-only.
+Mode: mixed architecture-boundary inventory; zero enforced router/core and route-workflow
+command-boundary findings are blocked by CI, while application-service concrete-store imports are
+measured report-only.
 
 ## Purpose
 
 This report captures the measured architecture-boundary findings for API router import direction,
-engine/core import direction, and the next-layer application-service port seam. It is intended to
-guide bounded refactor slices and prevent the hardening stream from relying on subjective
-architecture claims.
+engine/core import direction, API route-to-workflow command mapping, and the next-layer
+application-service port seam. It is intended to guide bounded refactor slices and prevent the
+hardening stream from relying on subjective architecture claims.
 
 ## Command
 
@@ -49,7 +50,7 @@ python scripts/python_architecture_boundary_inventory.py --limit 80 --max-findin
 | 3 | `APPLICATION_SERVICE_CONCRETE_STORE_IMPORT` | report-only | `app/services/async_result_service.py:14` | `app.services.execution_registry` | Application services should depend on ports/interfaces instead of concrete durable store modules. |
 | 4 | `APPLICATION_SERVICE_CONCRETE_STORE_IMPORT` | report-only | `app/services/attribution_mode_service.py:13` | `app.services.execution_registry` | Application services should depend on ports/interfaces instead of concrete durable store modules. |
 | 5 | `APPLICATION_SERVICE_CONCRETE_STORE_IMPORT` | report-only | `app/services/attribution_service.py:23` | `app.services.execution_registry` | Application services should depend on ports/interfaces instead of concrete durable store modules. |
-| 6 | `APPLICATION_SERVICE_CONCRETE_STORE_IMPORT` | report-only | `app/services/benchmark_calculation_workflow_service.py:16` | `app.services.execution_registry` | Application services should depend on ports/interfaces instead of concrete durable store modules. |
+| 6 | `APPLICATION_SERVICE_CONCRETE_STORE_IMPORT` | report-only | `app/services/benchmark_calculation_workflow_service.py:17` | `app.services.execution_registry` | Application services should depend on ports/interfaces instead of concrete durable store modules. |
 | 7 | `APPLICATION_SERVICE_CONCRETE_STORE_IMPORT` | report-only | `app/services/benchmark_exposure_context_workflow_service.py:8` | `app.services.execution_registry` | Application services should depend on ports/interfaces instead of concrete durable store modules. |
 | 8 | `APPLICATION_SERVICE_CONCRETE_STORE_IMPORT` | report-only | `app/services/benchmark_mode_service.py:13` | `app.services.execution_registry` | Application services should depend on ports/interfaces instead of concrete durable store modules. |
 | 9 | `APPLICATION_SERVICE_CONCRETE_STORE_IMPORT` | report-only | `app/services/benchmark_service.py:9` | `app.services.execution_registry` | Application services should depend on ports/interfaces instead of concrete durable store modules. |
@@ -67,9 +68,11 @@ python scripts/python_architecture_boundary_inventory.py --limit 80 --max-findin
 
 ## Interpretation
 
-The measured router, engine, and core boundary findings remain clear for the enforced scanner
-rules: API modules do not reach directly into disallowed lower layers, and engine/core modules do
-not import application DTOs, adapters, or FastAPI primitives for the measured rules.
+The measured router, engine, core, and route-workflow boundary findings remain clear for the
+enforced scanner rules: API modules do not reach directly into disallowed lower layers, engine/core
+modules do not import application DTOs, adapters, or FastAPI primitives for the measured rules, and
+TWR, workspace-summary, contribution, benchmark, and returns-series routes no longer pass raw
+request DTOs directly into workflow services.
 
 The new application-service rule found `63` report-only concrete durable-store imports across `44`
 files. The execution polling workflow is the pilot seam: its route now receives an
@@ -82,6 +85,6 @@ gate in local checks, Feature Lane, PR Merge Gate, and Main Releasability.
 
 ## Gate Posture
 
-`make quality-architecture-gate` enforces `--max-findings 0` for enforced router, engine, and core
-import-boundary rules only. The application-service port-boundary rule is report-only until the
-remaining concrete-store imports are reduced and an exception policy is agreed.
+`make quality-architecture-gate` enforces `--max-findings 0` for enforced router, engine/core, and
+route-workflow command-boundary rules. The application-service port-boundary rule is report-only
+until the remaining concrete-store imports are reduced and an exception policy is agreed.

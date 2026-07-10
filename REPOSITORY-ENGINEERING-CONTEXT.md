@@ -371,6 +371,14 @@ Important validation expectations:
     depends on that port, and the durable adapter owns concrete execution, compute-job, and async
     result stores. Continue migrating one workflow seam at a time instead of introducing a runtime
     service split.
+33. API request DTOs must cross into analytics workflow services through explicit request mappers
+    and workflow command objects. TWR, workspace-summary, contribution, benchmark, and
+    returns-series routes now map validated request DTOs in `app.api.mappers` before calling the
+    application workflow entry point. `ROUTE_WORKFLOW_DTO_DIRECT_CALL` is enforced by the
+    architecture inventory so route code cannot reintroduce direct `calculate_*_workflow(request)`
+    calls for those governed workflows. The current command objects intentionally preserve the
+    validated request identity while the deeper field-native command migration proceeds in smaller
+    behavior-preserving slices.
 
 ## Standards And RFCs That Govern This Repository
 

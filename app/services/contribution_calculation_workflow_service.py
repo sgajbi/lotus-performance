@@ -10,6 +10,7 @@ from app.models.contribution_analytics_requests import (
 )
 from app.models.contribution_requests import ContributionRequest
 from app.models.contribution_responses import ContributionAcceptedResponse, ContributionResponse
+from app.services.analytics_workflow_commands import ContributionWorkflowCommand, workflow_request
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_CONTRIBUTION
 from app.services.async_observability_context import async_observability_request_payload
 from app.services.contribution_mode_service import resolve_contribution_request
@@ -271,9 +272,10 @@ async def _calculate_initial_sync_contribution(
 
 
 async def calculate_contribution_workflow(
-    request: ContributionAnalyticsRequest,
+    command: ContributionWorkflowCommand,
 ) -> ContributionResponse | ApplicationHttpResponse:
     """Resolve, fence, execute, and map errors for one contribution analytics request."""
+    request = workflow_request(command, ContributionAnalyticsRequest)
     active_settings = get_settings()
     input_fingerprint, calculation_hash = generate_request_fingerprint(request, active_settings.APP_VERSION)
     if request.input_mode == ContributionInputMode.STATEFUL and not should_preemptively_offload_stateful_contribution(

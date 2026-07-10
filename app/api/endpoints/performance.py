@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 
 from app.api.async_openapi import async_result_responses, async_submission_responses
 from app.api.http_response_adapter import to_fastapi_response
+from app.api.mappers.analytics_workflow_requests import map_twr_request, map_workspace_summary_request
 from app.models.attribution_analytics_requests import AttributionAnalyticsRequest
 from app.models.attribution_responses import AttributionAcceptedResponse, AttributionResponse
 from app.models.mwr_analytics_requests import MoneyWeightedReturnAnalyticsRequest
@@ -68,7 +69,7 @@ def calculate_workspace_summary_endpoint(
     request: WorkspaceSummaryRequest,
 ) -> WorkspaceSummaryResponse | JSONResponse:
     """Calculates multi-horizon workspace summary analytics in one source-owned response."""
-    return to_fastapi_response(calculate_workspace_summary_workflow(request))
+    return to_fastapi_response(calculate_workspace_summary_workflow(map_workspace_summary_request(request)))
 
 
 @router.get(
@@ -127,7 +128,7 @@ async def calculate_twr_endpoint(request: TWRAnalyticsRequest) -> PerformanceRes
     Calculates time-weighted return (TWR) for one or more requested periods
     and provides performance breakdowns by requested frequencies.
     """
-    return to_fastapi_response(await calculate_twr_workflow(request))
+    return to_fastapi_response(await calculate_twr_workflow(map_twr_request(request)))
 
 
 @router.get(

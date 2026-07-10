@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 
 from app.api.async_openapi import async_result_responses, async_submission_responses
 from app.api.http_response_adapter import to_fastapi_response
+from app.api.mappers.analytics_workflow_requests import map_contribution_request
 from app.models.contribution_analytics_requests import ContributionAnalyticsRequest
 from app.models.contribution_responses import (
     ContributionAcceptedResponse,
@@ -48,7 +49,7 @@ def _as_numeric(value: object, default=0):
 async def calculate_contribution_endpoint(
     request: ContributionAnalyticsRequest,
 ) -> ContributionResponse | JSONResponse:
-    return to_fastapi_response(await calculate_contribution_workflow(request))
+    return to_fastapi_response(await calculate_contribution_workflow(map_contribution_request(request)))
 
 
 @router.get(
