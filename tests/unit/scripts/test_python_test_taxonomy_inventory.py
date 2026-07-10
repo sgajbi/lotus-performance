@@ -93,6 +93,22 @@ def test_stateful_benchmark_market_series_source_boundary():
 """,
         encoding="utf-8",
     )
+    stateful_execution_policy_file = service_dir / "test_stateful_execution_policy_service.py"
+    stateful_execution_policy_file.write_text(
+        """
+def test_stateful_async_promotion_conflict_preserves_execution_identity():
+    pass
+""",
+        encoding="utf-8",
+    )
+    submission_fencing_file = service_dir / "test_submission_fencing_service.py"
+    submission_fencing_file.write_text(
+        """
+def test_duplicate_calculation_replay_preserves_original_async_submission():
+    pass
+""",
+        encoding="utf-8",
+    )
     benchmark_file = service_dir / "test_benchmark_exposure_context_service.py"
     benchmark_file.write_text(
         """
@@ -138,7 +154,7 @@ def test_legal_hold_source_projects_governed_retention_exclusions():
     modules = collect_test_modules((str(tests_root),))
     modules_by_path = {module.path: module for module in modules}
 
-    assert [module.test_count for module in modules] == [2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+    assert [module.test_count for module in modules] == [2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
     api_module = modules_by_path["tests/integration/test_returns_api.py"]
     application_responses_module = modules_by_path["tests/unit/core/test_application_responses.py"]
     async_polling_module = modules_by_path["tests/unit/core/test_async_polling.py"]
@@ -152,6 +168,8 @@ def test_legal_hold_source_projects_governed_retention_exclusions():
     runtime_recovery_module = modules_by_path["tests/unit/services/test_runtime_recovery_service.py"]
     legal_hold_module = modules_by_path["tests/unit/services/test_runtime_retention_legal_hold.py"]
     stateful_input_module = modules_by_path["tests/unit/services/test_stateful_input_service.py"]
+    stateful_execution_policy_module = modules_by_path["tests/unit/services/test_stateful_execution_policy_service.py"]
+    submission_fencing_module = modules_by_path["tests/unit/services/test_submission_fencing_service.py"]
     benchmark_module = modules_by_path["tests/unit/services/test_benchmark_exposure_context_service.py"]
     assert api_module.suite == "integration"
     assert "api_or_runtime" in api_module.families
@@ -179,6 +197,10 @@ def test_legal_hold_source_projects_governed_retention_exclusions():
     assert "observability_or_readiness" in lineage_worker_module.families
     assert stateful_input_module.suite == "unit"
     assert "analytics_domain" in stateful_input_module.families
+    assert stateful_execution_policy_module.suite == "unit"
+    assert "api_or_runtime" in stateful_execution_policy_module.families
+    assert submission_fencing_module.suite == "unit"
+    assert "api_or_runtime" in submission_fencing_module.families
     assert benchmark_module.suite == "unit"
     assert "analytics_domain" in benchmark_module.families
 

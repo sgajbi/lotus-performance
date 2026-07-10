@@ -283,7 +283,7 @@ Important validation expectations:
     `make test-coverage-shard` and combined coverage enforcement through `make coverage-combine-gate`
     so workflow YAML does not become a second source of truth for pytest or coverage behavior.
     `make quality-test-taxonomy-gate` now enforces the current measured preservation baseline
-    directly: at least `655` API/runtime test functions, at least `129` contract/governance test
+    directly: at least `656` API/runtime test functions, at least `136` contract/governance test
     functions, and no more than `969` uncategorized test functions.
 15. `make container-supply-chain-evidence` is the repo-native container release-evidence command.
     It builds `lotus-performance:ci` with non-secret build metadata for Git SHA, branch, build
@@ -321,6 +321,13 @@ Important validation expectations:
     runtime-threshold burn mapping are governed by
     `docs/standards/async-slo-capacity-contract.md`; update that contract with any material worker,
     threshold, or characterization-budget change.
+21. Offloaded stateful finalization must let
+    `promote_existing_execution_to_async_submission_or_raise(...)` own async submission replay,
+    duplicate-conflict detection, compute-job registration, and accepted-response construction
+    before mutating execution contract or identity fields. Sync/non-offloaded finalization may
+    update resolved contract and identity directly, but duplicate async promotion conflicts must
+    leave the existing execution contract, input fingerprint, calculation hash, stages, compute job,
+    and polling identity unchanged.
 21. Compute-worker success finalization is recoverable. The worker publishes the successful async
     result before marking the compute job complete, never treats a post-success job-completion
     failure as a calculation failure, and reconciles stale compute jobs with an existing successful

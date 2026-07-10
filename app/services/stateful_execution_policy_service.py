@@ -23,6 +23,17 @@ def finalize_resolved_stateful_execution(
     offload_reason: str,
     accepted_response_factory: Callable[[UUID], BaseModel],
 ) -> ApplicationHttpResponse | None:
+    if should_offload:
+        return promote_existing_execution_to_async_submission_or_raise(
+            calculation_id=calculation_id,
+            analytics_type=analytics_type,
+            requested_window=requested_window,
+            input_fingerprint=input_fingerprint,
+            calculation_hash=calculation_hash,
+            request_payload=resolved_request_payload,
+            offload_reason=offload_reason,
+            accepted_response_factory=accepted_response_factory,
+        )
     execution_registry.update_execution_contract(
         calculation_id,
         requested_window=requested_window,
@@ -32,18 +43,7 @@ def finalize_resolved_stateful_execution(
         input_fingerprint=input_fingerprint,
         calculation_hash=calculation_hash,
     )
-    if not should_offload:
-        return None
-    return promote_existing_execution_to_async_submission_or_raise(
-        calculation_id=calculation_id,
-        analytics_type=analytics_type,
-        requested_window=requested_window,
-        input_fingerprint=input_fingerprint,
-        calculation_hash=calculation_hash,
-        request_payload=resolved_request_payload,
-        offload_reason=offload_reason,
-        accepted_response_factory=accepted_response_factory,
-    )
+    return None
 
 
 def replay_promoted_stateful_async_execution(

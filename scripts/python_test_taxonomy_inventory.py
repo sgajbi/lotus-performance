@@ -68,7 +68,16 @@ def _families_for_path(path: str) -> tuple[str, ...]:
         families.add("api_or_runtime")
     if any(
         token in lower_path
-        for token in ("api", "endpoint", "openapi", "router", "application_responses", "async_polling")
+        for token in (
+            "api",
+            "endpoint",
+            "openapi",
+            "router",
+            "application_responses",
+            "async_polling",
+            "stateful_execution_policy",
+            "submission_fencing",
+        )
     ):
         families.add("api_or_runtime")
     if any(

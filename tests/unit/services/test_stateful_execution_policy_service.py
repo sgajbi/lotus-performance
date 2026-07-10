@@ -1,5 +1,6 @@
 from uuid import uuid4
 
+import pytest
 from pydantic import BaseModel
 
 from app.core.application_responses import accepted_application_response
@@ -11,6 +12,7 @@ from app.services.stateful_execution_policy_service import (
     finalize_resolved_stateful_execution,
     replay_promoted_stateful_async_execution,
 )
+from core.errors import APIConflictError
 
 
 class _AcceptedResponse(BaseModel):
@@ -116,15 +118,8 @@ def test_finalize_resolved_stateful_execution_promotes_async_when_requested(mock
     )
 
     assert response is accepted_response
-    update_contract.assert_called_once_with(
-        calculation_id,
-        requested_window={"input_count": 18},
-    )
-    update_identity.assert_called_once_with(
-        calculation_id,
-        input_fingerprint="resolved-fingerprint",
-        calculation_hash="resolved-hash",
-    )
+    update_contract.assert_not_called()
+    update_identity.assert_not_called()
     promote.assert_called_once_with(
         calculation_id=calculation_id,
         analytics_type="Attribution",
@@ -135,6 +130,40 @@ def test_finalize_resolved_stateful_execution_promotes_async_when_requested(mock
         offload_reason="large_resolved_stateful_attribution",
         accepted_response_factory=_accepted_response_factory,
     )
+
+
+def test_finalize_resolved_stateful_execution_leaves_execution_unchanged_when_async_promotion_conflicts(mocker):
+    calculation_id = uuid4()
+    update_contract = mocker.patch(
+        "app.services.stateful_execution_policy_service.execution_registry.update_execution_contract"
+    )
+    update_identity = mocker.patch(
+        "app.services.stateful_execution_policy_service.execution_registry.update_execution_identity"
+    )
+    promote = mocker.patch(
+        "app.services.stateful_execution_policy_service.promote_existing_execution_to_async_submission_or_raise",
+        side_effect=APIConflictError(
+            "A different async compute job already exists for this calculation_id. "
+            "Reuse the original request exactly or submit with a new calculation_id."
+        ),
+    )
+
+    with pytest.raises(APIConflictError):
+        finalize_resolved_stateful_execution(
+            calculation_id=calculation_id,
+            analytics_type="ReturnsSeries",
+            requested_window={"requested_periods": ["SI"], "source_request_fingerprint": "new-source-fp"},
+            input_fingerprint="new-resolved-fingerprint",
+            calculation_hash="new-resolved-hash",
+            resolved_request_payload={"portfolio_id": "P1", "requested_periods": ["SI"]},
+            should_offload=True,
+            offload_reason="large_resolved_stateful_returns_series",
+            accepted_response_factory=_accepted_response_factory,
+        )
+
+    update_contract.assert_not_called()
+    update_identity.assert_not_called()
+    promote.assert_called_once()
 
 
 def test_replay_promoted_stateful_async_execution_returns_none_for_non_matching_execution(mocker):
