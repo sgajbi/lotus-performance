@@ -92,7 +92,7 @@ A `SharedRequestEnvelope` Pydantic model will be defined in `core/envelope.py`. 
   },
 
   "flags": {                              // optional; behavioral flags
-    "fail_fast": false                    // convert soft warnings to 4xx when true
+    "fail_fast": false                    // convert governed warning/degraded completed responses to HTTP 422 when true
   }
 }
 ```
@@ -133,7 +133,12 @@ The shared error taxonomy will be implemented in `core/errors.py` and used by th
 
   * **400 Bad Request**: For validation errors (e.g., schema mismatch, inconsistent dates).
   * **422 Unprocessable Entity**: For requests that are syntactically valid but logically un-processable with the given data (e.g., MWR calculation that fails to converge).
-  * **Warnings**: Non-critical issues (e.g., a fallback was used) will be added to `diagnostics.notes`. If `flags.fail_fast` is true, these will be converted to a `4xx` error.
+  * **Warnings**: Non-critical issues (e.g., a fallback was used) will be added to
+    `diagnostics.notes` or endpoint-specific supportability fields. If `flags.fail_fast` is true,
+    completed TWR, MWR, Contribution, and Attribution responses with governed warning, fallback,
+    diagnostic-note, degraded supportability, or supportability-reason evidence return HTTP `422`
+    with `error_code=FAIL_FAST_SOFT_WARNING` instead of returning a `200` degraded result. Initial
+    async `202 Accepted` envelopes are not rejected before execution completes.
 
 -----
 

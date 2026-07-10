@@ -41,6 +41,7 @@ from app.services.calculation_supportability_service import (
 from app.services.execution_lifecycle_service import complete_execution_with_lineage
 from app.services.execution_registry import execution_registry
 from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
+from app.services.fail_fast_policy import enforce_core_analytics_fail_fast
 from app.services.performance_diagnostics_projection import build_performance_diagnostics, build_reset_events
 from common.enums import Frequency
 from core.envelope import Audit, Diagnostics, Meta
@@ -1261,6 +1262,7 @@ def _assemble_completed_twr_response(
         benchmark_context=projection.benchmark_context,
         calculation_supportability=projection.calculation_supportability,
     )
+    enforce_core_analytics_fail_fast(operation="twr", request=performance_request, response=response_model)
 
     _complete_twr_execution_with_lineage(
         performance_request=performance_request,

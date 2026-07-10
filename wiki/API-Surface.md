@@ -29,6 +29,12 @@ includes daily calculation evidence, source-quality supportability, and benchmar
 Use [Time-Weighted Return](Time-Weighted-Return) and
 [Supported Features](Supported-Features) for the implementation-backed product boundary.
 
+TWR, MWR, Contribution, and Attribution share the `flags.fail_fast` strict-mode contract. When
+`fail_fast=true`, completed responses with governed warning, fallback, diagnostic-note, degraded
+supportability, or supportability-reason evidence return HTTP `422` with
+`FAIL_FAST_SOFT_WARNING` instead of a `200` degraded result. Initial async `202 Accepted` envelopes
+are not rejected before execution completes because warning posture is not yet known.
+
 Async and supportability routes:
 
 - `GET /performance/executions/{calculation_id}`

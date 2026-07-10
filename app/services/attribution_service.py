@@ -23,6 +23,7 @@ from app.services.execution_lifecycle_service import (
 from app.services.execution_registry import execution_registry
 from app.services.execution_stage_errors import is_mappable_application_error
 from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
+from app.services.fail_fast_policy import enforce_core_analytics_fail_fast
 from core.envelope import Audit, Diagnostics, Meta
 from core.errors import APIBadRequestError, APIError, APIInternalServerError
 from core.periods import resolve_periods
@@ -536,6 +537,7 @@ def calculate_attribution(
             resolved_benchmark_id=resolved_benchmark_id,
             resolved_benchmark_return_source=resolved_benchmark_return_source,
         )
+        enforce_core_analytics_fail_fast(operation="attribution", request=request, response=response_model)
 
         _complete_attribution_execution(
             request=request,

@@ -19,6 +19,7 @@ from app.services.execution_lifecycle_service import complete_execution_with_lin
 from app.services.execution_registry import execution_registry
 from app.services.execution_stage_errors import is_mappable_application_error
 from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
+from app.services.fail_fast_policy import enforce_core_analytics_fail_fast
 from app.services.mwr_mode_service import ResolvedMWRRequest, resolve_mwr_request
 from app.services.reproducibility_service import generate_request_fingerprint
 from app.services.submission_fencing_service import register_sync_execution_or_raise
@@ -367,6 +368,7 @@ def _calculate_resolved_mwr_response(
         calculation_hash=calculation_hash,
         engine_version=engine_version,
     )
+    enforce_core_analytics_fail_fast(operation="mwr", request=request, response=response_model)
     return _CompletedMWRCalculation(
         mwr_request=mwr_request,
         response_model=response_model,

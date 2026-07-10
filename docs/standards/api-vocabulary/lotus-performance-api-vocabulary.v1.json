@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-07-10T09:59:24.235166+00:00",
+  "generatedAt": "2026-07-10T10:36:57.726543+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.access_classification",
@@ -2183,7 +2183,7 @@
       "semanticId": "lotus.fail_fast",
       "canonicalTerm": "fail_fast",
       "preferredName": "fail_fast",
-      "description": "flags field: fail fast.",
+      "description": "When true, completed TWR, MWR, Contribution, and Attribution responses that contain governed warning, fallback, diagnostic-note, degraded supportability, or supportability-reason evidence are rejected with HTTP 422 and error_code FAIL_FAST_SOFT_WARNING instead of returning a 200 degraded result. Async 202 Accepted envelopes are not rejected before execution completes.",
       "example": true,
       "type": "boolean",
       "locations": [

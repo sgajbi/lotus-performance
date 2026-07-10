@@ -66,7 +66,11 @@ Current repository posture:
    attribution responses also emit non-null shared `meta`, `diagnostics`, and `audit` footer blocks;
    attribution diagnostics summarize period status, residual materiality, supportability-evidence
    counts, and source-limit notes, while attribution audit exposes bounded input, period, level,
-   group, reason, supportability, residual-materiality, and benchmark-context counts.
+   group, reason, supportability, residual-materiality, and benchmark-context counts. The same four
+   completed endpoints enforce `flags.fail_fast=true` through a shared application policy:
+   governed warning, fallback, diagnostic-note, degraded supportability, or supportability-reason
+   evidence returns HTTP `422` with `FAIL_FAST_SOFT_WARNING`; initial async `202 Accepted`
+   envelopes are not rejected until execution completes and degraded evidence is known.
 9. attribution emits `currency_attribution_totals` when the Karnosky-Singer
    `currency_mode=BOTH` path is source-ready, giving downstream Gateway, Workbench, reporting, and
    manage consumers a source-owned portfolio-level FX attribution total instead of requiring local

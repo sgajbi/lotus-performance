@@ -1,7 +1,7 @@
 # Issue Fix Closure Matrix
 
 This matrix records the current local closure posture for the GitHub issue batch on branch
-`fix/issue-397-inspection-artifact-authz`.
+`feat/performance-architecture-boundary-refactor`.
 
 It is intentionally stricter than "code changed": an issue is only safe to close after the fix is
 merged to `main`, required checks are green, and any changed repo-authored wiki source is published.
@@ -11,20 +11,20 @@ Until then, the local status can be `Fixed locally` while the GitHub issue remai
 
 | Category | Count | Notes |
 | --- | ---: | --- |
-| Open GitHub issues reviewed | 14 | Includes the tracking ledger issue `#380`. |
-| Actionable issues fixed locally | 13 | Issues `#387`, `#388`, `#389`, `#390`, `#391`, `#392`, `#393`, `#396`, `#397`, `#398`, `#399`, `#400`, and `#401`. |
+| Open GitHub issues reviewed | 17 | Includes the tracking ledger issue `#380`. |
+| Actionable issues fixed locally | 16 | Issues `#387`, `#388`, `#389`, `#390`, `#391`, `#392`, `#393`, `#396`, `#397`, `#398`, `#399`, `#400`, `#401`, `#442`, `#453`, and `#454`. |
 | Tracking ledger issues | 1 | Issue `#380` remains open as the discovery ledger, not as a fix ticket. |
 | Issues safe to close now | 0 | Closure waits for PR merge, CI evidence, and wiki publication where applicable. |
 
 ## Verification Baseline
 
-Latest branch-level verification for this batch:
+Latest local pre-PR verification for this batch:
 
-- Local `make check`: passed with `3249 passed`.
-- Remote Feature Lane: passed at
-  `https://github.com/sgajbi/lotus-performance/actions/runs/28701087392`.
-- Remote Quality Baseline Snapshot: passed at
-  `https://github.com/sgajbi/lotus-performance/actions/runs/28701087408`.
+- Local `make check`: passed with `3301 passed`.
+- `make quality-test-taxonomy-gate`: passed with 296 modules, 3,441 source test functions, 656
+  API/runtime test functions, 130 contract/governance test functions, and 969 uncategorized test
+  functions.
+- `make openapi-gate` and `python scripts/api_vocabulary_inventory.py --validate-only`: passed.
 - Wiki check-only: expected unpublished branch drift where repo-authored wiki source changed; publish
   with the governed wiki automation after merge to `main`.
 
@@ -47,6 +47,7 @@ Latest branch-level verification for this batch:
 | `#387` Refresh stale quality evidence after post-fix suite and architecture drift | Fixed locally | `LP-CR-1637` | Quality taxonomy, baseline, scorecard, and CI gate evidence are refreshed from repo-native scanners; docs guard derives current taxonomy counts to prevent future stale evidence. | Close after merge and green PR evidence. |
 | `#442` Add polling cadence guidance to async 202 responses | Fixed locally | `LP-CR-1651` | Shared async accepted response projection now emits `recommended_poll_after_seconds` and matching `Retry-After` headers for initial submissions and pending-result responses across TWR, benchmark, contribution, attribution, returns-series, workspace-summary, and TWR inspection; OpenAPI, docs, and representative integration tests distinguish analytics polling cadence from manual operator-action cooldowns. | Close after merge, green PR evidence, and wiki publication. |
 | `#454` Complete attribution diagnostics and audit footer parity | Fixed locally | `LP-CR-1652` | Completed attribution responses now require non-null shared `diagnostics` and `audit` footer blocks, with bounded period-status, residual-materiality, supportability-evidence, input, level, group, reason, supportability, residual, and benchmark-context counts. Same-pattern coverage adds a cross-endpoint footer parity contract for TWR, MWR, Contribution, and Attribution, and RFC-014-D02 is closed in the delta backlog. | Close after merge, green PR evidence, and wiki publication. |
+| `#453` Enforce or retire flags.fail_fast consistently across core analytics endpoints | Fixed locally | `LP-CR-1653` | Shared fail-fast policy now covers completed TWR, MWR, Contribution, and Attribution responses. Same degraded requests return `200` when `flags.fail_fast=false` and `422` with `FAIL_FAST_SOFT_WARNING` when true. Same-pattern coverage verifies TWR daily evidence warnings, MWR fallback warnings, Contribution diagnostic notes, and Attribution supportability reasons; RFC-014-D01 is closed in the delta backlog. | Close after merge, green PR evidence, and wiki publication. |
 | `#380` Lotus Performance Issue Discovery Ledger | Tracking ledger | Review ledger plus this matrix | This remains the parent discovery ledger for the campaign. Do not close it as part of one batch unless the broader campaign owner explicitly signs off. | Keep open. |
 
 ## No-PR-Yet Decision
