@@ -73,7 +73,7 @@ def _families_for_path(path: str) -> tuple[str, ...]:
     if lower_path.startswith("tests/unit/docs/") or "docs_contract" in lower_path:
         families.add("contract_or_governance")
     if lower_path.startswith("tests/unit/scripts/") or any(
-        token in lower_path for token in ("security", "monetary", "dependency", "quality", "architecture")
+        token in lower_path for token in ("security", "monetary", "dependency", "quality", "architecture", "config")
     ):
         families.add("quality_or_security")
     if any(
@@ -86,6 +86,7 @@ def _families_for_path(path: str) -> tuple[str, ...]:
             "correlation",
             "health",
             "readiness",
+            "resilience",
             "compute_job_store",
             "runtime_recovery",
         )

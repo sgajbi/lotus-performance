@@ -1638,12 +1638,12 @@ Operational boundary:
 | --- | --- | --- |
 | `CORE_CONTROL_PLANE_BASE_URL` | `http://core-control.dev.lotus` | lotus-core query-control-plane base URL for stateful analytics-input contracts |
 | `CORE_QUERY_BASE_URL` | unset | deprecated compatibility fallback when `CORE_CONTROL_PLANE_BASE_URL` is unset |
-| `CORE_TIMEOUT_SECONDS` | `10.0` | upstream request timeout |
-| `CORE_MAX_RETRIES` | `2` | upstream retry count for transport exceptions and transient HTTP statuses |
-| `CORE_RETRY_BACKOFF_SECONDS` | `0.2` | minimum upstream retry backoff when `Retry-After` is absent, invalid, or excessive; fallback delays add bounded jitter |
-| `UPSTREAM_HTTP_MAX_CONNECTIONS` | `100` | maximum managed outbound HTTP connections reused across lotus-core and Lotus AI calls |
-| `UPSTREAM_HTTP_MAX_KEEPALIVE_CONNECTIONS` | `20` | maximum idle keep-alive connections retained by the managed outbound HTTP client pool |
-| `UPSTREAM_HTTP_KEEPALIVE_EXPIRY_SECONDS` | `30.0` | keep-alive expiry for managed outbound HTTP connections |
+| `CORE_TIMEOUT_SECONDS` | `10.0` | upstream request timeout; must be greater than `0` |
+| `CORE_MAX_RETRIES` | `2` | upstream retry count for transport exceptions and transient HTTP statuses; must be greater than or equal to `0` |
+| `CORE_RETRY_BACKOFF_SECONDS` | `0.2` | minimum upstream retry backoff when `Retry-After` is absent, invalid, or excessive; must be greater than or equal to `0`; fallback delays add bounded jitter |
+| `UPSTREAM_HTTP_MAX_CONNECTIONS` | `100` | maximum managed outbound HTTP connections reused across lotus-core and Lotus AI calls; must be greater than `0` |
+| `UPSTREAM_HTTP_MAX_KEEPALIVE_CONNECTIONS` | `20` | maximum idle keep-alive connections retained by the managed outbound HTTP client pool; must be greater than or equal to `0` |
+| `UPSTREAM_HTTP_KEEPALIVE_EXPIRY_SECONDS` | `30.0` | keep-alive expiry for managed outbound HTTP connections; must be greater than `0` |
 | `STATEFUL_INPUT_PORTFOLIO_CHUNK_DAYS` | `90` | portfolio retrieval chunk size |
 | `STATEFUL_INPUT_REFERENCE_CHUNK_DAYS` | `365` | reference retrieval chunk size |
 | `STATEFUL_INPUT_MAX_CONCURRENT_CHUNKS` | `4` | concurrent chunk retrieval bound |
@@ -1666,6 +1666,11 @@ retry domain/client statuses such as `400`, `401`, `403`, `404`, `409`, or `422`
 lifespan, the same resilience layer uses a lifecycle-managed `httpx.AsyncClient` pool keyed by
 timeout so concurrent stateful chunk retrieval can reuse keep-alive connections instead of creating
 one outbound client per chunk or retry attempt.
+
+Startup settings validation rejects invalid upstream resilience controls before runtime use. The
+same positive timeout and non-negative retry/backoff constraints apply to Lotus AI support-brief
+settings `LOTUS_AI_TIMEOUT_SECONDS`, `LOTUS_AI_MAX_RETRIES`, and
+`LOTUS_AI_RETRY_BACKOFF_SECONDS`.
 
 ### Compute executor
 

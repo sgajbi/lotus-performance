@@ -262,7 +262,7 @@ Important validation expectations:
     so workflow YAML does not become a second source of truth for pytest or coverage behavior.
     `make quality-test-taxonomy-gate` now enforces the current measured preservation baseline
     directly: at least `651` API/runtime test functions, at least `128` contract/governance test
-    functions, and no more than `982` uncategorized test functions.
+    functions, and no more than `969` uncategorized test functions.
 15. `make container-supply-chain-evidence` is the repo-native container release-evidence command.
     It builds `lotus-performance:ci` with non-secret build metadata for Git SHA, branch, build
     timestamp, repository URL, CI run id, and image digest placeholder, writes a CycloneDX SBOM and
@@ -312,7 +312,9 @@ Important validation expectations:
     FastAPI lifespan, a managed `httpx.AsyncClient` pool keyed by timeout. Stateful chunked
     retrieval should tune `STATEFUL_INPUT_MAX_CONCURRENT_CHUNKS` together with
     `UPSTREAM_HTTP_MAX_CONNECTIONS`, `UPSTREAM_HTTP_MAX_KEEPALIVE_CONNECTIONS`, and
-    `UPSTREAM_HTTP_KEEPALIVE_EXPIRY_SECONDS` before proposing a runtime transport split.
+    `UPSTREAM_HTTP_KEEPALIVE_EXPIRY_SECONDS` before proposing a runtime transport split. Upstream
+    timeout, retry, backoff, and connection-pool settings are validated during `Settings`
+    construction so invalid operator values fail fast before request execution.
 25. Application services should use framework-neutral `core.errors.APIError` subclasses for
     validation, source-unavailable, not-found, conflict, and retryability semantics. FastAPI
     `HTTPException`, `status`, and `JSONResponse` belong at the API adapter boundary. When a

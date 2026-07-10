@@ -148,12 +148,14 @@ def test_quality_reports_publish_current_test_taxonomy_counts():
     summary = summarize_test_taxonomy(collect_test_modules(("tests",)))
     uncategorized_tests = summary.family_counts["uncategorized"]
     observability_tests = summary.family_counts["observability_or_readiness"]
+    quality_tests = summary.family_counts["quality_or_security"]
     analytics_tests = summary.family_counts["analytics_domain"]
     current_count_summary = (
         f"{summary.module_count} modules, {summary.test_count:,} source test functions, "
         f"{summary.api_or_runtime_tests} integration/API/runtime test functions, "
         f"{summary.contract_or_governance_tests} contract/governance test functions, "
         f"{observability_tests} observability/readiness test functions, "
+        f"{quality_tests} quality/security test functions, "
         f"{analytics_tests:,} analytics-domain test functions, and "
         f"{uncategorized_tests:,} uncategorized test functions"
     )
@@ -168,6 +170,7 @@ def test_quality_reports_publish_current_test_taxonomy_counts():
     assert f"| Integration/API/runtime test functions | {summary.api_or_runtime_tests} |" in taxonomy_inventory
     assert f"| Contract/governance test functions | {summary.contract_or_governance_tests} |" in taxonomy_inventory
     assert f"| observability_or_readiness | {observability_tests} |" in taxonomy_inventory
+    assert f"| quality_or_security | {quality_tests} |" in taxonomy_inventory
     assert f"| analytics_domain | {analytics_tests} |" in taxonomy_inventory
     assert f"| uncategorized | {uncategorized_tests} |" in taxonomy_inventory
 
@@ -1444,13 +1447,22 @@ def test_complete_service_reference_covers_endpoint_surface_and_config_inventory
     assert "UPSTREAM_HTTP_MAX_CONNECTIONS" in guide
     assert "UPSTREAM_HTTP_MAX_KEEPALIVE_CONNECTIONS" in guide
     assert "UPSTREAM_HTTP_KEEPALIVE_EXPIRY_SECONDS" in guide
+    assert "Startup settings validation rejects invalid upstream resilience controls" in guide
+    assert "LOTUS_AI_TIMEOUT_SECONDS" in guide
+    assert "must be greater than `0`" in guide
+    assert "must be greater than or equal to `0`" in guide
     assert "lifecycle-managed `httpx.AsyncClient` pool" in guide
     assert "UPSTREAM_HTTP_MAX_CONNECTIONS" in retrieval_hardening
+    assert "Invalid timeout, retry, backoff, and connection-pool values fail" in retrieval_hardening
     assert "lifecycle-managed `httpx.AsyncClient` pool" in retrieval_hardening
     assert "UPSTREAM_HTTP_MAX_CONNECTIONS" in _read("REPOSITORY-ENGINEERING-CONTEXT.md")
+    repo_context = _read("REPOSITORY-ENGINEERING-CONTEXT.md")
+    assert "timeout, retry, backoff, and connection-pool settings are validated" in repo_context
+    assert "construction so invalid operator values fail fast before request execution" in repo_context
     assert "Stateful lotus-core fan-out uses the shared upstream resilience layer" in _read(
         "wiki/Operations-Runbook.md"
     )
+    assert "Startup validation rejects zero or negative connection limits" in _read("wiki/Operations-Runbook.md")
 
 
 def test_public_docs_document_nullable_response_contract():
