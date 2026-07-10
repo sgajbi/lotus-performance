@@ -5,12 +5,56 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 
+class BuildMetadataResponse(BaseModel):
+    service_name: str = Field(
+        description="Configured service display name.",
+        json_schema_extra={"example": "Portfolio Performance Analytics API"},
+    )
+    service_version: str = Field(
+        description="Application version carried by OpenAPI, runtime metadata, and OCI image labels.",
+        json_schema_extra={"example": "0.1.0"},
+    )
+    git_commit_sha: str = Field(
+        description="Git commit SHA used to build the running image or local process.",
+        json_schema_extra={"example": "0123456789abcdef0123456789abcdef01234567"},
+    )
+    git_branch: str = Field(
+        description="Git branch or ref name used by the build pipeline.",
+        json_schema_extra={"example": "main"},
+    )
+    build_timestamp: str = Field(
+        description="UTC build timestamp supplied by CI or the local build command.",
+        json_schema_extra={"example": "2026-07-10T07:45:00Z"},
+    )
+    repository_url: str = Field(
+        description="Source repository URL for correlating runtime identity to source and attestations.",
+        json_schema_extra={"example": "https://github.com/sgajbi/lotus-performance"},
+    )
+    image_digest: str = Field(
+        description=(
+            "Registry image digest supplied by CI/promotion when available. Local builds use "
+            "`unavailable-before-push` because Dockerfile labels cannot know the final pushed digest."
+        ),
+        json_schema_extra={"example": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"},
+    )
+    ci_pipeline_run_id: str = Field(
+        description="CI pipeline or GitHub Actions run identifier that produced the image.",
+        json_schema_extra={"example": "1234567890"},
+    )
+
+
 class RootResponse(BaseModel):
     message: str = Field(
         description="Human-readable service entry message that points operators and developers to the API docs.",
         json_schema_extra={
             "example": "Welcome to the Portfolio Performance Analytics API. Access /docs for API documentation."
         },
+    )
+    build: "BuildMetadataResponse" = Field(
+        description=(
+            "Support-safe runtime build identity for correlating this service instance to image, SBOM, "
+            "vulnerability, and provenance evidence."
+        ),
     )
 
 

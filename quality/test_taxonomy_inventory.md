@@ -15,17 +15,17 @@ and quality family without executing tests or requiring coverage data.
 
 ```powershell
 python scripts/python_test_taxonomy_inventory.py --limit 30
-python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 648 --min-contract-governance-tests 127 --max-uncategorized-tests 982
+python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 651 --min-contract-governance-tests 128 --max-uncategorized-tests 982
 ```
 
 ## Summary
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 290 |
-| Test functions inventoried | 3425 |
-| Integration/API/runtime test functions | 648 |
-| Contract/governance test functions | 127 |
+| Test modules inventoried | 292 |
+| Test functions inventoried | 3430 |
+| Integration/API/runtime test functions | 651 |
+| Contract/governance test functions | 128 |
 
 ## Test Functions By Suite
 
@@ -33,17 +33,17 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | --- | ---: | ---: |
 | benchmarks | 9 | 18 |
 | e2e | 1 | 21 |
-| integration | 26 | 325 |
-| unit | 254 | 3061 |
+| integration | 27 | 327 |
+| unit | 255 | 3064 |
 
 ## Test Functions By Family
 
 | Family | Test functions |
 | --- | ---: |
 | analytics_domain | 1547 |
-| api_or_runtime | 648 |
-| contract_or_governance | 127 |
-| observability_or_readiness | 322 |
+| api_or_runtime | 651 |
+| contract_or_governance | 128 |
+| observability_or_readiness | 324 |
 | quality_or_security | 139 |
 | uncategorized | 982 |
 
@@ -98,15 +98,16 @@ stateful benchmark market-series boundary slice now classifies
 protects stateful performance input sourcing, benchmark market-series retrieval, FX/index inputs,
 and source-lineage snapshots.
 The issue #387 evidence refresh brought the curated report back to measured source truth. Issue
-#420 then ratcheted the blocking gate to the current measured preservation baseline: `648`
-API/runtime test functions, `127` contract/governance test functions, and an uncategorized-test
+#419 then added runtime build-identity coverage without growing the uncategorized backlog; #420
+ratcheted the blocking gate to the current measured preservation baseline: `651`
+API/runtime test functions, `128` contract/governance test functions, and an uncategorized-test
 ceiling of `982`. The measured taxonomy also records `322` observability/readiness test functions
 and `1547` analytics-domain test functions. Intentional threshold changes should remain separate,
 rationale-backed gate-governance work.
 
 This slice promotes the stable part of the taxonomy from report-only measurement to a
 regression-blocking evaluation gate. `make quality-test-taxonomy-gate` fails if API/runtime tests
-drop below `648`, contract/governance tests drop below `127`, or uncategorized tests rise above
+drop below `651`, contract/governance tests drop below `128`, or uncategorized tests rise above
 `982`. `make quality-evaluation-gate` now runs both deterministic demo API certification and this
 taxonomy gate, so existing Feature Lane, PR Merge Gate, Main Releasability, local `make check`,
 local `make ci`, and Quality Baseline workflow enforcement pick it up without duplicating workflow

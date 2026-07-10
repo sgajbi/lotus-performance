@@ -61,8 +61,10 @@ service, not as a calculation demo. The current bank-readiness evidence includes
   `make check`, `make ci`, and `make ci-local` map local proof to the Lotus multi-lane delivery
   model
 - container supply-chain evidence:
-  PR/Main release lanes generate a CycloneDX SBOM and high/critical image vulnerability report for
-  `lotus-performance:ci`; Main Releasability also attests SBOM provenance
+  PR/Main release lanes build `lotus-performance:ci` with Git SHA, branch, build timestamp,
+  repository URL, CI run id, and image-digest metadata fields, generate a CycloneDX SBOM and
+  high/critical image vulnerability report, and Main Releasability also attests SBOM provenance.
+  Runtime `GET /version` exposes the same support-safe identity fields for release audit.
 - repository hygiene:
   `make repository-hygiene-gate` blocks tracked local byproducts such as Python caches, virtual
   environments, local coverage files, build outputs, logs, and local databases; `make clean`
@@ -264,10 +266,13 @@ The local mapping is:
   this command as report-only CI evidence and uploads the JSON artifact; it is not yet a blocking
   readiness gate.
 - `make container-supply-chain-evidence`
-  release-image evidence for `lotus-performance:ci`. It builds the image, writes a CycloneDX SBOM
-  and high/critical Trivy vulnerability report under `output/container-security/`, and is published
-  by PR/Main workflows. Main Releasability also attests the SBOM artifact. The vulnerability report
-  is report-only until the first PR/main baseline is reviewed; promotion to strict blocking uses
+  release-image evidence for `lotus-performance:ci`. It builds the image with non-secret Git SHA,
+  branch, build timestamp, repository URL, CI run id, and image-digest metadata fields, writes a
+  CycloneDX SBOM and high/critical Trivy vulnerability report under `output/container-security/`,
+  and is published by PR/Main workflows. Main Releasability also attests the SBOM artifact. Runtime
+  `GET /version` exposes the same support-safe metadata shape so operators can correlate a live
+  service to image labels and release evidence. The vulnerability report is report-only until the
+  first PR/main baseline is reviewed; promotion to strict blocking uses
   `make container-vulnerability-gate` and the exception policy in
   [quality/container_supply_chain_report.md](quality/container_supply_chain_report.md).
 

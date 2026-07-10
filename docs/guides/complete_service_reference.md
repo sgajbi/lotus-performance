@@ -1597,6 +1597,12 @@ All service configuration comes from `app.core.config.Settings`.
 | `APP_NAME` | `Portfolio Performance Analytics API` | service display name |
 | `APP_VERSION` | `0.1.0` | service version string |
 | `APP_DESCRIPTION` | `API for calculating portfolio performance metrics.` | service description |
+| `APP_GIT_COMMIT_SHA` | `local` | Git commit SHA exposed by `/version` and carried in OCI labels |
+| `APP_GIT_BRANCH` | `local` | Git branch or ref exposed by `/version` and carried in OCI labels |
+| `APP_BUILD_TIMESTAMP` | `local` | UTC build timestamp exposed by `/version` and carried in OCI labels |
+| `APP_REPOSITORY_URL` | `https://github.com/sgajbi/lotus-performance` | source repository URL exposed by `/version` and carried in OCI labels |
+| `APP_IMAGE_DIGEST` | `unavailable-before-push` | image digest or explicit local placeholder exposed by `/version` |
+| `APP_CI_PIPELINE_RUN_ID` | `local` | CI pipeline/run identifier exposed by `/version` and carried in OCI labels |
 | `LOG_LEVEL` | `INFO` | application log level |
 | `decimal_precision` | `28` | global Decimal precision applied at settings initialization |
 

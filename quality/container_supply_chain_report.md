@@ -11,8 +11,27 @@ Mode: PR/Main release evidence; vulnerability report is report-only until the ba
 make container-supply-chain-evidence
 ```
 
-The target builds `lotus-performance:ci`, generates a CycloneDX SBOM, and writes a high/critical
-container vulnerability report under `output/container-security/`.
+The target builds `lotus-performance:ci` with non-secret Git SHA, branch, build timestamp,
+repository URL, CI run id, and image-digest metadata fields, generates a CycloneDX SBOM, and writes
+a high/critical container vulnerability report under `output/container-security/`. Runtime
+`GET /version` exposes the same support-safe metadata shape so operators can correlate a live
+service to OCI labels, SBOM, vulnerability, and provenance evidence.
+
+Build identity fields:
+
+| Runtime field | OCI label or build input | Local default |
+| --- | --- | --- |
+| `service_version` | `org.opencontainers.image.version` / `APP_VERSION` | `0.1.0` |
+| `git_commit_sha` | `org.opencontainers.image.revision` / `APP_GIT_COMMIT_SHA` | `local` |
+| `git_branch` | `org.opencontainers.image.ref.name` / `APP_GIT_BRANCH` | `local` |
+| `build_timestamp` | `org.opencontainers.image.created` / `APP_BUILD_TIMESTAMP` | `local` |
+| `repository_url` | `org.opencontainers.image.source` / `APP_REPOSITORY_URL` | `https://github.com/sgajbi/lotus-performance` |
+| `image_digest` | `lotus.image.digest` / `APP_IMAGE_DIGEST` | `unavailable-before-push` |
+| `ci_pipeline_run_id` | `lotus.ci.pipeline_run_id` / `APP_CI_PIPELINE_RUN_ID` | `local` |
+
+The image digest cannot be known by the Dockerfile before a registry push. CI/promotion should pass
+the final digest into `APP_IMAGE_DIGEST` and the release manifest when that promotion path is added;
+local and pre-push CI evidence use the explicit `unavailable-before-push` placeholder.
 
 Generated artifacts:
 

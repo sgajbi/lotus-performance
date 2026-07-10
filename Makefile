@@ -8,6 +8,13 @@ CONTAINER_IMAGE ?= lotus-performance:ci
 CONTAINER_SECURITY_OUTPUT_DIR ?= output/container-security
 TRIVY_IMAGE ?= aquasec/trivy:0.71.2
 TRIVY_SEVERITY ?= HIGH,CRITICAL
+CONTAINER_SERVICE_VERSION ?= 0.1.0
+CONTAINER_GIT_SHA ?= local
+CONTAINER_GIT_BRANCH ?= local
+CONTAINER_BUILD_TIMESTAMP ?= local
+CONTAINER_REPOSITORY_URL ?= https://github.com/sgajbi/lotus-performance
+CONTAINER_IMAGE_DIGEST ?= unavailable-before-push
+CONTAINER_CI_PIPELINE_RUN_ID ?= local
 
 install:
 	pip install -r requirements.txt
@@ -148,7 +155,7 @@ quality-observability-readiness-gate:
 	python scripts/python_observability_readiness_inventory.py --limit 30 --max-missing 0
 
 quality-test-taxonomy-gate:
-	python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 648 --min-contract-governance-tests 127 --max-uncategorized-tests 982
+	python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 651 --min-contract-governance-tests 128 --max-uncategorized-tests 982
 
 quality-evaluation-gate:
 	$(MAKE) demo-api-certification
@@ -192,7 +199,7 @@ docker-down:
 
 
 docker-build:
-	docker build -f Dockerfile -t $(CONTAINER_IMAGE) .
+	docker build -f Dockerfile -t $(CONTAINER_IMAGE) --build-arg APP_VERSION=$(CONTAINER_SERVICE_VERSION) --build-arg APP_GIT_COMMIT_SHA=$(CONTAINER_GIT_SHA) --build-arg APP_GIT_BRANCH=$(CONTAINER_GIT_BRANCH) --build-arg APP_BUILD_TIMESTAMP=$(CONTAINER_BUILD_TIMESTAMP) --build-arg APP_REPOSITORY_URL=$(CONTAINER_REPOSITORY_URL) --build-arg APP_IMAGE_DIGEST=$(CONTAINER_IMAGE_DIGEST) --build-arg APP_CI_PIPELINE_RUN_ID=$(CONTAINER_CI_PIPELINE_RUN_ID) .
 
 container-supply-chain-evidence: docker-build container-sbom container-vulnerability-report
 

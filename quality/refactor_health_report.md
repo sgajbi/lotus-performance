@@ -64,7 +64,7 @@ link the commit, command, or CI artifact that proves the change.
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
 | OpenAPI lint findings | unknown | unknown | not-yet-measured | Spectral not configured |
-| OpenAPI operations | unknown | 36 | measured | `quality/api_completeness_inventory.md` via `scripts/openapi_completeness_inventory.py` |
+| OpenAPI operations | unknown | 37 | measured | `quality/api_completeness_inventory.md` via `scripts/openapi_completeness_inventory.py` |
 | API completeness findings | unknown | 0 | measured | `quality/api_completeness_inventory.md` via `scripts/openapi_completeness_inventory.py` |
 | Operations missing descriptions | unknown | 0 | measured | `MISSING_DESCRIPTION` absent from `quality/api_completeness_inventory.md` |
 | JSON error responses missing examples | unknown | 0 | measured | `ERROR_JSON_MISSING_EXAMPLE` absent from `quality/api_completeness_inventory.md` |
@@ -75,12 +75,12 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Test modules | 228 | 290 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 3,646 | measured | `python -m pytest --collect-only -q` |
+| Test modules | 228 | 292 | measured | `rg --files tests -g 'test_*.py'` |
+| Collected tests | 2,035 | 3,651 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
-| Integration/API/runtime test functions | unknown | 648 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
-| Contract/governance test functions | unknown | 127 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
+| Integration/API/runtime test functions | unknown | 651 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
+| Contract/governance test functions | unknown | 128 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
 | Uncategorized test functions | unknown | 982 | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; issue #420 ratcheted the gate to the current measured preservation baseline |
 
 ## Security And Dependencies
@@ -121,14 +121,14 @@ link the commit, command, or CI artifact that proves the change.
 | README required markers | unknown | 8 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
 | Missing README required markers | unknown | 0 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
 | Wiki source pages | unknown | 21 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
-| Markdown documentation files | unknown | 234 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
+| Markdown documentation files | unknown | 236 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
 | Endpoint certification docs | unknown | 20 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
 | API catalog files | unknown | 4 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
 | Major pack README files | unknown | 12 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py`; required pack indexes are enforced by `tests/unit/scripts/test_python_documentation_inventory.py` |
 | Missing major pack README files | unknown | 0 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py`; required pack indexes are enforced by `tests/unit/scripts/test_python_documentation_inventory.py` |
-| Docs regression test functions | unknown | 62 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
-| Public definitions missing docstrings | unknown | 1,183 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
-| Public definition docstring coverage percent | unknown | 11.91 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
+| Docs regression test functions | unknown | 68 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
+| Public definitions missing docstrings | unknown | 1,202 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
+| Public definition docstring coverage percent | unknown | 12.01 | measured | `quality/documentation_inventory.md` via `scripts/python_documentation_inventory.py` |
 
 ## Phase-Zero Interpretation
 

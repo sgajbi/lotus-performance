@@ -9,7 +9,7 @@ Mode: report-only API governance inventory; no blocking gate changed.
 
 | Metric | Value |
 | --- | ---: |
-| OpenAPI operations | 36 |
+| OpenAPI operations | 37 |
 | API completeness findings | 0 |
 | Distinct rules | 0 |
 | Endpoints with findings | 0 |

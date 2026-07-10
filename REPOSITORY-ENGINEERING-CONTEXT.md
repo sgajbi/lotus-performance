@@ -261,12 +261,15 @@ Important validation expectations:
     `make test-coverage-shard` and combined coverage enforcement through `make coverage-combine-gate`
     so workflow YAML does not become a second source of truth for pytest or coverage behavior.
     `make quality-test-taxonomy-gate` now enforces the current measured preservation baseline
-    directly: at least `648` API/runtime test functions, at least `127` contract/governance test
+    directly: at least `651` API/runtime test functions, at least `128` contract/governance test
     functions, and no more than `982` uncategorized test functions.
 15. `make container-supply-chain-evidence` is the repo-native container release-evidence command.
-    It builds `lotus-performance:ci`, writes a CycloneDX SBOM and high/critical Trivy vulnerability
-    report under ignored `output/container-security/`, and is published by PR Merge Gate and Main
-    Releasability. Main Releasability also attests SBOM provenance. `make
+    It builds `lotus-performance:ci` with non-secret build metadata for Git SHA, branch, build
+    timestamp, repository URL, CI run id, and image digest placeholder, writes a CycloneDX SBOM and
+    high/critical Trivy vulnerability report under ignored `output/container-security/`, and is
+    published by PR Merge Gate and Main Releasability. Main Releasability also attests SBOM
+    provenance. Runtime `/version` exposes the same support-safe metadata fields so operators can
+    correlate a live service to image labels and release evidence. `make
     container-vulnerability-gate` exists for later strict promotion after the first PR/main image
     baseline and high/critical exception policy are reviewed.
 16. `PR Auto Merge` must use `LOTUS_AUTOMERGE_TOKEN` as the merge actor. If that governed token is

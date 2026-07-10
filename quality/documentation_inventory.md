@@ -5,15 +5,15 @@
 | README required markers present | 8 |
 | README required markers expected | 8 |
 | Wiki source pages | 21 |
-| Markdown documentation files | 234 |
+| Markdown documentation files | 236 |
 | API catalog files present | 4 |
 | API catalog files expected | 4 |
 | Major pack README files present | 12 |
 | Major pack README files expected | 12 |
-| Docs regression test functions | 62 |
-| Public definitions scanned | 1343 |
-| Public definitions missing docstrings | 1183 |
-| Public definition docstring coverage percent | 11.91 |
+| Docs regression test functions | 68 |
+| Public definitions scanned | 1366 |
+| Public definitions missing docstrings | 1202 |
+| Public definition docstring coverage percent | 12.01 |
 
 ## Markdown Files By Family
 

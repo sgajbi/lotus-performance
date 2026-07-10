@@ -3,6 +3,10 @@
 Use this page to map local proof, PR proof, and main-branch releasability evidence. The goal is to
 make quality measurable and repeatable, not to treat CI as a ceremonial final step.
 
+| Current scope | Evidence posture | Next action |
+| --- | --- | --- |
+| `lotus-performance` local gates, PR gates, main releasability, and container supply-chain proof | Implementation-backed through repo-native `make` targets, GitHub Actions lanes, generated quality inventories, and runtime `GET /version` build identity | Run the mapped command before PR/merge; publish repo-authored wiki source after merge when this page changes |
+
 ## Lane model
 
 `lotus-performance` follows the Lotus multi-lane validation posture:
@@ -30,8 +34,9 @@ make quality measurable and repeatable, not to treat CI as a ceremonial final st
   PR-grade proof: static quality gates, migration smoke, security audit, unit, integration, e2e,
   coverage, Docker build, and container supply-chain evidence
 - `make container-supply-chain-evidence`
-  image release evidence: builds `lotus-performance:ci`, writes a CycloneDX SBOM, and writes a
-  high/critical Trivy vulnerability report under `output/container-security/`
+  image release evidence: builds `lotus-performance:ci` with support-safe Git/build metadata,
+  writes a CycloneDX SBOM, and writes a high/critical Trivy vulnerability report under
+  `output/container-security/`
 - `make ci-local`
   local Docker-parity coverage run
 - `make test-all`
@@ -61,7 +66,7 @@ make quality measurable and repeatable, not to treat CI as a ceremonial final st
 | Static quality | `make check`, Static Quality Gates | lint, format, typecheck, complexity, architecture boundaries, duplicate-code hotspots, observability markers, no-alias governance |
 | API contract quality | `make check`, Contract Security Gates | OpenAPI quality, API vocabulary, domain data-product contracts, migration smoke, security scans |
 | Runtime behavior | `make ci`, unit/integration/e2e lanes | calculation behavior, API behavior, async/runtime flows, coverage floor |
-| Container supply-chain | `make container-supply-chain-evidence`, PR/Main container evidence jobs | image buildability, SBOM inventory, high/critical vulnerability evidence, and main-branch SBOM provenance attestation |
+| Container supply-chain | `make container-supply-chain-evidence`, PR/Main container evidence jobs, `GET /version` | image buildability, runtime-to-image build identity, SBOM inventory, high/critical vulnerability evidence, and main-branch SBOM provenance attestation |
 | Documentation contract | docs regression tests, wiki source check | public contract language, command accuracy, source wiki publication readiness |
 | Baseline evidence | `make quality-baseline`, Quality Baseline Snapshot | before/after scorecard data for the enterprise refactor program |
 
@@ -138,9 +143,11 @@ For release-image evidence, run:
 make container-supply-chain-evidence
 ```
 
-The command builds the CI image, creates `output/container-security/lotus-performance-image-sbom.cdx.json`,
-and creates `output/container-security/lotus-performance-image-vulnerabilities.json`. PR Merge Gate
-and Main Releasability upload those artifacts. Main Releasability also attests SBOM provenance.
+The command builds the CI image with Git SHA, branch, build timestamp, repository URL, CI run id,
+and image-digest metadata fields, creates `output/container-security/lotus-performance-image-sbom.cdx.json`,
+and creates `output/container-security/lotus-performance-image-vulnerabilities.json`. Runtime
+`GET /version` exposes the same support-safe metadata shape for release audit. PR Merge Gate and
+Main Releasability upload those artifacts. Main Releasability also attests SBOM provenance.
 
 The vulnerability report is currently report-only while the first artifacts are reviewed. Promote
 `make container-vulnerability-gate` to blocking only after high/critical findings are either zero

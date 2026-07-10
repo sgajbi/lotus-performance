@@ -40,11 +40,14 @@ evaluation before `docker-build`, `.dockerignore` excludes generated `output`, `
 local SQLite database artifacts from the Docker build context.
 
 Container supply-chain evidence is produced in the PR Merge Gate and Main Releasability Gate after
-coverage passes. `make container-supply-chain-evidence` builds `lotus-performance:ci`, generates a
-CycloneDX SBOM, and writes a high/critical Trivy vulnerability report under
-`output/container-security/`. The artifacts are uploaded by GitHub Actions; Main Releasability also
-attests SBOM provenance. The vulnerability report is intentionally report-only until the first
-PR/main baseline artifacts are reviewed. Promotion to a blocking image vulnerability gate must use
+coverage passes. `make container-supply-chain-evidence` builds `lotus-performance:ci` with
+non-secret Git SHA, branch, build timestamp, repository URL, CI run id, and image-digest metadata
+fields, generates a CycloneDX SBOM, and writes a high/critical Trivy vulnerability report under
+`output/container-security/`. The same support-safe metadata shape is exposed by runtime
+`GET /version` so operators can correlate a live service to OCI labels, SBOM, vulnerability, and
+provenance evidence. The artifacts are uploaded by GitHub Actions; Main Releasability also attests
+SBOM provenance. The vulnerability report is intentionally report-only until the first PR/main
+baseline artifacts are reviewed. Promotion to a blocking image vulnerability gate must use
 `make container-vulnerability-gate` and the exception policy in
 `quality/container_supply_chain_report.md`.
 
