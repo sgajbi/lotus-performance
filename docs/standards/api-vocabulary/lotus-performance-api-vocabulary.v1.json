@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-07-10T07:56:36.975485+00:00",
+  "generatedAt": "2026-07-10T09:59:24.235166+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.access_classification",
@@ -5043,6 +5043,20 @@
       ],
       "observedTypes": [
         "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.recommended_poll_after_seconds",
+      "canonicalTerm": "recommended_poll_after_seconds",
+      "preferredName": "recommended_poll_after_seconds",
+      "description": "Recommended minimum seconds to wait before polling poll_path or result_path again.",
+      "example": 1,
+      "type": "integer",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "integer"
       ]
     },
     {
@@ -11654,6 +11668,14 @@
             "type": "string",
             "semanticId": "lotus.result_path",
             "attributeRef": "#/attributeCatalog/lotus.result_path"
+          },
+          {
+            "name": "recommended_poll_after_seconds",
+            "location": "body",
+            "required": false,
+            "type": "integer",
+            "semanticId": "lotus.recommended_poll_after_seconds",
+            "attributeRef": "#/attributeCatalog/lotus.recommended_poll_after_seconds"
           }
         ]
       }

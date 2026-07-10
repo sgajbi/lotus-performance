@@ -8,6 +8,24 @@ Canonical machine-readable contract:
 This guide is a human-oriented map of the current endpoint surface. Model-level field
 descriptions and examples are maintained in the generated OpenAPI contract.
 
+## Async polling contract
+
+Analytics routes that return `202 Accepted` include machine-readable polling guidance in both the
+JSON body and the response headers:
+
+- `poll_path`: durable execution lifecycle route to inspect queued, running, failed, or complete
+  state.
+- `result_path`: endpoint-specific route to retrieve the completed analytics payload or receive the
+  same accepted envelope while the calculation is still pending.
+- `recommended_poll_after_seconds`: minimum wait interval before polling again.
+- `Retry-After`: HTTP header carrying the same minimum wait interval.
+
+The same contract is used by TWR, benchmark, contribution, attribution, returns-series,
+workspace-summary, and TWR inspection submissions and pending-result responses. Treat this
+analytics polling `Retry-After` as cadence guidance for status/result polling. Manual control-plane
+actions such as recovery drills and runtime-retention cleanup may also return `Retry-After`, but in
+that case the header represents an operator-action cooldown rather than async result cadence.
+
 ## Error response contract
 
 Public API errors use a support-safe JSON envelope. The legacy `detail` field remains present for
@@ -135,6 +153,7 @@ remain in structured logs and durable evidence under the same correlation contex
 - async accepted responses return:
   - `poll_path=/performance/executions/{inspection_id}`
   - `result_path=/performance/inspections/{inspection_id}`
+  - `recommended_poll_after_seconds` plus matching `Retry-After` header
 
 ### `GET /performance/inspections/{inspection_id}`
 

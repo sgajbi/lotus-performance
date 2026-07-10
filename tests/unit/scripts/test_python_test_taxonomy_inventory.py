@@ -102,12 +102,30 @@ def test_settings_reject_invalid_runtime_controls():
 """,
         encoding="utf-8",
     )
+    application_responses_file = tests_root / "unit" / "core" / "test_application_responses.py"
+    application_responses_file.write_text(
+        """
+def test_accepted_response_projects_retry_after_header():
+    pass
+""",
+        encoding="utf-8",
+    )
+    async_polling_file = tests_root / "unit" / "core" / "test_async_polling.py"
+    async_polling_file.write_text(
+        """
+def test_recommended_poll_after_seconds_uses_runtime_cadence():
+    pass
+""",
+        encoding="utf-8",
+    )
 
     modules = collect_test_modules((str(tests_root),))
     modules_by_path = {module.path: module for module in modules}
 
-    assert [module.test_count for module in modules] == [2, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+    assert [module.test_count for module in modules] == [2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
     api_module = modules_by_path["tests/integration/test_returns_api.py"]
+    application_responses_module = modules_by_path["tests/unit/core/test_application_responses.py"]
+    async_polling_module = modules_by_path["tests/unit/core/test_async_polling.py"]
     contract_module = modules_by_path["tests/unit/app/test_openapi_contract.py"]
     config_module = modules_by_path["tests/unit/core/test_config.py"]
     compute_store_module = modules_by_path["tests/unit/services/test_compute_job_store.py"]
@@ -119,6 +137,10 @@ def test_settings_reject_invalid_runtime_controls():
     benchmark_module = modules_by_path["tests/unit/services/test_benchmark_exposure_context_service.py"]
     assert api_module.suite == "integration"
     assert "api_or_runtime" in api_module.families
+    assert application_responses_module.suite == "unit"
+    assert "api_or_runtime" in application_responses_module.families
+    assert async_polling_module.suite == "unit"
+    assert "api_or_runtime" in async_polling_module.families
     assert contract_module.suite == "unit"
     assert "contract_or_governance" in contract_module.families
     assert config_module.suite == "unit"

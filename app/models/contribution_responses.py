@@ -5,6 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.core.async_polling import DEFAULT_RECOMMENDED_POLL_AFTER_SECONDS
 from app.models.contribution_analytics_requests import ContributionInputMode
 from app.models.responses import PerformanceCalculationSupportability
 from core.envelope import Audit, Diagnostics, Meta
@@ -391,4 +392,9 @@ class ContributionAcceptedResponse(BaseModel):
     result_path: str = Field(
         description="Contribution result path to retrieve after the asynchronous calculation completes.",
         examples=["/performance/contribution/results/2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e"],
+    )
+    recommended_poll_after_seconds: int = Field(
+        default=DEFAULT_RECOMMENDED_POLL_AFTER_SECONDS,
+        description="Recommended minimum seconds to wait before polling poll_path or result_path again.",
+        examples=[DEFAULT_RECOMMENDED_POLL_AFTER_SECONDS],
     )

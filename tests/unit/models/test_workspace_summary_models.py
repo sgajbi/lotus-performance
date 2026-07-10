@@ -60,6 +60,7 @@ def test_workspace_summary_accepted_response_schema_includes_polling_example():
 
     assert example["poll_path"].startswith("/performance/executions/")
     assert example["result_path"].startswith("/performance/workspace-summary/results/")
+    assert example["recommended_poll_after_seconds"] == 1
 
 
 def test_workspace_summary_json_examples_match_schema_examples():

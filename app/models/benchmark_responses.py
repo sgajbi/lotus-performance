@@ -6,6 +6,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.core.async_polling import DEFAULT_RECOMMENDED_POLL_AFTER_SECONDS
 from app.models.benchmark_analytics_requests import BenchmarkInputMode, BenchmarkReturnSource
 from app.models.responses import ComparativeAnalyticsBlock
 from core.envelope import Audit, Diagnostics, Meta
@@ -184,6 +185,11 @@ class BenchmarkAcceptedResponse(BaseModel):
         description="Benchmark result path to read once execution completes.",
         examples=["/performance/benchmark/results/f7f7b0f2-8f9a-4a99-bad1-d16f51b0c111"],
     )
+    recommended_poll_after_seconds: int = Field(
+        default=DEFAULT_RECOMMENDED_POLL_AFTER_SECONDS,
+        description="Recommended minimum seconds to wait before polling poll_path or result_path again.",
+        examples=[DEFAULT_RECOMMENDED_POLL_AFTER_SECONDS],
+    )
 
     model_config = ConfigDict(
         extra="forbid",
@@ -193,6 +199,7 @@ class BenchmarkAcceptedResponse(BaseModel):
                     "calculation_id": "f7f7b0f2-8f9a-4a99-bad1-d16f51b0c111",
                     "poll_path": "/performance/executions/f7f7b0f2-8f9a-4a99-bad1-d16f51b0c111",
                     "result_path": "/performance/benchmark/results/f7f7b0f2-8f9a-4a99-bad1-d16f51b0c111",
+                    "recommended_poll_after_seconds": DEFAULT_RECOMMENDED_POLL_AFTER_SECONDS,
                 }
             ]
         },

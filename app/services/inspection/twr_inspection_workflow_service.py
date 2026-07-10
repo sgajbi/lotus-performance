@@ -3,6 +3,7 @@ from __future__ import annotations
 from uuid import UUID
 
 from app.core.application_responses import ApplicationHttpResponse
+from app.core.async_polling import recommended_async_poll_after_seconds
 from app.core.config import get_settings
 from app.models.inspection_requests import TWRInspectionRequest
 from app.models.inspection_responses import TWRInspectionAcceptedResponse
@@ -18,6 +19,7 @@ def accepted_twr_inspection_response(inspection_id: UUID) -> TWRInspectionAccept
         inspection_id=inspection_id,
         poll_path=f"/performance/executions/{inspection_id}",
         result_path=f"/performance/inspections/{inspection_id}",
+        recommended_poll_after_seconds=recommended_async_poll_after_seconds(),
     )
 
 

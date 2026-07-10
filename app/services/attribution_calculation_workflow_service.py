@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Protocol, cast
 
 from app.core.application_responses import ApplicationHttpResponse
+from app.core.async_polling import recommended_async_poll_after_seconds
 from app.core.config import Settings, get_settings
 from app.models.attribution_analytics_requests import AttributionAnalyticsRequest, AttributionInputMode
 from app.models.attribution_requests import AttributionRequest
@@ -34,6 +35,7 @@ def accepted_attribution_response(calculation_id) -> AttributionAcceptedResponse
         calculation_id=calculation_id,
         poll_path=f"/performance/executions/{calculation_id}",
         result_path=f"/performance/attribution/results/{calculation_id}",
+        recommended_poll_after_seconds=recommended_async_poll_after_seconds(),
     )
 
 

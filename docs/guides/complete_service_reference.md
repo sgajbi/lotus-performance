@@ -119,6 +119,18 @@ Default deployment topology:
 The samples below are intentionally short and representative. For field-level schema detail, use
 `/docs`. For longer JSON examples, use `docs/examples/*.json`.
 
+### Async `202 Accepted` Polling Contract
+
+Async-capable analytics surfaces return `202 Accepted` when work is queued or still running. The
+accepted body includes `calculation_id` or `inspection_id`, `poll_path`, `result_path`, and
+`recommended_poll_after_seconds`; the `Retry-After` response header carries the same cadence value.
+
+Clients should wait at least that many seconds before polling `poll_path` or `result_path` again.
+This cadence applies to analytics polling for TWR, benchmark, contribution, attribution,
+returns-series, workspace-summary, and TWR inspection. It is distinct from manual control-plane
+cooldowns where `Retry-After` means an operator action, such as recovery-drill or retention-cleanup
+execution, is temporarily rate-limited.
+
 ### `POST /performance/twr`
 
 Purpose:

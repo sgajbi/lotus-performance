@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 from app.api.async_openapi import async_result_responses, async_submission_responses
 from app.api.http_response_adapter import to_fastapi_response
 from app.api.mappers.analytics_workflow_requests import map_twr_request, map_workspace_summary_request
+from app.core.async_polling import ASYNC_RETRY_AFTER_HEADER, DEFAULT_RECOMMENDED_POLL_AFTER_SECONDS
 from app.models.attribution_analytics_requests import AttributionAnalyticsRequest
 from app.models.attribution_responses import AttributionAcceptedResponse, AttributionResponse
 from app.models.mwr_analytics_requests import MoneyWeightedReturnAnalyticsRequest
@@ -210,14 +211,29 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnAnalyticsRequest):
             "model": AttributionAcceptedResponse,
             "description": (
                 "Accepted for asynchronous attribution execution. Poll poll_path for execution "
-                "status or result_path for the completed attribution response."
+                "status or result_path for the completed attribution response. Wait at least "
+                "recommended_poll_after_seconds between polls; the same value is also returned "
+                f"in the {ASYNC_RETRY_AFTER_HEADER} header."
             ),
+            "headers": {
+                ASYNC_RETRY_AFTER_HEADER: {
+                    "description": (
+                        "Minimum seconds clients should wait before polling the async status or result route again."
+                    ),
+                    "schema": {
+                        "type": "integer",
+                        "minimum": DEFAULT_RECOMMENDED_POLL_AFTER_SECONDS,
+                        "example": DEFAULT_RECOMMENDED_POLL_AFTER_SECONDS,
+                    },
+                }
+            },
             "content": {
                 "application/json": {
                     "example": {
                         "calculation_id": "209da27d-f3f4-4e64-97c5-a2eb1d4fe4f3",
                         "poll_path": "/performance/executions/209da27d-f3f4-4e64-97c5-a2eb1d4fe4f3",
                         "result_path": "/performance/attribution/results/209da27d-f3f4-4e64-97c5-a2eb1d4fe4f3",
+                        "recommended_poll_after_seconds": DEFAULT_RECOMMENDED_POLL_AFTER_SECONDS,
                     }
                 }
             },
