@@ -12,6 +12,10 @@ from uuid import UUID
 
 from app.services.core_integration_service import CoreIntegrationService
 from app.services.execution_registry import ExecutionRegistry, execution_registry
+from app.services.stateful_portfolio_source_port import (
+    CoreStatefulPortfolioSourceAdapter,
+    StatefulPortfolioSourcePort,
+)
 
 STATEFUL_UPSTREAM_PAGE_LIMIT_EXCEEDED_REASON = "stateful_upstream_page_limit_exceeded"
 STATEFUL_UPSTREAM_REPEATED_PAGE_CURSOR_REASON = "stateful_upstream_repeated_page_cursor"
@@ -125,12 +129,16 @@ class StatefulInputService:
         *,
         core_service: CoreIntegrationService,
         execution_store: ExecutionRegistry | None = None,
+        portfolio_source_port: StatefulPortfolioSourcePort | None = None,
         portfolio_chunk_days: int = 90,
         reference_chunk_days: int = 365,
         max_concurrent_chunks: int = 4,
         max_pages_per_chunk: int = 25,
     ) -> None:
         self._core_service = core_service
+        self._portfolio_source_port = portfolio_source_port or CoreStatefulPortfolioSourceAdapter(
+            core_service=core_service,
+        )
         self._execution_store = execution_store or execution_registry
         self._portfolio_chunk_days = max(1, portfolio_chunk_days)
         self._reference_chunk_days = max(1, reference_chunk_days)
@@ -396,7 +404,7 @@ class StatefulInputService:
         self, request: _PortfolioReferenceRequest | _BenchmarkDefinitionRequest
     ) -> tuple[int, dict[str, Any]]:
         if isinstance(request, _PortfolioReferenceRequest):
-            return await self._core_service.get_portfolio_analytics_reference(
+            return await self._portfolio_source_port.fetch_reference(
                 portfolio_id=request.portfolio_id,
                 as_of_date=request.as_of_date,
             )
@@ -1113,7 +1121,7 @@ class StatefulInputService:
         consumer_system: str,
         page_token: str | None,
     ) -> tuple[int, dict[str, Any], dict[str, Any]]:
-        response = await self._core_service.get_portfolio_analytics_timeseries(
+        response = await self._portfolio_source_port.fetch_timeseries_page(
             portfolio_id=portfolio_id,
             as_of_date=as_of_date,
             start_date=chunk.start_date,

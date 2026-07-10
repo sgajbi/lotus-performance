@@ -23,7 +23,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 298 |
-| Test functions inventoried | 3456 |
+| Test functions inventoried | 3458 |
 | Integration/API/runtime test functions | 661 |
 | Contract/governance test functions | 133 |
 
@@ -34,13 +34,13 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 18 |
 | e2e | 1 | 21 |
 | integration | 28 | 334 |
-| unit | 260 | 3083 |
+| unit | 260 | 3085 |
 
 ## Test Functions By Family
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 1554 |
+| analytics_domain | 1556 |
 | api_or_runtime | 661 |
 | contract_or_governance | 133 |
 | observability_or_readiness | 350 |
@@ -63,8 +63,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | 10 | `tests/unit/app/test_contribution_endpoint_helpers.py` | unit | 52 | analytics_domain, api_or_runtime |
 | 11 | `tests/unit/services/test_twr_inspection_calculation_consistency.py` | unit | 51 | analytics_domain |
 | 12 | `tests/unit/services/test_workspace_summary_service.py` | unit | 50 | uncategorized |
-| 13 | `tests/unit/services/test_compute_executor_worker.py` | unit | 46 | uncategorized |
-| 14 | `tests/unit/services/test_stateful_input_service.py` | unit | 45 | analytics_domain |
+| 13 | `tests/unit/services/test_stateful_input_service.py` | unit | 47 | analytics_domain |
+| 14 | `tests/unit/services/test_compute_executor_worker.py` | unit | 46 | uncategorized |
 | 15 | `tests/unit/services/test_twr_mode_service.py` | unit | 45 | analytics_domain |
 | 16 | `tests/unit/engine/test_mwr.py` | unit | 44 | analytics_domain |
 | 17 | `tests/unit/services/test_stateful_benchmark_input_service.py` | unit | 44 | analytics_domain |
@@ -129,6 +129,9 @@ raising the measured API/runtime count to `661` and analytics-domain count to `1
 the uncategorized backlog flat. Issue #448 added execution-lineage lifecycle tests and classified
 lineage-worker tests as observability/readiness evidence, raising that family to `350` and reducing
 the measured uncategorized backlog to `958` without weakening the enforced ceiling.
+Issue #447 added stateful portfolio source port contract tests, raising source test functions to
+`3458` and analytics-domain tests to `1556` while keeping API/runtime, contract/governance,
+observability/readiness, quality/security, and uncategorized counts unchanged.
 
 This slice promotes the stable part of the taxonomy from report-only measurement to a
 regression-blocking evaluation gate. `make quality-test-taxonomy-gate` fails if API/runtime tests
