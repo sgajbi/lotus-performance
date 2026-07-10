@@ -1,4 +1,5 @@
 import json
+from collections import Counter
 from pathlib import Path
 
 from scripts.python_test_taxonomy_inventory import collect_test_modules, summarize_test_taxonomy
@@ -99,6 +100,22 @@ def test_issue_fix_closure_matrix_is_discoverable_and_merge_gated():
 
     assert "`#380` Lotus Performance Issue Discovery Ledger | Tracking ledger" in closure_matrix
     assert "Keep open." in closure_matrix
+
+
+def test_api_reference_endpoint_headings_are_unique():
+    endpoint_methods = {"DELETE", "GET", "PATCH", "POST", "PUT"}
+    endpoint_headings = []
+    for line in _read_lines("docs/guides/api_reference.md"):
+        if not line.startswith("### `") or not line.endswith("`"):
+            continue
+        heading = line.removeprefix("### `").removesuffix("`")
+        method = heading.split(" ", maxsplit=1)[0]
+        if method in endpoint_methods:
+            endpoint_headings.append(heading)
+
+    duplicates = sorted(heading for heading, count in Counter(endpoint_headings).items() if count > 1)
+
+    assert duplicates == []
 
 
 def test_cleanup_scope_is_documented_for_generated_runtime_artifacts():

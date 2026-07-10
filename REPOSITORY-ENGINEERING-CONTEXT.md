@@ -261,7 +261,7 @@ Important validation expectations:
     `make test-coverage-shard` and combined coverage enforcement through `make coverage-combine-gate`
     so workflow YAML does not become a second source of truth for pytest or coverage behavior.
     `make quality-test-taxonomy-gate` now enforces the current measured preservation baseline
-    directly: at least `648` API/runtime test functions, at least `126` contract/governance test
+    directly: at least `648` API/runtime test functions, at least `127` contract/governance test
     functions, and no more than `982` uncategorized test functions.
 15. `make container-supply-chain-evidence` is the repo-native container release-evidence command.
     It builds `lotus-performance:ci`, writes a CycloneDX SBOM and high/critical Trivy vulnerability
