@@ -19,7 +19,7 @@ def test_license_compliance_inventory_matches_policy() -> None:
     packages_by_name = {package.normalized_name: package for package in packages}
 
     assert issues == []
-    assert len(packages) == 49
+    assert len(packages) == 45
     assert packages_by_name["certifi"].review_status == "review_required_exception"
     assert packages_by_name["psycopg"].review_status == "review_required_exception"
     assert packages_by_name["psycopg"].exception_owner == "platform-security"
