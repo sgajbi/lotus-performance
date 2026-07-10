@@ -108,8 +108,8 @@ def test_issue_fix_closure_matrix_is_discoverable_and_merge_gated():
     assert "Review playbook, issue closure matrix, and codebase review ledger" in docs_index
     assert "ISSUE-FIX-CLOSURE-MATRIX.md" in review_playbook
     assert "before PR creation or issue closure" in review_playbook
-    assert "Actionable issues fixed locally | 37" in closure_matrix
-    assert "Actionable issues remaining | 3" in closure_matrix
+    assert "Actionable issues fixed locally | 38" in closure_matrix
+    assert "Actionable issues remaining | 2" in closure_matrix
     assert "Issues safe to close now | 0" in closure_matrix
     assert "merged to `main`" in closure_matrix
     assert "No PR should be raised from this branch until the issue matrix remains complete" in closure_matrix
@@ -132,6 +132,9 @@ def test_issue_fix_closure_matrix_is_discoverable_and_merge_gated():
         "#417",
         "#424",
         "#425",
+        "#428",
+        "#429",
+        "#430",
         "#431",
         "#432",
         "#433",
@@ -156,6 +159,7 @@ def test_issue_fix_closure_matrix_is_discoverable_and_merge_gated():
         assert f"`{issue_number}`" in closure_matrix
 
     assert "`#380` Lotus Performance Issue Discovery Ledger | Tracking ledger" in closure_matrix
+    assert "`#428` Validate runtime worker, retention, and threshold settings before startup" in closure_matrix
     assert "Keep open." in closure_matrix
 
 
@@ -1914,6 +1918,7 @@ def test_enterprise_readiness_covers_privileged_operator_reads():
     assert "Privileged operator read surfaces are protected" in enterprise
     assert "ENTERPRISE_RUNTIME_PROFILE=production" in enterprise
     assert "fails closed" in enterprise
+    assert "non-zero production-like values" in enterprise
     assert "Allowed privileged write operations also emit audit metadata" in enterprise
     assert "Allowed privileged operator reads also emit audit metadata" in enterprise
     assert "ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ" in api_reference
@@ -1930,6 +1935,8 @@ def test_enterprise_readiness_covers_privileged_operator_reads():
     assert "service-level stream guard retained as the final enforcement boundary" in enterprise
     assert "service-owned streamed body-byte counting" in wiki_security
     assert "Production-like profiles are explicit" in wiki_security
+    assert "non-zero production-like values" in wiki_security
+    assert "disabled `0` runtime degradation thresholds are allowed" in wiki_security
     assert "operations.runtime.manage" in wiki_security
     assert "operations.runtime.read" in wiki_security
 
@@ -2015,6 +2022,9 @@ def test_runtime_threshold_profiles_cover_controlled_settings():
     assert "Development" in profiles
     assert "Staging" in profiles
     assert "Production" in profiles
+    assert "production-like profiles" in profiles.lower()
+    assert "fail startup" in profiles
+    assert "diagnostic exception" in profiles
     assert "docs/standards/runtime-threshold-profiles.md" in policy
     assert "docs/standards/runtime-threshold-profiles.md" in templates
     assert "runtime-threshold-profiles.md" in api_reference
@@ -2168,6 +2178,9 @@ def test_runtime_retention_cleanup_runbook_is_governed():
     assert "trigger_mode" in runbook
     assert "job_id" in runbook
     assert "RUNTIME_RETENTION_LEGAL_HOLD_PATH" in runbook
+    assert "Zero and negative values fail" in runbook
+    assert "`--retention-days 1` is accepted" in runbook
+    assert "`--retention-days 0` is invalid" in runbook
     assert "protected_reason_counts" in runbook
     assert "client disputes, regulatory records, audit freezes" in runbook
     assert "make runtime-retention-smoke" in runbook

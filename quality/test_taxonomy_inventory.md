@@ -23,7 +23,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 305 |
-| Test functions inventoried | 3513 |
+| Test functions inventoried | 3518 |
 | Integration/API/runtime test functions | 689 |
 | Contract/governance test functions | 148 |
 
@@ -34,7 +34,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 18 |
 | e2e | 1 | 21 |
 | integration | 28 | 341 |
-| unit | 267 | 3133 |
+| unit | 267 | 3138 |
 
 ## Test Functions By Family
 
@@ -43,8 +43,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | analytics_domain | 1570 |
 | api_or_runtime | 689 |
 | contract_or_governance | 148 |
-| observability_or_readiness | 350 |
-| quality_or_security | 161 |
+| observability_or_readiness | 353 |
+| quality_or_security | 163 |
 | uncategorized | 951 |
 
 ## Largest Test Modules
@@ -52,7 +52,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Rank | Module | Suite | Test functions | Families |
 | ---: | --- | --- | ---: | --- |
 | 1 | `tests/unit/services/test_returns_series_service.py` | unit | 96 | analytics_domain |
-| 2 | `tests/unit/app/test_enterprise_readiness_additional.py` | unit | 85 | observability_or_readiness |
+| 2 | `tests/unit/app/test_enterprise_readiness_additional.py` | unit | 87 | observability_or_readiness |
 | 3 | `tests/unit/services/test_stateful_attribution_input_service.py` | unit | 70 | analytics_domain |
 | 4 | `tests/unit/docs/test_public_docs_contract.py` | unit | 64 | contract_or_governance |
 | 5 | `tests/unit/app/test_openapi_enrichment.py` | unit | 61 | api_or_runtime |
@@ -77,9 +77,9 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | 24 | `tests/unit/models/test_twr_requests.py` | unit | 32 | analytics_domain |
 | 25 | `tests/unit/services/test_twr_inspection_reconciliation.py` | unit | 32 | analytics_domain |
 | 26 | `tests/integration/test_returns_series_api.py` | integration | 31 | analytics_domain, api_or_runtime |
-| 27 | `tests/unit/models/test_workspace_summary_models.py` | unit | 31 | uncategorized |
-| 28 | `tests/unit/services/test_twr_inspection_service.py` | unit | 31 | analytics_domain |
-| 29 | `tests/unit/app/test_enterprise_readiness.py` | unit | 30 | observability_or_readiness |
+| 27 | `tests/unit/app/test_enterprise_readiness.py` | unit | 31 | observability_or_readiness |
+| 28 | `tests/unit/models/test_workspace_summary_models.py` | unit | 31 | uncategorized |
+| 29 | `tests/unit/services/test_twr_inspection_service.py` | unit | 31 | analytics_domain |
 | 30 | `tests/unit/services/test_operator_action_replay_service.py` | unit | 30 | uncategorized |
 
 ## Interpretation
@@ -175,7 +175,10 @@ raising source test functions to `3509`, API/runtime tests to `685`, contract/go
 `148`, and uncategorized tests to `951` while preserving the existing ceiling. Issue #429 added
 operator-navigation mapping and endpoint regression coverage for workspace-summary runtime
 work-item and recovery result links, raising source test functions to `3513` and API/runtime tests
-to `689` without growing the uncategorized backlog.
+to `689` without growing the uncategorized backlog. Issue #428 added settings-validation and
+production runtime-threshold fail-closed coverage, raising source test functions to `3518`,
+observability/readiness tests to `353`, and quality/security tests to `163` without growing the
+uncategorized backlog.
 
 This slice promotes the stable part of the taxonomy from report-only measurement to a
 regression-blocking evaluation gate. `make quality-test-taxonomy-gate` fails if API/runtime tests

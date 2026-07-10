@@ -1655,6 +1655,14 @@ contract, the route returns `409 Conflict` with detail
 
 All service configuration comes from `app.core.config.Settings`.
 
+Startup validation rejects invalid runtime numeric controls before API routes, workers, or
+operator actions can consume them. Worker poll intervals, batch sizes, retry budgets, leases,
+stateful chunk/page/concurrency limits, analytics offload thresholds, runtime-retention controls,
+and recovery-drill controls must be positive where they drive work or history retention.
+Runtime-status degradation thresholds may be `0` only in local diagnostic posture; production-like
+profiles (`ENTERPRISE_RUNTIME_PROFILE=production`, `prod`, or `staging`) fail closed when any
+governed runtime threshold remains disabled at `0`.
+
 ### Service identity and logging
 
 | Variable | Default | Purpose |
@@ -1818,6 +1826,10 @@ settings `LOTUS_AI_TIMEOUT_SECONDS`, `LOTUS_AI_MAX_RETRIES`, and
 | `RUNTIME_RETENTION_APPLY_PREVIEW_MAX_AGE_SECONDS` | `3600.0` | max preview age before apply |
 | `RUNTIME_RETENTION_ACTION_LEASE_STALE_SECONDS` | `3600.0` | stale action lease threshold |
 
+Retention history limits, history max age, worker poll interval, manual cooldown, preview max age,
+and stale action lease settings must be positive. Invalid overlays fail settings construction
+before runtime-retention workers or governed operator actions start.
+
 ### Analytics offload thresholds
 
 | Variable | Default | Purpose |
@@ -1835,6 +1847,9 @@ settings `LOTUS_AI_TIMEOUT_SECONDS`, `LOTUS_AI_MAX_RETRIES`, and
 | `ATTRIBUTION_EXECUTOR_WINDOW_DAYS` | `180` | attribution async threshold by window |
 | `ATTRIBUTION_EXECUTOR_INPUT_COUNT` | `250` | attribution async threshold by input size |
 
+Analytics offload thresholds must remain positive. To force async behavior in a focused test or
+diagnostic path, set a low positive threshold such as `1`; do not use `0` in runtime configuration.
+
 ### Methodology and rollout toggles
 
 | Variable | Default | Purpose |
@@ -1850,6 +1865,9 @@ settings `LOTUS_AI_TIMEOUT_SECONDS`, `LOTUS_AI_MAX_RETRIES`, and
 | `RECOVERY_DRILL_RETENTION_MAX_AGE_DAYS` | `90` | retained drill max age |
 | `RECOVERY_DRILL_MANUAL_RUN_COOLDOWN_SECONDS` | `300.0` | manual drill cooldown |
 | `RECOVERY_DRILL_ACTION_LEASE_STALE_SECONDS` | `3600.0` | stale drill action lease threshold |
+
+Recovery-drill retention limits, max age, cooldown, and stale action lease settings must be
+positive. Invalid values fail before recovery-drill history or control-plane actions consume them.
 
 ## Example Files
 

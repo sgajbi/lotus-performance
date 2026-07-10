@@ -67,7 +67,17 @@ in-progress evidence is not treated as a successful idempotent replay.
 - Default setting: `RUNTIME_RETENTION_DAYS`
 - Current repo-owned default: `30`
 
-Override the default only with an explicit operator or environment-level reason.
+Runtime settings validation requires `RUNTIME_RETENTION_DAYS`, `RUNTIME_RETENTION_HISTORY_LIMIT`,
+`RUNTIME_RETENTION_HISTORY_MAX_AGE_DAYS`, `RUNTIME_RETENTION_WORKER_POLL_SECONDS`,
+`RUNTIME_RETENTION_MANUAL_RUN_COOLDOWN_SECONDS`,
+`RUNTIME_RETENTION_APPLY_PREVIEW_MAX_AGE_SECONDS`, and
+`RUNTIME_RETENTION_ACTION_LEASE_STALE_SECONDS` to be positive. Zero and negative values fail before
+the API, worker, or cleanup script can consume them, so runtime-retention policy and recovery-drill
+policy cannot silently diverge through disabled history or cooldown controls.
+
+Override the default only with an explicit operator or environment-level reason. Boundary values are
+valid when they remain positive: for example, `--retention-days 1` is accepted as an intentional
+one-day policy, while `--retention-days 0` is invalid.
 
 ## Safe Execution Sequence
 

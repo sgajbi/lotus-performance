@@ -305,6 +305,11 @@ Threshold policy and compose overlays live in:
 - [docs/standards/runtime-threshold-profiles.md](../docs/standards/runtime-threshold-profiles.md)
 - [docs/examples](../docs/examples/)
 
+Production-like profiles fail startup when governed runtime-status thresholds remain disabled at
+`0`; use local mode only for diagnostic threshold-disable scenarios. Runtime worker, retention,
+recovery-drill, stateful chunking, and analytics offload numeric controls must stay positive so
+workers and operator actions cannot consume invalid lease, cooldown, batch, or retention settings.
+
 ## Related pages
 
 - [Architecture](Architecture)

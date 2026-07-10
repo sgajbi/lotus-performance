@@ -34,6 +34,7 @@ Production-like profiles are explicit: `ENTERPRISE_RUNTIME_PROFILE=production`, 
 - `ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ=true`
 - `ENTERPRISE_ENFORCE_RUNTIME_CONFIG=true`
 - `ENTERPRISE_PRIMARY_KEY_ID` is configured
+- governed runtime-status degradation thresholds are set to non-zero production-like values
 
 Governed operator write surfaces such as `POST /integration/recovery-drills/run` and
 `POST /integration/runtime-retention-cleanups/run` require enterprise identity plus
@@ -43,7 +44,9 @@ Execution polling and endpoint-specific async result routes are not readable by 
 alone when privileged-read authz is enabled; callers need enterprise identity plus either
 `operations.runtime.read` or `X-Portfolio-Id` matching the durable execution `portfolio_id`.
 Local relaxed mode remains explicit through `ENTERPRISE_RUNTIME_PROFILE=local` or an unset runtime
-profile with the authz switches disabled.
+profile with the authz switches disabled. Local mode is the diagnostic exception where disabled
+`0` runtime degradation thresholds are allowed; disabled `0` runtime degradation thresholds are allowed
+only in local mode.
 
 ## Important cautions
 
