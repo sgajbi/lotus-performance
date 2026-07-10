@@ -169,7 +169,7 @@ def _exception_for(policy: dict, package_name: str, license_token: str) -> dict 
     for exception in policy.get("exceptions", []):
         if _normalize_name(exception.get("package", "")) != _normalize_name(package_name):
             continue
-        if exception.get("license_token") != license_token:
+        if not _license_token_matches_exception(str(exception.get("license_token", "")), license_token):
             continue
         try:
             expires_on = date.fromisoformat(exception.get("expires_on", ""))
@@ -178,6 +178,16 @@ def _exception_for(policy: dict, package_name: str, license_token: str) -> dict 
         if expires_on >= today:
             return exception
     return None
+
+
+def _license_token_matches_exception(exception_token: str, observed_token: str) -> bool:
+    normalized_exception = exception_token.lower()
+    normalized_observed = observed_token.lower()
+    return (
+        normalized_exception == normalized_observed
+        or normalized_exception in normalized_observed
+        or normalized_observed in normalized_exception
+    )
 
 
 def _classify_license(package_name: str, license_text: str, policy: dict) -> tuple[str, str, str]:

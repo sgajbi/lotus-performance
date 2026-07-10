@@ -21,7 +21,7 @@ Until then, the local status can be `Fixed locally` while the GitHub issue remai
 Latest local pre-PR verification for this batch:
 
 - Local `make test-unit`: passed with `3314 passed`.
-- `make quality-test-taxonomy-gate`: passed with 299 modules, 3,475 source test functions, 663
+- `make quality-test-taxonomy-gate`: passed with 299 modules, 3,476 source test functions, 663
   API/runtime test functions, 136 contract/governance test functions, and 965 uncategorized test
   functions under the unchanged 969 ceiling.
 - `make openapi-gate` and `python scripts/api_vocabulary_inventory.py --validate-only`: passed.
