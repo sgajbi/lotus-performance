@@ -288,8 +288,16 @@ async def test_contribution_endpoint_maps_stateful_resolution_errors_to_http_500
         await contribution_calculation_workflow_service.calculate_contribution_workflow(request)
 
     assert exc_info.value.status_code == 500
-    assert "resolver blew up" in str(exc_info.value.detail)
-    assert "resolver blew up" in str(failure_capture["message"])
+    assert (
+        exc_info.value.detail
+        == "Contribution request resolution failed unexpectedly. Use the correlation_id for support."
+    )
+    assert (
+        failure_capture["message"]
+        == "Contribution request resolution failed unexpectedly. Use the correlation_id for support."
+    )
+    assert "resolver blew up" not in str(exc_info.value.detail)
+    assert "resolver blew up" not in str(failure_capture["message"])
 
 
 @pytest.mark.asyncio
@@ -428,8 +436,16 @@ async def test_contribution_endpoint_maps_sync_resolution_errors_to_http_500(moc
         await contribution_calculation_workflow_service.calculate_contribution_workflow(request)
 
     assert exc_info.value.status_code == 500
-    assert "sync resolver blew up" in str(exc_info.value.detail)
-    assert "sync resolver blew up" in str(failure_capture["message"])
+    assert (
+        exc_info.value.detail
+        == "Contribution request resolution failed unexpectedly. Use the correlation_id for support."
+    )
+    assert (
+        failure_capture["message"]
+        == "Contribution request resolution failed unexpectedly. Use the correlation_id for support."
+    )
+    assert "sync resolver blew up" not in str(exc_info.value.detail)
+    assert "sync resolver blew up" not in str(failure_capture["message"])
 
 
 @pytest.mark.asyncio

@@ -583,8 +583,12 @@ async def test_benchmark_endpoint_maps_stateful_resolution_errors_to_http_500(mo
         await benchmark_calculation_workflow_service.calculate_benchmark_workflow(request)
 
     assert exc_info.value.status_code == 500
-    assert "benchmark resolver blew up" in str(exc_info.value.detail)
-    assert "benchmark resolver blew up" in str(failure_capture["message"])
+    assert exc_info.value.detail == "Benchmark calculation failed unexpectedly. Use the correlation_id for support."
+    assert (
+        failure_capture["message"] == "Benchmark calculation failed unexpectedly. Use the correlation_id for support."
+    )
+    assert "benchmark resolver blew up" not in str(exc_info.value.detail)
+    assert "benchmark resolver blew up" not in str(failure_capture["message"])
 
 
 @pytest.mark.asyncio
@@ -683,8 +687,12 @@ async def test_benchmark_endpoint_maps_sync_resolution_errors_to_http_500(mocker
         await benchmark_calculation_workflow_service.calculate_benchmark_workflow(request)
 
     assert exc_info.value.status_code == 500
-    assert "sync benchmark resolver blew up" in str(exc_info.value.detail)
-    assert "sync benchmark resolver blew up" in str(failure_capture["message"])
+    assert exc_info.value.detail == "Benchmark calculation failed unexpectedly. Use the correlation_id for support."
+    assert (
+        failure_capture["message"] == "Benchmark calculation failed unexpectedly. Use the correlation_id for support."
+    )
+    assert "sync benchmark resolver blew up" not in str(exc_info.value.detail)
+    assert "sync benchmark resolver blew up" not in str(failure_capture["message"])
 
 
 @pytest.mark.asyncio
