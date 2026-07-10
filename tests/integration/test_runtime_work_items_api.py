@@ -3,6 +3,7 @@ from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
+from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY
 from app.services.compute_job_store import ComputeJobStatus, compute_job_store
 from app.services.lineage_metadata_store import LineagePayloadModel, LineageRecordModel, lineage_metadata_store
 from app.services.runtime_operator_diagnostics import COMPUTE_WORK_ITEM_READ_FAILED
@@ -207,6 +208,65 @@ def test_runtime_work_items_exposes_result_paths_for_twr_and_benchmark_jobs():
         assert twr_response.json()["compute_items"][0]["result_path"] == f"/performance/twr/results/{twr_id}"
         assert benchmark_response.json()["compute_items"][0]["result_path"] == (
             f"/performance/benchmark/results/{benchmark_id}"
+        )
+    finally:
+        compute_job_store.clear_all_records()
+        lineage_metadata_store.clear_all_records()
+
+
+def test_runtime_work_items_exposes_workspace_summary_result_paths_for_active_and_failed_compute_items():
+    compute_job_store.create_schema()
+    lineage_metadata_store.create_schema()
+    compute_job_store.clear_all_records()
+    lineage_metadata_store.clear_all_records()
+    now = datetime.now(timezone.utc)
+
+    active_id = uuid4()
+    failed_id = uuid4()
+
+    for calculation_id in [active_id, failed_id]:
+        compute_job_store.enqueue_job(
+            calculation_id=calculation_id,
+            analytics_type=ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY,
+            request_payload={"portfolio_id": str(calculation_id)},
+            max_attempts=2,
+        )
+
+    with compute_job_store._session() as session:
+        failed_row = compute_job_store._get_model(session, failed_id)
+        failed_row.job_status = ComputeJobStatus.FAILED.value
+        failed_row.completed_at_utc = now - timedelta(seconds=20)
+        failed_row.error_type = "RuntimeError"
+        failed_row.error_message = "workspace summary failed"
+
+    try:
+        with TestClient(app) as client:
+            active_response = client.get(
+                "/integration/runtime-work-items",
+                params={
+                    "queue": "compute",
+                    "status": "active",
+                    "compute_analytics_type": ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY,
+                    "limit": 5,
+                },
+            )
+            failed_response = client.get(
+                "/integration/runtime-work-items",
+                params={
+                    "queue": "compute",
+                    "status": "failed",
+                    "compute_analytics_type": ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY,
+                    "limit": 5,
+                },
+            )
+
+        assert active_response.status_code == 200
+        assert failed_response.status_code == 200
+        assert active_response.json()["compute_items"][0]["result_path"] == (
+            f"/performance/workspace-summary/results/{active_id}"
+        )
+        assert failed_response.json()["compute_items"][0]["result_path"] == (
+            f"/performance/workspace-summary/results/{failed_id}"
         )
     finally:
         compute_job_store.clear_all_records()

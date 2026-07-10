@@ -108,8 +108,8 @@ def test_issue_fix_closure_matrix_is_discoverable_and_merge_gated():
     assert "Review playbook, issue closure matrix, and codebase review ledger" in docs_index
     assert "ISSUE-FIX-CLOSURE-MATRIX.md" in review_playbook
     assert "before PR creation or issue closure" in review_playbook
-    assert "Actionable issues fixed locally | 36" in closure_matrix
-    assert "Actionable issues remaining | 4" in closure_matrix
+    assert "Actionable issues fixed locally | 37" in closure_matrix
+    assert "Actionable issues remaining | 3" in closure_matrix
     assert "Issues safe to close now | 0" in closure_matrix
     assert "merged to `main`" in closure_matrix
     assert "No PR should be raised from this branch until the issue matrix remains complete" in closure_matrix
@@ -1304,7 +1304,7 @@ def test_api_reference_documents_endpoint_level_capabilities_contract():
     assert "/performance/twr/results/{calculation_id}" in runtime_topology
     assert "/performance/benchmark/results/{calculation_id}" in runtime_topology
     assert (
-        "`result_path` can now point directly to async result routes for `TWR`, `BENCHMARK`, `ReturnsSeries`, `Contribution`, and `Attribution`"
+        "`result_path` can now point directly to async result routes for `TWR`, `BENCHMARK`, `ReturnsSeries`, `Contribution`, `Attribution`, `WORKSPACE_SUMMARY`, and `TWR_INSPECTION`"
         in api_reference
     )
     assert "POST /performance/workspace-summary" in api_reference

@@ -784,7 +784,7 @@ Return semantics for the workspace surface are now explicit rather than inferred
   `compute_work_item_read_failed` or `lineage_work_item_read_failed`; use `correlation_id` and
   structured log event `runtime_operator_read_degraded` to inspect the safe filter context and
   exception class
-- `result_path` can now point directly to async result routes for `TWR`, `BENCHMARK`, `ReturnsSeries`, `Contribution`, and `Attribution` when that workflow exposes a stable endpoint-specific result surface
+- `result_path` can now point directly to async result routes for `TWR`, `BENCHMARK`, `ReturnsSeries`, `Contribution`, `Attribution`, `WORKSPACE_SUMMARY`, and `TWR_INSPECTION` when that workflow exposes a stable endpoint-specific result surface
 - use this when runtime-status tells you there is pressure, and you need the actual work items behind it without querying the database directly
 - `next_offset` is queue-local and only appears when additional filtered work items remain for that queue
 - response model: `app.models.runtime_work_items.RuntimeWorkItemsResponse`
@@ -818,7 +818,7 @@ Return semantics for the workspace surface are now explicit rather than inferred
   `compute_recovery_read_failed` or `lineage_recovery_read_failed`; use `correlation_id` and
   structured log event `runtime_operator_read_degraded` to inspect the safe filter context and
   exception class
-- `result_path` can now point directly to async result routes for `TWR`, `BENCHMARK`, `ReturnsSeries`, `Contribution`, and `Attribution` when that workflow exposes a stable endpoint-specific result surface
+- `result_path` can now point directly to async result routes for `TWR`, `BENCHMARK`, `ReturnsSeries`, `Contribution`, `Attribution`, `WORKSPACE_SUMMARY`, and `TWR_INSPECTION` when that workflow exposes a stable endpoint-specific result surface
 - use this when runtime-status shows recent recovery activity and you need the concrete event stream behind the bounded status snapshot without querying the database directly
 - `next_offset` is queue-local and only appears when additional filtered events remain for that queue
 - the cursor fields give deterministic seek pagination for hot recovery streams where offset paging may drift as new recoveries arrive

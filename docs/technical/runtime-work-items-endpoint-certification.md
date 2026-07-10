@@ -54,7 +54,8 @@ Every response carries:
   durable failure context, and direct execution, lineage, and result links
 
 `next_offset` is queue-local and appears only when additional matching work items remain for that
-queue. `result_path` appears only when the analytics family has a stable async result route.
+queue. `result_path` appears only when the analytics family has a stable async result route, including
+workspace-summary jobs at `/performance/workspace-summary/results/{calculation_id}`.
 
 ## Behavior And Feature Checks
 
@@ -68,7 +69,8 @@ Certified behavior:
 - `next_offset` signals additional matching rows without client-side count arithmetic
 - `min_age_seconds` supports stale-work triage
 - analytics-family and governed calculation-id prefix filters are applied before pagination
-- direct `execution_path`, `lineage_path`, and supported async `result_path` links are emitted
+- direct `execution_path`, `lineage_path`, and supported async `result_path` links are emitted,
+  including workspace-summary compute jobs
 - one queue can degrade to `unavailable` while the other queue remains usable
 - durable metadata store failure returns unavailable queue statuses rather than misleading empty data
 - partial compute read failure reports `reason="compute_work_item_read_failed"`

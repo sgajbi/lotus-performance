@@ -3,6 +3,7 @@ from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
+from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY
 from app.services.compute_job_store import compute_job_store
 from app.services.lineage_metadata_store import lineage_metadata_store
 from app.services.runtime_operator_diagnostics import COMPUTE_RECOVERY_READ_FAILED
@@ -187,6 +188,45 @@ def test_runtime_recoveries_exposes_result_paths_for_twr_and_benchmark_jobs():
         assert twr_response.json()["compute_recoveries"][0]["result_path"] == f"/performance/twr/results/{twr_id}"
         assert benchmark_response.json()["compute_recoveries"][0]["result_path"] == (
             f"/performance/benchmark/results/{benchmark_id}"
+        )
+    finally:
+        compute_job_store.clear_all_records()
+        lineage_metadata_store.clear_all_records()
+
+
+def test_runtime_recoveries_exposes_workspace_summary_result_paths_for_compute_events():
+    compute_job_store.create_schema()
+    lineage_metadata_store.create_schema()
+    compute_job_store.clear_all_records()
+    lineage_metadata_store.clear_all_records()
+    now = datetime.now(timezone.utc)
+    calculation_id = uuid4()
+
+    compute_job_store.enqueue_job(
+        calculation_id=calculation_id,
+        analytics_type=ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY,
+        request_payload={"portfolio_id": str(calculation_id)},
+    )
+    with compute_job_store._session() as session:
+        row = compute_job_store._get_model(session, calculation_id)
+        row.attempt_count = 1
+        row.last_error_at_utc = now - timedelta(seconds=5)
+
+    try:
+        with TestClient(app) as client:
+            response = client.get(
+                "/integration/runtime-recoveries",
+                params={
+                    "queue": "compute",
+                    "limit": 5,
+                    "compute_analytics_type": ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY,
+                },
+            )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["compute_recoveries"][0]["result_path"] == (
+            f"/performance/workspace-summary/results/{calculation_id}"
         )
     finally:
         compute_job_store.clear_all_records()
