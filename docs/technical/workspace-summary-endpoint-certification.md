@@ -22,6 +22,11 @@ Do not use this endpoint for full contribution or attribution drill-downs. Use
 `POST /performance/contribution` and `POST /performance/attribution` for those strategic analytical
 surfaces.
 
+Currency and FX vocabulary is governed by the
+[RFC-020 multi-currency support matrix](./rfc-020-multi-currency-support-matrix.md). Workspace summary
+preserves source endpoint currency posture and must not invent FX evidence absent from the source
+response.
+
 ## Certified Request Options
 
 The certified request contract covers:

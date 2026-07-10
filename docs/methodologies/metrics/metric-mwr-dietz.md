@@ -13,6 +13,8 @@ or `MODIFIED_DIETZ`)
   - labeled fallback when `mwr_method="XIRR"` cannot produce one unambiguous root
 - Current implementation returns `method="MODIFIED_DIETZ"` for weighted cash-flow capital and
   `method="DIETZ"` for the midpoint Simple Dietz path.
+- Currency semantics: governed by
+  [RFC-020 multi-currency support matrix](../../technical/rfc-020-multi-currency-support-matrix.md)
 
 ## Inputs
 - `begin_mv`

@@ -55,6 +55,8 @@ Inside the current contract:
   `fx.rates` when any sourced position currency differs from `report_ccy` after trimming and
   uppercasing currency codes; missing source currency or missing FX coverage is rejected with HTTP
   `422` before contribution calculation starts
+- cross-endpoint currency vocabulary is governed by the
+  [RFC-020 multi-currency support matrix](../technical/rfc-020-multi-currency-support-matrix.md)
 - `lookthrough` is accepted as a compatibility request block only; lotus-performance does not
   decompose fund or structured-product holdings and expects lotus-core to provide already-visible
   position rows for the requested scope

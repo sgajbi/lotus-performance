@@ -11,8 +11,8 @@ Until then, the local status can be `Fixed locally` while the GitHub issue remai
 
 | Category | Count | Notes |
 | --- | ---: | --- |
-| Open GitHub issues reviewed | 21 | Includes the tracking ledger issue `#380`. |
-| Actionable issues fixed locally | 20 | Issues `#387`, `#388`, `#389`, `#390`, `#391`, `#392`, `#393`, `#396`, `#397`, `#398`, `#399`, `#400`, `#401`, `#415`, `#417`, `#424`, `#425`, `#442`, `#453`, and `#454`. |
+| Open GitHub issues reviewed | 22 | Includes the tracking ledger issue `#380`. |
+| Actionable issues fixed locally | 21 | Issues `#387`, `#388`, `#389`, `#390`, `#391`, `#392`, `#393`, `#396`, `#397`, `#398`, `#399`, `#400`, `#401`, `#415`, `#417`, `#424`, `#425`, `#442`, `#452`, `#453`, and `#454`. |
 | Tracking ledger issues | 1 | Issue `#380` remains open as the discovery ledger, not as a fix ticket. |
 | Issues safe to close now | 0 | Closure waits for PR merge, CI evidence, and wiki publication where applicable. |
 
@@ -21,8 +21,8 @@ Until then, the local status can be `Fixed locally` while the GitHub issue remai
 Latest local pre-PR verification for this batch:
 
 - Local `make check`: passed with `3301 passed`.
-- `make quality-test-taxonomy-gate`: passed with 297 modules, 3,448 source test functions, 658
-  API/runtime test functions, 131 contract/governance test functions, and 969 uncategorized test
+- `make quality-test-taxonomy-gate`: passed with 297 modules, 3,449 source test functions, 658
+  API/runtime test functions, 132 contract/governance test functions, and 969 uncategorized test
   functions.
 - `make openapi-gate` and `python scripts/api_vocabulary_inventory.py --validate-only`: passed.
 - Wiki check-only: expected unpublished branch drift where repo-authored wiki source changed; publish
@@ -36,6 +36,7 @@ Latest local pre-PR verification for this batch:
 | `#417` Stop presenting static trust telemetry fixtures as runtime proof | Fixed locally | `LP-CR-1655` | Repo-owned `contracts/trust-telemetry/` files are now explicitly classified as static fallback fixtures, not runtime proof. Tests verify the README wording and fixture `source_artifact_uri` classification so contract fixtures cannot be mislabeled as runtime telemetry without separate runtime output evidence. | Close after merge and green PR evidence. |
 | `#424` Make migration-apply exercise durable schema upgrades, not only contract prose | Fixed locally | `LP-CR-1656` | `make migration-apply` now runs executable durable schema bootstrap apply/verify through `scripts/durable_schema_apply.py`, emits structured operator evidence under `artifacts/durable-schema-apply/`, verifies owned execution, compute, async-result, lineage, and composite metadata tables, and checks additive lineage/composite schema columns. Same-pattern scan kept prose-only validation in clearly named contract/inventory/runbook targets while blocking `migration-apply` from reverting to the prose checker. | Close after merge, green PR evidence, and wiki publication. |
 | `#425` Clarify and enforce returns-series strict-intersection fill semantics | Fixed locally | `LP-CR-1657` | Returns-series normalization now applies selected benchmark/risk-free fill before strict intersection, while strict no-fill behavior remains unchanged. Diagnostics expose `fill_evidence` so filled side-series dates are distinguishable from observed source dates, and freshness continues to use source frames. Same-pattern coverage includes benchmark and risk-free side series, forward-fill and zero-fill, API behavior, active/cumulative active outputs, docs certification, method docs, runbook, and wiki source. | Close after merge, green PR evidence, and wiki publication. |
+| `#452` Publish an endpoint-by-endpoint RFC-020 multi-currency support matrix | Fixed locally | `LP-CR-1658` | Added the canonical RFC-020 multi-currency support matrix covering TWR, MWR, Contribution, Attribution, Benchmark, Returns Series, and Workspace Summary. RFC-020/RFC index, API reference, endpoint guides, methodology docs, certification pages, and wiki source now point to endpoint-specific support truth. Docs-contract coverage parses the matrix and guards MWR `SINGLE_REPORTING_CURRENCY` / `SOURCE_PRECONVERTED_WITH_FX_EVIDENCE`, Attribution `currency_mode=\"BOTH\"`, Contribution local/FX reconciliation, and returns-series non-decomposition semantics. | Close after merge, green PR evidence, and wiki publication. |
 | `#397` Protect TWR inspection artifact downloads with privileged-read authorization | Fixed locally | `LP-CR-1625` | Central privileged-read rule family now covers `/performance/inspections`; same-class file-backed evidence route scan found lineage already governed and inspections aligned; unit and integration authz tests cover parent and child artifact paths. | Close after merge and green PR evidence. |
 | `#396` Normalize stateful source currency codes before mixed-currency FX gating | Fixed locally | `LP-CR-1626` | Shared `normalized_currency_code(...)` helper replaces raw string comparisons across contribution, attribution, and cash-flow currency checks; blank, whitespace, case-only, and true mixed-currency regressions are covered. | Close after merge and green PR evidence. |
 | `#388` Normalize legacy ITD period usage to canonical SI across performance APIs | Fixed locally | `LP-CR-1627` | Since-inception aliases normalize to canonical `SI` before calculations, metadata, lineage windows, and response keys; current authored examples reject `"period": "ITD"` unless documenting alias compatibility. | Close after merge and green PR evidence. |

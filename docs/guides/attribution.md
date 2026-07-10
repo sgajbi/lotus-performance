@@ -52,6 +52,9 @@ The current stateful public contract is intentionally fenced to:
   after trimming and uppercasing currency codes
 - `currency_mode="BOTH"` requires `fx.rates` when sourced positions include currencies different from `report_ccy`
 
+For cross-endpoint currency vocabulary, use the
+[RFC-020 multi-currency support matrix](../technical/rfc-020-multi-currency-support-matrix.md).
+
 Optional controls include:
 
 - `model`

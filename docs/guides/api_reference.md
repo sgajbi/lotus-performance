@@ -8,6 +8,11 @@ Canonical machine-readable contract:
 This guide is a human-oriented map of the current endpoint surface. Model-level field
 descriptions and examples are maintained in the generated OpenAPI contract.
 
+Currency and FX vocabulary is endpoint-specific. Use
+[`docs/technical/rfc-020-multi-currency-support-matrix.md`](../technical/rfc-020-multi-currency-support-matrix.md)
+as the canonical support matrix before assuming `currency_mode`, `report_ccy`,
+`reporting_currency`, or FX evidence parity across endpoints.
+
 ## Async polling contract
 
 Analytics routes that return `202 Accepted` include machine-readable polling guidance in both the

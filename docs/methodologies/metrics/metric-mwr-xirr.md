@@ -8,6 +8,8 @@ Money-Weighted Return via XIRR (`money_weighted_return` when method resolves to 
   - legacy stateless top-level `begin_mv`, `end_mv`, and `cash_flows[]`
   - stateful payload (`stateful_input.window_start_date`) resolved from lotus-core portfolio timeseries
 - Path coverage: applies when `mwr_method="XIRR"` and exactly one dated XIRR root is detected
+- Currency semantics: governed by
+  [RFC-020 multi-currency support matrix](../../technical/rfc-020-multi-currency-support-matrix.md)
 
 ## Inputs
 - `begin_mv`

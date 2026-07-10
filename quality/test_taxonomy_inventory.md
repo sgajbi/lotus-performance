@@ -23,9 +23,9 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 297 |
-| Test functions inventoried | 3448 |
+| Test functions inventoried | 3449 |
 | Integration/API/runtime test functions | 658 |
-| Contract/governance test functions | 131 |
+| Contract/governance test functions | 132 |
 
 ## Test Functions By Suite
 
@@ -34,7 +34,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 18 |
 | e2e | 1 | 21 |
 | integration | 28 | 331 |
-| unit | 259 | 3078 |
+| unit | 259 | 3079 |
 
 ## Test Functions By Family
 
@@ -42,7 +42,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | --- | ---: |
 | analytics_domain | 1552 |
 | api_or_runtime | 658 |
-| contract_or_governance | 131 |
+| contract_or_governance | 132 |
 | observability_or_readiness | 338 |
 | quality_or_security | 145 |
 | uncategorized | 969 |
@@ -56,7 +56,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | 3 | `tests/unit/services/test_stateful_attribution_input_service.py` | unit | 70 | analytics_domain |
 | 4 | `tests/unit/app/test_openapi_enrichment.py` | unit | 61 | api_or_runtime |
 | 5 | `tests/unit/services/test_compute_job_store.py` | unit | 61 | observability_or_readiness |
-| 6 | `tests/unit/docs/test_public_docs_contract.py` | unit | 59 | contract_or_governance |
+| 6 | `tests/unit/docs/test_public_docs_contract.py` | unit | 60 | contract_or_governance |
 | 7 | `tests/unit/engine/test_attribution.py` | unit | 57 | analytics_domain |
 | 8 | `tests/unit/services/test_twr_inspection_source_economics.py` | unit | 57 | analytics_domain |
 | 9 | `tests/unit/services/test_lineage_metadata_store.py` | unit | 56 | uncategorized |
@@ -120,6 +120,8 @@ Issue #424 added executable durable schema apply/verify coverage and classified 
 command tests as quality/security evidence while keeping the uncategorized ceiling at `969`.
 Issue #425 added returns-series strict-intersection fill semantics coverage, raising the measured
 API/runtime count to `658` and analytics-domain count to `1552` without growing uncategorized tests.
+Issue #452 added docs-contract coverage for the RFC-020 endpoint-specific multi-currency support
+matrix, raising the measured contract/governance count to `132` without changing enforced floors.
 
 This slice promotes the stable part of the taxonomy from report-only measurement to a
 regression-blocking evaluation gate. `make quality-test-taxonomy-gate` fails if API/runtime tests

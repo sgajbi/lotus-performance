@@ -178,6 +178,9 @@ For stateless source-preconverted schedules, callers may provide complete
   currency, FX rate, rate source/version/date, conversion policy, conversion timestamp, and
   conversion fingerprint
 
+For cross-endpoint currency vocabulary, use the
+[RFC-020 multi-currency support matrix](../technical/rfc-020-multi-currency-support-matrix.md).
+
 ## Multi-currency note
 
 MWR is not decomposed into local and FX components on the current public contract. Callers should
