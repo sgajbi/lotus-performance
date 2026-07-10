@@ -1235,7 +1235,10 @@ def test_execution_api_exposes_terminal_async_result_metadata(client, monkeypatc
         body = execution_response.json()
         assert body["status"] == "failed"
         assert body["async_result"]["result_status"] == "failed"
-        assert body["async_result"]["error_message"] == "explode"
+        assert (
+            body["async_result"]["error_message"]
+            == "Compute job execution failed unexpectedly. Use the correlation_id for support."
+        )
         assert body["async_result"]["error_type"] == "RuntimeError"
     finally:
         settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS = original_threshold
