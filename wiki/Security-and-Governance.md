@@ -51,4 +51,6 @@ profile with the authz switches disabled.
   governed default is 1 MiB (`1048576` bytes), and ingress/API gateway limits should be at or below
   the effective `ENTERPRISE_MAX_WRITE_PAYLOAD_BYTES` value
 - async execution and lineage behavior must remain durable and observable
+- `make migration-apply` must remain executable schema apply/verify evidence, not a prose-only
+  contract check
 - benchmark and stateful integration wording must stay truthful to shipped behavior

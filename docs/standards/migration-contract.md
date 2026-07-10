@@ -7,7 +7,11 @@
 
 ## Deterministic Checks
 
-- `make migration-smoke` validates this document and required migration policy language.
+- `make migration-apply` runs the executable durable metadata bootstrap apply/verify path against
+  the configured runtime metadata database and emits structured evidence under
+  `artifacts/durable-schema-apply/`.
+- `make migration-smoke` validates this document, durable schema inventory language, recovery
+  runbook language, and restore-drill behavior.
 - CI executes `make migration-smoke` on all PRs.
 - Durable-store schema tests must prove new columns/indexes can be applied without breaking existing metadata tables.
 

@@ -22,8 +22,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 296 |
-| Test functions inventoried | 3442 |
+| Test modules inventoried | 297 |
+| Test functions inventoried | 3445 |
 | Integration/API/runtime test functions | 656 |
 | Contract/governance test functions | 131 |
 
@@ -34,7 +34,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 18 |
 | e2e | 1 | 21 |
 | integration | 28 | 329 |
-| unit | 258 | 3074 |
+| unit | 259 | 3077 |
 
 ## Test Functions By Family
 
@@ -44,7 +44,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | api_or_runtime | 656 |
 | contract_or_governance | 131 |
 | observability_or_readiness | 338 |
-| quality_or_security | 142 |
+| quality_or_security | 145 |
 | uncategorized | 969 |
 
 ## Largest Test Modules
@@ -104,7 +104,7 @@ API/runtime test functions, `128` contract/governance test functions, and an unc
 ceiling of `982`. Issue #423 then classified configuration-validation tests as quality/security
 evidence and HTTP resilience tests as observability/readiness evidence, reducing the current
 uncategorized ceiling to `969`. The measured taxonomy also records `338`
-observability/readiness test functions, `142` quality/security test functions, and `1549`
+observability/readiness test functions, `145` quality/security test functions, and `1549`
 analytics-domain test functions. Intentional threshold changes should remain separate,
 rationale-backed gate-governance work.
 Issue #442 added async polling and application-response header tests, classified them as
@@ -116,6 +116,8 @@ added strict fail-fast parity coverage across the same four completed core analy
 ratcheting the floors to `656` API/runtime and `130` contract/governance without growing the
 uncategorized backlog. Issue #417 added runtime/static trust-telemetry classification coverage,
 ratcheting the contract/governance floor to `131` without growing the uncategorized backlog.
+Issue #424 added executable durable schema apply/verify coverage and classified schema-apply
+command tests as quality/security evidence while keeping the uncategorized ceiling at `969`.
 
 This slice promotes the stable part of the taxonomy from report-only measurement to a
 regression-blocking evaluation gate. `make quality-test-taxonomy-gate` fails if API/runtime tests

@@ -127,7 +127,7 @@ performance-characterization-postgres:
 	python -m pytest tests/benchmarks/test_postgres_query_plans.py tests/benchmarks/test_postgres_concurrency_contracts.py -q
 
 migration-apply:
-	python scripts/migration_contract_check.py --mode durable-schema
+	python scripts/durable_schema_apply.py --output-dir artifacts/durable-schema-apply
 
 lint:
 	python -m ruff check .
