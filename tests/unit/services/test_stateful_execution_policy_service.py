@@ -16,6 +16,7 @@ from app.services.stateful_execution_policy_service import (
 class _AcceptedResponse(BaseModel):
     calculation_id: str
     poll_path: str
+    recommended_poll_after_seconds: int = 1
 
 
 def _accepted_response_factory(calculation_id):
@@ -227,4 +228,5 @@ def test_replay_promoted_stateful_async_execution_returns_accepted_response_for_
 
     assert response is not None
     assert response.status_code == 202
+    assert response.headers == {"Retry-After": "1"}
     assert response.content

@@ -4,6 +4,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from app.core.async_polling import ASYNC_RETRY_AFTER_HEADER, DEFAULT_RECOMMENDED_POLL_AFTER_SECONDS
 from app.models.platform_surfaces import ErrorDetailResponse
 
 _EXAMPLE_CALCULATION_ID = "209da27d-f3f4-4e64-97c5-a2eb1d4fe4f3"
@@ -20,8 +21,11 @@ def async_submission_responses(
             "model": accepted_model,
             "description": (
                 f"Accepted for asynchronous {analytics_name} execution. Poll poll_path for execution "
-                f"status or result_path for the completed {analytics_name} response."
+                f"status or result_path for the completed {analytics_name} response. Wait at least "
+                "recommended_poll_after_seconds between polls; the same value is also returned in "
+                f"the {ASYNC_RETRY_AFTER_HEADER} header."
             ),
+            "headers": _accepted_polling_headers(),
             "content": {"application/json": {"example": _accepted_example(accepted_model, result_path_template)}},
         }
     }
@@ -35,15 +39,21 @@ def async_result_responses(
     not_found_detail: str,
     failed_detail: str,
 ) -> dict[int, dict[str, Any]]:
+    id_field_name = _accepted_id_field_name(accepted_model)
     return {
         202: {
             "model": accepted_model,
-            "description": f"The async {analytics_name} calculation is still pending or running.",
+            "description": (
+                f"The async {analytics_name} calculation is still pending or running. Wait at least "
+                "recommended_poll_after_seconds between polls; the same value is also returned in "
+                f"the {ASYNC_RETRY_AFTER_HEADER} header."
+            ),
+            "headers": _accepted_polling_headers(),
             "content": {"application/json": {"example": _accepted_example(accepted_model, result_path_template)}},
         },
         404: {
             "model": ErrorDetailResponse,
-            "description": f"No async {analytics_name} result exists for the supplied calculation_id.",
+            "description": f"No async {analytics_name} result exists for the supplied {id_field_name}.",
             "content": {
                 "application/json": {
                     "example": _error_detail_example(
@@ -75,17 +85,39 @@ def async_result_responses(
 def _accepted_example(
     accepted_model: type[BaseModel],
     result_path_template: str,
-) -> dict[str, str]:
-    example = {
-        "calculation_id": _EXAMPLE_CALCULATION_ID,
+) -> dict[str, str | int]:
+    id_field_name = _accepted_id_field_name(accepted_model)
+    example: dict[str, str | int] = {
+        id_field_name: _EXAMPLE_CALCULATION_ID,
         "poll_path": f"/performance/executions/{_EXAMPLE_CALCULATION_ID}",
-        "result_path": result_path_template.format(calculation_id=_EXAMPLE_CALCULATION_ID),
+        "result_path": result_path_template.format(
+            calculation_id=_EXAMPLE_CALCULATION_ID,
+            inspection_id=_EXAMPLE_CALCULATION_ID,
+        ),
+        "recommended_poll_after_seconds": DEFAULT_RECOMMENDED_POLL_AFTER_SECONDS,
     }
     for field_name in ("source_service", "contract_version", "execution_mode", "status"):
         field = accepted_model.model_fields.get(field_name)
         if field is not None and field.default is not None:
             example[field_name] = str(field.default)
     return example
+
+
+def _accepted_id_field_name(accepted_model: type[BaseModel]) -> str:
+    return "inspection_id" if "inspection_id" in accepted_model.model_fields else "calculation_id"
+
+
+def _accepted_polling_headers() -> dict[str, dict[str, str | dict[str, str | int]]]:
+    return {
+        ASYNC_RETRY_AFTER_HEADER: {
+            "description": "Minimum seconds clients should wait before polling the async status or result route again.",
+            "schema": {
+                "type": "integer",
+                "minimum": DEFAULT_RECOMMENDED_POLL_AFTER_SECONDS,
+                "example": DEFAULT_RECOMMENDED_POLL_AFTER_SECONDS,
+            },
+        }
+    }
 
 
 def _error_detail_example(

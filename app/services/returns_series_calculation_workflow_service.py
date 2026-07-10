@@ -4,6 +4,7 @@ from typing import Any
 from uuid import UUID
 
 from app.core.application_responses import ApplicationHttpResponse
+from app.core.async_polling import recommended_async_poll_after_seconds
 from app.core.config import get_settings
 from app.models.returns_series import (
     InputMode,
@@ -37,6 +38,7 @@ def accepted_returns_series_response(calculation_id: UUID) -> ReturnsSeriesAccep
         calculation_id=calculation_id,
         poll_path=f"/performance/executions/{calculation_id}",
         result_path=f"/integration/returns/series/results/{calculation_id}",
+        recommended_poll_after_seconds=recommended_async_poll_after_seconds(),
     )
 
 

@@ -39,5 +39,5 @@ def test_returns_series_openapi_describes_usage_and_schema_fields():
     for field_name in ["include_portfolio", "include_benchmark", "include_risk_free"]:
         assert selection_schema["properties"][field_name]["description"]
 
-    for field_name in ["calculation_id", "poll_path", "result_path", "status"]:
+    for field_name in ["calculation_id", "poll_path", "result_path", "recommended_poll_after_seconds", "status"]:
         assert accepted_schema["properties"][field_name]["description"]

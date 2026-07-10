@@ -65,6 +65,14 @@ For explicit non-error HTTP outcomes, services return `ApplicationHttpResponse` 
 convert it with `to_fastapi_response(...)`; this keeps async `202 Accepted` and authorization-denied
 responses consistent without importing FastAPI response classes into application services.
 
+Async analytics `202 Accepted` responses include `recommended_poll_after_seconds` in the JSON body
+and the same value in the `Retry-After` header. Operators and client teams should treat this as
+minimum cadence guidance for `poll_path` and endpoint-specific `result_path` polling across TWR,
+benchmark, contribution, attribution, returns-series, workspace-summary, and TWR inspection. Manual
+control-plane actions can also emit `Retry-After`, but those headers represent cooldowns for
+operator actions such as recovery drills or runtime-retention cleanup rather than analytics result
+polling cadence.
+
 ## HTTP boundary controls
 
 `lotus-performance` registers explicit HTTP boundary hardening in `app.http_security`.

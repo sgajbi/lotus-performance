@@ -5,6 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException, Path, Request, status
 from fastapi.responses import FileResponse, JSONResponse, Response
 
+from app.api.async_openapi import async_result_responses, async_submission_responses
 from app.api.http_response_adapter import to_fastapi_response
 from app.models.inspection_requests import TWRInspectionRequest
 from app.models.inspection_responses import TWRInspectionAcceptedResponse, TWRInspectionResponse
@@ -54,6 +55,11 @@ def _retained_inspection_artifact_response(artifact: RetainedTWRInspectionArtifa
         "changing the normal TWR calculation contract."
     ),
     status_code=status.HTTP_202_ACCEPTED,
+    responses=async_submission_responses(
+        accepted_model=TWRInspectionAcceptedResponse,
+        analytics_name="TWR inspection",
+        result_path_template="/performance/inspections/{inspection_id}",
+    ),
 )
 def submit_twr_inspection(request: TWRInspectionRequest):
     return to_fastapi_response(submit_twr_inspection_workflow(request))
@@ -67,19 +73,13 @@ def submit_twr_inspection(request: TWRInspectionRequest):
         "Retrieves the durable TWR inspection result when complete, or the accepted envelope "
         "while the supportability inspection is still queued or running."
     ),
-    responses={
-        202: {
-            "model": TWRInspectionAcceptedResponse,
-            "description": "The TWR supportability inspection is still pending.",
-        },
-        404: {
-            "model": ErrorDetailResponse,
-            "description": "No durable TWR inspection result exists for the supplied inspection_id.",
-            "content": {
-                "application/json": {"example": {"detail": "Inspection result not found for the given inspection_id."}}
-            },
-        },
-    },
+    responses=async_result_responses(
+        accepted_model=TWRInspectionAcceptedResponse,
+        analytics_name="TWR inspection",
+        result_path_template="/performance/inspections/{inspection_id}",
+        not_found_detail="Inspection result not found for the given inspection_id.",
+        failed_detail="Inspection execution failed.",
+    ),
 )
 def get_twr_inspection(
     inspection_id: UUID, request: Request

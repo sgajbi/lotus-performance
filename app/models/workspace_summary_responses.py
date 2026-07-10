@@ -6,6 +6,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.core.async_polling import DEFAULT_RECOMMENDED_POLL_AFTER_SECONDS
 from app.models.benchmark_analytics_requests import BenchmarkInputMode, BenchmarkReturnSource
 from app.models.mwr_analytics_requests import MWRInputMode
 from app.models.twr_requests import TWRInputMode
@@ -180,6 +181,7 @@ WORKSPACE_SUMMARY_ACCEPTED_RESPONSE_EXAMPLES = [
         "calculation_id": "0d000003-1111-4222-8333-abcdefabcdef",
         "poll_path": "/performance/executions/0d000003-1111-4222-8333-abcdefabcdef",
         "result_path": "/performance/workspace-summary/results/0d000003-1111-4222-8333-abcdefabcdef",
+        "recommended_poll_after_seconds": DEFAULT_RECOMMENDED_POLL_AFTER_SECONDS,
     }
 ]
 
@@ -344,6 +346,11 @@ class WorkspaceSummaryAcceptedResponse(BaseModel):
     result_path: str = Field(
         description="Endpoint-specific path for retrieving the final workspace-summary response.",
         examples=["/performance/workspace-summary/results/0d000003-1111-4222-8333-abcdefabcdef"],
+    )
+    recommended_poll_after_seconds: int = Field(
+        default=DEFAULT_RECOMMENDED_POLL_AFTER_SECONDS,
+        description="Recommended minimum seconds to wait before polling poll_path or result_path again.",
+        examples=[DEFAULT_RECOMMENDED_POLL_AFTER_SECONDS],
     )
 
     model_config = ConfigDict(

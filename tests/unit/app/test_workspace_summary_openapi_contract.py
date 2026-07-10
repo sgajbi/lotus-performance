@@ -42,5 +42,5 @@ def test_workspace_summary_openapi_describes_usage_and_schema_fields():
     for field_name in ["benchmark_id", "input_mode", "return_source", "stateless_input", "stateful_input"]:
         assert benchmark_schema["properties"][field_name]["description"]
 
-    for field_name in ["calculation_id", "poll_path", "result_path"]:
+    for field_name in ["calculation_id", "poll_path", "result_path", "recommended_poll_after_seconds"]:
         assert accepted_schema["properties"][field_name]["description"]

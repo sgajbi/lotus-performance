@@ -1,5 +1,6 @@
 {
   "calculation_id": "0d000003-1111-4222-8333-abcdefabcdef",
   "poll_path": "/performance/executions/0d000003-1111-4222-8333-abcdefabcdef",
-  "result_path": "/performance/workspace-summary/results/0d000003-1111-4222-8333-abcdefabcdef"
+  "result_path": "/performance/workspace-summary/results/0d000003-1111-4222-8333-abcdefabcdef",
+  "recommended_poll_after_seconds": 1
 }

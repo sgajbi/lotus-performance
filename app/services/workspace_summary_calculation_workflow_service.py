@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import NoReturn
 
 from app.core.application_responses import ApplicationHttpResponse
+from app.core.async_polling import recommended_async_poll_after_seconds
 from app.core.config import get_settings
 from app.models.benchmark_analytics_requests import BenchmarkInputMode, benchmark_stateless_work_units
 from app.models.twr_requests import TWRInputMode
@@ -30,6 +31,7 @@ def accepted_workspace_summary_response(calculation_id) -> WorkspaceSummaryAccep
         calculation_id=calculation_id,
         poll_path=f"/performance/executions/{calculation_id}",
         result_path=f"/performance/workspace-summary/results/{calculation_id}",
+        recommended_poll_after_seconds=recommended_async_poll_after_seconds(),
     )
 
 

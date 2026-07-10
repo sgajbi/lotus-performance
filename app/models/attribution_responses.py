@@ -4,6 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.core.async_polling import DEFAULT_RECOMMENDED_POLL_AFTER_SECONDS
 from app.models.attribution_analytics_requests import AttributionInputMode
 from app.models.responses import PerformanceCalculationSupportability
 from common.enums import AttributionModel, LinkingMethod
@@ -550,4 +551,9 @@ class AttributionAcceptedResponse(BaseModel):
     result_path: str = Field(
         description="Endpoint that returns the completed attribution response once execution is complete.",
         examples=["/performance/attribution/results/209da27d-f3f4-4e64-97c5-a2eb1d4fe4f3"],
+    )
+    recommended_poll_after_seconds: int = Field(
+        default=DEFAULT_RECOMMENDED_POLL_AFTER_SECONDS,
+        description="Recommended minimum seconds to wait before polling poll_path or result_path again.",
+        examples=[DEFAULT_RECOMMENDED_POLL_AFTER_SECONDS],
     )

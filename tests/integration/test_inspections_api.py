@@ -65,11 +65,15 @@ def test_twr_inspection_request_subject_runs_through_async_runtime_and_artifacts
 
     submit = client.post("/performance/inspections/twr", json=payload)
     assert submit.status_code == 202
+    assert submit.headers["retry-after"] == "1"
     assert submit.json()["inspection_id"] == inspection_id
     assert submit.json()["result_path"] == f"/performance/inspections/{inspection_id}"
+    assert submit.json()["recommended_poll_after_seconds"] == 1
 
     pending = client.get(f"/performance/inspections/{inspection_id}")
     assert pending.status_code == 202
+    assert pending.headers["retry-after"] == "1"
+    assert pending.json()["recommended_poll_after_seconds"] == 1
 
     assert drain_compute_queue() >= 1
 

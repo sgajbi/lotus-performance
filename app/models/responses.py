@@ -5,6 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.core.async_polling import DEFAULT_RECOMMENDED_POLL_AFTER_SECONDS
 from app.models.twr_requests import TWRInputMode
 from common.enums import Frequency
 from core.envelope import Audit, Diagnostics, Meta
@@ -436,5 +437,10 @@ class TWRAcceptedResponse(BaseModel):
     calculation_id: UUID
     poll_path: str
     result_path: str
+    recommended_poll_after_seconds: int = Field(
+        default=DEFAULT_RECOMMENDED_POLL_AFTER_SECONDS,
+        description="Recommended minimum seconds to wait before polling poll_path or result_path again.",
+        examples=[DEFAULT_RECOMMENDED_POLL_AFTER_SECONDS],
+    )
 
     model_config = ConfigDict(extra="forbid")

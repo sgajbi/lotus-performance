@@ -290,32 +290,37 @@ Important validation expectations:
     callers need enterprise identity plus either `operations.runtime.read` or `X-Portfolio-Id`
     matching the durable execution `portfolio_id`; a calculation id alone is not an authorization
     boundary.
-20. Compute-worker success finalization is recoverable. The worker publishes the successful async
+20. Async-capable analytics accepted responses expose client cadence through both the body field
+    `recommended_poll_after_seconds` and the `Retry-After` header on initial submissions and
+    pending-result responses. This shared contract applies to TWR, benchmark, contribution,
+    attribution, returns-series, workspace-summary, and TWR inspection. Keep it distinct from
+    manual control-plane `Retry-After` cooldowns for recovery-drill and runtime-retention actions.
+21. Compute-worker success finalization is recoverable. The worker publishes the successful async
     result before marking the compute job complete, never treats a post-success job-completion
     failure as a calculation failure, and reconciles stale compute jobs with an existing successful
     async result to `complete` instead of overwriting the result with a terminal failure.
-21. Durable worker and operator-action finalization is ownership-aware. Compute-job finalization,
+22. Durable worker and operator-action finalization is ownership-aware. Compute-job finalization,
     lineage payload completion/deletion, and governed operator-action lock release must compare the
     active lease owner or acquisition token before mutating terminal state, deleting work, or
     exposing async/lineage success evidence after stale reclaim.
-22. Runtime-retention cleanup is a database-native durable-store workflow. Async-result and
+23. Runtime-retention cleanup is a database-native durable-store workflow. Async-result and
     compute-job preview/apply paths use count and set-based delete operations, execution and
     lineage paths enumerate calculation ids only where child rows or artifact directories require
     deterministic cleanup, and durable schema creation repairs the retention indexes for existing
     runtime stores.
-23. Lineage inspection list queries are query-plan governed operator paths. Active, failed, all,
+24. Lineage inspection list queries are query-plan governed operator paths. Active, failed, all,
     and reclaimable inspection statements must keep `calculation_type` filters index-backed through
     lineage-record and lineage-payload composite indexes; PostgreSQL plan-contract tests cover the
     active, failed, all, and reclaimable statements, allowing derived-order sorts only where the
     view orders by computed active-since age.
-24. Upstream lotus-core and Lotus AI HTTP calls use the shared resilience layer and, under the
+25. Upstream lotus-core and Lotus AI HTTP calls use the shared resilience layer and, under the
     FastAPI lifespan, a managed `httpx.AsyncClient` pool keyed by timeout. Stateful chunked
     retrieval should tune `STATEFUL_INPUT_MAX_CONCURRENT_CHUNKS` together with
     `UPSTREAM_HTTP_MAX_CONNECTIONS`, `UPSTREAM_HTTP_MAX_KEEPALIVE_CONNECTIONS`, and
     `UPSTREAM_HTTP_KEEPALIVE_EXPIRY_SECONDS` before proposing a runtime transport split. Upstream
     timeout, retry, backoff, and connection-pool settings are validated during `Settings`
     construction so invalid operator values fail fast before request execution.
-25. Application services should use framework-neutral `core.errors.APIError` subclasses for
+26. Application services should use framework-neutral `core.errors.APIError` subclasses for
     validation, source-unavailable, not-found, conflict, and retryability semantics. FastAPI
     `HTTPException`, `status`, and `JSONResponse` belong at the API adapter boundary. When a
     service must express an explicit HTTP outcome such as `202 Accepted` or authorization denial,

@@ -9,6 +9,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.core.async_polling import DEFAULT_RECOMMENDED_POLL_AFTER_SECONDS
 from app.models.benchmark_analytics_requests import BenchmarkReturnSource
 
 
@@ -605,4 +606,9 @@ class ReturnsSeriesAcceptedResponse(BaseModel):
     result_path: str = Field(
         description="Endpoint-specific path for retrieving the final returns-series payload.",
         examples=["/integration/returns/series/results/f25cbd85-b7e5-4aaf-b994-ff59cb143ef5"],
+    )
+    recommended_poll_after_seconds: int = Field(
+        default=DEFAULT_RECOMMENDED_POLL_AFTER_SECONDS,
+        description="Recommended minimum seconds to wait before polling poll_path or result_path again.",
+        examples=[DEFAULT_RECOMMENDED_POLL_AFTER_SECONDS],
     )

@@ -72,6 +72,9 @@ with:
 - `calculation_id`
 - `poll_path`
 - `result_path`
+- `recommended_poll_after_seconds`
+
+The `Retry-After` header carries the same minimum polling interval.
 
 ### Attribution
 
@@ -112,7 +115,13 @@ Executor-backed requests should be handled using the durable polling surfaces:
 - contribution result retrieval: `GET /performance/contribution/results/{calculation_id}`
 - attribution result retrieval: `GET /performance/attribution/results/{calculation_id}`
 - returns-series result retrieval: `GET /integration/returns/series/results/{calculation_id}`
+- TWR inspection retrieval: `GET /performance/inspections/{inspection_id}`
 - lineage retrieval: `GET /performance/lineage/{calculation_id}`
+
+When a request returns `202 Accepted`, wait at least `recommended_poll_after_seconds` before
+polling again. The same value is emitted as the `Retry-After` header on initial submissions and
+pending result responses. Do not confuse this analytics polling cadence with manual operator-action
+cooldowns, where `Retry-After` means a recovery drill or retention cleanup is rate-limited.
 
 For runtime support and backlog visibility:
 
