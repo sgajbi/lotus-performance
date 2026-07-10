@@ -88,6 +88,8 @@ Runtime-status unexpected-read handling:
   - inspect `GET /integration/runtime-work-items?queue=compute`
   - inspect `GET /integration/runtime-recoveries?queue=compute`
   - inspect `GET /performance/executions/{calculation_id}` for the oldest or latest failed calculation IDs returned by runtime status
+  - compare the oldest pending age to the workflow objective in `docs/standards/async-slo-capacity-contract.md`
+  - scale compute workers only after confirming terminal failures or upstream retry pressure are not the dominant cause
 
 ### Lineage Queue
 

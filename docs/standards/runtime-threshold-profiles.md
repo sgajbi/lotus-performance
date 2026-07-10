@@ -5,6 +5,7 @@
 - Related references:
   - `app/core/config.py`
   - `docs/standards/runtime-alert-policy.md`
+  - `docs/standards/async-slo-capacity-contract.md`
   - `docs/operations/runtime-alert-rule-templates.md`
   - `docs/runbooks/runtime-alerts.md`
 
@@ -119,6 +120,9 @@ Use operator-grade thresholds aligned to the alert policy and recovery expectati
 - Production environments should not leave these thresholds at `0`.
 - Any override from the production defaults requires an operational rationale and review.
 - Alert definitions should use the breach gauges exported by the service, not restate the thresholds externally.
+- Compute queue age thresholds are hard degradation backstops, not the full async completion SLO.
+  Use `docs/standards/async-slo-capacity-contract.md` for submission-to-terminal objectives,
+  worker sizing, and early SLO burn triggers.
 - If an environment needs stricter local thresholds, update the deployment overlay without changing severity semantics from `docs/standards/runtime-alert-policy.md` unless explicitly approved.
 
 ## Deployment Artifacts

@@ -31,6 +31,8 @@ This repository adopts the platform-wide standard defined in lotus-platform/Scal
 ## Availability Baseline
 
 - Internal SLO baseline: p95 analytics API latency < 500 ms for cached reads; error rate < 1%.
+- Executor-backed async analytics use the repo-owned submission-to-terminal-result objectives,
+  capacity assumptions, and scale triggers in `docs/standards/async-slo-capacity-contract.md`.
 - Recovery targets: RTO 30 minutes and RPO 15 minutes for persisted analytics state.
 - Backup and restore validation: restoration drill evidence is required in environment runbooks before go-live.
 
@@ -45,6 +47,8 @@ This repository adopts the platform-wide standard defined in lotus-platform/Scal
 - lotus-performance exposes `/metrics` for latency/error/throughput and downstream dependency instrumentation.
 - Runtime breach-gauge severity and response defaults are governed in `docs/standards/runtime-alert-policy.md`.
 - Runtime threshold defaults for dev, staging, and production are governed in `docs/standards/runtime-threshold-profiles.md`.
+- Async completion SLO burn interpretation and worker sizing guidance are governed in
+  `docs/standards/async-slo-capacity-contract.md`.
 - Platform-shared metrics for CPU/memory, DB performance, and queue/consumer lag are sourced from:
   - `lotus-platform/platform-stack/prometheus/prometheus.yml`
   - `lotus-platform/platform-stack/docker-compose.yml`

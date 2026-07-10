@@ -3,6 +3,10 @@
 This document records the repo-owned capacity and performance characterization contract for
 `lotus-performance`.
 
+Async submission-to-terminal SLOs, worker sizing assumptions, scale triggers, and SLO burn mapping
+are governed separately in `docs/standards/async-slo-capacity-contract.md`. This file owns the
+repeatable characterization budgets that support that SLO contract.
+
 ## Scope
 
 This characterization currently governs the vectorized engine hot path behind
