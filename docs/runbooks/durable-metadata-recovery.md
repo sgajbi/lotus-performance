@@ -54,10 +54,17 @@ Recovery must include:
 - `make migration-apply`
   - verify the emitted evidence shows `status="passed"` and no `missing_owned_tables`
   - verify `artifacts/durable-schema-apply/latest.json` records the applied bootstrap stores and additive column checks
-- `python scripts/durable_recovery_drill.py --operator-id <operator> --backup-identifier <backup-id>`
+- synthetic smoke drill:
+  `python scripts/durable_recovery_drill.py --operator-id <operator> --backup-identifier <backup-id>`
   - verify the emitted evidence shows both `compute_async_result_status="complete"` and lineage artifact materialization success
+  - use this in CI and fast local validation because it creates a temporary SQLite database and does not prove that a real backup was restored
   - verify `artifacts/durable-recovery-drill/` contains a timestamped evidence file, refreshed `latest.json`, and `manifest.json`
   - verify retained drill history respects both the configured retention limit and maximum age policy
+- real restore-validation drill:
+  `python scripts/durable_recovery_drill.py --validation-mode restore-validation --restored-database-url <restored-sqlalchemy-url> --backup-source <backup-system-or-uri> --backup-identifier <backup-id> --backup-created-at-utc <timestamp> --restore-started-at-utc <timestamp> --restore-completed-at-utc <timestamp> --operator-id <operator>`
+  - run this only against a restored, non-primary durable metadata target such as a restored Postgres database in a production-like drill environment
+  - verify evidence records `validation_mode="restore_validation"`, backup source/id, restore timestamp, backup age/RPO, restore duration/RTO, restored owned-table row counts, schema/readiness status, and representative execution/lineage retrieval checks
+  - do not point restore-validation mode at the primary production database; it is read-only by design but should still be isolated to the restored target being certified
 - `GET /health/ready`
 - `GET /integration/runtime-status`
 - verify durable execution polling for a known `calculation_id`
@@ -79,3 +86,6 @@ Recovery must include:
 - readiness result after restore
 - runtime-status snapshot after worker restart
 - structured recovery evidence JSON from `scripts/durable_recovery_drill.py`
+- real restore-validation evidence when a production-like restore objective is being certified:
+  backup source/id, restore timestamp, backup age/RPO, restore duration/RTO, restored table row
+  counts, schema/readiness status, and representative execution/lineage retrieval checks

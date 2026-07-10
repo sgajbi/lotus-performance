@@ -846,7 +846,7 @@ Return semantics for the workspace surface are now explicit rather than inferred
 
 ### `POST /integration/recovery-drills/run`
 
-- purpose: execute a governed durable recovery drill through the service-owned control plane
+- purpose: execute a governed synthetic durable recovery smoke drill through the service-owned control plane
 - privileged-write auth:
   - production-like profiles require `ENTERPRISE_ENFORCE_AUTHZ=true`
   - this route requires enterprise identity headers
@@ -863,6 +863,11 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - `409` when the same governed drill is already running in-flight for the same operator, tenant, and backup identifier
   - stale in-flight drill leases are reclaimed automatically after the configured stale threshold instead of blocking forever after a crash
 - use this when an operator needs an audited recovery drill without shell access
+- for real backup/restore validation, use
+  `python scripts/durable_recovery_drill.py --validation-mode restore-validation` against a restored,
+  non-primary durable metadata database target; that evidence records backup source/id,
+  backup age/RPO, restore duration/RTO, restored row counts, schema/readiness, and representative
+  execution/lineage retrieval checks
 - request model: `app.models.recovery_drill_history.RecoveryDrillRunRequest`
 - response model: `app.models.recovery_drill_history.RecoveryDrillRunResponse`
 - certification evidence: `docs/technical/recovery-drills-endpoint-certification.md`

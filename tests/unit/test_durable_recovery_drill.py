@@ -3,13 +3,16 @@ import logging
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from sqlalchemy import create_engine
 
 from scripts.durable_recovery_drill import (
     REQUIRED_TABLES,
+    RESTORE_VALIDATION_REQUIRED_TABLES,
     RecoveryDrillEvidence,
     _persist_evidence_history,
     _write_text_atomic,
     run_recovery_drill,
+    run_restore_validation_drill,
 )
 
 
@@ -356,3 +359,103 @@ def test_run_recovery_drill_persists_enterprise_context(tmp_path):
     assert latest["correlation_id"] == "corr-1"
     assert manifest["entries"][0]["tenant_id"] == "tenant-a"
     assert manifest["entries"][0]["correlation_id"] == "corr-1"
+
+
+def test_run_restore_validation_drill_records_real_backup_restore_evidence(tmp_path):
+    database_path = tmp_path / "restored.db"
+    _create_restored_durable_database(database_path)
+    output_dir = tmp_path / "artifacts" / "durable-recovery-drill"
+
+    evidence = run_restore_validation_drill(
+        restored_database_url=f"sqlite:///{database_path}",
+        backup_identifier="backup-restore-001",
+        backup_source="s3://lotus-backups/performance/backup-restore-001",
+        backup_created_at_utc="2026-03-29T01:00:00Z",
+        restore_started_at_utc="2026-03-29T01:20:00Z",
+        restore_completed_at_utc="2026-03-29T01:30:00Z",
+        output_dir=output_dir,
+        operator_id="ops-restore",
+        tenant_id="tenant-a",
+        correlation_id="corr-restore",
+    )
+
+    latest = json.loads((output_dir / "latest.json").read_text(encoding="utf-8"))
+
+    assert evidence.status == "passed"
+    assert evidence.validation_mode == "restore_validation"
+    assert evidence.backup_source == "s3://lotus-backups/performance/backup-restore-001"
+    assert evidence.restore_timestamp_utc == "2026-03-29T01:30:00+00:00"
+    assert evidence.backup_age_seconds == 1800.0
+    assert evidence.restore_duration_seconds == 600.0
+    assert evidence.owned_tables_present == list(RESTORE_VALIDATION_REQUIRED_TABLES)
+    assert evidence.restored_table_row_counts is not None
+    assert evidence.restored_table_row_counts["analytics_execution"] == 1
+    assert evidence.restored_table_row_counts["lineage_records"] == 1
+    assert evidence.schema_bootstrap_status == "passed"
+    assert evidence.readiness_status == "ready"
+    assert evidence.representative_execution_check == "passed_analytics_execution_read_with_rows"
+    assert evidence.representative_lineage_check == "passed_lineage_records_read_with_rows"
+    assert latest["validation_mode"] == "restore_validation"
+    assert latest["backup_source"] == "s3://lotus-backups/performance/backup-restore-001"
+    assert latest["restored_table_row_counts"]["analytics_execution"] == 1
+
+
+def test_run_restore_validation_drill_fails_when_required_tables_are_missing(tmp_path):
+    database_path = tmp_path / "partial-restored.db"
+    engine = create_engine(f"sqlite:///{database_path}")
+    try:
+        with engine.begin() as connection:
+            connection.exec_driver_sql("CREATE TABLE analytics_execution (calculation_id TEXT PRIMARY KEY)")
+    finally:
+        engine.dispose()
+
+    evidence = run_restore_validation_drill(
+        restored_database_url=f"sqlite:///{database_path}",
+        backup_identifier="backup-restore-002",
+        backup_source="manual-snapshot",
+        restore_completed_at_utc="2026-03-29T01:30:00Z",
+        operator_id="ops-restore",
+    )
+
+    assert evidence.status == "failed"
+    assert evidence.validation_mode == "restore_validation"
+    assert evidence.schema_bootstrap_status == "failed"
+    assert evidence.readiness_status == "not_ready"
+    assert evidence.owned_tables_present == ["analytics_execution"]
+    assert evidence.representative_execution_check == "passed_analytics_execution_read_no_rows"
+    assert evidence.representative_lineage_check == "failed_lineage_records_read"
+
+
+def _create_restored_durable_database(database_path):
+    engine = create_engine(f"sqlite:///{database_path}")
+    try:
+        with engine.begin() as connection:
+            for table_name in RESTORE_VALIDATION_REQUIRED_TABLES:
+                if table_name == "lineage_payloads":
+                    connection.exec_driver_sql(
+                        """
+                        CREATE TABLE lineage_payloads (
+                            calculation_id TEXT PRIMARY KEY,
+                            worker_id TEXT,
+                            leased_at_utc TEXT,
+                            lease_expires_at_utc TEXT
+                        )
+                        """
+                    )
+                elif table_name == "composite_member_return_facts":
+                    connection.exec_driver_sql(
+                        """
+                        CREATE TABLE composite_member_return_facts (
+                            calculation_id TEXT PRIMARY KEY,
+                            return_view TEXT,
+                            source_fingerprint TEXT,
+                            restatement_version TEXT
+                        )
+                        """
+                    )
+                else:
+                    connection.exec_driver_sql(f'CREATE TABLE "{table_name}" (calculation_id TEXT PRIMARY KEY)')
+            connection.exec_driver_sql("INSERT INTO analytics_execution (calculation_id) VALUES ('calc-restored-001')")
+            connection.exec_driver_sql("INSERT INTO lineage_records (calculation_id) VALUES ('calc-restored-001')")
+    finally:
+        engine.dispose()

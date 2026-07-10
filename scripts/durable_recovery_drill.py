@@ -16,6 +16,8 @@ from uuid import UUID, uuid4
 
 import pandas as pd
 from pydantic import BaseModel
+from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.engine import Engine, make_url
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -41,6 +43,23 @@ REQUIRED_TABLES = (
     "lineage_records",
     "lineage_payloads",
 )
+RESTORE_VALIDATION_REQUIRED_TABLES = REQUIRED_TABLES + (
+    "composite_definitions",
+    "composite_memberships",
+    "composite_member_return_facts",
+)
+RESTORE_VALIDATION_ADDITIVE_COLUMN_CHECKS = {
+    "lineage_payloads": (
+        "worker_id",
+        "leased_at_utc",
+        "lease_expires_at_utc",
+    ),
+    "composite_member_return_facts": (
+        "return_view",
+        "source_fingerprint",
+        "restatement_version",
+    ),
+}
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +98,17 @@ class RecoveryDrillEvidence:
     materialized_artifact_path: str
     materialized_artifact_exists: bool
     status: str
+    validation_mode: str = "synthetic_smoke"
+    backup_source: str | None = None
+    restore_timestamp_utc: str | None = None
+    backup_created_at_utc: str | None = None
+    backup_age_seconds: float | None = None
+    restore_duration_seconds: float | None = None
+    restored_table_row_counts: dict[str, int] | None = None
+    schema_bootstrap_status: str = "passed"
+    readiness_status: str = "passed"
+    representative_execution_check: str = "synthetic_compute_execution_complete"
+    representative_lineage_check: str = "synthetic_lineage_artifact_materialized"
 
 
 @dataclass(frozen=True)
@@ -268,6 +298,121 @@ def run_recovery_drill(
             lineage_store._engine.dispose()
 
 
+def run_restore_validation_drill(
+    *,
+    restored_database_url: str,
+    backup_identifier: str,
+    backup_source: str,
+    restore_completed_at_utc: str,
+    backup_created_at_utc: str | None = None,
+    restore_started_at_utc: str | None = None,
+    output_path: Path | None = None,
+    output_dir: Path | None = None,
+    operator_id: str = "unknown-operator",
+    tenant_id: str | None = None,
+    correlation_id: str | None = None,
+    retention_limit: int = 30,
+    retention_max_age_days: int = 90,
+) -> RecoveryDrillEvidence:
+    normalized_operator_id = _normalize_required_evidence_identifier(operator_id, field_name="operator_id")
+    normalized_tenant_id = _normalize_optional_evidence_identifier(tenant_id)
+    normalized_correlation_id = _normalize_optional_evidence_identifier(correlation_id)
+    normalized_backup_identifier = _normalize_required_evidence_identifier(
+        backup_identifier,
+        field_name="backup_identifier",
+    )
+    normalized_backup_source = _normalize_required_evidence_identifier(backup_source, field_name="backup_source")
+    restore_completed_at = _parse_utc_timestamp(restore_completed_at_utc, field_name="restore_completed_at_utc")
+    backup_created_at = (
+        _parse_utc_timestamp(backup_created_at_utc, field_name="backup_created_at_utc")
+        if backup_created_at_utc
+        else None
+    )
+    restore_started_at = (
+        _parse_utc_timestamp(restore_started_at_utc, field_name="restore_started_at_utc")
+        if restore_started_at_utc
+        else None
+    )
+    if backup_created_at is not None and backup_created_at > restore_completed_at:
+        raise ValueError("backup_created_at_utc must not be after restore_completed_at_utc")
+    if restore_started_at is not None and restore_started_at > restore_completed_at:
+        raise ValueError("restore_started_at_utc must not be after restore_completed_at_utc")
+
+    engine = create_engine(restored_database_url)
+    try:
+        generated_at_utc = datetime.now(UTC).isoformat()
+        available_tables = set(inspect(engine).get_table_names())
+        owned_tables_present = [table for table in RESTORE_VALIDATION_REQUIRED_TABLES if table in available_tables]
+        missing_tables = [table for table in RESTORE_VALIDATION_REQUIRED_TABLES if table not in available_tables]
+        row_counts = _restore_validation_row_counts(engine=engine, table_names=owned_tables_present)
+        missing_columns = _restore_validation_missing_columns(engine=engine, available_tables=available_tables)
+        representative_execution_check = _representative_table_retrieval_check(
+            engine=engine,
+            table_name="analytics_execution",
+            id_column="calculation_id",
+        )
+        representative_lineage_check = _representative_table_retrieval_check(
+            engine=engine,
+            table_name="lineage_records",
+            id_column="calculation_id",
+        )
+        schema_bootstrap_status = "passed" if not missing_tables and not missing_columns else "failed"
+        readiness_status = "ready" if schema_bootstrap_status == "passed" else "not_ready"
+        status = (
+            "passed"
+            if (
+                schema_bootstrap_status == "passed"
+                and readiness_status == "ready"
+                and not representative_execution_check.startswith("failed")
+                and not representative_lineage_check.startswith("failed")
+            )
+            else "failed"
+        )
+        evidence = RecoveryDrillEvidence(
+            drill_name="durable_metadata_restore_recovery",
+            generated_at_utc=generated_at_utc,
+            evidence_file_name=_build_evidence_file_name(generated_at_utc),
+            operator_id=normalized_operator_id,
+            tenant_id=normalized_tenant_id,
+            correlation_id=normalized_correlation_id,
+            backup_identifier=normalized_backup_identifier,
+            database_path=_safe_database_url(restored_database_url),
+            restored_schema_mode="real_restore_validation_read_only",
+            owned_tables_present=owned_tables_present,
+            compute_job_processed_count=0,
+            compute_async_result_status="not_applicable_restore_validation",
+            compute_execution_status="not_applicable_restore_validation",
+            processed_payload_count=0,
+            materialized_artifact_path="not_applicable_restore_validation",
+            materialized_artifact_exists=False,
+            status=status,
+            validation_mode="restore_validation",
+            backup_source=normalized_backup_source,
+            restore_timestamp_utc=restore_completed_at.isoformat(),
+            backup_created_at_utc=backup_created_at.isoformat() if backup_created_at else None,
+            backup_age_seconds=_duration_seconds(start=backup_created_at, end=restore_completed_at),
+            restore_duration_seconds=_duration_seconds(start=restore_started_at, end=restore_completed_at),
+            restored_table_row_counts=row_counts,
+            schema_bootstrap_status=schema_bootstrap_status,
+            readiness_status=readiness_status,
+            representative_execution_check=representative_execution_check,
+            representative_lineage_check=representative_lineage_check,
+        )
+    finally:
+        engine.dispose()
+
+    if output_path is not None:
+        _write_text_atomic(output_path, json.dumps(asdict(evidence), indent=2))
+    if output_dir is not None:
+        _persist_evidence_history(
+            output_dir=output_dir,
+            evidence=evidence,
+            retention_limit=retention_limit,
+            retention_max_age_days=retention_max_age_days,
+        )
+    return evidence
+
+
 def _create_legacy_lineage_schema(lineage_store: "LineageMetadataStore") -> None:
     with lineage_store._engine.begin() as connection:
         connection.exec_driver_sql(
@@ -330,6 +475,56 @@ def _fetch_owned_tables(lineage_store: "LineageMetadataStore") -> list[str]:
         ).fetchall()
     available = {row[0] for row in rows}
     return [table for table in REQUIRED_TABLES if table in available]
+
+
+def _parse_utc_timestamp(value: str, *, field_name: str) -> datetime:
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError(f"{field_name} must be an ISO-8601 timestamp") from exc
+    if parsed.tzinfo is None:
+        raise ValueError(f"{field_name} must include a timezone")
+    return parsed.astimezone(UTC)
+
+
+def _duration_seconds(*, start: datetime | None, end: datetime) -> float | None:
+    return None if start is None else (end - start).total_seconds()
+
+
+def _restore_validation_row_counts(*, engine: Engine, table_names: list[str]) -> dict[str, int]:
+    row_counts: dict[str, int] = {}
+    with engine.connect() as connection:
+        for table_name in table_names:
+            row_counts[table_name] = int(connection.execute(text(f'SELECT COUNT(*) FROM "{table_name}"')).scalar_one())
+    return row_counts
+
+
+def _restore_validation_missing_columns(*, engine: Engine, available_tables: set[str]) -> dict[str, list[str]]:
+    inspector = inspect(engine)
+    missing: dict[str, list[str]] = {}
+    for table_name, required_columns in RESTORE_VALIDATION_ADDITIVE_COLUMN_CHECKS.items():
+        if table_name not in available_tables:
+            missing[table_name] = list(required_columns)
+            continue
+        present_columns = {column["name"] for column in inspector.get_columns(table_name)}
+        missing_columns = [column for column in required_columns if column not in present_columns]
+        if missing_columns:
+            missing[table_name] = missing_columns
+    return missing
+
+
+def _representative_table_retrieval_check(*, engine: Engine, table_name: str, id_column: str) -> str:
+    with engine.connect() as connection:
+        try:
+            row = connection.execute(text(f'SELECT "{id_column}" FROM "{table_name}" LIMIT 1')).first()
+        except Exception:
+            logger.exception("Restore validation representative retrieval failed for table %s", table_name)
+            return f"failed_{table_name}_read"
+    return f"passed_{table_name}_read_with_rows" if row is not None else f"passed_{table_name}_read_no_rows"
+
+
+def _safe_database_url(database_url: str) -> str:
+    return make_url(database_url).render_as_string(hide_password=True)
 
 
 def _build_evidence_file_name(generated_at_utc: str) -> str:
@@ -504,20 +699,73 @@ def main() -> int:
         help="Optional enterprise correlation identifier for the drill.",
     )
     parser.add_argument(
+        "--validation-mode",
+        choices=("synthetic-smoke", "restore-validation"),
+        default="synthetic-smoke",
+        help="Use synthetic-smoke for fast local CI or restore-validation for a restored durable database target.",
+    )
+    parser.add_argument(
+        "--restored-database-url",
+        default=None,
+        help="SQLAlchemy URL for a restored durable metadata database. Required for restore-validation mode.",
+    )
+    parser.add_argument(
+        "--backup-source",
+        default=None,
+        help="Backup system, bucket, snapshot, or restore-set source. Required for restore-validation mode.",
+    )
+    parser.add_argument(
+        "--backup-created-at-utc",
+        default=None,
+        help="Optional UTC timestamp when the backup was created, used to compute RPO evidence.",
+    )
+    parser.add_argument(
+        "--restore-started-at-utc",
+        default=None,
+        help="Optional UTC timestamp when restore began, used to compute RTO evidence.",
+    )
+    parser.add_argument(
+        "--restore-completed-at-utc",
+        default=None,
+        help="UTC timestamp when the restored target became available. Required for restore-validation mode.",
+    )
+    parser.add_argument(
         "--backup-identifier", default="unknown-backup", help="Backup or restore-set identifier used for the drill."
     )
     args = parser.parse_args()
 
-    evidence = run_recovery_drill(
-        output_path=args.output,
-        output_dir=args.output_dir,
-        operator_id=args.operator_id,
-        tenant_id=args.tenant_id,
-        correlation_id=args.correlation_id,
-        backup_identifier=args.backup_identifier,
-        retention_limit=args.retention_limit,
-        retention_max_age_days=args.retention_max_age_days,
-    )
+    if args.validation_mode == "restore-validation":
+        if not args.restored_database_url or not args.backup_source or not args.restore_completed_at_utc:
+            parser.error(
+                "--restored-database-url, --backup-source, and --restore-completed-at-utc are required "
+                "for restore-validation mode"
+            )
+        evidence = run_restore_validation_drill(
+            restored_database_url=args.restored_database_url,
+            backup_identifier=args.backup_identifier,
+            backup_source=args.backup_source,
+            backup_created_at_utc=args.backup_created_at_utc,
+            restore_started_at_utc=args.restore_started_at_utc,
+            restore_completed_at_utc=args.restore_completed_at_utc,
+            output_path=args.output,
+            output_dir=args.output_dir,
+            operator_id=args.operator_id,
+            tenant_id=args.tenant_id,
+            correlation_id=args.correlation_id,
+            retention_limit=args.retention_limit,
+            retention_max_age_days=args.retention_max_age_days,
+        )
+    else:
+        evidence = run_recovery_drill(
+            output_path=args.output,
+            output_dir=args.output_dir,
+            operator_id=args.operator_id,
+            tenant_id=args.tenant_id,
+            correlation_id=args.correlation_id,
+            backup_identifier=args.backup_identifier,
+            retention_limit=args.retention_limit,
+            retention_max_age_days=args.retention_max_age_days,
+        )
     print(json.dumps(asdict(evidence), indent=2))
     return 0 if evidence.status == "passed" else 1
 

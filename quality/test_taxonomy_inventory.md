@@ -23,7 +23,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 299 |
-| Test functions inventoried | 3473 |
+| Test functions inventoried | 3475 |
 | Integration/API/runtime test functions | 663 |
 | Contract/governance test functions | 136 |
 
@@ -34,7 +34,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 18 |
 | e2e | 1 | 21 |
 | integration | 28 | 336 |
-| unit | 261 | 3098 |
+| unit | 261 | 3100 |
 
 ## Test Functions By Family
 
@@ -45,7 +45,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | contract_or_governance | 136 |
 | observability_or_readiness | 350 |
 | quality_or_security | 150 |
-| uncategorized | 963 |
+| uncategorized | 965 |
 
 ## Largest Test Modules
 
@@ -143,7 +143,9 @@ growing the uncategorized backlog. Issue #441 added upstream dependency inventor
 raising source test functions to `3468` and contract/governance tests to `136` without growing the
 uncategorized backlog. Issue #440 added first-party and third-party license compliance gate tests,
 raising source test functions to `3473` and quality/security tests to `150` without growing the
-uncategorized backlog or contract/governance floor.
+uncategorized backlog or contract/governance floor. Issue #439 added real restore-validation drill
+coverage, raising source test functions to `3475` and uncategorized tests to `965` while preserving
+the existing `969` uncategorized ceiling.
 
 This slice promotes the stable part of the taxonomy from report-only measurement to a
 regression-blocking evaluation gate. `make quality-test-taxonomy-gate` fails if API/runtime tests

@@ -1356,7 +1356,8 @@ Certification evidence:
 
 Purpose:
 
-- execute a governed durable recovery drill and retain compute, lineage, schema, and artifact proof
+- execute a governed synthetic durable recovery smoke drill and retain compute, lineage, schema,
+  and artifact proof
 
 Sample request:
 
@@ -1372,7 +1373,7 @@ Sample response:
 {
   "contract_version": "v1",
   "source_service": "lotus-performance",
-  "drill_name": "durable_metadata_recovery",
+  "drill_name": "durable_metadata_restore_recovery",
   "generated_at_utc": "2026-03-29T01:30:00Z",
   "evidence_file_name": "recovery-drill-20260329T013000Z.json",
   "operator_id": "ops-user",
@@ -1380,15 +1381,19 @@ Sample response:
   "correlation_id": "runtime-alert-123",
   "backup_identifier": "backup-2026-03-29",
   "status": "passed",
-  "database_path": "artifacts/recovery-drills/recovery-drill.sqlite",
-  "restored_schema_mode": "upgraded",
+  "database_path": "temporary synthetic SQLite drill database",
+  "restored_schema_mode": "legacy_lineage_schema_upgraded_in_place",
   "owned_tables_present": [
-    "compute_jobs",
+    "analytics_execution",
+    "analytics_execution_stage",
+    "analytics_compute_job",
+    "analytics_async_result",
+    "lineage_records",
     "lineage_payloads"
   ],
   "compute_job_processed_count": 1,
-  "compute_async_result_status": "completed",
-  "compute_execution_status": "completed",
+  "compute_async_result_status": "complete",
+  "compute_execution_status": "complete",
   "processed_payload_count": 1,
   "materialized_artifact_path": "artifacts/recovery-drills/lineage.json",
   "materialized_artifact_exists": true
@@ -1398,6 +1403,10 @@ Sample response:
 Certification evidence:
 
 - `docs/technical/recovery-drills-endpoint-certification.md`
+- real restore-validation mode is run from
+  `python scripts/durable_recovery_drill.py --validation-mode restore-validation` against a restored,
+  non-primary durable metadata database target and records backup source/id, RPO/RTO, row counts,
+  schema/readiness, and representative execution/lineage retrieval checks
 
 ### `GET /integration/runtime-retention-cleanups`
 
