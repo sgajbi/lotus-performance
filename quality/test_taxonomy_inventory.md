@@ -15,7 +15,7 @@ and quality family without executing tests or requiring coverage data.
 
 ```powershell
 python scripts/python_test_taxonomy_inventory.py --limit 30
-python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 648 --min-contract-governance-tests 126 --max-uncategorized-tests 982
+python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 648 --min-contract-governance-tests 127 --max-uncategorized-tests 982
 ```
 
 ## Summary
@@ -23,9 +23,9 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 290 |
-| Test functions inventoried | 3424 |
+| Test functions inventoried | 3425 |
 | Integration/API/runtime test functions | 648 |
-| Contract/governance test functions | 126 |
+| Contract/governance test functions | 127 |
 
 ## Test Functions By Suite
 
@@ -34,7 +34,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 18 |
 | e2e | 1 | 21 |
 | integration | 26 | 325 |
-| unit | 254 | 3060 |
+| unit | 254 | 3061 |
 
 ## Test Functions By Family
 
@@ -42,7 +42,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | --- | ---: |
 | analytics_domain | 1547 |
 | api_or_runtime | 648 |
-| contract_or_governance | 126 |
+| contract_or_governance | 127 |
 | observability_or_readiness | 322 |
 | quality_or_security | 139 |
 | uncategorized | 982 |
@@ -56,7 +56,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | 3 | `tests/unit/services/test_stateful_attribution_input_service.py` | unit | 70 | analytics_domain |
 | 4 | `tests/unit/app/test_openapi_enrichment.py` | unit | 61 | api_or_runtime |
 | 5 | `tests/unit/services/test_compute_job_store.py` | unit | 61 | observability_or_readiness |
-| 6 | `tests/unit/docs/test_public_docs_contract.py` | unit | 58 | contract_or_governance |
+| 6 | `tests/unit/docs/test_public_docs_contract.py` | unit | 59 | contract_or_governance |
 | 7 | `tests/unit/engine/test_attribution.py` | unit | 57 | analytics_domain |
 | 8 | `tests/unit/services/test_twr_inspection_source_economics.py` | unit | 57 | analytics_domain |
 | 9 | `tests/unit/services/test_lineage_metadata_store.py` | unit | 56 | uncategorized |
@@ -99,14 +99,14 @@ protects stateful performance input sourcing, benchmark market-series retrieval,
 and source-lineage snapshots.
 The issue #387 evidence refresh brought the curated report back to measured source truth. Issue
 #420 then ratcheted the blocking gate to the current measured preservation baseline: `648`
-API/runtime test functions, `126` contract/governance test functions, and an uncategorized-test
+API/runtime test functions, `127` contract/governance test functions, and an uncategorized-test
 ceiling of `982`. The measured taxonomy also records `322` observability/readiness test functions
 and `1547` analytics-domain test functions. Intentional threshold changes should remain separate,
 rationale-backed gate-governance work.
 
 This slice promotes the stable part of the taxonomy from report-only measurement to a
 regression-blocking evaluation gate. `make quality-test-taxonomy-gate` fails if API/runtime tests
-drop below `648`, contract/governance tests drop below `126`, or uncategorized tests rise above
+drop below `648`, contract/governance tests drop below `127`, or uncategorized tests rise above
 `982`. `make quality-evaluation-gate` now runs both deterministic demo API certification and this
 taxonomy gate, so existing Feature Lane, PR Merge Gate, Main Releasability, local `make check`,
 local `make ci`, and Quality Baseline workflow enforcement pick it up without duplicating workflow

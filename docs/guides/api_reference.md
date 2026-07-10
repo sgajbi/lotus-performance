@@ -520,16 +520,6 @@ Return semantics for the workspace surface are now explicit rather than inferred
 - guide: `docs/guides/composite_performance.md`
 - certification: `docs/technical/composite-twr-endpoint-certification.md`
 
-### `GET /performance/executions/{calculation_id}`
-
-- purpose: poll durable execution state
-- response includes:
-  - execution status
-  - execution stages
-  - upstream snapshots
-  - compute job state
-  - async result metadata
-
 ### `GET /performance/lineage/{calculation_id}`
 
 - purpose: retrieve durable lineage status and artifact URLs
@@ -1058,9 +1048,10 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - active runtime work is not pruned
   - each execution persists timestamped evidence plus refreshed `latest.json` and `manifest.json` under the configured retention artifact directory
 
-### `GET /integration/runtime-retention-cleanups`
+#### Runtime-retention cleanup history evidence
 
-- purpose: inspect retained runtime-retention cleanup evidence and history
+- purpose: summarize retained runtime-retention cleanup evidence and history without duplicating
+  the canonical `GET /integration/runtime-retention-cleanups` endpoint section above
 - privileged-read auth:
   - production-like profiles require `ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ=true`
   - this route requires enterprise identity headers plus capability `operations.runtime.read`
