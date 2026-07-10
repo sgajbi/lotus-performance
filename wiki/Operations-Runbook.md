@@ -73,6 +73,11 @@ control-plane actions can also emit `Retry-After`, but those headers represent c
 operator actions such as recovery drills or runtime-retention cleanup rather than analytics result
 polling cadence.
 
+Async completion SLOs and capacity decisions are governed in
+`docs/standards/async-slo-capacity-contract.md`. Use that contract to compare pending age against
+workflow objectives and to decide whether to scale workers, throttle submissions, or investigate
+upstream retry/failure pressure first.
+
 ## HTTP boundary controls
 
 `lotus-performance` registers explicit HTTP boundary hardening in `app.http_security`.

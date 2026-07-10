@@ -33,7 +33,7 @@ truth for `lotus-performance`.
 | `methodologies/` | Calculation methodology and metric definitions. |
 | `operations/` | Operator playbooks, alert explanations, and support workflows. |
 | `runbooks/` | First-response and runtime operation procedures. |
-| `standards/` | Repo-local engineering, runtime, security, and alert standards. |
+| `standards/` | Repo-local engineering, runtime, security, async SLO/capacity, and alert standards. |
 | `technical/` | Architecture, endpoint certification, runtime topology, and evidence maps. |
 | `RFCs/` | Local RFC history and implementation status. |
 | `examples/` | Maintained request, response, environment, and compose examples. |

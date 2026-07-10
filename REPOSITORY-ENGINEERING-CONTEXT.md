@@ -305,6 +305,10 @@ Important validation expectations:
     pending-result responses. This shared contract applies to TWR, benchmark, contribution,
     attribution, returns-series, workspace-summary, and TWR inspection. Keep it distinct from
     manual control-plane `Retry-After` cooldowns for recovery-drill and runtime-retention actions.
+    Submission-to-terminal async completion SLOs, worker sizing assumptions, scale triggers, and
+    runtime-threshold burn mapping are governed by
+    `docs/standards/async-slo-capacity-contract.md`; update that contract with any material worker,
+    threshold, or characterization-budget change.
 21. Compute-worker success finalization is recoverable. The worker publishes the successful async
     result before marking the compute job complete, never treats a post-success job-completion
     failure as a calculation failure, and reconciles stale compute jobs with an existing successful

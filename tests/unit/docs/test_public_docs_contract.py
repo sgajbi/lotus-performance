@@ -108,7 +108,7 @@ def test_issue_fix_closure_matrix_is_discoverable_and_merge_gated():
     assert "Review playbook, issue closure matrix, and codebase review ledger" in docs_index
     assert "ISSUE-FIX-CLOSURE-MATRIX.md" in review_playbook
     assert "before PR creation or issue closure" in review_playbook
-    assert "Actionable issues fixed locally | 29" in closure_matrix
+    assert "Actionable issues fixed locally | 30" in closure_matrix
     assert "Issues safe to close now | 0" in closure_matrix
     assert "merged to `main`" in closure_matrix
     assert "No PR should be raised from this branch until the issue matrix remains complete" in closure_matrix
@@ -139,6 +139,7 @@ def test_issue_fix_closure_matrix_is_discoverable_and_merge_gated():
         "#451",
         "#450",
         "#442",
+        "#443",
         "#452",
         "#453",
         "#454",
@@ -1945,6 +1946,57 @@ def test_runtime_threshold_profiles_cover_controlled_settings():
     assert "runtime-threshold-profiles.md" in scalability
     assert "transient upstream HTTP statuses `429`, `502`, `503`" in scalability
     assert "runtime-threshold-profiles.md" in enterprise
+
+
+def test_async_slo_capacity_contract_is_governed():
+    contract = _read("docs/standards/async-slo-capacity-contract.md")
+    scalability = _read("docs/standards/scalability-availability.md")
+    profiles = _read("docs/standards/runtime-threshold-profiles.md")
+    characterization = _read("docs/technical/performance_characterization.md")
+    alerts = _read("docs/runbooks/runtime-alerts.md")
+    docs_index = _read("docs/README.md")
+    repository_context = _read("REPOSITORY-ENGINEERING-CONTEXT.md")
+    wiki_operations = _read("wiki/Operations-Runbook.md")
+
+    for workflow in (
+        "Returns series",
+        "TWR",
+        "Contribution",
+        "Attribution",
+        "Workspace summary",
+        "Benchmark",
+    ):
+        assert workflow in contract
+
+    for target in ("`15s`", "`20s`", "`30s`", "`60s`"):
+        assert target in contract
+
+    for evidence in (
+        "make performance-characterization",
+        "make performance-characterization-postgres",
+        "test_returns_series_orchestration_performance.py",
+        "test_twr_orchestration_performance.py",
+        "test_benchmark_orchestration_performance.py",
+        "test_execution_polling_performance.py",
+    ):
+        assert evidence in contract
+
+    assert "required_compute_workers" in contract
+    assert "70%" in contract
+    assert "6` requests per minute per two compute workers" in contract
+    assert "RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS=600" in contract
+    assert "terminal failure or retry pressure" in contract
+    assert "distinct from issue #426" in contract
+
+    for document in (scalability, profiles, characterization, alerts, repository_context, wiki_operations):
+        assert "async-slo-capacity-contract.md" in document
+
+    assert "async SLO/capacity" in docs_index
+    assert "submission-to-terminal-result objectives" in scalability
+    assert "hard degradation backstops" in profiles
+    assert "worker sizing assumptions" in repository_context
+    assert "scale compute workers" in alerts
+    assert "workflow objectives" in wiki_operations
 
 
 def test_runtime_threshold_env_examples_match_profile_defaults():
