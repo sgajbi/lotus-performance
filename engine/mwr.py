@@ -207,6 +207,8 @@ def _xirr_root_candidate(
         return None
     if abs(previous_y) <= tolerance:
         return exp(previous_x) - 1, 0
+    if abs(current_y) <= tolerance:
+        return exp(current_x) - 1, 0
     if previous_y * current_y >= 0:
         return None
     root_x, iterations = _bisect_root(

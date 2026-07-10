@@ -23,7 +23,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 292 |
-| Test functions inventoried | 3430 |
+| Test functions inventoried | 3432 |
 | Integration/API/runtime test functions | 651 |
 | Contract/governance test functions | 128 |
 
@@ -34,13 +34,13 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 18 |
 | e2e | 1 | 21 |
 | integration | 27 | 327 |
-| unit | 255 | 3064 |
+| unit | 255 | 3066 |
 
 ## Test Functions By Family
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 1547 |
+| analytics_domain | 1549 |
 | api_or_runtime | 651 |
 | contract_or_governance | 128 |
 | observability_or_readiness | 324 |
@@ -66,8 +66,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | 13 | `tests/unit/services/test_compute_executor_worker.py` | unit | 46 | uncategorized |
 | 14 | `tests/unit/services/test_stateful_input_service.py` | unit | 45 | analytics_domain |
 | 15 | `tests/unit/services/test_twr_mode_service.py` | unit | 45 | analytics_domain |
-| 16 | `tests/unit/services/test_stateful_benchmark_input_service.py` | unit | 44 | analytics_domain |
-| 17 | `tests/unit/engine/test_mwr.py` | unit | 42 | analytics_domain |
+| 16 | `tests/unit/engine/test_mwr.py` | unit | 44 | analytics_domain |
+| 17 | `tests/unit/services/test_stateful_benchmark_input_service.py` | unit | 44 | analytics_domain |
 | 18 | `tests/integration/test_contribution_api.py` | integration | 41 | analytics_domain, api_or_runtime |
 | 19 | `tests/unit/services/test_operator_action_lease_service.py` | unit | 40 | uncategorized |
 | 20 | `tests/integration/test_performance_api.py` | integration | 39 | api_or_runtime |
@@ -101,8 +101,8 @@ The issue #387 evidence refresh brought the curated report back to measured sour
 #419 then added runtime build-identity coverage without growing the uncategorized backlog; #420
 ratcheted the blocking gate to the current measured preservation baseline: `651`
 API/runtime test functions, `128` contract/governance test functions, and an uncategorized-test
-ceiling of `982`. The measured taxonomy also records `322` observability/readiness test functions
-and `1547` analytics-domain test functions. Intentional threshold changes should remain separate,
+ceiling of `982`. The measured taxonomy also records `324` observability/readiness test functions
+and `1549` analytics-domain test functions. Intentional threshold changes should remain separate,
 rationale-backed gate-governance work.
 
 This slice promotes the stable part of the taxonomy from report-only measurement to a

@@ -76,7 +76,7 @@ link the commit, command, or CI artifact that proves the change.
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
 | Test modules | 228 | 292 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 3,651 | measured | `python -m pytest --collect-only -q` |
+| Collected tests | 2,035 | 3,653 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
 | Integration/API/runtime test functions | unknown | 651 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
