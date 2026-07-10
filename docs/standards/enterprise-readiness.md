@@ -21,9 +21,11 @@
 - Allowed privileged write operations also emit audit metadata describing the governed surface and required capability when a governed write rule applies.
 - `ENTERPRISE_RUNTIME_PROFILE=production`, `prod`, or `staging` is production-like and fails closed
   at startup unless enterprise write authz, privileged-read authz, runtime-config enforcement, and
-  `ENTERPRISE_PRIMARY_KEY_ID` are configured.
+  `ENTERPRISE_PRIMARY_KEY_ID` are configured, and unless governed runtime-status degradation
+  thresholds are set to non-zero production-like values.
 - Local and development relaxed mode remains explicit through `ENTERPRISE_RUNTIME_PROFILE=local`
-  or an unset runtime profile with the authz switches disabled.
+  or an unset runtime profile with the authz switches disabled. This is the only supported
+  diagnostic posture for disabled `0` runtime degradation thresholds.
 - Privileged operator read surfaces are protected with capability-gated enterprise authz in
   production-like profiles.
 - Controlled lineage evidence reads are protected with the same privileged-read capability:

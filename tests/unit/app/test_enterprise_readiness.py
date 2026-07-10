@@ -4,6 +4,7 @@ import pytest
 from fastapi import Request
 from fastapi.responses import JSONResponse
 
+from app.core.config import Settings
 from app.enterprise_readiness import (
     _DEFAULT_ENTERPRISE_POLICY_VERSION,
     _ENV_ENTERPRISE_CAPABILITY_RULES_JSON,
@@ -25,6 +26,7 @@ from app.enterprise_readiness import (
     _PAYLOAD_TOO_LARGE_DETAIL,
     _PRODUCTION_PRIVILEGED_READ_AUTHZ_DISABLED_ISSUE,
     _PRODUCTION_RUNTIME_CONFIG_ENFORCEMENT_DISABLED_ISSUE,
+    _PRODUCTION_RUNTIME_THRESHOLD_DISABLED_ISSUE_PREFIX,
     _PRODUCTION_WRITE_AUTHZ_DISABLED_ISSUE,
     _RESPONSE_DETAIL_KEY,
     _RUNTIME_CONFIG_INVALID_PREFIX,
@@ -37,6 +39,7 @@ from app.enterprise_readiness import (
     redact_sensitive,
     validate_enterprise_runtime_config,
 )
+from tests.unit.app.enterprise_runtime_test_settings import settings_with_runtime_thresholds
 
 
 def _request_with_body(
@@ -251,7 +254,7 @@ def test_validate_runtime_config_fails_closed_for_production_profile(monkeypatch
     monkeypatch.delenv(_ENV_ENTERPRISE_PRIMARY_KEY_ID, raising=False)
 
     with pytest.raises(RuntimeError, match=_RUNTIME_CONFIG_INVALID_PREFIX) as exc_info:
-        validate_enterprise_runtime_config()
+        validate_enterprise_runtime_config(settings=settings_with_runtime_thresholds())
 
     message = str(exc_info.value)
     assert _PRODUCTION_WRITE_AUTHZ_DISABLED_ISSUE in message
@@ -267,7 +270,32 @@ def test_validate_runtime_config_allows_explicit_local_relaxed_mode(monkeypatch)
     monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_RUNTIME_CONFIG, "false")
     monkeypatch.delenv(_ENV_ENTERPRISE_PRIMARY_KEY_ID, raising=False)
 
-    assert validate_enterprise_runtime_config() == []
+    assert validate_enterprise_runtime_config(settings=settings_with_runtime_thresholds()) == []
+
+
+def test_validate_runtime_config_fails_closed_for_production_threshold_defaults(monkeypatch):
+    monkeypatch.setenv(_ENV_ENTERPRISE_RUNTIME_PROFILE, "production")
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_AUTHZ, "true")
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ, "true")
+    monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_RUNTIME_CONFIG, "true")
+    monkeypatch.setenv(_ENV_ENTERPRISE_PRIMARY_KEY_ID, "kms-key-1")
+
+    with pytest.raises(RuntimeError, match=_RUNTIME_CONFIG_INVALID_PREFIX) as exc_info:
+        validate_enterprise_runtime_config(settings=Settings())
+
+    message = str(exc_info.value)
+    assert (
+        f"{_PRODUCTION_RUNTIME_THRESHOLD_DISABLED_ISSUE_PREFIX}:"
+        "RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS" in message
+    )
+    assert (
+        f"{_PRODUCTION_RUNTIME_THRESHOLD_DISABLED_ISSUE_PREFIX}:"
+        "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO" in message
+    )
+    assert (
+        f"{_PRODUCTION_RUNTIME_THRESHOLD_DISABLED_ISSUE_PREFIX}:"
+        "RUNTIME_STATUS_RUNTIME_RETENTION_RECLAIM_DEGRADE_COUNT" in message
+    )
 
 
 def test_validate_runtime_config_accepts_production_authz_contract(monkeypatch):
@@ -277,7 +305,7 @@ def test_validate_runtime_config_accepts_production_authz_contract(monkeypatch):
     monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_RUNTIME_CONFIG, "true")
     monkeypatch.setenv(_ENV_ENTERPRISE_PRIMARY_KEY_ID, "kms-key-1")
 
-    assert validate_enterprise_runtime_config() == []
+    assert validate_enterprise_runtime_config(settings=settings_with_runtime_thresholds()) == []
 
 
 def test_production_operator_write_surfaces_require_runtime_manage_capability(monkeypatch):

@@ -17,6 +17,7 @@ from app import (
     enterprise_response_envelopes,
     enterprise_runtime_config,
 )
+from app.core.config import Settings
 from app.enterprise_readiness import (
     _ACTOR_ID_HEADER,
     _AUDIT_ACCESS_MODE_PRIVILEGED_READ,
@@ -81,6 +82,7 @@ from app.enterprise_readiness import (
     _PRODUCTION_LIKE_RUNTIME_PROFILES,
     _PRODUCTION_PRIVILEGED_READ_AUTHZ_DISABLED_ISSUE,
     _PRODUCTION_RUNTIME_CONFIG_ENFORCEMENT_DISABLED_ISSUE,
+    _PRODUCTION_RUNTIME_THRESHOLD_DISABLED_ISSUE_PREFIX,
     _PRODUCTION_WRITE_AUTHZ_DISABLED_ISSUE,
     _REDACTED_VALUE,
     _RESPONSE_DETAIL_KEY,
@@ -142,6 +144,7 @@ from app.enterprise_readiness import (
     _privileged_read_authz_enabled,
     _production_like_runtime_profile_enabled,
     _production_primary_key_config_valid,
+    _production_runtime_threshold_issues,
     _redacted_mapping,
     _redacted_mapping_value,
     _redacted_sequence,
@@ -166,6 +169,7 @@ from app.enterprise_readiness import (
     redact_sensitive,
     validate_enterprise_runtime_config,
 )
+from tests.unit.app.enterprise_runtime_test_settings import settings_with_runtime_thresholds
 
 
 def test_validate_enterprise_runtime_config_raises_when_enforcement_enabled(monkeypatch):
@@ -900,7 +904,7 @@ def test_enterprise_runtime_config_issues_reports_production_authz_posture(monke
     monkeypatch.delenv(_ENV_ENTERPRISE_ENFORCE_RUNTIME_CONFIG, raising=False)
     monkeypatch.delenv(_ENV_ENTERPRISE_PRIMARY_KEY_ID, raising=False)
 
-    assert _enterprise_runtime_config_issues() == [
+    assert _enterprise_runtime_config_issues(settings=settings_with_runtime_thresholds()) == [
         _PRODUCTION_WRITE_AUTHZ_DISABLED_ISSUE,
         _PRODUCTION_PRIVILEGED_READ_AUTHZ_DISABLED_ISSUE,
         _PRODUCTION_RUNTIME_CONFIG_ENFORCEMENT_DISABLED_ISSUE,
@@ -915,7 +919,33 @@ def test_enterprise_runtime_config_issues_does_not_duplicate_primary_key_issue(m
     monkeypatch.setenv(_ENV_ENTERPRISE_ENFORCE_RUNTIME_CONFIG, "true")
     monkeypatch.delenv(_ENV_ENTERPRISE_PRIMARY_KEY_ID, raising=False)
 
-    assert _enterprise_runtime_config_issues() == [_MISSING_PRIMARY_KEY_ID_ISSUE]
+    assert _enterprise_runtime_config_issues(settings=settings_with_runtime_thresholds()) == [
+        _MISSING_PRIMARY_KEY_ID_ISSUE
+    ]
+
+
+def test_enterprise_runtime_config_issues_report_disabled_production_thresholds(monkeypatch):
+    monkeypatch.setenv(_ENV_ENTERPRISE_RUNTIME_PROFILE, "production")
+    settings = settings_with_runtime_thresholds(
+        RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS=0,
+        RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_BYTES=0,
+        RUNTIME_STATUS_RUNTIME_RETENTION_RECLAIM_DEGRADE_COUNT=0,
+    )
+
+    assert _production_runtime_threshold_issues(settings=settings) == [
+        (f"{_PRODUCTION_RUNTIME_THRESHOLD_DISABLED_ISSUE_PREFIX}:RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS"),
+        f"{_PRODUCTION_RUNTIME_THRESHOLD_DISABLED_ISSUE_PREFIX}:RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_BYTES",
+        (
+            f"{_PRODUCTION_RUNTIME_THRESHOLD_DISABLED_ISSUE_PREFIX}:"
+            "RUNTIME_STATUS_RUNTIME_RETENTION_RECLAIM_DEGRADE_COUNT"
+        ),
+    ]
+
+
+def test_enterprise_runtime_config_issues_allow_disabled_thresholds_for_local_profile(monkeypatch):
+    monkeypatch.setenv(_ENV_ENTERPRISE_RUNTIME_PROFILE, "local")
+
+    assert _production_runtime_threshold_issues(settings=Settings()) == []
 
 
 def test_runtime_config_issues_raise_for_production_profile_even_without_runtime_config_flag(monkeypatch):

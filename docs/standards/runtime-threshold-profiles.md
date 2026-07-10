@@ -117,7 +117,11 @@ Use operator-grade thresholds aligned to the alert policy and recovery expectati
 
 ## Adoption Rules
 
-- Production environments should not leave these thresholds at `0`.
+- Production-like profiles (`ENTERPRISE_RUNTIME_PROFILE=production`, `prod`, or `staging`) fail startup
+  when any controlled runtime threshold remains `0` or otherwise disabled. Use the
+  production or staging overlay values instead of relying on local defaults.
+- `ENTERPRISE_RUNTIME_PROFILE=local`, or an unset profile with relaxed authz controls, is the only
+  supported diagnostic exception where `0` can intentionally disable a runtime degradation threshold.
 - Any override from the production defaults requires an operational rationale and review.
 - Alert definitions should use the breach gauges exported by the service, not restate the thresholds externally.
 - Compute queue age thresholds are hard degradation backstops, not the full async completion SLO.
@@ -140,4 +144,5 @@ The production examples also carry the enterprise runtime security contract:
 `ENTERPRISE_RUNTIME_PROFILE=production`, `ENTERPRISE_ENFORCE_AUTHZ=true`,
 `ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ=true`, `ENTERPRISE_ENFORCE_RUNTIME_CONFIG=true`, and a
 non-blank `ENTERPRISE_PRIMARY_KEY_ID`. Production-like profiles fail closed at startup when these
-controls are missing or disabled.
+controls are missing or disabled, or when a governed runtime threshold is left at a disabled
+zero value.

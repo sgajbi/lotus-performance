@@ -108,7 +108,7 @@ app.openapi = custom_openapi
 
 setup_observability(app, log_level=settings.LOG_LEVEL)
 configure_http_security(app, settings=settings)
-validate_enterprise_runtime_config()
+validate_enterprise_runtime_config(settings=settings)
 app.middleware("http")(build_enterprise_audit_middleware())
 
 app.add_exception_handler(PerformanceCalculatorError, performance_calculator_exception_handler)

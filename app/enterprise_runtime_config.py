@@ -1,5 +1,6 @@
 import json
 import os
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 _DEFAULT_ENTERPRISE_POLICY_VERSION = "1.0.0"
@@ -10,6 +11,7 @@ _MISSING_PRIMARY_KEY_ID_ISSUE = "missing_primary_key_id"
 _PRODUCTION_WRITE_AUTHZ_DISABLED_ISSUE = "production_write_authz_disabled"
 _PRODUCTION_PRIVILEGED_READ_AUTHZ_DISABLED_ISSUE = "production_privileged_read_authz_disabled"
 _PRODUCTION_RUNTIME_CONFIG_ENFORCEMENT_DISABLED_ISSUE = "production_runtime_config_enforcement_disabled"
+_PRODUCTION_RUNTIME_THRESHOLD_DISABLED_ISSUE_PREFIX = "production_runtime_threshold_disabled"
 _RUNTIME_CONFIG_INVALID_PREFIX = "enterprise_runtime_config_invalid"
 _DIAGNOSTIC_LIST_SEPARATOR = ","
 _ENV_ENTERPRISE_RUNTIME_PROFILE = "ENTERPRISE_RUNTIME_PROFILE"
@@ -31,6 +33,26 @@ _EMPTY_ENV_VALUE = ""
 _EMPTY_JSON_OBJECT = "{}"
 _DEFAULT_MAX_WRITE_PAYLOAD_BYTES = 1_048_576
 _DEFAULT_SECRET_ROTATION_DAYS = 90
+_PRODUCTION_RUNTIME_THRESHOLD_FIELDS = (
+    "RUNTIME_STATUS_COMPUTE_PENDING_AGE_DEGRADE_SECONDS",
+    "RUNTIME_STATUS_COMPUTE_LEASED_AGE_DEGRADE_SECONDS",
+    "RUNTIME_STATUS_COMPUTE_RUNNING_AGE_DEGRADE_SECONDS",
+    "RUNTIME_STATUS_COMPUTE_RETRY_BACKLOG_DEGRADE_COUNT",
+    "RUNTIME_STATUS_COMPUTE_LEASE_EXPIRY_DEGRADE_COUNT",
+    "RUNTIME_STATUS_COMPUTE_TERMINAL_FAILURE_DEGRADE_COUNT",
+    "RUNTIME_STATUS_LINEAGE_PENDING_AGE_DEGRADE_SECONDS",
+    "RUNTIME_STATUS_LINEAGE_LEASED_AGE_DEGRADE_SECONDS",
+    "RUNTIME_STATUS_LINEAGE_RETRY_BACKLOG_DEGRADE_COUNT",
+    "RUNTIME_STATUS_LINEAGE_TERMINAL_FAILURE_DEGRADE_COUNT",
+    "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_BYTES",
+    "RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO",
+    "RUNTIME_STATUS_RECOVERY_DRILL_MAX_AGE_SECONDS",
+    "RUNTIME_STATUS_RECOVERY_DRILL_ACTIVE_RUN_AGE_DEGRADE_SECONDS",
+    "RUNTIME_STATUS_RECOVERY_DRILL_RECLAIM_DEGRADE_COUNT",
+    "RUNTIME_STATUS_RUNTIME_RETENTION_MAX_AGE_SECONDS",
+    "RUNTIME_STATUS_RUNTIME_RETENTION_ACTIVE_RUN_AGE_DEGRADE_SECONDS",
+    "RUNTIME_STATUS_RUNTIME_RETENTION_RECLAIM_DEGRADE_COUNT",
+)
 
 
 def _env_value(name: str, default: str) -> str:
@@ -141,11 +163,41 @@ def _production_runtime_profile_requirements(existing_issues: list[str]) -> tupl
     )
 
 
+def _production_runtime_threshold_issues(settings: Any | None = None) -> list[str]:
+    if not _production_like_runtime_profile_enabled():
+        return []
+
+    active_settings = settings if settings is not None else _default_settings()
+    return [
+        _runtime_threshold_disabled_issue(field_name)
+        for field_name in _PRODUCTION_RUNTIME_THRESHOLD_FIELDS
+        if _runtime_threshold_disabled(active_settings, field_name)
+    ]
+
+
+def _default_settings() -> Any:
+    from app.core.config import get_settings
+
+    return get_settings()
+
+
+def _runtime_threshold_disabled(settings: Any, field_name: str) -> bool:
+    value = getattr(settings, field_name, 0)
+    try:
+        return Decimal(str(value)) <= Decimal("0")
+    except (InvalidOperation, TypeError, ValueError):
+        return True
+
+
+def _runtime_threshold_disabled_issue(field_name: str) -> str:
+    return f"{_PRODUCTION_RUNTIME_THRESHOLD_DISABLED_ISSUE_PREFIX}:{field_name}"
+
+
 def _production_primary_key_issue_needed(existing_issues: list[str]) -> bool:
     return not _production_primary_key_config_valid() and _MISSING_PRIMARY_KEY_ID_ISSUE not in existing_issues
 
 
-def _enterprise_runtime_config_issues() -> list[str]:
+def _enterprise_runtime_config_issues(settings: Any | None = None) -> list[str]:
     issues: list[str] = []
     if not _normalized_enterprise_policy_version():
         issues.append(_MISSING_POLICY_VERSION_ISSUE)
@@ -158,6 +210,7 @@ def _enterprise_runtime_config_issues() -> list[str]:
         issues.append(_MISSING_PRIMARY_KEY_ID_ISSUE)
 
     issues.extend(_production_runtime_profile_issues(issues))
+    issues.extend(_production_runtime_threshold_issues(settings=settings))
     return issues
 
 
@@ -165,8 +218,8 @@ def _runtime_config_invalid_message(issues: list[str]) -> str:
     return f"{_RUNTIME_CONFIG_INVALID_PREFIX}:{_DIAGNOSTIC_LIST_SEPARATOR.join(issues)}"
 
 
-def validate_enterprise_runtime_config() -> list[str]:
-    issues = _enterprise_runtime_config_issues()
+def validate_enterprise_runtime_config(settings: Any | None = None) -> list[str]:
+    issues = _enterprise_runtime_config_issues(settings=settings)
     if _runtime_config_issues_should_raise(issues):
         raise RuntimeError(_runtime_config_invalid_message(issues))
     return issues

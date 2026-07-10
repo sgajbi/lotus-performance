@@ -312,8 +312,10 @@ Important validation expectations:
     mainline commit can receive normal Main Releasability evidence from an authorized merge actor.
 18. `ENTERPRISE_RUNTIME_PROFILE=production`, `prod`, or `staging` is production-like and fails
     startup when enterprise write authz, privileged-read authz, runtime-config enforcement, or
-    `ENTERPRISE_PRIMARY_KEY_ID` is missing. Local relaxed mode remains explicit through
-    `ENTERPRISE_RUNTIME_PROFILE=local` or an unset runtime profile with disabled authz switches.
+    `ENTERPRISE_PRIMARY_KEY_ID` is missing, or when governed runtime-status degradation thresholds
+    remain disabled at `0`. Local relaxed mode remains explicit through
+    `ENTERPRISE_RUNTIME_PROFILE=local` or an unset runtime profile with disabled authz switches,
+    and is the only supported diagnostic posture for disabled runtime thresholds.
 19. Lineage inventory and TWR inspection evidence endpoints are controlled evidence-access
     surfaces. When privileged-read authz is enabled, `/performance/lineage/{calculation_id}`,
     `/performance/lineage/{calculation_id}/artifacts/{artifact_name}`,
@@ -360,6 +362,9 @@ Important validation expectations:
     applied before destructive phases so protected execution, compute-job, async-result, lineage,
     and lineage-artifact records remain available for client dispute, regulatory record, audit
     freeze, model-validation, incident, or investigation evidence.
+    Runtime-retention history limits, max-age settings, worker poll interval, manual cooldown,
+    preview freshness, and stale action lease settings are positive settings-validation controls;
+    do not use `0` to disable retention or recovery-drill guardrails in production-like overlays.
 24. Durable runtime stores must use `app.services.durable_database_engine` for SQLAlchemy engine
     construction. Execution registry, lineage metadata, compute-job, async-result, composite
     metadata, and restore-validation drill paths share the same Postgres connection timeout,
