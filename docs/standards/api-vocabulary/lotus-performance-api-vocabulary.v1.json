@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-07-10T12:18:25.855098+00:00",
+  "generatedAt": "2026-07-10T15:05:58.945477+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.access_classification",
@@ -4742,6 +4742,76 @@
       ],
       "observedTypes": [
         "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.protected_async_result_count",
+      "canonicalTerm": "protected_async_result_count",
+      "preferredName": "protected_async_result_count",
+      "description": "Async results excluded from this cleanup by legal hold.",
+      "example": 1,
+      "type": "integer",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "integer"
+      ]
+    },
+    {
+      "semanticId": "lotus.protected_compute_job_count",
+      "canonicalTerm": "protected_compute_job_count",
+      "preferredName": "protected_compute_job_count",
+      "description": "Terminal compute jobs excluded from this cleanup by legal hold.",
+      "example": 1,
+      "type": "integer",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "integer"
+      ]
+    },
+    {
+      "semanticId": "lotus.protected_execution_count",
+      "canonicalTerm": "protected_execution_count",
+      "preferredName": "protected_execution_count",
+      "description": "Terminal execution records excluded from this cleanup by legal hold.",
+      "example": 1,
+      "type": "integer",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "integer"
+      ]
+    },
+    {
+      "semanticId": "lotus.protected_lineage_artifact_count",
+      "canonicalTerm": "protected_lineage_artifact_count",
+      "preferredName": "protected_lineage_artifact_count",
+      "description": "Lineage artifact directories excluded from this cleanup by legal hold.",
+      "example": 1,
+      "type": "integer",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "integer"
+      ]
+    },
+    {
+      "semanticId": "lotus.protected_lineage_record_count",
+      "canonicalTerm": "protected_lineage_record_count",
+      "preferredName": "protected_lineage_record_count",
+      "description": "Terminal lineage records excluded from this cleanup by legal hold.",
+      "example": 1,
+      "type": "integer",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "integer"
       ]
     },
     {
@@ -16167,6 +16237,46 @@
             "type": "integer",
             "semanticId": "lotus.prunable_lineage_artifact_count",
             "attributeRef": "#/attributeCatalog/lotus.prunable_lineage_artifact_count"
+          },
+          {
+            "name": "entries[].protected_execution_count",
+            "location": "body",
+            "required": false,
+            "type": "integer",
+            "semanticId": "lotus.protected_execution_count",
+            "attributeRef": "#/attributeCatalog/lotus.protected_execution_count"
+          },
+          {
+            "name": "entries[].protected_compute_job_count",
+            "location": "body",
+            "required": false,
+            "type": "integer",
+            "semanticId": "lotus.protected_compute_job_count",
+            "attributeRef": "#/attributeCatalog/lotus.protected_compute_job_count"
+          },
+          {
+            "name": "entries[].protected_async_result_count",
+            "location": "body",
+            "required": false,
+            "type": "integer",
+            "semanticId": "lotus.protected_async_result_count",
+            "attributeRef": "#/attributeCatalog/lotus.protected_async_result_count"
+          },
+          {
+            "name": "entries[].protected_lineage_record_count",
+            "location": "body",
+            "required": false,
+            "type": "integer",
+            "semanticId": "lotus.protected_lineage_record_count",
+            "attributeRef": "#/attributeCatalog/lotus.protected_lineage_record_count"
+          },
+          {
+            "name": "entries[].protected_lineage_artifact_count",
+            "location": "body",
+            "required": false,
+            "type": "integer",
+            "semanticId": "lotus.protected_lineage_artifact_count",
+            "attributeRef": "#/attributeCatalog/lotus.protected_lineage_artifact_count"
           }
         ]
       }
@@ -16358,6 +16468,46 @@
             "type": "integer",
             "semanticId": "lotus.prunable_lineage_artifact_count",
             "attributeRef": "#/attributeCatalog/lotus.prunable_lineage_artifact_count"
+          },
+          {
+            "name": "protected_execution_count",
+            "location": "body",
+            "required": false,
+            "type": "integer",
+            "semanticId": "lotus.protected_execution_count",
+            "attributeRef": "#/attributeCatalog/lotus.protected_execution_count"
+          },
+          {
+            "name": "protected_compute_job_count",
+            "location": "body",
+            "required": false,
+            "type": "integer",
+            "semanticId": "lotus.protected_compute_job_count",
+            "attributeRef": "#/attributeCatalog/lotus.protected_compute_job_count"
+          },
+          {
+            "name": "protected_async_result_count",
+            "location": "body",
+            "required": false,
+            "type": "integer",
+            "semanticId": "lotus.protected_async_result_count",
+            "attributeRef": "#/attributeCatalog/lotus.protected_async_result_count"
+          },
+          {
+            "name": "protected_lineage_record_count",
+            "location": "body",
+            "required": false,
+            "type": "integer",
+            "semanticId": "lotus.protected_lineage_record_count",
+            "attributeRef": "#/attributeCatalog/lotus.protected_lineage_record_count"
+          },
+          {
+            "name": "protected_lineage_artifact_count",
+            "location": "body",
+            "required": false,
+            "type": "integer",
+            "semanticId": "lotus.protected_lineage_artifact_count",
+            "attributeRef": "#/attributeCatalog/lotus.protected_lineage_artifact_count"
           }
         ]
       }
