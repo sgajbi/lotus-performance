@@ -14,6 +14,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from app.core.config import get_settings
+from app.services.calculation_id_filtering import apply_calculation_id_prefix_filter
 from app.services.durable_store_inspection import (
     INSPECTION_STATUS_ACTIVE,
     INSPECTION_STATUS_ALL,
@@ -1135,9 +1136,7 @@ class ComputeJobStore:
     ):
         if analytics_type is not None:
             statement = statement.where(ComputeJobModel.analytics_type == analytics_type)
-        if calculation_id_contains:
-            statement = statement.where(ComputeJobModel.calculation_id.contains(calculation_id_contains))
-        return statement
+        return apply_calculation_id_prefix_filter(statement, ComputeJobModel.calculation_id, calculation_id_contains)
 
     @staticmethod
     def _apply_recovery_time_filters(

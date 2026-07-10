@@ -31,7 +31,7 @@ Supported query options:
 | `min_age_seconds` | `0.0` | Minimum work-item age for stale-item triage. |
 | `compute_analytics_type` | omitted | Compute-only workflow filter, for example `TWR`, `ReturnsSeries`, or `Attribution`. |
 | `lineage_calculation_type` | omitted | Lineage-only workflow filter, for example `TWR`, `BENCHMARK`, or `Attribution`. |
-| `calculation_id_contains` | omitted | Calculation-handle substring filter applied to selected queues. |
+| `calculation_id_contains` | omitted | Governed calculation-id prefix or full UUID lookup applied to selected queues; minimum prefix length is 8 and arbitrary substring search is rejected. |
 
 Production-like profiles (`ENTERPRISE_RUNTIME_PROFILE=production`, `prod`, or `staging`) require
 `ENTERPRISE_ENFORCE_PRIVILEGED_READ_AUTHZ=true` at startup. The route requires enterprise identity
@@ -67,7 +67,7 @@ Certified behavior:
 - `limit` and `offset` provide queue-local bounded paging
 - `next_offset` signals additional matching rows without client-side count arithmetic
 - `min_age_seconds` supports stale-work triage
-- analytics-family and calculation-handle filters are applied before pagination
+- analytics-family and governed calculation-id prefix filters are applied before pagination
 - direct `execution_path`, `lineage_path`, and supported async `result_path` links are emitted
 - one queue can degrade to `unavailable` while the other queue remains usable
 - durable metadata store failure returns unavailable queue statuses rather than misleading empty data
@@ -114,8 +114,8 @@ the compute durable queue; `lineage_work_item_read_failed` means lineage work-it
 not read lineage metadata. The endpoint intentionally keeps the other queue available when it can.
 Join the response `correlation_id` from the HTTP envelope/log context with structured service log
 event `runtime_operator_read_degraded`; the log includes queue source, operation, exception class,
-limit, offset, status filter, age filter, workflow-type filters, and whether a calculation-handle
-substring filter was present. The log does not emit the raw calculation-handle substring.
+limit, offset, status filter, age filter, workflow-type filters, and whether a calculation-id
+prefix filter was present. The log does not emit the raw calculation-id prefix.
 
 ## Swagger Readiness
 
@@ -130,7 +130,7 @@ Current test posture is production-grade for this endpoint:
 - store/unit tests cover durable filtering, counts, paging, and reclaimable lease semantics
 - service tests cover queue exclusion, partial queue failure, durable-store failure, and filter propagation
 - model tests cover navigation-link serialization and result-route mapping
-- integration tests cover active, failed, reclaimable, paging, targeted filters, partial failure, and result paths
+- integration tests cover active, failed, reclaimable, paging, governed calculation-id prefix filters, partial failure, and result paths
 - OpenAPI/docs tests prevent Swagger and public-reference drift
 
 ## Validation Commands

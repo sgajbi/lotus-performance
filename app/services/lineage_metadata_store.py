@@ -26,6 +26,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
+from app.services.calculation_id_filtering import apply_calculation_id_prefix_filter
 from app.services.durable_store_inspection import (
     INSPECTION_STATUS_ACTIVE,
     INSPECTION_STATUS_ALL,
@@ -767,9 +768,7 @@ class LineageMetadataStore:
     ):
         if calculation_type is not None:
             statement = statement.where(LineageRecordModel.calculation_type == calculation_type)
-        if calculation_id_contains:
-            statement = statement.where(LineageRecordModel.calculation_id.contains(calculation_id_contains))
-        return statement
+        return apply_calculation_id_prefix_filter(statement, LineageRecordModel.calculation_id, calculation_id_contains)
 
     @staticmethod
     def _build_active_since_expression(*, now: datetime):

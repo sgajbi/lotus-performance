@@ -74,6 +74,47 @@ def test_runtime_recoveries_returns_filtered_events():
         lineage_metadata_store.clear_all_records()
 
 
+def test_runtime_recoveries_supports_governed_calculation_id_prefix_filter():
+    compute_job_store.create_schema()
+    lineage_metadata_store.create_schema()
+    compute_job_store.clear_all_records()
+    lineage_metadata_store.clear_all_records()
+    now = datetime.now(timezone.utc)
+    matching_id = uuid4()
+    other_id = uuid4()
+
+    for calculation_id in (matching_id, other_id):
+        compute_job_store.enqueue_job(
+            calculation_id=calculation_id,
+            analytics_type="ReturnsSeries",
+            request_payload={"portfolio_id": str(calculation_id)},
+        )
+        with compute_job_store._session() as session:
+            row = compute_job_store._get_model(session, calculation_id)
+            row.attempt_count = 1
+            row.last_error_at_utc = now - timedelta(seconds=5)
+
+    try:
+        with TestClient(app) as client:
+            response = client.get(
+                "/integration/runtime-recoveries",
+                params={
+                    "queue": "compute",
+                    "limit": 10,
+                    "calculation_id_contains": str(matching_id)[:8],
+                },
+            )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["calculation_id_contains"] == str(matching_id)[:8]
+        assert body["compute_queue"]["total_count"] == 1
+        assert [item["calculation_id"] for item in body["compute_recoveries"]] == [str(matching_id)]
+    finally:
+        compute_job_store.clear_all_records()
+        lineage_metadata_store.clear_all_records()
+
+
 def test_runtime_recoveries_returns_next_offset_for_additional_matching_events():
     compute_job_store.create_schema()
     lineage_metadata_store.create_schema()
@@ -196,6 +237,22 @@ def test_runtime_recoveries_rejects_blank_string_filters():
     assert response.status_code == 422
     fields = {item["loc"][-1] for item in response.json()["validation_errors"]}
     assert {"lineage_calculation_type", "cursor_calculation_id_before"} <= fields
+
+
+def test_runtime_recoveries_rejects_ungoverned_calculation_id_filters():
+    with TestClient(app) as client:
+        short_response = client.get("/integration/runtime-recoveries", params={"calculation_id_contains": "1"})
+        invalid_shape_response = client.get(
+            "/integration/runtime-recoveries",
+            params={"calculation_id_contains": "calc-1234"},
+        )
+
+    assert short_response.status_code == 422
+    assert invalid_shape_response.status_code == 422
+    assert {item["loc"][-1] for item in short_response.json()["validation_errors"]} == {"calculation_id_contains"}
+    assert {item["loc"][-1] for item in invalid_shape_response.json()["validation_errors"]} == {
+        "calculation_id_contains"
+    }
 
 
 def test_runtime_recoveries_rejects_inverted_time_window():

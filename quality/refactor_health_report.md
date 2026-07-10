@@ -75,11 +75,11 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Test modules | 228 | 297 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 3,676 | measured | `python -m pytest --collect-only -q` |
+| Test modules | 228 | 298 | measured | `rg --files tests -g 'test_*.py'` |
+| Collected tests | 2,035 | 3,694 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
-| Integration/API/runtime test functions | unknown | 658 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
+| Integration/API/runtime test functions | unknown | 661 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
 | Contract/governance test functions | unknown | 133 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
 | Uncategorized test functions | unknown | 969 | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; issue #423 classified config/resilience tests and ratcheted the gate to the current measured preservation baseline |
 
@@ -143,7 +143,9 @@ Latest test-taxonomy gate posture evidence on `feat/performance-architecture-bou
 
 1. Ratcheted `make quality-test-taxonomy-gate` from older accepted floors to the current measured
    preservation baseline: `656` API/runtime test functions, `131` contract/governance test
-   functions, and `969` uncategorized test functions as the enforced ceiling.
+   functions, and `969` uncategorized test functions as the enforced ceiling. Current measured
+   breadth is `661` API/runtime test functions and `133` contract/governance test functions after
+   the governed operator calculation-id prefix lookup slice.
 2. Updated the CI wiring test, taxonomy inventory, CI gate map, scorecard, health report,
    repository context, and review ledger so measured current values and enforced thresholds no
    longer contradict each other.

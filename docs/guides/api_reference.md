@@ -760,7 +760,7 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - `min_age_seconds`: optional stale-item filter for operator triage
   - `compute_analytics_type`: optional compute-only analytics family filter
   - `lineage_calculation_type`: optional lineage-only calculation family filter
-  - `calculation_id_contains`: optional calculation-handle substring filter across selected queues
+  - `calculation_id_contains`: optional governed calculation-id prefix or full UUID lookup across selected queues; minimum prefix length is 8 and arbitrary substring search is rejected
 - response includes:
   - durable metadata store availability
   - queue-specific availability for compute and lineage inspection
@@ -796,7 +796,7 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - `cursor_calculation_id_before`: optional seek cursor calculation handle paired with the cursor timestamp
   - `compute_analytics_type`: optional compute-only analytics family filter
   - `lineage_calculation_type`: optional lineage-only calculation family filter
-  - `calculation_id_contains`: optional calculation-handle substring filter across selected queues
+  - `calculation_id_contains`: optional governed calculation-id prefix or full UUID lookup across selected queues; minimum prefix length is 8 and arbitrary substring search is rejected
 - response includes:
   - durable metadata store availability
   - queue-specific availability for compute and lineage recovery inspection
