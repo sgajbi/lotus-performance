@@ -338,11 +338,12 @@ def test_run_contribution_calculation_maps_unexpected_failure(monkeypatch):
         )
 
     assert exc_info.value.status_code == 500
-    assert exc_info.value.detail == "An unexpected error occurred during contribution calculation: engine unavailable"
+    assert exc_info.value.detail == "Contribution calculation failed unexpectedly. Use the correlation_id for support."
+    assert "engine unavailable" not in str(exc_info.value.detail)
     assert failures == [
         {
             "calculation_id": "contribution-calc-1",
-            "message": "An unexpected error occurred during contribution calculation: engine unavailable",
+            "message": "Contribution calculation failed unexpectedly. Use the correlation_id for support.",
             "execution_stage_started": True,
         }
     ]

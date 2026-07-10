@@ -17,7 +17,7 @@ from app.services.calculation_supportability_service import (
 )
 from app.services.execution_lifecycle_service import complete_execution_with_lineage, record_execution_failure
 from app.services.execution_registry import execution_registry
-from app.services.execution_stage_errors import is_mappable_application_error
+from app.services.execution_stage_errors import is_mappable_application_error, safe_unexpected_failure_message
 from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
 from app.services.fail_fast_policy import enforce_core_analytics_fail_fast
 from app.services.mwr_mode_service import ResolvedMWRRequest, resolve_mwr_request
@@ -313,7 +313,7 @@ async def calculate_mwr_response(
                 lineage_stage_started=lineage_stage_started,
             )
             raise mapped_error from exc
-        detail = f"An unexpected error occurred during MWR calculation: {str(exc)}"
+        detail = safe_unexpected_failure_message("MWR calculation")
         record_execution_failure(
             calculation_id=request.calculation_id,
             message=detail,

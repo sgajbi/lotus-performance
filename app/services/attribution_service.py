@@ -21,7 +21,7 @@ from app.services.execution_lifecycle_service import (
     record_execution_failure,
 )
 from app.services.execution_registry import execution_registry
-from app.services.execution_stage_errors import is_mappable_application_error
+from app.services.execution_stage_errors import is_mappable_application_error, safe_unexpected_failure_message
 from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
 from app.services.fail_fast_policy import enforce_core_analytics_fail_fast
 from core.envelope import Audit, Diagnostics, Meta
@@ -478,7 +478,7 @@ def _attribution_failure_api_error(exc: Exception) -> APIError:
         return APIBadRequestError(str(exc))
     if isinstance(exc, EngineCalculationError):
         return APIInternalServerError(f"Calculation Error: {exc.message}")
-    return APIInternalServerError(f"An unexpected server error occurred: {str(exc)}")
+    return APIInternalServerError(safe_unexpected_failure_message("Attribution calculation"))
 
 
 def _raise_recorded_attribution_failure(

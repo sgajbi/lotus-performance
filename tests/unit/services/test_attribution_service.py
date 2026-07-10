@@ -275,7 +275,11 @@ def test_resolve_attribution_execution_window_rejects_empty_resolved_periods(mon
         (NotImplementedError("not ready"), 400, "not ready"),
         (EngineCalculationError("engine failed"), 500, "Calculation Error: engine failed"),
         (HTTPException(status_code=409, detail="already running"), 409, "already running"),
-        (RuntimeError("boom"), 500, "An unexpected server error occurred: boom"),
+        (
+            RuntimeError("boom"),
+            500,
+            "Attribution calculation failed unexpectedly. Use the correlation_id for support.",
+        ),
     ],
 )
 def test_attribution_failure_api_error_preserves_status_and_detail(error, expected_status, expected_detail):

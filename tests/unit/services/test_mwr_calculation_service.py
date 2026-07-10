@@ -810,5 +810,6 @@ async def test_calculate_mwr_response_maps_unexpected_errors_to_http_500(mocker)
         await calculate_mwr_response(request)
 
     assert exc.value.status_code == 500
-    assert "An unexpected error occurred during MWR calculation" in str(exc.value.detail)
-    assert capture["message"].startswith("An unexpected error occurred during MWR calculation")
+    assert exc.value.detail == "MWR calculation failed unexpectedly. Use the correlation_id for support."
+    assert "engine failure" not in str(exc.value.detail)
+    assert capture["message"] == "MWR calculation failed unexpectedly. Use the correlation_id for support."

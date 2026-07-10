@@ -388,7 +388,7 @@ def test_compute_executor_worker_skips_stale_owner_retryable_failure_finalizatio
     class _JobStore:
         def mark_retryable_failure(self, calculation_id_arg, *, error_message, error_type, worker_id):
             assert calculation_id_arg == calculation_id
-            assert error_message == "transient outage"
+            assert error_message == "Compute job execution failed unexpectedly. Use the correlation_id for support."
             assert error_type == "RuntimeError"
             assert worker_id == "worker-test"
             raise ComputeJobLeaseOwnershipError("stale worker")
@@ -440,7 +440,7 @@ def test_compute_executor_worker_skips_stale_owner_terminal_failure_finalization
 
         def mark_failed(self, calculation_id_arg, *, error_message, error_type, worker_id):
             assert calculation_id_arg == calculation_id
-            assert error_message == "bad input"
+            assert error_message == "Compute job execution failed unexpectedly. Use the correlation_id for support."
             assert error_type == "ValueError"
             assert worker_id == "worker-test"
             raise ComputeJobLeaseOwnershipError("stale worker")
@@ -2212,7 +2212,8 @@ def test_compute_executor_worker_rejects_unsupported_analytics_type(tmp_path, mo
     job = job_store.get_job(calculation_id)
     assert job is not None
     assert job.job_status == ComputeJobStatus.FAILED
-    assert "Unsupported compute job analytics_type" in (job.error_message or "")
+    assert job.error_message == "Compute job execution failed unexpectedly. Use the correlation_id for support."
+    assert "Unsupported compute job analytics_type" not in (job.error_message or "")
 
 
 def test_compute_executor_worker_resolves_benchmark_jobs_from_persisted_stateful_payload():

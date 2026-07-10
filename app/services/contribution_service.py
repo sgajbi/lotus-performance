@@ -66,7 +66,7 @@ from app.services.execution_lifecycle_service import (
     record_execution_failure,
 )
 from app.services.execution_registry import execution_registry
-from app.services.execution_stage_errors import is_mappable_application_error
+from app.services.execution_stage_errors import is_mappable_application_error, safe_unexpected_failure_message
 from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
 from app.services.fail_fast_policy import enforce_core_analytics_fail_fast
 from core.envelope import Audit, Meta
@@ -879,14 +879,13 @@ def _run_contribution_calculation(
                 execution_stage_started=True,
             )
             raise APIError(status_code=int(getattr(exc, "status_code")), detail=detail) from exc
+        failure_detail = safe_unexpected_failure_message("Contribution calculation")
         record_execution_failure(
             calculation_id=request.calculation_id,
-            message=f"An unexpected error occurred during contribution calculation: {str(exc)}",
+            message=failure_detail,
             execution_stage_started=True,
         )
-        raise APIInternalServerError(
-            f"An unexpected error occurred during contribution calculation: {str(exc)}"
-        ) from exc
+        raise APIInternalServerError(failure_detail) from exc
 
 
 def calculate_contribution(

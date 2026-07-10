@@ -77,11 +77,11 @@ def test_complete_execution_with_lineage_fails_lineage_stage_when_enqueue_raises
     record = execution_registry.get_execution(calculation_id)
     assert record is not None
     assert record.status == ExecutionStatus.FAILED
-    assert record.error_message == "Failed to enqueue lineage capture: lineage queue unavailable"
+    assert record.error_message == "Lineage capture enqueue failed unexpectedly. Use the correlation_id for support."
     stages = {stage.stage_name: stage for stage in record.stages}
     assert stages["execution"].status == ExecutionStageStatus.COMPLETE
     assert stages["lineage_materialization"].status == ExecutionStageStatus.FAILED
     assert (
         stages["lineage_materialization"].error_message
-        == "Failed to enqueue lineage capture: lineage queue unavailable"
+        == "Lineage capture enqueue failed unexpectedly. Use the correlation_id for support."
     )

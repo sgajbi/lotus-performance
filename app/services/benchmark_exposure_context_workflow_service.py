@@ -6,15 +6,17 @@ from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_BENCHMARK_E
 from app.services.benchmark_exposure_context_service import build_benchmark_exposure_context
 from app.services.execution_lifecycle_service import record_execution_failure
 from app.services.execution_registry import execution_registry
-from app.services.execution_stage_errors import execution_stage_failure_detail, is_mappable_application_error
+from app.services.execution_stage_errors import (
+    execution_stage_failure_detail,
+    is_mappable_application_error,
+    safe_unexpected_failure_message,
+)
 from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
 from app.services.portfolio_source_service import build_stateful_input_service
 from app.services.submission_fencing_service import register_sync_execution_or_raise
 from core.errors import APIInternalServerError
 
-_UNEXPECTED_BENCHMARK_EXPOSURE_FAILURE_DETAIL = (
-    "An unexpected server error occurred while building benchmark exposure context: {error}"
-)
+_UNEXPECTED_BENCHMARK_EXPOSURE_FAILURE_DETAIL = safe_unexpected_failure_message("Benchmark exposure context")
 
 
 async def calculate_benchmark_exposure_context_response(
@@ -47,7 +49,7 @@ async def calculate_benchmark_exposure_context_response(
                 execution_stage_started=execution_stage_started,
             )
             raise
-        failure_detail = _UNEXPECTED_BENCHMARK_EXPOSURE_FAILURE_DETAIL.format(error=exc)
+        failure_detail = _UNEXPECTED_BENCHMARK_EXPOSURE_FAILURE_DETAIL
         _record_benchmark_exposure_failure(
             request=request,
             message=failure_detail,

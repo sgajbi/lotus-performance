@@ -389,10 +389,10 @@ def test_raise_twr_workflow_http_error_records_unexpected_error(mocker):
         )
 
     assert raised.value.status_code == 500
-    assert raised.value.detail == "An unexpected server error occurred: boom"
+    assert raised.value.detail == "TWR calculation failed unexpectedly. Use the correlation_id for support."
     record_failure.assert_called_once_with(
         calculation_id="calculation-1",
-        message="An unexpected server error occurred: boom",
+        message="TWR calculation failed unexpectedly. Use the correlation_id for support.",
     )
 
 
