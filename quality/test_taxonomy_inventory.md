@@ -23,8 +23,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 305 |
-| Test functions inventoried | 3524 |
-| Integration/API/runtime test functions | 689 |
+| Test functions inventoried | 3526 |
+| Integration/API/runtime test functions | 690 |
 | Contract/governance test functions | 149 |
 
 ## Test Functions By Suite
@@ -34,18 +34,18 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 18 |
 | e2e | 1 | 21 |
 | integration | 28 | 341 |
-| unit | 267 | 3144 |
+| unit | 267 | 3146 |
 
 ## Test Functions By Family
 
 | Family | Test functions |
 | --- | ---: |
 | analytics_domain | 1571 |
-| api_or_runtime | 689 |
+| api_or_runtime | 690 |
 | contract_or_governance | 149 |
 | observability_or_readiness | 354 |
 | quality_or_security | 165 |
-| uncategorized | 953 |
+| uncategorized | 954 |
 
 ## Largest Test Modules
 
@@ -185,7 +185,10 @@ quality/security tests to `164`, analytics-domain tests to `1571`, and uncategor
 `953` while preserving the existing `969` uncategorized ceiling. Issue #427 added alert-dashboard
 coverage regression proof for returns-series supportability monitoring, raising source test
 functions to `3524`, observability/readiness tests to `354`, and quality/security tests to `165`
-while preserving the existing uncategorized ceiling.
+while preserving the existing uncategorized ceiling. The PR review fix for legacy lineage manifests
+and non-finite retrieval metadata added two regression tests, raising source test functions to
+`3526`, API/runtime tests to `690`, and uncategorized tests to `954` while preserving the existing
+uncategorized ceiling.
 
 This slice promotes the stable part of the taxonomy from report-only measurement to a
 regression-blocking evaluation gate. `make quality-test-taxonomy-gate` fails if API/runtime tests
