@@ -500,8 +500,44 @@ class AttributionResponse(BaseModel):
                         ],
                     },
                     "meta": {"schema_version": "1.0.0"},
-                    "diagnostics": None,
-                    "audit": None,
+                    "diagnostics": {
+                        "nip_days": 0,
+                        "reset_days": 0,
+                        "effective_period_start": "2026-01-01",
+                        "notes": [
+                            "Attribution diagnostics use period-level status, reason codes, supportability evidence, and residual materiality as the authoritative degraded-state contract.",
+                            "Benchmark version, classification version, calendar policy, derivative flags, and short flags are source-limited unless supplied by upstream contracts.",
+                        ],
+                        "samples": {
+                            "period_status_counts": [{"partial": 1}],
+                            "residual_materiality_counts": [{"immaterial": 1}],
+                            "supportability_evidence_counts": [
+                                {
+                                    "portfolio_only_group_count": 1,
+                                    "benchmark_only_group_count": 0,
+                                    "unclassified_group_count": 0,
+                                    "missing_benchmark_return_count": 0,
+                                    "negative_weight_count": 0,
+                                    "zero_portfolio_exposure_count": 0,
+                                }
+                            ],
+                        },
+                    },
+                    "audit": {
+                        "counts": {
+                            "input_row_count": 4,
+                            "portfolio_row_count": 2,
+                            "benchmark_row_count": 2,
+                            "resolved_period_count": 1,
+                            "level_count": 1,
+                            "group_count": 1,
+                            "reason_count": 1,
+                            "supportability_issue_count": 1,
+                            "periods_with_material_residual": 0,
+                            "periods_with_watch_residual": 0,
+                            "benchmark_context_count": 1,
+                        }
+                    },
                 }
             ]
         }
@@ -533,8 +569,8 @@ class AttributionResponse(BaseModel):
     )
 
     meta: Meta = Field(description="Shared metadata envelope for the calculation.")
-    diagnostics: Optional[Diagnostics] = Field(default=None, description="Diagnostic details for the calculation.")
-    audit: Optional[Audit] = Field(default=None, description="Audit details for the calculation.")
+    diagnostics: Diagnostics = Field(description="Shared diagnostic footer for the attribution calculation.")
+    audit: Audit = Field(description="Shared audit footer with bounded attribution counts.")
 
 
 class AttributionAcceptedResponse(BaseModel):

@@ -55,6 +55,10 @@ Certification must validate more than headline active return. For every tested p
 - portfolio and benchmark average weights should be interpreted as attribution beginning weights,
   not necessarily as end-user holdings exposure; source cash-flow timing can create negative cash or
   above-100% invested buckets when beginning-of-period cash movements fund positions
+- completed responses include non-null shared `meta`, `diagnostics`, and `audit` footer blocks; the
+  attribution diagnostics sample period status, residual materiality, and supportability evidence
+  counts, while audit counts cover bounded input, period, level, group, reason, supportability,
+  residual-materiality, and benchmark-context counts
 
 Downstream systems should use the explicit `*_total_pct` fields for footers and summary-only views.
 They must not infer authoritative totals by summing visible rows because a UI may filter, truncate, or
@@ -80,10 +84,11 @@ identity while carrying the original business `position_id` as `business_positio
 Stateful normalization now records bounded source-alignment evidence during execution-stage
 normalization. The evidence covers portfolio observation count, position row count, resolved
 benchmark id, benchmark component observation count, index record count, classification completeness,
-currency/FX source posture, and explicit source-contract limitations. Current source contracts do
-not expose benchmark version, classification version, calendar policy, derivative or short flags, or
-fee/tax/income breakout fields; those are treated as source-limited and must not be promoted as
-supported attribution claims.
+currency/FX source posture, and explicit source-contract limitations. Completed response diagnostics
+also carry the same limitation as a bounded source-limit note when the current source contracts do not
+expose benchmark version, classification version, calendar policy, derivative or short flags, or
+fee/tax/income breakout fields. Those fields remain source-limited and must not be promoted as
+supported attribution claims until upstream contracts supply them.
 
 When `currency_mode="BOTH"` is source-ready, the response emits both per-currency
 `currency_attribution[]` rows and portfolio-level `currency_attribution_totals`. The totals are the
@@ -125,6 +130,11 @@ Downstream certification status:
 
 Completed attribution responses now include `calculation_supportability` with bounded `state`,
 `reason`, and `freshness_bucket` values plus input-row, resolved-period, and benchmark-row counts.
+They also include non-null shared `meta`, `diagnostics`, and `audit` footer blocks. The top-level
+attribution diagnostics summarize period status, residual materiality, supportability-evidence
+counts, and source-limit notes; the audit footer exposes bounded counts that let support staff
+quickly compare input volume, resolved periods, emitted levels/groups, reason-code volume, and
+material residual posture without parsing every row.
 The service also increments:
 
 `lotus_performance_calculation_supportability_total{operation="attribution",supportability_state,reason,freshness_bucket}`

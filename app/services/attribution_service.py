@@ -23,7 +23,7 @@ from app.services.execution_lifecycle_service import (
 from app.services.execution_registry import execution_registry
 from app.services.execution_stage_errors import is_mappable_application_error
 from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
-from core.envelope import Meta
+from core.envelope import Audit, Diagnostics, Meta
 from core.errors import APIBadRequestError, APIError, APIInternalServerError
 from core.periods import resolve_periods
 from engine.attribution import aggregate_attribution_results, run_attribution_calculations
@@ -211,6 +211,126 @@ def _build_attribution_supportability(request: AttributionRequest, *, resolved_p
     return calculation_supportability
 
 
+def _build_attribution_diagnostics(
+    *,
+    execution_window: _AttributionExecutionWindow,
+    results_by_period: dict[str, Any],
+    resolved_benchmark_id: str | None,
+) -> Diagnostics:
+    notes = [
+        "Attribution diagnostics use period-level status, reason codes, supportability evidence, and residual materiality as the authoritative degraded-state contract.",
+        "Benchmark version, classification version, calendar policy, derivative flags, and short flags are source-limited unless supplied by upstream contracts.",
+    ]
+    if resolved_benchmark_id is None:
+        notes.append("No benchmark context was resolved for this attribution response.")
+    return Diagnostics(
+        nip_days=0,
+        reset_days=0,
+        effective_period_start=execution_window.master_start_date,
+        notes=notes,
+        samples={
+            "period_status_counts": [_period_status_counts(results_by_period)],
+            "residual_materiality_counts": [_residual_materiality_counts(results_by_period)],
+            "supportability_evidence_counts": [_supportability_evidence_counts(results_by_period)],
+        },
+    )
+
+
+def _build_attribution_audit(
+    *,
+    request: AttributionRequest,
+    results_by_period: dict[str, Any],
+    resolved_benchmark_id: str | None,
+) -> Audit:
+    return Audit(
+        counts={
+            "input_row_count": _count_attribution_input_rows(request),
+            "portfolio_row_count": _count_attribution_portfolio_rows(request),
+            "benchmark_row_count": _count_attribution_benchmark_rows(request),
+            "resolved_period_count": len(results_by_period),
+            "level_count": _attribution_level_count(results_by_period),
+            "group_count": _attribution_group_count(results_by_period),
+            "reason_count": _attribution_reason_count(results_by_period),
+            "supportability_issue_count": _supportability_issue_count(results_by_period),
+            "periods_with_material_residual": _residual_classification_count(results_by_period, "material"),
+            "periods_with_watch_residual": _residual_classification_count(results_by_period, "watch"),
+            "benchmark_context_count": 1 if resolved_benchmark_id is not None else 0,
+        }
+    )
+
+
+def _period_status_counts(results_by_period: dict[str, Any]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for period in results_by_period.values():
+        status = getattr(period, "status", None) or period.get("status", "unknown")
+        counts[str(status)] = counts.get(str(status), 0) + 1
+    return counts
+
+
+def _residual_materiality_counts(results_by_period: dict[str, Any]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for period in results_by_period.values():
+        classification = _residual_classification(period)
+        counts[classification] = counts.get(classification, 0) + 1
+    return counts
+
+
+def _supportability_evidence_counts(results_by_period: dict[str, Any]) -> dict[str, int]:
+    total_counts = {
+        "portfolio_only_group_count": 0,
+        "benchmark_only_group_count": 0,
+        "unclassified_group_count": 0,
+        "missing_benchmark_return_count": 0,
+        "negative_weight_count": 0,
+        "zero_portfolio_exposure_count": 0,
+    }
+    for period in results_by_period.values():
+        supportability_evidence = _period_supportability_evidence(period)
+        for key in total_counts:
+            total_counts[key] += int(_period_field_value(supportability_evidence, key, default=0) or 0)
+    return total_counts
+
+
+def _attribution_level_count(results_by_period: dict[str, Any]) -> int:
+    return sum(len(_period_field_value(period, "levels", default=[]) or []) for period in results_by_period.values())
+
+
+def _attribution_group_count(results_by_period: dict[str, Any]) -> int:
+    return sum(
+        len(_period_field_value(level, "groups", default=[]) or [])
+        for period in results_by_period.values()
+        for level in (_period_field_value(period, "levels", default=[]) or [])
+    )
+
+
+def _attribution_reason_count(results_by_period: dict[str, Any]) -> int:
+    return sum(len(_period_field_value(period, "reasons", default=[]) or []) for period in results_by_period.values())
+
+
+def _supportability_issue_count(results_by_period: dict[str, Any]) -> int:
+    return sum(_supportability_evidence_counts(results_by_period).values())
+
+
+def _residual_classification_count(results_by_period: dict[str, Any], classification: str) -> int:
+    return sum(1 for period in results_by_period.values() if _residual_classification(period) == classification)
+
+
+def _residual_classification(period: Any) -> str:
+    reconciliation = _period_field_value(period, "reconciliation", default={}) or {}
+    residual_materiality = _period_field_value(reconciliation, "residual_materiality", default={}) or {}
+    return str(_period_field_value(residual_materiality, "classification", default="unknown") or "unknown")
+
+
+def _period_supportability_evidence(period: Any) -> Any:
+    return _period_field_value(period, "supportability_evidence", default={}) or {}
+
+
+def _period_field_value(value: Any, field_name: str, *, default: Any = None) -> Any:
+    if isinstance(value, dict):
+        return value.get(field_name, default)
+    return getattr(value, field_name, default)
+
+
 def _attribution_benchmark_context(
     *,
     resolved_benchmark_id: str | None,
@@ -249,6 +369,16 @@ def _build_completed_attribution_response(
         request,
         resolved_period_count=len(results_by_period),
     )
+    diagnostics = _build_attribution_diagnostics(
+        execution_window=execution_window,
+        results_by_period=results_by_period,
+        resolved_benchmark_id=resolved_benchmark_id,
+    )
+    audit = _build_attribution_audit(
+        request=request,
+        results_by_period=results_by_period,
+        resolved_benchmark_id=resolved_benchmark_id,
+    )
 
     return AttributionResponse(
         calculation_id=request.calculation_id,
@@ -263,6 +393,8 @@ def _build_completed_attribution_response(
         ),
         calculation_supportability=calculation_supportability,
         meta=meta,
+        diagnostics=diagnostics,
+        audit=audit,
     )
 
 

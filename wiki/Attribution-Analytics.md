@@ -5,6 +5,15 @@ Attribution analytics explains the active return between a portfolio and its ben
 and Workbench may publish or display the result, but they must not reconstruct attribution effects
 locally.
 
+## Reader Map
+
+| Reader | Start Here | Evidence |
+| --- | --- | --- |
+| Business and demo | What is implemented now and current boundaries | Supported Brinson-style attribution, currency attribution, and unsupported advanced-model limits |
+| Operations and support | Current supportability | Period status, reason codes, residual materiality, shared diagnostics, audit counts, and lineage |
+| Engineering and agents | Upstream and downstream integration | lotus-core source contracts, Gateway/Workbench consumption, and repo validation paths |
+| Data product governance | Data product contract | `AttributionAnalytics:v1`, trust telemetry, and implementation-backed product scope |
+
 ## What Is Implemented Now
 
 `POST /performance/attribution` supports:
@@ -23,7 +32,9 @@ locally.
 9. lineage artifacts for aligned panel and single-period effect review;
 10. bounded period status, reason codes, residual materiality, and supportability evidence;
 11. bounded `calculation_supportability` for front-office degraded-state handling;
-12. governed `AttributionAnalytics:v1` data-product declaration and trust telemetry.
+12. non-null shared `meta`, `diagnostics`, and `audit` footer blocks aligned with TWR, MWR, and
+    Contribution;
+13. governed `AttributionAnalytics:v1` data-product declaration and trust telemetry.
 
 The current stateful public contract is intentionally fenced to:
 
@@ -76,6 +87,13 @@ The Prometheus metric is:
 
 Metric labels are bounded and must not contain portfolio, client, account, benchmark, calculation,
 trace, correlation, request, response, or security values.
+
+The top-level shared footer is also part of the support contract. Attribution `diagnostics` summarize
+period status counts, residual materiality counts, supportability evidence counts, and source-limit
+notes for benchmark version, classification version, calendar policy, derivative flags, and short
+flags when upstream contracts do not supply them. Attribution `audit.counts` exposes bounded input,
+period, level, group, reason-code, supportability-issue, residual-materiality, and benchmark-context
+counts for operations and downstream contract checks.
 
 Each attribution period also carries period-level supportability:
 

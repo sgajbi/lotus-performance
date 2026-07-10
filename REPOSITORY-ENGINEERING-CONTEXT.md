@@ -62,7 +62,11 @@ Current repository posture:
    `lotus_performance_calculation_supportability_total` metric for front-office freshness and
    degraded-state handling. Tests prove the Prometheus exposition uses only bounded labels and does
    not promote portfolio, account, client, trace, correlation, calculation, benchmark, security, or
-   request/response payload values into metric labels.
+   request/response payload values into metric labels. Completed TWR, MWR, contribution, and
+   attribution responses also emit non-null shared `meta`, `diagnostics`, and `audit` footer blocks;
+   attribution diagnostics summarize period status, residual materiality, supportability-evidence
+   counts, and source-limit notes, while attribution audit exposes bounded input, period, level,
+   group, reason, supportability, residual-materiality, and benchmark-context counts.
 9. attribution emits `currency_attribution_totals` when the Karnosky-Singer
    `currency_mode=BOTH` path is source-ready, giving downstream Gateway, Workbench, reporting, and
    manage consumers a source-owned portfolio-level FX attribution total instead of requiring local
@@ -261,7 +265,7 @@ Important validation expectations:
     `make test-coverage-shard` and combined coverage enforcement through `make coverage-combine-gate`
     so workflow YAML does not become a second source of truth for pytest or coverage behavior.
     `make quality-test-taxonomy-gate` now enforces the current measured preservation baseline
-    directly: at least `651` API/runtime test functions, at least `128` contract/governance test
+    directly: at least `655` API/runtime test functions, at least `129` contract/governance test
     functions, and no more than `969` uncategorized test functions.
 15. `make container-supply-chain-evidence` is the repo-native container release-evidence command.
     It builds `lotus-performance:ci` with non-secret build metadata for Git SHA, branch, build

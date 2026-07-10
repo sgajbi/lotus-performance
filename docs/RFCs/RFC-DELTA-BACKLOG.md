@@ -80,14 +80,20 @@ Status values:
 - Proposed action: Define strict fail-fast policy and implement endpoint-wide.
 
 ### RFC-014-D02
-- Status: `open`
+- Status: `closed`
 - Priority: P1
 - Source RFC: `RFC-014`
 - Delta: Ensure attribution response diagnostics/audit completeness matches other core endpoints.
-- Why still relevant: Shared footer parity remains incomplete.
+- Closure: Attribution completed responses now require non-null shared `diagnostics` and `audit`
+  blocks. Diagnostics summarize period status, residual materiality, supportability-evidence counts,
+  and source-limit notes; audit counts cover bounded input, period, level, group, reason,
+  supportability, residual-materiality, and benchmark-context counts.
 - Evidence:
-  - `app/models/attribution_responses.py` allows optional diagnostics/audit but endpoint output is lighter than TWR/MWR.
-- Proposed action: Populate and test full diagnostics/audit blocks for attribution.
+  - `app/services/attribution_service.py`
+  - `app/models/attribution_responses.py`
+  - `tests/integration/test_attribution_api.py`
+  - `tests/integration/test_core_analytics_footer_contract.py`
+  - `tests/unit/services/test_attribution_service.py`
 
 ### RFC-016-D01
 - Status: `closed`

@@ -137,6 +137,24 @@ def test_attribution_endpoint_by_instrument_happy_path(client):
     response = client.post("/performance/attribution", json=payload)
     assert response.status_code == 200
     body = response.json()
+    assert body["diagnostics"]["nip_days"] == 0
+    assert body["diagnostics"]["reset_days"] == 0
+    assert body["diagnostics"]["effective_period_start"] == "2025-01-01"
+    assert body["diagnostics"]["samples"]["period_status_counts"] == [{"valid": 1}]
+    assert body["diagnostics"]["samples"]["residual_materiality_counts"] == [{"immaterial": 1}]
+    assert body["audit"]["counts"] == {
+        "input_row_count": 5,
+        "portfolio_row_count": 3,
+        "benchmark_row_count": 2,
+        "resolved_period_count": 1,
+        "level_count": 1,
+        "group_count": 2,
+        "reason_count": 0,
+        "supportability_issue_count": 0,
+        "periods_with_material_residual": 0,
+        "periods_with_watch_residual": 0,
+        "benchmark_context_count": 0,
+    }
     assert body["calculation_supportability"] == {
         "state": "ready",
         "reason": "calculation_complete",
@@ -255,6 +273,19 @@ def test_attribution_endpoint_emits_controlled_status_reason_and_supportability_
     assert period["supportability_evidence"]["portfolio_only_group_count"] == 1
     assert period["supportability_evidence"]["benchmark_only_group_count"] == 1
     assert period["supportability_evidence"]["unclassified_group_count"] == 1
+    assert body["diagnostics"]["samples"]["period_status_counts"] == [{"partial": 1}]
+    assert body["diagnostics"]["samples"]["supportability_evidence_counts"] == [
+        {
+            "portfolio_only_group_count": 1,
+            "benchmark_only_group_count": 1,
+            "unclassified_group_count": 1,
+            "missing_benchmark_return_count": 0,
+            "negative_weight_count": 0,
+            "zero_portfolio_exposure_count": 0,
+        }
+    ]
+    assert body["audit"]["counts"]["supportability_issue_count"] == 3
+    assert body["audit"]["counts"]["reason_count"] == 3
     assert all(reason["message"] for reason in period["reasons"])
 
     assert drain_lineage_queue() >= 1
@@ -1492,6 +1523,8 @@ def test_attribution_stateful_currency_mode_both_supports_mixed_currency_decompo
     assert response.status_code == 200
     body = response.json()
     assert body["input_mode"] == "stateful"
+    assert body["diagnostics"]["samples"]["period_status_counts"] == [{"valid": 1}]
+    assert body["audit"]["counts"]["benchmark_context_count"] == 1
     currency_results = body["results_by_period"]["SI"]["currency_attribution"]
     assert currency_results is not None
     by_currency = {entry["currency"]: entry for entry in currency_results}
