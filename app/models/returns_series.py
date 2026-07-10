@@ -501,6 +501,14 @@ class RiskFreeSourceQuality(BaseModel):
     skipped_points: int = Field(description="Risk-free source rows skipped as malformed or unusable.", examples=[1])
 
 
+class CalendarSourceMetadata(BaseModel):
+    source_id: str = Field(description="Governed calendar source identifier.", examples=["lotus-reference-market"])
+    version: str = Field(description="Calendar source version applied to the request.")
+    supported_from: dt_date = Field(description="Inclusive start date of the certified calendar horizon.")
+    supported_to: dt_date = Field(description="Inclusive end date of the certified calendar horizon.")
+    holiday_count: int = Field(description="Number of generated weekday market holidays in the certified horizon.")
+
+
 class ReturnsDiagnostics(BaseModel):
     coverage: SeriesCoverage = Field(description="Coverage summary for the response series.")
     freshness: Literal["current", "stale"] = Field(
@@ -524,6 +532,10 @@ class ReturnsDiagnostics(BaseModel):
     risk_free_source_quality: RiskFreeSourceQuality | None = Field(
         default=None,
         description="Risk-free source-quality counts when risk-free data is requested.",
+    )
+    calendar_source: CalendarSourceMetadata | None = Field(
+        default=None,
+        description="Calendar authority metadata when MARKET calendar policy is selected.",
     )
     warnings: list[str] = Field(default_factory=list, description="Non-fatal diagnostic warnings for the response.")
 

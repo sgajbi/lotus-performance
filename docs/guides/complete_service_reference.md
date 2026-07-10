@@ -947,8 +947,14 @@ Purpose:
   reconstruct this feed from TWR, MWR, or benchmark endpoint responses
 - all return values are decimal ratios, not percentages
 - `calendar_policy=BUSINESS` filters daily output to weekdays before coverage diagnostics
+- `calendar_policy=MARKET` uses `lotus-reference-market-holidays.v1`, a versioned Lotus reference
+  market calendar generated for 1970-01-01 through 2099-12-31 with Good Friday, New Year,
+  Christmas, and observed weekday holidays; MARKET requests outside that horizon fail closed with
+  `INVALID_REQUEST`
 - `diagnostics.fill_evidence` distinguishes side-series dates synthesized by fill policy from
   source-observed benchmark or risk-free rows
+- `diagnostics.calendar_source` exposes MARKET calendar source id, version, supported horizon, and
+  holiday count when MARKET is selected
 
 Sample request:
 

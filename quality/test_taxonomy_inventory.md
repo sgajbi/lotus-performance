@@ -23,8 +23,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 301 |
-| Test functions inventoried | 3485 |
-| Integration/API/runtime test functions | 663 |
+| Test functions inventoried | 3488 |
+| Integration/API/runtime test functions | 664 |
 | Contract/governance test functions | 140 |
 
 ## Test Functions By Suite
@@ -33,15 +33,15 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | --- | ---: | ---: |
 | benchmarks | 9 | 18 |
 | e2e | 1 | 21 |
-| integration | 28 | 336 |
-| unit | 263 | 3110 |
+| integration | 28 | 337 |
+| unit | 263 | 3112 |
 
 ## Test Functions By Family
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 1560 |
-| api_or_runtime | 663 |
+| analytics_domain | 1563 |
+| api_or_runtime | 664 |
 | contract_or_governance | 140 |
 | observability_or_readiness | 350 |
 | quality_or_security | 151 |
@@ -51,7 +51,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 
 | Rank | Module | Suite | Test functions | Families |
 | ---: | --- | --- | ---: | --- |
-| 1 | `tests/unit/services/test_returns_series_service.py` | unit | 94 | analytics_domain |
+| 1 | `tests/unit/services/test_returns_series_service.py` | unit | 96 | analytics_domain |
 | 2 | `tests/unit/app/test_enterprise_readiness_additional.py` | unit | 85 | observability_or_readiness |
 | 3 | `tests/unit/services/test_stateful_attribution_input_service.py` | unit | 70 | analytics_domain |
 | 4 | `tests/unit/docs/test_public_docs_contract.py` | unit | 62 | contract_or_governance |
@@ -76,9 +76,9 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | 23 | `tests/unit/engine/test_contribution.py` | unit | 33 | analytics_domain |
 | 24 | `tests/unit/models/test_twr_requests.py` | unit | 32 | analytics_domain |
 | 25 | `tests/unit/services/test_twr_inspection_reconciliation.py` | unit | 32 | analytics_domain |
-| 26 | `tests/unit/models/test_workspace_summary_models.py` | unit | 31 | uncategorized |
-| 27 | `tests/unit/services/test_twr_inspection_service.py` | unit | 31 | analytics_domain |
-| 28 | `tests/integration/test_returns_series_api.py` | integration | 30 | analytics_domain, api_or_runtime |
+| 26 | `tests/integration/test_returns_series_api.py` | integration | 31 | analytics_domain, api_or_runtime |
+| 27 | `tests/unit/models/test_workspace_summary_models.py` | unit | 31 | uncategorized |
+| 28 | `tests/unit/services/test_twr_inspection_service.py` | unit | 31 | analytics_domain |
 | 29 | `tests/unit/app/test_enterprise_readiness.py` | unit | 30 | observability_or_readiness |
 | 30 | `tests/unit/services/test_operator_action_replay_service.py` | unit | 30 | uncategorized |
 
@@ -153,6 +153,9 @@ options plus shared execution-registry commit/rollback behavior, raising source 
 Issue #436 added runtime-retention legal-hold source and exclusion coverage, raising source test
 functions to `3485`, contract/governance tests to `140`, and uncategorized tests to `966` while
 preserving the existing `969` ceiling.
+Issue #435 added governed MARKET calendar source, future-holiday, diagnostics metadata, and
+out-of-horizon rejection coverage, raising source test functions to `3488`, API/runtime tests to
+`664`, and analytics-domain tests to `1563` while preserving the existing uncategorized ceiling.
 
 This slice promotes the stable part of the taxonomy from report-only measurement to a
 regression-blocking evaluation gate. `make quality-test-taxonomy-gate` fails if API/runtime tests

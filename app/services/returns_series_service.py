@@ -13,6 +13,7 @@ from app.models.benchmark_analytics_requests import BenchmarkReturnSource
 from app.models.requests import PerformanceRequest
 from app.models.returns_series import (
     CalendarPolicy,
+    CalendarSourceMetadata,
     FillMethod,
     InputMode,
     MissingDataPolicy,
@@ -55,6 +56,11 @@ from app.services.execution_stage_names import (
     EXECUTION_STAGE_NORMALIZATION,
     EXECUTION_STAGE_RETRIEVAL,
 )
+from app.services.lotus_reference_market_calendar import (
+    is_lotus_reference_market_date,
+    lotus_reference_market_calendar_metadata,
+    lotus_reference_market_calendar_supports,
+)
 from app.services.portfolio_source_service import (
     build_stateful_input_service,
 )
@@ -82,19 +88,6 @@ _EXPECTED_RETURN_GAP_DAYS = {
     ReturnsFrequency.WEEKLY: 7,
     ReturnsFrequency.MONTHLY: 31,
 }
-_LOTUS_REFERENCE_MARKET_HOLIDAYS = frozenset(
-    {
-        date(2025, 1, 1),
-        date(2025, 4, 18),
-        date(2025, 12, 25),
-        date(2026, 1, 1),
-        date(2026, 4, 3),
-        date(2026, 12, 25),
-        date(2027, 1, 1),
-        date(2027, 3, 26),
-        date(2027, 12, 24),
-    }
-)
 _SUPPORTED_RISK_FREE_DAY_COUNT_DENOMINATORS = {
     "ACT_365": Decimal("365"),
     "ACT/365": Decimal("365"),
@@ -351,7 +344,11 @@ def apply_calendar_policy(
     if frequency != ReturnsFrequency.DAILY or calendar_policy == CalendarPolicy.CALENDAR:
         return df
     if calendar_policy == CalendarPolicy.MARKET:
-        return df[df["date"].map(_is_lotus_reference_market_date)].copy()
+        _ensure_lotus_reference_market_horizon(
+            start=df["date"].min().date(),
+            end=df["date"].max().date(),
+        )
+        return df[df["date"].map(is_lotus_reference_market_date)].copy()
     return df[df["date"].dt.weekday < 5].copy()
 
 
@@ -407,13 +404,24 @@ def _daily_required_dates(
         return pd.date_range(start, end, freq="D")
     business_dates = pd.bdate_range(start, end)
     if calendar_policy == CalendarPolicy.MARKET:
-        return pd.DatetimeIndex([value for value in business_dates if _is_lotus_reference_market_date(value)])
+        _ensure_lotus_reference_market_horizon(start=start.date(), end=end.date())
+        return pd.DatetimeIndex([value for value in business_dates if is_lotus_reference_market_date(value)])
     return business_dates
 
 
-def _is_lotus_reference_market_date(value: Any) -> bool:
-    timestamp = pd.Timestamp(value)
-    return timestamp.weekday() < 5 and timestamp.date() not in _LOTUS_REFERENCE_MARKET_HOLIDAYS
+def _ensure_lotus_reference_market_horizon(*, start: date, end: date) -> None:
+    metadata = lotus_reference_market_calendar_metadata()
+    if lotus_reference_market_calendar_supports(start=start, end=end):
+        return
+    raise _returns_series_api_error(
+        status_code=HTTP_422_UNPROCESSABLE,
+        detail=invalid_request_detail(
+            "MARKET calendar is supported by "
+            f"{metadata.version} from {metadata.supported_from.isoformat()} "
+            f"through {metadata.supported_to.isoformat()}; requested window "
+            f"{start.isoformat()} through {end.isoformat()} is outside that horizon."
+        ),
+    )
 
 
 def _missing_return_gap_days(
@@ -1585,6 +1593,19 @@ def _returns_series_risk_free_source_quality(
     return risk_free_source_quality or _stateless_risk_free_source_quality_from_request(request)
 
 
+def _returns_series_calendar_source(request: ReturnsSeriesRequest) -> CalendarSourceMetadata | None:
+    if request.data_policy.calendar_policy != CalendarPolicy.MARKET:
+        return None
+    metadata = lotus_reference_market_calendar_metadata()
+    return CalendarSourceMetadata(
+        source_id=metadata.source_id,
+        version=metadata.version,
+        supported_from=metadata.supported_from,
+        supported_to=metadata.supported_to,
+        holiday_count=metadata.holiday_count,
+    )
+
+
 def _build_returns_series_diagnostics(
     *,
     request: ReturnsSeriesRequest,
@@ -1651,6 +1672,7 @@ def _build_returns_series_diagnostics(
                 request=request,
                 risk_free_source_quality=risk_free_source_quality,
             ),
+            calendar_source=_returns_series_calendar_source(request),
             warnings=warnings,
         ),
     )

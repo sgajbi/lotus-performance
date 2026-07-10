@@ -18,6 +18,7 @@ from app.models.returns_series import (
     InputMode,
     MetricBasis,
     MissingDataPolicy,
+    ResolvedWindow,
     ReturnPoint,
     ReturnsDiagnostics,
     ReturnsFrequency,
@@ -1096,6 +1097,9 @@ def test_build_returns_series_diagnostics_reports_coverage_gaps_with_market_cale
     assert result.diagnostics.coverage.missing_points == 2
     assert result.diagnostics.freshness == "stale"
     assert result.diagnostics.warnings == []
+    assert result.diagnostics.calendar_source is not None
+    assert result.diagnostics.calendar_source.source_id == "lotus-reference-market"
+    assert result.diagnostics.calendar_source.supported_to.isoformat() == "2099-12-31"
     assert {gap.series_type for gap in result.diagnostics.gaps} == {"portfolio", "benchmark"}
 
 
@@ -1592,6 +1596,26 @@ def test_apply_calendar_policy_filters_daily_business_and_market_dates():
     assert [value.isoformat() for value in business_df["date"].dt.date] == ["2026-04-03", "2026-04-06"]
     assert [value.isoformat() for value in market_df["date"].dt.date] == ["2026-04-06"]
     assert len(calendar_df) == 4
+
+
+def test_reference_market_calendar_generates_future_holidays_and_observed_dates():
+    assert not returns_series_service.is_lotus_reference_market_date(pd.Timestamp("2028-04-14"))
+    assert returns_series_service.is_lotus_reference_market_date(pd.Timestamp("2028-04-17"))
+    assert not returns_series_service.is_lotus_reference_market_date(pd.Timestamp("2032-12-24"))
+    assert returns_series_service.is_lotus_reference_market_date(pd.Timestamp("2032-12-27"))
+
+
+def test_date_range_count_market_calendar_fails_closed_outside_supported_horizon():
+    with pytest.raises(APIError) as exc:
+        returns_series_service.date_range_count(
+            ResolvedWindow(start_date=date(2100, 1, 1), end_date=date(2100, 1, 7)),
+            frequency=ReturnsFrequency.DAILY,
+            calendar_policy=CalendarPolicy.MARKET,
+        )
+
+    assert exc.value.status_code == 422
+    assert exc.value.detail["code"] == "INVALID_REQUEST"
+    assert "lotus-reference-market-holidays.v1" in exc.value.detail["message"]
 
 
 def test_detect_gaps_does_not_flag_weekends_under_business_calendar():

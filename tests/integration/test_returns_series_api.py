@@ -1428,4 +1428,26 @@ def test_returns_series_stateless_market_calendar_uses_reference_market_holidays
     body = response.json()
     assert body["diagnostics"]["coverage"]["requested_points"] == 2
     assert body["diagnostics"]["warnings"] == []
+    assert body["diagnostics"]["calendar_source"]["source_id"] == "lotus-reference-market"
+    assert body["diagnostics"]["calendar_source"]["version"] == "lotus-reference-market-holidays.v1"
+    assert body["diagnostics"]["calendar_source"]["supported_to"] == "2099-12-31"
     assert [point["date"] for point in body["series"]["portfolio_returns"]] == ["2026-04-02", "2026-04-06"]
+
+
+def test_returns_series_stateless_market_calendar_rejects_dates_outside_supported_horizon():
+    payload = _stateless_base_payload()
+    payload["window"] = {"mode": "EXPLICIT", "from_date": "2100-01-01", "to_date": "2100-01-07"}
+    payload["stateless_input"]["portfolio_returns"] = [
+        {"date": "2100-01-04", "return_value": "0.0010"},
+    ]
+    payload["data_policy"] = {
+        "missing_data_policy": "ALLOW_PARTIAL",
+        "fill_method": "NONE",
+        "calendar_policy": "MARKET",
+    }
+    with TestClient(app) as client:
+        response = client.post("/integration/returns/series", json=payload)
+    assert response.status_code == 422
+    body = response.json()
+    assert body["detail"]["code"] == "INVALID_REQUEST"
+    assert "lotus-reference-market-holidays.v1" in body["detail"]["message"]

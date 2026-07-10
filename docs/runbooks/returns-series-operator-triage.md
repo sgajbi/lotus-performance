@@ -32,11 +32,15 @@ retained gaps, async result failure, or elevated
 | `diagnostics.gaps[]` | A selected portfolio, benchmark, or risk-free series retained a gap after policy application. | `lotus-performance` owns gap diagnostics; upstream source owners own missing facts. |
 | `diagnostics.fill_evidence[]` | A selected benchmark or risk-free side-series point was synthesized by `FORWARD_FILL` or `ZERO_FILL`, not observed directly in the source series. | `lotus-performance` owns policy application; source owners own the original side-series gap when filled points are unexpected. |
 | `diagnostics.risk_free_source_quality.skipped_points > 0` | Stateful risk-free source rows were malformed, unusable, or used unsupported day-count conventions. | `lotus-performance` owns normalization; `lotus-core` owns source payload correction. |
+| `diagnostics.calendar_source` | MARKET request used the governed calendar source, version, supported horizon, and holiday count. | `lotus-performance`. |
 | `diagnostics.warnings[]` | Non-fatal policy degradation, including max-gap tolerance warnings. | `lotus-performance`. |
 
 MARKET calendar requests use the Lotus reference market trading calendar, not a weekday-only
-approximation. If a reported gap falls on a supported market holiday such as Good Friday, verify the
-request used `calendar_policy=MARKET` before raising a source-data defect.
+approximation. The current source is `lotus-reference-market-holidays.v1`, generated for
+1970-01-01 through 2099-12-31 with Good Friday, New Year, Christmas, and observed weekday holidays.
+If a reported gap falls on a supported market holiday such as Good Friday, verify the request used
+`calendar_policy=MARKET` and check `diagnostics.calendar_source` before raising a source-data
+defect. Requests outside the certified horizon fail closed with `INVALID_REQUEST`.
 
 ## Metrics And Alerts
 
@@ -76,6 +80,7 @@ Record these fields in the incident or GitHub issue:
 - response status and result route
 - `diagnostics.freshness`
 - `diagnostics.coverage.requested_points`, `returned_points`, and `missing_points`
+- `diagnostics.calendar_source` when `calendar_policy=MARKET`
 - count of `diagnostics.gaps`
 - count of `diagnostics.fill_evidence` and bounded filled-date samples when present
 - `diagnostics.risk_free_source_quality` counts when present
