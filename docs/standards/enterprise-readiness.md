@@ -52,7 +52,7 @@
 - Replay ownership must be scoped to the same operator and tenant context so reused correlation identifiers cannot replay another actor's durable evidence.
 - Governed action policy should also fence in-flight same-shape execution so duplicate submissions cannot race before durable evidence is written.
 - In-flight action leases should be reclaimable after a bounded stale threshold so a crashed process cannot block a governed action forever.
-- Write request bodies are bounded by `ENTERPRISE_MAX_WRITE_PAYLOAD_BYTES`: trusted `Content-Length` values are rejected before request processing, while missing or malformed length headers are treated as untrusted and enforced by counting streamed ASGI body bytes.
+- Write request bodies are bounded by `ENTERPRISE_MAX_WRITE_PAYLOAD_BYTES`, which defaults to 1 MiB (`1048576` bytes): trusted `Content-Length` values are rejected before request processing, while missing or malformed length headers are treated as untrusted and enforced by counting streamed ASGI body bytes.
 - Sensitive attributes are redacted before audit emission.
 
 Evidence:
@@ -95,7 +95,7 @@ Evidence:
 
 - Resilience controls, health checks, migration contract checks, and operational runbook standards are enforced.
 - Runtime breach gauges, alert templates, and severity defaults are governed.
-- Ingress and proxy request-size limits should be configured at or below the application `ENTERPRISE_MAX_WRITE_PAYLOAD_BYTES` value so oversized write payloads are rejected early, with the service-level stream guard retained as the final enforcement boundary.
+- Ingress and proxy request-size limits should be configured at or below the effective application `ENTERPRISE_MAX_WRITE_PAYLOAD_BYTES` value so oversized write payloads are rejected early, with the service-level stream guard retained as the final enforcement boundary. Use an explicit environment override when a deployment intentionally supports more than the governed 1 MiB default.
 
 Evidence:
 - `app/clients/http_resilience.py`

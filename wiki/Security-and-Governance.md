@@ -47,6 +47,8 @@ profile with the authz switches disabled.
 - emitted figures are product-facing and must stay auditably correct
 - privileged operator read and write surfaces are governed, not ad hoc
 - write request payload limits are enforced by both trusted `Content-Length` rejection and
-  service-owned streamed body-byte counting when length headers are missing or malformed
+  service-owned streamed body-byte counting when length headers are missing or malformed; the
+  governed default is 1 MiB (`1048576` bytes), and ingress/API gateway limits should be at or below
+  the effective `ENTERPRISE_MAX_WRITE_PAYLOAD_BYTES` value
 - async execution and lineage behavior must remain durable and observable
 - benchmark and stateful integration wording must stay truthful to shipped behavior

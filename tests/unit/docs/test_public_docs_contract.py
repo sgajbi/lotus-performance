@@ -1,7 +1,9 @@
 import json
+import re
 from collections import Counter
 from pathlib import Path
 
+from app.enterprise_runtime_config import _DEFAULT_MAX_WRITE_PAYLOAD_BYTES
 from scripts.python_test_taxonomy_inventory import collect_test_modules, summarize_test_taxonomy
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -1405,6 +1407,14 @@ def test_complete_service_reference_covers_endpoint_surface_and_config_inventory
     assert "CONTRIBUTION_RESET_AWARE_AVERAGE_WEIGHT_MODE" in guide
     assert "WORKSPACE_SUMMARY_EXECUTOR_WINDOW_DAYS" in guide
     assert "ENTERPRISE_MAX_WRITE_PAYLOAD_BYTES" in guide
+    payload_limit_default = re.search(
+        r"\| `ENTERPRISE_MAX_WRITE_PAYLOAD_BYTES` \| `(?P<default>\d+)` \|",
+        guide,
+    )
+    assert payload_limit_default is not None
+    assert int(payload_limit_default.group("default")) == _DEFAULT_MAX_WRITE_PAYLOAD_BYTES
+    assert "the governed default is 1 MiB (`1048576` bytes)" in guide
+    assert "the effective `ENTERPRISE_MAX_WRITE_PAYLOAD_BYTES` value" in guide
     assert "malformed length headers are enforced by counting streamed ASGI body bytes" in guide
     assert "set ingress or API gateway request-size limits" in guide
     assert "LINEAGE_STORAGE_PATH" in guide
