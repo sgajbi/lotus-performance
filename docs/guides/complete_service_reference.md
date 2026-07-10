@@ -860,7 +860,13 @@ Sample response:
   "status": "complete",
   "artifacts": {
     "workspace_summary_portfolio_daily_results_net.csv": {
-      "url": "http://performance.dev.lotus/performance/lineage/0d000003-1111-4222-8333-abcdefabcdef/artifacts/workspace_summary_portfolio_daily_results_net.csv"
+      "url": "http://performance.dev.lotus/performance/lineage/0d000003-1111-4222-8333-abcdefabcdef/artifacts/workspace_summary_portfolio_daily_results_net.csv",
+      "access_classification": "operator_only",
+      "intended_audience": "operations",
+      "sensitivity": "derived_evidence",
+      "minimization_posture": "derived_detail_minimized",
+      "retention_category": "lineage_detail_evidence",
+      "redaction_required_before_external_sharing": true
     }
   },
   "error_message": null
@@ -870,6 +876,10 @@ Sample response:
 Certification evidence:
 
 - `docs/technical/lineage-endpoint-certification.md`
+
+Lineage artifact inventory is classification-bearing. Raw request/response payload artifacts are
+`operator_only` and require redaction or transformation before external sharing; customer-facing
+lineage evidence must be explicitly produced as `customer_consumable`.
 
 ### `GET /performance/lineage/{calculation_id}/artifacts/{artifact_name}`
 

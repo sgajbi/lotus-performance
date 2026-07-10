@@ -13,6 +13,7 @@ from app.services.execution_stage_names import (
     EXECUTION_STAGE_ARTIFACT_MATERIALIZATION,
     EXECUTION_STAGE_LINEAGE_MATERIALIZATION,
 )
+from app.services.lineage_artifact_classification import lineage_artifact_metadata
 from app.services.lineage_metadata_store import LineageMetadataStore, LineageStatus
 from app.services.lineage_service import LineageService, _is_unsafe_artifact_filename, resolve_artifact_stage_name
 
@@ -27,6 +28,17 @@ def test_resolve_artifact_stage_name_uses_canonical_stage_names():
         == EXECUTION_STAGE_ARTIFACT_MATERIALIZATION
     )
     assert resolve_artifact_stage_name(calculation_type="TWR") == EXECUTION_STAGE_LINEAGE_MATERIALIZATION
+
+
+def test_lineage_artifact_metadata_classifies_raw_and_customer_safe_artifacts():
+    request_metadata = lineage_artifact_metadata(artifact_name="request.json")
+    support_brief_metadata = lineage_artifact_metadata(artifact_name="support_brief.md")
+
+    assert request_metadata.access_classification == "operator_only"
+    assert request_metadata.redaction_required_before_external_sharing is True
+    assert support_brief_metadata.access_classification == "customer_consumable"
+    assert support_brief_metadata.minimization_posture == "customer_safe_transformed"
+    assert support_brief_metadata.redaction_required_before_external_sharing is False
 
 
 def test_lineage_service_enqueue_and_materialize(tmp_path):
@@ -90,6 +102,22 @@ def test_lineage_service_enqueue_and_materialize(tmp_path):
     assert metadata.artifact_names == ["details.csv", "request.json", "response.json"]
     assert manifest_data["timestamp_utc"] == metadata.timestamp_utc
     assert manifest_data["artifact_names"] == metadata.artifact_names
+    assert manifest_data["artifacts"]["request.json"] == {
+        "access_classification": "operator_only",
+        "intended_audience": "operations",
+        "sensitivity": "raw_sensitive_payload",
+        "minimization_posture": "raw_payload_full_fidelity",
+        "retention_category": "lineage_raw_payload",
+        "redaction_required_before_external_sharing": True,
+    }
+    assert manifest_data["artifacts"]["details.csv"] == {
+        "access_classification": "operator_only",
+        "intended_audience": "operations",
+        "sensitivity": "derived_evidence",
+        "minimization_posture": "derived_detail_minimized",
+        "retention_category": "lineage_detail_evidence",
+        "redaction_required_before_external_sharing": True,
+    }
     retained_payload = metadata_store.get_payload(calc_id)
     assert retained_payload is not None
     assert retained_payload.request_json == payload.request_json

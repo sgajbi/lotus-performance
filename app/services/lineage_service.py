@@ -20,6 +20,7 @@ from app.services.execution_stage_names import (
     EXECUTION_STAGE_ARTIFACT_MATERIALIZATION,
     EXECUTION_STAGE_LINEAGE_MATERIALIZATION,
 )
+from app.services.lineage_artifact_classification import lineage_artifact_metadata_by_name
 from app.services.lineage_metadata_store import (
     LineageMetadataStore,
     LineagePayloadLeaseOwnershipError,
@@ -161,6 +162,12 @@ class LineageService:
                     "timestamp_utc": format_timestamp(completion_timestamp) or "",
                     "status": "complete",
                     "artifact_names": sorted(artifact_names),
+                    "artifacts": {
+                        artifact_name: metadata.model_dump(mode="json")
+                        for artifact_name, metadata in sorted(
+                            lineage_artifact_metadata_by_name(artifact_names=artifact_names).items()
+                        )
+                    },
                 },
                 indent=2,
             ),

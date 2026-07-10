@@ -49,7 +49,7 @@ The lineage inventory response model is `app.models.lineage_responses.LineageRes
 | `calculation_type` | Analytics family that produced the lineage payload. |
 | `timestamp_utc` | Durable lineage timestamp or completed manifest timestamp. |
 | `status` | Durable materialization status: `pending`, `complete`, or `failed`. |
-| `artifacts` | Map keyed by artifact filename. Values contain controlled service-owned download URLs. |
+| `artifacts` | Map keyed by artifact filename. Values contain controlled service-owned download URLs plus classification, intended audience, sensitivity, minimization posture, retention category, and redaction requirement metadata. |
 | `error_message` | Failure message when lineage materialization failed. |
 
 The artifact download route returns file content with a `Content-Disposition` filename for successful
@@ -64,6 +64,8 @@ Certified behavior:
 - failed lineage returns `200` with `status=failed`, empty `artifacts`, and `error_message`;
 - complete lineage requires `manifest.json` to exist;
 - manifest JSON must be readable, structurally valid, and consistent with durable metadata;
+- manifest `artifacts` metadata must exactly match `artifact_names` and use known governed
+  classifications;
 - complete lineage requires every declared artifact to exist on disk before URLs are returned;
 - unknown artifact names return `404`;
 - artifact downloads require completed lineage status;
@@ -72,6 +74,23 @@ Certified behavior:
 
 This is intentionally stricter than a raw file listing. The endpoint must not advertise complete
 lineage if durable metadata, manifest content, or on-disk artifacts disagree.
+
+## Artifact Classification And Sharing
+
+Lineage artifact inventory is classification-bearing, not filename-only. Operators must use the
+metadata returned by `GET /performance/lineage/{calculation_id}` before sharing any artifact outside
+the operations/support boundary.
+
+Current governed classes:
+
+| Artifact family | Access classification | Intended audience | Sensitivity | Minimization posture | Retention category | External sharing |
+| --- | --- | --- | --- | --- | --- | --- |
+| `request.json`, `response.json` | `operator_only` | `operations` | `raw_sensitive_payload` | `raw_payload_full_fidelity` | `lineage_raw_payload` | Redaction or transformation required before customer sharing. |
+| Derived detail artifacts such as `daily_results.csv` | `operator_only` | `operations` | `derived_evidence` | `derived_detail_minimized` | `lineage_detail_evidence` | Redaction or transformation required before customer sharing. |
+| Explicit support packs such as `support_brief.md` | `customer_consumable` | `customer` | `customer_safe_summary` | `customer_safe_transformed` | `lineage_support_pack` | May be shared as the customer-facing artifact when deliberately produced. |
+
+No raw lineage file becomes customer-consumable by inference. Customer-facing evidence must be an
+explicit transformed artifact with `customer_consumable` metadata.
 
 ## Upstream Integration
 

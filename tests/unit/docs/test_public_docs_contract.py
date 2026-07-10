@@ -108,7 +108,7 @@ def test_issue_fix_closure_matrix_is_discoverable_and_merge_gated():
     assert "Review playbook, issue closure matrix, and codebase review ledger" in docs_index
     assert "ISSUE-FIX-CLOSURE-MATRIX.md" in review_playbook
     assert "before PR creation or issue closure" in review_playbook
-    assert "Actionable issues fixed locally | 26" in closure_matrix
+    assert "Actionable issues fixed locally | 27" in closure_matrix
     assert "Issues safe to close now | 0" in closure_matrix
     assert "merged to `main`" in closure_matrix
     assert "No PR should be raised from this branch until the issue matrix remains complete" in closure_matrix
@@ -131,6 +131,7 @@ def test_issue_fix_closure_matrix_is_discoverable_and_merge_gated():
         "#417",
         "#424",
         "#425",
+        "#446",
         "#447",
         "#448",
         "#449",
@@ -384,6 +385,11 @@ def test_lineage_docs_reflect_certified_artifact_contract():
     assert '"url": "http://performance.dev.lotus/performance/lineage/' in complete_reference
     assert '"request.json": {' in reproducibility
     assert '"daily_results.csv": {' in reproducibility
+    assert "operator_only" in reproducibility
+    assert "customer_consumable" in reproducibility
+    assert "raw_sensitive_payload" in api_reference
+    assert "redaction_required_before_external_sharing" in complete_reference
+    assert "lineage_raw_payload" in certification
     assert "Downstream Consumers" in certification
     assert "lotus-gateway#110" in certification
     assert "Test Pyramid Assessment" in certification

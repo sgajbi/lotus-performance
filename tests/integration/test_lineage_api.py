@@ -1,4 +1,4 @@
-# tests/integration/test_lineage_api.py
+import json
 import os
 import shutil
 from datetime import datetime, timezone
@@ -13,6 +13,56 @@ from main import app
 from tests.conftest import drain_lineage_queue
 
 settings = get_settings()
+
+
+def _lineage_artifact_metadata(artifact_name: str) -> dict[str, object]:
+    if artifact_name == "support_brief.md":
+        return {
+            "access_classification": "customer_consumable",
+            "intended_audience": "customer",
+            "sensitivity": "customer_safe_summary",
+            "minimization_posture": "customer_safe_transformed",
+            "retention_category": "lineage_support_pack",
+            "redaction_required_before_external_sharing": False,
+        }
+    if artifact_name in {"request.json", "response.json"}:
+        return {
+            "access_classification": "operator_only",
+            "intended_audience": "operations",
+            "sensitivity": "raw_sensitive_payload",
+            "minimization_posture": "raw_payload_full_fidelity",
+            "retention_category": "lineage_raw_payload",
+            "redaction_required_before_external_sharing": True,
+        }
+    return {
+        "access_classification": "operator_only",
+        "intended_audience": "operations",
+        "sensitivity": "derived_evidence",
+        "minimization_posture": "derived_detail_minimized",
+        "retention_category": "lineage_detail_evidence",
+        "redaction_required_before_external_sharing": True,
+    }
+
+
+def _lineage_manifest_json(
+    *,
+    timestamp_utc: str,
+    artifact_names: list[str],
+    calculation_type: str = "TWR",
+    status: str = "complete",
+    artifacts: dict[str, dict[str, object]] | None = None,
+) -> str:
+    return json.dumps(
+        {
+            "calculation_type": calculation_type,
+            "timestamp_utc": timestamp_utc,
+            "status": status,
+            "artifact_names": artifact_names,
+            "artifacts": artifacts
+            if artifacts is not None
+            else {artifact_name: _lineage_artifact_metadata(artifact_name) for artifact_name in artifact_names},
+        }
+    )
 
 
 @pytest.fixture(scope="module")
@@ -63,6 +113,10 @@ def test_lineage_end_to_end_flow(client):
     assert "request.json" in lineage_data["artifacts"]
     assert "response.json" in lineage_data["artifacts"]
     assert "daily_results.csv" in lineage_data["artifacts"]
+    assert lineage_data["artifacts"]["request.json"]["access_classification"] == "operator_only"
+    assert lineage_data["artifacts"]["request.json"]["sensitivity"] == "raw_sensitive_payload"
+    assert lineage_data["artifacts"]["request.json"]["redaction_required_before_external_sharing"] is True
+    assert lineage_data["artifacts"]["daily_results.csv"]["minimization_posture"] == "derived_detail_minimized"
     artifact_url = lineage_data["artifacts"]["request.json"]["url"]
     artifact_response = client.get(artifact_url)
     assert artifact_response.status_code == 200
@@ -246,6 +300,67 @@ def test_get_lineage_invalid_manifest_returns_503(client):
     assert response.json()["detail"] == "Lineage manifest is invalid."
 
 
+def test_get_lineage_manifest_missing_artifact_metadata_returns_503(client):
+    calculation_id = uuid4()
+    completion_timestamp = datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc)
+    lineage_metadata_store.create_pending_record(calculation_id=calculation_id, calculation_type="TWR")
+    lineage_metadata_store.mark_complete(
+        calculation_id=calculation_id,
+        artifact_names=["request.json"],
+        timestamp_utc=completion_timestamp,
+    )
+    lineage_dir = os.path.join(settings.LINEAGE_STORAGE_PATH, str(calculation_id))
+    os.makedirs(lineage_dir, exist_ok=True)
+    with open(os.path.join(lineage_dir, "manifest.json"), "w", encoding="utf-8") as f:
+        f.write(
+            json.dumps(
+                {
+                    "calculation_type": "TWR",
+                    "timestamp_utc": "2026-03-14T12:00:00Z",
+                    "status": "complete",
+                    "artifact_names": ["request.json"],
+                }
+            )
+        )
+    with open(os.path.join(lineage_dir, "request.json"), "w", encoding="utf-8") as f:
+        f.write("{}")
+
+    response = client.get(f"/performance/lineage/{calculation_id}")
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "Lineage manifest is invalid."
+
+
+def test_get_lineage_manifest_unknown_artifact_classification_returns_503(client):
+    calculation_id = uuid4()
+    completion_timestamp = datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc)
+    lineage_metadata_store.create_pending_record(calculation_id=calculation_id, calculation_type="TWR")
+    lineage_metadata_store.mark_complete(
+        calculation_id=calculation_id,
+        artifact_names=["request.json"],
+        timestamp_utc=completion_timestamp,
+    )
+    lineage_dir = os.path.join(settings.LINEAGE_STORAGE_PATH, str(calculation_id))
+    os.makedirs(lineage_dir, exist_ok=True)
+    invalid_artifact_metadata = _lineage_artifact_metadata("request.json")
+    invalid_artifact_metadata["access_classification"] = "public"
+    with open(os.path.join(lineage_dir, "manifest.json"), "w", encoding="utf-8") as f:
+        f.write(
+            _lineage_manifest_json(
+                timestamp_utc="2026-03-14T12:00:00Z",
+                artifact_names=["request.json"],
+                artifacts={"request.json": invalid_artifact_metadata},
+            )
+        )
+    with open(os.path.join(lineage_dir, "request.json"), "w", encoding="utf-8") as f:
+        f.write("{}")
+
+    response = client.get(f"/performance/lineage/{calculation_id}")
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "Lineage manifest is invalid."
+
+
 def test_get_lineage_inconsistent_manifest_returns_503(client):
     calculation_id = uuid4()
     lineage_metadata_store.create_pending_record(calculation_id=calculation_id, calculation_type="TWR")
@@ -258,11 +373,12 @@ def test_get_lineage_inconsistent_manifest_returns_503(client):
 
     manifest_path = os.path.join(lineage_dir, "manifest.json")
     with open(manifest_path, "w", encoding="utf-8") as f:
-        json_manifest = (
-            '{"calculation_type":"TWR","timestamp_utc":"2026-01-01T00:00:00Z",'
-            '"status":"complete","artifact_names":["request.json"]}'
+        f.write(
+            _lineage_manifest_json(
+                timestamp_utc="2026-01-01T00:00:00Z",
+                artifact_names=["request.json"],
+            )
         )
-        f.write(json_manifest)
 
     response = client.get(f"/performance/lineage/{calculation_id}")
 
@@ -283,8 +399,10 @@ def test_get_lineage_returns_503_when_declared_artifact_missing_from_storage(cli
     os.makedirs(lineage_dir, exist_ok=True)
     with open(os.path.join(lineage_dir, "manifest.json"), "w", encoding="utf-8") as f:
         f.write(
-            '{"calculation_type":"TWR","timestamp_utc":"2026-03-14T12:00:00Z",'
-            '"status":"complete","artifact_names":["request.json","response.json"]}'
+            _lineage_manifest_json(
+                timestamp_utc="2026-03-14T12:00:00Z",
+                artifact_names=["request.json", "response.json"],
+            )
         )
     with open(os.path.join(lineage_dir, "request.json"), "w", encoding="utf-8") as f:
         f.write("{}")
@@ -364,8 +482,10 @@ def test_get_lineage_artifact_returns_503_when_manifest_is_inconsistent(client):
         f.write("{}")
     with open(os.path.join(lineage_dir, "manifest.json"), "w", encoding="utf-8") as f:
         f.write(
-            '{"calculation_type":"TWR","timestamp_utc":"2026-03-14T12:00:00Z",'
-            '"status":"complete","artifact_names":["response.json"]}'
+            _lineage_manifest_json(
+                timestamp_utc="2026-03-14T12:00:00Z",
+                artifact_names=["response.json"],
+            )
         )
 
     response = client.get(f"/performance/lineage/{calculation_id}/artifacts/request.json")
@@ -387,8 +507,10 @@ def test_get_lineage_artifact_returns_503_when_file_missing_from_storage(client)
     os.makedirs(lineage_dir, exist_ok=True)
     with open(os.path.join(lineage_dir, "manifest.json"), "w", encoding="utf-8") as f:
         f.write(
-            '{"calculation_type":"TWR","timestamp_utc":"2026-03-14T12:00:00Z",'
-            '"status":"complete","artifact_names":["request.json"]}'
+            _lineage_manifest_json(
+                timestamp_utc="2026-03-14T12:00:00Z",
+                artifact_names=["request.json"],
+            )
         )
 
     response = client.get(f"/performance/lineage/{calculation_id}/artifacts/request.json")
