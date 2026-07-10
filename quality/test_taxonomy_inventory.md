@@ -22,10 +22,10 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 301 |
-| Test functions inventoried | 3493 |
+| Test modules inventoried | 302 |
+| Test functions inventoried | 3499 |
 | Integration/API/runtime test functions | 684 |
-| Contract/governance test functions | 140 |
+| Contract/governance test functions | 146 |
 
 ## Test Functions By Suite
 
@@ -34,7 +34,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 18 |
 | e2e | 1 | 21 |
 | integration | 28 | 338 |
-| unit | 263 | 3116 |
+| unit | 264 | 3122 |
 
 ## Test Functions By Family
 
@@ -42,9 +42,9 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | --- | ---: |
 | analytics_domain | 1565 |
 | api_or_runtime | 684 |
-| contract_or_governance | 140 |
+| contract_or_governance | 146 |
 | observability_or_readiness | 350 |
-| quality_or_security | 151 |
+| quality_or_security | 157 |
 | uncategorized | 950 |
 
 ## Largest Test Modules
@@ -163,6 +163,10 @@ analytics-domain tests to `1565`, and uncategorized tests to `968` while preserv
 classified stateful execution policy plus submission fencing tests as API/runtime evidence,
 raising source test functions to `3493`, API/runtime tests to `684`, and reducing uncategorized
 tests to `950` while preserving the existing `969` uncategorized ceiling.
+Issue #432 added container runtime contract coverage for Dockerfile, Makefile, Compose, and worker
+healthchecks plus production dependency-scope regression coverage, raising source test functions
+to `3499`, contract/governance tests to `146`, and quality/security tests to `157` without growing
+the uncategorized backlog.
 
 This slice promotes the stable part of the taxonomy from report-only measurement to a
 regression-blocking evaluation gate. `make quality-test-taxonomy-gate` fails if API/runtime tests

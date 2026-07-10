@@ -75,13 +75,13 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Test modules | 228 | 301 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 3,732 | measured | `python -m pytest --collect-only -q` |
+| Test modules | 228 | 302 | measured | `rg --files tests -g 'test_*.py'` |
+| Collected tests | 2,035 | 3,738 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
 | Integration/API/runtime test functions | unknown | 684 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
-| Contract/governance test functions | unknown | 140 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
-| Uncategorized test functions | unknown | 950 | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; issue #433 classified stateful execution policy and submission fencing tests as API/runtime evidence while preserving the `969` blocking ceiling |
+| Contract/governance test functions | unknown | 146 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
+| Uncategorized test functions | unknown | 950 | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; issue #432 added container runtime contract coverage without growing the uncategorized backlog |
 
 ## Security And Dependencies
 
@@ -92,7 +92,7 @@ link the commit, command, or CI artifact that proves the change.
 | Bandit low findings | unknown | 0 | enforced | `quality/python_security_inventory.md`; `make python-security-gate` |
 | Dependency vulnerabilities | unknown | 0 | measured | `quality/dependency_security_report.md` via repo-native dependency-health audit |
 | Dependency hygiene findings | unknown | 0 | measured | `quality/dependency_hygiene_report.md` via `scripts/python_dependency_hygiene_inventory.py` |
-| Third-party packages inventoried | unknown | 49 | enforced | `quality/license_compliance_inventory.md`; `make license-compliance-gate` |
+| Third-party packages inventoried | unknown | 45 | enforced | `quality/license_compliance_inventory.md`; `make license-compliance-gate` |
 | Review-required license exceptions | unknown | 2 | enforced | `contracts/license-compliance-policy.v1.json`; `quality/license_compliance_inventory.md` |
 | Blocked or missing-exception license findings | unknown | 0 | enforced | `make license-compliance-gate` |
 | Container SBOM artifact | unknown | 1 | measured | `quality/container_supply_chain_report.md`; `make container-supply-chain-evidence`; PR/Main artifact upload |
@@ -187,6 +187,10 @@ Latest test-taxonomy gate posture evidence on `feat/performance-architecture-bou
    policy plus submission fencing tests as API/runtime evidence, raising measured source test
    functions to `3,493`, API/runtime tests to `684`, and reducing uncategorized tests to `950`
    while preserving the existing ceiling.
+   Issue #432 added container runtime contract coverage for Dockerfile, Makefile, Compose, and
+   worker healthchecks plus production dependency-scope regression coverage, raising measured
+   source test functions to `3,499`, contract/governance tests to `146`, and quality/security
+   tests to `157` without growing the uncategorized backlog.
 2. Updated the CI wiring test, taxonomy inventory, CI gate map, scorecard, health report,
    repository context, and review ledger so measured current values and enforced thresholds no
    longer contradict each other.

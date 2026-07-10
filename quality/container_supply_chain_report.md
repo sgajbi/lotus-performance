@@ -1,21 +1,34 @@
 # Container Supply-Chain Evidence
 
-Report date: 2026-06-30
+Report date: 2026-07-10
 Mode: PR/Main release evidence; vulnerability report is report-only until the baseline is accepted.
 
 ## Current Posture
 
-`lotus-performance` now has repo-native container supply-chain evidence for the CI image:
+`lotus-performance` now has repo-native container supply-chain evidence for the production
+`runtime` image stage:
 
 ```bash
 make container-supply-chain-evidence
 ```
 
-The target builds `lotus-performance:ci` with non-secret Git SHA, branch, build timestamp,
-repository URL, CI run id, and image-digest metadata fields, generates a CycloneDX SBOM, and writes
-a high/critical container vulnerability report under `output/container-security/`. Runtime
-`GET /version` exposes the same support-safe metadata shape so operators can correlate a live
-service to OCI labels, SBOM, vulnerability, and provenance evidence.
+The target builds `lotus-performance:ci` from Dockerfile target `runtime` with non-secret Git SHA,
+branch, build timestamp, repository URL, CI run id, and image-digest metadata fields, generates a
+CycloneDX SBOM, and writes a high/critical container vulnerability report under
+`output/container-security/`. Runtime `GET /version` exposes the same support-safe metadata shape
+so operators can correlate a live service to OCI labels, SBOM, vulnerability, and provenance
+evidence.
+
+Runtime image contract:
+
+| Control | Current posture |
+| --- | --- |
+| Docker target | `runtime`, selected by `CONTAINER_BUILD_TARGET ?= runtime` and Compose `target: runtime`. |
+| Dependency scope | Installs `requirements.txt` only; development/test dependencies from `requirements-dev.txt` are not installed in the runtime image. |
+| Runtime user | Creates and runs as non-root user `lotus` with UID/GID `10001`. |
+| Writable paths | Owns `/app/lineage_data`, `/app/artifacts`, and `/app/output`; source files are copied with `--chown=lotus:lotus`. |
+| API healthcheck | Dockerfile probes `/health/live`; Compose probes `/health/ready` for the API service. |
+| worker healthchecks | Compose uses `python -m app.workers.healthcheck <worker>` for lineage, compute executor, and runtime-retention worker readiness against shared durable metadata and lineage storage dependencies. |
 
 Build identity fields:
 
@@ -37,7 +50,7 @@ Generated artifacts:
 
 | Artifact | Purpose | Source control posture |
 | --- | --- | --- |
-| `output/container-security/lotus-performance-image-sbom.cdx.json` | CycloneDX SBOM for the CI image. | Ignored generated evidence; uploaded by PR/Main workflows. |
+| `output/container-security/lotus-performance-image-sbom.cdx.json` | CycloneDX SBOM for the production `runtime` image stage. | Ignored generated evidence; uploaded by PR/Main workflows. |
 | `output/container-security/lotus-performance-image-vulnerabilities.json` | Trivy vulnerability report scoped to `HIGH,CRITICAL` and ignoring unfixed findings during the report-only baseline phase. | Ignored generated evidence; uploaded by PR/Main workflows. |
 
 The PR Merge Gate and Main Releasability Gate publish those artifacts. Main Releasability also

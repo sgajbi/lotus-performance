@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.11-slim AS runtime
 
 ARG APP_VERSION=0.1.0
 ARG APP_GIT_COMMIT_SHA=local
@@ -24,16 +24,27 @@ ENV APP_VERSION="${APP_VERSION}" \
     APP_BUILD_TIMESTAMP="${APP_BUILD_TIMESTAMP}" \
     APP_REPOSITORY_URL="${APP_REPOSITORY_URL}" \
     APP_IMAGE_DIGEST="${APP_IMAGE_DIGEST}" \
-    APP_CI_PIPELINE_RUN_ID="${APP_CI_PIPELINE_RUN_ID}"
+    APP_CI_PIPELINE_RUN_ID="${APP_CI_PIPELINE_RUN_ID}" \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-COPY requirements.txt requirements-dev.txt ./
+COPY requirements.txt ./
 RUN pip install --no-cache-dir --root-user-action=ignore --upgrade pip && \
-    pip install --no-cache-dir --root-user-action=ignore -r requirements.txt -r requirements-dev.txt
+    pip install --no-cache-dir --root-user-action=ignore -r requirements.txt
 
-COPY . .
+RUN groupadd --system --gid 10001 lotus && \
+    useradd --system --uid 10001 --gid lotus --home-dir /app --shell /usr/sbin/nologin lotus && \
+    mkdir -p /app/lineage_data /app/artifacts /app/output && \
+    chown -R lotus:lotus /app
+
+COPY --chown=lotus:lotus . .
+
+USER lotus
 
 EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/live', timeout=3).read()"
 
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

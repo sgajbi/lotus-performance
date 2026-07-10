@@ -15,6 +15,7 @@ CONTAINER_BUILD_TIMESTAMP ?= local
 CONTAINER_REPOSITORY_URL ?= https://github.com/sgajbi/lotus-performance
 CONTAINER_IMAGE_DIGEST ?= unavailable-before-push
 CONTAINER_CI_PIPELINE_RUN_ID ?= local
+CONTAINER_BUILD_TARGET ?= runtime
 
 install:
 	pip install -r requirements.txt
@@ -202,7 +203,7 @@ docker-down:
 
 
 docker-build:
-	docker build -f Dockerfile -t $(CONTAINER_IMAGE) --build-arg APP_VERSION=$(CONTAINER_SERVICE_VERSION) --build-arg APP_GIT_COMMIT_SHA=$(CONTAINER_GIT_SHA) --build-arg APP_GIT_BRANCH=$(CONTAINER_GIT_BRANCH) --build-arg APP_BUILD_TIMESTAMP=$(CONTAINER_BUILD_TIMESTAMP) --build-arg APP_REPOSITORY_URL=$(CONTAINER_REPOSITORY_URL) --build-arg APP_IMAGE_DIGEST=$(CONTAINER_IMAGE_DIGEST) --build-arg APP_CI_PIPELINE_RUN_ID=$(CONTAINER_CI_PIPELINE_RUN_ID) .
+	docker build -f Dockerfile --target $(CONTAINER_BUILD_TARGET) -t $(CONTAINER_IMAGE) --build-arg APP_VERSION=$(CONTAINER_SERVICE_VERSION) --build-arg APP_GIT_COMMIT_SHA=$(CONTAINER_GIT_SHA) --build-arg APP_GIT_BRANCH=$(CONTAINER_GIT_BRANCH) --build-arg APP_BUILD_TIMESTAMP=$(CONTAINER_BUILD_TIMESTAMP) --build-arg APP_REPOSITORY_URL=$(CONTAINER_REPOSITORY_URL) --build-arg APP_IMAGE_DIGEST=$(CONTAINER_IMAGE_DIGEST) --build-arg APP_CI_PIPELINE_RUN_ID=$(CONTAINER_CI_PIPELINE_RUN_ID) .
 
 container-supply-chain-evidence: docker-build container-sbom container-vulnerability-report
 
