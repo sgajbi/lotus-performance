@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 
 import engine.mwr as mwr_module
-from app.models.mwr_requests import CashFlow
+from app.models.mwr_requests import CashFlow, Solver
 from core.envelope import Annualization
 from engine.mwr import (
     _annualized_dietz_rate,
@@ -272,6 +272,35 @@ def test_xirr_root_candidate_projects_exact_grid_root_without_bisection():
     solver_value, iterations = candidate
     assert solver_value == pytest.approx(0.0)
     assert iterations == 0
+
+
+def test_scan_xirr_roots_detects_exact_upper_bound_root():
+    values = np.array([-100.0, 110.0])
+    dates = np.array([date(2026, 1, 1), date(2027, 1, 1)])
+    time_diffs = _xirr_time_diffs(
+        dates=dates,
+        anchor_date=date(2026, 1, 1),
+        annualization=Annualization(enabled=False, basis="ACT/365"),
+    )
+
+    def log_npv(log_rate: float) -> float:
+        return float(np.sum(values * np.exp(-log_rate * time_diffs)))
+
+    roots = _scan_xirr_roots(
+        values=values,
+        time_diffs=time_diffs,
+        lower_bound=0.0,
+        upper_bound=0.1,
+        root_scan_steps=32,
+        tolerance=1e-10,
+        max_iter=200,
+        gross_cash_flow_scale=210.0,
+        log_npv=log_npv,
+    )
+
+    assert len(roots) == 1
+    assert roots[0][0] == pytest.approx(0.1)
+    assert roots[0][1] == 0
 
 
 def test_xirr_result_from_roots_preserves_success_convergence_payload():
@@ -692,6 +721,25 @@ def test_calculate_mwr_xirr_fallback_to_dietz():
     assert "No positive and negative cash flows in solver vector." in result.notes
     assert "XIRR failed, falling back to Modified Dietz." in result.notes
     assert result.mwr == pytest.approx(-118.1818, abs=1e-4)
+
+
+def test_calculate_mwr_returns_xirr_when_root_equals_solver_upper_bound():
+    result = calculate_money_weighted_return(
+        begin_mv=100.0,
+        end_mv=110.0,
+        cash_flows=[],
+        calculation_method="XIRR",
+        annualization=Annualization(enabled=False, basis="ACT/365"),
+        as_of=date(2027, 1, 1),
+        start_date=date(2026, 1, 1),
+        solver=Solver(rate_lower_bound=0.0, rate_upper_bound=0.1, root_scan_steps=32),
+    )
+
+    assert result.method == "XIRR"
+    assert result.status == "CALCULATED"
+    assert result.mwr == pytest.approx(10.0)
+    assert result.reason_codes == []
+    assert "DIETZ_FALLBACK_USED" not in result.reason_codes
 
 
 def test_calculate_mwr_dietz_annualization():
