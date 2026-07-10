@@ -54,6 +54,9 @@ class _FakeExecutionRegistry:
     def fail_stage(self, _inspection_id, stage_name, message):
         self.failed_stages.append((stage_name, message))
 
+    def fail_stage_and_execution(self, _inspection_id, stage_name, message):
+        self.fail_stage(_inspection_id, stage_name, message)
+
     def complete_stage(self, _inspection_id, stage_name, details=None):
         self.completed_stages.append(stage_name)
         self.completed_stage_details.append((stage_name, details))

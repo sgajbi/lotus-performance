@@ -38,6 +38,7 @@ from app.services.compute_job_store import (
     ReconciledJobRecord,
 )
 from app.services.execution_registry import ExecutionRegistry
+from app.services.execution_stage_names import EXECUTION_STAGE_LINEAGE_MATERIALIZATION
 from app.services.lineage_metadata_store import LineageMetadataStore
 from app.services.lineage_service import LineageService
 from app.workers import compute_executor_worker
@@ -1184,7 +1185,10 @@ def test_compute_executor_worker_processes_pending_contribution_job(tmp_path, mo
 
     execution = execution_store.get_execution(calculation_id)
     assert execution is not None
-    assert execution.status.value == "complete"
+    assert execution.status.value == "running"
+    assert {stage.stage_name: stage.status.value for stage in execution.stages}[
+        EXECUTION_STAGE_LINEAGE_MATERIALIZATION
+    ] == "in_progress"
     result = result_store.get_result(calculation_id)
     assert result is not None
     assert result.result_status == AsyncResultStatus.COMPLETE
@@ -1445,7 +1449,10 @@ def test_compute_executor_worker_processes_pending_attribution_job(tmp_path, mon
 
     execution = execution_store.get_execution(calculation_id)
     assert execution is not None
-    assert execution.status.value == "complete"
+    assert execution.status.value == "running"
+    assert {stage.stage_name: stage.status.value for stage in execution.stages}[
+        EXECUTION_STAGE_LINEAGE_MATERIALIZATION
+    ] == "in_progress"
     result = result_store.get_result(calculation_id)
     assert result is not None
     assert result.result_status == AsyncResultStatus.COMPLETE
