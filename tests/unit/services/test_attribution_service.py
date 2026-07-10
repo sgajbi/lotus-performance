@@ -441,6 +441,35 @@ def test_completed_attribution_response_and_lineage_completion_preserve_executio
     assert response.meta.calculation_hash == "hash-1"
     assert response.calculation_supportability.input_row_count == 2
     assert response.calculation_supportability.resolved_period_count == 1
+    assert response.diagnostics.nip_days == 0
+    assert response.diagnostics.reset_days == 0
+    assert response.diagnostics.effective_period_start == pd.Timestamp("2025-01-01").date()
+    assert response.diagnostics.samples is not None
+    assert response.diagnostics.samples["period_status_counts"] == [{"unknown": 1}]
+    assert response.diagnostics.samples["residual_materiality_counts"] == [{"immaterial": 1}]
+    assert response.diagnostics.samples["supportability_evidence_counts"] == [
+        {
+            "portfolio_only_group_count": 0,
+            "benchmark_only_group_count": 0,
+            "unclassified_group_count": 0,
+            "missing_benchmark_return_count": 0,
+            "negative_weight_count": 0,
+            "zero_portfolio_exposure_count": 0,
+        }
+    ]
+    assert response.audit.counts == {
+        "input_row_count": 2,
+        "portfolio_row_count": 1,
+        "benchmark_row_count": 1,
+        "resolved_period_count": 1,
+        "level_count": 0,
+        "group_count": 0,
+        "reason_count": 0,
+        "supportability_issue_count": 0,
+        "periods_with_material_residual": 0,
+        "periods_with_watch_residual": 0,
+        "benchmark_context_count": 1,
+    }
     assert completed_payload["calculation_id"] == request.calculation_id
     assert completed_payload["calculation_type"] == "Attribution"
     assert completed_payload["response_model"] is response

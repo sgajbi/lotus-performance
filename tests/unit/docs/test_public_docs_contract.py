@@ -632,10 +632,15 @@ def test_attribution_documentation_map_and_wiki_navigation_are_present():
     assert "material residual classification" in wiki_page
     assert "currency_attribution_totals" in wiki_page
     assert "portfolio-level Karnosky-Singer total" in wiki_page
+    assert "non-null shared `meta`, `diagnostics`, and `audit` footer blocks" in wiki_page
+    assert "Attribution `audit.counts` exposes bounded input" in wiki_page
     assert "source_position_key" in wiki_page
     assert "weight-averaged local/FX" in wiki_page
     assert "source_position_key" in certification
     assert "portfolio-level FX attribution" in certification
+    assert "completed responses include non-null shared `meta`, `diagnostics`, and `audit`" in certification
+    assert "Completed response diagnostics" in certification
+    assert "bounded source-limit note" in certification
     assert "should consume these totals rather than reconstructing" in certification
     assert "does not sum granular sector" in certification
     assert "[Attribution Analytics](Attribution-Analytics)" in wiki_sidebar
@@ -1140,6 +1145,10 @@ def test_attribution_guide_uses_current_request_shape():
     assert "benchmark_weight_avg" in guide
     assert "portfolio_return" in guide
     assert "benchmark_return" in guide
+    assert "Completed attribution responses always include the same shared footer family" in guide
+    assert "period-status counts" in guide
+    assert "supportability-evidence counts" in guide
+    assert "benchmark version, classification version, calendar policy, derivative flags" in guide
     assert "benchmark_context" in readme
     assert "benchmark_context" in api_reference
     assert "each attribution group row now includes average portfolio weight" in api_reference

@@ -15,17 +15,17 @@ and quality family without executing tests or requiring coverage data.
 
 ```powershell
 python scripts/python_test_taxonomy_inventory.py --limit 30
-python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 654 --min-contract-governance-tests 128 --max-uncategorized-tests 969
+python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 655 --min-contract-governance-tests 129 --max-uncategorized-tests 969
 ```
 
 ## Summary
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 295 |
-| Test functions inventoried | 3439 |
-| Integration/API/runtime test functions | 654 |
-| Contract/governance test functions | 128 |
+| Test modules inventoried | 296 |
+| Test functions inventoried | 3440 |
+| Integration/API/runtime test functions | 655 |
+| Contract/governance test functions | 129 |
 
 ## Test Functions By Suite
 
@@ -33,7 +33,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | --- | ---: | ---: |
 | benchmarks | 9 | 18 |
 | e2e | 1 | 21 |
-| integration | 27 | 327 |
+| integration | 28 | 328 |
 | unit | 258 | 3073 |
 
 ## Test Functions By Family
@@ -41,8 +41,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Family | Test functions |
 | --- | ---: |
 | analytics_domain | 1549 |
-| api_or_runtime | 654 |
-| contract_or_governance | 128 |
+| api_or_runtime | 655 |
+| contract_or_governance | 129 |
 | observability_or_readiness | 338 |
 | quality_or_security | 142 |
 | uncategorized | 969 |
@@ -109,11 +109,13 @@ analytics-domain test functions. Intentional threshold changes should remain sep
 rationale-backed gate-governance work.
 Issue #442 added async polling and application-response header tests, classified them as
 API/runtime evidence, and ratcheted the API/runtime floor to `654` while keeping the
-uncategorized ceiling at `969`.
+uncategorized ceiling at `969`. Issue #454 added cross-endpoint footer parity coverage for TWR,
+MWR, Contribution, and Attribution, classifying it as both API/runtime and contract/governance
+evidence and ratcheting the floors to `655` API/runtime and `129` contract/governance.
 
 This slice promotes the stable part of the taxonomy from report-only measurement to a
 regression-blocking evaluation gate. `make quality-test-taxonomy-gate` fails if API/runtime tests
-drop below `654`, contract/governance tests drop below `128`, or uncategorized tests rise above
+drop below `655`, contract/governance tests drop below `129`, or uncategorized tests rise above
 `969`. `make quality-evaluation-gate` now runs both deterministic demo API certification and this
 taxonomy gate, so existing Feature Lane, PR Merge Gate, Main Releasability, local `make check`,
 local `make ci`, and Quality Baseline workflow enforcement pick it up without duplicating workflow

@@ -150,6 +150,14 @@ The response contains:
 - `diagnostics`
 - `audit`
 
+Completed attribution responses always include the same shared footer family used by TWR, MWR, and
+Contribution. The attribution `diagnostics` block includes period-status counts, residual
+materiality counts, supportability-evidence counts, and source-limit notes when upstream contracts
+do not yet expose benchmark version, classification version, calendar policy, derivative flags,
+or short flags. The attribution `audit.counts` block includes bounded input, portfolio,
+benchmark, period, level, group, reason, supportability-issue, residual-materiality, and benchmark
+context counts.
+
 Each period result can include:
 
 - `status`
@@ -323,9 +331,49 @@ view. The totals are produced by the attribution engine after the selected linki
       }
     }
   },
-  "meta": {},
-  "diagnostics": {},
-  "audit": {}
+  "meta": {
+    "calculation_id": "2f4f3e0e-6e0e-4e0e-8e0e-2f4f3e0e6e0e",
+    "engine_version": "1.0.0",
+    "precision_mode": "FLOAT64",
+    "annualization": { "enabled": false, "basis": "BUS/252" },
+    "calendar": { "type": "BUSINESS", "trading_calendar": "NYSE" },
+    "periods": { "SI": { "start": "2025-01-01", "end": "2025-01-01" } }
+  },
+  "diagnostics": {
+    "nip_days": 0,
+    "reset_days": 0,
+    "effective_period_start": "2025-01-01",
+    "notes": [
+      "Period-level status, reason_codes, supportability_evidence, and residual_materiality remain the authoritative attribution degraded-state contract.",
+      "Benchmark version, classification version, calendar policy, derivative flags, and short flags are source-limited unless supplied by upstream contracts."
+    ],
+    "samples": {
+      "period_status_counts": [{ "valid": 1 }],
+      "residual_materiality_counts": [{ "immaterial": 1 }],
+      "supportability_evidence_counts": [
+        {
+          "portfolio_only_group_count": 0,
+          "benchmark_only_group_count": 0,
+          "unclassified_group_count": 0
+        }
+      ]
+    }
+  },
+  "audit": {
+    "counts": {
+      "input_row_count": 5,
+      "portfolio_row_count": 3,
+      "benchmark_row_count": 2,
+      "resolved_period_count": 1,
+      "level_count": 1,
+      "group_count": 2,
+      "reason_count": 0,
+      "supportability_issue_count": 0,
+      "periods_with_material_residual": 0,
+      "periods_with_watch_residual": 0,
+      "benchmark_context_count": 1
+    }
+  }
 }
 ```
 
