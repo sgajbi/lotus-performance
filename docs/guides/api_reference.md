@@ -907,6 +907,7 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - `409` plus `Retry-After` when a recent manual cleanup already completed inside the configured cooldown window
   - `409` when the same governed cleanup action is already running in-flight for the same operator, tenant, action mode, retention window, and job identity
   - stale in-flight cleanup leases are reclaimed automatically after the configured stale threshold instead of blocking forever after a crash
+  - apply evidence is persisted as `in_progress` before destructive phases start, then rewritten with `applied` or `failed` status plus target manifest and per-phase restart/reconciliation counts
 - use this when an operator needs an audited cleanup preview or a deliberate apply action without shell access
 - request model: `app.models.runtime_retention_history.RuntimeRetentionCleanupRunRequest`
 - response model: `app.models.runtime_retention_history.RuntimeRetentionCleanupRunResponse`

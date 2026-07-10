@@ -200,6 +200,9 @@ def _runtime_retention_entry_matches(
     retention_days: int | None,
     job_id: str | None,
 ) -> bool:
+    expected_status = "applied" if apply else "planned"
+    if entry.status != expected_status:
+        return False
     if not operator_action_correlation_matches(
         entry,
         operator_id=operator_id,

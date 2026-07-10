@@ -85,6 +85,19 @@ Run responses include:
 - cleanup mode, status, retention window, and cutoff timestamp
 - prunable terminal execution, compute job, async result, lineage record, and lineage artifact counts
 
+Persisted evidence files include additional restart-safety detail beyond the public run response:
+
+- cleanup run id;
+- target manifest with selected execution ids, lineage ids, lineage artifact paths, and selected
+  aggregate compute/async counts;
+- per-phase target, deleted, skipped, and failed counts for compute jobs, async results, lineage
+  artifacts, lineage records, and executions;
+- failure message when a destructive phase fails.
+
+Apply mode writes the evidence as `in_progress` before destructive phases start and rewrites the same
+file as `applied` or `failed` after phase execution. Failed and in-progress evidence is retained for
+audit but is not returned as a successful idempotent replay.
+
 ## Behavior And Feature Checks
 
 Certified behavior:
@@ -99,6 +112,7 @@ Certified behavior:
 - cooldown guards prevent uncontrolled manual cleanup repetition
 - stale action leases can be reclaimed through the governed lease path
 - retained evidence carries operator, tenant, correlation, mode, retention window, cutoff, and prunable counts
+- apply evidence records target manifests before deletion and per-phase restart/reconciliation results
 
 ## Upstream Integration
 

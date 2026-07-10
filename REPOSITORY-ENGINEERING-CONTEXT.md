@@ -313,11 +313,14 @@ Important validation expectations:
     lineage payload completion/deletion, and governed operator-action lock release must compare the
     active lease owner or acquisition token before mutating terminal state, deleting work, or
     exposing async/lineage success evidence after stale reclaim.
-23. Runtime-retention cleanup is a database-native durable-store workflow. Async-result and
-    compute-job preview/apply paths use count and set-based delete operations, execution and
-    lineage paths enumerate calculation ids only where child rows or artifact directories require
-    deterministic cleanup, and durable schema creation repairs the retention indexes for existing
-    runtime stores.
+23. Runtime-retention cleanup is a database-native durable-store workflow with restart-safe operator
+    evidence. Async-result and compute-job preview/apply paths use count and set-based delete
+    operations, execution and lineage paths enumerate calculation ids only where child rows or
+    artifact directories require deterministic cleanup, and durable schema creation repairs the
+    retention indexes for existing runtime stores. Apply mode must persist an `in_progress` target
+    manifest before destructive deletion and final evidence must include per-phase
+    target/deleted/skipped/failed counts so reruns can reconcile already-deleted rows and missing
+    artifact directories.
 24. Lineage inspection list queries are query-plan governed operator paths. Active, failed, all,
     and reclaimable inspection statements must keep `calculation_type` filters index-backed through
     lineage-record and lineage-payload composite indexes; PostgreSQL plan-contract tests cover the

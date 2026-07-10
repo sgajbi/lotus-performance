@@ -70,7 +70,7 @@ metrics in each section are updated with each meaningful slice.
 | Branch coverage | unknown | 98.00% | n/a | measured | `quality/coverage_inventory.md`; `quality/refactor_health_report.md`; `make branch-coverage-baseline` |
 | Integration/API/runtime test functions | unknown | 663 | n/a | enforced | `quality/test_taxonomy_inventory.md`; `quality/refactor_health_report.md`; `make quality-test-taxonomy-gate` |
 | Contract/governance test functions | unknown | 133 | n/a | enforced | `quality/test_taxonomy_inventory.md`; `quality/refactor_health_report.md`; `make quality-test-taxonomy-gate` |
-| Uncategorized test functions | unknown | 959 | n/a | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; issue #446 added lineage artifact classification coverage while preserving the `969` blocking ceiling |
+| Uncategorized test functions | unknown | 963 | n/a | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; issue #444 added runtime-retention restart-safety and failed-replay tests while preserving the `969` blocking ceiling |
 
 ### Security and Dependencies
 
