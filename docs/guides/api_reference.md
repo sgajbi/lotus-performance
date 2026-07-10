@@ -97,6 +97,7 @@ remain in structured logs and durable evidence under the same correlation contex
   - `include_benchmark=true` is the canonical switch for returning benchmark performance alongside portfolio TWR
   - the nested `benchmark` object is optional configuration; it can supply `benchmark_id`, `input_mode`, and `return_source`
   - when `include_benchmark=true`, explicit `benchmark.benchmark_id` overrides lotus-core assignment lookup; otherwise stateful mode can source the portfolio-to-benchmark mapping from lotus-core
+  - the older RFC-023 `benchmark_spec` block is superseded by the RFC-042 benchmark contract; see `docs/technical/rfc-023-benchmark-contract-baseline.md`
   - when `include_benchmark=true`, each period result also includes arithmetic `relative_performance` versus the resolved benchmark
   - when a benchmark is resolved, the response also emits top-level `benchmark_context`
 
@@ -438,6 +439,7 @@ Return semantics for the workspace surface are now explicit rather than inferred
     - `stateless_input.component_price_points`
   - stateful calculated mode sources benchmark definition, component price series, and FX inputs from lotus-core and normalizes them into canonical benchmark component observations before engine execution
   - stateful calculated mode supports multi-segment rebalance windows through the lotus-core composition-window contract
+  - `benchmark_spec` is not a supported request field; RFC-023 is superseded for current API purposes by RFC-042 and `docs/technical/rfc-023-benchmark-contract-baseline.md`
 - output checks:
   - `benchmark.summary.period_return` geometrically links benchmark daily returns inside the resolved period
   - `daily_returns[].benchmark_return` reconciles to same-date component contributions in calculated mode

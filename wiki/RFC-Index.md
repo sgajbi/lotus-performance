@@ -23,6 +23,9 @@
   gross/net analytics; current support is limited to endpoint `metric_basis=NET` and
   `metric_basis=GROSS` fee-basis treatment, while `costs` blocks and `gross_net` bridge output
   remain future implementation backlog
+- RFC-023
+  historical blended/dynamic benchmark design; the free-form `benchmark_spec` API is superseded by
+  RFC-042 and current `benchmark_id` / `input_mode` / `return_source` benchmark contracts
 - RFC-030
   integration capabilities contract API
 - RFC-039

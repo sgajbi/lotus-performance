@@ -174,14 +174,16 @@ Status values:
   material for current composite truth.
 
 ### RFC-023-D01
-- Status: `open`
+- Status: `superseded-by-rfc-042-current-contract`
 - Priority: P2
 - Source RFC: `RFC-023`
-- Delta: Implement blended/dynamic benchmark engine behavior beyond basic benchmark-series retrieval.
-- Why still relevant: Return-series benchmark support exists but dynamic benchmark composition does not.
+- Delta: Implement future dynamic benchmark behavior through the RFC-042 `benchmark_id` / lotus-core composition-window architecture, not through the older free-form `benchmark_spec` request block.
+- Why still relevant: Current benchmark analytics support calculated component observations, price points, vendor return series, and lotus-core stateful composition windows. Drift-threshold and scheduled policy-rebalance behavior remains future work.
 - Evidence:
-  - `returns_series` endpoint and core benchmark retrieval exist; no `engine/benchmarks.py` dynamic blend logic.
-- Proposed action: Add benchmark composition module and integration tests.
+  - RFC-042 supersedes RFC-023 as written.
+  - `app/models/benchmark_analytics_requests.py` exposes `benchmark_id`, `input_mode`, `return_source`, `stateless_input`, and `stateful_input`; it does not expose `benchmark_spec`.
+  - `docs/technical/rfc-023-benchmark-contract-baseline.md` records the current support baseline.
+- Proposed action: Split future work into RFC-042-compatible slices for independent benchmark resolution, policy-weight schedules, drift-threshold rebalancing, component FX normalization, and downstream Gateway/Workbench support.
 
 ### RFC-026-D01
 - Status: `open`

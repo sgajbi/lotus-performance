@@ -1,9 +1,25 @@
-# RFC 023: Blended & Dynamic Benchmarks (Final)
+# RFC 023: Blended & Dynamic Benchmarks (Superseded For API Contract)
 
-**Status:** Final (For Approval)
+**Status:** Superseded by RFC-042 for current API contract
 **Owner:** Senior Architect
 **Reviewers:** Perf Engine, Risk, Platform
 **Related:** All active analytics endpoints, RFC-018 (Attribution), RFC-020 (FX)
+
+## Current Implementation Baseline
+
+This RFC is historical design context, not current implementation truth. The supported production
+contract is documented in
+[`docs/technical/rfc-023-benchmark-contract-baseline.md`](../technical/rfc-023-benchmark-contract-baseline.md)
+and in RFC-042.
+
+Current lotus-performance benchmark support uses `benchmark_id`, `input_mode`, `return_source`,
+`stateless_input.component_observations`, `stateless_input.component_price_points`,
+`stateless_input.benchmark_return_points`, and lotus-core-sourced stateful benchmark composition.
+The older free-form `benchmark_spec` request block, `POST /benchmarks/resolve` helper endpoint, and
+RFC-023 dynamic blend engine plan are not implemented public API contracts.
+
+Future dynamic benchmark work must extend the RFC-042 core-sourced benchmark architecture or define
+a separately approved endpoint/use-case slice. Do not implement RFC-023 as written.
 
 ## 1\. Executive Summary
 

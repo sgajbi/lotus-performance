@@ -109,7 +109,7 @@ delivery evidence for completed work.
     * **Reasoning:** **Provide critical fee transparency.** A foundational feature for any auditable reporting, explaining the impact of fees and costs on performance.
 
 5.  **RFC 023 — Blended & Dynamic Benchmarks**
-    * **Reasoning:** **Enable correct active analysis.** Many strategies are measured against dynamic, not static, benchmarks. This is essential for accurate attribution and active analytics.
+    * **Reasoning:** **Enable correct active analysis.** Many strategies are measured against dynamic, not static, benchmarks. Current implementation follows the RFC-042 core-sourced benchmark architecture; the older free-form `benchmark_spec` request block is superseded and must not be treated as a current API target.
 
 ### Phase 2: Expand Core Analytical Views
 
