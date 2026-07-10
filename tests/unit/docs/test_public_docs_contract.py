@@ -4,6 +4,7 @@ from collections import Counter
 from pathlib import Path
 
 from app.enterprise_runtime_config import _DEFAULT_MAX_WRITE_PAYLOAD_BYTES
+from app.services.integration_capabilities_service import build_integration_capabilities_report
 from scripts.python_test_taxonomy_inventory import collect_test_modules, summarize_test_taxonomy
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -15,6 +16,23 @@ def _read(relative_path: str) -> str:
 
 def _read_lines(relative_path: str) -> list[str]:
     return _read(relative_path).splitlines()
+
+
+def _certified_surface_keys(certification: str) -> set[str]:
+    lines = certification.splitlines()
+    start_index = lines.index("Certified surface keys:") + 1
+    keys: set[str] = set()
+    in_list = False
+    for line in lines[start_index:]:
+        if not line and not in_list:
+            continue
+        if not line:
+            break
+        in_list = True
+        match = re.fullmatch(r"- `([^`]+)`", line)
+        assert match is not None, line
+        keys.add(match.group(1))
+    return keys
 
 
 def test_readme_uses_current_twr_contract_terms():
@@ -78,7 +96,7 @@ def test_issue_fix_closure_matrix_is_discoverable_and_merge_gated():
     assert "Review playbook, issue closure matrix, and codebase review ledger" in docs_index
     assert "ISSUE-FIX-CLOSURE-MATRIX.md" in review_playbook
     assert "before PR creation or issue closure" in review_playbook
-    assert "Actionable issues fixed locally | 16" in closure_matrix
+    assert "Actionable issues fixed locally | 17" in closure_matrix
     assert "Issues safe to close now | 0" in closure_matrix
     assert "merged to `main`" in closure_matrix
     assert "No PR should be raised from this branch until the issue matrix remains complete" in closure_matrix
@@ -97,6 +115,7 @@ def test_issue_fix_closure_matrix_is_discoverable_and_merge_gated():
         "#399",
         "#400",
         "#401",
+        "#415",
         "#442",
         "#453",
         "#454",
@@ -1087,7 +1106,7 @@ def test_api_reference_documents_endpoint_level_capabilities_contract():
         "implemented TWR, MWR, contribution, attribution, and returns-series supportability metric posture"
         in certification
     )
-    assert {surface["key"] for surface in example["analytics_surfaces"]} == {
+    expected_surface_keys = {
         "twr",
         "twr_inspection",
         "mwr",
@@ -1100,6 +1119,13 @@ def test_api_reference_documents_endpoint_level_capabilities_contract():
         "returns_series",
         "benchmark_exposure_context",
     }
+    runtime_surface_keys = {
+        str(surface["key"]) for surface in build_integration_capabilities_report().analytics_surfaces
+    }
+
+    assert {surface["key"] for surface in example["analytics_surfaces"]} == expected_surface_keys
+    assert runtime_surface_keys == expected_surface_keys
+    assert _certified_surface_keys(certification) == expected_surface_keys
 
 
 def test_benchmark_exposure_context_docs_reflect_certified_contract():

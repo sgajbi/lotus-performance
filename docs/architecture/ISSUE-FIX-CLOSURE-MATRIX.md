@@ -11,8 +11,8 @@ Until then, the local status can be `Fixed locally` while the GitHub issue remai
 
 | Category | Count | Notes |
 | --- | ---: | --- |
-| Open GitHub issues reviewed | 17 | Includes the tracking ledger issue `#380`. |
-| Actionable issues fixed locally | 16 | Issues `#387`, `#388`, `#389`, `#390`, `#391`, `#392`, `#393`, `#396`, `#397`, `#398`, `#399`, `#400`, `#401`, `#442`, `#453`, and `#454`. |
+| Open GitHub issues reviewed | 18 | Includes the tracking ledger issue `#380`. |
+| Actionable issues fixed locally | 17 | Issues `#387`, `#388`, `#389`, `#390`, `#391`, `#392`, `#393`, `#396`, `#397`, `#398`, `#399`, `#400`, `#401`, `#415`, `#442`, `#453`, and `#454`. |
 | Tracking ledger issues | 1 | Issue `#380` remains open as the discovery ledger, not as a fix ticket. |
 | Issues safe to close now | 0 | Closure waits for PR merge, CI evidence, and wiki publication where applicable. |
 
@@ -32,6 +32,7 @@ Latest local pre-PR verification for this batch:
 
 | Issue | Local status | Ledger evidence | Same-pattern and regression posture | Close condition |
 | --- | --- | --- | --- | --- |
+| `#415` Certify mandate health in integration capabilities publication | Fixed locally | `LP-CR-1654` | The certification page now lists `mandate_performance_health_context` as a certified analytics surface with its stateless DPM supportability boundary. Docs regression now compares the certified surface list with both the canonical example payload and the generated runtime report, preventing future capability-publication drift. | Close after merge and green PR evidence. |
 | `#397` Protect TWR inspection artifact downloads with privileged-read authorization | Fixed locally | `LP-CR-1625` | Central privileged-read rule family now covers `/performance/inspections`; same-class file-backed evidence route scan found lineage already governed and inspections aligned; unit and integration authz tests cover parent and child artifact paths. | Close after merge and green PR evidence. |
 | `#396` Normalize stateful source currency codes before mixed-currency FX gating | Fixed locally | `LP-CR-1626` | Shared `normalized_currency_code(...)` helper replaces raw string comparisons across contribution, attribution, and cash-flow currency checks; blank, whitespace, case-only, and true mixed-currency regressions are covered. | Close after merge and green PR evidence. |
 | `#388` Normalize legacy ITD period usage to canonical SI across performance APIs | Fixed locally | `LP-CR-1627` | Since-inception aliases normalize to canonical `SI` before calculations, metadata, lineage windows, and response keys; current authored examples reject `"period": "ITD"` unless documenting alias compatibility. | Close after merge and green PR evidence. |

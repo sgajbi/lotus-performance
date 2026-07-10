@@ -71,6 +71,7 @@ Certified surface keys:
 - `contribution`
 - `attribution`
 - `composite_twr`
+- `mandate_performance_health_context`
 - `returns_series`
 - `benchmark_exposure_context`
 
@@ -106,6 +107,11 @@ view over lotus-core benchmark lineage.
 composite member-return facts. It does not change the portfolio-level `twr` surface and does not
 advertise ad hoc member uploads, hidden request-time member TWR fan-out, composite contribution,
 composite attribution, composite MWR, benchmark active return, or special composite structures.
+
+`mandate_performance_health_context` advertises only `stateless` because it publishes bounded,
+lotus-performance-owned active-return health posture for lotus-manage DPM supportability. It does
+not create mandate actions, rebalance waves, client communications, orders, OMS, or execution
+instructions.
 
 ## Upstream Integration
 
