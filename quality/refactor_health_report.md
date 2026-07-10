@@ -75,13 +75,13 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Test modules | 228 | 300 | measured | `rg --files tests -g 'test_*.py'` |
-| Collected tests | 2,035 | 3,719 | measured | `python -m pytest --collect-only -q` |
+| Test modules | 228 | 301 | measured | `rg --files tests -g 'test_*.py'` |
+| Collected tests | 2,035 | 3,724 | measured | `python -m pytest --collect-only -q` |
 | Line coverage | unknown | 99.58% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `21,154` covered lines of `21,244` statements) |
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
 | Integration/API/runtime test functions | unknown | 663 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
-| Contract/governance test functions | unknown | 136 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
-| Uncategorized test functions | unknown | 965 | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; issue #438 added durable database engine policy coverage while preserving the `969` blocking ceiling |
+| Contract/governance test functions | unknown | 140 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
+| Uncategorized test functions | unknown | 966 | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; issue #436 added runtime-retention legal-hold coverage while preserving the `969` blocking ceiling |
 
 ## Security And Dependencies
 
@@ -172,6 +172,9 @@ Latest test-taxonomy gate posture evidence on `feat/performance-architecture-bou
    Issue #438 added durable database engine policy coverage, raising measured source test functions
    to `3,480` and analytics-domain tests to `1,560` while preserving the existing uncategorized
    backlog.
+   Issue #436 added runtime-retention legal-hold parser and exclusion coverage, raising measured
+   source test functions to `3,485`, contract/governance tests to `140`, and uncategorized tests to
+   `966` while preserving the existing ceiling.
 2. Updated the CI wiring test, taxonomy inventory, CI gate map, scorecard, health report,
    repository context, and review ledger so measured current values and enforced thresholds no
    longer contradict each other.

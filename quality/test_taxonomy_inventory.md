@@ -22,10 +22,10 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 300 |
-| Test functions inventoried | 3480 |
+| Test modules inventoried | 301 |
+| Test functions inventoried | 3485 |
 | Integration/API/runtime test functions | 663 |
-| Contract/governance test functions | 136 |
+| Contract/governance test functions | 140 |
 
 ## Test Functions By Suite
 
@@ -34,7 +34,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 18 |
 | e2e | 1 | 21 |
 | integration | 28 | 336 |
-| unit | 262 | 3105 |
+| unit | 263 | 3110 |
 
 ## Test Functions By Family
 
@@ -42,10 +42,10 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | --- | ---: |
 | analytics_domain | 1560 |
 | api_or_runtime | 663 |
-| contract_or_governance | 136 |
+| contract_or_governance | 140 |
 | observability_or_readiness | 350 |
 | quality_or_security | 151 |
-| uncategorized | 965 |
+| uncategorized | 966 |
 
 ## Largest Test Modules
 
@@ -150,6 +150,9 @@ added license-policy coverage, raising source test functions to `3476` and quali
 to `151`. Issue #438 added durable database engine policy coverage for SQLite/PostgreSQL engine
 options plus shared execution-registry commit/rollback behavior, raising source test functions to
 `3480` and analytics-domain tests to `1560` without growing the uncategorized backlog.
+Issue #436 added runtime-retention legal-hold source and exclusion coverage, raising source test
+functions to `3485`, contract/governance tests to `140`, and uncategorized tests to `966` while
+preserving the existing `969` ceiling.
 
 This slice promotes the stable part of the taxonomy from report-only measurement to a
 regression-blocking evaluation gate. `make quality-test-taxonomy-gate` fails if API/runtime tests

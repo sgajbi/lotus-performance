@@ -282,6 +282,9 @@ allowed canonical data warnings.
   non-primary durable metadata database target when certifying real backup restore RPO/RTO evidence.
 - retention cleanup:
   [docs/runbooks/runtime-retention-cleanup.md](../docs/runbooks/runtime-retention-cleanup.md)
+  Runtime-retention legal holds use `RUNTIME_RETENTION_LEGAL_HOLD_PATH`; place an approved hold
+  before cleanup for client disputes, regulatory records, audit freezes, model validation,
+  incidents, or investigations, and verify protected counts in dry-run evidence before apply.
 - returns-series source-quality triage:
   [docs/runbooks/returns-series-operator-triage.md](../docs/runbooks/returns-series-operator-triage.md)
 - MWR support:

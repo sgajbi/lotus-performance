@@ -79,6 +79,12 @@ Override the default only with an explicit operator or environment-level reason.
    - `prunable_async_result_count`
    - `prunable_lineage_record_count`
    - `prunable_lineage_artifact_count`
+   - `protected_execution_count`
+   - `protected_compute_job_count`
+   - `protected_async_result_count`
+   - `protected_lineage_record_count`
+   - `protected_lineage_artifact_count`
+   - `protected_reason_counts`
    - for apply evidence, `target_manifest` and `phase_results`
 3. If the counts are expected, apply the cleanup:
    - `python scripts/runtime_retention_cleanup.py --apply`
@@ -102,6 +108,43 @@ Override the default only with an explicit operator or environment-level reason.
 - Do not shorten retention during an active incident unless the goal is deliberate emergency cleanup.
 - Do not use this script as a substitute for durable metadata recovery.
 - If runtime state or lineage artifacts are needed for an open investigation, preserve them before cleanup.
+- Place a legal hold before cleanup when calculations are needed for client disputes, regulatory records, audit freezes,
+  model-validation, incident, or investigation evidence.
+- Legal-hold placement and removal require an operator ticket or approval reference. Do not remove
+  a hold merely to reduce prunable counts.
+
+## Legal Hold Exclusions
+
+Runtime retention reads legal holds from `RUNTIME_RETENTION_LEGAL_HOLD_PATH`
+(`artifacts/runtime-retention-holds/legal-holds.json` by default). The file is a durable operator
+source, not generated cleanup evidence.
+
+Example hold file:
+
+```json
+{
+  "holds": [
+    {
+      "calculation_id": "3b5ed4f6-4f7d-4a64-bb23-2e6fa85a0a98",
+      "reason_code": "client_dispute",
+      "source": "INC-2026-0042"
+    }
+  ]
+}
+```
+
+To place a hold:
+
+1. Add the `calculation_id`, bounded `reason_code`, and approval or case `source`.
+2. Run `python scripts/runtime_retention_cleanup.py` and confirm protected counts and
+   `protected_reason_counts` are present before apply.
+3. Keep the hold file under the configured durable artifact location for every API, worker, and
+   scheduled cleanup process that can run retention.
+
+To inspect holds, read the configured JSON file and compare the latest dry-run evidence
+`target_manifest.protected_*` fields with the case/ticket register. To remove a hold, delete only
+the approved hold entry, retain the approval evidence externally, and run another dry run before any
+apply action.
 
 ## Post-Cleanup Validation
 
@@ -123,4 +166,6 @@ Override the default only with an explicit operator or environment-level reason.
 - dry-run summary
 - apply summary
 - apply target manifest and per-phase results
+- protected counts and `protected_reason_counts`
+- legal-hold file path and approval/case source when any protected count is non-zero
 - any reason for deviating from the default retention window

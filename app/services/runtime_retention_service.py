@@ -13,6 +13,7 @@ from app.services.compute_job_store import compute_job_store
 from app.services.durable_store_time import format_timestamp
 from app.services.execution_registry import execution_registry
 from app.services.lineage_metadata_store import lineage_metadata_store
+from app.services.runtime_retention_legal_hold import load_runtime_retention_legal_hold_index
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +36,12 @@ class RuntimeRetentionCleanupTargetManifest:
     lineage_artifact_paths: list[str]
     compute_job_count: int
     async_result_count: int
+    protected_execution_ids: list[str] = field(default_factory=list)
+    protected_compute_job_ids: list[str] = field(default_factory=list)
+    protected_async_result_ids: list[str] = field(default_factory=list)
+    protected_lineage_ids: list[str] = field(default_factory=list)
+    protected_lineage_artifact_paths: list[str] = field(default_factory=list)
+    protected_reason_counts: dict[str, int] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -47,6 +54,12 @@ class RuntimeRetentionCleanupSummary:
     prunable_async_result_count: int
     prunable_lineage_record_count: int
     prunable_lineage_artifact_count: int
+    protected_execution_count: int = 0
+    protected_compute_job_count: int = 0
+    protected_async_result_count: int = 0
+    protected_lineage_record_count: int = 0
+    protected_lineage_artifact_count: int = 0
+    protected_reason_counts: dict[str, int] = field(default_factory=dict)
     target_manifest: RuntimeRetentionCleanupTargetManifest | None = None
     phase_results: list[RuntimeRetentionCleanupPhaseResult] = field(default_factory=list)
     failure_message: str | None = None
@@ -56,9 +69,15 @@ class RuntimeRetentionCleanupSummary:
 class RuntimeRetentionPrunableItems:
     execution_ids: list[str]
     lineage_ids: list[str]
-    compute_job_count: int
-    async_result_count: int
+    compute_job_ids: list[str]
+    async_result_ids: list[str]
     lineage_artifact_count: int
+    protected_execution_ids: list[str] = field(default_factory=list)
+    protected_compute_job_ids: list[str] = field(default_factory=list)
+    protected_async_result_ids: list[str] = field(default_factory=list)
+    protected_lineage_ids: list[str] = field(default_factory=list)
+    protected_lineage_artifact_count: int = 0
+    protected_reason_counts: dict[str, int] = field(default_factory=dict)
 
 
 class RuntimeRetentionCleanupFailed(RuntimeError):
@@ -144,10 +163,16 @@ def _build_cleanup_summary(
         cutoff_utc=format_timestamp(cutoff) or "",
         dry_run=dry_run,
         prunable_execution_count=len(prunable_items.execution_ids),
-        prunable_compute_job_count=prunable_items.compute_job_count,
-        prunable_async_result_count=prunable_items.async_result_count,
+        prunable_compute_job_count=len(prunable_items.compute_job_ids),
+        prunable_async_result_count=len(prunable_items.async_result_ids),
         prunable_lineage_record_count=len(prunable_items.lineage_ids),
         prunable_lineage_artifact_count=prunable_items.lineage_artifact_count,
+        protected_execution_count=len(prunable_items.protected_execution_ids),
+        protected_compute_job_count=len(prunable_items.protected_compute_job_ids),
+        protected_async_result_count=len(prunable_items.protected_async_result_ids),
+        protected_lineage_record_count=len(prunable_items.protected_lineage_ids),
+        protected_lineage_artifact_count=prunable_items.protected_lineage_artifact_count,
+        protected_reason_counts=dict(prunable_items.protected_reason_counts),
         target_manifest=target_manifest or _build_target_manifest(prunable_items),
         phase_results=list(phase_results or []),
         failure_message=failure_message,
@@ -159,20 +184,47 @@ def _build_target_manifest(prunable_items: RuntimeRetentionPrunableItems) -> Run
         execution_ids=sorted(prunable_items.execution_ids),
         lineage_ids=sorted(prunable_items.lineage_ids),
         lineage_artifact_paths=sorted(_lineage_artifact_paths(prunable_items.lineage_ids)),
-        compute_job_count=prunable_items.compute_job_count,
-        async_result_count=prunable_items.async_result_count,
+        compute_job_count=len(prunable_items.compute_job_ids),
+        async_result_count=len(prunable_items.async_result_ids),
+        protected_execution_ids=sorted(prunable_items.protected_execution_ids),
+        protected_compute_job_ids=sorted(prunable_items.protected_compute_job_ids),
+        protected_async_result_ids=sorted(prunable_items.protected_async_result_ids),
+        protected_lineage_ids=sorted(prunable_items.protected_lineage_ids),
+        protected_lineage_artifact_paths=sorted(_lineage_artifact_paths(prunable_items.protected_lineage_ids)),
+        protected_reason_counts=dict(prunable_items.protected_reason_counts),
     )
 
 
 def _collect_prunable_items(*, cutoff: datetime) -> RuntimeRetentionPrunableItems:
-    prunable_execution_ids = execution_registry.list_terminal_execution_ids_older_than(cutoff)
-    prunable_lineage_ids = lineage_metadata_store.list_terminal_calculation_ids_older_than(cutoff)
+    legal_hold_index = load_runtime_retention_legal_hold_index()
+    candidate_execution_ids = execution_registry.list_terminal_execution_ids_older_than(cutoff)
+    candidate_lineage_ids = lineage_metadata_store.list_terminal_calculation_ids_older_than(cutoff)
+    candidate_compute_job_ids = compute_job_store.list_terminal_job_ids_older_than(cutoff)
+    candidate_async_result_ids = async_result_store.list_result_ids_older_than(cutoff)
+    protected_execution_ids = legal_hold_index.protected_ids_for(candidate_execution_ids)
+    protected_lineage_ids = legal_hold_index.protected_ids_for(candidate_lineage_ids)
+    protected_compute_job_ids = legal_hold_index.protected_ids_for(candidate_compute_job_ids)
+    protected_async_result_ids = legal_hold_index.protected_ids_for(candidate_async_result_ids)
+    protected_ids = sorted(
+        set(protected_execution_ids)
+        | set(protected_lineage_ids)
+        | set(protected_compute_job_ids)
+        | set(protected_async_result_ids)
+    )
     return RuntimeRetentionPrunableItems(
-        execution_ids=prunable_execution_ids,
-        lineage_ids=prunable_lineage_ids,
-        compute_job_count=compute_job_store.prune_terminal_jobs_older_than(cutoff, dry_run=True),
-        async_result_count=async_result_store.prune_results_older_than(cutoff, dry_run=True),
-        lineage_artifact_count=_count_lineage_artifact_directories(prunable_lineage_ids),
+        execution_ids=_exclude_protected_ids(candidate_execution_ids, protected_execution_ids),
+        lineage_ids=_exclude_protected_ids(candidate_lineage_ids, protected_lineage_ids),
+        compute_job_ids=_exclude_protected_ids(candidate_compute_job_ids, protected_compute_job_ids),
+        async_result_ids=_exclude_protected_ids(candidate_async_result_ids, protected_async_result_ids),
+        lineage_artifact_count=_count_lineage_artifact_directories(
+            _exclude_protected_ids(candidate_lineage_ids, protected_lineage_ids)
+        ),
+        protected_execution_ids=protected_execution_ids,
+        protected_compute_job_ids=protected_compute_job_ids,
+        protected_async_result_ids=protected_async_result_ids,
+        protected_lineage_ids=protected_lineage_ids,
+        protected_lineage_artifact_count=_count_lineage_artifact_directories(protected_lineage_ids),
+        protected_reason_counts=legal_hold_index.reason_counts_for(protected_ids),
     )
 
 
@@ -183,14 +235,22 @@ def _delete_prunable_items(
     _append_count_phase_result(
         phase_results,
         phase="compute_jobs",
-        target_count=prunable_items.compute_job_count,
-        delete=lambda: compute_job_store.prune_terminal_jobs_older_than(cutoff, dry_run=False),
+        target_count=len(prunable_items.compute_job_ids),
+        delete=lambda: compute_job_store.prune_terminal_jobs_older_than(
+            cutoff,
+            dry_run=False,
+            exclude_calculation_ids=set(prunable_items.protected_compute_job_ids),
+        ),
     )
     _append_count_phase_result(
         phase_results,
         phase="async_results",
-        target_count=prunable_items.async_result_count,
-        delete=lambda: async_result_store.prune_results_older_than(cutoff, dry_run=False),
+        target_count=len(prunable_items.async_result_ids),
+        delete=lambda: async_result_store.prune_results_older_than(
+            cutoff,
+            dry_run=False,
+            exclude_calculation_ids=set(prunable_items.protected_async_result_ids),
+        ),
     )
     _append_artifact_phase_result(phase_results, prunable_items.lineage_ids)
     _append_count_phase_result(
@@ -206,6 +266,11 @@ def _delete_prunable_items(
         delete=lambda: execution_registry.delete_executions(prunable_items.execution_ids),
     )
     return phase_results
+
+
+def _exclude_protected_ids(candidate_ids: list[str], protected_ids: list[str]) -> list[str]:
+    protected_id_set = set(protected_ids)
+    return sorted(calculation_id for calculation_id in candidate_ids if calculation_id not in protected_id_set)
 
 
 def _append_count_phase_result(

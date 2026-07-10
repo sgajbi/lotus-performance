@@ -1452,7 +1452,12 @@ Sample response:
       "prunable_compute_job_count": 2,
       "prunable_async_result_count": 2,
       "prunable_lineage_record_count": 1,
-      "prunable_lineage_artifact_count": 1
+      "prunable_lineage_artifact_count": 1,
+      "protected_execution_count": 1,
+      "protected_compute_job_count": 1,
+      "protected_async_result_count": 1,
+      "protected_lineage_record_count": 1,
+      "protected_lineage_artifact_count": 1
     }
   ]
 }
@@ -1500,9 +1505,19 @@ Sample response:
   "prunable_compute_job_count": 2,
   "prunable_async_result_count": 2,
   "prunable_lineage_record_count": 1,
-  "prunable_lineage_artifact_count": 1
+  "prunable_lineage_artifact_count": 1,
+  "protected_execution_count": 1,
+  "protected_compute_job_count": 1,
+  "protected_async_result_count": 1,
+  "protected_lineage_record_count": 1,
+  "protected_lineage_artifact_count": 1
 }
 ```
+
+- Legal holds are read from `RUNTIME_RETENTION_LEGAL_HOLD_PATH`; retained evidence includes
+  protected counts, `protected_reason_counts`, and `target_manifest.protected_*` lists so operators
+  can prove protected execution, compute-job, async-result, lineage-record, and lineage-artifact
+  records were skipped before deletion.
 
 Certification evidence:
 
@@ -1777,6 +1792,7 @@ settings `LOTUS_AI_TIMEOUT_SECONDS`, `LOTUS_AI_MAX_RETRIES`, and
 | --- | --- | --- |
 | `RUNTIME_RETENTION_DAYS` | `30` | retention window |
 | `RUNTIME_RETENTION_ARTIFACT_PATH` | `artifacts/runtime-retention-cleanup` | cleanup evidence path |
+| `RUNTIME_RETENTION_LEGAL_HOLD_PATH` | `artifacts/runtime-retention-holds/legal-holds.json` | JSON legal-hold source that excludes protected calculations and related runtime records from cleanup |
 | `RUNTIME_RETENTION_HISTORY_LIMIT` | `30` | retained cleanup history count |
 | `RUNTIME_RETENTION_HISTORY_MAX_AGE_DAYS` | `90` | retained cleanup max age |
 | `RUNTIME_RETENTION_AUTOMATION_OPERATOR_ID` | `runtime-retention-automation` | scheduled cleanup operator identity |

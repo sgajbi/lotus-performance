@@ -108,7 +108,8 @@ def test_issue_fix_closure_matrix_is_discoverable_and_merge_gated():
     assert "Review playbook, issue closure matrix, and codebase review ledger" in docs_index
     assert "ISSUE-FIX-CLOSURE-MATRIX.md" in review_playbook
     assert "before PR creation or issue closure" in review_playbook
-    assert "Actionable issues fixed locally | 34" in closure_matrix
+    assert "Actionable issues fixed locally | 30" in closure_matrix
+    assert "Actionable issues remaining | 10" in closure_matrix
     assert "Issues safe to close now | 0" in closure_matrix
     assert "merged to `main`" in closure_matrix
     assert "No PR should be raised from this branch until the issue matrix remains complete" in closure_matrix
@@ -2118,11 +2119,16 @@ def test_runtime_retention_cleanup_runbook_is_governed():
     assert "runtime_retention.preview_status" in runbook
     assert "trigger_mode" in runbook
     assert "job_id" in runbook
+    assert "RUNTIME_RETENTION_LEGAL_HOLD_PATH" in runbook
+    assert "protected_reason_counts" in runbook
+    assert "client disputes, regulatory records, audit freezes" in runbook
     assert "make runtime-retention-smoke" in runbook
     assert "docs/runbooks/runtime-retention-cleanup.md" in api_reference
     assert "/integration/runtime-retention-cleanups" in api_reference
     assert "/integration/runtime-retention-cleanups/run" in api_reference
     assert "default pagination limit `10` when `limit` is omitted" in api_reference
+    assert "legal-hold protected counts by runtime record family" in api_reference
+    assert "RUNTIME_RETENTION_LEGAL_HOLD_PATH" in api_reference
     assert "trigger_mode" in api_reference
     assert "tenant_id" in api_reference
     assert "correlation_id" in api_reference

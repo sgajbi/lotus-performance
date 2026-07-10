@@ -13,24 +13,39 @@ from app.services.runtime_retention_service import RuntimeRetentionCleanupFailed
 
 
 class _AggregatePruneStore:
-    def __init__(self, count: int, *, fail_once: bool = False):
-        self.count = count
+    def __init__(self, count: int, *, ids: list[str] | None = None, fail_once: bool = False):
+        self.ids = set(ids or [f"item-{index}" for index in range(count)])
         self.fail_once = fail_once
 
-    def prune_terminal_jobs_older_than(self, older_than, *, dry_run: bool = False):
-        return self._prune(dry_run=dry_run)
+    @property
+    def count(self) -> int:
+        return len(self.ids)
 
-    def prune_results_older_than(self, older_than, *, dry_run: bool = False):
-        return self._prune(dry_run=dry_run)
+    def list_terminal_job_ids_older_than(self, older_than) -> list[str]:
+        return sorted(self.ids)
 
-    def _prune(self, *, dry_run: bool) -> int:
+    def list_result_ids_older_than(self, older_than) -> list[str]:
+        return sorted(self.ids)
+
+    def prune_terminal_jobs_older_than(
+        self, older_than, *, dry_run: bool = False, exclude_calculation_ids: set[str] | None = None
+    ):
+        return self._prune(dry_run=dry_run, exclude_calculation_ids=exclude_calculation_ids or set())
+
+    def prune_results_older_than(
+        self, older_than, *, dry_run: bool = False, exclude_calculation_ids: set[str] | None = None
+    ):
+        return self._prune(dry_run=dry_run, exclude_calculation_ids=exclude_calculation_ids or set())
+
+    def _prune(self, *, dry_run: bool, exclude_calculation_ids: set[str]) -> int:
+        eligible_ids = self.ids - exclude_calculation_ids
         if dry_run:
-            return self.count
+            return len(eligible_ids)
         if self.fail_once:
             self.fail_once = False
             raise RuntimeError("phase unavailable")
-        deleted_count = self.count
-        self.count = 0
+        deleted_count = len(eligible_ids)
+        self.ids -= eligible_ids
         return deleted_count
 
 
@@ -137,6 +152,10 @@ def test_runtime_retention_cleanup_dry_run_and_apply(tmp_path, mocker):
     mocker.patch("app.services.runtime_retention_service.async_result_store", async_store)
     mocker.patch("app.services.runtime_retention_service.lineage_metadata_store", lineage_store)
     mocker.patch(
+        "app.services.runtime_retention_service.load_runtime_retention_legal_hold_index",
+        return_value=runtime_retention_service.load_runtime_retention_legal_hold_index(Path(tmp_path / "missing.json")),
+    )
+    mocker.patch(
         "app.services.runtime_retention_service.get_settings",
         return_value=type("Settings", (), {"RUNTIME_RETENTION_DAYS": 30, "LINEAGE_STORAGE_PATH": Path(tmp_path)})(),
     )
@@ -186,6 +205,10 @@ def test_runtime_retention_cleanup_apply_records_phase_results_and_missing_artif
     mocker.patch("app.services.runtime_retention_service.async_result_store", async_store)
     mocker.patch("app.services.runtime_retention_service.lineage_metadata_store", lineage_store)
     mocker.patch(
+        "app.services.runtime_retention_service.load_runtime_retention_legal_hold_index",
+        return_value=runtime_retention_service.load_runtime_retention_legal_hold_index(Path(tmp_path / "missing.json")),
+    )
+    mocker.patch(
         "app.services.runtime_retention_service.get_settings",
         return_value=type("Settings", (), {"RUNTIME_RETENTION_DAYS": 30, "LINEAGE_STORAGE_PATH": Path(lineage_root)})(),
     )
@@ -223,6 +246,10 @@ def test_runtime_retention_cleanup_failure_after_compute_can_rerun_remaining_pha
     mocker.patch("app.services.runtime_retention_service.async_result_store", async_store)
     mocker.patch("app.services.runtime_retention_service.lineage_metadata_store", lineage_store)
     mocker.patch(
+        "app.services.runtime_retention_service.load_runtime_retention_legal_hold_index",
+        return_value=runtime_retention_service.load_runtime_retention_legal_hold_index(Path(tmp_path / "missing.json")),
+    )
+    mocker.patch(
         "app.services.runtime_retention_service.get_settings",
         return_value=type("Settings", (), {"RUNTIME_RETENTION_DAYS": 30, "LINEAGE_STORAGE_PATH": Path(lineage_root)})(),
     )
@@ -255,6 +282,62 @@ def test_runtime_retention_cleanup_failure_after_compute_can_rerun_remaining_pha
     assert resumed_phase_results["lineage_records"].deleted_count == 1
     assert resumed_phase_results["executions"].deleted_count == 1
     assert not (lineage_root / "lineage-a").exists()
+
+
+def test_runtime_retention_cleanup_excludes_legal_hold_records_before_apply(tmp_path, mocker):
+    lineage_root = tmp_path / "lineage"
+    lineage_root.mkdir()
+    (lineage_root / "protected-id").mkdir()
+    (lineage_root / "delete-id").mkdir()
+    execution_store = _ExecutionIdStore(["delete-id", "protected-id"])
+    lineage_store = _LineageIdStore(["delete-id", "protected-id"])
+    compute_store = _AggregatePruneStore(2, ids=["delete-id", "protected-id"])
+    async_store = _AggregatePruneStore(2, ids=["delete-id", "protected-id"])
+    hold_path = tmp_path / "legal-holds.json"
+    hold_path.write_text(
+        '{"holds":[{"calculation_id":"protected-id","reason_code":"client_dispute","source":"case-7"}]}',
+        encoding="utf-8",
+    )
+    mocker.patch("app.services.runtime_retention_service.execution_registry", execution_store)
+    mocker.patch("app.services.runtime_retention_service.compute_job_store", compute_store)
+    mocker.patch("app.services.runtime_retention_service.async_result_store", async_store)
+    mocker.patch("app.services.runtime_retention_service.lineage_metadata_store", lineage_store)
+    mocker.patch(
+        "app.services.runtime_retention_service.get_settings",
+        return_value=type("Settings", (), {"RUNTIME_RETENTION_DAYS": 30, "LINEAGE_STORAGE_PATH": Path(lineage_root)})(),
+    )
+    mocker.patch(
+        "app.services.runtime_retention_legal_hold.get_settings",
+        return_value=type("Settings", (), {"RUNTIME_RETENTION_LEGAL_HOLD_PATH": hold_path})(),
+    )
+
+    preview = run_runtime_retention_cleanup(
+        now=datetime(2026, 3, 14, tzinfo=timezone.utc),
+        dry_run=True,
+    )
+    applied = run_runtime_retention_cleanup(
+        now=datetime(2026, 3, 14, tzinfo=timezone.utc),
+        dry_run=False,
+    )
+
+    assert preview.prunable_execution_count == 1
+    assert preview.protected_execution_count == 1
+    assert preview.protected_compute_job_count == 1
+    assert preview.protected_async_result_count == 1
+    assert preview.protected_lineage_record_count == 1
+    assert preview.protected_lineage_artifact_count == 1
+    assert preview.protected_reason_counts == {"client_dispute": 1}
+    assert preview.target_manifest is not None
+    assert preview.target_manifest.execution_ids == ["delete-id"]
+    assert preview.target_manifest.protected_execution_ids == ["protected-id"]
+    assert preview.target_manifest.protected_reason_counts == {"client_dispute": 1}
+    assert applied.prunable_execution_count == 1
+    assert execution_store.ids == {"protected-id"}
+    assert lineage_store.ids == {"protected-id"}
+    assert compute_store.ids == {"protected-id"}
+    assert async_store.ids == {"protected-id"}
+    assert not (lineage_root / "delete-id").exists()
+    assert (lineage_root / "protected-id").is_dir()
 
 
 def test_lineage_artifact_cleanup_rejects_paths_outside_storage_root(tmp_path, mocker):

@@ -73,6 +73,21 @@ class RuntimeRetentionHistoryEntryResponse(BaseModel):
     prunable_lineage_artifact_count: int = Field(
         description="Lineage artifact directories selected by this cleanup execution."
     )
+    protected_execution_count: int = Field(
+        default=0, description="Terminal execution records excluded from this cleanup by legal hold."
+    )
+    protected_compute_job_count: int = Field(
+        default=0, description="Terminal compute jobs excluded from this cleanup by legal hold."
+    )
+    protected_async_result_count: int = Field(
+        default=0, description="Async results excluded from this cleanup by legal hold."
+    )
+    protected_lineage_record_count: int = Field(
+        default=0, description="Terminal lineage records excluded from this cleanup by legal hold."
+    )
+    protected_lineage_artifact_count: int = Field(
+        default=0, description="Lineage artifact directories excluded from this cleanup by legal hold."
+    )
 
 
 class RuntimeRetentionHistoryResponse(BaseModel):
@@ -179,6 +194,21 @@ class RuntimeRetentionCleanupRunResponse(BaseModel):
     prunable_lineage_artifact_count: int = Field(
         description="Lineage artifact directories selected by this runtime-retention action."
     )
+    protected_execution_count: int = Field(
+        default=0, description="Terminal execution records excluded from this cleanup by legal hold."
+    )
+    protected_compute_job_count: int = Field(
+        default=0, description="Terminal compute jobs excluded from this cleanup by legal hold."
+    )
+    protected_async_result_count: int = Field(
+        default=0, description="Async results excluded from this cleanup by legal hold."
+    )
+    protected_lineage_record_count: int = Field(
+        default=0, description="Terminal lineage records excluded from this cleanup by legal hold."
+    )
+    protected_lineage_artifact_count: int = Field(
+        default=0, description="Lineage artifact directories excluded from this cleanup by legal hold."
+    )
 
 
 def build_runtime_retention_history_response(
@@ -216,6 +246,11 @@ def build_runtime_retention_history_response(
                 prunable_async_result_count=entry.prunable_async_result_count,
                 prunable_lineage_record_count=entry.prunable_lineage_record_count,
                 prunable_lineage_artifact_count=entry.prunable_lineage_artifact_count,
+                protected_execution_count=entry.protected_execution_count,
+                protected_compute_job_count=entry.protected_compute_job_count,
+                protected_async_result_count=entry.protected_async_result_count,
+                protected_lineage_record_count=entry.protected_lineage_record_count,
+                protected_lineage_artifact_count=entry.protected_lineage_artifact_count,
             )
             for entry in snapshot.entries
         ],
@@ -241,6 +276,11 @@ def build_runtime_retention_cleanup_run_response(
     prunable_async_result_count: int,
     prunable_lineage_record_count: int,
     prunable_lineage_artifact_count: int,
+    protected_execution_count: int = 0,
+    protected_compute_job_count: int = 0,
+    protected_async_result_count: int = 0,
+    protected_lineage_record_count: int = 0,
+    protected_lineage_artifact_count: int = 0,
 ) -> RuntimeRetentionCleanupRunResponse:
     return build_lotus_performance_operator_run_response(
         RuntimeRetentionCleanupRunResponse,
