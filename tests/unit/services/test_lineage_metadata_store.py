@@ -1142,11 +1142,77 @@ def test_lineage_metadata_store_declares_hot_path_indexes(tmp_path):
         "calculation_id",
         "created_at_utc",
     )
+    assert payload_indexes["ix_lineage_payloads_type_created_at"] == (
+        "calculation_type",
+        "created_at_utc",
+        "calculation_id",
+    )
     assert payload_indexes["ix_lineage_payloads_lease_expires_created_at"] == (
         "lease_expires_at_utc",
         "created_at_utc",
         "calculation_id",
     )
+
+
+def test_lineage_inspection_inner_join_queries_filter_payload_type_for_postgres_hot_path(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    now = datetime(2026, 3, 15, 12, 0, tzinfo=timezone.utc)
+
+    active = str(
+        store._build_active_inspection_items_statement(
+            now=now,
+            limit=25,
+            offset=0,
+            calculation_type="TWR",
+            calculation_id_contains=None,
+            min_age_threshold=None,
+        ).compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True})
+    )
+    reclaimable = str(
+        store._build_reclaimable_inspection_items_statement(
+            now=now,
+            limit=25,
+            offset=0,
+            calculation_type="TWR",
+            calculation_id_contains=None,
+            min_age_threshold=None,
+        ).compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True})
+    )
+
+    for compiled in (active, reclaimable):
+        assert "lineage_records.calculation_type = 'TWR'" in compiled
+        assert "lineage_payloads.calculation_type = 'TWR'" in compiled
+
+
+def test_lineage_inspection_outer_join_queries_filter_payload_type_in_join_condition(tmp_path):
+    store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    now = datetime(2026, 3, 15, 12, 0, tzinfo=timezone.utc)
+
+    failed = str(
+        store._build_failed_inspection_items_statement(
+            now=now,
+            limit=25,
+            offset=0,
+            calculation_type="TWR",
+            calculation_id_contains=None,
+            min_age_threshold=None,
+        ).compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True})
+    )
+    all_items = str(
+        store._build_all_inspection_items_statement(
+            now=now,
+            limit=25,
+            offset=0,
+            calculation_type="TWR",
+            calculation_id_contains=None,
+            min_age_threshold=None,
+        ).compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True})
+    )
+
+    for compiled in (failed, all_items):
+        assert "LEFT OUTER JOIN lineage_payloads" in compiled
+        assert "lineage_payloads.calculation_type = 'TWR'" in compiled
+        assert "lineage_records.calculation_type = 'TWR'" in compiled
 
 
 def test_lineage_metadata_store_get_pending_payload_stats_uses_single_aggregate_query(tmp_path):

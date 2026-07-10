@@ -57,6 +57,11 @@ make quality measurable and repeatable, not to treat CI as a ceremonial final st
 - `make quality-baseline`
   report-only baseline refresh that writes raw scanner snapshots under `output/quality-baseline/`
   and refreshes the baseline report used by the enterprise refactor evidence trail
+- `make performance-characterization`
+  benchmark characterization evidence path. It writes JUnit XML, log, and summary JSON artifacts
+  under `output/performance-characterization/`. The Performance Characterization Evidence workflow
+  runs it with a live PostgreSQL service and uploads the artifacts for PR/main/scheduled/manual
+  review.
 
 ## Why the gates matter here
 
@@ -76,6 +81,7 @@ make quality measurable and repeatable, not to treat CI as a ceremonial final st
 | Reproducibility identity | `make calculation-engine-version-gate`, `make lint` | calculation hashes are governed by `CALCULATION_ENGINE_VERSION`, not `APP_VERSION`, image labels, or legacy literal tokens |
 | API contract quality | `make check`, Contract Security Gates | OpenAPI quality, API vocabulary, domain data-product contracts, migration smoke, security scans |
 | Runtime behavior | `make ci`, unit/integration/e2e lanes | calculation behavior, API behavior, async/runtime flows, coverage floor |
+| Performance characterization | `make performance-characterization`, Performance Characterization Evidence workflow | benchmark budget posture plus live PostgreSQL query-plan and concurrency contracts, with artifact evidence under `output/performance-characterization/` |
 | Container supply-chain | `make container-supply-chain-evidence`, PR/Main container evidence jobs, `GET /version` | production runtime image buildability, non-root/runtime-dependency posture, API and worker healthchecks, runtime-to-image build identity, SBOM inventory, high/critical vulnerability evidence, and main-branch SBOM provenance attestation |
 | Documentation contract | docs regression tests, wiki source check | public contract language, command accuracy, source wiki publication readiness |
 | Baseline evidence | `make quality-baseline`, Quality Baseline Snapshot | before/after scorecard data for the enterprise refactor program |
@@ -144,6 +150,21 @@ The command is report-only. It measures branch coverage with `pytest --cov-branc
 `quality/coverage_inventory.md`, and keeps raw JSON under ignored `output/branch-coverage/`. It does
 not replace the 99% line-coverage gate and does not promote a branch threshold until repeated
 evidence, false-positive policy, remediation guidance, and lane placement are agreed.
+
+## Performance characterization evidence
+
+For benchmark characterization evidence, run:
+
+```bash
+make performance-characterization
+```
+
+The command writes JUnit XML, a pytest timing log, and summary JSON under
+`output/performance-characterization/`. The dedicated GitHub workflow runs on pull requests to
+`main`, pushes to `main`, weekly schedule, and manual dispatch. It provisions PostgreSQL, runs the
+full characterization target, reruns the PostgreSQL plan/concurrency subset with non-skipped proof
+required, and uploads the artifacts. The lane is evidence-producing rather than required for merge
+today, but benchmark regressions and all-skipped PostgreSQL characterization fail the workflow.
 
 ## Container supply-chain evidence
 

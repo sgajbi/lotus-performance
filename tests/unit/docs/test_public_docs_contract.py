@@ -108,8 +108,8 @@ def test_issue_fix_closure_matrix_is_discoverable_and_merge_gated():
     assert "Review playbook, issue closure matrix, and codebase review ledger" in docs_index
     assert "ISSUE-FIX-CLOSURE-MATRIX.md" in review_playbook
     assert "before PR creation or issue closure" in review_playbook
-    assert "Actionable issues fixed locally | 38" in closure_matrix
-    assert "Actionable issues remaining | 2" in closure_matrix
+    assert "Actionable issues fixed locally | 39" in closure_matrix
+    assert "Actionable issues remaining | 1" in closure_matrix
     assert "Issues safe to close now | 0" in closure_matrix
     assert "merged to `main`" in closure_matrix
     assert "No PR should be raised from this branch until the issue matrix remains complete" in closure_matrix
@@ -132,6 +132,7 @@ def test_issue_fix_closure_matrix_is_discoverable_and_merge_gated():
         "#417",
         "#424",
         "#425",
+        "#426",
         "#428",
         "#429",
         "#430",
@@ -2083,6 +2084,40 @@ def test_async_slo_capacity_contract_is_governed():
     assert "worker sizing assumptions" in repository_context
     assert "scale compute workers" in alerts
     assert "workflow objectives" in wiki_operations
+
+
+def test_performance_characterization_ci_evidence_is_governed():
+    characterization = _read("docs/technical/performance_characterization.md")
+    ci_gates = _read("quality/ci_quality_gates.md")
+    workflow_strategy = _read("docs/operations/development-workflow-and-ci-strategy.md")
+    scorecard = _read("quality/quality_scorecard.md")
+    repository_context = _read("REPOSITORY-ENGINEERING-CONTEXT.md")
+    wiki_validation = _read("wiki/Validation-and-CI.md")
+    issue_matrix = _read("docs/architecture/ISSUE-FIX-CLOSURE-MATRIX.md")
+    workflow = _read(".github/workflows/performance-characterization.yml")
+
+    for document in (
+        characterization,
+        ci_gates,
+        workflow_strategy,
+        scorecard,
+        repository_context,
+        wiki_validation,
+        issue_matrix,
+    ):
+        assert "make performance-characterization" in document
+        assert "output/performance-characterization" in document
+
+    assert "Performance Characterization Evidence" in workflow
+    assert "postgres:16" in workflow
+    assert "LOTUS_POSTGRES_PLAN_DATABASE_URL" in workflow
+    assert "run: make performance-characterization" in workflow
+    assert "run: python scripts/run_performance_characterization.py --mode postgres --require-non-skipped" in workflow
+    assert "uses: actions/upload-artifact@v7" in workflow
+    assert "continue-on-error" not in workflow
+    assert "all-skipped PostgreSQL" in ci_gates
+    assert "issue #426" in scorecard
+    assert "`#426` Automate performance characterization evidence in CI lanes" in issue_matrix
 
 
 def test_runtime_threshold_env_examples_match_profile_defaults():

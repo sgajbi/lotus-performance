@@ -49,6 +49,19 @@ def test_postgres_engine_policy_sets_pool_health_and_timeout_contract() -> None:
     assert "lock_timeout=3000" in kwargs["connect_args"]["options"]
 
 
+def test_postgres_engine_policy_preserves_url_connection_options() -> None:
+    kwargs = durable_database_engine_kwargs(
+        "postgresql+psycopg://lotus:secret@db:5432/lotus_performance?options=-csearch_path%3Dbench_schema",
+        policy=_policy(),
+    )
+
+    options = kwargs["connect_args"]["options"]
+
+    assert "-csearch_path=bench_schema" in options
+    assert "statement_timeout=25000" in options
+    assert "lock_timeout=3000" in options
+
+
 def test_execution_registry_still_commits_through_shared_engine_policy(tmp_path) -> None:
     registry = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
     registry.create_schema()

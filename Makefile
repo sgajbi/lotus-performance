@@ -124,11 +124,11 @@ runtime-retention-smoke:
 	python scripts/runtime_retention_cleanup.py --scheduled --output-dir artifacts/runtime-retention-cleanup --retention-limit 30 --retention-max-age-days 90
 
 performance-characterization:
-	python -m pytest tests/benchmarks -q
+	python scripts/run_performance_characterization.py --mode full
 
 performance-characterization-postgres:
 	docker compose up -d performance-lineage-db
-	python -m pytest tests/benchmarks/test_postgres_query_plans.py tests/benchmarks/test_postgres_concurrency_contracts.py -q
+	python scripts/run_performance_characterization.py --mode postgres --require-non-skipped
 
 migration-apply:
 	python scripts/durable_schema_apply.py --output-dir artifacts/durable-schema-apply

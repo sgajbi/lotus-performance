@@ -60,6 +60,27 @@ def test_quality_baseline_snapshot_does_not_soft_fail_evaluation() -> None:
     assert "continue-on-error" not in workflow
 
 
+def test_performance_characterization_evidence_workflow_is_repo_native() -> None:
+    workflow = _workflow_text("performance-characterization.yml")
+    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+
+    assert "scripts/run_performance_characterization.py --mode full" in _makefile_target_definition(
+        "performance-characterization"
+    )
+    assert "scripts/run_performance_characterization.py --mode postgres --require-non-skipped" in (
+        _makefile_target_definition("performance-characterization-postgres")
+    )
+    assert "LOTUS_POSTGRES_PLAN_DATABASE_URL" in workflow
+    assert "services:" in workflow
+    assert "postgres:16" in workflow
+    assert "run: make performance-characterization" in workflow
+    assert "run: python scripts/run_performance_characterization.py --mode postgres --require-non-skipped" in workflow
+    assert "uses: actions/upload-artifact@v7" in workflow
+    assert "output/performance-characterization/*" in workflow
+    assert "continue-on-error" not in workflow
+    assert "performance-characterization" in makefile
+
+
 def test_lint_gate_enforces_github_action_runtime_guard() -> None:
     lint_target = _makefile_target_definition("lint")
 
