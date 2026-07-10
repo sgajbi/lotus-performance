@@ -167,6 +167,8 @@ Latest test-taxonomy gate posture evidence on `feat/performance-architecture-bou
    contract/governance floor or uncategorized ceiling.
    Issue #439 added real restore-validation drill coverage, raising measured source test functions
    to `3,475` and uncategorized tests to `965` while preserving the existing ceiling.
+   The CI-observed LGPL classifier alias regression fix raised source test functions to `3,476` and
+   quality/security tests to `151`.
 2. Updated the CI wiring test, taxonomy inventory, CI gate map, scorecard, health report,
    repository context, and review ledger so measured current values and enforced thresholds no
    longer contradict each other.

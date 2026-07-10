@@ -46,6 +46,18 @@ def test_blocked_license_fails_policy() -> None:
     assert expires_on == ""
 
 
+def test_lgpl_classifier_alias_uses_review_required_exception_before_gpl_block() -> None:
+    status, owner, expires_on = _classify_license(
+        "psycopg",
+        "GNU Lesser General Public License v3 (LGPLv3)",
+        _load_policy(),
+    )
+
+    assert status == "review_required_exception"
+    assert owner == "platform-security"
+    assert expires_on == "2027-01-31"
+
+
 def test_first_party_license_mismatch_fails_policy(tmp_path, monkeypatch) -> None:
     pyproject = tmp_path / "pyproject.toml"
     license_file = tmp_path / "LICENSE"
