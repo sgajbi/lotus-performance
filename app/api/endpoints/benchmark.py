@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 
 from app.api.async_openapi import async_result_responses, async_submission_responses
 from app.api.http_response_adapter import to_fastapi_response
+from app.api.mappers.analytics_workflow_requests import map_benchmark_request
 from app.models.benchmark_analytics_requests import BenchmarkAnalyticsRequest
 from app.models.benchmark_responses import (
     BenchmarkAcceptedResponse,
@@ -60,7 +61,7 @@ async def calculate_benchmark_endpoint(
     request: BenchmarkAnalyticsRequest,
 ) -> BenchmarkPerformanceResponse | JSONResponse:
     """Calculate or enqueue benchmark performance using stateless or stateful inputs."""
-    return to_fastapi_response(await calculate_benchmark_workflow(request))
+    return to_fastapi_response(await calculate_benchmark_workflow(map_benchmark_request(request)))
 
 
 @router.get(

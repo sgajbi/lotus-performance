@@ -8,6 +8,7 @@ from app.core.config import get_settings
 from app.models.benchmark_analytics_requests import BenchmarkAnalyticsRequest, BenchmarkInputMode
 from app.models.benchmark_requests import BenchmarkPerformanceRequest
 from app.models.benchmark_responses import BenchmarkAcceptedResponse, BenchmarkPerformanceResponse
+from app.services.analytics_workflow_commands import BenchmarkWorkflowCommand, workflow_request
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_BENCHMARK
 from app.services.async_observability_context import async_observability_request_payload
 from app.services.benchmark_mode_service import ResolvedBenchmarkRequest, resolve_benchmark_request
@@ -291,9 +292,10 @@ async def _calculate_initial_sync_benchmark_workflow(
 
 
 async def calculate_benchmark_workflow(
-    request: BenchmarkAnalyticsRequest,
+    command: BenchmarkWorkflowCommand,
 ) -> BenchmarkPerformanceResponse | ApplicationHttpResponse:
     """Resolve, fence, execute, and map errors for one benchmark analytics request."""
+    request = workflow_request(command, BenchmarkAnalyticsRequest)
     settings = get_settings()
     source_request_fingerprint, source_request_hash = generate_request_fingerprint(request, settings.APP_VERSION)
     input_fingerprint, calculation_hash = source_request_fingerprint, source_request_hash

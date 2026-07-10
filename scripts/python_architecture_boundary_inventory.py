@@ -28,8 +28,18 @@ _APPLICATION_CONCRETE_STORE_MODULES = (
     "app.services.execution_registry",
     "app.services.lineage_metadata_store",
 )
+_ROUTE_WORKFLOW_DIRECT_DTO_CALLEES = frozenset(
+    {
+        "calculate_benchmark_workflow",
+        "calculate_contribution_workflow",
+        "calculate_returns_series_workflow",
+        "calculate_twr_workflow",
+        "calculate_workspace_summary_workflow",
+    }
+)
 _ENFORCED_RULES = frozenset(
     {
+        "ROUTE_WORKFLOW_DTO_DIRECT_CALL",
         "ROUTER_DIRECT_BOUNDARY_IMPORT",
         "DOMAIN_INFRA_OR_FRAMEWORK_IMPORT",
     }
@@ -95,6 +105,42 @@ def _imported_modules(tree: ast.AST) -> Iterable[tuple[int, str]]:
             yield node.lineno, node.module
 
 
+def _called_name(node: ast.AST) -> str | None:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    return None
+
+
+def _route_workflow_dto_call_findings(
+    *,
+    path: str,
+    tree: ast.AST,
+) -> Iterable[ArchitectureBoundaryFinding]:
+    if not path.startswith("app/api/endpoints/"):
+        return
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        called_name = _called_name(node.func)
+        if called_name not in _ROUTE_WORKFLOW_DIRECT_DTO_CALLEES:
+            continue
+        if not node.args or not isinstance(node.args[0], ast.Name) or node.args[0].id != "request":
+            continue
+        yield ArchitectureBoundaryFinding(
+            path=path,
+            line=node.lineno,
+            imported_module=called_name,
+            rule="ROUTE_WORKFLOW_DTO_DIRECT_CALL",
+            description=(
+                "API routes should map validated request DTOs into application workflow commands before "
+                "calling analytics workflows."
+            ),
+            enforced=True,
+        )
+
+
 def collect_architecture_findings(
     paths: Sequence[str] = DEFAULT_PATHS,
     *,
@@ -119,6 +165,7 @@ def collect_architecture_findings(
                     enforced=is_enforced_rule(rule),
                 )
             )
+        findings.extend(_route_workflow_dto_call_findings(path=relative_path, tree=tree))
     return sorted(findings, key=lambda item: (item.rule, item.path, item.line, item.imported_module))
 
 

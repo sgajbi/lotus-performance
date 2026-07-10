@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 
 from app.api.async_openapi import async_result_responses, async_submission_responses
 from app.api.http_response_adapter import to_fastapi_response
+from app.api.mappers.analytics_workflow_requests import map_returns_series_request
 from app.models.returns_series import (
     ReturnsSeriesAcceptedResponse,
     ReturnsSeriesRequest,
@@ -37,7 +38,7 @@ router = APIRouter(tags=["Integration"])
     ),
 )
 async def get_returns_series(request: ReturnsSeriesRequest) -> ReturnsSeriesResponse | JSONResponse:
-    return to_fastapi_response(await calculate_returns_series_workflow(request))
+    return to_fastapi_response(await calculate_returns_series_workflow(map_returns_series_request(request)))
 
 
 @router.get(

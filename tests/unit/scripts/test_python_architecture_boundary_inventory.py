@@ -1,6 +1,7 @@
 from scripts.python_architecture_boundary_inventory import (
     ArchitectureBoundaryFinding,
     classify_import,
+    collect_architecture_findings,
     is_enforced_rule,
     max_findings_violation,
     render_markdown,
@@ -34,6 +35,32 @@ def test_classify_application_service_concrete_store_imports_as_report_only():
     assert classification is not None
     assert classification[0] == "APPLICATION_SERVICE_CONCRETE_STORE_IMPORT"
     assert not is_enforced_rule(classification[0])
+
+
+def test_collect_architecture_findings_flags_route_workflow_dto_direct_calls(tmp_path):
+    endpoint_dir = tmp_path / "app" / "api" / "endpoints"
+    endpoint_dir.mkdir(parents=True)
+    endpoint_path = endpoint_dir / "performance.py"
+    endpoint_path.write_text(
+        "\n".join(
+            [
+                "async def calculate_twr_endpoint(request):",
+                "    return await calculate_twr_workflow(request)",
+                "",
+                "async def calculate_safe_twr_endpoint(request):",
+                "    return await calculate_twr_workflow(map_twr_request(request))",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    findings = collect_architecture_findings(("app/api/endpoints",), root=tmp_path)
+
+    direct_call_findings = [finding for finding in findings if finding.rule == "ROUTE_WORKFLOW_DTO_DIRECT_CALL"]
+    assert len(direct_call_findings) == 1
+    assert direct_call_findings[0].path == "app/api/endpoints/performance.py"
+    assert direct_call_findings[0].imported_module == "calculate_twr_workflow"
+    assert direct_call_findings[0].enforced
 
 
 def test_render_markdown_summarizes_architecture_findings():
