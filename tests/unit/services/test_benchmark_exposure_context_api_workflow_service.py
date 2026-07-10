@@ -128,9 +128,12 @@ async def test_benchmark_exposure_context_workflow_wraps_unexpected_failures(moc
         await workflow_service.calculate_benchmark_exposure_context_response(request)
 
     assert exc_info.value.status_code == 500
-    assert "unexpected server error occurred while building benchmark exposure context: boom" in exc_info.value.detail
+    assert (
+        exc_info.value.detail == "Benchmark exposure context failed unexpectedly. Use the correlation_id for support."
+    )
+    assert "boom" not in str(exc_info.value.detail)
     record_failure.assert_called_once_with(
         calculation_id=request.calculation_id,
-        message="An unexpected server error occurred while building benchmark exposure context: boom",
+        message="Benchmark exposure context failed unexpectedly. Use the correlation_id for support.",
         execution_stage_started=True,
     )

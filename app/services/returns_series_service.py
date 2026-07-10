@@ -49,6 +49,7 @@ from app.services.error_details import (
     upstream_contract_violation_detail,
 )
 from app.services.execution_registry import execution_registry
+from app.services.execution_stage_errors import safe_unexpected_failure_message
 from app.services.execution_stage_names import (
     EXECUTION_STAGE_EXECUTION,
     EXECUTION_STAGE_NORMALIZATION,
@@ -2162,10 +2163,10 @@ async def _calculate_returns_series(
         message = exc.detail["message"] if isinstance(exc.detail, dict) and "message" in exc.detail else str(exc.detail)
         fail_execution(calculation_id=request.calculation_id, message=message, active_stage=active_stage)
         raise
-    except Exception as exc:
+    except Exception:
         fail_execution(
             calculation_id=request.calculation_id,
-            message=f"Unexpected returns-series failure: {exc}",
+            message=safe_unexpected_failure_message("Returns-series calculation"),
             active_stage=active_stage,
         )
         raise

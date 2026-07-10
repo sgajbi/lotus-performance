@@ -13,7 +13,11 @@ from app.services.async_observability_context import async_observability_request
 from app.services.attribution_mode_service import ResolvedAttributionRequest, resolve_attribution_request
 from app.services.attribution_service import calculate_attribution
 from app.services.execution_lifecycle_service import record_execution_failure
-from app.services.execution_stage_errors import execution_stage_failure_detail, is_mappable_application_error
+from app.services.execution_stage_errors import (
+    execution_stage_failure_detail,
+    is_mappable_application_error,
+    safe_unexpected_failure_message,
+)
 from app.services.reproducibility_service import generate_request_fingerprint
 from app.services.stateful_execution_policy_service import (
     finalize_resolved_stateful_execution,
@@ -329,4 +333,5 @@ async def _resolve_and_calculate_attribution_response(
 
 
 def _unexpected_attribution_resolution_failure_detail(exc: Exception) -> str:
-    return f"An unexpected error occurred during attribution request resolution: {exc}"
+    del exc
+    return safe_unexpected_failure_message("Attribution request resolution")

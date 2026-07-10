@@ -281,7 +281,10 @@ def test_get_lineage_internal_error_returns_500(client, mocker):
     )
     response = client.get(f"/performance/lineage/{calculation_id}")
     assert response.status_code == 500
-    assert "Failed to retrieve lineage artifacts" in response.json()["detail"]
+    body = response.json()
+    assert body["detail"] == "The service encountered an internal error. Use the correlation_id for support."
+    assert body["message"] == "The service encountered an internal error. Use the correlation_id for support."
+    assert "manifest parse failure" not in str(body)
 
 
 def test_get_lineage_invalid_manifest_returns_503(client):

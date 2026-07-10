@@ -56,6 +56,7 @@ from app.services.contribution_service import calculate_contribution
 from app.services.durable_metadata_bootstrap import bootstrap_durable_metadata_stores
 from app.services.durable_store_runtime import RuntimeStoreProxy
 from app.services.execution_registry import ExecutionRegistry, execution_registry
+from app.services.execution_stage_errors import safe_unexpected_failure_message
 from app.services.inspection import run_twr_inspection
 from app.services.returns_series_service import calculate_returns_series, to_dataframe
 from app.services.twr_mode_service import resolve_twr_request
@@ -587,7 +588,7 @@ def _handle_compute_job_failure(
     result_store: AsyncResultStore | RuntimeStoreProxy[AsyncResultStore],
     execution_store: ExecutionRegistry | RuntimeStoreProxy[ExecutionRegistry],
 ) -> None:
-    error_message = str(exc)
+    error_message = safe_unexpected_failure_message("Compute job execution")
     error_type = type(exc).__name__
     if _is_retryable_exception(exc):
         try:

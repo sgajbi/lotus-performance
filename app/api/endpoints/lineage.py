@@ -1,4 +1,4 @@
-# app/api/endpoints/lineage.py
+import logging
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Path, Request, status
@@ -6,9 +6,11 @@ from fastapi.responses import FileResponse
 
 from app.models.lineage_responses import LineageResponse
 from app.models.platform_surfaces import ErrorDetailResponse
+from app.services.execution_stage_errors import safe_unexpected_failure_message
 from app.services.lineage_artifact_service import resolve_lineage_artifact_file, resolve_lineage_response
 
 router = APIRouter(tags=["Performance"])
+logger = logging.getLogger(__name__)
 
 
 def _is_application_http_error(exc: Exception) -> bool:
@@ -67,9 +69,13 @@ async def get_lineage_data(
         )
     except Exception as exc:
         if not _is_application_http_error(exc):
+            logger.exception(
+                "Unexpected lineage artifact inventory retrieval failure.",
+                extra={"calculation_id": str(calculation_id)},
+            )
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail={"message": f"Failed to retrieve lineage artifacts: {exc}"},
+                detail=safe_unexpected_failure_message("Lineage artifact retrieval"),
             ) from exc
         raise HTTPException(
             status_code=getattr(exc, "status_code"),

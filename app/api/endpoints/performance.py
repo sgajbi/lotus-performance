@@ -279,7 +279,9 @@ async def calculate_mwr_endpoint(request: MoneyWeightedReturnAnalyticsRequest):
             "content": {
                 "application/json": {
                     "example": {
-                        "detail": "An unexpected error occurred during attribution request resolution: upstream timeout"
+                        "detail": (
+                            "Attribution request resolution failed unexpectedly. Use the correlation_id for support."
+                        )
                     }
                 }
             },

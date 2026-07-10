@@ -16,7 +16,11 @@ from app.services.benchmark_mode_service import ResolvedBenchmarkRequest, resolv
 from app.services.benchmark_service import calculate_benchmark_response
 from app.services.execution_lifecycle_service import record_execution_failure
 from app.services.execution_registry import execution_registry
-from app.services.execution_stage_errors import execution_stage_failure_detail, is_mappable_application_error
+from app.services.execution_stage_errors import (
+    execution_stage_failure_detail,
+    is_mappable_application_error,
+    safe_unexpected_failure_message,
+)
 from app.services.reproducibility_service import generate_request_fingerprint
 from app.services.stateful_execution_policy_service import (
     finalize_resolved_stateful_execution,
@@ -138,7 +142,7 @@ def _raise_benchmark_workflow_failure(request: BenchmarkAnalyticsRequest, exc: E
             message=execution_stage_failure_detail(exc),
         )
         raise exc
-    failure_detail = f"An unexpected server error occurred: {exc}"
+    failure_detail = safe_unexpected_failure_message("Benchmark calculation")
     record_execution_failure(
         calculation_id=request.calculation_id,
         message=failure_detail,

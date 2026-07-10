@@ -17,7 +17,7 @@ from app.services.async_observability_context import async_observability_request
 from app.services.engine_exception_mapping_service import map_engine_exception_to_http_error
 from app.services.execution_lifecycle_service import record_execution_failure
 from app.services.execution_registry import execution_registry
-from app.services.execution_stage_errors import is_mappable_application_error
+from app.services.execution_stage_errors import is_mappable_application_error, safe_unexpected_failure_message
 from app.services.reproducibility_service import generate_request_fingerprint, generate_value_fingerprint
 from app.services.stateful_execution_policy_service import (
     finalize_resolved_stateful_execution,
@@ -418,7 +418,7 @@ def _raise_twr_workflow_http_error(*, calculation_id, exc: Exception) -> NoRetur
         )
         raise APIError(status_code=mapped_engine_error.status_code, detail=mapped_engine_error.detail) from exc
 
-    detail = f"An unexpected server error occurred: {str(exc)}"
+    detail = safe_unexpected_failure_message("TWR calculation")
     record_execution_failure(
         calculation_id=calculation_id,
         message=detail,

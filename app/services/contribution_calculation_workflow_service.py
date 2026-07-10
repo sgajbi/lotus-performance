@@ -17,7 +17,11 @@ from app.services.async_observability_context import async_observability_request
 from app.services.contribution_mode_service import resolve_contribution_request
 from app.services.contribution_service import calculate_contribution
 from app.services.execution_lifecycle_service import record_execution_failure
-from app.services.execution_stage_errors import execution_stage_failure_detail, is_mappable_application_error
+from app.services.execution_stage_errors import (
+    execution_stage_failure_detail,
+    is_mappable_application_error,
+    safe_unexpected_failure_message,
+)
 from app.services.reproducibility_service import generate_request_fingerprint
 from app.services.stateful_execution_policy_service import (
     finalize_resolved_stateful_execution,
@@ -306,4 +310,5 @@ async def calculate_contribution_workflow(
 
 
 def _unexpected_contribution_resolution_failure_detail(exc: Exception) -> str:
-    return f"An unexpected error occurred during contribution request resolution: {exc}"
+    del exc
+    return safe_unexpected_failure_message("Contribution request resolution")

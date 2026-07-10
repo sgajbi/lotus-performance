@@ -4,6 +4,7 @@ from typing import Any
 from uuid import UUID
 
 from app.services.execution_registry import execution_registry
+from app.services.execution_stage_errors import safe_unexpected_failure_message
 from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION, EXECUTION_STAGE_LINEAGE_MATERIALIZATION
 from app.services.lineage_service import lineage_service
 
@@ -47,10 +48,10 @@ def complete_execution_with_lineage(
             response_model=response_model,
             calculation_details=calculation_details or {},
         )
-    except Exception as exc:
+    except Exception:
         record_execution_failure(
             calculation_id=calculation_id,
-            message=f"Failed to enqueue lineage capture: {exc}",
+            message=safe_unexpected_failure_message("Lineage capture enqueue"),
             lineage_stage_started=True,
         )
         raise
