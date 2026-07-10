@@ -220,6 +220,25 @@ based on realistic table statistics rather than empty-table defaults.
 - Full repo-owned characterization: `make performance-characterization`
 - Live PostgreSQL plan verification: `make performance-characterization-postgres`
 
+Both commands write CI-reviewable artifacts under `output/performance-characterization/`:
+
+- `performance-characterization.junit.xml` and `performance-characterization.log`
+- `performance-characterization.summary.json`
+- `performance-characterization-postgres.junit.xml` and `performance-characterization-postgres.log`
+- `performance-characterization-postgres.summary.json`
+
+The GitHub workflow `.github/workflows/performance-characterization.yml` runs on pull requests to
+`main`, pushes to `main`, weekly schedule, and manual dispatch. It provisions a live PostgreSQL
+service, runs `make performance-characterization`, then reruns the PostgreSQL plan/concurrency
+subset with `--require-non-skipped`, and uploads the generated artifacts as
+`performance-characterization-evidence`. The workflow is evidence-producing and not listed as a
+required PR merge check yet; benchmark budget failures still fail the workflow because there is no
+`continue-on-error` posture.
+
+The local PostgreSQL command starts `docker compose up -d performance-lineage-db` before executing
+the subset. If PostgreSQL is unavailable, the runner writes a summary artifact and fails closed
+instead of treating an all-skipped PostgreSQL suite as valid characterization evidence.
+
 ## PostgreSQL concurrency proof
 
 These are live multi-worker claim contracts against PostgreSQL, not SQLite compilation proxies.

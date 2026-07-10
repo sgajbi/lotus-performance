@@ -26,6 +26,7 @@ make quality-evaluation-gate
 make quality-test-taxonomy-gate
 make license-compliance-gate
 make container-supply-chain-evidence
+make performance-characterization
 ```
 
 The observability-readiness gate fails when health/metrics endpoint, correlation propagation,
@@ -60,6 +61,14 @@ Actions; Main Releasability also attests SBOM provenance. The vulnerability repo
 report-only until the first PR/main baseline artifacts are reviewed. Promotion to a blocking image
 vulnerability gate must use `make container-vulnerability-gate` and the exception policy in
 `quality/container_supply_chain_report.md`.
+
+Performance characterization evidence is produced by the dedicated Performance Characterization
+Evidence workflow on pull requests to `main`, pushes to `main`, weekly schedule, and manual
+dispatch. The workflow provisions PostgreSQL, runs `make performance-characterization`, reruns the
+PostgreSQL plan/concurrency subset with non-skipped proof required, and uploads JUnit, log, and
+summary artifacts from `output/performance-characterization/`. This is an evidence lane, not a
+required merge check yet, but benchmark regressions and all-skipped PostgreSQL contracts fail the
+workflow instead of being soft-failed.
 
 Broader observability maturity scoring remains report-only in
 `quality/observability_readiness_inventory.md`.

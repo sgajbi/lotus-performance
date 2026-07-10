@@ -53,9 +53,9 @@ def durable_database_engine_kwargs(
         connect_args: dict[str, Any] = {
             "connect_timeout": active_policy.connect_timeout_seconds,
         }
-        statement_options = _postgres_statement_options(active_policy)
-        if statement_options:
-            connect_args["options"] = statement_options
+        connection_options = _postgres_connection_options(database_url, active_policy)
+        if connection_options:
+            connect_args["options"] = connection_options
         return {
             "connect_args": connect_args,
             "pool_pre_ping": active_policy.pool_pre_ping,
@@ -85,3 +85,17 @@ def _postgres_statement_options(policy: DurableDatabaseEnginePolicy) -> str:
     if policy.lock_timeout_ms > 0:
         options.append(f"-c lock_timeout={policy.lock_timeout_ms}")
     return " ".join(options)
+
+
+def _postgres_connection_options(database_url: str, policy: DurableDatabaseEnginePolicy) -> str:
+    url_options = make_url(database_url).query.get("options")
+    option_parts: list[str] = []
+    if isinstance(url_options, tuple):
+        option_parts.extend(str(option) for option in url_options if str(option).strip())
+    elif url_options:
+        option_parts.append(str(url_options))
+
+    statement_options = _postgres_statement_options(policy)
+    if statement_options:
+        option_parts.append(statement_options)
+    return " ".join(option_parts)

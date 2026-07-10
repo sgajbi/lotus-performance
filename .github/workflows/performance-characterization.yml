@@ -1,0 +1,66 @@
+name: Performance Characterization Evidence
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: "23 3 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  PYTHONUNBUFFERED: "1"
+  PYTHON_VERSION: "3.11"
+  LOTUS_POSTGRES_PLAN_DATABASE_URL: postgresql+psycopg://lotus:lotus@127.0.0.1:5432/lotus_performance
+
+jobs:
+  characterization:
+    name: Performance Characterization / Benchmarks
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: lotus_performance
+          POSTGRES_PASSWORD: lotus
+          POSTGRES_USER: lotus
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U lotus -d lotus_performance"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Configure Git Default Branch
+        run: git config --global init.defaultBranch main
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+      - name: Install
+        run: make install-ci
+      - name: Run full performance characterization
+        run: make performance-characterization
+      - name: Run PostgreSQL characterization contracts
+        run: python scripts/run_performance_characterization.py --mode postgres --require-non-skipped
+      - name: Upload performance characterization artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: performance-characterization-evidence
+          path: output/performance-characterization/*
+          if-no-files-found: error

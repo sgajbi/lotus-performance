@@ -296,7 +296,14 @@ Important validation expectations:
     support-safe metadata fields so operators can correlate a live service to image labels and
     release evidence. `make container-vulnerability-gate` exists for later strict promotion after
     the first PR/main image baseline and high/critical exception policy are reviewed.
-16. Calculation reproducibility identity is governed separately from deployable build identity.
+16. `make performance-characterization` now writes benchmark JUnit, log, and summary artifacts under
+    ignored `output/performance-characterization/`. The Performance Characterization Evidence
+    workflow runs it on pull requests to `main`, pushes to `main`, weekly schedule, and manual
+    dispatch with a live PostgreSQL service. The workflow also reruns the PostgreSQL plan and
+    concurrency subset with all-skipped output treated as failure, so local and GitHub evidence do
+    not silently accept missing durable-store proof. This lane is evidence-producing rather than a
+    required merge check until repeated benchmark stability warrants promotion.
+17. Calculation reproducibility identity is governed separately from deployable build identity.
     Calculation hashes use `CALCULATION_ENGINE_VERSION` through
     `app.services.calculation_engine_version` across TWR, MWR, contribution, attribution,
     benchmark, workspace-summary, TWR inspection, and returns-series paths. `APP_VERSION`, Git SHA,

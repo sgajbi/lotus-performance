@@ -183,7 +183,7 @@ def test_postgres_lineage_inspection_plan_contracts_use_hot_path_indexes():
                 calculation_id_contains=None,
                 min_age_threshold=None,
             ),
-            {"ix_lineage_records_status_type_timestamp"},
+            {"ix_lineage_records_type_timestamp", "ix_lineage_payloads_type_created_at"},
             True,
         ),
         "failed": (
@@ -231,6 +231,8 @@ def test_postgres_lineage_inspection_plan_contracts_use_hot_path_indexes():
 
         assert "Seq Scan" not in node_types, status_filter
         assert index_names & expected_indexes, status_filter
+        if status_filter == "active":
+            assert "ix_lineage_payloads_type_created_at" in index_names
         if not derived_ordering:
             assert "Sort" not in node_types, status_filter
 

@@ -23,9 +23,9 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 305 |
-| Test functions inventoried | 3518 |
+| Test functions inventoried | 3523 |
 | Integration/API/runtime test functions | 689 |
-| Contract/governance test functions | 148 |
+| Contract/governance test functions | 149 |
 
 ## Test Functions By Suite
 
@@ -34,18 +34,18 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 18 |
 | e2e | 1 | 21 |
 | integration | 28 | 341 |
-| unit | 267 | 3138 |
+| unit | 267 | 3143 |
 
 ## Test Functions By Family
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 1570 |
+| analytics_domain | 1571 |
 | api_or_runtime | 689 |
-| contract_or_governance | 148 |
+| contract_or_governance | 149 |
 | observability_or_readiness | 353 |
-| quality_or_security | 163 |
-| uncategorized | 951 |
+| quality_or_security | 164 |
+| uncategorized | 953 |
 
 ## Largest Test Modules
 
@@ -54,12 +54,12 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | 1 | `tests/unit/services/test_returns_series_service.py` | unit | 96 | analytics_domain |
 | 2 | `tests/unit/app/test_enterprise_readiness_additional.py` | unit | 87 | observability_or_readiness |
 | 3 | `tests/unit/services/test_stateful_attribution_input_service.py` | unit | 70 | analytics_domain |
-| 4 | `tests/unit/docs/test_public_docs_contract.py` | unit | 64 | contract_or_governance |
+| 4 | `tests/unit/docs/test_public_docs_contract.py` | unit | 65 | contract_or_governance |
 | 5 | `tests/unit/app/test_openapi_enrichment.py` | unit | 61 | api_or_runtime |
 | 6 | `tests/unit/services/test_compute_job_store.py` | unit | 61 | observability_or_readiness |
-| 7 | `tests/unit/engine/test_attribution.py` | unit | 57 | analytics_domain |
-| 8 | `tests/unit/services/test_twr_inspection_source_economics.py` | unit | 57 | analytics_domain |
-| 9 | `tests/unit/services/test_lineage_metadata_store.py` | unit | 56 | uncategorized |
+| 7 | `tests/unit/services/test_lineage_metadata_store.py` | unit | 58 | uncategorized |
+| 8 | `tests/unit/engine/test_attribution.py` | unit | 57 | analytics_domain |
+| 9 | `tests/unit/services/test_twr_inspection_source_economics.py` | unit | 57 | analytics_domain |
 | 10 | `tests/unit/app/test_contribution_endpoint_helpers.py` | unit | 52 | analytics_domain, api_or_runtime |
 | 11 | `tests/unit/services/test_twr_inspection_calculation_consistency.py` | unit | 51 | analytics_domain |
 | 12 | `tests/unit/services/test_workspace_summary_service.py` | unit | 50 | uncategorized |
@@ -88,7 +88,7 @@ The AST inventory counts test function definitions, while `pytest --collect-only
 pytest items including parametrized cases. The two values are intentionally different and
 complementary: collected tests show execution breadth, while this report shows source test-module
 and test-function distribution. The current suite has meaningful API/runtime and
-contract/governance coverage, but 951 test functions remain uncategorized by the first-wave
+contract/governance coverage, but 953 test functions remain uncategorized by the first-wave
 taxonomy and should be reduced through normal refactor slices rather than allowed to grow.
 
 The runtime recovery queue-result boundary slice kept the promoted gate stable by classifying
@@ -178,7 +178,11 @@ work-item and recovery result links, raising source test functions to `3513` and
 to `689` without growing the uncategorized backlog. Issue #428 added settings-validation and
 production runtime-threshold fail-closed coverage, raising source test functions to `3518`,
 observability/readiness tests to `353`, and quality/security tests to `163` without growing the
-uncategorized backlog.
+uncategorized backlog. Issue #426 added performance-characterization CI wiring, public-doc
+governance, durable PostgreSQL option preservation, and lineage inspection hot-path query/index
+coverage, raising source test functions to `3523`, contract/governance tests to `149`,
+quality/security tests to `164`, analytics-domain tests to `1571`, and uncategorized tests to
+`953` while preserving the existing `969` uncategorized ceiling.
 
 This slice promotes the stable part of the taxonomy from report-only measurement to a
 regression-blocking evaluation gate. `make quality-test-taxonomy-gate` fails if API/runtime tests

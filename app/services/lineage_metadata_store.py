@@ -100,6 +100,7 @@ class LineagePayloadModel(Base):
         Index("ix_lineage_payloads_created_at", "created_at_utc"),
         Index("ix_lineage_payloads_lease_expires_at", "lease_expires_at_utc"),
         Index("ix_lineage_payloads_calculation_created_at", "calculation_id", "created_at_utc"),
+        Index("ix_lineage_payloads_type_created_at", "calculation_type", "created_at_utc", "calculation_id"),
         Index(
             "ix_lineage_payloads_lease_expires_created_at",
             "lease_expires_at_utc",
@@ -770,6 +771,13 @@ class LineageMetadataStore:
         return apply_calculation_id_prefix_filter(statement, LineageRecordModel.calculation_id, calculation_id_contains)
 
     @staticmethod
+    def _lineage_payload_join_condition(*, calculation_type: str | None = None):
+        condition = LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id
+        if calculation_type is not None:
+            condition = condition & (LineagePayloadModel.calculation_type == calculation_type)
+        return condition
+
+    @staticmethod
     def _build_active_since_expression(*, now: datetime):
         return case(
             (LineageRecordModel.status == LineageStatus.FAILED.value, LineageRecordModel.timestamp_utc),
@@ -802,7 +810,7 @@ class LineageMetadataStore:
         statement = (
             select(func.count())
             .select_from(LineageRecordModel)
-            .join(LineagePayloadModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
+            .join(LineagePayloadModel, self._lineage_payload_join_condition(calculation_type=calculation_type))
             .where(LineageRecordModel.status == LineageStatus.PENDING.value)
         )
         return self._apply_calculation_filters(
@@ -822,7 +830,7 @@ class LineageMetadataStore:
         statement = (
             select(func.count())
             .select_from(LineageRecordModel)
-            .outerjoin(LineagePayloadModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
+            .outerjoin(LineagePayloadModel, self._lineage_payload_join_condition(calculation_type=calculation_type))
             .where(LineageRecordModel.status == LineageStatus.FAILED.value)
         )
         return self._apply_calculation_filters(
@@ -842,7 +850,7 @@ class LineageMetadataStore:
         statement = (
             select(func.count())
             .select_from(LineageRecordModel)
-            .outerjoin(LineagePayloadModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
+            .outerjoin(LineagePayloadModel, self._lineage_payload_join_condition(calculation_type=calculation_type))
         )
         return self._apply_calculation_filters(
             self._apply_min_age_filter(statement, now=now, min_age_threshold=min_age_threshold),
@@ -861,7 +869,7 @@ class LineageMetadataStore:
         statement = (
             select(func.count())
             .select_from(LineageRecordModel)
-            .join(LineagePayloadModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
+            .join(LineagePayloadModel, self._lineage_payload_join_condition(calculation_type=calculation_type))
             .where(
                 (LineageRecordModel.status == LineageStatus.PENDING.value)
                 & LineagePayloadModel.lease_expires_at_utc.is_not(None)
@@ -887,7 +895,7 @@ class LineageMetadataStore:
         active_since = self._build_active_since_expression(now=now)
         statement = (
             select(LineageRecordModel, LineagePayloadModel)
-            .join(LineagePayloadModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
+            .join(LineagePayloadModel, self._lineage_payload_join_condition(calculation_type=calculation_type))
             .where(LineageRecordModel.status == LineageStatus.PENDING.value)
             .order_by(active_since.asc(), LineagePayloadModel.created_at_utc.asc())
             .offset(offset)
@@ -911,7 +919,7 @@ class LineageMetadataStore:
     ):
         statement = (
             select(LineageRecordModel, LineagePayloadModel)
-            .outerjoin(LineagePayloadModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
+            .outerjoin(LineagePayloadModel, self._lineage_payload_join_condition(calculation_type=calculation_type))
             .where(LineageRecordModel.status == LineageStatus.FAILED.value)
             .order_by(LineageRecordModel.timestamp_utc.desc())
             .offset(offset)
@@ -936,7 +944,7 @@ class LineageMetadataStore:
         active_since = self._build_active_since_expression(now=now)
         statement = (
             select(LineageRecordModel, LineagePayloadModel)
-            .outerjoin(LineagePayloadModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
+            .outerjoin(LineagePayloadModel, self._lineage_payload_join_condition(calculation_type=calculation_type))
             .order_by(active_since.asc().nullslast(), LineageRecordModel.timestamp_utc.asc())
             .offset(offset)
             .limit(limit)
@@ -959,7 +967,7 @@ class LineageMetadataStore:
     ):
         statement = (
             select(LineageRecordModel, LineagePayloadModel)
-            .join(LineagePayloadModel, LineagePayloadModel.calculation_id == LineageRecordModel.calculation_id)
+            .join(LineagePayloadModel, self._lineage_payload_join_condition(calculation_type=calculation_type))
             .where(
                 (LineageRecordModel.status == LineageStatus.PENDING.value)
                 & LineagePayloadModel.lease_expires_at_utc.is_not(None)
@@ -1170,6 +1178,12 @@ class LineageMetadataStore:
                 text(
                     "CREATE INDEX IF NOT EXISTS ix_lineage_payloads_calculation_created_at "
                     "ON lineage_payloads (calculation_id, created_at_utc)"
+                )
+            )
+            connection.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_lineage_payloads_type_created_at "
+                    "ON lineage_payloads (calculation_type, created_at_utc, calculation_id)"
                 )
             )
             connection.execute(
