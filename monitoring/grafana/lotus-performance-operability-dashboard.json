@@ -15,6 +15,11 @@
       "title": "MWR production support playbook",
       "type": "link",
       "url": "docs/operations/mwr-production-support-playbook.md"
+    },
+    {
+      "title": "Returns-series operator triage",
+      "type": "link",
+      "url": "docs/runbooks/returns-series-operator-triage.md"
     }
   ],
   "panels": [
@@ -115,6 +120,26 @@
       "targets": [
         {
           "expr": "sum(increase(lotus_performance_calculation_supportability_total{operation=\"mwr\",supportability_state=~\"empty|stale\"}[30m])) / clamp_min(sum(increase(lotus_performance_calculation_supportability_total{operation=\"mwr\"}[30m])), 1)"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Returns-series stale/degraded rate",
+      "targets": [
+        {
+          "expr": "sum(increase(lotus_performance_calculation_supportability_total{operation=\"returns_series\",supportability_state=~\"stale|degraded\"}[30m])) / clamp_min(sum(increase(lotus_performance_calculation_supportability_total{operation=\"returns_series\"}[30m])), 1)"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Returns-series supportability volume",
+      "targets": [
+        {
+          "expr": "sum by (supportability_state, reason, freshness_bucket) (increase(lotus_performance_calculation_supportability_total{operation=\"returns_series\"}[30m]))"
         }
       ]
     }

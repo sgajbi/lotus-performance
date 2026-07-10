@@ -9,6 +9,8 @@ from scripts.python_observability_readiness_inventory import (
     render_markdown,
 )
 
+ROOT = Path(__file__).resolve().parents[3]
+
 
 def test_collect_readiness_surfaces_reports_endpoint_and_marker_coverage() -> None:
     surfaces = collect_readiness_surfaces(
@@ -67,8 +69,27 @@ def test_monitoring_artifact_validation_accepts_current_deployable_artifacts() -
     validation = collect_monitoring_artifact_validation()
 
     assert validation.alert_rules == len(EXPECTED_ALERT_NAMES)
-    assert validation.dashboard_panels >= 10
+    assert validation.dashboard_panels >= 12
     assert validation.violations == ()
+
+
+def test_monitoring_artifact_validation_rejects_missing_returns_series_dashboard_coverage(tmp_path: Path) -> None:
+    dashboard_payload = json.loads(
+        (ROOT / "monitoring/grafana/lotus-performance-operability-dashboard.json").read_text(encoding="utf-8")
+    )
+    dashboard_payload["panels"] = [
+        panel for panel in dashboard_payload["panels"] if "returns_series" not in json.dumps(panel, sort_keys=True)
+    ]
+    dashboard_path = tmp_path / "missing-returns-series-dashboard.json"
+    dashboard_path.write_text(json.dumps(dashboard_payload), encoding="utf-8")
+
+    validation = collect_monitoring_artifact_validation(dashboard_paths=(dashboard_path,))
+
+    assert any(
+        "LotusPerformanceReturnsSeriesStaleOrDegradedRateElevated" in violation
+        and 'operation="returns_series"' in violation
+        for violation in validation.violations
+    )
 
 
 def test_monitoring_artifact_validation_rejects_unknown_metrics_and_sensitive_alert_labels(tmp_path: Path) -> None:

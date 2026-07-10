@@ -19,9 +19,10 @@ retained gaps, async result failure, or elevated
 
 1. Capture support-safe identifiers: `calculation_id`, endpoint path, response status, `correlation_id`, `request_id`, `trace_id`, and the bounded diagnostics fields. Do not copy portfolio names, client names, request payloads, or raw source rows into tickets.
 2. Check `GET /health/ready` and `GET /integration/runtime-status`.
-3. For `202 Accepted` or missing async results, poll `GET /performance/executions/{calculation_id}` and `GET /integration/returns/series/results/{calculation_id}`.
-4. If compute execution is stuck or failed, inspect `GET /integration/runtime-work-items?queue=compute` and `GET /integration/runtime-recoveries?queue=compute`.
-5. If the completed response is stale or degraded, classify the diagnostic posture below before escalating.
+3. Open the `Lotus Performance Operability` Grafana dashboard and check the `Returns-series stale/degraded rate` and `Returns-series supportability volume` panels.
+4. For `202 Accepted` or missing async results, poll `GET /performance/executions/{calculation_id}` and `GET /integration/returns/series/results/{calculation_id}`.
+5. If compute execution is stuck or failed, inspect `GET /integration/runtime-work-items?queue=compute` and `GET /integration/runtime-recoveries?queue=compute`.
+6. If the completed response is stale or degraded, classify the diagnostic posture below before escalating.
 
 ## Diagnostic Posture
 
@@ -48,6 +49,11 @@ Completed responses emit:
 
 - `lotus_performance_calculation_supportability_total{operation="returns_series",supportability_state,reason,freshness_bucket}`
 - `lotus_analytics_freshness_bucket_total{service="lotus-performance",operation="returns_series",freshness_bucket,supportability_state}`
+
+The deployable `Lotus Performance Operability` dashboard includes returns-series panels for the
+stale/degraded rate and supportability volume by the bounded `supportability_state`, `reason`, and
+`freshness_bucket` labels. `make quality-observability-readiness-gate` fails when the
+returns-series alert exists without matching dashboard coverage.
 
 Bounded mapping:
 

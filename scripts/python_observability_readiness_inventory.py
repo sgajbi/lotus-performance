@@ -46,6 +46,13 @@ class MonitoringArtifactValidation:
     violations: tuple[str, ...]
 
 
+@dataclass(frozen=True)
+class AlertDashboardCoverageRequirement:
+    alert_name: str
+    metric_name: str
+    required_selectors: Mapping[str, str]
+
+
 REQUIRED_ENDPOINTS = ("/health", "/health/live", "/health/ready", "/metrics")
 DEFAULT_ALERT_RULE_PATHS = (Path("monitoring/prometheus/lotus-performance-alerts.prometheusrule.json"),)
 DEFAULT_DASHBOARD_PATHS = (Path("monitoring/grafana/lotus-performance-operability-dashboard.json"),)
@@ -67,10 +74,40 @@ EXPECTED_ALERT_NAMES = frozenset(
         "LotusPerformanceReturnsSeriesStaleOrDegradedRateElevated",
     }
 )
+ALERT_DASHBOARD_COVERAGE_REQUIREMENTS = (
+    AlertDashboardCoverageRequirement(
+        alert_name="LotusPerformanceMWRFallbackRateElevated",
+        metric_name="lotus_performance_mwr_solver_outcome_total",
+        required_selectors={"fallback_used": "true"},
+    ),
+    AlertDashboardCoverageRequirement(
+        alert_name="LotusPerformanceMWRNoRootRateElevated",
+        metric_name="lotus_performance_mwr_solver_outcome_total",
+        required_selectors={"reason_code": "NO_ROOT_FOUND"},
+    ),
+    AlertDashboardCoverageRequirement(
+        alert_name="LotusPerformanceMWRMultipleRootRateElevated",
+        metric_name="lotus_performance_mwr_solver_outcome_total",
+        required_selectors={"reason_code": "MULTIPLE_IRR_ROOTS_DETECTED"},
+    ),
+    AlertDashboardCoverageRequirement(
+        alert_name="LotusPerformanceMWRSourceDataRejectionRateElevated",
+        metric_name="lotus_performance_calculation_supportability_total",
+        required_selectors={"operation": "mwr"},
+    ),
+    AlertDashboardCoverageRequirement(
+        alert_name="LotusPerformanceReturnsSeriesStaleOrDegradedRateElevated",
+        metric_name="lotus_performance_calculation_supportability_total",
+        required_selectors={"operation": "returns_series"},
+    ),
+)
 MIN_DASHBOARD_PANELS = 10
 PROMQL_METRIC_PATTERN = re.compile(r"\b(lotus_[a-zA-Z0-9_]+)\b")
 PROMQL_SELECTOR_PATTERN = re.compile(r"\b(?P<metric>lotus_[a-zA-Z0-9_]+)\s*\{(?P<labels>[^}]*)\}")
 PROMQL_LABEL_PATTERN = re.compile(r"\b(?P<label>[a-zA-Z_][a-zA-Z0-9_]*)\s*(?:=~|!~|!=|=)")
+PROMQL_LABEL_MATCHER_PATTERN = re.compile(
+    r"\b(?P<label>[a-zA-Z_][a-zA-Z0-9_]*)\s*(?P<operator>=~|!~|!=|=)\s*\"(?P<value>[^\"]*)\""
+)
 SENSITIVE_LABEL_TOKENS = frozenset(
     {
         "account",
@@ -244,6 +281,15 @@ def _referenced_selector_labels(expression: str) -> dict[str, set[str]]:
     return labels_by_metric
 
 
+def _referenced_selector_values(expression: str) -> dict[str, dict[str, set[str]]]:
+    values_by_metric: dict[str, dict[str, set[str]]] = {}
+    for match in PROMQL_SELECTOR_PATTERN.finditer(expression):
+        metric_values = values_by_metric.setdefault(match.group("metric"), {})
+        for label_match in PROMQL_LABEL_MATCHER_PATTERN.finditer(match.group("labels")):
+            metric_values.setdefault(label_match.group("label"), set()).add(label_match.group("value"))
+    return values_by_metric
+
+
 def _is_sensitive_label(label: str) -> bool:
     normalized = label.lower()
     return any(token in normalized for token in SENSITIVE_LABEL_TOKENS)
@@ -299,21 +345,21 @@ def _validate_prometheus_rule_artifact(
     path: Path,
     *,
     metric_labels: Mapping[str, tuple[str, ...]],
-) -> tuple[int, list[str]]:
+) -> tuple[int, list[str], set[str]]:
     violations: list[str] = []
     try:
         payload = _load_json(path)
     except Exception as exc:
-        return 0, [f"{path}: cannot parse JSON alert artifact: {exc}"]
+        return 0, [f"{path}: cannot parse JSON alert artifact: {exc}"], set()
 
     if not isinstance(payload, Mapping):
-        return 0, [f"{path}: alert artifact must be a JSON object."]
+        return 0, [f"{path}: alert artifact must be a JSON object."], set()
     if payload.get("kind") != "PrometheusRule":
         violations.append(f"{path}: kind must be `PrometheusRule`.")
 
     groups = (payload.get("spec") or {}).get("groups") if isinstance(payload.get("spec"), Mapping) else None
     if not isinstance(groups, list) or not groups:
-        return 0, [*violations, f"{path}: spec.groups must be a non-empty list."]
+        return 0, [*violations, f"{path}: spec.groups must be a non-empty list."], set()
 
     alert_names: set[str] = set()
     rule_count = 0
@@ -370,7 +416,7 @@ def _validate_prometheus_rule_artifact(
     missing_alerts = sorted(EXPECTED_ALERT_NAMES - alert_names)
     if missing_alerts:
         violations.append(f"{path}: missing expected alert(s): {', '.join(missing_alerts)}.")
-    return rule_count, violations
+    return rule_count, violations, alert_names
 
 
 def _dashboard_targets(panel: Mapping[str, Any]) -> tuple[str, ...]:
@@ -388,21 +434,22 @@ def _validate_dashboard_artifact(
     path: Path,
     *,
     metric_labels: Mapping[str, tuple[str, ...]],
-) -> tuple[int, list[str]]:
+) -> tuple[int, list[str], tuple[str, ...]]:
     violations: list[str] = []
+    dashboard_expressions: list[str] = []
     try:
         payload = _load_json(path)
     except Exception as exc:
-        return 0, [f"{path}: cannot parse JSON dashboard artifact: {exc}"]
+        return 0, [f"{path}: cannot parse JSON dashboard artifact: {exc}"], ()
 
     if not isinstance(payload, Mapping):
-        return 0, [f"{path}: dashboard artifact must be a JSON object."]
+        return 0, [f"{path}: dashboard artifact must be a JSON object."], ()
     if payload.get("title") != "Lotus Performance Operability":
         violations.append(f"{path}: dashboard title must be `Lotus Performance Operability`.")
 
     panels = payload.get("panels")
     if not isinstance(panels, list):
-        return 0, [*violations, f"{path}: panels must be a list."]
+        return 0, [*violations, f"{path}: panels must be a list."], ()
     if len(panels) < MIN_DASHBOARD_PANELS:
         violations.append(f"{path}: dashboard must include at least {MIN_DASHBOARD_PANELS} panels.")
 
@@ -419,11 +466,12 @@ def _validate_dashboard_artifact(
         panel_count += 1
         if not isinstance(panel.get("title"), str) or not panel["title"].strip():
             violations.append(f"{context}: title is required.")
-        expressions = _dashboard_targets(panel)
-        if not expressions:
+        panel_expressions = _dashboard_targets(panel)
+        if not panel_expressions:
             violations.append(f"{context}: at least one target expr is required.")
             continue
-        for expression_index, expression in enumerate(expressions):
+        dashboard_expressions.extend(panel_expressions)
+        for expression_index, expression in enumerate(panel_expressions):
             violations.extend(
                 _validate_expression(
                     expression,
@@ -431,7 +479,42 @@ def _validate_dashboard_artifact(
                     metric_labels=metric_labels,
                 )
             )
-    return panel_count, violations
+    return panel_count, violations, tuple(dashboard_expressions)
+
+
+def _dashboard_expression_satisfies_requirement(
+    expression: str, requirement: AlertDashboardCoverageRequirement
+) -> bool:
+    if requirement.metric_name not in _referenced_metrics(expression):
+        return False
+    selector_values = _referenced_selector_values(expression).get(requirement.metric_name, {})
+    return all(
+        expected in selector_values.get(label, set()) for label, expected in requirement.required_selectors.items()
+    )
+
+
+def _validate_alert_dashboard_coverage(
+    alert_names: set[str],
+    dashboard_expressions: Sequence[str],
+    *,
+    requirements: Sequence[AlertDashboardCoverageRequirement] = ALERT_DASHBOARD_COVERAGE_REQUIREMENTS,
+) -> list[str]:
+    violations: list[str] = []
+    for requirement in requirements:
+        if requirement.alert_name not in alert_names:
+            continue
+        if not any(
+            _dashboard_expression_satisfies_requirement(expression, requirement) for expression in dashboard_expressions
+        ):
+            selectors = ", ".join(
+                f'{label}="{value}"' for label, value in sorted(requirement.required_selectors.items())
+            )
+            violations.append(
+                "monitoring dashboard coverage: alert "
+                f"`{requirement.alert_name}` requires a dashboard panel referencing "
+                f"`{requirement.metric_name}{{{selectors}}}`."
+            )
+    return violations
 
 
 def collect_monitoring_artifact_validation(
@@ -443,15 +526,24 @@ def collect_monitoring_artifact_validation(
     resolved_metric_labels = metric_labels or _metric_label_catalog()
     alert_rules = 0
     dashboard_panels = 0
+    alert_names: set[str] = set()
+    dashboard_expressions: list[str] = []
     violations: list[str] = []
     for path in alert_rule_paths:
-        rule_count, artifact_violations = _validate_prometheus_rule_artifact(path, metric_labels=resolved_metric_labels)
+        rule_count, artifact_violations, artifact_alert_names = _validate_prometheus_rule_artifact(
+            path, metric_labels=resolved_metric_labels
+        )
         alert_rules += rule_count
+        alert_names.update(artifact_alert_names)
         violations.extend(artifact_violations)
     for path in dashboard_paths:
-        panel_count, artifact_violations = _validate_dashboard_artifact(path, metric_labels=resolved_metric_labels)
+        panel_count, artifact_violations, artifact_dashboard_expressions = _validate_dashboard_artifact(
+            path, metric_labels=resolved_metric_labels
+        )
         dashboard_panels += panel_count
+        dashboard_expressions.extend(artifact_dashboard_expressions)
         violations.extend(artifact_violations)
+    violations.extend(_validate_alert_dashboard_coverage(alert_names, dashboard_expressions))
     return MonitoringArtifactValidation(
         alert_rules=alert_rules,
         dashboard_panels=dashboard_panels,
