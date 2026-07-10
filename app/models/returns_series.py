@@ -215,7 +215,8 @@ class DataPolicy(BaseModel):
         default=MissingDataPolicy.FAIL_FAST,
         description=(
             "Policy for missing observations. FAIL_FAST rejects missing portfolio coverage; ALLOW_PARTIAL emits "
-            "coverage diagnostics; STRICT_INTERSECTION keeps only dates common to selected series."
+            "coverage diagnostics; STRICT_INTERSECTION keeps only dates common to selected series after any "
+            "selected benchmark/risk-free fill method has been applied."
         ),
         examples=["ALLOW_PARTIAL"],
     )
@@ -484,6 +485,16 @@ class SeriesGap(BaseModel):
     gap_days: int = Field(description="Gap length in business dates after policy application.", examples=[3])
 
 
+class SeriesFillEvidence(BaseModel):
+    series_type: Literal["benchmark", "risk_free"] = Field(description="Side series that received filled points.")
+    fill_method: FillMethod = Field(description="Fill method applied to the side series.")
+    filled_points: int = Field(description="Number of returned points synthesized by the selected fill method.")
+    filled_dates_sample: list[dt_date] = Field(
+        default_factory=list,
+        description="Bounded sample of returned dates that were filled rather than observed in the source series.",
+    )
+
+
 class RiskFreeSourceQuality(BaseModel):
     raw_points: int = Field(description="Risk-free source rows received before normalization.", examples=[5])
     normalized_points: int = Field(description="Risk-free source rows accepted by normalization.", examples=[4])
@@ -502,6 +513,13 @@ class ReturnsDiagnostics(BaseModel):
         examples=["current"],
     )
     gaps: list[SeriesGap] = Field(default_factory=list, description="Explicit coverage gaps retained in diagnostics.")
+    fill_evidence: list[SeriesFillEvidence] = Field(
+        default_factory=list,
+        description=(
+            "Side-series dates synthesized by the selected fill method. Filled points remain distinct from source "
+            "freshness evidence and must not be treated as independently observed source data."
+        ),
+    )
     policy_applied: DataPolicy = Field(description="Resolved data-policy settings used for the request.")
     risk_free_source_quality: RiskFreeSourceQuality | None = Field(
         default=None,

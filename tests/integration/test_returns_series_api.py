@@ -1242,6 +1242,68 @@ def test_returns_series_stateless_forward_fill_applies():
     assert benchmark_values == ["0.002000000000", "0.002000000000", "0.003000000000", "0.003000000000"]
 
 
+def test_returns_series_stateless_strict_intersection_forward_fill_preserves_portfolio_dates():
+    payload = _stateless_base_payload()
+    payload["window"] = {"mode": "EXPLICIT", "from_date": "2026-02-24", "to_date": "2026-02-27"}
+    payload["series_selection"] = {"include_portfolio": True, "include_benchmark": True, "include_risk_free": True}
+    payload["data_policy"] = {
+        "missing_data_policy": "STRICT_INTERSECTION",
+        "fill_method": "FORWARD_FILL",
+        "calendar_policy": "BUSINESS",
+    }
+    payload["stateless_input"]["portfolio_returns"] = [
+        {"date": "2026-02-24", "return_value": "0.0010"},
+        {"date": "2026-02-25", "return_value": "0.0012"},
+        {"date": "2026-02-26", "return_value": "0.0014"},
+        {"date": "2026-02-27", "return_value": "0.0016"},
+    ]
+    payload["stateless_input"]["benchmark_returns"] = [
+        {"date": "2026-02-24", "return_value": "0.0020"},
+        {"date": "2026-02-26", "return_value": "0.0030"},
+    ]
+    payload["stateless_input"]["risk_free_returns"] = [
+        {"date": "2026-02-24", "return_value": "0.0001"},
+        {"date": "2026-02-26", "return_value": "0.0003"},
+    ]
+
+    with TestClient(app) as client:
+        response = client.post("/integration/returns/series", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    expected_dates = ["2026-02-24", "2026-02-25", "2026-02-26", "2026-02-27"]
+    assert [point["date"] for point in body["series"]["portfolio_returns"]] == expected_dates
+    assert [point["date"] for point in body["series"]["active_returns"]] == expected_dates
+    assert [point["date"] for point in body["series"]["cumulative_active_returns"]] == expected_dates
+    assert [point["return_value"] for point in body["series"]["benchmark_returns"]] == [
+        "0.002000000000",
+        "0.002000000000",
+        "0.003000000000",
+        "0.003000000000",
+    ]
+    assert [point["return_value"] for point in body["series"]["risk_free_returns"]] == [
+        "0.000100000000",
+        "0.000100000000",
+        "0.000300000000",
+        "0.000300000000",
+    ]
+    assert body["diagnostics"]["coverage"]["returned_points"] == 4
+    assert body["diagnostics"]["fill_evidence"] == [
+        {
+            "series_type": "benchmark",
+            "fill_method": "FORWARD_FILL",
+            "filled_points": 2,
+            "filled_dates_sample": ["2026-02-25", "2026-02-27"],
+        },
+        {
+            "series_type": "risk_free",
+            "fill_method": "FORWARD_FILL",
+            "filled_points": 2,
+            "filled_dates_sample": ["2026-02-25", "2026-02-27"],
+        },
+    ]
+
+
 def test_returns_series_stateless_zero_fill_applies():
     payload = _stateless_base_payload()
     payload["window"] = {"mode": "EXPLICIT", "from_date": "2026-02-24", "to_date": "2026-02-27"}
@@ -1270,6 +1332,67 @@ def test_returns_series_stateless_zero_fill_applies():
     assert response.status_code == 200
     benchmark_values = [p["return_value"] for p in response.json()["series"]["benchmark_returns"]]
     assert benchmark_values == ["0.002000000000", "0E-12", "0.003000000000", "0E-12"]
+
+
+def test_returns_series_stateless_strict_intersection_zero_fill_preserves_side_series_dates():
+    payload = _stateless_base_payload()
+    payload["window"] = {"mode": "EXPLICIT", "from_date": "2026-02-24", "to_date": "2026-02-27"}
+    payload["series_selection"] = {"include_portfolio": True, "include_benchmark": True, "include_risk_free": True}
+    payload["data_policy"] = {
+        "missing_data_policy": "STRICT_INTERSECTION",
+        "fill_method": "ZERO_FILL",
+        "calendar_policy": "BUSINESS",
+    }
+    payload["stateless_input"]["portfolio_returns"] = [
+        {"date": "2026-02-24", "return_value": "0.0010"},
+        {"date": "2026-02-25", "return_value": "0.0012"},
+        {"date": "2026-02-26", "return_value": "0.0014"},
+        {"date": "2026-02-27", "return_value": "0.0016"},
+    ]
+    payload["stateless_input"]["benchmark_returns"] = [
+        {"date": "2026-02-24", "return_value": "0.0020"},
+        {"date": "2026-02-26", "return_value": "0.0030"},
+    ]
+    payload["stateless_input"]["risk_free_returns"] = [
+        {"date": "2026-02-24", "return_value": "0.0001"},
+        {"date": "2026-02-26", "return_value": "0.0003"},
+    ]
+
+    with TestClient(app) as client:
+        response = client.post("/integration/returns/series", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    expected_dates = ["2026-02-24", "2026-02-25", "2026-02-26", "2026-02-27"]
+    assert [point["date"] for point in body["series"]["portfolio_returns"]] == expected_dates
+    assert [point["date"] for point in body["series"]["benchmark_returns"]] == expected_dates
+    assert [point["date"] for point in body["series"]["risk_free_returns"]] == expected_dates
+    assert [point["return_value"] for point in body["series"]["benchmark_returns"]] == [
+        "0.002000000000",
+        "0E-12",
+        "0.003000000000",
+        "0E-12",
+    ]
+    assert [point["return_value"] for point in body["series"]["risk_free_returns"]] == [
+        "0.000100000000",
+        "0E-12",
+        "0.000300000000",
+        "0E-12",
+    ]
+    assert body["diagnostics"]["fill_evidence"] == [
+        {
+            "series_type": "benchmark",
+            "fill_method": "ZERO_FILL",
+            "filled_points": 2,
+            "filled_dates_sample": ["2026-02-25", "2026-02-27"],
+        },
+        {
+            "series_type": "risk_free",
+            "fill_method": "ZERO_FILL",
+            "filled_points": 2,
+            "filled_dates_sample": ["2026-02-25", "2026-02-27"],
+        },
+    ]
 
 
 def test_returns_series_stateless_fail_fast_rejects_missing_points():

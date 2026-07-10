@@ -934,6 +934,8 @@ Purpose:
   reconstruct this feed from TWR, MWR, or benchmark endpoint responses
 - all return values are decimal ratios, not percentages
 - `calendar_policy=BUSINESS` filters daily output to weekdays before coverage diagnostics
+- `diagnostics.fill_evidence` distinguishes side-series dates synthesized by fill policy from
+  source-observed benchmark or risk-free rows
 
 Sample request:
 

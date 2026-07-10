@@ -627,11 +627,33 @@ def test_normalize_returns_series_execution_frames_applies_request_policy():
         risk_free_df=risk_free_df,
     )
 
-    assert list(normalized_frames.portfolio_df["date"].dt.date) == [date(2026, 2, 24)]
+    assert list(normalized_frames.portfolio_df["date"].dt.date) == [
+        date(2026, 2, 23),
+        date(2026, 2, 24),
+        date(2026, 2, 25),
+    ]
     assert normalized_frames.benchmark_df is not None
-    assert list(normalized_frames.benchmark_df["date"].dt.date) == [date(2026, 2, 24)]
+    assert list(normalized_frames.benchmark_df["date"].dt.date) == [
+        date(2026, 2, 23),
+        date(2026, 2, 24),
+        date(2026, 2, 25),
+    ]
+    assert [Decimal(str(value)) for value in normalized_frames.benchmark_df["return_value"]] == [
+        Decimal("0.0"),
+        Decimal("0.0150"),
+        Decimal("0.0300"),
+    ]
     assert normalized_frames.risk_free_df is not None
-    assert list(normalized_frames.risk_free_df["date"].dt.date) == [date(2026, 2, 24)]
+    assert list(normalized_frames.risk_free_df["date"].dt.date) == [
+        date(2026, 2, 23),
+        date(2026, 2, 24),
+        date(2026, 2, 25),
+    ]
+    assert [Decimal(str(value)) for value in normalized_frames.risk_free_df["return_value"]] == [
+        Decimal("0.0001"),
+        Decimal("0.0002"),
+        Decimal("0.0"),
+    ]
 
 
 def test_build_returns_series_execution_result_preserves_policy_response_and_stage_details():
@@ -753,6 +775,81 @@ def test_build_returns_series_execution_result_marks_filled_side_source_stale():
         date(2026, 2, 25),
     ]
     assert result.response.diagnostics.freshness == "stale"
+
+
+def test_build_returns_series_execution_result_strict_forward_fill_preserves_active_dates():
+    request = ReturnsSeriesRequest.model_validate(
+        {
+            "portfolio_id": "P1",
+            "as_of_date": "2026-02-27",
+            "window": {"mode": "EXPLICIT", "from_date": "2026-02-24", "to_date": "2026-02-27"},
+            "frequency": "DAILY",
+            "series_selection": {"include_portfolio": True, "include_benchmark": True, "include_risk_free": True},
+            "data_policy": {"missing_data_policy": "STRICT_INTERSECTION", "fill_method": "FORWARD_FILL"},
+            "input_mode": "stateless",
+            "stateless_input": {
+                "portfolio_returns": [{"date": "2026-02-27", "return_value": "0.0016"}],
+                "benchmark_returns": [{"date": "2026-02-26", "return_value": "0.0030"}],
+                "risk_free_returns": [{"date": "2026-02-26", "return_value": "0.0003"}],
+            },
+        }
+    )
+    context = returns_series_service._ReturnsSeriesExecutionContext(
+        request=request,
+        resolved_window=returns_series_service.resolve_window(request),
+        effective_input_mode=InputMode.STATELESS,
+        input_fingerprint="input-fingerprint",
+        calculation_hash="calculation-hash",
+        resolved_benchmark_id="BMK_1",
+        resolved_benchmark_return_source=BenchmarkReturnSource.VENDOR_SERIES,
+    )
+    portfolio_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-24", "2026-02-25", "2026-02-26", "2026-02-27"]),
+            "return_value": [Decimal("0.0010"), Decimal("0.0012"), Decimal("0.0014"), Decimal("0.0016")],
+        }
+    )
+    benchmark_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-24", "2026-02-26"]),
+            "return_value": [Decimal("0.0020"), Decimal("0.0030")],
+        }
+    )
+    risk_free_df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-02-24", "2026-02-26"]),
+            "return_value": [Decimal("0.0001"), Decimal("0.0003")],
+        }
+    )
+
+    result = returns_series_service._build_returns_series_execution_result(
+        context=context,
+        portfolio_df=portfolio_df,
+        benchmark_df=benchmark_df,
+        risk_free_df=risk_free_df,
+    )
+
+    response = result.response
+    expected_dates = [date(2026, 2, 24), date(2026, 2, 25), date(2026, 2, 26), date(2026, 2, 27)]
+    assert response.series.active_returns is not None
+    assert [point.date for point in response.series.active_returns] == expected_dates
+    assert [str(point.return_value) for point in response.series.active_returns] == [
+        "-0.001000000000",
+        "-0.000800000000",
+        "-0.001600000000",
+        "-0.001400000000",
+    ]
+    assert response.series.cumulative_active_returns is not None
+    assert [point.date for point in response.series.cumulative_active_returns] == expected_dates
+    assert response.diagnostics.coverage.returned_points == 4
+    assert response.diagnostics.fill_evidence
+    assert {
+        (entry.series_type, entry.filled_points, tuple(entry.filled_dates_sample))
+        for entry in response.diagnostics.fill_evidence
+    } == {
+        ("benchmark", 2, (date(2026, 2, 25), date(2026, 2, 27))),
+        ("risk_free", 2, (date(2026, 2, 25), date(2026, 2, 27))),
+    }
 
 
 def test_build_returns_series_execution_result_records_supportability_metrics(monkeypatch):

@@ -43,8 +43,8 @@ Canonical Risk-Free Return Series (`series.risk_free_returns`)
 - `WEEKLY`/`MONTHLY`: `RF_k = prod_{t in k}(1 + rf_t) - 1`
 
 4. Apply optional alignment/fill relative to portfolio date set:
-- strict intersection
 - forward-fill / zero-fill according to `data_policy.fill_method`
+- strict intersection after fill, retaining only portfolio dates with usable selected side-series values
 
 ## Step-by-Step Computation
 1. Validate request and resolve window.
@@ -77,6 +77,8 @@ Primary metric field:
 Diagnostics impact:
 - risk-free gaps contribute to `diagnostics.gaps[]`
 - fill/alignment policies can change returned points
+- risk-free dates synthesized by `FORWARD_FILL` or `ZERO_FILL` are included in
+  `diagnostics.fill_evidence[]`
 - when risk-free data is requested, `diagnostics.risk_free_source_quality` reports raw,
   normalized, and skipped source-row counts
 - malformed stateful risk-free source rows are skipped resiliently but remain auditable through

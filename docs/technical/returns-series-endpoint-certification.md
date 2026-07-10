@@ -33,9 +33,9 @@ The endpoint returns simple returns as decimal ratios. For example, `0.0012` mea
 | `series_selection.include_risk_free=true` | Emits risk-free and cumulative risk-free series when supplied or sourced. |
 | `data_policy.FAIL_FAST` | Rejects missing portfolio coverage after calendar-policy filtering. |
 | `data_policy.ALLOW_PARTIAL` | Returns available points with coverage diagnostics. |
-| `data_policy.STRICT_INTERSECTION` | Keeps only dates common to selected series. |
-| `fill_method=FORWARD_FILL` | Forward-fills selected side series before alignment. |
-| `fill_method=ZERO_FILL` | Zero-fills selected side series before alignment. |
+| `data_policy.STRICT_INTERSECTION` | Keeps only dates common to selected series after any selected side-series fill method has been applied. |
+| `fill_method=FORWARD_FILL` | Forward-fills selected benchmark/risk-free side series to portfolio dates before strict-intersection alignment. Leading side-series dates that cannot be filled remain absent. |
+| `fill_method=ZERO_FILL` | Zero-fills selected benchmark/risk-free side series to portfolio dates before strict-intersection alignment. |
 | `calendar_policy=BUSINESS` | Filters daily output to weekdays before coverage diagnostics and alignment. |
 | `calendar_policy=MARKET` | Filters daily output to the Lotus reference market trading calendar, including supported market holidays such as Good Friday. |
 | `calendar_policy=CALENDAR` | Retains calendar-date daily observations. |
@@ -59,6 +59,7 @@ Every returned figure must satisfy these invariants:
 | `cumulative_active_returns` | Arithmetic cumulative excess: `cumulative_portfolio_return - cumulative_benchmark_return`. It is intentionally not a linked active-return series. |
 | `diagnostics.coverage` | Requested, returned, missing, and coverage-ratio values reconcile to the resolved window and calendar policy. |
 | `diagnostics.gaps` | Retained gaps identify series type, start, end, and gap length. BUSINESS and MARKET daily diagnostics do not flag normal weekends as data gaps; MARKET also excludes the Lotus reference market holiday set. |
+| `diagnostics.fill_evidence` | Lists benchmark/risk-free dates synthesized by `FORWARD_FILL` or `ZERO_FILL` so filled side-series points are distinguishable from source-observed points. |
 | `diagnostics.risk_free_source_quality` | Present when risk-free data is requested; reports raw, normalized, and skipped source-row counts so malformed optional reference rows are auditable. |
 | `benchmark_context` | Present when benchmark was selected and includes resolved `benchmark_id` and `return_source`. |
 | `provenance` | Stateful executions hash the resolved immutable input payload, not only the original lookup request. |
