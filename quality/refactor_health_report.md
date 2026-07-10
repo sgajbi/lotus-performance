@@ -81,7 +81,7 @@ link the commit, command, or CI artifact that proves the change.
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
 | Integration/API/runtime test functions | unknown | 648 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
 | Contract/governance test functions | unknown | 126 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
-| Uncategorized test functions | unknown | 982 | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; issue #411 corrected observability test classification without loosening thresholds |
+| Uncategorized test functions | unknown | 982 | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; issue #420 ratcheted the gate to the current measured preservation baseline |
 
 ## Security And Dependencies
 
@@ -138,6 +138,22 @@ quality-program gap is not lack of aspiration; it is that several requested dime
 repeatably measured or expressed as progressive gates.
 
 ## Latest Local PR-Gate Evidence
+
+Latest test-taxonomy gate posture evidence on `feat/performance-architecture-boundary-refactor`:
+
+1. Ratcheted `make quality-test-taxonomy-gate` from older accepted floors to the current measured
+   preservation baseline: `648` API/runtime test functions, `126` contract/governance test
+   functions, and `982` uncategorized test functions as the enforced ceiling.
+2. Updated the CI wiring test, taxonomy inventory, CI gate map, scorecard, health report,
+   repository context, and review ledger so measured current values and enforced thresholds no
+   longer contradict each other.
+3. Validation passed: `make quality-test-taxonomy-gate`, `make quality-evaluation-gate`,
+   `python -m pytest tests/unit/scripts/test_ci_quality_gate_wiring.py tests/unit/scripts/test_python_test_taxonomy_inventory.py tests/unit/docs/test_public_docs_contract.py -q`, and `make check`.
+4. Documentation/wiki/skill review: quality docs and repo context changed because gate truth
+   changed. Repo-local wiki source did not need a change because no operator workflow or public
+   command changed; `make quality-test-taxonomy-gate` remains the same command with stricter
+   thresholds. Platform skills did not need a change because existing CI-enforcement guidance
+   already requires deterministic gates to match published evidence.
 
 Latest route-to-workflow command boundary evidence on
 `feat/performance-architecture-boundary-refactor`:

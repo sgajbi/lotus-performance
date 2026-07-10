@@ -148,7 +148,7 @@ quality-observability-readiness-gate:
 	python scripts/python_observability_readiness_inventory.py --limit 30 --max-missing 0
 
 quality-test-taxonomy-gate:
-	python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 607 --min-contract-governance-tests 111 --max-uncategorized-tests 1148
+	python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 648 --min-contract-governance-tests 126 --max-uncategorized-tests 982
 
 quality-evaluation-gate:
 	$(MAKE) demo-api-certification

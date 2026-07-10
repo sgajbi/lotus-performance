@@ -32,9 +32,9 @@ def test_test_taxonomy_quality_gate_has_ci_thresholds() -> None:
     target = _makefile_target_definition("quality-test-taxonomy-gate")
 
     assert "scripts/python_test_taxonomy_inventory.py" in target
-    assert "--min-api-runtime-tests 607" in target
-    assert "--min-contract-governance-tests 111" in target
-    assert "--max-uncategorized-tests 1148" in target
+    assert "--min-api-runtime-tests 648" in target
+    assert "--min-contract-governance-tests 126" in target
+    assert "--max-uncategorized-tests 982" in target
 
 
 def test_contract_security_workflows_enforce_domain_and_evaluation_gates() -> None:
