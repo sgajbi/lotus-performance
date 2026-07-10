@@ -11,8 +11,8 @@
   - `GET /integration/runtime-recoveries?queue=compute`
 
 Use this runbook when a downstream risk workflow, API client, alert, or support ticket reports stale
-returns-series freshness, partial coverage, skipped risk-free source rows, retained gaps, async
-result failure, or elevated
+returns-series freshness, partial coverage, side-series fill evidence, skipped risk-free source rows,
+retained gaps, async result failure, or elevated
 `lotus_performance_calculation_supportability_total{operation="returns_series"}` samples.
 
 ## First Response
@@ -30,6 +30,7 @@ result failure, or elevated
 | `diagnostics.freshness="stale"` | The latest selected source evidence is older than the required observation date. | `lotus-performance` triages; source freshness may escalate to `lotus-core`. |
 | `diagnostics.coverage.missing_points > 0` | Returned portfolio points do not cover all required dates under the selected calendar policy. | `lotus-performance` validates policy and source window; `lotus-core` owns missing stateful source facts. |
 | `diagnostics.gaps[]` | A selected portfolio, benchmark, or risk-free series retained a gap after policy application. | `lotus-performance` owns gap diagnostics; upstream source owners own missing facts. |
+| `diagnostics.fill_evidence[]` | A selected benchmark or risk-free side-series point was synthesized by `FORWARD_FILL` or `ZERO_FILL`, not observed directly in the source series. | `lotus-performance` owns policy application; source owners own the original side-series gap when filled points are unexpected. |
 | `diagnostics.risk_free_source_quality.skipped_points > 0` | Stateful risk-free source rows were malformed, unusable, or used unsupported day-count conventions. | `lotus-performance` owns normalization; `lotus-core` owns source payload correction. |
 | `diagnostics.warnings[]` | Non-fatal policy degradation, including max-gap tolerance warnings. | `lotus-performance`. |
 
@@ -76,6 +77,7 @@ Record these fields in the incident or GitHub issue:
 - `diagnostics.freshness`
 - `diagnostics.coverage.requested_points`, `returned_points`, and `missing_points`
 - count of `diagnostics.gaps`
+- count of `diagnostics.fill_evidence` and bounded filled-date samples when present
 - `diagnostics.risk_free_source_quality` counts when present
 - observed metric labels for `operation="returns_series"`
 - owner boundary selected for follow-up

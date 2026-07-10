@@ -29,6 +29,7 @@ from app.models.returns_series import (
     ReturnsSeriesResponse,
     RiskFreeSourceQuality,
     SeriesCoverage,
+    SeriesFillEvidence,
     SeriesGap,
 )
 from app.observability import (
@@ -778,11 +779,17 @@ def _selected_series_common_dates(
     benchmark_df: pd.DataFrame | None,
     risk_free_df: pd.DataFrame | None,
 ) -> set[Any]:
-    common_dates = set(portfolio_df["date"])
+    common_dates = set(_valid_return_dates(portfolio_df))
     for selected_df in (benchmark_df, risk_free_df):
         if selected_df is not None:
-            common_dates &= set(selected_df["date"])
+            common_dates &= set(_valid_return_dates(selected_df))
     return common_dates
+
+
+def _valid_return_dates(df: pd.DataFrame) -> pd.Series:
+    if "return_value" not in df.columns:
+        return df["date"]
+    return df.loc[df["return_value"].notna(), "date"]
 
 
 def _apply_strict_intersection_policy(
@@ -848,6 +855,55 @@ def _apply_selected_fill_method(
         fill_method=fill_method,
     )
     return portfolio_df, benchmark_df, risk_free_df
+
+
+def _fill_evidence_for_side_series(
+    *,
+    series_type: Literal["benchmark", "risk_free"],
+    source_df: pd.DataFrame | None,
+    returned_df: pd.DataFrame | None,
+    fill_method: FillMethod,
+) -> SeriesFillEvidence | None:
+    if fill_method == FillMethod.NONE or source_df is None or returned_df is None:
+        return None
+    source_dates = set(_valid_return_dates(source_df))
+    filled_rows = returned_df[
+        ~returned_df["date"].isin(source_dates) & returned_df["return_value"].notna()
+    ].sort_values("date")
+    if filled_rows.empty:
+        return None
+    filled_dates = [timestamp.date() for timestamp in filled_rows["date"].head(10)]
+    return SeriesFillEvidence(
+        series_type=series_type,
+        fill_method=fill_method,
+        filled_points=len(filled_rows),
+        filled_dates_sample=filled_dates,
+    )
+
+
+def _returns_series_fill_evidence(
+    *,
+    request: ReturnsSeriesRequest,
+    source_benchmark_df: pd.DataFrame | None,
+    source_risk_free_df: pd.DataFrame | None,
+    returned_benchmark_df: pd.DataFrame | None,
+    returned_risk_free_df: pd.DataFrame | None,
+) -> list[SeriesFillEvidence]:
+    evidence = [
+        _fill_evidence_for_side_series(
+            series_type="benchmark",
+            source_df=source_benchmark_df,
+            returned_df=returned_benchmark_df,
+            fill_method=request.data_policy.fill_method,
+        ),
+        _fill_evidence_for_side_series(
+            series_type="risk_free",
+            source_df=source_risk_free_df,
+            returned_df=returned_risk_free_df,
+            fill_method=request.data_policy.fill_method,
+        ),
+    ]
+    return [entry for entry in evidence if entry is not None]
 
 
 def _returns_series_input_dataframe(
@@ -1539,6 +1595,7 @@ def _build_returns_series_diagnostics(
     freshness_benchmark_df: pd.DataFrame | None = None,
     freshness_risk_free_df: pd.DataFrame | None = None,
     risk_free_source_quality: RiskFreeSourceQuality | None = None,
+    fill_evidence: list[SeriesFillEvidence] | None = None,
 ) -> _ReturnsSeriesDiagnosticsResult:
     requested_points = date_range_count(
         resolved_window, frequency=request.frequency, calendar_policy=request.data_policy.calendar_policy
@@ -1587,6 +1644,7 @@ def _build_returns_series_diagnostics(
                 freshness_risk_free_df=freshness_risk_free_df,
             ),
             gaps=gaps,
+            fill_evidence=fill_evidence or [],
             policy_applied=request.data_policy,
             risk_free_source_quality=_returns_series_risk_free_source_quality(
                 request=request,
@@ -1935,18 +1993,26 @@ def _normalize_returns_series_execution_frames(
     benchmark_df: pd.DataFrame | None,
     risk_free_df: pd.DataFrame | None,
 ) -> _ReturnsSeriesNormalizedFrames:
+    if request.data_policy.fill_method != FillMethod.NONE:
+        portfolio_df, benchmark_df, risk_free_df = _apply_selected_fill_method(
+            portfolio_df=portfolio_df,
+            benchmark_df=benchmark_df,
+            risk_free_df=risk_free_df,
+            fill_method=request.data_policy.fill_method,
+        )
     portfolio_df, benchmark_df, risk_free_df = _apply_strict_intersection_policy(
         portfolio_df=portfolio_df,
         benchmark_df=benchmark_df,
         risk_free_df=risk_free_df,
         missing_data_policy=request.data_policy.missing_data_policy,
     )
-    portfolio_df, benchmark_df, risk_free_df = _apply_selected_fill_method(
-        portfolio_df=portfolio_df,
-        benchmark_df=benchmark_df,
-        risk_free_df=risk_free_df,
-        fill_method=request.data_policy.fill_method,
-    )
+    if request.data_policy.fill_method == FillMethod.NONE:
+        portfolio_df, benchmark_df, risk_free_df = _apply_selected_fill_method(
+            portfolio_df=portfolio_df,
+            benchmark_df=benchmark_df,
+            risk_free_df=risk_free_df,
+            fill_method=request.data_policy.fill_method,
+        )
     return _ReturnsSeriesNormalizedFrames(
         portfolio_df=portfolio_df,
         benchmark_df=benchmark_df,
@@ -1980,6 +2046,13 @@ def _build_returns_series_execution_result(
         benchmark_df=benchmark_df,
         risk_free_df=risk_free_df,
     )
+    fill_evidence = _returns_series_fill_evidence(
+        request=request,
+        source_benchmark_df=benchmark_df,
+        source_risk_free_df=risk_free_df,
+        returned_benchmark_df=normalized_frames.benchmark_df,
+        returned_risk_free_df=normalized_frames.risk_free_df,
+    )
     point_outputs = _build_returns_series_point_outputs(
         portfolio_df=normalized_frames.portfolio_df,
         benchmark_df=normalized_frames.benchmark_df,
@@ -2000,6 +2073,7 @@ def _build_returns_series_execution_result(
         freshness_benchmark_df=freshness_benchmark_df if freshness_benchmark_df is not None else benchmark_df,
         freshness_risk_free_df=freshness_risk_free_df if freshness_risk_free_df is not None else risk_free_df,
         risk_free_source_quality=context.risk_free_source_quality,
+        fill_evidence=fill_evidence,
     )
     response = _build_returns_series_response(
         request=request,

@@ -44,8 +44,8 @@ Canonical Benchmark Return Series (`series.benchmark_returns`)
 - `WEEKLY`/`MONTHLY`: `B_k = prod_{t in k}(1 + b_t) - 1`
 
 4. Apply post-processing policies relative to portfolio dates:
-- strict intersection
-- optional forward-fill / zero-fill reindexing
+- optional forward-fill / zero-fill reindexing of the benchmark side series
+- strict intersection after fill, retaining only portfolio dates with usable selected side-series values
 
 ## Step-by-Step Computation
 1. Validate request and resolve window.
@@ -76,6 +76,8 @@ Primary metric field:
 
 Diagnostics impact:
 - benchmark gaps are included in `diagnostics.gaps[]`
+- benchmark dates synthesized by `FORWARD_FILL` or `ZERO_FILL` are included in
+  `diagnostics.fill_evidence[]`
 - alignment/fill affects returned benchmark points
 
 ## Worked Example
