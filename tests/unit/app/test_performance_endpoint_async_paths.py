@@ -351,8 +351,16 @@ async def test_attribution_endpoint_maps_unexpected_resolution_errors_to_http_50
         await attribution_calculation_workflow_service.calculate_attribution_workflow(request)
 
     assert exc_info.value.status_code == 500
-    assert "attribution blew up" in str(exc_info.value.detail)
-    assert "attribution blew up" in str(failure_capture["message"])
+    assert (
+        exc_info.value.detail
+        == "Attribution request resolution failed unexpectedly. Use the correlation_id for support."
+    )
+    assert (
+        failure_capture["message"]
+        == "Attribution request resolution failed unexpectedly. Use the correlation_id for support."
+    )
+    assert "attribution blew up" not in str(exc_info.value.detail)
+    assert "attribution blew up" not in str(failure_capture["message"])
 
 
 def test_attribution_input_count_prefers_nested_stateless_payload():

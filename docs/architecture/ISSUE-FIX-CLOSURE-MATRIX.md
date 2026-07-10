@@ -20,7 +20,7 @@ Until then, the local status can be `Fixed locally` while the GitHub issue remai
 
 Latest local pre-PR verification for this batch:
 
-- Local `make check`: passed with `3301 passed`.
+- Local `make test-unit`: passed with `3314 passed`.
 - `make quality-test-taxonomy-gate`: passed with 298 modules, 3,461 source test functions, 663
   API/runtime test functions, 133 contract/governance test functions, and 959 uncategorized test
   functions under the unchanged 969 ceiling.

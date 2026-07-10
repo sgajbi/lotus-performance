@@ -4,6 +4,7 @@ from uuid import uuid4
 import pytest
 
 from app.models.lineage_responses import LineageManifest
+from app.services.lineage_artifact_classification import lineage_artifact_metadata_by_name
 from app.services.lineage_artifact_service import (
     downloadable_lineage_record,
     lineage_artifact_links,
@@ -96,6 +97,7 @@ def test_lineage_artifact_links_skip_manifest_and_build_controlled_urls():
 
     links = lineage_artifact_links(
         artifact_names=["manifest.json", "request.json"],
+        artifact_metadata=lineage_artifact_metadata_by_name(artifact_names=["request.json"]),
         artifact_url_factory=lambda artifact_name: (
             f"http://testserver/lineage_artifact_file/{calculation_id}/{artifact_name}"
         ),
@@ -103,6 +105,8 @@ def test_lineage_artifact_links_skip_manifest_and_build_controlled_urls():
 
     assert list(links) == ["request.json"]
     assert links["request.json"].url == f"http://testserver/lineage_artifact_file/{calculation_id}/request.json"
+    assert links["request.json"].access_classification == "operator_only"
+    assert links["request.json"].sensitivity == "raw_sensitive_payload"
 
 
 def test_read_lineage_manifest_payload_maps_storage_errors_to_unavailable(mocker):
@@ -142,6 +146,7 @@ def test_manifest_matches_record_allows_sorted_artifact_equivalence_and_rejects_
         timestamp_utc="2026-01-01T00:00:00Z",
         status="complete",
         artifact_names=["request.json", "response.json"],
+        artifacts=lineage_artifact_metadata_by_name(artifact_names=["request.json", "response.json"]),
     )
 
     assert manifest_matches_record(manifest=manifest, record=record)
