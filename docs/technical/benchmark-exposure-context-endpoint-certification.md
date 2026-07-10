@@ -56,6 +56,8 @@ The certification suite checks every output family:
 - resolved `benchmark_id`, `benchmark_version`, `as_of_date`, `window`, `frequency`, and
   `reporting_currency`;
 - retrieval counters for benchmark market-series and index catalog calls;
+- retrieval metadata quality with bounded reason code
+  `MALFORMED_UPSTREAM_RETRIEVAL_METADATA_COUNT` when optional upstream telemetry is malformed;
 - `POSITION` rows carry `component_id`, `group_key`, `group_label`, and decimal `weight`;
 - aggregate `SECTOR`, `ASSET_CLASS`, and `ISSUER` rows omit `component_id` and sum component
   weights by date and group;
@@ -75,6 +77,14 @@ stateful input service:
 
 If only `POSITION` is requested, the endpoint does not fetch index catalog data. This keeps the
 simple downstream path cheaper and avoids unnecessary upstream dependency.
+
+Optional upstream `retrieval_metadata` is anti-corrupted at the lotus-performance boundary. Missing
+metadata defaults to zero counters. Malformed optional count fields such as non-numeric strings,
+booleans, non-integral floats, zero, or negative values no longer fail the benchmark exposure
+workflow with an implementation exception; the endpoint defaults the affected counters and emits
+`metadata.retrieval_metadata_quality.status=degraded`, source-safe `invalid_fields`, and
+`MALFORMED_UPSTREAM_RETRIEVAL_METADATA_COUNT`. This distinguishes malformed telemetry from missing
+benchmark exposure rows without exposing raw upstream values.
 
 ## Downstream Consumers
 
@@ -171,8 +181,9 @@ Coverage added or confirmed:
   frequency rejection;
 - service tests for assignment resolution, explicit benchmark bypass, grouping aggregation,
   pagination, unsupported shapes, upstream failure mapping, and retrieval metadata;
-- API integration tests for lineage metadata, every supported grouping dimension, row weight
-  semantics, pagination, issuer rejection, and frequency rejection;
+- API integration tests for lineage metadata, malformed optional retrieval telemetry degradation,
+  every supported grouping dimension, row weight semantics, pagination, issuer rejection, and
+  frequency rejection;
 - OpenAPI regression requiring purpose text, source-of-record wording, request/response field
   descriptions, and examples;
 - downstream lotus-risk unit tests verifying request payload shape, lineage validation, pagination,

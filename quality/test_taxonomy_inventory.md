@@ -23,8 +23,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 301 |
-| Test functions inventoried | 3488 |
-| Integration/API/runtime test functions | 664 |
+| Test functions inventoried | 3492 |
+| Integration/API/runtime test functions | 665 |
 | Contract/governance test functions | 140 |
 
 ## Test Functions By Suite
@@ -33,19 +33,19 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | --- | ---: | ---: |
 | benchmarks | 9 | 18 |
 | e2e | 1 | 21 |
-| integration | 28 | 337 |
-| unit | 263 | 3112 |
+| integration | 28 | 338 |
+| unit | 263 | 3115 |
 
 ## Test Functions By Family
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 1563 |
-| api_or_runtime | 664 |
+| analytics_domain | 1565 |
+| api_or_runtime | 665 |
 | contract_or_governance | 140 |
 | observability_or_readiness | 350 |
 | quality_or_security | 151 |
-| uncategorized | 966 |
+| uncategorized | 968 |
 
 ## Largest Test Modules
 
@@ -71,7 +71,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | 18 | `tests/integration/test_contribution_api.py` | integration | 41 | analytics_domain, api_or_runtime |
 | 19 | `tests/unit/services/test_operator_action_lease_service.py` | unit | 40 | uncategorized |
 | 20 | `tests/integration/test_performance_api.py` | integration | 39 | api_or_runtime |
-| 21 | `tests/unit/services/test_benchmark_exposure_context_service.py` | unit | 34 | analytics_domain |
+| 21 | `tests/unit/services/test_benchmark_exposure_context_service.py` | unit | 35 | analytics_domain |
 | 22 | `tests/unit/test_observability.py` | unit | 34 | observability_or_readiness |
 | 23 | `tests/unit/engine/test_contribution.py` | unit | 33 | analytics_domain |
 | 24 | `tests/unit/models/test_twr_requests.py` | unit | 32 | analytics_domain |
@@ -88,7 +88,7 @@ The AST inventory counts test function definitions, while `pytest --collect-only
 pytest items including parametrized cases. The two values are intentionally different and
 complementary: collected tests show execution breadth, while this report shows source test-module
 and test-function distribution. The current suite has meaningful API/runtime and
-contract/governance coverage, but 965 test functions remain uncategorized by the first-wave
+contract/governance coverage, but 968 test functions remain uncategorized by the first-wave
 taxonomy and should be reduced through normal refactor slices rather than allowed to grow.
 
 The runtime recovery queue-result boundary slice kept the promoted gate stable by classifying
@@ -156,6 +156,10 @@ preserving the existing `969` ceiling.
 Issue #435 added governed MARKET calendar source, future-holiday, diagnostics metadata, and
 out-of-horizon rejection coverage, raising source test functions to `3488`, API/runtime tests to
 `664`, and analytics-domain tests to `1563` while preserving the existing uncategorized ceiling.
+Issue #434 added shared retrieval metadata anti-corruption coverage plus benchmark exposure API
+degraded-telemetry evidence, raising source test functions to `3492`, API/runtime tests to `665`,
+analytics-domain tests to `1565`, and uncategorized tests to `968` while preserving the existing
+`969` uncategorized ceiling.
 
 This slice promotes the stable part of the taxonomy from report-only measurement to a
 regression-blocking evaluation gate. `make quality-test-taxonomy-gate` fails if API/runtime tests

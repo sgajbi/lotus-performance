@@ -1000,6 +1000,9 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - `POSITION` rows carry `component_id`; aggregate `SECTOR`, `ASSET_CLASS`, and `ISSUER` rows omit `component_id`
   - pagination uses `page.page_size` and opaque `page.next_page_token` values returned by the endpoint
   - lineage metadata includes `source_system="lotus-core"` and `served_by="lotus-performance"`
+  - malformed optional upstream `retrieval_metadata` counts default affected counters and set
+    `metadata.retrieval_metadata_quality.status="degraded"` with
+    `MALFORMED_UPSTREAM_RETRIEVAL_METADATA_COUNT`
   - downstream certification and consumer posture are recorded in
     `docs/technical/benchmark-exposure-context-endpoint-certification.md`
 

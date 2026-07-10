@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from numbers import Real
 
 from app.services.stateful_input_service import RetrievalMetadata
+
+MALFORMED_RETRIEVAL_METADATA_COUNT_REASON = "MALFORMED_UPSTREAM_RETRIEVAL_METADATA_COUNT"
 
 
 def parse_retrieval_metadata(
@@ -19,17 +21,28 @@ def parse_retrieval_metadata(
         return RetrievalMetadata(chunk_count=default_chunk_count, page_count=default_page_count)
     chunk_count = metadata_raw.get("chunk_count")
     page_count = metadata_raw.get("page_count")
+    parsed_chunk_count, invalid_chunk_count = _metadata_count(
+        chunk_count,
+        default_value=default_chunk_count,
+        coerce_numeric_counts=coerce_numeric_counts,
+    )
+    parsed_page_count, invalid_page_count = _metadata_count(
+        page_count,
+        default_value=default_page_count,
+        coerce_numeric_counts=coerce_numeric_counts,
+    )
+    invalid_count_fields = tuple(
+        field_name
+        for field_name, invalid in (
+            ("retrieval_metadata.chunk_count", invalid_chunk_count),
+            ("retrieval_metadata.page_count", invalid_page_count),
+        )
+        if invalid
+    )
     return RetrievalMetadata(
-        chunk_count=_metadata_count(
-            chunk_count,
-            default_value=default_chunk_count,
-            coerce_numeric_counts=coerce_numeric_counts,
-        ),
-        page_count=_metadata_count(
-            page_count,
-            default_value=default_page_count,
-            coerce_numeric_counts=coerce_numeric_counts,
-        ),
+        chunk_count=parsed_chunk_count,
+        page_count=parsed_page_count,
+        invalid_count_fields=invalid_count_fields,
     )
 
 
@@ -60,21 +73,33 @@ def _metadata_count(
     *,
     default_value: int,
     coerce_numeric_counts: bool,
-) -> int:
+) -> tuple[int, bool]:
+    if value is None:
+        return default_value, False
     if type(value) is int and value > 0:
-        return value
+        return value, False
     if coerce_numeric_counts:
         coerced_count = _coerced_metadata_count(value)
         if coerced_count is not None:
-            return coerced_count
-    return default_value
+            return coerced_count, False
+    return default_value, True
 
 
 def _coerced_metadata_count(value: object) -> int | None:
     if isinstance(value, str):
-        return int(value)
+        return _positive_integral_decimal_or_none(value)
     if isinstance(value, bool):
         return None
     if isinstance(value, Real):
-        return int(Decimal(str(value)))
+        return _positive_integral_decimal_or_none(str(value))
     return None
+
+
+def _positive_integral_decimal_or_none(value: str) -> int | None:
+    try:
+        decimal_value = Decimal(value)
+    except (InvalidOperation, ValueError):
+        return None
+    if decimal_value <= 0 or decimal_value != decimal_value.to_integral_value():
+        return None
+    return int(decimal_value)

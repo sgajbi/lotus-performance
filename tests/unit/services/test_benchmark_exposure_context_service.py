@@ -154,6 +154,12 @@ async def test_build_benchmark_exposure_context_groups_and_aligns_weights() -> N
         "benchmark_market_series_page_count": 2,
         "index_catalog_page_count": 1,
     }
+    assert response.metadata.retrieval_metadata_quality == {
+        "status": "valid",
+        "warning_count": 0,
+        "reason_codes": [],
+        "invalid_fields": [],
+    }
     assert service.index_catalog_calls == [
         {
             "calculation_id": response.calculation_id,
@@ -197,6 +203,32 @@ def test_benchmark_exposure_metadata_projects_retrieval_counters_and_correlation
         "benchmark_market_series_chunk_count": 2,
         "benchmark_market_series_page_count": 3,
         "index_catalog_page_count": 1,
+    }
+    assert metadata.retrieval_metadata_quality == {
+        "status": "valid",
+        "warning_count": 0,
+        "reason_codes": [],
+        "invalid_fields": [],
+    }
+
+
+def test_benchmark_exposure_metadata_degrades_malformed_retrieval_telemetry() -> None:
+    metadata = _benchmark_exposure_metadata(
+        request=_request(),
+        market_payload={"retrieval_metadata": {"chunk_count": "two", "page_count": 2.5}},
+        index_catalog_count=1,
+    )
+
+    assert metadata.retrieval_metadata == {
+        "benchmark_market_series_chunk_count": 0,
+        "benchmark_market_series_page_count": 0,
+        "index_catalog_page_count": 1,
+    }
+    assert metadata.retrieval_metadata_quality == {
+        "status": "degraded",
+        "warning_count": 2,
+        "reason_codes": ["MALFORMED_UPSTREAM_RETRIEVAL_METADATA_COUNT"],
+        "invalid_fields": ["retrieval_metadata.chunk_count", "retrieval_metadata.page_count"],
     }
 
 

@@ -1052,6 +1052,8 @@ Contract notes:
 - `ISSUER` grouping uses `classification_labels.issuer_id` and `issuer_name` from lotus-core index catalog records
 - row weights are decimal fractions, not percentages
 - pagination uses `page.page_size` and `page.next_page_token`
+- malformed optional upstream `retrieval_metadata` counts default affected counters and expose
+  `metadata.retrieval_metadata_quality` with `MALFORMED_UPSTREAM_RETRIEVAL_METADATA_COUNT`
 - certification evidence lives in
   `docs/technical/benchmark-exposure-context-endpoint-certification.md`
 
@@ -1101,7 +1103,13 @@ Sample response excerpt:
   "metadata": {
     "source_system": "lotus-core",
     "served_by": "lotus-performance",
-    "contract_version": "v1"
+    "contract_version": "v1",
+    "retrieval_metadata_quality": {
+      "status": "valid",
+      "warning_count": 0,
+      "reason_codes": [],
+      "invalid_fields": []
+    }
   }
 }
 ```

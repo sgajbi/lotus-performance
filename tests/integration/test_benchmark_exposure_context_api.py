@@ -61,6 +61,13 @@ class _RecordingStatefulInputService:
         )
 
 
+class _MalformedRetrievalMetadataStatefulInputService(_RecordingStatefulInputService):
+    async def get_benchmark_market_series(self, **kwargs):
+        status_code, payload = await super().get_benchmark_market_series(**kwargs)
+        payload["retrieval_metadata"] = {"chunk_count": "two", "page_count": 2.5}
+        return status_code, payload
+
+
 def test_benchmark_exposure_context_api_returns_performance_aligned_view(monkeypatch):
     stateful_service = _RecordingStatefulInputService()
     monkeypatch.setattr(
@@ -141,6 +148,40 @@ def test_benchmark_exposure_context_api_returns_performance_aligned_view(monkeyp
     assert stateful_service.assignment_calls[0]["portfolio_id"] == "PB_SG_GLOBAL_BAL_001"
     assert stateful_service.market_series_calls[0]["series_fields"] == ["component_weight"]
     assert stateful_service.market_series_calls[0]["target_currency"] == "USD"
+
+
+def test_benchmark_exposure_context_api_degrades_malformed_retrieval_metadata(monkeypatch):
+    stateful_service = _MalformedRetrievalMetadataStatefulInputService()
+    monkeypatch.setattr(
+        "app.services.benchmark_exposure_context_workflow_service.build_stateful_input_service",
+        lambda *, settings: stateful_service,
+    )
+
+    payload = {
+        "portfolio_id": "PB_SG_GLOBAL_BAL_001",
+        "as_of_date": "2026-01-02",
+        "window": {"start_date": "2026-01-02", "end_date": "2026-01-02"},
+        "frequency": "DAILY",
+        "grouping_dimensions": ["POSITION"],
+    }
+
+    with TestClient(app) as client:
+        response = client.post("/integration/benchmarks/exposure-context", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["rows"]
+    assert body["metadata"]["retrieval_metadata"] == {
+        "benchmark_market_series_chunk_count": 0,
+        "benchmark_market_series_page_count": 0,
+        "index_catalog_page_count": 0,
+    }
+    assert body["metadata"]["retrieval_metadata_quality"] == {
+        "status": "degraded",
+        "warning_count": 2,
+        "reason_codes": ["MALFORMED_UPSTREAM_RETRIEVAL_METADATA_COUNT"],
+        "invalid_fields": ["retrieval_metadata.chunk_count", "retrieval_metadata.page_count"],
+    }
 
 
 def test_benchmark_exposure_context_api_returns_issuer_groups(monkeypatch) -> None:

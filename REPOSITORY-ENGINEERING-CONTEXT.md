@@ -114,19 +114,26 @@ Current repository posture:
     `contracts/domain-data-products/lotus-performance-upstream-dependency-inventory.v1.json` and
     validated by `make domain-product-validate`. Benchmark composition-window, benchmark
     market-series, index catalog, index price-series, risk-free series, and other declared source
-    families map to repo-native consumer declarations; benchmark definition, benchmark vendor
-    return-series, and FX operational-read dependencies carry time-bound exception records until
-    upstream producer declarations or renewed owner-approved operational-read posture exist.
-17. HTTP boundary hardening is centralized in `app.http_security`: `HTTP_ALLOWED_HOSTS` controls
+   families map to repo-native consumer declarations; benchmark definition, benchmark vendor
+   return-series, and FX operational-read dependencies carry time-bound exception records until
+   upstream producer declarations or renewed owner-approved operational-read posture exist.
+17. Optional upstream `retrieval_metadata` is source telemetry, not required economic evidence.
+    Shared parser behavior must anti-corrupt malformed count fields at the boundary: positive
+    integer and positive integral legacy numeric-string/float counts are preserved, while
+    booleans, non-numeric strings, non-integral floats, zero, and negative values default to the
+    caller's configured safe counters and record source-safe invalid field names. Benchmark
+    exposure responses expose `metadata.retrieval_metadata_quality` with bounded
+    `MALFORMED_UPSTREAM_RETRIEVAL_METADATA_COUNT` reason codes when optional telemetry degrades.
+18. HTTP boundary hardening is centralized in `app.http_security`: `HTTP_ALLOWED_HOSTS` controls
     host allow-listing, `CORS_ALLOWED_ORIGINS` controls explicit browser origins, standard security
     headers are emitted on success and error responses, and `HTTP_SECURITY_HSTS_ENABLED` is used
     only when the service owns the HTTPS boundary rather than delegating TLS to ingress. Local
     canonical Docker deployments must allow `host.docker.internal` because `lotus-gateway` reaches
     `lotus-performance` through that Docker-to-host alias.
-18. API runtime serialization uses standard FastAPI/Pydantic response-model behavior. Do not add
+19. API runtime serialization uses standard FastAPI/Pydantic response-model behavior. Do not add
     global null stripping: OpenAPI nullable fields must be returned as explicit JSON `null` values
     unless a route explicitly documents sparse `response_model_exclude_none=True` behavior.
-19. MWR cash-flow methodology is source-owned and window-bounded. Stateless MWR rejects cash-flow
+20. MWR cash-flow methodology is source-owned and window-bounded. Stateless MWR rejects cash-flow
     dates outside the resolved measurement window with `MWR_CASH_FLOW_OUT_OF_WINDOW`; stateful MWR
     uses the selected stateful input window, preserves source transaction/event lifecycle identity
     when supplied by `lotus-core`, reports bounded `source_cashflow_quality` inclusion/exclusion

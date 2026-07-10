@@ -15,8 +15,11 @@ from app.models.benchmark_exposure_context import (
 )
 from app.observability import source_product_correlation_id
 from app.services.offset_pagination import slice_offset_page
-from app.services.stateful_input_service import StatefulInputService
-from app.services.stateful_retrieval_metadata import parse_zero_default_retrieval_metadata
+from app.services.stateful_input_service import RetrievalMetadata, StatefulInputService
+from app.services.stateful_retrieval_metadata import (
+    MALFORMED_RETRIEVAL_METADATA_COUNT_REASON,
+    parse_zero_default_retrieval_metadata,
+)
 from app.services.stateful_upstream_errors import raise_for_stateful_source_unavailable
 from core.errors import (
     HTTP_400_BAD_REQUEST,
@@ -131,7 +134,20 @@ def _benchmark_exposure_metadata(
             "benchmark_market_series_page_count": market_retrieval.page_count,
             "index_catalog_page_count": index_catalog_count,
         },
+        retrieval_metadata_quality=_retrieval_metadata_quality(market_retrieval),
     )
+
+
+def _retrieval_metadata_quality(metadata: RetrievalMetadata) -> dict[str, int | list[str] | str]:
+    invalid_fields = sorted(metadata.invalid_count_fields)
+    if not invalid_fields:
+        return {"status": "valid", "warning_count": 0, "reason_codes": [], "invalid_fields": []}
+    return {
+        "status": "degraded",
+        "warning_count": len(invalid_fields),
+        "reason_codes": [MALFORMED_RETRIEVAL_METADATA_COUNT_REASON],
+        "invalid_fields": invalid_fields,
+    }
 
 
 def _component_series_from_market_response(

@@ -169,6 +169,21 @@ class BenchmarkExposureMetadata(BaseModel):
         description="Upstream retrieval counters such as chunk and page counts.",
         examples=[{"benchmark_market_series_chunk_count": 1, "index_catalog_page_count": 1}],
     )
+    retrieval_metadata_quality: dict[str, int | list[str] | Literal["valid", "degraded"]] = Field(
+        default_factory=lambda: {"status": "valid", "warning_count": 0, "reason_codes": [], "invalid_fields": []},
+        description=(
+            "Source-safe quality summary for optional upstream retrieval telemetry. Malformed optional telemetry "
+            "degrades the counters and records bounded reason codes without exposing raw upstream values."
+        ),
+        examples=[
+            {
+                "status": "degraded",
+                "warning_count": 1,
+                "reason_codes": ["MALFORMED_UPSTREAM_RETRIEVAL_METADATA_COUNT"],
+                "invalid_fields": ["retrieval_metadata.chunk_count"],
+            }
+        ],
+    )
 
 
 class BenchmarkExposureContextResponse(BaseModel):
@@ -237,6 +252,12 @@ class BenchmarkExposureContextResponse(BaseModel):
                             "benchmark_market_series_chunk_count": 1,
                             "benchmark_market_series_page_count": 1,
                             "index_catalog_page_count": 1,
+                        },
+                        "retrieval_metadata_quality": {
+                            "status": "valid",
+                            "warning_count": 0,
+                            "reason_codes": [],
+                            "invalid_fields": [],
                         },
                     },
                 }

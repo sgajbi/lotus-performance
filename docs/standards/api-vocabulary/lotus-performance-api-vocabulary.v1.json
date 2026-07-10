@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-07-10T15:05:58.945477+00:00",
+  "generatedAt": "2026-07-10T15:14:24.519564+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.access_classification",
@@ -5798,6 +5798,22 @@
       "canonicalTerm": "retrieval_metadata",
       "preferredName": "retrieval_metadata",
       "description": "Upstream retrieval counters such as chunk and page counts.",
+      "example": {
+        "key": "value"
+      },
+      "type": "object",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "object"
+      ]
+    },
+    {
+      "semanticId": "lotus.retrieval_metadata_quality",
+      "canonicalTerm": "retrieval_metadata_quality",
+      "preferredName": "retrieval_metadata_quality",
+      "description": "Source-safe quality summary for optional upstream retrieval telemetry. Malformed optional telemetry degrades the counters and records bounded reason codes without exposing raw upstream values.",
       "example": {
         "key": "value"
       },
@@ -13076,6 +13092,14 @@
             "type": "object",
             "semanticId": "lotus.retrieval_metadata",
             "attributeRef": "#/attributeCatalog/lotus.retrieval_metadata"
+          },
+          {
+            "name": "metadata.retrieval_metadata_quality",
+            "location": "body",
+            "required": false,
+            "type": "object",
+            "semanticId": "lotus.retrieval_metadata_quality",
+            "attributeRef": "#/attributeCatalog/lotus.retrieval_metadata_quality"
           }
         ]
       }
