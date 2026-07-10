@@ -138,8 +138,9 @@ Stateful lotus-core fan-out uses the shared upstream resilience layer and a life
 `httpx.AsyncClient` pool under the FastAPI lifespan. Tune `STATEFUL_INPUT_MAX_CONCURRENT_CHUNKS`
 together with `UPSTREAM_HTTP_MAX_CONNECTIONS`, `UPSTREAM_HTTP_MAX_KEEPALIVE_CONNECTIONS`, and
 `UPSTREAM_HTTP_KEEPALIVE_EXPIRY_SECONDS` when stateful analytics show connection pressure or
-upstream keep-alive churn; do not create a separate runtime service for this class of issue without
-workload-isolation evidence.
+upstream keep-alive churn. Startup validation rejects zero or negative connection limits and
+keep-alive expiry values before request execution; do not create a separate runtime service for
+this class of issue without workload-isolation evidence.
 
 For compute executor incidents, distinguish calculation failure from durable success-finalization
 failure. A `success_result_publication_failed` event means the calculation completed but the async

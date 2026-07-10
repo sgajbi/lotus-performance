@@ -102,17 +102,22 @@ async def test_post_with_retry_raises_after_max_retries(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_post_with_retry_returns_exhausted_retries_for_invalid_retry_config():
-    status, payload = await post_with_retry(
-        url="http://pas/integration",
-        timeout_seconds=1.0,
-        json_body={"x": 1},
-        headers={"X-Correlation-Id": "cid"},
-        max_retries=-1,
-        backoff_seconds=0.0,
-    )
-    assert status == 503
-    assert payload["detail"] == "upstream communication failure: exhausted retries"
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    [
+        ({"timeout_seconds": 0.0, "max_retries": 0, "backoff_seconds": 0.0}, "timeout_seconds"),
+        ({"timeout_seconds": 1.0, "max_retries": -1, "backoff_seconds": 0.0}, "max_retries"),
+        ({"timeout_seconds": 1.0, "max_retries": 0, "backoff_seconds": -0.1}, "backoff_seconds"),
+    ],
+)
+async def test_post_with_retry_rejects_invalid_retry_controls(kwargs, message):
+    with pytest.raises(ValueError, match=message):
+        await post_with_retry(
+            url="http://pas/integration",
+            json_body={"x": 1},
+            headers={"X-Correlation-Id": "cid"},
+            **kwargs,
+        )
 
 
 def test_response_payload_wraps_non_json_and_non_dict_payloads():
@@ -319,6 +324,28 @@ async def test_default_fallback_retry_policy_desynchronizes_concurrent_delay_pat
     )
 
     assert sorted(delays) == [0.2, 0.30000000000000004]
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    [
+        (
+            {"max_connections": 0, "max_keepalive_connections": 0, "keepalive_expiry_seconds": 1.0},
+            "max_connections",
+        ),
+        (
+            {"max_connections": 1, "max_keepalive_connections": -1, "keepalive_expiry_seconds": 1.0},
+            "max_keepalive_connections",
+        ),
+        (
+            {"max_connections": 1, "max_keepalive_connections": 0, "keepalive_expiry_seconds": 0.0},
+            "keepalive_expiry_seconds",
+        ),
+    ],
+)
+def test_configure_upstream_http_client_pool_rejects_invalid_pool_controls(kwargs, message):
+    with pytest.raises(ValueError, match=message):
+        configure_upstream_http_client_pool(**kwargs)
 
 
 @pytest.mark.asyncio

@@ -15,15 +15,15 @@ and quality family without executing tests or requiring coverage data.
 
 ```powershell
 python scripts/python_test_taxonomy_inventory.py --limit 30
-python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 651 --min-contract-governance-tests 128 --max-uncategorized-tests 982
+python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-tests 651 --min-contract-governance-tests 128 --max-uncategorized-tests 969
 ```
 
 ## Summary
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 292 |
-| Test functions inventoried | 3432 |
+| Test modules inventoried | 293 |
+| Test functions inventoried | 3436 |
 | Integration/API/runtime test functions | 651 |
 | Contract/governance test functions | 128 |
 
@@ -34,7 +34,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 18 |
 | e2e | 1 | 21 |
 | integration | 27 | 327 |
-| unit | 255 | 3066 |
+| unit | 256 | 3070 |
 
 ## Test Functions By Family
 
@@ -43,9 +43,9 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | analytics_domain | 1549 |
 | api_or_runtime | 651 |
 | contract_or_governance | 128 |
-| observability_or_readiness | 324 |
-| quality_or_security | 139 |
-| uncategorized | 982 |
+| observability_or_readiness | 338 |
+| quality_or_security | 142 |
+| uncategorized | 969 |
 
 ## Largest Test Modules
 
@@ -88,7 +88,7 @@ The AST inventory counts test function definitions, while `pytest --collect-only
 pytest items including parametrized cases. The two values are intentionally different and
 complementary: collected tests show execution breadth, while this report shows source test-module
 and test-function distribution. The current suite has meaningful API/runtime and
-contract/governance coverage, but 982 test functions remain uncategorized by the first-wave
+contract/governance coverage, but 969 test functions remain uncategorized by the first-wave
 taxonomy and should be reduced through normal refactor slices rather than allowed to grow.
 
 The runtime recovery queue-result boundary slice kept the promoted gate stable by classifying
@@ -101,14 +101,17 @@ The issue #387 evidence refresh brought the curated report back to measured sour
 #419 then added runtime build-identity coverage without growing the uncategorized backlog; #420
 ratcheted the blocking gate to the current measured preservation baseline: `651`
 API/runtime test functions, `128` contract/governance test functions, and an uncategorized-test
-ceiling of `982`. The measured taxonomy also records `324` observability/readiness test functions
-and `1549` analytics-domain test functions. Intentional threshold changes should remain separate,
+ceiling of `982`. Issue #423 then classified configuration-validation tests as quality/security
+evidence and HTTP resilience tests as observability/readiness evidence, reducing the current
+uncategorized ceiling to `969`. The measured taxonomy also records `338`
+observability/readiness test functions, `142` quality/security test functions, and `1549`
+analytics-domain test functions. Intentional threshold changes should remain separate,
 rationale-backed gate-governance work.
 
 This slice promotes the stable part of the taxonomy from report-only measurement to a
 regression-blocking evaluation gate. `make quality-test-taxonomy-gate` fails if API/runtime tests
 drop below `651`, contract/governance tests drop below `128`, or uncategorized tests rise above
-`982`. `make quality-evaluation-gate` now runs both deterministic demo API certification and this
+`969`. `make quality-evaluation-gate` now runs both deterministic demo API certification and this
 taxonomy gate, so existing Feature Lane, PR Merge Gate, Main Releasability, local `make check`,
 local `make ci`, and Quality Baseline workflow enforcement pick it up without duplicating workflow
 logic.

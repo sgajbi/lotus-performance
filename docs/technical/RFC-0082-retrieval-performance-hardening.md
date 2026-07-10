@@ -38,9 +38,9 @@ Current configured defaults:
 | `STATEFUL_INPUT_PORTFOLIO_CHUNK_DAYS` | `90` | Bounds portfolio and position analytics-input windows. |
 | `STATEFUL_INPUT_REFERENCE_CHUNK_DAYS` | `365` | Bounds benchmark, index, FX, and risk-free reference windows. |
 | `STATEFUL_INPUT_MAX_CONCURRENT_CHUNKS` | `4` | Caps concurrent upstream chunk retrieval. |
-| `UPSTREAM_HTTP_MAX_CONNECTIONS` | `100` | Caps the lifecycle-managed outbound HTTP connection pool used by lotus-core and Lotus AI calls. |
-| `UPSTREAM_HTTP_MAX_KEEPALIVE_CONNECTIONS` | `20` | Caps idle keep-alive connections retained for upstream fan-out. |
-| `UPSTREAM_HTTP_KEEPALIVE_EXPIRY_SECONDS` | `30.0` | Controls keep-alive expiry for managed upstream HTTP connections. |
+| `UPSTREAM_HTTP_MAX_CONNECTIONS` | `100` | Caps the lifecycle-managed outbound HTTP connection pool used by lotus-core and Lotus AI calls; startup validation requires a value greater than `0`. |
+| `UPSTREAM_HTTP_MAX_KEEPALIVE_CONNECTIONS` | `20` | Caps idle keep-alive connections retained for upstream fan-out; startup validation requires a value greater than or equal to `0`. |
+| `UPSTREAM_HTTP_KEEPALIVE_EXPIRY_SECONDS` | `30.0` | Controls keep-alive expiry for managed upstream HTTP connections; startup validation requires a value greater than `0`. |
 | portfolio/position `page_size` | `5000` | Requests large-but-bounded pages from `lotus-core` analytics-input contracts. |
 
 Current orchestration behavior:
@@ -51,6 +51,9 @@ Current orchestration behavior:
 4. paginated portfolio and position inputs are merged and deduplicated by stable keys,
 5. durable calculations record upstream request and response fingerprints,
 6. benchmark and reference inputs use larger chunks because their payloads are narrower than position-level datasets.
+
+Invalid timeout, retry, backoff, and connection-pool values fail during settings construction rather
+than degrading later as synthetic upstream communication failures.
 
 ## Characterization Evidence
 

@@ -4,6 +4,7 @@ from decimal import getcontext
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -39,16 +40,16 @@ class Settings(BaseSettings):
     LINEAGE_WORKER_ID: str = "lineage-worker-1"
     CORE_CONTROL_PLANE_BASE_URL: str | None = "http://core-control.dev.lotus"
     CORE_QUERY_BASE_URL: str | None = None
-    CORE_TIMEOUT_SECONDS: float = 10.0
-    CORE_MAX_RETRIES: int = 2
-    CORE_RETRY_BACKOFF_SECONDS: float = 0.2
-    UPSTREAM_HTTP_MAX_CONNECTIONS: int = 100
-    UPSTREAM_HTTP_MAX_KEEPALIVE_CONNECTIONS: int = 20
-    UPSTREAM_HTTP_KEEPALIVE_EXPIRY_SECONDS: float = 30.0
+    CORE_TIMEOUT_SECONDS: float = Field(default=10.0, gt=0.0)
+    CORE_MAX_RETRIES: int = Field(default=2, ge=0)
+    CORE_RETRY_BACKOFF_SECONDS: float = Field(default=0.2, ge=0.0)
+    UPSTREAM_HTTP_MAX_CONNECTIONS: int = Field(default=100, gt=0)
+    UPSTREAM_HTTP_MAX_KEEPALIVE_CONNECTIONS: int = Field(default=20, ge=0)
+    UPSTREAM_HTTP_KEEPALIVE_EXPIRY_SECONDS: float = Field(default=30.0, gt=0.0)
     LOTUS_AI_BASE_URL: str | None = None
-    LOTUS_AI_TIMEOUT_SECONDS: float = 10.0
-    LOTUS_AI_MAX_RETRIES: int = 2
-    LOTUS_AI_RETRY_BACKOFF_SECONDS: float = 0.2
+    LOTUS_AI_TIMEOUT_SECONDS: float = Field(default=10.0, gt=0.0)
+    LOTUS_AI_MAX_RETRIES: int = Field(default=2, ge=0)
+    LOTUS_AI_RETRY_BACKOFF_SECONDS: float = Field(default=0.2, ge=0.0)
     LOTUS_AI_WORKFLOW_PACK_ENVIRONMENT: str = "DEVELOPMENT"
     STATEFUL_INPUT_PORTFOLIO_CHUNK_DAYS: int = 90
     STATEFUL_INPUT_REFERENCE_CHUNK_DAYS: int = 365

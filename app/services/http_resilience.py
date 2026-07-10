@@ -73,6 +73,11 @@ def configure_upstream_http_client_pool(
     max_keepalive_connections: int,
     keepalive_expiry_seconds: float,
 ) -> None:
+    _validate_pool_controls(
+        max_connections=max_connections,
+        max_keepalive_connections=max_keepalive_connections,
+        keepalive_expiry_seconds=keepalive_expiry_seconds,
+    )
     global _managed_client_pool
     _managed_client_pool = UpstreamHttpClientPool(
         UpstreamHttpClientPoolConfig(
@@ -142,6 +147,11 @@ async def _request_with_retry(
     backoff_seconds: float,
     request: Callable[[httpx.AsyncClient], Awaitable[httpx.Response]],
 ) -> tuple[int, dict[str, Any]]:
+    _validate_retry_controls(
+        timeout_seconds=timeout_seconds,
+        max_retries=max_retries,
+        backoff_seconds=backoff_seconds,
+    )
     for attempt in range(max_retries + 1):
         try:
             async with _request_client(timeout_seconds=timeout_seconds) as client:
@@ -180,6 +190,29 @@ async def _request_with_retry(
             await asyncio.sleep(retry_delay.seconds)
 
     return 503, {"detail": "upstream communication failure: exhausted retries"}
+
+
+def _validate_retry_controls(*, timeout_seconds: float, max_retries: int, backoff_seconds: float) -> None:
+    if timeout_seconds <= 0:
+        raise ValueError("timeout_seconds must be greater than 0")
+    if max_retries < 0:
+        raise ValueError("max_retries must be greater than or equal to 0")
+    if backoff_seconds < 0:
+        raise ValueError("backoff_seconds must be greater than or equal to 0")
+
+
+def _validate_pool_controls(
+    *,
+    max_connections: int,
+    max_keepalive_connections: int,
+    keepalive_expiry_seconds: float,
+) -> None:
+    if max_connections <= 0:
+        raise ValueError("max_connections must be greater than 0")
+    if max_keepalive_connections < 0:
+        raise ValueError("max_keepalive_connections must be greater than or equal to 0")
+    if keepalive_expiry_seconds <= 0:
+        raise ValueError("keepalive_expiry_seconds must be greater than 0")
 
 
 @asynccontextmanager

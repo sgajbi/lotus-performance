@@ -61,6 +61,14 @@ def test_recovery_queue_filter_preserves_operator_supportability():
 """,
         encoding="utf-8",
     )
+    resilience_file = service_dir / "test_http_resilience.py"
+    resilience_file.write_text(
+        """
+def test_retry_controls_fail_fast_before_upstream_request():
+    pass
+""",
+        encoding="utf-8",
+    )
     observability_file = tests_root / "unit" / "test_observability.py"
     observability_file.write_text(
         """
@@ -85,16 +93,27 @@ def test_benchmark_exposure_source_boundary():
 """,
         encoding="utf-8",
     )
+    config_file = tests_root / "unit" / "core" / "test_config.py"
+    config_file.parent.mkdir(parents=True)
+    config_file.write_text(
+        """
+def test_settings_reject_invalid_runtime_controls():
+    pass
+""",
+        encoding="utf-8",
+    )
 
     modules = collect_test_modules((str(tests_root),))
     modules_by_path = {module.path: module for module in modules}
 
-    assert [module.test_count for module in modules] == [2, 1, 1, 1, 1, 1, 1, 1]
+    assert [module.test_count for module in modules] == [2, 1, 1, 1, 1, 1, 1, 1, 1, 1]
     api_module = modules_by_path["tests/integration/test_returns_api.py"]
     contract_module = modules_by_path["tests/unit/app/test_openapi_contract.py"]
+    config_module = modules_by_path["tests/unit/core/test_config.py"]
     compute_store_module = modules_by_path["tests/unit/services/test_compute_job_store.py"]
     observability_module = modules_by_path["tests/unit/test_observability.py"]
     returns_series_module = modules_by_path["tests/unit/services/test_returns_series_service.py"]
+    resilience_module = modules_by_path["tests/unit/services/test_http_resilience.py"]
     runtime_recovery_module = modules_by_path["tests/unit/services/test_runtime_recovery_service.py"]
     stateful_input_module = modules_by_path["tests/unit/services/test_stateful_input_service.py"]
     benchmark_module = modules_by_path["tests/unit/services/test_benchmark_exposure_context_service.py"]
@@ -102,6 +121,8 @@ def test_benchmark_exposure_source_boundary():
     assert "api_or_runtime" in api_module.families
     assert contract_module.suite == "unit"
     assert "contract_or_governance" in contract_module.families
+    assert config_module.suite == "unit"
+    assert "quality_or_security" in config_module.families
     assert compute_store_module.suite == "unit"
     assert "observability_or_readiness" in compute_store_module.families
     assert runtime_recovery_module.suite == "unit"
@@ -110,6 +131,8 @@ def test_benchmark_exposure_source_boundary():
     assert "observability_or_readiness" in observability_module.families
     assert returns_series_module.suite == "unit"
     assert "analytics_domain" in returns_series_module.families
+    assert resilience_module.suite == "unit"
+    assert "observability_or_readiness" in resilience_module.families
     assert stateful_input_module.suite == "unit"
     assert "analytics_domain" in stateful_input_module.families
     assert benchmark_module.suite == "unit"
