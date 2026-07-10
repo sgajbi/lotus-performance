@@ -107,11 +107,13 @@ Current repository posture:
     `diagnostics.freshness` is the bounded freshness signal (`current` or `stale`) derived from
     source warnings so consumers such as `lotus-risk` and `lotus-idea` can preserve Performance
     evidence without reinterpreting return-series recency locally.
-16. Benchmark composition-window and index price-series dependencies are repo-native active
-    consumer declarations through `BenchmarkConstituentWindow:v1` and `IndexSeriesWindow:v1`.
-    Benchmark definition, benchmark vendor return-series, index catalog, and FX operational-read
-    dependencies remain governed by `docs/technical/RFC-0082-upstream-contract-family-map.md`
-    until matching upstream producer declarations are onboarded for repo-native consumer coverage.
+16. Active `lotus-core` route-level dependency coverage is governed by
+    `contracts/domain-data-products/lotus-performance-upstream-dependency-inventory.v1.json` and
+    validated by `make domain-product-validate`. Benchmark composition-window, benchmark
+    market-series, index catalog, index price-series, risk-free series, and other declared source
+    families map to repo-native consumer declarations; benchmark definition, benchmark vendor
+    return-series, and FX operational-read dependencies carry time-bound exception records until
+    upstream producer declarations or renewed owner-approved operational-read posture exist.
 17. HTTP boundary hardening is centralized in `app.http_security`: `HTTP_ALLOWED_HOSTS` controls
     host allow-listing, `CORS_ALLOWED_ORIGINS` controls explicit browser origins, standard security
     headers are emitted on success and error responses, and `HTTP_SECURITY_HSTS_ENABLED` is used

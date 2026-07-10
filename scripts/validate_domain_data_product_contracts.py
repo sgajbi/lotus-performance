@@ -3,9 +3,11 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import re
 import shutil
 import sys
 import tempfile
+from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -40,6 +42,39 @@ PLATFORM_VALIDATOR_PATH = PLATFORM_DECLARATION_DIR / "validate_domain_data_produ
 
 PRODUCT_PATTERN = "*-products.v1.json"
 CONSUMER_PATTERN = "*-consumers.v1.json"
+UPSTREAM_DEPENDENCY_INVENTORY_PATH = LOCAL_DECLARATION_DIR / "lotus-performance-upstream-dependency-inventory.v1.json"
+REQUIRED_UPSTREAM_DEPENDENCY_METHODS = {
+    "get_benchmark_assignment",
+    "get_benchmark_composition_window",
+    "get_benchmark_definition",
+    "get_benchmark_market_series",
+    "get_benchmark_return_series",
+    "get_fx_rates",
+    "get_index_catalog",
+    "get_index_price_series",
+    "get_performance_component_economics",
+    "get_portfolio_analytics_reference",
+    "get_portfolio_analytics_timeseries",
+    "get_position_analytics_timeseries",
+    "get_risk_free_series",
+}
+REQUIRED_DEPENDENCY_FIELDS = {
+    "client_method",
+    "upstream_route",
+    "status",
+    "route_contract_version",
+    "freshness_trust_metadata",
+    "failure_posture",
+    "validation_lanes",
+    "allowed_downstream_interpretation",
+    "evidence_tests",
+}
+REQUIRED_EXCEPTION_FIELDS = {
+    "exception_id",
+    "upstream_onboarding_owner",
+    "expires_on",
+    "promotion_condition",
+}
 
 
 def _load_platform_validator():
@@ -65,6 +100,120 @@ def _load_json(path: Path) -> dict:
 
 def _collect_local_declaration_paths(source_directory: Path) -> list[Path]:
     return sorted(source_directory.glob(PRODUCT_PATTERN)) + sorted(source_directory.glob(CONSUMER_PATTERN))
+
+
+def _collect_consumer_product_names(source_directory: Path) -> set[str]:
+    product_names: set[str] = set()
+    for path in sorted(source_directory.glob(CONSUMER_PATTERN)):
+        payload = _load_json(path)
+        for dependency in payload.get("dependencies", []):
+            if not isinstance(dependency, dict):
+                continue
+            product_name = dependency.get("product_name")
+            if isinstance(product_name, str) and product_name:
+                product_names.add(product_name)
+    return product_names
+
+
+def _core_integration_service_methods() -> set[str]:
+    source = (ROOT / "app" / "services" / "core_integration_service.py").read_text(encoding="utf-8")
+    return set(re.findall(r"async def (get_[a-zA-Z0-9_]+)\(", source))
+
+
+def _inventory_path_for(source_directory: Path) -> Path:
+    return source_directory / UPSTREAM_DEPENDENCY_INVENTORY_PATH.name
+
+
+def validate_upstream_dependency_inventory(source_directory: Path = LOCAL_DECLARATION_DIR) -> list[str]:
+    source_directory = source_directory.resolve()
+    inventory_path = _inventory_path_for(source_directory)
+    if not inventory_path.exists():
+        return [f"{inventory_path}: upstream dependency inventory is required"]
+
+    issues: list[str] = []
+    payload = _load_json(inventory_path)
+    if payload.get("contract_id") != "upstream-dependency-inventory":
+        issues.append(f"{inventory_path}: contract_id must be upstream-dependency-inventory")
+    if payload.get("consumer_repository") != "lotus-performance":
+        issues.append(f"{inventory_path}: consumer_repository must be lotus-performance")
+
+    dependencies = payload.get("dependencies")
+    if not isinstance(dependencies, list) or not dependencies:
+        return [*issues, f"{inventory_path}: dependencies must be a non-empty list"]
+
+    consumer_product_names = _collect_consumer_product_names(source_directory)
+    core_methods = _core_integration_service_methods()
+    missing_from_code = sorted(REQUIRED_UPSTREAM_DEPENDENCY_METHODS - core_methods)
+    if missing_from_code:
+        issues.append(
+            f"{inventory_path}: required upstream method(s) absent from CoreIntegrationService: "
+            + ", ".join(missing_from_code)
+        )
+
+    seen_methods: set[str] = set()
+    today = date.today()
+    for index, dependency in enumerate(dependencies):
+        if not isinstance(dependency, dict):
+            issues.append(f"{inventory_path}: dependencies[{index}] must be an object")
+            continue
+
+        missing_fields = sorted(REQUIRED_DEPENDENCY_FIELDS - set(dependency))
+        client_method = dependency.get("client_method", f"dependencies[{index}]")
+        if missing_fields:
+            issues.append(f"{inventory_path}: {client_method} missing field(s): {', '.join(missing_fields)}")
+
+        if isinstance(client_method, str):
+            seen_methods.add(client_method)
+            if client_method not in core_methods:
+                issues.append(f"{inventory_path}: {client_method} is not an active CoreIntegrationService method")
+
+        status = dependency.get("status")
+        if status == "consumer_declaration":
+            product_name = dependency.get("consumer_product_name")
+            if not isinstance(product_name, str) or not product_name:
+                issues.append(f"{inventory_path}: {client_method} consumer_declaration requires consumer_product_name")
+            elif product_name not in consumer_product_names:
+                issues.append(
+                    f"{inventory_path}: {client_method} references undeclared consumer product {product_name}"
+                )
+        elif status == "time_bound_exception":
+            missing_exception_fields = sorted(REQUIRED_EXCEPTION_FIELDS - set(dependency))
+            if missing_exception_fields:
+                issues.append(
+                    f"{inventory_path}: {client_method} exception missing field(s): "
+                    + ", ".join(missing_exception_fields)
+                )
+            expires_on = dependency.get("expires_on")
+            if isinstance(expires_on, str):
+                try:
+                    expiry = date.fromisoformat(expires_on)
+                except ValueError:
+                    issues.append(f"{inventory_path}: {client_method} expires_on must be an ISO date")
+                else:
+                    if expiry < today:
+                        issues.append(f"{inventory_path}: {client_method} exception expired on {expires_on}")
+        else:
+            issues.append(
+                f"{inventory_path}: {client_method} status must be consumer_declaration or time_bound_exception"
+            )
+
+        for list_field in ("freshness_trust_metadata", "validation_lanes", "evidence_tests"):
+            value = dependency.get(list_field)
+            if not isinstance(value, list) or not all(isinstance(item, str) and item for item in value):
+                issues.append(f"{inventory_path}: {client_method} {list_field} must be a non-empty string list")
+
+        for evidence_path in dependency.get("evidence_tests", []):
+            if isinstance(evidence_path, str) and not (ROOT / evidence_path).exists():
+                issues.append(f"{inventory_path}: {client_method} evidence path does not exist: {evidence_path}")
+
+    missing_methods = sorted(REQUIRED_UPSTREAM_DEPENDENCY_METHODS - seen_methods)
+    extra_methods = sorted(seen_methods - REQUIRED_UPSTREAM_DEPENDENCY_METHODS)
+    if missing_methods:
+        issues.append(f"{inventory_path}: missing inventory coverage for: {', '.join(missing_methods)}")
+    if extra_methods:
+        issues.append(f"{inventory_path}: unexpected inventory method(s): {', '.join(extra_methods)}")
+
+    return issues
 
 
 def _collect_required_upstream_product_paths(source_directory: Path) -> list[Path]:
@@ -126,6 +275,9 @@ def validate_repo_native_contracts(source_directory: Path = LOCAL_DECLARATION_DI
         return [f"{source_directory}: no repo-native declaration files were found"]
 
     upstream_paths = _collect_required_upstream_product_paths(source_directory)
+    inventory_issues = validate_upstream_dependency_inventory(source_directory)
+    if inventory_issues:
+        return inventory_issues
 
     with tempfile.TemporaryDirectory(prefix="lotus-performance-domain-products-") as temp_dir_string:
         temp_root = Path(temp_dir_string)
@@ -164,7 +316,8 @@ def main() -> int:
     print(
         "Validated "
         f"{producer_count} repo-native producer declaration(s) and "
-        f"{consumer_count} repo-native consumer declaration(s) in {LOCAL_DECLARATION_DIR}"
+        f"{consumer_count} repo-native consumer declaration(s), plus upstream dependency inventory "
+        f"in {LOCAL_DECLARATION_DIR}"
     )
     return 0
 

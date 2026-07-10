@@ -4,10 +4,13 @@ import pytest
 
 from scripts.validate_domain_data_product_contracts import (
     LOCAL_DECLARATION_DIR,
+    REQUIRED_UPSTREAM_DEPENDENCY_METHODS,
+    UPSTREAM_DEPENDENCY_INVENTORY_PATH,
     _collect_required_upstream_product_paths,
     _resolve_platform_root,
     platform_validation_dependencies_available,
     validate_repo_native_contracts,
+    validate_upstream_dependency_inventory,
 )
 
 
@@ -28,6 +31,7 @@ def test_repo_native_domain_data_product_directory_contains_expected_files() -> 
     assert declaration_names == {
         "lotus-performance-products.v1.json",
         "lotus-performance-consumers.v1.json",
+        "lotus-performance-upstream-dependency-inventory.v1.json",
     }
 
 
@@ -37,6 +41,7 @@ def test_repo_native_declaration_readme_documents_local_validation_path() -> Non
     assert "python scripts/validate_domain_data_product_contracts.py" in readme
     assert "make domain-product-validate" in readme
     assert "docs/technical/RFC-0082-upstream-contract-family-map.md" in readme
+    assert "lotus-performance-upstream-dependency-inventory.v1.json" in readme
 
 
 def test_platform_root_resolution_prefers_explicit_environment(monkeypatch, tmp_path) -> None:
@@ -68,6 +73,49 @@ def test_repo_native_validation_script_stages_upstream_core_products() -> None:
     upstream_paths = _collect_required_upstream_product_paths(LOCAL_DECLARATION_DIR)
 
     assert [path.name for path in upstream_paths] == ["lotus-core-products.v1.json"]
+
+
+def test_upstream_dependency_inventory_covers_active_core_methods() -> None:
+    payload = json.loads(UPSTREAM_DEPENDENCY_INVENTORY_PATH.read_text(encoding="utf-8"))
+    dependencies_by_method = {dependency["client_method"]: dependency for dependency in payload["dependencies"]}
+
+    assert validate_upstream_dependency_inventory() == []
+    assert set(dependencies_by_method) == REQUIRED_UPSTREAM_DEPENDENCY_METHODS
+
+    for method in (
+        "get_benchmark_definition",
+        "get_benchmark_return_series",
+        "get_fx_rates",
+    ):
+        dependency = dependencies_by_method[method]
+        assert dependency["status"] == "time_bound_exception"
+        assert dependency["upstream_onboarding_owner"] == "lotus-core"
+        assert dependency["expires_on"] == "2027-01-31"
+        assert dependency["promotion_condition"]
+        assert dependency["evidence_tests"]
+
+    declared_dependency = dependencies_by_method["get_risk_free_series"]
+    assert declared_dependency["status"] == "consumer_declaration"
+    assert declared_dependency["consumer_product_name"] == "RiskFreeSeriesWindow"
+
+
+def test_upstream_dependency_inventory_validation_fails_when_active_method_is_missing(tmp_path) -> None:
+    for declaration_path in LOCAL_DECLARATION_DIR.glob("*.json"):
+        target_path = tmp_path / declaration_path.name
+        target_path.write_text(declaration_path.read_text(encoding="utf-8"), encoding="utf-8")
+
+    inventory_path = tmp_path / UPSTREAM_DEPENDENCY_INVENTORY_PATH.name
+    payload = json.loads(inventory_path.read_text(encoding="utf-8"))
+    payload["dependencies"] = [
+        dependency
+        for dependency in payload["dependencies"]
+        if dependency["client_method"] != "get_benchmark_definition"
+    ]
+    inventory_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+    issues = validate_upstream_dependency_inventory(tmp_path)
+
+    assert any("missing inventory coverage for: get_benchmark_definition" in issue for issue in issues)
 
 
 def test_repo_native_producer_declarations_cover_governed_first_wave_products_and_twr_mwr() -> None:

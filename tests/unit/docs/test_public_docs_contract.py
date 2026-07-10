@@ -108,7 +108,7 @@ def test_issue_fix_closure_matrix_is_discoverable_and_merge_gated():
     assert "Review playbook, issue closure matrix, and codebase review ledger" in docs_index
     assert "ISSUE-FIX-CLOSURE-MATRIX.md" in review_playbook
     assert "before PR creation or issue closure" in review_playbook
-    assert "Actionable issues fixed locally | 30" in closure_matrix
+    assert "Actionable issues fixed locally | 31" in closure_matrix
     assert "Issues safe to close now | 0" in closure_matrix
     assert "merged to `main`" in closure_matrix
     assert "No PR should be raised from this branch until the issue matrix remains complete" in closure_matrix
@@ -139,6 +139,7 @@ def test_issue_fix_closure_matrix_is_discoverable_and_merge_gated():
         "#451",
         "#450",
         "#442",
+        "#441",
         "#443",
         "#452",
         "#453",
