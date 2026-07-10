@@ -131,11 +131,12 @@ remain in structured logs and durable evidence under the same correlation contex
 - use this endpoint when:
   - an analytics endpoint returns `202 Accepted` with a `poll_path`
   - support needs to inspect stage progress, retry state, terminal failure details, or upstream snapshot lineage
-  - downstream clients need to decide whether to continue polling or call the endpoint-specific `result_path`
-- do not use this endpoint as the analytics result payload; call the endpoint-specific result route once `status=complete`
+  - downstream clients need to decide whether to continue polling or whether lifecycle evidence is terminal
+- do not use this endpoint as the analytics result payload; `status=complete` means the calculation result and any mandatory lineage/artifact materialization stage have reached terminal success
+- endpoint-specific `result_path` routes may be readable before lineage evidence is terminal; clients that need audit/supportability evidence should keep polling until `status=complete` or `status=failed`
 - response includes:
   - top-level `status`, `execution_mode`, `analytics_type`, `portfolio_id`, requested-window metadata, timestamps, and fingerprints
-  - `stages[]` for submission, retrieval, normalization, execution, and lineage materialization progress where applicable
+  - `stages[]` for submission, retrieval, normalization, execution, lineage materialization, and artifact materialization progress where applicable
   - `upstream_snapshots[]` for stateful source provenance including upstream endpoint, source identifier, fingerprints, retrieval status, and paging metadata
   - `compute_job` for async executor status, attempts, worker lease, retry, and failure-pressure metadata
   - `async_result` for endpoint-specific result materialization status and terminal error details

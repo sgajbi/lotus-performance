@@ -61,6 +61,14 @@ def test_recovery_queue_filter_preserves_operator_supportability():
 """,
         encoding="utf-8",
     )
+    lineage_worker_file = service_dir / "test_lineage_worker.py"
+    lineage_worker_file.write_text(
+        """
+def test_lineage_materialization_failure_marks_execution_failed():
+    pass
+""",
+        encoding="utf-8",
+    )
     resilience_file = service_dir / "test_http_resilience.py"
     resilience_file.write_text(
         """
@@ -122,7 +130,7 @@ def test_recommended_poll_after_seconds_uses_runtime_cadence():
     modules = collect_test_modules((str(tests_root),))
     modules_by_path = {module.path: module for module in modules}
 
-    assert [module.test_count for module in modules] == [2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+    assert [module.test_count for module in modules] == [2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
     api_module = modules_by_path["tests/integration/test_returns_api.py"]
     application_responses_module = modules_by_path["tests/unit/core/test_application_responses.py"]
     async_polling_module = modules_by_path["tests/unit/core/test_async_polling.py"]
@@ -132,6 +140,7 @@ def test_recommended_poll_after_seconds_uses_runtime_cadence():
     observability_module = modules_by_path["tests/unit/test_observability.py"]
     returns_series_module = modules_by_path["tests/unit/services/test_returns_series_service.py"]
     resilience_module = modules_by_path["tests/unit/services/test_http_resilience.py"]
+    lineage_worker_module = modules_by_path["tests/unit/services/test_lineage_worker.py"]
     runtime_recovery_module = modules_by_path["tests/unit/services/test_runtime_recovery_service.py"]
     stateful_input_module = modules_by_path["tests/unit/services/test_stateful_input_service.py"]
     benchmark_module = modules_by_path["tests/unit/services/test_benchmark_exposure_context_service.py"]
@@ -155,6 +164,8 @@ def test_recommended_poll_after_seconds_uses_runtime_cadence():
     assert "analytics_domain" in returns_series_module.families
     assert resilience_module.suite == "unit"
     assert "observability_or_readiness" in resilience_module.families
+    assert lineage_worker_module.suite == "unit"
+    assert "observability_or_readiness" in lineage_worker_module.families
     assert stateful_input_module.suite == "unit"
     assert "analytics_domain" in stateful_input_module.families
     assert benchmark_module.suite == "unit"

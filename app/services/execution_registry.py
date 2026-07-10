@@ -577,6 +577,27 @@ class ExecutionRegistry:
                 stage.details_json = json.dumps(details, sort_keys=True)
             stage.error_message = None
 
+    def complete_stage_and_execution(
+        self,
+        calculation_id: UUID,
+        stage_name: str,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        with self._session() as session:
+            execution = self._get_execution_model(session, calculation_id)
+            stage = self._get_stage_model(session, calculation_id, stage_name)
+            now = datetime.now(timezone.utc)
+            stage.status = ExecutionStageStatus.COMPLETE.value
+            stage.started_at_utc = stage.started_at_utc or now
+            stage.completed_at_utc = now
+            if details is not None:
+                stage.details_json = json.dumps(details, sort_keys=True)
+            stage.error_message = None
+            execution.status = ExecutionStatus.COMPLETE.value
+            execution.started_at_utc = execution.started_at_utc or now
+            execution.completed_at_utc = now
+            execution.error_message = None
+
     def fail_stage(self, calculation_id: UUID, stage_name: str, error_message: str) -> None:
         with self._session() as session:
             stage = self._get_stage_model(session, calculation_id, stage_name)
@@ -585,6 +606,20 @@ class ExecutionRegistry:
             stage.started_at_utc = stage.started_at_utc or now
             stage.completed_at_utc = now
             stage.error_message = error_message
+
+    def fail_stage_and_execution(self, calculation_id: UUID, stage_name: str, error_message: str) -> None:
+        with self._session() as session:
+            execution = self._get_execution_model(session, calculation_id)
+            stage = self._get_stage_model(session, calculation_id, stage_name)
+            now = datetime.now(timezone.utc)
+            stage.status = ExecutionStageStatus.FAILED.value
+            stage.started_at_utc = stage.started_at_utc or now
+            stage.completed_at_utc = now
+            stage.error_message = error_message
+            execution.status = ExecutionStatus.FAILED.value
+            execution.started_at_utc = execution.started_at_utc or now
+            execution.completed_at_utc = now
+            execution.error_message = error_message
 
     def fail_in_progress_stages(self, calculation_id: UUID, error_message: str) -> None:
         with self._session() as session:

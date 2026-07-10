@@ -83,5 +83,8 @@ def test_execution_response_schema_documents_every_polling_field() -> None:
         assert result_schema["properties"][field_name]["description"]
 
     assert response_schema["properties"]["analytics_type"]["examples"] == ["TWR"]
+    status_description = response_schema["properties"]["status"]["description"]
+    assert "mandatory lineage or artifact materialization" in status_description
+    assert "terminal evidence failure is surfaced as failed" in status_description
     assert compute_schema["properties"]["attempt_count"]["examples"] == [1]
     assert snapshot_schema["properties"]["upstream_endpoint"]["examples"] == ["portfolio_timeseries"]

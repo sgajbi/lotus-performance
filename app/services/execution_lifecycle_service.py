@@ -16,10 +16,11 @@ def record_execution_failure(
     lineage_stage_started: bool = False,
 ) -> None:
     if lineage_stage_started:
-        execution_registry.fail_stage(calculation_id, EXECUTION_STAGE_LINEAGE_MATERIALIZATION, message)
+        execution_registry.fail_stage_and_execution(calculation_id, EXECUTION_STAGE_LINEAGE_MATERIALIZATION, message)
     elif execution_stage_started:
-        execution_registry.fail_stage(calculation_id, EXECUTION_STAGE_EXECUTION, message)
-    execution_registry.mark_failed(calculation_id, message)
+        execution_registry.fail_stage_and_execution(calculation_id, EXECUTION_STAGE_EXECUTION, message)
+    else:
+        execution_registry.mark_failed(calculation_id, message)
 
 
 def complete_execution_with_lineage(
@@ -31,6 +32,7 @@ def complete_execution_with_lineage(
     execution_details: dict[str, Any] | None = None,
     calculation_details: dict[str, Any] | None = None,
 ) -> None:
+    execution_registry.mark_running(calculation_id)
     execution_registry.complete_stage(
         calculation_id,
         EXECUTION_STAGE_EXECUTION,
@@ -52,4 +54,3 @@ def complete_execution_with_lineage(
             lineage_stage_started=True,
         )
         raise
-    execution_registry.mark_complete(calculation_id)

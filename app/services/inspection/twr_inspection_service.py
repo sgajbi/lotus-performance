@@ -133,7 +133,6 @@ def run_twr_inspection(request: TWRInspectionRequest) -> TWRInspectionResponse:
         request=request,
         response_synthesis=response_synthesis,
     )
-    execution_registry.mark_complete(request.inspection_id)
     return response_synthesis.response
 
 
@@ -200,7 +199,11 @@ def _materialize_twr_inspection_artifacts(
             artifact_payloads=artifact_payloads,
         )
     except Exception as exc:
-        execution_registry.fail_stage(request.inspection_id, EXECUTION_STAGE_ARTIFACT_MATERIALIZATION, str(exc))
+        execution_registry.fail_stage_and_execution(
+            request.inspection_id,
+            EXECUTION_STAGE_ARTIFACT_MATERIALIZATION,
+            str(exc),
+        )
         raise
 
 

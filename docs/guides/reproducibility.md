@@ -36,6 +36,12 @@ runs asynchronously in the lineage worker. This means there may be a short delay
 lineage artifacts for a new `calculation_id` become available, but the work is not dependent
 on in-process background tasks.
 
+Execution polling treats this evidence production as part of the lifecycle contract. For workflows
+that start a mandatory lineage or artifact materialization stage, `/performance/executions/{calculation_id}`
+remains `running` while that stage is `in_progress`, becomes `complete` only after the worker marks
+evidence materialization complete, and becomes `failed` if the worker exhausts the materialization
+retry budget.
+
 Materialized lineage includes a `manifest.json` artifact that carries the calculation type,
 completion timestamp, status, and artifact inventory. The lineage read path validates that
 manifest against the durable metadata record before returning lineage as complete, so a stale

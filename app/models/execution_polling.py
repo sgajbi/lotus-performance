@@ -180,7 +180,12 @@ class ExecutionResponse(BaseModel):
         examples=["async"],
     )
     status: str = Field(
-        description="Overall execution lifecycle status. Typical values are pending, running, complete, and failed.",
+        description=(
+            "Overall execution lifecycle status. Typical values are pending, running, complete, and failed. "
+            "For workflows with mandatory lineage or artifact materialization, complete means the calculation "
+            "result and the evidence-materialization stage have both reached terminal success; terminal evidence "
+            "failure is surfaced as failed."
+        ),
         examples=["complete"],
     )
     requested_window: dict[str, Any] = Field(
