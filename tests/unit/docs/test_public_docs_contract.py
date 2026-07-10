@@ -96,7 +96,7 @@ def test_issue_fix_closure_matrix_is_discoverable_and_merge_gated():
     assert "Review playbook, issue closure matrix, and codebase review ledger" in docs_index
     assert "ISSUE-FIX-CLOSURE-MATRIX.md" in review_playbook
     assert "before PR creation or issue closure" in review_playbook
-    assert "Actionable issues fixed locally | 17" in closure_matrix
+    assert "Actionable issues fixed locally | 18" in closure_matrix
     assert "Issues safe to close now | 0" in closure_matrix
     assert "merged to `main`" in closure_matrix
     assert "No PR should be raised from this branch until the issue matrix remains complete" in closure_matrix
@@ -116,6 +116,7 @@ def test_issue_fix_closure_matrix_is_discoverable_and_merge_gated():
         "#400",
         "#401",
         "#415",
+        "#417",
         "#442",
         "#453",
         "#454",
@@ -241,7 +242,9 @@ def test_repo_context_matches_trust_telemetry_coverage_boundary():
 
     assert snapshot_names == active_product_names
     assert governed_coverage_rule in trust_telemetry_readme
-    assert "every active\n   governed producer product" in repository_context
+    assert "static trust telemetry fallback fixtures" in repository_context
+    assert "output/trust-telemetry/runtime/" in repository_context
+    assert "must not be presented as runtime proof" in repository_context
     assert "contracts/trust-telemetry/README.md" in repository_context
     assert "tests/unit/test_trust_telemetry.py" in repository_context
     assert "RFC-0087 trust telemetry proof for `ReturnsSeriesBundle`" not in repository_context
