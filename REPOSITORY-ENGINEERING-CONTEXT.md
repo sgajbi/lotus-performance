@@ -363,6 +363,14 @@ Important validation expectations:
     operational codes rather than raw exception class names, and structured support-safe diagnostics
     must include source/component, operation, stable reason, exception class, and safe context. Do
     not log raw calculation-id fragments or cursor identifiers from operator filters.
+32. Application-service port-boundary evidence is now measured separately from enforced router and
+    engine/core import rules. `scripts/python_architecture_boundary_inventory.py` reports
+    `APPLICATION_SERVICE_CONCRETE_STORE_IMPORT` findings as report-only while `--max-findings 0`
+    continues to enforce zero router/core violations. `execution_polling_service` is the pilot
+    migrated seam: the API dependency provides an `ExecutionPollingStore`, the application service
+    depends on that port, and the durable adapter owns concrete execution, compute-job, and async
+    result stores. Continue migrating one workflow seam at a time instead of introducing a runtime
+    service split.
 
 ## Standards And RFCs That Govern This Repository
 

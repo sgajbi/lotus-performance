@@ -10,23 +10,23 @@ from app.models.execution_polling import (
     ExecutionStageResponse,
     UpstreamSnapshotResponse,
 )
-from app.services.async_result_store import AsyncResultRecord, async_result_store
-from app.services.calculation_result_access import authorize_calculation_result_access
-from app.services.compute_job_store import ComputeJobRecord, compute_job_store
-from app.services.execution_registry import (
-    ExecutionRecord,
-    ExecutionStageRecord,
-    UpstreamSnapshotRecord,
-    execution_registry,
+from app.ports.execution_polling import (
+    ExecutionPollingAsyncResultRecord,
+    ExecutionPollingComputeJobRecord,
+    ExecutionPollingExecutionRecord,
+    ExecutionPollingStageRecord,
+    ExecutionPollingStore,
+    ExecutionPollingUpstreamSnapshotRecord,
 )
+from app.services.calculation_result_access import authorize_calculation_result_access
 
 EXECUTION_POLLING_NOT_FOUND_DETAIL = "Execution data not found for the given calculation_id."
 
 
 def get_execution_polling_response(
-    calculation_id: UUID, *, request_headers=None
+    calculation_id: UUID, *, store: ExecutionPollingStore, request_headers=None
 ) -> ExecutionResponse | ApplicationHttpResponse | None:
-    record = execution_registry.get_execution(calculation_id)
+    record = store.get_execution(calculation_id)
     if record is None:
         return None
     access_denial = authorize_calculation_result_access(execution=record, headers=request_headers)
@@ -34,16 +34,16 @@ def get_execution_polling_response(
         return access_denial
     return build_execution_response(
         record=record,
-        job=compute_job_store.get_job(calculation_id),
-        async_result=async_result_store.get_result(calculation_id),
+        job=store.get_job(calculation_id),
+        async_result=store.get_result(calculation_id),
     )
 
 
 def build_execution_response(
     *,
-    record: ExecutionRecord,
-    job: ComputeJobRecord | None,
-    async_result: AsyncResultRecord | None,
+    record: ExecutionPollingExecutionRecord,
+    job: ExecutionPollingComputeJobRecord | None,
+    async_result: ExecutionPollingAsyncResultRecord | None,
 ) -> ExecutionResponse:
     return ExecutionResponse(
         calculation_id=record.calculation_id,
@@ -65,7 +65,7 @@ def build_execution_response(
     )
 
 
-def _stage_response(stage: ExecutionStageRecord) -> ExecutionStageResponse:
+def _stage_response(stage: ExecutionPollingStageRecord) -> ExecutionStageResponse:
     return ExecutionStageResponse(
         stage_name=stage.stage_name,
         status=stage.status.value,
@@ -76,7 +76,7 @@ def _stage_response(stage: ExecutionStageRecord) -> ExecutionStageResponse:
     )
 
 
-def _upstream_snapshot_response(snapshot: UpstreamSnapshotRecord) -> UpstreamSnapshotResponse:
+def _upstream_snapshot_response(snapshot: ExecutionPollingUpstreamSnapshotRecord) -> UpstreamSnapshotResponse:
     return UpstreamSnapshotResponse(
         snapshot_id=snapshot.snapshot_id,
         upstream_endpoint=snapshot.upstream_endpoint,
@@ -90,7 +90,7 @@ def _upstream_snapshot_response(snapshot: UpstreamSnapshotRecord) -> UpstreamSna
     )
 
 
-def _compute_job_response(job: ComputeJobRecord | None) -> ComputeJobResponse | None:
+def _compute_job_response(job: ExecutionPollingComputeJobRecord | None) -> ComputeJobResponse | None:
     if job is None:
         return None
     return ComputeJobResponse(
@@ -109,7 +109,7 @@ def _compute_job_response(job: ComputeJobRecord | None) -> ComputeJobResponse | 
     )
 
 
-def _async_result_response(async_result: AsyncResultRecord | None) -> AsyncResultResponse | None:
+def _async_result_response(async_result: ExecutionPollingAsyncResultRecord | None) -> AsyncResultResponse | None:
     if async_result is None:
         return None
     return AsyncResultResponse(

@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_PATHS = ("app/api/endpoints", "engine", "core")
+DEFAULT_PATHS = ("app/api/endpoints", "engine", "core", "app/services")
 
 _ROUTER_DISALLOWED_PREFIXES = (
     "adapters",
@@ -21,6 +21,19 @@ _ROUTER_DISALLOWED_PREFIXES = (
     "sqlalchemy",
 )
 _DOMAIN_DISALLOWED_PREFIXES = ("adapters", "app", "fastapi", "starlette")
+_APPLICATION_CONCRETE_STORE_MODULES = (
+    "app.services.async_result_store",
+    "app.services.compute_job_store",
+    "app.services.composite_metadata_store",
+    "app.services.execution_registry",
+    "app.services.lineage_metadata_store",
+)
+_ENFORCED_RULES = frozenset(
+    {
+        "ROUTER_DIRECT_BOUNDARY_IMPORT",
+        "DOMAIN_INFRA_OR_FRAMEWORK_IMPORT",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -30,6 +43,7 @@ class ArchitectureBoundaryFinding:
     imported_module: str
     rule: str
     description: str
+    enforced: bool = True
 
 
 def _module_matches(imported_module: str, prefixes: Sequence[str]) -> bool:
@@ -49,7 +63,16 @@ def classify_import(path: str, imported_module: str) -> tuple[str, str] | None:
             "DOMAIN_INFRA_OR_FRAMEWORK_IMPORT",
             "Engine/core modules should stay independent from application DTOs, adapters, and web framework imports.",
         )
+    if path.startswith("app/services/") and _module_matches(imported_module, _APPLICATION_CONCRETE_STORE_MODULES):
+        return (
+            "APPLICATION_SERVICE_CONCRETE_STORE_IMPORT",
+            "Application services should depend on ports/interfaces instead of concrete durable store modules.",
+        )
     return None
+
+
+def is_enforced_rule(rule: str) -> bool:
+    return rule in _ENFORCED_RULES
 
 
 def _python_files(paths: Sequence[str], *, root: Path = ROOT) -> list[Path]:
@@ -93,6 +116,7 @@ def collect_architecture_findings(
                     imported_module=imported_module,
                     rule=rule,
                     description=description,
+                    enforced=is_enforced_rule(rule),
                 )
             )
     return sorted(findings, key=lambda item: (item.rule, item.path, item.line, item.imported_module))
@@ -107,6 +131,8 @@ def render_markdown(findings: Sequence[ArchitectureBoundaryFinding], *, limit: i
         if finding.path.startswith("engine/")
         else "Core"
         if finding.path.startswith("core/")
+        else "Application services"
+        if finding.path.startswith("app/services/")
         else "Other"
         for finding in findings
     )
@@ -117,6 +143,8 @@ def render_markdown(findings: Sequence[ArchitectureBoundaryFinding], *, limit: i
         "| Metric | Value |",
         "| --- | ---: |",
         f"| Architecture boundary findings | {len(findings)} |",
+        f"| Enforced findings | {sum(1 for finding in findings if finding.enforced)} |",
+        f"| Report-only findings | {sum(1 for finding in findings if not finding.enforced)} |",
         f"| Distinct rules | {len(rule_counts)} |",
         f"| Distinct files | {len({finding.path for finding in findings})} |",
         "",
@@ -137,13 +165,14 @@ def render_markdown(findings: Sequence[ArchitectureBoundaryFinding], *, limit: i
             "",
             "## Findings",
             "",
-            "| Rank | Rule | File | Import | Description |",
-            "| ---: | --- | --- | --- | --- |",
+            "| Rank | Rule | Posture | File | Import | Description |",
+            "| ---: | --- | --- | --- | --- | --- |",
         ]
     )
     for index, finding in enumerate(findings[:limit], start=1):
+        posture = "enforced" if finding.enforced else "report-only"
         lines.append(
-            f"| {index} | `{finding.rule}` | `{finding.path}:{finding.line}` | "
+            f"| {index} | `{finding.rule}` | {posture} | `{finding.path}:{finding.line}` | "
             f"`{finding.imported_module}` | {finding.description} |"
         )
     return "\n".join(lines)
@@ -169,7 +198,8 @@ def main() -> int:
     paths = tuple(args.paths or DEFAULT_PATHS)
     findings = collect_architecture_findings(paths)
     print(render_markdown(findings, limit=args.limit))
-    violation = max_findings_violation(len(findings), args.max_findings)
+    enforced_findings_count = sum(1 for finding in findings if finding.enforced)
+    violation = max_findings_violation(enforced_findings_count, args.max_findings)
     if violation is not None:
         print(violation)
         return 1

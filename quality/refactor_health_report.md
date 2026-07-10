@@ -1,7 +1,7 @@
 # Lotus Performance Refactor Health Report
 
-Report date: 2026-07-04
-Branch: `fix/issue-397-inspection-artifact-authz`
+Report date: 2026-07-10
+Branch: `feat/performance-architecture-boundary-refactor`
 Baseline source: `quality/baseline_report.md`
 Report mode: phase-zero scorecard; complexity, architecture, duplicate-code, repository hygiene,
 router-thinness, observability-readiness, domain-product validation, deterministic API evaluation,
@@ -51,9 +51,10 @@ link the commit, command, or CI artifact that proves the change.
 
 | Metric | Baseline | Current | Status | Evidence |
 | --- | ---: | ---: | --- | --- |
-| Import boundary violations | unknown | 0 | enforced | `quality/architecture_boundary_inventory.md`; `make quality-architecture-gate` |
+| Enforced import boundary violations | unknown | 0 | enforced | `quality/architecture_boundary_inventory.md`; `make quality-architecture-gate` |
 | Routers importing infrastructure directly | unknown | 0 | enforced | `ROUTER_DIRECT_BOUNDARY_IMPORT` absent from `quality/architecture_boundary_inventory.md`; `make quality-architecture-gate` |
-| Domain/application importing framework or infra code | unknown | 0 | enforced | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` absent from `quality/architecture_boundary_inventory.md`; `make quality-architecture-gate` |
+| Engine/core importing framework or infra code | unknown | 0 | enforced | `DOMAIN_INFRA_OR_FRAMEWORK_IMPORT` absent from `quality/architecture_boundary_inventory.md`; `make quality-architecture-gate` |
+| Application-service concrete-store imports | unknown | 63 | measured | `APPLICATION_SERVICE_CONCRETE_STORE_IMPORT` in `quality/architecture_boundary_inventory.md`; report-only after execution polling pilot moved behind `ExecutionPollingStore` |
 | Large production service hotspots | 3 | 8 | measured | `returns_series_service.py`, `stateful_input_service.py`, `compute_job_store.py`, `twr_service.py`, `stateful_attribution_input_service.py`, `lineage_metadata_store.py`, `workspace_summary_service.py`, and `calculation_consistency.py` exceed 1,000 LOC |
 | Router/middleware oversized function findings (`--threshold 80`) | unknown | 0 | enforced | `quality/router_middleware_thinness_inventory.md`; `make quality-router-thinness-gate` |
 

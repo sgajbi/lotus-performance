@@ -1,6 +1,7 @@
 from scripts.python_architecture_boundary_inventory import (
     ArchitectureBoundaryFinding,
     classify_import,
+    is_enforced_rule,
     max_findings_violation,
     render_markdown,
 )
@@ -27,6 +28,14 @@ def test_classify_allows_service_imports_from_routers():
     assert classify_import("app/api/endpoints/performance.py", "app.services.twr_service") is None
 
 
+def test_classify_application_service_concrete_store_imports_as_report_only():
+    classification = classify_import("app/services/execution_polling_service.py", "app.services.execution_registry")
+
+    assert classification is not None
+    assert classification[0] == "APPLICATION_SERVICE_CONCRETE_STORE_IMPORT"
+    assert not is_enforced_rule(classification[0])
+
+
 def test_render_markdown_summarizes_architecture_findings():
     findings = [
         ArchitectureBoundaryFinding(
@@ -43,17 +52,28 @@ def test_render_markdown_summarizes_architecture_findings():
             rule="DOMAIN_INFRA_OR_FRAMEWORK_IMPORT",
             description="domain issue",
         ),
+        ArchitectureBoundaryFinding(
+            path="app/services/runtime_status_queue.py",
+            line=6,
+            imported_module="app.services.compute_job_store",
+            rule="APPLICATION_SERVICE_CONCRETE_STORE_IMPORT",
+            description="report-only app service issue",
+            enforced=False,
+        ),
     ]
 
     output = render_markdown(findings, limit=1)
 
-    assert "| Architecture boundary findings | 2 |" in output
-    assert "| Distinct rules | 2 |" in output
+    assert "| Architecture boundary findings | 3 |" in output
+    assert "| Enforced findings | 2 |" in output
+    assert "| Report-only findings | 1 |" in output
+    assert "| Distinct rules | 3 |" in output
     assert "| API routers | 1 |" in output
     assert "| Engine | 1 |" in output
+    assert "| Application services | 1 |" in output
     assert "| `ROUTER_DIRECT_BOUNDARY_IMPORT` | 1 |" in output
     assert (
-        "| 1 | `ROUTER_DIRECT_BOUNDARY_IMPORT` | `app/api/endpoints/performance.py:54` | `engine.mwr` | router issue |"
+        "| 1 | `ROUTER_DIRECT_BOUNDARY_IMPORT` | enforced | `app/api/endpoints/performance.py:54` | `engine.mwr` | router issue |"
         in output
     )
     assert "`engine/mwr.py:8`" not in output
