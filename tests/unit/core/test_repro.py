@@ -2,7 +2,7 @@
 import pytest
 
 from app.models.requests import PerformanceRequest
-from core.repro import generate_canonical_hash
+from core.repro import generate_canonical_hash, generate_canonical_hash_from_value
 
 
 @pytest.fixture
@@ -44,17 +44,34 @@ def test_generate_canonical_hash_is_sensitive_to_version_change(sample_twr_reque
     assert hash1 != hash2
 
 
-def test_generate_canonical_hash_is_order_invariant(sample_twr_request):
+def test_generate_canonical_hash_canonicalizes_object_key_order():
+    """Tests that object key ordering does not affect canonical hash identity."""
+    left = {
+        "portfolio_id": "KEY_ORDER",
+        "nested": {
+            "report_end_date": "2025-01-02",
+            "performance_start_date": "2024-12-31",
+        },
+    }
+    right = {
+        "nested": {
+            "performance_start_date": "2024-12-31",
+            "report_end_date": "2025-01-02",
+        },
+        "portfolio_id": "KEY_ORDER",
+    }
+
+    assert generate_canonical_hash_from_value(left, "v1.0.0") == generate_canonical_hash_from_value(right, "v1.0.0")
+
+
+def test_generate_canonical_hash_preserves_ordered_array_identity(sample_twr_request):
     """
-    Tests that the hash is invariant to the order of items in lists.
-    NOTE: Pydantic's model_dump_json does not sort lists of objects.
-    A custom, more complex canonicalizer would be needed for true order invariance.
-    This test currently validates the deterministic nature of the Pydantic output.
+    Tests that ordered request arrays are part of reproducibility identity.
+
+    A future schema-aware canonicalizer may sort selected fields by stable business keys, but the
+    current contract deliberately does not globally sort arrays.
     """
     _, hash1 = generate_canonical_hash(sample_twr_request, "v1.0.0")
-    # Swap order of valuation_points
     sample_twr_request.valuation_points.reverse()
     _, hash2 = generate_canonical_hash(sample_twr_request, "v1.0.0")
-    # Hashes will be different because Pydantic does not sort lists by default.
-    # This confirms the behavior, which can be addressed if strict invariance is required.
     assert hash1 != hash2

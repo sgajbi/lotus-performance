@@ -108,8 +108,8 @@ def test_issue_fix_closure_matrix_is_discoverable_and_merge_gated():
     assert "Review playbook, issue closure matrix, and codebase review ledger" in docs_index
     assert "ISSUE-FIX-CLOSURE-MATRIX.md" in review_playbook
     assert "before PR creation or issue closure" in review_playbook
-    assert "Actionable issues fixed locally | 35" in closure_matrix
-    assert "Actionable issues remaining | 5" in closure_matrix
+    assert "Actionable issues fixed locally | 36" in closure_matrix
+    assert "Actionable issues remaining | 4" in closure_matrix
     assert "Issues safe to close now | 0" in closure_matrix
     assert "merged to `main`" in closure_matrix
     assert "No PR should be raised from this branch until the issue matrix remains complete" in closure_matrix
@@ -173,6 +173,21 @@ def test_reproducibility_docs_govern_calculation_engine_version_identity():
     assert "make calculation-engine-version-gate" in reproducibility
     assert "APP_VERSION" in reproducibility
     assert "legacy per-family literals" in ci_quality_gates
+
+
+def test_reproducibility_docs_publish_ordered_array_hash_contract():
+    reproducibility = _read("docs/guides/reproducibility.md")
+    rfc_025 = _read("docs/RFCs/RFC 025 - Deterministic Reproducibility & Drill-Down.md")
+    repository_context = _read("REPOSITORY-ENGINEERING-CONTEXT.md")
+    wiki_architecture = _read("wiki/Architecture.md")
+
+    for document in (reproducibility, rfc_025, repository_context, wiki_architecture):
+        assert "Object keys" in document or "object keys" in document
+        assert "arrays remain order-sensitive" in document or "ordered arrays remain part of hash identity" in document
+        assert "schema-aware" in document
+
+    assert "Do not add global list sorting" in reproducibility
+    assert "shuffling sequence-bearing input arrays changes the final `calculation_hash`" in rfc_025
 
 
 def test_api_reference_endpoint_headings_are_unique():

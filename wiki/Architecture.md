@@ -117,6 +117,10 @@ flowchart LR
   durable execution registry plus executor job storage
 - lineage seam:
   durable metadata plus artifact materialization
+- reproducibility seam:
+  `core/repro.py` sorts object keys, and arrays remain order-sensitive so sequence-bearing evidence stays
+  part of `input_fingerprint` and `calculation_hash` identity. Any order-insensitive field must be
+  schema-aware and sorted by a documented business key before hashing.
 - inspection seam:
   TWR inspector resolves completed responses through async result storage and resolves request
   truth through lineage metadata, lineage files, or durable compute-job payloads

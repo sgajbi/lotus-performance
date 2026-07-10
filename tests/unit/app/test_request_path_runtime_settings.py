@@ -169,11 +169,11 @@ def test_should_offload_workspace_summary_uses_runtime_input_count_settings(mock
     assert should_offload_workspace_summary(request) is True
 
 
-def test_contribution_service_uses_runtime_app_version(mocker):
+def test_contribution_service_uses_runtime_calculation_engine_version(mocker):
     captured: dict[str, object] = {}
     mocker.patch(
         "app.services.contribution_service.get_settings",
-        return_value=type("Settings", (), {"APP_VERSION": "runtime-version"})(),
+        return_value=type("Settings", (), {"CALCULATION_ENGINE_VERSION": "runtime-engine-version"})(),
     )
     mocker.patch.object(contribution_service.execution_registry, "mark_running", lambda calculation_id: None)
     mocker.patch.object(
@@ -245,8 +245,8 @@ def test_contribution_service_uses_runtime_app_version(mocker):
         calculation_hash="hash",
     )
 
-    assert response.meta.engine_version == "runtime-version"
-    assert captured["response_model"].meta.engine_version == "runtime-version"
+    assert response.meta.engine_version == "runtime-engine-version"
+    assert captured["response_model"].meta.engine_version == "runtime-engine-version"
 
 
 def test_contribution_service_raises_when_no_periods_resolve(mocker):
@@ -2089,11 +2089,11 @@ def test_contribution_service_classifies_timeseries_reconciliation_as_cutover_bl
     assert any("do not sum to the residual-adjusted period total" in note for note in response.diagnostics.notes)
 
 
-def test_attribution_service_uses_runtime_app_version(mocker):
+def test_attribution_service_uses_runtime_calculation_engine_version(mocker):
     captured: dict[str, object] = {}
     mocker.patch(
         "app.services.attribution_service.get_settings",
-        return_value=type("Settings", (), {"APP_VERSION": "runtime-version"})(),
+        return_value=type("Settings", (), {"CALCULATION_ENGINE_VERSION": "runtime-engine-version"})(),
     )
     mocker.patch.object(attribution_service.execution_registry, "mark_running", lambda calculation_id: None)
     mocker.patch.object(
@@ -2250,8 +2250,8 @@ def test_attribution_service_uses_runtime_app_version(mocker):
         calculation_hash="hash",
     )
 
-    assert response.meta.engine_version == "runtime-version"
-    assert captured["response_model"].meta.engine_version == "runtime-version"
+    assert response.meta.engine_version == "runtime-engine-version"
+    assert captured["response_model"].meta.engine_version == "runtime-engine-version"
 
 
 def test_slice_attribution_effects_by_period_uses_timestamp_boundaries():

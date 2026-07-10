@@ -41,7 +41,7 @@ This framework moves our service beyond being a "black box" calculator to a tran
 
 To guarantee that the same logical request always produces the same result and hash, all inputs are first converted into a canonical string format before hashing.
 
-  * **Canonicalization Rules**: A strict set of rules is applied to the request payload, including sorting all keys, normalizing timestamps, and standardizing number formats.
+  * **Canonicalization Rules**: A strict set of rules is applied to the request payload, including sorting all object keys, normalizing timestamps, and standardizing number formats. Arrays are intentionally preserved in request order because valuation points, cash flows, benchmark observations, period lists, and lineage rows can carry source sequence, business ordering, or evidence ordering semantics. Order-insensitive behavior is allowed only when an endpoint mapper explicitly sorts a named field by a stable business key before hashing.
   * **Calculation Hash**: The final hash is calculated as `sha256(canonical_json(request) + engine_version)`. Including the engine version ensures that if the underlying logic changes, the hash also changes.
 
 ### 3.2. Data Lineage Capture & Retrieval
@@ -164,12 +164,12 @@ The lineage endpoint will respond with a JSON object containing a dictionary of 
 
 ## 6\. Testing & Validation Strategy
 
-  * **Unit Tests**: The new `core/repro.py` and `app/services/lineage_service.py` modules must have **100% test coverage**. This includes testing the canonicalization for order-invariance and testing the serialization to JSON and CSV formats.
+  * **Unit Tests**: The new `core/repro.py` and `app/services/lineage_service.py` modules must have **100% test coverage**. This includes testing deterministic object-key canonicalization, ordered-array sensitivity for sequence-bearing request evidence, and the serialization to JSON and CSV formats.
   * **Integration Tests**:
       * Add tests to assert that primary API responses now contain the `calculation_hash`.
       * Add tests for the lineage endpoint, including a happy path test and a `404 Not Found` test.
       * An end-to-end test will perform a calculation, then immediately call the lineage endpoint to verify that the correct artifact URLs are returned.
-  * **Property-Based Testing**: Use property-based tests to confirm that shuffling the order of elements in input arrays does not change the final `calculation_hash`.
+  * **Property-Based Testing**: Use property-based tests only for fields with an explicit schema-aware business-key sorting rule. The current general canonicalizer must prove that shuffling sequence-bearing input arrays changes the final `calculation_hash` rather than silently treating ordered evidence as an unordered set.
   * **Overall Coverage**: Overall project test coverage must remain at or above **95%**.
 
 -----
@@ -180,7 +180,7 @@ The implementation of this RFC is complete when:
 
 1.  This RFC is formally approved.
 2.  All primary analytics endpoints include the `calculation_hash` in their response `meta` block.
-3.  The hashing logic is proven to be deterministic and order-invariant.
+3.  The hashing logic is proven to be deterministic: object-key order is canonicalized, ordered arrays remain part of hash identity, and any future order-insensitive field has an explicit business-key sorting rule plus tests.
 4.  A background task successfully captures and stores the request, response, and detailed calculation CSV(s) for all primary analytics types.
 5.  The new `GET /performance/lineage/{calculation_id}` endpoint is implemented and correctly returns a JSON payload with URLs for all stored artifacts.
 6.  The testing and validation strategy is fully implemented, all tests pass, and coverage targets are met.

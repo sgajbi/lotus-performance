@@ -17,8 +17,20 @@ Every API response from a primary calculation endpoint (TWR, MWR, etc.) includes
 }
 ````
 
-  * **`input_fingerprint`**: A unique SHA256 hash of the canonical representation of your request payload. This hash is invariant to the order of items in lists (e.g., `daily_data`).
+  * **`input_fingerprint`**: A unique SHA256 hash of the canonical representation of your request payload. Object keys are sorted before hashing, but arrays remain order-sensitive because fields such as `valuation_points`, cash flows, benchmark observations, period requests, and lineage rows can carry source sequence, business ordering, or evidence ordering semantics. Reordering an array changes the fingerprint unless a specific API mapper documents and applies schema-aware business-key sorting before the hash is built.
   * **`calculation_hash`**: A hash that combines the `input_fingerprint` with the `engine_version`. If the underlying calculation logic changes in a new version, this hash will change, guaranteeing a link between a specific request, a specific engine version, and a specific result.
+
+### Canonical payload ordering
+
+The current canonicalization contract sorts object keys and preserves array order. This makes
+hashing deterministic without guessing which JSON arrays are mathematical sets and which are
+ordered economic evidence. Callers that expect stable hash identity should submit arrays in the
+business order required by the endpoint, for example chronological valuation or cash-flow order
+where the request schema expects a time series.
+
+Do not add global list sorting to `core/repro.py`. Order-insensitive behavior must be introduced
+only as a field-specific, schema-aware request-mapping rule with tests that name the stable business
+key and prove that the calculation output and evidence contract remain unchanged.
 
 ### Calculation engine version governance
 

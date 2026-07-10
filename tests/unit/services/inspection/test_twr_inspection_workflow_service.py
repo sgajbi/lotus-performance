@@ -57,8 +57,8 @@ def test_submit_twr_inspection_workflow_registers_async_submission_with_observab
     )
     accepted_response = twr_inspection_workflow_service.accepted_twr_inspection_response(request.inspection_id)
     mocker.patch(
-        "app.services.inspection.twr_inspection_workflow_service.get_settings",
-        return_value=type("Settings", (), {"APP_VERSION": "runtime-version"})(),
+        "app.services.inspection.twr_inspection_workflow_service.calculation_engine_version",
+        return_value="runtime-engine-version",
     )
     register_async = mocker.patch(
         "app.services.inspection.twr_inspection_workflow_service.register_async_submission_or_raise",

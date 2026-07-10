@@ -1805,6 +1805,29 @@ def test_twr_hashes_include_resolved_benchmark_request(client):
     assert body["meta"]["calculation_hash"] == expected_calculation_hash
 
 
+def test_twr_hashes_preserve_ordered_valuation_point_identity(client):
+    base_payload = {
+        "portfolio_id": "TWR_ORDERED_HASH",
+        "performance_start_date": "2024-12-31",
+        "metric_basis": "NET",
+        "report_end_date": "2025-01-02",
+        "analyses": [{"period": "YTD", "frequencies": ["daily"]}],
+        "valuation_points": [
+            {"perf_date": "2025-01-01", "begin_mv": 1000.0, "end_mv": 1010.0},
+            {"perf_date": "2025-01-02", "begin_mv": 1010.0, "end_mv": 1020.1},
+        ],
+    }
+    reordered_payload = {**base_payload, "valuation_points": list(reversed(base_payload["valuation_points"]))}
+
+    base_response = client.post("/performance/twr", json=base_payload)
+    reordered_response = client.post("/performance/twr", json=reordered_payload)
+
+    assert base_response.status_code == 200
+    assert reordered_response.status_code == 200
+    assert base_response.json()["meta"]["input_fingerprint"] != reordered_response.json()["meta"]["input_fingerprint"]
+    assert base_response.json()["meta"]["calculation_hash"] != reordered_response.json()["meta"]["calculation_hash"]
+
+
 def test_twr_benchmark_cumulative_return_tracks_reporting_horizon(client):
     payload = {
         "portfolio_id": "TWR_BENCHMARK_CUMULATIVE",
