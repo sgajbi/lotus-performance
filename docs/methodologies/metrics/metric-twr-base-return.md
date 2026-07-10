@@ -92,6 +92,9 @@ TWR Base Return (`portfolio.summary.period_return.base`)
 - `metric_basis`:
   - `NET`: includes `mgmt_fees` in numerator.
   - `GROSS`: excludes `mgmt_fees`.
+- RFC-021 boundary: this metric supports fee-basis return treatment only. It does not consume a
+  shared `costs` request block, emit a `gross_net` bridge, or compute performance-fee HWM/hurdle,
+  transaction-cost, or tax effects.
 - `annualization.enabled`, `annualization.basis`, `annualization.periods_per_year`: controls `annualized_return_pct` in breakdown summaries.
 - `output.include_cumulative`: includes comparative `cumulative_return.base` fields in breakdown rows.
 - `output.include_timeseries`: for daily breakdown only, include raw day row under `daily_data`.

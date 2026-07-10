@@ -27,6 +27,11 @@ Currency and FX vocabulary is governed by the
 preserves source endpoint currency posture and must not invent FX evidence absent from the source
 response.
 
+Gross/net vocabulary is governed by the
+[RFC-021 gross/net support baseline](./rfc-021-gross-net-support-baseline.md). Workspace summary
+ties out to direct TWR `metric_basis=NET` and `metric_basis=GROSS`; it does not emit a shared
+`costs` request model or a top-level `gross_net` bridge.
+
 ## Certified Request Options
 
 The certified request contract covers:

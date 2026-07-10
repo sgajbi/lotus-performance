@@ -58,12 +58,18 @@ If `calculation_id` is omitted, lotus-performance generates one and returns it i
 
 Optional controls include:
 
+- `metric_basis="NET"` or `metric_basis="GROSS"` for current fee-basis return treatment
 - `report_start_date` for explicit-window analysis
 - `annualization`
 - `output`
 - `reset_policy`
 - `data_policy`
 - multi-currency fields such as `currency_mode`, `report_ccy`, `fx`, and `hedging`
+
+The current gross/net contract is fee-basis TWR only. `NET` includes `mgmt_fees` in the daily
+numerator and `GROSS` excludes those management fees. The original RFC-021 `costs` request block,
+top-level `gross_net` response bridge, and performance-fee HWM/hurdle engine are not implemented;
+see `docs/technical/rfc-021-gross-net-support-baseline.md`.
 
 Use `include_benchmark=true` when benchmark performance should be returned alongside portfolio TWR.
 The nested `benchmark` object is optional configuration, not the inclusion switch itself.

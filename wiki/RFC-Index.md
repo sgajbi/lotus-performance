@@ -19,6 +19,10 @@
 - RFC-020
   multi-currency analytics; partially implemented through the endpoint-specific support matrix,
   with FX-aware MWR still gated by the implementation-readiness contract
+- RFC-021
+  gross/net analytics; current support is limited to endpoint `metric_basis=NET` and
+  `metric_basis=GROSS` fee-basis treatment, while `costs` blocks and `gross_net` bridge output
+  remain future implementation backlog
 - RFC-030
   integration capabilities contract API
 - RFC-039
