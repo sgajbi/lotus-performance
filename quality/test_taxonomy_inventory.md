@@ -23,8 +23,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 301 |
-| Test functions inventoried | 3492 |
-| Integration/API/runtime test functions | 665 |
+| Test functions inventoried | 3493 |
+| Integration/API/runtime test functions | 684 |
 | Contract/governance test functions | 140 |
 
 ## Test Functions By Suite
@@ -34,18 +34,18 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 18 |
 | e2e | 1 | 21 |
 | integration | 28 | 338 |
-| unit | 263 | 3115 |
+| unit | 263 | 3116 |
 
 ## Test Functions By Family
 
 | Family | Test functions |
 | --- | ---: |
 | analytics_domain | 1565 |
-| api_or_runtime | 665 |
+| api_or_runtime | 684 |
 | contract_or_governance | 140 |
 | observability_or_readiness | 350 |
 | quality_or_security | 151 |
-| uncategorized | 968 |
+| uncategorized | 950 |
 
 ## Largest Test Modules
 
@@ -88,7 +88,7 @@ The AST inventory counts test function definitions, while `pytest --collect-only
 pytest items including parametrized cases. The two values are intentionally different and
 complementary: collected tests show execution breadth, while this report shows source test-module
 and test-function distribution. The current suite has meaningful API/runtime and
-contract/governance coverage, but 968 test functions remain uncategorized by the first-wave
+contract/governance coverage, but 950 test functions remain uncategorized by the first-wave
 taxonomy and should be reduced through normal refactor slices rather than allowed to grow.
 
 The runtime recovery queue-result boundary slice kept the promoted gate stable by classifying
@@ -159,7 +159,10 @@ out-of-horizon rejection coverage, raising source test functions to `3488`, API/
 Issue #434 added shared retrieval metadata anti-corruption coverage plus benchmark exposure API
 degraded-telemetry evidence, raising source test functions to `3492`, API/runtime tests to `665`,
 analytics-domain tests to `1565`, and uncategorized tests to `968` while preserving the existing
-`969` uncategorized ceiling.
+`969` uncategorized ceiling. Issue #433 added stateful async promotion conflict coverage and
+classified stateful execution policy plus submission fencing tests as API/runtime evidence,
+raising source test functions to `3493`, API/runtime tests to `684`, and reducing uncategorized
+tests to `950` while preserving the existing `969` uncategorized ceiling.
 
 This slice promotes the stable part of the taxonomy from report-only measurement to a
 regression-blocking evaluation gate. `make quality-test-taxonomy-gate` fails if API/runtime tests
