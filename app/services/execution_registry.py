@@ -9,10 +9,11 @@ from enum import StrEnum
 from typing import Any, Iterator
 from uuid import UUID
 
-from sqlalchemy import DateTime, ForeignKey, Index, String, Text, create_engine, delete, select, text
+from sqlalchemy import DateTime, ForeignKey, Index, String, Text, delete, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, sessionmaker
 
+from app.services.durable_database_engine import create_durable_database_engine
 from app.services.durable_store_json import load_json_object_or_none
 from app.services.durable_store_runtime import RuntimeStoreProxy, resolve_runtime_store
 from app.services.durable_store_time import format_timestamp, normalize_filter_datetime
@@ -342,8 +343,7 @@ def _execution_record_from_model(
 
 class ExecutionRegistry:
     def __init__(self, database_url: str):
-        connect_args = {"check_same_thread": False} if database_url.startswith("sqlite") else {}
-        self._engine = create_engine(database_url, future=True, connect_args=connect_args)
+        self._engine = create_durable_database_engine(database_url)
         self._session_factory = sessionmaker(bind=self._engine, future=True)
 
     def create_schema(self) -> None:

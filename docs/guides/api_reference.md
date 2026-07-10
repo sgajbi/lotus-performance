@@ -1031,6 +1031,9 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - lineage storage is present and usable
 - lineage storage usability includes a real write/delete health probe by default, not just path existence checks
 - durable metadata and lineage-storage probes run outside the async request loop and are bounded by `DURABLE_READINESS_TIMEOUT_SECONDS`
+- normal durable-store transactions use the shared `DURABLE_DB_*` engine policy for PostgreSQL
+  connect timeout, pool health, pool sizing, statement timeout, lock timeout, and local SQLite busy
+  timeout; readiness timeouts do not replace those transaction-level controls
 - failure contract:
   - `503 {"status":"draining"}`
   - `503 {"status":"unavailable","reason":"durable_metadata_store_unreachable"}`

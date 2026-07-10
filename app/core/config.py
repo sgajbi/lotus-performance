@@ -33,6 +33,14 @@ class Settings(BaseSettings):
     RUNTIME_STATUS_LINEAGE_STORAGE_MIN_FREE_RATIO: float = 0.0
     RECOVERY_DRILL_ARTIFACT_PATH: Path = Path("artifacts/durable-recovery-drill")
     LINEAGE_METADATA_DATABASE_URL: str = "sqlite:///./lineage_metadata.db"
+    DURABLE_DB_CONNECT_TIMEOUT_SECONDS: int = Field(default=5, ge=1)
+    DURABLE_DB_POOL_PRE_PING: bool = True
+    DURABLE_DB_POOL_SIZE: int = Field(default=5, ge=1)
+    DURABLE_DB_MAX_OVERFLOW: int = Field(default=10, ge=0)
+    DURABLE_DB_POOL_RECYCLE_SECONDS: int = Field(default=1800, ge=0)
+    DURABLE_DB_STATEMENT_TIMEOUT_MS: int = Field(default=30000, ge=0)
+    DURABLE_DB_LOCK_TIMEOUT_MS: int = Field(default=5000, ge=0)
+    DURABLE_DB_SQLITE_BUSY_TIMEOUT_MS: int = Field(default=5000, ge=0)
     LINEAGE_WORKER_POLL_SECONDS: float = 1.0
     LINEAGE_WORKER_BATCH_SIZE: int = 20
     LINEAGE_WORKER_MAX_ATTEMPTS: int = 3

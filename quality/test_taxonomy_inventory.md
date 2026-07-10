@@ -22,8 +22,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 299 |
-| Test functions inventoried | 3476 |
+| Test modules inventoried | 300 |
+| Test functions inventoried | 3480 |
 | Integration/API/runtime test functions | 663 |
 | Contract/governance test functions | 136 |
 
@@ -34,13 +34,13 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 18 |
 | e2e | 1 | 21 |
 | integration | 28 | 336 |
-| unit | 261 | 3101 |
+| unit | 262 | 3105 |
 
 ## Test Functions By Family
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 1556 |
+| analytics_domain | 1560 |
 | api_or_runtime | 663 |
 | contract_or_governance | 136 |
 | observability_or_readiness | 350 |
@@ -88,7 +88,7 @@ The AST inventory counts test function definitions, while `pytest --collect-only
 pytest items including parametrized cases. The two values are intentionally different and
 complementary: collected tests show execution breadth, while this report shows source test-module
 and test-function distribution. The current suite has meaningful API/runtime and
-contract/governance coverage, but 963 test functions remain uncategorized by the first-wave
+contract/governance coverage, but 965 test functions remain uncategorized by the first-wave
 taxonomy and should be reduced through normal refactor slices rather than allowed to grow.
 
 The runtime recovery queue-result boundary slice kept the promoted gate stable by classifying
@@ -147,7 +147,9 @@ uncategorized backlog or contract/governance floor. Issue #439 added real restor
 coverage, raising source test functions to `3475` and uncategorized tests to `965` while preserving
 the existing `969` uncategorized ceiling. The CI-observed LGPL classifier alias regression fix
 added license-policy coverage, raising source test functions to `3476` and quality/security tests
-to `151`.
+to `151`. Issue #438 added durable database engine policy coverage for SQLite/PostgreSQL engine
+options plus shared execution-registry commit/rollback behavior, raising source test functions to
+`3480` and analytics-domain tests to `1560` without growing the uncategorized backlog.
 
 This slice promotes the stable part of the taxonomy from report-only measurement to a
 regression-blocking evaluation gate. `make quality-test-taxonomy-gate` fails if API/runtime tests
