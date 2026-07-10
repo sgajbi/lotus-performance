@@ -43,10 +43,10 @@ evidence materialization complete, and becomes `failed` if the worker exhausts t
 retry budget.
 
 Materialized lineage includes a `manifest.json` artifact that carries the calculation type,
-completion timestamp, status, and artifact inventory. The lineage read path validates that
-manifest against the durable metadata record before returning lineage as complete, so a stale
-or partially corrupted manifest degrades cleanly instead of silently drifting from the DB-backed
-audit record.
+completion timestamp, status, artifact inventory, and per-artifact classification metadata. The
+lineage read path validates that manifest against the durable metadata record before returning
+lineage as complete, so a stale or partially corrupted manifest degrades cleanly instead of silently
+drifting from the DB-backed audit record.
 
 The same integrity check applies to artifact downloads. The service will not serve a declared
 artifact if the lineage manifest is missing, unreadable, invalid, or inconsistent with durable
@@ -56,7 +56,9 @@ longer present on disk.
 The lineage status route also verifies that every artifact declared as part of a complete
 calculation is physically present before it returns download URLs. That prevents the control
 plane from advertising “complete” lineage when the persisted artifact set has already drifted
-or partially disappeared.
+or partially disappeared. Raw `request.json` and `response.json` artifacts are operator-only
+full-fidelity payload evidence; customer-facing lineage evidence must be an explicitly transformed
+artifact with `customer_consumable` metadata.
 
 ### Retrieving Lineage Artifacts
 
@@ -75,13 +77,31 @@ You can retrieve the download URLs for all captured artifacts using a `GET` requ
   "status": "complete",
   "artifacts": {
     "request.json": {
-      "url": "http://performance.dev.lotus/performance/lineage/a4b7e289-7e28-4b7e-8e28-7e284b7e8e28/artifacts/request.json"
+      "url": "http://performance.dev.lotus/performance/lineage/a4b7e289-7e28-4b7e-8e28-7e284b7e8e28/artifacts/request.json",
+      "access_classification": "operator_only",
+      "intended_audience": "operations",
+      "sensitivity": "raw_sensitive_payload",
+      "minimization_posture": "raw_payload_full_fidelity",
+      "retention_category": "lineage_raw_payload",
+      "redaction_required_before_external_sharing": true
     },
     "response.json": {
-      "url": "http://performance.dev.lotus/performance/lineage/a4b7e289-7e28-4b7e-8e28-7e284b7e8e28/artifacts/response.json"
+      "url": "http://performance.dev.lotus/performance/lineage/a4b7e289-7e28-4b7e-8e28-7e284b7e8e28/artifacts/response.json",
+      "access_classification": "operator_only",
+      "intended_audience": "operations",
+      "sensitivity": "raw_sensitive_payload",
+      "minimization_posture": "raw_payload_full_fidelity",
+      "retention_category": "lineage_raw_payload",
+      "redaction_required_before_external_sharing": true
     },
     "daily_results.csv": {
-      "url": "http://performance.dev.lotus/performance/lineage/a4b7e289-7e28-4b7e-8e28-7e284b7e8e28/artifacts/daily_results.csv"
+      "url": "http://performance.dev.lotus/performance/lineage/a4b7e289-7e28-4b7e-8e28-7e284b7e8e28/artifacts/daily_results.csv",
+      "access_classification": "operator_only",
+      "intended_audience": "operations",
+      "sensitivity": "derived_evidence",
+      "minimization_posture": "derived_detail_minimized",
+      "retention_category": "lineage_detail_evidence",
+      "redaction_required_before_external_sharing": true
     }
   },
   "error_message": null

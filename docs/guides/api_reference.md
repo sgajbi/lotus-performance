@@ -586,10 +586,20 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - the governed rule covers `/performance/lineage/{calculation_id}` and child artifact paths
 - response includes:
   - `calculation_id`, `calculation_type`, `timestamp_utc`, and durable lineage `status`
-  - `artifacts` keyed by artifact filename, each containing a controlled service-owned `url`
+  - `artifacts` keyed by artifact filename, each containing a controlled service-owned `url`,
+    access classification, intended audience, sensitivity, minimization posture, retention
+    category, and whether redaction is required before external sharing
   - `error_message` when materialization failed
+- data-governance note:
+  - `request.json` and `response.json` are `operator_only` / `raw_sensitive_payload` evidence and
+    require redaction or transformation before external sharing
+  - derived detail artifacts such as CSV ladders are also `operator_only` unless a separate
+    customer-safe artifact is explicitly produced
+  - `customer_consumable` lineage evidence must be a deliberate transformed artifact such as a
+    support brief; no raw lineage artifact becomes customer-consumable by filename alone
 - integrity note:
   - complete lineage requires a readable `manifest.json` that is structurally valid and consistent with the durable lineage record
+  - complete lineage requires manifest artifact metadata to match the declared artifact inventory and use known governed classifications
   - complete lineage also requires every declared artifact to exist on disk before URLs are returned
   - inconsistent or corrupted manifests return `503` instead of silently serving drifted audit metadata
 - certification evidence: `docs/technical/lineage-endpoint-certification.md`

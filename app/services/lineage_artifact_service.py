@@ -10,7 +10,7 @@ from uuid import UUID
 from pydantic import ValidationError
 
 from app.core.config import get_settings
-from app.models.lineage_responses import ArtifactLink, LineageManifest, LineageResponse
+from app.models.lineage_responses import ArtifactLink, LineageArtifactMetadata, LineageManifest, LineageResponse
 from app.services.artifact_filename_policy import validate_artifact_filename
 from app.services.durable_store_json import read_json_file
 from app.services.lineage_metadata_store import LineageRecord, LineageStatus, lineage_metadata_store
@@ -124,6 +124,7 @@ def completed_lineage_response(
         status=record.status,
         artifacts=lineage_artifact_links(
             artifact_names=record.artifact_names,
+            artifact_metadata=manifest.artifacts,
             artifact_url_factory=artifact_url_factory,
         ),
         error_message=record.error_message,
@@ -133,13 +134,18 @@ def completed_lineage_response(
 def lineage_artifact_links(
     *,
     artifact_names: list[str],
+    artifact_metadata: dict[str, LineageArtifactMetadata],
     artifact_url_factory: Callable[[str], str],
 ) -> dict[str, ArtifactLink]:
     artifacts: dict[str, ArtifactLink] = {}
     for filename in artifact_names:
         if filename == "manifest.json":
             continue
-        artifacts[filename] = ArtifactLink(url=artifact_url_factory(filename))
+        metadata = artifact_metadata[filename]
+        artifacts[filename] = ArtifactLink(
+            url=artifact_url_factory(filename),
+            **metadata.model_dump(mode="json"),
+        )
     return artifacts
 
 

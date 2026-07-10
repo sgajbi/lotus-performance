@@ -23,8 +23,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 298 |
-| Test functions inventoried | 3458 |
-| Integration/API/runtime test functions | 661 |
+| Test functions inventoried | 3461 |
+| Integration/API/runtime test functions | 663 |
 | Contract/governance test functions | 133 |
 
 ## Test Functions By Suite
@@ -33,19 +33,19 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | --- | ---: | ---: |
 | benchmarks | 9 | 18 |
 | e2e | 1 | 21 |
-| integration | 28 | 334 |
-| unit | 260 | 3085 |
+| integration | 28 | 336 |
+| unit | 260 | 3086 |
 
 ## Test Functions By Family
 
 | Family | Test functions |
 | --- | ---: |
 | analytics_domain | 1556 |
-| api_or_runtime | 661 |
+| api_or_runtime | 663 |
 | contract_or_governance | 133 |
 | observability_or_readiness | 350 |
 | quality_or_security | 145 |
-| uncategorized | 958 |
+| uncategorized | 959 |
 
 ## Largest Test Modules
 
@@ -88,7 +88,7 @@ The AST inventory counts test function definitions, while `pytest --collect-only
 pytest items including parametrized cases. The two values are intentionally different and
 complementary: collected tests show execution breadth, while this report shows source test-module
 and test-function distribution. The current suite has meaningful API/runtime and
-contract/governance coverage, but 969 test functions remain uncategorized by the first-wave
+contract/governance coverage, but 959 test functions remain uncategorized by the first-wave
 taxonomy and should be reduced through normal refactor slices rather than allowed to grow.
 
 The runtime recovery queue-result boundary slice kept the promoted gate stable by classifying
@@ -131,7 +131,10 @@ lineage-worker tests as observability/readiness evidence, raising that family to
 the measured uncategorized backlog to `958` without weakening the enforced ceiling.
 Issue #447 added stateful portfolio source port contract tests, raising source test functions to
 `3458` and analytics-domain tests to `1556` while keeping API/runtime, contract/governance,
-observability/readiness, quality/security, and uncategorized counts unchanged.
+observability/readiness, quality/security, and uncategorized counts unchanged. Issue #446 added
+lineage artifact classification/minimization route and service coverage, raising source test
+functions to `3461`, API/runtime tests to `663`, and uncategorized tests to `959` while preserving
+the existing `969` uncategorized ceiling.
 
 This slice promotes the stable part of the taxonomy from report-only measurement to a
 regression-blocking evaluation gate. `make quality-test-taxonomy-gate` fails if API/runtime tests
