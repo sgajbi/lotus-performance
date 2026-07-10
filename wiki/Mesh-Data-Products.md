@@ -137,7 +137,11 @@
   `contracts/trust-telemetry/benchmark-exposure-context.telemetry.v1.json`, and approved for
   `lotus-risk` and `lotus-idea` consumption. Downstream consumers may use the emitted exposure
   context as source-owned evidence, but must not redefine benchmark composition or valuation-date
-  alignment outside the performance product contract.
+  alignment outside the performance product contract. Optional upstream retrieval telemetry is
+  anti-corrupted at the performance boundary; malformed count fields default affected counters and
+  surface `metadata.retrieval_metadata_quality` with
+  `MALFORMED_UPSTREAM_RETRIEVAL_METADATA_COUNT` rather than failing exposure-row generation or
+  leaking raw upstream values.
 
 ## Governed upstream dependencies
 

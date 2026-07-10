@@ -42,6 +42,7 @@ class DateChunk:
 class RetrievalMetadata:
     chunk_count: int
     page_count: int
+    invalid_count_fields: tuple[str, ...] = ()
 
 
 @dataclass
