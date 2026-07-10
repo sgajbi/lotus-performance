@@ -17,6 +17,11 @@ benchmark endpoints merely to reconstruct a return series.
 The endpoint returns simple returns as decimal ratios. For example, `0.0012` means `0.12%`, not
 `1.2%`.
 
+Currency and FX vocabulary for returns-series is governed by the
+[RFC-020 multi-currency support matrix](./rfc-020-multi-currency-support-matrix.md). This endpoint
+emits aligned return observations and risk-free series by reporting currency; it does not emit
+local/FX/base decomposition.
+
 ## Supported Options
 
 | Option | Certified behavior |

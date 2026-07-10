@@ -1,13 +1,17 @@
 # docs/guides/multi_currency.md
 # Multi-Currency & FX-Aware Analytics
 
-The performance engine has a comprehensive framework for handling portfolios with assets denominated in multiple currencies. This guide explains how to use these features and interpret the results for TWR, Contribution, and Attribution.
+The performance engine has endpoint-specific support for portfolios with assets denominated in
+multiple currencies. This guide explains how to use these features and interpret the results for
+TWR, Contribution, and Attribution. Use the
+[RFC-020 multi-currency support matrix](../technical/rfc-020-multi-currency-support-matrix.md) as
+the canonical current truth before assuming currency-mode parity across endpoints.
 
 ---
 
 ## Activating Multi-Currency Mode
 
-To enable multi-currency calculations for any endpoint, you must include three key fields in your request payload:
+Where an endpoint supports the RFC-020 decomposition path, requests use these fields:
 -   `"currency_mode": "BOTH"`: Instructs the engine to perform a full decomposition.
 -   `"report_ccy": "USD"`: Specifies the final, base currency for all top-level reporting.
 -   `"fx": { ... }`: An object containing the daily foreign exchange rates required for the calculation.

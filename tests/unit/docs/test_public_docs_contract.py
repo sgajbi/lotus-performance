@@ -18,6 +18,18 @@ def _read_lines(relative_path: str) -> list[str]:
     return _read(relative_path).splitlines()
 
 
+def _markdown_table_rows_by_first_cell(markdown: str) -> dict[str, list[str]]:
+    rows: dict[str, list[str]] = {}
+    for line in markdown.splitlines():
+        if not line.startswith("| "):
+            continue
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if not cells or cells[0] in {"---", "Endpoint", "Status"}:
+            continue
+        rows[cells[0]] = cells
+    return rows
+
+
 def _certified_surface_keys(certification: str) -> set[str]:
     lines = certification.splitlines()
     start_index = lines.index("Certified surface keys:") + 1
@@ -96,7 +108,7 @@ def test_issue_fix_closure_matrix_is_discoverable_and_merge_gated():
     assert "Review playbook, issue closure matrix, and codebase review ledger" in docs_index
     assert "ISSUE-FIX-CLOSURE-MATRIX.md" in review_playbook
     assert "before PR creation or issue closure" in review_playbook
-    assert "Actionable issues fixed locally | 20" in closure_matrix
+    assert "Actionable issues fixed locally | 21" in closure_matrix
     assert "Issues safe to close now | 0" in closure_matrix
     assert "merged to `main`" in closure_matrix
     assert "No PR should be raised from this branch until the issue matrix remains complete" in closure_matrix
@@ -120,6 +132,7 @@ def test_issue_fix_closure_matrix_is_discoverable_and_merge_gated():
         "#424",
         "#425",
         "#442",
+        "#452",
         "#453",
         "#454",
     ):
@@ -937,6 +950,57 @@ def test_rfc_020_status_does_not_overstate_fx_aware_mwr():
     assert "MWR remains pre-converted input model" in backlog
     assert "FX-aware MWR is not done until all of these are true" in fx_design
     assert "partially implemented" in wiki_rfc_index
+
+
+def test_rfc_020_currency_support_matrix_governs_endpoint_specific_semantics():
+    matrix = _read("docs/technical/rfc-020-multi-currency-support-matrix.md")
+    rows = _markdown_table_rows_by_first_cell(matrix)
+
+    expected_endpoints = {
+        "`POST /performance/twr`",
+        "`POST /performance/mwr`",
+        "`POST /performance/contribution`",
+        "`POST /performance/attribution`",
+        "`POST /performance/benchmark`",
+        "`POST /integration/returns/series`",
+        "`POST /performance/workspace-summary`",
+    }
+    assert expected_endpoints <= rows.keys()
+
+    mwr_row = " | ".join(rows["`POST /performance/mwr`"])
+    assert "SINGLE_REPORTING_CURRENCY" in mwr_row
+    assert "SOURCE_PRECONVERTED_WITH_FX_EVIDENCE" in mwr_row
+    assert "In-engine FX conversion" in mwr_row
+
+    attribution_row = " | ".join(rows["`POST /performance/attribution`"])
+    assert 'currency_mode="BOTH"' in attribution_row
+    assert "`fx.rates[]`" in attribution_row
+    assert "`group_by` including `currency`" in attribution_row
+
+    contribution_row = " | ".join(rows["`POST /performance/contribution`"])
+    assert 'currency_mode="BOTH"' in contribution_row
+    assert "local plus FX contribution" in contribution_row
+
+    returns_series_row = " | ".join(rows["`POST /integration/returns/series`"])
+    assert "not local/FX/base decomposition" in returns_series_row
+
+    linked_docs = [
+        "docs/guides/multi_currency.md",
+        "docs/guides/api_reference.md",
+        "docs/guides/mwr.md",
+        "docs/guides/attribution.md",
+        "docs/guides/contribution.md",
+        "docs/guides/benchmark.md",
+        "docs/methodologies/metrics/metric-mwr-xirr.md",
+        "docs/methodologies/metrics/metric-mwr-dietz.md",
+        "docs/methodologies/metrics/metric-twr-local-return.md",
+        "docs/methodologies/metrics/metric-twr-fx-return.md",
+        "docs/technical/returns-series-endpoint-certification.md",
+        "docs/technical/workspace-summary-endpoint-certification.md",
+        "docs/RFCs/RFC-INDEX.md",
+    ]
+    for linked_doc in linked_docs:
+        assert "rfc-020-multi-currency-support-matrix.md" in _read(linked_doc)
 
 
 def test_twr_mwr_response_attribute_certification_documents_field_level_checks():

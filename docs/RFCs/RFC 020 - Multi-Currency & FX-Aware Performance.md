@@ -5,6 +5,11 @@
 **Reviewers:** Perf Engine, Risk, Platform
 **Related:** All core analytics endpoints, RFC-014 (Envelope), RFC-025 (Reproducibility)
 
+**Current implementation note:** RFC-020 is the strategic target, but endpoint support is currently
+bounded and endpoint-specific. Use
+[`docs/technical/rfc-020-multi-currency-support-matrix.md`](../technical/rfc-020-multi-currency-support-matrix.md)
+as the canonical current support matrix before changing or consuming currency vocabulary.
+
 ## 1\. Executive Summary
 
 This document specifies the final design for a comprehensive **Multi-Currency & FX-Aware Analytics** framework. Real-world portfolios hold assets in multiple currencies, and a significant portion of their return and risk comes from foreign exchange rate movements. This RFC extends our entire suite of analytics—TWR, MWR, Contribution, and Attribution—to correctly handle, decompose, and report on the effects of currency.

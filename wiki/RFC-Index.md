@@ -17,8 +17,8 @@
   MWR enhancements: XIRR, Modified Dietz fallback, response supportability, and the
   single-reporting-currency boundary
 - RFC-020
-  multi-currency analytics; partially implemented, with FX-aware MWR still gated by the
-  implementation-readiness contract
+  multi-currency analytics; partially implemented through the endpoint-specific support matrix,
+  with FX-aware MWR still gated by the implementation-readiness contract
 - RFC-030
   integration capabilities contract API
 - RFC-039

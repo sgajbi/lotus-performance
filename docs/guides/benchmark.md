@@ -43,6 +43,9 @@ In stateful mode, lotus-performance sources benchmark definition, component pric
 rates from lotus-core, then normalizes those upstream inputs into canonical benchmark component
 observations before running the owned benchmark engine.
 
+For cross-endpoint currency vocabulary, use the
+[RFC-020 multi-currency support matrix](../technical/rfc-020-multi-currency-support-matrix.md).
+
 The stateful envelope is intentionally lightweight. lotus-performance stamps the
 source consumer identity server-side instead of requiring an explicit consumer field.
 

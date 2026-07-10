@@ -8,6 +8,8 @@ TWR Local Return (`portfolio.summary.period_return.local`)
   - `currency_mode` is provided and not `BASE_ONLY`, and
   - `fx.rates[]` is provided
 - If FX path is not active, local is returned equal to base for period decomposition.
+- Cross-endpoint currency semantics are governed by
+  [RFC-020 multi-currency support matrix](../../technical/rfc-020-multi-currency-support-matrix.md).
 
 ## Inputs
 - All base TWR inputs (`valuation_points[]`, dates, analyses, `metric_basis`)

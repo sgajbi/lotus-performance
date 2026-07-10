@@ -8,6 +8,8 @@ TWR FX Return (`portfolio.summary.period_return.fx`)
   - `currency_mode` provided and not `BASE_ONLY`
   - `fx.rates[]` present
 - If FX path is inactive, `portfolio.summary.period_return.fx` is `0.0`.
+- Cross-endpoint currency semantics are governed by
+  [RFC-020 multi-currency support matrix](../../technical/rfc-020-multi-currency-support-matrix.md).
 
 ## Inputs
 - `valuation_points[]` (for local/base return context)
