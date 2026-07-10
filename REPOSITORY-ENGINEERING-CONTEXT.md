@@ -47,11 +47,13 @@ Current repository posture:
 4. async execution, lineage capture, and benchmark-aware workflows are real parts of the contract, not future placeholders,
 5. repo-native domain-product producer and consumer declarations now live under `contracts/domain-data-products/`
    with local validation through `make domain-product-validate`,
-6. RFC-0087 trust telemetry proof lives under `contracts/trust-telemetry/` for every active
-   governed producer product declared in
+6. RFC-0087 static trust telemetry fallback fixtures live under `contracts/trust-telemetry/` for
+   every active governed producer product declared in
    `contracts/domain-data-products/lotus-performance-products.v1.json`, or must carry an explicit
-   machine-readable exception policy before the product is treated as governed. The coverage rule
-   is documented in `contracts/trust-telemetry/README.md` and enforced by
+   machine-readable exception policy before the product is treated as governed. Runtime telemetry
+   snapshots should be emitted separately under `output/trust-telemetry/runtime/` when available,
+   and static contract fixtures must not be presented as runtime proof. The coverage and
+   classification rule is documented in `contracts/trust-telemetry/README.md` and enforced by
    `tests/unit/test_trust_telemetry.py` against repo-native declarations and, when available, the
    platform trust telemetry validator,
 7. the TWR inspection supportability contract can now preserve bounded Lotus AI workflow-pack run

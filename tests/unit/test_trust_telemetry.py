@@ -11,6 +11,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PLATFORM_ROOT = REPO_ROOT.parent / "lotus-platform"
 TELEMETRY_DIR = REPO_ROOT / "contracts" / "trust-telemetry"
+TELEMETRY_README_PATH = TELEMETRY_DIR / "README.md"
 SNAPSHOT_PATH = TELEMETRY_DIR / "returns-series-bundle.telemetry.v1.json"
 TWR_SNAPSHOT_PATH = TELEMETRY_DIR / "time-weighted-return-analytics.telemetry.v1.json"
 CONTRIBUTION_SNAPSHOT_PATH = TELEMETRY_DIR / "contribution-analytics.telemetry.v1.json"
@@ -77,6 +78,22 @@ def test_every_active_governed_product_has_repo_trust_telemetry_snapshot() -> No
     snapshots = _trust_telemetry_snapshots()
 
     assert set(snapshots) == set(declared_products)
+
+
+def test_static_trust_telemetry_fixtures_do_not_claim_runtime_proof() -> None:
+    readme = TELEMETRY_README_PATH.read_text(encoding="utf-8")
+    snapshots = _trust_telemetry_snapshots()
+
+    assert "Runtime trust proof" not in readme
+    assert "static trust telemetry fallback fixtures" in readme
+    assert "output/trust-telemetry/runtime/" in readme
+    assert "fallback evidence when runtime snapshots are absent" in readme
+
+    for snapshot in snapshots.values():
+        product_id = snapshot["product_id"]
+        source_artifact_uri = snapshot["evidence"]["source_artifact_uri"]
+        assert f"Static fallback evidence for `{product_id}`." in readme
+        assert "contracts/trust-telemetry" in source_artifact_uri
 
 
 def test_active_governed_trust_telemetry_snapshots_are_tied_to_repo_declarations() -> None:
