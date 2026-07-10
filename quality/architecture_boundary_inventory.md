@@ -1,49 +1,80 @@
 # Lotus Performance Architecture Boundary Inventory
 
-Report date: 2026-06-30
-Branch: `feature/returns-series-execution-result-boundary`
-Mode: enforced architecture-boundary inventory; zero findings are blocked by CI.
+Report date: 2026-07-10
+Branch: `feat/performance-architecture-boundary-refactor`
+Mode: mixed architecture-boundary inventory; zero enforced findings are blocked by CI, while
+application-service concrete-store imports are measured report-only.
 
 ## Purpose
 
-This report captures the first measured architecture-boundary findings for API router and
-engine/core import direction. It is intended to guide bounded refactor slices and prevent the
-hardening stream from relying on subjective architecture claims.
+This report captures the measured architecture-boundary findings for API router import direction,
+engine/core import direction, and the next-layer application-service port seam. It is intended to
+guide bounded refactor slices and prevent the hardening stream from relying on subjective
+architecture claims.
 
 ## Command
 
 ```powershell
-python scripts/python_architecture_boundary_inventory.py --limit 45 --max-findings 0
+python scripts/python_architecture_boundary_inventory.py --limit 80 --max-findings 0
 ```
 
 ## Summary
 
 | Metric | Value |
 | --- | ---: |
-| Architecture boundary findings | 0 |
-| Distinct rules | 0 |
-| Distinct files | 0 |
+| Architecture boundary findings | 63 |
+| Enforced findings | 0 |
+| Report-only findings | 63 |
+| Distinct rules | 1 |
+| Distinct files | 44 |
 
 ## Findings By Rule
 
 | Rule | Count |
 | --- | ---: |
+| `APPLICATION_SERVICE_CONCRETE_STORE_IMPORT` | 63 |
 
 ## Findings By Area
 
 | Area | Count |
 | --- | ---: |
+| Application services | 63 |
 
 ## Findings
 
-| Rank | Rule | File | Import | Description |
-| ---: | --- | --- | --- | --- |
+| Rank | Rule | Posture | File | Import | Description |
+| ---: | --- | --- | --- | --- | --- |
+| 1 | `APPLICATION_SERVICE_CONCRETE_STORE_IMPORT` | report-only | `app/services/async_result_service.py:11` | `app.services.async_result_store` | Application services should depend on ports/interfaces instead of concrete durable store modules. |
+| 2 | `APPLICATION_SERVICE_CONCRETE_STORE_IMPORT` | report-only | `app/services/async_result_service.py:13` | `app.services.compute_job_store` | Application services should depend on ports/interfaces instead of concrete durable store modules. |
+| 3 | `APPLICATION_SERVICE_CONCRETE_STORE_IMPORT` | report-only | `app/services/async_result_service.py:14` | `app.services.execution_registry` | Application services should depend on ports/interfaces instead of concrete durable store modules. |
+| 4 | `APPLICATION_SERVICE_CONCRETE_STORE_IMPORT` | report-only | `app/services/attribution_mode_service.py:13` | `app.services.execution_registry` | Application services should depend on ports/interfaces instead of concrete durable store modules. |
+| 5 | `APPLICATION_SERVICE_CONCRETE_STORE_IMPORT` | report-only | `app/services/attribution_service.py:23` | `app.services.execution_registry` | Application services should depend on ports/interfaces instead of concrete durable store modules. |
+| 6 | `APPLICATION_SERVICE_CONCRETE_STORE_IMPORT` | report-only | `app/services/benchmark_calculation_workflow_service.py:16` | `app.services.execution_registry` | Application services should depend on ports/interfaces instead of concrete durable store modules. |
+| 7 | `APPLICATION_SERVICE_CONCRETE_STORE_IMPORT` | report-only | `app/services/benchmark_exposure_context_workflow_service.py:8` | `app.services.execution_registry` | Application services should depend on ports/interfaces instead of concrete durable store modules. |
+| 8 | `APPLICATION_SERVICE_CONCRETE_STORE_IMPORT` | report-only | `app/services/benchmark_mode_service.py:13` | `app.services.execution_registry` | Application services should depend on ports/interfaces instead of concrete durable store modules. |
+| 9 | `APPLICATION_SERVICE_CONCRETE_STORE_IMPORT` | report-only | `app/services/benchmark_service.py:9` | `app.services.execution_registry` | Application services should depend on ports/interfaces instead of concrete durable store modules. |
+| 10 | `APPLICATION_SERVICE_CONCRETE_STORE_IMPORT` | report-only | `app/services/calculation_result_access.py:17` | `app.services.execution_registry` | Application services should depend on ports/interfaces instead of concrete durable store modules. |
+| 11 | `APPLICATION_SERVICE_CONCRETE_STORE_IMPORT` | report-only | `app/services/composite_calculation_service.py:5` | `app.services.composite_metadata_store` | Application services should depend on ports/interfaces instead of concrete durable store modules. |
+| 12 | `APPLICATION_SERVICE_CONCRETE_STORE_IMPORT` | report-only | `app/services/composite_inspection_service.py:15` | `app.services.composite_metadata_store` | Application services should depend on ports/interfaces instead of concrete durable store modules. |
+| 13 | `APPLICATION_SERVICE_CONCRETE_STORE_IMPORT` | report-only | `app/services/contribution_evidence.py:10` | `app.services.execution_registry` | Application services should depend on ports/interfaces instead of concrete durable store modules. |
+| 14 | `APPLICATION_SERVICE_CONCRETE_STORE_IMPORT` | report-only | `app/services/contribution_mode_service.py:12` | `app.services.execution_registry` | Application services should depend on ports/interfaces instead of concrete durable store modules. |
+| 15 | `APPLICATION_SERVICE_CONCRETE_STORE_IMPORT` | report-only | `app/services/contribution_service.py:68` | `app.services.execution_registry` | Application services should depend on ports/interfaces instead of concrete durable store modules. |
+| 16 | `APPLICATION_SERVICE_CONCRETE_STORE_IMPORT` | report-only | `app/services/contribution_source_economics.py:10` | `app.services.execution_registry` | Application services should depend on ports/interfaces instead of concrete durable store modules. |
+| 17 | `APPLICATION_SERVICE_CONCRETE_STORE_IMPORT` | report-only | `app/services/durability_health_service.py:12` | `app.services.execution_registry` | Application services should depend on ports/interfaces instead of concrete durable store modules. |
+| 18 | `APPLICATION_SERVICE_CONCRETE_STORE_IMPORT` | report-only | `app/services/durable_metadata_bootstrap.py:3` | `app.services.async_result_store` | Application services should depend on ports/interfaces instead of concrete durable store modules. |
+| 19 | `APPLICATION_SERVICE_CONCRETE_STORE_IMPORT` | report-only | `app/services/durable_metadata_bootstrap.py:4` | `app.services.composite_metadata_store` | Application services should depend on ports/interfaces instead of concrete durable store modules. |
+| 20 | `APPLICATION_SERVICE_CONCRETE_STORE_IMPORT` | report-only | `app/services/durable_metadata_bootstrap.py:5` | `app.services.compute_job_store` | Application services should depend on ports/interfaces instead of concrete durable store modules. |
 
 ## Interpretation
 
-The measured router, engine, and core boundary findings have been cleared for the current scanner
-rules: API modules no longer reach directly into `core` or `engine`, and engine/core modules no
-longer import application DTOs, adapters, or FastAPI primitives for the measured rules.
+The measured router, engine, and core boundary findings remain clear for the enforced scanner
+rules: API modules do not reach directly into disallowed lower layers, and engine/core modules do
+not import application DTOs, adapters, or FastAPI primitives for the measured rules.
+
+The new application-service rule found `63` report-only concrete durable-store imports across `44`
+files. The execution polling workflow is the pilot seam: its route now receives an
+`ExecutionPollingStore` through an API dependency, the application service depends on the port, and
+the durable store access lives in `app.adapters.execution_polling_store`.
 
 Future boundary drift should be handled through bounded behavior-preserving slices with
 characterization tests. The current zero-finding posture is now a blocking architecture boundary
@@ -51,5 +82,6 @@ gate in local checks, Feature Lane, PR Merge Gate, and Main Releasability.
 
 ## Gate Posture
 
-`make quality-architecture-gate` enforces `--max-findings 0` for the current router, engine, and
-core import-boundary rule set.
+`make quality-architecture-gate` enforces `--max-findings 0` for enforced router, engine, and core
+import-boundary rules only. The application-service port-boundary rule is report-only until the
+remaining concrete-store imports are reduced and an exception policy is agreed.

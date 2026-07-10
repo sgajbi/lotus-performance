@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
-Report date: 2026-07-06
-Branch: `feat/performance-enterprise-refactor-issues`
+Report date: 2026-07-10
+Branch: `feat/performance-architecture-boundary-refactor`
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -24,7 +24,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 289 |
-| Test functions inventoried | 3421 |
+| Test functions inventoried | 3422 |
 | Integration/API/runtime test functions | 647 |
 | Contract/governance test functions | 126 |
 
@@ -35,7 +35,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 18 |
 | e2e | 1 | 21 |
 | integration | 26 | 325 |
-| unit | 253 | 3057 |
+| unit | 253 | 3058 |
 
 ## Test Functions By Family
 
@@ -45,7 +45,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | api_or_runtime | 647 |
 | contract_or_governance | 126 |
 | observability_or_readiness | 322 |
-| quality_or_security | 137 |
+| quality_or_security | 138 |
 | uncategorized | 982 |
 
 ## Largest Test Modules

@@ -47,6 +47,28 @@ class _AsyncResultStoreStub:
         return self.async_result
 
 
+class _ExecutionPollingStoreStub:
+    def __init__(
+        self,
+        *,
+        record: ExecutionRecord | None,
+        job: ComputeJobRecord | None = None,
+        async_result: AsyncResultRecord | None = None,
+    ) -> None:
+        self.execution_store = _ExecutionStoreStub(record)
+        self.compute_store = _ComputeJobStoreStub(job)
+        self.result_store = _AsyncResultStoreStub(async_result)
+
+    def get_execution(self, calculation_id):
+        return self.execution_store.get_execution(calculation_id)
+
+    def get_job(self, calculation_id):
+        return self.compute_store.get_job(calculation_id)
+
+    def get_result(self, calculation_id):
+        return self.result_store.get_result(calculation_id)
+
+
 def test_build_execution_response_includes_compute_job_and_async_result():
     calculation_id = uuid4()
     record = _execution_record(calculation_id)
@@ -84,48 +106,32 @@ def test_build_execution_response_handles_missing_optional_async_metadata():
     assert _compute_job_response(None) is None
 
 
-def test_get_execution_polling_response_reads_durable_metadata_once(monkeypatch):
-    import app.services.execution_polling_service as service
-
+def test_get_execution_polling_response_reads_durable_metadata_once():
     calculation_id = uuid4()
     record = _execution_record(calculation_id)
     job = _compute_job_record(calculation_id)
     async_result = _async_result_record(calculation_id)
-    execution_store = _ExecutionStoreStub(record)
-    compute_store = _ComputeJobStoreStub(job)
-    result_store = _AsyncResultStoreStub(async_result)
+    store = _ExecutionPollingStoreStub(record=record, job=job, async_result=async_result)
 
-    monkeypatch.setattr(service, "execution_registry", execution_store)
-    monkeypatch.setattr(service, "compute_job_store", compute_store)
-    monkeypatch.setattr(service, "async_result_store", result_store)
-
-    response = get_execution_polling_response(calculation_id)
+    response = get_execution_polling_response(calculation_id, store=store)
 
     assert response is not None
     assert response.calculation_id == calculation_id
     assert response.compute_job is not None
     assert response.async_result is not None
-    assert execution_store.requested_calculation_id == calculation_id
-    assert compute_store.requested_calculation_id == calculation_id
-    assert result_store.requested_calculation_id == calculation_id
+    assert store.execution_store.requested_calculation_id == calculation_id
+    assert store.compute_store.requested_calculation_id == calculation_id
+    assert store.result_store.requested_calculation_id == calculation_id
 
 
-def test_get_execution_polling_response_skips_async_stores_when_execution_missing(monkeypatch):
-    import app.services.execution_polling_service as service
-
+def test_get_execution_polling_response_skips_async_stores_when_execution_missing():
     calculation_id = uuid4()
-    execution_store = _ExecutionStoreStub(None)
-    compute_store = _ComputeJobStoreStub(None)
-    result_store = _AsyncResultStoreStub(None)
+    store = _ExecutionPollingStoreStub(record=None)
 
-    monkeypatch.setattr(service, "execution_registry", execution_store)
-    monkeypatch.setattr(service, "compute_job_store", compute_store)
-    monkeypatch.setattr(service, "async_result_store", result_store)
-
-    assert get_execution_polling_response(calculation_id) is None
-    assert execution_store.requested_calculation_id == calculation_id
-    assert compute_store.requested_calculation_id is None
-    assert result_store.requested_calculation_id is None
+    assert get_execution_polling_response(calculation_id, store=store) is None
+    assert store.execution_store.requested_calculation_id == calculation_id
+    assert store.compute_store.requested_calculation_id is None
+    assert store.result_store.requested_calculation_id is None
 
 
 def test_execution_polling_not_found_detail_is_legacy_error_contract():
