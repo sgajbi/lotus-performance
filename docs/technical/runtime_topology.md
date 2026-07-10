@@ -65,6 +65,21 @@ PostgreSQL aligned with retrievable artifact files after asynchronous materializ
   - lineage metadata
   - upstream retrieval snapshots
 
+Durable runtime stores use the shared `app.services.durable_database_engine` policy instead of
+constructing ad hoc SQLAlchemy engines in each store. PostgreSQL deployments apply explicit
+connection timeout, `pool_pre_ping`, pool size/overflow, pool recycle, `statement_timeout`, and
+`lock_timeout` settings through `DURABLE_DB_*` environment variables. Local SQLite deployments keep
+the test-friendly `check_same_thread=false` behavior and add a bounded busy timeout through
+`DURABLE_DB_SQLITE_BUSY_TIMEOUT_MS`.
+
+Recommended starting values:
+
+| Environment | Connect timeout | Pool size / overflow | Statement / lock timeout | SQLite busy timeout |
+| --- | ---: | ---: | ---: | ---: |
+| Local/dev | `5s` | `5 / 10` | `30000ms / 5000ms` | `5000ms` |
+| Staging | `5s` | `10 / 20` | `30000ms / 5000ms` | n/a |
+| Production | `5s` | size to worker/API concurrency; start `20 / 40` | `30000ms / 5000ms` unless workload characterization requires tighter budgets | n/a |
+
 ### `performance-runtime-retention-worker`
 
 - optional scheduled runtime-retention automation under the compose `ops` profile

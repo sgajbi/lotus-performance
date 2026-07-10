@@ -108,7 +108,7 @@ def test_issue_fix_closure_matrix_is_discoverable_and_merge_gated():
     assert "Review playbook, issue closure matrix, and codebase review ledger" in docs_index
     assert "ISSUE-FIX-CLOSURE-MATRIX.md" in review_playbook
     assert "before PR creation or issue closure" in review_playbook
-    assert "Actionable issues fixed locally | 33" in closure_matrix
+    assert "Actionable issues fixed locally | 34" in closure_matrix
     assert "Issues safe to close now | 0" in closure_matrix
     assert "merged to `main`" in closure_matrix
     assert "No PR should be raised from this branch until the issue matrix remains complete" in closure_matrix
@@ -131,6 +131,7 @@ def test_issue_fix_closure_matrix_is_discoverable_and_merge_gated():
         "#417",
         "#424",
         "#425",
+        "#438",
         "#439",
         "#440",
         "#445",
@@ -1782,6 +1783,7 @@ def test_runtime_alert_runbook_covers_breach_gauges():
     wiki_operations = _read("wiki/Operations-Runbook.md")
     runtime_topology = _read("docs/technical/runtime_topology.md")
     retention_runbook = _read("docs/runbooks/runtime-retention-cleanup.md")
+    repository_context = _read("REPOSITORY-ENGINEERING-CONTEXT.md")
 
     assert "lotus_performance_compute_queue_degradation_breach" in runbook
     assert "lotus_performance_lineage_queue_degradation_breach" in runbook
@@ -1802,6 +1804,20 @@ def test_runtime_alert_runbook_covers_breach_gauges():
     assert "DURABLE_READINESS_TIMEOUT_SECONDS" in api_reference
     assert "DURABLE_READINESS_TIMEOUT_SECONDS" in complete_reference
     assert "DURABLE_READINESS_TIMEOUT_SECONDS" in wiki_operations
+    for setting_name in [
+        "DURABLE_DB_CONNECT_TIMEOUT_SECONDS",
+        "DURABLE_DB_POOL_PRE_PING",
+        "DURABLE_DB_POOL_SIZE",
+        "DURABLE_DB_MAX_OVERFLOW",
+        "DURABLE_DB_STATEMENT_TIMEOUT_MS",
+        "DURABLE_DB_LOCK_TIMEOUT_MS",
+        "DURABLE_DB_SQLITE_BUSY_TIMEOUT_MS",
+    ]:
+        assert setting_name in complete_reference
+    assert "app.services.durable_database_engine" in runtime_topology
+    assert "DURABLE_DB_*" in api_reference
+    assert "DURABLE_DB_*" in wiki_operations
+    assert "Durable runtime stores must use `app.services.durable_database_engine`" in repository_context
     assert "durable_metadata_schema_discovery_failed" in wiki_operations
     assert "durable_metadata_readiness_timeout" in wiki_operations
     assert "docs/runbooks/runtime-alerts.md" in api_reference
@@ -1833,7 +1849,6 @@ def test_runtime_alert_runbook_covers_breach_gauges():
     assert "workspace-summary, and TWR-inspection async submissions" in wiki_operations
     assert "Lineage inspection list queries are query-plan governed" in runtime_topology
     assert "Runtime work-item lineage inspection is also governed by query-plan evidence" in wiki_operations
-    repository_context = _read("REPOSITORY-ENGINEERING-CONTEXT.md")
     lineage_store = _read("app/services/lineage_metadata_store.py")
     assert "`calculation_type` filters index-backed" in repository_context
     assert "active, failed, all, and reclaimable statements" in repository_context

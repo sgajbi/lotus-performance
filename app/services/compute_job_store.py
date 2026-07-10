@@ -9,12 +9,13 @@ from enum import StrEnum
 from typing import Any, Iterable, Iterator, cast
 from uuid import UUID
 
-from sqlalchemy import DateTime, Index, Integer, String, Text, case, create_engine, delete, func, select, text
+from sqlalchemy import DateTime, Index, Integer, String, Text, case, delete, func, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from app.core.config import get_settings
 from app.services.calculation_id_filtering import apply_calculation_id_prefix_filter
+from app.services.durable_database_engine import create_durable_database_engine
 from app.services.durable_store_inspection import (
     INSPECTION_STATUS_ACTIVE,
     INSPECTION_STATUS_ALL,
@@ -545,8 +546,7 @@ def _ensure_compute_job_can_mark_running(
 
 class ComputeJobStore:
     def __init__(self, database_url: str):
-        connect_args = {"check_same_thread": False} if database_url.startswith("sqlite") else {}
-        self._engine = create_engine(database_url, future=True, connect_args=connect_args)
+        self._engine = create_durable_database_engine(database_url)
         self._session_factory = sessionmaker(bind=self._engine, future=True)
 
     def create_schema(self) -> None:

@@ -1662,11 +1662,25 @@ Operational boundary:
 | `LINEAGE_STORAGE_HEALTHCHECK_WRITE_PROBE_ENABLED` | `true` | enable readiness write/delete probe |
 | `DURABLE_READINESS_TIMEOUT_SECONDS` | `2.0` | per-probe time budget for durable metadata and lineage-storage readiness checks |
 | `LINEAGE_METADATA_DATABASE_URL` | `sqlite:///./lineage_metadata.db` | durable lineage metadata database |
+| `DURABLE_DB_CONNECT_TIMEOUT_SECONDS` | `5` | PostgreSQL durable-store connection timeout |
+| `DURABLE_DB_POOL_PRE_PING` | `true` | enable SQLAlchemy pooled-connection health checks before checkout |
+| `DURABLE_DB_POOL_SIZE` | `5` | durable-store PostgreSQL pool size; tune with API and worker concurrency in staging/production |
+| `DURABLE_DB_MAX_OVERFLOW` | `10` | durable-store PostgreSQL overflow connection budget |
+| `DURABLE_DB_POOL_RECYCLE_SECONDS` | `1800` | durable-store PostgreSQL pooled-connection recycle age |
+| `DURABLE_DB_STATEMENT_TIMEOUT_MS` | `30000` | PostgreSQL durable-store statement timeout applied at connection startup |
+| `DURABLE_DB_LOCK_TIMEOUT_MS` | `5000` | PostgreSQL durable-store lock wait timeout applied at connection startup |
+| `DURABLE_DB_SQLITE_BUSY_TIMEOUT_MS` | `5000` | local SQLite durable-store busy timeout for lock contention |
 | `LINEAGE_WORKER_POLL_SECONDS` | `1.0` | lineage worker poll interval |
 | `LINEAGE_WORKER_BATCH_SIZE` | `20` | lineage worker batch size |
 | `LINEAGE_WORKER_MAX_ATTEMPTS` | `3` | lineage worker retry budget |
 | `LINEAGE_WORKER_LEASE_SECONDS` | `60` | lineage worker lease time |
 | `LINEAGE_WORKER_ID` | `lineage-worker-1` | lineage worker identity |
+
+Durable DB policy applies to execution registry, lineage metadata, compute-job, async-result, and
+composite metadata stores. Use the defaults for local development; in staging and production, tune
+`DURABLE_DB_POOL_SIZE` and `DURABLE_DB_MAX_OVERFLOW` to the combined API, compute-worker,
+lineage-worker, and runtime-retention concurrency budget while preserving `DURABLE_DB_POOL_PRE_PING`
+and bounded statement/lock timeouts.
 
 ### Lotus-core integration and stateful retrieval
 

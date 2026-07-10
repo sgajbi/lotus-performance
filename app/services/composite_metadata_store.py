@@ -7,10 +7,11 @@ from dataclasses import dataclass
 from datetime import date as dt_date
 from typing import Any, Iterator
 
-from sqlalchemy import Date, Index, String, Text, create_engine, select, text
+from sqlalchemy import Date, Index, String, Text, select, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from app.models.composites import CompositeDefinition, CompositeMemberReturnFact, CompositeMembership
+from app.services.durable_database_engine import create_durable_database_engine
 from app.services.durable_store_json import load_json_object_or_none, load_json_string_list_or_default
 from app.services.durable_store_runtime import RuntimeStoreProxy, resolve_runtime_store
 
@@ -103,8 +104,7 @@ def _fact_key(fact: CompositeMemberReturnFact) -> str:
 
 class CompositeMetadataStore:
     def __init__(self, database_url: str):
-        connect_args = {"check_same_thread": False} if database_url.startswith("sqlite") else {}
-        self._engine = create_engine(database_url, future=True, connect_args=connect_args)
+        self._engine = create_durable_database_engine(database_url)
         self._session_factory = sessionmaker(bind=self._engine, future=True)
 
     def close(self) -> None:

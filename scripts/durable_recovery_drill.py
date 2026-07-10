@@ -16,7 +16,7 @@ from uuid import UUID, uuid4
 
 import pandas as pd
 from pydantic import BaseModel
-from sqlalchemy import create_engine, inspect, text
+from sqlalchemy import inspect, text
 from sqlalchemy.engine import Engine, make_url
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -24,6 +24,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from app.services import operator_action_evidence_strings as _evidence_strings  # noqa: E402
+from app.services.durable_database_engine import create_durable_database_engine  # noqa: E402
 
 if TYPE_CHECKING:
     from app.services.execution_registry import ExecutionRegistry
@@ -338,7 +339,7 @@ def run_restore_validation_drill(
     if restore_started_at is not None and restore_started_at > restore_completed_at:
         raise ValueError("restore_started_at_utc must not be after restore_completed_at_utc")
 
-    engine = create_engine(restored_database_url)
+    engine = create_durable_database_engine(restored_database_url)
     try:
         generated_at_utc = datetime.now(UTC).isoformat()
         available_tables = set(inspect(engine).get_table_names())

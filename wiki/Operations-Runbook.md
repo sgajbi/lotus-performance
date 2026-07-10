@@ -229,6 +229,13 @@ Durable readiness probes are isolated from the async request loop and bounded by
 catalog responsiveness signal, and treat `lineage_storage_readiness_timeout` as a lineage-storage
 mount, write, or fsync latency signal.
 
+Normal durable-store transactions use the shared `DURABLE_DB_*` engine policy. Keep
+`DURABLE_DB_POOL_PRE_PING=true`, set PostgreSQL pool size and overflow to the combined API and
+worker concurrency budget, and preserve bounded `DURABLE_DB_STATEMENT_TIMEOUT_MS` and
+`DURABLE_DB_LOCK_TIMEOUT_MS` values. Local SQLite mode uses `DURABLE_DB_SQLITE_BUSY_TIMEOUT_MS` for
+bounded lock waits; production-like deployments should use PostgreSQL and deploy by tuning pool
+capacity, not by disabling durable readiness.
+
 If readiness returns `durable_metadata_schema_discovery_failed`, the database ping succeeded but the
 service could not list the required durable metadata tables. Check catalog permissions, schema
 visibility, metadata responsiveness, and migration state before accepting traffic.

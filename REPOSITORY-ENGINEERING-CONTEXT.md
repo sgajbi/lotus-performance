@@ -327,12 +327,19 @@ Important validation expectations:
     manifest before destructive deletion and final evidence must include per-phase
     target/deleted/skipped/failed counts so reruns can reconcile already-deleted rows and missing
     artifact directories.
-24. Lineage inspection list queries are query-plan governed operator paths. Active, failed, all,
+24. Durable runtime stores must use `app.services.durable_database_engine` for SQLAlchemy engine
+    construction. Execution registry, lineage metadata, compute-job, async-result, composite
+    metadata, and restore-validation drill paths share the same Postgres connection timeout,
+    pool-pre-ping, pool sizing/overflow, pool recycle, statement timeout, lock timeout, and local
+    SQLite busy-timeout policy. Do not add store-local `create_engine(...)` calls for durable
+    runtime metadata; extend the shared policy or add a narrow adapter when a new durable store has
+    different operational evidence.
+25. Lineage inspection list queries are query-plan governed operator paths. Active, failed, all,
     and reclaimable inspection statements must keep `calculation_type` filters index-backed through
     lineage-record and lineage-payload composite indexes; PostgreSQL plan-contract tests cover the
     active, failed, all, and reclaimable statements, allowing derived-order sorts only where the
     view orders by computed active-since age.
-25. Upstream lotus-core and Lotus AI HTTP calls use the shared resilience layer and, under the
+26. Upstream lotus-core and Lotus AI HTTP calls use the shared resilience layer and, under the
     FastAPI lifespan, a managed `httpx.AsyncClient` pool keyed by timeout. Stateful chunked
     retrieval should tune `STATEFUL_INPUT_MAX_CONCURRENT_CHUNKS` together with
     `UPSTREAM_HTTP_MAX_CONNECTIONS`, `UPSTREAM_HTTP_MAX_KEEPALIVE_CONNECTIONS`, and
