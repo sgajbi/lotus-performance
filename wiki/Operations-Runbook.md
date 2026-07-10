@@ -270,6 +270,9 @@ allowed canonical data warnings.
   [monitoring/grafana/lotus-performance-operability-dashboard.json](../monitoring/grafana/lotus-performance-operability-dashboard.json)
 - durable recovery:
   [docs/runbooks/durable-metadata-recovery.md](../docs/runbooks/durable-metadata-recovery.md)
+  Use the synthetic recovery drill for fast local/CI assurance, and use
+  `scripts/durable_recovery_drill.py --validation-mode restore-validation` against a restored,
+  non-primary durable metadata database target when certifying real backup restore RPO/RTO evidence.
 - retention cleanup:
   [docs/runbooks/runtime-retention-cleanup.md](../docs/runbooks/runtime-retention-cleanup.md)
 - returns-series source-quality triage:

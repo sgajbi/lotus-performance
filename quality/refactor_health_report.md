@@ -81,7 +81,7 @@ link the commit, command, or CI artifact that proves the change.
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
 | Integration/API/runtime test functions | unknown | 663 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
 | Contract/governance test functions | unknown | 136 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
-| Uncategorized test functions | unknown | 963 | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; issue #444 added runtime-retention restart-safety and failed-replay tests while preserving the `969` blocking ceiling |
+| Uncategorized test functions | unknown | 965 | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; issue #439 added restore-validation drill coverage while preserving the `969` blocking ceiling |
 
 ## Security And Dependencies
 
@@ -165,6 +165,8 @@ Latest test-taxonomy gate posture evidence on `feat/performance-architecture-bou
    Issue #440 added first-party and third-party license compliance gate coverage, raising measured
    source test functions to `3,473` and quality/security tests to `150` without changing the
    contract/governance floor or uncategorized ceiling.
+   Issue #439 added real restore-validation drill coverage, raising measured source test functions
+   to `3,475` and uncategorized tests to `965` while preserving the existing ceiling.
 2. Updated the CI wiring test, taxonomy inventory, CI gate map, scorecard, health report,
    repository context, and review ledger so measured current values and enforced thresholds no
    longer contradict each other.

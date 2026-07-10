@@ -11,6 +11,12 @@ The endpoints are operator-facing and integration-facing. They do not calculate 
 performance figures. They prove that lotus-performance can restore and process its own durable
 metadata, compute, async-result, execution, lineage, and artifact paths.
 
+The `POST /integration/recovery-drills/run` endpoint intentionally runs the fast synthetic smoke
+drill used by local and CI validation. It does not open a real backup artifact. Real backup/restore
+validation is performed with `scripts/durable_recovery_drill.py --validation-mode restore-validation`
+against a restored, non-primary durable metadata database target and records RPO/RTO, row-count,
+schema/readiness, and representative execution/lineage retrieval evidence.
+
 ## Request Contracts
 
 History:
@@ -99,6 +105,17 @@ Certified behavior:
 - stale action leases can be reclaimed through the governed lease path
 - successful runs retain timestamped evidence and manifest state
 - run evidence covers compute, async result, execution, lineage, schema, and artifact proof
+- retained evidence distinguishes `validation_mode="synthetic_smoke"` from
+  `validation_mode="restore_validation"` so operators do not mistake CI smoke proof for a real
+  backup restore certification
+
+Real restore-validation evidence records:
+
+- backup source and backup/restore-set identifier
+- restore timestamp, backup age/RPO, and restore duration/RTO
+- restored owned-table row counts
+- schema/readiness status
+- representative execution and lineage retrieval checks
 
 ## Upstream Integration
 

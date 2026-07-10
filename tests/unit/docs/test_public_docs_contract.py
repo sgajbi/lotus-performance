@@ -108,7 +108,7 @@ def test_issue_fix_closure_matrix_is_discoverable_and_merge_gated():
     assert "Review playbook, issue closure matrix, and codebase review ledger" in docs_index
     assert "ISSUE-FIX-CLOSURE-MATRIX.md" in review_playbook
     assert "before PR creation or issue closure" in review_playbook
-    assert "Actionable issues fixed locally | 32" in closure_matrix
+    assert "Actionable issues fixed locally | 33" in closure_matrix
     assert "Issues safe to close now | 0" in closure_matrix
     assert "merged to `main`" in closure_matrix
     assert "No PR should be raised from this branch until the issue matrix remains complete" in closure_matrix
@@ -131,6 +131,7 @@ def test_issue_fix_closure_matrix_is_discoverable_and_merge_gated():
         "#417",
         "#424",
         "#425",
+        "#439",
         "#440",
         "#445",
         "#446",
@@ -484,6 +485,7 @@ def test_recovery_drills_docs_reflect_certified_operator_contract():
     api_reference = _read("docs/guides/api_reference.md")
     complete_reference = _read("docs/guides/complete_service_reference.md")
     certification = _read("docs/technical/recovery-drills-endpoint-certification.md")
+    runbook = _read("docs/runbooks/durable-metadata-recovery.md")
 
     assert "technical/recovery-drills-endpoint-certification.md" in readme
     assert "app.models.recovery_drill_history.RecoveryDrillHistoryResponse" in api_reference
@@ -494,9 +496,17 @@ def test_recovery_drills_docs_reflect_certified_operator_contract():
     assert '"entries": [' in complete_reference
     assert '"compute_job_processed_count": 1' in complete_reference
     assert '"materialized_artifact_exists": true' in complete_reference
+    assert '"drill_name": "durable_metadata_restore_recovery"' in complete_reference
     assert "Downstream Consumers" in certification
     assert "Test Pyramid Assessment" in certification
     assert "normalized newest-first by parsed `generated_at_utc`" in certification
+    assert 'validation_mode="synthetic_smoke"' in certification
+    assert 'validation_mode="restore_validation"' in certification
+    assert "backup age/RPO" in certification
+    assert "restore duration/RTO" in api_reference
+    assert "--validation-mode restore-validation" in runbook
+    assert "--restored-database-url" in runbook
+    assert "representative execution/lineage retrieval checks" in runbook
     assert "No duplicate lotus-performance recovery-drill endpoint" in certification
     assert "app.services.operator_action_history_manifest" in certification
     assert "app.services.operator_action_history_filters" in certification
