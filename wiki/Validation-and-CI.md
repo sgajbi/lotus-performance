@@ -38,8 +38,9 @@ make quality measurable and repeatable, not to treat CI as a ceremonial final st
   configured metadata database and writes structured evidence under
   `artifacts/durable-schema-apply/`
 - `make container-supply-chain-evidence`
-  image release evidence: builds `lotus-performance:ci` with support-safe Git/build metadata,
-  writes a CycloneDX SBOM, and writes a high/critical Trivy vulnerability report under
+  image release evidence: builds the production `runtime` Dockerfile target with support-safe
+  Git/build metadata, installs only runtime dependencies, runs as non-root user `lotus`, writes a
+  CycloneDX SBOM, and writes a high/critical Trivy vulnerability report under
   `output/container-security/`
 - `make ci-local`
   local Docker-parity coverage run
@@ -70,7 +71,7 @@ make quality measurable and repeatable, not to treat CI as a ceremonial final st
 | Static quality | `make check`, Static Quality Gates | lint, format, typecheck, complexity, architecture boundaries, duplicate-code hotspots, observability markers, no-alias governance |
 | API contract quality | `make check`, Contract Security Gates | OpenAPI quality, API vocabulary, domain data-product contracts, migration smoke, security scans |
 | Runtime behavior | `make ci`, unit/integration/e2e lanes | calculation behavior, API behavior, async/runtime flows, coverage floor |
-| Container supply-chain | `make container-supply-chain-evidence`, PR/Main container evidence jobs, `GET /version` | image buildability, runtime-to-image build identity, SBOM inventory, high/critical vulnerability evidence, and main-branch SBOM provenance attestation |
+| Container supply-chain | `make container-supply-chain-evidence`, PR/Main container evidence jobs, `GET /version` | production runtime image buildability, non-root/runtime-dependency posture, API and worker healthchecks, runtime-to-image build identity, SBOM inventory, high/critical vulnerability evidence, and main-branch SBOM provenance attestation |
 | Documentation contract | docs regression tests, wiki source check | public contract language, command accuracy, source wiki publication readiness |
 | Baseline evidence | `make quality-baseline`, Quality Baseline Snapshot | before/after scorecard data for the enterprise refactor program |
 

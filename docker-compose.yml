@@ -15,7 +15,9 @@ services:
       retries: 20
 
   performance-analytics:
-    build: .
+    build:
+      context: .
+      target: runtime
     container_name: performance-analytics
     environment:
       CORE_CONTROL_PLANE_BASE_URL: "${CORE_CONTROL_PLANE_BASE_URL:-http://host.docker.internal:8202}"
@@ -30,9 +32,23 @@ services:
     depends_on:
       performance-lineage-db:
         condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=3).read()",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
 
   performance-lineage-worker:
-    build: .
+    build:
+      context: .
+      target: runtime
     container_name: performance-lineage-worker
     command: ["python", "-m", "app.workers.lineage_worker"]
     environment:
@@ -46,9 +62,17 @@ services:
     depends_on:
       performance-lineage-db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.workers.healthcheck", "lineage"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
 
   performance-compute-executor:
-    build: .
+    build:
+      context: .
+      target: runtime
     container_name: performance-compute-executor
     command: ["python", "-m", "app.workers.compute_executor_worker"]
     environment:
@@ -62,9 +86,17 @@ services:
     depends_on:
       performance-lineage-db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.workers.healthcheck", "compute-executor"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
 
   performance-runtime-retention-worker:
-    build: .
+    build:
+      context: .
+      target: runtime
     container_name: performance-runtime-retention-worker
     command: ["python", "-m", "app.workers.runtime_retention_worker"]
     profiles: ["ops"]
@@ -80,6 +112,12 @@ services:
     depends_on:
       performance-lineage-db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.workers.healthcheck", "runtime-retention"]
+      interval: 1m
+      timeout: 10s
+      retries: 3
+      start_period: 20s
 
 volumes:
   performance-lineage-data:

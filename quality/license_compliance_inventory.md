@@ -12,8 +12,8 @@ Mode: generated first-party and third-party dependency license evidence.
 
 | Metric | Value |
 | --- | ---: |
-| Packages inventoried | 49 |
-| Allowed packages | 47 |
+| Packages inventoried | 45 |
+| Allowed packages | 43 |
 | Review-required packages with active exception | 2 |
 | Blocked packages | 0 |
 | Review-required packages missing exception | 0 |
@@ -28,7 +28,7 @@ Mode: generated first-party and third-party dependency license evidence.
 | `certifi` | runtime | `certifi==2026.2.25` | `2026.6.17` | MPL-2.0 | License | review_required_exception | platform-security | 2027-01-31 |
 | `click` | runtime | `click==8.2.1` | `8.4.2` | BSD-3-Clause | License-Expression | allowed | - | - |
 | `colorama` | runtime | `colorama==0.4.6` | `0.4.6` | BSD License | Classifier | allowed | - | - |
-| `coverage` | development, runtime | `coverage==7.10.6; coverage>=7.6.0,<8.0.0` | `7.14.3` | Apache-2.0 | License | allowed | - | - |
+| `coverage` | development | `coverage>=7.6.0,<8.0.0` | `7.14.3` | Apache-2.0 | License | allowed | - | - |
 | `deptry` | development | `deptry>=0.25,<1.0.0` | `0.25.1` | MIT | License-Expression | allowed | - | - |
 | `fastapi` | runtime | `fastapi==0.136.3` | `0.138.1` | MIT | License-Expression | allowed | - | - |
 | `h11` | runtime | `h11==0.16.0` | `0.16.0` | MIT | License | allowed | - | - |
@@ -36,27 +36,23 @@ Mode: generated first-party and third-party dependency license evidence.
 | `httpx` | development, runtime | `httpx==0.28.1; httpx>=0.25.0,<1.0.0` | `0.28.1` | BSD-3-Clause | License | allowed | - | - |
 | `httpx2` | development | `httpx2>=2.4.0,<3.0.0` | `2.4.0` | BSD-3-Clause | License-Expression | allowed | - | - |
 | `idna` | runtime | `idna==3.18` | `3.18` | BSD-3-Clause | License-Expression | allowed | - | - |
-| `iniconfig` | runtime | `iniconfig==2.1.0` | `2.3.0` | MIT | License-Expression | allowed | - | - |
 | `mypy` | development | `mypy>=1.11.2,<2.0.0` | `1.20.2` | MIT | License-Expression | allowed | - | - |
 | `numpy` | runtime | `numpy==2.3.2` | `2.4.6` | BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0 | License-Expression | allowed | - | - |
 | `packaging` | runtime | `packaging==25.0` | `26.2` | Apache-2.0 OR BSD-2-Clause | License-Expression | allowed | - | - |
 | `pandas` | runtime | `pandas==2.3.2` | `2.3.2` | BSD 3-Clause License Copyright (c) 2008-2011, AQR Capital Management, LLC, Lambda Foundry, Inc. and PyData Development Team All rights reserved. Copyright (c) 2 | License | allowed | - | - |
 | `pip-audit` | development | `pip-audit>=2.9.0,<3.0.0` | `2.10.0` | Apache Software License | Classifier | allowed | - | - |
-| `pluggy` | runtime | `pluggy==1.6.0` | `1.6.0` | MIT | License | allowed | - | - |
 | `pre-commit` | development | `pre-commit>=4.2.0,<5.0.0` | `4.5.1` | MIT | License | allowed | - | - |
 | `prometheus-client` | runtime | `prometheus-client==0.25.0` | `0.25.0` | Apache-2.0 AND BSD-2-Clause | License-Expression | allowed | - | - |
 | `prometheus-fastapi-instrumentator` | runtime | `prometheus-fastapi-instrumentator==8.0.0` | `8.0.2` | ISC | License | allowed | - | - |
 | `psycopg` | development, runtime | `psycopg[binary]==3.2.6; psycopg[binary]>=3.2.0,<4.0.0` | `3.3.4` | LGPL-3.0-only | License-Expression | review_required_exception | platform-security | 2027-01-31 |
-| `py-cpuinfo` | runtime | `py-cpuinfo==9.0.0` | `9.0.0` | MIT | License | allowed | - | - |
 | `pydantic` | runtime | `pydantic==2.11.7` | `2.13.4` | MIT | License-Expression | allowed | - | - |
 | `pydantic_core` | runtime | `pydantic_core==2.33.2` | `2.46.4` | MIT | License-Expression | allowed | - | - |
 | `pydantic-settings` | runtime | `pydantic-settings==2.10.1` | `2.10.1` | MIT | License-Expression | allowed | - | - |
-| `Pygments` | runtime | `Pygments==2.20.0` | `2.20.0` | BSD-2-Clause | License-Expression | allowed | - | - |
-| `pytest` | development, runtime | `pytest==9.0.3; pytest>=9.0.3,<10.0.0` | `9.1.1` | MIT | License-Expression | allowed | - | - |
-| `pytest-asyncio` | development, runtime | `pytest-asyncio==1.3.0; pytest-asyncio>=1.3.0,<2.0.0` | `1.3.0` | Apache-2.0 | License-Expression | allowed | - | - |
-| `pytest-benchmark` | development, runtime | `pytest-benchmark==4.0.0; pytest-benchmark>=4.0.0,<5.0.0` | `4.0.0` | BSD-2-Clause | License | allowed | - | - |
-| `pytest-cov` | development, runtime | `pytest-cov==4.1.0; pytest-cov>=4.0.0,<5.0.0` | `7.1.0` | MIT | License-Expression | allowed | - | - |
-| `pytest-mock` | development, runtime | `pytest-mock==3.15.1; pytest-mock>=3.12.0,<4.0.0` | `3.15.1` | MIT | License | allowed | - | - |
+| `pytest` | development | `pytest>=9.0.3,<10.0.0` | `9.1.1` | MIT | License-Expression | allowed | - | - |
+| `pytest-asyncio` | development | `pytest-asyncio>=1.3.0,<2.0.0` | `1.3.0` | Apache-2.0 | License-Expression | allowed | - | - |
+| `pytest-benchmark` | development | `pytest-benchmark>=4.0.0,<5.0.0` | `4.0.0` | BSD-2-Clause | License | allowed | - | - |
+| `pytest-cov` | development | `pytest-cov>=4.0.0,<5.0.0` | `7.1.0` | MIT | License-Expression | allowed | - | - |
+| `pytest-mock` | development | `pytest-mock>=3.12.0,<4.0.0` | `3.15.1` | MIT | License | allowed | - | - |
 | `python-dateutil` | runtime | `python-dateutil==2.9.0.post0` | `2.9.0.post0` | Apache Software License; BSD License | Classifier | allowed | - | - |
 | `python-dotenv` | runtime | `python-dotenv==1.2.2` | `1.2.2` | BSD-3-Clause | License | allowed | - | - |
 | `pytz` | runtime | `pytz==2025.2` | `2025.2` | MIT | License | allowed | - | - |

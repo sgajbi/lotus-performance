@@ -100,6 +100,8 @@ def test_container_supply_chain_evidence_is_repo_native_and_published() -> None:
     dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
 
     assert "$(CONTAINER_IMAGE)" in docker_build_target
+    assert "--target $(CONTAINER_BUILD_TARGET)" in docker_build_target
+    assert "CONTAINER_BUILD_TARGET ?= runtime" in (ROOT / "Makefile").read_text(encoding="utf-8")
     for build_arg in (
         "APP_VERSION=$(CONTAINER_SERVICE_VERSION)",
         "APP_GIT_COMMIT_SHA=$(CONTAINER_GIT_SHA)",
@@ -122,6 +124,9 @@ def test_container_supply_chain_evidence_is_repo_native_and_published() -> None:
         assert label in dockerfile
     assert "SECRET" not in dockerfile
     assert "PASSWORD" not in dockerfile
+    assert "requirements-dev.txt" not in dockerfile
+    assert "USER lotus" in dockerfile
+    assert "/health/live" in dockerfile
     assert "docker-build container-sbom container-vulnerability-report" in evidence_target
     assert "aquasec/trivy:0.71.2" in (ROOT / "Makefile").read_text(encoding="utf-8")
     assert "--format cyclonedx" in sbom_target

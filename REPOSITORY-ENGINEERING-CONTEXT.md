@@ -286,14 +286,16 @@ Important validation expectations:
     directly: at least `656` API/runtime test functions, at least `136` contract/governance test
     functions, and no more than `969` uncategorized test functions.
 15. `make container-supply-chain-evidence` is the repo-native container release-evidence command.
-    It builds `lotus-performance:ci` with non-secret build metadata for Git SHA, branch, build
-    timestamp, repository URL, CI run id, and image digest placeholder, writes a CycloneDX SBOM and
-    high/critical Trivy vulnerability report under ignored `output/container-security/`, and is
-    published by PR Merge Gate and Main Releasability. Main Releasability also attests SBOM
-    provenance. Runtime `/version` exposes the same support-safe metadata fields so operators can
-    correlate a live service to image labels and release evidence. `make
-    container-vulnerability-gate` exists for later strict promotion after the first PR/main image
-    baseline and high/critical exception policy are reviewed.
+    It builds `lotus-performance:ci` from the production Dockerfile `runtime` target with non-secret
+    build metadata for Git SHA, branch, build timestamp, repository URL, CI run id, and image digest
+    placeholder, writes a CycloneDX SBOM and high/critical Trivy vulnerability report under ignored
+    `output/container-security/`, and is published by PR Merge Gate and Main Releasability. The
+    production runtime image installs only `requirements.txt`, runs as non-root user `lotus`, owns
+    only required writable paths, and carries Docker/Compose healthchecks for the API and worker
+    processes. Main Releasability also attests SBOM provenance. Runtime `/version` exposes the same
+    support-safe metadata fields so operators can correlate a live service to image labels and
+    release evidence. `make container-vulnerability-gate` exists for later strict promotion after
+    the first PR/main image baseline and high/critical exception policy are reviewed.
 16. `PR Auto Merge` must use `LOTUS_AUTOMERGE_TOKEN` as the merge actor. If that governed token is
     absent, the workflow skips with a warning instead of merging with `GITHUB_TOKEN`, so the merged
     mainline commit can receive normal Main Releasability evidence from an authorized merge actor.

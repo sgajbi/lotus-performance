@@ -108,8 +108,8 @@ def test_issue_fix_closure_matrix_is_discoverable_and_merge_gated():
     assert "Review playbook, issue closure matrix, and codebase review ledger" in docs_index
     assert "ISSUE-FIX-CLOSURE-MATRIX.md" in review_playbook
     assert "before PR creation or issue closure" in review_playbook
-    assert "Actionable issues fixed locally | 33" in closure_matrix
-    assert "Actionable issues remaining | 7" in closure_matrix
+    assert "Actionable issues fixed locally | 34" in closure_matrix
+    assert "Actionable issues remaining | 6" in closure_matrix
     assert "Issues safe to close now | 0" in closure_matrix
     assert "merged to `main`" in closure_matrix
     assert "No PR should be raised from this branch until the issue matrix remains complete" in closure_matrix
@@ -132,6 +132,7 @@ def test_issue_fix_closure_matrix_is_discoverable_and_merge_gated():
         "#417",
         "#424",
         "#425",
+        "#432",
         "#433",
         "#434",
         "#438",
@@ -298,6 +299,13 @@ def test_public_docs_record_container_supply_chain_evidence_posture():
     assert "org.opencontainers.image.revision" in supply_chain_report
     assert "APP_GIT_COMMIT_SHA" in supply_chain_report
     assert "unavailable-before-push" in supply_chain_report
+    assert "production `runtime`" in supply_chain_report
+    assert "requirements-dev.txt" in supply_chain_report
+    assert "non-root user `lotus`" in supply_chain_report
+    assert "worker healthchecks" in supply_chain_report
+    assert "production `runtime` Dockerfile target" in workflow_strategy
+    assert "non-root user `lotus`" in workflow_strategy
+    assert "production `runtime` Dockerfile target" in wiki_validation
     assert "make container-vulnerability-gate" in workflow_strategy
     assert "make container-vulnerability-gate" in wiki_validation
     assert "report-only" in supply_chain_report

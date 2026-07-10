@@ -26,8 +26,8 @@ metrics in each section are updated with each meaningful slice.
 | Python LOC | 104,454 | 185,003 | 80,549 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest Python file LOC | 2,399 | 2,503 | 104 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Largest production file LOC | 1,156 | 1,991 | 835 | measured | `quality/refactor_health_report.md`; `quality/architecture_boundary_inventory.md` |
-| Python test modules | 228 | 301 | 73 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
-| Collected tests | 2,035 | 3,732 | 1,697 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Python test modules | 228 | 302 | 74 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
+| Collected tests | 2,035 | 3,738 | 1,703 | measured | `quality/baseline_report.md`; `quality/refactor_health_report.md` |
 | Duplicate code hotspots | 0 | 0 | 0 | enforced | `quality/duplicate_code_inventory.md`; `quality/refactor_health_report.md`; `make quality-duplicate-code-gate` |
 | Tracked local byproduct findings | unknown | 0 | n/a | enforced | `scripts/repository_hygiene_gate.py`; `make repository-hygiene-gate`; `quality/refactor_health_report.md` |
 
@@ -69,7 +69,7 @@ metrics in each section are updated with each meaningful slice.
 | Line coverage | unknown | 99.58% | n/a | measured | `quality/coverage_inventory.md`; `quality/refactor_health_report.md` |
 | Branch coverage | unknown | 98.00% | n/a | measured | `quality/coverage_inventory.md`; `quality/refactor_health_report.md`; `make branch-coverage-baseline` |
 | Integration/API/runtime test functions | unknown | 684 | n/a | enforced | `quality/test_taxonomy_inventory.md`; `quality/refactor_health_report.md`; `make quality-test-taxonomy-gate` |
-| Contract/governance test functions | unknown | 140 | n/a | enforced | `quality/test_taxonomy_inventory.md`; `quality/refactor_health_report.md`; `make quality-test-taxonomy-gate` |
+| Contract/governance test functions | unknown | 146 | n/a | enforced | `quality/test_taxonomy_inventory.md`; `quality/refactor_health_report.md`; `make quality-test-taxonomy-gate` |
 | Uncategorized test functions | unknown | 950 | n/a | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; issue #433 classified stateful execution policy and submission fencing tests as API/runtime evidence while preserving the `969` blocking ceiling |
 
 ### Security and Dependencies
@@ -81,7 +81,7 @@ metrics in each section are updated with each meaningful slice.
 | Bandit low findings | unknown | 0 | n/a | enforced | `quality/python_security_inventory.md`; `quality/refactor_health_report.md`; `make python-security-gate` |
 | Dependency vulnerability findings | unknown | 0 | n/a | measured | `quality/dependency_security_report.md`; `quality/refactor_health_report.md` |
 | Dependency hygiene findings | unknown | 0 | n/a | measured | `quality/dependency_hygiene_report.md`; `quality/refactor_health_report.md` |
-| Third-party packages inventoried | unknown | 49 | n/a | enforced | `quality/license_compliance_inventory.md`; `make license-compliance-gate` |
+| Third-party packages inventoried | unknown | 45 | n/a | enforced | `quality/license_compliance_inventory.md`; `make license-compliance-gate` |
 | Review-required license exceptions | unknown | 2 | n/a | enforced | `contracts/license-compliance-policy.v1.json`; `quality/license_compliance_inventory.md` |
 | Blocked or missing-exception license findings | unknown | 0 | n/a | enforced | `make license-compliance-gate` |
 | Container SBOM artifact | unknown | 1 | n/a | measured | `quality/container_supply_chain_report.md`; `make container-supply-chain-evidence`; PR/Main artifact upload |
