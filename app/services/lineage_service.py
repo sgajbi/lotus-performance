@@ -195,7 +195,7 @@ class LineageService:
         artifact_names: list[str],
     ) -> None:
         try:
-            self._execution_store.complete_stage(
+            self._execution_store.complete_stage_and_execution(
                 calculation_id,
                 resolve_artifact_stage_name(calculation_type=calculation_type),
                 details={"artifact_names": sorted(artifact_names)},

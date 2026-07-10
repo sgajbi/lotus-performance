@@ -242,7 +242,7 @@ def _mark_lineage_materialization_failed(
         ),
     )
     try:
-        execution_store.fail_stage(
+        execution_store.fail_stage_and_execution(
             calculation_id,
             lineage_stage,
             error_message,
@@ -261,6 +261,22 @@ def _mark_lineage_materialization_failed(
                 retryable=False,
             ),
         )
+        try:
+            execution_store.mark_failed(calculation_id, error_message)
+        except Exception:
+            logger.warning(
+                "Execution record unavailable while marking lineage materialization failed",
+                exc_info=True,
+                extra=worker_log_extra(
+                    worker_name=_WORKER_NAME,
+                    queue=_QUEUE_NAME,
+                    calculation_id=str(calculation_id),
+                    calculation_type=calculation_type,
+                    lineage_stage=lineage_stage,
+                    failure_classification="lineage_execution_record_unavailable",
+                    retryable=False,
+                ),
+            )
 
 
 if __name__ == "__main__":

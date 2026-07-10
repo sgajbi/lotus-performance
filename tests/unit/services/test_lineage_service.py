@@ -183,7 +183,7 @@ def test_lineage_service_create_pending_record_passthrough(tmp_path):
     assert record.status == LineageStatus.PENDING
 
 
-def test_lineage_service_uses_injected_execution_store_for_stage_completion(tmp_path, mocker):
+def test_lineage_service_uses_injected_execution_store_for_stage_and_execution_completion(tmp_path, mocker):
     metadata_store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
     metadata_store.create_schema()
     execution_store = mocker.Mock()
@@ -215,7 +215,7 @@ def test_lineage_service_uses_injected_execution_store_for_stage_completion(tmp_
     )
 
     assert success is True
-    execution_store.complete_stage.assert_called_once_with(
+    execution_store.complete_stage_and_execution.assert_called_once_with(
         payload.calculation_id,
         EXECUTION_STAGE_LINEAGE_MATERIALIZATION,
         details={"artifact_names": ["details.csv", "request.json", "response.json"]},

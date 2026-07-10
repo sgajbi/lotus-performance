@@ -9,8 +9,11 @@ contract for calculations that run inline or through the durable compute executo
 canonical `poll_path` advertised by async-capable analytics endpoints.
 
 Use this endpoint to decide whether an accepted calculation is still pending or running, completed,
-or failed. Once the execution status is complete, clients should retrieve the endpoint-specific
-result from the accepted `result_path`.
+or failed. Once the execution status is complete, clients can treat both the endpoint-specific result
+and any mandatory lineage or artifact materialization stage as terminally successful. Some
+endpoint-specific result routes may become readable before lineage evidence is terminal; clients that
+need certified audit/supportability evidence should continue polling this endpoint until
+`status="complete"` or `status="failed"`.
 
 Do not treat this endpoint as a replacement for TWR, MWR, benchmark, workspace-summary,
 returns-series, contribution, attribution, or inspection results. It is an operator and downstream
@@ -47,7 +50,7 @@ Top-level fields:
 | `analytics_type` | Analytics family, for example `TWR`, `ReturnsSeries`, or `Attribution`. |
 | `portfolio_id` | Portfolio identifier when the calculation is portfolio-scoped. |
 | `execution_mode` | `sync` or `async`. |
-| `status` | Overall lifecycle status such as `pending`, `running`, `complete`, or `failed`. |
+| `status` | Overall lifecycle status such as `pending`, `running`, `complete`, or `failed`. For workflows with a mandatory lineage or artifact stage, `complete` means calculation output and evidence materialization both reached terminal success; terminal evidence failure sets the execution to `failed`. |
 | `requested_window` | Normalized request-window metadata captured for support and downstream polling. |
 | `input_fingerprint` | Fingerprint of submitted or resolved input where available. |
 | `calculation_hash` | Hash of completed output where available. |
@@ -74,15 +77,22 @@ and reflected in OpenAPI.
 
 Certified behavior:
 
-- synchronous TWR executions expose completed execution and lineage-materialization stages;
+- synchronous TWR executions expose completed execution stages, remain `running` while mandatory
+  lineage materialization is `in_progress`, and become `complete` only after the lineage worker
+  marks materialization complete;
 - stateful TWR, MWR, contribution, returns-series, benchmark, and workspace-summary executions expose
   retrieval, normalization, execution, and upstream snapshot metadata where applicable;
-- async TWR, benchmark, workspace-summary, returns-series, contribution, and attribution executions
-  expose pending compute jobs before worker drain and complete async results after worker drain;
+- async TWR, benchmark, workspace-summary, contribution, and attribution executions expose pending
+  compute jobs before worker drain, complete async results after compute drain, and stay `running`
+  until lineage materialization completes where that stage is present;
+- returns-series async executions without a lineage materialization stage can become `complete` when
+  compute and async-result materialization complete;
 - retryable compute failures expose `compute_job.attempt_count`, `error_type`, `last_error_at_utc`,
   and a pending job state while retry budget remains;
 - terminal compute failures expose failed top-level execution state and failed `async_result`
   metadata;
+- terminal lineage or artifact materialization failures expose failed top-level execution state and
+  a failed stage record, not only a child queue failure;
 - pending or no-result executions preserve nullable contract fields as explicit `null` members
   instead of deleting advertised response fields;
 - privileged-read enforcement denies UUID-only or cross-portfolio polling attempts with the

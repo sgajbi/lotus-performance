@@ -81,7 +81,8 @@ def test_twr_inspection_request_subject_runs_through_async_runtime_and_artifacts
     assert execution_response.status_code == 200
     execution_body = execution_response.json()
     assert execution_body["analytics_type"] == "TWR_INSPECTION"
-    assert execution_body["status"] == "complete"
+    assert execution_body["status"] == "running"
+    assert execution_body["completed_at_utc"] is None
     stages = {stage["stage_name"]: stage for stage in execution_body["stages"]}
     assert stages["subject_resolution"]["status"] == "complete"
     assert stages["finding_synthesis"]["status"] == "complete"
@@ -105,7 +106,9 @@ def test_twr_inspection_request_subject_runs_through_async_runtime_and_artifacts
     assert drain_lineage_queue() >= 1
 
     execution_after_lineage = client.get(f"/performance/executions/{inspection_id}")
-    stages_after_lineage = {stage["stage_name"]: stage for stage in execution_after_lineage.json()["stages"]}
+    execution_body_after_lineage = execution_after_lineage.json()
+    assert execution_body_after_lineage["status"] == "complete"
+    stages_after_lineage = {stage["stage_name"]: stage for stage in execution_body_after_lineage["stages"]}
     assert stages_after_lineage["artifact_materialization"]["status"] == "complete"
     assert "inspection_summary.json" in stages_after_lineage["artifact_materialization"]["details"]["artifact_names"]
 

@@ -5,6 +5,7 @@ import pandas as pd
 import pytest
 from pydantic import BaseModel
 
+from app.services.execution_registry import ExecutionRegistry, ExecutionStageStatus, ExecutionStatus
 from app.services.lineage_metadata_store import (
     LineageMetadataStore,
     LineagePayload,
@@ -136,7 +137,7 @@ def test_materialize_leased_payload_ignores_stale_missing_payload():
             calls.append(f"failed:{calculation_id}:{error_message}")
 
     class _ExecutionStore:
-        def fail_stage(self, *args):
+        def fail_stage_and_execution(self, *args):
             calls.append("fail_stage")
 
     processed = lineage_worker._materialize_leased_payload(
@@ -308,8 +309,11 @@ def test_mark_lineage_materialization_failed_logs_structured_stage_fields(monkey
             calls.append(f"mark_failed:{calculation_id}:{error_message}")
 
     class _ExecutionStore:
-        def fail_stage(self, *args):
+        def fail_stage_and_execution(self, *args):
             raise KeyError("missing stage")
+
+        def mark_failed(self, calculation_id, error_message):
+            calls.append(f"mark_failed_execution:{calculation_id}:{error_message}")
 
     monkeypatch.setattr(lineage_worker.logger, "warning", lambda *args, **kwargs: warnings.append((args, kwargs)))
 
@@ -323,6 +327,7 @@ def test_mark_lineage_materialization_failed_logs_structured_stage_fields(monkey
 
     assert calls == [
         f"mark_failed:{calculation_id}:Lineage materialization failed after exhausting retry budget.",
+        f"mark_failed_execution:{calculation_id}:Lineage materialization failed after exhausting retry budget.",
     ]
     assert [warning[0][0] for warning in warnings] == [
         "Lineage materialization failed after retry budget",
@@ -339,6 +344,46 @@ def test_mark_lineage_materialization_failed_logs_structured_stage_fields(monkey
     stage_fields = warnings[1][1]["extra"]["extra_fields"]
     assert stage_fields["failure_classification"] == "lineage_execution_stage_unavailable"
     assert stage_fields["lineage_stage"] == "lineage_materialization"
+
+
+def test_mark_lineage_materialization_failed_marks_execution_failed(tmp_path):
+    calculation_id = uuid4()
+    execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    execution_store.create_schema()
+    execution_store.create_execution(
+        calculation_id=calculation_id,
+        analytics_type="TWR",
+        portfolio_id="PORT-1",
+    )
+    execution_store.mark_running(calculation_id)
+    execution_store.start_stage(calculation_id, "lineage_materialization")
+    calls: list[str] = []
+
+    class _LineageStore:
+        def mark_failed(self, *, calculation_id, error_message):
+            calls.append(f"mark_failed:{calculation_id}:{error_message}")
+
+    lineage_worker._mark_lineage_materialization_failed(
+        calculation_id=calculation_id,
+        calculation_type="TWR",
+        lineage_store=_LineageStore(),
+        execution_store=execution_store,
+        error_message="Lineage materialization failed after exhausting retry budget.",
+    )
+
+    record = execution_store.get_execution(calculation_id)
+    assert record is not None
+    assert record.status == ExecutionStatus.FAILED
+    assert record.error_message == "Lineage materialization failed after exhausting retry budget."
+    stages = {stage.stage_name: stage for stage in record.stages}
+    assert stages["lineage_materialization"].status == ExecutionStageStatus.FAILED
+    assert (
+        stages["lineage_materialization"].error_message
+        == "Lineage materialization failed after exhausting retry budget."
+    )
+    assert calls == [
+        f"mark_failed:{calculation_id}:Lineage materialization failed after exhausting retry budget.",
+    ]
 
 
 def test_run_forever_initializes_schema_and_sleeps_when_idle(monkeypatch):

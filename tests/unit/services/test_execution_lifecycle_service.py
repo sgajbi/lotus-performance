@@ -19,7 +19,7 @@ def _clean_execution_registry():
     execution_registry.clear_all_records()
 
 
-def test_complete_execution_with_lineage_marks_execution_complete(mocker):
+def test_complete_execution_with_lineage_keeps_execution_running_until_lineage_materializes(mocker):
     calculation_id = uuid4()
     execution_registry.create_execution(
         calculation_id=calculation_id,
@@ -42,11 +42,13 @@ def test_complete_execution_with_lineage_marks_execution_complete(mocker):
     enqueue_capture.assert_called_once()
     record = execution_registry.get_execution(calculation_id)
     assert record is not None
-    assert record.status == ExecutionStatus.COMPLETE
+    assert record.status == ExecutionStatus.RUNNING
+    assert record.completed_at_utc is None
     stages = {stage.stage_name: stage for stage in record.stages}
     assert stages["execution"].status == ExecutionStageStatus.COMPLETE
     assert stages["execution"].details == {"rows": 2}
     assert stages["lineage_materialization"].status == ExecutionStageStatus.IN_PROGRESS
+    assert stages["lineage_materialization"].completed_at_utc is None
 
 
 def test_complete_execution_with_lineage_fails_lineage_stage_when_enqueue_raises(mocker):

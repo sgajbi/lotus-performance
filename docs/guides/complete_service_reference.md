@@ -767,7 +767,10 @@ Sample response:
 Purpose:
 
 - poll the durable execution lifecycle for any async-capable workflow
-- use the endpoint-specific `result_path` after `status` becomes `complete`
+- treat `status=complete` as terminal success for the calculation result and any mandatory lineage
+  or artifact materialization stage
+- keep polling when an endpoint-specific `result_path` is readable but lifecycle `status` is still
+  `running` because evidence materialization is pending
 - inspect stage progress, upstream snapshots, retry state, and terminal failure metadata
 
 Sample response:

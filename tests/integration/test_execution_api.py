@@ -47,6 +47,25 @@ def client():
     lineage_metadata_store.clear_all_records()
 
 
+def _assert_execution_completes_after_lineage_materialization(client: TestClient, calculation_id: str) -> None:
+    pending_evidence_response = client.get(f"/performance/executions/{calculation_id}")
+    assert pending_evidence_response.status_code == 200
+    pending_evidence_body = pending_evidence_response.json()
+    assert pending_evidence_body["status"] == "running"
+    assert pending_evidence_body["completed_at_utc"] is None
+    pending_stages = {stage["stage_name"]: stage for stage in pending_evidence_body["stages"]}
+    assert pending_stages["lineage_materialization"]["status"] == "in_progress"
+
+    assert drain_lineage_queue() >= 1
+
+    completed_response = client.get(f"/performance/executions/{calculation_id}")
+    assert completed_response.status_code == 200
+    completed_body = completed_response.json()
+    assert completed_body["status"] == "complete"
+    completed_stages = {stage["stage_name"]: stage for stage in completed_body["stages"]}
+    assert completed_stages["lineage_materialization"]["status"] == "complete"
+
+
 def test_execution_api_tracks_twr_and_lineage_completion(client):
     payload = {
         "portfolio_id": "EXEC_TEST",
@@ -65,18 +84,11 @@ def test_execution_api_tracks_twr_and_lineage_completion(client):
     execution_response = client.get(f"/performance/executions/{calculation_id}")
     assert execution_response.status_code == 200
     execution_body = execution_response.json()
-    assert execution_body["status"] == "complete"
     stages = {stage["stage_name"]: stage for stage in execution_body["stages"]}
     assert stages["execution"]["status"] == "complete"
-    assert stages["lineage_materialization"]["status"] == "in_progress"
-
-    assert drain_lineage_queue() >= 1
-
+    _assert_execution_completes_after_lineage_materialization(client, calculation_id)
     execution_response_after_worker = client.get(f"/performance/executions/{calculation_id}")
-    assert execution_response_after_worker.status_code == 200
-    execution_body_after_worker = execution_response_after_worker.json()
-    stages_after_worker = {stage["stage_name"]: stage for stage in execution_body_after_worker["stages"]}
-    assert stages_after_worker["lineage_materialization"]["status"] == "complete"
+    stages_after_worker = {stage["stage_name"]: stage for stage in execution_response_after_worker.json()["stages"]}
     assert "request.json" in stages_after_worker["lineage_materialization"]["details"]["artifact_names"]
 
 
@@ -834,10 +846,10 @@ def test_execution_api_tracks_async_contribution_job_state(client, happy_path_pa
         execution_after_worker = client.get(f"/performance/executions/{calculation_id}")
         assert execution_after_worker.status_code == 200
         execution_body_after_worker = execution_after_worker.json()
-        assert execution_body_after_worker["status"] == "complete"
         assert execution_body_after_worker["compute_job"]["job_status"] == "complete"
         assert execution_body_after_worker["compute_job"]["attempt_count"] == 1
         assert execution_body_after_worker["async_result"]["result_status"] == "complete"
+        _assert_execution_completes_after_lineage_materialization(client, calculation_id)
     finally:
         settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT = original_threshold
 
@@ -888,9 +900,9 @@ def test_execution_api_tracks_async_attribution_job_state(client):
         execution_after_worker = client.get(f"/performance/executions/{calculation_id}")
         assert execution_after_worker.status_code == 200
         execution_body_after_worker = execution_after_worker.json()
-        assert execution_body_after_worker["status"] == "complete"
         assert execution_body_after_worker["compute_job"]["job_status"] == "complete"
         assert execution_body_after_worker["async_result"]["result_status"] == "complete"
+        _assert_execution_completes_after_lineage_materialization(client, calculation_id)
     finally:
         settings.ATTRIBUTION_EXECUTOR_INPUT_COUNT = original_threshold
 
@@ -978,9 +990,9 @@ def test_execution_api_tracks_async_benchmark_job_state(client, monkeypatch):
         execution_after_worker = client.get(f"/performance/executions/{calculation_id}")
         assert execution_after_worker.status_code == 200
         body_after_worker = execution_after_worker.json()
-        assert body_after_worker["status"] == "complete"
         assert body_after_worker["compute_job"]["job_status"] == "complete"
         assert body_after_worker["async_result"]["result_status"] == "complete"
+        _assert_execution_completes_after_lineage_materialization(client, calculation_id)
     finally:
         settings.BENCHMARK_EXECUTOR_WINDOW_DAYS = original_window_threshold
         settings.BENCHMARK_EXECUTOR_INPUT_COUNT = original_input_threshold
@@ -1074,9 +1086,9 @@ def test_execution_api_tracks_async_twr_job_state(client, monkeypatch):
         execution_after_worker = client.get(f"/performance/executions/{calculation_id}")
         assert execution_after_worker.status_code == 200
         body_after_worker = execution_after_worker.json()
-        assert body_after_worker["status"] == "complete"
         assert body_after_worker["compute_job"]["job_status"] == "complete"
         assert body_after_worker["async_result"]["result_status"] == "complete"
+        _assert_execution_completes_after_lineage_materialization(client, calculation_id)
 
         twr_result_response = client.get(f"/performance/twr/results/{calculation_id}")
         assert twr_result_response.status_code == 200
@@ -1176,9 +1188,9 @@ def test_execution_api_tracks_async_workspace_summary_job_to_completion(client):
         execution_after_worker = client.get(f"/performance/executions/{calculation_id}")
         assert execution_after_worker.status_code == 200
         body_after_worker = execution_after_worker.json()
-        assert body_after_worker["status"] == "complete"
         assert body_after_worker["compute_job"]["job_status"] == "complete"
         assert body_after_worker["async_result"]["result_status"] == "complete"
+        _assert_execution_completes_after_lineage_materialization(client, calculation_id)
 
         result_response = client.get(f"/performance/workspace-summary/results/{calculation_id}")
         assert result_response.status_code == 200

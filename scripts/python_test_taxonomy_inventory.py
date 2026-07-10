@@ -92,6 +92,7 @@ def _families_for_path(path: str) -> tuple[str, ...]:
             "readiness",
             "resilience",
             "compute_job_store",
+            "lineage_worker",
             "runtime_recovery",
         )
     ):

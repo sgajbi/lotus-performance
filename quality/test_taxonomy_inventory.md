@@ -23,7 +23,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 298 |
-| Test functions inventoried | 3455 |
+| Test functions inventoried | 3456 |
 | Integration/API/runtime test functions | 661 |
 | Contract/governance test functions | 133 |
 
@@ -34,7 +34,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 18 |
 | e2e | 1 | 21 |
 | integration | 28 | 334 |
-| unit | 260 | 3082 |
+| unit | 260 | 3083 |
 
 ## Test Functions By Family
 
@@ -43,9 +43,9 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | analytics_domain | 1554 |
 | api_or_runtime | 661 |
 | contract_or_governance | 133 |
-| observability_or_readiness | 338 |
+| observability_or_readiness | 350 |
 | quality_or_security | 145 |
-| uncategorized | 969 |
+| uncategorized | 958 |
 
 ## Largest Test Modules
 
@@ -126,7 +126,9 @@ Issue #451 added docs-contract coverage for the RFC-021 gross/net support baseli
 measured contract/governance count to `133` without changing enforced floors. Issue #449 added
 operator calculation-id prefix validation, OpenAPI, integration, and adapter-guard coverage,
 raising the measured API/runtime count to `661` and analytics-domain count to `1554` while keeping
-the uncategorized backlog flat.
+the uncategorized backlog flat. Issue #448 added execution-lineage lifecycle tests and classified
+lineage-worker tests as observability/readiness evidence, raising that family to `350` and reducing
+the measured uncategorized backlog to `958` without weakening the enforced ceiling.
 
 This slice promotes the stable part of the taxonomy from report-only measurement to a
 regression-blocking evaluation gate. `make quality-test-taxonomy-gate` fails if API/runtime tests
