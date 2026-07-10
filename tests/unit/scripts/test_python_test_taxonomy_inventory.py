@@ -126,11 +126,19 @@ def test_recommended_poll_after_seconds_uses_runtime_cadence():
 """,
         encoding="utf-8",
     )
+    legal_hold_file = service_dir / "test_runtime_retention_legal_hold.py"
+    legal_hold_file.write_text(
+        """
+def test_legal_hold_source_projects_governed_retention_exclusions():
+    pass
+""",
+        encoding="utf-8",
+    )
 
     modules = collect_test_modules((str(tests_root),))
     modules_by_path = {module.path: module for module in modules}
 
-    assert [module.test_count for module in modules] == [2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+    assert [module.test_count for module in modules] == [2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
     api_module = modules_by_path["tests/integration/test_returns_api.py"]
     application_responses_module = modules_by_path["tests/unit/core/test_application_responses.py"]
     async_polling_module = modules_by_path["tests/unit/core/test_async_polling.py"]
@@ -142,6 +150,7 @@ def test_recommended_poll_after_seconds_uses_runtime_cadence():
     resilience_module = modules_by_path["tests/unit/services/test_http_resilience.py"]
     lineage_worker_module = modules_by_path["tests/unit/services/test_lineage_worker.py"]
     runtime_recovery_module = modules_by_path["tests/unit/services/test_runtime_recovery_service.py"]
+    legal_hold_module = modules_by_path["tests/unit/services/test_runtime_retention_legal_hold.py"]
     stateful_input_module = modules_by_path["tests/unit/services/test_stateful_input_service.py"]
     benchmark_module = modules_by_path["tests/unit/services/test_benchmark_exposure_context_service.py"]
     assert api_module.suite == "integration"
@@ -158,6 +167,8 @@ def test_recommended_poll_after_seconds_uses_runtime_cadence():
     assert "observability_or_readiness" in compute_store_module.families
     assert runtime_recovery_module.suite == "unit"
     assert "observability_or_readiness" in runtime_recovery_module.families
+    assert legal_hold_module.suite == "unit"
+    assert "contract_or_governance" in legal_hold_module.families
     assert observability_module.suite == "unit"
     assert "observability_or_readiness" in observability_module.families
     assert returns_series_module.suite == "unit"

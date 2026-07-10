@@ -326,7 +326,10 @@ Important validation expectations:
     retention indexes for existing runtime stores. Apply mode must persist an `in_progress` target
     manifest before destructive deletion and final evidence must include per-phase
     target/deleted/skipped/failed counts so reruns can reconcile already-deleted rows and missing
-    artifact directories.
+    artifact directories. Legal-hold exclusions from `RUNTIME_RETENTION_LEGAL_HOLD_PATH` must be
+    applied before destructive phases so protected execution, compute-job, async-result, lineage,
+    and lineage-artifact records remain available for client dispute, regulatory record, audit
+    freeze, model-validation, incident, or investigation evidence.
 24. Durable runtime stores must use `app.services.durable_database_engine` for SQLAlchemy engine
     construction. Execution registry, lineage metadata, compute-job, async-result, composite
     metadata, and restore-validation drill paths share the same Postgres connection timeout,

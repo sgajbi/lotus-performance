@@ -91,16 +91,34 @@ class AsyncResultStore:
         with self._session() as session:
             session.query(AsyncResultModel).delete()
 
-    def prune_results_older_than(self, older_than: datetime, *, dry_run: bool = False) -> int:
+    def list_result_ids_older_than(self, older_than: datetime) -> list[str]:
         with self._session() as session:
             dialect_name = session.bind.dialect.name if session.bind is not None else ""
             cutoff = normalize_filter_datetime(older_than, dialect_name=dialect_name)
+            statement = (
+                select(AsyncResultModel.calculation_id)
+                .where(AsyncResultModel.updated_at_utc <= cutoff)
+                .order_by(AsyncResultModel.updated_at_utc.asc(), AsyncResultModel.created_at_utc.asc())
+            )
+            return [row[0] for row in session.execute(statement).all()]
+
+    def prune_results_older_than(
+        self,
+        older_than: datetime,
+        *,
+        dry_run: bool = False,
+        exclude_calculation_ids: set[str] | None = None,
+    ) -> int:
+        with self._session() as session:
+            dialect_name = session.bind.dialect.name if session.bind is not None else ""
+            cutoff = normalize_filter_datetime(older_than, dialect_name=dialect_name)
+            retention_filter = AsyncResultModel.updated_at_utc <= cutoff
+            if exclude_calculation_ids:
+                retention_filter &= AsyncResultModel.calculation_id.not_in(exclude_calculation_ids)
             if dry_run:
-                statement = (
-                    select(func.count()).select_from(AsyncResultModel).where(AsyncResultModel.updated_at_utc <= cutoff)
-                )
+                statement = select(func.count()).select_from(AsyncResultModel).where(retention_filter)
                 return int(session.execute(statement).scalar_one())
-            result = session.execute(delete(AsyncResultModel).where(AsyncResultModel.updated_at_utc <= cutoff))
+            result = session.execute(delete(AsyncResultModel).where(retention_filter))
             return int(result.rowcount or 0)
 
     def record_success(self, *, calculation_id: UUID, analytics_type: str, response_payload: dict[str, Any]) -> None:

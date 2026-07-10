@@ -67,7 +67,7 @@ History responses include:
 - `total_entries`, `matched_entries`, `returned_entries`, and optional `next_offset`
 - `applied_filters` for auditability
 - summarized retained cleanup entries with operator, tenant, correlation, trigger mode, job id,
-  cleanup mode, status, retention window, and prunable counts
+  cleanup mode, status, retention window, prunable counts, and legal-hold protected counts
 
 Implementation ownership is split so shared operator-action history semantics stay reviewable:
 
@@ -84,12 +84,16 @@ Run responses include:
 - cleanup identity, generated timestamp, evidence file, operator, tenant, correlation, trigger mode, and job id
 - cleanup mode, status, retention window, and cutoff timestamp
 - prunable terminal execution, compute job, async result, lineage record, and lineage artifact counts
+- protected terminal execution, compute job, async result, lineage record, and lineage artifact counts
+  when `RUNTIME_RETENTION_LEGAL_HOLD_PATH` excludes records from cleanup
 
 Persisted evidence files include additional restart-safety detail beyond the public run response:
 
 - cleanup run id;
 - target manifest with selected execution ids, lineage ids, lineage artifact paths, and selected
-  aggregate compute/async counts;
+  aggregate compute/async counts plus protected execution, compute-job, async-result, lineage, and
+  lineage-artifact identifiers;
+- `protected_reason_counts` by bounded legal-hold reason code;
 - per-phase target, deleted, skipped, and failed counts for compute jobs, async results, lineage
   artifacts, lineage records, and executions;
 - failure message when a destructive phase fails.
@@ -107,12 +111,15 @@ Certified behavior:
 - history paging reports total, matched, returned, and next offset
 - run requests fail fast without operator identity
 - dry-run preview returns prunable counts without applying cleanup
+- dry-run preview returns protected counts before apply when legal holds are present
 - apply mode requires a recent matching preview
 - exact repeated run requests can return idempotent replay evidence
 - cooldown guards prevent uncontrolled manual cleanup repetition
 - stale action leases can be reclaimed through the governed lease path
-- retained evidence carries operator, tenant, correlation, mode, retention window, cutoff, and prunable counts
+- retained evidence carries operator, tenant, correlation, mode, retention window, cutoff, prunable
+  counts, protected counts, and legal-hold reason-code counts
 - apply evidence records target manifests before deletion and per-phase restart/reconciliation results
+- apply mode never deletes protected records or protected lineage artifact directories
 
 ## Upstream Integration
 

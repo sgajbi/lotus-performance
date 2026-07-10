@@ -884,6 +884,7 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - latest retained cleanup summary
   - filtering by operator, trigger mode, job identity, cleanup mode, status, and bounded time window
   - default pagination limit `10` when `limit` is omitted; maximum `100`; `next_offset` appears when more retained entries remain
+  - legal-hold protected counts by runtime record family
   - retained enterprise request context when available:
     - `tenant_id`
     - `correlation_id`
@@ -913,6 +914,7 @@ Return semantics for the workspace surface are now explicit rather than inferred
   - `409` when the same governed cleanup action is already running in-flight for the same operator, tenant, action mode, retention window, and job identity
   - stale in-flight cleanup leases are reclaimed automatically after the configured stale threshold instead of blocking forever after a crash
   - apply evidence is persisted as `in_progress` before destructive phases start, then rewritten with `applied` or `failed` status plus target manifest and per-phase restart/reconciliation counts
+  - legal holds from `RUNTIME_RETENTION_LEGAL_HOLD_PATH` exclude protected calculations and related execution, compute-job, async-result, lineage-record, and lineage-artifact records before deletion
 - use this when an operator needs an audited cleanup preview or a deliberate apply action without shell access
 - request model: `app.models.runtime_retention_history.RuntimeRetentionCleanupRunRequest`
 - response model: `app.models.runtime_retention_history.RuntimeRetentionCleanupRunResponse`

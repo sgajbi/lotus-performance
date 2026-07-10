@@ -87,6 +87,7 @@ class Settings(BaseSettings):
     RUNTIME_STATUS_RECENT_RECOVERY_LIMIT: int = 5
     RUNTIME_RETENTION_DAYS: int = 30
     RUNTIME_RETENTION_ARTIFACT_PATH: Path = Path("artifacts/runtime-retention-cleanup")
+    RUNTIME_RETENTION_LEGAL_HOLD_PATH: Path = Path("artifacts/runtime-retention-holds/legal-holds.json")
     RUNTIME_RETENTION_HISTORY_LIMIT: int = 30
     RUNTIME_RETENTION_HISTORY_MAX_AGE_DAYS: int = 90
     RUNTIME_RETENTION_AUTOMATION_OPERATOR_ID: str = "runtime-retention-automation"

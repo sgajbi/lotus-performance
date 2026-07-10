@@ -71,7 +71,10 @@ def _families_for_path(path: str) -> tuple[str, ...]:
         for token in ("api", "endpoint", "openapi", "router", "application_responses", "async_polling")
     ):
         families.add("api_or_runtime")
-    if any(token in lower_path for token in ("contract", "vocabulary", "domain_data_product", "trust_telemetry")):
+    if any(
+        token in lower_path
+        for token in ("contract", "vocabulary", "domain_data_product", "trust_telemetry", "legal_hold")
+    ):
         families.add("contract_or_governance")
     if lower_path.startswith("tests/unit/docs/") or "docs_contract" in lower_path:
         families.add("contract_or_governance")

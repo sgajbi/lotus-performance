@@ -569,7 +569,29 @@ class ComputeJobStore:
         with self._session() as session:
             session.query(ComputeJobModel).delete()
 
-    def prune_terminal_jobs_older_than(self, older_than: datetime, *, dry_run: bool = False) -> int:
+    def list_terminal_job_ids_older_than(self, older_than: datetime) -> list[str]:
+        with self._session() as session:
+            cutoff = cast(
+                datetime,
+                normalize_filter_datetime(
+                    older_than,
+                    dialect_name=session.bind.dialect.name if session.bind is not None else "",
+                ),
+            )
+            statement = (
+                select(ComputeJobModel.calculation_id)
+                .where(_compute_job_terminal_retention_filter(cutoff))
+                .order_by(ComputeJobModel.completed_at_utc.asc(), ComputeJobModel.created_at_utc.asc())
+            )
+            return [row[0] for row in session.execute(statement).all()]
+
+    def prune_terminal_jobs_older_than(
+        self,
+        older_than: datetime,
+        *,
+        dry_run: bool = False,
+        exclude_calculation_ids: set[str] | None = None,
+    ) -> int:
         with self._session() as session:
             cutoff = cast(
                 datetime,
@@ -579,6 +601,8 @@ class ComputeJobStore:
                 ),
             )
             retention_filter = _compute_job_terminal_retention_filter(cutoff)
+            if exclude_calculation_ids:
+                retention_filter &= ComputeJobModel.calculation_id.not_in(exclude_calculation_ids)
             if dry_run:
                 statement = select(func.count()).select_from(ComputeJobModel).where(retention_filter)
                 return int(session.execute(statement).scalar_one())

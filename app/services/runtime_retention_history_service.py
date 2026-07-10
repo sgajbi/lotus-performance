@@ -42,6 +42,13 @@ _RUNTIME_RETENTION_ENTRY_INT_KEYS = (
     "prunable_lineage_record_count",
     "prunable_lineage_artifact_count",
 )
+_RUNTIME_RETENTION_ENTRY_OPTIONAL_INT_KEYS = (
+    "protected_execution_count",
+    "protected_compute_job_count",
+    "protected_async_result_count",
+    "protected_lineage_record_count",
+    "protected_lineage_artifact_count",
+)
 RUNTIME_RETENTION_MANIFEST_READ_REASONS = HistoryManifestReadReasons(
     directory_missing=RUNTIME_RETENTION_ARTIFACT_DIRECTORY_MISSING_REASON,
     manifest_missing=RUNTIME_RETENTION_MANIFEST_MISSING_REASON,
@@ -65,6 +72,11 @@ class RuntimeRetentionHistoryEntry:
     prunable_async_result_count: int
     prunable_lineage_record_count: int
     prunable_lineage_artifact_count: int
+    protected_execution_count: int = 0
+    protected_compute_job_count: int = 0
+    protected_async_result_count: int = 0
+    protected_lineage_record_count: int = 0
+    protected_lineage_artifact_count: int = 0
     tenant_id: str | None = None
     correlation_id: str | None = None
 
@@ -241,6 +253,11 @@ def _runtime_retention_history_entries_from_manifest(
             prunable_async_result_count=entry["prunable_async_result_count"],
             prunable_lineage_record_count=entry["prunable_lineage_record_count"],
             prunable_lineage_artifact_count=entry["prunable_lineage_artifact_count"],
+            protected_execution_count=entry.get("protected_execution_count", 0),
+            protected_compute_job_count=entry.get("protected_compute_job_count", 0),
+            protected_async_result_count=entry.get("protected_async_result_count", 0),
+            protected_lineage_record_count=entry.get("protected_lineage_record_count", 0),
+            protected_lineage_artifact_count=entry.get("protected_lineage_artifact_count", 0),
         )
         for entry in manifest_payload["entries"]
     ]
@@ -288,6 +305,9 @@ def _validate_manifest_entry(entry: Any) -> dict[str, str | int | None] | None:
     entry_strings, trigger_mode = entry_fields
     if not required_evidence_int_fields_present(entry, _RUNTIME_RETENTION_ENTRY_INT_KEYS):
         return None
+    for key in _RUNTIME_RETENTION_ENTRY_OPTIONAL_INT_KEYS:
+        if key in entry and not isinstance(entry[key], int):
+            return None
 
     return _runtime_retention_manifest_entry_payload(
         entry=entry,
@@ -306,6 +326,7 @@ def _runtime_retention_manifest_entry_payload(
         key: entry_strings[key] for key in _RUNTIME_RETENTION_ENTRY_STR_KEYS
     }
     validated_entry.update({key: entry[key] for key in _RUNTIME_RETENTION_ENTRY_INT_KEYS})
+    validated_entry.update({key: int(entry.get(key, 0)) for key in _RUNTIME_RETENTION_ENTRY_OPTIONAL_INT_KEYS})
     validated_entry["trigger_mode"] = trigger_mode
     validated_entry["tenant_id"] = entry_strings["tenant_id"]
     validated_entry["correlation_id"] = entry_strings["correlation_id"]

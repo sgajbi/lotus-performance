@@ -47,6 +47,12 @@ class RuntimeRetentionCleanupEvidence:
     prunable_async_result_count: int
     prunable_lineage_record_count: int
     prunable_lineage_artifact_count: int
+    protected_execution_count: int = 0
+    protected_compute_job_count: int = 0
+    protected_async_result_count: int = 0
+    protected_lineage_record_count: int = 0
+    protected_lineage_artifact_count: int = 0
+    protected_reason_counts: dict[str, int] = field(default_factory=dict)
     cleanup_run_id: str | None = None
     target_manifest: dict[str, Any] = field(default_factory=dict)
     phase_results: list[dict[str, Any]] = field(default_factory=list)
@@ -70,6 +76,11 @@ class RuntimeRetentionManifestEntry:
     prunable_async_result_count: int
     prunable_lineage_record_count: int
     prunable_lineage_artifact_count: int
+    protected_execution_count: int = 0
+    protected_compute_job_count: int = 0
+    protected_async_result_count: int = 0
+    protected_lineage_record_count: int = 0
+    protected_lineage_artifact_count: int = 0
 
 
 @dataclass(frozen=True)
@@ -204,6 +215,12 @@ def _runtime_retention_cleanup_evidence(
         prunable_async_result_count=summary.prunable_async_result_count,
         prunable_lineage_record_count=summary.prunable_lineage_record_count,
         prunable_lineage_artifact_count=summary.prunable_lineage_artifact_count,
+        protected_execution_count=getattr(summary, "protected_execution_count", 0),
+        protected_compute_job_count=getattr(summary, "protected_compute_job_count", 0),
+        protected_async_result_count=getattr(summary, "protected_async_result_count", 0),
+        protected_lineage_record_count=getattr(summary, "protected_lineage_record_count", 0),
+        protected_lineage_artifact_count=getattr(summary, "protected_lineage_artifact_count", 0),
+        protected_reason_counts=dict(getattr(summary, "protected_reason_counts", {})),
         cleanup_run_id=_build_evidence_file_name(generated_at_utc).removesuffix(".json"),
         target_manifest=asdict(summary.target_manifest) if summary.target_manifest is not None else {},
         phase_results=[asdict(phase_result) for phase_result in summary.phase_results],
@@ -372,6 +389,11 @@ def _load_manifest_entry(path: Path) -> RuntimeRetentionManifestEntry | None:
             prunable_async_result_count=int(payload["prunable_async_result_count"]),
             prunable_lineage_record_count=int(payload["prunable_lineage_record_count"]),
             prunable_lineage_artifact_count=int(payload["prunable_lineage_artifact_count"]),
+            protected_execution_count=int(payload.get("protected_execution_count", 0)),
+            protected_compute_job_count=int(payload.get("protected_compute_job_count", 0)),
+            protected_async_result_count=int(payload.get("protected_async_result_count", 0)),
+            protected_lineage_record_count=int(payload.get("protected_lineage_record_count", 0)),
+            protected_lineage_artifact_count=int(payload.get("protected_lineage_artifact_count", 0)),
         )
     except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError):
         logger.warning("Runtime retention evidence ignored during manifest rebuild: %s", path, exc_info=True)
