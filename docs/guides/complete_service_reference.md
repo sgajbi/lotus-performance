@@ -1610,11 +1610,12 @@ All service configuration comes from `app.core.config.Settings`.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `ENTERPRISE_MAX_WRITE_PAYLOAD_BYTES` | `10485760` | maximum accepted write request body size in bytes; trusted `Content-Length` values are rejected before downstream processing, and missing or malformed length headers are enforced by counting streamed ASGI body bytes |
+| `ENTERPRISE_MAX_WRITE_PAYLOAD_BYTES` | `1048576` | maximum accepted write request body size in bytes; trusted `Content-Length` values are rejected before downstream processing, and missing or malformed length headers are enforced by counting streamed ASGI body bytes |
 
 Operational boundary:
 
-- set ingress or API gateway request-size limits at or below `ENTERPRISE_MAX_WRITE_PAYLOAD_BYTES` for earlier rejection
+- the governed default is 1 MiB (`1048576` bytes); use an explicit environment value when a deployment intentionally supports larger write payloads
+- set ingress or API gateway request-size limits at or below the effective `ENTERPRISE_MAX_WRITE_PAYLOAD_BYTES` value for earlier rejection
 - keep the application guard enabled as the final service-owned control for direct, malformed, or proxy-bypassing write requests
 
 ### Lineage storage and worker
