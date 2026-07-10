@@ -46,6 +46,11 @@ observations before running the owned benchmark engine.
 For cross-endpoint currency vocabulary, use the
 [RFC-020 multi-currency support matrix](../technical/rfc-020-multi-currency-support-matrix.md).
 
+For RFC-023 historical benchmark wording, use the
+[RFC-023 benchmark contract baseline](../technical/rfc-023-benchmark-contract-baseline.md).
+The current public API treats free-form `benchmark_spec` as superseded; use `benchmark_id`,
+`input_mode`, `return_source`, and `stateless_input` / `stateful_input`.
+
 The stateful envelope is intentionally lightweight. lotus-performance stamps the
 source consumer identity server-side instead of requiring an explicit consumer field.
 

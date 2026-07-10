@@ -108,7 +108,7 @@ def test_issue_fix_closure_matrix_is_discoverable_and_merge_gated():
     assert "Review playbook, issue closure matrix, and codebase review ledger" in docs_index
     assert "ISSUE-FIX-CLOSURE-MATRIX.md" in review_playbook
     assert "before PR creation or issue closure" in review_playbook
-    assert "Actionable issues fixed locally | 22" in closure_matrix
+    assert "Actionable issues fixed locally | 23" in closure_matrix
     assert "Issues safe to close now | 0" in closure_matrix
     assert "merged to `main`" in closure_matrix
     assert "No PR should be raised from this branch until the issue matrix remains complete" in closure_matrix
@@ -132,6 +132,7 @@ def test_issue_fix_closure_matrix_is_discoverable_and_merge_gated():
         "#424",
         "#425",
         "#451",
+        "#450",
         "#442",
         "#452",
         "#453",
@@ -776,6 +777,12 @@ def test_benchmark_guide_uses_current_request_shape():
     api_reference = _read("docs/guides/api_reference.md")
     readme = _read("README.md")
     certification = _read("docs/technical/benchmark-endpoint-certification.md")
+    rfc_023_baseline = _read("docs/technical/rfc-023-benchmark-contract-baseline.md")
+    rfc_023 = _read("docs/RFCs/RFC 023 - Blended & Dynamic Benchmarks.md")
+    rfc_042 = _read("docs/RFCs/RFC 042 - Core-Sourced Benchmark Performance Engine.md")
+    rfc_index = _read("docs/RFCs/RFC-INDEX.md")
+    backlog = _read("docs/RFCs/RFC-DELTA-BACKLOG.md")
+    wiki_rfc_index = _read("wiki/RFC-Index.md")
 
     assert 'input_mode="stateless"' in guide
     assert 'input_mode="stateful"' in guide
@@ -798,6 +805,29 @@ def test_benchmark_guide_uses_current_request_shape():
     assert "`lotus-risk`" in certification
     assert "No duplicate downstream use of `/performance/benchmark`" in certification
     assert "TWRAcceptedResponse" in api_reference
+    assert "rfc-023-benchmark-contract-baseline.md" in guide
+    assert "rfc-023-benchmark-contract-baseline.md" in api_reference
+    assert "**Status:** Superseded by RFC-042 for current API contract" in rfc_023
+    assert "Do not implement RFC-023 as written" in rfc_023
+    assert "RFC-023 is no longer sufficient as the governing design" in rfc_042
+    assert "original free-form `benchmark_spec` is superseded" in rfc_index
+    assert "superseded-by-rfc-042-current-contract" in backlog
+    assert "not through the older free-form `benchmark_spec` request block" in backlog
+    assert "free-form `benchmark_spec` API is superseded" in wiki_rfc_index
+
+    baseline_rows = _markdown_table_rows_by_first_cell(rfc_023_baseline)
+    assert "Free-form request `benchmark_spec`" in baseline_rows
+    assert "Superseded by RFC-042" in " | ".join(baseline_rows["Free-form request `benchmark_spec`"])
+    assert "`POST /benchmarks/resolve` helper endpoint" in baseline_rows
+    assert "Unsupported" in " | ".join(baseline_rows["`POST /benchmarks/resolve` helper endpoint"])
+    assert "Drift, monthly, quarterly, annual, and scheduled policy rebalancing from `benchmark_spec`" in baseline_rows
+
+    for current_doc in (guide, api_reference):
+        assert "benchmark_id" in current_doc
+        assert "return_source" in current_doc
+
+    for current_doc in (guide, api_reference, readme, certification):
+        assert "benchmark_spec" not in current_doc or "superseded" in current_doc.lower()
 
 
 def test_mwr_guide_matches_current_method_reality():
