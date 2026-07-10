@@ -31,6 +31,7 @@ from app.models.returns_series import (
     SeriesSelection,
 )
 from app.services import portfolio_source_service, returns_series_service, stateful_input_service
+from app.services.calculation_engine_version import calculation_engine_version
 from app.services.execution_registry import ExecutionRegistry
 from app.services.stateful_benchmark_input_service import StatefulBenchmarkNormalizedInput
 from core.errors import APIError
@@ -988,7 +989,7 @@ def test_requested_returns_series_execution_context_uses_stateful_benchmark_defa
             "stateful_input": {},
         }
     )
-    expected_fingerprint, expected_hash = generate_canonical_hash(request, "returns-series-v1")
+    expected_fingerprint, expected_hash = generate_canonical_hash(request, calculation_engine_version())
 
     context = returns_series_service._requested_returns_series_execution_context(
         request=request,
@@ -1029,7 +1030,7 @@ async def test_resolve_returns_series_execution_context_preserves_stateless_over
             },
         }
     )
-    expected_fingerprint, expected_hash = generate_canonical_hash(request, "returns-series-v1")
+    expected_fingerprint, expected_hash = generate_canonical_hash(request, calculation_engine_version())
 
     context = await returns_series_service._resolve_returns_series_execution_context(
         request=request,
@@ -2951,7 +2952,10 @@ async def test_calculate_returns_series_updates_stateful_identity_from_resolved_
     monkeypatch.setattr(portfolio_source_service.CoreIntegrationService, "get_benchmark_assignment", _assignment)
     monkeypatch.setattr(returns_series_service, "build_stateful_benchmark_input", _build_benchmark)
 
-    initial_input_fingerprint, initial_calculation_hash = generate_canonical_hash(request, "returns-series-v1")
+    initial_input_fingerprint, initial_calculation_hash = generate_canonical_hash(
+        request,
+        calculation_engine_version(),
+    )
 
     response = await returns_series_service.calculate_returns_series(request)
 
@@ -2970,7 +2974,7 @@ async def test_calculate_returns_series_updates_stateful_identity_from_resolved_
     )
     expected_input_fingerprint, expected_calculation_hash = generate_canonical_hash(
         resolved_payload,
-        "returns-series-v1",
+        calculation_engine_version(),
     )
 
     assert response.provenance.input_fingerprint == expected_input_fingerprint

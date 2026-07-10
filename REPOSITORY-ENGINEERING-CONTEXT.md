@@ -296,25 +296,32 @@ Important validation expectations:
     support-safe metadata fields so operators can correlate a live service to image labels and
     release evidence. `make container-vulnerability-gate` exists for later strict promotion after
     the first PR/main image baseline and high/critical exception policy are reviewed.
-16. `PR Auto Merge` must use `LOTUS_AUTOMERGE_TOKEN` as the merge actor. If that governed token is
+16. Calculation reproducibility identity is governed separately from deployable build identity.
+    Calculation hashes use `CALCULATION_ENGINE_VERSION` through
+    `app.services.calculation_engine_version` across TWR, MWR, contribution, attribution,
+    benchmark, workspace-summary, TWR inspection, and returns-series paths. `APP_VERSION`, Git SHA,
+    OCI labels, image digest, CI run id, and `/version` identify the build/release, not methodology
+    compatibility. `make calculation-engine-version-gate` runs under `make lint` and blocks
+    production calculation paths that use `APP_VERSION` or legacy literal tokens for hash identity.
+17. `PR Auto Merge` must use `LOTUS_AUTOMERGE_TOKEN` as the merge actor. If that governed token is
     absent, the workflow skips with a warning instead of merging with `GITHUB_TOKEN`, so the merged
     mainline commit can receive normal Main Releasability evidence from an authorized merge actor.
-17. `ENTERPRISE_RUNTIME_PROFILE=production`, `prod`, or `staging` is production-like and fails
+18. `ENTERPRISE_RUNTIME_PROFILE=production`, `prod`, or `staging` is production-like and fails
     startup when enterprise write authz, privileged-read authz, runtime-config enforcement, or
     `ENTERPRISE_PRIMARY_KEY_ID` is missing. Local relaxed mode remains explicit through
     `ENTERPRISE_RUNTIME_PROFILE=local` or an unset runtime profile with disabled authz switches.
-18. Lineage inventory and TWR inspection evidence endpoints are controlled evidence-access
+19. Lineage inventory and TWR inspection evidence endpoints are controlled evidence-access
     surfaces. When privileged-read authz is enabled, `/performance/lineage/{calculation_id}`,
     `/performance/lineage/{calculation_id}/artifacts/{artifact_name}`,
     `/performance/inspections/{inspection_id}`, and
     `/performance/inspections/{inspection_id}/artifacts/{artifact_name}` require
     `operations.runtime.read` through the central enterprise capability rule map.
-19. Execution polling and endpoint-specific async result retrieval use the shared
+20. Execution polling and endpoint-specific async result retrieval use the shared
     `app.services.calculation_result_access` policy. When privileged-read authz is enabled,
     callers need enterprise identity plus either `operations.runtime.read` or `X-Portfolio-Id`
     matching the durable execution `portfolio_id`; a calculation id alone is not an authorization
     boundary.
-20. Async-capable analytics accepted responses expose client cadence through both the body field
+21. Async-capable analytics accepted responses expose client cadence through both the body field
     `recommended_poll_after_seconds` and the `Retry-After` header on initial submissions and
     pending-result responses. This shared contract applies to TWR, benchmark, contribution,
     attribution, returns-series, workspace-summary, and TWR inspection. Keep it distinct from
@@ -323,7 +330,7 @@ Important validation expectations:
     runtime-threshold burn mapping are governed by
     `docs/standards/async-slo-capacity-contract.md`; update that contract with any material worker,
     threshold, or characterization-budget change.
-21. Offloaded stateful finalization must let
+22. Offloaded stateful finalization must let
     `promote_existing_execution_to_async_submission_or_raise(...)` own async submission replay,
     duplicate-conflict detection, compute-job registration, and accepted-response construction
     before mutating execution contract or identity fields. Sync/non-offloaded finalization may

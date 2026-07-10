@@ -37,6 +37,7 @@ from app.precision_policy import to_decimal
 from app.services.analytics_observation_dates import observation_date_series
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY
 from app.services.benchmark_assignment_service import resolve_benchmark_identity
+from app.services.calculation_engine_version import calculation_engine_version
 from app.services.execution_lifecycle_service import complete_execution_with_lineage
 from app.services.execution_registry import execution_registry
 from app.services.execution_stage_names import EXECUTION_STAGE_EXECUTION
@@ -147,7 +148,7 @@ async def calculate_workspace_summary_async(
     settings: Settings | None = None,
 ) -> WorkspaceSummaryResponse:
     active_settings = settings or get_settings()
-    input_fingerprint, calculation_hash = generate_canonical_hash(request, active_settings.APP_VERSION)
+    input_fingerprint, calculation_hash = generate_canonical_hash(request, calculation_engine_version(active_settings))
     execution_registry.start_stage(request.calculation_id, EXECUTION_STAGE_EXECUTION)
     (
         resolved_periods,
@@ -717,7 +718,7 @@ def _workspace_summary_meta(
 ) -> Meta:
     return Meta(
         calculation_id=request.calculation_id,
-        engine_version=settings.APP_VERSION,
+        engine_version=calculation_engine_version(settings),
         precision_mode=request.precision_mode,
         annualization=request.annualization,
         calendar=request.calendar,

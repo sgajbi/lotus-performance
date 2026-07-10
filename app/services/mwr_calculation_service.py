@@ -11,6 +11,7 @@ from app.models.mwr_responses import MoneyWeightedReturnResponse
 from app.models.responses import PerformanceCalculationSupportability
 from app.observability import record_mwr_solver_outcome
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_MWR
+from app.services.calculation_engine_version import calculation_engine_version
 from app.services.calculation_supportability_service import (
     build_calculation_supportability,
     record_supportability_metric,
@@ -289,7 +290,7 @@ async def calculate_mwr_response(
             request=request,
             input_fingerprint=resolved_execution.input_fingerprint,
             calculation_hash=resolved_execution.calculation_hash,
-            engine_version=registered_execution.active_settings.APP_VERSION,
+            engine_version=calculation_engine_version(registered_execution.active_settings),
             resolved_request=resolved_request,
         )
     except Exception as exc:
@@ -333,7 +334,10 @@ async def calculate_mwr_response(
 
 def _register_mwr_execution(request: MoneyWeightedReturnAnalyticsRequest) -> _RegisteredMWRExecution:
     active_settings = get_settings()
-    input_fingerprint, calculation_hash = generate_request_fingerprint(request, active_settings.APP_VERSION)
+    input_fingerprint, calculation_hash = generate_request_fingerprint(
+        request,
+        calculation_engine_version(active_settings),
+    )
     register_sync_execution_or_raise(
         calculation_id=request.calculation_id,
         analytics_type=ANALYTICS_WORKFLOW_MWR,
@@ -392,7 +396,7 @@ async def _resolve_mwr_execution_request(
 
     stateful_fingerprint, stateful_hash = generate_request_fingerprint(
         resolved_request.mwr_request,
-        active_settings.APP_VERSION,
+        calculation_engine_version(active_settings),
     )
     execution_registry.update_execution_identity(
         request.calculation_id,

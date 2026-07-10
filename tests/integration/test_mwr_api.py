@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from app.core.config import get_settings
 from app.models.mwr_requests import MoneyWeightedReturnRequest
 from app.observability_contracts import PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS
+from app.services.calculation_engine_version import calculation_engine_version
 from app.services.mwr_cash_flow_window_validation import MWR_CASH_FLOW_OUT_OF_WINDOW
 from core.repro import generate_canonical_hash
 from main import app
@@ -594,7 +595,7 @@ def test_mwr_stateful_hashes_follow_resolved_inputs(client, monkeypatch):
     )
     expected_input_fingerprint, expected_calculation_hash = generate_canonical_hash(
         expected_request,
-        get_settings().APP_VERSION,
+        calculation_engine_version(get_settings()),
     )
 
     assert body["meta"]["input_fingerprint"] == expected_input_fingerprint

@@ -4,11 +4,11 @@ from uuid import UUID
 
 from app.core.application_responses import ApplicationHttpResponse
 from app.core.async_polling import recommended_async_poll_after_seconds
-from app.core.config import get_settings
 from app.models.inspection_requests import TWRInspectionRequest
 from app.models.inspection_responses import TWRInspectionAcceptedResponse
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_TWR_INSPECTION
 from app.services.async_observability_context import async_observability_request_payload
+from app.services.calculation_engine_version import calculation_engine_version
 from app.services.execution_registry import execution_registry
 from app.services.reproducibility_service import generate_request_fingerprint
 from app.services.submission_fencing_service import register_async_submission_or_raise
@@ -43,7 +43,7 @@ def twr_inspection_requested_window(request: TWRInspectionRequest) -> dict[str, 
 
 
 def submit_twr_inspection_workflow(request: TWRInspectionRequest) -> ApplicationHttpResponse:
-    input_fingerprint, calculation_hash = generate_request_fingerprint(request, get_settings().APP_VERSION)
+    input_fingerprint, calculation_hash = generate_request_fingerprint(request, calculation_engine_version())
     return register_async_submission_or_raise(
         calculation_id=request.inspection_id,
         analytics_type=ANALYTICS_WORKFLOW_TWR_INSPECTION,

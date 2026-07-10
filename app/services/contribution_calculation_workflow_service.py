@@ -14,6 +14,7 @@ from app.models.contribution_responses import ContributionAcceptedResponse, Cont
 from app.services.analytics_workflow_commands import ContributionWorkflowCommand, workflow_request
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_CONTRIBUTION
 from app.services.async_observability_context import async_observability_request_payload
+from app.services.calculation_engine_version import calculation_engine_version
 from app.services.contribution_mode_service import resolve_contribution_request
 from app.services.contribution_service import calculate_contribution
 from app.services.execution_lifecycle_service import record_execution_failure
@@ -152,7 +153,7 @@ async def _resolve_promoted_stateful_contribution_response(
         resolved_request = resolved.contribution_request
         resolved_input_fingerprint, resolved_calculation_hash = generate_request_fingerprint(
             resolved_request,
-            active_settings.APP_VERSION,
+            calculation_engine_version(active_settings),
         )
         resolved_window = build_resolved_contribution_execution_window(
             request,
@@ -283,7 +284,10 @@ async def calculate_contribution_workflow(
     """Resolve, fence, execute, and map errors for one contribution analytics request."""
     request = workflow_request(command, ContributionAnalyticsRequest)
     active_settings = get_settings()
-    input_fingerprint, calculation_hash = generate_request_fingerprint(request, active_settings.APP_VERSION)
+    input_fingerprint, calculation_hash = generate_request_fingerprint(
+        request,
+        calculation_engine_version(active_settings),
+    )
     if request.input_mode == ContributionInputMode.STATEFUL and not should_preemptively_offload_stateful_contribution(
         request
     ):

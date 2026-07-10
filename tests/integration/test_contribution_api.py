@@ -11,6 +11,7 @@ from app.models.contribution_analytics_requests import ContributionAnalyticsRequ
 from app.models.contribution_requests import ContributionRequest
 from app.observability_contracts import PERFORMANCE_CALCULATION_SUPPORTABILITY_METRIC_LABELS
 from app.services.async_result_store import async_result_store
+from app.services.calculation_engine_version import calculation_engine_version
 from app.services.compute_job_store import compute_job_store
 from app.services.contribution_calculation_workflow_service import build_contribution_execution_window
 from app.services.execution_registry import execution_registry
@@ -1778,7 +1779,8 @@ def test_contribution_stateful_hashes_follow_resolved_inputs(client, monkeypatch
         }
     )
     expected_input_fingerprint, expected_calculation_hash = generate_canonical_hash(
-        expected_request, settings.APP_VERSION
+        expected_request,
+        calculation_engine_version(settings),
     )
 
     assert body["meta"]["input_fingerprint"] == expected_input_fingerprint
@@ -1913,7 +1915,9 @@ def test_contribution_async_result_not_found_and_failed(client, happy_path_paylo
 
         failed = client.get(f"/performance/contribution/results/{calculation_id}")
         assert failed.status_code == 409
-        assert failed.json()["detail"] == "explode"
+        assert (
+            failed.json()["detail"] == "Compute job execution failed unexpectedly. Use the correlation_id for support."
+        )
     finally:
         settings.CONTRIBUTION_EXECUTOR_POSITION_COUNT = original_threshold
         settings.COMPUTE_EXECUTOR_MAX_ATTEMPTS = original_attempts
@@ -1961,7 +1965,10 @@ def test_contribution_async_replay_self_heals_missing_compute_job(client, happy_
 
     try:
         request_model = ContributionAnalyticsRequest.model_validate(payload)
-        input_fingerprint, calculation_hash = generate_canonical_hash(request_model, settings.APP_VERSION)
+        input_fingerprint, calculation_hash = generate_canonical_hash(
+            request_model,
+            calculation_engine_version(settings),
+        )
         execution_registry.create_execution(
             calculation_id=calculation_id,
             analytics_type="Contribution",

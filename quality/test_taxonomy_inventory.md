@@ -22,10 +22,10 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 302 |
-| Test functions inventoried | 3499 |
+| Test modules inventoried | 304 |
+| Test functions inventoried | 3506 |
 | Integration/API/runtime test functions | 684 |
-| Contract/governance test functions | 146 |
+| Contract/governance test functions | 147 |
 
 ## Test Functions By Suite
 
@@ -34,17 +34,17 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 18 |
 | e2e | 1 | 21 |
 | integration | 28 | 338 |
-| unit | 264 | 3122 |
+| unit | 266 | 3129 |
 
 ## Test Functions By Family
 
 | Family | Test functions |
 | --- | ---: |
-| analytics_domain | 1565 |
+| analytics_domain | 1570 |
 | api_or_runtime | 684 |
-| contract_or_governance | 146 |
+| contract_or_governance | 147 |
 | observability_or_readiness | 350 |
-| quality_or_security | 157 |
+| quality_or_security | 161 |
 | uncategorized | 950 |
 
 ## Largest Test Modules
@@ -54,7 +54,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | 1 | `tests/unit/services/test_returns_series_service.py` | unit | 96 | analytics_domain |
 | 2 | `tests/unit/app/test_enterprise_readiness_additional.py` | unit | 85 | observability_or_readiness |
 | 3 | `tests/unit/services/test_stateful_attribution_input_service.py` | unit | 70 | analytics_domain |
-| 4 | `tests/unit/docs/test_public_docs_contract.py` | unit | 62 | contract_or_governance |
+| 4 | `tests/unit/docs/test_public_docs_contract.py` | unit | 63 | contract_or_governance |
 | 5 | `tests/unit/app/test_openapi_enrichment.py` | unit | 61 | api_or_runtime |
 | 6 | `tests/unit/services/test_compute_job_store.py` | unit | 61 | observability_or_readiness |
 | 7 | `tests/unit/engine/test_attribution.py` | unit | 57 | analytics_domain |
@@ -166,7 +166,10 @@ tests to `950` while preserving the existing `969` uncategorized ceiling.
 Issue #432 added container runtime contract coverage for Dockerfile, Makefile, Compose, and worker
 healthchecks plus production dependency-scope regression coverage, raising source test functions
 to `3499`, contract/governance tests to `146`, and quality/security tests to `157` without growing
-the uncategorized backlog.
+the uncategorized backlog. Issue #431 added calculation-engine-version manifest and static-gate
+coverage plus public-doc reproducibility guards, raising source test functions to `3506`,
+contract/governance tests to `147`, quality/security tests to `161`, and analytics-domain tests to
+`1570` while preserving API/runtime and uncategorized counts.
 
 This slice promotes the stable part of the taxonomy from report-only measurement to a
 regression-blocking evaluation gate. `make quality-test-taxonomy-gate` fails if API/runtime tests

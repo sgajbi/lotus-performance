@@ -9,6 +9,7 @@ import app.services.benchmark_service as benchmark_service
 import app.services.execution_lifecycle_service as execution_lifecycle_service
 from app.core.config import get_settings
 from app.models.benchmark_analytics_requests import BenchmarkAnalyticsRequest, BenchmarkInputMode
+from app.services.calculation_engine_version import calculation_engine_version
 from app.services.execution_registry import ExecutionRegistry
 from app.services.stateful_input_service import StatefulInputService
 from core.repro import generate_canonical_hash
@@ -63,7 +64,8 @@ async def test_benchmark_stateful_orchestration_characterization_contract(tmp_pa
             "output": {"include_timeseries": True},
         }
     )
-    source_input_fingerprint, source_calculation_hash = generate_canonical_hash(request, settings.APP_VERSION)
+    engine_version = calculation_engine_version(settings)
+    source_input_fingerprint, source_calculation_hash = generate_canonical_hash(request, engine_version)
 
     def _register(calculation_id) -> None:
         execution_store.create_execution(
@@ -80,7 +82,7 @@ async def test_benchmark_stateful_orchestration_characterization_contract(tmp_pa
         _register(request.calculation_id)
         resolved_request = await benchmark_mode_service.resolve_benchmark_request(request, settings=settings)
         benchmark_request = resolved_request.benchmark_request
-        input_fingerprint, calculation_hash = generate_canonical_hash(benchmark_request, settings.APP_VERSION)
+        input_fingerprint, calculation_hash = generate_canonical_hash(benchmark_request, engine_version)
         execution_store.update_execution_identity(
             request.calculation_id,
             input_fingerprint=input_fingerprint,
@@ -91,7 +93,7 @@ async def test_benchmark_stateful_orchestration_characterization_contract(tmp_pa
             input_fingerprint=input_fingerprint,
             calculation_hash=calculation_hash,
             input_mode=BenchmarkInputMode.STATEFUL,
-            engine_version=settings.APP_VERSION,
+            engine_version=engine_version,
             request_artifact_model=benchmark_request,
         )
 
@@ -103,7 +105,7 @@ async def test_benchmark_stateful_orchestration_characterization_contract(tmp_pa
             start = perf_counter()
             resolved_request = await benchmark_mode_service.resolve_benchmark_request(request, settings=settings)
             benchmark_request = resolved_request.benchmark_request
-            input_fingerprint, calculation_hash = generate_canonical_hash(benchmark_request, settings.APP_VERSION)
+            input_fingerprint, calculation_hash = generate_canonical_hash(benchmark_request, engine_version)
             execution_store.update_execution_identity(
                 calculation_id,
                 input_fingerprint=input_fingerprint,
@@ -114,7 +116,7 @@ async def test_benchmark_stateful_orchestration_characterization_contract(tmp_pa
                 input_fingerprint=input_fingerprint,
                 calculation_hash=calculation_hash,
                 input_mode=BenchmarkInputMode.STATEFUL,
-                engine_version=settings.APP_VERSION,
+                engine_version=engine_version,
                 request_artifact_model=benchmark_request,
             )
             timings.append((perf_counter() - start) * 1000)

@@ -66,6 +66,15 @@ def test_lint_gate_enforces_github_action_runtime_guard() -> None:
     assert "$(MAKE) github-action-runtime-guard" in lint_target
 
 
+def test_lint_gate_enforces_calculation_engine_version_guard() -> None:
+    lint_target = _makefile_target_definition("lint")
+
+    assert "$(MAKE) calculation-engine-version-gate" in lint_target
+    assert "scripts/calculation_engine_version_gate.py" in _makefile_target_definition(
+        "calculation-engine-version-gate"
+    )
+
+
 def test_migration_apply_uses_executable_schema_apply_not_prose_only() -> None:
     migration_apply_target = _makefile_target_definition("migration-apply")
 

@@ -12,6 +12,7 @@ from app.models.workspace_summary_responses import WorkspaceSummaryAcceptedRespo
 from app.services.analytics_workflow_commands import WorkspaceSummaryWorkflowCommand, workflow_request
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY
 from app.services.async_observability_context import async_observability_request_payload
+from app.services.calculation_engine_version import calculation_engine_version
 from app.services.execution_lifecycle_service import record_execution_failure
 from app.services.execution_registry import execution_registry
 from app.services.execution_stage_errors import safe_unexpected_failure_message
@@ -84,7 +85,7 @@ def calculate_workspace_summary_workflow(
     """Fence, execute, and map errors for one workspace-summary analytics request."""
     request = workflow_request(command, WorkspaceSummaryRequest)
     settings = get_settings()
-    input_fingerprint, calculation_hash = generate_request_fingerprint(request, settings.APP_VERSION)
+    input_fingerprint, calculation_hash = generate_request_fingerprint(request, calculation_engine_version(settings))
     requested_window = workspace_requested_window(request)
     if should_offload_workspace_summary(request):
         return register_async_submission_or_raise(

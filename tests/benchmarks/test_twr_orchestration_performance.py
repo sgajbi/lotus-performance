@@ -9,6 +9,7 @@ import app.services.twr_mode_service as twr_mode_service
 import app.services.twr_service as twr_service
 from app.core.config import get_settings
 from app.models.twr_requests import TWRAnalyticsRequest, TWRResolvedExecutionRequest
+from app.services.calculation_engine_version import calculation_engine_version
 from app.services.execution_registry import ExecutionRegistry
 from app.services.stateful_input_service import StatefulInputService
 from core.repro import generate_canonical_hash, generate_canonical_hash_from_value
@@ -83,7 +84,8 @@ async def test_twr_stateful_benchmark_orchestration_characterization_contract(tm
             "include_benchmark": True,
         }
     )
-    source_input_fingerprint, source_calculation_hash = generate_canonical_hash(request, settings.APP_VERSION)
+    engine_version = calculation_engine_version(settings)
+    source_input_fingerprint, source_calculation_hash = generate_canonical_hash(request, engine_version)
 
     def _register(calculation_id) -> None:
         execution_store.create_execution(
@@ -105,7 +107,7 @@ async def test_twr_stateful_benchmark_orchestration_characterization_contract(tm
         )
         input_fingerprint, calculation_hash = generate_canonical_hash_from_value(
             resolved_identity,
-            settings.APP_VERSION,
+            engine_version,
         )
         execution_store.update_execution_identity(
             request.calculation_id,
@@ -118,7 +120,7 @@ async def test_twr_stateful_benchmark_orchestration_characterization_contract(tm
             input_mode=resolved_request.input_mode,
             input_fingerprint=input_fingerprint,
             calculation_hash=calculation_hash,
-            engine_version=settings.APP_VERSION,
+            engine_version=engine_version,
             request_artifact_model=resolved_identity,
             benchmark_request=resolved_request.benchmark_request,
             benchmark_input_mode=resolved_request.benchmark_input_mode,
@@ -138,7 +140,7 @@ async def test_twr_stateful_benchmark_orchestration_characterization_contract(tm
             )
             input_fingerprint, calculation_hash = generate_canonical_hash_from_value(
                 resolved_identity,
-                settings.APP_VERSION,
+                engine_version,
             )
             execution_store.update_execution_identity(
                 calculation_id,
@@ -151,7 +153,7 @@ async def test_twr_stateful_benchmark_orchestration_characterization_contract(tm
                 input_mode=resolved_request.input_mode,
                 input_fingerprint=input_fingerprint,
                 calculation_hash=calculation_hash,
-                engine_version=settings.APP_VERSION,
+                engine_version=engine_version,
                 request_artifact_model=resolved_identity,
                 benchmark_request=resolved_request.benchmark_request,
                 benchmark_input_mode=resolved_request.benchmark_input_mode,

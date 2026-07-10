@@ -44,6 +44,7 @@ from app.services.attribution_mode_service import resolve_attribution_request
 from app.services.attribution_service import calculate_attribution
 from app.services.benchmark_mode_service import resolve_benchmark_request
 from app.services.benchmark_service import calculate_benchmark_response
+from app.services.calculation_engine_version import calculation_engine_version
 from app.services.compute_job_store import (
     ComputeJobLeaseOwnershipError,
     ComputeJobRecord,
@@ -451,7 +452,7 @@ def _update_execution_identity(
 ) -> tuple[str, str]:
     input_fingerprint, calculation_hash = generate_canonical_hash(
         request_artifact_model,
-        context.settings.APP_VERSION,
+        calculation_engine_version(context.settings),
     )
     context.execution_store.update_execution_identity(
         job.calculation_id,
@@ -507,7 +508,7 @@ def _execute_benchmark_job(job: ComputeJobRecord, context: _ComputeJobExecutionC
         input_fingerprint=input_fingerprint,
         calculation_hash=calculation_hash,
         input_mode=benchmark_input_mode,
-        engine_version=context.settings.APP_VERSION,
+        engine_version=calculation_engine_version(context.settings),
         request_artifact_model=benchmark_request,
     )
 
@@ -526,7 +527,7 @@ def _execute_twr_job(job: ComputeJobRecord, context: _ComputeJobExecutionContext
     if should_update_identity:
         input_fingerprint, calculation_hash = generate_canonical_hash_from_value(
             request_artifact_model,
-            context.settings.APP_VERSION,
+            calculation_engine_version(context.settings),
         )
         context.execution_store.update_execution_identity(
             job.calculation_id,
@@ -536,7 +537,7 @@ def _execute_twr_job(job: ComputeJobRecord, context: _ComputeJobExecutionContext
     else:
         input_fingerprint, calculation_hash = generate_canonical_hash(
             TWRAnalyticsRequest.model_validate(job.request_payload),
-            context.settings.APP_VERSION,
+            calculation_engine_version(context.settings),
         )
     return context.twr_calculator(
         twr_request.portfolio,
@@ -544,7 +545,7 @@ def _execute_twr_job(job: ComputeJobRecord, context: _ComputeJobExecutionContext
         input_mode=twr_input_mode,
         input_fingerprint=input_fingerprint,
         calculation_hash=calculation_hash,
-        engine_version=context.settings.APP_VERSION,
+        engine_version=calculation_engine_version(context.settings),
         request_artifact_model=request_artifact_model,
         benchmark_request=twr_request.benchmark,
         benchmark_input_mode=twr_benchmark_input_mode,

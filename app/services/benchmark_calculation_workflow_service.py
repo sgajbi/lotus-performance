@@ -14,6 +14,7 @@ from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_BENCHMARK
 from app.services.async_observability_context import async_observability_request_payload
 from app.services.benchmark_mode_service import ResolvedBenchmarkRequest, resolve_benchmark_request
 from app.services.benchmark_service import calculate_benchmark_response
+from app.services.calculation_engine_version import calculation_engine_version
 from app.services.execution_lifecycle_service import record_execution_failure
 from app.services.execution_registry import execution_registry
 from app.services.execution_stage_errors import (
@@ -123,7 +124,7 @@ async def _resolve_benchmark_execution_context(
     if should_persist_request:
         input_fingerprint, calculation_hash = generate_request_fingerprint(
             benchmark_request,
-            settings.APP_VERSION,
+            calculation_engine_version(settings),
         )
     return _ResolvedBenchmarkExecutionContext(
         resolved_request=resolved_request,
@@ -197,7 +198,7 @@ async def _calculate_promoted_stateful_benchmark_workflow(
             input_fingerprint=resolved_context.input_fingerprint,
             calculation_hash=resolved_context.calculation_hash,
             input_mode=resolved_context.resolved_request.input_mode,
-            engine_version=settings.APP_VERSION,
+            engine_version=calculation_engine_version(settings),
             request_artifact_model=resolved_context.request_model_for_lineage,
         )
     except Exception as exc:
@@ -290,7 +291,7 @@ async def _calculate_initial_sync_benchmark_workflow(
             input_fingerprint=resolved_context.input_fingerprint,
             calculation_hash=resolved_context.calculation_hash,
             input_mode=resolved_context.resolved_request.input_mode,
-            engine_version=settings.APP_VERSION,
+            engine_version=calculation_engine_version(settings),
             request_artifact_model=resolved_context.request_model_for_lineage,
         )
     except Exception as exc:
@@ -303,7 +304,10 @@ async def calculate_benchmark_workflow(
     """Resolve, fence, execute, and map errors for one benchmark analytics request."""
     request = workflow_request(command, BenchmarkAnalyticsRequest)
     settings = get_settings()
-    source_request_fingerprint, source_request_hash = generate_request_fingerprint(request, settings.APP_VERSION)
+    source_request_fingerprint, source_request_hash = generate_request_fingerprint(
+        request,
+        calculation_engine_version(settings),
+    )
     input_fingerprint, calculation_hash = source_request_fingerprint, source_request_hash
     if request.input_mode == BenchmarkInputMode.STATEFUL and not should_preemptively_offload_stateful_benchmark(
         request

@@ -12,6 +12,7 @@ from app.models.attribution_requests import AttributionRequest
 from app.models.attribution_responses import AttributionResponse
 from app.services.analytics_observation_dates import latest_observation_date
 from app.services.attribution_response_service import build_single_period_attribution_response
+from app.services.calculation_engine_version import calculation_engine_version
 from app.services.calculation_supportability_service import (
     build_calculation_supportability,
     record_supportability_metric,
@@ -531,7 +532,7 @@ def calculate_attribution(
             input_mode=input_mode,
             results_by_period=results_by_period,
             execution_window=execution_window,
-            app_version=active_settings.APP_VERSION,
+            app_version=calculation_engine_version(active_settings),
             input_fingerprint=input_fingerprint,
             calculation_hash=calculation_hash,
             resolved_benchmark_id=resolved_benchmark_id,

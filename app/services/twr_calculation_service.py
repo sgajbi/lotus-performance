@@ -14,6 +14,7 @@ from app.models.twr_requests import TWRAnalyticsRequest, TWRInputMode, TWRResolv
 from app.services.analytics_workflow_commands import TWRWorkflowCommand, workflow_request
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_TWR
 from app.services.async_observability_context import async_observability_request_payload
+from app.services.calculation_engine_version import calculation_engine_version
 from app.services.engine_exception_mapping_service import map_engine_exception_to_http_error
 from app.services.execution_lifecycle_service import record_execution_failure
 from app.services.execution_registry import execution_registry
@@ -297,7 +298,7 @@ async def calculate_twr_workflow(command: TWRWorkflowCommand) -> PerformanceResp
     settings = get_settings()
     submission_context = _build_twr_workflow_submission_context(
         request,
-        engine_version=settings.APP_VERSION,
+        engine_version=calculation_engine_version(settings),
     )
     pre_resolution_response = _register_pre_resolution_twr_submission(
         request=request,
@@ -321,7 +322,7 @@ async def calculate_twr_workflow(command: TWRWorkflowCommand) -> PerformanceResp
             source_request_fingerprint=submission_context.source_request_fingerprint,
             input_fingerprint=submission_context.input_fingerprint,
             calculation_hash=submission_context.calculation_hash,
-            engine_version=settings.APP_VERSION,
+            engine_version=calculation_engine_version(settings),
         )
     except Exception as exc:
         _raise_twr_workflow_http_error(

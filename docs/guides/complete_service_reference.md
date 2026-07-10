@@ -1661,6 +1661,7 @@ All service configuration comes from `app.core.config.Settings`.
 | --- | --- | --- |
 | `APP_NAME` | `Portfolio Performance Analytics API` | service display name |
 | `APP_VERSION` | `0.1.0` | service version string |
+| `CALCULATION_ENGINE_VERSION` | `lotus-performance-calculation-engine.v1` | governed methodology/hash identity version used by calculation hashes; separate from build identity and `/version` metadata |
 | `APP_DESCRIPTION` | `API for calculating portfolio performance metrics.` | service description |
 | `APP_GIT_COMMIT_SHA` | `local` | Git commit SHA exposed by `/version` and carried in OCI labels |
 | `APP_GIT_BRANCH` | `local` | Git branch or ref exposed by `/version` and carried in OCI labels |

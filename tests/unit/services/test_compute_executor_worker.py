@@ -30,6 +30,7 @@ from app.services.analytics_workflow_types import (
     ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY,
 )
 from app.services.async_result_store import AsyncResultStatus, AsyncResultStore
+from app.services.calculation_engine_version import calculation_engine_version
 from app.services.compute_job_store import (
     ComputeJobLeaseOwnershipError,
     ComputeJobRecord,
@@ -51,6 +52,7 @@ def _worker_settings(**overrides):
         (),
         {
             "APP_VERSION": "1.0.0",
+            "CALCULATION_ENGINE_VERSION": "calculation-test-version",
             "LOG_LEVEL": "INFO",
             "COMPUTE_EXECUTOR_BATCH_SIZE": 10,
             "COMPUTE_EXECUTOR_WORKER_ID": "worker-test",
@@ -836,7 +838,7 @@ def test_compute_executor_worker_dispatches_benchmark_job_and_updates_execution_
     assert response.model_dump(mode="json") == {"status": "complete", "mode": "json"}
     assert captured["request"] == request
     assert captured["input_mode"] == compute_executor_worker.BenchmarkInputMode.STATEFUL
-    assert captured["engine_version"] == "9.9.9"
+    assert captured["engine_version"] == "calculation-test-version"
     assert captured["request_artifact_model"] == request
     execution = execution_store.get_execution(calculation_id)
     assert execution is not None
@@ -1371,7 +1373,7 @@ def test_compute_executor_worker_updates_identity_for_stateful_contribution_job(
 
     expected_input_fingerprint, expected_calculation_hash = compute_executor_worker.generate_canonical_hash(
         resolved_request,
-        worker_settings.APP_VERSION,
+        calculation_engine_version(worker_settings),
     )
     execution = execution_store.get_execution(calculation_id)
     assert execution is not None
