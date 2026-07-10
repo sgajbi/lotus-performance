@@ -270,7 +270,7 @@ Important validation expectations:
 12. `make quality-observability-readiness-gate` blocks missing health/metrics endpoint,
    correlation propagation, structured logging, metrics, health/readiness implementation markers,
    deployable Prometheus alert rules, dashboard panels, alert/dashboard metric references, links,
-   and sensitive-label regressions through
+   alert-backed product supportability dashboard coverage, and sensitive-label regressions through
    `scripts/python_observability_readiness_inventory.py --max-missing 0`. Broader observability
    maturity scoring remains measured in `quality/observability_readiness_inventory.md` rather than
    claimed as complete.

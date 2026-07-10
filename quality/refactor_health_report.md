@@ -81,7 +81,7 @@ link the commit, command, or CI artifact that proves the change.
 | Branch coverage | unknown | 98.00% | measured | `quality/coverage_inventory.md` via `make branch-coverage-baseline` (`3,013` unit, `308` integration, and `21` e2e tests under branch coverage; `4,318` covered branches of `4,406`, `88` missing branches, `88` partial branches) |
 | Integration/API/runtime test functions | unknown | 689 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
 | Contract/governance test functions | unknown | 149 | enforced | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate` |
-| Uncategorized test functions | unknown | 953 | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; issue #426 added performance-characterization CI, durable PostgreSQL option, and lineage-inspection hot-path coverage while staying below the uncategorized ceiling |
+| Uncategorized test functions | unknown | 953 | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; issue #427 added alert-dashboard coverage regression proof while staying below the uncategorized ceiling |
 
 ## Security And Dependencies
 
@@ -107,13 +107,13 @@ link the commit, command, or CI artifact that proves the change.
 | Operational readiness implementation markers | unknown | 28 | enforced | `quality/observability_readiness_inventory.md`; `make quality-observability-readiness-gate` enforces `--max-missing 0` |
 | Missing operational readiness markers | unknown | 0 | enforced | `quality/observability_readiness_inventory.md`; `make quality-observability-readiness-gate` enforces `--max-missing 0` |
 | Deployable monitoring alert rules | unknown | 14 | enforced | `monitoring/prometheus/lotus-performance-alerts.prometheusrule.json`; `make quality-observability-readiness-gate` validates alert metric names, labels, links, and sensitive-label safety |
-| Deployable monitoring dashboard panels | unknown | 10 | enforced | `monitoring/grafana/lotus-performance-operability-dashboard.json`; `make quality-observability-readiness-gate` validates dashboard metric names, labels, links, and sensitive-label safety |
+| Deployable monitoring dashboard panels | unknown | 12 | enforced | `monitoring/grafana/lotus-performance-operability-dashboard.json`; `make quality-observability-readiness-gate` validates dashboard metric names, labels, links, sensitive-label safety, and alert-backed product supportability coverage |
 | Correlation propagation markers | unknown | 6 | measured | `correlation_propagation` family in `quality/observability_readiness_inventory.md` |
 | Structured logging markers | unknown | 6 | measured | `structured_logging` family in `quality/observability_readiness_inventory.md` |
 | Metrics markers | unknown | 6 | measured | `metrics` family in `quality/observability_readiness_inventory.md` |
 | Health/readiness markers | unknown | 6 | measured | `health_readiness` family in `quality/observability_readiness_inventory.md` |
 | Health/metrics endpoint markers | unknown | 4 | measured | `health_metrics_endpoints` family in `quality/observability_readiness_inventory.md` |
-| Mapped observability/readiness test functions | unknown | 443 | measured | family-mapped test-function count in `quality/observability_readiness_inventory.md`; counts can overlap across families |
+| Mapped observability/readiness test functions | unknown | 473 | measured | family-mapped test-function count in `quality/observability_readiness_inventory.md`; counts can overlap across families |
 | Demo API certification command | unknown | 1 | enforced | `make quality-evaluation-gate` delegates to `make demo-api-certification`, which runs `scripts/demo_api_certification.py` and writes reviewed JSON evidence under ignored `output/demo-api-certification/latest.json` |
 | Test taxonomy gate | unknown | 1 | enforced | `make quality-evaluation-gate` delegates to `make quality-test-taxonomy-gate`, which blocks API/runtime and contract/governance test breadth regressions and uncategorized-test growth |
 

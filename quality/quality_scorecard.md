@@ -70,7 +70,7 @@ metrics in each section are updated with each meaningful slice.
 | Branch coverage | unknown | 98.00% | n/a | measured | `quality/coverage_inventory.md`; `quality/refactor_health_report.md`; `make branch-coverage-baseline` |
 | Integration/API/runtime test functions | unknown | 689 | n/a | enforced | `quality/test_taxonomy_inventory.md`; `quality/refactor_health_report.md`; `make quality-test-taxonomy-gate` |
 | Contract/governance test functions | unknown | 149 | n/a | enforced | `quality/test_taxonomy_inventory.md`; `quality/refactor_health_report.md`; `make quality-test-taxonomy-gate` |
-| Uncategorized test functions | unknown | 953 | n/a | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; issue #426 added performance-characterization CI, durable PostgreSQL option, and lineage-inspection hot-path coverage while staying below the uncategorized ceiling |
+| Uncategorized test functions | unknown | 953 | n/a | enforced ceiling | `quality/test_taxonomy_inventory.md`; `make quality-test-taxonomy-gate`; issue #427 added alert-dashboard coverage regression proof while staying below the uncategorized ceiling |
 
 ### Security and Dependencies
 
@@ -96,7 +96,7 @@ metrics in each section are updated with each meaningful slice.
 | Operational readiness markers | unknown | 28 | n/a | enforced | `quality/observability_readiness_inventory.md`; `quality/refactor_health_report.md`; `make quality-observability-readiness-gate` |
 | Missing readiness markers | unknown | 0 | n/a | enforced | `quality/observability_readiness_inventory.md`; `quality/refactor_health_report.md`; `make quality-observability-readiness-gate` |
 | Deployable monitoring alert rules | unknown | 14 | n/a | enforced | `monitoring/prometheus/lotus-performance-alerts.prometheusrule.json`; `quality/observability_readiness_inventory.md`; `make quality-observability-readiness-gate` |
-| Deployable monitoring dashboard panels | unknown | 10 | n/a | enforced | `monitoring/grafana/lotus-performance-operability-dashboard.json`; `quality/observability_readiness_inventory.md`; `make quality-observability-readiness-gate` |
+| Deployable monitoring dashboard panels | unknown | 12 | n/a | enforced | `monitoring/grafana/lotus-performance-operability-dashboard.json`; `quality/observability_readiness_inventory.md`; `make quality-observability-readiness-gate`; issue #427 adds returns-series supportability panels and alert-dashboard coverage enforcement |
 | Correlation propagation markers | unknown | 6 | n/a | measured | `quality/observability_readiness_inventory.md`; `quality/refactor_health_report.md` |
 | Structured logging markers | unknown | 6 | n/a | measured | `quality/observability_readiness_inventory.md`; `quality/refactor_health_report.md` |
 | Metrics markers | unknown | 6 | n/a | measured | `quality/observability_readiness_inventory.md`; `quality/refactor_health_report.md` |
@@ -124,7 +124,7 @@ metrics in each section are updated with each meaningful slice.
 | Measured metrics | 54 | Selected measured metrics are now also enforced or produced through blocking static-quality, security, deterministic API evaluation, test-taxonomy, container evidence, or performance-characterization evidence lanes. Branch coverage and container vulnerability output are measured report-only and are not promoted to strict gates yet. |
 | Not-yet-measured metrics | 0 | The scorecard no longer carries an unmeasured branch-coverage entry. OpenAPI Spectral and public-docstring gate decisions remain outside this scorecard until scoped separately. |
 | Planned gates | 1 | `make container-vulnerability-gate` exists but remains unpromoted until first PR/main container artifacts establish a reviewed high/critical image vulnerability baseline and exception policy. |
-| Latest architecture signal | 1 | API routes for TWR, workspace-summary, contribution, benchmark, and returns-series now map request DTOs into workflow command objects before application workflow entry points. `ROUTE_WORKFLOW_DTO_DIRECT_CALL` is enforced at `0`; application-service concrete-store imports remain visible as `63` report-only findings. |
+| Latest observability signal | 1 | Returns-series supportability alerts now have deployable Grafana coverage for stale/degraded rate and supportability volume. `make quality-observability-readiness-gate` enforces alert-dashboard coverage for expected product supportability alerts instead of relying only on dashboard panel count. |
 
 ## Method Note
 

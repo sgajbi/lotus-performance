@@ -23,7 +23,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 305 |
-| Test functions inventoried | 3523 |
+| Test functions inventoried | 3524 |
 | Integration/API/runtime test functions | 689 |
 | Contract/governance test functions | 149 |
 
@@ -34,7 +34,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 18 |
 | e2e | 1 | 21 |
 | integration | 28 | 341 |
-| unit | 267 | 3143 |
+| unit | 267 | 3144 |
 
 ## Test Functions By Family
 
@@ -43,8 +43,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | analytics_domain | 1571 |
 | api_or_runtime | 689 |
 | contract_or_governance | 149 |
-| observability_or_readiness | 353 |
-| quality_or_security | 164 |
+| observability_or_readiness | 354 |
+| quality_or_security | 165 |
 | uncategorized | 953 |
 
 ## Largest Test Modules
@@ -182,7 +182,10 @@ uncategorized backlog. Issue #426 added performance-characterization CI wiring, 
 governance, durable PostgreSQL option preservation, and lineage inspection hot-path query/index
 coverage, raising source test functions to `3523`, contract/governance tests to `149`,
 quality/security tests to `164`, analytics-domain tests to `1571`, and uncategorized tests to
-`953` while preserving the existing `969` uncategorized ceiling.
+`953` while preserving the existing `969` uncategorized ceiling. Issue #427 added alert-dashboard
+coverage regression proof for returns-series supportability monitoring, raising source test
+functions to `3524`, observability/readiness tests to `354`, and quality/security tests to `165`
+while preserving the existing uncategorized ceiling.
 
 This slice promotes the stable part of the taxonomy from report-only measurement to a
 regression-blocking evaluation gate. `make quality-test-taxonomy-gate` fails if API/runtime tests
