@@ -87,7 +87,7 @@ async def test_resolve_benchmark_execution_context_replaces_identity_for_persist
 
     context = await benchmark_calculation_workflow_service._resolve_benchmark_execution_context(
         request=request,
-        settings=SimpleNamespace(APP_VERSION="runtime-version"),
+        settings=SimpleNamespace(CALCULATION_ENGINE_VERSION="runtime-engine-version"),
         input_fingerprint="source-fingerprint",
         calculation_hash="source-hash",
     )
@@ -97,7 +97,7 @@ async def test_resolve_benchmark_execution_context_replaces_identity_for_persist
     assert context.input_fingerprint == "resolved-fingerprint"
     assert context.calculation_hash == "resolved-hash"
     assert context.should_persist_request is True
-    generate_fingerprint.assert_called_once_with(resolved_request, "runtime-version")
+    generate_fingerprint.assert_called_once_with(resolved_request, "runtime-engine-version")
 
 
 @pytest.mark.asyncio

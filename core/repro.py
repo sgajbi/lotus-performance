@@ -17,7 +17,8 @@ def _canonicalize_value(value: BaseModel | dict[str, Any], *, engine_version: st
     else:
         request_dict = value
 
-    # Use the standard json library to create a canonical string with sorted keys.
+    # Canonicalize object key order while preserving array order because arrays can carry
+    # source sequence, business ordering, or evidence ordering semantics.
     canonical_string = json.dumps(request_dict, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
 
     input_fingerprint = f"sha256:{hashlib.sha256(canonical_string.encode('utf-8')).hexdigest()}"

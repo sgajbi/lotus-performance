@@ -303,6 +303,10 @@ Important validation expectations:
     OCI labels, image digest, CI run id, and `/version` identify the build/release, not methodology
     compatibility. `make calculation-engine-version-gate` runs under `make lint` and blocks
     production calculation paths that use `APP_VERSION` or legacy literal tokens for hash identity.
+    Reproducibility canonicalization sorts object keys, and arrays remain order-sensitive. Treat arrays such
+    as valuation points, cash flows, benchmark observations, period requests, and lineage rows as
+    order-sensitive evidence unless an endpoint mapper explicitly documents and tests a
+    schema-aware business-key sort before hashing. Do not add global list sorting in `core/repro.py`.
 17. `PR Auto Merge` must use `LOTUS_AUTOMERGE_TOKEN` as the merge actor. If that governed token is
     absent, the workflow skips with a warning instead of merging with `GITHUB_TOKEN`, so the merged
     mainline commit can receive normal Main Releasability evidence from an authorized merge actor.

@@ -829,7 +829,7 @@ def test_workspace_summary_meta_projects_request_identity_and_master_window():
 
     meta = _workspace_summary_meta(
         request=request,
-        settings=SimpleNamespace(APP_VERSION="test-version"),
+        settings=SimpleNamespace(CALCULATION_ENGINE_VERSION="test-engine-version"),
         resolved_periods=[
             ResolvedWorkspacePeriod(name="1M", start_date=date(2026, 6, 1), end_date=date(2026, 6, 30)),
             ResolvedWorkspacePeriod(name="YTD", start_date=date(2026, 1, 1), end_date=date(2026, 6, 30)),
@@ -839,7 +839,7 @@ def test_workspace_summary_meta_projects_request_identity_and_master_window():
     )
 
     assert meta.calculation_id == request.calculation_id
-    assert meta.engine_version == "test-version"
+    assert meta.engine_version == "test-engine-version"
     assert meta.precision_mode == request.precision_mode
     assert meta.annualization == request.annualization
     assert meta.calendar == request.calendar

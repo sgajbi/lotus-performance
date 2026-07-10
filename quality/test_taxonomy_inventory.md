@@ -23,9 +23,9 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 304 |
-| Test functions inventoried | 3506 |
-| Integration/API/runtime test functions | 684 |
-| Contract/governance test functions | 147 |
+| Test functions inventoried | 3509 |
+| Integration/API/runtime test functions | 685 |
+| Contract/governance test functions | 148 |
 
 ## Test Functions By Suite
 
@@ -33,19 +33,19 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | --- | ---: | ---: |
 | benchmarks | 9 | 18 |
 | e2e | 1 | 21 |
-| integration | 28 | 338 |
-| unit | 266 | 3129 |
+| integration | 28 | 339 |
+| unit | 266 | 3131 |
 
 ## Test Functions By Family
 
 | Family | Test functions |
 | --- | ---: |
 | analytics_domain | 1570 |
-| api_or_runtime | 684 |
-| contract_or_governance | 147 |
+| api_or_runtime | 685 |
+| contract_or_governance | 148 |
 | observability_or_readiness | 350 |
 | quality_or_security | 161 |
-| uncategorized | 950 |
+| uncategorized | 951 |
 
 ## Largest Test Modules
 
@@ -54,7 +54,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | 1 | `tests/unit/services/test_returns_series_service.py` | unit | 96 | analytics_domain |
 | 2 | `tests/unit/app/test_enterprise_readiness_additional.py` | unit | 85 | observability_or_readiness |
 | 3 | `tests/unit/services/test_stateful_attribution_input_service.py` | unit | 70 | analytics_domain |
-| 4 | `tests/unit/docs/test_public_docs_contract.py` | unit | 63 | contract_or_governance |
+| 4 | `tests/unit/docs/test_public_docs_contract.py` | unit | 64 | contract_or_governance |
 | 5 | `tests/unit/app/test_openapi_enrichment.py` | unit | 61 | api_or_runtime |
 | 6 | `tests/unit/services/test_compute_job_store.py` | unit | 61 | observability_or_readiness |
 | 7 | `tests/unit/engine/test_attribution.py` | unit | 57 | analytics_domain |
@@ -69,8 +69,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | 16 | `tests/unit/engine/test_mwr.py` | unit | 44 | analytics_domain |
 | 17 | `tests/unit/services/test_stateful_benchmark_input_service.py` | unit | 44 | analytics_domain |
 | 18 | `tests/integration/test_contribution_api.py` | integration | 41 | analytics_domain, api_or_runtime |
-| 19 | `tests/unit/services/test_operator_action_lease_service.py` | unit | 40 | uncategorized |
-| 20 | `tests/integration/test_performance_api.py` | integration | 39 | api_or_runtime |
+| 19 | `tests/integration/test_performance_api.py` | integration | 40 | api_or_runtime |
+| 20 | `tests/unit/services/test_operator_action_lease_service.py` | unit | 40 | uncategorized |
 | 21 | `tests/unit/services/test_benchmark_exposure_context_service.py` | unit | 35 | analytics_domain |
 | 22 | `tests/unit/test_observability.py` | unit | 34 | observability_or_readiness |
 | 23 | `tests/unit/engine/test_contribution.py` | unit | 33 | analytics_domain |
