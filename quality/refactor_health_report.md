@@ -147,7 +147,10 @@ Latest test-taxonomy gate posture evidence on `feat/performance-architecture-bou
    breadth is `661` API/runtime test functions and `133` contract/governance test functions after
    the governed operator calculation-id prefix lookup slice. Issue #448 also classified
    lineage-worker lifecycle tests as observability/readiness evidence, reducing measured
-   uncategorized tests to `958` while preserving the `969` blocking ceiling.
+   uncategorized tests to `958` while preserving the `969` blocking ceiling. Issue #447 added the
+   `StatefulPortfolioSourcePort` source-family boundary and two analytics-domain contract tests,
+   raising measured source test functions to `3,458` and analytics-domain tests to `1,556` without
+   growing the uncategorized backlog.
 2. Updated the CI wiring test, taxonomy inventory, CI gate map, scorecard, health report,
    repository context, and review ledger so measured current values and enforced thresholds no
    longer contradict each other.

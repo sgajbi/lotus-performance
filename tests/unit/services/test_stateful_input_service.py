@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
+from typing import Any
 from uuid import UUID, uuid4
 
 import pytest
@@ -30,6 +31,7 @@ from app.services.stateful_input_service import (
     _record_portfolio_chunk_payload,
     _record_position_chunk_payload,
 )
+from app.services.stateful_portfolio_source_port import CoreStatefulPortfolioSourceAdapter
 
 
 class _CoreServiceStub:
@@ -321,6 +323,88 @@ class _CoreServiceStub:
         )
 
 
+class _PortfolioSourcePortStub:
+    def __init__(self) -> None:
+        self.reference_calls: list[dict] = []
+        self.timeseries_calls: list[dict] = []
+
+    async def fetch_reference(
+        self,
+        *,
+        portfolio_id: str,
+        as_of_date: date,
+    ) -> tuple[int, dict[str, Any]]:
+        self.reference_calls.append({"portfolio_id": portfolio_id, "as_of_date": as_of_date})
+        return (
+            200,
+            {
+                "portfolio_id": portfolio_id,
+                "portfolio_open_date": "2025-12-31",
+                "base_currency": "USD",
+            },
+        )
+
+    async def fetch_timeseries_page(
+        self,
+        *,
+        portfolio_id: str,
+        as_of_date: date,
+        start_date: date,
+        end_date: date,
+        reporting_currency: str | None,
+        consumer_system: str,
+        page_token: str | None,
+    ) -> tuple[int, dict[str, Any]]:
+        self.timeseries_calls.append(
+            {
+                "portfolio_id": portfolio_id,
+                "as_of_date": as_of_date,
+                "start_date": start_date,
+                "end_date": end_date,
+                "reporting_currency": reporting_currency,
+                "consumer_system": consumer_system,
+                "page_token": page_token,
+            }
+        )
+        if page_token is None:
+            return (
+                200,
+                {
+                    "portfolio_open_date": "2025-12-31",
+                    "portfolio_currency": "EUR",
+                    "reporting_currency": "USD",
+                    "observations": [
+                        {
+                            "valuation_date": "2026-01-01",
+                            "beginning_market_value": "100",
+                            "ending_market_value": "101",
+                        }
+                    ],
+                    "next_page_token": "page-2",
+                },
+            )
+        return (
+            200,
+            {
+                "portfolio_open_date": "2025-12-31",
+                "portfolio_currency": "EUR",
+                "reporting_currency": "USD",
+                "observations": [
+                    {
+                        "valuation_date": "2026-01-01",
+                        "beginning_market_value": "100",
+                        "ending_market_value": "101",
+                    },
+                    {
+                        "valuation_date": "2026-01-02",
+                        "beginning_market_value": "101",
+                        "ending_market_value": "102",
+                    },
+                ],
+            },
+        )
+
+
 class _LoopingStatefulPageCoreService(_CoreServiceStub):
     async def get_portfolio_analytics_timeseries(self, **kwargs):
         self.portfolio_calls.append(kwargs)
@@ -544,6 +628,125 @@ def test_build_portfolio_timeseries_payload_normalizes_chunk_responses():
             {"valuation_date": "2026-01-02", "ending_market_value": "replacement"},
         ],
         "retrieval_metadata": {"chunk_count": 3, "page_count": 3},
+    }
+
+
+@pytest.mark.asyncio
+async def test_core_stateful_portfolio_source_adapter_forwards_reference_and_page_requests():
+    core_service = _CoreServiceStub()
+    adapter = CoreStatefulPortfolioSourceAdapter(core_service=core_service)
+
+    reference_status, reference_payload = await adapter.fetch_reference(
+        portfolio_id="PORT_1",
+        as_of_date=date(2026, 1, 3),
+    )
+    page_status, page_payload = await adapter.fetch_timeseries_page(
+        portfolio_id="PORT_1",
+        as_of_date=date(2026, 1, 3),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 3),
+        reporting_currency="USD",
+        consumer_system="lotus-performance",
+        page_token="page-2",
+    )
+
+    assert reference_status == 200
+    assert reference_payload["portfolio_id"] == "PORT_1"
+    assert page_status == 200
+    assert page_payload["observations"][0]["valuation_date"] == "2026-01-02"
+    assert core_service.portfolio_calls[-1] == {
+        "portfolio_id": "PORT_1",
+        "as_of_date": date(2026, 1, 3),
+        "start_date": date(2026, 1, 1),
+        "end_date": date(2026, 1, 3),
+        "reporting_currency": "USD",
+        "consumer_system": "lotus-performance",
+        "page_token": "page-2",
+    }
+
+
+@pytest.mark.asyncio
+async def test_stateful_input_service_uses_portfolio_source_port_and_preserves_snapshot_contract(tmp_path):
+    portfolio_source_port = _PortfolioSourcePortStub()
+    execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    execution_store.create_schema()
+    calculation_id = uuid4()
+    execution_store.create_execution(
+        calculation_id=calculation_id,
+        analytics_type="ReturnsSeries",
+        portfolio_id="PORT_1",
+    )
+    service = StatefulInputService(
+        core_service=_CoreServiceStub(),
+        execution_store=execution_store,
+        portfolio_source_port=portfolio_source_port,
+    )
+
+    status_code, payload = await service.get_portfolio_timeseries(
+        portfolio_id="PORT_1",
+        as_of_date=date(2026, 1, 3),
+        start_date=date(2026, 1, 1),
+        end_date=date(2026, 1, 1),
+        reporting_currency="USD",
+        consumer_system="lotus-performance",
+        calculation_id=calculation_id,
+    )
+    reference_status, reference_payload = await service.get_portfolio_reference(
+        portfolio_id="PORT_1",
+        as_of_date=date(2026, 1, 3),
+        calculation_id=calculation_id,
+    )
+
+    snapshots = execution_store.list_upstream_snapshots(calculation_id)
+    timeseries_snapshots = [snapshot for snapshot in snapshots if snapshot.upstream_endpoint == "portfolio_timeseries"]
+    reference_snapshots = [snapshot for snapshot in snapshots if snapshot.upstream_endpoint == "portfolio_reference"]
+
+    assert status_code == 200
+    assert payload["observations"] == [
+        {
+            "valuation_date": "2026-01-01",
+            "beginning_market_value": "100",
+            "ending_market_value": "101",
+        },
+        {
+            "valuation_date": "2026-01-02",
+            "beginning_market_value": "101",
+            "ending_market_value": "102",
+        },
+    ]
+    assert payload["retrieval_metadata"] == {"chunk_count": 1, "page_count": 2}
+    assert reference_status == 200
+    assert reference_payload["portfolio_id"] == "PORT_1"
+    assert portfolio_source_port.timeseries_calls == [
+        {
+            "portfolio_id": "PORT_1",
+            "as_of_date": date(2026, 1, 3),
+            "start_date": date(2026, 1, 1),
+            "end_date": date(2026, 1, 1),
+            "reporting_currency": "USD",
+            "consumer_system": "lotus-performance",
+            "page_token": None,
+        },
+        {
+            "portfolio_id": "PORT_1",
+            "as_of_date": date(2026, 1, 3),
+            "start_date": date(2026, 1, 1),
+            "end_date": date(2026, 1, 1),
+            "reporting_currency": "USD",
+            "consumer_system": "lotus-performance",
+            "page_token": "page-2",
+        },
+    ]
+    assert portfolio_source_port.reference_calls == [{"portfolio_id": "PORT_1", "as_of_date": date(2026, 1, 3)}]
+    assert [snapshot.paging_metadata["page_token"] for snapshot in timeseries_snapshots] == [
+        None,
+        "page-2",
+    ]
+    assert all(snapshot.request_fingerprint for snapshot in timeseries_snapshots)
+    assert len(reference_snapshots) == 1
+    assert reference_snapshots[0].paging_metadata == {
+        "portfolio_id": "PORT_1",
+        "as_of_date": "2026-01-03",
     }
 
 
