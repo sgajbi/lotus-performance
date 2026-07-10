@@ -11,6 +11,12 @@ class Settings(BaseSettings):
     APP_NAME: str = "Portfolio Performance Analytics API"
     APP_VERSION: str = "0.1.0"
     APP_DESCRIPTION: str = "API for calculating portfolio performance metrics."
+    APP_GIT_COMMIT_SHA: str = "local"
+    APP_GIT_BRANCH: str = "local"
+    APP_BUILD_TIMESTAMP: str = "local"
+    APP_REPOSITORY_URL: str = "https://github.com/sgajbi/lotus-performance"
+    APP_IMAGE_DIGEST: str = "unavailable-before-push"
+    APP_CI_PIPELINE_RUN_ID: str = "local"
     LOG_LEVEL: str = "INFO"
     decimal_precision: int = 28
     HTTP_ALLOWED_HOSTS: str = "testserver,localhost,127.0.0.1,host.docker.internal,*.dev.lotus"

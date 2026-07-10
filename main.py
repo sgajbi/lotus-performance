@@ -35,10 +35,11 @@ from app.core.handlers import (
 )
 from app.enterprise_readiness import build_enterprise_audit_middleware, validate_enterprise_runtime_config
 from app.http_security import configure_http_security
-from app.models.platform_surfaces import RootResponse
+from app.models.platform_surfaces import BuildMetadataResponse, RootResponse
 from app.observability import setup_observability
 from app.openapi_enrichment import enrich_openapi_schema
 from app.services.async_result_store import async_result_store
+from app.services.build_metadata_service import build_runtime_metadata
 from app.services.compute_job_store import compute_job_store
 from app.services.durable_metadata_bootstrap import bootstrap_durable_metadata_stores
 from app.services.execution_registry import execution_registry
@@ -139,7 +140,26 @@ app.include_router(health.router)
     "/",
     response_model=RootResponse,
     summary="Service entry",
-    description="Returns the lotus-performance service entry message and points callers to `/docs` for the governed API contract.",
+    description=(
+        "Returns the lotus-performance service entry message, support-safe build identity, and points callers to "
+        "`/docs` for the governed API contract."
+    ),
 )
 async def root() -> RootResponse:
-    return {"message": "Welcome to the Portfolio Performance Analytics API. Access /docs for API documentation."}
+    return RootResponse(
+        message="Welcome to the Portfolio Performance Analytics API. Access /docs for API documentation.",
+        build=build_runtime_metadata(settings),
+    )
+
+
+@app.get(
+    "/version",
+    response_model=BuildMetadataResponse,
+    summary="Runtime build identity",
+    description=(
+        "Returns support-safe build metadata for correlating the running service to Git commit, OCI image labels, "
+        "SBOM, vulnerability, and provenance evidence."
+    ),
+)
+async def version() -> BuildMetadataResponse:
+    return build_runtime_metadata(settings)

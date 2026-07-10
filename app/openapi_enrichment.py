@@ -46,7 +46,32 @@ OPERATION_JSON_EXAMPLES: dict[tuple[str, str], dict[str, Any]] = {
     (
         "/",
         "response",
-    ): {"message": "Welcome to the Portfolio Performance Analytics API. Access /docs for API documentation."},
+    ): {
+        "message": "Welcome to the Portfolio Performance Analytics API. Access /docs for API documentation.",
+        "build": {
+            "service_name": "Portfolio Performance Analytics API",
+            "service_version": "0.1.0",
+            "git_commit_sha": "0123456789abcdef0123456789abcdef01234567",
+            "git_branch": "main",
+            "build_timestamp": "2026-07-10T07:45:00Z",
+            "repository_url": "https://github.com/sgajbi/lotus-performance",
+            "image_digest": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            "ci_pipeline_run_id": "1234567890",
+        },
+    },
+    (
+        "/version",
+        "response",
+    ): {
+        "service_name": "Portfolio Performance Analytics API",
+        "service_version": "0.1.0",
+        "git_commit_sha": "0123456789abcdef0123456789abcdef01234567",
+        "git_branch": "main",
+        "build_timestamp": "2026-07-10T07:45:00Z",
+        "repository_url": "https://github.com/sgajbi/lotus-performance",
+        "image_digest": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        "ci_pipeline_run_id": "1234567890",
+    },
     (
         "/health",
         "response",

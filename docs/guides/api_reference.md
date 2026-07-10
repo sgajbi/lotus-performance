@@ -27,6 +27,27 @@ errors from these stable fields:
 Unexpected `5xx` responses do not expose raw exception text in the public envelope. Internal details
 remain in structured logs and durable evidence under the same correlation context.
 
+## Platform and supportability APIs
+
+### `GET /version`
+
+- purpose: expose runtime build identity for release audit and incident response
+- response model: `app.models.platform_surfaces.BuildMetadataResponse`
+- response includes:
+  - `service_name` and `service_version`
+  - `git_commit_sha` and `git_branch`
+  - `build_timestamp`
+  - `repository_url`
+  - `image_digest`
+  - `ci_pipeline_run_id`
+- contract note:
+  - CI passes GitHub commit, ref, repository URL, run id, and UTC build timestamp into the Docker
+    build and matching OCI labels
+  - local builds use explicit support-safe defaults such as `local` and `unavailable-before-push`
+    for metadata that only exists after CI build or registry promotion
+  - the endpoint does not expose secrets, environment variable dumps, registry credentials, or
+    deployment internals
+
 ## Performance APIs
 
 ### `POST /performance/twr`
@@ -929,9 +950,12 @@ Return semantics for the workspace surface are now explicit rather than inferred
 
 ### `GET /`
 
-- purpose: return the service-entry message and point callers to `/docs`
+- purpose: return the service-entry message, support-safe build identity, and point callers to `/docs`
 - use this only as an informational entry route; do not treat it as a strategic analytics or operator API
 - response model: `app.models.platform_surfaces.RootResponse`
+- response includes:
+  - `message` with the human service entry text
+  - `build` with the same metadata fields returned by `GET /version`
 - certification evidence: `docs/technical/platform-surfaces-endpoint-certification.md`
 
 ### `GET /health`

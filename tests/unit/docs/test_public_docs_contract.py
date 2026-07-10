@@ -231,9 +231,13 @@ def test_public_docs_record_container_supply_chain_evidence_posture():
         assert "make container-supply-chain-evidence" in document
         assert "CycloneDX SBOM" in document
         assert "high/critical" in document
+        assert "/version" in document
 
     assert "actions/attest-build-provenance@v3" in ci_gates
     assert "actions/attest-build-provenance@v3" in supply_chain_report
+    assert "org.opencontainers.image.revision" in supply_chain_report
+    assert "APP_GIT_COMMIT_SHA" in supply_chain_report
+    assert "unavailable-before-push" in supply_chain_report
     assert "make container-vulnerability-gate" in workflow_strategy
     assert "make container-vulnerability-gate" in wiki_validation
     assert "report-only" in supply_chain_report

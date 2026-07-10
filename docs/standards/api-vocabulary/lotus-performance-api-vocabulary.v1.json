@@ -8,7 +8,7 @@
       "openApiVersion": "3.1.0"
     }
   ],
-  "generatedAt": "2026-06-30T16:04:18.501582+00:00",
+  "generatedAt": "2026-07-10T07:56:36.975485+00:00",
   "attributeCatalog": [
     {
       "semanticId": "lotus.access_classification",
@@ -744,6 +744,36 @@
       ]
     },
     {
+      "semanticId": "lotus.build",
+      "canonicalTerm": "build",
+      "preferredName": "build",
+      "description": "build metadata response object.",
+      "example": {
+        "key": "value"
+      },
+      "type": "BuildMetadataResponse",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "BuildMetadataResponse"
+      ]
+    },
+    {
+      "semanticId": "lotus.build_timestamp",
+      "canonicalTerm": "build_timestamp",
+      "preferredName": "build_timestamp",
+      "description": "UTC build timestamp supplied by CI or the local build command.",
+      "example": "2026-07-10T07:45:00Z",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.by_level",
       "canonicalTerm": "by_level",
       "preferredName": "by_level",
@@ -947,6 +977,20 @@
       "preferredName": "category",
       "description": "Finding family.",
       "example": "STANDARD_VALUE",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.ci_pipeline_run_id",
+      "canonicalTerm": "ci_pipeline_run_id",
+      "preferredName": "ci_pipeline_run_id",
+      "description": "CI pipeline or GitHub Actions run identifier that produced the image.",
+      "example": "1234567890",
       "type": "string",
       "locations": [
         "body"
@@ -2453,6 +2497,34 @@
       ]
     },
     {
+      "semanticId": "lotus.git_branch",
+      "canonicalTerm": "git_branch",
+      "preferredName": "git_branch",
+      "description": "Git branch or ref name used by the build pipeline.",
+      "example": "main",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.git_commit_sha",
+      "canonicalTerm": "git_commit_sha",
+      "preferredName": "git_commit_sha",
+      "description": "Git commit SHA used to build the running image or local process.",
+      "example": "0123456789abcdef0123456789abcdef01234567",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.governed_target",
       "canonicalTerm": "governed_target",
       "preferredName": "governed_target",
@@ -2606,6 +2678,20 @@
       ],
       "observedTypes": [
         "number"
+      ]
+    },
+    {
+      "semanticId": "lotus.image_digest",
+      "canonicalTerm": "image_digest",
+      "preferredName": "image_digest",
+      "description": "Registry image digest supplied by CI/promotion when available. Local builds use `unavailable-before-push` because Dockerfile labels cannot know the final pushed digest.",
+      "example": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
       ]
     },
     {
@@ -5120,6 +5206,20 @@
       ]
     },
     {
+      "semanticId": "lotus.repository_url",
+      "canonicalTerm": "repository_url",
+      "preferredName": "repository_url",
+      "description": "Source repository URL for correlating runtime identity to source and attestations.",
+      "example": "https://github.com/sgajbi/lotus-performance",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
       "semanticId": "lotus.request",
       "canonicalTerm": "request",
       "preferredName": "request",
@@ -6009,6 +6109,34 @@
       "preferredName": "served_by",
       "description": "Service exposing the performance-aligned benchmark exposure context view.",
       "example": "example_served_by",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.service_name",
+      "canonicalTerm": "service_name",
+      "preferredName": "service_name",
+      "description": "Configured service display name.",
+      "example": "Portfolio Performance Analytics API",
+      "type": "string",
+      "locations": [
+        "body"
+      ],
+      "observedTypes": [
+        "string"
+      ]
+    },
+    {
+      "semanticId": "lotus.service_version",
+      "canonicalTerm": "service_version",
+      "preferredName": "service_version",
+      "description": "Application version carried by OpenAPI, runtime metadata, and OCI image labels.",
+      "example": "0.1.0",
       "type": "string",
       "locations": [
         "body"
@@ -16344,6 +16472,156 @@
             "type": "string",
             "semanticId": "lotus.message",
             "attributeRef": "#/attributeCatalog/lotus.message"
+          },
+          {
+            "name": "build",
+            "location": "body",
+            "required": true,
+            "type": "BuildMetadataResponse",
+            "semanticId": "lotus.build",
+            "attributeRef": "#/attributeCatalog/lotus.build"
+          },
+          {
+            "name": "build.service_name",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.service_name",
+            "attributeRef": "#/attributeCatalog/lotus.service_name"
+          },
+          {
+            "name": "build.service_version",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.service_version",
+            "attributeRef": "#/attributeCatalog/lotus.service_version"
+          },
+          {
+            "name": "build.git_commit_sha",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.git_commit_sha",
+            "attributeRef": "#/attributeCatalog/lotus.git_commit_sha"
+          },
+          {
+            "name": "build.git_branch",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.git_branch",
+            "attributeRef": "#/attributeCatalog/lotus.git_branch"
+          },
+          {
+            "name": "build.build_timestamp",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.build_timestamp",
+            "attributeRef": "#/attributeCatalog/lotus.build_timestamp"
+          },
+          {
+            "name": "build.repository_url",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.repository_url",
+            "attributeRef": "#/attributeCatalog/lotus.repository_url"
+          },
+          {
+            "name": "build.image_digest",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.image_digest",
+            "attributeRef": "#/attributeCatalog/lotus.image_digest"
+          },
+          {
+            "name": "build.ci_pipeline_run_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.ci_pipeline_run_id",
+            "attributeRef": "#/attributeCatalog/lotus.ci_pipeline_run_id"
+          }
+        ]
+      }
+    },
+    {
+      "domain": "version",
+      "method": "GET",
+      "path": "/version",
+      "operationId": "version_version_get",
+      "summary": "Runtime build identity",
+      "request": {
+        "fields": []
+      },
+      "response": {
+        "fields": [
+          {
+            "name": "service_name",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.service_name",
+            "attributeRef": "#/attributeCatalog/lotus.service_name"
+          },
+          {
+            "name": "service_version",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.service_version",
+            "attributeRef": "#/attributeCatalog/lotus.service_version"
+          },
+          {
+            "name": "git_commit_sha",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.git_commit_sha",
+            "attributeRef": "#/attributeCatalog/lotus.git_commit_sha"
+          },
+          {
+            "name": "git_branch",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.git_branch",
+            "attributeRef": "#/attributeCatalog/lotus.git_branch"
+          },
+          {
+            "name": "build_timestamp",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.build_timestamp",
+            "attributeRef": "#/attributeCatalog/lotus.build_timestamp"
+          },
+          {
+            "name": "repository_url",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.repository_url",
+            "attributeRef": "#/attributeCatalog/lotus.repository_url"
+          },
+          {
+            "name": "image_digest",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.image_digest",
+            "attributeRef": "#/attributeCatalog/lotus.image_digest"
+          },
+          {
+            "name": "ci_pipeline_run_id",
+            "location": "body",
+            "required": true,
+            "type": "string",
+            "semanticId": "lotus.ci_pipeline_run_id",
+            "attributeRef": "#/attributeCatalog/lotus.ci_pipeline_run_id"
           }
         ]
       }

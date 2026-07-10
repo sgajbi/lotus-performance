@@ -32,8 +32,8 @@ def test_test_taxonomy_quality_gate_has_ci_thresholds() -> None:
     target = _makefile_target_definition("quality-test-taxonomy-gate")
 
     assert "scripts/python_test_taxonomy_inventory.py" in target
-    assert "--min-api-runtime-tests 648" in target
-    assert "--min-contract-governance-tests 127" in target
+    assert "--min-api-runtime-tests 651" in target
+    assert "--min-contract-governance-tests 128" in target
     assert "--max-uncategorized-tests 982" in target
 
 
@@ -84,8 +84,31 @@ def test_container_supply_chain_evidence_is_repo_native_and_published() -> None:
     sbom_target = _makefile_target_definition("container-sbom")
     vulnerability_report_target = _makefile_target_definition("container-vulnerability-report")
     vulnerability_gate_target = _makefile_target_definition("container-vulnerability-gate")
+    dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
 
     assert "$(CONTAINER_IMAGE)" in docker_build_target
+    for build_arg in (
+        "APP_VERSION=$(CONTAINER_SERVICE_VERSION)",
+        "APP_GIT_COMMIT_SHA=$(CONTAINER_GIT_SHA)",
+        "APP_GIT_BRANCH=$(CONTAINER_GIT_BRANCH)",
+        "APP_BUILD_TIMESTAMP=$(CONTAINER_BUILD_TIMESTAMP)",
+        "APP_REPOSITORY_URL=$(CONTAINER_REPOSITORY_URL)",
+        "APP_IMAGE_DIGEST=$(CONTAINER_IMAGE_DIGEST)",
+        "APP_CI_PIPELINE_RUN_ID=$(CONTAINER_CI_PIPELINE_RUN_ID)",
+    ):
+        assert f"--build-arg {build_arg}" in docker_build_target
+    for label in (
+        "org.opencontainers.image.source",
+        "org.opencontainers.image.revision",
+        "org.opencontainers.image.ref.name",
+        "org.opencontainers.image.version",
+        "org.opencontainers.image.created",
+        "lotus.image.digest",
+        "lotus.ci.pipeline_run_id",
+    ):
+        assert label in dockerfile
+    assert "SECRET" not in dockerfile
+    assert "PASSWORD" not in dockerfile
     assert "docker-build container-sbom container-vulnerability-report" in evidence_target
     assert "aquasec/trivy:0.71.2" in (ROOT / "Makefile").read_text(encoding="utf-8")
     assert "--format cyclonedx" in sbom_target
@@ -98,7 +121,12 @@ def test_container_supply_chain_evidence_is_repo_native_and_published() -> None:
     for workflow_name in ["pr-merge-gate.yml", "main-releasability.yml"]:
         workflow = _workflow_text(workflow_name)
 
-        assert "run: make container-supply-chain-evidence" in workflow
+        assert "CONTAINER_GIT_SHA: ${{ github.sha }}" in workflow
+        assert "CONTAINER_GIT_BRANCH: ${{ github.ref_name }}" in workflow
+        assert "CONTAINER_REPOSITORY_URL: ${{ github.server_url }}/${{ github.repository }}" in workflow
+        assert "CONTAINER_CI_PIPELINE_RUN_ID: ${{ github.run_id }}" in workflow
+        assert 'CONTAINER_BUILD_TIMESTAMP="$(date -u' in workflow
+        assert "make container-supply-chain-evidence" in workflow
         assert "uses: actions/upload-artifact@v7" in workflow
         assert "path: output/container-security/*.json" in workflow
         assert "run: make docker-build" not in workflow
