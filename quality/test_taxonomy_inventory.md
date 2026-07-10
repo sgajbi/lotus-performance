@@ -22,9 +22,9 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 304 |
-| Test functions inventoried | 3509 |
-| Integration/API/runtime test functions | 685 |
+| Test modules inventoried | 305 |
+| Test functions inventoried | 3513 |
+| Integration/API/runtime test functions | 689 |
 | Contract/governance test functions | 148 |
 
 ## Test Functions By Suite
@@ -33,15 +33,15 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | --- | ---: | ---: |
 | benchmarks | 9 | 18 |
 | e2e | 1 | 21 |
-| integration | 28 | 339 |
-| unit | 266 | 3131 |
+| integration | 28 | 341 |
+| unit | 267 | 3133 |
 
 ## Test Functions By Family
 
 | Family | Test functions |
 | --- | ---: |
 | analytics_domain | 1570 |
-| api_or_runtime | 685 |
+| api_or_runtime | 689 |
 | contract_or_governance | 148 |
 | observability_or_readiness | 350 |
 | quality_or_security | 161 |
@@ -88,7 +88,7 @@ The AST inventory counts test function definitions, while `pytest --collect-only
 pytest items including parametrized cases. The two values are intentionally different and
 complementary: collected tests show execution breadth, while this report shows source test-module
 and test-function distribution. The current suite has meaningful API/runtime and
-contract/governance coverage, but 950 test functions remain uncategorized by the first-wave
+contract/governance coverage, but 951 test functions remain uncategorized by the first-wave
 taxonomy and should be reduced through normal refactor slices rather than allowed to grow.
 
 The runtime recovery queue-result boundary slice kept the promoted gate stable by classifying
@@ -170,6 +170,12 @@ the uncategorized backlog. Issue #431 added calculation-engine-version manifest 
 coverage plus public-doc reproducibility guards, raising source test functions to `3506`,
 contract/governance tests to `147`, quality/security tests to `161`, and analytics-domain tests to
 `1570` while preserving API/runtime and uncategorized counts.
+Issue #430 added ordered-array reproducibility hash-contract API and public-doc governance coverage,
+raising source test functions to `3509`, API/runtime tests to `685`, contract/governance tests to
+`148`, and uncategorized tests to `951` while preserving the existing ceiling. Issue #429 added
+operator-navigation mapping and endpoint regression coverage for workspace-summary runtime
+work-item and recovery result links, raising source test functions to `3513` and API/runtime tests
+to `689` without growing the uncategorized backlog.
 
 This slice promotes the stable part of the taxonomy from report-only measurement to a
 regression-blocking evaluation gate. `make quality-test-taxonomy-gate` fails if API/runtime tests

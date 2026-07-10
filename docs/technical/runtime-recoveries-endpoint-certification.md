@@ -54,7 +54,9 @@ Every response carries:
   attempt count, and direct execution, lineage, and result links
 
 For hot recovery streams, clients should prefer the cursor fields over offset paging because newly
-recovered events can shift offset-based pages.
+recovered events can shift offset-based pages. `result_path` appears only when the analytics family
+has a stable async result route, including workspace-summary recovery events at
+`/performance/workspace-summary/results/{calculation_id}`.
 
 ## Behavior And Feature Checks
 
@@ -67,7 +69,8 @@ Certified behavior:
 - `recovered_after` and `recovered_before` narrow incident windows
 - `cursor_recovered_before` with `cursor_calculation_id_before` provides deterministic seek pagination
 - analytics-family and governed calculation-id prefix filters are applied before paging
-- direct `execution_path`, `lineage_path`, and supported async `result_path` links are emitted
+- direct `execution_path`, `lineage_path`, and supported async `result_path` links are emitted,
+  including workspace-summary compute recovery events
 - one queue can degrade to `unavailable` while the other queue remains usable
 - durable metadata store failure returns unavailable queue statuses rather than misleading empty data
 - partial compute read failure reports `reason="compute_recovery_read_failed"`
