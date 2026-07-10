@@ -171,6 +171,11 @@ def test_runtime_retention_history_api_returns_filtered_manifest(tmp_path, monke
             "prunable_async_result_count": 2,
             "prunable_lineage_record_count": 2,
             "prunable_lineage_artifact_count": 2,
+            "protected_execution_count": 0,
+            "protected_compute_job_count": 0,
+            "protected_async_result_count": 0,
+            "protected_lineage_record_count": 0,
+            "protected_lineage_artifact_count": 0,
         }
     ]
 

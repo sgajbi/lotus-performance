@@ -1054,7 +1054,7 @@ def test_twr_inspection_reports_failure_for_missing_twr_subject(client):
 
     result = client.get(f"/performance/inspections/{inspection_id}")
     assert result.status_code == 409
-    assert "TWR calculation execution not found" in result.json()["detail"]
+    assert result.json()["detail"] == "Compute job execution failed unexpectedly. Use the correlation_id for support."
 
     execution_response = client.get(f"/performance/executions/{inspection_id}")
     assert execution_response.status_code == 200
