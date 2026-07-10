@@ -100,6 +100,18 @@ def test_parse_retrieval_metadata_degrades_non_integral_float_counts():
     )
 
 
+def test_parse_retrieval_metadata_degrades_non_finite_numeric_strings():
+    metadata = parse_zero_default_retrieval_metadata(
+        {"retrieval_metadata": {"chunk_count": "NaN", "page_count": "Infinity"}}
+    )
+
+    assert metadata == RetrievalMetadata(
+        chunk_count=0,
+        page_count=0,
+        invalid_count_fields=("retrieval_metadata.chunk_count", "retrieval_metadata.page_count"),
+    )
+
+
 def test_retrieval_metadata_malformed_count_reason_is_bounded():
     assert MALFORMED_RETRIEVAL_METADATA_COUNT_REASON == "MALFORMED_UPSTREAM_RETRIEVAL_METADATA_COUNT"
 

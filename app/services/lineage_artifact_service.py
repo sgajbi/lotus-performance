@@ -13,6 +13,7 @@ from app.core.config import get_settings
 from app.models.lineage_responses import ArtifactLink, LineageArtifactMetadata, LineageManifest, LineageResponse
 from app.services.artifact_filename_policy import validate_artifact_filename
 from app.services.durable_store_json import read_json_file
+from app.services.lineage_artifact_classification import lineage_artifact_metadata_by_name
 from app.services.lineage_metadata_store import LineageRecord, LineageStatus, lineage_metadata_store
 from core.errors import APINotFoundError, APIServiceUnavailableError
 
@@ -40,6 +41,7 @@ def read_lineage_manifest_payload(manifest_path: str) -> Any:
 
 def load_and_validate_manifest(*, manifest_path: str, record: LineageRecord) -> LineageManifest:
     manifest_payload = read_lineage_manifest_payload(manifest_path)
+    manifest_payload = _backfill_legacy_manifest_artifact_metadata(manifest_payload)
 
     try:
         manifest = LineageManifest.model_validate(manifest_payload)
@@ -50,6 +52,18 @@ def load_and_validate_manifest(*, manifest_path: str, record: LineageRecord) -> 
         raise APIServiceUnavailableError("Lineage manifest is inconsistent with durable metadata.")
 
     return manifest
+
+
+def _backfill_legacy_manifest_artifact_metadata(manifest_payload: Any) -> Any:
+    if not isinstance(manifest_payload, dict) or "artifacts" in manifest_payload:
+        return manifest_payload
+    artifact_names = manifest_payload.get("artifact_names")
+    if not isinstance(artifact_names, list) or not all(isinstance(name, str) for name in artifact_names):
+        return manifest_payload
+    return {
+        **manifest_payload,
+        "artifacts": lineage_artifact_metadata_by_name(artifact_names=artifact_names),
+    }
 
 
 def manifest_matches_record(*, manifest: LineageManifest, record: LineageRecord) -> bool:

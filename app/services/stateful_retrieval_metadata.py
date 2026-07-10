@@ -100,6 +100,8 @@ def _positive_integral_decimal_or_none(value: str) -> int | None:
         decimal_value = Decimal(value)
     except (InvalidOperation, ValueError):
         return None
+    if not decimal_value.is_finite():
+        return None
     if decimal_value <= 0 or decimal_value != decimal_value.to_integral_value():
         return None
     return int(decimal_value)
