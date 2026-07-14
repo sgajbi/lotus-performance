@@ -26,7 +26,7 @@ Mode: generated first-party and third-party dependency license evidence.
 | `anyio` | runtime | `anyio==4.10.0` | `4.14.1` | MIT | License-Expression | allowed | - | - |
 | `bandit` | development | `bandit>=1.9.4,<2.0.0` | `1.9.4` | Apache-2.0 | License | allowed | - | - |
 | `certifi` | runtime | `certifi==2026.2.25` | `2026.6.17` | MPL-2.0 | License | review_required_exception | platform-security | 2027-01-31 |
-| `click` | runtime | `click==8.2.1` | `8.4.2` | BSD-3-Clause | License-Expression | allowed | - | - |
+| `click` | runtime | `click==8.3.3` | `8.4.2` | BSD-3-Clause | License-Expression | allowed | - | - |
 | `colorama` | runtime | `colorama==0.4.6` | `0.4.6` | BSD License | Classifier | allowed | - | - |
 | `coverage` | development | `coverage>=7.6.0,<8.0.0` | `7.14.3` | Apache-2.0 | License | allowed | - | - |
 | `deptry` | development | `deptry>=0.25,<1.0.0` | `0.25.1` | MIT | License-Expression | allowed | - | - |
@@ -57,7 +57,7 @@ Mode: generated first-party and third-party dependency license evidence.
 | `python-dotenv` | runtime | `python-dotenv==1.2.2` | `1.2.2` | BSD-3-Clause | License | allowed | - | - |
 | `pytz` | runtime | `pytz==2025.2` | `2025.2` | MIT | License | allowed | - | - |
 | `radon` | development | `radon>=6.0.1,<7.0.0` | `6.0.1` | MIT | License | allowed | - | - |
-| `ruff` | development | `ruff>=0.6.9,<0.7.0` | `0.15.20` | MIT | License-Expression | allowed | - | - |
+| `ruff` | development | `ruff>=0.6.9,<0.7.0` | `0.15.21` | MIT | License-Expression | allowed | - | - |
 | `six` | runtime | `six==1.17.0` | `1.17.0` | MIT | License | allowed | - | - |
 | `sniffio` | runtime | `sniffio==1.3.1` | `1.3.1` | MIT OR Apache-2.0 | License | allowed | - | - |
 | `SQLAlchemy` | development, runtime | `SQLAlchemy==2.0.39; SQLAlchemy>=2.0.0,<3.0.0` | `2.0.39` | MIT | License | allowed | - | - |
@@ -65,7 +65,7 @@ Mode: generated first-party and third-party dependency license evidence.
 | `typing_extensions` | runtime | `typing_extensions==4.15.0` | `4.15.0` | PSF-2.0 | License-Expression | allowed | - | - |
 | `typing-inspection` | runtime | `typing-inspection==0.4.2` | `0.4.2` | MIT | License-Expression | allowed | - | - |
 | `tzdata` | runtime | `tzdata==2025.3` | `2025.3` | Apache-2.0 | License | allowed | - | - |
-| `uvicorn` | runtime | `uvicorn==0.35.0` | `0.49.0` | BSD-3-Clause | License-Expression | allowed | - | - |
+| `uvicorn` | runtime | `uvicorn==0.35.0` | `0.51.0` | BSD-3-Clause | License-Expression | allowed | - | - |
 | `vulture` | development | `vulture>=2.16,<3.0.0` | `2.16` | The MIT License (MIT) Copyright (c) 2012-2020 Jendrik Seipp (jendrikseipp@gmail.com) Permission is hereby granted, free of charge, to any person obtaining a cop | License | allowed | - | - |
 
 ## Review Rules
