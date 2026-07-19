@@ -22,10 +22,10 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 305 |
-| Test functions inventoried | 3526 |
+| Test modules inventoried | 307 |
+| Test functions inventoried | 3533 |
 | Integration/API/runtime test functions | 690 |
-| Contract/governance test functions | 149 |
+| Contract/governance test functions | 154 |
 
 ## Test Functions By Suite
 
@@ -34,7 +34,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 18 |
 | e2e | 1 | 21 |
 | integration | 28 | 341 |
-| unit | 267 | 3146 |
+| unit | 269 | 3153 |
 
 ## Test Functions By Family
 
@@ -42,9 +42,9 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | --- | ---: |
 | analytics_domain | 1571 |
 | api_or_runtime | 690 |
-| contract_or_governance | 149 |
+| contract_or_governance | 154 |
 | observability_or_readiness | 354 |
-| quality_or_security | 165 |
+| quality_or_security | 167 |
 | uncategorized | 954 |
 
 ## Largest Test Modules
@@ -54,7 +54,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | 1 | `tests/unit/services/test_returns_series_service.py` | unit | 96 | analytics_domain |
 | 2 | `tests/unit/app/test_enterprise_readiness_additional.py` | unit | 87 | observability_or_readiness |
 | 3 | `tests/unit/services/test_stateful_attribution_input_service.py` | unit | 70 | analytics_domain |
-| 4 | `tests/unit/docs/test_public_docs_contract.py` | unit | 65 | contract_or_governance |
+| 4 | `tests/unit/docs/test_public_docs_contract.py` | unit | 66 | contract_or_governance |
 | 5 | `tests/unit/app/test_openapi_enrichment.py` | unit | 61 | api_or_runtime |
 | 6 | `tests/unit/services/test_compute_job_store.py` | unit | 61 | observability_or_readiness |
 | 7 | `tests/unit/services/test_lineage_metadata_store.py` | unit | 58 | uncategorized |

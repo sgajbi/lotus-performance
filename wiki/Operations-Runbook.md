@@ -41,7 +41,30 @@ Primary runtime surfaces:
 | Readiness is false | `GET /health/ready`, `GET /integration/runtime-status`, database reachability | readiness payload, runtime-status snapshot, metadata database state |
 | Async calculation is slow or stuck | `GET /performance/executions/{calculation_id}`, `GET /integration/runtime-work-items` | calculation id, execution state, work-item age, queue metrics |
 | Completed calculation lacks expected evidence | `GET /performance/lineage/{calculation_id}`, endpoint result route, inspection route where applicable | request fingerprint, response supportability block, lineage metadata, artifact names |
+| API or workers fail readiness with lineage storage unreadable | `docker compose ps -a`, initializer exit status, `/app/lineage_data` owner/mode | deployment revision, volume identity, initializer logs, exact owner/mode, affected service health |
 | Recovery or retention looks degraded | runtime recoveries, recovery drills, retention cleanup history | recovery id or cleanup id, trigger source, terminal status, error summary, retention target manifest and phase results |
+
+## Persisted lineage-volume recovery
+
+Compose runs `performance-lineage-volume-init` before every long-running workload that mounts the
+shared lineage volume. A successful initializer leaves `/app/lineage_data` owned by
+`10001:10001` with mode `0770`; the API and workers then run as non-root user `lotus`.
+
+For first response:
+
+1. run `docker compose ps -a` and confirm the initializer exited with code `0`;
+2. inspect initializer logs before restarting workloads when it did not complete;
+3. confirm the affected API and worker healthchecks after the initializer succeeds;
+4. run `make lineage-volume-recovery-smoke` only as isolated release proof—the command creates and
+   removes its own `lotus-performance-lineage-recovery-*` project and must not target the live
+   deployment;
+5. preserve the named volume during incident triage; do not use `docker compose down -v`, delete
+   `/app/lineage_data`, or recursively loosen permissions as a recovery shortcut.
+
+The initializer repairs ownership without deleting retained evidence. Escalate storage-driver,
+mount, or host-filesystem failures separately when the exact owner/mode verification still fails.
+The detailed proof and remediation boundaries are in
+[Lineage Volume Recovery](../docs/runbooks/lineage-volume-recovery.md).
 
 ## Error response triage
 
