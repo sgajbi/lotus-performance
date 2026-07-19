@@ -1,7 +1,7 @@
 # Lotus Performance Test Taxonomy Inventory
 
-Report date: 2026-07-10
-Branch: `feat/performance-architecture-boundary-refactor`
+Report date: 2026-07-19
+Branch: `fix/lineage-volume-recovery-459`
 Mode: regression-blocking test taxonomy inventory; `make quality-test-taxonomy-gate` enforces
 minimum API/runtime and contract/governance breadth plus the current uncategorized-test ceiling.
 
@@ -22,8 +22,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 307 |
-| Test functions inventoried | 3533 |
+| Test modules inventoried | 308 |
+| Test functions inventoried | 3534 |
 | Integration/API/runtime test functions | 690 |
 | Contract/governance test functions | 154 |
 
@@ -34,7 +34,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 18 |
 | e2e | 1 | 21 |
 | integration | 28 | 341 |
-| unit | 269 | 3153 |
+| unit | 270 | 3154 |
 
 ## Test Functions By Family
 
@@ -43,8 +43,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | analytics_domain | 1571 |
 | api_or_runtime | 690 |
 | contract_or_governance | 154 |
-| observability_or_readiness | 354 |
-| quality_or_security | 167 |
+| observability_or_readiness | 355 |
+| quality_or_security | 168 |
 | uncategorized | 954 |
 
 ## Largest Test Modules
@@ -88,7 +88,7 @@ The AST inventory counts test function definitions, while `pytest --collect-only
 pytest items including parametrized cases. The two values are intentionally different and
 complementary: collected tests show execution breadth, while this report shows source test-module
 and test-function distribution. The current suite has meaningful API/runtime and
-contract/governance coverage, but 953 test functions remain uncategorized by the first-wave
+contract/governance coverage, but 954 test functions remain uncategorized by the first-wave
 taxonomy and should be reduced through normal refactor slices rather than allowed to grow.
 
 The runtime recovery queue-result boundary slice kept the promoted gate stable by classifying
