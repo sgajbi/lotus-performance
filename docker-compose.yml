@@ -14,6 +14,32 @@ services:
       timeout: 5s
       retries: 20
 
+  performance-lineage-volume-init:
+    build:
+      context: .
+      target: runtime
+    container_name: performance-lineage-volume-init
+    user: "0:0"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -eu
+        chown -R 10001:10001 /app/lineage_data
+        chmod 0770 /app/lineage_data
+        test "$$(stat -c '%u:%g:%a' /app/lineage_data)" = "10001:10001:770"
+    volumes:
+      - performance-lineage-data:/app/lineage_data
+    read_only: true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+    security_opt:
+      - no-new-privileges:true
+    restart: "no"
+
   performance-analytics:
     build:
       context: .
@@ -32,6 +58,8 @@ services:
     depends_on:
       performance-lineage-db:
         condition: service_healthy
+      performance-lineage-volume-init:
+        condition: service_completed_successfully
     healthcheck:
       test:
         [
@@ -62,6 +90,8 @@ services:
     depends_on:
       performance-lineage-db:
         condition: service_healthy
+      performance-lineage-volume-init:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "python", "-m", "app.workers.healthcheck", "lineage"]
       interval: 30s
@@ -86,6 +116,8 @@ services:
     depends_on:
       performance-lineage-db:
         condition: service_healthy
+      performance-lineage-volume-init:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "python", "-m", "app.workers.healthcheck", "compute-executor"]
       interval: 30s
@@ -112,6 +144,8 @@ services:
     depends_on:
       performance-lineage-db:
         condition: service_healthy
+      performance-lineage-volume-init:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "python", "-m", "app.workers.healthcheck", "runtime-retention"]
       interval: 1m
