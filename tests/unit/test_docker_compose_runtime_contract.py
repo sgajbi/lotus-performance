@@ -22,6 +22,20 @@ def test_runtime_services_share_lineage_artifact_volume() -> None:
         assert "- performance-lineage-data:/app/lineage_data" in _service_block(compose, service)
 
 
+def test_runtime_container_names_are_overrideable_for_isolated_recovery_proof() -> None:
+    compose = Path("docker-compose.yml").read_text(encoding="utf-8")
+
+    for variable in (
+        "PA_LINEAGE_DB_CONTAINER_NAME",
+        "PA_LINEAGE_VOLUME_INIT_CONTAINER_NAME",
+        "PA_ANALYTICS_CONTAINER_NAME",
+        "PA_LINEAGE_WORKER_CONTAINER_NAME",
+        "PA_COMPUTE_EXECUTOR_CONTAINER_NAME",
+        "PA_RUNTIME_RETENTION_CONTAINER_NAME",
+    ):
+        assert f"${{{variable}:-" in compose
+
+
 def test_runtime_services_wait_for_bounded_lineage_volume_initialization() -> None:
     compose = Path("docker-compose.yml").read_text(encoding="utf-8")
     initializer = _service_block(compose, "performance-lineage-volume-init")
