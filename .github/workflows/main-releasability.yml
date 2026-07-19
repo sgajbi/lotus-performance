@@ -97,6 +97,17 @@ jobs:
       - name: Python Security Gate
         run: make python-security-gate
 
+  lineage-volume-recovery:
+    name: Main Releasability / Lineage Volume Recovery
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Configure Git Default Branch
+        run: git config --global init.defaultBranch main
+      - uses: actions/checkout@v6
+      - name: Prove non-root restart recovery
+        run: make lineage-volume-recovery-smoke
+
   test-suites:
     name: Main Releasability / Tests (${{ matrix.suite }})
     needs: [static-quality-gates, contract-security-gates]
