@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+MINIMUM_AUDIT_SETUPTOOLS_VERSION = "83.0.0"
 
 
 @dataclass
@@ -62,6 +63,19 @@ def _install_command(args: argparse.Namespace, venv_python: Path) -> list[str]:
     return command
 
 
+def _bootstrap_command(venv_python: Path) -> list[str]:
+    """Return the deterministic installer bootstrap used by the isolated audit."""
+    return [
+        str(venv_python),
+        "-m",
+        "pip",
+        "install",
+        "--upgrade",
+        "pip",
+        f"setuptools>={MINIMUM_AUDIT_SETUPTOOLS_VERSION}",
+    ]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Project-scoped dependency health and vulnerability audit")
     parser.add_argument(
@@ -102,10 +116,10 @@ def main() -> int:
         venv.EnvBuilder(with_pip=True, clear=True).create(venv_dir)
         venv_python = _venv_python(venv_dir)
 
-        upgrade_pip = _run([str(venv_python), "-m", "pip", "install", "--upgrade", "pip"], cwd=ROOT)
-        if upgrade_pip.return_code != 0:
-            _print_section("pip upgrade stderr", upgrade_pip.stderr)
-            return upgrade_pip.return_code
+        bootstrap = _run(_bootstrap_command(venv_python), cwd=ROOT)
+        if bootstrap.return_code != 0:
+            _print_section("dependency audit bootstrap stderr", bootstrap.stderr)
+            return bootstrap.return_code
 
         install = _run(_install_command(args, venv_python), cwd=ROOT)
         if install.return_code != 0:
