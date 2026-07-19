@@ -1,7 +1,7 @@
 services:
   performance-lineage-db:
     image: postgres:17
-    container_name: performance-lineage-db
+    container_name: "${PA_LINEAGE_DB_CONTAINER_NAME:-performance-lineage-db}"
     environment:
       POSTGRES_DB: lotus_performance
       POSTGRES_USER: lotus
@@ -18,7 +18,7 @@ services:
     build:
       context: .
       target: runtime
-    container_name: performance-lineage-volume-init
+    container_name: "${PA_LINEAGE_VOLUME_INIT_CONTAINER_NAME:-performance-lineage-volume-init}"
     user: "0:0"
     entrypoint: ["/bin/sh", "-c"]
     command:
@@ -44,7 +44,7 @@ services:
     build:
       context: .
       target: runtime
-    container_name: performance-analytics
+    container_name: "${PA_ANALYTICS_CONTAINER_NAME:-performance-analytics}"
     environment:
       CORE_CONTROL_PLANE_BASE_URL: "${CORE_CONTROL_PLANE_BASE_URL:-http://host.docker.internal:8202}"
       HTTP_ALLOWED_HOSTS: "${HTTP_ALLOWED_HOSTS:-testserver,localhost,127.0.0.1,host.docker.internal,*.dev.lotus}"
@@ -77,7 +77,7 @@ services:
     build:
       context: .
       target: runtime
-    container_name: performance-lineage-worker
+    container_name: "${PA_LINEAGE_WORKER_CONTAINER_NAME:-performance-lineage-worker}"
     command: ["python", "-m", "app.workers.lineage_worker"]
     environment:
       CORE_CONTROL_PLANE_BASE_URL: "${CORE_CONTROL_PLANE_BASE_URL:-http://host.docker.internal:8202}"
@@ -103,7 +103,7 @@ services:
     build:
       context: .
       target: runtime
-    container_name: performance-compute-executor
+    container_name: "${PA_COMPUTE_EXECUTOR_CONTAINER_NAME:-performance-compute-executor}"
     command: ["python", "-m", "app.workers.compute_executor_worker"]
     environment:
       CORE_CONTROL_PLANE_BASE_URL: "${CORE_CONTROL_PLANE_BASE_URL:-http://host.docker.internal:8202}"
@@ -129,7 +129,7 @@ services:
     build:
       context: .
       target: runtime
-    container_name: performance-runtime-retention-worker
+    container_name: "${PA_RUNTIME_RETENTION_CONTAINER_NAME:-performance-runtime-retention-worker}"
     command: ["python", "-m", "app.workers.runtime_retention_worker"]
     profiles: ["ops"]
     environment:
