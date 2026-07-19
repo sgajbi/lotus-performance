@@ -97,9 +97,20 @@ jobs:
       - name: Python Security Gate
         run: make python-security-gate
 
+  lineage-volume-recovery:
+    name: PR Merge Gate / Lineage Volume Recovery
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Configure Git Default Branch
+        run: git config --global init.defaultBranch main
+      - uses: actions/checkout@v6
+      - name: Prove non-root restart recovery
+        run: make lineage-volume-recovery-smoke
+
   lint-typecheck-security:
     name: PR Merge Gate / Lint Typecheck Security
-    needs: [static-quality-gates, contract-security-gates]
+    needs: [static-quality-gates, contract-security-gates, lineage-volume-recovery]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -114,7 +125,11 @@ jobs:
             echo "Contract security gates did not pass: ${{ needs.contract-security-gates.result }}"
             exit 1
           fi
-          echo "Static quality and contract security gates passed."
+          if [ "${{ needs.lineage-volume-recovery.result }}" != "success" ]; then
+            echo "Lineage volume recovery did not pass: ${{ needs.lineage-volume-recovery.result }}"
+            exit 1
+          fi
+          echo "Static quality, contract security, and lineage recovery gates passed."
 
   test-suites:
     name: PR Merge Gate / Tests (${{ matrix.suite }})
