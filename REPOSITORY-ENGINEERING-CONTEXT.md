@@ -463,6 +463,14 @@ Important validation expectations:
     calls for those governed workflows. The current command objects intentionally preserve the
     validated request identity while the deeper field-native command migration proceeds in smaller
     behavior-preserving slices.
+34. The shared Compose lineage volume is initialized by the bounded
+    `performance-lineage-volume-init` job before API, lineage-worker, compute-executor, or optional
+    retention-worker startup. The initializer may run as root only to repair `/app/lineage_data` to
+    UID/GID `10001:10001` and mode `0770`; all long-running workloads remain non-root. Preserve the
+    `service_completed_successfully` dependencies and the least-capability container posture.
+    `make lineage-volume-recovery-smoke` is the canonical isolated proof: it must seed a root-owned
+    volume, retain evidence across workload restart, verify non-root read/write access and health,
+    and clean only its generated `lotus-performance-lineage-recovery-*` project.
 
 ## Standards And RFCs That Govern This Repository
 

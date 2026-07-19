@@ -48,6 +48,10 @@ make quality measurable and repeatable, not to treat CI as a ceremonial final st
   `output/container-security/`
 - `make ci-local`
   local Docker-parity coverage run
+- `make lineage-volume-recovery-smoke`
+  isolated persisted-volume proof: seeds root-owned lineage evidence, requires bounded ownership
+  repair, validates non-root API and worker health, restarts the workloads, rechecks retained
+  evidence, and removes only the generated test project
 - `make test-all`
   full local pytest plus coverage gate
 - `make branch-coverage-baseline`
@@ -83,6 +87,7 @@ make quality measurable and repeatable, not to treat CI as a ceremonial final st
 | Runtime behavior | `make ci`, unit/integration/e2e lanes | calculation behavior, API behavior, async/runtime flows, coverage floor |
 | Performance characterization | `make performance-characterization`, Performance Characterization Evidence workflow | benchmark budget posture plus live PostgreSQL query-plan and concurrency contracts, with artifact evidence under `output/performance-characterization/` |
 | Container supply-chain | `make container-supply-chain-evidence`, PR/Main container evidence jobs, `GET /version` | production runtime image buildability, non-root/runtime-dependency posture, API and worker healthchecks, runtime-to-image build identity, SBOM inventory, high/critical vulnerability evidence, and main-branch SBOM provenance attestation |
+| Lineage restart recovery | `make lineage-volume-recovery-smoke`, PR/Main Lineage Volume Recovery jobs | first-create or restored-volume ownership repair, UID/GID `10001` workload access, health after restart, retained artifact evidence, and isolated cleanup |
 | Documentation contract | docs regression tests, wiki source check | public contract language, command accuracy, source wiki publication readiness |
 | Baseline evidence | `make quality-baseline`, Quality Baseline Snapshot | before/after scorecard data for the enterprise refactor program |
 

@@ -351,6 +351,37 @@ def test_public_docs_record_container_supply_chain_evidence_posture():
     assert "CodeQL analysis still\nneeds a separate" in supply_chain_report
 
 
+def test_public_docs_record_lineage_volume_restart_recovery_posture():
+    readme = _read("README.md")
+    repository_context = _read("REPOSITORY-ENGINEERING-CONTEXT.md")
+    runtime_topology = _read("docs/technical/runtime_topology.md")
+    runbook = _read("docs/runbooks/lineage-volume-recovery.md")
+    workflow_strategy = _read("docs/operations/development-workflow-and-ci-strategy.md")
+    scripts_readme = _read("scripts/README.md")
+    quality_gates = _read("quality/ci_quality_gates.md")
+    wiki_operations = _read("wiki/Operations-Runbook.md")
+    wiki_validation = _read("wiki/Validation-and-CI.md")
+    wiki_supported_features = _read("wiki/Supported-Features.md")
+
+    for document in (
+        readme,
+        repository_context,
+        runbook,
+        workflow_strategy,
+        quality_gates,
+        wiki_operations,
+        wiki_validation,
+    ):
+        assert "make lineage-volume-recovery-smoke" in document
+
+    assert "performance-lineage-volume-init" in runtime_topology
+    assert "10001:10001" in runtime_topology
+    assert "condition: service_completed_successfully" in runbook
+    assert "docker compose down -v" in runbook
+    assert "validate_lineage_volume_recovery.py" in scripts_readme
+    assert "Persisted lineage-volume restart safety" in wiki_supported_features
+
+
 def test_demo_readiness_guide_is_linked_bounded_and_evidence_driven():
     readme = _read("README.md")
     guide = _read("docs/guides/demo_readiness.md")

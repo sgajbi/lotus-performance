@@ -26,6 +26,7 @@ make quality-evaluation-gate
 make quality-test-taxonomy-gate
 make license-compliance-gate
 make container-supply-chain-evidence
+make lineage-volume-recovery-smoke
 make performance-characterization
 ```
 
@@ -61,6 +62,13 @@ Actions; Main Releasability also attests SBOM provenance. The vulnerability repo
 report-only until the first PR/main baseline artifacts are reviewed. Promotion to a blocking image
 vulnerability gate must use `make container-vulnerability-gate` and the exception policy in
 `quality/container_supply_chain_report.md`.
+
+`make lineage-volume-recovery-smoke` is the isolated restart-safety proof for the shared lineage
+artifact volume. It creates only a generated `lotus-performance-lineage-recovery-*` Compose
+project, seeds root-owned persisted evidence, requires the bounded initializer to repair ownership,
+proves API and worker health as UID/GID `10001`, restarts the workloads, rechecks retained evidence,
+and removes the owned containers, volume, network, and local images. PR Merge Gate feeds this job
+into the required compatibility aggregate; Main Releasability repeats it on the merged SHA.
 
 Performance characterization evidence is produced by the dedicated Performance Characterization
 Evidence workflow on pull requests to `main`, pushes to `main`, weekly schedule, and manual

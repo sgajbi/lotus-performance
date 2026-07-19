@@ -17,7 +17,7 @@ and operational automation used by Make targets and CI lanes.
 | --- | --- | --- |
 | API and contract gates | `openapi_quality_gate.py`, `api_vocabulary_inventory.py`, `validate_domain_data_product_contracts.py` | `make check` |
 | Quality inventories | `python_complexity_inventory.py`, `python_duplicate_code_inventory.py`, `python_observability_readiness_inventory.py` | `make quality-baseline` or focused quality targets |
-| Runtime operations | `durable_recovery_drill.py`, `runtime_retention_cleanup.py` | named Make smoke targets |
+| Runtime operations | `durable_recovery_drill.py`, `runtime_retention_cleanup.py`, `validate_lineage_volume_recovery.py` | named Make smoke targets |
 | Demo and certification | `demo_api_certification.py`, endpoint certification helpers | `make demo-api-certification` |
 | Hygiene and safety | `repository_hygiene_gate.py`, `clean_generated_artifacts.py` | `make lint`, `make clean` |
 

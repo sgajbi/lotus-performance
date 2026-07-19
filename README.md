@@ -39,6 +39,8 @@ does not delegate performance conclusions to `lotus-core`.
    `contracts/domain-data-products/`.
 5. OpenAPI, API vocabulary, domain-product validation, migration, security, Docker parity, and
    container supply-chain evidence are part of the real merge gate.
+6. Compose initializes persisted lineage-volume ownership before any non-root API or worker starts;
+   PR and Main Releasability prove root-owned-volume repair, restart health, and retained evidence.
 
 ## Enterprise Readiness Evidence
 
@@ -104,6 +106,7 @@ Source-of-truth runtime docs:
 
 - [docs/technical/architecture.md](docs/technical/architecture.md)
 - [docs/technical/runtime_topology.md](docs/technical/runtime_topology.md)
+- [docs/runbooks/lineage-volume-recovery.md](docs/runbooks/lineage-volume-recovery.md)
 - [docs/technical/RFC-0082-upstream-contract-family-map.md](docs/technical/RFC-0082-upstream-contract-family-map.md)
 
 Grouped public surfaces are derived from the router layout in [main.py](main.py):
@@ -206,6 +209,8 @@ source-economics or reconciliation regressions.
   `make migration-apply`
 - retention smoke
   `make runtime-retention-smoke`
+- lineage volume restart recovery
+  `make lineage-volume-recovery-smoke`
 - quality baseline reports
   `make quality-baseline`
 - demo API certification

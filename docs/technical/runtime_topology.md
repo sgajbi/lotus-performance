@@ -54,6 +54,15 @@ local compose topology, `performance-analytics`, `performance-lineage-worker`,
 the `performance-lineage-data` volume at `/app/lineage_data`. This keeps durable metadata in
 PostgreSQL aligned with retrievable artifact files after asynchronous materialization.
 
+The bounded `performance-lineage-volume-init` Compose job runs before every workload that mounts
+that volume. It starts as root only long enough to set `/app/lineage_data` ownership to UID/GID
+`10001:10001`, applies mode `0770`, verifies the exact result, and exits. It has a read-only root
+filesystem, drops all capabilities before adding only `CHOWN`, `DAC_OVERRIDE`, and `FOWNER`, and
+uses `no-new-privileges`. API and worker services remain non-root and cannot start unless the
+initializer completes successfully. This repairs first-create and restored-volume ownership without
+deleting persisted lineage evidence. See
+[Lineage Volume Recovery](../runbooks/lineage-volume-recovery.md) for operator proof and triage.
+
 ### `performance-lineage-db`
 
 - PostgreSQL backing durable operational state
