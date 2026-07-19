@@ -70,13 +70,14 @@ def test_compose_services_build_runtime_target_and_expose_healthchecks() -> None
     compose = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
 
     for service_name in (
+        "performance-lineage-volume-init",
         "performance-analytics",
         "performance-lineage-worker",
         "performance-compute-executor",
         "performance-runtime-retention-worker",
     ):
         assert f"  {service_name}:" in compose
-    assert compose.count("target: runtime") == 4
+    assert compose.count("target: runtime") == 5
     assert "/health/ready" in compose
     assert '["CMD", "python", "-m", "app.workers.healthcheck", "lineage"]' in compose
     assert '["CMD", "python", "-m", "app.workers.healthcheck", "compute-executor"]' in compose
