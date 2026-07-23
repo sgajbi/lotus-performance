@@ -145,7 +145,7 @@ def validate_idea_opportunity_runtime_evidence(evidence: dict[str, Any]) -> None
     _assert_bounded_scenario_payloads(list(scenario_by_id.values()))
     _assert_underperformance_scenario(scenario_by_id[UNDERPERFORMANCE_SCENARIO_ID])
     _assert_missing_benchmark_scenario(scenario_by_id[MISSING_BENCHMARK_SCENARIO_ID])
-    _assert_supported_feature_blocker_preserved(evidence)
+    _assert_idea_blocker_contract(evidence)
 
 
 def _assert_evidence_schema(evidence: dict[str, Any]) -> None:
@@ -170,10 +170,13 @@ def _scenario_by_id(evidence: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return scenario_by_id
 
 
-def _assert_supported_feature_blocker_preserved(evidence: dict[str, Any]) -> None:
-    preserved = set(evidence.get("idea_blockers_preserved") or [])
-    if "supported_feature_promotion_missing" not in preserved:
-        raise ValueError("evidence must preserve supported-feature promotion blocker")
+def _assert_idea_blocker_contract(evidence: dict[str, Any]) -> None:
+    cleared = tuple(evidence.get("idea_blockers_cleared") or ())
+    if cleared != IDEA_BLOCKERS_CLEARED:
+        raise ValueError("evidence must clear only Performance-owned Idea blockers")
+    preserved = tuple(evidence.get("idea_blockers_preserved") or ())
+    if preserved != IDEA_BLOCKERS_PRESERVED:
+        raise ValueError("evidence must preserve every non-Performance Idea blocker")
 
 
 def _scenario_evidence(

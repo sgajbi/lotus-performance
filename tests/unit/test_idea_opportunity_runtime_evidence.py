@@ -8,6 +8,8 @@ from uuid import UUID
 import pytest
 
 from app.evidence.idea_opportunity_runtime import (
+    IDEA_BLOCKERS_CLEARED,
+    IDEA_BLOCKERS_PRESERVED,
     MISSING_BENCHMARK_SCENARIO_ID,
     UNDERPERFORMANCE_SCENARIO_ID,
     copy_evidence,
@@ -29,6 +31,8 @@ async def test_generate_idea_opportunity_runtime_evidence_is_source_safe_and_bou
     assert "portfolio_returns" not in encoded
     assert "benchmark_returns" not in encoded
     assert evidence["portfolio_identity"]["raw_identifier_policy"] == "not_emitted"
+    assert tuple(evidence["idea_blockers_cleared"]) == IDEA_BLOCKERS_CLEARED
+    assert tuple(evidence["idea_blockers_preserved"]) == IDEA_BLOCKERS_PRESERVED
     assert evidence["unsupported_promotion_policy"]["supported_feature_promotion"] == "not_claimed"
 
     scenarios = {scenario["scenario_id"]: scenario for scenario in evidence["scenarios"]}
@@ -68,6 +72,30 @@ async def test_validate_idea_opportunity_runtime_evidence_rejects_raw_series_pay
 
     with pytest.raises(ValueError, match="raw return-series"):
         validate_idea_opportunity_runtime_evidence(invalid)
+
+
+@pytest.mark.asyncio
+async def test_validate_idea_opportunity_runtime_evidence_rejects_blocker_overclaims() -> None:
+    evidence = await generate_idea_opportunity_runtime_evidence()
+
+    missing_preserved = copy_evidence(evidence)
+    missing_preserved["idea_blockers_preserved"] = [
+        blocker
+        for blocker in missing_preserved["idea_blockers_preserved"]
+        if blocker != "gateway_runtime_consumption_proof_missing"
+    ]
+    with pytest.raises(ValueError, match="preserve every non-Performance Idea blocker"):
+        validate_idea_opportunity_runtime_evidence(missing_preserved)
+
+    moved_to_cleared = copy_evidence(evidence)
+    moved_to_cleared["idea_blockers_cleared"].append("gateway_runtime_consumption_proof_missing")
+    moved_to_cleared["idea_blockers_preserved"] = [
+        blocker
+        for blocker in moved_to_cleared["idea_blockers_preserved"]
+        if blocker != "gateway_runtime_consumption_proof_missing"
+    ]
+    with pytest.raises(ValueError, match="clear only Performance-owned Idea blockers"):
+        validate_idea_opportunity_runtime_evidence(moved_to_cleared)
 
 
 @pytest.mark.asyncio
