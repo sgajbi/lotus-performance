@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from uuid import UUID
 
@@ -96,6 +96,31 @@ async def test_validate_idea_opportunity_runtime_evidence_rejects_blocker_overcl
     ]
     with pytest.raises(ValueError, match="clear only Performance-owned Idea blockers"):
         validate_idea_opportunity_runtime_evidence(moved_to_cleared)
+
+
+@pytest.mark.asyncio
+async def test_generate_idea_opportunity_runtime_evidence_rejects_identity_overrides() -> None:
+    with pytest.raises(ValueError, match="canonical fixed source-data scenario"):
+        await generate_idea_opportunity_runtime_evidence(portfolio_id="PB_SG_OTHER_001")
+    with pytest.raises(ValueError, match="canonical fixed source-data scenario"):
+        await generate_idea_opportunity_runtime_evidence(benchmark_id="BMK_OTHER")
+    with pytest.raises(ValueError, match="canonical fixed source-data scenario"):
+        await generate_idea_opportunity_runtime_evidence(as_of_date=date(2026, 5, 9))
+
+
+@pytest.mark.asyncio
+async def test_validate_idea_opportunity_runtime_evidence_rejects_degraded_missing_benchmark() -> None:
+    evidence = await generate_idea_opportunity_runtime_evidence()
+
+    degraded_supportability = copy_evidence(evidence)
+    degraded_supportability["scenarios"][1]["readiness"]["supportability_state"] = "degraded"
+    with pytest.raises(ValueError, match="missing-benchmark scenario must be source-ready"):
+        validate_idea_opportunity_runtime_evidence(degraded_supportability)
+
+    partial_coverage = copy_evidence(evidence)
+    partial_coverage["scenarios"][1]["readiness"]["coverage"]["missing_points"] = 1
+    with pytest.raises(ValueError, match="complete portfolio coverage"):
+        validate_idea_opportunity_runtime_evidence(partial_coverage)
 
 
 @pytest.mark.asyncio
