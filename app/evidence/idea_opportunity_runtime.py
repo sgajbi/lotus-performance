@@ -9,9 +9,8 @@ from typing import Any
 
 from app.models.benchmark_analytics_requests import BenchmarkReturnSource
 from app.models.returns_series import InputMode, ReturnsSeriesRequest, ReturnsSeriesResponse
+from app.services import returns_series_service
 from app.services.analytics_workflow_types import ANALYTICS_WORKFLOW_RETURNS_SERIES
-from app.services.execution_registry import execution_registry
-from app.services.returns_series_service import calculate_returns_series
 
 SCHEMA_VERSION = "lotus-performance.idea-opportunity-runtime-evidence.v1"
 PRODUCT_ID = "lotus-performance:ReturnsSeriesBundle:v1"
@@ -69,22 +68,24 @@ async def generate_idea_opportunity_runtime_evidence(
     generated_at_utc: datetime | None = None,
 ) -> dict[str, Any]:
     generated_at = generated_at_utc or datetime.now(tz=UTC)
-    execution_registry.create_schema()
+    returns_series_service.execution_registry.create_schema()
     underperformance_request = _underperformance_request(portfolio_id=portfolio_id, as_of_date=as_of_date)
     _seed_sync_execution(underperformance_request)
-    underperformance_response = await calculate_returns_series(
+    underperformance_response = await returns_series_service.calculate_returns_series(
         underperformance_request,
         source_input_mode=InputMode.STATELESS,
         resolved_benchmark_id_override=benchmark_id,
         resolved_benchmark_return_source_override=BenchmarkReturnSource.CALCULATED.value,
     )
+    _preserve_execution_identity(underperformance_response)
 
     missing_benchmark_request = _missing_benchmark_request(portfolio_id=portfolio_id, as_of_date=as_of_date)
     _seed_sync_execution(missing_benchmark_request)
-    missing_benchmark_response = await calculate_returns_series(
+    missing_benchmark_response = await returns_series_service.calculate_returns_series(
         missing_benchmark_request,
         source_input_mode=InputMode.STATELESS,
     )
+    _preserve_execution_identity(missing_benchmark_response)
 
     evidence = {
         "schema_version": SCHEMA_VERSION,
@@ -346,7 +347,7 @@ def _missing_benchmark_request(*, portfolio_id: str, as_of_date: date) -> Return
 
 
 def _seed_sync_execution(request: ReturnsSeriesRequest) -> None:
-    execution_registry.create_execution(
+    returns_series_service.execution_registry.create_execution(
         calculation_id=request.calculation_id,
         analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES,
         portfolio_id=request.portfolio_id,
@@ -358,6 +359,14 @@ def _seed_sync_execution(request: ReturnsSeriesRequest) -> None:
             "input_mode": request.input_mode.value,
             "proof_family": PROOF_FAMILY,
         },
+    )
+
+
+def _preserve_execution_identity(response: ReturnsSeriesResponse) -> None:
+    returns_series_service.execution_registry.update_execution_identity(
+        response.calculation_id,
+        input_fingerprint=response.provenance.input_fingerprint,
+        calculation_hash=response.provenance.calculation_hash,
     )
 
 
