@@ -23,7 +23,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 309 |
-| Test functions inventoried | 3539 |
+| Test functions inventoried | 3540 |
 | Integration/API/runtime test functions | 690 |
 | Contract/governance test functions | 154 |
 
@@ -34,7 +34,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 18 |
 | e2e | 1 | 21 |
 | integration | 28 | 341 |
-| unit | 271 | 3159 |
+| unit | 271 | 3160 |
 
 ## Test Functions By Family
 
@@ -45,7 +45,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | contract_or_governance | 154 |
 | observability_or_readiness | 355 |
 | quality_or_security | 168 |
-| uncategorized | 959 |
+| uncategorized | 960 |
 
 ## Largest Test Modules
 
@@ -193,6 +193,8 @@ runtime evidence tests, raising inventoried modules to `309`, source test functi
 uncategorized tests to `958` while preserving the existing `969` uncategorized ceiling.
 The PR review fix added execution-registry identity preservation regression coverage, raising source
 test functions to `3539` and uncategorized tests to `959` while staying below the same ceiling.
+The blocker-contract review fix added exact Idea blocker preservation regression coverage, raising
+source test functions to `3540` and uncategorized tests to `960` while staying below the same ceiling.
 
 This slice promotes the stable part of the taxonomy from report-only measurement to a
 regression-blocking evaluation gate. `make quality-test-taxonomy-gate` fails if API/runtime tests
