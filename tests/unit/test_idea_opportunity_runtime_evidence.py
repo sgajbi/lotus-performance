@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime
 from pathlib import Path
+from uuid import UUID
 
 import pytest
 
@@ -13,6 +14,7 @@ from app.evidence.idea_opportunity_runtime import (
     generate_idea_opportunity_runtime_evidence,
     validate_idea_opportunity_runtime_evidence,
 )
+from app.services.execution_registry import ExecutionRegistry
 
 
 @pytest.mark.asyncio
@@ -78,3 +80,23 @@ async def test_generate_idea_opportunity_runtime_evidence_can_write_valid_artifa
 
     loaded = json.loads(output_path.read_text(encoding="utf-8"))
     validate_idea_opportunity_runtime_evidence(loaded)
+
+
+@pytest.mark.asyncio
+async def test_generate_idea_opportunity_runtime_evidence_preserves_execution_identity(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    monkeypatch.setattr("app.evidence.idea_opportunity_runtime.returns_series_service.execution_registry", store)
+
+    evidence = await generate_idea_opportunity_runtime_evidence(
+        generated_at_utc=datetime(2026, 5, 9, 8, 30, tzinfo=UTC),
+    )
+
+    for scenario in evidence["scenarios"]:
+        receipt = scenario["execution_receipt"]
+        execution = store.get_execution(UUID(receipt["calculation_id"]))
+        assert execution is not None
+        assert execution.input_fingerprint == receipt["input_fingerprint"]
+        assert execution.calculation_hash == receipt["calculation_hash"]
