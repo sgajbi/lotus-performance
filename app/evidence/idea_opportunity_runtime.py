@@ -18,6 +18,9 @@ PROOF_FAMILY = "idea_opportunity_archetype_source_evidence"
 RUNTIME_BOUNDARY = "lotus-performance:returns-series-runtime"
 RFC_ID = "RFC-0002"
 RFC_SLICES = ("slice-16", "slice-17")
+CANONICAL_PORTFOLIO_ID = "PB_SG_GLOBAL_BAL_001"
+CANONICAL_BENCHMARK_ID = "BMK_GLOBAL_60_40_USD"
+CANONICAL_AS_OF_DATE = date(2026, 5, 8)
 
 UNDERPERFORMANCE_SCENARIO_ID = "underperformance_review_returns_series"
 MISSING_BENCHMARK_SCENARIO_ID = "missing_benchmark_performance_readiness"
@@ -62,11 +65,17 @@ def default_output_path() -> str:
 
 async def generate_idea_opportunity_runtime_evidence(
     *,
-    portfolio_id: str = "PB_SG_GLOBAL_BAL_001",
-    benchmark_id: str = "BMK_GLOBAL_60_40_USD",
-    as_of_date: date = date(2026, 5, 8),
+    portfolio_id: str = CANONICAL_PORTFOLIO_ID,
+    benchmark_id: str = CANONICAL_BENCHMARK_ID,
+    as_of_date: date = CANONICAL_AS_OF_DATE,
     generated_at_utc: datetime | None = None,
 ) -> dict[str, Any]:
+    if (
+        portfolio_id != CANONICAL_PORTFOLIO_ID
+        or benchmark_id != CANONICAL_BENCHMARK_ID
+        or as_of_date != CANONICAL_AS_OF_DATE
+    ):
+        raise ValueError("Idea opportunity runtime evidence is only valid for the canonical fixed source-data scenario")
     generated_at = generated_at_utc or datetime.now(tz=UTC)
     returns_series_service.execution_registry.create_schema()
     underperformance_request = _underperformance_request(portfolio_id=portfolio_id, as_of_date=as_of_date)
@@ -427,11 +436,24 @@ def _assert_missing_benchmark_scenario(scenario: dict[str, Any]) -> None:
         raise ValueError("missing-benchmark scenario readiness is missing")
     if readiness.get("benchmark_context_state") != "missing":
         raise ValueError("missing-benchmark scenario must preserve missing benchmark context")
+    _assert_missing_benchmark_reason(readiness)
+    if readiness.get("freshness") != "current":
+        raise ValueError("missing-benchmark scenario must preserve current portfolio freshness")
+    if readiness.get("supportability_state") != "ready":
+        raise ValueError("missing-benchmark scenario must be source-ready")
+    _assert_missing_benchmark_coverage(readiness)
+
+
+def _assert_missing_benchmark_reason(readiness: dict[str, Any]) -> None:
     reason_codes = readiness.get("reason_codes")
     if not isinstance(reason_codes, list) or "BENCHMARK_CONTEXT_MISSING" not in reason_codes:
         raise ValueError("missing-benchmark scenario must carry BENCHMARK_CONTEXT_MISSING")
-    if readiness.get("freshness") != "current":
-        raise ValueError("missing-benchmark scenario must preserve current portfolio freshness")
+
+
+def _assert_missing_benchmark_coverage(readiness: dict[str, Any]) -> None:
+    coverage = readiness.get("coverage")
+    if not isinstance(coverage, dict) or coverage.get("missing_points") != 0:
+        raise ValueError("missing-benchmark scenario must have complete portfolio coverage")
 
 
 def copy_evidence(evidence: dict[str, Any]) -> dict[str, Any]:

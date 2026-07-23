@@ -4,7 +4,6 @@ import argparse
 import asyncio
 import json
 import sys
-from datetime import date
 from pathlib import Path
 from typing import Sequence
 
@@ -23,18 +22,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         description="Generate source-safe RFC-0002 Idea opportunity evidence from lotus-performance runtime.",
     )
     parser.add_argument("--output", type=Path, default=Path(default_output_path()))
-    parser.add_argument("--portfolio-id", default="PB_SG_GLOBAL_BAL_001")
-    parser.add_argument("--benchmark-id", default="BMK_GLOBAL_60_40_USD")
-    parser.add_argument("--as-of-date", type=date.fromisoformat, default=date(2026, 5, 8))
     args = parser.parse_args(argv)
 
-    evidence = asyncio.run(
-        generate_idea_opportunity_runtime_evidence(
-            portfolio_id=args.portfolio_id,
-            benchmark_id=args.benchmark_id,
-            as_of_date=args.as_of_date,
-        )
-    )
+    evidence = asyncio.run(generate_idea_opportunity_runtime_evidence())
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(evidence, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(f"Wrote Idea opportunity runtime evidence to {args.output}")
