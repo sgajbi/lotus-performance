@@ -215,6 +215,10 @@ source-economics or reconciliation regressions.
   `make quality-baseline`
 - demo API certification
   `make demo-api-certification`
+- RFC-0002 Idea opportunity evidence gate
+  `make idea-opportunity-evidence-gate`
+- RFC-0002 Idea opportunity runtime evidence artifact
+  `make idea-opportunity-runtime-evidence`
 - observability readiness marker gate
   `make quality-observability-readiness-gate`
 - repository hygiene gate
@@ -244,6 +248,19 @@ machine-readable evidence to `output/demo-api-certification/latest.json`. Review
 This backend certification is necessary demo evidence for `lotus-performance`; it is not a blanket
 production certification and does not replace Gateway or Workbench runtime proof when presenting
 front-office product surfaces.
+
+For `lotus-idea` RFC-0002 Slice 16/17 source-proof consumption, run:
+
+```bash
+make idea-opportunity-runtime-evidence
+```
+
+The command produces a source-safe `ReturnsSeriesBundle:v1` evidence artifact at
+`output/idea-opportunity-runtime-evidence/latest.json`. The artifact proves Performance-owned
+runtime evidence for underperformance review and missing-benchmark readiness scenarios using
+digests, execution receipts, coverage, freshness, benchmark-context posture, and bounded metric
+summaries only. It does not publish raw portfolio identifiers, raw return-series observations,
+Gateway/Workbench proof, client-publication proof, or supported-feature promotion for Idea.
 
 ## Validation And CI Lanes
 
@@ -280,6 +297,15 @@ The local mapping is:
   `output/demo-api-certification/latest.json`. The Quality Baseline Snapshot workflow also runs
   this command as report-only CI evidence and uploads the JSON artifact; it is not yet a blocking
   readiness gate.
+- `make idea-opportunity-evidence-gate`
+  focused unit gate for the RFC-0002 Idea opportunity evidence contract. It verifies source-safe
+  payload bounds, underperformance posture, missing-benchmark posture, coverage, freshness,
+  benchmark-context handling, and unsupported-promotion preservation.
+- `make idea-opportunity-runtime-evidence`
+  local artifact generator for source-safe `ReturnsSeriesBundle:v1` proof consumed by
+  `lotus-idea` RFC-0002 Slice 16/17 implementation tracking. The output is runtime evidence from
+  `lotus-performance`, not a substitute for Core benchmark-assignment, Gateway, Workbench,
+  data-mesh, client-publication, or deployment certification evidence.
 - `make container-supply-chain-evidence`
   release-image evidence for `lotus-performance:ci`. It builds the image with non-secret Git SHA,
   branch, build timestamp, repository URL, CI run id, and image-digest metadata fields, writes a
@@ -344,6 +370,8 @@ Current request-model highlights:
   `benchmark.return_source="vendor_series"`
 - stateful benchmark sourcing now defaults to lotus-performance benchmark calculation
 - returns-series outputs include `active_returns` and `cumulative_active_returns`
+- source-safe RFC-0002 Idea opportunity proof for returns-series underperformance and
+  missing-benchmark readiness is generated through `make idea-opportunity-runtime-evidence`
 - attribution emits source-owned `currency_attribution_totals` for portfolio-level
   Karnosky-Singer FX attribution when `currency_mode=BOTH` is source-ready
 - MWR stateless requests may supply complete `source_preconverted_fx_evidence`; the service

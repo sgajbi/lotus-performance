@@ -22,8 +22,8 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 
 | Metric | Value |
 | --- | ---: |
-| Test modules inventoried | 308 |
-| Test functions inventoried | 3534 |
+| Test modules inventoried | 309 |
+| Test functions inventoried | 3538 |
 | Integration/API/runtime test functions | 690 |
 | Contract/governance test functions | 154 |
 
@@ -34,7 +34,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 18 |
 | e2e | 1 | 21 |
 | integration | 28 | 341 |
-| unit | 270 | 3154 |
+| unit | 271 | 3158 |
 
 ## Test Functions By Family
 
@@ -45,7 +45,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | contract_or_governance | 154 |
 | observability_or_readiness | 355 |
 | quality_or_security | 168 |
-| uncategorized | 954 |
+| uncategorized | 958 |
 
 ## Largest Test Modules
 
@@ -188,7 +188,9 @@ functions to `3524`, observability/readiness tests to `354`, and quality/securit
 while preserving the existing uncategorized ceiling. The PR review fix for legacy lineage manifests
 and non-finite retrieval metadata added two regression tests, raising source test functions to
 `3526`, API/runtime tests to `690`, and uncategorized tests to `954` while preserving the existing
-uncategorized ceiling.
+uncategorized ceiling. The RFC-0002 Idea opportunity source-proof slice added four source-safe
+runtime evidence tests, raising inventoried modules to `309`, source test functions to `3538`, and
+uncategorized tests to `958` while preserving the existing `969` uncategorized ceiling.
 
 This slice promotes the stable part of the taxonomy from report-only measurement to a
 regression-blocking evaluation gate. `make quality-test-taxonomy-gate` fails if API/runtime tests
