@@ -44,3 +44,17 @@ truth for `lotus-performance`.
 - Run `python -m pytest tests/unit/docs/test_public_docs_contract.py -q` when public docs, README,
   or wiki navigation changes.
 - Do not bulk-edit historical RFCs unless the task is explicitly archival governance.
+
+## RFC-0002 Idea Source-Proof Evidence
+
+For `lotus-idea` RFC-0002 Slice 16/17 Performance-owned proof, see
+`operations/idea-opportunity-runtime-evidence.md`. The repo-native commands are:
+
+```bash
+make idea-opportunity-evidence-gate
+make idea-opportunity-runtime-evidence
+```
+
+The artifact is source-safe runtime proof for `ReturnsSeriesBundle:v1`; it is not Gateway,
+Workbench, Core benchmark-assignment, data-mesh, client-publication, or supported-feature
+promotion evidence.

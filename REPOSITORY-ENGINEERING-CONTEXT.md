@@ -109,7 +109,12 @@ Current repository posture:
     evidence without reinterpreting return-series recency locally. MARKET calendar requests use
     the governed `lotus-reference-market-holidays.v1` source over the certified 1970-01-01 through
     2099-12-31 horizon, expose `diagnostics.calendar_source`, and fail closed outside that horizon
-    rather than silently falling back to weekday-only behavior.
+    rather than silently falling back to weekday-only behavior. RFC-0002 Idea opportunity source
+    proof is generated through `make idea-opportunity-runtime-evidence` and validated through
+    `make idea-opportunity-evidence-gate`. The artifact is source-safe Performance-owned runtime
+    evidence for underperformance and missing-benchmark readiness archetypes; it must preserve Core
+    benchmark-assignment, Gateway, Workbench, data-mesh, client-publication, deployment, and
+    supported-feature blockers until those systems provide their own evidence.
 16. Active `lotus-core` route-level dependency coverage is governed by
     `contracts/domain-data-products/lotus-performance-upstream-dependency-inventory.v1.json` and
     validated by `make domain-product-validate`. Benchmark composition-window, benchmark
@@ -211,15 +216,19 @@ Use these commands as the primary local contract:
    `make quality-baseline`
 9. demo API certification
    `make demo-api-certification`
-10. repo-native observability-readiness marker gate
+10. RFC-0002 Idea opportunity evidence contract gate
+   `make idea-opportunity-evidence-gate`
+11. RFC-0002 Idea opportunity runtime evidence artifact
+   `make idea-opportunity-runtime-evidence`
+12. repo-native observability-readiness marker gate
    `make quality-observability-readiness-gate`
-11. repo-native repository hygiene gate
+13. repo-native repository hygiene gate
    `make repository-hygiene-gate`
-12. report-only branch coverage baseline
+14. report-only branch coverage baseline
    `make branch-coverage-baseline`
-13. CI coverage shard target
+15. CI coverage shard target
    `make test-coverage-shard SUITE=<unit|integration|e2e> TEST_PATH=<tests/path>`
-14. CI coverage artifact combine gate
+16. CI coverage artifact combine gate
    `make coverage-combine-gate COVERAGE_INPUTS=<coverage-paths> COVERAGE_FAIL_UNDER=99`
 
 ## Validation And CI Expectations
