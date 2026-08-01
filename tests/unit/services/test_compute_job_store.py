@@ -1582,6 +1582,13 @@ def test_compute_job_store_schema_bootstrap_adds_lease_owner_to_legacy_table(tmp
     assert "lease_owner_id" in columns
 
 
+def test_compute_job_store_lease_owner_schema_upgrade_uses_postgres_idempotent_statement() -> None:
+    assert "ADD COLUMN IF NOT EXISTS lease_owner_id" in compute_job_store_module._lease_owner_column_add_statement(
+        "postgresql"
+    )
+    assert "IF NOT EXISTS" not in compute_job_store_module._lease_owner_column_add_statement("sqlite")
+
+
 def test_compute_job_store_register_job_distinguishes_create_replay_and_conflict(tmp_path):
     store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
     store.create_schema()

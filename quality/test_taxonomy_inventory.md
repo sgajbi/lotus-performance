@@ -23,7 +23,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 309 |
-| Test functions inventoried | 3559 |
+| Test functions inventoried | 3562 |
 | Integration/API/runtime test functions | 690 |
 | Contract/governance test functions | 154 |
 
@@ -34,7 +34,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 18 |
 | e2e | 1 | 21 |
 | integration | 28 | 341 |
-| unit | 271 | 3179 |
+| unit | 271 | 3182 |
 
 ## Test Functions By Family
 
@@ -43,9 +43,9 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | analytics_domain | 1571 |
 | api_or_runtime | 690 |
 | contract_or_governance | 154 |
-| observability_or_readiness | 365 |
-| quality_or_security | 169 |
-| uncategorized | 968 |
+| observability_or_readiness | 366 |
+| quality_or_security | 170 |
+| uncategorized | 969 |
 
 ## Largest Test Modules
 
@@ -54,16 +54,16 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | 1 | `tests/unit/services/test_returns_series_service.py` | unit | 96 | analytics_domain |
 | 2 | `tests/unit/app/test_enterprise_readiness_additional.py` | unit | 87 | observability_or_readiness |
 | 3 | `tests/unit/services/test_stateful_attribution_input_service.py` | unit | 70 | analytics_domain |
-| 4 | `tests/unit/docs/test_public_docs_contract.py` | unit | 66 | contract_or_governance |
-| 5 | `tests/unit/services/test_compute_job_store.py` | unit | 66 | observability_or_readiness |
+| 4 | `tests/unit/services/test_compute_job_store.py` | unit | 67 | observability_or_readiness |
+| 5 | `tests/unit/docs/test_public_docs_contract.py` | unit | 66 | contract_or_governance |
 | 6 | `tests/unit/app/test_openapi_enrichment.py` | unit | 61 | api_or_runtime |
 | 7 | `tests/unit/services/test_lineage_metadata_store.py` | unit | 60 | uncategorized |
 | 8 | `tests/unit/engine/test_attribution.py` | unit | 57 | analytics_domain |
 | 9 | `tests/unit/services/test_twr_inspection_source_economics.py` | unit | 57 | analytics_domain |
 | 10 | `tests/unit/app/test_contribution_endpoint_helpers.py` | unit | 52 | analytics_domain, api_or_runtime |
-| 11 | `tests/unit/services/test_twr_inspection_calculation_consistency.py` | unit | 51 | analytics_domain |
-| 12 | `tests/unit/services/test_workspace_summary_service.py` | unit | 50 | uncategorized |
-| 13 | `tests/unit/services/test_compute_executor_worker.py` | unit | 50 | uncategorized |
+| 11 | `tests/unit/services/test_compute_executor_worker.py` | unit | 51 | uncategorized |
+| 12 | `tests/unit/services/test_twr_inspection_calculation_consistency.py` | unit | 51 | analytics_domain |
+| 13 | `tests/unit/services/test_workspace_summary_service.py` | unit | 50 | uncategorized |
 | 14 | `tests/unit/services/test_stateful_input_service.py` | unit | 47 | analytics_domain |
 | 15 | `tests/unit/services/test_twr_mode_service.py` | unit | 45 | analytics_domain |
 | 16 | `tests/unit/engine/test_mwr.py` | unit | 44 | analytics_domain |
@@ -88,7 +88,7 @@ The AST inventory counts test function definitions, while `pytest --collect-only
 pytest items including parametrized cases. The two values are intentionally different and
 complementary: collected tests show execution breadth, while this report shows source test-module
 and test-function distribution. The current suite has meaningful API/runtime and
-contract/governance coverage, but 954 test functions remain uncategorized by the first-wave
+contract/governance coverage, but 969 test functions remain uncategorized by the first-wave
 taxonomy and should be reduced through normal refactor slices rather than allowed to grow.
 
 The runtime recovery queue-result boundary slice kept the promoted gate stable by classifying
@@ -209,6 +209,10 @@ uncategorized tests to `968` while preserving the existing `969` uncategorized c
 The follow-up lease-fence preservation fix added schema-upgrade proof for the internal
 `lease_owner_id` acquisition fence, raising source test functions to `3559` and
 observability/readiness tests to `365` while preserving the existing uncategorized count and ceiling.
+The final PR review fix added queued-batch lease-expiry, PostgreSQL idempotent schema-upgrade, and
+Docker stderr diagnostic regressions, raising source test functions to `3562`,
+observability/readiness tests to `366`, quality/security tests to `170`, and uncategorized tests to
+`969` while preserving the existing uncategorized ceiling.
 
 This slice promotes the stable part of the taxonomy from report-only measurement to a
 regression-blocking evaluation gate. `make quality-test-taxonomy-gate` fails if API/runtime tests

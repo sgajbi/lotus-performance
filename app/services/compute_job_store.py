@@ -10,7 +10,7 @@ from typing import Any, Iterable, Iterator, cast
 from uuid import UUID
 
 from sqlalchemy import DateTime, Index, Integer, String, Text, case, delete, func, inspect, select, text
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, OperationalError, ProgrammingError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from app.core.config import get_settings
@@ -1483,7 +1483,12 @@ class ComputeJobStore:
             return
 
         with self._engine.begin() as connection:
-            connection.execute(text("ALTER TABLE analytics_compute_job ADD COLUMN lease_owner_id VARCHAR(128)"))
+            try:
+                connection.execute(text(_lease_owner_column_add_statement(connection.dialect.name)))
+            except (OperationalError, ProgrammingError) as exc:
+                if _is_duplicate_lease_owner_column_error(exc):
+                    return
+                raise
 
     def _to_record(self, row: ComputeJobModel) -> ComputeJobRecord:
         request_payload = _load_request_payload(row)
@@ -1692,3 +1697,16 @@ def _mark_invalid_request_payload(row: ComputeJobModel, *, now: datetime) -> Non
     row.lease_expires_at_utc = None
     row.last_error_at_utc = now
     row.completed_at_utc = now
+
+
+def _lease_owner_column_add_statement(dialect_name: str) -> str:
+    if dialect_name == "postgresql":
+        return "ALTER TABLE analytics_compute_job ADD COLUMN IF NOT EXISTS lease_owner_id VARCHAR(128)"
+    return "ALTER TABLE analytics_compute_job ADD COLUMN lease_owner_id VARCHAR(128)"
+
+
+def _is_duplicate_lease_owner_column_error(exc: OperationalError | ProgrammingError) -> bool:
+    message = str(exc).lower()
+    return "lease_owner_id" in message and (
+        "duplicate column" in message or "already exists" in message or "duplicate_column" in message
+    )

@@ -176,8 +176,8 @@ def _process_pending_jobs(
     )
     processed = 0
     for job in pending:
-        _process_leased_compute_job(job, runtime)
-        processed += 1
+        if _process_leased_compute_job(job, runtime):
+            processed += 1
     return processed
 
 
@@ -191,17 +191,21 @@ def _reconcile_stale_compute_jobs(runtime: _ComputeJobRuntime) -> None:
         )
 
 
-def _process_leased_compute_job(job: ComputeJobRecord, runtime: _ComputeJobRuntime) -> None:
+def _process_leased_compute_job(job: ComputeJobRecord, runtime: _ComputeJobRuntime) -> bool:
     acquisition_worker_id = _compute_job_acquisition_worker_id(
         compute_worker_id=runtime.worker_id,
         calculation_id=job.calculation_id,
     )
-    runtime.job_store.mark_running_acquired(
-        job.calculation_id,
-        current_worker_id=runtime.worker_id,
-        acquisition_worker_id=acquisition_worker_id,
-        lease_seconds=runtime.lease_seconds,
-    )
+    try:
+        runtime.job_store.mark_running_acquired(
+            job.calculation_id,
+            current_worker_id=runtime.worker_id,
+            acquisition_worker_id=acquisition_worker_id,
+            lease_seconds=runtime.lease_seconds,
+        )
+    except ComputeJobLeaseOwnershipError as exc:
+        _log_stale_compute_acquisition_skipped(job, exc)
+        return False
     active_runtime = replace(runtime, worker_id=acquisition_worker_id)
     active_job = replace(job, worker_id=acquisition_worker_id)
     try:
@@ -215,10 +219,11 @@ def _process_leased_compute_job(job: ComputeJobRecord, runtime: _ComputeJobRunti
             result_store=active_runtime.result_store,
             execution_store=active_runtime.execution_store,
         )
-        return
+        return True
 
     response_payload = response.model_dump(mode="json")
     _publish_compute_job_success(active_job, runtime=active_runtime, response_payload=response_payload)
+    return True
 
 
 def _publish_compute_job_success(
@@ -294,7 +299,7 @@ def _workspace_summary_inline_lineage_worker_id(*, compute_worker_id: str, calcu
 
 
 def _compute_job_acquisition_worker_id(*, compute_worker_id: str, calculation_id: UUID) -> str:
-    return f"{compute_worker_id}:cj:{calculation_id.hex[:12]}:{uuid4().hex}"
+    return f"cj:{calculation_id.hex[:12]}:{uuid4().hex}"
 
 
 def _build_compute_job_runtime(
@@ -750,6 +755,23 @@ def _log_stale_compute_success_publication_skipped(job: ComputeJobRecord, exc: E
             job,
             exc,
             failure_classification="stale_owner_success_publication_skipped",
+        ),
+    )
+
+
+def _log_stale_compute_acquisition_skipped(job: ComputeJobRecord, exc: ComputeJobLeaseOwnershipError) -> None:
+    logger.warning(
+        "Skipped compute job execution because the queued lease was no longer active.",
+        extra=worker_log_extra(
+            worker_name=_WORKER_NAME,
+            queue=_QUEUE_NAME,
+            calculation_id=str(job.calculation_id),
+            analytics_type=job.analytics_type,
+            error_type=type(exc).__name__,
+            failure_classification="stale_queued_compute_lease_skipped",
+            retryable=True,
+            attempt_count=getattr(job, "attempt_count", None),
+            max_attempts=getattr(job, "max_attempts", None),
         ),
     )
 
