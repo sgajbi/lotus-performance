@@ -428,6 +428,48 @@ class LineageMetadataStore:
                 leased.append(self._to_payload(row, details=details))
             return leased
 
+    def lease_pending_payload(
+        self,
+        *,
+        calculation_id: UUID,
+        worker_id: str,
+        lease_seconds: int,
+    ) -> LineagePayload | None:
+        now = datetime.now(timezone.utc)
+        lease_expiry = now + timedelta(seconds=lease_seconds)
+        with self._session() as session:
+            dialect_name = session.bind.dialect.name if session.bind is not None else ""
+            statement = (
+                select(LineagePayloadModel)
+                .where(LineagePayloadModel.calculation_id == str(calculation_id))
+                .where(
+                    exists(
+                        select(1).where(
+                            (LineageRecordModel.calculation_id == LineagePayloadModel.calculation_id)
+                            & (LineageRecordModel.status == LineageStatus.PENDING.value)
+                        )
+                    )
+                )
+                .where(
+                    LineagePayloadModel.lease_expires_at_utc.is_(None)
+                    | (LineagePayloadModel.lease_expires_at_utc < now)
+                )
+            )
+            if dialect_name == "postgresql":
+                statement = statement.with_for_update(of=LineagePayloadModel, skip_locked=True)
+            payload = session.execute(statement).scalar_one_or_none()
+            if payload is None:
+                return None
+            details = _load_payload_details(payload.details_json, calculation_id=payload.calculation_id)
+            if details is None:
+                _mark_invalid_payload_details(session, payload.calculation_id, now=now)
+                return None
+            payload.worker_id = worker_id
+            payload.leased_at_utc = now
+            payload.lease_expires_at_utc = lease_expiry
+            payload.attempt_count += 1
+            return self._to_payload(payload, details=details)
+
     def increment_attempt_count(self, calculation_id: UUID) -> None:
         with self._session() as session:
             payload = session.get(LineagePayloadModel, str(calculation_id))

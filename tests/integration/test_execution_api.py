@@ -1188,9 +1188,12 @@ def test_execution_api_tracks_async_workspace_summary_job_to_completion(client):
         execution_after_worker = client.get(f"/performance/executions/{calculation_id}")
         assert execution_after_worker.status_code == 200
         body_after_worker = execution_after_worker.json()
+        assert body_after_worker["status"] == "complete"
         assert body_after_worker["compute_job"]["job_status"] == "complete"
         assert body_after_worker["async_result"]["result_status"] == "complete"
-        _assert_execution_completes_after_lineage_materialization(client, calculation_id)
+        stages_after_worker = {stage["stage_name"]: stage for stage in body_after_worker["stages"]}
+        assert stages_after_worker["lineage_materialization"]["status"] == "complete"
+        assert "request.json" in stages_after_worker["lineage_materialization"]["details"]["artifact_names"]
 
         result_response = client.get(f"/performance/workspace-summary/results/{calculation_id}")
         assert result_response.status_code == 200

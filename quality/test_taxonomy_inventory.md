@@ -23,7 +23,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 309 |
-| Test functions inventoried | 3542 |
+| Test functions inventoried | 3547 |
 | Integration/API/runtime test functions | 690 |
 | Contract/governance test functions | 154 |
 
@@ -34,7 +34,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 18 |
 | e2e | 1 | 21 |
 | integration | 28 | 341 |
-| unit | 271 | 3162 |
+| unit | 271 | 3167 |
 
 ## Test Functions By Family
 
@@ -43,9 +43,9 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | analytics_domain | 1571 |
 | api_or_runtime | 690 |
 | contract_or_governance | 154 |
-| observability_or_readiness | 355 |
+| observability_or_readiness | 357 |
 | quality_or_security | 168 |
-| uncategorized | 962 |
+| uncategorized | 965 |
 
 ## Largest Test Modules
 
@@ -57,14 +57,14 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | 4 | `tests/unit/docs/test_public_docs_contract.py` | unit | 66 | contract_or_governance |
 | 5 | `tests/unit/app/test_openapi_enrichment.py` | unit | 61 | api_or_runtime |
 | 6 | `tests/unit/services/test_compute_job_store.py` | unit | 61 | observability_or_readiness |
-| 7 | `tests/unit/services/test_lineage_metadata_store.py` | unit | 58 | uncategorized |
+| 7 | `tests/unit/services/test_lineage_metadata_store.py` | unit | 60 | uncategorized |
 | 8 | `tests/unit/engine/test_attribution.py` | unit | 57 | analytics_domain |
 | 9 | `tests/unit/services/test_twr_inspection_source_economics.py` | unit | 57 | analytics_domain |
 | 10 | `tests/unit/app/test_contribution_endpoint_helpers.py` | unit | 52 | analytics_domain, api_or_runtime |
 | 11 | `tests/unit/services/test_twr_inspection_calculation_consistency.py` | unit | 51 | analytics_domain |
 | 12 | `tests/unit/services/test_workspace_summary_service.py` | unit | 50 | uncategorized |
-| 13 | `tests/unit/services/test_stateful_input_service.py` | unit | 47 | analytics_domain |
-| 14 | `tests/unit/services/test_compute_executor_worker.py` | unit | 46 | uncategorized |
+| 13 | `tests/unit/services/test_compute_executor_worker.py` | unit | 47 | uncategorized |
+| 14 | `tests/unit/services/test_stateful_input_service.py` | unit | 47 | analytics_domain |
 | 15 | `tests/unit/services/test_twr_mode_service.py` | unit | 45 | analytics_domain |
 | 16 | `tests/unit/engine/test_mwr.py` | unit | 44 | analytics_domain |
 | 17 | `tests/unit/services/test_stateful_benchmark_input_service.py` | unit | 44 | analytics_domain |
@@ -198,6 +198,10 @@ source test functions to `3540` and uncategorized tests to `960` while staying b
 The canonical identity and missing-benchmark readiness review fixes added two regression tests,
 raising source test functions to `3542` and uncategorized tests to `962` while staying below the same
 ceiling.
+Issue #467 workspace-summary lineage terminality coverage added five same-calculation
+materialization and result-publication tests, raising source test functions to `3547`,
+observability/readiness tests to `357`, and uncategorized tests to `965` while preserving the
+existing `969` uncategorized ceiling.
 
 This slice promotes the stable part of the taxonomy from report-only measurement to a
 regression-blocking evaluation gate. `make quality-test-taxonomy-gate` fails if API/runtime tests

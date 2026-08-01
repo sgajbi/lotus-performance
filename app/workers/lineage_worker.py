@@ -16,6 +16,7 @@ from app.services.lineage_metadata_store import (
     LineageMetadataStore,
     LineagePayload,
     LineagePayloadLeaseOwnershipError,
+    LineageStatus,
     lineage_metadata_store,
 )
 from app.services.lineage_service import LineageService, lineage_service, resolve_artifact_stage_name
@@ -74,6 +75,62 @@ def process_pending_jobs(
         ):
             processed += 1
     return processed
+
+
+def process_pending_calculation(
+    calculation_id: UUID,
+    *,
+    lineage_store: LineageMetadataStore | RuntimeStoreProxy[LineageMetadataStore] | None = None,
+    lineage_service_: LineageService | None = None,
+    execution_store: ExecutionRegistry | RuntimeStoreProxy[ExecutionRegistry] | None = None,
+    worker_id: str | None = None,
+    lease_seconds: int | None = None,
+    max_attempts: int | None = None,
+    settings=None,
+) -> bool:
+    """Materialize lineage for one calculation and return whether it is complete.
+
+    This targeted path supports workflows that must not publish a ready async result
+    before the same calculation's lineage is terminally materialized.
+    """
+    runtime = _lineage_worker_runtime(
+        limit=1,
+        lineage_store=lineage_store,
+        lineage_service_=lineage_service_,
+        execution_store=execution_store,
+        worker_id=worker_id,
+        lease_seconds=lease_seconds,
+        max_attempts=max_attempts,
+        settings=settings,
+    )
+    for _ in range(runtime.max_attempts):
+        payload = runtime.lineage_store.lease_pending_payload(
+            calculation_id=calculation_id,
+            worker_id=runtime.worker_id,
+            lease_seconds=runtime.lease_seconds,
+        )
+        if payload is None:
+            return _lineage_record_is_complete(runtime.lineage_store, calculation_id)
+        if _materialize_leased_payload(
+            payload=payload,
+            lineage_store=runtime.lineage_store,
+            lineage_service_=runtime.lineage_service,
+            execution_store=runtime.execution_store,
+            max_attempts=runtime.max_attempts,
+        ):
+            return True
+        record = runtime.lineage_store.get_record(calculation_id)
+        if record is None or record.status != LineageStatus.PENDING:
+            return False
+    return _lineage_record_is_complete(runtime.lineage_store, calculation_id)
+
+
+def _lineage_record_is_complete(
+    lineage_store: LineageMetadataStore | RuntimeStoreProxy[LineageMetadataStore],
+    calculation_id: UUID,
+) -> bool:
+    record = lineage_store.get_record(calculation_id)
+    return record is not None and record.status == LineageStatus.COMPLETE
 
 
 def _lineage_worker_runtime(

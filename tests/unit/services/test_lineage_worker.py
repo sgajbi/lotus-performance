@@ -63,6 +63,96 @@ def test_process_pending_jobs_materializes_payload(monkeypatch, tmp_path):
     assert metadata_store.list_pending_payloads(limit=10) == []
 
 
+def test_process_pending_calculation_materializes_only_requested_payload(tmp_path):
+    metadata_store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    metadata_store.create_schema()
+    execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    execution_store.create_schema()
+    service = LineageService(storage_path=str(tmp_path), metadata_store=metadata_store, execution_store=execution_store)
+    target_id = uuid4()
+    other_id = uuid4()
+
+    for calculation_id in (other_id, target_id):
+        execution_store.create_execution(
+            calculation_id=calculation_id,
+            analytics_type="WORKSPACE_SUMMARY",
+            portfolio_id="P1",
+            execution_mode="async",
+        )
+        execution_store.mark_running(calculation_id)
+        execution_store.start_stage(calculation_id, "lineage_materialization")
+        service.enqueue_capture(
+            calculation_id=calculation_id,
+            calculation_type="WORKSPACE_SUMMARY",
+            request_model=_Model(key="request"),
+            response_model=_Model(key="response"),
+            calculation_details={"details.csv": pd.DataFrame([{"a": 1}])},
+        )
+
+    processed = lineage_worker.process_pending_calculation(
+        target_id,
+        lineage_store=metadata_store,
+        lineage_service_=service,
+        execution_store=execution_store,
+        worker_id="workspace-summary-inline-lineage",
+        lease_seconds=30,
+        max_attempts=3,
+        settings=_worker_settings(),
+    )
+
+    assert processed is True
+    target_record = metadata_store.get_record(target_id)
+    assert target_record is not None
+    assert target_record.status == LineageStatus.COMPLETE
+    other_record = metadata_store.get_record(other_id)
+    assert other_record is not None
+    assert other_record.status == LineageStatus.PENDING
+    assert (tmp_path / str(target_id) / "details.csv").exists()
+    assert not (tmp_path / str(other_id) / "details.csv").exists()
+
+
+def test_process_pending_calculation_returns_false_when_requested_payload_stays_pending(tmp_path, monkeypatch):
+    metadata_store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    metadata_store.create_schema()
+    execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    execution_store.create_schema()
+    service = LineageService(storage_path=str(tmp_path), metadata_store=metadata_store, execution_store=execution_store)
+    calculation_id = uuid4()
+    execution_store.create_execution(
+        calculation_id=calculation_id,
+        analytics_type="WORKSPACE_SUMMARY",
+        portfolio_id="P1",
+        execution_mode="async",
+    )
+    execution_store.mark_running(calculation_id)
+    execution_store.start_stage(calculation_id, "lineage_materialization")
+    service.enqueue_capture(
+        calculation_id=calculation_id,
+        calculation_type="WORKSPACE_SUMMARY",
+        request_model=_Model(key="request"),
+        response_model=_Model(key="response"),
+        calculation_details={"details.csv": pd.DataFrame([{"a": 1}])},
+    )
+
+    monkeypatch.setattr(service, "materialize_payload", lambda **_: False)
+
+    processed = lineage_worker.process_pending_calculation(
+        calculation_id,
+        lineage_store=metadata_store,
+        lineage_service_=service,
+        execution_store=execution_store,
+        worker_id="workspace-summary-inline-lineage",
+        lease_seconds=30,
+        max_attempts=1,
+        settings=_worker_settings(),
+    )
+
+    assert processed is False
+    record = metadata_store.get_record(calculation_id)
+    assert record is not None
+    assert record.status == LineageStatus.FAILED
+
+
 def test_process_pending_jobs_retries_failed_materialization_until_budget_exhausted(monkeypatch, tmp_path):
     metadata_store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
     metadata_store.create_schema()
