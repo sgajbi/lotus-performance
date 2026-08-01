@@ -251,7 +251,7 @@ def test_compute_executor_worker_process_leased_job_records_success_before_compl
 
     acquisition_owner = calls[0][3]
     assert isinstance(acquisition_owner, str)
-    assert acquisition_owner.startswith(f"worker-test:cj:{calculation_id.hex[:12]}:")
+    assert acquisition_owner.startswith(f"cj:{calculation_id.hex[:12]}:")
     assert acquisition_owner != "worker-test"
     assert calls == [
         ("mark_running_acquired", calculation_id, "worker-test", acquisition_owner, 30),
@@ -259,6 +259,83 @@ def test_compute_executor_worker_process_leased_job_records_success_before_compl
         ("record_success", calculation_id, ANALYTICS_WORKFLOW_RETURNS_SERIES, response_payload),
         ("mark_complete", calculation_id, response_payload, acquisition_owner),
     ]
+
+
+def test_compute_executor_worker_skips_expired_batch_entry_without_terminating_worker(monkeypatch):
+    first_calculation_id = uuid4()
+    expired_calculation_id = uuid4()
+    jobs = [
+        _compute_job_record(
+            calculation_id=first_calculation_id,
+            analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES,
+            request_payload={"portfolio_id": "P1"},
+        ),
+        _compute_job_record(
+            calculation_id=expired_calculation_id,
+            analytics_type=ANALYTICS_WORKFLOW_RETURNS_SERIES,
+            request_payload={"portfolio_id": "P2"},
+        ),
+    ]
+    calls: list[tuple[str, object | None]] = []
+    warnings: list[tuple[tuple, dict]] = []
+
+    class _JobStore:
+        def reconcile_stale_jobs(self):
+            calls.append(("reconcile_stale_jobs", None))
+            return []
+
+        def lease_pending_jobs(self, *, worker_id, limit, lease_seconds):
+            calls.append(("lease_pending_jobs", worker_id))
+            assert limit == 2
+            assert lease_seconds == 30
+            return jobs
+
+        def mark_running_acquired(self, calculation_id_arg, *, current_worker_id, acquisition_worker_id, lease_seconds):
+            calls.append(("mark_running_acquired", calculation_id_arg))
+            if calculation_id_arg == expired_calculation_id:
+                raise ComputeJobLeaseOwnershipError("Cannot acquire running lease after lease expiry")
+
+        def ensure_active_lease_owner(self, calculation_id_arg, *, worker_id):
+            calls.append(("ensure_active_lease_owner", calculation_id_arg))
+
+        def mark_complete(self, calculation_id_arg, *, response_payload, worker_id):
+            calls.append(("mark_complete", calculation_id_arg))
+
+    class _ResultStore:
+        def record_success(self, *, calculation_id, analytics_type, response_payload):
+            calls.append(("record_success", calculation_id))
+
+    monkeypatch.setattr(
+        compute_executor_worker,
+        "_build_compute_job_runtime",
+        lambda **_kwargs: compute_executor_worker._ComputeJobRuntime(
+            job_store=_JobStore(),
+            execution_store=SimpleNamespace(),
+            result_store=_ResultStore(),
+            worker_id="worker-test",
+            lease_seconds=30,
+            batch_size=2,
+            execution_context=SimpleNamespace(),
+        ),
+    )
+    monkeypatch.setattr(
+        compute_executor_worker,
+        "_execute_compute_job",
+        lambda job, _context: SimpleNamespace(
+            model_dump=lambda mode="json": {"calculation_id": str(job.calculation_id)}
+        ),
+    )
+    monkeypatch.setattr(
+        compute_executor_worker.logger, "warning", lambda *args, **kwargs: warnings.append((args, kwargs))
+    )
+
+    assert compute_executor_worker._process_pending_jobs(limit=2, settings=_worker_settings()) == 1
+
+    assert ("mark_complete", first_calculation_id) in calls
+    assert ("record_success", expired_calculation_id) not in calls
+    assert warnings and warnings[0][1]["extra"]["extra_fields"]["failure_classification"] == (
+        "stale_queued_compute_lease_skipped"
+    )
 
 
 def test_compute_executor_worker_renews_workspace_summary_lease_before_lineage_and_success(monkeypatch):
@@ -313,7 +390,7 @@ def test_compute_executor_worker_renews_workspace_summary_lease_before_lineage_a
 
     acquisition_owner = calls[0][3]
     assert isinstance(acquisition_owner, str)
-    assert acquisition_owner.startswith(f"compute-worker-a:cj:{calculation_id.hex[:12]}:")
+    assert acquisition_owner.startswith(f"cj:{calculation_id.hex[:12]}:")
     assert acquisition_owner != "compute-worker-a"
     materialize_call = calls[2]
     assert materialize_call[0] == "materialize_lineage"
@@ -362,10 +439,11 @@ def test_compute_job_acquisition_worker_id_is_unique_per_acquisition():
         calculation_id=calculation_id,
     )
 
-    expected_prefix = f"compute-worker-a:cj:{calculation_id.hex[:12]}:"
+    expected_prefix = f"cj:{calculation_id.hex[:12]}:"
     assert first_owner.startswith(expected_prefix)
     assert second_owner.startswith(expected_prefix)
     assert first_owner != second_owner
+    assert len(first_owner) <= 128
 
 
 def test_compute_executor_worker_preserves_success_result_when_completion_fails(monkeypatch):
@@ -426,7 +504,7 @@ def test_compute_executor_worker_preserves_success_result_when_completion_fails(
 
     acquisition_owner = calls[0][3]
     assert isinstance(acquisition_owner, str)
-    assert acquisition_owner.startswith(f"worker-test:cj:{calculation_id.hex[:12]}:")
+    assert acquisition_owner.startswith(f"cj:{calculation_id.hex[:12]}:")
     assert calls == [
         ("mark_running_acquired", calculation_id, "worker-test", acquisition_owner, 30),
         ("ensure_active_lease_owner", calculation_id, acquisition_owner, None),
@@ -624,7 +702,7 @@ def test_compute_executor_worker_does_not_complete_job_when_success_result_publi
         def mark_retryable_failure(self, calculation_id_arg, *, error_message, error_type, worker_id):
             calls.append(("mark_retryable_failure", calculation_id_arg, error_type))
             assert isinstance(worker_id, str)
-            assert worker_id.startswith(f"worker-test:cj:{calculation_id.hex[:12]}:")
+            assert worker_id.startswith(f"cj:{calculation_id.hex[:12]}:")
             return True
 
     class _ResultStore:
@@ -656,7 +734,7 @@ def test_compute_executor_worker_does_not_complete_job_when_success_result_publi
 
     acquisition_owner = calls[0][3]
     assert isinstance(acquisition_owner, str)
-    assert acquisition_owner.startswith(f"worker-test:cj:{calculation_id.hex[:12]}:")
+    assert acquisition_owner.startswith(f"cj:{calculation_id.hex[:12]}:")
     assert calls == [
         ("mark_running_acquired", calculation_id, "worker-test", acquisition_owner),
         ("ensure_active_lease_owner", calculation_id, acquisition_owner),

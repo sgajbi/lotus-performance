@@ -248,7 +248,13 @@ def _capture(
         capture_output=True,
         text=True,
     )
-    return completed.stdout
+    return _captured_output(completed.stdout, completed.stderr)
+
+
+def _captured_output(stdout: str, stderr: str) -> str:
+    if stdout and stderr:
+        return f"{stdout.rstrip()}\n{stderr}"
+    return stdout or stderr
 
 
 def _fail(message: str) -> NoReturn:

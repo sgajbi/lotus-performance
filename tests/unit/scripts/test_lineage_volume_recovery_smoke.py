@@ -4,6 +4,7 @@ import pytest
 
 from scripts.validate_lineage_volume_recovery import (
     PROJECT_PREFIX,
+    _captured_output,
     _wait_for_healthy_runtime,
     compose_command,
     validate_project_name,
@@ -62,3 +63,8 @@ def test_unhealthy_runtime_error_includes_container_log_tail(monkeypatch: pytest
 
     assert "container_states" in str(exc_info.value)
     assert "owned-compute-executor" in str(exc_info.value)
+
+
+def test_capture_output_preserves_docker_stderr_tail() -> None:
+    assert _captured_output("", "Traceback: worker startup failed\n") == "Traceback: worker startup failed\n"
+    assert _captured_output("stdout line\n", "stderr line\n") == "stdout line\nstderr line\n"

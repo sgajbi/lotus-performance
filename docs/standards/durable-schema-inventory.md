@@ -30,8 +30,10 @@
 - Owner: `app/services/compute_job_store.py`
 - Purpose: executor-backed async compute queue with claim, retry, and terminal-failure state
 - Lease ownership: `worker_id` remains the configured executor identity exposed to operators, while nullable
-  `lease_owner_id` stores the internal per-acquisition fence used to validate renew, success, and failure
-  finalization without letting stale workers mutate a newer attempt
+  `lease_owner_id` stores the bounded internal per-acquisition fence used to validate renew, success, and
+  failure finalization without letting stale workers mutate a newer attempt. Existing schemas are bootstrapped
+  with an idempotent column-add path so concurrent service startup does not depend on a single process owning
+  the upgrade window.
 - Recovery role: durable job recovery after worker crash or lease expiry
 
 ### `analytics_async_result`
