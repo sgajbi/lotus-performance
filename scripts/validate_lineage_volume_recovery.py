@@ -172,7 +172,27 @@ def _wait_for_healthy_runtime(
             ).strip()
             for name in sorted(pending)
         }
-        raise RuntimeError(f"runtime services did not become healthy: {statuses}")
+        logs = _container_log_tails(pending, env=env)
+        raise RuntimeError(
+            "runtime services did not become healthy: "
+            f"{json.dumps({'container_states': statuses, 'container_logs': logs}, sort_keys=True)}"
+        )
+
+
+def _container_log_tails(
+    container_names: set[str],
+    *,
+    env: dict[str, str],
+    tail_lines: int = 120,
+) -> dict[str, str]:
+    return {
+        name: _capture(
+            ["docker", "logs", "--tail", str(tail_lines), name],
+            env=env,
+            check=False,
+        ).strip()
+        for name in sorted(container_names)
+    }
 
 
 def _assert_non_root_volume_access(project_name: str, env: dict[str, str]) -> None:
