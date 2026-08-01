@@ -303,19 +303,39 @@ def test_compute_executor_worker_renews_workspace_summary_lease_before_lineage_a
 
     compute_executor_worker._process_leased_compute_job(job, runtime)
 
+    materialize_call = calls[2]
+    assert materialize_call[0] == "materialize_lineage"
+    assert materialize_call[1] == calculation_id
+    assert str(materialize_call[2]).startswith(f"compute-worker-a:workspace-summary-lineage:{calculation_id}:")
+    assert materialize_call[2] != f"compute-worker-a:workspace-summary-lineage:{calculation_id}"
+    assert materialize_call[3] == "test-version"
     assert calls == [
         ("mark_running", calculation_id, "compute-worker-a", 30),
         ("renew_lease", calculation_id, "compute-worker-a", 30),
-        (
-            "materialize_lineage",
-            calculation_id,
-            f"compute-worker-a:workspace-summary-lineage:{calculation_id}",
-            "test-version",
-        ),
+        materialize_call,
+        ("renew_lease", calculation_id, "compute-worker-a", 30),
         ("ensure_active_lease_owner", calculation_id, "compute-worker-a", None),
         ("record_success", calculation_id, ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY, response_payload),
         ("mark_complete", calculation_id, response_payload, "compute-worker-a"),
     ]
+
+
+def test_workspace_summary_inline_lineage_worker_id_is_unique_per_acquisition():
+    calculation_id = uuid4()
+
+    first_owner = compute_executor_worker._workspace_summary_inline_lineage_worker_id(
+        compute_worker_id="compute-worker-a",
+        calculation_id=calculation_id,
+    )
+    second_owner = compute_executor_worker._workspace_summary_inline_lineage_worker_id(
+        compute_worker_id="compute-worker-a",
+        calculation_id=calculation_id,
+    )
+
+    expected_prefix = f"compute-worker-a:workspace-summary-lineage:{calculation_id}:"
+    assert first_owner.startswith(expected_prefix)
+    assert second_owner.startswith(expected_prefix)
+    assert first_owner != second_owner
 
 
 def test_compute_executor_worker_preserves_success_result_when_completion_fails(monkeypatch):
@@ -1357,10 +1377,9 @@ def test_compute_executor_worker_processes_pending_workspace_summary_job(tmp_pat
     assert job is not None
     assert job.job_status == ComputeJobStatus.COMPLETE
     assert captured["input_mode"] == "stateless"
-    assert calls == [
-        "calculate",
-        f"materialize:{calculation_id}:worker-test:workspace-summary-lineage:{calculation_id}:test-version",
-    ]
+    assert calls[0] == "calculate"
+    assert calls[1].startswith(f"materialize:{calculation_id}:worker-test:workspace-summary-lineage:{calculation_id}:")
+    assert calls[1].endswith(":test-version")
 
     execution = execution_store.get_execution(calculation_id)
     assert execution is not None
