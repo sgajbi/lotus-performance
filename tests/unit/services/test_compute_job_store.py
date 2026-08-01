@@ -3,7 +3,7 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import event, inspect
+from sqlalchemy import event, inspect, text
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import IntegrityError
 
@@ -557,10 +557,11 @@ def test_compute_job_store_renew_lease_preserves_attempt_count(tmp_path):
     assert after.lease_expires_at_utc != before.lease_expires_at_utc
 
 
-def test_compute_job_store_mark_running_acquired_replaces_queue_owner_with_acquisition_owner(tmp_path):
+def test_compute_job_store_mark_running_acquired_preserves_worker_identity_and_sets_acquisition_fence(tmp_path):
     store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
     store.create_schema()
     calculation_id = uuid4()
+    acquisition_worker_id = "queue-worker:cj:abc123:acquisition"
 
     store.enqueue_job(
         calculation_id=calculation_id,
@@ -573,17 +574,38 @@ def test_compute_job_store_mark_running_acquired_replaces_queue_owner_with_acqui
     store.mark_running_acquired(
         calculation_id,
         current_worker_id="queue-worker",
-        acquisition_worker_id="queue-worker:cj:abc123:acquisition",
+        acquisition_worker_id=acquisition_worker_id,
         lease_seconds=90,
     )
 
     running = store.get_job(calculation_id)
     assert running is not None
     assert running.job_status == ComputeJobStatus.RUNNING
-    assert running.worker_id == "queue-worker:cj:abc123:acquisition"
+    assert running.worker_id == "queue-worker"
     assert running.attempt_count == 1
     assert running.started_at_utc is not None
     assert running.lease_expires_at_utc is not None
+    with store._session() as session:
+        row = store._get_model(session, calculation_id)
+        assert row.lease_owner_id == acquisition_worker_id
+
+    store.renew_lease(calculation_id, worker_id=acquisition_worker_id, lease_seconds=30)
+    with pytest.raises(ComputeJobLeaseOwnershipError, match="lease owner mismatch"):
+        store.renew_lease(calculation_id, worker_id="queue-worker", lease_seconds=30)
+
+    store.mark_complete(
+        calculation_id,
+        response_payload={"calculation_id": str(calculation_id)},
+        worker_id=acquisition_worker_id,
+    )
+
+    complete = store.get_job(calculation_id)
+    assert complete is not None
+    assert complete.job_status == ComputeJobStatus.COMPLETE
+    assert complete.worker_id == "queue-worker"
+    with store._session() as session:
+        row = store._get_model(session, calculation_id)
+        assert row.lease_owner_id is None
 
 
 def test_compute_job_store_mark_running_acquired_rejects_stale_queue_owner(tmp_path):
@@ -1505,11 +1527,13 @@ def test_compute_job_store_declares_hot_path_indexes(tmp_path):
     store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
     store.create_schema()
 
+    columns = {column["name"] for column in inspect(store._engine).get_columns("analytics_compute_job")}
     indexes = {
         index["name"]: tuple(index["column_names"])
         for index in inspect(store._engine).get_indexes("analytics_compute_job")
     }
 
+    assert "lease_owner_id" in columns
     assert indexes["ix_compute_job_status_created_at"] == ("job_status", "created_at_utc")
     assert indexes["ix_compute_job_status_analytics_type_created_at"] == (
         "job_status",
@@ -1522,6 +1546,40 @@ def test_compute_job_store_declares_hot_path_indexes(tmp_path):
         "completed_at_utc",
         "created_at_utc",
     )
+
+
+def test_compute_job_store_schema_bootstrap_adds_lease_owner_to_legacy_table(tmp_path):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
+    with store._engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                CREATE TABLE analytics_compute_job (
+                    calculation_id VARCHAR(36) PRIMARY KEY,
+                    analytics_type VARCHAR(64) NOT NULL,
+                    job_status VARCHAR(32) NOT NULL,
+                    request_json TEXT NOT NULL,
+                    response_json TEXT,
+                    error_message TEXT,
+                    error_type VARCHAR(128),
+                    attempt_count INTEGER NOT NULL DEFAULT 0,
+                    max_attempts INTEGER NOT NULL DEFAULT 1,
+                    worker_id VARCHAR(128),
+                    leased_at_utc DATETIME,
+                    lease_expires_at_utc DATETIME,
+                    last_error_at_utc DATETIME,
+                    created_at_utc DATETIME NOT NULL,
+                    started_at_utc DATETIME,
+                    completed_at_utc DATETIME
+                )
+                """
+            )
+        )
+
+    store.create_schema()
+
+    columns = {column["name"] for column in inspect(store._engine).get_columns("analytics_compute_job")}
+    assert "lease_owner_id" in columns
 
 
 def test_compute_job_store_register_job_distinguishes_create_replay_and_conflict(tmp_path):

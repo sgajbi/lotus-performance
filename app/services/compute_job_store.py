@@ -9,7 +9,7 @@ from enum import StrEnum
 from typing import Any, Iterable, Iterator, cast
 from uuid import UUID
 
-from sqlalchemy import DateTime, Index, Integer, String, Text, case, delete, func, select, text
+from sqlalchemy import DateTime, Index, Integer, String, Text, case, delete, func, inspect, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
@@ -105,6 +105,7 @@ class ComputeJobModel(Base):
     attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     max_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     worker_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    lease_owner_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     leased_at_utc: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     lease_expires_at_utc: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_error_at_utc: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -443,7 +444,8 @@ def _ensure_compute_job_active_lease_owner(
         raise ComputeJobLeaseOwnershipError(
             f"Cannot {transition} compute job without an active lease: {calculation_id}"
         )
-    if row.worker_id != worker_id:
+    active_owner_id = row.lease_owner_id or row.worker_id
+    if active_owner_id != worker_id:
         raise ComputeJobLeaseOwnershipError(
             f"Compute job lease owner mismatch while trying to {transition}: {calculation_id}"
         )
@@ -551,6 +553,7 @@ class ComputeJobStore:
 
     def create_schema(self) -> None:
         Base.metadata.create_all(self._engine)
+        self._ensure_lease_owner_column()
         self._ensure_runtime_indexes()
 
     @contextmanager
@@ -641,6 +644,7 @@ class ComputeJobStore:
                     attempt_count=0,
                     max_attempts=configured_max_attempts,
                     worker_id=None,
+                    lease_owner_id=None,
                     leased_at_utc=None,
                     lease_expires_at_utc=None,
                     last_error_at_utc=None,
@@ -673,6 +677,7 @@ class ComputeJobStore:
             attempt_count=0,
             max_attempts=configured_max_attempts,
             worker_id=None,
+            lease_owner_id=None,
             leased_at_utc=None,
             lease_expires_at_utc=None,
             last_error_at_utc=None,
@@ -733,6 +738,7 @@ class ComputeJobStore:
                     continue
                 row.job_status = ComputeJobStatus.LEASED.value
                 row.worker_id = worker_id
+                row.lease_owner_id = worker_id
                 row.leased_at_utc = now
                 row.lease_expires_at_utc = lease_expiry
                 row.completed_at_utc = None
@@ -746,6 +752,7 @@ class ComputeJobStore:
             row = self._get_model(session, calculation_id)
             _ensure_compute_job_can_mark_running(row, calculation_id=calculation_id, worker_id=worker_id)
             row.job_status = ComputeJobStatus.RUNNING.value
+            row.lease_owner_id = worker_id
             row.attempt_count += 1
             row.error_message = None
             row.error_type = None
@@ -776,7 +783,7 @@ class ComputeJobStore:
                 now=now,
             )
             row.job_status = ComputeJobStatus.RUNNING.value
-            row.worker_id = acquisition_worker_id
+            row.lease_owner_id = acquisition_worker_id
             row.attempt_count += 1
             row.error_message = None
             row.error_type = None
@@ -827,6 +834,7 @@ class ComputeJobStore:
             row.response_json = json.dumps(response_payload, sort_keys=True)
             row.error_message = None
             row.error_type = None
+            row.lease_owner_id = None
             row.started_at_utc = row.started_at_utc or now
             row.completed_at_utc = now
             row.leased_at_utc = None
@@ -856,6 +864,7 @@ class ComputeJobStore:
             row.started_at_utc = row.started_at_utc or now
             row.completed_at_utc = now
             row.last_error_at_utc = now
+            row.lease_owner_id = None
             row.leased_at_utc = None
             row.lease_expires_at_utc = None
 
@@ -880,6 +889,7 @@ class ComputeJobStore:
             row.error_message = error_message
             row.error_type = error_type
             row.last_error_at_utc = now
+            row.lease_owner_id = None
             row.leased_at_utc = None
             row.lease_expires_at_utc = None
             row.completed_at_utc = None
@@ -912,6 +922,7 @@ class ComputeJobStore:
             now=now,
         )
         row.worker_id = None
+        row.lease_owner_id = None
         row.leased_at_utc = None
         row.lease_expires_at_utc = None
         row.last_error_at_utc = now
@@ -1462,6 +1473,18 @@ class ComputeJobStore:
             raise KeyError(f"Compute job not found: {calculation_id}")
         return row
 
+    def _ensure_lease_owner_column(self) -> None:
+        inspector = inspect(self._engine)
+        if "analytics_compute_job" not in inspector.get_table_names():
+            return
+
+        existing_columns = {column["name"] for column in inspector.get_columns("analytics_compute_job")}
+        if "lease_owner_id" in existing_columns:
+            return
+
+        with self._engine.begin() as connection:
+            connection.execute(text("ALTER TABLE analytics_compute_job ADD COLUMN lease_owner_id VARCHAR(128)"))
+
     def _to_record(self, row: ComputeJobModel) -> ComputeJobRecord:
         request_payload = _load_request_payload(row)
         response_payload = _load_response_payload(row)
@@ -1664,6 +1687,7 @@ def _mark_invalid_request_payload(row: ComputeJobModel, *, now: datetime) -> Non
     row.error_message = row.error_message or INVALID_COMPUTE_JOB_REQUEST_PAYLOAD_MESSAGE
     row.error_type = row.error_type or INVALID_COMPUTE_JOB_REQUEST_PAYLOAD_ERROR_TYPE
     row.worker_id = None
+    row.lease_owner_id = None
     row.leased_at_utc = None
     row.lease_expires_at_utc = None
     row.last_error_at_utc = now

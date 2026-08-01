@@ -23,7 +23,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | Metric | Value |
 | --- | ---: |
 | Test modules inventoried | 309 |
-| Test functions inventoried | 3558 |
+| Test functions inventoried | 3559 |
 | Integration/API/runtime test functions | 690 |
 | Contract/governance test functions | 154 |
 
@@ -34,7 +34,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | benchmarks | 9 | 18 |
 | e2e | 1 | 21 |
 | integration | 28 | 341 |
-| unit | 271 | 3178 |
+| unit | 271 | 3179 |
 
 ## Test Functions By Family
 
@@ -43,7 +43,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | analytics_domain | 1571 |
 | api_or_runtime | 690 |
 | contract_or_governance | 154 |
-| observability_or_readiness | 364 |
+| observability_or_readiness | 365 |
 | quality_or_security | 169 |
 | uncategorized | 968 |
 
@@ -55,7 +55,7 @@ python scripts/python_test_taxonomy_inventory.py --limit 30 --min-api-runtime-te
 | 2 | `tests/unit/app/test_enterprise_readiness_additional.py` | unit | 87 | observability_or_readiness |
 | 3 | `tests/unit/services/test_stateful_attribution_input_service.py` | unit | 70 | analytics_domain |
 | 4 | `tests/unit/docs/test_public_docs_contract.py` | unit | 66 | contract_or_governance |
-| 5 | `tests/unit/services/test_compute_job_store.py` | unit | 65 | observability_or_readiness |
+| 5 | `tests/unit/services/test_compute_job_store.py` | unit | 66 | observability_or_readiness |
 | 6 | `tests/unit/app/test_openapi_enrichment.py` | unit | 61 | api_or_runtime |
 | 7 | `tests/unit/services/test_lineage_metadata_store.py` | unit | 60 | uncategorized |
 | 8 | `tests/unit/engine/test_attribution.py` | unit | 57 | analytics_domain |
@@ -206,6 +206,9 @@ preserving the existing `969` uncategorized ceiling.
 The compute lease-acquisition review fix added per-acquisition owner and in-progress stage polling
 regressions, raising source test functions to `3558`, observability/readiness tests to `364`, and
 uncategorized tests to `968` while preserving the existing `969` uncategorized ceiling.
+The follow-up lease-fence preservation fix added schema-upgrade proof for the internal
+`lease_owner_id` acquisition fence, raising source test functions to `3559` and
+observability/readiness tests to `365` while preserving the existing uncategorized count and ceiling.
 
 This slice promotes the stable part of the taxonomy from report-only measurement to a
 regression-blocking evaluation gate. `make quality-test-taxonomy-gate` fails if API/runtime tests

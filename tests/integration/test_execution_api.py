@@ -701,11 +701,7 @@ def test_execution_api_tracks_async_returns_series_job_state(client, monkeypatch
         execution_body_after_worker = execution_response_after_worker.json()
         assert execution_body_after_worker["status"] == "complete"
         assert execution_body_after_worker["compute_job"]["job_status"] == "complete"
-        compute_worker_id = execution_body_after_worker["compute_job"]["worker_id"]
-        assert compute_worker_id.startswith(
-            f"{settings.COMPUTE_EXECUTOR_WORKER_ID}:cj:{calculation_id.replace('-', '')[:12]}:"
-        )
-        assert compute_worker_id != settings.COMPUTE_EXECUTOR_WORKER_ID
+        assert execution_body_after_worker["compute_job"]["worker_id"] == settings.COMPUTE_EXECUTOR_WORKER_ID
         assert execution_body_after_worker["async_result"]["result_status"] == "complete"
     finally:
         settings.RETURNS_SERIES_EXECUTOR_WINDOW_DAYS = original_threshold
