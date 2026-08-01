@@ -199,6 +199,7 @@ def _process_leased_compute_job(job: ComputeJobRecord, runtime: _ComputeJobRunti
     )
     try:
         response = _execute_compute_job(job, runtime.execution_context)
+        _materialize_workspace_summary_lineage_before_success_publication(job, runtime)
     except Exception as exc:
         _handle_compute_job_failure(
             job,
@@ -249,6 +250,35 @@ def _publish_compute_job_success(
         )
     except Exception as exc:
         _log_compute_success_finalization_failure(job, exc)
+
+
+def _materialize_workspace_summary_lineage_before_success_publication(
+    job: ComputeJobRecord,
+    runtime: _ComputeJobRuntime,
+) -> None:
+    if job.analytics_type != ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY:
+        return
+    runtime.job_store.renew_lease(
+        job.calculation_id,
+        worker_id=runtime.worker_id,
+        lease_seconds=runtime.lease_seconds,
+    )
+    lineage_worker_id = _workspace_summary_inline_lineage_worker_id(
+        compute_worker_id=runtime.worker_id,
+        calculation_id=job.calculation_id,
+    )
+    if not runtime.execution_context.workspace_summary_lineage_materializer(
+        job.calculation_id,
+        worker_id=lineage_worker_id,
+        settings=runtime.execution_context.settings,
+    ):
+        raise WorkspaceSummaryLineageNotReadyError(
+            f"Workspace-summary lineage was not complete before async result publication: {job.calculation_id}"
+        )
+
+
+def _workspace_summary_inline_lineage_worker_id(*, compute_worker_id: str, calculation_id: UUID) -> str:
+    return f"{compute_worker_id}:workspace-summary-lineage:{calculation_id}"
 
 
 def _build_compute_job_runtime(
@@ -579,10 +609,6 @@ def _execute_workspace_summary_job(job: ComputeJobRecord, context: _ComputeJobEx
     )
     _update_execution_identity(job, context, workspace_request)
     response = context.workspace_summary_calculator(workspace_request, settings=context.settings)
-    if not context.workspace_summary_lineage_materializer(job.calculation_id, settings=context.settings):
-        raise WorkspaceSummaryLineageNotReadyError(
-            f"Workspace-summary lineage was not complete before async result publication: {job.calculation_id}"
-        )
     return response
 
 
