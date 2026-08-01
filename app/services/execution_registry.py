@@ -599,9 +599,12 @@ class ExecutionRegistry:
             execution.error_message = None
 
     def stage_is_complete(self, calculation_id: UUID, stage_name: str) -> bool:
+        return self.stage_status(calculation_id, stage_name) == ExecutionStageStatus.COMPLETE
+
+    def stage_status(self, calculation_id: UUID, stage_name: str) -> ExecutionStageStatus | None:
         with self._session() as session:
             stage = session.get(AnalyticsExecutionStageModel, (str(calculation_id), stage_name))
-            return stage is not None and stage.status == ExecutionStageStatus.COMPLETE.value
+            return None if stage is None else ExecutionStageStatus(stage.status)
 
     def fail_stage(self, calculation_id: UUID, stage_name: str, error_message: str) -> None:
         with self._session() as session:

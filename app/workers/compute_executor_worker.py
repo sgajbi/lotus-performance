@@ -4,7 +4,7 @@ import asyncio
 import logging
 import time
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from threading import Event
 from typing import Any, Callable, Coroutine, Iterator
 from uuid import UUID, uuid4
@@ -192,26 +192,33 @@ def _reconcile_stale_compute_jobs(runtime: _ComputeJobRuntime) -> None:
 
 
 def _process_leased_compute_job(job: ComputeJobRecord, runtime: _ComputeJobRuntime) -> None:
-    runtime.job_store.mark_running(
+    acquisition_worker_id = _compute_job_acquisition_worker_id(
+        compute_worker_id=runtime.worker_id,
+        calculation_id=job.calculation_id,
+    )
+    runtime.job_store.mark_running_acquired(
         job.calculation_id,
-        worker_id=runtime.worker_id,
+        current_worker_id=runtime.worker_id,
+        acquisition_worker_id=acquisition_worker_id,
         lease_seconds=runtime.lease_seconds,
     )
+    active_runtime = replace(runtime, worker_id=acquisition_worker_id)
+    active_job = replace(job, worker_id=acquisition_worker_id)
     try:
-        response = _execute_compute_job(job, runtime.execution_context)
-        _materialize_workspace_summary_lineage_before_success_publication(job, runtime)
+        response = _execute_compute_job(active_job, active_runtime.execution_context)
+        _materialize_workspace_summary_lineage_before_success_publication(active_job, active_runtime)
     except Exception as exc:
         _handle_compute_job_failure(
-            job,
+            active_job,
             exc,
-            job_store=runtime.job_store,
-            result_store=runtime.result_store,
-            execution_store=runtime.execution_store,
+            job_store=active_runtime.job_store,
+            result_store=active_runtime.result_store,
+            execution_store=active_runtime.execution_store,
         )
         return
 
     response_payload = response.model_dump(mode="json")
-    _publish_compute_job_success(job, runtime=runtime, response_payload=response_payload)
+    _publish_compute_job_success(active_job, runtime=active_runtime, response_payload=response_payload)
 
 
 def _publish_compute_job_success(
@@ -283,7 +290,11 @@ def _renew_workspace_summary_compute_lease(job: ComputeJobRecord, runtime: _Comp
 
 
 def _workspace_summary_inline_lineage_worker_id(*, compute_worker_id: str, calculation_id: UUID) -> str:
-    return f"{compute_worker_id}:workspace-summary-lineage:{calculation_id}:{uuid4()}"
+    return f"inline-ws:{calculation_id.hex[:12]}:{uuid4().hex}"
+
+
+def _compute_job_acquisition_worker_id(*, compute_worker_id: str, calculation_id: UUID) -> str:
+    return f"{compute_worker_id}:cj:{calculation_id.hex[:12]}:{uuid4().hex}"
 
 
 def _build_compute_job_runtime(
