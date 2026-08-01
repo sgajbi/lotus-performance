@@ -364,10 +364,13 @@ Important validation expectations:
     failure as a calculation failure, and reconciles stale compute jobs with an existing successful
     async result to `complete` instead of overwriting the result with a terminal failure.
     Workspace-summary async success publication is additionally lineage-bound: after the
-    calculation writes its pending lineage payload, the compute executor materializes the same
-    calculation's lineage before recording a retrievable success result. If lineage cannot reach
-    complete terminality within the governed retry budget, the worker uses the existing failure path
-    instead of exposing a ready workspace-summary result with partial evidence.
+    calculation writes its pending lineage payload, the compute executor renews its compute lease,
+    uses a calculation-scoped inline lineage owner distinct from the standalone lineage worker, and
+    materializes the same calculation's lineage before recording a retrievable success result. A
+    ready workspace-summary result requires both complete lineage metadata and a complete
+    `lineage_materialization` execution stage. If lineage cannot reach complete terminality within
+    the governed retry budget, the worker uses the existing failure path instead of exposing a ready
+    workspace-summary result with partial evidence.
 22. Durable worker and operator-action finalization is ownership-aware. Compute-job finalization,
     lineage payload completion/deletion, and governed operator-action lock release must compare the
     active lease owner or acquisition token before mutating terminal state, deleting work, or

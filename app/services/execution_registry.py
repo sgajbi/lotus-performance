@@ -598,6 +598,11 @@ class ExecutionRegistry:
             execution.completed_at_utc = now
             execution.error_message = None
 
+    def stage_is_complete(self, calculation_id: UUID, stage_name: str) -> bool:
+        with self._session() as session:
+            stage = session.get(AnalyticsExecutionStageModel, (str(calculation_id), stage_name))
+            return stage is not None and stage.status == ExecutionStageStatus.COMPLETE.value
+
     def fail_stage(self, calculation_id: UUID, stage_name: str, error_message: str) -> None:
         with self._session() as session:
             stage = self._get_stage_model(session, calculation_id, stage_name)

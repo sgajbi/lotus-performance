@@ -757,6 +757,20 @@ class ComputeJobStore:
             )
             row.completed_at_utc = None
 
+    def renew_lease(self, calculation_id: UUID, *, worker_id: str | None, lease_seconds: int) -> None:
+        with self._session() as session:
+            row = self._get_model(session, calculation_id)
+            now = datetime.now(timezone.utc)
+            _ensure_compute_job_active_lease_owner(
+                row,
+                calculation_id=calculation_id,
+                worker_id=worker_id,
+                transition="renew lease for",
+                now=now,
+            )
+            row.leased_at_utc = now
+            row.lease_expires_at_utc = now + timedelta(seconds=lease_seconds)
+
     def ensure_active_lease_owner(self, calculation_id: UUID, *, worker_id: str | None) -> None:
         with self._session() as session:
             row = self._get_model(session, calculation_id)

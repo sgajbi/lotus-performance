@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from threading import Event
 from uuid import uuid4
 
@@ -109,6 +110,120 @@ def test_process_pending_calculation_materializes_only_requested_payload(tmp_pat
     assert other_record.status == LineageStatus.PENDING
     assert (tmp_path / str(target_id) / "details.csv").exists()
     assert not (tmp_path / str(other_id) / "details.csv").exists()
+
+
+def test_process_pending_calculation_waits_for_active_payload_lease_to_finish(tmp_path, monkeypatch):
+    metadata_store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    metadata_store.create_schema()
+    execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    execution_store.create_schema()
+    service = LineageService(storage_path=str(tmp_path), metadata_store=metadata_store, execution_store=execution_store)
+    calculation_id = uuid4()
+    execution_store.create_execution(
+        calculation_id=calculation_id,
+        analytics_type="WORKSPACE_SUMMARY",
+        portfolio_id="P1",
+        execution_mode="async",
+    )
+    execution_store.mark_running(calculation_id)
+    execution_store.start_stage(calculation_id, "lineage_materialization")
+    service.enqueue_capture(
+        calculation_id=calculation_id,
+        calculation_type="WORKSPACE_SUMMARY",
+        request_model=_Model(key="request"),
+        response_model=_Model(key="response"),
+        calculation_details={"details.csv": pd.DataFrame([{"a": 1}])},
+    )
+    metadata_store.lease_pending_payload(
+        calculation_id=calculation_id,
+        worker_id="standalone-lineage-worker",
+        lease_seconds=30,
+    )
+    monotonic_values = iter([0.0, 0.0, 0.1])
+    sleeps: list[float] = []
+
+    def _sleep(seconds):
+        sleeps.append(seconds)
+        metadata_store.mark_complete(
+            calculation_id,
+            ["request.json", "response.json", "details.csv"],
+            timestamp_utc=datetime.now(timezone.utc),
+            worker_id="standalone-lineage-worker",
+        )
+        execution_store.complete_stage_and_execution(
+            calculation_id,
+            "lineage_materialization",
+            details={"artifact_names": ["details.csv", "request.json", "response.json"]},
+        )
+
+    monkeypatch.setattr(lineage_worker.time, "monotonic", lambda: next(monotonic_values))
+    monkeypatch.setattr(lineage_worker.time, "sleep", _sleep)
+
+    processed = lineage_worker.process_pending_calculation(
+        calculation_id,
+        lineage_store=metadata_store,
+        lineage_service_=service,
+        execution_store=execution_store,
+        worker_id="workspace-summary-inline-lineage",
+        lease_seconds=30,
+        max_attempts=1,
+        wait_seconds=5.0,
+        poll_seconds=0.25,
+        settings=_worker_settings(),
+    )
+
+    assert processed is True
+    assert sleeps == [0.25]
+
+
+def test_process_pending_calculation_requires_execution_stage_completion(tmp_path):
+    metadata_store = LineageMetadataStore(f"sqlite:///{tmp_path / 'lineage.db'}")
+    metadata_store.create_schema()
+    execution_store = ExecutionRegistry(f"sqlite:///{tmp_path / 'execution.db'}")
+    execution_store.create_schema()
+    service = LineageService(storage_path=str(tmp_path), metadata_store=metadata_store, execution_store=execution_store)
+    calculation_id = uuid4()
+    execution_store.create_execution(
+        calculation_id=calculation_id,
+        analytics_type="WORKSPACE_SUMMARY",
+        portfolio_id="P1",
+        execution_mode="async",
+    )
+    execution_store.mark_running(calculation_id)
+    execution_store.start_stage(calculation_id, "lineage_materialization")
+    service.enqueue_capture(
+        calculation_id=calculation_id,
+        calculation_type="WORKSPACE_SUMMARY",
+        request_model=_Model(key="request"),
+        response_model=_Model(key="response"),
+        calculation_details={"details.csv": pd.DataFrame([{"a": 1}])},
+    )
+    metadata_store.lease_pending_payload(
+        calculation_id=calculation_id,
+        worker_id="standalone-lineage-worker",
+        lease_seconds=30,
+    )
+    metadata_store.mark_complete(
+        calculation_id,
+        ["request.json", "response.json", "details.csv"],
+        timestamp_utc=datetime.now(timezone.utc),
+        worker_id="standalone-lineage-worker",
+    )
+
+    processed = lineage_worker.process_pending_calculation(
+        calculation_id,
+        lineage_store=metadata_store,
+        lineage_service_=service,
+        execution_store=execution_store,
+        worker_id="workspace-summary-inline-lineage",
+        lease_seconds=30,
+        max_attempts=1,
+        wait_seconds=0,
+        poll_seconds=0,
+        settings=_worker_settings(),
+    )
+
+    assert processed is False
 
 
 def test_process_pending_calculation_returns_false_when_requested_payload_stays_pending(tmp_path, monkeypatch):

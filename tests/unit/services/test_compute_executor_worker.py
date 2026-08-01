@@ -255,6 +255,69 @@ def test_compute_executor_worker_process_leased_job_records_success_before_compl
     ]
 
 
+def test_compute_executor_worker_renews_workspace_summary_lease_before_lineage_and_success(monkeypatch):
+    calculation_id = uuid4()
+    job = _compute_job_record(
+        calculation_id=calculation_id,
+        analytics_type=ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY,
+        request_payload={"portfolio_id": "P1"},
+    )
+    response_payload = {"calculation_id": str(calculation_id), "portfolio_id": "P1"}
+    response = SimpleNamespace(model_dump=lambda mode="json": response_payload)
+    calls: list[tuple[str, object, object | None, object | None]] = []
+
+    class _JobStore:
+        def mark_running(self, calculation_id_arg, *, worker_id, lease_seconds):
+            calls.append(("mark_running", calculation_id_arg, worker_id, lease_seconds))
+
+        def renew_lease(self, calculation_id_arg, *, worker_id, lease_seconds):
+            calls.append(("renew_lease", calculation_id_arg, worker_id, lease_seconds))
+
+        def ensure_active_lease_owner(self, calculation_id_arg, *, worker_id):
+            calls.append(("ensure_active_lease_owner", calculation_id_arg, worker_id, None))
+
+        def mark_complete(self, calculation_id_arg, *, response_payload, worker_id):
+            calls.append(("mark_complete", calculation_id_arg, response_payload, worker_id))
+
+    class _ResultStore:
+        def record_success(self, *, calculation_id, analytics_type, response_payload):
+            calls.append(("record_success", calculation_id, analytics_type, response_payload))
+
+    def _lineage_materializer(materialized_calculation_id, *, worker_id, settings):
+        calls.append(("materialize_lineage", materialized_calculation_id, worker_id, settings.APP_VERSION))
+        return True
+
+    runtime = compute_executor_worker._ComputeJobRuntime(
+        job_store=_JobStore(),
+        execution_store=SimpleNamespace(),
+        result_store=_ResultStore(),
+        worker_id="compute-worker-a",
+        lease_seconds=30,
+        batch_size=1,
+        execution_context=SimpleNamespace(
+            settings=_worker_settings(APP_VERSION="test-version"),
+            workspace_summary_lineage_materializer=_lineage_materializer,
+        ),
+    )
+    monkeypatch.setattr(compute_executor_worker, "_execute_compute_job", lambda _job, _context: response)
+
+    compute_executor_worker._process_leased_compute_job(job, runtime)
+
+    assert calls == [
+        ("mark_running", calculation_id, "compute-worker-a", 30),
+        ("renew_lease", calculation_id, "compute-worker-a", 30),
+        (
+            "materialize_lineage",
+            calculation_id,
+            f"compute-worker-a:workspace-summary-lineage:{calculation_id}",
+            "test-version",
+        ),
+        ("ensure_active_lease_owner", calculation_id, "compute-worker-a", None),
+        ("record_success", calculation_id, ANALYTICS_WORKFLOW_WORKSPACE_SUMMARY, response_payload),
+        ("mark_complete", calculation_id, response_payload, "compute-worker-a"),
+    ]
+
+
 def test_compute_executor_worker_preserves_success_result_when_completion_fails(monkeypatch):
     calculation_id = uuid4()
     job = _compute_job_record(
@@ -1276,8 +1339,8 @@ def test_compute_executor_worker_processes_pending_workspace_summary_job(tmp_pat
             },
         )()
 
-    def _workspace_summary_lineage_materializer(materialized_calculation_id, *, settings):
-        calls.append(f"materialize:{materialized_calculation_id}:{settings.APP_VERSION}")
+    def _workspace_summary_lineage_materializer(materialized_calculation_id, *, worker_id, settings):
+        calls.append(f"materialize:{materialized_calculation_id}:{worker_id}:{settings.APP_VERSION}")
         return True
 
     assert (
@@ -1294,7 +1357,10 @@ def test_compute_executor_worker_processes_pending_workspace_summary_job(tmp_pat
     assert job is not None
     assert job.job_status == ComputeJobStatus.COMPLETE
     assert captured["input_mode"] == "stateless"
-    assert calls == ["calculate", f"materialize:{calculation_id}:test-version"]
+    assert calls == [
+        "calculate",
+        f"materialize:{calculation_id}:worker-test:workspace-summary-lineage:{calculation_id}:test-version",
+    ]
 
     execution = execution_store.get_execution(calculation_id)
     assert execution is not None

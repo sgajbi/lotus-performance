@@ -530,6 +530,51 @@ def test_compute_job_store_reconciles_stale_running_job(tmp_path):
     assert failed.error_message == "Compute job execution lease expired after exhausting retry budget."
 
 
+def test_compute_job_store_renew_lease_preserves_attempt_count(tmp_path):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
+    store.create_schema()
+    calculation_id = uuid4()
+
+    store.enqueue_job(
+        calculation_id=calculation_id,
+        analytics_type="WorkspaceSummary",
+        request_payload={"portfolio_id": "P1"},
+        max_attempts=3,
+    )
+    store.lease_pending_jobs(worker_id="worker-a", limit=10, lease_seconds=30)
+    store.mark_running(calculation_id, worker_id="worker-a", lease_seconds=30)
+    before = store.get_job(calculation_id)
+    assert before is not None
+
+    store.renew_lease(calculation_id, worker_id="worker-a", lease_seconds=90)
+
+    after = store.get_job(calculation_id)
+    assert after is not None
+    assert after.job_status == ComputeJobStatus.RUNNING
+    assert after.worker_id == "worker-a"
+    assert after.attempt_count == before.attempt_count
+    assert after.lease_expires_at_utc is not None
+    assert after.lease_expires_at_utc != before.lease_expires_at_utc
+
+
+def test_compute_job_store_rejects_renew_lease_from_stale_worker(tmp_path):
+    store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
+    store.create_schema()
+    calculation_id = uuid4()
+
+    store.enqueue_job(
+        calculation_id=calculation_id,
+        analytics_type="WorkspaceSummary",
+        request_payload={"portfolio_id": "P1"},
+        max_attempts=3,
+    )
+    store.lease_pending_jobs(worker_id="worker-a", limit=10, lease_seconds=30)
+    store.mark_running(calculation_id, worker_id="worker-a", lease_seconds=30)
+
+    with pytest.raises(ComputeJobLeaseOwnershipError, match="lease owner mismatch"):
+        store.renew_lease(calculation_id, worker_id="worker-b", lease_seconds=90)
+
+
 def test_compute_job_store_rejects_finalization_from_stale_worker_after_reclaim(tmp_path):
     store = ComputeJobStore(f"sqlite:///{tmp_path / 'compute.db'}")
     store.create_schema()

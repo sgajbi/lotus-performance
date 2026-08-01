@@ -86,6 +86,8 @@ def process_pending_calculation(
     worker_id: str | None = None,
     lease_seconds: int | None = None,
     max_attempts: int | None = None,
+    wait_seconds: float | None = None,
+    poll_seconds: float | None = None,
     settings=None,
 ) -> bool:
     """Materialize lineage for one calculation and return whether it is complete.
@@ -103,34 +105,108 @@ def process_pending_calculation(
         max_attempts=max_attempts,
         settings=settings,
     )
-    for _ in range(runtime.max_attempts):
+    active_settings = settings or get_settings()
+    wait_budget_seconds = wait_seconds if wait_seconds is not None else float(runtime.lease_seconds)
+    poll_interval_seconds = (
+        poll_seconds if poll_seconds is not None else float(active_settings.LINEAGE_WORKER_POLL_SECONDS)
+    )
+    return _process_pending_calculation_with_runtime(
+        calculation_id=calculation_id,
+        runtime=runtime,
+        wait_budget_seconds=wait_budget_seconds,
+        poll_interval_seconds=poll_interval_seconds,
+    )
+
+
+def _process_pending_calculation_with_runtime(
+    *,
+    calculation_id: UUID,
+    runtime: _LineageWorkerRuntime,
+    wait_budget_seconds: float,
+    poll_interval_seconds: float,
+) -> bool:
+    deadline = time.monotonic() + max(wait_budget_seconds, 0.0)
+    materialization_attempts = 0
+    while materialization_attempts < runtime.max_attempts:
         payload = runtime.lineage_store.lease_pending_payload(
             calculation_id=calculation_id,
             worker_id=runtime.worker_id,
             lease_seconds=runtime.lease_seconds,
         )
         if payload is None:
-            return _lineage_record_is_complete(runtime.lineage_store, calculation_id)
+            pending_wait_result = _wait_for_pending_lineage_terminality(
+                lineage_store=runtime.lineage_store,
+                execution_store=runtime.execution_store,
+                calculation_id=calculation_id,
+                deadline=deadline,
+                poll_interval_seconds=poll_interval_seconds,
+            )
+            if pending_wait_result is not None:
+                return pending_wait_result
+            continue
+        materialization_attempts += 1
         if _materialize_leased_payload(
             payload=payload,
             lineage_store=runtime.lineage_store,
             lineage_service_=runtime.lineage_service,
             execution_store=runtime.execution_store,
             max_attempts=runtime.max_attempts,
+            require_terminal_stage=True,
         ):
             return True
         record = runtime.lineage_store.get_record(calculation_id)
         if record is None or record.status != LineageStatus.PENDING:
             return False
-    return _lineage_record_is_complete(runtime.lineage_store, calculation_id)
+    return (
+        _lineage_terminal_status(
+            lineage_store=runtime.lineage_store,
+            execution_store=runtime.execution_store,
+            calculation_id=calculation_id,
+        )
+        is True
+    )
 
 
-def _lineage_record_is_complete(
+def _wait_for_pending_lineage_terminality(
+    *,
     lineage_store: LineageMetadataStore | RuntimeStoreProxy[LineageMetadataStore],
+    execution_store: ExecutionRegistry | RuntimeStoreProxy[ExecutionRegistry],
     calculation_id: UUID,
-) -> bool:
+    deadline: float,
+    poll_interval_seconds: float,
+) -> bool | None:
+    terminal_status = _lineage_terminal_status(
+        lineage_store=lineage_store,
+        execution_store=execution_store,
+        calculation_id=calculation_id,
+    )
+    if terminal_status is not None:
+        return terminal_status
+    if time.monotonic() >= deadline:
+        return False
+    _sleep_until_next_lineage_poll(deadline=deadline, poll_interval_seconds=poll_interval_seconds)
+    return None
+
+
+def _sleep_until_next_lineage_poll(*, deadline: float, poll_interval_seconds: float) -> None:
+    time.sleep(max(0.0, min(poll_interval_seconds, deadline - time.monotonic())))
+
+
+def _lineage_terminal_status(
+    *,
+    lineage_store: LineageMetadataStore | RuntimeStoreProxy[LineageMetadataStore],
+    execution_store: ExecutionRegistry | RuntimeStoreProxy[ExecutionRegistry],
+    calculation_id: UUID,
+) -> bool | None:
     record = lineage_store.get_record(calculation_id)
-    return record is not None and record.status == LineageStatus.COMPLETE
+    if record is None:
+        return False
+    if record.status == LineageStatus.FAILED:
+        return False
+    if record.status == LineageStatus.PENDING:
+        return None
+    stage_name = resolve_artifact_stage_name(calculation_type=record.calculation_type)
+    return execution_store.stage_is_complete(calculation_id, stage_name)
 
 
 def _lineage_worker_runtime(
@@ -205,6 +281,7 @@ def _materialize_leased_payload(
     lineage_service_: LineageService,
     execution_store: ExecutionRegistry | RuntimeStoreProxy[ExecutionRegistry],
     max_attempts: int,
+    require_terminal_stage: bool = False,
 ) -> bool:
     try:
         success = lineage_service_.materialize_payload(
@@ -219,6 +296,15 @@ def _materialize_leased_payload(
         _log_stale_lineage_payload_finalization_skipped(payload, exc)
         return False
     if success:
+        if require_terminal_stage and (
+            _lineage_terminal_status(
+                lineage_store=lineage_store,
+                execution_store=execution_store,
+                calculation_id=payload.calculation_id,
+            )
+            is not True
+        ):
+            return False
         try:
             lineage_store.delete_payload(payload.calculation_id, worker_id=payload.worker_id)
         except LineagePayloadLeaseOwnershipError as exc:

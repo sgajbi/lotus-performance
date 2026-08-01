@@ -198,9 +198,11 @@ successful async result for the same calculation id.
 Workspace-summary async success is lineage-bound. When investigating a workspace-summary incident,
 join the compute job, async result, execution stages, and lineage metadata by the same
 `calculation_id`. A retrievable workspace-summary result should not be treated as ready unless the
-`lineage_materialization` stage is complete; if same-calculation lineage cannot complete within the
-governed retry budget, the compute worker should follow the terminal failure path rather than
-publishing partial evidence as a ready result.
+lineage metadata and `lineage_materialization` stage are both complete. The compute worker should
+renew its compute lease before inline materialization and use a calculation-scoped inline lineage
+owner distinct from the standalone lineage worker. If same-calculation lineage cannot complete
+within the governed retry budget, the compute worker should follow the terminal failure path rather
+than publishing partial evidence as a ready result.
 
 Stale-owner finalization is intentionally a no-op. A `stale_owner_success_publication_skipped`
 event means a compute worker finished after another worker reclaimed the calculation lease; it must

@@ -33,7 +33,9 @@ Source of truth for the local topology is [docker-compose.yml](/C:/Users/Sandeep
 - publishes successful async results before marking the compute job complete, so clients never see
   completed compute-job state without a retrievable result payload
 - materializes same-calculation workspace-summary lineage before publishing workspace-summary async
-  success, so product surfaces do not receive a ready result while lineage evidence remains pending
+  success, using a renewed compute lease and a calculation-scoped inline lineage owner so product
+  surfaces do not receive a ready result while lineage metadata or the execution-stage proof remains
+  pending
 - checks active lease ownership before publishing success, failure, or retry finalization so stale
   workers cannot mutate jobs after another worker reclaims the lease
 - recovers stale jobs whose successful async result was already persisted by marking the compute job
